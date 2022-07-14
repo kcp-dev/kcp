@@ -25,7 +25,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/kcp-dev/logicalcluster"
 	"github.com/stretchr/testify/require"
@@ -244,7 +243,7 @@ func TestSearchForReadyWorkspaceInLocalInformers(t *testing.T) {
 			},
 
 			mocks: homeWorkspaceFeatureLogic{
-				searchForHomeWorkspaceRBACResourcesInLocalInformers: func(homeWorkspace logicalcluster.Name, userName string) (found bool, err error) {
+				searchForHomeWorkspaceRBACResourcesInLocalInformers: func(homeWorkspace logicalcluster.Name) (found bool, err error) {
 					return true, nil
 				},
 			},
@@ -267,7 +266,7 @@ func TestSearchForReadyWorkspaceInLocalInformers(t *testing.T) {
 			},
 
 			mocks: homeWorkspaceFeatureLogic{
-				searchForHomeWorkspaceRBACResourcesInLocalInformers: func(homeWorkspace logicalcluster.Name, userName string) (found bool, err error) {
+				searchForHomeWorkspaceRBACResourcesInLocalInformers: func(homeWorkspace logicalcluster.Name) (found bool, err error) {
 					return false, nil
 				},
 			},
@@ -291,7 +290,7 @@ func TestSearchForReadyWorkspaceInLocalInformers(t *testing.T) {
 			},
 
 			mocks: homeWorkspaceFeatureLogic{
-				searchForHomeWorkspaceRBACResourcesInLocalInformers: func(homeWorkspace logicalcluster.Name, userName string) (found bool, err error) {
+				searchForHomeWorkspaceRBACResourcesInLocalInformers: func(homeWorkspace logicalcluster.Name) (found bool, err error) {
 					return false, errors.New("error")
 				},
 			},
@@ -316,7 +315,7 @@ func TestSearchForReadyWorkspaceInLocalInformers(t *testing.T) {
 			},
 
 			mocks: homeWorkspaceFeatureLogic{
-				searchForHomeWorkspaceRBACResourcesInLocalInformers: func(homeWorkspace logicalcluster.Name, userName string) (found bool, err error) {
+				searchForHomeWorkspaceRBACResourcesInLocalInformers: func(homeWorkspace logicalcluster.Name) (found bool, err error) {
 					return false, nil
 				},
 			},
@@ -340,7 +339,7 @@ func TestSearchForReadyWorkspaceInLocalInformers(t *testing.T) {
 			},
 
 			mocks: homeWorkspaceFeatureLogic{
-				searchForHomeWorkspaceRBACResourcesInLocalInformers: func(homeWorkspace logicalcluster.Name, userName string) (found bool, err error) {
+				searchForHomeWorkspaceRBACResourcesInLocalInformers: func(homeWorkspace logicalcluster.Name) (found bool, err error) {
 					return true, nil
 				},
 			},
@@ -464,12 +463,12 @@ func TestSearchForReadyWorkspaceInLocalInformers(t *testing.T) {
 					},
 				}.build()
 
-				handler.homeWorkspaceFeatureLogic.searchForHomeWorkspaceRBACResourcesInLocalInformers = func(homeWorkspace logicalcluster.Name, userName string) (found bool, err error) {
+				handler.homeWorkspaceFeatureLogic.searchForHomeWorkspaceRBACResourcesInLocalInformers = func(homeWorkspace logicalcluster.Name) (found bool, err error) {
 					searchedForRBAC = true
-					return testCase.mocks.searchForHomeWorkspaceRBACResourcesInLocalInformers(homeWorkspace, userName)
+					return testCase.mocks.searchForHomeWorkspaceRBACResourcesInLocalInformers(homeWorkspace)
 				}
 
-				found, retryAfterSeconds, checkError := handler.searchForReadyWorkspaceInLocalInformers(logicalcluster.New(testCase.workspaceName), testCase.isHome, testCase.userName)
+				found, retryAfterSeconds, checkError := handler.searchForWorkspaceAndRBACInLocalInformers(logicalcluster.New(testCase.workspaceName), testCase.isHome, testCase.userName)
 
 				require.Equal(t, testCase.expectedFound, found, "'found' value is wrong")
 				require.Equal(t, testCase.expectedRetryAfterSeconds, retryAfterSeconds, "'retryAfterSeconds' value is wrong")
@@ -1052,7 +1051,7 @@ func TestSearchForHomeWorkspaceRBACResourcesInLocalInformers(t *testing.T) {
 					},
 				}.build()
 
-				found, searchError := handler.searchForHomeWorkspaceRBACResourcesInLocalInformers(logicalcluster.New(testCase.workspaceName), testCase.userName)
+				found, searchError := handler.searchForHomeWorkspaceRBACResourcesInLocalInformers(logicalcluster.New(testCase.workspaceName))
 
 				require.Equal(t, testCase.expectedFound, found, "'found' value is wrong")
 				var searchErrorString string
@@ -1470,7 +1469,7 @@ func TestServeHTTP(t *testing.T) {
 			expectedResponseBody: `{"kind":"Status","apiVersion":"v1","metadata":{},"status":"Failure","message":"clusterworkspaces.tenancy.kcp.dev \"~\" is forbidden: User \"user-1\" cannot get resource \"clusterworkspaces/workspace\" in API group \"tenancy.kcp.dev\" at the cluster scope: workspace access not permitted","reason":"Forbidden","details":{"name":"~","group":"tenancy.kcp.dev","kind":"clusterworkspaces"},"code":403}`,
 		},
 		{
-			testName:       "return the real home workspace when it already exists and is ready in informer",
+			testName:       "return the real home workspace when it already exists and is ready in informer, and RBAC objects are in informer",
 			contextCluster: &request.Cluster{Name: logicalcluster.New("root")},
 			contextUser:    &kuser.DefaultInfo{Name: "user-1"},
 			contextRequestInfo: &request.RequestInfo{
@@ -1485,10 +1484,9 @@ func TestServeHTTP(t *testing.T) {
 			getLocalClusterWorkspace: func(fullName logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error) {
 				return &tenancyv1alpha1.ClusterWorkspace{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:              "user-1",
-						ClusterName:       "root:users:bi:ie",
-						ResourceVersion:   "someRealResourceVersion",
-						CreationTimestamp: metav1.Time{Time: time.Date(2022, time.July, 5, 15, 46, 0, 0, time.UTC)},
+						Name:            "user-1",
+						ClusterName:     "root:users:bi:ie",
+						ResourceVersion: "someRealResourceVersion",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
 						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
@@ -1502,13 +1500,21 @@ func TestServeHTTP(t *testing.T) {
 					},
 				}, nil
 			},
+			authz: func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
+				return authorizer.DecisionAllow, "", nil
+			},
+			mocks: homeWorkspaceFeatureLogic{
+				searchForHomeWorkspaceRBACResourcesInLocalInformers: func(logicalClusterName logicalcluster.Name) (found bool, err error) {
+					return true, nil
+				},
+			},
 
 			expectedStatusCode:   200,
 			expectedToDelegate:   false,
-			expectedResponseBody: `{"kind":"Workspace","apiVersion":"tenancy.kcp.dev/v1beta1","metadata":{"name":"user-1","resourceVersion":"someRealResourceVersion","creationTimestamp":"2022-07-05T15:46:00Z","clusterName":"root:users:bi:ie"},"spec":{"type":{"name":"home","path":"root"}},"status":{"URL":"https://example.com/clusters/root:users:bi:ie:user-1","phase":"Ready"}}`,
+			expectedResponseBody: `{"kind":"Workspace","apiVersion":"tenancy.kcp.dev/v1beta1","metadata":{"name":"user-1","resourceVersion":"someRealResourceVersion","creationTimestamp":null,"clusterName":"root:users:bi:ie"},"spec":{"type":{"name":"home","path":"root"}},"status":{"URL":"https://example.com/clusters/root:users:bi:ie:user-1","phase":"Ready"}}`,
 		},
 		{
-			testName:       "return 429 with retry-after header when the home workspace is not ready yet",
+			testName:       "return virtual home workspace when the home workspace is not ready yet",
 			contextCluster: &request.Cluster{Name: logicalcluster.New("root")},
 			contextUser:    &kuser.DefaultInfo{Name: "user-1"},
 			contextRequestInfo: &request.RequestInfo{
@@ -1523,10 +1529,9 @@ func TestServeHTTP(t *testing.T) {
 			getLocalClusterWorkspace: func(fullName logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error) {
 				return &tenancyv1alpha1.ClusterWorkspace{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:              "user-1",
-						ClusterName:       "root:users:bi:ie",
-						ResourceVersion:   "someRealResourceVersion",
-						CreationTimestamp: metav1.Time{Time: time.Date(2022, time.July, 5, 15, 46, 0, 0, time.UTC)},
+						Name:            "user-1",
+						ClusterName:     "root:users:bi:ie",
+						ResourceVersion: "someRealResourceVersion",
 					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
 						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
@@ -1540,13 +1545,63 @@ func TestServeHTTP(t *testing.T) {
 					},
 				}, nil
 			},
-
-			expectedStatusCode:   429,
-			expectedToDelegate:   false,
-			expectedResponseBody: "Creating the home workspace",
-			expectedResponseHeaders: map[string]string{
-				"Retry-After": "5",
+			authz: func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
+				return authorizer.DecisionAllow, "", nil
 			},
+			mocks: homeWorkspaceFeatureLogic{
+				searchForHomeWorkspaceRBACResourcesInLocalInformers: func(logicalClusterName logicalcluster.Name) (found bool, err error) {
+					return true, nil
+				},
+			},
+
+			expectedStatusCode:   200,
+			expectedToDelegate:   false,
+			expectedResponseBody: `{"kind":"Workspace","apiVersion":"tenancy.kcp.dev/v1beta1","metadata":{"name":"user-1","creationTimestamp":null,"annotations":{"tenancy.kcp.dev/owner":"user-1"},"clusterName":"root:users:bi:ie"},"spec":{"type":{"name":"home","path":"root"}},"status":{"URL":"https://example.com/clusters/root:users:bi:ie:user-1"}}`,
+		},
+		{
+			testName:       "return virtual home workspace when home already exists, but RBAC objects are not in informer",
+			contextCluster: &request.Cluster{Name: logicalcluster.New("root")},
+			contextUser:    &kuser.DefaultInfo{Name: "user-1"},
+			contextRequestInfo: &request.RequestInfo{
+				IsResourceRequest: true,
+				APIGroup:          "tenancy.kcp.dev",
+				Resource:          "workspaces",
+				Name:              "~",
+				Verb:              "get",
+			},
+
+			synced: true,
+			getLocalClusterWorkspace: func(fullName logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error) {
+				return &tenancyv1alpha1.ClusterWorkspace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:            "user-1",
+						ClusterName:     "root:users:bi:ie",
+						ResourceVersion: "someRealResourceVersion",
+					},
+					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							Name: tenancyv1alpha1.ClusterWorkspaceTypeName("home"),
+							Path: "root",
+						},
+					},
+					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
+						Phase:   tenancyv1alpha1.ClusterWorkspacePhaseReady,
+						BaseURL: "https://example.com/clusters/root:users:bi:ie:user-1",
+					},
+				}, nil
+			},
+			authz: func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
+				return authorizer.DecisionAllow, "", nil
+			},
+			mocks: homeWorkspaceFeatureLogic{
+				searchForHomeWorkspaceRBACResourcesInLocalInformers: func(logicalClusterName logicalcluster.Name) (found bool, err error) {
+					return false, nil
+				},
+			},
+
+			expectedStatusCode:   200,
+			expectedToDelegate:   false,
+			expectedResponseBody: `{"kind":"Workspace","apiVersion":"tenancy.kcp.dev/v1beta1","metadata":{"name":"user-1","creationTimestamp":null,"annotations":{"tenancy.kcp.dev/owner":"user-1"},"clusterName":"root:users:bi:ie"},"spec":{"type":{"name":"home","path":"root"}},"status":{"URL":"https://example.com/clusters/root:users:bi:ie:user-1"}}`,
 		},
 		{
 			testName:       "return error when workspace cannot be checked in local informers",
@@ -1562,7 +1617,7 @@ func TestServeHTTP(t *testing.T) {
 
 			synced: true,
 			mocks: homeWorkspaceFeatureLogic{
-				searchForReadyWorkspaceInLocalInformers: func(workspaceName logicalcluster.Name, isHome bool, userName string) (found bool, retryAfterSeconds int, checkError error) {
+				searchForWorkspaceAndRBACInLocalInformers: func(workspaceName logicalcluster.Name, isHome bool, userName string) (found bool, retryAfterSeconds int, checkError error) {
 					return false, 0, errors.New("an error")
 				},
 			},
@@ -1584,7 +1639,7 @@ func TestServeHTTP(t *testing.T) {
 
 			synced: true,
 			mocks: homeWorkspaceFeatureLogic{
-				searchForReadyWorkspaceInLocalInformers: func(workspaceName logicalcluster.Name, isHome bool, userName string) (found bool, retryAfterSeconds int, checkError error) {
+				searchForWorkspaceAndRBACInLocalInformers: func(workspaceName logicalcluster.Name, isHome bool, userName string) (found bool, retryAfterSeconds int, checkError error) {
 					found = true
 					retryAfterSeconds = 10
 					return
@@ -1612,7 +1667,7 @@ func TestServeHTTP(t *testing.T) {
 
 			synced: true,
 			mocks: homeWorkspaceFeatureLogic{
-				searchForReadyWorkspaceInLocalInformers: func(workspaceName logicalcluster.Name, isHome bool, userName string) (found bool, retryAfterSeconds int, checkError error) {
+				searchForWorkspaceAndRBACInLocalInformers: func(workspaceName logicalcluster.Name, isHome bool, userName string) (found bool, retryAfterSeconds int, checkError error) {
 					return
 				},
 			},
@@ -1637,7 +1692,7 @@ func TestServeHTTP(t *testing.T) {
 				return authorizer.DecisionDeny, "refused for a given reason", nil
 			},
 			mocks: homeWorkspaceFeatureLogic{
-				searchForReadyWorkspaceInLocalInformers: func(workspaceName logicalcluster.Name, isHome bool, userName string) (found bool, retryAfterSeconds int, checkError error) {
+				searchForWorkspaceAndRBACInLocalInformers: func(workspaceName logicalcluster.Name, isHome bool, userName string) (found bool, retryAfterSeconds int, checkError error) {
 					return
 				},
 			},
@@ -1662,7 +1717,7 @@ func TestServeHTTP(t *testing.T) {
 				return authorizer.DecisionDeny, "", errors.New("error when checking user permission")
 			},
 			mocks: homeWorkspaceFeatureLogic{
-				searchForReadyWorkspaceInLocalInformers: func(workspaceName logicalcluster.Name, isHome bool, userName string) (found bool, retryAfterSeconds int, checkError error) {
+				searchForWorkspaceAndRBACInLocalInformers: func(workspaceName logicalcluster.Name, isHome bool, userName string) (found bool, retryAfterSeconds int, checkError error) {
 					return
 				},
 			},
@@ -1687,7 +1742,7 @@ func TestServeHTTP(t *testing.T) {
 				return authorizer.DecisionAllow, "", nil
 			},
 			mocks: homeWorkspaceFeatureLogic{
-				searchForReadyWorkspaceInLocalInformers: func(workspaceName logicalcluster.Name, isHome bool, userName string) (found bool, retryAfterSeconds int, checkError error) {
+				searchForWorkspaceAndRBACInLocalInformers: func(workspaceName logicalcluster.Name, isHome bool, userName string) (found bool, retryAfterSeconds int, checkError error) {
 					return
 				},
 				tryToCreate: func(ctx context.Context, userName string, workspaceToCheck logicalcluster.Name, workspaceType tenancyv1alpha1.ClusterWorkspaceTypeName) (retryAfterSeconds int, createError error) {
@@ -1720,7 +1775,7 @@ func TestServeHTTP(t *testing.T) {
 				return authorizer.DecisionAllow, "", nil
 			},
 			mocks: homeWorkspaceFeatureLogic{
-				searchForReadyWorkspaceInLocalInformers: func(workspaceName logicalcluster.Name, isHome bool, userName string) (found bool, retryAfterSeconds int, checkError error) {
+				searchForWorkspaceAndRBACInLocalInformers: func(workspaceName logicalcluster.Name, isHome bool, userName string) (found bool, retryAfterSeconds int, checkError error) {
 					return
 				},
 				tryToCreate: func(ctx context.Context, userName string, workspaceToCheck logicalcluster.Name, workspaceType tenancyv1alpha1.ClusterWorkspaceTypeName) (retryAfterSeconds int, createError error) {
@@ -1794,8 +1849,8 @@ func overrideLogic(handler *homeWorkspaceHandler, overridenLogic homeWorkspaceFe
 	if overridenLogic.searchForHomeWorkspaceRBACResourcesInLocalInformers != nil {
 		handler.searchForHomeWorkspaceRBACResourcesInLocalInformers = overridenLogic.searchForHomeWorkspaceRBACResourcesInLocalInformers
 	}
-	if overridenLogic.searchForReadyWorkspaceInLocalInformers != nil {
-		handler.searchForReadyWorkspaceInLocalInformers = overridenLogic.searchForReadyWorkspaceInLocalInformers
+	if overridenLogic.searchForWorkspaceAndRBACInLocalInformers != nil {
+		handler.searchForWorkspaceAndRBACInLocalInformers = overridenLogic.searchForWorkspaceAndRBACInLocalInformers
 	}
 	if overridenLogic.tryToCreate != nil {
 		handler.tryToCreate = overridenLogic.tryToCreate

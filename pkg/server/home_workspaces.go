@@ -26,7 +26,6 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/kcp-dev/logicalcluster"
 
@@ -61,9 +60,6 @@ const (
 	homeOwnerClusterRolePrefix     = "system:kcp:tenancy:home-owner:"
 	HomeBucketClusterWorkspaceType = "homebucket"
 	HomeClusterWorkspaceType       = "home"
-
-	// the amount of time while the create delay is repeatedly returned to the client
-	createDelayTimeout = time.Minute
 )
 
 var (
@@ -194,9 +190,9 @@ type homeWorkspaceHandlerBuilder struct {
 }
 
 type homeWorkspaceFeatureLogic struct {
-	searchForHomeWorkspaceRBACResourcesInLocalInformers func(homeWorkspace logicalcluster.Name, userName string) (found bool, err error)
+	searchForHomeWorkspaceRBACResourcesInLocalInformers func(homeWorkspace logicalcluster.Name) (found bool, err error)
 	createHomeWorkspaceRBACResources                    func(ctx context.Context, userName string, homeWorkspace logicalcluster.Name) error
-	searchForReadyWorkspaceInLocalInformers             func(logicalClusterName logicalcluster.Name, isHome bool, userName string) (readyAndRBACAsExpected bool, retryAfterSeconds int, checkError error)
+	searchForWorkspaceAndRBACInLocalInformers           func(logicalClusterName logicalcluster.Name, isHome bool, userName string) (readyAndRBACAsExpected bool, retryAfterSeconds int, checkError error)
 	tryToCreate                                         func(ctx context.Context, userName string, workspaceToCheck logicalcluster.Name, workspaceType tenancyv1alpha1.ClusterWorkspaceTypeName) (retryAfterSeconds int, createError error)
 }
 
@@ -209,14 +205,14 @@ func (b homeWorkspaceHandlerBuilder) build() *homeWorkspaceHandler {
 	h := &homeWorkspaceHandler{}
 	h.homeWorkspaceHandlerBuilder = b
 	h.homeWorkspaceFeatureLogic = homeWorkspaceFeatureLogic{
-		searchForHomeWorkspaceRBACResourcesInLocalInformers: func(logicalClusterName logicalcluster.Name, userName string) (found bool, err error) {
-			return searchForHomeWorkspaceRBACResourcesInLocalInformers(h, logicalClusterName, userName)
+		searchForHomeWorkspaceRBACResourcesInLocalInformers: func(logicalClusterName logicalcluster.Name) (found bool, err error) {
+			return searchForHomeWorkspaceRBACResourcesInLocalInformers(h, logicalClusterName)
 		},
 		createHomeWorkspaceRBACResources: func(ctx context.Context, userName string, logicalClusterName logicalcluster.Name) error {
 			return createHomeWorkspaceRBACResources(h, ctx, userName, logicalClusterName)
 		},
-		searchForReadyWorkspaceInLocalInformers: func(logicalClusterName logicalcluster.Name, isHome bool, userName string) (found bool, retryAfterSeconds int, checkError error) {
-			return searchForReadyWorkspaceInLocalInformers(h, logicalClusterName, isHome, userName)
+		searchForWorkspaceAndRBACInLocalInformers: func(logicalClusterName logicalcluster.Name, isHome bool, userName string) (found bool, retryAfterSeconds int, checkError error) {
+			return searchForWorkspaceAndRBACInLocalInformers(h, logicalClusterName, isHome, userName)
 		},
 		tryToCreate: func(ctx context.Context, userName string, logicalClusterName logicalcluster.Name, workspaceType tenancyv1alpha1.ClusterWorkspaceTypeName) (retryAfterSeconds int, createError error) {
 			return tryToCreate(h, ctx, userName, logicalClusterName, workspaceType)
@@ -272,28 +268,27 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		// underlying ClusterWorkspace resource exists.
 
 		homeLogicalClusterName := h.getHomeLogicalClusterName(effectiveUser.GetName())
+
 		homeClusterWorkspace, err := h.localInformers.getClusterWorkspace(homeLogicalClusterName)
 		if err != nil && !kerrors.IsNotFound(err) {
 			responsewriters.InternalError(rw, req, err)
 			return
 		}
 		if homeClusterWorkspace != nil {
-			if homeClusterWorkspace.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseReady {
-				if h.creationDelaySeconds > 0 && time.Now().After(homeClusterWorkspace.CreationTimestamp.Add(createDelayTimeout)) {
-					// Return a 429 status asking the client to try again after the creationDelay
-					rw.Header().Set("Retry-After", fmt.Sprintf("%d", h.creationDelaySeconds))
-					http.Error(rw, "Creating the home workspace", http.StatusTooManyRequests)
-					return
-				}
+			if found, err := h.searchForHomeWorkspaceRBACResourcesInLocalInformers(homeLogicalClusterName); err != nil {
+				responsewriters.InternalError(rw, req, err)
+				return
+			} else if found && homeClusterWorkspace.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady {
+				// We don't need to check any permission before returning the home workspace definition since,
+				// once it has been created, a home workspace is owned by the user.
+
+				homeWorkspace := &tenancyv1beta1.Workspace{}
+				projection.ProjectClusterWorkspaceToWorkspace(homeClusterWorkspace, homeWorkspace)
+				responsewriters.WriteObjectNegotiated(homeWorkspaceCodecs, negotiation.DefaultEndpointRestrictions, tenancyv1beta1.SchemeGroupVersion, rw, req, http.StatusOK, homeWorkspace)
+				return
 			}
 
-			// We don't need to check any permission before returning the home workspace definition since,
-			// once it has been created, a home workspace is owned by the user.
-
-			homeWorkspace := &tenancyv1beta1.Workspace{}
-			projection.ProjectClusterWorkspaceToWorkspace(homeClusterWorkspace, homeWorkspace)
-			responsewriters.WriteObjectNegotiated(homeWorkspaceCodecs, negotiation.DefaultEndpointRestrictions, tenancyv1beta1.SchemeGroupVersion, rw, req, http.StatusOK, homeWorkspace)
-			return
+			// fall through because either not ready or RBAC objects missing
 		}
 
 		// Test if the user has the right to see his Home workspace even though it doesn't exists
@@ -348,7 +343,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 	}
 
 	isHome := workspaceType == HomeClusterWorkspaceType
-	if foundLocally, retryAfterSeconds, err := h.searchForReadyWorkspaceInLocalInformers(lcluster.Name, isHome, effectiveUser.GetName()); err != nil {
+	if foundLocally, retryAfterSeconds, err := h.searchForWorkspaceAndRBACInLocalInformers(lcluster.Name, isHome, effectiveUser.GetName()); err != nil {
 		responsewriters.InternalError(rw, req, err)
 		return
 	} else if foundLocally {
@@ -467,13 +462,12 @@ func (h *homeWorkspaceHandler) needsAutomaticCreation(logicalClusterName logical
 	}
 }
 
-// searchForReadyWorkspaceInLocalInformers checks whether a workspace is known on the current shard
+// searchForWorkspaceAndRBACInLocalInformers checks whether a workspace is known on the current shard
 // in local informers.
 // For home workspaces, we also check:
 //   - if related RBAC resources are there,
-//   - if the workspace phase is READY
 // and if not answer to retry later.
-func searchForReadyWorkspaceInLocalInformers(h *homeWorkspaceHandler, logicalClusterName logicalcluster.Name, isHome bool, userName string) (readyAndRBACAsExpected bool, retryAfterSeconds int, err error) {
+func searchForWorkspaceAndRBACInLocalInformers(h *homeWorkspaceHandler, logicalClusterName logicalcluster.Name, isHome bool, userName string) (readyAndRBACAsExpected bool, retryAfterSeconds int, err error) {
 	workspace, err := h.localInformers.getClusterWorkspace(logicalClusterName)
 	if err != nil && !kerrors.IsNotFound(err) {
 		return false, 0, err
@@ -507,7 +501,7 @@ func searchForReadyWorkspaceInLocalInformers(h *homeWorkspaceHandler, logicalClu
 	}
 
 	// For home workspaces, also wait for related RBAC resources to be setup.
-	if rbacResourcesFound, err := h.searchForHomeWorkspaceRBACResourcesInLocalInformers(logicalClusterName, userName); err != nil {
+	if rbacResourcesFound, err := h.searchForHomeWorkspaceRBACResourcesInLocalInformers(logicalClusterName); err != nil {
 		return false, 0, err
 	} else if !rbacResourcesFound {
 		// Retry sooner than the creation delay, because it's probably a question of
@@ -610,7 +604,7 @@ func tryToCreate(h *homeWorkspaceHandler, ctx context.Context, userName string, 
 
 // searchForHomeWorkspaceRBACResourcesInLocalInformers searches for the expected RBAC resources associated to a Home workspace
 // in the local informers.
-func searchForHomeWorkspaceRBACResourcesInLocalInformers(h *homeWorkspaceHandler, logicalClusterName logicalcluster.Name, userName string) (found bool, err error) {
+func searchForHomeWorkspaceRBACResourcesInLocalInformers(h *homeWorkspaceHandler, logicalClusterName logicalcluster.Name) (found bool, err error) {
 	parent, workspaceName := logicalClusterName.Split()
 
 	if _, err := h.localInformers.getClusterRole(parent, homeOwnerClusterRolePrefix+workspaceName); kerrors.IsNotFound(err) {
