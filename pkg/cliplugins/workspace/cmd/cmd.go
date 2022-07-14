@@ -35,8 +35,8 @@ var (
 	# enter a given workspace (this will change the current-context of your current KUBECONFIG)
 	%[1]s workspace use my-workspace
 
-	# list all your personal workspaces
-	%[1]s workspace list
+	# list sub-workspaces in the current workspace 
+	%[1]s get workspaces
 
 	# enter a given absolute workspace
 	%[1]s workspace root:default:my-workspace
@@ -145,6 +145,7 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 			}
 			return nil
 		},
+		Deprecated: "Use 'kubectl get workspaces' instead.",
 	}
 
 	var workspaceType string
