@@ -29,11 +29,14 @@ import (
 
 var (
 	workspaceExample = `
-	# Shows the workspace you are currently using
-	%[1]s workspace
+	# shows the workspace you are currently using
+	%[1]s workspace .
 
 	# enter a given workspace (this will change the current-context of your current KUBECONFIG)
 	%[1]s workspace use my-workspace
+
+	# short-hand for the use syntax
+	%[1]s workspace my-workspace
 
 	# list sub-workspaces in the current workspace 
 	%[1]s get workspaces
@@ -46,6 +49,9 @@ var (
 
 	# enter the previous workspace
 	%[1]s workspace -
+
+	# go to your home workspace 
+	%[1]s workspace
 
 	# create a workspace and immediately enter it
 	%[1]s workspace create my-workspace --enter
@@ -79,11 +85,12 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 		if len(args) == 1 {
 			arg = args[0]
 		}
+
 		return kubeconfig.UseWorkspace(cmd.Context(), arg)
 	}
 	cmd := &cobra.Command{
 		Aliases:          []string{"ws", "workspaces"},
-		Use:              "workspace [list|create|create-context|<workspace>|..|-|<root:absolute:workspace>]",
+		Use:              "workspace [list|create|create-context|<workspace>|..|.|-|~|<root:absolute:workspace>]",
 		Short:            "Manages KCP workspaces",
 		Example:          fmt.Sprintf(workspaceExample, "kubectl kcp"),
 		SilenceUsage:     true,
@@ -93,8 +100,8 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 	opts.BindFlags(cmd)
 
 	useCmd := &cobra.Command{
-		Use:          "use <workspace>|..|-|<root:absolute:workspace>",
-		Short:        "Uses the given workspace as the current workspace. Using - means previous workspace, .. means parent workspace",
+		Use:          "use <workspace>|..|.|-|~|<root:absolute:workspace>",
+		Short:        "Uses the given workspace as the current workspace. Using - means previous workspace, .. means parent workspace, . mean current, ~ means home workspace",
 		SilenceUsage: true,
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -107,7 +114,7 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 	var shortWorkspaceOutput bool
 	currentCmd := &cobra.Command{
 		Use:          "current [--short]",
-		Short:        "Print the current workspace",
+		Short:        "Print the current workspace. Same as 'kubectl ws .'.",
 		Example:      "kcp workspace current",
 		SilenceUsage: true,
 		RunE: func(c *cobra.Command, args []string) error {

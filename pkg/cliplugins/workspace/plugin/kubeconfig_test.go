@@ -260,7 +260,7 @@ func TestUse(t *testing.T) {
 			existingObjects: map[logicalcluster.Name][]string{
 				logicalcluster.New("root:foo"): {"bar"},
 			},
-			param:      "",
+			param:      ".",
 			wantStdout: []string{"Current workspace is \"root:foo:bar\""},
 		},
 		{
@@ -270,7 +270,7 @@ func TestUse(t *testing.T) {
 				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.dev/current": {Server: "https://test"}},
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
-			param:      "",
+			param:      ".",
 			wantStdout: []string{"Current workspace is the URL \"https://test\""},
 		},
 		{
@@ -672,6 +672,30 @@ func TestUse(t *testing.T) {
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
 			wantStdout: []string{fmt.Sprintf("Current workspace is \"%s\"", homeWorkspaceLogicalCluster.String())},
+		},
+		{
+			name: "no arg",
+			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.dev/current": {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"}},
+				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo"}},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			existingObjects: map[logicalcluster.Name][]string{
+				tenancyv1alpha1.RootCluster: {"~"},
+			},
+			param: "",
+			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts: map[string]*clientcmdapi.Context{
+					"workspace.kcp.dev/current":  {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"},
+					"workspace.kcp.dev/previous": {Cluster: "workspace.kcp.dev/previous", AuthInfo: "test"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"workspace.kcp.dev/previous": {Server: "https://test/clusters/root:foo"},
+					"workspace.kcp.dev/current":  {Server: "https://test" + homeWorkspaceLogicalCluster.Path()},
+				},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			wantStdout: []string{fmt.Sprintf("Current workspace is \"%s\".\nNote: 'kubectl ws' now matches 'cd' semantics: go to home workspace. 'kubectl ws -' to go back. 'kubectl ws .' to print current workspace.", homeWorkspaceLogicalCluster.String())},
 		},
 	}
 	for _, tt := range tests {
