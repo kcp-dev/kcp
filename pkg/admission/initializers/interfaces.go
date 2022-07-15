@@ -52,3 +52,9 @@ type WantsExternalAddressProvider interface {
 type WantsShardBaseURL interface {
 	SetShardBaseURL(shardBaseURL string)
 }
+
+// WantsShardExternalURL interface should be implemented by admission plugins
+// that want to have the shard external url injected.
+type WantsShardExternalURL interface {
+	SetShardExternalURL(shardExternalURL string)
+}

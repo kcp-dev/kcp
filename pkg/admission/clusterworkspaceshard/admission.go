@@ -18,17 +18,16 @@ package clusterworkspaceshard
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/admission"
 
 	"github.com/kcp-dev/kcp/pkg/admission/initializers"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyhelper "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 )
 
 // Validate ClusterWorkspace creation and updates for
@@ -53,6 +52,7 @@ type clusterWorkspaceShard struct {
 	*admission.Handler
 
 	shardBaseURL            string
+	shardExternalURL        string
 	externalAddressProvider func() string
 }
 
@@ -60,11 +60,12 @@ type clusterWorkspaceShard struct {
 var _ = admission.ValidationInterface(&clusterWorkspaceShard{})
 var _ = admission.MutationInterface(&clusterWorkspaceShard{})
 var _ = initializers.WantsExternalAddressProvider(&clusterWorkspaceShard{})
+var _ = initializers.WantsShardExternalURL(&clusterWorkspaceShard{})
 
 // Validate ensures that
 // - baseURL is set
 // - externalURL is set
-func (o *clusterWorkspaceShard) Validate(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
+func (o *clusterWorkspaceShard) Validate(_ context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
 	if a.GetResource().GroupResource() != tenancyv1alpha1.Resource("clusterworkspaceshards") {
 		return nil
 	}
@@ -78,18 +79,24 @@ func (o *clusterWorkspaceShard) Validate(ctx context.Context, a admission.Attrib
 		return fmt.Errorf("failed to convert unstructured to ClusterWorkspace: %w", err)
 	}
 
+	var errs field.ErrorList
+
 	if cws.Spec.BaseURL == "" {
-		return admission.NewForbidden(a, errors.New("spec.baseURL must be set"))
+		errs = append(errs, field.Required(field.NewPath("spec", "baseURL"), ""))
 	}
 	if cws.Spec.ExternalURL == "" {
-		return admission.NewForbidden(a, errors.New("spec.externalURL must be set"))
+		errs = append(errs, field.Required(field.NewPath("spec", "externalURL"), ""))
+	}
+
+	if len(errs) > 0 {
+		return admission.NewForbidden(a, errs.ToAggregate())
 	}
 
 	return nil
 }
 
-// Admit defaults the baseURL and externalURL to the shards external hostname.
-func (o *clusterWorkspaceShard) Admit(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
+// Admit sets.
+func (o *clusterWorkspaceShard) Admit(_ context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
 	if a.GetResource().GroupResource() != tenancyv1alpha1.Resource("clusterworkspaceshards") {
 		return nil
 	}
@@ -103,25 +110,27 @@ func (o *clusterWorkspaceShard) Admit(ctx context.Context, a admission.Attribute
 		return fmt.Errorf("failed to convert unstructured to ClusterWorkspaceShard: %w", err)
 	}
 
+	externalAddress := ""
+	if o.externalAddressProvider != nil {
+		externalAddress = o.externalAddressProvider()
+	}
+
 	if cws.Spec.BaseURL == "" {
-		defaultExternalAddress := ""
-		if o.externalAddressProvider != nil {
-			defaultExternalAddress = o.externalAddressProvider()
-		}
-
-		if o.shardBaseURL == "" && defaultExternalAddress == "" {
-			return fmt.Errorf("cannot default baseURL for ClusterWorkspaceShard %q: no default shard base URL and no default external address provided", tenancyhelper.QualifiedObjectName(cws))
-		}
-
-		if o.shardBaseURL != "" {
+		switch {
+		case o.shardBaseURL != "":
 			cws.Spec.BaseURL = o.shardBaseURL
-		} else {
-			cws.Spec.BaseURL = "https://" + defaultExternalAddress
+		case externalAddress != "":
+			cws.Spec.BaseURL = "https://" + externalAddress
 		}
 	}
 
 	if cws.Spec.ExternalURL == "" {
-		cws.Spec.ExternalURL = cws.Spec.BaseURL
+		switch {
+		case o.shardExternalURL != "":
+			cws.Spec.ExternalURL = o.shardExternalURL
+		case externalAddress != "":
+			cws.Spec.ExternalURL = "https://" + externalAddress
+		}
 	}
 
 	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(cws)
@@ -135,6 +144,10 @@ func (o *clusterWorkspaceShard) Admit(ctx context.Context, a admission.Attribute
 
 func (o *clusterWorkspaceShard) SetShardBaseURL(shardBaseURL string) {
 	o.shardBaseURL = shardBaseURL
+}
+
+func (o *clusterWorkspaceShard) SetShardExternalURL(shardExternalURL string) {
+	o.shardExternalURL = shardExternalURL
 }
 
 func (o *clusterWorkspaceShard) SetExternalAddressProvider(externalAddressProvider func() string) {
