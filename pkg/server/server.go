@@ -32,7 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/admission"
-	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/endpoints/filters"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
@@ -238,13 +237,21 @@ func (s *Server) Run(ctx context.Context) error {
 
 		apiHandler = genericapiserver.DefaultBuildHandlerChainFromAuthz(apiHandler, c)
 
-		// TODO(david): Add options to drive the various Home workspace parameters.
-		// For now default values are:
-		//   - Creation delay (returned in the retry-afterof the http responses): 2 seconds
-		//   - Home root workspace: root:users
-		//   - Home bucket levels: 2
-		//   - home bucket name size: 2
-		apiHandler = WithHomeWorkspaces(apiHandler, c.Authorization.Authorizer, kubeClusterClient, kcpClusterClient, s.kubeSharedInformerFactory, s.kcpSharedInformerFactory, genericConfig.ExternalAddress, 2, logicalcluster.New("root:users"), 2, 2)
+		if s.options.HomeWorkspaces.Enabled {
+			apiHandler = WithHomeWorkspaces(
+				apiHandler,
+				c.Authorization.Authorizer,
+				kubeClusterClient,
+				kcpClusterClient,
+				s.kubeSharedInformerFactory,
+				s.kcpSharedInformerFactory,
+				genericConfig.ExternalAddress,
+				s.options.HomeWorkspaces.CreationDelaySeconds,
+				logicalcluster.New(s.options.HomeWorkspaces.HomeRootPrefix),
+				s.options.HomeWorkspaces.BucketLevels,
+				s.options.HomeWorkspaces.BucketSize,
+			)
+		}
 
 		apiHandler = genericapiserver.DefaultBuildHandlerChainBeforeAuthz(apiHandler, c)
 
@@ -470,8 +477,8 @@ func (s *Server) Run(ctx context.Context) error {
 				},
 				CurrentContext: "shard",
 			},
-			[]string{user.AllAuthenticated},
-			[]string{user.AllAuthenticated},
+			logicalcluster.New(s.options.HomeWorkspaces.HomeRootPrefix).Base(),
+			s.options.HomeWorkspaces.HomeCreatorGroups,
 		); err != nil {
 			// nolint:nilerr
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
@@ -534,8 +541,10 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
-	if err := s.installHomeWorkspaces(ctx, controllerConfig); err != nil {
-		return err
+	if s.options.HomeWorkspaces.Enabled {
+		if err := s.installHomeWorkspaces(ctx, controllerConfig); err != nil {
+			return err
+		}
 	}
 
 	if s.options.Controllers.EnableAll || enabled.Has("resource-scheduler") {

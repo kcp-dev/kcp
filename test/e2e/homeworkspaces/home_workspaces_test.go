@@ -52,19 +52,30 @@ func TestUserHomeWorkspaces(t *testing.T) {
 	}
 
 	var testCases = []struct {
-		name string
-		work func(ctx context.Context, t *testing.T, server runningServer)
+		name    string
+		kcpArgs []string
+		work    func(ctx context.Context, t *testing.T, server runningServer)
 	}{
 		{
 			name: "Create a workspace in the non-existing home and have it created automatically through ~",
+			kcpArgs: []string{
+				"--home-workspaces-home-creator-groups",
+				"team-1",
+			},
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				kcpUser1Client := server.kcpUserClusterClients[0]
+				kcpUser2Client := server.kcpUserClusterClients[1]
 
 				t.Logf("Get ~ Home workspace URL for user-1")
 				createdHome, err := kcpUser1Client.Cluster(tenancyv1alpha1.RootCluster).TenancyV1beta1().Workspaces().Get(ctx, "~", metav1.GetOptions{})
 				require.NoError(t, err, "user-1 should be able to get ~ workspace")
 				require.NotEqual(t, metav1.Time{}, createdHome.CreationTimestamp, "should have a creation timestamp, i.e. is not virtual")
 				require.Equal(t, tenancyv1alpha1.ClusterWorkspacePhaseReady, createdHome.Status.Phase, "created home workspace should be ready")
+
+				t.Logf("Get ~ Home workspace URL for user-2")
+
+				_, err = kcpUser2Client.Cluster(tenancyv1alpha1.RootCluster).TenancyV1beta1().Workspaces().Get(ctx, "~", metav1.GetOptions{})
+				require.EqualError(t, err, `clusterworkspaces.tenancy.kcp.dev "~" is forbidden: User "user-2" cannot create resource "clusterworkspaces/workspace" in API group "tenancy.kcp.dev" at the cluster scope`, "user-2 should not be allowed to get his home workspace even before it exists")
 			},
 		},
 		{
@@ -138,7 +149,7 @@ func TestUserHomeWorkspaces(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 			tokenAuthFile := framework.WriteTokenAuthFile(t)
-			server := framework.PrivateKcpServer(t, framework.TestServerArgsWithTokenAuthFile(tokenAuthFile)...)
+			server := framework.PrivateKcpServer(t, append(framework.TestServerArgsWithTokenAuthFile(tokenAuthFile), testCase.kcpArgs...)...)
 			ctx, cancelFunc := context.WithCancel(context.Background())
 			t.Cleanup(cancelFunc)
 
