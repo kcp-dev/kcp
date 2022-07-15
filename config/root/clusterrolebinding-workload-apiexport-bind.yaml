@@ -5,7 +5,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: system:kcp:system:kcp:apiexport:workload:bind
+  name: system:kcp:apiexport:workload:bind
 subjects:
 - apiGroup: rbac.authorization.k8s.io
   kind: Group
