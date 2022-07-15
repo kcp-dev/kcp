@@ -23,7 +23,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"regexp"
 	"strings"
 
@@ -252,10 +251,11 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 	}
 	requestInfo, ok := request.RequestInfoFrom(ctx)
 	if !ok {
-		responsewriters.InternalError(rw, req, errors.New("No request Info"))
+		responsewriters.InternalError(rw, req, errors.New("no request Info"))
 		return
 	}
 
+	var workspaceType tenancyv1alpha1.ClusterWorkspaceTypeName
 	if lcluster.Name == tenancyv1alpha1.RootCluster &&
 		requestInfo.IsResourceRequest &&
 		requestInfo.Verb == "get" &&
@@ -291,79 +291,39 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 			// fall through because either not ready or RBAC objects missing
 		}
 
-		// Test if the user has the right to see his Home workspace even though it doesn't exists
-		// => test the get verb on the clusterworkspaces/workspace subresource named ~ in the root workspace.
+		lcluster.Name = homeLogicalClusterName
+		workspaceType = "home"
 
-		attributes := homeWorkspaceAuthorizerAttributes(effectiveUser, "get")
-		decision, reason, err := h.authz.Authorize(ctx, attributes)
-		if err != nil {
-			utilruntime.HandleError(fmt.Errorf("failed to authorize user %q to get a home workspace %q: %w", effectiveUser.GetName(), lcluster.Name, err))
-			responsewriters.Forbidden(ctx, attributes, rw, req, authorization.WorkspaceAcccessNotPermittedReason, homeWorkspaceCodecs)
-			return
-		}
-		if decision != authorizer.DecisionAllow {
-			responsewriters.Forbidden(ctx, attributes, rw, req, reason, homeWorkspaceCodecs)
+		// fall-through and let it be created
+	} else {
+		var needsAutomaticCreation bool
+		needsAutomaticCreation, workspaceType = h.needsAutomaticCreation(lcluster.Name)
+		if !needsAutomaticCreation {
+			h.apiHandler.ServeHTTP(rw, req)
 			return
 		}
 
-		// TODO: The way we build this URL here is not fully compatible with sharding long-term:
-		// - short term (what is done now): use genericConfig.ExternalAddress
-		// - medium term: shards will know their name eventually, and with that we can lookup the external URL of the shard
-		// - long-term: create home workspace already on `~` access in order to make scheduling happen and then we know the real external URL.
-		homeWorkspaceURL := &url.URL{Scheme: "https", Host: h.externalHost, Path: homeLogicalClusterName.Path()}
-
-		parent, name := homeLogicalClusterName.Split()
-		homeWorkspace := &tenancyv1beta1.Workspace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        name,
-				ClusterName: parent.String(),
-				Annotations: map[string]string{
-					tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey: effectiveUser.GetName(),
-				},
-			},
-			Spec: tenancyv1beta1.WorkspaceSpec{
-				Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-					Name: tenancyv1alpha1.ClusterWorkspaceTypeName("home"),
-					Path: tenancyv1alpha1.RootCluster.String(),
-				},
-			},
-			Status: tenancyv1beta1.WorkspaceStatus{
-				URL: homeWorkspaceURL.String(),
-			},
-		}
-
-		responsewriters.WriteObjectNegotiated(homeWorkspaceCodecs, negotiation.DefaultEndpointRestrictions, tenancyv1beta1.SchemeGroupVersion, rw, req, http.StatusOK, homeWorkspace)
-		return
-	}
-
-	needsAutomaticCreation, workspaceType := h.needsAutomaticCreation(lcluster.Name)
-	if !needsAutomaticCreation {
-		h.apiHandler.ServeHTTP(rw, req)
-		return
-	}
-
-	isHome := workspaceType == HomeClusterWorkspaceType
-	if foundLocally, retryAfterSeconds, err := h.searchForWorkspaceAndRBACInLocalInformers(lcluster.Name, isHome, effectiveUser.GetName()); err != nil {
-		responsewriters.InternalError(rw, req, err)
-		return
-	} else if foundLocally {
-		if retryAfterSeconds > 0 {
-			// Return a 429 status asking the client to try again after the creationDelay
-			rw.Header().Set("Retry-After", fmt.Sprintf("%d", retryAfterSeconds))
-			http.Error(rw, "Creating the home workspace", http.StatusTooManyRequests)
+		if foundLocally, retryAfterSeconds, err := h.searchForWorkspaceAndRBACInLocalInformers(lcluster.Name, workspaceType == HomeClusterWorkspaceType, effectiveUser.GetName()); err != nil {
+			responsewriters.InternalError(rw, req, err)
+			return
+		} else if foundLocally {
+			if retryAfterSeconds > 0 {
+				// Return a 429 status asking the client to try again after the creationDelay
+				rw.Header().Set("Retry-After", fmt.Sprintf("%d", retryAfterSeconds))
+				http.Error(rw, "Creating the home workspace", http.StatusTooManyRequests)
+				return
+			}
+			h.apiHandler.ServeHTTP(rw, req)
 			return
 		}
-		h.apiHandler.ServeHTTP(rw, req)
-		return
-	}
 
-	// Home or bucket workspace not found in the local informer
-	// Let's try to create it
+		// Home or bucket workspace not found in the local informer
+		// Let's try to create it
+	}
 
 	// But first check we have the right to do so.
 	attributes := homeWorkspaceAuthorizerAttributes(effectiveUser, "create")
-
-	if isHome && lcluster.Name != h.getHomeLogicalClusterName(effectiveUser.GetName()) {
+	if workspaceType == HomeClusterWorkspaceType && lcluster.Name != h.getHomeLogicalClusterName(effectiveUser.GetName()) {
 		// If we're checking a home workspace or home bucket workspace, but not of the consistent user, let's refuse.
 		utilruntime.HandleError(fmt.Errorf("failed to authorize user %q to create a home workspace %q: home workspace can only be created by the user of the home workspace", effectiveUser.GetName(), lcluster.Name))
 		responsewriters.Forbidden(ctx, attributes, rw, req, authorization.WorkspaceAcccessNotPermittedReason, homeWorkspaceCodecs)
