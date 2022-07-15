@@ -61,7 +61,7 @@ func TestWatchCacheEnabledForCRD(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	org := framework.NewOrganizationFixture(t, server)
-	cluster := framework.NewWorkspaceFixture(t, server, org)
+	cluster := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
 	rootShardConfig := newRootShardConfig(t, server)
 	cowBoysGR := metav1.GroupResource{Group: "wildwest.dev", Resource: "cowboys"}
 
