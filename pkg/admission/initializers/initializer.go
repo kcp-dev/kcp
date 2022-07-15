@@ -121,3 +121,21 @@ func (i *shardBaseURLInitializer) Initialize(plugin admission.Interface) {
 		wants.SetShardBaseURL(i.shardBaseURL)
 	}
 }
+
+// NewShardExternalURLInitializer returns an admission plugin initializer that injects
+// the default shard external URL provider into the admission plugin.
+func NewShardExternalURLInitializer(shardExternalURL string) *shardExternalURLInitializer {
+	return &shardExternalURLInitializer{
+		shardExternalURL: shardExternalURL,
+	}
+}
+
+type shardExternalURLInitializer struct {
+	shardExternalURL string
+}
+
+func (i *shardExternalURLInitializer) Initialize(plugin admission.Interface) {
+	if wants, ok := plugin.(WantsShardExternalURL); ok {
+		wants.SetShardExternalURL(i.shardExternalURL)
+	}
+}
