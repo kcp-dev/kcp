@@ -1296,7 +1296,7 @@ func TestServeHTTP(t *testing.T) {
 
 			expectedStatusCode:   500,
 			expectedToDelegate:   false,
-			expectedResponseBody: `Internal Server Error: "/dummy-target": No request Info`,
+			expectedResponseBody: `Internal Server Error: "/dummy-target": no request Info`,
 		},
 		{
 			testName:           "delegate to next handler when request not under home root nor a 'get ~' request",
@@ -1319,22 +1319,34 @@ func TestServeHTTP(t *testing.T) {
 			expectedToDelegate: true,
 		},
 		{
-			testName:           "Return virtual home workspace resource when it still doesn't exist",
+			testName:           "try to create home workspace when it doesn't exist",
 			contextCluster:     &request.Cluster{Name: logicalcluster.New("root")},
 			contextUser:        &kuser.DefaultInfo{Name: "user-1"},
 			contextRequestInfo: &request.RequestInfo{IsResourceRequest: true, APIGroup: "tenancy.kcp.dev", Resource: "workspaces", Name: "~", Verb: "get"},
 
 			synced: true,
-			getLocalClusterWorkspace: func(fullName logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error) {
-				return nil, nil
-			},
 			authz: func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
 				return authorizer.DecisionAllow, "", nil
 			},
+			getLocalClusterWorkspace: func(fullName logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error) {
+				return nil, nil
+			},
+			mocks: homeWorkspaceFeatureLogic{
+				searchForWorkspaceAndRBACInLocalInformers: func(workspaceName logicalcluster.Name, isHome bool, userName string) (found bool, retryAfterSeconds int, checkError error) {
+					return
+				},
+				tryToCreate: func(ctx context.Context, userName string, workspaceToCheck logicalcluster.Name, workspaceType tenancyv1alpha1.ClusterWorkspaceTypeName) (retryAfterSeconds int, createError error) {
+					retryAfterSeconds = 11
+					return
+				},
+			},
 
-			expectedStatusCode:   200,
+			expectedStatusCode:   429,
 			expectedToDelegate:   false,
-			expectedResponseBody: `{"kind":"Workspace","apiVersion":"tenancy.kcp.dev/v1beta1","metadata":{"name":"user-1","creationTimestamp":null,"annotations":{"tenancy.kcp.dev/owner":"user-1"},"clusterName":"root:users:bi:ie"},"spec":{"type":{"name":"home","path":"root"}},"status":{"URL":"https://example.com/clusters/root:users:bi:ie:user-1"}}`,
+			expectedResponseBody: "Creating the home workspace",
+			expectedResponseHeaders: map[string]string{
+				"Retry-After": "11",
+			},
 		},
 		{
 			testName:           "return error if error when getting home workspace in the local informers",
@@ -1350,42 +1362,6 @@ func TestServeHTTP(t *testing.T) {
 			expectedStatusCode:   500,
 			expectedToDelegate:   false,
 			expectedResponseBody: `Internal Server Error: "/dummy-target": an error`,
-		},
-		{
-			testName:           "return Forbidden if no permission to get the virtual home workspace resource when it still doesn't exist",
-			contextCluster:     &request.Cluster{Name: logicalcluster.New("root")},
-			contextUser:        &kuser.DefaultInfo{Name: "user-1"},
-			contextRequestInfo: &request.RequestInfo{IsResourceRequest: true, APIGroup: "tenancy.kcp.dev", Resource: "workspaces", Name: "~", Verb: "get"},
-
-			synced: true,
-			getLocalClusterWorkspace: func(fullName logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error) {
-				return nil, nil
-			},
-			authz: func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
-				return authorizer.DecisionDeny, "some reason", nil
-			},
-
-			expectedStatusCode:   403,
-			expectedToDelegate:   false,
-			expectedResponseBody: `{"kind":"Status","apiVersion":"v1","metadata":{},"status":"Failure","message":"clusterworkspaces.tenancy.kcp.dev \"~\" is forbidden: User \"user-1\" cannot get resource \"clusterworkspaces/workspace\" in API group \"tenancy.kcp.dev\" at the cluster scope: some reason","reason":"Forbidden","details":{"name":"~","group":"tenancy.kcp.dev","kind":"clusterworkspaces"},"code":403}`,
-		},
-		{
-			testName:           "return error if could not check the permission to get the virtual home workspace resource when it still doesn't exist",
-			contextCluster:     &request.Cluster{Name: logicalcluster.New("root")},
-			contextUser:        &kuser.DefaultInfo{Name: "user-1"},
-			contextRequestInfo: &request.RequestInfo{IsResourceRequest: true, APIGroup: "tenancy.kcp.dev", Resource: "workspaces", Name: "~", Verb: "get"},
-
-			synced: true,
-			getLocalClusterWorkspace: func(fullName logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error) {
-				return nil, nil
-			},
-			authz: func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
-				return authorizer.DecisionDeny, "", errors.New("an error")
-			},
-
-			expectedStatusCode:   403,
-			expectedToDelegate:   false,
-			expectedResponseBody: `{"kind":"Status","apiVersion":"v1","metadata":{},"status":"Failure","message":"clusterworkspaces.tenancy.kcp.dev \"~\" is forbidden: User \"user-1\" cannot get resource \"clusterworkspaces/workspace\" in API group \"tenancy.kcp.dev\" at the cluster scope: workspace access not permitted","reason":"Forbidden","details":{"name":"~","group":"tenancy.kcp.dev","kind":"clusterworkspaces"},"code":403}`,
 		},
 		{
 			testName:           "return the real home workspace when it already exists and is ready in informer, and RBAC objects are in informer",
@@ -1414,30 +1390,40 @@ func TestServeHTTP(t *testing.T) {
 			expectedResponseBody: `{"kind":"Workspace","apiVersion":"tenancy.kcp.dev/v1beta1","metadata":{"name":"user-1","resourceVersion":"someRealResourceVersion","creationTimestamp":null,"clusterName":"root:users:bi:ie"},"spec":{"type":{"name":"home","path":"root"}},"status":{"URL":"https://example.com/clusters/root:users:bi:ie:user-1","phase":"Ready"}}`,
 		},
 		{
-			testName:           "return virtual home workspace when the home workspace is not ready yet",
+			testName:           "try to create home workspace when the home workspace is not ready yet",
 			contextCluster:     &request.Cluster{Name: logicalcluster.New("root")},
 			contextUser:        &kuser.DefaultInfo{Name: "user-1"},
 			contextRequestInfo: &request.RequestInfo{IsResourceRequest: true, APIGroup: "tenancy.kcp.dev", Resource: "workspaces", Name: "~", Verb: "get"},
 
 			synced: true,
+			authz: func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
+				return authorizer.DecisionAllow, "", nil
+			},
 			getLocalClusterWorkspace: func(fullName logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error) {
 				return newWorkspace("root:users:bi:ie:user-1").withType("root:home").withRV("someRealResourceVersion").withStatus(tenancyv1alpha1.ClusterWorkspaceStatus{
 					Phase:   tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
 					BaseURL: "https://example.com/clusters/root:users:bi:ie:user-1",
 				}).ClusterWorkspace, nil
 			},
-			authz: func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
-				return authorizer.DecisionAllow, "", nil
-			},
 			mocks: homeWorkspaceFeatureLogic{
-				searchForHomeWorkspaceRBACResourcesInLocalInformers: func(logicalClusterName logicalcluster.Name) (found bool, err error) {
-					return true, nil
+				searchForWorkspaceAndRBACInLocalInformers: func(workspaceName logicalcluster.Name, isHome bool, userName string) (found bool, retryAfterSeconds int, checkError error) {
+					return false, 0, nil
+				},
+				searchForHomeWorkspaceRBACResourcesInLocalInformers: func(logicalClusterName logicalcluster.Name) (bool, error) {
+					return false, nil
+				},
+				tryToCreate: func(ctx context.Context, userName string, workspaceToCheck logicalcluster.Name, workspaceType tenancyv1alpha1.ClusterWorkspaceTypeName) (retryAfterSeconds int, createError error) {
+					retryAfterSeconds = 11
+					return
 				},
 			},
 
-			expectedStatusCode:   200,
+			expectedStatusCode:   429,
 			expectedToDelegate:   false,
-			expectedResponseBody: `{"kind":"Workspace","apiVersion":"tenancy.kcp.dev/v1beta1","metadata":{"name":"user-1","creationTimestamp":null,"annotations":{"tenancy.kcp.dev/owner":"user-1"},"clusterName":"root:users:bi:ie"},"spec":{"type":{"name":"home","path":"root"}},"status":{"URL":"https://example.com/clusters/root:users:bi:ie:user-1"}}`,
+			expectedResponseBody: "Creating the home workspace",
+			expectedResponseHeaders: map[string]string{
+				"Retry-After": "11",
+			},
 		},
 		{
 			testName:           "return virtual home workspace when home already exists, but RBAC objects are not in informer",
@@ -1459,11 +1445,21 @@ func TestServeHTTP(t *testing.T) {
 				searchForHomeWorkspaceRBACResourcesInLocalInformers: func(logicalClusterName logicalcluster.Name) (found bool, err error) {
 					return false, nil
 				},
+				searchForWorkspaceAndRBACInLocalInformers: func(workspaceName logicalcluster.Name, isHome bool, userName string) (found bool, retryAfterSeconds int, checkError error) {
+					return
+				},
+				tryToCreate: func(ctx context.Context, userName string, workspaceToCheck logicalcluster.Name, workspaceType tenancyv1alpha1.ClusterWorkspaceTypeName) (retryAfterSeconds int, createError error) {
+					retryAfterSeconds = 11
+					return
+				},
 			},
 
-			expectedStatusCode:   200,
+			expectedStatusCode:   429,
 			expectedToDelegate:   false,
-			expectedResponseBody: `{"kind":"Workspace","apiVersion":"tenancy.kcp.dev/v1beta1","metadata":{"name":"user-1","creationTimestamp":null,"annotations":{"tenancy.kcp.dev/owner":"user-1"},"clusterName":"root:users:bi:ie"},"spec":{"type":{"name":"home","path":"root"}},"status":{"URL":"https://example.com/clusters/root:users:bi:ie:user-1"}}`,
+			expectedResponseBody: "Creating the home workspace",
+			expectedResponseHeaders: map[string]string{
+				"Retry-After": "11",
+			},
 		},
 		{
 			testName:           "return error when workspace cannot be checked in local informers",
@@ -1713,11 +1709,6 @@ func (b wsBuilder) withType(qualifiedName string) wsBuilder {
 
 func (b wsBuilder) withStatus(status tenancyv1alpha1.ClusterWorkspaceStatus) wsBuilder {
 	b.Status = status
-	return b
-}
-
-func (b wsBuilder) withLabels(labels map[string]string) wsBuilder {
-	b.Labels = labels
 	return b
 }
 
