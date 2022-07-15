@@ -63,7 +63,7 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	serviceProviderWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
 	consumerWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
 
-	cfg := server.DefaultConfig(t)
+	cfg := server.BaseConfig(t)
 
 	kcpClients, err := clientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
@@ -237,7 +237,7 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 	consumerWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
 	consumerWorkspace2 := framework.NewWorkspaceFixture(t, server, orgClusterName)
 
-	cfg := server.DefaultConfig(t)
+	cfg := server.BaseConfig(t)
 
 	kcpClients, err := clientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp cluster client for server")

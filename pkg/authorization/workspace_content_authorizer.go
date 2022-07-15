@@ -33,6 +33,7 @@ import (
 	rbacv1 "k8s.io/client-go/informers/rbac/v1"
 	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/clusters"
+	"k8s.io/kubernetes/pkg/genericcontrolplane"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -109,11 +110,17 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 	}
 
 	parentWorkspaceKubeInformer := rbacwrapper.FilterInformers(parentClusterName, a.rbacInformers)
+	bootstrapInformer := rbacwrapper.FilterInformers(genericcontrolplane.LocalAdminCluster, a.rbacInformers)
+
+	mergedClusterRoleInformer := rbacwrapper.MergedClusterRoleInformer(parentWorkspaceKubeInformer.ClusterRoles(), bootstrapInformer.ClusterRoles())
+	mergedRoleInformer := rbacwrapper.MergedRoleInformer(parentWorkspaceKubeInformer.Roles(), bootstrapInformer.Roles())
+	mergedClusterRoleBindingsInformer := rbacwrapper.MergedClusterRoleBindingInformer(parentWorkspaceKubeInformer.ClusterRoleBindings(), bootstrapInformer.ClusterRoleBindings())
+
 	parentAuthorizer := rbac.New(
-		&rbac.RoleGetter{Lister: parentWorkspaceKubeInformer.Roles().Lister()},
+		&rbac.RoleGetter{Lister: mergedRoleInformer.Lister()},
 		&rbac.RoleBindingLister{Lister: parentWorkspaceKubeInformer.RoleBindings().Lister()},
-		&rbac.ClusterRoleGetter{Lister: parentWorkspaceKubeInformer.ClusterRoles().Lister()},
-		&rbac.ClusterRoleBindingLister{Lister: parentWorkspaceKubeInformer.ClusterRoleBindings().Lister()},
+		&rbac.ClusterRoleGetter{Lister: mergedClusterRoleInformer.Lister()},
+		&rbac.ClusterRoleBindingLister{Lister: mergedClusterRoleBindingsInformer.Lister()},
 	)
 
 	extraGroups := sets.NewString()

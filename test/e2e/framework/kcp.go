@@ -62,7 +62,8 @@ type RunningServer interface {
 	Name() string
 	KubeconfigPath() string
 	RawConfig() (clientcmdapi.Config, error)
-	DefaultConfig(t *testing.T) *rest.Config
+	BaseConfig(t *testing.T) *rest.Config
+	RootShardConfig(t *testing.T) *rest.Config
 	Artifact(t *testing.T, producer func() (runtime.Object, error))
 }
 
@@ -375,8 +376,8 @@ func (c *kcpServer) KubeconfigPath() string {
 	return c.kubeconfigPath
 }
 
-// Config exposes a copy of the neutral client config for this server.
-func (c *kcpServer) defaultConfig() (*rest.Config, error) {
+// Config exposes a copy of the base client config for this server.
+func (c *kcpServer) config(context string) (*rest.Config, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	if c.cfg == nil {
@@ -387,15 +388,22 @@ func (c *kcpServer) defaultConfig() (*rest.Config, error) {
 		return nil, err
 	}
 
-	config := clientcmd.NewNonInteractiveClientConfig(raw, "system:admin", nil, nil)
+	config := clientcmd.NewNonInteractiveClientConfig(raw, context, nil, nil)
 	return config.ClientConfig()
 }
 
-func (c *kcpServer) DefaultConfig(t *testing.T) *rest.Config {
-	cfg, err := c.defaultConfig()
+func (c *kcpServer) BaseConfig(t *testing.T) *rest.Config {
+	cfg, err := c.config("base")
 	require.NoError(t, err)
-	wrappedConfig := kcpclienthelper.NewClusterConfig(cfg)
-	return rest.AddUserAgent(rest.CopyConfig(wrappedConfig), t.Name())
+	cfg = kcpclienthelper.NewClusterConfig(cfg)
+	return rest.AddUserAgent(rest.CopyConfig(cfg), t.Name())
+}
+
+func (c *kcpServer) RootShardConfig(t *testing.T) *rest.Config {
+	cfg, err := c.config("system:admin")
+	require.NoError(t, err)
+	cfg = kcpclienthelper.NewClusterConfig(cfg)
+	return rest.AddUserAgent(rest.CopyConfig(cfg), t.Name())
 }
 
 // RawConfig exposes a copy of the client config for this server.
@@ -420,7 +428,7 @@ func (c *kcpServer) Ready(keepMonitoring bool) error {
 		// main Ready() body, so we check before continuing that we are live
 		return fmt.Errorf("failed to wait for readiness: %w", c.ctx.Err())
 	}
-	cfg, err := c.defaultConfig()
+	cfg, err := c.config("base")
 	if err != nil {
 		return fmt.Errorf("failed to read client configuration: %w", err)
 	}
@@ -565,13 +573,14 @@ func loadKubeConfig(kubeconfigPath string) (clientcmd.ClientConfig, error) {
 		return nil, fmt.Errorf("failed to load admin kubeconfig: %w", err)
 	}
 
-	return clientcmd.NewNonInteractiveClientConfig(*rawConfig, "system:admin", nil, nil), nil
+	return clientcmd.NewNonInteractiveClientConfig(*rawConfig, "base", nil, nil), nil
 }
 
 type unmanagedKCPServer struct {
-	name           string
-	kubeconfigPath string
-	cfg            clientcmd.ClientConfig
+	name                    string
+	kubeconfigPath          string
+	rootShardKubeconfigPath string
+	cfg, rootShardCfg       clientcmd.ClientConfig
 }
 
 // newPersistentKCPServer returns a RunningServer for a kubeconfig
@@ -579,16 +588,23 @@ type unmanagedKCPServer struct {
 // kubeconfig is expected to exist prior to running tests against it,
 // the configuration can be loaded synchronously and no locking is
 // required to subsequently access it.
-func newPersistentKCPServer(name, kubeconfigPath string) (RunningServer, error) {
+func newPersistentKCPServer(name, kubeconfigPath, rootShardKubeconfigPath string) (RunningServer, error) {
 	cfg, err := loadKubeConfig(kubeconfigPath)
 	if err != nil {
 		return nil, err
 	}
 
+	rootShardCfg, err := loadKubeConfig(rootShardKubeconfigPath)
+	if err != nil {
+		return nil, err
+	}
+
 	return &unmanagedKCPServer{
-		name:           name,
-		kubeconfigPath: kubeconfigPath,
-		cfg:            cfg,
+		name:                    name,
+		kubeconfigPath:          kubeconfigPath,
+		rootShardKubeconfigPath: rootShardKubeconfigPath,
+		cfg:                     cfg,
+		rootShardCfg:            rootShardCfg,
 	}, nil
 }
 
@@ -598,14 +614,14 @@ func NewFakeWorkloadServer(t *testing.T, server RunningServer, org logicalcluste
 	logicalClusterName := NewWorkspaceFixture(t, server, org)
 	rawConfig, err := server.RawConfig()
 	require.NoError(t, err, "failed to read config for server")
-	logicalConfig, kubeconfigPath := WriteLogicalClusterConfig(t, rawConfig, logicalClusterName)
+	logicalConfig, kubeconfigPath := WriteLogicalClusterConfig(t, rawConfig, logicalClusterName, "base")
 	fakeServer := &unmanagedKCPServer{
 		name:           logicalClusterName.String(),
 		cfg:            logicalConfig,
 		kubeconfigPath: kubeconfigPath,
 	}
 
-	downstreamConfig := fakeServer.DefaultConfig(t)
+	downstreamConfig := fakeServer.BaseConfig(t)
 
 	// Install the deployment crd in the fake cluster to allow creation of the syncer deployment.
 	crdClient, err := apiextensionsclientset.NewForConfig(downstreamConfig)
@@ -643,15 +659,25 @@ func (s *unmanagedKCPServer) RawConfig() (clientcmdapi.Config, error) {
 	return s.cfg.RawConfig()
 }
 
-func (s *unmanagedKCPServer) DefaultConfig(t *testing.T) *rest.Config {
+func (s *unmanagedKCPServer) BaseConfig(t *testing.T) *rest.Config {
 	raw, err := s.cfg.RawConfig()
+	require.NoError(t, err)
+
+	config := clientcmd.NewNonInteractiveClientConfig(raw, "base", nil, nil)
+	defaultConfig, err := config.ClientConfig()
+	require.NoError(t, err)
+	wrappedCfg := kcpclienthelper.NewClusterConfig(defaultConfig)
+	return wrappedCfg
+}
+
+func (s *unmanagedKCPServer) RootShardConfig(t *testing.T) *rest.Config {
+	raw, err := s.rootShardCfg.RawConfig()
 	require.NoError(t, err)
 
 	config := clientcmd.NewNonInteractiveClientConfig(raw, "system:admin", nil, nil)
 	defaultConfig, err := config.ClientConfig()
 	require.NoError(t, err)
-	wrappedCfg := kcpclienthelper.NewClusterConfig(defaultConfig)
-	return wrappedCfg
+	return defaultConfig
 }
 
 func (s *unmanagedKCPServer) Artifact(t *testing.T, producer func() (runtime.Object, error)) {

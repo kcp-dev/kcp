@@ -65,7 +65,8 @@ func TestAPIBinding(t *testing.T) {
 	consumer2Workspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
 	consumer3Workspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
 
-	cfg := server.DefaultConfig(t)
+	cfg := server.BaseConfig(t)
+	rootShardCfg := server.RootShardConfig(t)
 
 	kcpClients, err := clientset.NewClusterForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
@@ -238,11 +239,7 @@ func TestAPIBinding(t *testing.T) {
 
 	verifyWildcardList := func(consumerWorkspace logicalcluster.Name, expectedItems int) {
 		t.Logf("Get consumer %s workspace shard and create a shard client that is able to do wildcard requests", consumerWorkspace)
-		parent, _ := consumerWorkspace.Parent()
-		consumerWS, err := kcpClients.Cluster(parent).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, consumerWorkspace.Base(), metav1.GetOptions{})
-		require.NoError(t, err)
-		shardCfg := framework.ShardConfig(t, kcpClients, consumerWS.Status.Location.Current, cfg)
-		shardDynamicClients, err := dynamic.NewClusterForConfig(shardCfg)
+		shardDynamicClients, err := dynamic.NewClusterForConfig(rootShardCfg)
 		require.NoError(t, err)
 
 		t.Logf("Get APIBinding for workspace %s", consumerWorkspace.String())
@@ -294,9 +291,9 @@ func TestAPIBinding(t *testing.T) {
 
 func apiexportVWConfig(t *testing.T, kubeconfig clientcmdapi.Config, clusterName logicalcluster.Name, apiexportName string) *rest.Config {
 	virtualWorkspaceRawConfig := kubeconfig.DeepCopy()
-	virtualWorkspaceRawConfig.Clusters["apiexport"] = kubeconfig.Clusters["system:admin"].DeepCopy()
-	virtualWorkspaceRawConfig.Clusters["apiexport"].Server = fmt.Sprintf("%s/services/apiexport/%s/%s/", kubeconfig.Clusters["system:admin"].Server, clusterName.String(), apiexportName)
-	virtualWorkspaceRawConfig.Contexts["apiexport"] = kubeconfig.Contexts["system:admin"].DeepCopy()
+	virtualWorkspaceRawConfig.Clusters["apiexport"] = kubeconfig.Clusters["base"].DeepCopy()
+	virtualWorkspaceRawConfig.Clusters["apiexport"].Server = fmt.Sprintf("%s/services/apiexport/%s/%s/", kubeconfig.Clusters["base"].Server, clusterName.String(), apiexportName)
+	virtualWorkspaceRawConfig.Contexts["apiexport"] = kubeconfig.Contexts["base"].DeepCopy()
 	virtualWorkspaceRawConfig.Contexts["apiexport"].Cluster = "apiexport"
 
 	config, err := clientcmd.NewNonInteractiveClientConfig(*virtualWorkspaceRawConfig, "apiexport", nil, nil).ClientConfig()

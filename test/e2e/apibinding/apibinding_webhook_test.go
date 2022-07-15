@@ -62,7 +62,7 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 	sourceWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
 	targetWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
 
-	cfg := server.DefaultConfig(t)
+	cfg := server.BaseConfig(t)
 
 	kcpClients, err := clientset.NewClusterForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
@@ -202,7 +202,7 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 	sourceWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
 	targetWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
 
-	cfg := server.DefaultConfig(t)
+	cfg := server.BaseConfig(t)
 
 	kcpClients, err := clientset.NewClusterForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp cluster client for server")

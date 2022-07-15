@@ -57,9 +57,9 @@ func TestMultiPlacement(t *testing.T) {
 	locationClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
 	userClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
 
-	kubeClusterClient, err := kubernetes.NewClusterForConfig(source.DefaultConfig(t))
+	kubeClusterClient, err := kubernetes.NewClusterForConfig(source.BaseConfig(t))
 	require.NoError(t, err)
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(source.DefaultConfig(t))
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(source.BaseConfig(t))
 	require.NoError(t, err)
 
 	t.Logf("Check that there is no services resource in the user workspace")

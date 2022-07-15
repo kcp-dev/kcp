@@ -204,7 +204,7 @@ func kcpAdminKubeConfig(ctx context.Context, hostIP string) error {
 
 	var kubeConfig clientcmdapi.Config
 	kubeConfig.AuthInfos = map[string]*clientcmdapi.AuthInfo{
-		"admin": {
+		"kcp-admin": {
 			ClientKey:         ".kcp/kcp-admin.key",
 			ClientCertificate: ".kcp/kcp-admin.crt",
 		},
@@ -214,21 +214,16 @@ func kcpAdminKubeConfig(ctx context.Context, hostIP string) error {
 			Server:               baseHost + "/clusters/root",
 			CertificateAuthority: ".kcp/serving-ca.crt",
 		},
-		"root:default": {
-			Server:               baseHost + "/clusters/root:default",
-			CertificateAuthority: ".kcp/serving-ca.crt",
-		},
-		"system:admin": {
+		"base": {
 			Server:               baseHost,
 			CertificateAuthority: ".kcp/serving-ca.crt",
 		},
 	}
 	kubeConfig.Contexts = map[string]*clientcmdapi.Context{
-		"root":         {Cluster: "root", AuthInfo: "admin"},
-		"default":      {Cluster: "root:default", AuthInfo: "admin"},
-		"system:admin": {Cluster: "system:admin", AuthInfo: "admin"},
+		"root": {Cluster: "root", AuthInfo: "kcp-admin"},
+		"base": {Cluster: "base", AuthInfo: "kcp-admin"},
 	}
-	kubeConfig.CurrentContext = "default"
+	kubeConfig.CurrentContext = "base"
 
 	if err := clientcmdapi.FlattenConfig(&kubeConfig); err != nil {
 		return err

@@ -55,14 +55,13 @@ func TestAPIBindingAuthorizerSystemGroupProtection(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	kubeClusterClient, err := kubernetes.NewForConfig(server.DefaultConfig(t))
+	kubeClusterClient, err := kubernetes.NewForConfig(server.BaseConfig(t))
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
-	kcpClusterClient, err := clientset.NewClusterForConfig(server.DefaultConfig(t))
+	kcpClusterClient, err := clientset.NewClusterForConfig(server.BaseConfig(t))
 	require.NoError(t, err, "failed to construct kcp cluster client for user-1")
 
-	rootCfg := framework.ShardConfig(t, kcpClusterClient, "root", server.DefaultConfig(t))
-	rootKcpClusterClient, err := clientset.NewClusterForConfig(rootCfg)
+	rootKcpClusterClient, err := clientset.NewClusterForConfig(server.RootShardConfig(t))
 	require.NoError(t, err)
 
 	t.Logf("Creating workspace")
@@ -85,7 +84,7 @@ func TestAPIBindingAuthorizerSystemGroupProtection(t *testing.T) {
 				t.Parallel()
 
 				t.Logf("Creating a ClusterWorkspaceType as user-1")
-				userKcpClusterClient, err := clientset.NewClusterForConfig(framework.UserConfig("user-1", server.DefaultConfig(t)))
+				userKcpClusterClient, err := clientset.NewClusterForConfig(framework.UserConfig("user-1", server.BaseConfig(t)))
 				require.NoError(t, err, "failed to construct kcp cluster client for user-1")
 				framework.Eventually(t, func() (bool, string) { // authz makes this eventually succeed
 					_, err = userKcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaceTypes().Create(ctx, &tenancyv1alpha1.ClusterWorkspaceType{
@@ -115,7 +114,7 @@ func TestAPIBindingAuthorizerSystemGroupProtection(t *testing.T) {
 				t.Parallel()
 
 				t.Logf("Creating a APIExport as user-1")
-				userKcpClusterClient, err := clientset.NewClusterForConfig(framework.UserConfig("user-1", server.DefaultConfig(t)))
+				userKcpClusterClient, err := clientset.NewClusterForConfig(framework.UserConfig("user-1", server.BaseConfig(t)))
 				require.NoError(t, err, "failed to construct kcp cluster client for user-1")
 				framework.Eventually(t, func() (bool, string) { // authz makes this eventually succeed
 					_, err := userKcpClusterClient.Cluster(orgClusterName).ApisV1alpha1().APIExports().Create(ctx, &apisv1alpha1.APIExport{
@@ -158,7 +157,7 @@ func TestAPIBindingAuthorizer(t *testing.T) {
 	consumer1Workspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
 	consumer2Workspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
 
-	cfg := server.DefaultConfig(t)
+	cfg := server.BaseConfig(t)
 
 	kcpClients, err := clientset.NewClusterForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp cluster client for server")

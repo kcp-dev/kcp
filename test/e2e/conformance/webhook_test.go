@@ -52,7 +52,7 @@ func TestMutatingWebhookInWorkspace(t *testing.T) {
 	t.Cleanup(cancelFunc)
 
 	// using known path to cert and key
-	cfg := server.DefaultConfig(t)
+	cfg := server.BaseConfig(t)
 
 	scheme := runtime.NewScheme()
 	err := admissionregistrationv1.AddToScheme(scheme)
@@ -171,7 +171,7 @@ func TestValidatingWebhookInWorkspace(t *testing.T) {
 	t.Cleanup(cancelFunc)
 
 	// using known path to cert and key
-	cfg := server.DefaultConfig(t)
+	cfg := server.BaseConfig(t)
 
 	scheme := runtime.NewScheme()
 	err := admissionregistrationv1.AddToScheme(scheme)

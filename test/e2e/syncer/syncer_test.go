@@ -72,7 +72,7 @@ func TestSyncerLifecycle(t *testing.T) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
-	upstreamConfig := upstreamServer.DefaultConfig(t)
+	upstreamConfig := upstreamServer.BaseConfig(t)
 	upstreamKubeClusterClient, err := kubernetesclientset.NewClusterForConfig(upstreamConfig)
 	require.NoError(t, err)
 	upstreamKubeClient := upstreamKubeClusterClient.Cluster(wsClusterName)
@@ -449,7 +449,7 @@ func TestSyncWorkload(t *testing.T) {
 	// Write the upstream logical cluster config to disk for the workspace plugin
 	upstreamRawConfig, err := upstreamServer.RawConfig()
 	require.NoError(t, err)
-	_, kubeconfigPath := framework.WriteLogicalClusterConfig(t, upstreamRawConfig, wsClusterName)
+	_, kubeconfigPath := framework.WriteLogicalClusterConfig(t, upstreamRawConfig, wsClusterName, "base")
 
 	subCommand := []string{
 		"workload",
@@ -474,7 +474,7 @@ func TestCordonUncordonDrain(t *testing.T) {
 	t.Log("Creating an organization")
 	orgClusterName := framework.NewOrganizationFixture(t, upstreamServer)
 
-	upstreamCfg := upstreamServer.DefaultConfig(t)
+	upstreamCfg := upstreamServer.BaseConfig(t)
 
 	t.Log("Creating a workspace")
 	wsClusterName := framework.NewWorkspaceFixture(t, upstreamServer, orgClusterName)
@@ -482,7 +482,7 @@ func TestCordonUncordonDrain(t *testing.T) {
 	// Write the upstream logical cluster config to disk for the workspace plugin
 	upstreamRawConfig, err := upstreamServer.RawConfig()
 	require.NoError(t, err)
-	_, kubeconfigPath := framework.WriteLogicalClusterConfig(t, upstreamRawConfig, wsClusterName)
+	_, kubeconfigPath := framework.WriteLogicalClusterConfig(t, upstreamRawConfig, wsClusterName, "base")
 
 	clients, err := clientset.NewClusterForConfig(upstreamCfg)
 	require.NoError(t, err, "failed to construct client for server")

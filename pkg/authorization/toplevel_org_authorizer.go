@@ -30,6 +30,7 @@ import (
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	clientgoinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/clusters"
+	"k8s.io/kubernetes/pkg/genericcontrolplane"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -43,13 +44,18 @@ import (
 // the top-level workspace exists, and Deny otherwise.
 func NewTopLevelOrganizationAccessAuthorizer(versionedInformers clientgoinformers.SharedInformerFactory, clusterWorkspaceLister tenancyv1.ClusterWorkspaceLister, delegate authorizer.Authorizer) authorizer.Authorizer {
 	rootKubeInformer := rbacwrapper.FilterInformers(tenancyv1alpha1.RootCluster, versionedInformers.Rbac().V1())
+	bootstrapInformer := rbacwrapper.FilterInformers(genericcontrolplane.LocalAdminCluster, versionedInformers.Rbac().V1())
+
+	mergedClusterRoleInformer := rbacwrapper.MergedClusterRoleInformer(rootKubeInformer.ClusterRoles(), bootstrapInformer.ClusterRoles())
+	mergedRoleInformer := rbacwrapper.MergedRoleInformer(rootKubeInformer.Roles(), bootstrapInformer.Roles())
+	mergedClusterRoleBindingsInformer := rbacwrapper.MergedClusterRoleBindingInformer(rootKubeInformer.ClusterRoleBindings(), bootstrapInformer.ClusterRoleBindings())
 
 	return &topLevelOrgAccessAuthorizer{
 		rootAuthorizer: rbac.New(
-			&rbac.RoleGetter{Lister: rootKubeInformer.Roles().Lister()},
+			&rbac.RoleGetter{Lister: mergedRoleInformer.Lister()},
 			&rbac.RoleBindingLister{Lister: rootKubeInformer.RoleBindings().Lister()},
-			&rbac.ClusterRoleGetter{Lister: rootKubeInformer.ClusterRoles().Lister()},
-			&rbac.ClusterRoleBindingLister{Lister: rootKubeInformer.ClusterRoleBindings().Lister()},
+			&rbac.ClusterRoleGetter{Lister: mergedClusterRoleInformer.Lister()},
+			&rbac.ClusterRoleBindingLister{Lister: mergedClusterRoleBindingsInformer.Lister()},
 		),
 		clusterWorkspaceLister: clusterWorkspaceLister,
 		delegate:               delegate,

@@ -47,7 +47,7 @@ func TestUserHomeWorkspaces(t *testing.T) {
 		framework.RunningServer
 		orgClusterName                logicalcluster.Name
 		kubeClusterClient             kubernetes.ClusterInterface
-		kcpClusterClient              kcpclientset.ClusterInterface
+		rootShardKcpClusterClient     kcpclientset.ClusterInterface
 		kcpUserClusterClients         []kcpclientset.ClusterInterface
 		virtualPersonalClusterClients []kcpclientset.ClusterInterface
 	}
@@ -185,12 +185,12 @@ func TestUserHomeWorkspaces(t *testing.T) {
 				require.Equal(t, "user-1", homeWorkspaceName.Base(), "Home workspace for the wrong user")
 
 				t.Logf("Try to create a ClusterWorkspace workspace1 in the non-existing user-1 home as system:masters")
-				_, err = server.kcpClusterClient.Cluster(homeWorkspaceName).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{
+				_, err = server.rootShardKcpClusterClient.Cluster(homeWorkspaceName).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "workspace1",
 					},
 				}, metav1.CreateOptions{})
-				require.EqualError(t, err, `clusterworkspaces.tenancy.kcp.dev "~" is forbidden: User "system:apiserver" cannot create resource "clusterworkspaces/workspace" in API group "tenancy.kcp.dev" at the cluster scope: workspace access not permitted`, "system:master should be not able to trigger the automatic creation of user-1 home")
+				require.EqualError(t, err, `clusterworkspaces.tenancy.kcp.dev "~" is forbidden: User "shard-admin" cannot create resource "clusterworkspaces/workspace" in API group "tenancy.kcp.dev" at the cluster scope: workspace access not permitted`, "system:master should be not able to trigger the automatic creation of user-1 home")
 			},
 		},
 	}
@@ -207,10 +207,11 @@ func TestUserHomeWorkspaces(t *testing.T) {
 			orgClusterName := framework.NewOrganizationFixture(t, server)
 
 			// create non-virtual clients
-			kcpConfig := server.DefaultConfig(t)
+			kcpConfig := server.BaseConfig(t)
+			rootShardCfg := server.RootShardConfig(t)
 			kubeClusterClient, err := kubernetes.NewClusterForConfig(kcpConfig)
 			require.NoError(t, err, "failed to construct client for server")
-			kcpClusterClient, err := kcpclientset.NewClusterForConfig(kcpConfig)
+			rootShardKcpClusterClient, err := kcpclientset.NewClusterForConfig(rootShardCfg)
 			require.NoError(t, err, "failed to construct client for server")
 
 			// create kcp client and virtual clients for all users requested
@@ -228,7 +229,7 @@ func TestUserHomeWorkspaces(t *testing.T) {
 				RunningServer:                 server,
 				orgClusterName:                orgClusterName,
 				kubeClusterClient:             kubeClusterClient,
-				kcpClusterClient:              kcpClusterClient,
+				rootShardKcpClusterClient:     rootShardKcpClusterClient,
 				kcpUserClusterClients:         kcpUserClusterClients,
 				virtualPersonalClusterClients: virtualPersonalClusterClients,
 			})

@@ -191,7 +191,7 @@ func TestWorkspaceController(t *testing.T) {
 				server = framework.PrivateKcpServer(t)
 			}
 
-			cfg := server.DefaultConfig(t)
+			cfg := server.BaseConfig(t)
 
 			orgClusterName := framework.NewOrganizationFixture(t, server)
 

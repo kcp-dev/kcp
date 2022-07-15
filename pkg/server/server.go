@@ -72,7 +72,7 @@ const resyncPeriod = 10 * time.Hour
 // as a library rather than as a single binary. Using its constructor function, you can easily
 // setup a new api-server and start it:
 //
-//   srv := server.NewServer(server.DefaultConfig())
+//   srv := server.NewServer(server.BaseConfig())
 //   srv.Run(ctx)
 //
 // You may optionally provide PostStartHookFunc and PreShutdownHookFunc hooks before starting
@@ -219,7 +219,7 @@ func (s *Server) Run(ctx context.Context) error {
 	if err := s.options.Authorization.ApplyTo(genericConfig, s.kubeSharedInformerFactory, s.kcpSharedInformerFactory); err != nil {
 		return err
 	}
-	newTokenOrEmpty, tokenHash, err := s.options.AdminAuthentication.ApplyTo(genericConfig)
+	kcpAdminToken, shardAdminToken, shardAdminTokenHash, err := s.options.AdminAuthentication.ApplyTo(genericConfig)
 	if err != nil {
 		return err
 	}
@@ -601,7 +601,7 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
-	if err := s.options.AdminAuthentication.WriteKubeConfig(genericConfig, newTokenOrEmpty, tokenHash); err != nil {
+	if err := s.options.AdminAuthentication.WriteKubeConfig(genericConfig, kcpAdminToken, shardAdminToken, shardAdminTokenHash); err != nil {
 		return err
 	}
 

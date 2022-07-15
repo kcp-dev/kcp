@@ -34,6 +34,55 @@ func MergedClusterRoleInformer(informers ...rbacinformers.ClusterRoleInformer) r
 	}
 }
 
+func MergedClusterRoleBindingInformer(informers ...rbacinformers.ClusterRoleBindingInformer) rbacinformers.ClusterRoleBindingInformer {
+	return &mergedClusterRoleBindingInformer{
+		informers: informers,
+	}
+}
+
+type mergedClusterRoleBindingInformer struct {
+	informers []rbacinformers.ClusterRoleBindingInformer
+}
+
+func (mergedClusterRoleBindingInformer) Informer() cache.SharedIndexInformer {
+	panic("not implemented")
+}
+
+type mergedClusterRoleBindingLister struct {
+	listers []rbaclisters.ClusterRoleBindingLister
+}
+
+func (l mergedClusterRoleBindingLister) List(selector labels.Selector) (ret []*rbacv1.ClusterRoleBinding, err error) {
+	result := make([]*rbacv1.ClusterRoleBinding, 0)
+	for _, lister := range l.listers {
+		list, err := lister.List(selector)
+		if err != nil {
+			return nil, err
+		}
+
+		for i := range list {
+			entry := list[i].DeepCopy()
+			entry.Name = entry.GetClusterName() + ":" + entry.GetName()
+			result = append(result, entry)
+		}
+	}
+	return result, nil
+}
+
+func (l mergedClusterRoleBindingLister) Get(name string) (*rbacv1.ClusterRoleBinding, error) {
+	panic("not implemented")
+}
+
+func (m mergedClusterRoleBindingInformer) Lister() rbaclisters.ClusterRoleBindingLister {
+	aggregatedListers := make([]rbaclisters.ClusterRoleBindingLister, 0)
+	for _, inf := range m.informers {
+		aggregatedListers = append(aggregatedListers, inf.Lister())
+	}
+	return &mergedClusterRoleBindingLister{
+		listers: aggregatedListers,
+	}
+}
+
 type mergedClusterRoleInformer struct {
 	informers []rbacinformers.ClusterRoleInformer
 }

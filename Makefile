@@ -80,7 +80,7 @@ endif
 
 build: WHAT ?= ./cmd/...
 build: pre-build-checks ## Build the project
-	go build -ldflags="$(LDFLAGS)" -o bin $(WHAT)
+	go build $(BUILDFLAGS) -ldflags="$(LDFLAGS)" -o bin $(WHAT)
 .PHONY: build
 
 .PHONY: build-all
@@ -218,7 +218,7 @@ test-e2e-sharded: build-all
 	trap 'kill -TERM $$PID' TERM INT EXIT; \
 	while [ ! -f .kcp/admin.kubeconfig ]; do sleep 1; done; \
 	NO_GORUN=1 $(GO_TEST) -race -count $(COUNT) -p $(E2E_PARALLELISM) -parallel $(E2E_PARALLELISM) $(WHAT) \
-		-args --use-default-kcp-server --syncer-image="$${SYNCER_IMAGE}" --kcp-test-image="$${TEST_IMAGE}" --pcluster-kubeconfig="$(PWD)/kind.kubeconfig" $(TEST_ARGS)
+		-args --use-default-kcp-server --root-shard-kubeconfig=$(PWD)/.kcp-0/admin.kubeconfig --syncer-image="$${SYNCER_IMAGE}" --kcp-test-image="$${TEST_IMAGE}" --pcluster-kubeconfig="$(PWD)/kind.kubeconfig" $(TEST_ARGS)
 
 .PHONY: test
 ifdef USE_GOTESTSUM

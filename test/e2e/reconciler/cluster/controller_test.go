@@ -167,7 +167,7 @@ func TestClusterController(t *testing.T) {
 			wsClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
 
 			// clients
-			sourceConfig := source.DefaultConfig(t)
+			sourceConfig := source.BaseConfig(t)
 			sourceKubeClusterClient, err := kubernetesclient.NewClusterForConfig(sourceConfig)
 			require.NoError(t, err)
 			sourceWildwestClusterClient, err := wildwestclientset.NewClusterForConfig(sourceConfig)

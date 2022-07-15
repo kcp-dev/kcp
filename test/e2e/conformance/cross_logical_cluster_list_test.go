@@ -59,7 +59,8 @@ func TestCrossLogicalClusterList(t *testing.T) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
-	cfg := server.DefaultConfig(t)
+	cfg := server.BaseConfig(t)
+	rootShardCfg := server.RootShardConfig(t)
 
 	kcpClients, err := kcpclientset.NewClusterForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp client for server")
@@ -92,11 +93,10 @@ func TestCrossLogicalClusterList(t *testing.T) {
 	}
 
 	t.Logf("Listing ClusterWorkspace CRs across logical clusters with identity")
-	rootCfg := framework.ShardConfig(t, kcpClients, "root", cfg)
 	tenancyExport, err := kcpClients.Cluster(tenancyapi.RootCluster).ApisV1alpha1().APIExports().Get(ctx, "tenancy.kcp.dev", metav1.GetOptions{})
 	require.NoError(t, err, "error getting tenancy API export")
 	require.NotEmptyf(t, tenancyExport.Status.IdentityHash, "tenancy API export has no identity hash")
-	dynamicClusterClient, err := dynamic.NewClusterForConfig(rootCfg)
+	dynamicClusterClient, err := dynamic.NewClusterForConfig(rootShardCfg)
 	require.NoError(t, err, "failed to construct kcp client for server")
 	client := dynamicClusterClient.Cluster(logicalcluster.Wildcard).Resource(tenancyv1alpha1.SchemeGroupVersion.WithResource(fmt.Sprintf("clusterworkspaces:%s", tenancyExport.Status.IdentityHash)))
 	workspaces, err := client.List(ctx, metav1.ListOptions{})
@@ -159,9 +159,10 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	wsConsume2 := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyapi.ShardConstraints{Name: "root"}))
 
 	// Make sure the informers aren't throttled because dynamic informers do lots of discovery which slows down tests
-	cfg := server.DefaultConfig(t)
+	cfg := server.BaseConfig(t)
 	cfg.QPS = 500
 	cfg.Burst = 1000
+	rootShardConfig := server.RootShardConfig(t)
 
 	crdClusterClient, err := apiextensionsclient.NewClusterForConfig(cfg)
 	require.NoError(t, err, "failed to construct apiextensions client for server")
@@ -186,8 +187,7 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	bootstrapCRD(t, wsNormalCRD1b, crdClusterClient.Cluster(wsNormalCRD1b).ApiextensionsV1().CustomResourceDefinitions(), sheriffCRD1)
 
 	t.Logf("Create a root shard client that is able to do wildcard requests")
-	rootCfg := framework.ShardConfig(t, kcpClusterClient, "root", cfg)
-	rootShardDynamicClients, err := dynamic.NewClusterForConfig(rootCfg)
+	rootShardDynamicClients, err := dynamic.NewClusterForConfig(rootShardConfig)
 	require.NoError(t, err)
 
 	t.Logf("Trying to wildcard list without identity. It should fail.")
@@ -213,13 +213,13 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	apifixtures.CreateSheriff(ctx, t, dynamicClusterClient, wsConsume2, group, wsConsume2.String())
 
 	t.Logf("Trying to wildcard list with PartialObjectMetadata content-type and it should work")
-	rootShardMetadataClusterClient, err := metadataclient.NewDynamicMetadataClusterClientForConfig(rootCfg)
+	rootShardMetadataClusterClient, err := metadataclient.NewDynamicMetadataClusterClientForConfig(rootShardConfig)
 	require.NoError(t, err, "failed to construct dynamic client for server")
 	_, err = rootShardMetadataClusterClient.Cluster(logicalcluster.Wildcard).Resource(sheriffsGVR).List(ctx, metav1.ListOptions{})
 	require.NoError(t, err, "expected wildcard list to work with metadata client even though schemas are different")
 
 	t.Log("Start dynamic metadata informers")
-	identityRootCfg, resolve := bootstrap.NewConfigWithWildcardIdentities(rootCfg, bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster))
+	identityRootCfg, resolve := bootstrap.NewConfigWithWildcardIdentities(rootShardConfig, bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster))
 	require.Eventually(t, func() bool {
 		return resolve(ctx) == nil
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
@@ -270,18 +270,14 @@ func TestBuiltInCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 
 	org := framework.NewOrganizationFixture(t, server)
 
-	cfg := server.DefaultConfig(t)
-
-	kcpClusterClient, err := kcpclientset.NewClusterForConfig(cfg)
-	require.NoError(t, err, "failed to construct kcp client for server")
-
-	rootCfg := framework.ShardConfig(t, kcpClusterClient, "root", cfg)
+	cfg := server.BaseConfig(t)
+	rootShardCfg := server.RootShardConfig(t)
 
 	kubeClusterClient, err := kubernetes.NewClusterForConfig(cfg)
 	require.NoError(t, err, "error creating kube cluster client")
 
 	for i := 0; i < 3; i++ {
-		ws := framework.NewWorkspaceFixture(t, server, org)
+		ws := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
 
 		configMapName := fmt.Sprintf("test-cm-%d", i)
 		configMap := &corev1.ConfigMap{
@@ -298,7 +294,7 @@ func TestBuiltInCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	configMapGVR := corev1.Resource("configmaps").WithVersion("v1")
 
 	t.Logf("Trying to wildcard list with PartialObjectMetadata content-type and it should work")
-	metadataClusterClient, err := metadataclient.NewDynamicMetadataClusterClientForConfig(rootCfg)
+	metadataClusterClient, err := metadataclient.NewDynamicMetadataClusterClientForConfig(rootShardCfg)
 	require.NoError(t, err, "failed to construct dynamic client for server")
 	list, err := metadataClusterClient.Cluster(logicalcluster.Wildcard).Resource(configMapGVR).List(ctx, metav1.ListOptions{})
 	require.NoError(t, err, "expected wildcard list to work")

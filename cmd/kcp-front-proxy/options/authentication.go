@@ -24,6 +24,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authentication/request/x509"
+	"k8s.io/apiserver/pkg/authentication/user"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	apiserveroptions "k8s.io/apiserver/pkg/server/options"
 
@@ -41,7 +42,9 @@ type Authentication struct {
 
 // NewAuthentication creates a default Authentication
 func NewAuthentication() *Authentication {
-	return &Authentication{}
+	return &Authentication{
+		DropGroups: []string{user.SystemPrivilegedGroup},
+	}
 }
 
 // ApplyTo sets up the x509 Authenticator if the client-ca-file option was passed
