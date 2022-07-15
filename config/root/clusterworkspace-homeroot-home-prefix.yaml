@@ -1,7 +1,7 @@
 apiVersion: tenancy.kcp.dev/v1alpha1
 kind: ClusterWorkspace
 metadata:
-  name: users
+  name: HOMEPREFIX
   annotations:
     "bootstrap.kcp.dev/create-only": "true"
 spec:

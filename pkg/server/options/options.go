@@ -46,6 +46,7 @@ type Options struct {
 	Authorization       Authorization
 	AdminAuthentication AdminAuthentication
 	Virtual             Virtual
+	HomeWorkspaces      HomeWorkspaces
 
 	Extra ExtraOptions
 }
@@ -67,6 +68,7 @@ type completedOptions struct {
 	Authorization       Authorization
 	AdminAuthentication AdminAuthentication
 	Virtual             Virtual
+	HomeWorkspaces      HomeWorkspaces
 
 	Extra ExtraOptions
 }
@@ -86,6 +88,7 @@ func NewOptions(rootDir string) *Options {
 		Authorization:       *NewAuthorization(),
 		AdminAuthentication: *NewAdminAuthentication(rootDir),
 		Virtual:             *NewVirtual(),
+		HomeWorkspaces:      *NewHomeWorkspaces(),
 
 		Extra: ExtraOptions{
 			RootDirectory:            rootDir,
@@ -148,6 +151,7 @@ func (o *Options) rawFlags() cliflag.NamedFlagSets {
 	o.Authorization.AddFlags(fss.FlagSet("KCP Authorization"))
 	o.AdminAuthentication.AddFlags(fss.FlagSet("KCP Authentication"))
 	o.Virtual.AddFlags(fss.FlagSet("KCP Virtual Workspaces"))
+	o.HomeWorkspaces.AddFlags(fss.FlagSet("KCP Home Workspaces"))
 
 	fs := fss.FlagSet("KCP")
 	fs.StringVar(&o.Extra.ProfilerAddress, "profiler-address", o.Extra.ProfilerAddress, "[Address]:port to bind the profiler to")
@@ -178,6 +182,7 @@ func (o *CompletedOptions) Validate() []error {
 	errs = append(errs, o.Authorization.Validate()...)
 	errs = append(errs, o.AdminAuthentication.Validate()...)
 	errs = append(errs, o.Virtual.Validate()...)
+	errs = append(errs, o.HomeWorkspaces.Validate()...)
 
 	if o.Extra.DiscoveryPollInterval == 0 {
 		errs = append(errs, fmt.Errorf("--discovery-poll-interval not set"))
@@ -278,6 +283,7 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 			Authorization:       o.Authorization,
 			AdminAuthentication: o.AdminAuthentication,
 			Virtual:             o.Virtual,
+			HomeWorkspaces:      o.HomeWorkspaces,
 			Extra:               o.Extra,
 		},
 	}, nil
