@@ -236,10 +236,7 @@ func TestSearchForReadyWorkspaceInLocalInformers(t *testing.T) {
 			userName:      "user-1",
 
 			getLocalClusterWorkspace: func(fullName logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error) {
-				return &tenancyv1alpha1.ClusterWorkspace{
-					ObjectMeta: metav1.ObjectMeta{Name: "root:users:ab:cd:user-1"},
-					Status:     tenancyv1alpha1.ClusterWorkspaceStatus{Phase: tenancyv1alpha1.ClusterWorkspacePhaseReady},
-				}, nil
+				return newWorkspace("root:users:ab:cd:user-1").inPhase(tenancyv1alpha1.ClusterWorkspacePhaseReady).ClusterWorkspace, nil
 			},
 
 			mocks: homeWorkspaceFeatureLogic{
@@ -259,10 +256,7 @@ func TestSearchForReadyWorkspaceInLocalInformers(t *testing.T) {
 			userName:      "user-1",
 
 			getLocalClusterWorkspace: func(fullName logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error) {
-				return &tenancyv1alpha1.ClusterWorkspace{
-					ObjectMeta: metav1.ObjectMeta{Name: "root:users:ab:cd:user-1"},
-					Status:     tenancyv1alpha1.ClusterWorkspaceStatus{Phase: tenancyv1alpha1.ClusterWorkspacePhaseReady},
-				}, nil
+				return newWorkspace("root:users:ab:cd:user-1").inPhase(tenancyv1alpha1.ClusterWorkspacePhaseReady).ClusterWorkspace, nil
 			},
 
 			mocks: homeWorkspaceFeatureLogic{
@@ -283,10 +277,7 @@ func TestSearchForReadyWorkspaceInLocalInformers(t *testing.T) {
 			userName:      "user-1",
 
 			getLocalClusterWorkspace: func(fullName logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error) {
-				return &tenancyv1alpha1.ClusterWorkspace{
-					ObjectMeta: metav1.ObjectMeta{Name: "root:users:ab:cd:user-1"},
-					Status:     tenancyv1alpha1.ClusterWorkspaceStatus{Phase: tenancyv1alpha1.ClusterWorkspacePhaseReady},
-				}, nil
+				return newWorkspace("root:users:ab:cd:user-1").inPhase(tenancyv1alpha1.ClusterWorkspacePhaseReady).ClusterWorkspace, nil
 			},
 
 			mocks: homeWorkspaceFeatureLogic{
@@ -308,10 +299,7 @@ func TestSearchForReadyWorkspaceInLocalInformers(t *testing.T) {
 			userName:      "user-1",
 
 			getLocalClusterWorkspace: func(fullName logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error) {
-				return &tenancyv1alpha1.ClusterWorkspace{
-					ObjectMeta: metav1.ObjectMeta{Name: "root:users:ab:cd:user-1"},
-					Status:     tenancyv1alpha1.ClusterWorkspaceStatus{Phase: ""},
-				}, nil
+				return newWorkspace("root:users:ab:cd:user-1").ClusterWorkspace, nil
 			},
 
 			mocks: homeWorkspaceFeatureLogic{
@@ -332,10 +320,7 @@ func TestSearchForReadyWorkspaceInLocalInformers(t *testing.T) {
 			userName:      "user-1",
 
 			getLocalClusterWorkspace: func(fullName logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error) {
-				return &tenancyv1alpha1.ClusterWorkspace{
-					ObjectMeta: metav1.ObjectMeta{Name: "root:users:ab:cd:user-1"},
-					Status:     tenancyv1alpha1.ClusterWorkspaceStatus{Phase: tenancyv1alpha1.ClusterWorkspacePhaseInitializing},
-				}, nil
+				return newWorkspace("root:users:ab:cd:user-1").inPhase(tenancyv1alpha1.ClusterWorkspacePhaseInitializing).ClusterWorkspace, nil
 			},
 
 			mocks: homeWorkspaceFeatureLogic{
@@ -356,18 +341,7 @@ func TestSearchForReadyWorkspaceInLocalInformers(t *testing.T) {
 			userName:      "user-1",
 
 			getLocalClusterWorkspace: func(fullName logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error) {
-				return &tenancyv1alpha1.ClusterWorkspace{
-					ObjectMeta: metav1.ObjectMeta{Name: "root:users:ab:cd:user-1"},
-					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
-						Conditions: v1alpha1.Conditions{
-							v1alpha1.Condition{
-								Type:   tenancyv1alpha1.WorkspaceScheduled,
-								Status: corev1.ConditionFalse,
-								Reason: tenancyv1alpha1.WorkspaceReasonUnschedulable,
-							},
-						},
-					},
-				}, nil
+				return newWorkspace("root:users:ab:cd:user-1").unschedulable().ClusterWorkspace, nil
 			},
 
 			expectedFound:             false,
@@ -383,18 +357,7 @@ func TestSearchForReadyWorkspaceInLocalInformers(t *testing.T) {
 			userName:      "user-1",
 
 			getLocalClusterWorkspace: func(fullName logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error) {
-				return &tenancyv1alpha1.ClusterWorkspace{
-					ObjectMeta: metav1.ObjectMeta{Name: "root:users:ab:cd:user-1"},
-					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
-						Conditions: v1alpha1.Conditions{
-							v1alpha1.Condition{
-								Type:   tenancyv1alpha1.WorkspaceScheduled,
-								Status: corev1.ConditionFalse,
-								Reason: tenancyv1alpha1.WorkspaceReasonReasonUnknown,
-							},
-						},
-					},
-				}, nil
+				return newWorkspace("root:users:ab:cd:user-1").unschedulable().ClusterWorkspace, nil
 			},
 
 			expectedFound:             false,
@@ -410,18 +373,7 @@ func TestSearchForReadyWorkspaceInLocalInformers(t *testing.T) {
 			userName:      "user-1",
 
 			getLocalClusterWorkspace: func(fullName logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error) {
-				return &tenancyv1alpha1.ClusterWorkspace{
-					ObjectMeta: metav1.ObjectMeta{Name: "root:users:ab:cd:user-1"},
-					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
-						Conditions: v1alpha1.Conditions{
-							v1alpha1.Condition{
-								Type:   tenancyv1alpha1.WorkspaceScheduled,
-								Status: corev1.ConditionFalse,
-								Reason: tenancyv1alpha1.WorkspaceReasonUnreschedulable,
-							},
-						},
-					},
-				}, nil
+				return newWorkspace("root:users:ab:cd:user-1").unschedulable().ClusterWorkspace, nil
 			},
 
 			expectedFound:             false,
@@ -437,10 +389,7 @@ func TestSearchForReadyWorkspaceInLocalInformers(t *testing.T) {
 			userName:      "user-1",
 
 			getLocalClusterWorkspace: func(fullName logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error) {
-				return &tenancyv1alpha1.ClusterWorkspace{
-					ObjectMeta: metav1.ObjectMeta{Name: "root:users:ab:cd:user-1"},
-					Status:     tenancyv1alpha1.ClusterWorkspaceStatus{Phase: ""},
-				}, nil
+				return newWorkspace("root:users:ab:cd:user-1").ClusterWorkspace, nil
 			},
 
 			expectedFound:           true,
@@ -1360,32 +1309,20 @@ func TestServeHTTP(t *testing.T) {
 			expectedToDelegate: true,
 		},
 		{
-			testName:       "delegate to next handler when handler informers are not synced",
-			contextCluster: &request.Cluster{Name: logicalcluster.New("root")},
-			contextUser:    &kuser.DefaultInfo{Name: "user-1"},
-			contextRequestInfo: &request.RequestInfo{
-				IsResourceRequest: true,
-				APIGroup:          "tenancy.kcp.dev",
-				Resource:          "workspaces",
-				Name:              "~",
-				Verb:              "get",
-			},
-			synced: false,
+			testName:           "delegate to next handler when handler informers are not synced",
+			contextCluster:     &request.Cluster{Name: logicalcluster.New("root")},
+			contextUser:        &kuser.DefaultInfo{Name: "user-1"},
+			contextRequestInfo: &request.RequestInfo{IsResourceRequest: true, APIGroup: "tenancy.kcp.dev", Resource: "workspaces", Name: "~", Verb: "get"},
+			synced:             false,
 
 			expectedStatusCode: 200,
 			expectedToDelegate: true,
 		},
 		{
-			testName:       "Return virtual home workspace resource when it still doesn't exist",
-			contextCluster: &request.Cluster{Name: logicalcluster.New("root")},
-			contextUser:    &kuser.DefaultInfo{Name: "user-1"},
-			contextRequestInfo: &request.RequestInfo{
-				IsResourceRequest: true,
-				APIGroup:          "tenancy.kcp.dev",
-				Resource:          "workspaces",
-				Name:              "~",
-				Verb:              "get",
-			},
+			testName:           "Return virtual home workspace resource when it still doesn't exist",
+			contextCluster:     &request.Cluster{Name: logicalcluster.New("root")},
+			contextUser:        &kuser.DefaultInfo{Name: "user-1"},
+			contextRequestInfo: &request.RequestInfo{IsResourceRequest: true, APIGroup: "tenancy.kcp.dev", Resource: "workspaces", Name: "~", Verb: "get"},
 
 			synced: true,
 			getLocalClusterWorkspace: func(fullName logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error) {
@@ -1400,16 +1337,10 @@ func TestServeHTTP(t *testing.T) {
 			expectedResponseBody: `{"kind":"Workspace","apiVersion":"tenancy.kcp.dev/v1beta1","metadata":{"name":"user-1","creationTimestamp":null,"annotations":{"tenancy.kcp.dev/owner":"user-1"},"clusterName":"root:users:bi:ie"},"spec":{"type":{"name":"home","path":"root"}},"status":{"URL":"https://example.com/clusters/root:users:bi:ie:user-1"}}`,
 		},
 		{
-			testName:       "return error if error when getting home workspace in the local informers",
-			contextCluster: &request.Cluster{Name: logicalcluster.New("root")},
-			contextUser:    &kuser.DefaultInfo{Name: "user-1"},
-			contextRequestInfo: &request.RequestInfo{
-				IsResourceRequest: true,
-				APIGroup:          "tenancy.kcp.dev",
-				Resource:          "workspaces",
-				Name:              "~",
-				Verb:              "get",
-			},
+			testName:           "return error if error when getting home workspace in the local informers",
+			contextCluster:     &request.Cluster{Name: logicalcluster.New("root")},
+			contextUser:        &kuser.DefaultInfo{Name: "user-1"},
+			contextRequestInfo: &request.RequestInfo{IsResourceRequest: true, APIGroup: "tenancy.kcp.dev", Resource: "workspaces", Name: "~", Verb: "get"},
 
 			synced: true,
 			getLocalClusterWorkspace: func(fullName logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error) {
@@ -1421,16 +1352,10 @@ func TestServeHTTP(t *testing.T) {
 			expectedResponseBody: `Internal Server Error: "/dummy-target": an error`,
 		},
 		{
-			testName:       "return Forbidden if no permission to get the virtual home workspace resource when it still doesn't exist",
-			contextCluster: &request.Cluster{Name: logicalcluster.New("root")},
-			contextUser:    &kuser.DefaultInfo{Name: "user-1"},
-			contextRequestInfo: &request.RequestInfo{
-				IsResourceRequest: true,
-				APIGroup:          "tenancy.kcp.dev",
-				Resource:          "workspaces",
-				Name:              "~",
-				Verb:              "get",
-			},
+			testName:           "return Forbidden if no permission to get the virtual home workspace resource when it still doesn't exist",
+			contextCluster:     &request.Cluster{Name: logicalcluster.New("root")},
+			contextUser:        &kuser.DefaultInfo{Name: "user-1"},
+			contextRequestInfo: &request.RequestInfo{IsResourceRequest: true, APIGroup: "tenancy.kcp.dev", Resource: "workspaces", Name: "~", Verb: "get"},
 
 			synced: true,
 			getLocalClusterWorkspace: func(fullName logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error) {
@@ -1445,16 +1370,10 @@ func TestServeHTTP(t *testing.T) {
 			expectedResponseBody: `{"kind":"Status","apiVersion":"v1","metadata":{},"status":"Failure","message":"clusterworkspaces.tenancy.kcp.dev \"~\" is forbidden: User \"user-1\" cannot get resource \"clusterworkspaces/workspace\" in API group \"tenancy.kcp.dev\" at the cluster scope: some reason","reason":"Forbidden","details":{"name":"~","group":"tenancy.kcp.dev","kind":"clusterworkspaces"},"code":403}`,
 		},
 		{
-			testName:       "return error if could not check the permission to get the virtual home workspace resource when it still doesn't exist",
-			contextCluster: &request.Cluster{Name: logicalcluster.New("root")},
-			contextUser:    &kuser.DefaultInfo{Name: "user-1"},
-			contextRequestInfo: &request.RequestInfo{
-				IsResourceRequest: true,
-				APIGroup:          "tenancy.kcp.dev",
-				Resource:          "workspaces",
-				Name:              "~",
-				Verb:              "get",
-			},
+			testName:           "return error if could not check the permission to get the virtual home workspace resource when it still doesn't exist",
+			contextCluster:     &request.Cluster{Name: logicalcluster.New("root")},
+			contextUser:        &kuser.DefaultInfo{Name: "user-1"},
+			contextRequestInfo: &request.RequestInfo{IsResourceRequest: true, APIGroup: "tenancy.kcp.dev", Resource: "workspaces", Name: "~", Verb: "get"},
 
 			synced: true,
 			getLocalClusterWorkspace: func(fullName logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error) {
@@ -1469,36 +1388,17 @@ func TestServeHTTP(t *testing.T) {
 			expectedResponseBody: `{"kind":"Status","apiVersion":"v1","metadata":{},"status":"Failure","message":"clusterworkspaces.tenancy.kcp.dev \"~\" is forbidden: User \"user-1\" cannot get resource \"clusterworkspaces/workspace\" in API group \"tenancy.kcp.dev\" at the cluster scope: workspace access not permitted","reason":"Forbidden","details":{"name":"~","group":"tenancy.kcp.dev","kind":"clusterworkspaces"},"code":403}`,
 		},
 		{
-			testName:       "return the real home workspace when it already exists and is ready in informer, and RBAC objects are in informer",
-			contextCluster: &request.Cluster{Name: logicalcluster.New("root")},
-			contextUser:    &kuser.DefaultInfo{Name: "user-1"},
-			contextRequestInfo: &request.RequestInfo{
-				IsResourceRequest: true,
-				APIGroup:          "tenancy.kcp.dev",
-				Resource:          "workspaces",
-				Name:              "~",
-				Verb:              "get",
-			},
+			testName:           "return the real home workspace when it already exists and is ready in informer, and RBAC objects are in informer",
+			contextCluster:     &request.Cluster{Name: logicalcluster.New("root")},
+			contextUser:        &kuser.DefaultInfo{Name: "user-1"},
+			contextRequestInfo: &request.RequestInfo{IsResourceRequest: true, APIGroup: "tenancy.kcp.dev", Resource: "workspaces", Name: "~", Verb: "get"},
 
 			synced: true,
 			getLocalClusterWorkspace: func(fullName logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error) {
-				return &tenancyv1alpha1.ClusterWorkspace{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:            "user-1",
-						ClusterName:     "root:users:bi:ie",
-						ResourceVersion: "someRealResourceVersion",
-					},
-					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							Name: tenancyv1alpha1.ClusterWorkspaceTypeName("home"),
-							Path: "root",
-						},
-					},
-					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
-						Phase:   tenancyv1alpha1.ClusterWorkspacePhaseReady,
-						BaseURL: "https://example.com/clusters/root:users:bi:ie:user-1",
-					},
-				}, nil
+				return newWorkspace("root:users:bi:ie:user-1").withType("root:home").withRV("someRealResourceVersion").withStatus(tenancyv1alpha1.ClusterWorkspaceStatus{
+					Phase:   tenancyv1alpha1.ClusterWorkspacePhaseReady,
+					BaseURL: "https://example.com/clusters/root:users:bi:ie:user-1",
+				}).ClusterWorkspace, nil
 			},
 			authz: func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
 				return authorizer.DecisionAllow, "", nil
@@ -1514,36 +1414,17 @@ func TestServeHTTP(t *testing.T) {
 			expectedResponseBody: `{"kind":"Workspace","apiVersion":"tenancy.kcp.dev/v1beta1","metadata":{"name":"user-1","resourceVersion":"someRealResourceVersion","creationTimestamp":null,"clusterName":"root:users:bi:ie"},"spec":{"type":{"name":"home","path":"root"}},"status":{"URL":"https://example.com/clusters/root:users:bi:ie:user-1","phase":"Ready"}}`,
 		},
 		{
-			testName:       "return virtual home workspace when the home workspace is not ready yet",
-			contextCluster: &request.Cluster{Name: logicalcluster.New("root")},
-			contextUser:    &kuser.DefaultInfo{Name: "user-1"},
-			contextRequestInfo: &request.RequestInfo{
-				IsResourceRequest: true,
-				APIGroup:          "tenancy.kcp.dev",
-				Resource:          "workspaces",
-				Name:              "~",
-				Verb:              "get",
-			},
+			testName:           "return virtual home workspace when the home workspace is not ready yet",
+			contextCluster:     &request.Cluster{Name: logicalcluster.New("root")},
+			contextUser:        &kuser.DefaultInfo{Name: "user-1"},
+			contextRequestInfo: &request.RequestInfo{IsResourceRequest: true, APIGroup: "tenancy.kcp.dev", Resource: "workspaces", Name: "~", Verb: "get"},
 
 			synced: true,
 			getLocalClusterWorkspace: func(fullName logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error) {
-				return &tenancyv1alpha1.ClusterWorkspace{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:            "user-1",
-						ClusterName:     "root:users:bi:ie",
-						ResourceVersion: "someRealResourceVersion",
-					},
-					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							Name: tenancyv1alpha1.ClusterWorkspaceTypeName("Home"),
-							Path: "root",
-						},
-					},
-					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
-						Phase:   tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
-						BaseURL: "https://example.com/clusters/root:users:bi:ie:user-1",
-					},
-				}, nil
+				return newWorkspace("root:users:bi:ie:user-1").withType("root:home").withRV("someRealResourceVersion").withStatus(tenancyv1alpha1.ClusterWorkspaceStatus{
+					Phase:   tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
+					BaseURL: "https://example.com/clusters/root:users:bi:ie:user-1",
+				}).ClusterWorkspace, nil
 			},
 			authz: func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
 				return authorizer.DecisionAllow, "", nil
@@ -1559,36 +1440,17 @@ func TestServeHTTP(t *testing.T) {
 			expectedResponseBody: `{"kind":"Workspace","apiVersion":"tenancy.kcp.dev/v1beta1","metadata":{"name":"user-1","creationTimestamp":null,"annotations":{"tenancy.kcp.dev/owner":"user-1"},"clusterName":"root:users:bi:ie"},"spec":{"type":{"name":"home","path":"root"}},"status":{"URL":"https://example.com/clusters/root:users:bi:ie:user-1"}}`,
 		},
 		{
-			testName:       "return virtual home workspace when home already exists, but RBAC objects are not in informer",
-			contextCluster: &request.Cluster{Name: logicalcluster.New("root")},
-			contextUser:    &kuser.DefaultInfo{Name: "user-1"},
-			contextRequestInfo: &request.RequestInfo{
-				IsResourceRequest: true,
-				APIGroup:          "tenancy.kcp.dev",
-				Resource:          "workspaces",
-				Name:              "~",
-				Verb:              "get",
-			},
+			testName:           "return virtual home workspace when home already exists, but RBAC objects are not in informer",
+			contextCluster:     &request.Cluster{Name: logicalcluster.New("root")},
+			contextUser:        &kuser.DefaultInfo{Name: "user-1"},
+			contextRequestInfo: &request.RequestInfo{IsResourceRequest: true, APIGroup: "tenancy.kcp.dev", Resource: "workspaces", Name: "~", Verb: "get"},
 
 			synced: true,
 			getLocalClusterWorkspace: func(fullName logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error) {
-				return &tenancyv1alpha1.ClusterWorkspace{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:            "user-1",
-						ClusterName:     "root:users:bi:ie",
-						ResourceVersion: "someRealResourceVersion",
-					},
-					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							Name: tenancyv1alpha1.ClusterWorkspaceTypeName("home"),
-							Path: "root",
-						},
-					},
-					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
-						Phase:   tenancyv1alpha1.ClusterWorkspacePhaseReady,
-						BaseURL: "https://example.com/clusters/root:users:bi:ie:user-1",
-					},
-				}, nil
+				return newWorkspace("root:users:bi:ie:user-1").withType("root:home").withRV("someRealResourceVersion").withStatus(tenancyv1alpha1.ClusterWorkspaceStatus{
+					Phase:   tenancyv1alpha1.ClusterWorkspacePhaseReady,
+					BaseURL: "https://example.com/clusters/root:users:bi:ie:user-1",
+				}).ClusterWorkspace, nil
 			},
 			authz: func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
 				return authorizer.DecisionAllow, "", nil
@@ -1604,16 +1466,10 @@ func TestServeHTTP(t *testing.T) {
 			expectedResponseBody: `{"kind":"Workspace","apiVersion":"tenancy.kcp.dev/v1beta1","metadata":{"name":"user-1","creationTimestamp":null,"annotations":{"tenancy.kcp.dev/owner":"user-1"},"clusterName":"root:users:bi:ie"},"spec":{"type":{"name":"home","path":"root"}},"status":{"URL":"https://example.com/clusters/root:users:bi:ie:user-1"}}`,
 		},
 		{
-			testName:       "return error when workspace cannot be checked in local informers",
-			contextCluster: &request.Cluster{Name: logicalcluster.New("root:users:bi:ie")},
-			contextUser:    &kuser.DefaultInfo{Name: "user-1"},
-			contextRequestInfo: &request.RequestInfo{
-				IsResourceRequest: true,
-				APIGroup:          "tenancy.kcp.dev",
-				Resource:          "workspaces",
-				Name:              "user-1",
-				Verb:              "create",
-			},
+			testName:           "return error when workspace cannot be checked in local informers",
+			contextCluster:     &request.Cluster{Name: logicalcluster.New("root:users:bi:ie")},
+			contextUser:        &kuser.DefaultInfo{Name: "user-1"},
+			contextRequestInfo: &request.RequestInfo{IsResourceRequest: true, APIGroup: "tenancy.kcp.dev", Resource: "workspaces", Name: "user-1", Verb: "create"},
 
 			synced: true,
 			mocks: homeWorkspaceFeatureLogic{
@@ -1626,16 +1482,10 @@ func TestServeHTTP(t *testing.T) {
 			expectedResponseBody: `Internal Server Error: "/dummy-target": an error`,
 		},
 		{
-			testName:       "retry later if instructed so when checking for the workspace in local informers",
-			contextCluster: &request.Cluster{Name: logicalcluster.New("root:users:bi:ie")},
-			contextUser:    &kuser.DefaultInfo{Name: "user-1"},
-			contextRequestInfo: &request.RequestInfo{
-				IsResourceRequest: true,
-				APIGroup:          "tenancy.kcp.dev",
-				Resource:          "workspaces",
-				Name:              "user-1",
-				Verb:              "create",
-			},
+			testName:           "retry later if instructed so when checking for the workspace in local informers",
+			contextCluster:     &request.Cluster{Name: logicalcluster.New("root:users:bi:ie")},
+			contextUser:        &kuser.DefaultInfo{Name: "user-1"},
+			contextRequestInfo: &request.RequestInfo{IsResourceRequest: true, APIGroup: "tenancy.kcp.dev", Resource: "workspaces", Name: "user-1", Verb: "create"},
 
 			synced: true,
 			mocks: homeWorkspaceFeatureLogic{
@@ -1654,16 +1504,10 @@ func TestServeHTTP(t *testing.T) {
 			},
 		},
 		{
-			testName:       "return Forbidden and don't try to create home workspace because user is the wrong one",
-			contextCluster: &request.Cluster{Name: logicalcluster.New("root:users:bi:ie:user-1")},
-			contextUser:    &kuser.DefaultInfo{Name: "user-2"},
-			contextRequestInfo: &request.RequestInfo{
-				IsResourceRequest: true,
-				APIGroup:          "tenancy.kcp.dev",
-				Resource:          "workspaces",
-				Name:              "create-test",
-				Verb:              "create",
-			},
+			testName:           "return Forbidden and don't try to create home workspace because user is the wrong one",
+			contextCluster:     &request.Cluster{Name: logicalcluster.New("root:users:bi:ie:user-1")},
+			contextUser:        &kuser.DefaultInfo{Name: "user-2"},
+			contextRequestInfo: &request.RequestInfo{IsResourceRequest: true, APIGroup: "tenancy.kcp.dev", Resource: "workspaces", Name: "create-test", Verb: "create"},
 
 			synced: true,
 			mocks: homeWorkspaceFeatureLogic{
@@ -1676,16 +1520,10 @@ func TestServeHTTP(t *testing.T) {
 			expectedResponseBody: `{"kind":"Status","apiVersion":"v1","metadata":{},"status":"Failure","message":"clusterworkspaces.tenancy.kcp.dev \"~\" is forbidden: User \"user-2\" cannot create resource \"clusterworkspaces/workspace\" in API group \"tenancy.kcp.dev\" at the cluster scope: workspace access not permitted","reason":"Forbidden","details":{"name":"~","group":"tenancy.kcp.dev","kind":"clusterworkspaces"},"code":403}`,
 		},
 		{
-			testName:       "return Forbidden and don't try to create home workspace because user doesn't have permission",
-			contextCluster: &request.Cluster{Name: logicalcluster.New("root:users:bi:ie:user-1")},
-			contextUser:    &kuser.DefaultInfo{Name: "user-1"},
-			contextRequestInfo: &request.RequestInfo{
-				IsResourceRequest: true,
-				APIGroup:          "tenancy.kcp.dev",
-				Resource:          "workspaces",
-				Name:              "create-test",
-				Verb:              "create",
-			},
+			testName:           "return Forbidden and don't try to create home workspace because user doesn't have permission",
+			contextCluster:     &request.Cluster{Name: logicalcluster.New("root:users:bi:ie:user-1")},
+			contextUser:        &kuser.DefaultInfo{Name: "user-1"},
+			contextRequestInfo: &request.RequestInfo{IsResourceRequest: true, APIGroup: "tenancy.kcp.dev", Resource: "workspaces", Name: "create-test", Verb: "create"},
 
 			synced: true,
 			authz: func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
@@ -1701,16 +1539,10 @@ func TestServeHTTP(t *testing.T) {
 			expectedResponseBody: `{"kind":"Status","apiVersion":"v1","metadata":{},"status":"Failure","message":"clusterworkspaces.tenancy.kcp.dev \"~\" is forbidden: User \"user-1\" cannot create resource \"clusterworkspaces/workspace\" in API group \"tenancy.kcp.dev\" at the cluster scope: refused for a given reason","reason":"Forbidden","details":{"name":"~","group":"tenancy.kcp.dev","kind":"clusterworkspaces"},"code":403}`,
 		},
 		{
-			testName:       "return Forbidden and don't try to create home workspace because unable to check user permission",
-			contextCluster: &request.Cluster{Name: logicalcluster.New("root:users:bi:ie:user-1")},
-			contextUser:    &kuser.DefaultInfo{Name: "user-1"},
-			contextRequestInfo: &request.RequestInfo{
-				IsResourceRequest: true,
-				APIGroup:          "tenancy.kcp.dev",
-				Resource:          "workspaces",
-				Name:              "create-test",
-				Verb:              "create",
-			},
+			testName:           "return Forbidden and don't try to create home workspace because unable to check user permission",
+			contextCluster:     &request.Cluster{Name: logicalcluster.New("root:users:bi:ie:user-1")},
+			contextUser:        &kuser.DefaultInfo{Name: "user-1"},
+			contextRequestInfo: &request.RequestInfo{IsResourceRequest: true, APIGroup: "tenancy.kcp.dev", Resource: "workspaces", Name: "create-test", Verb: "create"},
 
 			synced: true,
 			authz: func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
@@ -1726,16 +1558,10 @@ func TestServeHTTP(t *testing.T) {
 			expectedResponseBody: `{"kind":"Status","apiVersion":"v1","metadata":{},"status":"Failure","message":"clusterworkspaces.tenancy.kcp.dev \"~\" is forbidden: User \"user-1\" cannot create resource \"clusterworkspaces/workspace\" in API group \"tenancy.kcp.dev\" at the cluster scope: workspace access not permitted","reason":"Forbidden","details":{"name":"~","group":"tenancy.kcp.dev","kind":"clusterworkspaces"},"code":403}`,
 		},
 		{
-			testName:       "try to create when home workspace doesn't exist and user has permission",
-			contextCluster: &request.Cluster{Name: logicalcluster.New("root:users:bi:ie:user-1")},
-			contextUser:    &kuser.DefaultInfo{Name: "user-1"},
-			contextRequestInfo: &request.RequestInfo{
-				IsResourceRequest: true,
-				APIGroup:          "tenancy.kcp.dev",
-				Resource:          "workspaces",
-				Name:              "create-test",
-				Verb:              "create",
-			},
+			testName:           "try to create when home workspace doesn't exist and user has permission",
+			contextCluster:     &request.Cluster{Name: logicalcluster.New("root:users:bi:ie:user-1")},
+			contextUser:        &kuser.DefaultInfo{Name: "user-1"},
+			contextRequestInfo: &request.RequestInfo{IsResourceRequest: true, APIGroup: "tenancy.kcp.dev", Resource: "workspaces", Name: "create-test", Verb: "create"},
 
 			synced: true,
 			authz: func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
@@ -1759,16 +1585,10 @@ func TestServeHTTP(t *testing.T) {
 			},
 		},
 		{
-			testName:       "try to create when home workspace doesn't exist and user has permission, but creation failed",
-			contextCluster: &request.Cluster{Name: logicalcluster.New("root:users:bi:ie:user-1")},
-			contextUser:    &kuser.DefaultInfo{Name: "user-1"},
-			contextRequestInfo: &request.RequestInfo{
-				IsResourceRequest: true,
-				APIGroup:          "tenancy.kcp.dev",
-				Resource:          "workspaces",
-				Name:              "create-test",
-				Verb:              "create",
-			},
+			testName:           "try to create when home workspace doesn't exist and user has permission, but creation failed",
+			contextCluster:     &request.Cluster{Name: logicalcluster.New("root:users:bi:ie:user-1")},
+			contextUser:        &kuser.DefaultInfo{Name: "user-1"},
+			contextRequestInfo: &request.RequestInfo{IsResourceRequest: true, APIGroup: "tenancy.kcp.dev", Resource: "workspaces", Name: "create-test", Verb: "create"},
 
 			synced: true,
 			authz: func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
@@ -1856,4 +1676,56 @@ func overrideLogic(handler *homeWorkspaceHandler, overridenLogic homeWorkspaceFe
 		handler.tryToCreate = overridenLogic.tryToCreate
 	}
 	return handler
+}
+
+type wsBuilder struct {
+	*tenancyv1alpha1.ClusterWorkspace
+}
+
+func newWorkspace(qualifiedName string) wsBuilder {
+	path, name := logicalcluster.New(qualifiedName).Split()
+	return wsBuilder{&tenancyv1alpha1.ClusterWorkspace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        name,
+			ClusterName: path.String(),
+		},
+	}}
+}
+
+func (b wsBuilder) inPhase(phase tenancyv1alpha1.ClusterWorkspacePhaseType) wsBuilder {
+	b.Status.Phase = phase
+	return b
+}
+
+func (b wsBuilder) withRV(rv string) wsBuilder {
+	b.ResourceVersion = rv
+	return b
+}
+
+func (b wsBuilder) withType(qualifiedName string) wsBuilder {
+	path, name := logicalcluster.New(qualifiedName).Split()
+	b.Spec.Type = tenancyv1alpha1.ClusterWorkspaceTypeReference{
+		Path: path.String(),
+		Name: tenancyv1alpha1.ClusterWorkspaceTypeName(name),
+	}
+	return b
+}
+
+func (b wsBuilder) withStatus(status tenancyv1alpha1.ClusterWorkspaceStatus) wsBuilder {
+	b.Status = status
+	return b
+}
+
+func (b wsBuilder) withLabels(labels map[string]string) wsBuilder {
+	b.Labels = labels
+	return b
+}
+
+func (b wsBuilder) unschedulable() wsBuilder {
+	b.Status.Conditions = append(b.Status.Conditions, v1alpha1.Condition{
+		Type:   tenancyv1alpha1.WorkspaceScheduled,
+		Status: corev1.ConditionFalse,
+		Reason: tenancyv1alpha1.WorkspaceReasonReasonUnknown,
+	})
+	return b
 }
