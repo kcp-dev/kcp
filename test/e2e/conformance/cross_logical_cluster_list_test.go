@@ -226,7 +226,7 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	)
 
 	informerFactory, err := informer.NewDynamicDiscoverySharedInformerFactory(
-		rootShardMetadataClusterClient.Cluster(logicalcluster.Wildcard),
+		rootShardConfig,
 		func(obj interface{}) bool { return true },
 		apiExtensionsInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
 		indexers.NamespaceScoped(),

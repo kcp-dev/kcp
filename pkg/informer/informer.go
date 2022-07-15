@@ -24,14 +24,17 @@ import (
 	"sync/atomic"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
+	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
+	"github.com/kcp-dev/logicalcluster"
+
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/metadata"
+	"k8s.io/client-go/metadata/metadatainformer"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 )
@@ -42,13 +45,14 @@ const (
 	groupFirstFoundVersionResourceIndex = "group-firstFoundVersion-resource"
 )
 
+// TODO(ncdc): rename to PartialMetadataSharedInformerFactory or something like that.
+
 // DynamicDiscoverySharedInformerFactory is a SharedInformerFactory that
 // dynamically discovers new types and begins informing on them.
 type DynamicDiscoverySharedInformerFactory struct {
-	dynamicClient dynamic.Interface
-	filterFunc    func(interface{}) bool
-	indexers      cache.Indexers
-	crdIndexer    cache.Indexer
+	delegate   metadatainformer.SharedInformerFactory
+	filterFunc func(interface{}) bool
+	crdIndexer cache.Indexer
 
 	// handlersLock protects multiple writers racing to update handlers.
 	handlersLock sync.Mutex
@@ -67,16 +71,41 @@ type DynamicDiscoverySharedInformerFactory struct {
 // informers that discovers new types and informs on updates to resources of
 // those types.
 func NewDynamicDiscoverySharedInformerFactory(
-	dynClient dynamic.Interface,
+	cfg *rest.Config,
 	filterFunc func(obj interface{}) bool,
 	crdInformer apiextensionsinformers.CustomResourceDefinitionInformer,
 	indexers cache.Indexers,
 ) (*DynamicDiscoverySharedInformerFactory, error) {
+	cfg = rest.AddUserAgent(rest.CopyConfig(cfg), "kcp-partial-metadata-informers")
+
+	wildcardCfg := kcpclienthelper.ConfigWithCluster(cfg, logicalcluster.Wildcard)
+	wildcardMetadataClient, err := metadata.NewForConfig(wildcardCfg)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO(ncdc) remove NamespaceIndex when scoping is fully integrated
+	indexersToUse := cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}
+
+	for k, v := range indexers {
+		if k == cache.NamespaceIndex {
+			// Don't allow overriding NamespaceIndex
+			continue
+		}
+
+		indexersToUse[k] = v
+	}
+
 	f := &DynamicDiscoverySharedInformerFactory{
-		dynamicClient: dynClient,
-		filterFunc:    filterFunc,
-		indexers:      indexers,
-		crdIndexer:    crdInformer.Informer().GetIndexer(),
+		delegate: metadatainformer.NewFilteredSharedInformerFactoryWithOptions(
+			wildcardMetadataClient,
+			"",
+			nil,
+			cache.WithResyncPeriod(resyncPeriod),
+			cache.WithIndexers(indexersToUse),
+		),
+		filterFunc: filterFunc,
+		crdIndexer: crdInformer.Informer().GetIndexer(),
 
 		// Use a buffered channel of size 1 to allow enqueuing 1 update notification
 		updateCh: make(chan struct{}, 1),
@@ -178,27 +207,8 @@ func (d *DynamicDiscoverySharedInformerFactory) informerForResourceLockHeld(gvr 
 
 	klog.Infof("Adding dynamic informer for %q", gvr)
 
-	// TODO(ncdc) remove NamespaceIndex when scoping is fully integrated
-	indexers := cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}
-
-	for k, v := range d.indexers {
-		if k == cache.NamespaceIndex {
-			// Don't allow overriding NamespaceIndex
-			continue
-		}
-
-		indexers[k] = v
-	}
-
 	// Definitely need to create it
-	inf = dynamicinformer.NewFilteredDynamicInformer(
-		d.dynamicClient,
-		gvr,
-		corev1.NamespaceAll,
-		resyncPeriod,
-		indexers,
-		nil,
-	)
+	inf = d.delegate.ForResource(gvr)
 
 	inf.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: d.filterFunc,

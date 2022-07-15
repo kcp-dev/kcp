@@ -40,7 +40,7 @@ import (
 
 // reconcileResource is responsible for setting the cluster for a resource of
 // any type, to match the cluster where its namespace is assigned.
-func (c *Controller) reconcileResource(ctx context.Context, lclusterName logicalcluster.Name, obj *unstructured.Unstructured, gvr *schema.GroupVersionResource) error {
+func (c *Controller) reconcileResource(ctx context.Context, lclusterName logicalcluster.Name, obj metav1.Object, gvr *schema.GroupVersionResource) error {
 	klog.V(4).Infof("Reconciling GVR %q %s|%s/%s", gvr.String(), lclusterName, obj.GetNamespace(), obj.GetName())
 
 	// If the resource is not namespaced (incl if the resource is itself a

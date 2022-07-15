@@ -45,7 +45,6 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/pkg/informer"
-	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
@@ -250,9 +249,6 @@ func collectCacheHitsFor(ctx context.Context, t *testing.T, rootCfg *rest.Config
 const byWorkspace = "byWorkspace"
 
 func testDynamicDiscoverySharedInformerFactory(ctx context.Context, t *testing.T, rootShardConfig *rest.Config, expectedGVR schema.GroupVersionResource, expectedResName string, expectedClusterName logicalcluster.Name) {
-	rootMetadataClusterClient, err := metadataclient.NewDynamicMetadataClusterClientForConfig(rootShardConfig) // no identites necessary for partial metadata
-	require.NoError(t, err)
-
 	crdClusterClient, err := apiextensionsclient.NewClusterForConfig(rootShardConfig)
 	require.NoError(t, err, "failed to construct apiextensions client")
 
@@ -262,7 +258,7 @@ func testDynamicDiscoverySharedInformerFactory(ctx context.Context, t *testing.T
 	)
 
 	ddsif, err := informer.NewDynamicDiscoverySharedInformerFactory(
-		rootMetadataClusterClient.Cluster(logicalcluster.Wildcard),
+		rootShardConfig,
 		func(obj interface{}) bool { return true },
 		apiExtensionsInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
 		cache.Indexers{byWorkspace: indexByWorkspace},

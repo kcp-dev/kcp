@@ -27,8 +27,9 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	kruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -257,12 +258,19 @@ func (c *Controller) processResource(ctx context.Context, key string) error {
 		klog.V(3).Infof("object %q GVR %q does not exist", key, gvrstr)
 		return nil
 	}
-	unstr, ok := obj.(*unstructured.Unstructured)
+
+	runtimeObj, ok := obj.(kruntime.Object)
 	if !ok {
-		klog.Errorf("object was not Unstructured, dropping: %T", obj)
+		klog.Errorf("unexpected type %T; dropping", obj)
 		return nil
 	}
-	unstr = unstr.DeepCopy()
+	runtimeObj = runtimeObj.DeepCopyObject()
+
+	metaObj, ok := runtimeObj.(metav1.Object)
+	if !ok {
+		klog.Errorf("unexpected type %T; dropping", obj)
+		return nil
+	}
 
 	// Get logical cluster name.
 	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
@@ -271,7 +279,12 @@ func (c *Controller) processResource(ctx context.Context, key string) error {
 		return nil
 	}
 	lclusterName, _ := clusters.SplitClusterAwareKey(clusterAwareName)
-	return c.reconcileResource(ctx, lclusterName, unstr, gvr)
+	return c.reconcileResource(ctx, lclusterName, metaObj, gvr)
+}
+
+type copyableObject interface {
+	metav1.Object
+	kruntime.Object
 }
 
 func (c *Controller) processGVR(ctx context.Context, gvrstr string) error {
@@ -305,7 +318,7 @@ func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 
 		var enqueuedResources []string
 		for _, obj := range objs {
-			u := obj.(*unstructured.Unstructured)
+			u := obj.(metav1.Object)
 
 			// TODO(ncdc): remove this when we have namespaced listers that only return for the scoped cluster (https://github.com/kcp-dev/kcp/issues/685).
 			if logicalcluster.From(u) != clusterName {
@@ -320,9 +333,9 @@ func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 					enqueuedResources = append(enqueuedResources, u.GetName())
 				}
 
-				klog.V(3).Infof("Enqueuing %s %s|%s/%s to schedule to %v", gvr.GroupVersion().WithKind(u.GetKind()), logicalcluster.From(ns), ns.Name, u.GetName(), nsLocations.List())
+				klog.V(3).Infof("Enqueuing %q %s|%s/%s to schedule to %v", gvr, logicalcluster.From(ns), ns.Name, u.GetName(), nsLocations.List())
 			} else {
-				klog.V(4).Infof("Skipping %s %s|%s/%s because it is already scheduled to %v", gvr.GroupVersion().WithKind(u.GetKind()), logicalcluster.From(ns), ns.Name, u.GetName(), nsLocations.List())
+				klog.V(4).Infof("Skipping %q %s|%s/%s because it is already scheduled to %v", gvr, logicalcluster.From(ns), ns.Name, u.GetName(), nsLocations.List())
 			}
 		}
 

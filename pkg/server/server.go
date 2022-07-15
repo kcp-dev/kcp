@@ -59,7 +59,6 @@ import (
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
-	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
 	boostrap "github.com/kcp-dev/kcp/pkg/server/bootstrap"
 	kcpserveroptions "github.com/kcp-dev/kcp/pkg/server/options"
 	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
@@ -352,13 +351,8 @@ func (s *Server) Run(ctx context.Context) error {
 		),
 	)
 
-	metadataClusterClient, err := metadataclient.NewDynamicMetadataClusterClientForConfig(server.LoopbackClientConfig)
-	if err != nil {
-		return err
-	}
-
 	s.dynamicDiscoverySharedInformerFactory, err = informer.NewDynamicDiscoverySharedInformerFactory(
-		metadataClusterClient.Cluster(logicalcluster.Wildcard),
+		server.LoopbackClientConfig,
 		func(obj interface{}) bool { return true },
 		s.apiextensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
 		indexers.NamespaceScoped(),
