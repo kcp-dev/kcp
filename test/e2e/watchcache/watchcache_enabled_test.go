@@ -125,8 +125,8 @@ func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
 	require.NoError(t, err)
 
 	org := framework.NewOrganizationFixture(t, server)
-	wsExport1a := framework.NewWorkspaceFixture(t, server, org)
-	wsConsume1a := framework.NewWorkspaceFixture(t, server, org)
+	wsExport1a := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
+	wsConsume1a := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
 	group := "newyork.io"
 
 	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, wsExport1a, kcpClusterClient, group, "export1")
@@ -174,7 +174,7 @@ func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
 	secretsGR := metav1.GroupResource{Group: "", Resource: "secrets"}
 
 	org := framework.NewOrganizationFixture(t, server)
-	cluster := framework.NewWorkspaceFixture(t, server, org)
+	cluster := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
 	kubeClient := kubeClusterClient.Cluster(cluster)
 
 	t.Logf("Creating a secret in the default namespace for %q cluster", cluster)
