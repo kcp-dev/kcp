@@ -157,6 +157,19 @@ func (s *AdminAuthentication) WriteKubeConfig(config *genericapiserver.Config, k
 				}
 
 				shardAdminToken = shardAdminAuth.Token
+			} else if _, found := existingExternalKubeConfig.Clusters["system:admin"]; found {
+				// legacy retrieval of the token from the admin users, now moved to shard admin
+				// TODO(sttts): remove in v0.7
+				if _, found := existingExternalKubeConfig.Clusters["base"]; !found {
+					if oldAdminAuth := existingExternalKubeConfig.AuthInfos["admin"]; oldAdminAuth != nil {
+						kubeConfigTokenHash := sha256.Sum256([]byte(oldAdminAuth.Token))
+						if !bytes.Equal(kubeConfigTokenHash[:], shardAdminTokenHash) {
+							return fmt.Errorf("legacy admin token in file %q is not valid anymore. Remove file %q and restart KCP", s.KubeConfigPath, s.ShardAdminTokenHashFilePath)
+						}
+
+						shardAdminToken = oldAdminAuth.Token
+					}
+				}
 			}
 		}
 	}
