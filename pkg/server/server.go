@@ -172,6 +172,7 @@ func (s *Server) Run(ctx context.Context) error {
 
 	resolveRootIdentitiesFn := func(ctx context.Context) error { return nil }
 	nonIdentityKcpClusterConfig := genericConfig.LoopbackClientConfig
+	var rootShardKcpClusterClient *kcpclient.Cluster
 	if len(s.options.Extra.RootShardKubeconfigFile) > 0 {
 		nonIdentityRootKcpClusterConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: s.options.Extra.RootShardKubeconfigFile}, nil).ClientConfig()
 		if err != nil {
@@ -192,12 +193,12 @@ func (s *Server) Run(ctx context.Context) error {
 			return err
 		}
 		rootIdentityConfig, resolveRootIdentities := boostrap.NewConfigWithWildcardIdentities(nonIdentityRootKcpClusterConfig, boostrap.KcpRootGroupExportNames, boostrap.KcpRootGroupResourceExportNames, nonIdentityRootKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster))
-		rootKcpClusterClient, err := kcpclient.NewClusterForConfig(rootIdentityConfig) // this is now generic to be used for all kcp API groups
+		rootShardKcpClusterClient, err = kcpclient.NewClusterForConfig(rootIdentityConfig) // this is now generic to be used for all kcp API groups
 		if err != nil {
 			return err
 		}
 		resolveRootIdentitiesFn = resolveRootIdentities
-		rootKcpClient := rootKcpClusterClient.Cluster(logicalcluster.Wildcard)
+		rootKcpClient := rootShardKcpClusterClient.Cluster(logicalcluster.Wildcard)
 		s.rootShardKcpSharedInformerFactory = kcpexternalversions.NewSharedInformerFactoryWithOptions(
 			rootKcpClient,
 			resyncPeriod,
@@ -249,7 +250,11 @@ func (s *Server) Run(ctx context.Context) error {
 	)
 
 	// Setup root informers
-	s.rootKcpSharedInformerFactory = kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster), resyncPeriod)
+	if rootShardKcpClusterClient != nil {
+		s.rootKcpSharedInformerFactory = kcpexternalversions.NewSharedInformerFactoryWithOptions(rootShardKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster), resyncPeriod)
+	} else {
+		s.rootKcpSharedInformerFactory = kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster), resyncPeriod)
+	}
 	s.rootKubeSharedInformerFactory = coreexternalversions.NewSharedInformerFactoryWithOptions(kubeClusterClient.Cluster(tenancyv1alpha1.RootCluster), resyncPeriod)
 
 	// Setup dynamic client
