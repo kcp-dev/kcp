@@ -334,6 +334,10 @@ func (kc *KubeConfig) CreateWorkspace(ctx context.Context, workspaceName string,
 		return fmt.Errorf("current URL %q does not point to cluster workspace", config.Host)
 	}
 
+	if ignoreExisting && workspaceType != "" && !logicalcluster.New(workspaceType).HasPrefix(tenancyv1alpha1.RootCluster) {
+		return fmt.Errorf("--ignore-existing must not be used with non-absolute type path")
+	}
+
 	var structuredWorkspaceType tenancyv1alpha1.ClusterWorkspaceTypeReference
 	if workspaceType != "" {
 		separatorIndex := strings.LastIndex(workspaceType, ":")
@@ -377,7 +381,7 @@ func (kc *KubeConfig) CreateWorkspace(ctx context.Context, workspaceName string,
 
 	workspaceReference := fmt.Sprintf("Workspace %q (type %s)", workspaceName, ws.Spec.Type)
 	if preExisting {
-		if ws.Spec.Type.Name != structuredWorkspaceType.Name || ws.Spec.Type.Path != structuredWorkspaceType.Path {
+		if ws.Spec.Type.Name != "" && ws.Spec.Type.Name != structuredWorkspaceType.Name || ws.Spec.Type.Path != structuredWorkspaceType.Path {
 			return fmt.Errorf("workspace %q cannot be created with type %s, it already exists with different type %s", workspaceName, structuredWorkspaceType.String(), ws.Spec.Type.String())
 		}
 		if ws.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseReady && readyWaitTimeout > 0 {
