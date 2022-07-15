@@ -478,7 +478,7 @@ func searchForWorkspaceAndRBACInLocalInformers(h *homeWorkspaceHandler, logicalC
 
 	// Workspace has been found in local informer: check its status.
 	if workspaceUnschedulable(workspace) {
-		return false, 0, kerrors.NewForbidden(tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces").GroupResource(), workspace.Name, errors.New("unschedulable workspace cannot be accessed"))
+		return false, 0, kerrors.NewForbidden(tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces").GroupResource(), logicalClusterName.String(), errors.New("unschedulable workspace cannot be accessed"))
 	}
 
 	if !isHome {
