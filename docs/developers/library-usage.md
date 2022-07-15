@@ -47,3 +47,5 @@ if err := srv.Run(ctx); err != nil {
     panic(err)
 }
 ```
+
+To understand the stages of setting up and initializing the library, read [library-structure.md](./library-structure.md).

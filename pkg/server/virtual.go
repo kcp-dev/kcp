@@ -32,6 +32,7 @@ import (
 	"k8s.io/klog/v2"
 
 	virtualcommandoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
+	"github.com/kcp-dev/kcp/pkg/server/options"
 	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	virtualoptions "github.com/kcp-dev/kcp/pkg/virtual/options"
 )
@@ -47,9 +48,11 @@ func (s *Server) installVirtualWorkspaces(
 	auth genericapiserver.AuthenticationInfo,
 	externalAddress string,
 	preHandlerChainMux mux,
+	virtual options.Virtual,
+	kcpauth options.Authorization,
 ) error {
 	// create virtual workspaces
-	virtualWorkspaces, err := s.options.Virtual.VirtualWorkspaces.NewVirtualWorkspaces(
+	virtualWorkspaces, err := virtual.VirtualWorkspaces.NewVirtualWorkspaces(
 		config,
 		virtualcommandoptions.DefaultRootPathPrefix,
 		s.kubeSharedInformerFactory,
@@ -75,8 +78,8 @@ func (s *Server) installVirtualWorkspaces(
 	recommendedConfig.Authentication = auth
 
 	authorizationOptions := virtualoptions.NewAuthorization()
-	authorizationOptions.AlwaysAllowGroups = s.options.Authorization.AlwaysAllowGroups
-	authorizationOptions.AlwaysAllowPaths = s.options.Authorization.AlwaysAllowPaths
+	authorizationOptions.AlwaysAllowGroups = kcpauth.AlwaysAllowGroups
+	authorizationOptions.AlwaysAllowPaths = kcpauth.AlwaysAllowPaths
 	if err := authorizationOptions.ApplyTo(&recommendedConfig.Config, virtualWorkspaces); err != nil {
 		return err
 	}
@@ -116,10 +119,10 @@ func (s *Server) installVirtualWorkspaces(
 	return nil
 }
 
-func (s *Server) installVirtualWorkspacesRedirect(ctx context.Context, preHandlerChainMux mux) error {
+func (s *Server) installVirtualWorkspacesRedirect(ctx context.Context, preHandlerChainMux mux, virtual options.Virtual) error {
 	// TODO(sttts): protect redirect via authz?
 
-	externalBaseURL, err := url.Parse(s.options.Virtual.ExternalVirtualWorkspaceAddress)
+	externalBaseURL, err := url.Parse(virtual.ExternalVirtualWorkspaceAddress)
 	if err != nil {
 		return err // shouldn't happen due to options validation
 	}

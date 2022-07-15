@@ -26,6 +26,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/big"
@@ -43,7 +44,9 @@ import (
 )
 
 type Server struct {
-	Dir string
+	Dir        string
+	config     *embed.Config
+	clientInfo *ClientInfo
 }
 
 type ClientInfo struct {
@@ -55,7 +58,41 @@ type ClientInfo struct {
 	TrustedCAFile string
 }
 
-func (s *Server) Run(ctx context.Context, peerPort, clientPort string, listenMetricsURLs []url.URL, walSizeBytes, quotaBackendBytes int64, forceNewCluster bool) (ClientInfo, error) {
+func (s *Server) Run(ctx context.Context) error {
+	klog.Info("Starting embedded etcd server")
+	if s.config == nil {
+		return errors.New("must Init() before Run()")
+	}
+	e, err := embed.StartEtcd(s.config)
+	if err != nil {
+		return err
+	}
+	// Shutdown when context is closed
+	go func() {
+		<-ctx.Done()
+		e.Close()
+	}()
+
+	select {
+	case <-e.Server.ReadyNotify():
+		return nil
+	case <-time.After(60 * time.Second):
+		e.Server.Stop() // trigger a shutdown
+		return fmt.Errorf("server took too long to start")
+	case e := <-e.Err():
+		return e
+	}
+}
+
+func (s *Server) ClientInfo() (ClientInfo, error) {
+	if s.clientInfo == nil {
+		return ClientInfo{}, errors.New("must Init() before retrieving ClientInfo()")
+	}
+	return *s.clientInfo, nil
+}
+
+// Init initialize an embedded etcd server, getting everything ready except for starting it
+func (s *Server) Init(peerPort, clientPort string, listenMetricsURLs []url.URL, walSizeBytes, quotaBackendBytes int64, forceNewCluster bool) (ClientInfo, error) {
 	klog.Info("Creating embedded etcd server")
 	if walSizeBytes != 0 {
 		wal.SegmentSizeBytes = walSizeBytes
@@ -106,36 +143,21 @@ func (s *Server) Run(ctx context.Context, peerPort, clientPort string, listenMet
 		cfg.QuotaBackendBytes = quotaBackendBytes
 	}
 
-	e, err := embed.StartEtcd(cfg)
-	if err != nil {
-		return ClientInfo{}, err
-	}
-	// Shutdown when context is closed
-	go func() {
-		<-ctx.Done()
-		e.Close()
-	}()
-
 	clientConfig, err := cfg.ClientTLSInfo.ClientConfig()
 	if err != nil {
 		return ClientInfo{}, err
 	}
 
-	select {
-	case <-e.Server.ReadyNotify():
-		return ClientInfo{
-			Endpoints:     []string{cfg.ACUrls[0].String()},
-			TLS:           clientConfig,
-			CertFile:      cfg.ClientTLSInfo.CertFile,
-			KeyFile:       cfg.ClientTLSInfo.KeyFile,
-			TrustedCAFile: cfg.ClientTLSInfo.TrustedCAFile,
-		}, nil
-	case <-time.After(60 * time.Second):
-		e.Server.Stop() // trigger a shutdown
-		return ClientInfo{}, fmt.Errorf("server took too long to start")
-	case e := <-e.Err():
-		return ClientInfo{}, e
+	s.config = cfg
+
+	s.clientInfo = &ClientInfo{
+		Endpoints:     []string{cfg.ACUrls[0].String()},
+		TLS:           clientConfig,
+		CertFile:      cfg.ClientTLSInfo.CertFile,
+		KeyFile:       cfg.ClientTLSInfo.KeyFile,
+		TrustedCAFile: cfg.ClientTLSInfo.TrustedCAFile,
 	}
+	return *s.clientInfo, nil
 }
 
 func generateClientAndServerCerts(hosts []string, dir string) error {

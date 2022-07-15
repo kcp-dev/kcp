@@ -67,24 +67,6 @@ func init() {
 	)
 }
 
-const (
-	passthroughHeader   = "X-Kcp-Api-V1-Discovery-Passthrough"
-	workspaceAnnotation = "tenancy.kcp.dev/workspace"
-)
-
-type (
-	acceptHeaderContextKeyType int
-	userAgentContextKeyType    int
-)
-
-const (
-	// clusterKey is the context key for the request namespace.
-	acceptHeaderContextKey acceptHeaderContextKeyType = iota
-
-	// userAgentContextKey is the context key for the request user-agent.
-	userAgentContextKey userAgentContextKeyType = iota
-)
-
 // WithAcceptHeader makes the Accept header available for code in the handler chain. It is needed for
 // Wildcard requests, when finding the CRD with a common schema. For PartialObjectMeta requests we cand
 // weaken the schema requirement and allow different schemas across workspaces.
@@ -191,7 +173,7 @@ func WithClusterAnnotation(handler http.Handler) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		cluster := request.ClusterFrom(req.Context())
 		if cluster != nil {
-			kaudit.AddAuditAnnotation(req.Context(), workspaceAnnotation, cluster.Name.String())
+			kaudit.AddAuditAnnotation(req.Context(), WorkspaceAnnotation, cluster.Name.String())
 		}
 
 		handler.ServeHTTP(w, req)
@@ -420,7 +402,7 @@ func mergeCRDsIntoCoreGroup(crdLister *apiBindingAwareCRDLister, crdHandler, cor
 			// meaning it will be sent to the generic control plane to return its /api/v1 discovery.
 
 			// If we are retrieving the GenericControlPlane's v1 APIResources, pass it through to the filter chain.
-			if _, passthrough := req.Request.Header[passthroughHeader]; passthrough {
+			if _, passthrough := req.Request.Header[PassthroughHeader]; passthrough {
 				chain.ProcessFilter(req, res)
 				return
 			}
@@ -466,7 +448,7 @@ func serveCoreV1Discovery(ctx context.Context, crdLister *apiBindingAwareCRDList
 	// v1 CRDs present - need to clone the request, add our passthrough header, and get /api/v1 discovery from
 	// the GenericControlPlane's server.
 	cr := utilnet.CloneRequest(req)
-	cr.Header.Add(passthroughHeader, "1")
+	cr.Header.Add(PassthroughHeader, "1")
 
 	writer := newInMemoryResponseWriter()
 	coreHandler(writer, cr)

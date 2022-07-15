@@ -74,6 +74,7 @@ import (
 	workloadnamespace "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
 	workloadresource "github.com/kcp-dev/kcp/pkg/reconciler/workload/resource"
 	virtualworkspaceurlscontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/virtualworkspaceurls"
+	"github.com/kcp-dev/kcp/pkg/server/options"
 )
 
 func (s *Server) installClusterRoleAggregationController(ctx context.Context, config *rest.Config) error {
@@ -173,14 +174,14 @@ func (s *Server) installKubeServiceAccountController(ctx context.Context, config
 	return nil
 }
 
-func (s *Server) installKubeServiceAccountTokenController(ctx context.Context, config *rest.Config) error {
+func (s *Server) installKubeServiceAccountTokenController(ctx context.Context, config *rest.Config, controllers options.Controllers) error {
 	config = rest.AddUserAgent(rest.CopyConfig(config), "kube-service-account-token-controller")
 	kubeClient, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return err
 	}
 
-	serviceAccountKeyFile := s.options.Controllers.SAController.ServiceAccountKeyFile
+	serviceAccountKeyFile := controllers.SAController.ServiceAccountKeyFile
 	if len(serviceAccountKeyFile) == 0 {
 		return fmt.Errorf("service account controller requires a private key")
 	}
@@ -190,7 +191,7 @@ func (s *Server) installKubeServiceAccountTokenController(ctx context.Context, c
 	}
 
 	var rootCA []byte
-	rootCAFile := s.options.Controllers.SAController.RootCAFile
+	rootCAFile := controllers.SAController.RootCAFile
 	if rootCAFile != "" {
 		if rootCA, err = readCA(rootCAFile); err != nil {
 			return fmt.Errorf("error parsing root-ca-file at %s: %w", rootCAFile, err)
@@ -223,7 +224,7 @@ func (s *Server) installKubeServiceAccountTokenController(ctx context.Context, c
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go controller.Run(int(s.options.Controllers.SAController.ConcurrentSATokenSyncs), ctx.Done())
+		go controller.Run(int(controllers.SAController.ConcurrentSATokenSyncs), ctx.Done())
 
 		return nil
 	})
@@ -231,7 +232,7 @@ func (s *Server) installKubeServiceAccountTokenController(ctx context.Context, c
 	return nil
 }
 
-func (s *Server) installRootCAConfigMapController(ctx context.Context, config *rest.Config) error {
+func (s *Server) installRootCAConfigMapController(ctx context.Context, config *rest.Config, controllers options.Controllers, certFile string) error {
 	rootCAConfigMapControllerName := "kube-root-ca-configmap-controller"
 
 	config = rest.AddUserAgent(rest.CopyConfig(config), rootCAConfigMapControllerName)
@@ -241,9 +242,9 @@ func (s *Server) installRootCAConfigMapController(ctx context.Context, config *r
 	}
 
 	// TODO(jmprusi): We should make the CA loading dynamic when the file changes on disk.
-	caDataPath := s.options.Controllers.SAController.RootCAFile
+	caDataPath := controllers.SAController.RootCAFile
 	if caDataPath == "" {
-		caDataPath = s.options.GenericControlPlane.SecureServing.SecureServingOptions.ServerCert.CertKey.CertFile
+		caDataPath = certFile
 	}
 
 	caData, err := os.ReadFile(caDataPath)
@@ -539,6 +540,7 @@ func (s *Server) installHomeWorkspaces(ctx context.Context, config *rest.Config)
 
 func (s *Server) installApiResourceController(ctx context.Context, config *rest.Config) error {
 	config = kcpclienthelper.NewClusterConfig(rest.AddUserAgent(rest.CopyConfig(config), "kcp-api-resource-controller"))
+	controllers := s.config.Controllers()
 
 	crdClusterClient, err := apiextensionsclient.NewForConfig(config)
 	if err != nil {
@@ -552,7 +554,7 @@ func (s *Server) installApiResourceController(ctx context.Context, config *rest.
 	c, err := apiresource.NewController(
 		crdClusterClient,
 		kcpClusterClient,
-		s.options.Controllers.ApiResource.AutoPublishAPIs,
+		controllers.ApiResource.AutoPublishAPIs,
 		s.kcpSharedInformerFactory.Apiresource().V1alpha1().NegotiatedAPIResources(),
 		s.kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
 		s.apiextensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
@@ -568,14 +570,14 @@ func (s *Server) installApiResourceController(ctx context.Context, config *rest.
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(ctx, s.options.Controllers.ApiResource.NumThreads)
+		go c.Start(ctx, controllers.ApiResource.NumThreads)
 
 		return nil
 	})
 	return nil
 }
 
-func (s *Server) installSyncTargetHeartbeatController(ctx context.Context, config *rest.Config) error {
+func (s *Server) installSyncTargetHeartbeatController(ctx context.Context, config *rest.Config, controllers options.Controllers) error {
 	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-synctarget-heartbeat-controller")
 	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
 	if err != nil {
@@ -586,7 +588,7 @@ func (s *Server) installSyncTargetHeartbeatController(ctx context.Context, confi
 		kcpClusterClient,
 		s.kcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
 		s.kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
-		s.options.Controllers.SyncTargetHeartbeat.HeartbeatThreshold,
+		controllers.SyncTargetHeartbeat.HeartbeatThreshold,
 	)
 	if err != nil {
 		return err

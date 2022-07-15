@@ -109,8 +109,16 @@ func main() {
 			if errs := completed.Validate(); len(errs) > 0 {
 				return errors.NewAggregate(errs)
 			}
+			config, err := server.NewConfig(completed)
+			if err != nil {
+				return err
+			}
+			completedConfig, err := config.Complete()
+			if err != nil {
+				return err
+			}
 
-			s, err := server.NewServer(completed)
+			s, err := server.NewServer(completedConfig)
 			if err != nil {
 				return err
 			}

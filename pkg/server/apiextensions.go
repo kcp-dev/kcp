@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	"github.com/kcp-dev/logicalcluster"
-	"github.com/munnerz/goautoneg"
 
 	apiextensionshelpers "k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -157,26 +156,6 @@ func (c *apiBindingAwareCRDLister) List(ctx context.Context, selector labels.Sel
 	}
 
 	return ret, nil
-}
-
-func isPartialMetadataRequest(ctx context.Context) bool {
-	accept := ctx.Value(acceptHeaderContextKey).(string)
-	if accept == "" {
-		return false
-	}
-
-	return isPartialMetadataHeader(accept)
-}
-
-func isPartialMetadataHeader(accept string) bool {
-	clauses := goautoneg.ParseAccept(accept)
-	for _, clause := range clauses {
-		if clause.Params["as"] == "PartialObjectMetadata" || clause.Params["as"] == "PartialObjectMetadataList" {
-			return true
-		}
-	}
-
-	return false
 }
 
 func (c *apiBindingAwareCRDLister) Refresh(crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error) {
