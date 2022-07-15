@@ -61,8 +61,7 @@ func TestAPIBindingAuthorizerSystemGroupProtection(t *testing.T) {
 	kcpClusterClient, err := clientset.NewClusterForConfig(server.BaseConfig(t))
 	require.NoError(t, err, "failed to construct kcp cluster client for user-1")
 
-	rootCfg := framework.ShardConfig(t, kcpClusterClient, "root", server.RootShardConfig(t))
-	rootKcpClusterClient, err := clientset.NewClusterForConfig(rootCfg)
+	rootKcpClusterClient, err := clientset.NewClusterForConfig(server.RootShardConfig(t))
 	require.NoError(t, err)
 
 	t.Logf("Creating workspace")

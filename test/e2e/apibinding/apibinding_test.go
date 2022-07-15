@@ -239,11 +239,7 @@ func TestAPIBinding(t *testing.T) {
 
 	verifyWildcardList := func(consumerWorkspace logicalcluster.Name, expectedItems int) {
 		t.Logf("Get consumer %s workspace shard and create a shard client that is able to do wildcard requests", consumerWorkspace)
-		parent, _ := consumerWorkspace.Parent()
-		consumerWS, err := kcpClients.Cluster(parent).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, consumerWorkspace.Base(), metav1.GetOptions{})
-		require.NoError(t, err)
-		shardCfg := framework.ShardConfig(t, kcpClients, consumerWS.Status.Location.Current, rootShardCfg)
-		shardDynamicClients, err := dynamic.NewClusterForConfig(shardCfg)
+		shardDynamicClients, err := dynamic.NewClusterForConfig(rootShardCfg)
 		require.NoError(t, err)
 
 		t.Logf("Get APIBinding for workspace %s", consumerWorkspace.String())

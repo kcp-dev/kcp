@@ -151,8 +151,7 @@ func TestWorkspaceDeletionController(t *testing.T) {
 				t.Logf("Finally check if all resources has been removed")
 
 				// Note: we have to access the shard direction to access a logical cluster without workspace
-				rootCfg := framework.ShardConfig(t, server.kcpClusterClient, "root", server.RunningServer.RootShardConfig(t))
-				rootShardKubeClusterClient, err := kubernetesclientset.NewClusterForConfig(rootCfg)
+				rootShardKubeClusterClient, err := kubernetesclientset.NewClusterForConfig(server.RunningServer.RootShardConfig(t))
 
 				nslist, err := rootShardKubeClusterClient.Cluster(workspaceCluster).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 				require.NoError(t, err, "failed to list namespaces in workspace %s", workspace.Name)

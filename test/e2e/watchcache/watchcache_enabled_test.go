@@ -62,7 +62,7 @@ func TestWatchCacheEnabledForCRD(t *testing.T) {
 	t.Cleanup(cancel)
 	org := framework.NewOrganizationFixture(t, server)
 	cluster := framework.NewWorkspaceFixture(t, server, org)
-	rootShardConfig := server.RootShardConfig(t)
+	rootShardConfig := newRootShardConfig(t, server)
 	cowBoysGR := metav1.GroupResource{Group: "wildwest.dev", Resource: "cowboys"}
 
 	t.Log("Creating wildwest.dev CRD")
@@ -118,7 +118,7 @@ func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
 	server := framework.SharedKcpServer(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	rootShardConfig := server.RootShardConfig(t)
+	rootShardConfig := newRootShardConfig(t, server)
 	kcpClusterClient, err := kcpclientset.NewClusterForConfig(rootShardConfig)
 	require.NoError(t, err)
 	dynamicClusterClient, err := dynamic.NewClusterForConfig(rootShardConfig)
@@ -168,7 +168,7 @@ func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
 	server := framework.SharedKcpServer(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	rootShardConfig := server.RootShardConfig(t)
+	rootShardConfig := newRootShardConfig(t, server)
 	kubeClusterClient, err := kubernetesclientset.NewClusterForConfig(rootShardConfig)
 	require.NoError(t, err)
 	secretsGR := metav1.GroupResource{Group: "", Resource: "secrets"}
@@ -222,10 +222,7 @@ func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
 	testDynamicDiscoverySharedInformerFactory(ctx, t, rootShardConfig, schema.GroupVersionResource{Group: secretsGR.Group, Resource: secretsGR.Resource, Version: "v1"}, "topsecret", cluster)
 }
 
-func collectCacheHitsFor(ctx context.Context, t *testing.T, config *rest.Config, metricResourcePrefix string) (int, int) {
-	kcpClusterClient, err := kcpclientset.NewClusterForConfig(config)
-	require.NoError(t, err)
-	rootCfg := framework.ShardConfig(t, kcpClusterClient, "root", config)
+func collectCacheHitsFor(ctx context.Context, t *testing.T, rootCfg *rest.Config, metricResourcePrefix string) (int, int) {
 	rootShardKubeClusterClient, err := kubernetesclientset.NewForConfig(rootCfg)
 	require.NoError(t, err)
 
@@ -255,18 +252,12 @@ func collectCacheHitsFor(ctx context.Context, t *testing.T, config *rest.Config,
 const resyncPeriod = 10 * time.Hour
 const byWorkspace = "byWorkspace"
 
-func testDynamicDiscoverySharedInformerFactory(ctx context.Context, t *testing.T, config *rest.Config, expectedGVR schema.GroupVersionResource, expectedResName string, expectedClusterName logicalcluster.Name) {
-	nonIdentityKcpClusterClient, err := kcpclientset.NewClusterForConfig(config) // can only used for wildcard requests of apis.kcp.dev
+func testDynamicDiscoverySharedInformerFactory(ctx context.Context, t *testing.T, rootShardConfig *rest.Config, expectedGVR schema.GroupVersionResource, expectedResName string, expectedClusterName logicalcluster.Name) {
+	nonIdentityKcpClusterClient, err := kcpclientset.NewClusterForConfig(rootShardConfig) // can only used for wildcard requests of apis.kcp.dev
 	require.NoError(t, err)
 
-	// since wildcard request are only allowed against a shard
-	// create a cfg that points to the root shard and use it to create ddsif
-	rootConfig := framework.ShardConfig(t, nonIdentityKcpClusterClient, "root", config)
-	rootConfig.QPS = 100
-	rootConfig.Burst = 200
-
 	// resolve identities for system APIBindings
-	identityRootConfig, resolveIdentities := boostrap.NewConfigWithWildcardIdentities(rootConfig, boostrap.KcpRootGroupExportNames, boostrap.KcpRootGroupResourceExportNames, nonIdentityKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster))
+	identityRootConfig, resolveIdentities := boostrap.NewConfigWithWildcardIdentities(rootShardConfig, boostrap.KcpRootGroupExportNames, boostrap.KcpRootGroupResourceExportNames, nonIdentityKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster))
 	require.Eventually(t, func() bool {
 		if err := resolveIdentities(ctx); err != nil {
 			klog.Errorf("failed to resolve identities, keeping trying: %v", err)
@@ -278,7 +269,7 @@ func testDynamicDiscoverySharedInformerFactory(ctx context.Context, t *testing.T
 	rootKcpClusterClient, err := kcpclientset.NewClusterForConfig(identityRootConfig)
 	require.NoError(t, err)
 	rootKcpSharedInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(rootKcpClusterClient.Cluster(logicalcluster.Wildcard), resyncPeriod)
-	rootMetadataClusterClient, err := metadataclient.NewDynamicMetadataClusterClientForConfig(rootConfig) // no identites necessary for partial metadata
+	rootMetadataClusterClient, err := metadataclient.NewDynamicMetadataClusterClientForConfig(rootShardConfig) // no identites necessary for partial metadata
 	require.NoError(t, err)
 	ddsif := informer.NewDynamicDiscoverySharedInformerFactory(
 		rootKcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces().Lister(),
@@ -337,4 +328,11 @@ func assertWatchCacheIsPrimed(t *testing.T, fn func() error) {
 		}
 		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*200, "the watch cache hasn't been primed in the allotted time")
+}
+
+func newRootShardConfig(t *testing.T, server framework.RunningServer) *rest.Config {
+	rootShardConfig := server.RootShardConfig(t)
+	rootShardConfig.QPS = 100
+	rootShardConfig.Burst = 200
+	return rootShardConfig
 }
