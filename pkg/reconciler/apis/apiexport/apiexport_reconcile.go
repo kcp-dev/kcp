@@ -127,7 +127,7 @@ func (c *controller) createIdentitySecret(ctx context.Context, clusterName logic
 		return err
 	}
 
-	klog.V(2).Infof("Creating identity secret %s/%s for APIExport %s|%s", clusterName, secret.Name, clusterName, apiExportName)
+	klog.V(2).Infof("Creating identity secret %s|%s/%s for APIExport %s|%s", clusterName, c.secretNamespace, secret.Name, clusterName, apiExportName)
 	if err := c.createSecret(ctx, clusterName, secret); err != nil {
 		return err
 	}

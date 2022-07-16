@@ -268,7 +268,7 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 		if existingCRD == nil {
 			// Create flow
 
-			klog.V(2).Infof("Creating CRD %s|%s for APIBinding %s|%s", ShadowWorkspaceName, crd.Name, logicalcluster.From(apiBinding), apiBinding.Name)
+			klog.V(2).Infof("Creating CRD %s|%s for APIBinding %s|%s resource %s.%s", ShadowWorkspaceName, crd.Name, logicalcluster.From(apiBinding), apiBinding.Name, crd.Spec.Names.Plural, crd.Spec.Group)
 			if _, err := c.createCRD(ctx, ShadowWorkspaceName, crd); err != nil {
 				schemaClusterName := logicalcluster.From(schema)
 				if apierrors.IsInvalid(err) {
