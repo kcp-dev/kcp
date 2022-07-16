@@ -17,27 +17,23 @@ limitations under the License.
 package apiexport
 
 import (
-	cryptorand "crypto/rand"
-	"crypto/rsa"
 	"crypto/sha256"
 	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/util/keyutil"
+	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/crypto"
 )
 
 func GenerateIdentitySecret(ns string, apiExportName string) (*corev1.Secret, error) {
-	privateKey, err := rsa.GenerateKey(cryptorand.Reader, 4096)
-	if err != nil {
-		return nil, fmt.Errorf("error generating private key: %w", err)
-	}
-
-	encoded, err := keyutil.MarshalPrivateKeyToPEM(privateKey)
-	if err != nil {
-		return nil, fmt.Errorf("error encoding private key: %w", err)
+	start := time.Now()
+	key := crypto.Random256BitsString()
+	if dur := time.Since(start); dur > time.Millisecond*100 {
+		klog.Warningf("identity key generation took long: %s", dur)
 	}
 
 	secret := &corev1.Secret{
@@ -45,8 +41,8 @@ func GenerateIdentitySecret(ns string, apiExportName string) (*corev1.Secret, er
 			Namespace: ns,
 			Name:      apiExportName,
 		},
-		Data: map[string][]byte{
-			apisv1alpha1.SecretKeyAPIExportIdentity: encoded,
+		StringData: map[string]string{
+			apisv1alpha1.SecretKeyAPIExportIdentity: key,
 		},
 	}
 
