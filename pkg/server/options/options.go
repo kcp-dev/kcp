@@ -56,6 +56,7 @@ type ExtraOptions struct {
 	ProfilerAddress          string
 	ShardKubeconfigFile      string
 	ShardBaseURL             string
+	ShardExternalURL         string
 	ShardName                string
 	DiscoveryPollInterval    time.Duration
 	ExperimentalBindFreePort bool
@@ -95,6 +96,7 @@ func NewOptions(rootDir string) *Options {
 			ProfilerAddress:          "",
 			ShardKubeconfigFile:      "",
 			ShardBaseURL:             "",
+			ShardExternalURL:         "",
 			ShardName:                "root",
 			DiscoveryPollInterval:    60 * time.Second,
 			ExperimentalBindFreePort: false,
@@ -111,7 +113,7 @@ func NewOptions(rootDir string) *Options {
 		WithRequestHeader().
 		WithServiceAccounts().
 		WithTokenFile()
-	//WithWebHook()
+	// WithWebHook()
 	o.GenericControlPlane.Authentication.ServiceAccounts.Issuers = []string{"https://kcp.default.svc"}
 	o.GenericControlPlane.Etcd.StorageConfig.Transport.ServerList = []string{"embedded"}
 
@@ -156,7 +158,8 @@ func (o *Options) rawFlags() cliflag.NamedFlagSets {
 	fs := fss.FlagSet("KCP")
 	fs.StringVar(&o.Extra.ProfilerAddress, "profiler-address", o.Extra.ProfilerAddress, "[Address]:port to bind the profiler to")
 	fs.StringVar(&o.Extra.ShardKubeconfigFile, "shard-kubeconfig-file", o.Extra.ShardKubeconfigFile, "Kubeconfig holding admin(!) credentials to peer kcp shards.")
-	fs.StringVar(&o.Extra.ShardBaseURL, "shard-base-url", o.Extra.ShardBaseURL, "Base URL to the this kcp shard. Defaults to external address.")
+	fs.StringVar(&o.Extra.ShardBaseURL, "shard-base-url", o.Extra.ShardBaseURL, "Base URL to this kcp shard. Defaults to external address.")
+	fs.StringVar(&o.Extra.ShardExternalURL, "shard-external-url", o.Extra.ShardExternalURL, "URL used by outside clients to talk to this kcp shard. Defaults to external address.")
 	fs.StringVar(&o.Extra.ShardName, "shard-name", o.Extra.ShardName, "A name of this kcp shard. Defaults to the \"root\" name.")
 	fs.StringVar(&o.Extra.RootDirectory, "root-directory", o.Extra.RootDirectory, "Root directory.")
 	fs.DurationVar(&o.Extra.DiscoveryPollInterval, "discovery-poll-interval", o.Extra.DiscoveryPollInterval, "Polling interval for dynamic discovery informers.")
