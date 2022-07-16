@@ -44,6 +44,7 @@ import (
 	coreexternalversions "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clusters"
+	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/projection"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -292,7 +293,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		}
 
 		lcluster.Name = homeLogicalClusterName
-		workspaceType = "home"
+		workspaceType = HomeClusterWorkspaceType
 
 		// fall-through and let it be created
 	} else {
@@ -337,15 +338,17 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		request.WithCluster(ctx, request.Cluster{Name: tenancyv1alpha1.RootCluster}),
 		attributes,
 	); err != nil {
-		utilruntime.HandleError(fmt.Errorf("failed to authorize user %q to create a home workspace %q: %w", effectiveUser.GetName(), lcluster.Name, err))
+		utilruntime.HandleError(fmt.Errorf("failed to authorize user %q to create a %s workspace %q: %w", effectiveUser.GetName(), workspaceType, lcluster.Name, err))
 		responsewriters.Forbidden(ctx, attributes, rw, req, authorization.WorkspaceAcccessNotPermittedReason, homeWorkspaceCodecs)
 		return
 	} else if decision != authorizer.DecisionAllow {
+		utilruntime.HandleError(fmt.Errorf("forbidden for user %q to create a %s workspace %q: %w", effectiveUser.GetName(), workspaceType, lcluster.Name, err))
 		responsewriters.Forbidden(ctx, attributes, rw, req, reason, homeWorkspaceCodecs)
 		return
 	}
 
 	if retryAfterSeconds, err := h.tryToCreate(ctx, effectiveUser.GetName(), lcluster.Name, workspaceType); err != nil {
+		klog.Errorf("failed to create %s workspace %s for user %q: %w", workspaceType, lcluster.Name, effectiveUser.GetName(), err)
 		responsewriters.ErrorNegotiated(err, errorCodecs, schema.GroupVersion{}, rw, req)
 		return
 	} else {
@@ -488,12 +491,12 @@ func tryToCreate(h *homeWorkspaceHandler, ctx context.Context, userName string, 
 			Name: name,
 		},
 		Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-			Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: "root", Name: workspaceType},
+			Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: tenancyv1alpha1.RootCluster.String(), Name: workspaceType},
 		},
 	})
 
 	if err == nil || kerrors.IsAlreadyExists(err) {
-		if workspaceType == "home" {
+		if workspaceType == HomeClusterWorkspaceType {
 			if kerrors.IsAlreadyExists(err) {
 				cw, err := h.kcp.getClusterWorkspace(ctx, parent, name)
 				if err != nil {
