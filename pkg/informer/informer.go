@@ -234,7 +234,7 @@ func (d *DynamicDiscoverySharedInformerFactory) AddEventHandler(handler GVREvent
 
 	handlers := d.handlers.Load().([]GVREventHandler)
 
-	var newHandlers []GVREventHandler
+	newHandlers := make([]GVREventHandler, len(handlers))
 	copy(newHandlers, handlers)
 
 	newHandlers = append(newHandlers, handler)
