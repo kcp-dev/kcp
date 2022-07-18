@@ -22,6 +22,7 @@ import (
 	"os"
 	"time"
 
+	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	"github.com/spf13/pflag"
 
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -83,13 +84,14 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+	clusterConfig := kcpclienthelper.NewClusterConfig(config)
 
-	crdClusterClient, err := apiextensionsclient.NewClusterForConfig(config)
+	crdClusterClient, err := apiextensionsclient.NewForConfig(clusterConfig)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
+	kcpClusterClient, err := kcpclient.NewForConfig(clusterConfig)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

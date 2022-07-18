@@ -49,8 +49,8 @@ func GetClusterNameAndGVRIndexKey(clusterName logicalcluster.Name, gvr metav1.Gr
 }
 
 func NewController(
-	crdClusterClient *apiextensionsclientset.Cluster,
-	kcpClusterClient *kcpclient.Cluster,
+	crdClusterClient apiextensionsclientset.Interface,
+	kcpClusterClient kcpclient.Interface,
 	autoPublishNegotiatedAPIResource bool,
 	negotiatedAPIResourceInformer apiresourceinformer.NegotiatedAPIResourceInformer,
 	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
@@ -128,8 +128,8 @@ func NewController(
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	crdClusterClient             *apiextensionsclientset.Cluster
-	kcpClusterClient             *kcpclient.Cluster
+	crdClusterClient             apiextensionsclientset.Interface
+	kcpClusterClient             kcpclient.Interface
 	negotiatedApiResourceIndexer cache.Indexer
 	negotiatedApiResourceLister  apiresourcelister.NegotiatedAPIResourceLister
 
