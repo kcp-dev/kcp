@@ -19,6 +19,7 @@ package server
 import (
 	"context"
 	"fmt"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/http"
 	_ "net/http/pprof"
 	"net/url"
@@ -597,6 +598,21 @@ func (s *Server) Run(ctx context.Context) error {
 				return nil // don't klog.Fatal. This only happens when context is cancelled.
 			}
 			klog.Infof("Finished bootstrapping root workspace phase 1")
+		}
+
+		if rootShardKcpClusterClient != nil {
+			klog.Info("Creating ClusterWorkspaceShard in the root shard")
+			s := &tenancyv1alpha1.ClusterWorkspaceShard{
+				ObjectMeta: metav1.ObjectMeta{Name: "non-root"},
+				Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{
+					BaseURL:     fmt.Sprintf("https://%v", genericConfig.ExternalAddress),
+					ExternalURL: fmt.Sprintf("https://%v", genericConfig.ExternalAddress), // use Extra.ShardExternalURL
+				},
+			}
+			_, err := rootShardKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaceShards().Create(goContext(ctx), s, metav1.CreateOptions{})
+			if err != nil {
+				klog.Errorf("failed creating ClusterWorkspaceShard: %v", err)
+			}
 		}
 
 		return nil
