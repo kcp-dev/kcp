@@ -24,6 +24,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/kubernetes/pkg/api/genericcontrolplanescheme"
@@ -112,4 +113,59 @@ func TestBuiltInInformableTypes(t *testing.T) {
 	}
 
 	require.Empty(t, cmp.Diff(builtInGVRs, builtInInformableTypes()))
+}
+
+func TestGVRsToDiscoveryData(t *testing.T) {
+	input := map[schema.GroupVersionResource]struct{}{
+		{Group: "g1", Version: "v1", Resource: "g1-v1-r1"}: {},
+		{Group: "g2", Version: "v1", Resource: "g2-v1-r1"}: {},
+		{Group: "g1", Version: "v1", Resource: "g1-v1-r2"}: {},
+		{Group: "g3", Version: "v3", Resource: "g3-v3-r1"}: {},
+	}
+
+	expected := []*metav1.APIResourceList{
+		{
+			GroupVersion: "g1/v1",
+			APIResources: []metav1.APIResource{
+				{
+					Name:    "g1-v1-r1",
+					Group:   "g1",
+					Version: "v1",
+					Verbs:   []string{"create", "list", "watch", "delete"},
+				},
+				{
+					Name:    "g1-v1-r2",
+					Group:   "g1",
+					Version: "v1",
+					Verbs:   []string{"create", "list", "watch", "delete"},
+				},
+			},
+		},
+		{
+			GroupVersion: "g2/v1",
+			APIResources: []metav1.APIResource{
+				{
+					Name:    "g2-v1-r1",
+					Group:   "g2",
+					Version: "v1",
+					Verbs:   []string{"create", "list", "watch", "delete"},
+				},
+			},
+		},
+		{
+			GroupVersion: "g3/v3",
+			APIResources: []metav1.APIResource{
+				{
+					Name:    "g3-v3-r1",
+					Group:   "g3",
+					Version: "v3",
+					Verbs:   []string{"create", "list", "watch", "delete"},
+				},
+			},
+		},
+	}
+
+	actual := gvrsToDiscoveryData(input)
+
+	require.Empty(t, cmp.Diff(expected, actual))
 }

@@ -120,7 +120,7 @@ func (c *controller) reconcilePermissionClaims(ctx context.Context, apiBinding *
 			}
 		}
 		if !found {
-			//TODO: add openAPI check such that this could not be incorrect.
+			// TODO: add openAPI check such that this could not be incorrect.
 			if acceptedPC.IdentityHash != "" {
 				if grsToBoundResource[acceptedPC.GroupResource].Schema.IdentityHash != acceptedPC.IdentityHash {
 					identityMismatch = true
@@ -164,7 +164,7 @@ func (c *controller) reconcilePermissionClaims(ctx context.Context, apiBinding *
 	var allPatchErrors []error
 	for gvr, claims := range addedPermissionClaims {
 		for _, claim := range claims {
-			//TODO: use indexer instead of lister.
+			// TODO: use indexer instead of lister.
 			objs, err := claim.lister.Lister().List(labels.Everything())
 			if err != nil {
 				return err
@@ -207,7 +207,7 @@ func (c *controller) reconcilePermissionClaims(ctx context.Context, apiBinding *
 
 	for gvr, claims := range removedPermissionClaims {
 		for _, claim := range claims {
-			//TODO: use indexer instead of lister.
+			// TODO: use indexer instead of lister.
 			selector := labels.SelectorFromSet(labels.Set(map[string]string{claim.key: claim.label}))
 			objs, err := claim.lister.Lister().List(selector)
 			if err != nil {
@@ -285,7 +285,7 @@ func (c *controller) getInformerForGroupResource(group, resource string) (inform
 
 	for gvr := range listers {
 		if gvr.Group == group && gvr.Resource == resource {
-			informer, err := c.ddsif.InformerForResource(gvr)
+			informer, err := c.ddsif.ForResource(gvr)
 			// once we find one, return.
 			return informer, gvr, err
 		}

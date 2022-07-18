@@ -19,6 +19,7 @@ package informer
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -27,9 +28,12 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
@@ -68,6 +72,11 @@ type DynamicDiscoverySharedInformerFactory struct {
 	informers        map[schema.GroupVersionResource]informers.GenericInformer
 	startedInformers map[schema.GroupVersionResource]bool
 	informerStops    map[schema.GroupVersionResource]chan struct{}
+	discoveryData    []*metav1.APIResourceList
+
+	// Support subscribers (e.g. quota) that want to know when informers/discovery have changed.
+	subscribersLock sync.Mutex
+	subscribers     map[string]chan<- struct{}
 }
 
 // NewDynamicDiscoverySharedInformerFactory returns a factory for shared
@@ -99,6 +108,8 @@ func NewDynamicDiscoverySharedInformerFactory(
 		informers:        make(map[schema.GroupVersionResource]informers.GenericInformer),
 		startedInformers: make(map[schema.GroupVersionResource]bool),
 		informerStops:    make(map[schema.GroupVersionResource]chan struct{}),
+
+		subscribers: make(map[string]chan<- struct{}),
 	}
 
 	f.handlers.Store([]GVREventHandler{})
@@ -147,12 +158,29 @@ func NewDynamicDiscoverySharedInformerFactory(
 		}
 	}
 
+	crdIsEstablished := func(obj interface{}) bool {
+		crd, ok := obj.(*apiextensionsv1.CustomResourceDefinition)
+		if !ok {
+			utilruntime.HandleError(fmt.Errorf("unable to determine if CRD is established - got type %T instead", obj))
+			return false
+		}
+
+		return apihelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established)
+	}
+
+	// When CRDs change, send a notification that we might need to add/remove informers.
 	crdInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			notifyUpdateNeeded()
+			if crdIsEstablished(obj) {
+				notifyUpdateNeeded()
+			}
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
-			notifyUpdateNeeded()
+			oldEstablished := crdIsEstablished(oldObj)
+			newEstablished := crdIsEstablished(newObj)
+			if newEstablished || oldEstablished != newEstablished {
+				notifyUpdateNeeded()
+			}
 		},
 		DeleteFunc: func(obj interface{}) {
 			notifyUpdateNeeded()
@@ -162,9 +190,9 @@ func NewDynamicDiscoverySharedInformerFactory(
 	return f, nil
 }
 
-// InformerForResource returns the GenericInformer for gvr, creating it if needed. The GenericInformer must be started
+// ForResource returns the GenericInformer for gvr, creating it if needed. The GenericInformer must be started
 // by calling Start on the DynamicDiscoverySharedInformerFactory before the GenericInformer can be used.
-func (d *DynamicDiscoverySharedInformerFactory) InformerForResource(gvr schema.GroupVersionResource) (informers.GenericInformer, error) {
+func (d *DynamicDiscoverySharedInformerFactory) ForResource(gvr schema.GroupVersionResource) (informers.GenericInformer, error) {
 	// See if we already have it
 	d.informersLock.RLock()
 	inf := d.informers[gvr]
@@ -255,7 +283,7 @@ func (d *DynamicDiscoverySharedInformerFactory) Listers() (listers map[schema.Gr
 
 	for gvr, informer := range d.informers {
 		// We have the read lock so d.informers is fully populated for all the gvrs in d.gvrs. We use d.informers
-		// directly instead of calling either InformerForResource or informerForResourceLockHeld.
+		// directly instead of calling either ForResource or informerForResourceLockHeld.
 		if !informer.Informer().HasSynced() {
 			notSynced = append(notSynced, gvr)
 			continue
@@ -454,6 +482,71 @@ func (d *DynamicDiscoverySharedInformerFactory) updateInformers() {
 		delete(d.informerStops, gvr)
 		delete(d.startedInformers, gvr)
 	}
+
+	d.discoveryData = gvrsToDiscoveryData(latest)
+
+	d.subscribersLock.Lock()
+	defer d.subscribersLock.Unlock()
+
+	for id, ch := range d.subscribers {
+		klog.V(4).InfoS("Attempting to notify discovery subscriber", "id", id)
+		select {
+		case ch <- struct{}{}:
+			klog.V(4).InfoS("Successfully notified discovery subscriber", "id", id)
+		default:
+			klog.V(4).InfoS("Unable to notify discovery subscriber - channel full", "id", id)
+		}
+	}
+
+}
+
+// gvrsToDiscoveryData returns "fake"/simulated discovery data for all the resources covered by the factory. It only
+// includes enough data in each APIResource to support what kcp currently needs (scheduling, placement, quota).
+func gvrsToDiscoveryData(gvrs map[schema.GroupVersionResource]struct{}) []*metav1.APIResourceList {
+	var discoveryData []*metav1.APIResourceList
+	gvResources := make(map[schema.GroupVersion][]metav1.APIResource)
+
+	for gvr := range gvrs {
+		gv := gvr.GroupVersion()
+
+		gvResources[gv] = append(gvResources[gv], metav1.APIResource{
+			Name:    gvr.Resource,
+			Group:   gvr.Group,
+			Version: gvr.Version,
+			// Everything we're informing on supports these
+			Verbs: []string{"create", "list", "watch", "delete"},
+		})
+	}
+
+	for gv, resources := range gvResources {
+		sort.Slice(resources, func(i, j int) bool {
+			return resources[i].Name < resources[j].Name
+		})
+
+		discoveryData = append(discoveryData, &metav1.APIResourceList{
+			GroupVersion: gv.String(),
+			APIResources: resources,
+		})
+	}
+
+	sort.Slice(discoveryData, func(i, j int) bool {
+		return discoveryData[i].GroupVersion < discoveryData[j].GroupVersion
+	})
+
+	return discoveryData
+}
+
+// DiscoveryData implements resourcequota.NamespacedResourcesFunc and is intended to be used by the quota subsystem.
+func (d *DynamicDiscoverySharedInformerFactory) DiscoveryData() ([]*metav1.APIResourceList, error) {
+	d.informersLock.RLock()
+	defer d.informersLock.RUnlock()
+
+	ret := make([]*metav1.APIResourceList, len(d.discoveryData))
+	for i, apiResourceList := range d.discoveryData {
+		ret[i] = apiResourceList.DeepCopy()
+	}
+
+	return ret, nil
 }
 
 // Start starts any informers that have been created but not yet started. The passed in stop channel is ignored;
@@ -490,4 +583,30 @@ func (d *DynamicDiscoverySharedInformerFactory) calculateInformersLockHeld(lates
 	}
 
 	return toAdd, toRemove
+}
+
+// Subscribe registers for informer/discovery change notifications, returning a channel to which change notifications
+// are sent.
+func (d *DynamicDiscoverySharedInformerFactory) Subscribe(id string) <-chan struct{} {
+	d.subscribersLock.Lock()
+	defer d.subscribersLock.Unlock()
+
+	// Use a buffered channel so we can always send at least 1, regardless of consumer status.
+	ch := make(chan struct{}, 1)
+	d.subscribers[id] = ch
+
+	return ch
+}
+
+// Unsubscribe removes the channel associated with id from future informer/discovery change notifications.
+func (d *DynamicDiscoverySharedInformerFactory) Unsubscribe(id string) {
+	d.subscribersLock.Lock()
+	defer d.subscribersLock.Unlock()
+
+	ch, ok := d.subscribers[id]
+	if ok {
+		close(ch)
+	}
+
+	delete(d.subscribers, id)
 }
