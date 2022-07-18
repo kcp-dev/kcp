@@ -217,15 +217,24 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, name string) (err error)
 			return fmt.Errorf("current URL %q does not point to cluster workspace", config.Host)
 		}
 
-		if strings.Contains(name, ":") && logicalcluster.New(name).HasPrefix(tenancyv1alpha1.RootCluster) {
+		if strings.Contains(name, ":") && cluster.HasPrefix(tenancyv1alpha1.RootCluster) {
+			// absolute logical cluster under root:
 			parentClusterName, workspaceName := logicalcluster.New(name).Split()
-			if _, err := kc.personalClient.Cluster(parentClusterName).TenancyV1beta1().Workspaces().Get(ctx, workspaceName, metav1.GetOptions{}); err != nil {
+			ws, err := kc.personalClient.Cluster(parentClusterName).TenancyV1beta1().Workspaces().Get(ctx, workspaceName, metav1.GetOptions{})
+			if err != nil {
 				return err
 			}
-		}
 
-		if strings.Contains(name, ":") || name == tenancyv1alpha1.RootCluster.String() {
-			// absolute logical cluster
+			// intentionally do not check for readiness here
+
+			newServerHost = ws.Status.URL
+			workspaceType = &ws.Spec.Type
+		} else if strings.Contains(name, ":") {
+			// e.g. system:something
+			u.Path = path.Join(u.Path, logicalcluster.New(name).Path())
+			newServerHost = u.String()
+		} else if name == tenancyv1alpha1.RootCluster.String() {
+			// root workspace
 			u.Path = path.Join(u.Path, logicalcluster.New(name).Path())
 			newServerHost = u.String()
 		} else {
