@@ -175,7 +175,7 @@ func (s *Server) Run(ctx context.Context) error {
 	nonIdentityKcpClusterConfig := genericConfig.LoopbackClientConfig
 	var rootShardKcpClusterClient *kcpclient.Cluster
 	if len(s.options.Extra.RootShardKubeconfigFile) > 0 {
-		nonIdentityRootKcpClusterConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: s.options.Extra.RootShardKubeconfigFile}, nil).ClientConfig()
+		nonIdentityRootKcpClusterConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: s.options.Extra.RootShardKubeconfigFile}, &clientcmd.ConfigOverrides{CurrentContext: "system:admin"}).ClientConfig()
 		if err != nil {
 			return fmt.Errorf("failed to load root kcp kubeconfig from: %s, err: %w", s.options.Extra.RootShardKubeconfigFile, err)
 		}
