@@ -17,6 +17,7 @@ limitations under the License.
 package options
 
 import (
+	tenancyv1 "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/spf13/pflag"
 
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -81,10 +82,14 @@ func (s *Authorization) AddFlags(fs *pflag.FlagSet) {
 			"contacting the 'core' kubernetes server.")
 }
 
-func (s *Authorization) ApplyTo(config *genericapiserver.Config, informer coreexternalversions.SharedInformerFactory, kcpinformer kcpexternalversions.SharedInformerFactory) error {
+func (s *Authorization) ApplyTo(config *genericapiserver.Config, informer coreexternalversions.SharedInformerFactory, kcpinformer kcpexternalversions.SharedInformerFactory, rootKcpInformer kcpexternalversions.SharedInformerFactory, shardName string) error {
 	var authorizers []authorizer.Authorizer
+	var rootClusterWorkspaceLister tenancyv1.ClusterWorkspaceLister
 
 	workspaceLister := kcpinformer.Tenancy().V1alpha1().ClusterWorkspaces().Lister()
+	if rootKcpInformer != nil {
+		rootClusterWorkspaceLister = rootKcpInformer.Tenancy().V1alpha1().ClusterWorkspaces().Lister()
+	}
 
 	// group authorizer
 	if len(s.AlwaysAllowGroups) > 0 {
@@ -111,8 +116,8 @@ func (s *Authorization) ApplyTo(config *genericapiserver.Config, informer coreex
 	}
 
 	authorizers = append(authorizers,
-		authorization.NewTopLevelOrganizationAccessAuthorizer(informer, workspaceLister,
-			authorization.NewWorkspaceContentAuthorizer(informer, workspaceLister,
+		authorization.NewTopLevelOrganizationAccessAuthorizer(informer, workspaceLister, rootClusterWorkspaceLister,
+			authorization.NewWorkspaceContentAuthorizer(informer, workspaceLister, rootClusterWorkspaceLister, shardName,
 				authorization.NewSystemCRDAuthorizer(
 					apiBindingAuth,
 				),

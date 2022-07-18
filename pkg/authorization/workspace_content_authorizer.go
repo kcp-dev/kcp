@@ -44,26 +44,30 @@ import (
 
 const WorkspaceAcccessNotPermittedReason = "workspace access not permitted"
 
-func NewWorkspaceContentAuthorizer(versionedInformers clientgoinformers.SharedInformerFactory, clusterWorkspaceLister tenancyalphav1.ClusterWorkspaceLister, delegate authorizer.Authorizer) authorizer.Authorizer {
+func NewWorkspaceContentAuthorizer(versionedInformers clientgoinformers.SharedInformerFactory, clusterWorkspaceLister tenancyalphav1.ClusterWorkspaceLister, rootClusterWorkspaceLister tenancyalphav1.ClusterWorkspaceLister, shardName string, delegate authorizer.Authorizer) authorizer.Authorizer {
 	return &workspaceContentAuthorizer{
 		rbacInformers: versionedInformers.Rbac().V1(),
 
-		roleLister:               versionedInformers.Rbac().V1().Roles().Lister(),
-		roleBindingLister:        versionedInformers.Rbac().V1().RoleBindings().Lister(),
-		clusterRoleLister:        versionedInformers.Rbac().V1().ClusterRoles().Lister(),
-		clusterRoleBindingLister: versionedInformers.Rbac().V1().ClusterRoleBindings().Lister(),
-		clusterWorkspaceLister:   clusterWorkspaceLister,
+		roleLister:                 versionedInformers.Rbac().V1().Roles().Lister(),
+		roleBindingLister:          versionedInformers.Rbac().V1().RoleBindings().Lister(),
+		clusterRoleLister:          versionedInformers.Rbac().V1().ClusterRoles().Lister(),
+		clusterRoleBindingLister:   versionedInformers.Rbac().V1().ClusterRoleBindings().Lister(),
+		clusterWorkspaceLister:     clusterWorkspaceLister,
+		rootClusterWorkspaceLister: rootClusterWorkspaceLister,
+		shardName:                  shardName,
 
 		delegate: delegate,
 	}
 }
 
 type workspaceContentAuthorizer struct {
-	roleLister               rbacv1listers.RoleLister
-	roleBindingLister        rbacv1listers.RoleBindingLister
-	clusterRoleBindingLister rbacv1listers.ClusterRoleBindingLister
-	clusterRoleLister        rbacv1listers.ClusterRoleLister
-	clusterWorkspaceLister   tenancyalphav1.ClusterWorkspaceLister
+	shardName                  string
+	roleLister                 rbacv1listers.RoleLister
+	roleBindingLister          rbacv1listers.RoleBindingLister
+	clusterRoleBindingLister   rbacv1listers.ClusterRoleBindingLister
+	clusterRoleLister          rbacv1listers.ClusterRoleLister
+	clusterWorkspaceLister     tenancyalphav1.ClusterWorkspaceLister
+	rootClusterWorkspaceLister tenancyalphav1.ClusterWorkspaceLister
 
 	// TODO: this will go away when scoping lands. Then we only have those 4 listers above.
 	rbacInformers rbacv1.Interface
@@ -73,7 +77,9 @@ type workspaceContentAuthorizer struct {
 }
 
 func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
-	cluster, err := genericapirequest.ValidClusterFrom(ctx)
+	var err error
+	var cluster *genericapirequest.Cluster
+	cluster, err = genericapirequest.ValidClusterFrom(ctx)
 	if err != nil {
 		return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, err
 	}
@@ -126,12 +132,31 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 	extraGroups := sets.NewString()
 
 	// check the workspace even exists
-	ws, err := a.clusterWorkspaceLister.Get(clusters.ToClusterAwareKey(parentClusterName, cluster.Name.Base()))
+	var ws *tenancyv1alpha1.ClusterWorkspace
+	ws, err = a.clusterWorkspaceLister.Get(clusters.ToClusterAwareKey(parentClusterName, cluster.Name.Base()))
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if a.rootClusterWorkspaceLister != nil {
+			if ws, err = a.rootClusterWorkspaceLister.Get(clusters.ToClusterAwareKey(tenancyv1alpha1.RootCluster, cluster.Name.Base())); err != nil {
+				if errors.IsNotFound(err) {
+					return authorizer.DecisionDeny, WorkspaceAcccessNotPermittedReason, nil
+				}
+				return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, err
+			}
+		} else {
+			if errors.IsNotFound(err) {
+				return authorizer.DecisionDeny, WorkspaceAcccessNotPermittedReason, nil
+			}
+			return authorizer.DecisionNoOpinion, "", err
+		}
+	}
+
+	if a.shardName != tenancyv1alpha1.RootCluster.String() {
+		if ws.Spec.Shard == nil {
 			return authorizer.DecisionDeny, WorkspaceAcccessNotPermittedReason, nil
 		}
-		return authorizer.DecisionNoOpinion, "", err
+		if ws.Spec.Shard.Name != a.shardName {
+			return authorizer.DecisionDeny, WorkspaceAcccessNotPermittedReason, nil
+		}
 	}
 
 	if ws.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseInitializing && ws.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseReady {

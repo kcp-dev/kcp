@@ -264,7 +264,7 @@ func (s *Server) Run(ctx context.Context) error {
 		return err
 	}
 
-	if err := s.options.Authorization.ApplyTo(genericConfig, s.kubeSharedInformerFactory, s.kcpSharedInformerFactory); err != nil {
+	if err := s.options.Authorization.ApplyTo(genericConfig, s.kubeSharedInformerFactory, s.kcpSharedInformerFactory, s.rootKcpSharedInformerFactory, s.options.Extra.ShardName); err != nil {
 		return err
 	}
 	kcpAdminToken, shardAdminToken, shardAdminTokenHash, err := s.options.AdminAuthentication.ApplyTo(genericConfig)
@@ -603,7 +603,7 @@ func (s *Server) Run(ctx context.Context) error {
 		if rootShardKcpClusterClient != nil {
 			klog.Info("Creating ClusterWorkspaceShard in the root shard")
 			s := &tenancyv1alpha1.ClusterWorkspaceShard{
-				ObjectMeta: metav1.ObjectMeta{Name: "non-root"},
+				ObjectMeta: metav1.ObjectMeta{Name: s.options.Extra.ShardName},
 				Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{
 					BaseURL:     fmt.Sprintf("https://%v", genericConfig.ExternalAddress),
 					ExternalURL: fmt.Sprintf("https://%v", s.options.Extra.ShardExternalURL),

@@ -42,7 +42,7 @@ import (
 // clusterworkspaces/content of the top-level workspace the request workspace is nested in. If one of
 // these verbs are admitted, the delegate authorizer is called. Otherwise, NoOpionion is returned if
 // the top-level workspace exists, and Deny otherwise.
-func NewTopLevelOrganizationAccessAuthorizer(versionedInformers clientgoinformers.SharedInformerFactory, clusterWorkspaceLister tenancyv1.ClusterWorkspaceLister, delegate authorizer.Authorizer) authorizer.Authorizer {
+func NewTopLevelOrganizationAccessAuthorizer(versionedInformers clientgoinformers.SharedInformerFactory, clusterWorkspaceLister tenancyv1.ClusterWorkspaceLister, rootClusterWorkspaceLister tenancyv1.ClusterWorkspaceLister, delegate authorizer.Authorizer) authorizer.Authorizer {
 	rootKubeInformer := rbacwrapper.FilterInformers(tenancyv1alpha1.RootCluster, versionedInformers.Rbac().V1())
 	bootstrapInformer := rbacwrapper.FilterInformers(genericcontrolplane.LocalAdminCluster, versionedInformers.Rbac().V1())
 
@@ -57,15 +57,17 @@ func NewTopLevelOrganizationAccessAuthorizer(versionedInformers clientgoinformer
 			&rbac.ClusterRoleGetter{Lister: mergedClusterRoleInformer.Lister()},
 			&rbac.ClusterRoleBindingLister{Lister: mergedClusterRoleBindingsInformer.Lister()},
 		),
-		clusterWorkspaceLister: clusterWorkspaceLister,
-		delegate:               delegate,
+		clusterWorkspaceLister:     clusterWorkspaceLister,
+		rootClusterWorkspaceLister: rootClusterWorkspaceLister,
+		delegate:                   delegate,
 	}
 }
 
 type topLevelOrgAccessAuthorizer struct {
-	rootAuthorizer         *rbac.RBACAuthorizer
-	clusterWorkspaceLister tenancyv1.ClusterWorkspaceLister
-	delegate               authorizer.Authorizer
+	rootAuthorizer             *rbac.RBACAuthorizer
+	clusterWorkspaceLister     tenancyv1.ClusterWorkspaceLister
+	rootClusterWorkspaceLister tenancyv1.ClusterWorkspaceLister
+	delegate                   authorizer.Authorizer
 }
 
 func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
@@ -106,10 +108,19 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 
 	// check the org workspace exists in the root workspace
 	if _, err := a.clusterWorkspaceLister.Get(clusters.ToClusterAwareKey(tenancyv1alpha1.RootCluster, requestTopLevelOrgName)); err != nil {
-		if errors.IsNotFound(err) {
-			return authorizer.DecisionDeny, WorkspaceAcccessNotPermittedReason, nil
+		if a.rootClusterWorkspaceLister != nil {
+			if _, err := a.rootClusterWorkspaceLister.Get(clusters.ToClusterAwareKey(tenancyv1alpha1.RootCluster, requestTopLevelOrgName)); err != nil {
+				if errors.IsNotFound(err) {
+					return authorizer.DecisionDeny, WorkspaceAcccessNotPermittedReason, nil
+				}
+				return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, err
+			}
+		} else {
+			if errors.IsNotFound(err) {
+				return authorizer.DecisionDeny, WorkspaceAcccessNotPermittedReason, nil
+			}
+			return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, err
 		}
-		return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, err
 	}
 
 	switch {
