@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"math/rand"
 	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/kcp-dev/logicalcluster/v2"
@@ -77,7 +76,6 @@ type TestData struct {
 	workspaceCreationError error
 	workspaceLister        *mockLister
 	user                   kuser.Info
-	scope                  string
 	reviewer               *workspaceauth.Reviewer
 	rootReviewer           *workspaceauth.Reviewer
 	orgName                logicalcluster.Name
@@ -172,8 +170,7 @@ func applyTest(t *testing.T, test TestDescription) {
 	})
 
 	kubeInformers := informers.NewSharedInformerFactory(mockKubeClient, controller.NoResyncPeriodFunc())
-	crbInformer := kubeInformers.Rbac().V1().ClusterRoleBindings()
-	_ = AddNameIndexers(crbInformer)
+	crbInformer := kubeInformers.Rbac().V1().ClusterRoleBindings().Informer()
 
 	// Make sure informers are running.
 	kubeInformers.Start(ctx.Done())
@@ -181,7 +178,7 @@ func applyTest(t *testing.T, test TestDescription) {
 	// This is not required in tests, but it serves as a proof-of-concept by
 	// ensuring that the informer goroutine have warmed up and called List before
 	// we send any events to it.
-	cache.WaitForCacheSync(ctx.Done(), crbInformer.Informer().HasSynced)
+	cache.WaitForCacheSync(ctx.Done(), crbInformer.HasSynced)
 
 	// The fake client doesn't support resource version. Any writes to the client
 	// after the informer's initial LIST and before the informer establishing the
@@ -204,7 +201,7 @@ func applyTest(t *testing.T, test TestDescription) {
 		getFilteredClusterWorkspaces: func(orgName logicalcluster.Name) FilteredClusterWorkspaces {
 			return &clusterWorkspaces{clusterWorkspaceLister: clusterWorkspaceLister}
 		},
-		crbInformer: crbInformer,
+		crbInformer: kubeInformers.Rbac().V1().ClusterRoleBindings(),
 		impersonatedkubeClusterClient: func(user kuser.Info) (kubernetes.ClusterInterface, error) {
 			return mockKubeClusterClient(func(logicalcluster.Name) kubernetes.Interface { return mockKubeClient }), nil
 		},
@@ -219,13 +216,12 @@ func applyTest(t *testing.T, test TestDescription) {
 		},
 	}
 	ctx = apirequest.WithUser(ctx, test.user)
-	ctx = apirequest.WithValue(ctx, WorkspacesScopeKey, test.scope)
 	ctx = apirequest.WithValue(ctx, WorkspacesOrgKey, test.orgName)
 
 	test.apply(t, &storage, ctx, mockKubeClient, mockKCPClient, clusterWorkspaceLister.CheckedUsers, test.TestData)
 }
 
-func TestPrettyNameIndex(t *testing.T) {
+func TestListWorkspacesWithGroupPermission(t *testing.T) {
 	user := &kuser.DefaultInfo{
 		Name:   "test-user",
 		UID:    "test-uid",
@@ -233,163 +229,16 @@ func TestPrettyNameIndex(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:     user,
-			scope:    OrganizationScope,
-			orgName:  logicalcluster.New("root:orgName"),
-			reviewer: workspaceauth.NewReviewer(nil),
-			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root:orgName",
-						},
-						Name: "foo",
-					},
-				},
-			},
-			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "orgName2-binding",
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root:orgName2",
-						},
-						Labels: map[string]string{
-							PrettyNameLabel:   "foo",
-							InternalNameLabel: "foo-orgName2",
-						},
-					},
-					Subjects: []rbacv1.Subject{
-						{
-							Kind: "User",
-							Name: user.Name,
-						},
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "orgName-binding",
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root:orgName",
-						},
-						Labels: map[string]string{
-							PrettyNameLabel:   "foo",
-							InternalNameLabel: "foo",
-						},
-					},
-					Subjects: []rbacv1.Subject{
-						{
-							Kind: "User",
-							Name: user.Name,
-						},
-					},
-				},
-			},
-		},
-		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
-			values, err := storage.crbInformer.Informer().GetIndexer().ByIndex(PrettyNameIndex, lclusterAwareIndexValue(logicalcluster.New("root:orgName"), "foo"))
-			require.NoError(t, err)
-			require.Len(t, values, 1)
-			internalName, err := storage.getInternalNameFromPrettyName(testData.user, logicalcluster.New("root:orgName"), "foo")
-			require.NoError(t, err)
-			require.Equal(t, "foo", internalName)
-		},
-	}
-	applyTest(t, test)
-}
-
-func TestInternalNameIndex(t *testing.T) {
-	user := &kuser.DefaultInfo{
-		Name:   "test-user",
-		UID:    "test-uid",
-		Groups: []string{"test-group"},
-	}
-	test := TestDescription{
-		TestData: TestData{
-			user:     user,
-			scope:    OrganizationScope,
-			orgName:  logicalcluster.New("root:orgName"),
-			reviewer: workspaceauth.NewReviewer(nil),
-			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root:orgName",
-						},
-						Name: "foo",
-					},
-				},
-			},
-			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "orgName2-binding",
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root:orgName2",
-						},
-						Labels: map[string]string{
-							PrettyNameLabel:   "foo-orgName2",
-							InternalNameLabel: "foo",
-						},
-					},
-					Subjects: []rbacv1.Subject{
-						{
-							Kind: "User",
-							Name: user.Name,
-						},
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "orgName-binding",
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root:orgName",
-						},
-						Labels: map[string]string{
-							PrettyNameLabel:   "foo",
-							InternalNameLabel: "foo",
-						},
-					},
-					Subjects: []rbacv1.Subject{
-						{
-							Kind: "User",
-							Name: user.Name,
-						},
-					},
-				},
-			},
-		},
-		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
-			values, err := storage.crbInformer.Informer().GetIndexer().ByIndex(InternalNameIndex, lclusterAwareIndexValue(logicalcluster.New("root:orgName"), "foo"))
-			require.NoError(t, err)
-			require.Len(t, values, 1)
-			prettyName, err := storage.getPrettyNameFromInternalName(testData.user, logicalcluster.New("root:orgName"), "foo")
-			require.NoError(t, err)
-			require.Equal(t, "foo", prettyName)
-		},
-	}
-	applyTest(t, test)
-}
-
-func TestListPersonalWorkspaces(t *testing.T) {
-	user := &kuser.DefaultInfo{
-		Name:   "test-user",
-		UID:    "test-uid",
-		Groups: []string{"test-group"},
-	}
-	test := TestDescription{
-		TestData: TestData{
-			user:     user,
-			scope:    PersonalScope,
-			orgName:  logicalcluster.New("root:orgName"),
-			reviewer: workspaceauth.NewReviewer(nil),
-			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
+			user:    user,
+			orgName: logicalcluster.New("root:orgName"),
+			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
-					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
-						"orgName": rbacGroups("test-group"),
+					"list/tenancy.kcp.dev/v1alpha1/clusterworkspaces/workspace": {
+						"": rbacGroups("test-group"),
 					},
 				},
 			}),
+			rootReviewer: workspaceauth.NewReviewer(nil),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -408,8 +257,77 @@ func TestListPersonalWorkspaces(t *testing.T) {
 							logicalcluster.AnnotationKey: "root:orgName",
 						},
 						Labels: map[string]string{
-							PrettyNameLabel:   "foo",
-							InternalNameLabel: "foo",
+							WorkspaceNameLabel: "foo",
+						},
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind: "User",
+							Name: user.Name,
+						},
+					},
+				},
+			},
+		},
+		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+			response, err := storage.List(ctx, nil)
+			require.NoError(t, err)
+			workspaces := response.(*tenancyv1beta1.WorkspaceList)
+			require.Len(t, workspaces.Items, 1, "workspaces.Items should have len 1")
+			responseClusterWorkspace := workspaces.Items[0]
+			assert.Equal(t, "foo", responseClusterWorkspace.Name)
+			checkedUsers := listerCheckedUsers()
+			require.Len(t, checkedUsers, 1, "The workspaceLister should have checked only 1 user")
+			assert.Equal(t,
+				&kuser.DefaultInfo{
+					Name:   user.Name,
+					UID:    user.UID,
+					Groups: []string{"test-group"},
+				},
+				checkedUsers[0],
+				"The workspaceLister should have checked the user with its groups")
+		},
+	}
+	applyTest(t, test)
+}
+
+func TestListWorkspacesWithUserPermission(t *testing.T) {
+	user := &kuser.DefaultInfo{
+		Name:   "test-user",
+		UID:    "test-uid",
+		Groups: []string{},
+	}
+	test := TestDescription{
+		TestData: TestData{
+			user:    user,
+			orgName: logicalcluster.New("root:orgName"),
+			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
+				subjects: map[string]map[string][]rbacv1.Subject{
+					"list/tenancy.kcp.dev/v1alpha1/clusterworkspaces/workspace": {
+						"": rbacUsers("test-user"),
+					},
+				},
+			}),
+			rootReviewer: workspaceauth.NewReviewer(nil),
+			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
+						Name: "foo",
+					},
+				},
+			},
+			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
+						Labels: map[string]string{
+							WorkspaceNameLabel: "foo",
 						},
 					},
 					Subjects: []rbacv1.Subject{
@@ -437,13 +355,13 @@ func TestListPersonalWorkspaces(t *testing.T) {
 					Groups: []string{},
 				},
 				checkedUsers[0],
-				"The workspaceLister should have checked the user without its groups")
+				"The workspaceLister should have checked the user")
 		},
 	}
 	applyTest(t, test)
 }
 
-func TestListPersonalWorkspacesInWrongOrg(t *testing.T) {
+func TestListWorkspacesForbidden(t *testing.T) {
 	user := &kuser.DefaultInfo{
 		Name:   "test-user",
 		UID:    "test-uid",
@@ -451,17 +369,16 @@ func TestListPersonalWorkspacesInWrongOrg(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:     user,
-			scope:    PersonalScope,
-			orgName:  logicalcluster.New("root:orgName"),
-			reviewer: workspaceauth.NewReviewer(nil),
-			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
+			user:    user,
+			orgName: logicalcluster.New("root:orgName"),
+			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
-					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
-						"root:orgName": rbacGroups("anotherOrg"),
+					"list/tenancy.kcp.dev/v1alpha1/clusterworkspaces/workspace": {
+						"": rbacUsers("test-user2"),
 					},
 				},
 			}),
+			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{nil}),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -480,8 +397,7 @@ func TestListPersonalWorkspacesInWrongOrg(t *testing.T) {
 							logicalcluster.AnnotationKey: "root:orgName",
 						},
 						Labels: map[string]string{
-							PrettyNameLabel:   "foo",
-							InternalNameLabel: "foo",
+							WorkspaceNameLabel: "foo",
 						},
 					},
 					Subjects: []rbacv1.Subject{
@@ -496,14 +412,14 @@ func TestListPersonalWorkspacesInWrongOrg(t *testing.T) {
 		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			response, err := storage.List(ctx, nil)
 
-			assert.EqualError(t, err, "workspaces.tenancy.kcp.dev \"orgName\" is forbidden: workspace access not permitted")
+			assert.EqualError(t, err, "workspaces.tenancy.kcp.dev is forbidden: \"list\" workspace \"\" in workspace \"root:orgName\" is not allowed")
 			assert.Nil(t, response, "response should be nil")
 		},
 	}
 	applyTest(t, test)
 }
 
-func TestListPersonalWorkspacesWithPrettyName(t *testing.T) {
+func TestListWorkspacesOnRootOrgWithPermission(t *testing.T) {
 	user := &kuser.DefaultInfo{
 		Name:   "test-user",
 		UID:    "test-uid",
@@ -512,83 +428,6 @@ func TestListPersonalWorkspacesWithPrettyName(t *testing.T) {
 	test := TestDescription{
 		TestData: TestData{
 			user:     user,
-			scope:    PersonalScope,
-			orgName:  logicalcluster.New("root:orgName"),
-			reviewer: workspaceauth.NewReviewer(nil),
-			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
-				subjects: map[string]map[string][]rbacv1.Subject{
-					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
-						"orgName": rbacGroups("test-group"),
-					},
-				},
-			}),
-			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root:orgName",
-						},
-						Name: "foo--1",
-					},
-				},
-			},
-			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root:orgName",
-						},
-						Labels: map[string]string{
-							PrettyNameLabel:   "foo",
-							InternalNameLabel: "foo--1",
-						},
-					},
-					Subjects: []rbacv1.Subject{
-						{
-							Kind: "User",
-							Name: user.Name,
-						},
-					},
-				},
-			},
-		},
-		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
-			response, err := storage.List(ctx, nil)
-			require.NoError(t, err)
-			workspaces := response.(*tenancyv1beta1.WorkspaceList)
-			require.Len(t, workspaces.Items, 1, "workspaces.Items should have len 1")
-			responseWorkspace := workspaces.Items[0]
-			assert.Equal(t, "foo", responseWorkspace.Name)
-			checkedUsers := listerCheckedUsers()
-			require.Len(t, checkedUsers, 1, "The workspaceLister should have checked only 1 user")
-			assert.Equal(t,
-				&kuser.DefaultInfo{
-					Name:   user.Name,
-					UID:    user.UID,
-					Groups: []string{},
-				},
-				checkedUsers[0],
-				"The workspaceLister should have checked the user without its groups")
-
-			if err != nil {
-				t.Errorf("%#v should be nil.", err)
-			}
-		},
-	}
-	applyTest(t, test)
-}
-
-func TestListPersonalWorkspacesOnRootOrgWithPermission(t *testing.T) {
-	user := &kuser.DefaultInfo{
-		Name:   "test-user",
-		UID:    "test-uid",
-		Groups: []string{"test-group"},
-	}
-	test := TestDescription{
-		TestData: TestData{
-			user:     user,
-			scope:    PersonalScope,
 			orgName:  logicalcluster.New("root"),
 			reviewer: workspaceauth.NewReviewer(nil),
 			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
@@ -619,7 +458,7 @@ func TestListPersonalWorkspacesOnRootOrgWithPermission(t *testing.T) {
 	applyTest(t, test)
 }
 
-func TestListPersonalWorkspacesOnRootOrgWithoutPermission(t *testing.T) {
+func TestListWorkspacesOnRootOrgWithoutPermission(t *testing.T) {
 	user := &kuser.DefaultInfo{
 		Name:   "test-user",
 		UID:    "test-uid",
@@ -628,7 +467,6 @@ func TestListPersonalWorkspacesOnRootOrgWithoutPermission(t *testing.T) {
 	test := TestDescription{
 		TestData: TestData{
 			user:                user,
-			scope:               PersonalScope,
 			orgName:             logicalcluster.New("root"),
 			reviewer:            workspaceauth.NewReviewer(nil),
 			rootReviewer:        workspaceauth.NewReviewer(&mockSubjectLocator{}),
@@ -643,7 +481,7 @@ func TestListPersonalWorkspacesOnRootOrgWithoutPermission(t *testing.T) {
 	applyTest(t, test)
 }
 
-func TestListOrganizationWorkspaces(t *testing.T) {
+func TestGetWorkspace(t *testing.T) {
 	user := &kuser.DefaultInfo{
 		Name:   "test-user",
 		UID:    "test-uid",
@@ -651,17 +489,16 @@ func TestListOrganizationWorkspaces(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:     user,
-			scope:    OrganizationScope,
-			orgName:  logicalcluster.New("root:orgName"),
-			reviewer: workspaceauth.NewReviewer(nil),
-			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
+			user:    user,
+			orgName: logicalcluster.New("root:orgName"),
+			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
-					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
-						"orgName": rbacGroups("test-group"),
+					"get/tenancy.kcp.dev/v1alpha1/clusterworkspaces/workspace": {
+						"foo": rbacGroups("test-group"),
 					},
 				},
 			}),
+			rootReviewer: workspaceauth.NewReviewer(nil),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -680,144 +517,7 @@ func TestListOrganizationWorkspaces(t *testing.T) {
 							logicalcluster.AnnotationKey: "root:orgName",
 						},
 						Labels: map[string]string{
-							PrettyNameLabel:   "foo",
-							InternalNameLabel: "foo",
-						},
-					},
-					Subjects: []rbacv1.Subject{
-						{
-							Kind: "User",
-							Name: user.Name,
-						},
-					},
-				},
-			},
-		},
-		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
-			response, err := storage.List(ctx, nil)
-			require.NoError(t, err)
-			workspaces := response.(*tenancyv1beta1.WorkspaceList)
-			require.Len(t, workspaces.Items, 1, "workspaces.Items should have len 1")
-			responseWorkspace := workspaces.Items[0]
-			assert.Equal(t, "foo", responseWorkspace.Name)
-			checkedUsers := listerCheckedUsers()
-			require.Len(t, checkedUsers, 1, "The workspaceLister should have checked only 1 user")
-			assert.Equal(t,
-				user,
-				checkedUsers[0],
-				"The workspaceLister should have checked the user with its groups")
-		},
-	}
-	applyTest(t, test)
-}
-
-func TestListOrganizationWorkspacesWithPrettyName(t *testing.T) {
-	user := &kuser.DefaultInfo{
-		Name:   "test-user",
-		UID:    "test-uid",
-		Groups: []string{"test-group"},
-	}
-	test := TestDescription{
-		TestData: TestData{
-			user:     user,
-			scope:    OrganizationScope,
-			orgName:  logicalcluster.New("root:orgName"),
-			reviewer: workspaceauth.NewReviewer(nil),
-			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
-				subjects: map[string]map[string][]rbacv1.Subject{
-					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
-						"orgName": rbacGroups("test-group"),
-					},
-				},
-			}),
-			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root:orgName",
-						},
-						Name: "foo--1",
-					},
-				},
-			},
-			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root:orgName",
-						},
-						Labels: map[string]string{
-							PrettyNameLabel:   "foo",
-							InternalNameLabel: "foo--1",
-						},
-					},
-					Subjects: []rbacv1.Subject{
-						{
-							Kind: "User",
-							Name: user.Name,
-						},
-					},
-				},
-			},
-		},
-		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
-			response, err := storage.List(ctx, nil)
-			require.NoError(t, err)
-			workspaces := response.(*tenancyv1beta1.WorkspaceList)
-			require.Len(t, workspaces.Items, 1, "workspaces.Items should have len 1")
-			responseWorkspace := workspaces.Items[0]
-			assert.Equal(t, "foo--1", responseWorkspace.Name)
-			checkedUsers := listerCheckedUsers()
-			require.Len(t, checkedUsers, 1, "The workspaceLister should have checked only 1 user")
-			assert.Equal(t,
-				user,
-				checkedUsers[0],
-				"The workspaceLister should have checked the user with its groups")
-		},
-	}
-	applyTest(t, test)
-}
-
-func TestGetPersonalWorkspace(t *testing.T) {
-	user := &kuser.DefaultInfo{
-		Name:   "test-user",
-		UID:    "test-uid",
-		Groups: []string{"test-group"},
-	}
-	test := TestDescription{
-		TestData: TestData{
-			user:     user,
-			scope:    PersonalScope,
-			orgName:  logicalcluster.New("root:orgName"),
-			reviewer: workspaceauth.NewReviewer(nil),
-			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
-				subjects: map[string]map[string][]rbacv1.Subject{
-					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
-						"orgName": rbacGroups("test-group"),
-					},
-				},
-			}),
-			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root:orgName",
-						},
-						Name: "foo",
-					},
-				},
-			},
-			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root:orgName",
-						},
-						Labels: map[string]string{
-							PrettyNameLabel:   "foo",
-							InternalNameLabel: "foo",
+							WorkspaceNameLabel: "foo",
 						},
 					},
 					Subjects: []rbacv1.Subject{
@@ -841,16 +541,16 @@ func TestGetPersonalWorkspace(t *testing.T) {
 				&kuser.DefaultInfo{
 					Name:   user.Name,
 					UID:    user.UID,
-					Groups: []string{},
+					Groups: []string{"test-group"},
 				},
 				checkedUsers[0],
-				"The workspaceLister should have checked the user without its groups")
+				"The workspaceLister should have checked the user with its groups")
 		},
 	}
 	applyTest(t, test)
 }
 
-func TestGetPersonalWorkspaceWithPrettyName(t *testing.T) {
+func TestGetWorkspaceNotFoundNoPermission(t *testing.T) {
 	user := &kuser.DefaultInfo{
 		Name:   "test-user",
 		UID:    "test-uid",
@@ -858,88 +558,16 @@ func TestGetPersonalWorkspaceWithPrettyName(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:     user,
-			scope:    PersonalScope,
-			orgName:  logicalcluster.New("root:orgName"),
-			reviewer: workspaceauth.NewReviewer(nil),
-			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
+			user:    user,
+			orgName: logicalcluster.New("root:orgName"),
+			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
-					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
-						"orgName": rbacGroups("test-group"),
+					"get/tenancy.kcp.dev/v1alpha1/clusterworkspaces/workspace": {
+						"foo": rbacGroups("test-group"),
 					},
 				},
 			}),
-			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root:orgName",
-						},
-						Name: "foo--1",
-					},
-				},
-			},
-			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root:orgName",
-						},
-						Labels: map[string]string{
-							PrettyNameLabel:   "foo",
-							InternalNameLabel: "foo--1",
-						},
-					},
-					Subjects: []rbacv1.Subject{
-						{
-							Kind: "User",
-							Name: user.Name,
-						},
-					},
-				},
-			},
-		},
-		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
-			response, err := storage.Get(ctx, "foo", nil)
-			require.NoError(t, err)
-			require.IsType(t, &tenancyv1beta1.Workspace{}, response)
-			responseWorkspace := response.(*tenancyv1beta1.Workspace)
-			assert.Equal(t, "foo", responseWorkspace.Name)
-			checkedUsers := listerCheckedUsers()
-			require.Len(t, checkedUsers, 1, "The workspaceLister should have checked only 1 user")
-			assert.Equal(t,
-				&kuser.DefaultInfo{
-					Name:   user.Name,
-					UID:    user.UID,
-					Groups: []string{},
-				},
-				checkedUsers[0],
-				"The workspaceLister should have checked the user without its groups")
-		},
-	}
-	applyTest(t, test)
-}
-
-func TestGetPersonalWorkspaceNotFoundNoPermission(t *testing.T) {
-	user := &kuser.DefaultInfo{
-		Name:   "test-user",
-		UID:    "test-uid",
-		Groups: []string{"test-group"},
-	}
-	test := TestDescription{
-		TestData: TestData{
-			user:     user,
-			scope:    PersonalScope,
-			orgName:  logicalcluster.New("root:orgName"),
-			reviewer: workspaceauth.NewReviewer(nil),
-			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
-				subjects: map[string]map[string][]rbacv1.Subject{
-					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
-						"orgName": rbacGroups("test-group"),
-					},
-				},
-			}),
+			rootReviewer: workspaceauth.NewReviewer(nil),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -961,12 +589,7 @@ func TestGetPersonalWorkspaceNotFoundNoPermission(t *testing.T) {
 			workspaceLister: &mockLister{
 				workspaces: []tenancyv1alpha1.ClusterWorkspace{
 					{
-						ObjectMeta: metav1.ObjectMeta{
-							Annotations: map[string]string{
-								logicalcluster.AnnotationKey: "root:orgName",
-							},
-							Name: "foo2",
-						},
+						ObjectMeta: metav1.ObjectMeta{Name: "foo2", ZZZ_DeprecatedClusterName: "root:orgName"},
 					},
 				},
 			},
@@ -978,8 +601,7 @@ func TestGetPersonalWorkspaceNotFoundNoPermission(t *testing.T) {
 							logicalcluster.AnnotationKey: "root:orgName",
 						},
 						Labels: map[string]string{
-							PrettyNameLabel:   "foo",
-							InternalNameLabel: "foo",
+							WorkspaceNameLabel: "foo",
 						},
 					},
 					Subjects: []rbacv1.Subject{
@@ -993,7 +615,7 @@ func TestGetPersonalWorkspaceNotFoundNoPermission(t *testing.T) {
 		},
 		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			response, err := storage.Get(ctx, "foo", nil)
-			require.Error(t, err)
+			require.EqualError(t, err, "workspaces.tenancy.kcp.dev \"foo\" not found")
 			require.Nil(t, response)
 			checkedUsers := listerCheckedUsers()
 			require.Len(t, checkedUsers, 1, "The workspaceLister should have checked only 1 user")
@@ -1001,16 +623,16 @@ func TestGetPersonalWorkspaceNotFoundNoPermission(t *testing.T) {
 				&kuser.DefaultInfo{
 					Name:   user.Name,
 					UID:    user.UID,
-					Groups: []string{},
+					Groups: []string{"test-group"},
 				},
 				checkedUsers[0],
-				"The workspaceLister should have checked the user without its groups")
+				"The workspaceLister should have checked the user with its groups")
 		},
 	}
 	applyTest(t, test)
 }
 
-func TestCreateWorkspaceInOrganizationNotAllowed(t *testing.T) {
+func TestCreateWorkspaceForbidden(t *testing.T) {
 	user := &kuser.DefaultInfo{
 		Name:   "test-user",
 		UID:    "test-uid",
@@ -1018,20 +640,16 @@ func TestCreateWorkspaceInOrganizationNotAllowed(t *testing.T) {
 	}
 	test := TestDescription{
 		TestData: TestData{
-			user:     user,
-			scope:    OrganizationScope,
-			orgName:  logicalcluster.New("root:orgName"),
-			reviewer: workspaceauth.NewReviewer(nil),
-			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
+			user:    user,
+			orgName: logicalcluster.New("root:orgName"),
+			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
-					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
-						"orgName": rbacGroups("test-group"),
-					},
-					"member/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
-						"orgName": rbacGroups("test-group"),
+					"create/tenancy.kcp.dev/v1alpha1/clusterworkspaces/workspace": {
+						"foo2": rbacGroups("test-group"),
 					},
 				},
 			}),
+			rootReviewer: workspaceauth.NewReviewer(nil),
 		},
 		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			newWorkspace := tenancyv1beta1.Workspace{
@@ -1040,43 +658,7 @@ func TestCreateWorkspaceInOrganizationNotAllowed(t *testing.T) {
 				},
 			}
 			response, err := storage.Create(ctx, &newWorkspace, nil, &metav1.CreateOptions{})
-			require.EqualError(t, err, "workspaces.tenancy.kcp.dev is forbidden: creating a workspace is only possible in the personal workspaces scope for now")
-			require.Nil(t, response)
-			checkedUsers := listerCheckedUsers()
-			require.Len(t, checkedUsers, 0, "The workspaceLister shouldn't have checked any user")
-		},
-	}
-	applyTest(t, test)
-}
-
-func TestCreatePersonalWorkspaceForbiddenToNonOrgMember(t *testing.T) {
-	user := &kuser.DefaultInfo{
-		Name:   "test-user",
-		UID:    "test-uid",
-		Groups: []string{"test-group"},
-	}
-	test := TestDescription{
-		TestData: TestData{
-			user:     user,
-			scope:    PersonalScope,
-			orgName:  logicalcluster.New("root:orgName"),
-			reviewer: workspaceauth.NewReviewer(nil),
-			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
-				subjects: map[string]map[string][]rbacv1.Subject{
-					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
-						"orgName": rbacGroups("test-group"),
-					},
-				},
-			}),
-		},
-		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
-			newWorkspace := tenancyv1beta1.Workspace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "foo",
-				},
-			}
-			response, err := storage.Create(ctx, &newWorkspace, nil, &metav1.CreateOptions{})
-			require.EqualError(t, err, "workspaces.tenancy.kcp.dev \"orgName\" is forbidden: workspace access not permitted")
+			require.EqualError(t, err, "workspaces.tenancy.kcp.dev \"foo\" is forbidden: \"create\" workspace \"foo\" in workspace \"root:orgName\" is not allowed")
 			require.Nil(t, response)
 			checkedUsers := listerCheckedUsers()
 			require.Len(t, checkedUsers, 0, "The workspaceLister shouldn't have checked any user")
@@ -1094,24 +676,15 @@ func TestCreateWorkspace(t *testing.T) {
 	test := TestDescription{
 		TestData: TestData{
 			user:    user,
-			scope:   PersonalScope,
 			orgName: logicalcluster.New("root:orgName"),
 			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
-				subjects: map[string]map[string][]rbacv1.Subject{},
-			}),
-			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
-					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
-						"orgName": rbacGroups("test-group"),
-					},
-					"member/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
-						"orgName": rbacGroups("test-group"),
-					},
-					"use/tenancy.kcp.dev/v1alpha1/clusterworkspacetypes": {
-						"universal": rbacGroups("test-group"),
+					"create/tenancy.kcp.dev/v1alpha1/clusterworkspaces/workspace": {
+						"foo": rbacGroups("test-group"),
 					},
 				},
 			}),
+			rootReviewer: workspaceauth.NewReviewer(nil),
 		},
 		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			newWorkspace := tenancyv1beta1.Workspace{
@@ -1133,8 +706,7 @@ func TestCreateWorkspace(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "owner-workspace-foo-test-user",
 						Labels: map[string]string{
-							PrettyNameLabel:   "foo",
-							InternalNameLabel: "foo",
+							WorkspaceNameLabel: "foo",
 						},
 					},
 					RoleRef: rbacv1.RoleRef{
@@ -1158,7 +730,94 @@ func TestCreateWorkspace(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "owner-workspace-foo-test-user",
 						Labels: map[string]string{
-							InternalNameLabel: "foo",
+							WorkspaceNameLabel: "foo",
+						},
+					},
+					Rules: []rbacv1.PolicyRule{
+						{
+							Verbs:         []string{"get", "delete"},
+							ResourceNames: []string{"foo"},
+							Resources:     []string{"clusterworkspaces/workspace"},
+							APIGroups:     []string{"tenancy.kcp.dev"},
+						},
+						{
+							Verbs:         []string{"admin", "access"},
+							ResourceNames: []string{"foo"},
+							Resources:     []string{"clusterworkspaces/content"},
+							APIGroups:     []string{"tenancy.kcp.dev"},
+						},
+					},
+				},
+			))
+		},
+	}
+	applyTest(t, test)
+}
+
+func TestCreateWorkspaceWithCreateAnyPermission(t *testing.T) {
+	user := &kuser.DefaultInfo{
+		Name:   "test-user",
+		UID:    "test-uid",
+		Groups: []string{"test-group"},
+	}
+	test := TestDescription{
+		TestData: TestData{
+			user:    user,
+			orgName: logicalcluster.New("root:orgName"),
+			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
+				subjects: map[string]map[string][]rbacv1.Subject{
+					"create/tenancy.kcp.dev/v1alpha1/clusterworkspaces/workspace": {
+						"": rbacGroups("test-group"),
+					},
+				},
+			}),
+			rootReviewer: workspaceauth.NewReviewer(nil),
+		},
+		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+			newWorkspace := tenancyv1beta1.Workspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo",
+				},
+			}
+			response, err := storage.Create(ctx, &newWorkspace, nil, &metav1.CreateOptions{})
+			require.NoError(t, err)
+			require.NotNil(t, response)
+			require.IsType(t, &tenancyv1beta1.Workspace{}, response)
+			workspace := response.(*tenancyv1beta1.Workspace)
+			assert.Equal(t, "foo", workspace.Name)
+			crbList, err := kubeClient.Tracker().List(rbacv1.SchemeGroupVersion.WithResource("clusterrolebindings"), rbacv1.SchemeGroupVersion.WithKind("ClusterRoleBinding"), "")
+			require.NoError(t, err)
+			crbs := crbList.(*rbacv1.ClusterRoleBindingList)
+			assert.ElementsMatch(t, crbs.Items, append(testData.clusterRoleBindings,
+				rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "owner-workspace-foo-test-user",
+						Labels: map[string]string{
+							WorkspaceNameLabel: "foo",
+						},
+					},
+					RoleRef: rbacv1.RoleRef{
+						APIGroup: "rbac.authorization.k8s.io",
+						Kind:     "ClusterRole",
+						Name:     "owner-workspace-foo-test-user",
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind: "User",
+							Name: "test-user",
+						},
+					},
+				},
+			))
+			crList, err := kubeClient.Tracker().List(rbacv1.SchemeGroupVersion.WithResource("clusterroles"), rbacv1.SchemeGroupVersion.WithKind("ClusterRole"), "")
+			require.NoError(t, err)
+			crs := crList.(*rbacv1.ClusterRoleList)
+			assert.ElementsMatch(t, crs.Items, append(testData.clusterRoles,
+				rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "owner-workspace-foo-test-user",
+						Labels: map[string]string{
+							WorkspaceNameLabel: "foo",
 						},
 					},
 					Rules: []rbacv1.PolicyRule{
@@ -1191,25 +850,18 @@ func TestCreateWorkspaceCustomLocalType(t *testing.T) {
 	test := TestDescription{
 		TestData: TestData{
 			user:    user,
-			scope:   PersonalScope,
 			orgName: logicalcluster.New("root:orgName"),
 			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
+					"create/tenancy.kcp.dev/v1alpha1/clusterworkspaces/workspace": {
+						"": rbacGroups("test-group"),
+					},
 					"use/tenancy.kcp.dev/v1alpha1/clusterworkspacetypes": {
 						"custom": rbacGroups("test-group"),
 					},
 				},
 			}),
-			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
-				subjects: map[string]map[string][]rbacv1.Subject{
-					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
-						"orgName": rbacGroups("test-group"),
-					},
-					"member/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
-						"orgName": rbacGroups("test-group"),
-					},
-				},
-			}),
+			rootReviewer: workspaceauth.NewReviewer(nil),
 		},
 		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			newWorkspace := tenancyv1beta1.Workspace{
@@ -1237,8 +889,7 @@ func TestCreateWorkspaceCustomLocalType(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "owner-workspace-foo-test-user",
 						Labels: map[string]string{
-							PrettyNameLabel:   "foo",
-							InternalNameLabel: "foo",
+							WorkspaceNameLabel: "foo",
 						},
 					},
 					RoleRef: rbacv1.RoleRef{
@@ -1262,7 +913,7 @@ func TestCreateWorkspaceCustomLocalType(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "owner-workspace-foo-test-user",
 						Labels: map[string]string{
-							InternalNameLabel: "foo",
+							WorkspaceNameLabel: "foo",
 						},
 					},
 					Rules: []rbacv1.PolicyRule{
@@ -1286,12 +937,7 @@ func TestCreateWorkspaceCustomLocalType(t *testing.T) {
 	applyTest(t, test)
 }
 
-func TestCreateWorkspaceWithPrettyName(t *testing.T) {
-	anotherUser := &kuser.DefaultInfo{
-		Name:   "another-user",
-		UID:    "another-uid",
-		Groups: []string{},
-	}
+func TestCreateWorkspaceNameAlreadyExists(t *testing.T) {
 	user := &kuser.DefaultInfo{
 		Name:   "test-user",
 		UID:    "test-uid",
@@ -1300,187 +946,16 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 	test := TestDescription{
 		TestData: TestData{
 			user:    user,
-			scope:   PersonalScope,
 			orgName: logicalcluster.New("root:orgName"),
 			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
-				subjects: map[string]map[string][]rbacv1.Subject{},
+				subjects: map[string]map[string][]rbacv1.Subject{
+					"create/tenancy.kcp.dev/v1alpha1/clusterworkspaces/workspace": {
+						"": rbacGroups("test-group"),
+					},
+				},
 			}),
 			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
-					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
-						"orgName": rbacGroups("test-group"),
-					},
-					"member/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
-						"orgName": rbacGroups("test-group"),
-					},
-					"use/tenancy.kcp.dev/v1alpha1/clusterworkspacetypes": {
-						"universal": rbacGroups("test-group"),
-					},
-				},
-			}),
-			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root:orgName",
-						},
-						Name: "foo",
-					},
-				},
-			},
-			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", anotherUser),
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root:orgName",
-						},
-						Labels: map[string]string{
-							PrettyNameLabel:   "foo",
-							InternalNameLabel: "foo",
-						},
-					},
-					Subjects: []rbacv1.Subject{
-						{
-							Kind: "User",
-							Name: anotherUser.Name,
-						},
-					},
-				},
-			},
-			clusterRoles: []rbacv1.ClusterRole{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", anotherUser),
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root:orgName",
-						},
-						Labels: map[string]string{
-							InternalNameLabel: "foo",
-						},
-					},
-					Rules: []rbacv1.PolicyRule{
-						{
-							Verbs:         []string{"get", "delete"},
-							ResourceNames: []string{"foo"},
-							Resources:     []string{"clusterworkspaces/workspace"},
-							APIGroups:     []string{"tenancy.kcp.dev"},
-						},
-						{
-							Verbs:         []string{"admin", "access"},
-							ResourceNames: []string{"foo"},
-							Resources:     []string{"clusterworkspaces/content"},
-							APIGroups:     []string{"tenancy.kcp.dev"},
-						},
-					},
-				},
-			},
-		},
-		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
-			newWorkspace := tenancyv1beta1.Workspace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "foo",
-				},
-			}
-			response, err := storage.Create(ctx, &newWorkspace, nil, &metav1.CreateOptions{})
-			require.NoError(t, err)
-			require.NotNil(t, response)
-			require.IsType(t, &tenancyv1beta1.Workspace{}, response)
-			workspace := response.(*tenancyv1beta1.Workspace)
-			assert.Equal(t, "foo", workspace.Name)
-
-			clusterWorkspacesList, err := kcpClient.Tracker().List(tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces"), tenancyv1alpha1.SchemeGroupVersion.WithKind("ClusterWorkspace"), "")
-			require.NoError(t, err)
-			clusterWorkspaces := clusterWorkspacesList.(*tenancyv1alpha1.ClusterWorkspaceList)
-			clusterWorkspace := &clusterWorkspaces.Items[len(clusterWorkspaces.Items)-1]
-			require.True(t, strings.HasPrefix(clusterWorkspace.Name, newWorkspace.Name+"-"), "has to have pretty name prefix %q, but got: %q", newWorkspace.Name+"-", newWorkspace.Labels[InternalNameLabel])
-			assert.ElementsMatch(t, clusterWorkspaces.Items, append(testData.clusterWorkspaces,
-				tenancyv1alpha1.ClusterWorkspace{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: clusterWorkspace.Name,
-					},
-				},
-			))
-
-			crbList, err := kubeClient.Tracker().List(rbacv1.SchemeGroupVersion.WithResource("clusterrolebindings"), rbacv1.SchemeGroupVersion.WithKind("ClusterRoleBinding"), "")
-			require.NoError(t, err)
-			crbs := crbList.(*rbacv1.ClusterRoleBindingList)
-			assert.ElementsMatch(t, crbs.Items, append(testData.clusterRoleBindings,
-				rbacv1.ClusterRoleBinding{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "owner-workspace-foo-test-user",
-						Labels: map[string]string{
-							PrettyNameLabel:   "foo",
-							InternalNameLabel: clusterWorkspace.Name,
-						},
-					},
-					RoleRef: rbacv1.RoleRef{
-						APIGroup: "rbac.authorization.k8s.io",
-						Kind:     "ClusterRole",
-						Name:     "owner-workspace-foo-test-user",
-					},
-					Subjects: []rbacv1.Subject{
-						{
-							Kind: "User",
-							Name: "test-user",
-						},
-					},
-				},
-			))
-			crList, err := kubeClient.Tracker().List(rbacv1.SchemeGroupVersion.WithResource("clusterroles"), rbacv1.SchemeGroupVersion.WithKind("ClusterRole"), "")
-			require.NoError(t, err)
-			crs := crList.(*rbacv1.ClusterRoleList)
-			assert.ElementsMatch(t, crs.Items, append(testData.clusterRoles,
-				rbacv1.ClusterRole{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "owner-workspace-foo-test-user",
-						Labels: map[string]string{
-							InternalNameLabel: clusterWorkspace.Name,
-						},
-					},
-					Rules: []rbacv1.PolicyRule{
-						{
-							Verbs:         []string{"get", "delete"},
-							ResourceNames: []string{clusterWorkspace.Name},
-							Resources:     []string{"clusterworkspaces/workspace"},
-							APIGroups:     []string{"tenancy.kcp.dev"},
-						},
-						{
-							Verbs:         []string{"admin", "access"},
-							ResourceNames: []string{clusterWorkspace.Name},
-							Resources:     []string{"clusterworkspaces/content"},
-							APIGroups:     []string{"tenancy.kcp.dev"},
-						},
-					},
-				},
-			))
-		},
-	}
-	applyTest(t, test)
-}
-
-func TestCreateWorkspacePrettyNameAlreadyExists(t *testing.T) {
-	user := &kuser.DefaultInfo{
-		Name:   "test-user",
-		UID:    "test-uid",
-		Groups: []string{"test-group"},
-	}
-	test := TestDescription{
-		TestData: TestData{
-			user:    user,
-			scope:   PersonalScope,
-			orgName: logicalcluster.New("root:orgName"),
-			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
-				subjects: map[string]map[string][]rbacv1.Subject{},
-			}),
-			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
-				subjects: map[string]map[string][]rbacv1.Subject{
-					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
-						"orgName": rbacGroups("test-group"),
-					},
-					"member/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
-						"orgName": rbacGroups("test-group"),
-					},
 					"use/tenancy.kcp.dev/v1alpha1/clusterworkspacetypes": {
 						"universal": rbacGroups("test-group"),
 					},
@@ -1504,8 +979,7 @@ func TestCreateWorkspacePrettyNameAlreadyExists(t *testing.T) {
 							logicalcluster.AnnotationKey: "root:orgName",
 						},
 						Labels: map[string]string{
-							PrettyNameLabel:   "foo",
-							InternalNameLabel: "foo",
+							WorkspaceNameLabel: "foo",
 						},
 					},
 					Subjects: []rbacv1.Subject{
@@ -1524,7 +998,7 @@ func TestCreateWorkspacePrettyNameAlreadyExists(t *testing.T) {
 							logicalcluster.AnnotationKey: "root:orgName",
 						},
 						Labels: map[string]string{
-							InternalNameLabel: "foo",
+							WorkspaceNameLabel: "foo",
 						},
 					},
 					Rules: []rbacv1.PolicyRule{
@@ -1580,20 +1054,17 @@ func TestCreateWorkspaceWithClusterWorkspaceCreationError(t *testing.T) {
 	test := TestDescription{
 		TestData: TestData{
 			user:                   user,
-			scope:                  PersonalScope,
 			orgName:                logicalcluster.New("root:orgName"),
 			workspaceCreationError: errors.NewBadRequest("something bad happened"),
 			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
-				subjects: map[string]map[string][]rbacv1.Subject{},
+				subjects: map[string]map[string][]rbacv1.Subject{
+					"create/tenancy.kcp.dev/v1alpha1/clusterworkspaces/workspace": {
+						"": rbacGroups("test-group"),
+					},
+				},
 			}),
 			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
-					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
-						"orgName": rbacGroups("test-group"),
-					},
-					"member/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
-						"orgName": rbacGroups("test-group"),
-					},
 					"use/tenancy.kcp.dev/v1alpha1/clusterworkspacetypes": {
 						"universal": rbacGroups("test-group"),
 					},
@@ -1636,22 +1107,15 @@ func TestDeleteWorkspaceNotFound(t *testing.T) {
 	test := TestDescription{
 		TestData: TestData{
 			user:    user,
-			scope:   PersonalScope,
 			orgName: logicalcluster.New("root:orgName"),
 			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
 					"delete/tenancy.kcp.dev/v1alpha1/clusterworkspaces/workspace": {
-						"orgName": rbacUsers("test-user"),
+						"": rbacGroups("test-group"),
 					},
 				},
 			}),
-			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
-				subjects: map[string]map[string][]rbacv1.Subject{
-					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
-						"orgName": rbacGroups("test-group"),
-					},
-				},
-			}),
+			rootReviewer: workspaceauth.NewReviewer(nil),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -1670,8 +1134,7 @@ func TestDeleteWorkspaceNotFound(t *testing.T) {
 							logicalcluster.AnnotationKey: "root:orgName",
 						},
 						Labels: map[string]string{
-							PrettyNameLabel:   "foo",
-							InternalNameLabel: "foo",
+							WorkspaceNameLabel: "foo",
 						},
 					},
 					Subjects: []rbacv1.Subject{
@@ -1690,7 +1153,7 @@ func TestDeleteWorkspaceNotFound(t *testing.T) {
 							logicalcluster.AnnotationKey: "root:orgName",
 						},
 						Labels: map[string]string{
-							InternalNameLabel: "foo",
+							WorkspaceNameLabel: "foo",
 						},
 					},
 					Rules: []rbacv1.PolicyRule{
@@ -1726,207 +1189,6 @@ func TestDeleteWorkspaceNotFound(t *testing.T) {
 	applyTest(t, test)
 }
 
-func TestDeletePersonalWorkspaceForbiddenToUser(t *testing.T) {
-	user := &kuser.DefaultInfo{
-		Name:   "test-user",
-		UID:    "test-uid",
-		Groups: []string{"test-group"},
-	}
-	test := TestDescription{
-		TestData: TestData{
-			user:    user,
-			scope:   PersonalScope,
-			orgName: logicalcluster.New("root:orgName"),
-			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
-				subjects: map[string]map[string][]rbacv1.Subject{
-					"delete/tenancy.kcp.dev/v1alpha1/clusterworkspaces/workspace": {
-						"foo": rbacUsers(),
-					},
-				},
-			}),
-			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
-				subjects: map[string]map[string][]rbacv1.Subject{
-					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
-						"orgName": rbacGroups("test-group"),
-					},
-				},
-			}),
-			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root:orgName",
-						},
-						Name: "foo",
-					},
-				},
-			},
-			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root:orgName",
-						},
-						Labels: map[string]string{
-							PrettyNameLabel:   "foo",
-							InternalNameLabel: "foo",
-						},
-					},
-					Subjects: []rbacv1.Subject{
-						{
-							Kind: "User",
-							Name: user.Name,
-						},
-					},
-				},
-			},
-			clusterRoles: []rbacv1.ClusterRole{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root:orgName",
-						},
-						Labels: map[string]string{
-							InternalNameLabel: "foo",
-						},
-					},
-					Rules: []rbacv1.PolicyRule{
-						{
-							Verbs:         []string{"get", "delete"},
-							ResourceNames: []string{"foo"},
-							Resources:     []string{"clusterworkspaces/workspace"},
-							APIGroups:     []string{"tenancy.kcp.dev"},
-						},
-					},
-				},
-			},
-		},
-		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
-			response, deletedNow, err := storage.Delete(ctx, "foo", nil, &metav1.DeleteOptions{})
-			assert.EqualError(t, err, "workspaces.tenancy.kcp.dev \"foo\" is forbidden: \"delete\" workspace \"foo\" in workspace \"root:orgName\" is not allowed")
-			assert.Nil(t, response)
-			assert.False(t, deletedNow)
-			crbList, err := kubeClient.Tracker().List(rbacv1.SchemeGroupVersion.WithResource("clusterrolebindings"), rbacv1.SchemeGroupVersion.WithKind("ClusterRoleBinding"), "")
-			require.NoError(t, err)
-			crbs := crbList.(*rbacv1.ClusterRoleBindingList)
-			assert.ElementsMatch(t, crbs.Items, testData.clusterRoleBindings)
-			crList, err := kubeClient.Tracker().List(rbacv1.SchemeGroupVersion.WithResource("clusterroles"), rbacv1.SchemeGroupVersion.WithKind("ClusterRole"), "")
-			require.NoError(t, err)
-			crs := crList.(*rbacv1.ClusterRoleList)
-			assert.ElementsMatch(t, crs.Items, testData.clusterRoles)
-			workspaceList, err := kcpClient.Tracker().List(tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces"), tenancyv1alpha1.SchemeGroupVersion.WithKind("ClusterWorkspace"), "")
-			require.NoError(t, err)
-			wsList := workspaceList.(*tenancyv1alpha1.ClusterWorkspaceList)
-			assert.ElementsMatch(t, wsList.Items, testData.clusterWorkspaces)
-		},
-	}
-	applyTest(t, test)
-}
-
-func TestDeletePersonalWorkspaceForbiddenToOrgAdmin(t *testing.T) {
-	user := &kuser.DefaultInfo{
-		Name:   "test-user",
-		UID:    "test-uid",
-		Groups: []string{"test-group"},
-	}
-	test := TestDescription{
-		TestData: TestData{
-			user:    user,
-			scope:   PersonalScope,
-			orgName: logicalcluster.New("root:orgName"),
-			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
-				subjects: map[string]map[string][]rbacv1.Subject{
-					"delete/tenancy.kcp.dev/v1alpha1/clusterworkspaces/workspace": {
-						"foo": rbacUsers(),
-					},
-				},
-			}),
-			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
-				subjects: map[string]map[string][]rbacv1.Subject{
-					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
-						"orgName": rbacGroups("test-group"),
-					},
-					"admin/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
-						"orgName": rbacGroups("test-group"),
-					},
-				},
-			}),
-			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root:orgName",
-						},
-						Name: "foo",
-					},
-				},
-			},
-			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root:orgName",
-						},
-						Labels: map[string]string{
-							PrettyNameLabel:   "foo",
-							InternalNameLabel: "foo",
-						},
-					},
-					Subjects: []rbacv1.Subject{
-						{
-							Kind: "User",
-							Name: user.Name,
-						},
-					},
-				},
-			},
-			clusterRoles: []rbacv1.ClusterRole{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root:orgName",
-						},
-						Labels: map[string]string{
-							InternalNameLabel: "foo",
-						},
-					},
-					Rules: []rbacv1.PolicyRule{
-						{
-							Verbs:         []string{"get", "delete"},
-							ResourceNames: []string{"foo"},
-							Resources:     []string{"clusterworkspaces/workspace"},
-							APIGroups:     []string{"tenancy.kcp.dev"},
-						},
-					},
-				},
-			},
-		},
-		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
-			response, deletedNow, err := storage.Delete(ctx, "foo", nil, &metav1.DeleteOptions{})
-			assert.EqualError(t, err, "workspaces.tenancy.kcp.dev \"foo\" is forbidden: \"delete\" workspace \"foo\" in workspace \"root:orgName\" is not allowed")
-			assert.Nil(t, response)
-			assert.False(t, deletedNow)
-			crbList, err := kubeClient.Tracker().List(rbacv1.SchemeGroupVersion.WithResource("clusterrolebindings"), rbacv1.SchemeGroupVersion.WithKind("ClusterRoleBinding"), "")
-			require.NoError(t, err)
-			crbs := crbList.(*rbacv1.ClusterRoleBindingList)
-			assert.ElementsMatch(t, crbs.Items, testData.clusterRoleBindings)
-			crList, err := kubeClient.Tracker().List(rbacv1.SchemeGroupVersion.WithResource("clusterroles"), rbacv1.SchemeGroupVersion.WithKind("ClusterRole"), "")
-			require.NoError(t, err)
-			crs := crList.(*rbacv1.ClusterRoleList)
-			assert.ElementsMatch(t, crs.Items, testData.clusterRoles)
-			workspaceList, err := kcpClient.Tracker().List(tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces"), tenancyv1alpha1.SchemeGroupVersion.WithKind("ClusterWorkspace"), "")
-			require.NoError(t, err)
-			wsList := workspaceList.(*tenancyv1alpha1.ClusterWorkspaceList)
-			assert.ElementsMatch(t, wsList.Items, testData.clusterWorkspaces)
-		},
-	}
-	applyTest(t, test)
-}
-
 func TestDeleteWorkspaceForbiddenToUser(t *testing.T) {
 	user := &kuser.DefaultInfo{
 		Name:   "test-user",
@@ -1936,7 +1198,6 @@ func TestDeleteWorkspaceForbiddenToUser(t *testing.T) {
 	test := TestDescription{
 		TestData: TestData{
 			user:    user,
-			scope:   OrganizationScope,
 			orgName: logicalcluster.New("root:orgName"),
 			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
@@ -1945,13 +1206,7 @@ func TestDeleteWorkspaceForbiddenToUser(t *testing.T) {
 					},
 				},
 			}),
-			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
-				subjects: map[string]map[string][]rbacv1.Subject{
-					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
-						"orgName": rbacGroups("test-group"),
-					},
-				},
-			}),
+			rootReviewer: workspaceauth.NewReviewer(nil),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -1970,8 +1225,7 @@ func TestDeleteWorkspaceForbiddenToUser(t *testing.T) {
 							logicalcluster.AnnotationKey: "root:orgName",
 						},
 						Labels: map[string]string{
-							PrettyNameLabel:   "foo",
-							InternalNameLabel: "foo",
+							WorkspaceNameLabel: "foo",
 						},
 					},
 					Subjects: []rbacv1.Subject{
@@ -1990,7 +1244,7 @@ func TestDeleteWorkspaceForbiddenToUser(t *testing.T) {
 							logicalcluster.AnnotationKey: "root:orgName",
 						},
 						Labels: map[string]string{
-							InternalNameLabel: "foo",
+							WorkspaceNameLabel: "foo",
 						},
 					},
 					Rules: []rbacv1.PolicyRule{
@@ -2026,7 +1280,7 @@ func TestDeleteWorkspaceForbiddenToUser(t *testing.T) {
 	applyTest(t, test)
 }
 
-func TestDeletePersonalWorkspace(t *testing.T) {
+func TestDeleteWorkspace(t *testing.T) {
 	user := &kuser.DefaultInfo{
 		Name:   "test-user",
 		UID:    "test-uid",
@@ -2035,7 +1289,6 @@ func TestDeletePersonalWorkspace(t *testing.T) {
 	test := TestDescription{
 		TestData: TestData{
 			user:    user,
-			scope:   PersonalScope,
 			orgName: logicalcluster.New("root:orgName"),
 			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
@@ -2069,8 +1322,7 @@ func TestDeletePersonalWorkspace(t *testing.T) {
 							logicalcluster.AnnotationKey: "root:orgName",
 						},
 						Labels: map[string]string{
-							PrettyNameLabel:   "foo",
-							InternalNameLabel: "foo",
+							WorkspaceNameLabel: "foo",
 						},
 					},
 					Subjects: []rbacv1.Subject{
@@ -2089,214 +1341,13 @@ func TestDeletePersonalWorkspace(t *testing.T) {
 							logicalcluster.AnnotationKey: "root:orgName",
 						},
 						Labels: map[string]string{
-							InternalNameLabel: "foo",
+							WorkspaceNameLabel: "foo",
 						},
 					},
 					Rules: []rbacv1.PolicyRule{
 						{
 							Verbs:         []string{"get", "delete"},
 							ResourceNames: []string{"foo"},
-							Resources:     []string{"clusterworkspaces/workspace"},
-							APIGroups:     []string{"tenancy.kcp.dev"},
-						},
-					},
-				},
-			},
-		},
-		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
-			response, deletedNow, err := storage.Delete(ctx, "foo", nil, &metav1.DeleteOptions{})
-			assert.NoError(t, err)
-			assert.Nil(t, response)
-			assert.False(t, deletedNow)
-			crbList, err := kubeClient.Tracker().List(rbacv1.SchemeGroupVersion.WithResource("clusterrolebindings"), rbacv1.SchemeGroupVersion.WithKind("ClusterRoleBinding"), "")
-			require.NoError(t, err)
-			crbs := crbList.(*rbacv1.ClusterRoleBindingList)
-			assert.Empty(t, crbs.Items)
-			crList, err := kubeClient.Tracker().List(rbacv1.SchemeGroupVersion.WithResource("clusterroles"), rbacv1.SchemeGroupVersion.WithKind("ClusterRole"), "")
-			require.NoError(t, err)
-			crs := crList.(*rbacv1.ClusterRoleList)
-			assert.Empty(t, crs.Items)
-			workspaceList, err := kcpClient.Tracker().List(tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces"), tenancyv1alpha1.SchemeGroupVersion.WithKind("ClusterWorkspace"), "")
-			require.NoError(t, err)
-			wsList := workspaceList.(*tenancyv1alpha1.ClusterWorkspaceList)
-			assert.Empty(t, wsList.Items)
-		},
-	}
-	applyTest(t, test)
-}
-
-func TestDeleteWorkspaceByOrgAdmin(t *testing.T) {
-	user := &kuser.DefaultInfo{
-		Name:   "test-user",
-		UID:    "test-uid",
-		Groups: []string{"test-group"},
-	}
-	test := TestDescription{
-		TestData: TestData{
-			user:    user,
-			scope:   OrganizationScope,
-			orgName: logicalcluster.New("root:orgName"),
-			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
-				subjects: map[string]map[string][]rbacv1.Subject{
-					"delete/tenancy.kcp.dev/v1alpha1/clusterworkspaces/workspace": {
-						"foo": rbacUsers(user.Name),
-					},
-				},
-			}),
-			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
-				subjects: map[string]map[string][]rbacv1.Subject{
-					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
-						"orgName": rbacGroups("test-group"),
-					},
-					"admin/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
-						"orgName": rbacGroups("test-group"),
-					},
-				},
-			}),
-			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root:orgName",
-						},
-						Name: "foo",
-					},
-				},
-			},
-			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root:orgName",
-						},
-						Labels: map[string]string{
-							PrettyNameLabel:   "foo",
-							InternalNameLabel: "foo",
-						},
-					},
-					Subjects: []rbacv1.Subject{
-						{
-							Kind: "User",
-							Name: user.Name,
-						},
-					},
-				},
-			},
-			clusterRoles: []rbacv1.ClusterRole{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root:orgName",
-						},
-						Labels: map[string]string{
-							InternalNameLabel: "foo",
-						},
-					},
-					Rules: []rbacv1.PolicyRule{
-						{
-							Verbs:         []string{"get", "delete"},
-							ResourceNames: []string{"foo"},
-							Resources:     []string{"clusterworkspaces/workspace"},
-							APIGroups:     []string{"tenancy.kcp.dev"},
-						},
-					},
-				},
-			},
-		},
-		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
-			response, deletedNow, err := storage.Delete(ctx, "foo", nil, &metav1.DeleteOptions{})
-			assert.NoError(t, err)
-			assert.Nil(t, response)
-			assert.False(t, deletedNow)
-			crbList, err := kubeClient.Tracker().List(rbacv1.SchemeGroupVersion.WithResource("clusterrolebindings"), rbacv1.SchemeGroupVersion.WithKind("ClusterRoleBinding"), "")
-			require.NoError(t, err)
-			crbs := crbList.(*rbacv1.ClusterRoleBindingList)
-			assert.Empty(t, crbs.Items)
-			crList, err := kubeClient.Tracker().List(rbacv1.SchemeGroupVersion.WithResource("clusterroles"), rbacv1.SchemeGroupVersion.WithKind("ClusterRole"), "")
-			require.NoError(t, err)
-			crs := crList.(*rbacv1.ClusterRoleList)
-			assert.Empty(t, crs.Items)
-			workspaceList, err := kcpClient.Tracker().List(tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces"), tenancyv1alpha1.SchemeGroupVersion.WithKind("ClusterWorkspace"), "")
-			require.NoError(t, err)
-			wsList := workspaceList.(*tenancyv1alpha1.ClusterWorkspaceList)
-			assert.Empty(t, wsList.Items)
-		},
-	}
-	applyTest(t, test)
-}
-
-func TestDeletePersonalWorkspaceWithPrettyName(t *testing.T) {
-	user := &kuser.DefaultInfo{
-		Name:   "test-user",
-		UID:    "test-uid",
-		Groups: []string{"test-group"},
-	}
-	test := TestDescription{
-		TestData: TestData{
-			user:    user,
-			scope:   PersonalScope,
-			orgName: logicalcluster.New("root:orgName"),
-			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
-				subjects: map[string]map[string][]rbacv1.Subject{
-					"delete/tenancy.kcp.dev/v1alpha1/clusterworkspaces/workspace": {
-						"foo--1": rbacUsers("test-user"),
-					},
-				},
-			}),
-			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
-				subjects: map[string]map[string][]rbacv1.Subject{
-					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
-						"orgName": rbacGroups("test-group"),
-					},
-				},
-			}),
-			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root:orgName",
-						},
-						Name: "foo--1",
-					},
-				},
-			},
-			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root:orgName",
-						},
-						Labels: map[string]string{
-							PrettyNameLabel:   "foo",
-							InternalNameLabel: "foo--1",
-						},
-					},
-					Subjects: []rbacv1.Subject{
-						{
-							Kind: "User",
-							Name: user.Name,
-						},
-					},
-				},
-			},
-			clusterRoles: []rbacv1.ClusterRole{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root:orgName",
-						},
-						Labels: map[string]string{
-							InternalNameLabel: "foo--1",
-						},
-					},
-					Rules: []rbacv1.PolicyRule{
-						{
-							Verbs:         []string{"get", "delete"},
-							ResourceNames: []string{"foo--1"},
 							Resources:     []string{"clusterworkspaces/workspace"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
@@ -2370,6 +1421,9 @@ func attrKey(attributes authorizer.Attributes) string {
 
 func (m *mockSubjectLocator) AllowedSubjects(attributes authorizer.Attributes) ([]rbacv1.Subject, error) {
 	if subjects, ok := m.subjects[attrKey(attributes)]; ok {
+		if subject, ok := subjects[""]; ok {
+			return subject, nil
+		}
 		return subjects[attributes.GetName()], nil
 	}
 	return nil, nil

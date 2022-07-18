@@ -50,7 +50,6 @@ import (
 
 func BuildVirtualWorkspace(cfg *clientrest.Config, rootPathPrefix string, wildcardsClusterWorkspaces workspaceinformer.ClusterWorkspaceInformer, wildcardsRbacInformers rbacinformers.Interface, kubeClusterClient kubernetes.ClusterInterface, kcpClusterClient kcpclient.ClusterInterface) framework.VirtualWorkspace {
 	crbInformer := wildcardsRbacInformers.ClusterRoleBindings()
-	_ = registry.AddNameIndexers(crbInformer)
 
 	if !strings.HasSuffix(rootPathPrefix, "/") {
 		rootPathPrefix += "/"
@@ -74,18 +73,15 @@ func BuildVirtualWorkspace(cfg *clientrest.Config, rootPathPrefix string, wildca
 			completedContext = requestContext
 			if path := urlPath; strings.HasPrefix(path, rootPathPrefix) {
 				path = strings.TrimPrefix(path, rootPathPrefix)
-				segments := strings.SplitN(path, "/", 3)
+				segments := strings.SplitN(path, "/", 2)
 				if len(segments) < 2 {
 					return
 				}
-				org, scope := segments[0], segments[1]
-				if !registry.ScopeSet.Has(scope) {
-					return
-				}
+				org := segments[0]
 
-				return true, rootPathPrefix + strings.Join(segments[:2], "/"),
+				return true, rootPathPrefix + strings.Join(segments[:1], "/"),
 					context.WithValue(
-						context.WithValue(requestContext, registry.WorkspacesScopeKey, scope),
+						requestContext,
 						registry.WorkspacesOrgKey, logicalcluster.New(org),
 					)
 			}
