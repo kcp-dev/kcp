@@ -30,6 +30,7 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
+	apiextensionsexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -43,10 +44,9 @@ import (
 	tenancyapi "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
-	bootstrap "github.com/kcp-dev/kcp/pkg/server/bootstrap"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -160,8 +160,7 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 
 	// Make sure the informers aren't throttled because dynamic informers do lots of discovery which slows down tests
 	cfg := server.BaseConfig(t)
-	cfg.QPS = 500
-	cfg.Burst = 1000
+	cfg.QPS = -1
 	rootShardConfig := server.RootShardConfig(t)
 
 	crdClusterClient, err := apiextensionsclient.NewClusterForConfig(cfg)
@@ -218,26 +217,32 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	_, err = rootShardMetadataClusterClient.Cluster(logicalcluster.Wildcard).Resource(sheriffsGVR).List(ctx, metav1.ListOptions{})
 	require.NoError(t, err, "expected wildcard list to work with metadata client even though schemas are different")
 
-	t.Log("Start dynamic metadata informers")
-	identityRootCfg, resolve := bootstrap.NewConfigWithWildcardIdentities(rootShardConfig, bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster))
-	require.Eventually(t, func() bool {
-		return resolve(ctx) == nil
-	}, wait.ForeverTestTimeout, time.Millisecond*100)
-	identityRootKcpClusterClient, err := kcpclientset.NewClusterForConfig(identityRootCfg)
-	require.NoError(t, err, "failed to construct kcp cluster client for server with identitis")
-	rootShardKcpInformer := kcpinformers.NewSharedInformerFactoryWithOptions(identityRootKcpClusterClient.Cluster(logicalcluster.Wildcard), 0)
-	rootShardKcpInformer.Tenancy().V1alpha1().ClusterWorkspaces().Lister()
-	rootShardKcpInformer.Start(ctx.Done())
-	rootShardKcpInformer.WaitForCacheSync(ctx.Done())
+	rootShardCRDClusterClient, err := apiextensionsclient.NewClusterForConfig(rootShardConfig)
+	require.NoError(t, err, "error creating root shard crd client")
 
-	informerFactory := informer.NewDynamicDiscoverySharedInformerFactory(
-		rootShardKcpInformer.Tenancy().V1alpha1().ClusterWorkspaces().Lister(),
-		identityRootKcpClusterClient.DiscoveryClient,
-		rootShardMetadataClusterClient.Cluster(logicalcluster.Wildcard),
-		func(obj interface{}) bool { return true },
-		time.Second*2,
+	apiExtensionsInformerFactory := apiextensionsexternalversions.NewSharedInformerFactoryWithOptions(
+		rootShardCRDClusterClient.Cluster(logicalcluster.Wildcard),
+		0,
 	)
-	informerFactory.StartPolling(ctx)
+
+	informerFactory, err := informer.NewDynamicDiscoverySharedInformerFactory(
+		rootShardConfig,
+		func(obj interface{}) bool { return true },
+		apiExtensionsInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
+		indexers.NamespaceScoped(),
+	)
+	require.NoError(t, err, "error creating DynamicDiscoverySharedInformerFactory")
+
+	// Have to start this after informer.NewDynamicDiscoverySharedInformerFactory() is invoked, as that adds an
+	// index to the crd informer that is required for the dynamic factory to work correctly.
+	t.Log("Start apiextensions informers")
+	apiExtensionsInformerFactory.Start(ctx.Done())
+	cacheSyncCtx, cacheSyncCancel := context.WithTimeout(ctx, wait.ForeverTestTimeout)
+	t.Cleanup(cacheSyncCancel)
+	apiExtensionsInformerFactory.WaitForCacheSync(cacheSyncCtx.Done())
+
+	t.Log("Start dynamic metadata informers")
+	go informerFactory.StartWorker(ctx)
 
 	t.Logf("Wait for the sheriff to show up in the informer")
 	// key := "default/" + clusters.ToClusterAwareKey(wsNormalCRD1a, "john-hicks-adams")

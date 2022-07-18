@@ -31,6 +31,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apiextensionsexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -40,14 +41,10 @@ import (
 	kubernetesclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/informer"
-	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
-	boostrap "github.com/kcp-dev/kcp/pkg/server/bootstrap"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
@@ -249,43 +246,30 @@ func collectCacheHitsFor(ctx context.Context, t *testing.T, rootCfg *rest.Config
 	return totalCacheHits, prefixCacheHit
 }
 
-const resyncPeriod = 10 * time.Hour
 const byWorkspace = "byWorkspace"
 
 func testDynamicDiscoverySharedInformerFactory(ctx context.Context, t *testing.T, rootShardConfig *rest.Config, expectedGVR schema.GroupVersionResource, expectedResName string, expectedClusterName logicalcluster.Name) {
-	nonIdentityKcpClusterClient, err := kcpclientset.NewClusterForConfig(rootShardConfig) // can only used for wildcard requests of apis.kcp.dev
-	require.NoError(t, err)
+	crdClusterClient, err := apiextensionsclient.NewClusterForConfig(rootShardConfig)
+	require.NoError(t, err, "failed to construct apiextensions client")
 
-	// resolve identities for system APIBindings
-	identityRootConfig, resolveIdentities := boostrap.NewConfigWithWildcardIdentities(rootShardConfig, boostrap.KcpRootGroupExportNames, boostrap.KcpRootGroupResourceExportNames, nonIdentityKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster))
-	require.Eventually(t, func() bool {
-		if err := resolveIdentities(ctx); err != nil {
-			klog.Errorf("failed to resolve identities, keeping trying: %v", err)
-			return false
-		}
-		return true
-	}, wait.ForeverTestTimeout, time.Millisecond*100)
-
-	rootKcpClusterClient, err := kcpclientset.NewClusterForConfig(identityRootConfig)
-	require.NoError(t, err)
-	rootKcpSharedInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(rootKcpClusterClient.Cluster(logicalcluster.Wildcard), resyncPeriod)
-	rootMetadataClusterClient, err := metadataclient.NewDynamicMetadataClusterClientForConfig(rootShardConfig) // no identites necessary for partial metadata
-	require.NoError(t, err)
-	ddsif := informer.NewDynamicDiscoverySharedInformerFactory(
-		rootKcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces().Lister(),
-		rootKcpClusterClient.DiscoveryClient,
-		rootMetadataClusterClient.Cluster(logicalcluster.Wildcard),
-		func(obj interface{}) bool { return true }, 5*time.Second,
+	apiExtensionsInformerFactory := apiextensionsexternalversions.NewSharedInformerFactoryWithOptions(
+		crdClusterClient.Cluster(logicalcluster.Wildcard),
+		0,
 	)
-	err = ddsif.AddIndexers(cache.Indexers{byWorkspace: indexByWorkspace})
-	require.NoError(t, err)
 
-	t.Log("Starting KCP Shared Informer Factory")
-	rootKcpSharedInformerFactory.Start(ctx.Done())
-	t.Log("Waiting for KCP Shared Informer Factory to sync caches")
-	rootKcpSharedInformerFactory.WaitForCacheSync(ctx.Done())
+	ddsif, err := informer.NewDynamicDiscoverySharedInformerFactory(
+		rootShardConfig,
+		func(obj interface{}) bool { return true },
+		apiExtensionsInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
+		cache.Indexers{byWorkspace: indexByWorkspace},
+	)
+	require.NoError(t, err, "error creating DynamicDiscoverySharedInformerFactory")
+
+	t.Log("Starting apiextensions shared informer factory")
+	apiExtensionsInformerFactory.Start(ctx.Done())
+
 	t.Log("Starting DynamicDiscoverySharedInformerFactory")
-	ddsif.StartPolling(context.Background())
+	go ddsif.StartWorker(ctx)
 
 	t.Logf("Checking if DynamicDiscoverySharedInformerFactory has %v with name %v in cluster %v", expectedGVR.String(), expectedResName, expectedClusterName)
 	framework.Eventually(t, func() (success bool, reason string) {
