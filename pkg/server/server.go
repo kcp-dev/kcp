@@ -606,7 +606,7 @@ func (s *Server) Run(ctx context.Context) error {
 				ObjectMeta: metav1.ObjectMeta{Name: "non-root"},
 				Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{
 					BaseURL:     fmt.Sprintf("https://%v", genericConfig.ExternalAddress),
-					ExternalURL: fmt.Sprintf("https://%v", genericConfig.ExternalAddress), // use Extra.ShardExternalURL
+					ExternalURL: fmt.Sprintf("https://%v", s.options.Extra.ShardExternalURL),
 				},
 			}
 			_, err := rootShardKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaceShards().Create(goContext(ctx), s, metav1.CreateOptions{})
