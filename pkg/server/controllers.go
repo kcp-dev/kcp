@@ -576,8 +576,8 @@ func (s *Server) installApiResourceController(ctx context.Context, config *rest.
 }
 
 func (s *Server) installSyncTargetHeartbeatController(ctx context.Context, config *rest.Config) error {
-	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-synctarget-heartbeat-controller")
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
+	config = kcpclienthelper.NewClusterConfig(rest.AddUserAgent(rest.CopyConfig(config), "kcp-synctarget-heartbeat-controller"))
+	kcpClusterClient, err := kcpclient.NewForConfig(config)
 	if err != nil {
 		return err
 	}
