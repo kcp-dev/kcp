@@ -219,7 +219,7 @@ func (c *Controller) enforceCRDToNegotiatedAPIResource(ctx context.Context, clus
 				Type:   apiresourcev1alpha1.Enforced,
 				Status: metav1.ConditionTrue,
 			})
-			if _, err := c.kcpClusterClient.Cluster(logicalcluster.From(negotiatedAPIResource)).ApiresourceV1alpha1().NegotiatedAPIResources().UpdateStatus(ctx, negotiatedAPIResource, metav1.UpdateOptions{}); err != nil {
+			if _, err := c.kcpClusterClient.ApiresourceV1alpha1().NegotiatedAPIResources().UpdateStatus(logicalcluster.WithCluster(ctx, logicalcluster.From(negotiatedAPIResource)), negotiatedAPIResource, metav1.UpdateOptions{}); err != nil {
 				klog.Errorf("Error updating NegotiatedAPIResource status: %v", err)
 				return err
 			}
@@ -227,7 +227,7 @@ func (c *Controller) enforceCRDToNegotiatedAPIResource(ctx context.Context, clus
 			if err := negotiatedAPIResource.Spec.CommonAPIResourceSpec.SetSchema(version.Schema.OpenAPIV3Schema); err != nil {
 				return err
 			}
-			if _, err := c.kcpClusterClient.Cluster(logicalcluster.From(negotiatedAPIResource)).ApiresourceV1alpha1().NegotiatedAPIResources().Update(ctx, negotiatedAPIResource, metav1.UpdateOptions{}); err != nil {
+			if _, err := c.kcpClusterClient.ApiresourceV1alpha1().NegotiatedAPIResources().Update(logicalcluster.WithCluster(ctx, logicalcluster.From(negotiatedAPIResource)), negotiatedAPIResource, metav1.UpdateOptions{}); err != nil {
 				klog.Errorf("Error updating NegotiatedAPIResource: %v", err)
 				return err
 			}
@@ -283,7 +283,7 @@ func (c *Controller) updatePublishingStatusOnNegotiatedAPIResources(ctx context.
 		for _, obj := range objects {
 			negotiatedAPIResource := obj.(*apiresourcev1alpha1.NegotiatedAPIResource).DeepCopy()
 			c.setPublishingStatusOnNegotiatedAPIResource(ctx, clusterName, gvr, negotiatedAPIResource, crd)
-			_, err := c.kcpClusterClient.Cluster(logicalcluster.From(negotiatedAPIResource)).ApiresourceV1alpha1().NegotiatedAPIResources().UpdateStatus(ctx, negotiatedAPIResource, metav1.UpdateOptions{})
+			_, err := c.kcpClusterClient.ApiresourceV1alpha1().NegotiatedAPIResources().UpdateStatus(logicalcluster.WithCluster(ctx, logicalcluster.From(negotiatedAPIResource)), negotiatedAPIResource, metav1.UpdateOptions{})
 			if err != nil {
 				klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
 				return err
@@ -324,7 +324,7 @@ func (c *Controller) deleteNegotiatedAPIResource(ctx context.Context, clusterNam
 		}
 
 		toDelete := objs[0].(*apiresourcev1alpha1.NegotiatedAPIResource)
-		err = c.kcpClusterClient.Cluster(logicalcluster.From(toDelete)).ApiresourceV1alpha1().NegotiatedAPIResources().Delete(ctx, toDelete.Name, metav1.DeleteOptions{})
+		err = c.kcpClusterClient.ApiresourceV1alpha1().NegotiatedAPIResources().Delete(logicalcluster.WithCluster(ctx, logicalcluster.From(toDelete)), toDelete.Name, metav1.DeleteOptions{})
 		if err != nil {
 			klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
 			return err
@@ -551,7 +551,7 @@ func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, cluster
 				return err
 			}
 			apiResourceImport.SetResourceVersion(lastOne.GetResourceVersion())
-			if _, err := c.kcpClusterClient.Cluster(logicalcluster.From(apiResourceImport)).ApiresourceV1alpha1().APIResourceImports().UpdateStatus(ctx, apiResourceImport, metav1.UpdateOptions{}); err != nil {
+			if _, err := c.kcpClusterClient.ApiresourceV1alpha1().APIResourceImports().UpdateStatus(logicalcluster.WithCluster(ctx, logicalcluster.From(apiResourceImport)), apiResourceImport, metav1.UpdateOptions{}); err != nil {
 				klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
 				return err
 			}
@@ -559,9 +559,9 @@ func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, cluster
 		})
 	}
 	if negotiatedAPIResource == nil {
-		existing, err := c.kcpClusterClient.Cluster(logicalcluster.From(newNegotiatedAPIResource)).ApiresourceV1alpha1().NegotiatedAPIResources().Create(ctx, newNegotiatedAPIResource, metav1.CreateOptions{})
+		existing, err := c.kcpClusterClient.ApiresourceV1alpha1().NegotiatedAPIResources().Create(logicalcluster.WithCluster(ctx, logicalcluster.From(newNegotiatedAPIResource)), newNegotiatedAPIResource, metav1.CreateOptions{})
 		if k8serrors.IsAlreadyExists(err) {
-			existing, err = c.kcpClusterClient.Cluster(logicalcluster.From(newNegotiatedAPIResource)).ApiresourceV1alpha1().NegotiatedAPIResources().Get(ctx, newNegotiatedAPIResource.Name, metav1.GetOptions{})
+			existing, err = c.kcpClusterClient.ApiresourceV1alpha1().NegotiatedAPIResources().Get(logicalcluster.WithCluster(ctx, logicalcluster.From(newNegotiatedAPIResource)), newNegotiatedAPIResource.Name, metav1.GetOptions{})
 		}
 		if err != nil {
 			klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
@@ -569,14 +569,14 @@ func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, cluster
 		}
 		if len(newNegotiatedAPIResource.Status.Conditions) > 0 {
 			existing.Status = newNegotiatedAPIResource.Status
-			_, err = c.kcpClusterClient.Cluster(logicalcluster.From(existing)).ApiresourceV1alpha1().NegotiatedAPIResources().UpdateStatus(ctx, existing, metav1.UpdateOptions{})
+			_, err = c.kcpClusterClient.ApiresourceV1alpha1().NegotiatedAPIResources().UpdateStatus(logicalcluster.WithCluster(ctx, logicalcluster.From(existing)), existing, metav1.UpdateOptions{})
 			if err != nil {
 				klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
 				return err
 			}
 		}
 	} else if updatedNegotiatedSchema {
-		if _, err := c.kcpClusterClient.Cluster(logicalcluster.From(newNegotiatedAPIResource)).ApiresourceV1alpha1().NegotiatedAPIResources().Update(ctx, newNegotiatedAPIResource, metav1.UpdateOptions{}); err != nil {
+		if _, err := c.kcpClusterClient.ApiresourceV1alpha1().NegotiatedAPIResources().Update(logicalcluster.WithCluster(ctx, logicalcluster.From(newNegotiatedAPIResource)), newNegotiatedAPIResource, metav1.UpdateOptions{}); err != nil {
 			klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
 			return err
 		}
@@ -712,7 +712,7 @@ func (c *Controller) publishNegotiatedResource(ctx context.Context, clusterName 
 			cr.ObjectMeta.Annotations["api-approved.kubernetes.io"] = "https://github.com/kcp-dev/kubernetes/pull/4"
 		}
 
-		if _, err := c.crdClusterClient.Cluster(clusterName).ApiextensionsV1().CustomResourceDefinitions().Create(ctx, cr, metav1.CreateOptions{}); err != nil {
+		if _, err := c.crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Create(logicalcluster.WithCluster(ctx, clusterName), cr, metav1.CreateOptions{}); err != nil {
 			klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
 			return err
 		}
@@ -762,7 +762,7 @@ func (c *Controller) publishNegotiatedResource(ctx context.Context, clusterName 
 				NegotiatedAPIResourceAsOwnerReference(negotiatedApiResource))
 		}
 
-		if _, err := c.crdClusterClient.Cluster(clusterName).ApiextensionsV1().CustomResourceDefinitions().Update(ctx, crd, metav1.UpdateOptions{}); err != nil {
+		if _, err := c.crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Update(logicalcluster.WithCluster(ctx, clusterName), crd, metav1.UpdateOptions{}); err != nil {
 			klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
 			return err
 		}
@@ -775,7 +775,7 @@ func (c *Controller) publishNegotiatedResource(ctx context.Context, clusterName 
 		Type:   apiresourcev1alpha1.Submitted,
 		Status: metav1.ConditionTrue,
 	})
-	if _, err := c.kcpClusterClient.Cluster(logicalcluster.From(negotiatedApiResource)).ApiresourceV1alpha1().NegotiatedAPIResources().UpdateStatus(ctx, negotiatedApiResource, metav1.UpdateOptions{}); err != nil {
+	if _, err := c.kcpClusterClient.ApiresourceV1alpha1().NegotiatedAPIResources().UpdateStatus(logicalcluster.WithCluster(ctx, logicalcluster.From(negotiatedApiResource)), negotiatedApiResource, metav1.UpdateOptions{}); err != nil {
 		klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
 		return err
 	}
@@ -798,7 +798,7 @@ func (c *Controller) updateStatusOnRelatedAPIResourceImports(ctx context.Context
 				Type:   apiresourcev1alpha1.Available,
 				Status: publishedCondition.Status,
 			})
-			if _, err := c.kcpClusterClient.Cluster(logicalcluster.From(apiResourceImport)).ApiresourceV1alpha1().APIResourceImports().UpdateStatus(ctx, apiResourceImport, metav1.UpdateOptions{}); err != nil {
+			if _, err := c.kcpClusterClient.ApiresourceV1alpha1().APIResourceImports().UpdateStatus(logicalcluster.WithCluster(ctx, logicalcluster.From(apiResourceImport)), apiResourceImport, metav1.UpdateOptions{}); err != nil {
 				klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
 				return err
 			}
@@ -820,7 +820,7 @@ func (c *Controller) cleanupNegotiatedAPIResource(ctx context.Context, clusterNa
 		apiResourceImport := obj.(*apiresourcev1alpha1.APIResourceImport).DeepCopy()
 		apiResourceImport.RemoveCondition(apiresourcev1alpha1.Available)
 		apiResourceImport.RemoveCondition(apiresourcev1alpha1.Compatible)
-		if _, err := c.kcpClusterClient.Cluster(logicalcluster.From(apiResourceImport)).ApiresourceV1alpha1().APIResourceImports().UpdateStatus(ctx, apiResourceImport, metav1.UpdateOptions{}); err != nil {
+		if _, err := c.kcpClusterClient.ApiresourceV1alpha1().APIResourceImports().UpdateStatus(logicalcluster.WithCluster(ctx, logicalcluster.From(apiResourceImport)), apiResourceImport, metav1.UpdateOptions{}); err != nil {
 			klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
 			return err
 		}
@@ -880,7 +880,7 @@ func (c *Controller) cleanupNegotiatedAPIResource(ctx context.Context, clusterNa
 		return nil
 	}
 	if len(cleanedVersions) == 0 {
-		if err := c.crdClusterClient.Cluster(clusterName).ApiextensionsV1().CustomResourceDefinitions().Delete(ctx, crd.Name, metav1.DeleteOptions{}); err != nil {
+		if err := c.crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Delete(logicalcluster.WithCluster(ctx, clusterName), crd.Name, metav1.DeleteOptions{}); err != nil {
 			klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
 			return err
 		}
@@ -888,7 +888,7 @@ func (c *Controller) cleanupNegotiatedAPIResource(ctx context.Context, clusterNa
 		crd = crd.DeepCopy()
 		crd.Spec.Versions = cleanedVersions
 		crd.OwnerReferences = cleanedOwnerReferences
-		if _, err := c.crdClusterClient.Cluster(clusterName).ApiextensionsV1().CustomResourceDefinitions().Update(ctx, crd, metav1.UpdateOptions{}); err != nil {
+		if _, err := c.crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Update(logicalcluster.WithCluster(ctx, clusterName), crd, metav1.UpdateOptions{}); err != nil {
 			klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
 			return err
 		}

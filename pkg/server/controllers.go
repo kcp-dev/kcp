@@ -538,12 +538,13 @@ func (s *Server) installHomeWorkspaces(ctx context.Context, config *rest.Config)
 }
 
 func (s *Server) installApiResourceController(ctx context.Context, config *rest.Config) error {
-	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-api-resource-controller")
-	crdClusterClient, err := apiextensionsclient.NewClusterForConfig(config)
+	config = kcpclienthelper.NewClusterConfig(rest.AddUserAgent(rest.CopyConfig(config), "kcp-api-resource-controller"))
+
+	crdClusterClient, err := apiextensionsclient.NewForConfig(config)
 	if err != nil {
 		return err
 	}
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
+	kcpClusterClient, err := kcpclient.NewForConfig(config)
 	if err != nil {
 		return err
 	}
