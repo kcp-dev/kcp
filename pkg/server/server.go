@@ -24,7 +24,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster"
+	"github.com/kcp-dev/logicalcluster/v2"
 	etcdtypes "go.etcd.io/etcd/client/pkg/v3/types"
 
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"

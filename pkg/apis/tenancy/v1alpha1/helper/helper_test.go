@@ -19,7 +19,7 @@ package helper
 import (
 	"testing"
 
-	"github.com/kcp-dev/logicalcluster"
+	"github.com/kcp-dev/logicalcluster/v2"
 )
 
 func TestIsValidCluster(t *testing.T) {

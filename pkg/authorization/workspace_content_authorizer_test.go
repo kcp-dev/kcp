@@ -21,7 +21,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/kcp-dev/logicalcluster"
+	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
 	v1 "k8s.io/api/rbac/v1"

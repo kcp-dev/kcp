@@ -22,7 +22,7 @@ import (
 	_ "net/http/pprof"
 	"strings"
 
-	"github.com/kcp-dev/logicalcluster"
+	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/munnerz/goautoneg"
 
 	apiextensionshelpers "k8s.io/apiextensions-apiserver/pkg/apihelpers"

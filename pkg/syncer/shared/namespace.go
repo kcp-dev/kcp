@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kcp-dev/logicalcluster"
+	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/martinlindhe/base36"
 
 	"k8s.io/apimachinery/pkg/types"

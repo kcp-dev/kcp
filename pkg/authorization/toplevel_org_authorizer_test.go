@@ -19,7 +19,7 @@ package authorization
 import (
 	"testing"
 
-	"github.com/kcp-dev/logicalcluster"
+	"github.com/kcp-dev/logicalcluster/v2"
 )
 
 func TestTopLevelOrg(t *testing.T) {

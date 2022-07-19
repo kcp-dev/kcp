@@ -21,7 +21,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster"
+	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 

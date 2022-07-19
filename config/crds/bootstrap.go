@@ -23,6 +23,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kcp-dev/logicalcluster/v2"
+
 	crdhelpers "k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	extensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"

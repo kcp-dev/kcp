@@ -17,7 +17,7 @@ limitations under the License.
 package tenancy
 
 import (
-	"github.com/kcp-dev/logicalcluster"
+	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
