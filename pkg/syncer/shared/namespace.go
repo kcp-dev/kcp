@@ -41,17 +41,30 @@ type NamespaceLocator struct {
 }
 
 type SyncTargetLocator struct {
-	Workspace logicalcluster.Name `json:"workspace"`
-	Name      string              `json:"name"`
-	UID       types.UID           `json:"uid"`
+	Workspace      string    `json:"workspace,omitempty"`
+	DeprecatedPath string    `json:"path,omitempty"`
+	Name           string    `json:"name"`
+	UID            types.UID `json:"uid"`
 }
 
 func NewNamespaceLocator(workspace, syncTargetWorkspace logicalcluster.Name, syncTargetUID types.UID, workloadLogicalClusterName, upstreamNamespace string) NamespaceLocator {
 	return NamespaceLocator{
 		SyncTarget: SyncTargetLocator{
-			Workspace: syncTargetWorkspace,
+			Workspace: syncTargetWorkspace.String(),
 			Name:      workloadLogicalClusterName,
 			UID:       syncTargetUID,
+		},
+		Workspace: workspace,
+		Namespace: upstreamNamespace,
+	}
+}
+
+func NewNamespaceLocatorV060(workspace, syncTargetWorkspace logicalcluster.Name, syncTargetUID types.UID, workloadLogicalClusterName, upstreamNamespace string) NamespaceLocator {
+	return NamespaceLocator{
+		SyncTarget: SyncTargetLocator{
+			DeprecatedPath: syncTargetWorkspace.String(),
+			Name:           workloadLogicalClusterName,
+			UID:            syncTargetUID,
 		},
 		Workspace: workspace,
 		Namespace: upstreamNamespace,
@@ -67,6 +80,13 @@ func LocatorFromAnnotations(annotations map[string]string) (*NamespaceLocator, b
 	if err := json.Unmarshal([]byte(annotation), &locator); err != nil {
 		return nil, false, err
 	}
+
+	// get us from v0.6.0 locators (using syncTarget.path) to v0.6.1+ (using syncTarget.workspace)
+	if locator.SyncTarget.Workspace == "" {
+		locator.SyncTarget.Workspace = locator.SyncTarget.DeprecatedPath
+	}
+	locator.SyncTarget.DeprecatedPath = ""
+
 	return &locator, true, nil
 }
 
