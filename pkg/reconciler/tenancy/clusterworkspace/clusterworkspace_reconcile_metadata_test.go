@@ -136,7 +136,7 @@ func TestReconcileMetadata(t *testing.T) {
 			wantStatus: reconcileStatusContinue,
 		},
 		{
-			name: "removes owner when ready",
+			name: "removes everything but owner username when ready",
 			input: &tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
@@ -144,7 +144,34 @@ func TestReconcileMetadata(t *testing.T) {
 					},
 					Annotations: map[string]string{
 						"a":                     "b",
-						"tenancy.kcp.dev/owner": `{"username":"user-1"}`,
+						"tenancy.kcp.dev/owner": `{"username":"user-1","groups":["a","b"],"uid":"123","extra":{"c":["d"]}}`,
+					},
+				},
+				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
+					Phase: tenancyv1alpha1.ClusterWorkspacePhaseReady,
+				},
+			},
+			expected: metav1.ObjectMeta{
+				Labels: map[string]string{
+					"internal.kcp.dev/phase": "Ready",
+				},
+				Annotations: map[string]string{
+					"a":                     "b",
+					"tenancy.kcp.dev/owner": `{"username":"user-1"}`,
+				},
+			},
+			wantStatus: reconcileStatusStopAndRequeue,
+		},
+		{
+			name: "delete invalid owner annotation when ready",
+			input: &tenancyv1alpha1.ClusterWorkspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"internal.kcp.dev/phase": "Ready",
+					},
+					Annotations: map[string]string{
+						"a":                     "b",
+						"tenancy.kcp.dev/owner": `{"username":}`,
 					},
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceStatus{

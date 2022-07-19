@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/sha1"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -28,6 +29,7 @@ import (
 
 	"github.com/kcp-dev/logicalcluster"
 
+	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,6 +48,7 @@ import (
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
+	clusterworkspaceadmission "github.com/kcp-dev/kcp/pkg/admission/clusterworkspace"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/projection"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
@@ -193,7 +196,7 @@ type homeWorkspaceFeatureLogic struct {
 	searchForHomeWorkspaceRBACResourcesInLocalInformers func(homeWorkspace logicalcluster.Name) (found bool, err error)
 	createHomeWorkspaceRBACResources                    func(ctx context.Context, userName string, homeWorkspace logicalcluster.Name) error
 	searchForWorkspaceAndRBACInLocalInformers           func(logicalClusterName logicalcluster.Name, isHome bool, userName string) (readyAndRBACAsExpected bool, retryAfterSeconds int, checkError error)
-	tryToCreate                                         func(ctx context.Context, userName string, workspaceToCheck logicalcluster.Name, workspaceType tenancyv1alpha1.ClusterWorkspaceTypeName) (retryAfterSeconds int, createError error)
+	tryToCreate                                         func(ctx context.Context, user kuser.Info, workspaceToCheck logicalcluster.Name, workspaceType tenancyv1alpha1.ClusterWorkspaceTypeName) (retryAfterSeconds int, createError error)
 }
 
 type homeWorkspaceHandler struct {
@@ -214,8 +217,8 @@ func (b homeWorkspaceHandlerBuilder) build() *homeWorkspaceHandler {
 		searchForWorkspaceAndRBACInLocalInformers: func(logicalClusterName logicalcluster.Name, isHome bool, userName string) (found bool, retryAfterSeconds int, checkError error) {
 			return searchForWorkspaceAndRBACInLocalInformers(h, logicalClusterName, isHome, userName)
 		},
-		tryToCreate: func(ctx context.Context, userName string, logicalClusterName logicalcluster.Name, workspaceType tenancyv1alpha1.ClusterWorkspaceTypeName) (retryAfterSeconds int, createError error) {
-			return tryToCreate(h, ctx, userName, logicalClusterName, workspaceType)
+		tryToCreate: func(ctx context.Context, user kuser.Info, logicalClusterName logicalcluster.Name, workspaceType tenancyv1alpha1.ClusterWorkspaceTypeName) (retryAfterSeconds int, createError error) {
+			return tryToCreate(h, ctx, user, logicalClusterName, workspaceType)
 		},
 	}
 
@@ -268,6 +271,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		// we return the Home workspace definition of the current user, possibly even before its
 		// underlying ClusterWorkspace resource exists.
 
+		getAttributes := homeWorkspaceAuthorizerAttributes(effectiveUser, "get")
 		homeLogicalClusterName := h.getHomeLogicalClusterName(effectiveUser.GetName())
 
 		homeClusterWorkspace, err := h.localInformers.getClusterWorkspace(homeLogicalClusterName)
@@ -276,6 +280,17 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 			return
 		}
 		if homeClusterWorkspace != nil {
+			// check for collision. Chance is super low hitting it by accident. But to protect against malicious users,
+			// we check for collision and return 403.
+			if info, _ := unmarshalOwner(homeClusterWorkspace); info == nil {
+				responsewriters.Forbidden(ctx, getAttributes, rw, req, authorization.WorkspaceAcccessNotPermittedReason, homeWorkspaceCodecs)
+				return
+			} else if info.Username != effectiveUser.GetName() {
+				klog.Warningf("Collision detected for user %q in home workspace %s owned by %q", effectiveUser.GetName(), homeLogicalClusterName, info.Username)
+				responsewriters.Forbidden(ctx, getAttributes, rw, req, authorization.WorkspaceAcccessNotPermittedReason, homeWorkspaceCodecs)
+				return
+			}
+
 			if found, err := h.searchForHomeWorkspaceRBACResourcesInLocalInformers(homeLogicalClusterName); err != nil {
 				responsewriters.InternalError(rw, req, err)
 				return
@@ -347,7 +362,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	if retryAfterSeconds, err := h.tryToCreate(ctx, effectiveUser.GetName(), lcluster.Name, workspaceType); err != nil {
+	if retryAfterSeconds, err := h.tryToCreate(ctx, effectiveUser, lcluster.Name, workspaceType); err != nil {
 		klog.Errorf("failed to create %s workspace %s for user %q: %w", workspaceType, lcluster.Name, effectiveUser.GetName(), err)
 		responsewriters.ErrorNegotiated(err, errorCodecs, schema.GroupVersion{}, rw, req)
 		return
@@ -478,23 +493,33 @@ func searchForWorkspaceAndRBACInLocalInformers(h *homeWorkspaceHandler, logicalC
 
 // tryToCreate tries to create, with an external client, the home or home bucket workspace
 // corresponding to a given logical cluster name.
-// Of course it can be that it has been created in the meantime (either concurrently on the current shard or
+// Of course, it can be that it has been created in the meantime (either concurrently on the current shard or
 // on another shard). We don't error in this case, but ask for a retry.
 // If it cannot be created because the parent home bucket doesn't exist, create the parent first and
 // retry the creation of the current workspace later.
 // When creating a Home workspace, we also create the related RBAC resources.
-func tryToCreate(h *homeWorkspaceHandler, ctx context.Context, userName string, logicalClusterName logicalcluster.Name, workspaceType tenancyv1alpha1.ClusterWorkspaceTypeName) (retryAfterSeconds int, createError error) {
+func tryToCreate(h *homeWorkspaceHandler, ctx context.Context, user kuser.Info, logicalClusterName logicalcluster.Name, workspaceType tenancyv1alpha1.ClusterWorkspaceTypeName) (retryAfterSeconds int, createError error) {
 	// Try to create it in the parent workspace
 	parent, name := logicalClusterName.Split()
-	err := h.kcp.createClusterWorkspace(ctx, parent, &tenancyv1alpha1.ClusterWorkspace{
+	ws := &tenancyv1alpha1.ClusterWorkspace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
 		Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
 			Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: tenancyv1alpha1.RootCluster.String(), Name: workspaceType},
 		},
-	})
+	}
+	if workspaceType == HomeClusterWorkspaceType {
+		ownerRaw, err := clusterworkspaceadmission.ClusterWorkspaceOwnerAnnotationValue(user)
+		if err != nil {
+			return 0, fmt.Errorf("failed to create %s annotation value: %w", tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey, err)
+		}
+		ws.Annotations = map[string]string{
+			tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey: ownerRaw,
+		}
+	}
 
+	err := h.kcp.createClusterWorkspace(ctx, parent, ws)
 	if err == nil || kerrors.IsAlreadyExists(err) {
 		if workspaceType == HomeClusterWorkspaceType {
 			if kerrors.IsAlreadyExists(err) {
@@ -503,12 +528,15 @@ func tryToCreate(h *homeWorkspaceHandler, ctx context.Context, userName string, 
 					return 0, err
 				}
 
-				if cw.Annotations[tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey] != userName {
+				if info, _ := unmarshalOwner(cw); info == nil {
+					return 0, kerrors.NewForbidden(tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces").GroupResource(), cw.Name, errors.New(authorization.WorkspaceAcccessNotPermittedReason))
+				} else if info.Username != user.GetName() {
+					klog.Warningf("Collision detected for user %q in home workspace %s owned by %q", user.GetName(), logicalClusterName, info.Username)
 					return 0, kerrors.NewForbidden(tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces").GroupResource(), cw.Name, errors.New(authorization.WorkspaceAcccessNotPermittedReason))
 				}
 			}
 
-			if err := h.createHomeWorkspaceRBACResources(ctx, userName, logicalClusterName); err != nil {
+			if err := h.createHomeWorkspaceRBACResources(ctx, user.GetName(), logicalClusterName); err != nil {
 				return 0, err
 			}
 		}
@@ -545,7 +573,7 @@ func tryToCreate(h *homeWorkspaceHandler, ctx context.Context, userName string, 
 	if parentWorkspace == nil {
 		// The parent simply probably does not exist => try to create it first
 		_, parentWorkspaceType := h.needsAutomaticCreation(parent)
-		return h.tryToCreate(ctx, userName, parent, parentWorkspaceType)
+		return h.tryToCreate(ctx, user, parent, parentWorkspaceType)
 	}
 
 	// The parent exists: check its status
@@ -649,4 +677,17 @@ func workspaceUnschedulable(workspace *tenancyv1alpha1.ClusterWorkspace) bool {
 		return true
 	}
 	return false
+}
+
+func unmarshalOwner(cw *tenancyv1alpha1.ClusterWorkspace) (*authenticationv1.UserInfo, error) {
+	raw, found := cw.Annotations[tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey]
+	if !found {
+		return nil, nil
+	}
+	var info authenticationv1.UserInfo
+	err := json.Unmarshal([]byte(raw), &info)
+	if err != nil {
+		return nil, err
+	}
+	return &info, err
 }

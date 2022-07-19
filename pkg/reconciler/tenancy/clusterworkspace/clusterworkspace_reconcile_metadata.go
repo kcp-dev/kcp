@@ -18,9 +18,14 @@ package clusterworkspace
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 
+	"github.com/kcp-dev/logicalcluster"
+
+	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -59,9 +64,22 @@ func (r *metaDataReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 	}
 
 	if workspace.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady {
-		if _, found := workspace.Annotations[tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey]; found {
-			delete(workspace.Annotations, tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey)
-			changed = true
+		if value, found := workspace.Annotations[tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey]; found {
+			var info authenticationv1.UserInfo
+			err := json.Unmarshal([]byte(value), &info)
+			if err != nil {
+				klog.Warningf("Failed to unmarshal ClusterWorkspace %s|%s annotation %s=%q: %v", logicalcluster.From(workspace), workspace.Name, tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey, value, err)
+				delete(workspace.Annotations, tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey)
+				changed = true
+			} else if userOnlyValue, err := json.Marshal(authenticationv1.UserInfo{Username: info.Username}); err != nil {
+				// should never happen
+				klog.Warningf("Failed to marshal ClusterWorkspace %s|%s user info: %v", logicalcluster.From(workspace), workspace.Name, err)
+				delete(workspace.Annotations, tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey)
+				changed = true
+			} else if value != string(userOnlyValue) {
+				workspace.Annotations[tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey] = string(userOnlyValue)
+				changed = true
+			}
 		}
 	}
 

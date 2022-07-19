@@ -195,8 +195,8 @@ test-e2e-shared: build-all
 	NO_GORUN=1 ./bin/test-server --log-file-path="$(LOG_DIR)/kcp.log" $(TEST_SERVER_ARGS) 2>&1 & PID=$$!; echo "PID $$PID"; \
 	trap 'kill -TERM $$PID' TERM INT EXIT; \
 	while [ ! -f .kcp/admin.kubeconfig ]; do sleep 1; done; \
-	NO_GORUN=1 $(GO_TEST) -race -count $(COUNT) -p $(E2E_PARALLELISM) -parallel $(E2E_PARALLELISM) $(WHAT) \
-		-args --use-default-kcp-server --syncer-image="$${SYNCER_IMAGE}" --kcp-test-image="$${TEST_IMAGE}" --pcluster-kubeconfig="$(PWD)/kind.kubeconfig" $(TEST_ARGS)
+	NO_GORUN=1 $(GO_TEST) -race -count $(COUNT) -p $(E2E_PARALLELISM) -parallel $(E2E_PARALLELISM) $(WHAT) $(TEST_ARGS) \
+		-args --use-default-kcp-server --syncer-image="$${SYNCER_IMAGE}" --kcp-test-image="$${TEST_IMAGE}" --pcluster-kubeconfig="$(PWD)/kind.kubeconfig"
 
 .PHONY: test-e2e-sharded
 ifdef USE_GOTESTSUM
@@ -217,8 +217,8 @@ test-e2e-sharded: build-all
 	NO_GORUN=1 ./bin/sharded-test-server --v=2 --log-dir-path="$(LOG_DIR)" $(TEST_SERVER_ARGS) 2>&1 & PID=$$!; echo "PID $$PID"; \
 	trap 'kill -TERM $$PID' TERM INT EXIT; \
 	while [ ! -f .kcp/admin.kubeconfig ]; do sleep 1; done; \
-	NO_GORUN=1 $(GO_TEST) -race -count $(COUNT) -p $(E2E_PARALLELISM) -parallel $(E2E_PARALLELISM) $(WHAT) \
-		-args --use-default-kcp-server --root-shard-kubeconfig=$(PWD)/.kcp-0/admin.kubeconfig --syncer-image="$${SYNCER_IMAGE}" --kcp-test-image="$${TEST_IMAGE}" --pcluster-kubeconfig="$(PWD)/kind.kubeconfig" $(TEST_ARGS)
+	NO_GORUN=1 $(GO_TEST) -race -count $(COUNT) -p $(E2E_PARALLELISM) -parallel $(E2E_PARALLELISM) $(WHAT) $(TEST_ARGS) \
+		-args --use-default-kcp-server --root-shard-kubeconfig=$(PWD)/.kcp-0/admin.kubeconfig --syncer-image="$${SYNCER_IMAGE}" --kcp-test-image="$${TEST_IMAGE}" --pcluster-kubeconfig="$(PWD)/kind.kubeconfig"
 
 .PHONY: test
 ifdef USE_GOTESTSUM
