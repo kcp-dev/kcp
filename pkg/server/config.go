@@ -29,6 +29,7 @@ import (
 	apiextensionsexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/endpoints/filters"
+	"k8s.io/apiserver/pkg/quota/v1/generic"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	serverstorage "k8s.io/apiserver/pkg/server/storage"
 	"k8s.io/apiserver/pkg/util/webhook"
@@ -41,6 +42,7 @@ import (
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/aggregator"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/apis"
+	quotainstall "k8s.io/kubernetes/pkg/quota/v1/install"
 
 	kcpadmissioninitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
@@ -86,7 +88,8 @@ type ExtraConfig struct {
 	KcpClusterClient           kcpclient.ClusterInterface
 
 	// misc
-	preHandlerChainMux *handlerChainMuxes
+	preHandlerChainMux   *handlerChainMuxes
+	quotaAdmissionStopCh chan struct{}
 
 	// informers
 	KcpSharedInformerFactory              kcpexternalversions.SharedInformerFactory
@@ -274,6 +277,13 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		return apiHandler
 	}
 
+	// TODO(ncdc): find a way to support the default configuration. For now, don't use it, because it is difficult
+	// to get support for the special evaluators for pods/services/pvcs.
+	// quotaConfiguration := quotainstall.NewQuotaConfigurationForAdmission()
+	quotaConfiguration := generic.NewConfiguration(nil, quotainstall.DefaultIgnoredResources())
+
+	c.ExtraConfig.quotaAdmissionStopCh = make(chan struct{})
+
 	admissionPluginInitializers := []admission.PluginInitializer{
 		kcpadmissioninitializers.NewKcpInformersInitializer(c.KcpSharedInformerFactory),
 		kcpadmissioninitializers.NewKubeClusterClientInitializer(c.KubeClusterClient),
@@ -283,6 +293,8 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		// The external address is provided as a function, as its value may be updated
 		// with the default secure port, when the config is later completed.
 		kcpadmissioninitializers.NewExternalAddressInitializer(func() string { return c.GenericConfig.ExternalAddress }),
+		kcpadmissioninitializers.NewKubeQuotaConfigurationInitializer(quotaConfiguration),
+		kcpadmissioninitializers.NewServerShutdownInitializer(c.quotaAdmissionStopCh),
 	}
 
 	c.Apis, err = genericcontrolplane.CreateKubeAPIServerConfig(c.GenericConfig, opts.GenericControlPlane, c.KubeSharedInformerFactory, admissionPluginInitializers, storageFactory)

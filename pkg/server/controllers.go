@@ -57,6 +57,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibindingdeletion"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiexport"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiresource"
+	"github.com/kcp-dev/kcp/pkg/reconciler/kubequota"
 	schedulinglocationstatus "github.com/kcp-dev/kcp/pkg/reconciler/scheduling/location"
 	schedulingplacement "github.com/kcp-dev/kcp/pkg/reconciler/scheduling/placement"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/bootstrap"
@@ -920,6 +921,65 @@ func (s *Server) installVirtualWorkspaceURLsController(ctx context.Context, conf
 
 		return nil
 	})
+}
+
+func (s *Server) installKubeQuotaController(
+	ctx context.Context,
+	config *rest.Config,
+	server *genericapiserver.GenericAPIServer,
+) error {
+	controllerName := "kcp-kube-quota-controller"
+	config = rest.AddUserAgent(config, controllerName)
+
+	kubeClusterClient, err := kubernetes.NewClusterForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	// TODO(ncdc): should we make these configurable?
+	const (
+		quotaResyncPeriod        = 5 * time.Minute
+		replenishmentPeriod      = 12 * time.Hour
+		workersPerLogicalCluster = 1
+	)
+
+	c, err := kubequota.NewController(
+		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
+		kubeClusterClient,
+		s.KubeSharedInformerFactory,
+		s.DynamicDiscoverySharedInformerFactory,
+		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
+		quotaResyncPeriod,
+		replenishmentPeriod,
+		workersPerLogicalCluster,
+		s.syncedCh,
+	)
+	if err != nil {
+		return err
+	}
+
+	if err := server.AddPostStartHook(controllerName, func(hookContext genericapiserver.PostStartHookContext) error {
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			klog.Errorf("failed to finish post-start-hook %s: %v", controllerName, err)
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		go c.Start(goContext(hookContext), 2)
+
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	if err := server.AddPreShutdownHook(controllerName, func() error {
+		close(s.quotaAdmissionStopCh)
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *Server) waitForSync(stop <-chan struct{}) error {
