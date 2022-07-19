@@ -27,6 +27,7 @@ import (
 	genericfeatures "k8s.io/apiserver/pkg/features"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/component-base/featuregate"
+	"k8s.io/component-base/logs"
 )
 
 const (
@@ -98,4 +99,5 @@ var defaultGenericControlPlaneFeatureGates = map[featuregate.Feature]featuregate
 	genericfeatures.APIPriorityAndFairness:              {Default: true, PreRelease: featuregate.Beta},
 	genericfeatures.WarningHeaders:                      {Default: true, PreRelease: featuregate.GA, LockToDefault: true}, // remove in 1.24
 	genericfeatures.CustomResourceValidationExpressions: {Default: false, PreRelease: featuregate.Alpha},
+	logs.ContextualLogging:                              {Default: true, PreRelease: featuregate.Alpha},
 }

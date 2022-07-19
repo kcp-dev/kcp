@@ -24,6 +24,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	"k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/component-base/version"
 	"k8s.io/klog/v2"
@@ -40,7 +41,7 @@ func NewSyncerCommand() *cobra.Command {
 		Use:   "syncer",
 		Short: "Synchronizes resources in `kcp` assigned to the clusters",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := options.Logs.ValidateAndApply(); err != nil {
+			if err := options.Logs.ValidateAndApply(feature.DefaultFeatureGate); err != nil {
 				return err
 			}
 			if err := options.Complete(); err != nil {
