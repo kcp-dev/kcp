@@ -210,6 +210,7 @@ func (s *Server) installKubeServiceAccountTokenController(ctx context.Context, c
 		serviceaccountcontroller.TokensControllerOptions{
 			TokenGenerator: tokenGenerator,
 			RootCA:         rootCA,
+			AutoGenerate:   true,
 		},
 	)
 	if err != nil {
@@ -268,7 +269,7 @@ func (s *Server) installRootCAConfigMapController(ctx context.Context, config *r
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Run(2, ctx.Done())
+		go c.Run(ctx, 2)
 		return nil
 	})
 

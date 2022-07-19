@@ -127,7 +127,7 @@ func AddNameIndexers(crbInformer rbacinformers.ClusterRoleBindingInformer) error
 }
 
 func lclusterAwareIndexValue(lclusterName logicalcluster.Name, indexValue string) string {
-	return lclusterName.String() + "#$#" + indexValue
+	return lclusterName.String() + "|" + indexValue
 }
 
 var _ rest.Lister = &REST{}

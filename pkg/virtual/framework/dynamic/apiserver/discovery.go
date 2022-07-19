@@ -100,7 +100,7 @@ func (r *versionDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Req
 		foundGroupVersion = true
 
 		apiResourceSchema := apiDef.GetAPIResourceSchema()
-		storageVersionHash := discovery.StorageVersionHash(apiDef.GetClusterName().String(), gvr.Group, gvr.Version, apiResourceSchema.Spec.Names.Kind)
+		storageVersionHash := discovery.StorageVersionHash(apiDef.GetClusterName(), gvr.Group, gvr.Version, apiResourceSchema.Spec.Names.Kind)
 		apiResourcesForDiscovery = append(apiResourcesForDiscovery, metav1.APIResource{
 			Name:               apiResourceSchema.Spec.Names.Plural,
 			SingularName:       apiResourceSchema.Spec.Names.Singular,

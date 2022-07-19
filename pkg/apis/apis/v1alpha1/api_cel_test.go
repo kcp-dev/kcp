@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
 	"os"
 	"testing"
 
@@ -76,7 +77,7 @@ func TestAPIBindingPermissionClaimCELValidation(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			errs := validator.Validate(field.NewPath("root"), &s, tc.claim)
+			errs, _ := validator.Validate(context.TODO(), field.NewPath("root"), &s, tc.claim, nil, cel.RuntimeCELCostBudget)
 			if len(errs) == 0 && !tc.validBinding {
 				t.Error("No errors were found, but should be invalid binding")
 				return
@@ -135,7 +136,7 @@ func TestAPIExportPermissionClaimCELValidation(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			errs := validator.Validate(field.NewPath("root"), &s, tc.claim)
+			errs, _ := validator.Validate(context.TODO(), field.NewPath("root"), &s, tc.claim, nil, cel.RuntimeCELCostBudget)
 			if len(errs) == 0 && !tc.validBinding {
 				t.Error("No errors were found, but should be invalid binding")
 				return
@@ -217,5 +218,5 @@ func getValidatorForPermissionClaim(t *testing.T, crdFilePath string, specClaimN
 	}
 
 	s = withRule(s, rules)
-	return cel.NewValidator(&s), s
+	return cel.NewValidator(&s, cel.PerCallLimit), s
 }

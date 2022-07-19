@@ -224,9 +224,6 @@ var (
 	)
 
 	disallowedFlags = sets.NewString(
-		// logs flags
-		"experimental-logging-sanitization", // [Experimental] When enabled prevents logging of fields tagged as sensitive (passwords, keys, tokens).
-
 		// generic flags
 		"advertise-address",              // The IP address on which to advertise the apiserver to members of the cluster. This address must be reachable by the rest of the cluster. If blank, the --bind-address will be used. If --bind-address is unspecified, the host's default interface will be used.
 		"enable-priority-and-fairness",   // If true and the APIPriorityAndFairness feature gate is enabled, replace the max-in-flight handler with an enhanced one that queues and dispatches with priority and fairness
@@ -236,18 +233,12 @@ var (
 		"max-requests-inflight",          // This and --max-mutating-requests-inflight are summed to determine the server's total concurrency limit (which must be positive) if --enable-priority-and-fairness is true. Otherwise, this flag limits the maximum number of non-mutating requests in flight, or a zero value disables the limit completely.
 		"min-request-timeout",            // An optional field indicating the minimum number of seconds a handler must keep a request open before timing it out. Currently only honored by the watch request handler, which picks a randomized value above this number as the connection timeout, to spread out load.
 		"request-timeout",                // An optional field indicating the duration a handler must keep a request open before timing it out. This is the default request timeout for requests but may be overridden by flags such as --min-request-timeout for specific types of requests.
-		"target-ram-mb",                  // DEPRECATED: Memory limit for apiserver in MB (used to configure sizes of caches, etc.)
 
 		// etcd flags
-		"default-watch-cache-size",                // Default watch cache size. If zero, watch cache will be disabled for resources that do not have a default watch size set.
-		"delete-collection-workers",               // Number of workers spawned for DeleteCollection call. These are used to speed up namespace cleanup.
-		"deserialization-cache-size",              // Number of deserialized json objects to cache in memory.
-		"enable-garbage-collector",                // Enables the generic garbage collector. MUST be synced with the corresponding flag of the kube-controller-manager.
-		"encryption-provider-config",              // The file containing configuration for encryption providers to be used for storing secrets in etcd
-		"experimental-encryption-provider-config", // The file containing configuration for encryption providers to be used for storing secrets in etcd
-
-		// features flags
-		"enable-swagger-ui", // Enables swagger ui on the apiserver at /swagger-ui
+		"default-watch-cache-size",   // Default watch cache size. If zero, watch cache will be disabled for resources that do not have a default watch size set.
+		"delete-collection-workers",  // Number of workers spawned for DeleteCollection call. These are used to speed up namespace cleanup.
+		"enable-garbage-collector",   // Enables the generic garbage collector. MUST be synced with the corresponding flag of the kube-controller-manager.
+		"encryption-provider-config", // The file containing configuration for encryption providers to be used for storing secrets in etcd
 
 		// admission flags
 		"admission-control-config-file", // File with admission control configuration.

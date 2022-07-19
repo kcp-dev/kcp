@@ -18,7 +18,6 @@ package apiserver
 
 import (
 	"fmt"
-	"path"
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
@@ -198,18 +197,6 @@ func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, apiRes
 		structuralSchema,
 	)
 
-	selfLinkPrefixPrefix := path.Join("apis", apiResourceSchema.Spec.Group, version)
-	if apiResourceSchema.Spec.Group == "" {
-		selfLinkPrefixPrefix = path.Join("api", version)
-	}
-	selfLinkPrefix := ""
-	switch apiResourceSchema.Spec.Scope {
-	case apiextensionsv1.ClusterScoped:
-		selfLinkPrefix = "/" + selfLinkPrefixPrefix + "/" + apiResourceSchema.Spec.Names.Plural + "/"
-	case apiextensionsv1.NamespaceScoped:
-		selfLinkPrefix = "/" + selfLinkPrefixPrefix + "/namespaces/"
-	}
-
 	clusterScoped := apiResourceSchema.Spec.Scope == apiextensionsv1.ClusterScoped
 
 	// CRDs explicitly do not support protobuf, but some objects returned by the API server do
@@ -231,9 +218,8 @@ func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, apiRes
 
 	requestScope := &handlers.RequestScope{
 		Namer: handlers.ContextBasedNaming{
-			SelfLinker:         meta.NewAccessor(),
-			ClusterScoped:      clusterScoped,
-			SelfLinkPathPrefix: selfLinkPrefix,
+			Namer:         runtime.Namer(meta.NewAccessor()),
+			ClusterScoped: clusterScoped,
 		},
 		Serializer:          negotiatedSerializer,
 		ParameterCodec:      parameterCodec,
@@ -284,10 +270,8 @@ func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, apiRes
 		statusScope = *requestScope
 		statusScope.Subresource = "status"
 		statusScope.Namer = handlers.ContextBasedNaming{
-			SelfLinker:         meta.NewAccessor(),
-			ClusterScoped:      clusterScoped,
-			SelfLinkPathPrefix: selfLinkPrefix,
-			SelfLinkPathSuffix: "/status",
+			Namer:         runtime.Namer(meta.NewAccessor()),
+			ClusterScoped: clusterScoped,
 		}
 
 		if utilfeature.DefaultFeatureGate.Enabled(features.ServerSideApply) {

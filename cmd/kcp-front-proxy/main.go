@@ -157,7 +157,7 @@ routed based on paths.`,
 			handler = genericapifilters.WithRequestInfo(handler, requestInfoFactory)
 			handler = genericfilters.WithHTTPLogging(handler)
 			handler = genericfilters.WithPanicRecovery(handler, requestInfoFactory)
-			doneCh, err := servingInfo.Serve(handler, time.Second*60, ctx.Done())
+			doneCh, _, err := servingInfo.Serve(handler, time.Second*60, ctx.Done())
 			if err != nil {
 				return err
 			}

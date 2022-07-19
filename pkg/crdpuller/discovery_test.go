@@ -21,13 +21,14 @@ import (
 	"fmt"
 	"testing"
 
+	openapi_v2 "github.com/google/gnostic/openapiv2"
 	"github.com/google/go-cmp/cmp"
-	openapi_v2 "github.com/googleapis/gnostic/openapiv2"
 
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/version"
+	"k8s.io/client-go/openapi"
 	"k8s.io/client-go/rest"
 	k8stesting "k8s.io/client-go/testing"
 )
@@ -141,6 +142,10 @@ func (fakeDiscovery) ServerVersion() (*version.Info, error) {
 	return nil, nil
 }
 
-func (fakeDiscovery) OpenAPISchema() (*openapi_v2.Document, error) {
+func (d fakeDiscovery) OpenAPISchema() (*openapi_v2.Document, error) {
 	return &openapi_v2.Document{}, nil
+}
+
+func (d fakeDiscovery) OpenAPIV3() openapi.Client {
+	return openapi.NewClient(nil)
 }
