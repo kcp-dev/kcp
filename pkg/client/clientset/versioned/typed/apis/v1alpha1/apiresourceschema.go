@@ -22,7 +22,7 @@ import (
 	"context"
 	"time"
 
-	logicalcluster "github.com/kcp-dev/logicalcluster"
+	v2 "github.com/kcp-dev/logicalcluster/v2"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -55,7 +55,7 @@ type APIResourceSchemaInterface interface {
 // aPIResourceSchemas implements APIResourceSchemaInterface
 type aPIResourceSchemas struct {
 	client  rest.Interface
-	cluster logicalcluster.Name
+	cluster v2.Name
 }
 
 // newAPIResourceSchemas returns a APIResourceSchemas

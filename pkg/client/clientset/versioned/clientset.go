@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"net/http"
 
-	logicalcluster "github.com/kcp-dev/logicalcluster"
+	v2 "github.com/kcp-dev/logicalcluster/v2"
 
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
@@ -37,7 +37,7 @@ import (
 )
 
 type ClusterInterface interface {
-	Cluster(name logicalcluster.Name) Interface
+	Cluster(name v2.Name) Interface
 }
 
 type Cluster struct {
@@ -45,7 +45,7 @@ type Cluster struct {
 }
 
 // Cluster sets the cluster for a Clientset.
-func (c *Cluster) Cluster(name logicalcluster.Name) Interface {
+func (c *Cluster) Cluster(name v2.Name) Interface {
 	return &Clientset{
 		scopedClientset: c.scopedClientset,
 		cluster:         name,
@@ -77,7 +77,7 @@ type Interface interface {
 // version included in a Clientset.
 type Clientset struct {
 	*scopedClientset
-	cluster logicalcluster.Name
+	cluster v2.Name
 }
 
 // scopedClientset contains the clients for groups. Each group has exactly one
@@ -137,6 +137,10 @@ func (c *Clientset) Discovery() discovery.DiscoveryInterface {
 // where httpClient was generated with rest.HTTPClientFor(c).
 func NewForConfig(c *rest.Config) (*Clientset, error) {
 	configShallowCopy := *c
+
+	if configShallowCopy.UserAgent == "" {
+		configShallowCopy.UserAgent = rest.DefaultKubernetesUserAgent()
+	}
 
 	// share the transport between all clients
 	httpClient, err := rest.HTTPClientFor(&configShallowCopy)

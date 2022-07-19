@@ -22,7 +22,7 @@ import (
 	"context"
 	"time"
 
-	logicalcluster "github.com/kcp-dev/logicalcluster"
+	v2 "github.com/kcp-dev/logicalcluster/v2"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -56,7 +56,7 @@ type WorkspaceInterface interface {
 // workspaces implements WorkspaceInterface
 type workspaces struct {
 	client  rest.Interface
-	cluster logicalcluster.Name
+	cluster v2.Name
 }
 
 // newWorkspaces returns a Workspaces
