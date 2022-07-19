@@ -26,6 +26,7 @@ import (
 	"github.com/spf13/pflag"
 
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	"k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -58,7 +59,7 @@ func main() {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := genericapiserver.SetupSignalContext()
 
-			if err := options.Logs.ValidateAndApply(); err != nil {
+			if err := options.Logs.ValidateAndApply(feature.DefaultFeatureGate); err != nil {
 				return err
 			}
 
