@@ -24,7 +24,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kcp-dev/logicalcluster"
+	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 

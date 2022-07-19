@@ -17,7 +17,7 @@ require (
 	github.com/googleapis/gnostic v0.5.5
 	github.com/kcp-dev/apimachinery v0.0.0-20220708220956-c302aeddfde7
 	github.com/kcp-dev/kcp/pkg/apis v0.0.0-00010101000000-000000000000
-	github.com/kcp-dev/logicalcluster v1.1.1-0.20220705215104-8e46328c24a5
+	github.com/kcp-dev/logicalcluster/v2 v2.0.0-alpha.0
 	github.com/martinlindhe/base36 v1.1.1
 	github.com/muesli/reflow v0.1.0
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822

@@ -21,7 +21,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/kcp-dev/logicalcluster"
+	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"

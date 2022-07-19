@@ -477,10 +477,8 @@ github.com/kcp-dev/kubernetes/staging/src/k8s.io/mount-utils v0.0.0-202207112057
 github.com/kcp-dev/kubernetes/staging/src/k8s.io/pod-security-admission v0.0.0-20220711205747-d35199360bc9 h1:hV8Wc4fq2+wB4gM1hhWAXvAXr2K5t1B1Hu5vUxsP5ZM=
 github.com/kcp-dev/kubernetes/staging/src/k8s.io/pod-security-admission v0.0.0-20220711205747-d35199360bc9/go.mod h1:YSfevLOikB6fttjc9y/dmcQj0OJEZ/isjLZeDyOVYTs=
 github.com/kcp-dev/kubernetes/staging/src/k8s.io/sample-apiserver v0.0.0-20220711205747-d35199360bc9/go.mod h1:ThbRUkxvDku4zITYs5lwmLW+JIXC9Gep0xsdEC2QMkc=
-github.com/kcp-dev/logicalcluster v1.0.0/go.mod h1:M0CBFkJTW29XtIP5XIkDfhYQ8LU6HrnseRb4zmgBltE=
-github.com/kcp-dev/logicalcluster v1.1.0/go.mod h1:M0CBFkJTW29XtIP5XIkDfhYQ8LU6HrnseRb4zmgBltE=
-github.com/kcp-dev/logicalcluster v1.1.1-0.20220705215104-8e46328c24a5 h1:ygcM+nvb7QBB/o3HZVw5sYu6KH9aXcrZ+A+IjEDAabA=
-github.com/kcp-dev/logicalcluster v1.1.1-0.20220705215104-8e46328c24a5/go.mod h1:M0CBFkJTW29XtIP5XIkDfhYQ8LU6HrnseRb4zmgBltE=
+github.com/kcp-dev/logicalcluster/v2 v2.0.0-alpha.0 h1:pZqnHuK0+lD8FboE36hvTOuRZp6B/K5xo3RkRJZFYRo=
+github.com/kcp-dev/logicalcluster/v2 v2.0.0-alpha.0/go.mod h1:XcflOqXnekjSmsrsDPxu6wImo4xvtd6jQYl/ysoPh28=
 github.com/kisielk/errcheck v1.1.0/go.mod h1:EZBBE59ingxPouuu3KfxchcWSUPOHkagtvWXihfKN4Q=
 github.com/kisielk/errcheck v1.2.0/go.mod h1:/BMXB+zMLi60iA8Vv6Ksmxu/1UDYcXs4uQLJ+jE2L00=
 github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI2bnpBCr8=
