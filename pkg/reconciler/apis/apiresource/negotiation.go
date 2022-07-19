@@ -682,7 +682,7 @@ func (c *Controller) publishNegotiatedResource(ctx context.Context, clusterName 
 					NegotiatedAPIResourceAsOwnerReference(negotiatedApiResource),
 				},
 				//TODO: (shawn-hurley) We need to figure out how to set this
-				ClusterName: logicalcluster.From(negotiatedApiResource).String(),
+				ZZZ_DeprecatedClusterName: logicalcluster.From(negotiatedApiResource).String(),
 			},
 			Spec: apiextensionsv1.CustomResourceDefinitionSpec{
 				Scope: negotiatedApiResource.Spec.Scope,

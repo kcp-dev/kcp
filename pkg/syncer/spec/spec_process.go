@@ -364,10 +364,10 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 				}
 				return nil
 			}
-			klog.Errorf("Error deleting %s %s/%s from downstream %s|%s/%s: %v", gvr.Resource, upstreamObj.GetNamespace(), upstreamObj.GetName(), upstreamObj.GetClusterName(), downstreamNamespace, downstreamObj.GetName(), err)
+			klog.Errorf("Error deleting %s %s/%s from downstream %s|%s/%s: %v", gvr.Resource, upstreamObj.GetNamespace(), upstreamObj.GetName(), logicalcluster.From(upstreamObj), downstreamNamespace, downstreamObj.GetName(), err)
 			return err
 		}
-		klog.V(2).Infof("Deleted %s %s/%s from downstream %s|%s/%s", gvr.Resource, upstreamObj.GetNamespace(), downstreamObj.GetName(), upstreamObj.GetClusterName(), downstreamNamespace, downstreamObj.GetName())
+		klog.V(2).Infof("Deleted %s %s/%s from downstream %s|%s/%s", gvr.Resource, upstreamObj.GetNamespace(), downstreamObj.GetName(), logicalcluster.From(upstreamObj), downstreamNamespace, downstreamObj.GetName())
 		return nil
 	}
 
@@ -378,10 +378,10 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 	}
 
 	if _, err := c.downstreamClient.Resource(gvr).Namespace(downstreamNamespace).Patch(ctx, downstreamObj.GetName(), types.ApplyPatchType, data, metav1.PatchOptions{FieldManager: syncerApplyManager, Force: pointer.Bool(true)}); err != nil {
-		klog.Errorf("Error upserting %s %s/%s from upstream %s|%s/%s: %v", gvr.Resource, downstreamObj.GetNamespace(), downstreamObj.GetName(), upstreamObj.GetClusterName(), upstreamObj.GetNamespace(), upstreamObj.GetName(), err)
+		klog.Errorf("Error upserting %s %s/%s from upstream %s|%s/%s: %v", gvr.Resource, downstreamObj.GetNamespace(), downstreamObj.GetName(), logicalcluster.From(upstreamObj), upstreamObj.GetNamespace(), upstreamObj.GetName(), err)
 		return err
 	}
-	klog.Infof("Upserted %s %s/%s from upstream %s|%s/%s", gvr.Resource, downstreamObj.GetNamespace(), downstreamObj.GetName(), upstreamObj.GetClusterName(), upstreamObj.GetNamespace(), upstreamObj.GetName())
+	klog.Infof("Upserted %s %s/%s from upstream %s|%s/%s", gvr.Resource, downstreamObj.GetNamespace(), downstreamObj.GetName(), logicalcluster.From(upstreamObj), upstreamObj.GetNamespace(), upstreamObj.GetName())
 
 	return nil
 }

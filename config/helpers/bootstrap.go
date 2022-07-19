@@ -44,6 +44,7 @@ import (
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 )
 
@@ -169,15 +170,6 @@ func createResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 		return fmt.Errorf("could not get REST mapping for %s: %w", gvk, err)
 	}
 
-	// TODO(ncdc): replace with Maru's upcoming helper
-	logName := func(o metav1.Object) string {
-		if o.GetNamespace() == "" {
-			return fmt.Sprintf("%s|%s", o.GetClusterName(), o.GetName())
-		} else {
-			return fmt.Sprintf("%s|%s/%s", o.GetClusterName(), o.GetNamespace(), o.GetName())
-		}
-	}
-
 	upserted, err := client.Resource(m.Resource).Namespace(u.GetNamespace()).Create(ctx, u, metav1.CreateOptions{})
 	if err != nil {
 		if apierrors.IsAlreadyExists(err) {
@@ -190,7 +182,7 @@ func createResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 				klog.Infof(
 					"Skipping update of %s %s because it has the create-only annotation",
 					gvk,
-					logName(existing),
+					helper.QualifiedObjectName(existing),
 				)
 
 				return nil
@@ -198,16 +190,16 @@ func createResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 
 			u.SetResourceVersion(existing.GetResourceVersion())
 			if _, err = client.Resource(m.Resource).Namespace(u.GetNamespace()).Update(ctx, u, metav1.UpdateOptions{}); err != nil {
-				return fmt.Errorf("could not update %s %s: %w", gvk.Kind, logName(existing), err)
+				return fmt.Errorf("could not update %s %s: %w", gvk.Kind, helper.QualifiedObjectName(existing), err)
 			} else {
-				klog.Infof("Updated %s %s", gvk, logName(existing))
+				klog.Infof("Updated %s %s", gvk, helper.QualifiedObjectName(existing))
 				return nil
 			}
 		}
 		return err
 	}
 
-	klog.Infof("Bootstrapped %s %s", gvk.Kind, logName(upserted))
+	klog.Infof("Bootstrapped %s %s", gvk.Kind, helper.QualifiedObjectName(upserted))
 
 	return nil
 }

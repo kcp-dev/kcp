@@ -64,7 +64,7 @@ func (l mergedClusterRoleBindingLister) List(selector labels.Selector) (ret []*r
 
 		for i := range list {
 			entry := list[i].DeepCopy()
-			entry.Name = entry.GetClusterName() + ":" + entry.GetName()
+			entry.Name = logicalcluster.From(entry).String() + ":" + entry.GetName()
 			result = append(result, entry)
 		}
 	}
