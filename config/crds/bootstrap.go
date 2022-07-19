@@ -87,28 +87,39 @@ func Create(ctx context.Context, client apiextensionsv1client.CustomResourceDefi
 // CreateFromFS creates the given CRD using the target client from the
 // provided filesystem and waits for it to become established. This call is blocking.
 func createSingleFromFS(ctx context.Context, client apiextensionsv1client.CustomResourceDefinitionInterface, gr metav1.GroupResource, fs embed.FS) error {
+	crd, err := CRD(fs, gr)
+	if err != nil {
+		return err
+	}
+
+	return CreateSingle(ctx, client, crd)
+}
+
+// CRD returns an *apiextensionsv1.CustomResourceDefinition for the GroupResource specified by gr from fs. The embedded
+// file's name must have the format <group>_<resource>.yaml.
+func CRD(fs embed.FS, gr metav1.GroupResource) (*apiextensionsv1.CustomResourceDefinition, error) {
 	raw, err := fs.ReadFile(fmt.Sprintf("%s_%s.yaml", gr.Group, gr.Resource))
 	if err != nil {
-		return fmt.Errorf("could not read CRD %s: %w", gr.String(), err)
+		return nil, fmt.Errorf("could not read CRD %s: %w", gr.String(), err)
 	}
 
 	expectedGvk := &schema.GroupVersionKind{Group: apiextensionsv1.GroupName, Version: "v1", Kind: "CustomResourceDefinition"}
 
 	obj, gvk, err := extensionsapiserver.Codecs.UniversalDeserializer().Decode(raw, expectedGvk, &apiextensionsv1.CustomResourceDefinition{})
 	if err != nil {
-		return fmt.Errorf("could not decode raw CRD %s: %w", gr.String(), err)
+		return nil, fmt.Errorf("could not decode raw CRD %s: %w", gr.String(), err)
 	}
 
 	if !equality.Semantic.DeepEqual(gvk, expectedGvk) {
-		return fmt.Errorf("decoded CRD %s into incorrect GroupVersionKind, got %#v, wanted %#v", gr.String(), gvk, expectedGvk)
+		return nil, fmt.Errorf("decoded CRD %s into incorrect GroupVersionKind, got %#v, wanted %#v", gr.String(), gvk, expectedGvk)
 	}
 
 	crd, ok := obj.(*apiextensionsv1.CustomResourceDefinition)
 	if !ok {
-		return fmt.Errorf("decoded CRD %s into incorrect type, got %T, wanted %T", gr.String(), crd, &apiextensionsv1.CustomResourceDefinition{})
+		return nil, fmt.Errorf("decoded CRD %s into incorrect type, got %T, wanted %T", gr.String(), crd, &apiextensionsv1.CustomResourceDefinition{})
 	}
 
-	return CreateSingle(ctx, client, crd)
+	return crd, nil
 }
 
 func CreateSingle(ctx context.Context, client apiextensionsv1client.CustomResourceDefinitionInterface, rawCRD *apiextensionsv1.CustomResourceDefinition) error {
