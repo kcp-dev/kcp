@@ -362,18 +362,19 @@ func (s *Server) installWorkloadResourceScheduler(ctx context.Context, config *r
 }
 
 func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Config) error {
-	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-workspace-scheduler")
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
+	config = kcpclienthelper.NewClusterConfig(rest.AddUserAgent(rest.CopyConfig(config), "kcp-workspace-scheduler"))
+
+	kcpClusterClient, err := kcpclient.NewForConfig(config)
 	if err != nil {
 		return err
 	}
 
-	crdClusterClient, err := apiextensionsclient.NewClusterForConfig(config)
+	crdClusterClient, err := apiextensionsclient.NewForConfig(config)
 	if err != nil {
 		return err
 	}
 
-	dynamicClusterClient, err := dynamic.NewClusterForConfig(config)
+	dynamicClusterClient, err := dynamic.NewForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -389,7 +390,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 	}
 
 	workspaceShardController, err := clusterworkspaceshard.NewController(
-		kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster),
+		kcpClusterClient,
 		s.rootKcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
 	)
 	if err != nil {
@@ -406,6 +407,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 	}
 
 	organizationController, err := bootstrap.NewController(
+		config,
 		dynamicClusterClient,
 		crdClusterClient,
 		kcpClusterClient,
@@ -418,6 +420,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 	}
 
 	teamController, err := bootstrap.NewController(
+		config,
 		dynamicClusterClient,
 		crdClusterClient,
 		kcpClusterClient,
@@ -430,6 +433,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 	}
 
 	universalController, err := bootstrap.NewController(
+		config,
 		dynamicClusterClient,
 		crdClusterClient,
 		kcpClusterClient,
@@ -461,23 +465,25 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 }
 
 func (s *Server) installHomeWorkspaces(ctx context.Context, config *rest.Config) error {
-	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-home-workspaces")
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
+	config = kcpclienthelper.NewClusterConfig(rest.AddUserAgent(rest.CopyConfig(config), "kcp-home-workspaces"))
+
+	kcpClusterClient, err := kcpclient.NewForConfig(config)
 	if err != nil {
 		return err
 	}
 
-	crdClusterClient, err := apiextensionsclient.NewClusterForConfig(config)
+	crdClusterClient, err := apiextensionsclient.NewForConfig(config)
 	if err != nil {
 		return err
 	}
 
-	dynamicClusterClient, err := dynamic.NewClusterForConfig(config)
+	dynamicClusterClient, err := dynamic.NewForConfig(config)
 	if err != nil {
 		return err
 	}
 
 	homerootController, err := bootstrap.NewController(
+		config,
 		dynamicClusterClient,
 		crdClusterClient,
 		kcpClusterClient,
@@ -490,6 +496,7 @@ func (s *Server) installHomeWorkspaces(ctx context.Context, config *rest.Config)
 	}
 
 	homebucketController, err := bootstrap.NewController(
+		config,
 		dynamicClusterClient,
 		crdClusterClient,
 		kcpClusterClient,
@@ -502,6 +509,7 @@ func (s *Server) installHomeWorkspaces(ctx context.Context, config *rest.Config)
 	}
 
 	homeController, err := bootstrap.NewController(
+		config,
 		dynamicClusterClient,
 		crdClusterClient,
 		kcpClusterClient,
