@@ -542,8 +542,8 @@ var (
 	// RootWorkspaceType is the implicit type of the root logical cluster.
 	RootWorkspaceType = &ClusterWorkspaceType{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        ObjectName(RootWorkspaceTypeReference.Name),
-			ClusterName: RootWorkspaceTypeReference.Path,
+			Name:                      ObjectName(RootWorkspaceTypeReference.Name),
+			ZZZ_DeprecatedClusterName: RootWorkspaceTypeReference.Path,
 		},
 		Spec: ClusterWorkspaceTypeSpec{
 			LimitAllowedParents: &ClusterWorkspaceTypeSelector{

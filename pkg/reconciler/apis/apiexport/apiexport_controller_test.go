@@ -171,8 +171,8 @@ func TestReconcile(t *testing.T) {
 					return []*tenancyv1alpha1.ClusterWorkspaceShard{
 						{
 							ObjectMeta: metav1.ObjectMeta{
-								ClusterName: "root:org:ws",
-								Name:        "shard1",
+								ZZZ_DeprecatedClusterName: "root:org:ws",
+								Name:                      "shard1",
 							},
 							Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{
 								ExternalURL: "https://server-1.kcp.dev/",
@@ -180,8 +180,8 @@ func TestReconcile(t *testing.T) {
 						},
 						{
 							ObjectMeta: metav1.ObjectMeta{
-								ClusterName: "root:org:ws",
-								Name:        "shard2",
+								ZZZ_DeprecatedClusterName: "root:org:ws",
+								Name:                      "shard2",
 							},
 							Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{
 								ExternalURL: "https://server-2.kcp.dev/",
@@ -193,8 +193,8 @@ func TestReconcile(t *testing.T) {
 
 			apiExport := &apisv1alpha1.APIExport{
 				ObjectMeta: metav1.ObjectMeta{
-					ClusterName: "root:org:ws",
-					Name:        "my-export",
+					ZZZ_DeprecatedClusterName: "root:org:ws",
+					Name:                      "my-export",
 				},
 			}
 

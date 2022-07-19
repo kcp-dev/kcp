@@ -423,7 +423,7 @@ func newAPIBinding() *bindingBuilder {
 	return &bindingBuilder{
 		APIBinding: &apisv1alpha1.APIBinding{
 			ObjectMeta: metav1.ObjectMeta{
-				ClusterName: "root:org:ws",
+				ZZZ_DeprecatedClusterName: "root:org:ws",
 			},
 		},
 	}
