@@ -282,7 +282,11 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		if homeClusterWorkspace != nil {
 			// check for collision. Chance is super low hitting it by accident. But to protect against malicious users,
 			// we check for collision and return 403.
-			if info, _ := unmarshalOwner(homeClusterWorkspace); info == nil || info.Username != effectiveUser.GetName() {
+			if info, _ := unmarshalOwner(homeClusterWorkspace); info == nil {
+				responsewriters.Forbidden(ctx, getAttributes, rw, req, authorization.WorkspaceAcccessNotPermittedReason, homeWorkspaceCodecs)
+				return
+			} else if info.Username != effectiveUser.GetName() {
+				klog.Warningf("Collision detected for user %q in home workspace %s owned by %q", effectiveUser.GetName(), homeLogicalClusterName, info.Username)
 				responsewriters.Forbidden(ctx, getAttributes, rw, req, authorization.WorkspaceAcccessNotPermittedReason, homeWorkspaceCodecs)
 				return
 			}
@@ -524,7 +528,10 @@ func tryToCreate(h *homeWorkspaceHandler, ctx context.Context, user kuser.Info, 
 					return 0, err
 				}
 
-				if info, _ := unmarshalOwner(cw); info == nil || info.Username != user.GetName() {
+				if info, _ := unmarshalOwner(cw); info == nil {
+					return 0, kerrors.NewForbidden(tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces").GroupResource(), cw.Name, errors.New(authorization.WorkspaceAcccessNotPermittedReason))
+				} else if info.Username != user.GetName() {
+					klog.Warningf("Collision detected for user %q in home workspace %s owned by %q", user.GetName(), logicalClusterName, info.Username)
 					return 0, kerrors.NewForbidden(tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces").GroupResource(), cw.Name, errors.New(authorization.WorkspaceAcccessNotPermittedReason))
 				}
 			}
