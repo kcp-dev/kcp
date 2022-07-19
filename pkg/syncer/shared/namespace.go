@@ -41,17 +41,17 @@ type NamespaceLocator struct {
 }
 
 type SyncTargetLocator struct {
-	Path logicalcluster.Name `json:"path"`
-	Name string              `json:"name"`
-	UID  types.UID           `json:"uid"`
+	Workspace logicalcluster.Name `json:"workspace"`
+	Name      string              `json:"name"`
+	UID       types.UID           `json:"uid"`
 }
 
 func NewNamespaceLocator(workspace, syncTargetWorkspace logicalcluster.Name, syncTargetUID types.UID, workloadLogicalClusterName, upstreamNamespace string) NamespaceLocator {
 	return NamespaceLocator{
 		SyncTarget: SyncTargetLocator{
-			Path: syncTargetWorkspace,
-			Name: workloadLogicalClusterName,
-			UID:  syncTargetUID,
+			Workspace: syncTargetWorkspace,
+			Name:      workloadLogicalClusterName,
+			UID:       syncTargetUID,
 		},
 		Workspace: workspace,
 		Namespace: upstreamNamespace,
