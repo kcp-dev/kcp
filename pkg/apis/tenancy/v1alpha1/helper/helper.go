@@ -39,7 +39,7 @@ func IsValidCluster(cluster logicalcluster.Name) bool {
 
 func QualifiedObjectName(obj metav1.Object) string {
 	if len(obj.GetNamespace()) > 0 {
-		return fmt.Sprintf("%s|%s/%s", obj.GetClusterName(), obj.GetNamespace(), obj.GetName())
+		return fmt.Sprintf("%s|%s/%s", logicalcluster.From(obj), obj.GetNamespace(), obj.GetName())
 	}
-	return fmt.Sprintf("%s|%s", obj.GetClusterName(), obj.GetName())
+	return fmt.Sprintf("%s|%s", logicalcluster.From(obj), obj.GetName())
 }

@@ -134,7 +134,7 @@ func CreateSingle(ctx context.Context, client apiextensionsv1client.CustomResour
 					return fmt.Errorf("error creating CRD %s: %w", rawCRD.Name, err)
 				}
 			} else {
-				klog.Infof("Bootstrapped CRD %s|%v after %s", crd.GetClusterName(), crd.Name, time.Since(start).String())
+				klog.Infof("Bootstrapped CRD %s|%v after %s", logicalcluster.From(crd), crd.Name, time.Since(start).String())
 			}
 		} else {
 			return fmt.Errorf("error fetching CRD %s: %w", rawCRD.Name, err)
@@ -149,7 +149,7 @@ func CreateSingle(ctx context.Context, client apiextensionsv1client.CustomResour
 		if err != nil {
 			return err
 		}
-		klog.Infof("Updated CRD %s|%v after %s", crd.GetClusterName(), rawCRD.Name, time.Since(start).String())
+		klog.Infof("Updated CRD %s|%v after %s", logicalcluster.From(crd), rawCRD.Name, time.Since(start).String())
 	}
 
 	return wait.PollImmediateInfiniteWithContext(ctx, 100*time.Millisecond, func(ctx context.Context) (bool, error) {
