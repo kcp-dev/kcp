@@ -606,10 +606,10 @@ func setupWatchReactor(resource string, fromClient *dynamicfake.FakeDynamicClien
 func namespace(name, clusterName string, labels, annotations map[string]string) *corev1.Namespace {
 	return &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        name,
-			ClusterName: clusterName,
-			Labels:      labels,
-			Annotations: annotations,
+			Name:                      name,
+			ZZZ_DeprecatedClusterName: clusterName,
+			Labels:                    labels,
+			Annotations:               annotations,
 		},
 	}
 }
@@ -617,12 +617,12 @@ func namespace(name, clusterName string, labels, annotations map[string]string) 
 func deployment(name, namespace, clusterName string, labels, annotations map[string]string, finalizers []string) *appsv1.Deployment {
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        name,
-			Namespace:   namespace,
-			ClusterName: clusterName,
-			Labels:      labels,
-			Annotations: annotations,
-			Finalizers:  finalizers,
+			Name:                      name,
+			Namespace:                 namespace,
+			ZZZ_DeprecatedClusterName: clusterName,
+			Labels:                    labels,
+			Annotations:               annotations,
+			Finalizers:                finalizers,
 		},
 	}
 }

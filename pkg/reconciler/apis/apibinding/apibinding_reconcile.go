@@ -507,8 +507,8 @@ func (c *controller) reconcileBound(ctx context.Context, apiBinding *apisv1alpha
 func generateCRD(schema *apisv1alpha1.APIResourceSchema) (*apiextensionsv1.CustomResourceDefinition, error) {
 	crd := &apiextensionsv1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
-			ClusterName: ShadowWorkspaceName.String(),
-			Name:        string(schema.UID),
+			ZZZ_DeprecatedClusterName: ShadowWorkspaceName.String(),
+			Name:                      string(schema.UID),
 			Annotations: map[string]string{
 				apisv1alpha1.AnnotationBoundCRDKey:      "",
 				apisv1alpha1.AnnotationSchemaClusterKey: logicalcluster.From(schema).String(),

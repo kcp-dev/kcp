@@ -426,8 +426,8 @@ func TestSchemaReconciler(t *testing.T) {
 func export(clusterName logicalcluster.Name, name string, exports ...string) *apisv1alpha1.APIExport {
 	return &apisv1alpha1.APIExport{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        name,
-			ClusterName: clusterName.String(),
+			Name:                      name,
+			ZZZ_DeprecatedClusterName: clusterName.String(),
 		},
 		Spec: apisv1alpha1.APIExportSpec{
 			LatestResourceSchemas: exports,
@@ -442,8 +442,8 @@ func apiResourceSchema(clusterName logicalcluster.Name, prefix string, group str
 	}
 	return &apisv1alpha1.APIResourceSchema{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        fmt.Sprintf("%s.%ss.%s", prefix, strings.ToLower(kind), nameGroup),
-			ClusterName: clusterName.String(),
+			Name:                      fmt.Sprintf("%s.%ss.%s", prefix, strings.ToLower(kind), nameGroup),
+			ZZZ_DeprecatedClusterName: clusterName.String(),
 		},
 		Spec: apisv1alpha1.APIResourceSchemaSpec{
 			Group: group,

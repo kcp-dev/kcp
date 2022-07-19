@@ -48,8 +48,8 @@ func TestReconciler(t *testing.T) {
 			},
 			syncTarget: &workloadv1alpha1.SyncTarget{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test-cluster",
-					ClusterName: "demo:root:yourworkspace",
+					Name:                      "test-cluster",
+					ZZZ_DeprecatedClusterName: "demo:root:yourworkspace",
 				},
 				Spec: workloadv1alpha1.SyncTargetSpec{
 					Unschedulable: false,
@@ -61,8 +61,8 @@ func TestReconciler(t *testing.T) {
 			},
 			expectedSyncTarget: &workloadv1alpha1.SyncTarget{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test-cluster",
-					ClusterName: "demo:root:yourworkspace",
+					Name:                      "test-cluster",
+					ZZZ_DeprecatedClusterName: "demo:root:yourworkspace",
 				},
 				Spec: workloadv1alpha1.SyncTargetSpec{
 					Unschedulable: false,
@@ -110,8 +110,8 @@ func TestReconciler(t *testing.T) {
 			},
 			syncTarget: &workloadv1alpha1.SyncTarget{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test-cluster",
-					ClusterName: "demo:root:yourworkspace",
+					Name:                      "test-cluster",
+					ZZZ_DeprecatedClusterName: "demo:root:yourworkspace",
 				},
 				Spec: workloadv1alpha1.SyncTargetSpec{
 					Unschedulable: false,
@@ -123,8 +123,8 @@ func TestReconciler(t *testing.T) {
 			},
 			expectedSyncTarget: &workloadv1alpha1.SyncTarget{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test-cluster",
-					ClusterName: "demo:root:yourworkspace",
+					Name:                      "test-cluster",
+					ZZZ_DeprecatedClusterName: "demo:root:yourworkspace",
 				},
 				Spec: workloadv1alpha1.SyncTargetSpec{
 					Unschedulable: false,
@@ -178,8 +178,8 @@ func TestReconciler(t *testing.T) {
 			},
 			syncTarget: &workloadv1alpha1.SyncTarget{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test-cluster",
-					ClusterName: "demo:root:yourworkspace",
+					Name:                      "test-cluster",
+					ZZZ_DeprecatedClusterName: "demo:root:yourworkspace",
 				},
 				Spec: workloadv1alpha1.SyncTargetSpec{
 					Unschedulable: false,
@@ -191,8 +191,8 @@ func TestReconciler(t *testing.T) {
 			},
 			expectedSyncTarget: &workloadv1alpha1.SyncTarget{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test-cluster",
-					ClusterName: "demo:root:yourworkspace",
+					Name:                      "test-cluster",
+					ZZZ_DeprecatedClusterName: "demo:root:yourworkspace",
 				},
 				Spec: workloadv1alpha1.SyncTargetSpec{
 					Unschedulable: false,
@@ -216,8 +216,8 @@ func TestReconciler(t *testing.T) {
 			workspaceShards: []*workspaceapi.ClusterWorkspaceShard{},
 			syncTarget: &workloadv1alpha1.SyncTarget{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test-cluster",
-					ClusterName: "demo:root:yourworkspace",
+					Name:                      "test-cluster",
+					ZZZ_DeprecatedClusterName: "demo:root:yourworkspace",
 				},
 				Spec: workloadv1alpha1.SyncTargetSpec{
 					Unschedulable: false,
@@ -229,8 +229,8 @@ func TestReconciler(t *testing.T) {
 			},
 			expectedSyncTarget: &workloadv1alpha1.SyncTarget{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test-cluster",
-					ClusterName: "demo:root:yourworkspace",
+					Name:                      "test-cluster",
+					ZZZ_DeprecatedClusterName: "demo:root:yourworkspace",
 				},
 				Spec: workloadv1alpha1.SyncTargetSpec{
 					Unschedulable: false,
@@ -254,8 +254,8 @@ func TestReconciler(t *testing.T) {
 			},
 			syncTarget: &workloadv1alpha1.SyncTarget{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test-cluster",
-					ClusterName: "demo:root:yourworkspace",
+					Name:                      "test-cluster",
+					ZZZ_DeprecatedClusterName: "demo:root:yourworkspace",
 				},
 				Spec: workloadv1alpha1.SyncTargetSpec{
 					Unschedulable: false,
@@ -277,8 +277,8 @@ func TestReconciler(t *testing.T) {
 			},
 			expectedSyncTarget: &workloadv1alpha1.SyncTarget{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test-cluster",
-					ClusterName: "demo:root:yourworkspace",
+					Name:                      "test-cluster",
+					ZZZ_DeprecatedClusterName: "demo:root:yourworkspace",
 				},
 				Spec: workloadv1alpha1.SyncTargetSpec{
 					Unschedulable: false,

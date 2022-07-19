@@ -25,7 +25,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
-	klog "k8s.io/klog/v2"
+	"k8s.io/klog/v2"
 
 	workspaceapi "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -48,7 +48,7 @@ type ClusterWorkspaceCache struct {
 }
 
 func (c *ClusterWorkspaceCache) Get(lclusterName logicalcluster.Name, workspaceName string) (*workspaceapi.ClusterWorkspace, error) {
-	key := &workspaceapi.ClusterWorkspace{ObjectMeta: metav1.ObjectMeta{Name: workspaceName, ClusterName: lclusterName.String()}}
+	key := &workspaceapi.ClusterWorkspace{ObjectMeta: metav1.ObjectMeta{Name: workspaceName, ZZZ_DeprecatedClusterName: lclusterName.String()}}
 
 	// check for cluster workspace in the cache
 	clusterWorkspaceObj, exists, err := c.Store.Get(key)

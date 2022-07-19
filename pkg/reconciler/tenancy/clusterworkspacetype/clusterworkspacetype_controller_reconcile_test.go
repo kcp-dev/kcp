@@ -45,14 +45,14 @@ func TestReconcile(t *testing.T) {
 			name: "no shards, no URLs in status",
 			cwt: &tenancyv1alpha1.ClusterWorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "sometype",
-					ClusterName: "root:org:team:ws",
+					Name:                      "sometype",
+					ZZZ_DeprecatedClusterName: "root:org:team:ws",
 				},
 			},
 			expected: &tenancyv1alpha1.ClusterWorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "sometype",
-					ClusterName: "root:org:team:ws",
+					Name:                      "sometype",
+					ZZZ_DeprecatedClusterName: "root:org:team:ws",
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
 					Conditions: conditionsv1alpha1.Conditions{
@@ -74,14 +74,14 @@ func TestReconcile(t *testing.T) {
 			listErr: fmt.Errorf("oops"),
 			cwt: &tenancyv1alpha1.ClusterWorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "sometype",
-					ClusterName: "root:org:team:ws",
+					Name:                      "sometype",
+					ZZZ_DeprecatedClusterName: "root:org:team:ws",
 				},
 			},
 			expected: &tenancyv1alpha1.ClusterWorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "sometype",
-					ClusterName: "root:org:team:ws",
+					Name:                      "sometype",
+					ZZZ_DeprecatedClusterName: "root:org:team:ws",
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
 					Conditions: conditionsv1alpha1.Conditions{
@@ -112,14 +112,14 @@ func TestReconcile(t *testing.T) {
 			},
 			cwt: &tenancyv1alpha1.ClusterWorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "sometype",
-					ClusterName: "root:org:team:ws",
+					Name:                      "sometype",
+					ZZZ_DeprecatedClusterName: "root:org:team:ws",
 				},
 			},
 			expected: &tenancyv1alpha1.ClusterWorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "sometype",
-					ClusterName: "root:org:team:ws",
+					Name:                      "sometype",
+					ZZZ_DeprecatedClusterName: "root:org:team:ws",
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
 					VirtualWorkspaces: []tenancyv1alpha1.VirtualWorkspace{
@@ -149,8 +149,8 @@ func TestReconcile(t *testing.T) {
 			},
 			cwt: &tenancyv1alpha1.ClusterWorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "sometype",
-					ClusterName: "root:org:team:ws",
+					Name:                      "sometype",
+					ZZZ_DeprecatedClusterName: "root:org:team:ws",
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
 					VirtualWorkspaces: []tenancyv1alpha1.VirtualWorkspace{
@@ -170,8 +170,8 @@ func TestReconcile(t *testing.T) {
 			},
 			expected: &tenancyv1alpha1.ClusterWorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "sometype",
-					ClusterName: "root:org:team:ws",
+					Name:                      "sometype",
+					ZZZ_DeprecatedClusterName: "root:org:team:ws",
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
 					VirtualWorkspaces: []tenancyv1alpha1.VirtualWorkspace{

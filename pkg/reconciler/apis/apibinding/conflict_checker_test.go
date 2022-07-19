@@ -291,7 +291,7 @@ func TestGVRConflict(t *testing.T) {
 
 func createCRD(clusterName, name, group, resource string) *apiextensionsv1.CustomResourceDefinition {
 	return &apiextensionsv1.CustomResourceDefinition{
-		ObjectMeta: metav1.ObjectMeta{Name: name, ClusterName: clusterName},
+		ObjectMeta: metav1.ObjectMeta{Name: name, ZZZ_DeprecatedClusterName: clusterName},
 		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
 			Group: group,
 			Names: apiextensionsv1.CustomResourceDefinitionNames{Plural: resource},

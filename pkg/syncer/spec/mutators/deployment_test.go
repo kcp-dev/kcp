@@ -97,9 +97,9 @@ func TestDeploymentMutate(t *testing.T) {
 					APIVersion: "v1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "default-token-1234",
-					Namespace:   "namespace",
-					ClusterName: "root:default:testing",
+					Name:                      "default-token-1234",
+					Namespace:                 "namespace",
+					ZZZ_DeprecatedClusterName: "root:default:testing",
 					Annotations: map[string]string{
 						"kubernetes.io/service-account.name": "default",
 					},
@@ -116,9 +116,9 @@ func TestDeploymentMutate(t *testing.T) {
 				APIVersion: "apps/v1",
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        "test-deployment",
-				Namespace:   "namespace",
-				ClusterName: "root:default:testing",
+				Name:                      "test-deployment",
+				Namespace:                 "namespace",
+				ZZZ_DeprecatedClusterName: "root:default:testing",
 			},
 			Spec: appsv1.DeploymentSpec{
 				Replicas: new(int32),
@@ -140,9 +140,9 @@ func TestDeploymentMutate(t *testing.T) {
 				APIVersion: "apps/v1",
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        "test-deployment",
-				Namespace:   "namespace",
-				ClusterName: "root:default:testing",
+				Name:                      "test-deployment",
+				Namespace:                 "namespace",
+				ZZZ_DeprecatedClusterName: "root:default:testing",
 			},
 			Spec: appsv1.DeploymentSpec{
 				Replicas: new(int32),
@@ -191,9 +191,9 @@ func TestDeploymentMutate(t *testing.T) {
 					APIVersion: "v1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "default-token-1234",
-					Namespace:   "namespace",
-					ClusterName: "root:default:testing",
+					Name:                      "default-token-1234",
+					Namespace:                 "namespace",
+					ZZZ_DeprecatedClusterName: "root:default:testing",
 					Annotations: map[string]string{
 						"kubernetes.io/service-account.name": "default",
 					},
@@ -210,9 +210,9 @@ func TestDeploymentMutate(t *testing.T) {
 				APIVersion: "apps/v1",
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        "test-deployment",
-				Namespace:   "namespace",
-				ClusterName: "root:default:testing",
+				Name:                      "test-deployment",
+				Namespace:                 "namespace",
+				ZZZ_DeprecatedClusterName: "root:default:testing",
 			},
 			Spec: appsv1.DeploymentSpec{
 				Replicas: new(int32),
@@ -240,9 +240,9 @@ func TestDeploymentMutate(t *testing.T) {
 				APIVersion: "apps/v1",
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        "test-deployment",
-				Namespace:   "namespace",
-				ClusterName: "root:default:testing",
+				Name:                      "test-deployment",
+				Namespace:                 "namespace",
+				ZZZ_DeprecatedClusterName: "root:default:testing",
 			},
 			Spec: appsv1.DeploymentSpec{
 				Replicas: new(int32),
@@ -295,9 +295,9 @@ func TestDeploymentMutate(t *testing.T) {
 						APIVersion: "v1",
 					},
 					ObjectMeta: metav1.ObjectMeta{
-						Name:        "default-token-1234",
-						Namespace:   "namespace",
-						ClusterName: "root:default:testing",
+						Name:                      "default-token-1234",
+						Namespace:                 "namespace",
+						ZZZ_DeprecatedClusterName: "root:default:testing",
 						Annotations: map[string]string{
 							"kubernetes.io/service-account.name": "default",
 						},
@@ -314,9 +314,9 @@ func TestDeploymentMutate(t *testing.T) {
 					APIVersion: "apps/v1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test-deployment",
-					Namespace:   "namespace",
-					ClusterName: "root:default:testing",
+					Name:                      "test-deployment",
+					Namespace:                 "namespace",
+					ZZZ_DeprecatedClusterName: "root:default:testing",
 				},
 				Spec: appsv1.DeploymentSpec{
 					Replicas: new(int32),
@@ -344,9 +344,9 @@ func TestDeploymentMutate(t *testing.T) {
 					APIVersion: "apps/v1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test-deployment",
-					Namespace:   "namespace",
-					ClusterName: "root:default:testing",
+					Name:                      "test-deployment",
+					Namespace:                 "namespace",
+					ZZZ_DeprecatedClusterName: "root:default:testing",
 				},
 				Spec: appsv1.DeploymentSpec{
 					Replicas: new(int32),
@@ -394,9 +394,9 @@ func TestDeploymentMutate(t *testing.T) {
 						APIVersion: "v1",
 					},
 					ObjectMeta: metav1.ObjectMeta{
-						Name:        "default-token-1234",
-						Namespace:   "namespace",
-						ClusterName: "root:default:testing",
+						Name:                      "default-token-1234",
+						Namespace:                 "namespace",
+						ZZZ_DeprecatedClusterName: "root:default:testing",
 						Annotations: map[string]string{
 							"kubernetes.io/service-account.name": "default",
 						},
@@ -413,9 +413,9 @@ func TestDeploymentMutate(t *testing.T) {
 					APIVersion: "apps/v1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test-deployment",
-					Namespace:   "namespace",
-					ClusterName: "root:default:testing",
+					Name:                      "test-deployment",
+					Namespace:                 "namespace",
+					ZZZ_DeprecatedClusterName: "root:default:testing",
 				},
 				Spec: appsv1.DeploymentSpec{
 					Replicas: new(int32),
@@ -450,9 +450,9 @@ func TestDeploymentMutate(t *testing.T) {
 					APIVersion: "apps/v1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test-deployment",
-					Namespace:   "namespace",
-					ClusterName: "root:default:testing",
+					Name:                      "test-deployment",
+					Namespace:                 "namespace",
+					ZZZ_DeprecatedClusterName: "root:default:testing",
 				},
 				Spec: appsv1.DeploymentSpec{
 					Replicas: new(int32),
@@ -500,9 +500,9 @@ func TestDeploymentMutate(t *testing.T) {
 						APIVersion: "v1",
 					},
 					ObjectMeta: metav1.ObjectMeta{
-						Name:        "default-token-1234",
-						Namespace:   "namespace",
-						ClusterName: "root:default:testing",
+						Name:                      "default-token-1234",
+						Namespace:                 "namespace",
+						ZZZ_DeprecatedClusterName: "root:default:testing",
 						Annotations: map[string]string{
 							"kubernetes.io/service-account.name": "default",
 						},
@@ -519,9 +519,9 @@ func TestDeploymentMutate(t *testing.T) {
 					APIVersion: "apps/v1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test-deployment",
-					Namespace:   "namespace",
-					ClusterName: "root:default:testing",
+					Name:                      "test-deployment",
+					Namespace:                 "namespace",
+					ZZZ_DeprecatedClusterName: "root:default:testing",
 				},
 				Spec: appsv1.DeploymentSpec{
 					Replicas: new(int32),
@@ -566,9 +566,9 @@ func TestDeploymentMutate(t *testing.T) {
 					APIVersion: "apps/v1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test-deployment",
-					Namespace:   "namespace",
-					ClusterName: "root:default:testing",
+					Name:                      "test-deployment",
+					Namespace:                 "namespace",
+					ZZZ_DeprecatedClusterName: "root:default:testing",
 				},
 				Spec: appsv1.DeploymentSpec{
 					Replicas: new(int32),
@@ -616,9 +616,9 @@ func TestDeploymentMutate(t *testing.T) {
 						APIVersion: "v1",
 					},
 					ObjectMeta: metav1.ObjectMeta{
-						Name:        "default-token-1234",
-						Namespace:   "namespace",
-						ClusterName: "root:default:testing",
+						Name:                      "default-token-1234",
+						Namespace:                 "namespace",
+						ZZZ_DeprecatedClusterName: "root:default:testing",
 						Annotations: map[string]string{
 							"kubernetes.io/service-account.name": "default",
 						},
@@ -635,9 +635,9 @@ func TestDeploymentMutate(t *testing.T) {
 					APIVersion: "apps/v1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test-deployment",
-					Namespace:   "namespace",
-					ClusterName: "root:default:testing",
+					Name:                      "test-deployment",
+					Namespace:                 "namespace",
+					ZZZ_DeprecatedClusterName: "root:default:testing",
 				},
 				Spec: appsv1.DeploymentSpec{
 					Replicas: new(int32),
@@ -681,9 +681,9 @@ func TestDeploymentMutate(t *testing.T) {
 					APIVersion: "apps/v1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test-deployment",
-					Namespace:   "namespace",
-					ClusterName: "root:default:testing",
+					Name:                      "test-deployment",
+					Namespace:                 "namespace",
+					ZZZ_DeprecatedClusterName: "root:default:testing",
 				},
 				Spec: appsv1.DeploymentSpec{
 					Replicas: new(int32),

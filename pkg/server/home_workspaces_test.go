@@ -1708,8 +1708,8 @@ func newWorkspace(qualifiedName string) wsBuilder {
 	path, name := logicalcluster.New(qualifiedName).Split()
 	return wsBuilder{&tenancyv1alpha1.ClusterWorkspace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        name,
-			ClusterName: path.String(),
+			Name:                      name,
+			ZZZ_DeprecatedClusterName: path.String(),
 		},
 	}}
 }
