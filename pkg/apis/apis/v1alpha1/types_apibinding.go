@@ -17,10 +17,24 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"strings"
+
+	"github.com/kcp-dev/logicalcluster/v2"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
+
+const (
+	// InternalAPIBindingExportLabelKey is the label key on an APIBinding with the
+	// <clusterName>:<exportName> as value to filter bindings by export.
+	InternalAPIBindingExportLabelKey = "internal.apis.kcp.dev/export"
+)
+
+func ToInternalAPIBindingExportLabelValue(clusterName logicalcluster.Name, exportName string) string {
+	return strings.ReplaceAll(clusterName.Join(exportName).String(), ":", "_")
+}
 
 // APIBinding enables a set of resources and their behaviour through an external
 // service provider in this workspace.
