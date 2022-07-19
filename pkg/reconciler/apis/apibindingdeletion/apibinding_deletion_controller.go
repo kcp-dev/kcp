@@ -68,7 +68,7 @@ const (
 
 func NewController(
 	metadataClient metadata.Interface,
-	kcpClusterClient kcpclient.ClusterInterface,
+	kcpClusterClient kcpclient.Interface,
 	apiBindingInformer apisinformers.APIBindingInformer,
 ) *Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "apibinding-deletion")
@@ -102,7 +102,7 @@ type Controller struct {
 	queue workqueue.RateLimitingInterface
 
 	metadataClient   metadata.Interface
-	kcpClusterClient kcpclient.ClusterInterface
+	kcpClusterClient kcpclient.Interface
 
 	apiBindingsLister apislisters.APIBindingLister
 }
@@ -313,7 +313,7 @@ func (c *Controller) patchCondition(ctx context.Context, old, new *apisv1alpha1.
 	}
 
 	klog.V(2).Infof("Patching apibinding %s|%s: %s", logicalcluster.From(new), new.Name, string(patchBytes))
-	_, err = c.kcpClusterClient.Cluster(logicalcluster.From(new)).ApisV1alpha1().APIBindings().Patch(ctx, new.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+	_, err = c.kcpClusterClient.ApisV1alpha1().APIBindings().Patch(logicalcluster.WithCluster(ctx, logicalcluster.From(new)), new.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 	return err
 }
 
@@ -332,7 +332,7 @@ func (c *Controller) finalizeAPIBinding(ctx context.Context, apibinding *apisv1a
 	apibinding.Finalizers = filtered
 
 	klog.V(2).Infof("Finalizing apibinding %s|%s", logicalcluster.From(apibinding), apibinding.Name)
-	_, err := c.kcpClusterClient.Cluster(logicalcluster.From(apibinding)).ApisV1alpha1().APIBindings().Update(ctx, apibinding, metav1.UpdateOptions{})
+	_, err := c.kcpClusterClient.ApisV1alpha1().APIBindings().Update(logicalcluster.WithCluster(ctx, logicalcluster.From(apibinding)), apibinding, metav1.UpdateOptions{})
 
 	return err
 }

@@ -608,17 +608,18 @@ func (s *Server) installSyncTargetHeartbeatController(ctx context.Context, confi
 }
 
 func (s *Server) installAPIBindingController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer, ddsif *informer.DynamicDiscoverySharedInformerFactory) error {
-	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-apibinding-controller")
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
+	config = kcpclienthelper.NewClusterConfig(rest.AddUserAgent(rest.CopyConfig(config), "kcp-apibinding-controller"))
+
+	kcpClusterClient, err := kcpclient.NewForConfig(config)
 	if err != nil {
 		return err
 	}
-	dynamicClusterClient, err := dynamic.NewClusterForConfig(config)
+	dynamicClusterClient, err := dynamic.NewForConfig(config)
 	if err != nil {
 		return err
 	}
 
-	crdClusterClient, err := apiextensionsclient.NewClusterForConfig(config)
+	crdClusterClient, err := apiextensionsclient.NewForConfig(config)
 	if err != nil {
 		return err
 	}
