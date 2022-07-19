@@ -60,6 +60,16 @@ they have independent behaviour and no cluster workspace sees objects from other
 cluster workspaces. In contrast to namespace in Kubernetes, this includes non-namespaced
 objects, e.g. like CRDs where each workspace can have its own set of CRDs installed.
 
+## User Home Workspaces
+
+TODO: explaining the concept and related virtual existence and automatic creation 
+
+The following cluster workspace types are created internally to support User Home Workspaces:
+
+* `Homeroot`: the workspace that will contain all the Home workspaces, spread accross buckets. - Can contain only Homebucket workspaces
+* `Homebucket`: the type of workspaces that will contains a subset of all home workspaces. - Can contain either Homebucket (multi-level bucketing) or Home workspaces
+* `Home`: the ClusterWorkspace of home workspaces - can contain any type of workspaces as children (especially universal workspaces)
+
 ## Organization Workspaces
 
 Organization workspaces are ClusterWorkspaces of type `Organization`, defined in the
