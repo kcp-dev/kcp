@@ -322,17 +322,13 @@ func TestSyncerProcess(t *testing.T) {
 		"StatusSyncer upsert to existing resource": {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
-				map[string]string{
-					"internal.workload.kcp.dev/cluster": "us-west1",
-				},
+				map[string]string{},
 				map[string]string{
 					"kcp.dev/namespace-locator": `{"workspace":"root:org:ws","namespace":"test"}`,
 				}),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResource: changeDeployment(
-				deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
-					"internal.workload.kcp.dev/cluster": "us-west1",
-				}, nil, nil),
+				deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{}, nil, nil),
 				addDeploymentStatus(appsv1.DeploymentStatus{
 					Replicas: 15,
 				})),
@@ -362,9 +358,7 @@ func TestSyncerProcess(t *testing.T) {
 		"StatusSyncer upstream deletion": {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
-				map[string]string{
-					"internal.workload.kcp.dev/cluster": "us-west1",
-				},
+				map[string]string{},
 				map[string]string{
 					"kcp.dev/namespace-locator": `{"workspace":"root:org:ws","namespace":"test"}`,
 				}),
@@ -391,17 +385,13 @@ func TestSyncerProcess(t *testing.T) {
 		"StatusSyncer with AdvancedScheduling, update status upstream": {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
-				map[string]string{
-					"internal.workload.kcp.dev/cluster": "us-west1",
-				},
+				map[string]string{},
 				map[string]string{
 					"kcp.dev/namespace-locator": `{"workspace":"root:org:ws","namespace":"test"}`,
 				}),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResource: changeDeployment(
-				deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
-					"internal.workload.kcp.dev/cluster": "us-west1",
-				}, nil, nil),
+				deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{}, nil, nil),
 				addDeploymentStatus(appsv1.DeploymentStatus{
 					Replicas: 15,
 				})),
@@ -430,17 +420,13 @@ func TestSyncerProcess(t *testing.T) {
 		"StatusSyncer with AdvancedScheduling, deletion: object exists upstream": {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
-				map[string]string{
-					"internal.workload.kcp.dev/cluster": "us-west1",
-				},
+				map[string]string{},
 				map[string]string{
 					"kcp.dev/namespace-locator": `{"workspace":"root:org:ws","namespace":"test"}`,
 				}),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResource: changeDeployment(
-				deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
-					"internal.workload.kcp.dev/cluster": "us-west1",
-				}, nil, nil),
+				deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{}, nil, nil),
 				addDeploymentStatus(appsv1.DeploymentStatus{
 					Replicas: 15,
 				})),
@@ -465,9 +451,7 @@ func TestSyncerProcess(t *testing.T) {
 		"StatusSyncer with AdvancedScheduling, deletion: object does not exists upstream": {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
-				map[string]string{
-					"internal.workload.kcp.dev/cluster": "us-west1",
-				},
+				map[string]string{},
 				map[string]string{
 					"kcp.dev/namespace-locator": `{"workspace":"root:org:ws","namespace":"test"}`,
 				}),

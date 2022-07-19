@@ -105,10 +105,6 @@ const (
 	// The format for the value of this annotation is: JSON Patch (https://tools.ietf.org/html/rfc6902).
 	ClusterSpecDiffAnnotationPrefix = "experimental.spec-diff.workload.kcp.dev/"
 
-	// InternalDownstreamClusterLabel is a label with the upstream cluster name applied on the downstream cluster
-	// instead of state.workload.kcp.dev/<sync-target-name> which is used upstream.
-	InternalDownstreamClusterLabel = "internal.workload.kcp.dev/cluster"
-
 	// AnnotationSkipDefaultObjectCreation is the annotation key for an apiexport or apibinding indicating the other default resources
 	// has been created already. If the created default resource is deleted, it will not be recreated.
 	AnnotationSkipDefaultObjectCreation = "workload.kcp.dev/skip-default-object-creation"
