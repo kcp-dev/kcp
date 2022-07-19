@@ -36,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
@@ -43,9 +44,11 @@ import (
 	"k8s.io/kubernetes/pkg/api/genericcontrolplanescheme"
 	generatedopenapi "k8s.io/kubernetes/pkg/generated/openapi"
 
+	"github.com/kcp-dev/kcp/pkg/apis/apis"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1/permissionclaims"
 	"github.com/kcp-dev/kcp/pkg/indexers"
+	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/schemas"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/internalapis"
@@ -105,14 +108,22 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 		}
 
 		// internal APIs have no identity and a fixed schema.
-		internal, apiResourceSchema := isPermissionClaimForInternalAPI(pc)
-		if internal {
-			shallow := *apiResourceSchema
+		if internal, internalSchema := isPermissionClaimForInternalAPI(pc); internal {
+			shallow := *internalSchema
 			if shallow.Annotations == nil {
 				shallow.Annotations = make(map[string]string)
 			}
 			shallow.Annotations[logicalcluster.AnnotationKey] = clusterName.String()
 			apiResourceSchemas[gr] = &shallow
+			claims[gr] = pc
+			continue
+		} else if pc.GroupResource.Group == apis.GroupName {
+			apisSchema, found := schemas.ApisKcpDevSchemas[pc.GroupResource.Resource]
+			if !found {
+				logger.Info("permission claim is for an unknown resource", "claim", pc)
+				continue
+			}
+			apiResourceSchemas[gr] = apisSchema
 			claims[gr] = pc
 			continue
 		} else if pc.IdentityHash == "" {
@@ -186,15 +197,19 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 				if err != nil {
 					return fmt.Errorf(fmt.Sprintf("failed to convert permission claim %v to label key and value: %v", c, err))
 				}
-				selector := labels.SelectorFromSet(labels.Set{key: label})
-				var selectable bool
-				labelReqs, selectable = selector.Requirements()
-				if !selectable {
-					return fmt.Errorf("permission claim %v for APIExport %s|%s is not selectable", c, clusterName, apiExport.Name)
+				claimLabels := []string{label}
+				if gvr.GroupResource() == apisv1alpha1.Resource("apibindings") {
+					_, fallbackLabel := permissionclaims.ToReflexiveAPIBindingLabelKeyAndValue(logicalcluster.From(apiExport), apiExport.Name)
+					claimLabels = append(claimLabels, fallbackLabel)
 				}
+				req, err := labels.NewRequirement(key, selection.In, claimLabels)
+				if err != nil {
+					return fmt.Errorf(fmt.Sprintf("failed to create label requirement for permission claim %v: %v", c, err))
+				}
+				labelReqs = labels.Requirements{*req}
 			}
 
-			logger.V(4).Info("creating API definition", "gvr", gvr, "labels", labelReqs)
+			logger.Info("creating API definition", "gvr", gvr, "labels", labelReqs)
 			apiDefinition, err := c.createAPIDefinition(apiResourceSchema, version.Name, identities[gvr.GroupResource()], labelReqs)
 			if err != nil {
 				// TODO(ncdc): would be nice to expose some sort of user-visible error

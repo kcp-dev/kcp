@@ -110,7 +110,7 @@ func ProvideReadOnlyRestStorage(ctx context.Context, clusterClient dynamic.Clust
 		storage, _ := NewStorage(
 			ctx,
 			resource,
-			"", // ClusterWorkspaces have no identity
+			"",
 			kind,
 			listKind,
 			strategy,

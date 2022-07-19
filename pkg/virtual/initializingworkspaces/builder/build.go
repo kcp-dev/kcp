@@ -304,7 +304,12 @@ func isClusterWorkspaceRequest(path string) bool {
 	return info.IsResourceRequest && info.APIGroup == tenancyv1alpha1.SchemeGroupVersion.Group && info.Resource == "clusterworkspaces"
 }
 
-func digestUrl(urlPath, rootPathPrefix string) (genericapirequest.Cluster, dynamiccontext.APIDomainKey, string, bool) {
+func digestUrl(urlPath, rootPathPrefix string) (
+	cluster genericapirequest.Cluster,
+	key dynamiccontext.APIDomainKey,
+	logicalPath string,
+	accepted bool,
+) {
 	if !strings.HasPrefix(urlPath, rootPathPrefix) {
 		return genericapirequest.Cluster{}, dynamiccontext.APIDomainKey(""), "", false
 	}

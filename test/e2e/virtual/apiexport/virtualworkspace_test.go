@@ -291,7 +291,7 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 	// Creating extra export, to make sure the correct one is always used.
 	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, serviceProviderSheriffsNotUsed, kcpClusterClient, "wild.wild.west", "use the giant spider")
 
-	t.Logf("get the sheriffs api export's generated identity hash")
+	t.Logf("get the sheriffs apiexport's generated identity hash")
 	identityHash := ""
 	framework.Eventually(t, func() (done bool, str string) {
 		sheriffExport, err := kcpClusterClient.ApisV1alpha1().APIExports().Get(logicalcluster.WithCluster(ctx, serviceProviderSheriffs), "wild.wild.west", metav1.GetOptions{})
@@ -370,20 +370,30 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "clusterroles"},
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "clusterrolebindings"},
 		sheriffsGVR,
+		apisv1alpha1.SchemeGroupVersion.WithResource("apibindings"),
 	}
 
-	t.Logf("verify that we get empty lists for all claimed resources because the claims have not been accepted yet")
+	t.Logf("verify that we get empty lists for all claimed resources (other than apibindings) because the claims have not been accepted yet")
 	for _, gvr := range claimedGVRs {
 		t.Logf("Trying to wildcard list %q", gvr)
 		list, err := dynamicVWClusterClient.Cluster(logicalcluster.Wildcard).Resource(gvr).List(ctx, metav1.ListOptions{})
 		require.NoError(t, err, "error listing %q", gvr)
-		require.Empty(t, list.Items, "expected 0 items but got %#v", list.Items)
+		if gvr == apisv1alpha1.SchemeGroupVersion.WithResource("apibindings") {
+			// for this one we always see the reflexive objects
+			require.Equal(t, 1, len(list.Items), "expected to find 1 apibinding, got %#v", list.Items)
+			for _, binding := range list.Items {
+				require.Equal(t, "cowboys", binding.GetName(), "expected binding name to be \"cowboys\"")
+			}
+		} else {
+			require.Empty(t, list.Items, "expected 0 items but got %#v for gvr %s", list.Items, gvr)
+		}
 	}
 
 	t.Logf("retrieving cowboys apibinding")
 	apiBinding, err := kcpClusterClient.ApisV1alpha1().APIBindings().Get(logicalcluster.WithCluster(ctx, consumerWorkspace), "cowboys", metav1.GetOptions{})
 	require.NoError(t, err, "error getting cowboys apibinding")
 
+	t.Logf("patching apibinding to accept all permissionclaims")
 	bindingWithClaims := apiBinding.DeepCopy()
 	for i := range apiBinding.Status.ExportPermissionClaims {
 		claim := apiBinding.Status.ExportPermissionClaims[i]
@@ -392,12 +402,10 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 			State:           apisv1alpha1.ClaimAccepted,
 		})
 	}
-
 	oldJSON := encodeJSON(t, apiBinding)
 	newJSON := encodeJSON(t, bindingWithClaims)
 	patchBytes, err := jsonpatch.CreateMergePatch(oldJSON, newJSON)
 	require.NoError(t, err, "error creating patch")
-	t.Logf("patching apibinding to accept all permissionclaims")
 	apiBinding, err = kcpClusterClient.ApisV1alpha1().APIBindings().Patch(logicalcluster.WithCluster(ctx, consumerWorkspace), apiBinding.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
 	require.NoError(t, err, "error patching apibinding to accept all claims")
 
@@ -420,22 +428,12 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 
 	apifixtures.CreateSheriff(ctx, t, dynamicClusterClient, consumerWorkspace, "wild.wild.west", "in-vw")
 
-	t.Logf("Ensuring all claimed resources are wildcard listable")
-	gotAtLeastOneItem := false
-	for _, gvr := range claimedGVRs {
-		t.Logf("Trying to wildcard list %q", gvr)
-		list, err := dynamicVWClusterClient.Cluster(logicalcluster.Wildcard).Resource(gvr).List(ctx, metav1.ListOptions{})
-		require.NoError(t, err, "error listing %q", gvr)
-		if len(list.Items) > 0 {
-			// We should at least get a configmap (kube-root-ca.crt)
-			gotAtLeastOneItem = true
-		}
-		for _, u := range list.Items {
-			t.Logf("gvr %q, %s|%s/%s", gvr, logicalcluster.From(&u), u.GetNamespace(), u.GetName())
-			require.Equal(t, consumerWorkspace, logicalcluster.From(&u))
-		}
-	}
-	require.True(t, gotAtLeastOneItem, "didn't get at least 1 claimed item")
+	t.Logf("Expecting to eventually see all bindings")
+	require.Eventually(t, func() bool {
+		bindings, err := dynamicVWClusterClient.Cluster(logicalcluster.Wildcard).Resource(apisv1alpha1.SchemeGroupVersion.WithResource("apibindings")).List(ctx, metav1.ListOptions{})
+		require.NoError(t, err)
+		return len(bindings.Items) > 1
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected to see more than 1 binding")
 
 	t.Logf("Verify that two sherrifs are eventually returned")
 	var ul *unstructured.UnstructuredList
@@ -627,6 +625,9 @@ func setUpServiceProviderWithPermissionClaims(ctx context.Context, dynamicCluste
 		},
 		{
 			GroupResource: apisv1alpha1.GroupResource{Group: "rbac.authorization.k8s.io", Resource: "clusterrolebindings"},
+		},
+		{
+			GroupResource: apisv1alpha1.GroupResource{Group: "apis.kcp.dev", Resource: "apibindings"},
 		},
 		{
 			GroupResource: apisv1alpha1.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},

@@ -177,6 +177,12 @@ func CreateSingle(ctx context.Context, client apiextensionsv1client.CustomResour
 	})
 }
 
+func retryRetryableErrors(f func() error) error {
+	return retry.OnError(retry.DefaultBackoff, func(err error) bool {
+		return utilnet.IsConnectionRefused(err) || apierrors.IsTooManyRequests(err) || apierrors.IsConflict(err)
+	}, f)
+}
+
 // Unmarshal YAML-decodes the give embedded file name into the target.
 func Unmarshal(fileName string, crd *apiextensionsv1.CustomResourceDefinition) error {
 	bs, err := raw.ReadFile(fileName)
@@ -185,10 +191,4 @@ func Unmarshal(fileName string, crd *apiextensionsv1.CustomResourceDefinition) e
 	}
 
 	return yaml.Unmarshal(bs, crd)
-}
-
-func retryRetryableErrors(f func() error) error {
-	return retry.OnError(retry.DefaultBackoff, func(err error) bool {
-		return utilnet.IsConnectionRefused(err) || apierrors.IsTooManyRequests(err) || apierrors.IsConflict(err)
-	}, f)
 }
