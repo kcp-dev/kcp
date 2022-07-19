@@ -529,7 +529,7 @@ func TestTryToCreate(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "u--r-1",
 						Annotations: map[string]string{
-							"tenancy.kcp.dev/owner": "u§Ɛr-1",
+							"experimental.tenancy.kcp.dev/owner": "u§Ɛr-1",
 						},
 					},
 				}, nil
@@ -558,7 +558,7 @@ func TestTryToCreate(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "user-1",
 					Annotations: map[string]string{
-						"tenancy.kcp.dev/owner": "{\"username\":\"user-1\"}",
+						"experimental.tenancy.kcp.dev/owner": "{\"username\":\"user-1\"}",
 					},
 				},
 				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
@@ -584,7 +584,7 @@ func TestTryToCreate(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "user-1",
 						Annotations: map[string]string{
-							"tenancy.kcp.dev/owner": `{"username": "user-1"}`,
+							"experimental.tenancy.kcp.dev/owner": `{"username": "user-1"}`,
 						},
 					},
 				}, nil
@@ -615,7 +615,7 @@ func TestTryToCreate(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "user-1",
 						Annotations: map[string]string{
-							"tenancy.kcp.dev/owner": `{"username":"user-1"}`,
+							"experimental.tenancy.kcp.dev/owner": `{"username":"user-1"}`,
 						},
 					},
 				}, nil
@@ -1755,7 +1755,7 @@ func (b wsBuilder) ownedBy(user string) wsBuilder {
 		panic(err)
 	}
 	return b.withAnnotations(map[string]string{
-		"tenancy.kcp.dev/owner": string(bs),
+		"experimental.tenancy.kcp.dev/owner": string(bs),
 	})
 }
 

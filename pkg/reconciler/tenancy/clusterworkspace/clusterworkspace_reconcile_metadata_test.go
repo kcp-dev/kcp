@@ -143,8 +143,8 @@ func TestReconcileMetadata(t *testing.T) {
 						"internal.kcp.dev/phase": "Ready",
 					},
 					Annotations: map[string]string{
-						"a":                     "b",
-						"tenancy.kcp.dev/owner": `{"username":"user-1","groups":["a","b"],"uid":"123","extra":{"c":["d"]}}`,
+						"a":                                  "b",
+						"experimental.tenancy.kcp.dev/owner": `{"username":"user-1","groups":["a","b"],"uid":"123","extra":{"c":["d"]}}`,
 					},
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
@@ -156,8 +156,8 @@ func TestReconcileMetadata(t *testing.T) {
 					"internal.kcp.dev/phase": "Ready",
 				},
 				Annotations: map[string]string{
-					"a":                     "b",
-					"tenancy.kcp.dev/owner": `{"username":"user-1"}`,
+					"a":                                  "b",
+					"experimental.tenancy.kcp.dev/owner": `{"username":"user-1"}`,
 				},
 			},
 			wantStatus: reconcileStatusStopAndRequeue,
@@ -170,8 +170,8 @@ func TestReconcileMetadata(t *testing.T) {
 						"internal.kcp.dev/phase": "Ready",
 					},
 					Annotations: map[string]string{
-						"a":                     "b",
-						"tenancy.kcp.dev/owner": `{"username":}`,
+						"a":                                  "b",
+						"experimental.tenancy.kcp.dev/owner": `{"username":}`,
 					},
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceStatus{

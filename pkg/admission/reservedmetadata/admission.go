@@ -42,7 +42,7 @@ var (
 	annotationAllowList = []string{
 		workloadv1alpha1.AnnotationSkipDefaultObjectCreation,
 		syncer.AdvancedSchedulingFeatureAnnotation,
-		v1alpha1.ClusterWorkspaceOwnerAnnotationKey, // this is protected by clusterworkspace admission from non-system:admins
+		v1alpha1.ExperimentalClusterWorkspaceOwnerAnnotationKey, // this is protected by clusterworkspace admission from non-system:admins
 	}
 	labelAllowList = []string{
 		apisv1alpha1.APIExportPermissionClaimLabelPrefix + "*", // protected by the permissionclaim admission plugin

@@ -512,10 +512,10 @@ func tryToCreate(h *homeWorkspaceHandler, ctx context.Context, user kuser.Info, 
 	if workspaceType == HomeClusterWorkspaceType {
 		ownerRaw, err := clusterworkspaceadmission.ClusterWorkspaceOwnerAnnotationValue(user)
 		if err != nil {
-			return 0, fmt.Errorf("failed to create %s annotation value: %w", tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey, err)
+			return 0, fmt.Errorf("failed to create %s annotation value: %w", tenancyv1alpha1.ExperimentalClusterWorkspaceOwnerAnnotationKey, err)
 		}
 		ws.Annotations = map[string]string{
-			tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey: ownerRaw,
+			tenancyv1alpha1.ExperimentalClusterWorkspaceOwnerAnnotationKey: ownerRaw,
 		}
 	}
 
@@ -680,7 +680,7 @@ func workspaceUnschedulable(workspace *tenancyv1alpha1.ClusterWorkspace) bool {
 }
 
 func unmarshalOwner(cw *tenancyv1alpha1.ClusterWorkspace) (*authenticationv1.UserInfo, error) {
-	raw, found := cw.Annotations[tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey]
+	raw, found := cw.Annotations[tenancyv1alpha1.ExperimentalClusterWorkspaceOwnerAnnotationKey]
 	if !found {
 		return nil, nil
 	}
