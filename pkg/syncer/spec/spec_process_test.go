@@ -513,23 +513,23 @@ func TestSyncerProcess(t *testing.T) {
 				createNamespaceAction(
 					"",
 					changeUnstructured(
-						toUnstructured(t, namespace("kcp-2r7hmup1y2r1", "",
+						toUnstructured(t, namespace("kcp-hcbsa8z6c2er", "",
 							map[string]string{
 								"internal.workload.kcp.dev/cluster": "us-west1",
 							},
 							map[string]string{
-								"kcp.dev/namespace-locator": `{"syncTarget":{"path":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
+								"kcp.dev/namespace-locator": `{"syncTarget":{"workspace":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
 							})),
 						removeNilOrEmptyFields,
 					),
 				),
 				patchDeploymentAction(
 					"theDeployment",
-					"kcp-2r7hmup1y2r1",
+					"kcp-hcbsa8z6c2er",
 					types.ApplyPatchType,
 					toJson(t,
 						changeUnstructured(
-							toUnstructured(t, deployment("theDeployment", "kcp-2r7hmup1y2r1", "", map[string]string{
+							toUnstructured(t, deployment("theDeployment", "kcp-hcbsa8z6c2er", "", map[string]string{
 								"internal.workload.kcp.dev/cluster": "us-west1",
 							}, nil, nil)),
 							setNestedField(map[string]interface{}{}, "status"),
@@ -566,23 +566,23 @@ func TestSyncerProcess(t *testing.T) {
 				createNamespaceAction(
 					"",
 					changeUnstructured(
-						toUnstructured(t, namespace("kcp-2r7hmup1y2r1", "",
+						toUnstructured(t, namespace("kcp-hcbsa8z6c2er", "",
 							map[string]string{
 								"internal.workload.kcp.dev/cluster": "us-west1",
 							},
 							map[string]string{
-								"kcp.dev/namespace-locator": `{"syncTarget":{"path":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
+								"kcp.dev/namespace-locator": `{"syncTarget":{"workspace":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
 							})),
 						removeNilOrEmptyFields,
 					),
 				),
 				patchDeploymentAction(
 					"theDeployment",
-					"kcp-2r7hmup1y2r1",
+					"kcp-hcbsa8z6c2er",
 					types.ApplyPatchType,
 					toJson(t,
 						changeUnstructured(
-							toUnstructured(t, deployment("theDeployment", "kcp-2r7hmup1y2r1", "", map[string]string{
+							toUnstructured(t, deployment("theDeployment", "kcp-hcbsa8z6c2er", "", map[string]string{
 								"internal.workload.kcp.dev/cluster": "us-west1",
 							}, nil, nil)),
 							setNestedField(map[string]interface{}{}, "status"),
@@ -616,7 +616,7 @@ func TestSyncerProcess(t *testing.T) {
 			expectActionsOnTo: []clienttesting.Action{
 				deleteDeploymentAction(
 					"theDeployment",
-					"kcp-2r7hmup1y2r1",
+					"kcp-hcbsa8z6c2er",
 				),
 			},
 		},
@@ -627,13 +627,13 @@ func TestSyncerProcess(t *testing.T) {
 			}, nil),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			toResources: []runtime.Object{
-				namespace("kcp-2r7hmup1y2r1", "", map[string]string{
+				namespace("kcp-hcbsa8z6c2er", "", map[string]string{
 					"state.workload.kcp.dev/us-west1": "Sync",
 				},
 					map[string]string{
-						"kcp.dev/namespace-locator": `{"syncTarget":{"path":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
+						"kcp.dev/namespace-locator": `{"syncTarget":{"workspace":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
 					}),
-				deployment("theDeployment", "kcp-2r7hmup1y2r1", "root:org:ws", map[string]string{
+				deployment("theDeployment", "kcp-hcbsa8z6c2er", "root:org:ws", map[string]string{
 					"internal.workload.kcp.dev/cluster": "us-west1",
 				}, nil, []string{"workload.kcp.dev/syncer-us-west1"}),
 			},
@@ -658,7 +658,7 @@ func TestSyncerProcess(t *testing.T) {
 			expectActionsOnTo: []clienttesting.Action{
 				deleteDeploymentAction(
 					"theDeployment",
-					"kcp-2r7hmup1y2r1",
+					"kcp-hcbsa8z6c2er",
 				),
 			},
 		},
@@ -669,11 +669,11 @@ func TestSyncerProcess(t *testing.T) {
 			}, nil),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			toResources: []runtime.Object{
-				namespace("kcp-2r7hmup1y2r1", "", map[string]string{
+				namespace("kcp-hcbsa8z6c2er", "", map[string]string{
 					"state.workload.kcp.dev/us-west1": "Sync",
 				},
 					map[string]string{
-						"kcp.dev/namespace-locator": `{"syncTarget":{"path":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
+						"kcp.dev/namespace-locator": `{"syncTarget":{"workspace":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
 					}),
 			},
 			fromResources: []runtime.Object{
@@ -711,7 +711,7 @@ func TestSyncerProcess(t *testing.T) {
 			expectActionsOnTo: []clienttesting.Action{
 				deleteDeploymentAction(
 					"theDeployment",
-					"kcp-2r7hmup1y2r1",
+					"kcp-hcbsa8z6c2er",
 				),
 			},
 		},
@@ -722,14 +722,14 @@ func TestSyncerProcess(t *testing.T) {
 			}, nil),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			toResources: []runtime.Object{
-				namespace("kcp-2r7hmup1y2r1", "", map[string]string{
+				namespace("kcp-hcbsa8z6c2er", "", map[string]string{
 					"internal.workload.kcp.dev/cluster": "us-west1",
 					"state.workload.kcp.dev/us-west1":   "Sync",
 				},
 					map[string]string{
-						"kcp.dev/namespace-locator": `{"syncTarget":{"path":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
+						"kcp.dev/namespace-locator": `{"syncTarget":{"workspace":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
 					}),
-				deployment("theDeployment", "kcp-2r7hmup1y2r1", "", map[string]string{
+				deployment("theDeployment", "kcp-hcbsa8z6c2er", "", map[string]string{
 					"internal.workload.kcp.dev/cluster": "us-west1",
 				}, nil, nil),
 			},
@@ -757,11 +757,11 @@ func TestSyncerProcess(t *testing.T) {
 			expectActionsOnTo: []clienttesting.Action{
 				patchDeploymentAction(
 					"theDeployment",
-					"kcp-2r7hmup1y2r1",
+					"kcp-hcbsa8z6c2er",
 					types.ApplyPatchType,
 					toJson(t,
 						changeUnstructured(
-							toUnstructured(t, deployment("theDeployment", "kcp-2r7hmup1y2r1", "", map[string]string{
+							toUnstructured(t, deployment("theDeployment", "kcp-hcbsa8z6c2er", "", map[string]string{
 								"internal.workload.kcp.dev/cluster": "us-west1",
 							}, map[string]string{
 								"deletion.internal.workload.kcp.dev/us-west1": time.Now().Format(time.RFC3339),
@@ -821,23 +821,23 @@ func TestSyncerProcess(t *testing.T) {
 				createNamespaceAction(
 					"",
 					changeUnstructured(
-						toUnstructured(t, namespace("kcp-2r7hmup1y2r1", "",
+						toUnstructured(t, namespace("kcp-hcbsa8z6c2er", "",
 							map[string]string{
 								"internal.workload.kcp.dev/cluster": "us-west1",
 							},
 							map[string]string{
-								"kcp.dev/namespace-locator": `{"syncTarget":{"path":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
+								"kcp.dev/namespace-locator": `{"syncTarget":{"workspace":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
 							})),
 						removeNilOrEmptyFields,
 					),
 				),
 				patchDeploymentAction(
 					"theDeployment",
-					"kcp-2r7hmup1y2r1",
+					"kcp-hcbsa8z6c2er",
 					types.ApplyPatchType,
 					toJson(t,
 						changeUnstructured(
-							toUnstructured(t, deployment("theDeployment", "kcp-2r7hmup1y2r1", "", map[string]string{
+							toUnstructured(t, deployment("theDeployment", "kcp-hcbsa8z6c2er", "", map[string]string{
 								"internal.workload.kcp.dev/cluster": "us-west1",
 							}, map[string]string{"experimental.spec-diff.workload.kcp.dev/us-west1": "[{\"op\":\"replace\",\"path\":\"/replicas\",\"value\":3}]"}, nil)),
 							setNestedField(map[string]interface{}{
@@ -880,11 +880,11 @@ func TestSyncerProcess(t *testing.T) {
 				}, nil, []string{"workload.kcp.dev/syncer-us-west1"}),
 			},
 			toResources: []runtime.Object{
-				namespace("kcp-2r7hmup1y2r1", "", map[string]string{
+				namespace("kcp-hcbsa8z6c2er", "", map[string]string{
 					"internal.workload.kcp.dev/cluster": "us-west1",
 					"state.workload.kcp.dev/us-west1":   "Sync",
 				}, map[string]string{
-					"kcp.dev/namespace-locator": `{"syncTarget":{"path":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"ANOTHERNAMESPACE"}`,
+					"kcp.dev/namespace-locator": `{"syncTarget":{"workspace":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"ANOTHERNAMESPACE"}`,
 				}),
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
@@ -913,7 +913,7 @@ func TestSyncerProcess(t *testing.T) {
 				}, nil, []string{"workload.kcp.dev/syncer-us-west1"}),
 			},
 			toResources: []runtime.Object{
-				namespace("kcp-2r7hmup1y2r1", "", map[string]string{
+				namespace("kcp-hcbsa8z6c2er", "", map[string]string{
 					"internal.workload.kcp.dev/cluster": "us-west1",
 					"state.workload.kcp.dev/us-west1":   "Sync",
 				}, map[string]string{},
@@ -925,6 +925,51 @@ func TestSyncerProcess(t *testing.T) {
 			expectError:                         true,
 			expectActionsOnFrom:                 []clienttesting.Action{},
 			expectActionsOnTo:                   []clienttesting.Action{},
+		},
+		"old v0.6.0 namespace locator exists downstream": {
+			upstreamLogicalCluster: "root:org:ws",
+			fromNamespace: namespace("test", "root:org:ws", map[string]string{
+				"state.workload.kcp.dev/us-west1": "Sync",
+			}, nil),
+			gvr: schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"},
+			toResources: []runtime.Object{
+				namespace("kcp-0123456789", "", map[string]string{
+					"state.workload.kcp.dev/us-west1": "Sync",
+				},
+					map[string]string{
+						"kcp.dev/namespace-locator": `{"syncTarget":{"path":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
+					}),
+				secret("foo", "test", "root:org:ws",
+					map[string]string{"state.workload.kcp.dev/us-west1": "Sync"},
+					nil,
+					map[string][]byte{
+						"a": []byte("b"),
+					}),
+			},
+			fromResources: []runtime.Object{
+				secretWithFinalizers("foo", "test", "root:org:ws",
+					map[string]string{
+						"state.workload.kcp.dev/us-west1": "Sync",
+						"something":                       "else"},
+					nil,
+					[]string{"workload.kcp.dev/syncer-us-west1"},
+					map[string][]byte{
+						"a": []byte("b"),
+					}),
+			},
+			resourceToProcessLogicalClusterName: "root:org:ws",
+			resourceToProcessName:               "foo",
+			syncTargetName:                      "us-west1",
+
+			expectActionsOnFrom: []clienttesting.Action{},
+			expectActionsOnTo: []clienttesting.Action{
+				patchSecretAction(
+					"foo",
+					"kcp-0123456789",
+					types.ApplyPatchType,
+					[]byte(`{"apiVersion":"v1","data":{"a":"Yg=="},"kind":"Secret","metadata":{"creationTimestamp":null,"labels":{"internal.workload.kcp.dev/cluster":"us-west1","something":"else"},"name":"foo","namespace":"kcp-0123456789"},"type":"kubernetes.io/service-account-token"}`),
+				),
+			},
 		},
 	}
 
@@ -987,11 +1032,7 @@ func TestSyncerProcess(t *testing.T) {
 
 			key := tc.fromNamespace.Name + "/" + clusters.ToClusterAwareKey(logicalcluster.New(tc.resourceToProcessLogicalClusterName), tc.resourceToProcessName)
 			err = controller.process(context.Background(),
-				schema.GroupVersionResource{
-					Group:    "apps",
-					Version:  "v1",
-					Resource: "deployments",
-				},
+				tc.gvr,
 				key,
 			)
 			if tc.expectError {
@@ -1055,6 +1096,10 @@ func deployment(name, namespace, clusterName string, labels, annotations map[str
 }
 
 func secret(name, namespace, clusterName string, labels, annotations map[string]string, data map[string][]byte) *corev1.Secret {
+	return secretWithFinalizers(name, namespace, clusterName, labels, annotations, nil, data)
+}
+
+func secretWithFinalizers(name, namespace, clusterName string, labels, annotations map[string]string, finalizers []string, data map[string][]byte) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
@@ -1062,6 +1107,7 @@ func secret(name, namespace, clusterName string, labels, annotations map[string]
 			ClusterName: clusterName,
 			Labels:      labels,
 			Annotations: annotations,
+			Finalizers:  finalizers,
 		},
 		Data:       data,
 		StringData: nil,
@@ -1194,5 +1240,23 @@ func deleteDeploymentAction(name, namespace string, subresources ...string) clie
 		ActionImpl:    deploymentAction("delete", namespace, subresources...),
 		Name:          name,
 		DeleteOptions: metav1.DeleteOptions{},
+	}
+}
+
+func secretAction(verb, namespace string, subresources ...string) clienttesting.ActionImpl {
+	return clienttesting.ActionImpl{
+		Namespace:   namespace,
+		Verb:        verb,
+		Resource:    schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"},
+		Subresource: strings.Join(subresources, "/"),
+	}
+}
+
+func patchSecretAction(name, namespace string, patchType types.PatchType, patch []byte, subresources ...string) clienttesting.PatchActionImpl {
+	return clienttesting.PatchActionImpl{
+		ActionImpl: secretAction("patch", namespace, subresources...),
+		Name:       name,
+		PatchType:  patchType,
+		Patch:      patch,
 	}
 }
