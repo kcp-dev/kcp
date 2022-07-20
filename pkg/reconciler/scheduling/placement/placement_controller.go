@@ -35,7 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	coreinformers "k8s.io/client-go/informers/core/v1"
-	kubernetesclient "k8s.io/client-go/kubernetes"
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
@@ -57,8 +56,7 @@ const (
 // NewController returns a new controller placing namespaces onto locations by create
 // a placement annotation..
 func NewController(
-	kubeClusterClient kubernetesclient.ClusterInterface,
-	kcpClusterClient kcpclient.ClusterInterface,
+	kcpClusterClient kcpclient.Interface,
 	namespaceInformer coreinformers.NamespaceInformer,
 	locationInformer schedulinginformers.LocationInformer,
 	placementInformer schedulinginformers.PlacementInformer,
@@ -71,9 +69,7 @@ func NewController(
 			key := clusters.ToClusterAwareKey(logicalcluster.From(ns), ns.Name)
 			queue.AddAfter(key, duration)
 		},
-
-		kubeClusterClient: kubeClusterClient,
-		kcpClusterClient:  kcpClusterClient,
+		kcpClusterClient: kcpClusterClient,
 
 		namespaceLister:  namespaceInformer.Lister(),
 		namespaceIndexer: namespaceInformer.Informer().GetIndexer(),
@@ -159,8 +155,7 @@ type controller struct {
 	queue        workqueue.RateLimitingInterface
 	enqueueAfter func(*corev1.Namespace, time.Duration)
 
-	kubeClusterClient kubernetesclient.ClusterInterface
-	kcpClusterClient  kcpclient.ClusterInterface
+	kcpClusterClient kcpclient.Interface
 
 	namespaceLister  corelisters.NamespaceLister
 	namespaceIndexer cache.Indexer
@@ -315,7 +310,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 			return fmt.Errorf("failed to create patch for LocationDomain %s|%s: %w", clusterName, name, err)
 		}
 		klog.V(2).Infof("Patching placement %s|%s with patch %s", clusterName, obj.Name, string(patchBytes))
-		_, uerr := c.kcpClusterClient.Cluster(clusterName).SchedulingV1alpha1().Placements().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+		_, uerr := c.kcpClusterClient.SchedulingV1alpha1().Placements().Patch(logicalcluster.WithCluster(ctx, clusterName), obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 		return uerr
 	}
 

@@ -740,8 +740,9 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 
 func (s *Server) installSchedulingLocationStatusController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
 	controllerName := "kcp-scheduling-location-status-controller"
-	config = rest.AddUserAgent(rest.CopyConfig(config), controllerName)
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
+	config = kcpclienthelper.NewClusterConfig(rest.AddUserAgent(rest.CopyConfig(config), controllerName))
+
+	kcpClusterClient, err := kcpclient.NewForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -849,18 +850,13 @@ func (s *Server) installWorkloadNamespaceScheduler(ctx context.Context, config *
 
 func (s *Server) installSchedulingPlacementController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
 	controllerName := "kcp-scheduling-placement-controller"
-	config = rest.AddUserAgent(rest.CopyConfig(config), controllerName)
-	kubeClusterClient, err := kubernetes.NewClusterForConfig(config)
-	if err != nil {
-		return err
-	}
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
+	config = kcpclienthelper.NewClusterConfig(rest.AddUserAgent(rest.CopyConfig(config), controllerName))
+	kcpClusterClient, err := kcpclient.NewForConfig(config)
 	if err != nil {
 		return err
 	}
 
 	c, err := schedulingplacement.NewController(
-		kubeClusterClient,
 		kcpClusterClient,
 		s.kubeSharedInformerFactory.Core().V1().Namespaces(),
 		s.kcpSharedInformerFactory.Scheduling().V1alpha1().Locations(),
