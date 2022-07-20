@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KCP Authors.
+Copyright 2022 The KCP Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -33,7 +33,6 @@ import (
 type UpdateSelectorsFunc func(ctx context.Context, labelSelector labels.Selector, fieldSelector fields.Selector) (labels.Selector, fields.Selector, error)
 
 func TransformsSelectors(transformerName string, updateFunc UpdateSelectorsFunc) Transformer {
-
 	updateSelectorString := func(ctx context.Context, labelSelectorStr string, fieldSelectorStr string) (newLabelSelectorStr string, newFieldSelectorStr string, err error) {
 		labelSelector, err := labels.Parse(labelSelectorStr)
 		if err != nil {
@@ -47,9 +46,7 @@ func TransformsSelectors(transformerName string, updateFunc UpdateSelectorsFunc)
 		if err != nil {
 			return "", "", err
 		}
-		newLabelSelectorStr = newLabelSelector.String()
-		newFieldSelectorStr = newFieldSelector.String()
-		return
+		return newLabelSelector.String(), newFieldSelector.String(), nil
 	}
 
 	return Transformer{

@@ -39,7 +39,7 @@ type StorageWrapper func(schema.GroupResource, *StoreFuncs) *StoreFuncs
 
 // NewStorage returns a REST storage that forwards calls to a dynamic client
 func NewStorage(ctx context.Context, resource schema.GroupVersionResource, apiExportIdentityHash string, kind, listKind schema.GroupVersionKind, strategy customresource.CustomResourceStrategy, categories []string, tableConvertor rest.TableConvertor, replicasPathMapping fieldmanager.ResourcePathMappings,
-	dynamicClusterClient dynamic.ClusterInterface, patchConflictRetryBackoff *wait.Backoff, wrapper StorageWrapper, transformers transforming.Transformers) (mainStorage, statusStorage *StoreFuncs) {
+	dynamicClusterClient dynamic.ClusterInterface, patchConflictRetryBackoff *wait.Backoff, wrapper StorageWrapper, transformers []transforming.Transformer) (mainStorage, statusStorage *StoreFuncs) {
 	if patchConflictRetryBackoff == nil {
 		patchConflictRetryBackoff = &retry.DefaultRetry
 	}

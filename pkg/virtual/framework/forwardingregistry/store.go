@@ -77,7 +77,7 @@ func DefaultDynamicDelegatedStoreFuncs(
 	dynamicClusterClient dynamic.ClusterInterface,
 	subResources []string,
 	patchConflictRetryBackoff wait.Backoff,
-	transformers transforming.Transformers,
+	transformers []transforming.Transformer,
 	stopWatchesCh <-chan struct{},
 ) *StoreFuncs {
 	client := clientGetter(dynamicClusterClient, strategy.NamespaceScoped(), resource, apiExportIdentityHash, transformers)
@@ -250,7 +250,7 @@ func withDeleter(dynamicResourceInterface dynamic.ResourceInterface) (dynamicext
 	return nil, fmt.Errorf("dynamic client does not implement ResourceDeleterInterface")
 }
 
-func clientGetter(dynamicClusterClient dynamic.ClusterInterface, namespaceScoped bool, resource schema.GroupVersionResource, apiExportIdentityHash string, transformers transforming.Transformers) func(ctx context.Context) (dynamic.ResourceInterface, error) {
+func clientGetter(dynamicClusterClient dynamic.ClusterInterface, namespaceScoped bool, resource schema.GroupVersionResource, apiExportIdentityHash string, transformers []transforming.Transformer) func(ctx context.Context) (dynamic.ResourceInterface, error) {
 	return func(ctx context.Context) (dynamic.ResourceInterface, error) {
 		cluster, err := genericapirequest.ValidClusterFrom(ctx)
 		if err != nil {
@@ -269,7 +269,6 @@ func clientGetter(dynamicClusterClient dynamic.ClusterInterface, namespaceScoped
 			return &transforming.TransformingClient{
 				Transformations: transformers,
 				Client:          dynamicClusterClient.Cluster(clusterName).Resource(gvr),
-				Namespace:       "",
 				Resource:        gvr,
 			}, nil
 		}

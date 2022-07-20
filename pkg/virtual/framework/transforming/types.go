@@ -30,9 +30,6 @@ import (
 	"k8s.io/klog/v2"
 )
 
-type TypedTransformers map[schema.GroupVersionResource]Transformers
-type Transformers []Transformer
-
 type Transformer struct {
 	Name string
 
@@ -56,7 +53,7 @@ type Transformer struct {
 }
 
 type TransformingClient struct {
-	Transformations Transformers
+	Transformations []Transformer
 	Client          dynamic.ResourceInterface
 	Resource        schema.GroupVersionResource
 	Namespace       string

@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KCP Authors.
+Copyright 2022 The KCP Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@ func GetSyncing(kcpResource metav1.Object) Syncing {
 			if deletionAnnotation, exists := annotations[v1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+syncTarget]; exists {
 				var deletionTimestamp metav1.Time
 				if err := deletionTimestamp.UnmarshalText([]byte(deletionAnnotation)); err != nil {
-					klog.Errorf("Parsing of the deletion annotation for sync target %q failed: %v", syncTarget, err)
+					klog.Warningf("Parsing of the deletion annotation for sync target %q failed: %v", syncTarget, err)
 				} else {
 					syncTargetSyncing.DeletionTimestamp = &deletionTimestamp
 				}
@@ -82,14 +82,13 @@ func GetSyncerViews(kcpResource *unstructured.Unstructured, syncTargets ...strin
 
 	annotations := kcpResource.GetAnnotations()
 
-	filterSyncTargets := len(syncTargets) > 0
 	syncTargetsToKeep := sets.NewString(syncTargets...)
 
 	syncerViewDiffs := make(map[string]string)
 	for name, value := range annotations {
 		if strings.HasPrefix(name, syncerViewAnnotationPrefix) {
 			syncTarget := strings.TrimPrefix(name, syncerViewAnnotationPrefix)
-			if filterSyncTargets && !syncTargetsToKeep.Has(syncTarget) {
+			if len(syncTargets) > 0 && !syncTargetsToKeep.Has(syncTarget) {
 				continue
 			}
 			syncerViewDiffs[syncTarget] = value
