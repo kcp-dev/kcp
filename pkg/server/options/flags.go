@@ -134,6 +134,7 @@ var (
 		"shard-external-url",          // URL used by outside clients to talk to this kcp shard. Defaults to external address.
 		"shard-name",                  // A name of this kcp shard.
 		"shard-kubeconfig-file",       // Kubeconfig holding admin(!) credentials to peer kcp shards.
+		"root-shard-kubeconfig-file",  // Kubeconfig holding admin(!) credentials to the root kcp shard.
 		"experimental-bind-free-port", // Bind to a free port. --secure-bind-port must be 0. Use the admin.kubeconfig to extract the chosen port.
 
 		// secure serving flags
