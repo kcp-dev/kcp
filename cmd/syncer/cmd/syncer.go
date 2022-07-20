@@ -89,7 +89,7 @@ func Run(options *synceroptions.Options, ctx context.Context) error {
 	upstreamConfig.QPS = options.QPS
 	upstreamConfig.Burst = options.Burst
 
-	toConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+	downstreamConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		&clientcmd.ClientConfigLoadingRules{ExplicitPath: options.ToKubeconfig},
 		&clientcmd.ConfigOverrides{
 			CurrentContext: options.ToContext,
@@ -98,14 +98,14 @@ func Run(options *synceroptions.Options, ctx context.Context) error {
 		return err
 	}
 
-	toConfig.QPS = options.QPS
-	toConfig.Burst = options.Burst
+	downstreamConfig.QPS = options.QPS
+	downstreamConfig.Burst = options.Burst
 
 	if err := syncer.StartSyncer(
 		ctx,
 		&syncer.SyncerConfig{
 			UpstreamConfig:      upstreamConfig,
-			DownstreamConfig:    toConfig,
+			DownstreamConfig:    downstreamConfig,
 			ResourcesToSync:     sets.NewString(options.SyncedResourceTypes...),
 			SyncTargetWorkspace: logicalcluster.New(options.FromClusterName),
 			SyncTargetName:      options.PclusterID,
