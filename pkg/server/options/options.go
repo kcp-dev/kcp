@@ -55,6 +55,7 @@ type ExtraOptions struct {
 	RootDirectory            string
 	ProfilerAddress          string
 	ShardKubeconfigFile      string
+	RootShardKubeconfigFile  string
 	ShardBaseURL             string
 	ShardExternalURL         string
 	ShardName                string
@@ -158,6 +159,7 @@ func (o *Options) rawFlags() cliflag.NamedFlagSets {
 	fs := fss.FlagSet("KCP")
 	fs.StringVar(&o.Extra.ProfilerAddress, "profiler-address", o.Extra.ProfilerAddress, "[Address]:port to bind the profiler to")
 	fs.StringVar(&o.Extra.ShardKubeconfigFile, "shard-kubeconfig-file", o.Extra.ShardKubeconfigFile, "Kubeconfig holding admin(!) credentials to peer kcp shards.")
+	fs.StringVar(&o.Extra.RootShardKubeconfigFile, "root-shard-kubeconfig-file", o.Extra.RootShardKubeconfigFile, "Kubeconfig holding admin(!) credentials to the root kcp shard.")
 	fs.StringVar(&o.Extra.ShardBaseURL, "shard-base-url", o.Extra.ShardBaseURL, "Base URL to this kcp shard. Defaults to external address.")
 	fs.StringVar(&o.Extra.ShardExternalURL, "shard-external-url", o.Extra.ShardExternalURL, "URL used by outside clients to talk to this kcp shard. Defaults to external address.")
 	fs.StringVar(&o.Extra.ShardName, "shard-name", o.Extra.ShardName, "A name of this kcp shard. Defaults to the \"root\" name.")
