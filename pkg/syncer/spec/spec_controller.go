@@ -111,7 +111,7 @@ func NewSpecSyncer(gvrs []schema.GroupVersionResource, syncTargetClusterName log
 				c.AddToQueue(gvr, obj)
 			},
 		})
-		klog.V(2).InfoS("Set up upstream informer", "clusterName", syncTargetClusterName, "pcluster", syncTargetName, "gvr", gvr.String())
+		klog.V(2).InfoS("Set up upstream informer", "syncTarget_workspace", syncTargetWorkspace, "synctarget_name", syncTargetName, "gvr", gvr.String())
 
 		downstreamInformers.ForResource(gvr).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 			DeleteFunc: func(obj interface{}) {
@@ -157,7 +157,7 @@ func NewSpecSyncer(gvrs []schema.GroupVersionResource, syncTargetClusterName log
 				c.AddToQueue(gvr, m)
 			},
 		})
-		klog.V(2).InfoS("Set up downstream informer", "clusterName", syncTargetClusterName, "pcluster", syncTargetName, "gvr", gvr.String())
+		klog.V(2).InfoS("Set up downstream informer", "SyncTarget Workspace", syncTargetClusterName, "SyncTarget Name", syncTargetName, "gvr", gvr.String())
 	}
 
 	secretMutator := specmutators.NewSecretMutator()

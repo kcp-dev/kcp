@@ -92,7 +92,7 @@ func NewStatusSyncer(gvrs []schema.GroupVersionResource, syncTargetClusterName l
 				c.AddToQueue(gvr, obj)
 			},
 		})
-		klog.InfoS("Set up informer", "clusterName", syncTargetClusterName, "pcluster", syncTargetName, "gvr", gvr.String())
+		klog.InfoS("Set up informer", "SyncTarget Workspace", syncTargetClusterName, "SyncTarget Name", syncTargetName, "gvr", gvr.String())
 	}
 
 	return c, nil

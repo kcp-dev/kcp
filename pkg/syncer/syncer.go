@@ -69,7 +69,7 @@ type SyncerConfig struct {
 }
 
 func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, importPollInterval time.Duration) error {
-	klog.Infof("Starting syncer for logical-cluster: %s, sync-target: %s", cfg.SyncTargetWorkspace, cfg.SyncTargetName)
+	klog.Infof("Starting syncer for SyncTarget: %s|%s", cfg.SyncTargetWorkspace, cfg.SyncTargetName)
 
 	kcpVersion := version.Get().GitVersion
 
@@ -159,7 +159,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	// syncers depend on the types being present to start their informers.
 	var gvrs []schema.GroupVersionResource
 	err = wait.PollImmediateInfinite(gvrQueryInterval, func() (bool, error) {
-		klog.Infof("Attempting to retrieve GVRs from upstream clusterName %s (for pcluster %s)", cfg.SyncTargetWorkspace, cfg.SyncTargetName)
+		klog.Infof("Attempting to retrieve GVRs from upstream...")
 
 		var err error
 		// Get all types the upstream API server knows about.
@@ -184,7 +184,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		advancedSchedulingEnabled = true
 	}
 
-	klog.Infof("Creating spec syncer for clusterName %s to pcluster %s, resources %v", cfg.SyncTargetWorkspace, cfg.SyncTargetName, resources)
+	klog.Infof("Creating spec syncer for SyncTarget %s|%s, resources %v", cfg.SyncTargetWorkspace, cfg.SyncTargetName, resources)
 	upstreamURL, err := url.Parse(cfg.UpstreamConfig.Host)
 	if err != nil {
 		return err
@@ -195,7 +195,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		return err
 	}
 
-	klog.Infof("Creating status syncer for clusterName %s from pcluster %s, resources %v", cfg.SyncTargetWorkspace, cfg.SyncTargetName, resources)
+	klog.Infof("Creating status syncer for SyncTarget %s|%s, resources %v", cfg.SyncTargetWorkspace, cfg.SyncTargetName, resources)
 	statusSyncer, err := status.NewStatusSyncer(gvrs, cfg.SyncTargetWorkspace, cfg.SyncTargetName, advancedSchedulingEnabled,
 		upstreamDynamicClusterClient, downstreamDynamicClient, upstreamInformers, downstreamInformers, syncTarget.GetUID())
 	if err != nil {

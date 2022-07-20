@@ -569,7 +569,7 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 				return
 			}
 
-			t.Logf("Deleting syncer resources for logical cluster %q, sync target %q", syncerConfig.SyncTargetWorkspace, syncerConfig.SyncTargetName)
+			t.Logf("Deleting syncer resources for logical cluster %q, sync target %q", sf.WorkspaceClusterName, syncerConfig.SyncTargetName)
 			err = downstreamKubeClient.CoreV1().Namespaces().Delete(ctx, syncerID, metav1.DeleteOptions{})
 			if err != nil {
 				t.Errorf("failed to delete Namespace %q: %v", syncerID, err)
@@ -583,7 +583,7 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 				t.Errorf("failed to delete ClusterRole %q: %v", syncerID, err)
 			}
 
-			t.Logf("Deleting synced resources for logical cluster %q, sync target %q", syncerConfig.SyncTargetWorkspace, syncerConfig.SyncTargetName)
+			t.Logf("Deleting synced resources for logical cluster %q, sync target %q", sf.WorkspaceClusterName, syncerConfig.SyncTargetName)
 			namespaces, err := downstreamKubeClient.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 			if err != nil {
 				t.Errorf("failed to list namespaces: %v", err)
