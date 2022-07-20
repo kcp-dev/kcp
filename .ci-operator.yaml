@@ -1,4 +1,4 @@
 build_root_image:
   namespace: ci
   name: kcp-dev-build-root
-  tag: "1.17"
+  tag: "1.18"
