@@ -18,6 +18,7 @@ package clusterworkspacedeletion
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -87,10 +88,16 @@ func TestWorkspaceDeletionController(t *testing.T) {
 				workspaceCluster := server.orgClusterName.Join(workspace.Name)
 				kubeClient := server.kubeClusterClient.Cluster(workspaceCluster)
 
+				t.Logf("Wait for default namespace to be created")
+				framework.Eventually(t, func() (bool, string) {
+					_, err := kubeClient.CoreV1().Namespaces().Get(ctx, "default", metav1.GetOptions{})
+					return err == nil, fmt.Sprintf("%v", err)
+				}, wait.ForeverTestTimeout, 100*time.Millisecond, "default namespace was never created")
+
 				t.Logf("Delete default ns should be forbidden")
 				err = kubeClient.CoreV1().Namespaces().Delete(ctx, metav1.NamespaceDefault, metav1.DeleteOptions{})
 				if !apierrors.IsForbidden(err) {
-					t.Errorf("expect default namespace deletion to be forbidden")
+					t.Fatalf("expect default namespace deletion to be forbidden")
 				}
 
 				t.Logf("Create a configmap in the workspace")
