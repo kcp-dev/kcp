@@ -25,14 +25,6 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
 
-func TestClusterWorkspaceInitializerLabelPrefix(t *testing.T) {
-	// we want to be able to add this prefix to any valid initializer and have it
-	// end up as a valid label, so it needs to be a DNS 1123 subdomain
-	if errs := validation.IsDNS1123Subdomain(tenancyv1alpha1.ClusterWorkspaceInitializerLabelPrefix + "a"); len(errs) > 0 {
-		t.Errorf("tenancyv1alpha1.ClusterWorkspaceInitializerLabelPrefix invalid: %s", strings.Join(errs, ", "))
-	}
-}
-
 func TestInitializerToLabel(t *testing.T) {
 	for _, testCase := range []tenancyv1alpha1.ClusterWorkspaceInitializer{
 		"simple:root:org:ws:whatever",

@@ -44,7 +44,7 @@ GOLANGCI_LINT := $(TOOLS_GOBIN_DIR)/$(GOLANGCI_LINT_BIN)-$(GOLANGCI_LINT_VER)
 
 GOTESTSUM_VER := v1.8.1
 GOTESTSUM_BIN := gotestsum
-GOTESTSUM := $(TOOLS_DIR)/$(GOTESTSUM_BIN)-$(GOTESTSUM_VER)
+GOTESTSUM := $(abspath $(TOOLS_DIR))/$(GOTESTSUM_BIN)-$(GOTESTSUM_VER)
 
 ARCH := $(subst 64,,$(shell uname -p | sed s/x86_/amd/))64
 
@@ -225,8 +225,10 @@ ifdef USE_GOTESTSUM
 test: $(GOTESTSUM)
 endif
 test: WHAT ?= ./...
+# We will need to move into the sub package, of pkg/apis to run those tests.
 test:
 	$(GO_TEST) -race -count $(COUNT) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $$(go list "$(WHAT)" | grep -v ./test/e2e/)
+	cd pkg/apis && $(GO_TEST) -race -count $(COUNT) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $(WHAT)
 
 .PHONY: verify-k8s-deps
 verify-k8s-deps:
