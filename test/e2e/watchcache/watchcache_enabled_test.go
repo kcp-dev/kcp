@@ -59,7 +59,7 @@ func TestWatchCacheEnabledForCRD(t *testing.T) {
 	t.Cleanup(cancel)
 	org := framework.NewOrganizationFixture(t, server)
 	cluster := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
-	rootShardConfig := newRootShardConfig(t, server)
+	rootShardConfig := server.RootShardConfig(t)
 	cowBoysGR := metav1.GroupResource{Group: "wildwest.dev", Resource: "cowboys"}
 
 	t.Log("Creating wildwest.dev CRD")
@@ -115,7 +115,7 @@ func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
 	server := framework.SharedKcpServer(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	rootShardConfig := newRootShardConfig(t, server)
+	rootShardConfig := server.RootShardConfig(t)
 	kcpClusterClient, err := kcpclientset.NewClusterForConfig(rootShardConfig)
 	require.NoError(t, err)
 	dynamicClusterClient, err := dynamic.NewClusterForConfig(rootShardConfig)
@@ -165,7 +165,7 @@ func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
 	server := framework.SharedKcpServer(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	rootShardConfig := newRootShardConfig(t, server)
+	rootShardConfig := server.RootShardConfig(t)
 	kubeClusterClient, err := kubernetesclientset.NewClusterForConfig(rootShardConfig)
 	require.NoError(t, err)
 	secretsGR := metav1.GroupResource{Group: "", Resource: "secrets"}
@@ -312,11 +312,4 @@ func assertWatchCacheIsPrimed(t *testing.T, fn func() error) {
 		}
 		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*200, "the watch cache hasn't been primed in the allotted time")
-}
-
-func newRootShardConfig(t *testing.T, server framework.RunningServer) *rest.Config {
-	rootShardConfig := server.RootShardConfig(t)
-	rootShardConfig.QPS = 100
-	rootShardConfig.Burst = 200
-	return rootShardConfig
 }

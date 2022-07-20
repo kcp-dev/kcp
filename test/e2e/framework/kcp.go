@@ -376,7 +376,7 @@ func (c *kcpServer) KubeconfigPath() string {
 	return c.kubeconfigPath
 }
 
-// Config exposes a copy of the base client config for this server.
+// Config exposes a copy of the base client config for this server. Client-side throttling is disabled (QPS=-1).
 func (c *kcpServer) config(context string) (*rest.Config, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -389,9 +389,18 @@ func (c *kcpServer) config(context string) (*rest.Config, error) {
 	}
 
 	config := clientcmd.NewNonInteractiveClientConfig(raw, context, nil, nil)
-	return config.ClientConfig()
+
+	restConfig, err := config.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	restConfig.QPS = -1
+
+	return restConfig, nil
 }
 
+// BaseConfig returns a rest.Config for the "base" context. Client-side throttling is disabled (QPS=-1).
 func (c *kcpServer) BaseConfig(t *testing.T) *rest.Config {
 	cfg, err := c.config("base")
 	require.NoError(t, err)
@@ -399,6 +408,7 @@ func (c *kcpServer) BaseConfig(t *testing.T) *rest.Config {
 	return rest.AddUserAgent(rest.CopyConfig(cfg), t.Name())
 }
 
+// RootShardConfig returns a rest.Config for the "system:admin" context. Client-side throttling is disabled (QPS=-1).
 func (c *kcpServer) RootShardConfig(t *testing.T) *rest.Config {
 	cfg, err := c.config("system:admin")
 	require.NoError(t, err)
@@ -659,24 +669,34 @@ func (s *unmanagedKCPServer) RawConfig() (clientcmdapi.Config, error) {
 	return s.cfg.RawConfig()
 }
 
+// BaseConfig returns a rest.Config for the "base" context. Client-side throttling is disabled (QPS=-1).
 func (s *unmanagedKCPServer) BaseConfig(t *testing.T) *rest.Config {
 	raw, err := s.cfg.RawConfig()
 	require.NoError(t, err)
 
 	config := clientcmd.NewNonInteractiveClientConfig(raw, "base", nil, nil)
+
 	defaultConfig, err := config.ClientConfig()
 	require.NoError(t, err)
+
 	wrappedCfg := kcpclienthelper.NewClusterConfig(defaultConfig)
+	wrappedCfg.QPS = -1
+
 	return wrappedCfg
 }
 
+// RootShardConfig returns a rest.Config for the "system:admin" context. Client-side throttling is disabled (QPS=-1).
 func (s *unmanagedKCPServer) RootShardConfig(t *testing.T) *rest.Config {
 	raw, err := s.rootShardCfg.RawConfig()
 	require.NoError(t, err)
 
 	config := clientcmd.NewNonInteractiveClientConfig(raw, "system:admin", nil, nil)
+
 	defaultConfig, err := config.ClientConfig()
 	require.NoError(t, err)
+
+	defaultConfig.QPS = -1
+
 	return defaultConfig
 }
 

@@ -158,9 +158,7 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	// This workspace will consume from wsExport2
 	wsConsume2 := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyapi.ShardConstraints{Name: "root"}))
 
-	// Make sure the informers aren't throttled because dynamic informers do lots of discovery which slows down tests
 	cfg := server.BaseConfig(t)
-	cfg.QPS = -1
 	rootShardConfig := server.RootShardConfig(t)
 
 	crdClusterClient, err := apiextensionsclient.NewClusterForConfig(cfg)
