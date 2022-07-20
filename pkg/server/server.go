@@ -48,6 +48,7 @@ import (
 
 	configroot "github.com/kcp-dev/kcp/config/root"
 	configrootphase0 "github.com/kcp-dev/kcp/config/root-phase0"
+	configshard "github.com/kcp-dev/kcp/config/shard"
 	systemcrds "github.com/kcp-dev/kcp/config/system-crds"
 	kcpadmissioninitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
@@ -65,6 +66,9 @@ import (
 )
 
 const resyncPeriod = 10 * time.Hour
+
+// systemShardCluster is the name of a logical cluster on every shard (including the root shard) that holds essential system resources (like the root APIs).
+var systemShardCluster = logicalcluster.New("system:shard")
 
 // Server manages the configuration and kcp api-server. It allows callers to easily use kcp
 // as a library rather than as a single binary. Using its constructor function, you can easily
@@ -390,6 +394,13 @@ func (s *Server) Run(ctx context.Context) error {
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 		klog.Infof("Finished bootstrapping system CRDs")
+
+		if err := configshard.Bootstrap(goContext(ctx), kcpClusterClient.Cluster(systemShardCluster)); err != nil {
+			// nolint:nilerr
+			klog.Errorf("Failed to bootstrap the shard workspace: %v", err)
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+		klog.Infof("Finished bootstrapping the shard workspace")
 
 		go s.kcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().Run(ctx.StopCh)
 		go s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().Run(ctx.StopCh)
