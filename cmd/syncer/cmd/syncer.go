@@ -108,7 +108,7 @@ func Run(options *synceroptions.Options, ctx context.Context) error {
 			DownstreamConfig:    downstreamConfig,
 			ResourcesToSync:     sets.NewString(options.SyncedResourceTypes...),
 			SyncTargetWorkspace: logicalcluster.New(options.FromClusterName),
-			SyncTargetName:      options.PclusterID,
+			SyncTargetName:      options.SyncTargetName,
 		},
 		numThreads,
 		options.APIImportPollInterval,
