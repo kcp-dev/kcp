@@ -63,7 +63,7 @@ type RunningServer interface {
 	KubeconfigPath() string
 	RawConfig() (clientcmdapi.Config, error)
 	BaseConfig(t *testing.T) *rest.Config
-	RootShardConfig(t *testing.T) *rest.Config
+	RootShardSystemMasterBaseConfig(t *testing.T) *rest.Config
 	Artifact(t *testing.T, producer func() (runtime.Object, error))
 }
 
@@ -408,8 +408,8 @@ func (c *kcpServer) BaseConfig(t *testing.T) *rest.Config {
 	return rest.AddUserAgent(rest.CopyConfig(cfg), t.Name())
 }
 
-// RootShardConfig returns a rest.Config for the "system:admin" context. Client-side throttling is disabled (QPS=-1).
-func (c *kcpServer) RootShardConfig(t *testing.T) *rest.Config {
+// RootShardSystemMasterBaseConfig returns a rest.Config for the "system:admin" context. Client-side throttling is disabled (QPS=-1).
+func (c *kcpServer) RootShardSystemMasterBaseConfig(t *testing.T) *rest.Config {
 	cfg, err := c.config("system:admin")
 	require.NoError(t, err)
 	cfg = kcpclienthelper.NewClusterConfig(cfg)
@@ -685,8 +685,8 @@ func (s *unmanagedKCPServer) BaseConfig(t *testing.T) *rest.Config {
 	return wrappedCfg
 }
 
-// RootShardConfig returns a rest.Config for the "system:admin" context. Client-side throttling is disabled (QPS=-1).
-func (s *unmanagedKCPServer) RootShardConfig(t *testing.T) *rest.Config {
+// RootShardSystemMasterBaseConfig returns a rest.Config for the "system:admin" context. Client-side throttling is disabled (QPS=-1).
+func (s *unmanagedKCPServer) RootShardSystemMasterBaseConfig(t *testing.T) *rest.Config {
 	raw, err := s.rootShardCfg.RawConfig()
 	require.NoError(t, err)
 

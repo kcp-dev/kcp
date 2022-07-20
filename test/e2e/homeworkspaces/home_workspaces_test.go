@@ -157,7 +157,7 @@ func TestUserHomeWorkspaces(t *testing.T) {
 
 			// create non-virtual clients
 			kcpConfig := server.BaseConfig(t)
-			rootShardCfg := server.RootShardConfig(t)
+			rootShardCfg := server.RootShardSystemMasterBaseConfig(t)
 			kubeClusterClient, err := kubernetes.NewClusterForConfig(kcpConfig)
 			require.NoError(t, err, "failed to construct client for server")
 			rootShardKcpClusterClient, err := kcpclientset.NewClusterForConfig(rootShardCfg)
