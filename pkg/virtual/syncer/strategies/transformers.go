@@ -51,8 +51,8 @@ func transformBeforeWrite(gvr schema.GroupVersionResource, syncStrategy SyncStra
 
 		syncerFinalizerName := shared.SyncerFinalizerNamePrefix + syncTargetName
 
-		hasSyncerFinalizer := sets.NewString(newSyncerViewObject.GetFinalizers()...).Has(syncerFinalizerName)
-		removeFromSyncer := newSyncerViewObject.GetDeletionTimestamp() != nil && !hasSyncerFinalizer
+		syncerViewHasSyncerFinalizer := sets.NewString(newSyncerViewObject.GetFinalizers()...).Has(syncerFinalizerName)
+		removeFromSyncer := newSyncerViewObject.GetDeletionTimestamp() != nil && !syncerViewHasSyncerFinalizer
 
 		if bytes, err := yaml.Marshal(newSyncerViewObject.UnstructuredContent()); err == nil {
 			klog.V(5).Infof("Before SyncerViewTransformer - New Syncer View Resource:\n%s", string(bytes))
@@ -129,12 +129,13 @@ func transformBeforeWrite(gvr schema.GroupVersionResource, syncStrategy SyncStra
 		}
 		newKCPViewObject.SetAnnotations(newKCPViewAnnotations)
 
-		if hasSyncerFinalizer {
-			finalizers := sets.NewString(newKCPViewObject.GetFinalizers()...)
-			if !finalizers.Has(syncerFinalizerName) {
-				finalizers.Insert(syncerFinalizerName)
-				newKCPViewObject.SetFinalizers(finalizers.List())
-			}
+		kcpViewFinalizers := sets.NewString(newKCPViewObject.GetFinalizers()...)
+		if syncerViewHasSyncerFinalizer && !kcpViewFinalizers.Has(syncerFinalizerName) {
+			kcpViewFinalizers.Insert(syncerFinalizerName)
+			newKCPViewObject.SetFinalizers(kcpViewFinalizers.List())
+		} else if removeFromSyncer && kcpViewFinalizers.Has(syncerFinalizerName) {
+			kcpViewFinalizers.Delete(syncerFinalizerName)
+			newKCPViewObject.SetFinalizers(kcpViewFinalizers.List())
 		}
 
 		if bytes, err := yaml.Marshal(newKCPViewObject.UnstructuredContent()); err == nil {
