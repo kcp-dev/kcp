@@ -97,7 +97,7 @@ func (o *clusterWorkspace) Admit(ctx context.Context, a admission.Attributes, _ 
 			if cw.Annotations == nil {
 				cw.Annotations = map[string]string{}
 			}
-			cw.Annotations[tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey] = userInfo
+			cw.Annotations[tenancyv1alpha1.ExperimentalClusterWorkspaceOwnerAnnotationKey] = userInfo
 		}
 	}
 
@@ -162,8 +162,8 @@ func (o *clusterWorkspace) Validate(ctx context.Context, a admission.Attributes,
 			if cw.Annotations == nil {
 				cw.Annotations = map[string]string{}
 			}
-			if got := cw.Annotations[tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey]; got != userInfo {
-				return admission.NewForbidden(a, fmt.Errorf("expected user annotation %s=%s", tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey, userInfo))
+			if got := cw.Annotations[tenancyv1alpha1.ExperimentalClusterWorkspaceOwnerAnnotationKey]; got != userInfo {
+				return admission.NewForbidden(a, fmt.Errorf("expected user annotation %s=%s", tenancyv1alpha1.ExperimentalClusterWorkspaceOwnerAnnotationKey, userInfo))
 			}
 		}
 	}
@@ -194,7 +194,7 @@ func updateUnstructured(u *unstructured.Unstructured, cw *tenancyv1alpha1.Cluste
 	return nil
 }
 
-// ClusterWorkspaceOwnerAnnotationValue returns the value of the ClusterWorkspaceOwnerAnnotationKey annotation.
+// ClusterWorkspaceOwnerAnnotationValue returns the value of the ExperimentalClusterWorkspaceOwnerAnnotationKey annotation.
 func ClusterWorkspaceOwnerAnnotationValue(user kuser.Info) (string, error) {
 	info := &authenticationv1.UserInfo{
 		Username: user.GetName(),

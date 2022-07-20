@@ -64,20 +64,20 @@ func (r *metaDataReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 	}
 
 	if workspace.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady {
-		if value, found := workspace.Annotations[tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey]; found {
+		if value, found := workspace.Annotations[tenancyv1alpha1.ExperimentalClusterWorkspaceOwnerAnnotationKey]; found {
 			var info authenticationv1.UserInfo
 			err := json.Unmarshal([]byte(value), &info)
 			if err != nil {
-				klog.Warningf("Failed to unmarshal ClusterWorkspace %s|%s annotation %s=%q: %v", logicalcluster.From(workspace), workspace.Name, tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey, value, err)
-				delete(workspace.Annotations, tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey)
+				klog.Warningf("Failed to unmarshal ClusterWorkspace %s|%s annotation %s=%q: %v", logicalcluster.From(workspace), workspace.Name, tenancyv1alpha1.ExperimentalClusterWorkspaceOwnerAnnotationKey, value, err)
+				delete(workspace.Annotations, tenancyv1alpha1.ExperimentalClusterWorkspaceOwnerAnnotationKey)
 				changed = true
 			} else if userOnlyValue, err := json.Marshal(authenticationv1.UserInfo{Username: info.Username}); err != nil {
 				// should never happen
 				klog.Warningf("Failed to marshal ClusterWorkspace %s|%s user info: %v", logicalcluster.From(workspace), workspace.Name, err)
-				delete(workspace.Annotations, tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey)
+				delete(workspace.Annotations, tenancyv1alpha1.ExperimentalClusterWorkspaceOwnerAnnotationKey)
 				changed = true
 			} else if value != string(userOnlyValue) {
-				workspace.Annotations[tenancyv1alpha1.ClusterWorkspaceOwnerAnnotationKey] = string(userOnlyValue)
+				workspace.Annotations[tenancyv1alpha1.ExperimentalClusterWorkspaceOwnerAnnotationKey] = string(userOnlyValue)
 				changed = true
 			}
 		}
