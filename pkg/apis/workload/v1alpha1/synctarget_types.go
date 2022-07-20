@@ -20,6 +20,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 )
@@ -65,6 +66,12 @@ type SyncTargetSpec struct {
 	// will be unassigned from the cluster.
 	// By default, workloads scheduled to the cluster are not evicted.
 	EvictAfter *metav1.Time `json:"evictAfter,omitempty"`
+
+	// Exports defines a set of APIExports supposed to be supported by this SyncTarget. The SyncTarget
+	// will be selected to deploy the workload only when the resource schema on the SyncTarget is compatible
+	// with the resource schema included in the exports.
+	// If it is not set, the kubernetes export in the same workspace will be used by default.
+	Exports []apisv1alpha1.ExportReference `json:"exports,omitempty"`
 }
 
 // SyncTargetStatus communicates the observed state of the SyncTarget (from the controller).
@@ -83,7 +90,7 @@ type SyncTargetStatus struct {
 	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 
 	// +optional
-	SyncedResources []string `json:"syncedResources,omitempty"`
+	SyncedResources []ResourceToSync `json:"syncedResources,omitempty"`
 
 	// A timestamp indicating when the syncer last reported status.
 	// +optional
@@ -93,6 +100,44 @@ type SyncTargetStatus struct {
 	// +optional
 	VirtualWorkspaces []VirtualWorkspace `json:"virtualWorkspaces,omitempty"`
 }
+
+type ResourceToSync struct {
+	// group is the group of the API. Empty string for the core API group.
+	//
+	// +required
+	Group string `json:"group"`
+
+	// resource is the resource of the API.
+	//
+	// kubebuilder:validation:MinLength=1
+	// +required
+	Resource string `json:"resource"`
+
+	// Versions is the versions of the resource.
+	// +optional
+	Versions []string `json:"versions"`
+
+	// IdentityHash is the identity for a given APIExport that the APIResourceSchema belongs to.
+	// The hash can be found on APIExport and APIResourceSchema's status.
+	// It will be empty for core types.
+	// +optional
+	IdentityHash string `json:"identityHash"`
+
+	// State indicate whether the resources schema is compatible to the SyncTarget.
+	// +kubebuilder:validation:Enum=Pending;Accepted;Incompatible
+	State ResourceCompatibleState `json:"state"`
+}
+
+type ResourceCompatibleState string
+
+const (
+	// ResourceSchemaPendingState is the intial state indicating that the syncer has not report compatibility of the resource.
+	ResourceSchemaPendingState = "Pending"
+	// ResourceSchemaAcceptedState is the state that the resource schema is comptible and can be synced by syncer.
+	ResourceSchemaAcceptedState = "Accepted"
+	// ResourceSchemaIncomptibleState is the state that the resource schema is incomptible for syncer.
+	ResourceSchemaIncomptibleState = "Incompatible"
+)
 
 type VirtualWorkspace struct {
 	// URL is the URL of the syncer virtual workspace.

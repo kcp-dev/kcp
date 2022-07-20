@@ -5,5 +5,5 @@ metadata:
   name: workload.kcp.dev
 spec:
   latestResourceSchemas:
-  - v220709-4a74a96f.synctargets.workload.kcp.dev
+  - v220720-54c06648.synctargets.workload.kcp.dev
 status: {}

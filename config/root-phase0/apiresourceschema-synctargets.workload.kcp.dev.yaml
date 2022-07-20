@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v220709-4a74a96f.synctargets.workload.kcp.dev
+  name: v220720-54c06648.synctargets.workload.kcp.dev
 spec:
   group: workload.kcp.dev
   names:
@@ -58,6 +58,36 @@ spec:
                 scheduled to the cluster are not evicted.
               format: date-time
               type: string
+            exports:
+              description: Exports defines a set of APIExports supposed to be supported
+                by this SyncTarget. The SyncTarget will be selected to deploy the
+                workload only when the resource schema on the SyncTarget is compatible
+                with the resource schema included in the exports. If it is not set,
+                the kubernetes export in the same workspace will be used by default.
+              items:
+                description: ExportReference describes a reference to an APIExport.
+                  Exactly one of the fields must be set.
+                properties:
+                  workspace:
+                    description: workspace is a reference to an APIExport in the same
+                      organization. The creator of the APIBinding needs to have access
+                      to the APIExport with the verb `bind` in order to bind to it.
+                    properties:
+                      exportName:
+                        description: Name of the APIExport that describes the API.
+                        type: string
+                      path:
+                        description: path is an absolute reference to a workspace,
+                          e.g. root:org:ws. The workspace must be some ancestor or
+                          a child of some ancestor. If it is unset, the path of the
+                          APIBinding is used.
+                        pattern: ^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                        type: string
+                    required:
+                    - exportName
+                    type: object
+                type: object
+              type: array
             unschedulable:
               default: false
               description: Unschedulable controls cluster schedulability of new workloads.
@@ -136,7 +166,38 @@ spec:
               type: string
             syncedResources:
               items:
-                type: string
+                properties:
+                  group:
+                    description: group is the group of the API. Empty string for the
+                      core API group.
+                    type: string
+                  identityHash:
+                    description: IdentityHash is the identity for a given APIExport
+                      that the APIResourceSchema belongs to. The hash can be found
+                      on APIExport and APIResourceSchema's status. It will be empty
+                      for core types.
+                    type: string
+                  resource:
+                    description: "resource is the resource of the API. \n kubebuilder:validation:MinLength=1"
+                    type: string
+                  state:
+                    description: State indicate whether the resources schema is compatible
+                      to the SyncTarget.
+                    enum:
+                    - Pending
+                    - Accepted
+                    - Incompatible
+                    type: string
+                  versions:
+                    description: Versions is the versions of the resource.
+                    items:
+                      type: string
+                    type: array
+                required:
+                - group
+                - resource
+                - state
+                type: object
               type: array
             virtualWorkspaces:
               description: VirtualWorkspaces contains all syncer virtual workspace
