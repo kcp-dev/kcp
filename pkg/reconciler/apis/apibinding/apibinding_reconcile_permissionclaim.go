@@ -308,10 +308,9 @@ func (c *controller) patchGenericObject(ctx context.Context, old, new metav1.Obj
 	}
 
 	_, err = c.dynamicClusterClient.
-		Cluster(lc).
 		Resource(gvr).
 		Namespace(new.GetNamespace()).
-		Patch(ctx, new.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{})
+		Patch(logicalcluster.WithCluster(ctx, lc), new.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{})
 	// if we don't find it, and we can update lets continue on.
 	if err != nil && !errors.IsNotFound(err) {
 		return err

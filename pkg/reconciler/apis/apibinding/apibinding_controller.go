@@ -60,9 +60,9 @@ var (
 
 // NewController returns a new controller for APIBindings.
 func NewController(
-	crdClusterClient apiextensionclientset.ClusterInterface,
-	kcpClusterClient kcpclient.ClusterInterface,
-	dynamicClusterClient dynamic.ClusterInterface,
+	crdClusterClient apiextensionclientset.Interface,
+	kcpClusterClient kcpclient.Interface,
+	dynamicClusterClient dynamic.Interface,
 	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory,
 	apiBindingInformer apisinformers.APIBindingInformer,
 	apiExportInformer apisinformers.APIExportInformer,
@@ -110,7 +110,7 @@ func NewController(
 		apiResourceSchemaIndexer: apiResourceSchemaInformer.Informer().GetIndexer(),
 
 		createCRD: func(ctx context.Context, clusterName logicalcluster.Name, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error) {
-			return crdClusterClient.Cluster(clusterName).ApiextensionsV1().CustomResourceDefinitions().Create(ctx, crd, metav1.CreateOptions{})
+			return crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Create(logicalcluster.WithCluster(ctx, clusterName), crd, metav1.CreateOptions{})
 		},
 		getCRD: func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 			return crdInformer.Lister().Get(clusters.ToClusterAwareKey(clusterName, name))
@@ -193,9 +193,9 @@ func NewController(
 type controller struct {
 	queue workqueue.RateLimitingInterface
 
-	crdClusterClient     apiextensionclientset.ClusterInterface
-	kcpClusterClient     kcpclient.ClusterInterface
-	dynamicClusterClient dynamic.ClusterInterface
+	crdClusterClient     apiextensionclientset.Interface
+	kcpClusterClient     kcpclient.Interface
+	dynamicClusterClient dynamic.Interface
 	ddsif                *informer.DynamicDiscoverySharedInformerFactory
 
 	apiBindingsLister  apislisters.APIBindingLister
@@ -382,7 +382,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		}
 
 		klog.V(2).Infof("Patching apibinding %s|%s: %s", clusterName, name, string(patchBytes))
-		_, uerr := c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIBindings().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+		_, uerr := c.kcpClusterClient.ApisV1alpha1().APIBindings().Patch(logicalcluster.WithCluster(ctx, clusterName), obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 		return uerr
 	}
 

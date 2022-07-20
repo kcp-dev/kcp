@@ -26,7 +26,7 @@ import (
 )
 
 func NewController(
-	kcpClusterClient *kcpclient.Cluster,
+	kcpClusterClient kcpclient.Interface,
 	clusterInformer workloadinformer.SyncTargetInformer,
 	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
 	heartbeatThreshold time.Duration,

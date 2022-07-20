@@ -68,7 +68,7 @@ type ClusterQueue interface {
 func NewClusterReconciler(
 	name string,
 	reconciler ClusterReconcileImpl,
-	kcpClusterClient *kcpclient.Cluster,
+	kcpClusterClient kcpclient.Interface,
 	clusterInformer workloadinformer.SyncTargetInformer,
 	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
 ) (*ClusterReconciler, ClusterQueue, error) {
@@ -137,7 +137,7 @@ func (a queueAdapter) EnqueueAfter(cl *workloadv1alpha1.SyncTarget, dur time.Dur
 type ClusterReconciler struct {
 	name                     string
 	reconciler               ClusterReconcileImpl
-	kcpClusterClient         *kcpclient.Cluster
+	kcpClusterClient         kcpclient.Interface
 	clusterIndexer           cache.Indexer
 	apiresourceImportIndexer cache.Indexer
 
@@ -236,7 +236,7 @@ func (c *ClusterReconciler) process(ctx context.Context, key string) error {
 
 	// If the object being reconciled changed as a result, update it.
 	if !equality.Semantic.DeepEqual(previous.Status, current.Status) {
-		_, uerr := c.kcpClusterClient.Cluster(logicalcluster.From(current)).WorkloadV1alpha1().SyncTargets().UpdateStatus(ctx, current, metav1.UpdateOptions{})
+		_, uerr := c.kcpClusterClient.WorkloadV1alpha1().SyncTargets().UpdateStatus(logicalcluster.WithCluster(ctx, logicalcluster.From(current)), current, metav1.UpdateOptions{})
 		return uerr
 	}
 
