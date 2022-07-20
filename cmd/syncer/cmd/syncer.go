@@ -104,11 +104,11 @@ func Run(options *synceroptions.Options, ctx context.Context) error {
 	if err := syncer.StartSyncer(
 		ctx,
 		&syncer.SyncerConfig{
-			UpstreamConfig:   kcpConfig,
-			DownstreamConfig: toConfig,
-			ResourcesToSync:  sets.NewString(options.SyncedResourceTypes...),
-			KCPClusterName:   logicalcluster.New(options.FromClusterName),
-			SyncTargetName:   options.PclusterID,
+			UpstreamConfig:      kcpConfig,
+			DownstreamConfig:    toConfig,
+			ResourcesToSync:     sets.NewString(options.SyncedResourceTypes...),
+			SyncTargetWorkspace: logicalcluster.New(options.FromClusterName),
+			SyncTargetName:      options.PclusterID,
 		},
 		numThreads,
 		options.APIImportPollInterval,

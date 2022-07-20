@@ -61,15 +61,15 @@ const (
 // vary across syncer deployments. Capturing these details in a struct
 // simplifies defining these details in test fixture.
 type SyncerConfig struct {
-	UpstreamConfig   *rest.Config
-	DownstreamConfig *rest.Config
-	ResourcesToSync  sets.String
-	KCPClusterName   logicalcluster.Name
-	SyncTargetName   string
+	UpstreamConfig      *rest.Config
+	DownstreamConfig    *rest.Config
+	ResourcesToSync     sets.String
+	SyncTargetWorkspace logicalcluster.Name
+	SyncTargetName      string
 }
 
 func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, importPollInterval time.Duration) error {
-	klog.Infof("Starting syncer for logical-cluster: %s, sync-target: %s", cfg.KCPClusterName, cfg.SyncTargetName)
+	klog.Infof("Starting syncer for logical-cluster: %s, sync-target: %s", cfg.SyncTargetWorkspace, cfg.SyncTargetName)
 
 	kcpVersion := version.Get().GitVersion
 
@@ -86,11 +86,11 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	// TODO(david): we need to provide user-facing details if this polling goes on forever. Blocking here is a bad UX.
 	// TODO(david): Also, any regressions in our code will make any e2e test that starts a syncer (at least in-process)
 	// TODO(david): block until it hits the 10 minute overall test timeout.
-	klog.Infof("Attempting to retrieve the Syncer virtual workspace URL from SyncTarget %s|%s", cfg.KCPClusterName, cfg.SyncTargetName)
+	klog.Infof("Attempting to retrieve the Syncer virtual workspace URL from SyncTarget %s|%s", cfg.SyncTargetWorkspace, cfg.SyncTargetName)
 	var syncTarget *workloadv1alpha1.SyncTarget
 	err = wait.PollImmediateInfinite(5*time.Second, func() (bool, error) {
 		var err error
-		syncTarget, err = kcpClusterClient.Cluster(cfg.KCPClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx, cfg.SyncTargetName, metav1.GetOptions{})
+		syncTarget, err = kcpClusterClient.Cluster(cfg.SyncTargetWorkspace).WorkloadV1alpha1().SyncTargets().Get(ctx, cfg.SyncTargetName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -100,7 +100,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		}
 
 		if len(syncTarget.Status.VirtualWorkspaces) > 1 {
-			klog.Errorf("SyncTarget %s|%s should not have several Syncer virtual workspace URLs: not supported for now, ignoring additional URLs", cfg.KCPClusterName, cfg.SyncTargetName)
+			klog.Errorf("SyncTarget %s|%s should not have several Syncer virtual workspace URLs: not supported for now, ignoring additional URLs", cfg.SyncTargetWorkspace, cfg.SyncTargetName)
 		}
 		syncerVirtualWorkspaceURL = syncTarget.Status.VirtualWorkspaces[0].URL
 		return true, nil
@@ -117,7 +117,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	// Start api import first because spec and status syncers are blocked by
 	// gvr discovery finding all the configured resource types in the kcp
 	// workspace.
-	apiImporter, err := NewAPIImporter(cfg.UpstreamConfig, cfg.DownstreamConfig, resources, cfg.KCPClusterName, cfg.SyncTargetName)
+	apiImporter, err := NewAPIImporter(cfg.UpstreamConfig, cfg.DownstreamConfig, resources, cfg.SyncTargetWorkspace, cfg.SyncTargetName)
 	if err != nil {
 		return err
 	}
@@ -159,7 +159,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	// syncers depend on the types being present to start their informers.
 	var gvrs []schema.GroupVersionResource
 	err = wait.PollImmediateInfinite(gvrQueryInterval, func() (bool, error) {
-		klog.Infof("Attempting to retrieve GVRs from upstream clusterName %s (for pcluster %s)", cfg.KCPClusterName, cfg.SyncTargetName)
+		klog.Infof("Attempting to retrieve GVRs from upstream clusterName %s (for pcluster %s)", cfg.SyncTargetWorkspace, cfg.SyncTargetName)
 
 		var err error
 		// Get all types the upstream API server knows about.
@@ -184,19 +184,19 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		advancedSchedulingEnabled = true
 	}
 
-	klog.Infof("Creating spec syncer for clusterName %s to pcluster %s, resources %v", cfg.KCPClusterName, cfg.SyncTargetName, resources)
+	klog.Infof("Creating spec syncer for clusterName %s to pcluster %s, resources %v", cfg.SyncTargetWorkspace, cfg.SyncTargetName, resources)
 	upstreamURL, err := url.Parse(cfg.UpstreamConfig.Host)
 	if err != nil {
 		return err
 	}
-	specSyncer, err := spec.NewSpecSyncer(gvrs, cfg.KCPClusterName, cfg.SyncTargetName, upstreamURL, advancedSchedulingEnabled,
+	specSyncer, err := spec.NewSpecSyncer(gvrs, cfg.SyncTargetWorkspace, cfg.SyncTargetName, upstreamURL, advancedSchedulingEnabled,
 		upstreamDynamicClusterClient, downstreamDynamicClient, upstreamInformers, downstreamInformers, syncTarget.GetUID())
 	if err != nil {
 		return err
 	}
 
-	klog.Infof("Creating status syncer for clusterName %s from pcluster %s, resources %v", cfg.KCPClusterName, cfg.SyncTargetName, resources)
-	statusSyncer, err := status.NewStatusSyncer(gvrs, cfg.KCPClusterName, cfg.SyncTargetName, advancedSchedulingEnabled,
+	klog.Infof("Creating status syncer for clusterName %s from pcluster %s, resources %v", cfg.SyncTargetWorkspace, cfg.SyncTargetName, resources)
+	statusSyncer, err := status.NewStatusSyncer(gvrs, cfg.SyncTargetWorkspace, cfg.SyncTargetName, advancedSchedulingEnabled,
 		upstreamDynamicClusterClient, downstreamDynamicClient, upstreamInformers, downstreamInformers, syncTarget.GetUID())
 	if err != nil {
 		return err
@@ -221,16 +221,16 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		// poll error can be safely ignored.
 		_ = wait.PollImmediateInfiniteWithContext(ctx, 1*time.Second, func(ctx context.Context) (bool, error) {
 			patchBytes := []byte(fmt.Sprintf(`[{"op":"replace","path":"/status/lastSyncerHeartbeatTime","value":%q}]`, time.Now().Format(time.RFC3339)))
-			syncTarget, err := kcpClusterClient.Cluster(cfg.KCPClusterName).WorkloadV1alpha1().SyncTargets().Patch(ctx, cfg.SyncTargetName, types.JSONPatchType, patchBytes, metav1.PatchOptions{}, "status")
+			syncTarget, err := kcpClusterClient.Cluster(cfg.SyncTargetWorkspace).WorkloadV1alpha1().SyncTargets().Patch(ctx, cfg.SyncTargetName, types.JSONPatchType, patchBytes, metav1.PatchOptions{}, "status")
 			if err != nil {
-				klog.Errorf("failed to set status.lastSyncerHeartbeatTime for SyncTarget %s|%s: %v", cfg.KCPClusterName, cfg.SyncTargetName, err)
+				klog.Errorf("failed to set status.lastSyncerHeartbeatTime for SyncTarget %s|%s: %v", cfg.SyncTargetWorkspace, cfg.SyncTargetName, err)
 				return false, nil
 			}
 			heartbeatTime = syncTarget.Status.LastSyncerHeartbeatTime.Time
 			return true, nil
 		})
 
-		klog.V(5).Infof("Heartbeat set for SyncTarget %s|%s: %s", cfg.KCPClusterName, cfg.SyncTargetName, heartbeatTime)
+		klog.V(5).Infof("Heartbeat set for SyncTarget %s|%s: %s", cfg.SyncTargetWorkspace, cfg.SyncTargetName, heartbeatTime)
 
 	}, heartbeatInterval)
 
