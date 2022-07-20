@@ -45,8 +45,8 @@ import (
 )
 
 func NewController(
-	kcpClient kcpclient.ClusterInterface,
-	metadataClusterClient metadata.ClusterInterface,
+	kcpClusterClient kcpclient.Interface,
+	metadataClusterClient metadata.Interface,
 	workspaceInformer tenancyinformer.ClusterWorkspaceInformer,
 	discoverResourcesFn func(clusterName logicalcluster.Name) ([]*metav1.APIResourceList, error),
 ) *Controller {
@@ -54,7 +54,7 @@ func NewController(
 
 	c := &Controller{
 		queue:                 queue,
-		kcpClient:             kcpClient,
+		kcpClusterClient:      kcpClusterClient,
 		metadataClusterClient: metadataClusterClient,
 		workspaceLister:       workspaceInformer.Lister(),
 		deleter:               deletion.NewWorkspacedResourcesDeleter(metadataClusterClient, discoverResourcesFn),
@@ -81,8 +81,8 @@ func NewController(
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	kcpClient             kcpclient.ClusterInterface
-	metadataClusterClient metadata.ClusterInterface
+	kcpClusterClient      kcpclient.Interface
+	metadataClusterClient metadata.Interface
 
 	workspaceLister tenancylister.ClusterWorkspaceLister
 	deleter         deletion.WorkspaceResourcesDeleterInterface
@@ -220,7 +220,7 @@ func (c *Controller) patchCondition(ctx context.Context, old, new *tenancyv1alph
 	}
 
 	klog.V(2).Infof("Patching workspace %s|%s: %s", logicalcluster.From(new), new.Name, string(patchBytes))
-	_, err = c.kcpClient.Cluster(logicalcluster.From(new)).TenancyV1alpha1().ClusterWorkspaces().Patch(ctx, new.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+	_, err = c.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Patch(logicalcluster.WithCluster(ctx, logicalcluster.From(new)), new.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 	return err
 }
 
@@ -231,8 +231,8 @@ func (c *Controller) finalizeWorkspace(ctx context.Context, workspace *tenancyv1
 			workspace.Finalizers = append(workspace.Finalizers[:i], workspace.Finalizers[i+1:]...)
 
 			klog.V(2).Infof("Removing finalizer from workspace %s|%s", logicalcluster.From(workspace), workspace.Name)
-			_, err := c.kcpClient.Cluster(logicalcluster.From(workspace)).TenancyV1alpha1().ClusterWorkspaces().Update(
-				ctx, workspace, metav1.UpdateOptions{})
+			_, err := c.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Update(
+				logicalcluster.WithCluster(ctx, logicalcluster.From(workspace)), workspace, metav1.UpdateOptions{})
 			return err
 		}
 	}

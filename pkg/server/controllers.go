@@ -288,12 +288,12 @@ func readCA(file string) ([]byte, error) {
 }
 
 func (s *Server) installWorkspaceDeletionController(ctx context.Context, config *rest.Config) error {
-	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-workspace-deletion-controller")
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
+	config = kcpclienthelper.NewClusterConfig(rest.AddUserAgent(rest.CopyConfig(config), "kcp-workspace-deletion-controller"))
+	kcpClusterClient, err := kcpclient.NewForConfig(config)
 	if err != nil {
 		return err
 	}
-	metadataClusterClient, err := metadata.NewClusterForConfig(config)
+	metadataClusterClient, err := metadata.NewForConfig(config)
 	if err != nil {
 		return err
 	}
