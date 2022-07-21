@@ -328,19 +328,14 @@ func (s *Server) installWorkspaceDeletionController(ctx context.Context, config 
 }
 
 func (s *Server) installWorkloadResourceScheduler(ctx context.Context, config *rest.Config, ddsif *informer.DynamicDiscoverySharedInformerFactory) error {
-	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-workload-resource-scheduler")
-	kubeClient, err := kubernetes.NewClusterForConfig(config)
-	if err != nil {
-		return err
-	}
-	dynamicClusterClient, err := dynamic.NewClusterForConfig(config)
+	config = kcpclienthelper.NewClusterConfig(rest.AddUserAgent(rest.CopyConfig(config), "kcp-workload-resource-scheduler"))
+	dynamicClusterClient, err := dynamic.NewForConfig(config)
 	if err != nil {
 		return err
 	}
 
 	resourceScheduler, err := workloadresource.NewController(
 		dynamicClusterClient,
-		kubeClient,
 		s.dynamicDiscoverySharedInformerFactory,
 		s.kubeSharedInformerFactory.Core().V1().Namespaces(),
 	)
@@ -774,8 +769,8 @@ func (s *Server) installSchedulingLocationStatusController(ctx context.Context, 
 
 func (s *Server) installDefaultPlacementController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
 	controllerName := "kcp-workload-default-placement"
-	config = rest.AddUserAgent(rest.CopyConfig(config), controllerName)
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
+	config = kcpclienthelper.NewClusterConfig(rest.AddUserAgent(rest.CopyConfig(config), controllerName))
+	kcpClusterClient, err := kcpclient.NewForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -808,19 +803,14 @@ func (s *Server) installDefaultPlacementController(ctx context.Context, config *
 
 func (s *Server) installWorkloadNamespaceScheduler(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
 	controllerName := "kcp-workload-namespace-scheduler"
-	config = rest.AddUserAgent(rest.CopyConfig(config), controllerName)
-	kubeClusterClient, err := kubernetes.NewClusterForConfig(config)
-	if err != nil {
-		return err
-	}
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
+	config = kcpclienthelper.NewClusterConfig(rest.AddUserAgent(rest.CopyConfig(config), controllerName))
+	kubeClusterClient, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return err
 	}
 
 	c, err := workloadnamespace.NewController(
 		kubeClusterClient,
-		kcpClusterClient,
 		s.kubeSharedInformerFactory.Core().V1().Namespaces(),
 		s.kcpSharedInformerFactory.Scheduling().V1alpha1().Locations(),
 		s.kcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
@@ -889,8 +879,8 @@ func (s *Server) installSchedulingPlacementController(ctx context.Context, confi
 
 func (s *Server) installWorkloadsAPIExportController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
 	controllerName := "kcp-workloads-apiexport-controller"
-	config = rest.AddUserAgent(rest.CopyConfig(config), controllerName)
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
+	config = kcpclienthelper.NewClusterConfig(rest.AddUserAgent(rest.CopyConfig(config), controllerName))
+	kcpClusterClient, err := kcpclient.NewForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -924,8 +914,8 @@ func (s *Server) installWorkloadsAPIExportController(ctx context.Context, config
 
 func (s *Server) installWorkloadsAPIExportCreateController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
 	controllerName := "kcp-workloads-apiexport-create-controller"
-	config = rest.AddUserAgent(rest.CopyConfig(config), controllerName)
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
+	config = kcpclienthelper.NewClusterConfig(rest.AddUserAgent(rest.CopyConfig(config), controllerName))
+	kcpClusterClient, err := kcpclient.NewForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -960,8 +950,8 @@ func (s *Server) installWorkloadsAPIExportCreateController(ctx context.Context, 
 
 func (s *Server) installVirtualWorkspaceURLsController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
 	controllerName := "kcp-virtualworkspace-urls-controller"
-	config = rest.AddUserAgent(rest.CopyConfig(config), controllerName)
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
+	config = kcpclienthelper.NewClusterConfig(rest.AddUserAgent(rest.CopyConfig(config), controllerName))
+	kcpClusterClient, err := kcpclient.NewForConfig(config)
 	if err != nil {
 		return err
 	}

@@ -99,8 +99,8 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 	}
 
 	klog.V(2).Infof("Patching %q %s|%s/%s: %s", gvr, lclusterName, ns.Name, obj.GetName(), string(patchBytes))
-	if _, err := c.dynClient.Cluster(lclusterName).Resource(*gvr).Namespace(ns.Name).
-		Patch(ctx, obj.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
+	if _, err := c.dynClusterClient.Resource(*gvr).Namespace(ns.Name).
+		Patch(logicalcluster.WithCluster(ctx, lclusterName), obj.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
 		return err
 	}
 

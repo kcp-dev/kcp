@@ -56,7 +56,7 @@ const (
 
 // NewController returns a new controller instance.
 func NewController(
-	kcpClusterClient kcpclient.ClusterInterface,
+	kcpClusterClient kcpclient.Interface,
 	apiBindingInformer apisinformers.APIBindingInformer,
 	placementInformer schedulinginformers.PlacementInformer,
 ) (*controller, error) {
@@ -104,7 +104,7 @@ func NewController(
 type controller struct {
 	queue workqueue.RateLimitingInterface
 
-	kcpClusterClient kcpclient.ClusterInterface
+	kcpClusterClient kcpclient.Interface
 
 	apiBindingIndexer cache.Indexer
 
@@ -226,7 +226,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		},
 	}
 	klog.V(2).Infof("Creating placement %s|%s", clusterName, DefaultPlacementName)
-	_, err = c.kcpClusterClient.Cluster(clusterName).SchedulingV1alpha1().Placements().Create(ctx, placement, metav1.CreateOptions{})
+	_, err = c.kcpClusterClient.SchedulingV1alpha1().Placements().Create(logicalcluster.WithCluster(ctx, clusterName), placement, metav1.CreateOptions{})
 
 	if err != nil && !apierrors.IsAlreadyExists(err) {
 		klog.Errorf("Failed to create placement %s|%s: %v", clusterName, DefaultPlacementName, err)
@@ -247,6 +247,6 @@ func (c *controller) process(ctx context.Context, key string) error {
 	}
 
 	klog.V(2).Infof("Patching apibinding %s|%s with patch %s", clusterName, workloadBinding.Name, string(patchData))
-	_, err = c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIBindings().Patch(ctx, workloadBinding.Name, types.MergePatchType, patchData, metav1.PatchOptions{})
+	_, err = c.kcpClusterClient.ApisV1alpha1().APIBindings().Patch(logicalcluster.WithCluster(ctx, clusterName), workloadBinding.Name, types.MergePatchType, patchData, metav1.PatchOptions{})
 	return err
 }

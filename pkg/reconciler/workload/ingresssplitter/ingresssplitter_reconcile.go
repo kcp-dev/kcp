@@ -92,7 +92,7 @@ func (c *Controller) reconcileLeaves(ctx context.Context, ingress *networkingv1.
 		leafClusterName := logicalcluster.From(leaf)
 		klog.InfoS("Creating leaf", "ClusterName", leafClusterName, "Namespace", leaf.Namespace, "Name", leaf.Name)
 
-		if _, err := c.client.Cluster(ingressClusterName).NetworkingV1().Ingresses(leaf.Namespace).Create(ctx, leaf, metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
+		if _, err := c.client.NetworkingV1().Ingresses(leaf.Namespace).Create(logicalcluster.WithCluster(ctx, ingressClusterName), leaf, metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
 			// TODO(jmprusi): Surface as user-facing condition.
 			return fmt.Errorf("failed to create leaf: %w", err)
 		}
@@ -103,7 +103,7 @@ func (c *Controller) reconcileLeaves(ctx context.Context, ingress *networkingv1.
 		leafClusterName := logicalcluster.From(leaf)
 		klog.InfoS("Deleting leaf", "ClusterName", leafClusterName, "Namespace", leaf.Namespace, "Name", leaf.Name)
 
-		if err := c.client.Cluster(ingressClusterName).NetworkingV1().Ingresses(leaf.Namespace).Delete(ctx, leaf.Name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		if err := c.client.NetworkingV1().Ingresses(leaf.Namespace).Delete(logicalcluster.WithCluster(ctx, ingressClusterName), leaf.Name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 			// TODO(jmprusi): Surface as user-facing condition.
 			return fmt.Errorf("failed to delete leaf: %w", err)
 		}
@@ -149,7 +149,7 @@ func (c *Controller) reconcileRootStatusFromLeaves(ctx context.Context, ingress 
 
 	// Update the rootIngress status with our desired LB.
 	// TODO(jmprusi): Use patch (safer) instead of update.
-	if _, err := c.client.Cluster(logicalcluster.From(rootIngress)).NetworkingV1().Ingresses(rootIngress.Namespace).UpdateStatus(ctx, rootIngress, metav1.UpdateOptions{}); err != nil {
+	if _, err := c.client.NetworkingV1().Ingresses(rootIngress.Namespace).UpdateStatus(logicalcluster.WithCluster(ctx, logicalcluster.From(rootIngress)), rootIngress, metav1.UpdateOptions{}); err != nil {
 		return fmt.Errorf("failed to update root ingress status: %w", err)
 	}
 
@@ -177,7 +177,7 @@ func (c *Controller) updateLeafs(ctx context.Context, currentLeaves []*networkin
 			klog.InfoS("Updating leaf", "ClusterName", leafClusterName, "Namespace", currentLeaf.Namespace, "Name", currentLeaf.Name)
 			updated := currentLeaf.DeepCopy()
 			updated.Spec = desiredLeaf.Spec
-			if _, err := c.client.Cluster(logicalcluster.From(currentLeaf)).NetworkingV1().Ingresses(currentLeaf.Namespace).Update(ctx, updated, metav1.UpdateOptions{}); err != nil {
+			if _, err := c.client.NetworkingV1().Ingresses(currentLeaf.Namespace).Update(logicalcluster.WithCluster(ctx, logicalcluster.From(currentLeaf)), updated, metav1.UpdateOptions{}); err != nil {
 				// TODO(jmprusi): Update root Ingress condition to reflect the error.
 				return nil, nil, err
 			}
@@ -259,7 +259,7 @@ func (c *Controller) getServices(ctx context.Context, ingress *networkingv1.Ingr
 	for _, rule := range ingress.Spec.Rules {
 		for _, path := range rule.HTTP.Paths {
 			// TODO(jmprusi): Use a service lister
-			svc, err := c.client.Cluster(logicalcluster.From(ingress)).CoreV1().Services(ingress.Namespace).Get(ctx, path.Backend.Service.Name, metav1.GetOptions{})
+			svc, err := c.client.CoreV1().Services(ingress.Namespace).Get(logicalcluster.WithCluster(ctx, logicalcluster.From(ingress)), path.Backend.Service.Name, metav1.GetOptions{})
 			// TODO(jmprusi): If one of the services doesn't exist, we invalidate all the other ones.. review this.
 			if err != nil {
 				return nil, err

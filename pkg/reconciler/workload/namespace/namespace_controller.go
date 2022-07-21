@@ -44,7 +44,6 @@ import (
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	schedulinginformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
 	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
 	schedulinglisters "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
@@ -60,8 +59,7 @@ const (
 // NewController returns a new controller starting the process of placing namespaces onto locations by creating
 // a placement annotation.
 func NewController(
-	kubeClusterClient kubernetesclient.ClusterInterface,
-	kcpClusterClient kcpclient.ClusterInterface,
+	kubeClusterClient kubernetesclient.Interface,
 	namespaceInformer coreinformers.NamespaceInformer,
 	locationInformer schedulinginformers.LocationInformer,
 	syncTargetInformer workloadinformers.SyncTargetInformer,
@@ -77,7 +75,6 @@ func NewController(
 		},
 
 		kubeClusterClient: kubeClusterClient,
-		kcpClusterClient:  kcpClusterClient,
 
 		namespaceLister:  namespaceInformer.Lister(),
 		namespaceIndexer: namespaceInformer.Informer().GetIndexer(),
@@ -194,8 +191,7 @@ type controller struct {
 	queue        workqueue.RateLimitingInterface
 	enqueueAfter func(*corev1.Namespace, time.Duration)
 
-	kubeClusterClient kubernetesclient.ClusterInterface
-	kcpClusterClient  kcpclient.ClusterInterface
+	kubeClusterClient kubernetesclient.Interface
 
 	namespaceLister  corelisters.NamespaceLister
 	namespaceIndexer cache.Indexer
@@ -369,7 +365,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 			return fmt.Errorf("failed to create patch for LocationDomain %s|%s: %w", clusterName, name, err)
 		}
 		klog.V(2).Infof("Patching namespace %s|%s with patch %s", clusterName, obj.Name, string(patchBytes))
-		_, uerr := c.kubeClusterClient.Cluster(clusterName).CoreV1().Namespaces().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+		_, uerr := c.kubeClusterClient.CoreV1().Namespaces().Patch(logicalcluster.WithCluster(ctx, clusterName), obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 		return uerr
 	}
 
@@ -378,5 +374,5 @@ func (c *controller) process(ctx context.Context, key string) error {
 
 func (c *controller) patchNamespace(ctx context.Context, clusterName logicalcluster.Name, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*corev1.Namespace, error) {
 	klog.V(2).Infof("Patching namespace %s|%s with patch %s", clusterName, name, string(data))
-	return c.kubeClusterClient.Cluster(clusterName).CoreV1().Namespaces().Patch(ctx, name, pt, data, opts, subresources...)
+	return c.kubeClusterClient.CoreV1().Namespaces().Patch(logicalcluster.WithCluster(ctx, clusterName), name, pt, data, opts, subresources...)
 }

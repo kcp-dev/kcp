@@ -58,7 +58,7 @@ const (
 
 // NewController returns a new controller instance.
 func NewController(
-	kcpClusterClient kcpclient.ClusterInterface,
+	kcpClusterClient kcpclient.Interface,
 	syncTargetInformer workloadinformers.SyncTargetInformer,
 	apiExportInformer apisinformers.APIExportInformer,
 	apiBindingInformer apisinformers.APIBindingInformer,
@@ -145,7 +145,7 @@ type controller struct {
 	queue        workqueue.RateLimitingInterface
 	enqueueAfter func(*apisv1alpha1.APIExport, time.Duration)
 
-	kcpClusterClient kcpclient.ClusterInterface
+	kcpClusterClient kcpclient.Interface
 
 	syncTargetLister  workloadlisters.SyncTargetLister
 	syncTargetIndexer cache.Indexer
@@ -243,7 +243,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 			},
 			Spec: apisv1alpha1.APIExportSpec{},
 		}
-		export, err = c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIExports().Create(ctx, export, metav1.CreateOptions{})
+		export, err = c.kcpClusterClient.ApisV1alpha1().APIExports().Create(logicalcluster.WithCluster(ctx, clusterName), export, metav1.CreateOptions{})
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			klog.Errorf("Failed to create export %s|%s: %v", clusterName, reconcilerapiexport.TemporaryComputeServiceExportName, err)
 			return err
@@ -273,7 +273,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 				InstanceSelector: &metav1.LabelSelector{},
 			},
 		}
-		_, err = c.kcpClusterClient.Cluster(clusterName).SchedulingV1alpha1().Locations().Create(ctx, location, metav1.CreateOptions{})
+		_, err = c.kcpClusterClient.SchedulingV1alpha1().Locations().Create(logicalcluster.WithCluster(ctx, clusterName), location, metav1.CreateOptions{})
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			klog.Errorf("Failed to create location %s|%s: %v", clusterName, DefaultLocationName, err)
 			return err
@@ -315,7 +315,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		},
 	}
 	klog.V(2).Infof("Creating APIBinding %s|%s", clusterName, reconcilerapiexport.TemporaryComputeServiceExportName)
-	_, err = c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
+	_, err = c.kcpClusterClient.ApisV1alpha1().APIBindings().Create(logicalcluster.WithCluster(ctx, clusterName), binding, metav1.CreateOptions{})
 
 	if err != nil && !apierrors.IsAlreadyExists(err) {
 		klog.Errorf("Failed to create apibinding %s|%s: %v", clusterName, reconcilerapiexport.TemporaryComputeServiceExportName, err)
@@ -336,6 +336,6 @@ func (c *controller) process(ctx context.Context, key string) error {
 	}
 
 	klog.V(2).Infof("Patching apiexport %s|%s with patch %s", clusterName, export.Name, string(patchData))
-	_, err = c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIExports().Patch(ctx, export.Name, types.MergePatchType, patchData, metav1.PatchOptions{})
+	_, err = c.kcpClusterClient.ApisV1alpha1().APIExports().Patch(logicalcluster.WithCluster(ctx, clusterName), export.Name, types.MergePatchType, patchData, metav1.PatchOptions{})
 	return err
 }
