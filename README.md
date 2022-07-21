@@ -174,7 +174,15 @@ kubectl api-resources
 
 Check out our [Contributing](CONTRIBUTING.md) and [Developer](docs/developers) guides.
 
-## Using Workspaces
+## Workspaces
+
+Each workspace delivers to its users and clients the behavior of a
+distinct Kubernetes API service --- that is, the service provided by
+the kube-apiservers of a Kubernetes cluster.  Each workspace has its
+own namespaces and CRDs, for example.  Workspaces are implemented by
+logical clusters and are the user interface to them.  It is intended
+that users, and clients that need such awareness, deal with workspaces
+rather than directly with logical clusters.
 
 The workspaces are arranged in a tree, like directories in a
 filesystem.  The root is known as `root`.  Pathnames use colon (`:`)
