@@ -29,9 +29,11 @@ The APIs used for Compute as a Service are:
   Locations are visible to users, but owned by the compute service team, i.e. read-only to the users and only projected
   into their workspaces for visibility. A placement decision references a location by name.
 
-  `SyncTarget`s in a `Location` are transparent to the user. Workload should be able to seamless move from one `SyncTarget` to another
-  within a `Location`. It is compute service's responsibility to ensure kube conformance for workloads in a location in the sense 
-  that for the user it looks like ONE cluster.
+  `SyncTarget`s in a `Location` are transparent to the user. Workloads should be able to seamlessly move from one `SyncTarget` to another
+  within a `Location`, based on operational concerns of the compute service provider, like decommissioning a cluster, rebalancing
+  capacity, or due to an outage of a cluster.
+  
+  It is compute service's responsibility to ensure that for workloads in a location, to the user it looks like ONE cluster.
 
 - `Placement` in `scheduling.kcp.dev/v1alpha1` – represents a selection rule to choose ONE `Location` via location labels, and bind
   the selected location to MULTIPLE namespaces in a user workspace. For Workspaces with multiple Namespaces, users can create multiple 
