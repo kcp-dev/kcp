@@ -205,8 +205,8 @@ Following is a description of the path to my home workspace.
 | root:users:zu:yc:kcp-admin | home |
 
 The ordinary type of workspace for regular users to use is
-`universal`.  It allows any type of parent, and `home` allows
-`universal` children.
+`universal`.  It allows any type of parent, and both `home`
+and `universal` allow `universal` children.
 
 There are also types named `organization` (whose parent must be
 `root`) and `team` (whose parent must be an `organization`).
