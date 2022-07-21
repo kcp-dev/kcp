@@ -31,6 +31,9 @@ import (
 // RootCluster is the root of ClusterWorkspace based logical clusters.
 var RootCluster = logicalcluster.New("root")
 
+// RootShard holds a name of the root shard.
+var RootShard = "root"
+
 // ClusterWorkspace defines a Kubernetes-cluster-like endpoint that holds a default set
 // of resources and exhibits standard Kubernetes API semantics of CRUD operations. It represents
 // the full life-cycle of the persisted data in this workspace in a KCP installation.
