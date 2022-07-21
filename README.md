@@ -218,8 +218,8 @@ Thus, `kubectl ws` is the same as `kubectl kcp workspace`.
 
 This CLI offers navigation similar to Unix/Linux `cd`, state query
 similar to `pwd`, and creation similar to `mkdir`.  Use `kubectl kcp
-ws --help` to get details.  You can also use `kubectl get` to list
-children and `kubectl delete` to `rmdir`.
+ws --help` to get details.  You can also use `kubectl get workspaces` to list
+children and `kubectl delete workspace` to `rmdir`.
 
 ## Using VSCode
 
