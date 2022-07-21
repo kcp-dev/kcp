@@ -67,7 +67,7 @@ TODO: explaining the concept and related virtual existence and automatic creatio
 The following cluster workspace types are created internally to support User Home Workspaces:
 
 * `Homeroot`: the workspace that will contain all the Home workspaces, spread accross buckets. - Can contain only Homebucket workspaces
-* `Homebucket`: the type of workspaces that will contains a subset of all home workspaces. - Can contain either Homebucket (multi-level bucketing) or Home workspaces
+* `Homebucket`: the type of workspaces that will contain a subset of all home workspaces. - Can contain either Homebucket (multi-level bucketing) or Home workspaces
 * `Home`: the ClusterWorkspace of home workspaces - can contain any type of workspaces as children (especially universal workspaces)
 
 ## Organization Workspaces
