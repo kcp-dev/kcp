@@ -62,7 +62,11 @@ objects, e.g. like CRDs where each workspace can have its own set of CRDs instal
 
 ## User Home Workspaces
 
-TODO: explaining the concept and related virtual existence and automatic creation 
+User home workspaces are an optional feature of kcp. If enabled (through `--enable-home-workspaces`), there is a special virtual `Workspace` called `~` in the root workspace. It is used by `kubectl ws` (which similarly to Unix `cd` move the users to their home) to derive the full path to the user home workspace. This full path depends on the user name, the configured number (default 2), the length (default 2) of bucket workspaces and the root prefix (default `root:users`). With that a user `adam` is mapped to e.g. `root:users:a8:f1:adam`. The bucket names are deterministically derived from the user name (via some hash).
+
+The user home workspace, if enabled, is logically pre-existing for every user, i.e. the user is given that impression. In reality, the home workspace is created on-demand on access, but this creation is not visible from outside.
+
+Only users of the configured home-creator-groups (default `system:authenticated`) will have a home workspace.
 
 The following cluster workspace types are created internally to support User Home Workspaces:
 
