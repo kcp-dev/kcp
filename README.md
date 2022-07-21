@@ -174,6 +174,53 @@ kubectl api-resources
 
 Check out our [Contributing](CONTRIBUTING.md) and [Developer](docs/developers) guides.
 
+## Using Workspaces
+
+The workspaces are arranged in a tree, like directories in a
+filesystem.  The root is known as `root`.  Pathnames use colon (`:`)
+as the separator, rather than the forward or backward slash commonly
+found in filesystems.  An absolute pathname is one that starts with
+`root`.  For example: when I started kcp and went to my home
+directory, I found its absolute pathname to be
+`root:users:zu:yc:kcp-admin`.
+
+There are a few different types of workspace built into the kcp
+binary, and developers can add more workspace types by creating API
+objects of type `ClusterWorkspaceType` in the root workspace.  You can
+see the list of available types by doing `kubectl get
+ClusterWorkspaceType` in the root workspace.
+
+Only certain pairings of parent and child workspace type are allowed.
+Each type of workspace may limit the types of parents and/or the
+types of children that are allowed.
+
+Following is a description of the path to my home workspace.
+
+| pathname | type |
+| -------- | ---- |
+| root | root |
+| root:users | homeroot |
+| root:users:zu | homebucket |
+| root:users:zu:yc | homebucket |
+| root:users:zu:yc:kcp-admin | home |
+
+The ordinary type of workspace for regular users to use is
+`universal`.  It allows any type of parent, and both `home`
+and `universal` allow `universal` children.
+
+There are also types named `organization` (whose parent must be
+`root`) and `team` (whose parent must be an `organization`).
+
+The CLI to workspaces is `kubectl kcp workspace`.  You can abbreviate
+`workspace` as `ws`.  You can skip the `kcp` part, because `make
+install` also installs `kubectl` plugins named `ws` and `workspace`.
+Thus, `kubectl ws` is the same as `kubectl kcp workspace`.
+
+This CLI offers navigation similar to Unix/Linux `cd`, state query
+similar to `pwd`, and creation similar to `mkdir`.  Use `kubectl kcp
+ws --help` to get details.  You can also use `kubectl get workspaces` to list
+children and `kubectl delete workspace` to `rmdir`.
+
 ## Using VSCode
 
 A pre-configured VSCode workspace is available in `contrib/kcp.code-workspace`. You can use the `Launch kcp` configuration
