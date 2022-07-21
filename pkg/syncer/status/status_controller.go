@@ -50,12 +50,12 @@ type Controller struct {
 	downstreamNamespaceLister              cache.GenericLister
 
 	syncTargetName            string
-	syncTargetClusterName     logicalcluster.Name
+	syncTargetWorkspace       logicalcluster.Name
 	syncTargetUID             types.UID
 	advancedSchedulingEnabled bool
 }
 
-func NewStatusSyncer(gvrs []schema.GroupVersionResource, syncTargetClusterName logicalcluster.Name, syncTargetName string, advancedSchedulingEnabled bool,
+func NewStatusSyncer(gvrs []schema.GroupVersionResource, syncTargetWorkspace logicalcluster.Name, syncTargetName string, advancedSchedulingEnabled bool,
 	upstreamClient dynamic.ClusterInterface, downstreamClient dynamic.Interface, upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory, syncTargetUID types.UID) (*Controller, error) {
 
 	c := &Controller{
@@ -68,7 +68,7 @@ func NewStatusSyncer(gvrs []schema.GroupVersionResource, syncTargetClusterName l
 		downstreamNamespaceLister: downstreamInformers.ForResource(schema.GroupVersionResource{Version: "v1", Resource: "namespaces"}).Lister(),
 
 		syncTargetName:            syncTargetName,
-		syncTargetClusterName:     syncTargetClusterName,
+		syncTargetWorkspace:       syncTargetWorkspace,
 		syncTargetUID:             syncTargetUID,
 		advancedSchedulingEnabled: advancedSchedulingEnabled,
 	}
@@ -92,7 +92,7 @@ func NewStatusSyncer(gvrs []schema.GroupVersionResource, syncTargetClusterName l
 				c.AddToQueue(gvr, obj)
 			},
 		})
-		klog.InfoS("Set up informer", "clusterName", syncTargetClusterName, "pcluster", syncTargetName, "gvr", gvr.String())
+		klog.InfoS("Set up informer", "SyncTarget Workspace", syncTargetWorkspace, "SyncTarget Name", syncTargetName, "gvr", gvr.String())
 	}
 
 	return c, nil

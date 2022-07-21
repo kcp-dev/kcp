@@ -79,17 +79,17 @@ func Run(options *synceroptions.Options, ctx context.Context) error {
 	kcpConfigOverrides := &clientcmd.ConfigOverrides{
 		CurrentContext: options.FromContext,
 	}
-	kcpConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+	upstreamConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		&clientcmd.ClientConfigLoadingRules{ExplicitPath: options.FromKubeconfig},
 		kcpConfigOverrides).ClientConfig()
 	if err != nil {
 		return err
 	}
 
-	kcpConfig.QPS = options.QPS
-	kcpConfig.Burst = options.Burst
+	upstreamConfig.QPS = options.QPS
+	upstreamConfig.Burst = options.Burst
 
-	toConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+	downstreamConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		&clientcmd.ClientConfigLoadingRules{ExplicitPath: options.ToKubeconfig},
 		&clientcmd.ConfigOverrides{
 			CurrentContext: options.ToContext,
@@ -98,17 +98,17 @@ func Run(options *synceroptions.Options, ctx context.Context) error {
 		return err
 	}
 
-	toConfig.QPS = options.QPS
-	toConfig.Burst = options.Burst
+	downstreamConfig.QPS = options.QPS
+	downstreamConfig.Burst = options.Burst
 
 	if err := syncer.StartSyncer(
 		ctx,
 		&syncer.SyncerConfig{
-			UpstreamConfig:   kcpConfig,
-			DownstreamConfig: toConfig,
-			ResourcesToSync:  sets.NewString(options.SyncedResourceTypes...),
-			KCPClusterName:   logicalcluster.New(options.FromClusterName),
-			SyncTargetName:   options.PclusterID,
+			UpstreamConfig:      upstreamConfig,
+			DownstreamConfig:    downstreamConfig,
+			ResourcesToSync:     sets.NewString(options.SyncedResourceTypes...),
+			SyncTargetWorkspace: logicalcluster.New(options.FromClusterName),
+			SyncTargetName:      options.SyncTargetName,
 		},
 		numThreads,
 		options.APIImportPollInterval,

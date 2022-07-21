@@ -81,7 +81,7 @@ func TestIngressController(t *testing.T) {
 				require.NoError(t, err, "failed to create ingress")
 
 				rootIngressLogicalCluster := logicalcluster.From(rootIngress)
-				nsLocator := shared.NewNamespaceLocator(rootIngressLogicalCluster, syncerFixture.SyncerConfig.KCPClusterName, types.UID("syncTargetUID"), syncerFixture.SyncerConfig.SyncTargetName, rootIngress.Namespace)
+				nsLocator := shared.NewNamespaceLocator(rootIngressLogicalCluster, syncerFixture.SyncerConfig.SyncTargetWorkspace, types.UID("syncTargetUID"), syncerFixture.SyncerConfig.SyncTargetName, rootIngress.Namespace)
 				targetNamespace, err := shared.PhysicalClusterNamespaceName(nsLocator) // nolint: staticcheck
 				require.NoError(t, err, "error determining namespace mapping for %v", nsLocator)
 

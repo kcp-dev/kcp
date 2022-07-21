@@ -115,8 +115,7 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	clusterName, name := clusters.SplitClusterAwareKey(clusterAwareName)
 
 	namespaceGvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
-
-	desiredNSLocator := shared.NewNamespaceLocator(clusterName, c.syncTargetClusterName, c.syncTargetUID, c.syncTargetName, upstreamNamespace)
+	desiredNSLocator := shared.NewNamespaceLocator(clusterName, c.syncTargetWorkspace, c.syncTargetUID, c.syncTargetName, upstreamNamespace)
 	jsonNSLocator, err := json.Marshal(desiredNSLocator)
 	if err != nil {
 		return err
@@ -127,7 +126,7 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	}
 	if len(downstreamNamespaces) == 0 {
 		// case for up to v0.6.0 where we used syncTarget.path in namespace locators
-		desiredNSLocator := shared.NewNamespaceLocatorV060(clusterName, c.syncTargetClusterName, c.syncTargetUID, c.syncTargetName, upstreamNamespace)
+		desiredNSLocator := shared.NewNamespaceLocatorV060(clusterName, c.syncTargetWorkspace, c.syncTargetUID, c.syncTargetName, upstreamNamespace)
 		jsonNSLocator, err := json.Marshal(desiredNSLocator)
 		if err != nil {
 			return err
@@ -199,7 +198,7 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 	// TODO: if the downstream namespace loses these annotations/labels after creation,
 	// we don't have anything in place currently that will put them back.
 	upstreamLogicalCluster := logicalcluster.From(upstreamObj)
-	desiredNSLocator := shared.NewNamespaceLocator(upstreamLogicalCluster, c.syncTargetClusterName, c.syncTargetUID, c.syncTargetName, upstreamObj.GetNamespace())
+	desiredNSLocator := shared.NewNamespaceLocator(upstreamLogicalCluster, c.syncTargetWorkspace, c.syncTargetUID, c.syncTargetName, upstreamObj.GetNamespace())
 	b, err := json.Marshal(desiredNSLocator)
 	if err != nil {
 		return err

@@ -569,7 +569,7 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 				return
 			}
 
-			t.Logf("Deleting syncer resources for logical cluster %q, sync target %q", syncerConfig.KCPClusterName, syncerConfig.SyncTargetName)
+			t.Logf("Deleting syncer resources for logical cluster %q, sync target %q", sf.WorkspaceClusterName, syncerConfig.SyncTargetName)
 			err = downstreamKubeClient.CoreV1().Namespaces().Delete(ctx, syncerID, metav1.DeleteOptions{})
 			if err != nil {
 				t.Errorf("failed to delete Namespace %q: %v", syncerID, err)
@@ -583,7 +583,7 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 				t.Errorf("failed to delete ClusterRole %q: %v", syncerID, err)
 			}
 
-			t.Logf("Deleting synced resources for logical cluster %q, sync target %q", syncerConfig.KCPClusterName, syncerConfig.SyncTargetName)
+			t.Logf("Deleting synced resources for logical cluster %q, sync target %q", sf.WorkspaceClusterName, syncerConfig.SyncTargetName)
 			namespaces, err := downstreamKubeClient.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 			if err != nil {
 				t.Errorf("failed to list namespaces: %v", err)
@@ -598,7 +598,7 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 					// Not a kcp-synced namespace
 					continue
 				}
-				if locator.Workspace.String() != syncerConfig.KCPClusterName.String() {
+				if locator.Workspace.String() != syncerConfig.SyncTargetWorkspace.String() {
 					// Not a namespace synced by this syncer
 					continue
 				}
@@ -645,7 +645,7 @@ func (sf *StartedSyncerFixture) WaitForClusterReadyReason(t *testing.T, ctx cont
 	t.Logf("Waiting for cluster %q condition %q to have reason %q", cfg.SyncTargetName, conditionsapi.ReadyCondition, reason)
 	kcpClusterClient, err := kcpclient.NewClusterForConfig(cfg.UpstreamConfig)
 	require.NoError(t, err)
-	kcpClient := kcpClusterClient.Cluster(cfg.KCPClusterName)
+	kcpClient := kcpClusterClient.Cluster(cfg.SyncTargetWorkspace)
 	Eventually(t, func() (bool, string) {
 		cluster, err := kcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx, cfg.SyncTargetName, metav1.GetOptions{})
 		require.NoError(t, err)
@@ -741,11 +741,11 @@ func syncerConfigFromCluster(t *testing.T, config *rest.Config, namespace, synce
 	// Compose a new downstream config that uses the token
 	downstreamConfig := ConfigWithToken(string(token), rest.CopyConfig(config))
 	return &syncer.SyncerConfig{
-		UpstreamConfig:   upstreamConfig,
-		DownstreamConfig: downstreamConfig,
-		ResourcesToSync:  sets.NewString(resourcesToSync...),
-		KCPClusterName:   kcpClusterName,
-		SyncTargetName:   syncTargetName,
+		UpstreamConfig:      upstreamConfig,
+		DownstreamConfig:    downstreamConfig,
+		ResourcesToSync:     sets.NewString(resourcesToSync...),
+		SyncTargetWorkspace: kcpClusterName,
+		SyncTargetName:      syncTargetName,
 	}
 }
 
