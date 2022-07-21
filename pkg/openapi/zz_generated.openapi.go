@@ -3468,35 +3468,12 @@ func schema_pkg_apis_workload_v1alpha1_ResourceToSync(ref common.ReferenceCallba
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"group": {
+					"version": {
 						SchemaProps: spec.SchemaProps{
-							Description: "group is the group of the API. Empty string for the core API group.",
+							Description: "Versions is the version of the resource.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
-						},
-					},
-					"resource": {
-						SchemaProps: spec.SchemaProps{
-							Description: "resource is the resource of the API.\n\nkubebuilder:validation:MinLength=1",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"versions": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Versions is the versions of the resource.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
 						},
 					},
 					"identityHash": {
@@ -3509,14 +3486,13 @@ func schema_pkg_apis_workload_v1alpha1_ResourceToSync(ref common.ReferenceCallba
 					},
 					"state": {
 						SchemaProps: spec.SchemaProps{
-							Description: "State indicate whether the resources schema is compatible to the SyncTarget.",
-							Default:     "",
+							Description: "State indicate whether the resources schema is compatible to the SyncTarget. It must be updated by syncer after checking the API compaibility on SyncTarget.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 				},
-				Required: []string{"group", "resource", "state"},
+				Required: []string{"version"},
 			},
 		},
 	}
@@ -3716,7 +3692,8 @@ func schema_pkg_apis_workload_v1alpha1_SyncTargetStatus(ref common.ReferenceCall
 					},
 					"syncedResources": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "SyncedResources represents the resources that the syncer of the SyncTarget can sync. It MUST be updated by kcp server.",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{

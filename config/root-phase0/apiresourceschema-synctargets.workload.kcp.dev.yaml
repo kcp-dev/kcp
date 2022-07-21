@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v220720-54c06648.synctargets.workload.kcp.dev
+  name: v220721-ffb163a4.synctargets.workload.kcp.dev
 spec:
   group: workload.kcp.dev
   names:
@@ -165,11 +165,14 @@ spec:
               format: date-time
               type: string
             syncedResources:
+              description: SyncedResources represents the resources that the syncer
+                of the SyncTarget can sync. It MUST be updated by kcp server.
               items:
                 properties:
                   group:
-                    description: group is the group of the API. Empty string for the
-                      core API group.
+                    description: group is the name of an API group. For core groups
+                      this is the empty string '""'.
+                    pattern: ^(|[a-z0-9]([-a-z0-9]*[a-z0-9](\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)?)$
                     type: string
                   identityHash:
                     description: IdentityHash is the identity for a given APIExport
@@ -178,25 +181,28 @@ spec:
                       for core types.
                     type: string
                   resource:
-                    description: "resource is the resource of the API. \n kubebuilder:validation:MinLength=1"
+                    description: 'resource is the name of the resource. Note: it is
+                      worth noting that you can not ask for permissions for resource
+                      provided by a CRD not provided by an api export.'
+                    pattern: ^[a-z][-a-z0-9]*[a-z0-9]$
                     type: string
                   state:
+                    default: Pending
                     description: State indicate whether the resources schema is compatible
-                      to the SyncTarget.
+                      to the SyncTarget. It must be updated by syncer after checking
+                      the API compaibility on SyncTarget.
                     enum:
                     - Pending
                     - Accepted
                     - Incompatible
                     type: string
-                  versions:
-                    description: Versions is the versions of the resource.
-                    items:
-                      type: string
-                    type: array
+                  version:
+                    description: Versions is the version of the resource.
+                    pattern: ^[a-z][-a-z0-9]*[a-z0-9]$
+                    type: string
                 required:
-                - group
                 - resource
-                - state
+                - version
                 type: object
               type: array
             virtualWorkspaces:

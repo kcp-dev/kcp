@@ -89,6 +89,8 @@ type SyncTargetStatus struct {
 	// +optional
 	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 
+	// SyncedResources represents the resources that the syncer of the SyncTarget can sync. It MUST be
+	// updated by kcp server.
 	// +optional
 	SyncedResources []ResourceToSync `json:"syncedResources,omitempty"`
 
@@ -102,20 +104,14 @@ type SyncTargetStatus struct {
 }
 
 type ResourceToSync struct {
-	// group is the group of the API. Empty string for the core API group.
-	//
-	// +required
-	Group string `json:"group"`
+	apisv1alpha1.GroupResource `json:","`
 
-	// resource is the resource of the API.
-	//
-	// kubebuilder:validation:MinLength=1
+	// Versions is the version of the resource.
+	// +kubebuilder:validation:Pattern=`^[a-z][-a-z0-9]*[a-z0-9]$`
+	// +kubebuilder:validation:MinLength:1
 	// +required
-	Resource string `json:"resource"`
-
-	// Versions is the versions of the resource.
-	// +optional
-	Versions []string `json:"versions"`
+	// +kubebuilder:Required
+	Version string `json:"version"`
 
 	// IdentityHash is the identity for a given APIExport that the APIResourceSchema belongs to.
 	// The hash can be found on APIExport and APIResourceSchema's status.
@@ -123,9 +119,12 @@ type ResourceToSync struct {
 	// +optional
 	IdentityHash string `json:"identityHash"`
 
-	// State indicate whether the resources schema is compatible to the SyncTarget.
+	// State indicate whether the resources schema is compatible to the SyncTarget. It must be updated
+	// by syncer after checking the API compaibility on SyncTarget.
 	// +kubebuilder:validation:Enum=Pending;Accepted;Incompatible
-	State ResourceCompatibleState `json:"state"`
+	// +kubebuilder:default=Pending
+	// +optional
+	State ResourceCompatibleState `json:"state,omitempty"`
 }
 
 type ResourceCompatibleState string
