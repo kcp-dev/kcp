@@ -287,7 +287,7 @@ func readCA(file string) ([]byte, error) {
 	return rootCA, err
 }
 
-func (s *Server) installWorkspaceDeletionController(ctx context.Context, config *rest.Config) error {
+func (s *Server) installWorkspaceDeletionController(ctx context.Context, config *rest.Config, ddsif *informer.DynamicDiscoverySharedInformerFactory) error {
 	config = rest.AddUserAgent(rest.CopyConfig(config), "kcp-workspace-deletion-controller")
 	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
 	if err != nil {
@@ -312,6 +312,7 @@ func (s *Server) installWorkspaceDeletionController(ctx context.Context, config 
 		metadataClusterClient,
 		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
 		discoverResourcesFn,
+		ddsif,
 	)
 
 	s.AddPostStartHook("kcp-workspace-deletion-controller", func(hookContext genericapiserver.PostStartHookContext) error {
