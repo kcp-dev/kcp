@@ -71,6 +71,10 @@ LDFLAGS := \
 all: build
 .PHONY: all
 
+.PHONY: require-%
+require-%:
+	@if ! command -v $* 1> /dev/null 2>&1; then echo "$* not found in \$$PATH"; exit 1; fi
+
 pre-build-checks:
 ifeq ($(and $(KUBE_MAJOR_VERSION),$(KUBE_MINOR_VERSION)),)
 	$(info Kubernetes version not set. Ensure jq is installed.)
@@ -209,7 +213,7 @@ test-e2e-sharded: LOG_DIR ?= $(ARTIFACT_DIR)/kcp
 else
 test-e2e-sharded: LOG_DIR ?= .kcp
 endif
-test-e2e-sharded: build-all
+test-e2e-sharded: require-kind require-ko build-all
 	kind get kubeconfig > "$(PWD)/kind.kubeconfig"
 	mkdir -p $(LOG_DIR)
 	SYNCER_IMAGE=$$(KO_DOCKER_REPO=kind.local ko build --platform=linux/$(ARCH) ./cmd/syncer) && test -n "$${SYNCER_IMAGE}" && \
