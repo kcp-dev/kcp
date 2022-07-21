@@ -593,6 +593,8 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 		s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
 		s.kcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
 		s.kcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
+		s.temporaryRootShardKcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+		s.temporaryRootShardKcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
 		s.apiextensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
 	)
 	if err != nil {
