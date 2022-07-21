@@ -622,7 +622,7 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 
 	// The sync target becoming ready indicates the syncer is healthy and has
 	// successfully sent a heartbeat to kcp.
-	startedSyncer.WaitForClusterReadyReason(t, ctx, "")
+	startedSyncer.WaitForClusterReady(t, ctx)
 
 	return startedSyncer
 }
@@ -638,33 +638,17 @@ type StartedSyncerFixture struct {
 	DownstreamKubeClient kubernetes.Interface
 }
 
-// WaitForClusterReadyReason waits for the cluster to be ready with the given reason.
-func (sf *StartedSyncerFixture) WaitForClusterReadyReason(t *testing.T, ctx context.Context, reason string) {
+// WaitForClusterReady waits for the cluster to be ready with the given reason.
+func (sf *StartedSyncerFixture) WaitForClusterReady(t *testing.T, ctx context.Context) {
 	cfg := sf.SyncerConfig
 
-	t.Logf("Waiting for cluster %q condition %q to have reason %q", cfg.SyncTargetName, conditionsapi.ReadyCondition, reason)
 	kcpClusterClient, err := kcpclient.NewClusterForConfig(cfg.UpstreamConfig)
 	require.NoError(t, err)
 	kcpClient := kcpClusterClient.Cluster(cfg.SyncTargetWorkspace)
-	Eventually(t, func() (bool, string) {
-		cluster, err := kcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx, cfg.SyncTargetName, metav1.GetOptions{})
-		require.NoError(t, err)
-
-		// A reason is only supplied to indicate why a cluster is 'not ready'
-		wantReady := len(reason) == 0
-		if wantReady {
-			return conditions.IsTrue(cluster, conditionsapi.ReadyCondition), toYaml(t, cluster)
-		} else {
-			conditionReason := conditions.GetReason(cluster, conditionsapi.ReadyCondition)
-			return conditions.IsFalse(cluster, conditionsapi.ReadyCondition) && reason == conditionReason, toYaml(t, cluster)
-		}
-
-	}, wait.ForeverTestTimeout, time.Millisecond*100)
-	if len(reason) == 0 {
-		t.Logf("Cluster %q is %s", cfg.SyncTargetName, conditionsapi.ReadyCondition)
-	} else {
-		t.Logf("Cluster %q condition %s has reason %q", conditionsapi.ReadyCondition, cfg.SyncTargetName, reason)
-	}
+	EventuallyReady(t, func() (conditions.Getter, error) {
+		return kcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx, cfg.SyncTargetName, metav1.GetOptions{})
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "Waiting for cluster %q condition %q", cfg.SyncTargetName, conditionsapi.ReadyCondition)
+	t.Logf("Cluster %q is %s", cfg.SyncTargetName, conditionsapi.ReadyCondition)
 }
 
 // WriteLogicalClusterConfig creates a logical cluster config for the given config and
