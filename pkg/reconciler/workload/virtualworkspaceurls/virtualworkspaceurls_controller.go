@@ -24,6 +24,7 @@ import (
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,16 +38,16 @@ import (
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	workspaceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
-	v1alpha12 "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	workspaceinformer "github.com/kcp-dev/kcp/pkg/clusterclient/informers/externalversions/tenancy/v1alpha1"
+	workloadinformer "github.com/kcp-dev/kcp/pkg/clusterclient/informers/externalversions/workload/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/clusterclient/listers/tenancy/v1alpha1"
 )
 
 const controllerName = "kcp-synctarget-controller"
 
 func NewController(
 	kcpClusterClient kcpclient.ClusterInterface,
-	syncTargetInformer v1alpha1.SyncTargetInformer,
+	syncTargetInformer workloadinformer.SyncTargetInformer,
 	workspaceShardInformer workspaceinformer.ClusterWorkspaceShardInformer,
 ) *Controller {
 
@@ -78,12 +79,12 @@ type Controller struct {
 	queue            workqueue.RateLimitingInterface
 	kcpClusterClient kcpclient.ClusterInterface
 
-	workspaceShardLister v1alpha12.ClusterWorkspaceShardLister
+	workspaceShardLister tenancyv1alpha1.ClusterWorkspaceShardClusterLister
 	syncTargetIndexer    cache.Indexer
 }
 
 func (c *Controller) enqueueSyncTarget(obj interface{}) {
-	key, err := cache.MetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.ClusterAwareKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -94,7 +95,7 @@ func (c *Controller) enqueueSyncTarget(obj interface{}) {
 // On workspaceShard changes, enqueue all the syncTargets.
 func (c *Controller) enqueueWorkspaceShard(obj interface{}) {
 	for _, syncTarget := range c.syncTargetIndexer.List() {
-		key, err := cache.MetaNamespaceKeyFunc(syncTarget)
+		key, err := kcpcache.ClusterAwareKeyFunc(syncTarget)
 		if err != nil {
 			runtime.HandleError(err)
 			return

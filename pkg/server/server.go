@@ -56,6 +56,7 @@ import (
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	kcpclusterexternalversions "github.com/kcp-dev/kcp/pkg/clusterclient/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/etcd"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/indexers"
@@ -93,6 +94,7 @@ type Server struct {
 	syncedCh chan struct{}
 
 	kcpSharedInformerFactory              kcpexternalversions.SharedInformerFactory
+	kcpClusterSharedInformerFactory       kcpclusterexternalversions.SharedInformerFactory
 	kubeSharedInformerFactory             coreexternalversions.SharedInformerFactory
 	apiextensionsSharedInformerFactory    apiextensionsexternalversions.SharedInformerFactory
 	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory
@@ -180,6 +182,10 @@ func (s *Server) Run(ctx context.Context) error {
 		resyncPeriod,
 		kcpexternalversions.WithExtraClusterScopedIndexers(indexers.ClusterScoped()),
 		kcpexternalversions.WithExtraNamespaceScopedIndexers(indexers.NamespaceScoped()),
+	)
+	s.kcpClusterSharedInformerFactory = kcpclusterexternalversions.NewSharedInformerFactoryWithOptions(
+		kcpClient,
+		resyncPeriod,
 	)
 
 	// Setup kube * informers
@@ -321,10 +327,13 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer().AddIndexers(cache.Indexers{byWorkspace: indexByWorkspace})                                               // nolint: errcheck
+	s.kcpClusterSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer().AddIndexers(cache.Indexers{byWorkspace: indexByWorkspace})                                        // nolint: errcheck
 	s.apiextensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().GetIndexer().AddIndexers(cache.Indexers{byWorkspace: indexByWorkspace})                    // nolint: errcheck
 	s.apiextensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().GetIndexer().AddIndexers(cache.Indexers{byGroupResourceName: indexCRDByGroupResourceName}) // nolint: errcheck
 	s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer().AddIndexers(cache.Indexers{byWorkspace: indexByWorkspace})                                               // nolint: errcheck
+	s.kcpClusterSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer().AddIndexers(cache.Indexers{byWorkspace: indexByWorkspace})                                        // nolint: errcheck
 	s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer().AddIndexers(cache.Indexers{byIdentityGroupResource: indexAPIBindingByIdentityGroupResource})             // nolint: errcheck
+	s.kcpClusterSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer().AddIndexers(cache.Indexers{byIdentityGroupResource: indexAPIBindingByIdentityGroupResource})      // nolint: errcheck
 
 	apiBindingAwareCRDLister := &apiBindingAwareCRDLister{
 		kcpClusterClient:  kcpClusterClient,
@@ -404,11 +413,15 @@ func (s *Server) Run(ctx context.Context) error {
 
 		go s.kcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().Run(ctx.StopCh)
 		go s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().Run(ctx.StopCh)
+		go s.kcpClusterSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().Run(ctx.StopCh)
+		go s.kcpClusterSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().Run(ctx.StopCh)
 
 		if err := wait.PollInfiniteWithContext(goContext(ctx), time.Millisecond*100, func(ctx context.Context) (bool, error) {
 			exportsSynced := s.kcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
 			bindingsSynced := s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced()
-			return exportsSynced && bindingsSynced, nil
+			clusterExportsSynced := s.kcpClusterSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
+			clusterBindingsSynced := s.kcpClusterSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced()
+			return exportsSynced && clusterExportsSynced && bindingsSynced && clusterBindingsSynced, nil
 		}); err != nil {
 			klog.Errorf("failed to start APIExport and/or APIBinding informers: %v", err)
 			// nolint:nilerr
@@ -446,9 +459,11 @@ func (s *Server) Run(ctx context.Context) error {
 		klog.Infof("Finished getting kcp APIExport identities")
 
 		s.kcpSharedInformerFactory.Start(ctx.StopCh)
+		s.kcpClusterSharedInformerFactory.Start(ctx.StopCh)
 		s.rootKcpSharedInformerFactory.Start(ctx.StopCh)
 
 		s.kcpSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
+		s.kcpClusterSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
 		s.rootKcpSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
 
 		select {
