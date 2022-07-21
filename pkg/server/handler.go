@@ -280,6 +280,11 @@ func WithInClusterServiceAccountRequestRewrite(handler http.Handler) http.Handle
 			return
 		}
 
+		if strings.HasPrefix(req.RequestURI, "/services/") {
+			handler.ServeHTTP(w, req)
+			return
+		}
+
 		prefix := "Bearer "
 		token := req.Header.Get("Authorization")
 		if !strings.HasPrefix(token, prefix) {
