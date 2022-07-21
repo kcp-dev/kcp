@@ -198,6 +198,14 @@ test-e2e-shared: build-all
 	NO_GORUN=1 $(GO_TEST) -race -count $(COUNT) -p $(E2E_PARALLELISM) -parallel $(E2E_PARALLELISM) $(WHAT) $(TEST_ARGS) \
 		-args --use-default-kcp-server --syncer-image="$${SYNCER_IMAGE}" --kcp-test-image="$${TEST_IMAGE}" --pcluster-kubeconfig="$(PWD)/kind.kubeconfig"
 
+.PHONY: require-kind
+require-kind:
+	if ! command -v kind 1> /dev/null 2>&1; then echo "kind not found in \$$PATH"; exit 1; fi
+
+.PHONY: require-ko
+require-ko:
+	if ! command -v ko 1> /dev/null 2>&1; then echo "ko not found in \$$PATH"; exit 1; fi
+
 .PHONY: test-e2e-sharded
 ifdef USE_GOTESTSUM
 test-e2e-sharded: $(GOTESTSUM)
@@ -209,7 +217,7 @@ test-e2e-sharded: LOG_DIR ?= $(ARTIFACT_DIR)/kcp
 else
 test-e2e-sharded: LOG_DIR ?= .kcp
 endif
-test-e2e-sharded: build-all
+test-e2e-sharded: require-kind require-ko build-all
 	kind get kubeconfig > "$(PWD)/kind.kubeconfig"
 	mkdir -p $(LOG_DIR)
 	SYNCER_IMAGE=$$(KO_DOCKER_REPO=kind.local ko build --platform=linux/$(ARCH) ./cmd/syncer) && test -n "$${SYNCER_IMAGE}"; \
