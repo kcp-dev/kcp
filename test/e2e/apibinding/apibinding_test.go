@@ -66,7 +66,7 @@ func TestAPIBinding(t *testing.T) {
 	consumer3Workspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
 
 	cfg := server.BaseConfig(t)
-	rootShardCfg := server.RootShardConfig(t)
+	rootShardCfg := server.RootShardSystemMasterBaseConfig(t)
 
 	kcpClients, err := clientset.NewClusterForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp cluster client for server")

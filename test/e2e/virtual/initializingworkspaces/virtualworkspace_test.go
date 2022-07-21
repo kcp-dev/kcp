@@ -55,7 +55,7 @@ func TestInitializingWorkspacesVirtualWorkspaceDiscovery(t *testing.T) {
 	t.Parallel()
 
 	source := framework.SharedKcpServer(t)
-	rootShardCfg := source.RootShardConfig(t)
+	rootShardCfg := source.RootShardSystemMasterBaseConfig(t)
 	rootShardCfg.Host = rootShardCfg.Host + "/services/initializingworkspaces/whatever"
 
 	virtualWorkspaceDiscoveryClient, err := clientgodiscovery.NewDiscoveryClientForConfig(rootShardCfg)

@@ -59,7 +59,7 @@ func TestWatchCacheEnabledForCRD(t *testing.T) {
 	t.Cleanup(cancel)
 	org := framework.NewOrganizationFixture(t, server)
 	cluster := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
-	rootShardConfig := server.RootShardConfig(t)
+	rootShardConfig := server.RootShardSystemMasterBaseConfig(t)
 	cowBoysGR := metav1.GroupResource{Group: "wildwest.dev", Resource: "cowboys"}
 
 	t.Log("Creating wildwest.dev CRD")
@@ -99,7 +99,7 @@ func TestWatchCacheEnabledForCRD(t *testing.T) {
 		require.Equal(t, 1, len(res.Items), "expected to get exactly one cowboy")
 	}
 
-	totalCacheHits, cowboysCacheHit := collectCacheHitsFor(ctx, t, server.RootShardConfig(t), "/wildwest.dev/cowboys/customresources")
+	totalCacheHits, cowboysCacheHit := collectCacheHitsFor(ctx, t, server.RootShardSystemMasterBaseConfig(t), "/wildwest.dev/cowboys/customresources")
 	if totalCacheHits == 0 {
 		t.Fatalf("the watch cache is turned off, didn't find instances of %q metrics", "apiserver_cache_list_total")
 	}
@@ -115,7 +115,7 @@ func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
 	server := framework.SharedKcpServer(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	rootShardConfig := server.RootShardConfig(t)
+	rootShardConfig := server.RootShardSystemMasterBaseConfig(t)
 	kcpClusterClient, err := kcpclientset.NewClusterForConfig(rootShardConfig)
 	require.NoError(t, err)
 	dynamicClusterClient, err := dynamic.NewClusterForConfig(rootShardConfig)
@@ -149,7 +149,7 @@ func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
 		require.Equal(t, 1, len(res.Items), "expected to get exactly one sheriff")
 	}
 
-	totalCacheHits, sheriffsCacheHit := collectCacheHitsFor(ctx, t, server.RootShardConfig(t), "/newyork.io/sheriffs")
+	totalCacheHits, sheriffsCacheHit := collectCacheHitsFor(ctx, t, server.RootShardSystemMasterBaseConfig(t), "/newyork.io/sheriffs")
 	if totalCacheHits == 0 {
 		t.Fatalf("the watch cache is turned off, didn't find instances of %q metrics", "apiserver_cache_list_total")
 	}
@@ -165,7 +165,7 @@ func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
 	server := framework.SharedKcpServer(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	rootShardConfig := server.RootShardConfig(t)
+	rootShardConfig := server.RootShardSystemMasterBaseConfig(t)
 	kubeClusterClient, err := kubernetesclientset.NewClusterForConfig(rootShardConfig)
 	require.NoError(t, err)
 	secretsGR := metav1.GroupResource{Group: "", Resource: "secrets"}
@@ -208,7 +208,7 @@ func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
 		}
 	}
 
-	totalCacheHits, secretsCacheHit := collectCacheHitsFor(ctx, t, server.RootShardConfig(t), "/core/secrets")
+	totalCacheHits, secretsCacheHit := collectCacheHitsFor(ctx, t, server.RootShardSystemMasterBaseConfig(t), "/core/secrets")
 	if totalCacheHits == 0 {
 		t.Fatalf("the watch cache is turned off, didn't find instances of %q metrics", "apiserver_cache_list_total")
 	}

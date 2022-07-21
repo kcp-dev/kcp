@@ -60,7 +60,7 @@ func TestCrossLogicalClusterList(t *testing.T) {
 	t.Cleanup(cancelFunc)
 
 	cfg := server.BaseConfig(t)
-	rootShardCfg := server.RootShardConfig(t)
+	rootShardCfg := server.RootShardSystemMasterBaseConfig(t)
 
 	kcpClients, err := kcpclientset.NewClusterForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp client for server")
@@ -159,7 +159,7 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	wsConsume2 := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyapi.ShardConstraints{Name: "root"}))
 
 	cfg := server.BaseConfig(t)
-	rootShardConfig := server.RootShardConfig(t)
+	rootShardConfig := server.RootShardSystemMasterBaseConfig(t)
 
 	crdClusterClient, err := apiextensionsclient.NewClusterForConfig(cfg)
 	require.NoError(t, err, "failed to construct apiextensions client for server")
@@ -274,7 +274,7 @@ func TestBuiltInCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	org := framework.NewOrganizationFixture(t, server)
 
 	cfg := server.BaseConfig(t)
-	rootShardCfg := server.RootShardConfig(t)
+	rootShardCfg := server.RootShardSystemMasterBaseConfig(t)
 
 	kubeClusterClient, err := kubernetes.NewClusterForConfig(cfg)
 	require.NoError(t, err, "error creating kube cluster client")
