@@ -34,6 +34,11 @@ import (
 func (in *ResourceToSync) DeepCopyInto(out *ResourceToSync) {
 	*out = *in
 	out.GroupResource = in.GroupResource
+	if in.Versions != nil {
+		in, out := &in.Versions, &out.Versions
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 
@@ -115,11 +120,18 @@ func (in *SyncTargetSpec) DeepCopyInto(out *SyncTargetSpec) {
 		in, out := &in.EvictAfter, &out.EvictAfter
 		*out = (*in).DeepCopy()
 	}
-	if in.Exports != nil {
-		in, out := &in.Exports, &out.Exports
+	if in.SupportedAPIExports != nil {
+		in, out := &in.SupportedAPIExports, &out.SupportedAPIExports
 		*out = make([]apisv1alpha1.ExportReference, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
+	if in.Cells != nil {
+		in, out := &in.Cells, &out.Cells
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
 		}
 	}
 	return
@@ -170,7 +182,9 @@ func (in *SyncTargetStatus) DeepCopyInto(out *SyncTargetStatus) {
 	if in.SyncedResources != nil {
 		in, out := &in.SyncedResources, &out.SyncedResources
 		*out = make([]ResourceToSync, len(*in))
-		copy(*out, *in)
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	if in.LastSyncerHeartbeatTime != nil {
 		in, out := &in.LastSyncerHeartbeatTime, &out.LastSyncerHeartbeatTime

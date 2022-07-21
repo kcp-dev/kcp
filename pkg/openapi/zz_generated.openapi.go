@@ -2202,7 +2202,7 @@ func schema_pkg_apis_scheduling_v1alpha1_LocationReference(ref common.ReferenceC
 							Format:      "",
 						},
 					},
-					"exportName": {
+					"locationName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Name of the Location.",
 							Default:     "",
@@ -2211,7 +2211,7 @@ func schema_pkg_apis_scheduling_v1alpha1_LocationReference(ref common.ReferenceC
 						},
 					},
 				},
-				Required: []string{"path", "exportName"},
+				Required: []string{"path", "locationName"},
 			},
 		},
 	}
@@ -3468,17 +3468,24 @@ func schema_pkg_apis_workload_v1alpha1_ResourceToSync(ref common.ReferenceCallba
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"version": {
+					"versions": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Versions is the version of the resource.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
+							Description: "versions are the resource versions the syncer can choose to sync depending on availability on the downstream cluster. Conversion to the storage version, if necessary, will be done on the kcp side. The versions are ordered by precedence and the first version compatible is preferred by syncer.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
 						},
 					},
 					"identityHash": {
 						SchemaProps: spec.SchemaProps{
-							Description: "IdentityHash is the identity for a given APIExport that the APIResourceSchema belongs to. The hash can be found on APIExport and APIResourceSchema's status. It will be empty for core types.",
+							Description: "identityHash is the identity for a given APIExport that the APIResourceSchema belongs to. The hash can be found on APIExport and APIResourceSchema's status. It will be empty for core types.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -3486,13 +3493,13 @@ func schema_pkg_apis_workload_v1alpha1_ResourceToSync(ref common.ReferenceCallba
 					},
 					"state": {
 						SchemaProps: spec.SchemaProps{
-							Description: "State indicate whether the resources schema is compatible to the SyncTarget. It must be updated by syncer after checking the API compaibility on SyncTarget.",
+							Description: "state indicate whether the resources schema is compatible to the SyncTarget. It must be updated by syncer after checking the API compaibility on SyncTarget.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 				},
-				Required: []string{"version"},
+				Required: []string{"versions"},
 			},
 		},
 	}
@@ -3617,15 +3624,31 @@ func schema_pkg_apis_workload_v1alpha1_SyncTargetSpec(ref common.ReferenceCallba
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
 					},
-					"exports": {
+					"supportedAPIExports": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Exports defines a set of APIExports supposed to be supported by this SyncTarget. The SyncTarget will be selected to deploy the workload only when the resource schema on the SyncTarget is compatible with the resource schema included in the exports. If it is not set, the kubernetes export in the same workspace will be used by default.",
+							Description: "SupportedAPIExports defines a set of APIExports supposed to be supported by this SyncTarget. The SyncTarget will be selected to deploy the workload only when the resource schema on the SyncTarget is compatible with the resource schema included in the exports. If it is not set, the kubernetes export in the same workspace will be used by default.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
 										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportReference"),
+									},
+								},
+							},
+						},
+					},
+					"cells": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Cells is a set of labels to identify the cells the SyncTarget belongs to. SyncTargets with the same cells run as they are in the same physical cluster. Each key/value pair in the cells should be added and updated by service providers (i.e. a network provider updates one key/value, while the storage provider updates another.)",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
 									},
 								},
 							},

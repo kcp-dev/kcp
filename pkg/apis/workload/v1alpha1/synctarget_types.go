@@ -67,11 +67,16 @@ type SyncTargetSpec struct {
 	// By default, workloads scheduled to the cluster are not evicted.
 	EvictAfter *metav1.Time `json:"evictAfter,omitempty"`
 
-	// Exports defines a set of APIExports supposed to be supported by this SyncTarget. The SyncTarget
+	// SupportedAPIExports defines a set of APIExports supposed to be supported by this SyncTarget. The SyncTarget
 	// will be selected to deploy the workload only when the resource schema on the SyncTarget is compatible
 	// with the resource schema included in the exports.
 	// If it is not set, the kubernetes export in the same workspace will be used by default.
-	Exports []apisv1alpha1.ExportReference `json:"exports,omitempty"`
+	SupportedAPIExports []apisv1alpha1.ExportReference `json:"supportedAPIExports,omitempty"`
+
+	// Cells is a set of labels to identify the cells the SyncTarget belongs to. SyncTargets with the same cells run as
+	// they are in the same physical cluster. Each key/value pair in the cells should be added and updated by service providers
+	// (i.e. a network provider updates one key/value, while the storage provider updates another.)
+	Cells map[string]string `json:"cells,omitempty"`
 }
 
 // SyncTargetStatus communicates the observed state of the SyncTarget (from the controller).
@@ -106,20 +111,22 @@ type SyncTargetStatus struct {
 type ResourceToSync struct {
 	apisv1alpha1.GroupResource `json:","`
 
-	// Versions is the version of the resource.
-	// +kubebuilder:validation:Pattern=`^[a-z][-a-z0-9]*[a-z0-9]$`
-	// +kubebuilder:validation:MinLength:1
+	// versions are the resource versions the syncer can choose to sync depending on
+	// availability on the downstream cluster. Conversion to the storage version, if necessary,
+	// will be done on the kcp side. The versions are ordered by precedence and the
+	// first version compatible is preferred by syncer.
+	// +kubebuilder:validation:MinItems=1
 	// +required
 	// +kubebuilder:Required
-	Version string `json:"version"`
+	Versions []string `json:"versions"`
 
-	// IdentityHash is the identity for a given APIExport that the APIResourceSchema belongs to.
+	// identityHash is the identity for a given APIExport that the APIResourceSchema belongs to.
 	// The hash can be found on APIExport and APIResourceSchema's status.
 	// It will be empty for core types.
 	// +optional
 	IdentityHash string `json:"identityHash"`
 
-	// State indicate whether the resources schema is compatible to the SyncTarget. It must be updated
+	// state indicate whether the resources schema is compatible to the SyncTarget. It must be updated
 	// by syncer after checking the API compaibility on SyncTarget.
 	// +kubebuilder:validation:Enum=Pending;Accepted;Incompatible
 	// +kubebuilder:default=Pending
