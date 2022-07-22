@@ -62,17 +62,63 @@ objects, e.g. like CRDs where each workspace can have its own set of CRDs instal
 
 ## User Home Workspaces
 
-User home workspaces are an optional feature of kcp. If enabled (through `--enable-home-workspaces`), there is a special virtual `Workspace` called `~` in the root workspace. It is used by `kubectl ws` (which similarly to Unix `cd` move the users to their home) to derive the full path to the user home workspace. This full path depends on the user name, the configured number (default 2), the length (default 2) of bucket workspaces and the root prefix (default `root:users`). With that a user `adam` is mapped to e.g. `root:users:a8:f1:adam`. The bucket names are deterministically derived from the user name (via some hash).
+User home workspaces are an optional feature of kcp. If enabled (through `--enable-home-workspaces`), there is a special 
+virtual `Workspace` called `~` in the root workspace. It is used by `kubectl ws` to derive the full path to the user 
+home workspace, similar to how Unix `cd ~` move the users to their home. 
 
-The user home workspace, if enabled, is logically pre-existing for every user, i.e. the user is given that impression. In reality, the home workspace is created on-demand on access, but this creation is not visible from outside.
+The full path for a user's home workspace has a number of parts: `<prefix>:(<bucket>)+<user-name>`. Buckets are used to 
+ensure that ~1000 sub-buckets or users exist in any bucket, for scaling reasons. The bucket names are deterministically 
+derived from the user name (via some hash). Example for user `adam` when using default configuration: 
+`root:users:a8:f1:adam`. 
 
-Only users of the configured home-creator-groups (default `system:authenticated`) will have a home workspace.
+User home workspaces are created on-demand when they are first accessed, but this is not visible to the user, allowing 
+the system to only incur the cost of these workspaces when they are needed. Only users of the configured 
+home-creator-groups (default `system:authenticated`) will have a home workspace.
 
 The following cluster workspace types are created internally to support User Home Workspaces:
 
 * `homeroot`: the workspace that will contain all the Home workspaces, spread accross buckets. - Can contain only Homebucket workspaces
 * `homebucket`: the type of workspaces that will contain a subset of all home workspaces. - Can contain either Homebucket (multi-level bucketing) or Home workspaces
 * `home`: the ClusterWorkspace of home workspaces - can contain any type of workspaces as children (especially universal workspaces)
+
+### Bucket configuration options
+
+The `kcp` administrator can configure:
+
+* `<prefix>`, which defaults to `root:users`
+* bucket depth, which defaults to 2
+* bucket name length, in characters, which defaults to 2
+
+The following outlines valid configuration options. With the default setup, ~5 users or ~700 sub-buckets will be in 
+any bucket. 
+
+> **NOTE**: DO NOT set the bucket size to be longer than 2, as this will adversely impact performance.
+
+User-names have `(26 * [(26 + 10 + 2) * 61] * 36 = 2169648)` permutations, and buckets are made up of lowercase-alpha 
+chars.  Invalid configurations break the scale limit in sub-buckets or users. Valid configurations should target 
+having not more than ~1000 sub-buckets per bucket and at least 5 users per bucket.
+
+**Valid Configurations**
+
+|length|depth|sub-buckets|users|
+|------|-----|-----------|-----|
+|1     |3    |26 * 1 = 26|2169648 / (26)^3 = 124 |
+|1     |4    |26 * 1 = 26|2169648 / (26)^4 = 5 |
+|2     |2    |26 * 26 = 676|2169648 / (26*26)^2 = 5 |
+
+**Invalid Configurations**
+
+These are examples of invalid configurations and are for illustrative purposes only. In nearly all cases, the default values
+will be sufficient.
+
+|length|depth|sub-buckets|users|
+|------|-----|-----------|-----|
+|1     |1    |26 * 1 = 26|2169648 / (26) = 83448 |
+|1     |2    |26 * 1 = 26|2169648 / (26)^2 = 3209 |
+|2     |1    |26 * 26 = 676|2169648 / (26*26) = 3209 |
+|2     |3    |26 * 26 = 676|2169648 / (26*26)^3 = .007 |
+|3     |1    |26 * 26 * 26 = 17576|2169648 / (26*26*26) = 124 |
+|3     |2    |26 * 26 * 26 = 17576|2169648 / (26*26*26)^2 = .007 |
 
 ## Organization Workspaces
 
