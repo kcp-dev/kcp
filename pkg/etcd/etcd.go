@@ -55,7 +55,7 @@ type ClientInfo struct {
 	TrustedCAFile string
 }
 
-func (s *Server) Run(ctx context.Context, peerPort, clientPort string, listenMetricsURLs []url.URL, walSizeBytes, quotaBackendBytes int64, forceNewCluster bool) (ClientInfo, error) {
+func (s *Server) Run(ctx context.Context, peerPort, clientPort string, listenMetricsURLs []url.URL, walSizeBytes, quotaBackendBytes int64, forceNewCluster bool, enableWatchCache bool) (ClientInfo, error) {
 	klog.Info("Creating embedded etcd server")
 	if walSizeBytes != 0 {
 		wal.SegmentSizeBytes = walSizeBytes
@@ -93,6 +93,16 @@ func (s *Server) Run(ctx context.Context, peerPort, clientPort string, listenMet
 	cfg.ClientTLSInfo.TrustedCAFile = filepath.Join(cfg.Dir, "secrets", "ca", "cert.pem")
 	cfg.ClientTLSInfo.ClientCertAuth = true
 	cfg.ForceNewCluster = forceNewCluster
+	if enableWatchCache {
+		// defines the interval for etcd watch progress notify events.
+		//
+		// note:
+		// - gcp, ocp and upstream k8s set it to 5s, so we simply follow suit
+		// - in practice this value never changes so we are not exposing it as a flag/option
+		// - we enable it only when the watch cache is on otherwise it might not scale
+		//   sending an event every 5s to thousands of clients
+		cfg.ExperimentalWatchProgressNotifyInterval = 5 * time.Second
+	}
 
 	if len(listenMetricsURLs) > 0 {
 		cfg.ListenMetricsUrls = listenMetricsURLs

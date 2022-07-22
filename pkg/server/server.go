@@ -143,7 +143,7 @@ func (s *Server) Run(ctx context.Context) error {
 				return err
 			}
 		}
-		embeddedClientInfo, err := es.Run(ctx, s.options.EmbeddedEtcd.PeerPort, s.options.EmbeddedEtcd.ClientPort, listenMetricsURLs, s.options.EmbeddedEtcd.WalSizeBytes, s.options.EmbeddedEtcd.QuotaBackendBytes, s.options.EmbeddedEtcd.ForceNewCluster)
+		embeddedClientInfo, err := es.Run(ctx, s.options.EmbeddedEtcd.PeerPort, s.options.EmbeddedEtcd.ClientPort, listenMetricsURLs, s.options.EmbeddedEtcd.WalSizeBytes, s.options.EmbeddedEtcd.QuotaBackendBytes, s.options.EmbeddedEtcd.ForceNewCluster, s.options.GenericControlPlane.Etcd.EnableWatchCache)
 		if err != nil {
 			return err
 		}
