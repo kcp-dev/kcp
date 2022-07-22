@@ -8,6 +8,6 @@ filters:
   # examples:
   #   pkg/apis/*/types.go
   #   pkg/apis/*/*/types.go
-  "[^/]+/([^/]+/)?(register|types)\\.go$":
+  "[^/]+/([^/]+/)?(register|types)(_.*)?\\.go$":
     labels:
       - kind/api-change
