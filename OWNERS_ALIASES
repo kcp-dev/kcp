@@ -1,0 +1,6 @@
+# See the OWNERS_ALIASES docs: https://git.k8s.io/community/contributors/guide/owners.md#owners_aliases
+
+aliases:
+    api-approvers:
+    - ncdc
+    - sttts

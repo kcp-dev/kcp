@@ -1,0 +1,10 @@
+# Disable inheritance as this is an api owners file
+options:
+  no_parent_owners: true
+filters:
+  ".*":
+    approvers:
+      - api-approvers
+  ".*\\.yaml":
+      labels:
+        - kind/api-change

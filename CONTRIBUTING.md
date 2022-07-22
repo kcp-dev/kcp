@@ -155,6 +155,12 @@ All of the built-in types for `kcp` are `CustomResourceDefinitions`, and we gene
 
 When adding a field that requires validation, custom annotations are used to translate this logic into the generated OpenAPI spec. [This doc](https://book.kubebuilder.io/reference/markers/crd-validation.html) gives an overview of possible validations. These annotations map directly to concepts in the [OpenAPI Spec](https://swagger.io/specification/#data-type-format) so, for instance, the `format` of strings is defined there, not in kubebuilder. Furthermore, Kubernetes has forked the OpenAPI project [here](https://github.com/kubernetes/kube-openapi/tree/master/pkg/validation) and extends more formats in the extensions-apiserver [here](https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1/types_jsonschema.go#L27).
 
+### Getting your PR Merged
+
+The `kcp` project uses `OWNERS` files to denote the collaborators who can assist you in getting your PR merged.  There
+are two roles: reviewer and approver.  Merging a PR requires sign off from both a reviewer and an approver.
+
+
 ## Continuous Integration
 
 kcp uses a combination of [GitHub Actions](https://help.github.com/en/actions/automating-your-workflow-with-github-actions) and
@@ -214,3 +220,25 @@ Then, to have your test use that shared kcp server, you add `-args --use-default
 ```shell
 go test ./test/e2e/apibinding -count 20 -failfast -args --use-default-kcp-server
 ```
+## Community Roles
+
+### Reviewers
+
+Reviewers are responsible for reviewing code for correctness and adherence to standards. Oftentimes reviewers will
+be able to advise on code efficiency and style as it relates to golang or project conventions as well as other considerations
+that might not be obvious to the contributor.
+
+### Approvers
+
+Approvers are responsible for sign-off on the acceptance of the contribution. In essence, approval indicates that the
+change is desired and good for the project, aligns with code, api, and system conventions, and appears to follow all required
+process including adequate testing, documentation, follow ups, or notifications to other areas who might be interested
+or affected by the change.
+
+Approvers are also reviewers.
+
+### Management of `OWNERS` files
+
+If a reviewer or approver no longer wishes to be in their current role it is requested that a PR
+be opened to update the `OWNERS` file. `OWNERS` files may be periodically reviewed and updated based on project activity
+or feedback to ensure an acceptable contributor experience is maintained.
