@@ -417,17 +417,19 @@ func (s *Server) Run(ctx context.Context) error {
 
 		klog.Infof("Finished starting APIExport and APIBinding informers")
 
-		// bootstrap root workspace phase 0, no APIBinding resources yet
-		if err := configrootphase0.Bootstrap(goContext(ctx),
-			kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster),
-			apiextensionsClusterClient.Cluster(tenancyv1alpha1.RootCluster).Discovery(),
-			dynamicClusterClient.Cluster(tenancyv1alpha1.RootCluster),
-		); err != nil {
-			// nolint:nilerr
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		if s.options.Extra.ShardName == tenancyv1alpha1.RootShard {
+			// bootstrap root workspace phase 0 only if we are on the root shard, no APIBinding resources yet
+			if err := configrootphase0.Bootstrap(goContext(ctx),
+				kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster),
+				apiextensionsClusterClient.Cluster(tenancyv1alpha1.RootCluster).Discovery(),
+				dynamicClusterClient.Cluster(tenancyv1alpha1.RootCluster),
+			); err != nil {
+				// nolint:nilerr
+				klog.Errorf("failed to bootstrap root workspace phase 0: %w", err)
+				return nil // don't klog.Fatal. This only happens when context is cancelled.
+			}
+			klog.Infof("Bootstrapped root workspace phase 0")
 		}
-
-		klog.Infof("Bootstrapped root workspace phase 0")
 
 		klog.Infof("Getting kcp APIExport identities")
 
@@ -465,32 +467,36 @@ func (s *Server) Run(ctx context.Context) error {
 		klog.Infof("Synced all informers. Ready to start controllers")
 		close(s.syncedCh)
 
-		klog.Infof("Starting bootstrapping root workspace phase 1")
-		servingCert, _ := server.SecureServingInfo.Cert.CurrentCertKeyContent()
-		if err := configroot.Bootstrap(goContext(ctx),
-			apiextensionsClusterClient.Cluster(tenancyv1alpha1.RootCluster).Discovery(),
-			dynamicClusterClient.Cluster(tenancyv1alpha1.RootCluster),
-			s.options.Extra.ShardName,
-			clientcmdapi.Config{
-				Clusters: map[string]*clientcmdapi.Cluster{
-					// cross-cluster is the virtual cluster running by default
-					"shard": {
-						Server:                   "https://" + server.ExternalAddress,
-						CertificateAuthorityData: servingCert, // TODO(sttts): wire controller updating this when it changes, or use CA
+		if s.options.Extra.ShardName == tenancyv1alpha1.RootShard {
+			// the root ws is only present on the root shard
+			klog.Infof("Starting bootstrapping root workspace phase 1")
+			servingCert, _ := server.SecureServingInfo.Cert.CurrentCertKeyContent()
+			if err := configroot.Bootstrap(goContext(ctx),
+				apiextensionsClusterClient.Cluster(tenancyv1alpha1.RootCluster).Discovery(),
+				dynamicClusterClient.Cluster(tenancyv1alpha1.RootCluster),
+				s.options.Extra.ShardName,
+				clientcmdapi.Config{
+					Clusters: map[string]*clientcmdapi.Cluster{
+						// cross-cluster is the virtual cluster running by default
+						"shard": {
+							Server:                   "https://" + server.ExternalAddress,
+							CertificateAuthorityData: servingCert, // TODO(sttts): wire controller updating this when it changes, or use CA
+						},
 					},
+					Contexts: map[string]*clientcmdapi.Context{
+						"shard": {Cluster: "shard"},
+					},
+					CurrentContext: "shard",
 				},
-				Contexts: map[string]*clientcmdapi.Context{
-					"shard": {Cluster: "shard"},
-				},
-				CurrentContext: "shard",
-			},
-			logicalcluster.New(s.options.HomeWorkspaces.HomeRootPrefix).Base(),
-			s.options.HomeWorkspaces.HomeCreatorGroups,
-		); err != nil {
-			// nolint:nilerr
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
+				logicalcluster.New(s.options.HomeWorkspaces.HomeRootPrefix).Base(),
+				s.options.HomeWorkspaces.HomeCreatorGroups,
+			); err != nil {
+				// nolint:nilerr
+				klog.Errorf("failed to bootstrap root workspace phase 1: %w", err)
+				return nil // don't klog.Fatal. This only happens when context is cancelled.
+			}
+			klog.Infof("Finished bootstrapping root workspace phase 1")
 		}
-		klog.Infof("Finished bootstrapping root workspace phase 1")
 
 		return nil
 	})
