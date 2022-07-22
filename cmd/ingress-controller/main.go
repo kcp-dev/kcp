@@ -99,7 +99,7 @@ func main() {
 				}
 			}
 
-			ic := ingresssplitter.NewController(kubeClient, ingressInformer, serviceInformer, options.Domain, aggregateLeavesStatus)
+			ic := ingresssplitter.NewController(ingressInformer, serviceInformer, options.Domain, aggregateLeavesStatus)
 
 			kubeInformerFactory.Start(ctx.Done())
 			kubeInformerFactory.WaitForCacheSync(ctx.Done())

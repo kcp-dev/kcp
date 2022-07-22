@@ -49,15 +49,14 @@ const controllerName = "kcp-ingress-splitter"
 // The controller can optionally aggregate the leave's status into the root
 // ingress. This makes sense if the envoy side is disabled.
 func NewController(
-	kubeClient kubernetes.ClusterInterface,
 	ingressInformer networkinginformers.IngressInformer,
 	serviceInformer coreinformers.ServiceInformer,
 	domain string,
 	aggregateLeaveStatus bool) *Controller {
 
 	c := &Controller{
-		queue:   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
-		client:  kubeClient,
+		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
+
 		domain:  domain,
 		tracker: newTracker(),
 
@@ -118,7 +117,7 @@ func NewController(
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	client kubernetes.ClusterInterface
+	client kubernetes.Interface
 
 	ingressIndexer cache.Indexer
 	ingressLister  networkinglisters.IngressLister
@@ -209,7 +208,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	// If the object being reconciled changed as a result, update it.
 	if !equality.Semantic.DeepEqual(previous, current) {
 		//TODO(jmprusi): Move to patch instead of Update.
-		_, err := c.client.Cluster(logicalcluster.From(current)).NetworkingV1().Ingresses(current.Namespace).Update(ctx, current, metav1.UpdateOptions{})
+		_, err := c.client.NetworkingV1().Ingresses(current.Namespace).Update(logicalcluster.WithCluster(ctx, logicalcluster.From(current)), current, metav1.UpdateOptions{})
 		if err != nil {
 			return err
 		}

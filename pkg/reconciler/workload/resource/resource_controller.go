@@ -35,7 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	coreinformers "k8s.io/client-go/informers/core/v1"
-	"k8s.io/client-go/kubernetes"
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
@@ -50,8 +49,7 @@ const controllerName = "kcp-workload-resource-scheduler"
 
 // NewController returns a new Controller which schedules resources in scheduled namespaces.
 func NewController(
-	dynamicClusterClient dynamic.ClusterInterface,
-	kubeClusterClient kubernetes.ClusterInterface,
+	dynamicClusterClient dynamic.Interface,
 	ddsif *informer.DynamicDiscoverySharedInformerFactory,
 	namespaceInformer coreinformers.NamespaceInformer,
 ) (*Controller, error) {
@@ -62,13 +60,11 @@ func NewController(
 		resourceQueue: resourceQueue,
 		gvrQueue:      gvrQueue,
 
-		dynClient: dynamicClusterClient,
+		dynClusterClient: dynamicClusterClient,
 
 		namespaceLister: namespaceInformer.Lister(),
 
 		ddsif: ddsif,
-
-		kubeClient: kubeClusterClient,
 	}
 
 	namespaceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
@@ -121,8 +117,7 @@ type Controller struct {
 	resourceQueue workqueue.RateLimitingInterface
 	gvrQueue      workqueue.RateLimitingInterface
 
-	dynClient  dynamic.ClusterInterface
-	kubeClient kubernetes.ClusterInterface
+	dynClusterClient dynamic.Interface
 
 	namespaceLister corelisters.NamespaceLister
 

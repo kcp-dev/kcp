@@ -251,19 +251,19 @@ func (c *controller) listAPIResourceSchemas(clusterName logicalcluster.Name) ([]
 func (c *controller) getAPIResourceSchema(ctx context.Context, clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
 	schema, err := c.apiResourceSchemaLister.Get(clusters.ToClusterAwareKey(clusterName, name))
 	if apierrors.IsNotFound(err) {
-		return c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIResourceSchemas().Get(ctx, name, metav1.GetOptions{})
+		return c.kcpClusterClient.ApisV1alpha1().APIResourceSchemas().Get(logicalcluster.WithCluster(ctx, clusterName), name, metav1.GetOptions{})
 	}
 	return schema, err
 }
 
 func (c *controller) createAPIResourceSchema(ctx context.Context, clusterName logicalcluster.Name, schema *apisv1alpha1.APIResourceSchema) (*apisv1alpha1.APIResourceSchema, error) {
-	return c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIResourceSchemas().Create(ctx, schema, metav1.CreateOptions{})
+	return c.kcpClusterClient.ApisV1alpha1().APIResourceSchemas().Create(logicalcluster.WithCluster(ctx, clusterName), schema, metav1.CreateOptions{})
 }
 
 func (c *controller) updateAPIExport(ctx context.Context, clusterName logicalcluster.Name, export *apisv1alpha1.APIExport) (*apisv1alpha1.APIExport, error) {
-	return c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIExports().Update(ctx, export, metav1.UpdateOptions{})
+	return c.kcpClusterClient.ApisV1alpha1().APIExports().Update(logicalcluster.WithCluster(ctx, clusterName), export, metav1.UpdateOptions{})
 }
 
 func (c *controller) deleteAPIResourceSchema(ctx context.Context, clusterName logicalcluster.Name, name string) error {
-	return c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIResourceSchemas().Delete(ctx, name, metav1.DeleteOptions{})
+	return c.kcpClusterClient.ApisV1alpha1().APIResourceSchemas().Delete(logicalcluster.WithCluster(ctx, clusterName), name, metav1.DeleteOptions{})
 }

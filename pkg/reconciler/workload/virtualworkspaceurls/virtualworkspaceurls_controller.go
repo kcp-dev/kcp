@@ -45,7 +45,7 @@ import (
 const controllerName = "kcp-synctarget-controller"
 
 func NewController(
-	kcpClusterClient kcpclient.ClusterInterface,
+	kcpClusterClient kcpclient.Interface,
 	syncTargetInformer v1alpha1.SyncTargetInformer,
 	workspaceShardInformer workspaceinformer.ClusterWorkspaceShardInformer,
 ) *Controller {
@@ -76,7 +76,7 @@ func NewController(
 
 type Controller struct {
 	queue            workqueue.RateLimitingInterface
-	kcpClusterClient kcpclient.ClusterInterface
+	kcpClusterClient kcpclient.Interface
 
 	workspaceShardLister v1alpha12.ClusterWorkspaceShardLister
 	syncTargetIndexer    cache.Indexer
@@ -191,7 +191,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		return err
 	}
 
-	if _, err := c.kcpClusterClient.Cluster(logicalcluster.From(currentSyncTarget)).WorkloadV1alpha1().SyncTargets().Patch(ctx, currentSyncTarget.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status"); err != nil {
+	if _, err := c.kcpClusterClient.WorkloadV1alpha1().SyncTargets().Patch(logicalcluster.WithCluster(ctx, logicalcluster.From(currentSyncTarget)), currentSyncTarget.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status"); err != nil {
 		klog.Errorf("failed to patch sync target status: %v", err)
 		return err
 	}
