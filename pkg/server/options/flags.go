@@ -127,7 +127,6 @@ var (
 		"tracing-config-file", // File with apiserver tracing configuration.
 
 		// KCP flags
-		"discovery-poll-interval",     // Polling interval for dynamic discovery informers.
 		"profiler-address",            // [Address]:port to bind the profiler to
 		"root-directory",              // Root directory.
 		"shard-base-url",              // Base URL to this kcp shard. Defaults to external address.
