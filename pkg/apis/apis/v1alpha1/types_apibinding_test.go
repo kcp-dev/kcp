@@ -17,17 +17,11 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
-	"k8s.io/apiextensions-apiserver/pkg/apiserver/schema/cel"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/util/validation/field"
-	"k8s.io/apimachinery/pkg/util/yaml"
+	apitest "github.com/kcp-dev/kcp/pkg/apis/test"
 )
 
 // TestAPIBindingPermissionClaimCELValidation will validate the permission claims for an otherwise valid APIBinding.
@@ -72,11 +66,15 @@ func TestAPIBindingPermissionClaimCELValidation(t *testing.T) {
 		},
 	}
 
-	validator, s := getValidatorForPermissionClaim(t, "../../../../config/crds/apis.kcp.dev_apibindings.yaml", "acceptedPermissionClaims")
+	validators := apitest.ValidatorsFromFile(t, "../../../../config/crds/apis.kcp.dev_apibindings.yaml")
 
 	for _, tc := range testCases {
+		pth := "openAPIV3Schema.properties.spec.properties.acceptedPermissionClaims.items"
+		validator, found := validators["v1alpha1"][pth]
+		require.True(t, found, "failed to find validator for %s", pth)
+
 		t.Run(tc.name, func(t *testing.T) {
-			errs := validator.Validate(field.NewPath("root"), &s, tc.claim)
+			errs := validator(tc.claim)
 			if len(errs) == 0 && !tc.validBinding {
 				t.Error("No errors were found, but should be invalid binding")
 				return
@@ -87,76 +85,4 @@ func TestAPIBindingPermissionClaimCELValidation(t *testing.T) {
 			}
 		})
 	}
-}
-
-func withRule(s schema.Structural, ruleStrings []string) schema.Structural {
-	rules := apiextensionsv1.ValidationRules{}
-
-	for _, r := range ruleStrings {
-		rules = append(rules, apiextensionsv1.ValidationRule{
-			Rule: r,
-		})
-	}
-
-	s.Extensions.XValidations = rules
-	return s
-}
-
-func primitiveType(typ, format string) schema.Structural {
-	result := schema.Structural{
-		Generic: schema.Generic{
-			Type: typ,
-		},
-	}
-	if len(format) != 0 {
-		result.ValueValidation = &schema.ValueValidation{
-			Format: format,
-		}
-	}
-	return result
-}
-
-func getValidatorForPermissionClaim(t *testing.T, crdFilePath string, specClaimName string) (*cel.Validator, schema.Structural) {
-
-	// Get the file and marhsel to unstructed
-	data, err := os.ReadFile(crdFilePath)
-	require.NoError(t, err)
-	u := &unstructured.Unstructured{}
-	yaml.Unmarshal(data, u)
-
-	versions, found, err := unstructured.NestedSlice(u.Object, "spec", "versions")
-	require.NoError(t, err)
-	require.True(t, found)
-	// TODO: When adding more version, we will need to write a test to cover each version.
-	// The fact that this will fail, will remind us.
-	require.Len(t, versions, 1)
-
-	version, ok := versions[0].(map[string]interface{})
-	require.True(t, ok)
-	validations, found, err := unstructured.NestedSlice(version, "schema", "openAPIV3Schema", "properties", "spec", "properties", specClaimName, "items", "x-kubernetes-validations")
-	require.NoError(t, err)
-	require.True(t, found)
-
-	var rules []string
-	for _, v := range validations {
-		validationMap, ok := v.(map[string]interface{})
-		require.True(t, ok)
-		ruleString, ok := validationMap["rule"].(string)
-		require.True(t, ok)
-		rules = append(rules, ruleString)
-	}
-
-	s := schema.Structural{
-		Generic: schema.Generic{
-			Type: "object",
-		},
-		Properties: map[string]schema.Structural{
-			"group":        primitiveType("string", ""),
-			"resource":     primitiveType("string", ""),
-			"identityHash": primitiveType("string", ""),
-		},
-	}
-
-	s = withRule(s, rules)
-	return cel.NewValidator(&s), s
 }
