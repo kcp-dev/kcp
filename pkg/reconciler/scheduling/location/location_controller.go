@@ -52,7 +52,7 @@ const (
 
 // NewController returns a new controller reconciling location status.
 func NewController(
-	kcpClusterClient kcpclient.ClusterInterface,
+	kcpClusterClient kcpclient.Interface,
 	locationInformer schedulinginformers.LocationInformer,
 	syncTargetInformer workloadinformers.SyncTargetInformer,
 ) (*controller, error) {
@@ -122,7 +122,7 @@ type controller struct {
 	queue        workqueue.RateLimitingInterface
 	enqueueAfter func(*schedulingv1alpha1.Location, time.Duration)
 
-	kcpClusterClient kcpclient.ClusterInterface
+	kcpClusterClient kcpclient.Interface
 
 	locationLister    schedulinglisters.LocationLister
 	locationIndexer   cache.Indexer
@@ -247,7 +247,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		if err != nil {
 			return fmt.Errorf("failed to create patch for LocationDomain %s|%s/%s: %w", clusterName, namespace, name, err)
 		}
-		_, uerr := c.kcpClusterClient.Cluster(clusterName).SchedulingV1alpha1().Locations().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+		_, uerr := c.kcpClusterClient.SchedulingV1alpha1().Locations().Patch(logicalcluster.WithCluster(ctx, clusterName), obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 		return uerr
 	}
 
