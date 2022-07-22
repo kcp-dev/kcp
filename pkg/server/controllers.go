@@ -384,12 +384,15 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		return err
 	}
 
-	workspaceShardController, err := clusterworkspaceshard.NewController(
-		kcpClusterClient,
-		s.rootKcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
-	)
-	if err != nil {
-		return err
+	var workspaceShardController *clusterworkspaceshard.Controller
+	if s.options.Extra.ShardName == tenancyv1alpha1.RootShard {
+		workspaceShardController, err = clusterworkspaceshard.NewController(
+			kcpClusterClient,
+			s.rootKcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
+		)
+		if err != nil {
+			return err
+		}
 	}
 
 	workspaceTypeController, err := clusterworkspacetype.NewController(
@@ -448,7 +451,9 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		}
 
 		go workspaceController.Start(ctx, 2)
-		go workspaceShardController.Start(ctx, 2)
+		if workspaceShardController != nil {
+			go workspaceShardController.Start(ctx, 2)
+		}
 		go workspaceTypeController.Start(ctx, 2)
 		go organizationController.Start(ctx, 2)
 		go teamController.Start(ctx, 2)
