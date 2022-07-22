@@ -89,65 +89,6 @@ func TestAPIBindingPermissionClaimCELValidation(t *testing.T) {
 	}
 }
 
-// TestAPIBindingPermissionClaimCELValidation will validate the permission claims for an otherwise valid APIBinding.
-func TestAPIExportPermissionClaimCELValidation(t *testing.T) {
-	testCases := []struct {
-		name         string
-		claim        map[string]interface{}
-		validBinding bool
-	}{
-		{
-			name: "valid",
-			claim: map[string]interface{}{
-				"group":    "",
-				"resource": "configmaps",
-			},
-			validBinding: true,
-		},
-		{
-			name: "invalid core resource",
-			claim: map[string]interface{}{
-				"group":    "",
-				"resource": "fakeresources",
-			},
-			validBinding: false,
-		},
-		{
-			name: "invalid non core resource",
-			claim: map[string]interface{}{
-				"group":    "new.core.resources",
-				"resource": "fakeresources",
-			},
-			validBinding: false,
-		},
-		{
-			name: "valid non core resource",
-			claim: map[string]interface{}{
-				"group":        "new.core.resources",
-				"resource":     "fakeresources",
-				"identityHash": "fakehashhere",
-			},
-			validBinding: true,
-		},
-	}
-
-	validator, s := getValidatorForPermissionClaim(t, "../../../../config/crds/apis.kcp.dev_apiexports.yaml", "permissionClaims")
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			errs := validator.Validate(field.NewPath("root"), &s, tc.claim)
-			if len(errs) == 0 && !tc.validBinding {
-				t.Error("No errors were found, but should be invalid binding")
-				return
-			}
-			if len(errs) > 0 && tc.validBinding {
-				t.Errorf("found errors: %v but should be valid binding", errs.ToAggregate().Error())
-				return
-			}
-		})
-	}
-}
-
 func withRule(s schema.Structural, ruleStrings []string) schema.Structural {
 	rules := apiextensionsv1.ValidationRules{}
 
