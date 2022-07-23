@@ -18,7 +18,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"path/filepath"
 
@@ -29,7 +28,7 @@ import (
 	shard "github.com/kcp-dev/kcp/cmd/test-server/kcp"
 )
 
-func startShard(ctx context.Context, n int, args []string, servingCA *crypto.CA, hostIP string) (<-chan error, error) {
+func startShard(ctx context.Context, n int, args []string, servingCA *crypto.CA, hostIP string, logDirPath, workDirPath string) (<-chan error, error) {
 	// create serving cert
 	hostnames := sets.NewString("localhost", hostIP)
 	klog.Infof("Creating shard server %d serving cert with hostnames %v", n, hostnames)
@@ -37,7 +36,7 @@ func startShard(ctx context.Context, n int, args []string, servingCA *crypto.CA,
 	if err != nil {
 		return nil, fmt.Errorf("failed to create server cert: %w", err)
 	}
-	if err := cert.WriteCertConfigFile(fmt.Sprintf(".kcp-%d/apiserver.crt", n), fmt.Sprintf(".kcp-%d/apiserver.key", n)); err != nil {
+	if err := cert.WriteCertConfigFile(fmt.Sprintf(".kcp-%d/apiserver.crt", n), filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d/apiserver.key", n))); err != nil {
 		return nil, fmt.Errorf("failed to write server cert: %w", err)
 	}
 
@@ -46,19 +45,18 @@ func startShard(ctx context.Context, n int, args []string, servingCA *crypto.CA,
 	if err != nil {
 		return nil, fmt.Errorf("failed to create server cert: %w", err)
 	}
-	if err := cert.WriteCertConfigFile(".kcp/apiserver.crt", ".kcp/apiserver.key"); err != nil {
+	if err := cert.WriteCertConfigFile(filepath.Join(workDirPath, ".kcp/apiserver.crt"), filepath.Join(workDirPath, ".kcp/apiserver.key")); err != nil {
 		return nil, fmt.Errorf("failed to write server cert: %w", err)
 	}
 
-	logDir := flag.Lookup("log-dir-path").Value.String()
 	if err != nil {
 		return nil, err
 	}
-	logFilePath := filepath.Join(fmt.Sprintf(".kcp-%d", n), "kcp.log")
-	auditFilePath := filepath.Join(fmt.Sprintf(".kcp-%d", n), "audit.log")
-	if logDir != "" {
-		logFilePath = filepath.Join(logDir, fmt.Sprintf("kcp-%d.log", n))
-		auditFilePath = filepath.Join(logDir, fmt.Sprintf("audit-%d.log", n))
+	logFilePath := filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d", n), "kcp.log")
+	auditFilePath := filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d", n), "audit.log")
+	if logDirPath != "" {
+		logFilePath = filepath.Join(logDirPath, fmt.Sprintf("kcp-%d.log", n))
+		auditFilePath = filepath.Join(logDirPath, fmt.Sprintf("audit-%d.log", n))
 	}
 
 	if n > 0 {
@@ -68,23 +66,23 @@ func startShard(ctx context.Context, n int, args []string, servingCA *crypto.CA,
 	}
 	args = append(args,
 		/*fmt.Sprintf("--cluster-workspace-shard-name=kcp-%d", n),*/
-		fmt.Sprintf("--root-directory=.kcp-%d", n),
-		"--client-ca-file=.kcp/client-ca.crt",
-		"--requestheader-client-ca-file=.kcp/requestheader-ca.crt",
+		fmt.Sprintf("--root-directory=%s", filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d", n))),
+		fmt.Sprintf("--client-ca-file=%s", filepath.Join(workDirPath, ".kcp/client-ca.crt")),
+		fmt.Sprintf("--requestheader-client-ca-file=%s", filepath.Join(workDirPath, ".kcp/requestheader-ca.crt")),
 		"--requestheader-username-headers=X-Remote-User",
 		"--requestheader-group-headers=X-Remote-Group",
-		"--service-account-key-file=.kcp/service-account.crt",
-		"--service-account-private-key-file=.kcp/service-account.key",
+		fmt.Sprintf("--service-account-key-file=%s", filepath.Join(workDirPath, ".kcp/service-account.crt")),
+		fmt.Sprintf("--service-account-private-key-file=%s", filepath.Join(workDirPath, ".kcp/service-account.key")),
 		"--audit-log-path", auditFilePath,
 		fmt.Sprintf("--shard-external-url=https://%s:%d", hostIP, 6443),
-		fmt.Sprintf("--tls-cert-file=.kcp-%d/apiserver.crt", n),
-		fmt.Sprintf("--tls-private-key-file=.kcp-%d/apiserver.key", n),
+		fmt.Sprintf("--tls-cert-file=%s", filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d/apiserver.crt", n))),
+		fmt.Sprintf("--tls-private-key-file=%s", filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d/apiserver.key", n))),
 		fmt.Sprintf("--secure-port=%d", 6444+n),
 	)
 
 	return shard.Start(ctx,
-		fmt.Sprintf("kcp-%d", n),  // name
-		fmt.Sprintf(".kcp-%d", n), // runtime directory, etcd data etc.
+		fmt.Sprintf("kcp-%d", n),                              // name
+		filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d", n)), // runtime directory, etcd data etc.
 		logFilePath,
 		args)
 }

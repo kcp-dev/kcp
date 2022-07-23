@@ -18,7 +18,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -42,7 +41,7 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
-func startFrontProxy(ctx context.Context, args []string, servingCA *crypto.CA, hostIP string) error {
+func startFrontProxy(ctx context.Context, args []string, servingCA *crypto.CA, hostIP string, logDirPath, workDirPath string) error {
 	blue := color.New(color.BgGreen, color.FgBlack).SprintFunc()
 	inverse := color.New(color.BgHiWhite, color.FgGreen).SprintFunc()
 	out := lineprefix.New(
@@ -54,7 +53,7 @@ func startFrontProxy(ctx context.Context, args []string, servingCA *crypto.CA, h
 		lineprefix.Color(color.New(color.FgHiWhite)),
 	)
 
-	if err := ioutil.WriteFile(".kcp-front-proxy/mapping.yaml", []byte(`
+	if err := ioutil.WriteFile(filepath.Join(workDirPath, ".kcp-front-proxy/mapping.yaml"), []byte(`
 - path: /services/
   backend: https://localhost:6444
   backend_server_ca: .kcp/serving-ca.crt
@@ -70,7 +69,7 @@ func startFrontProxy(ctx context.Context, args []string, servingCA *crypto.CA, h
 	}
 
 	// write root shard kubeconfig
-	configLoader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: ".kcp-0/admin.kubeconfig"}, nil)
+	configLoader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: filepath.Join(workDirPath, ".kcp-0/admin.kubeconfig")}, nil)
 	raw, err := configLoader.RawConfig()
 	if err != nil {
 		return err
@@ -90,18 +89,18 @@ func startFrontProxy(ctx context.Context, args []string, servingCA *crypto.CA, h
 	if err != nil {
 		return fmt.Errorf("failed to create server cert: %w\n", err)
 	}
-	if err := cert.WriteCertConfigFile(".kcp-front-proxy/apiserver.crt", ".kcp-front-proxy/apiserver.key"); err != nil {
+	if err := cert.WriteCertConfigFile(filepath.Join(workDirPath, ".kcp-front-proxy/apiserver.crt"), filepath.Join(workDirPath, ".kcp-front-proxy/apiserver.key")); err != nil {
 		return fmt.Errorf("failed to write server cert: %w\n", err)
 	}
 
 	// run front-proxy command
 	commandLine := append(framework.DirectOrGoRunCommand("kcp-front-proxy"),
-		"--mapping-file=.kcp-front-proxy/mapping.yaml",
-		"--root-directory=.kcp-front-proxy",
-		"--root-kubeconfig=.kcp/root.kubeconfig",
-		"--client-ca-file=.kcp/client-ca.crt",
-		"--tls-cert-file=.kcp-front-proxy/apiserver.crt",
-		"--tls-private-key-file=.kcp-front-proxy/apiserver.key",
+		fmt.Sprintf("--mapping-file=%s", filepath.Join(workDirPath, ".kcp-front-proxy/mapping.yaml")),
+		fmt.Sprintf("--root-directory=%s", filepath.Join(workDirPath, ".kcp-front-proxy")),
+		fmt.Sprintf("--root-kubeconfig=%s", filepath.Join(workDirPath, ".kcp/root.kubeconfig")),
+		fmt.Sprintf("--client-ca-file=%s", filepath.Join(workDirPath, ".kcp/client-ca.crt")),
+		fmt.Sprintf("--tls-cert-file=%s", filepath.Join(workDirPath, ".kcp-front-proxy/apiserver.crt")),
+		fmt.Sprintf("--tls-private-key-file=%s", filepath.Join(workDirPath, ".kcp-front-proxy/apiserver.key")),
 		"--secure-port=6443",
 	)
 	commandLine = append(commandLine, args...)
@@ -109,13 +108,9 @@ func startFrontProxy(ctx context.Context, args []string, servingCA *crypto.CA, h
 
 	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...)
 
-	logDir := flag.Lookup("log-dir-path").Value.String()
-	if err != nil {
-		return err
-	}
-	logFilePath := ".kcp-front-proxy/proxy.log"
-	if logDir != "" {
-		logFilePath = filepath.Join(logDir, "kcp-front-proxy.log")
+	logFilePath := filepath.Join(workDirPath, ".kcp-front-proxy/proxy.log")
+	if logDirPath != "" {
+		logFilePath = filepath.Join(logDirPath, "kcp-front-proxy.log")
 	}
 
 	logFile, err := os.OpenFile(logFilePath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
@@ -162,7 +157,7 @@ func startFrontProxy(ctx context.Context, args []string, servingCA *crypto.CA, h
 		}
 
 		// intentionally load again every iteration because it can change
-		configLoader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: ".kcp/admin.kubeconfig"},
+		configLoader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: filepath.Join(workDirPath, ".kcp/admin.kubeconfig")},
 			&clientcmd.ConfigOverrides{CurrentContext: "system:admin"},
 		)
 		config, err := configLoader.ClientConfig()
@@ -199,24 +194,24 @@ func startFrontProxy(ctx context.Context, args []string, servingCA *crypto.CA, h
 	return nil
 }
 
-func kcpAdminKubeConfig(ctx context.Context, hostIP string) error {
+func writeAdminKubeConfig(hostIP string, workDirPath string) error {
 	baseHost := fmt.Sprintf("https://%s:6443", hostIP)
 
 	var kubeConfig clientcmdapi.Config
 	kubeConfig.AuthInfos = map[string]*clientcmdapi.AuthInfo{
 		"kcp-admin": {
-			ClientKey:         ".kcp/kcp-admin.key",
-			ClientCertificate: ".kcp/kcp-admin.crt",
+			ClientKey:         filepath.Join(workDirPath, ".kcp/kcp-admin.key"),
+			ClientCertificate: filepath.Join(workDirPath, ".kcp/kcp-admin.crt"),
 		},
 	}
 	kubeConfig.Clusters = map[string]*clientcmdapi.Cluster{
 		"root": {
 			Server:               baseHost + "/clusters/root",
-			CertificateAuthority: ".kcp/serving-ca.crt",
+			CertificateAuthority: filepath.Join(workDirPath, ".kcp/serving-ca.crt"),
 		},
 		"base": {
 			Server:               baseHost,
-			CertificateAuthority: ".kcp/serving-ca.crt",
+			CertificateAuthority: filepath.Join(workDirPath, ".kcp/serving-ca.crt"),
 		},
 	}
 	kubeConfig.Contexts = map[string]*clientcmdapi.Context{
@@ -229,5 +224,5 @@ func kcpAdminKubeConfig(ctx context.Context, hostIP string) error {
 		return err
 	}
 
-	return clientcmd.WriteToFile(kubeConfig, ".kcp/admin.kubeconfig")
+	return clientcmd.WriteToFile(kubeConfig, filepath.Join(workDirPath, ".kcp/admin.kubeconfig"))
 }
