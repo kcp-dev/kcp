@@ -17,6 +17,7 @@ limitations under the License.
 package test
 
 import (
+	"context"
 	"os"
 	"testing"
 
@@ -57,14 +58,15 @@ func ValidatorsFromFile(t *testing.T, crdFilePath string) (validatorsByVersionBy
 }
 
 // CELValidateFunc tests a sample object against a CEL validator.
-type CELValidateFunc func(obj interface{}) field.ErrorList
+type CELValidateFunc func(obj, old interface{}) field.ErrorList
 
 func findCEL(t *testing.T, s *schema.Structural, pth *field.Path) (map[string]CELValidateFunc, error) {
 	ret := map[string]CELValidateFunc{}
 
 	if len(s.XValidations) > 0 {
-		ret[pth.String()] = func(obj interface{}) field.ErrorList {
-			return cel.NewValidator(s).Validate(pth, s, obj)
+		ret[pth.String()] = func(obj, old interface{}) field.ErrorList {
+			errs, _ := cel.NewValidator(s, 10000000).Validate(context.TODO(), pth, s, obj, old, 10000000)
+			return errs
 		}
 	}
 

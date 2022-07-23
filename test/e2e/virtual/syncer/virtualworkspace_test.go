@@ -55,7 +55,7 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
-func deploymentsAPIResourceList(workspaceName string) *metav1.APIResourceList {
+func deploymentsAPIResourceList(workspaceName logicalcluster.Name) *metav1.APIResourceList {
 	return &metav1.APIResourceList{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "APIResourceList",
@@ -84,7 +84,7 @@ func deploymentsAPIResourceList(workspaceName string) *metav1.APIResourceList {
 	}
 }
 
-func requiredCoreAPIResourceList(workspaceName string) *metav1.APIResourceList {
+func requiredCoreAPIResourceList(workspaceName logicalcluster.Name) *metav1.APIResourceList {
 	return &metav1.APIResourceList{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "APIResourceList",
@@ -166,7 +166,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				_, kubelikeAPIResourceLists, err := kubelikeVWDiscoverClusterClient.WithCluster(logicalcluster.Wildcard).ServerGroupsAndResources()
 				require.NoError(t, err)
 				require.Empty(t, cmp.Diff([]*metav1.APIResourceList{
-					deploymentsAPIResourceList(kubelikeClusterName.String()),
+					deploymentsAPIResourceList(kubelikeClusterName),
 					{
 						TypeMeta: metav1.TypeMeta{
 							Kind:       "APIResourceList",
@@ -181,7 +181,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 								Namespaced:         true,
 								Verbs:              metav1.Verbs{"get", "list", "patch", "update", "watch"},
 								ShortNames:         []string{"ing"},
-								StorageVersionHash: discovery.StorageVersionHash(kubelikeClusterName.String(), "networking.k8s.io", "v1", "Ingress"),
+								StorageVersionHash: discovery.StorageVersionHash(kubelikeClusterName, "networking.k8s.io", "v1", "Ingress"),
 							},
 							{
 								Kind:               "Ingress",
@@ -193,14 +193,14 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						},
 					},
 					addToAPIResourceList(
-						requiredCoreAPIResourceList(kubelikeClusterName.String()),
+						requiredCoreAPIResourceList(kubelikeClusterName),
 						metav1.APIResource{
 							Kind:               "Service",
 							Name:               "services",
 							SingularName:       "service",
 							Namespaced:         true,
 							Verbs:              metav1.Verbs{"get", "list", "patch", "update", "watch"},
-							StorageVersionHash: discovery.StorageVersionHash(kubelikeClusterName.String(), "", "v1", "Service"),
+							StorageVersionHash: discovery.StorageVersionHash(kubelikeClusterName, "", "v1", "Service"),
 							Categories:         []string{"all"},
 							ShortNames:         []string{"svc"},
 						},
@@ -220,8 +220,8 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				_, wildwestAPIResourceLists, err := wildwestVWDiscoverClusterClient.WithCluster(logicalcluster.Wildcard).ServerGroupsAndResources()
 				require.NoError(t, err)
 				require.Empty(t, cmp.Diff([]*metav1.APIResourceList{
-					deploymentsAPIResourceList(wildwestClusterName.String()),
-					requiredCoreAPIResourceList(wildwestClusterName.String()),
+					deploymentsAPIResourceList(wildwestClusterName),
+					requiredCoreAPIResourceList(wildwestClusterName),
 					{
 						TypeMeta: metav1.TypeMeta{
 							Kind:       "APIResourceList",
@@ -235,7 +235,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 								SingularName:       "cowboy",
 								Namespaced:         true,
 								Verbs:              metav1.Verbs{"get", "list", "patch", "update", "watch"},
-								StorageVersionHash: discovery.StorageVersionHash(wildwestClusterName.String(), "wildwest.dev", "v1alpha1", "Cowboy"),
+								StorageVersionHash: discovery.StorageVersionHash(wildwestClusterName, "wildwest.dev", "v1alpha1", "Cowboy"),
 							},
 							{
 								Kind:               "Cowboy",

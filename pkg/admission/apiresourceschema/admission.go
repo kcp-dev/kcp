@@ -67,7 +67,7 @@ func (o *apiResourceSchemaValidation) Validate(ctx context.Context, a admission.
 	var old *apisv1alpha1.APIResourceSchema
 	switch a.GetOperation() {
 	case admission.Create:
-		if errs := ValidateAPIResourceSchema(schema); len(errs) > 0 {
+		if errs := ValidateAPIResourceSchema(ctx, schema); len(errs) > 0 {
 			return admission.NewForbidden(a, fmt.Errorf("%v", errs))
 		}
 
@@ -81,7 +81,7 @@ func (o *apiResourceSchemaValidation) Validate(ctx context.Context, a admission.
 			return fmt.Errorf("failed to convert unstructured to APIResourceSchema: %w", err)
 		}
 
-		if errs := ValidateAPIResourceSchemaUpdate(schema, old); len(errs) > 0 {
+		if errs := ValidateAPIResourceSchemaUpdate(ctx, schema, old); len(errs) > 0 {
 			return admission.NewForbidden(a, fmt.Errorf("%v", errs))
 		}
 	}

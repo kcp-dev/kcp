@@ -28,7 +28,7 @@ import (
 func TestAPIExportPermissionClaimCELValidation(t *testing.T) {
 	testCases := []struct {
 		name         string
-		claim        map[string]interface{}
+		claim, old   map[string]interface{}
 		validBinding bool
 	}{
 		{
@@ -74,7 +74,7 @@ func TestAPIExportPermissionClaimCELValidation(t *testing.T) {
 		require.True(t, found, "failed to find validator for %s", pth)
 
 		t.Run(tc.name, func(t *testing.T) {
-			errs := validator(tc.claim)
+			errs := validator(tc.claim, tc.old)
 			if len(errs) == 0 && !tc.validBinding {
 				t.Error("No errors were found, but should be invalid binding")
 				return

@@ -286,7 +286,7 @@ func testDynamicDiscoverySharedInformerFactory(ctx context.Context, t *testing.T
 			}
 			for _, o := range obj {
 				u := o.(*unstructured.Unstructured)
-				if u.GetName() == expectedResName && u.GetClusterName() == expectedClusterName.String() {
+				if u.GetName() == expectedResName && logicalcluster.From(u) == expectedClusterName {
 					return true, ""
 				}
 			}

@@ -26,6 +26,7 @@ import (
 	restStorage "k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/kube-openapi/pkg/builder"
+	"k8s.io/kube-openapi/pkg/common/restfuladapter"
 	"k8s.io/kube-openapi/pkg/handler"
 	"k8s.io/kube-openapi/pkg/validation/spec"
 
@@ -86,7 +87,7 @@ func (vw *FixedGroupVersionsVirtualWorkspace) Register(vwName string, rootAPISer
 		}
 
 		if groupVersionAPISet.OpenAPIDefinitions != nil {
-			spec, err := builder.BuildOpenAPISpec(server.GenericAPIServer.Handler.GoRestfulContainer.RegisteredWebServices(), config.GenericConfig.OpenAPIConfig)
+			spec, err := builder.BuildOpenAPISpecFromRoutes(restfuladapter.AdaptWebServices(server.GenericAPIServer.Handler.GoRestfulContainer.RegisteredWebServices()), config.GenericConfig.OpenAPIConfig)
 			if err != nil {
 				return nil, err
 			}

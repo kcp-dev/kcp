@@ -17,6 +17,7 @@ limitations under the License.
 package apiresourceschema
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -41,11 +42,11 @@ var (
 )
 
 // ValidateAPIResourceSchema validates an APIResourceSchema.
-func ValidateAPIResourceSchema(s *apisv1alpha1.APIResourceSchema) field.ErrorList {
+func ValidateAPIResourceSchema(ctx context.Context, s *apisv1alpha1.APIResourceSchema) field.ErrorList {
 	allErrs := field.ErrorList{}
 	allErrs = append(allErrs, ValidateAPIResourceSchemaName(s.Name, &s.Spec, field.NewPath("metadata", "name"))...)
 	allErrs = append(allErrs, ValidateAPIResourceSchemaGroup(s.Spec.Group, s.Annotations)...)
-	allErrs = append(allErrs, ValidateAPIResourceSchemaSpec(&s.Spec, field.NewPath("spec"))...)
+	allErrs = append(allErrs, ValidateAPIResourceSchemaSpec(ctx, &s.Spec, field.NewPath("spec"))...)
 	return allErrs
 }
 
@@ -95,7 +96,7 @@ func ValidateAPIResourceSchemaGroup(group string, annotations map[string]string)
 	}
 }
 
-func ValidateAPIResourceSchemaSpec(spec *apisv1alpha1.APIResourceSchemaSpec, fldPath *field.Path) field.ErrorList {
+func ValidateAPIResourceSchemaSpec(ctx context.Context, spec *apisv1alpha1.APIResourceSchemaSpec, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	// HACK: Relax naming constraints when registering legacy schema resources through CRDs
@@ -125,7 +126,7 @@ func ValidateAPIResourceSchemaSpec(spec *apisv1alpha1.APIResourceSchemaSpec, fld
 		if errs := utilvalidation.IsDNS1035Label(version.Name); len(errs) > 0 {
 			allErrs = append(allErrs, field.Invalid(fldPath.Child("versions").Index(i).Child("name"), spec.Versions[i].Name, strings.Join(errs, ",")))
 		}
-		allErrs = append(allErrs, ValidateAPIResourceVersion(&version, fldPath.Child("versions").Index(i))...)
+		allErrs = append(allErrs, ValidateAPIResourceVersion(ctx, &version, fldPath.Child("versions").Index(i))...)
 	}
 	if !uniqueNames {
 		allErrs = append(allErrs, field.Invalid(fldPath.Child("versions"), spec.Versions, "must contain unique version names"))
@@ -177,7 +178,7 @@ var defaultValidationOpts = crdvalidation.ValidationOptions{
 	RequireMapListKeysMapSetValidation: true,
 }
 
-func ValidateAPIResourceVersion(version *apisv1alpha1.APIResourceVersion, fldPath *field.Path) field.ErrorList {
+func ValidateAPIResourceVersion(ctx context.Context, version *apisv1alpha1.APIResourceVersion, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	for _, err := range crdvalidation.ValidateDeprecationWarning(version.Deprecated, version.DeprecationWarning) {
@@ -195,7 +196,7 @@ func ValidateAPIResourceVersion(version *apisv1alpha1.APIResourceVersion, fldPat
 		} else if err := apiextensionsv1.Convert_v1_CustomResourceValidation_To_apiextensions_CustomResourceValidation(&crdSchemaV1, &crdSchemaInternal, nil); err != nil {
 			allErrs = append(allErrs, field.Invalid(fldPath.Child("schema"), string(version.Schema.Raw), fmt.Sprintf("invalid schema: %v", err)))
 		} else {
-			allErrs = append(allErrs, crdvalidation.ValidateCustomResourceDefinitionValidation(&crdSchemaInternal, statusEnabled, defaultValidationOpts, fldPath.Child("schema"))...)
+			allErrs = append(allErrs, crdvalidation.ValidateCustomResourceDefinitionValidation(ctx, &crdSchemaInternal, statusEnabled, defaultValidationOpts, fldPath.Child("schema"))...)
 		}
 	}
 
@@ -219,8 +220,8 @@ func ValidateAPIResourceVersion(version *apisv1alpha1.APIResourceVersion, fldPat
 }
 
 // ValidateAPIResourceSchemaUpdate validates an APIResourceSchema on update.
-func ValidateAPIResourceSchemaUpdate(s, old *apisv1alpha1.APIResourceSchema) field.ErrorList {
-	allErrs := ValidateAPIResourceSchema(s)
+func ValidateAPIResourceSchemaUpdate(ctx context.Context, s, old *apisv1alpha1.APIResourceSchema) field.ErrorList {
+	allErrs := ValidateAPIResourceSchema(ctx, s)
 
 	if !equality.Semantic.DeepEqual(old.Spec, s.Spec) {
 		allErrs = append(allErrs, field.Invalid(field.NewPath("spec"), s.Spec, "is immutable"))
