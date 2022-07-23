@@ -648,7 +648,7 @@ func (sf *StartedSyncerFixture) WaitForClusterReady(t *testing.T, ctx context.Co
 	kcpClient := kcpClusterClient.Cluster(cfg.SyncTargetWorkspace)
 	EventuallyReady(t, func() (conditions.Getter, error) {
 		return kcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx, cfg.SyncTargetName, metav1.GetOptions{})
-	}, wait.ForeverTestTimeout, time.Millisecond*100, "Waiting for cluster %q condition %q", cfg.SyncTargetName, conditionsapi.ReadyCondition)
+	}, "Waiting for cluster %q condition %q", cfg.SyncTargetName, conditionsapi.ReadyCondition)
 	t.Logf("Cluster %q is %s", cfg.SyncTargetName, conditionsapi.ReadyCondition)
 }
 
