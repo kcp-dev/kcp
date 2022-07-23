@@ -3,14 +3,15 @@ kind: ClusterWorkspaceType
 metadata:
   name: organization
 spec:
-  initializer: true
+  extend:
+    with:
+    - name: universal
+      path: root
   defaultChildWorkspaceType:
     name: universal
     path: root
   limitAllowedChildren:
     types:
-    - name: team
-      path: root
     - name: universal
       path: root
   limitAllowedParents:

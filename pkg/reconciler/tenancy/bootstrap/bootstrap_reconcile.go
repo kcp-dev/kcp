@@ -34,9 +34,6 @@ func (c *controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 	if workspace.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseInitializing {
 		return nil
 	}
-	if workspace.Spec.Type != c.workspaceType {
-		return nil
-	}
 
 	// have we done our work before?
 	initializerName := initialization.InitializerForReference(c.workspaceType)
