@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster"
+	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -77,7 +77,7 @@ func TestLocationStatusReconciler(t *testing.T) {
 			Annotations: map[string]string{
 				"scheduling.kcp.dev/labels": "continent=north-america country=usa",
 			},
-			ClusterName: "root:org:negotiation-workspace",
+			ZZZ_DeprecatedClusterName: "root:org:negotiation-workspace",
 		},
 		Spec: schedulingv1alpha1.LocationSpec{
 			Resource: schedulingv1alpha1.GroupVersionResource{

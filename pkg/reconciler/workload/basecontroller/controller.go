@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster"
+	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -169,7 +169,7 @@ func (c *ClusterReconciler) enqueueAPIResourceImportRelatedCluster(obj interface
 			ObjectMeta: metav1.ObjectMeta{
 				Name: apiResourceImport.Spec.Location,
 				// TODO: (shawn-hurley)
-				ClusterName: logicalcluster.From(apiResourceImport).String(),
+				ZZZ_DeprecatedClusterName: logicalcluster.From(apiResourceImport).String(),
 			},
 		})
 	}

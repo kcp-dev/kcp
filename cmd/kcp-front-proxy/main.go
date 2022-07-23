@@ -43,6 +43,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/proxy"
 	"github.com/kcp-dev/kcp/pkg/proxy/index"
 	"github.com/kcp-dev/kcp/pkg/server"
@@ -78,7 +79,7 @@ forwards Common Name and Organizations to backend API servers in HTTP headers.
 The proxy terminates TLS and communicates with API servers via mTLS. Traffic is
 routed based on paths.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := options.Logs.ValidateAndApply(); err != nil {
+			if err := options.Logs.ValidateAndApply(kcpfeatures.DefaultFeatureGate); err != nil {
 				return err
 			}
 			if err := options.Complete(); err != nil {
@@ -156,7 +157,7 @@ routed based on paths.`,
 			handler = genericapifilters.WithRequestInfo(handler, requestInfoFactory)
 			handler = genericfilters.WithHTTPLogging(handler)
 			handler = genericfilters.WithPanicRecovery(handler, requestInfoFactory)
-			doneCh, err := servingInfo.Serve(handler, time.Second*60, ctx.Done())
+			doneCh, _, err := servingInfo.Serve(handler, time.Second*60, ctx.Done())
 			if err != nil {
 				return err
 			}

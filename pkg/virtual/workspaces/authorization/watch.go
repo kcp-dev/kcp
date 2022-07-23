@@ -20,7 +20,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/kcp-dev/logicalcluster"
+	"github.com/kcp-dev/logicalcluster/v2"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -143,8 +143,8 @@ func (w *userWorkspaceWatcher) GroupMembershipChanged(workspaceName string, user
 	var workspace workspaceapibeta1.Workspace
 	projection.ProjectClusterWorkspaceToWorkspace(&workspaceapi.ClusterWorkspace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        workspaceName,
-			ClusterName: w.lclusterName.String(),
+			Name:                      workspaceName,
+			ZZZ_DeprecatedClusterName: w.lclusterName.String(),
 		},
 	}, &workspace)
 

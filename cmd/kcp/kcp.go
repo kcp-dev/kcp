@@ -35,6 +35,7 @@ import (
 	"k8s.io/component-base/version"
 
 	"github.com/kcp-dev/kcp/pkg/cmd/help"
+	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/server"
 	"github.com/kcp-dev/kcp/pkg/server/options"
 )
@@ -97,7 +98,7 @@ func main() {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// run as early as possible to avoid races later when some components (e.g. grpc) start early using klog
-			if err := serverOptions.GenericControlPlane.Logs.ValidateAndApply(); err != nil {
+			if err := serverOptions.GenericControlPlane.Logs.ValidateAndApply(kcpfeatures.DefaultFeatureGate); err != nil {
 				return err
 			}
 

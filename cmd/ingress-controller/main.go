@@ -21,7 +21,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster"
+	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
@@ -33,6 +33,7 @@ import (
 	"k8s.io/component-base/logs"
 
 	"github.com/kcp-dev/kcp/pkg/cmd/help"
+	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/localenvoy/controllers/ingress"
 	envoycontrolplane "github.com/kcp-dev/kcp/pkg/localenvoy/controlplane"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/ingresssplitter"
@@ -58,7 +59,7 @@ func main() {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := genericapiserver.SetupSignalContext()
 
-			if err := options.Logs.ValidateAndApply(); err != nil {
+			if err := options.Logs.ValidateAndApply(kcpfeatures.DefaultFeatureGate); err != nil {
 				return err
 			}
 

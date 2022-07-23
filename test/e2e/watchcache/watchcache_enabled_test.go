@@ -26,7 +26,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster"
+	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
 	v1 "k8s.io/api/core/v1"
@@ -286,7 +286,7 @@ func testDynamicDiscoverySharedInformerFactory(ctx context.Context, t *testing.T
 			}
 			for _, o := range obj {
 				u := o.(*unstructured.Unstructured)
-				if u.GetName() == expectedResName && u.GetClusterName() == expectedClusterName.String() {
+				if u.GetName() == expectedResName && logicalcluster.From(u) == expectedClusterName {
 					return true, ""
 				}
 			}

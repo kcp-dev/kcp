@@ -10,12 +10,12 @@ Here are what keys look like for an object `foo` for both cluster-scoped and nam
 
 |Organization|Workspace|Logical Cluster|Namespace|Key|
 |-|-|-|-|-|
-|-|-|root|-|root#$#foo|
-|-|-|root|default|default/root#$#foo|
-|root|my-org|root:my-org|-|root:my-org#$#foo|
-|root|my-org|root:my-org|default|default/root:my-org#$#foo|
-|my-org|my-workspace|my-org:my-workspace|-|my-org:my-workspace#$#foo|
-|my-org|my-workspace|my-org:my-workspace|default|default/my-org:my-workspace#$#foo|
+|-|-|root|-|root|foo|
+|-|-|root|default|default/root|foo|
+|root|my-org|root:my-org|-|root:my-org|foo|
+|root|my-org|root:my-org|default|default/root:my-org|foo|
+|my-org|my-workspace|my-org:my-workspace|-|my-org:my-workspace|foo|
+|my-org|my-workspace|my-org:my-workspace|default|default/my-org:my-workspace|foo|
 
 ## Encoding/decoding keys 
 

@@ -20,7 +20,7 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/kcp-dev/logicalcluster"
+	"github.com/kcp-dev/logicalcluster/v2"
 
 	crdhelpers "k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -397,8 +397,8 @@ func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, cluster
 	}
 	crdkey, err := cache.MetaNamespaceKeyFunc(&metav1.PartialObjectMetadata{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        crdName,
-			ClusterName: clusterName.String(),
+			Name:                      crdName,
+			ZZZ_DeprecatedClusterName: clusterName.String(),
 		},
 	})
 	if err != nil {
@@ -425,8 +425,8 @@ func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, cluster
 			}
 			newNegotiatedAPIResource = &apiresourcev1alpha1.NegotiatedAPIResource{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        negotiatedAPIResourceName,
-					ClusterName: clusterName.String(),
+					Name:                      negotiatedAPIResourceName,
+					ZZZ_DeprecatedClusterName: clusterName.String(),
 					Annotations: map[string]string{
 						apiresourcev1alpha1.APIVersionAnnotation: groupVersion.APIVersion(),
 					},
@@ -464,8 +464,8 @@ func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, cluster
 		if newNegotiatedAPIResource == nil {
 			newNegotiatedAPIResource = &apiresourcev1alpha1.NegotiatedAPIResource{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        negotiatedAPIResourceName,
-					ClusterName: clusterName.String(),
+					Name:                      negotiatedAPIResourceName,
+					ZZZ_DeprecatedClusterName: clusterName.String(),
 					Annotations: map[string]string{
 						apiresourcev1alpha1.APIVersionAnnotation: apiResourceImport.Spec.CommonAPIResourceSpec.GroupVersion.APIVersion(),
 					},
@@ -657,8 +657,8 @@ func (c *Controller) publishNegotiatedResource(ctx context.Context, clusterName 
 
 	crdKey, err := cache.MetaNamespaceKeyFunc(&metav1.PartialObjectMetadata{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        crdName,
-			ClusterName: clusterName.String(),
+			Name:                      crdName,
+			ZZZ_DeprecatedClusterName: clusterName.String(),
 		},
 	})
 	if err != nil {
@@ -682,7 +682,7 @@ func (c *Controller) publishNegotiatedResource(ctx context.Context, clusterName 
 					NegotiatedAPIResourceAsOwnerReference(negotiatedApiResource),
 				},
 				//TODO: (shawn-hurley) We need to figure out how to set this
-				ClusterName: logicalcluster.From(negotiatedApiResource).String(),
+				ZZZ_DeprecatedClusterName: logicalcluster.From(negotiatedApiResource).String(),
 			},
 			Spec: apiextensionsv1.CustomResourceDefinitionSpec{
 				Scope: negotiatedApiResource.Spec.Scope,
@@ -839,8 +839,8 @@ func (c *Controller) cleanupNegotiatedAPIResource(ctx context.Context, clusterNa
 
 	crdKey, err := cache.MetaNamespaceKeyFunc(&metav1.PartialObjectMetadata{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        crdName,
-			ClusterName: clusterName.String(),
+			Name:                      crdName,
+			ZZZ_DeprecatedClusterName: clusterName.String(),
 		},
 	})
 	if err != nil {

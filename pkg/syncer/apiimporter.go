@@ -22,7 +22,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster"
+	"github.com/kcp-dev/logicalcluster/v2"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -216,8 +216,8 @@ func (i *APIImporter) ImportAPIs(ctx context.Context) {
 
 			clusterKey, err := cache.MetaNamespaceKeyFunc(&metav1.PartialObjectMetadata{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        i.location,
-					ClusterName: i.logicalClusterName.String(),
+					Name:                      i.location,
+					ZZZ_DeprecatedClusterName: i.logicalClusterName.String(),
 				},
 			})
 			if err != nil {
@@ -244,8 +244,8 @@ func (i *APIImporter) ImportAPIs(ctx context.Context) {
 			}
 			apiResourceImport := &apiresourcev1alpha1.APIResourceImport{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        apiResourceImportName,
-					ClusterName: i.logicalClusterName.String(),
+					Name:                      apiResourceImportName,
+					ZZZ_DeprecatedClusterName: i.logicalClusterName.String(),
 					OwnerReferences: []metav1.OwnerReference{
 						clusterAsOwnerReference(cluster, true),
 					},

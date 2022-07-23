@@ -20,7 +20,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster"
+	"github.com/kcp-dev/logicalcluster/v2"
 
 	corev1 "k8s.io/api/core/v1"
 	utilserrors "k8s.io/apimachinery/pkg/util/errors"

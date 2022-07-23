@@ -19,7 +19,7 @@ package ingresssplitter
 import (
 	"testing"
 
-	"github.com/kcp-dev/logicalcluster"
+	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -35,9 +35,9 @@ func TestTracker(t *testing.T) {
 	newIngress := func(cluster, ns, name string) *networkingv1.Ingress {
 		return &networkingv1.Ingress{
 			ObjectMeta: metav1.ObjectMeta{
-				ClusterName: cluster,
-				Namespace:   ns,
-				Name:        name,
+				ZZZ_DeprecatedClusterName: cluster,
+				Namespace:                 ns,
+				Name:                      name,
 			},
 		}
 	}
@@ -45,9 +45,9 @@ func TestTracker(t *testing.T) {
 	newService := func(cluster, ns, name string) *corev1.Service {
 		return &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
-				ClusterName: cluster,
-				Namespace:   ns,
-				Name:        name,
+				ZZZ_DeprecatedClusterName: cluster,
+				Namespace:                 ns,
+				Name:                      name,
 			},
 		}
 	}

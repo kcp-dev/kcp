@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster"
+	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -202,7 +202,7 @@ func newAPIBinding() *bindingBuilder {
 	return &bindingBuilder{
 		APIBinding: &apisv1alpha1.APIBinding{
 			ObjectMeta: metav1.ObjectMeta{
-				ClusterName: "root:org:ws",
+				ZZZ_DeprecatedClusterName: "root:org:ws",
 			},
 		},
 	}

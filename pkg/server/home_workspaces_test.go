@@ -27,7 +27,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kcp-dev/logicalcluster"
+	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -1708,8 +1708,8 @@ func newWorkspace(qualifiedName string) wsBuilder {
 	path, name := logicalcluster.New(qualifiedName).Split()
 	return wsBuilder{&tenancyv1alpha1.ClusterWorkspace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        name,
-			ClusterName: path.String(),
+			Name:                      name,
+			ZZZ_DeprecatedClusterName: path.String(),
 		},
 	}}
 }

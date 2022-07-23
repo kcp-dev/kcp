@@ -37,7 +37,7 @@ import (
 
 	"github.com/egymgmbh/go-prefix-writer/prefixer"
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
-	"github.com/kcp-dev/logicalcluster"
+	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
 

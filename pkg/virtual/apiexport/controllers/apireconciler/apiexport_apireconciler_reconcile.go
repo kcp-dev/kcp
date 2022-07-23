@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/kcp-dev/logicalcluster"
+	"github.com/kcp-dev/logicalcluster/v2"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -91,7 +91,8 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 		internal, apiResourceSchema := isPermissionClaimForInternalAPI(pc)
 		if internal {
 			shallow := *apiResourceSchema
-			shallow.ClusterName = logicalcluster.From(apiExport).String()
+			// nolint:staticcheck
+			shallow.ZZZ_DeprecatedClusterName = logicalcluster.From(apiExport).String()
 			apiResourceSchemas[gr] = &shallow
 			continue
 		} else if pc.IdentityHash == "" {

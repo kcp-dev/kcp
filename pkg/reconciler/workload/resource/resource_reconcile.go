@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster"
+	"github.com/kcp-dev/logicalcluster/v2"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -46,7 +46,7 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 	// If the resource is not namespaced (incl if the resource is itself a
 	// namespace), ignore it.
 	if obj.GetNamespace() == "" {
-		klog.V(4).Infof("GVR %q %s|%s had no namespace; ignoring", gvr.String(), obj.GetClusterName(), obj.GetName())
+		klog.V(4).Infof("GVR %q %s|%s had no namespace; ignoring", gvr.String(), logicalcluster.From(obj), obj.GetName())
 		return nil
 	}
 

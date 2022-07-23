@@ -23,7 +23,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster"
+	"github.com/kcp-dev/logicalcluster/v2"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -150,9 +150,9 @@ func NewSpecSyncer(gvrs []schema.GroupVersionResource, syncTargetWorkspace logic
 				}
 				klog.V(4).InfoS("found", "NamespaceLocator", nsLocator)
 				m := &metav1.ObjectMeta{
-					ClusterName: nsLocator.Workspace.String(),
-					Namespace:   nsLocator.Namespace,
-					Name:        name,
+					ZZZ_DeprecatedClusterName: nsLocator.Workspace.String(),
+					Namespace:                 nsLocator.Namespace,
+					Name:                      name,
 				}
 				c.AddToQueue(gvr, m)
 			},

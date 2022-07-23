@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kcp-dev/logicalcluster"
+	"github.com/kcp-dev/logicalcluster/v2"
 
 	rbacv1 "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -127,7 +127,7 @@ func AddNameIndexers(crbInformer rbacinformers.ClusterRoleBindingInformer) error
 }
 
 func lclusterAwareIndexValue(lclusterName logicalcluster.Name, indexValue string) string {
-	return lclusterName.String() + "#$#" + indexValue
+	return lclusterName.String() + "|" + indexValue
 }
 
 var _ rest.Lister = &REST{}

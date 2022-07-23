@@ -31,7 +31,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster"
+	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -169,7 +169,7 @@ func artifact(t *testing.T, server RunningServer, producer func() (runtime.Objec
 		accessor, ok := data.(metav1.Object)
 		require.True(t, ok, "artifact has no object meta: %#v", data)
 
-		dir := path.Join(artifactDir, accessor.GetClusterName())
+		dir := path.Join(artifactDir, logicalcluster.From(accessor).String())
 		dir = strings.ReplaceAll(dir, ":", "_") // github actions don't like colon because NTFS is unhappy with it in path names
 		if accessor.GetNamespace() != "" {
 			dir = path.Join(dir, accessor.GetNamespace())

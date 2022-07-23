@@ -24,7 +24,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster"
+	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/spf13/cobra"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,6 +45,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	boostrap "github.com/kcp-dev/kcp/pkg/server/bootstrap"
 	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 )
@@ -61,7 +62,7 @@ func NewCommand(ctx context.Context, errout io.Writer) *cobra.Command {
 		Long:  "Start a virtual workspace apiserver to managing personal, shared or organization workspaces",
 
 		RunE: func(c *cobra.Command, args []string) error {
-			if err := opts.Logs.ValidateAndApply(); err != nil {
+			if err := opts.Logs.ValidateAndApply(kcpfeatures.DefaultFeatureGate); err != nil {
 				return err
 			}
 			if err := opts.Validate(); err != nil {

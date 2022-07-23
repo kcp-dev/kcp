@@ -24,7 +24,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster"
+	"github.com/kcp-dev/logicalcluster/v2"
 	etcdtypes "go.etcd.io/etcd/client/pkg/v3/types"
 
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -34,7 +34,6 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/endpoints/filters"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/apiserver/pkg/util/webhook"
 	"k8s.io/client-go/dynamic"
 	coreexternalversions "k8s.io/client-go/informers"
@@ -578,7 +577,7 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
-	if utilfeature.DefaultFeatureGate.Enabled(kcpfeatures.LocationAPI) {
+	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.LocationAPI) {
 		if s.options.Controllers.EnableAll || enabled.Has("scheduling") {
 			if err := s.installWorkloadNamespaceScheduler(ctx, controllerConfig, server); err != nil {
 				return err

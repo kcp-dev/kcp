@@ -27,6 +27,7 @@ import (
 	genericfeatures "k8s.io/apiserver/pkg/features"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/component-base/featuregate"
+	"k8s.io/component-base/logs"
 )
 
 const (
@@ -43,8 +44,13 @@ const (
 	LocationAPI featuregate.Feature = "KCPLocationAPI"
 )
 
+// DefaultFeatureGate exposes the upstream feature gate, but with our gate setting applied.
+var DefaultFeatureGate = utilfeature.DefaultFeatureGate
+
 func init() {
 	runtime.Must(utilfeature.DefaultMutableFeatureGate.Add(defaultGenericControlPlaneFeatureGates))
+
+	// here we differ from upstream:
 	runtime.Must(utilfeature.DefaultMutableFeatureGate.Set(fmt.Sprintf("%s=true", genericfeatures.CustomResourceValidationExpressions)))
 }
 
@@ -88,14 +94,13 @@ var defaultGenericControlPlaneFeatureGates = map[featuregate.Feature]featuregate
 
 	// inherited features from generic apiserver, relisted here to get a conflict if it is changed
 	// unintentionally on either side:
-	genericfeatures.StreamingProxyRedirects:             {Default: false, PreRelease: featuregate.Deprecated}, // remove in 1.24
-	genericfeatures.ValidateProxyRedirects:              {Default: true, PreRelease: featuregate.Deprecated},
 	genericfeatures.AdvancedAuditing:                    {Default: true, PreRelease: featuregate.GA},
 	genericfeatures.APIResponseCompression:              {Default: true, PreRelease: featuregate.Beta},
 	genericfeatures.APIListChunking:                     {Default: true, PreRelease: featuregate.Beta},
 	genericfeatures.DryRun:                              {Default: true, PreRelease: featuregate.GA},
 	genericfeatures.ServerSideApply:                     {Default: true, PreRelease: featuregate.GA},
 	genericfeatures.APIPriorityAndFairness:              {Default: true, PreRelease: featuregate.Beta},
-	genericfeatures.WarningHeaders:                      {Default: true, PreRelease: featuregate.GA, LockToDefault: true}, // remove in 1.24
 	genericfeatures.CustomResourceValidationExpressions: {Default: false, PreRelease: featuregate.Alpha},
+
+	logs.ContextualLogging: {Default: true, PreRelease: featuregate.Alpha},
 }

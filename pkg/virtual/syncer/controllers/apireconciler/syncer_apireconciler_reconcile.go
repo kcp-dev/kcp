@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kcp-dev/logicalcluster"
+	"github.com/kcp-dev/logicalcluster/v2"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -64,7 +64,8 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 	apiResourceSchemas := make([]*apisv1alpha1.APIResourceSchema, 0, len(apiExport.Spec.LatestResourceSchemas)+len(internalapis.Schemas))
 	for _, schema := range internalapis.Schemas {
 		shallow := *schema
-		shallow.ClusterName = logicalcluster.From(apiExport).String() // intentionally no direct assignment
+		// nolint:staticcheck
+		shallow.ZZZ_DeprecatedClusterName = logicalcluster.From(apiExport).String() // intentionally no direct assignment
 		apiResourceSchemas = append(apiResourceSchemas, &shallow)
 	}
 	for _, schemaName := range apiExport.Spec.LatestResourceSchemas {

@@ -18,9 +18,8 @@ package apiserver
 
 import (
 	"fmt"
-	"path"
 
-	"github.com/kcp-dev/logicalcluster"
+	"github.com/kcp-dev/logicalcluster/v2"
 
 	apiextensionsinternal "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -44,7 +43,6 @@ import (
 	"k8s.io/apiserver/pkg/features"
 	"k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	utilopenapi "k8s.io/apiserver/pkg/util/openapi"
 	"k8s.io/klog/v2"
 	"k8s.io/kube-openapi/pkg/validation/spec"
@@ -52,6 +50,7 @@ import (
 	"k8s.io/kube-openapi/pkg/validation/validate"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 )
 
@@ -198,18 +197,6 @@ func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, apiRes
 		structuralSchema,
 	)
 
-	selfLinkPrefixPrefix := path.Join("apis", apiResourceSchema.Spec.Group, version)
-	if apiResourceSchema.Spec.Group == "" {
-		selfLinkPrefixPrefix = path.Join("api", version)
-	}
-	selfLinkPrefix := ""
-	switch apiResourceSchema.Spec.Scope {
-	case apiextensionsv1.ClusterScoped:
-		selfLinkPrefix = "/" + selfLinkPrefixPrefix + "/" + apiResourceSchema.Spec.Names.Plural + "/"
-	case apiextensionsv1.NamespaceScoped:
-		selfLinkPrefix = "/" + selfLinkPrefixPrefix + "/namespaces/"
-	}
-
 	clusterScoped := apiResourceSchema.Spec.Scope == apiextensionsv1.ClusterScoped
 
 	// CRDs explicitly do not support protobuf, but some objects returned by the API server do
@@ -231,9 +218,8 @@ func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, apiRes
 
 	requestScope := &handlers.RequestScope{
 		Namer: handlers.ContextBasedNaming{
-			SelfLinker:         meta.NewAccessor(),
-			ClusterScoped:      clusterScoped,
-			SelfLinkPathPrefix: selfLinkPrefix,
+			Namer:         runtime.Namer(meta.NewAccessor()),
+			ClusterScoped: clusterScoped,
 		},
 		Serializer:          negotiatedSerializer,
 		ParameterCodec:      parameterCodec,
@@ -258,7 +244,7 @@ func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, apiRes
 		OpenapiModels:            modelsByGKV,
 	}
 
-	if utilfeature.DefaultFeatureGate.Enabled(features.ServerSideApply) {
+	if kcpfeatures.DefaultFeatureGate.Enabled(features.ServerSideApply) {
 		if withResetFields, canGetResetFields := storage.(rest.ResetFieldsStrategy); canGetResetFields {
 			resetFields := withResetFields.GetResetFields()
 			reqScope := *requestScope
@@ -284,13 +270,11 @@ func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, apiRes
 		statusScope = *requestScope
 		statusScope.Subresource = "status"
 		statusScope.Namer = handlers.ContextBasedNaming{
-			SelfLinker:         meta.NewAccessor(),
-			ClusterScoped:      clusterScoped,
-			SelfLinkPathPrefix: selfLinkPrefix,
-			SelfLinkPathSuffix: "/status",
+			Namer:         runtime.Namer(meta.NewAccessor()),
+			ClusterScoped: clusterScoped,
 		}
 
-		if utilfeature.DefaultFeatureGate.Enabled(features.ServerSideApply) {
+		if kcpfeatures.DefaultFeatureGate.Enabled(features.ServerSideApply) {
 			if withResetFields, canGetResetFields := statusStorage.(rest.ResetFieldsStrategy); canGetResetFields {
 				resetFields := withResetFields.GetResetFields()
 				statusScope, err = apiextensionsapiserver.ScopeWithFieldManager(

@@ -19,7 +19,7 @@ package v1alpha1
 import (
 	"fmt"
 
-	"github.com/kcp-dev/logicalcluster"
+	"github.com/kcp-dev/logicalcluster/v2"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -542,8 +542,8 @@ var (
 	// RootWorkspaceType is the implicit type of the root logical cluster.
 	RootWorkspaceType = &ClusterWorkspaceType{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        ObjectName(RootWorkspaceTypeReference.Name),
-			ClusterName: RootWorkspaceTypeReference.Path,
+			Name:                      ObjectName(RootWorkspaceTypeReference.Name),
+			ZZZ_DeprecatedClusterName: RootWorkspaceTypeReference.Path,
 		},
 		Spec: ClusterWorkspaceTypeSpec{
 			LimitAllowedParents: &ClusterWorkspaceTypeSelector{

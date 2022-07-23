@@ -21,7 +21,7 @@ package v1beta1
 import (
 	"net/http"
 
-	logicalcluster "github.com/kcp-dev/logicalcluster"
+	v2 "github.com/kcp-dev/logicalcluster/v2"
 
 	rest "k8s.io/client-go/rest"
 
@@ -37,7 +37,7 @@ type TenancyV1beta1Interface interface {
 // TenancyV1beta1Client is used to interact with features provided by the tenancy.kcp.dev group.
 type TenancyV1beta1Client struct {
 	restClient rest.Interface
-	cluster    logicalcluster.Name
+	cluster    v2.Name
 }
 
 func (c *TenancyV1beta1Client) Workspaces() WorkspaceInterface {
@@ -89,7 +89,7 @@ func New(c rest.Interface) *TenancyV1beta1Client {
 }
 
 // NewWithCluster creates a new TenancyV1beta1Client for the given RESTClient and cluster.
-func NewWithCluster(c rest.Interface, cluster logicalcluster.Name) *TenancyV1beta1Client {
+func NewWithCluster(c rest.Interface, cluster v2.Name) *TenancyV1beta1Client {
 	return &TenancyV1beta1Client{restClient: c, cluster: cluster}
 }
 

@@ -29,7 +29,7 @@ set -o xtrace
 # Note: setting GOPROXY=direct allows us to bump very quickly after the fork has been committed to.
 GITHUB_USER=${GITHUB_USER:-kcp-dev}
 GITHUB_REPO=${GITHUB_REPO:-kubernetes}
-BRANCH=${BRANCH:-feature-logical-clusters-1.23}
+BRANCH=${BRANCH:-feature-logical-clusters-1.24}
 
 current_version="$( GOPROXY=direct go mod edit -json | jq '.Replace[] | select(.Old.Path=="k8s.io/kubernetes") | .New.Version' --raw-output )"
 

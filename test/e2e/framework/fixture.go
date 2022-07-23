@@ -32,7 +32,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster"
+	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -467,30 +467,6 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 	// Apply the yaml output from the plugin to the downstream server
 	KubectlApply(t, downstreamKubeconfigPath, syncerYAML)
 
-	// Extract the configuration for an in-process syncer from the resources that were
-	// applied to the downstream server. This maximizes the parity between the
-	// configuration of a deployed and in-process syncer.
-	var syncerID string
-	for _, doc := range strings.Split(string(syncerYAML), "\n---\n") {
-		var manifest struct {
-			metav1.ObjectMeta `json:"metadata"`
-		}
-		err := yaml.Unmarshal([]byte(doc), &manifest)
-		require.NoError(t, err)
-		if manifest.Namespace != "" {
-			syncerID = manifest.Namespace
-			break
-		}
-	}
-	require.NotEmpty(t, syncerID, "failed to extract syncer ID from yaml produced by plugin:\n%s", string(syncerYAML))
-	syncerConfig := syncerConfigFromCluster(t, downstreamConfig, syncerID, syncerID)
-
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	t.Cleanup(cancelFunc)
-
-	downstreamKubeClient, err := kubernetesclientset.NewForConfig(downstreamConfig)
-	require.NoError(t, err)
-
 	artifactDir, err := CreateTempDirForTest(t, "artifacts")
 	if err != nil {
 		t.Errorf("failed to create temp dir for syncer artifacts: %v", err)
@@ -535,6 +511,31 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 		gather(upstreamDynamic.Cluster(sf.WorkspaceClusterName), appsv1.SchemeGroupVersion.WithResource("deployments"))
 		gather(downstreamDynamic, appsv1.SchemeGroupVersion.WithResource("deployments"))
 	})
+
+	// Extract the configuration for an in-process syncer from the resources that were
+	// applied to the downstream server. This maximizes the parity between the
+	// configuration of a deployed and in-process syncer.
+	var syncerID string
+	for _, doc := range strings.Split(string(syncerYAML), "\n---\n") {
+		var manifest struct {
+			metav1.ObjectMeta `json:"metadata"`
+		}
+		err := yaml.Unmarshal([]byte(doc), &manifest)
+		require.NoError(t, err)
+		if manifest.Namespace != "" {
+			syncerID = manifest.Namespace
+			break
+		}
+	}
+	require.NotEmpty(t, syncerID, "failed to extract syncer ID from yaml produced by plugin:\n%s", string(syncerYAML))
+
+	syncerConfig := syncerConfigFromCluster(t, downstreamConfig, syncerID, syncerID)
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(cancelFunc)
+
+	downstreamKubeClient, err := kubernetesclientset.NewForConfig(downstreamConfig)
+	require.NoError(t, err)
 
 	if useDeployedSyncer {
 		t.Cleanup(func() {
@@ -647,7 +648,7 @@ func (sf *StartedSyncerFixture) WaitForClusterReady(t *testing.T, ctx context.Co
 	kcpClient := kcpClusterClient.Cluster(cfg.SyncTargetWorkspace)
 	EventuallyReady(t, func() (conditions.Getter, error) {
 		return kcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx, cfg.SyncTargetName, metav1.GetOptions{})
-	}, wait.ForeverTestTimeout, time.Millisecond*100, "Waiting for cluster %q condition %q", cfg.SyncTargetName, conditionsapi.ReadyCondition)
+	}, "Waiting for cluster %q condition %q", cfg.SyncTargetName, conditionsapi.ReadyCondition)
 	t.Logf("Cluster %q is %s", cfg.SyncTargetName, conditionsapi.ReadyCondition)
 }
 
@@ -712,13 +713,14 @@ func syncerConfigFromCluster(t *testing.T, config *rest.Config, namespace, synce
 			return false
 		}
 		for _, secret := range secrets.Items {
+			t.Logf("checking secret %s/%s for annotation %s=%s", secret.Namespace, secret.Name, corev1.ServiceAccountNameKey, syncerID)
 			if secret.Annotations[corev1.ServiceAccountNameKey] == syncerID {
 				tokenSecret = secret
 				return true
 			}
 		}
 		return false
-	}, wait.ForeverTestTimeout, time.Millisecond*100, "token secret for syncer service account not found")
+	}, wait.ForeverTestTimeout/30, time.Millisecond*100, "token secret in namespace %q for syncer service account %q not found", namespace, syncerID)
 	token := tokenSecret.Data["token"]
 	require.NotEmpty(t, token, "token is required")
 
