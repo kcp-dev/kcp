@@ -44,8 +44,13 @@ const (
 	LocationAPI featuregate.Feature = "KCPLocationAPI"
 )
 
+// DefaultFeatureGate exposes the upstream feature gate, but with our gate setting applied.
+var DefaultFeatureGate = utilfeature.DefaultFeatureGate
+
 func init() {
 	runtime.Must(utilfeature.DefaultMutableFeatureGate.Add(defaultGenericControlPlaneFeatureGates))
+
+	// here we differ from upstream:
 	runtime.Must(utilfeature.DefaultMutableFeatureGate.Set(fmt.Sprintf("%s=true", genericfeatures.CustomResourceValidationExpressions)))
 }
 
@@ -96,5 +101,6 @@ var defaultGenericControlPlaneFeatureGates = map[featuregate.Feature]featuregate
 	genericfeatures.ServerSideApply:                     {Default: true, PreRelease: featuregate.GA},
 	genericfeatures.APIPriorityAndFairness:              {Default: true, PreRelease: featuregate.Beta},
 	genericfeatures.CustomResourceValidationExpressions: {Default: false, PreRelease: featuregate.Alpha},
-	logs.ContextualLogging:                              {Default: true, PreRelease: featuregate.Alpha},
+
+	logs.ContextualLogging: {Default: true, PreRelease: featuregate.Alpha},
 }
