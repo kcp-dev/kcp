@@ -198,6 +198,14 @@ test-e2e-shared: build-all
 	NO_GORUN=1 $(GO_TEST) -race -count $(COUNT) -p $(E2E_PARALLELISM) -parallel $(E2E_PARALLELISM) $(WHAT) $(TEST_ARGS) \
 		-args --use-default-kcp-server --syncer-image="$${SYNCER_IMAGE}" --kcp-test-image="$${TEST_IMAGE}" --pcluster-kubeconfig="$(PWD)/kind.kubeconfig"
 
+.PHONY: require-kind
+require-kind:
+	if ! command -v kind 1> /dev/null 2>&1; then echo "kind not found in \$$PATH"; exit 1; fi
+
+.PHONY: require-ko
+require-ko:
+	if ! command -v ko 1> /dev/null 2>&1; then echo "ko not found in \$$PATH"; exit 1; fi
+
 .PHONY: test-e2e-sharded
 ifdef USE_GOTESTSUM
 test-e2e-sharded: $(GOTESTSUM)
@@ -209,8 +217,16 @@ test-e2e-sharded: LOG_DIR ?= $(ARTIFACT_DIR)/kcp
 else
 test-e2e-sharded: LOG_DIR ?= .kcp
 endif
-test-e2e-sharded: build-all
-	TEST_SERVER_ARGS="$(TEST_SERVER_ARGS)" LOG_DIR="$(LOG_DIR)" ARCH="$(ARCH)" GO_TEST="$(GO_TEST)" COUNT="$(COUNT)" E2E_PARALLELISM="$(E2E_PARALLELISM)" WHAT="$(WHAT)" TEST_ARGS="$(TEST_ARGS)" hack/run-sharded-e2e.sh
+test-e2e-sharded: require-kind require-ko build-all
+	kind get kubeconfig > "$(PWD)/kind.kubeconfig"
+	mkdir -p $(LOG_DIR)
+	SYNCER_IMAGE=$$(KO_DOCKER_REPO=kind.local ko build --platform=linux/$(ARCH) ./cmd/syncer) && test -n "$${SYNCER_IMAGE}" && \
+	TEST_IMAGE=$$(KO_DOCKER_REPO=kind.local ko build --platform=linux/$(ARCH) ./test/e2e/fixtures/kcp-test-image) && test -n "$${TEST_IMAGE}" && \
+	NO_GORUN=1 ./bin/sharded-test-server --v=2 --log-dir-path="$(LOG_DIR)" $(TEST_SERVER_ARGS) 2>&1 & PID=$$!; echo "PID $$PID" && \
+	trap 'kill -TERM $$PID' TERM INT EXIT && \
+	while [ ! -f .kcp/admin.kubeconfig ]; do sleep 1; done && \
+	NO_GORUN=1 $(GO_TEST) -race -count $(COUNT) -p $(E2E_PARALLELISM) -parallel $(E2E_PARALLELISM) $(WHAT) $(TEST_ARGS) \
+		-args --use-default-kcp-server --root-shard-kubeconfig=$(PWD)/.kcp-0/admin.kubeconfig --syncer-image="$${SYNCER_IMAGE}" --kcp-test-image="$${TEST_IMAGE}" --pcluster-kubeconfig="$(PWD)/kind.kubeconfig"
 
 .PHONY: test
 ifdef USE_GOTESTSUM
