@@ -33,7 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/wait"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	"k8s.io/apiserver/pkg/util/feature"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/version"
@@ -46,6 +45,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	boostrap "github.com/kcp-dev/kcp/pkg/server/bootstrap"
 	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 )
@@ -62,7 +62,7 @@ func NewCommand(ctx context.Context, errout io.Writer) *cobra.Command {
 		Long:  "Start a virtual workspace apiserver to managing personal, shared or organization workspaces",
 
 		RunE: func(c *cobra.Command, args []string) error {
-			if err := opts.Logs.ValidateAndApply(feature.DefaultFeatureGate); err != nil {
+			if err := opts.Logs.ValidateAndApply(kcpfeatures.DefaultFeatureGate); err != nil {
 				return err
 			}
 			if err := opts.Validate(); err != nil {

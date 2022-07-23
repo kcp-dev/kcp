@@ -34,11 +34,11 @@ import (
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/features"
 	"k8s.io/apiserver/pkg/registry/rest"
-	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/kube-openapi/pkg/validation/spec"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 )
@@ -202,7 +202,7 @@ func (r *resourceHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	if utilfeature.DefaultFeatureGate.Enabled(features.ServerSideApply) {
+	if kcpfeatures.DefaultFeatureGate.Enabled(features.ServerSideApply) {
 		supportedTypes = append(supportedTypes, string(types.ApplyPatchType))
 	}
 

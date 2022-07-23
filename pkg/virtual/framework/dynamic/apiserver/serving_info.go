@@ -43,7 +43,6 @@ import (
 	"k8s.io/apiserver/pkg/features"
 	"k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	utilopenapi "k8s.io/apiserver/pkg/util/openapi"
 	"k8s.io/klog/v2"
 	"k8s.io/kube-openapi/pkg/validation/spec"
@@ -51,6 +50,7 @@ import (
 	"k8s.io/kube-openapi/pkg/validation/validate"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 )
 
@@ -244,7 +244,7 @@ func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, apiRes
 		OpenapiModels:            modelsByGKV,
 	}
 
-	if utilfeature.DefaultFeatureGate.Enabled(features.ServerSideApply) {
+	if kcpfeatures.DefaultFeatureGate.Enabled(features.ServerSideApply) {
 		if withResetFields, canGetResetFields := storage.(rest.ResetFieldsStrategy); canGetResetFields {
 			resetFields := withResetFields.GetResetFields()
 			reqScope := *requestScope
@@ -274,7 +274,7 @@ func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, apiRes
 			ClusterScoped: clusterScoped,
 		}
 
-		if utilfeature.DefaultFeatureGate.Enabled(features.ServerSideApply) {
+		if kcpfeatures.DefaultFeatureGate.Enabled(features.ServerSideApply) {
 			if withResetFields, canGetResetFields := statusStorage.(rest.ResetFieldsStrategy); canGetResetFields {
 				resetFields := withResetFields.GetResetFields()
 				statusScope, err = apiextensionsapiserver.ScopeWithFieldManager(
