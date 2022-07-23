@@ -452,6 +452,23 @@ type PermissionClaim struct {
 	// Note that one must look this up for a particular KCP instance.
 	// +optional
 	IdentityHash string `json:"identityHash,omitempty"`
+
+	// resourceNames is a list of object names that are allowed to be accessed. It requires
+	// namespace to be set.
+	ResourceNames []string `json:"resourceNames,omitempty"`
+
+	// namespace restricts the accessible objects by namespace.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinLength:=1
+	// +kubebuilder:validation:MaxLength:=63
+	// +kubebuilder:validation:Pattern:=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	Namespace string `json:"namespace,omitempty"`
+
+	// labelSelector selects objects of the given group and resource by label.
+	//
+	// +kubebuilder:validation:Optional
+	LabelSelector *metav1.LabelSelector `json:"labelSelector,omitempty"`
 }
 
 func (p PermissionClaim) String() string {
