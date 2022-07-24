@@ -35,13 +35,14 @@ import (
 	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
 
 	kcpadmission "github.com/kcp-dev/kcp/pkg/admission"
+	etcdoptions "github.com/kcp-dev/kcp/pkg/etcd/options"
 	_ "github.com/kcp-dev/kcp/pkg/features"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 )
 
 type Options struct {
 	GenericControlPlane ServerRunOptions
-	EmbeddedEtcd        EmbeddedEtcd
+	EmbeddedEtcd        etcdoptions.Embedded
 	Controllers         Controllers
 	Authorization       Authorization
 	AdminAuthentication AdminAuthentication
@@ -65,7 +66,7 @@ type ExtraOptions struct {
 
 type completedOptions struct {
 	GenericControlPlane options.CompletedServerRunOptions
-	EmbeddedEtcd        EmbeddedEtcd
+	EmbeddedEtcd        etcdoptions.CompletedEmbedded
 	Controllers         Controllers
 	Authorization       Authorization
 	AdminAuthentication AdminAuthentication
@@ -85,7 +86,7 @@ func NewOptions(rootDir string) *Options {
 		GenericControlPlane: ServerRunOptions{
 			*options.NewServerRunOptions(),
 		},
-		EmbeddedEtcd:        *NewEmbeddedEtcd(rootDir),
+		EmbeddedEtcd:        *etcdoptions.NewEmbedded(rootDir),
 		Controllers:         *NewControllers(),
 		Authorization:       *NewAuthorization(),
 		AdminAuthentication: *NewAdminAuthentication(rootDir),
@@ -192,9 +193,11 @@ func (o *CompletedOptions) Validate() []error {
 }
 
 func (o *Options) Complete() (*CompletedOptions, error) {
+	var completedEmbeddedEtcd etcdoptions.CompletedEmbedded
 	if servers := o.GenericControlPlane.Etcd.StorageConfig.Transport.ServerList; len(servers) == 1 && servers[0] == "embedded" {
 		o.GenericControlPlane.Etcd.StorageConfig.Transport.ServerList = []string{"localhost:" + o.EmbeddedEtcd.ClientPort}
 		o.EmbeddedEtcd.Enabled = true
+		completedEmbeddedEtcd = o.EmbeddedEtcd.Complete(o.GenericControlPlane.Etcd)
 	} else {
 		o.EmbeddedEtcd.Enabled = false
 	}
@@ -278,7 +281,7 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 		completedOptions: &completedOptions{
 			// TODO: GenericControlPlane here should be completed. But the k/k repo does not expose the CompleteOptions type, but should.
 			GenericControlPlane: completedGenericControlPlane,
-			EmbeddedEtcd:        o.EmbeddedEtcd,
+			EmbeddedEtcd:        completedEmbeddedEtcd,
 			Controllers:         o.Controllers,
 			Authorization:       o.Authorization,
 			AdminAuthentication: o.AdminAuthentication,
