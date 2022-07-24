@@ -124,10 +124,10 @@ type CompletedConfig struct {
 }
 
 // Complete fills in any fields not set that are required to have valid data. It's mutating the receiver.
-func (c *Config) Complete() (CompletedConfig, error) {
+func (c *Config) Complete() CompletedConfig {
 	return CompletedConfig{&completedConfig{
 		Config: c,
-	}}, nil
+	}}
 }
 
 func generateClientAndServerCerts(hosts []string, dir string) error {

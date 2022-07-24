@@ -45,9 +45,9 @@ func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1alpha1.ClusterW
 		&metaDataReconciler{},
 		&schedulingReconciler{
 			getShard: func(name string) (*tenancyv1alpha1.ClusterWorkspaceShard, error) {
-				return c.rootWorkspaceShardLister.Get(clusters.ToClusterAwareKey(tenancyv1alpha1.RootCluster, name))
+				return c.clusterWorkspaceShardLister.Get(clusters.ToClusterAwareKey(tenancyv1alpha1.RootCluster, name))
 			},
-			listShards: c.rootWorkspaceShardLister.List,
+			listShards: c.clusterWorkspaceShardLister.List,
 		},
 		&phaseReconciler{
 			getShardWithQuorum: func(ctx context.Context, name string, options metav1.GetOptions) (*tenancyv1alpha1.ClusterWorkspaceShard, error) {

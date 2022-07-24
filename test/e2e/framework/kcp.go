@@ -53,6 +53,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
+	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
 	"github.com/kcp-dev/kcp/pkg/server"
 	"github.com/kcp-dev/kcp/pkg/server/options"
 	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
@@ -263,7 +264,26 @@ func (c *kcpServer) Run(opts ...RunOption) error {
 			return apierrors.NewAggregate(errs)
 		}
 
-		s, err := server.NewServer(completed)
+		config, err := server.NewConfig(completed)
+		if err != nil {
+			cleanup()
+			return err
+		}
+
+		completedConfig, err := config.Complete()
+		if err != nil {
+			cleanup()
+			return err
+		}
+
+		// the etcd server must be up before NewServer because storage decorators access it right away
+		if completedConfig.EmbeddedEtcd.Config != nil {
+			if err := embeddedetcd.NewServer(completedConfig.EmbeddedEtcd).Run(ctx); err != nil {
+				return err
+			}
+		}
+
+		s, err := server.NewServer(completedConfig)
 		if err != nil {
 			cleanup()
 			return err

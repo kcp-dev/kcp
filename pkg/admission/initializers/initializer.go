@@ -47,7 +47,7 @@ func (i *kcpInformersInitializer) Initialize(plugin admission.Interface) {
 // NewKubeClusterClientInitializer returns an admission plugin initializer that injects
 // a kube cluster client into admission plugins.
 func NewKubeClusterClientInitializer(
-	kubeClusterClient *kubernetes.Cluster,
+	kubeClusterClient kubernetes.ClusterInterface,
 ) *kubeClusterClientInitializer {
 	return &kubeClusterClientInitializer{
 		kubeClusterClient: kubeClusterClient,
@@ -55,7 +55,7 @@ func NewKubeClusterClientInitializer(
 }
 
 type kubeClusterClientInitializer struct {
-	kubeClusterClient *kubernetes.Cluster
+	kubeClusterClient kubernetes.ClusterInterface
 }
 
 func (i *kubeClusterClientInitializer) Initialize(plugin admission.Interface) {
@@ -67,7 +67,7 @@ func (i *kubeClusterClientInitializer) Initialize(plugin admission.Interface) {
 // NewKcpClusterClientInitializer returns an admission plugin initializer that injects
 // a kcp cluster client into admission plugins.
 func NewKcpClusterClientInitializer(
-	kcpClusterClient *kcpclientset.Cluster,
+	kcpClusterClient kcpclientset.ClusterInterface,
 ) *kcpClusterClientInitializer {
 	return &kcpClusterClientInitializer{
 		kcpClusterClient: kcpClusterClient,
@@ -75,7 +75,7 @@ func NewKcpClusterClientInitializer(
 }
 
 type kcpClusterClientInitializer struct {
-	kcpClusterClient *kcpclientset.Cluster
+	kcpClusterClient kcpclientset.ClusterInterface
 }
 
 func (i *kcpClusterClientInitializer) Initialize(plugin admission.Interface) {

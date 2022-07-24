@@ -25,6 +25,7 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
+	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -32,6 +33,7 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/endpoints/filters"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	serverstorage "k8s.io/apiserver/pkg/server/storage"
 	"k8s.io/apiserver/pkg/util/webhook"
 	"k8s.io/client-go/dynamic"
 	coreexternalversions "k8s.io/client-go/informers"
@@ -42,6 +44,8 @@ import (
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
+	"k8s.io/kubernetes/pkg/genericcontrolplane/aggregator"
+	"k8s.io/kubernetes/pkg/genericcontrolplane/apis"
 
 	configroot "github.com/kcp-dev/kcp/config/root"
 	configrootphase0 "github.com/kcp-dev/kcp/config/root-phase0"
@@ -67,195 +71,203 @@ const resyncPeriod = 10 * time.Hour
 // systemShardCluster is the name of a logical cluster on every shard (including the root shard) that holds essential system resources (like the root APIs).
 var systemShardCluster = logicalcluster.New("system:shard")
 
-// Server manages the configuration and kcp api-server. It allows callers to easily use kcp
-// as a library rather than as a single binary. Using its constructor function, you can easily
-// setup a new api-server and start it:
-//
-//   srv := server.NewServer(server.BaseConfig())
-//   srv.Run(ctx)
-//
-// You may optionally provide PostStartHookFunc and PreShutdownHookFunc hooks before starting
-// the server that should be passed to the api-server itself. These hooks have access to a
-// restclient.Config which allows you to easily create a client.
-//
-//   srv.AddPostStartHook("my-hook", func(context genericapiserver.PostStartHookContext) error {
-//       client := clientset.NewForConfigOrDie(context.LoopbackClientConfig)
-//   })
-type Server struct {
-	options *kcpserveroptions.CompletedOptions
+type Config struct {
+	Options *kcpserveroptions.CompletedOptions
 
-	postStartHooks   []postStartHookEntry
-	preShutdownHooks []preShutdownHookEntry
+	EmbeddedEtcd *embeddedetcd.Config
 
-	syncedCh chan struct{}
+	GenericConfig  *genericapiserver.Config // the config embedded into MiniAggregator, the head of the delegation chain
+	MiniAggregator *aggregator.MiniAggregatorConfig
+	Apis           *apis.Config
+	ApiExtensions  *apiextensionsapiserver.Config
 
-	kcpSharedInformerFactory              kcpexternalversions.SharedInformerFactory
-	kubeSharedInformerFactory             coreexternalversions.SharedInformerFactory
-	apiextensionsSharedInformerFactory    apiextensionsexternalversions.SharedInformerFactory
-	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory
+	ExtraConfig
+}
 
-	// TODO(p0lyn0mial):  get rid of temporaryRootShardKcpSharedInformerFactory, in the future
+type ExtraConfig struct {
+	// resolveIdenties is to be called on server start until it succeeds. It injects the kcp
+	// resource identities into the rest.Config used by the client. Only after it succeeds,
+	// the clients can wildcard-list/watch most kcp resources.
+	resolveIdentities func(ctx context.Context) error
+	identityConfig    *rest.Config
+
+	// authentication
+	kcpAdminToken, shardAdminToken string // nolint:structcheck
+	shardAdminTokenHash            []byte // nolint:structcheck
+
+	// clients
+	DynamicClusterClient       dynamic.ClusterInterface
+	KubeClusterClient          kubernetes.ClusterInterface
+	ApiExtensionsClusterClient apiextensionsclient.ClusterInterface
+	KcpClusterClient           kcpclient.ClusterInterface
+
+	// stuff
+	preHandlerChainMux *handlerChainMuxes // nolint:structcheck
+
+	// informers
+	KcpSharedInformerFactory              kcpexternalversions.SharedInformerFactory
+	KubeSharedInformerFactory             coreexternalversions.SharedInformerFactory
+	ApiExtensionsSharedInformerFactory    apiextensionsexternalversions.SharedInformerFactory
+	DynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory
+
+	// TODO(p0lyn0mial):  get rid of TemporaryRootShardKcpSharedInformerFactory, in the future
 	//                    we should have multi-shard aware informers
 	//
-	// temporaryRootShardKcpSharedInformerFactory bring data from the root shard
-	temporaryRootShardKcpSharedInformerFactory kcpexternalversions.SharedInformerFactory
-
-	// TODO(sttts): get rid of these. We have wildcard informers already.
-	rootKcpSharedInformerFactory  kcpexternalversions.SharedInformerFactory
-	rootKubeSharedInformerFactory coreexternalversions.SharedInformerFactory
+	// TemporaryRootShardKcpSharedInformerFactory bring data from the root shard
+	TemporaryRootShardKcpSharedInformerFactory kcpexternalversions.SharedInformerFactory
 }
 
-// NewServer creates a new instance of Server which manages the KCP api-server.
-func NewServer(o *kcpserveroptions.CompletedOptions) (*Server, error) {
-	return &Server{
-		options:  o,
-		syncedCh: make(chan struct{}),
-	}, nil
+type completedConfig struct {
+	Options *kcpserveroptions.CompletedOptions
+
+	GenericConfig  genericapiserver.CompletedConfig
+	EmbeddedEtcd   embeddedetcd.CompletedConfig
+	MiniAggregator aggregator.CompletedMiniAggregatorConfig
+	Apis           apis.CompletedConfig
+	ApiExtensions  apiextensionsapiserver.CompletedConfig
+
+	ExtraConfig
 }
 
-// postStartHookEntry groups a PostStartHookFunc with a name. We're not storing these hooks
-// in a map and are instead letting the underlying api server perform the hook validation,
-// such as checking for multiple PostStartHookFunc with the same name
-type postStartHookEntry struct {
-	name string
-	hook genericapiserver.PostStartHookFunc
+type CompletedConfig struct {
+	// Embed a private pointer that cannot be instantiated outside of this package.
+	*completedConfig
 }
 
-// preShutdownHookEntry fills the same purpose as postStartHookEntry except that it handles
-// the PreShutdownHookFunc
-type preShutdownHookEntry struct {
-	name string
-	hook genericapiserver.PreShutdownHookFunc
+// Complete fills in any fields not set that are required to have valid data. It's mutating the receiver.
+func (c *Config) Complete() (CompletedConfig, error) {
+	return CompletedConfig{&completedConfig{
+		Options: c.Options,
+
+		GenericConfig:  c.GenericConfig.Complete(c.KubeSharedInformerFactory),
+		EmbeddedEtcd:   c.EmbeddedEtcd.Complete(),
+		MiniAggregator: c.MiniAggregator.Complete(c.KubeSharedInformerFactory),
+		Apis:           c.Apis.Complete(),
+		ApiExtensions:  c.ApiExtensions.Complete(),
+
+		ExtraConfig: c.ExtraConfig,
+	}}, nil
 }
 
-// Run starts the KCP api-server. This function blocks until the api-server stops or an error.
-func (s *Server) Run(ctx context.Context) error {
-	if s.options.Extra.ProfilerAddress != "" {
+func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
+	c := &Config{
+		Options: opts,
+	}
+
+	if opts.Extra.ProfilerAddress != "" {
 		// nolint:errcheck
-		go http.ListenAndServe(s.options.Extra.ProfilerAddress, nil)
+		go http.ListenAndServe(opts.Extra.ProfilerAddress, nil)
 	}
 
-	if s.options.EmbeddedEtcd.Enabled {
-		config, err := embeddedetcd.NewConfig(s.options.EmbeddedEtcd, s.options.GenericControlPlane.Etcd.EnableWatchCache)
+	if opts.EmbeddedEtcd.Enabled {
+		var err error
+		c.EmbeddedEtcd, err = embeddedetcd.NewConfig(opts.EmbeddedEtcd, opts.GenericControlPlane.Etcd.EnableWatchCache)
 		if err != nil {
-			return err
-		}
-		completed, err := config.Complete()
-		if err != nil {
-			return err
-		}
-		if err := embeddedetcd.NewServer(completed).Run(ctx); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	genericConfig, storageFactory, err := genericcontrolplane.BuildGenericConfig(s.options.GenericControlPlane)
+	var err error
+	var storageFactory *serverstorage.DefaultStorageFactory
+	c.GenericConfig, storageFactory, err = genericcontrolplane.BuildGenericConfig(opts.GenericControlPlane)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	genericConfig.RequestInfoResolver = requestinfo.NewFactory() // must be set here early to avoid a crash in the EnableMultiCluster roundtrip wrapper
+	c.GenericConfig.RequestInfoResolver = requestinfo.NewFactory() // must be set here early to avoid a crash in the EnableMultiCluster roundtrip wrapper
 
 	// Setup kcp * informers, but those will need the identities for the APIExports used to make the APIs available.
 	// The identities are not known before we can get them from the APIExports via the loopback client, hence we postpone
 	// this to getOrCreateKcpIdentities() in the kcp-start-informers post-start hook.
 	// The informers here are not  used before the informers are actually started (i.e. no race).
-
-	nonIdentityKcpClusterClient, err := kcpclient.NewClusterForConfig(genericConfig.LoopbackClientConfig) // can only used for wildcard requests of apis.kcp.dev
+	nonIdentityKcpClusterClient, err := kcpclient.NewClusterForConfig(c.GenericConfig.LoopbackClientConfig) // can only used for wildcard requests of apis.kcp.dev
 	if err != nil {
-		return err
+		return nil, err
 	}
-	identityConfig, resolveIdentities := boostrap.NewConfigWithWildcardIdentities(genericConfig.LoopbackClientConfig, boostrap.KcpRootGroupExportNames, boostrap.KcpRootGroupResourceExportNames, nonIdentityKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster))
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(identityConfig) // this is now generic to be used for all kcp API groups
+	c.identityConfig, c.resolveIdentities = boostrap.NewConfigWithWildcardIdentities(c.GenericConfig.LoopbackClientConfig, boostrap.KcpRootGroupExportNames, boostrap.KcpRootGroupResourceExportNames, nonIdentityKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster))
+	c.KcpClusterClient, err = kcpclient.NewClusterForConfig(c.identityConfig) // this is now generic to be used for all kcp API groups
 	if err != nil {
-		return err
+		return nil, err
 	}
-	kcpClient := kcpClusterClient.Cluster(logicalcluster.Wildcard)
-	s.kcpSharedInformerFactory = kcpexternalversions.NewSharedInformerFactoryWithOptions(
-		kcpClient,
+	c.KcpSharedInformerFactory = kcpexternalversions.NewSharedInformerFactoryWithOptions(
+		c.KcpClusterClient.Cluster(logicalcluster.Wildcard),
 		resyncPeriod,
 		kcpexternalversions.WithExtraClusterScopedIndexers(indexers.ClusterScoped()),
 		kcpexternalversions.WithExtraNamespaceScopedIndexers(indexers.NamespaceScoped()),
 	)
 
 	// create an empty non-functional factory so that code that uses it but doesn't need it, doesn't have to check against the nil value
-	s.temporaryRootShardKcpSharedInformerFactory = kcpexternalversions.NewSharedInformerFactory(nil, resyncPeriod)
+	c.TemporaryRootShardKcpSharedInformerFactory = kcpexternalversions.NewSharedInformerFactory(nil, resyncPeriod)
 
 	// Setup kube * informers
-	kubeClusterClient, err := kubernetes.NewClusterForConfig(genericConfig.LoopbackClientConfig)
+	c.KubeClusterClient, err = kubernetes.NewClusterForConfig(c.GenericConfig.LoopbackClientConfig)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	kubeClient := kubeClusterClient.Cluster(logicalcluster.Wildcard)
-	s.kubeSharedInformerFactory = coreexternalversions.NewSharedInformerFactoryWithOptions(
-		kubeClient,
+	c.KubeSharedInformerFactory = coreexternalversions.NewSharedInformerFactoryWithOptions(
+		c.KubeClusterClient.Cluster(logicalcluster.Wildcard),
 		resyncPeriod,
 		coreexternalversions.WithExtraClusterScopedIndexers(indexers.ClusterScoped()),
 		coreexternalversions.WithExtraNamespaceScopedIndexers(indexers.NamespaceScoped()),
 	)
 
 	// Setup apiextensions * informers
-	apiextensionsClusterClient, err := apiextensionsclient.NewClusterForConfig(genericConfig.LoopbackClientConfig)
+	c.ApiExtensionsClusterClient, err = apiextensionsclient.NewClusterForConfig(c.GenericConfig.LoopbackClientConfig)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	apiextensionsCrossClusterClient := apiextensionsClusterClient.Cluster(logicalcluster.Wildcard)
-	s.apiextensionsSharedInformerFactory = apiextensionsexternalversions.NewSharedInformerFactoryWithOptions(
-		apiextensionsCrossClusterClient,
+	c.ApiExtensionsSharedInformerFactory = apiextensionsexternalversions.NewSharedInformerFactoryWithOptions(
+		c.ApiExtensionsClusterClient.Cluster(logicalcluster.Wildcard),
 		resyncPeriod,
 		apiextensionsexternalversions.WithExtraClusterScopedIndexers(indexers.ClusterScoped()),
 		apiextensionsexternalversions.WithExtraNamespaceScopedIndexers(indexers.NamespaceScoped()),
 	)
 
-	// Setup root informers
-	s.rootKcpSharedInformerFactory = kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster), resyncPeriod)
-	s.rootKubeSharedInformerFactory = coreexternalversions.NewSharedInformerFactoryWithOptions(kubeClusterClient.Cluster(tenancyv1alpha1.RootCluster), resyncPeriod)
-
 	// Setup dynamic client
-	dynamicClusterClient, err := dynamic.NewClusterForConfig(genericConfig.LoopbackClientConfig)
+	c.DynamicClusterClient, err = dynamic.NewClusterForConfig(c.GenericConfig.LoopbackClientConfig)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if err := s.options.Authorization.ApplyTo(genericConfig, s.kubeSharedInformerFactory, s.kcpSharedInformerFactory); err != nil {
-		return err
+	if err := opts.Authorization.ApplyTo(c.GenericConfig, c.KubeSharedInformerFactory, c.KcpSharedInformerFactory); err != nil {
+		return nil, err
 	}
-	kcpAdminToken, shardAdminToken, shardAdminTokenHash, err := s.options.AdminAuthentication.ApplyTo(genericConfig)
+	c.kcpAdminToken, c.shardAdminToken, c.shardAdminTokenHash, err = opts.AdminAuthentication.ApplyTo(c.GenericConfig)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if err := s.options.GenericControlPlane.Audit.ApplyTo(genericConfig); err != nil {
-		return err
+	if err := opts.GenericControlPlane.Audit.ApplyTo(c.GenericConfig); err != nil {
+		return nil, err
 	}
 
 	// preHandlerChainMux is called before the actual handler chain. Note that BuildHandlerChainFunc below
 	// is called multiple times, but only one of the handler chain will actually be used. Hence, we wrap it
 	// to give handlers below one mux.Handle func to call.
-	var preHandlerChainMux handlerChainMuxes
-	genericConfig.BuildHandlerChainFunc = func(apiHandler http.Handler, c *genericapiserver.Config) (secure http.Handler) {
+	c.preHandlerChainMux = &handlerChainMuxes{}
+	c.GenericConfig.BuildHandlerChainFunc = func(apiHandler http.Handler, genericConfig *genericapiserver.Config) (secure http.Handler) {
 		apiHandler = WithWildcardListWatchGuard(apiHandler)
 		apiHandler = WithWildcardIdentity(apiHandler)
 
-		apiHandler = genericapiserver.DefaultBuildHandlerChainFromAuthz(apiHandler, c)
+		apiHandler = genericapiserver.DefaultBuildHandlerChainFromAuthz(apiHandler, genericConfig)
 
-		if s.options.HomeWorkspaces.Enabled {
+		if opts.HomeWorkspaces.Enabled {
 			apiHandler = WithHomeWorkspaces(
 				apiHandler,
-				c.Authorization.Authorizer,
-				kubeClusterClient,
-				kcpClusterClient,
-				s.kubeSharedInformerFactory,
-				s.kcpSharedInformerFactory,
-				genericConfig.ExternalAddress,
-				s.options.HomeWorkspaces.CreationDelaySeconds,
-				logicalcluster.New(s.options.HomeWorkspaces.HomeRootPrefix),
-				s.options.HomeWorkspaces.BucketLevels,
-				s.options.HomeWorkspaces.BucketSize,
+				genericConfig.Authorization.Authorizer,
+				c.KubeClusterClient,
+				c.KcpClusterClient,
+				c.KubeSharedInformerFactory,
+				c.KcpSharedInformerFactory,
+				c.GenericConfig.ExternalAddress,
+				opts.HomeWorkspaces.CreationDelaySeconds,
+				logicalcluster.New(opts.HomeWorkspaces.HomeRootPrefix),
+				opts.HomeWorkspaces.BucketLevels,
+				opts.HomeWorkspaces.BucketSize,
 			)
 		}
 
-		apiHandler = genericapiserver.DefaultBuildHandlerChainBeforeAuthz(apiHandler, c)
+		apiHandler = genericapiserver.DefaultBuildHandlerChainBeforeAuthz(apiHandler, genericConfig)
 
 		// this will be replaced in DefaultBuildHandlerChain. So at worst we get twice as many warning.
 		// But this is not harmful as the kcp warnings are not many.
@@ -264,7 +276,7 @@ func (s *Server) Run(ctx context.Context) error {
 		// add a mux before the chain, for other handlers with their own handler chain to hook in
 		mux := http.NewServeMux()
 		mux.Handle("/", apiHandler)
-		preHandlerChainMux = append(preHandlerChainMux, mux)
+		*c.preHandlerChainMux = append(*c.preHandlerChainMux, mux)
 		apiHandler = mux
 
 		apiHandler = WithWorkspaceProjection(apiHandler)
@@ -279,29 +291,27 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	admissionPluginInitializers := []admission.PluginInitializer{
-		kcpadmissioninitializers.NewKcpInformersInitializer(s.kcpSharedInformerFactory),
-		kcpadmissioninitializers.NewKubeClusterClientInitializer(kubeClusterClient),
-		kcpadmissioninitializers.NewKcpClusterClientInitializer(kcpClusterClient),
-		kcpadmissioninitializers.NewShardBaseURLInitializer(s.options.Extra.ShardBaseURL),
-		kcpadmissioninitializers.NewShardExternalURLInitializer(s.options.Extra.ShardExternalURL),
+		kcpadmissioninitializers.NewKcpInformersInitializer(c.KcpSharedInformerFactory),
+		kcpadmissioninitializers.NewKubeClusterClientInitializer(c.KubeClusterClient),
+		kcpadmissioninitializers.NewKcpClusterClientInitializer(c.KcpClusterClient),
+		kcpadmissioninitializers.NewShardBaseURLInitializer(opts.Extra.ShardBaseURL),
+		kcpadmissioninitializers.NewShardExternalURLInitializer(opts.Extra.ShardExternalURL),
 		// The external address is provided as a function, as its value may be updated
 		// with the default secure port, when the config is later completed.
-		kcpadmissioninitializers.NewExternalAddressInitializer(func() string { return genericConfig.ExternalAddress }),
+		kcpadmissioninitializers.NewExternalAddressInitializer(func() string { return c.GenericConfig.ExternalAddress }),
 	}
 
-	apisConfig, err := genericcontrolplane.CreateKubeAPIServerConfig(genericConfig, s.options.GenericControlPlane, s.kubeSharedInformerFactory, admissionPluginInitializers, storageFactory)
+	c.Apis, err = genericcontrolplane.CreateKubeAPIServerConfig(c.GenericConfig, opts.GenericControlPlane, c.KubeSharedInformerFactory, admissionPluginInitializers, storageFactory)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	s.AddPostStartHook("kcp-bootstrap-policy", bootstrappolicy.Policy().EnsureRBACPolicy())
 
 	// If additional API servers are added, they should be gated.
-	apiExtensionsConfig, err := genericcontrolplane.CreateAPIExtensionsConfig(
-		*apisConfig.GenericConfig,
-		apisConfig.ExtraConfig.VersionedInformers,
+	c.ApiExtensions, err = genericcontrolplane.CreateAPIExtensionsConfig(
+		*c.Apis.GenericConfig,
+		c.Apis.ExtraConfig.VersionedInformers,
 		admissionPluginInitializers,
-		s.options.GenericControlPlane,
+		opts.GenericControlPlane,
 
 		// Wire in a ServiceResolver that always returns an error that ResolveEndpoint is not yet
 		// supported. The effect is that CRD webhook conversions are not supported and will always get an
@@ -310,69 +320,101 @@ func (s *Server) Run(ctx context.Context) error {
 
 		webhook.NewDefaultAuthenticationInfoResolverWrapper(
 			nil,
-			apisConfig.GenericConfig.EgressSelector,
-			apisConfig.GenericConfig.LoopbackClientConfig,
-			apisConfig.GenericConfig.TracerProvider,
+			c.Apis.GenericConfig.EgressSelector,
+			c.Apis.GenericConfig.LoopbackClientConfig,
+			c.Apis.GenericConfig.TracerProvider,
 		),
 	)
 	if err != nil {
-		return fmt.Errorf("configure api extensions: %w", err)
+		return nil, fmt.Errorf("configure api extensions: %w", err)
 	}
 
-	s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer().AddIndexers(cache.Indexers{byWorkspace: indexByWorkspace})                                               // nolint: errcheck
-	s.apiextensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().GetIndexer().AddIndexers(cache.Indexers{byWorkspace: indexByWorkspace})                    // nolint: errcheck
-	s.apiextensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().GetIndexer().AddIndexers(cache.Indexers{byGroupResourceName: indexCRDByGroupResourceName}) // nolint: errcheck
-	s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer().AddIndexers(cache.Indexers{byWorkspace: indexByWorkspace})                                               // nolint: errcheck
-	s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer().AddIndexers(cache.Indexers{byIdentityGroupResource: indexAPIBindingByIdentityGroupResource})             // nolint: errcheck
+	c.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer().AddIndexers(cache.Indexers{byWorkspace: indexByWorkspace})                                               // nolint: errcheck
+	c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().GetIndexer().AddIndexers(cache.Indexers{byWorkspace: indexByWorkspace})                    // nolint: errcheck
+	c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().GetIndexer().AddIndexers(cache.Indexers{byGroupResourceName: indexCRDByGroupResourceName}) // nolint: errcheck
+	c.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer().AddIndexers(cache.Indexers{byWorkspace: indexByWorkspace})                                               // nolint: errcheck
+	c.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer().AddIndexers(cache.Indexers{byIdentityGroupResource: indexAPIBindingByIdentityGroupResource})             // nolint: errcheck
 
-	apiBindingAwareCRDLister := &apiBindingAwareCRDLister{
-		kcpClusterClient:  kcpClusterClient,
-		crdLister:         s.apiextensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Lister(),
-		crdIndexer:        s.apiextensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().GetIndexer(),
-		workspaceLister:   s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces().Lister(),
-		apiBindingLister:  s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Lister(),
-		apiBindingIndexer: s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer(),
-		apiExportIndexer:  s.kcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().GetIndexer(),
+	c.ApiExtensions.ExtraConfig.ClusterAwareCRDLister = &apiBindingAwareCRDLister{
+		kcpClusterClient:  c.KcpClusterClient,
+		crdLister:         c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Lister(),
+		crdIndexer:        c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().GetIndexer(),
+		workspaceLister:   c.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces().Lister(),
+		apiBindingLister:  c.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Lister(),
+		apiBindingIndexer: c.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer(),
+		apiExportIndexer:  c.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().GetIndexer(),
 		getAPIResourceSchema: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
 			key := clusters.ToClusterAwareKey(clusterName, name)
-			return s.kcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Lister().Get(key)
+			return c.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Lister().Get(key)
 		},
 	}
-	apiExtensionsConfig.ExtraConfig.ClusterAwareCRDLister = apiBindingAwareCRDLister
+	c.ApiExtensions.ExtraConfig.TableConverterProvider = NewTableConverterProvider()
 
-	apiExtensionsConfig.ExtraConfig.TableConverterProvider = NewTableConverterProvider()
-
-	serverChain, err := genericcontrolplane.CreateServerChain(apisConfig.Complete(), apiExtensionsConfig.Complete())
-	if err != nil {
-		return err
+	c.MiniAggregator = &aggregator.MiniAggregatorConfig{
+		GenericConfig: c.GenericConfig,
 	}
-	server := serverChain.MiniAggregator.GenericAPIServer
-	serverChain.GenericControlPlane.GenericAPIServer.Handler.GoRestfulContainer.Filter(
+
+	return c, nil
+}
+
+type Server struct {
+	CompletedConfig
+
+	*genericcontrolplane.ServerChain
+
+	syncedCh chan struct{}
+}
+
+func (s *Server) AddPostStartHook(name string, hook genericapiserver.PostStartHookFunc) error {
+	return s.MiniAggregator.GenericAPIServer.AddPostStartHook(name, hook)
+}
+
+func NewServer(c CompletedConfig) (*Server, error) {
+	s := &Server{
+		CompletedConfig: c,
+		syncedCh:        make(chan struct{}),
+	}
+
+	var err error
+	s.ServerChain, err = genericcontrolplane.CreateServerChain(c.MiniAggregator, c.Apis, c.ApiExtensions)
+	if err != nil {
+		return nil, err
+	}
+
+	s.GenericControlPlane.GenericAPIServer.Handler.GoRestfulContainer.Filter(
 		mergeCRDsIntoCoreGroup(
-			apiBindingAwareCRDLister,
-			serverChain.CustomResourceDefinitions.GenericAPIServer.Handler.NonGoRestfulMux.ServeHTTP,
-			serverChain.GenericControlPlane.GenericAPIServer.Handler.GoRestfulContainer.ServeHTTP,
+			s.ApiExtensions.ExtraConfig.ClusterAwareCRDLister,
+			s.CustomResourceDefinitions.GenericAPIServer.Handler.NonGoRestfulMux.ServeHTTP,
+			s.GenericControlPlane.GenericAPIServer.Handler.GoRestfulContainer.ServeHTTP,
 		),
 	)
 
-	s.dynamicDiscoverySharedInformerFactory, err = informer.NewDynamicDiscoverySharedInformerFactory(
-		server.LoopbackClientConfig,
+	s.DynamicDiscoverySharedInformerFactory, err = informer.NewDynamicDiscoverySharedInformerFactory(
+		s.MiniAggregator.GenericAPIServer.LoopbackClientConfig,
 		func(obj interface{}) bool { return true },
-		s.apiextensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
+		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
 		indexers.NamespaceScoped(),
 	)
 	if err != nil {
+		return nil, err
+	}
+
+	return s, nil
+}
+
+func (s *Server) Run(ctx context.Context) error {
+	delegationChainHead := s.MiniAggregator.GenericAPIServer
+
+	if err := s.AddPostStartHook("kcp-bootstrap-policy", bootstrappolicy.Policy().EnsureRBACPolicy()); err != nil {
 		return err
 	}
 
-	s.AddPostStartHook("kcp-start-informers", func(ctx genericapiserver.PostStartHookContext) error {
-		s.kubeSharedInformerFactory.Start(ctx.StopCh)
-		s.apiextensionsSharedInformerFactory.Start(ctx.StopCh)
-		s.rootKubeSharedInformerFactory.Start(ctx.StopCh)
+	if err := s.AddPostStartHook("kcp-start-informers", func(ctx genericapiserver.PostStartHookContext) error {
+		s.KubeSharedInformerFactory.Start(ctx.StopCh)
+		s.ApiExtensionsSharedInformerFactory.Start(ctx.StopCh)
 
-		s.kubeSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
-		s.apiextensionsSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
-		s.rootKubeSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
+		s.KubeSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
+		s.ApiExtensionsSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
 
 		select {
 		case <-ctx.StopCh:
@@ -384,9 +426,9 @@ func (s *Server) Run(ctx context.Context) error {
 
 		if err := systemcrds.Bootstrap(
 			goContext(ctx),
-			apiextensionsClusterClient.Cluster(SystemCRDLogicalCluster),
-			apiextensionsClusterClient.Cluster(SystemCRDLogicalCluster).Discovery(),
-			dynamicClusterClient.Cluster(SystemCRDLogicalCluster),
+			s.ApiExtensionsClusterClient.Cluster(SystemCRDLogicalCluster),
+			s.ApiExtensionsClusterClient.Cluster(SystemCRDLogicalCluster).Discovery(),
+			s.DynamicClusterClient.Cluster(SystemCRDLogicalCluster),
 		); err != nil {
 			klog.Errorf("failed to bootstrap system CRDs: %v", err)
 			// nolint:nilerr
@@ -394,19 +436,19 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 		klog.Infof("Finished bootstrapping system CRDs")
 
-		if err := configshard.Bootstrap(goContext(ctx), kcpClusterClient.Cluster(systemShardCluster)); err != nil {
+		if err := configshard.Bootstrap(goContext(ctx), s.KcpClusterClient.Cluster(systemShardCluster)); err != nil {
 			// nolint:nilerr
 			klog.Errorf("Failed to bootstrap the shard workspace: %v", err)
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 		klog.Infof("Finished bootstrapping the shard workspace")
 
-		go s.kcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().Run(ctx.StopCh)
-		go s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().Run(ctx.StopCh)
+		go s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().Run(ctx.StopCh)
+		go s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().Run(ctx.StopCh)
 
 		if err := wait.PollInfiniteWithContext(goContext(ctx), time.Millisecond*100, func(ctx context.Context) (bool, error) {
-			exportsSynced := s.kcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
-			bindingsSynced := s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced()
+			exportsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
+			bindingsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced()
 			return exportsSynced && bindingsSynced, nil
 		}); err != nil {
 			klog.Errorf("failed to start APIExport and/or APIBinding informers: %v", err)
@@ -416,12 +458,12 @@ func (s *Server) Run(ctx context.Context) error {
 
 		klog.Infof("Finished starting APIExport and APIBinding informers")
 
-		if s.options.Extra.ShardName == tenancyv1alpha1.RootShard {
+		if s.Options.Extra.ShardName == tenancyv1alpha1.RootShard {
 			// bootstrap root workspace phase 0 only if we are on the root shard, no APIBinding resources yet
 			if err := configrootphase0.Bootstrap(goContext(ctx),
-				kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster),
-				apiextensionsClusterClient.Cluster(tenancyv1alpha1.RootCluster).Discovery(),
-				dynamicClusterClient.Cluster(tenancyv1alpha1.RootCluster),
+				s.KcpClusterClient.Cluster(tenancyv1alpha1.RootCluster),
+				s.ApiExtensionsClusterClient.Cluster(tenancyv1alpha1.RootCluster).Discovery(),
+				s.DynamicClusterClient.Cluster(tenancyv1alpha1.RootCluster),
 			); err != nil {
 				// nolint:nilerr
 				klog.Errorf("failed to bootstrap root workspace phase 0: %w", err)
@@ -433,7 +475,7 @@ func (s *Server) Run(ctx context.Context) error {
 		klog.Infof("Getting kcp APIExport identities")
 
 		if err := wait.PollImmediateInfiniteWithContext(goContext(ctx), time.Millisecond*500, func(ctx context.Context) (bool, error) {
-			if err := resolveIdentities(ctx); err != nil {
+			if err := s.resolveIdentities(ctx); err != nil {
 				klog.V(3).Infof("failed to resolve identities, keeping trying: %v", err)
 				return false, nil
 			}
@@ -446,11 +488,8 @@ func (s *Server) Run(ctx context.Context) error {
 
 		klog.Infof("Finished getting kcp APIExport identities")
 
-		s.kcpSharedInformerFactory.Start(ctx.StopCh)
-		s.rootKcpSharedInformerFactory.Start(ctx.StopCh)
-
-		s.kcpSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
-		s.rootKcpSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
+		s.KcpSharedInformerFactory.Start(ctx.StopCh)
+		s.KcpSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
 
 		select {
 		case <-ctx.StopCh:
@@ -461,24 +500,24 @@ func (s *Server) Run(ctx context.Context) error {
 		klog.Infof("Finished starting (remaining) kcp informers")
 
 		klog.Infof("Starting dynamic metadata informer worker")
-		go s.dynamicDiscoverySharedInformerFactory.StartWorker(goContext(ctx))
+		go s.DynamicDiscoverySharedInformerFactory.StartWorker(goContext(ctx))
 
 		klog.Infof("Synced all informers. Ready to start controllers")
 		close(s.syncedCh)
 
-		if s.options.Extra.ShardName == tenancyv1alpha1.RootShard {
+		if s.Options.Extra.ShardName == tenancyv1alpha1.RootShard {
 			// the root ws is only present on the root shard
 			klog.Infof("Starting bootstrapping root workspace phase 1")
-			servingCert, _ := server.SecureServingInfo.Cert.CurrentCertKeyContent()
+			servingCert, _ := delegationChainHead.SecureServingInfo.Cert.CurrentCertKeyContent()
 			if err := configroot.Bootstrap(goContext(ctx),
-				apiextensionsClusterClient.Cluster(tenancyv1alpha1.RootCluster).Discovery(),
-				dynamicClusterClient.Cluster(tenancyv1alpha1.RootCluster),
-				s.options.Extra.ShardName,
+				s.ApiExtensionsClusterClient.Cluster(tenancyv1alpha1.RootCluster).Discovery(),
+				s.DynamicClusterClient.Cluster(tenancyv1alpha1.RootCluster),
+				s.Options.Extra.ShardName,
 				clientcmdapi.Config{
 					Clusters: map[string]*clientcmdapi.Cluster{
 						// cross-cluster is the virtual cluster running by default
 						"shard": {
-							Server:                   "https://" + server.ExternalAddress,
+							Server:                   "https://" + delegationChainHead.ExternalAddress,
 							CertificateAuthorityData: servingCert, // TODO(sttts): wire controller updating this when it changes, or use CA
 						},
 					},
@@ -487,8 +526,8 @@ func (s *Server) Run(ctx context.Context) error {
 					},
 					CurrentContext: "shard",
 				},
-				logicalcluster.New(s.options.HomeWorkspaces.HomeRootPrefix).Base(),
-				s.options.HomeWorkspaces.HomeCreatorGroups,
+				logicalcluster.New(s.Options.HomeWorkspaces.HomeRootPrefix).Base(),
+				s.Options.HomeWorkspaces.HomeCreatorGroups,
 			); err != nil {
 				// nolint:nilerr
 				klog.Errorf("failed to bootstrap root workspace phase 1: %w", err)
@@ -498,12 +537,14 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
 
 	// ========================================================================================================
 	// TODO: split apart everything after this line, into their own commands, optional launched in this process
 
-	controllerConfig := rest.CopyConfig(identityConfig)
+	controllerConfig := rest.CopyConfig(s.identityConfig)
 
 	if err := s.installKubeNamespaceController(ctx, controllerConfig); err != nil {
 		return err
@@ -521,16 +562,16 @@ func (s *Server) Run(ctx context.Context) error {
 		return err
 	}
 
-	if err := s.installRootCAConfigMapController(ctx, serverChain.GenericControlPlane.GenericAPIServer.LoopbackClientConfig); err != nil {
+	if err := s.installRootCAConfigMapController(ctx, s.GenericControlPlane.GenericAPIServer.LoopbackClientConfig); err != nil {
 		return err
 	}
 
-	enabled := sets.NewString(s.options.Controllers.IndividuallyEnabled...)
+	enabled := sets.NewString(s.Options.Controllers.IndividuallyEnabled...)
 	if len(enabled) > 0 {
 		klog.Infof("Starting controllers individually: %v", enabled)
 	}
 
-	if s.options.Controllers.EnableAll || enabled.Has("cluster") {
+	if s.Options.Controllers.EnableAll || enabled.Has("cluster") {
 		// TODO(marun) Consider enabling each controller via a separate flag
 
 		if err := s.installApiResourceController(ctx, controllerConfig); err != nil {
@@ -539,12 +580,12 @@ func (s *Server) Run(ctx context.Context) error {
 		if err := s.installSyncTargetHeartbeatController(ctx, controllerConfig); err != nil {
 			return err
 		}
-		if err := s.installVirtualWorkspaceURLsController(ctx, controllerConfig, server); err != nil {
+		if err := s.installVirtualWorkspaceURLsController(ctx, controllerConfig, delegationChainHead); err != nil {
 			return err
 		}
 	}
 
-	if s.options.Controllers.EnableAll || enabled.Has("workspace-scheduler") {
+	if s.Options.Controllers.EnableAll || enabled.Has("workspace-scheduler") {
 		if err := s.installWorkspaceScheduler(ctx, controllerConfig); err != nil {
 			return err
 		}
@@ -553,100 +594,66 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
-	if s.options.HomeWorkspaces.Enabled {
+	if s.Options.HomeWorkspaces.Enabled {
 		if err := s.installHomeWorkspaces(ctx, controllerConfig); err != nil {
 			return err
 		}
 	}
 
-	if s.options.Controllers.EnableAll || enabled.Has("resource-scheduler") {
-		if err := s.installWorkloadResourceScheduler(ctx, controllerConfig, s.dynamicDiscoverySharedInformerFactory); err != nil {
+	if s.Options.Controllers.EnableAll || enabled.Has("resource-scheduler") {
+		if err := s.installWorkloadResourceScheduler(ctx, controllerConfig, s.DynamicDiscoverySharedInformerFactory); err != nil {
 			return err
 		}
 	}
 
-	if s.options.Controllers.EnableAll || enabled.Has("apibinding") {
-		if err := s.installAPIBindingController(ctx, controllerConfig, server, s.dynamicDiscoverySharedInformerFactory); err != nil {
+	if s.Options.Controllers.EnableAll || enabled.Has("apibinding") {
+		if err := s.installAPIBindingController(ctx, controllerConfig, delegationChainHead, s.DynamicDiscoverySharedInformerFactory); err != nil {
 			return err
 		}
 	}
 
-	if s.options.Controllers.EnableAll || enabled.Has("apiexport") {
-		if err := s.installAPIExportController(ctx, controllerConfig, server); err != nil {
+	if s.Options.Controllers.EnableAll || enabled.Has("apiexport") {
+		if err := s.installAPIExportController(ctx, controllerConfig, delegationChainHead); err != nil {
 			return err
 		}
 	}
 
 	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.LocationAPI) {
-		if s.options.Controllers.EnableAll || enabled.Has("scheduling") {
-			if err := s.installWorkloadNamespaceScheduler(ctx, controllerConfig, server); err != nil {
+		if s.Options.Controllers.EnableAll || enabled.Has("scheduling") {
+			if err := s.installWorkloadNamespaceScheduler(ctx, controllerConfig, delegationChainHead); err != nil {
 				return err
 			}
-			if err := s.installSchedulingLocationStatusController(ctx, controllerConfig, server); err != nil {
+			if err := s.installSchedulingLocationStatusController(ctx, controllerConfig, delegationChainHead); err != nil {
 				return err
 			}
-			if err := s.installSchedulingPlacementController(ctx, controllerConfig, server); err != nil {
+			if err := s.installSchedulingPlacementController(ctx, controllerConfig, delegationChainHead); err != nil {
 				return err
 			}
-			if err := s.installWorkloadsAPIExportController(ctx, controllerConfig, server); err != nil {
+			if err := s.installWorkloadsAPIExportController(ctx, controllerConfig, delegationChainHead); err != nil {
 				return err
 			}
-			if err := s.installWorkloadsAPIExportCreateController(ctx, controllerConfig, server); err != nil {
+			if err := s.installWorkloadsAPIExportCreateController(ctx, controllerConfig, delegationChainHead); err != nil {
 				return err
 			}
-			if err := s.installDefaultPlacementController(ctx, controllerConfig, server); err != nil {
+			if err := s.installDefaultPlacementController(ctx, controllerConfig, delegationChainHead); err != nil {
 				return err
 			}
 		}
 	}
 
-	if s.options.Virtual.Enabled {
-		if err := s.installVirtualWorkspaces(ctx, controllerConfig, server, genericConfig.Authentication, genericConfig.ExternalAddress, preHandlerChainMux); err != nil {
+	if s.Options.Virtual.Enabled {
+		if err := s.installVirtualWorkspaces(ctx, controllerConfig, delegationChainHead, s.GenericConfig.Authentication, s.GenericConfig.ExternalAddress, s.preHandlerChainMux); err != nil {
 			return err
 		}
-	} else if err := s.installVirtualWorkspacesRedirect(ctx, preHandlerChainMux); err != nil {
+	} else if err := s.installVirtualWorkspacesRedirect(ctx, s.preHandlerChainMux); err != nil {
 		return err
 	}
 
-	// Add our custom hooks to the underlying api server
-	for _, entry := range s.postStartHooks {
-		err := server.AddPostStartHook(entry.name, entry.hook)
-		if err != nil {
-			return err
-		}
-	}
-	for _, entry := range s.preShutdownHooks {
-		err := server.AddPreShutdownHook(entry.name, entry.hook)
-		if err != nil {
-			return err
-		}
-	}
-
-	if err := s.options.AdminAuthentication.WriteKubeConfig(genericConfig, kcpAdminToken, shardAdminToken, shardAdminTokenHash); err != nil {
+	if err := s.Options.AdminAuthentication.WriteKubeConfig(s.GenericConfig, s.kcpAdminToken, s.shardAdminToken, s.shardAdminTokenHash); err != nil {
 		return err
 	}
 
-	return server.PrepareRun().Run(ctx.Done())
-}
-
-// AddPostStartHook allows you to add a PostStartHook that gets passed to the underlying genericapiserver implementation.
-func (s *Server) AddPostStartHook(name string, hook genericapiserver.PostStartHookFunc) {
-	// you could potentially add duplicate or invalid post start hooks here, but we'll let
-	// the genericapiserver implementation do its own validation during startup.
-	s.postStartHooks = append(s.postStartHooks, postStartHookEntry{
-		name: name,
-		hook: hook,
-	})
-}
-
-// AddPreShutdownHook allows you to add a PreShutdownHookFunc that gets passed to the underlying genericapiserver implementation.
-func (s *Server) AddPreShutdownHook(name string, hook genericapiserver.PreShutdownHookFunc) {
-	// you could potentially add duplicate or invalid post start hooks here, but we'll let
-	// the genericapiserver implementation do its own validation during startup.
-	s.preShutdownHooks = append(s.preShutdownHooks, preShutdownHookEntry{
-		name: name,
-		hook: hook,
-	})
+	return delegationChainHead.PrepareRun().Run(ctx.Done())
 }
 
 // goContext turns the PostStartHookContext into a context.Context for use in routines that may or may not
@@ -663,8 +670,8 @@ func goContext(parent genericapiserver.PostStartHookContext) context.Context {
 
 type handlerChainMuxes []*http.ServeMux
 
-func (mxs handlerChainMuxes) Handle(pattern string, handler http.Handler) {
-	for _, mx := range mxs {
+func (mxs *handlerChainMuxes) Handle(pattern string, handler http.Handler) {
+	for _, mx := range *mxs {
 		mx.Handle(pattern, handler)
 	}
 }
