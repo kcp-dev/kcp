@@ -26,7 +26,7 @@ import (
 	genericoptions "k8s.io/apiserver/pkg/server/options"
 )
 
-type Embedded struct {
+type Options struct {
 	Enabled bool
 
 	Directory         string
@@ -38,15 +38,15 @@ type Embedded struct {
 	ForceNewCluster   bool
 }
 
-func NewEmbedded(rootDir string) *Embedded {
-	return &Embedded{
+func NewOptions(rootDir string) *Options {
+	return &Options{
 		Directory:  filepath.Join(rootDir, "etcd-server"),
 		PeerPort:   "2380",
 		ClientPort: "2379",
 	}
 }
 
-func (e *Embedded) AddFlags(fs *pflag.FlagSet) {
+func (e *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&e.Directory, "embedded-etcd-directory", e.Directory, "Directory for embedded etcd")
 	fs.StringVar(&e.PeerPort, "embedded-etcd-peer-port", e.PeerPort, "Port for embedded etcd peer")
 	fs.StringVar(&e.ClientPort, "embedded-etcd-client-port", e.ClientPort, "Port for embedded etcd client")
@@ -56,16 +56,16 @@ func (e *Embedded) AddFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&e.ForceNewCluster, "embedded-etcd-force-new-cluster", e.ForceNewCluster, "Starts a new cluster from existing data restored from a different system")
 }
 
-type completedEmbedded struct {
-	*Embedded
+type completedOptions struct {
+	*Options
 }
 
-type CompletedEmbedded struct {
+type CompletedObjects struct {
 	// Embed a private pointer that cannot be instantiated outside of this package.
-	*completedEmbedded
+	*completedOptions
 }
 
-func (e *Embedded) Complete(etcdOptions *genericoptions.EtcdOptions) CompletedEmbedded {
+func (e *Options) Complete(etcdOptions *genericoptions.EtcdOptions) CompletedObjects {
 	if e.Enabled {
 		etcdOptions.StorageConfig.Transport.ServerList = []string{fmt.Sprintf("https://localhost:%s", e.ClientPort)}
 		etcdOptions.StorageConfig.Transport.KeyFile = filepath.Join(e.Directory, "secrets", "client", "key.pem")
@@ -73,12 +73,12 @@ func (e *Embedded) Complete(etcdOptions *genericoptions.EtcdOptions) CompletedEm
 		etcdOptions.StorageConfig.Transport.TrustedCAFile = filepath.Join(e.Directory, "secrets", "ca", "cert.pem")
 	}
 
-	return CompletedEmbedded{&completedEmbedded{
-		Embedded: e,
+	return CompletedObjects{&completedOptions{
+		Options: e,
 	}}
 }
 
-func (e *Embedded) Validate() []error {
+func (e *Options) Validate() []error {
 	var errs []error
 
 	if e.Enabled {

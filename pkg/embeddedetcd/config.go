@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package etcd
+package embeddedetcd
 
 import (
 	"bytes"
@@ -36,14 +36,14 @@ import (
 	"go.etcd.io/etcd/server/v3/embed"
 	"go.etcd.io/etcd/server/v3/wal"
 
-	"github.com/kcp-dev/kcp/pkg/etcd/options"
+	"github.com/kcp-dev/kcp/pkg/embeddedetcd/options"
 )
 
 type Config struct {
 	*embed.Config
 }
 
-func NewConfig(o options.CompletedEmbedded, enableWatchCache bool) (*Config, error) {
+func NewConfig(o options.CompletedObjects, enableWatchCache bool) (*Config, error) {
 	if o.WalSizeBytes != 0 {
 		wal.SegmentSizeBytes = o.WalSizeBytes
 	}

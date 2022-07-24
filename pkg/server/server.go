@@ -53,7 +53,7 @@ import (
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	"github.com/kcp-dev/kcp/pkg/etcd"
+	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
@@ -130,7 +130,7 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	if s.options.EmbeddedEtcd.Enabled {
-		config, err := etcd.NewConfig(s.options.EmbeddedEtcd, s.options.GenericControlPlane.Etcd.EnableWatchCache)
+		config, err := embeddedetcd.NewConfig(s.options.EmbeddedEtcd, s.options.GenericControlPlane.Etcd.EnableWatchCache)
 		if err != nil {
 			return err
 		}
@@ -138,7 +138,7 @@ func (s *Server) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		if err := etcd.NewServer(completed).Run(ctx); err != nil {
+		if err := embeddedetcd.NewServer(completed).Run(ctx); err != nil {
 			return err
 		}
 	}
