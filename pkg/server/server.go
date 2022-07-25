@@ -92,8 +92,8 @@ type ExtraConfig struct {
 	identityConfig    *rest.Config
 
 	// authentication
-	kcpAdminToken, shardAdminToken string // nolint:structcheck
-	shardAdminTokenHash            []byte // nolint:structcheck
+	kcpAdminToken, shardAdminToken string
+	shardAdminTokenHash            []byte
 
 	// clients
 	DynamicClusterClient       dynamic.ClusterInterface
@@ -101,8 +101,8 @@ type ExtraConfig struct {
 	ApiExtensionsClusterClient apiextensionsclient.ClusterInterface
 	KcpClusterClient           kcpclient.ClusterInterface
 
-	// stuff
-	preHandlerChainMux *handlerChainMuxes // nolint:structcheck
+	// misc
+	preHandlerChainMux *handlerChainMuxes
 
 	// informers
 	KcpSharedInformerFactory              kcpexternalversions.SharedInformerFactory
