@@ -274,6 +274,9 @@ func (s *Server) Run(ctx context.Context) error {
 		if err := s.installVirtualWorkspaceURLsController(ctx, controllerConfig, delegationChainHead); err != nil {
 			return err
 		}
+		if err := s.installWorkloadsSyncTargetExportController(ctx, controllerConfig, delegationChainHead); err != nil {
+			return err
+		}
 	}
 
 	if s.Options.Controllers.EnableAll || enabled.Has("workspace-scheduler") {
