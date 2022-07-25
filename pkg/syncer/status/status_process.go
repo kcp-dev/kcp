@@ -101,7 +101,7 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	}
 	if !exists {
 		klog.InfoS("Downstream GVR %q object %s|%s/%s does not exist. Removing finalizer upstream", gvr.String(), downstreamClusterName, upstreamNamespace, name)
-		return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, c.upstreamClient, upstreamNamespace, c.syncTargetName, upstreamWorkspace, name)
+		return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, c.upstreamInformers, c.upstreamClient, upstreamNamespace, c.syncTargetName, upstreamWorkspace, name)
 	}
 
 	// update upstream status
@@ -126,25 +126,21 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 	if err != nil {
 		return err
 	} else if !statusExists {
-		klog.Infof("Resource doesn't contain a status. Skipping updating status of resource %s|%s/%s from syncTargetName namespace %s", upstreamLogicalCluster, upstreamNamespace, name, downstreamObj.GetNamespace())
+		klog.V(5).Infof("Resource doesn't contain a status. Skipping updating status of resource %s|%s/%s from syncTargetName namespace %s", upstreamLogicalCluster, upstreamNamespace, name, downstreamObj.GetNamespace())
 		return nil
 	}
 
-	existing, err := c.upstreamClient.Cluster(upstreamLogicalCluster).Resource(gvr).Namespace(upstreamNamespace).Get(ctx, name, metav1.GetOptions{})
+	existingObj, err := c.upstreamInformers.ForResource(gvr).Lister().ByNamespace(upstreamNamespace).Get(clusters.ToClusterAwareKey(upstreamLogicalCluster, name))
 	if err != nil {
 		klog.Errorf("Getting resource %s/%s: %v", upstreamNamespace, name, err)
 		return err
 	}
 
-	labels := upstreamObj.GetLabels()
-	delete(labels, workloadv1alpha1.InternalDownstreamClusterLabel)
-	labels[workloadv1alpha1.ClusterResourceStateLabelPrefix+c.syncTargetName] = string(workloadv1alpha1.ResourceStateSync)
-	upstreamObj.SetLabels(labels)
-
-	// TODO: verify that we really only update status, and not some non-status fields in ObjectMeta.
-	//       I believe to remember that we had resources where that happened.
-
-	upstreamObj.SetResourceVersion(existing.GetResourceVersion())
+	existing, ok := existingObj.(*unstructured.Unstructured)
+	if !ok {
+		klog.Errorf("Resource %s|%s/%s expected to be *unstructured.Unstructured, got %T", upstreamLogicalCluster.String(), upstreamNamespace, name, existing)
+		return nil
+	}
 
 	if c.advancedSchedulingEnabled {
 		newUpstream := existing.DeepCopy()

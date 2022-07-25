@@ -679,7 +679,6 @@ func TestSyncerProcess(t *testing.T) {
 			resourceToProcessName:               "theDeployment",
 			syncTargetName:                      "us-west1",
 			expectActionsOnFrom: []clienttesting.Action{
-				getDeploymentAction("theDeployment", "test"),
 				updateDeploymentAction("test",
 					changeUnstructured(
 						toUnstructured(t, changeDeployment(
@@ -1182,13 +1181,6 @@ func namespaceAction(verb string, subresources ...string) clienttesting.ActionIm
 		Verb:        verb,
 		Resource:    schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"},
 		Subresource: strings.Join(subresources, "/"),
-	}
-}
-
-func getDeploymentAction(name, namespace string) clienttesting.GetActionImpl {
-	return clienttesting.GetActionImpl{
-		ActionImpl: deploymentAction("get", namespace),
-		Name:       name,
 	}
 }
 

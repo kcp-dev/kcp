@@ -372,7 +372,7 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 			if apierrors.IsNotFound(err) {
 				// That's not an error.
 				// Just think about removing the finalizer from the KCP location-specific resource:
-				if err := shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, c.upstreamClient, upstreamObj.GetNamespace(), c.syncTargetName, upstreamObjLogicalCluster, upstreamObj.GetName()); err != nil {
+				if err := shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, c.upstreamInformers, c.upstreamClient, upstreamObj.GetNamespace(), c.syncTargetName, upstreamObjLogicalCluster, upstreamObj.GetName()); err != nil {
 					return err
 				}
 				return nil
