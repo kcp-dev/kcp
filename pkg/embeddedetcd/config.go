@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KCP Authors.
+Copyright 2022 The KCP Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,19 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package etcd
+package embeddedetcd
 
 import (
 	"bytes"
-	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
-	"fmt"
 	"io/ioutil"
 	"math/big"
 	"net/url"
@@ -39,47 +36,38 @@ import (
 	"go.etcd.io/etcd/server/v3/embed"
 	"go.etcd.io/etcd/server/v3/wal"
 
-	"k8s.io/klog/v2"
+	"github.com/kcp-dev/kcp/pkg/embeddedetcd/options"
 )
 
-type Server struct {
-	Dir string
+type Config struct {
+	*embed.Config
 }
 
-type ClientInfo struct {
-	Endpoints []string
-	TLS       *tls.Config
-
-	CertFile      string
-	KeyFile       string
-	TrustedCAFile string
-}
-
-func (s *Server) Run(ctx context.Context, peerPort, clientPort string, listenMetricsURLs []url.URL, walSizeBytes, quotaBackendBytes int64, forceNewCluster bool, enableWatchCache bool) (ClientInfo, error) {
-	klog.Info("Creating embedded etcd server")
-	if walSizeBytes != 0 {
-		wal.SegmentSizeBytes = walSizeBytes
+func NewConfig(o options.CompletedObjects, enableWatchCache bool) (*Config, error) {
+	if o.WalSizeBytes != 0 {
+		wal.SegmentSizeBytes = o.WalSizeBytes
 	}
+
 	cfg := embed.NewConfig()
 
 	cfg.Logger = "zap"
 	cfg.LogLevel = "warn"
 
-	cfg.Dir = s.Dir
+	cfg.Dir = o.Directory
 	cfg.AuthToken = ""
 
-	cfg.LPUrls = []url.URL{{Scheme: "https", Host: "localhost:" + peerPort}}
-	cfg.APUrls = []url.URL{{Scheme: "https", Host: "localhost:" + peerPort}}
-	cfg.LCUrls = []url.URL{{Scheme: "https", Host: "localhost:" + clientPort}}
-	cfg.ACUrls = []url.URL{{Scheme: "https", Host: "localhost:" + clientPort}}
+	cfg.LPUrls = []url.URL{{Scheme: "https", Host: "localhost:" + o.PeerPort}}
+	cfg.APUrls = []url.URL{{Scheme: "https", Host: "localhost:" + o.PeerPort}}
+	cfg.LCUrls = []url.URL{{Scheme: "https", Host: "localhost:" + o.ClientPort}}
+	cfg.ACUrls = []url.URL{{Scheme: "https", Host: "localhost:" + o.ClientPort}}
 	cfg.InitialCluster = cfg.InitialClusterFromName(cfg.Name)
 
 	if err := fileutil.TouchDirAll(cfg.Dir); err != nil {
-		return ClientInfo{}, err
+		return nil, err
 	}
 
 	if err := generateClientAndServerCerts([]string{"localhost"}, filepath.Join(cfg.Dir, "secrets")); err != nil {
-		return ClientInfo{}, err
+		return nil, err
 	}
 	cfg.PeerTLSInfo.ServerName = "localhost"
 	cfg.PeerTLSInfo.CertFile = filepath.Join(cfg.Dir, "secrets", "peer", "cert.pem")
@@ -92,7 +80,8 @@ func (s *Server) Run(ctx context.Context, peerPort, clientPort string, listenMet
 	cfg.ClientTLSInfo.KeyFile = filepath.Join(cfg.Dir, "secrets", "peer", "key.pem")
 	cfg.ClientTLSInfo.TrustedCAFile = filepath.Join(cfg.Dir, "secrets", "ca", "cert.pem")
 	cfg.ClientTLSInfo.ClientCertAuth = true
-	cfg.ForceNewCluster = forceNewCluster
+	cfg.ForceNewCluster = o.ForceNewCluster
+
 	if enableWatchCache {
 		// defines the interval for etcd watch progress notify events.
 		//
@@ -104,48 +93,41 @@ func (s *Server) Run(ctx context.Context, peerPort, clientPort string, listenMet
 		cfg.ExperimentalWatchProgressNotifyInterval = 5 * time.Second
 	}
 
-	if len(listenMetricsURLs) > 0 {
-		cfg.ListenMetricsUrls = listenMetricsURLs
+	for _, s := range o.ListenMetricsURLs {
+		u, err := url.Parse(s)
+		if err != nil {
+			return nil, err
+		}
+		cfg.ListenMetricsUrls = append(cfg.LPUrls, *u)
 	}
 
 	if enableUnsafeEtcdDisableFsyncHack, _ := strconv.ParseBool(os.Getenv("UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC")); enableUnsafeEtcdDisableFsyncHack {
 		cfg.UnsafeNoFsync = true
 	}
 
-	if quotaBackendBytes > 0 {
-		cfg.QuotaBackendBytes = quotaBackendBytes
+	if o.QuotaBackendBytes > 0 {
+		cfg.QuotaBackendBytes = o.QuotaBackendBytes
 	}
 
-	e, err := embed.StartEtcd(cfg)
-	if err != nil {
-		return ClientInfo{}, err
-	}
-	// Shutdown when context is closed
-	go func() {
-		<-ctx.Done()
-		e.Close()
-	}()
+	return &Config{
+		Config: cfg,
+	}, nil
+}
 
-	clientConfig, err := cfg.ClientTLSInfo.ClientConfig()
-	if err != nil {
-		return ClientInfo{}, err
-	}
+type completedConfig struct {
+	*Config
+}
 
-	select {
-	case <-e.Server.ReadyNotify():
-		return ClientInfo{
-			Endpoints:     []string{cfg.ACUrls[0].String()},
-			TLS:           clientConfig,
-			CertFile:      cfg.ClientTLSInfo.CertFile,
-			KeyFile:       cfg.ClientTLSInfo.KeyFile,
-			TrustedCAFile: cfg.ClientTLSInfo.TrustedCAFile,
-		}, nil
-	case <-time.After(60 * time.Second):
-		e.Server.Stop() // trigger a shutdown
-		return ClientInfo{}, fmt.Errorf("server took too long to start")
-	case e := <-e.Err():
-		return ClientInfo{}, e
-	}
+type CompletedConfig struct {
+	// Embed a private pointer that cannot be instantiated outside of this package.
+	*completedConfig
+}
+
+// Complete fills in any fields not set that are required to have valid data. It's mutating the receiver.
+func (c *Config) Complete() (CompletedConfig, error) {
+	return CompletedConfig{&completedConfig{
+		Config: c,
+	}}, nil
 }
 
 func generateClientAndServerCerts(hosts []string, dir string) error {

@@ -21,11 +21,9 @@ import (
 	"fmt"
 	"net/http"
 	_ "net/http/pprof"
-	"net/url"
 	"time"
 
 	"github.com/kcp-dev/logicalcluster/v2"
-	etcdtypes "go.etcd.io/etcd/client/pkg/v3/types"
 
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
@@ -55,7 +53,7 @@ import (
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	"github.com/kcp-dev/kcp/pkg/etcd"
+	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
@@ -130,27 +128,19 @@ func (s *Server) Run(ctx context.Context) error {
 		// nolint:errcheck
 		go http.ListenAndServe(s.options.Extra.ProfilerAddress, nil)
 	}
+
 	if s.options.EmbeddedEtcd.Enabled {
-		es := &etcd.Server{
-			Dir: s.options.EmbeddedEtcd.Directory,
-		}
-		var listenMetricsURLs []url.URL
-		if len(s.options.EmbeddedEtcd.ListenMetricsURLs) > 0 {
-			var err error
-			listenMetricsURLs, err = etcdtypes.NewURLs(s.options.EmbeddedEtcd.ListenMetricsURLs)
-			if err != nil {
-				return err
-			}
-		}
-		embeddedClientInfo, err := es.Run(ctx, s.options.EmbeddedEtcd.PeerPort, s.options.EmbeddedEtcd.ClientPort, listenMetricsURLs, s.options.EmbeddedEtcd.WalSizeBytes, s.options.EmbeddedEtcd.QuotaBackendBytes, s.options.EmbeddedEtcd.ForceNewCluster, s.options.GenericControlPlane.Etcd.EnableWatchCache)
+		config, err := embeddedetcd.NewConfig(s.options.EmbeddedEtcd, s.options.GenericControlPlane.Etcd.EnableWatchCache)
 		if err != nil {
 			return err
 		}
-
-		s.options.GenericControlPlane.Etcd.StorageConfig.Transport.ServerList = embeddedClientInfo.Endpoints
-		s.options.GenericControlPlane.Etcd.StorageConfig.Transport.KeyFile = embeddedClientInfo.KeyFile
-		s.options.GenericControlPlane.Etcd.StorageConfig.Transport.CertFile = embeddedClientInfo.CertFile
-		s.options.GenericControlPlane.Etcd.StorageConfig.Transport.TrustedCAFile = embeddedClientInfo.TrustedCAFile
+		completed, err := config.Complete()
+		if err != nil {
+			return err
+		}
+		if err := embeddedetcd.NewServer(completed).Run(ctx); err != nil {
+			return err
+		}
 	}
 
 	genericConfig, storageFactory, err := genericcontrolplane.BuildGenericConfig(s.options.GenericControlPlane)
