@@ -60,12 +60,12 @@ type completedOptions struct {
 	*Options
 }
 
-type CompletedObjects struct {
+type CompletedOptions struct {
 	// Embed a private pointer that cannot be instantiated outside of this package.
 	*completedOptions
 }
 
-func (e *Options) Complete(etcdOptions *genericoptions.EtcdOptions) CompletedObjects {
+func (e *Options) Complete(etcdOptions *genericoptions.EtcdOptions) CompletedOptions {
 	if e.Enabled {
 		etcdOptions.StorageConfig.Transport.ServerList = []string{fmt.Sprintf("https://localhost:%s", e.ClientPort)}
 		etcdOptions.StorageConfig.Transport.KeyFile = filepath.Join(e.Directory, "secrets", "client", "key.pem")
@@ -73,7 +73,7 @@ func (e *Options) Complete(etcdOptions *genericoptions.EtcdOptions) CompletedObj
 		etcdOptions.StorageConfig.Transport.TrustedCAFile = filepath.Join(e.Directory, "secrets", "ca", "cert.pem")
 	}
 
-	return CompletedObjects{&completedOptions{
+	return CompletedOptions{&completedOptions{
 		Options: e,
 	}}
 }
