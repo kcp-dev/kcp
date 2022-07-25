@@ -75,6 +75,7 @@ import (
 	workloadplacement "github.com/kcp-dev/kcp/pkg/reconciler/workload/placement"
 	workloadresource "github.com/kcp-dev/kcp/pkg/reconciler/workload/resource"
 	synctargetcontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/synctarget"
+	"github.com/kcp-dev/kcp/pkg/reconciler/workload/synctargetexports"
 )
 
 func (s *Server) installClusterRoleAggregationController(ctx context.Context, config *rest.Config) error {
@@ -905,6 +906,38 @@ func (s *Server) installWorkloadsAPIExportCreateController(ctx context.Context, 
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
 		s.KcpSharedInformerFactory.Scheduling().V1alpha1().Locations(),
+	)
+	if err != nil {
+		return err
+	}
+
+	return server.AddPostStartHook(controllerName, func(hookContext genericapiserver.PostStartHookContext) error {
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			klog.Errorf("failed to finish post-start-hook %s: %v", controllerName, err)
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		go c.Start(goContext(hookContext), 2)
+
+		return nil
+	})
+}
+
+func (s *Server) installWorkloadsSyncTargetExportController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
+	controllerName := "kcp-workloads-synctarget-exports-controller"
+	config = kcpclienthelper.NewClusterConfig(rest.AddUserAgent(rest.CopyConfig(config), controllerName))
+	kcpClusterClient, err := kcpclient.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	c, err := synctargetexports.NewController(
+		kcpClusterClient,
+		s.KcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
+		s.KcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
 	)
 	if err != nil {
 		return err
