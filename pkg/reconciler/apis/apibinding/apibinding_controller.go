@@ -67,6 +67,8 @@ func NewController(
 	apiBindingInformer apisinformers.APIBindingInformer,
 	apiExportInformer apisinformers.APIExportInformer,
 	apiResourceSchemaInformer apisinformers.APIResourceSchemaInformer,
+	temporaryRemoteShardApiExportInformer apisinformers.APIExportInformer, /*TODO(p0lyn0mial): replace with multi-shard informers*/
+	temporaryRemoteShardApiResourceSchemaInformer apisinformers.APIResourceSchemaInformer, /*TODO(p0lyn0mial): replace with multi-shard informers*/
 	crdInformer apiextensionsinformers.CustomResourceDefinitionInformer,
 ) (*controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
@@ -100,12 +102,21 @@ func NewController(
 		apiBindingsIndexer: apiBindingInformer.Informer().GetIndexer(),
 
 		getAPIExport: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
-			return apiExportInformer.Lister().Get(clusters.ToClusterAwareKey(clusterName, name))
+			apiExport, err := apiExportInformer.Lister().Get(clusters.ToClusterAwareKey(clusterName, name))
+			if errors.IsNotFound(err) {
+				return temporaryRemoteShardApiExportInformer.Lister().Get(clusters.ToClusterAwareKey(clusterName, name))
+			}
+			return apiExport, err
 		},
-		apiExportsIndexer: apiExportInformer.Informer().GetIndexer(),
+		apiExportsIndexer:                     apiExportInformer.Informer().GetIndexer(),
+		temporaryRemoteShardApiExportsIndexer: temporaryRemoteShardApiExportInformer.Informer().GetIndexer(),
 
 		getAPIResourceSchema: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
-			return apiResourceSchemaInformer.Lister().Get(clusters.ToClusterAwareKey(clusterName, name))
+			apiResourceSchema, err := apiResourceSchemaInformer.Lister().Get(clusters.ToClusterAwareKey(clusterName, name))
+			if errors.IsNotFound(err) {
+				return temporaryRemoteShardApiResourceSchemaInformer.Lister().Get(clusters.ToClusterAwareKey(clusterName, name))
+			}
+			return apiResourceSchema, err
 		},
 
 		createCRD: func(ctx context.Context, clusterName logicalcluster.Name, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error) {
@@ -176,11 +187,26 @@ func NewController(
 		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIExport(obj, "") },
 		DeleteFunc: func(obj interface{}) { c.enqueueAPIExport(obj, "") },
 	})
+	temporaryRemoteShardApiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    func(obj interface{}) { c.enqueueAPIExport(obj, "") },
+		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIExport(obj, "") },
+		DeleteFunc: func(obj interface{}) { c.enqueueAPIExport(obj, "") },
+	})
+	temporaryRemoteShardApiResourceSchemaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    func(obj interface{}) { c.enqueueAPIResourceSchema(obj, "") },
+		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIResourceSchema(obj, "") },
+		DeleteFunc: func(obj interface{}) { c.enqueueAPIResourceSchema(obj, "") },
+	})
 
 	if err := c.apiExportsIndexer.AddIndexers(cache.Indexers{
 		indexAPIExportsByAPIResourceSchema: indexAPIExportsByAPIResourceSchemasFunc,
 	}); err != nil {
 		return nil, fmt.Errorf("error add CRD indexes: %w", err)
+	}
+	if err := c.temporaryRemoteShardApiExportsIndexer.AddIndexers(cache.Indexers{
+		indexAPIExportsByAPIResourceSchema: indexAPIExportsByAPIResourceSchemasFunc,
+	}); err != nil {
+		return nil, fmt.Errorf("error adding ApiExport indexes for the root shard: %w", err)
 	}
 
 	return c, nil
@@ -201,8 +227,9 @@ type controller struct {
 	listAPIBindings    func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
 	apiBindingsIndexer cache.Indexer
 
-	getAPIExport      func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error)
-	apiExportsIndexer cache.Indexer
+	getAPIExport                          func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error)
+	apiExportsIndexer                     cache.Indexer
+	temporaryRemoteShardApiExportsIndexer cache.Indexer
 
 	getAPIResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
 
@@ -283,6 +310,13 @@ func (c *controller) enqueueAPIResourceSchema(obj interface{}, logSuffix string)
 	if err != nil {
 		runtime.HandleError(err)
 		return
+	}
+	if len(apiExports) == 0 {
+		apiExports, err = c.temporaryRemoteShardApiExportsIndexer.ByIndex(indexAPIExportsByAPIResourceSchema, key)
+		if err != nil {
+			runtime.HandleError(err)
+			return
+		}
 	}
 
 	for _, obj := range apiExports {

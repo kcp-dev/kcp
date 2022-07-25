@@ -94,6 +94,12 @@ type Server struct {
 	apiextensionsSharedInformerFactory    apiextensionsexternalversions.SharedInformerFactory
 	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory
 
+	// TODO(p0lyn0mial):  get rid of temporaryRootShardKcpSharedInformerFactory, in the future
+	//                    we should have multi-shard aware informers
+	//
+	// temporaryRootShardKcpSharedInformerFactory bring data from the root shard
+	temporaryRootShardKcpSharedInformerFactory kcpexternalversions.SharedInformerFactory
+
 	// TODO(sttts): get rid of these. We have wildcard informers already.
 	rootKcpSharedInformerFactory  kcpexternalversions.SharedInformerFactory
 	rootKubeSharedInformerFactory coreexternalversions.SharedInformerFactory
@@ -154,6 +160,7 @@ func (s *Server) Run(ctx context.Context) error {
 	// The identities are not known before we can get them from the APIExports via the loopback client, hence we postpone
 	// this to getOrCreateKcpIdentities() in the kcp-start-informers post-start hook.
 	// The informers here are not  used before the informers are actually started (i.e. no race).
+
 	nonIdentityKcpClusterClient, err := kcpclient.NewClusterForConfig(genericConfig.LoopbackClientConfig) // can only used for wildcard requests of apis.kcp.dev
 	if err != nil {
 		return err
@@ -170,6 +177,9 @@ func (s *Server) Run(ctx context.Context) error {
 		kcpexternalversions.WithExtraClusterScopedIndexers(indexers.ClusterScoped()),
 		kcpexternalversions.WithExtraNamespaceScopedIndexers(indexers.NamespaceScoped()),
 	)
+
+	// create an empty non-functional factory so that code that uses it but doesn't need it, doesn't have to check against the nil value
+	s.temporaryRootShardKcpSharedInformerFactory = kcpexternalversions.NewSharedInformerFactory(nil, resyncPeriod)
 
 	// Setup kube * informers
 	kubeClusterClient, err := kubernetes.NewClusterForConfig(genericConfig.LoopbackClientConfig)
