@@ -684,15 +684,15 @@ func WriteLogicalClusterConfig(t *testing.T, rawConfig clientcmdapi.Config, clus
 
 // syncerConfigFromCluster reads the configuration needed to start an in-process
 // syncer from the resources applied to a cluster for a deployed syncer.
-func syncerConfigFromCluster(t *testing.T, config *rest.Config, namespace, syncerID string) *syncer.SyncerConfig {
+func syncerConfigFromCluster(t *testing.T, downstreamConfig *rest.Config, namespace, syncerID string) *syncer.SyncerConfig {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
-	kubeClient, err := kubernetesclientset.NewForConfig(config)
+	downstreamKubeClient, err := kubernetesclientset.NewForConfig(downstreamConfig)
 	require.NoError(t, err)
 
 	// Read the upstream kubeconfig from the syncer secret
-	secret, err := kubeClient.CoreV1().Secrets(namespace).Get(ctx, syncerID, metav1.GetOptions{})
+	secret, err := downstreamKubeClient.CoreV1().Secrets(namespace).Get(ctx, syncerID, metav1.GetOptions{})
 	require.NoError(t, err)
 	upstreamConfigBytes := secret.Data[workloadcliplugin.SyncerSecretConfigKey]
 	require.NotEmpty(t, upstreamConfigBytes, "upstream config is required")
@@ -700,7 +700,7 @@ func syncerConfigFromCluster(t *testing.T, config *rest.Config, namespace, synce
 	require.NoError(t, err, "failed to load upstream config")
 
 	// Read the arguments from the syncer deployment
-	deployment, err := kubeClient.AppsV1().Deployments(namespace).Get(ctx, syncerID, metav1.GetOptions{})
+	deployment, err := downstreamKubeClient.AppsV1().Deployments(namespace).Get(ctx, syncerID, metav1.GetOptions{})
 	require.NoError(t, err)
 	containers := deployment.Spec.Template.Spec.Containers
 	require.NotEmpty(t, containers, "expected at least one container in syncer deployment")
@@ -721,28 +721,28 @@ func syncerConfigFromCluster(t *testing.T, config *rest.Config, namespace, synce
 
 	// Read the downstream token from the deployment's service account secret
 	var tokenSecret corev1.Secret
-	require.Eventually(t, func() bool {
-		secrets, err := kubeClient.CoreV1().Secrets(namespace).List(ctx, metav1.ListOptions{})
+	Eventually(t, func() (bool, string) {
+		secrets, err := downstreamKubeClient.CoreV1().Secrets(namespace).List(ctx, metav1.ListOptions{})
 		if err != nil {
 			t.Errorf("failed to list secrets: %v", err)
-			return false
+			return false, fmt.Sprintf("failed to list secrets downstream: %v", err)
 		}
 		for _, secret := range secrets.Items {
 			if secret.Annotations[corev1.ServiceAccountNameKey] == syncerID {
 				tokenSecret = secret
-				return true
+				return len(secret.Data["token"]) > 0, fmt.Sprintf("token secret %s/%s for service account %s found", namespace, secret.Name, syncerID)
 			}
 		}
-		return false
-	}, wait.ForeverTestTimeout, time.Millisecond*100, "token secret for syncer service account not found")
+		return false, fmt.Sprintf("token secret for service account %s/%s not found", namespace, syncerID)
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "token secret in namespace %q for syncer service account %q not found", namespace, syncerID)
 	token := tokenSecret.Data["token"]
 	require.NotEmpty(t, token, "token is required")
 
 	// Compose a new downstream config that uses the token
-	downstreamConfig := ConfigWithToken(string(token), rest.CopyConfig(config))
+	downstreamConfigWithToken := ConfigWithToken(string(token), rest.CopyConfig(downstreamConfig))
 	return &syncer.SyncerConfig{
 		UpstreamConfig:   upstreamConfig,
-		DownstreamConfig: downstreamConfig,
+		DownstreamConfig: downstreamConfigWithToken,
 		ResourcesToSync:  sets.NewString(resourcesToSync...),
 		KCPClusterName:   kcpClusterName,
 		SyncTargetName:   syncTargetName,
