@@ -39,6 +39,15 @@ metadata:
   name: kcp-syncer-sync-target-name-34b23c4k
   namespace: kcp-syncer-sync-target-name-34b23c4k
 ---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kcp-syncer-sync-target-name-34b23c4k-token
+  namespace: kcp-syncer-sync-target-name-34b23c4k
+  annotations:
+    kubernetes.io/service-account.name: kcp-syncer-sync-target-name-34b23c4k
+type: kubernetes.io/service-account-token
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
