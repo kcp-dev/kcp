@@ -222,7 +222,6 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 }
 
 func TestAPIExportPermissionClaims(t *testing.T) {
-	t.Parallel()
 
 	server := framework.SharedKcpServer(t)
 
@@ -364,7 +363,7 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 		if len(ul.Items) == 2 {
 			return true, "found two items"
 		}
-		return false, fmt.Sprintf("waiting on dynamic client to find both objects, found %v objects", len(ul.Items))
+		return false, fmt.Sprintf("waiting on dynamic client to find both objects, found %#v objects", ul.Items)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "unable to wait for the two objects to be returned")
 
 	require.Empty(t, cmp.Diff(

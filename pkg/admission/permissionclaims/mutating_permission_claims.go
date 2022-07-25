@@ -60,7 +60,7 @@ var _ admission.ValidationInterface = &mutatingPermissionClaims{}
 // and remove those that are not backed by a permission claim anymore.
 func NewMutatingPermissionClaims() admission.MutationInterface {
 	p := &mutatingPermissionClaims{}
-	p.Handler = admission.NewHandler(admission.Create)
+	p.Handler = admission.NewHandler(admission.Create, admission.Update)
 	p.SetReadyFunc(p.apiBindingsHasSynced)
 	return p
 }
@@ -84,12 +84,10 @@ func (m *mutatingPermissionClaims) Admit(ctx context.Context, a admission.Attrib
 		bindings = append(bindings, binding.(*apisv1alpha1.APIBinding))
 	}
 
-	expectedLabels, err := ClaimLabels(a.GetResource().Group, a.GetResource().Resource, bindings)
+	expectedLabels, err := permissionclaims.AllClaimLabels(a.GetResource().Group, a.GetResource().Resource, bindings)
 	if err != nil {
 		return err
 	}
-
-	// set new labels
 	labels := u.GetLabels()
 	expectedKeys := sets.NewString()
 	for k, v := range expectedLabels {
@@ -108,7 +106,6 @@ func (m *mutatingPermissionClaims) Admit(ctx context.Context, a admission.Attrib
 	}
 
 	u.SetLabels(labels)
-
 	return nil
 
 }
@@ -133,7 +130,7 @@ func (m *mutatingPermissionClaims) Validate(ctx context.Context, a admission.Att
 	}
 
 	// find those that are requested
-	expectedLabels, err := ClaimLabels(a.GetResource().Group, a.GetResource().Resource, bindings)
+	expectedLabels, err := permissionclaims.AllClaimLabels(a.GetResource().Group, a.GetResource().Resource, bindings)
 	if err != nil {
 		return err
 	}
@@ -156,41 +153,6 @@ func (m *mutatingPermissionClaims) Validate(ctx context.Context, a admission.Att
 	}
 
 	return nil
-}
-
-func ClaimLabels(group, resource string, bindings []*apisv1alpha1.APIBinding) (map[string]string, error) {
-	grsToBoundResource := map[apisv1alpha1.GroupResource]apisv1alpha1.BoundAPIResource{}
-	for _, binding := range bindings {
-		for _, resource := range binding.Status.BoundResources {
-			grsToBoundResource[apisv1alpha1.GroupResource{Group: resource.Group, Resource: resource.Resource}] = resource
-		}
-	}
-
-	// add labels for new claims
-	labels := map[string]string{}
-	for _, binding := range bindings {
-		for _, pc := range binding.Status.ObservedAcceptedPermissionClaims {
-			if pc.Group != group || pc.Resource != resource {
-				continue
-			}
-			boundResource, bound := grsToBoundResource[pc.GroupResource]
-			if bound && pc.IdentityHash != boundResource.Schema.IdentityHash {
-				continue
-			}
-			if !bound && pc.IdentityHash != "" {
-				continue
-			}
-
-			k, v, err := permissionclaims.ToLabelKeyAndValue(pc)
-			if err != nil {
-				return nil, err
-			}
-
-			labels[k] = v
-		}
-	}
-
-	return labels, nil
 }
 
 // SetKcpInformers implements the WantsExternalKcpInformerFactory interface.

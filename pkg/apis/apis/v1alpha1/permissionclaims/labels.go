@@ -37,3 +37,50 @@ func ToLabelKeyAndValue(permissionClaim apisv1alpha1.PermissionClaim) (string, s
 	labelKeyHashLength := validation.LabelValueMaxLength - len(apisv1alpha1.APIExportPermissionClaimLabelPrefix)
 	return apisv1alpha1.APIExportPermissionClaimLabelPrefix + hash[0:labelKeyHashLength], hash, nil
 }
+
+func ValidateClaim(group, resource, identityHash string, grsToBoundResource map[apisv1alpha1.GroupResource]apisv1alpha1.BoundAPIResource) (bool, error) {
+	boundResource, bound := grsToBoundResource[apisv1alpha1.GroupResource{Group: group, Resource: resource}]
+	// This  says that if the resource is not bound, but there is no identity hash, we consider it valid
+	// TODO add ability to check that the GR is knowable by the inernalschema's once added
+	if !bound && identityHash == "" {
+		return true, nil
+	}
+	if !bound && identityHash != "" {
+		return false, fmt.Errorf("unable to find bound resource for %v.%v", resource, group)
+	}
+	if boundResource.Schema.IdentityHash != identityHash {
+		return false, fmt.Errorf("bound resource does not match for %v.%v", resource, group)
+	}
+	return true, nil
+}
+
+func AllClaimLabels(group, resource string, bindings []*apisv1alpha1.APIBinding) (map[string]string, error) {
+	grsToBoundResource := map[apisv1alpha1.GroupResource]apisv1alpha1.BoundAPIResource{}
+	for _, binding := range bindings {
+		for _, resource := range binding.Status.BoundResources {
+			grsToBoundResource[apisv1alpha1.GroupResource{Group: resource.Group, Resource: resource.Resource}] = resource
+		}
+	}
+
+	// add labels for new claims
+	labels := map[string]string{}
+	for _, binding := range bindings {
+		for _, pc := range binding.Spec.AcceptedPermissionClaims {
+			if pc.Group != group || pc.Resource != resource {
+				continue
+			}
+			if ok, _ := ValidateClaim(pc.Group, pc.Resource, pc.IdentityHash, grsToBoundResource); !ok {
+				continue
+			}
+
+			k, v, err := ToLabelKeyAndValue(pc)
+			if err != nil {
+				return nil, err
+			}
+
+			labels[k] = v
+		}
+	}
+
+	return labels, nil
+}
