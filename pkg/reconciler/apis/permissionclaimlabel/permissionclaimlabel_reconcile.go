@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package apibinding
+package permissionclaimlabel
 
 import (
 	"context"
@@ -41,11 +41,10 @@ import (
 )
 
 type permissionClaimHelper struct {
-	claim apisv1alpha1.PermissionClaim
-	label string
-	key   string
+	claim      apisv1alpha1.PermissionClaim
+	key, label string
 
-	lister informers.GenericInformer
+	informer informers.GenericInformer
 }
 
 func (p permissionClaimHelper) String() string {
@@ -66,7 +65,7 @@ func (m mapGVRToClaim) String() string {
 func (c *controller) createPermissionClaimHelper(pc apisv1alpha1.PermissionClaim) (permissionClaimHelper, schema.GroupVersionResource, error) {
 
 	// get informer for the object.
-	lister, gvr, err := c.getInformerForGroupResource(pc.Group, pc.Resource)
+	informer, gvr, err := c.getInformerForGroupResource(pc.Group, pc.Resource)
 	if err != nil {
 		return permissionClaimHelper{}, gvr, err
 	}
@@ -77,10 +76,10 @@ func (c *controller) createPermissionClaimHelper(pc apisv1alpha1.PermissionClaim
 	}
 
 	return permissionClaimHelper{
-		claim:  pc,
-		label:  label,
-		key:    key,
-		lister: lister,
+		claim:    pc,
+		key:      key,
+		label:    label,
+		informer: informer,
 	}, gvr, nil
 }
 
@@ -89,7 +88,7 @@ func (c *controller) createPermissionClaimHelper(pc apisv1alpha1.PermissionClaim
 // It will also update the status if it finds an invalid permission claim.
 // Permission claims are considered invalid when the identity hashes are mismatched, and when there is no dynamic informer
 // for the group resource.
-func (c *controller) reconcilePermissionClaims(ctx context.Context, apiBinding *apisv1alpha1.APIBinding) error {
+func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.APIBinding) error {
 	logger := klog.FromContext(ctx)
 	identityMismatch := false
 	lc := logicalcluster.From(apiBinding)
@@ -121,18 +120,22 @@ func (c *controller) reconcilePermissionClaims(ctx context.Context, apiBinding *
 			}
 		}
 		if !found {
-			// TODO: add openAPI check such that this could not be incorrect.
-			if acceptedPC.IdentityHash != "" {
-				if grsToBoundResource[acceptedPC.GroupResource].Schema.IdentityHash != acceptedPC.IdentityHash {
-					identityMismatch = true
-					invalidClaims = append(invalidClaims, acceptedPC)
-					continue
-				}
+			ok, err := permissionclaims.ValidateClaim(acceptedPC.Group, acceptedPC.Resource, acceptedPC.IdentityHash, grsToBoundResource)
+			if !ok {
+				identityMismatch = true
+				invalidClaims = append(invalidClaims, acceptedPC)
+				identityMismatch = true
+				klog.V(3).Infof("invalid claim %v - reason %v", acceptedPC, err)
+				continue
 			}
+
 			claim, gvr, err := c.createPermissionClaimHelper(acceptedPC)
 			if err != nil {
-				return err
+				invalidClaims = append(invalidClaims, acceptedPC)
+				klog.Errorf("unable to create permission claim helper %v", err)
+				continue
 			}
+
 			addedPermissionClaims[gvr] = append(addedPermissionClaims[gvr], claim)
 		}
 	}
@@ -168,29 +171,28 @@ func (c *controller) reconcilePermissionClaims(ctx context.Context, apiBinding *
 	for gvr, claims := range addedPermissionClaims {
 		for _, claim := range claims {
 			// TODO: use indexer instead of lister.
-			objs, err := claim.lister.Lister().List(labels.Everything())
-			if err != nil {
-				return err
+			if !claim.informer.Informer().HasSynced() {
+				return fmt.Errorf("unable sync cache")
 			}
 			var errs []error
+			// objs, err := c.dynamicClusterClient.Resource(gvr).List(logicalcluster.WithCluster(ctx, lc), metav1.ListOptions{})
+			objs, err := claim.informer.Lister().List(labels.Everything())
+			if err != nil {
+				errs = append(errs, err)
+				klog.V(4).Infof("uanble to list objects for %s.%s", gvr.Resource, gvr.Group)
+			}
+			klog.V(6).Infof("reconciling %v objs of type: %v.%v", len(objs), gvr.Resource, gvr.Group)
 			for _, obj := range objs {
-				newObj := obj.DeepCopyObject()
-				oldObjectMeta, err := meta.Accessor(obj)
+				// o, ok := obj.(runtime.Object)
+				// if !ok {
+				// 	return fmt.Errorf("expected type %v got %T", "runtime.Object", obj)
+				// }
+				oldObjectMeta, err := meta.Accessor(obj.DeepCopyObject())
 				if err != nil {
 					return err
 				}
-				newObjectMeta, err := meta.Accessor(newObj)
-				if err != nil {
-					return err
-				}
-				labels := newObjectMeta.GetLabels()
-				if labels == nil {
-					labels = map[string]string{}
-				}
-				labels[claim.key] = claim.label
-
-				newObjectMeta.SetLabels(labels)
-				err = c.patchGenericObject(ctx, oldObjectMeta, newObjectMeta, gvr, lc)
+				// Empty Patch, will relay on the admission to add the resources.
+				err = c.patchGenericObject(ctx, oldObjectMeta, gvr, lc)
 				if err != nil {
 					errs = append(errs, err)
 				}
@@ -213,24 +215,22 @@ func (c *controller) reconcilePermissionClaims(ctx context.Context, apiBinding *
 	for gvr, claims := range removedPermissionClaims {
 		for _, claim := range claims {
 			// TODO: use indexer instead of lister.
+			if !claim.informer.Informer().HasSynced() {
+				return fmt.Errorf("unable sync cache")
+			}
 			selector := labels.SelectorFromSet(labels.Set(map[string]string{claim.key: claim.label}))
-			objs, err := claim.lister.Lister().List(selector)
+			objs, err := claim.informer.Lister().List(selector)
 			if err != nil {
 				return err
 			}
 			var errs []error
 			for _, obj := range objs {
-				newObj := obj.DeepCopyObject()
 				oldObjectMeta, err := meta.Accessor(obj)
 				if err != nil {
 					return err
 				}
-				newObjectMeta, err := meta.Accessor(newObj)
-				if err != nil {
-					return err
-				}
-				delete(newObjectMeta.GetLabels(), claim.key)
-				err = c.patchGenericObject(ctx, oldObjectMeta, newObjectMeta, gvr, lc)
+				// Empty Patch, will relay on the admission to add the resources.
+				err = c.patchGenericObject(ctx, oldObjectMeta, gvr, lc)
 				if err != nil {
 					errs = append(errs, err)
 				}
@@ -256,7 +256,7 @@ func (c *controller) reconcilePermissionClaims(ctx context.Context, apiBinding *
 				conditionsv1alpha1.ConditionSeverityError,
 				"Invalid AcceptedPermissionClaim. Please contact the APIExport owner to resolve or verify identity's bound.",
 			)
-			return fmt.Errorf("found identity mismatch")
+			return nil
 		} else {
 			conditions.MarkFalse(
 				apiBinding,
@@ -298,24 +298,20 @@ func (c *controller) getInformerForGroupResource(group, resource string) (inform
 	return nil, schema.GroupVersionResource{}, fmt.Errorf("unable to find informer for %s.%s", group, resource)
 }
 
-func (c *controller) patchGenericObject(ctx context.Context, old, new metav1.Object, gvr schema.GroupVersionResource, lc logicalcluster.Name) error {
-	oldJSON, err := json.Marshal(old)
+func (c *controller) patchGenericObject(ctx context.Context, obj metav1.Object, gvr schema.GroupVersionResource, lc logicalcluster.Name) error {
+	objJSON, err := json.Marshal(obj)
 	if err != nil {
 		return err
 	}
-	newJSON, err := json.Marshal(new)
-	if err != nil {
-		return err
-	}
-	patchBytes, err := jsonpatch.CreateMergePatch(oldJSON, newJSON)
+	patchBytes, err := jsonpatch.CreateMergePatch(objJSON, objJSON)
 	if err != nil {
 		return err
 	}
 
 	_, err = c.dynamicClusterClient.
 		Resource(gvr).
-		Namespace(new.GetNamespace()).
-		Patch(logicalcluster.WithCluster(ctx, lc), new.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{})
+		Namespace(obj.GetNamespace()).
+		Patch(logicalcluster.WithCluster(ctx, lc), obj.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{})
 	// if we don't find it, and we can update lets continue on.
 	if err != nil && !errors.IsNotFound(err) {
 		return err

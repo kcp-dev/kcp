@@ -56,19 +56,16 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 	case "":
 		return c.reconcileNew(ctx, apiBinding)
 	case apisv1alpha1.APIBindingPhaseBinding:
-		return kerrors.NewAggregate([]error{c.reconcileBinding(ctx, apiBinding), c.reconcilePermissionClaims(ctx, apiBinding)})
+		return kerrors.NewAggregate([]error{c.reconcileBinding(ctx, apiBinding)})
 	case apisv1alpha1.APIBindingPhaseBound:
 		needsRebind, err := c.reconcileBound(ctx, apiBinding)
 		if err != nil {
-			// Need to run permission claim reconcile
-			permissionClaimErr := c.reconcilePermissionClaims(ctx, apiBinding)
-			return kerrors.NewAggregate([]error{err, permissionClaimErr})
+			return err
 		}
 		if needsRebind {
-			return kerrors.NewAggregate([]error{c.reconcileBinding(ctx, apiBinding), c.reconcilePermissionClaims(ctx, apiBinding)})
+			return c.reconcileBinding(ctx, apiBinding)
 		}
-		permissionClaimErr := c.reconcilePermissionClaims(ctx, apiBinding)
-		return permissionClaimErr
+		return nil
 	default:
 		logger.Error(fmt.Errorf("invalid phase %q", apiBinding.Status.Phase), "invalid phase for APIBinding")
 		return nil
