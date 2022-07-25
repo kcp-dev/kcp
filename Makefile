@@ -75,15 +75,8 @@ all: build
 require-%:
 	@if ! command -v $* 1> /dev/null 2>&1; then echo "$* not found in \$$PATH"; exit 1; fi
 
-pre-build-checks:
-ifeq ($(and $(KUBE_MAJOR_VERSION),$(KUBE_MINOR_VERSION)),)
-	$(info Kubernetes version not set. Ensure jq is installed.)
-	exit 1
-endif
-.PHONY: pre-build-checks
-
 build: WHAT ?= ./cmd/...
-build: pre-build-checks ## Build the project
+build: require-jq require-go require-git ## Build the project
 	go build $(BUILDFLAGS) -ldflags="$(LDFLAGS)" -o bin $(WHAT)
 .PHONY: build
 
