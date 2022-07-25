@@ -13,6 +13,15 @@ metadata:
   name: {{.ServiceAccount}}
   namespace: {{.Namespace}}
 ---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{.ServiceAccount}}-token
+  namespace: {{.Namespace}}
+  annotations:
+    kubernetes.io/service-account.name: {{.ServiceAccount}}
+type: kubernetes.io/service-account-token
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
