@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/kcp-dev/logicalcluster"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -52,14 +53,67 @@ type Transformer struct {
 	AfterWatch  func(client dynamic.ResourceInterface, ctx context.Context, opts metav1.ListOptions, result watch.Interface) (watch.Interface, error)
 }
 
-type TransformingClient struct {
-	Transformations []Transformer
-	Client          dynamic.ResourceInterface
-	Resource        schema.GroupVersionResource
-	Namespace       string
+func WithTransformations(clusterClient dynamic.ClusterInterface, transformers ...Transformer) dynamic.ClusterInterface {
+	return &transformingClusterClient{
+		transformations: transformers,
+		clusterClient:   clusterClient,
+	}
 }
 
-func (tc *TransformingClient) objectCallMessage(transformerName, action string, obj *unstructured.Unstructured, subresources ...string) string {
+type transformingClusterClient struct {
+	transformations []Transformer
+	clusterClient   dynamic.ClusterInterface
+}
+
+func (c *transformingClusterClient) Cluster(name logicalcluster.Name) dynamic.Interface {
+	return &transformingClient{
+		transformations: c.transformations,
+		client:          c.clusterClient.Cluster(name),
+	}
+}
+
+type transformingClient struct {
+	transformations []Transformer
+	client          dynamic.Interface
+}
+
+func (c *transformingClient) Resource(resource schema.GroupVersionResource) dynamic.NamespaceableResourceInterface {
+	return &transformingNamespaceableResourceClient{
+		transformations:                c.transformations,
+		namespaceableResourceInterface: c.client.Resource(resource),
+		ResourceInterface: &transformingResourceClient{
+			transformations: c.transformations,
+			client:          c.client.Resource(resource),
+			resource:        resource,
+		},
+		resource: resource,
+	}
+}
+
+type transformingNamespaceableResourceClient struct {
+	transformations                []Transformer
+	namespaceableResourceInterface dynamic.NamespaceableResourceInterface
+	dynamic.ResourceInterface
+	resource schema.GroupVersionResource
+}
+
+func (c *transformingNamespaceableResourceClient) Namespace(namespace string) dynamic.ResourceInterface {
+	return &transformingResourceClient{
+		transformations: c.transformations,
+		client:          c.namespaceableResourceInterface.Namespace(namespace),
+		resource:        c.resource,
+		namespace:       namespace,
+	}
+}
+
+type transformingResourceClient struct {
+	transformations []Transformer
+	client          dynamic.ResourceInterface
+	resource        schema.GroupVersionResource
+	namespace       string
+}
+
+func (tc *transformingResourceClient) objectCallMessage(transformerName, action string, obj *unstructured.Unstructured, subresources ...string) string {
 	name := "nil"
 	if obj != nil {
 		name = obj.GetName()
@@ -67,47 +121,47 @@ func (tc *TransformingClient) objectCallMessage(transformerName, action string, 
 	return tc.namedCallMessage(transformerName, action, name, subresources...)
 }
 
-func (tc *TransformingClient) namedCallMessage(transformerName, action string, name string, subresources ...string) string {
-	return fmt.Sprintf("%s(%s): %s/%s(%s) - %v ", action, transformerName, tc.Namespace, name, tc.Resource, subresources)
+func (tc *transformingResourceClient) namedCallMessage(transformerName, action string, name string, subresources ...string) string {
+	return fmt.Sprintf("%s(%s): %s/%s(%s) - %v ", action, transformerName, tc.namespace, name, tc.resource, subresources)
 }
 
-func (tc *TransformingClient) logObjectCall(transformerName, action string, obj *unstructured.Unstructured, subresources ...string) {
+func (tc *transformingResourceClient) logObjectCall(transformerName, action string, obj *unstructured.Unstructured, subresources ...string) {
 	klog.Info(tc.objectCallMessage(transformerName, action, obj, subresources...))
 }
 
-func (tc *TransformingClient) logNamedCall(transformerName, action string, name string, subresources ...string) {
+func (tc *transformingResourceClient) logNamedCall(transformerName, action string, name string, subresources ...string) {
 	klog.Info(tc.namedCallMessage(transformerName, action, name, subresources...))
 }
 
-func (tc *TransformingClient) logCallError(transformerName, action string, err error) {
+func (tc *transformingResourceClient) logCallError(transformerName, action string, err error) {
 	klog.Errorf("Transformation Error on %s(%s): %v", action, transformerName, err)
 }
 
-func (tc *TransformingClient) Create(ctx context.Context, obj *unstructured.Unstructured, options metav1.CreateOptions, subresources ...string) (*unstructured.Unstructured, error) {
+func (tc *transformingResourceClient) Create(ctx context.Context, obj *unstructured.Unstructured, options metav1.CreateOptions, subresources ...string) (*unstructured.Unstructured, error) {
 	var err error
-	for _, transformer := range tc.Transformations {
+	for _, transformer := range tc.transformations {
 		action := transformer.BeforeCreate
 		if action == nil {
 			continue
 		}
 		tc.logObjectCall(transformer.Name, "BeforeCreate", obj, subresources...)
-		ctx, obj, options, subresources, err = action(tc.Client, ctx, obj, options, subresources...)
+		ctx, obj, options, subresources, err = action(tc.client, ctx, obj, options, subresources...)
 		if err != nil {
 			tc.logCallError(transformer.Name, "BeforeCreate", err)
 			return nil, err
 		}
 	}
-	result, err := tc.Client.Create(ctx, obj, options, subresources...)
+	result, err := tc.client.Create(ctx, obj, options, subresources...)
 	if err != nil {
 		return result, err
 	}
-	for _, transformer := range tc.Transformations {
+	for _, transformer := range tc.transformations {
 		action := transformer.AfterCreate
 		if action == nil {
 			continue
 		}
 		tc.logObjectCall(transformer.Name, "AfterCreate", obj, subresources...)
-		result, err = action(tc.Client, ctx, obj, options, subresources, result)
+		result, err = action(tc.client, ctx, obj, options, subresources, result)
 		if err != nil {
 			tc.logCallError(transformer.Name, "AfterCreate", err)
 			return result, err
@@ -115,31 +169,31 @@ func (tc *TransformingClient) Create(ctx context.Context, obj *unstructured.Unst
 	}
 	return result, err
 }
-func (tc *TransformingClient) Update(ctx context.Context, obj *unstructured.Unstructured, options metav1.UpdateOptions, subresources ...string) (*unstructured.Unstructured, error) {
+func (tc *transformingResourceClient) Update(ctx context.Context, obj *unstructured.Unstructured, options metav1.UpdateOptions, subresources ...string) (*unstructured.Unstructured, error) {
 	var err error
-	for _, transformer := range tc.Transformations {
+	for _, transformer := range tc.transformations {
 		action := transformer.BeforeUpdate
 		if action == nil {
 			continue
 		}
 		tc.logObjectCall(transformer.Name, "BeforeUpdate", obj, subresources...)
-		ctx, obj, options, subresources, err = action(tc.Client, ctx, obj, options, subresources...)
+		ctx, obj, options, subresources, err = action(tc.client, ctx, obj, options, subresources...)
 		if err != nil {
 			tc.logCallError(transformer.Name, "BeforeUpdate", err)
 			return nil, err
 		}
 	}
-	result, err := tc.Client.Update(ctx, obj, options, subresources...)
+	result, err := tc.client.Update(ctx, obj, options, subresources...)
 	if err != nil {
 		return result, err
 	}
-	for _, transformer := range tc.Transformations {
+	for _, transformer := range tc.transformations {
 		action := transformer.AfterUpdate
 		if action == nil {
 			continue
 		}
 		tc.logObjectCall(transformer.Name, "AfterUpdate", obj, subresources...)
-		result, err = action(tc.Client, ctx, obj, options, subresources, result)
+		result, err = action(tc.client, ctx, obj, options, subresources, result)
 		if err != nil {
 			tc.logCallError(transformer.Name, "AfterUpdate", err)
 			return result, err
@@ -147,40 +201,40 @@ func (tc *TransformingClient) Update(ctx context.Context, obj *unstructured.Unst
 	}
 	return result, err
 }
-func (tc *TransformingClient) UpdateStatus(ctx context.Context, obj *unstructured.Unstructured, options metav1.UpdateOptions) (*unstructured.Unstructured, error) {
+func (tc *transformingResourceClient) UpdateStatus(ctx context.Context, obj *unstructured.Unstructured, options metav1.UpdateOptions) (*unstructured.Unstructured, error) {
 	return nil, errors.New("not implemented")
 }
-func (tc *TransformingClient) Delete(ctx context.Context, name string, options metav1.DeleteOptions, subresources ...string) error {
+func (tc *transformingResourceClient) Delete(ctx context.Context, name string, options metav1.DeleteOptions, subresources ...string) error {
 	return errors.New("not implemented")
 }
-func (tc *TransformingClient) DeleteCollection(ctx context.Context, options metav1.DeleteOptions, listOptions metav1.ListOptions) error {
+func (tc *transformingResourceClient) DeleteCollection(ctx context.Context, options metav1.DeleteOptions, listOptions metav1.ListOptions) error {
 	return errors.New("not implemented")
 }
-func (tc *TransformingClient) Get(ctx context.Context, name string, options metav1.GetOptions, subresources ...string) (*unstructured.Unstructured, error) {
+func (tc *transformingResourceClient) Get(ctx context.Context, name string, options metav1.GetOptions, subresources ...string) (*unstructured.Unstructured, error) {
 	var err error
-	for _, transformer := range tc.Transformations {
+	for _, transformer := range tc.transformations {
 		action := transformer.BeforeGet
 		if action == nil {
 			continue
 		}
 		tc.logNamedCall(transformer.Name, "BeforeGet", name, subresources...)
-		ctx, name, options, subresources, err = action(tc.Client, ctx, name, options, subresources...)
+		ctx, name, options, subresources, err = action(tc.client, ctx, name, options, subresources...)
 		if err != nil {
 			tc.logCallError(transformer.Name, "BeforeGet", err)
 			return nil, err
 		}
 	}
-	result, err := tc.Client.Get(ctx, name, options, subresources...)
+	result, err := tc.client.Get(ctx, name, options, subresources...)
 	if err != nil {
 		return result, err
 	}
-	for _, transformer := range tc.Transformations {
+	for _, transformer := range tc.transformations {
 		action := transformer.AfterGet
 		if action == nil {
 			continue
 		}
 		tc.logNamedCall(transformer.Name, "AfterGet", name, subresources...)
-		result, err = action(tc.Client, ctx, name, options, subresources, result)
+		result, err = action(tc.client, ctx, name, options, subresources, result)
 		if err != nil {
 			tc.logCallError(transformer.Name, "AfterGet", err)
 			return result, err
@@ -188,31 +242,31 @@ func (tc *TransformingClient) Get(ctx context.Context, name string, options meta
 	}
 	return result, err
 }
-func (tc *TransformingClient) List(ctx context.Context, opts metav1.ListOptions) (*unstructured.UnstructuredList, error) {
+func (tc *transformingResourceClient) List(ctx context.Context, opts metav1.ListOptions) (*unstructured.UnstructuredList, error) {
 	var err error
-	for _, transformer := range tc.Transformations {
+	for _, transformer := range tc.transformations {
 		action := transformer.BeforeList
 		if action == nil {
 			continue
 		}
 		tc.logNamedCall(transformer.Name, "BeforeList", opts.LabelSelector)
-		ctx, opts, err = action(tc.Client, ctx, opts)
+		ctx, opts, err = action(tc.client, ctx, opts)
 		if err != nil {
 			tc.logCallError(transformer.Name, "BeforeList", err)
 			return nil, err
 		}
 	}
-	result, err := tc.Client.List(ctx, opts)
+	result, err := tc.client.List(ctx, opts)
 	if err != nil {
 		return result, err
 	}
-	for _, transformer := range tc.Transformations {
+	for _, transformer := range tc.transformations {
 		action := transformer.AfterList
 		if action == nil {
 			continue
 		}
 		tc.logNamedCall(transformer.Name, "AfterList", opts.LabelSelector)
-		result, err = action(tc.Client, ctx, opts, result)
+		result, err = action(tc.client, ctx, opts, result)
 		if err != nil {
 			tc.logCallError(transformer.Name, "AfterList", err)
 			return result, err
@@ -220,31 +274,31 @@ func (tc *TransformingClient) List(ctx context.Context, opts metav1.ListOptions)
 	}
 	return result, err
 }
-func (tc *TransformingClient) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
+func (tc *transformingResourceClient) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 	var err error
-	for _, transformer := range tc.Transformations {
+	for _, transformer := range tc.transformations {
 		action := transformer.BeforeWatch
 		if action == nil {
 			continue
 		}
 		tc.logNamedCall(transformer.Name, "BeforeWatch", opts.LabelSelector)
-		ctx, opts, err = action(tc.Client, ctx, opts)
+		ctx, opts, err = action(tc.client, ctx, opts)
 		if err != nil {
 			tc.logCallError(transformer.Name, "BeforeWatch", err)
 			return nil, err
 		}
 	}
-	result, err := tc.Client.Watch(ctx, opts)
+	result, err := tc.client.Watch(ctx, opts)
 	if err != nil {
 		return result, err
 	}
-	for _, transformer := range tc.Transformations {
+	for _, transformer := range tc.transformations {
 		action := transformer.AfterWatch
 		if action == nil {
 			continue
 		}
 		tc.logNamedCall(transformer.Name, "AfterWatch", opts.LabelSelector)
-		result, err = action(tc.Client, ctx, opts, result)
+		result, err = action(tc.client, ctx, opts, result)
 		if err != nil {
 			tc.logCallError(transformer.Name, "AfterWatch", err)
 			return result, err
@@ -253,7 +307,7 @@ func (tc *TransformingClient) Watch(ctx context.Context, opts metav1.ListOptions
 	return result, err
 }
 
-func (tc *TransformingClient) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, options metav1.PatchOptions, subresources ...string) (*unstructured.Unstructured, error) {
+func (tc *transformingResourceClient) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, options metav1.PatchOptions, subresources ...string) (*unstructured.Unstructured, error) {
 	return nil, errors.New("not implemented")
 }
 

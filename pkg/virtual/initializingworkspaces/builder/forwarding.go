@@ -83,7 +83,6 @@ func provideFilteringRestStorage(ctx context.Context, clusterClient dynamic.Clus
 			clusterClient,
 			nil,
 			registry.WithStaticLabelSelector(requirements),
-			nil,
 		)
 
 		// only expose LIST+WATCH
@@ -148,7 +147,6 @@ func provideDelegatingRestStorage(ctx context.Context, clusterClient dynamic.Clu
 			clusterClient,
 			nil,
 			withUpdateValidation(initializer),
-			nil,
 		)
 
 		// we want to expose some but not all the allowed endpoints, so filter by exposing just the funcs we need

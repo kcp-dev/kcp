@@ -121,8 +121,7 @@ func newStorage(t *testing.T, clusterClient dynamic.ClusterInterface, apiExportI
 		patchConflictRetryBackoff,
 		func(_ schema.GroupResource, store *forwardingregistry.StoreFuncs) *forwardingregistry.StoreFuncs {
 			return store
-		},
-		nil)
+		})
 }
 
 func createResource(namespace, name string) *unstructured.Unstructured {

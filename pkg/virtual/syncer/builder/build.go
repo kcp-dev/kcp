@@ -187,7 +187,7 @@ func BuildVirtualWorkspace(
 					}
 					transformers = append(transformers, gvrTransformers...)
 
-					storageBuilder := NewStorageBuilder(ctx, dynamicClusterClient, apiExportIdentityHash, storageWrapper, transformers)
+					storageBuilder := NewStorageBuilder(ctx, transforming.WithTransformations(dynamicClusterClient, transformers...), apiExportIdentityHash, storageWrapper)
 					def, err := apiserver.CreateServingInfoFor(mainConfig, apiResourceSchema, version, storageBuilder)
 
 					if err != nil {
