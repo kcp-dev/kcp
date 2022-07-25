@@ -138,6 +138,18 @@ func transformBeforeWrite(gvr schema.GroupVersionResource, syncStrategy SyncStra
 			newKCPViewObject.SetFinalizers(kcpViewFinalizers.List())
 		}
 
+		if removeFromSyncer && len(subresources) == 0 {
+			if annotations := newKCPViewObject.GetAnnotations(); annotations != nil {
+				delete(annotations, SyncingTransformationAnnotationPrefix+syncTargetName)
+				delete(annotations, v1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+syncTargetName)
+				newKCPViewObject.SetAnnotations(annotations)
+			}
+			if labels := newKCPViewObject.GetLabels(); labels != nil {
+				delete(labels, v1alpha1.ClusterResourceStateLabelPrefix+syncTargetName)
+				newKCPViewObject.SetLabels(labels)
+			}
+		}
+
 		if bytes, err := yaml.Marshal(newKCPViewObject.UnstructuredContent()); err == nil {
 			klog.V(5).Infof("Before SyncerViewTransformer - New KCP View Resource:\n%s", string(bytes))
 		}
@@ -208,45 +220,8 @@ func transformAfterRead(gvr schema.GroupVersionResource, syncStrategy SyncStrate
 	}
 }
 
-func cleanupKCPResourceWhenRemvovedFromSyncTarget(gvr schema.GroupVersionResource) func(client dynamic.ResourceInterface, ctx context.Context, obj *unstructured.Unstructured, options metav1.UpdateOptions, subresources []string, result *unstructured.Unstructured) (*unstructured.Unstructured, error) {
-	return func(client dynamic.ResourceInterface, ctx context.Context, updatedKCPObject *unstructured.Unstructured, options metav1.UpdateOptions, subresources []string, result *unstructured.Unstructured) (*unstructured.Unstructured, error) {
-		workloadClusterName, err := syncercontext.SyncTargetNameFrom(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		syncerViews, err := GetSyncerViews(updatedKCPObject)
-		if err != nil {
-			return nil, err
-		}
-		if _, exists := syncerViews[workloadClusterName]; !exists {
-			klog.Infof("Updating syncer annotations and labels for resource %q (%q) after removal from workload cluster %q", updatedKCPObject.GetName(), gvr.String(), workloadClusterName)
-			if updatedKCPViewAnnotations := updatedKCPObject.GetAnnotations(); updatedKCPViewAnnotations != nil {
-				delete(updatedKCPViewAnnotations, SyncingTransformationAnnotationPrefix+workloadClusterName)
-				delete(updatedKCPViewAnnotations, v1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+workloadClusterName)
-				updatedKCPObject.SetAnnotations(updatedKCPViewAnnotations)
-			}
-			if labels := updatedKCPObject.GetLabels(); labels != nil {
-				delete(labels, v1alpha1.ClusterResourceStateLabelPrefix+workloadClusterName)
-				updatedKCPObject.SetLabels(labels)
-			}
-			if updated, err := client.Update(ctx, updatedKCPObject, metav1.UpdateOptions{}); err != nil {
-				return nil, err
-			} else {
-				return updated, nil
-			}
-		}
-		return updatedKCPObject, nil
-	}
-}
-
 func StrategyTransformers(gvr schema.GroupVersionResource, syncStrategy SyncStrategy) []transforming.Transformer {
 	return []transforming.Transformer{
-		// cleanup sync target-related labels and annotations after UpdateStatus when the syncer view has been removed on the syncer side
-		{
-			Name:        "CleanupSyncTarget",
-			AfterUpdate: cleanupKCPResourceWhenRemvovedFromSyncTarget(gvr),
-		},
 		transforming.TransformsResource(
 			"SyncerViewTransformer",
 
