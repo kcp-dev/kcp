@@ -112,4 +112,8 @@ const (
 	// AnnotationSkipDefaultObjectCreation is the annotation key for an apiexport or apibinding indicating the other default resources
 	// has been created already. If the created default resource is deleted, it will not be recreated.
 	AnnotationSkipDefaultObjectCreation = "workload.kcp.dev/skip-default-object-creation"
+
+	// InternalSyncTargetPlacementAnnotationKey is a internal annotation key on placement API to mark the synctarget scheduled
+	// from this placement. The value is {location workspace}/{syncTarget name}
+	InternalSyncTargetPlacementAnnotationKey = "internal.workload.kcp.dev/synctarget"
 )

@@ -19,95 +19,34 @@ package namespace
 import (
 	"context"
 	"encoding/json"
-	"math/rand"
 	"strings"
 	"time"
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	locationreconciler "github.com/kcp-dev/kcp/pkg/reconciler/scheduling/location"
+	placementreconciler "github.com/kcp-dev/kcp/pkg/reconciler/workload/placement"
 )
 
 const removingGracePeriod = 5 * time.Second
 
-// placementSchedulingReconciler schedules a workload for this ns. It checks the current placement annotation on the ns,
-// and find all valid synctargets.
+// placementSchedulingReconciler sync scheduled synctarget on placement to for this ns.
 type placementSchedulingReconciler struct {
-	listSyncTarget func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error)
-	listPlacement  func(clusterName logicalcluster.Name) ([]*schedulingv1alpha1.Placement, error)
-	getLocation    func(clusterName logicalcluster.Name, name string) (*schedulingv1alpha1.Location, error)
+	listPlacement func(clusterName logicalcluster.Name) ([]*schedulingv1alpha1.Placement, error)
 
 	patchNamespace func(ctx context.Context, clusterName logicalcluster.Name, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*corev1.Namespace, error)
 
 	enqueueAfter func(*corev1.Namespace, time.Duration)
 
 	now func() time.Time
-}
-
-type locationClusters struct {
-	candidates       map[string]*workloadv1alpha1.SyncTarget
-	scheduledCluster *workloadv1alpha1.SyncTarget
-}
-
-func newLocationClusters(clusters []*workloadv1alpha1.SyncTarget) *locationClusters {
-	l := &locationClusters{
-		candidates: map[string]*workloadv1alpha1.SyncTarget{},
-	}
-
-	for _, cluster := range clusters {
-		l.candidates[cluster.Name] = cluster
-	}
-
-	return l
-}
-
-func (l *locationClusters) scheduled() bool {
-	return l.scheduledCluster != nil
-}
-
-func (l *locationClusters) exclude(syncTargetName string) {
-	delete(l.candidates, syncTargetName)
-}
-
-// potentiallySchedule sets a syncTarget as a scheduled cluster for this location if
-// this syncTarget is a valid candidate and this location is not scheduled yet, and
-// return true.
-func (l *locationClusters) potentiallySchedule(syncTargetName string) bool {
-	cluster, found := l.candidates[syncTargetName]
-	if !found {
-		return false
-	}
-
-	if l.scheduled() {
-		return false
-	}
-
-	l.scheduledCluster = cluster
-	return true
-}
-
-func (l *locationClusters) schedule() *workloadv1alpha1.SyncTarget {
-	if len(l.candidates) == 0 {
-		return nil
-	}
-
-	var candidates []*workloadv1alpha1.SyncTarget
-	for _, cluster := range l.candidates {
-		candidates = append(candidates, cluster)
-	}
-
-	l.scheduledCluster = candidates[rand.Intn(len(candidates))]
-	return l.scheduledCluster
 }
 
 func (r *placementSchedulingReconciler) reconcile(ctx context.Context, ns *corev1.Namespace) (reconcileStatus, *corev1.Namespace, error) {
@@ -125,61 +64,38 @@ func (r *placementSchedulingReconciler) reconcile(ctx context.Context, ns *corev
 		validPlacements = filterValidPlacements(ns, placements)
 	}
 
-	// 1. pick all sync targets in all bound placements
-	validLocationClusters := map[schedulingv1alpha1.LocationReference]*locationClusters{}
-	var errs []error
+	// 1. pick all synctargets in all bound placements
+	scheduledSyncTargets := sets.NewString()
 	for _, placement := range validPlacements {
-		clusters, err := r.getAllValidSyncTargetsForPlacement(clusterName, placement, ns)
-		if err != nil {
-			errs = append(errs, err)
+		currentScheduled, foundScheduled := placement.Annotations[workloadv1alpha1.InternalSyncTargetPlacementAnnotationKey]
+		if !foundScheduled {
 			continue
 		}
 
-		if len(clusters) > 0 {
-			validLocationClusters[*placement.Status.SelectedLocation] = newLocationClusters(clusters)
-		}
+		// TODO: location workspace should be considered also
+		_, syncTarget := placementreconciler.ParseCurrentScheduled(currentScheduled)
+		scheduledSyncTargets.Insert(syncTarget)
 	}
 
-	if len(errs) > 0 {
-		return reconcileStatusStop, ns, utilerrors.NewAggregate(errs)
-	}
-
-	// 2. find the scheduled sync target to the ns, including synced, removing
+	// 2. find the scheduled synctarget to the ns, including synced, removing
 	synced, removing := syncedRemovingCluster(ns)
 
-	// 3. if the synced cluster is in the valid clusters, stop scheduling
+	// 3. if the synced synctarget is not in the scheduled synctargets, mark it as removing.
 	expectedAnnotations := map[string]interface{}{} // nil means to remove the key
 	expectedLabels := map[string]interface{}{}      // nil means to remove the key
 
-	for _, cluster := range synced {
-		clusterScheduledByLocation := false
-		for _, locationClusters := range validLocationClusters {
-			// this is non deterministic when the same sync targets are selected in multiple locations.
-			// TODO(qiujian16): consider if we need to save the location/synctarget mappings in the ns.
-			if locationClusters.potentiallySchedule(cluster) {
-				clusterScheduledByLocation = true
-			}
-
-			// exclude synced cluster from candidates.
-			locationClusters.exclude(cluster)
-		}
-		if !clusterScheduledByLocation {
-			// it is no longer a synced cluster, mark it as removing.
+	for cluster := range synced {
+		if !scheduledSyncTargets.Has(cluster) {
+			// it is no longer a synced synctarget, mark it as removing.
 			now := r.now().UTC().Format(time.RFC3339)
 			expectedAnnotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+cluster] = now
 			klog.V(4).Infof("set cluster %s removing for ns %s|%s since it is not a valid cluster anymore", cluster, clusterName, ns.Name)
 		}
 	}
 
-	// 4. if removing cluster is in the valid cluster, exclude it from the candidates, also, check if the removing cluster
-	// should be removed.
+	// 4. remove the synctarget after grace period
 	minEnqueueDuration := removingGracePeriod + 1
 	for cluster, removingTime := range removing {
-		for _, locationClusters := range validLocationClusters {
-			// exclude removing cluster from candidates
-			locationClusters.exclude(cluster)
-		}
-
 		if removingTime.Add(removingGracePeriod).Before(r.now()) {
 			expectedLabels[workloadv1alpha1.ClusterResourceStateLabelPrefix+cluster] = nil
 			expectedAnnotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+cluster] = nil
@@ -192,22 +108,17 @@ func (r *placementSchedulingReconciler) reconcile(ctx context.Context, ns *corev
 		}
 	}
 
-	// 5. randomly select a cluster if there is no cluster syncing currently.
-	// TODO(qiujian16): we currently schedule each in each location independently. It cannot guarantee 1 cluster is schedule per location
-	// when the same synctargets are in multiple locations, we need to rethink whether we need a better algorithm or we need location
-	// to be exclusive.
-	for _, locationClusters := range validLocationClusters {
-		if locationClusters.scheduled() {
+	// 5. if a scheduled synctarget is not in synced and removing, add it in to the label
+	for scheduledSyncTarget := range scheduledSyncTargets {
+		if synced.Has(scheduledSyncTarget) {
+			continue
+		}
+		if _, ok := removing[scheduledSyncTarget]; ok {
 			continue
 		}
 
-		chosenCluster := locationClusters.schedule()
-		if chosenCluster == nil {
-			continue
-		}
-
-		expectedLabels[workloadv1alpha1.ClusterResourceStateLabelPrefix+chosenCluster.Name] = string(workloadv1alpha1.ResourceStateSync)
-		klog.V(4).Infof("set cluster %s sync for ns %s|%s", chosenCluster.Name, clusterName, ns.Name)
+		expectedLabels[workloadv1alpha1.ClusterResourceStateLabelPrefix+scheduledSyncTarget] = string(workloadv1alpha1.ResourceStateSync)
+		klog.V(4).Infof("set cluster %s sync for ns %s|%s", scheduledSyncTarget, clusterName, ns.Name)
 	}
 
 	if len(expectedLabels) > 0 || len(expectedAnnotations) > 0 {
@@ -222,40 +133,6 @@ func (r *placementSchedulingReconciler) reconcile(ctx context.Context, ns *corev
 	}
 
 	return reconcileStatusContinue, ns, nil
-}
-
-func (r *placementSchedulingReconciler) getAllValidSyncTargetsForPlacement(clusterName logicalcluster.Name, placement *schedulingv1alpha1.Placement, ns *corev1.Namespace) ([]*workloadv1alpha1.SyncTarget, error) {
-	if placement.Status.Phase == schedulingv1alpha1.PlacementPending || placement.Status.SelectedLocation == nil {
-		return nil, nil
-	}
-
-	locationWorkspace := logicalcluster.New(placement.Status.SelectedLocation.Path)
-	location, err := r.getLocation(
-		locationWorkspace,
-		placement.Status.SelectedLocation.LocationName)
-	switch {
-	case errors.IsNotFound(err):
-		return nil, nil
-	case err != nil:
-		return nil, err
-	}
-
-	// find all synctargets in the location workspace
-	syncTargets, err := r.listSyncTarget(locationWorkspace)
-	if err != nil {
-		return nil, err
-	}
-
-	// filter the sync targets by location
-	locationClusters, err := locationreconciler.LocationSyncTargets(syncTargets, location)
-	if err != nil {
-		return nil, err
-	}
-
-	// find all the valid sync targets.
-	validClusters := locationreconciler.FilterNonEvicting(locationreconciler.FilterReady(locationClusters))
-
-	return validClusters, nil
 }
 
 func (r *placementSchedulingReconciler) patchNamespaceLabelAnnotation(ctx context.Context, clusterName logicalcluster.Name, ns *corev1.Namespace, labels, annotations map[string]interface{}) (*corev1.Namespace, error) {
@@ -284,8 +161,8 @@ func (r *placementSchedulingReconciler) patchNamespaceLabelAnnotation(ctx contex
 }
 
 // syncedRemovingCluster finds synced and removing clusters for this ns.
-func syncedRemovingCluster(ns *corev1.Namespace) ([]string, map[string]time.Time) {
-	synced := []string{}
+func syncedRemovingCluster(ns *corev1.Namespace) (sets.String, map[string]time.Time) {
+	synced := sets.NewString()
 	removing := map[string]time.Time{}
 	for k := range ns.Labels {
 		if !strings.HasPrefix(k, workloadv1alpha1.ClusterResourceStateLabelPrefix) {
@@ -302,7 +179,7 @@ func syncedRemovingCluster(ns *corev1.Namespace) ([]string, map[string]time.Time
 			continue
 		}
 
-		synced = append(synced, syncTarget)
+		synced.Insert(syncTarget)
 	}
 
 	return synced, removing

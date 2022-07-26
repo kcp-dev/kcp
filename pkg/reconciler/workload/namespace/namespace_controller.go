@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -42,12 +41,8 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/kube-openapi/pkg/util/sets"
 
-	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
-	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	schedulinginformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
-	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
 	schedulinglisters "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
-	workloadlisters "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
 )
 
 const (
@@ -61,8 +56,6 @@ const (
 func NewController(
 	kubeClusterClient kubernetesclient.Interface,
 	namespaceInformer coreinformers.NamespaceInformer,
-	locationInformer schedulinginformers.LocationInformer,
-	syncTargetInformer workloadinformers.SyncTargetInformer,
 	placementInformer schedulinginformers.PlacementInformer,
 ) (*controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
@@ -79,26 +72,8 @@ func NewController(
 		namespaceLister:  namespaceInformer.Lister(),
 		namespaceIndexer: namespaceInformer.Informer().GetIndexer(),
 
-		locationLister:  locationInformer.Lister(),
-		locationIndexer: locationInformer.Informer().GetIndexer(),
-
-		syncTargetLister:  syncTargetInformer.Lister(),
-		syncTargetIndexer: syncTargetInformer.Informer().GetIndexer(),
-
 		placmentLister:   placementInformer.Lister(),
 		placementIndexer: placementInformer.Informer().GetIndexer(),
-	}
-
-	if err := locationInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorksapce,
-	}); err != nil {
-		return nil, err
-	}
-
-	if err := syncTargetInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorksapce,
-	}); err != nil {
-		return nil, err
 	}
 
 	if err := namespaceInformer.Informer().AddIndexers(cache.Indexers{
@@ -134,49 +109,6 @@ func NewController(
 		},
 	})
 
-	locationInformer.Informer().AddEventHandler(
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: c.enqueueLocation,
-			UpdateFunc: func(old, obj interface{}) {
-				oldLoc := old.(*schedulingv1alpha1.Location)
-				newLoc := obj.(*schedulingv1alpha1.Location)
-				if !reflect.DeepEqual(oldLoc.Spec, newLoc.Spec) || !reflect.DeepEqual(oldLoc.Labels, newLoc.Labels) {
-					c.enqueueLocation(obj)
-				}
-			},
-			DeleteFunc: c.enqueueLocation,
-		},
-	)
-
-	syncTargetInformer.Informer().AddEventHandler(
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: c.enqueueSyncTarget,
-			UpdateFunc: func(old, obj interface{}) {
-				oldCluster := old.(*workloadv1alpha1.SyncTarget)
-				oldClusterCopy := *oldCluster
-
-				// ignore fields that scheduler does not care
-				oldClusterCopy.ResourceVersion = "0"
-				oldClusterCopy.Status.LastSyncerHeartbeatTime = nil
-				oldClusterCopy.Status.VirtualWorkspaces = nil
-				oldClusterCopy.Status.Capacity = nil
-
-				newCluster := obj.(*workloadv1alpha1.SyncTarget)
-				newClusterCopy := *newCluster
-				newClusterCopy.ResourceVersion = "0"
-				newClusterCopy.Status.LastSyncerHeartbeatTime = nil
-				newClusterCopy.Status.VirtualWorkspaces = nil
-				newClusterCopy.Status.Capacity = nil
-
-				// compare ignoring heart-beat
-				if !reflect.DeepEqual(oldClusterCopy, newClusterCopy) {
-					c.enqueueSyncTarget(obj)
-				}
-			},
-			DeleteFunc: c.enqueueSyncTarget,
-		},
-	)
-
 	placementInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueuePlacement(obj, "") },
 		UpdateFunc: func(_, obj interface{}) { c.enqueuePlacement(obj, "") },
@@ -196,12 +128,6 @@ type controller struct {
 	namespaceLister  corelisters.NamespaceLister
 	namespaceIndexer cache.Indexer
 
-	locationLister  schedulinglisters.LocationLister
-	locationIndexer cache.Indexer
-
-	syncTargetLister  workloadlisters.SyncTargetLister
-	syncTargetIndexer cache.Indexer
-
 	placmentLister   schedulinglisters.PlacementLister
 	placementIndexer cache.Indexer
 }
@@ -216,26 +142,6 @@ func (c *controller) enqueueNamespace(obj interface{}) {
 
 	klog.V(2).Infof("Queueing Namespace %s|%s", clusterName.String(), name)
 	c.queue.Add(key)
-}
-
-// enqueueLocation finds placement ref to this location at first, and then namespaces bound to this placement.
-func (c *controller) enqueueLocation(obj interface{}) {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
-	if err != nil {
-		runtime.HandleError(err)
-		return
-	}
-	clusterName, _ := clusters.SplitClusterAwareKey(key)
-
-	placements, err := c.placementIndexer.ByIndex(byLocationWorkspace, clusterName.String())
-	if err != nil {
-		runtime.HandleError(err)
-		return
-	}
-
-	for _, obj := range placements {
-		c.enqueuePlacement(obj, fmt.Sprintf(" because of Location %s", key))
-	}
 }
 
 func (c *controller) enqueuePlacement(obj interface{}, logSuffix string) {
@@ -257,25 +163,6 @@ func (c *controller) enqueuePlacement(obj interface{}, logSuffix string) {
 		nskey := clusters.ToClusterAwareKey(logicalcluster.From(ns), ns.Name)
 		klog.V(2).Infof("Queueing namespace %s|%s because of placement %s|%s%s", logicalcluster.From(ns), ns.Name, clusterName, name, logSuffix)
 		c.queue.Add(nskey)
-	}
-}
-
-func (c *controller) enqueueSyncTarget(obj interface{}) {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
-	if err != nil {
-		runtime.HandleError(err)
-		return
-	}
-	clusterName, _ := clusters.SplitClusterAwareKey(key)
-
-	placements, err := c.placementIndexer.ByIndex(byLocationWorkspace, clusterName.String())
-	if err != nil {
-		runtime.HandleError(err)
-		return
-	}
-
-	for _, obj := range placements {
-		c.enqueuePlacement(obj, fmt.Sprintf(" because of SyncTarget %s", key))
 	}
 }
 

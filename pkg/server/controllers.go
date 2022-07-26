@@ -69,6 +69,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/defaultplacement"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/heartbeat"
 	workloadnamespace "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
+	workloadplacement "github.com/kcp-dev/kcp/pkg/reconciler/workload/placement"
 	workloadresource "github.com/kcp-dev/kcp/pkg/reconciler/workload/resource"
 	virtualworkspaceurlscontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/virtualworkspaceurls"
 )
@@ -743,6 +744,39 @@ func (s *Server) installWorkloadNamespaceScheduler(ctx context.Context, config *
 	c, err := workloadnamespace.NewController(
 		kubeClusterClient,
 		s.KubeSharedInformerFactory.Core().V1().Namespaces(),
+		s.KcpSharedInformerFactory.Scheduling().V1alpha1().Placements(),
+	)
+	if err != nil {
+		return err
+	}
+
+	if err := server.AddPostStartHook(controllerName, func(hookContext genericapiserver.PostStartHookContext) error {
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			klog.Errorf("failed to finish post-start-hook %s: %v", controllerName, err)
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		go c.Start(goContext(hookContext), 2)
+
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Server) installWorkloadPlacementScheduler(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
+	controllerName := "kcp-workload-placement-scheduler"
+	config = kcpclienthelper.NewClusterConfig(rest.AddUserAgent(rest.CopyConfig(config), controllerName))
+	kcpClusterClient, err := kcpclient.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	c, err := workloadplacement.NewController(
+		kcpClusterClient,
 		s.KcpSharedInformerFactory.Scheduling().V1alpha1().Locations(),
 		s.KcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
 		s.KcpSharedInformerFactory.Scheduling().V1alpha1().Placements(),

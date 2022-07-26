@@ -623,6 +623,9 @@ func (s *Server) Run(ctx context.Context) error {
 			if err := s.installWorkloadNamespaceScheduler(ctx, controllerConfig, delegationChainHead); err != nil {
 				return err
 			}
+			if err := s.installWorkloadPlacementScheduler(ctx, controllerConfig, delegationChainHead); err != nil {
+				return err
+			}
 			if err := s.installSchedulingLocationStatusController(ctx, controllerConfig, delegationChainHead); err != nil {
 				return err
 			}
