@@ -33,6 +33,7 @@ import (
 	jwt2 "gopkg.in/square/go-jose.v2/jwt"
 
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
+	"k8s.io/apiextensions-apiserver/pkg/kcp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -387,7 +388,7 @@ func processResourceIdentity(req *http.Request, requestInfo *request.RequestInfo
 	return req, nil
 }
 
-func mergeCRDsIntoCoreGroup(crdLister *apiBindingAwareCRDLister, crdHandler, coreHandler func(res http.ResponseWriter, req *http.Request)) restful.FilterFunction {
+func mergeCRDsIntoCoreGroup(crdLister kcp.ClusterAwareCRDLister, crdHandler, coreHandler func(res http.ResponseWriter, req *http.Request)) restful.FilterFunction {
 	return func(req *restful.Request, res *restful.Response, chain *restful.FilterChain) {
 		ctx := req.Request.Context()
 		requestInfo, ok := request.RequestInfoFrom(ctx)
@@ -454,7 +455,7 @@ func mergeCRDsIntoCoreGroup(crdLister *apiBindingAwareCRDLister, crdHandler, cor
 	}
 }
 
-func serveCoreV1Discovery(ctx context.Context, crdLister *apiBindingAwareCRDLister, coreHandler func(w http.ResponseWriter, req *http.Request), res http.ResponseWriter, req *http.Request) {
+func serveCoreV1Discovery(ctx context.Context, crdLister kcp.ClusterAwareCRDLister, coreHandler func(w http.ResponseWriter, req *http.Request), res http.ResponseWriter, req *http.Request) {
 	// Get all the CRDs to see if any of them are in v1
 	crds, err := crdLister.List(ctx, labels.Everything())
 	if err != nil {

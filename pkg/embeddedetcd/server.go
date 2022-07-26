@@ -31,6 +31,9 @@ type Server struct {
 }
 
 func NewServer(config CompletedConfig) *Server {
+	if config.Config == nil {
+		return nil
+	}
 	return &Server{
 		config: config,
 	}

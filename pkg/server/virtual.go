@@ -49,11 +49,11 @@ func (s *Server) installVirtualWorkspaces(
 	preHandlerChainMux mux,
 ) error {
 	// create virtual workspaces
-	virtualWorkspaces, err := s.options.Virtual.VirtualWorkspaces.NewVirtualWorkspaces(
+	virtualWorkspaces, err := s.Options.Virtual.VirtualWorkspaces.NewVirtualWorkspaces(
 		config,
 		virtualcommandoptions.DefaultRootPathPrefix,
-		s.kubeSharedInformerFactory,
-		s.kcpSharedInformerFactory,
+		s.KubeSharedInformerFactory,
+		s.KcpSharedInformerFactory,
 	)
 	if err != nil {
 		return err
@@ -75,8 +75,8 @@ func (s *Server) installVirtualWorkspaces(
 	recommendedConfig.Authentication = auth
 
 	authorizationOptions := virtualoptions.NewAuthorization()
-	authorizationOptions.AlwaysAllowGroups = s.options.Authorization.AlwaysAllowGroups
-	authorizationOptions.AlwaysAllowPaths = s.options.Authorization.AlwaysAllowPaths
+	authorizationOptions.AlwaysAllowGroups = s.Options.Authorization.AlwaysAllowGroups
+	authorizationOptions.AlwaysAllowPaths = s.Options.Authorization.AlwaysAllowPaths
 	if err := authorizationOptions.ApplyTo(&recommendedConfig.Config, virtualWorkspaces); err != nil {
 		return err
 	}
@@ -105,10 +105,12 @@ func (s *Server) installVirtualWorkspaces(
 		return err
 	}
 
-	s.AddPostStartHook("kcp-start-virtual-workspace", func(ctx genericapiserver.PostStartHookContext) error {
+	if err := s.AddPostStartHook("kcp-start-virtual-workspace", func(ctx genericapiserver.PostStartHookContext) error {
 		preparedRootAPIServer.RunPostStartHooks(ctx.StopCh)
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
 
 	klog.Infof("Starting virtual workspace apiserver")
 	preHandlerChainMux.Handle(virtualcommandoptions.DefaultRootPathPrefix+"/", preparedRootAPIServer.GenericAPIServer.Handler)
@@ -119,7 +121,7 @@ func (s *Server) installVirtualWorkspaces(
 func (s *Server) installVirtualWorkspacesRedirect(ctx context.Context, preHandlerChainMux mux) error {
 	// TODO(sttts): protect redirect via authz?
 
-	externalBaseURL, err := url.Parse(s.options.Virtual.ExternalVirtualWorkspaceAddress)
+	externalBaseURL, err := url.Parse(s.Options.Virtual.ExternalVirtualWorkspaceAddress)
 	if err != nil {
 		return err // shouldn't happen due to options validation
 	}

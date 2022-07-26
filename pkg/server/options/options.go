@@ -66,7 +66,7 @@ type ExtraOptions struct {
 
 type completedOptions struct {
 	GenericControlPlane options.CompletedServerRunOptions
-	EmbeddedEtcd        etcdoptions.CompletedObjects
+	EmbeddedEtcd        etcdoptions.CompletedOptions
 	Controllers         Controllers
 	Authorization       Authorization
 	AdminAuthentication AdminAuthentication

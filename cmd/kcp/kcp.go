@@ -35,6 +35,7 @@ import (
 	"k8s.io/component-base/version"
 
 	"github.com/kcp-dev/kcp/pkg/cmd/help"
+	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/server"
 	"github.com/kcp-dev/kcp/pkg/server/options"
@@ -111,12 +112,30 @@ func main() {
 				return errors.NewAggregate(errs)
 			}
 
-			s, err := server.NewServer(completed)
+			config, err := server.NewConfig(completed)
 			if err != nil {
 				return err
 			}
 
-			return s.Run(genericapiserver.SetupSignalContext())
+			completedConfig, err := config.Complete()
+			if err != nil {
+				return err
+			}
+
+			ctx := genericapiserver.SetupSignalContext()
+
+			// the etcd server must be up before NewServer because storage decorators access it right away
+			if completedConfig.EmbeddedEtcd.Config != nil {
+				if err := embeddedetcd.NewServer(completedConfig.EmbeddedEtcd).Run(ctx); err != nil {
+					return err
+				}
+			}
+
+			s, err := server.NewServer(completedConfig)
+			if err != nil {
+				return err
+			}
+			return s.Run(ctx)
 		},
 	}
 

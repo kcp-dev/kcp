@@ -80,15 +80,13 @@ func (s *Server) installClusterRoleAggregationController(ctx context.Context, co
 		return err
 	}
 	c := clusterroleaggregation.NewClusterRoleAggregation(
-		s.kubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
+		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
 		kubeClient.RbacV1())
 
-	s.AddPostStartHook("kcp-start-kube-cluster-role-aggregation-controller", func(hookContext genericapiserver.PostStartHookContext) error {
+	return s.AddPostStartHook("kcp-start-kube-cluster-role-aggregation-controller", func(hookContext genericapiserver.PostStartHookContext) error {
 		go c.Run(ctx, 5)
 		return nil
 	})
-
-	return nil
 }
 
 func (s *Server) installKubeNamespaceController(ctx context.Context, config *rest.Config) error {
@@ -120,12 +118,12 @@ func (s *Server) installKubeNamespaceController(ctx context.Context, config *res
 		kubeClient,
 		metadata,
 		discoverResourcesFn,
-		s.kubeSharedInformerFactory.Core().V1().Namespaces(),
+		s.KubeSharedInformerFactory.Core().V1().Namespaces(),
 		time.Duration(5)*time.Minute,
 		corev1.FinalizerKubernetes,
 	)
 
-	s.AddPostStartHook("kcp-start-kube-namespace-controller", func(hookContext genericapiserver.PostStartHookContext) error {
+	return s.AddPostStartHook("kcp-start-kube-namespace-controller", func(hookContext genericapiserver.PostStartHookContext) error {
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			klog.Errorf("failed to finish post-start-hook kcp-start-kube-namespace-controller: %v", err)
 			// nolint:nilerr
@@ -135,8 +133,6 @@ func (s *Server) installKubeNamespaceController(ctx context.Context, config *res
 		go c.Run(10, ctx.Done())
 		return nil
 	})
-
-	return nil
 }
 
 func (s *Server) installKubeServiceAccountController(ctx context.Context, config *rest.Config) error {
@@ -147,8 +143,8 @@ func (s *Server) installKubeServiceAccountController(ctx context.Context, config
 	}
 
 	c, err := serviceaccountcontroller.NewServiceAccountsController(
-		s.kubeSharedInformerFactory.Core().V1().ServiceAccounts(),
-		s.kubeSharedInformerFactory.Core().V1().Namespaces(),
+		s.KubeSharedInformerFactory.Core().V1().ServiceAccounts(),
+		s.KubeSharedInformerFactory.Core().V1().Namespaces(),
 		kubeClient,
 		serviceaccountcontroller.DefaultServiceAccountsControllerOptions(),
 	)
@@ -156,7 +152,7 @@ func (s *Server) installKubeServiceAccountController(ctx context.Context, config
 		return fmt.Errorf("error creating ServiceAccount controller: %w", err)
 	}
 
-	s.AddPostStartHook("kcp-start-kube-service-account-controller", func(hookContext genericapiserver.PostStartHookContext) error {
+	return s.AddPostStartHook("kcp-start-kube-service-account-controller", func(hookContext genericapiserver.PostStartHookContext) error {
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			klog.Errorf("failed to finish post-start-hook kcp-start-kube-service-account-controller: %v", err)
 			// nolint:nilerr
@@ -166,8 +162,6 @@ func (s *Server) installKubeServiceAccountController(ctx context.Context, config
 		go c.Run(ctx, 1)
 		return nil
 	})
-
-	return nil
 }
 
 func (s *Server) installKubeServiceAccountTokenController(ctx context.Context, config *rest.Config) error {
@@ -177,7 +171,7 @@ func (s *Server) installKubeServiceAccountTokenController(ctx context.Context, c
 		return err
 	}
 
-	serviceAccountKeyFile := s.options.Controllers.SAController.ServiceAccountKeyFile
+	serviceAccountKeyFile := s.Options.Controllers.SAController.ServiceAccountKeyFile
 	if len(serviceAccountKeyFile) == 0 {
 		return fmt.Errorf("service account controller requires a private key")
 	}
@@ -187,7 +181,7 @@ func (s *Server) installKubeServiceAccountTokenController(ctx context.Context, c
 	}
 
 	var rootCA []byte
-	rootCAFile := s.options.Controllers.SAController.RootCAFile
+	rootCAFile := s.Options.Controllers.SAController.RootCAFile
 	if rootCAFile != "" {
 		if rootCA, err = readCA(rootCAFile); err != nil {
 			return fmt.Errorf("error parsing root-ca-file at %s: %w", rootCAFile, err)
@@ -201,8 +195,8 @@ func (s *Server) installKubeServiceAccountTokenController(ctx context.Context, c
 		return fmt.Errorf("failed to build token generator: %w", err)
 	}
 	controller, err := serviceaccountcontroller.NewTokensController(
-		s.kubeSharedInformerFactory.Core().V1().ServiceAccounts(),
-		s.kubeSharedInformerFactory.Core().V1().Secrets(),
+		s.KubeSharedInformerFactory.Core().V1().ServiceAccounts(),
+		s.KubeSharedInformerFactory.Core().V1().Secrets(),
 		kubeClient,
 		serviceaccountcontroller.TokensControllerOptions{
 			TokenGenerator: tokenGenerator,
@@ -214,19 +208,17 @@ func (s *Server) installKubeServiceAccountTokenController(ctx context.Context, c
 		return fmt.Errorf("error creating service account controller: %w", err)
 	}
 
-	s.AddPostStartHook("kcp-start-kube-service-account-token-controller", func(hookContext genericapiserver.PostStartHookContext) error {
+	return s.AddPostStartHook("kcp-start-kube-service-account-token-controller", func(hookContext genericapiserver.PostStartHookContext) error {
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			klog.Errorf("failed to finish post-start-hook kcp-start-kube-service-account-token-controller: %v", err)
 			// nolint:nilerr
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go controller.Run(int(s.options.Controllers.SAController.ConcurrentSATokenSyncs), ctx.Done())
+		go controller.Run(int(s.Options.Controllers.SAController.ConcurrentSATokenSyncs), ctx.Done())
 
 		return nil
 	})
-
-	return nil
 }
 
 func (s *Server) installRootCAConfigMapController(ctx context.Context, config *rest.Config) error {
@@ -239,9 +231,9 @@ func (s *Server) installRootCAConfigMapController(ctx context.Context, config *r
 	}
 
 	// TODO(jmprusi): We should make the CA loading dynamic when the file changes on disk.
-	caDataPath := s.options.Controllers.SAController.RootCAFile
+	caDataPath := s.Options.Controllers.SAController.RootCAFile
 	if caDataPath == "" {
-		caDataPath = s.options.GenericControlPlane.SecureServing.SecureServingOptions.ServerCert.CertKey.CertFile
+		caDataPath = s.Options.GenericControlPlane.SecureServing.SecureServingOptions.ServerCert.CertKey.CertFile
 	}
 
 	caData, err := os.ReadFile(caDataPath)
@@ -250,8 +242,8 @@ func (s *Server) installRootCAConfigMapController(ctx context.Context, config *r
 	}
 
 	c, err := rootcacertpublisher.NewPublisher(
-		s.kubeSharedInformerFactory.Core().V1().ConfigMaps(),
-		s.kubeSharedInformerFactory.Core().V1().Namespaces(),
+		s.KubeSharedInformerFactory.Core().V1().ConfigMaps(),
+		s.KubeSharedInformerFactory.Core().V1().Namespaces(),
 		kubeClient,
 		caData,
 	)
@@ -259,7 +251,7 @@ func (s *Server) installRootCAConfigMapController(ctx context.Context, config *r
 		return fmt.Errorf("error creating %s controller: %w", rootCAConfigMapControllerName, err)
 	}
 
-	s.AddPostStartHook("kcp-start-"+rootCAConfigMapControllerName, func(hookContext genericapiserver.PostStartHookContext) error {
+	return s.AddPostStartHook("kcp-start-"+rootCAConfigMapControllerName, func(hookContext genericapiserver.PostStartHookContext) error {
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			klog.Errorf("failed to finish post-start-hook %s: %v", rootCAConfigMapControllerName, err)
 			// nolint:nilerr
@@ -269,8 +261,6 @@ func (s *Server) installRootCAConfigMapController(ctx context.Context, config *r
 		go c.Run(ctx, 2)
 		return nil
 	})
-
-	return nil
 }
 
 func readCA(file string) ([]byte, error) {
@@ -308,11 +298,11 @@ func (s *Server) installWorkspaceDeletionController(ctx context.Context, config 
 	workspaceDeletionController := clusterworkspacedeletion.NewController(
 		kcpClusterClient,
 		metadataClusterClient,
-		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
+		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
 		discoverResourcesFn,
 	)
 
-	s.AddPostStartHook("kcp-workspace-deletion-controller", func(hookContext genericapiserver.PostStartHookContext) error {
+	return s.AddPostStartHook("kcp-workspace-deletion-controller", func(hookContext genericapiserver.PostStartHookContext) error {
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			klog.Errorf("failed to finish post-start-hook kcp-workspace-deletion-controller: %v", err)
 			// nolint:nilerr
@@ -322,7 +312,6 @@ func (s *Server) installWorkspaceDeletionController(ctx context.Context, config 
 		go workspaceDeletionController.Start(ctx, 10)
 		return nil
 	})
-	return nil
 }
 
 func (s *Server) installWorkloadResourceScheduler(ctx context.Context, config *rest.Config, ddsif *informer.DynamicDiscoverySharedInformerFactory) error {
@@ -334,14 +323,14 @@ func (s *Server) installWorkloadResourceScheduler(ctx context.Context, config *r
 
 	resourceScheduler, err := workloadresource.NewController(
 		dynamicClusterClient,
-		s.dynamicDiscoverySharedInformerFactory,
-		s.kubeSharedInformerFactory.Core().V1().Namespaces(),
+		s.DynamicDiscoverySharedInformerFactory,
+		s.KubeSharedInformerFactory.Core().V1().Namespaces(),
 	)
 	if err != nil {
 		return err
 	}
 
-	s.AddPostStartHook("kcp-install-workload-resource-scheduler", func(hookContext genericapiserver.PostStartHookContext) error {
+	return s.AddPostStartHook("kcp-install-workload-resource-scheduler", func(hookContext genericapiserver.PostStartHookContext) error {
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			klog.Errorf("failed to finish post-start-hook kcp-install-namespace-scheduler: %v", err)
 			// nolint:nilerr
@@ -351,7 +340,6 @@ func (s *Server) installWorkloadResourceScheduler(ctx context.Context, config *r
 		go resourceScheduler.Start(ctx, 2)
 		return nil
 	})
-	return nil
 }
 
 func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Config) error {
@@ -374,19 +362,19 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 
 	workspaceController, err := clusterworkspace.NewController(
 		kcpClusterClient,
-		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
-		s.rootKcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
-		s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
+		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
+		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
 	)
 	if err != nil {
 		return err
 	}
 
 	var workspaceShardController *clusterworkspaceshard.Controller
-	if s.options.Extra.ShardName == tenancyv1alpha1.RootShard {
+	if s.Options.Extra.ShardName == tenancyv1alpha1.RootShard {
 		workspaceShardController, err = clusterworkspaceshard.NewController(
 			kcpClusterClient,
-			s.rootKcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
+			s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
 		)
 		if err != nil {
 			return err
@@ -395,8 +383,8 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 
 	workspaceTypeController, err := clusterworkspacetype.NewController(
 		kcpClusterClient,
-		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceTypes(),
-		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
+		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceTypes(),
+		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
 	)
 	if err != nil {
 		return err
@@ -407,7 +395,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		dynamicClusterClient,
 		crdClusterClient,
 		kcpClusterClient,
-		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
+		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
 		tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: "root", Name: "universal"},
 		configuniversal.Bootstrap,
 	)
@@ -415,7 +403,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		return err
 	}
 
-	s.AddPostStartHook("kcp-install-workspace-scheduler", func(hookContext genericapiserver.PostStartHookContext) error {
+	return s.AddPostStartHook("kcp-install-workspace-scheduler", func(hookContext genericapiserver.PostStartHookContext) error {
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			klog.Errorf("failed to finish post-start-hook kcp-install-workspace-scheduler: %v", err)
 			// nolint:nilerr
@@ -431,7 +419,6 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 
 		return nil
 	})
-	return nil
 }
 
 func (s *Server) installHomeWorkspaces(ctx context.Context, config *rest.Config) error {
@@ -457,7 +444,7 @@ func (s *Server) installHomeWorkspaces(ctx context.Context, config *rest.Config)
 		dynamicClusterClient,
 		crdClusterClient,
 		kcpClusterClient,
-		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
+		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
 		tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: "root", Name: "homeroot"},
 		confighomeroot.Bootstrap,
 	)
@@ -470,7 +457,7 @@ func (s *Server) installHomeWorkspaces(ctx context.Context, config *rest.Config)
 		dynamicClusterClient,
 		crdClusterClient,
 		kcpClusterClient,
-		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
+		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
 		tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: "root", Name: "homebucket"},
 		confighomebucket.Bootstrap,
 	)
@@ -478,7 +465,7 @@ func (s *Server) installHomeWorkspaces(ctx context.Context, config *rest.Config)
 		return err
 	}
 
-	s.AddPostStartHook("kcp-install-home-workspaces", func(hookContext genericapiserver.PostStartHookContext) error {
+	return s.AddPostStartHook("kcp-install-home-workspaces", func(hookContext genericapiserver.PostStartHookContext) error {
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			klog.Errorf("failed to finish post-start-hook kcp-install-home-workspaces: %v", err)
 			// nolint:nilerr
@@ -490,7 +477,6 @@ func (s *Server) installHomeWorkspaces(ctx context.Context, config *rest.Config)
 
 		return nil
 	})
-	return nil
 }
 
 func (s *Server) installApiResourceController(ctx context.Context, config *rest.Config) error {
@@ -508,27 +494,26 @@ func (s *Server) installApiResourceController(ctx context.Context, config *rest.
 	c, err := apiresource.NewController(
 		crdClusterClient,
 		kcpClusterClient,
-		s.options.Controllers.ApiResource.AutoPublishAPIs,
-		s.kcpSharedInformerFactory.Apiresource().V1alpha1().NegotiatedAPIResources(),
-		s.kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
-		s.apiextensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
+		s.Options.Controllers.ApiResource.AutoPublishAPIs,
+		s.KcpSharedInformerFactory.Apiresource().V1alpha1().NegotiatedAPIResources(),
+		s.KcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
+		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
 	)
 	if err != nil {
 		return err
 	}
 
-	s.AddPostStartHook("kcp-install-api-resource-controller", func(hookContext genericapiserver.PostStartHookContext) error {
+	return s.AddPostStartHook("kcp-install-api-resource-controller", func(hookContext genericapiserver.PostStartHookContext) error {
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			klog.Errorf("failed to finish post-start-hook kcp-install-api-resource-controller: %v", err)
 			// nolint:nilerr
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(ctx, s.options.Controllers.ApiResource.NumThreads)
+		go c.Start(ctx, s.Options.Controllers.ApiResource.NumThreads)
 
 		return nil
 	})
-	return nil
 }
 
 func (s *Server) installSyncTargetHeartbeatController(ctx context.Context, config *rest.Config) error {
@@ -540,15 +525,15 @@ func (s *Server) installSyncTargetHeartbeatController(ctx context.Context, confi
 
 	c, err := heartbeat.NewController(
 		kcpClusterClient,
-		s.kcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
-		s.kcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
-		s.options.Controllers.SyncTargetHeartbeat.HeartbeatThreshold,
+		s.KcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
+		s.KcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
+		s.Options.Controllers.SyncTargetHeartbeat.HeartbeatThreshold,
 	)
 	if err != nil {
 		return err
 	}
 
-	s.AddPostStartHook("kcp-install-cluster-controller", func(hookContext genericapiserver.PostStartHookContext) error {
+	return s.AddPostStartHook("kcp-install-cluster-controller", func(hookContext genericapiserver.PostStartHookContext) error {
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			klog.Errorf("failed to finish post-start-hook kcp-install-cluster-controller: %v", err)
 			// nolint:nilerr
@@ -559,8 +544,6 @@ func (s *Server) installSyncTargetHeartbeatController(ctx context.Context, confi
 
 		return nil
 	})
-	return nil
-
 }
 
 func (s *Server) installAPIBindingController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer, ddsif *informer.DynamicDiscoverySharedInformerFactory) error {
@@ -590,12 +573,12 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 		kcpClusterClient,
 		dynamicClusterClient,
 		ddsif,
-		s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
-		s.kcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
-		s.kcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
-		s.temporaryRootShardKcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
-		s.temporaryRootShardKcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
-		s.apiextensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
+		s.TemporaryRootShardKcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+		s.TemporaryRootShardKcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
+		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
 	)
 	if err != nil {
 		return err
@@ -606,9 +589,9 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 		// and the controllers must run as soon as these two informers are up in order to bootstrap
 		// the rest of the system. Everything else in the kcp clientset is APIBinding based.
 		if err := wait.PollImmediateInfiniteWithContext(goContext(hookContext), time.Millisecond*100, func(ctx context.Context) (bool, error) {
-			crdsSynced := s.apiextensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced()
-			exportsSynced := s.kcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
-			bindingsSynced := s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced()
+			crdsSynced := s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced()
+			exportsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
+			bindingsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced()
 			return crdsSynced && exportsSynced && bindingsSynced, nil
 		}); err != nil {
 			klog.Errorf("failed to finish post-start-hook kcp-install-apibinding-controller: %v", err)
@@ -626,10 +609,10 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 	apibindingDeletionController := apibindingdeletion.NewController(
 		metadataClient,
 		kcpClusterClient,
-		s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
 	)
 
-	if err := server.AddPostStartHook("kcp-install-apibinding-deletion-controller", func(hookContext genericapiserver.PostStartHookContext) error {
+	return server.AddPostStartHook("kcp-install-apibinding-deletion-controller", func(hookContext genericapiserver.PostStartHookContext) error {
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			klog.Errorf("failed to finish post-start-hook kcp-install-apibinding-deletion-controller: %v", err)
 			// nolint:nilerr
@@ -639,11 +622,7 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 		go apibindingDeletionController.Start(goContext(hookContext), 10)
 
 		return nil
-	}); err != nil {
-		return err
-	}
-
-	return nil
+	})
 }
 
 func (s *Server) installAPIExportController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
@@ -661,24 +640,24 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 
 	c, err := apiexport.NewController(
 		kcpClusterClient,
-		s.kcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
-		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
 		kubeClusterClient,
-		s.kubeSharedInformerFactory.Core().V1().Namespaces(),
-		s.kubeSharedInformerFactory.Core().V1().Secrets(),
+		s.KubeSharedInformerFactory.Core().V1().Namespaces(),
+		s.KubeSharedInformerFactory.Core().V1().Secrets(),
 	)
 	if err != nil {
 		return err
 	}
 
-	if err := server.AddPostStartHook("kcp-install-apiexport-controller", func(hookContext genericapiserver.PostStartHookContext) error {
+	return server.AddPostStartHook("kcp-install-apiexport-controller", func(hookContext genericapiserver.PostStartHookContext) error {
 		// do custom wait logic here because APIExports+APIBindings are special as system CRDs,
 		// and the controllers must run as soon as these two informers are up in order to bootstrap
 		// the rest of the system. Everything else in the kcp clientset is APIBinding based.
 		if err := wait.PollImmediateInfiniteWithContext(goContext(hookContext), time.Millisecond*100, func(ctx context.Context) (bool, error) {
-			crdsSynced := s.apiextensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced()
-			exportsSynced := s.kcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
-			bindingsSynced := s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced()
+			crdsSynced := s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced()
+			exportsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
+			bindingsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced()
 			return crdsSynced && exportsSynced && bindingsSynced, nil
 		}); err != nil {
 			klog.Errorf("failed to finish post-start-hook kcp-install-apiexport-controller: %v", err)
@@ -689,11 +668,7 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 		go c.Start(goContext(hookContext), 2)
 
 		return nil
-	}); err != nil {
-		return err
-	}
-
-	return nil
+	})
 }
 
 func (s *Server) installSchedulingLocationStatusController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
@@ -707,14 +682,14 @@ func (s *Server) installSchedulingLocationStatusController(ctx context.Context, 
 
 	c, err := schedulinglocationstatus.NewController(
 		kcpClusterClient,
-		s.kcpSharedInformerFactory.Scheduling().V1alpha1().Locations(),
-		s.kcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
+		s.KcpSharedInformerFactory.Scheduling().V1alpha1().Locations(),
+		s.KcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
 	)
 	if err != nil {
 		return err
 	}
 
-	if err := server.AddPostStartHook(controllerName, func(hookContext genericapiserver.PostStartHookContext) error {
+	return server.AddPostStartHook(controllerName, func(hookContext genericapiserver.PostStartHookContext) error {
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			klog.Errorf("failed to finish post-start-hook %s: %v", controllerName, err)
 			// nolint:nilerr
@@ -724,11 +699,7 @@ func (s *Server) installSchedulingLocationStatusController(ctx context.Context, 
 		go c.Start(goContext(hookContext), 2)
 
 		return nil
-	}); err != nil {
-		return err
-	}
-
-	return nil
+	})
 }
 
 func (s *Server) installDefaultPlacementController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
@@ -741,14 +712,14 @@ func (s *Server) installDefaultPlacementController(ctx context.Context, config *
 
 	c, err := defaultplacement.NewController(
 		kcpClusterClient,
-		s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
-		s.kcpSharedInformerFactory.Scheduling().V1alpha1().Placements(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
+		s.KcpSharedInformerFactory.Scheduling().V1alpha1().Placements(),
 	)
 	if err != nil {
 		return err
 	}
 
-	if err := server.AddPostStartHook(controllerName, func(hookContext genericapiserver.PostStartHookContext) error {
+	return server.AddPostStartHook(controllerName, func(hookContext genericapiserver.PostStartHookContext) error {
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			klog.Errorf("failed to finish post-start-hook %s: %v", controllerName, err)
 			// nolint:nilerr
@@ -758,11 +729,7 @@ func (s *Server) installDefaultPlacementController(ctx context.Context, config *
 		go c.Start(goContext(hookContext), 2)
 
 		return nil
-	}); err != nil {
-		return err
-	}
-
-	return nil
+	})
 }
 
 func (s *Server) installWorkloadNamespaceScheduler(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
@@ -775,16 +742,16 @@ func (s *Server) installWorkloadNamespaceScheduler(ctx context.Context, config *
 
 	c, err := workloadnamespace.NewController(
 		kubeClusterClient,
-		s.kubeSharedInformerFactory.Core().V1().Namespaces(),
-		s.kcpSharedInformerFactory.Scheduling().V1alpha1().Locations(),
-		s.kcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
-		s.kcpSharedInformerFactory.Scheduling().V1alpha1().Placements(),
+		s.KubeSharedInformerFactory.Core().V1().Namespaces(),
+		s.KcpSharedInformerFactory.Scheduling().V1alpha1().Locations(),
+		s.KcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
+		s.KcpSharedInformerFactory.Scheduling().V1alpha1().Placements(),
 	)
 	if err != nil {
 		return err
 	}
 
-	if err := server.AddPostStartHook(controllerName, func(hookContext genericapiserver.PostStartHookContext) error {
+	return server.AddPostStartHook(controllerName, func(hookContext genericapiserver.PostStartHookContext) error {
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			klog.Errorf("failed to finish post-start-hook %s: %v", controllerName, err)
 			// nolint:nilerr
@@ -794,11 +761,7 @@ func (s *Server) installWorkloadNamespaceScheduler(ctx context.Context, config *
 		go c.Start(goContext(hookContext), 2)
 
 		return nil
-	}); err != nil {
-		return err
-	}
-
-	return nil
+	})
 }
 
 func (s *Server) installSchedulingPlacementController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
@@ -811,15 +774,15 @@ func (s *Server) installSchedulingPlacementController(ctx context.Context, confi
 
 	c, err := schedulingplacement.NewController(
 		kcpClusterClient,
-		s.kubeSharedInformerFactory.Core().V1().Namespaces(),
-		s.kcpSharedInformerFactory.Scheduling().V1alpha1().Locations(),
-		s.kcpSharedInformerFactory.Scheduling().V1alpha1().Placements(),
+		s.KubeSharedInformerFactory.Core().V1().Namespaces(),
+		s.KcpSharedInformerFactory.Scheduling().V1alpha1().Locations(),
+		s.KcpSharedInformerFactory.Scheduling().V1alpha1().Placements(),
 	)
 	if err != nil {
 		return err
 	}
 
-	if err := server.AddPostStartHook(controllerName, func(hookContext genericapiserver.PostStartHookContext) error {
+	return server.AddPostStartHook(controllerName, func(hookContext genericapiserver.PostStartHookContext) error {
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			klog.Errorf("failed to finish post-start-hook %s: %v", controllerName, err)
 			// nolint:nilerr
@@ -829,11 +792,7 @@ func (s *Server) installSchedulingPlacementController(ctx context.Context, confi
 		go c.Start(goContext(hookContext), 2)
 
 		return nil
-	}); err != nil {
-		return err
-	}
-
-	return nil
+	})
 }
 
 func (s *Server) installWorkloadsAPIExportController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
@@ -846,15 +805,15 @@ func (s *Server) installWorkloadsAPIExportController(ctx context.Context, config
 
 	c, err := workloadsapiexport.NewController(
 		kcpClusterClient,
-		s.kcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
-		s.kcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
-		s.kcpSharedInformerFactory.Apiresource().V1alpha1().NegotiatedAPIResources(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
+		s.KcpSharedInformerFactory.Apiresource().V1alpha1().NegotiatedAPIResources(),
 	)
 	if err != nil {
 		return err
 	}
 
-	if err := server.AddPostStartHook(controllerName, func(hookContext genericapiserver.PostStartHookContext) error {
+	return server.AddPostStartHook(controllerName, func(hookContext genericapiserver.PostStartHookContext) error {
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			klog.Errorf("failed to finish post-start-hook %s: %v", controllerName, err)
 			// nolint:nilerr
@@ -864,11 +823,7 @@ func (s *Server) installWorkloadsAPIExportController(ctx context.Context, config
 		go c.Start(goContext(hookContext), 2)
 
 		return nil
-	}); err != nil {
-		return err
-	}
-
-	return nil
+	})
 }
 
 func (s *Server) installWorkloadsAPIExportCreateController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
@@ -881,16 +836,16 @@ func (s *Server) installWorkloadsAPIExportCreateController(ctx context.Context, 
 
 	c, err := workloadsapiexportcreate.NewController(
 		kcpClusterClient,
-		s.kcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
-		s.kcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
-		s.kcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
-		s.kcpSharedInformerFactory.Scheduling().V1alpha1().Locations(),
+		s.KcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
+		s.KcpSharedInformerFactory.Scheduling().V1alpha1().Locations(),
 	)
 	if err != nil {
 		return err
 	}
 
-	if err := server.AddPostStartHook(controllerName, func(hookContext genericapiserver.PostStartHookContext) error {
+	return server.AddPostStartHook(controllerName, func(hookContext genericapiserver.PostStartHookContext) error {
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			klog.Errorf("failed to finish post-start-hook %s: %v", controllerName, err)
 			// nolint:nilerr
@@ -900,11 +855,7 @@ func (s *Server) installWorkloadsAPIExportCreateController(ctx context.Context, 
 		go c.Start(goContext(hookContext), 2)
 
 		return nil
-	}); err != nil {
-		return err
-	}
-
-	return nil
+	})
 }
 
 func (s *Server) installVirtualWorkspaceURLsController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
@@ -917,14 +868,14 @@ func (s *Server) installVirtualWorkspaceURLsController(ctx context.Context, conf
 
 	c := virtualworkspaceurlscontroller.NewController(
 		kcpClusterClient,
-		s.kcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
-		s.kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
+		s.KcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
+		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
 	)
 	if err != nil {
 		return err
 	}
 
-	if err := server.AddPostStartHook(controllerName, func(hookContext genericapiserver.PostStartHookContext) error {
+	return server.AddPostStartHook(controllerName, func(hookContext genericapiserver.PostStartHookContext) error {
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			klog.Errorf("failed to finish post-start-hook %s: %v", controllerName, err)
 			// nolint:nilerr
@@ -934,11 +885,7 @@ func (s *Server) installVirtualWorkspaceURLsController(ctx context.Context, conf
 		go c.Start(goContext(hookContext), 2)
 
 		return nil
-	}); err != nil {
-		return err
-	}
-
-	return nil
+	})
 }
 
 func (s *Server) waitForSync(stop <-chan struct{}) error {

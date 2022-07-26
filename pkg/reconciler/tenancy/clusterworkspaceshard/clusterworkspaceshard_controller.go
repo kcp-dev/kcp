@@ -47,18 +47,18 @@ const (
 
 func NewController(
 	rootKcpClient kcpclient.Interface,
-	rootWorkspaceShardInformer tenancyinformer.ClusterWorkspaceShardInformer,
+	clusterWorkspaceShardInformer tenancyinformer.ClusterWorkspaceShardInformer,
 ) (*Controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-workspaceshard")
 
 	c := &Controller{
-		queue:                     queue,
-		kcpClient:                 rootKcpClient,
-		rootWorkspaceShardIndexer: rootWorkspaceShardInformer.Informer().GetIndexer(),
-		rootWorkspaceShardLister:  rootWorkspaceShardInformer.Lister(),
+		queue:                        queue,
+		kcpClient:                    rootKcpClient,
+		clusterWorkspaceShardIndexer: clusterWorkspaceShardInformer.Informer().GetIndexer(),
+		clusterWorkspaceShardLister:  clusterWorkspaceShardInformer.Lister(),
 	}
 
-	rootWorkspaceShardInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	clusterWorkspaceShardInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
 	})
@@ -73,8 +73,8 @@ type Controller struct {
 
 	kcpClient kcpclient.Interface
 
-	rootWorkspaceShardIndexer cache.Indexer
-	rootWorkspaceShardLister  tenancylister.ClusterWorkspaceShardLister
+	clusterWorkspaceShardIndexer cache.Indexer
+	clusterWorkspaceShardLister  tenancylister.ClusterWorkspaceShardLister
 }
 
 func (c *Controller) enqueue(obj interface{}) {
@@ -140,7 +140,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		return nil
 	}
 
-	obj, err := c.rootWorkspaceShardLister.Get(key) // TODO: clients need a way to scope down the lister per-cluster
+	obj, err := c.clusterWorkspaceShardLister.Get(key)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil // object deleted before we handled it

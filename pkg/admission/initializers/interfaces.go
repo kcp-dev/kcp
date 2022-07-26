@@ -32,13 +32,13 @@ type WantsKcpInformers interface {
 // WantsKubeClusterClient interface should be implemented by admission plugins
 // that want to have a kube cluster client injected.
 type WantsKubeClusterClient interface {
-	SetKubeClusterClient(kubeClusterClient *kubernetes.Cluster)
+	SetKubeClusterClient(kubeClusterClient kubernetes.ClusterInterface)
 }
 
 // WantsKcpClusterClient interface should be implemented by admission plugins
 // that want to have a kcp cluster client injected.
 type WantsKcpClusterClient interface {
-	SetKcpClusterClient(kubeClusterClient *kcpclientset.Cluster)
+	SetKcpClusterClient(kubeClusterClient kcpclientset.ClusterInterface)
 }
 
 // WantsExternalAddressProvider interface should be implemented by admission plugins

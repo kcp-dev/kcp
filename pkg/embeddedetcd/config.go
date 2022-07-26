@@ -43,7 +43,7 @@ type Config struct {
 	*embed.Config
 }
 
-func NewConfig(o options.CompletedObjects, enableWatchCache bool) (*Config, error) {
+func NewConfig(o options.CompletedOptions, enableWatchCache bool) (*Config, error) {
 	if o.WalSizeBytes != 0 {
 		wal.SegmentSizeBytes = o.WalSizeBytes
 	}
@@ -124,10 +124,10 @@ type CompletedConfig struct {
 }
 
 // Complete fills in any fields not set that are required to have valid data. It's mutating the receiver.
-func (c *Config) Complete() (CompletedConfig, error) {
+func (c *Config) Complete() CompletedConfig {
 	return CompletedConfig{&completedConfig{
 		Config: c,
-	}}, nil
+	}}
 }
 
 func generateClientAndServerCerts(hosts []string, dir string) error {

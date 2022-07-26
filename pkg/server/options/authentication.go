@@ -139,7 +139,7 @@ func (s *AdminAuthentication) ApplyTo(config *genericapiserver.Config) (volatile
 	return volatileKcpAdminToken, shardAdminToken, shardAdminTokenHash, nil
 }
 
-func (s *AdminAuthentication) WriteKubeConfig(config *genericapiserver.Config, kcpAdminToken, shardAdminToken string, shardAdminTokenHash []byte) error {
+func (s *AdminAuthentication) WriteKubeConfig(config genericapiserver.CompletedConfig, kcpAdminToken, shardAdminToken string, shardAdminTokenHash []byte) error {
 	externalCACert, _ := config.SecureServing.Cert.CurrentCertKeyContent()
 	externalKubeConfigHost := fmt.Sprintf("https://%s", config.ExternalAddress)
 

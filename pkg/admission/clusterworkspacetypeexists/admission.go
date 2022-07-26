@@ -72,7 +72,7 @@ type clusterWorkspaceTypeExists struct {
 	*admission.Handler
 	typeLister             tenancyv1alpha1lister.ClusterWorkspaceTypeLister
 	workspaceLister        tenancyv1alpha1lister.ClusterWorkspaceLister
-	kubeClusterClient      *kubernetes.Cluster
+	kubeClusterClient      kubernetes.ClusterInterface
 	transitiveTypeResolver transitiveTypeResolver
 
 	createAuthorizer delegated.DelegatedAuthorizerFactory
@@ -390,7 +390,7 @@ func (o *clusterWorkspaceTypeExists) SetKcpInformers(informers kcpinformers.Shar
 	o.workspaceLister = informers.Tenancy().V1alpha1().ClusterWorkspaces().Lister()
 }
 
-func (o *clusterWorkspaceTypeExists) SetKubeClusterClient(kubeClusterClient *kubernetes.Cluster) {
+func (o *clusterWorkspaceTypeExists) SetKubeClusterClient(kubeClusterClient kubernetes.ClusterInterface) {
 	o.kubeClusterClient = kubeClusterClient
 }
 

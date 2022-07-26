@@ -19,6 +19,7 @@ package initializingworkspaces
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math/rand"
 	"sort"
 	"testing"
@@ -229,8 +230,9 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	}
 
 	t.Log("Create clients through the virtual workspace")
-	vwKcpClusterClients := map[string]*kcpclient.Cluster{}
-	vwKubeClusterClients := map[string]*kubernetes.Cluster{}
+	adminVwKcpClusterClients := map[string]*kcpclient.Cluster{}
+	user1VwKcpClusterClients := map[string]*kcpclient.Cluster{}
+	user1VwKubeClusterClients := map[string]*kubernetes.Cluster{}
 	for _, initializer := range []string{
 		"alpha",
 		"beta",
@@ -242,8 +244,24 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		require.NoError(t, err)
 		virtualKubeClusterClient, err := kubernetes.NewClusterForConfig(framework.UserConfig("user-1", virtualWorkspaceConfig))
 		require.NoError(t, err)
-		vwKcpClusterClients[initializer] = virtualKcpClusterClient
-		vwKubeClusterClients[initializer] = virtualKubeClusterClient
+		user1VwKcpClusterClients[initializer] = virtualKcpClusterClient
+		user1VwKubeClusterClients[initializer] = virtualKubeClusterClient
+
+		adminVirtualKcpClusterClient, err := kcpclient.NewClusterForConfig(virtualWorkspaceConfig)
+		require.NoError(t, err)
+		adminVwKcpClusterClients[initializer] = adminVirtualKcpClusterClient
+	}
+
+	t.Log("Ensure that LIST calls through the virtual workspace as admin succeed")
+	for _, initializer := range []string{
+		"alpha",
+		"beta",
+		"gamma",
+	} {
+		framework.Eventually(t, func() (bool, string) {
+			_, err := adminVwKcpClusterClients[initializer].Cluster(logicalcluster.Wildcard).TenancyV1alpha1().ClusterWorkspaces().List(ctx, metav1.ListOptions{})
+			return err == nil, fmt.Sprintf("%v", err)
+		}, wait.ForeverTestTimeout, 100*time.Millisecond)
 	}
 
 	t.Log("Ensure that LIST calls through the virtual workspace fail authorization")
@@ -252,7 +270,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		"beta",
 		"gamma",
 	} {
-		_, err := vwKcpClusterClients[initializer].Cluster(logicalcluster.Wildcard).TenancyV1alpha1().ClusterWorkspaces().List(ctx, metav1.ListOptions{})
+		_, err := user1VwKcpClusterClients[initializer].Cluster(logicalcluster.Wildcard).TenancyV1alpha1().ClusterWorkspaces().List(ctx, metav1.ListOptions{})
 		if !errors.IsForbidden(err) {
 			t.Fatalf("got %#v error from initial list, expected unauthorized", err)
 		}
@@ -327,7 +345,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		})
 		var actual *tenancyv1alpha1.ClusterWorkspaceList
 		require.Eventually(t, func() bool {
-			actual, err = vwKcpClusterClients[initializer].Cluster(logicalcluster.Wildcard).TenancyV1alpha1().ClusterWorkspaces().List(ctx, metav1.ListOptions{}) // no list options, all filtering is implicit
+			actual, err = user1VwKcpClusterClients[initializer].Cluster(logicalcluster.Wildcard).TenancyV1alpha1().ClusterWorkspaces().List(ctx, metav1.ListOptions{}) // no list options, all filtering is implicit
 			if err != nil && !errors.IsForbidden(err) {
 				require.NoError(t, err)
 			}
@@ -346,7 +364,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		"beta",
 		"gamma",
 	} {
-		watcher, err := vwKcpClusterClients[initializer].Cluster(logicalcluster.Wildcard).TenancyV1alpha1().ClusterWorkspaces().Watch(ctx, metav1.ListOptions{
+		watcher, err := user1VwKcpClusterClients[initializer].Cluster(logicalcluster.Wildcard).TenancyV1alpha1().ClusterWorkspaces().Watch(ctx, metav1.ListOptions{
 			ResourceVersion: workspaces.ResourceVersion,
 		})
 		require.NoError(t, err)
@@ -396,7 +414,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		"beta",
 		"gamma",
 	} {
-		client := vwKubeClusterClients[initializer].Cluster(logicalcluster.From(ws).Join(ws.Name)).CoreV1()
+		client := user1VwKubeClusterClients[initializer].Cluster(logicalcluster.From(ws).Join(ws.Name)).CoreV1()
 
 		nsName := "testing"
 		_, err := client.Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nsName}}, metav1.CreateOptions{})
@@ -464,7 +482,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		"beta",
 		"gamma",
 	} {
-		client := vwKcpClusterClients[initializer].Cluster(logicalcluster.From(ws)).TenancyV1alpha1().ClusterWorkspaces()
+		client := user1VwKcpClusterClients[initializer].Cluster(logicalcluster.From(ws)).TenancyV1alpha1().ClusterWorkspaces()
 		ws, err = client.Get(ctx, ws.Name, metav1.GetOptions{})
 		require.NoError(t, err)
 
@@ -513,7 +531,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		"beta",
 		"gamma",
 	} {
-		client := vwKubeClusterClients[initializer].Cluster(logicalcluster.From(ws).Join(ws.Name)).CoreV1().ConfigMaps("testing")
+		client := user1VwKubeClusterClients[initializer].Cluster(logicalcluster.From(ws).Join(ws.Name)).CoreV1().ConfigMaps("testing")
 		_, err := client.List(ctx, metav1.ListOptions{})
 		if !errors.IsForbidden(err) {
 			t.Fatalf("got %#v error from initial list, expected unauthorized", err)

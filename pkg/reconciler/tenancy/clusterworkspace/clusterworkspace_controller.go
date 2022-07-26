@@ -53,20 +53,20 @@ const (
 func NewController(
 	kcpClusterClient kcpclient.Interface,
 	workspaceInformer tenancyinformer.ClusterWorkspaceInformer,
-	rootWorkspaceShardInformer tenancyinformer.ClusterWorkspaceShardInformer,
+	clusterWorkspaceShardInformer tenancyinformer.ClusterWorkspaceShardInformer,
 	apiBindingsInformer apisinformer.APIBindingInformer,
 ) (*Controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
 	c := &Controller{
-		queue:                     queue,
-		kcpClusterClient:          kcpClusterClient,
-		workspaceIndexer:          workspaceInformer.Informer().GetIndexer(),
-		workspaceLister:           workspaceInformer.Lister(),
-		rootWorkspaceShardIndexer: rootWorkspaceShardInformer.Informer().GetIndexer(),
-		rootWorkspaceShardLister:  rootWorkspaceShardInformer.Lister(),
-		apiBindingIndexer:         apiBindingsInformer.Informer().GetIndexer(),
-		apiBindingLister:          apiBindingsInformer.Lister(),
+		queue:                        queue,
+		kcpClusterClient:             kcpClusterClient,
+		workspaceIndexer:             workspaceInformer.Informer().GetIndexer(),
+		workspaceLister:              workspaceInformer.Lister(),
+		clusterWorkspaceShardIndexer: clusterWorkspaceShardInformer.Informer().GetIndexer(),
+		clusterWorkspaceShardLister:  clusterWorkspaceShardInformer.Lister(),
+		apiBindingIndexer:            apiBindingsInformer.Informer().GetIndexer(),
+		apiBindingLister:             apiBindingsInformer.Lister(),
 	}
 
 	if err := c.workspaceIndexer.AddIndexers(map[string]cache.IndexFunc{
@@ -88,7 +88,7 @@ func NewController(
 		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
 	})
 
-	rootWorkspaceShardInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	clusterWorkspaceShardInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueShard(obj) },
 		UpdateFunc: func(obj, _ interface{}) { c.enqueueShard(obj) },
 		DeleteFunc: func(obj interface{}) { c.enqueueShard(obj) },
@@ -112,8 +112,8 @@ type Controller struct {
 	workspaceIndexer cache.Indexer
 	workspaceLister  tenancylister.ClusterWorkspaceLister
 
-	rootWorkspaceShardIndexer cache.Indexer
-	rootWorkspaceShardLister  tenancylister.ClusterWorkspaceShardLister
+	clusterWorkspaceShardIndexer cache.Indexer
+	clusterWorkspaceShardLister  tenancylister.ClusterWorkspaceShardLister
 
 	apiBindingIndexer cache.Indexer
 	apiBindingLister  apislisters.APIBindingLister
@@ -135,9 +135,8 @@ func (c *Controller) enqueueShard(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	_, name := clusters.SplitClusterAwareKey(key)
 
-	shard, err := c.rootWorkspaceShardLister.Get(key)
+	shard, err := c.clusterWorkspaceShardLister.Get(key)
 	if err == nil {
 		workspaces, err := c.workspaceIndexer.ByIndex(unschedulable, "true")
 		if err != nil {
@@ -155,6 +154,7 @@ func (c *Controller) enqueueShard(obj interface{}) {
 		}
 	}
 
+	_, name := clusters.SplitClusterAwareKey(key)
 	workspaces, err := c.workspaceIndexer.ByIndex(byCurrentShard, name)
 	if err != nil {
 		runtime.HandleError(err)
