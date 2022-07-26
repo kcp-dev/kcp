@@ -101,6 +101,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.WorkspaceSpec":                             schema_pkg_apis_tenancy_v1beta1_WorkspaceSpec(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.WorkspaceStatus":                           schema_pkg_apis_tenancy_v1beta1_WorkspaceStatus(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition": schema_conditions_apis_conditions_v1alpha1_Condition(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.ResourceToSync":                          schema_pkg_apis_workload_v1alpha1_ResourceToSync(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.SyncTarget":                              schema_pkg_apis_workload_v1alpha1_SyncTarget(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.SyncTargetList":                          schema_pkg_apis_workload_v1alpha1_SyncTargetList(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.SyncTargetSpec":                          schema_pkg_apis_workload_v1alpha1_SyncTargetSpec(ref),
@@ -2201,7 +2202,7 @@ func schema_pkg_apis_scheduling_v1alpha1_LocationReference(ref common.ReferenceC
 							Format:      "",
 						},
 					},
-					"exportName": {
+					"locationName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Name of the Location.",
 							Default:     "",
@@ -2210,7 +2211,7 @@ func schema_pkg_apis_scheduling_v1alpha1_LocationReference(ref common.ReferenceC
 						},
 					},
 				},
-				Required: []string{"path", "exportName"},
+				Required: []string{"path", "locationName"},
 			},
 		},
 	}
@@ -3461,6 +3462,49 @@ func schema_conditions_apis_conditions_v1alpha1_Condition(ref common.ReferenceCa
 	}
 }
 
+func schema_pkg_apis_workload_v1alpha1_ResourceToSync(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"versions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "versions are the resource versions the syncer can choose to sync depending on availability on the downstream cluster. Conversion to the storage version, if necessary, will be done on the kcp side. The versions are ordered by precedence and the first version compatible is preferred by syncer.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"identityHash": {
+						SchemaProps: spec.SchemaProps{
+							Description: "identityHash is the identity for a given APIExport that the APIResourceSchema belongs to. The hash can be found on APIExport and APIResourceSchema's status. It will be empty for core types.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"state": {
+						SchemaProps: spec.SchemaProps{
+							Description: "state indicate whether the resources schema is compatible to the SyncTarget. It must be updated by syncer after checking the API compaibility on SyncTarget.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"versions"},
+			},
+		},
+	}
+}
+
 func schema_pkg_apis_workload_v1alpha1_SyncTarget(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -3580,11 +3624,41 @@ func schema_pkg_apis_workload_v1alpha1_SyncTargetSpec(ref common.ReferenceCallba
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
 					},
+					"supportedAPIExports": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SupportedAPIExports defines a set of APIExports supposed to be supported by this SyncTarget. The SyncTarget will be selected to deploy the workload only when the resource schema on the SyncTarget is compatible with the resource schema included in the exports. If it is not set, the kubernetes export in the same workspace will be used by default.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportReference"),
+									},
+								},
+							},
+						},
+					},
+					"cells": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Cells is a set of labels to identify the cells the SyncTarget belongs to. SyncTargets with the same cells run as they are in the same physical cluster. Each key/value pair in the cells should be added and updated by service providers (i.e. a network provider updates one key/value, while the storage provider updates another.)",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportReference", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 
@@ -3641,13 +3715,13 @@ func schema_pkg_apis_workload_v1alpha1_SyncTargetStatus(ref common.ReferenceCall
 					},
 					"syncedResources": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "SyncedResources represents the resources that the syncer of the SyncTarget can sync. It MUST be updated by kcp server.",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.ResourceToSync"),
 									},
 								},
 							},
@@ -3677,7 +3751,7 @@ func schema_pkg_apis_workload_v1alpha1_SyncTargetStatus(ref common.ReferenceCall
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition", "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.VirtualWorkspace", "k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+			"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition", "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.ResourceToSync", "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1.VirtualWorkspace", "k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 

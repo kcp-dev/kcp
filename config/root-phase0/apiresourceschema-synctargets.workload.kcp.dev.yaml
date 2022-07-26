@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v220709-4a74a96f.synctargets.workload.kcp.dev
+  name: v220726-fde588ec.synctargets.workload.kcp.dev
 spec:
   group: workload.kcp.dev
   names:
@@ -51,6 +51,15 @@ spec:
         spec:
           description: Spec holds the desired state.
           properties:
+            cells:
+              additionalProperties:
+                type: string
+              description: Cells is a set of labels to identify the cells the SyncTarget
+                belongs to. SyncTargets with the same cells run as they are in the
+                same physical cluster. Each key/value pair in the cells should be
+                added and updated by service providers (i.e. a network provider updates
+                one key/value, while the storage provider updates another.)
+              type: object
             evictAfter:
               description: EvictAfter controls cluster schedulability of new and existing
                 workloads. After the EvictAfter time, any workload scheduled to the
@@ -58,6 +67,40 @@ spec:
                 scheduled to the cluster are not evicted.
               format: date-time
               type: string
+            supportedAPIExports:
+              default:
+              - workspace:
+                  exportName: kubernetes
+              description: SupportedAPIExports defines a set of APIExports supposed
+                to be supported by this SyncTarget. The SyncTarget will be selected
+                to deploy the workload only when the resource schema on the SyncTarget
+                is compatible with the resource schema included in the exports. If
+                it is not set, the kubernetes export in the same workspace will be
+                used by default.
+              items:
+                description: ExportReference describes a reference to an APIExport.
+                  Exactly one of the fields must be set.
+                properties:
+                  workspace:
+                    description: workspace is a reference to an APIExport in the same
+                      organization. The creator of the APIBinding needs to have access
+                      to the APIExport with the verb `bind` in order to bind to it.
+                    properties:
+                      exportName:
+                        description: Name of the APIExport that describes the API.
+                        type: string
+                      path:
+                        description: path is an absolute reference to a workspace,
+                          e.g. root:org:ws. The workspace must be some ancestor or
+                          a child of some ancestor. If it is unset, the path of the
+                          APIBinding is used.
+                        pattern: ^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                        type: string
+                    required:
+                    - exportName
+                    type: object
+                type: object
+              type: array
             unschedulable:
               default: false
               description: Unschedulable controls cluster schedulability of new workloads.
@@ -135,8 +178,51 @@ spec:
               format: date-time
               type: string
             syncedResources:
+              description: SyncedResources represents the resources that the syncer
+                of the SyncTarget can sync. It MUST be updated by kcp server.
               items:
-                type: string
+                properties:
+                  group:
+                    description: group is the name of an API group. For core groups
+                      this is the empty string '""'.
+                    pattern: ^(|[a-z0-9]([-a-z0-9]*[a-z0-9](\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)?)$
+                    type: string
+                  identityHash:
+                    description: identityHash is the identity for a given APIExport
+                      that the APIResourceSchema belongs to. The hash can be found
+                      on APIExport and APIResourceSchema's status. It will be empty
+                      for core types.
+                    type: string
+                  resource:
+                    description: 'resource is the name of the resource. Note: it is
+                      worth noting that you can not ask for permissions for resource
+                      provided by a CRD not provided by an api export.'
+                    pattern: ^[a-z][-a-z0-9]*[a-z0-9]$
+                    type: string
+                  state:
+                    default: Pending
+                    description: state indicate whether the resources schema is compatible
+                      to the SyncTarget. It must be updated by syncer after checking
+                      the API compaibility on SyncTarget.
+                    enum:
+                    - Pending
+                    - Accepted
+                    - Incompatible
+                    type: string
+                  versions:
+                    description: versions are the resource versions the syncer can
+                      choose to sync depending on availability on the downstream cluster.
+                      Conversion to the storage version, if necessary, will be done
+                      on the kcp side. The versions are ordered by precedence and
+                      the first version compatible is preferred by syncer.
+                    items:
+                      type: string
+                    minItems: 1
+                    type: array
+                required:
+                - resource
+                - versions
+                type: object
               type: array
             virtualWorkspaces:
               description: VirtualWorkspaces contains all syncer virtual workspace

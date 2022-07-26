@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v220706-3993e86b.placements.scheduling.kcp.dev
+  name: v220721-bb52ba0d.placements.scheduling.kcp.dev
 spec:
   group: scheduling.kcp.dev
   names:
@@ -230,7 +230,7 @@ spec:
               description: selectedLocation is the location that a picked by this
                 placement.
               properties:
-                exportName:
+                locationName:
                   description: Name of the Location.
                   type: string
                 path:
@@ -240,7 +240,7 @@ spec:
                   pattern: ^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                   type: string
               required:
-              - exportName
+              - locationName
               - path
               type: object
           type: object

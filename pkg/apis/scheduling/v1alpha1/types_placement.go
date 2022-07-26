@@ -114,7 +114,7 @@ type LocationReference struct {
 	// +required
 	// +kubebuilder:validation:Required
 	// +kube:validation:MinLength=1
-	LocationName string `json:"exportName"`
+	LocationName string `json:"locationName"`
 }
 
 type PlacementPhase string

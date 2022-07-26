@@ -237,7 +237,7 @@ spec:
                 description: selectedLocation is the location that a picked by this
                   placement.
                 properties:
-                  exportName:
+                  locationName:
                     description: Name of the Location.
                     type: string
                   path:
@@ -247,7 +247,7 @@ spec:
                     pattern: ^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                     type: string
                 required:
-                - exportName
+                - locationName
                 - path
                 type: object
             type: object
