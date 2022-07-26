@@ -193,13 +193,8 @@ func (o *CompletedOptions) Validate() []error {
 }
 
 func (o *Options) Complete() (*CompletedOptions, error) {
-	var completedEmbeddedEtcd etcdoptions.CompletedObjects
 	if servers := o.GenericControlPlane.Etcd.StorageConfig.Transport.ServerList; len(servers) == 1 && servers[0] == "embedded" {
-		o.GenericControlPlane.Etcd.StorageConfig.Transport.ServerList = []string{"localhost:" + o.EmbeddedEtcd.ClientPort}
 		o.EmbeddedEtcd.Enabled = true
-		completedEmbeddedEtcd = o.EmbeddedEtcd.Complete(o.GenericControlPlane.Etcd)
-	} else {
-		o.EmbeddedEtcd.Enabled = false
 	}
 
 	if !filepath.IsAbs(o.Extra.RootDirectory) {
@@ -281,7 +276,7 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 		completedOptions: &completedOptions{
 			// TODO: GenericControlPlane here should be completed. But the k/k repo does not expose the CompleteOptions type, but should.
 			GenericControlPlane: completedGenericControlPlane,
-			EmbeddedEtcd:        completedEmbeddedEtcd,
+			EmbeddedEtcd:        o.EmbeddedEtcd.Complete(o.GenericControlPlane.Etcd),
 			Controllers:         o.Controllers,
 			Authorization:       o.Authorization,
 			AdminAuthentication: o.AdminAuthentication,
