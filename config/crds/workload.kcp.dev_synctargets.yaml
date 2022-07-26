@@ -71,6 +71,9 @@ spec:
                 format: date-time
                 type: string
               supportedAPIExports:
+                default:
+                - workspace:
+                    exportName: kubernetes
                 description: SupportedAPIExports defines a set of APIExports supposed
                   to be supported by this SyncTarget. The SyncTarget will be selected
                   to deploy the workload only when the resource schema on the SyncTarget
