@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KCP Authors.
+Copyright 2022 The KCP Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -36,10 +36,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/transforming"
 	syncercontext "github.com/kcp-dev/kcp/pkg/virtual/syncer/context"
-)
-
-const (
-	syncerViewAnnotationPrefix string = "diff.syncer.internal.kcp.dev/"
 )
 
 func transformBeforeWrite(gvr schema.GroupVersionResource, syncStrategy SyncStrategy) transforming.TransformResourceBeforeFunc {
@@ -102,7 +98,7 @@ func transformBeforeWrite(gvr schema.GroupVersionResource, syncStrategy SyncStra
 		// Update syncer view diff for all sync targets based on the new KCP View object
 		for syncTarget, syncerView := range oldSyncerViews {
 			if syncTargetSyncing := newSyncing[syncTarget]; !syncTargetSyncing.Active() {
-				delete(newKCPViewAnnotations, syncerViewAnnotationPrefix+syncTarget)
+				delete(newKCPViewAnnotations, v1alpha1.InternalSyncerViewAnnotationPrefix+syncTarget)
 				continue
 			}
 
@@ -122,10 +118,10 @@ func transformBeforeWrite(gvr schema.GroupVersionResource, syncStrategy SyncStra
 			if newKCPViewAnnotations == nil {
 				newKCPViewAnnotations = make(map[string]string)
 			}
-			newKCPViewAnnotations[syncerViewAnnotationPrefix+syncTarget] = string(syncerViewDiff)
+			newKCPViewAnnotations[v1alpha1.InternalSyncerViewAnnotationPrefix+syncTarget] = string(syncerViewDiff)
 		}
 		if removeFromSyncer {
-			delete(newKCPViewAnnotations, syncerViewAnnotationPrefix+syncTargetName)
+			delete(newKCPViewAnnotations, v1alpha1.InternalSyncerViewAnnotationPrefix+syncTargetName)
 		}
 		newKCPViewObject.SetAnnotations(newKCPViewAnnotations)
 
@@ -140,7 +136,7 @@ func transformBeforeWrite(gvr schema.GroupVersionResource, syncStrategy SyncStra
 
 		if removeFromSyncer && len(subresources) == 0 {
 			if annotations := newKCPViewObject.GetAnnotations(); annotations != nil {
-				delete(annotations, SyncingTransformationAnnotationPrefix+syncTargetName)
+				delete(annotations, v1alpha1.SyncingTransformationAnnotationPrefix+syncTargetName)
 				delete(annotations, v1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+syncTargetName)
 				newKCPViewObject.SetAnnotations(annotations)
 			}
@@ -190,7 +186,7 @@ func transformAfterRead(gvr schema.GroupVersionResource, syncStrategy SyncStrate
 		// Remove the syncer view diff annotation from the syncer view resource
 		annotations := cleanedKCPResource.GetAnnotations()
 		for name := range annotations {
-			if strings.HasPrefix(name, syncerViewAnnotationPrefix) {
+			if strings.HasPrefix(name, v1alpha1.InternalSyncerViewAnnotationPrefix) {
 				delete(annotations, name)
 			}
 		}

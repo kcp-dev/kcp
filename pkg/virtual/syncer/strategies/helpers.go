@@ -29,10 +29,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
 
-const (
-	SyncingTransformationAnnotationPrefix = "transformation.workloads.kcp.dev/"
-)
-
 func GetSyncing(kcpResource metav1.Object) Syncing {
 	labels := kcpResource.GetLabels()
 	syncing := make(Syncing, len(labels))
@@ -42,7 +38,7 @@ func GetSyncing(kcpResource metav1.Object) Syncing {
 			syncTarget := strings.TrimPrefix(labelName, v1alpha1.ClusterResourceStateLabelPrefix)
 			syncTargetSyncing := SyncTargetSyncing{
 				RequestedState: RequestedSyncingState(labelValue),
-				Detail:         annotations[SyncingTransformationAnnotationPrefix+syncTarget],
+				Detail:         annotations[v1alpha1.SyncingTransformationAnnotationPrefix+syncTarget],
 			}
 			if deletionAnnotation, exists := annotations[v1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+syncTarget]; exists {
 				var deletionTimestamp metav1.Time
@@ -86,8 +82,8 @@ func GetSyncerViews(kcpResource *unstructured.Unstructured, syncTargets ...strin
 
 	syncerViewDiffs := make(map[string]string)
 	for name, value := range annotations {
-		if strings.HasPrefix(name, syncerViewAnnotationPrefix) {
-			syncTarget := strings.TrimPrefix(name, syncerViewAnnotationPrefix)
+		if strings.HasPrefix(name, v1alpha1.InternalSyncerViewAnnotationPrefix) {
+			syncTarget := strings.TrimPrefix(name, v1alpha1.InternalSyncerViewAnnotationPrefix)
 			if len(syncTargets) > 0 && !syncTargetsToKeep.Has(syncTarget) {
 				continue
 			}
