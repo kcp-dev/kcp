@@ -84,7 +84,24 @@ func NewConfigWithWildcardIdentities(config *rest.Config,
 	groupExportNames map[string]string,
 	grouptResourceExportNames map[schema.GroupResource]string,
 	kcpClient kcpclient.Interface) (identityConfig *rest.Config, resolve func(ctx context.Context) error) {
+	identityRoundTripper, identityResolver := NewWildcardIdentitiesWrappingRoundTripper(groupExportNames, grouptResourceExportNames, kcpClient)
+	identityConfig = rest.CopyConfig(config)
+	identityConfig.Wrap(identityRoundTripper)
+	return identityConfig, identityResolver
+}
 
+// NewWildcardIdentitiesWrappingRoundTripper creates an HTTP RoundTripper
+// that injected resource identities for individual group or group resources.
+// Each group or resource is coming from one APIExport whose names are passed in as a map.
+// The RoundTripper is exposed as a function that allows wrapping the RoundTripper
+//
+// The method also returns the resolve function that gets the APIExports and extract the identities.
+// The resolve func might return an error if the APIExport is not found or for other reason. Only
+// after it succeeds a client using the returned RoundTripper can use the group and group resources
+// with identities.
+func NewWildcardIdentitiesWrappingRoundTripper(groupExportNames map[string]string,
+	groupResourceExportNames map[schema.GroupResource]string,
+	kcpClient kcpclient.Interface) (func(rt http.RoundTripper) http.RoundTripper, func(ctx context.Context) error) {
 	ids := &identities{
 		groupIdentities:         map[string]string{},
 		groupResourceIdentities: map[schema.GroupResource]string{},
@@ -93,14 +110,18 @@ func NewConfigWithWildcardIdentities(config *rest.Config,
 	for group := range groupExportNames {
 		ids.groupIdentities[group] = ""
 	}
-	for gr := range grouptResourceExportNames {
+	for gr := range groupResourceExportNames {
 		ids.groupResourceIdentities[gr] = ""
 	}
 
-	identityConfig = rest.CopyConfig(config)
-	identityConfig.Wrap(injectKcpIdentities(ids))
+	return injectKcpIdentities(ids), wildcardIdentitiesResolver(ids, groupExportNames, groupResourceExportNames, kcpClient)
+}
 
-	return identityConfig, func(ctx context.Context) error {
+func wildcardIdentitiesResolver(ids *identities,
+	groupExportNames map[string]string,
+	groupResourceExportNames map[schema.GroupResource]string,
+	kcpClient kcpclient.Interface) func(ctx context.Context) error {
+	return func(ctx context.Context) error {
 		var errs []error
 		for group, name := range groupExportNames {
 			ids.lock.RLock()
@@ -127,7 +148,7 @@ func NewConfigWithWildcardIdentities(config *rest.Config,
 
 			klog.V(2).Infof("APIExport %s|%s for group %q has identity %s", logicalcluster.From(apiExport), name, group, apiExport.Status.IdentityHash)
 		}
-		for gr, name := range grouptResourceExportNames {
+		for gr, name := range groupResourceExportNames {
 			ids.lock.RLock()
 			id := ids.groupResourceIdentities[gr]
 			ids.lock.RUnlock()
@@ -152,7 +173,6 @@ func NewConfigWithWildcardIdentities(config *rest.Config,
 
 			klog.V(2).Infof("APIExport %s|%s for resource %s.%s has identity %s", logicalcluster.From(apiExport), name, gr.Resource, gr.Group, apiExport.Status.IdentityHash)
 		}
-
 		return errorsutil.NewAggregate(errs)
 	}
 }
