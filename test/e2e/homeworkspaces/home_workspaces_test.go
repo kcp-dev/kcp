@@ -18,6 +18,7 @@ package homeworkspaces
 
 import (
 	"context"
+	"fmt"
 	"path"
 	"testing"
 	"time"
@@ -88,12 +89,16 @@ func TestUserHomeWorkspaces(t *testing.T) {
 
 				t.Logf("Create Workspace workspace1 in the user-1 non-existing home as user-1")
 				homeWorkspaceName := logicalcluster.New("root:users:bi:ie:user-1")
-				_, err := vwUser1Client.Cluster(homeWorkspaceName).TenancyV1beta1().Workspaces().Create(ctx, &tenancyv1beta1.Workspace{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "workspace1",
-					},
-				}, metav1.CreateOptions{})
-				require.NoError(t, err, "user-1 should be able to create a workspace inside his home workspace even though it doesn't exist")
+				// Use eventually because this will fail if the homebucket workspaces are still being initialized
+				framework.Eventually(t, func() (success bool, reason string) {
+					_, err := vwUser1Client.Cluster(homeWorkspaceName).TenancyV1beta1().Workspaces().Create(ctx, &tenancyv1beta1.Workspace{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "workspace1",
+						},
+					}, metav1.CreateOptions{})
+
+					return err == nil, fmt.Sprintf("%v", err)
+				}, wait.ForeverTestTimeout, 100*time.Millisecond, "unable to create workspace1")
 
 				t.Logf("Get ~ workspace of user-1")
 				existingHomeWorkspace, err := kcpUser1Client.Cluster(tenancyv1alpha1.RootCluster).TenancyV1beta1().Workspaces().Get(ctx, "~", metav1.GetOptions{})
