@@ -205,13 +205,13 @@ func applyTest(t *testing.T, test TestDescription) {
 			return &clusterWorkspaces{clusterWorkspaceLister: clusterWorkspaceLister}
 		},
 		crbInformer: crbInformer,
-		impersonatedkubeClusterClient: func(user kuser.Info) (kubernetes.ClusterInterface, error) {
-			return mockKubeClusterClient(func(logicalcluster.Name) kubernetes.Interface { return mockKubeClient }), nil
+		impersonatedkubeClusterClient: func(user kuser.Info) (kubernetes.Interface, error) {
+			return mockKubeClient, nil
 		},
-		kubeClusterClient:     mockKubeClusterClient(func(logicalcluster.Name) kubernetes.Interface { return mockKubeClient }),
+		kubeClusterClient:     mockKubeClient,
 		kcpClusterClient:      mockKcpClusterClient(func(logicalcluster.Name) kcpclientset.Interface { return mockKCPClient }),
 		clusterWorkspaceCache: nil,
-		delegatedAuthz: func(clusterName logicalcluster.Name, client kubernetes.ClusterInterface) (authorizer.Authorizer, error) {
+		delegatedAuthz: func(clusterName logicalcluster.Name, client kubernetes.Interface) (authorizer.Authorizer, error) {
 			if clusterName == tenancyv1alpha1.RootCluster {
 				return test.rootReviewer, nil
 			}
@@ -2157,12 +2157,6 @@ func (c clusterWorkspaces) AddWatcher(watcher workspaceauth.CacheWatcher) {
 type mockKcpClusterClient func(cluster logicalcluster.Name) kcpclientset.Interface
 
 func (m mockKcpClusterClient) Cluster(cluster logicalcluster.Name) kcpclientset.Interface {
-	return m(cluster)
-}
-
-type mockKubeClusterClient func(cluster logicalcluster.Name) kubernetes.Interface
-
-func (m mockKubeClusterClient) Cluster(cluster logicalcluster.Name) kubernetes.Interface {
 	return m(cluster)
 }
 

@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -92,8 +93,8 @@ type REST struct {
 	// crbInformer allows listing or searching for RBAC cluster role bindings through all orgs
 	crbInformer rbacinformers.ClusterRoleBindingInformer
 
-	impersonatedkubeClusterClient func(user kuser.Info) (kubernetes.ClusterInterface, error)
-	kubeClusterClient             kubernetes.ClusterInterface
+	impersonatedkubeClusterClient func(user kuser.Info) (kubernetes.Interface, error)
+	kubeClusterClient             kubernetes.Interface
 	kcpClusterClient              kcpclientset.ClusterInterface
 
 	// clusterWorkspaceCache is a global cache of cluster workspaces (for all orgs) used by the watcher.
@@ -141,7 +142,7 @@ var _ rest.GracefulDeleter = &REST{}
 func NewREST(
 	cfg *clientrest.Config,
 	rootTenancyClient tenancyclient.TenancyV1alpha1Interface,
-	kubeClusterClient kubernetes.ClusterInterface,
+	kubeClusterClient kubernetes.Interface,
 	kcpClusterClient kcpclientset.ClusterInterface,
 	clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache,
 	wilcardsCRBInformer rbacinformers.ClusterRoleBindingInformer,
@@ -150,12 +151,12 @@ func NewREST(
 	mainRest := &REST{
 		getFilteredClusterWorkspaces: getFilteredClusterWorkspaces,
 
-		impersonatedkubeClusterClient: func(user kuser.Info) (kubernetes.ClusterInterface, error) {
+		impersonatedkubeClusterClient: func(user kuser.Info) (kubernetes.Interface, error) {
 			impersonatedConfig, err := softimpersonation.WithSoftImpersonatedConfig(cfg, user)
 			if err != nil {
 				return nil, err
 			}
-			return kubernetes.NewClusterForConfig(impersonatedConfig)
+			return kubernetes.NewForConfig(kcpclienthelper.NewClusterConfig(impersonatedConfig))
 		},
 		kubeClusterClient: kubeClusterClient,
 		kcpClusterClient:  kcpClusterClient,
@@ -623,7 +624,7 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 			},
 		},
 	}
-	if _, err := s.kubeClusterClient.Cluster(orgClusterName).RbacV1().ClusterRoleBindings().Create(ctx, &clusterRoleBinding, metav1.CreateOptions{}); err != nil {
+	if _, err := s.kubeClusterClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, orgClusterName), &clusterRoleBinding, metav1.CreateOptions{}); err != nil {
 		if kerrors.IsAlreadyExists(err) {
 			return nil, kerrors.NewAlreadyExists(tenancyv1beta1.Resource("workspaces"), workspace.Name)
 		}
@@ -634,7 +635,7 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 	// Note that ResourceNames contains the workspace pretty name for now.
 	// It will be updated later on when the internal name of the workspace is known.
 	ownerClusterRole := createClusterRole(ownerRoleBindingName, workspace.Name, OwnerRoleType)
-	if _, err := s.kubeClusterClient.Cluster(orgClusterName).RbacV1().ClusterRoles().Create(ctx, ownerClusterRole, metav1.CreateOptions{}); err != nil && !kerrors.IsAlreadyExists(err) {
+	if _, err := s.kubeClusterClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, orgClusterName), ownerClusterRole, metav1.CreateOptions{}); err != nil && !kerrors.IsAlreadyExists(err) {
 		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), workspace.Name, err)
 	}
 
@@ -655,8 +656,8 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 		createdClusterWorkspace, err = s.kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, clusterWorkspace, metav1.CreateOptions{})
 	}
 	if err != nil {
-		_ = s.kubeClusterClient.Cluster(orgClusterName).RbacV1().ClusterRoles().Delete(ctx, ownerClusterRole.Name, metav1.DeleteOptions{GracePeriodSeconds: &zero})
-		_ = s.kubeClusterClient.Cluster(orgClusterName).RbacV1().ClusterRoleBindings().Delete(ctx, clusterRoleBinding.Name, metav1.DeleteOptions{GracePeriodSeconds: &zero})
+		_ = s.kubeClusterClient.RbacV1().ClusterRoles().Delete(logicalcluster.WithCluster(ctx, orgClusterName), ownerClusterRole.Name, metav1.DeleteOptions{GracePeriodSeconds: &zero})
+		_ = s.kubeClusterClient.RbacV1().ClusterRoleBindings().Delete(logicalcluster.WithCluster(ctx, orgClusterName), clusterRoleBinding.Name, metav1.DeleteOptions{GracePeriodSeconds: &zero})
 		return nil, err
 	}
 
@@ -666,8 +667,8 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 		ownerClusterRole.Rules[i].ResourceNames = []string{createdClusterWorkspace.Name}
 	}
 	ownerClusterRole.Labels[InternalNameLabel] = createdClusterWorkspace.Name
-	if _, err := s.kubeClusterClient.Cluster(orgClusterName).RbacV1().ClusterRoles().Update(ctx, ownerClusterRole, metav1.UpdateOptions{}); err != nil {
-		_ = s.kubeClusterClient.Cluster(orgClusterName).RbacV1().ClusterRoles().Delete(ctx, ownerClusterRole.Name, metav1.DeleteOptions{GracePeriodSeconds: &zero})
+	if _, err := s.kubeClusterClient.RbacV1().ClusterRoles().Update(logicalcluster.WithCluster(ctx, orgClusterName), ownerClusterRole, metav1.UpdateOptions{}); err != nil {
+		_ = s.kubeClusterClient.RbacV1().ClusterRoles().Delete(logicalcluster.WithCluster(ctx, orgClusterName), ownerClusterRole.Name, metav1.DeleteOptions{GracePeriodSeconds: &zero})
 		_, _, _ = s.Delete(ctx, createdClusterWorkspace.Name, nil, &metav1.DeleteOptions{GracePeriodSeconds: &zero})
 		if kerrors.IsConflict(err) {
 			return nil, kerrors.NewConflict(tenancyv1beta1.Resource("workspaces"), workspace.Name, err)
@@ -679,9 +680,9 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 	// to allow searching with them later on.
 	clusterRoleBinding.Labels[InternalNameLabel] = createdClusterWorkspace.Name
 	clusterRoleBinding.Labels[PrettyNameLabel] = workspace.Name
-	if _, err := s.kubeClusterClient.Cluster(orgClusterName).RbacV1().ClusterRoleBindings().Update(ctx, &clusterRoleBinding, metav1.UpdateOptions{}); err != nil {
+	if _, err := s.kubeClusterClient.RbacV1().ClusterRoleBindings().Update(logicalcluster.WithCluster(ctx, orgClusterName), &clusterRoleBinding, metav1.UpdateOptions{}); err != nil {
 		var zero int64
-		_ = s.kubeClusterClient.Cluster(orgClusterName).RbacV1().ClusterRoleBindings().Delete(ctx, clusterRoleBinding.Name, metav1.DeleteOptions{GracePeriodSeconds: &zero})
+		_ = s.kubeClusterClient.RbacV1().ClusterRoleBindings().Delete(logicalcluster.WithCluster(ctx, orgClusterName), clusterRoleBinding.Name, metav1.DeleteOptions{GracePeriodSeconds: &zero})
 		_, _, _ = s.Delete(ctx, createdClusterWorkspace.Name, nil, &metav1.DeleteOptions{GracePeriodSeconds: &zero})
 		if kerrors.IsConflict(err) {
 			return nil, kerrors.NewConflict(tenancyv1beta1.Resource("workspaces"), workspace.Name, err)
@@ -730,12 +731,12 @@ func (s *REST) Delete(ctx context.Context, name string, deleteValidation rest.Va
 		return nil, false, errorToReturn
 	}
 	internalNameLabelSelector := fmt.Sprintf("%s=%s", InternalNameLabel, internalName)
-	if err := s.kubeClusterClient.Cluster(orgClusterName).RbacV1().ClusterRoles().DeleteCollection(ctx, *options, metav1.ListOptions{
+	if err := s.kubeClusterClient.RbacV1().ClusterRoles().DeleteCollection(logicalcluster.WithCluster(ctx, orgClusterName), *options, metav1.ListOptions{
 		LabelSelector: internalNameLabelSelector,
 	}); err != nil {
 		klog.Error(err)
 	}
-	if err := s.kubeClusterClient.Cluster(orgClusterName).RbacV1().ClusterRoleBindings().DeleteCollection(ctx, *options, metav1.ListOptions{
+	if err := s.kubeClusterClient.RbacV1().ClusterRoleBindings().DeleteCollection(logicalcluster.WithCluster(ctx, orgClusterName), *options, metav1.ListOptions{
 		LabelSelector: internalNameLabelSelector,
 	}); err != nil {
 		klog.Error(err)

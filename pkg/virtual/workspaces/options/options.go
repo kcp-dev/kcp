@@ -19,6 +19,7 @@ package options
 import (
 	"path"
 
+	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	"github.com/spf13/pflag"
 
 	"k8s.io/client-go/informers"
@@ -63,7 +64,7 @@ func (o *Workspaces) NewVirtualWorkspaces(
 	if err != nil {
 		return nil, err
 	}
-	kubeClusterClient, err := kubernetes.NewClusterForConfig(config)
+	kubeClusterClient, err := kubernetes.NewForConfig(kcpclienthelper.NewClusterConfig(config))
 	if err != nil {
 		return nil, err
 	}

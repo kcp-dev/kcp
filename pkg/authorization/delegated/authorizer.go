@@ -30,14 +30,14 @@ import (
 	"k8s.io/klog/v2"
 )
 
-type DelegatedAuthorizerFactory func(clusterName logicalcluster.Name, client kubeclient.ClusterInterface) (authorizer.Authorizer, error)
+type DelegatedAuthorizerFactory func(clusterName logicalcluster.Name, client kubeclient.Interface) (authorizer.Authorizer, error)
 
 // NewDelegatedAuthorizer returns a new authorizer for use in e.g. admission plugins that delegates
 // to the kube API server via SubjectAccessReview.
-func NewDelegatedAuthorizer(clusterName logicalcluster.Name, client kubeclient.ClusterInterface) (authorizer.Authorizer, error) {
+func NewDelegatedAuthorizer(clusterName logicalcluster.Name, client kubeclient.Interface) (authorizer.Authorizer, error) {
 	delegatingAuthorizerConfig := &authorizerfactory.DelegatingAuthorizerConfig{
 		SubjectAccessReviewClient: &clusterAwareAuthorizationV1Client{
-			AuthorizationV1Interface: client.Cluster(clusterName).AuthorizationV1(),
+			AuthorizationV1Interface: client.AuthorizationV1(),
 			cluster:                  clusterName,
 		},
 		AllowCacheTTL:       5 * time.Minute,

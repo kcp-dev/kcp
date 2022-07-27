@@ -19,6 +19,7 @@ package options
 import (
 	"path"
 
+	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	"github.com/spf13/pflag"
 
 	"k8s.io/client-go/dynamic"
@@ -58,11 +59,12 @@ func (o *Syncer) NewVirtualWorkspaces(
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
 ) (workspaces map[string]framework.VirtualWorkspace, err error) {
 	config = rest.AddUserAgent(rest.CopyConfig(config), "syncer-virtual-workspace")
+	clusterConfig := kcpclienthelper.NewClusterConfig(config)
 	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
 	if err != nil {
 		return nil, err
 	}
-	kubeClusterClient, err := kubernetes.NewClusterForConfig(config)
+	kubeClusterClient, err := kubernetes.NewForConfig(clusterConfig)
 	if err != nil {
 		return nil, err
 	}

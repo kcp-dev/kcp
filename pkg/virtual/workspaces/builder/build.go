@@ -48,7 +48,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/registry"
 )
 
-func BuildVirtualWorkspace(cfg *clientrest.Config, rootPathPrefix string, wildcardsClusterWorkspaces workspaceinformer.ClusterWorkspaceInformer, wildcardsRbacInformers rbacinformers.Interface, kubeClusterClient kubernetes.ClusterInterface, kcpClusterClient kcpclient.ClusterInterface) framework.VirtualWorkspace {
+func BuildVirtualWorkspace(cfg *clientrest.Config, rootPathPrefix string, wildcardsClusterWorkspaces workspaceinformer.ClusterWorkspaceInformer, wildcardsRbacInformers rbacinformers.Interface, kubeClusterClient kubernetes.Interface, kcpClusterClient kcpclient.ClusterInterface) framework.VirtualWorkspace {
 	crbInformer := wildcardsRbacInformers.ClusterRoleBindings()
 	_ = registry.AddNameIndexers(crbInformer)
 
