@@ -445,18 +445,20 @@ func (s *Server) Run(ctx context.Context) error {
 
 		go s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().Run(ctx.StopCh)
 		go s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().Run(ctx.StopCh)
+		go s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Informer().Run(ctx.StopCh)
 
 		if err := wait.PollInfiniteWithContext(goContext(ctx), time.Millisecond*100, func(ctx context.Context) (bool, error) {
 			exportsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
 			bindingsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced()
-			return exportsSynced && bindingsSynced, nil
+			schemasSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Informer().HasSynced()
+			return exportsSynced && bindingsSynced && schemasSynced, nil
 		}); err != nil {
-			klog.Errorf("failed to start APIExport and/or APIBinding informers: %v", err)
+			klog.Errorf("failed to start APIExport, APIBinding, and/or APIResourceSchema informers: %v", err)
 			// nolint:nilerr
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		klog.Infof("Finished starting APIExport and APIBinding informers")
+		klog.Infof("Finished starting APIExport, APIBinding, and APIResourceSchema informers")
 
 		if s.Options.Extra.ShardName == tenancyv1alpha1.RootShard {
 			// bootstrap root workspace phase 0 only if we are on the root shard, no APIBinding resources yet
