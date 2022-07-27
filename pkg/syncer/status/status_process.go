@@ -113,37 +113,31 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 }
 
 func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.GroupVersionResource, upstreamNamespace string, upstreamLogicalCluster logicalcluster.Name, downstreamObj *unstructured.Unstructured) error {
-	upstreamObj := downstreamObj.DeepCopy()
-	upstreamObj.SetUID("")
-	upstreamObj.SetResourceVersion("")
-	upstreamObj.SetNamespace(upstreamNamespace)
+	upstreamName := getUpstreamResourceName(downstreamObj)
 
-	// Run name transformations on upstreamObj
-	transformName(upstreamObj)
-
-	name := upstreamObj.GetName()
-	downstreamStatus, statusExists, err := unstructured.NestedFieldCopy(upstreamObj.UnstructuredContent(), "status")
+	downstreamStatus, statusExists, err := unstructured.NestedFieldCopy(downstreamObj.UnstructuredContent(), "status")
 	if err != nil {
 		return err
 	} else if !statusExists {
-		klog.V(5).Infof("Resource doesn't contain a status. Skipping updating status of resource %s|%s/%s from syncTargetName namespace %s", upstreamLogicalCluster, upstreamNamespace, name, downstreamObj.GetNamespace())
+		klog.V(5).Infof("Resource doesn't contain a status. Skipping updating status of resource %s|%s/%s from syncTargetName namespace %s", upstreamLogicalCluster, upstreamNamespace, upstreamName, downstreamObj.GetNamespace())
 		return nil
 	}
 
-	existingObj, err := c.upstreamInformers.ForResource(gvr).Lister().ByNamespace(upstreamNamespace).Get(clusters.ToClusterAwareKey(upstreamLogicalCluster, name))
+	existingObj, err := c.upstreamInformers.ForResource(gvr).Lister().ByNamespace(upstreamNamespace).Get(clusters.ToClusterAwareKey(upstreamLogicalCluster, upstreamName))
 	if err != nil {
-		klog.Errorf("Getting resource %s/%s: %v", upstreamNamespace, name, err)
+		klog.Errorf("Getting resource %s/%s: %v", upstreamNamespace, upstreamName, err)
 		return err
 	}
 
 	existing, ok := existingObj.(*unstructured.Unstructured)
 	if !ok {
-		klog.Errorf("Resource %s|%s/%s expected to be *unstructured.Unstructured, got %T", upstreamLogicalCluster.String(), upstreamNamespace, name, existing)
+		klog.Errorf("Resource %s|%s/%s expected to be *unstructured.Unstructured, got %T", upstreamLogicalCluster.String(), upstreamNamespace, upstreamName, existing)
 		return nil
 	}
 
+	newUpstream := existing.DeepCopy()
+
 	if c.advancedSchedulingEnabled {
-		newUpstream := existing.DeepCopy()
 		statusAnnotationValue, err := json.Marshal(downstreamStatus)
 		if err != nil {
 			return err
@@ -156,31 +150,40 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 		newUpstream.SetAnnotations(newUpstreamAnnotations)
 
 		if reflect.DeepEqual(existing, newUpstream) {
-			klog.V(2).Infof("No need to update the status of resource %s|%s/%s from syncTargetName namespace %s", upstreamLogicalCluster, upstreamNamespace, name, downstreamObj.GetNamespace())
+			klog.V(2).Infof("No need to update the status of resource %s|%s/%s from syncTargetName namespace %s", upstreamLogicalCluster, upstreamNamespace, upstreamName, downstreamObj.GetNamespace())
 			return nil
 		}
 
 		if _, err := c.upstreamClient.Cluster(upstreamLogicalCluster).Resource(gvr).Namespace(upstreamNamespace).Update(ctx, newUpstream, metav1.UpdateOptions{}); err != nil {
-			klog.Errorf("Failed updating location status annotation of resource %s|%s/%s from syncTargetName namespace %s: %v", upstreamLogicalCluster, upstreamNamespace, upstreamObj.GetName(), downstreamObj.GetNamespace(), err)
+			klog.Errorf("Failed updating location status annotation of resource %s|%s/%s from syncTargetName namespace %s: %v", upstreamLogicalCluster, upstreamNamespace, upstreamName, downstreamObj.GetNamespace(), err)
 			return err
 		}
-		klog.Infof("Updated status of resource %s|%s/%s from syncTargetName namespace %s", upstreamLogicalCluster, upstreamNamespace, upstreamObj.GetName(), downstreamObj.GetNamespace())
+		klog.Infof("Updated status of resource %s|%s/%s from syncTargetName namespace %s", upstreamLogicalCluster, upstreamNamespace, upstreamName, downstreamObj.GetNamespace())
 		return nil
 	}
 
-	if _, err := c.upstreamClient.Cluster(upstreamLogicalCluster).Resource(gvr).Namespace(upstreamNamespace).UpdateStatus(ctx, upstreamObj, metav1.UpdateOptions{}); err != nil {
-		klog.Errorf("Failed updating status of resource %q %s|%s/%s from pcluster namespace %s: %v", gvr.String(), upstreamLogicalCluster, upstreamNamespace, upstreamObj.GetName(), downstreamObj.GetNamespace(), err)
+	if err := unstructured.SetNestedField(newUpstream.UnstructuredContent(), downstreamStatus, "status"); err != nil {
 		return err
 	}
-	klog.Infof("Updated status of resource %q %s|%s/%s from pcluster namespace %s", gvr.String(), upstreamLogicalCluster, upstreamNamespace, upstreamObj.GetName(), downstreamObj.GetNamespace())
+
+	// TODO (davidfestal): Here in the future we might want to also set some fields of the Spec, per resource type, for example:
+	// clusterIP for service, or other field values set by SyncTarget cluster admission.
+	// But for now let's only update the status.
+
+	if _, err := c.upstreamClient.Cluster(upstreamLogicalCluster).Resource(gvr).Namespace(upstreamNamespace).UpdateStatus(ctx, newUpstream, metav1.UpdateOptions{}); err != nil {
+		klog.Errorf("Failed updating status of resource %q %s|%s/%s from pcluster namespace %s: %v", gvr.String(), upstreamLogicalCluster, upstreamNamespace, upstreamName, downstreamObj.GetNamespace(), err)
+		return err
+	}
+	klog.Infof("Updated status of resource %q %s|%s/%s from pcluster namespace %s", gvr.String(), upstreamLogicalCluster, upstreamNamespace, upstreamName, downstreamObj.GetNamespace())
 	return nil
 }
 
-// TransformName changes the object name into the desired one upstream.
-func transformName(syncedObject *unstructured.Unstructured) {
+// getUpstreamResourceName returns the name with which the resource is known upstream.
+func getUpstreamResourceName(downstreamResource *unstructured.Unstructured) string {
 	configMapGVR := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}
 
-	if syncedObject.GroupVersionKind() == configMapGVR && syncedObject.GetName() == "kcp-root-ca.crt" {
-		syncedObject.SetName("kube-root-ca.crt")
+	if downstreamResource.GroupVersionKind() == configMapGVR && downstreamResource.GetName() == "kcp-root-ca.crt" {
+		return "kube-root-ca.crt"
 	}
+	return downstreamResource.GetName()
 }

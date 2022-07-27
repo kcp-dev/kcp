@@ -350,7 +350,7 @@ func TestSyncerProcess(t *testing.T) {
 			expectActionsOnTo: []clienttesting.Action{
 				updateDeploymentAction("test",
 					toUnstructured(t, changeDeployment(
-						deployment("theDeployment", "test", "", map[string]string{
+						deployment("theDeployment", "test", "root:org:ws", map[string]string{
 							"state.workload.kcp.dev/us-west1": "Sync",
 						}, nil, nil),
 						addDeploymentStatus(appsv1.DeploymentStatus{
