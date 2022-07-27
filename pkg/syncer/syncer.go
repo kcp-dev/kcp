@@ -211,6 +211,14 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 
 	go specSyncer.Start(ctx, numSyncerThreads)
 	go statusSyncer.Start(ctx, numSyncerThreads)
+	// connect to create the reverse tunnels
+	go wait.UntilWithContext(ctx, func(ctx context.Context) {
+		klog.V(5).Infof("Starting tunnel for clusterName %s from pcluster", cfg.SyncTargetWorkspace, cfg.SyncTargetName)
+		err := startTunneler(ctx, upstreamConfig, downstreamConfig, cfg.SyncTargetName)
+		if err != nil {
+			klog.Errorf("Failed to create tunnel for clusterName %s from pcluster %s: %v", cfg.SyncTargetWorkspace, cfg.SyncTargetName, err)
+		}
+	}, 60*time.Second)
 
 	// Attempt to heartbeat every interval
 	go wait.UntilWithContext(ctx, func(ctx context.Context) {
