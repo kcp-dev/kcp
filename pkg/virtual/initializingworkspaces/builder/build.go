@@ -55,6 +55,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/handler"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	"github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces"
 )
 
@@ -64,7 +65,7 @@ func BuildVirtualWorkspace(
 	dynamicClusterClient dynamic.ClusterInterface,
 	kubeClusterClient kubernetes.ClusterInterface,
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
-) (map[string]framework.VirtualWorkspace, error) {
+) ([]rootapiserver.NamedVirtualWorkspace, error) {
 	if !strings.HasSuffix(rootPathPrefix, "/") {
 		rootPathPrefix += "/"
 	}
@@ -295,10 +296,10 @@ func BuildVirtualWorkspace(
 		}),
 	}
 
-	return map[string]framework.VirtualWorkspace{
-		wildcardWorkspacesName: wildcardWorkspaces,
-		workspacesName:         workspaces,
-		workspaceContentName:   workspaceContent,
+	return []rootapiserver.NamedVirtualWorkspace{
+		{Name: wildcardWorkspacesName, VirtualWorkspace: wildcardWorkspaces},
+		{Name: workspacesName, VirtualWorkspace: workspaces},
+		{Name: workspaceContentName, VirtualWorkspace: workspaceContent},
 	}, nil
 }
 

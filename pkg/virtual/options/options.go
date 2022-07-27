@@ -26,7 +26,7 @@ import (
 
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	apiexportoptions "github.com/kcp-dev/kcp/pkg/virtual/apiexport/options"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	initializingworkspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces/options"
 	synceroptions "github.com/kcp-dev/kcp/pkg/virtual/syncer/options"
 	workspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/workspaces/options"
@@ -71,7 +71,7 @@ func (o *Options) NewVirtualWorkspaces(
 	rootPathPrefix string,
 	wildcardKubeInformers kubeinformers.SharedInformerFactory,
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
-) (map[string]framework.VirtualWorkspace, error) {
+) ([]rootapiserver.NamedVirtualWorkspace, error) {
 	workspaces, err := o.Workspaces.NewVirtualWorkspaces(rootPathPrefix, config, wildcardKubeInformers, wildcardKcpInformers)
 	if err != nil {
 		return nil, err
@@ -82,7 +82,7 @@ func (o *Options) NewVirtualWorkspaces(
 		return nil, err
 	}
 
-	apiexport, err := o.APIExport.NewVirtualWorkspaces(rootPathPrefix, config, wildcardKcpInformers)
+	apiexports, err := o.APIExport.NewVirtualWorkspaces(rootPathPrefix, config, wildcardKcpInformers)
 	if err != nil {
 		return nil, err
 	}
@@ -92,22 +92,24 @@ func (o *Options) NewVirtualWorkspaces(
 		return nil, err
 	}
 
-	all, err := merge(workspaces, syncer, apiexport, initializingworkspaces)
+	all, err := merge(workspaces, syncer, apiexports, initializingworkspaces)
 	if err != nil {
 		return nil, err
 	}
 	return all, nil
 }
 
-func merge(sets ...map[string]framework.VirtualWorkspace) (map[string]framework.VirtualWorkspace, error) {
-	workspaces := make(map[string]framework.VirtualWorkspace)
+func merge(sets ...[]rootapiserver.NamedVirtualWorkspace) ([]rootapiserver.NamedVirtualWorkspace, error) {
+	var workspaces []rootapiserver.NamedVirtualWorkspace
+	seen := map[string]bool{}
 	for _, set := range sets {
-		for name, w := range set {
-			if _, ok := workspaces[name]; ok {
-				return nil, fmt.Errorf("duplicate virtual workspace %q", name)
+		for _, vw := range set {
+			if seen[vw.Name] {
+				return nil, fmt.Errorf("duplicate virtual workspace %q", vw.Name)
 			}
-			workspaces[name] = w
+			seen[vw.Name] = true
 		}
+		workspaces = append(workspaces, set...)
 	}
 	return workspaces, nil
 }

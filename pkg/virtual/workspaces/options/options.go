@@ -27,7 +27,7 @@ import (
 
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/builder"
 )
 
@@ -57,7 +57,7 @@ func (o *Workspaces) NewVirtualWorkspaces(
 	config *rest.Config,
 	wildcardKubeInformers informers.SharedInformerFactory,
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
-) (workspaces map[string]framework.VirtualWorkspace, err error) {
+) (workspaces []rootapiserver.NamedVirtualWorkspace, err error) {
 	config = rest.AddUserAgent(rest.CopyConfig(config), "workspaces-virtual-workspace")
 	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
 	if err != nil {
@@ -68,8 +68,7 @@ func (o *Workspaces) NewVirtualWorkspaces(
 		return nil, err
 	}
 
-	virtualWorkspaces := map[string]framework.VirtualWorkspace{
-		"workspaces": builder.BuildVirtualWorkspace(config, path.Join(rootPathPrefix, "workspaces"), wildcardKcpInformers.Tenancy().V1alpha1().ClusterWorkspaces(), wildcardKubeInformers.Rbac().V1(), kubeClusterClient, kcpClusterClient),
-	}
-	return virtualWorkspaces, nil
+	return []rootapiserver.NamedVirtualWorkspace{
+		{Name: "workspaces", VirtualWorkspace: builder.BuildVirtualWorkspace(config, path.Join(rootPathPrefix, "workspaces"), wildcardKcpInformers.Tenancy().V1alpha1().ClusterWorkspaces(), wildcardKubeInformers.Rbac().V1(), kubeClusterClient, kcpClusterClient)},
+	}, nil
 }
