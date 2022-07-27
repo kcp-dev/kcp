@@ -550,11 +550,11 @@ func tryToCreate(h *homeWorkspaceHandler, ctx context.Context, user kuser.Info, 
 		return retryAfterCreateSeconds, nil
 	}
 
-	if !kerrors.IsForbidden(err) {
+	if !kerrors.IsForbidden(err) && !kerrors.IsNotFound(err) {
 		return 0, err
 	}
 
-	// The error returned by the creation attempt is a Forbidden error.
+	// The error returned by the creation attempt is either Forbidden or NotFound (due to APIBindings not being ready).
 	// We have to detect whether it is because:
 	//
 	// - the parent workspace doesn't exist (in which case we'd try to create it),
