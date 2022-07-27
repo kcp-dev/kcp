@@ -51,7 +51,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	tenancyclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/softimpersonation"
 	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/authorization"
 	workspacecache "github.com/kcp-dev/kcp/pkg/virtual/workspaces/cache"
@@ -95,7 +94,7 @@ type REST struct {
 
 	impersonatedkubeClusterClient func(user kuser.Info) (kubernetes.Interface, error)
 	kubeClusterClient             kubernetes.Interface
-	kcpClusterClient              kcpclientset.ClusterInterface
+	kcpClusterClient              kcpclientset.Interface
 
 	// clusterWorkspaceCache is a global cache of cluster workspaces (for all orgs) used by the watcher.
 	clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache
@@ -141,9 +140,8 @@ var _ rest.GracefulDeleter = &REST{}
 // org workspaces, projecting them to the Workspace type.
 func NewREST(
 	cfg *clientrest.Config,
-	rootTenancyClient tenancyclient.TenancyV1alpha1Interface,
 	kubeClusterClient kubernetes.Interface,
-	kcpClusterClient kcpclientset.ClusterInterface,
+	kcpClusterClient kcpclientset.Interface,
 	clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache,
 	wilcardsCRBInformer rbacinformers.ClusterRoleBindingInformer,
 	getFilteredClusterWorkspaces func(orgClusterName logicalcluster.Name) FilteredClusterWorkspaces,
@@ -461,7 +459,7 @@ func (s *REST) getClusterWorkspace(ctx context.Context, name string, options *me
 	if clusterWorkspaces == nil {
 		return nil, kerrors.NewNotFound(tenancyv1beta1.Resource("workspaces"), name)
 	}
-	workspace, err := s.kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, name, opts)
+	workspace, err := s.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, orgClusterName), name, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -649,11 +647,11 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 			Type: workspace.Spec.Type,
 		},
 	}
-	createdClusterWorkspace, err := s.kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, clusterWorkspace, metav1.CreateOptions{})
+	createdClusterWorkspace, err := s.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Create(logicalcluster.WithCluster(ctx, orgClusterName), clusterWorkspace, metav1.CreateOptions{})
 	if err != nil && kerrors.IsAlreadyExists(err) {
 		clusterWorkspace.Name = ""
 		clusterWorkspace.GenerateName = workspace.Name + "-"
-		createdClusterWorkspace, err = s.kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, clusterWorkspace, metav1.CreateOptions{})
+		createdClusterWorkspace, err = s.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Create(logicalcluster.WithCluster(ctx, orgClusterName), clusterWorkspace, metav1.CreateOptions{})
 	}
 	if err != nil {
 		_ = s.kubeClusterClient.RbacV1().ClusterRoles().Delete(logicalcluster.WithCluster(ctx, orgClusterName), ownerClusterRole.Name, metav1.DeleteOptions{GracePeriodSeconds: &zero})
@@ -726,7 +724,7 @@ func (s *REST) Delete(ctx context.Context, name string, deleteValidation rest.Va
 		return nil, false, err
 	}
 
-	errorToReturn := s.kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, internalName, *options)
+	errorToReturn := s.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Delete(logicalcluster.WithCluster(ctx, orgClusterName), internalName, *options)
 	if errorToReturn != nil && !kerrors.IsNotFound(errorToReturn) {
 		return nil, false, errorToReturn
 	}

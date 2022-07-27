@@ -33,7 +33,7 @@ import (
 
 // NewClusterWorkspaceCache returns a wrapper around an informer. It serves from the informer, and on cache-miss
 // it looks up through the given client.
-func NewClusterWorkspaceCache(workspaces cache.SharedIndexInformer, kcpClusterClient kcpclient.ClusterInterface) *ClusterWorkspaceCache {
+func NewClusterWorkspaceCache(workspaces cache.SharedIndexInformer, kcpClusterClient kcpclient.Interface) *ClusterWorkspaceCache {
 	return &ClusterWorkspaceCache{
 		kcpClusterClient: kcpClusterClient,
 		Store:            workspaces.GetIndexer(),
@@ -42,7 +42,7 @@ func NewClusterWorkspaceCache(workspaces cache.SharedIndexInformer, kcpClusterCl
 }
 
 type ClusterWorkspaceCache struct {
-	kcpClusterClient kcpclient.ClusterInterface
+	kcpClusterClient kcpclient.Interface
 	Store            cache.Indexer
 	HasSynced        cache.InformerSynced
 }
@@ -73,7 +73,7 @@ func (c *ClusterWorkspaceCache) Get(lclusterName logicalcluster.Name, workspaceN
 		clusterWorkspace = clusterWorkspaceObj.(*workspaceapi.ClusterWorkspace)
 	} else {
 		// Our watch maybe latent, so we make a best effort to get the object, and only fail if not found
-		clusterWorkspace, err = c.kcpClusterClient.Cluster(lclusterName).TenancyV1alpha1().ClusterWorkspaces().Get(context.TODO(), workspaceName, metav1.GetOptions{})
+		clusterWorkspace, err = c.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(context.TODO(), lclusterName), workspaceName, metav1.GetOptions{})
 		// the workspace does not exist, so prevent create and update in that workspace
 		if err != nil {
 			return nil, fmt.Errorf("workspace %s does not exist", workspaceName)

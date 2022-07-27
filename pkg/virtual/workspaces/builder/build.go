@@ -48,7 +48,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/registry"
 )
 
-func BuildVirtualWorkspace(cfg *clientrest.Config, rootPathPrefix string, wildcardsClusterWorkspaces workspaceinformer.ClusterWorkspaceInformer, wildcardsRbacInformers rbacinformers.Interface, kubeClusterClient kubernetes.Interface, kcpClusterClient kcpclient.ClusterInterface) framework.VirtualWorkspace {
+func BuildVirtualWorkspace(cfg *clientrest.Config, rootPathPrefix string, wildcardsClusterWorkspaces workspaceinformer.ClusterWorkspaceInformer, wildcardsRbacInformers rbacinformers.Interface, kubeClusterClient kubernetes.Interface, kcpClusterClient kcpclient.Interface) framework.VirtualWorkspace {
 	crbInformer := wildcardsRbacInformers.ClusterRoleBindings()
 	_ = registry.AddNameIndexers(crbInformer)
 
@@ -145,7 +145,7 @@ func BuildVirtualWorkspace(cfg *clientrest.Config, rootPathPrefix string, wildca
 						return nil, err
 					}
 
-					workspacesRest := registry.NewREST(cfg, kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1(), kubeClusterClient, kcpClusterClient, globalClusterWorkspaceCache, crbInformer, orgListener.FilteredClusterWorkspaces)
+					workspacesRest := registry.NewREST(cfg, kubeClusterClient, kcpClusterClient, globalClusterWorkspaceCache, crbInformer, orgListener.FilteredClusterWorkspaces)
 					return map[string]fixedgvs.RestStorageBuilder{
 						"workspaces": func(apiGroupAPIServerConfig genericapiserver.CompletedConfig) (rest.Storage, error) {
 							return workspacesRest, nil

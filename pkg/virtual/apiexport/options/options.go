@@ -60,7 +60,7 @@ func (o *APIExport) NewVirtualWorkspaces(
 ) (workspaces map[string]framework.VirtualWorkspace, err error) {
 	config = rest.AddUserAgent(rest.CopyConfig(config), "apiexport-virtual-workspace")
 	clusterConfig := kcpclienthelper.NewClusterConfig(config)
-	kcpClusterClient, err := kcpclientset.NewClusterForConfig(config)
+	kcpClusterClient, err := kcpclientset.NewForConfig(clusterConfig)
 	if err != nil {
 		return nil, err
 	}

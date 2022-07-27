@@ -60,7 +60,7 @@ func (o *Syncer) NewVirtualWorkspaces(
 ) (workspaces map[string]framework.VirtualWorkspace, err error) {
 	config = rest.AddUserAgent(rest.CopyConfig(config), "syncer-virtual-workspace")
 	clusterConfig := kcpclienthelper.NewClusterConfig(config)
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
+	kcpClusterClient, err := kcpclient.NewForConfig(clusterConfig)
 	if err != nil {
 		return nil, err
 	}

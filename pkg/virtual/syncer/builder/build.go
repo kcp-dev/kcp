@@ -57,7 +57,7 @@ func BuildVirtualWorkspace(
 	rootPathPrefix string,
 	kubeClusterClient kubernetes.Interface,
 	dynamicClusterClient dynamic.ClusterInterface,
-	kcpClusterClient kcpclient.ClusterInterface,
+	kcpClusterClient kcpclient.Interface,
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
 ) framework.VirtualWorkspace {
 

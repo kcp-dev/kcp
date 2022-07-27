@@ -59,8 +59,7 @@ func (o *InitializingWorkspaces) NewVirtualWorkspaces(
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
 ) (workspaces map[string]framework.VirtualWorkspace, err error) {
 	config = rest.AddUserAgent(rest.CopyConfig(config), "initializingworkspaces-virtual-workspace")
-	clusterConfig := kcpclienthelper.NewClusterConfig(config)
-	kubeClusterClient, err := kubernetes.NewForConfig(clusterConfig)
+	kubeClusterClient, err := kubernetes.NewForConfig(kcpclienthelper.NewClusterConfig(config))
 	if err != nil {
 		return nil, err
 	}
