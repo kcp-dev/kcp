@@ -36,8 +36,9 @@ import (
 	locationreconciler "github.com/kcp-dev/kcp/pkg/reconciler/scheduling/location"
 )
 
-// placementSchedulingReconciler schedules a workload for this ns. It checks the current placement annotation on the ns,
-// and find all valid synctargets.
+// placementSchedulingReconciler schedules placments according to the selected locations.
+// It considers only valid SyncTargets and updates the internal.workload.kcp.dev/synctarget
+// annotation with the selected one on the placement object.
 type placementSchedulingReconciler struct {
 	listSyncTarget func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error)
 	getLocation    func(clusterName logicalcluster.Name, name string) (*schedulingv1alpha1.Location, error)
@@ -57,7 +58,7 @@ func (r *placementSchedulingReconciler) reconcile(ctx context.Context, placement
 		return reconcileStatusStop, placement, err
 	}
 
-	// no valid synctarget, clean the annotationt.
+	// no valid synctarget, clean the annotation.
 	if foundScheduled && len(syncTargets) == 0 {
 		expectedAnnotations[workloadv1alpha1.InternalSyncTargetPlacementAnnotationKey] = nil
 		updated, err := r.patchPlacementAnnotation(ctx, clusterName, placement, expectedAnnotations)

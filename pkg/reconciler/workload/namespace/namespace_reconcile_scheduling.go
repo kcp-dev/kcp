@@ -38,7 +38,9 @@ import (
 
 const removingGracePeriod = 5 * time.Second
 
-// placementSchedulingReconciler sync scheduled synctarget on placement to for this ns.
+// placementSchedulingReconciler reconciles the state.workload.kcp.dev/<syncTarget> labels according the
+// selected synctarget stored in the internal.workload.kcp.dev/synctarget annotation
+// on each placement.
 type placementSchedulingReconciler struct {
 	listPlacement func(clusterName logicalcluster.Name) ([]*schedulingv1alpha1.Placement, error)
 
