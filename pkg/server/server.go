@@ -419,10 +419,6 @@ func (s *Server) Run(ctx context.Context) error {
 		return err
 	}
 
-	if err := s.installTunneler(ctx, s.preHandlerChainMux); err != nil {
-		return err
-	}
-
 	if err := s.Options.AdminAuthentication.WriteKubeConfig(s.GenericConfig, s.kcpAdminToken, s.shardAdminToken, s.shardAdminTokenHash); err != nil {
 		return err
 	}
