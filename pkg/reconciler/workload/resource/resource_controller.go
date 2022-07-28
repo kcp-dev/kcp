@@ -239,7 +239,7 @@ func (c *Controller) processResource(ctx context.Context, key string) error {
 	}
 	key = parts[1]
 
-	inf, err := c.ddsif.InformerForResource(*gvr)
+	inf, err := c.ddsif.ForResource(*gvr)
 	if err != nil {
 		return err
 	}

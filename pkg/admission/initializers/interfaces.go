@@ -58,3 +58,9 @@ type WantsShardBaseURL interface {
 type WantsShardExternalURL interface {
 	SetShardExternalURL(shardExternalURL string)
 }
+
+// WantsServerShutdownChannel interface should be implemented by admission plugins that want to perform cleanup
+// activities when the main server context/channel is done.
+type WantsServerShutdownChannel interface {
+	SetServerShutdownChannel(<-chan struct{})
+}

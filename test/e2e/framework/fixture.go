@@ -292,9 +292,9 @@ func WithType(path logicalcluster.Name, name tenancyv1alpha1.ClusterWorkspaceTyp
 	}
 }
 
-func WithName(name string) ClusterWorkspaceOption {
+func WithName(s string, formatArgs ...interface{}) ClusterWorkspaceOption {
 	return func(ws *tenancyv1alpha1.ClusterWorkspace) {
-		ws.Name = name
+		ws.Name = fmt.Sprintf(s, formatArgs...)
 		ws.GenerateName = ""
 	}
 }

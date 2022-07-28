@@ -335,6 +335,12 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
+	if s.Options.Controllers.EnableAll || enabled.Has("quota") {
+		if err := s.installKubeQuotaController(ctx, controllerConfig, delegationChainHead); err != nil {
+			return err
+		}
+	}
+
 	if s.Options.Virtual.Enabled {
 		if err := s.installVirtualWorkspaces(ctx, controllerConfig, delegationChainHead, s.GenericConfig.Authentication, s.GenericConfig.ExternalAddress, s.preHandlerChainMux); err != nil {
 			return err

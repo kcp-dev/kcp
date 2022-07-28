@@ -18,6 +18,8 @@ package initializers
 
 import (
 	"k8s.io/apiserver/pkg/admission"
+	"k8s.io/apiserver/pkg/admission/initializer"
+	quota "k8s.io/apiserver/pkg/quota/v1"
 	"k8s.io/client-go/kubernetes"
 
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -137,5 +139,41 @@ type shardExternalURLInitializer struct {
 func (i *shardExternalURLInitializer) Initialize(plugin admission.Interface) {
 	if wants, ok := plugin.(WantsShardExternalURL); ok {
 		wants.SetShardExternalURL(i.shardExternalURL)
+	}
+}
+
+// NewKubeQuotaConfigurationInitializer returns an admission plugin initializer that injects quota.Configuration
+// into admission plugins.
+func NewKubeQuotaConfigurationInitializer(quotaConfiguration quota.Configuration) *kubeQuotaConfigurationInitializer {
+	return &kubeQuotaConfigurationInitializer{
+		quotaConfiguration: quotaConfiguration,
+	}
+}
+
+type kubeQuotaConfigurationInitializer struct {
+	quotaConfiguration quota.Configuration
+}
+
+func (i *kubeQuotaConfigurationInitializer) Initialize(plugin admission.Interface) {
+	if wants, ok := plugin.(initializer.WantsQuotaConfiguration); ok {
+		wants.SetQuotaConfiguration(i.quotaConfiguration)
+	}
+}
+
+// NewServerShutdownInitializer returns an admission plugin initializer that injects the server's shutdown channel
+// into admission plugins.
+func NewServerShutdownInitializer(ch <-chan struct{}) *serverShutdownChannelInitializer {
+	return &serverShutdownChannelInitializer{
+		ch: ch,
+	}
+}
+
+type serverShutdownChannelInitializer struct {
+	ch <-chan struct{}
+}
+
+func (i *serverShutdownChannelInitializer) Initialize(plugin admission.Interface) {
+	if wants, ok := plugin.(WantsServerShutdownChannel); ok {
+		wants.SetServerShutdownChannel(i.ch)
 	}
 }

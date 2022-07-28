@@ -48,6 +48,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspacetype"
 	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspacetypeexists"
 	"github.com/kcp-dev/kcp/pkg/admission/crdnooverlappinggvr"
+	"github.com/kcp-dev/kcp/pkg/admission/kubequota"
 	kcpmutatingwebhook "github.com/kcp-dev/kcp/pkg/admission/mutatingwebhook"
 	workspacenamespacelifecycle "github.com/kcp-dev/kcp/pkg/admission/namespacelifecycle"
 	"github.com/kcp-dev/kcp/pkg/admission/permissionclaims"
@@ -75,6 +76,7 @@ var AllOrderedPlugins = beforeWebhooks(kubeapiserveroptions.AllOrderedPlugins,
 	crdnooverlappinggvr.PluginName,
 	reservedmetadata.PluginName,
 	permissionclaims.PluginName,
+	kubequota.PluginName,
 )
 
 func beforeWebhooks(recommended []string, plugins ...string) []string {
@@ -108,6 +110,7 @@ func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 	crdnooverlappinggvr.Register(plugins)
 	reservedmetadata.Register(plugins)
 	permissionclaims.Register(plugins)
+	kubequota.Register(plugins)
 }
 
 var defaultOnPluginsInKcp = sets.NewString(
@@ -131,6 +134,7 @@ var defaultOnPluginsInKcp = sets.NewString(
 	reservedcrdannotations.PluginName,
 	reservedcrdgroups.PluginName,
 	permissionclaims.PluginName,
+	kubequota.PluginName,
 )
 
 // defaultOnKubePluginsInKube is a copy of kubeapiserveroptions.defaultOnKubePlugins.
