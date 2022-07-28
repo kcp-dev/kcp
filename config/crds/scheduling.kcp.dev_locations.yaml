@@ -30,7 +30,7 @@ spec:
       name: Instances
       type: string
     - description: The common labels of this location
-      jsonPath: .metadata.annotation."scheduling.kcp.dev/labels"
+      jsonPath: .metadata.annotations['scheduling\.kcp\.dev/labels']
       name: Labels
       type: string
     name: v1alpha1

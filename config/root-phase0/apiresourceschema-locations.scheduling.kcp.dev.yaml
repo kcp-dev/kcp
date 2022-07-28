@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v220706-3993e86b.locations.scheduling.kcp.dev
+  name: v220728-6d2008e2.locations.scheduling.kcp.dev
 spec:
   group: scheduling.kcp.dev
   names:
@@ -28,7 +28,7 @@ spec:
       name: Instances
       type: string
     - description: The common labels of this location
-      jsonPath: .metadata.annotation."scheduling.kcp.dev/labels"
+      jsonPath: .metadata.annotations['scheduling\.kcp\.dev/labels']
       name: Labels
       type: string
     name: v1alpha1
