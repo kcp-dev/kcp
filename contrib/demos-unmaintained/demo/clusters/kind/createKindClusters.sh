@@ -70,7 +70,7 @@ detect_podman() {
 
     echo "Using Podman as container engine."
 
-    KIND_EXPERIMENTAL_PROVIDER=podman
+    KIND_EXPERIMENTAL_PROVIDER=${KIND_EXPERIMENTAL_PROVIDER:-podman}
 
     PODMAN_VERSION=$(podman version -f '{{.Server.Version}}')
     PODMAN_MAJOR=$(echo "${PODMAN_VERSION}" | cut -d. -f1)
