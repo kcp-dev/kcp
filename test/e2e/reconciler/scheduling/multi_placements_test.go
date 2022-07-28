@@ -273,11 +273,11 @@ func TestMultiPlacement(t *testing.T) {
 			return false, fmt.Sprintf("Failed to get service: %v", err)
 		}
 
-		if svc.Labels[workloadv1alpha1.ClusterResourceStateLabelPrefix+firstSyncTargetName] != string(workloadv1alpha1.ResourceStateSync) {
+		if svc.Labels[workloadv1alpha1.ClusterResourceStateLabelPrefix+workloadv1alpha1.ToSyncTargetKey(firstSyncerFixture.SyncerConfig.SyncTargetWorkspace, firstSyncTargetName)] != string(workloadv1alpha1.ResourceStateSync) {
 			return false, fmt.Sprintf("%s is not added to ns annotation", firstSyncTargetName)
 		}
 
-		if svc.Labels[workloadv1alpha1.ClusterResourceStateLabelPrefix+secondSyncTargetName] != string(workloadv1alpha1.ResourceStateSync) {
+		if svc.Labels[workloadv1alpha1.ClusterResourceStateLabelPrefix+workloadv1alpha1.ToSyncTargetKey(secondSyncerFixture.SyncerConfig.SyncTargetWorkspace, secondSyncTargetName)] != string(workloadv1alpha1.ResourceStateSync) {
 			return false, fmt.Sprintf("%s is not added to ns annotation", secondSyncTargetName)
 		}
 

@@ -22,6 +22,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kcp-dev/logicalcluster/v2"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -48,7 +50,7 @@ const (
 	byWorkspace    = ControllerName + "-byWorkspace" // will go away with scoping
 )
 
-type CreateAPIDefinitionFunc func(syncTargetName string, apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identityHash string) (apidefinition.APIDefinition, error)
+type CreateAPIDefinitionFunc func(syncTargetWorkspace logicalcluster.Name, syncTargetName string, apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identityHash string) (apidefinition.APIDefinition, error)
 
 func NewAPIReconciler(
 	kcpClusterClient kcpclient.ClusterInterface,
@@ -289,7 +291,7 @@ func (c *APIReconciler) process(ctx context.Context, key string) error {
 	for _, obj := range cs {
 		cluster := obj.(*workloadv1alpha1.SyncTarget)
 		apiDomainKey := dynamiccontext.APIDomainKey(clusters.ToClusterAwareKey(clusterName, cluster.Name))
-		if err := c.reconcile(ctx, apiExport, apiDomainKey, cluster.Name); err != nil {
+		if err := c.reconcile(ctx, apiExport, apiDomainKey, logicalcluster.From(cluster), cluster.Name); err != nil {
 			errs = append(errs, err)
 		}
 	}

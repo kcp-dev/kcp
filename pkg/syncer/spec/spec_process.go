@@ -209,7 +209,7 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 	if upstreamObj.GetLabels() != nil {
 		newNamespace.SetLabels(map[string]string{
 			// TODO: this should be set once at syncer startup and propagated around everywhere.
-			workloadv1alpha1.InternalDownstreamClusterLabel: c.syncTargetName,
+			workloadv1alpha1.InternalDownstreamClusterLabel: c.syncTargetKey,
 		})
 	}
 
@@ -245,17 +245,17 @@ func (c *Controller) ensureSyncerFinalizer(ctx context.Context, gvr schema.Group
 	upstreamFinalizers := upstreamObj.GetFinalizers()
 	hasFinalizer := false
 	for _, finalizer := range upstreamFinalizers {
-		if finalizer == shared.SyncerFinalizerNamePrefix+c.syncTargetName {
+		if finalizer == shared.SyncerFinalizerNamePrefix+c.syncTargetKey {
 			hasFinalizer = true
 		}
 	}
 
 	// TODO(davidfestal): When using syncer virtual workspace we would check the DeletionTimestamp on the upstream object, instead of the DeletionTimestamp annotation,
 	//                as the virtual workspace will set the the deletionTimestamp() on the location view by a transformation.
-	intendedToBeRemovedFromLocation := upstreamObj.GetAnnotations()[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+c.syncTargetName] != ""
+	intendedToBeRemovedFromLocation := upstreamObj.GetAnnotations()[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+c.syncTargetKey] != ""
 
 	// TODO(davidfestal): When using syncer virtual workspace this condition would not be necessary anymore, since directly tested on the virtual workspace side.
-	stillOwnedByExternalActorForLocation := upstreamObj.GetAnnotations()[workloadv1alpha1.ClusterFinalizerAnnotationPrefix+c.syncTargetName] != ""
+	stillOwnedByExternalActorForLocation := upstreamObj.GetAnnotations()[workloadv1alpha1.ClusterFinalizerAnnotationPrefix+c.syncTargetKey] != ""
 
 	if !hasFinalizer && (!intendedToBeRemovedFromLocation || stillOwnedByExternalActorForLocation) {
 		upstreamObjCopy := upstreamObj.DeepCopy()
@@ -263,7 +263,7 @@ func (c *Controller) ensureSyncerFinalizer(ctx context.Context, gvr schema.Group
 		namespace := upstreamObjCopy.GetNamespace()
 		logicalCluster := logicalcluster.From(upstreamObjCopy)
 
-		upstreamFinalizers = append(upstreamFinalizers, shared.SyncerFinalizerNamePrefix+c.syncTargetName)
+		upstreamFinalizers = append(upstreamFinalizers, shared.SyncerFinalizerNamePrefix+c.syncTargetKey)
 		upstreamObjCopy.SetFinalizers(upstreamFinalizers)
 		if _, err := c.upstreamClient.Cluster(logicalCluster).Resource(gvr).Namespace(namespace).Update(ctx, upstreamObjCopy, metav1.UpdateOptions{}); err != nil {
 			klog.Errorf("Failed adding finalizer upstream on resource %s|%s/%s: %v", logicalCluster, namespace, name, err)
@@ -308,12 +308,12 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 	// replace upstream state label with downstream cluster label. We don't want to leak upstream state machine
 	// state to downstream, and also we don't need downstream updates every time the upstream state machine changes.
 	labels := downstreamObj.GetLabels()
-	delete(labels, workloadv1alpha1.ClusterResourceStateLabelPrefix+c.syncTargetName)
-	labels[workloadv1alpha1.InternalDownstreamClusterLabel] = c.syncTargetName
+	delete(labels, workloadv1alpha1.ClusterResourceStateLabelPrefix+c.syncTargetKey)
+	labels[workloadv1alpha1.InternalDownstreamClusterLabel] = c.syncTargetKey
 	downstreamObj.SetLabels(labels)
 
 	if c.advancedSchedulingEnabled {
-		specDiffPatch := upstreamObj.GetAnnotations()[workloadv1alpha1.ClusterSpecDiffAnnotationPrefix+c.syncTargetName]
+		specDiffPatch := upstreamObj.GetAnnotations()[workloadv1alpha1.ClusterSpecDiffAnnotationPrefix+c.syncTargetKey]
 		if specDiffPatch != "" {
 			upstreamSpec, specExists, err := unstructured.NestedFieldCopy(upstreamObj.UnstructuredContent(), "spec")
 			if err != nil {
@@ -349,17 +349,17 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 
 	// TODO(jmprusi): When using syncer virtual workspace we would check the DeletionTimestamp on the upstream object, instead of the DeletionTimestamp annotation,
 	//                as the virtual workspace will set the the deletionTimestamp() on the location view by a transformation.
-	intendedToBeRemovedFromLocation := upstreamObj.GetAnnotations()[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+c.syncTargetName] != ""
+	intendedToBeRemovedFromLocation := upstreamObj.GetAnnotations()[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+c.syncTargetKey] != ""
 
 	// TODO(jmprusi): When using syncer virtual workspace this condition would not be necessary anymore, since directly tested on the virtual workspace side.
-	stillOwnedByExternalActorForLocation := upstreamObj.GetAnnotations()[workloadv1alpha1.ClusterFinalizerAnnotationPrefix+c.syncTargetName] != ""
-
+	stillOwnedByExternalActorForLocation := upstreamObj.GetAnnotations()[workloadv1alpha1.ClusterFinalizerAnnotationPrefix+c.syncTargetKey] != ""
+	klog.V(4).Infof("Upstream object %s|%s/%s is intended to be removed %t and owned by external actor is: %t", upstreamObjLogicalCluster, upstreamObj.GetNamespace(), upstreamObj.GetName(), intendedToBeRemovedFromLocation, stillOwnedByExternalActorForLocation)
 	if intendedToBeRemovedFromLocation && !stillOwnedByExternalActorForLocation {
 		if err := c.downstreamClient.Resource(gvr).Namespace(downstreamNamespace).Delete(ctx, downstreamObj.GetName(), metav1.DeleteOptions{}); err != nil {
 			if apierrors.IsNotFound(err) {
 				// That's not an error.
 				// Just think about removing the finalizer from the KCP location-specific resource:
-				if err := shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, c.upstreamInformers, c.upstreamClient, upstreamObj.GetNamespace(), c.syncTargetName, upstreamObjLogicalCluster, upstreamObj.GetName()); err != nil {
+				if err := shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, c.upstreamInformers, c.upstreamClient, upstreamObj.GetNamespace(), c.syncTargetKey, upstreamObjLogicalCluster, upstreamObj.GetName()); err != nil {
 					return err
 				}
 				return nil

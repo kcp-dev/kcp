@@ -143,11 +143,12 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	}
 	upstreamDiscoveryClient := upstreamDiscoveryClusterClient.WithCluster(logicalcluster.Wildcard)
 
+	syncTargetKey := workloadv1alpha1.ToSyncTargetKey(cfg.SyncTargetWorkspace, cfg.SyncTargetName)
 	upstreamInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(upstreamDynamicClusterClient.Cluster(logicalcluster.Wildcard), resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
-		o.LabelSelector = workloadv1alpha1.ClusterResourceStateLabelPrefix + cfg.SyncTargetName + "=" + string(workloadv1alpha1.ResourceStateSync)
+		o.LabelSelector = workloadv1alpha1.ClusterResourceStateLabelPrefix + syncTargetKey + "=" + string(workloadv1alpha1.ResourceStateSync)
 	})
 	downstreamInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactoryWithOptions(downstreamDynamicClient, metav1.NamespaceAll, func(o *metav1.ListOptions) {
-		o.LabelSelector = workloadv1alpha1.InternalDownstreamClusterLabel + "=" + cfg.SyncTargetName
+		o.LabelSelector = workloadv1alpha1.InternalDownstreamClusterLabel + "=" + syncTargetKey
 	}, cache.WithResyncPeriod(resyncPeriod), cache.WithKeyFunction(keyfunctions.DeletionHandlingMetaNamespaceKeyFunc))
 
 	// TODO(ncdc): we need to provide user-facing details if this polling goes on forever. Blocking here is a bad UX.
@@ -189,14 +190,14 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	if err != nil {
 		return err
 	}
-	specSyncer, err := spec.NewSpecSyncer(gvrs, cfg.SyncTargetWorkspace, cfg.SyncTargetName, upstreamURL, advancedSchedulingEnabled,
+	specSyncer, err := spec.NewSpecSyncer(gvrs, cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, upstreamURL, advancedSchedulingEnabled,
 		upstreamDynamicClusterClient, downstreamDynamicClient, upstreamInformers, downstreamInformers, syncTarget.GetUID())
 	if err != nil {
 		return err
 	}
 
 	klog.Infof("Creating status syncer for SyncTarget %s|%s, resources %v", cfg.SyncTargetWorkspace, cfg.SyncTargetName, resources)
-	statusSyncer, err := status.NewStatusSyncer(gvrs, cfg.SyncTargetWorkspace, cfg.SyncTargetName, advancedSchedulingEnabled,
+	statusSyncer, err := status.NewStatusSyncer(gvrs, cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, advancedSchedulingEnabled,
 		upstreamDynamicClusterClient, downstreamDynamicClient, upstreamInformers, downstreamInformers, syncTarget.GetUID())
 	if err != nil {
 		return err

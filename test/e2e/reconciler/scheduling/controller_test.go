@@ -39,6 +39,7 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -256,12 +257,14 @@ func TestScheduling(t *testing.T) {
 		return true
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
+	syncTargetKey := workloadv1alpha1.ToSyncTargetKey(syncerFixture.SyncerConfig.SyncTargetWorkspace, syncTargetName)
+
 	t.Logf("Create a service in the user workspace")
 	_, err = kubeClusterClient.Cluster(userClusterName).CoreV1().Services("default").Create(ctx, &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "first",
 			Labels: map[string]string{
-				"state.workload.kcp.dev/" + syncTargetName: "Sync",
+				"state.workload.kcp.dev/" + syncTargetKey: "Sync",
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -280,7 +283,7 @@ func TestScheduling(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "second",
 			Labels: map[string]string{
-				"state.workload.kcp.dev/" + syncTargetName: "Sync",
+				"state.workload.kcp.dev/" + syncTargetKey: "Sync",
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -298,7 +301,7 @@ func TestScheduling(t *testing.T) {
 	var downstreamServices *corev1.ServiceList
 	require.Eventually(t, func() bool {
 		downstreamServices, err = syncerFixture.DownstreamKubeClient.CoreV1().Services("").List(ctx, metav1.ListOptions{
-			LabelSelector: "internal.workload.kcp.dev/cluster=" + syncTargetName,
+			LabelSelector: "internal.workload.kcp.dev/cluster=" + syncTargetKey,
 		})
 		if errors.IsNotFound(err) {
 			return false

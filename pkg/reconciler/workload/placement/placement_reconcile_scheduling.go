@@ -19,9 +19,7 @@ package placement
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"math/rand"
-	"strings"
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
@@ -67,15 +65,11 @@ func (r *placementSchedulingReconciler) reconcile(ctx context.Context, placement
 
 	// 2. do nothing if scheduled cluster is in the valid clusters
 	if foundScheduled && len(syncTargets) > 0 {
-		scheduledSyncTargeClusterName, scheduledSyncTargeName := ParseCurrentScheduled(currentScheduled)
 		for _, syncTarget := range syncTargets {
-			if syncTargetClusterName != scheduledSyncTargeClusterName {
+			syncTargetKey := workloadv1alpha1.ToSyncTargetKey(logicalcluster.From(syncTarget), syncTarget.Name)
+			if syncTargetKey != currentScheduled {
 				continue
 			}
-			if scheduledSyncTargeName != syncTarget.Name {
-				continue
-			}
-
 			return reconcileStatusContinue, placement, nil
 		}
 	}
@@ -86,7 +80,7 @@ func (r *placementSchedulingReconciler) reconcile(ctx context.Context, placement
 	// to be exclusive.
 	if len(syncTargets) > 0 {
 		scheduledSyncTarget := syncTargets[rand.Intn(len(syncTargets))]
-		expectedAnnotations[workloadv1alpha1.InternalSyncTargetPlacementAnnotationKey] = fmt.Sprintf("%s/%s", syncTargetClusterName.String(), scheduledSyncTarget.Name)
+		expectedAnnotations[workloadv1alpha1.InternalSyncTargetPlacementAnnotationKey] = workloadv1alpha1.ToSyncTargetKey(syncTargetClusterName, scheduledSyncTarget.Name)
 		updated, err := r.patchPlacementAnnotation(ctx, clusterName, placement, expectedAnnotations)
 		return reconcileStatusContinue, updated, err
 	}
@@ -146,12 +140,4 @@ func (r *placementSchedulingReconciler) patchPlacementAnnotation(ctx context.Con
 		return placement, err
 	}
 	return updated, nil
-}
-
-func ParseCurrentScheduled(value string) (logicalcluster.Name, string) {
-	if len(value) == 0 {
-		return logicalcluster.Name{}, ""
-	}
-	comps := strings.SplitN(value, "/", 2)
-	return logicalcluster.New(comps[0]), comps[1]
 }

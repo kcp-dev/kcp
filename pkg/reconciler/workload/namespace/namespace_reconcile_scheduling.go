@@ -33,7 +33,6 @@ import (
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	placementreconciler "github.com/kcp-dev/kcp/pkg/reconciler/workload/placement"
 )
 
 const removingGracePeriod = 5 * time.Second
@@ -73,10 +72,7 @@ func (r *placementSchedulingReconciler) reconcile(ctx context.Context, ns *corev
 		if !foundScheduled {
 			continue
 		}
-
-		// TODO: location workspace should be considered also
-		_, syncTarget := placementreconciler.ParseCurrentScheduled(currentScheduled)
-		scheduledSyncTargets.Insert(syncTarget)
+		scheduledSyncTargets.Insert(currentScheduled)
 	}
 
 	// 2. find the scheduled synctarget to the ns, including synced, removing

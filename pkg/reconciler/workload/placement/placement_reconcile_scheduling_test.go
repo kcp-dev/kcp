@@ -19,7 +19,6 @@ package placement
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"testing"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -64,7 +63,7 @@ func TestSchedulingReconcile(t *testing.T) {
 			syncTargets: []*workloadv1alpha1.SyncTarget{newSyncTarget("c1", true)},
 			wantPatch:   true,
 			expectedAnnotations: map[string]string{
-				workloadv1alpha1.InternalSyncTargetPlacementAnnotationKey: "/c1",
+				workloadv1alpha1.InternalSyncTargetPlacementAnnotationKey: "aQtdeEWVcqU7h7AKnYMm3KRQ96U4oU2W04yeOa",
 			},
 		},
 		{
@@ -73,7 +72,7 @@ func TestSchedulingReconcile(t *testing.T) {
 			location:    newLocation("test-location"),
 			syncTargets: []*workloadv1alpha1.SyncTarget{newSyncTarget("c1", true)},
 			expectedAnnotations: map[string]string{
-				workloadv1alpha1.InternalSyncTargetPlacementAnnotationKey: "/c1",
+				workloadv1alpha1.InternalSyncTargetPlacementAnnotationKey: "aQtdeEWVcqU7h7AKnYMm3KRQ96U4oU2W04yeOa",
 			},
 		},
 		{
@@ -91,7 +90,7 @@ func TestSchedulingReconcile(t *testing.T) {
 			syncTargets: []*workloadv1alpha1.SyncTarget{newSyncTarget("c1", false), newSyncTarget("c2", true)},
 			wantPatch:   true,
 			expectedAnnotations: map[string]string{
-				workloadv1alpha1.InternalSyncTargetPlacementAnnotationKey: "/c2",
+				workloadv1alpha1.InternalSyncTargetPlacementAnnotationKey: "aPkhvUbGK0xoZIjMnM2pA0AuV1g7i4tBwxu5m4",
 			},
 		},
 	}
@@ -154,7 +153,7 @@ func newPlacement(name, location, synctarget string) *schedulingv1alpha1.Placeme
 
 	if len(synctarget) > 0 {
 		placement.Annotations = map[string]string{
-			workloadv1alpha1.InternalSyncTargetPlacementAnnotationKey: fmt.Sprintf("/%s", synctarget),
+			workloadv1alpha1.InternalSyncTargetPlacementAnnotationKey: workloadv1alpha1.ToSyncTargetKey(logicalcluster.New(""), synctarget),
 		}
 	}
 

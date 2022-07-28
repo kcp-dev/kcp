@@ -60,10 +60,11 @@ type Controller struct {
 	syncTargetName            string
 	syncTargetWorkspace       logicalcluster.Name
 	syncTargetUID             types.UID
+	syncTargetKey             string
 	advancedSchedulingEnabled bool
 }
 
-func NewSpecSyncer(gvrs []schema.GroupVersionResource, syncTargetWorkspace logicalcluster.Name, syncTargetName string, upstreamURL *url.URL, advancedSchedulingEnabled bool,
+func NewSpecSyncer(gvrs []schema.GroupVersionResource, syncTargetWorkspace logicalcluster.Name, syncTargetName, syncTargetKey string, upstreamURL *url.URL, advancedSchedulingEnabled bool,
 	upstreamClient dynamic.ClusterInterface, downstreamClient dynamic.Interface, upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory, syncTargetUID types.UID) (*Controller, error) {
 
 	c := Controller{
@@ -77,6 +78,7 @@ func NewSpecSyncer(gvrs []schema.GroupVersionResource, syncTargetWorkspace logic
 		syncTargetName:            syncTargetName,
 		syncTargetWorkspace:       syncTargetWorkspace,
 		syncTargetUID:             syncTargetUID,
+		syncTargetKey:             syncTargetKey,
 		advancedSchedulingEnabled: advancedSchedulingEnabled,
 	}
 
@@ -111,7 +113,8 @@ func NewSpecSyncer(gvrs []schema.GroupVersionResource, syncTargetWorkspace logic
 				c.AddToQueue(gvr, obj)
 			},
 		})
-		klog.V(2).InfoS("Set up upstream informer", "syncTarget_workspace", syncTargetWorkspace, "synctarget_name", syncTargetName, "gvr", gvr.String())
+
+		klog.V(2).InfoS("Set up upstream informer", "syncTargetWorkspace", syncTargetWorkspace, "syncTargetName", syncTargetName, "syncTargetKey", syncTargetKey, "gvr", gvr.String())
 
 		downstreamInformers.ForResource(gvr).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 			DeleteFunc: func(obj interface{}) {

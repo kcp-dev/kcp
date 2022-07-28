@@ -154,6 +154,7 @@ func TestPlacementUpdate(t *testing.T) {
 		},
 	}, metav1.CreateOptions{})
 	require.NoError(t, err)
+	firstSyncTargetKey := workloadv1alpha1.ToSyncTargetKey(syncerFixture.SyncerConfig.SyncTargetWorkspace, firstSyncTargetName)
 
 	t.Logf("Wait for the service to have the sync label")
 	framework.Eventually(t, func() (bool, string) {
@@ -162,7 +163,7 @@ func TestPlacementUpdate(t *testing.T) {
 			return false, fmt.Sprintf("Failed to get service: %v", err)
 		}
 
-		return svc.Labels[workloadv1alpha1.ClusterResourceStateLabelPrefix+firstSyncTargetName] == string(workloadv1alpha1.ResourceStateSync), ""
+		return svc.Labels[workloadv1alpha1.ClusterResourceStateLabelPrefix+firstSyncTargetKey] == string(workloadv1alpha1.ResourceStateSync), ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Wait for the service to be sync to the downstream cluster")
@@ -214,7 +215,7 @@ func TestPlacementUpdate(t *testing.T) {
 			return false, fmt.Sprintf("Failed to get ns: %v", err)
 		}
 
-		if len(ns.Annotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+firstSyncTargetName]) == 0 {
+		if len(ns.Annotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+firstSyncTargetKey]) == 0 {
 			return false, fmt.Sprintf("resource should be removed but got %s", toYaml(ns))
 		}
 		return true, ""
@@ -226,7 +227,7 @@ func TestPlacementUpdate(t *testing.T) {
 			return false, fmt.Sprintf("Failed to get service: %v", err)
 		}
 
-		if len(svc.Annotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+firstSyncTargetName]) == 0 {
+		if len(svc.Annotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+firstSyncTargetKey]) == 0 {
 			return false, fmt.Sprintf("resource should be removed but got %s", toYaml(svc))
 		}
 		return true, ""
@@ -314,10 +315,10 @@ func TestPlacementUpdate(t *testing.T) {
 			return false, fmt.Sprintf("Failed to get service: %v", err)
 		}
 
-		if len(svc.Annotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+firstSyncTargetName]) != 0 {
+		if len(svc.Annotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+firstSyncTargetKey]) != 0 {
 			return false, fmt.Sprintf("resource should not be removed but got %s", toYaml(svc))
 		}
-		return svc.Labels[workloadv1alpha1.ClusterResourceStateLabelPrefix+firstSyncTargetName] == string(workloadv1alpha1.ResourceStateSync), ""
+		return svc.Labels[workloadv1alpha1.ClusterResourceStateLabelPrefix+firstSyncTargetKey] == string(workloadv1alpha1.ResourceStateSync), ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Wait for the service to be sync to the downstream cluster")
