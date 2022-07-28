@@ -27,7 +27,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -134,18 +134,18 @@ func CreateSheriffsSchemaAndExport(
 	ctx context.Context,
 	t *testing.T,
 	clusterName logicalcluster.Name,
-	clusterClient kcpclientset.ClusterInterface,
+	clusterClient kcpclientset.Interface,
 	group string,
 	description string,
 ) {
 	schema := NewSheriffsAPIResourceSchemaWithDescription(group, description)
 	t.Logf("Creating APIResourceSchema %s|%s", clusterName, schema.Name)
-	_, err := clusterClient.Cluster(clusterName).ApisV1alpha1().APIResourceSchemas().Create(ctx, schema, metav1.CreateOptions{})
+	_, err := clusterClient.ApisV1alpha1().APIResourceSchemas().Create(logicalcluster.WithCluster(ctx, clusterName), schema, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating APIResourceSchema %s|%s", clusterName, schema.Name)
 
 	export := NewSheriffsAPIExport(group, schema.Name)
 	t.Logf("Creating APIExport %s|%s", clusterName, export.Name)
-	_, err = clusterClient.Cluster(clusterName).ApisV1alpha1().APIExports().Create(ctx, export, metav1.CreateOptions{})
+	_, err = clusterClient.ApisV1alpha1().APIExports().Create(logicalcluster.WithCluster(ctx, clusterName), export, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating APIExport %s|%s", clusterName, export.Name)
 }
 

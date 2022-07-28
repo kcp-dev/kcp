@@ -239,11 +239,8 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 
 	cfg := server.BaseConfig(t)
 
-	kcpClients, err := clientset.NewForConfig(cfg)
+	kcpClusterClient, err := clientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
-
-	kcpClusterClient, err := clientset.NewClusterForConfig(cfg)
-	require.NoError(t, err, "failed to construct kcp client for server")
 
 	dynamicClients, err := dynamic.NewClusterForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
@@ -258,7 +255,7 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 	t.Logf("get the sheriffs api export's generated identity hash")
 	identityHash := ""
 	framework.Eventually(t, func() (done bool, str string) {
-		sheriffExport, err := kcpClients.ApisV1alpha1().APIExports().Get(logicalcluster.WithCluster(ctx, serviceProviderSherriffs), "wild.wild.west", metav1.GetOptions{})
+		sheriffExport, err := kcpClusterClient.ApisV1alpha1().APIExports().Get(logicalcluster.WithCluster(ctx, serviceProviderSherriffs), "wild.wild.west", metav1.GetOptions{})
 		if err != nil {
 			return false, err.Error()
 		}
@@ -287,14 +284,14 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 	apifixtures.CreateSheriff(ctx, t, dynamicClients, consumerWorkspace2, "wild.wild.west", "not-in-vw")
 
 	t.Logf("create cowyboys API Export in %v with permssions claims to core resources and sheriff provided by %v", serviceProviderWorkspace, serviceProviderSherriffs)
-	setUpServiceProviderWithPermissionClaims(ctx, dynamicClients, kcpClients, serviceProviderWorkspace, cfg, identityHash, t)
+	setUpServiceProviderWithPermissionClaims(ctx, dynamicClients, kcpClusterClient, serviceProviderWorkspace, cfg, identityHash, t)
 
 	t.Logf("bind cowboys from %v to consumer workspace %v", serviceProviderWorkspace, consumerWorkspace)
-	bindConsumerToProviderWithPermissionClaims(ctx, consumerWorkspace, serviceProviderWorkspace, t, kcpClients, cfg, identityHash)
+	bindConsumerToProviderWithPermissionClaims(ctx, consumerWorkspace, serviceProviderWorkspace, t, kcpClusterClient, cfg, identityHash)
 
 	framework.Eventually(t, func() (success bool, reason string) {
 		//Get the binding and make sure that observed permission claims are all set.
-		binding, err := kcpClients.ApisV1alpha1().APIBindings().Get(logicalcluster.WithCluster(ctx, consumerWorkspace), "cowboys", metav1.GetOptions{})
+		binding, err := kcpClusterClient.ApisV1alpha1().APIBindings().Get(logicalcluster.WithCluster(ctx, consumerWorkspace), "cowboys", metav1.GetOptions{})
 		if err != nil {
 			return false, err.Error()
 		}
@@ -317,7 +314,7 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 
 	framework.Eventually(t, func() (bool, string) {
 		var err error
-		apiExport, err = kcpClients.ApisV1alpha1().APIExports().Get(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), "today-cowboys", metav1.GetOptions{})
+		apiExport, err = kcpClusterClient.ApisV1alpha1().APIExports().Get(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), "today-cowboys", metav1.GetOptions{})
 		if err != nil {
 			return false, fmt.Sprintf("waiting on apiexport to be available %v", err.Error())
 		}

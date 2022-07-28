@@ -715,9 +715,10 @@ func (s *unmanagedKCPServer) RootShardSystemMasterBaseConfig(t *testing.T) *rest
 	defaultConfig, err := config.ClientConfig()
 	require.NoError(t, err)
 
-	defaultConfig.QPS = -1
+	wrappedCfg := kcpclienthelper.NewClusterConfig(defaultConfig)
+	wrappedCfg.QPS = -1
 
-	return defaultConfig
+	return wrappedCfg
 }
 
 func (s *unmanagedKCPServer) Artifact(t *testing.T, producer func() (runtime.Object, error)) {

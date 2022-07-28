@@ -43,7 +43,7 @@ func BindToExport(
 	exportClusterName logicalcluster.Name,
 	apiExportName string,
 	bindingClusterName logicalcluster.Name,
-	clusterClient kcpclientset.ClusterInterface,
+	clusterClient kcpclientset.Interface,
 ) {
 	binding := &apisv1alpha1.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
@@ -60,11 +60,11 @@ func BindToExport(
 	}
 
 	t.Logf("Creating APIBinding %s|%s", bindingClusterName, binding.Name)
-	_, err := clusterClient.Cluster(bindingClusterName).ApisV1alpha1().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
+	_, err := clusterClient.ApisV1alpha1().APIBindings().Create(logicalcluster.WithCluster(ctx, bindingClusterName), binding, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating APIBinding %s|%s", bindingClusterName, binding.Name)
 
 	framework.Eventually(t, func() (bool, string) {
-		b, err := clusterClient.Cluster(bindingClusterName).ApisV1alpha1().APIBindings().Get(ctx, binding.Name, metav1.GetOptions{})
+		b, err := clusterClient.ApisV1alpha1().APIBindings().Get(logicalcluster.WithCluster(ctx, bindingClusterName), binding.Name, metav1.GetOptions{})
 		require.NoError(t, err, "error getting APIBinding %s|%s", bindingClusterName, binding.Name)
 
 		return conditions.IsTrue(b, apisv1alpha1.InitialBindingCompleted), toYAML(t, b.Status.Conditions)

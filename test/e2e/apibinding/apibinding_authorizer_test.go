@@ -58,10 +58,10 @@ func TestAPIBindingAuthorizerSystemGroupProtection(t *testing.T) {
 	kubeClusterClient, err := kubernetes.NewForConfig(server.BaseConfig(t))
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
-	kcpClusterClient, err := clientset.NewClusterForConfig(server.BaseConfig(t))
+	kcpClusterClient, err := clientset.NewForConfig(server.BaseConfig(t))
 	require.NoError(t, err, "failed to construct kcp cluster client for user-1")
 
-	rootKcpClusterClient, err := clientset.NewClusterForConfig(server.RootShardSystemMasterBaseConfig(t))
+	rootKcpClusterClient, err := clientset.NewForConfig(server.RootShardSystemMasterBaseConfig(t))
 	require.NoError(t, err)
 
 	t.Logf("Creating workspace")
@@ -104,7 +104,7 @@ func TestAPIBindingAuthorizerSystemGroupProtection(t *testing.T) {
 				require.Error(t, err, "should have failed to patch status as user-1:\n%s", toYAML(t, wc))
 
 				t.Logf("Double check to change status as admin, which should work")
-				_, err = kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaceTypes().Patch(ctx, "test", types.MergePatchType, patch, metav1.PatchOptions{}, "status")
+				_, err = kcpClusterClient.TenancyV1alpha1().ClusterWorkspaceTypes().Patch(logicalcluster.WithCluster(ctx, orgClusterName), "test", types.MergePatchType, patch, metav1.PatchOptions{}, "status")
 				require.NoError(t, err, "failed to patch status as admin")
 			},
 		},
@@ -134,7 +134,7 @@ func TestAPIBindingAuthorizerSystemGroupProtection(t *testing.T) {
 				require.Error(t, err, "should have failed to patch status as user-1:\n%s", toYAML(t, export))
 
 				t.Logf("Double check to change status as system:master, which should work") // system CRDs even need system:master, hence we need the root shard client
-				_, err = rootKcpClusterClient.Cluster(orgClusterName).ApisV1alpha1().APIExports().Patch(ctx, "test", types.MergePatchType, patch, metav1.PatchOptions{}, "status")
+				_, err = rootKcpClusterClient.ApisV1alpha1().APIExports().Patch(logicalcluster.WithCluster(ctx, orgClusterName), "test", types.MergePatchType, patch, metav1.PatchOptions{}, "status")
 				require.NoError(t, err, "failed to patch status as admin")
 			},
 		},
@@ -159,7 +159,7 @@ func TestAPIBindingAuthorizer(t *testing.T) {
 
 	cfg := server.BaseConfig(t)
 
-	kcpClients, err := clientset.NewClusterForConfig(cfg)
+	kcpClusterClient, err := clientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
 
 	dynamicClients, err := dynamic.NewClusterForConfig(cfg)
@@ -174,7 +174,7 @@ func TestAPIBindingAuthorizer(t *testing.T) {
 
 	// Set up service provider workspace.
 	for _, serviceProviderWorkspace := range serviceProviderWorkspaces {
-		setUpServiceProvider(ctx, dynamicClients, kcpClients, kubeClusterClient, serviceProviderWorkspace, rbacServiceProviderWorkspace, cfg, t)
+		setUpServiceProvider(ctx, dynamicClients, kcpClusterClient, kubeClusterClient, serviceProviderWorkspace, rbacServiceProviderWorkspace, cfg, t)
 	}
 
 	bindConsumerToProvider := func(consumerWorkspace, providerWorkspace logicalcluster.Name) {
@@ -193,11 +193,16 @@ func TestAPIBindingAuthorizer(t *testing.T) {
 			},
 		}
 
-		_, err = kcpClients.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
+		_, err = kcpClusterClient.ApisV1alpha1().APIBindings().Create(logicalcluster.WithCluster(ctx, consumerWorkspace), apiBinding, metav1.CreateOptions{})
 		require.NoError(t, err)
+
+		consumerWorkspaceConfig := kcpclienthelper.ConfigWithCluster(cfg, consumerWorkspace)
+		consumerWorkspaceClient, err := clientset.NewForConfig(consumerWorkspaceConfig)
+		require.NoError(t, err)
+
 		t.Logf("Make sure %q API group shows up in consumer workspace %q group discovery", wildwest.GroupName, consumerWorkspace)
 		err = wait.PollImmediateWithContext(ctx, 100*time.Millisecond, wait.ForeverTestTimeout, func(c context.Context) (done bool, err error) {
-			groups, err := kcpClients.Cluster(consumerWorkspace).Discovery().ServerGroups()
+			groups, err := consumerWorkspaceClient.Discovery().ServerGroups()
 			if err != nil {
 				return false, fmt.Errorf("error retrieving consumer workspace %q group discovery: %w", consumerWorkspace, err)
 			}
@@ -205,7 +210,7 @@ func TestAPIBindingAuthorizer(t *testing.T) {
 		})
 		require.NoError(t, err)
 		t.Logf("Make sure cowboys API resource shows up in consumer workspace %q group version discovery", consumerWorkspace)
-		resources, err := kcpClients.Cluster(consumerWorkspace).Discovery().ServerResourcesForGroupVersion(wildwestv1alpha1.SchemeGroupVersion.String())
+		resources, err := consumerWorkspaceClient.Discovery().ServerResourcesForGroupVersion(wildwestv1alpha1.SchemeGroupVersion.String())
 		require.NoError(t, err, "error retrieving consumer workspace %q API discovery", consumerWorkspace)
 		require.True(t, resourceExists(resources, "cowboys"), "consumer workspace %q discovery is missing cowboys resource", consumerWorkspace)
 	}
@@ -305,7 +310,7 @@ func createClusterRoleAndBindings(name, subjectName, subjectKind string, verbs [
 	return clusterRole, clusterRoleBinding
 }
 
-func setUpServiceProvider(ctx context.Context, dynamicClients *dynamic.Cluster, kcpClients *clientset.Cluster, kubeClusterClient kubernetes.Interface, serviceProviderWorkspace, rbacServiceProvider logicalcluster.Name, cfg *rest.Config, t *testing.T) {
+func setUpServiceProvider(ctx context.Context, dynamicClients *dynamic.Cluster, kcpClients clientset.Interface, kubeClusterClient kubernetes.Interface, serviceProviderWorkspace, rbacServiceProvider logicalcluster.Name, cfg *rest.Config, t *testing.T) {
 	t.Logf("Install today cowboys APIResourceSchema into service provider workspace %q", serviceProviderWorkspace)
 
 	clusterCfg := kcpclienthelper.ConfigWithCluster(cfg, serviceProviderWorkspace)
@@ -335,7 +340,7 @@ func setUpServiceProvider(ctx context.Context, dynamicClients *dynamic.Cluster, 
 		_, err = kubeClusterClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), clusterRoleBinding, metav1.CreateOptions{})
 		require.NoError(t, err)
 	}
-	_, err = kcpClients.Cluster(serviceProviderWorkspace).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
+	_, err = kcpClients.ApisV1alpha1().APIExports().Create(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), cowboysAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err)
 }
 
