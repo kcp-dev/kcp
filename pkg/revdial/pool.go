@@ -27,7 +27,6 @@ import (
 	"time"
 
 	"github.com/aojea/rwconn"
-
 	"k8s.io/klog/v2"
 )
 
@@ -43,14 +42,16 @@ type controlMsg struct {
 // 	mux := http.NewServeMux()
 //	mux.Handle("", pool)
 type ReversePool struct {
-	mu   sync.Mutex
-	pool map[string]*Dialer
+	mu         sync.Mutex
+	pool       map[string]*Dialer
+	apiHandler http.Handler
 }
 
 // NewReversePool returns a ReversePool
-func NewReversePool() *ReversePool {
+func NewReversePool(apiHandler http.Handler) *ReversePool {
 	return &ReversePool{
-		pool: map[string]*Dialer{},
+		pool:       map[string]*Dialer{},
+		apiHandler: apiHandler,
 	}
 }
 
@@ -91,54 +92,89 @@ func (rp *ReversePool) DeleteDialer(id string) {
 	delete(rp.pool, id)
 }
 
+func TunnelParametersHandler(apiHandler http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		// process path
+		path := strings.Split(strings.Trim(req.URL.Path, "/"), "/")
+		if len(path) == 0 {
+			apiHandler.ServeHTTP(w, req)
+			return
+		}
+
+		// route the request
+		pos := -1
+		for i := len(path) - 1; i >= 0; i-- {
+			p := path[i]
+			// pathRevProxy requires at least the id subpath
+			if p == pathRevProxy {
+				if i == len(path)-1 {
+					http.Error(w, "proxy: path is missing", http.StatusInternalServerError)
+					return
+				}
+				pos = i
+				break
+			}
+			// pathRevDial comes with a param
+			if p == pathRevDial {
+				if i != len(path)-1 {
+					http.Error(w, "revdial: only last element on path allowed", http.StatusInternalServerError)
+					return
+				}
+				pos = i
+				break
+			}
+		}
+		// fall through
+		if pos < 0 {
+			apiHandler.ServeHTTP(w, req)
+			return
+		}
+		ctx := req.Context()
+		// Forward proxy /base/proxy/id/..proxied path...
+		if path[pos] == pathRevProxy {
+			// strip the non-proxied path
+			proxypath := "/"
+			if len(path) > pos+1 {
+				proxypath += strings.Join(path[pos+2:], "/")
+			}
+			tunnelID := path[pos+1]
+			ctx = WithTunnelID(ctx, tunnelID)
+			ctx = WithTunnelPath(ctx, proxypath)
+		} else {
+			// The caller identify itself by the value of the keu
+			// https://server/revdial?id=tunnelID
+			tunnelID := req.URL.Query().Get(urlParamKey)
+			if len(tunnelID) == 0 {
+				http.Error(w, "only reverse connections with id supported", http.StatusInternalServerError)
+				return
+			}
+			ctx = WithTunnelID(ctx, tunnelID)
+		}
+
+		req = req.WithContext(ctx)
+		apiHandler.ServeHTTP(w, req)
+	}
+}
+
 // HTTP Handler that handles reverse connections and reverse proxy requests using 2 different paths:
 // path base/revdial?key=id establish reverse connections and queue them so it can be consumed by the dialer
 // path base/proxy/id/(path) proxies the (path) through the reverse connection identified by id
 func (rp *ReversePool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// process path
-	path := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	if len(path) == 0 {
-		http.Error(w, "", http.StatusNotFound)
-		return
-	}
-	// route the request
-	pos := -1
-	for i := len(path) - 1; i >= 0; i-- {
-		p := path[i]
-		// pathRevDial comes with a param
-		if p == pathRevDial {
-			if i != len(path)-1 {
-				http.Error(w, "revdial: only last element on path allowed", http.StatusInternalServerError)
-				return
-			}
-			pos = i
-			break
-		}
-		// pathRevProxy requires at least the id subpath
-		if p == pathRevProxy {
-			if i == len(path)-1 {
-				http.Error(w, "proxy: reverse path id required", http.StatusInternalServerError)
-				return
-			}
-			pos = i
-			break
-		}
-	}
-	if pos < 0 {
-		http.Error(w, "revdial: not handler ", http.StatusNotFound)
-		return
-	}
-	// Forward proxy /base/proxy/id/..proxied path...
-	if path[pos] == pathRevProxy {
-		id := path[pos+1]
-		target, err := url.Parse("http://" + id)
-		if err != nil {
-			http.Error(w, "wrong url", http.StatusInternalServerError)
-			return
-		}
-		d := rp.GetDialer(id)
+	ctx := r.Context()
+	tunnelID := TunnelIDFrom(ctx)
+	tunnelPath := TunnelPathFrom(ctx)
+
+	switch {
+	// this is a request that we should reverse proxy
+	case tunnelID != "" && tunnelPath != "":
+		d := rp.GetDialer(tunnelID)
 		if d == nil {
 			http.Error(w, "not reverse connections for this id available", http.StatusInternalServerError)
+			return
+		}
+		target, err := url.Parse("http://" + tunnelID)
+		if err != nil {
+			http.Error(w, "wrong url", http.StatusInternalServerError)
 			return
 		}
 		proxy := httputil.NewSingleHostReverseProxy(target)
@@ -152,28 +188,16 @@ func (rp *ReversePool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		// only proxy the proxied path and don't forward the authentication header
 		proxy.Director = func(req *http.Request) {
-			// strip the non-proxied path
-			proxypath := "/"
-			if len(path) > pos+1 {
-				proxypath += strings.Join(path[pos+2:], "/")
-			}
-			req.URL.Path = proxypath
+			req.URL.Path = tunnelPath
 			// strip authorization header
 			req.Header.Del("Authorization")
 			director(req)
 		}
 		proxy.ServeHTTP(w, r)
 		klog.V(5).Infof("proxy server closed %v ", err)
-	} else {
-		// The caller identify itself by the value of the keu
-		// https://server/revdial?id=dialerUniq
-		dialerUniq := r.URL.Query().Get(urlParamKey)
-		if len(dialerUniq) == 0 {
-			http.Error(w, "only reverse connections with id supported", http.StatusInternalServerError)
-			return
-		}
-
-		d := rp.GetDialer(dialerUniq)
+	// this is a tunnel establishment request
+	case tunnelID != "" && tunnelPath == "":
+		d := rp.GetDialer(tunnelID)
 		// First flush response headers
 		flusher, ok := w.(http.Flusher)
 		if !ok {
@@ -190,20 +214,19 @@ func (rp *ReversePool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}))
 		if d == nil || isClosedChan(d.Done()) {
 			// start clean
-			rp.DeleteDialer(dialerUniq)
-			rp.CreateDialer(dialerUniq, conn)
+			rp.DeleteDialer(tunnelID)
+			rp.CreateDialer(tunnelID, conn)
 			// start control loop
 			select {
 			case <-r.Context().Done():
 				conn.Close()
 			case <-doneCh:
 			}
-			klog.V(5).Infof("stopped dialer %s control connection ", dialerUniq)
+			klog.V(5).Infof("stopped dialer %s control connection ", tunnelID)
 			return
-
 		}
 		// create a reverse connection
-		klog.V(5).Infof("created reverse connection to %s %s id %s", r.RequestURI, r.RemoteAddr, dialerUniq)
+		klog.V(5).Infof("created reverse connection to %s %s id %s", r.RequestURI, r.RemoteAddr, tunnelID)
 		select {
 		case d.incomingConn <- conn:
 		case <-d.Done():
@@ -217,6 +240,11 @@ func (rp *ReversePool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		case <-doneCh:
 		}
 		klog.V(5).Infof("Connection from %s done", r.RemoteAddr)
+	// fall through
+	case tunnelID == "" && tunnelPath == "":
+		rp.apiHandler.ServeHTTP(w, r)
+	default:
+		http.Error(w, "tunnel ID and tunnel Path parameters are incorrect", http.StatusInternalServerError)
 	}
 }
 
