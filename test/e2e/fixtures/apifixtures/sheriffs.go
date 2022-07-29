@@ -77,14 +77,18 @@ func NewSheriffsCRDWithSchemaDescription(group, description string) *v1.CustomRe
 	return crd
 }
 
-// NewSheriffsAPIResourceSchemaWithDescription returns a new apisv1alpha1.APIResourceSchema for a sheriffs resource in
-// the group specified, and with the description used as the object's description in the OpenAPI schema.
-func NewSheriffsAPIResourceSchemaWithDescription(group, description string) *apisv1alpha1.APIResourceSchema {
-	name := fmt.Sprintf("today.sheriffs.%s", group)
-
-	ret := &apisv1alpha1.APIResourceSchema{
+// CreateSheriffsSchemaAndExport creates a sheriffs apisv1alpha1.APIResourceSchema and then creates a apisv1alpha1.APIExport to export it.
+func CreateSheriffsSchemaAndExport(
+	ctx context.Context,
+	t *testing.T,
+	clusterName logicalcluster.Name,
+	clusterClient kcpclientset.Interface,
+	group string,
+	description string,
+) {
+	schema := &apisv1alpha1.APIResourceSchema{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
+			Name: fmt.Sprintf("today.sheriffs.%s", group),
 		},
 		Spec: apisv1alpha1.APIResourceSchemaSpec{
 			Group: group,
@@ -113,37 +117,19 @@ func NewSheriffsAPIResourceSchemaWithDescription(group, description string) *api
 		},
 	}
 
-	return ret
-}
-
-// NewSheriffsAPIExport returns a new apisv1alpha1.APIExport named apiExportName pointing at schemaName.
-func NewSheriffsAPIExport(apiExportName, schemaName string) *apisv1alpha1.APIExport {
-	return &apisv1alpha1.APIExport{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: apiExportName,
-		},
-		Spec: apisv1alpha1.APIExportSpec{
-			LatestResourceSchemas: []string{schemaName},
-		},
-	}
-}
-
-// CreateSheriffsSchemaAndExport creates a sheriffs apisv1alpha1.APIResourceSchema and then creates a apisv1alpha1.APIExport
-// to export it.
-func CreateSheriffsSchemaAndExport(
-	ctx context.Context,
-	t *testing.T,
-	clusterName logicalcluster.Name,
-	clusterClient kcpclientset.Interface,
-	group string,
-	description string,
-) {
-	schema := NewSheriffsAPIResourceSchemaWithDescription(group, description)
 	t.Logf("Creating APIResourceSchema %s|%s", clusterName, schema.Name)
 	_, err := clusterClient.ApisV1alpha1().APIResourceSchemas().Create(logicalcluster.WithCluster(ctx, clusterName), schema, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating APIResourceSchema %s|%s", clusterName, schema.Name)
 
-	export := NewSheriffsAPIExport(group, schema.Name)
+	export := &apisv1alpha1.APIExport{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: group,
+		},
+		Spec: apisv1alpha1.APIExportSpec{
+			LatestResourceSchemas: []string{schema.Name},
+		},
+	}
+
 	t.Logf("Creating APIExport %s|%s", clusterName, export.Name)
 	_, err = clusterClient.ApisV1alpha1().APIExports().Create(logicalcluster.WithCluster(ctx, clusterName), export, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating APIExport %s|%s", clusterName, export.Name)
@@ -151,6 +137,7 @@ func CreateSheriffsSchemaAndExport(
 
 // CreateSheriff creates an instance of a Sheriff CustomResource in the logical cluster identified by clusterName, in
 // the specific API group, and with the specified name.
+// Deprecated: use local fixtures instead.
 func CreateSheriff(
 	ctx context.Context,
 	t *testing.T,
