@@ -22,13 +22,13 @@ import (
 	"time"
 
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
+	kcpdynamic "github.com/kcp-dev/apimachinery/pkg/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery/cached/memory"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/restmapper"
 
 	"github.com/kcp-dev/kcp/config/helpers"
@@ -55,7 +55,7 @@ func TestProtectedAPI(t *testing.T) {
 	kcpClusterClient, err := clientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
 
-	dynamicClients, err := dynamic.NewClusterForConfig(cfg)
+	dynamicClusterClient, err := kcpdynamic.NewClusterDynamicClientForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
 	providerWorkspaceConfig := kcpclienthelper.ConfigWithCluster(cfg, providerWorkspace)
@@ -64,7 +64,7 @@ func TestProtectedAPI(t *testing.T) {
 
 	t.Logf("Install today cowboys APIResourceSchema into service provider workspace %q", providerWorkspace)
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(providerWorkspaceClient.Discovery()))
-	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(providerWorkspace), mapper, "apiresourceschema_tlsroutes.yaml", testFiles)
+	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(providerWorkspace), mapper, "apiresourceschema_tlsroutes.yaml", testFiles)
 	require.NoError(t, err)
 
 	t.Logf("Create an APIExport for it")

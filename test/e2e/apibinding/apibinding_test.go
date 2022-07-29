@@ -28,13 +28,13 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
+	kcpdynamic "github.com/kcp-dev/apimachinery/pkg/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery/cached/memory"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
@@ -72,7 +72,7 @@ func TestAPIBinding(t *testing.T) {
 	kcpClusterClient, err := clientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
 
-	dynamicClients, err := dynamic.NewClusterForConfig(cfg)
+	dynamicClusterClient, err := kcpdynamic.NewClusterDynamicClientForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
 	clusterWorkspaceShards, err := kcpClusterClient.TenancyV1alpha1().ClusterWorkspaceShards().List(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), metav1.ListOptions{})
@@ -92,7 +92,7 @@ func TestAPIBinding(t *testing.T) {
 		serviceProviderClient, err := clientset.NewForConfig(serviceProviderClusterCfg)
 		require.NoError(t, err)
 		mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(serviceProviderClient.Discovery()))
-		err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(serviceProviderWorkspace), mapper, "apiresourceschema_cowboys.yaml", testFiles)
+		err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(serviceProviderWorkspace), mapper, "apiresourceschema_cowboys.yaml", testFiles)
 		require.NoError(t, err)
 
 		t.Logf("Create an APIExport for it")
@@ -252,7 +252,7 @@ func TestAPIBinding(t *testing.T) {
 
 	verifyWildcardList := func(consumerWorkspace logicalcluster.Name, expectedItems int) {
 		t.Logf("Get consumer %s workspace shard and create a shard client that is able to do wildcard requests", consumerWorkspace)
-		shardDynamicClients, err := dynamic.NewClusterForConfig(rootShardCfg)
+		shardDynamicClusterClients, err := kcpdynamic.NewClusterDynamicClientForConfig(rootShardCfg)
 		require.NoError(t, err)
 
 		t.Logf("Get APIBinding for workspace %s", consumerWorkspace.String())
@@ -263,7 +263,7 @@ func TestAPIBinding(t *testing.T) {
 		gvrWithIdentity := wildwestv1alpha1.SchemeGroupVersion.WithResource("cowboys:" + identity)
 
 		t.Logf("Doing a wildcard list for %v", gvrWithIdentity)
-		wildcardIdentityClient := shardDynamicClients.Cluster(logicalcluster.Wildcard).Resource(gvrWithIdentity)
+		wildcardIdentityClient := shardDynamicClusterClients.Cluster(logicalcluster.Wildcard).Resource(gvrWithIdentity)
 		list, err := wildcardIdentityClient.List(ctx, metav1.ListOptions{})
 		require.NoError(t, err, "error listing wildcard with identity")
 
@@ -289,7 +289,8 @@ func TestAPIBinding(t *testing.T) {
 	t.Logf("Smoke test virtual workspace with explicit workspace")
 	rawConfig, err := server.RawConfig()
 	require.NoError(t, err)
-	vwClusterClient, err := dynamic.NewClusterForConfig(apiexportVWConfig(t, rawConfig, serviceProvider2Workspace, "today-cowboys"))
+
+	vwClusterClient, err := kcpdynamic.NewClusterDynamicClientForConfig(apiexportVWConfig(t, rawConfig, serviceProvider2Workspace, "today-cowboys"))
 	require.NoError(t, err)
 	gvr := wildwestv1alpha1.SchemeGroupVersion.WithResource("cowboys")
 	list, err := vwClusterClient.Cluster(consumer3Workspace).Resource(gvr).Namespace("").List(ctx, metav1.ListOptions{})

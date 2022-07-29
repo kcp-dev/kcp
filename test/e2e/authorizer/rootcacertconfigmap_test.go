@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -45,13 +46,11 @@ func TestRootCACertConfigmap(t *testing.T) {
 	clusterName := framework.NewWorkspaceFixture(t, server, orgClusterName)
 
 	cfg := server.BaseConfig(t)
-	kubeClusterClient, err := kubernetes.NewClusterForConfig(cfg)
+	kubeClusterClient, err := kubernetes.NewForConfig(cfg)
 	require.NoError(t, err)
 
-	kubeClient := kubeClusterClient.Cluster(clusterName)
-
 	t.Log("Creating namespace")
-	namespace, err := kubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+	namespace, err := kubeClusterClient.CoreV1().Namespaces().Create(logicalcluster.WithCluster(ctx, clusterName), &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "e2e-sa-",
 		},
@@ -60,7 +59,7 @@ func TestRootCACertConfigmap(t *testing.T) {
 
 	t.Log("Waiting for default configmap to be created")
 	require.Eventually(t, func() bool {
-		configmap, err := kubeClient.CoreV1().ConfigMaps(namespace.Name).Get(ctx, DefaultRootCACertConfigmap, metav1.GetOptions{})
+		configmap, err := kubeClusterClient.CoreV1().ConfigMaps(namespace.Name).Get(logicalcluster.WithCluster(ctx, clusterName), DefaultRootCACertConfigmap, metav1.GetOptions{})
 		if apierrors.IsNotFound(err) {
 			return false
 		}
