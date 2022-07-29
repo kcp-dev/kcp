@@ -44,6 +44,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 )
 
 const VirtualWorkspaceName string = "apiexport"
@@ -54,14 +55,14 @@ func BuildVirtualWorkspace(
 	dynamicClusterClient dynamic.ClusterInterface,
 	kcpClusterClient kcpclient.ClusterInterface,
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
-) framework.VirtualWorkspace {
+) ([]rootapiserver.NamedVirtualWorkspace, error) {
 	if !strings.HasSuffix(rootPathPrefix, "/") {
 		rootPathPrefix += "/"
 	}
 
 	readyCh := make(chan struct{})
 
-	return &virtualdynamic.DynamicVirtualWorkspace{
+	boundWorkspaceContent := &virtualdynamic.DynamicVirtualWorkspace{
 		RootPathResolver: framework.RootPathResolverFunc(func(path string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
 			completedContext = requestContext
 
@@ -186,6 +187,10 @@ func BuildVirtualWorkspace(
 		},
 		Authorizer: getAuthorizer(kubeClusterClient),
 	}
+
+	return []rootapiserver.NamedVirtualWorkspace{
+		{Name: VirtualWorkspaceName, VirtualWorkspace: boundWorkspaceContent},
+	}, nil
 }
 
 func getAuthorizer(client kubernetes.ClusterInterface) authorizer.AuthorizerFunc {

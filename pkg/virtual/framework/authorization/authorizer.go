@@ -22,11 +22,11 @@ import (
 
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 
-	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	virtualcontext "github.com/kcp-dev/kcp/pkg/virtual/framework/context"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 )
 
-func NewVirtualWorkspaceAuthorizer(virtualWorkspaces map[string]framework.VirtualWorkspace) authorizer.Authorizer {
+func NewVirtualWorkspaceAuthorizer(virtualWorkspaces []rootapiserver.NamedVirtualWorkspace) authorizer.Authorizer {
 	return &virtualWorkspaceAuthorizer{
 		virtualWorkspaces: virtualWorkspaces,
 	}
@@ -35,7 +35,7 @@ func NewVirtualWorkspaceAuthorizer(virtualWorkspaces map[string]framework.Virtua
 var _ authorizer.Authorizer = (*virtualWorkspaceAuthorizer)(nil)
 
 type virtualWorkspaceAuthorizer struct {
-	virtualWorkspaces map[string]framework.VirtualWorkspace
+	virtualWorkspaces []rootapiserver.NamedVirtualWorkspace
 }
 
 func (a *virtualWorkspaceAuthorizer) Authorize(ctx context.Context, attrs authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
@@ -44,8 +44,10 @@ func (a *virtualWorkspaceAuthorizer) Authorize(ctx context.Context, attrs author
 		return authorizer.DecisionNoOpinion, "Path not resolved to a valid virtual workspace", nil
 	}
 
-	if vw, found := a.virtualWorkspaces[virtualWorkspaceName]; found {
-		return vw.Authorize(ctx, attrs)
+	for _, vw := range a.virtualWorkspaces {
+		if vw.Name == virtualWorkspaceName {
+			return vw.VirtualWorkspace.Authorize(ctx, attrs)
+		}
 	}
 
 	// This should never happen if a virtual workspace name has been set in the context by the

@@ -27,8 +27,8 @@ import (
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/builder"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/client/dynamic"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 )
 
 type APIExport struct{}
@@ -56,7 +56,7 @@ func (o *APIExport) NewVirtualWorkspaces(
 	rootPathPrefix string,
 	config *rest.Config,
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
-) (workspaces map[string]framework.VirtualWorkspace, err error) {
+) (workspaces []rootapiserver.NamedVirtualWorkspace, err error) {
 	config = rest.AddUserAgent(rest.CopyConfig(config), "apiexport-virtual-workspace")
 	kcpClusterClient, err := kcpclientset.NewClusterForConfig(config)
 	if err != nil {
@@ -71,8 +71,5 @@ func (o *APIExport) NewVirtualWorkspaces(
 		return nil, err
 	}
 
-	virtualWorkspaces := map[string]framework.VirtualWorkspace{
-		builder.VirtualWorkspaceName: builder.BuildVirtualWorkspace(path.Join(rootPathPrefix, builder.VirtualWorkspaceName), kubeClusterClient, dynamicClusterClient, kcpClusterClient, wildcardKcpInformers),
-	}
-	return virtualWorkspaces, nil
+	return builder.BuildVirtualWorkspace(path.Join(rootPathPrefix, builder.VirtualWorkspaceName), kubeClusterClient, dynamicClusterClient, kcpClusterClient, wildcardKcpInformers)
 }

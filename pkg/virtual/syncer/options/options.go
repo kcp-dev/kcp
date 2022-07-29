@@ -27,7 +27,7 @@ import (
 
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	"github.com/kcp-dev/kcp/pkg/virtual/syncer/builder"
 )
 
@@ -56,7 +56,7 @@ func (o *Syncer) NewVirtualWorkspaces(
 	rootPathPrefix string,
 	config *rest.Config,
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
-) (workspaces map[string]framework.VirtualWorkspace, err error) {
+) (workspaces []rootapiserver.NamedVirtualWorkspace, err error) {
 	config = rest.AddUserAgent(rest.CopyConfig(config), "syncer-virtual-workspace")
 	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
 	if err != nil {
@@ -71,8 +71,7 @@ func (o *Syncer) NewVirtualWorkspaces(
 		return nil, err
 	}
 
-	virtualWorkspaces := map[string]framework.VirtualWorkspace{
-		builder.SyncerVirtualWorkspaceName: builder.BuildVirtualWorkspace(path.Join(rootPathPrefix, builder.SyncerVirtualWorkspaceName), kubeClusterClient, dynamicClusterClient, kcpClusterClient, wildcardKcpInformers),
-	}
-	return virtualWorkspaces, nil
+	return []rootapiserver.NamedVirtualWorkspace{
+		{Name: builder.SyncerVirtualWorkspaceName, VirtualWorkspace: builder.BuildVirtualWorkspace(path.Join(rootPathPrefix, builder.SyncerVirtualWorkspaceName), kubeClusterClient, dynamicClusterClient, kcpClusterClient, wildcardKcpInformers)},
+	}, nil
 }

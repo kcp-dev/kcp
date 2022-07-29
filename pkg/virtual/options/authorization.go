@@ -26,8 +26,8 @@ import (
 	"k8s.io/apiserver/pkg/authorization/union"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 
-	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/authorization"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 )
 
 type Authorization struct {
@@ -80,7 +80,7 @@ func (s *Authorization) AddFlags(fs *pflag.FlagSet) {
 			"contacting the 'core' kubernetes server.")
 }
 
-func (s *Authorization) ApplyTo(config *genericapiserver.Config, virtualWorkspaces map[string]framework.VirtualWorkspace) error {
+func (s *Authorization) ApplyTo(config *genericapiserver.Config, virtualWorkspaces []rootapiserver.NamedVirtualWorkspace) error {
 	var authorizers []authorizer.Authorizer
 
 	// group authorizer

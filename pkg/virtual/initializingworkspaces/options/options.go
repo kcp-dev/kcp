@@ -26,7 +26,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	"github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces"
 	"github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces/builder"
 )
@@ -56,7 +56,7 @@ func (o *InitializingWorkspaces) NewVirtualWorkspaces(
 	rootPathPrefix string,
 	config *rest.Config,
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
-) (workspaces map[string]framework.VirtualWorkspace, err error) {
+) (workspaces []rootapiserver.NamedVirtualWorkspace, err error) {
 	config = rest.AddUserAgent(rest.CopyConfig(config), "initializingworkspaces-virtual-workspace")
 	kubeClusterClient, err := kubernetes.NewClusterForConfig(config)
 	if err != nil {
