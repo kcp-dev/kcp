@@ -21,6 +21,8 @@ import (
 	"testing"
 	"time"
 
+	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
+	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -50,14 +52,18 @@ func TestProtectedAPI(t *testing.T) {
 
 	cfg := server.BaseConfig(t)
 
-	kcpClients, err := clientset.NewClusterForConfig(cfg)
+	kcpClusterClient, err := clientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
 
 	dynamicClients, err := dynamic.NewClusterForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
+	providerWorkspaceConfig := kcpclienthelper.ConfigWithCluster(cfg, providerWorkspace)
+	providerWorkspaceClient, err := clientset.NewForConfig(providerWorkspaceConfig)
+	require.NoError(t, err)
+
 	t.Logf("Install today cowboys APIResourceSchema into service provider workspace %q", providerWorkspace)
-	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(kcpClients.Cluster(providerWorkspace).Discovery()))
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(providerWorkspaceClient.Discovery()))
 	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(providerWorkspace), mapper, "apiresourceschema_tlsroutes.yaml", testFiles)
 	require.NoError(t, err)
 
@@ -70,7 +76,7 @@ func TestProtectedAPI(t *testing.T) {
 			LatestResourceSchemas: []string{"latest.tlsroutes.gateway.networking.k8s.io"},
 		},
 	}
-	_, err = kcpClients.Cluster(providerWorkspace).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
+	_, err = kcpClusterClient.ApisV1alpha1().APIExports().Create(logicalcluster.WithCluster(ctx, providerWorkspace), cowboysAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	t.Logf("Create an APIBinding in consumer workspace %q that points to the gateway-api export from %q", consumerWorkspace, providerWorkspace)
@@ -88,12 +94,12 @@ func TestProtectedAPI(t *testing.T) {
 		},
 	}
 
-	_, err = kcpClients.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
+	_, err = kcpClusterClient.ApisV1alpha1().APIBindings().Create(logicalcluster.WithCluster(ctx, consumerWorkspace), apiBinding, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	t.Logf("Make sure APIBinding %q in workspace %q is completed and up-to-date", apiBinding.Name, consumerWorkspace)
 	require.Eventually(t, func() bool {
-		b, err := kcpClients.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Get(ctx, apiBinding.Name, metav1.GetOptions{})
+		b, err := kcpClusterClient.ApisV1alpha1().APIBindings().Get(logicalcluster.WithCluster(ctx, consumerWorkspace), apiBinding.Name, metav1.GetOptions{})
 		require.NoError(t, err)
 
 		return conditions.IsTrue(b, apisv1alpha1.InitialBindingCompleted) &&
@@ -101,8 +107,11 @@ func TestProtectedAPI(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "APIBinding %q in workspace %q did not complete", apiBinding.Name, consumerWorkspace)
 
 	t.Logf("Make sure gateway API resource shows up in workspace %q group version discovery", consumerWorkspace)
+	consumerWorkspaceConfig := kcpclienthelper.ConfigWithCluster(cfg, consumerWorkspace)
+	consumerWorkspaceClient, err := clientset.NewForConfig(consumerWorkspaceConfig)
+	require.NoError(t, err)
 	require.Eventually(t, func() bool {
-		resources, err := kcpClients.Cluster(consumerWorkspace).Discovery().ServerResourcesForGroupVersion("gateway.networking.k8s.io/v1alpha2")
+		resources, err := consumerWorkspaceClient.Discovery().ServerResourcesForGroupVersion("gateway.networking.k8s.io/v1alpha2")
 		require.NoError(t, err, "error retrieving consumer workspace %q API discovery", consumerWorkspace)
 		return resourceExists(resources, "tlsroutes")
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "consumer workspace %q discovery is missing tlsroutes resource", consumerWorkspace)

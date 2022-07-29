@@ -25,6 +25,7 @@ import (
 	"testing"
 	"time"
 
+	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
@@ -64,17 +65,21 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 
 	cfg := server.BaseConfig(t)
 
-	kcpClients, err := clientset.NewClusterForConfig(cfg)
+	kcpClusterClient, err := clientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
 
 	dynamicClients, err := dynamic.NewClusterForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
-	kubeClusterClient, err := kubernetes.NewClusterForConfig(cfg)
+	kubeClusterClient, err := kubernetes.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct client for server")
 
+	sourceWorkspaceConfig := kcpclienthelper.ConfigWithCluster(cfg, sourceWorkspace)
+	sourceWorkspaceClient, err := clientset.NewForConfig(sourceWorkspaceConfig)
+	require.NoError(t, err)
+
 	t.Logf("Install a cowboys APIResourceSchema into workspace %q", sourceWorkspace)
-	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(kcpClients.Cluster(sourceWorkspace).Discovery()))
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(sourceWorkspaceClient.Discovery()))
 	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(sourceWorkspace), mapper, "apiresourceschema_cowboys.yaml", testFiles)
 	require.NoError(t, err)
 
@@ -87,7 +92,7 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 			LatestResourceSchemas: []string{"today.cowboys.wildwest.dev"},
 		},
 	}
-	_, err = kcpClients.Cluster(sourceWorkspace).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
+	_, err = kcpClusterClient.ApisV1alpha1().APIExports().Create(logicalcluster.WithCluster(ctx, sourceWorkspace), cowboysAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	t.Logf("Create an APIBinding in workspace %q that points to the today-cowboys export", targetWorkspace)
@@ -106,7 +111,7 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 		},
 	}
 
-	_, err = kcpClients.Cluster(targetWorkspace).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
+	_, err = kcpClusterClient.ApisV1alpha1().APIBindings().Create(logicalcluster.WithCluster(ctx, targetWorkspace), apiBinding, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	scheme := runtime.NewScheme()
@@ -165,7 +170,7 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 				AdmissionReviewVersions: []string{"v1"},
 			}},
 		}
-		_, err = kubeClusterClient.Cluster(cluster).AdmissionregistrationV1().MutatingWebhookConfigurations().Create(ctx, webhook, metav1.CreateOptions{})
+		_, err = kubeClusterClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Create(logicalcluster.WithCluster(ctx, cluster), webhook, metav1.CreateOptions{})
 		require.NoError(t, err, "failed to add validating webhook configurations")
 	}
 
@@ -204,17 +209,21 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 
 	cfg := server.BaseConfig(t)
 
-	kcpClients, err := clientset.NewClusterForConfig(cfg)
+	kcpClients, err := clientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
 
 	dynamicClients, err := dynamic.NewClusterForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
-	kubeClusterClient, err := kubernetes.NewClusterForConfig(cfg)
+	kubeClusterClient, err := kubernetes.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct client for server")
 
+	sourceWorkspaceConfig := kcpclienthelper.ConfigWithCluster(cfg, sourceWorkspace)
+	sourceWorkspaceClient, err := clientset.NewForConfig(sourceWorkspaceConfig)
+	require.NoError(t, err)
+
 	t.Logf("Install a cowboys APIResourceSchema into workspace %q", sourceWorkspace)
-	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(kcpClients.Cluster(sourceWorkspace).Discovery()))
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(sourceWorkspaceClient.Discovery()))
 	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(sourceWorkspace), mapper, "apiresourceschema_cowboys.yaml", testFiles)
 	require.NoError(t, err)
 
@@ -227,7 +236,7 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 			LatestResourceSchemas: []string{"today.cowboys.wildwest.dev"},
 		},
 	}
-	_, err = kcpClients.Cluster(sourceWorkspace).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
+	_, err = kcpClients.ApisV1alpha1().APIExports().Create(logicalcluster.WithCluster(ctx, sourceWorkspace), cowboysAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	t.Logf("Create an APIBinding in workspace %q that points to the today-cowboys export", targetWorkspace)
@@ -246,7 +255,7 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 		},
 	}
 
-	_, err = kcpClients.Cluster(targetWorkspace).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
+	_, err = kcpClients.ApisV1alpha1().APIBindings().Create(logicalcluster.WithCluster(ctx, targetWorkspace), apiBinding, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	scheme := runtime.NewScheme()
@@ -311,7 +320,7 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 				AdmissionReviewVersions: []string{"v1"},
 			}},
 		}
-		_, err = kubeClusterClient.Cluster(cluster).AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(ctx, webhook, metav1.CreateOptions{})
+		_, err = kubeClusterClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(logicalcluster.WithCluster(ctx, cluster), webhook, metav1.CreateOptions{})
 		require.NoError(t, err, "failed to add validating webhook configurations")
 	}
 

@@ -167,7 +167,7 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	dynamicClusterClient, err := dynamic.NewClusterForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic client for server")
 
-	kcpClusterClient, err := kcpclientset.NewClusterForConfig(cfg)
+	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp client for server")
 
 	group := uuid.New().String() + ".io"

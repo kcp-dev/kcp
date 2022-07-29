@@ -116,7 +116,7 @@ func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	rootShardConfig := server.RootShardSystemMasterBaseConfig(t)
-	kcpClusterClient, err := kcpclientset.NewClusterForConfig(rootShardConfig)
+	kcpClusterClient, err := kcpclientset.NewForConfig(rootShardConfig)
 	require.NoError(t, err)
 	dynamicClusterClient, err := dynamic.NewClusterForConfig(rootShardConfig)
 	require.NoError(t, err)
