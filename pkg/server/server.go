@@ -115,19 +115,30 @@ func (s *Server) Run(ctx context.Context) error {
 
 		klog.Infof("Finished start kube informers")
 
-		if err := systemcrds.Bootstrap(
-			goContext(ctx),
-			s.ApiExtensionsClusterClient.Cluster(SystemCRDLogicalCluster),
-			s.ApiExtensionsClusterClient.Cluster(SystemCRDLogicalCluster).Discovery(),
-			s.DynamicClusterClient.Cluster(SystemCRDLogicalCluster),
-		); err != nil {
+		if err := wait.PollInfiniteWithContext(goContext(ctx), time.Second, func(ctx context.Context) (bool, error) {
+			if err := systemcrds.Bootstrap(ctx,
+				s.ApiExtensionsClusterClient.Cluster(SystemCRDLogicalCluster),
+				s.ApiExtensionsClusterClient.Cluster(SystemCRDLogicalCluster).Discovery(),
+				s.DynamicClusterClient.Cluster(SystemCRDLogicalCluster),
+			); err != nil {
+				klog.Errorf("failed to bootstrap system CRDs: %v", err)
+				return false, nil // keep trying
+			}
+			return true, nil
+		}); err != nil {
 			klog.Errorf("failed to bootstrap system CRDs: %v", err)
 			// nolint:nilerr
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 		klog.Infof("Finished bootstrapping system CRDs")
 
-		if err := configshard.Bootstrap(goContext(ctx), s.KcpClusterClient.Cluster(systemShardCluster)); err != nil {
+		if err := wait.PollInfiniteWithContext(goContext(ctx), time.Second, func(ctx context.Context) (bool, error) {
+			if err := configshard.Bootstrap(ctx, s.KcpClusterClient.Cluster(systemShardCluster)); err != nil {
+				klog.Errorf("Failed to bootstrap the shard workspace: %v", err)
+				return false, nil // keep trying
+			}
+			return true, nil
+		}); err != nil {
 			// nolint:nilerr
 			klog.Errorf("Failed to bootstrap the shard workspace: %v", err)
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
