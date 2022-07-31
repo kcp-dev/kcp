@@ -17,7 +17,7 @@ contribution. See the [DCO](DCO) file for details.
 ### Prerequisites
 
 1. Clone this repository.
-2. [Install Go](https://golang.org/doc/install) (1.17+).
+2. [Install Go](https://golang.org/doc/install) (1.18+).
 3. Install [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl).
 
 ### Build & verify
