@@ -27,6 +27,9 @@ spec:
       jsonPath: .spec.externalURL
       name: External URL
       type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
     name: v1alpha1
     schema:
       openAPIV3Schema:

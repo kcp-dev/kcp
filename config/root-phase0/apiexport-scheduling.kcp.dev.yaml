@@ -5,8 +5,8 @@ metadata:
   name: scheduling.kcp.dev
 spec:
   latestResourceSchemas:
-  - v220721-bb52ba0d.placements.scheduling.kcp.dev
-  - v220728-6d2008e2.locations.scheduling.kcp.dev
+  - v220801-c65c674d4.locations.scheduling.kcp.dev
+  - v220801-c65c674d4.placements.scheduling.kcp.dev
   maximalPermissionPolicy:
     local: {}
 status: {}

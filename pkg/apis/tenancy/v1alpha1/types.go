@@ -49,6 +49,7 @@ var RootShard = "root"
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`,description="The current phase (e.g. Scheduling, Initializing, Ready)"
 // +kubebuilder:printcolumn:name="Type",type=string,JSONPath=`.spec.type.name`,description="Type of the workspace"
 // +kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.baseURL`,description="URL to access the workspace"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 type ClusterWorkspace struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
@@ -439,6 +440,7 @@ type ClusterWorkspaceList struct {
 // +kubebuilder:resource:scope=Cluster,categories=kcp
 // +kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.spec.baseURL`,description="Type URL to directly connect to the shard"
 // +kubebuilder:printcolumn:name="External URL",type=string,JSONPath=`.spec.externalURL`,description="The URL exposed in workspaces created on that shard"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 type ClusterWorkspaceShard struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional

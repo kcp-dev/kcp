@@ -18,10 +18,14 @@ spec:
     singular: placement
   scope: Cluster
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: "placement defines a selection rule to choose ONE location for
+        description: "Placement defines a selection rule to choose ONE location for
           MULTIPLE namespaces in a workspace. \n placement is in Pending state initially.
           When a location is selected by the placement, the placement turns to Unbound
           state. In Pending or Unbound state, the selection rule can be updated to

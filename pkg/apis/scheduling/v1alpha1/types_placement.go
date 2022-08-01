@@ -23,7 +23,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 )
 
-// placement defines a selection rule to choose ONE location for MULTIPLE namespaces in a workspace.
+// Placement defines a selection rule to choose ONE location for MULTIPLE namespaces in a workspace.
 //
 // placement is in Pending state initially. When a location is selected by the placement, the placement
 // turns to Unbound state. In Pending or Unbound state, the selection rule can be updated to select another location.
@@ -38,6 +38,7 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster,categories=kcp
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 type Placement struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
