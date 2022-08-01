@@ -18,12 +18,14 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	_ "net/http/pprof"
 	"time"
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	genericapiserver "k8s.io/apiserver/pkg/server"
@@ -157,7 +159,6 @@ func (s *Server) Run(ctx context.Context) error {
 			// nolint:nilerr
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
-
 		klog.Infof("Finished starting APIExport and APIBinding informers")
 
 		if s.Options.Extra.ShardName == tenancyv1alpha1.RootShard {
@@ -172,23 +173,75 @@ func (s *Server) Run(ctx context.Context) error {
 				return nil // don't klog.Fatal. This only happens when context is cancelled.
 			}
 			klog.Infof("Bootstrapped root workspace phase 0")
-		}
 
-		klog.Infof("Getting kcp APIExport identities")
-
-		if err := wait.PollImmediateInfiniteWithContext(goContext(ctx), time.Millisecond*500, func(ctx context.Context) (bool, error) {
-			if err := s.resolveIdentities(ctx); err != nil {
-				klog.V(3).Infof("failed to resolve identities, keeping trying: %v", err)
-				return false, nil
+			klog.Infof("Getting kcp APIExport identities")
+			if err := wait.PollImmediateInfiniteWithContext(goContext(ctx), time.Millisecond*500, func(ctx context.Context) (bool, error) {
+				if err := s.resolveIdentities(ctx); err != nil {
+					klog.V(3).Infof("failed to resolve identities, keeping trying: %v", err)
+					return false, nil
+				}
+				return true, nil
+			}); err != nil {
+				klog.Errorf("failed to get or create identities: %v", err)
+				// nolint:nilerr
+				return nil // don't klog.Fatal. This only happens when context is cancelled.
 			}
-			return true, nil
-		}); err != nil {
-			klog.Errorf("failed to get or create identities: %v", err)
-			// nolint:nilerr
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
+			klog.Infof("Finished getting kcp APIExport identities")
+		} else if len(s.Options.Extra.RootShardKubeconfigFile) > 0 {
+			klog.Info("Starting setting up kcp informers for the root shard")
 
-		klog.Infof("Finished getting kcp APIExport identities")
+			go s.TemporaryRootShardKcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().Run(ctx.StopCh)
+			go s.TemporaryRootShardKcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().Run(ctx.StopCh)
+
+			if err := wait.PollInfiniteWithContext(goContext(ctx), time.Millisecond*100, func(ctx context.Context) (bool, error) {
+				exportsSynced := s.TemporaryRootShardKcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
+				bindingsSynced := s.TemporaryRootShardKcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced()
+				return exportsSynced && bindingsSynced, nil
+			}); err != nil {
+				klog.Errorf("failed to start APIExport and/or APIBinding informers for the root shard: %w", err)
+				// nolint:nilerr
+				return nil // don't klog.Fatal. This only happens when context is cancelled.
+			}
+			klog.Infof("Finished starting APIExport and APIBinding informers for the root shard")
+
+			klog.Infof("Getting kcp APIExport identities for the root shard")
+			if err := wait.PollImmediateInfiniteWithContext(goContext(ctx), time.Millisecond*500, func(ctx context.Context) (bool, error) {
+				if err := s.resolveIdentities(ctx); err != nil {
+					klog.V(3).Infof("failed to resolve identities for the root shard, keeping trying: %w", err)
+					return false, nil
+				}
+				return true, nil
+			}); err != nil {
+				klog.Errorf("failed to get or create identities for the root shard: %w", err)
+				// nolint:nilerr
+				return nil // don't klog.Fatal. This only happens when context is cancelled.
+			}
+
+			klog.Infof("Finished getting kcp APIExport identities for the root shard")
+
+			s.TemporaryRootShardKcpSharedInformerFactory.Start(ctx.StopCh)
+			s.TemporaryRootShardKcpSharedInformerFactory.WaitForCacheSync(ctx.StopCh)
+
+			select {
+			case <-ctx.StopCh:
+				return nil // context closed, avoid reporting success below
+			default:
+			}
+			klog.Infof("Finished starting kcp informers for the root shard")
+
+			klog.Info("Creating ClusterWorkspaceShard resource in the root shard")
+			shard := &tenancyv1alpha1.ClusterWorkspaceShard{
+				ObjectMeta: metav1.ObjectMeta{Name: s.Options.Extra.ShardName},
+				Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{
+					BaseURL:     fmt.Sprintf("https://%v", s.GenericConfig.ExternalAddress),
+					ExternalURL: fmt.Sprintf("https://%v", s.Options.Extra.ShardExternalURL),
+				},
+			}
+			if _, err := s.RootShardKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaceShards().Create(goContext(ctx), shard, metav1.CreateOptions{}); err != nil {
+				return err
+			}
+			klog.Info("Finished creating ClusterWorkspaceShard resource in the root shard")
+		}
 
 		s.KcpSharedInformerFactory.Start(ctx.StopCh)
 		s.KcpSharedInformerFactory.WaitForCacheSync(ctx.StopCh)

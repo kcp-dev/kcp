@@ -38,6 +38,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/aggregator"
@@ -86,6 +87,7 @@ type ExtraConfig struct {
 	KubeClusterClient          kubernetes.ClusterInterface
 	ApiExtensionsClusterClient apiextensionsclient.ClusterInterface
 	KcpClusterClient           kcpclient.ClusterInterface
+	RootShardKcpClusterClient  kcpclient.ClusterInterface
 
 	// misc
 	preHandlerChainMux   *handlerChainMuxes
@@ -99,6 +101,9 @@ type ExtraConfig struct {
 
 	// TODO(p0lyn0mial):  get rid of TemporaryRootShardKcpSharedInformerFactory, in the future
 	//                    we should have multi-shard aware informers
+	//
+	// TODO(p0lyn0mial): wire it to the root shard, this will be needed to get bindings,
+	//                   eventually it will be replaced by replication
 	//
 	// TemporaryRootShardKcpSharedInformerFactory bring data from the root shard
 	TemporaryRootShardKcpSharedInformerFactory kcpexternalversions.SharedInformerFactory
@@ -164,14 +169,47 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 	c.GenericConfig.RequestInfoResolver = requestinfo.NewFactory() // must be set here early to avoid a crash in the EnableMultiCluster roundtrip wrapper
 
 	// Setup kcp * informers, but those will need the identities for the APIExports used to make the APIs available.
-	// The identities are not known before we can get them from the APIExports via the loopback client, hence we postpone
-	// this to getOrCreateKcpIdentities() in the kcp-start-informers post-start hook.
+	// The identities are not known before we can get them from the APIExports via the loopback client or from the root shard in case this is a non-root shard,
+	// hence we postpone this to getOrCreateKcpIdentities() in the kcp-start-informers post-start hook.
 	// The informers here are not  used before the informers are actually started (i.e. no race).
-	nonIdentityKcpClusterClient, err := kcpclient.NewClusterForConfig(c.GenericConfig.LoopbackClientConfig) // can only used for wildcard requests of apis.kcp.dev
-	if err != nil {
-		return nil, err
+	if len(c.Options.Extra.RootShardKubeconfigFile) > 0 {
+		// TODO(p0lyn0mial): use kcp-admin instead of system:admin
+		nonIdentityRootKcpShardSystemAdminConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: c.Options.Extra.RootShardKubeconfigFile}, &clientcmd.ConfigOverrides{CurrentContext: "system:admin"}).ClientConfig()
+		if err != nil {
+			return nil, fmt.Errorf("failed to load the kubeconfig from: %s, for the root shard, err: %w", c.Options.Extra.RootShardKubeconfigFile, err)
+		}
+		nonIdentityRootKcpShardClient, err := kcpclient.NewClusterForConfig(nonIdentityRootKcpShardSystemAdminConfig) // can only used for wildcard requests of apis.kcp.dev
+		if err != nil {
+			return nil, err
+		}
+		var kcpShardIdentityRoundTripper func(rt http.RoundTripper) http.RoundTripper
+		kcpShardIdentityRoundTripper, c.resolveIdentities = boostrap.NewWildcardIdentitiesWrappingRoundTripper(boostrap.KcpRootGroupExportNames, boostrap.KcpRootGroupResourceExportNames, nonIdentityRootKcpShardClient.Cluster(tenancyv1alpha1.RootCluster))
+		rootKcpShardIdentityConfig := rest.CopyConfig(nonIdentityRootKcpShardSystemAdminConfig)
+		rootKcpShardIdentityConfig.Wrap(kcpShardIdentityRoundTripper)
+		c.RootShardKcpClusterClient, err = kcpclient.NewClusterForConfig(rootKcpShardIdentityConfig)
+		if err != nil {
+			return nil, err
+		}
+		c.TemporaryRootShardKcpSharedInformerFactory = kcpexternalversions.NewSharedInformerFactoryWithOptions(
+			c.RootShardKcpClusterClient.Cluster(logicalcluster.Wildcard),
+			resyncPeriod,
+			kcpexternalversions.WithExtraClusterScopedIndexers(indexers.ClusterScoped()),
+			kcpexternalversions.WithExtraNamespaceScopedIndexers(indexers.NamespaceScoped()),
+		)
+
+		c.identityConfig = rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
+		c.identityConfig.Wrap(kcpShardIdentityRoundTripper)
+	} else {
+		// create an empty non-functional factory so that code that uses it but doesn't need it, doesn't have to check against the nil value
+		c.TemporaryRootShardKcpSharedInformerFactory = kcpexternalversions.NewSharedInformerFactory(nil, resyncPeriod)
+
+		// The informers here are not used before the informers are actually started (i.e. no race).
+		nonIdentityKcpClusterClient, err := kcpclient.NewClusterForConfig(c.GenericConfig.LoopbackClientConfig) // can only used for wildcard requests of apis.kcp.dev
+		if err != nil {
+			return nil, err
+		}
+		c.identityConfig, c.resolveIdentities = boostrap.NewConfigWithWildcardIdentities(c.GenericConfig.LoopbackClientConfig, boostrap.KcpRootGroupExportNames, boostrap.KcpRootGroupResourceExportNames, nonIdentityKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster))
 	}
-	c.identityConfig, c.resolveIdentities = boostrap.NewConfigWithWildcardIdentities(c.GenericConfig.LoopbackClientConfig, boostrap.KcpRootGroupExportNames, boostrap.KcpRootGroupResourceExportNames, nonIdentityKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster))
 	c.KcpClusterClient, err = kcpclient.NewClusterForConfig(c.identityConfig) // this is now generic to be used for all kcp API groups
 	if err != nil {
 		return nil, err
@@ -182,9 +220,6 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		kcpexternalversions.WithExtraClusterScopedIndexers(indexers.ClusterScoped()),
 		kcpexternalversions.WithExtraNamespaceScopedIndexers(indexers.NamespaceScoped()),
 	)
-
-	// create an empty non-functional factory so that code that uses it but doesn't need it, doesn't have to check against the nil value
-	c.TemporaryRootShardKcpSharedInformerFactory = kcpexternalversions.NewSharedInformerFactory(nil, resyncPeriod)
 
 	// Setup kube * informers
 	c.KubeClusterClient, err = kubernetes.NewClusterForConfig(c.GenericConfig.LoopbackClientConfig)
