@@ -388,7 +388,7 @@ func (sf *SyncerFixture) setDefaults() {
 		sf.SyncTargetUID = types.UID("syncTargetUID")
 	}
 	if sf.SyncTargetLogicalClusterName.Empty() {
-		sf.SyncTargetLogicalClusterName = logicalcluster.New("org:ws:workload")
+		sf.SyncTargetLogicalClusterName = sf.WorkspaceClusterName
 	}
 	if sf.ResourcesToSync == nil {
 		// resources-to-sync is additive to the core set of resources so not providing any
