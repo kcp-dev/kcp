@@ -1,5 +1,4 @@
 /*
-n
 Copyright 2022 The KCP Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -30,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -96,6 +96,12 @@ func NewController(
 		DeleteFunc: func(obj interface{}) { c.enqueueAPIBinding(obj, "") },
 	})
 
+	c.ddsif.AddEventHandler(informer.GVREventHandlerFuncs{
+		AddFunc:    func(gvr schema.GroupVersionResource, obj interface{}) { c.enqueueBindingForResource(gvr, obj) },
+		UpdateFunc: func(gvr schema.GroupVersionResource, _, obj interface{}) { c.enqueueBindingForResource(gvr, obj) },
+		DeleteFunc: nil, // Nothing to do.
+	})
+
 	return c, nil
 
 }
@@ -123,8 +129,39 @@ func (c *controller) enqueueAPIBinding(obj interface{}, logSuffix string) {
 		return
 	}
 
-	klog.V(2).Infof("%v queueing APIBinding %q%s", controllerName, key, logSuffix)
+	klog.V(2).Infof("queueing APIBinding %q%s", key, logSuffix)
 	c.queue.Add(key)
+}
+
+// enqueueBindingForResource
+func (c *controller) enqueueBindingForResource(gvr schema.GroupVersionResource, obj interface{}) {
+	// Determine APIBindings that have Permission Claims for the given GVR
+	o, ok := obj.(logicalcluster.Object)
+	if !ok {
+		runtime.HandleError(fmt.Errorf("expected interface: %T but got: %T", o, obj))
+	}
+
+	lc := logicalcluster.From(o)
+
+	apiBindings, err := c.listAPIBindings(lc)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+
+	for _, binding := range apiBindings {
+		for _, pc := range binding.Spec.AcceptedPermissionClaims {
+			if pc.Group == gvr.Group && pc.Resource == gvr.Resource {
+				key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+				if err != nil {
+					klog.Errorf("unable to get cache key %w", err)
+					continue
+				}
+				klog.V(2).Infof("queueing APIBinding %q", key)
+				c.queue.Add(key)
+			}
+		}
+	}
 }
 
 // Start starts the controller, which stops when ctx.Done() is closed.
