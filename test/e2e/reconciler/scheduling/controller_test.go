@@ -72,13 +72,11 @@ func TestScheduling(t *testing.T) {
 
 	syncTargetName := fmt.Sprintf("synctarget-%d", +rand.Intn(1000000))
 	t.Logf("Creating a SyncTarget and syncer in %s", negotiationClusterName)
-	syncerFixture := framework.SyncerFixture{
-		ResourcesToSync:      sets.NewString("services"),
-		UpstreamServer:       source,
-		WorkspaceClusterName: negotiationClusterName,
-		SyncTargetName:       syncTargetName,
-		InstallCRDs: func(config *rest.Config, isLogicalCluster bool) {
-			if !isLogicalCluster {
+	syncerFixture := framework.NewSyncerFixture(t, source, negotiationClusterName,
+		framework.WithExtraResources("services"),
+		framework.WithSyncTarget(negotiationClusterName, syncTargetName),
+		framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
+			if !isFakePCluster {
 				// Only need to install services and ingresses in a logical cluster
 				return
 			}
@@ -89,8 +87,8 @@ func TestScheduling(t *testing.T) {
 				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
 			)
 			require.NoError(t, err)
-		},
-	}.Start(t)
+		}),
+	).Start(t)
 
 	t.Logf("Wait for APIResourceImports to show up in the negotiation workspace")
 	require.Eventually(t, func() bool {

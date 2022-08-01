@@ -17,10 +17,33 @@ limitations under the License.
 package framework
 
 import (
+	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/stretchr/testify/require"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/klog/v2"
+
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 )
+
+func init() {
+	klog.InitFlags(flag.CommandLine)
+	if err := flag.Lookup("v").Value.Set("2"); err != nil {
+		panic(err)
+	}
+}
 
 type testConfig struct {
 	syncerImage                        string
@@ -77,4 +100,33 @@ func registerFlags(c *testConfig) {
 	flag.StringVar(&c.syncerImage, "syncer-image", "", "The syncer image to use with the pcluster. Requires --pcluster-kubeconfig")
 	flag.StringVar(&c.kcpTestImage, "kcp-test-image", "", "The test image to use with the pcluster. Requires --pcluster-kubeconfig")
 	flag.BoolVar(&c.useDefaultKCPServer, "use-default-kcp-server", false, "Whether to use server configuration from .kcp/admin.kubeconfig.")
+}
+
+// WriteLogicalClusterConfig creates a logical cluster config for the given config and
+// cluster name and writes it to the test's artifact path. Useful for configuring the
+// workspace plugin with --kubeconfig.
+func WriteLogicalClusterConfig(t *testing.T, rawConfig clientcmdapi.Config, contextName string, clusterName logicalcluster.Name) (clientcmd.ClientConfig, string) {
+	logicalRawConfig := LogicalClusterRawConfig(rawConfig, clusterName, contextName)
+	artifactDir, err := CreateTempDirForTest(t, "artifacts")
+	require.NoError(t, err)
+	pathSafeClusterName := strings.ReplaceAll(clusterName.String(), ":", "_")
+	kubeconfigPath := filepath.Join(artifactDir, fmt.Sprintf("%s.kubeconfig", pathSafeClusterName))
+	err = clientcmd.WriteToFile(logicalRawConfig, kubeconfigPath)
+	require.NoError(t, err)
+	logicalConfig := clientcmd.NewNonInteractiveClientConfig(logicalRawConfig, logicalRawConfig.CurrentContext, &clientcmd.ConfigOverrides{}, nil)
+	return logicalConfig, kubeconfigPath
+}
+
+// ShardConfig returns a rest config that talk directly to the given shard.
+func ShardConfig(t *testing.T, kcpClusterClient kcpclientset.ClusterInterface, shardName string, cfg *rest.Config) *rest.Config {
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(cancelFunc)
+
+	shard, err := kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaceShards().Get(ctx, shardName, metav1.GetOptions{})
+	require.NoError(t, err)
+
+	shardCfg := rest.CopyConfig(cfg)
+	shardCfg.Host = shard.Spec.BaseURL
+
+	return shardCfg
 }

@@ -30,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -68,13 +67,11 @@ func TestMultiPlacement(t *testing.T) {
 
 	firstSyncTargetName := fmt.Sprintf("synctarget-%d", +rand.Intn(1000000))
 	t.Logf("Creating a SyncTarget and syncer in %s", locationClusterName)
-	firstSyncerFixture := framework.SyncerFixture{
-		ResourcesToSync:      sets.NewString("services"),
-		UpstreamServer:       source,
-		WorkspaceClusterName: locationClusterName,
-		SyncTargetName:       firstSyncTargetName,
-		InstallCRDs: func(config *rest.Config, isLogicalCluster bool) {
-			if !isLogicalCluster {
+	firstSyncerFixture := framework.NewSyncerFixture(t, source, locationClusterName,
+		framework.WithSyncTarget(locationClusterName, firstSyncTargetName),
+		framework.WithExtraResources("services"),
+		framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
+			if !isFakePCluster {
 				// Only need to install services and ingresses in a logical cluster
 				return
 			}
@@ -85,18 +82,16 @@ func TestMultiPlacement(t *testing.T) {
 				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
 			)
 			require.NoError(t, err)
-		},
-	}.Start(t)
+		}),
+	).Start(t)
 
 	secondSyncTargetName := fmt.Sprintf("synctarget-%d", +rand.Intn(1000000))
 	t.Logf("Creating a SyncTarget and syncer in %s", locationClusterName)
-	secondSyncerFixture := framework.SyncerFixture{
-		ResourcesToSync:      sets.NewString("services"),
-		UpstreamServer:       source,
-		WorkspaceClusterName: locationClusterName,
-		SyncTargetName:       secondSyncTargetName,
-		InstallCRDs: func(config *rest.Config, isLogicalCluster bool) {
-			if !isLogicalCluster {
+	secondSyncerFixture := framework.NewSyncerFixture(t, source, locationClusterName,
+		framework.WithExtraResources("services"),
+		framework.WithSyncTarget(locationClusterName, secondSyncTargetName),
+		framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
+			if !isFakePCluster {
 				// Only need to install services and ingresses in a logical cluster
 				return
 			}
@@ -107,8 +102,8 @@ func TestMultiPlacement(t *testing.T) {
 				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
 			)
 			require.NoError(t, err)
-		},
-	}.Start(t)
+		}),
+	).Start(t)
 
 	t.Log("Label synctarget")
 	patchData1 := `{"metadata":{"labels":{"loc":"loc1"}}}`
