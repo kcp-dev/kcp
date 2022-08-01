@@ -262,7 +262,15 @@ func (c *Controller) ensureSyncerFinalizer(ctx context.Context, gvr schema.Group
 			hasFinalizer = true
 		}
 	}
-	if !hasFinalizer {
+
+	// TODO(davidfestal): When using syncer virtual workspace we would check the DeletionTimestamp on the upstream object, instead of the DeletionTimestamp annotation,
+	//                as the virtual workspace will set the the deletionTimestamp() on the location view by a transformation.
+	intendedToBeRemovedFromLocation := upstreamObj.GetAnnotations()[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+c.syncTargetName] != ""
+
+	// TODO(davidfestal): When using syncer virtual workspace this condition would not be necessary anymore, since directly tested on the virtual workspace side.
+	stillOwnedByExternalActorForLocation := upstreamObj.GetAnnotations()[workloadv1alpha1.ClusterFinalizerAnnotationPrefix+c.syncTargetName] != ""
+
+	if !hasFinalizer && (!intendedToBeRemovedFromLocation || stillOwnedByExternalActorForLocation) {
 		upstreamObjCopy := upstreamObj.DeepCopy()
 		name := upstreamObjCopy.GetName()
 		namespace := upstreamObjCopy.GetNamespace()
