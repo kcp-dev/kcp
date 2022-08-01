@@ -201,7 +201,8 @@ test-e2e-shared: require-kind build-all build-kind-images
 	trap 'kill -TERM $$PID' TERM INT EXIT && \
 	while [ ! -f "$(WORK_DIR)/.kcp/admin.kubeconfig" ]; do sleep 1; done && \
 	NO_GORUN=1 $(GO_TEST) -race -count $(COUNT) -p $(E2E_PARALLELISM) -parallel $(E2E_PARALLELISM) $(WHAT) $(TEST_ARGS) \
-		-args --use-default-kcp-server --syncer-image="$(SYNCER_IMAGE)" --kcp-test-image="$(TEST_IMAGE)" --pcluster-kubeconfig="$(abspath $(WORK_DIR)/.kcp/kind.kubeconfig)"
+		-args --use-default-kcp-server --syncer-image="$(SYNCER_IMAGE)" --kcp-test-image="$(TEST_IMAGE)" --pcluster-kubeconfig="$(abspath $(WORK_DIR)/.kcp/kind.kubeconfig)" \
+	$(if $(value WAIT),|| { echo "Terminated with $$?"; wait "$$PID"; },)
 
 .PHONY: test-e2e-sharded
 ifdef USE_GOTESTSUM
@@ -224,7 +225,8 @@ test-e2e-sharded: require-kind build-all build-kind-images
 	while [ ! -f "$(WORK_DIR)/.kcp/admin.kubeconfig" ]; do sleep 1; done && \
 	NO_GORUN=1 $(GO_TEST) -race -count $(COUNT) -p $(E2E_PARALLELISM) -parallel $(E2E_PARALLELISM) $(WHAT) $(TEST_ARGS) \
 		-args --use-default-kcp-server --root-shard-kubeconfig=$(PWD)/.kcp-0/admin.kubeconfig \
-		--syncer-image="$(SYNCER_IMAGE)" --kcp-test-image="$(TEST_IMAGE)" --pcluster-kubeconfig="$(abspath $(WORK_DIR)/.kcp/kind.kubeconfig)"
+		--syncer-image="$(SYNCER_IMAGE)" --kcp-test-image="$(TEST_IMAGE)" --pcluster-kubeconfig="$(abspath $(WORK_DIR)/.kcp/kind.kubeconfig)" \
+	$(if $(value WAIT),|| { echo "Terminated with $$?"; wait "$$PID"; },)
 
 .PHONY: test
 ifdef USE_GOTESTSUM
