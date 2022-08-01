@@ -29,7 +29,6 @@ import (
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -67,13 +66,11 @@ func TestPlacementUpdate(t *testing.T) {
 
 	firstSyncTargetName := fmt.Sprintf("synctarget-%d", +rand.Intn(1000000))
 	t.Logf("Creating a SyncTarget and syncer in %s", locationClusterName)
-	syncerFixture := framework.SyncerFixture{
-		ResourcesToSync:      sets.NewString("services"),
-		UpstreamServer:       source,
-		WorkspaceClusterName: locationClusterName,
-		SyncTargetName:       firstSyncTargetName,
-		InstallCRDs: func(config *rest.Config, isLogicalCluster bool) {
-			if !isLogicalCluster {
+	syncerFixture := framework.NewSyncerFixture(t, source, locationClusterName,
+		framework.WithSyncTarget(locationClusterName, firstSyncTargetName),
+		framework.WithExtraResources("services"),
+		framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
+			if !isFakePCluster {
 				// Only need to install services and ingresses in a logical cluster
 				return
 			}
@@ -84,8 +81,8 @@ func TestPlacementUpdate(t *testing.T) {
 				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
 			)
 			require.NoError(t, err)
-		},
-	}.Start(t)
+		}),
+	).Start(t)
 
 	t.Log("Wait for \"default\" location")
 	require.Eventually(t, func() bool {

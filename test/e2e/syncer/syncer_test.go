@@ -64,10 +64,7 @@ func TestSyncerLifecycle(t *testing.T) {
 	// its sync target to go ready. This implicitly validates the syncer
 	// heartbeating and the heartbeat controller setting the sync target ready in
 	// response.
-	syncerFixture := framework.SyncerFixture{
-		UpstreamServer:       upstreamServer,
-		WorkspaceClusterName: wsClusterName,
-	}.Start(t)
+	syncerFixture := framework.NewSyncerFixture(t, upstreamServer, wsClusterName).Start(t)
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
@@ -88,10 +85,10 @@ func TestSyncerLifecycle(t *testing.T) {
 	downstreamKubeClient, err := kubernetesclientset.NewForConfig(syncerFixture.DownstreamConfig)
 	require.NoError(t, err)
 
-	kcpClient, err := kcpclientset.NewForConfig(syncerFixture.SyncerConfig.UpstreamConfig)
+	upstreamKcpClient, err := kcpclientset.NewForConfig(syncerFixture.SyncerConfig.UpstreamConfig)
 	require.NoError(t, err)
 
-	syncTarget, err := kcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx,
+	syncTarget, err := upstreamKcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx,
 		syncerFixture.SyncerConfig.SyncTargetName,
 		metav1.GetOptions{},
 	)
@@ -492,10 +489,7 @@ func TestCordonUncordonDrain(t *testing.T) {
 	// its sync target to go ready. This implicitly validates the syncer
 	// heartbeating and the heartbeat controller setting the sync target ready in
 	// response.
-	syncerFixture := framework.SyncerFixture{
-		UpstreamServer:       upstreamServer,
-		WorkspaceClusterName: wsClusterName,
-	}.Start(t)
+	syncerFixture := framework.NewSyncerFixture(t, upstreamServer, wsClusterName).Start(t)
 	syncTargetName := syncerFixture.SyncerConfig.SyncTargetName
 
 	ctx, cancelFunc := context.WithCancel(context.Background())

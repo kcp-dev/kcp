@@ -31,7 +31,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubernetesclient "k8s.io/client-go/kubernetes"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -176,19 +175,16 @@ func TestClusterController(t *testing.T) {
 			sourceKubeClient := sourceKubeClusterClient.Cluster(wsClusterName)
 			sourceWildwestClient := sourceWildwestClusterClient.Cluster(wsClusterName)
 
-			syncerFixture := framework.SyncerFixture{
-				ResourcesToSync:      sets.NewString("cowboys.wildwest.dev"),
-				UpstreamServer:       source,
-				WorkspaceClusterName: wsClusterName,
-				InstallCRDs: func(config *rest.Config, isLogicalCluster bool) {
+			syncerFixture := framework.NewSyncerFixture(t, source, wsClusterName,
+				framework.WithExtraResources("cowboys.wildwest.dev"),
+				framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 					// Always install the crd regardless of whether the target is
 					// logical or not since cowboys is not a native type.
 					sinkCrdClient, err := apiextensionsclientset.NewForConfig(config)
 					require.NoError(t, err)
 					t.Log("Installing test CRDs into sink cluster...")
 					fixturewildwest.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
-				},
-			}.Start(t)
+				})).Start(t)
 
 			sinkWildwestClient, err := wildwestclientset.NewForConfig(syncerFixture.DownstreamConfig)
 			require.NoError(t, err)

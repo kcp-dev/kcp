@@ -41,7 +41,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
@@ -366,47 +365,61 @@ func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logi
 	return wsClusterName
 }
 
-// SyncerFixture configures a syncer fixture. Its `Start` method does the work of starting a syncer.
-type SyncerFixture struct {
-	ResourcesToSync              sets.String
-	UpstreamServer               RunningServer
-	WorkspaceClusterName         logicalcluster.Name
-	SyncTargetLogicalClusterName logicalcluster.Name
-	SyncTargetName               string
-	SyncTargetUID                types.UID
-	InstallCRDs                  func(config *rest.Config, isLogicalCluster bool)
+type SyncerOption func(t *testing.T, fs *syncerFixture)
+
+func NewSyncerFixture(t *testing.T, server RunningServer, clusterName logicalcluster.Name, opts ...SyncerOption) *syncerFixture {
+	sf := &syncerFixture{
+		upstreamServer:        server,
+		workspaceClusterName:  clusterName,
+		syncTargetClusterName: clusterName,
+		syncTargetName:        "psyncer-01",
+	}
+	for _, opt := range opts {
+		opt(t, sf)
+	}
+	return sf
 }
 
-// SetDefaults ensures a valid configuration even if not all values are explicitly provided.
-func (sf *SyncerFixture) setDefaults() {
-	// Default configuration to avoid tests having to be exaustive
-	if len(sf.SyncTargetName) == 0 {
-		// This only needs to vary when more than one syncer need to be tested in a workspace
-		sf.SyncTargetName = "pcluster-01"
+// syncerFixture configures a syncer fixture. Its `Start` method does the work of starting a syncer.
+type syncerFixture struct {
+	upstreamServer RunningServer
+
+	workspaceClusterName logicalcluster.Name
+
+	syncTargetClusterName logicalcluster.Name
+	syncTargetName        string
+
+	extraResourcesToSync []string
+	prepareDownstream    func(config *rest.Config, isFakePCluster bool)
+}
+
+func WithSyncTarget(clusterName logicalcluster.Name, name string) SyncerOption {
+	return func(t *testing.T, sf *syncerFixture) {
+		sf.syncTargetClusterName = clusterName
+		sf.syncTargetName = name
 	}
-	if len(sf.SyncTargetUID) == 0 {
-		sf.SyncTargetUID = types.UID("syncTargetUID")
+}
+
+func WithExtraResources(resources ...string) SyncerOption {
+	return func(t *testing.T, sf *syncerFixture) {
+		sf.extraResourcesToSync = append(sf.extraResourcesToSync, resources...)
 	}
-	if sf.SyncTargetLogicalClusterName.Empty() {
-		sf.SyncTargetLogicalClusterName = sf.WorkspaceClusterName
-	}
-	if sf.ResourcesToSync == nil {
-		// resources-to-sync is additive to the core set of resources so not providing any
-		// values means default types will still be synced.
-		sf.ResourcesToSync = sets.NewString()
+}
+
+func WithDownstreamPreparation(prepare func(config *rest.Config, isFakePCluster bool)) SyncerOption {
+	return func(t *testing.T, sf *syncerFixture) {
+		sf.prepareDownstream = prepare
 	}
 }
 
 // Start starts a new syncer against the given upstream kcp workspace. Whether the syncer run
 // in-process or deployed on a pcluster will depend whether --pcluster-kubeconfig and
 // --syncer-image are supplied to the test invocation.
-func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
-	sf.setDefaults()
-
+func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 	// Write the upstream logical cluster config to disk for the workspace plugin
-	upstreamRawConfig, err := sf.UpstreamServer.RawConfig()
+	upstreamRawConfig, err := sf.upstreamServer.RawConfig()
 	require.NoError(t, err)
-	_, kubeconfigPath := WriteLogicalClusterConfig(t, upstreamRawConfig, sf.WorkspaceClusterName, "base")
+	_, kubeconfigPath := WriteLogicalClusterConfig(t, upstreamRawConfig, sf.workspaceClusterName, "base")
 
 	useDeployedSyncer := len(TestConfig.PClusterKubeconfig()) > 0
 
@@ -414,22 +427,21 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 	if useDeployedSyncer {
 		require.NotZero(t, len(syncerImage), "--syncer-image must be specified if testing with a deployed syncer")
 	} else {
-		// The image needs to be a non-empty string for the plugin command but the value
-		// doesn't matter if not deploying a syncer.
+		// The image needs to be a non-empty string for the plugin command but the value doesn't matter if not deploying a syncer.
 		syncerImage = "not-a-valid-image"
 	}
 
 	// Run the plugin command to enable the syncer and collect the resulting yaml
-	t.Logf("Configuring workspace %s for syncing", sf.WorkspaceClusterName)
+	t.Logf("Configuring workspace %s for syncing", sf.workspaceClusterName)
 	pluginArgs := []string{
 		"workload",
 		"sync",
-		sf.SyncTargetName,
+		sf.syncTargetName,
 		"--syncer-image", syncerImage,
 		"--output-file", "-",
 		"--qps", "-1",
 	}
-	for _, resource := range sf.ResourcesToSync.List() {
+	for _, resource := range sf.extraResourcesToSync {
 		pluginArgs = append(pluginArgs, "--resources", resource)
 	}
 	syncerYAML := RunKcpCliPlugin(t, kubeconfigPath, pluginArgs)
@@ -451,17 +463,17 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 		// The syncer will target a logical cluster that is a peer to the current workspace. A
 		// logical server provides as a lightweight approximation of a pcluster for tests that
 		// don't need to validate running workloads or interaction with kube controllers.
-		parentClusterName, ok := sf.WorkspaceClusterName.Parent()
-		require.True(t, ok, "%s does not have a parent", sf.WorkspaceClusterName)
-		downstreamServer := NewFakeWorkloadServer(t, sf.UpstreamServer, parentClusterName)
+		parentClusterName, ok := sf.workspaceClusterName.Parent()
+		require.True(t, ok, "%s does not have a parent", sf.workspaceClusterName)
+		downstreamServer := NewFakeWorkloadServer(t, sf.upstreamServer, parentClusterName)
 		downstreamConfig = downstreamServer.BaseConfig(t)
 		downstreamKubeconfigPath = downstreamServer.KubeconfigPath()
 	}
 
-	if sf.InstallCRDs != nil {
+	if sf.prepareDownstream != nil {
 		// Attempt crd installation to ensure the downstream server has an api surface
 		// compatible with the test.
-		sf.InstallCRDs(downstreamConfig, !useDeployedSyncer)
+		sf.prepareDownstream(downstreamConfig, !useDeployedSyncer)
 	}
 
 	// Apply the yaml output from the plugin to the downstream server
@@ -478,7 +490,7 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 		defer cancelFn()
 
 		t.Logf("Collecting imported resource info: %s", artifactDir)
-		upstreamCfg := sf.UpstreamServer.BaseConfig(t)
+		upstreamCfg := sf.upstreamServer.BaseConfig(t)
 
 		gather := func(client dynamic.Interface, gvr schema.GroupVersionResource) {
 			resourceClient := client.Resource(gvr)
@@ -492,7 +504,7 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 
 			for i := range list.Items {
 				item := list.Items[i]
-				sf.UpstreamServer.Artifact(t, func() (runtime.Object, error) {
+				sf.upstreamServer.Artifact(t, func() (runtime.Object, error) {
 					return &item, nil
 				})
 			}
@@ -504,11 +516,11 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 		downstreamDynamic, err := dynamic.NewForConfig(downstreamConfig)
 		require.NoError(t, err, "error creating downstream dynamic client")
 
-		gather(upstreamDynamic.Cluster(sf.WorkspaceClusterName), apiresourcev1alpha1.SchemeGroupVersion.WithResource("apiresourceimports"))
-		gather(upstreamDynamic.Cluster(sf.WorkspaceClusterName), apiresourcev1alpha1.SchemeGroupVersion.WithResource("negotiatedapiresources"))
-		gather(upstreamDynamic.Cluster(sf.WorkspaceClusterName), corev1.SchemeGroupVersion.WithResource("namespaces"))
+		gather(upstreamDynamic.Cluster(sf.workspaceClusterName), apiresourcev1alpha1.SchemeGroupVersion.WithResource("apiresourceimports"))
+		gather(upstreamDynamic.Cluster(sf.workspaceClusterName), apiresourcev1alpha1.SchemeGroupVersion.WithResource("negotiatedapiresources"))
+		gather(upstreamDynamic.Cluster(sf.workspaceClusterName), corev1.SchemeGroupVersion.WithResource("namespaces"))
 		gather(downstreamDynamic, corev1.SchemeGroupVersion.WithResource("namespaces"))
-		gather(upstreamDynamic.Cluster(sf.WorkspaceClusterName), appsv1.SchemeGroupVersion.WithResource("deployments"))
+		gather(upstreamDynamic.Cluster(sf.workspaceClusterName), appsv1.SchemeGroupVersion.WithResource("deployments"))
 		gather(downstreamDynamic, appsv1.SchemeGroupVersion.WithResource("deployments"))
 	})
 
@@ -527,7 +539,7 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 			break
 		}
 	}
-	require.NotEmpty(t, syncerID, "failed to extract syncer ID from yaml produced by plugin:\n%s", string(syncerYAML))
+	require.NotEmpty(t, syncerID, "failed to extract syncer namespace from yaml produced by plugin:\n%s", string(syncerYAML))
 
 	syncerConfig := syncerConfigFromCluster(t, downstreamConfig, syncerID, syncerID)
 
@@ -570,7 +582,7 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 				return
 			}
 
-			t.Logf("Deleting syncer resources for logical cluster %q, sync target %q", sf.WorkspaceClusterName, syncerConfig.SyncTargetName)
+			t.Logf("Deleting syncer resources for logical cluster %q, sync target %q", sf.workspaceClusterName, syncerConfig.SyncTargetName)
 			err = downstreamKubeClient.CoreV1().Namespaces().Delete(ctx, syncerID, metav1.DeleteOptions{})
 			if err != nil {
 				t.Errorf("failed to delete Namespace %q: %v", syncerID, err)
@@ -584,27 +596,25 @@ func (sf SyncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 				t.Errorf("failed to delete ClusterRole %q: %v", syncerID, err)
 			}
 
-			t.Logf("Deleting synced resources for logical cluster %q, sync target %q", sf.WorkspaceClusterName, syncerConfig.SyncTargetName)
+			t.Logf("Deleting synced resources for logical cluster %s, sync target %s|%s", sf.workspaceClusterName, syncerConfig.SyncTargetWorkspace, syncerConfig.SyncTargetName)
 			namespaces, err := downstreamKubeClient.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 			if err != nil {
 				t.Errorf("failed to list namespaces: %v", err)
 			}
 			for _, ns := range namespaces.Items {
 				locator, exists, err := shared.LocatorFromAnnotations(ns.Annotations)
-				if err != nil {
-					t.Logf("failed to retrieve locator from ns %q: %v", ns.Name, err)
-					continue
+				require.NoError(t, err, "failed to extract locator from namespace %s", ns.Name)
+				if !exists {
+					continue // Not a kcp-synced namespace
 				}
-				if !exists || locator == nil {
-					// Not a kcp-synced namespace
-					continue
+				if locator.Workspace != sf.workspaceClusterName {
+					continue // Not a namespace synced from this upstream workspace
 				}
-				if locator.Workspace.String() != syncerConfig.SyncTargetWorkspace.String() {
-					// Not a namespace synced by this syncer
-					continue
+				if locator.SyncTarget.Workspace != syncerConfig.SyncTargetWorkspace.String() ||
+					locator.SyncTarget.Name != syncerConfig.SyncTargetName {
+					continue // Not a namespace synced by this syncer
 				}
-				err = downstreamKubeClient.CoreV1().Namespaces().Delete(ctx, ns.Name, metav1.DeleteOptions{})
-				if err != nil {
+				if err = downstreamKubeClient.CoreV1().Namespaces().Delete(ctx, ns.Name, metav1.DeleteOptions{}); err != nil {
 					t.Logf("failed to delete Namespace %q: %v", ns.Name, err)
 				}
 			}

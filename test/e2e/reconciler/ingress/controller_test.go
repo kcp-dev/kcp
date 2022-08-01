@@ -161,12 +161,10 @@ func TestIngressController(t *testing.T) {
 			sourceKcpClient := sourceKcpClusterClient.Cluster(clusterName)
 
 			t.Logf("Deploy syncer")
-			syncerFixture := framework.SyncerFixture{
-				ResourcesToSync:      sets.NewString("ingresses.networking.k8s.io", "services"),
-				UpstreamServer:       source,
-				WorkspaceClusterName: clusterName,
-				InstallCRDs: func(config *rest.Config, isLogicalCluster bool) {
-					if !isLogicalCluster {
+			syncerFixture := framework.NewSyncerFixture(t, source, clusterName,
+				framework.WithExtraResources("ingresses.networking.k8s.io", "services"),
+				framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
+					if !isFakePCluster {
 						// Only need to install services and ingresses in a logical cluster
 						return
 					}
@@ -178,8 +176,8 @@ func TestIngressController(t *testing.T) {
 						metav1.GroupResource{Group: "networking.k8s.io", Resource: "ingresses"},
 					)
 					require.NoError(t, err)
-				},
-			}.Start(t)
+				}),
+			).Start(t)
 
 			t.Log("Wait for \"kubernetes\" apiexport")
 			require.Eventually(t, func() bool {

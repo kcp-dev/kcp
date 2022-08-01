@@ -34,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/endpoints/discovery"
 	clientgodiscovery "k8s.io/client-go/discovery"
@@ -568,13 +567,11 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 			kubelikeWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
 
 			t.Logf("Deploying syncer into workspace %s", kubelikeWorkspace)
-			_ = framework.SyncerFixture{
-				ResourcesToSync:      sets.NewString("ingresses.networking.k8s.io", "services"),
-				UpstreamServer:       server,
-				WorkspaceClusterName: kubelikeWorkspace,
-				SyncTargetName:       "kubelike",
-				InstallCRDs: func(config *rest.Config, isLogicalCluster bool) {
-					if !isLogicalCluster {
+			_ = framework.NewSyncerFixture(t, server, kubelikeWorkspace,
+				framework.WithSyncTarget(kubelikeWorkspace, "kubelike"),
+				framework.WithExtraResources("ingresses.networking.k8s.io", "services"),
+				framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
+					if !isFakePCluster {
 						// Only need to install services and ingresses in a logical cluster
 						return
 					}
@@ -586,8 +583,8 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						metav1.GroupResource{Group: "networking.k8s.io", Resource: "ingresses"},
 					)
 					require.NoError(t, err)
-				},
-			}.Start(t)
+				}),
+			).Start(t)
 
 			t.Log("Waiting for ingresses crd to be imported and available in the kubelike source cluster...")
 			require.Eventually(t, func() bool {
@@ -644,20 +641,18 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 			wildwestSyncTargetName := fmt.Sprintf("wildwest-%d", +rand.Intn(1000000))
 
 			t.Logf("Deploying syncer into workspace %s", wildwestWorkspace)
-			_ = framework.SyncerFixture{
-				ResourcesToSync:      sets.NewString("cowboys.wildwest.dev"),
-				UpstreamServer:       server,
-				WorkspaceClusterName: wildwestWorkspace,
-				SyncTargetName:       wildwestSyncTargetName,
-				InstallCRDs: func(config *rest.Config, isLogicalCluster bool) {
+			_ = framework.NewSyncerFixture(t, server, wildwestWorkspace,
+				framework.WithExtraResources("cowboys.wildwest.dev"),
+				framework.WithSyncTarget(wildwestWorkspace, wildwestSyncTargetName),
+				framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 					// Always install the crd regardless of whether the target is
 					// logical or not since cowboys is not a native type.
 					sinkCrdClient, err := apiextensionsclientset.NewForConfig(config)
 					require.NoError(t, err)
 					t.Log("Installing test CRDs into sink cluster...")
 					fixturewildwest.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
-				},
-			}.Start(t)
+				}),
+			).Start(t)
 
 			t.Log("Waiting for cowboys crd to be imported and available in the wildwest source workspace...")
 			require.Eventually(t, func() bool {
