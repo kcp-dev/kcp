@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"net"
 	"os"
 	"path"
@@ -32,6 +33,7 @@ import (
 	"time"
 
 	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/martinlindhe/base36"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -344,4 +346,15 @@ func ConfigWithToken(token string, cfg *rest.Config) *rest.Config {
 	cfgCopy.KeyData = nil
 	cfgCopy.BearerToken = token
 	return cfgCopy
+}
+
+// UniqueGroup returns a unique API group with the given suffix by prefixing
+// some random 8 character base36 string. suffix must start with a dot if the
+// random string should be dot-separated.
+func UniqueGroup(suffix string) string {
+	ret := strings.ToLower(base36.Encode(rand.Uint64())[:8]) + suffix
+	if ret[0] >= '0' && ret[0] <= '9' {
+		return "a" + ret[1:]
+	}
+	return ret
 }

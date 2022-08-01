@@ -23,7 +23,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
@@ -169,7 +168,7 @@ func TestNamespaceScheduler(t *testing.T) {
 				}, time.Second*10)
 
 				t.Log("Create a new unique sheriff CRD")
-				group := uuid.New().String() + ".io"
+				group := framework.UniqueGroup(".io")
 				crd := newSheriffCRD(group)
 				gvr := schema.GroupVersionResource{
 					Group:    crd.Spec.Group,

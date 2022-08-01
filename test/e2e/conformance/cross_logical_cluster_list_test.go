@@ -22,7 +22,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
@@ -170,7 +169,7 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp client for server")
 
-	group := uuid.New().String() + ".io"
+	group := framework.UniqueGroup(".io")
 
 	sheriffCRD1 := apifixtures.NewSheriffsCRDWithSchemaDescription(group, "one")
 	sheriffCRD2 := apifixtures.NewSheriffsCRDWithSchemaDescription(group, "two")
