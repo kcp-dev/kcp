@@ -39,6 +39,7 @@ import (
 	"k8s.io/client-go/dynamic/fake"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	clienttesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
@@ -347,10 +348,9 @@ func TestSyncerProcess(t *testing.T) {
 
 			expectActionsOnFrom: []clienttesting.Action{},
 			expectActionsOnTo: []clienttesting.Action{
-				getDeploymentAction("theDeployment", "test"),
 				updateDeploymentAction("test",
 					toUnstructured(t, changeDeployment(
-						deployment("theDeployment", "test", "", map[string]string{
+						deployment("theDeployment", "test", "root:org:ws", map[string]string{
 							"state.workload.kcp.dev/us-west1": "Sync",
 						}, nil, nil),
 						addDeploymentStatus(appsv1.DeploymentStatus{
@@ -384,9 +384,7 @@ func TestSyncerProcess(t *testing.T) {
 			syncTargetName:                      "us-west1",
 
 			expectActionsOnFrom: []clienttesting.Action{},
-			expectActionsOnTo: []clienttesting.Action{
-				getDeploymentAction("theDeployment", "test"),
-			},
+			expectActionsOnTo:   []clienttesting.Action{},
 		},
 		"StatusSyncer with AdvancedScheduling, update status upstream": {
 			upstreamLogicalCluster: "root:org:ws",
@@ -417,7 +415,6 @@ func TestSyncerProcess(t *testing.T) {
 
 			expectActionsOnFrom: []clienttesting.Action{},
 			expectActionsOnTo: []clienttesting.Action{
-				getDeploymentAction("theDeployment", "test"),
 				updateDeploymentAction("test",
 					toUnstructured(t, changeDeployment(
 						deployment("theDeployment", "test", "root:org:ws", map[string]string{
@@ -458,9 +455,7 @@ func TestSyncerProcess(t *testing.T) {
 			advancedSchedulingEnabled:           true,
 
 			expectActionsOnFrom: []clienttesting.Action{},
-			expectActionsOnTo: []clienttesting.Action{
-				getDeploymentAction("theDeployment", "test"),
-			},
+			expectActionsOnTo:   []clienttesting.Action{},
 		},
 		"StatusSyncer with AdvancedScheduling, deletion: object does not exists upstream": {
 			upstreamLogicalCluster: "root:org:ws",
@@ -489,7 +484,6 @@ func TestSyncerProcess(t *testing.T) {
 
 			expectActionsOnFrom: []clienttesting.Action{},
 			expectActionsOnTo: []clienttesting.Action{
-				getDeploymentAction("theDeployment", "test"),
 				updateDeploymentAction("test",
 					changeUnstructured(
 						toUnstructured(t, changeDeployment(
@@ -536,8 +530,9 @@ func TestSyncerProcess(t *testing.T) {
 			})
 
 			setupServersideApplyPatchReactor(toClient)
-			namespaceWatcherStarted := setupWatchReactor("namespaces", fromClient)
-			resourceWatcherStarted := setupWatchReactor(tc.gvr.Resource, fromClient)
+			fromClientNamespaceWatcherStarted := setupWatchReactor("namespaces", fromClient)
+			fromClientResourceWatcherStarted := setupWatchReactor(tc.gvr.Resource, fromClient)
+			toClientResourceWatcherStarted := setupWatchReactor(tc.gvr.Resource, toClient)
 
 			gvrs := []schema.GroupVersionResource{
 				{Group: "", Version: "v1", Resource: "namespaces"},
@@ -546,14 +541,17 @@ func TestSyncerProcess(t *testing.T) {
 			controller, err := NewStatusSyncer(gvrs, kcpLogicalCluster, tc.syncTargetName, tc.advancedSchedulingEnabled, toClusterClient, fromClient, toInformers, fromInformers, syncTargetUID)
 			require.NoError(t, err)
 
+			toInformers.ForResource(tc.gvr).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{})
+
 			fromInformers.Start(ctx.Done())
 			toInformers.Start(ctx.Done())
 
 			fromInformers.WaitForCacheSync(ctx.Done())
 			toInformers.WaitForCacheSync(ctx.Done())
 
-			<-resourceWatcherStarted
-			<-namespaceWatcherStarted
+			<-fromClientResourceWatcherStarted
+			<-fromClientNamespaceWatcherStarted
+			<-toClientResourceWatcherStarted
 
 			fromClient.ClearActions()
 			toClient.ClearActions()
@@ -588,12 +586,12 @@ func setupServersideApplyPatchReactor(toClient *dynamicfake.FakeDynamicClient) {
 	})
 }
 
-func setupWatchReactor(resource string, fromClient *dynamicfake.FakeDynamicClient) chan struct{} {
+func setupWatchReactor(resource string, client *dynamicfake.FakeDynamicClient) chan struct{} {
 	watcherStarted := make(chan struct{})
-	fromClient.PrependWatchReactor(resource, func(action clienttesting.Action) (handled bool, ret watch.Interface, err error) {
+	client.PrependWatchReactor(resource, func(action clienttesting.Action) (handled bool, ret watch.Interface, err error) {
 		gvr := action.GetResource()
 		ns := action.GetNamespace()
-		watch, err := fromClient.Tracker().Watch(gvr, ns)
+		watch, err := client.Tracker().Watch(gvr, ns)
 		if err != nil {
 			return false, nil, err
 		}
@@ -671,13 +669,6 @@ func deploymentAction(verb, namespace string, subresources ...string) clienttest
 		Verb:        verb,
 		Resource:    schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 		Subresource: strings.Join(subresources, "/"),
-	}
-}
-
-func getDeploymentAction(name, namespace string) clienttesting.GetActionImpl {
-	return clienttesting.GetActionImpl{
-		ActionImpl: deploymentAction("get", namespace),
-		Name:       name,
 	}
 }
 

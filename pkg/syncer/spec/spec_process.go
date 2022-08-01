@@ -174,11 +174,23 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	}
 
 	// upsert downstream
-	u, ok := obj.(*unstructured.Unstructured)
+	upstreamObj, ok := obj.(*unstructured.Unstructured)
 	if !ok {
 		return fmt.Errorf("object to synchronize is expected to be Unstructured, but is %T", obj)
 	}
-	return c.applyToDownstream(ctx, gvr, downstreamNamespace, u)
+
+	if err := c.ensureDownstreamNamespaceExists(ctx, downstreamNamespace, upstreamObj); err != nil {
+		return err
+	}
+
+	if added, err := c.ensureSyncerFinalizer(ctx, gvr, upstreamObj); added {
+		// The successful update of the upstream resource finalizer will trigger a new reconcile
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	return c.applyToDownstream(ctx, gvr, downstreamNamespace, upstreamObj)
 }
 
 // TODO: This function is there as a quick and dirty implementation of namespace creation.
@@ -242,7 +254,7 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 	return nil
 }
 
-func (c *Controller) ensureSyncerFinalizer(ctx context.Context, gvr schema.GroupVersionResource, upstreamObj *unstructured.Unstructured) error {
+func (c *Controller) ensureSyncerFinalizer(ctx context.Context, gvr schema.GroupVersionResource, upstreamObj *unstructured.Unstructured) (bool, error) {
 	upstreamFinalizers := upstreamObj.GetFinalizers()
 	hasFinalizer := false
 	for _, finalizer := range upstreamFinalizers {
@@ -250,7 +262,15 @@ func (c *Controller) ensureSyncerFinalizer(ctx context.Context, gvr schema.Group
 			hasFinalizer = true
 		}
 	}
-	if !hasFinalizer {
+
+	// TODO(davidfestal): When using syncer virtual workspace we would check the DeletionTimestamp on the upstream object, instead of the DeletionTimestamp annotation,
+	//                as the virtual workspace will set the the deletionTimestamp() on the location view by a transformation.
+	intendedToBeRemovedFromLocation := upstreamObj.GetAnnotations()[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+c.syncTargetName] != ""
+
+	// TODO(davidfestal): When using syncer virtual workspace this condition would not be necessary anymore, since directly tested on the virtual workspace side.
+	stillOwnedByExternalActorForLocation := upstreamObj.GetAnnotations()[workloadv1alpha1.ClusterFinalizerAnnotationPrefix+c.syncTargetName] != ""
+
+	if !hasFinalizer && (!intendedToBeRemovedFromLocation || stillOwnedByExternalActorForLocation) {
 		upstreamObjCopy := upstreamObj.DeepCopy()
 		name := upstreamObjCopy.GetName()
 		namespace := upstreamObjCopy.GetNamespace()
@@ -260,23 +280,16 @@ func (c *Controller) ensureSyncerFinalizer(ctx context.Context, gvr schema.Group
 		upstreamObjCopy.SetFinalizers(upstreamFinalizers)
 		if _, err := c.upstreamClient.Cluster(logicalCluster).Resource(gvr).Namespace(namespace).Update(ctx, upstreamObjCopy, metav1.UpdateOptions{}); err != nil {
 			klog.Errorf("Failed adding finalizer upstream on resource %s|%s/%s: %v", logicalCluster, namespace, name, err)
-			return err
+			return false, err
 		}
 		klog.Infof("Updated resource %s|%s/%s with syncer finalizer upstream", logicalCluster, namespace, name)
+		return true, nil
 	}
 
-	return nil
+	return false, nil
 }
 
 func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVersionResource, downstreamNamespace string, upstreamObj *unstructured.Unstructured) error {
-	if err := c.ensureDownstreamNamespaceExists(ctx, downstreamNamespace, upstreamObj); err != nil {
-		return err
-	}
-
-	if err := c.ensureSyncerFinalizer(ctx, gvr, upstreamObj); err != nil {
-		return err
-	}
-
 	upstreamObjLogicalCluster := logicalcluster.From(upstreamObj)
 	downstreamObj := upstreamObj.DeepCopy()
 
@@ -359,7 +372,7 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 			if apierrors.IsNotFound(err) {
 				// That's not an error.
 				// Just think about removing the finalizer from the KCP location-specific resource:
-				if err := shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, c.upstreamClient, upstreamObj.GetNamespace(), c.syncTargetName, upstreamObjLogicalCluster, upstreamObj.GetName()); err != nil {
+				if err := shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, c.upstreamInformers, c.upstreamClient, upstreamObj.GetNamespace(), c.syncTargetName, upstreamObjLogicalCluster, upstreamObj.GetName()); err != nil {
 					return err
 				}
 				return nil

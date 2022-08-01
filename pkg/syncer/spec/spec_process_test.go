@@ -44,7 +44,6 @@ import (
 	"k8s.io/client-go/tools/clusters"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
 var scheme *runtime.Scheme
@@ -479,7 +478,7 @@ func TestSyncerProcess(t *testing.T) {
 		expectActionsOnFrom []clienttesting.Action
 		expectActionsOnTo   []clienttesting.Action
 	}{
-		"SpecSyncer sync deployment to downstream, upstream gets patched with the finalizer and the object is created downstream": {
+		"SpecSyncer sync deployment to downstream, upstream gets patched with the finalizer and the object is not created downstream (will be in the next reconciliation)": {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("test", "root:org:ws", map[string]string{
 				"internal.workload.kcp.dev/cluster": "us-west1",
@@ -521,20 +520,6 @@ func TestSyncerProcess(t *testing.T) {
 								"kcp.dev/namespace-locator": `{"syncTarget":{"workspace":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
 							})),
 						removeNilOrEmptyFields,
-					),
-				),
-				patchDeploymentAction(
-					"theDeployment",
-					"kcp-hcbsa8z6c2er",
-					types.ApplyPatchType,
-					toJson(t,
-						changeUnstructured(
-							toUnstructured(t, deployment("theDeployment", "kcp-hcbsa8z6c2er", "", map[string]string{
-								"internal.workload.kcp.dev/cluster": "us-west1",
-							}, nil, nil)),
-							setNestedField(map[string]interface{}{}, "status"),
-							setPodSpecServiceAccount("spec", "template", "spec"),
-						),
 					),
 				),
 			},
@@ -694,7 +679,6 @@ func TestSyncerProcess(t *testing.T) {
 			resourceToProcessName:               "theDeployment",
 			syncTargetName:                      "us-west1",
 			expectActionsOnFrom: []clienttesting.Action{
-				getDeploymentAction("theDeployment", "test"),
 				updateDeploymentAction("test",
 					changeUnstructured(
 						toUnstructured(t, changeDeployment(
@@ -800,23 +784,19 @@ func TestSyncerProcess(t *testing.T) {
 						"token":     []byte("token"),
 						"namespace": []byte("namespace"),
 					}),
-				deployment("theDeployment", "test", "root:org:ws", map[string]string{
-					"state.workload.kcp.dev/us-west1": "Sync",
-				}, map[string]string{"experimental.spec-diff.workload.kcp.dev/us-west1": "[{\"op\":\"replace\",\"path\":\"/replicas\",\"value\":3}]"}, nil),
+				deployment("theDeployment", "test", "root:org:ws",
+					map[string]string{
+						"state.workload.kcp.dev/us-west1": "Sync",
+					},
+					map[string]string{"experimental.spec-diff.workload.kcp.dev/us-west1": "[{\"op\":\"replace\",\"path\":\"/replicas\",\"value\":3}]"},
+					[]string{"workload.kcp.dev/syncer-us-west1"}),
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
 			resourceToProcessName:               "theDeployment",
 			syncTargetName:                      "us-west1",
 			advancedSchedulingEnabled:           true,
 
-			expectActionsOnFrom: []clienttesting.Action{
-				updateDeploymentAction("test",
-					toUnstructured(t, changeDeployment(
-						deployment("theDeployment", "test", "root:org:ws", map[string]string{
-							"state.workload.kcp.dev/us-west1": "Sync",
-						}, map[string]string{"experimental.spec-diff.workload.kcp.dev/us-west1": "[{\"op\":\"replace\",\"path\":\"/replicas\",\"value\":3}]"}, []string{shared.SyncerFinalizerNamePrefix + "us-west1"}),
-					))),
-			},
+			expectActionsOnFrom: []clienttesting.Action{},
 			expectActionsOnTo: []clienttesting.Action{
 				createNamespaceAction(
 					"",
@@ -1201,13 +1181,6 @@ func namespaceAction(verb string, subresources ...string) clienttesting.ActionIm
 		Verb:        verb,
 		Resource:    schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"},
 		Subresource: strings.Join(subresources, "/"),
-	}
-}
-
-func getDeploymentAction(name, namespace string) clienttesting.GetActionImpl {
-	return clienttesting.GetActionImpl{
-		ActionImpl: deploymentAction("get", namespace),
-		Name:       name,
 	}
 }
 

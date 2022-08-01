@@ -23,8 +23,11 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
@@ -36,12 +39,18 @@ const (
 	SyncerFinalizerNamePrefix = "workload.kcp.dev/syncer-"
 )
 
-func EnsureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersionResource, upstreamClient dynamic.ClusterInterface, upstreamNamespace, syncTargetName string, logicalClusterName logicalcluster.Name, resourceName string) error {
-	upstreamObj, err := upstreamClient.Cluster(logicalClusterName).Resource(gvr).Namespace(upstreamNamespace).Get(ctx, resourceName, metav1.GetOptions{})
+func EnsureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersionResource, upstreamInformers dynamicinformer.DynamicSharedInformerFactory, upstreamClient dynamic.ClusterInterface, upstreamNamespace, syncTargetName string, logicalClusterName logicalcluster.Name, resourceName string) error {
+	upstreamObjFromLister, err := upstreamInformers.ForResource(gvr).Lister().ByNamespace(upstreamNamespace).Get(clusters.ToClusterAwareKey(logicalClusterName, resourceName))
 	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
 	if apierrors.IsNotFound(err) {
+		return nil
+	}
+
+	upstreamObj, ok := upstreamObjFromLister.(*unstructured.Unstructured)
+	if !ok {
+		klog.Errorf("Resource %s|%s/%s expected to be *unstructured.Unstructured, got %T", logicalClusterName.String(), upstreamNamespace, resourceName, upstreamObjFromLister)
 		return nil
 	}
 
@@ -50,6 +59,8 @@ func EnsureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersion
 		// Do nothing: the object should not be deleted anymore for this location on the KCP side
 		return nil
 	}
+
+	upstreamObj = upstreamObj.DeepCopy()
 
 	// Remove the syncer finalizer.
 	currentFinalizers := upstreamObj.GetFinalizers()
