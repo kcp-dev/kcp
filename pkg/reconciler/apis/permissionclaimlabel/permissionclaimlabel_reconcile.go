@@ -29,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	aggregateerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/informers"
@@ -111,6 +112,7 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 	invalidClaims := []apisv1alpha1.PermissionClaim{}
 	// get the added permission claims if added, add are just requeue the object.
 	addedPermissionClaims := mapGVRToClaim{}
+	syncClaims := mapGVRToClaim{}
 	for _, acceptedPC := range apiBinding.Spec.AcceptedPermissionClaims {
 		found := false
 		for _, observedPC := range apiBinding.Status.ObservedAcceptedPermissionClaims {
@@ -119,23 +121,22 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 				break
 			}
 		}
+		ok, err := permissionclaims.ValidateClaim(acceptedPC.Group, acceptedPC.Resource, acceptedPC.IdentityHash, grsToBoundResource)
+		if !ok {
+			invalidClaims = append(invalidClaims, acceptedPC)
+			identityMismatch = true
+			klog.V(3).Infof("invalid claim %v - reason %v", acceptedPC, err)
+			continue
+		}
+
+		claim, gvr, err := c.createPermissionClaimHelper(acceptedPC)
+		if err != nil {
+			invalidClaims = append(invalidClaims, acceptedPC)
+			klog.Errorf("unable to create permission claim helper %v", err)
+			continue
+		}
+		syncClaims[gvr] = append(syncClaims[gvr], claim)
 		if !found {
-			ok, err := permissionclaims.ValidateClaim(acceptedPC.Group, acceptedPC.Resource, acceptedPC.IdentityHash, grsToBoundResource)
-			if !ok {
-				identityMismatch = true
-				invalidClaims = append(invalidClaims, acceptedPC)
-				identityMismatch = true
-				klog.V(3).Infof("invalid claim %v - reason %v", acceptedPC, err)
-				continue
-			}
-
-			claim, gvr, err := c.createPermissionClaimHelper(acceptedPC)
-			if err != nil {
-				invalidClaims = append(invalidClaims, acceptedPC)
-				klog.Errorf("unable to create permission claim helper %v", err)
-				continue
-			}
-
 			addedPermissionClaims[gvr] = append(addedPermissionClaims[gvr], claim)
 		}
 	}
@@ -168,28 +169,35 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 	}
 
 	var allPatchErrors []error
-	for gvr, claims := range addedPermissionClaims {
+	// For all the things that are in the accepted claims we need to re-sync
+	for gvr, claims := range syncClaims {
 		for _, claim := range claims {
 			// TODO: use indexer instead of lister.
 			if !claim.informer.Informer().HasSynced() {
 				return fmt.Errorf("unable sync cache")
 			}
 			var errs []error
-			// objs, err := c.dynamicClusterClient.Resource(gvr).List(logicalcluster.WithCluster(ctx, lc), metav1.ListOptions{})
-			objs, err := claim.informer.Lister().List(labels.Everything())
+			selector := labels.NewSelector()
+			req, err := labels.NewRequirement(claim.key, selection.NotEquals, []string{claim.label})
+			if err != nil {
+				errs = append(errs, err)
+				klog.V(4).Infof("uanble to get requirement: %v ", err)
+			}
+			selector.Add(*req)
+			objs, err := claim.informer.Lister().List(selector)
 			if err != nil {
 				errs = append(errs, err)
 				klog.V(4).Infof("uanble to list objects for %s.%s", gvr.Resource, gvr.Group)
 			}
 			klog.V(6).Infof("reconciling %v objs of type: %v.%v", len(objs), gvr.Resource, gvr.Group)
 			for _, obj := range objs {
-				// o, ok := obj.(runtime.Object)
-				// if !ok {
-				// 	return fmt.Errorf("expected type %v got %T", "runtime.Object", obj)
-				// }
 				oldObjectMeta, err := meta.Accessor(obj.DeepCopyObject())
 				if err != nil {
 					return err
+				}
+				if logicalcluster.From(oldObjectMeta) != lc {
+					//Do not update objects that are not for the logical cluster
+					continue
 				}
 				// Empty Patch, will relay on the admission to add the resources.
 				err = c.patchGenericObject(ctx, oldObjectMeta, gvr, lc)
@@ -204,7 +212,9 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 			}
 
 			// If all the listed objects are patched, lets add this to Observed Permission Claims
-			apiBinding.Status.ObservedAcceptedPermissionClaims = append(apiBinding.Status.ObservedAcceptedPermissionClaims, claim.claim)
+			if _, ok := addedPermissionClaims[gvr]; ok {
+				apiBinding.Status.ObservedAcceptedPermissionClaims = append(apiBinding.Status.ObservedAcceptedPermissionClaims, claim.claim)
+			}
 		}
 	}
 
@@ -228,6 +238,10 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 				oldObjectMeta, err := meta.Accessor(obj)
 				if err != nil {
 					return err
+				}
+				if logicalcluster.From(oldObjectMeta) != lc {
+					//Do not update objects that are not for the logical cluster
+					continue
 				}
 				// Empty Patch, will relay on the admission to add the resources.
 				err = c.patchGenericObject(ctx, oldObjectMeta, gvr, lc)
