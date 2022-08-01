@@ -11,5 +11,5 @@
   value:
     - rule: "(has(self.group) && self.group != '') || self.resource in ['configmaps', 'namespaces', 'secrets', 'serviceaccounts']"
       message: .resource must be one of configmaps, namespaces, secrets, serviceaccounts if .group is empty.
-    - rule: "!(has(self.group) && self.group != '') || (has(self.identityHash) && self.identityHash != '')"
+    - rule: "!(has(self.group) && self.group != '') || (has(self.identityHash) && self.identityHash != '') || (has(self.group) && self.group == 'apis.kcp.dev')"
       message: .identityHash must be set if .group is not empty.

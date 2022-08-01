@@ -147,7 +147,8 @@ spec:
                       ['configmaps', 'namespaces', 'secrets', 'serviceaccounts']
                   - message: .identityHash must be set if .group is not empty.
                     rule: '!(has(self.group) && self.group != '''') || (has(self.identityHash)
-                      && self.identityHash != '''')'
+                      && self.identityHash != '''') || (has(self.group) && self.group
+                      == ''apis.kcp.dev'')'
                 type: array
                 x-kubernetes-list-map-keys:
                 - group
