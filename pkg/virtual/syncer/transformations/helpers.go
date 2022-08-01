@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package strategies
+package transformations
 
 import (
 	"strings"
@@ -23,22 +23,20 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
 
-func GetSyncing(kcpResource metav1.Object) Syncing {
+func GetSyncing(kcpResource metav1.Object) map[string]SyncTargetSyncing {
 	labels := kcpResource.GetLabels()
-	syncing := make(Syncing, len(labels))
+	syncing := make(map[string]SyncTargetSyncing, len(labels))
 	annotations := kcpResource.GetAnnotations()
 	for labelName, labelValue := range labels {
 		if strings.HasPrefix(labelName, v1alpha1.ClusterResourceStateLabelPrefix) {
 			syncTarget := strings.TrimPrefix(labelName, v1alpha1.ClusterResourceStateLabelPrefix)
 			syncTargetSyncing := SyncTargetSyncing{
-				RequestedState: RequestedSyncingState(labelValue),
-				Detail:         annotations[v1alpha1.SyncingTransformationAnnotationPrefix+syncTarget],
+				ResourceState: v1alpha1.ResourceState(labelValue),
 			}
 			if deletionAnnotation, exists := annotations[v1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+syncTarget]; exists {
 				var deletionTimestamp metav1.Time
@@ -57,34 +55,16 @@ func GetSyncing(kcpResource metav1.Object) Syncing {
 	return syncing
 }
 
-func CarryOnSyncerViewStatus(existingSyncerViewResource, newSyncerViewResource *unstructured.Unstructured) error {
-	if existingSyncerViewResource != nil {
-		// Set the status to the syncer view (last set status for this sync target)
-		if status, exists, err := unstructured.NestedFieldCopy(existingSyncerViewResource.UnstructuredContent(), "status"); err != nil {
-			return err
-		} else if exists {
-			if err := unstructured.SetNestedField(newSyncerViewResource.UnstructuredContent(), status, "status"); err != nil {
-				return err
-			}
-		} else {
-			unstructured.RemoveNestedField(newSyncerViewResource.UnstructuredContent(), "status")
-		}
-	}
-	return nil
-}
-
-func GetSyncerViews(kcpResource *unstructured.Unstructured, syncTargets ...string) (map[string]unstructured.Unstructured, error) {
+func getSyncerViews(kcpResource *unstructured.Unstructured, syncTargetFilter func(string) bool) (map[string]unstructured.Unstructured, error) {
 	kcpResource = kcpResource.DeepCopy()
 
 	annotations := kcpResource.GetAnnotations()
-
-	syncTargetsToKeep := sets.NewString(syncTargets...)
 
 	syncerViewDiffs := make(map[string]string)
 	for name, value := range annotations {
 		if strings.HasPrefix(name, v1alpha1.InternalSyncerViewAnnotationPrefix) {
 			syncTarget := strings.TrimPrefix(name, v1alpha1.InternalSyncerViewAnnotationPrefix)
-			if len(syncTargets) > 0 && !syncTargetsToKeep.Has(syncTarget) {
+			if !syncTargetFilter(syncTarget) {
 				continue
 			}
 			syncerViewDiffs[syncTarget] = value
@@ -112,4 +92,24 @@ func GetSyncerViews(kcpResource *unstructured.Unstructured, syncTargets ...strin
 	}
 
 	return syncerViewResources, nil
+}
+
+func GetAllSyncerViews(kcpResource *unstructured.Unstructured) (map[string]unstructured.Unstructured, error) {
+	return getSyncerViews(kcpResource, func(string) bool {
+		return true
+	})
+}
+
+func GetSyncerView(kcpResource *unstructured.Unstructured, syncTargetName string) (*unstructured.Unstructured, error) {
+	result, err := getSyncerViews(kcpResource, func(aSyncTarget string) bool {
+		if aSyncTarget == syncTargetName {
+			return true
+		}
+		return false
+	})
+	if err != nil {
+		return nil, err
+	}
+	syncerView := result[syncTargetName]
+	return &syncerView, nil
 }

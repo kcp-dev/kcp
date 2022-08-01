@@ -25,7 +25,6 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
@@ -49,7 +48,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/transforming"
 	syncercontext "github.com/kcp-dev/kcp/pkg/virtual/syncer/context"
 	"github.com/kcp-dev/kcp/pkg/virtual/syncer/controllers/apireconciler"
-	"github.com/kcp-dev/kcp/pkg/virtual/syncer/strategies"
+	"github.com/kcp-dev/kcp/pkg/virtual/syncer/transformations"
 )
 
 const SyncerVirtualWorkspaceName string = "syncer"
@@ -155,9 +154,6 @@ func BuildVirtualWorkspace(
 			}
 		}),
 		BootstrapAPISetManagement: func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
-			genericTransformers := []transforming.Transformer{}
-			typedTransformers := map[schema.GroupVersionResource][]transforming.Transformer{}
-
 			apiReconciler, err := apireconciler.NewAPIReconciler(
 				kcpClusterClient,
 				wildcardKcpInformers.Workload().V1alpha1().SyncTargets(),
@@ -174,20 +170,9 @@ func BuildVirtualWorkspace(
 
 					ctx, cancelFn := context.WithCancel(context.Background())
 
-					gvr := schema.GroupVersionResource{
-						Group:    apiResourceSchema.Spec.Group,
-						Version:  version,
-						Resource: apiResourceSchema.Spec.Names.Plural,
-					}
-					var transformers []transforming.Transformer
-					transformers = append(transformers, genericTransformers...)
-					gvrTransformers := typedTransformers[gvr]
-					if len(gvrTransformers) == 0 {
-						gvrTransformers = strategies.StrategyTransformers(gvr, strategies.IdentityStrategy())
-					}
-					transformers = append(transformers, gvrTransformers...)
+					transformer := &transformations.SyncerResourceTransformer{}
 
-					storageBuilder := NewStorageBuilder(ctx, transforming.WithTransformations(dynamicClusterClient, transformers...), apiExportIdentityHash, storageWrapper)
+					storageBuilder := NewStorageBuilder(ctx, transforming.WithResourceTransformer(dynamicClusterClient, transformer), apiExportIdentityHash, storageWrapper)
 					def, err := apiserver.CreateServingInfoFor(mainConfig, apiResourceSchema, version, storageBuilder)
 
 					if err != nil {
