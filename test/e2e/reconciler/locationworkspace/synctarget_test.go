@@ -120,6 +120,8 @@ func TestSyncTargetExport(t *testing.T) {
 			return false
 		}
 
+		t.Logf("synced resources %v", syncTarget.Status.SyncedResources)
+
 		if syncTarget.Status.SyncedResources[1].Resource != "services" ||
 			syncTarget.Status.SyncedResources[1].State != workloadv1alpha1.ResourceSchemaAcceptedState {
 			return false
