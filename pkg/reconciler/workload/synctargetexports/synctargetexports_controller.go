@@ -96,8 +96,17 @@ func NewController(
 
 	// Watch for events related to SyncTargets
 	syncTargetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueueSyncTarget(obj, "") },
-		UpdateFunc: func(_, obj interface{}) { c.enqueueSyncTarget(obj, "") },
+		AddFunc: func(obj interface{}) { c.enqueueSyncTarget(obj, "") },
+		UpdateFunc: func(old, obj interface{}) {
+			oldCluster := old.(*workloadv1alpha1.SyncTarget)
+			newCluster := obj.(*workloadv1alpha1.SyncTarget)
+
+			// only enqueue when syncedResource or supportedAPIExported are changed.
+			if !equality.Semantic.DeepEqual(oldCluster.Spec.SupportedAPIExports, newCluster.Spec.SupportedAPIExports) ||
+				!equality.Semantic.DeepEqual(oldCluster.Status.SyncedResources, newCluster.Status.SyncedResources) {
+				c.enqueueSyncTarget(obj, "")
+			}
+		},
 		DeleteFunc: func(obj interface{}) {},
 	})
 
@@ -114,8 +123,16 @@ func NewController(
 	})
 
 	apiResourceImportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.enqueueAPIImport,
-		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIImport(obj) },
+		AddFunc: c.enqueueAPIImport,
+		UpdateFunc: func(old, obj interface{}) {
+			oldImport := old.(*apiresourcev1alpha1.APIResourceImport)
+			newImport := obj.(*apiresourcev1alpha1.APIResourceImport)
+
+			// only enqueue when spec is changed.
+			if oldImport.Generation != newImport.Generation {
+				c.enqueueSyncTarget(obj, "")
+			}
+		},
 		DeleteFunc: func(obj interface{}) {},
 	})
 
