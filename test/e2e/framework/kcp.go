@@ -59,6 +59,137 @@ import (
 	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
 )
 
+// TestServerArgs returns the set of kcp args used to start a test
+// server using the token auth file from the working tree.
+func TestServerArgs() []string {
+	return TestServerArgsWithTokenAuthFile("test/e2e/framework/auth-tokens.csv")
+}
+
+// TestServerArgsWithTokenAuthFile returns the set of kcp args used to
+// start a test server with the given token auth file.
+func TestServerArgsWithTokenAuthFile(tokenAuthFile string) []string {
+	return []string{
+		"-v=4",
+		"--token-auth-file", tokenAuthFile,
+	}
+}
+
+// KcpFixture manages the lifecycle of a set of kcp servers.
+//
+// Deprecated for use outside this package. Prefer PrivateKcpServer().
+type kcpFixture struct {
+	Servers map[string]RunningServer
+}
+
+// PrivateKcpServer returns a new kcp server fixture managing a new
+// server process that is not intended to be shared between tests.
+func PrivateKcpServer(t *testing.T, args ...string) RunningServer {
+	serverName := "main"
+	f := newKcpFixture(t, kcpConfig{
+		Name: serverName,
+		Args: args,
+	})
+	return f.Servers[serverName]
+}
+
+// SharedKcpServer returns a kcp server fixture intended to be shared
+// between tests. A persistent server will be configured if
+// `--kcp-kubeconfig` or `--use-default-kcp-server` is supplied to the test
+// runner. Otherwise a test-managed server will be started. Only tests
+// that are known to be hermetic are compatible with shared fixture.
+func SharedKcpServer(t *testing.T) RunningServer {
+	serverName := "shared"
+	kubeconfig := TestConfig.KCPKubeconfig()
+	if len(kubeconfig) > 0 {
+		// Use a persistent server
+
+		t.Logf("shared kcp server will target configuration %q", kubeconfig)
+		server, err := newPersistentKCPServer(serverName, kubeconfig, TestConfig.RootShardKubeconfig())
+		require.NoError(t, err, "failed to create persistent server fixture")
+		return server
+	}
+
+	// Use a test-provisioned server
+	//
+	// TODO(marun) Enable non-persistent fixture to be shared across
+	// tests. This will likely require composing tests into a suite that
+	// initializes the shared fixture before tests that rely on the
+	// fixture.
+
+	tokenAuthFile := WriteTokenAuthFile(t)
+	f := newKcpFixture(t, kcpConfig{
+		Name: serverName,
+		Args: TestServerArgsWithTokenAuthFile(tokenAuthFile),
+	})
+	return f.Servers[serverName]
+}
+
+// Deprecated for use outside this package. Prefer PrivateKcpServer().
+func newKcpFixture(t *testing.T, cfgs ...kcpConfig) *kcpFixture {
+	f := &kcpFixture{}
+
+	artifactDir, dataDir, err := ScratchDirs(t)
+	require.NoError(t, err, "failed to create scratch dirs: %v", err)
+
+	// Initialize servers from the provided configuration
+	var servers []*kcpServer
+	f.Servers = map[string]RunningServer{}
+	for _, cfg := range cfgs {
+		server, err := newKcpServer(t, cfg, artifactDir, dataDir)
+		require.NoError(t, err)
+
+		servers = append(servers, server)
+		f.Servers[server.name] = server
+	}
+
+	// Launch kcp servers and ensure they are ready before starting the test
+	start := time.Now()
+	t.Log("Starting kcp servers...")
+	wg := sync.WaitGroup{}
+	wg.Add(len(servers))
+	for i, srv := range servers {
+		var opts []RunOption
+		if LogToConsoleEnvSet() || cfgs[i].LogToConsole {
+			opts = append(opts, WithLogStreaming)
+		}
+		if InProcessEnvSet() || cfgs[i].RunInProcess {
+			opts = append(opts, RunInProcess)
+		}
+		err := srv.Run(opts...)
+		require.NoError(t, err)
+
+		// Wait for the server to become ready
+		go func(s *kcpServer, i int) {
+			defer wg.Done()
+			err := s.Ready(!cfgs[i].RunInProcess)
+			require.NoError(t, err, "kcp server %s never became ready: %v", s.name, err)
+		}(srv, i)
+	}
+	wg.Wait()
+
+	if t.Failed() {
+		t.Fatal("Fixture setup failed: one or more servers did not become ready")
+	}
+
+	t.Logf("Started kcp servers after %s", time.Since(start))
+
+	return f
+}
+
+func InProcessEnvSet() bool {
+	inProcess, _ := strconv.ParseBool(os.Getenv("INPROCESS"))
+	return inProcess
+}
+
+func LogToConsoleEnvSet() bool {
+	inProcess, _ := strconv.ParseBool(os.Getenv("LOG_TO_CONSOLE"))
+	return inProcess
+}
+
+func preserveTestResources() bool {
+	return os.Getenv("PRESERVE") != ""
+}
+
 type RunningServer interface {
 	Name() string
 	KubeconfigPath() string
@@ -644,7 +775,7 @@ func NewFakeWorkloadServer(t *testing.T, server RunningServer, org logicalcluste
 	logicalClusterName := NewWorkspaceFixture(t, server, org)
 	rawConfig, err := server.RawConfig()
 	require.NoError(t, err, "failed to read config for server")
-	logicalConfig, kubeconfigPath := WriteLogicalClusterConfig(t, rawConfig, logicalClusterName, "base")
+	logicalConfig, kubeconfigPath := WriteLogicalClusterConfig(t, rawConfig, "base", logicalClusterName)
 	fakeServer := &unmanagedKCPServer{
 		name:           logicalClusterName.String(),
 		cfg:            logicalConfig,
