@@ -124,21 +124,8 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	if err != nil {
 		return err
 	}
-	if len(downstreamNamespaces) == 0 {
-		// case for up to v0.6.0 where we used syncTarget.path in namespace locators
-		desiredNSLocator := shared.NewNamespaceLocatorV060(clusterName, c.syncTargetWorkspace, c.syncTargetUID, c.syncTargetName, upstreamNamespace)
-		jsonNSLocator, err := json.Marshal(desiredNSLocator)
-		if err != nil {
-			return err
-		}
-		downstreamNamespaces, err = c.downstreamInformers.ForResource(namespaceGvr).Informer().GetIndexer().ByIndex(byNamespaceLocatorIndexName, string(jsonNSLocator))
-		if err != nil {
-			return err
-		}
-	}
 
 	var downstreamNamespace string
-
 	if len(downstreamNamespaces) == 1 {
 		namespace := downstreamNamespaces[0].(*unstructured.Unstructured)
 		klog.V(4).Infof("Found downstream namespace %s for upstream namespace %s", namespace.GetName(), upstreamNamespace)

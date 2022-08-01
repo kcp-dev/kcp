@@ -276,9 +276,15 @@ func indexByNamespaceLocator(obj interface{}) ([]string, error) {
 	if !ok {
 		return []string{}, fmt.Errorf("obj is supposed to be a metav1.Object, but is %T", obj)
 	}
-	locator, ok := metaObj.GetAnnotations()[shared.NamespaceLocatorAnnotation]
-	if !ok {
+	if loc, found, err := shared.LocatorFromAnnotations(metaObj.GetAnnotations()); err != nil {
+		return []string{}, fmt.Errorf("failed to get locator from annotations: %w", err)
+	} else if !found {
 		return []string{}, nil
+	} else {
+		bs, err := json.Marshal(loc)
+		if err != nil {
+			return []string{}, fmt.Errorf("failed to marshal locator %#v: %w", loc, err)
+		}
+		return []string{string(bs)}, nil
 	}
-	return []string{locator}, nil
 }
