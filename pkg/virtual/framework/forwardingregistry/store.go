@@ -232,6 +232,7 @@ func DefaultDynamicDelegatedStoreFuncs(
 
 		return delegate.Watch(watchCtx, v1ListOptions)
 	}
+
 	s.TableConvertorFunc = tableConvertor.ConvertToTable
 	s.CategoriesProviderFunc = func() []string {
 		return categories
@@ -262,14 +263,13 @@ func clientGetter(dynamicClusterClient dynamic.ClusterInterface, namespaceScoped
 			}
 		}
 
-		if namespaceScoped {
-			if namespace, ok := genericapirequest.NamespaceFrom(ctx); ok {
-				return dynamicClusterClient.Cluster(clusterName).Resource(gvr).Namespace(namespace), nil
-			} else {
-				return nil, fmt.Errorf("there should be a Namespace context in a request for a namespaced resource: %s", gvr.String())
-			}
-		} else {
+		if !namespaceScoped {
 			return dynamicClusterClient.Cluster(clusterName).Resource(gvr), nil
 		}
+
+		if namespace, ok := genericapirequest.NamespaceFrom(ctx); ok {
+			return dynamicClusterClient.Cluster(clusterName).Resource(gvr).Namespace(namespace), nil
+		}
+		return nil, fmt.Errorf("there should be a Namespace context in a request for a namespaced resource: %s", gvr.String())
 	}
 }

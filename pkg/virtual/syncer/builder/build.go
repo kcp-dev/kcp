@@ -45,8 +45,10 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/transforming"
 	syncercontext "github.com/kcp-dev/kcp/pkg/virtual/syncer/context"
 	"github.com/kcp-dev/kcp/pkg/virtual/syncer/controllers/apireconciler"
+	"github.com/kcp-dev/kcp/pkg/virtual/syncer/transformations"
 )
 
 const SyncerVirtualWorkspaceName string = "syncer"
@@ -167,8 +169,12 @@ func BuildVirtualWorkspace(
 					storageWrapper := forwardingregistry.WithStaticLabelSelector(requirements)
 
 					ctx, cancelFn := context.WithCancel(context.Background())
-					storageBuilder := NewStorageBuilder(ctx, dynamicClusterClient, apiExportIdentityHash, storageWrapper)
+
+					transformer := &transformations.SyncerResourceTransformer{}
+
+					storageBuilder := NewStorageBuilder(ctx, transforming.WithResourceTransformer(dynamicClusterClient, transformer), apiExportIdentityHash, storageWrapper)
 					def, err := apiserver.CreateServingInfoFor(mainConfig, apiResourceSchema, version, storageBuilder)
+
 					if err != nil {
 						cancelFn()
 						return nil, err

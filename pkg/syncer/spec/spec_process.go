@@ -249,15 +249,7 @@ func (c *Controller) ensureSyncerFinalizer(ctx context.Context, gvr schema.Group
 			hasFinalizer = true
 		}
 	}
-
-	// TODO(davidfestal): When using syncer virtual workspace we would check the DeletionTimestamp on the upstream object, instead of the DeletionTimestamp annotation,
-	//                as the virtual workspace will set the the deletionTimestamp() on the location view by a transformation.
-	intendedToBeRemovedFromLocation := upstreamObj.GetAnnotations()[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+c.syncTargetName] != ""
-
-	// TODO(davidfestal): When using syncer virtual workspace this condition would not be necessary anymore, since directly tested on the virtual workspace side.
-	stillOwnedByExternalActorForLocation := upstreamObj.GetAnnotations()[workloadv1alpha1.ClusterFinalizerAnnotationPrefix+c.syncTargetName] != ""
-
-	if !hasFinalizer && (!intendedToBeRemovedFromLocation || stillOwnedByExternalActorForLocation) {
+	if !hasFinalizer && upstreamObj.GetDeletionTimestamp() == nil {
 		upstreamObjCopy := upstreamObj.DeepCopy()
 		name := upstreamObjCopy.GetName()
 		namespace := upstreamObjCopy.GetNamespace()
@@ -347,14 +339,7 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 	// TODO: wipe things like finalizers, owner-refs and any other life-cycle fields. The life-cycle
 	//       should exclusively owned by the syncer. Let's not some Kubernetes magic interfere with it.
 
-	// TODO(jmprusi): When using syncer virtual workspace we would check the DeletionTimestamp on the upstream object, instead of the DeletionTimestamp annotation,
-	//                as the virtual workspace will set the the deletionTimestamp() on the location view by a transformation.
-	intendedToBeRemovedFromLocation := upstreamObj.GetAnnotations()[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+c.syncTargetName] != ""
-
-	// TODO(jmprusi): When using syncer virtual workspace this condition would not be necessary anymore, since directly tested on the virtual workspace side.
-	stillOwnedByExternalActorForLocation := upstreamObj.GetAnnotations()[workloadv1alpha1.ClusterFinalizerAnnotationPrefix+c.syncTargetName] != ""
-
-	if intendedToBeRemovedFromLocation && !stillOwnedByExternalActorForLocation {
+	if upstreamObj.GetDeletionTimestamp() != nil {
 		if err := c.downstreamClient.Resource(gvr).Namespace(downstreamNamespace).Delete(ctx, downstreamObj.GetName(), metav1.DeleteOptions{}); err != nil {
 			if apierrors.IsNotFound(err) {
 				// That's not an error.

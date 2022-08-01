@@ -66,7 +66,9 @@ const (
 	// The format is a string, namely:
 	// - "": the object is assigned, but the syncer will ignore the object. A coordination
 	//       controller will have to set the value to "Sync" after initializion in order to
-	//       start the sync process.
+	//       start the sync process. Before setting the value to "Sync", the coordination controller
+	//       might provide details about how the resource should be transformed for the given SyncTarget
+	//       by setting the transformation.workloads.kcp.dev/<sync-target-name> annotation.
 	// - "Sync": the object is assigned and the syncer will start the sync process.
 	//
 	// While being in "Sync" state, a deletion timestamp in deletion.internal.workload.kcp.dev/<sync-target-name>
@@ -79,6 +81,34 @@ const (
 	// The workload controllers will consider the object deleted from the sync target when
 	// the label is removed. They then set the placement state to "Unbound".
 	ClusterResourceStateLabelPrefix = "state.workload.kcp.dev/"
+
+	// SyncingTransformationAnnotationPrefix is the prefix of the annotation
+	//
+	//   transformation.workloads.kcp.dev/<sync-target-name>
+	//
+	// on upstream resources storing details about how the resource should be transformed synchronously while syncing to
+	// the given SyncTarget. The detailed syntax of this annotation is not modelled here, but will be through some API
+	// to be defined from syncer and virtual workspace; possibly different per object kind.
+	//
+	// Examples of those strategy detail annotations: TODO(davidfestal): to be modelled in detail
+	// - ingress will need draining parameters: {"apiVersion":"syncer.kcp.dev/v1", "kind":"IngressSplitter", "state": "drain", "drain_timeout": "30s", "drain_grace_period": "5s"}
+	// - deployment will need replica counts: {"apiVersion":"syncer.kcp.dev/v1", "kind":"DeploymentSplitter" "replicas": 3}
+	// - potentially even: {"apiVersion":"syncer.kcp.dev/v1", "kind": "CEL", "transformation": "<CEL>"}
+	//
+	// TODO(davidfestal): use sync-target-uid instead of sync-target-name
+	SyncingTransformationAnnotationPrefix = "transformation.workload.kcp.dev/"
+
+	// InternalSyncerViewAnnotationPrefix is the prefix of the annotation
+	//
+	//   diff.syncer.internal.kcp.dev/<sync-target-name>
+	//
+	// on upstream resources storing the diff between the upstream resource
+	// and the view of the resource as it should be seen by the Syncer in the given SyncTarget.
+	//
+	// The format is a Json Merge Patch.
+	//
+	// TODO(davidfestal): use sync-target-uid instead of sync-target-name
+	InternalSyncerViewAnnotationPrefix = "diff.syncer.internal.kcp.dev/"
 
 	// InternalClusterStatusAnnotationPrefix is the prefix of the annotation
 	//

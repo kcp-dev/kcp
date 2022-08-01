@@ -29,8 +29,6 @@ import (
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
-
-	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
 
 const (
@@ -54,8 +52,7 @@ func EnsureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersion
 		return nil
 	}
 
-	// TODO(jmprusi): This check will need to be against "GetDeletionTimestamp()" when using the syncer virtual  workspace.
-	if upstreamObj.GetAnnotations()[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+syncTargetName] == "" {
+	if upstreamObj.GetDeletionTimestamp() == nil {
 		// Do nothing: the object should not be deleted anymore for this location on the KCP side
 		return nil
 	}
@@ -71,22 +68,6 @@ func EnsureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersion
 		}
 	}
 	upstreamObj.SetFinalizers(desiredFinalizers)
-
-	//  TODO(jmprusi): This code block will be handled by the syncer virtual workspace, so we can remove it once
-	//                 the virtual workspace syncer is integrated
-	//  - Begin -
-	// Clean up the status annotation and the locationDeletionAnnotation.
-	annotations := upstreamObj.GetAnnotations()
-	delete(annotations, workloadv1alpha1.InternalClusterStatusAnnotationPrefix+syncTargetName)
-	delete(annotations, workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+syncTargetName)
-	delete(annotations, workloadv1alpha1.InternalClusterStatusAnnotationPrefix+syncTargetName)
-	upstreamObj.SetAnnotations(annotations)
-
-	// remove the cluster label.
-	upstreamLabels := upstreamObj.GetLabels()
-	delete(upstreamLabels, workloadv1alpha1.ClusterResourceStateLabelPrefix+syncTargetName)
-	upstreamObj.SetLabels(upstreamLabels)
-	// - End of block to be removed once the virtual workspace syncer is integrated -
 
 	if _, err := upstreamClient.Cluster(logicalClusterName).Resource(gvr).Namespace(upstreamObj.GetNamespace()).Update(ctx, upstreamObj, metav1.UpdateOptions{}); err != nil {
 		klog.Errorf("Failed updating after removing the finalizers of resource %s|%s/%s: %v", logicalClusterName, upstreamNamespace, upstreamObj.GetName(), err)
