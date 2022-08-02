@@ -402,7 +402,7 @@ func syncerConfigFromCluster(t *testing.T, downstreamConfig *rest.Config, namesp
 			}
 		}
 		return false, fmt.Sprintf("token secret for service account %s/%s not found", namespace, syncerID)
-	}, wait.ForeverTestTimeout/30, time.Millisecond*100, "token secret in namespace %q for syncer service account %q not found", namespace, syncerID)
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "token secret in namespace %q for syncer service account %q not found", namespace, syncerID)
 	token := tokenSecret.Data["token"]
 	require.NotEmpty(t, token, "token is required")
 
