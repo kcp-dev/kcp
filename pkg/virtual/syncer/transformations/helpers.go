@@ -102,10 +102,7 @@ func GetAllSyncerViews(kcpResource *unstructured.Unstructured) (map[string]unstr
 
 func GetSyncerView(kcpResource *unstructured.Unstructured, syncTargetName string) (*unstructured.Unstructured, error) {
 	result, err := getSyncerViews(kcpResource, func(aSyncTarget string) bool {
-		if aSyncTarget == syncTargetName {
-			return true
-		}
-		return false
+		return aSyncTarget == syncTargetName
 	})
 	if err != nil {
 		return nil, err
