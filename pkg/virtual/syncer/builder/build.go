@@ -189,7 +189,10 @@ func BuildVirtualWorkspace(
 
 					ctx, cancelFn := context.WithCancel(context.Background())
 
-					transformer := &transformations.SyncerResourceTransformer{}
+					transformer := &transformations.SyncerResourceTransformer{
+						TransformationProvider:   &transformations.SpecDiffTransformation{},
+						SummarizingRulesProvider: &transformations.DefaultSummarizingRules{},
+					}
 
 					storageBuilder := NewStorageBuilder(ctx, transforming.WithResourceTransformer(dynamicClusterClient, transformer), apiExportIdentityHash, storageWrapper)
 					def, err := apiserver.CreateServingInfoFor(mainConfig, apiResourceSchema, version, storageBuilder)

@@ -1114,6 +1114,69 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.Equal(t, "joe in prison two", modifiedkcpCowboy.Status.Result)
 			},
 		},
+		{
+			name: "Transform spec through spec-diff annotation",
+			work: func(t *testing.T, kubelikeSyncerVWConfig, wildwestSyncerVWConfig *rest.Config, kubelikeClusterName, wildwestClusterName logicalcluster.Name, wildwestSyncTargetName string) {
+				ctx, cancelFunc := context.WithCancel(context.Background())
+				t.Cleanup(cancelFunc)
+
+				wildwestClusterClient, err := wildwestclientset.NewForConfig(server.BaseConfig(t))
+				require.NoError(t, err)
+
+				syncTargetKey := workloadv1alpha1.ToSyncTargetKey(wildwestClusterName, wildwestSyncTargetName)
+
+				t.Log("Create cowboy luckyluke")
+				_, err = wildwestClusterClient.WildwestV1alpha1().Cowboys("default").Create(logicalcluster.WithCluster(ctx, wildwestClusterName), &wildwestv1alpha1.Cowboy{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "luckyluke",
+						Annotations: map[string]string{
+							"experimental.spec-diff.workload.kcp.dev/" + syncTargetKey: `[{ "op": "replace", "path": "/intent", "value": "should catch joe and averell" }]`,
+						},
+					},
+					Spec: wildwestv1alpha1.CowboySpec{
+						Intent: "should catch joe",
+					},
+				}, metav1.CreateOptions{})
+				require.NoError(t, err)
+
+				vwClusterClient, err := wildwestclientset.NewForConfig(wildwestSyncerVWConfig)
+				require.NoError(t, err)
+
+				t.Log("Verify there is one cowboy via direct access")
+				kcpCowboys, err := wildwestClusterClient.WildwestV1alpha1().Cowboys("").List(logicalcluster.WithCluster(ctx, wildwestClusterName), metav1.ListOptions{})
+				require.NoError(t, err)
+				require.Len(t, kcpCowboys.Items, 1)
+
+				t.Log("Wait until the virtual workspace has the resource")
+				require.Eventually(t, func() bool {
+					// resources show up asynchronously, so we have to try until List works. Then it should return all object immediately.
+					_, err := vwClusterClient.WildwestV1alpha1().Cowboys("").List(logicalcluster.WithCluster(ctx, logicalcluster.Wildcard), metav1.ListOptions{})
+					return err == nil
+				}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+				t.Log("Wait for resource controller to schedule cowboy and then show up via virtual workspace wildcard request")
+				var cowboys *wildwestv1alpha1.CowboyList
+				require.Eventually(t, func() bool {
+					cowboys, err = vwClusterClient.WildwestV1alpha1().Cowboys("").List(logicalcluster.WithCluster(ctx, logicalcluster.Wildcard), metav1.ListOptions{})
+					require.NoError(t, err)
+					require.LessOrEqual(t, len(cowboys.Items), 1, "expected no other cowboy than luckyluke, got: %s", toYAML(t, cowboys))
+					return len(cowboys.Items) == 1
+				}, wait.ForeverTestTimeout, time.Millisecond)
+				require.Equal(t, "luckyluke", cowboys.Items[0].Name)
+
+				t.Log("Verify there is luckyluke via virtual workspace workspace request")
+				kcpCowboy, err := wildwestClusterClient.WildwestV1alpha1().Cowboys("default").Get(logicalcluster.WithCluster(ctx, wildwestClusterName), "luckyluke", metav1.GetOptions{})
+				require.NoError(t, err)
+				virtualWorkspaceCowboy, err := vwClusterClient.WildwestV1alpha1().Cowboys("default").Get(logicalcluster.WithCluster(ctx, wildwestClusterName), "luckyluke", metav1.GetOptions{})
+				require.NoError(t, err)
+				require.Equal(t, kcpCowboy.UID, virtualWorkspaceCowboy.UID)
+
+				expectedModifiedKcpCowboy := kcpCowboy.DeepCopy()
+				expectedModifiedKcpCowboy.Status.Result = ""
+				expectedModifiedKcpCowboy.Spec.Intent = "should catch joe and averell"
+				require.Empty(t, cmp.Diff(expectedModifiedKcpCowboy.Spec, virtualWorkspaceCowboy.Spec))
+			},
+		},
 	}
 
 	for i := range testCases {
