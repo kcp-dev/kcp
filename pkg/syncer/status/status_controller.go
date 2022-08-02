@@ -52,10 +52,11 @@ type Controller struct {
 	syncTargetName            string
 	syncTargetWorkspace       logicalcluster.Name
 	syncTargetUID             types.UID
+	syncTargetKey             string
 	advancedSchedulingEnabled bool
 }
 
-func NewStatusSyncer(gvrs []schema.GroupVersionResource, syncTargetWorkspace logicalcluster.Name, syncTargetName string, advancedSchedulingEnabled bool,
+func NewStatusSyncer(gvrs []schema.GroupVersionResource, syncTargetWorkspace logicalcluster.Name, syncTargetName, syncTargetKey string, advancedSchedulingEnabled bool,
 	upstreamClient dynamic.ClusterInterface, downstreamClient dynamic.Interface, upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory, syncTargetUID types.UID) (*Controller, error) {
 
 	c := &Controller{
@@ -70,6 +71,7 @@ func NewStatusSyncer(gvrs []schema.GroupVersionResource, syncTargetWorkspace log
 		syncTargetName:            syncTargetName,
 		syncTargetWorkspace:       syncTargetWorkspace,
 		syncTargetUID:             syncTargetUID,
+		syncTargetKey:             syncTargetKey,
 		advancedSchedulingEnabled: advancedSchedulingEnabled,
 	}
 

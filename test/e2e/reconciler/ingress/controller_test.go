@@ -179,6 +179,8 @@ func TestIngressController(t *testing.T) {
 				}),
 			).Start(t)
 
+			syncerTargetKey := workloadv1alpha1.ToSyncTargetKey(syncerFixture.SyncerConfig.SyncTargetWorkspace, syncerFixture.SyncerConfig.SyncTargetName)
+
 			t.Log("Wait for \"kubernetes\" apiexport")
 			require.Eventually(t, func() bool {
 				_, err := sourceKcpClient.ApisV1alpha1().APIExports().Get(ctx, "kubernetes", metav1.GetOptions{})
@@ -282,7 +284,7 @@ func TestIngressController(t *testing.T) {
 					klog.Error(err)
 					return false
 				}
-				return ns.Labels[workloadv1alpha1.ClusterResourceStateLabelPrefix+syncerFixture.SyncerConfig.SyncTargetName] != ""
+				return ns.Labels[workloadv1alpha1.ClusterResourceStateLabelPrefix+syncerTargetKey] != ""
 			}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 			t.Log("Creating service in source cluster")
@@ -314,7 +316,7 @@ func TestIngressController(t *testing.T) {
 					klog.Error(err)
 					return false
 				}
-				return ns.Labels[workloadv1alpha1.ClusterResourceStateLabelPrefix+syncerFixture.SyncerConfig.SyncTargetName] != ""
+				return ns.Labels[workloadv1alpha1.ClusterResourceStateLabelPrefix+syncerTargetKey] != ""
 			}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 			t.Log("Starting ingress-controller...")

@@ -109,6 +109,7 @@ func TestNamespaceScheduler(t *testing.T) {
 					}
 					return binding.Status.Phase == apisv1alpha1.APIBindingPhaseBound
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
+				syncTargetKey := workloadv1alpha1.ToSyncTargetKey(syncerFixture.SyncerConfig.SyncTargetWorkspace, syncerFixture.SyncerConfig.SyncTargetName)
 
 				t.Log("Wait until the namespace is scheduled to the workload cluster")
 				require.Eventually(t, func() bool {
@@ -117,7 +118,7 @@ func TestNamespaceScheduler(t *testing.T) {
 						klog.Error(err)
 						return false
 					}
-					return scheduledMatcher(syncTargetName)(ns) == nil
+					return scheduledMatcher(syncTargetKey)(ns) == nil
 				}, wait.ForeverTestTimeout, time.Second)
 
 				t.Log("Cordon the cluster and expect the namespace to end up unschedulable")
@@ -156,6 +157,7 @@ func TestNamespaceScheduler(t *testing.T) {
 				}
 				cluster, err = server.kcpClient.WorkloadV1alpha1().SyncTargets().Create(ctx, cluster, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create cluster")
+				syncTargetKey := workloadv1alpha1.ToSyncTargetKey(logicalcluster.From(cluster), cluster.Name)
 
 				go wait.UntilWithContext(ctx, func(ctx context.Context) {
 					patchBytes := []byte(fmt.Sprintf(`[{"op":"replace","path":"/status/lastSyncerHeartbeatTime","value":%q}]`, time.Now().Format(time.RFC3339)))
@@ -192,7 +194,7 @@ func TestNamespaceScheduler(t *testing.T) {
 						klog.Errorf("failed to get sheriff: %v", err)
 						return false
 					}
-					return obj.GetLabels()[workloadv1alpha1.ClusterResourceStateLabelPrefix+cluster.Name] != ""
+					return obj.GetLabels()[workloadv1alpha1.ClusterResourceStateLabelPrefix+syncTargetKey] != ""
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to see sheriff scheduled")
 
 				t.Log("Delete the sheriff and the sheriff CRD")
@@ -218,7 +220,7 @@ func TestNamespaceScheduler(t *testing.T) {
 						klog.Errorf("failed to get sheriff: %v", err)
 						return false
 					}
-					return obj.GetLabels()[workloadv1alpha1.ClusterResourceStateLabelPrefix+cluster.Name] != ""
+					return obj.GetLabels()[workloadv1alpha1.ClusterResourceStateLabelPrefix+syncTargetKey] != ""
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to see sheriff scheduled")
 			},
 		},

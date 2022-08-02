@@ -101,7 +101,7 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	}
 	if !exists {
 		klog.InfoS("Downstream GVR %q object %s|%s/%s does not exist. Removing finalizer upstream", gvr.String(), downstreamClusterName, upstreamNamespace, name)
-		return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, c.upstreamInformers, c.upstreamClient, upstreamNamespace, c.syncTargetName, upstreamWorkspace, name)
+		return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, c.upstreamInformers, c.upstreamClient, upstreamNamespace, c.syncTargetKey, upstreamWorkspace, name)
 	}
 
 	// update upstream status
@@ -146,7 +146,7 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 		if newUpstreamAnnotations == nil {
 			newUpstreamAnnotations = make(map[string]string)
 		}
-		newUpstreamAnnotations[workloadv1alpha1.InternalClusterStatusAnnotationPrefix+c.syncTargetName] = string(statusAnnotationValue)
+		newUpstreamAnnotations[workloadv1alpha1.InternalClusterStatusAnnotationPrefix+c.syncTargetKey] = string(statusAnnotationValue)
 		newUpstream.SetAnnotations(newUpstreamAnnotations)
 
 		if reflect.DeepEqual(existing, newUpstream) {

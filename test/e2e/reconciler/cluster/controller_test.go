@@ -66,18 +66,6 @@ func TestClusterController(t *testing.T) {
 		{
 			name: "create an object, expect spec and status to sync to sink, then delete",
 			work: func(ctx context.Context, t *testing.T, servers map[string]runningServer, syncerFixture *framework.StartedSyncerFixture) {
-				t.Logf("Creating cowboy timothy")
-				cowboy, err := servers[sourceClusterName].client.Cowboys(testNamespace).Create(ctx, &wildwestv1alpha1.Cowboy{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "timothy",
-						Labels: map[string]string{
-							"state.workload.kcp.dev/" + sinkClusterName: string(workloadv1alpha1.ResourceStateSync),
-						},
-					},
-					Spec: wildwestv1alpha1.CowboySpec{Intent: "yeehaw"},
-				}, metav1.CreateOptions{})
-				require.NoError(t, err, "failed to create cowboy")
-
 				kcpClient, err := kcpclientset.NewForConfig(syncerFixture.SyncerConfig.UpstreamConfig)
 				require.NoError(t, err)
 
@@ -86,8 +74,21 @@ func TestClusterController(t *testing.T) {
 					metav1.GetOptions{},
 				)
 				require.NoError(t, err)
+				syncTargetKey := workloadv1alpha1.ToSyncTargetKey(logicalcluster.From(syncTarget), syncTarget.GetName())
 
-				nsLocator := shared.NewNamespaceLocator(syncerFixture.SyncerConfig.SyncTargetWorkspace, logicalcluster.From(syncTarget), syncTarget.GetUID(), syncTarget.GetName(), cowboy.Namespace)
+				t.Logf("Creating cowboy timothy")
+				cowboy, err := servers[sourceClusterName].client.Cowboys(testNamespace).Create(ctx, &wildwestv1alpha1.Cowboy{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "timothy",
+						Labels: map[string]string{
+							"state.workload.kcp.dev/" + syncTargetKey: string(workloadv1alpha1.ResourceStateSync),
+						},
+					},
+					Spec: wildwestv1alpha1.CowboySpec{Intent: "yeehaw"},
+				}, metav1.CreateOptions{})
+				require.NoError(t, err, "failed to create cowboy")
+
+				nsLocator := shared.NewNamespaceLocator(logicalcluster.From(cowboy), logicalcluster.From(syncTarget), syncTarget.GetUID(), syncTarget.GetName(), cowboy.Namespace)
 				targetNamespace, err := shared.PhysicalClusterNamespaceName(nsLocator)
 				require.NoError(t, err, "Error determining namespace mapping for %v", nsLocator)
 

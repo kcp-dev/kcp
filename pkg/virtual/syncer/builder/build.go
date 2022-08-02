@@ -157,9 +157,10 @@ func BuildVirtualWorkspace(
 				wildcardKcpInformers.Workload().V1alpha1().SyncTargets(),
 				wildcardKcpInformers.Apis().V1alpha1().APIResourceSchemas(),
 				wildcardKcpInformers.Apis().V1alpha1().APIExports(),
-				func(syncTargetName string, apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, apiExportIdentityHash string) (apidefinition.APIDefinition, error) {
+				func(syncTargetWorkspace logicalcluster.Name, syncTargetName string, apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, apiExportIdentityHash string) (apidefinition.APIDefinition, error) {
+					syncTargetKey := workloadv1alpha1.ToSyncTargetKey(syncTargetWorkspace, syncTargetName)
 					requirements, selectable := labels.SelectorFromSet(map[string]string{
-						workloadv1alpha1.ClusterResourceStateLabelPrefix + syncTargetName: string(workloadv1alpha1.ResourceStateSync),
+						workloadv1alpha1.ClusterResourceStateLabelPrefix + syncTargetKey: string(workloadv1alpha1.ResourceStateSync),
 					}).Requirements()
 					if !selectable {
 						return nil, fmt.Errorf("unable to create a selector from the provided labels")
