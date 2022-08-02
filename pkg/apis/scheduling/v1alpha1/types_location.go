@@ -27,28 +27,6 @@ const (
 
 	// PlacementAnnotationKey is the label key for the label holding a PlacementAnnotation struct.
 	PlacementAnnotationKey = "scheduling.kcp.dev/placement"
-
-	// InternalNegotiationWorkspaceAnnotationKey is the label key storing the negotiation workspace.
-	InternalNegotiationWorkspaceAnnotationKey = "internal.scheduling.kcp.dev/negotiation-workspace"
-)
-
-// PlacementAnnotation is the type marshalled into the PlacementAnnotationKey annotation on
-// namespaces. The keys are strings identifying a sync target the namespace is placed
-// on.
-type PlacementAnnotation map[string]PlacementState
-
-// PlacementState is the state of a namespace placement state machine.
-type PlacementState string
-
-const (
-	// PlacementStatePending means that the namespace is being adopted by the sync target.
-	PlacementStatePending PlacementState = "Pending"
-	// PlacementStateBound means that the namespace is adopted by the sync target.
-	PlacementStateBound PlacementState = "Bound"
-	// PlacementStateRemoving means that the namespace is being removed by the sync target.
-	PlacementStateRemoving PlacementState = "Removing"
-	// PlacementStateUnbound means that the namespace is removed and hence unbound from the sync target.
-	PlacementStateUnbound PlacementState = "Unbound"
 )
 
 // Location represents a set of instances of a scheduling resource type acting a target
