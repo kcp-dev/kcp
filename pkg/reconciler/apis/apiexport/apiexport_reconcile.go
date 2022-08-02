@@ -167,18 +167,18 @@ func (c *controller) updateVirtualWorkspaceURLs(apiExport *apisv1alpha1.APIExpor
 
 	desiredURLs := sets.NewString()
 	for _, clusterWorkspaceShard := range clusterWorkspaceShards {
-		if clusterWorkspaceShard.Spec.ExternalURL == "" {
+		if clusterWorkspaceShard.Spec.VirtualWorkspaceURL == "" {
 			continue
 		}
 
-		u, err := url.Parse(clusterWorkspaceShard.Spec.ExternalURL)
+		u, err := url.Parse(clusterWorkspaceShard.Spec.VirtualWorkspaceURL)
 		if err != nil {
 			// Should never happen
 			klog.Errorf(
 				"Error parsing ClusterWorkspaceShard %s|%s spec.externalURL %q: %v",
 				logicalcluster.From(clusterWorkspaceShard),
 				clusterWorkspaceShard.Name,
-				clusterWorkspaceShard.Spec.ExternalURL,
+				clusterWorkspaceShard.Spec.VirtualWorkspaceURL,
 			)
 
 			continue

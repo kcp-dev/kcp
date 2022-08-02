@@ -22,7 +22,6 @@ import (
 	"net/url"
 	"path"
 	"reflect"
-	"sort"
 	"testing"
 	"time"
 
@@ -33,6 +32,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/rest"
@@ -78,9 +78,9 @@ func TestAPIBinding(t *testing.T) {
 	clusterWorkspaceShards, err := kcpClusterClient.TenancyV1alpha1().ClusterWorkspaceShards().List(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), metav1.ListOptions{})
 	require.NoError(t, err, "error listing clusterworkspaceshards")
 
-	var clusterWorkspaceShardURLs []string
+	var clusterWorkspaceShardVirtualWorkspaceURLs []string
 	for _, s := range clusterWorkspaceShards.Items {
-		clusterWorkspaceShardURLs = append(clusterWorkspaceShardURLs, s.Spec.ExternalURL)
+		clusterWorkspaceShardVirtualWorkspaceURLs = append(clusterWorkspaceShardVirtualWorkspaceURLs, s.Spec.VirtualWorkspaceURL)
 	}
 
 	serviceProviderWorkspaces := []logicalcluster.Name{serviceProvider1Workspace, serviceProvider2Workspace}
@@ -107,15 +107,14 @@ func TestAPIBinding(t *testing.T) {
 		cowboysAPIExport, err = kcpClusterClient.ApisV1alpha1().APIExports().Create(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), cowboysAPIExport, metav1.CreateOptions{})
 		require.NoError(t, err)
 
-		var expectedURLs []string
-		for _, urlString := range clusterWorkspaceShardURLs {
+		uniqueExpectedURLSet := sets.NewString()
+		for _, urlString := range clusterWorkspaceShardVirtualWorkspaceURLs {
 			u, err := url.Parse(urlString)
 			require.NoError(t, err, "error parsing %q", urlString)
-
 			u.Path = path.Join(u.Path, "services", "apiexport", serviceProviderWorkspace.String(), cowboysAPIExport.Name)
-			expectedURLs = append(expectedURLs, u.String())
+			uniqueExpectedURLSet.Insert(u.String())
 		}
-		sort.Strings(expectedURLs)
+		expectedURLs := uniqueExpectedURLSet.List()
 
 		t.Logf("Make sure the APIExport gets status.virtualWorkspaceURLs set")
 		framework.Eventually(t, func() (bool, string) {
