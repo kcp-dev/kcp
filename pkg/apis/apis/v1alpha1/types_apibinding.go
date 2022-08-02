@@ -33,6 +33,7 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster,categories=kcp
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 type APIBinding struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional

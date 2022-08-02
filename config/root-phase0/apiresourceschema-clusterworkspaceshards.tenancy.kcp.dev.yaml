@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v220628-546034da.clusterworkspaceshards.tenancy.kcp.dev
+  name: v220801-c65c674d4.clusterworkspaceshards.tenancy.kcp.dev
 spec:
   group: tenancy.kcp.dev
   names:
@@ -23,6 +23,9 @@ spec:
       jsonPath: .spec.externalURL
       name: External URL
       type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
     name: v1alpha1
     schema:
       description: ClusterWorkspaceShard describes a Shard (== KCP instance) on which

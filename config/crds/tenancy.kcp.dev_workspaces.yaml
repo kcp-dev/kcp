@@ -31,6 +31,9 @@ spec:
       jsonPath: .status.URL
       name: URL
       type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
     name: v1beta1
     schema:
       openAPIV3Schema:

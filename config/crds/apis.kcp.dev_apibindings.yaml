@@ -16,7 +16,11 @@ spec:
     singular: apibinding
   scope: Cluster
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: "APIBinding enables a set of resources and their behaviour through

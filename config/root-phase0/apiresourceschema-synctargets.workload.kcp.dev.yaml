@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v220726-fde588ec.synctargets.workload.kcp.dev
+  name: v220801-c65c674d4.synctargets.workload.kcp.dev
 spec:
   group: workload.kcp.dev
   names:
@@ -27,6 +27,9 @@ spec:
       name: Synced API resources
       priority: 3
       type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
     name: v1alpha1
     schema:
       description: SyncTarget describes a member cluster capable of running workloads.

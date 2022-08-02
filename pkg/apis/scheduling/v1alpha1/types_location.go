@@ -68,6 +68,7 @@ const (
 // +kubebuilder:printcolumn:name="Available",type=string,JSONPath=`.status.availableInstances`,description="Available instances in this location"
 // +kubebuilder:printcolumn:name="Instances",type=string,JSONPath=`.status.instances`,description="Instances in this location"
 // +kubebuilder:printcolumn:name="Labels",type=string,JSONPath=`.metadata.annotations['scheduling\.kcp\.dev/labels']`,description="The common labels of this location"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 type Location struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional

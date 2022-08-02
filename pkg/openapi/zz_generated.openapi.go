@@ -2306,7 +2306,7 @@ func schema_pkg_apis_scheduling_v1alpha1_Placement(ref common.ReferenceCallback)
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "placement defines a selection rule to choose ONE location for MULTIPLE namespaces in a workspace.\n\nplacement is in Pending state initially. When a location is selected by the placement, the placement turns to Unbound state. In Pending or Unbound state, the selection rule can be updated to select another location. When the a namespace is annotated by another controller or user with the key of \"scheduling.kcp.dev/placement\", the namespace will pick one placement, and this placement is transfered to Bound state. Any update to spec of the placement is ignored in Bound state and reflected in the conditions. The placement will turn back to Unbound state when no namespace uses this placement any more.",
+				Description: "Placement defines a selection rule to choose ONE location for MULTIPLE namespaces in a workspace.\n\nplacement is in Pending state initially. When a location is selected by the placement, the placement turns to Unbound state. In Pending or Unbound state, the selection rule can be updated to select another location. When the a namespace is annotated by another controller or user with the key of \"scheduling.kcp.dev/placement\", the namespace will pick one placement, and this placement is transfered to Bound state. Any update to spec of the placement is ignored in Bound state and reflected in the conditions. The placement will turn back to Unbound state when no namespace uses this placement any more.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
