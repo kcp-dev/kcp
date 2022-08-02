@@ -17,11 +17,17 @@ limitations under the License.
 package indexers
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
+
+	syncershared "github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
 const (
@@ -31,6 +37,8 @@ const (
 	ByLogicalClusterAndNamespace = "kcp-global-byLogicalClusterAndNamespace"
 	// IndexAPIExportByIdentity is the indexer name for by identity index for the API Export indexers.
 	IndexAPIExportByIdentity = "byIdentity"
+	// BySyncerFinalizerKey is the name for the index that indexes by syncer finalizer label keys.
+	BySyncerFinalizerKey = "bySyncerFinalizerKey"
 )
 
 // ClusterScoped returns cache.Indexers appropriate for cluster-scoped resources.
@@ -66,4 +74,21 @@ func IndexByLogicalClusterAndNamespace(obj interface{}) ([]string, error) {
 	}
 
 	return []string{clusters.ToClusterAwareKey(logicalcluster.From(a), a.GetNamespace())}, nil
+}
+
+// IndexBySyncerFinalizerKey indexes by syncer finalizer label keys.
+func IndexBySyncerFinalizerKey(obj interface{}) ([]string, error) {
+	metaObj, ok := obj.(metav1.Object)
+	if !ok {
+		return []string{}, fmt.Errorf("obj is supposed to be a metav1.Object, but is %T", obj)
+	}
+
+	syncerFinalizers := []string{}
+	for _, f := range metaObj.GetFinalizers() {
+		if strings.HasPrefix(f, syncershared.SyncerFinalizerNamePrefix) {
+			syncerFinalizers = append(syncerFinalizers, f)
+		}
+	}
+
+	return syncerFinalizers, nil
 }

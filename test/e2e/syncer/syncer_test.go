@@ -290,7 +290,7 @@ func TestSyncerLifecycle(t *testing.T) {
 			return true, ""
 		}
 		return false, toYaml(deployment)
-	}, wait.ForeverTestTimeout, time.Millisecond*100, "upstream Deployment didn't get the per-location deletion annotation set or there was an error", upstreamNamespace.Name, upstreamDeployment.Name)
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "upstream Deployment %s/%s didn't get the per-location deletion annotation set or there was an error", upstreamNamespace.Name, upstreamDeployment.Name)
 
 	t.Logf("Checking if upstream deployment %s/%s is getting deleted, shouldn't as the syncer will not remove its finalizer due to the virtual finalizer", upstreamNamespace.Name, upstreamDeployment.Name)
 	require.Never(t, func() bool {
@@ -300,7 +300,7 @@ func TestSyncerLifecycle(t *testing.T) {
 		}
 		require.NoError(t, err)
 		return false
-	}, 5*time.Second, time.Second, "upstream Deployment got deleted or there was an error", upstreamNamespace.Name, upstreamDeployment.Name)
+	}, 5*time.Second, time.Second, "upstream Deployment %s/%s got deleted or there was an error", upstreamNamespace.Name, upstreamDeployment.Name)
 
 	t.Logf("Checking if the downstream deployment %s/%s is deleted or not (shouldn't as there's a virtual finalizer that blocks the deletion of the downstream resource)", downstreamNamespaceName, upstreamDeployment.Name)
 	require.Neverf(t, func() bool {

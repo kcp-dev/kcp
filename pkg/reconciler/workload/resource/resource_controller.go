@@ -42,7 +42,11 @@ import (
 	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
+	workloadlisters "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
+	syncershared "github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
 const controllerName = "kcp-workload-resource-scheduler"
@@ -51,6 +55,7 @@ const controllerName = "kcp-workload-resource-scheduler"
 func NewController(
 	dynamicClusterClient dynamic.Interface,
 	ddsif *informer.DynamicDiscoverySharedInformerFactory,
+	syncTargetInformer workloadinformers.SyncTargetInformer,
 	namespaceInformer coreinformers.NamespaceInformer,
 ) (*Controller, error) {
 	resourceQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-namespace-resource")
@@ -63,6 +68,9 @@ func NewController(
 		dynClusterClient: dynamicClusterClient,
 
 		namespaceLister: namespaceInformer.Lister(),
+
+		syncTargetLister:  syncTargetInformer.Lister(),
+		syncTargetIndexer: syncTargetInformer.Informer().GetIndexer(),
 
 		ddsif: ddsif,
 	}
@@ -88,6 +96,12 @@ func NewController(
 		AddFunc:    func(gvr schema.GroupVersionResource, obj interface{}) { c.enqueueResource(gvr, obj) },
 		UpdateFunc: func(gvr schema.GroupVersionResource, _, obj interface{}) { c.enqueueResource(gvr, obj) },
 		DeleteFunc: nil, // Nothing to do.
+	})
+
+	syncTargetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		DeleteFunc: func(obj interface{}) {
+			c.enqueueSyncTarget(obj)
+		},
 	})
 
 	return c, nil
@@ -120,6 +134,9 @@ type Controller struct {
 	dynClusterClient dynamic.Interface
 
 	namespaceLister corelisters.NamespaceLister
+
+	syncTargetLister  workloadlisters.SyncTargetLister
+	syncTargetIndexer cache.Indexer
 
 	ddsif *informer.DynamicDiscoverySharedInformerFactory
 }
@@ -337,6 +354,41 @@ func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 	}
 
 	return nil
+}
+
+func (c *Controller) enqueueSyncTarget(obj interface{}) {
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+	clusterName, name := clusters.SplitClusterAwareKey(key)
+	finalizer := syncershared.SyncerFinalizerNamePrefix + workloadv1alpha1.ToSyncTargetKey(clusterName, name)
+
+	listers, _ := c.ddsif.Listers()
+	queued := map[string]int{}
+	for gvr := range listers {
+		inf, err := c.ddsif.ForResource(gvr)
+		if err != nil {
+			runtime.HandleError(err)
+			continue
+		}
+		objs, err := inf.Informer().GetIndexer().ByIndex(indexers.BySyncerFinalizerKey, finalizer)
+		if err != nil {
+			runtime.HandleError(err)
+			continue // ignore
+		}
+		if len(objs) == 0 {
+			continue
+		}
+		for _, obj := range objs {
+			c.enqueueResource(gvr, obj)
+		}
+		queued[gvr.String()] = len(objs)
+	}
+	if len(queued) > 0 {
+		klog.V(2).InfoS("Queued GVRs with finalizer %s because SyncTarget %s|%s with key %s got deleted: %v", clusterName, name, finalizer, queued)
+	}
 }
 
 func locations(annotations, labels map[string]string, skipPending bool) (locations sets.String, deleting sets.String) {
