@@ -61,7 +61,7 @@ func TestCrossLogicalClusterList(t *testing.T) {
 	cfg := server.BaseConfig(t)
 	rootShardCfg := server.RootShardSystemMasterBaseConfig(t)
 
-	kcpClients, err := kcpclientset.NewClusterForConfig(cfg)
+	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp client for server")
 
 	// Note: we put all consumer workspaces onto root shard in order to enforce conflicts.
@@ -71,28 +71,27 @@ func TestCrossLogicalClusterList(t *testing.T) {
 		framework.NewOrganizationFixture(t, server, framework.WithShardConstraints(tenancyapi.ShardConstraints{Name: "root"})),
 	}
 	expectedWorkspaces := sets.NewString()
-	for i, logicalCluster := range logicalClusters {
+	for i, lcluster := range logicalClusters {
 		wsName := fmt.Sprintf("ws-%d", i)
 
-		t.Logf("Creating ClusterWorkspace CRs in logical cluster %s", logicalCluster)
-		kcpClient := kcpClients.Cluster(logicalCluster)
+		t.Logf("Creating ClusterWorkspace CRs in logical cluster %s", lcluster)
 		sourceWorkspace := &tenancyapi.ClusterWorkspace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: wsName,
 			},
 		}
-		_, err = kcpClient.TenancyV1alpha1().ClusterWorkspaces().Create(ctx, sourceWorkspace, metav1.CreateOptions{})
+		_, err = kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Create(logicalcluster.WithCluster(ctx, lcluster), sourceWorkspace, metav1.CreateOptions{})
 		require.NoError(t, err, "error creating source workspace")
 
-		expectedWorkspaces.Insert(logicalCluster.Join(wsName).String())
+		expectedWorkspaces.Insert(lcluster.Join(wsName).String())
 
 		server.Artifact(t, func() (runtime.Object, error) {
-			return kcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, sourceWorkspace.Name, metav1.GetOptions{})
+			return kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, lcluster), sourceWorkspace.Name, metav1.GetOptions{})
 		})
 	}
 
 	t.Logf("Listing ClusterWorkspace CRs across logical clusters with identity")
-	tenancyExport, err := kcpClients.Cluster(tenancyapi.RootCluster).ApisV1alpha1().APIExports().Get(ctx, "tenancy.kcp.dev", metav1.GetOptions{})
+	tenancyExport, err := kcpClusterClient.ApisV1alpha1().APIExports().Get(logicalcluster.WithCluster(ctx, tenancyapi.RootCluster), "tenancy.kcp.dev", metav1.GetOptions{})
 	require.NoError(t, err, "error getting tenancy API export")
 	require.NotEmptyf(t, tenancyExport.Status.IdentityHash, "tenancy API export has no identity hash")
 	dynamicClusterClient, err := dynamic.NewClusterForConfig(rootShardCfg)
