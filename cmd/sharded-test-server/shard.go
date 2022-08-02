@@ -60,7 +60,6 @@ func startShard(ctx context.Context, n int, args []string, servingCA *crypto.CA,
 	}
 
 	if n > 0 {
-		args = append(args, fmt.Sprintf("--shard-virtual-workspace-url=https://%s:%d", hostIP, 6444))
 		args = append(args, fmt.Sprintf("--shard-name=shard-%d", n))
 		args = append(args, "--root-shard-kubeconfig-file=.kcp-0/admin.kubeconfig")
 		args = append(args, fmt.Sprintf("--embedded-etcd-client-port=%d", 2379+n+1))
