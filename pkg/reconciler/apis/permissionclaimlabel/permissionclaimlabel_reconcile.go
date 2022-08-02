@@ -39,6 +39,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1/permissionclaims"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 )
 
 type permissionClaimHelper struct {
@@ -176,6 +177,7 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 				return fmt.Errorf("unable sync cache")
 			}
 			var errs []error
+
 			selector := labels.NewSelector()
 			req, err := labels.NewRequirement(claim.key, selection.NotEquals, []string{claim.label})
 			if err != nil {
@@ -183,19 +185,20 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 				klog.V(4).Infof("uanble to get requirement: %v ", err)
 			}
 			selector.Add(*req)
-			objs, err := claim.informer.Lister().List(selector)
+
+			objs, err := claim.informer.Informer().GetIndexer().ByIndex(indexers.ByLogicalCluster, lc.String())
 			if err != nil {
 				errs = append(errs, err)
 				klog.V(4).Infof("uanble to list objects for %s.%s", gvr.Resource, gvr.Group)
 			}
 			klog.V(6).Infof("reconciling %v objs of type: %v.%v", len(objs), gvr.Resource, gvr.Group)
 			for _, obj := range objs {
-				oldObjectMeta, err := meta.Accessor(obj.DeepCopyObject())
+				oldObjectMeta, err := meta.Accessor(obj)
 				if err != nil {
 					return err
 				}
-				if logicalcluster.From(oldObjectMeta) != lc {
-					//Do not update objects that are not for the logical cluster
+				if selector.Matches(labels.Set(oldObjectMeta.GetLabels())) {
+					//Do not update objects that do not match the selector.
 					continue
 				}
 				// Empty Patch, will relay on the admission to add the resources.
@@ -228,7 +231,7 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 				return fmt.Errorf("unable sync cache")
 			}
 			selector := labels.SelectorFromSet(labels.Set(map[string]string{claim.key: claim.label}))
-			objs, err := claim.informer.Lister().List(selector)
+			objs, err := claim.informer.Informer().GetIndexer().ByIndex(indexers.ByLogicalCluster, lc.String())
 			if err != nil {
 				return err
 			}
@@ -238,8 +241,8 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 				if err != nil {
 					return err
 				}
-				if logicalcluster.From(oldObjectMeta) != lc {
-					//Do not update objects that are not for the logical cluster
+				if selector.Matches(labels.Set(oldObjectMeta.GetLabels())) {
+					//Do not update objects that are not selected
 					continue
 				}
 				// Empty Patch, will relay on the admission to add the resources.

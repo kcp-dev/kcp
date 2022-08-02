@@ -113,12 +113,12 @@ type controller struct {
 	queue workqueue.RateLimitingInterface
 
 	kcpClusterClient     kcpclient.Interface
+	apiBindingsIndexer   cache.Indexer
 	dynamicClusterClient dynamic.Interface
 	ddsif                *informer.DynamicDiscoverySharedInformerFactory
 
-	apiBindingsLister  apislisters.APIBindingLister
-	listAPIBindings    func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
-	apiBindingsIndexer cache.Indexer
+	apiBindingsLister apislisters.APIBindingLister
+	listAPIBindings   func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
 }
 
 // enqueueAPIBinding enqueues an APIBinding .
@@ -152,11 +152,7 @@ func (c *controller) enqueueBindingForResource(gvr schema.GroupVersionResource, 
 	for _, binding := range apiBindings {
 		for _, pc := range binding.Spec.AcceptedPermissionClaims {
 			if pc.Group == gvr.Group && pc.Resource == gvr.Resource {
-				key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
-				if err != nil {
-					klog.Errorf("unable to get cache key %w", err)
-					continue
-				}
+				key := clusters.ToClusterAwareKey(lc, binding.Name)
 				klog.V(2).Infof("queueing APIBinding %q", key)
 				c.queue.Add(key)
 			}
@@ -213,7 +209,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 	}
 	clusterName, name := clusters.SplitClusterAwareKey(clusterAwareName)
 
-	obj, err := c.apiBindingsLister.Get(key) // TODO: clients need a way to scope down the lister per-cluster
+	obj, err := c.apiBindingsLister.Get(key)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil // object deleted before we handled it
