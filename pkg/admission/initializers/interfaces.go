@@ -59,6 +59,12 @@ type WantsShardExternalURL interface {
 	SetShardExternalURL(shardExternalURL string)
 }
 
+// WantsShardVirtualWorkspaceURL interface should be implemented by admission plugins
+// that want to have the shard's virtual workspace url injected.
+type WantsShardVirtualWorkspaceURL interface {
+	SetShardVirtualWorkspaceURL(shardVirtualWorkspaceURL string)
+}
+
 // WantsServerShutdownChannel interface should be implemented by admission plugins that want to perform cleanup
 // activities when the main server context/channel is done.
 type WantsServerShutdownChannel interface {

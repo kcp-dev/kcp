@@ -325,6 +325,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		kcpadmissioninitializers.NewKcpClusterClientInitializer(c.KcpClusterClient),
 		kcpadmissioninitializers.NewShardBaseURLInitializer(opts.Extra.ShardBaseURL),
 		kcpadmissioninitializers.NewShardExternalURLInitializer(opts.Extra.ShardExternalURL),
+		kcpadmissioninitializers.NewShardVirtualWorkspaceURLInitializer(opts.Extra.ShardVirtualWorkspaceURL),
 		// The external address is provided as a function, as its value may be updated
 		// with the default secure port, when the config is later completed.
 		kcpadmissioninitializers.NewExternalAddressInitializer(func() string { return c.GenericConfig.ExternalAddress }),
