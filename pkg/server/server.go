@@ -239,8 +239,9 @@ func (s *Server) Run(ctx context.Context) error {
 			shard := &tenancyv1alpha1.ClusterWorkspaceShard{
 				ObjectMeta: metav1.ObjectMeta{Name: s.Options.Extra.ShardName},
 				Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{
-					BaseURL:     fmt.Sprintf("https://%v", s.GenericConfig.ExternalAddress),
-					ExternalURL: fmt.Sprintf("https://%v", s.Options.Extra.ShardExternalURL),
+					BaseURL:             fmt.Sprintf("https://%v", s.GenericConfig.ExternalAddress),
+					ExternalURL:         fmt.Sprintf("https://%v", s.Options.Extra.ShardExternalURL),
+					VirtualWorkspaceURL: s.Options.Extra.ShardVirtualWorkspaceURL,
 				},
 			}
 			if _, err := s.RootShardKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaceShards().Create(goContext(ctx), shard, metav1.CreateOptions{}); err != nil {
@@ -274,6 +275,7 @@ func (s *Server) Run(ctx context.Context) error {
 				s.ApiExtensionsClusterClient.Cluster(tenancyv1alpha1.RootCluster).Discovery(),
 				s.DynamicClusterClient.Cluster(tenancyv1alpha1.RootCluster),
 				s.Options.Extra.ShardName,
+				s.Options.Extra.ShardVirtualWorkspaceURL,
 				clientcmdapi.Config{
 					Clusters: map[string]*clientcmdapi.Cluster{
 						// cross-cluster is the virtual cluster running by default
