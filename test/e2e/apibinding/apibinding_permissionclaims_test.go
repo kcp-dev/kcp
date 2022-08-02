@@ -23,6 +23,7 @@ import (
 	"time"
 
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
+	kcpdynamic "github.com/kcp-dev/apimachinery/pkg/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
@@ -30,7 +31,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery/cached/memory"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
@@ -62,7 +62,7 @@ func TestAPIBindingPermissionClaims(t *testing.T) {
 	kcpClusterClient, err := clientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
 
-	dynamicClients, err := dynamic.NewClusterForConfig(cfg)
+	dynamicClusterClient, err := kcpdynamic.NewClusterDynamicClientForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
 	kubeClusterClient, err := kubernetes.NewForConfig(cfg)
@@ -93,7 +93,7 @@ func TestAPIBindingPermissionClaims(t *testing.T) {
 	apifixtures.BindToExport(ctx, t, serviceProviderWorkspace, "wild.wild.west", consumerWorkspace, kcpClusterClient)
 
 	t.Logf("set up service provider with permission claims")
-	setUpServiceProviderWithPermissionClaims(ctx, dynamicClients, kcpClusterClient, kubeClusterClient, serviceProviderWorkspace, cfg, t, identityHash)
+	setUpServiceProviderWithPermissionClaims(ctx, dynamicClusterClient, kcpClusterClient, kubeClusterClient, serviceProviderWorkspace, cfg, t, identityHash)
 
 	t.Logf("set up binding, with invalid accepted claims hash")
 	bindConsumerToProvider(ctx, consumerWorkspace, serviceProviderWorkspace, t, kcpClusterClient, cfg, "xxxxxxx")
@@ -147,14 +147,14 @@ func TestAPIBindingPermissionClaims(t *testing.T) {
 
 }
 
-func setUpServiceProviderWithPermissionClaims(ctx context.Context, dynamicClients *dynamic.Cluster, kcpClusterClients clientset.Interface, kubeClusterClient kubernetes.Interface, serviceProviderWorkspace logicalcluster.Name, cfg *rest.Config, t *testing.T, identityHash string) {
+func setUpServiceProviderWithPermissionClaims(ctx context.Context, dynamicClusterClient *kcpdynamic.ClusterDynamicClient, kcpClusterClients clientset.Interface, kubeClusterClient kubernetes.Interface, serviceProviderWorkspace logicalcluster.Name, cfg *rest.Config, t *testing.T, identityHash string) {
 	t.Logf("Install today cowboys APIResourceSchema into service provider workspace %q", serviceProviderWorkspace)
 	serviceProviderClusterCfg := kcpclienthelper.ConfigWithCluster(cfg, serviceProviderWorkspace)
 	serviceProviderClient, err := clientset.NewForConfig(serviceProviderClusterCfg)
 	require.NoError(t, err)
 
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(serviceProviderClient.Discovery()))
-	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(serviceProviderWorkspace), mapper, "apiresourceschema_cowboys.yaml", testFiles)
+	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(serviceProviderWorkspace), mapper, "apiresourceschema_cowboys.yaml", testFiles)
 	require.NoError(t, err)
 
 	t.Logf("Create an APIExport for it")

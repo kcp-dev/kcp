@@ -23,6 +23,7 @@ import (
 	"time"
 
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
+	kcpdynamic "github.com/kcp-dev/apimachinery/pkg/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
@@ -30,7 +31,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery/cached/memory"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/util/retry"
 
@@ -61,7 +61,7 @@ func TestAPIBindingDeletion(t *testing.T) {
 	kcpClusterClient, err := clientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
 
-	dynamicClients, err := dynamic.NewClusterForConfig(cfg)
+	dynamicClusterClient, err := kcpdynamic.NewClusterDynamicClientForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
 	serviceProviderClusterCfg := kcpclienthelper.ConfigWithCluster(cfg, serviceProviderWorkspace)
@@ -70,7 +70,7 @@ func TestAPIBindingDeletion(t *testing.T) {
 
 	t.Logf("Install today cowboys APIResourceSchema into service provider workspace %q", serviceProviderWorkspace)
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(serviceProviderClient.Discovery()))
-	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(serviceProviderWorkspace), mapper, "apiresourceschema_cowboys.yaml", testFiles)
+	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(serviceProviderWorkspace), mapper, "apiresourceschema_cowboys.yaml", testFiles)
 	require.NoError(t, err)
 
 	t.Logf("Create an APIExport for it")
@@ -131,18 +131,18 @@ func TestAPIBindingDeletion(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	wildwestClusterClient, err := wildwestclientset.NewClusterForConfig(cfg)
+	wildwestClusterClient, err := wildwestclientset.NewForConfig(cfg)
 	require.NoError(t, err)
 
 	t.Logf("Create a cowboy CR in consumer workspace %q", consumerWorkspace)
-	cowboyClient := wildwestClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default")
+	cowboyClusterClient := wildwestClusterClient.WildwestV1alpha1().Cowboys("default")
 	cowboy := &wildwestv1alpha1.Cowboy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("cowboy-1-%s", consumerWorkspace.Base()),
 			Namespace: "default",
 		},
 	}
-	_, err = cowboyClient.Create(ctx, cowboy, metav1.CreateOptions{})
+	_, err = cowboyClusterClient.Create(logicalcluster.WithCluster(ctx, consumerWorkspace), cowboy, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating cowboy in consumer workspace %q", consumerWorkspace)
 
 	t.Logf("Create a cowboy CR with finalizer in consumer workspace %q", consumerWorkspace)
@@ -154,7 +154,7 @@ func TestAPIBindingDeletion(t *testing.T) {
 			Finalizers: []string{"tenancy.kcp.dev/test-finalizer"},
 		},
 	}
-	_, err = cowboyClient.Create(ctx, cowboy, metav1.CreateOptions{})
+	_, err = cowboyClusterClient.Create(logicalcluster.WithCluster(ctx, consumerWorkspace), cowboy, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating cowboy in consumer workspace %q", consumerWorkspace)
 
 	err = kcpClusterClient.ApisV1alpha1().APIBindings().Delete(logicalcluster.WithCluster(ctx, consumerWorkspace), apiBinding.Name, metav1.DeleteOptions{})
@@ -162,7 +162,7 @@ func TestAPIBindingDeletion(t *testing.T) {
 
 	t.Logf("There should left 1 cowboy CR in delete state")
 	require.Eventually(t, func() bool {
-		cowboys, err := cowboyClient.List(ctx, metav1.ListOptions{})
+		cowboys, err := cowboyClusterClient.List(logicalcluster.WithCluster(ctx, consumerWorkspace), metav1.ListOptions{})
 		if err != nil {
 			return false
 		}
@@ -213,17 +213,17 @@ func TestAPIBindingDeletion(t *testing.T) {
 			Namespace: "default",
 		},
 	}
-	_, err = cowboyClient.Create(ctx, cowboyDenied, metav1.CreateOptions{})
+	_, err = cowboyClusterClient.Create(logicalcluster.WithCluster(ctx, consumerWorkspace), cowboyDenied, metav1.CreateOptions{})
 	require.Equal(t, apierrors.IsMethodNotSupported(err), true)
 
 	t.Logf("Clean finalizer to remove the cowboy")
 	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		cowboy, err = cowboyClient.Get(ctx, cowboyName, metav1.GetOptions{})
+		cowboy, err = cowboyClusterClient.Get(logicalcluster.WithCluster(ctx, consumerWorkspace), cowboyName, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
 		cowboy.Finalizers = []string{}
-		_, err := cowboyClient.Update(ctx, cowboy, metav1.UpdateOptions{})
+		_, err := cowboyClusterClient.Update(logicalcluster.WithCluster(ctx, consumerWorkspace), cowboy, metav1.UpdateOptions{})
 		return err
 	})
 	require.NoError(t, err, "failed to update cowoby %s", cowboyName)

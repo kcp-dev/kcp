@@ -23,6 +23,7 @@ import (
 	"time"
 
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
+	kcpdynamic "github.com/kcp-dev/apimachinery/pkg/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
@@ -31,7 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery/cached/memory"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
@@ -84,10 +84,10 @@ func TestAPIBindingAuthorizerSystemGroupProtection(t *testing.T) {
 				t.Parallel()
 
 				t.Logf("Creating a ClusterWorkspaceType as user-1")
-				userKcpClusterClient, err := clientset.NewClusterForConfig(framework.UserConfig("user-1", server.BaseConfig(t)))
+				userKcpClusterClient, err := clientset.NewForConfig(framework.UserConfig("user-1", server.BaseConfig(t)))
 				require.NoError(t, err, "failed to construct kcp cluster client for user-1")
 				framework.Eventually(t, func() (bool, string) { // authz makes this eventually succeed
-					_, err = userKcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaceTypes().Create(ctx, &tenancyv1alpha1.ClusterWorkspaceType{
+					_, err = userKcpClusterClient.TenancyV1alpha1().ClusterWorkspaceTypes().Create(logicalcluster.WithCluster(ctx, orgClusterName), &tenancyv1alpha1.ClusterWorkspaceType{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "test",
 						},
@@ -100,7 +100,7 @@ func TestAPIBindingAuthorizerSystemGroupProtection(t *testing.T) {
 
 				t.Logf("Trying to change the status as user-1 and that should fail")
 				patch := []byte(`{"status":{"Initializers":["foo"]}}`)
-				wc, err := userKcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaceTypes().Patch(ctx, "test", types.MergePatchType, patch, metav1.PatchOptions{}, "status")
+				wc, err := userKcpClusterClient.TenancyV1alpha1().ClusterWorkspaceTypes().Patch(logicalcluster.WithCluster(ctx, orgClusterName), "test", types.MergePatchType, patch, metav1.PatchOptions{}, "status")
 				require.Error(t, err, "should have failed to patch status as user-1:\n%s", toYAML(t, wc))
 
 				t.Logf("Double check to change status as admin, which should work")
@@ -114,10 +114,10 @@ func TestAPIBindingAuthorizerSystemGroupProtection(t *testing.T) {
 				t.Parallel()
 
 				t.Logf("Creating a APIExport as user-1")
-				userKcpClusterClient, err := clientset.NewClusterForConfig(framework.UserConfig("user-1", server.BaseConfig(t)))
+				userKcpClusterClient, err := clientset.NewForConfig(framework.UserConfig("user-1", server.BaseConfig(t)))
 				require.NoError(t, err, "failed to construct kcp cluster client for user-1")
 				framework.Eventually(t, func() (bool, string) { // authz makes this eventually succeed
-					_, err := userKcpClusterClient.Cluster(orgClusterName).ApisV1alpha1().APIExports().Create(ctx, &apisv1alpha1.APIExport{
+					_, err := userKcpClusterClient.ApisV1alpha1().APIExports().Create(logicalcluster.WithCluster(ctx, orgClusterName), &apisv1alpha1.APIExport{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "test",
 						},
@@ -130,7 +130,7 @@ func TestAPIBindingAuthorizerSystemGroupProtection(t *testing.T) {
 
 				t.Logf("Trying to change the status as user-1 and that should fail")
 				patch := []byte(`{"status":{"identityHash":"4711"}}`)
-				export, err := userKcpClusterClient.Cluster(orgClusterName).ApisV1alpha1().APIExports().Patch(ctx, "test", types.MergePatchType, patch, metav1.PatchOptions{}, "status")
+				export, err := userKcpClusterClient.ApisV1alpha1().APIExports().Patch(logicalcluster.WithCluster(ctx, orgClusterName), "test", types.MergePatchType, patch, metav1.PatchOptions{}, "status")
 				require.Error(t, err, "should have failed to patch status as user-1:\n%s", toYAML(t, export))
 
 				t.Logf("Double check to change status as system:master, which should work") // system CRDs even need system:master, hence we need the root shard client
@@ -162,7 +162,7 @@ func TestAPIBindingAuthorizer(t *testing.T) {
 	kcpClusterClient, err := clientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
 
-	dynamicClients, err := dynamic.NewClusterForConfig(cfg)
+	dynamicClients, err := kcpdynamic.NewClusterDynamicClientForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
 	kubeClusterClient, err := kubernetes.NewForConfig(cfg)
@@ -223,18 +223,18 @@ func TestAPIBindingAuthorizer(t *testing.T) {
 		bindConsumerToProvider(consumer, serviceProvider)
 		t.Logf("Set up user 1 as admin for the consumer workspace %q", consumer)
 		framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, consumer, []string{"user-1"}, nil, []string{"admin"})
-		wildwestClusterClient, err := wildwestclientset.NewClusterForConfig(framework.UserConfig("user-1", cfg))
-		cowboyClient := wildwestClusterClient.Cluster(consumer).WildwestV1alpha1().Cowboys("default")
+		wildwestClusterClient, err := wildwestclientset.NewForConfig(framework.UserConfig("user-1", cfg))
+		cowboyClusterClient := wildwestClusterClient.WildwestV1alpha1().Cowboys("default")
 		require.NoError(t, err)
 		testCRUDOperations(ctx, t, consumer, wildwestClusterClient)
 		t.Logf("Make sure there is 1 cowboy in consumer workspace %q", consumer)
-		cowboys, err := cowboyClient.List(ctx, metav1.ListOptions{})
+		cowboys, err := cowboyClusterClient.List(logicalcluster.WithCluster(ctx, consumer), metav1.ListOptions{})
 		require.NoError(t, err, "error listing cowboys in consumer workspace %q", consumer)
 		require.Equal(t, 1, len(cowboys.Items), "expected 1 cowboy in consumer workspace %q", consumer)
 		if serviceProvider == rbacServiceProviderWorkspace {
 			t.Logf("Make sure that the status of cowboy can not be updated in workspace %q", consumer)
 			framework.Eventually(t, func() (bool, string) {
-				_, err = cowboyClient.UpdateStatus(ctx, &cowboys.Items[0], metav1.UpdateOptions{})
+				_, err = cowboyClusterClient.UpdateStatus(logicalcluster.WithCluster(ctx, consumer), &cowboys.Items[0], metav1.UpdateOptions{})
 				if err == nil {
 					return false, "error"
 				}
@@ -250,14 +250,14 @@ func TestAPIBindingAuthorizer(t *testing.T) {
 			require.NoError(t, err)
 
 			framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, consumer, []string{"user-2"}, nil, []string{"access"})
-			user2Client, err := wildwestclientset.NewClusterForConfig(framework.UserConfig("user-2", cfg))
+			user2Client, err := wildwestclientset.NewForConfig(framework.UserConfig("user-2", cfg))
 			require.NoError(t, err)
 
 			t.Logf("Make sure user 2 can list cowboys in consumer workspace %q", consumer)
 
 			// This is needed to make sure the RBAC is updated in the informers
 			require.Eventually(t, func() bool {
-				_, err := user2Client.Cluster(consumer).WildwestV1alpha1().Cowboys("default").List(ctx, metav1.ListOptions{})
+				_, err := user2Client.WildwestV1alpha1().Cowboys("default").List(logicalcluster.WithCluster(ctx, consumer), metav1.ListOptions{})
 				return err == nil
 			}, wait.ForeverTestTimeout, time.Millisecond*100, "expected user-2 to list cowboys")
 
@@ -268,11 +268,11 @@ func TestAPIBindingAuthorizer(t *testing.T) {
 				},
 			}
 			t.Logf("Make sure user 2 can not create cowboy resources in consumer workspace %q", consumer)
-			_, err = user2Client.Cluster(consumer).WildwestV1alpha1().Cowboys("default").Create(ctx, cowboy2, metav1.CreateOptions{})
+			_, err = user2Client.WildwestV1alpha1().Cowboys("default").Create(logicalcluster.WithCluster(ctx, consumer), cowboy2, metav1.CreateOptions{})
 			require.Error(t, err)
 		} else {
 			t.Logf("Make sure that the status of cowboy can be updated in workspace %q", consumer)
-			_, err = cowboyClient.Update(ctx, &cowboys.Items[0], metav1.UpdateOptions{})
+			_, err = cowboyClusterClient.Update(logicalcluster.WithCluster(ctx, consumer), &cowboys.Items[0], metav1.UpdateOptions{})
 			require.NoError(t, err, "expected error updating status of cowboys")
 		}
 	}
@@ -310,7 +310,7 @@ func createClusterRoleAndBindings(name, subjectName, subjectKind string, verbs [
 	return clusterRole, clusterRoleBinding
 }
 
-func setUpServiceProvider(ctx context.Context, dynamicClients *dynamic.Cluster, kcpClients clientset.Interface, kubeClusterClient kubernetes.Interface, serviceProviderWorkspace, rbacServiceProvider logicalcluster.Name, cfg *rest.Config, t *testing.T) {
+func setUpServiceProvider(ctx context.Context, dynamicClusterClient *kcpdynamic.ClusterDynamicClient, kcpClients clientset.Interface, kubeClusterClient kubernetes.Interface, serviceProviderWorkspace, rbacServiceProvider logicalcluster.Name, cfg *rest.Config, t *testing.T) {
 	t.Logf("Install today cowboys APIResourceSchema into service provider workspace %q", serviceProviderWorkspace)
 
 	clusterCfg := kcpclienthelper.ConfigWithCluster(cfg, serviceProviderWorkspace)
@@ -318,7 +318,7 @@ func setUpServiceProvider(ctx context.Context, dynamicClients *dynamic.Cluster, 
 	require.NoError(t, err)
 
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(serviceProviderClient.Discovery()))
-	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(serviceProviderWorkspace), mapper, "apiresourceschema_cowboys.yaml", testFiles)
+	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(serviceProviderWorkspace), mapper, "apiresourceschema_cowboys.yaml", testFiles)
 	require.NoError(t, err)
 
 	t.Logf("Create an APIExport for it")
@@ -344,17 +344,17 @@ func setUpServiceProvider(ctx context.Context, dynamicClients *dynamic.Cluster, 
 	require.NoError(t, err)
 }
 
-func testCRUDOperations(ctx context.Context, t *testing.T, consumer1Workspace logicalcluster.Name, wildwestClusterClient *wildwestclientset.Cluster) {
+func testCRUDOperations(ctx context.Context, t *testing.T, consumer1Workspace logicalcluster.Name, wildwestClusterClient wildwestclientset.Interface) {
 	t.Logf("Make sure we can perform CRUD operations against consumer workspace %q for the bound API", consumer1Workspace)
 
 	t.Logf("Make sure list shows nothing to start")
-	cowboyClient := wildwestClusterClient.Cluster(consumer1Workspace).WildwestV1alpha1().Cowboys("default")
+	cowboyClient := wildwestClusterClient.WildwestV1alpha1().Cowboys("default")
 	var cowboys *wildwestv1alpha1.CowboyList
 	// Adding a poll here to wait for the user's to get access via RBAC informer updates.
 
 	require.Eventually(t, func() bool {
 		var err error
-		cowboys, err = cowboyClient.List(ctx, metav1.ListOptions{})
+		cowboys, err = cowboyClient.List(logicalcluster.WithCluster(ctx, consumer1Workspace), metav1.ListOptions{})
 		return err == nil
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected to be able to list ")
 	require.Zero(t, len(cowboys.Items), "expected 0 cowboys inside consumer workspace %q", consumer1Workspace)
@@ -367,7 +367,7 @@ func testCRUDOperations(ctx context.Context, t *testing.T, consumer1Workspace lo
 			Namespace: "default",
 		},
 	}
-	_, err := cowboyClient.Create(ctx, cowboy, metav1.CreateOptions{})
+	_, err := cowboyClient.Create(logicalcluster.WithCluster(ctx, consumer1Workspace), cowboy, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating cowboy in consumer workspace %q", consumer1Workspace)
 
 }

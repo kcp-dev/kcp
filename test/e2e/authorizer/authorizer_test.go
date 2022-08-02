@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	kcpdynamic "github.com/kcp-dev/apimachinery/pkg/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
@@ -32,7 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/klog/v2"
@@ -59,9 +59,9 @@ func TestAuthorizer(t *testing.T) {
 
 	kubeClusterClient, err := kubernetes.NewForConfig(cfg)
 	require.NoError(t, err)
-	kcpClusterClient, err := kcp.NewClusterForConfig(cfg)
+	kcpClusterClient, err := kcp.NewForConfig(cfg)
 	require.NoError(t, err)
-	dynamicClusterClient, err := dynamic.NewClusterForConfig(cfg)
+	dynamicClusterClient, err := kcpdynamic.NewClusterDynamicClientForConfig(cfg)
 	require.NoError(t, err)
 
 	org1 := framework.NewOrganizationFixture(t, server)
@@ -81,68 +81,68 @@ func TestAuthorizer(t *testing.T) {
 	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, org1, []string{"user-1"}, nil, []string{"member"})
 	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, org1, []string{"user-2", "user-3"}, nil, []string{"access"})
 
-	user1KubeClusterClient, err := kubernetes.NewClusterForConfig(framework.UserConfig("user-1", cfg))
+	user1KubeClusterClient, err := kubernetes.NewForConfig(framework.UserConfig("user-1", cfg))
 	require.NoError(t, err)
-	user2KubeClusterClient, err := kubernetes.NewClusterForConfig(framework.UserConfig("user-2", cfg))
+	user2KubeClusterClient, err := kubernetes.NewForConfig(framework.UserConfig("user-2", cfg))
 	require.NoError(t, err)
-	user3KubeClusterClient, err := kubernetes.NewClusterForConfig(framework.UserConfig("user-3", cfg))
+	user3KubeClusterClient, err := kubernetes.NewForConfig(framework.UserConfig("user-3", cfg))
 	require.NoError(t, err)
 
 	t.Logf("Priming the authorization cache")
 	require.Eventually(t, func() bool {
-		_, err := user1KubeClusterClient.Cluster(org1.Join("workspace1")).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
+		_, err := user1KubeClusterClient.CoreV1().ConfigMaps("default").List(logicalcluster.WithCluster(ctx, org1.Join("workspace1")), metav1.ListOptions{})
 		return err == nil
 	}, time.Minute, time.Second)
 
 	tests := map[string]func(t *testing.T){
 		"as org member, workspace admin user-1 can access everything": func(t *testing.T) {
-			_, err := user1KubeClusterClient.Cluster(org1.Join("workspace1")).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
+			_, err := user1KubeClusterClient.CoreV1().ConfigMaps("default").List(logicalcluster.WithCluster(ctx, org1.Join("workspace1")), metav1.ListOptions{})
 			require.NoError(t, err)
-			_, err = user1KubeClusterClient.Cluster(org1.Join("workspace1")).CoreV1().Namespaces().Create(ctx, &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "test"}}, metav1.CreateOptions{})
+			_, err = user1KubeClusterClient.CoreV1().Namespaces().Create(logicalcluster.WithCluster(ctx, org1.Join("workspace1")), &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "test"}}, metav1.CreateOptions{})
 			require.NoError(t, err)
-			_, err = user1KubeClusterClient.Cluster(org1.Join("workspace1")).CoreV1().ConfigMaps("test").Create(ctx, &v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "test"}}, metav1.CreateOptions{})
+			_, err = user1KubeClusterClient.CoreV1().ConfigMaps("test").Create(logicalcluster.WithCluster(ctx, org1.Join("workspace1")), &v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "test"}}, metav1.CreateOptions{})
 			require.NoError(t, err)
 		},
 		"with org access, workspace1 non-admin user-2 can access according to local policy": func(t *testing.T) {
-			_, err := user2KubeClusterClient.Cluster(org1.Join("workspace1")).CoreV1().Namespaces().Create(ctx, &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "test"}}, metav1.CreateOptions{})
+			_, err := user2KubeClusterClient.CoreV1().Namespaces().Create(logicalcluster.WithCluster(ctx, org1.Join("workspace1")), &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "test"}}, metav1.CreateOptions{})
 			require.Error(t, err, "user-2 should not be able to create namespace in workspace1")
-			_, err = user2KubeClusterClient.Cluster(org1.Join("workspace1")).CoreV1().Secrets("default").List(ctx, metav1.ListOptions{})
+			_, err = user2KubeClusterClient.CoreV1().Secrets("default").List(logicalcluster.WithCluster(ctx, org1.Join("workspace1")), metav1.ListOptions{})
 			require.NoError(t, err, "user-2 should be able to list secrets in workspace1 as defined in the local policy")
 		},
 		"without org access, org1 workspace1 admin user-1 cannot access org2, not even discovery": func(t *testing.T) {
-			_, err := user1KubeClusterClient.Cluster(org2.Join("workspace1")).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
+			_, err := user1KubeClusterClient.CoreV1().ConfigMaps("default").List(logicalcluster.WithCluster(ctx, org2.Join("workspace1")), metav1.ListOptions{})
 			require.Error(t, err, "user-1 should not be able to list configmaps in a different org")
 			_, err = user1KubeClusterClient.DiscoveryClient.WithCluster(org2.Join("workspace1")).ServerResourcesForGroupVersion("rbac.authorization.k8s.io/v1") // can't be core because that always returns nil
 			require.Error(t, err, "user-1 should not be able to list server resources in a different org")
 		},
 		"as org member, workspace1 admin user-1 cannot access workspace2, not even discovery": func(t *testing.T) {
-			_, err := user1KubeClusterClient.Cluster(org1.Join("workspace2")).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
+			_, err := user1KubeClusterClient.CoreV1().ConfigMaps("default").List(logicalcluster.WithCluster(ctx, org1.Join("workspace2")), metav1.ListOptions{})
 			require.Error(t, err, "user-1 should not be able to list configmaps in a different workspace")
 			_, err = user1KubeClusterClient.DiscoveryClient.WithCluster(org2.Join("workspace1")).ServerResourcesForGroupVersion("rbac.authorization.k8s.io/v1") // can't be core because that always returns nil
 			require.Error(t, err, "user-1 should not be able to list server resources in a different workspace")
 		},
 		"with org access, workspace2 admin user-2 can access workspace2": func(t *testing.T) {
-			_, err := user2KubeClusterClient.Cluster(org1.Join("workspace2")).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
+			_, err := user2KubeClusterClient.CoreV1().ConfigMaps("default").List(logicalcluster.WithCluster(ctx, org1.Join("workspace2")), metav1.ListOptions{})
 			require.NoError(t, err, "user-2 should be able to list configmaps in workspace2")
 		},
 		"cluster admins can use wildcard clusters, non-cluster admin cannot": func(t *testing.T) {
 			// create client talking directly to root shard to test wildcard requests
-			rootKubeClusterClient, err := kubernetes.NewClusterForConfig(rootShardCfg)
+			rootKubeClusterClient, err := kubernetes.NewForConfig(rootShardCfg)
 			require.NoError(t, err)
-			user1RootKubeClusterClient, err := kubernetes.NewClusterForConfig(framework.UserConfig("user-1", rootShardCfg))
+			user1RootKubeClusterClient, err := kubernetes.NewForConfig(framework.UserConfig("user-1", rootShardCfg))
 			require.NoError(t, err)
 
-			_, err = rootKubeClusterClient.Cluster(logicalcluster.Wildcard).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+			_, err = rootKubeClusterClient.CoreV1().Namespaces().List(logicalcluster.WithCluster(ctx, logicalcluster.Wildcard), metav1.ListOptions{})
 			require.NoError(t, err)
-			_, err = user1RootKubeClusterClient.Cluster(logicalcluster.Wildcard).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+			_, err = user1RootKubeClusterClient.CoreV1().Namespaces().List(logicalcluster.WithCluster(ctx, logicalcluster.Wildcard), metav1.ListOptions{})
 			require.Error(t, err, "Only cluster admins can use all clusters at once")
 		},
 		"with system:admin permissions, workspace2 non-admin user-3 can list Namespaces with a bootstrap ClusterRole": func(t *testing.T) {
 			// get workspace2 shard and create a client to tweak the local bootstrap policy
-			shardKubeClusterClient, err := kubernetes.NewClusterForConfig(rootShardCfg)
+			shardKubeClusterClient, err := kubernetes.NewForConfig(rootShardCfg)
 			require.NoError(t, err)
 
-			_, err = user3KubeClusterClient.Cluster(org1.Join("workspace2")).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+			_, err = user3KubeClusterClient.CoreV1().Namespaces().List(logicalcluster.WithCluster(ctx, org1.Join("workspace2")), metav1.ListOptions{})
 			require.Error(t, err, "User-3 shouldn't be able to list Namespaces")
 
 			localAuthorizerClusterRoleBinding := &rbacv1.ClusterRoleBinding{
@@ -175,16 +175,16 @@ func TestAuthorizer(t *testing.T) {
 					},
 				},
 			}
-			_, err = shardKubeClusterClient.Cluster(org1.Join("workspace2")).RbacV1().ClusterRoleBindings().Create(ctx, localAuthorizerClusterRoleBinding, metav1.CreateOptions{})
+			_, err = shardKubeClusterClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, org1.Join("workspace2")), localAuthorizerClusterRoleBinding, metav1.CreateOptions{})
 			require.NoError(t, err)
 
-			_, err = shardKubeClusterClient.Cluster(genericcontrolplane.LocalAdminCluster).RbacV1().ClusterRoles().Create(ctx, bootstrapClusterRole, metav1.CreateOptions{})
+			_, err = shardKubeClusterClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, genericcontrolplane.LocalAdminCluster), bootstrapClusterRole, metav1.CreateOptions{})
 			if err != nil && !errors.IsAlreadyExists(err) {
 				require.NoError(t, err)
 			}
 
 			require.Eventually(t, func() bool {
-				if _, err := user3KubeClusterClient.Cluster(org1.Join("workspace2")).CoreV1().Namespaces().List(ctx, metav1.ListOptions{}); err != nil {
+				if _, err := user3KubeClusterClient.CoreV1().Namespaces().List(logicalcluster.WithCluster(ctx, org1.Join("workspace2")), metav1.ListOptions{}); err != nil {
 					t.Logf("failed to create test namespace: %v", err)
 					return false
 				}
@@ -203,10 +203,10 @@ func TestAuthorizer(t *testing.T) {
 	}
 }
 
-func waitForReady(t *testing.T, ctx context.Context, kcpClusterClient kcp.ClusterInterface, orgClusterName logicalcluster.Name, workspace string) {
+func waitForReady(t *testing.T, ctx context.Context, kcpClusterClient kcp.Interface, orgClusterName logicalcluster.Name, workspace string) {
 	t.Logf("Waiting for workspace %s|%s to be ready", orgClusterName, workspace)
 	require.Eventually(t, func() bool {
-		ws, err := kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace, metav1.GetOptions{})
+		ws, err := kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, orgClusterName), workspace, metav1.GetOptions{})
 		if err != nil {
 			klog.Errorf("failed to get workspace %s|%s: %v", orgClusterName, workspace, err)
 			return false
@@ -215,7 +215,7 @@ func waitForReady(t *testing.T, ctx context.Context, kcpClusterClient kcp.Cluste
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "workspace %s|%s didn't get ready", orgClusterName, workspace)
 }
 
-func createResources(t *testing.T, ctx context.Context, dynamicClusterClient dynamic.ClusterInterface, discoveryClusterClient *discovery.DiscoveryClient, clusterName logicalcluster.Name, fileName string) {
+func createResources(t *testing.T, ctx context.Context, dynamicClusterClient *kcpdynamic.ClusterDynamicClient, discoveryClusterClient *discovery.DiscoveryClient, clusterName logicalcluster.Name, fileName string) {
 	t.Logf("Create resources in %s", clusterName)
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(discoveryClusterClient.WithCluster(clusterName)))
 	require.Eventually(t, func() bool {
