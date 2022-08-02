@@ -38,9 +38,12 @@ func ToLabelKeyAndValue(permissionClaim apisv1alpha1.PermissionClaim) (string, s
 	return apisv1alpha1.APIExportPermissionClaimLabelPrefix + hash[0:labelKeyHashLength], hash, nil
 }
 
+// ValidateClaim will make sure that a given claim is valid, for the bound resources.
+// To be valid a claim can be for a internal type. To determine this when a GR is not bound and the idenityHash is empty it is for an internal type.
+// It will also be valid when the resouce for GR is bound and the identity hash's match.
+// An invalid claim for the given GR and identity hash must be unusable based on the bound resources in the given workspace.
 func ValidateClaim(group, resource, identityHash string, grsToBoundResource map[apisv1alpha1.GroupResource]apisv1alpha1.BoundAPIResource) (bool, error) {
 	boundResource, bound := grsToBoundResource[apisv1alpha1.GroupResource{Group: group, Resource: resource}]
-	// This  says that if the resource is not bound, but there is no identity hash, we consider it valid
 	// TODO add ability to check that the GR is knowable by the inernalschema's once added
 	if !bound && identityHash == "" {
 		return true, nil
@@ -54,6 +57,7 @@ func ValidateClaim(group, resource, identityHash string, grsToBoundResource map[
 	return true, nil
 }
 
+// AllClaimLabels will return the permission claim labels for the given GR based on the bindings given.
 func AllClaimLabels(group, resource string, bindings []*apisv1alpha1.APIBinding) (map[string]string, error) {
 	grsToBoundResource := map[apisv1alpha1.GroupResource]apisv1alpha1.BoundAPIResource{}
 	for _, binding := range bindings {
@@ -62,9 +66,9 @@ func AllClaimLabels(group, resource string, bindings []*apisv1alpha1.APIBinding)
 		}
 	}
 
-	// add labels for new claims
 	labels := map[string]string{}
 	for _, binding := range bindings {
+		// TODO: intersection of APIExport claims and AcceptedClaims.
 		for _, pc := range binding.Spec.AcceptedPermissionClaims {
 			if pc.Group != group || pc.Resource != resource {
 				continue

@@ -113,12 +113,12 @@ type controller struct {
 	queue workqueue.RateLimitingInterface
 
 	kcpClusterClient     kcpclient.Interface
+	apiBindingsIndexer   cache.Indexer
 	dynamicClusterClient dynamic.Interface
 	ddsif                *informer.DynamicDiscoverySharedInformerFactory
 
-	apiBindingsLister  apislisters.APIBindingLister
-	listAPIBindings    func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
-	apiBindingsIndexer cache.Indexer
+	apiBindingsLister apislisters.APIBindingLister
+	listAPIBindings   func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
 }
 
 // enqueueAPIBinding enqueues an APIBinding .
@@ -129,7 +129,7 @@ func (c *controller) enqueueAPIBinding(obj interface{}, logSuffix string) {
 		return
 	}
 
-	klog.V(2).Infof("queueing APIBinding %q%s", key, logSuffix)
+	klog.V(2).InfoS("queueing APIBinding", "key", key, "suffix", logSuffix)
 	c.queue.Add(key)
 }
 
@@ -152,12 +152,8 @@ func (c *controller) enqueueBindingForResource(gvr schema.GroupVersionResource, 
 	for _, binding := range apiBindings {
 		for _, pc := range binding.Spec.AcceptedPermissionClaims {
 			if pc.Group == gvr.Group && pc.Resource == gvr.Resource {
-				key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
-				if err != nil {
-					klog.Errorf("unable to get cache key %w", err)
-					continue
-				}
-				klog.V(2).Infof("queueing APIBinding %q", key)
+				key := clusters.ToClusterAwareKey(lc, binding.Name)
+				klog.V(2).InfoS("queueing APIBinding", "key", key)
 				c.queue.Add(key)
 			}
 		}
@@ -169,8 +165,8 @@ func (c *controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	klog.Infof("Starting %s controller", controllerName)
-	defer klog.Infof("Shutting down %s controller", controllerName)
+	klog.InfoS("Starting controller", "controller", controllerName)
+	defer klog.InfoS("Shutting down controller", "controller", controllerName)
 
 	for i := 0; i < numThreads; i++ {
 		go wait.UntilWithContext(ctx, c.startWorker, time.Second)
@@ -213,7 +209,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 	}
 	clusterName, name := clusters.SplitClusterAwareKey(clusterAwareName)
 
-	obj, err := c.apiBindingsLister.Get(key) // TODO: clients need a way to scope down the lister per-cluster
+	obj, err := c.apiBindingsLister.Get(key)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil // object deleted before we handled it
@@ -252,7 +248,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 			return fmt.Errorf("failed to create patch for apibinding %s|%s: %w", clusterName, name, err)
 		}
 
-		klog.V(2).Infof("Patching apibinding %s|%s: %s", clusterName, name, string(patchBytes))
+		klog.V(2).InfoS("Patching apibinding", "cluster", clusterName, "name", name, "patch", string(patchBytes))
 		_, uerr := c.kcpClusterClient.ApisV1alpha1().APIBindings().Patch(logicalcluster.WithCluster(ctx, clusterName), obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 		return uerr
 	}
