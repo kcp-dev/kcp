@@ -60,11 +60,11 @@ func TestAPIBinding(t *testing.T) {
 	t.Cleanup(cancel)
 
 	orgClusterName := framework.NewOrganizationFixture(t, server)
-	serviceProvider1Workspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
-	serviceProvider2Workspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
-	consumer1Workspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
-	consumer2Workspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
-	consumer3Workspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
+	serviceProvider1Workspace := framework.NewWorkspaceFixture(t, server, orgClusterName, framework.WithName("service-provider-1"))
+	serviceProvider2Workspace := framework.NewWorkspaceFixture(t, server, orgClusterName, framework.WithName("service-provider-2"))
+	consumer1Workspace := framework.NewWorkspaceFixture(t, server, orgClusterName, framework.WithName("consumer-1-bound-against-1"))
+	consumer2Workspace := framework.NewWorkspaceFixture(t, server, orgClusterName, framework.WithName("consumer-2-bound-against-1"))
+	consumer3Workspace := framework.NewWorkspaceFixture(t, server, orgClusterName, framework.WithName("consumer-3-bound-against-2"))
 
 	cfg := server.BaseConfig(t)
 	rootShardCfg := server.RootShardSystemMasterBaseConfig(t)
@@ -86,7 +86,7 @@ func TestAPIBinding(t *testing.T) {
 	serviceProviderWorkspaces := []logicalcluster.Name{serviceProvider1Workspace, serviceProvider2Workspace}
 
 	for _, serviceProviderWorkspace := range serviceProviderWorkspaces {
-		t.Logf("Install today cowboys APIResourceSchema into service provider workspace %q", serviceProviderWorkspace)
+		t.Logf("Install today cowboys APIResourceSchema into %q", serviceProviderWorkspace)
 
 		serviceProviderClusterCfg := kcpclienthelper.ConfigWithCluster(cfg, serviceProviderWorkspace)
 		serviceProviderClient, err := clientset.NewForConfig(serviceProviderClusterCfg)
@@ -95,7 +95,7 @@ func TestAPIBinding(t *testing.T) {
 		err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(serviceProviderWorkspace), mapper, "apiresourceschema_cowboys.yaml", testFiles)
 		require.NoError(t, err)
 
-		t.Logf("Create an APIExport for it")
+		t.Logf("Create an APIExport today-cowboys in %q", serviceProviderWorkspace)
 		cowboysAPIExport := &apisv1alpha1.APIExport{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "today-cowboys",
@@ -139,7 +139,7 @@ func TestAPIBinding(t *testing.T) {
 	}
 
 	bindConsumerToProvider := func(consumerWorkspace, providerWorkspace logicalcluster.Name) {
-		t.Logf("Create an APIBinding in consumer workspace %q that points to the today-cowboys export from %q", consumerWorkspace, providerWorkspace)
+		t.Logf("Create an APIBinding in %q that points to the today-cowboys export from %q", consumerWorkspace, providerWorkspace)
 		apiBinding := &apisv1alpha1.APIBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "cowboys",
@@ -163,9 +163,9 @@ func TestAPIBinding(t *testing.T) {
 		require.NoError(t, err)
 
 		groups, err := providerWorkspaceClient.Discovery().ServerGroups()
-		require.NoError(t, err, "error retrieving service provider workspace %q group discovery", providerWorkspace)
+		require.NoError(t, err, "error retrieving %q group discovery", providerWorkspace)
 		require.False(t, groupExists(groups, wildwest.GroupName),
-			"should not have seen %s API group in service provider workspace %q group discovery", wildwest.GroupName, providerWorkspace)
+			"should not have seen %s API group in %q group discovery", wildwest.GroupName, providerWorkspace)
 
 		consumerWorkspaceConfig := kcpclienthelper.ConfigWithCluster(cfg, consumerWorkspace)
 		consumerWorkspaceClient, err := clientset.NewForConfig(consumerWorkspaceConfig)
@@ -183,8 +183,8 @@ func TestAPIBinding(t *testing.T) {
 
 		t.Logf("Make sure cowboys API resource shows up in consumer workspace %q group version discovery", consumerWorkspace)
 		resources, err := consumerWorkspaceClient.Discovery().ServerResourcesForGroupVersion(wildwestv1alpha1.SchemeGroupVersion.String())
-		require.NoError(t, err, "error retrieving consumer workspace %q API discovery", consumerWorkspace)
-		require.True(t, resourceExists(resources, "cowboys"), "consumer workspace %q discovery is missing cowboys resource", consumerWorkspace)
+		require.NoError(t, err, "error retrieving %q API discovery", consumerWorkspace)
+		require.True(t, resourceExists(resources, "cowboys"), "%q discovery is missing cowboys resource", consumerWorkspace)
 
 		wildwestClusterClient, err := wildwestclientset.NewForConfig(cfg)
 		require.NoError(t, err)
@@ -194,8 +194,8 @@ func TestAPIBinding(t *testing.T) {
 		t.Logf("Make sure list shows nothing to start")
 		cowboyClient := wildwestClusterClient.WildwestV1alpha1().Cowboys("default")
 		cowboys, err := cowboyClient.List(logicalcluster.WithCluster(ctx, consumerWorkspace), metav1.ListOptions{})
-		require.NoError(t, err, "error listing cowboys inside consumer workspace %q", consumerWorkspace)
-		require.Zero(t, len(cowboys.Items), "expected 0 cowboys inside consumer workspace %q", consumerWorkspace)
+		require.NoError(t, err, "error listing cowboys inside %q", consumerWorkspace)
+		require.Zero(t, len(cowboys.Items), "expected 0 cowboys inside %q", consumerWorkspace)
 
 		t.Logf("Create a cowboy CR in consumer workspace %q", consumerWorkspace)
 		cowboyName := fmt.Sprintf("cowboy-%s", consumerWorkspace.Base())
@@ -206,13 +206,13 @@ func TestAPIBinding(t *testing.T) {
 			},
 		}
 		_, err = cowboyClient.Create(logicalcluster.WithCluster(ctx, consumerWorkspace), cowboy, metav1.CreateOptions{})
-		require.NoError(t, err, "error creating cowboy in consumer workspace %q", consumerWorkspace)
+		require.NoError(t, err, "error creating cowboy in %q", consumerWorkspace)
 
 		t.Logf("Make sure there is 1 cowboy in consumer workspace %q", consumerWorkspace)
 		cowboys, err = cowboyClient.List(logicalcluster.WithCluster(ctx, consumerWorkspace), metav1.ListOptions{})
-		require.NoError(t, err, "error listing cowboys in consumer workspace %q", consumerWorkspace)
-		require.Equal(t, 1, len(cowboys.Items), "expected 1 cowboy in consumer workspace %q", consumerWorkspace)
-		require.Equal(t, cowboyName, cowboys.Items[0].Name, "unexpected name for cowboy in consumer workspace %q", consumerWorkspace)
+		require.NoError(t, err, "error listing cowboys in %q", consumerWorkspace)
+		require.Equal(t, 1, len(cowboys.Items), "expected 1 cowboy in %q", consumerWorkspace)
+		require.Equal(t, cowboyName, cowboys.Items[0].Name, "unexpected name for cowboy in %q", consumerWorkspace)
 
 		t.Logf("Create an APIBinding in consumer workspace %q that points to the today-cowboys export from serviceProvider2 (which should conflict)", consumerWorkspace)
 		apiBinding = &apisv1alpha1.APIBinding{
@@ -232,7 +232,7 @@ func TestAPIBinding(t *testing.T) {
 		_, err = kcpClusterClient.ApisV1alpha1().APIBindings().Create(logicalcluster.WithCluster(ctx, consumerWorkspace), apiBinding, metav1.CreateOptions{})
 		require.NoError(t, err)
 
-		t.Logf("Make sure it shows as conflicting")
+		t.Logf("Make sure %s cowboys2 conflict with already bound %s cowboys", serviceProvider2Workspace, providerWorkspace)
 		require.Eventually(t, func() bool {
 			b, err := kcpClusterClient.ApisV1alpha1().APIBindings().Get(logicalcluster.WithCluster(ctx, consumerWorkspace), "cowboys2", metav1.GetOptions{})
 			require.NoError(t, err)
@@ -245,13 +245,13 @@ func TestAPIBinding(t *testing.T) {
 		bindConsumerToProvider(consumerWorkspace, serviceProvider1Workspace)
 	}
 
-	t.Logf("Binding consumer workspace 3 (%q) to service provider workspace 2 (%q)", consumer3Workspace, serviceProvider2Workspace)
+	t.Logf("=== Binding %q to %q", consumer3Workspace, serviceProvider2Workspace)
 	bindConsumerToProvider(consumer3Workspace, serviceProvider2Workspace)
 
-	t.Logf("Testing identity wildcards")
+	t.Logf("=== Testing identity wildcards")
 
 	verifyWildcardList := func(consumerWorkspace logicalcluster.Name, expectedItems int) {
-		t.Logf("Get consumer %s workspace shard and create a shard client that is able to do wildcard requests", consumerWorkspace)
+		t.Logf("Get %s workspace shard and create a shard client that is able to do wildcard requests", consumerWorkspace)
 		shardDynamicClusterClients, err := kcpdynamic.NewClusterDynamicClientForConfig(rootShardCfg)
 		require.NoError(t, err)
 
@@ -262,7 +262,7 @@ func TestAPIBinding(t *testing.T) {
 		identity := apiBinding.Status.BoundResources[0].Schema.IdentityHash
 		gvrWithIdentity := wildwestv1alpha1.SchemeGroupVersion.WithResource("cowboys:" + identity)
 
-		t.Logf("Doing a wildcard list for %v", gvrWithIdentity)
+		t.Logf("Doing a wildcard identity list for %v against %s workspace shard", gvrWithIdentity, consumerWorkspace)
 		wildcardIdentityClient := shardDynamicClusterClients.Cluster(logicalcluster.Wildcard).Resource(gvrWithIdentity)
 		list, err := wildcardIdentityClient.List(ctx, metav1.ListOptions{})
 		require.NoError(t, err, "error listing wildcard with identity")
@@ -279,26 +279,26 @@ func TestAPIBinding(t *testing.T) {
 	}
 
 	for _, consumerWorkspace := range consumersOfServiceProvider1 {
-		t.Logf("Verify consumer workspace %q bound to service provider 1 (%q) wildcard list works", consumerWorkspace, serviceProvider1Workspace)
+		t.Logf("Verify %q bound to service provider 1 (%q) wildcard list works", consumerWorkspace, serviceProvider1Workspace)
 		verifyWildcardList(consumerWorkspace, 2)
 	}
 
-	t.Logf("Verify that consumer workspace 3 (%q) bound to service provider workspace 2 (%q) wildcard list works", consumer3Workspace, serviceProvider2Workspace)
+	t.Logf("=== Verify that in %q (bound to %q) wildcard list works", consumer3Workspace, serviceProvider2Workspace)
 	verifyWildcardList(consumer3Workspace, 1)
 
-	t.Logf("Smoke test virtual workspace with explicit workspace")
 	rawConfig, err := server.RawConfig()
 	require.NoError(t, err)
 
-	vwClusterClient, err := kcpdynamic.NewClusterDynamicClientForConfig(apiexportVWConfig(t, rawConfig, serviceProvider2Workspace, "today-cowboys"))
+	t.Logf("Smoke test %s|today-cowboys virtual workspace with explicit /cluster/%s", serviceProvider2Workspace, consumer3Workspace)
+	vw2ClusterClient, err := kcpdynamic.NewClusterDynamicClientForConfig(apiexportVWConfig(t, rawConfig, serviceProvider2Workspace, "today-cowboys"))
 	require.NoError(t, err)
 	gvr := wildwestv1alpha1.SchemeGroupVersion.WithResource("cowboys")
-	list, err := vwClusterClient.Cluster(consumer3Workspace).Resource(gvr).Namespace("").List(ctx, metav1.ListOptions{})
+	list, err := vw2ClusterClient.Cluster(consumer3Workspace).Resource(gvr).Namespace("").List(ctx, metav1.ListOptions{})
 	require.NoError(t, err, "error listing through virtual workspace with explicit workspace")
 	require.Equal(t, 1, len(list.Items), "unexpected # of cowboys through virtual workspace with explicit workspace")
 
-	t.Logf("Smoke test virtual workspace with wildcard")
-	list, err = vwClusterClient.Cluster(logicalcluster.Wildcard).Resource(gvr).Namespace("").List(ctx, metav1.ListOptions{})
+	t.Logf("Smoke test %s|today-cowboys virtual workspace with wildcard", serviceProvider2Workspace)
+	list, err = vw2ClusterClient.Cluster(logicalcluster.Wildcard).Resource(gvr).Namespace("").List(ctx, metav1.ListOptions{})
 	require.NoError(t, err, "error listing through virtual workspace wildcard")
 	require.Equal(t, 1, len(list.Items), "unexpected # of cowboys through virtual workspace with wildcard")
 }
