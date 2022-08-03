@@ -26,6 +26,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
@@ -162,16 +163,20 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 
 			var labelReqs labels.Requirements
 			if c := claims[gvr.GroupResource()]; c != nil {
-				key, label, err := permissionclaims.ToLabelKeyAndValue(*c)
+				key, label, err := permissionclaims.ToLabelKeyAndValue(logicalcluster.From(apiExport), apiExport.Name, *c)
 				if err != nil {
 					return fmt.Errorf(fmt.Sprintf("failed to convert permission claim %v to label key and value: %v", c, err))
 				}
-				selector := labels.SelectorFromSet(labels.Set{key: label})
-				var selectable bool
-				labelReqs, selectable = selector.Requirements()
-				if !selectable {
-					return fmt.Errorf("permission claim %v for APIExport %s|%s is not selectable", c, logicalcluster.From(apiExport), apiExport.Name)
+				claimLabels := []string{label}
+				if gvr.GroupResource() == apisv1alpha1.Resource("apibindings") {
+					_, fallbackLabel := permissionclaims.ToReflexiveAPIBindingLabelKeyAndValue(logicalcluster.From(apiExport), apiExport.Name)
+					claimLabels = append(claimLabels, fallbackLabel)
 				}
+				req, err := labels.NewRequirement(key, selection.In, claimLabels)
+				if err != nil {
+					return fmt.Errorf(fmt.Sprintf("failed to create label requirement for permission claim %v: %v", c, err))
+				}
+				labelReqs = labels.Requirements{*req}
 			}
 
 			apiDefinition, err := c.createAPIDefinition(apiResourceSchema, version.Name, identities[gvr.GroupResource()], labelReqs)
