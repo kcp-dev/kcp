@@ -489,9 +489,7 @@ func TestSyncerProcess(t *testing.T) {
 					changeUnstructured(
 						toUnstructured(t, changeDeployment(
 							deployment("theDeployment", "test", "root:org:ws", map[string]string{}, map[string]string{}, nil))),
-						// TODO(jmprusi): Those next changes do "nothing", it's just for the test to pass
-						//                as the test expects some null fields to be there...
-						setNestedField(map[string]interface{}{}, "metadata", "annotations"),
+						// The following "changes" are required for the test to pass, as it expects some empty/nil fields to be there
 						setNestedField(map[string]interface{}{}, "metadata", "labels"),
 						setNestedField([]interface{}{}, "metadata", "finalizers"),
 						setNestedField(nil, "spec", "selector"),
@@ -606,25 +604,37 @@ func setupWatchReactor(resource string, client *dynamicfake.FakeDynamicClient) c
 }
 
 func namespace(name, clusterName string, labels, annotations map[string]string) *corev1.Namespace {
+	if clusterName != "" {
+		if annotations == nil {
+			annotations = make(map[string]string)
+		}
+		annotations[logicalcluster.AnnotationKey] = clusterName
+	}
+
 	return &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:                      name,
-			ZZZ_DeprecatedClusterName: clusterName,
-			Labels:                    labels,
-			Annotations:               annotations,
+			Name:        name,
+			Labels:      labels,
+			Annotations: annotations,
 		},
 	}
 }
 
 func deployment(name, namespace, clusterName string, labels, annotations map[string]string, finalizers []string) *appsv1.Deployment {
+	if clusterName != "" {
+		if annotations == nil {
+			annotations = make(map[string]string)
+		}
+		annotations[logicalcluster.AnnotationKey] = clusterName
+	}
+
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:                      name,
-			Namespace:                 namespace,
-			ZZZ_DeprecatedClusterName: clusterName,
-			Labels:                    labels,
-			Annotations:               annotations,
-			Finalizers:                finalizers,
+			Name:        name,
+			Namespace:   namespace,
+			Labels:      labels,
+			Annotations: annotations,
+			Finalizers:  finalizers,
 		},
 	}
 }

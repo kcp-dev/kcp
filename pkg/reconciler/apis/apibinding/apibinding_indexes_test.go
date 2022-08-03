@@ -47,8 +47,10 @@ func TestIndexAPIBindingByWorkspaceExport(t *testing.T) {
 		"has a workspace reference": {
 			obj: &apisv1alpha1.APIBinding{
 				ObjectMeta: metav1.ObjectMeta{
-					ZZZ_DeprecatedClusterName: "root:default",
-					Name:                      "foo",
+					Annotations: map[string]string{
+						logicalcluster.AnnotationKey: "root:default",
+					},
+					Name: "foo",
 				},
 				Spec: apisv1alpha1.APIBindingSpec{
 					Reference: apisv1alpha1.ExportReference{
@@ -92,8 +94,10 @@ func TestIndexAPIExportByAPIResourceSchemas(t *testing.T) {
 		"valid APIExport": {
 			obj: &apisv1alpha1.APIExport{
 				ObjectMeta: metav1.ObjectMeta{
-					ZZZ_DeprecatedClusterName: "root:default",
-					Name:                      "foo",
+					Annotations: map[string]string{
+						logicalcluster.AnnotationKey: "root:default",
+					},
+					Name: "foo",
 				},
 				Spec: apisv1alpha1.APIExportSpec{
 					LatestResourceSchemas: []string{"schema1", "some-other-schema"},

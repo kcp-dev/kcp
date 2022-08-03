@@ -239,14 +239,21 @@ func TestPrettyNameIndex(t *testing.T) {
 			reviewer: workspaceauth.NewReviewer(nil),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo", ZZZ_DeprecatedClusterName: "root:orgName"},
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
+						Name: "foo",
+					},
 				},
 			},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:                      "orgName2-binding",
-						ZZZ_DeprecatedClusterName: "root:orgName2",
+						Name: "orgName2-binding",
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName2",
+						},
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo-orgName2",
@@ -261,8 +268,10 @@ func TestPrettyNameIndex(t *testing.T) {
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:                      "orgName-binding",
-						ZZZ_DeprecatedClusterName: "root:orgName",
+						Name: "orgName-binding",
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -303,14 +312,21 @@ func TestInternalNameIndex(t *testing.T) {
 			reviewer: workspaceauth.NewReviewer(nil),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo", ZZZ_DeprecatedClusterName: "root:orgName"},
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
+						Name: "foo",
+					},
 				},
 			},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:                      "orgName2-binding",
-						ZZZ_DeprecatedClusterName: "root:orgName2",
+						Name: "orgName2-binding",
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName2",
+						},
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo-orgName2",
 							InternalNameLabel: "foo",
@@ -325,8 +341,10 @@ func TestInternalNameIndex(t *testing.T) {
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:                      "orgName-binding",
-						ZZZ_DeprecatedClusterName: "root:orgName",
+						Name: "orgName-binding",
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -374,14 +392,21 @@ func TestListPersonalWorkspaces(t *testing.T) {
 			}),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo", ZZZ_DeprecatedClusterName: "root:orgName"},
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
+						Name: "foo",
+					},
 				},
 			},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:                      getRoleBindingName(OwnerRoleType, "foo", user),
-						ZZZ_DeprecatedClusterName: "root:orgName",
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -439,14 +464,21 @@ func TestListPersonalWorkspacesInWrongOrg(t *testing.T) {
 			}),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo", ZZZ_DeprecatedClusterName: "root:orgName"},
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
+						Name: "foo",
+					},
 				},
 			},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:                      getRoleBindingName(OwnerRoleType, "foo", user),
-						ZZZ_DeprecatedClusterName: "root:orgName",
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -492,14 +524,21 @@ func TestListPersonalWorkspacesWithPrettyName(t *testing.T) {
 			}),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo--1", ZZZ_DeprecatedClusterName: "root:orgName"},
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
+						Name: "foo--1",
+					},
 				},
 			},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:                      getRoleBindingName(OwnerRoleType, "foo", user),
-						ZZZ_DeprecatedClusterName: "root:orgName",
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo--1",
@@ -557,7 +596,12 @@ func TestListPersonalWorkspacesOnRootOrg(t *testing.T) {
 			}),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "orgName", ZZZ_DeprecatedClusterName: "root"},
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root",
+						},
+						Name: "orgName",
+					},
 				},
 			},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{},
@@ -601,14 +645,21 @@ func TestListOrganizationWorkspaces(t *testing.T) {
 			}),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo", ZZZ_DeprecatedClusterName: "root:orgName"},
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
+						Name: "foo",
+					},
 				},
 			},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:                      getRoleBindingName(OwnerRoleType, "foo", user),
-						ZZZ_DeprecatedClusterName: "root:orgName",
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -662,14 +713,21 @@ func TestListOrganizationWorkspacesWithPrettyName(t *testing.T) {
 			}),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo--1", ZZZ_DeprecatedClusterName: "root:orgName"},
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
+						Name: "foo--1",
+					},
 				},
 			},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:                      getRoleBindingName(OwnerRoleType, "foo", user),
-						ZZZ_DeprecatedClusterName: "root:orgName",
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo--1",
@@ -723,14 +781,21 @@ func TestGetPersonalWorkspace(t *testing.T) {
 			}),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo", ZZZ_DeprecatedClusterName: "root:orgName"},
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
+						Name: "foo",
+					},
 				},
 			},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:                      getRoleBindingName(OwnerRoleType, "foo", user),
-						ZZZ_DeprecatedClusterName: "root:orgName",
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -787,14 +852,21 @@ func TestGetPersonalWorkspaceWithPrettyName(t *testing.T) {
 			}),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo--1", ZZZ_DeprecatedClusterName: "root:orgName"},
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
+						Name: "foo--1",
+					},
 				},
 			},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:                      getRoleBindingName(OwnerRoleType, "foo", user),
-						ZZZ_DeprecatedClusterName: "root:orgName",
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo--1",
@@ -851,24 +923,41 @@ func TestGetPersonalWorkspaceNotFoundNoPermission(t *testing.T) {
 			}),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo", ZZZ_DeprecatedClusterName: "root:orgName"},
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
+						Name: "foo",
+					},
 				},
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo2", ZZZ_DeprecatedClusterName: "root:orgName"},
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
+						Name: "foo2",
+					},
 				},
 			},
 			workspaceLister: &mockLister{
 				workspaces: []tenancyv1alpha1.ClusterWorkspace{
 					{
-						ObjectMeta: metav1.ObjectMeta{Name: "foo2", ZZZ_DeprecatedClusterName: "root:orgName"},
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								logicalcluster.AnnotationKey: "root:orgName",
+							},
+							Name: "foo2",
+						},
 					},
 				},
 			},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:                      getRoleBindingName(OwnerRoleType, "foo", user),
-						ZZZ_DeprecatedClusterName: "root:orgName",
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -1212,14 +1301,21 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 			}),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo", ZZZ_DeprecatedClusterName: "root:orgName"},
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
+						Name: "foo",
+					},
 				},
 			},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:                      getRoleBindingName(OwnerRoleType, "foo", anotherUser),
-						ZZZ_DeprecatedClusterName: "root:orgName",
+						Name: getRoleBindingName(OwnerRoleType, "foo", anotherUser),
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -1236,8 +1332,10 @@ func TestCreateWorkspaceWithPrettyName(t *testing.T) {
 			clusterRoles: []rbacv1.ClusterRole{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:                      getRoleBindingName(OwnerRoleType, "foo", anotherUser),
-						ZZZ_DeprecatedClusterName: "root:orgName",
+						Name: getRoleBindingName(OwnerRoleType, "foo", anotherUser),
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
 						Labels: map[string]string{
 							InternalNameLabel: "foo",
 						},
@@ -1371,14 +1469,21 @@ func TestCreateWorkspacePrettyNameAlreadyExists(t *testing.T) {
 			}),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo", ZZZ_DeprecatedClusterName: "root:orgName"},
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
+						Name: "foo",
+					},
 				},
 			},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:                      getRoleBindingName(OwnerRoleType, "foo", user),
-						ZZZ_DeprecatedClusterName: "root:orgName",
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -1395,8 +1500,10 @@ func TestCreateWorkspacePrettyNameAlreadyExists(t *testing.T) {
 			clusterRoles: []rbacv1.ClusterRole{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:                      getRoleBindingName(OwnerRoleType, "foo", user),
-						ZZZ_DeprecatedClusterName: "root:orgName",
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
 						Labels: map[string]string{
 							InternalNameLabel: "foo",
 						},
@@ -1528,14 +1635,21 @@ func TestDeleteWorkspaceNotFound(t *testing.T) {
 			}),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo", ZZZ_DeprecatedClusterName: "root:orgName"},
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
+						Name: "foo",
+					},
 				},
 			},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:                      getRoleBindingName(OwnerRoleType, "foo", user),
-						ZZZ_DeprecatedClusterName: "root:orgName",
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -1552,8 +1666,10 @@ func TestDeleteWorkspaceNotFound(t *testing.T) {
 			clusterRoles: []rbacv1.ClusterRole{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:                      getRoleBindingName(OwnerRoleType, "foo", user),
-						ZZZ_DeprecatedClusterName: "root:orgName",
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
 						Labels: map[string]string{
 							InternalNameLabel: "foo",
 						},
@@ -1618,14 +1734,21 @@ func TestDeletePersonalWorkspaceForbiddenToUser(t *testing.T) {
 			}),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo", ZZZ_DeprecatedClusterName: "root:orgName"},
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
+						Name: "foo",
+					},
 				},
 			},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:                      getRoleBindingName(OwnerRoleType, "foo", user),
-						ZZZ_DeprecatedClusterName: "root:orgName",
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -1642,8 +1765,10 @@ func TestDeletePersonalWorkspaceForbiddenToUser(t *testing.T) {
 			clusterRoles: []rbacv1.ClusterRole{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:                      getRoleBindingName(OwnerRoleType, "foo", user),
-						ZZZ_DeprecatedClusterName: "root:orgName",
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
 						Labels: map[string]string{
 							InternalNameLabel: "foo",
 						},
@@ -1711,14 +1836,21 @@ func TestDeletePersonalWorkspaceForbiddenToOrgAdmin(t *testing.T) {
 			}),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo", ZZZ_DeprecatedClusterName: "root:orgName"},
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
+						Name: "foo",
+					},
 				},
 			},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:                      getRoleBindingName(OwnerRoleType, "foo", user),
-						ZZZ_DeprecatedClusterName: "root:orgName",
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -1735,8 +1867,10 @@ func TestDeletePersonalWorkspaceForbiddenToOrgAdmin(t *testing.T) {
 			clusterRoles: []rbacv1.ClusterRole{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:                      getRoleBindingName(OwnerRoleType, "foo", user),
-						ZZZ_DeprecatedClusterName: "root:orgName",
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
 						Labels: map[string]string{
 							InternalNameLabel: "foo",
 						},
@@ -1801,14 +1935,21 @@ func TestDeleteWorkspaceForbiddenToUser(t *testing.T) {
 			}),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo", ZZZ_DeprecatedClusterName: "root:orgName"},
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
+						Name: "foo",
+					},
 				},
 			},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:                      getRoleBindingName(OwnerRoleType, "foo", user),
-						ZZZ_DeprecatedClusterName: "root:orgName",
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -1825,8 +1966,10 @@ func TestDeleteWorkspaceForbiddenToUser(t *testing.T) {
 			clusterRoles: []rbacv1.ClusterRole{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:                      getRoleBindingName(OwnerRoleType, "foo", user),
-						ZZZ_DeprecatedClusterName: "root:orgName",
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
 						Labels: map[string]string{
 							InternalNameLabel: "foo",
 						},
@@ -1891,14 +2034,21 @@ func TestDeletePersonalWorkspace(t *testing.T) {
 			}),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo", ZZZ_DeprecatedClusterName: "root:orgName"},
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
+						Name: "foo",
+					},
 				},
 			},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:                      getRoleBindingName(OwnerRoleType, "foo", user),
-						ZZZ_DeprecatedClusterName: "root:orgName",
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -1915,8 +2065,10 @@ func TestDeletePersonalWorkspace(t *testing.T) {
 			clusterRoles: []rbacv1.ClusterRole{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:                      getRoleBindingName(OwnerRoleType, "foo", user),
-						ZZZ_DeprecatedClusterName: "root:orgName",
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
 						Labels: map[string]string{
 							InternalNameLabel: "foo",
 						},
@@ -1984,14 +2136,21 @@ func TestDeleteWorkspaceByOrgAdmin(t *testing.T) {
 			}),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo", ZZZ_DeprecatedClusterName: "root:orgName"},
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
+						Name: "foo",
+					},
 				},
 			},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:                      getRoleBindingName(OwnerRoleType, "foo", user),
-						ZZZ_DeprecatedClusterName: "root:orgName",
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo",
@@ -2008,8 +2167,10 @@ func TestDeleteWorkspaceByOrgAdmin(t *testing.T) {
 			clusterRoles: []rbacv1.ClusterRole{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:                      getRoleBindingName(OwnerRoleType, "foo", user),
-						ZZZ_DeprecatedClusterName: "root:orgName",
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
 						Labels: map[string]string{
 							InternalNameLabel: "foo",
 						},
@@ -2074,14 +2235,21 @@ func TestDeletePersonalWorkspaceWithPrettyName(t *testing.T) {
 			}),
 			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "foo--1", ZZZ_DeprecatedClusterName: "root:orgName"},
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
+						Name: "foo--1",
+					},
 				},
 			},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:                      getRoleBindingName(OwnerRoleType, "foo", user),
-						ZZZ_DeprecatedClusterName: "root:orgName",
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
 						Labels: map[string]string{
 							PrettyNameLabel:   "foo",
 							InternalNameLabel: "foo--1",
@@ -2098,8 +2266,10 @@ func TestDeletePersonalWorkspaceWithPrettyName(t *testing.T) {
 			clusterRoles: []rbacv1.ClusterRole{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:                      getRoleBindingName(OwnerRoleType, "foo", user),
-						ZZZ_DeprecatedClusterName: "root:orgName",
+						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:orgName",
+						},
 						Labels: map[string]string{
 							InternalNameLabel: "foo--1",
 						},

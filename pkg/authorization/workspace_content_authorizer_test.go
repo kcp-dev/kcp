@@ -205,7 +205,12 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 
 			require.NoError(t, kubeShareInformerFactory.Rbac().V1().ClusterRoles().Informer().GetIndexer().Add(
 				&v1.ClusterRole{
-					ObjectMeta: metav1.ObjectMeta{ZZZ_DeprecatedClusterName: "root", Name: "ready-admin"},
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root",
+						},
+						Name: "ready-admin",
+					},
 					Rules: []v1.PolicyRule{
 						{
 							Verbs:         []string{"admin"},
@@ -219,7 +224,12 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 
 			require.NoError(t, kubeShareInformerFactory.Rbac().V1().ClusterRoles().Informer().GetIndexer().Add(
 				&v1.ClusterRole{
-					ObjectMeta: metav1.ObjectMeta{ZZZ_DeprecatedClusterName: "root", Name: "initializing-admin"},
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root",
+						},
+						Name: "initializing-admin",
+					},
 					Rules: []v1.PolicyRule{
 						{
 							Verbs:         []string{"admin"},
@@ -233,7 +243,12 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 
 			require.NoError(t, kubeShareInformerFactory.Rbac().V1().ClusterRoles().Informer().GetIndexer().Add(
 				&v1.ClusterRole{
-					ObjectMeta: metav1.ObjectMeta{ZZZ_DeprecatedClusterName: "root", Name: "initializing-access"},
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root",
+						},
+						Name: "initializing-access",
+					},
 					Rules: []v1.PolicyRule{
 						{
 							Verbs:         []string{"access"},
@@ -247,7 +262,12 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 
 			require.NoError(t, kubeShareInformerFactory.Rbac().V1().ClusterRoles().Informer().GetIndexer().Add(
 				&v1.ClusterRole{
-					ObjectMeta: metav1.ObjectMeta{ZZZ_DeprecatedClusterName: "root", Name: "ready-access"},
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root",
+						},
+						Name: "ready-access",
+					},
 					Rules: []v1.PolicyRule{
 						{
 							Verbs:         []string{"access"},
@@ -261,7 +281,12 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 
 			require.NoError(t, kubeShareInformerFactory.Rbac().V1().ClusterRoleBindings().Informer().GetIndexer().Add(
 				&v1.ClusterRoleBinding{
-					ObjectMeta: metav1.ObjectMeta{ZZZ_DeprecatedClusterName: "root", Name: "user-admin-ready-admin"},
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root",
+						},
+						Name: "user-admin-ready-admin",
+					},
 					Subjects: []v1.Subject{
 						{
 							Kind:     "User",
@@ -279,7 +304,12 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 
 			require.NoError(t, kubeShareInformerFactory.Rbac().V1().ClusterRoleBindings().Informer().GetIndexer().Add(
 				&v1.ClusterRoleBinding{
-					ObjectMeta: metav1.ObjectMeta{ZZZ_DeprecatedClusterName: "root", Name: "user-admin-initializing-admin"},
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root",
+						},
+						Name: "user-admin-initializing-admin",
+					},
 					Subjects: []v1.Subject{
 						{
 							Kind:     "User",
@@ -297,7 +327,12 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 
 			require.NoError(t, kubeShareInformerFactory.Rbac().V1().ClusterRoleBindings().Informer().GetIndexer().Add(
 				&v1.ClusterRoleBinding{
-					ObjectMeta: metav1.ObjectMeta{ZZZ_DeprecatedClusterName: "root", Name: "user-access-ready-access"},
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root",
+						},
+						Name: "user-access-ready-access",
+					},
 					Subjects: []v1.Subject{
 						{
 							Kind:     "User",
@@ -315,7 +350,12 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 
 			require.NoError(t, kubeShareInformerFactory.Rbac().V1().ClusterRoleBindings().Informer().GetIndexer().Add(
 				&v1.ClusterRoleBinding{
-					ObjectMeta: metav1.ObjectMeta{ZZZ_DeprecatedClusterName: "root", Name: "user-access-initializing-access"},
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root",
+						},
+						Name: "user-access-initializing-access",
+					},
 					Subjects: []v1.Subject{
 						{
 							Kind:     "User",

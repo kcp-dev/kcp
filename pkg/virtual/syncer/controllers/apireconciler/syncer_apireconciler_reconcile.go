@@ -64,8 +64,10 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 	apiResourceSchemas := make([]*apisv1alpha1.APIResourceSchema, 0, len(apiExport.Spec.LatestResourceSchemas)+len(internalapis.Schemas))
 	for _, schema := range internalapis.Schemas {
 		shallow := *schema
-		// nolint:staticcheck
-		shallow.ZZZ_DeprecatedClusterName = logicalcluster.From(apiExport).String() // intentionally no direct assignment
+		if shallow.Annotations == nil {
+			shallow.Annotations = make(map[string]string)
+		}
+		shallow.Annotations[logicalcluster.AnnotationKey] = logicalcluster.From(apiExport).String()
 		apiResourceSchemas = append(apiResourceSchemas, &shallow)
 	}
 	for _, schemaName := range apiExport.Spec.LatestResourceSchemas {

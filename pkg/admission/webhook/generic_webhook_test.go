@@ -125,8 +125,10 @@ func TestDispatch(t *testing.T) {
 			apiBindings: []*v1alpha1.APIBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:                      "one",
-						ZZZ_DeprecatedClusterName: "root:org:dest-cluster",
+						Name: "one",
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:org:dest-cluster",
+						},
 					},
 					Status: v1alpha1.APIBindingStatus{
 						BoundResources: []v1alpha1.BoundAPIResource{
@@ -182,8 +184,10 @@ func TestDispatch(t *testing.T) {
 			apiBindings: []*v1alpha1.APIBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:                      "two",
-						ZZZ_DeprecatedClusterName: "root:org:dest-cluster",
+						Name: "two",
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:org:dest-cluster",
+						},
 					},
 					Status: v1alpha1.APIBindingStatus{
 						BoundResources: []v1alpha1.BoundAPIResource{
@@ -201,8 +205,10 @@ func TestDispatch(t *testing.T) {
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:                      "one",
-						ZZZ_DeprecatedClusterName: "root:org:dest-cluster-2",
+						Name: "one",
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "root:org:dest-cluster-2",
+						},
 					},
 					Status: v1alpha1.APIBindingStatus{
 						BoundResources: []v1alpha1.BoundAPIResource{

@@ -23,6 +23,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,14 +46,18 @@ func TestReconcile(t *testing.T) {
 			name: "no shards, no URLs in status",
 			cwt: &tenancyv1alpha1.ClusterWorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:                      "sometype",
-					ZZZ_DeprecatedClusterName: "root:org:team:ws",
+					Name: "sometype",
+					Annotations: map[string]string{
+						logicalcluster.AnnotationKey: "root:org:team:ws",
+					},
 				},
 			},
 			expected: &tenancyv1alpha1.ClusterWorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:                      "sometype",
-					ZZZ_DeprecatedClusterName: "root:org:team:ws",
+					Name: "sometype",
+					Annotations: map[string]string{
+						logicalcluster.AnnotationKey: "root:org:team:ws",
+					},
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
 					Conditions: conditionsv1alpha1.Conditions{
@@ -74,14 +79,18 @@ func TestReconcile(t *testing.T) {
 			listErr: fmt.Errorf("oops"),
 			cwt: &tenancyv1alpha1.ClusterWorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:                      "sometype",
-					ZZZ_DeprecatedClusterName: "root:org:team:ws",
+					Name: "sometype",
+					Annotations: map[string]string{
+						logicalcluster.AnnotationKey: "root:org:team:ws",
+					},
 				},
 			},
 			expected: &tenancyv1alpha1.ClusterWorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:                      "sometype",
-					ZZZ_DeprecatedClusterName: "root:org:team:ws",
+					Name: "sometype",
+					Annotations: map[string]string{
+						logicalcluster.AnnotationKey: "root:org:team:ws",
+					},
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
 					Conditions: conditionsv1alpha1.Conditions{
@@ -112,14 +121,18 @@ func TestReconcile(t *testing.T) {
 			},
 			cwt: &tenancyv1alpha1.ClusterWorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:                      "sometype",
-					ZZZ_DeprecatedClusterName: "root:org:team:ws",
+					Name: "sometype",
+					Annotations: map[string]string{
+						logicalcluster.AnnotationKey: "root:org:team:ws",
+					},
 				},
 			},
 			expected: &tenancyv1alpha1.ClusterWorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:                      "sometype",
-					ZZZ_DeprecatedClusterName: "root:org:team:ws",
+					Name: "sometype",
+					Annotations: map[string]string{
+						logicalcluster.AnnotationKey: "root:org:team:ws",
+					},
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
 					VirtualWorkspaces: []tenancyv1alpha1.VirtualWorkspace{
@@ -149,8 +162,10 @@ func TestReconcile(t *testing.T) {
 			},
 			cwt: &tenancyv1alpha1.ClusterWorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:                      "sometype",
-					ZZZ_DeprecatedClusterName: "root:org:team:ws",
+					Name: "sometype",
+					Annotations: map[string]string{
+						logicalcluster.AnnotationKey: "root:org:team:ws",
+					},
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
 					VirtualWorkspaces: []tenancyv1alpha1.VirtualWorkspace{
@@ -170,8 +185,10 @@ func TestReconcile(t *testing.T) {
 			},
 			expected: &tenancyv1alpha1.ClusterWorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:                      "sometype",
-					ZZZ_DeprecatedClusterName: "root:org:team:ws",
+					Name: "sometype",
+					Annotations: map[string]string{
+						logicalcluster.AnnotationKey: "root:org:team:ws",
+					},
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
 					VirtualWorkspaces: []tenancyv1alpha1.VirtualWorkspace{

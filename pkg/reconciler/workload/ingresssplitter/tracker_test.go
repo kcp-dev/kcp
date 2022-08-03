@@ -35,9 +35,11 @@ func TestTracker(t *testing.T) {
 	newIngress := func(cluster, ns, name string) *networkingv1.Ingress {
 		return &networkingv1.Ingress{
 			ObjectMeta: metav1.ObjectMeta{
-				ZZZ_DeprecatedClusterName: cluster,
-				Namespace:                 ns,
-				Name:                      name,
+				Annotations: map[string]string{
+					logicalcluster.AnnotationKey: cluster,
+				},
+				Namespace: ns,
+				Name:      name,
 			},
 		}
 	}
@@ -45,9 +47,11 @@ func TestTracker(t *testing.T) {
 	newService := func(cluster, ns, name string) *corev1.Service {
 		return &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
-				ZZZ_DeprecatedClusterName: cluster,
-				Namespace:                 ns,
-				Name:                      name,
+				Annotations: map[string]string{
+					logicalcluster.AnnotationKey: cluster,
+				},
+				Namespace: ns,
+				Name:      name,
 			},
 		}
 	}

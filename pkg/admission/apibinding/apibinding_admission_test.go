@@ -423,7 +423,9 @@ func newAPIBinding() *bindingBuilder {
 	return &bindingBuilder{
 		APIBinding: &apisv1alpha1.APIBinding{
 			ObjectMeta: metav1.ObjectMeta{
-				ZZZ_DeprecatedClusterName: "root:org:ws",
+				Annotations: map[string]string{
+					logicalcluster.AnnotationKey: "root:org:ws",
+				},
 			},
 		},
 	}

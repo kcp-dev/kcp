@@ -143,8 +143,10 @@ func (w *userWorkspaceWatcher) GroupMembershipChanged(workspaceName string, user
 	var workspace workspaceapibeta1.Workspace
 	projection.ProjectClusterWorkspaceToWorkspace(&workspaceapi.ClusterWorkspace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:                      workspaceName,
-			ZZZ_DeprecatedClusterName: w.lclusterName.String(),
+			Annotations: map[string]string{
+				logicalcluster.AnnotationKey: w.lclusterName.String(),
+			},
+			Name: workspaceName,
 		},
 	}, &workspace)
 

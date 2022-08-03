@@ -121,7 +121,12 @@ func createAttr(obj *apiextensions.CustomResourceDefinition) admission.Attribute
 
 func createBinding(name string, clusterName string, boundResources []apisv1alpha1.BoundAPIResource) *apisv1alpha1.APIBinding {
 	return &apisv1alpha1.APIBinding{
-		ObjectMeta: metav1.ObjectMeta{Name: name, ZZZ_DeprecatedClusterName: clusterName},
-		Status:     apisv1alpha1.APIBindingStatus{BoundResources: boundResources},
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				logicalcluster.AnnotationKey: clusterName,
+			},
+			Name: name,
+		},
+		Status: apisv1alpha1.APIBindingStatus{BoundResources: boundResources},
 	}
 }
