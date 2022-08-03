@@ -28,6 +28,7 @@ import (
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -54,6 +55,7 @@ func BuildVirtualWorkspace(
 	kubeClusterClient kubernetes.ClusterInterface,
 	dynamicClusterClient dynamic.ClusterInterface,
 	kcpClusterClient kcpclient.ClusterInterface,
+	discoveryClient discovery.DiscoveryInterface,
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
 	if !strings.HasSuffix(rootPathPrefix, "/") {
@@ -136,6 +138,7 @@ func BuildVirtualWorkspace(
 		BootstrapAPISetManagement: func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
 			apiReconciler, err := apireconciler.NewAPIReconciler(
 				kcpClusterClient,
+				discoveryClient,
 				wildcardKcpInformers.Apis().V1alpha1().APIResourceSchemas(),
 				wildcardKcpInformers.Apis().V1alpha1().APIExports(),
 				func(apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identityHash string, optionalLabelRequirements labels.Requirements) (apidefinition.APIDefinition, error) {
@@ -175,6 +178,11 @@ func BuildVirtualWorkspace(
 						klog.Errorf("informer not synced")
 						return nil
 					}
+				}
+
+				err := apiReconciler.GatherInternalSchemas()
+				if err != nil {
+					return err
 				}
 
 				go apiReconciler.Start(goContext(hookContext))

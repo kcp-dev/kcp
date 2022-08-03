@@ -22,11 +22,17 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
+	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
+	"k8s.io/kube-openapi/pkg/common"
+	"k8s.io/kubernetes/pkg/api/legacyscheme"
+	generatedopenapi "k8s.io/kubernetes/pkg/generated/openapi"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
@@ -61,8 +67,8 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 
 	// collect APIResourceSchemas
 	schemaIdentity := map[string]string{}
-	apiResourceSchemas := make([]*apisv1alpha1.APIResourceSchema, 0, len(apiExport.Spec.LatestResourceSchemas)+len(internalapis.Schemas))
-	for _, schema := range internalapis.Schemas {
+	apiResourceSchemas := make([]*apisv1alpha1.APIResourceSchema, 0, len(apiExport.Spec.LatestResourceSchemas)+len(syncerSchemas))
+	for _, schema := range syncerSchemas {
 		shallow := *schema
 		if shallow.Annotations == nil {
 			shallow.Annotations = make(map[string]string)
@@ -162,4 +168,63 @@ func gvrString(gvr schema.GroupVersionResource) string {
 		group = "core"
 	}
 	return fmt.Sprintf("%s.%s.%s", gvr.Resource, gvr.Version, group)
+}
+
+// syncerSchemas contains a list of internal APIs that should be exposed for the syncer of any SyncTarget.
+var syncerSchemas []*apisv1alpha1.APIResourceSchema
+
+func init() {
+	schemes := []*runtime.Scheme{legacyscheme.Scheme}
+	openAPIDefinitionsGetters := []common.GetOpenAPIDefinitions{generatedopenapi.GetOpenAPIDefinitions}
+
+	if apis, err := internalapis.CreateAPIResourceSchemas(schemes, openAPIDefinitionsGetters, syncerInternalAPIs...); err != nil {
+		panic(err)
+	} else {
+		syncerSchemas = apis
+	}
+}
+
+// KCPInternalAPIs provides a list of InternalAPI for the APIs that are part of the KCP scheme and will be there in every KCP workspace
+var syncerInternalAPIs = []internalapis.InternalAPI{
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "namespaces",
+			Singular: "namespace",
+			Kind:     "Namespace",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "", Version: "v1"},
+		Instance:      &corev1.Namespace{},
+		ResourceScope: apiextensionsv1.ClusterScoped,
+		HasStatus:     true,
+	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "configmaps",
+			Singular: "configmap",
+			Kind:     "ConfigMap",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "", Version: "v1"},
+		Instance:      &corev1.ConfigMap{},
+		ResourceScope: apiextensionsv1.NamespaceScoped,
+	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "secrets",
+			Singular: "secret",
+			Kind:     "Secret",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "", Version: "v1"},
+		Instance:      &corev1.Secret{},
+		ResourceScope: apiextensionsv1.NamespaceScoped,
+	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "serviceaccounts",
+			Singular: "serviceaccount",
+			Kind:     "ServiceAccount",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "", Version: "v1"},
+		Instance:      &corev1.ServiceAccount{},
+		ResourceScope: apiextensionsv1.NamespaceScoped,
+	},
 }

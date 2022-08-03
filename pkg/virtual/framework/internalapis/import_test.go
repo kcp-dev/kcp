@@ -49,10 +49,10 @@ func TestImportInternalAPIs(t *testing.T) {
 				Singular: "namespace",
 				Kind:     "Namespace",
 			},
-			GroupVersion: schema.GroupVersion{Group: "", Version: "v1"},
-			Instance:     &corev1.Namespace{},
-			ResourceSope: apiextensionsv1.ClusterScoped,
-			HasStatus:    true,
+			GroupVersion:  schema.GroupVersion{Group: "", Version: "v1"},
+			Instance:      &corev1.Namespace{},
+			ResourceScope: apiextensionsv1.ClusterScoped,
+			HasStatus:     true,
 		},
 		{
 			Names: apiextensionsv1.CustomResourceDefinitionNames{
@@ -60,9 +60,9 @@ func TestImportInternalAPIs(t *testing.T) {
 				Singular: "configmap",
 				Kind:     "ConfigMap",
 			},
-			GroupVersion: schema.GroupVersion{Group: "", Version: "v1"},
-			Instance:     &corev1.ConfigMap{},
-			ResourceSope: apiextensionsv1.NamespaceScoped,
+			GroupVersion:  schema.GroupVersion{Group: "", Version: "v1"},
+			Instance:      &corev1.ConfigMap{},
+			ResourceScope: apiextensionsv1.NamespaceScoped,
 		},
 		{
 			Names: apiextensionsv1.CustomResourceDefinitionNames{
@@ -70,16 +70,16 @@ func TestImportInternalAPIs(t *testing.T) {
 				Singular: "synctarget",
 				Kind:     "SyncTarget",
 			},
-			GroupVersion: schema.GroupVersion{Group: "workload.kcp.dev", Version: "v1alpha1"},
-			Instance:     &workloadv1alpha1.SyncTarget{},
-			ResourceSope: apiextensionsv1.ClusterScoped,
-			HasStatus:    true,
+			GroupVersion:  schema.GroupVersion{Group: "workload.kcp.dev", Version: "v1alpha1"},
+			Instance:      &workloadv1alpha1.SyncTarget{},
+			ResourceScope: apiextensionsv1.ClusterScoped,
+			HasStatus:     true,
 		},
 	}
 	workloadScheme := runtime.NewScheme()
 	err := workloadv1alpha1.AddToScheme(workloadScheme)
 	require.NoError(t, err)
-	schemas, err := createAPIResourceSchemas(
+	schemas, err := CreateAPIResourceSchemas(
 		[]*runtime.Scheme{legacyscheme.Scheme, workloadScheme},
 		[]common.GetOpenAPIDefinitions{k8sopenapi.GetOpenAPIDefinitions, kcpopenapi.GetOpenAPIDefinitions},
 		apisToImport...)
