@@ -21,16 +21,7 @@ import (
 	"math/big"
 
 	"github.com/kcp-dev/logicalcluster/v2"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-// GetResourceState returns the state of the resource for the given sync target, and
-// whether the state value is a valid state. A missing label is considered invalid.
-func GetResourceState(obj metav1.Object, syncTargetKey string) (state ResourceState, valid bool) {
-	value, found := obj.GetLabels()[ClusterResourceStateLabelPrefix+syncTargetKey]
-	return ResourceState(value), found && (value == "" || ResourceState(value) == ResourceStateSync)
-}
 
 // ToSyncTargetKey hashes the SyncTarget workspace and the SyncTarget name to a string that is used to idenfity
 // in a unique way the synctarget in annotations/labels/finalizers.
