@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -48,10 +49,10 @@ func TestRequeueWhenIdentitySecretAdded(t *testing.T) {
 
 	cfg := server.BaseConfig(t)
 
-	kcpClients, err := clientset.NewClusterForConfig(cfg)
+	kcpClusterClient, err := clientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating kcp cluster client")
 
-	kubeClients, err := kubernetes.NewClusterForConfig(cfg)
+	kubeClusterClient, err := kubernetes.NewForConfig(cfg)
 	require.NoError(t, err, "error creating kube cluster client")
 
 	apiExport := &apisv1alpha1.APIExport{
@@ -69,14 +70,14 @@ func TestRequeueWhenIdentitySecretAdded(t *testing.T) {
 	}
 
 	t.Logf("Creating APIExport with reference to nonexistent identity secret")
-	apiExportClient := kcpClients.Cluster(workspaceClusterName).ApisV1alpha1().APIExports()
+	apiExportClient := kcpClusterClient.ApisV1alpha1().APIExports()
 
-	_, err = apiExportClient.Create(ctx, apiExport, metav1.CreateOptions{})
+	_, err = apiExportClient.Create(logicalcluster.WithCluster(ctx, workspaceClusterName), apiExport, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating APIExport")
 
 	t.Logf("Verifying the APIExport gets IdentityVerificationFailedReason")
 	require.Eventually(t, func() bool {
-		export, err := apiExportClient.Get(ctx, apiExport.Name, metav1.GetOptions{})
+		export, err := apiExportClient.Get(logicalcluster.WithCluster(ctx, workspaceClusterName), apiExport.Name, metav1.GetOptions{})
 		if err != nil {
 			return false
 		}
@@ -99,13 +100,13 @@ func TestRequeueWhenIdentitySecretAdded(t *testing.T) {
 	}
 
 	t.Logf("Creating the referenced secret")
-	_, err = kubeClients.Cluster(workspaceClusterName).CoreV1().Secrets("default").Create(ctx, secret, metav1.CreateOptions{})
+	_, err = kubeClusterClient.CoreV1().Secrets("default").Create(logicalcluster.WithCluster(ctx, workspaceClusterName), secret, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating secret")
 
 	t.Logf("Verifying the APIExport verifies and the identity and gets the expected generated identity hash")
 	var gotHash string
 	require.Eventually(t, func() bool {
-		export, err := apiExportClient.Get(ctx, apiExport.Name, metav1.GetOptions{})
+		export, err := apiExportClient.Get(logicalcluster.WithCluster(ctx, workspaceClusterName), apiExport.Name, metav1.GetOptions{})
 		if err != nil {
 			return false
 		}

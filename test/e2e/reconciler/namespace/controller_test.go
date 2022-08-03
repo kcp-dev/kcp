@@ -23,6 +23,8 @@ import (
 	"testing"
 	"time"
 
+	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
+	kcpdynamic "github.com/kcp-dev/apimachinery/pkg/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
@@ -35,7 +37,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -58,7 +59,6 @@ func TestNamespaceScheduler(t *testing.T) {
 		framework.RunningServer
 		clusterName    logicalcluster.Name
 		client         kubernetes.Interface
-		orgKcpClient   clientset.Interface
 		kcpClient      clientset.Interface
 		expect         registerNamespaceExpectation
 		orgClusterName logicalcluster.Name
@@ -140,13 +140,13 @@ func TestNamespaceScheduler(t *testing.T) {
 		{
 			name: "GVRs are removed, and then quickly re-added to a new workspace",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				crdClusterClient, err := apiextensionsclient.NewClusterForConfig(server.BaseConfig(t))
+				crdClusterClient, err := apiextensionsclient.NewForConfig(server.BaseConfig(t))
 				require.NoError(t, err, "failed to construct apiextensions client for server")
 
-				dynamicClusterClient, err := dynamic.NewClusterForConfig(server.BaseConfig(t))
+				dynamicClusterClient, err := kcpdynamic.NewClusterDynamicClientForConfig(server.BaseConfig(t))
 				require.NoError(t, err, "failed to construct dynamic client for server")
 
-				kubeClusterClient, err := kubernetes.NewClusterForConfig(server.BaseConfig(t))
+				kubeClusterClient, err := kubernetes.NewForConfig(server.BaseConfig(t))
 				require.NoError(t, err, "failed to construct kubernetes client for server")
 
 				t.Log("Create a ready SyncTarget, and keep it artificially ready") // we don't want the syncer to do anything with CRDs, hence we fake the syncer
@@ -177,7 +177,7 @@ func TestNamespaceScheduler(t *testing.T) {
 					Version:  crd.Spec.Versions[0].Name,
 					Resource: crd.Spec.Names.Plural,
 				}
-				err = configcrds.CreateSingle(ctx, crdClusterClient.Cluster(server.clusterName).ApiextensionsV1().CustomResourceDefinitions(), crd)
+				err = configcrds.CreateSingle(logicalcluster.WithCluster(ctx, server.clusterName), crdClusterClient.ApiextensionsV1().CustomResourceDefinitions(), crd)
 				require.NoError(t, err, "error bootstrapping CRD %s in cluster %s", crd.Name, server.clusterName)
 				require.Eventually(t, func() bool {
 					_, err := dynamicClusterClient.Cluster(server.clusterName).Resource(gvr).Namespace("").List(ctx, metav1.ListOptions{})
@@ -199,15 +199,15 @@ func TestNamespaceScheduler(t *testing.T) {
 				t.Log("Delete the sheriff and the sheriff CRD")
 				err = dynamicClusterClient.Cluster(server.clusterName).Resource(gvr).Namespace("default").Delete(ctx, "woody", metav1.DeleteOptions{})
 				require.NoError(t, err, "failed to delete sheriff")
-				err = crdClusterClient.Cluster(server.clusterName).ApiextensionsV1().CustomResourceDefinitions().Delete(ctx, crd.Name, metav1.DeleteOptions{})
+				err = crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Delete(logicalcluster.WithCluster(ctx, server.clusterName), crd.Name, metav1.DeleteOptions{})
 				require.NoError(t, err, "failed to delete CRD")
 
 				time.Sleep(7 * time.Second) // this must be longer than discovery repoll interval (5s in tests)
 
 				t.Log("Recreate the CRD, and then quickly a namespace and a CR whose CRD was just recreated")
-				err = configcrds.CreateSingle(ctx, crdClusterClient.Cluster(server.clusterName).ApiextensionsV1().CustomResourceDefinitions(), crd)
+				err = configcrds.CreateSingle(logicalcluster.WithCluster(ctx, server.clusterName), crdClusterClient.ApiextensionsV1().CustomResourceDefinitions(), crd)
 				require.NoError(t, err, "error bootstrapping CRD %s in cluster %s", crd.Name, server.clusterName)
-				_, err = kubeClusterClient.Cluster(server.clusterName).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "namespace-test"}}, metav1.CreateOptions{})
+				_, err = kubeClusterClient.CoreV1().Namespaces().Create(logicalcluster.WithCluster(ctx, server.clusterName), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "namespace-test"}}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create namespace")
 				_, err = dynamicClusterClient.Cluster(server.clusterName).Resource(gvr).Namespace("default").Create(ctx, newSheriff(group, "lucky-luke"), metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create sheriff")
@@ -241,28 +241,24 @@ func TestNamespaceScheduler(t *testing.T) {
 
 			cfg := server.BaseConfig(t)
 
-			kubeClient, err := kubernetes.NewClusterForConfig(cfg)
-			require.NoError(t, err, "failed to construct client for server")
-
 			clusterName := framework.NewWorkspaceFixture(t, server, orgClusterName)
 
-			client := kubeClient.Cluster(clusterName)
+			clusterConfig := kcpclienthelper.ConfigWithCluster(cfg, clusterName)
+			kubeClusterClient, err := kubernetes.NewForConfig(clusterConfig)
+			require.NoError(t, err)
 
-			clients, err := clientset.NewClusterForConfig(cfg)
-			require.NoError(t, err, "failed to construct client for server")
-			kcpClient := clients.Cluster(clusterName)
-			orgKcpClient := clients.Cluster(orgClusterName)
+			kcpClusterClient, err := clientset.NewForConfig(clusterConfig)
+			require.NoError(t, err)
 
 			t.Logf("Starting namespace expecter")
-			expect, err := expectNamespaces(ctx, t, client)
+			expect, err := expectNamespaces(ctx, t, kubeClusterClient)
 			require.NoError(t, err, "failed to start expecter")
 
 			s := runningServer{
 				RunningServer:  server,
 				clusterName:    clusterName,
-				client:         client,
-				orgKcpClient:   orgKcpClient,
-				kcpClient:      kcpClient,
+				client:         kubeClusterClient,
+				kcpClient:      kcpClusterClient,
 				expect:         expect,
 				orgClusterName: orgClusterName,
 			}

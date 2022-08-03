@@ -62,11 +62,11 @@ func TestIngressController(t *testing.T) {
 
 	var testCases = []struct {
 		name string
-		work func(ctx context.Context, t *testing.T, sourceClient, sinkClient networkingclient.NetworkingV1Interface, syncerFixture *framework.StartedSyncerFixture)
+		work func(ctx context.Context, t *testing.T, sourceClient, sinkClient networkingclient.NetworkingV1Interface, syncerFixture *framework.StartedSyncerFixture, clusterName logicalcluster.Name)
 	}{
 		{
 			name: "ingress lifecycle",
-			work: func(ctx context.Context, t *testing.T, sourceClient, sinkClient networkingclient.NetworkingV1Interface, syncerFixture *framework.StartedSyncerFixture) {
+			work: func(ctx context.Context, t *testing.T, sourceClient, sinkClient networkingclient.NetworkingV1Interface, syncerFixture *framework.StartedSyncerFixture, clusterName logicalcluster.Name) {
 				// We create a root ingress. Ingress is excluded (through a hack) in namespace controller to be labeled.
 				// The ingress-controller will take over the labelling of the leaves. After that the normal syncer will
 				// sync the leaves into the physical cluster.
@@ -77,7 +77,7 @@ func TestIngressController(t *testing.T) {
 				var rootIngress *v1.Ingress
 				err = yaml.Unmarshal(ingressYaml, &rootIngress)
 				require.NoError(t, err, "failed to unmarshal ingress")
-				rootIngress, err = sourceClient.Ingresses(testNamespace).Create(ctx, rootIngress, metav1.CreateOptions{})
+				rootIngress, err = sourceClient.Ingresses(testNamespace).Create(logicalcluster.WithCluster(ctx, clusterName), rootIngress, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create ingress")
 
 				rootIngressLogicalCluster := logicalcluster.From(rootIngress)
@@ -112,12 +112,12 @@ func TestIngressController(t *testing.T) {
 
 				t.Logf("Updating root ingress in source cluster")
 				err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-					got, err := sourceClient.Ingresses(testNamespace).Get(ctx, rootIngress.Name, metav1.GetOptions{})
+					got, err := sourceClient.Ingresses(testNamespace).Get(logicalcluster.WithCluster(ctx, clusterName), rootIngress.Name, metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
 					got.Spec.Rules[0].Host = "valid-ingress-2.kcp-apps.127.0.0.1.nip.io"
-					_, err = sourceClient.Ingresses(testNamespace).Update(ctx, got, metav1.UpdateOptions{})
+					_, err = sourceClient.Ingresses(testNamespace).Update(logicalcluster.WithCluster(ctx, clusterName), got, metav1.UpdateOptions{})
 					return err
 				})
 				require.NoError(t, err, "failed updating the ingress object in the source cluster")
@@ -153,12 +153,11 @@ func TestIngressController(t *testing.T) {
 
 			// clients
 			sourceConfig := source.BaseConfig(t)
-			sourceKubeClusterClient, err := kubernetesclientset.NewClusterForConfig(sourceConfig)
+			sourceKubeClusterClient, err := kubernetesclientset.NewForConfig(sourceConfig)
 			require.NoError(t, err)
-			sourceKubeClient := sourceKubeClusterClient.Cluster(clusterName)
-			sourceKcpClusterClient, err := kcpclientset.NewClusterForConfig(sourceConfig)
+
+			sourceKcpClusterClient, err := kcpclientset.NewForConfig(sourceConfig)
 			require.NoError(t, err)
-			sourceKcpClient := sourceKcpClusterClient.Cluster(clusterName)
 
 			t.Logf("Deploy syncer")
 			syncerFixture := framework.NewSyncerFixture(t, source, clusterName,
@@ -183,13 +182,13 @@ func TestIngressController(t *testing.T) {
 
 			t.Log("Wait for \"kubernetes\" apiexport")
 			require.Eventually(t, func() bool {
-				_, err := sourceKcpClient.ApisV1alpha1().APIExports().Get(ctx, "kubernetes", metav1.GetOptions{})
+				_, err := sourceKcpClusterClient.ApisV1alpha1().APIExports().Get(logicalcluster.WithCluster(ctx, clusterName), "kubernetes", metav1.GetOptions{})
 				return err == nil
 			}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 			t.Log("Wait for \"kubernetes\" apibinding that is bound")
 			require.Eventually(t, func() bool {
-				binding, err := sourceKcpClient.ApisV1alpha1().APIBindings().Get(ctx, "kubernetes", metav1.GetOptions{})
+				binding, err := sourceKcpClusterClient.ApisV1alpha1().APIBindings().Get(logicalcluster.WithCluster(ctx, clusterName), "kubernetes", metav1.GetOptions{})
 				if err != nil {
 					klog.Error(err)
 					return false
@@ -200,7 +199,7 @@ func TestIngressController(t *testing.T) {
 
 			t.Log("Wait for services and ingresses to show up as NegotiatedAPIResource")
 			require.Eventually(t, func() bool {
-				schemas, err := sourceKcpClient.ApiresourceV1alpha1().NegotiatedAPIResources().List(ctx, metav1.ListOptions{})
+				schemas, err := sourceKcpClusterClient.ApiresourceV1alpha1().NegotiatedAPIResources().List(logicalcluster.WithCluster(ctx, clusterName), metav1.ListOptions{})
 				if err != nil {
 					klog.Error(err)
 					return false
@@ -218,7 +217,7 @@ func TestIngressController(t *testing.T) {
 
 			t.Log("Wait for services and ingresses to show up as APIResourceSchema")
 			require.Eventually(t, func() bool {
-				schemas, err := sourceKcpClient.ApisV1alpha1().APIResourceSchemas().List(ctx, metav1.ListOptions{})
+				schemas, err := sourceKcpClusterClient.ApisV1alpha1().APIResourceSchemas().List(logicalcluster.WithCluster(ctx, clusterName), metav1.ListOptions{})
 				if err != nil {
 					klog.Error(err)
 					return false
@@ -236,7 +235,7 @@ func TestIngressController(t *testing.T) {
 
 			t.Log("Wait for services and ingresses to be bound in apibinding")
 			require.Eventually(t, func() bool {
-				binding, err := sourceKcpClient.ApisV1alpha1().APIBindings().Get(ctx, "kubernetes", metav1.GetOptions{})
+				binding, err := sourceKcpClusterClient.ApisV1alpha1().APIBindings().Get(logicalcluster.WithCluster(ctx, clusterName), "kubernetes", metav1.GetOptions{})
 				if err != nil {
 					klog.Error(err)
 					return false
@@ -253,7 +252,7 @@ func TestIngressController(t *testing.T) {
 
 			t.Log("Waiting for ingresses crd to be imported and available in the source cluster...")
 			require.Eventually(t, func() bool {
-				_, err := sourceKubeClient.NetworkingV1().Ingresses("").List(ctx, metav1.ListOptions{})
+				_, err := sourceKubeClusterClient.NetworkingV1().Ingresses("").List(logicalcluster.WithCluster(ctx, clusterName), metav1.ListOptions{})
 				if err != nil {
 					t.Logf("error seen waiting for ingresses crd to become active: %v", err)
 					return false
@@ -263,7 +262,7 @@ func TestIngressController(t *testing.T) {
 
 			t.Log("Waiting for services crd to be imported and available in the source cluster...")
 			require.Eventually(t, func() bool {
-				_, err := sourceKubeClient.CoreV1().Services("").List(ctx, metav1.ListOptions{})
+				_, err := sourceKubeClusterClient.CoreV1().Services("").List(logicalcluster.WithCluster(ctx, clusterName), metav1.ListOptions{})
 				if err != nil {
 					t.Logf("error seen waiting for services crd to become active: %v", err)
 					return false
@@ -272,14 +271,14 @@ func TestIngressController(t *testing.T) {
 			}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 			t.Log("Creating namespace in source cluster...")
-			ns, err := sourceKubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+			ns, err := sourceKubeClusterClient.CoreV1().Namespaces().Create(logicalcluster.WithCluster(ctx, clusterName), &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{Name: testNamespace},
 			}, metav1.CreateOptions{})
 			require.NoError(t, err)
 
 			t.Log("Wait until the namespace is scheduled to the workload cluster")
 			require.Eventually(t, func() bool {
-				ns, err := sourceKubeClient.CoreV1().Namespaces().Get(ctx, ns.Name, metav1.GetOptions{})
+				ns, err := sourceKubeClusterClient.CoreV1().Namespaces().Get(logicalcluster.WithCluster(ctx, clusterName), ns.Name, metav1.GetOptions{})
 				if err != nil {
 					klog.Error(err)
 					return false
@@ -288,7 +287,7 @@ func TestIngressController(t *testing.T) {
 			}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 			t.Log("Creating service in source cluster")
-			service, err := sourceKubeClient.CoreV1().Services(testNamespace).Create(ctx, &corev1.Service{
+			service, err := sourceKubeClusterClient.CoreV1().Services(testNamespace).Create(logicalcluster.WithCluster(ctx, clusterName), &corev1.Service{
 				TypeMeta: metav1.TypeMeta{},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: existingServiceName,
@@ -311,7 +310,7 @@ func TestIngressController(t *testing.T) {
 
 			t.Log("Wait until the service is scheduled to the workload cluster")
 			require.Eventually(t, func() bool {
-				ns, err := sourceKubeClient.CoreV1().Services(ns.Name).Get(ctx, service.Name, metav1.GetOptions{})
+				ns, err := sourceKubeClusterClient.CoreV1().Services(ns.Name).Get(logicalcluster.WithCluster(ctx, clusterName), service.Name, metav1.GetOptions{})
 				if err != nil {
 					klog.Error(err)
 					return false
@@ -359,7 +358,7 @@ func TestIngressController(t *testing.T) {
 			require.NoError(t, err, "failed to start ingress controller")
 
 			t.Log("Starting test...")
-			testCase.work(ctx, t, sourceKubeClient.NetworkingV1(), syncerFixture.DownstreamKubeClient.NetworkingV1(), syncerFixture)
+			testCase.work(ctx, t, sourceKubeClusterClient.NetworkingV1(), syncerFixture.DownstreamKubeClient.NetworkingV1(), syncerFixture, clusterName)
 		})
 	}
 }
