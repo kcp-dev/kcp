@@ -184,7 +184,7 @@ func TestClusterController(t *testing.T) {
 					sinkCrdClient, err := apiextensionsclientset.NewForConfig(config)
 					require.NoError(t, err)
 					t.Log("Installing test CRDs into sink cluster...")
-					fixturewildwest.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
+					fixturewildwest.Create(t, logicalcluster.Name{}, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 				})).Start(t)
 
 			sinkWildwestClient, err := wildwestclientset.NewForConfig(syncerFixture.DownstreamConfig)
