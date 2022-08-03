@@ -29,6 +29,10 @@ spec:
       name: Synced API resources
       priority: 3
       type: string
+    - jsonPath: .metadata.labels['internal\.workload\.kcp\.dev/key']
+      name: Key
+      priority: 4
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
