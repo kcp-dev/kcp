@@ -19,7 +19,6 @@ package internalapis
 import (
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -38,59 +37,14 @@ import (
 
 // InternalAPI describes an API to be imported from some schemes and generated OpenAPI V2 definitions
 type InternalAPI struct {
-	Names        apiextensionsv1.CustomResourceDefinitionNames
-	GroupVersion schema.GroupVersion
-	Instance     runtime.Object
-	ResourceSope apiextensionsv1.ResourceScope
-	HasStatus    bool
+	Names         apiextensionsv1.CustomResourceDefinitionNames
+	GroupVersion  schema.GroupVersion
+	Instance      runtime.Object
+	ResourceScope apiextensionsv1.ResourceScope
+	HasStatus     bool
 }
 
-// KCPInternalAPIs provides a list of InternalAPI for the APIs that are part of the KCP scheme and will be there in every KCP workspace
-var KCPInternalAPIs = []InternalAPI{
-	{
-		Names: apiextensionsv1.CustomResourceDefinitionNames{
-			Plural:   "namespaces",
-			Singular: "namespace",
-			Kind:     "Namespace",
-		},
-		GroupVersion: schema.GroupVersion{Group: "", Version: "v1"},
-		Instance:     &corev1.Namespace{},
-		ResourceSope: apiextensionsv1.ClusterScoped,
-		HasStatus:    true,
-	},
-	{
-		Names: apiextensionsv1.CustomResourceDefinitionNames{
-			Plural:   "configmaps",
-			Singular: "configmap",
-			Kind:     "ConfigMap",
-		},
-		GroupVersion: schema.GroupVersion{Group: "", Version: "v1"},
-		Instance:     &corev1.ConfigMap{},
-		ResourceSope: apiextensionsv1.NamespaceScoped,
-	},
-	{
-		Names: apiextensionsv1.CustomResourceDefinitionNames{
-			Plural:   "secrets",
-			Singular: "secret",
-			Kind:     "Secret",
-		},
-		GroupVersion: schema.GroupVersion{Group: "", Version: "v1"},
-		Instance:     &corev1.Secret{},
-		ResourceSope: apiextensionsv1.NamespaceScoped,
-	},
-	{
-		Names: apiextensionsv1.CustomResourceDefinitionNames{
-			Plural:   "serviceaccounts",
-			Singular: "serviceaccount",
-			Kind:     "ServiceAccount",
-		},
-		GroupVersion: schema.GroupVersion{Group: "", Version: "v1"},
-		Instance:     &corev1.ServiceAccount{},
-		ResourceSope: apiextensionsv1.NamespaceScoped,
-	},
-}
-
-func createAPIResourceSchemas(schemes []*runtime.Scheme, openAPIDefinitionsGetters []common.GetOpenAPIDefinitions, defs ...InternalAPI) ([]*apisv1alpha1.APIResourceSchema, error) {
+func CreateAPIResourceSchemas(schemes []*runtime.Scheme, openAPIDefinitionsGetters []common.GetOpenAPIDefinitions, defs ...InternalAPI) ([]*apisv1alpha1.APIResourceSchema, error) {
 	config := genericapiserver.DefaultOpenAPIConfig(func(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 		result := make(map[string]common.OpenAPIDefinition)
 
@@ -141,7 +95,7 @@ func createAPIResourceSchemas(schemes []*runtime.Scheme, openAPIDefinitionsGette
 			Spec: apisv1alpha1.APIResourceSchemaSpec{
 				Group: def.GroupVersion.Group,
 				Names: def.Names,
-				Scope: def.ResourceSope,
+				Scope: def.ResourceScope,
 				Versions: []apisv1alpha1.APIResourceVersion{
 					{
 						Name:    def.GroupVersion.Version,

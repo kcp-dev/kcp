@@ -32,7 +32,7 @@ func TestAPIBindingPermissionClaimCELValidation(t *testing.T) {
 		validBinding bool
 	}{
 		{
-			name: "valid",
+			name: "valid empty group",
 			claim: map[string]interface{}{
 				"group":    "",
 				"resource": "configmaps",
@@ -40,12 +40,12 @@ func TestAPIBindingPermissionClaimCELValidation(t *testing.T) {
 			validBinding: true,
 		},
 		{
-			name: "invalid core resource",
+			name: "valid k8s.io resource",
 			claim: map[string]interface{}{
-				"group":    "",
+				"group":    "fake.k8s.io",
 				"resource": "fakeresources",
 			},
-			validBinding: false,
+			validBinding: true,
 		},
 		{
 			name: "invalid non core resource",

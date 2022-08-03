@@ -35,7 +35,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/internalapis"
 )
 
 func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.APIExport, apiDomainKey dynamiccontext.APIDomainKey) error {
@@ -88,7 +87,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 		}
 
 		// internal APIs have no identity and a fixed schema.
-		internal, apiResourceSchema := isPermissionClaimForInternalAPI(pc)
+		internal, apiResourceSchema := c.isPermissionClaimForInternalAPI(pc)
 		if internal {
 			shallow := *apiResourceSchema
 			// nolint:staticcheck
@@ -240,8 +239,8 @@ func (c *APIReconciler) getSchemasFromAPIExport(apiExport *apisv1alpha1.APIExpor
 	return apiResourceSchemas, nil
 }
 
-func isPermissionClaimForInternalAPI(claim *apisv1alpha1.PermissionClaim) (bool, *apisv1alpha1.APIResourceSchema) {
-	for _, schema := range internalapis.Schemas {
+func (c *APIReconciler) isPermissionClaimForInternalAPI(claim *apisv1alpha1.PermissionClaim) (bool, *apisv1alpha1.APIResourceSchema) {
+	for _, schema := range c.internalAPIResourceSchemas {
 		if claim.GroupResource.Group == schema.Spec.Group && claim.GroupResource.Resource == schema.Spec.Names.Plural {
 			return true, schema
 		}

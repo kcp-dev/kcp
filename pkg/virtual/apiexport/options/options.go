@@ -19,8 +19,10 @@ package options
 import (
 	"path"
 
+	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/spf13/pflag"
 
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -71,5 +73,12 @@ func (o *APIExport) NewVirtualWorkspaces(
 		return nil, err
 	}
 
-	return builder.BuildVirtualWorkspace(path.Join(rootPathPrefix, builder.VirtualWorkspaceName), kubeClusterClient, dynamicClusterClient, kcpClusterClient, wildcardKcpInformers)
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	// Not sure that the WithCluster is needed... Doesn't seem to impact the result.
+	discoveryInterface := discoveryClient.WithCluster(logicalcluster.New("root:asdf"))
+
+	return builder.BuildVirtualWorkspace(path.Join(rootPathPrefix, builder.VirtualWorkspaceName), kubeClusterClient, dynamicClusterClient, kcpClusterClient, discoveryInterface, wildcardKcpInformers)
 }
