@@ -58,9 +58,8 @@ type KubeConfig struct {
 	currentContext       string // including override
 	shortWorkspaceOutput bool
 
-	clusterClient  tenancyclient.ClusterInterface
-	personalClient tenancyclient.ClusterInterface
-	modifyConfig   func(newConfig *clientcmdapi.Config) error
+	clusterClient tenancyclient.ClusterInterface
+	modifyConfig  func(newConfig *clientcmdapi.Config) error
 
 	genericclioptions.IOStreams
 }
@@ -103,8 +102,7 @@ func NewKubeConfig(opts *Options) (*KubeConfig, error) {
 		currentContext:       currentContext,
 		shortWorkspaceOutput: opts.ShortWorkspaceOutput,
 
-		clusterClient:  clusterClient,
-		personalClient: &personalClusterClient{clusterConfig},
+		clusterClient: clusterClient,
 		modifyConfig: func(newConfig *clientcmdapi.Config) error {
 			return clientcmd.ModifyConfig(configAccess, *newConfig, true)
 		},
@@ -220,7 +218,7 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, name string) (err error)
 		if strings.Contains(name, ":") && cluster.HasPrefix(tenancyv1alpha1.RootCluster) {
 			// absolute logical cluster under root:
 			parentClusterName, workspaceName := logicalcluster.New(name).Split()
-			ws, err := kc.personalClient.Cluster(parentClusterName).TenancyV1beta1().Workspaces().Get(ctx, workspaceName, metav1.GetOptions{})
+			ws, err := kc.clusterClient.Cluster(parentClusterName).TenancyV1beta1().Workspaces().Get(ctx, workspaceName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -239,7 +237,7 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, name string) (err error)
 			newServerHost = u.String()
 		} else {
 			// relative logical cluster, get URL from workspace object in current context
-			ws, err := kc.personalClient.Cluster(currentClusterName).TenancyV1beta1().Workspaces().Get(ctx, name, metav1.GetOptions{})
+			ws, err := kc.clusterClient.Cluster(currentClusterName).TenancyV1beta1().Workspaces().Get(ctx, name, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -307,25 +305,9 @@ func (kc *KubeConfig) currentWorkspace(ctx context.Context, host string, workspa
 		return nil
 	}
 
-	parentClusterName, workspaceName := clusterName.Split()
-	workspacePrettyName := workspaceName
-	if !parentClusterName.Empty() {
-		if grandParentClusterName, _ := parentClusterName.Split(); grandParentClusterName == tenancyv1alpha1.RootCluster {
-			// We are in a child workspace of a top-level organization workspace.
-			// That's the typical case where personal workspace have been created.
-			ws, err := getWorkspaceFromInternalName(ctx, workspaceName, kc.personalClient.Cluster(parentClusterName))
-			if err == nil {
-				workspacePrettyName = ws.Name
-			}
-		}
-	}
-
 	message := fmt.Sprintf("Current workspace is %q", clusterName)
 	if workspaceType != nil {
 		message += fmt.Sprintf(" (type %q)", workspaceType.String())
-	}
-	if workspaceName != workspacePrettyName {
-		message += fmt.Sprintf(" aliased as %q", workspacePrettyName)
 	}
 	_, err = fmt.Fprintln(kc.Out, message+".")
 	return err
@@ -365,7 +347,7 @@ func (kc *KubeConfig) CreateWorkspace(ctx context.Context, workspaceName string,
 	}
 
 	preExisting := false
-	ws, err := kc.personalClient.Cluster(currentClusterName).TenancyV1beta1().Workspaces().Create(ctx, &tenancyv1beta1.Workspace{
+	ws, err := kc.clusterClient.Cluster(currentClusterName).TenancyV1beta1().Workspaces().Create(ctx, &tenancyv1beta1.Workspace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: workspaceName,
 		},
@@ -382,7 +364,7 @@ func (kc *KubeConfig) CreateWorkspace(ctx context.Context, workspaceName string,
 	}
 	if apierrors.IsAlreadyExists(err) && ignoreExisting {
 		preExisting = true
-		ws, err = kc.personalClient.Cluster(currentClusterName).TenancyV1beta1().Workspaces().Get(ctx, workspaceName, metav1.GetOptions{})
+		ws, err = kc.clusterClient.Cluster(currentClusterName).TenancyV1beta1().Workspaces().Get(ctx, workspaceName, metav1.GetOptions{})
 	}
 	if err != nil {
 		return err
@@ -412,7 +394,7 @@ func (kc *KubeConfig) CreateWorkspace(ctx context.Context, workspaceName string,
 
 	// STOP THE BLEEDING: the virtual workspace is still informer based (not good). We have to wait until it shows up.
 	if err := wait.PollImmediate(time.Millisecond*100, time.Second*5, func() (bool, error) {
-		if _, err := kc.personalClient.Cluster(currentClusterName).TenancyV1beta1().Workspaces().Get(ctx, ws.Name, metav1.GetOptions{}); err != nil {
+		if _, err := kc.clusterClient.Cluster(currentClusterName).TenancyV1beta1().Workspaces().Get(ctx, ws.Name, metav1.GetOptions{}); err != nil {
 			if apierrors.IsNotFound(err) {
 				return false, nil
 			}
@@ -426,7 +408,7 @@ func (kc *KubeConfig) CreateWorkspace(ctx context.Context, workspaceName string,
 	// wait for being ready
 	if ws.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseReady {
 		if err := wait.PollImmediate(time.Millisecond*500, readyWaitTimeout, func() (bool, error) {
-			ws, err = kc.personalClient.Cluster(currentClusterName).TenancyV1beta1().Workspaces().Get(ctx, ws.Name, metav1.GetOptions{})
+			ws, err = kc.clusterClient.Cluster(currentClusterName).TenancyV1beta1().Workspaces().Get(ctx, ws.Name, metav1.GetOptions{})
 			if err != nil {
 				return false, err
 			}
@@ -467,7 +449,7 @@ func (kc *KubeConfig) ListWorkspaces(ctx context.Context, opts *Options) error {
 		return fmt.Errorf("current URL %q does not point to cluster workspace", config.Host)
 	}
 
-	result := kc.personalClient.Cluster(currentClusterName).TenancyV1beta1().RESTClient().Get().Resource("workspaces").SetHeader("Accept", strings.Join([]string{
+	result := kc.clusterClient.Cluster(currentClusterName).TenancyV1beta1().RESTClient().Get().Resource("workspaces").SetHeader("Accept", strings.Join([]string{
 		fmt.Sprintf("application/json;as=Table;v=%s;g=%s", metav1.SchemeGroupVersion.Version, metav1.GroupName),
 		fmt.Sprintf("application/json;as=Table;v=%s;g=%s", metav1beta1.SchemeGroupVersion.Version, metav1beta1.GroupName),
 		"application/json",

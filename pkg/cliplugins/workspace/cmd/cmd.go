@@ -134,7 +134,7 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 
 	listCmd := &cobra.Command{
 		Use:          "list",
-		Short:        "Returns the list of the personal workspaces of the user",
+		Short:        "Returns the list of the workspaces of the user",
 		Example:      "kcp workspace list",
 		SilenceUsage: true,
 		RunE: func(c *cobra.Command, args []string) error {
@@ -158,7 +158,7 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 	var ignoreExisting bool
 	createCmd := &cobra.Command{
 		Use:          "create",
-		Short:        "Creates a new personal workspace",
+		Short:        "Creates a new workspace",
 		Example:      "kcp workspace create <workspace name> [--type=<type>] [--enter [--ignore-not-ready]] --ignore-existing",
 		SilenceUsage: true,
 		Args:         cobra.ExactArgs(1),

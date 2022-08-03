@@ -241,12 +241,6 @@ func TestCreate(t *testing.T) {
 						currentClusterName: client,
 					},
 				},
-				personalClient: fakeTenancyClient{
-					t: t,
-					clients: map[logicalcluster.Name]*tenancyfake.Clientset{
-						currentClusterName: client,
-					},
-				},
 				modifyConfig: func(config *clientcmdapi.Config) error {
 					got = config
 					return nil
@@ -278,7 +272,6 @@ func TestUse(t *testing.T) {
 		config clientcmdapi.Config
 
 		existingObjects map[logicalcluster.Name][]string
-		prettyNames     map[logicalcluster.Name]map[string]string
 		unready         map[logicalcluster.Name]map[string]bool // unready workspaces
 		short           bool
 
@@ -337,33 +330,6 @@ func TestUse(t *testing.T) {
 			wantStdout: []string{"Current workspace is \"root:foo:bar\""},
 		},
 		{
-			name: "workspace pretty name",
-			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
-				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.dev/current": {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"}},
-				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo"}},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
-			existingObjects: map[logicalcluster.Name][]string{
-				logicalcluster.New("root:foo"): {"bar"},
-			},
-			param: "baz",
-			prettyNames: map[logicalcluster.Name]map[string]string{
-				logicalcluster.New("root:foo"): {"bar": "baz"},
-			},
-			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
-				Contexts: map[string]*clientcmdapi.Context{
-					"workspace.kcp.dev/current":  {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"},
-					"workspace.kcp.dev/previous": {Cluster: "workspace.kcp.dev/previous", AuthInfo: "test"},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"workspace.kcp.dev/current":  {Server: "https://test/clusters/root:foo:bar"},
-					"workspace.kcp.dev/previous": {Server: "https://test/clusters/root:foo"},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
-			},
-			wantStdout: []string{"Current workspace is \"root:foo:bar\""},
-		},
-		{
 			name: "workspace name, short output",
 			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
 				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.dev/current": {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"}},
@@ -408,8 +374,7 @@ func TestUse(t *testing.T) {
 			existingObjects: map[logicalcluster.Name][]string{
 				logicalcluster.New("root:foo"): {"bar"},
 			},
-			prettyNames: map[logicalcluster.Name]map[string]string{},
-			param:       "root:foo:bar",
+			param: "root:foo:bar",
 			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
 				Contexts: map[string]*clientcmdapi.Context{
 					"workspace.kcp.dev/current":  {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"},
@@ -433,10 +398,9 @@ func TestUse(t *testing.T) {
 			existingObjects: map[logicalcluster.Name][]string{
 				logicalcluster.New("root:foo"): {"bar"},
 			},
-			prettyNames: map[logicalcluster.Name]map[string]string{},
-			param:       "root:foo:foe",
-			wantErr:     true,
-			wantErrors:  []string{"workspaces.tenancy.kcp.dev \"foe\" not found"},
+			param:      "root:foo:foe",
+			wantErr:    true,
+			wantErrors: []string{"workspaces.tenancy.kcp.dev \"foe\" not found"},
 		},
 		{
 			name: "invalid workspace name format",
@@ -771,10 +735,8 @@ func TestUse(t *testing.T) {
 			u.Path = ""
 
 			clients := map[logicalcluster.Name]*tenancyfake.Clientset{}
-			personalClients := map[logicalcluster.Name]*tenancyfake.Clientset{}
 			for lcluster, names := range tt.existingObjects {
 				objs := []runtime.Object{}
-				prettyObjs := []runtime.Object{}
 				for _, name := range names {
 					obj := &tenancyv1beta1.Workspace{
 						ObjectMeta: metav1.ObjectMeta{
@@ -792,13 +754,6 @@ func TestUse(t *testing.T) {
 						obj.Status.URL = fmt.Sprintf("https://test%s", lcluster.Join(name).Path())
 					}
 					objs = append(objs, obj)
-
-					// pretty name?
-					if pretty, ok := tt.prettyNames[lcluster][name]; ok {
-						obj = obj.DeepCopy()
-						obj.Name = pretty
-					}
-					prettyObjs = append(prettyObjs, obj)
 				}
 				clients[lcluster] = tenancyfake.NewSimpleClientset(objs...)
 				if lcluster == tenancyv1alpha1.RootCluster {
@@ -823,7 +778,6 @@ func TestUse(t *testing.T) {
 						return false, nil, nil
 					})
 				}
-				personalClients[lcluster] = tenancyfake.NewSimpleClientset(prettyObjs...)
 			}
 
 			streams, _, stdout, stderr := genericclioptions.NewTestIOStreams()
@@ -836,10 +790,6 @@ func TestUse(t *testing.T) {
 				clusterClient: fakeTenancyClient{
 					t:       t,
 					clients: clients,
-				},
-				personalClient: fakeTenancyClient{
-					t:       t,
-					clients: personalClients,
 				},
 				modifyConfig: func(config *clientcmdapi.Config) error {
 					got = config
