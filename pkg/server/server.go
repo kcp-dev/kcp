@@ -341,7 +341,7 @@ func (s *Server) Run(ctx context.Context) error {
 		if err := s.installSyncTargetHeartbeatController(ctx, controllerConfig); err != nil {
 			return err
 		}
-		if err := s.installVirtualWorkspaceURLsController(ctx, controllerConfig, delegationChainHead); err != nil {
+		if err := s.installSyncTargetController(ctx, controllerConfig, delegationChainHead); err != nil {
 			return err
 		}
 	}
