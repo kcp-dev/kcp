@@ -54,7 +54,7 @@ func Register(plugins *admission.Plugins) {
 
 type apiBindingAdmission struct {
 	*admission.Handler
-	kubeClusterClient kubernetes.ClusterInterface
+	kubeClusterClient kubernetes.Interface
 
 	createAuthorizer delegated.DelegatedAuthorizerFactory
 }
@@ -217,6 +217,6 @@ func (o *apiBindingAdmission) ValidateInitialization() error {
 
 // SetKubeClusterClient is an admission plugin initializer function that injects a Kubernetes cluster client into
 // this admission plugin.
-func (o *apiBindingAdmission) SetKubeClusterClient(clusterClient kubernetes.ClusterInterface) {
+func (o *apiBindingAdmission) SetKubeClusterClient(clusterClient kubernetes.Interface) {
 	o.kubeClusterClient = clusterClient
 }

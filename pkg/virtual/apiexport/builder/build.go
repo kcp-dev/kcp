@@ -51,9 +51,9 @@ const VirtualWorkspaceName string = "apiexport"
 
 func BuildVirtualWorkspace(
 	rootPathPrefix string,
-	kubeClusterClient kubernetes.ClusterInterface,
+	kubeClusterClient kubernetes.Interface,
 	dynamicClusterClient dynamic.ClusterInterface,
-	kcpClusterClient kcpclient.ClusterInterface,
+	kcpClusterClient kcpclient.Interface,
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
 	if !strings.HasSuffix(rootPathPrefix, "/") {
@@ -193,7 +193,7 @@ func BuildVirtualWorkspace(
 	}, nil
 }
 
-func getAuthorizer(client kubernetes.ClusterInterface) authorizer.AuthorizerFunc {
+func getAuthorizer(clusterClient kubernetes.Interface) authorizer.AuthorizerFunc {
 	return func(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
 		apiDomainKey := dynamiccontext.APIDomainKeyFrom(ctx)
 		parts := strings.Split(string(apiDomainKey), "/")
@@ -202,7 +202,7 @@ func getAuthorizer(client kubernetes.ClusterInterface) authorizer.AuthorizerFunc
 		}
 
 		apiExportCluster, apiExportName := parts[0], parts[1]
-		authz, err := delegated.NewDelegatedAuthorizer(logicalcluster.New(apiExportCluster), client)
+		authz, err := delegated.NewDelegatedAuthorizer(logicalcluster.New(apiExportCluster), clusterClient)
 		if err != nil {
 			return authorizer.DecisionNoOpinion, "error", err
 		}

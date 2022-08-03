@@ -19,6 +19,7 @@ package options
 import (
 	"path"
 
+	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	"github.com/spf13/pflag"
 
 	"k8s.io/client-go/informers"
@@ -59,11 +60,12 @@ func (o *Workspaces) NewVirtualWorkspaces(
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
 ) (workspaces []rootapiserver.NamedVirtualWorkspace, err error) {
 	config = rest.AddUserAgent(rest.CopyConfig(config), "workspaces-virtual-workspace")
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
+	clusterConfig := kcpclienthelper.NewClusterConfig(config)
+	kcpClusterClient, err := kcpclient.NewForConfig(clusterConfig)
 	if err != nil {
 		return nil, err
 	}
-	kubeClusterClient, err := kubernetes.NewClusterForConfig(config)
+	kubeClusterClient, err := kubernetes.NewForConfig(clusterConfig)
 	if err != nil {
 		return nil, err
 	}

@@ -62,7 +62,7 @@ func newTestWatcher(username string, groups []string, predicate storage.Selectio
 	informers := tenancyInformers.NewSharedInformerFactory(mockClient, controller.NoResyncPeriodFunc())
 	workspaceCache := workspacecache.NewClusterWorkspaceCache(
 		informers.Tenancy().V1alpha1().ClusterWorkspaces().Informer(),
-		&mockClusterClient{mockClient: mockClient},
+		mockClient,
 	)
 	fakeAuthCache := &fakeAuthCache{}
 

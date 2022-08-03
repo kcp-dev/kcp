@@ -53,7 +53,7 @@ const (
 type CreateAPIDefinitionFunc func(syncTargetWorkspace logicalcluster.Name, syncTargetName string, apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identityHash string) (apidefinition.APIDefinition, error)
 
 func NewAPIReconciler(
-	kcpClusterClient kcpclient.ClusterInterface,
+	kcpClusterClient kcpclient.Interface,
 	syncTargetInformer tenancyv1alpha1.SyncTargetInformer,
 	apiResourceSchemaInformer apisinformer.APIResourceSchemaInformer,
 	apiExportInformer apisinformer.APIExportInformer,
@@ -144,7 +144,7 @@ func NewAPIReconciler(
 // APIReconciler is a controller watching APIExports, APIResourceSchemas and SyncTargets, and updates the
 // API definitions driving the virtual workspace.
 type APIReconciler struct {
-	kcpClusterClient kcpclient.ClusterInterface
+	kcpClusterClient kcpclient.Interface
 
 	syncTargetLister  tenancylistersv1alpha1.SyncTargetLister
 	syncTargetIndexer cache.Indexer

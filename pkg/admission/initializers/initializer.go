@@ -49,7 +49,7 @@ func (i *kcpInformersInitializer) Initialize(plugin admission.Interface) {
 // NewKubeClusterClientInitializer returns an admission plugin initializer that injects
 // a kube cluster client into admission plugins.
 func NewKubeClusterClientInitializer(
-	kubeClusterClient kubernetes.ClusterInterface,
+	kubeClusterClient kubernetes.Interface,
 ) *kubeClusterClientInitializer {
 	return &kubeClusterClientInitializer{
 		kubeClusterClient: kubeClusterClient,
@@ -57,7 +57,7 @@ func NewKubeClusterClientInitializer(
 }
 
 type kubeClusterClientInitializer struct {
-	kubeClusterClient kubernetes.ClusterInterface
+	kubeClusterClient kubernetes.Interface
 }
 
 func (i *kubeClusterClientInitializer) Initialize(plugin admission.Interface) {

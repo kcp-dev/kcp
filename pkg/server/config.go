@@ -22,6 +22,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 
+	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
@@ -226,6 +227,12 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	scopedClusterKubeClient, err := kubernetes.NewForConfig(kcpclienthelper.NewClusterConfig(c.GenericConfig.LoopbackClientConfig))
+	if err != nil {
+		return nil, err
+	}
+
 	c.KubeSharedInformerFactory = coreexternalversions.NewSharedInformerFactoryWithOptions(
 		c.KubeClusterClient.Cluster(logicalcluster.Wildcard),
 		resyncPeriod,
@@ -277,7 +284,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 			apiHandler = WithHomeWorkspaces(
 				apiHandler,
 				genericConfig.Authorization.Authorizer,
-				c.KubeClusterClient,
+				scopedClusterKubeClient,
 				c.KcpClusterClient,
 				c.KubeSharedInformerFactory,
 				c.KcpSharedInformerFactory,
@@ -321,7 +328,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 
 	admissionPluginInitializers := []admission.PluginInitializer{
 		kcpadmissioninitializers.NewKcpInformersInitializer(c.KcpSharedInformerFactory),
-		kcpadmissioninitializers.NewKubeClusterClientInitializer(c.KubeClusterClient),
+		kcpadmissioninitializers.NewKubeClusterClientInitializer(scopedClusterKubeClient),
 		kcpadmissioninitializers.NewKcpClusterClientInitializer(c.KcpClusterClient),
 		kcpadmissioninitializers.NewShardBaseURLInitializer(opts.Extra.ShardBaseURL),
 		kcpadmissioninitializers.NewShardExternalURLInitializer(opts.Extra.ShardExternalURL),

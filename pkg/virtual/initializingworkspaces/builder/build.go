@@ -63,7 +63,7 @@ func BuildVirtualWorkspace(
 	cfg *rest.Config,
 	rootPathPrefix string,
 	dynamicClusterClient dynamic.ClusterInterface,
-	kubeClusterClient kubernetes.ClusterInterface,
+	kubeClusterClient kubernetes.Interface,
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
 	if !strings.HasSuffix(rootPathPrefix, "/") {
@@ -381,7 +381,7 @@ func (a *apiSetRetriever) GetAPIDefinitionSet(ctx context.Context, key dynamicco
 
 var _ apidefinition.APIDefinitionSetGetter = &apiSetRetriever{}
 
-func newAuthorizer(client kubernetes.ClusterInterface) authorizer.AuthorizerFunc {
+func newAuthorizer(client kubernetes.Interface) authorizer.AuthorizerFunc {
 	return func(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
 		workspace, name, err := initialization.TypeFrom(tenancyv1alpha1.ClusterWorkspaceInitializer(dynamiccontext.APIDomainKeyFrom(ctx)))
 		if err != nil {

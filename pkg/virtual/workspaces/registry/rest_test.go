@@ -48,7 +48,6 @@ import (
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	tenancyv1fake "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/fake"
 	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/authorization"
 )
@@ -205,13 +204,13 @@ func applyTest(t *testing.T, test TestDescription) {
 			return &clusterWorkspaces{clusterWorkspaceLister: clusterWorkspaceLister}
 		},
 		crbInformer: crbInformer,
-		impersonatedkubeClusterClient: func(user kuser.Info) (kubernetes.ClusterInterface, error) {
-			return mockKubeClusterClient(func(logicalcluster.Name) kubernetes.Interface { return mockKubeClient }), nil
+		impersonatedkubeClusterClient: func(user kuser.Info) (kubernetes.Interface, error) {
+			return mockKubeClient, nil
 		},
-		kubeClusterClient:     mockKubeClusterClient(func(logicalcluster.Name) kubernetes.Interface { return mockKubeClient }),
-		kcpClusterClient:      mockKcpClusterClient(func(logicalcluster.Name) kcpclientset.Interface { return mockKCPClient }),
+		kubeClusterClient:     mockKubeClient,
+		kcpClusterClient:      mockKCPClient,
 		clusterWorkspaceCache: nil,
-		delegatedAuthz: func(clusterName logicalcluster.Name, client kubernetes.ClusterInterface) (authorizer.Authorizer, error) {
+		delegatedAuthz: func(clusterName logicalcluster.Name, client kubernetes.Interface) (authorizer.Authorizer, error) {
 			if clusterName == tenancyv1alpha1.RootCluster {
 				return test.rootReviewer, nil
 			}
@@ -2152,18 +2151,6 @@ func (c clusterWorkspaces) RemoveWatcher(watcher workspaceauth.CacheWatcher) {
 }
 
 func (c clusterWorkspaces) AddWatcher(watcher workspaceauth.CacheWatcher) {
-}
-
-type mockKcpClusterClient func(cluster logicalcluster.Name) kcpclientset.Interface
-
-func (m mockKcpClusterClient) Cluster(cluster logicalcluster.Name) kcpclientset.Interface {
-	return m(cluster)
-}
-
-type mockKubeClusterClient func(cluster logicalcluster.Name) kubernetes.Interface
-
-func (m mockKubeClusterClient) Cluster(cluster logicalcluster.Name) kubernetes.Interface {
-	return m(cluster)
 }
 
 type mockSubjectLocator struct {

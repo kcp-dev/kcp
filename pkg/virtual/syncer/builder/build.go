@@ -55,9 +55,9 @@ const SyncerVirtualWorkspaceName string = "syncer"
 // ForwardingREST REST storage implementation, serves a SyncTargetAPI list maintained by the APIReconciler controller.
 func BuildVirtualWorkspace(
 	rootPathPrefix string,
-	kubeClusterClient kubernetes.ClusterInterface,
+	kubeClusterClient kubernetes.Interface,
 	dynamicClusterClient dynamic.ClusterInterface,
-	kcpClusterClient kcpclient.ClusterInterface,
+	kcpClusterClient kcpclient.Interface,
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
 ) framework.VirtualWorkspace {
 
