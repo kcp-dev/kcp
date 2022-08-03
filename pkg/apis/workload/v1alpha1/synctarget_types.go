@@ -177,33 +177,6 @@ const (
 	// HeartbeatHealthy means the HeartbeatManager has seen a heartbeat for the SyncTarget within the expected interval.
 	HeartbeatHealthy conditionsv1alpha1.ConditionType = "HeartbeatHealthy"
 
-	// SyncTargetUnknownReason documents a SyncTarget which readiness is unknown.
-	SyncTargetUnknownReason = "SyncTargetStatusUnknown"
-
-	// SyncTargetReadyReason documents a SyncTarget that is ready.
-	SyncTargetReadyReason = "SyncTargetReady"
-
-	// SyncTargetNotReadyReason documents a SyncTarget is not ready, when the "readyz" check returns false.
-	SyncTargetNotReadyReason = "SyncTargetNotReady"
-
-	// SyncTargetUnreachableReason documents the SyncTarget state when the Syncer is unable to reach the SyncTarget "readyz" API endpoint
-	SyncTargetUnreachableReason = "SyncTargetUnreachable"
-
-	// ErrorStartingSyncerReason indicates that the Syncer failed to start.
-	ErrorStartingSyncerReason = "ErrorStartingSyncer"
-
-	// ErrorInstallingSyncerReason indicates that the Syncer failed to install.
-	ErrorInstallingSyncerReason = "ErrorInstallingSyncer"
-
-	// InvalidKubeConfigReason indicates that the Syncer failed to start because the KubeConfig is invalid.
-	InvalidKubeConfigReason = "InvalidKubeConfig"
-
-	// ErrorCreatingClientReason indicates that there has been an error trying to create a kubernetes client from given a KubeConfig.
-	ErrorCreatingClientReason = "ErrorCreatingClient"
-
-	// ErrorStartingAPIImporterReason indicates an error starting the API Importer.
-	ErrorStartingAPIImporterReason = "ErrorStartingAPIImporter"
-
 	// ErrorHeartbeatMissedReason indicates that a heartbeat update was not received within the configured threshold.
 	ErrorHeartbeatMissedReason = "ErrorHeartbeat"
 )
