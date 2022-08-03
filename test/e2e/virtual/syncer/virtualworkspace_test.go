@@ -614,7 +614,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 			sourceCrdClient, err := apiextensionsclientset.NewClusterForConfig(server.BaseConfig(t))
 			require.NoError(t, err)
 
-			fixturewildwest.Create(t, sourceCrdClient.Cluster(unrelatedWorkspace).ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
+			fixturewildwest.Create(t, logicalcluster.Name{}, sourceCrdClient.Cluster(unrelatedWorkspace).ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 
 			t.Log("Waiting for cowboys crd to be imported and available in the kubelike workspace...")
 			require.Eventually(t, func() bool {
@@ -650,7 +650,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					sinkCrdClient, err := apiextensionsclientset.NewForConfig(config)
 					require.NoError(t, err)
 					t.Log("Installing test CRDs into sink cluster...")
-					fixturewildwest.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
+					fixturewildwest.Create(t, logicalcluster.Name{}, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 				}),
 			).Start(t)
 

@@ -68,7 +68,7 @@ func TestWatchCacheEnabledForCRD(t *testing.T) {
 	crdClient := apiExtensionsClients.Cluster(cluster).ApiextensionsV1().CustomResourceDefinitions()
 
 	t.Log("Creating wildwest.dev.cowboys CR")
-	wildwest.Create(t, crdClient, cowBoysGR)
+	wildwest.Create(t, logicalcluster.Name{}, crdClient, cowBoysGR)
 	wildwestClusterClient, err := wildwestclientset.NewClusterForConfig(rootShardConfig)
 	require.NoError(t, err)
 	_, err = wildwestClusterClient.Cluster(cluster).WildwestV1alpha1().Cowboys("default").Create(ctx, &wildwestv1alpha1.Cowboy{
