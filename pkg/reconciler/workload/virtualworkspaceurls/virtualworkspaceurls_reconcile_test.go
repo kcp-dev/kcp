@@ -69,6 +69,9 @@ func TestReconciler(t *testing.T) {
 					Annotations: map[string]string{
 						logicalcluster.AnnotationKey: "demo:root:yourworkspace",
 					},
+					Labels: map[string]string{
+						"internal.workload.kcp.dev/key": "2Fhhz9cq06pipXqhKzp8wrxSgTVTUzc8fKKqLI",
+					},
 				},
 				Spec: workloadv1alpha1.SyncTargetSpec{
 					Unschedulable: false,
@@ -134,6 +137,9 @@ func TestReconciler(t *testing.T) {
 					Name: "test-cluster",
 					Annotations: map[string]string{
 						logicalcluster.AnnotationKey: "demo:root:yourworkspace",
+					},
+					Labels: map[string]string{
+						"internal.workload.kcp.dev/key": "2Fhhz9cq06pipXqhKzp8wrxSgTVTUzc8fKKqLI",
 					},
 				},
 				Spec: workloadv1alpha1.SyncTargetSpec{
@@ -207,6 +213,9 @@ func TestReconciler(t *testing.T) {
 					Annotations: map[string]string{
 						logicalcluster.AnnotationKey: "demo:root:yourworkspace",
 					},
+					Labels: map[string]string{
+						"internal.workload.kcp.dev/key": "2Fhhz9cq06pipXqhKzp8wrxSgTVTUzc8fKKqLI",
+					},
 				},
 				Spec: workloadv1alpha1.SyncTargetSpec{
 					Unschedulable: false,
@@ -239,15 +248,16 @@ func TestReconciler(t *testing.T) {
 					Unschedulable: false,
 					EvictAfter:    nil,
 				},
-				Status: workloadv1alpha1.SyncTargetStatus{
-					VirtualWorkspaces: []workloadv1alpha1.VirtualWorkspace{},
-				},
+				Status: workloadv1alpha1.SyncTargetStatus{},
 			},
 			expectedSyncTarget: &workloadv1alpha1.SyncTarget{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-cluster",
 					Annotations: map[string]string{
 						logicalcluster.AnnotationKey: "demo:root:yourworkspace",
+					},
+					Labels: map[string]string{
+						"internal.workload.kcp.dev/key": "2Fhhz9cq06pipXqhKzp8wrxSgTVTUzc8fKKqLI",
 					},
 				},
 				Spec: workloadv1alpha1.SyncTargetSpec{
@@ -300,6 +310,9 @@ func TestReconciler(t *testing.T) {
 					Name: "test-cluster",
 					Annotations: map[string]string{
 						logicalcluster.AnnotationKey: "demo:root:yourworkspace",
+					},
+					Labels: map[string]string{
+						"internal.workload.kcp.dev/key": "2Fhhz9cq06pipXqhKzp8wrxSgTVTUzc8fKKqLI",
 					},
 				},
 				Spec: workloadv1alpha1.SyncTargetSpec{
