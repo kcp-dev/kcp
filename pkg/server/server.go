@@ -243,6 +243,12 @@ func (s *Server) Run(ctx context.Context) error {
 					ExternalURL: fmt.Sprintf("https://%v", s.Options.Extra.ShardExternalURL),
 				},
 			}
+			if s.Options.Extra.ShardVirtualWorkspaceURL != "" {
+				shard.Spec.VirtualWorkspaceURL = s.Options.Extra.ShardVirtualWorkspaceURL
+			} else {
+				shard.Spec.VirtualWorkspaceURL = shard.Spec.BaseURL
+			}
+
 			if _, err := s.RootShardKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaceShards().Create(goContext(ctx), shard, metav1.CreateOptions{}); err != nil {
 				return err
 			}

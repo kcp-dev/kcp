@@ -496,6 +496,17 @@ type ClusterWorkspaceShardSpec struct {
 	// +kubebuilder:Required
 	// +required
 	ExternalURL string `json:"externalURL"`
+
+	// VirtualWorkspaceURL is the address of the virtual workspace server associated with this shard.
+	// It can be a direct address, an address of a front-proxy or even an address of an LB.
+	// As of today this address is assigned to APIExports.
+	//
+	// This will be defaulted to the shard's base address if not specified.
+	//
+	// +kubebuilder:validation:Format=uri
+	// +kubebuilder:validation:MinLength=1
+	// +optional
+	VirtualWorkspaceURL string `json:"virtualWorkspaceURL,omitempty"`
 }
 
 // ClusterWorkspaceShardStatus communicates the observed state of the ClusterWorkspaceShard.

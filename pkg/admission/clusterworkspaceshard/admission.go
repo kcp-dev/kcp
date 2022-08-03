@@ -51,9 +51,10 @@ func Register(plugins *admission.Plugins) {
 type clusterWorkspaceShard struct {
 	*admission.Handler
 
-	shardBaseURL            string
-	shardExternalURL        string
-	externalAddressProvider func() string
+	shardBaseURL             string
+	shardExternalURL         string
+	shardVirtualWorkspaceURL string
+	externalAddressProvider  func() string
 }
 
 // Ensure that the required admission interfaces are implemented.
@@ -133,6 +134,15 @@ func (o *clusterWorkspaceShard) Admit(_ context.Context, a admission.Attributes,
 		}
 	}
 
+	if cws.Spec.VirtualWorkspaceURL == "" {
+		switch {
+		case o.shardVirtualWorkspaceURL != "":
+			cws.Spec.VirtualWorkspaceURL = o.shardVirtualWorkspaceURL
+		default:
+			cws.Spec.VirtualWorkspaceURL = cws.Spec.BaseURL
+		}
+	}
+
 	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(cws)
 	if err != nil {
 		return err
@@ -148,6 +158,10 @@ func (o *clusterWorkspaceShard) SetShardBaseURL(shardBaseURL string) {
 
 func (o *clusterWorkspaceShard) SetShardExternalURL(shardExternalURL string) {
 	o.shardExternalURL = shardExternalURL
+}
+
+func (o *clusterWorkspaceShard) SetShardVirtualWorkspaceURL(shardVirtualWorkspaceURL string) {
+	o.shardVirtualWorkspaceURL = shardVirtualWorkspaceURL
 }
 
 func (o *clusterWorkspaceShard) SetExternalAddressProvider(externalAddressProvider func() string) {

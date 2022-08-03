@@ -74,6 +74,15 @@ spec:
                 format: uri
                 minLength: 1
                 type: string
+              virtualWorkspaceURL:
+                description: "VirtualWorkspaceURL is the address of the virtual workspace
+                  server associated with this shard. It can be a direct address, an
+                  address of a front-proxy or even an address of an LB. As of today
+                  this address is assigned to APIExports. \n This will be defaulted
+                  to the shard's base address if not specified."
+                format: uri
+                minLength: 1
+                type: string
             required:
             - externalURL
             type: object

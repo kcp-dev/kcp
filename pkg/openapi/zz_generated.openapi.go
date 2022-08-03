@@ -2729,6 +2729,13 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceShardSpec(ref common.Refer
 							Format:      "",
 						},
 					},
+					"virtualWorkspaceURL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VirtualWorkspaceURL is the address of the virtual workspace server associated with this shard. It can be a direct address, an address of a front-proxy or even an address of an LB. As of today this address is assigned to APIExports.\n\nThis will be defaulted to the shard's base address if not specified.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"externalURL"},
 			},

@@ -142,6 +142,24 @@ func (i *shardExternalURLInitializer) Initialize(plugin admission.Interface) {
 	}
 }
 
+// NewShardVirtualWorkspaceURLInitializer returns an admission plugin initializer that injects
+// the shard's virtual workspace URL into the admission plugin.
+func NewShardVirtualWorkspaceURLInitializer(shardVirtualWorkspaceURL string) *shardVirtualWorkspaceURLInitializer {
+	return &shardVirtualWorkspaceURLInitializer{
+		shardVirtualWorkspaceURL: shardVirtualWorkspaceURL,
+	}
+}
+
+type shardVirtualWorkspaceURLInitializer struct {
+	shardVirtualWorkspaceURL string
+}
+
+func (i *shardVirtualWorkspaceURLInitializer) Initialize(plugin admission.Interface) {
+	if wants, ok := plugin.(WantsShardVirtualWorkspaceURL); ok {
+		wants.SetShardVirtualWorkspaceURL(i.shardVirtualWorkspaceURL)
+	}
+}
+
 // NewKubeQuotaConfigurationInitializer returns an admission plugin initializer that injects quota.Configuration
 // into admission plugins.
 func NewKubeQuotaConfigurationInitializer(quotaConfiguration quota.Configuration) *kubeQuotaConfigurationInitializer {
