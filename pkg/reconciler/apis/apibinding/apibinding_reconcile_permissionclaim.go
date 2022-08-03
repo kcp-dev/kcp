@@ -34,6 +34,7 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/kcp/pkg/apis/apis"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1/permissionclaims"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
@@ -41,7 +42,7 @@ import (
 )
 
 type permissionClaimHelper struct {
-	claim apisv1alpha1.PermissionClaim
+	claim *apisv1alpha1.PermissionClaim
 	label string
 	key   string
 
@@ -49,6 +50,9 @@ type permissionClaimHelper struct {
 }
 
 func (p permissionClaimHelper) String() string {
+	if p.claim == nil {
+		return "nil"
+	}
 	return p.claim.String()
 }
 
@@ -63,7 +67,7 @@ func (m mapGVRToClaim) String() string {
 	return s
 }
 
-func (c *controller) createPermissionClaimHelper(pc apisv1alpha1.PermissionClaim) (permissionClaimHelper, schema.GroupVersionResource, error) {
+func (c *controller) createPermissionClaimHelper(exportClusterName logicalcluster.Name, exportName string, pc *apisv1alpha1.PermissionClaim) (permissionClaimHelper, schema.GroupVersionResource, error) {
 
 	// get informer for the object.
 	lister, gvr, err := c.getInformerForGroupResource(pc.Group, pc.Resource)
@@ -71,9 +75,14 @@ func (c *controller) createPermissionClaimHelper(pc apisv1alpha1.PermissionClaim
 		return permissionClaimHelper{}, gvr, err
 	}
 
-	key, label, err := permissionclaims.ToLabelKeyAndValue(pc)
-	if err != nil {
-		return permissionClaimHelper{}, gvr, err
+	var key, label string
+	if pc != nil {
+		key, label, err = permissionclaims.ToLabelKeyAndValue(exportClusterName, exportName, *pc)
+		if err != nil {
+			return permissionClaimHelper{}, gvr, err
+		}
+	} else {
+		key, label = permissionclaims.ToReflexiveAPIBindingLabelKeyAndValue(exportClusterName, exportName)
 	}
 
 	return permissionClaimHelper{
@@ -90,6 +99,11 @@ func (c *controller) createPermissionClaimHelper(pc apisv1alpha1.PermissionClaim
 // Permission claims are considered invalid when the identity hashes are mismatched, and when there is no dynamic informer
 // for the group resource.
 func (c *controller) reconcilePermissionClaims(ctx context.Context, apiBinding *apisv1alpha1.APIBinding) error {
+	if apiBinding.Status.BoundAPIExport == nil || apiBinding.Status.BoundAPIExport.Workspace == nil {
+		return nil
+	}
+	exportRef := apiBinding.Status.BoundAPIExport.Workspace
+
 	identityMismatch := false
 	lc := logicalcluster.From(apiBinding)
 
@@ -111,8 +125,12 @@ func (c *controller) reconcilePermissionClaims(ctx context.Context, apiBinding *
 	invalidClaims := []apisv1alpha1.PermissionClaim{}
 	// get the added permission claims if added, add are just requeue the object.
 	addedPermissionClaims := mapGVRToClaim{}
+	seenAPIBindingClaim := false
 	for _, acceptedPC := range apiBinding.Spec.AcceptedPermissionClaims {
 		found := false
+		if acceptedPC.Group == apis.GroupName && acceptedPC.Resource == "apibindings" {
+			seenAPIBindingClaim = true
+		}
 		for _, observedPC := range apiBinding.Status.ObservedAcceptedPermissionClaims {
 			if acceptedPC.Equal(observedPC) {
 				found = true
@@ -128,12 +146,19 @@ func (c *controller) reconcilePermissionClaims(ctx context.Context, apiBinding *
 					continue
 				}
 			}
-			claim, gvr, err := c.createPermissionClaimHelper(acceptedPC)
+			claim, gvr, err := c.createPermissionClaimHelper(logicalcluster.New(exportRef.Path), exportRef.ExportName, &acceptedPC)
 			if err != nil {
 				return err
 			}
 			addedPermissionClaims[gvr] = append(addedPermissionClaims[gvr], claim)
 		}
+	}
+	if !seenAPIBindingClaim {
+		claim, gvr, err := c.createPermissionClaimHelper(logicalcluster.New(exportRef.Path), exportRef.ExportName, nil)
+		if err != nil {
+			return err
+		}
+		addedPermissionClaims[gvr] = append(addedPermissionClaims[gvr], claim) // TODO(sttts) is not really added, and we will continuous try to apply this claim. Not good.
 	}
 
 	removedPermissionClaims := mapGVRToClaim{}
@@ -146,7 +171,7 @@ func (c *controller) reconcilePermissionClaims(ctx context.Context, apiBinding *
 			}
 		}
 		if !found {
-			claim, gvr, err := c.createPermissionClaimHelper(observedPC)
+			claim, gvr, err := c.createPermissionClaimHelper(logicalcluster.New(exportRef.Path), exportRef.ExportName, &observedPC)
 			if err != nil {
 				return err
 			}
@@ -199,7 +224,9 @@ func (c *controller) reconcilePermissionClaims(ctx context.Context, apiBinding *
 			}
 
 			// If all the listed objects are patched, lets add this to Observed Permission Claims
-			apiBinding.Status.ObservedAcceptedPermissionClaims = append(apiBinding.Status.ObservedAcceptedPermissionClaims, claim.claim)
+			if claim.claim != nil {
+				apiBinding.Status.ObservedAcceptedPermissionClaims = append(apiBinding.Status.ObservedAcceptedPermissionClaims, *claim.claim)
+			}
 		}
 	}
 
@@ -272,7 +299,7 @@ func (c *controller) reconcilePermissionClaims(ctx context.Context, apiBinding *
 func removeClaims(claims []apisv1alpha1.PermissionClaim, removedClaim permissionClaimHelper) []apisv1alpha1.PermissionClaim {
 	newClaims := []apisv1alpha1.PermissionClaim{}
 	for _, c := range claims {
-		if !c.Equal(removedClaim.claim) {
+		if !c.Equal(*removedClaim.claim) {
 			newClaims = append(newClaims, c)
 		}
 	}

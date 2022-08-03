@@ -22,12 +22,15 @@ import (
 	"io"
 	"strings"
 
+	"github.com/kcp-dev/logicalcluster/v2"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/tools/cache"
 
+	"github.com/kcp-dev/kcp/pkg/apis/apis"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1/permissionclaims"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
@@ -84,7 +87,7 @@ func (m *mutatingPermissionClaims) Admit(ctx context.Context, a admission.Attrib
 		bindings = append(bindings, binding.(*apisv1alpha1.APIBinding))
 	}
 
-	expectedLabels, err := ClaimLabels(a.GetResource().Group, a.GetResource().Resource, bindings)
+	expectedLabels, err := ClaimLabels(a.GetResource().Group, a.GetResource().Resource, u.GetName(), bindings)
 	if err != nil {
 		return err
 	}
@@ -133,7 +136,7 @@ func (m *mutatingPermissionClaims) Validate(ctx context.Context, a admission.Att
 	}
 
 	// find those that are requested
-	expectedLabels, err := ClaimLabels(a.GetResource().Group, a.GetResource().Resource, bindings)
+	expectedLabels, err := ClaimLabels(a.GetResource().Group, a.GetResource().Resource, u.GetName(), bindings)
 	if err != nil {
 		return err
 	}
@@ -158,7 +161,7 @@ func (m *mutatingPermissionClaims) Validate(ctx context.Context, a admission.Att
 	return nil
 }
 
-func ClaimLabels(group, resource string, bindings []*apisv1alpha1.APIBinding) (map[string]string, error) {
+func ClaimLabels(group, resource, resourceName string, bindings []*apisv1alpha1.APIBinding) (map[string]string, error) {
 	grsToBoundResource := map[apisv1alpha1.GroupResource]apisv1alpha1.BoundAPIResource{}
 	for _, binding := range bindings {
 		for _, resource := range binding.Status.BoundResources {
@@ -169,6 +172,11 @@ func ClaimLabels(group, resource string, bindings []*apisv1alpha1.APIBinding) (m
 	// add labels for new claims
 	labels := map[string]string{}
 	for _, binding := range bindings {
+		if binding.Status.BoundAPIExport == nil || binding.Status.BoundAPIExport.Workspace == nil {
+			continue
+		}
+		exportRef := binding.Status.BoundAPIExport.Workspace
+
 		for _, pc := range binding.Status.ObservedAcceptedPermissionClaims {
 			if pc.Group != group || pc.Resource != resource {
 				continue
@@ -181,12 +189,22 @@ func ClaimLabels(group, resource string, bindings []*apisv1alpha1.APIBinding) (m
 				continue
 			}
 
-			k, v, err := permissionclaims.ToLabelKeyAndValue(pc)
+			k, v, err := permissionclaims.ToLabelKeyAndValue(logicalcluster.New(exportRef.Path), exportRef.ExportName, pc)
 			if err != nil {
 				return nil, err
 			}
 
 			labels[k] = v
+		}
+
+		// for APIBindings we have to set the constant label value on itself to make the APIBinding
+		// pointing to an APIExport visible to the owner of the export, independently of the permission claim
+		// acceptance of the binding.
+		if group == apis.GroupName && resource == "apibindings" && binding.Name == resourceName {
+			k, v := permissionclaims.ToReflexiveAPIBindingLabelKeyAndValue(logicalcluster.New(exportRef.Path), exportRef.ExportName)
+			if _, found := labels[k]; !found {
+				labels[k] = v
+			}
 		}
 	}
 

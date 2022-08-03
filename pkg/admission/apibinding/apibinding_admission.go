@@ -92,6 +92,19 @@ func (o *apiBindingAdmission) Admit(ctx context.Context, a admission.Attributes,
 		apiBinding.Spec.Reference.Workspace.Path = cluster.Name.String()
 	}
 
+	// set labels
+	if apiBinding.Spec.Reference.Workspace == nil {
+		delete(apiBinding.Labels, apisv1alpha1.InternalAPIBindingExportLabelKey)
+	} else {
+		if apiBinding.Labels == nil {
+			apiBinding.Labels = make(map[string]string)
+		}
+		apiBinding.Labels[apisv1alpha1.InternalAPIBindingExportLabelKey] = apisv1alpha1.ToInternalAPIBindingExportLabelValue(
+			logicalcluster.New(apiBinding.Spec.Reference.Workspace.Path),
+			apiBinding.Spec.Reference.Workspace.ExportName,
+		)
+	}
+
 	// write back
 	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(apiBinding)
 	if err != nil {
@@ -164,6 +177,17 @@ func (o *apiBindingAdmission) Validate(ctx context.Context, a admission.Attribut
 		apiExportClusterName = absoluteRef
 	default:
 		return admission.NewForbidden(a, fmt.Errorf("workspace reference is missing")) // this should not happen due to validation
+	}
+
+	// Verify the labels
+	value, found := apiBinding.Labels[apisv1alpha1.InternalAPIBindingExportLabelKey]
+	if apiBinding.Spec.Reference.Workspace == nil && found {
+		return admission.NewForbidden(a, fmt.Errorf("metadata.labels.%s must not be set", apisv1alpha1.InternalAPIBindingExportLabelKey))
+	} else if expected := apisv1alpha1.ToInternalAPIBindingExportLabelValue(
+		logicalcluster.New(apiBinding.Spec.Reference.Workspace.Path),
+		apiBinding.Spec.Reference.Workspace.ExportName,
+	); value != expected {
+		return admission.NewForbidden(a, fmt.Errorf("metadata.labels.%s must be set to %q", apisv1alpha1.InternalAPIBindingExportLabelKey, expected))
 	}
 
 	// Access check

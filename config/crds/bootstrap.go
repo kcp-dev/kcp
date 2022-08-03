@@ -38,6 +38,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/yaml"
 )
 
 //go:embed *.yaml
@@ -180,4 +181,14 @@ func retryRetryableErrors(f func() error) error {
 	return retry.OnError(retry.DefaultBackoff, func(err error) bool {
 		return utilnet.IsConnectionRefused(err) || apierrors.IsTooManyRequests(err) || apierrors.IsConflict(err)
 	}, f)
+}
+
+// Unmarshal YAML-decodes the give embedded file name into the target.
+func Unmarshal(fileName string, o interface{}) error {
+	bs, err := raw.ReadFile(fileName)
+	if err != nil {
+		return err
+	}
+
+	return yaml.Unmarshal(bs, o)
 }
