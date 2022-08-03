@@ -21,6 +21,7 @@ import (
 	"embed"
 	"testing"
 
+	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
 	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
@@ -33,10 +34,10 @@ import (
 //go:embed *.yaml
 var rawCustomResourceDefinitions embed.FS
 
-func Create(t *testing.T, client apiextensionsv1client.CustomResourceDefinitionInterface, grs ...metav1.GroupResource) {
-	ctx, cancelFunc := context.WithTimeout(context.Background(), wait.ForeverTestTimeout)
+func Create(t *testing.T, clustername logicalcluster.Name, client apiextensionsv1client.CustomResourceDefinitionInterface, grs ...metav1.GroupResource) {
+	ctx, cancelFunc := context.WithTimeout(logicalcluster.WithCluster(context.Background(), clustername), wait.ForeverTestTimeout)
 	t.Cleanup(cancelFunc)
 
-	err := configcrds.CreateFromFS(ctx, client, rawCustomResourceDefinitions, grs...)
+	err := configcrds.CreateFromFS(logicalcluster.WithCluster(ctx, clustername), client, rawCustomResourceDefinitions, grs...)
 	require.NoError(t, err)
 }
