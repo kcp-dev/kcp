@@ -2723,8 +2723,15 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceShardSpec(ref common.Refer
 					},
 					"externalURL": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ExternalURL is the externally visible address presented to users in Workspace URLs. Changing this will break all existing workspaces on that shard, i.e. existing kubeconfigs of clients will be invalid. Hence, when changing this value, the old URL used by clients must keep working.\n\nThe external address will not be unique if a front-proxy does a fan-out to shards, but all workspace client will talk to the front-proxy. In that case, put the address of the front-proxy here.\n\nNote that movement of shards is only possible (in the future) between shards that share a common external URL.\n\nThis will be defaulted to the value of the baseURL.",
+							Description: "externalURL is the externally visible address presented to users in Workspace URLs. Changing this will break all existing workspaces on that shard, i.e. existing kubeconfigs of clients will be invalid. Hence, when changing this value, the old URL used by clients must keep working.\n\nThe external address will not be unique if a front-proxy does a fan-out to shards, but all workspace client will talk to the front-proxy. In that case, put the address of the front-proxy here.\n\nNote that movement of shards is only possible (in the future) between shards that share a common external URL.\n\nThis will be defaulted to the value of the baseURL.",
 							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"virtualWorkspaceURL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "virtualWorkspaceURL is the address of the virtual workspace server associated with this shard. It can be a direct address, an address of a front-proxy or even an address of an LB. As of today this address is assigned to APIExports.\n\nThis will be defaulted to the shard's base address if not specified.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
