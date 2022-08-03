@@ -167,8 +167,46 @@ func (i *APIImporter) Stop() {
 }
 
 func (i *APIImporter) ImportAPIs(ctx context.Context) {
+	clusterKey, err := cache.MetaNamespaceKeyFunc(&metav1.PartialObjectMetadata{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:                      i.location,
+			ZZZ_DeprecatedClusterName: i.logicalClusterName.String(),
+		},
+	})
+	if err != nil {
+		klog.Errorf("error build cluster key func %s: %v", err)
+		return
+	}
+	syncTargetObj, exists, err := i.clusterIndexer.GetByKey(clusterKey)
+	if err != nil {
+		klog.Errorf("error get synctarget %s: %v", clusterKey, err)
+		return
+	}
+	if !exists {
+		klog.Errorf("the cluster object should exist in the index for location %s in logical cluster %s", i.location, i.logicalClusterName)
+		return
+	}
+	syncTarget, isCluster := syncTargetObj.(*workloadv1alpha1.SyncTarget)
+	if !isCluster {
+		klog.Errorf("the object retrieved from the cluster index for location %s in logical cluster %s should be a cluster object, but is of type: %T", i.location, i.logicalClusterName, syncTargetObj)
+		return
+	}
+
+	// Also add required syncedResource from syncTarget to resourcesToSync.
+	// TODO(qiujian) this should be reconsidered when we refactor the API compaitbility for syncer.
+	resourceToSync := sets.NewString(i.resourcesToSync...)
+	for _, syncedResource := range syncTarget.Status.SyncedResources {
+		var groupResource string
+		if len(syncedResource.Group) == 0 {
+			groupResource = syncedResource.Resource
+		} else {
+			groupResource = fmt.Sprintf("%s.%s", syncedResource.Resource, syncedResource.Group)
+		}
+		resourceToSync.Insert(groupResource)
+	}
+
 	klog.Infof("Importing APIs from location %s in logical cluster %s (resources=%v)", i.location, i.logicalClusterName, i.resourcesToSync)
-	crds, err := i.schemaPuller.PullCRDs(ctx, i.resourcesToSync...)
+	crds, err := i.schemaPuller.PullCRDs(ctx, resourceToSync.List()...)
 	if err != nil {
 		klog.Errorf("error pulling CRDs: %v", err)
 		return
@@ -214,30 +252,6 @@ func (i *APIImporter) ImportAPIs(ctx context.Context) {
 				apiResourceImportName = apiResourceImportName + gvr.Group
 			}
 
-			clusterKey, err := cache.MetaNamespaceKeyFunc(&metav1.PartialObjectMetadata{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:                      i.location,
-					ZZZ_DeprecatedClusterName: i.logicalClusterName.String(),
-				},
-			})
-			if err != nil {
-				klog.Errorf("error creating APIResourceImport %s: %v", apiResourceImportName, err)
-				continue
-			}
-			clusterObj, exists, err := i.clusterIndexer.GetByKey(clusterKey)
-			if err != nil {
-				klog.Errorf("error creating APIResourceImport %s: %v", apiResourceImportName, err)
-				continue
-			}
-			if !exists {
-				klog.Errorf("error creating APIResourceImport %s: the cluster object should exist in the index for location %s in logical cluster %s", apiResourceImportName, i.location, i.logicalClusterName)
-				continue
-			}
-			cluster, isCluster := clusterObj.(*workloadv1alpha1.SyncTarget)
-			if !isCluster {
-				klog.Errorf("error creating APIResourceImport %s: the object retrieved from the cluster index for location %s in logical cluster %s should be a cluster object, but is of type: %T", apiResourceImportName, i.location, i.logicalClusterName, clusterObj)
-				continue
-			}
 			groupVersion := apiresourcev1alpha1.GroupVersion{
 				Group:   gvr.Group,
 				Version: gvr.Version,
@@ -247,7 +261,7 @@ func (i *APIImporter) ImportAPIs(ctx context.Context) {
 					Name:                      apiResourceImportName,
 					ZZZ_DeprecatedClusterName: i.logicalClusterName.String(),
 					OwnerReferences: []metav1.OwnerReference{
-						clusterAsOwnerReference(cluster, true),
+						clusterAsOwnerReference(syncTarget, true),
 					},
 					Annotations: map[string]string{
 						apiresourcev1alpha1.APIVersionAnnotation: groupVersion.APIVersion(),
