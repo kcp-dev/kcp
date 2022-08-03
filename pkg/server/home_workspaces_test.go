@@ -1413,7 +1413,7 @@ func TestServeHTTP(t *testing.T) {
 
 			expectedStatusCode:   200,
 			expectedToDelegate:   false,
-			expectedResponseBody: `{"kind":"Workspace","apiVersion":"tenancy.kcp.dev/v1beta1","metadata":{"name":"user-1","resourceVersion":"someRealResourceVersion","creationTimestamp":null,"clusterName":"root:users:bi:ie"},"spec":{"type":{"name":"home","path":"root"}},"status":{"URL":"https://example.com/clusters/root:users:bi:ie:user-1","phase":"Ready"}}`,
+			expectedResponseBody: `{"kind":"Workspace","apiVersion":"tenancy.kcp.dev/v1beta1","metadata":{"name":"user-1","resourceVersion":"someRealResourceVersion","creationTimestamp":null,"annotations":{"kcp.dev/cluster":"root:users:bi:ie"}},"spec":{"type":{"name":"home","path":"root"}},"status":{"URL":"https://example.com/clusters/root:users:bi:ie:user-1","phase":"Ready"}}`,
 		},
 		{
 			testName:           "try to create home workspace when the home workspace is not ready yet",
@@ -1708,8 +1708,10 @@ func newWorkspace(qualifiedName string) wsBuilder {
 	path, name := logicalcluster.New(qualifiedName).Split()
 	return wsBuilder{&tenancyv1alpha1.ClusterWorkspace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:                      name,
-			ZZZ_DeprecatedClusterName: path.String(),
+			Name: name,
+			Annotations: map[string]string{
+				logicalcluster.AnnotationKey: path.String(),
+			},
 		},
 	}}
 }

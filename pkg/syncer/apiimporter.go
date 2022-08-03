@@ -216,8 +216,10 @@ func (i *APIImporter) ImportAPIs(ctx context.Context) {
 
 			clusterKey, err := cache.MetaNamespaceKeyFunc(&metav1.PartialObjectMetadata{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:                      i.location,
-					ZZZ_DeprecatedClusterName: i.logicalClusterName.String(),
+					Name: i.location,
+					Annotations: map[string]string{
+						logicalcluster.AnnotationKey: i.logicalClusterName.String(),
+					},
 				},
 			})
 			if err != nil {
@@ -244,12 +246,12 @@ func (i *APIImporter) ImportAPIs(ctx context.Context) {
 			}
 			apiResourceImport := &apiresourcev1alpha1.APIResourceImport{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:                      apiResourceImportName,
-					ZZZ_DeprecatedClusterName: i.logicalClusterName.String(),
+					Name: apiResourceImportName,
 					OwnerReferences: []metav1.OwnerReference{
 						clusterAsOwnerReference(cluster, true),
 					},
 					Annotations: map[string]string{
+						logicalcluster.AnnotationKey:             i.logicalClusterName.String(),
 						apiresourcev1alpha1.APIVersionAnnotation: groupVersion.APIVersion(),
 					},
 				},

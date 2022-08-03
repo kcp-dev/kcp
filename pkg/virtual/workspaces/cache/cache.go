@@ -47,8 +47,15 @@ type ClusterWorkspaceCache struct {
 	HasSynced        cache.InformerSynced
 }
 
-func (c *ClusterWorkspaceCache) Get(lclusterName logicalcluster.Name, workspaceName string) (*workspaceapi.ClusterWorkspace, error) {
-	key := &workspaceapi.ClusterWorkspace{ObjectMeta: metav1.ObjectMeta{Name: workspaceName, ZZZ_DeprecatedClusterName: lclusterName.String()}}
+func (c *ClusterWorkspaceCache) Get(clusterName logicalcluster.Name, workspaceName string) (*workspaceapi.ClusterWorkspace, error) {
+	key := &workspaceapi.ClusterWorkspace{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				logicalcluster.AnnotationKey: clusterName.String(),
+			},
+			Name: workspaceName,
+		},
+	}
 
 	// check for cluster workspace in the cache
 	clusterWorkspaceObj, exists, err := c.Store.Get(key)
@@ -73,7 +80,7 @@ func (c *ClusterWorkspaceCache) Get(lclusterName logicalcluster.Name, workspaceN
 		clusterWorkspace = clusterWorkspaceObj.(*workspaceapi.ClusterWorkspace)
 	} else {
 		// Our watch maybe latent, so we make a best effort to get the object, and only fail if not found
-		clusterWorkspace, err = c.kcpClusterClient.Cluster(lclusterName).TenancyV1alpha1().ClusterWorkspaces().Get(context.TODO(), workspaceName, metav1.GetOptions{})
+		clusterWorkspace, err = c.kcpClusterClient.Cluster(clusterName).TenancyV1alpha1().ClusterWorkspaces().Get(context.TODO(), workspaceName, metav1.GetOptions{})
 		// the workspace does not exist, so prevent create and update in that workspace
 		if err != nil {
 			return nil, fmt.Errorf("workspace %s does not exist", workspaceName)

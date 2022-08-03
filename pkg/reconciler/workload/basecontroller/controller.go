@@ -169,7 +169,9 @@ func (c *ClusterReconciler) enqueueAPIResourceImportRelatedCluster(obj interface
 			ObjectMeta: metav1.ObjectMeta{
 				Name: apiResourceImport.Spec.Location,
 				// TODO: (shawn-hurley)
-				ZZZ_DeprecatedClusterName: logicalcluster.From(apiResourceImport).String(),
+				Annotations: map[string]string{
+					logicalcluster.AnnotationKey: logicalcluster.From(apiResourceImport).String(),
+				},
 			},
 		})
 	}

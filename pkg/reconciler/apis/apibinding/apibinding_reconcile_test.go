@@ -112,9 +112,11 @@ var (
 
 	todayWidgetsAPIResourceSchema = &apisv1alpha1.APIResourceSchema{
 		ObjectMeta: metav1.ObjectMeta{
-			ZZZ_DeprecatedClusterName: "some-workspace",
-			Name:                      "today.widgets.kcp.dev",
-			UID:                       "todaywidgetsuid",
+			Annotations: map[string]string{
+				logicalcluster.AnnotationKey: "some-workspace",
+			},
+			Name: "today.widgets.kcp.dev",
+			UID:  "todaywidgetsuid",
 		},
 		Spec: apisv1alpha1.APIResourceSchemaSpec{
 			Group: "kcp.dev",
@@ -370,28 +372,48 @@ func TestReconcileBinding(t *testing.T) {
 
 			apiExports := map[string]*apisv1alpha1.APIExport{
 				"some-export": {
-					ObjectMeta: metav1.ObjectMeta{ZZZ_DeprecatedClusterName: "some-workspace", Name: "some-export"},
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "some-export",
+						},
+						Name: "some-workspace",
+					},
 					Spec: apisv1alpha1.APIExportSpec{
 						LatestResourceSchemas: []string{"today.widgets.kcp.dev"},
 					},
 					Status: apisv1alpha1.APIExportStatus{IdentityHash: "hash1"},
 				},
 				"conflict": {
-					ObjectMeta: metav1.ObjectMeta{ZZZ_DeprecatedClusterName: "some-workspace", Name: "conflict"},
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "conflict",
+						},
+						Name: "some-workspace",
+					},
 					Spec: apisv1alpha1.APIExportSpec{
 						LatestResourceSchemas: []string{"another.widgets.other.io"},
 					},
 					Status: apisv1alpha1.APIExportStatus{IdentityHash: "hash2"},
 				},
 				"invalid-schema": {
-					ObjectMeta: metav1.ObjectMeta{ZZZ_DeprecatedClusterName: "some-workspace", Name: "invalid-schema"},
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "invalid-schema",
+						},
+						Name: "some-workspace",
+					},
 					Spec: apisv1alpha1.APIExportSpec{
 						LatestResourceSchemas: []string{"invalid.schema.io"},
 					},
 					Status: apisv1alpha1.APIExportStatus{IdentityHash: "hash3"},
 				},
 				"no-identity-hash": {
-					ObjectMeta: metav1.ObjectMeta{ZZZ_DeprecatedClusterName: "some-workspace", Name: "some-export"},
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "some-export",
+						},
+						Name: "some-workspace",
+					},
 					Spec: apisv1alpha1.APIExportSpec{
 						LatestResourceSchemas: []string{"today.widgets.kcp.dev"},
 					},
@@ -400,7 +422,12 @@ func TestReconcileBinding(t *testing.T) {
 
 			apiResourceSchemas := map[string]*apisv1alpha1.APIResourceSchema{
 				"invalid.schema.io": {
-					ObjectMeta: metav1.ObjectMeta{ZZZ_DeprecatedClusterName: "some-workspace", Name: "invalid.schema.io"},
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "invalid.schema.io",
+						},
+						Name: "some-workspace",
+					},
 					Spec: apisv1alpha1.APIResourceSchemaSpec{
 						Versions: []apisv1alpha1.APIResourceVersion{
 							{
@@ -692,7 +719,7 @@ func TestReconcileBound(t *testing.T) {
 					return tc.apiResourceSchemas[name], nil
 				},
 				listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
-					//TODO: Add tests for  reconcile permisonclaims, this to is to prevent a nil panic in reconciling permission claims.
+					// TODO: Add tests for  reconcile permisonclaims, this to is to prevent a nil panic in reconciling permission claims.
 					return []*apisv1alpha1.APIBinding{}, nil
 				},
 			}
@@ -728,9 +755,11 @@ func TestCRDFromAPIResourceSchema(t *testing.T) {
 		"full schema": {
 			schema: &apisv1alpha1.APIResourceSchema{
 				ObjectMeta: metav1.ObjectMeta{
-					ZZZ_DeprecatedClusterName: "my-cluster",
-					Name:                      "my-name",
-					UID:                       types.UID("my-uuid"),
+					Annotations: map[string]string{
+						logicalcluster.AnnotationKey: "my-cluster",
+					},
+					Name: "my-name",
+					UID:  types.UID("my-uuid"),
 				},
 				Spec: apisv1alpha1.APIResourceSchemaSpec{
 					Group: "my-group",
@@ -814,9 +843,9 @@ func TestCRDFromAPIResourceSchema(t *testing.T) {
 			},
 			want: &apiextensionsv1.CustomResourceDefinition{
 				ObjectMeta: metav1.ObjectMeta{
-					ZZZ_DeprecatedClusterName: ShadowWorkspaceName.String(),
-					Name:                      "my-uuid",
+					Name: "my-uuid",
 					Annotations: map[string]string{
+						logicalcluster.AnnotationKey:            ShadowWorkspaceName.String(),
 						apisv1alpha1.AnnotationBoundCRDKey:      "",
 						apisv1alpha1.AnnotationSchemaClusterKey: "my-cluster",
 						apisv1alpha1.AnnotationSchemaNameKey:    "my-name",
@@ -955,9 +984,10 @@ func (b *bindingBuilder) Build() *apisv1alpha1.APIBinding {
 }
 
 func (b *bindingBuilder) WithClusterName(clusterName string) *bindingBuilder {
-	//TODO (shawn-hurley): We may need to change how we set this
-	// nolint:staticcheck
-	b.ZZZ_DeprecatedClusterName = clusterName
+	if b.Annotations == nil {
+		b.Annotations = make(map[string]string)
+	}
+	b.Annotations[logicalcluster.AnnotationKey] = clusterName
 	return b
 }
 

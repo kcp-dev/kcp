@@ -91,8 +91,10 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 		internal, apiResourceSchema := isPermissionClaimForInternalAPI(pc)
 		if internal {
 			shallow := *apiResourceSchema
-			// nolint:staticcheck
-			shallow.ZZZ_DeprecatedClusterName = logicalcluster.From(apiExport).String()
+			if shallow.Annotations == nil {
+				shallow.Annotations = make(map[string]string)
+			}
+			shallow.Annotations[logicalcluster.AnnotationKey] = logicalcluster.From(apiExport).String()
 			apiResourceSchemas[gr] = &shallow
 			continue
 		} else if pc.IdentityHash == "" {

@@ -1058,25 +1058,37 @@ func setupWatchReactor(resource string, fromClient *dynamicfake.FakeDynamicClien
 }
 
 func namespace(name, clusterName string, labels, annotations map[string]string) *corev1.Namespace {
+	if clusterName != "" {
+		if annotations == nil {
+			annotations = make(map[string]string)
+		}
+		annotations[logicalcluster.AnnotationKey] = clusterName
+	}
+
 	return &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:                      name,
-			ZZZ_DeprecatedClusterName: clusterName,
-			Labels:                    labels,
-			Annotations:               annotations,
+			Name:        name,
+			Labels:      labels,
+			Annotations: annotations,
 		},
 	}
 }
 
 func deployment(name, namespace, clusterName string, labels, annotations map[string]string, finalizers []string) *appsv1.Deployment {
+	if clusterName != "" {
+		if annotations == nil {
+			annotations = make(map[string]string)
+		}
+		annotations[logicalcluster.AnnotationKey] = clusterName
+	}
+
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:                      name,
-			Namespace:                 namespace,
-			ZZZ_DeprecatedClusterName: clusterName,
-			Labels:                    labels,
-			Annotations:               annotations,
-			Finalizers:                finalizers,
+			Name:        name,
+			Namespace:   namespace,
+			Labels:      labels,
+			Annotations: annotations,
+			Finalizers:  finalizers,
 		},
 	}
 }
@@ -1086,14 +1098,18 @@ func secret(name, namespace, clusterName string, labels, annotations map[string]
 }
 
 func secretWithFinalizers(name, namespace, clusterName string, labels, annotations map[string]string, finalizers []string, data map[string][]byte) *corev1.Secret {
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+	annotations[logicalcluster.AnnotationKey] = clusterName
+
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:                      name,
-			Namespace:                 namespace,
-			ZZZ_DeprecatedClusterName: clusterName,
-			Labels:                    labels,
-			Annotations:               annotations,
-			Finalizers:                finalizers,
+			Name:        name,
+			Namespace:   namespace,
+			Labels:      labels,
+			Annotations: annotations,
+			Finalizers:  finalizers,
 		},
 		Data:       data,
 		StringData: nil,

@@ -75,9 +75,11 @@ func (c *Controller) reconcile(ctx context.Context, deployment *appsv1.Deploymen
 
 		rootIf, exists, err := c.indexer.Get(&appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace:                 deployment.Namespace,
-				Name:                      rootDeploymentName,
-				ZZZ_DeprecatedClusterName: logicalcluster.From(deployment).String(),
+				Namespace: deployment.Namespace,
+				Name:      rootDeploymentName,
+				Annotations: map[string]string{
+					logicalcluster.AnnotationKey: logicalcluster.From(deployment).String(),
+				},
 			},
 		})
 		if err != nil {

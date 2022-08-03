@@ -295,7 +295,16 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 	downstreamObj.SetResourceVersion("")
 	downstreamObj.SetNamespace(downstreamNamespace)
 	downstreamObj.SetManagedFields(nil)
-	downstreamObj.SetZZZ_DeprecatedClusterName("")
+
+	// Strip cluster name annotation
+	downstreamAnnotations := downstreamObj.GetAnnotations()
+	delete(downstreamAnnotations, logicalcluster.AnnotationKey)
+	// If we're left with 0 annotations, nil out the map so it's not included in the patch
+	if len(downstreamAnnotations) == 0 {
+		downstreamAnnotations = nil
+	}
+	downstreamObj.SetAnnotations(downstreamAnnotations)
+
 	// Deletion fields are immutable and set by the downstream API server
 	downstreamObj.SetDeletionTimestamp(nil)
 	downstreamObj.SetDeletionGracePeriodSeconds(nil)
