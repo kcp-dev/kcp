@@ -114,6 +114,19 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 	isServiceAccountFromRootCluster := subjectClusters[tenancyv1alpha1.RootCluster]
 	isServiceAccountFromCluster := subjectClusters[cluster.Name]
 
+	if IsDeepSubjectAccessReviewFrom(ctx, attr) {
+		attr := deepCopyAttributes(attr)
+		// this is a deep SAR request, we have to skip the checks here and delegate to the subsequent authorizer.
+		if isAuthenticated && !isUser && !isServiceAccountFromCluster {
+			// anonymize service accounts from other workspaces
+			attr.User = &user.DefaultInfo{
+				Name:   "system:anonymous",
+				Groups: []string{"system:authenticated"},
+			}
+		}
+		return a.delegate.Authorize(ctx, attr)
+	}
+
 	// Every authenticated user has access to the root workspace but not every service account.
 	// For root, only service accounts declared in root have access.
 	if cluster.Name == tenancyv1alpha1.RootCluster {
