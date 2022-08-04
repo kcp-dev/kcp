@@ -283,6 +283,37 @@ spec:
                   - type
                   type: object
                 type: array
+              exportPermissionClaims:
+                description: exportPermissionClaims records the permissions that the
+                  export provider is asking for the binding to grant.
+                items:
+                  description: PermissionClaim identifies an object by GR and identity
+                    hash. It's purpose is to determine the added permisions that a
+                    service provider may request and that a consumer may accept and
+                    alllow the service provider access to.
+                  properties:
+                    group:
+                      description: group is the name of an API group. For core groups
+                        this is the empty string '""'.
+                      pattern: ^(|[a-z0-9]([-a-z0-9]*[a-z0-9](\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)?)$
+                      type: string
+                    identityHash:
+                      description: This is the identity for a given APIExport that
+                        the APIResourceSchema belongs to. The hash can be found on
+                        APIExport and APIResourceSchema's status. It will be empty
+                        for core types. Note that one must look this up for a particular
+                        KCP instance.
+                      type: string
+                    resource:
+                      description: 'resource is the name of the resource. Note: it
+                        is worth noting that you can not ask for permissions for resource
+                        provided by a CRD not provided by an api export.'
+                      pattern: ^[a-z][-a-z0-9]*[a-z0-9]$
+                      type: string
+                  required:
+                  - resource
+                  type: object
+                type: array
               phase:
                 description: 'phase is the current phase of the APIBinding: - "":
                   the APIBinding has just been created, waiting to be bound. - Binding:
