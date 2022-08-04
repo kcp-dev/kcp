@@ -28,9 +28,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
@@ -43,6 +42,7 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
 )
 
@@ -50,7 +50,8 @@ const (
 	controllerName = "kcp-permissionclaimlabel"
 )
 
-// NewController returns a new controller for APIBindings.
+// NewController returns a new controller for handling permission claims for an APIBinding.
+// it will own the ObservedAcceptedPermissionClaims and will own the accepted permision claim condition.
 func NewController(
 	kcpClusterClient kcpclient.Interface,
 	dynamicClusterClient dynamic.Interface,
@@ -67,19 +68,19 @@ func NewController(
 
 		apiBindingsLister: apiBindingInformer.Lister(),
 		listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
-			list, err := apiBindingInformer.Lister().List(labels.Everything())
+			var ret []*apisv1alpha1.APIBinding
+			obj, err := apiBindingInformer.Informer().GetIndexer().ByIndex(indexers.ByLogicalCluster, clusterName.String())
 			if err != nil {
-				return nil, err
+				klog.Errorf("Unable to get bindings from indexer: %v", err)
+				return ret, err
 			}
 
-			var ret []*apisv1alpha1.APIBinding
-
-			for i := range list {
-				if logicalcluster.From(list[i]) != clusterName {
-					continue
+			for _, o := range obj {
+				binding, ok := o.(*apisv1alpha1.APIBinding)
+				if !ok {
+					klog.Errorf("unexpected type apisv1alpha1.APIBinding, got %T", o)
 				}
-
-				ret = append(ret, list[i])
+				ret = append(ret, binding)
 			}
 
 			return ret, nil
@@ -94,12 +95,6 @@ func NewController(
 			c.enqueueAPIBinding(newObj, "")
 		},
 		DeleteFunc: func(obj interface{}) { c.enqueueAPIBinding(obj, "") },
-	})
-
-	c.ddsif.AddEventHandler(informer.GVREventHandlerFuncs{
-		AddFunc:    func(gvr schema.GroupVersionResource, obj interface{}) { c.enqueueBindingForResource(gvr, obj) },
-		UpdateFunc: func(gvr schema.GroupVersionResource, _, obj interface{}) { c.enqueueBindingForResource(gvr, obj) },
-		DeleteFunc: nil, // Nothing to do.
 	})
 
 	return c, nil
@@ -131,33 +126,6 @@ func (c *controller) enqueueAPIBinding(obj interface{}, logSuffix string) {
 
 	klog.V(2).InfoS("queueing APIBinding", "key", key, "suffix", logSuffix)
 	c.queue.Add(key)
-}
-
-// enqueueBindingForResource
-func (c *controller) enqueueBindingForResource(gvr schema.GroupVersionResource, obj interface{}) {
-	// Determine APIBindings that have Permission Claims for the given GVR
-	o, ok := obj.(logicalcluster.Object)
-	if !ok {
-		runtime.HandleError(fmt.Errorf("expected interface: %T but got: %T", o, obj))
-	}
-
-	lc := logicalcluster.From(o)
-
-	apiBindings, err := c.listAPIBindings(lc)
-	if err != nil {
-		runtime.HandleError(err)
-		return
-	}
-
-	for _, binding := range apiBindings {
-		for _, pc := range binding.Spec.AcceptedPermissionClaims {
-			if pc.Group == gvr.Group && pc.Resource == gvr.Resource {
-				key := clusters.ToClusterAwareKey(lc, binding.Name)
-				klog.V(2).InfoS("queueing APIBinding", "key", key)
-				c.queue.Add(key)
-			}
-		}
-	}
 }
 
 // Start starts the controller, which stops when ctx.Done() is closed.
@@ -218,11 +186,10 @@ func (c *controller) process(ctx context.Context, key string) error {
 	}
 	old := obj
 	obj = obj.DeepCopy()
-
-	reconcileErr := c.reconcile(ctx, obj)
-	// Regardless of whether reconcile returned an error or not, always try to patch status if needed. Return the
-	// reconciliation error at the end.
-
+	var errs []error
+	if err := c.reconcile(ctx, obj); err != nil {
+		errs = append(errs, err)
+	}
 	// If the object being reconciled changed as a result, update it.
 	if !equality.Semantic.DeepEqual(old.Status, obj.Status) {
 		oldData, err := json.Marshal(apisv1alpha1.APIBinding{
@@ -249,9 +216,11 @@ func (c *controller) process(ctx context.Context, key string) error {
 		}
 
 		klog.V(2).InfoS("Patching apibinding", "cluster", clusterName, "name", name, "patch", string(patchBytes))
-		_, uerr := c.kcpClusterClient.ApisV1alpha1().APIBindings().Patch(logicalcluster.WithCluster(ctx, clusterName), obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
-		return uerr
+		if _, err := c.kcpClusterClient.ApisV1alpha1().APIBindings().Patch(logicalcluster.WithCluster(ctx, clusterName), obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status"); err != nil {
+			errs = append(errs, err)
+
+		}
 	}
 
-	return reconcileErr
+	return utilerrors.NewAggregate(errs)
 }

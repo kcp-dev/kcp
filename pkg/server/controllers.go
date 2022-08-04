@@ -602,6 +602,16 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 		return err
 	}
 
+	permissionClaimLabelResourceController, err := permissionclaimlabel.NewResourceController(
+		kcpClusterClient,
+		dynamicClusterClient,
+		ddsif,
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
+	)
+	if err != nil {
+		return err
+	}
+
 	if err := server.AddPostStartHook("kcp-install-apibinding-controller", func(hookContext genericapiserver.PostStartHookContext) error {
 		// do custom wait logic here because APIExports+APIBindings are special as system CRDs,
 		// and the controllers must run as soon as these two informers are up in order to bootstrap
@@ -619,6 +629,7 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 
 		go c.Start(goContext(hookContext), 2)
 		go permissionClaimLabelController.Start(goContext(hookContext), 5)
+		go permissionClaimLabelResourceController.Start(goContext(hookContext), 2)
 
 		return nil
 	}); err != nil {
