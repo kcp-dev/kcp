@@ -119,6 +119,7 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 				applyErrors.Insert(s)
 			}
 			continue
+
 		}
 
 		claimLogger.V(4).Info("got resources", "count", len(objs))

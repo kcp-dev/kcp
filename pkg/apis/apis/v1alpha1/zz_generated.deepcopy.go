@@ -139,6 +139,11 @@ func (in *APIBindingStatus) DeepCopyInto(out *APIBindingStatus) {
 		*out = make([]PermissionClaim, len(*in))
 		copy(*out, *in)
 	}
+	if in.RequestedPermissionClaims != nil {
+		in, out := &in.RequestedPermissionClaims, &out.RequestedPermissionClaims
+		*out = make([]PermissionClaim, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 

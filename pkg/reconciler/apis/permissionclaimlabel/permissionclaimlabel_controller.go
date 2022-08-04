@@ -187,12 +187,10 @@ func (c *controller) process(ctx context.Context, key string) error {
 
 	old := obj
 	obj = obj.DeepCopy()
-
 	var errs []error
 	if err := c.reconcile(ctx, obj); err != nil {
 		errs = append(errs, err)
 	}
-
 	// If the object being reconciled changed as a result, update it.
 	if !equality.Semantic.DeepEqual(old.Status, obj.Status) {
 		oldData, err := json.Marshal(apisv1alpha1.APIBinding{
@@ -218,7 +216,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 			return fmt.Errorf("failed to create patch for apibinding %s|%s: %w", clusterName, name, err)
 		}
 
-		logger.V(2).Info("patching APIBinding", "patch", string(patchBytes))
+		klog.V(2).InfoS("Patching apibinding", "cluster", clusterName, "name", name, "patch", string(patchBytes))
 		if _, err := c.kcpClusterClient.ApisV1alpha1().APIBindings().Patch(logicalcluster.WithCluster(ctx, clusterName), obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status"); err != nil {
 			errs = append(errs, err)
 

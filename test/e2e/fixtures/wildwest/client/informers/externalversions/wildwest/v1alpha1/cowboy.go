@@ -22,15 +22,14 @@ import (
 	"context"
 	time "time"
 
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	runtime "k8s.io/apimachinery/pkg/runtime"
-	watch "k8s.io/apimachinery/pkg/watch"
-	cache "k8s.io/client-go/tools/cache"
-
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
 	versioned "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned"
 	internalinterfaces "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/informers/externalversions/internalinterfaces"
 	v1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/listers/wildwest/v1alpha1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	runtime "k8s.io/apimachinery/pkg/runtime"
+	watch "k8s.io/apimachinery/pkg/watch"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // CowboyInformer provides access to a shared informer and lister for
