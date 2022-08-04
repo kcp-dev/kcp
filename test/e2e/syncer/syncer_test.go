@@ -72,12 +72,11 @@ func TestSyncerLifecycle(t *testing.T) {
 	t.Cleanup(cancelFunc)
 
 	upstreamConfig := upstreamServer.BaseConfig(t)
-	upstreamKubeClusterClient, err := kubernetesclientset.NewClusterForConfig(upstreamConfig)
+	upstreamKubeClusterClient, err := kubernetesclientset.NewForConfig(upstreamConfig)
 	require.NoError(t, err)
-	upstreamKubeClient := upstreamKubeClusterClient.Cluster(wsClusterName)
 
 	t.Log("Creating upstream namespace...")
-	upstreamNamespace, err := upstreamKubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+	upstreamNamespace, err := upstreamKubeClusterClient.CoreV1().Namespaces().Create(logicalcluster.WithCluster(ctx, wsClusterName), &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-syncer",
 		},
@@ -140,14 +139,14 @@ func TestSyncerLifecycle(t *testing.T) {
 	// This test created a new workspace that initially lacked support for deployments, but once the
 	// sync target went ready (checked by the syncer fixture's Start method) the api importer
 	// will have enabled deployments in the logical cluster.
-	upstreamDeployment, err := upstreamKubeClient.AppsV1().Deployments(upstreamNamespace.Name).Create(ctx, deployment, metav1.CreateOptions{})
+	upstreamDeployment, err := upstreamKubeClusterClient.AppsV1().Deployments(upstreamNamespace.Name).Create(logicalcluster.WithCluster(ctx, wsClusterName), deployment, metav1.CreateOptions{})
 	require.NoError(t, err, "failed to create deployment")
 
 	syncTargetKey := workloadv1alpha1.ToSyncTargetKey(logicalcluster.From(syncTarget), syncTarget.Name)
 
 	t.Logf("Waiting for upstream deployment %s/%s to get the syncer finalizer", upstreamNamespace.Name, upstreamDeployment.Name)
 	require.Eventually(t, func() bool {
-		deployment, err = upstreamKubeClient.AppsV1().Deployments(upstreamNamespace.Name).Get(ctx, upstreamDeployment.Name, metav1.GetOptions{})
+		deployment, err = upstreamKubeClusterClient.AppsV1().Deployments(upstreamNamespace.Name).Get(logicalcluster.WithCluster(ctx, wsClusterName), upstreamDeployment.Name, metav1.GetOptions{})
 		if apierrors.IsNotFound(err) {
 			return false
 		}
@@ -200,7 +199,7 @@ func TestSyncerLifecycle(t *testing.T) {
 		err = yaml.Unmarshal(configmapAdminRoleYAML, &configmapAdminRole)
 		require.NoError(t, err, "failed to unmarshal role")
 
-		_, err = upstreamKubeClient.RbacV1().Roles(upstreamNamespace.Name).Create(ctx, configmapAdminRole, metav1.CreateOptions{})
+		_, err = upstreamKubeClusterClient.RbacV1().Roles(upstreamNamespace.Name).Create(logicalcluster.WithCluster(ctx, wsClusterName), configmapAdminRole, metav1.CreateOptions{})
 		require.NoError(t, err, "failed to create upstream role")
 
 		configmapAdminRoleBindingYAML, err := embeddedResources.ReadFile("configmap-admin-rolebinding.yaml")
@@ -210,7 +209,7 @@ func TestSyncerLifecycle(t *testing.T) {
 		err = yaml.Unmarshal(configmapAdminRoleBindingYAML, &configmapAdminRoleBinding)
 		require.NoError(t, err, "failed to unmarshal rolebinding")
 
-		_, err = upstreamKubeClient.RbacV1().RoleBindings(upstreamNamespace.Name).Create(ctx, configmapAdminRoleBinding, metav1.CreateOptions{})
+		_, err = upstreamKubeClusterClient.RbacV1().RoleBindings(upstreamNamespace.Name).Create(logicalcluster.WithCluster(ctx, wsClusterName), configmapAdminRoleBinding, metav1.CreateOptions{})
 		require.NoError(t, err, "failed to create upstream rolebinding")
 
 		t.Logf("Creating upstream in-cluster configuration test deployment")
@@ -225,7 +224,7 @@ func TestSyncerLifecycle(t *testing.T) {
 		expectedConfigMapName := "expected-configmap"
 		iccDeployment.Spec.Template.Spec.Containers[0].Env[0].Value = expectedConfigMapName
 
-		iccUpstreamDeployment, err := upstreamKubeClient.AppsV1().Deployments(upstreamNamespace.Name).Create(ctx, iccDeployment, metav1.CreateOptions{})
+		iccUpstreamDeployment, err := upstreamKubeClusterClient.AppsV1().Deployments(upstreamNamespace.Name).Create(logicalcluster.WithCluster(ctx, wsClusterName), iccDeployment, metav1.CreateOptions{})
 		require.NoError(t, err, "failed to create icc-test deployment")
 
 		t.Logf("Waiting for downstream in-cluster config test deployment %s/%s to be created...", downstreamNamespaceName, iccUpstreamDeployment.Name)
@@ -245,7 +244,7 @@ func TestSyncerLifecycle(t *testing.T) {
 		require.Eventually(t, func() bool {
 			logState = dumpPodLogs(t, logState, downstreamKubeClient, downstreamNamespaceName)
 
-			_, err := upstreamKubeClient.CoreV1().ConfigMaps(upstreamNamespace.Name).Get(ctx, expectedConfigMapName, metav1.GetOptions{})
+			_, err := upstreamKubeClusterClient.CoreV1().ConfigMaps(upstreamNamespace.Name).Get(logicalcluster.WithCluster(ctx, wsClusterName), expectedConfigMapName, metav1.GetOptions{})
 			if apierrors.IsNotFound(err) {
 				return false
 			}
@@ -272,16 +271,16 @@ func TestSyncerLifecycle(t *testing.T) {
 	// Add a virtual Finalizer to the deployment and update it.
 	t.Logf("Adding a virtual finalizer to the upstream deployment %s/%s in order to simulate an external controller", upstreamNamespace.Name, upstreamDeployment.Name)
 	deploymentPatch := []byte(`{"metadata":{"annotations":{"finalizers.workload.kcp.dev/` + syncTargetKey + `":"external-controller-finalizer"}}}`)
-	_, err = upstreamKubeClient.AppsV1().Deployments(upstreamNamespace.Name).Patch(ctx, upstreamDeployment.Name, types.MergePatchType, deploymentPatch, metav1.PatchOptions{})
+	_, err = upstreamKubeClusterClient.AppsV1().Deployments(upstreamNamespace.Name).Patch(logicalcluster.WithCluster(ctx, wsClusterName), upstreamDeployment.Name, types.MergePatchType, deploymentPatch, metav1.PatchOptions{})
 	require.NoError(t, err)
 
 	t.Logf("Deleting upstream deployment %s/%s", upstreamNamespace.Name, upstreamDeployment.Name)
-	err = upstreamKubeClient.AppsV1().Deployments(upstreamNamespace.Name).Delete(ctx, upstreamDeployment.Name, metav1.DeleteOptions{GracePeriodSeconds: pointer.Int64(0)})
+	err = upstreamKubeClusterClient.AppsV1().Deployments(upstreamNamespace.Name).Delete(logicalcluster.WithCluster(ctx, wsClusterName), upstreamDeployment.Name, metav1.DeleteOptions{GracePeriodSeconds: pointer.Int64(0)})
 	require.NoError(t, err)
 
 	t.Logf("Checking if the upstream deployment %s/%s has the per-location deletion annotation set", upstreamNamespace.Name, upstreamDeployment.Name)
 	framework.Eventually(t, func() (bool, string) {
-		deployment, err := upstreamKubeClient.AppsV1().Deployments(upstreamNamespace.Name).Get(ctx, upstreamDeployment.Name, metav1.GetOptions{})
+		deployment, err := upstreamKubeClusterClient.AppsV1().Deployments(upstreamNamespace.Name).Get(logicalcluster.WithCluster(ctx, wsClusterName), upstreamDeployment.Name, metav1.GetOptions{})
 		if apierrors.IsNotFound(err) {
 			return false, ""
 		}
@@ -294,7 +293,7 @@ func TestSyncerLifecycle(t *testing.T) {
 
 	t.Logf("Checking if upstream deployment %s/%s is getting deleted, shouldn't as the syncer will not remove its finalizer due to the virtual finalizer", upstreamNamespace.Name, upstreamDeployment.Name)
 	require.Never(t, func() bool {
-		_, err := upstreamKubeClient.AppsV1().Deployments(upstreamNamespace.Name).Get(ctx, upstreamDeployment.Name, metav1.GetOptions{})
+		_, err := upstreamKubeClusterClient.AppsV1().Deployments(upstreamNamespace.Name).Get(logicalcluster.WithCluster(ctx, wsClusterName), upstreamDeployment.Name, metav1.GetOptions{})
 		if apierrors.IsNotFound(err) {
 			return true
 		}
@@ -315,12 +314,12 @@ func TestSyncerLifecycle(t *testing.T) {
 	// deleting a virtual Finalizer on the deployment and updating it.
 	t.Logf("Removing the virtual finalizer on the upstream deployment %s/%s, the deployment deletion should go through after this", upstreamNamespace.Name, upstreamDeployment.Name)
 	deploymentPatch = []byte(`{"metadata":{"annotations":{"finalizers.workload.kcp.dev/` + syncTargetKey + `": null}}}`)
-	_, err = upstreamKubeClient.AppsV1().Deployments(upstreamNamespace.Name).Patch(ctx, upstreamDeployment.Name, types.MergePatchType, deploymentPatch, metav1.PatchOptions{})
+	_, err = upstreamKubeClusterClient.AppsV1().Deployments(upstreamNamespace.Name).Patch(logicalcluster.WithCluster(ctx, wsClusterName), upstreamDeployment.Name, types.MergePatchType, deploymentPatch, metav1.PatchOptions{})
 	require.NoError(t, err)
 
 	t.Logf("Waiting for upstream deployment %s/%s to be deleted", upstreamNamespace.Name, upstreamDeployment.Name)
 	require.Eventually(t, func() bool {
-		_, err := upstreamKubeClient.AppsV1().Deployments(upstreamNamespace.Name).Get(ctx, upstreamDeployment.Name, metav1.GetOptions{})
+		_, err := upstreamKubeClusterClient.AppsV1().Deployments(upstreamNamespace.Name).Get(logicalcluster.WithCluster(ctx, wsClusterName), upstreamDeployment.Name, metav1.GetOptions{})
 		if apierrors.IsNotFound(err) {
 			return true
 		}
@@ -467,9 +466,8 @@ func TestCordonUncordonDrain(t *testing.T) {
 	require.NoError(t, err)
 	_, kubeconfigPath := framework.WriteLogicalClusterConfig(t, upstreamRawConfig, "base", wsClusterName)
 
-	clients, err := clientset.NewClusterForConfig(upstreamCfg)
+	kcpClusterClient, err := clientset.NewForConfig(upstreamCfg)
 	require.NoError(t, err, "failed to construct client for server")
-	kcpClient := clients.Cluster(wsClusterName)
 
 	// The Start method of the fixture will initiate syncer start and then wait for
 	// its sync target to go ready. This implicitly validates the syncer
@@ -482,7 +480,7 @@ func TestCordonUncordonDrain(t *testing.T) {
 	t.Cleanup(cancelFunc)
 
 	t.Log("Check initial workload")
-	cluster, err := kcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
+	cluster, err := kcpClusterClient.WorkloadV1alpha1().SyncTargets().Get(logicalcluster.WithCluster(ctx, wsClusterName), syncTargetName, metav1.GetOptions{})
 	require.NoError(t, err, "failed to get sync target", syncTargetName)
 	require.False(t, cluster.Spec.Unschedulable)
 	require.Nil(t, cluster.Spec.EvictAfter)
@@ -496,7 +494,7 @@ func TestCordonUncordonDrain(t *testing.T) {
 	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandCordon)
 
 	t.Log("Check workload after cordon")
-	cluster, err = kcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
+	cluster, err = kcpClusterClient.WorkloadV1alpha1().SyncTargets().Get(logicalcluster.WithCluster(ctx, wsClusterName), syncTargetName, metav1.GetOptions{})
 	require.NoError(t, err, "failed to get sync target", syncTargetName)
 	require.True(t, cluster.Spec.Unschedulable)
 	require.Nil(t, cluster.Spec.EvictAfter)
@@ -512,7 +510,7 @@ func TestCordonUncordonDrain(t *testing.T) {
 	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandUncordon)
 
 	t.Log("Check workload after uncordon")
-	cluster, err = kcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
+	cluster, err = kcpClusterClient.WorkloadV1alpha1().SyncTargets().Get(logicalcluster.WithCluster(ctx, wsClusterName), syncTargetName, metav1.GetOptions{})
 	require.NoError(t, err, "failed to get sync target", syncTargetName)
 	require.False(t, cluster.Spec.Unschedulable)
 	require.Nil(t, cluster.Spec.EvictAfter)
@@ -528,7 +526,7 @@ func TestCordonUncordonDrain(t *testing.T) {
 	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandDrain)
 
 	t.Log("Check workload after drain started")
-	cluster, err = kcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
+	cluster, err = kcpClusterClient.WorkloadV1alpha1().SyncTargets().Get(logicalcluster.WithCluster(ctx, wsClusterName), syncTargetName, metav1.GetOptions{})
 	require.NoError(t, err, "failed to get sync target", syncTargetName)
 	require.True(t, cluster.Spec.Unschedulable)
 	require.NotNil(t, cluster.Spec.EvictAfter)
@@ -545,7 +543,7 @@ func TestCordonUncordonDrain(t *testing.T) {
 	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandUncordon)
 
 	t.Log("Check workload after uncordon")
-	cluster, err = kcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
+	cluster, err = kcpClusterClient.WorkloadV1alpha1().SyncTargets().Get(logicalcluster.WithCluster(ctx, wsClusterName), syncTargetName, metav1.GetOptions{})
 	require.NoError(t, err, "failed to get sync target", syncTargetName)
 	require.False(t, cluster.Spec.Unschedulable)
 	require.Nil(t, cluster.Spec.EvictAfter)
