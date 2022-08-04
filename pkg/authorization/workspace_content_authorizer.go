@@ -73,6 +73,10 @@ type workspaceContentAuthorizer struct {
 }
 
 func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
+	if DeepSubjectAccessReviewFrom(ctx) {
+		return authorizer.DecisionAllow, "", nil
+	}
+
 	cluster, err := genericapirequest.ValidClusterFrom(ctx)
 	if err != nil {
 		return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, err

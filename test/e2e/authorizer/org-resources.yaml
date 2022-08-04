@@ -1,13 +1,3 @@
-apiVersion: tenancy.kcp.dev/v1alpha1
-kind: ClusterWorkspace
-metadata:
-  name: workspace1
----
-apiVersion: tenancy.kcp.dev/v1alpha1
-kind: ClusterWorkspace
-metadata:
-  name: workspace2
----
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:

@@ -48,6 +48,7 @@ import (
 	kcpadmissioninitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/authorization"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
@@ -270,6 +271,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 	c.GenericConfig.BuildHandlerChainFunc = func(apiHandler http.Handler, genericConfig *genericapiserver.Config) (secure http.Handler) {
 		apiHandler = WithWildcardListWatchGuard(apiHandler)
 		apiHandler = WithWildcardIdentity(apiHandler)
+		apiHandler = authorization.WithDeepSubjectAccessReview(apiHandler)
 
 		apiHandler = genericapiserver.DefaultBuildHandlerChainFromAuthz(apiHandler, genericConfig)
 

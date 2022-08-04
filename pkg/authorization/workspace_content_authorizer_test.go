@@ -80,6 +80,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 		wantReason, wantError string
 		wantDecision          authorizer.Decision
 		wantUser              *user.DefaultInfo
+		deepSARHeader         bool
 	}{
 		{
 			testName: "requested cluster is not root",
@@ -194,6 +195,14 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			requestedWorkspace: "root:initializing",
 			requestingUser:     newUser("user-admin"),
 			wantUser:           newUser("user-admin", "system:kcp:clusterworkspace:access", "system:kcp:clusterworkspace:admin"),
+		},
+		{
+			testName: "any user passed for deep SAR",
+
+			requestedWorkspace: "root:ready",
+			requestingUser:     newUser("user-unknown"),
+			wantDecision:       authorizer.DecisionAllow,
+			deepSARHeader:      true,
 		},
 	} {
 		t.Run(tt.testName, func(t *testing.T) {
@@ -399,6 +408,9 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			ctx = request.WithCluster(ctx, requestedCluster)
 			attr := authorizer.AttributesRecord{
 				User: tt.requestingUser,
+			}
+			if tt.deepSARHeader {
+				ctx = context.WithValue(ctx, deepSARKey, true)
 			}
 
 			gotDecision, gotReason, err := w.Authorize(ctx, attr)

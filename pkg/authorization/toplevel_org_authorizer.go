@@ -69,6 +69,10 @@ type topLevelOrgAccessAuthorizer struct {
 }
 
 func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
+	if DeepSubjectAccessReviewFrom(ctx) {
+		return authorizer.DecisionAllow, "", nil
+	}
+
 	cluster, err := genericapirequest.ValidClusterFrom(ctx)
 	if err != nil || cluster == nil || cluster.Name.Empty() {
 		return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, err
