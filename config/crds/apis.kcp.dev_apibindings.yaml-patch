@@ -6,8 +6,3 @@
   path: /spec/versions/name=v1alpha1/schema/openAPIV3Schema/properties/spec/properties/reference/properties/workspace/oneOf
   value:
   - required: ["path"]
-- op: add
-  path: /spec/versions/name=v1alpha1/schema/openAPIV3Schema/properties/spec/properties/acceptedPermissionClaims/items/x-kubernetes-validations
-  value:
-    - rule: "!(has(self.group) && self.group != '' && !self.group.endsWith('.k8s.io')) || (has(self.identityHash) && self.identityHash != '')"
-      message: .identityHash must be set if .group is not empty or *.k8s.io.

@@ -69,10 +69,6 @@ spec:
                   required:
                   - resource
                   type: object
-                  x-kubernetes-validations:
-                  - message: .identityHash must be set if .group is not empty or *.k8s.io.
-                    rule: '!(has(self.group) && self.group != '''' && !self.group.endsWith(''.k8s.io''))
-                      || (has(self.identityHash) && self.identityHash != '''')'
                 type: array
               reference:
                 description: reference uniquely identifies an API to bind to.
