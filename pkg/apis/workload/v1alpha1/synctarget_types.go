@@ -36,6 +36,7 @@ import (
 // +kubebuilder:printcolumn:name="Location",type="string",JSONPath=`.metadata.name`,priority=1
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=`.status.conditions[?(@.type=="Ready")].status`,priority=2
 // +kubebuilder:printcolumn:name="Synced API resources",type="string",JSONPath=`.status.syncedResources`,priority=3
+// +kubebuilder:printcolumn:name="Key",type="string",JSONPath=`.metadata.labels['internal\.workload\.kcp\.dev/key']`,priority=4
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 type SyncTarget struct {
 	metav1.TypeMeta `json:",inline"`

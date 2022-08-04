@@ -72,7 +72,7 @@ import (
 	workloadnamespace "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
 	workloadplacement "github.com/kcp-dev/kcp/pkg/reconciler/workload/placement"
 	workloadresource "github.com/kcp-dev/kcp/pkg/reconciler/workload/resource"
-	virtualworkspaceurlscontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/virtualworkspaceurls"
+	synctargetcontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/synctarget"
 )
 
 func (s *Server) installClusterRoleAggregationController(ctx context.Context, config *rest.Config) error {
@@ -894,15 +894,15 @@ func (s *Server) installWorkloadsAPIExportCreateController(ctx context.Context, 
 	})
 }
 
-func (s *Server) installVirtualWorkspaceURLsController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
-	controllerName := "kcp-virtualworkspace-urls-controller"
+func (s *Server) installSyncTargetController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
+	controllerName := "kcp-synctarget-controller"
 	config = kcpclienthelper.NewClusterConfig(rest.AddUserAgent(rest.CopyConfig(config), controllerName))
 	kcpClusterClient, err := kcpclient.NewForConfig(config)
 	if err != nil {
 		return err
 	}
 
-	c := virtualworkspaceurlscontroller.NewController(
+	c := synctargetcontroller.NewController(
 		kcpClusterClient,
 		s.KcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),

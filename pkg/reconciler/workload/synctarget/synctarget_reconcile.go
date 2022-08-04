@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package virtualworkspaceurls
+package synctarget
 
 import (
 	"net/url"
@@ -34,6 +34,13 @@ import (
 func (c *Controller) reconcile(syncTarget *workloadv1alpha1.SyncTarget, workspaceShards []*v1alpha1.ClusterWorkspaceShard) (*workloadv1alpha1.SyncTarget, error) {
 	syncTargetCopy := syncTarget.DeepCopy()
 
+	labels := syncTargetCopy.GetLabels()
+	if labels == nil {
+		labels = map[string]string{}
+	}
+	labels[workloadv1alpha1.InternalSyncTargetKeyLabel] = workloadv1alpha1.ToSyncTargetKey(logicalcluster.From(syncTargetCopy), syncTargetCopy.Name)
+	syncTargetCopy.SetLabels(labels)
+
 	desiredURLs := sets.NewString()
 	for _, workspaceShard := range workspaceShards {
 		if workspaceShard.Spec.ExternalURL != "" {
@@ -50,6 +57,17 @@ func (c *Controller) reconcile(syncTarget *workloadv1alpha1.SyncTarget, workspac
 				syncTargetCopy.Name,
 			)
 			desiredURLs.Insert(syncerVirtualWorkspaceURL.String())
+		}
+	}
+
+	if syncTargetCopy.Status.VirtualWorkspaces != nil {
+		currentURLs := sets.NewString()
+		for _, virtualWorkspace := range syncTargetCopy.Status.VirtualWorkspaces {
+			currentURLs = currentURLs.Insert(virtualWorkspace.URL)
+		}
+
+		if desiredURLs.Equal(currentURLs) {
+			return syncTargetCopy, nil
 		}
 	}
 

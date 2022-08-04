@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package virtualworkspaceurls
+package synctarget
 
 import (
 	"context"
@@ -191,11 +191,21 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		return err
 	}
 
-	if _, err := c.kcpClusterClient.WorkloadV1alpha1().SyncTargets().Patch(logicalcluster.WithCluster(ctx, logicalcluster.From(currentSyncTarget)), currentSyncTarget.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status"); err != nil {
-		klog.Errorf("failed to patch sync target status: %v", err)
-		return err
+	if !reflect.DeepEqual(currentSyncTarget.ObjectMeta, newSyncTarget.ObjectMeta) || !reflect.DeepEqual(currentSyncTarget.Spec, newSyncTarget.Spec) {
+		klog.V(2).InfoS("patching synctarget", "name", newSyncTarget.Name, "workspace", logicalcluster.From(newSyncTarget), "patchbytes", string(patchBytes))
+		if _, err := c.kcpClusterClient.WorkloadV1alpha1().SyncTargets().Patch(logicalcluster.WithCluster(ctx, logicalcluster.From(currentSyncTarget)), currentSyncTarget.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
+			klog.Errorf("failed to patch sync target: %v", err)
+			return err
+		}
 	}
-	klog.V(2).InfoS("updated sync target status", "SyncTarget", newSyncTarget.Name, "LogicalCluster", logicalcluster.From(newSyncTarget))
+
+	if !reflect.DeepEqual(currentSyncTarget.Status, newSyncTarget.Status) {
+		klog.V(2).InfoS("patching synctarget status", "name", newSyncTarget.Name, "workspace", logicalcluster.From(newSyncTarget), "patchbytes", string(patchBytes))
+		if _, err := c.kcpClusterClient.WorkloadV1alpha1().SyncTargets().Patch(logicalcluster.WithCluster(ctx, logicalcluster.From(currentSyncTarget)), currentSyncTarget.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status"); err != nil {
+			klog.Errorf("failed to patch sync target status: %v", err)
+			return err
+		}
+	}
 
 	return nil
 }
