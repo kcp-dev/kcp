@@ -132,6 +132,7 @@ var (
 		"root-directory",              // Root directory.
 		"shard-base-url",              // Base URL to this kcp shard. Defaults to external address.
 		"shard-external-url",          // URL used by outside clients to talk to this kcp shard. Defaults to external address.
+		"shard-virtual-workspace-url", // An external URL address of a virtual workspace server associated with this shard. Defaults to shard's base address.
 		"shard-name",                  // A name of this kcp shard.
 		"shard-kubeconfig-file",       // Kubeconfig holding admin(!) credentials to peer kcp shards.
 		"root-shard-kubeconfig-file",  // Kubeconfig holding admin(!) credentials to the root kcp shard.

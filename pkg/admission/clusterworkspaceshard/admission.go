@@ -133,6 +133,10 @@ func (o *clusterWorkspaceShard) Admit(_ context.Context, a admission.Attributes,
 		}
 	}
 
+	if cws.Spec.VirtualWorkspaceURL == "" {
+		cws.Spec.VirtualWorkspaceURL = cws.Spec.BaseURL
+	}
+
 	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(cws)
 	if err != nil {
 		return err

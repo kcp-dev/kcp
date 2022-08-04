@@ -90,6 +90,11 @@ func (b *shardBuilder) externalURL(u string) *shardBuilder {
 	return b
 }
 
+func (b *shardBuilder) virtualWorkspaceURL(u string) *shardBuilder {
+	b.Spec.VirtualWorkspaceURL = u
+	return b
+}
+
 func TestAdmitIgnoresOtherResources(t *testing.T) {
 	o := &clusterWorkspaceShard{
 		Handler: admission.NewHandler(admission.Create, admission.Update),
@@ -117,7 +122,7 @@ func TestAdmitIgnoresOtherResources(t *testing.T) {
 }
 
 func TestNoOp(t *testing.T) {
-	shard := newTestShard().baseURL("https://boston2.kcp.dev").externalURL("https://kcp2.dev")
+	shard := newTestShard().baseURL("https://boston2.kcp.dev").externalURL("https://kcp2.dev").virtualWorkspaceURL("https://boston2.kcp.dev")
 	attrs := map[string]admission.Attributes{
 		"create": createAttr(shard),
 		"update": updateAttr(shard, shard),
@@ -155,21 +160,21 @@ func TestAdmit(t *testing.T) {
 	}{
 		{
 			name:        "default baseURL to shardBaseURL when both shardBaseURL and externalAddress are set",
-			expectedObj: newTestShard().baseURL("https://shard.base").externalURL("https://shard.external"),
+			expectedObj: newTestShard().baseURL("https://shard.base").externalURL("https://shard.external").virtualWorkspaceURL("https://shard.base"),
 		},
 		{
 			name:              "default baseURL to externalAddress when only externalAddress is set",
 			emptyShardBaseURL: true,
-			expectedObj:       newTestShard().baseURL("https://external.kcp.dev").externalURL("https://shard.external"),
+			expectedObj:       newTestShard().baseURL("https://external.kcp.dev").externalURL("https://shard.external").virtualWorkspaceURL("https://external.kcp.dev"),
 		},
 		{
 			name:        "default externalURL to shardExternalURL when both shardExternalURL and externalAddress are set",
-			expectedObj: newTestShard().baseURL("https://shard.base").externalURL("https://shard.external"),
+			expectedObj: newTestShard().baseURL("https://shard.base").externalURL("https://shard.external").virtualWorkspaceURL("https://shard.base"),
 		},
 		{
 			name:                  "default externalURL to externalAddress when only externalAddress is set",
 			emptyShardExternalURL: true,
-			expectedObj:           newTestShard().baseURL("https://shard.base").externalURL("https://external.kcp.dev"),
+			expectedObj:           newTestShard().baseURL("https://shard.base").externalURL("https://external.kcp.dev").virtualWorkspaceURL("https://shard.base"),
 		},
 	}
 	for _, tt := range tests {
