@@ -32,9 +32,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	rbacv1 "k8s.io/api/rbac/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -47,6 +49,7 @@ import (
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	"github.com/kcp-dev/kcp/pkg/softimpersonation"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -806,6 +809,122 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				kcpClusterClient:      kcpClusterClient,
 				virtualUserKcpClients: virtualUserlKcpClients,
 			})
+		})
+	}
+}
+
+func TestRootWorkspaces(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(cancelFunc)
+
+	server := framework.SharedKcpServer(t)
+	cfg := server.BaseConfig(t)
+
+	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
+	require.NoError(t, err)
+	kubeClusterClient, err := kubernetes.NewForConfig(cfg)
+	require.NoError(t, err)
+
+	user1KcpClusterClient, err := kcpclientset.NewForConfig(framework.UserConfig("user-1", cfg))
+	require.NoError(t, err)
+	user2KcpClusterClient, err := kcpclientset.NewForConfig(framework.UserConfig("user-2", cfg))
+	require.NoError(t, err)
+
+	tests := map[string]func(t *testing.T){
+		"a user can list workspaces at the root": func(t *testing.T) {
+			_, err := user1KcpClusterClient.TenancyV1beta1().Workspaces().List(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), metav1.ListOptions{})
+			require.NoError(t, err)
+		},
+		"a user cannot create workspaces at the root": func(t *testing.T) {
+			_, err := user1KcpClusterClient.TenancyV1beta1().Workspaces().Create(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), &tenancyv1beta1.Workspace{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "test-workspace",
+				},
+			}, metav1.CreateOptions{})
+			require.Error(t, err)
+			require.True(t, kerrors.IsForbidden(err))
+		},
+		"a user sees his own workspaces at the root, but no other workspaces": func(t *testing.T) {
+			// create workspace on-behalf of user-1 and user-2 via soft-impersonation (needs a system:masters client)
+			impersonatedUser1Config, err := softimpersonation.WithSoftImpersonatedConfig(server.RootShardSystemMasterBaseConfig(t), &kuser.DefaultInfo{Name: "user-1"})
+			require.NoError(t, err)
+			impersonatedUser2Config, err := softimpersonation.WithSoftImpersonatedConfig(server.RootShardSystemMasterBaseConfig(t), &kuser.DefaultInfo{Name: "user-2"})
+			require.NoError(t, err)
+
+			impersonatedUser1ClusterClient, err := kcpclientset.NewForConfig(impersonatedUser1Config)
+			require.NoError(t, err)
+			impersonatedUser2ClusterClient, err := kcpclientset.NewForConfig(impersonatedUser2Config)
+			require.NoError(t, err)
+
+			t.Logf("Create workspace for user-1")
+			ws1, err := impersonatedUser1ClusterClient.TenancyV1alpha1().ClusterWorkspaces().Create(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), &tenancyv1alpha1.ClusterWorkspace{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "user1-workspace-",
+				},
+			}, metav1.CreateOptions{})
+			require.NoError(t, err)
+
+			t.Logf("Create workspace for user-2")
+			ws2, err := impersonatedUser2ClusterClient.TenancyV1alpha1().ClusterWorkspaces().Create(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), &tenancyv1alpha1.ClusterWorkspace{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "user2-workspace-",
+				},
+			}, metav1.CreateOptions{})
+			require.NoError(t, err)
+
+			t.Cleanup(func() {
+				kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Delete(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), ws1.Name, metav1.DeleteOptions{}) // nolint: errcheck
+				kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Delete(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), ws2.Name, metav1.DeleteOptions{}) // nolint: errcheck
+			})
+
+			framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, tenancyv1alpha1.RootCluster.Join(ws1.Name), []string{"user-1"}, nil, []string{"access"})
+			framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, tenancyv1alpha1.RootCluster.Join(ws2.Name), []string{"user-2"}, nil, []string{"access"})
+
+			t.Logf("Wait until user-1 sees its workspace")
+			framework.Eventually(t, func() (bool, string) {
+				wss, err := user1KcpClusterClient.TenancyV1beta1().Workspaces().List(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), metav1.ListOptions{})
+				require.NoError(t, err)
+				found := false
+				for _, ws := range wss.Items {
+					if ws.Name == ws1.Name {
+						found = true
+					}
+					require.NotEqual(t, ws.Name, ws2.Name, "user-1 should not see user-2's workspace")
+				}
+				return found, fmt.Sprintf("expected to see workspace %s, got %v", ws1.Name, wss.Items)
+			}, wait.ForeverTestTimeout, time.Millisecond*100, "user-1 should see only one workspace")
+
+			t.Logf("Wait until user-2 sees its workspace")
+			framework.Eventually(t, func() (bool, string) {
+				wss, err := user2KcpClusterClient.TenancyV1beta1().Workspaces().List(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), metav1.ListOptions{})
+				require.NoError(t, err)
+				found := false
+				for _, ws := range wss.Items {
+					if ws.Name == ws2.Name {
+						found = true
+					}
+					require.NotEqual(t, ws.Name, ws1.Name, "user-2 should not see user-1's workspace")
+				}
+				return found, fmt.Sprintf("expected to see workspace %s, got %v", ws2.Name, wss.Items)
+			}, wait.ForeverTestTimeout, time.Millisecond*100, "user-2 should see only one workspace")
+
+			t.Logf("Doublecheck that user-1 still sees only its own workspace")
+			wss, err := user1KcpClusterClient.TenancyV1beta1().Workspaces().List(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), metav1.ListOptions{})
+			require.NoError(t, err)
+			for _, ws := range wss.Items {
+				require.NotEqual(t, ws.Name, ws2.Name)
+			}
+		},
+	}
+
+	for tcName, tcFunc := range tests {
+		tcName := tcName
+		tcFunc := tcFunc
+		t.Run(tcName, func(t *testing.T) {
+			t.Parallel()
+			tcFunc(t)
 		})
 	}
 }
