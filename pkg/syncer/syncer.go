@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
@@ -225,26 +224,10 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		var heartbeatTime time.Time
 
 		// TODO(marun) Figure out a strategy for backoff to avoid a thundering herd problem with lots of syncers
-
 		// Attempt to heartbeat every second until successful. Errors are logged instead of being returned so the
 		// poll error can be safely ignored.
 		_ = wait.PollImmediateInfiniteWithContext(ctx, 1*time.Second, func(ctx context.Context) (bool, error) {
-			syncTarget, err = kcpClusterClient.Cluster(cfg.SyncTargetWorkspace).WorkloadV1alpha1().SyncTargets().Get(ctx, cfg.SyncTargetName, metav1.GetOptions{})
-			if err != nil {
-				klog.Errorf("Failed to retrieve SyncTarget %s|%s: %v", cfg.SyncTargetWorkspace, cfg.SyncTargetName, err)
-				return false, nil
-			}
-
-			// If the SyncTargetUID flag is set, we compare the provided value with the kcp synctarget uid, if the values don't match
-			// the syncer will refuse to work.
-			if cfg.SyncTargetUID != "" {
-				if cfg.SyncTargetUID != string(syncTarget.UID) {
-					klog.Errorf("SyncTargetUID %s does not match the UID of the synctarget %s", cfg.SyncTargetUID, string(syncTarget.UID))
-					os.Exit(1)
-				}
-			}
-
-			patchBytes := []byte(fmt.Sprintf(`[{"op":"replace","path":"/status/lastSyncerHeartbeatTime","value":%q}]`, time.Now().Format(time.RFC3339)))
+			patchBytes := []byte(fmt.Sprintf(`[{"op":"test","path":"/metadata/uid","value":%q},{"op":"replace","path":"/status/lastSyncerHeartbeatTime","value":%q}]`, cfg.SyncTargetUID, time.Now().Format(time.RFC3339)))
 			syncTarget, err = kcpClusterClient.Cluster(cfg.SyncTargetWorkspace).WorkloadV1alpha1().SyncTargets().Patch(ctx, cfg.SyncTargetName, types.JSONPatchType, patchBytes, metav1.PatchOptions{}, "status")
 			if err != nil {
 				klog.Errorf("failed to set status.lastSyncerHeartbeatTime for SyncTarget %s|%s: %v", cfg.SyncTargetWorkspace, cfg.SyncTargetName, err)
@@ -254,9 +237,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 			heartbeatTime = syncTarget.Status.LastSyncerHeartbeatTime.Time
 			return true, nil
 		})
-
 		klog.V(5).Infof("Heartbeat set for SyncTarget %s|%s: %s", cfg.SyncTargetWorkspace, cfg.SyncTargetName, heartbeatTime)
-
 	}, heartbeatInterval)
 
 	return nil
