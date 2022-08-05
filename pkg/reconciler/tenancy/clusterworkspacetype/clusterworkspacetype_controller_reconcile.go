@@ -22,8 +22,6 @@ import (
 	"net/url"
 	"path"
 
-	"github.com/kcp-dev/logicalcluster/v2"
-
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 
@@ -36,7 +34,7 @@ import (
 )
 
 func (c *controller) reconcile(ctx context.Context, cwt *tenancyv1alpha1.ClusterWorkspaceType) {
-	if err := c.updateVirtualWorkspaceURLs(cwt); err != nil {
+	if err := c.updateVirtualWorkspaceURLs(ctx, cwt); err != nil {
 		conditions.MarkFalse(
 			cwt,
 			tenancyv1alpha1.ClusterWorkspaceTypeVirtualWorkspaceURLsReady,
@@ -54,7 +52,8 @@ func (c *controller) reconcile(ctx context.Context, cwt *tenancyv1alpha1.Cluster
 	conditions.SetSummary(cwt)
 }
 
-func (c *controller) updateVirtualWorkspaceURLs(cwt *tenancyv1alpha1.ClusterWorkspaceType) error {
+func (c *controller) updateVirtualWorkspaceURLs(ctx context.Context, cwt *tenancyv1alpha1.ClusterWorkspaceType) error {
+	logger := klog.FromContext(ctx)
 	clusterWorkspaceShards, err := c.listClusterWorkspaceShards()
 	if err != nil {
 		return fmt.Errorf("error listing ClusterWorkspaceShards: %w", err)
@@ -69,13 +68,7 @@ func (c *controller) updateVirtualWorkspaceURLs(cwt *tenancyv1alpha1.ClusterWork
 		u, err := url.Parse(clusterWorkspaceShard.Spec.ExternalURL)
 		if err != nil {
 			// Should never happen
-			klog.Errorf(
-				"Error parsing ClusterWorkspaceShard %s|%s spec.externalURL %q: %v",
-				logicalcluster.From(clusterWorkspaceShard),
-				clusterWorkspaceShard.Name,
-				clusterWorkspaceShard.Spec.ExternalURL,
-			)
-
+			logger.Error(err, "error parsing clusterWorkspaceShard.spec.externalURL", "externalURL", clusterWorkspaceShard.Spec.ExternalURL)
 			continue
 		}
 

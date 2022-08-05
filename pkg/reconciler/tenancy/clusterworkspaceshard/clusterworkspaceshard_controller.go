@@ -44,14 +44,14 @@ import (
 )
 
 const (
-	controllerName = "clusterworkspaceshard"
+	controllerName = "kcp-clusterworkspaceshard"
 )
 
 func NewController(
 	rootKcpClient kcpclient.Interface,
 	clusterWorkspaceShardInformer tenancyinformer.ClusterWorkspaceShardInformer,
 ) (*Controller, error) {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-workspaceshard")
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
 	c := &Controller{
 		queue:                        queue,
@@ -86,7 +86,7 @@ func (c *Controller) enqueue(obj interface{}) {
 		return
 	}
 	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), key)
-	logger.Info("queueing workspace shard")
+	logger.V(2).Info("queueing ClusterWorkspaceShard")
 	c.queue.Add(key)
 }
 
@@ -121,7 +121,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 
 	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
 	ctx = klog.NewContext(ctx, logger)
-	logger.Info("processing key")
+	logger.V(1).Info("processing key")
 
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.

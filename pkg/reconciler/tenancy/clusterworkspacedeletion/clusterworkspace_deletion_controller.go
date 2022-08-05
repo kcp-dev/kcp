@@ -41,7 +41,12 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	tenancyinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	tenancylister "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspacedeletion/deletion"
+)
+
+const (
+	controllerName = "kcp-clusterworkspacedeletion"
 )
 
 func NewController(
@@ -50,7 +55,7 @@ func NewController(
 	workspaceInformer tenancyinformer.ClusterWorkspaceInformer,
 	discoverResourcesFn func(clusterName logicalcluster.Name) ([]*metav1.APIResourceList, error),
 ) *Controller {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "workspace-deletion")
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
 	c := &Controller{
 		queue:                 queue,
@@ -94,7 +99,8 @@ func (c *Controller) enqueue(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	klog.Infof("Queueing workspace %q", key)
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), key)
+	logger.V(4).Info("queueing ClusterWorkspace")
 	c.queue.Add(key)
 }
 
@@ -102,8 +108,10 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	klog.Info("Starting ClusterWorkspace Deletion controller")
-	defer klog.Info("Shutting down ClusterWorkspace Deletion controller")
+	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
+	ctx = klog.NewContext(ctx, logger)
+	logger.Info("Starting controller")
+	defer logger.Info("Shutting down controller")
 
 	for i := 0; i < numThreads; i++ {
 		go wait.Until(func() { c.startWorker(ctx) }, time.Second, ctx.Done())
@@ -125,7 +133,9 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	}
 	key := k.(string)
 
-	klog.V(4).Infof("Processing key %q", key)
+	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
+	ctx = klog.NewContext(ctx, logger)
+	logger.V(4).Info("processing key")
 
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.
