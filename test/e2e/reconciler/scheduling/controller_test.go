@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -58,17 +59,17 @@ func TestScheduling(t *testing.T) {
 	userClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
 	secondUserClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
 
-	kubeClusterClient, err := kubernetes.NewClusterForConfig(source.BaseConfig(t))
+	kubeClusterClient, err := kubernetes.NewForConfig(source.BaseConfig(t))
 	require.NoError(t, err)
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(source.BaseConfig(t))
+	kcpClusterClient, err := kcpclient.NewForConfig(source.BaseConfig(t))
 	require.NoError(t, err)
 
 	t.Logf("Check that there is no services resource in the user workspace")
-	_, err = kubeClusterClient.Cluster(userClusterName).CoreV1().Services("").List(ctx, metav1.ListOptions{})
+	_, err = kubeClusterClient.CoreV1().Services("").List(logicalcluster.WithCluster(ctx, userClusterName), metav1.ListOptions{})
 	require.Error(t, err)
 
 	t.Logf("Check that there is no services resource in the second user workspace")
-	_, err = kubeClusterClient.Cluster(secondUserClusterName).CoreV1().Services("").List(ctx, metav1.ListOptions{})
+	_, err = kubeClusterClient.CoreV1().Services("").List(logicalcluster.WithCluster(ctx, secondUserClusterName), metav1.ListOptions{})
 	require.Error(t, err)
 
 	syncTargetName := fmt.Sprintf("synctarget-%d", +rand.Intn(1000000))
@@ -93,7 +94,7 @@ func TestScheduling(t *testing.T) {
 
 	t.Logf("Wait for APIResourceImports to show up in the negotiation workspace")
 	require.Eventually(t, func() bool {
-		imports, err := kcpClusterClient.Cluster(negotiationClusterName).ApiresourceV1alpha1().APIResourceImports().List(ctx, metav1.ListOptions{})
+		imports, err := kcpClusterClient.ApiresourceV1alpha1().APIResourceImports().List(logicalcluster.WithCluster(ctx, negotiationClusterName), metav1.ListOptions{})
 		if err != nil {
 			klog.Errorf("Failed to list APIResourceImports: %v", err)
 			return false
@@ -104,7 +105,7 @@ func TestScheduling(t *testing.T) {
 
 	t.Logf("Wait for NegotiatedAPIResources to show up in the negotiation workspace")
 	require.Eventually(t, func() bool {
-		resources, err := kcpClusterClient.Cluster(negotiationClusterName).ApiresourceV1alpha1().NegotiatedAPIResources().List(ctx, metav1.ListOptions{})
+		resources, err := kcpClusterClient.ApiresourceV1alpha1().NegotiatedAPIResources().List(logicalcluster.WithCluster(ctx, negotiationClusterName), metav1.ListOptions{})
 		if err != nil {
 			klog.Errorf("Failed to list NegotiatedAPIResources: %v", err)
 			return false
@@ -116,13 +117,13 @@ func TestScheduling(t *testing.T) {
 	t.Log("Wait for \"kubernetes\" apiexport")
 	var export *apisv1alpha1.APIExport
 	require.Eventually(t, func() bool {
-		export, err = kcpClusterClient.Cluster(negotiationClusterName).ApisV1alpha1().APIExports().Get(ctx, "kubernetes", metav1.GetOptions{})
+		export, err = kcpClusterClient.ApisV1alpha1().APIExports().Get(logicalcluster.WithCluster(ctx, negotiationClusterName), "kubernetes", metav1.GetOptions{})
 		return err == nil
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Log("Wait for \"kubernetes\" apibinding that is bound")
 	framework.Eventually(t, func() (bool, string) {
-		binding, err := kcpClusterClient.Cluster(negotiationClusterName).ApisV1alpha1().APIBindings().Get(ctx, "kubernetes", metav1.GetOptions{})
+		binding, err := kcpClusterClient.ApisV1alpha1().APIBindings().Get(logicalcluster.WithCluster(ctx, negotiationClusterName), "kubernetes", metav1.GetOptions{})
 		if err != nil {
 			klog.Error(err)
 			return false, ""
@@ -132,7 +133,7 @@ func TestScheduling(t *testing.T) {
 
 	t.Log("Wait for APIResourceSchemas to show up in the negotiation workspace")
 	require.Eventually(t, func() bool {
-		schemas, err := kcpClusterClient.Cluster(negotiationClusterName).ApisV1alpha1().APIResourceSchemas().List(ctx, metav1.ListOptions{})
+		schemas, err := kcpClusterClient.ApisV1alpha1().APIResourceSchemas().List(logicalcluster.WithCluster(ctx, negotiationClusterName), metav1.ListOptions{})
 		if err != nil {
 			klog.Errorf("Failed to list APIResourceSchemas: %v", err)
 			return false
@@ -143,7 +144,7 @@ func TestScheduling(t *testing.T) {
 
 	t.Log("Wait for APIResourceSchemas to show up in the APIExport spec")
 	require.Eventually(t, func() bool {
-		export, err := kcpClusterClient.Cluster(negotiationClusterName).ApisV1alpha1().APIExports().Get(ctx, export.Name, metav1.GetOptions{})
+		export, err := kcpClusterClient.ApisV1alpha1().APIExports().Get(logicalcluster.WithCluster(ctx, negotiationClusterName), export.Name, metav1.GetOptions{})
 		require.NoError(t, err)
 		return len(export.Spec.LatestResourceSchemas) > 0
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
@@ -162,12 +163,12 @@ func TestScheduling(t *testing.T) {
 			},
 		},
 	}
-	_, err = kcpClusterClient.Cluster(negotiationClusterName).SchedulingV1alpha1().Locations().Create(ctx, location, metav1.CreateOptions{})
+	_, err = kcpClusterClient.SchedulingV1alpha1().Locations().Create(logicalcluster.WithCluster(ctx, negotiationClusterName), location, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	t.Logf("Wait for available instances in the location")
 	framework.Eventually(t, func() (bool, string) {
-		location, err := kcpClusterClient.Cluster(negotiationClusterName).SchedulingV1alpha1().Locations().Get(ctx, location.Name, metav1.GetOptions{})
+		location, err := kcpClusterClient.SchedulingV1alpha1().Locations().Get(logicalcluster.WithCluster(ctx, negotiationClusterName), location.Name, metav1.GetOptions{})
 		require.NoError(t, err)
 		return location.Status.AvailableInstances != nil && *location.Status.AvailableInstances == 1, fmt.Sprintf("instances in status not updated:\n%s", toYaml(location))
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
@@ -187,12 +188,12 @@ func TestScheduling(t *testing.T) {
 	}
 
 	t.Logf("Create a binding in the user workspace")
-	_, err = kcpClusterClient.Cluster(userClusterName).ApisV1alpha1().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
+	_, err = kcpClusterClient.ApisV1alpha1().APIBindings().Create(logicalcluster.WithCluster(ctx, userClusterName), binding, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	t.Logf("Wait for binding to be ready")
 	framework.Eventually(t, func() (bool, string) {
-		binding, err := kcpClusterClient.Cluster(userClusterName).ApisV1alpha1().APIBindings().Get(ctx, binding.Name, metav1.GetOptions{})
+		binding, err := kcpClusterClient.ApisV1alpha1().APIBindings().Get(logicalcluster.WithCluster(ctx, userClusterName), binding.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, fmt.Sprintf("failed to list Locations: %v", err)
 		}
@@ -201,7 +202,7 @@ func TestScheduling(t *testing.T) {
 
 	t.Logf("Wait for placement to be ready")
 	framework.Eventually(t, func() (bool, string) {
-		placement, err := kcpClusterClient.Cluster(userClusterName).SchedulingV1alpha1().Placements().Get(ctx, "default", metav1.GetOptions{})
+		placement, err := kcpClusterClient.SchedulingV1alpha1().Placements().Get(logicalcluster.WithCluster(ctx, userClusterName), "default", metav1.GetOptions{})
 		if err != nil {
 			return false, fmt.Sprintf("failed to get placement: %v", err)
 		}
@@ -211,7 +212,7 @@ func TestScheduling(t *testing.T) {
 
 	t.Logf("Wait for being able to list Services in the user workspace")
 	require.Eventually(t, func() bool {
-		_, err := kubeClusterClient.Cluster(userClusterName).CoreV1().Services("").List(ctx, metav1.ListOptions{})
+		_, err := kubeClusterClient.CoreV1().Services("").List(logicalcluster.WithCluster(ctx, userClusterName), metav1.ListOptions{})
 		if errors.IsNotFound(err) {
 			return false
 		} else if err != nil {
@@ -222,12 +223,12 @@ func TestScheduling(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Create a binding in the second user workspace")
-	_, err = kcpClusterClient.Cluster(secondUserClusterName).ApisV1alpha1().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
+	_, err = kcpClusterClient.ApisV1alpha1().APIBindings().Create(logicalcluster.WithCluster(ctx, secondUserClusterName), binding, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	t.Logf("Wait for binding to be ready")
 	framework.Eventually(t, func() (bool, string) {
-		binding, err := kcpClusterClient.Cluster(secondUserClusterName).ApisV1alpha1().APIBindings().Get(ctx, binding.Name, metav1.GetOptions{})
+		binding, err := kcpClusterClient.ApisV1alpha1().APIBindings().Get(logicalcluster.WithCluster(ctx, secondUserClusterName), binding.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, fmt.Sprintf("failed to list Locations: %v", err)
 		}
@@ -237,7 +238,7 @@ func TestScheduling(t *testing.T) {
 
 	t.Logf("Wait for placement to be ready")
 	framework.Eventually(t, func() (bool, string) {
-		placement, err := kcpClusterClient.Cluster(secondUserClusterName).SchedulingV1alpha1().Placements().Get(ctx, "default", metav1.GetOptions{})
+		placement, err := kcpClusterClient.SchedulingV1alpha1().Placements().Get(logicalcluster.WithCluster(ctx, secondUserClusterName), "default", metav1.GetOptions{})
 		if err != nil {
 			return false, fmt.Sprintf("failed to get placement: %v", err)
 		}
@@ -247,7 +248,7 @@ func TestScheduling(t *testing.T) {
 
 	t.Logf("Wait for being able to list Services in the user workspace")
 	require.Eventually(t, func() bool {
-		_, err := kubeClusterClient.Cluster(secondUserClusterName).CoreV1().Services("").List(ctx, metav1.ListOptions{})
+		_, err := kubeClusterClient.CoreV1().Services("").List(logicalcluster.WithCluster(ctx, secondUserClusterName), metav1.ListOptions{})
 		if errors.IsNotFound(err) {
 			return false
 		} else if err != nil {
@@ -260,7 +261,7 @@ func TestScheduling(t *testing.T) {
 	syncTargetKey := workloadv1alpha1.ToSyncTargetKey(syncerFixture.SyncerConfig.SyncTargetWorkspace, syncTargetName)
 
 	t.Logf("Create a service in the user workspace")
-	_, err = kubeClusterClient.Cluster(userClusterName).CoreV1().Services("default").Create(ctx, &corev1.Service{
+	_, err = kubeClusterClient.CoreV1().Services("default").Create(logicalcluster.WithCluster(ctx, userClusterName), &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "first",
 			Labels: map[string]string{
@@ -279,7 +280,7 @@ func TestScheduling(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Create a service in the second user workspace")
-	_, err = kubeClusterClient.Cluster(secondUserClusterName).CoreV1().Services("default").Create(ctx, &corev1.Service{
+	_, err = kubeClusterClient.CoreV1().Services("default").Create(logicalcluster.WithCluster(ctx, secondUserClusterName), &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "second",
 			Labels: map[string]string{
@@ -328,7 +329,7 @@ func TestScheduling(t *testing.T) {
 
 	t.Logf("Wait for placement annotation on the default namespace")
 	framework.Eventually(t, func() (bool, string) {
-		ns, err := kubeClusterClient.Cluster(userClusterName).CoreV1().Namespaces().Get(ctx, "default", metav1.GetOptions{})
+		ns, err := kubeClusterClient.CoreV1().Namespaces().Get(logicalcluster.WithCluster(ctx, userClusterName), "default", metav1.GetOptions{})
 		require.NoError(t, err)
 
 		_, found := ns.Annotations[schedulingv1alpha1.PlacementAnnotationKey]
