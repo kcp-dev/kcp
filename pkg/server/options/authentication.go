@@ -47,6 +47,8 @@ const (
 	// A kcp admin being member of system:kcp:clusterworkspace:admin and system:kcp:clusterworkspace:access.
 	// This user will be subject of kcp authorization checks.
 	kcpAdminUserName = "kcp-admin"
+	// A non-admin user part of the "user" battery.
+	kcpUserUserName = "user"
 )
 
 type AdminAuthentication struct {
@@ -91,7 +93,7 @@ func (s *AdminAuthentication) AddFlags(fs *pflag.FlagSet) {
 // ApplyTo returns a new volatile kcp admin token.
 // It also returns a new shard admin token and its hash if the configured shard admin hash file is not present.
 // If the shard admin hash file is present only the shard admin hash is returned and the returned shard admin token is empty.
-func (s *AdminAuthentication) ApplyTo(config *genericapiserver.Config) (volatileKcpAdminToken, shardAdminToken string, shardAdminTokenHash []byte, err error) {
+func (s *AdminAuthentication) ApplyTo(config *genericapiserver.Config) (volatileKcpAdminToken, shardAdminToken, volatileUserToken string, shardAdminTokenHash []byte, err error) {
 	// try to load existing token to reuse
 	shardAdminTokenHash, err = ioutil.ReadFile(s.ShardAdminTokenHashFilePath)
 	if os.IsNotExist(err) {
@@ -99,11 +101,12 @@ func (s *AdminAuthentication) ApplyTo(config *genericapiserver.Config) (volatile
 		sum := sha256.Sum256([]byte(shardAdminToken))
 		shardAdminTokenHash = sum[:]
 		if err := ioutil.WriteFile(s.ShardAdminTokenHashFilePath, shardAdminTokenHash, 0600); err != nil {
-			return "", "", nil, err
+			return "", "", "", nil, err
 		}
 	}
 
 	volatileKcpAdminToken = uuid.New().String()
+	volatileUserToken = uuid.New().String()
 
 	shardAdminUser := &user.DefaultInfo{
 		Name:   shardAdminUserName,
@@ -121,6 +124,12 @@ func (s *AdminAuthentication) ApplyTo(config *genericapiserver.Config) (volatile
 		},
 	}
 
+	nonAdminUser := &user.DefaultInfo{
+		Name:   kcpUserUserName,
+		UID:    uuid.New().String(),
+		Groups: []string{},
+	}
+
 	newAuthenticator := group.NewAuthenticatedGroupAdder(bearertoken.New(authenticator.WrapAudienceAgnosticToken(config.Authentication.APIAudiences, authenticator.TokenFunc(func(ctx context.Context, requestToken string) (*authenticator.Response, bool, error) {
 		requestTokenHash := sha256.Sum256([]byte(requestToken))
 		if bytes.Equal(requestTokenHash[:], shardAdminTokenHash) {
@@ -131,15 +140,19 @@ func (s *AdminAuthentication) ApplyTo(config *genericapiserver.Config) (volatile
 			return &authenticator.Response{User: kcpAdminUser}, true, nil
 		}
 
+		if requestToken == volatileUserToken {
+			return &authenticator.Response{User: nonAdminUser}, true, nil
+		}
+
 		return nil, false, nil
 	}))))
 
 	config.Authentication.Authenticator = authenticatorunion.New(newAuthenticator, config.Authentication.Authenticator)
 
-	return volatileKcpAdminToken, shardAdminToken, shardAdminTokenHash, nil
+	return volatileKcpAdminToken, shardAdminToken, volatileUserToken, shardAdminTokenHash, nil
 }
 
-func (s *AdminAuthentication) WriteKubeConfig(config genericapiserver.CompletedConfig, kcpAdminToken, shardAdminToken string, shardAdminTokenHash []byte) error {
+func (s *AdminAuthentication) WriteKubeConfig(config genericapiserver.CompletedConfig, kcpAdminToken, shardAdminToken, userToken string, shardAdminTokenHash []byte) error {
 	externalCACert, _ := config.SecureServing.Cert.CurrentCertKeyContent()
 	externalKubeConfigHost := fmt.Sprintf("https://%s", config.ExternalAddress)
 
@@ -166,11 +179,11 @@ func (s *AdminAuthentication) WriteKubeConfig(config genericapiserver.CompletedC
 		return fmt.Errorf("cannot create the 'admin.kubeconfig` file with an empty token for the %s user", shardAdminUserName)
 	}
 
-	externalKubeConfig := createKubeConfig(kcpAdminToken, shardAdminToken, externalKubeConfigHost, "", externalCACert)
+	externalKubeConfig := createKubeConfig(kcpAdminToken, shardAdminToken, userToken, externalKubeConfigHost, "", externalCACert)
 	return clientcmd.WriteToFile(*externalKubeConfig, s.KubeConfigPath)
 }
 
-func createKubeConfig(kcpAdminToken, shardAdminToken, baseHost, tlsServerName string, caData []byte) *clientcmdapi.Config {
+func createKubeConfig(kcpAdminToken, shardAdminToken, userToken, baseHost, tlsServerName string, caData []byte) *clientcmdapi.Config {
 	var kubeConfig clientcmdapi.Config
 	//Create Client and Shared
 	kubeConfig.AuthInfos = map[string]*clientcmdapi.AuthInfo{
@@ -195,5 +208,11 @@ func createKubeConfig(kcpAdminToken, shardAdminToken, baseHost, tlsServerName st
 		"system:admin": {Cluster: "base", AuthInfo: shardAdminUserName},
 	}
 	kubeConfig.CurrentContext = "root"
+
+	if len(userToken) > 0 {
+		kubeConfig.AuthInfos[kcpUserUserName] = &clientcmdapi.AuthInfo{Token: userToken}
+		kubeConfig.Contexts[kcpUserUserName] = &clientcmdapi.Context{Cluster: "root", AuthInfo: kcpUserUserName}
+	}
+
 	return &kubeConfig
 }

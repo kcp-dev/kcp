@@ -179,6 +179,7 @@ func (o *Options) rawFlags() cliflag.NamedFlagSets {
 		`A list of batteries included (= default objects that might be unwanted in production, but are very helpful in trying out kcp or for development). These are the possible values: %s.
 
 - cluster-workspace-types: creates "organization" and "team" ClusterWorkspaceTypes in the root workspace.
+- user:                  creates an additional non-admin user and context named "user" in the admin.kubeconfig
 
 Prefixing with - or + means to remove from the default set or add to the default set.`,
 		strings.Join(batteries.All.Difference(batteries.Defaults).List(), ","),

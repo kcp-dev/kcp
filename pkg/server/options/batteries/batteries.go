@@ -25,10 +25,14 @@ import (
 const (
 	// ClusterWorkspaceTypes leads to creation of a number of default types beyond the universal type.
 	ClusterWorkspaceTypes = "cluster-workspace-types"
+
+	// User leads to an additional user named "user" in the admin.kubeconfig that is not admin.
+	User = "user"
 )
 
 var All = sets.NewString(
 	ClusterWorkspaceTypes,
+	User,
 )
 
 var Defaults = sets.NewString(
