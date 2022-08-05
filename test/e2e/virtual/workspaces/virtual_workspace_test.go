@@ -559,7 +559,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 					return server.kcpClusterClient.Cluster(parentCluster).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
 				})
 
-				// Check that user1 can only list workspaces inside the parent workspace
+				// Check that user1 can list and watch workspaces inside the parent workspace (part of system:kcp:tenancy:reader role every user with access has)
 				var listedWorkspaces *tenancyv1beta1.WorkspaceList
 				require.Eventually(t, func() bool {
 					// RBAC authz uses informers and needs a moment to understand the new roles. Hence, try until successful.
@@ -577,10 +577,11 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				_, err = vwUser1Client.Cluster(parentCluster).TenancyV1beta1().Workspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
 				require.NoError(t, err, "user1 should be allowed to get a workspace inside the parent workspace since get permissions for the workspace owner are added by the virtual workspace")
 
-				_, err = vwUser1Client.Cluster(parentCluster).TenancyV1beta1().Workspaces().Watch(ctx, metav1.ListOptions{})
-				require.Error(t, err, "user1 should not be allowed to watch workspaces inside the parent workspace")
+				w, err := vwUser1Client.Cluster(parentCluster).TenancyV1beta1().Workspaces().Watch(ctx, metav1.ListOptions{})
+				require.NoError(t, err, "user1 should be allowed to watch workspaces inside the parent workspace due to RBAC role")
+				w.Stop()
 
-				// Check that user2 can only get the `workspace1` workspace inside the parent workspace
+				// Check that user2 can get the `workspace1` workspace inside the parent workspace
 				require.Eventually(t, func() bool {
 					// RBAC authz uses informers and needs a moment to understand the new roles. Hence, try until successful.
 					_, err = vwUser2Client.Cluster(parentCluster).TenancyV1beta1().Workspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
@@ -592,7 +593,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				require.Nil(t, err, "user2 should be allowed to get workspace 'workspace1' inside the parent workspace")
 
 				listedWorkspaces, err = vwUser2Client.Cluster(parentCluster).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
-				require.Error(t, err, "user2 should not be allowed to list workspaces inside the parent workspace")
+				require.NoError(t, err, "user2 should be allowed to list workspaces inside the parent workspace due to RBAC role")
 
 				_, err = vwUser2Client.Cluster(parentCluster).TenancyV1beta1().Workspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
 				require.NoError(t, err, "user2 should be allowed to get any workspace inside the parent workspace")
