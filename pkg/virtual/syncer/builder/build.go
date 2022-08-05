@@ -25,6 +25,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
@@ -82,23 +83,38 @@ func BuildVirtualWorkspace(
 			withoutRootPathPrefix := strings.TrimPrefix(urlPath, rootPathPrefix)
 
 			// Incoming requests to this virtual workspace will look like:
-			//  /services/syncer/root:org:ws/<sync-target-name>/clusters/*/api/v1/configmaps
+			//  /services/syncer/root:org:ws/<sync-target-name>/<sync-target-uid>/clusters/*/api/v1/configmaps
 			//                  └───────────────────────────┐
 			// Where the withoutRootPathPrefix starts here: ┘
-			parts := strings.SplitN(withoutRootPathPrefix, "/", 3)
-			if len(parts) < 2 || parts[0] == "" || parts[1] == "" {
+			parts := strings.SplitN(withoutRootPathPrefix, "/", 4)
+			if len(parts) < 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
 				return
 			}
+			workspace := parts[0]
 			workloadCusterName := parts[1]
+			syncTargetUID := parts[2]
 			apiDomainKey := dynamiccontext.APIDomainKey(clusters.ToClusterAwareKey(logicalcluster.New(parts[0]), workloadCusterName))
 
-			realPath := "/"
-			if len(parts) > 2 {
-				realPath += parts[2]
+			// In order to avoid conflicts with reusing deleted synctarget names, let's make sure that the synctarget name and synctarget UID match, if not,
+			// that likely means that a syncer is running with a stale synctarget that got deleted.
+			syncTarget, exists, err := wildcardKcpInformers.Workload().V1alpha1().SyncTargets().Informer().GetIndexer().GetByKey(clusters.ToClusterAwareKey(logicalcluster.New(workspace), workloadCusterName))
+			if !exists || err != nil {
+				runtime.HandleError(fmt.Errorf("failed to get synctarget %s|%s: %w", workspace, workloadCusterName, err))
+				return
+			}
+			syncTargetObj := syncTarget.(*workloadv1alpha1.SyncTarget)
+			if string(syncTargetObj.UID) != syncTargetUID {
+				runtime.HandleError(fmt.Errorf("sync target UID mismatch: %s != %s", syncTargetObj.UID, syncTargetUID))
+				return
 			}
 
-			//  /services/syncer/root:org:ws/<sync-target-name>/clusters/*/api/v1/configmaps
-			//                  ┌───────────────────────────────────┘
+			realPath := "/"
+			if len(parts) > 3 {
+				realPath += parts[3]
+			}
+
+			//  /services/syncer/root:org:ws/<sync-target-uid>/<sync-target-name>/clusters/*/api/v1/configmaps
+			//                  ┌───────────────────────────────────────────────┘
 			// We are now here: ┘
 			// Now, we parse out the logical cluster.
 			if !strings.HasPrefix(realPath, "/clusters/") {
