@@ -117,6 +117,7 @@ spec:
         args:
         - --from-kubeconfig=/kcp/{{.SecretConfigKey}}
         - --sync-target-name={{.SyncTarget}}
+        - --sync-target-uid={{.SyncTargetUID}}
         - --from-cluster={{.LogicalCluster}}
 {{- range $resourceToSync := .ResourcesToSync}}
         - --resources={{$resourceToSync}}
