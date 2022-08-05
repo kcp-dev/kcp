@@ -269,9 +269,7 @@ func (s *REST) deprecatedAuthorizeOrgForUser(ctx context.Context, orgClusterName
 }
 
 func (s *REST) authorizeForUser(ctx context.Context, orgClusterName logicalcluster.Name, currentUser kuser.Info, verb string, resourceName string) error {
-	// Root org access is implicit for every user. For non-root orgs, we need to check for
-	// verb permissions against the clusterworkspaces/workspace sub-resource.
-	if orgClusterName == tenancyv1alpha1.RootCluster || sets.NewString(currentUser.GetGroups()...).Has(kuser.SystemPrivilegedGroup) {
+	if sets.NewString(currentUser.GetGroups()...).Has(kuser.SystemPrivilegedGroup) {
 		return nil
 	}
 
@@ -294,7 +292,6 @@ func (s *REST) authorizeForUser(ctx context.Context, orgClusterName logicalclust
 			klog.Errorf("Verb %q not supported in the case of a workspace living in a top-level organization", verb)
 			return kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), resourceName, fmt.Errorf("%q workspace %q in workspace %q is not allowed", verb, resourceName, orgClusterName))
 		}
-
 	}
 
 	// We need to softly impersonate the name of the user here, because the user Home workspace

@@ -579,7 +579,7 @@ func TestListPersonalWorkspacesWithPrettyName(t *testing.T) {
 	applyTest(t, test)
 }
 
-func TestListPersonalWorkspacesOnRootOrg(t *testing.T) {
+func TestListPersonalWorkspacesOnRootOrgWithPermission(t *testing.T) {
 	user := &kuser.DefaultInfo{
 		Name:   "test-user",
 		UID:    "test-uid",
@@ -592,18 +592,13 @@ func TestListPersonalWorkspacesOnRootOrg(t *testing.T) {
 			orgName:  logicalcluster.New("root"),
 			reviewer: workspaceauth.NewReviewer(nil),
 			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
-				subjects: map[string]map[string][]rbacv1.Subject{},
-			}),
-			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root",
-						},
-						Name: "orgName",
+				subjects: map[string]map[string][]rbacv1.Subject{
+					"list/tenancy.kcp.dev/v1alpha1/clusterworkspaces/workspace": {
+						"": rbacGroups("test-group"),
 					},
 				},
-			},
+			}),
+			clusterWorkspaces:   []tenancyv1alpha1.ClusterWorkspace{{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{logicalcluster.AnnotationKey: "root"}, Name: "orgName"}}},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{},
 		},
 		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
@@ -619,6 +614,30 @@ func TestListPersonalWorkspacesOnRootOrg(t *testing.T) {
 				user,
 				checkedUsers[0],
 				"The workspaceLister should have checked the user with its groups")
+		},
+	}
+	applyTest(t, test)
+}
+
+func TestListPersonalWorkspacesOnRootOrgWithoutPermission(t *testing.T) {
+	user := &kuser.DefaultInfo{
+		Name:   "test-user",
+		UID:    "test-uid",
+		Groups: []string{"test-group"},
+	}
+	test := TestDescription{
+		TestData: TestData{
+			user:                user,
+			scope:               PersonalScope,
+			orgName:             logicalcluster.New("root"),
+			reviewer:            workspaceauth.NewReviewer(nil),
+			rootReviewer:        workspaceauth.NewReviewer(&mockSubjectLocator{}),
+			clusterWorkspaces:   []tenancyv1alpha1.ClusterWorkspace{{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{logicalcluster.AnnotationKey: "root"}, Name: "orgName"}}},
+			clusterRoleBindings: []rbacv1.ClusterRoleBinding{},
+		},
+		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+			_, err := storage.List(ctx, nil)
+			require.Error(t, err)
 		},
 	}
 	applyTest(t, test)
