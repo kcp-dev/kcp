@@ -35,6 +35,7 @@ const (
 	APIExportVirtualWorkspaceURLsReady conditionsv1alpha1.ConditionType = "VirtualWorkspaceURLsReady"
 
 	ErrorGeneratingURLsReason = "ErrorGeneratingURLs"
+	NoViableShardsReason      = "NoViableShards"
 )
 
 // These are for APIExport identity.

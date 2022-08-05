@@ -47,17 +47,19 @@ func TestReconcile(t *testing.T) {
 		apiExportHasSomeOtherHash            bool
 		hasPreexistingVerifyFailure          bool
 		listClusterWorkspaceShardsError      error
+		noViableShards                       bool
 
-		wantGenerationFailed          bool
-		wantError                     bool
-		wantCreateSecretCalled        bool
-		wantUnsetIdentity             bool
-		wantDefaultSecretRef          bool
-		wantStatusHashSet             bool
-		wantVerifyFailure             bool
-		wantIdentityValid             bool
-		wantVirtualWorkspaceURLsError bool
-		wantVirtualWorkspaceURLsReady bool
+		wantGenerationFailed              bool
+		wantError                         bool
+		wantCreateSecretCalled            bool
+		wantUnsetIdentity                 bool
+		wantDefaultSecretRef              bool
+		wantStatusHashSet                 bool
+		wantVerifyFailure                 bool
+		wantIdentityValid                 bool
+		wantVirtualWorkspaceURLsError     bool
+		wantVirtualWorkspaceURLsReady     bool
+		wantVirtualWorkspaceURLsNotViable bool
 	}{
 		"create secret when ref is nil and secret doesn't exist": {
 			secretExists: false,
@@ -122,6 +124,15 @@ func TestReconcile(t *testing.T) {
 			listClusterWorkspaceShardsError: errors.New("foo"),
 			wantVirtualWorkspaceURLsError:   true,
 		},
+		"no viable shards": {
+			secretRefSet:   true,
+			secretExists:   true,
+			noViableShards: true,
+
+			wantStatusHashSet:                 true,
+			wantIdentityValid:                 true,
+			wantVirtualWorkspaceURLsNotViable: true,
+		},
 	}
 
 	for name, tc := range tests {
@@ -168,6 +179,22 @@ func TestReconcile(t *testing.T) {
 						return nil, tc.listClusterWorkspaceShardsError
 					}
 
+					if tc.noViableShards {
+						return []*tenancyv1alpha1.ClusterWorkspaceShard{
+							{
+								ObjectMeta: metav1.ObjectMeta{
+									Annotations: map[string]string{
+										logicalcluster.AnnotationKey: "root:org:ws",
+									},
+									Name: "shard1",
+								},
+								Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{
+									ExternalURL: "https://server-1.kcp.dev/",
+								},
+							},
+						}, nil
+					}
+
 					return []*tenancyv1alpha1.ClusterWorkspaceShard{
 						{
 							ObjectMeta: metav1.ObjectMeta{
@@ -177,7 +204,8 @@ func TestReconcile(t *testing.T) {
 								Name: "shard1",
 							},
 							Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{
-								ExternalURL: "https://server-1.kcp.dev/",
+								ExternalURL:         "https://server-1.kcp.dev/",
+								VirtualWorkspaceURL: "https://server-1.kcp.dev/",
 							},
 						},
 						{
@@ -188,7 +216,8 @@ func TestReconcile(t *testing.T) {
 								Name: "shard2",
 							},
 							Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{
-								ExternalURL: "https://server-2.kcp.dev/",
+								ExternalURL:         "https://server-2.kcp.dev/",
+								VirtualWorkspaceURL: "https://server-1.kcp.dev/",
 							},
 						},
 					}, nil
@@ -288,6 +317,9 @@ func TestReconcile(t *testing.T) {
 
 			if tc.wantVirtualWorkspaceURLsReady {
 				requireConditionMatches(t, apiExport, conditions.TrueCondition(apisv1alpha1.APIExportVirtualWorkspaceURLsReady))
+			}
+			if tc.wantVirtualWorkspaceURLsNotViable {
+				requireConditionMatches(t, apiExport, conditions.FalseCondition(apisv1alpha1.APIExportVirtualWorkspaceURLsReady, apisv1alpha1.NoViableShardsReason, conditionsv1alpha1.ConditionSeverityError, ""))
 			}
 		})
 	}

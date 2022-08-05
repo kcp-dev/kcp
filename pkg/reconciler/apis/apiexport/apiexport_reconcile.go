@@ -203,7 +203,17 @@ func (c *controller) updateVirtualWorkspaceURLs(apiExport *apisv1alpha1.APIExpor
 		})
 	}
 
-	conditions.MarkTrue(apiExport, apisv1alpha1.APIExportVirtualWorkspaceURLsReady)
+	if len(apiExport.Status.VirtualWorkspaces) == 0 {
+		conditions.MarkFalse(
+			apiExport,
+			apisv1alpha1.APIExportVirtualWorkspaceURLsReady,
+			apisv1alpha1.NoViableShardsReason,
+			conditionsv1alpha1.ConditionSeverityError,
+			"Unable to find any shards with virtual workspace URLs",
+		)
+	} else {
+		conditions.MarkTrue(apiExport, apisv1alpha1.APIExportVirtualWorkspaceURLsReady)
+	}
 
 	return nil
 }
