@@ -19,7 +19,7 @@ package clusterworkspace
 import (
 	"context"
 
-	logicalcluster "github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v2"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilserrors "k8s.io/apimachinery/pkg/util/errors"

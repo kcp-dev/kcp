@@ -90,6 +90,7 @@ func (c *controller) createPermissionClaimHelper(pc apisv1alpha1.PermissionClaim
 // Permission claims are considered invalid when the identity hashes are mismatched, and when there is no dynamic informer
 // for the group resource.
 func (c *controller) reconcilePermissionClaims(ctx context.Context, apiBinding *apisv1alpha1.APIBinding) error {
+	logger := klog.FromContext(ctx)
 	identityMismatch := false
 	lc := logicalcluster.From(apiBinding)
 
@@ -159,7 +160,9 @@ func (c *controller) reconcilePermissionClaims(ctx context.Context, apiBinding *
 		}
 	}
 
-	klog.V(2).Infof("Adding permission claims %v for APIBinding %s", addedPermissionClaims, fmt.Sprintf("%s|%s", lc, apiBinding.Name))
+	if len(addedPermissionClaims) != 0 {
+		logger.V(2).Info("adding permission claims", "addedPermissionClaims", addedPermissionClaims)
+	}
 
 	var allPatchErrors []error
 	for gvr, claims := range addedPermissionClaims {
@@ -194,7 +197,7 @@ func (c *controller) reconcilePermissionClaims(ctx context.Context, apiBinding *
 			}
 			if len(errs) > 0 {
 				allPatchErrors = append(allPatchErrors, errs...)
-				klog.V(4).Infof("unable to patch objects for exports %s added claim %v", fmt.Sprintf("%s|%s", lc, apiBinding.Name), claim)
+				logger.V(4).Info("unable to patch objects for added claim", "PermissionClaim", claim)
 				continue
 			}
 
@@ -203,7 +206,9 @@ func (c *controller) reconcilePermissionClaims(ctx context.Context, apiBinding *
 		}
 	}
 
-	klog.V(2).Infof("Removing permission claims %v for APIBinding %s", removedPermissionClaims, fmt.Sprintf("%s|%s", lc, apiBinding.Name))
+	if len(removedPermissionClaims) != 0 {
+		logger.V(2).Info("removing permission claims", "removedPermissionClaims", removedPermissionClaims)
+	}
 
 	for gvr, claims := range removedPermissionClaims {
 		for _, claim := range claims {
@@ -232,7 +237,7 @@ func (c *controller) reconcilePermissionClaims(ctx context.Context, apiBinding *
 			}
 			if len(errs) > 0 {
 				allPatchErrors = append(allPatchErrors, errs...)
-				klog.V(4).Infof("unable to patch objects for exports %s removed claim %v", fmt.Sprintf("%s|%s", lc, apiBinding.Name), claim)
+				logger.V(4).Info("unable to patch objects for removed claim", "PermissionClaim", claim)
 				continue
 			}
 			// remove claims assume that all new ones were added.
@@ -242,7 +247,7 @@ func (c *controller) reconcilePermissionClaims(ctx context.Context, apiBinding *
 
 	// Handle invalid claims
 	if len(invalidClaims) > 0 || len(allPatchErrors) > 0 {
-		klog.V(2).Infof("Found invalid claims %v for APIBinding %s", invalidClaims, fmt.Sprintf("%s|%s", lc, apiBinding.Name))
+		logger.V(2).Info("found invalid claims", "invalidClaims", invalidClaims)
 		if identityMismatch {
 			conditions.MarkFalse(
 				apiBinding,

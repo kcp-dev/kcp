@@ -39,10 +39,11 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apiresourceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
 	apiresourcelister "github.com/kcp-dev/kcp/pkg/client/listers/apiresource/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 const clusterNameAndGVRIndexName = "clusterNameAndGVR"
-const controllerName = "apiresource"
+const controllerName = "kcp-apiresource"
 
 func GetClusterNameAndGVRIndexKey(clusterName logicalcluster.Name, gvr metav1.GroupVersionResource) string {
 	return clusterName.String() + "$" + gvr.String()
@@ -293,8 +294,10 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	klog.Info("Starting APIResource controller")
-	defer klog.Info("Shutting down APIResource controller")
+	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
+	ctx = klog.NewContext(ctx, logger)
+	logger.Info("Starting controller")
+	defer logger.Info("Shutting down controller")
 
 	for i := 0; i < numThreads; i++ {
 		go wait.Until(func() { c.startWorker(ctx) }, time.Second, ctx.Done())
@@ -315,6 +318,15 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 		return false
 	}
 	key := k.(queueElement)
+
+	logger := logging.WithQueueKey(klog.FromContext(ctx), key.theKey).WithValues(
+		"action", key.theAction,
+		"type", key.theType,
+		"gvr", key.gvr,
+		"clusterName", key.clusterName,
+	)
+	ctx = klog.NewContext(ctx, logger)
+	logger.V(1).Info("processing key")
 
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.

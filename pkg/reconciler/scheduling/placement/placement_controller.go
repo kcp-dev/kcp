@@ -45,6 +45,7 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	schedulinginformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
 	schedulinglisters "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 const (
@@ -173,20 +174,21 @@ func (c *controller) enqueuePlacement(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	clusterName, name := clusters.SplitClusterAwareKey(key)
 
-	klog.V(2).Infof("Queueing Placement %s|%s", clusterName.String(), name)
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), key)
+	logger.V(2).Info("queueing Placement")
 	c.queue.Add(key)
 }
 
 // enqueueNamespace enqueues all placements for the namespace.
 func (c *controller) enqueueNamespace(obj interface{}) {
+	logger := logging.WithReconciler(klog.Background(), controllerName)
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
-	clusterName, namespaceName := clusters.SplitClusterAwareKey(key)
+	clusterName, _ := clusters.SplitClusterAwareKey(key)
 
 	placements, err := c.placementIndexer.ByIndex(byWorkspace, clusterName.String())
 	if err != nil {
@@ -196,19 +198,21 @@ func (c *controller) enqueueNamespace(obj interface{}) {
 
 	for _, obj := range placements {
 		placement := obj.(*schedulingv1alpha1.Placement)
-		klog.V(2).Infof("Queueing placement %s|%s because Namespace %q changed", clusterName, placement.Name, namespaceName)
+		namespaceKey := key
 		key := clusters.ToClusterAwareKey(logicalcluster.From(placement), placement.Name)
+		logging.WithQueueKey(logger, key).V(2).Info("queueing Placement because Namespace changed", "Namespace", namespaceKey)
 		c.queue.Add(key)
 	}
 }
 
 func (c *controller) enqueueLocation(obj interface{}) {
+	logger := logging.WithReconciler(klog.Background(), controllerName)
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
-	clusterName, name := clusters.SplitClusterAwareKey(key)
+	clusterName, _ := clusters.SplitClusterAwareKey(key)
 
 	placements, err := c.placementIndexer.ByIndex(byLocationWorkspace, clusterName.String())
 	if err != nil {
@@ -218,8 +222,9 @@ func (c *controller) enqueueLocation(obj interface{}) {
 
 	for _, obj := range placements {
 		placement := obj.(*schedulingv1alpha1.Placement)
+		locationKey := key
 		key := clusters.ToClusterAwareKey(logicalcluster.From(placement), placement.Name)
-		klog.V(2).Infof("Queueing placement %s|%s because location %s|%s changed", logicalcluster.From(placement), placement.Name, clusterName, name)
+		logging.WithQueueKey(logger, key).V(2).Info("queueing Placement because Location changed", "Location", locationKey)
 		c.queue.Add(key)
 	}
 }
@@ -229,8 +234,10 @@ func (c *controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	klog.Infof("Starting %s controller", controllerName)
-	defer klog.Infof("Shutting down %s controller", controllerName)
+	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
+	ctx = klog.NewContext(ctx, logger)
+	logger.Info("Starting controller")
+	defer logger.Info("Shutting down controller")
 
 	for i := 0; i < numThreads; i++ {
 		go wait.UntilWithContext(ctx, c.startWorker, time.Second)
@@ -252,6 +259,10 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	}
 	key := k.(string)
 
+	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
+	ctx = klog.NewContext(ctx, logger)
+	logger.V(1).Info("processing key")
+
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.
 	defer c.queue.Done(key)
@@ -266,9 +277,10 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *controller) process(ctx context.Context, key string) error {
+	logger := klog.FromContext(ctx)
 	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		klog.Errorf("invalid key: %q: %v", key, err)
+		logger.Error(err, "invalid key")
 		return nil
 	}
 	clusterName, name := clusters.SplitClusterAwareKey(clusterAwareName)
@@ -282,6 +294,9 @@ func (c *controller) process(ctx context.Context, key string) error {
 	}
 	old := obj
 	obj = obj.DeepCopy()
+
+	logger = logging.WithObject(logger, obj)
+	ctx = klog.NewContext(ctx, logger)
 
 	reconcileErr := c.reconcile(ctx, obj)
 
@@ -309,7 +324,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		if err != nil {
 			return fmt.Errorf("failed to create patch for LocationDomain %s|%s: %w", clusterName, name, err)
 		}
-		klog.V(2).Infof("Patching placement %s|%s with patch %s", clusterName, obj.Name, string(patchBytes))
+		logger.V(2).Info("patching placement", "patch", string(patchBytes))
 		_, uerr := c.kcpClusterClient.SchedulingV1alpha1().Placements().Patch(logicalcluster.WithCluster(ctx, clusterName), obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 		return uerr
 	}

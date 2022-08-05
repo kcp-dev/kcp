@@ -153,9 +153,10 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	var estimate *deletion.ResourcesRemainingError
 	if errors.As(err, &estimate) {
 		t := estimate.Estimate/2 + 1
-		klog.V(2).Infof("Content remaining in workspace %s after %v, waiting %d seconds to continue: %v", key, time.Since(startTime), t, err)
+		duration := time.Duration(t) * time.Second
+		logger.V(2).Error(err, "content remaining in workspace after a wait, waiting more to continue", key, "duration", time.Since(startTime), "waiting", duration)
 
-		c.queue.AddAfter(key, time.Duration(t)*time.Second)
+		c.queue.AddAfter(key, duration)
 	} else {
 		// rather than wait for a full resync, re-add the workspace to the queue to be processed
 		c.queue.AddRateLimited(key)
@@ -166,9 +167,10 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *Controller) process(ctx context.Context, key string) error {
+	logger := klog.FromContext(ctx)
 	workspace, deleteErr := c.workspaceLister.Get(key)
 	if apierrors.IsNotFound(deleteErr) {
-		klog.V(2).Infof("Workspace has been deleted %v", key)
+		logger.V(2).Info("ClusterWorkspace has been deleted")
 		return nil
 	}
 	if deleteErr != nil {
@@ -176,17 +178,20 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		return deleteErr
 	}
 
+	logger = logging.WithObject(logger, workspace)
+	ctx = klog.NewContext(ctx, logger)
+
 	if workspace.DeletionTimestamp.IsZero() {
 		return nil
 	}
 
 	workspaceCopy := workspace.DeepCopy()
 
-	klog.V(2).Infof("Deleting workspace %s", key)
+	logger.V(2).Info("deleting ClusterWorkspace")
 	startTime := time.Now()
 	deleteErr = c.deleter.Delete(ctx, workspaceCopy)
 	if deleteErr == nil {
-		klog.V(2).Infof("Finished deleting workspace %q content after %v", key, time.Since(startTime))
+		logger.V(2).Info("finished deleting ClusterWorkspace content", "duration", time.Since(startTime))
 		return c.finalizeWorkspace(ctx, workspaceCopy)
 	}
 
@@ -198,6 +203,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 }
 
 func (c *Controller) patchCondition(ctx context.Context, old, new *tenancyv1alpha1.ClusterWorkspace) error {
+	logger := klog.FromContext(ctx)
 	if equality.Semantic.DeepEqual(old.Status.Conditions, new.Status.Conditions) {
 		return nil
 	}
@@ -229,18 +235,19 @@ func (c *Controller) patchCondition(ctx context.Context, old, new *tenancyv1alph
 		return fmt.Errorf("failed to create patch for workspace %s: %w", new.Name, err)
 	}
 
-	klog.V(2).Infof("Patching workspace %s|%s: %s", logicalcluster.From(new), new.Name, string(patchBytes))
+	logger.V(2).Info("patching ClusterWorkspace", "patch", string(patchBytes))
 	_, err = c.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Patch(logicalcluster.WithCluster(ctx, logicalcluster.From(new)), new.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 	return err
 }
 
 // finalizeNamespace removes the specified finalizer and finalizes the workspace
 func (c *Controller) finalizeWorkspace(ctx context.Context, workspace *tenancyv1alpha1.ClusterWorkspace) error {
+	logger := klog.FromContext(ctx)
 	for i := range workspace.Finalizers {
 		if workspace.Finalizers[i] == deletion.WorkspaceFinalizer {
 			workspace.Finalizers = append(workspace.Finalizers[:i], workspace.Finalizers[i+1:]...)
 
-			klog.V(2).Infof("Removing finalizer from workspace %s|%s", logicalcluster.From(workspace), workspace.Name)
+			logger.V(2).Info("removing finalizer from ClusterWorkspace", logicalcluster.From(workspace), workspace.Name)
 			_, err := c.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Update(
 				logicalcluster.WithCluster(ctx, logicalcluster.From(workspace)), workspace, metav1.UpdateOptions{})
 			return err

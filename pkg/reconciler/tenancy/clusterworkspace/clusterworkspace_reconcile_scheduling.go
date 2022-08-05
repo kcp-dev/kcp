@@ -21,19 +21,20 @@ import (
 	"fmt"
 	"net/url"
 	"path"
-	"strings"
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	apierrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
+	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 type schedulingReconciler struct {
@@ -42,6 +43,7 @@ type schedulingReconciler struct {
 }
 
 func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancyv1alpha1.ClusterWorkspace) (reconcileStatus, error) {
+	logger := klog.FromContext(ctx)
 	workspaceClusterName := logicalcluster.From(workspace)
 	switch workspace.Status.Phase {
 	case tenancyv1alpha1.ClusterWorkspacePhaseScheduling:
@@ -49,13 +51,13 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 		if current := workspace.Status.Location.Current; current != "" {
 			// make sure current shard still exists
 			if shard, err := r.getShard(current); errors.IsNotFound(err) {
-				klog.Infof("De-scheduling workspace %s|%s from nonexistent shard %q", tenancyv1alpha1.RootCluster, workspace.Name, current)
+				logger.Info("de-scheduling workspace from nonexistent shard", "ClusterWorkspaceShard", current)
 				workspace.Status.Location.Current = ""
 				workspace.Status.BaseURL = ""
 			} else if err != nil {
 				return reconcileStatusStopAndRequeue, err
 			} else if valid, _, _ := isValidShard(shard); !valid {
-				klog.Infof("De-scheduling workspace %s|%s from invalid shard %q", tenancyv1alpha1.RootCluster, workspace.Name, current)
+				logger.Info("de-scheduling workspace from invalid shard", "ClusterWorkspaceShard", current)
 				workspace.Status.Location.Current = ""
 				workspace.Status.BaseURL = ""
 			}
@@ -149,14 +151,14 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 				workspace.Status.Location.Current = targetShard.Name
 
 				conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceScheduled)
-				klog.Infof("Scheduled workspace %s|%s to %s|%s", workspaceClusterName, workspace.Name, logicalcluster.From(targetShard), targetShard.Name)
+				logger.Info("scheduled workspace to shard", "ClusterWorkspaceShard", logging.Key(targetShard))
 			} else {
 				conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonUnschedulable, conditionsv1alpha1.ConditionSeverityError, "No available shards to schedule the workspace.")
-				failures := make([]string, 0, len(invalidShards))
+				failures := make([]error, 0, len(invalidShards))
 				for name, x := range invalidShards {
-					failures = append(failures, fmt.Sprintf("  %s: reason %q, message %q", name, x.reason, x.message))
+					failures = append(failures, fmt.Errorf("  %s: reason %q, message %q", name, x.reason, x.message))
 				}
-				klog.Infof("No valid shards found for workspace %s|%s, skipped:\n%s", workspaceClusterName, workspace.Name, strings.Join(failures, "\n"))
+				logger.Error(apierrors.NewAggregate(failures), "no valid shards found for workspace, skipping")
 			}
 		}
 	case tenancyv1alpha1.ClusterWorkspacePhaseInitializing, tenancyv1alpha1.ClusterWorkspacePhaseReady:
@@ -173,12 +175,12 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 
 		_, err := r.getShard(target)
 		if errors.IsNotFound(err) {
-			klog.Infof("Cannot move to nonexistent shard %q", tenancyv1alpha1.RootCluster, workspace.Name, target)
+			logger.Info("cannot move to nonexistent shard", "ClusterWorkspaceShard", target)
 		} else if err != nil {
 			return reconcileStatusStopAndRequeue, err
 		}
 
-		klog.Infof("Moving workspace %q to %q", workspace.Name, workspace.Status.Location.Target)
+		logger.Info("moving workspace to shard", "ClusterWorkspaceShard", workspace.Status.Location.Target)
 		workspace.Status.Location.Current = workspace.Status.Location.Target
 		workspace.Status.Location.Target = ""
 	}
