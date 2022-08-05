@@ -225,6 +225,15 @@ func (b homeWorkspaceHandlerBuilder) build() *homeWorkspaceHandler {
 	return h
 }
 
+func isGetHomeWorkspaceRequest(clusterName logicalcluster.Name, requestInfo *request.RequestInfo) bool {
+	return clusterName == tenancyv1alpha1.RootCluster &&
+		requestInfo.IsResourceRequest &&
+		requestInfo.Verb == "get" &&
+		requestInfo.APIGroup == tenancyv1beta1.SchemeGroupVersion.Group &&
+		requestInfo.Resource == "workspaces" &&
+		requestInfo.Name == "~"
+}
+
 func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	if !h.localInformers.synced() {
 		h.apiHandler.ServeHTTP(rw, req)
@@ -260,13 +269,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 	}
 
 	var workspaceType tenancyv1alpha1.ClusterWorkspaceTypeName
-	if lcluster.Name == tenancyv1alpha1.RootCluster &&
-		requestInfo.IsResourceRequest &&
-		requestInfo.Verb == "get" &&
-		requestInfo.APIGroup == tenancyv1beta1.SchemeGroupVersion.Group &&
-		requestInfo.Resource == "workspaces" &&
-		requestInfo.Name == "~" {
-
+	if isGetHomeWorkspaceRequest(lcluster.Name, requestInfo) {
 		// if we are in the special case of a `kubectl get workspace ~` request (against the 'root' workspace),
 		// we return the Home workspace definition of the current user, possibly even before its
 		// underlying ClusterWorkspace resource exists.
@@ -291,13 +294,14 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 				return
 			}
 
-			if found, err := h.searchForHomeWorkspaceRBACResourcesInLocalInformers(homeLogicalClusterName); err != nil {
+			found, err := h.searchForHomeWorkspaceRBACResourcesInLocalInformers(homeLogicalClusterName)
+			if err != nil {
 				responsewriters.InternalError(rw, req, err)
 				return
-			} else if found && homeClusterWorkspace.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady {
+			}
+			if found && homeClusterWorkspace.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady {
 				// We don't need to check any permission before returning the home workspace definition since,
 				// once it has been created, a home workspace is owned by the user.
-
 				homeWorkspace := &tenancyv1beta1.Workspace{}
 				projection.ProjectClusterWorkspaceToWorkspace(homeClusterWorkspace, homeWorkspace)
 				responsewriters.WriteObjectNegotiated(homeWorkspaceCodecs, negotiation.DefaultEndpointRestrictions, tenancyv1beta1.SchemeGroupVersion, rw, req, http.StatusOK, homeWorkspace)
@@ -307,22 +311,31 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 			// fall through because either not ready or RBAC objects missing
 		}
 
+		// fall-through and let it be created
 		lcluster.Name = homeLogicalClusterName
 		workspaceType = HomeClusterWorkspaceType
-
-		// fall-through and let it be created
 	} else {
+		if !lcluster.Name.HasPrefix(h.homePrefix) {
+			// Not a home workspaces request
+			h.apiHandler.ServeHTTP(rw, req)
+			return
+		}
+
 		var needsAutomaticCreation bool
 		needsAutomaticCreation, workspaceType = h.needsAutomaticCreation(lcluster.Name)
+		klog.V(4).InfoS("Not a ~ request", "cluster", lcluster.Name, "needsAutoCreate", needsAutomaticCreation, "verb", requestInfo.Verb, "url", req.URL)
 		if !needsAutomaticCreation {
 			h.apiHandler.ServeHTTP(rw, req)
 			return
 		}
 
-		if foundLocally, retryAfterSeconds, err := h.searchForWorkspaceAndRBACInLocalInformers(lcluster.Name, workspaceType == HomeClusterWorkspaceType, effectiveUser.GetName()); err != nil {
+		foundLocally, retryAfterSeconds, err := h.searchForWorkspaceAndRBACInLocalInformers(lcluster.Name, workspaceType == HomeClusterWorkspaceType, effectiveUser.GetName())
+		if err != nil {
 			responsewriters.InternalError(rw, req, err)
 			return
-		} else if foundLocally {
+		}
+		if foundLocally {
+			klog.V(4).InfoS("Found home workspace", "cluster", lcluster.Name, "retryAfter", retryAfterSeconds)
 			if retryAfterSeconds > 0 {
 				// Return a 429 status asking the client to try again after the creationDelay
 				rw.Header().Set("Retry-After", fmt.Sprintf("%d", retryAfterSeconds))
@@ -332,10 +345,10 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 			h.apiHandler.ServeHTTP(rw, req)
 			return
 		}
-
-		// Home or bucket workspace not found in the local informer
-		// Let's try to create it
 	}
+
+	// Home or bucket workspace not found in the local informer
+	// Let's try to create it
 
 	// But first check we have the right to do so.
 	attributes := homeWorkspaceAuthorizerAttributes(effectiveUser, "create")
@@ -346,9 +359,8 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	// Test if the user has the right to create his Home workspace when it doesn't exists
+	// Test if the user has the right to create their Home workspace when it doesn't exist
 	// => test the create verb on the clusterworkspaces/workspace subresource named ~ in the root workspace.
-
 	if decision, reason, err := h.authz.Authorize(
 		request.WithCluster(ctx, request.Cluster{Name: tenancyv1alpha1.RootCluster}),
 		attributes,
@@ -362,16 +374,18 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	if retryAfterSeconds, err := h.tryToCreate(ctx, effectiveUser, lcluster.Name, workspaceType); err != nil {
+	klog.V(4).InfoS("ServeHTTP trying to create", "cluster", lcluster.Name, "workspaceType", workspaceType, "effectiveUser", effectiveUser.GetName())
+	retryAfterSeconds, err := h.tryToCreate(ctx, effectiveUser, lcluster.Name, workspaceType)
+	if err != nil {
 		klog.Errorf("failed to create %s workspace %s for user %q: %w", workspaceType, lcluster.Name, effectiveUser.GetName(), err)
 		responsewriters.ErrorNegotiated(err, errorCodecs, schema.GroupVersion{}, rw, req)
 		return
-	} else {
-		// Return a 429 status asking the client to try again after the creationDelay
-		rw.Header().Set("Retry-After", fmt.Sprintf("%d", retryAfterSeconds))
-		http.Error(rw, "Creating the home workspace", http.StatusTooManyRequests)
-		return
 	}
+
+	// Return a 429 status asking the client to try again after the creationDelay
+	klog.V(4).InfoS("ServeHTTP tryToCreate need to retry", "cluster", lcluster.Name, "workspaceType", workspaceType, "effectiveUser", effectiveUser.GetName(), "retryAfter", retryAfterSeconds)
+	rw.Header().Set("Retry-After", fmt.Sprintf("%d", retryAfterSeconds))
+	http.Error(rw, "Creating the home workspace", http.StatusTooManyRequests)
 }
 
 // reHomeWorkspaceNameDisallowedChars is the regexp that defines what characters
@@ -519,7 +533,9 @@ func tryToCreate(h *homeWorkspaceHandler, ctx context.Context, user kuser.Info, 
 		}
 	}
 
+	klog.V(4).InfoS("tryToCreate: creating workspace", "parent", parent.String(), "workspace", ws.Name)
 	err := h.kcp.createClusterWorkspace(ctx, parent, ws)
+	klog.V(4).InfoS("tryToCreate: creating workspace result", "parent", parent.String(), "workspace", ws.Name, "err", err)
 	if err == nil || kerrors.IsAlreadyExists(err) {
 		if workspaceType == HomeClusterWorkspaceType {
 			if kerrors.IsAlreadyExists(err) {
@@ -536,21 +552,26 @@ func tryToCreate(h *homeWorkspaceHandler, ctx context.Context, user kuser.Info, 
 				}
 			}
 
+			klog.V(4).InfoS("tryToCreate: creating rbac resources", "cluster", logicalClusterName)
 			if err := h.createHomeWorkspaceRBACResources(ctx, user.GetName(), logicalClusterName); err != nil {
+				klog.V(4).InfoS("tryToCreate: error creating rbac resources", "cluster", logicalClusterName, "err", err)
 				return 0, err
 			}
 		}
 		// Retry sooner than the creation delay, because it's probably a question of
 		// letting the local informer cache being updated.
 		// Retrying quickly (after 1 second) should be sufficient to it.
+		klog.V(4).InfoS("tryToCreate: returning retry", "cluster", logicalClusterName, "retryAfter", 1)
 		return 1, nil
 	}
 
 	if retryAfterCreateSeconds, shouldRetry := kerrors.SuggestsClientDelay(err); shouldRetry {
+		klog.V(4).InfoS("tryToCreate: client suggests delay", "cluster", logicalClusterName, "retryAfter", retryAfterCreateSeconds)
 		return retryAfterCreateSeconds, nil
 	}
 
 	if !kerrors.IsForbidden(err) && !kerrors.IsNotFound(err) {
+		klog.V(4).InfoS("tryToCreate: returning error", "cluster", logicalClusterName, "err", err)
 		return 0, err
 	}
 
@@ -573,6 +594,7 @@ func tryToCreate(h *homeWorkspaceHandler, ctx context.Context, user kuser.Info, 
 	if parentWorkspace == nil {
 		// The parent simply probably does not exist => try to create it first
 		_, parentWorkspaceType := h.needsAutomaticCreation(parent)
+		klog.V(4).InfoS("tryToCreate: trying to create parent", "cluster", logicalClusterName, "parent", parent, "parentType", parentWorkspaceType)
 		return h.tryToCreate(ctx, user, parent, parentWorkspaceType)
 	}
 
@@ -580,16 +602,19 @@ func tryToCreate(h *homeWorkspaceHandler, ctx context.Context, user kuser.Info, 
 	if parentWorkspace.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady {
 		// if we received 403 but the parent exists and is ready,
 		// there's no reason to wait more => return the error.
+		klog.V(4).InfoS("tryToCreate: parent is ready, returning 0 retry and possible error", "cluster", logicalClusterName, "parent", parent, "err", err)
 		return 0, err
 	}
 
 	if workspaceUnschedulable(parentWorkspace) {
+		klog.V(4).InfoS("tryToCreate: parent is not ready and unschedulable, returning 0 retry and possible error", "cluster", logicalClusterName, "parent", parent, "err", err)
 		// if we received 403 since the parent exists but cannot be scheduled,
 		// there's no reason to wait more => return the error.
 		return 0, err
 	}
 
 	// We have to wait for the parent workspace to be Ready before trying to create the child workspace
+	klog.V(4).InfoS("tryToCreate: parent is not ready, returning retry", "cluster", logicalClusterName, "parent", parent, "retryAfter", h.creationDelaySeconds)
 	return h.creationDelaySeconds, nil
 }
 

@@ -1337,7 +1337,7 @@ func TestServeHTTP(t *testing.T) {
 				return authorizer.DecisionAllow, "", nil
 			},
 			getLocalClusterWorkspace: func(fullName logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error) {
-				return nil, nil
+				return nil, kerrors.NewNotFound(tenancyv1alpha1.Resource("clusterworkspaces"), fullName.String())
 			},
 			mocks: homeWorkspaceFeatureLogic{
 				searchForWorkspaceAndRBACInLocalInformers: func(workspaceName logicalcluster.Name, isHome bool, userName string) (found bool, retryAfterSeconds int, checkError error) {
