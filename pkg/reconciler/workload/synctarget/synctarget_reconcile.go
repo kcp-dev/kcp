@@ -55,6 +55,7 @@ func (c *Controller) reconcile(syncTarget *workloadv1alpha1.SyncTarget, workspac
 				syncerbuilder.SyncerVirtualWorkspaceName,
 				logicalcluster.From(syncTargetCopy).String(),
 				syncTargetCopy.Name,
+				string(syncTargetCopy.UID),
 			)
 			desiredURLs.Insert(syncerVirtualWorkspaceURL.String())
 		}

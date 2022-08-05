@@ -567,7 +567,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 			kubelikeWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
 
 			t.Logf("Deploying syncer into workspace %s", kubelikeWorkspace)
-			_ = framework.NewSyncerFixture(t, server, kubelikeWorkspace,
+			kubelikeSyncer := framework.NewSyncerFixture(t, server, kubelikeWorkspace,
 				framework.WithSyncTarget(kubelikeWorkspace, "kubelike"),
 				framework.WithExtraResources("ingresses.networking.k8s.io", "services"),
 				framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
@@ -641,7 +641,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 			wildwestSyncTargetName := fmt.Sprintf("wildwest-%d", +rand.Intn(1000000))
 
 			t.Logf("Deploying syncer into workspace %s", wildwestWorkspace)
-			_ = framework.NewSyncerFixture(t, server, wildwestWorkspace,
+			wildwestSyncer := framework.NewSyncerFixture(t, server, wildwestWorkspace,
 				framework.WithExtraResources("cowboys.wildwest.dev"),
 				framework.WithSyncTarget(wildwestWorkspace, wildwestSyncTargetName),
 				framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
@@ -669,11 +669,11 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 			require.NoError(t, err)
 			virtualWorkspaceRawConfig := rawConfig.DeepCopy()
 			virtualWorkspaceRawConfig.Clusters["kubelike"] = rawConfig.Clusters["base"].DeepCopy()
-			virtualWorkspaceRawConfig.Clusters["kubelike"].Server = rawConfig.Clusters["base"].Server + "/services/syncer/" + kubelikeWorkspace.String() + "/kubelike"
+			virtualWorkspaceRawConfig.Clusters["kubelike"].Server = rawConfig.Clusters["base"].Server + "/services/syncer/" + kubelikeWorkspace.String() + "/kubelike/" + kubelikeSyncer.SyncerConfig.SyncTargetUID
 			virtualWorkspaceRawConfig.Contexts["kubelike"] = rawConfig.Contexts["base"].DeepCopy()
 			virtualWorkspaceRawConfig.Contexts["kubelike"].Cluster = "kubelike"
 			virtualWorkspaceRawConfig.Clusters["wildwest"] = rawConfig.Clusters["base"].DeepCopy()
-			virtualWorkspaceRawConfig.Clusters["wildwest"].Server = rawConfig.Clusters["base"].Server + "/services/syncer/" + wildwestWorkspace.String() + "/" + wildwestSyncTargetName
+			virtualWorkspaceRawConfig.Clusters["wildwest"].Server = rawConfig.Clusters["base"].Server + "/services/syncer/" + wildwestWorkspace.String() + "/" + wildwestSyncTargetName + "/" + wildwestSyncer.SyncerConfig.SyncTargetUID
 			virtualWorkspaceRawConfig.Contexts["wildwest"] = rawConfig.Contexts["base"].DeepCopy()
 			virtualWorkspaceRawConfig.Contexts["wildwest"].Cluster = "wildwest"
 			kubelikeVWConfig, err := clientcmd.NewNonInteractiveClientConfig(*virtualWorkspaceRawConfig, "kubelike", nil, nil).ClientConfig()
