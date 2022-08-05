@@ -284,6 +284,7 @@ func (c *Controller) patchIfNeeded(ctx context.Context, old, obj *tenancyv1alpha
 		subresources = []string{"status"}
 	}
 
+	klog.V(2).Infof("Patching clusterworkspace %s|%s: %s", clusterName, name, string(patchBytes))
 	_, err = c.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Patch(logicalcluster.WithCluster(ctx, clusterName), obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, subresources...)
 	if err != nil {
 		return fmt.Errorf("failed to patch ClusterWorkspace %s|%s: %w", clusterName, name, err)
