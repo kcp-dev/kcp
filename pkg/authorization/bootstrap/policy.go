@@ -27,20 +27,21 @@ import (
 )
 
 const (
+	// SystemKcpClusterWorkspaceAccessGroup is a group that gives a user basic access to a workspace.
+	// It does not give them any permissions in the workspace.
 	SystemKcpClusterWorkspaceAccessGroup = "system:kcp:clusterworkspace:access"
-	// An admin group per cluster workspace.
-	// Members of this group have all permissions in the referenced cluster workspace (capped by maximal permission policy).
+	// SystemKcpClusterWorkspaceAdminGroup is an admin group per cluster workspace. Members of this group have all permissions
+	// in the referenced cluster workspace (capped by maximal permission policy).
 	SystemKcpClusterWorkspaceAdminGroup = "system:kcp:clusterworkspace:admin"
-	// A global admin group.
-	// Members of this group have all permissions across all cluster workspaces.
+	// SystemKcpAdminGroup is global admin group. Members of this group have all permissions across all cluster workspaces.
 	SystemKcpAdminGroup = "system:kcp:admin"
 )
 
 // ClusterRoleBindings return default rolebindings to the default roles
 func clusterRoleBindings() []rbacv1.ClusterRoleBinding {
 	return []rbacv1.ClusterRoleBinding{
-		clusterRoleBindingCustomName(rbacv1helpers.NewClusterBinding("cluster-admin").Groups(SystemKcpClusterWorkspaceAdminGroup, SystemKcpAdminGroup).BindingOrDie(), "system:kcp:clusterworkspace:admin"),
-		clusterRoleBindingCustomName(rbacv1helpers.NewClusterBinding("system:kcp:tenancy:reader").Groups(SystemKcpClusterWorkspaceAccessGroup).BindingOrDie(), "system:kcp:clusterworkspace:access"),
+		clusterRoleBindingCustomName(rbacv1helpers.NewClusterBinding("cluster-admin").Groups(SystemKcpClusterWorkspaceAdminGroup, SystemKcpAdminGroup).BindingOrDie(), SystemKcpClusterWorkspaceAdminGroup),
+		clusterRoleBindingCustomName(rbacv1helpers.NewClusterBinding("system:kcp:tenancy:reader").Groups(SystemKcpClusterWorkspaceAccessGroup).BindingOrDie(), SystemKcpClusterWorkspaceAccessGroup),
 	}
 }
 
