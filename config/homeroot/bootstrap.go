@@ -19,6 +19,7 @@ package organization
 import (
 	"context"
 
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 
@@ -29,6 +30,6 @@ import (
 // Bootstrap creates CRDs and the resources in this package by continuously retrying the list.
 // This is blocking, i.e. it only returns (with error) when the context is closed or with nil when
 // the bootstrapping is successfully completed.
-func Bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface, kcpClient kcpclient.Interface) error {
+func Bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface, kcpClient kcpclient.Interface, batteriesIncluded sets.String) error {
 	return confighelpers.BindRootAPIs(ctx, kcpClient, "tenancy.kcp.dev")
 }

@@ -64,7 +64,7 @@ func TestProtectedAPI(t *testing.T) {
 
 	t.Logf("Install today cowboys APIResourceSchema into service provider workspace %q", providerWorkspace)
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(providerWorkspaceClient.Discovery()))
-	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(providerWorkspace), mapper, "apiresourceschema_tlsroutes.yaml", testFiles)
+	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(providerWorkspace), mapper, nil, "apiresourceschema_tlsroutes.yaml", testFiles)
 	require.NoError(t, err)
 
 	t.Logf("Create an APIExport for it")

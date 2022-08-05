@@ -31,6 +31,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/discovery"
@@ -401,6 +402,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
 		tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: "root", Name: "universal"},
 		configuniversal.Bootstrap,
+		sets.NewString(s.Options.Extra.BatteriesIncluded...),
 	)
 	if err != nil {
 		return err
@@ -450,6 +452,7 @@ func (s *Server) installHomeWorkspaces(ctx context.Context, config *rest.Config)
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
 		tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: "root", Name: "homeroot"},
 		confighomeroot.Bootstrap,
+		sets.NewString(s.Options.Extra.BatteriesIncluded...),
 	)
 	if err != nil {
 		return err
@@ -463,6 +466,7 @@ func (s *Server) installHomeWorkspaces(ctx context.Context, config *rest.Config)
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
 		tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: "root", Name: "homebucket"},
 		confighomebucket.Bootstrap,
+		sets.NewString(s.Options.Extra.BatteriesIncluded...),
 	)
 	if err != nil {
 		return err

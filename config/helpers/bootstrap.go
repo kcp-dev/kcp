@@ -24,6 +24,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
+	"text/template"
 	"time"
 
 	"github.com/kcp-dev/logicalcluster/v2"
@@ -34,6 +36,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	apimachineryerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/discovery"
@@ -75,7 +78,7 @@ func ReplaceOption(pairs ...string) Option {
 // Bootstrap creates resources in a package's fs by
 // continuously retrying the list. This is blocking, i.e. it only returns (with error)
 // when the context is closed or with nil when the bootstrapping is successfully completed.
-func Bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface, fs embed.FS, opts ...Option) error {
+func Bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface, batteriesIncluded sets.String, fs embed.FS, opts ...Option) error {
 	cache := memory.NewMemCacheClient(discoveryClient)
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(cache)
 
@@ -85,7 +88,7 @@ func Bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface
 		transformers = append(transformers, opt.TransformFile)
 	}
 	return wait.PollImmediateInfiniteWithContext(ctx, time.Second, func(ctx context.Context) (bool, error) {
-		if err := CreateResourcesFromFS(ctx, dynamicClient, mapper, fs, transformers...); err != nil {
+		if err := CreateResourcesFromFS(ctx, dynamicClient, mapper, batteriesIncluded, fs, transformers...); err != nil {
 			klog.Infof("Failed to bootstrap resources, retrying: %v", err)
 			// invalidate cache if resources not found
 			// xref: https://github.com/kcp-dev/kcp/issues/655
@@ -97,7 +100,7 @@ func Bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface
 }
 
 // CreateResourcesFromFS creates all resources from a filesystem.
-func CreateResourcesFromFS(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, fs embed.FS, transformers ...TransformFileFunc) error {
+func CreateResourcesFromFS(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, batteriesIncluded sets.String, fs embed.FS, transformers ...TransformFileFunc) error {
 	files, err := fs.ReadDir(".")
 	if err != nil {
 		return err
@@ -108,7 +111,7 @@ func CreateResourcesFromFS(ctx context.Context, client dynamic.Interface, mapper
 		if f.IsDir() {
 			continue
 		}
-		if err := CreateResourceFromFS(ctx, client, mapper, f.Name(), fs, transformers...); err != nil {
+		if err := CreateResourceFromFS(ctx, client, mapper, batteriesIncluded, f.Name(), fs, transformers...); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -116,7 +119,7 @@ func CreateResourcesFromFS(ctx context.Context, client dynamic.Interface, mapper
 }
 
 // CreateResourceFromFS creates given resource file.
-func CreateResourceFromFS(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, filename string, fs embed.FS, transformers ...TransformFileFunc) error {
+func CreateResourceFromFS(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, batteriesIncluded sets.String, filename string, fs embed.FS, transformers ...TransformFileFunc) error {
 	raw, err := fs.ReadFile(filename)
 	if err != nil {
 		return fmt.Errorf("could not read %s: %w", filename, err)
@@ -146,7 +149,7 @@ func CreateResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 			}
 		}
 
-		if err := createResourceFromFS(ctx, client, mapper, doc); err != nil {
+		if err := createResourceFromFS(ctx, client, mapper, doc, batteriesIncluded); err != nil {
 			errs = append(errs, fmt.Errorf("failed to create resource %s doc %d: %w", filename, i, err))
 		}
 	}
@@ -154,15 +157,49 @@ func CreateResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 }
 
 const annotationCreateOnlyKey = "bootstrap.kcp.dev/create-only"
+const annotationBattery = "bootstrap.kcp.dev/battery"
 
-func createResourceFromFS(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, raw []byte) error {
-	obj, gvk, err := extensionsapiserver.Codecs.UniversalDeserializer().Decode(raw, nil, &unstructured.Unstructured{})
+func createResourceFromFS(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, raw []byte, batteriesIncluded sets.String) error {
+	type Input struct {
+		Batteries map[string]bool
+	}
+	input := Input{
+		Batteries: map[string]bool{},
+	}
+	for _, b := range batteriesIncluded.List() {
+		input.Batteries[b] = true
+	}
+	tmpl, err := template.New("manifest").Parse(string(raw))
+	if err != nil {
+		return fmt.Errorf("failed to parse manifest: %w", err)
+	}
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, input); err != nil {
+		return fmt.Errorf("failed to execute manifest: %w", err)
+	}
+
+	obj, gvk, err := extensionsapiserver.Codecs.UniversalDeserializer().Decode(buf.Bytes(), nil, &unstructured.Unstructured{})
 	if err != nil {
 		return fmt.Errorf("could not decode raw: %w", err)
 	}
 	u, ok := obj.(*unstructured.Unstructured)
 	if !ok {
 		return fmt.Errorf("decoded into incorrect type, got %T, wanted %T", obj, &unstructured.Unstructured{})
+	}
+
+	if v, found := u.GetAnnotations()[annotationBattery]; found {
+		partOf := strings.Split(v, ",")
+		included := false
+		for _, p := range partOf {
+			if batteriesIncluded.Has(strings.TrimSpace(p)) {
+				included = true
+				break
+			}
+		}
+		if !included {
+			klog.V(4).Infof("Skipping %s because %s is/are not among included batteries %s", u.GetName(), v, batteriesIncluded)
+			return nil
+		}
 	}
 
 	m, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)

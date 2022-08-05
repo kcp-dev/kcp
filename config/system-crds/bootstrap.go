@@ -24,6 +24,7 @@ import (
 
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
@@ -40,7 +41,7 @@ var fs embed.FS
 // Bootstrap creates CRDs and the resources in this package by continuously retrying the list.
 // This is blocking, i.e. it only returns (with error) when the context is closed or with nil when
 // the bootstrapping is successfully completed.
-func Bootstrap(ctx context.Context, crdClient apiextensionsclient.Interface, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface) error {
+func Bootstrap(ctx context.Context, crdClient apiextensionsclient.Interface, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface, batteriesIncluded sets.String) error {
 	// This is the full list of CRDs that kcp owns and manages in the system:system-crds logical cluster. Our custom CRD
 	// lister currently has a hard-coded list of which system CRDs are made available to which workspaces. See
 	// pkg/server/apiextensions.go newSystemCRDProvider for the list. These CRDs should never be installed in any other
@@ -62,5 +63,5 @@ func Bootstrap(ctx context.Context, crdClient apiextensionsclient.Interface, dis
 		return fmt.Errorf("failed to bootstrap system CRDs: %w", err)
 	}
 
-	return confighelpers.Bootstrap(ctx, discoveryClient, dynamicClient, fs)
+	return confighelpers.Bootstrap(ctx, discoveryClient, dynamicClient, batteriesIncluded, fs)
 }

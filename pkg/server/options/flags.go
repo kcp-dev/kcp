@@ -137,6 +137,7 @@ var (
 		"shard-kubeconfig-file",       // Kubeconfig holding admin(!) credentials to peer kcp shards.
 		"root-shard-kubeconfig-file",  // Kubeconfig holding admin(!) credentials to the root kcp shard.
 		"experimental-bind-free-port", // Bind to a free port. --secure-bind-port must be 0. Use the admin.kubeconfig to extract the chosen port.
+		"batteries-included",          // A list of batteries included (= default objects that might be unwanted in production, but very helpful in trying out kcp or development).
 
 		// secure serving flags
 		"bind-address",                     // The IP address on which to listen for the --secure-port port. The associated interface(s) must be reachable by the rest of the cluster, and by CLI/web clients. If blank or an unspecified address (0.0.0.0 or ::), all interfaces will be used.

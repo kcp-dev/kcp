@@ -31,6 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
@@ -58,7 +59,8 @@ func NewController(
 	kcpClusterClient kcpclient.Interface,
 	workspaceInformer tenancyinformer.ClusterWorkspaceInformer,
 	workspaceType tenancyv1alpha1.ClusterWorkspaceTypeReference,
-	bootstrap func(context.Context, discovery.DiscoveryInterface, dynamic.Interface, kcpclient.Interface) error,
+	bootstrap func(context.Context, discovery.DiscoveryInterface, dynamic.Interface, kcpclient.Interface, sets.String) error,
+	batteriesIncluded sets.String,
 ) (*controller, error) {
 	controllerName := fmt.Sprintf("%s-%s", controllerNameBase, workspaceType)
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
@@ -74,8 +76,9 @@ func NewController(
 		syncChecks: []cache.InformerSynced{
 			workspaceInformer.Informer().HasSynced,
 		},
-		workspaceType: workspaceType,
-		bootstrap:     bootstrap,
+		workspaceType:     workspaceType,
+		bootstrap:         bootstrap,
+		batteriesIncluded: batteriesIncluded,
 	}
 
 	workspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -101,8 +104,9 @@ type controller struct {
 
 	syncChecks []cache.InformerSynced
 
-	workspaceType tenancyv1alpha1.ClusterWorkspaceTypeReference
-	bootstrap     func(context.Context, discovery.DiscoveryInterface, dynamic.Interface, kcpclient.Interface) error
+	workspaceType     tenancyv1alpha1.ClusterWorkspaceTypeReference
+	bootstrap         func(context.Context, discovery.DiscoveryInterface, dynamic.Interface, kcpclient.Interface, sets.String) error
+	batteriesIncluded sets.String
 }
 
 func (c *controller) enqueue(obj interface{}) {

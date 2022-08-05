@@ -53,7 +53,7 @@ func (c *controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 	if err != nil {
 		return err
 	}
-	if err := c.bootstrap(logicalcluster.WithCluster(bootstrapCtx, wsClusterName), crdWsClient.Discovery(), c.dynamicClusterClient, c.kcpClusterClient); err != nil {
+	if err := c.bootstrap(logicalcluster.WithCluster(bootstrapCtx, wsClusterName), crdWsClient.Discovery(), c.dynamicClusterClient, c.kcpClusterClient, c.batteriesIncluded); err != nil {
 		return err // requeue
 	}
 

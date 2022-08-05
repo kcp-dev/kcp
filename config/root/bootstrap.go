@@ -21,6 +21,7 @@ import (
 	"embed"
 	"encoding/base64"
 
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/clientcmd"
@@ -35,7 +36,7 @@ var fs embed.FS
 // Bootstrap creates resources in this package by continuously retrying the list.
 // This is blocking, i.e. it only returns (with error) when the context is closed or with nil when
 // the bootstrapping is successfully completed.
-func Bootstrap(ctx context.Context, rootDiscoveryClient discovery.DiscoveryInterface, rootDynamicClient dynamic.Interface, shardName string, shardVirtualWorkspaceURL string, kubeconfig clientcmdapi.Config, homePrefix string, homeWorkspaceCreatorGroups []string) error {
+func Bootstrap(ctx context.Context, rootDiscoveryClient discovery.DiscoveryInterface, rootDynamicClient dynamic.Interface, shardName string, shardVirtualWorkspaceURL string, kubeconfig clientcmdapi.Config, homePrefix string, homeWorkspaceCreatorGroups []string, batteriesIncluded sets.String) error {
 	kubeconfigRaw, err := clientcmd.Write(kubeconfig)
 	if err != nil {
 		return err
@@ -52,7 +53,7 @@ func Bootstrap(ctx context.Context, rootDiscoveryClient discovery.DiscoveryInter
 		homeWorkspaceCreatorGroupReplacement = "[]"
 	}
 
-	return confighelpers.Bootstrap(ctx, rootDiscoveryClient, rootDynamicClient, fs, confighelpers.ReplaceOption(
+	return confighelpers.Bootstrap(ctx, rootDiscoveryClient, rootDynamicClient, batteriesIncluded, fs, confighelpers.ReplaceOption(
 		"SHARD_NAME", shardName,
 		"SHARD_VIRTUAL_WORKSPACE_URL", shardVirtualWorkspaceURL,
 		"SHARD_KUBECONFIG", base64.StdEncoding.EncodeToString(kubeconfigRaw),

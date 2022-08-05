@@ -219,7 +219,7 @@ func createResources(t *testing.T, ctx context.Context, dynamicClusterClient *kc
 	t.Logf("Create resources in %s", clusterName)
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(discoveryClusterClient.WithCluster(clusterName)))
 	require.Eventually(t, func() bool {
-		if err := confighelpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(clusterName), mapper, fileName, embeddedResources); err != nil {
+		if err := confighelpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(clusterName), mapper, nil, fileName, embeddedResources); err != nil {
 			t.Logf("failed to create resources: %v", err)
 			return false
 		}
