@@ -182,7 +182,7 @@ func init() {
 	}
 }
 
-// KCPInternalAPIs provides a list of InternalAPI for the APIs that are part of the KCP scheme and will be there in every KCP workspace
+// syncerInternalAPIs provides a list of built-in APIs that are available for all workspaces accessed via the syncer virtual workspace.
 var syncerInternalAPIs = []internalapis.InternalAPI{
 	{
 		Names: apiextensionsv1.CustomResourceDefinitionNames{

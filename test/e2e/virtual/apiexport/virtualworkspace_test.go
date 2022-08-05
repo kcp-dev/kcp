@@ -19,6 +19,7 @@ package apiexport
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -28,21 +29,27 @@ import (
 	"github.com/stretchr/testify/require"
 
 	rbacv1 "k8s.io/api/rbac/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	extensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
+	"k8s.io/kubernetes/pkg/api/genericcontrolplanescheme"
 
 	"github.com/kcp-dev/kcp/config/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/controllers/apireconciler"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/internalapis"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
@@ -344,6 +351,8 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 		{Version: "v1", Resource: "configmaps"},
 		{Version: "v1", Resource: "secrets"},
 		{Version: "v1", Resource: "serviceaccounts"},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "clusterroles"},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "clusterrolebindings"},
 	}
 
 	for _, gvr := range grantedGVRs {
@@ -373,6 +382,104 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 	))
 }
 
+func TestAPIExportInternalAPIsDrift(t *testing.T) {
+	t.Parallel()
+
+	server := framework.SharedKcpServer(t)
+
+	cfg := server.BaseConfig(t)
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(cfg)
+	require.NoError(t, err, "failed to construct discovery client for server")
+
+	orgClusterName := framework.NewOrganizationFixture(t, server)
+	anyWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
+
+	apis, err := gatherInternalAPIs(discoveryClient.WithCluster(anyWorkspace), t)
+	require.NoError(t, err, "failed to gather built-in apis for server")
+
+	require.Equal(t, len(apis), len(apireconciler.InternalAPIs))
+
+	require.ElementsMatch(t, apis, apireconciler.InternalAPIs)
+}
+
+func gatherInternalAPIs(discoveryClient discovery.DiscoveryInterface, t *testing.T) ([]internalapis.InternalAPI, error) {
+	_, apiResourcesLists, err := discoveryClient.ServerGroupsAndResources()
+	if err != nil {
+		return nil, err
+	}
+	t.Logf("gathering internal apis, found %d", len(apiResourcesLists))
+
+	apisByGVK := map[schema.GroupVersionKind]internalapis.InternalAPI{}
+
+	for _, apiResourcesList := range apiResourcesLists {
+		gv, err := schema.ParseGroupVersion(apiResourcesList.GroupVersion)
+		if err != nil {
+			t.Errorf("error parsing group version %v, err: %v", apiResourcesList.GroupVersion, err)
+			continue
+		}
+		// ignore kcp resources
+		if strings.HasSuffix(gv.Group, ".kcp.dev") {
+			continue
+		}
+		for _, apiResource := range apiResourcesList.APIResources {
+			gvk := schema.GroupVersionKind{Kind: apiResource.Kind, Version: gv.Version, Group: gv.Group}
+
+			hasStatus := false
+			if strings.HasSuffix(apiResource.Name, "/status") {
+				if api, ok := apisByGVK[gvk]; ok {
+					api.HasStatus = true
+					apisByGVK[gvk] = api
+					continue
+				}
+				hasStatus = true
+			} else if strings.Contains(apiResource.Name, "/") {
+				// ignore other subresources
+				continue
+			}
+			resourceScope := apiextensionsv1.ClusterScoped
+			if apiResource.Namespaced {
+				resourceScope = apiextensionsv1.NamespaceScoped
+			}
+
+			instance, err := genericcontrolplanescheme.Scheme.New(gvk)
+			if err != nil {
+				if extensionsapiserver.Scheme.Recognizes(gvk) {
+					// Not currently supporting permission claim for CustomResourceDefinition.
+					// extensionsapiserver.Scheme is recursive and fails in internalapis.CreateAPIResourceSchemas in schema converter
+					t.Logf("permission claims not currently supported for gvk: %v/%v %v", gv.Group, gv.Version, apiResource.Kind)
+				} else {
+					t.Errorf("error creating instance for gvk: %v/%v %v err: %v", gv.Group, gv.Version, apiResource.Kind, err)
+				}
+				continue
+			}
+
+			t.Logf("Adding internal API %v/%v %v , has status: %t", gv.Group, gv.Version, apiResource.Kind, hasStatus)
+
+			if apiResource.SingularName == "" {
+				apiResource.SingularName = strings.ToLower(apiResource.Kind)
+			}
+
+			apisByGVK[gvk] = internalapis.InternalAPI{
+				Names: apiextensionsv1.CustomResourceDefinitionNames{
+					Plural:   apiResource.Name,
+					Singular: apiResource.SingularName,
+					Kind:     apiResource.Kind,
+				},
+				GroupVersion:  gv,
+				Instance:      instance,
+				ResourceScope: resourceScope,
+				HasStatus:     hasStatus,
+			}
+		}
+
+	}
+	internalAPIs := make([]internalapis.InternalAPI, 0, len(apisByGVK))
+	for _, api := range apisByGVK {
+		internalAPIs = append(internalAPIs, api)
+	}
+	return internalAPIs, nil
+}
+
 func setUpServiceProviderWithPermissionClaims(ctx context.Context, dynamicClients *dynamic.Cluster, kcpClients clientset.Interface, serviceProviderWorkspace logicalcluster.Name, cfg *rest.Config, identityHash string, t *testing.T) {
 	claims := []apisv1alpha1.PermissionClaim{
 		{
@@ -383,6 +490,12 @@ func setUpServiceProviderWithPermissionClaims(ctx context.Context, dynamicClient
 		},
 		{
 			GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "serviceaccounts"},
+		},
+		{
+			GroupResource: apisv1alpha1.GroupResource{Group: "rbac.authorization.k8s.io", Resource: "clusterroles"},
+		},
+		{
+			GroupResource: apisv1alpha1.GroupResource{Group: "rbac.authorization.k8s.io", Resource: "clusterrolebindings"},
 		},
 		{
 			GroupResource: apisv1alpha1.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
@@ -428,6 +541,12 @@ func bindConsumerToProviderWithPermissionClaims(ctx context.Context, consumerWor
 		},
 		{
 			GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "serviceaccounts"},
+		},
+		{
+			GroupResource: apisv1alpha1.GroupResource{Group: "rbac.authorization.k8s.io", Resource: "clusterroles"},
+		},
+		{
+			GroupResource: apisv1alpha1.GroupResource{Group: "rbac.authorization.k8s.io", Resource: "clusterrolebindings"},
 		},
 		{
 			GroupResource: apisv1alpha1.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},

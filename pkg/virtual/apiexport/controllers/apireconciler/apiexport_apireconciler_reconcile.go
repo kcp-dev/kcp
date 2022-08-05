@@ -23,18 +23,34 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	authenticationv1 "k8s.io/api/authentication/v1"
+	authorizationv1 "k8s.io/api/authorization/v1"
+	certificatesv1 "k8s.io/api/certificates/v1"
+	coordinationv1 "k8s.io/api/coordination/v1"
+	corev1 "k8s.io/api/core/v1"
+	eventsv1 "k8s.io/api/events/v1"
+	flowcontrolv1beta1 "k8s.io/api/flowcontrol/v1beta1"
+	flowcontrolv1beta2 "k8s.io/api/flowcontrol/v1beta2"
+	rbacv1 "k8s.io/api/rbac/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
+	"k8s.io/kube-openapi/pkg/common"
+	"k8s.io/kubernetes/pkg/api/genericcontrolplanescheme"
+	generatedopenapi "k8s.io/kubernetes/pkg/generated/openapi"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1/permissionclaims"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/internalapis"
 )
 
 func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.APIExport, apiDomainKey dynamiccontext.APIDomainKey) error {
@@ -87,7 +103,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 		}
 
 		// internal APIs have no identity and a fixed schema.
-		internal, apiResourceSchema := c.isPermissionClaimForInternalAPI(pc)
+		internal, apiResourceSchema := isPermissionClaimForInternalAPI(pc)
 		if internal {
 			shallow := *apiResourceSchema
 			// nolint:staticcheck
@@ -239,11 +255,287 @@ func (c *APIReconciler) getSchemasFromAPIExport(apiExport *apisv1alpha1.APIExpor
 	return apiResourceSchemas, nil
 }
 
-func (c *APIReconciler) isPermissionClaimForInternalAPI(claim *apisv1alpha1.PermissionClaim) (bool, *apisv1alpha1.APIResourceSchema) {
-	for _, schema := range c.internalAPIResourceSchemas {
+func isPermissionClaimForInternalAPI(claim *apisv1alpha1.PermissionClaim) (bool, *apisv1alpha1.APIResourceSchema) {
+	for _, schema := range internalAPIResourceSchemas {
 		if claim.GroupResource.Group == schema.Spec.Group && claim.GroupResource.Resource == schema.Spec.Names.Plural {
 			return true, schema
 		}
 	}
 	return false, nil
+}
+
+// Create APIResourceSchemas for built-in APIs available as permission claims for APIExport virtual workspace.
+func init() {
+	schemes := []*runtime.Scheme{genericcontrolplanescheme.Scheme}
+	openAPIDefinitionsGetters := []common.GetOpenAPIDefinitions{generatedopenapi.GetOpenAPIDefinitions}
+
+	if apis, err := internalapis.CreateAPIResourceSchemas(schemes, openAPIDefinitionsGetters, InternalAPIs...); err != nil {
+		panic(err)
+	} else {
+		internalAPIResourceSchemas = apis
+	}
+}
+
+// internalAPIResourceSchemas contains a list of APIResourceSchema for built-in APIs that are
+// available to be permission-claimed for APIExport virtual workspace
+var internalAPIResourceSchemas []*apisv1alpha1.APIResourceSchema
+
+var InternalAPIs = []internalapis.InternalAPI{
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "namespaces",
+			Singular: "namespace",
+			Kind:     "Namespace",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "", Version: "v1"},
+		Instance:      &corev1.Namespace{},
+		ResourceScope: apiextensionsv1.ClusterScoped,
+		HasStatus:     true,
+	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "configmaps",
+			Singular: "configmap",
+			Kind:     "ConfigMap",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "", Version: "v1"},
+		Instance:      &corev1.ConfigMap{},
+		ResourceScope: apiextensionsv1.NamespaceScoped,
+	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "events",
+			Singular: "event",
+			Kind:     "Event",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "", Version: "v1"},
+		Instance:      &corev1.Event{},
+		ResourceScope: apiextensionsv1.NamespaceScoped,
+	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "limitranges",
+			Singular: "limitrange",
+			Kind:     "LimitRange",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "", Version: "v1"},
+		Instance:      &corev1.LimitRange{},
+		ResourceScope: apiextensionsv1.NamespaceScoped,
+	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "resourcequotas",
+			Singular: "resourcequota",
+			Kind:     "ResourceQuota",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "", Version: "v1"},
+		Instance:      &corev1.ResourceQuota{},
+		ResourceScope: apiextensionsv1.NamespaceScoped,
+		HasStatus:     true,
+	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "secrets",
+			Singular: "secret",
+			Kind:     "Secret",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "", Version: "v1"},
+		Instance:      &corev1.Secret{},
+		ResourceScope: apiextensionsv1.NamespaceScoped,
+	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "serviceaccounts",
+			Singular: "serviceaccount",
+			Kind:     "ServiceAccount",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "", Version: "v1"},
+		Instance:      &corev1.ServiceAccount{},
+		ResourceScope: apiextensionsv1.NamespaceScoped,
+	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "clusterroles",
+			Singular: "clusterrole",
+			Kind:     "ClusterRole",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "rbac.authorization.k8s.io", Version: "v1"},
+		Instance:      &rbacv1.ClusterRole{},
+		ResourceScope: apiextensionsv1.ClusterScoped,
+	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "clusterrolebindings",
+			Singular: "clusterrolebinding",
+			Kind:     "ClusterRoleBinding",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "rbac.authorization.k8s.io", Version: "v1"},
+		Instance:      &rbacv1.ClusterRoleBinding{},
+		ResourceScope: apiextensionsv1.ClusterScoped,
+	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "roles",
+			Singular: "role",
+			Kind:     "Role",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "rbac.authorization.k8s.io", Version: "v1"},
+		Instance:      &rbacv1.Role{},
+		ResourceScope: apiextensionsv1.NamespaceScoped,
+	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "rolebindings",
+			Singular: "rolebinding",
+			Kind:     "RoleBinding",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "rbac.authorization.k8s.io", Version: "v1"},
+		Instance:      &rbacv1.RoleBinding{},
+		ResourceScope: apiextensionsv1.NamespaceScoped,
+	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "tokenreviews",
+			Singular: "tokenreview",
+			Kind:     "TokenReview",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "authentication.k8s.io", Version: "v1"},
+		Instance:      &authenticationv1.TokenReview{},
+		ResourceScope: apiextensionsv1.ClusterScoped,
+	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "localsubjectaccessreviews",
+			Singular: "localsubjectaccessreview",
+			Kind:     "LocalSubjectAccessReview",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "authorization.k8s.io", Version: "v1"},
+		Instance:      &authorizationv1.LocalSubjectAccessReview{},
+		ResourceScope: apiextensionsv1.NamespaceScoped,
+	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "selfsubjectaccessreviews",
+			Singular: "selfsubjectaccessreview",
+			Kind:     "SelfSubjectAccessReview",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "authorization.k8s.io", Version: "v1"},
+		Instance:      &authorizationv1.SelfSubjectAccessReview{},
+		ResourceScope: apiextensionsv1.ClusterScoped,
+	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "selfsubjectrulesreviews",
+			Singular: "selfsubjectrulesreview",
+			Kind:     "SelfSubjectRulesReview",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "authorization.k8s.io", Version: "v1"},
+		Instance:      &authorizationv1.SelfSubjectRulesReview{},
+		ResourceScope: apiextensionsv1.ClusterScoped,
+	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "subjectaccessreviews",
+			Singular: "subjectaccessreview",
+			Kind:     "SubjectAccessReview",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "authorization.k8s.io", Version: "v1"},
+		Instance:      &authorizationv1.SubjectAccessReview{},
+		ResourceScope: apiextensionsv1.ClusterScoped,
+	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "certificatesigningrequests",
+			Singular: "certificatesigningrequest",
+			Kind:     "CertificateSigningRequest",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "certificates.k8s.io", Version: "v1"},
+		Instance:      &certificatesv1.CertificateSigningRequest{},
+		ResourceScope: apiextensionsv1.ClusterScoped,
+		HasStatus:     true,
+	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "leases",
+			Singular: "lease",
+			Kind:     "Lease",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "coordination.k8s.io", Version: "v1"},
+		Instance:      &coordinationv1.Lease{},
+		ResourceScope: apiextensionsv1.NamespaceScoped,
+	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "flowschemas",
+			Singular: "flowschema",
+			Kind:     "FlowSchema",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "flowcontrol.apiserver.k8s.io", Version: "v1beta1"},
+		Instance:      &flowcontrolv1beta1.FlowSchema{},
+		ResourceScope: apiextensionsv1.ClusterScoped,
+		HasStatus:     true,
+	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "prioritylevelconfigurations",
+			Singular: "prioritylevelconfiguration",
+			Kind:     "PriorityLevelConfiguration",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "flowcontrol.apiserver.k8s.io", Version: "v1beta1"},
+		Instance:      &flowcontrolv1beta1.PriorityLevelConfiguration{},
+		ResourceScope: apiextensionsv1.ClusterScoped,
+		HasStatus:     true,
+	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "flowschemas",
+			Singular: "flowschema",
+			Kind:     "FlowSchema",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "flowcontrol.apiserver.k8s.io", Version: "v1beta2"},
+		Instance:      &flowcontrolv1beta2.FlowSchema{},
+		ResourceScope: apiextensionsv1.ClusterScoped,
+		HasStatus:     true,
+	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "prioritylevelconfigurations",
+			Singular: "prioritylevelconfiguration",
+			Kind:     "PriorityLevelConfiguration",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "flowcontrol.apiserver.k8s.io", Version: "v1beta2"},
+		Instance:      &flowcontrolv1beta2.PriorityLevelConfiguration{},
+		ResourceScope: apiextensionsv1.ClusterScoped,
+		HasStatus:     true,
+	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "mutatingwebhookconfigurations",
+			Singular: "mutatingwebhookconfiguration",
+			Kind:     "MutatingWebhookConfiguration",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1"},
+		Instance:      &admissionregistrationv1.MutatingWebhookConfiguration{},
+		ResourceScope: apiextensionsv1.ClusterScoped,
+	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "validatingwebhookconfigurations",
+			Singular: "validatingwebhookconfiguration",
+			Kind:     "ValidatingWebhookConfiguration",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1"},
+		Instance:      &admissionregistrationv1.ValidatingWebhookConfiguration{},
+		ResourceScope: apiextensionsv1.ClusterScoped,
+	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "events",
+			Singular: "event",
+			Kind:     "Event",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "events.k8s.io", Version: "v1"},
+		Instance:      &eventsv1.Event{},
+		ResourceScope: apiextensionsv1.NamespaceScoped,
+	},
 }
