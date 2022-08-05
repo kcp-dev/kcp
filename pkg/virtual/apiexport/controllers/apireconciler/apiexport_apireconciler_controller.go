@@ -19,27 +19,17 @@ package apireconciler
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	extensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
-	"k8s.io/kube-openapi/pkg/common"
-	"k8s.io/kubernetes/pkg/api/genericcontrolplanescheme"
-	generatedopenapi "k8s.io/kubernetes/pkg/generated/openapi"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -47,7 +37,6 @@ import (
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/internalapis"
 )
 
 const (
@@ -61,7 +50,6 @@ type CreateAPIDefinitionFunc func(apiResourceSchema *apisv1alpha1.APIResourceSch
 // and delegates the corresponding SyncTargetAPI management to the given SyncTargetAPIManager.
 func NewAPIReconciler(
 	kcpClusterClient kcpclient.ClusterInterface,
-	discoveryClient discovery.DiscoveryInterface,
 	apiResourceSchemaInformer apisinformer.APIResourceSchemaInformer,
 	apiExportInformer apisinformer.APIExportInformer,
 	createAPIDefinition CreateAPIDefinitionFunc,
@@ -70,7 +58,6 @@ func NewAPIReconciler(
 
 	c := &APIReconciler{
 		kcpClusterClient: kcpClusterClient,
-		discoveryClient:  discoveryClient,
 
 		apiResourceSchemaLister:  apiResourceSchemaInformer.Lister(),
 		apiResourceSchemaIndexer: apiResourceSchemaInformer.Informer().GetIndexer(),
@@ -119,11 +106,9 @@ func NewAPIReconciler(
 // API definitions driving the virtual workspace.
 type APIReconciler struct {
 	kcpClusterClient kcpclient.ClusterInterface
-	discoveryClient  discovery.DiscoveryInterface
 
-	apiResourceSchemaLister    apislisters.APIResourceSchemaLister
-	apiResourceSchemaIndexer   cache.Indexer
-	internalAPIResourceSchemas []*apisv1alpha1.APIResourceSchema
+	apiResourceSchemaLister  apislisters.APIResourceSchemaLister
+	apiResourceSchemaIndexer cache.Indexer
 
 	apiExportLister  apislisters.APIExportLister
 	apiExportIndexer cache.Indexer
@@ -136,110 +121,17 @@ type APIReconciler struct {
 	apiSets map[dynamiccontext.APIDomainKey]apidefinition.APIDefinitionSet
 }
 
-func (c *APIReconciler) gatherInternalAPIs() ([]internalapis.InternalAPI, error) {
-	_, apiResourcesLists, err := c.discoveryClient.ServerGroupsAndResources()
-	if err != nil {
-		return nil, err
-	}
-	internalAPIs := []internalapis.InternalAPI{}
-
-	for _, apiResourcesList := range apiResourcesLists {
-		gv, err := schema.ParseGroupVersion(apiResourcesList.GroupVersion)
-		if err != nil {
-			klog.Errorf("error parsing group version %v, err: %v", apiResourcesList.GroupVersion, err)
-			continue
-		}
-		// ignore kcp resources
-		if strings.HasSuffix(gv.Group, ".kcp.dev") {
-			continue
-		}
-		for _, apiResource := range apiResourcesList.APIResources {
-			// ignore subresources
-			if strings.Contains(apiResource.Name, "/") {
-				continue
-			}
-			resourceScope := apiextensionsv1.ClusterScoped
-			if apiResource.Namespaced {
-				resourceScope = apiextensionsv1.NamespaceScoped
-			}
-
-			gvk := schema.GroupVersionKind{Kind: apiResource.Kind, Version: gv.Version, Group: gv.Group}
-
-			instance, err := genericcontrolplanescheme.Scheme.New(gvk)
-			if err != nil {
-				if extensionsapiserver.Scheme.Recognizes(gvk) {
-					// Not currently supporting permission claim for CustomResourceDefinition.
-					// extensionsapiserver.Scheme is recursive and fails in internalapis.CreateAPIResourceSchemas in schema converter
-					klog.Warningf("permission claims not currently supported for gvk: %v/%v %v", gv.Group, gv.Version, apiResource.Kind)
-				} else {
-					klog.Errorf("error creating instance for gvk: %v/%v %v err: %v", gv.Group, gv.Version, apiResource.Kind, err)
-				}
-				continue
-			}
-
-			raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(instance)
-			if err != nil {
-				klog.Errorf("error checking status for gvk: %v/%v %v err: %v", gv.Group, gv.Version, apiResource.Kind, err)
-				continue
-			}
-			u := unstructured.Unstructured{Object: raw}
-			_, hasStatus, _ := unstructured.NestedStringMap(u.Object, "status")
-
-			klog.V(2).Infof("Adding internal API %v/%v %v , has status: %t", gv.Group, gv.Version, apiResource.Kind, hasStatus)
-
-			internalAPIs = append(internalAPIs, internalapis.InternalAPI{
-				Names: apiextensionsv1.CustomResourceDefinitionNames{
-					Plural:   apiResource.Name,
-					Singular: apiResource.SingularName,
-					Kind:     apiResource.Kind,
-				},
-				GroupVersion:  gv,
-				Instance:      instance,
-				ResourceScope: resourceScope,
-				HasStatus:     hasStatus,
-			})
-		}
-
-	}
-	return internalAPIs, nil
-}
-
-func createInternalSchemas(internalAPIs []internalapis.InternalAPI) ([]*apisv1alpha1.APIResourceSchema, error) {
-	schemes := []*runtime.Scheme{genericcontrolplanescheme.Scheme}
-	openAPIDefinitionsGetters := []common.GetOpenAPIDefinitions{generatedopenapi.GetOpenAPIDefinitions}
-
-	if apis, err := internalapis.CreateAPIResourceSchemas(schemes, openAPIDefinitionsGetters, internalAPIs...); err != nil {
-		return nil, err
-	} else {
-		return apis, err
-	}
-}
-
-// Gather list of internal APIs available as permission claims for APIExport virtual workspace.
-func (c *APIReconciler) GatherInternalSchemas() error {
-	internalAPIs, err := c.gatherInternalAPIs()
-	if err != nil {
-		return err
-	}
-	internalSchemas, err := createInternalSchemas(internalAPIs)
-	if err != nil {
-		return err
-	}
-	c.internalAPIResourceSchemas = internalSchemas
-	return nil
-}
-
 func (c *APIReconciler) enqueueAPIResourceSchema(obj interface{}) {
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
-		utilruntime.HandleError(err)
+		runtime.HandleError(err)
 		return
 	}
 
 	clusterName, name := clusters.SplitClusterAwareKey(key)
 	exports, err := c.apiExportIndexer.ByIndex(byWorkspace, clusterName.String())
 	if err != nil {
-		utilruntime.HandleError(err)
+		runtime.HandleError(err)
 		return
 	}
 
@@ -258,7 +150,7 @@ func (c *APIReconciler) enqueueAPIResourceSchema(obj interface{}) {
 func (c *APIReconciler) enqueueAPIExport(obj interface{}) {
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
-		utilruntime.HandleError(err)
+		runtime.HandleError(err)
 		return
 	}
 	c.queue.Add(key)
@@ -270,7 +162,7 @@ func (c *APIReconciler) startWorker(ctx context.Context) {
 }
 
 func (c *APIReconciler) Start(ctx context.Context) {
-	defer utilruntime.HandleCrash()
+	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
 	klog.Infof("Starting %s controller", ControllerName)
@@ -309,7 +201,7 @@ func (c *APIReconciler) processNextWorkItem(ctx context.Context) bool {
 	defer c.queue.Done(key)
 
 	if err := c.process(ctx, key); err != nil {
-		utilruntime.HandleError(fmt.Errorf("%s: failed to sync %q, err: %w", ControllerName, key, err))
+		runtime.HandleError(fmt.Errorf("%s: failed to sync %q, err: %w", ControllerName, key, err))
 		c.queue.AddRateLimited(key)
 		return true
 	}
