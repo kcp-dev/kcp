@@ -18,8 +18,12 @@ package bootstrap
 
 import (
 	rbacv1 "k8s.io/api/rbac/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	rbacv1helpers "k8s.io/kubernetes/pkg/apis/rbac/v1"
 	rbacrest "k8s.io/kubernetes/pkg/registry/rbac/rest"
+	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac/bootstrappolicy"
+
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 )
 
 const (
@@ -36,6 +40,19 @@ const (
 func clusterRoleBindings() []rbacv1.ClusterRoleBinding {
 	return []rbacv1.ClusterRoleBinding{
 		clusterRoleBindingCustomName(rbacv1helpers.NewClusterBinding("cluster-admin").Groups(SystemKcpClusterWorkspaceAdminGroup, SystemKcpAdminGroup).BindingOrDie(), "system:kcp:clusterworkspace:admin"),
+		clusterRoleBindingCustomName(rbacv1helpers.NewClusterBinding("system:kcp:tenancy:reader").Groups(SystemKcpClusterWorkspaceAccessGroup).BindingOrDie(), "system:kcp:clusterworkspace:access"),
+	}
+}
+
+func clusterRoles() []rbacv1.ClusterRole {
+	return []rbacv1.ClusterRole{
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: "system:kcp:tenancy:reader"},
+			Rules: []rbacv1.PolicyRule{
+				rbacv1helpers.NewRule("list", "watch").Groups(tenancy.GroupName).Resources("clusterworkspaces/workspace").RuleOrDie(), // "get" is by workspace name through workspace VW
+				rbacv1helpers.NewRule(bootstrappolicy.Read...).Groups(tenancy.GroupName).Resources("clusterworkspacetypes").RuleOrDie(),
+			},
+		},
 	}
 }
 
@@ -46,6 +63,7 @@ func clusterRoleBindingCustomName(b rbacv1.ClusterRoleBinding, name string) rbac
 
 func Policy() *rbacrest.PolicyData {
 	return &rbacrest.PolicyData{
+		ClusterRoles:        clusterRoles(),
 		ClusterRoleBindings: clusterRoleBindings(),
 	}
 }
