@@ -5,10 +5,3 @@
 - op: add
   path: /spec/versions/name=v1alpha1/schema/openAPIV3Schema/properties/spec/properties/permissionClaims/items/properties/group/default
   value: ""
-- op: add
-  path: /spec/versions/name=v1alpha1/schema/openAPIV3Schema/properties/spec/properties/permissionClaims/items/x-kubernetes-validations
-  value:
-    - rule: "(has(self.group) && self.group != '') || self.resource in ['configmaps', 'namespaces', 'secrets', 'serviceaccounts']"
-      message: .resource must be one of configmaps, namespaces, secrets, serviceaccounts if .group is empty.
-    - rule: "!(has(self.group) && self.group != '') || (has(self.identityHash) && self.identityHash != '')"
-      message: .identityHash must be set if .group is not empty.

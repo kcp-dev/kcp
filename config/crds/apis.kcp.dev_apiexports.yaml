@@ -144,14 +144,6 @@ spec:
                   required:
                   - resource
                   type: object
-                  x-kubernetes-validations:
-                  - message: .resource must be one of configmaps, namespaces, secrets,
-                      serviceaccounts if .group is empty.
-                    rule: (has(self.group) && self.group != '') || self.resource in
-                      ['configmaps', 'namespaces', 'secrets', 'serviceaccounts']
-                  - message: .identityHash must be set if .group is not empty.
-                    rule: '!(has(self.group) && self.group != '''') || (has(self.identityHash)
-                      && self.identityHash != '''')'
                 type: array
                 x-kubernetes-list-map-keys:
                 - group
