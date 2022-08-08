@@ -151,7 +151,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 				workspace.Status.Location.Current = targetShard.Name
 
 				conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceScheduled)
-				logger.Info("scheduled workspace to shard", "ClusterWorkspaceShard", logging.Key(targetShard))
+				logging.WithObject(logger, targetShard).Info("scheduled workspace to shard")
 			} else {
 				conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonUnschedulable, conditionsv1alpha1.ConditionSeverityError, "No available shards to schedule the workspace.")
 				failures := make([]error, 0, len(invalidShards))

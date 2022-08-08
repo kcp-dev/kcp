@@ -131,7 +131,7 @@ func (c *controller) createIdentitySecret(ctx context.Context, clusterName logic
 		return err
 	}
 
-	logger := klog.FromContext(ctx).WithValues("Secret", logging.Key(secret))
+	logger := logging.WithObject(klog.FromContext(ctx), secret)
 	ctx = klog.NewContext(ctx, logger)
 	klog.V(2).Infof("creating identity secret")
 	if err := c.createSecret(ctx, clusterName, secret); err != nil {
@@ -174,7 +174,7 @@ func (c *controller) updateVirtualWorkspaceURLs(ctx context.Context, apiExport *
 
 	desiredURLs := sets.NewString()
 	for _, clusterWorkspaceShard := range clusterWorkspaceShards {
-		logger = logger.WithValues("ClusterWorkspaceShard", logging.Key(clusterWorkspaceShard))
+		logger = logging.WithObject(logger, clusterWorkspaceShard)
 		if clusterWorkspaceShard.Spec.VirtualWorkspaceURL == "" {
 			continue
 		}
