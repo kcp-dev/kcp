@@ -140,6 +140,7 @@ spec:
         args:
         - --from-kubeconfig=/kcp/kubeconfig
         - --sync-target-name=sync-target-name
+        - --sync-target-uid=sync-target-uid
         - --from-cluster=root:default:foo
         - --resources=resource1
         - --resources=resource2
@@ -167,6 +168,7 @@ spec:
 		Namespace:       "kcp-syncer-sync-target-name-34b23c4k",
 		LogicalCluster:  "root:default:foo",
 		SyncTarget:      "sync-target-name",
+		SyncTargetUID:   "sync-target-uid",
 		Image:           "image",
 		Replicas:        1,
 		ResourcesToSync: []string{"resource1", "resource2"},
