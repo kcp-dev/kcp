@@ -45,7 +45,6 @@ import (
 
 	virtualcommand "github.com/kcp-dev/kcp/cmd/virtual-workspaces/command"
 	virtualoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
@@ -546,39 +545,6 @@ var testCases = []struct {
 				}
 				return len(list.Items) == 1 && list.Items[0].Name == workspace2.Name
 			}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to see workspace1 in org1 via list")
-		},
-	},
-	{
-		name: "checks that a top-level org a user has access to is visible to him when pointing to the root workspace only if the required get permission is there",
-		userTokens: []string{
-			// Use a user unique to the test to ensure isolation from other tests
-			"user-virtual-workspace-token",
-		},
-		work: func(ctx context.Context, t *testing.T, server runningServer) {
-			orgUserClient := server.virtualUserKcpClients[0].Cluster(tenancyv1alpha1.RootCluster)
-
-			createWorkspaceAccessRoleForGroup(t, ctx, server.kubeClusterClient, server.orgClusterName, false, "team-virtual-workspace")
-			createWorkspaceRoleForGroup(t, ctx, server.kubeClusterClient, "org-workspace-getter-in-root", v1alpha1.RootCluster, []rbacv1.PolicyRule{
-				{
-					Verbs:         []string{"get"},
-					Resources:     []string{"clusterworkspaces/workspace"},
-					ResourceNames: []string{server.orgClusterName.Base()},
-					APIGroups:     []string{"tenancy.kcp.dev"},
-				}}, "team-virtual-workspace")
-
-			require.Eventually(t, func() bool {
-				list, err := orgUserClient.TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
-				if err != nil {
-					t.Logf("failed to list workspaces: %v", err)
-					return false
-				}
-				for _, workspace := range list.Items {
-					if workspace.Name == server.orgClusterName.Base() {
-						return true
-					}
-				}
-				return false
-			}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to see org workspace in root")
 		},
 	},
 }
