@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 	_ "net/http/pprof"
+	"net/url"
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
@@ -263,6 +264,14 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		return nil, err
 	}
 
+	var shardVirtualWorkspaceURL *url.URL
+	if !opts.Virtual.Enabled && opts.Extra.ShardVirtualWorkspaceURL != "" {
+		shardVirtualWorkspaceURL, err = url.Parse(opts.Extra.ShardVirtualWorkspaceURL)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	// preHandlerChainMux is called before the actual handler chain. Note that BuildHandlerChainFunc below
 	// is called multiple times, but only one of the handler chain will actually be used. Hence, we wrap it
 	// to give handlers below one mux.Handle func to call.
@@ -301,7 +310,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		*c.preHandlerChainMux = append(*c.preHandlerChainMux, mux)
 		apiHandler = mux
 
-		apiHandler = WithWorkspaceProjection(apiHandler)
+		apiHandler = WithWorkspaceProjection(apiHandler, shardVirtualWorkspaceURL)
 		apiHandler = WithClusterAnnotation(apiHandler)
 		apiHandler = WithAuditAnnotation(apiHandler) // Must run before any audit annotation is made
 		apiHandler = WithClusterScope(apiHandler)
