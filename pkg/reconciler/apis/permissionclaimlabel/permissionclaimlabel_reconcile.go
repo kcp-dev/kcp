@@ -18,288 +18,216 @@ package permissionclaimlabel
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"strings"
 
-	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	aggregateerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1/permissionclaims"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	"github.com/kcp-dev/kcp/pkg/indexers"
+	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
-type permissionClaimHelper struct {
-	claim      apisv1alpha1.PermissionClaim
-	key, label string
-
-	informer informers.GenericInformer
-}
-
-func (p permissionClaimHelper) String() string {
-	return p.claim.String()
-}
-
-type mapGVRToClaim map[schema.GroupVersionResource][]permissionClaimHelper
-
-func (m mapGVRToClaim) String() string {
-	s := "["
-	for _, claims := range m {
-		s += fmt.Sprintf("%s", claims)
-	}
-	s = s + "]"
-	return s
-}
-
-func (c *controller) createPermissionClaimHelper(pc apisv1alpha1.PermissionClaim) (permissionClaimHelper, schema.GroupVersionResource, error) {
-
-	// get informer for the object.
-	informer, gvr, err := c.getInformerForGroupResource(pc.Group, pc.Resource)
-	if err != nil {
-		return permissionClaimHelper{}, gvr, err
-	}
-
-	key, label, err := permissionclaims.ToLabelKeyAndValue(pc)
-	if err != nil {
-		return permissionClaimHelper{}, gvr, err
-	}
-
-	return permissionClaimHelper{
-		claim:    pc,
-		key:      key,
-		label:    label,
-		informer: informer,
-	}, gvr, nil
-}
-
-// reconcilePermissionClaims will determine the resources that need to be labeled for access by a permission claim.
-// It will determine what permssions need to be added, what permissions need to be removed.
-// It will also update the status if it finds an invalid permission claim.
+// reconcilePermissionClaims determines the resources that need to be labeled for access by a permission claim.
+// It determines what permissions need to be added, what permissions need to be removed.
+// It also updates the status if it finds an invalid permission claim.
 // Permission claims are considered invalid when the identity hashes are mismatched, and when there is no dynamic informer
 // for the group resource.
 func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.APIBinding) error {
 	logger := klog.FromContext(ctx)
-	identityMismatch := false
-	lc := logicalcluster.From(apiBinding)
 
-	// Get all the bound resources in the locicalcluster
-	bindings, err := c.listAPIBindings(lc)
+	clusterName := logicalcluster.From(apiBinding)
+
+	if apiBinding.Status.BoundAPIExport == nil {
+		return nil
+	}
+
+	exportClusterName := apiBinding.Status.BoundAPIExport.Workspace.Path
+	exportName := apiBinding.Status.BoundAPIExport.Workspace.ExportName
+	apiExport, err := c.getAPIExport(logicalcluster.New(exportClusterName), exportName)
 	if err != nil {
-		return err
+		logger.Error(err, "error getting APIExport", "apiExportWorkspace", exportClusterName, "apiExportName", exportName)
+		return nil // nothing we can do
 	}
 
-	// Building a map, for all the bound resources in the logical cluster based on GR, to validate that a GR
-	// coming from a export, has the same identity hash when adding permission claims.
-	grsToBoundResource := map[apisv1alpha1.GroupResource]apisv1alpha1.BoundAPIResource{}
-	for _, binding := range bindings {
-		for _, resource := range binding.Status.BoundResources {
-			grsToBoundResource[apisv1alpha1.GroupResource{Group: resource.Group, Resource: resource.Resource}] = resource
+	logger = logging.WithObject(logger, apiExport)
+
+	exportedClaims := sets.NewString()
+	for _, claim := range apiExport.Spec.PermissionClaims {
+		exportedClaims.Insert(setKeyForClaim(claim))
+	}
+
+	acceptedClaims := sets.NewString()
+	for _, claim := range apiBinding.Spec.PermissionClaims {
+		if claim.State == apisv1alpha1.ClaimAccepted {
+			acceptedClaims.Insert(setKeyForClaim(claim.PermissionClaim))
 		}
 	}
 
-	invalidClaims := []apisv1alpha1.PermissionClaim{}
-	// get the added permission claims if added, add are just requeue the object.
-	addedPermissionClaims := mapGVRToClaim{}
-	syncClaims := mapGVRToClaim{}
-	for _, acceptedPC := range apiBinding.Spec.AcceptedPermissionClaims {
-		found := false
-		for _, observedPC := range apiBinding.Status.ObservedAcceptedPermissionClaims {
-			if acceptedPC.Equal(observedPC) {
-				found = true
-				break
-			}
-		}
-		ok, err := permissionclaims.ValidateClaim(acceptedPC.Group, acceptedPC.Resource, acceptedPC.IdentityHash, grsToBoundResource)
-		if !ok {
-			invalidClaims = append(invalidClaims, acceptedPC)
-			identityMismatch = true
-			klog.V(3).InfoS("invalid claim found", "claim", acceptedPC, "reason", err)
-			continue
-		}
+	appliedClaims := sets.NewString()
+	for _, claim := range apiBinding.Status.AppliedPermissionClaims {
+		appliedClaims.Insert(setKeyForClaim(claim))
+	}
 
-		claim, gvr, err := c.createPermissionClaimHelper(acceptedPC)
+	expectedClaims := exportedClaims.Intersection(acceptedClaims)
+	unexpectedClaims := acceptedClaims.Difference(expectedClaims)
+	needToApply := expectedClaims.Difference(appliedClaims)
+	needToRemove := appliedClaims.Difference(acceptedClaims)
+	allChanges := needToApply.Union(needToRemove)
+
+	logger.V(6).Info("claim set details",
+		"expected", expectedClaims,
+		"unexpected", unexpectedClaims,
+		"toApply", needToApply,
+		"toRemove", needToRemove,
+		"all", allChanges,
+	)
+
+	var allErrs []error
+	applyErrors := sets.NewString()
+
+	for _, s := range allChanges.List() {
+		claim := claimFromSetKey(s)
+		claimLogger := logger.WithValues("claim", s)
+
+		informer, gvr, err := c.getInformerForGroupResource(claim.Group, claim.Resource)
 		if err != nil {
-			invalidClaims = append(invalidClaims, acceptedPC)
-			klog.Errorf("unable to create permission claim helper %v", err)
+			allErrs = append(allErrs, fmt.Errorf("error getting informer for group=%q, resource=%q: %w", claim.Group, claim.Resource, err))
+			if acceptedClaims.Has(s) {
+				applyErrors.Insert(s)
+			}
 			continue
 		}
-		syncClaims[gvr] = append(syncClaims[gvr], claim)
-		if !found {
-			addedPermissionClaims[gvr] = append(addedPermissionClaims[gvr], claim)
+
+		claimLogger.V(4).Info("listing resources")
+		objs, err := informer.Informer().GetIndexer().ByIndex(indexers.ByLogicalCluster, clusterName.String())
+		if err != nil {
+			allErrs = append(allErrs, fmt.Errorf("error listing group=%q, resource=%q: %w", claim.Group, claim.Resource, err))
+			if acceptedClaims.Has(s) {
+				applyErrors.Insert(s)
+			}
+			continue
 		}
-	}
 
-	removedPermissionClaims := mapGVRToClaim{}
-	for _, observedPC := range apiBinding.Status.ObservedAcceptedPermissionClaims {
-		found := false
-		for _, acceptedPC := range apiBinding.Spec.AcceptedPermissionClaims {
-			if observedPC.Equal(acceptedPC) {
-				found = true
-				break
-			}
-		}
-		if !found {
-			claim, gvr, err := c.createPermissionClaimHelper(observedPC)
-			if err != nil {
-				return err
-			}
-			claims := removedPermissionClaims[gvr]
-			if claims == nil {
-				claims = []permissionClaimHelper{}
-			}
-			claims = append(claims, claim)
-			removedPermissionClaims[gvr] = claims
-		}
-	}
+		claimLogger.V(4).Info("got resources", "count", len(objs))
 
-	if len(addedPermissionClaims) != 0 {
-		logger.V(2).Info("adding permission claims", "addedPermissionClaims", addedPermissionClaims)
-	}
-
-	var allPatchErrors []error
-	// For all the things that are in the accepted claims we need to re-sync
-	for gvr, claims := range syncClaims {
-		for _, claim := range claims {
-			// TODO: use indexer instead of lister.
-			if !claim.informer.Informer().HasSynced() {
-				return fmt.Errorf("unable sync cache")
-			}
-			var errs []error
-
-			selector := labels.NewSelector()
-			req, err := labels.NewRequirement(claim.key, selection.NotEquals, []string{claim.label})
-			if err != nil {
-				errs = append(errs, err)
-				klog.V(4).InfoS("uanble to get requirement", "error", err)
-			}
-			selector.Add(*req)
-
-			objs, err := claim.informer.Informer().GetIndexer().ByIndex(indexers.ByLogicalCluster, lc.String())
-			if err != nil {
-				errs = append(errs, err)
-				klog.V(4).InfoS("uanble to list objects", "group", gvr.Group, "resource", gvr.Resource)
-			}
-			klog.V(6).InfoS("reconciling objs", "item", len(objs), "resource", gvr.Resource, "group", gvr.Group)
-			for _, obj := range objs {
-				oldObjectMeta, err := meta.Accessor(obj)
-				if err != nil {
-					return err
-				}
-				if selector.Matches(labels.Set(oldObjectMeta.GetLabels())) {
-					// Do not update objects that do not match the selector.
-					continue
-				}
-				// Empty Patch, will relay on the admission to add the resources.
-				err = c.patchGenericObject(ctx, oldObjectMeta, gvr, lc)
-				if err != nil {
-					errs = append(errs, err)
-				}
-			}
-			if len(errs) > 0 {
-				allPatchErrors = append(allPatchErrors, errs...)
-				logger.V(4).Info("unable to patch objects for added claim", "PermissionClaim", claim)
+		var claimErrs []error
+		for _, obj := range objs {
+			u, ok := obj.(*unstructured.Unstructured)
+			if !ok {
+				claimErrs = append(claimErrs, fmt.Errorf("unexpected type %T: %w", obj, err))
 				continue
 			}
 
-			// If all the listed objects are patched, lets add this to Observed Permission Claims
-			if _, ok := addedPermissionClaims[gvr]; ok {
-				apiBinding.Status.ObservedAcceptedPermissionClaims = append(apiBinding.Status.ObservedAcceptedPermissionClaims, claim.claim)
-			}
-		}
-	}
+			logger := logging.WithObject(logger, u)
+			logger.V(4).Info("patching to get claim labels updated")
 
-	if len(removedPermissionClaims) != 0 {
-		logger.V(2).Info("removing permission claims", "removedPermissionClaims", removedPermissionClaims)
-	}
-
-	for gvr, claims := range removedPermissionClaims {
-		for _, claim := range claims {
-			// TODO: use indexer instead of lister.
-			if !claim.informer.Informer().HasSynced() {
-				return fmt.Errorf("unable sync cache")
-			}
-			selector := labels.SelectorFromSet(labels.Set(map[string]string{claim.key: claim.label}))
-			objs, err := claim.informer.Informer().GetIndexer().ByIndex(indexers.ByLogicalCluster, lc.String())
+			// Empty patch, allowing the admission plugin to update the resource to the correct labels
+			err = c.patchGenericObject(ctx, u, gvr, clusterName)
 			if err != nil {
-				return err
-			}
-			var errs []error
-			for _, obj := range objs {
-				oldObjectMeta, err := meta.Accessor(obj)
-				if err != nil {
-					return err
-				}
-				if selector.Matches(labels.Set(oldObjectMeta.GetLabels())) {
-					// Do not update objects that are not selected
-					continue
-				}
-				// Empty Patch, will relay on the admission to add the resources.
-				err = c.patchGenericObject(ctx, oldObjectMeta, gvr, lc)
-				if err != nil {
-					errs = append(errs, err)
-				}
-			}
-			if len(errs) > 0 {
-				allPatchErrors = append(allPatchErrors, errs...)
-				logger.V(4).Info("unable to patch objects for removed claim", "PermissionClaim", claim)
+				patchErr := fmt.Errorf("error patching %q %s|%s/%s: %w", gvr, clusterName, u.GetNamespace(), u.GetName(), err)
+				claimErrs = append(claimErrs, patchErr)
 				continue
 			}
-			// remove claims assume that all new ones were added.
-			apiBinding.Status.ObservedAcceptedPermissionClaims = removeClaims(apiBinding.Status.ObservedAcceptedPermissionClaims, claim)
+		}
+
+		if len(claimErrs) > 0 {
+			allErrs = append(allErrs, claimErrs...)
+
+			if acceptedClaims.Has(s) {
+				applyErrors.Insert(s)
+			}
 		}
 	}
 
-	// Handle invalid claims
-	if len(invalidClaims) > 0 || len(allPatchErrors) > 0 {
-		logger.V(2).Info("found invalid claims", "invalidClaims", invalidClaims)
-		if identityMismatch {
-			conditions.MarkFalse(
-				apiBinding,
-				apisv1alpha1.PermissionClaimsAccepted,
-				apisv1alpha1.IdentityMismatchClaimInvalidReason,
-				conditionsv1alpha1.ConditionSeverityError,
-				"Invalid AcceptedPermissionClaim. Please contact the APIExport owner to resolve or verify identity's bound.",
-			)
-			return nil
-		} else {
-			conditions.MarkFalse(
-				apiBinding,
-				apisv1alpha1.PermissionClaimsAccepted,
-				apisv1alpha1.UnknownPermissionClaimInvalidReason,
-				conditionsv1alpha1.ConditionSeverityError,
-				"Claims have not been fully synced",
-			)
-			return aggregateerrors.NewAggregate(allPatchErrors)
+	var unexpectedOrInvalidErrors []error
+	for _, s := range unexpectedClaims.List() {
+		claim := claimFromSetKey(s)
+		unexpectedOrInvalidErrors = append(unexpectedOrInvalidErrors, fmt.Errorf("unexpected/invalid claim for %s.%s (identity %q)", claim.Resource, claim.Group, claim.IdentityHash))
+	}
+	if len(unexpectedOrInvalidErrors) > 0 {
+		i := len(unexpectedOrInvalidErrors)
+		if i > 10 {
+			i = 10
 		}
+		errsToDisplay := aggregateerrors.NewAggregate(unexpectedOrInvalidErrors[0:i])
+
+		conditions.MarkFalse(
+			apiBinding,
+			apisv1alpha1.PermissionClaimsValid,
+			apisv1alpha1.InvalidPermissionClaimsReason,
+			conditionsv1alpha1.ConditionSeverityError,
+			"%d unexpected and/or invalid permission claims (showing first %d): %s",
+			len(unexpectedOrInvalidErrors),
+			len(errsToDisplay.Errors()),
+			errsToDisplay,
+		)
+	} else {
+		conditions.MarkTrue(apiBinding, apisv1alpha1.PermissionClaimsValid)
 	}
 
-	conditions.MarkTrue(apiBinding, apisv1alpha1.PermissionClaimsAccepted)
+	fullyApplied := expectedClaims.Difference(applyErrors)
+	apiBinding.Status.AppliedPermissionClaims = []apisv1alpha1.PermissionClaim{}
+	for _, s := range fullyApplied.UnsortedList() {
+		claim := claimFromSetKey(s)
+		apiBinding.Status.AppliedPermissionClaims = append(apiBinding.Status.AppliedPermissionClaims, claim)
+	}
+
+	if len(allErrs) > 0 {
+		i := len(allErrs)
+		if i > 10 {
+			i = 10
+		}
+		errsToDisplay := aggregateerrors.NewAggregate(allErrs[0:i])
+
+		conditions.MarkFalse(
+			apiBinding,
+			apisv1alpha1.PermissionClaimsApplied,
+			apisv1alpha1.InternalErrorReason,
+			conditionsv1alpha1.ConditionSeverityError,
+			"Permission claims have not been fully applied: %v",
+			errsToDisplay,
+		)
+
+		return fmt.Errorf("%d error(s) applying permission claims for APIBinding %s|%s (showing the first %d): %w",
+			len(allErrs),
+			clusterName,
+			apiBinding.Name,
+			len(errsToDisplay.Errors()),
+			errsToDisplay,
+		)
+	} else {
+		conditions.MarkTrue(apiBinding, apisv1alpha1.PermissionClaimsApplied)
+	}
 
 	return nil
 }
 
-func removeClaims(claims []apisv1alpha1.PermissionClaim, removedClaim permissionClaimHelper) []apisv1alpha1.PermissionClaim {
-	newClaims := []apisv1alpha1.PermissionClaim{}
-	for _, c := range claims {
-		if !c.Equal(removedClaim.claim) {
-			newClaims = append(newClaims, c)
-		}
-	}
+func setKeyForClaim(claim apisv1alpha1.PermissionClaim) string {
+	return fmt.Sprintf("%s/%s/%s", claim.Resource, claim.Group, claim.IdentityHash)
+}
 
-	return newClaims
+func claimFromSetKey(key string) apisv1alpha1.PermissionClaim {
+	parts := strings.SplitN(key, "/", 3)
+	return apisv1alpha1.PermissionClaim{
+		GroupResource: apisv1alpha1.GroupResource{
+			Group:    parts[1],
+			Resource: parts[0],
+		},
+		IdentityHash: parts[2],
+	}
 }
 
 func (c *controller) getInformerForGroupResource(group, resource string) (informers.GenericInformer, schema.GroupVersionResource, error) {
@@ -316,19 +244,10 @@ func (c *controller) getInformerForGroupResource(group, resource string) (inform
 }
 
 func (c *controller) patchGenericObject(ctx context.Context, obj metav1.Object, gvr schema.GroupVersionResource, lc logicalcluster.Name) error {
-	objJSON, err := json.Marshal(obj)
-	if err != nil {
-		return err
-	}
-	patchBytes, err := jsonpatch.CreateMergePatch(objJSON, objJSON)
-	if err != nil {
-		return err
-	}
-
-	_, err = c.dynamicClusterClient.
+	_, err := c.dynamicClusterClient.
 		Resource(gvr).
 		Namespace(obj.GetNamespace()).
-		Patch(logicalcluster.WithCluster(ctx, lc), obj.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{})
+		Patch(logicalcluster.WithCluster(ctx, lc), obj.GetName(), types.MergePatchType, []byte("{}"), metav1.PatchOptions{})
 	// if we don't find it, and we can update lets continue on.
 	if err != nil && !errors.IsNotFound(err) {
 		return err

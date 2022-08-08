@@ -18,73 +18,63 @@ package permissionclaimlabel
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/go-logr/logr"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
-	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
+	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/permissionclaim"
 )
 
 const (
-	controllerNameResource = "kcp-resource-permissionclaimlabel"
+	resourceControllerName = "kcp-resource-permissionclaimlabel"
 )
 
-// NewController returns a new controller for APIBindings.
+// NewController returns a new controller for labeling resources for accepted permission claims.
 func NewResourceController(
 	kcpClusterClient kcpclient.Interface,
 	dynamicClusterClient dynamic.Interface,
 	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory,
 	apiBindingInformer apisinformers.APIBindingInformer,
+	apiExportInformer apisinformers.APIExportInformer,
 ) (*resourceController, error) {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerNameResource)
-
-	c := &resourceController{
-		queue:                queue,
-		kcpClusterClient:     kcpClusterClient,
-		dynamicClusterClient: dynamicClusterClient,
-		ddsif:                dynamicDiscoverySharedInformerFactory,
-
-		apiBindingsLister: apiBindingInformer.Lister(),
-		listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
-			obj, err := apiBindingInformer.Informer().GetIndexer().ByIndex(indexers.ByLogicalCluster, clusterName.String())
-			var ret []*apisv1alpha1.APIBinding
-			if err != nil {
-				return ret, err
-			}
-
-			for _, o := range obj {
-				binding, ok := o.(*apisv1alpha1.APIBinding)
-				if !ok {
-					klog.Errorf("unexpected type: %T, got %T", &apisv1alpha1.APIBinding{}, o)
-				}
-				ret = append(ret, binding)
-			}
-
-			return ret, nil
+	if err := apiBindingInformer.Informer().GetIndexer().AddIndexers(
+		cache.Indexers{
+			indexers.APIBindingByClusterAndAcceptedClaimedGroupResources: indexers.IndexAPIBindingByClusterAndAcceptedClaimedGroupResources,
 		},
-		apiBindingsIndexer: apiBindingInformer.Informer().GetIndexer(),
+	); err != nil {
+		return nil, err
 	}
 
+	c := &resourceController{
+		queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), resourceControllerName),
+		kcpClusterClient:       kcpClusterClient,
+		dynamicClusterClient:   dynamicClusterClient,
+		ddsif:                  dynamicDiscoverySharedInformerFactory,
+		permissionClaimLabeler: permissionclaim.NewLabeler(apiBindingInformer, apiExportInformer),
+	}
+
+	logger := logging.WithReconciler(klog.Background(), controllerName)
+
 	c.ddsif.AddEventHandler(informer.GVREventHandlerFuncs{
-		AddFunc:    func(gvr schema.GroupVersionResource, obj interface{}) { c.enqueueForResource(gvr, obj) },
-		UpdateFunc: func(gvr schema.GroupVersionResource, _, obj interface{}) { c.enqueueForResource(gvr, obj) },
+		AddFunc:    func(gvr schema.GroupVersionResource, obj interface{}) { c.enqueueForResource(logger, gvr, obj) },
+		UpdateFunc: func(gvr schema.GroupVersionResource, _, obj interface{}) { c.enqueueForResource(logger, gvr, obj) },
 		DeleteFunc: nil, // Nothing to do.
 	})
 
@@ -95,37 +85,37 @@ func NewResourceController(
 // resourceController reconciles resources from the ddsif, and will determine if it needs
 // its permission claim labels updated.
 type resourceController struct {
-	queue workqueue.RateLimitingInterface
-
-	kcpClusterClient     kcpclient.Interface
-	apiBindingsIndexer   cache.Indexer
-	dynamicClusterClient dynamic.Interface
-	ddsif                *informer.DynamicDiscoverySharedInformerFactory
-
-	apiBindingsLister apislisters.APIBindingLister
-	listAPIBindings   func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
+	queue                  workqueue.RateLimitingInterface
+	kcpClusterClient       kcpclient.Interface
+	dynamicClusterClient   dynamic.Interface
+	ddsif                  *informer.DynamicDiscoverySharedInformerFactory
+	permissionClaimLabeler *permissionclaim.Labeler
 }
 
-// enqueueBindingForResource
-func (c *resourceController) enqueueForResource(gvr schema.GroupVersionResource, obj interface{}) {
-	// Determine APIBindings that have Permission Claims for the given GVR
+// enqueueForResource adds the resource (gvr + obj) to the queue.
+func (c *resourceController) enqueueForResource(logger logr.Logger, gvr schema.GroupVersionResource, obj interface{}) {
+	queueKey := strings.Join([]string{gvr.Resource, gvr.Version, gvr.Group}, ".")
+
 	key, err := cache.MetaNamespaceKeyFunc(obj)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return
 	}
-	gvrstr := strings.Join([]string{gvr.Resource, gvr.Version, gvr.Group}, ".")
-	klog.V(4).InfoS("queueing resource", "key", gvrstr+"::"+key)
-	c.queue.Add(gvrstr + "::" + key)
+
+	queueKey += "::" + key
+	logging.WithQueueKey(logger, queueKey).V(2).Info("queuing resource")
+	c.queue.Add(queueKey)
 }
 
 // Start starts the controller, which stops when ctx.Done() is closed.
 func (c *resourceController) Start(ctx context.Context, numThreads int) {
-	defer runtime.HandleCrash()
+	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	klog.InfoS("Starting controller", "controller", controllerNameResource)
-	defer klog.InfoS("Shutting down controller", "controller", controllerNameResource)
+	logger := logging.WithReconciler(klog.FromContext(ctx), resourceControllerName)
+	ctx = klog.NewContext(ctx, logger)
+	logger.Info("starting controller")
+	defer logger.Info("shutting down controller")
 
 	for i := 0; i < numThreads; i++ {
 		go wait.UntilWithContext(ctx, c.startWorker, time.Second)
@@ -147,12 +137,16 @@ func (c *resourceController) processNextWorkItem(ctx context.Context) bool {
 	}
 	key := k.(string)
 
+	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
+	ctx = klog.NewContext(ctx, logger)
+	logger.V(1).Info("processing key")
+
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.
 	defer c.queue.Done(key)
 
 	if err := c.process(ctx, key); err != nil {
-		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", controllerNameResource, key, err))
+		utilruntime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", resourceControllerName, key, err))
 		c.queue.AddRateLimited(key)
 		return true
 	}
@@ -161,45 +155,47 @@ func (c *resourceController) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *resourceController) process(ctx context.Context, key string) error {
+	logger := klog.FromContext(ctx)
+
 	parts := strings.SplitN(key, "::", 2)
 	if len(parts) != 2 {
-		klog.Errorf("Error parsing key %q; dropping", key)
+		logger.Error(errors.New("unexpected key format"), "skipping key")
 		return nil
 	}
-	gvrstr := parts[0]
-	gvr, _ := schema.ParseResourceArg(gvrstr)
+
+	gvr, _ := schema.ParseResourceArg(parts[0])
 	if gvr == nil {
-		klog.Errorf("Error parsing GVR %q; dropping", gvrstr)
+		logger.Error(errors.New("unable to parse gvr string"), "skipping key", "gvr", parts[0])
 		return nil
 	}
 	key = parts[1]
 
+	logger = logger.WithValues("gvr", gvr.String(), "name", key)
+
 	inf, err := c.ddsif.ForResource(*gvr)
 	if err != nil {
-		return err
+		return fmt.Errorf("error getting dynamic informer for GVR %q: %w", gvr, err)
 	}
+
 	obj, exists, err := inf.Informer().GetIndexer().GetByKey(key)
 	if err != nil {
-		klog.Errorf("Error getting %q GVR %q from indexer: %v", key, gvrstr, err)
-		return err
+		logger.Error(err, "unable to get from indexer")
+		return nil // retrying won't help
 	}
 	if !exists {
-		klog.V(3).Infof("object %q GVR %q does not exist", key, gvrstr)
+		logger.V(4).Info("resource not found")
 		return nil
 	}
-	unstr, ok := obj.(*unstructured.Unstructured)
-	if !ok {
-		klog.Errorf("object was not Unstructured, dropping: %T", obj)
-		return nil
-	}
-	unstr = unstr.DeepCopy()
 
-	// Get logical cluster name.
-	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		klog.Errorf("failed to split key %q, dropping: %v", key, err)
-		return nil
+	u, ok := obj.(*unstructured.Unstructured)
+	if !ok {
+		logger.Error(nil, "got unexpected type", "type", fmt.Sprintf("%T", obj))
+		return nil // retrying won't help
 	}
-	lclusterName, _ := clusters.SplitClusterAwareKey(clusterAwareName)
-	return c.reconcile(ctx, lclusterName, unstr, gvr)
+	u = u.DeepCopy()
+
+	logger = logging.WithObject(logger, u)
+	ctx = klog.NewContext(ctx, logger)
+
+	return c.reconcile(ctx, u, gvr)
 }

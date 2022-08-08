@@ -23,6 +23,7 @@ import (
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
+	"github.com/go-logr/logr"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -42,8 +43,8 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
+	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 const (
@@ -51,13 +52,16 @@ const (
 )
 
 // NewController returns a new controller for handling permission claims for an APIBinding.
-// it will own the ObservedAcceptedPermissionClaims and will own the accepted permision claim condition.
+// it will own the AppliedPermissionClaims and will own the accepted permision claim condition.
 func NewController(
 	kcpClusterClient kcpclient.Interface,
 	dynamicClusterClient dynamic.Interface,
 	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory,
 	apiBindingInformer apisinformers.APIBindingInformer,
+	apiExportInformer apisinformers.APIExportInformer,
 ) (*controller, error) {
+	logger := logging.WithReconciler(klog.Background(), controllerName)
+
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
 	c := &controller{
@@ -66,35 +70,21 @@ func NewController(
 		dynamicClusterClient: dynamicClusterClient,
 		ddsif:                dynamicDiscoverySharedInformerFactory,
 
-		apiBindingsLister: apiBindingInformer.Lister(),
-		listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
-			var ret []*apisv1alpha1.APIBinding
-			obj, err := apiBindingInformer.Informer().GetIndexer().ByIndex(indexers.ByLogicalCluster, clusterName.String())
-			if err != nil {
-				klog.Errorf("Unable to get bindings from indexer: %v", err)
-				return ret, err
-			}
-
-			for _, o := range obj {
-				binding, ok := o.(*apisv1alpha1.APIBinding)
-				if !ok {
-					klog.Errorf("unexpected type apisv1alpha1.APIBinding, got %T", o)
-				}
-				ret = append(ret, binding)
-			}
-
-			return ret, nil
-		},
+		apiBindingsLister:  apiBindingInformer.Lister(),
 		apiBindingsIndexer: apiBindingInformer.Informer().GetIndexer(),
+
+		getAPIExport: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
+			key := clusters.ToClusterAwareKey(clusterName, name)
+			return apiExportInformer.Lister().Get(key)
+		},
 	}
 
 	apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) { c.enqueueAPIBinding(obj, "") },
+		AddFunc: func(obj interface{}) { c.enqueueAPIBinding(obj, logger) },
 		UpdateFunc: func(_, newObj interface{}) {
-			// TODO: In the future, when we should calculate if there is a need for an update.
-			c.enqueueAPIBinding(newObj, "")
+			c.enqueueAPIBinding(newObj, logger)
 		},
-		DeleteFunc: func(obj interface{}) { c.enqueueAPIBinding(obj, "") },
+		DeleteFunc: func(obj interface{}) { c.enqueueAPIBinding(obj, logger) },
 	})
 
 	return c, nil
@@ -113,18 +103,18 @@ type controller struct {
 	ddsif                *informer.DynamicDiscoverySharedInformerFactory
 
 	apiBindingsLister apislisters.APIBindingLister
-	listAPIBindings   func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
+	getAPIExport      func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error)
 }
 
-// enqueueAPIBinding enqueues an APIBinding .
-func (c *controller) enqueueAPIBinding(obj interface{}, logSuffix string) {
+// enqueueAPIBinding enqueues an APIBinding.
+func (c *controller) enqueueAPIBinding(obj interface{}, logger logr.Logger) {
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
-	klog.V(2).InfoS("queueing APIBinding", "key", key, "suffix", logSuffix)
+	logging.WithQueueKey(logger, key).V(2).Info("queueing APIBinding")
 	c.queue.Add(key)
 }
 
@@ -133,8 +123,10 @@ func (c *controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	klog.InfoS("Starting controller", "controller", controllerName)
-	defer klog.InfoS("Shutting down controller", "controller", controllerName)
+	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
+	ctx = klog.NewContext(ctx, logger)
+	logger.Info("starting controller")
+	defer logger.Info("shutting down controller")
 
 	for i := 0; i < numThreads; i++ {
 		go wait.UntilWithContext(ctx, c.startWorker, time.Second)
@@ -156,6 +148,10 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	}
 	key := k.(string)
 
+	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
+	ctx = klog.NewContext(ctx, logger)
+	logger.V(1).Info("processing key")
+
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.
 	defer c.queue.Done(key)
@@ -170,9 +166,10 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *controller) process(ctx context.Context, key string) error {
+	logger := klog.FromContext(ctx)
 	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		klog.Errorf("invalid key: %q: %v", key, err)
+		logger.Error(err, "invalid key")
 		return nil
 	}
 	clusterName, name := clusters.SplitClusterAwareKey(clusterAwareName)
@@ -184,12 +181,18 @@ func (c *controller) process(ctx context.Context, key string) error {
 		}
 		return err
 	}
+
+	logger = logging.WithObject(logger, obj)
+	ctx = klog.NewContext(ctx, logger)
+
 	old := obj
 	obj = obj.DeepCopy()
+
 	var errs []error
 	if err := c.reconcile(ctx, obj); err != nil {
 		errs = append(errs, err)
 	}
+
 	// If the object being reconciled changed as a result, update it.
 	if !equality.Semantic.DeepEqual(old.Status, obj.Status) {
 		oldData, err := json.Marshal(apisv1alpha1.APIBinding{
@@ -215,7 +218,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 			return fmt.Errorf("failed to create patch for apibinding %s|%s: %w", clusterName, name, err)
 		}
 
-		klog.V(2).InfoS("Patching apibinding", "cluster", clusterName, "name", name, "patch", string(patchBytes))
+		logger.V(2).Info("patching APIBinding", "patch", string(patchBytes))
 		if _, err := c.kcpClusterClient.ApisV1alpha1().APIBindings().Patch(logicalcluster.WithCluster(ctx, clusterName), obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status"); err != nil {
 			errs = append(errs, err)
 

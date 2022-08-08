@@ -57,6 +57,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIResourceSchemaList":                       schema_pkg_apis_apis_v1alpha1_APIResourceSchemaList(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIResourceSchemaSpec":                       schema_pkg_apis_apis_v1alpha1_APIResourceSchemaSpec(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIResourceVersion":                          schema_pkg_apis_apis_v1alpha1_APIResourceVersion(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.AcceptablePermissionClaim":                   schema_pkg_apis_apis_v1alpha1_AcceptablePermissionClaim(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.BoundAPIResource":                            schema_pkg_apis_apis_v1alpha1_BoundAPIResource(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.BoundAPIResourceSchema":                      schema_pkg_apis_apis_v1alpha1_BoundAPIResourceSchema(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportReference":                             schema_pkg_apis_apis_v1alpha1_ExportReference(ref),
@@ -1168,15 +1169,15 @@ func schema_pkg_apis_apis_v1alpha1_APIBindingSpec(ref common.ReferenceCallback) 
 							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportReference"),
 						},
 					},
-					"acceptedPermissionClaims": {
+					"permissionClaims": {
 						SchemaProps: spec.SchemaProps{
-							Description: "acceptedPermissionClaims records the permissions that are granted to the bound workspace. Access is granted on a GroupResource basis and can be filtered on objects by many different selectors.",
+							Description: "permissionClaims records decisions about permission claims requested by the API service provider. Individual claims can be accepted or rejected. If accepted, the API service provider gets the requested access to the specified resources in this workspace. Access is granted per GroupResource, identity, and other properties.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.PermissionClaim"),
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.AcceptablePermissionClaim"),
 									},
 								},
 							},
@@ -1187,7 +1188,7 @@ func schema_pkg_apis_apis_v1alpha1_APIBindingSpec(ref common.ReferenceCallback) 
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportReference", "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.PermissionClaim"},
+			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.AcceptablePermissionClaim", "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportReference"},
 	}
 }
 
@@ -1248,9 +1249,9 @@ func schema_pkg_apis_apis_v1alpha1_APIBindingStatus(ref common.ReferenceCallback
 							},
 						},
 					},
-					"ObservedAcceptedPermissionClaims": {
+					"appliedPermissionClaims": {
 						SchemaProps: spec.SchemaProps{
-							Description: "observedAcceptedPermissionClaims records the permissions that the export provider is granted to the bound workspace. This is granted by binding implictily to an export that contains permissionClaims. Access is granted on a GroupResource basis and can be filtered on objects by many different selectors.",
+							Description: "appliedPermissionClaims is a list of the permission claims the system has seen and applied, according to the requests of the API service provider in the APIExport and the acceptance state in spec.permissionClaims.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -1732,6 +1733,34 @@ func schema_pkg_apis_apis_v1alpha1_APIResourceVersion(ref common.ReferenceCallba
 		},
 		Dependencies: []string{
 			"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.CustomResourceColumnDefinition", "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.CustomResourceSubresources", "k8s.io/apimachinery/pkg/runtime.RawExtension"},
+	}
+}
+
+func schema_pkg_apis_apis_v1alpha1_AcceptablePermissionClaim(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AcceptablePermissionClaim is a PermissionClaim that records if the user accepts or rejects it.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"identityHash": {
+						SchemaProps: spec.SchemaProps{
+							Description: "This is the identity for a given APIExport that the APIResourceSchema belongs to. The hash can be found on APIExport and APIResourceSchema's status. It will be empty for core types. Note that one must look this up for a particular KCP instance.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"state": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"state"},
+			},
+		},
 	}
 }
 

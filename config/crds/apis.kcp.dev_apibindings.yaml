@@ -42,15 +42,15 @@ spec:
           spec:
             description: Spec holds the desired state.
             properties:
-              acceptedPermissionClaims:
-                description: acceptedPermissionClaims records the permissions that
-                  are granted to the bound workspace. Access is granted on a GroupResource
-                  basis and can be filtered on objects by many different selectors.
+              permissionClaims:
+                description: permissionClaims records decisions about permission claims
+                  requested by the API service provider. Individual claims can be
+                  accepted or rejected. If accepted, the API service provider gets
+                  the requested access to the specified resources in this workspace.
+                  Access is granted per GroupResource, identity, and other properties.
                 items:
-                  description: PermissionClaim identifies an object by GR and identity
-                    hash. It's purpose is to determine the added permisions that a
-                    service provider may request and that a consumer may accept and
-                    alllow the service provider access to.
+                  description: AcceptablePermissionClaim is a PermissionClaim that
+                    records if the user accepts or rejects it.
                   properties:
                     group:
                       description: group is the name of an API group. For core groups
@@ -70,8 +70,14 @@ spec:
                         provided by a CRD not provided by an api export.'
                       pattern: ^[a-z][-a-z0-9]*[a-z0-9]$
                       type: string
+                    state:
+                      enum:
+                      - Accepted
+                      - Rejected
+                      type: string
                   required:
                   - resource
+                  - state
                   type: object
                 type: array
               reference:
@@ -108,12 +114,11 @@ spec:
           status:
             description: Status communicates the observed state.
             properties:
-              ObservedAcceptedPermissionClaims:
-                description: observedAcceptedPermissionClaims records the permissions
-                  that the export provider is granted to the bound workspace. This
-                  is granted by binding implictily to an export that contains permissionClaims.
-                  Access is granted on a GroupResource basis and can be filtered on
-                  objects by many different selectors.
+              appliedPermissionClaims:
+                description: appliedPermissionClaims is a list of the permission claims
+                  the system has seen and applied, according to the requests of the
+                  API service provider in the APIExport and the acceptance state in
+                  spec.permissionClaims.
                 items:
                   description: PermissionClaim identifies an object by GR and identity
                     hash. It's purpose is to determine the added permisions that a

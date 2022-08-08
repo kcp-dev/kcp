@@ -18,59 +18,62 @@ package permissionclaimlabel
 
 import (
 	"context"
+	"fmt"
+	"reflect"
+	"strings"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/kcp-dev/logicalcluster/v2"
 
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1/permissionclaims"
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 )
 
-func (c *resourceController) reconcile(ctx context.Context, cluster logicalcluster.Name, obj *unstructured.Unstructured, gvr *schema.GroupVersionResource) error {
+func (c *resourceController) reconcile(ctx context.Context, obj *unstructured.Unstructured, gvr *schema.GroupVersionResource) error {
+	logger := klog.FromContext(ctx)
 
-	// Now that we have the unstrucutred and GVR, we will need to get the all the bindings, detemine if the object needs to be updated.
-	bindings, err := c.listAPIBindings(cluster)
+	clusterName := logicalcluster.From(obj)
+	expectedLabels, err := c.permissionClaimLabeler.LabelsFor(ctx, clusterName, gvr.GroupResource())
 	if err != nil {
-		return err
-	}
-
-	expectedLabels, err := permissionclaims.AllClaimLabels(gvr.Group, gvr.Resource, bindings)
-	if err != nil {
-		return err
+		return fmt.Errorf("error calculating permission claim labels for GVR %q %s/%s: %w", gvr, obj.GetNamespace(), obj.GetName(), err)
 	}
 
 	labels := obj.GetLabels()
-	updateNeeded := false
-	for k, v := range expectedLabels {
-		if labels == nil {
-			labels = make(map[string]string)
-		}
-		if value, ok := labels[k]; !ok || v != value {
-			updateNeeded = true
-			break
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+
+	actualClaimLabels := make(map[string]string)
+	for k, v := range labels {
+		if strings.HasPrefix(k, apisv1alpha1.APIExportPermissionClaimLabelPrefix) {
+			actualClaimLabels[k] = v
 		}
 	}
 
-	if updateNeeded {
-		klog.V(2).InfoS("patching object", "name", obj.GetName(), "namespace", obj.GetNamespace(), "cluster", cluster)
-		return c.patchGenericObject(ctx, obj, *gvr, cluster)
+	if reflect.DeepEqual(expectedLabels, actualClaimLabels) {
+		return nil
 	}
-	return nil
-}
 
-func (c *resourceController) patchGenericObject(ctx context.Context, obj metav1.Object, gvr schema.GroupVersionResource, lc logicalcluster.Name) error {
-	_, err := c.dynamicClusterClient.
-		Resource(gvr).
+	logger.V(2).Info("patch needed", "expectedClaimLabels", expectedLabels, "actualClaimLabels", actualClaimLabels, "diff", cmp.Diff(expectedLabels, actualClaimLabels))
+	_, err = c.dynamicClusterClient.
+		Resource(*gvr).
 		Namespace(obj.GetNamespace()).
-		Patch(logicalcluster.WithCluster(ctx, lc), obj.GetName(), types.MergePatchType, []byte("{}"), metav1.PatchOptions{})
-	// if we don't find it, and we can update lets continue on.
-	if err != nil && !errors.IsNotFound(err) {
-		return err
+		Patch(logicalcluster.WithCluster(ctx, clusterName), obj.GetName(), types.MergePatchType, []byte("{}"), metav1.PatchOptions{})
+
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			klog.V(2).Info("got a not found error when trying to patch")
+			return nil
+		}
+
+		return fmt.Errorf("error patching GVR %q %s/%s: %w", gvr, obj.GetNamespace(), obj.GetName(), err)
 	}
+
 	return nil
 }
