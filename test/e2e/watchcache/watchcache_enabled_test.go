@@ -26,11 +26,11 @@ import (
 	"testing"
 	"time"
 
+	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
+	kcpdynamic "github.com/kcp-dev/apimachinery/pkg/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
-	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
-	kcpdynamic "github.com/kcp-dev/apimachinery/pkg/dynamic"
 	v1 "k8s.io/api/core/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
@@ -64,12 +64,12 @@ func TestWatchCacheEnabledForCRD(t *testing.T) {
 	cowBoysGR := metav1.GroupResource{Group: "wildwest.dev", Resource: "cowboys"}
 
 	t.Log("Creating wildwest.dev CRD")
-	apiExtensionsClients, err := apiextensionsclient.NewForConfig(rootShardConfig)
+	rootCRDClusterClient, err := apiextensionsclient.NewForConfig(rootShardConfig)
 	require.NoError(t, err)
-	crdClient := apiExtensionsClients.ApiextensionsV1().CustomResourceDefinitions()
+	rootShardCRDWildcardClient := rootCRDClusterClient.ApiextensionsV1().CustomResourceDefinitions()
 
 	t.Log("Creating wildwest.dev.cowboys CR")
-	wildwest.Create(t, cluster, crdClient, cowBoysGR)
+	wildwest.Create(t, cluster, rootShardCRDWildcardClient, cowBoysGR)
 	wildwestClusterClient, err := wildwestclientset.NewForConfig(rootShardConfig)
 	require.NoError(t, err)
 	_, err = wildwestClusterClient.WildwestV1alpha1().Cowboys("default").Create(logicalcluster.WithCluster(ctx, cluster), &wildwestv1alpha1.Cowboy{
@@ -249,12 +249,12 @@ func collectCacheHitsFor(ctx context.Context, t *testing.T, rootCfg *rest.Config
 const byWorkspace = "byWorkspace"
 
 func testDynamicDiscoverySharedInformerFactory(ctx context.Context, t *testing.T, rootShardConfig *rest.Config, expectedGVR schema.GroupVersionResource, expectedResName string, expectedClusterName logicalcluster.Name) {
-	rootShartClusterConfig := kcpclienthelper.ConfigWithCluster(rootShardConfig, logicalcluster.Wildcard)
-	crdClusterClient, err := apiextensionsclient.NewForConfig(rootShartClusterConfig)
+	rootShardWildcardConfig := kcpclienthelper.ConfigWithCluster(rootShardConfig, logicalcluster.Wildcard)
+	rootShardCRDWildcardClient, err := apiextensionsclient.NewForConfig(rootShardWildcardConfig)
 	require.NoError(t, err, "failed to construct apiextensions client")
 
 	apiExtensionsInformerFactory := apiextensionsexternalversions.NewSharedInformerFactoryWithOptions(
-		crdClusterClient,
+		rootShardCRDWildcardClient,
 		0,
 	)
 

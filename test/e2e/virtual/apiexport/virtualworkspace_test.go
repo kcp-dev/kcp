@@ -121,9 +121,9 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	apiExportVWCfg := rest.CopyConfig(cfg)
 	apiExportVWCfg.Host = apiExport.Status.VirtualWorkspaces[0].URL
 
-	wildwestVCClusterClients, err := wildwestclientset.NewForConfig(apiExportVWCfg)
+	wildwestVCClusterClient, err := wildwestclientset.NewForConfig(apiExportVWCfg)
 	require.NoError(t, err)
-	cowboysProjected, err := wildwestVCClusterClients.WildwestV1alpha1().Cowboys("").List(logicalcluster.WithCluster(ctx, logicalcluster.Wildcard), metav1.ListOptions{})
+	cowboysProjected, err := wildwestVCClusterClient.WildwestV1alpha1().Cowboys("").List(logicalcluster.WithCluster(ctx, logicalcluster.Wildcard), metav1.ListOptions{})
 	require.NoError(t, err)
 	require.Equal(t, 1, len(cowboysProjected.Items))
 
