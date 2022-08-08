@@ -252,7 +252,7 @@ func TestListWorkspacesWithGroupPermission(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name: getOwnerRoleBindingName("foo", user),
 						Annotations: map[string]string{
 							logicalcluster.AnnotationKey: "root:orgName",
 						},
@@ -322,7 +322,7 @@ func TestListWorkspacesWithUserPermission(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name: getOwnerRoleBindingName("foo", user),
 						Annotations: map[string]string{
 							logicalcluster.AnnotationKey: "root:orgName",
 						},
@@ -392,7 +392,7 @@ func TestListWorkspacesForbidden(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name: getOwnerRoleBindingName("foo", user),
 						Annotations: map[string]string{
 							logicalcluster.AnnotationKey: "root:orgName",
 						},
@@ -512,7 +512,7 @@ func TestGetWorkspace(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name: getOwnerRoleBindingName("foo", user),
 						Annotations: map[string]string{
 							logicalcluster.AnnotationKey: "root:orgName",
 						},
@@ -589,14 +589,19 @@ func TestGetWorkspaceNotFoundNoPermission(t *testing.T) {
 			workspaceLister: &mockLister{
 				workspaces: []tenancyv1alpha1.ClusterWorkspace{
 					{
-						ObjectMeta: metav1.ObjectMeta{Name: "foo2", ZZZ_DeprecatedClusterName: "root:orgName"},
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								logicalcluster.AnnotationKey: "root:orgName",
+							},
+							Name: "foo2",
+						},
 					},
 				},
 			},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name: getOwnerRoleBindingName("foo", user),
 						Annotations: map[string]string{
 							logicalcluster.AnnotationKey: "root:orgName",
 						},
@@ -974,7 +979,7 @@ func TestCreateWorkspaceNameAlreadyExists(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name: getOwnerRoleBindingName("foo", user),
 						Annotations: map[string]string{
 							logicalcluster.AnnotationKey: "root:orgName",
 						},
@@ -993,7 +998,7 @@ func TestCreateWorkspaceNameAlreadyExists(t *testing.T) {
 			clusterRoles: []rbacv1.ClusterRole{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name: getOwnerRoleBindingName("foo", user),
 						Annotations: map[string]string{
 							logicalcluster.AnnotationKey: "root:orgName",
 						},
@@ -1129,7 +1134,7 @@ func TestDeleteWorkspaceNotFound(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name: getOwnerRoleBindingName("foo", user),
 						Annotations: map[string]string{
 							logicalcluster.AnnotationKey: "root:orgName",
 						},
@@ -1148,7 +1153,7 @@ func TestDeleteWorkspaceNotFound(t *testing.T) {
 			clusterRoles: []rbacv1.ClusterRole{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name: getOwnerRoleBindingName("foo", user),
 						Annotations: map[string]string{
 							logicalcluster.AnnotationKey: "root:orgName",
 						},
@@ -1220,7 +1225,7 @@ func TestDeleteWorkspaceForbiddenToUser(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name: getOwnerRoleBindingName("foo", user),
 						Annotations: map[string]string{
 							logicalcluster.AnnotationKey: "root:orgName",
 						},
@@ -1239,7 +1244,7 @@ func TestDeleteWorkspaceForbiddenToUser(t *testing.T) {
 			clusterRoles: []rbacv1.ClusterRole{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name: getOwnerRoleBindingName("foo", user),
 						Annotations: map[string]string{
 							logicalcluster.AnnotationKey: "root:orgName",
 						},
@@ -1317,7 +1322,7 @@ func TestDeleteWorkspace(t *testing.T) {
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name: getOwnerRoleBindingName("foo", user),
 						Annotations: map[string]string{
 							logicalcluster.AnnotationKey: "root:orgName",
 						},
@@ -1336,7 +1341,7 @@ func TestDeleteWorkspace(t *testing.T) {
 			clusterRoles: []rbacv1.ClusterRole{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: getRoleBindingName(OwnerRoleType, "foo", user),
+						Name: getOwnerRoleBindingName("foo", user),
 						Annotations: map[string]string{
 							logicalcluster.AnnotationKey: "root:orgName",
 						},
