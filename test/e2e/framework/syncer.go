@@ -386,6 +386,8 @@ func syncerConfigFromCluster(t *testing.T, downstreamConfig *rest.Config, namesp
 	resourcesToSync := argMap["--resources"]
 	require.NotEmpty(t, fromCluster, "--resources is required")
 
+	syncTargetUID := argMap["--sync-target-uid"][0]
+
 	// Read the downstream token from the deployment's service account secret
 	var tokenSecret corev1.Secret
 	Eventually(t, func() (bool, string) {
@@ -414,6 +416,7 @@ func syncerConfigFromCluster(t *testing.T, downstreamConfig *rest.Config, namesp
 		ResourcesToSync:     sets.NewString(resourcesToSync...),
 		SyncTargetWorkspace: kcpClusterName,
 		SyncTargetName:      syncTargetName,
+		SyncTargetUID:       syncTargetUID,
 	}
 }
 
