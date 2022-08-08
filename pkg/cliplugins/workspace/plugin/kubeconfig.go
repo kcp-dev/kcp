@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"net/url"
 	"path"
 	"strings"
@@ -30,10 +29,8 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	metav1beta1 "k8s.io/apimachinery/pkg/apis/meta/v1beta1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
-	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -435,49 +432,6 @@ func (kc *KubeConfig) CreateWorkspace(ctx context.Context, workspaceName string,
 		}
 	}
 	return nil
-}
-
-// ListWorkspaces outputs the list of workspaces of the current user
-// (kubeconfig user possibly overridden by CLI options).
-func (kc *KubeConfig) ListWorkspaces(ctx context.Context, opts *Options) error {
-	config, err := clientcmd.NewDefaultClientConfig(*kc.startingConfig, kc.overrides).ClientConfig()
-	if err != nil {
-		return err
-	}
-	_, currentClusterName, err := pluginhelpers.ParseClusterURL(config.Host)
-	if err != nil {
-		return fmt.Errorf("current URL %q does not point to cluster workspace", config.Host)
-	}
-
-	result := kc.clusterClient.Cluster(currentClusterName).TenancyV1beta1().RESTClient().Get().Resource("workspaces").SetHeader("Accept", strings.Join([]string{
-		fmt.Sprintf("application/json;as=Table;v=%s;g=%s", metav1.SchemeGroupVersion.Version, metav1.GroupName),
-		fmt.Sprintf("application/json;as=Table;v=%s;g=%s", metav1beta1.SchemeGroupVersion.Version, metav1beta1.GroupName),
-		"application/json",
-	}, ",")).Do(ctx)
-
-	var statusCode int
-	if result.StatusCode(&statusCode).Error() != nil {
-		return result.Error()
-	}
-
-	if statusCode != http.StatusOK {
-		rawResult, err := result.Raw()
-		if err != nil {
-			return err
-		}
-		return errors.New(string(rawResult))
-	}
-
-	table, err := result.Get()
-	if err != nil {
-		return err
-	}
-
-	printer := printers.NewTablePrinter(printers.PrintOptions{
-		Wide: true,
-	})
-
-	return printer.PrintObj(table, opts.Out)
 }
 
 func (kc *KubeConfig) CreateContext(ctx context.Context, name string, overwrite bool) error {
