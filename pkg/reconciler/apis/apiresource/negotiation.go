@@ -18,6 +18,7 @@ package apiresource
 
 import (
 	"context"
+	"errors"
 	"reflect"
 
 	"github.com/kcp-dev/logicalcluster/v2"
@@ -38,6 +39,7 @@ import (
 )
 
 func (c *Controller) process(ctx context.Context, key queueElement) error {
+
 	ctx = request.WithCluster(ctx, request.Cluster{Name: key.clusterName})
 
 	switch key.theType {
@@ -201,6 +203,7 @@ func (c *Controller) isManuallyCreatedCRD(ctx context.Context, crd *apiextension
 // enforceCRDToNegotiatedAPIResource sets the Enforced status condition,
 // and then updates the schema of the Negotiated API Resource of each CRD version
 func (c *Controller) enforceCRDToNegotiatedAPIResource(ctx context.Context, clusterName logicalcluster.Name, gvr metav1.GroupVersionResource, crd *apiextensionsv1.CustomResourceDefinition) error {
+	logger := klog.FromContext(ctx)
 	for _, version := range crd.Spec.Versions {
 		objects, err := c.negotiatedApiResourceIndexer.ByIndex(clusterNameAndGVRIndexName, GetClusterNameAndGVRIndexKey(
 			clusterName,
@@ -210,7 +213,7 @@ func (c *Controller) enforceCRDToNegotiatedAPIResource(ctx context.Context, clus
 				Resource: gvr.Resource,
 			}))
 		if err != nil {
-			klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
+			logger.Error(err, "error", "caller", runtime.GetCaller())
 			return err
 		}
 		for _, obj := range objects {
@@ -220,7 +223,7 @@ func (c *Controller) enforceCRDToNegotiatedAPIResource(ctx context.Context, clus
 				Status: metav1.ConditionTrue,
 			})
 			if _, err := c.kcpClusterClient.ApiresourceV1alpha1().NegotiatedAPIResources().UpdateStatus(logicalcluster.WithCluster(ctx, logicalcluster.From(negotiatedAPIResource)), negotiatedAPIResource, metav1.UpdateOptions{}); err != nil {
-				klog.Errorf("Error updating NegotiatedAPIResource status: %v", err)
+				logger.Error(err, "error updating NegotiatedAPIResource status")
 				return err
 			}
 			// TODO: manage the case when the manually applied CRD has no schema or an invalid schema...
@@ -228,7 +231,7 @@ func (c *Controller) enforceCRDToNegotiatedAPIResource(ctx context.Context, clus
 				return err
 			}
 			if _, err := c.kcpClusterClient.ApiresourceV1alpha1().NegotiatedAPIResources().Update(logicalcluster.WithCluster(ctx, logicalcluster.From(negotiatedAPIResource)), negotiatedAPIResource, metav1.UpdateOptions{}); err != nil {
-				klog.Errorf("Error updating NegotiatedAPIResource: %v", err)
+				logger.Error(err, "error updating NegotiatedAPIResource")
 				return err
 			}
 		}
@@ -268,6 +271,7 @@ func (c *Controller) setPublishingStatusOnNegotiatedAPIResource(ctx context.Cont
 
 // updatePublishingStatusOnNegotiatedAPIResources sets the status (Published / Refused) on the Negotiated API Resource of each CRD version
 func (c *Controller) updatePublishingStatusOnNegotiatedAPIResources(ctx context.Context, clusterName logicalcluster.Name, gvr metav1.GroupVersionResource, crd *apiextensionsv1.CustomResourceDefinition) error {
+	logger := klog.FromContext(ctx)
 	for _, version := range crd.Spec.Versions {
 		objects, err := c.negotiatedApiResourceIndexer.ByIndex(clusterNameAndGVRIndexName, GetClusterNameAndGVRIndexKey(
 			clusterName,
@@ -277,7 +281,7 @@ func (c *Controller) updatePublishingStatusOnNegotiatedAPIResources(ctx context.
 				Resource: gvr.Resource,
 			}))
 		if err != nil {
-			klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
+			logger.Error(err, "error", "caller", runtime.GetCaller())
 			return err
 		}
 		for _, obj := range objects {
@@ -285,7 +289,7 @@ func (c *Controller) updatePublishingStatusOnNegotiatedAPIResources(ctx context.
 			c.setPublishingStatusOnNegotiatedAPIResource(ctx, clusterName, gvr, negotiatedAPIResource, crd)
 			_, err := c.kcpClusterClient.ApiresourceV1alpha1().NegotiatedAPIResources().UpdateStatus(logicalcluster.WithCluster(ctx, logicalcluster.From(negotiatedAPIResource)), negotiatedAPIResource, metav1.UpdateOptions{})
 			if err != nil {
-				klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
+				logger.Error(err, "error", "caller", runtime.GetCaller())
 				return err
 			}
 		}
@@ -297,12 +301,13 @@ func (c *Controller) updatePublishingStatusOnNegotiatedAPIResources(ctx context.
 // (they will be recreated from the related APIResourceImport objects if necessary,
 // and if requested a CRD will be created again as a consequence).
 func (c *Controller) deleteNegotiatedAPIResource(ctx context.Context, clusterName logicalcluster.Name, gvr metav1.GroupVersionResource, crd *apiextensionsv1.CustomResourceDefinition) error {
+	logger := klog.FromContext(ctx)
 	var gvrsToDelete []metav1.GroupVersionResource
 	if gvr.Version != "" {
 		gvrsToDelete = []metav1.GroupVersionResource{gvr}
 	} else {
 		if crd == nil {
-			klog.Errorf("CRD is nil after deletion => no way to find the NegotiatedAPIResources to delete from the CRD versions")
+			logger.Error(errors.New("CRD is nil after deletion"), "no way to find the NegotiatedAPIResources to delete from the CRD versions")
 			return nil
 		}
 		for _, version := range crd.Spec.Versions {
@@ -316,17 +321,17 @@ func (c *Controller) deleteNegotiatedAPIResource(ctx context.Context, clusterNam
 	for _, gvrToDelete := range gvrsToDelete {
 		objs, err := c.negotiatedApiResourceIndexer.ByIndex(clusterNameAndGVRIndexName, GetClusterNameAndGVRIndexKey(clusterName, gvrToDelete))
 		if err != nil {
-			klog.Warningf("NegotiatedAPIResource for GVR %s could not be searched in index, and could not be deleted: %v", gvr.String(), err)
+			logger.Error(err, "NegotiatedAPIResource for GVR could not be searched in index, and could not be deleted")
 		}
 		if len(objs) == 0 {
-			klog.Warningf("NegotiatedAPIResource for GVR %s was not found and could not be deleted", gvr.String())
+			logger.Info("NegotiatedAPIResource for GVR was not found and could not be deleted")
 			continue
 		}
 
 		toDelete := objs[0].(*apiresourcev1alpha1.NegotiatedAPIResource)
 		err = c.kcpClusterClient.ApiresourceV1alpha1().NegotiatedAPIResources().Delete(logicalcluster.WithCluster(ctx, logicalcluster.From(toDelete)), toDelete.Name, metav1.DeleteOptions{})
 		if err != nil {
-			klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
+			logger.Error(err, "error", "caller", runtime.GetCaller())
 			return err
 		}
 	}
@@ -337,6 +342,7 @@ func (c *Controller) deleteNegotiatedAPIResource(ctx context.Context, clusterNam
 // is compatible with the NegotiatedAPIResource. if possible and requested, it updates the NegotiatedAPIResource with the LCD of the
 // schemas of the various imported schemas. If no NegotiatedAPIResource already exists, it can create one.
 func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, clusterName logicalcluster.Name, gvr metav1.GroupVersionResource, apiResourceImport *apiresourcev1alpha1.APIResourceImport, overrideStrategy apiresourcev1alpha1.SchemaUpdateStrategyType) error {
+	logger := klog.FromContext(ctx)
 	// - if strategy allows schema update of the negotiated API resource (and current negotiated API resource is not enforced)
 	// => Calculate the LCD of this APIResourceImport schema against the schema of the corresponding NegotiatedAPIResource. If not errors occur
 	//    update the NegotiatedAPIResource schema. Update the current APIResourceImport status accordingly (possibly reporting errors).
@@ -347,7 +353,7 @@ func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, cluster
 	var negotiatedAPIResource *apiresourcev1alpha1.NegotiatedAPIResource
 	objs, err := c.negotiatedApiResourceIndexer.ByIndex(clusterNameAndGVRIndexName, GetClusterNameAndGVRIndexKey(clusterName, gvr))
 	if err != nil {
-		klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
+		logger.Error(err, "error", "caller", runtime.GetCaller())
 		return err
 	}
 	if len(objs) > 0 {
@@ -360,7 +366,7 @@ func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, cluster
 	} else {
 		objs, err := c.apiResourceImportIndexer.ByIndex(clusterNameAndGVRIndexName, GetClusterNameAndGVRIndexKey(clusterName, gvr))
 		if err != nil {
-			klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
+			logger.Error(err, "error", "caller", runtime.GetCaller())
 			return err
 		}
 		for _, obj := range objs {
@@ -404,12 +410,12 @@ func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, cluster
 		},
 	})
 	if err != nil {
-		klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
+		logger.Error(err, "error", "caller", runtime.GetCaller())
 		return err
 	}
 	crd, err := c.crdLister.Get(crdkey)
 	if err != nil && !k8serrors.IsNotFound(err) {
-		klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
+		logger.Error(err, "error", "caller", runtime.GetCaller())
 		return err
 	}
 	if crd != nil && c.isManuallyCreatedCRD(ctx, crd) {
@@ -499,12 +505,12 @@ func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, cluster
 
 			importSchema, err := apiResourceImport.Spec.GetSchema()
 			if err != nil {
-				klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
+				logger.Error(err, "error", "caller", runtime.GetCaller())
 				return err
 			}
 			negotiatedSchema, err := newNegotiatedAPIResource.Spec.GetSchema()
 			if err != nil {
-				klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
+				logger.Error(err, "error", "caller", runtime.GetCaller())
 				return err
 			}
 
@@ -544,17 +550,17 @@ func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, cluster
 		apiResourceImportUpdateStatusFuncs = append(apiResourceImportUpdateStatusFuncs, func() error {
 			key, err := cache.MetaNamespaceKeyFunc(apiResourceImport)
 			if err != nil {
-				klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
+				logger.Error(err, "error", "caller", runtime.GetCaller())
 				return err
 			}
 			lastOne, err := c.apiResourceImportLister.Get(key)
 			if err != nil {
-				klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
+				logger.Error(err, "error", "caller", runtime.GetCaller())
 				return err
 			}
 			apiResourceImport.SetResourceVersion(lastOne.GetResourceVersion())
 			if _, err := c.kcpClusterClient.ApiresourceV1alpha1().APIResourceImports().UpdateStatus(logicalcluster.WithCluster(ctx, logicalcluster.From(apiResourceImport)), apiResourceImport, metav1.UpdateOptions{}); err != nil {
-				klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
+				logger.Error(err, "error", "caller", runtime.GetCaller())
 				return err
 			}
 			return nil
@@ -566,20 +572,20 @@ func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, cluster
 			existing, err = c.kcpClusterClient.ApiresourceV1alpha1().NegotiatedAPIResources().Get(logicalcluster.WithCluster(ctx, logicalcluster.From(newNegotiatedAPIResource)), newNegotiatedAPIResource.Name, metav1.GetOptions{})
 		}
 		if err != nil {
-			klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
+			logger.Error(err, "error", "caller", runtime.GetCaller())
 			return err
 		}
 		if len(newNegotiatedAPIResource.Status.Conditions) > 0 {
 			existing.Status = newNegotiatedAPIResource.Status
 			_, err = c.kcpClusterClient.ApiresourceV1alpha1().NegotiatedAPIResources().UpdateStatus(logicalcluster.WithCluster(ctx, logicalcluster.From(existing)), existing, metav1.UpdateOptions{})
 			if err != nil {
-				klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
+				logger.Error(err, "error", "caller", runtime.GetCaller())
 				return err
 			}
 		}
 	} else if updatedNegotiatedSchema {
 		if _, err := c.kcpClusterClient.ApiresourceV1alpha1().NegotiatedAPIResources().Update(logicalcluster.WithCluster(ctx, logicalcluster.From(newNegotiatedAPIResource)), newNegotiatedAPIResource, metav1.UpdateOptions{}); err != nil {
-			klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
+			logger.Error(err, "error", "caller", runtime.GetCaller())
 			return err
 		}
 	}
@@ -594,9 +600,10 @@ func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, cluster
 
 // negotiatedAPIResourceIsOrphan detects if there is no other APIResourceImport for this GVR and the current negotiated API resource is not enforced.
 func (c *Controller) negotiatedAPIResourceIsOrphan(ctx context.Context, clusterName logicalcluster.Name, gvr metav1.GroupVersionResource) (bool, error) {
+	logger := klog.FromContext(ctx)
 	objs, err := c.apiResourceImportIndexer.ByIndex(clusterNameAndGVRIndexName, GetClusterNameAndGVRIndexKey(clusterName, gvr))
 	if err != nil {
-		klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
+		logger.Error(err, "error", "caller", runtime.GetCaller())
 		return false, err
 	}
 
@@ -606,7 +613,7 @@ func (c *Controller) negotiatedAPIResourceIsOrphan(ctx context.Context, clusterN
 
 	objs, err = c.negotiatedApiResourceIndexer.ByIndex(clusterNameAndGVRIndexName, GetClusterNameAndGVRIndexKey(clusterName, gvr))
 	if err != nil {
-		klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
+		logger.Error(err, "error", "caller", runtime.GetCaller())
 		return false, err
 	}
 	if len(objs) != 1 {
@@ -618,6 +625,7 @@ func (c *Controller) negotiatedAPIResourceIsOrphan(ctx context.Context, clusterN
 
 // publishNegotiatedResource publishes the NegotiatedAPIResource information as a CRD, unless a manually-added CRD already exists for this GVR
 func (c *Controller) publishNegotiatedResource(ctx context.Context, clusterName logicalcluster.Name, gvr metav1.GroupVersionResource, negotiatedApiResource *apiresourcev1alpha1.NegotiatedAPIResource) error {
+	logger := klog.FromContext(ctx)
 	crdName := gvr.Resource
 	if gvr.Group == "" {
 		crdName = crdName + ".core"
@@ -627,7 +635,7 @@ func (c *Controller) publishNegotiatedResource(ctx context.Context, clusterName 
 
 	negotiatedSchema, err := negotiatedApiResource.Spec.CommonAPIResourceSpec.GetSchema()
 	if err != nil {
-		klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
+		logger.Error(err, "error", "caller", runtime.GetCaller())
 		return err
 	}
 
@@ -666,12 +674,12 @@ func (c *Controller) publishNegotiatedResource(ctx context.Context, clusterName 
 		},
 	})
 	if err != nil {
-		klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
+		logger.Error(err, "error", "caller", runtime.GetCaller())
 		return err
 	}
 	crd, err := c.crdLister.Get(crdKey)
 	if err != nil && !k8serrors.IsNotFound(err) {
-		klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
+		logger.Error(err, "error", "caller", runtime.GetCaller())
 		return err
 	}
 
@@ -719,7 +727,7 @@ func (c *Controller) publishNegotiatedResource(ctx context.Context, clusterName 
 		}
 
 		if _, err := c.crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Create(logicalcluster.WithCluster(ctx, clusterName), cr, metav1.CreateOptions{}); err != nil {
-			klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
+			logger.Error(err, "error", "caller", runtime.GetCaller())
 			return err
 		}
 	} else if !c.isManuallyCreatedCRD(ctx, crd) {
@@ -769,7 +777,7 @@ func (c *Controller) publishNegotiatedResource(ctx context.Context, clusterName 
 		}
 
 		if _, err := c.crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Update(logicalcluster.WithCluster(ctx, clusterName), crd, metav1.UpdateOptions{}); err != nil {
-			klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
+			logger.Error(err, "error", "caller", runtime.GetCaller())
 			return err
 		}
 	}
@@ -782,7 +790,7 @@ func (c *Controller) publishNegotiatedResource(ctx context.Context, clusterName 
 		Status: metav1.ConditionTrue,
 	})
 	if _, err := c.kcpClusterClient.ApiresourceV1alpha1().NegotiatedAPIResources().UpdateStatus(logicalcluster.WithCluster(ctx, logicalcluster.From(negotiatedApiResource)), negotiatedApiResource, metav1.UpdateOptions{}); err != nil {
-		klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
+		logger.Error(err, "error", "caller", runtime.GetCaller())
 		return err
 	}
 
@@ -791,11 +799,12 @@ func (c *Controller) publishNegotiatedResource(ctx context.Context, clusterName 
 
 // updateStatusOnRelatedAPIResourceImports udates the status of related compatible APIResourceImports, to set the `Available` condition to `true`
 func (c *Controller) updateStatusOnRelatedAPIResourceImports(ctx context.Context, clusterName logicalcluster.Name, gvr metav1.GroupVersionResource, negotiatedApiResource *apiresourcev1alpha1.NegotiatedAPIResource) error {
+	logger := klog.FromContext(ctx)
 	publishedCondition := negotiatedApiResource.FindCondition(apiresourcev1alpha1.Published)
 	if publishedCondition != nil {
 		objs, err := c.apiResourceImportIndexer.ByIndex(clusterNameAndGVRIndexName, GetClusterNameAndGVRIndexKey(clusterName, gvr))
 		if err != nil {
-			klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
+			logger.Error(err, "error", "caller", runtime.GetCaller())
 			return err
 		}
 		for _, obj := range objs {
@@ -805,7 +814,7 @@ func (c *Controller) updateStatusOnRelatedAPIResourceImports(ctx context.Context
 				Status: publishedCondition.Status,
 			})
 			if _, err := c.kcpClusterClient.ApiresourceV1alpha1().APIResourceImports().UpdateStatus(logicalcluster.WithCluster(ctx, logicalcluster.From(apiResourceImport)), apiResourceImport, metav1.UpdateOptions{}); err != nil {
-				klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
+				logger.Error(err, "error", "caller", runtime.GetCaller())
 				return err
 			}
 		}
@@ -815,11 +824,12 @@ func (c *Controller) updateStatusOnRelatedAPIResourceImports(ctx context.Context
 
 // cleanupNegotiatedAPIResource does the required cleanup of related resources (CRD,APIResourceImport) after a NegotiatedAPIResource has been deleted
 func (c *Controller) cleanupNegotiatedAPIResource(ctx context.Context, clusterName logicalcluster.Name, gvr metav1.GroupVersionResource, negotiatedApiResource *apiresourcev1alpha1.NegotiatedAPIResource) error {
+	logger := klog.FromContext(ctx)
 	// In any case change the status on every APIResourceImport with the same GVR, to remove Compatible and Available conditions.
 
 	objs, err := c.apiResourceImportIndexer.ByIndex(clusterNameAndGVRIndexName, GetClusterNameAndGVRIndexKey(clusterName, gvr))
 	if err != nil {
-		klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
+		logger.Error(err, "error", "caller", runtime.GetCaller())
 		return err
 	}
 	for _, obj := range objs {
@@ -827,7 +837,7 @@ func (c *Controller) cleanupNegotiatedAPIResource(ctx context.Context, clusterNa
 		apiResourceImport.RemoveCondition(apiresourcev1alpha1.Available)
 		apiResourceImport.RemoveCondition(apiresourcev1alpha1.Compatible)
 		if _, err := c.kcpClusterClient.ApiresourceV1alpha1().APIResourceImports().UpdateStatus(logicalcluster.WithCluster(ctx, logicalcluster.From(apiResourceImport)), apiResourceImport, metav1.UpdateOptions{}); err != nil {
-			klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
+			logger.Error(err, "error", "caller", runtime.GetCaller())
 			return err
 		}
 	}
@@ -852,7 +862,7 @@ func (c *Controller) cleanupNegotiatedAPIResource(ctx context.Context, clusterNa
 		},
 	})
 	if err != nil {
-		klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
+		logger.Error(err, "error", "caller", runtime.GetCaller())
 		return err
 	}
 	crd, err := c.crdLister.Get(crdKey)
@@ -860,7 +870,7 @@ func (c *Controller) cleanupNegotiatedAPIResource(ctx context.Context, clusterNa
 		return nil
 	}
 	if err != nil {
-		klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
+		logger.Error(err, "error", "caller", runtime.GetCaller())
 		return err
 	}
 
@@ -889,7 +899,7 @@ func (c *Controller) cleanupNegotiatedAPIResource(ctx context.Context, clusterNa
 	}
 	if len(cleanedVersions) == 0 {
 		if err := c.crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Delete(logicalcluster.WithCluster(ctx, clusterName), crd.Name, metav1.DeleteOptions{}); err != nil {
-			klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
+			logger.Error(err, "error", "caller", runtime.GetCaller())
 			return err
 		}
 	} else {
@@ -897,7 +907,7 @@ func (c *Controller) cleanupNegotiatedAPIResource(ctx context.Context, clusterNa
 		crd.Spec.Versions = cleanedVersions
 		crd.OwnerReferences = cleanedOwnerReferences
 		if _, err := c.crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Update(logicalcluster.WithCluster(ctx, clusterName), crd, metav1.UpdateOptions{}); err != nil {
-			klog.Errorf("Error in %s: %v", runtime.GetCaller(), err)
+			logger.Error(err, "error", "caller", runtime.GetCaller())
 			return err
 		}
 	}

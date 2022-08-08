@@ -18,10 +18,13 @@ limitations under the License.
 package logging
 
 import (
+	"fmt"
+
 	"github.com/go-logr/logr"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
 )
 
 const (
@@ -64,4 +67,13 @@ func From(obj metav1.Object) []interface{} {
 		NameKey,
 		obj.GetName(),
 	}
+}
+
+// Key is like cache.MetaNamespaceKeyFunc, but with a restricted input set, so it can't error.
+func Key(obj metav1.Object) string {
+	key, err := cache.MetaNamespaceKeyFunc(obj)
+	if err != nil {
+		panic(fmt.Errorf("got an error from cache.MetaNamespaceKeyFunc: %w", err))
+	}
+	return key
 }

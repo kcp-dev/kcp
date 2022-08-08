@@ -44,6 +44,7 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	tenancyinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	tenancylister "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 const (
@@ -110,7 +111,8 @@ func (c *controller) enqueue(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	klog.Infof("queueing cluster workspace %q", key)
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), c.controllerName), key)
+	logger.V(2).Info("queueing ClusterWorkspace")
 	c.queue.Add(key)
 }
 
@@ -118,11 +120,14 @@ func (c *controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	klog.Infof("Starting ClusterWorkspaceTypeBootstrap%s controller", c.workspaceType)
-	defer klog.Infof("Shutting down ClusterWorkspaceTypeBootstrap%s controller", c.workspaceType)
+	logger := logging.WithReconciler(klog.FromContext(ctx), c.controllerName)
+	logger = logger.WithValues("clusterWorkspaceType", c.workspaceType.String())
+	ctx = klog.NewContext(ctx, logger)
+	logger.Info("Starting controller")
+	defer logger.Info("Shutting down controller")
 
 	if !cache.WaitForNamedCacheSync(c.controllerName, ctx.Done(), c.syncChecks...) {
-		klog.Warning("Failed to wait for caches to sync")
+		logger.Error(nil, "Failed to wait for caches to sync")
 		return
 	}
 
@@ -146,11 +151,13 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	}
 	key := k.(string)
 
-	klog.Infof("processing key %q", key)
-
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.
 	defer c.queue.Done(key)
+
+	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
+	ctx = klog.NewContext(ctx, logger)
+	logger.V(1).Info("processing key")
 
 	if err := c.process(ctx, key); err != nil {
 		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", c.controllerName, key, err))
@@ -162,9 +169,10 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *controller) process(ctx context.Context, key string) error {
+	logger := klog.FromContext(ctx)
 	namespace, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		klog.Errorf("invalid key: %q: %v", key, err)
+		logger.Error(err, "invalid key")
 		return nil
 	}
 	clusterName, name := clusters.SplitClusterAwareKey(clusterAwareName)
@@ -178,6 +186,9 @@ func (c *controller) process(ctx context.Context, key string) error {
 	}
 	old := obj
 	obj = obj.DeepCopy()
+
+	logger = logging.WithObject(logger, obj)
+	ctx = klog.NewContext(ctx, logger)
 
 	if err := c.reconcile(ctx, obj); err != nil {
 		return err
@@ -211,5 +222,6 @@ func (c *controller) process(ctx context.Context, key string) error {
 		return uerr
 	}
 
+	logger.V(6).Info("processed ClusterWorkspace")
 	return nil
 }

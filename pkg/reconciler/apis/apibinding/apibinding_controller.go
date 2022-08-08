@@ -23,6 +23,7 @@ import (
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
+	"github.com/go-logr/logr"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apiextensions-apiserver/pkg/apihelpers"
@@ -48,6 +49,7 @@ import (
 	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/informer"
+	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 const (
@@ -129,10 +131,11 @@ func NewController(
 		deletedCRDTracker: newLockedStringSet(),
 	}
 
+	logger := logging.WithReconciler(klog.Background(), controllerName)
 	apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueueAPIBinding(obj, "") },
-		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIBinding(obj, "") },
-		DeleteFunc: func(obj interface{}) { c.enqueueAPIBinding(obj, "") },
+		AddFunc:    func(obj interface{}) { c.enqueueAPIBinding(obj, logger, "") },
+		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIBinding(obj, logger, "") },
+		DeleteFunc: func(obj interface{}) { c.enqueueAPIBinding(obj, logger, "") },
 	})
 
 	if err := apiBindingInformer.Informer().AddIndexers(cache.Indexers{
@@ -151,8 +154,8 @@ func NewController(
 			return logicalcluster.From(crd) == ShadowWorkspaceName
 		},
 		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    func(obj interface{}) { c.enqueueCRD(obj) },
-			UpdateFunc: func(_, obj interface{}) { c.enqueueCRD(obj) },
+			AddFunc:    func(obj interface{}) { c.enqueueCRD(obj, logger) },
+			UpdateFunc: func(_, obj interface{}) { c.enqueueCRD(obj, logger) },
 			DeleteFunc: func(obj interface{}) {
 				meta, err := meta.Accessor(obj)
 				if err != nil {
@@ -165,7 +168,7 @@ func NewController(
 				// the deleted CRD.
 				c.deletedCRDTracker.Add(meta.GetName())
 
-				c.enqueueCRD(obj)
+				c.enqueueCRD(obj, logger)
 			},
 		},
 	})
@@ -177,25 +180,25 @@ func NewController(
 	}
 
 	apiResourceSchemaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueueAPIResourceSchema(obj, "") },
-		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIResourceSchema(obj, "") },
-		DeleteFunc: func(obj interface{}) { c.enqueueAPIResourceSchema(obj, "") },
+		AddFunc:    func(obj interface{}) { c.enqueueAPIResourceSchema(obj, logger, "") },
+		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIResourceSchema(obj, logger, "") },
+		DeleteFunc: func(obj interface{}) { c.enqueueAPIResourceSchema(obj, logger, "") },
 	})
 
 	apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueueAPIExport(obj, "") },
-		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIExport(obj, "") },
-		DeleteFunc: func(obj interface{}) { c.enqueueAPIExport(obj, "") },
+		AddFunc:    func(obj interface{}) { c.enqueueAPIExport(obj, logger, "") },
+		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIExport(obj, logger, "") },
+		DeleteFunc: func(obj interface{}) { c.enqueueAPIExport(obj, logger, "") },
 	})
 	temporaryRemoteShardApiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueueAPIExport(obj, "") },
-		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIExport(obj, "") },
-		DeleteFunc: func(obj interface{}) { c.enqueueAPIExport(obj, "") },
+		AddFunc:    func(obj interface{}) { c.enqueueAPIExport(obj, logger, "") },
+		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIExport(obj, logger, "") },
+		DeleteFunc: func(obj interface{}) { c.enqueueAPIExport(obj, logger, "") },
 	})
 	temporaryRemoteShardApiResourceSchemaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueueAPIResourceSchema(obj, "") },
-		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIResourceSchema(obj, "") },
-		DeleteFunc: func(obj interface{}) { c.enqueueAPIResourceSchema(obj, "") },
+		AddFunc:    func(obj interface{}) { c.enqueueAPIResourceSchema(obj, logger, "") },
+		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIResourceSchema(obj, logger, "") },
+		DeleteFunc: func(obj interface{}) { c.enqueueAPIResourceSchema(obj, logger, "") },
 	})
 
 	if err := c.apiExportsIndexer.AddIndexers(cache.Indexers{
@@ -241,19 +244,19 @@ type controller struct {
 }
 
 // enqueueAPIBinding enqueues an APIBinding .
-func (c *controller) enqueueAPIBinding(obj interface{}, logSuffix string) {
+func (c *controller) enqueueAPIBinding(obj interface{}, logger logr.Logger, logSuffix string) {
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
-	klog.V(2).Infof("Queueing APIBinding %q%s", key, logSuffix)
+	logging.WithQueueKey(logger, key).V(2).Info(fmt.Sprintf("queueing APIBinding%s", logSuffix))
 	c.queue.Add(key)
 }
 
 // enqueueAPIExport enqueues maps an APIExport to APIBindings for enqueuing.
-func (c *controller) enqueueAPIExport(obj interface{}, logSuffix string) {
+func (c *controller) enqueueAPIExport(obj interface{}, logger logr.Logger, logSuffix string) {
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
@@ -267,20 +270,25 @@ func (c *controller) enqueueAPIExport(obj interface{}, logSuffix string) {
 	}
 
 	for _, obj := range bindingsForExport {
-		c.enqueueAPIBinding(obj, fmt.Sprintf(" because of APIExport %s%s", key, logSuffix))
+		c.enqueueAPIBinding(obj, logger.WithValues("APIExport", key), fmt.Sprintf(" because of APIExport%s", logSuffix))
 	}
 }
 
 // enqueueCRD maps a CRD to APIResourceSchema for enqueuing.
-func (c *controller) enqueueCRD(obj interface{}) {
+func (c *controller) enqueueCRD(obj interface{}, logger logr.Logger) {
 	crd, ok := obj.(*apiextensionsv1.CustomResourceDefinition)
 	if !ok {
 		runtime.HandleError(fmt.Errorf("obj is supposed to be a CustomResourceDefinition, but is %T", obj))
 		return
 	}
+	logger = logger.WithValues(
+		"CustomResource", fmt.Sprintf("%s.%s", crd.Spec.Names.Plural, crd.Spec.Group),
+		"CustomResourceDefinition", logging.Key(crd),
+		"established", apihelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established),
+	)
 
 	if crd.Annotations[apisv1alpha1.AnnotationSchemaClusterKey] == "" || crd.Annotations[apisv1alpha1.AnnotationSchemaNameKey] == "" {
-		klog.V(4).Infof("Skipping CRD %s|%s because does not belong to an APIResourceSchema", logicalcluster.From(crd), crd.Name)
+		logger.V(4).Info("skipping CRD because does not belong to an APIResourceSchema")
 		return
 	}
 
@@ -293,13 +301,13 @@ func (c *controller) enqueueCRD(obj interface{}) {
 
 	// this log here is kind of redundant normally. But we are seeing missing CRD update events
 	// and hence stale APIBindings. So this might help to undersand what's going on.
-	klog.V(4).Infof("Queueing APIResourceSchema %s|%s because of CRD %s|%s (Established=%v)", clusterName, apiResourceSchema.Name, logicalcluster.From(crd), crd.Name, apihelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established))
+	logger.V(4).Info("queueing APIResourceSchema because of CRD", "key", clusters.ToClusterAwareKey(clusterName, apiResourceSchema.Name))
 
-	c.enqueueAPIResourceSchema(apiResourceSchema, fmt.Sprintf(" because of %s.%s CRD %s|%s", crd.Spec.Names.Plural, crd.Spec.Group, logicalcluster.From(crd), crd.Name))
+	c.enqueueAPIResourceSchema(apiResourceSchema, logger, " because of CRD")
 }
 
 // enqueueAPIResourceSchema maps an APIResourceSchema to APIExports for enqueuing.
-func (c *controller) enqueueAPIResourceSchema(obj interface{}, logSuffix string) {
+func (c *controller) enqueueAPIResourceSchema(obj interface{}, logger logr.Logger, logSuffix string) {
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
@@ -320,7 +328,7 @@ func (c *controller) enqueueAPIResourceSchema(obj interface{}, logSuffix string)
 	}
 
 	for _, obj := range apiExports {
-		c.enqueueAPIExport(obj, fmt.Sprintf(" because of APIResourceSchema %s%s", key, logSuffix))
+		c.enqueueAPIExport(obj, logger.WithValues("APIResourceSchema", key), fmt.Sprintf(" because of APIResourceSchema%s", logSuffix))
 	}
 }
 
@@ -329,8 +337,10 @@ func (c *controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	klog.Infof("Starting %s controller", controllerName)
-	defer klog.Infof("Shutting down %s controller", controllerName)
+	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
+	ctx = klog.NewContext(ctx, logger)
+	logger.Info("Starting controller")
+	defer logger.Info("Shutting down controller")
 
 	for i := 0; i < numThreads; i++ {
 		go wait.UntilWithContext(ctx, c.startWorker, time.Second)
@@ -352,6 +362,10 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	}
 	key := k.(string)
 
+	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
+	ctx = klog.NewContext(ctx, logger)
+	logger.V(1).Info("processing key")
+
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.
 	defer c.queue.Done(key)
@@ -366,9 +380,10 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *controller) process(ctx context.Context, key string) error {
+	logger := klog.FromContext(ctx)
 	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		klog.Errorf("invalid key: %q: %v", key, err)
+		logger.Error(err, "invalid key")
 		return nil
 	}
 	clusterName, name := clusters.SplitClusterAwareKey(clusterAwareName)
@@ -382,6 +397,9 @@ func (c *controller) process(ctx context.Context, key string) error {
 	}
 	old := obj
 	obj = obj.DeepCopy()
+
+	logger = logging.WithObject(logger, obj)
+	ctx = klog.NewContext(ctx, logger)
 
 	reconcileErr := c.reconcile(ctx, obj)
 
@@ -413,7 +431,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 			return fmt.Errorf("failed to create patch for apibinding %s|%s: %w", clusterName, name, err)
 		}
 
-		klog.V(2).Infof("Patching apibinding %s|%s: %s", clusterName, name, string(patchBytes))
+		logger.V(2).Info("patching APIBinding", "patch", string(patchBytes))
 		_, uerr := c.kcpClusterClient.ApisV1alpha1().APIBindings().Patch(logicalcluster.WithCluster(ctx, clusterName), obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 		return uerr
 	}

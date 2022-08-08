@@ -31,6 +31,7 @@ import (
 )
 
 func (c *controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.ClusterWorkspace) error {
+	logger := klog.FromContext(ctx)
 	if workspace.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseInitializing {
 		return nil
 	}
@@ -43,7 +44,7 @@ func (c *controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 
 	// bootstrap resources
 	wsClusterName := logicalcluster.From(workspace).Join(workspace.Name)
-	klog.Infof("Bootstrapping resources for org workspace %s, logical cluster %s", workspace.Name, wsClusterName)
+	logger.Info("bootstrapping resources for org workspace", "logicalCluster", wsClusterName)
 	bootstrapCtx, cancel := context.WithDeadline(ctx, time.Now().Add(time.Second*30)) // to not block the controller
 	defer cancel()
 

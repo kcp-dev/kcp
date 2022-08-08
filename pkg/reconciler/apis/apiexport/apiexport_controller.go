@@ -50,6 +50,7 @@ import (
 	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
+	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 const (
@@ -198,7 +199,8 @@ func (c *controller) enqueueAPIExport(obj interface{}) {
 		return
 	}
 
-	klog.V(2).Infof("Queueing APIExport %q", key)
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), key)
+	logger.V(4).Info("queueing APIExport")
 	c.queue.Add(key)
 }
 
@@ -215,6 +217,7 @@ func (c *controller) enqueueAllAPIExports(clusterWorkspaceShard interface{}) {
 		return
 	}
 
+	logger := logging.WithReconciler(klog.Background(), controllerName).WithValues("ClusterWorkspacShard", clusterWorkspaceShardKey)
 	for i := range list {
 		key, err := cache.MetaNamespaceKeyFunc(list[i])
 		if err != nil {
@@ -222,11 +225,7 @@ func (c *controller) enqueueAllAPIExports(clusterWorkspaceShard interface{}) {
 			continue
 		}
 
-		klog.V(2).InfoS("Queuing APIExport because ClusterWorkspaceShard changed",
-			"APIExport", key,
-			"ClusterWorkspaceShard", clusterWorkspaceShardKey,
-		)
-
+		logging.WithQueueKey(logger, key).V(2).Info("queuing APIExport because ClusterWorkspaceShard changed")
 		c.queue.Add(key)
 	}
 }
@@ -244,8 +243,9 @@ func (c *controller) enqueueSecret(obj interface{}) {
 		return
 	}
 
+	logger := logging.WithReconciler(klog.Background(), controllerName).WithValues("Secret", secretKey)
 	for _, key := range apiExportKeys {
-		klog.V(2).Infof("Queueing APIExport %q via identity secret %s", key, secretKey)
+		logging.WithQueueKey(logger, key).V(2).Info("queueing APIExport via identity Secret")
 		c.queue.Add(key)
 	}
 }
@@ -255,8 +255,10 @@ func (c *controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	klog.Infof("Starting %s controller", controllerName)
-	defer klog.Infof("Shutting down %s controller", controllerName)
+	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
+	ctx = klog.NewContext(ctx, logger)
+	logger.Info("Starting controller")
+	defer logger.Info("Shutting down controller")
 
 	for i := 0; i < numThreads; i++ {
 		go wait.UntilWithContext(ctx, c.startWorker, time.Second)
@@ -277,6 +279,10 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 		return false
 	}
 	key := k.(string)
+
+	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
+	ctx = klog.NewContext(ctx, logger)
+	logger.V(4).Info("processing key")
 
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.
@@ -303,6 +309,9 @@ func (c *controller) process(ctx context.Context, key string) error {
 	old := obj
 	obj = obj.DeepCopy()
 
+	logger := logging.WithObject(klog.FromContext(ctx), obj)
+	ctx = klog.NewContext(ctx, logger)
+
 	var errs []error
 	if err := c.reconcile(ctx, obj); err != nil {
 		errs = append(errs, err)
@@ -320,6 +329,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 }
 
 func (c *controller) patchIfNeeded(ctx context.Context, old, obj *apisv1alpha1.APIExport) error {
+	logger := klog.FromContext(ctx)
 	specOrObjectMetaChanged := !equality.Semantic.DeepEqual(old.Spec, obj.Spec) || !equality.Semantic.DeepEqual(old.ObjectMeta, obj.ObjectMeta)
 	statusChanged := !equality.Semantic.DeepEqual(old.Status, obj.Status)
 
@@ -373,7 +383,7 @@ func (c *controller) patchIfNeeded(ctx context.Context, old, obj *apisv1alpha1.A
 		subresources = []string{"status"}
 	}
 
-	klog.V(2).Infof("Patching APIExport %s|%s: %s", clusterName, name, string(patchBytes))
+	logger.V(2).Info("patching APIExport", "patch", string(patchBytes))
 	_, err = c.kcpClusterClient.ApisV1alpha1().APIExports().Patch(logicalcluster.WithCluster(ctx, clusterName), obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, subresources...)
 	if err != nil {
 		return fmt.Errorf("failed to patch APIExport %s|%s: %w", clusterName, name, err)
@@ -381,7 +391,7 @@ func (c *controller) patchIfNeeded(ctx context.Context, old, obj *apisv1alpha1.A
 
 	// Despite having patched either just spec/objectMeta or status we should log an error indicating a programming error.
 	if specOrObjectMetaChanged && statusChanged {
-		klog.Errorf("Programmer error: spec and status changed in same reconcile iteration:\n%s", cmp.Diff(old, obj))
+		logger.Info("programmer error: spec and status changed in same reconcile iteration", "diff", cmp.Diff(old, obj))
 		c.enqueueAPIExport(obj) // enqueue again to take care of the spec change, assuming the patch did nothing
 	}
 

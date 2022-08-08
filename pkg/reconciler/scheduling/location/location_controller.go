@@ -43,6 +43,7 @@ import (
 	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
 	schedulinglisters "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
 	workloadlisters "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 const (
@@ -137,7 +138,8 @@ func (c *controller) enqueueLocation(obj interface{}) {
 		return
 	}
 
-	klog.Infof("Queueing Location %q", key)
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), key)
+	logger.V(2).Info("queueing Location")
 	c.queue.Add(key)
 }
 
@@ -156,7 +158,15 @@ func (c *controller) enqueueSyncTarget(obj interface{}) {
 	}
 
 	for _, domain := range domains {
-		c.enqueueLocation(domain)
+		syncTargetKey := key
+		key, err := cache.MetaNamespaceKeyFunc(domain)
+		if err != nil {
+			runtime.HandleError(err)
+			return
+		}
+		logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), key)
+		logger.V(2).Info("queueing Location because SyncTarget changed", "SyncTarget", syncTargetKey)
+		c.queue.Add(key)
 	}
 }
 
@@ -165,8 +175,10 @@ func (c *controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	klog.Infof("Starting %s controller", controllerName)
-	defer klog.Infof("Shutting down %s controller", controllerName)
+	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
+	ctx = klog.NewContext(ctx, logger)
+	logger.Info("Starting controller")
+	defer logger.Info("Shutting down controller")
 
 	for i := 0; i < numThreads; i++ {
 		go wait.UntilWithContext(ctx, c.startWorker, time.Second)
@@ -188,6 +200,10 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	}
 	key := k.(string)
 
+	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
+	ctx = klog.NewContext(ctx, logger)
+	logger.V(1).Info("processing key")
+
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.
 	defer c.queue.Done(key)
@@ -202,9 +218,10 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *controller) process(ctx context.Context, key string) error {
+	logger := klog.FromContext(ctx)
 	namespace, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		klog.Errorf("invalid key: %q: %v", key, err)
+		logger.Error(err, "invalid key")
 		return nil
 	}
 	clusterName, name := clusters.SplitClusterAwareKey(clusterAwareName)
@@ -218,6 +235,9 @@ func (c *controller) process(ctx context.Context, key string) error {
 	}
 	old := obj
 	obj = obj.DeepCopy()
+
+	logger = logging.WithObject(logger, obj)
+	ctx = klog.NewContext(ctx, logger)
 
 	if err := c.reconcile(ctx, obj); err != nil {
 		return err

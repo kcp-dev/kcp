@@ -41,6 +41,7 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	tenancyv1alpha1lister "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 const (
@@ -120,7 +121,8 @@ func (c *controller) enqueueClusterWorkspaceType(obj interface{}) {
 		return
 	}
 
-	klog.V(2).Infof("Queueing ClusterWorkspaceType %q", key)
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), key)
+	logger.V(2).Info("queueing ClusterWorkspaceType")
 	c.queue.Add(key)
 }
 
@@ -144,10 +146,8 @@ func (c *controller) enqueueAllClusterWorkspaceTypes(clusterWorkspaceShard inter
 			continue
 		}
 
-		klog.V(2).InfoS("Queuing ClusterWorkspaceType because ClusterWorkspaceShard changed",
-			"APIExport", key,
-			"ClusterWorkspaceShard", clusterWorkspaceShardKey,
-		)
+		logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), key)
+		logger.WithValues("clusterWorkspaceShardKey", clusterWorkspaceShardKey).V(2).Info("queuing ClusterWorkspaceType because ClusterWorkspaceShard changed")
 
 		c.queue.Add(key)
 	}
@@ -158,8 +158,10 @@ func (c *controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	klog.Infof("Starting %s controller", controllerName)
-	defer klog.Infof("Shutting down %s controller", controllerName)
+	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
+	ctx = klog.NewContext(ctx, logger)
+	logger.Info("Starting controller")
+	defer logger.Info("Shutting down controller")
 
 	for i := 0; i < numThreads; i++ {
 		go wait.UntilWithContext(ctx, c.startWorker, time.Second)
@@ -185,6 +187,10 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	// other workers.
 	defer c.queue.Done(key)
 
+	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
+	ctx = klog.NewContext(ctx, logger)
+	logger.V(1).Info("processing key")
+
 	if err := c.process(ctx, key); err != nil {
 		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", controllerName, key, err))
 		c.queue.AddRateLimited(key)
@@ -206,6 +212,9 @@ func (c *controller) process(ctx context.Context, key string) error {
 	old := obj
 	obj = obj.DeepCopy()
 
+	logger := logging.WithObject(klog.FromContext(ctx), obj)
+	ctx = klog.NewContext(ctx, logger)
+
 	c.reconcile(ctx, obj)
 
 	// If the object being reconciled changed as a result, update it.
@@ -217,7 +226,7 @@ func (c *controller) patchIfNeeded(ctx context.Context, old, obj *tenancyv1alpha
 	statusChanged := !equality.Semantic.DeepEqual(old.Status, obj.Status)
 
 	if specOrObjectMetaChanged && statusChanged {
-		klog.Fatalf("Programmer error: spec and status changed in same reconcile iteration")
+		panic("Programmer error: spec and status changed in same reconcile iteration")
 	}
 
 	if !specOrObjectMetaChanged && !statusChanged {

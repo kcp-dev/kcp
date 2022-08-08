@@ -44,10 +44,11 @@ import (
 	tenancyinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	tenancylister "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 const (
-	controllerName = "workspace"
+	controllerName = "kcp-clusterworkspace"
 )
 
 func NewController(
@@ -125,11 +126,13 @@ func (c *Controller) enqueue(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	klog.Infof("Queueing workspace %q", key)
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), key)
+	logger.V(2).Info("queueing ClusterWorkspace")
 	c.queue.Add(key)
 }
 
 func (c *Controller) enqueueShard(obj interface{}) {
+	logger := logging.WithReconciler(klog.Background(), controllerName)
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
@@ -149,7 +152,7 @@ func (c *Controller) enqueueShard(obj interface{}) {
 				runtime.HandleError(err)
 				return
 			}
-			klog.Infof("Queuing unschedulable workspace %q because of shard %s update", key, shard)
+			logging.WithQueueKey(logger, key).V(2).Info("queueing unschedulable ClusterWorkspace because of shard update", "clusterWorkspaceShard", shard)
 			c.queue.Add(key)
 		}
 	}
@@ -166,7 +169,7 @@ func (c *Controller) enqueueShard(obj interface{}) {
 			runtime.HandleError(err)
 			return
 		}
-		klog.Infof("Queueing workspace %q on shard %q", key, name)
+		logging.WithQueueKey(logger, key).V(2).Info("queueing ClusterWorkspace on shard", "clusterWorkspaceShard", name)
 		c.queue.Add(key)
 	}
 }
@@ -183,16 +186,20 @@ func (c *Controller) enqueueBinding(obj interface{}) {
 	}
 	parent, ws := clusterName.Split()
 
-	klog.Infof("Queueing initializing workspace %s|%s because binding %q changed", parent, ws, key)
-	c.queue.Add(clusters.ToClusterAwareKey(parent, ws))
+	queueKey := clusters.ToClusterAwareKey(parent, ws)
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), queueKey)
+	logger.V(2).Info("queueing initializing ClusterWorkspace because APIBinding changed", "APIBinding", key)
+	c.queue.Add(queueKey)
 }
 
 func (c *Controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	klog.Info("Starting ClusterWorkspace controller")
-	defer klog.Info("Shutting down ClusterWorkspace controller")
+	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
+	ctx = klog.NewContext(ctx, logger)
+	logger.Info("Starting controller")
+	defer logger.Info("Shutting down controller")
 
 	for i := 0; i < numThreads; i++ {
 		go wait.Until(func() { c.startWorker(ctx) }, time.Second, ctx.Done())
@@ -214,7 +221,9 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	}
 	key := k.(string)
 
-	klog.V(2).Infof("Processing key %q", key)
+	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
+	ctx = klog.NewContext(ctx, logger)
+	logger.V(1).Info("processing key")
 
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.
@@ -309,6 +318,9 @@ func (c *Controller) process(ctx context.Context, key string) (bool, error) {
 
 	old := obj
 	obj = obj.DeepCopy()
+
+	logger := logging.WithObject(klog.FromContext(ctx), obj)
+	ctx = klog.NewContext(ctx, logger)
 
 	var errs []error
 	requeue, err := c.reconcile(ctx, obj)

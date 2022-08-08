@@ -45,10 +45,13 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspacedeletion/deletion"
 )
 
 const (
+	controllerName = "kcp-apibindingdeletion"
+
 	APIBindingFinalizer = "apis.kcp.dev/apibinding-finalizer"
 
 	DeletionRecheckEstimateSeconds = 5
@@ -71,7 +74,7 @@ func NewController(
 	kcpClusterClient kcpclient.Interface,
 	apiBindingInformer apisinformers.APIBindingInformer,
 ) *Controller {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "apibinding-deletion")
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
 	c := &Controller{
 		queue:             queue,
@@ -113,7 +116,8 @@ func (c *Controller) enqueue(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	klog.Infof("Queueing apibinding %q", key)
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), key)
+	logger.V(2).Info("queueing APIBinding")
 	c.queue.Add(key)
 }
 
@@ -121,8 +125,10 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	klog.Info("Starting APIBinding Deletion controller")
-	defer klog.Info("Shutting down APIBinding Deletion controller")
+	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
+	ctx = klog.NewContext(ctx, logger)
+	logger.Info("Starting controller")
+	defer logger.Info("Shutting down controller")
 
 	for i := 0; i < numThreads; i++ {
 		go wait.Until(func() { c.startWorker(ctx) }, time.Second, ctx.Done())
@@ -144,7 +150,9 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	}
 	key := k.(string)
 
-	klog.V(4).Infof("Processing key %q", key)
+	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
+	ctx = klog.NewContext(ctx, logger)
+	logger.V(1).Info("processing key")
 
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.
@@ -161,8 +169,9 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	var estimate *deletion.ResourcesRemainingError
 	if errors.As(err, &estimate) {
 		t := estimate.Estimate/2 + 1
-		klog.V(2).Infof("Custom resources remaining for apibinding %s, waiting %d seconds", key, t)
-		c.queue.AddAfter(key, time.Duration(t)*time.Second)
+		duration := time.Duration(t) * time.Second
+		logger.V(2).Info("custom resources remaining for APIBinding, waiting", "duration", duration)
+		c.queue.AddAfter(key, duration)
 	} else {
 		// rather than wait for a full resync, re-add the workspace to the queue to be processed
 		c.queue.AddRateLimited(key)
@@ -173,21 +182,24 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *Controller) process(ctx context.Context, key string) error {
+	logger := klog.FromContext(ctx)
 	startTime := time.Now()
 
 	defer func() {
-		klog.V(4).Infof("Finished syncing apibinding %q (%v)", key, time.Since(startTime))
+		logger.V(4).Info("finished syncing", "duration", time.Since(startTime))
 	}()
 
 	apibinding, deleteErr := c.apiBindingsLister.Get(key)
 	if apierrors.IsNotFound(deleteErr) {
-		klog.V(3).Infof("apibinding has been deleted %v", key)
+		logger.V(3).Info("APIBinding has been deleted")
 		return nil
 	}
 	if deleteErr != nil {
 		runtime.HandleError(fmt.Errorf("unable to retrieve apibinding %v from store: %w", key, deleteErr))
 		return deleteErr
 	}
+	logger = logging.WithObject(logger, apibinding)
+	ctx = klog.NewContext(ctx, logger)
 
 	if apibinding.DeletionTimestamp.IsZero() {
 		return nil
@@ -281,6 +293,7 @@ func (c *Controller) mutateResourceRemainingStatus(resourceRemaining gvrDeletion
 }
 
 func (c *Controller) patchCondition(ctx context.Context, old, new *apisv1alpha1.APIBinding) error {
+	logger := klog.FromContext(ctx)
 	if equality.Semantic.DeepEqual(old.Status.Conditions, new.Status.Conditions) {
 		return nil
 	}
@@ -312,13 +325,14 @@ func (c *Controller) patchCondition(ctx context.Context, old, new *apisv1alpha1.
 		return fmt.Errorf("failed to create patch for apibinding %s: %w", new.Name, err)
 	}
 
-	klog.V(2).Infof("Patching apibinding %s|%s: %s", logicalcluster.From(new), new.Name, string(patchBytes))
+	logger.V(2).Info("patching APIBinding", "patch", string(patchBytes))
 	_, err = c.kcpClusterClient.ApisV1alpha1().APIBindings().Patch(logicalcluster.WithCluster(ctx, logicalcluster.From(new)), new.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 	return err
 }
 
 // finalizeAPIBinding removes the specified finalizer and finalizes the apibinding
 func (c *Controller) finalizeAPIBinding(ctx context.Context, apibinding *apisv1alpha1.APIBinding) error {
+	logger := klog.FromContext(ctx)
 	filtered := make([]string, 0, len(apibinding.Finalizers))
 	for i := range apibinding.Finalizers {
 		if apibinding.Finalizers[i] == APIBindingFinalizer {
@@ -331,7 +345,7 @@ func (c *Controller) finalizeAPIBinding(ctx context.Context, apibinding *apisv1a
 	}
 	apibinding.Finalizers = filtered
 
-	klog.V(2).Infof("Finalizing apibinding %s|%s", logicalcluster.From(apibinding), apibinding.Name)
+	logger.V(2).Info("finalizing APIBinding")
 	_, err := c.kcpClusterClient.ApisV1alpha1().APIBindings().Update(logicalcluster.WithCluster(ctx, logicalcluster.From(apibinding)), apibinding, metav1.UpdateOptions{})
 
 	return err

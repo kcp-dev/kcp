@@ -28,12 +28,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
 	virtualworkspacesoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
+	"github.com/kcp-dev/kcp/pkg/logging"
 	apiexportbuilder "github.com/kcp-dev/kcp/pkg/virtual/apiexport/builder"
 )
 
@@ -94,7 +96,7 @@ func (c *controller) reconcile(ctx context.Context, apiExport *apisv1alpha1.APIE
 		)
 	}
 
-	if err := c.updateVirtualWorkspaceURLs(apiExport); err != nil {
+	if err := c.updateVirtualWorkspaceURLs(ctx, apiExport); err != nil {
 		conditions.MarkFalse(
 			apiExport,
 			apisv1alpha1.APIExportVirtualWorkspaceURLsReady,
@@ -108,6 +110,8 @@ func (c *controller) reconcile(ctx context.Context, apiExport *apisv1alpha1.APIE
 }
 
 func (c *controller) ensureSecretNamespaceExists(ctx context.Context, clusterName logicalcluster.Name) {
+	logger := klog.FromContext(ctx).WithValues("Namespace", clusters.ToClusterAwareKey(clusterName, c.secretNamespace))
+	ctx = klog.NewContext(ctx, logger)
 	if _, err := c.getNamespace(clusterName, c.secretNamespace); errors.IsNotFound(err) {
 		ns := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
@@ -115,19 +119,21 @@ func (c *controller) ensureSecretNamespaceExists(ctx context.Context, clusterNam
 			},
 		}
 		if err := c.createNamespace(ctx, clusterName, ns); err != nil && !errors.IsAlreadyExists(err) {
-			klog.Errorf("Error creating namespace %q in cluster %q for APIExport secret identities: %v", c.secretNamespace, clusterName, err)
+			logger.Error(err, "error creating namespace for APIExport secret identities")
 			// Keep going - maybe things will work. If the secret creation fails, we'll make sure to set a condition.
 		}
 	}
 }
 
 func (c *controller) createIdentitySecret(ctx context.Context, clusterName logicalcluster.Name, apiExportName string) error {
-	secret, err := GenerateIdentitySecret(c.secretNamespace, apiExportName)
+	secret, err := GenerateIdentitySecret(ctx, c.secretNamespace, apiExportName)
 	if err != nil {
 		return err
 	}
 
-	klog.V(2).Infof("Creating identity secret %s|%s/%s for APIExport %s|%s", clusterName, c.secretNamespace, secret.Name, clusterName, apiExportName)
+	logger := klog.FromContext(ctx).WithValues("Secret", logging.Key(secret))
+	ctx = klog.NewContext(ctx, logger)
+	klog.V(2).Infof("creating identity secret")
 	if err := c.createSecret(ctx, clusterName, secret); err != nil {
 		return err
 	}
@@ -159,7 +165,8 @@ func (c *controller) updateOrVerifyIdentitySecretHash(ctx context.Context, clust
 	return nil
 }
 
-func (c *controller) updateVirtualWorkspaceURLs(apiExport *apisv1alpha1.APIExport) error {
+func (c *controller) updateVirtualWorkspaceURLs(ctx context.Context, apiExport *apisv1alpha1.APIExport) error {
+	logger := klog.FromContext(ctx)
 	clusterWorkspaceShards, err := c.listClusterWorkspaceShards()
 	if err != nil {
 		return fmt.Errorf("error listing ClusterWorkspaceShards: %w", err)
@@ -167,6 +174,7 @@ func (c *controller) updateVirtualWorkspaceURLs(apiExport *apisv1alpha1.APIExpor
 
 	desiredURLs := sets.NewString()
 	for _, clusterWorkspaceShard := range clusterWorkspaceShards {
+		logger = logger.WithValues("ClusterWorkspaceShard", logging.Key(clusterWorkspaceShard))
 		if clusterWorkspaceShard.Spec.VirtualWorkspaceURL == "" {
 			continue
 		}
@@ -174,11 +182,9 @@ func (c *controller) updateVirtualWorkspaceURLs(apiExport *apisv1alpha1.APIExpor
 		u, err := url.Parse(clusterWorkspaceShard.Spec.VirtualWorkspaceURL)
 		if err != nil {
 			// Should never happen
-			klog.Errorf(
-				"Error parsing ClusterWorkspaceShard %s|%s spec.externalURL %q: %v",
-				logicalcluster.From(clusterWorkspaceShard),
-				clusterWorkspaceShard.Name,
-				clusterWorkspaceShard.Spec.VirtualWorkspaceURL,
+			logger.Error(
+				err, "error parsing ClusterWorkspaceShard.Spec.VirtualWorkspaceURL",
+				"VirtualWorkspaceURL", clusterWorkspaceShard.Spec.VirtualWorkspaceURL,
 			)
 
 			continue
