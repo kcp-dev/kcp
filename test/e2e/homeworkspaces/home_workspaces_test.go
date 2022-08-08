@@ -168,7 +168,7 @@ func TestUserHomeWorkspaces(t *testing.T) {
 			var virtualPersonalClusterClients []kcpclientset.ClusterInterface
 			for _, ci := range []clientInfo{{Token: "user-1-token"}, {Token: "user-2-token"}} {
 				userConfig := framework.ConfigWithToken(ci.Token, rest.CopyConfig(kcpConfig))
-				virtualPersonalClusterClients = append(virtualPersonalClusterClients, &virtualClusterClient{scope: "personal", config: userConfig})
+				virtualPersonalClusterClients = append(virtualPersonalClusterClients, &virtualClusterClient{config: userConfig})
 				kcpUserClusterClient, err := kcpclientset.NewClusterForConfig(userConfig)
 				require.NoError(t, err)
 				kcpUserClusterClients = append(kcpUserClusterClients, kcpUserClusterClient)
@@ -187,12 +187,11 @@ func TestUserHomeWorkspaces(t *testing.T) {
 }
 
 type virtualClusterClient struct {
-	scope  string
 	config *rest.Config
 }
 
 func (c *virtualClusterClient) Cluster(cluster logicalcluster.Name) kcpclientset.Interface {
 	config := rest.CopyConfig(c.config)
-	config.Host += path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", cluster.String(), c.scope)
+	config.Host += path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", cluster.String())
 	return kcpclientset.NewForConfigOrDie(config)
 }

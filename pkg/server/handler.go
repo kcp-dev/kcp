@@ -222,7 +222,7 @@ func WithWorkspaceProjection(apiHandler http.Handler) http.HandlerFunc {
 		}
 
 		if strings.HasPrefix(req.URL.Path, toRedirectPath) {
-			newPath := path.Join("/services/workspaces", cluster.Name.String(), "all", req.URL.Path)
+			newPath := path.Join("/services/workspaces", cluster.Name.String(), req.URL.Path)
 			klog.V(4).Infof("Rewriting %s -> %s", path.Join(cluster.Name.Path(), req.URL.Path), newPath)
 			req.URL.Path = newPath
 		}

@@ -132,33 +132,12 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 		},
 	}
 
-	listCmd := &cobra.Command{
-		Use:          "list",
-		Short:        "Returns the list of the personal workspaces of the user",
-		Example:      "kcp workspace list",
-		SilenceUsage: true,
-		RunE: func(c *cobra.Command, args []string) error {
-			if err := opts.Validate(); err != nil {
-				return err
-			}
-			kubeconfig, err := plugin.NewKubeConfig(opts)
-			if err != nil {
-				return err
-			}
-			if err := kubeconfig.ListWorkspaces(c.Context(), opts); err != nil {
-				return err
-			}
-			return nil
-		},
-		Deprecated: "Use 'kubectl get workspaces' instead.",
-	}
-
 	var workspaceType string
 	var enterAfterCreation bool
 	var ignoreExisting bool
 	createCmd := &cobra.Command{
 		Use:          "create",
-		Short:        "Creates a new personal workspace",
+		Short:        "Creates a new workspace",
 		Example:      "kcp workspace create <workspace name> [--type=<type>] [--enter [--ignore-not-ready]] --ignore-existing",
 		SilenceUsage: true,
 		Args:         cobra.ExactArgs(1),
@@ -223,7 +202,6 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 
 	cmd.AddCommand(useCmd)
 	cmd.AddCommand(currentCmd)
-	cmd.AddCommand(listCmd)
 	cmd.AddCommand(createCmd)
 	cmd.AddCommand(createContextCmd)
 	cmd.AddCommand(deleteCmd)
