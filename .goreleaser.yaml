@@ -1,0 +1,66 @@
+builds:
+- id: "kcp"
+  main: ./cmd/kcp
+  binary: bin/kcp
+  ldflags:
+  - "{{ .Env.LDFLAGS }}"
+  goos:
+  - linux
+  - darwin
+  goarch:
+  - amd64
+  - arm
+  - arm64
+- id: "kubectl-kcp"
+  main: ./cmd/kubectl-kcp
+  binary: bin/kubectl-kcp
+  ldflags:
+  - "{{ .Env.LDFLAGS }}"
+  goos:
+  - linux
+  - darwin
+  - windows
+  goarch:
+  - amd64
+  - arm
+  - arm64
+- id: "kubectl-ws"
+  main: ./cmd/kubectl-ws
+  binary: bin/kubectl-ws
+  ldflags:
+  - "{{ .Env.LDFLAGS }}"
+  goos:
+  - linux
+  - darwin
+  - windows
+  goarch:
+  - amd64
+  - arm
+  - arm64
+- id: "kubectl-workspaces"
+  main: ./cmd/kubectl-workspaces
+  binary: bin/kubectl-workspaces
+  ldflags:
+  - "{{ .Env.LDFLAGS }}"
+  goos:
+  - linux
+  - darwin
+  - windows
+  goarch:
+  - amd64
+  - arm
+  - arm64
+archives:
+- id: kcp
+  builds:
+  - kcp
+- id: kubectl-kcp-plugin
+  builds:
+  - kubectl-kcp
+  - kubectl-ws
+  - kubectl-workspaces
+  name_template: "kubectl-kcp-plugin_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+release:
+  draft: true
+  prerelease: auto
+  mode: keep-existing
