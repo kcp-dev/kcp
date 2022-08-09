@@ -35,6 +35,7 @@ import (
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 type reconcileStatus int
@@ -60,6 +61,7 @@ type schemaReconciler struct {
 }
 
 func (r *schemaReconciler) reconcile(ctx context.Context, export *apisv1alpha1.APIExport) (reconcileStatus, error) {
+	logger := klog.FromContext(ctx)
 	clusterName := logicalcluster.From(export)
 
 	if export.Name != TemporaryComputeServiceExportName {
@@ -127,7 +129,7 @@ func (r *schemaReconciler) reconcile(ctx context.Context, export *apisv1alpha1.A
 	// create missing or outdated schemas
 	outdatedOrMissing := expectedResourceGroups.Difference(upToDate)
 	for _, resourceGroup := range outdatedOrMissing.List() {
-		klog.V(2).Infof("Missing or outdated schema %q in APIExport %s|%s, adding.", resourceGroup, clusterName, export.Name)
+		logger.WithValues("schema", resourceGroup).V(2).Info("missing or outdated schema on APIExport, adding")
 		resource := resourcesByResourceGroup[resourceGroup]
 
 		group := resource.Spec.GroupVersion.Group
@@ -158,7 +160,7 @@ func (r *schemaReconciler) reconcile(ctx context.Context, export *apisv1alpha1.A
 		schema, ok := schemasByResourceGroup[resourceGroup]
 		if !ok {
 			// should not happen. We should have all schemas by now
-			klog.Errorf("Unexpectedly missing schema for resource %q in APIExport %s|%s", resourceGroup, clusterName, export.Name)
+			logger.WithValues("schema", resourceGroup).Error(fmt.Errorf("schema for resource %q not found", resourceGroup), "unexpectedly missing schema for resource in APIExport")
 			return reconcileStatusStop, nil
 		}
 
@@ -178,7 +180,7 @@ func (r *schemaReconciler) reconcile(ctx context.Context, export *apisv1alpha1.A
 	}
 	for _, schema := range allSchemas {
 		if !referencedSchemaNames[schema.Name] && metav1.IsControlledBy(schema, export) {
-			klog.V(2).Infof("Deleting schema %q of APIExport %s|%s", schema.Name, clusterName, export.Name)
+			logging.WithObject(logger, schema).V(2).Info("deleting schema of APIExport")
 			if err := r.deleteAPIResourceSchema(ctx, clusterName, schema.Name); err != nil && !apierrors.IsNotFound(err) {
 				return reconcileStatusStop, err
 			}

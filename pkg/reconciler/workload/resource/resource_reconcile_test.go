@@ -24,6 +24,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/klog/v2"
 )
 
 func namespace(annotations, labels map[string]string) *corev1.Namespace {
@@ -308,7 +309,7 @@ func TestPropagateDeletionTimestamp(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotAnnotationPatch := propagateDeletionTimestamp(tt.obj, tt.annotationPatch)
+			gotAnnotationPatch := propagateDeletionTimestamp(klog.Background(), tt.obj, tt.annotationPatch)
 			if diff := cmp.Diff(gotAnnotationPatch, tt.wantAnnotationPatch); diff != "" {
 				t.Errorf("incorrect annotation patch: %s", diff)
 			}

@@ -26,7 +26,7 @@ import (
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 )
 
-func indexByWorksapce(obj interface{}) ([]string, error) {
+func indexByWorkspace(obj interface{}) ([]string, error) {
 	metaObj, ok := obj.(metav1.Object)
 	if !ok {
 		return []string{}, fmt.Errorf("obj is supposed to be a metav1.Object, but is %T", obj)
@@ -36,7 +36,7 @@ func indexByWorksapce(obj interface{}) ([]string, error) {
 	return []string{lcluster.String()}, nil
 }
 
-func indexByLoactionWorkspace(obj interface{}) ([]string, error) {
+func indexByLocationWorkspace(obj interface{}) ([]string, error) {
 	placement, ok := obj.(*schedulingv1alpha1.Placement)
 	if !ok {
 		return []string{}, fmt.Errorf("obj is supposed to be a Placement, but is %T", obj)

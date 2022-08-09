@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	corev1 "k8s.io/api/core/v1"
@@ -37,23 +38,25 @@ import (
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
+	"github.com/kcp-dev/kcp/pkg/logging"
 	syncershared "github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
 // reconcileResource is responsible for setting the cluster for a resource of
 // any type, to match the cluster where its namespace is assigned.
 func (c *Controller) reconcileResource(ctx context.Context, lclusterName logicalcluster.Name, obj *unstructured.Unstructured, gvr *schema.GroupVersionResource) error {
-	klog.V(4).Infof("Reconciling GVR %q %s|%s/%s", gvr.String(), lclusterName, obj.GetNamespace(), obj.GetName())
+	logger := logging.WithObject(logging.WithReconciler(klog.Background(), controllerName), obj).WithValues("groupVersionResource", gvr.String(), "logicalCluster", lclusterName.String())
+	logger.V(4).Info("reconciling resource")
 
 	// If the resource is not namespaced (incl if the resource is itself a
 	// namespace), ignore it.
 	if obj.GetNamespace() == "" {
-		klog.V(4).Infof("GVR %q %s|%s had no namespace; ignoring", gvr.String(), logicalcluster.From(obj), obj.GetName())
+		logger.V(4).Info("resource had no namespace; ignoring")
 		return nil
 	}
 
 	if namespaceBlocklist.Has(obj.GetNamespace()) {
-		klog.V(4).Infof("Skipping syncing namespace %s|%q", logicalcluster.From(obj), obj.GetNamespace())
+		logger.V(4).Info("skipping syncing namespace")
 		return nil
 	}
 
@@ -73,35 +76,37 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 
 	// If the object DeletionTimestamp is set, we should set all locations deletion timestamps annotations to the same value.
 	if obj.GetDeletionTimestamp() != nil {
-		annotationPatch = propagateDeletionTimestamp(obj, annotationPatch)
+		annotationPatch = propagateDeletionTimestamp(logger, obj, annotationPatch)
 	}
 
 	// clean finalizers from removed syncers
 	filteredFinalizers := make([]string, 0, len(obj.GetFinalizers()))
 	for _, f := range obj.GetFinalizers() {
+		logger = logger.WithValues("finalizer", f)
 		if !strings.HasPrefix(f, syncershared.SyncerFinalizerNamePrefix) {
 			filteredFinalizers = append(filteredFinalizers, f)
 			continue
 		}
 
 		syncTargetKey := strings.TrimPrefix(f, syncershared.SyncerFinalizerNamePrefix)
+		logger = logger.WithValues("syncTargetKey", syncTargetKey)
 		objs, err := c.syncTargetIndexer.ByIndex(indexers.SyncTargetsBySyncTargetKey, syncTargetKey)
 		if err != nil {
-			klog.Errorf("Error getting SyncTarget via SyncTargetKey %s index: %v", syncTargetKey, err)
+			logger.Error(err, "error getting SyncTarget via index")
 			continue
 		}
 		if len(objs) == 0 {
-			klog.V(3).Infof("SyncTarget under key %s was deleted, removing finalizer %q from %q %s|%s/%s", syncTargetKey, f, gvr, lclusterName, ns.Name, obj.GetName())
+			logger.V(3).Info("SyncTarget under the key was deleted, removing finalizer")
 			continue
 		}
 		aCluster := objs[0].(*workloadv1alpha1.SyncTarget)
-		klog.V(5).Infof("Keeping finalizer %q on %q %s|%s/%s because of SyncTarget %s|%s", f, gvr, lclusterName, ns.Name, obj.GetName(), logicalcluster.From(aCluster), aCluster.GetName())
+		logging.WithObject(logger, aCluster).V(5).Info("keeping finalizer because of SyncTarget")
 		filteredFinalizers = append(filteredFinalizers, f)
 	}
 
 	// create patch
 	if len(labelPatch) == 0 && len(annotationPatch) == 0 && len(filteredFinalizers) == len(obj.GetFinalizers()) {
-		klog.V(4).Infof("Nothing to change for GVR %q %s|%s/%s", gvr.String(), lclusterName, obj.GetNamespace(), obj.GetName())
+		logger.V(4).Info("nothing to change for resource")
 		return nil
 	}
 
@@ -113,13 +118,13 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 	}
 	if len(labelPatch) > 0 {
 		if err := unstructured.SetNestedField(patch, labelPatch, "metadata", "labels"); err != nil {
-			klog.Errorf("unexpected unstructured error: %v", err)
+			logger.Error(err, "unexpected unstructured error")
 			return err // should never happen
 		}
 	}
 	if len(annotationPatch) > 0 {
 		if err := unstructured.SetNestedField(patch, annotationPatch, "metadata", "annotations"); err != nil {
-			klog.Errorf("unexpected unstructured error: %v", err)
+			logger.Error(err, "unexpected unstructured error")
 			return err // should never happen
 		}
 	}
@@ -130,11 +135,11 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 	}
 	patchBytes, err := json.Marshal(patch)
 	if err != nil {
-		klog.Errorf("unexpected marshal error: %v", err)
+		logger.Error(err, "unexpected marshal error")
 		return err
 	}
 
-	klog.V(2).Infof("Patching %q %s|%s/%s: %s", gvr, lclusterName, ns.Name, obj.GetName(), string(patchBytes))
+	logger.WithValues("patch", string(patchBytes)).V(2).Info("patching resource")
 	if _, err := c.dynClusterClient.Resource(*gvr).Namespace(ns.Name).
 		Patch(logicalcluster.WithCluster(ctx, lclusterName), obj.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
 		return err
@@ -143,8 +148,8 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 	return nil
 }
 
-func propagateDeletionTimestamp(obj metav1.Object, annotationPatch map[string]interface{}) map[string]interface{} {
-	klog.V(3).Infof("Resource is being deleted; setting the deletion per locations timestamps for %s|%s/%s", logicalcluster.From(obj).String(), obj.GetNamespace(), obj.GetName())
+func propagateDeletionTimestamp(logger logr.Logger, obj metav1.Object, annotationPatch map[string]interface{}) map[string]interface{} {
+	logger.V(3).Info("resource is being deleted; setting the deletion per locations timestamps")
 	objAnnotations := obj.GetAnnotations()
 	objLocations, _ := locations(objAnnotations, obj.GetLabels(), false)
 	if annotationPatch == nil {

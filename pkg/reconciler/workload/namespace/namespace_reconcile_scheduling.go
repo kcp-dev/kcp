@@ -51,6 +51,7 @@ type placementSchedulingReconciler struct {
 }
 
 func (r *placementSchedulingReconciler) reconcile(ctx context.Context, ns *corev1.Namespace) (reconcileStatus, *corev1.Namespace, error) {
+	logger := klog.FromContext(ctx)
 	clusterName := logicalcluster.From(ns)
 
 	validPlacements := []*schedulingv1alpha1.Placement{}
@@ -82,12 +83,12 @@ func (r *placementSchedulingReconciler) reconcile(ctx context.Context, ns *corev
 	expectedAnnotations := map[string]interface{}{} // nil means to remove the key
 	expectedLabels := map[string]interface{}{}      // nil means to remove the key
 
-	for cluster := range synced {
-		if !scheduledSyncTargets.Has(cluster) {
+	for syncTarget := range synced {
+		if !scheduledSyncTargets.Has(syncTarget) {
 			// it is no longer a synced synctarget, mark it as removing.
 			now := r.now().UTC().Format(time.RFC3339)
-			expectedAnnotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+cluster] = now
-			klog.V(4).Infof("set cluster %s removing for ns %s|%s since it is not a valid cluster anymore", cluster, clusterName, ns.Name)
+			expectedAnnotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+syncTarget] = now
+			logger.WithValues("syncTarget", syncTarget).V(4).Info("setting SyncTarget as removing for Namespace since it is not a valid syncTarget anymore")
 		}
 	}
 
@@ -97,7 +98,7 @@ func (r *placementSchedulingReconciler) reconcile(ctx context.Context, ns *corev
 		if removingTime.Add(removingGracePeriod).Before(r.now()) {
 			expectedLabels[workloadv1alpha1.ClusterResourceStateLabelPrefix+cluster] = nil
 			expectedAnnotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+cluster] = nil
-			klog.V(4).Infof("remove cluster %s for ns %s|%s", cluster, clusterName, ns.Name)
+			logger.WithValues("syncTarget", cluster).V(4).Info("removing SyncTarget for Namespace")
 		} else {
 			enqueuDuration := time.Until(removingTime.Add(removingGracePeriod))
 			if enqueuDuration < minEnqueueDuration {
@@ -116,7 +117,7 @@ func (r *placementSchedulingReconciler) reconcile(ctx context.Context, ns *corev
 		}
 
 		expectedLabels[workloadv1alpha1.ClusterResourceStateLabelPrefix+scheduledSyncTarget] = string(workloadv1alpha1.ResourceStateSync)
-		klog.V(4).Infof("set cluster %s sync for ns %s|%s", scheduledSyncTarget, clusterName, ns.Name)
+		logger.WithValues("syncTarget", scheduledSyncTarget).V(4).Info("setting syncTarget as sync for Namespace")
 	}
 
 	if len(expectedLabels) > 0 || len(expectedAnnotations) > 0 {
@@ -124,9 +125,9 @@ func (r *placementSchedulingReconciler) reconcile(ctx context.Context, ns *corev
 		return reconcileStatusContinue, ns, err
 	}
 
-	// 6. Requeue at last to check if removing cluster should be removed later.
+	// 6. Requeue at last to check if removing syncTarget should be removed later.
 	if minEnqueueDuration <= removingGracePeriod {
-		klog.V(2).Infof("enqueue ns %s|%s after %s", clusterName, ns.Name, minEnqueueDuration)
+		logger.WithValues("after", minEnqueueDuration).V(2).Info("enqueue Namespace later")
 		r.enqueueAfter(ns, minEnqueueDuration)
 	}
 
@@ -134,6 +135,7 @@ func (r *placementSchedulingReconciler) reconcile(ctx context.Context, ns *corev
 }
 
 func (r *placementSchedulingReconciler) patchNamespaceLabelAnnotation(ctx context.Context, clusterName logicalcluster.Name, ns *corev1.Namespace, labels, annotations map[string]interface{}) (*corev1.Namespace, error) {
+	logger := klog.FromContext(ctx)
 	patch := map[string]interface{}{}
 	if len(annotations) > 0 {
 		if err := unstructured.SetNestedField(patch, annotations, "metadata", "annotations"); err != nil {
@@ -149,8 +151,7 @@ func (r *placementSchedulingReconciler) patchNamespaceLabelAnnotation(ctx contex
 	if err != nil {
 		return ns, err
 	}
-	klog.V(3).Infof("Patching to update sync target information on namespace %s|%s: %s",
-		clusterName, ns.Name, string(patchBytes))
+	logger.WithValues("patch", string(patchBytes)).V(3).Info("patching Namespace to update SyncTarget information")
 	updated, err := r.patchNamespace(ctx, clusterName, ns.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		return ns, err

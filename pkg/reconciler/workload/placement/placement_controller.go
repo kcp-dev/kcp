@@ -22,6 +22,8 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/go-logr/logr"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -37,6 +39,7 @@ import (
 	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
 	schedulinglisters "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
 	workloadlisters "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 const (
@@ -70,20 +73,20 @@ func NewController(
 	}
 
 	if err := locationInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorksapce,
+		byWorkspace: indexByWorkspace,
 	}); err != nil {
 		return nil, err
 	}
 
 	if err := syncTargetInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorksapce,
+		byWorkspace: indexByWorkspace,
 	}); err != nil {
 		return nil, err
 	}
 
 	if err := placementInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace:         indexByWorksapce,
-		byLocationWorkspace: indexByLoactionWorkspace,
+		byWorkspace:         indexByWorkspace,
+		byLocationWorkspace: indexByLocationWorkspace,
 	}); err != nil {
 		return nil, err
 	}
@@ -131,10 +134,11 @@ func NewController(
 		},
 	)
 
+	logger := logging.WithReconciler(klog.Background(), controllerName)
 	placementInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueuePlacement(obj, "") },
-		UpdateFunc: func(_, obj interface{}) { c.enqueuePlacement(obj, "") },
-		DeleteFunc: func(obj interface{}) { c.enqueuePlacement(obj, "") },
+		AddFunc:    func(obj interface{}) { c.enqueuePlacement(obj, logger, "") },
+		UpdateFunc: func(_, obj interface{}) { c.enqueuePlacement(obj, logger, "") },
+		DeleteFunc: func(obj interface{}) { c.enqueuePlacement(obj, logger, "") },
 	})
 
 	return c, nil
@@ -171,20 +175,20 @@ func (c *controller) enqueueLocation(obj interface{}) {
 		return
 	}
 
-	for _, obj := range placements {
-		c.enqueuePlacement(obj, fmt.Sprintf(" because of Location %s", key))
+	logger := logging.WithObject(logging.WithReconciler(klog.Background(), controllerName), obj.(*schedulingv1alpha1.Location))
+	for _, placement := range placements {
+		c.enqueuePlacement(placement, logger, " because of Location")
 	}
 }
 
-func (c *controller) enqueuePlacement(obj interface{}, logSuffix string) {
+func (c *controller) enqueuePlacement(obj interface{}, logger logr.Logger, logSuffix string) {
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
-	clusterName, name := clusters.SplitClusterAwareKey(key)
 
-	klog.V(2).Infof("Queueing Namespace %s|%s", clusterName.String(), name)
+	logging.WithQueueKey(logger, key).V(2).Info(fmt.Sprintf("queueing Placement%s", logSuffix))
 	c.queue.Add(key)
 }
 
@@ -202,8 +206,9 @@ func (c *controller) enqueueSyncTarget(obj interface{}) {
 		return
 	}
 
-	for _, obj := range placements {
-		c.enqueuePlacement(obj, fmt.Sprintf(" because of SyncTarget %s", key))
+	logger := logging.WithObject(logging.WithReconciler(klog.Background(), controllerName), obj.(*workloadv1alpha1.SyncTarget))
+	for _, placement := range placements {
+		c.enqueuePlacement(placement, logger, " because of SyncTarget")
 	}
 }
 
@@ -212,8 +217,10 @@ func (c *controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	klog.Infof("Starting %s controller", controllerName)
-	defer klog.Infof("Shutting down %s controller", controllerName)
+	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
+	ctx = klog.NewContext(ctx, logger)
+	logger.Info("Starting controller")
+	defer logger.Info("Shutting down controller")
 
 	for i := 0; i < numThreads; i++ {
 		go wait.UntilWithContext(ctx, c.startWorker, time.Second)
@@ -234,6 +241,10 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 		return false
 	}
 	key := k.(string)
+
+	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
+	ctx = klog.NewContext(ctx, logger)
+	logger.V(1).Info("processing key")
 
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.
@@ -257,6 +268,9 @@ func (c *controller) process(ctx context.Context, key string) error {
 		return err
 	}
 	obj = obj.DeepCopy()
+
+	logger := logging.WithObject(klog.FromContext(ctx), obj)
+	ctx = klog.NewContext(ctx, logger)
 
 	reconcileErr := c.reconcile(ctx, obj)
 

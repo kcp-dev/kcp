@@ -35,18 +35,20 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	workspaceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
-	v1alpha12 "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	workloadinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
+	tenancylister "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 const controllerName = "kcp-synctarget-controller"
 
 func NewController(
 	kcpClusterClient kcpclient.Interface,
-	syncTargetInformer v1alpha1.SyncTargetInformer,
+	syncTargetInformer workloadinformer.SyncTargetInformer,
 	workspaceShardInformer workspaceinformer.ClusterWorkspaceShardInformer,
 ) *Controller {
 
@@ -78,7 +80,7 @@ type Controller struct {
 	queue            workqueue.RateLimitingInterface
 	kcpClusterClient kcpclient.Interface
 
-	workspaceShardLister v1alpha12.ClusterWorkspaceShardLister
+	workspaceShardLister tenancylister.ClusterWorkspaceShardLister
 	syncTargetIndexer    cache.Indexer
 }
 
@@ -88,17 +90,21 @@ func (c *Controller) enqueueSyncTarget(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), key)
+	logger.V(2).Info("queueing SyncTarget")
 	c.queue.Add(key)
 }
 
 // On workspaceShard changes, enqueue all the syncTargets.
 func (c *Controller) enqueueWorkspaceShard(obj interface{}) {
+	logger := logging.WithObject(logging.WithReconciler(klog.Background(), controllerName), obj.(*tenancyv1alpha1.ClusterWorkspaceShard))
 	for _, syncTarget := range c.syncTargetIndexer.List() {
 		key, err := cache.MetaNamespaceKeyFunc(syncTarget)
 		if err != nil {
 			runtime.HandleError(err)
 			return
 		}
+		logging.WithQueueKey(logger, key).V(2).Info("queueing SyncTarget because of ClusterWorkspaceShard")
 		c.queue.Add(key)
 	}
 }
@@ -108,8 +114,10 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	klog.InfoS("Starting workers", "controller", controllerName)
-	defer klog.InfoS("Stopping workers", "controller", controllerName)
+	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
+	ctx = klog.NewContext(ctx, logger)
+	logger.Info("Starting controller")
+	defer logger.Info("Shutting down controller")
 
 	for i := 0; i < numThreads; i++ {
 		go wait.UntilWithContext(ctx, c.startWorker, time.Second)
@@ -131,6 +139,10 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	}
 	key := k.(string)
 
+	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
+	ctx = klog.NewContext(ctx, logger)
+	logger.V(1).Info("processing key")
+
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.
 	defer c.queue.Done(key)
@@ -146,27 +158,30 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *Controller) process(ctx context.Context, key string) error {
+	logger := klog.FromContext(ctx)
 	obj, exists, err := c.syncTargetIndexer.GetByKey(key)
 	if err != nil {
-		klog.Errorf("Failed to get syncTarget with key %q because: %v", key, err)
+		logger.Error(err, "failed to get SyncTarget")
 		return nil
 	}
 
 	if !exists {
-		klog.Infof("syncTarget with key %q was deleted", key)
+		logger.Info("syncTarget was deleted")
 		return nil
 	}
 
-	klog.Infof("Processing syncTarget %q", key)
+	currentSyncTarget := obj.(*workloadv1alpha1.SyncTarget)
+	logger = logging.WithObject(klog.FromContext(ctx), currentSyncTarget)
+	ctx = klog.NewContext(ctx, logger)
+
 	workspacesShards, err := c.workspaceShardLister.List(labels.Everything())
 	if err != nil {
 		return err
 	}
 
-	currentSyncTarget := obj.(*workloadv1alpha1.SyncTarget)
-	newSyncTarget, err := c.reconcile(currentSyncTarget, workspacesShards)
+	newSyncTarget, err := c.reconcile(ctx, currentSyncTarget, workspacesShards)
 	if err != nil {
-		klog.Errorf("Failed to reconcile syncTarget %q because: %v", key, err)
+		logger.Error(err, "failed to reconcile syncTarget")
 		return err
 	}
 
@@ -176,33 +191,33 @@ func (c *Controller) process(ctx context.Context, key string) error {
 
 	currentSyncTargetJSON, err := json.Marshal(currentSyncTarget)
 	if err != nil {
-		klog.Errorf("Failed to marshal syncTarget %q because: %v", key, err)
+		logger.Error(err, "failed to marshal syncTarget")
 		return err
 	}
 	newSyncTargetJSON, err := json.Marshal(newSyncTarget)
 	if err != nil {
-		klog.Errorf("Failed to marshal syncTarget %q because: %v", key, err)
+		logger.Error(err, "failed to marshal syncTarget")
 		return err
 	}
 
 	patchBytes, err := jsonpatch.CreateMergePatch(currentSyncTargetJSON, newSyncTargetJSON)
 	if err != nil {
-		klog.Errorf("Failed to create merge patch for syncTarget %q because: %v", key, err)
+		logger.Error(err, "failed to create merge patch for syncTarget")
 		return err
 	}
 
 	if !reflect.DeepEqual(currentSyncTarget.ObjectMeta, newSyncTarget.ObjectMeta) || !reflect.DeepEqual(currentSyncTarget.Spec, newSyncTarget.Spec) {
-		klog.V(2).InfoS("patching synctarget", "name", newSyncTarget.Name, "workspace", logicalcluster.From(newSyncTarget), "patchbytes", string(patchBytes))
+		logger.WithValues("patch", string(patchBytes)).V(2).Info("patching SyncTarget")
 		if _, err := c.kcpClusterClient.WorkloadV1alpha1().SyncTargets().Patch(logicalcluster.WithCluster(ctx, logicalcluster.From(currentSyncTarget)), currentSyncTarget.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
-			klog.Errorf("failed to patch sync target: %v", err)
+			logger.Error(err, "failed to patch sync target: %v", err)
 			return err
 		}
 	}
 
 	if !reflect.DeepEqual(currentSyncTarget.Status, newSyncTarget.Status) {
-		klog.V(2).InfoS("patching synctarget status", "name", newSyncTarget.Name, "workspace", logicalcluster.From(newSyncTarget), "patchbytes", string(patchBytes))
+		logger.WithValues("patch", string(patchBytes)).V(2).Info("patching SyncTarget status")
 		if _, err := c.kcpClusterClient.WorkloadV1alpha1().SyncTargets().Patch(logicalcluster.WithCluster(ctx, logicalcluster.From(currentSyncTarget)), currentSyncTarget.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status"); err != nil {
-			klog.Errorf("failed to patch sync target status: %v", err)
+			logger.Error(err, "failed to patch sync target status: %v", err)
 			return err
 		}
 	}

@@ -38,6 +38,8 @@ import (
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
+
+	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 const controllerName = "kcp-ingress-splitter"
@@ -137,6 +139,11 @@ func (c *Controller) enqueue(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), key)
+	if logObj, ok := obj.(logging.Object); ok {
+		logger = logging.WithObject(logger, logObj)
+	}
+	logger.V(2).Info("queueing Ingress")
 	c.queue.Add(key)
 }
 
@@ -145,8 +152,10 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	klog.InfoS("Starting workers", "controller", controllerName)
-	defer klog.InfoS("Stopping workers", "controller", controllerName)
+	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
+	ctx = klog.NewContext(ctx, logger)
+	logger.Info("Starting controller")
+	defer logger.Info("Shutting down controller")
 
 	for i := 0; i < numThreads; i++ {
 		go wait.UntilWithContext(ctx, c.startWorker, time.Second)
@@ -168,6 +177,10 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	}
 	key := k.(string)
 
+	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
+	ctx = klog.NewContext(ctx, logger)
+	logger.V(1).Info("processing key")
+
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.
 	defer c.queue.Done(key)
@@ -183,14 +196,15 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *Controller) process(ctx context.Context, key string) error {
+	logger := klog.FromContext(ctx)
 	obj, exists, err := c.ingressIndexer.GetByKey(key)
 	if err != nil {
-		klog.Errorf("Failed to get Ingress with key %q because: %v", key, err)
+		logger.Error(err, "failed to get Ingress")
 		return nil
 	}
 
 	if !exists {
-		klog.Infof("Object with key %q was deleted", key)
+		logger.Info("Ingress was deleted")
 		c.tracker.deleteIngress(key)
 
 		return nil
@@ -199,7 +213,8 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	current := obj.(*networkingv1.Ingress)
 	previous := current.DeepCopy()
 
-	klog.Infof("Processing ingress %q", key)
+	logger = logging.WithObject(logger, previous)
+	ctx = klog.NewContext(ctx, logger)
 
 	if err := c.reconcile(ctx, current); err != nil {
 		return err
@@ -219,6 +234,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 
 // ingressesFromService enqueues all the related ingresses for a given service.
 func (c *Controller) ingressesFromService(obj interface{}) {
+	logger := logging.WithReconciler(klog.Background(), controllerName)
 	service := obj.(*corev1.Service)
 
 	serviceKey, err := cache.MetaNamespaceKeyFunc(service)
@@ -232,7 +248,7 @@ func (c *Controller) ingressesFromService(obj interface{}) {
 
 	// One Service can be referenced by 0..n Ingresses, so we need to enqueue all the related ingreses.
 	for _, ingress := range ingresses.List() {
-		klog.Infof("tracked service %q triggered Ingress %q reconciliation", service.Name, ingress)
+		logging.WithQueueKey(logging.WithObject(logger, service), ingress).V(2).Info("queueing Ingress due to Service")
 		c.queue.Add(ingress)
 	}
 }

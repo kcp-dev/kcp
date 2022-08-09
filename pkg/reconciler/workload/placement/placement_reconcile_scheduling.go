@@ -123,6 +123,7 @@ func (r *placementSchedulingReconciler) getAllValidSyncTargetsForPlacement(clust
 }
 
 func (r *placementSchedulingReconciler) patchPlacementAnnotation(ctx context.Context, clusterName logicalcluster.Name, placement *schedulingv1alpha1.Placement, annotations map[string]interface{}) (*schedulingv1alpha1.Placement, error) {
+	logger := klog.FromContext(ctx)
 	patch := map[string]interface{}{}
 	if len(annotations) > 0 {
 		if err := unstructured.SetNestedField(patch, annotations, "metadata", "annotations"); err != nil {
@@ -133,8 +134,7 @@ func (r *placementSchedulingReconciler) patchPlacementAnnotation(ctx context.Con
 	if err != nil {
 		return placement, err
 	}
-	klog.V(3).Infof("Patching to update sync target information on placement %s|%s: %s",
-		clusterName, placement.Name, string(patchBytes))
+	logger.WithValues("patch", string(patchBytes)).V(3).Info("patching Placement to update SyncTarget information")
 	updated, err := r.patchPlacement(ctx, clusterName, placement.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		return placement, err
