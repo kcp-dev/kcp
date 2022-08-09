@@ -201,10 +201,7 @@ func applyTest(t *testing.T, test TestDescription) {
 		getFilteredClusterWorkspaces: func(orgName logicalcluster.Name) FilteredClusterWorkspaces {
 			return &clusterWorkspaces{clusterWorkspaceLister: clusterWorkspaceLister}
 		},
-		crbInformer: kubeInformers.Rbac().V1().ClusterRoleBindings(),
-		impersonatedkubeClusterClient: func(user kuser.Info) (kubernetes.ClusterInterface, error) {
-			return mockKubeClusterClient(func(logicalcluster.Name) kubernetes.Interface { return mockKubeClient }), nil
-		},
+		crbInformer:           kubeInformers.Rbac().V1().ClusterRoleBindings(),
 		kubeClusterClient:     mockKubeClusterClient(func(logicalcluster.Name) kubernetes.Interface { return mockKubeClient }),
 		kcpClusterClient:      mockKcpClusterClient(func(logicalcluster.Name) kcpclientset.Interface { return mockKCPClient }),
 		clusterWorkspaceCache: nil,
@@ -361,64 +358,6 @@ func TestListWorkspacesWithUserPermission(t *testing.T) {
 	applyTest(t, test)
 }
 
-func TestListWorkspacesForbidden(t *testing.T) {
-	user := &kuser.DefaultInfo{
-		Name:   "test-user",
-		UID:    "test-uid",
-		Groups: []string{"test-group"},
-	}
-	test := TestDescription{
-		TestData: TestData{
-			user:    user,
-			orgName: logicalcluster.New("root:orgName"),
-			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
-				subjects: map[string]map[string][]rbacv1.Subject{
-					"list/tenancy.kcp.dev/v1alpha1/clusterworkspaces/workspace": {
-						"": rbacUsers("test-user2"),
-					},
-				},
-			}),
-			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{nil}),
-			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root:orgName",
-						},
-						Name: "foo",
-					},
-				},
-			},
-			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: getOwnerRoleBindingName("foo", user),
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root:orgName",
-						},
-						Labels: map[string]string{
-							WorkspaceNameLabel: "foo",
-						},
-					},
-					Subjects: []rbacv1.Subject{
-						{
-							Kind: "User",
-							Name: user.Name,
-						},
-					},
-				},
-			},
-		},
-		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
-			response, err := storage.List(ctx, nil)
-
-			assert.EqualError(t, err, "workspaces.tenancy.kcp.dev is forbidden: \"list\" workspace \"\" in workspace \"root:orgName\" is not allowed")
-			assert.Nil(t, response, "response should be nil")
-		},
-	}
-	applyTest(t, test)
-}
-
 func TestListWorkspacesOnRootOrgWithPermission(t *testing.T) {
 	user := &kuser.DefaultInfo{
 		Name:   "test-user",
@@ -453,29 +392,6 @@ func TestListWorkspacesOnRootOrgWithPermission(t *testing.T) {
 				user,
 				checkedUsers[0],
 				"The workspaceLister should have checked the user with its groups")
-		},
-	}
-	applyTest(t, test)
-}
-
-func TestListWorkspacesOnRootOrgWithoutPermission(t *testing.T) {
-	user := &kuser.DefaultInfo{
-		Name:   "test-user",
-		UID:    "test-uid",
-		Groups: []string{"test-group"},
-	}
-	test := TestDescription{
-		TestData: TestData{
-			user:                user,
-			orgName:             logicalcluster.New("root"),
-			reviewer:            workspaceauth.NewReviewer(nil),
-			rootReviewer:        workspaceauth.NewReviewer(&mockSubjectLocator{}),
-			clusterWorkspaces:   []tenancyv1alpha1.ClusterWorkspace{{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{logicalcluster.AnnotationKey: "root"}, Name: "orgName"}}},
-			clusterRoleBindings: []rbacv1.ClusterRoleBinding{},
-		},
-		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
-			_, err := storage.List(ctx, nil)
-			require.Error(t, err)
 		},
 	}
 	applyTest(t, test)
@@ -632,41 +548,6 @@ func TestGetWorkspaceNotFoundNoPermission(t *testing.T) {
 				},
 				checkedUsers[0],
 				"The workspaceLister should have checked the user with its groups")
-		},
-	}
-	applyTest(t, test)
-}
-
-func TestCreateWorkspaceForbidden(t *testing.T) {
-	user := &kuser.DefaultInfo{
-		Name:   "test-user",
-		UID:    "test-uid",
-		Groups: []string{"test-group"},
-	}
-	test := TestDescription{
-		TestData: TestData{
-			user:    user,
-			orgName: logicalcluster.New("root:orgName"),
-			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
-				subjects: map[string]map[string][]rbacv1.Subject{
-					"create/tenancy.kcp.dev/v1alpha1/clusterworkspaces/workspace": {
-						"foo2": rbacGroups("test-group"),
-					},
-				},
-			}),
-			rootReviewer: workspaceauth.NewReviewer(nil),
-		},
-		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
-			newWorkspace := tenancyv1beta1.Workspace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "foo",
-				},
-			}
-			response, err := storage.Create(ctx, &newWorkspace, nil, &metav1.CreateOptions{})
-			require.EqualError(t, err, "workspaces.tenancy.kcp.dev \"foo\" is forbidden: \"create\" workspace \"foo\" in workspace \"root:orgName\" is not allowed")
-			require.Nil(t, response)
-			checkedUsers := listerCheckedUsers()
-			require.Len(t, checkedUsers, 0, "The workspaceLister shouldn't have checked any user")
 		},
 	}
 	applyTest(t, test)
@@ -1175,97 +1056,6 @@ func TestDeleteWorkspaceNotFound(t *testing.T) {
 		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			response, deletedNow, err := storage.Delete(ctx, "foo-with-does-not-exist", nil, &metav1.DeleteOptions{})
 			assert.EqualError(t, err, "workspaces.tenancy.kcp.dev \"foo-with-does-not-exist\" not found")
-			assert.Nil(t, response)
-			assert.False(t, deletedNow)
-			crbList, err := kubeClient.Tracker().List(rbacv1.SchemeGroupVersion.WithResource("clusterrolebindings"), rbacv1.SchemeGroupVersion.WithKind("ClusterRoleBinding"), "")
-			require.NoError(t, err)
-			crbs := crbList.(*rbacv1.ClusterRoleBindingList)
-			assert.ElementsMatch(t, crbs.Items, testData.clusterRoleBindings)
-			crList, err := kubeClient.Tracker().List(rbacv1.SchemeGroupVersion.WithResource("clusterroles"), rbacv1.SchemeGroupVersion.WithKind("ClusterRole"), "")
-			require.NoError(t, err)
-			crs := crList.(*rbacv1.ClusterRoleList)
-			assert.ElementsMatch(t, crs.Items, testData.clusterRoles)
-			workspaceList, err := kcpClient.Tracker().List(tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces"), tenancyv1alpha1.SchemeGroupVersion.WithKind("ClusterWorkspace"), "")
-			require.NoError(t, err)
-			wsList := workspaceList.(*tenancyv1alpha1.ClusterWorkspaceList)
-			assert.ElementsMatch(t, wsList.Items, testData.clusterWorkspaces)
-		},
-	}
-	applyTest(t, test)
-}
-
-func TestDeleteWorkspaceForbiddenToUser(t *testing.T) {
-	user := &kuser.DefaultInfo{
-		Name:   "test-user",
-		UID:    "test-uid",
-		Groups: []string{"test-group"},
-	}
-	test := TestDescription{
-		TestData: TestData{
-			user:    user,
-			orgName: logicalcluster.New("root:orgName"),
-			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
-				subjects: map[string]map[string][]rbacv1.Subject{
-					"delete/tenancy.kcp.dev/v1alpha1/clusterworkspaces/workspace": {
-						"foo": rbacUsers(),
-					},
-				},
-			}),
-			rootReviewer: workspaceauth.NewReviewer(nil),
-			clusterWorkspaces: []tenancyv1alpha1.ClusterWorkspace{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root:orgName",
-						},
-						Name: "foo",
-					},
-				},
-			},
-			clusterRoleBindings: []rbacv1.ClusterRoleBinding{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: getOwnerRoleBindingName("foo", user),
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root:orgName",
-						},
-						Labels: map[string]string{
-							WorkspaceNameLabel: "foo",
-						},
-					},
-					Subjects: []rbacv1.Subject{
-						{
-							Kind: "User",
-							Name: user.Name,
-						},
-					},
-				},
-			},
-			clusterRoles: []rbacv1.ClusterRole{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: getOwnerRoleBindingName("foo", user),
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root:orgName",
-						},
-						Labels: map[string]string{
-							WorkspaceNameLabel: "foo",
-						},
-					},
-					Rules: []rbacv1.PolicyRule{
-						{
-							Verbs:         []string{"get", "delete"},
-							ResourceNames: []string{"foo"},
-							Resources:     []string{"clusterworkspaces/workspace"},
-							APIGroups:     []string{"tenancy.kcp.dev"},
-						},
-					},
-				},
-			},
-		},
-		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
-			response, deletedNow, err := storage.Delete(ctx, "foo", nil, &metav1.DeleteOptions{})
-			assert.EqualError(t, err, "workspaces.tenancy.kcp.dev \"foo\" is forbidden: \"delete\" workspace \"foo\" in workspace \"root:orgName\" is not allowed")
 			assert.Nil(t, response)
 			assert.False(t, deletedNow)
 			crbList, err := kubeClient.Tracker().List(rbacv1.SchemeGroupVersion.WithResource("clusterrolebindings"), rbacv1.SchemeGroupVersion.WithKind("ClusterRoleBinding"), "")
