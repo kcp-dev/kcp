@@ -33,6 +33,7 @@ import (
 	"k8s.io/component-base/logs"
 	"k8s.io/component-base/term"
 	"k8s.io/component-base/version"
+	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/cmd/help"
 	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
@@ -112,6 +113,8 @@ func main() {
 				return errors.NewAggregate(errs)
 			}
 
+			klog.Infof("Batteries included: %s", strings.Join(completed.Extra.BatteriesIncluded, ","))
+
 			config, err := server.NewConfig(completed)
 			if err != nil {
 				return err
@@ -172,7 +175,7 @@ func main() {
 
 	setPartialUsageAndHelpFunc(startCmd, namedStartFlagSets, cols, []string{
 		"etcd-servers",
-		"run-controllers",
+		"batteries-included",
 		"run-virtual-workspaces",
 	})
 

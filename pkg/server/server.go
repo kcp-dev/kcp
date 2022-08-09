@@ -129,6 +129,7 @@ func (s *Server) Run(ctx context.Context) error {
 				s.ApiExtensionsClusterClient.Cluster(SystemCRDLogicalCluster),
 				s.ApiExtensionsClusterClient.Cluster(SystemCRDLogicalCluster).Discovery(),
 				s.DynamicClusterClient.Cluster(SystemCRDLogicalCluster),
+				sets.NewString(s.Options.Extra.BatteriesIncluded...),
 			); err != nil {
 				klog.Errorf("failed to bootstrap system CRDs: %v", err)
 				return false, nil // keep trying
@@ -174,6 +175,7 @@ func (s *Server) Run(ctx context.Context) error {
 				s.KcpClusterClient.Cluster(tenancyv1alpha1.RootCluster),
 				s.ApiExtensionsClusterClient.Cluster(tenancyv1alpha1.RootCluster).Discovery(),
 				s.DynamicClusterClient.Cluster(tenancyv1alpha1.RootCluster),
+				sets.NewString(s.Options.Extra.BatteriesIncluded...),
 			); err != nil {
 				// nolint:nilerr
 				klog.Errorf("failed to bootstrap root workspace phase 0: %w", err)
@@ -318,6 +320,7 @@ func (s *Server) Run(ctx context.Context) error {
 				},
 				logicalcluster.New(s.Options.HomeWorkspaces.HomeRootPrefix).Base(),
 				s.Options.HomeWorkspaces.HomeCreatorGroups,
+				sets.NewString(s.Options.Extra.BatteriesIncluded...),
 			); err != nil {
 				// nolint:nilerr
 				klog.Errorf("failed to bootstrap root workspace phase 1: %w", err)
@@ -448,7 +451,7 @@ func (s *Server) Run(ctx context.Context) error {
 		return err
 	}
 
-	if err := s.Options.AdminAuthentication.WriteKubeConfig(s.GenericConfig, s.kcpAdminToken, s.shardAdminToken, s.shardAdminTokenHash); err != nil {
+	if err := s.Options.AdminAuthentication.WriteKubeConfig(s.GenericConfig, s.kcpAdminToken, s.shardAdminToken, s.userToken, s.shardAdminTokenHash); err != nil {
 		return err
 	}
 

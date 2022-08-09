@@ -2,6 +2,8 @@ apiVersion: tenancy.kcp.dev/v1alpha1
 kind: ClusterWorkspaceType
 metadata:
   name: organization
+  annotations:
+    bootstrap.kcp.dev/battery: cluster-workspace-types
 spec:
   extend:
     with:

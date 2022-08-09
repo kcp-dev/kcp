@@ -38,6 +38,7 @@ import (
 	etcdoptions "github.com/kcp-dev/kcp/pkg/embeddedetcd/options"
 	_ "github.com/kcp-dev/kcp/pkg/features"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
+	"github.com/kcp-dev/kcp/pkg/server/options/batteries"
 )
 
 type Options struct {
@@ -63,6 +64,8 @@ type ExtraOptions struct {
 	ShardVirtualWorkspaceURL string
 	DiscoveryPollInterval    time.Duration
 	ExperimentalBindFreePort bool
+
+	BatteriesIncluded []string
 }
 
 type completedOptions struct {
@@ -103,6 +106,7 @@ func NewOptions(rootDir string) *Options {
 			ShardName:                "root",
 			DiscoveryPollInterval:    60 * time.Second,
 			ExperimentalBindFreePort: false,
+			BatteriesIncluded:        batteries.Defaults.List(),
 		},
 	}
 
@@ -171,6 +175,16 @@ func (o *Options) rawFlags() cliflag.NamedFlagSets {
 	fs.BoolVar(&o.Extra.ExperimentalBindFreePort, "experimental-bind-free-port", o.Extra.ExperimentalBindFreePort, "Bind to a free port. --secure-port must be 0. Use the admin.kubeconfig to extract the chosen port.")
 	fs.MarkHidden("experimental-bind-free-port") // nolint:errcheck
 
+	fs.StringSliceVar(&o.Extra.BatteriesIncluded, "batteries-included", o.Extra.BatteriesIncluded, fmt.Sprintf(
+		`A list of batteries included (= default objects that might be unwanted in production, but are very helpful in trying out kcp or for development). These are the possible values: %s.
+
+- cluster-workspace-types: creates "organization" and "team" ClusterWorkspaceTypes in the root workspace.
+- user:                  creates an additional non-admin user and context named "user" in the admin.kubeconfig
+
+Prefixing with - or + means to remove from the default set or add to the default set.`,
+		strings.Join(batteries.All.Difference(batteries.Defaults).List(), ","),
+	))
+
 	return fss
 }
 
@@ -190,6 +204,24 @@ func (o *CompletedOptions) Validate() []error {
 	errs = append(errs, o.AdminAuthentication.Validate()...)
 	errs = append(errs, o.Virtual.Validate()...)
 	errs = append(errs, o.HomeWorkspaces.Validate()...)
+
+	differential := false
+	for i, b := range o.Extra.BatteriesIncluded {
+		if strings.HasPrefix(b, "+") || strings.HasPrefix(b, "-") {
+			if !differential && i > 0 {
+				errs = append(errs, fmt.Errorf("--batteries-included must all be prefixed with + or - or none"))
+				break
+			}
+			differential = true
+			b = b[1:]
+		} else if differential {
+			errs = append(errs, fmt.Errorf("--batteries-included must all be prefixed with + or - or none"))
+			break
+		}
+		if !batteries.All.Has(b) {
+			errs = append(errs, fmt.Errorf("unknown battery: %s", b))
+		}
+	}
 
 	return errs
 }
@@ -272,6 +304,25 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 		// but other than that only has cosmetic effects e.g. on the flag description. Hence, we do it here
 		// in Complete and not in NewOptions.
 		o.GenericControlPlane.SecureServing.Required = false
+	}
+
+	differential := false
+	for _, b := range o.Extra.BatteriesIncluded {
+		if strings.HasPrefix(b, "+") || strings.HasPrefix(b, "-") {
+			differential = true
+			break
+		}
+	}
+	if differential {
+		bats := sets.NewString(batteries.Defaults.List()...)
+		for _, b := range o.Extra.BatteriesIncluded {
+			if strings.HasPrefix(b, "+") {
+				bats.Insert(b[1:])
+			} else if strings.HasPrefix(b, "-") {
+				bats.Delete(b[1:])
+			}
+		}
+		o.Extra.BatteriesIncluded = bats.List()
 	}
 
 	return &CompletedOptions{
