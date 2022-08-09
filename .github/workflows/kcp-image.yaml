@@ -61,7 +61,7 @@ jobs:
       - name: Check out shared-resources (gitops repo)
         uses: actions/checkout@v3
         with:
-          repository: kcp-dev/shared-resources
+          repository: redhat-cps/shared-resources
           token: ${{ secrets.KCP_BOT_TOKEN }}
 
       - name: Update sha and commit
