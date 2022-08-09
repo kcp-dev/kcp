@@ -430,6 +430,10 @@ func gatherInternalAPIs(discoveryClient discovery.DiscoveryInterface, t *testing
 		if strings.HasSuffix(gv.Group, ".kcp.dev") {
 			continue
 		}
+		// ignore authn/authz non-crud apis
+		if gv.Group == "authentication.k8s.io" || gv.Group == "authorization.k8s.io" {
+			continue
+		}
 		for _, apiResource := range apiResourcesList.APIResources {
 			gvk := schema.GroupVersionKind{Kind: apiResource.Kind, Version: gv.Version, Group: gv.Group}
 
