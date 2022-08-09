@@ -75,7 +75,7 @@ rules:
 - apiGroups:
   - tenancy.kcp.dev
   resources:
-  - clusterworkspaces/content
+  - workspaces/content
   resourceNames:
   - org
   verbs:
@@ -86,7 +86,7 @@ rules:
 ## Workspace Content authorizer
 
 The workspace content authorizer checks whether the user is granted `admin` or `access` verbs in 
-the parent workspace against the `clusterworkspaces/content` resource with the `resourceNames` of 
+the parent workspace against the `workspaces/content` resource with the `resourceNames` of 
 the workspace being accessed.
 
 If any of the verbs is granted, the associated group is added to the user's attributes
@@ -119,7 +119,7 @@ and executes the subsequent authorizer chain.
 Example:
 
 Given the user accesses `root:org:ws:ws`, the verbs `admin` and `access` are asserted
-against the `clusterworkspaces/content` resource for the `resourceNames: ["ws"]` in the workspace `root:org:ws`.
+against the `workspaces/content` resource for the `resourceNames: ["ws"]` in the workspace `root:org:ws`.
 
 To give a user called "adam" admin access to a workspace `root:org:ws:ws`, beyond having org access using the previous top-level organization authorizer,
 a `ClusterRole` must be created in `root:org:ws` with the following shape:
@@ -134,7 +134,7 @@ rules:
 - apiGroups:
   - tenancy.kcp.dev
   resources:
-  - clusterworkspaces/content
+  - workspaces/content
   resourceNames:
   - ws
   verbs:
@@ -161,7 +161,7 @@ roleRef:
 ### Initializing Workspaces
 
 By default, workspaces are only accessible to a user if they are in `Ready` phase. Workspaces that are initializing
-can be access only by users that are granted `admin` verb on the `clusterworkspaces/content` resource in the
+can be access only by users that are granted `admin` verb on the `workspaces/content` resource in the
 parent workspace.
 
 Service accounts declared within a workspace don't have access to initializing workspaces.

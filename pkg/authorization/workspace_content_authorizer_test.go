@@ -214,7 +214,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 					Rules: []v1.PolicyRule{
 						{
 							Verbs:         []string{"admin"},
-							Resources:     []string{"clusterworkspaces/content"},
+							Resources:     []string{"workspaces/content"},
 							ResourceNames: []string{"ready"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
@@ -233,7 +233,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 					Rules: []v1.PolicyRule{
 						{
 							Verbs:         []string{"admin"},
-							Resources:     []string{"clusterworkspaces/content"},
+							Resources:     []string{"workspaces/content"},
 							ResourceNames: []string{"initializing"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
@@ -252,7 +252,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 					Rules: []v1.PolicyRule{
 						{
 							Verbs:         []string{"access"},
-							Resources:     []string{"clusterworkspaces/content"},
+							Resources:     []string{"workspaces/content"},
 							ResourceNames: []string{"initializing"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
@@ -271,7 +271,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 					Rules: []v1.PolicyRule{
 						{
 							Verbs:         []string{"access"},
-							Resources:     []string{"clusterworkspaces/content"},
+							Resources:     []string{"workspaces/content"},
 							ResourceNames: []string{"ready"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},

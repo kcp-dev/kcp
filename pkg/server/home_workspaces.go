@@ -649,7 +649,7 @@ func createHomeWorkspaceRBACResources(h *homeWorkspaceHandler, ctx context.Conte
 		Rules: []rbacv1.PolicyRule{
 			{
 				APIGroups:     []string{tenancyv1beta1.SchemeGroupVersion.Group},
-				Resources:     []string{"clusterworkspaces/content"},
+				Resources:     []string{"workspaces/content"},
 				Verbs:         []string{"access", "admin"},
 				ResourceNames: []string{name},
 			},

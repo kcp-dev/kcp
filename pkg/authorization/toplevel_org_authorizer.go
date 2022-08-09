@@ -141,7 +141,7 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 				Verb:        verb,
 				APIGroup:    tenancyv1alpha1.SchemeGroupVersion.Group,
 				APIVersion:  tenancyv1alpha1.SchemeGroupVersion.Version,
-				Resource:    "clusterworkspaces",
+				Resource:    "workspaces",
 				Subresource: "content",
 				Name:        requestTopLevelOrgName,
 

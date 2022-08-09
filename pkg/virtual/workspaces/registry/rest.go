@@ -263,7 +263,7 @@ var ownerRoleRules = []rbacv1.PolicyRule{
 		Resources: []string{"workspaces"},
 	},
 	{
-		Resources: []string{"clusterworkspaces/content"},
+		Resources: []string{"workspaces/content"},
 		Verbs:     []string{"admin", "access"},
 	},
 }

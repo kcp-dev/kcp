@@ -1101,7 +1101,7 @@ func TestCreateHomeWorkspaceRBACResources(t *testing.T) {
 						Rules: []rbacv1.PolicyRule{
 							{
 								APIGroups:     []string{tenancyv1beta1.SchemeGroupVersion.Group},
-								Resources:     []string{"clusterworkspaces/content"},
+								Resources:     []string{"workspaces/content"},
 								Verbs:         []string{"access"},
 								ResourceNames: []string{"user-1"},
 							},
@@ -1150,7 +1150,7 @@ func TestCreateHomeWorkspaceRBACResources(t *testing.T) {
 						Rules: []rbacv1.PolicyRule{
 							{
 								APIGroups:     []string{tenancyv1beta1.SchemeGroupVersion.Group},
-								Resources:     []string{"clusterworkspaces/content"},
+								Resources:     []string{"workspaces/content"},
 								Verbs:         []string{"access"},
 								ResourceNames: []string{"system-apiserver-company-2"},
 							},

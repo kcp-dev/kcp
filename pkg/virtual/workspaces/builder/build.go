@@ -112,7 +112,7 @@ func BuildVirtualWorkspace(cfg *clientrest.Config, rootPathPrefix string, wildca
 						rootReviewer,
 						*workspaceauth.NewAttributesBuilder().
 							Verb("access").
-							Resource(tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces"), "content").
+							Resource(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces"), "content").
 							AttributesRecord,
 						rootRBACInformers,
 					)

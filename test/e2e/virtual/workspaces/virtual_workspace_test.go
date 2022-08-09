@@ -84,7 +84,7 @@ func createWorkspaceAccessRoleForGroup(t *testing.T, ctx context.Context, kubeCl
 		Rules: []rbacv1.PolicyRule{
 			{
 				Verbs:         contentVerbs,
-				Resources:     []string{"clusterworkspaces/content"},
+				Resources:     []string{"workspaces/content"},
 				ResourceNames: []string{orgClusterName.Base()},
 				APIGroups:     []string{"tenancy.kcp.dev"},
 			},

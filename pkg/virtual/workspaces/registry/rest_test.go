@@ -629,7 +629,7 @@ func TestCreateWorkspace(t *testing.T) {
 						{
 							Verbs:         []string{"admin", "access"},
 							ResourceNames: []string{"foo"},
-							Resources:     []string{"clusterworkspaces/content"},
+							Resources:     []string{"workspaces/content"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 					},
@@ -716,7 +716,7 @@ func TestCreateWorkspaceWithCreateAnyPermission(t *testing.T) {
 						{
 							Verbs:         []string{"admin", "access"},
 							ResourceNames: []string{"foo"},
-							Resources:     []string{"clusterworkspaces/content"},
+							Resources:     []string{"workspaces/content"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 					},
@@ -812,7 +812,7 @@ func TestCreateWorkspaceCustomLocalType(t *testing.T) {
 						{
 							Verbs:         []string{"admin", "access"},
 							ResourceNames: []string{"foo"},
-							Resources:     []string{"clusterworkspaces/content"},
+							Resources:     []string{"workspaces/content"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 					},
@@ -897,7 +897,7 @@ func TestCreateWorkspaceNameAlreadyExists(t *testing.T) {
 						{
 							Verbs:         []string{"view", "edit"},
 							ResourceNames: []string{"foo"},
-							Resources:     []string{"clusterworkspaces/content"},
+							Resources:     []string{"workspaces/content"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 					},
@@ -1094,7 +1094,7 @@ func TestDeleteWorkspace(t *testing.T) {
 			}),
 			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
-					"access/tenancy.kcp.dev/v1alpha1/clusterworkspaces/content": {
+					"access/tenancy.kcp.dev/v1alpha1/workspaces/content": {
 						"orgName": rbacGroups("test-group"),
 					},
 				},
