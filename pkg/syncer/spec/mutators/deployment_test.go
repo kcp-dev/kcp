@@ -176,6 +176,12 @@ func TestDeploymentMutate(t *testing.T) {
 								},
 							},
 						},
+						DNSPolicy: corev1.DNSNone,
+						DNSConfig: &corev1.PodDNSConfig{
+							Nameservers: []string{"8.8.8.8"},
+							Searches:    []string{"namespace.svc.cluster.local", "svc.cluster.local", "cluster.local"},
+							Options:     []corev1.PodDNSConfigOption{{Name: "ndots", Value: utilspointer.String("5")}},
+						},
 						Volumes: []corev1.Volume{
 							kcpApiAccessVolume,
 						},
@@ -187,7 +193,7 @@ func TestDeploymentMutate(t *testing.T) {
 			Host: "https://4.5.6.7:12345",
 		},
 	}, {
-		desc: "Deployment with one env var gets mutated but the already existing env var remains the same",
+		desc: "Deployment without Envs or volumes is mutated and in different syncer workspace.",
 		upstreamSecrets: []*corev1.Secret{
 			{
 				TypeMeta: metav1.TypeMeta{
@@ -198,7 +204,7 @@ func TestDeploymentMutate(t *testing.T) {
 					Name:      "default-token-1234",
 					Namespace: "namespace",
 					Annotations: map[string]string{
-						logicalcluster.AnnotationKey:         "root:default:testing",
+						logicalcluster.AnnotationKey:         "root:default:testing-other",
 						"kubernetes.io/service-account.name": "default",
 					},
 				},
@@ -217,7 +223,7 @@ func TestDeploymentMutate(t *testing.T) {
 				Name:      "test-deployment",
 				Namespace: "namespace",
 				Annotations: map[string]string{
-					logicalcluster.AnnotationKey: "root:default:testing",
+					logicalcluster.AnnotationKey: "root:default:testing-other",
 				},
 			},
 			Spec: appsv1.DeploymentSpec{
@@ -228,12 +234,6 @@ func TestDeploymentMutate(t *testing.T) {
 							{
 								Name:  "test-container",
 								Image: "test-image",
-								Env: []corev1.EnvVar{
-									{
-										Name:  "TEST_ENV_VAR",
-										Value: "test-value",
-									},
-								},
 							},
 						},
 					},
@@ -249,7 +249,7 @@ func TestDeploymentMutate(t *testing.T) {
 				Name:      "test-deployment",
 				Namespace: "namespace",
 				Annotations: map[string]string{
-					logicalcluster.AnnotationKey: "root:default:testing",
+					logicalcluster.AnnotationKey: "root:default:testing-other",
 				},
 			},
 			Spec: appsv1.DeploymentSpec{
@@ -262,10 +262,6 @@ func TestDeploymentMutate(t *testing.T) {
 								Name:  "test-container",
 								Image: "test-image",
 								Env: []corev1.EnvVar{
-									{
-										Name:  "TEST_ENV_VAR",
-										Value: "test-value",
-									},
 									{
 										Name:  "KUBERNETES_SERVICE_PORT",
 										Value: "12345",
@@ -295,6 +291,121 @@ func TestDeploymentMutate(t *testing.T) {
 			Host: "https://4.5.6.7:12345",
 		},
 	},
+		{
+			desc: "Deployment with one env var gets mutated but the already existing env var remains the same",
+			upstreamSecrets: []*corev1.Secret{
+				{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "Secret",
+						APIVersion: "v1",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "default-token-1234",
+						Namespace: "namespace",
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey:         "root:default:testing",
+							"kubernetes.io/service-account.name": "default",
+						},
+					},
+					Data: map[string][]byte{
+						"token":     []byte("token"),
+						"namespace": []byte("namespace"),
+					},
+				},
+			},
+			originalDeployment: &appsv1.Deployment{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Deployment",
+					APIVersion: "apps/v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-deployment",
+					Namespace: "namespace",
+					Annotations: map[string]string{
+						logicalcluster.AnnotationKey: "root:default:testing",
+					},
+				},
+				Spec: appsv1.DeploymentSpec{
+					Replicas: new(int32),
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "test-container",
+									Image: "test-image",
+									Env: []corev1.EnvVar{
+										{
+											Name:  "TEST_ENV_VAR",
+											Value: "test-value",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedDeployment: &appsv1.Deployment{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Deployment",
+					APIVersion: "apps/v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-deployment",
+					Namespace: "namespace",
+					Annotations: map[string]string{
+						logicalcluster.AnnotationKey: "root:default:testing",
+					},
+				},
+				Spec: appsv1.DeploymentSpec{
+					Replicas: new(int32),
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							AutomountServiceAccountToken: utilspointer.BoolPtr(false),
+							Containers: []corev1.Container{
+								{
+									Name:  "test-container",
+									Image: "test-image",
+									Env: []corev1.EnvVar{
+										{
+											Name:  "TEST_ENV_VAR",
+											Value: "test-value",
+										},
+										{
+											Name:  "KUBERNETES_SERVICE_PORT",
+											Value: "12345",
+										},
+										{
+											Name:  "KUBERNETES_SERVICE_PORT_HTTPS",
+											Value: "12345",
+										},
+										{
+											Name:  "KUBERNETES_SERVICE_HOST",
+											Value: "4.5.6.7",
+										},
+									},
+									VolumeMounts: []corev1.VolumeMount{
+										kcpApiAccessVolumeMount,
+									},
+								},
+							},
+							DNSPolicy: corev1.DNSNone,
+							DNSConfig: &corev1.PodDNSConfig{
+								Nameservers: []string{"8.8.8.8"},
+								Searches:    []string{"namespace.svc.cluster.local", "svc.cluster.local", "cluster.local"},
+								Options:     []corev1.PodDNSConfigOption{{Name: "ndots", Value: utilspointer.String("5")}},
+							},
+							Volumes: []corev1.Volume{
+								kcpApiAccessVolume,
+							},
+						},
+					},
+				},
+			},
+			config: &rest.Config{
+				Host: "https://4.5.6.7:12345",
+			},
+		},
 		{desc: "Deployment with an env var named KUBERNETES_SERVICE_PORT gets mutated and it is overridden and not duplicated",
 			upstreamSecrets: []*corev1.Secret{
 				{
@@ -387,6 +498,12 @@ func TestDeploymentMutate(t *testing.T) {
 										kcpApiAccessVolumeMount,
 									},
 								},
+							},
+							DNSPolicy: corev1.DNSNone,
+							DNSConfig: &corev1.PodDNSConfig{
+								Nameservers: []string{"8.8.8.8"},
+								Searches:    []string{"namespace.svc.cluster.local", "svc.cluster.local", "cluster.local"},
+								Options:     []corev1.PodDNSConfigOption{{Name: "ndots", Value: utilspointer.String("5")}},
 							},
 							Volumes: []corev1.Volume{
 								kcpApiAccessVolume,
@@ -497,6 +614,12 @@ func TestDeploymentMutate(t *testing.T) {
 										kcpApiAccessVolumeMount,
 									},
 								},
+							},
+							DNSPolicy: corev1.DNSNone,
+							DNSConfig: &corev1.PodDNSConfig{
+								Nameservers: []string{"8.8.8.8"},
+								Searches:    []string{"namespace.svc.cluster.local", "svc.cluster.local", "cluster.local"},
+								Options:     []corev1.PodDNSConfigOption{{Name: "ndots", Value: utilspointer.String("5")}},
 							},
 							Volumes: []corev1.Volume{
 								kcpApiAccessVolume,
@@ -617,6 +740,12 @@ func TestDeploymentMutate(t *testing.T) {
 										kcpApiAccessVolumeMount,
 									},
 								},
+							},
+							DNSPolicy: corev1.DNSNone,
+							DNSConfig: &corev1.PodDNSConfig{
+								Nameservers: []string{"8.8.8.8"},
+								Searches:    []string{"namespace.svc.cluster.local", "svc.cluster.local", "cluster.local"},
+								Options:     []corev1.PodDNSConfigOption{{Name: "ndots", Value: utilspointer.String("5")}},
 							},
 							Volumes: []corev1.Volume{
 								kcpApiAccessVolume,
@@ -753,6 +882,12 @@ func TestDeploymentMutate(t *testing.T) {
 									},
 								},
 							},
+							DNSPolicy: corev1.DNSNone,
+							DNSConfig: &corev1.PodDNSConfig{
+								Nameservers: []string{"8.8.8.8"},
+								Searches:    []string{"namespace.svc.cluster.local", "svc.cluster.local", "cluster.local"},
+								Options:     []corev1.PodDNSConfigOption{{Name: "ndots", Value: utilspointer.String("5")}},
+							},
 							Volumes: []corev1.Volume{
 								kcpApiAccessVolume,
 							},
@@ -777,7 +912,7 @@ func TestDeploymentMutate(t *testing.T) {
 						unstructuredObjects = append(unstructuredObjects, unstObj)
 					}
 					return unstructuredObjects, nil
-				})
+				}, logicalcluster.New("root:default:testing"), "8.8.8.8")
 
 				unstrOriginalDeployment, err := toUnstructured(c.originalDeployment)
 				require.NoError(t, err, "toRuntimeObject() = %v", err)

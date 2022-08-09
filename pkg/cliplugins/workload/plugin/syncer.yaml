@@ -11,6 +11,12 @@ metadata:
   namespace: {{.Namespace}}
 ---
 apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{.DnsServiceAccount}}
+  namespace: {{.Namespace}}
+---
+apiVersion: v1
 kind: Secret
 metadata:
   name: {{.ServiceAccount}}-token
@@ -53,6 +59,20 @@ rules:
 {{- end}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{.DnsClusterRole}}
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - "get"
+      - "list"
+      - "watch"
+---
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: {{.ClusterRoleBinding}}
@@ -64,6 +84,19 @@ subjects:
 - kind: ServiceAccount
   name: {{.ServiceAccount}}
   namespace: {{.Namespace}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{.DnsClusterRoleBinding}}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{.DnsClusterRole}}
+subjects:
+  - kind: ServiceAccount
+    name: {{.DnsServiceAccount}}
+    namespace: {{.Namespace}}
 ---
 apiVersion: v1
 kind: Secret
@@ -126,6 +159,12 @@ spec:
 {{- if .FeatureGatesString }}
         - --feature-gates={{ .FeatureGatesString }}
 {{- end}}
+        - --dns={{.DnsAppName}}.{{.Namespace}}.svc.cluster.local
+        env:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
         image: {{.Image}}
         imagePullPolicy: IfNotPresent
         terminationMessagePolicy: FallbackToLogsOnError
@@ -139,3 +178,59 @@ spec:
           secret:
             secretName: {{.Secret}}
             optional: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.DnsAppName}}
+  namespace: {{.Namespace}}
+spec:
+  replicas: {{.Replicas}}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: {{.DnsAppName}}
+  template:
+    metadata:
+      labels:
+        app: {{.DnsAppName}}
+    spec:
+      containers:
+      - name: kcp-dns
+        command:
+        - /ko-app/syncer
+        args:
+        - dns
+        - start
+        env:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        image: {{.Image}}
+        imagePullPolicy: IfNotPresent
+        terminationMessagePolicy: FallbackToLogsOnError
+      serviceAccountName: {{.DnsServiceAccount}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{.DnsAppName}}
+  namespace: {{.Namespace}}
+  labels:
+    app: {{.DnsAppName}}
+spec:
+  type: ClusterIP
+  selector:
+    app: {{.DnsAppName}}
+  ports:
+    - name: dns
+      port: 53
+      protocol: UDP
+      targetPort: 5353
+    - name: dns-tcp
+      port: 53
+      protocol: TCP
+      targetPort: 5353
+

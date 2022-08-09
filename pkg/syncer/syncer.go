@@ -18,8 +18,11 @@ package syncer
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net"
 	"net/url"
+	"os"
 	"time"
 
 	"github.com/kcp-dev/logicalcluster/v2"
@@ -40,6 +43,7 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
+	"github.com/kcp-dev/kcp/pkg/syncer/dns"
 	"github.com/kcp-dev/kcp/pkg/syncer/namespace"
 	"github.com/kcp-dev/kcp/pkg/syncer/resourcesync"
 	"github.com/kcp-dev/kcp/pkg/syncer/spec"
@@ -66,6 +70,7 @@ type SyncerConfig struct {
 	SyncTargetWorkspace logicalcluster.Name
 	SyncTargetName      string
 	SyncTargetUID       string
+	DNSServer           string
 }
 
 func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, importPollInterval time.Duration) error {
@@ -81,6 +86,11 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		return err
 	}
 	kcpClient := kcpClusterClient.Cluster(cfg.SyncTargetWorkspace)
+
+	dnsNamespace := os.Getenv("NAMESPACE")
+	if dnsNamespace == "" {
+		return errors.New("missing environment variable: NAMESPACE")
+	}
 
 	// TODO(david): Implement real support for several virtual workspace URLs that can change over time.
 	// TODO(david): For now we retrieve the syncerVirtualWorkpaceURL at start, since we temporarily stick to a single URL (sharding not supported).
@@ -182,13 +192,27 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		advancedSchedulingEnabled = true
 	}
 
+	dnsIP := ""
+	// Get the DNS IP. The DNS service cannot be recreated as existing dnsConfig won't be updated.
+	err = wait.PollImmediate(2*time.Second, time.Minute, func() (bool, error) {
+		ips, err := net.LookupIP(cfg.DNSServer)
+		if len(ips) == 0 || err != nil {
+			return false, nil //nolint:nilerr
+		}
+		dnsIP = ips[0].String()
+		return true, nil
+	})
+	if err != nil {
+		return err
+	}
+
 	klog.Infof("Creating spec syncer for SyncTarget %s|%s, resources %v", cfg.SyncTargetWorkspace, cfg.SyncTargetName, resources)
 	upstreamURL, err := url.Parse(cfg.UpstreamConfig.Host)
 	if err != nil {
 		return err
 	}
 	specSyncer, err := spec.NewSpecSyncer(cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, upstreamURL, advancedSchedulingEnabled,
-		upstreamDynamicClusterClient, downstreamDynamicClient, upstreamInformers, downstreamInformers, syncerInformers, syncTarget.GetUID())
+		upstreamDynamicClusterClient, downstreamDynamicClient, upstreamInformers, downstreamInformers, syncerInformers, syncTarget.GetUID(), dnsIP)
 	if err != nil {
 		return err
 	}
@@ -209,6 +233,9 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	if err != nil {
 		return err
 	}
+
+	// Start watching for workspace namespaces changes and update the coredns nsmap configmap
+	dns.StartNsMapSyncer(ctx, downstreamDynamicClient, downstreamInformers, dnsNamespace)
 
 	upstreamInformers.Start(ctx.Done())
 	downstreamInformers.Start(ctx.Done())

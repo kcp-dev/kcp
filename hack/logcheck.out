@@ -11,7 +11,7 @@
 /cmd/sharded-test-server/third_party/library-go/crypto/crypto.go:740:2: function "V" should not be used, convert to contextual logging
 /cmd/sharded-test-server/third_party/library-go/crypto/crypto.go:809:2: function "Infof" should not be used, convert to contextual logging
 /cmd/sharded-test-server/third_party/library-go/crypto/crypto.go:809:2: function "V" should not be used, convert to contextual logging
-/cmd/syncer/cmd/syncer.go:78:2: function "Infof" should not be used, convert to contextual logging
+/cmd/syncer/cmd/syncer.go:80:2: function "Infof" should not be used, convert to contextual logging
 /cmd/test-server/kcp/shard.go:121:2: function "Infof" should not be used, convert to contextual logging
 /cmd/test-server/kcp/shard.go:141:2: function "Infof" should not be used, convert to contextual logging
 /cmd/test-server/kcp/shard.go:144:2: function "Infof" should not be used, convert to contextual logging
@@ -64,6 +64,11 @@
 /pkg/crdpuller/discovery.go:213:6: function "Errorf" should not be used, convert to contextual logging
 /pkg/crdpuller/discovery.go:218:6: function "Infof" should not be used, convert to contextual logging
 /pkg/crdpuller/discovery.go:232:6: function "Errorf" should not be used, convert to contextual logging
+/pkg/dns/plugin/nsmap/namespace.go:35:2: function "Infof" should not be used, convert to contextual logging
+/pkg/dns/plugin/nsmap/namespace.go:62:3: the result of klog.V should be stored in a variable and then be used multiple times: if klogV := klog.V(); klogV.Enabled() { ... klogV.Info ... }
+/pkg/dns/plugin/nsmap/namespace.go:62:6: function "Enabled" should not be used, convert to contextual logging
+/pkg/dns/plugin/nsmap/namespace.go:62:6: function "V" should not be used, convert to contextual logging
+/pkg/dns/plugin/nsmap/namespace.go:63:4: function "Infof" should not be used, convert to contextual logging
 /pkg/embeddedetcd/server.go:44:2: function "Info" should not be used, convert to contextual logging
 /pkg/informer/informer.go:156:4: function "InfoS" should not be used, convert to contextual logging
 /pkg/informer/informer.go:156:4: function "V" should not be used, convert to contextual logging
@@ -124,6 +129,10 @@
 /pkg/server/home_workspaces.go:352:5: Additional arguments to WithValues should always be Key Value pairs. Please check if there is any key or value missing.
 /pkg/server/home_workspaces.go:638:6: Additional arguments to WithValues should always be Key Value pairs. Please check if there is any key or value missing.
 /pkg/server/options/controllers.go:54:3: function "Fatal" should not be used, convert to contextual logging
+/pkg/syncer/dns/syncer.go:105:3: function "Warningf" should not be used, convert to contextual logging
+/pkg/syncer/dns/syncer.go:119:3: function "Warningf" should not be used, convert to contextual logging
+/pkg/syncer/dns/syncer.go:66:3: function "Warningf" should not be used, convert to contextual logging
+/pkg/syncer/dns/syncer.go:83:4: function "Warningf" should not be used, convert to contextual logging
 /pkg/syncer/shared/finalizer.go:53:3: function "Errorf" should not be used, convert to contextual logging
 /pkg/syncer/shared/finalizer.go:91:3: function "Errorf" should not be used, convert to contextual logging
 /pkg/syncer/shared/finalizer.go:94:2: function "Infof" should not be used, convert to contextual logging
@@ -233,3 +242,43 @@
 /pkg/virtual/workspaces/cache/cache.go:88:3: function "Infof" should not be used, convert to contextual logging
 /pkg/virtual/workspaces/cache/cache.go:88:3: function "V" should not be used, convert to contextual logging
 /test/e2e/framework/config.go:42:2: function "InitFlags" should not be used, convert to contextual logging
+<<<<<<< HEAD
+=======
+/test/e2e/reconciler/cluster/controller_test.go:136:7: function "Errorf" should not be used, convert to contextual logging
+/test/e2e/reconciler/clusterworkspace/controller_test.go:235:3: function "Infof" should not be used, convert to contextual logging
+/test/e2e/reconciler/ingress/controller_test.go:103:7: function "Errorf" should not be used, convert to contextual logging
+/test/e2e/reconciler/ingress/controller_test.go:129:7: function "Errorf" should not be used, convert to contextual logging
+/test/e2e/reconciler/ingress/controller_test.go:193:6: function "Error" should not be used, convert to contextual logging
+/test/e2e/reconciler/ingress/controller_test.go:204:6: function "Error" should not be used, convert to contextual logging
+/test/e2e/reconciler/ingress/controller_test.go:222:6: function "Error" should not be used, convert to contextual logging
+/test/e2e/reconciler/ingress/controller_test.go:240:6: function "Error" should not be used, convert to contextual logging
+/test/e2e/reconciler/ingress/controller_test.go:283:6: function "Error" should not be used, convert to contextual logging
+/test/e2e/reconciler/ingress/controller_test.go:315:6: function "Error" should not be used, convert to contextual logging
+/test/e2e/reconciler/namespace/controller_test.go:120:7: function "Error" should not be used, convert to contextual logging
+/test/e2e/reconciler/namespace/controller_test.go:131:7: function "Error" should not be used, convert to contextual logging
+/test/e2e/reconciler/namespace/controller_test.go:181:7: function "Errorf" should not be used, convert to contextual logging
+/test/e2e/reconciler/namespace/controller_test.go:207:7: function "Errorf" should not be used, convert to contextual logging
+/test/e2e/reconciler/namespace/controller_test.go:233:7: function "Errorf" should not be used, convert to contextual logging
+/test/e2e/reconciler/scheduling/controller_test.go:110:4: function "Errorf" should not be used, convert to contextual logging
+/test/e2e/reconciler/scheduling/controller_test.go:128:4: function "Error" should not be used, convert to contextual logging
+/test/e2e/reconciler/scheduling/controller_test.go:138:4: function "Errorf" should not be used, convert to contextual logging
+/test/e2e/reconciler/scheduling/controller_test.go:219:4: function "Errorf" should not be used, convert to contextual logging
+/test/e2e/reconciler/scheduling/controller_test.go:255:4: function "Errorf" should not be used, convert to contextual logging
+/test/e2e/reconciler/scheduling/controller_test.go:310:4: function "Errorf" should not be used, convert to contextual logging
+/test/e2e/reconciler/scheduling/controller_test.go:99:4: function "Errorf" should not be used, convert to contextual logging
+/test/e2e/reconciler/scheduling/multi_placements_test.go:245:4: function "Errorf" should not be used, convert to contextual logging
+/test/e2e/reconciler/scheduling/placement_scheduler_test.go:134:4: function "Errorf" should not be used, convert to contextual logging
+/test/e2e/reconciler/scheduling/placement_scheduler_test.go:245:4: function "Errorf" should not be used, convert to contextual logging
+/test/e2e/reconciler/scheduling/placement_scheduler_test.go:333:4: function "Errorf" should not be used, convert to contextual logging
+/test/e2e/syncer/syncer_test.go:379:3: function "Errorf" should not be used, convert to contextual logging
+/test/e2e/syncer/syncer_test.go:402:3: function "Errorf" should not be used, convert to contextual logging
+/test/e2e/syncer/syncer_test.go:427:3: function "Errorf" should not be used, convert to contextual logging
+/test/e2e/syncer/syncer_test.go:439:5: function "Errorf" should not be used, convert to contextual logging
+/test/e2e/virtual/syncer/virtualworkspace_test.go:458:7: function "Errorf" should not be used, convert to contextual logging
+/test/e2e/virtual/syncer/virtualworkspace_test.go:468:7: function "Errorf" should not be used, convert to contextual logging
+/test/e2e/virtual/syncer/virtualworkspace_test.go:488:7: function "Errorf" should not be used, convert to contextual logging
+/test/e2e/virtual/workspaces/virtual_workspace_test.go:214:6: function "Errorf" should not be used, convert to contextual logging
+/test/e2e/virtual/workspaces/virtual_workspace_test.go:287:6: function "Errorf" should not be used, convert to contextual logging
+/test/e2e/virtual/workspaces/virtual_workspace_test.go:661:5: function "Warningf" should not be used, convert to contextual logging
+/test/e2e/virtual/workspaces/virtual_workspace_test.go:668:4: function "Infof" should not be used, convert to contextual logging
+>>>>>>> b7e57f2b (add support for local cluster svc DNS resolution)

@@ -311,6 +311,8 @@ func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 		})
 	} else {
 		// Start an in-process syncer
+		syncerConfig.DNSServer = "localhost" // TODO(LV): start a dns server
+		os.Setenv("NAMESPACE", "dnsns")
 		err := syncer.StartSyncer(ctx, syncerConfig, 2, 5*time.Second)
 		require.NoError(t, err, "syncer failed to start")
 	}
@@ -389,6 +391,9 @@ func syncerConfigFromCluster(t *testing.T, downstreamConfig *rest.Config, namesp
 	resourcesToSync := argMap["--resources"]
 	require.NotEmpty(t, fromCluster, "--resources is required")
 
+	require.NotEmpty(t, argMap["--dns"], "--dns is required")
+	dns := argMap["--dns"][0]
+
 	syncTargetUID := argMap["--sync-target-uid"][0]
 
 	// Read the downstream token from the deployment's service account secret
@@ -420,6 +425,7 @@ func syncerConfigFromCluster(t *testing.T, downstreamConfig *rest.Config, namesp
 		SyncTargetWorkspace: kcpClusterName,
 		SyncTargetName:      syncTargetName,
 		SyncTargetUID:       syncTargetUID,
+		DNSServer:           dns,
 	}
 }
 

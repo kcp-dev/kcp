@@ -572,12 +572,21 @@ type templateArgs struct {
 	// ServiceAccount is the name of the service account to create in the syncer
 	// namespace on the pcluster.
 	ServiceAccount string
+	// DnsServiceAccount is the name of the DNS service account to create in the syncer
+	// namespace on the pcluster.
+	DnsServiceAccount string
 	// ClusterRole is the name of the cluster role to create for the syncer on the
 	// pcluster.
 	ClusterRole string
+	// ClusterRoleBinding is the name of the Dns cluster role binding to create for the
+	// syncer on the pcluster.
+	DnsClusterRole string
 	// ClusterRoleBinding is the name of the cluster role binding to create for the
 	// syncer on the pcluster.
 	ClusterRoleBinding string
+	// ClusterRoleBinding is the name of the Dns cluster role binding to create for the
+	// syncer on the pcluster.
+	DnsClusterRoleBinding string
 	// GroupMappings is the mapping of api group to resources that will be used to
 	// define the cluster role rules for the syncer in the pcluster. The syncer will be
 	// granted full permissions for the resources it will synchronize.
@@ -594,6 +603,8 @@ type templateArgs struct {
 	// DeploymentApp is the label value that the syncer's deployment will select its
 	// pods with.
 	DeploymentApp string
+	// DnsAppName is the name of the deployment that will run the kcp dns resolver
+	DnsAppName string
 }
 
 // renderSyncerResources renders the resources required to deploy a syncer to a pcluster.
@@ -602,16 +613,21 @@ type templateArgs struct {
 // cluster role and role binding would be owned by the namespace to ensure cleanup on deletion
 // of the namespace.
 func renderSyncerResources(input templateInput, syncerID string) ([]byte, error) {
+	dnsSyncerID := strings.Replace(syncerID, "syncer", "dns", 1)
 	tmplArgs := templateArgs{
-		templateInput:      input,
-		ServiceAccount:     syncerID,
-		ClusterRole:        syncerID,
-		ClusterRoleBinding: syncerID,
-		GroupMappings:      getGroupMappings(input.ResourcesToSync),
-		Secret:             syncerID,
-		SecretConfigKey:    SyncerSecretConfigKey,
-		Deployment:         syncerID,
-		DeploymentApp:      syncerID,
+		templateInput:         input,
+		ServiceAccount:        syncerID,
+		DnsServiceAccount:     dnsSyncerID,
+		ClusterRole:           syncerID,
+		DnsClusterRole:        dnsSyncerID,
+		ClusterRoleBinding:    syncerID,
+		DnsClusterRoleBinding: dnsSyncerID,
+		GroupMappings:         getGroupMappings(input.ResourcesToSync),
+		Secret:                syncerID,
+		SecretConfigKey:       SyncerSecretConfigKey,
+		Deployment:            syncerID,
+		DeploymentApp:         syncerID,
+		DnsAppName:            dnsSyncerID,
 	}
 
 	syncerTemplate, err := embeddedResources.ReadFile("syncer.yaml")
