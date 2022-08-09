@@ -113,7 +113,7 @@ func BuildVirtualWorkspace(
 				realPath += parts[3]
 			}
 
-			//  /services/syncer/root:org:ws/<sync-target-uid>/<sync-target-name>/clusters/*/api/v1/configmaps
+			//  /services/syncer/root:org:ws/<sync-target-name>/<sync-target-uid>/clusters/*/api/v1/configmaps
 			//                  ┌───────────────────────────────────────────────┘
 			// We are now here: ┘
 			// Now, we parse out the logical cluster.
