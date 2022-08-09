@@ -66,7 +66,7 @@ metadata:
   name: workspace1-admin
 rules:
   - apiGroups: ["tenancy.kcp.dev"]
-    resources: ["clusterworkspaces/content"]
+    resources: ["workspaces/content"]
     resourceNames: ["workspace1"]
     verbs: ["admin"]
 ---
@@ -76,7 +76,7 @@ metadata:
   name: workspace1-access
 rules:
 - apiGroups: ["tenancy.kcp.dev"]
-  resources: ["clusterworkspaces/content"]
+  resources: ["workspaces/content"]
   resourceNames: ["workspace1"]
   verbs: ["access"]
 ---
@@ -86,7 +86,7 @@ metadata:
   name: workspace2-admin
 rules:
 - apiGroups: ["tenancy.kcp.dev"]
-  resources: ["clusterworkspaces/content"]
+  resources: ["workspaces/content"]
   resourceNames: ["workspace2"]
   verbs: ["admin"]
 ---
@@ -96,7 +96,7 @@ metadata:
   name: workspace2-access
 rules:
 - apiGroups: ["tenancy.kcp.dev"]
-  resources: ["clusterworkspaces/content"]
+  resources: ["workspaces/content"]
   resourceNames: ["workspace2"]
   verbs: ["access"]
 ---

@@ -248,7 +248,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 	}
 	effectiveUser, ok := request.UserFrom(ctx)
 	if !ok {
-		err := errors.New("No user in HomeWorkspaces filter !")
+		err := errors.New("no user in HomeWorkspaces filter")
 		responsewriters.InternalError(rw, req, err)
 		return
 	}
@@ -360,7 +360,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 	}
 
 	// Test if the user has the right to create their Home workspace when it doesn't exist
-	// => test the create verb on the clusterworkspaces/workspace subresource named ~ in the root workspace.
+	// => test the create verb on the workspaces resource named ~ in the root workspace.
 	if decision, reason, err := h.authz.Authorize(
 		request.WithCluster(ctx, request.Cluster{Name: tenancyv1alpha1.RootCluster}),
 		attributes,
@@ -649,7 +649,7 @@ func createHomeWorkspaceRBACResources(h *homeWorkspaceHandler, ctx context.Conte
 		Rules: []rbacv1.PolicyRule{
 			{
 				APIGroups:     []string{tenancyv1beta1.SchemeGroupVersion.Group},
-				Resources:     []string{"clusterworkspaces/content"},
+				Resources:     []string{"workspaces/content"},
 				Verbs:         []string{"access", "admin"},
 				ResourceNames: []string{name},
 			},
@@ -686,8 +686,7 @@ func homeWorkspaceAuthorizerAttributes(user kuser.Info, verb string) authorizer.
 		User:            user,
 		Verb:            verb,
 		APIGroup:        tenancyv1alpha1.SchemeGroupVersion.Group,
-		Resource:        "clusterworkspaces",
-		Subresource:     "workspace",
+		Resource:        "workspaces",
 		Name:            "~",
 		ResourceRequest: true,
 	}

@@ -5,7 +5,7 @@ metadata:
   name: org-demo-member
 rules:
 - apiGroups: ["tenancy.kcp.dev"]
-  resources: ["clusterworkspaces/content"]
+  resources: ["workspaces/content"]
   resourceNames: ["demo"]
   verbs: ["access"]
 ---

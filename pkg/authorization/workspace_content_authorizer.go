@@ -161,7 +161,7 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 				Verb:            verb,
 				APIGroup:        tenancyv1alpha1.SchemeGroupVersion.Group,
 				APIVersion:      tenancyv1alpha1.SchemeGroupVersion.Version,
-				Resource:        "clusterworkspaces",
+				Resource:        "workspaces",
 				Subresource:     "content",
 				Name:            cluster.Name.Base(),
 				ResourceRequest: true,

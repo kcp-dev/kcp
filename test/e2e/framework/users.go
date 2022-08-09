@@ -50,13 +50,13 @@ func AdmitWorkspaceAccess(t *testing.T, ctx context.Context, kubeClusterClient k
 		Rules: []rbacv1.PolicyRule{
 			{
 				Verbs:         verbs,
-				Resources:     []string{"clusterworkspaces/content"},
+				Resources:     []string{"workspaces/content"},
 				ResourceNames: []string{orgClusterName.Base()},
 				APIGroups:     []string{"tenancy.kcp.dev"},
 			},
 			{
 				Verbs:         []string{"get"},
-				Resources:     []string{"clusterworkspaces/workspace"},
+				Resources:     []string{"workspaces"},
 				ResourceNames: []string{orgClusterName.Base()},
 				APIGroups:     []string{"tenancy.kcp.dev"},
 			},

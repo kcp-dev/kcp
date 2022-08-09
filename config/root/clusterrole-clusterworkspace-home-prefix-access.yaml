@@ -4,6 +4,6 @@ metadata:
   name: system:kcp:home-prefix-clusterworkspace-access
 rules:
 - apiGroups: ["tenancy.kcp.dev"]
-  resources: ["clusterworkspaces/content"]
+  resources: ["workspaces/content"]
   resourceNames: ["HOMEPREFIX"]
   verbs: ["access"]

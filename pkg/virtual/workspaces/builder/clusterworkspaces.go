@@ -57,7 +57,7 @@ func CreateAndStartOrg(
 		workspaceauth.NewReviewer(frameworkrbac.NewSubjectLocator(rbacInformers)),
 		*workspaceauth.NewAttributesBuilder().
 			Verb("get").
-			Resource(tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces"), "workspace").
+			Resource(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces")).
 			AttributesRecord,
 		rbacInformers,
 	)

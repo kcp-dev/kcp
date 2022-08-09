@@ -84,7 +84,7 @@ func createWorkspaceAccessRoleForGroup(t *testing.T, ctx context.Context, kubeCl
 		Rules: []rbacv1.PolicyRule{
 			{
 				Verbs:         contentVerbs,
-				Resources:     []string{"clusterworkspaces/content"},
+				Resources:     []string{"workspaces/content"},
 				ResourceNames: []string{orgClusterName.Base()},
 				APIGroups:     []string{"tenancy.kcp.dev"},
 			},
@@ -237,7 +237,7 @@ var testCases = []struct {
 			createWorkspaceRoleForGroup(t, ctx, server.kubeClusterClient, "user1-workspace-create", server.orgClusterName, []rbacv1.PolicyRule{
 				{
 					Verbs:     []string{"create"},
-					Resources: []string{"clusterworkspaces/workspace"},
+					Resources: []string{"workspaces"},
 					APIGroups: []string{"tenancy.kcp.dev"},
 				},
 			}, "team-1")
@@ -286,7 +286,7 @@ var testCases = []struct {
 			createWorkspaceRoleForGroup(t, ctx, server.kubeClusterClient, "user-1-workspace-create", parentCluster, []rbacv1.PolicyRule{
 				{
 					Verbs:     []string{"create"},
-					Resources: []string{"clusterworkspaces/workspace"},
+					Resources: []string{"workspaces"},
 					APIGroups: []string{"tenancy.kcp.dev"},
 				},
 			}, "team-1")
@@ -386,7 +386,7 @@ var testCases = []struct {
 			parentCluster := framework.NewWorkspaceFixture(t, server, server.orgClusterName)
 			createWorkspaceAccessRoleForGroup(t, ctx, server.kubeClusterClient, parentCluster, false, "team-1", "team-2")
 
-			t.Logf("Give user1 the right to use trhe universal cluster workspace type")
+			t.Logf("Give user1 the right to use the universal cluster workspace type")
 			createWorkspaceRoleForGroup(t, ctx, server.kubeClusterClient, "user-1-universal-type-access", parentCluster, []rbacv1.PolicyRule{
 				{
 					Verbs:         []string{"use"},
@@ -400,7 +400,7 @@ var testCases = []struct {
 			createWorkspaceRoleForGroup(t, ctx, server.kubeClusterClient, "user1-workspace-create", parentCluster, []rbacv1.PolicyRule{
 				{
 					Verbs:     []string{"create"},
-					Resources: []string{"clusterworkspaces/workspace"},
+					Resources: []string{"workspaces"},
 					APIGroups: []string{"tenancy.kcp.dev"},
 				},
 			}, "team-1")
@@ -409,7 +409,7 @@ var testCases = []struct {
 			createWorkspaceRoleForGroup(t, ctx, server.kubeClusterClient, "user2-workspace-get-workspace1", parentCluster, []rbacv1.PolicyRule{
 				{
 					Verbs:         []string{"get"},
-					Resources:     []string{"clusterworkspaces/workspace"},
+					Resources:     []string{"workspaces"},
 					APIGroups:     []string{"tenancy.kcp.dev"},
 					ResourceNames: []string{testData.workspace1.Name},
 				},
@@ -443,6 +443,7 @@ var testCases = []struct {
 			})
 
 			// Check that user1 can list and watch workspaces inside the parent workspace (part of system:kcp:tenancy:reader role every user with access has)
+			t.Logf("Verify that user1 can list and watch workspaces inside the parent workspace, and get the workspace1")
 			var listedWorkspaces *tenancyv1beta1.WorkspaceList
 			require.Eventually(t, func() bool {
 				// RBAC authz uses informers and needs a moment to understand the new roles. Hence, try until successful.
@@ -463,6 +464,12 @@ var testCases = []struct {
 			w, err := vwUser1Client.Cluster(parentCluster).TenancyV1beta1().Workspaces().Watch(ctx, metav1.ListOptions{})
 			require.NoError(t, err, "user1 should be allowed to watch workspaces inside the parent workspace due to RBAC role")
 			w.Stop()
+
+			t.Logf("Check that user1 cannot get or delete other workspaces")
+			_, err = vwUser1Client.Cluster(parentCluster).TenancyV1beta1().Workspaces().Get(ctx, "non-existing", metav1.GetOptions{})
+			require.True(t, kerrors.IsForbidden(err), "expected to get a forbidden error") // not a not found error
+			err = vwUser1Client.Cluster(parentCluster).TenancyV1beta1().Workspaces().Delete(ctx, "non-existing", metav1.DeleteOptions{})
+			require.True(t, kerrors.IsForbidden(err), "expected to get a forbidden error") // not a not found error
 
 			// Check that user2 can get the `workspace1` workspace inside the parent workspace
 			require.Eventually(t, func() bool {

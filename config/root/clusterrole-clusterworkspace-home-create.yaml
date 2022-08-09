@@ -4,6 +4,6 @@ metadata:
   name: system:kcp:home-clusterworkspace-create
 rules:
 - apiGroups: ["tenancy.kcp.dev"]
-  resources: ["clusterworkspaces/workspace"]
+  resources: ["workspaces"]
   resourceNames: ["~"]
   verbs: ["get", "create"]
