@@ -133,9 +133,7 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 			reasonList []string
 		)
 
-		//TODO(sur): member is going to be removed with the advent of user workspaces, member won't be needed,
-		//rather this has to be solved using classic RBAC with "create workspace" permissions.
-		for _, verb := range []string{"access", "member"} {
+		for _, verb := range []string{"access"} {
 			workspaceAttr := authorizer.AttributesRecord{
 				User:        attr.GetUser(),
 				Verb:        verb,
