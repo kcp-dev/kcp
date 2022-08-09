@@ -237,7 +237,7 @@ var testCases = []struct {
 			createWorkspaceRoleForGroup(t, ctx, server.kubeClusterClient, "user1-workspace-create", server.orgClusterName, []rbacv1.PolicyRule{
 				{
 					Verbs:     []string{"create"},
-					Resources: []string{"clusterworkspaces/workspace"},
+					Resources: []string{"workspaces"},
 					APIGroups: []string{"tenancy.kcp.dev"},
 				},
 			}, "team-1")
@@ -286,7 +286,7 @@ var testCases = []struct {
 			createWorkspaceRoleForGroup(t, ctx, server.kubeClusterClient, "user-1-workspace-create", parentCluster, []rbacv1.PolicyRule{
 				{
 					Verbs:     []string{"create"},
-					Resources: []string{"clusterworkspaces/workspace"},
+					Resources: []string{"workspaces"},
 					APIGroups: []string{"tenancy.kcp.dev"},
 				},
 			}, "team-1")
@@ -400,7 +400,7 @@ var testCases = []struct {
 			createWorkspaceRoleForGroup(t, ctx, server.kubeClusterClient, "user1-workspace-create", parentCluster, []rbacv1.PolicyRule{
 				{
 					Verbs:     []string{"create"},
-					Resources: []string{"clusterworkspaces/workspace"},
+					Resources: []string{"workspaces"},
 					APIGroups: []string{"tenancy.kcp.dev"},
 				},
 			}, "team-1")
@@ -409,7 +409,7 @@ var testCases = []struct {
 			createWorkspaceRoleForGroup(t, ctx, server.kubeClusterClient, "user2-workspace-get-workspace1", parentCluster, []rbacv1.PolicyRule{
 				{
 					Verbs:         []string{"get"},
-					Resources:     []string{"clusterworkspaces/workspace"},
+					Resources:     []string{"workspaces"},
 					APIGroups:     []string{"tenancy.kcp.dev"},
 					ResourceNames: []string{testData.workspace1.Name},
 				},

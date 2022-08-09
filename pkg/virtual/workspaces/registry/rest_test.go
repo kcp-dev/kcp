@@ -230,7 +230,7 @@ func TestListWorkspacesWithGroupPermission(t *testing.T) {
 			orgName: logicalcluster.New("root:orgName"),
 			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
-					"list/tenancy.kcp.dev/v1alpha1/clusterworkspaces/workspace": {
+					"list/tenancy.kcp.dev/v1alpha1/workspaces": {
 						"": rbacGroups("test-group"),
 					},
 				},
@@ -300,7 +300,7 @@ func TestListWorkspacesWithUserPermission(t *testing.T) {
 			orgName: logicalcluster.New("root:orgName"),
 			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
-					"list/tenancy.kcp.dev/v1alpha1/clusterworkspaces/workspace": {
+					"list/tenancy.kcp.dev/v1alpha1/workspaces": {
 						"": rbacUsers("test-user"),
 					},
 				},
@@ -371,7 +371,7 @@ func TestListWorkspacesOnRootOrgWithPermission(t *testing.T) {
 			reviewer: workspaceauth.NewReviewer(nil),
 			rootReviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
-					"list/tenancy.kcp.dev/v1alpha1/clusterworkspaces/workspace": {
+					"list/tenancy.kcp.dev/v1alpha1/workspaces": {
 						"": rbacGroups("test-group"),
 					},
 				},
@@ -409,7 +409,7 @@ func TestGetWorkspace(t *testing.T) {
 			orgName: logicalcluster.New("root:orgName"),
 			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
-					"get/tenancy.kcp.dev/v1alpha1/clusterworkspaces/workspace": {
+					"get/tenancy.kcp.dev/v1alpha1/workspaces": {
 						"foo": rbacGroups("test-group"),
 					},
 				},
@@ -478,7 +478,7 @@ func TestGetWorkspaceNotFoundNoPermission(t *testing.T) {
 			orgName: logicalcluster.New("root:orgName"),
 			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
-					"get/tenancy.kcp.dev/v1alpha1/clusterworkspaces/workspace": {
+					"get/tenancy.kcp.dev/v1alpha1/workspaces": {
 						"foo": rbacGroups("test-group"),
 					},
 				},
@@ -565,7 +565,7 @@ func TestCreateWorkspace(t *testing.T) {
 			orgName: logicalcluster.New("root:orgName"),
 			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
-					"create/tenancy.kcp.dev/v1alpha1/clusterworkspaces/workspace": {
+					"create/tenancy.kcp.dev/v1alpha1/workspaces": {
 						"foo": rbacGroups("test-group"),
 					},
 				},
@@ -623,7 +623,7 @@ func TestCreateWorkspace(t *testing.T) {
 						{
 							Verbs:         []string{"get", "delete"},
 							ResourceNames: []string{"foo"},
-							Resources:     []string{"clusterworkspaces/workspace"},
+							Resources:     []string{"workspaces"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 						{
@@ -652,7 +652,7 @@ func TestCreateWorkspaceWithCreateAnyPermission(t *testing.T) {
 			orgName: logicalcluster.New("root:orgName"),
 			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
-					"create/tenancy.kcp.dev/v1alpha1/clusterworkspaces/workspace": {
+					"create/tenancy.kcp.dev/v1alpha1/workspaces": {
 						"": rbacGroups("test-group"),
 					},
 				},
@@ -710,7 +710,7 @@ func TestCreateWorkspaceWithCreateAnyPermission(t *testing.T) {
 						{
 							Verbs:         []string{"get", "delete"},
 							ResourceNames: []string{"foo"},
-							Resources:     []string{"clusterworkspaces/workspace"},
+							Resources:     []string{"workspaces"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 						{
@@ -739,7 +739,7 @@ func TestCreateWorkspaceCustomLocalType(t *testing.T) {
 			orgName: logicalcluster.New("root:orgName"),
 			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
-					"create/tenancy.kcp.dev/v1alpha1/clusterworkspaces/workspace": {
+					"create/tenancy.kcp.dev/v1alpha1/workspaces": {
 						"": rbacGroups("test-group"),
 					},
 					"use/tenancy.kcp.dev/v1alpha1/clusterworkspacetypes": {
@@ -806,7 +806,7 @@ func TestCreateWorkspaceCustomLocalType(t *testing.T) {
 						{
 							Verbs:         []string{"get", "delete"},
 							ResourceNames: []string{"foo"},
-							Resources:     []string{"clusterworkspaces/workspace"},
+							Resources:     []string{"workspaces"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 						{
@@ -835,7 +835,7 @@ func TestCreateWorkspaceNameAlreadyExists(t *testing.T) {
 			orgName: logicalcluster.New("root:orgName"),
 			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
-					"create/tenancy.kcp.dev/v1alpha1/clusterworkspaces/workspace": {
+					"create/tenancy.kcp.dev/v1alpha1/workspaces": {
 						"": rbacGroups("test-group"),
 					},
 				},
@@ -891,7 +891,7 @@ func TestCreateWorkspaceNameAlreadyExists(t *testing.T) {
 						{
 							Verbs:         []string{"get", "delete"},
 							ResourceNames: []string{"foo"},
-							Resources:     []string{"clusterworkspaces/workspace"},
+							Resources:     []string{"workspaces"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 						{
@@ -944,7 +944,7 @@ func TestCreateWorkspaceWithClusterWorkspaceCreationError(t *testing.T) {
 			workspaceCreationError: errors.NewBadRequest("something bad happened"),
 			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
-					"create/tenancy.kcp.dev/v1alpha1/clusterworkspaces/workspace": {
+					"create/tenancy.kcp.dev/v1alpha1/workspaces": {
 						"": rbacGroups("test-group"),
 					},
 				},
@@ -996,7 +996,7 @@ func TestDeleteWorkspaceNotFound(t *testing.T) {
 			orgName: logicalcluster.New("root:orgName"),
 			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
-					"delete/tenancy.kcp.dev/v1alpha1/clusterworkspaces/workspace": {
+					"delete/tenancy.kcp.dev/v1alpha1/workspaces": {
 						"": rbacGroups("test-group"),
 					},
 				},
@@ -1046,7 +1046,7 @@ func TestDeleteWorkspaceNotFound(t *testing.T) {
 						{
 							Verbs:         []string{"get", "delete"},
 							ResourceNames: []string{"foo"},
-							Resources:     []string{"clusterworkspaces/workspace"},
+							Resources:     []string{"workspaces"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 					},
@@ -1087,7 +1087,7 @@ func TestDeleteWorkspace(t *testing.T) {
 			orgName: logicalcluster.New("root:orgName"),
 			reviewer: workspaceauth.NewReviewer(&mockSubjectLocator{
 				subjects: map[string]map[string][]rbacv1.Subject{
-					"delete/tenancy.kcp.dev/v1alpha1/clusterworkspaces/workspace": {
+					"delete/tenancy.kcp.dev/v1alpha1/workspaces": {
 						"foo": rbacUsers("test-user"),
 					},
 				},
@@ -1143,7 +1143,7 @@ func TestDeleteWorkspace(t *testing.T) {
 						{
 							Verbs:         []string{"get", "delete"},
 							ResourceNames: []string{"foo"},
-							Resources:     []string{"clusterworkspaces/workspace"},
+							Resources:     []string{"workspaces"},
 							APIGroups:     []string{"tenancy.kcp.dev"},
 						},
 					},

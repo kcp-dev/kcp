@@ -260,7 +260,7 @@ func (s *REST) getClusterWorkspace(ctx context.Context, name string, options *me
 var ownerRoleRules = []rbacv1.PolicyRule{
 	{
 		Verbs:     []string{"get", "delete"},
-		Resources: []string{"clusterworkspaces/workspace"},
+		Resources: []string{"workspaces"},
 	},
 	{
 		Resources: []string{"clusterworkspaces/content"},

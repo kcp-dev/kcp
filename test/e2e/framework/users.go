@@ -56,7 +56,7 @@ func AdmitWorkspaceAccess(t *testing.T, ctx context.Context, kubeClusterClient k
 			},
 			{
 				Verbs:         []string{"get"},
-				Resources:     []string{"clusterworkspaces/workspace"},
+				Resources:     []string{"workspaces"},
 				ResourceNames: []string{orgClusterName.Base()},
 				APIGroups:     []string{"tenancy.kcp.dev"},
 			},

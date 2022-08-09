@@ -75,7 +75,7 @@ func TestUserHomeWorkspaces(t *testing.T) {
 				t.Logf("Get ~ Home workspace URL for user-2")
 
 				_, err = kcpUser2Client.Cluster(tenancyv1alpha1.RootCluster).TenancyV1beta1().Workspaces().Get(ctx, "~", metav1.GetOptions{})
-				require.EqualError(t, err, `clusterworkspaces.tenancy.kcp.dev "~" is forbidden: User "user-2" cannot create resource "clusterworkspaces/workspace" in API group "tenancy.kcp.dev" at the cluster scope`, "user-2 should not be allowed to get his home workspace even before it exists")
+				require.EqualError(t, err, `workspaces.tenancy.kcp.dev "~" is forbidden: User "user-2" cannot create resource "workspaces" in API group "tenancy.kcp.dev" at the cluster scope`, "user-2 should not be allowed to get his home workspace even before it exists")
 			},
 		},
 		{
@@ -139,7 +139,7 @@ func TestUserHomeWorkspaces(t *testing.T) {
 						Name: "workspace1",
 					},
 				}, metav1.CreateOptions{})
-				require.EqualError(t, err, `clusterworkspaces.tenancy.kcp.dev "~" is forbidden: User "shard-admin" cannot create resource "clusterworkspaces/workspace" in API group "tenancy.kcp.dev" at the cluster scope: workspace access not permitted`, "system:master should be not able to trigger the automatic creation of user-1 home")
+				require.EqualError(t, err, `workspaces.tenancy.kcp.dev "~" is forbidden: User "shard-admin" cannot create resource "workspaces" in API group "tenancy.kcp.dev" at the cluster scope: workspace access not permitted`, "system:master should be not able to trigger the automatic creation of user-1 home")
 			},
 		},
 	}

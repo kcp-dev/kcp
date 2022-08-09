@@ -195,14 +195,13 @@ func newAuthorizer(cfg *clientrest.Config) func(ctx context.Context, a authorize
 			Verb:            a.GetVerb(),
 			APIGroup:        tenancyv1alpha1.SchemeGroupVersion.Group,
 			APIVersion:      tenancyv1alpha1.SchemeGroupVersion.Version,
-			Resource:        "clusterworkspaces",
-			Subresource:     "workspace",
+			Resource:        "workspaces",
 			Name:            a.GetName(),
 			ResourceRequest: true,
 		}
 		decision, reason, err := authz.Authorize(ctx, workspaceAttr)
 		if err != nil {
-			klog.Errorf("failed to authorize user %q to %q clusterworkspaces/workspace name %q in %s", a.GetUser().GetName(), a.GetVerb(), a.GetName(), clusterName)
+			klog.Errorf("failed to authorize user %q to %q workspaces name %q in %s", a.GetUser().GetName(), a.GetVerb(), a.GetName(), clusterName)
 			return authorizer.DecisionNoOpinion, "", nil
 		}
 
