@@ -75,13 +75,23 @@ func TestAPIBinding(t *testing.T) {
 	dynamicClusterClient, err := kcpdynamic.NewClusterDynamicClientForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
-	clusterWorkspaceShards, err := kcpClusterClient.TenancyV1alpha1().ClusterWorkspaceShards().List(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), metav1.ListOptions{})
-	require.NoError(t, err, "error listing clusterworkspaceshards")
-
-	var clusterWorkspaceShardVirtualWorkspaceURLs []string
-	for _, s := range clusterWorkspaceShards.Items {
-		clusterWorkspaceShardVirtualWorkspaceURLs = append(clusterWorkspaceShardVirtualWorkspaceURLs, s.Spec.VirtualWorkspaceURL)
-	}
+	clusterWorkspaceShardVirtualWorkspaceURLs := sets.NewString()
+	t.Logf("Getting a list of VirtualWorkspaceURLs assigned to ClusterWorkspaceShards")
+	require.Eventually(t, func() bool {
+		clusterWorkspaceShards, err := kcpClusterClient.TenancyV1alpha1().ClusterWorkspaceShards().List(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), metav1.ListOptions{})
+		if err != nil {
+			t.Logf("unexpected error while listing clusterworkspaceshards, err %v", err)
+			return false
+		}
+		for _, s := range clusterWorkspaceShards.Items {
+			if len(s.Spec.VirtualWorkspaceURL) == 0 {
+				t.Logf("%q shard hasn't had assigned a virtual workspace URL", s.Name)
+				return false
+			}
+			clusterWorkspaceShardVirtualWorkspaceURLs.Insert(s.Spec.VirtualWorkspaceURL)
+		}
+		return true
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected all ClusterWorkspaceShards to have a VirtualWorkspaceURL assigned")
 
 	serviceProviderWorkspaces := []logicalcluster.Name{serviceProvider1Workspace, serviceProvider2Workspace}
 
@@ -107,14 +117,13 @@ func TestAPIBinding(t *testing.T) {
 		cowboysAPIExport, err = kcpClusterClient.ApisV1alpha1().APIExports().Create(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), cowboysAPIExport, metav1.CreateOptions{})
 		require.NoError(t, err)
 
-		uniqueExpectedURLSet := sets.NewString()
-		for _, urlString := range clusterWorkspaceShardVirtualWorkspaceURLs {
+		var expectedURLs []string
+		for _, urlString := range clusterWorkspaceShardVirtualWorkspaceURLs.List() {
 			u, err := url.Parse(urlString)
 			require.NoError(t, err, "error parsing %q", urlString)
 			u.Path = path.Join(u.Path, "services", "apiexport", serviceProviderWorkspace.String(), cowboysAPIExport.Name)
-			uniqueExpectedURLSet.Insert(u.String())
+			expectedURLs = append(expectedURLs, u.String())
 		}
-		expectedURLs := uniqueExpectedURLSet.List()
 
 		t.Logf("Make sure the APIExport gets status.virtualWorkspaceURLs set")
 		framework.Eventually(t, func() (bool, string) {

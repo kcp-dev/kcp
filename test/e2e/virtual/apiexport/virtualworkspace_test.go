@@ -95,12 +95,23 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 
 	createCowboyInConsumer(ctx, t, consumerWorkspace, wildwestClusterClient)
 
-	clusterWorkspaceShards, err := kcpClients.TenancyV1alpha1().ClusterWorkspaceShards().List(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), metav1.ListOptions{})
-	require.NoError(t, err, "error listing clusterworkspaceshards")
 	clusterWorkspaceShardVirtualWorkspaceURLs := sets.NewString()
-	for _, s := range clusterWorkspaceShards.Items {
-		clusterWorkspaceShardVirtualWorkspaceURLs.Insert(s.Spec.VirtualWorkspaceURL)
-	}
+	t.Logf("Getting a list of VirtualWorkspaceURLs assigned to ClusterWorkspaceShards")
+	require.Eventually(t, func() bool {
+		clusterWorkspaceShards, err := kcpClients.TenancyV1alpha1().ClusterWorkspaceShards().List(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), metav1.ListOptions{})
+		if err != nil {
+			t.Logf("unexpected error while listing clusterworkspaceshards, err %v", err)
+			return false
+		}
+		for _, s := range clusterWorkspaceShards.Items {
+			if len(s.Spec.VirtualWorkspaceURL) == 0 {
+				t.Logf("%q shard hasn't had assigned a virtual workspace URL", s.Name)
+				return false
+			}
+			clusterWorkspaceShardVirtualWorkspaceURLs.Insert(s.Spec.VirtualWorkspaceURL)
+		}
+		return true
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected all ClusterWorkspaceShards to have a VirtualWorkspaceURL assigned")
 
 	t.Logf("test that the admin user can use the virtual workspace to get cowboys")
 	apiExport, err := kcpClients.ApisV1alpha1().APIExports().Get(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), "today-cowboys", metav1.GetOptions{})
