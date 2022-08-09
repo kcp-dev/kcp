@@ -281,9 +281,8 @@ func (c *controller) enqueueCRD(obj interface{}, logger logr.Logger) {
 		runtime.HandleError(fmt.Errorf("obj is supposed to be a CustomResourceDefinition, but is %T", obj))
 		return
 	}
-	logger = logger.WithValues(
-		"CustomResource", fmt.Sprintf("%s.%s", crd.Spec.Names.Plural, crd.Spec.Group),
-		"CustomResourceDefinition", logging.Key(crd),
+	logger = logging.WithObject(logger, crd).WithValues(
+		"groupResource", fmt.Sprintf("%s.%s", crd.Spec.Names.Plural, crd.Spec.Group),
 		"established", apihelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established),
 	)
 

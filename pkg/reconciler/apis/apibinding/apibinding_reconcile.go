@@ -143,7 +143,7 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 		)
 		return err
 	}
-	logger = logger.WithValues("APIExport", logging.Key(apiExport))
+	logger = logging.WithObject(logger, apiExport)
 
 	if apiExport.Status.IdentityHash == "" {
 		conditions.MarkFalse(
@@ -180,7 +180,7 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 
 			return err
 		}
-		logger = logger.WithValues("APIResourceSchema", logging.Key(schema))
+		logger = logging.WithObject(logger, schema)
 
 		crd, err := generateCRD(schema)
 		if err != nil {
@@ -196,9 +196,8 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 
 			return nil
 		}
-		logger = logger.WithValues(
-			"CustomResourceDefinition", logging.Key(crd),
-			"CustomResource", fmt.Sprintf("%s.%s", crd.Spec.Names.Plural, crd.Spec.Group),
+		logger = logging.WithObject(logger, crd).WithValues(
+			"groupResource", fmt.Sprintf("%s.%s", crd.Spec.Names.Plural, crd.Spec.Group),
 		)
 
 		// Check for conflicts
