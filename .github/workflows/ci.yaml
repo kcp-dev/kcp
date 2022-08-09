@@ -33,7 +33,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v3
         with:
-          go-version: v1.17
+          go-version: v1.18
       - run: make build
 
       # Install kind with a local registry
@@ -60,7 +60,7 @@ jobs:
     - uses: actions/checkout@v3
     - uses: actions/setup-go@v3
       with:
-        go-version: v1.17
+        go-version: v1.18
     - run: make build
 
     # Install kind with a local registry
