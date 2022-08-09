@@ -21,13 +21,13 @@ The details are outlined below.
 
 The following authorizers are configured in kcp:
 
-| Authorizer                             | Description                                                                    |
-|----------------------------------------|--------------------------------------------------------------------------------|
-| Top-Level organization authorizer      | checks that the user is allowed to access the organization (access and member) |
-| Workspace content authorizer           | determines additional groups a user gets inside of a workspace                 |
-| API binding authorizer                 | validates the RBAC policy in the api exporters workspace                       |
-| Local Policy authorizer                | validates the RBAC policy in the workspace that is accessed                    |
-| Kubernetes Bootstrap Policy authorizer | validates the RBAC Kubernetes standard policy                                  |
+| Authorizer                             | Description                                                    |
+|----------------------------------------|----------------------------------------------------------------|
+| Top-Level organization authorizer      | checks that the user is allowed to access the organization     |
+| Workspace content authorizer           | determines additional groups a user gets inside of a workspace |
+| API binding authorizer                 | validates the RBAC policy in the api exporters workspace       |
+| Local Policy authorizer                | validates the RBAC policy in the workspace that is accessed    |
+| Kubernetes Bootstrap Policy authorizer | validates the RBAC Kubernetes standard policy                  |
 
 They are related in the following way:
 
@@ -62,7 +62,6 @@ to the top-level org workspace represented by the `ClusterWorkspace` named `org`
 | Verb     | Resource                   | Semantics                                                  |
 |----------|----------------------------|------------------------------------------------------------|
 | `access` | `clusterworkspace/content` | the user can access the organization `root:org`            |
-| `member` | `clusterworkspace/content` | like access, but the user can additional create workspaces |
 
 E.g. the user is bound via a `ClusterRoleBinding` in `root` to a `ClusterRole` of the following shape:
 
@@ -80,7 +79,6 @@ rules:
   - org
   verbs:
   - access
-  - member
 ```
 
 ## Workspace Content authorizer

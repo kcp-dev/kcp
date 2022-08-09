@@ -7,7 +7,7 @@ rules:
 - apiGroups: ["tenancy.kcp.dev"]
   resources: ["clusterworkspaces/content"]
   resourceNames: ["demo"]
-  verbs: ["access","member"]
+  verbs: ["access"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
