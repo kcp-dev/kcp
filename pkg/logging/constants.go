@@ -70,7 +70,9 @@ func From(obj Object) []interface{} {
 	gvk := obj.GetObjectKind().GroupVersionKind()
 	kind := gvk.Kind
 	if kind == "" {
-		kind = fmt.Sprintf("%T", obj)
+		// if there's no Kind present on the object, use the Go type name, without any package prefix
+		objType := fmt.Sprintf("%T", obj)
+		kind = objType[strings.Index(objType, ".")+1:]
 	}
 	prefix := strings.ToLower(kind)
 	return FromPrefix(prefix, obj)
