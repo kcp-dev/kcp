@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -170,6 +171,7 @@ type runningServer struct {
 	kubeClusterClient     kubernetes.ClusterInterface
 	kcpClusterClient      kcpclientset.ClusterInterface
 	virtualUserKcpClients []kcpclientset.ClusterInterface
+	UserKcpClients        []kcpclientset.ClusterInterface
 }
 
 var testCases = []struct {
@@ -182,6 +184,8 @@ var testCases = []struct {
 		userTokens: []string{"user-1-token", "user-2-token"},
 		work: func(ctx context.Context, t *testing.T, server runningServer) {
 			testData := newTestData()
+
+			user1Client := server.UserKcpClients[0]
 
 			vwUser1Client := server.virtualUserKcpClients[0]
 			vwUser2Client := server.virtualUserKcpClients[1]
@@ -217,8 +221,13 @@ var testCases = []struct {
 				return len(list.Items) == 1 && list.Items[0].Name == workspace1.Name
 			}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to list workspace1")
 
+			t.Logf("Workspace will also show up when user1 submits a list to KCP itself (through projection)")
+			list, err := user1Client.Cluster(server.orgClusterName).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
+			require.NoError(t, err, "expected to list workspaces from KCP through projection")
+			require.True(t, len(list.Items) == 1 && list.Items[0].Name == workspace1.Name, "expected to get workspace1 from KCP through projection")
+
 			t.Logf("Workspace will not show up in list of user2")
-			list, err := vwUser2Client.Cluster(server.orgClusterName).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
+			list, err = vwUser2Client.Cluster(server.orgClusterName).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
 			if err != nil {
 				t.Logf("failed to get workspaces: %v", err)
 			}
@@ -558,6 +567,7 @@ var testCases = []struct {
 
 func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 	var server framework.RunningServer
+	var virtualWorkspaceServerHost string
 	if standalone {
 		// create port early. We have to hope it is still free when we are ready to start the virtual workspace apiserver.
 		portStr, err := framework.GetFreePort(t)
@@ -567,7 +577,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 		server = framework.PrivateKcpServer(t,
 			append(framework.TestServerArgsWithTokenAuthFile(tokenAuthFile),
 				"--run-virtual-workspaces=false",
-				fmt.Sprintf("--virtual-workspace-address=https://localhost:%s", portStr),
+				fmt.Sprintf("--shard-virtual-workspace-url=https://localhost:%s", portStr),
 			)...,
 		)
 
@@ -614,8 +624,12 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 
 		// wait for readiness
 		client := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}}
+		baseClusterServerURL, err := url.Parse(baseCluster.Server)
+		require.NoError(t, err)
+		virtualWorkspaceServerHost = fmt.Sprintf("https://%s:%s", baseClusterServerURL.Hostname(), portStr)
+
 		require.Eventually(t, func() bool {
-			resp, err := client.Get(fmt.Sprintf("https://localhost:%s/readyz", portStr))
+			resp, err := client.Get(fmt.Sprintf("%s/readyz", virtualWorkspaceServerHost))
 			if err != nil {
 				klog.Warningf("error checking virtual workspace readiness: %v", err)
 				return false
@@ -629,6 +643,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 		}, wait.ForeverTestTimeout, time.Millisecond*100, "virtual workspace apiserver not ready")
 	} else {
 		server = framework.SharedKcpServer(t)
+		virtualWorkspaceServerHost = server.BaseConfig(t).Host
 	}
 
 	for i := range testCases {
@@ -648,12 +663,19 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 			kcpClusterClient, err := kcpclientset.NewClusterForConfig(kcpConfig)
 			require.NoError(t, err, "failed to construct client for server")
 
+			vwConfig := rest.CopyConfig(kcpConfig)
+			vwConfig.Host = virtualWorkspaceServerHost
+
 			// create virtual clients for all paths and users requested
 			var virtualUserlKcpClients []kcpclientset.ClusterInterface
+			var userKcpClients []kcpclientset.ClusterInterface
 			for _, token := range testCase.userTokens {
-				userConfig := framework.ConfigWithToken(token, rest.CopyConfig(kcpConfig))
-				userClient := &virtualClusterClient{config: userConfig}
-				virtualUserlKcpClients = append(virtualUserlKcpClients, userClient)
+				userKcpClient, err := kcpclientset.NewClusterForConfig(framework.ConfigWithToken(token, rest.CopyConfig(kcpConfig)))
+				require.NoError(t, err, "failed to construct client for server")
+				userKcpClients = append(userKcpClients, userKcpClient)
+				virtualUserlKcpClients = append(virtualUserlKcpClients, &virtualClusterClient{
+					config: framework.ConfigWithToken(token, rest.CopyConfig(vwConfig)),
+				})
 			}
 
 			testCase.work(ctx, t, runningServer{
@@ -661,6 +683,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 				orgClusterName:        orgClusterName,
 				kubeClusterClient:     kubeClusterClient,
 				kcpClusterClient:      kcpClusterClient,
+				UserKcpClients:        userKcpClients,
 				virtualUserKcpClients: virtualUserlKcpClients,
 			})
 		})

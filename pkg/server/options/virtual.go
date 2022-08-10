@@ -17,9 +17,6 @@ limitations under the License.
 package options
 
 import (
-	"fmt"
-	"net/url"
-
 	"github.com/spf13/pflag"
 
 	virtualworkspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/options"
@@ -28,9 +25,6 @@ import (
 type Virtual struct {
 	VirtualWorkspaces virtualworkspacesoptions.Options
 	Enabled           bool
-
-	// ExternalVirtualWorkspaceAddress holds a URL to redirect to for stand-alone virtual workspaces.
-	ExternalVirtualWorkspaceAddress string
 }
 
 func NewVirtual() *Virtual {
@@ -46,18 +40,6 @@ func (v *Virtual) Validate() []error {
 
 	if v.Enabled {
 		errs = append(errs, v.VirtualWorkspaces.Validate()...)
-
-		if v.ExternalVirtualWorkspaceAddress != "" {
-			errs = append(errs, fmt.Errorf("--virtual-workspace-address must be empty if virtual workspaces run in-process"))
-		}
-	} else {
-		if v.ExternalVirtualWorkspaceAddress == "" {
-			errs = append(errs, fmt.Errorf("--virtual-workspace-address is required if virtual workspaces run out-of-process"))
-		} else if u, err := url.Parse(v.ExternalVirtualWorkspaceAddress); err != nil {
-			errs = append(errs, fmt.Errorf("--virtual-workspace-address must be a valid URL: %w", err))
-		} else if u.Scheme != "http" && u.Scheme != "https" {
-			errs = append(errs, fmt.Errorf("--virtual-workspace-address must be a valid  https URL"))
-		}
 	}
 
 	return errs
@@ -67,5 +49,4 @@ func (v *Virtual) AddFlags(fs *pflag.FlagSet) {
 	v.VirtualWorkspaces.AddFlags(fs)
 
 	fs.BoolVar(&v.Enabled, "run-virtual-workspaces", v.Enabled, "Run the virtual workspace apiservers in-process")
-	fs.StringVar(&v.ExternalVirtualWorkspaceAddress, "virtual-workspace-address", v.ExternalVirtualWorkspaceAddress, "Address of a stand-alone virtual workspace apiserver (without the /services path)")
 }

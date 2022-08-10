@@ -447,8 +447,6 @@ func (s *Server) Run(ctx context.Context) error {
 		if err := s.installVirtualWorkspaces(ctx, controllerConfig, delegationChainHead, s.GenericConfig.Authentication, s.GenericConfig.ExternalAddress, s.preHandlerChainMux); err != nil {
 			return err
 		}
-	} else if err := s.installVirtualWorkspacesRedirect(ctx, s.preHandlerChainMux); err != nil {
-		return err
 	}
 
 	if err := s.Options.AdminAuthentication.WriteKubeConfig(s.GenericConfig, s.kcpAdminToken, s.shardAdminToken, s.userToken, s.shardAdminTokenHash); err != nil {
