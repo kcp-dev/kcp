@@ -26,14 +26,15 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/kcp-dev/logicalcluster/v2"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	errorsutil "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
+	configshard "github.com/kcp-dev/kcp/config/shard"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 )
 
@@ -82,9 +83,10 @@ func (ids *identities) grIdentity(gr schema.GroupResource) (string, bool) {
 // with identities.
 func NewConfigWithWildcardIdentities(config *rest.Config,
 	groupExportNames map[string]string,
-	grouptResourceExportNames map[schema.GroupResource]string,
-	kcpClient kcpclient.Interface) (identityConfig *rest.Config, resolve func(ctx context.Context) error) {
-	identityRoundTripper, identityResolver := NewWildcardIdentitiesWrappingRoundTripper(groupExportNames, grouptResourceExportNames, kcpClient)
+	groupResourceExportNames map[schema.GroupResource]string,
+	rootShardKcpClient kcpclient.ClusterInterface,
+	localShardKubeClusterClient kubernetes.ClusterInterface) (identityConfig *rest.Config, resolve func(ctx context.Context) error) {
+	identityRoundTripper, identityResolver := NewWildcardIdentitiesWrappingRoundTripper(groupExportNames, groupResourceExportNames, rootShardKcpClient, localShardKubeClusterClient)
 	identityConfig = rest.CopyConfig(config)
 	identityConfig.Wrap(identityRoundTripper)
 	return identityConfig, identityResolver
@@ -101,7 +103,8 @@ func NewConfigWithWildcardIdentities(config *rest.Config,
 // with identities.
 func NewWildcardIdentitiesWrappingRoundTripper(groupExportNames map[string]string,
 	groupResourceExportNames map[schema.GroupResource]string,
-	kcpClient kcpclient.Interface) (func(rt http.RoundTripper) http.RoundTripper, func(ctx context.Context) error) {
+	rootShardKcpClient kcpclient.ClusterInterface,
+	localShardKubeClusterClient kubernetes.ClusterInterface) (func(rt http.RoundTripper) http.RoundTripper, func(ctx context.Context) error) {
 	ids := &identities{
 		groupIdentities:         map[string]string{},
 		groupResourceIdentities: map[schema.GroupResource]string{},
@@ -114,13 +117,13 @@ func NewWildcardIdentitiesWrappingRoundTripper(groupExportNames map[string]strin
 		ids.groupResourceIdentities[gr] = ""
 	}
 
-	return injectKcpIdentities(ids), wildcardIdentitiesResolver(ids, groupExportNames, groupResourceExportNames, kcpClient)
+	return injectKcpIdentities(ids), wildcardIdentitiesResolver(ids, groupExportNames, groupResourceExportNames, apiExportIdentityProvider(rootShardKcpClient.Cluster(tenancyv1alpha1.RootCluster), localShardKubeClusterClient))
 }
 
 func wildcardIdentitiesResolver(ids *identities,
 	groupExportNames map[string]string,
 	groupResourceExportNames map[schema.GroupResource]string,
-	kcpClient kcpclient.Interface) func(ctx context.Context) error {
+	apiExportIdentityProviderFn func(ctx context.Context, apiExportName string) (string, error)) func(ctx context.Context) error {
 	return func(ctx context.Context) error {
 		var errs []error
 		for group, name := range groupExportNames {
@@ -132,21 +135,21 @@ func wildcardIdentitiesResolver(ids *identities,
 				continue
 			}
 
-			apiExport, err := kcpClient.ApisV1alpha1().APIExports().Get(ctx, name, metav1.GetOptions{})
+			apiExportIdentity, err := apiExportIdentityProviderFn(ctx, name)
 			if err != nil {
 				errs = append(errs, err)
 				continue
 			}
-			if apiExport.Status.IdentityHash == "" {
+			if apiExportIdentity == "" {
 				errs = append(errs, fmt.Errorf("APIExport %s is not ready", name))
 				continue
 			}
 
 			ids.lock.Lock()
-			ids.groupIdentities[group] = apiExport.Status.IdentityHash
+			ids.groupIdentities[group] = apiExportIdentity
 			ids.lock.Unlock()
 
-			klog.V(2).Infof("APIExport %s|%s for group %q has identity %s", logicalcluster.From(apiExport), name, group, apiExport.Status.IdentityHash)
+			klog.V(2).Infof("APIExport %s|%s for group %q has identity %s", tenancyv1alpha1.RootCluster, name, group, apiExportIdentity)
 		}
 		for gr, name := range groupResourceExportNames {
 			ids.lock.RLock()
@@ -157,23 +160,46 @@ func wildcardIdentitiesResolver(ids *identities,
 				continue
 			}
 
-			apiExport, err := kcpClient.ApisV1alpha1().APIExports().Get(ctx, name, metav1.GetOptions{})
+			apiExportIdentity, err := apiExportIdentityProviderFn(ctx, name)
 			if err != nil {
 				errs = append(errs, err)
 				continue
 			}
-			if apiExport.Status.IdentityHash == "" {
+			if apiExportIdentity == "" {
 				errs = append(errs, fmt.Errorf("APIExport %s is not ready", name))
 				continue
 			}
 
 			ids.lock.Lock()
-			ids.groupResourceIdentities[gr] = apiExport.Status.IdentityHash
+			ids.groupResourceIdentities[gr] = apiExportIdentity
 			ids.lock.Unlock()
 
-			klog.V(2).Infof("APIExport %s|%s for resource %s.%s has identity %s", logicalcluster.From(apiExport), name, gr.Resource, gr.Group, apiExport.Status.IdentityHash)
+			klog.V(2).Infof("APIExport %s|%s for resource %s.%s has identity %s", tenancyv1alpha1.RootCluster, name, gr.Resource, gr.Group, apiExportIdentity)
 		}
 		return errorsutil.NewAggregate(errs)
+	}
+}
+
+func apiExportIdentityProvider(rootShardKcpClient kcpclient.Interface, localShardKubeClusterClient kubernetes.ClusterInterface) func(ctx context.Context, apiExportName string) (string, error) {
+	return func(ctx context.Context, apiExportName string) (string, error) {
+		if localShardKubeClusterClient != nil {
+			apiExportIdentitiesConfigMap, err := localShardKubeClusterClient.Cluster(configshard.SystemShardCluster).CoreV1().ConfigMaps("default").Get(ctx, configMapName, metav1.GetOptions{})
+			if err == nil {
+				apiExportIdentity, found := apiExportIdentitiesConfigMap.Data[apiExportName]
+				if found {
+					return apiExportIdentity, nil
+				}
+			}
+			// fall back when:
+			// - this is not the root shard (localShardKubeClusterClient == nil)
+			// - the cm wasn't found
+			// - an entry in the cm wasn't found
+		}
+		apiExport, err := rootShardKcpClient.ApisV1alpha1().APIExports().Get(ctx, apiExportName, metav1.GetOptions{})
+		if err != nil {
+			return "", err
+		}
+		return apiExport.Status.IdentityHash, nil
 	}
 }
 
