@@ -92,7 +92,7 @@ func (c *Controller) reconcileLeaves(ctx context.Context, ingress *networkingv1.
 	// Create the new leaves
 	for _, leaf := range toCreate {
 		logger = logger.WithValues(logging.FromPrefix("leafIngress", leaf)...)
-		klog.InfoS("creating leaf")
+		logger.Info("creating leaf")
 
 		if _, err := c.client.NetworkingV1().Ingresses(leaf.Namespace).Create(logicalcluster.WithCluster(ctx, ingressClusterName), leaf, metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
 			// TODO(jmprusi): Surface as user-facing condition.

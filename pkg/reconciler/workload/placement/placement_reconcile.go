@@ -86,6 +86,7 @@ func (c *controller) getLocation(clusterName logicalcluster.Name, name string) (
 }
 
 func (c *controller) patchPlacement(ctx context.Context, clusterName logicalcluster.Name, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*schedulingv1alpha1.Placement, error) {
-	klog.V(2).Infof("Patching namespace %s|%s with patch %s", clusterName, name, string(data))
+	logger := klog.FromContext(ctx)
+	logger.WithValues("patch", string(data)).V(2).Info("patching Placement")
 	return c.kcpClusterClient.SchedulingV1alpha1().Placements().Patch(logicalcluster.WithCluster(ctx, clusterName), name, pt, data, opts, subresources...)
 }

@@ -135,7 +135,7 @@ func (c *controller) createIdentitySecret(ctx context.Context, clusterName logic
 
 	logger := logging.WithObject(klog.FromContext(ctx), secret)
 	ctx = klog.NewContext(ctx, logger)
-	klog.V(2).Infof("creating identity secret")
+	logger.V(2).Info("creating identity secret")
 	if err := c.createSecret(ctx, clusterName, secret); err != nil {
 		return err
 	}
