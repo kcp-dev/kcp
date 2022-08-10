@@ -71,6 +71,9 @@ LDFLAGS := \
 all: build
 .PHONY: all
 
+ldflags:
+	@echo $(LDFLAGS)
+
 .PHONY: require-%
 require-%:
 	@if ! command -v $* 1> /dev/null 2>&1; then echo "$* not found in \$$PATH"; exit 1; fi
