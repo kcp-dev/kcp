@@ -29,9 +29,12 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/client-go/discovery"
 	clientgotesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -271,9 +274,12 @@ func TestUse(t *testing.T) {
 		name   string
 		config clientcmdapi.Config
 
-		existingObjects map[logicalcluster.Name][]string
-		unready         map[logicalcluster.Name]map[string]bool // unready workspaces
-		short           bool
+		existingObjects    map[logicalcluster.Name][]string
+		getWorkspaceErrors map[logicalcluster.Name]error
+		discovery          map[logicalcluster.Name][]*metav1.APIResourceList
+		discoveryErrors    map[logicalcluster.Name]error
+		unready            map[logicalcluster.Name]map[string]bool // unready workspaces
+		short              bool
 
 		param string
 
@@ -365,7 +371,7 @@ func TestUse(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "absolute name",
+			name: "absolute name with access to parent",
 			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
 				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.dev/current": {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"}},
 				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo"}},
@@ -373,6 +379,12 @@ func TestUse(t *testing.T) {
 			},
 			existingObjects: map[logicalcluster.Name][]string{
 				logicalcluster.New("root:foo"): {"bar"},
+			},
+			discovery: map[logicalcluster.Name][]*metav1.APIResourceList{
+				logicalcluster.New("root:foo:bar"): {&metav1.APIResourceList{
+					GroupVersion: "tenancy.kcp.dev/v1alpha1",
+					APIResources: []metav1.APIResource{{Name: "workspaces"}},
+				}},
 			},
 			param: "root:foo:bar",
 			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
@@ -389,18 +401,62 @@ func TestUse(t *testing.T) {
 			wantStdout: []string{"Current workspace is \"root:foo:bar\""},
 		},
 		{
-			name: "workspace doesn't exist error",
+			name: "absolute name without access to parent",
 			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
 				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.dev/current": {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"}},
 				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo"}},
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
-			existingObjects: map[logicalcluster.Name][]string{
-				logicalcluster.New("root:foo"): {"bar"},
+			getWorkspaceErrors: map[logicalcluster.Name]error{logicalcluster.New("root:foo"): errors.NewForbidden(schema.GroupResource{}, "bar", fmt.Errorf("not allowed"))},
+			discovery: map[logicalcluster.Name][]*metav1.APIResourceList{
+				logicalcluster.New("root:foo:bar"): {&metav1.APIResourceList{
+					GroupVersion: "tenancy.kcp.dev/v1alpha1",
+					APIResources: []metav1.APIResource{{Name: "workspaces"}},
+				}},
+			},
+			param: "root:foo:bar",
+			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts: map[string]*clientcmdapi.Context{
+					"workspace.kcp.dev/current":  {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"},
+					"workspace.kcp.dev/previous": {Cluster: "workspace.kcp.dev/previous", AuthInfo: "test"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"workspace.kcp.dev/current":  {Server: "https://test/clusters/root:foo:bar"},
+					"workspace.kcp.dev/previous": {Server: "https://test/clusters/root:foo"},
+				},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			wantStdout: []string{"Current workspace is \"root:foo:bar\""},
+		},
+		{
+			name: "absolute workspace doesn't exist error",
+			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.dev/current": {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"}},
+				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo"}},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			getWorkspaceErrors: map[logicalcluster.Name]error{logicalcluster.New("root:foo"): errors.NewNotFound(schema.GroupResource{}, "bar")},
+			discoveryErrors: map[logicalcluster.Name]error{
+				logicalcluster.New("root:foo:foe"): errors.NewForbidden(schema.GroupResource{}, "", fmt.Errorf("forbidden")),
 			},
 			param:      "root:foo:foe",
 			wantErr:    true,
-			wantErrors: []string{"workspaces.tenancy.kcp.dev \"foe\" not found"},
+			wantErrors: []string{"workspace \"root:foo:foe\" not found"},
+		},
+		{
+			name: "absolute workspace access not permitted",
+			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.dev/current": {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"}},
+				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo"}},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			getWorkspaceErrors: map[logicalcluster.Name]error{logicalcluster.New("root:foo"): errors.NewForbidden(schema.GroupResource{}, "bar", fmt.Errorf("not allowed"))},
+			discoveryErrors: map[logicalcluster.Name]error{
+				logicalcluster.New("root:foo:foe"): errors.NewForbidden(schema.GroupResource{}, "", fmt.Errorf("forbidden")),
+			},
+			param:      "root:foo:foe",
+			wantErr:    true,
+			wantErrors: []string{"access to workspace root:foo:foe denied"},
 		},
 		{
 			name: "invalid workspace name format",
@@ -756,6 +812,7 @@ func TestUse(t *testing.T) {
 					objs = append(objs, obj)
 				}
 				clients[lcluster] = tenancyfake.NewSimpleClientset(objs...)
+
 				if lcluster == tenancyv1alpha1.RootCluster {
 					clients[lcluster].PrependReactor("get", "workspaces", func(action clientgotesting.Action) (handled bool, ret runtime.Object, err error) {
 						getAction := action.(clientgotesting.GetAction)
@@ -780,6 +837,28 @@ func TestUse(t *testing.T) {
 				}
 			}
 
+			for lcluster, err := range tt.getWorkspaceErrors {
+				if _, ok := clients[lcluster]; !ok {
+					clients[lcluster] = tenancyfake.NewSimpleClientset()
+				}
+				clients[lcluster].PrependReactor("get", "workspaces", func(action clientgotesting.Action) (bool, runtime.Object, error) {
+					return true, nil, err
+				})
+			}
+
+			for lcluster, d := range tt.discovery {
+				if _, ok := clients[lcluster]; !ok {
+					clients[lcluster] = tenancyfake.NewSimpleClientset()
+				}
+				clients[lcluster].Resources = d
+			}
+
+			for lcluster := range tt.discoveryErrors {
+				if _, ok := clients[lcluster]; !ok {
+					clients[lcluster] = tenancyfake.NewSimpleClientset()
+				}
+			}
+
 			streams, _, stdout, stderr := genericclioptions.NewTestIOStreams()
 
 			kc := &KubeConfig{
@@ -788,8 +867,9 @@ func TestUse(t *testing.T) {
 				shortWorkspaceOutput: tt.short,
 
 				clusterClient: fakeTenancyClient{
-					t:       t,
-					clients: clients,
+					t:             t,
+					clients:       clients,
+					discoveryErrs: tt.discoveryErrors,
 				},
 				modifyConfig: func(config *clientcmdapi.Config) error {
 					got = config
@@ -1053,12 +1133,36 @@ func parseURLOrDie(host string) *url.URL {
 }
 
 type fakeTenancyClient struct {
-	t       *testing.T
-	clients map[logicalcluster.Name]*tenancyfake.Clientset
+	t             *testing.T
+	clients       map[logicalcluster.Name]*tenancyfake.Clientset
+	discoveryErrs map[logicalcluster.Name]error
 }
 
 func (f fakeTenancyClient) Cluster(cluster logicalcluster.Name) tenancyclient.Interface {
 	client, ok := f.clients[cluster]
 	require.True(f.t, ok, "no client for cluster %s", cluster)
-	return client
+	return withErrorDiscovery{client, f.discoveryErrs[cluster]}
+}
+
+type withErrorDiscovery struct {
+	tenancyclient.Interface
+
+	err error
+}
+
+func (c withErrorDiscovery) Discovery() discovery.DiscoveryInterface {
+	d := c.Interface.Discovery()
+	return errorDiscoveryClient{d, c.err}
+}
+
+type errorDiscoveryClient struct {
+	discovery.DiscoveryInterface
+	err error
+}
+
+func (c errorDiscoveryClient) ServerGroups() (*metav1.APIGroupList, error) {
+	if c.err != nil {
+		return nil, c.err
+	}
+	return c.DiscoveryInterface.ServerGroups()
 }
