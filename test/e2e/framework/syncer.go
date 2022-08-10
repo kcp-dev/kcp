@@ -26,6 +26,7 @@ import (
 	"testing"
 	"time"
 
+	kcpdynamic "github.com/kcp-dev/apimachinery/pkg/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
@@ -197,17 +198,17 @@ func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 			}
 		}
 
-		upstreamDynamic, err := dynamic.NewClusterForConfig(upstreamCfg)
+		upstreamClusterDynamic, err := kcpdynamic.NewClusterDynamicClientForConfig(upstreamCfg)
 		require.NoError(t, err, "error creating upstream dynamic client")
 
 		downstreamDynamic, err := dynamic.NewForConfig(downstreamConfig)
 		require.NoError(t, err, "error creating downstream dynamic client")
 
-		gather(upstreamDynamic.Cluster(sf.workspaceClusterName), apiresourcev1alpha1.SchemeGroupVersion.WithResource("apiresourceimports"))
-		gather(upstreamDynamic.Cluster(sf.workspaceClusterName), apiresourcev1alpha1.SchemeGroupVersion.WithResource("negotiatedapiresources"))
-		gather(upstreamDynamic.Cluster(sf.workspaceClusterName), corev1.SchemeGroupVersion.WithResource("namespaces"))
+		gather(upstreamClusterDynamic.Cluster(sf.workspaceClusterName), apiresourcev1alpha1.SchemeGroupVersion.WithResource("apiresourceimports"))
+		gather(upstreamClusterDynamic.Cluster(sf.workspaceClusterName), apiresourcev1alpha1.SchemeGroupVersion.WithResource("negotiatedapiresources"))
+		gather(upstreamClusterDynamic.Cluster(sf.workspaceClusterName), corev1.SchemeGroupVersion.WithResource("namespaces"))
 		gather(downstreamDynamic, corev1.SchemeGroupVersion.WithResource("namespaces"))
-		gather(upstreamDynamic.Cluster(sf.workspaceClusterName), appsv1.SchemeGroupVersion.WithResource("deployments"))
+		gather(upstreamClusterDynamic.Cluster(sf.workspaceClusterName), appsv1.SchemeGroupVersion.WithResource("deployments"))
 		gather(downstreamDynamic, appsv1.SchemeGroupVersion.WithResource("deployments"))
 	})
 
@@ -340,11 +341,10 @@ type StartedSyncerFixture struct {
 func (sf *StartedSyncerFixture) WaitForClusterReady(t *testing.T, ctx context.Context) {
 	cfg := sf.SyncerConfig
 
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(cfg.UpstreamConfig)
+	kcpClusterClient, err := kcpclient.NewForConfig(cfg.UpstreamConfig)
 	require.NoError(t, err)
-	kcpClient := kcpClusterClient.Cluster(cfg.SyncTargetWorkspace)
 	EventuallyReady(t, func() (conditions.Getter, error) {
-		return kcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx, cfg.SyncTargetName, metav1.GetOptions{})
+		return kcpClusterClient.WorkloadV1alpha1().SyncTargets().Get(logicalcluster.WithCluster(ctx, cfg.SyncTargetWorkspace), cfg.SyncTargetName, metav1.GetOptions{})
 	}, "Waiting for cluster %q condition %q", cfg.SyncTargetName, conditionsapi.ReadyCondition)
 	t.Logf("Cluster %q is %s", cfg.SyncTargetName, conditionsapi.ReadyCondition)
 }

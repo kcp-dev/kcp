@@ -118,11 +118,11 @@ func WriteLogicalClusterConfig(t *testing.T, rawConfig clientcmdapi.Config, cont
 }
 
 // ShardConfig returns a rest config that talk directly to the given shard.
-func ShardConfig(t *testing.T, kcpClusterClient kcpclientset.ClusterInterface, shardName string, cfg *rest.Config) *rest.Config {
+func ShardConfig(t *testing.T, kcpClusterClient kcpclientset.Interface, shardName string, cfg *rest.Config) *rest.Config {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
-	shard, err := kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaceShards().Get(ctx, shardName, metav1.GetOptions{})
+	shard, err := kcpClusterClient.TenancyV1alpha1().ClusterWorkspaceShards().Get(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), shardName, metav1.GetOptions{})
 	require.NoError(t, err)
 
 	shardCfg := rest.CopyConfig(cfg)

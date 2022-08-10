@@ -63,7 +63,7 @@ func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logi
 	t.Cleanup(cancelFunc)
 
 	cfg := server.BaseConfig(t)
-	clusterClient, err := kcpclientset.NewClusterForConfig(cfg)
+	clusterClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct client for server")
 
 	tmpl := &tenancyv1alpha1.ClusterWorkspace{
@@ -88,7 +88,7 @@ func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logi
 	var ws *tenancyv1alpha1.ClusterWorkspace
 	require.Eventually(t, func() bool {
 		var err error
-		ws, err = clusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, tmpl, metav1.CreateOptions{})
+		ws, err = clusterClient.TenancyV1alpha1().ClusterWorkspaces().Create(logicalcluster.WithCluster(ctx, orgClusterName), tmpl, metav1.CreateOptions{})
 		if err != nil {
 			t.Logf("error creating workspace under %s: %v", orgClusterName, err)
 		}
@@ -103,7 +103,7 @@ func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logi
 		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(time.Second*30))
 		defer cancelFn()
 
-		err := clusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, ws.Name, metav1.DeleteOptions{})
+		err := clusterClient.TenancyV1alpha1().ClusterWorkspaces().Delete(logicalcluster.WithCluster(ctx, orgClusterName), ws.Name, metav1.DeleteOptions{})
 		if apierrors.IsNotFound(err) || apierrors.IsForbidden(err) {
 			return // ignore not found and forbidden because this probably means the parent has been deleted
 		}
@@ -111,7 +111,7 @@ func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logi
 	})
 
 	Eventually(t, func() (bool, string) {
-		ws, err := clusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, ws.Name, metav1.GetOptions{})
+		ws, err := clusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, orgClusterName), ws.Name, metav1.GetOptions{})
 		require.Falsef(t, apierrors.IsNotFound(err), "workspace %s was deleted", ws.Name)
 		if err != nil {
 			t.Logf("failed to get workspace %s: %v", ws.Name, err)
