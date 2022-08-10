@@ -24,6 +24,7 @@ import (
 	"testing"
 	"time"
 
+	kcpdynamic "github.com/kcp-dev/apimachinery/pkg/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
@@ -33,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/dynamic"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -141,7 +141,7 @@ func CreateSheriffsSchemaAndExport(
 func CreateSheriff(
 	ctx context.Context,
 	t *testing.T,
-	dynamicClusterClient dynamic.ClusterInterface,
+	dynamicClusterClient *kcpdynamic.ClusterDynamicClient,
 	clusterName logicalcluster.Name,
 	group, name string,
 ) {
