@@ -203,7 +203,12 @@ var _ = rest.Getter(&REST{})
 
 // Get retrieves a Workspace by name
 func (s *REST) Get(ctx context.Context, name string, options *metav1.GetOptions) (runtime.Object, error) {
-	cws, err := s.getClusterWorkspace(ctx, name, options)
+	opts := metav1.GetOptions{}
+	if options != nil {
+		opts = *options
+	}
+	orgClusterName := ctx.Value(WorkspacesOrgKey).(logicalcluster.Name)
+	cws, err := s.kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, name, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -211,50 +216,6 @@ func (s *REST) Get(ctx context.Context, name string, options *metav1.GetOptions)
 	var ws tenancyv1beta1.Workspace
 	projection.ProjectClusterWorkspaceToWorkspace(cws, &ws)
 	return &ws, nil
-}
-
-func (s *REST) getClusterWorkspace(ctx context.Context, name string, options *metav1.GetOptions) (*tenancyv1alpha1.ClusterWorkspace, error) {
-	opts := metav1.GetOptions{}
-	if options != nil {
-		opts = *options
-	}
-
-	userInfo, ok := apirequest.UserFrom(ctx)
-	if !ok {
-		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("unable to list workspaces without a user on the context"))
-	}
-
-	orgClusterName := ctx.Value(WorkspacesOrgKey).(logicalcluster.Name)
-	clusterWorkspaces := s.getFilteredClusterWorkspaces(orgClusterName)
-	if clusterWorkspaces == nil {
-		return nil, kerrors.NewNotFound(tenancyv1beta1.Resource("workspaces"), name)
-	}
-	workspace, err := s.kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, name, opts)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO:
-	// Filtering by applying the lister operation might not be necessary anymore
-	// when using a semi-delegated authorizer in the workspaces virtual workspace that would
-	// delegate this authorization to the main KCP instance hosting the workspaces and RBAC rules
-	obj, err := clusterWorkspaces.List(userInfo, labels.Everything(), fields.Everything())
-	if err != nil {
-		return nil, err
-	}
-	var existingClusterWorkspace *tenancyv1alpha1.ClusterWorkspace
-	for _, ws := range obj.Items {
-		if ws.Name == workspace.Name && logicalcluster.From(&ws).String() == logicalcluster.From(workspace).String() {
-			existingClusterWorkspace = workspace
-			break
-		}
-	}
-
-	if existingClusterWorkspace == nil {
-		return nil, kerrors.NewNotFound(tenancyv1beta1.Resource("workspaces"), name)
-	}
-
-	return existingClusterWorkspace, nil
 }
 
 var ownerRoleRules = []rbacv1.PolicyRule{

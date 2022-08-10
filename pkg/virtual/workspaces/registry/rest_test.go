@@ -452,15 +452,7 @@ func TestGetWorkspace(t *testing.T) {
 			responseWorkspace := response.(*tenancyv1beta1.Workspace)
 			assert.Equal(t, "foo", responseWorkspace.Name)
 			checkedUsers := listerCheckedUsers()
-			require.Len(t, checkedUsers, 1, "The workspaceLister should have checked only 1 user")
-			assert.Equal(t,
-				&kuser.DefaultInfo{
-					Name:   user.Name,
-					UID:    user.UID,
-					Groups: []string{"test-group"},
-				},
-				checkedUsers[0],
-				"The workspaceLister should have checked the user with its groups")
+			require.Len(t, checkedUsers, 0, "The workspaceLister should not have checked any user")
 		},
 	}
 	applyTest(t, test)
@@ -536,18 +528,10 @@ func TestGetWorkspaceNotFoundNoPermission(t *testing.T) {
 		},
 		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *fake.Clientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			response, err := storage.Get(ctx, "foo", nil)
-			require.EqualError(t, err, "workspaces.tenancy.kcp.dev \"foo\" not found")
-			require.Nil(t, response)
+			require.NoError(t, err, "get is authorized through the delegated authorizer only, i.e. here it should be allowed")
+			require.NotNil(t, response)
 			checkedUsers := listerCheckedUsers()
-			require.Len(t, checkedUsers, 1, "The workspaceLister should have checked only 1 user")
-			assert.Equal(t,
-				&kuser.DefaultInfo{
-					Name:   user.Name,
-					UID:    user.UID,
-					Groups: []string{"test-group"},
-				},
-				checkedUsers[0],
-				"The workspaceLister should have checked the user with its groups")
+			require.Len(t, checkedUsers, 0, "The workspaceLister should not have checked any user")
 		},
 	}
 	applyTest(t, test)
