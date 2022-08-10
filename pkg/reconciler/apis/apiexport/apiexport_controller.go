@@ -25,7 +25,6 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/google/go-cmp/cmp"
 	"github.com/kcp-dev/logicalcluster/v2"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -205,19 +204,13 @@ func (c *controller) enqueueAPIExport(obj interface{}) {
 }
 
 func (c *controller) enqueueAllAPIExports(clusterWorkspaceShard interface{}) {
-	clusterWorkspaceShardKey, err := cache.DeletionHandlingMetaNamespaceKeyFunc(clusterWorkspaceShard)
-	if err != nil {
-		runtime.HandleError(err)
-		return
-	}
-
 	list, err := c.apiExportLister.List(labels.Everything())
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
-	logger := logging.WithReconciler(klog.Background(), controllerName).WithValues("ClusterWorkspacShard", clusterWorkspaceShardKey)
+	logger := logging.WithObject(logging.WithReconciler(klog.Background(), controllerName), clusterWorkspaceShard.(*tenancyv1alpha1.ClusterWorkspaceShard))
 	for i := range list {
 		key, err := cache.MetaNamespaceKeyFunc(list[i])
 		if err != nil {
@@ -243,7 +236,7 @@ func (c *controller) enqueueSecret(obj interface{}) {
 		return
 	}
 
-	logger := logging.WithReconciler(klog.Background(), controllerName).WithValues("Secret", secretKey)
+	logger := logging.WithObject(logging.WithReconciler(klog.Background(), controllerName), obj.(*corev1.Secret))
 	for _, key := range apiExportKeys {
 		logging.WithQueueKey(logger, key).V(2).Info("queueing APIExport via identity Secret")
 		c.queue.Add(key)

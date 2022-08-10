@@ -40,8 +40,9 @@ func GenerateIdentitySecret(ctx context.Context, ns string, apiExportName string
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: ns,
-			Name:      apiExportName,
+			Namespace:   ns,
+			Name:        apiExportName,
+			Annotations: map[string]string{},
 		},
 		StringData: map[string]string{
 			apisv1alpha1.SecretKeyAPIExportIdentity: key,
