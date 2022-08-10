@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v3
         with:
-          go-version: v1.17
+          go-version: v1.18
 
       # Build and push multi-arch supported syncer image, tagged with the commit SHA and the branch name.
       - uses: imjasonh/setup-ko@v0.5

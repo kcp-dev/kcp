@@ -79,7 +79,7 @@ require-%:
 	@if ! command -v $* 1> /dev/null 2>&1; then echo "$* not found in \$$PATH"; exit 1; fi
 
 build: WHAT ?= ./cmd/...
-build: require-jq require-go require-git ## Build the project
+build: require-jq require-go require-git verify-go-versions ## Build the project
 	go build $(BUILDFLAGS) -ldflags="$(LDFLAGS)" -o bin $(WHAT)
 .PHONY: build
 
@@ -248,6 +248,10 @@ verify-k8s-deps:
 .PHONY: verify-imports
 verify-imports:
 	hack/verify-imports.sh
+
+.PHONY: verify-go-imports
+verify-go-versions:
+	hack/verify-go-versions.sh
 
 .PHONY: help
 help: ## Show this help.
