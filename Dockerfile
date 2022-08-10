@@ -44,6 +44,11 @@ RUN CGO_ENABLED=0 make
 FROM alpine:3.15
 WORKDIR /
 COPY --from=builder workspace/bin/kcp-front-proxy workspace/bin/kcp workspace/bin/virtual-workspaces /
+COPY --from=builder workspace/bin/kubectl-* /usr/local/bin
+RUN apk add --update curl && rm -rf /var/cache/apk/*
+RUN curl -fL -o /usr/local/bin/kubectl "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/$(uname -m | sed 's/aarch.*/arm64/;s/armv8.*/arm64/;s/x86_64/amd64/')/kubectl"
+RUN chmod +x /usr/local/bin/kubectl
+ENV KUBECONFIG=/etc/kcp/config/admin.kubeconfig
 RUN mkdir -p /data && \
     chown 65532:65532 /data
 USER 65532:65532
