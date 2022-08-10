@@ -9,7 +9,6 @@ builds:
   - darwin
   goarch:
   - amd64
-  - arm
   - arm64
 - id: "kubectl-kcp"
   main: ./cmd/kubectl-kcp
@@ -22,7 +21,6 @@ builds:
   - windows
   goarch:
   - amd64
-  - arm
   - arm64
 - id: "kubectl-ws"
   main: ./cmd/kubectl-ws
@@ -35,7 +33,6 @@ builds:
   - windows
   goarch:
   - amd64
-  - arm
   - arm64
 - id: "kubectl-workspaces"
   main: ./cmd/kubectl-workspaces
@@ -48,7 +45,6 @@ builds:
   - windows
   goarch:
   - amd64
-  - arm
   - arm64
 archives:
 - id: kcp
