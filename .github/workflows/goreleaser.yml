@@ -1,0 +1,38 @@
+name: goreleaser
+
+on:
+  pull_request:
+  push:
+    branches:
+    - main
+    - 'release-*'
+    tags:
+    - 'v*'
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    - uses: actions/setup-go@v3
+      with:
+        go-version: v1.18
+    - name: Delete non-semver tags
+      run: 'git tag -d $(git tag -l | grep -v "^v")'
+    - name: Set LDFLAGS
+      run: echo LDFLAGS="$(make ldflags)" >> $GITHUB_ENV
+    - name: Run GoReleaser
+      uses: goreleaser/goreleaser-action@v3
+      with:
+        distribution: goreleaser
+        version: latest
+        args: release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - uses: cytopia/upload-artifact-retry-action@v0.1.2
+      if: ${{ always() }}
+      with:
+        name: binaries
+        path: dist/*.tar.gz
