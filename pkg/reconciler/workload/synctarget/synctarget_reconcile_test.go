@@ -17,6 +17,7 @@ limitations under the License.
 package synctarget
 
 import (
+	"context"
 	"reflect"
 	"sort"
 	"testing"
@@ -333,7 +334,7 @@ func TestReconciler(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			c := Controller{}
-			returnedSyncTarget, err := c.reconcile(tc.syncTarget, tc.workspaceShards)
+			returnedSyncTarget, err := c.reconcile(context.TODO(), tc.syncTarget, tc.workspaceShards)
 			if err != nil && tc.expectError != true {
 				t.Errorf("unexpected error: %v", err)
 			}

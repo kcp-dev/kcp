@@ -33,6 +33,7 @@ import (
 	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
@@ -44,8 +45,8 @@ const (
 
 // reconcile is triggered on every change to an ingress resource, or it's associated services (by tracker).
 func (c *Controller) reconcile(ctx context.Context, ingress *networkingv1.Ingress) error {
-	ingressClusterName := logicalcluster.From(ingress)
-	klog.InfoS("reconciling Ingress", "ClusterName", ingressClusterName, "Namespace", ingress.Namespace, "Name", ingress.Name)
+	logger := klog.FromContext(ctx)
+	logger.Info("reconciling Ingress")
 
 	//nolint:staticcheck
 	if shared.DeprecatedGetAssignedSyncTarget(ingress.Labels) == "" {
@@ -64,6 +65,7 @@ func (c *Controller) reconcile(ctx context.Context, ingress *networkingv1.Ingres
 }
 
 func (c *Controller) reconcileLeaves(ctx context.Context, ingress *networkingv1.Ingress) error {
+	logger := klog.FromContext(ctx)
 	ingressClusterName := logicalcluster.From(ingress)
 	ownedByRootIngressSelector, err := createOwnedBySelector(ingressClusterName, ingress.Name, ingress.Namespace)
 	if err != nil {
@@ -71,7 +73,7 @@ func (c *Controller) reconcileLeaves(ctx context.Context, ingress *networkingv1.
 	}
 	currentLeaves, err := c.ingressLister.List(ownedByRootIngressSelector)
 	if err != nil {
-		klog.Errorf("failed to list leaves: %v", err)
+		logger.Error(err, "failed to list leaves")
 		return nil
 	}
 
@@ -89,8 +91,8 @@ func (c *Controller) reconcileLeaves(ctx context.Context, ingress *networkingv1.
 
 	// Create the new leaves
 	for _, leaf := range toCreate {
-		leafClusterName := logicalcluster.From(leaf)
-		klog.InfoS("Creating leaf", "ClusterName", leafClusterName, "Namespace", leaf.Namespace, "Name", leaf.Name)
+		logger = logger.WithValues(logging.FromPrefix("leafIngress", leaf)...)
+		klog.InfoS("creating leaf")
 
 		if _, err := c.client.NetworkingV1().Ingresses(leaf.Namespace).Create(logicalcluster.WithCluster(ctx, ingressClusterName), leaf, metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
 			// TODO(jmprusi): Surface as user-facing condition.
@@ -100,8 +102,8 @@ func (c *Controller) reconcileLeaves(ctx context.Context, ingress *networkingv1.
 
 	// Delete the old leaves
 	for _, leaf := range toDelete {
-		leafClusterName := logicalcluster.From(leaf)
-		klog.InfoS("Deleting leaf", "ClusterName", leafClusterName, "Namespace", leaf.Namespace, "Name", leaf.Name)
+		logger = logger.WithValues(logging.FromPrefix("leafIngress", leaf)...)
+		logger.Info("deleting leaf")
 
 		if err := c.client.NetworkingV1().Ingresses(leaf.Namespace).Delete(logicalcluster.WithCluster(ctx, ingressClusterName), leaf.Name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 			// TODO(jmprusi): Surface as user-facing condition.
@@ -113,6 +115,7 @@ func (c *Controller) reconcileLeaves(ctx context.Context, ingress *networkingv1.
 }
 
 func (c *Controller) reconcileRootStatusFromLeaves(ctx context.Context, ingress *networkingv1.Ingress) error {
+	logger := klog.FromContext(ctx)
 	// Create a selector based on the ingress labels, in order to find all the related leaves.
 	ownedBySelector, err := createOwnedBySelector(UnescapeClusterNameLabel(ingress.Labels[OwnedByCluster]), ingress.Labels[OwnedByIngress], ingress.Labels[OwnedByNamespace])
 	if err != nil {
@@ -129,14 +132,14 @@ func (c *Controller) reconcileRootStatusFromLeaves(ctx context.Context, ingress 
 	ingressRootKey := rootIngressKeyFor(ingress)
 	rootIf, exists, err := c.ingressIndexer.GetByKey(ingressRootKey)
 	if err != nil {
-		klog.Warningf("failed to get root ingress: %v", err)
+		logger.Error(err, "failed to get root Ingress")
 		return nil
 	}
 
 	// TODO(jmprusi): A leaf without rootIngress? use OwnerRefs to avoid this.
 	if !exists {
 		// TODO(jmprusi): Add user-facing condition to leaf.
-		klog.Warningf("root ingress not found %s", ingressRootKey)
+		logger.Info("root Ingress not found")
 		return nil
 	}
 
@@ -157,10 +160,12 @@ func (c *Controller) reconcileRootStatusFromLeaves(ctx context.Context, ingress 
 }
 
 func (c *Controller) updateLeafs(ctx context.Context, currentLeaves []*networkingv1.Ingress, desiredLeaves []*networkingv1.Ingress) ([]*networkingv1.Ingress, []*networkingv1.Ingress, error) {
+	logger := klog.FromContext(ctx)
 	var toDelete, toCreate []*networkingv1.Ingress
 
 	for _, currentLeaf := range currentLeaves {
 		found := false
+		logger = logger.WithValues(logging.FromPrefix("leafIngress", currentLeaf)...)
 		for _, desiredLeaf := range desiredLeaves {
 			//nolint:staticcheck
 			if desiredLeaf.Name != currentLeaf.Name || shared.DeprecatedGetAssignedSyncTarget(desiredLeaf.Labels) != shared.DeprecatedGetAssignedSyncTarget(currentLeaf.Labels) {
@@ -168,13 +173,12 @@ func (c *Controller) updateLeafs(ctx context.Context, currentLeaves []*networkin
 			}
 			found = true
 
-			leafClusterName := logicalcluster.From(currentLeaf)
 			if equality.Semantic.DeepEqual(currentLeaf.Spec, desiredLeaf.Spec) {
-				klog.InfoS("Leaf is up to date", "ClusterName", leafClusterName, "Namespace", currentLeaf.Namespace, "Name", currentLeaf.Name)
+				logger.Info("leaf is up to date")
 				continue
 			}
 
-			klog.InfoS("Updating leaf", "ClusterName", leafClusterName, "Namespace", currentLeaf.Namespace, "Name", currentLeaf.Name)
+			logger.Info("updating leaf")
 			updated := currentLeaf.DeepCopy()
 			updated.Spec = desiredLeaf.Spec
 			if _, err := c.client.NetworkingV1().Ingresses(currentLeaf.Namespace).Update(logicalcluster.WithCluster(ctx, logicalcluster.From(currentLeaf)), updated, metav1.UpdateOptions{}); err != nil {
@@ -208,6 +212,7 @@ func (c *Controller) updateLeafs(ctx context.Context, currentLeaves []*networkin
 
 // desiredLeaves returns a list of leaves (ingresses) to be created based on an ingress.
 func (c *Controller) desiredLeaves(ctx context.Context, root *networkingv1.Ingress) ([]*networkingv1.Ingress, error) {
+	logger := klog.FromContext(ctx)
 	// This will parse the ingresses and extract all the destination services,
 	// then create a new ingress leaf for each of them.
 	services, err := c.getServices(ctx, root)
@@ -221,11 +226,11 @@ func (c *Controller) desiredLeaves(ctx context.Context, root *networkingv1.Ingre
 		if shared.DeprecatedGetAssignedSyncTarget(service.Labels) != "" {
 			clusterDests = append(clusterDests, shared.DeprecatedGetAssignedSyncTarget(service.Labels))
 		} else {
-			klog.Infof("Skipping service %q because it is not assigned to any cluster", service.Name)
+			logging.WithObject(logger, service).Info("skipping Service because it is not assigned to any cluster")
 		}
 
 		// Trigger reconciliation of the root ingress when this service changes.
-		c.tracker.add(root, service)
+		c.tracker.add(ctx, root, service)
 	}
 
 	desiredLeaves := make([]*networkingv1.Ingress, 0, len(clusterDests))

@@ -19,6 +19,8 @@ package deploymentsplitter
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/signal"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -38,6 +40,7 @@ import (
 	clusterclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	workloadlisters "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 const resyncPeriod = 10 * time.Hour
@@ -50,7 +53,8 @@ func NewController(cfg *rest.Config) *Controller {
 	client := appsv1client.NewForConfigOrDie(cfg)
 	kubeClient := kubernetes.NewForConfigOrDie(cfg)
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-deployment")
-	stopCh := make(chan struct{}) // TODO: hook this up to SIGTERM/SIGINT
+	stop := context.TODO()
+	stop, _ = signal.NotifyContext(stop, os.Interrupt)
 
 	csif := externalversions.NewSharedInformerFactoryWithOptions(clusterclient.NewForConfigOrDie(cfg), resyncPeriod)
 
@@ -59,18 +63,18 @@ func NewController(cfg *rest.Config) *Controller {
 		client:        client,
 		clusterLister: csif.Workload().V1alpha1().SyncTargets().Lister(),
 		kubeClient:    kubeClient,
-		stopCh:        stopCh,
+		stop:          stop,
 	}
-	csif.WaitForCacheSync(stopCh)
-	csif.Start(stopCh)
+	csif.WaitForCacheSync(stop.Done())
+	csif.Start(stop.Done())
 
 	sif := informers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
 	sif.Apps().V1().Deployments().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
 	})
-	sif.WaitForCacheSync(stopCh)
-	sif.Start(stopCh)
+	sif.WaitForCacheSync(stop.Done())
+	sif.Start(stop.Done())
 
 	c.indexer = sif.Apps().V1().Deployments().Informer().GetIndexer()
 	c.lister = sif.Apps().V1().Deployments().Lister()
@@ -83,7 +87,7 @@ type Controller struct {
 	client        *appsv1client.AppsV1Client
 	clusterLister workloadlisters.SyncTargetLister
 	kubeClient    kubernetes.Interface
-	stopCh        chan struct{}
+	stop          context.Context
 	indexer       cache.Indexer
 	lister        appsv1lister.DeploymentLister
 }
@@ -99,20 +103,23 @@ func (c *Controller) enqueue(obj interface{}) {
 
 func (c *Controller) Start(numThreads int) {
 	defer c.queue.ShutDown()
+	logger := logging.WithReconciler(klog.FromContext(c.stop), controllerName)
+	c.stop = klog.NewContext(c.stop, logger)
+	logger.Info("Starting controller")
+	defer logger.Info("Shutting down controller")
+
 	for i := 0; i < numThreads; i++ {
-		go wait.Until(c.startWorker, time.Second, c.stopCh)
+		go wait.UntilWithContext(c.stop, c.startWorker, time.Second)
 	}
-	klog.Infof("Starting workers")
-	<-c.stopCh
-	klog.Infof("Stopping workers")
+	<-c.stop.Done()
 }
 
-func (c *Controller) startWorker() {
-	for c.processNextWorkItem() {
+func (c *Controller) startWorker(ctx context.Context) {
+	for c.processNextWorkItem(ctx) {
 	}
 }
 
-func (c *Controller) processNextWorkItem() bool {
+func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	// Wait until there is a new item in the working queue
 	k, quit := c.queue.Get()
 	if quit {
@@ -120,11 +127,15 @@ func (c *Controller) processNextWorkItem() bool {
 	}
 	key := k.(string)
 
+	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
+	ctx = klog.NewContext(ctx, logger)
+	logger.V(1).Info("processing key")
+
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.
 	defer c.queue.Done(key)
 
-	if err := c.process(key); err != nil {
+	if err := c.process(ctx, key); err != nil {
 		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", controllerName, key, err))
 		c.queue.AddRateLimited(key)
 		return true
@@ -133,20 +144,23 @@ func (c *Controller) processNextWorkItem() bool {
 	return true
 }
 
-func (c *Controller) process(key string) error {
+func (c *Controller) process(ctx context.Context, key string) error {
+	logger := klog.FromContext(ctx)
 	obj, exists, err := c.indexer.GetByKey(key)
 	if err != nil {
 		return err
 	}
 
 	if !exists {
-		klog.Infof("Object with key %q was deleted", key)
+		logger.Info("object was deleted")
 		return nil
 	}
 	current := obj.(*appsv1.Deployment).DeepCopy()
 	previous := current.DeepCopy()
 
-	ctx := context.TODO()
+	logger = logging.WithObject(logger, previous)
+	ctx = klog.NewContext(ctx, logger)
+
 	if err := c.reconcile(ctx, current); err != nil {
 		return err
 	}

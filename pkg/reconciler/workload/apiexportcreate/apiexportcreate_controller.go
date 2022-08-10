@@ -45,6 +45,7 @@ import (
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	schedulinglisters "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
 	workloadlisters "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/logging"
 	reconcilerapiexport "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexport"
 )
 
@@ -171,10 +172,15 @@ func (c *controller) enqueue(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	clusterName, name := clusters.SplitClusterAwareKey(clusterAwareName)
+	clusterName, _ := clusters.SplitClusterAwareKey(clusterAwareName)
 
-	klog.Infof("Enqueueing logical cluster %q because of %T %s", clusterName, obj, name)
-	c.queue.Add(clusterName.String())
+	key = clusterName.String()
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), key)
+	if logObj, ok := obj.(logging.Object); ok {
+		logger = logging.WithObject(logger, logObj)
+	}
+	logger.V(2).Info(fmt.Sprintf("queueing ClusterWorkspace because of %T", obj))
+	c.queue.Add(key)
 }
 
 // Start starts the controller, which stops when ctx.Done() is closed.
@@ -182,8 +188,10 @@ func (c *controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	klog.Infof("Starting %s controller", controllerName)
-	defer klog.Infof("Shutting down %s controller", controllerName)
+	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
+	ctx = klog.NewContext(ctx, logger)
+	logger.Info("Starting controller")
+	defer logger.Info("Shutting down controller")
 
 	for i := 0; i < numThreads; i++ {
 		go wait.UntilWithContext(ctx, c.startWorker, time.Second)
@@ -205,6 +213,10 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	}
 	key := k.(string)
 
+	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
+	ctx = klog.NewContext(ctx, logger)
+	logger.V(1).Info("processing key")
+
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.
 	defer c.queue.Done(key)
@@ -219,15 +231,16 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *controller) process(ctx context.Context, key string) error {
+	logger := klog.FromContext(ctx)
 	clusterName := logicalcluster.New(key)
 
 	syncTargets, err := c.syncTargetIndexer.ByIndex(byWorkspace, clusterName.String())
 	if err != nil {
-		klog.Errorf("Failed to list clusters for workspace %q: %v", clusterName.String(), err)
+		logger.Error(err, "failed to list clusters for workspace")
 		return err
 	}
 	if len(syncTargets) == 0 {
-		klog.V(3).Infof("No clusters found for workspace %q. Not creating APIExport and APIBinding", clusterName.String())
+		logger.V(3).Info("no clusters found for workspace. Not creating APIExport and APIBinding")
 		return nil
 	}
 
@@ -236,16 +249,18 @@ func (c *controller) process(ctx context.Context, key string) error {
 	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	} else if apierrors.IsNotFound(err) {
-		klog.Infof("Creating export %s|%s", clusterName, reconcilerapiexport.TemporaryComputeServiceExportName)
 		export = &apisv1alpha1.APIExport{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: reconcilerapiexport.TemporaryComputeServiceExportName,
+				Name:        reconcilerapiexport.TemporaryComputeServiceExportName,
+				Annotations: map[string]string{logicalcluster.AnnotationKey: clusterName.String()},
 			},
 			Spec: apisv1alpha1.APIExportSpec{},
 		}
+		logger = logging.WithObject(logger, export)
+		logger.Info("creating APIExport")
 		export, err = c.kcpClusterClient.ApisV1alpha1().APIExports().Create(logicalcluster.WithCluster(ctx, clusterName), export, metav1.CreateOptions{})
 		if err != nil && !apierrors.IsAlreadyExists(err) {
-			klog.Errorf("Failed to create export %s|%s: %v", clusterName, reconcilerapiexport.TemporaryComputeServiceExportName, err)
+			logger.Error(err, "failed to create APIExport")
 			return err
 		}
 	}
@@ -259,10 +274,10 @@ func (c *controller) process(ctx context.Context, key string) error {
 	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	} else if apierrors.IsNotFound(err) {
-		klog.Infof("Creating location %s|%s", clusterName, DefaultLocationName)
 		location := &schedulingv1alpha1.Location{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: DefaultLocationName,
+				Name:        DefaultLocationName,
+				Annotations: map[string]string{logicalcluster.AnnotationKey: clusterName.String()},
 			},
 			Spec: schedulingv1alpha1.LocationSpec{
 				Resource: schedulingv1alpha1.GroupVersionResource{
@@ -273,9 +288,11 @@ func (c *controller) process(ctx context.Context, key string) error {
 				InstanceSelector: &metav1.LabelSelector{},
 			},
 		}
+		logger = logging.WithObject(logger, location)
+		logger.Info("creating Location")
 		_, err = c.kcpClusterClient.SchedulingV1alpha1().Locations().Create(logicalcluster.WithCluster(ctx, clusterName), location, metav1.CreateOptions{})
 		if err != nil && !apierrors.IsAlreadyExists(err) {
-			klog.Errorf("Failed to create location %s|%s: %v", clusterName, DefaultLocationName, err)
+			logger.Error(err, "failed to create Location")
 			return err
 		}
 	}
@@ -283,7 +300,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 	// check that binding exists, and create it if not
 	bindings, err := c.apiBindingIndexer.ByIndex(byWorkspace, clusterName.String())
 	if err != nil {
-		klog.Errorf("Failed to list bindings for workspace %q: %v", clusterName.String(), err)
+		logger.Error(err, "failed to list APIBindings")
 		return err
 	}
 	for _, obj := range bindings {
@@ -297,14 +314,15 @@ func (c *controller) process(ctx context.Context, key string) error {
 		if binding.Spec.Reference.Workspace.ExportName != reconcilerapiexport.TemporaryComputeServiceExportName {
 			continue
 		}
-		klog.V(3).Infof("APIBinding %s|%s found pointing to APIExport %s|%s", clusterName, binding.Name, clusterName, export.Name)
+		logging.WithObject(logger, binding).V(3).Info("APIBinding found pointing to APIExport")
 		return nil // binding found
 	}
 
 	// bind to local export
 	binding := &apisv1alpha1.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: reconcilerapiexport.TemporaryComputeServiceExportName,
+			Name:        reconcilerapiexport.TemporaryComputeServiceExportName,
+			Annotations: map[string]string{logicalcluster.AnnotationKey: clusterName.String()},
 		},
 		Spec: apisv1alpha1.APIBindingSpec{
 			Reference: apisv1alpha1.ExportReference{
@@ -314,11 +332,12 @@ func (c *controller) process(ctx context.Context, key string) error {
 			},
 		},
 	}
-	klog.V(2).Infof("Creating APIBinding %s|%s", clusterName, reconcilerapiexport.TemporaryComputeServiceExportName)
+	logger = logging.WithObject(logger, binding)
+	logger.V(2).Info("creating APIBinding")
 	_, err = c.kcpClusterClient.ApisV1alpha1().APIBindings().Create(logicalcluster.WithCluster(ctx, clusterName), binding, metav1.CreateOptions{})
 
 	if err != nil && !apierrors.IsAlreadyExists(err) {
-		klog.Errorf("Failed to create apibinding %s|%s: %v", clusterName, reconcilerapiexport.TemporaryComputeServiceExportName, err)
+		logger.Error(err, "failed to create APIBinding")
 		return err
 	}
 
@@ -335,7 +354,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		return err
 	}
 
-	klog.V(2).Infof("Patching apiexport %s|%s with patch %s", clusterName, export.Name, string(patchData))
+	logger.WithValues("patch", string(patchData)).V(2).Info("patching APIExport")
 	_, err = c.kcpClusterClient.ApisV1alpha1().APIExports().Patch(logicalcluster.WithCluster(ctx, clusterName), export.Name, types.MergePatchType, patchData, metav1.PatchOptions{})
 	return err
 }

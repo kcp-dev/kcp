@@ -46,6 +46,7 @@ import (
 	workloadlisters "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
+	"github.com/kcp-dev/kcp/pkg/logging"
 	syncershared "github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
@@ -154,7 +155,7 @@ func filterNamespace(obj interface{}) bool {
 	}
 	_, name := clusters.SplitClusterAwareKey(clusterAwareName)
 	if namespaceBlocklist.Has(name) {
-		klog.V(2).Infof("Skipping syncing namespace %q", name)
+		logging.WithReconciler(klog.Background(), controllerName).WithValues("namespace", name).V(2).Info("skipping syncing Namespace")
 		return false
 	}
 	return true
@@ -166,13 +167,17 @@ func (c *Controller) enqueueResource(gvr schema.GroupVersionResource, obj interf
 		runtime.HandleError(err)
 		return
 	}
-	gvrstr := strings.Join([]string{gvr.Resource, gvr.Version, gvr.Group}, ".")
-	c.resourceQueue.Add(gvrstr + "::" + key)
+	queueKey := strings.Join([]string{gvr.Resource, gvr.Version, gvr.Group}, ".") + "::" + key
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), queueKey)
+	logger.V(2).Info("queueing resource")
+	c.resourceQueue.Add(queueKey)
 }
 
 func (c *Controller) enqueueGVR(gvr schema.GroupVersionResource) {
-	gvrstr := strings.Join([]string{gvr.Resource, gvr.Version, gvr.Group}, ".")
-	c.gvrQueue.Add(gvrstr)
+	queueKey := strings.Join([]string{gvr.Resource, gvr.Version, gvr.Group}, ".")
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), queueKey)
+	logger.V(2).Info("queueing GVR")
+	c.gvrQueue.Add(queueKey)
 }
 
 func (c *Controller) enqueueNamespace(obj interface{}) {
@@ -197,8 +202,10 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	defer c.resourceQueue.ShutDown()
 	defer c.gvrQueue.ShutDown()
 
-	klog.Info("Starting Resource scheduler")
-	defer klog.Info("Shutting down Resource scheduler")
+	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
+	ctx = klog.NewContext(ctx, logger)
+	logger.Info("Starting controller")
+	defer logger.Info("Shutting down controller")
 
 	for i := 0; i < numThreads; i++ {
 		go wait.Until(func() { c.startResourceWorker(ctx) }, time.Second, ctx.Done())
@@ -228,6 +235,10 @@ func processNext(
 	}
 	key := k.(string)
 
+	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
+	ctx = klog.NewContext(ctx, logger)
+	logger.V(1).Info("processing key")
+
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.
 	defer queue.Done(key)
@@ -243,18 +254,21 @@ func processNext(
 
 // key is gvr::KEY
 func (c *Controller) processResource(ctx context.Context, key string) error {
+	logger := klog.FromContext(ctx)
 	parts := strings.SplitN(key, "::", 2)
 	if len(parts) != 2 {
-		klog.Errorf("Error parsing key %q; dropping", key)
+		logger.Info("error parsing key; dropping")
 		return nil
 	}
 	gvrstr := parts[0]
+	logger = logger.WithValues("gvr", gvrstr)
 	gvr, _ := schema.ParseResourceArg(gvrstr)
 	if gvr == nil {
-		klog.Errorf("Error parsing GVR %q; dropping", gvrstr)
+		logger.Info("error parsing GVR; dropping")
 		return nil
 	}
 	key = parts[1]
+	logger = logger.WithValues("objectKey", key)
 
 	inf, err := c.ddsif.ForResource(*gvr)
 	if err != nil {
@@ -262,16 +276,16 @@ func (c *Controller) processResource(ctx context.Context, key string) error {
 	}
 	obj, exists, err := inf.Informer().GetIndexer().GetByKey(key)
 	if err != nil {
-		klog.Errorf("Error getting %q GVR %q from indexer: %v", key, gvrstr, err)
+		logger.Error(err, "error getting object from indexer")
 		return err
 	}
 	if !exists {
-		klog.V(3).Infof("object %q GVR %q does not exist", key, gvrstr)
+		logger.V(3).Info("object does not exist")
 		return nil
 	}
 	unstr, ok := obj.(*unstructured.Unstructured)
 	if !ok {
-		klog.Errorf("object was not Unstructured, dropping: %T", obj)
+		logger.WithValues("objectType", fmt.Sprintf("%T", obj)).Info("object was not Unstructured, dropping")
 		return nil
 	}
 	unstr = unstr.DeepCopy()
@@ -279,7 +293,7 @@ func (c *Controller) processResource(ctx context.Context, key string) error {
 	// Get logical cluster name.
 	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		klog.Errorf("failed to split key %q, dropping: %v", key, err)
+		logger.Error(err, "failed to split key, dropping")
 		return nil
 	}
 	lclusterName, _ := clusters.SplitClusterAwareKey(clusterAwareName)
@@ -287,9 +301,10 @@ func (c *Controller) processResource(ctx context.Context, key string) error {
 }
 
 func (c *Controller) processGVR(ctx context.Context, gvrstr string) error {
+	logger := klog.FromContext(ctx).WithValues("gvr", gvrstr)
 	gvr, _ := schema.ParseResourceArg(gvrstr)
 	if gvr == nil {
-		klog.Errorf("Error parsing GVR %q; dropping", gvrstr)
+		logger.Info("error parsing GVR; dropping")
 		return nil
 	}
 	return c.reconcileGVR(*gvr)
@@ -301,19 +316,22 @@ var namespaceBlocklist = sets.NewString("kube-system", "kube-public", "kube-node
 // enqueueResourcesForNamespace adds the resources contained by the given
 // namespace to the queue if there scheduling label differs from the namespace's.
 func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
+	logger := logging.WithObject(logging.WithReconciler(klog.Background(), controllerName), ns).WithValues("operation", "enqueueResourcesForNamespace")
 	clusterName := logicalcluster.From(ns)
 
 	nsLocations, nsDeleting := locations(ns.Annotations, ns.Labels, true)
+	logger = logger.WithValues("nsLocations", nsLocations.List())
 
-	klog.V(4).Infof("enqueueResourcesForNamespace(%s|%s): getting listers", clusterName, ns.Name)
+	logger.V(4).Info("getting listers")
 	listers, notSynced := c.ddsif.Listers()
 	for gvr, lister := range listers {
+		logger = logger.WithValues("gvr", gvr.String())
 		objs, err := lister.ByNamespace(ns.Name).List(labels.Everything())
 		if err != nil {
 			return err
 		}
 
-		klog.V(4).Infof("enqueueResourcesForNamespace(%s|%s): got %d items for GVR %q", clusterName, ns.Name, len(objs), gvr.String())
+		logger.WithValues("items", len(objs)).V(4).Info("got items for GVR")
 
 		var enqueuedResources []string
 		for _, obj := range objs {
@@ -325,6 +343,7 @@ func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 			}
 
 			objLocations, objDeleting := locations(u.GetAnnotations(), u.GetLabels(), false)
+			logger := logging.WithObject(logger, u).WithValues("gvk", gvr.GroupVersion().WithKind(u.GetKind()))
 			if !objLocations.Equal(nsLocations) || !objDeleting.Equal(nsDeleting) {
 				c.enqueueResource(gvr, obj)
 
@@ -332,9 +351,9 @@ func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 					enqueuedResources = append(enqueuedResources, u.GetName())
 				}
 
-				klog.V(3).Infof("Enqueuing %s %s|%s/%s to schedule to %v", gvr.GroupVersion().WithKind(u.GetKind()), logicalcluster.From(ns), ns.Name, u.GetName(), nsLocations.List())
+				logger.V(3).Info("enqueuing object to schedule it")
 			} else {
-				klog.V(4).Infof("Skipping %s %s|%s/%s because it is already scheduled to %v", gvr.GroupVersion().WithKind(u.GetKind()), logicalcluster.From(ns), ns.Name, u.GetName(), nsLocations.List())
+				logger.V(4).Info("skipping object as it is already correctly scheduled")
 			}
 		}
 
@@ -342,14 +361,14 @@ func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 			if len(enqueuedResources) == 10 {
 				enqueuedResources = append(enqueuedResources, "...")
 			}
-			klog.V(2).Infof("Enqueuing some GVR %q in namespace %s|%s to schedule to %v: %s", gvr, logicalcluster.From(ns), ns.Name, nsLocations.List(), strings.Join(enqueuedResources, ","))
+			logger.WithValues("resources", enqueuedResources).V(2).Info("enqueuing resources for GVR")
 		}
 	}
 
 	// For all types whose informer hasn't synced yet, enqueue a workqueue
 	// item to check that GVR again later (reconcileGVR, above).
 	for _, gvr := range notSynced {
-		klog.V(3).Infof("Informer for GVR %q is not synced, needed for namespace %s|%s; re-enqueueing", gvr, logicalcluster.From(ns), ns.Name)
+		logger.V(3).Info("informer for GVR is not synced, needed for namespace; re-enqueueing")
 		c.enqueueGVR(gvr)
 	}
 
@@ -357,6 +376,7 @@ func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 }
 
 func (c *Controller) enqueueSyncTarget(obj interface{}) {
+	logger := logging.WithObject(logging.WithReconciler(klog.Background(), controllerName), obj.(*workloadv1alpha1.SyncTarget)).WithValues("operation", "enqueueSyncTarget")
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
@@ -387,7 +407,7 @@ func (c *Controller) enqueueSyncTarget(obj interface{}) {
 		queued[gvr.String()] = len(objs)
 	}
 	if len(queued) > 0 {
-		klog.V(2).InfoS("Queued GVRs with finalizer %s because SyncTarget %s|%s with key %s got deleted: %v", clusterName, name, finalizer, queued)
+		logger.WithValues("finalizer", finalizer, "resources", queued).V(2).Info("queued GVRs with finalizer because SyncTarget got deleted")
 	}
 }
 

@@ -17,6 +17,7 @@ limitations under the License.
 package synctarget
 
 import (
+	"context"
 	"net/url"
 	"path"
 
@@ -31,7 +32,8 @@ import (
 	syncerbuilder "github.com/kcp-dev/kcp/pkg/virtual/syncer/builder"
 )
 
-func (c *Controller) reconcile(syncTarget *workloadv1alpha1.SyncTarget, workspaceShards []*v1alpha1.ClusterWorkspaceShard) (*workloadv1alpha1.SyncTarget, error) {
+func (c *Controller) reconcile(ctx context.Context, syncTarget *workloadv1alpha1.SyncTarget, workspaceShards []*v1alpha1.ClusterWorkspaceShard) (*workloadv1alpha1.SyncTarget, error) {
+	logger := klog.FromContext(ctx)
 	syncTargetCopy := syncTarget.DeepCopy()
 
 	labels := syncTargetCopy.GetLabels()
@@ -46,7 +48,7 @@ func (c *Controller) reconcile(syncTarget *workloadv1alpha1.SyncTarget, workspac
 		if workspaceShard.Spec.ExternalURL != "" {
 			syncerVirtualWorkspaceURL, err := url.Parse(workspaceShard.Spec.ExternalURL)
 			if err != nil {
-				klog.Errorf("failed to parse workspaceShard.Spec.ExternalURL: %v", err)
+				logger.Error(err, "failed to parse workspaceShard.Spec.ExternalURL")
 				return nil, err
 			}
 			syncerVirtualWorkspaceURL.Path = path.Join(

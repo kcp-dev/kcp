@@ -44,6 +44,7 @@ type bindNamespaceReconciler struct {
 }
 
 func (r *bindNamespaceReconciler) reconcile(ctx context.Context, ns *corev1.Namespace) (reconcileStatus, *corev1.Namespace, error) {
+	logger := klog.FromContext(ctx)
 	clusterName := logicalcluster.From(ns)
 
 	_, foundPlacement := ns.Annotations[schedulingv1alpha1.PlacementAnnotationKey]
@@ -73,8 +74,7 @@ func (r *bindNamespaceReconciler) reconcile(ctx context.Context, ns *corev1.Name
 	if err != nil {
 		return reconcileStatusStop, ns, err
 	}
-	klog.V(3).Infof("Patching to update placement annotation on namespace %s|%s: %s",
-		clusterName, ns.Name, string(patchBytes))
+	logger.WithValues("patch", string(patchBytes)).V(3).Info("patching Namespace to update placement annotation")
 	updated, err := r.patchNamespace(ctx, clusterName, ns.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		return reconcileStatusStop, ns, err

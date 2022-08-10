@@ -59,6 +59,7 @@ type statusConditionReconciler struct {
 // ensureScheduledStatus ensures the status of the given namespace reflects the
 // namespace's scheduled state.
 func (r *statusConditionReconciler) reconcile(ctx context.Context, ns *corev1.Namespace) (reconcileStatus, *corev1.Namespace, error) {
+	logger := klog.FromContext(ctx)
 	updatedNs := setScheduledCondition(ns)
 
 	if equality.Semantic.DeepEqual(ns.Status, updatedNs.Status) {
@@ -69,7 +70,7 @@ func (r *statusConditionReconciler) reconcile(ctx context.Context, ns *corev1.Na
 	if err != nil {
 		return reconcileStatusStop, ns, err
 	}
-	klog.V(2).Infof("Updating status for namespace %s|%s: %s", logicalcluster.From(ns), ns.Name, string(patchBytes))
+	logger.WithValues("patch", string(patchBytes)).V(2).Info("updating status for namespace")
 	patchedNamespace, err := r.patchNamespace(ctx, logicalcluster.From(ns), ns.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 	if err != nil {
 		return reconcileStatusStop, ns, fmt.Errorf("failed to patch status on namespace %s|%s: %w", logicalcluster.From(ns), ns.Name, err)

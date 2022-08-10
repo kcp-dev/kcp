@@ -20,8 +20,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster/v2"
-
 	"k8s.io/klog/v2"
 
 	conditionsapi "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
@@ -38,7 +36,7 @@ type clusterManager struct {
 }
 
 func (c *clusterManager) Reconcile(ctx context.Context, cluster *workloadv1alpha1.SyncTarget) error {
-	clusterClusterName := logicalcluster.From(cluster)
+	logger := klog.FromContext(ctx)
 	defer conditions.SetSummary(
 		cluster,
 		conditions.WithConditions(
@@ -53,21 +51,21 @@ func (c *clusterManager) Reconcile(ctx context.Context, cluster *workloadv1alpha
 		latestHeartbeat = cluster.Status.LastSyncerHeartbeatTime.Time
 	}
 	if latestHeartbeat.IsZero() {
-		klog.V(5).Infof("Marking HeartbeatHealthy false for SyncTarget %s|%s due to no heartbeat", clusterClusterName, cluster.Name)
+		logger.V(5).Info("marking HeartbeatHealthy false for SyncTarget due to no heartbeat")
 		conditions.MarkFalse(cluster,
 			workloadv1alpha1.HeartbeatHealthy,
 			workloadv1alpha1.ErrorHeartbeatMissedReason,
 			conditionsapi.ConditionSeverityWarning,
 			"No heartbeat yet seen")
 	} else if time.Since(latestHeartbeat) > c.heartbeatThreshold {
-		klog.V(5).Infof("Marking HeartbeatHealthy false for SyncTarget %s|%s due to a stale heartbeat", clusterClusterName, cluster.Name)
+		logger.V(5).Info("marking HeartbeatHealthy false for SyncTarget due to a stale heartbeat")
 		conditions.MarkFalse(cluster,
 			workloadv1alpha1.HeartbeatHealthy,
 			workloadv1alpha1.ErrorHeartbeatMissedReason,
 			conditionsapi.ConditionSeverityWarning,
 			"No heartbeat since %s", latestHeartbeat)
 	} else {
-		klog.V(5).Infof("Marking Heartbeat healthy true for SyncTarget %s|%s", clusterClusterName, cluster.Name)
+		logger.V(5).Info("marking Heartbeat healthy true for SyncTarget")
 		conditions.MarkTrue(cluster, workloadv1alpha1.HeartbeatHealthy)
 
 		// Enqueue another check after which the heartbeat should have been updated again.

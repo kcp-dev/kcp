@@ -36,6 +36,7 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apiresourceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
 	workloadinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiresource"
 )
 
@@ -150,6 +151,9 @@ func (c *ClusterReconciler) enqueue(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
+
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), c.name), key)
+	logger.V(2).Info("queueing SyncTarget")
 	c.queue.Add(key)
 }
 
@@ -186,8 +190,10 @@ func (c *ClusterReconciler) Start(ctx context.Context) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	klog.Infof("Starting %s controller", c.name)
-	defer klog.Infof("Shutting down %s controller", c.name)
+	logger := logging.WithReconciler(klog.FromContext(ctx), c.name)
+	ctx = klog.NewContext(ctx, logger)
+	logger.Info("Starting controller")
+	defer logger.Info("Shutting down controller")
 
 	go wait.Until(func() { c.startWorker(ctx) }, time.Millisecond*10, ctx.Done())
 
@@ -206,6 +212,10 @@ func (c *ClusterReconciler) processNextWorkItem(ctx context.Context) bool {
 	}
 	key := k.(string)
 
+	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
+	ctx = klog.NewContext(ctx, logger)
+	logger.V(1).Info("processing key")
+
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.
 	defer c.queue.Done(key)
@@ -220,17 +230,21 @@ func (c *ClusterReconciler) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *ClusterReconciler) process(ctx context.Context, key string) error {
+	logger := klog.FromContext(ctx)
 	obj, exists, err := c.clusterIndexer.GetByKey(key)
 	if err != nil {
 		return err
 	}
 
 	if !exists {
-		klog.Errorf("%s: Object with key %q was deleted", c.name, key)
+		logger.Info("object for key was deleted")
 		return nil
 	}
 	current := obj.(*workloadv1alpha1.SyncTarget).DeepCopy()
 	previous := current.DeepCopy()
+
+	logger = logging.WithObject(logger, previous)
+	ctx = klog.NewContext(ctx, logger)
 
 	if err := c.reconciler.Reconcile(ctx, current); err != nil {
 		return err
@@ -246,20 +260,23 @@ func (c *ClusterReconciler) process(ctx context.Context, key string) error {
 }
 
 func (c *ClusterReconciler) deletedCluster(obj interface{}) {
+	logger := logging.WithReconciler(klog.Background(), c.name)
+
 	castObj, ok := obj.(*workloadv1alpha1.SyncTarget)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			klog.Errorf("%s: Couldn't get object from tombstone %#v", c.name, obj)
+			logger.Error(fmt.Errorf("unexpected tombstone %T, not %T", obj, cache.DeletedFinalStateUnknown{}), "couldn't get object from tombstone")
 			return
 		}
 		castObj, ok = tombstone.Obj.(*workloadv1alpha1.SyncTarget)
 		if !ok {
-			klog.Errorf("%s: Tombstone contained object that is not expected %#v", c.name, obj)
+			logger.Error(fmt.Errorf("unexpected tombstone %T, not %T", obj, &workloadv1alpha1.SyncTarget{}), "couldn't get object from tombstone")
 			return
 		}
 	}
-	klog.V(4).Infof("%s: Responding to deletion of cluster %q", c.name, castObj.Name)
-	ctx := context.TODO()
+	logger = logging.WithObject(logger, castObj)
+	ctx := klog.NewContext(context.TODO(), logger)
+	logger.V(4).Info("responding to deletion of SyncTarget")
 	c.reconciler.Cleanup(ctx, castObj)
 }

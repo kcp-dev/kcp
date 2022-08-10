@@ -42,6 +42,7 @@ import (
 	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	schedulinginformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
 	schedulinglisters "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/logging"
 	reconcilerapiexport "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexport"
 )
 
@@ -118,14 +119,18 @@ func (c *controller) enqueue(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	name, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 	clusterName, _ := clusters.SplitClusterAwareKey(clusterAwareName)
 
-	klog.Infof("Enqueueing logical cluster %q because of %T %s", clusterName, obj, name)
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), clusterName.String())
+	if logObj, ok := obj.(logging.Object); ok {
+		logger = logging.WithObject(logger, logObj)
+	}
+	logger.V(2).Info(fmt.Sprintf("queueing ClusterWorkspace because of %T", obj))
 	c.queue.Add(clusterName.String())
 }
 
@@ -134,8 +139,10 @@ func (c *controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	klog.Infof("Starting %s controller", controllerName)
-	defer klog.Infof("Shutting down %s controller", controllerName)
+	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
+	ctx = klog.NewContext(ctx, logger)
+	logger.Info("Starting controller")
+	defer logger.Info("Shutting down controller")
 
 	for i := 0; i < numThreads; i++ {
 		go wait.UntilWithContext(ctx, c.startWorker, time.Second)
@@ -157,6 +164,10 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	}
 	key := k.(string)
 
+	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
+	ctx = klog.NewContext(ctx, logger)
+	logger.V(1).Info("processing key")
+
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.
 	defer c.queue.Done(key)
@@ -171,12 +182,13 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *controller) process(ctx context.Context, key string) error {
+	logger := klog.FromContext(ctx)
 	clusterName := logicalcluster.New(key)
 
 	// check that binding exists, and create it if not
 	bindings, err := c.apiBindingIndexer.ByIndex(byWorkspace, clusterName.String())
 	if err != nil {
-		klog.Errorf("Failed to list bindings for workspace %q: %v", clusterName.String(), err)
+		logger.Error(err, "failed to list APIBindings for ClusterWorkspace")
 		return err
 	}
 
@@ -212,7 +224,8 @@ func (c *controller) process(ctx context.Context, key string) error {
 	// create default placement
 	placement := &schedulingv1alpha1.Placement{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: DefaultPlacementName,
+			Name:        DefaultPlacementName,
+			Annotations: map[string]string{logicalcluster.AnnotationKey: clusterName.String()},
 		},
 		Spec: schedulingv1alpha1.PlacementSpec{
 			LocationSelectors: []metav1.LabelSelector{{}},
@@ -225,11 +238,12 @@ func (c *controller) process(ctx context.Context, key string) error {
 			LocationWorkspace: workloadBinding.Spec.Reference.Workspace.Path,
 		},
 	}
-	klog.V(2).Infof("Creating placement %s|%s", clusterName, DefaultPlacementName)
+	logger = logging.WithObject(logger, placement)
+	logger.V(2).Info("creating Placement")
 	_, err = c.kcpClusterClient.SchedulingV1alpha1().Placements().Create(logicalcluster.WithCluster(ctx, clusterName), placement, metav1.CreateOptions{})
 
 	if err != nil && !apierrors.IsAlreadyExists(err) {
-		klog.Errorf("Failed to create placement %s|%s: %v", clusterName, DefaultPlacementName, err)
+		logger.Error(err, "failed to create Placement")
 		return err
 	}
 
@@ -246,7 +260,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		return err
 	}
 
-	klog.V(2).Infof("Patching apibinding %s|%s with patch %s", clusterName, workloadBinding.Name, string(patchData))
+	logger.WithValues("patch", string(patchData)).V(2).Info("patching APIBinding")
 	_, err = c.kcpClusterClient.ApisV1alpha1().APIBindings().Patch(logicalcluster.WithCluster(ctx, clusterName), workloadBinding.Name, types.MergePatchType, patchData, metav1.PatchOptions{})
 	return err
 }

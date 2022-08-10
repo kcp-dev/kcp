@@ -38,6 +38,7 @@ import (
 	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	apiresourcelisters "github.com/kcp-dev/kcp/pkg/client/listers/apiresource/v1alpha1"
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 const (
@@ -151,7 +152,8 @@ func (c *controller) enqueueNegotiatedAPIResource(obj interface{}) {
 		return
 	}
 
-	klog.Infof("Mapping NegotiatedAPIResource %s|%s to APIExport %q", clusterName, resource.Name, key)
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), key)
+	logging.WithObject(logger, resource).V(2).Info("queueing APIExport due to NegotiatedAPIResource")
 	c.queue.Add(key)
 }
 
@@ -162,8 +164,8 @@ func (c *controller) enqueueAPIExport(obj interface{}) {
 		return
 	}
 
-	klog.Infof("Enqueueing APIExport %q", key)
-
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), key)
+	logger.V(2).Info("queueing APIExport")
 	c.queue.Add(key)
 }
 
@@ -172,8 +174,10 @@ func (c *controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	klog.Infof("Starting %s controller", controllerName)
-	defer klog.Infof("Shutting down %s controller", controllerName)
+	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
+	ctx = klog.NewContext(ctx, logger)
+	logger.Info("Starting controller")
+	defer logger.Info("Shutting down controller")
 
 	for i := 0; i < numThreads; i++ {
 		go wait.UntilWithContext(ctx, c.startWorker, time.Second)
@@ -194,6 +198,10 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 		return false
 	}
 	key := k.(string)
+
+	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
+	ctx = klog.NewContext(ctx, logger)
+	logger.V(1).Info("processing key")
 
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.
@@ -217,6 +225,9 @@ func (c *controller) process(ctx context.Context, key string) error {
 		return err
 	}
 	obj = obj.DeepCopy()
+
+	logger := logging.WithObject(klog.FromContext(ctx), obj)
+	ctx = klog.NewContext(ctx, logger)
 
 	if err := c.reconcile(ctx, obj); err != nil {
 		return err

@@ -17,6 +17,7 @@ limitations under the License.
 package ingresssplitter
 
 import (
+	"context"
 	"sync"
 
 	corev1 "k8s.io/api/core/v1"
@@ -24,6 +25,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	k8scache "k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
+
+	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 // tracker is used to track the relationship between services and ingresses.
@@ -57,21 +60,22 @@ func (t *tracker) getIngressesForService(key string) sets.String {
 }
 
 // Adds a service to an ingress (key) to be tracked.
-func (t *tracker) add(ingress *networkingv1.Ingress, s *corev1.Service) {
+func (t *tracker) add(ctx context.Context, ingress *networkingv1.Ingress, s *corev1.Service) {
+	logger := logging.WithObject(klog.FromContext(ctx), s)
 	t.lock.Lock()
 	defer t.lock.Unlock()
 
-	klog.Infof("tracking service %q for ingress %q", s.Name, ingress.Name)
+	logger.Info("tracking Service")
 
 	ingressKey, err := k8scache.MetaNamespaceKeyFunc(ingress)
 	if err != nil {
-		klog.Errorf("Failed to get ingress key: %v", err)
+		logger.Error(err, "failed to get Ingress key")
 		return
 	}
 
 	serviceKey, err := k8scache.MetaNamespaceKeyFunc(s)
 	if err != nil {
-		klog.Errorf("Failed to get service key: %v", err)
+		logger.Error(err, "failed to get Service key")
 		return
 	}
 

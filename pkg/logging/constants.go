@@ -65,7 +65,7 @@ func WithObject(logger logr.Logger, obj Object) logr.Logger {
 	return logger.WithValues(From(obj)...)
 }
 
-// From provides the structured logging fields that identify an object.
+// From provides the structured logging fields that identify an object, prefixing with the resource name.
 func From(obj Object) []interface{} {
 	gvk := obj.GetObjectKind().GroupVersionKind()
 	kind := gvk.Kind
@@ -73,6 +73,12 @@ func From(obj Object) []interface{} {
 		kind = fmt.Sprintf("%T", obj)
 	}
 	prefix := strings.ToLower(kind)
+	return FromPrefix(prefix, obj)
+}
+
+// FromPrefix provides the structured logging fields that identify an object, allowing any prefix.
+func FromPrefix(prefix string, obj Object) []interface{} {
+	gvk := obj.GetObjectKind().GroupVersionKind()
 	return []interface{}{
 		prefix + "." + WorkspaceKey,
 		logicalcluster.From(obj).String(),
