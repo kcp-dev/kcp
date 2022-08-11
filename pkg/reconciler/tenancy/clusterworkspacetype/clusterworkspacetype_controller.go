@@ -127,18 +127,13 @@ func (c *controller) enqueueClusterWorkspaceType(obj interface{}) {
 }
 
 func (c *controller) enqueueAllClusterWorkspaceTypes(clusterWorkspaceShard interface{}) {
-	clusterWorkspaceShardKey, err := cache.DeletionHandlingMetaNamespaceKeyFunc(clusterWorkspaceShard)
-	if err != nil {
-		runtime.HandleError(err)
-		return
-	}
-
 	list, err := c.clusterWorkspaceTypeLister.List(labels.Everything())
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
+	logger := logging.WithObject(logging.WithReconciler(klog.Background(), controllerName), clusterWorkspaceShard.(*tenancyv1alpha1.ClusterWorkspaceShard))
 	for i := range list {
 		key, err := cache.MetaNamespaceKeyFunc(list[i])
 		if err != nil {
@@ -146,8 +141,7 @@ func (c *controller) enqueueAllClusterWorkspaceTypes(clusterWorkspaceShard inter
 			continue
 		}
 
-		logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), key)
-		logger.WithValues("clusterWorkspaceShardKey", clusterWorkspaceShardKey).V(2).Info("queuing ClusterWorkspaceType because ClusterWorkspaceShard changed")
+		logging.WithQueueKey(logger, key).V(2).Info("queuing ClusterWorkspaceType because ClusterWorkspaceShard changed")
 
 		c.queue.Add(key)
 	}

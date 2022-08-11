@@ -269,8 +269,8 @@ func (c *controller) enqueueAPIExport(obj interface{}, logger logr.Logger, logSu
 		return
 	}
 
-	for _, obj := range bindingsForExport {
-		c.enqueueAPIBinding(obj, logger.WithValues("APIExport", key), fmt.Sprintf(" because of APIExport%s", logSuffix))
+	for _, binding := range bindingsForExport {
+		c.enqueueAPIBinding(binding, logging.WithObject(logger, obj.(*apisv1alpha1.APIExport)), fmt.Sprintf(" because of APIExport%s", logSuffix))
 	}
 }
 
@@ -326,8 +326,8 @@ func (c *controller) enqueueAPIResourceSchema(obj interface{}, logger logr.Logge
 		}
 	}
 
-	for _, obj := range apiExports {
-		c.enqueueAPIExport(obj, logger.WithValues("APIResourceSchema", key), fmt.Sprintf(" because of APIResourceSchema%s", logSuffix))
+	for _, export := range apiExports {
+		c.enqueueAPIExport(export, logging.WithObject(logger, obj.(*apisv1alpha1.APIResourceSchema)), fmt.Sprintf(" because of APIResourceSchema%s", logSuffix))
 	}
 }
 

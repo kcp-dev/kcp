@@ -28,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
 	virtualworkspacesoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
@@ -110,14 +109,16 @@ func (c *controller) reconcile(ctx context.Context, apiExport *apisv1alpha1.APIE
 }
 
 func (c *controller) ensureSecretNamespaceExists(ctx context.Context, clusterName logicalcluster.Name) {
-	logger := klog.FromContext(ctx).WithValues("Namespace", clusters.ToClusterAwareKey(clusterName, c.secretNamespace))
+	logger := klog.FromContext(ctx)
 	ctx = klog.NewContext(ctx, logger)
 	if _, err := c.getNamespace(clusterName, c.secretNamespace); errors.IsNotFound(err) {
 		ns := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: c.secretNamespace,
+				Name:        c.secretNamespace,
+				Annotations: map[string]string{logicalcluster.AnnotationKey: clusterName.String()},
 			},
 		}
+		logger = logging.WithObject(logger, ns)
 		if err := c.createNamespace(ctx, clusterName, ns); err != nil && !errors.IsAlreadyExists(err) {
 			logger.Error(err, "error creating namespace for APIExport secret identities")
 			// Keep going - maybe things will work. If the secret creation fails, we'll make sure to set a condition.
@@ -130,10 +131,11 @@ func (c *controller) createIdentitySecret(ctx context.Context, clusterName logic
 	if err != nil {
 		return err
 	}
+	secret.Annotations[logicalcluster.AnnotationKey] = clusterName.String()
 
 	logger := logging.WithObject(klog.FromContext(ctx), secret)
 	ctx = klog.NewContext(ctx, logger)
-	klog.V(2).Infof("creating identity secret")
+	logger.V(2).Info("creating identity secret")
 	if err := c.createSecret(ctx, clusterName, secret); err != nil {
 		return err
 	}

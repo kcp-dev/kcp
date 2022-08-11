@@ -29,6 +29,7 @@ import (
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 type gvrDeletionMetadata struct {
@@ -44,6 +45,7 @@ type gvrDeletionMetadataTotal struct {
 }
 
 func (c *Controller) deleteAllCRs(ctx context.Context, apibinding *apisv1alpha1.APIBinding) (gvrDeletionMetadataTotal, error) {
+	logger := logging.WithObject(klog.FromContext(ctx), apibinding)
 	totalResourceRemaining := gvrDeletionMetadataTotal{
 		gvrToNumRemaining:        map[schema.GroupVersionResource]int{},
 		finalizersToNumRemaining: map[string]int{},
@@ -58,6 +60,8 @@ func (c *Controller) deleteAllCRs(ctx context.Context, apibinding *apisv1alpha1.
 				Version:  version,
 			}
 
+			logger = logger.WithValues("gvr", gvr.String())
+			ctx = klog.NewContext(ctx, logger)
 			deletionMetadata, err := c.deleteAllCR(ctx, logicalcluster.From(apibinding), gvr)
 			if err != nil {
 				deleteContentErrs = append(deleteContentErrs, err)
@@ -83,6 +87,7 @@ func (c *Controller) deleteAllCRs(ctx context.Context, apibinding *apisv1alpha1.
 }
 
 func (c *Controller) deleteAllCR(ctx context.Context, clusterName logicalcluster.Name, gvr schema.GroupVersionResource) (gvrDeletionMetadata, error) {
+	logger := klog.FromContext(ctx)
 	partialList, err := c.metadataClient.Resource(gvr).Namespace(metav1.NamespaceAll).List(genericapirequest.WithCluster(ctx, genericapirequest.Cluster{Name: clusterName}), metav1.ListOptions{})
 	if err != nil {
 		return gvrDeletionMetadata{}, err
@@ -129,7 +134,7 @@ func (c *Controller) deleteAllCR(ctx context.Context, clusterName logicalcluster
 		}
 	}
 
-	klog.V(5).Infof("apibinding deletion controller - deleteAllCR - estimate is present - workspace: %s, gvr: %v, finalizers: %v", clusterName, gvr, finalizersToNumRemaining)
+	logger.WithValues("finalizers", finalizersToNumRemaining).V(5).Info("estimate is present")
 	return gvrDeletionMetadata{
 		numRemaining:             len(partialList.Items),
 		finalizersToNumRemaining: finalizersToNumRemaining,

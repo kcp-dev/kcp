@@ -18,6 +18,7 @@ package kubequota
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -26,7 +27,7 @@ import (
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -45,6 +46,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/informer"
+	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 const (
@@ -158,7 +160,8 @@ func (c *Controller) enqueue(obj interface{}) {
 		return
 	}
 
-	klog.V(2).InfoS("Enqueuing ClusterWorkspace", "key", key)
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), key)
+	logger.V(2).Info("queueing ClusterWorkspace")
 	c.queue.Add(key)
 }
 
@@ -167,11 +170,13 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	klog.Infof("Starting %s controller", controllerName)
-	defer klog.Infof("Shutting down %s controller", controllerName)
+	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
+	ctx = klog.NewContext(ctx, logger)
+	logger.Info("Starting controller")
+	defer logger.Info("Shutting down controller")
 
 	if !cache.WaitForCacheSync(ctx.Done(), c.crdsSynced) {
-		klog.Errorf("Error waiting for CRD informer to sync")
+		logger.Error(errors.New("CRD informer never synced"), "error waiting for informers to sync")
 		return
 	}
 
@@ -197,6 +202,10 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	}
 	key := raw.(string)
 
+	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
+	ctx = klog.NewContext(ctx, logger)
+	logger.V(1).Info("processing key")
+
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.
 	defer c.queue.Done(key)
@@ -214,16 +223,18 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 
 // process processes a single key from the queue.
 func (c *Controller) process(ctx context.Context, key string) error {
+	logger := klog.FromContext(ctx)
 	// e.g. root:org<separator>ws
 	parent, name := clusters.SplitClusterAwareKey(key)
 
 	// turn it into root:org:ws
 	clusterName := parent.Join(name)
+	logger = logger.WithValues("logicalCluster", clusterName.String())
 
-	_, err := c.getClusterWorkspace(key)
+	ws, err := c.getClusterWorkspace(key)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			klog.V(2).InfoS("ClusterWorkspace not found - stopping quota controller for it (if needed)", "clusterName", clusterName)
+		if kerrors.IsNotFound(err) {
+			logger.V(2).Info("ClusterWorkspace not found - stopping quota controller for it (if needed)")
 
 			c.lock.Lock()
 			cancel, ok := c.cancelFuncs[clusterName]
@@ -240,19 +251,21 @@ func (c *Controller) process(ctx context.Context, key string) error {
 
 		return err
 	}
+	logger = logging.WithObject(logger, ws)
 
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
 	_, found := c.cancelFuncs[clusterName]
 	if found {
-		klog.V(4).InfoS("Quota controller already exists", "clusterName", clusterName)
+		logger.V(4).Info("quota controller already exists")
 		return nil
 	}
 
-	klog.V(2).InfoS("Starting quota controller", "clusterName", clusterName)
+	logger.V(2).Info("starting quota controller")
 
 	ctx, cancel := context.WithCancel(ctx)
+	ctx = klog.NewContext(ctx, logger)
 	c.cancelFuncs[clusterName] = cancel
 
 	if err := c.startQuotaForClusterWorkspace(ctx, clusterName); err != nil {
@@ -264,6 +277,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 }
 
 func (c *Controller) startQuotaForClusterWorkspace(ctx context.Context, clusterName logicalcluster.Name) error {
+	logger := klog.FromContext(ctx)
 	resourceQuotaControllerClient := c.kubeClusterClient.Cluster(clusterName)
 
 	// TODO(ncdc): find a way to support the default configuration. For now, don't use it, because it is difficult
@@ -319,7 +333,7 @@ func (c *Controller) startQuotaForClusterWorkspace(ctx context.Context, clusterN
 					discoveryCancel()
 				}
 
-				klog.V(4).Infof("%s: got API change notification", clusterName)
+				logger.V(4).Info("got API change notification")
 
 				ctx, discoveryCancel = context.WithCancel(ctx)
 				resourceQuotaController.UpdateMonitors(ctx, c.dynamicDiscoverySharedInformerFactory.DiscoveryData)

@@ -242,6 +242,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *Controller) patchIfNeeded(ctx context.Context, old, obj *tenancyv1alpha1.ClusterWorkspace) error {
+	logger := klog.FromContext(ctx)
 	specOrObjectMetaChanged := !equality.Semantic.DeepEqual(old.Spec, obj.Spec) || !equality.Semantic.DeepEqual(old.ObjectMeta, obj.ObjectMeta)
 	statusChanged := !equality.Semantic.DeepEqual(old.Status, obj.Status)
 
@@ -293,7 +294,7 @@ func (c *Controller) patchIfNeeded(ctx context.Context, old, obj *tenancyv1alpha
 		subresources = []string{"status"}
 	}
 
-	klog.V(2).Infof("Patching clusterworkspace %s|%s: %s", clusterName, name, string(patchBytes))
+	logger.WithValues("patch", string(patchBytes)).V(2).Info("patching ClusterWorkspace")
 	_, err = c.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Patch(logicalcluster.WithCluster(ctx, clusterName), obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, subresources...)
 	if err != nil {
 		return fmt.Errorf("failed to patch ClusterWorkspace %s|%s: %w", clusterName, name, err)

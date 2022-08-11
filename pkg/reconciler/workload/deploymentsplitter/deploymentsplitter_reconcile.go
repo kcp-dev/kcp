@@ -31,6 +31,7 @@ import (
 	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
@@ -39,7 +40,8 @@ const (
 )
 
 func (c *Controller) reconcile(ctx context.Context, deployment *appsv1.Deployment) error {
-	klog.Infof("reconciling deployment %q", deployment.Name)
+	logger := klog.FromContext(ctx)
+	logger.Info("reconciling Deployment")
 
 	//nolint:staticcheck
 	if deployment.Labels == nil || shared.DeprecatedGetAssignedSyncTarget(deployment.Labels) == "" {
@@ -130,6 +132,7 @@ func (c *Controller) reconcile(ctx context.Context, deployment *appsv1.Deploymen
 }
 
 func (c *Controller) createLeafs(ctx context.Context, root *appsv1.Deployment) error {
+	logger := klog.FromContext(ctx)
 	cls, err := c.clusterLister.List(labels.Everything())
 	if err != nil {
 		return err
@@ -180,7 +183,7 @@ func (c *Controller) createLeafs(ctx context.Context, root *appsv1.Deployment) e
 		if _, err := c.kubeClient.AppsV1().Deployments(root.Namespace).Create(ctx, vd, metav1.CreateOptions{}); err != nil {
 			return err
 		}
-		klog.Infof("created child deployment %q", vd.Name)
+		logger.WithValues(logging.FromPrefix("child", vd)).Info("created child Deployment")
 	}
 
 	return nil
