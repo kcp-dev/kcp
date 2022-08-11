@@ -26,6 +26,8 @@ import (
 	"testing"
 	"time"
 
+	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
+	kcpdynamic "github.com/kcp-dev/apimachinery/pkg/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
@@ -37,7 +39,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/dynamic"
 	kubernetesclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -63,15 +64,15 @@ func TestWatchCacheEnabledForCRD(t *testing.T) {
 	cowBoysGR := metav1.GroupResource{Group: "wildwest.dev", Resource: "cowboys"}
 
 	t.Log("Creating wildwest.dev CRD")
-	apiExtensionsClients, err := apiextensionsclient.NewClusterForConfig(rootShardConfig)
+	rootCRDClusterClient, err := apiextensionsclient.NewForConfig(rootShardConfig)
 	require.NoError(t, err)
-	crdClient := apiExtensionsClients.Cluster(cluster).ApiextensionsV1().CustomResourceDefinitions()
+	rootShardCRDWildcardClient := rootCRDClusterClient.ApiextensionsV1().CustomResourceDefinitions()
 
 	t.Log("Creating wildwest.dev.cowboys CR")
-	wildwest.Create(t, logicalcluster.Name{}, crdClient, cowBoysGR)
-	wildwestClusterClient, err := wildwestclientset.NewClusterForConfig(rootShardConfig)
+	wildwest.Create(t, cluster, rootShardCRDWildcardClient, cowBoysGR)
+	wildwestClusterClient, err := wildwestclientset.NewForConfig(rootShardConfig)
 	require.NoError(t, err)
-	_, err = wildwestClusterClient.Cluster(cluster).WildwestV1alpha1().Cowboys("default").Create(ctx, &wildwestv1alpha1.Cowboy{
+	_, err = wildwestClusterClient.WildwestV1alpha1().Cowboys("default").Create(logicalcluster.WithCluster(ctx, cluster), &wildwestv1alpha1.Cowboy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "efficientluke",
 		},
@@ -82,7 +83,7 @@ func TestWatchCacheEnabledForCRD(t *testing.T) {
 	require.NoError(t, err)
 	t.Logf("Waiting until the watch cache is primed for %v for cluster %v", cowBoysGR, cluster)
 	assertWatchCacheIsPrimed(t, func() error {
-		res, err := wildwestClusterClient.Cluster(cluster).WildwestV1alpha1().Cowboys("default").List(ctx, metav1.ListOptions{ResourceVersion: "0"})
+		res, err := wildwestClusterClient.WildwestV1alpha1().Cowboys("default").List(logicalcluster.WithCluster(ctx, cluster), metav1.ListOptions{ResourceVersion: "0"})
 		if err != nil {
 			return err
 		}
@@ -94,7 +95,7 @@ func TestWatchCacheEnabledForCRD(t *testing.T) {
 
 	t.Log("Getting wildwest.dev.cowboys 10 times from the watch cache")
 	for i := 0; i < 10; i++ {
-		res, err := wildwestClusterClient.Cluster(cluster).WildwestV1alpha1().Cowboys("default").List(ctx, metav1.ListOptions{ResourceVersion: "0"})
+		res, err := wildwestClusterClient.WildwestV1alpha1().Cowboys("default").List(logicalcluster.WithCluster(ctx, cluster), metav1.ListOptions{ResourceVersion: "0"})
 		require.NoError(t, err)
 		require.Equal(t, 1, len(res.Items), "expected to get exactly one cowboy")
 	}
@@ -118,7 +119,7 @@ func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
 	rootShardConfig := server.RootShardSystemMasterBaseConfig(t)
 	kcpClusterClient, err := kcpclientset.NewForConfig(rootShardConfig)
 	require.NoError(t, err)
-	dynamicClusterClient, err := dynamic.NewClusterForConfig(rootShardConfig)
+	dynamicClusterClient, err := kcpdynamic.NewClusterDynamicClientForConfig(rootShardConfig)
 	require.NoError(t, err)
 
 	org := framework.NewOrganizationFixture(t, server)
@@ -166,20 +167,19 @@ func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	rootShardConfig := server.RootShardSystemMasterBaseConfig(t)
-	kubeClusterClient, err := kubernetesclientset.NewClusterForConfig(rootShardConfig)
+	kubeClusterClient, err := kubernetesclientset.NewForConfig(rootShardConfig)
 	require.NoError(t, err)
 	secretsGR := metav1.GroupResource{Group: "", Resource: "secrets"}
 
 	org := framework.NewOrganizationFixture(t, server)
 	cluster := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
-	kubeClient := kubeClusterClient.Cluster(cluster)
 
 	t.Logf("Creating a secret in the default namespace for %q cluster", cluster)
-	_, err = kubeClient.CoreV1().Secrets("default").Create(ctx, &v1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "topsecret"}}, metav1.CreateOptions{})
+	_, err = kubeClusterClient.CoreV1().Secrets("default").Create(logicalcluster.WithCluster(ctx, cluster), &v1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "topsecret"}}, metav1.CreateOptions{})
 	require.NoError(t, err)
 	t.Logf("Waiting until the watch cache is primed for %v for cluster %v", secretsGR, cluster)
 	assertWatchCacheIsPrimed(t, func() error {
-		res, err := kubeClient.CoreV1().Secrets("default").List(ctx, metav1.ListOptions{ResourceVersion: "0"})
+		res, err := kubeClusterClient.CoreV1().Secrets("default").List(logicalcluster.WithCluster(ctx, cluster), metav1.ListOptions{ResourceVersion: "0"})
 		if err != nil {
 			return err
 		}
@@ -192,7 +192,7 @@ func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
 	// since secrets might be common resources to LIST, try to get them an odd number of times
 	t.Logf("Getting core.secret 115 times from the watch cache for %q cluster", cluster)
 	for i := 0; i < 115; i++ {
-		res, err := kubeClient.CoreV1().Secrets("default").List(ctx, metav1.ListOptions{ResourceVersion: "0"})
+		res, err := kubeClusterClient.CoreV1().Secrets("default").List(logicalcluster.WithCluster(ctx, cluster), metav1.ListOptions{ResourceVersion: "0"})
 		require.NoError(t, err)
 		require.GreaterOrEqual(t, len(res.Items), 1, "expected to get at least one secret")
 
@@ -249,11 +249,12 @@ func collectCacheHitsFor(ctx context.Context, t *testing.T, rootCfg *rest.Config
 const byWorkspace = "byWorkspace"
 
 func testDynamicDiscoverySharedInformerFactory(ctx context.Context, t *testing.T, rootShardConfig *rest.Config, expectedGVR schema.GroupVersionResource, expectedResName string, expectedClusterName logicalcluster.Name) {
-	crdClusterClient, err := apiextensionsclient.NewClusterForConfig(rootShardConfig)
+	rootShardWildcardConfig := kcpclienthelper.ConfigWithCluster(rootShardConfig, logicalcluster.Wildcard)
+	rootShardCRDWildcardClient, err := apiextensionsclient.NewForConfig(rootShardWildcardConfig)
 	require.NoError(t, err, "failed to construct apiextensions client")
 
 	apiExtensionsInformerFactory := apiextensionsexternalversions.NewSharedInformerFactoryWithOptions(
-		crdClusterClient.Cluster(logicalcluster.Wildcard),
+		rootShardCRDWildcardClient,
 		0,
 	)
 

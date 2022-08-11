@@ -98,7 +98,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 
 	sourceConfig := source.BaseConfig(t)
 
-	sourceKcpClusterClient, err := kcpclient.NewClusterForConfig(sourceConfig)
+	sourceKcpClusterClient, err := kcpclient.NewForConfig(sourceConfig)
 	require.NoError(t, err)
 
 	kubeClusterClient, err := kubernetes.NewForConfig(sourceConfig)
@@ -109,7 +109,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	// Create a Workspace that will not be Initializing and should not be shown in the virtual workspace
 	framework.NewWorkspaceFixture(t, source, clusterName)
 
-	sourceKcpTenancyClient := sourceKcpClusterClient.Cluster(clusterName).TenancyV1alpha1()
+	sourceKcpTenancyClusterClient := sourceKcpClusterClient.TenancyV1alpha1()
 
 	testLabelSelector := map[string]string{
 		"internal.kcp.dev/e2e-test": t.Name(),
@@ -150,7 +150,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		"beta",
 		"gamma",
 	} {
-		cwt, err := sourceKcpTenancyClient.ClusterWorkspaceTypes().Create(ctx, &tenancyv1alpha1.ClusterWorkspaceType{
+		cwt, err := sourceKcpTenancyClusterClient.ClusterWorkspaceTypes().Create(logicalcluster.WithCluster(ctx, clusterName), &tenancyv1alpha1.ClusterWorkspaceType{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: clusterWorkspaceTypeNames[name],
 			},
@@ -161,7 +161,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		}, metav1.CreateOptions{})
 		require.NoError(t, err)
 		source.Artifact(t, func() (runtime.Object, error) {
-			return sourceKcpTenancyClient.ClusterWorkspaceTypes().Get(ctx, cwt.Name, metav1.GetOptions{})
+			return sourceKcpTenancyClusterClient.ClusterWorkspaceTypes().Get(logicalcluster.WithCluster(ctx, clusterName), cwt.Name, metav1.GetOptions{})
 		})
 		clusterWorkspaceTypes[name] = cwt
 	}
@@ -174,7 +174,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	} {
 		cwtName := clusterWorkspaceTypes[name].Name
 		framework.EventuallyReady(t, func() (conditions.Getter, error) {
-			return sourceKcpTenancyClient.ClusterWorkspaceTypes().Get(ctx, cwtName, metav1.GetOptions{})
+			return sourceKcpTenancyClusterClient.ClusterWorkspaceTypes().Get(logicalcluster.WithCluster(ctx, clusterName), cwtName, metav1.GetOptions{})
 		}, "could not wait for readiness on ClusterWorkspaceType %s|%s", clusterName.String(), cwtName)
 	}
 
@@ -186,17 +186,17 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	} {
 		var ws *tenancyv1alpha1.ClusterWorkspace
 		require.Eventually(t, func() bool {
-			ws, err = sourceKcpTenancyClient.ClusterWorkspaces().Create(ctx, workspaceForType(clusterWorkspaceTypes[workspaceType], testLabelSelector), metav1.CreateOptions{})
+			ws, err = sourceKcpTenancyClusterClient.ClusterWorkspaces().Create(logicalcluster.WithCluster(ctx, clusterName), workspaceForType(clusterWorkspaceTypes[workspaceType], testLabelSelector), metav1.CreateOptions{})
 			return err == nil
 		}, wait.ForeverTestTimeout, time.Millisecond*100)
 		source.Artifact(t, func() (runtime.Object, error) {
-			return sourceKcpTenancyClient.ClusterWorkspaces().Get(ctx, ws.Name, metav1.GetOptions{})
+			return sourceKcpTenancyClusterClient.ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, clusterName), ws.Name, metav1.GetOptions{})
 		})
 	}
 
 	t.Log("Wait for workspaces to get stuck in initializing")
 	require.Eventually(t, func() bool {
-		workspaces, err := sourceKcpTenancyClient.ClusterWorkspaces().List(ctx, metav1.ListOptions{
+		workspaces, err := sourceKcpTenancyClusterClient.ClusterWorkspaces().List(logicalcluster.WithCluster(ctx, clusterName), metav1.ListOptions{
 			LabelSelector: labels.SelectorFromSet(testLabelSelector).String(),
 		})
 		if err != nil {
@@ -218,7 +218,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	} {
 		var cwt *tenancyv1alpha1.ClusterWorkspaceType
 		require.Eventually(t, func() bool {
-			cwt, err = sourceKcpTenancyClient.ClusterWorkspaceTypes().Get(ctx, clusterWorkspaceTypes[initializer].Name, metav1.GetOptions{})
+			cwt, err = sourceKcpTenancyClusterClient.ClusterWorkspaceTypes().Get(logicalcluster.WithCluster(ctx, clusterName), clusterWorkspaceTypes[initializer].Name, metav1.GetOptions{})
 			require.NoError(t, err)
 			if len(cwt.Status.VirtualWorkspaces) == 0 {
 				t.Logf("cluster workspace type %q|%q does not have virtual workspace URLs published yet", logicalcluster.From(cwt), cwt.Name)
@@ -230,9 +230,9 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	}
 
 	t.Log("Create clients through the virtual workspace")
-	adminVwKcpClusterClients := map[string]*kcpclient.Cluster{}
-	user1VwKcpClusterClients := map[string]*kcpclient.Cluster{}
-	user1VwKubeClusterClients := map[string]*kubernetes.Cluster{}
+	adminVwKcpClusterClients := map[string]kcpclient.Interface{}
+	user1VwKcpClusterClients := map[string]kcpclient.Interface{}
+	user1VwKubeClusterClients := map[string]kubernetes.Interface{}
 	for _, initializer := range []string{
 		"alpha",
 		"beta",
@@ -240,14 +240,14 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	} {
 		virtualWorkspaceConfig := rest.AddUserAgent(rest.CopyConfig(sourceConfig), t.Name()+"-virtual")
 		virtualWorkspaceConfig.Host = clusterWorkspaceTypes[initializer].Status.VirtualWorkspaces[0].URL
-		virtualKcpClusterClient, err := kcpclient.NewClusterForConfig(framework.UserConfig("user-1", virtualWorkspaceConfig))
+		virtualKcpClusterClient, err := kcpclient.NewForConfig(framework.UserConfig("user-1", virtualWorkspaceConfig))
 		require.NoError(t, err)
-		virtualKubeClusterClient, err := kubernetes.NewClusterForConfig(framework.UserConfig("user-1", virtualWorkspaceConfig))
+		virtualKubeClusterClient, err := kubernetes.NewForConfig(framework.UserConfig("user-1", virtualWorkspaceConfig))
 		require.NoError(t, err)
 		user1VwKcpClusterClients[initializer] = virtualKcpClusterClient
 		user1VwKubeClusterClients[initializer] = virtualKubeClusterClient
 
-		adminVirtualKcpClusterClient, err := kcpclient.NewClusterForConfig(virtualWorkspaceConfig)
+		adminVirtualKcpClusterClient, err := kcpclient.NewForConfig(virtualWorkspaceConfig)
 		require.NoError(t, err)
 		adminVwKcpClusterClients[initializer] = adminVirtualKcpClusterClient
 	}
@@ -259,7 +259,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		"gamma",
 	} {
 		framework.Eventually(t, func() (bool, string) {
-			_, err := adminVwKcpClusterClients[initializer].Cluster(logicalcluster.Wildcard).TenancyV1alpha1().ClusterWorkspaces().List(ctx, metav1.ListOptions{})
+			_, err := adminVwKcpClusterClients[initializer].TenancyV1alpha1().ClusterWorkspaces().List(logicalcluster.WithCluster(ctx, logicalcluster.Wildcard), metav1.ListOptions{})
 			return err == nil, fmt.Sprintf("%v", err)
 		}, wait.ForeverTestTimeout, 100*time.Millisecond)
 	}
@@ -270,7 +270,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		"beta",
 		"gamma",
 	} {
-		_, err := user1VwKcpClusterClients[initializer].Cluster(logicalcluster.Wildcard).TenancyV1alpha1().ClusterWorkspaces().List(ctx, metav1.ListOptions{})
+		_, err := user1VwKcpClusterClients[initializer].TenancyV1alpha1().ClusterWorkspaces().List(logicalcluster.WithCluster(ctx, logicalcluster.Wildcard), metav1.ListOptions{})
 		if !errors.IsForbidden(err) {
 			t.Fatalf("got %#v error from initial list, expected unauthorized", err)
 		}
@@ -324,7 +324,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	t.Log("Ensure that LIST calls through the virtual workspace eventually show the correct values")
 	var workspaces *tenancyv1alpha1.ClusterWorkspaceList
 	require.Eventually(t, func() bool {
-		workspaces, err = sourceKcpTenancyClient.ClusterWorkspaces().List(ctx, metav1.ListOptions{
+		workspaces, err = sourceKcpTenancyClusterClient.ClusterWorkspaces().List(logicalcluster.WithCluster(ctx, clusterName), metav1.ListOptions{
 			LabelSelector: labels.SelectorFromSet(testLabelSelector).String(),
 		})
 		require.True(t, err == nil || errors.IsForbidden(err), "got %#v error from initial list, expected unauthorized or success", err)
@@ -345,7 +345,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		})
 		var actual *tenancyv1alpha1.ClusterWorkspaceList
 		require.Eventually(t, func() bool {
-			actual, err = user1VwKcpClusterClients[initializer].Cluster(logicalcluster.Wildcard).TenancyV1alpha1().ClusterWorkspaces().List(ctx, metav1.ListOptions{}) // no list options, all filtering is implicit
+			actual, err = user1VwKcpClusterClients[initializer].TenancyV1alpha1().ClusterWorkspaces().List(logicalcluster.WithCluster(ctx, logicalcluster.Wildcard), metav1.ListOptions{}) // no list options, all filtering is implicit
 			if err != nil && !errors.IsForbidden(err) {
 				require.NoError(t, err)
 			}
@@ -364,7 +364,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		"beta",
 		"gamma",
 	} {
-		watcher, err := user1VwKcpClusterClients[initializer].Cluster(logicalcluster.Wildcard).TenancyV1alpha1().ClusterWorkspaces().Watch(ctx, metav1.ListOptions{
+		watcher, err := user1VwKcpClusterClients[initializer].TenancyV1alpha1().ClusterWorkspaces().Watch(logicalcluster.WithCluster(ctx, logicalcluster.Wildcard), metav1.ListOptions{
 			ResourceVersion: workspaces.ResourceVersion,
 		})
 		require.NoError(t, err)
@@ -372,13 +372,13 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	}
 
 	t.Log("Adding a new workspace that the watchers should see")
-	ws, err := sourceKcpTenancyClient.ClusterWorkspaces().Create(ctx, workspaceForType(clusterWorkspaceTypes["gamma"], testLabelSelector), metav1.CreateOptions{})
+	ws, err := sourceKcpTenancyClusterClient.ClusterWorkspaces().Create(logicalcluster.WithCluster(ctx, clusterName), workspaceForType(clusterWorkspaceTypes["gamma"], testLabelSelector), metav1.CreateOptions{})
 	require.NoError(t, err)
 	source.Artifact(t, func() (runtime.Object, error) {
-		return sourceKcpTenancyClient.ClusterWorkspaces().Get(ctx, ws.Name, metav1.GetOptions{})
+		return sourceKcpTenancyClusterClient.ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, clusterName), ws.Name, metav1.GetOptions{})
 	})
 	require.Eventually(t, func() bool {
-		workspace, err := sourceKcpTenancyClient.ClusterWorkspaces().Get(ctx, ws.Name, metav1.GetOptions{})
+		workspace, err := sourceKcpTenancyClusterClient.ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, clusterName), ws.Name, metav1.GetOptions{})
 		if err != nil {
 			t.Logf("error listing workspaces: %v", err)
 			return false
@@ -386,7 +386,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		return workspacesStuckInInitializing(t, *workspace)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
-	ws, err = sourceKcpTenancyClient.ClusterWorkspaces().Get(ctx, ws.Name, metav1.GetOptions{})
+	ws, err = sourceKcpTenancyClusterClient.ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, clusterName), ws.Name, metav1.GetOptions{})
 	require.NoError(t, err)
 
 	t.Logf("Waiting for watchers to see the workspace %s", ws.Name)
@@ -414,10 +414,10 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		"beta",
 		"gamma",
 	} {
-		client := user1VwKubeClusterClients[initializer].Cluster(logicalcluster.From(ws).Join(ws.Name)).CoreV1()
+		coreClusterClient := user1VwKubeClusterClients[initializer].CoreV1()
 
 		nsName := "testing"
-		_, err := client.Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nsName}}, metav1.CreateOptions{})
+		_, err := coreClusterClient.Namespaces().Create(logicalcluster.WithCluster(ctx, logicalcluster.From(ws).Join(ws.Name)), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nsName}}, metav1.CreateOptions{})
 		if err != nil && !errors.IsAlreadyExists(err) {
 			require.NoError(t, err)
 		}
@@ -425,11 +425,11 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		labelSelector := map[string]string{
 			"internal.kcp.dev/test-initializer": initializer,
 		}
-		configMaps, err := client.ConfigMaps(nsName).List(ctx, metav1.ListOptions{LabelSelector: labels.SelectorFromSet(labelSelector).String()})
+		configMaps, err := coreClusterClient.ConfigMaps(nsName).List(logicalcluster.WithCluster(ctx, logicalcluster.From(ws).Join(ws.Name)), metav1.ListOptions{LabelSelector: labels.SelectorFromSet(labelSelector).String()})
 		require.NoError(t, err)
 		require.Empty(t, cmp.Diff(configMaps.Items, []corev1.ConfigMap{}))
 
-		configMap, err := client.ConfigMaps(nsName).Create(ctx, &corev1.ConfigMap{
+		configMap, err := coreClusterClient.ConfigMaps(nsName).Create(logicalcluster.WithCluster(ctx, logicalcluster.From(ws).Join(ws.Name)), &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   "whatever" + suffix(),
 				Labels: labelSelector,
@@ -440,19 +440,19 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		}, metav1.CreateOptions{})
 		require.NoError(t, err)
 
-		configMaps, err = client.ConfigMaps(nsName).List(ctx, metav1.ListOptions{LabelSelector: labels.SelectorFromSet(labelSelector).String()})
+		configMaps, err = coreClusterClient.ConfigMaps(nsName).List(logicalcluster.WithCluster(ctx, logicalcluster.From(ws).Join(ws.Name)), metav1.ListOptions{LabelSelector: labels.SelectorFromSet(labelSelector).String()})
 		require.NoError(t, err)
 		require.Empty(t, cmp.Diff(configMaps.Items, []corev1.ConfigMap{*configMap}))
 
 		t.Log("Ensure that the object is visible from outside the virtual workspace")
-		configMaps, err = kubeClusterClient.CoreV1().ConfigMaps(nsName).List(logicalcluster.WithCluster(ctx, logicalcluster.From(ws).Join(ws.Name)), metav1.ListOptions{LabelSelector: labels.SelectorFromSet(labelSelector).String()})
+		configMaps, err = coreClusterClient.ConfigMaps(nsName).List(logicalcluster.WithCluster(ctx, logicalcluster.From(ws).Join(ws.Name)), metav1.ListOptions{LabelSelector: labels.SelectorFromSet(labelSelector).String()})
 		require.NoError(t, err)
 		require.Empty(t, cmp.Diff(configMaps.Items, []corev1.ConfigMap{*configMap}))
 
-		err = client.ConfigMaps(nsName).Delete(ctx, configMap.Name, metav1.DeleteOptions{})
+		err = coreClusterClient.ConfigMaps(nsName).Delete(logicalcluster.WithCluster(ctx, logicalcluster.From(ws).Join(ws.Name)), configMap.Name, metav1.DeleteOptions{})
 		require.NoError(t, err)
 
-		configMaps, err = client.ConfigMaps(nsName).List(ctx, metav1.ListOptions{LabelSelector: labels.SelectorFromSet(labelSelector).String()})
+		configMaps, err = coreClusterClient.ConfigMaps(nsName).List(logicalcluster.WithCluster(ctx, logicalcluster.From(ws).Join(ws.Name)), metav1.ListOptions{LabelSelector: labels.SelectorFromSet(labelSelector).String()})
 		require.NoError(t, err)
 		require.Empty(t, cmp.Diff(configMaps.Items, []corev1.ConfigMap{}))
 	}
@@ -482,15 +482,15 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		"beta",
 		"gamma",
 	} {
-		client := user1VwKcpClusterClients[initializer].Cluster(logicalcluster.From(ws)).TenancyV1alpha1().ClusterWorkspaces()
-		ws, err = client.Get(ctx, ws.Name, metav1.GetOptions{})
+		clusterClient := user1VwKcpClusterClients[initializer].TenancyV1alpha1().ClusterWorkspaces()
+		ws, err = clusterClient.Get(logicalcluster.WithCluster(ctx, logicalcluster.From(ws)), ws.Name, metav1.GetOptions{})
 		require.NoError(t, err)
 
 		t.Log("Attempt to do something more than just removing our initializer, get denied")
 		patchBytes := patchBytesFor(ws, func(workspace *tenancyv1alpha1.ClusterWorkspace) {
 			workspace.Status.Initializers = []tenancyv1alpha1.ClusterWorkspaceInitializer{"wrong"}
 		})
-		_, err = client.Patch(ctx, ws.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+		_, err = clusterClient.Patch(logicalcluster.WithCluster(ctx, logicalcluster.From(ws)), ws.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 		if !errors.IsInvalid(err) {
 			t.Fatalf("got %#v error from patch, expected invalid", err)
 		}
@@ -499,7 +499,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		patchBytes = patchBytesFor(ws, func(workspace *tenancyv1alpha1.ClusterWorkspace) {
 			workspace.Status.Initializers = initialization.EnsureInitializerAbsent(initialization.InitializerForType(clusterWorkspaceTypes[initializer]), workspace.Status.Initializers)
 		})
-		ws, err = client.Patch(ctx, ws.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+		ws, err = clusterClient.Patch(logicalcluster.WithCluster(ctx, logicalcluster.From(ws)), ws.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 		require.NoError(t, err)
 	}
 
@@ -531,8 +531,8 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		"beta",
 		"gamma",
 	} {
-		client := user1VwKubeClusterClients[initializer].Cluster(logicalcluster.From(ws).Join(ws.Name)).CoreV1().ConfigMaps("testing")
-		_, err := client.List(ctx, metav1.ListOptions{})
+		kubeClusterClient := user1VwKubeClusterClients[initializer].CoreV1().ConfigMaps("testing")
+		_, err := kubeClusterClient.List(logicalcluster.WithCluster(ctx, logicalcluster.From(ws).Join(ws.Name)), metav1.ListOptions{})
 		if !errors.IsForbidden(err) {
 			t.Fatalf("got %#v error from initial list, expected unauthorized", err)
 		}
