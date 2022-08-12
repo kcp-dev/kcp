@@ -243,7 +243,7 @@ Thanks! And great! Please check out:
 
 You can also reach us here, in this repository via [issues](https://github.com/kcp-dev/kcp/issues) and [discussions](https://github.com/kcp-dev/kcp/discussions), or:
 
-- Join the [`#kcp-prototype` channel](https://app.slack.com/client/T09NY5SBT/C021U8WSAFK) in the [Kubernetes Slack workspace](https://slack.k8s.io)
+- Join the [`#kcp-dev` channel](https://app.slack.com/client/T09NY5SBT/C021U8WSAFK) in the [Kubernetes Slack workspace](https://slack.k8s.io)
 - Join the mailing lists
     - [kcp-dev](https://groups.google.com/g/kcp-dev) for development discussions
     - [kcp-users](https://groups.google.com/g/kcp-users) for discussions among users and potential users
