@@ -22,6 +22,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-logr/logr"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -35,6 +37,7 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apisinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 )
@@ -78,24 +81,26 @@ func NewAPIReconciler(
 		return nil, err
 	}
 
+	logger := logging.WithReconciler(klog.Background(), ControllerName)
+
 	apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueAPIExport(obj)
+			c.enqueueAPIExport(obj, logger)
 		},
 		UpdateFunc: func(_, obj interface{}) {
-			c.enqueueAPIExport(obj)
+			c.enqueueAPIExport(obj, logger)
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueAPIExport(obj)
+			c.enqueueAPIExport(obj, logger)
 		},
 	})
 
 	apiResourceSchemaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueAPIResourceSchema(obj)
+			c.enqueueAPIResourceSchema(obj, logger)
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueAPIResourceSchema(obj)
+			c.enqueueAPIResourceSchema(obj, logger)
 		},
 	})
 
@@ -121,7 +126,7 @@ type APIReconciler struct {
 	apiSets map[dynamiccontext.APIDomainKey]apidefinition.APIDefinitionSet
 }
 
-func (c *APIReconciler) enqueueAPIResourceSchema(obj interface{}) {
+func (c *APIReconciler) enqueueAPIResourceSchema(obj interface{}, logger logr.Logger) {
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
@@ -143,16 +148,17 @@ func (c *APIReconciler) enqueueAPIResourceSchema(obj interface{}) {
 	for _, obj := range exports {
 		export := obj.(*apisv1alpha1.APIExport)
 		klog.V(2).Infof("Queueing APIExport %s|%s for APIResourceSchema %s", clusterName, export.Name, name)
-		c.enqueueAPIExport(obj)
+		c.enqueueAPIExport(obj, logger.WithValues("reason", "APIResourceSchema change", "apiResourceSchema", name))
 	}
 }
 
-func (c *APIReconciler) enqueueAPIExport(obj interface{}) {
+func (c *APIReconciler) enqueueAPIExport(obj interface{}, logger logr.Logger) {
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
+	logging.WithQueueKey(logger, key).V(2).Info("queueing APIExport")
 	c.queue.Add(key)
 }
 
@@ -165,8 +171,10 @@ func (c *APIReconciler) Start(ctx context.Context) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	klog.Infof("Starting %s controller", ControllerName)
-	defer klog.Infof("Shutting down %s controller", ControllerName)
+	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName)
+	ctx = klog.NewContext(ctx, logger)
+	logger.Info("starting controller")
+	defer logger.Info("shutting down controller")
 
 	go wait.Until(func() { c.startWorker(ctx) }, time.Second, ctx.Done())
 
@@ -196,6 +204,10 @@ func (c *APIReconciler) processNextWorkItem(ctx context.Context) bool {
 	}
 	key := k.(string)
 
+	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
+	ctx = klog.NewContext(ctx, logger)
+	logger.V(1).Info("processing key")
+
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.
 	defer c.queue.Done(key)
@@ -214,11 +226,18 @@ func (c *APIReconciler) process(ctx context.Context, key string) error {
 	clusterName, apiExportName := clusters.SplitClusterAwareKey(key)
 	apiDomainKey := dynamiccontext.APIDomainKey(clusterName.String() + "/" + apiExportName)
 
+	logger := klog.FromContext(ctx).WithValues("apiDomainKey", apiDomainKey)
+
 	apiExport, err := c.apiExportLister.Get(key)
 	if err != nil && !apierrors.IsNotFound(err) {
-		klog.Errorf("failed to get APIExport %s|%s from lister: %v", clusterName, apiExportName, err)
+		logger.Error(err, "error getting APIExport")
 		return nil // nothing we can do here
 	}
+
+	if apiExport != nil {
+		logger = logging.WithObject(logger, apiExport)
+	}
+	ctx = klog.NewContext(ctx, logger)
 
 	return c.reconcile(ctx, apiExport, apiDomainKey)
 }

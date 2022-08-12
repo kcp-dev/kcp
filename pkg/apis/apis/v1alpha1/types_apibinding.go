@@ -65,12 +65,33 @@ type APIBindingSpec struct {
 	// +kubebuilder:validation:Required
 	Reference ExportReference `json:"reference"`
 
-	// acceptedPermissionClaims records the permissions that are granted
-	// to the bound workspace.
-	// Access is granted on a GroupResource basis and can be filtered on objects by many different selectors.
+	// permissionClaims records decisions about permission claims requested by the API service provider.
+	// Individual claims can be accepted or rejected. If accepted, the API service provider gets the
+	// requested access to the specified resources in this workspace. Access is granted per
+	// GroupResource, identity, and other properties.
+	//
 	// +optional
-	AcceptedPermissionClaims []PermissionClaim `json:"acceptedPermissionClaims,omitempty"`
+	PermissionClaims []AcceptablePermissionClaim `json:"permissionClaims,omitempty"`
 }
+
+// AcceptablePermissionClaim is a PermissionClaim that records if the user accepts or rejects it.
+type AcceptablePermissionClaim struct {
+	PermissionClaim `json:",inline"`
+
+	// state indicates if the claim is accepted or rejected.
+
+	// +required
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Enum=Accepted;Rejected
+	State AcceptablePermissionClaimState `json:"state"`
+}
+
+type AcceptablePermissionClaimState string
+
+const (
+	ClaimAccepted AcceptablePermissionClaimState = "Accepted"
+	ClaimRejected AcceptablePermissionClaimState = "Rejected"
+)
 
 // ExportReference describes a reference to an APIExport. Exactly one of the
 // fields must be set.
@@ -143,12 +164,12 @@ type APIBindingStatus struct {
 	// +optional
 	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 
-	// observedAcceptedPermissionClaims records the permissions that the export provider is granted
-	// to the bound workspace. This is granted by binding implictily to an export that contains
-	// permissionClaims.
-	// Access is granted on a GroupResource basis and can be filtered on objects by many different selectors.
+	// appliedPermissionClaims is a list of the permission claims the system has seen and applied,
+	// according to the requests of the API service provider in the APIExport and the acceptance
+	// state in spec.permissionClaims.
+	//
 	// +optional
-	ObservedAcceptedPermissionClaims []PermissionClaim `json:"ObservedAcceptedPermissionClaims,omitempty"`
+	AppliedPermissionClaims []PermissionClaim `json:"appliedPermissionClaims,omitempty"`
 }
 
 // These are valid conditions of APIBinding.
@@ -187,14 +208,16 @@ const (
 	// successfully when the APIBinding is deleting
 	BindingResourceDeleteSuccess conditionsv1alpha1.ConditionType = "BindingResourceDeleteSuccess"
 
-	// PermissionClaimsAccepted is a condition for APIBinding that indicates that the permission claims were fully accepted or not.
-	PermissionClaimsAccepted conditionsv1alpha1.ConditionType = "PermissionClaimAccepted"
+	// PermissionClaimsValid is a condition for APIBinding that indicates that the permission claims were valid or not.
+	PermissionClaimsValid conditionsv1alpha1.ConditionType = "PermissionClaimsValid"
 
-	// IdentityMismatchClaimInvalidReason is used one or more claims have an identity mismatch, between what is bound and what is accepted.
-	IdentityMismatchClaimInvalidReason = "ClaimIdentityMismatch"
+	// InvalidPermissionClaimsReason indicates there were unexpected and/or invalid permission claims (e.g. due to
+	// identity mismatch).
+	InvalidPermissionClaimsReason = "InvalidPermissionClaims"
 
-	// UnknownPermissionClaimInvalidReason  is used when no idenitty mismatches exist, but we are unable to update the resources.
-	UnknownPermissionClaimInvalidReason = "Unknown"
+	// PermissionClaimsApplied is a condition for APIBinding that indicates that all the accepted permission claims
+	// have been applied.
+	PermissionClaimsApplied conditionsv1alpha1.ConditionType = "PermissionClaimsApplied"
 )
 
 // These are annotations for bound CRDs

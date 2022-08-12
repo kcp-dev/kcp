@@ -52,20 +52,22 @@ import (
 )
 
 func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.APIExport, apiDomainKey dynamiccontext.APIDomainKey) error {
+	logger := klog.FromContext(ctx)
+
 	if apiExport == nil || apiExport.Status.IdentityHash == "" {
 		c.mutex.RLock()
 		_, found := c.apiSets[apiDomainKey]
 		c.mutex.RUnlock()
 
 		if !found {
-			klog.V(3).Infof("No APIs found for API domain key %s", apiDomainKey)
+			logger.V(3).Info("no APIs found for API domain key")
 			return nil
 		}
 
 		// remove the APIDomain
 		c.mutex.Lock()
 		defer c.mutex.Unlock()
-		klog.V(2).Infof("Deleting APIs for API domain key %s", apiDomainKey)
+		logger.V(2).Info("deleting APIs for API domain key")
 		delete(c.apiSets, apiDomainKey)
 		return nil
 	}
@@ -84,18 +86,20 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 		identities[gr] = apiExport.Status.IdentityHash
 	}
 
+	clusterName := logicalcluster.From(apiExport)
+
 	// Find schemas for claimed resources
 	claims := map[schema.GroupResource]*apisv1alpha1.PermissionClaim{}
 	for i := range apiExport.Spec.PermissionClaims {
 		pc := &apiExport.Spec.PermissionClaims[i]
 
-		// APIExport resource trump over claims.
+		// APIExport resources have priority over claimed resources
 		gr := schema.GroupResource{Group: pc.Group, Resource: pc.Resource}
 		if _, found := apiResourceSchemas[gr]; found {
 			if otherClaim, found := claims[gr]; found {
-				klog.Warningf("Permission claim %v for APIExport %s|%s is shadowed by %v", pc, logicalcluster.From(apiExport), apiExport.Name, otherClaim)
+				logger.Info("permission claim is shadowed by another claim", "claim", pc, "otherClaim", otherClaim)
 			} else {
-				klog.Warningf("Permission claim %v for APIExport %s|%s is shadowed exported resource", pc, logicalcluster.From(apiExport), apiExport.Name)
+				logger.Info("permission claim is shadowed by exported resource", "claim", pc)
 			}
 			continue
 		}
@@ -107,12 +111,13 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 			if shallow.Annotations == nil {
 				shallow.Annotations = make(map[string]string)
 			}
-			shallow.Annotations[logicalcluster.AnnotationKey] = logicalcluster.From(apiExport).String()
+			shallow.Annotations[logicalcluster.AnnotationKey] = clusterName.String()
 			apiResourceSchemas[gr] = &shallow
+			claims[gr] = pc
 			continue
 		} else if pc.IdentityHash == "" {
 			// TODO: add validation through admission to avoid this case
-			klog.Warningf("Permission claim %v for APIExport %s|%s is not internal and does not have an identity hash", pc, logicalcluster.From(apiExport), apiExport.Name)
+			logger.Info("permission claim is not internal and does not have an identity hash", "claim", pc)
 			continue
 		}
 
@@ -177,7 +182,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 
 			var labelReqs labels.Requirements
 			if c := claims[gvr.GroupResource()]; c != nil {
-				key, label, err := permissionclaims.ToLabelKeyAndValue(*c)
+				key, label, err := permissionclaims.ToLabelKeyAndValue(clusterName, apiExport.Name, *c)
 				if err != nil {
 					return fmt.Errorf(fmt.Sprintf("failed to convert permission claim %v to label key and value: %v", c, err))
 				}
@@ -185,14 +190,15 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 				var selectable bool
 				labelReqs, selectable = selector.Requirements()
 				if !selectable {
-					return fmt.Errorf("permission claim %v for APIExport %s|%s is not selectable", c, logicalcluster.From(apiExport), apiExport.Name)
+					return fmt.Errorf("permission claim %v for APIExport %s|%s is not selectable", c, clusterName, apiExport.Name)
 				}
 			}
 
+			logger.V(4).Info("creating API definition", "gvr", gvr, "labels", labelReqs)
 			apiDefinition, err := c.createAPIDefinition(apiResourceSchema, version.Name, identities[gvr.GroupResource()], labelReqs)
 			if err != nil {
 				// TODO(ncdc): would be nice to expose some sort of user-visible error
-				klog.Errorf("error creating api definition for schema: %v/%v err: %v", apiResourceSchema.Spec.Group, apiResourceSchema.Spec.Names, err)
+				logger.Error(err, "error creating api definition", "gvr", gvr)
 				continue
 			}
 
@@ -214,7 +220,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 		}
 	}
 
-	klog.V(2).Infof("Updating APIs for APIExport %s|%s: new=%v, preserved=%v, removed=%v", logicalcluster.From(apiExport), apiExport.Name, newGVRs, preservedGVR, removedGVRs)
+	logger.V(2).Info("updating APIs", "new", newGVRs, "preserved", preservedGVR, "removed", removedGVRs)
 
 	c.mutex.Lock()
 	defer c.mutex.Unlock()

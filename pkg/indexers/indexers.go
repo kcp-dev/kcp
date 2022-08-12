@@ -24,6 +24,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
 
@@ -39,6 +40,9 @@ const (
 	IndexAPIExportByIdentity = "byIdentity"
 	// BySyncerFinalizerKey is the name for the index that indexes by syncer finalizer label keys.
 	BySyncerFinalizerKey = "bySyncerFinalizerKey"
+	// APIBindingByClusterAndAcceptedClaimedGroupResources is the name for the index that indexes an APIBinding by its
+	// cluster name and accepted claimed group resources.
+	APIBindingByClusterAndAcceptedClaimedGroupResources = "byClusterAndAcceptedClaimedGroupResources"
 )
 
 // ClusterScoped returns cache.Indexers appropriate for cluster-scoped resources.
@@ -91,4 +95,19 @@ func IndexBySyncerFinalizerKey(obj interface{}) ([]string, error) {
 	}
 
 	return syncerFinalizers, nil
+}
+
+// ByIndex returns all instances of T that match indexValue in indexName in indexer.
+func ByIndex[T runtime.Object](indexer cache.Indexer, indexName, indexValue string) ([]T, error) {
+	list, err := indexer.ByIndex(indexName, indexValue)
+	if err != nil {
+		return nil, err
+	}
+
+	var ret []T
+	for _, o := range list {
+		ret = append(ret, o.(T))
+	}
+
+	return ret, nil
 }

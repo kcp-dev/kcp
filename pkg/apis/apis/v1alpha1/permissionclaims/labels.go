@@ -19,21 +19,28 @@ package permissionclaims
 import (
 	"crypto/sha256"
 	"encoding/json"
-	"fmt"
+	"math/big"
 
-	"k8s.io/apimachinery/pkg/util/validation"
+	"github.com/kcp-dev/logicalcluster/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 )
 
-// ToLabelKeyAndValue will create a safe key and value for labeling a resource to grant access
+// ToLabelKeyAndValue creates a safe key and value for labeling a resource to grant access
 // based on the permissionClaim.
-func ToLabelKeyAndValue(permissionClaim apisv1alpha1.PermissionClaim) (string, string, error) {
+func ToLabelKeyAndValue(exportClusterName logicalcluster.Name, exportName string, permissionClaim apisv1alpha1.PermissionClaim) (string, string, error) {
 	bytes, err := json.Marshal(permissionClaim)
 	if err != nil {
 		return "", "", err
 	}
-	hash := fmt.Sprintf("%x", sha256.Sum224(bytes))
-	labelKeyHashLength := validation.LabelValueMaxLength - len(apisv1alpha1.APIExportPermissionClaimLabelPrefix)
-	return apisv1alpha1.APIExportPermissionClaimLabelPrefix + hash[0:labelKeyHashLength], hash, nil
+	claimHash := toBase62(sha256.Sum224(bytes))
+	exportHash := toBase62(sha256.Sum224([]byte(exportClusterName.Join(exportName).String())))
+
+	return apisv1alpha1.APIExportPermissionClaimLabelPrefix + exportHash, claimHash, nil
+}
+
+func toBase62(hash [28]byte) string {
+	var i big.Int
+	i.SetBytes(hash[:])
+	return i.Text(62)
 }

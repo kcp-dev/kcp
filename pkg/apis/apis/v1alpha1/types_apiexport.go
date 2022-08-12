@@ -198,9 +198,9 @@ type PermissionClaim struct {
 
 func (p PermissionClaim) String() string {
 	if p.IdentityHash == "" {
-		return fmt.Sprintf("%v.%v", p.Resource, p.Group)
+		return fmt.Sprintf("%s.%s", p.Resource, p.Group)
 	}
-	return fmt.Sprintf("%v:%v.%v", p.Resource, p.IdentityHash, p.Group)
+	return fmt.Sprintf("%s.%s:%s", p.Resource, p.Group, p.IdentityHash)
 }
 
 func (p PermissionClaim) Equal(claim PermissionClaim) bool {
