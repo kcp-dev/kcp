@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/admission"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -97,22 +96,20 @@ func (m *mutatingPermissionClaims) Admit(ctx context.Context, a admission.Attrib
 	}
 
 	labels := u.GetLabels()
-	if labels == nil {
-		labels = make(map[string]string)
-	}
-
-	// Start by removing all claim labels
 	for k := range labels {
-		if strings.HasPrefix(k, apisv1alpha1.APIExportPermissionClaimLabelPrefix) {
+		if !strings.HasPrefix(k, apisv1alpha1.APIExportPermissionClaimLabelPrefix) {
+			continue
+		}
+		if _, expected := expectedLabels[k]; !expected {
 			delete(labels, k)
 		}
 	}
-
-	// Add back what should be there
 	for k, v := range expectedLabels {
+		if labels == nil {
+			labels = make(map[string]string)
+		}
 		labels[k] = v
 	}
-
 	u.SetLabels(labels)
 
 	return nil
@@ -143,18 +140,18 @@ func (m *mutatingPermissionClaims) Validate(ctx context.Context, a admission.Att
 
 	// check existing values
 	labels := u.GetLabels()
-	expectedKeys := sets.NewString()
 	for k, v := range expectedLabels {
 		if labels[k] != v {
-			errs = append(errs, field.Invalid(field.NewPath("metadata", "labels").Key(k), labels[k], fmt.Sprintf("must be %s", v)))
-			continue
+			errs = append(errs, field.Invalid(field.NewPath("metadata", "labels").Key(k), labels[k], fmt.Sprintf("must be %q", v)))
 		}
-		expectedKeys.Insert(k)
 	}
 
 	// check for labels that shouldn't exist
 	for k := range labels {
-		if strings.HasPrefix(k, apisv1alpha1.APIExportPermissionClaimLabelPrefix) && !expectedKeys.Has(k) {
+		if !strings.HasPrefix(k, apisv1alpha1.APIExportPermissionClaimLabelPrefix) {
+			continue
+		}
+		if _, ok := expectedLabels[k]; !ok {
 			errs = append(errs, field.Forbidden(field.NewPath("metadata", "labels").Key(k), "must not be set"))
 		}
 	}
