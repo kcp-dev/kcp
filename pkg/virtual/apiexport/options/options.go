@@ -33,7 +33,7 @@ import (
 
 type APIExport struct{}
 
-func NewAPIExport() *APIExport {
+func New() *APIExport {
 	return &APIExport{}
 }
 
