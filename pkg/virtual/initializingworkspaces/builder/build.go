@@ -57,6 +57,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/handler"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	"github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces"
+	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 )
 
 func BuildVirtualWorkspace(
@@ -71,18 +72,18 @@ func BuildVirtualWorkspace(
 	}
 
 	resolver := requestinfo.NewFactory()
-	isClusterWorkspaceRequest := func(path string) bool {
+	isWorkspaceRequest := func(path string) bool {
 		info, err := resolver.NewRequestInfo(&http.Request{URL: &url.URL{Path: path}})
 		if err != nil {
 			klog.V(2).Infof("failed to determine info for request: %v", err)
 			return false
 		}
-		return info.IsResourceRequest && info.APIGroup == tenancyv1alpha1.SchemeGroupVersion.Group && info.Resource == "clusterworkspaces"
+		return info.IsResourceRequest && info.APIGroup == tenancyv1alpha1.SchemeGroupVersion.Group && info.Resource == "workspaces"
 	}
 
-	clusterWorkspaceResource := apisv1alpha1.APIResourceSchema{}
-	if err := rootphase0.Unmarshal("apiresourceschema-clusterworkspaces.tenancy.kcp.dev.yaml", &clusterWorkspaceResource); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal clusterworkspace resource: %w", err)
+	workspaceResource := apisv1alpha1.APIResourceSchema{}
+	if err := rootphase0.Unmarshal("apiresourceschema-workspaces.tenancy.kcp.dev.yaml", &workspaceResource); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal workspace resource: %w", err)
 	}
 	bs, err := json.Marshal(&apiextensionsv1.JSONSchemaProps{
 		Type:                   "object",
@@ -91,8 +92,8 @@ func BuildVirtualWorkspace(
 	if err != nil {
 		return nil, err
 	}
-	for i := range clusterWorkspaceResource.Spec.Versions {
-		v := &clusterWorkspaceResource.Spec.Versions[i]
+	for i := range workspaceResource.Spec.Versions {
+		v := &workspaceResource.Spec.Versions[i]
 		v.Schema.Raw = bs // wipe schemas. We don't want validation here.
 	}
 
@@ -122,7 +123,7 @@ func BuildVirtualWorkspace(
 				config:               mainConfig,
 				dynamicClusterClient: dynamicClusterClient,
 				exposeSubresources:   false,
-				resource:             &clusterWorkspaceResource,
+				resource:             &workspaceResource,
 				storageProvider:      provideFilteringRestStorage,
 			}, nil
 		},
@@ -141,8 +142,8 @@ func BuildVirtualWorkspace(
 				return false, "", ctx
 			}
 
-			// this delegating server only works for clusterworkspaces.tenancy.kcp.dev
-			if resourceURL := strings.TrimPrefix(urlPath, prefixToStrip); !isClusterWorkspaceRequest(resourceURL) {
+			// this delegating server only works for workspaces.tenancy.kcp.dev
+			if resourceURL := strings.TrimPrefix(urlPath, prefixToStrip); !isWorkspaceRequest(resourceURL) {
 				return false, "", ctx
 			}
 
@@ -159,7 +160,7 @@ func BuildVirtualWorkspace(
 				config:               mainConfig,
 				dynamicClusterClient: dynamicClusterClient,
 				exposeSubresources:   true,
-				resource:             &clusterWorkspaceResource,
+				resource:             &workspaceResource,
 				storageProvider:      provideDelegatingRestStorage,
 			}, nil
 		},
@@ -179,8 +180,8 @@ func BuildVirtualWorkspace(
 				return false, "", context
 			}
 
-			// this proxying server does not handle requests for clusterworkspaces.tenancy.kcp.dev
-			if resourceURL := strings.TrimPrefix(urlPath, prefixToStrip); isClusterWorkspaceRequest(resourceURL) {
+			// this proxying server does not handle requests for workspaces.tenancy.kcp.dev
+			if resourceURL := strings.TrimPrefix(urlPath, prefixToStrip); isWorkspaceRequest(resourceURL) {
 				return false, "", context
 			}
 
@@ -206,7 +207,7 @@ func BuildVirtualWorkspace(
 				defer close(workspaceContentReadyCh)
 
 				for name, informer := range map[string]cache.SharedIndexInformer{
-					"clusterworkspaces": wildcardKcpInformers.Tenancy().V1alpha1().ClusterWorkspaces().Informer(),
+					"workspaces": wildcardKcpInformers.Tenancy().V1beta1().Workspaces().Informer(),
 				} {
 					if !cache.WaitForNamedCacheSync(name, hookContext.StopCh, informer.HasSynced) {
 						klog.Errorf("informer not synced")
@@ -224,7 +225,7 @@ func BuildVirtualWorkspace(
 				return nil, err
 			}
 
-			lister := wildcardKcpInformers.Tenancy().V1alpha1().ClusterWorkspaces().Lister()
+			lister := wildcardKcpInformers.Tenancy().V1beta1().Workspaces().Lister()
 			return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 				cluster, err := genericapirequest.ClusterNameFrom(request.Context())
 				if err != nil {
@@ -232,19 +233,19 @@ func BuildVirtualWorkspace(
 					return
 				}
 				parent, name := cluster.Split()
-				clusterWorkspace, err := lister.Get(clusters.ToClusterAwareKey(parent, name))
+				workspace, err := lister.Get(clusters.ToClusterAwareKey(parent, name))
 				if err != nil {
 					http.Error(writer, fmt.Sprintf("could not find cluster %q: %v", parent, err), http.StatusInternalServerError)
 					return
 				}
 
 				initializer := tenancyv1alpha1.ClusterWorkspaceInitializer(dynamiccontext.APIDomainKeyFrom(request.Context()))
-				if clusterWorkspace.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseInitializing || !initialization.InitializerPresent(initializer, clusterWorkspace.Status.Initializers) {
-					http.Error(writer, fmt.Sprintf("initializer %q cannot access this workspace %v %v", initializer, clusterWorkspace.Status.Phase, clusterWorkspace.Status.Initializers), http.StatusForbidden)
+				if workspace.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseInitializing || !initialization.InitializerPresent(initializer, workspace.Status.Initializers) {
+					http.Error(writer, fmt.Sprintf("initializer %q cannot access this workspace %v %v", initializer, workspace.Status.Phase, workspace.Status.Initializers), http.StatusForbidden)
 					return
 				}
 
-				rawInfo, ok := clusterWorkspace.Annotations[tenancyv1alpha1.ExperimentalClusterWorkspaceOwnerAnnotationKey]
+				rawInfo, ok := workspace.Annotations[tenancyv1alpha1.ExperimentalClusterWorkspaceOwnerAnnotationKey]
 				if !ok {
 					http.Error(writer, fmt.Sprintf("cluster %q had no user recorded", parent), http.StatusInternalServerError)
 					return
@@ -361,7 +362,7 @@ func (a *apiSetRetriever) GetAPIDefinitionSet(ctx context.Context, key dynamicco
 	apiDefinition, err := apiserver.CreateServingInfoFor(
 		a.config,
 		a.resource,
-		tenancyv1alpha1.SchemeGroupVersion.Version,
+		tenancyv1beta1.SchemeGroupVersion.Version,
 		restProvider,
 	)
 	if err != nil {
@@ -370,9 +371,9 @@ func (a *apiSetRetriever) GetAPIDefinitionSet(ctx context.Context, key dynamicco
 
 	apis = apidefinition.APIDefinitionSet{
 		schema.GroupVersionResource{
-			Group:    tenancyv1alpha1.SchemeGroupVersion.Group,
-			Version:  tenancyv1alpha1.SchemeGroupVersion.Version,
-			Resource: "clusterworkspaces",
+			Group:    tenancyv1beta1.SchemeGroupVersion.Group,
+			Version:  tenancyv1beta1.SchemeGroupVersion.Version,
+			Resource: "workspaces",
 		}: apiDefinition,
 	}
 

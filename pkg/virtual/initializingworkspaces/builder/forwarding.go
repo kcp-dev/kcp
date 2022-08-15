@@ -37,6 +37,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
 	registry "github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
 )
@@ -73,14 +74,14 @@ func provideFilteringRestStorage(ctx context.Context, clusterClient dynamic.Clus
 		storage, _ := registry.NewStorage(
 			ctx,
 			resource,
-			"", // ClusterWorkspaces have no identity
+			"", // Workspaces have no identity
 			kind,
 			listKind,
 			strategy,
 			nil,
 			tableConvertor,
 			nil,
-			clusterClient,
+			clusterWorkspaceProjectionClient{clusterClient},
 			nil,
 			registry.WithStaticLabelSelector(requirements),
 		)
@@ -137,7 +138,7 @@ func provideDelegatingRestStorage(ctx context.Context, clusterClient dynamic.Clu
 		storage, statusStorage := registry.NewStorage(
 			ctx,
 			resource,
-			"", // ClusterWorkspaces have no identity
+			"", // Workspaces have no identity
 			kind,
 			listKind,
 			strategy,
@@ -218,7 +219,7 @@ func withUpdateValidation(initializer tenancyv1alpha1.ClusterWorkspaceInitialize
 					return errors.NewInternalError(fmt.Errorf("error accessing initializers from old object: %w", err))
 				}
 				invalidUpdateErr := errors.NewInvalid(
-					tenancyv1alpha1.Kind("ClusterWorkspace"),
+					tenancyv1beta1.Kind("Workspace"),
 					name,
 					field.ErrorList{field.Invalid(
 						field.NewPath("status", "initializers"),

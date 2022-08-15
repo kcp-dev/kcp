@@ -23,9 +23,9 @@ limitations under the License.
 //
 // That is, a request for
 // GET /services/initializingworkspaces/<initializer>/clusters/*/apis/tenancy.kcp.io/v1alpha1/clusterworkspaces
-// will return a list of ClusterWorkspace objects which are Initializing and for which spec.initializers contains the
+// will return a list of Workspace objects which are Initializing and for which spec.initializers contains the
 // <initializer-name>.
-// WATCH semantics are similar to (and implemented by) label selectors - a ClusterWorkspace that stops
+// WATCH semantics are similar to (and implemented by) label selectors - a Workspace that stops
 // matching the requirements to be served (not being in Initializing phase, not requesting initialization by
 // the controller) will be removed from the stream with a synthetic Deleted event.
 package initializingworkspaces
