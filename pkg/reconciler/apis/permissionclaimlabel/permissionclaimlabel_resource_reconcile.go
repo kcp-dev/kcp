@@ -44,19 +44,14 @@ func (c *resourceController) reconcile(ctx context.Context, obj *unstructured.Un
 		return fmt.Errorf("error calculating permission claim labels for GVR %q %s/%s: %w", gvr, obj.GetNamespace(), obj.GetName(), err)
 	}
 
-	labels := obj.GetLabels()
-	if labels == nil {
-		labels = make(map[string]string)
-	}
-
 	actualClaimLabels := make(map[string]string)
-	for k, v := range labels {
+	for k, v := range obj.GetLabels() {
 		if strings.HasPrefix(k, apisv1alpha1.APIExportPermissionClaimLabelPrefix) {
 			actualClaimLabels[k] = v
 		}
 	}
 
-	if reflect.DeepEqual(expectedLabels, actualClaimLabels) {
+	if (len(expectedLabels) == 0 && len(actualClaimLabels) == 0) || reflect.DeepEqual(expectedLabels, actualClaimLabels) {
 		return nil
 	}
 
