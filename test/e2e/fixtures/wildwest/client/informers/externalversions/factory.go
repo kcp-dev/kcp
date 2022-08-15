@@ -23,13 +23,14 @@ import (
 	sync "sync"
 	time "time"
 
-	versioned "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned"
-	internalinterfaces "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/informers/externalversions/internalinterfaces"
-	wildwest "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/informers/externalversions/wildwest"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
+
+	versioned "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned"
+	internalinterfaces "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/informers/externalversions/internalinterfaces"
+	wildwest "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/informers/externalversions/wildwest"
 )
 
 // SharedInformerOption defines the functional option type for SharedInformerFactory.

@@ -21,10 +21,12 @@ package v1alpha1
 import (
 	"net/http"
 
+	v2 "github.com/kcp-dev/logicalcluster/v2"
+
+	rest "k8s.io/client-go/rest"
+
 	v1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/scheme"
-	v2 "github.com/kcp-dev/logicalcluster/v2"
-	rest "k8s.io/client-go/rest"
 )
 
 type WildwestV1alpha1Interface interface {
