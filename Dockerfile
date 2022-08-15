@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # Build the binary
-FROM golang:1.17 AS builder
+FROM golang:1.18 AS builder
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
@@ -33,6 +33,7 @@ COPY config/ config/
 COPY pkg/ pkg/
 COPY cmd/ cmd/
 COPY third_party/ third_party/
+COPY hack/ hack/
 COPY .git/ .git/
 
 RUN apt-get update && apt-get install -y jq && mkdir bin
