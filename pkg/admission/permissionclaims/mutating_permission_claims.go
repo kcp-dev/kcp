@@ -77,6 +77,10 @@ func NewMutatingPermissionClaims() admission.MutationInterface {
 }
 
 func (m *mutatingPermissionClaims) Admit(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) error {
+	if a.GetSubresource() != "" {
+		return nil
+	}
+
 	u, ok := a.GetObject().(metav1.Object)
 	if !ok {
 		return fmt.Errorf("got type %T, expected metav1.Object", a.GetObject())
@@ -116,6 +120,10 @@ func (m *mutatingPermissionClaims) Admit(ctx context.Context, a admission.Attrib
 }
 
 func (m *mutatingPermissionClaims) Validate(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) error {
+	if a.GetSubresource() != "" {
+		return nil
+	}
+
 	u, ok := a.GetObject().(metav1.Object)
 	if !ok {
 		return fmt.Errorf("expected type %T, expected metav1.Object", a.GetObject())
