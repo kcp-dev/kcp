@@ -33,7 +33,7 @@ import (
 
 type Syncer struct{}
 
-func NewSyncer() *Syncer {
+func New() *Syncer {
 	return &Syncer{}
 }
 

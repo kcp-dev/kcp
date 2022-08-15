@@ -43,9 +43,9 @@ type Options struct {
 
 func NewOptions() *Options {
 	return &Options{
-		Workspaces:             workspacesoptions.NewWorkspaces(),
-		Syncer:                 synceroptions.NewSyncer(),
-		APIExport:              apiexportoptions.NewAPIExport(),
+		Workspaces:             workspacesoptions.New(),
+		Syncer:                 synceroptions.New(),
+		APIExport:              apiexportoptions.New(),
 		InitializingWorkspaces: initializingworkspacesoptions.New(),
 	}
 }

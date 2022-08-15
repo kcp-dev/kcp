@@ -33,7 +33,7 @@ import (
 
 type Workspaces struct{}
 
-func NewWorkspaces() *Workspaces {
+func New() *Workspaces {
 	return &Workspaces{}
 }
 
