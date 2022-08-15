@@ -35,6 +35,7 @@ import (
 	generatedopenapi "k8s.io/kubernetes/pkg/generated/openapi"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexport"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/internalapis"
@@ -58,6 +59,11 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 		defer c.mutex.Unlock()
 		klog.V(2).Infof("Deleting APIs for API domain key %s", apiDomainKey)
 		delete(c.apiSets, apiDomainKey)
+		return nil
+	}
+
+	if apiExport.ObjectMeta.Name != apiexport.TemporaryComputeServiceExportName {
+		// this is not something we're handling in this controller
 		return nil
 	}
 
