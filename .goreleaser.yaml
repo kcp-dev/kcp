@@ -10,6 +10,10 @@ builds:
   goarch:
   - amd64
   - arm64
+  - ppc64le
+  ignore:
+  - goos: darwin
+    goarch: ppc64le
 - id: "kubectl-kcp"
   main: ./cmd/kubectl-kcp
   binary: bin/kubectl-kcp
@@ -22,6 +26,12 @@ builds:
   goarch:
   - amd64
   - arm64
+  - ppc64le
+  ignore:
+  - goos: darwin
+    goarch: ppc64le
+  - goos: windows
+    goarch: ppc64le
 - id: "kubectl-ws"
   main: ./cmd/kubectl-ws
   binary: bin/kubectl-ws
@@ -34,6 +44,12 @@ builds:
   goarch:
   - amd64
   - arm64
+  - ppc64le
+  ignore:
+  - goos: darwin
+    goarch: ppc64le
+  - goos: windows
+    goarch: ppc64le
 - id: "kubectl-workspaces"
   main: ./cmd/kubectl-workspaces
   binary: bin/kubectl-workspaces
@@ -46,6 +62,12 @@ builds:
   goarch:
   - amd64
   - arm64
+  - ppc64le
+  ignore:
+  - goos: darwin
+    goarch: ppc64le
+  - goos: windows
+    goarch: ppc64le
 archives:
 - id: kcp
   builds:
