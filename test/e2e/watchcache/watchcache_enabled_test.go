@@ -26,26 +26,20 @@ import (
 	"testing"
 	"time"
 
-	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	kcpdynamic "github.com/kcp-dev/apimachinery/pkg/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
 	v1 "k8s.io/api/core/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	apiextensionsexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubernetesclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/cache"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
@@ -107,8 +101,6 @@ func TestWatchCacheEnabledForCRD(t *testing.T) {
 	if cowboysCacheHit < 10 {
 		t.Fatalf("expected to get cowboys.wildwest.dev CRD from the cache at least 10 times, got %v", cowboysCacheHit)
 	}
-
-	testDynamicDiscoverySharedInformerFactory(ctx, t, rootShardConfig, schema.GroupVersionResource{Group: cowBoysGR.Group, Resource: cowBoysGR.Resource, Version: "v1alpha1"}, "efficientluke", cluster)
 }
 
 func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
@@ -157,8 +149,6 @@ func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
 	if sheriffsCacheHit < 10 {
 		t.Fatalf("expected to get sheriffs.newyork.io from the cache at least 10 times, got %v", sheriffsCacheHit)
 	}
-
-	testDynamicDiscoverySharedInformerFactory(ctx, t, rootShardConfig, sheriffsGVR, strings.Replace(wsConsume1a.String(), ":", "-", -1), wsConsume1a)
 }
 
 func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
@@ -215,8 +205,6 @@ func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
 	if secretsCacheHit < 115 {
 		t.Fatalf("expected to get core.secrets from the cache at least 115 times, got %v", secretsCacheHit)
 	}
-
-	testDynamicDiscoverySharedInformerFactory(ctx, t, rootShardConfig, schema.GroupVersionResource{Group: secretsGR.Group, Resource: secretsGR.Resource, Version: "v1"}, "topsecret", cluster)
 }
 
 func collectCacheHitsFor(ctx context.Context, t *testing.T, rootCfg *rest.Config, metricResourcePrefix string) (int, int) {
@@ -244,66 +232,6 @@ func collectCacheHitsFor(ctx context.Context, t *testing.T, rootCfg *rest.Config
 		}
 	}
 	return totalCacheHits, prefixCacheHit
-}
-
-const byWorkspace = "byWorkspace"
-
-func testDynamicDiscoverySharedInformerFactory(ctx context.Context, t *testing.T, rootShardConfig *rest.Config, expectedGVR schema.GroupVersionResource, expectedResName string, expectedClusterName logicalcluster.Name) {
-	rootShardWildcardConfig := kcpclienthelper.SetCluster(rest.CopyConfig(rootShardConfig), logicalcluster.Wildcard)
-	rootShardCRDWildcardClient, err := apiextensionsclient.NewForConfig(rootShardWildcardConfig)
-	require.NoError(t, err, "failed to construct apiextensions client")
-
-	apiExtensionsInformerFactory := apiextensionsexternalversions.NewSharedInformerFactoryWithOptions(
-		rootShardCRDWildcardClient,
-		0,
-	)
-
-	ddsif, err := informer.NewDynamicDiscoverySharedInformerFactory(
-		rootShardConfig,
-		func(obj interface{}) bool { return true },
-		apiExtensionsInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
-		cache.Indexers{byWorkspace: indexByWorkspace},
-	)
-	require.NoError(t, err, "error creating DynamicDiscoverySharedInformerFactory")
-
-	t.Log("Starting apiextensions shared informer factory")
-	apiExtensionsInformerFactory.Start(ctx.Done())
-
-	t.Log("Starting DynamicDiscoverySharedInformerFactory")
-	go ddsif.StartWorker(ctx)
-
-	t.Logf("Checking if DynamicDiscoverySharedInformerFactory has %v with name %v in cluster %v", expectedGVR.String(), expectedResName, expectedClusterName)
-	framework.Eventually(t, func() (success bool, reason string) {
-		listers, notSynced := ddsif.Listers()
-		for _, ns := range notSynced {
-			t.Logf("DynamicDiscoverySharedInformerFactory hasn't synced %v yet", ns.String())
-		}
-
-		for gvr, lister := range listers {
-			obj, err := lister.List(labels.Everything())
-			require.NoError(t, err)
-			if gvr.String() != expectedGVR.String() {
-				continue
-			}
-			for _, o := range obj {
-				u := o.(*unstructured.Unstructured)
-				if u.GetName() == expectedResName && logicalcluster.From(u) == expectedClusterName {
-					return true, ""
-				}
-			}
-		}
-		return false, fmt.Sprintf("haven't found %v with name %v in %v cluster", expectedGVR, expectedResName, expectedClusterName)
-	}, wait.ForeverTestTimeout, time.Millisecond*100, "DynamicDiscoverySharedInformerFactory hasn't observed %v with name %v in %v cluster", expectedGVR, expectedResName, expectedClusterName)
-}
-
-func indexByWorkspace(obj interface{}) ([]string, error) {
-	metaObj, ok := obj.(metav1.Object)
-	if !ok {
-		return []string{}, fmt.Errorf("obj is supposed to be a metav1.Object, but is %T", obj)
-	}
-
-	lcluster := logicalcluster.From(metaObj)
-	return []string{lcluster.String()}, nil
 }
 
 func assertWatchCacheIsPrimed(t *testing.T, fn func() error) {
