@@ -86,6 +86,26 @@ func (i *kcpClusterClientInitializer) Initialize(plugin admission.Interface) {
 	}
 }
 
+// NewDeepSARClientInitializer returns an admission plugin initializer that injects
+// a deep SAR client into admission plugins.
+func NewDeepSARClientInitializer(
+	deepSARClient kubernetes.ClusterInterface,
+) *clientConfigInitializer {
+	return &clientConfigInitializer{
+		deepSARClient: deepSARClient,
+	}
+}
+
+type clientConfigInitializer struct {
+	deepSARClient kubernetes.ClusterInterface
+}
+
+func (i *clientConfigInitializer) Initialize(plugin admission.Interface) {
+	if wants, ok := plugin.(WantsDeepSARClient); ok {
+		wants.SetDeepSARClient(i.deepSARClient)
+	}
+}
+
 // NewExternalAddressInitializer returns an admission plugin initializer that injects
 // an external address provider into the admission plugin.
 func NewExternalAddressInitializer(

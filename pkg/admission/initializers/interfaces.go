@@ -26,19 +26,26 @@ import (
 // WantsKcpInformers interface should be implemented by admission plugins
 // that want to have a kcp informer factory injected.
 type WantsKcpInformers interface {
-	SetKcpInformers(informers kcpinformers.SharedInformerFactory)
+	SetKcpInformers(kcpinformers.SharedInformerFactory)
 }
 
 // WantsKubeClusterClient interface should be implemented by admission plugins
 // that want to have a kube cluster client injected.
 type WantsKubeClusterClient interface {
-	SetKubeClusterClient(kubeClusterClient kubernetes.ClusterInterface)
+	SetKubeClusterClient(kubernetes.ClusterInterface)
 }
 
 // WantsKcpClusterClient interface should be implemented by admission plugins
 // that want to have a kcp cluster client injected.
 type WantsKcpClusterClient interface {
-	SetKcpClusterClient(kubeClusterClient kcpclientset.ClusterInterface)
+	SetKcpClusterClient(kcpclientset.ClusterInterface)
+}
+
+// WantsDeepSARClient interface should be implemented by admission plugins
+// that want to have a client capable of deep SAR handling.
+// See pkg/authorization.WithDeepSARConfig for details.
+type WantsDeepSARClient interface {
+	SetDeepSARClient(kubernetes.ClusterInterface)
 }
 
 // WantsExternalAddressProvider interface should be implemented by admission plugins
@@ -50,13 +57,13 @@ type WantsExternalAddressProvider interface {
 // WantsShardBaseURL interface should be implemented by admission plugins
 // that want to have the default shard base url injected.
 type WantsShardBaseURL interface {
-	SetShardBaseURL(shardBaseURL string)
+	SetShardBaseURL(string)
 }
 
 // WantsShardExternalURL interface should be implemented by admission plugins
 // that want to have the shard external url injected.
 type WantsShardExternalURL interface {
-	SetShardExternalURL(shardExternalURL string)
+	SetShardExternalURL(string)
 }
 
 // WantsServerShutdownChannel interface should be implemented by admission plugins that want to perform cleanup

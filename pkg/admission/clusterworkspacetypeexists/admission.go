@@ -72,18 +72,20 @@ type clusterWorkspaceTypeExists struct {
 	*admission.Handler
 	typeLister             tenancyv1alpha1lister.ClusterWorkspaceTypeLister
 	workspaceLister        tenancyv1alpha1lister.ClusterWorkspaceLister
-	kubeClusterClient      kubernetes.ClusterInterface
+	deepSARClient          kubernetes.ClusterInterface
 	transitiveTypeResolver transitiveTypeResolver
 
 	createAuthorizer delegated.DelegatedAuthorizerFactory
 }
 
 // Ensure that the required admission interfaces are implemented.
-var _ = admission.MutationInterface(&clusterWorkspaceTypeExists{})
-var _ = admission.ValidationInterface(&clusterWorkspaceTypeExists{})
-var _ = admission.InitializationValidator(&clusterWorkspaceTypeExists{})
-var _ = kcpinitializers.WantsKcpInformers(&clusterWorkspaceTypeExists{})
-var _ = kcpinitializers.WantsKubeClusterClient(&clusterWorkspaceTypeExists{})
+var (
+	_ = admission.MutationInterface(&clusterWorkspaceTypeExists{})
+	_ = admission.ValidationInterface(&clusterWorkspaceTypeExists{})
+	_ = admission.InitializationValidator(&clusterWorkspaceTypeExists{})
+	_ = kcpinitializers.WantsKcpInformers(&clusterWorkspaceTypeExists{})
+	_ = kcpinitializers.WantsDeepSARClient(&clusterWorkspaceTypeExists{})
+)
 
 // Admit adds type initializer on transition to initializing phase.
 func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
@@ -324,7 +326,7 @@ func (o *clusterWorkspaceTypeExists) Validate(ctx context.Context, a admission.A
 		}
 
 		for _, alias := range cwtAliases {
-			authz, err := o.createAuthorizer(logicalcluster.From(alias), o.kubeClusterClient)
+			authz, err := o.createAuthorizer(logicalcluster.From(alias), o.deepSARClient)
 			if err != nil {
 				return admission.NewForbidden(a, fmt.Errorf("unable to determine access to cluster workspace type %q", cw.Spec.Type))
 			}
@@ -390,8 +392,8 @@ func (o *clusterWorkspaceTypeExists) SetKcpInformers(informers kcpinformers.Shar
 	o.workspaceLister = informers.Tenancy().V1alpha1().ClusterWorkspaces().Lister()
 }
 
-func (o *clusterWorkspaceTypeExists) SetKubeClusterClient(kubeClusterClient kubernetes.ClusterInterface) {
-	o.kubeClusterClient = kubeClusterClient
+func (o *clusterWorkspaceTypeExists) SetDeepSARClient(client kubernetes.ClusterInterface) {
+	o.deepSARClient = client
 }
 
 // updateUnstructured updates the given unstructured object to match the given cluster workspace.

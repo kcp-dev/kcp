@@ -40,11 +40,10 @@ var (
 	deepSARHeader = "X-Kcp-Internal-Deep-SubjectAccessReview"
 )
 
-// WithDeepSARConfig returns a clone of the input rest.Config
+// WithDeepSARConfig modifies and returns the input rest.Config
 // with an additional header making SARs to be deep.
 func WithDeepSARConfig(config *rest.Config) *rest.Config {
-	clone := *config
-	clone.Wrap(func(rt http.RoundTripper) http.RoundTripper {
+	config.Wrap(func(rt http.RoundTripper) http.RoundTripper {
 		return &withHeaderRoundtripper{
 			RoundTripper: rt,
 			headers: map[string]string{
@@ -52,7 +51,7 @@ func WithDeepSARConfig(config *rest.Config) *rest.Config {
 			},
 		}
 	})
-	return &clone
+	return config
 }
 
 type withHeaderRoundtripper struct {

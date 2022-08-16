@@ -189,10 +189,10 @@ func TestAuthorizer(t *testing.T) {
 				return true
 			}, wait.ForeverTestTimeout, time.Millisecond*100, "User-3 should now be able to list Namespaces")
 		},
-		"without org access, a deep SAR with user-1 against org2 succeeds even with org access for user-1": func(t *testing.T) {
-			t.Log("try to list ConfigMap as user-1 in org without access, should fail")
+		"without org access, a deep SAR with user-1 against org2 succeeds even without org access for user-1": func(t *testing.T) {
+			t.Logf("try to list ConfigMap as user-1 in %q without access, should fail", org2.Join("workspace1"))
 			_, err := user1KubeClusterClient.CoreV1().ConfigMaps("default").List(logicalcluster.WithCluster(ctx, org2.Join("workspace1")), metav1.ListOptions{})
-			require.Error(t, err, "user-1 should not be able to list configmaps in org2")
+			require.Errorf(t, err, "user-1 should not be able to list configmaps in %q", org2.Join("workspace1"))
 
 			sar := &authorizationv1.SubjectAccessReview{
 				Spec: authorizationv1.SubjectAccessReviewSpec{
@@ -202,22 +202,23 @@ func TestAuthorizer(t *testing.T) {
 				},
 			}
 
-			t.Log("ask with normal SAR that user-1 cannot access org2 because it has no access")
+			t.Logf("ask with normal SAR that user-1 cannot access %q because it has no access", org2.Join("workspace1"))
 			resp, err := kubeClusterClient.AuthorizationV1().SubjectAccessReviews().Create(logicalcluster.WithCluster(ctx, org2.Join("workspace1")), sar, metav1.CreateOptions{})
 			require.NoError(t, err)
-			require.False(t, resp.Status.Allowed, "SAR should correctly answer that user-1 CANNOT list configmaps in org2 because it has no access to org2")
+			require.Equalf(t, "workspace access not permitted", resp.Status.Reason, "SAR should answer that user-1 has no workspace access in %q", org2.Join("workspace1"))
+			require.Falsef(t, resp.Status.Allowed, "SAR should correctly answer that user-1 CANNOT list configmaps in %q because it has no access to it", org2.Join("workspace1"))
 
-			t.Log("ask with normal SAR that user-1 can access org1 because it has access")
+			t.Logf("ask with normal SAR that user-1 can access %q because it has access", org1.Join("workspace1"))
 			resp, err = kubeClusterClient.AuthorizationV1().SubjectAccessReviews().Create(logicalcluster.WithCluster(ctx, org1.Join("workspace1")), sar, metav1.CreateOptions{})
 			require.NoError(t, err)
-			require.True(t, resp.Status.Allowed, "SAR should correctly answer that user-1 CAN list configmaps in org2 because it has access to org1")
+			require.Truef(t, resp.Status.Allowed, "SAR should correctly answer that user-1 CAN list configmaps in %q because it has access to %q", org2.Join("workspace1"), org1.Join("workspace1"))
 
-			t.Log("ask with deep SAR that user-1 hypothetically could list configmaps in org2 if it had access")
+			t.Logf("ask with deep SAR that user-1 hypothetically could list configmaps in %q if it had access", org2.Join("workspace1"))
 			deepSARClient, err := kubernetes.NewForConfig(authorization.WithDeepSARConfig(rest.CopyConfig(server.RootShardSystemMasterBaseConfig(t))))
 			require.NoError(t, err)
 			resp, err = deepSARClient.AuthorizationV1().SubjectAccessReviews().Create(logicalcluster.WithCluster(ctx, org2.Join("workspace1")), sar, metav1.CreateOptions{})
 			require.NoError(t, err)
-			require.True(t, resp.Status.Allowed, "SAR should answer hypothetically that user-1 could list configmaps in org2 if it had access")
+			require.Truef(t, resp.Status.Allowed, "SAR should answer hypothetically that user-1 could list configmaps in %q if it had access", org2.Join("workspace1"))
 		},
 	}
 

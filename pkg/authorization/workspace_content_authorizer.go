@@ -118,7 +118,9 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 		attr := deepCopyAttributes(attr)
 		// this is a deep SAR request, we have to skip the checks here and delegate to the subsequent authorizer.
 		if isAuthenticated && !isUser && !isServiceAccountFromCluster {
-			// anonymize service accounts from other workspaces
+			// service accounts from other workspaces might conflict with local service accounts by name.
+			// This could lead to unwanted side effects of unwanted applied permissions.
+			// Hence, these requests have to be anonymized.
 			attr.User = &user.DefaultInfo{
 				Name:   "system:anonymous",
 				Groups: []string{"system:authenticated"},

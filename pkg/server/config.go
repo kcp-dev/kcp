@@ -88,6 +88,7 @@ type ExtraConfig struct {
 	// clients
 	DynamicClusterClient       dynamic.ClusterInterface
 	KubeClusterClient          kubernetes.ClusterInterface
+	DeepSARClient              kubernetes.ClusterInterface
 	ApiExtensionsClusterClient apiextensionsclient.ClusterInterface
 	KcpClusterClient           kcpclient.ClusterInterface
 	RootShardKcpClusterClient  kcpclient.ClusterInterface
@@ -235,6 +236,10 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		kcpexternalversions.WithExtraClusterScopedIndexers(indexers.ClusterScoped()),
 		kcpexternalversions.WithExtraNamespaceScopedIndexers(indexers.NamespaceScoped()),
 	)
+	c.DeepSARClient, err = kubernetes.NewClusterForConfig(authorization.WithDeepSARConfig(rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)))
+	if err != nil {
+		return nil, err
+	}
 
 	// Setup apiextensions * informers
 	c.ApiExtensionsClusterClient, err = apiextensionsclient.NewClusterForConfig(c.GenericConfig.LoopbackClientConfig)
@@ -339,6 +344,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		kcpadmissioninitializers.NewKcpInformersInitializer(c.KcpSharedInformerFactory),
 		kcpadmissioninitializers.NewKubeClusterClientInitializer(c.KubeClusterClient),
 		kcpadmissioninitializers.NewKcpClusterClientInitializer(c.KcpClusterClient),
+		kcpadmissioninitializers.NewDeepSARClientInitializer(c.DeepSARClient),
 		kcpadmissioninitializers.NewShardBaseURLInitializer(opts.Extra.ShardBaseURL),
 		kcpadmissioninitializers.NewShardExternalURLInitializer(opts.Extra.ShardExternalURL),
 		// The external address is provided as a function, as its value may be updated
