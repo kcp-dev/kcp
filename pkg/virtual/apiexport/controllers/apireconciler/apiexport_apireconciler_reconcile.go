@@ -121,7 +121,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 			continue
 		}
 
-		exports, err := c.apiExportIndexer.ByIndex(indexers.IndexAPIExportByIdentity, pc.IdentityHash)
+		exports, err := c.apiExportIndexer.ByIndex(indexers.APIExportByIdentity, pc.IdentityHash)
 		if err != nil {
 			return err
 		}
