@@ -645,13 +645,13 @@ func createCowboyInConsumer(ctx context.Context, t *testing.T, consumer1Workspac
 	t.Logf("Make sure we can perform CRUD operations against consumer workspace %q for the bound API", consumer1Workspace)
 
 	t.Logf("Make sure list shows nothing to start")
-	cowboyClient := wildwestClusterClient.WildwestV1alpha1().Cowboys("default")
+	cowboyClusterClient := wildwestClusterClient.WildwestV1alpha1().Cowboys("default")
 	var cowboys *wildwestv1alpha1.CowboyList
 	// Adding a poll here to wait for the user's to get access via RBAC informer updates.
 
 	require.Eventually(t, func() bool {
 		var err error
-		cowboys, err = cowboyClient.List(logicalcluster.WithCluster(ctx, consumer1Workspace), metav1.ListOptions{})
+		cowboys, err = cowboyClusterClient.List(logicalcluster.WithCluster(ctx, consumer1Workspace), metav1.ListOptions{})
 		return err == nil
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected to be able to list ")
 	require.Zero(t, len(cowboys.Items), "expected 0 cowboys inside consumer workspace %q", consumer1Workspace)
@@ -659,7 +659,7 @@ func createCowboyInConsumer(ctx context.Context, t *testing.T, consumer1Workspac
 	t.Logf("Create a cowboy CR in consumer workspace %q", consumer1Workspace)
 	cowboyName := fmt.Sprintf("cowboy-%s", consumer1Workspace.Base())
 	cowboy := newCowboy("default", cowboyName)
-	_, err := cowboyClient.Create(logicalcluster.WithCluster(ctx, consumer1Workspace), cowboy, metav1.CreateOptions{})
+	_, err := cowboyClusterClient.Create(logicalcluster.WithCluster(ctx, consumer1Workspace), cowboy, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating cowboy in consumer workspace %q", consumer1Workspace)
 }
 
