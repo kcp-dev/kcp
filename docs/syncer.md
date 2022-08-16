@@ -11,12 +11,13 @@ users have to install a special component named [syncer](https://github.com/kcp-
 
 ## Instructions
 
-1. Create a workspace and immediately enter it:
+1. Create an organisation and universal workspace and immediately enter it:
 
 ```sh
-$ kubectl kcp workspace create my-workspace --enter
-Workspace "my-workspace" (type "Universal") created. Waiting for being ready.
-Current workspace is "root:default:my-workspace".
+$ kubectl kcp workspace create my-org --enter
+Workspace "my-org" (type root:organization) created. Waiting for it to be ready...
+Workspace "my-org" (type root:organization) is ready to use.
+Current workspace is "root:my-org" (type "root:organization").
 ```
 
 1. Enable the syncer for a new cluster
@@ -67,7 +68,7 @@ To use the image pushed to the local registry, supply `--image=<image tag>` to t
 1. Apply the manifest to the p-cluster
 
 ```sh
-$ kubectl apply -f syncer.yaml
+$ kubectl --kubeconfig $KIND_KUBECONFIG apply -f syncer.yaml
 namespace/kcpsync25e6e3ce5be10b16411448aec95b6b6d695a1daa5120732019531d8d created
 serviceaccount/kcp-syncer created
 clusterrole.rbac.authorization.k8s.io/kcpsync25e6e3ce5be10b16411448aec95b6b6d695a1daa5120732019531d8d created
@@ -86,4 +87,23 @@ kcp-syncer   1/1     1            1           13m
 
 1. Wait for the kcp sync target to go ready.
 
-TODO(marun)
+```sh
+$ kubectl wait --for=condition=Ready synctarget/<mycluster>
+```
+
+1. Create a deployment
+
+```sh
+$ kubectl create deployment kuard --image gcr.io/kuar-demo/kuard-amd64:blue
+```
+
+Note: replace "gcr.io/kuar-demo/kuard-amd64:blue" with "gcr.io/kuar-demo/kuard-arm64:blue" in case you're running
+an Apple M1 based virtual machine.
+
+Verify the deployment on the local workspace:
+
+```sh
+$ kubectl rollout status deployment/kuard
+Waiting for deployment "kuard" rollout to finish: 0 of 1 updated replicas are available...
+deployment "kuard" successfully rolled out
+```
