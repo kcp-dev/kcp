@@ -455,6 +455,10 @@ func (sc *SchemaConverter) VisitPrimitive(p *proto.Primitive) {
 	sc.setupDescription(p)
 	sc.schemaProps.Type = p.Type
 	sc.schemaProps.Format = p.Format
+
+	if defaults, ok := knownDefaults[p.Path.String()]; ok {
+		sc.schemaProps.Default = defaults
+	}
 }
 
 func (sc *SchemaConverter) VisitKind(k *proto.Kind) {
@@ -626,4 +630,8 @@ func init() {
 			knownSchemas[schemaName] = schema
 		}
 	}
+}
+
+var knownDefaults map[string]*apiextensionsv1.JSON = map[string]*apiextensionsv1.JSON{
+	"io.k8s.api.core.v1.ContainerPort.protocol": {Raw: []byte(`"TCP"`)},
 }
