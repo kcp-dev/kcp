@@ -36,6 +36,7 @@ import (
 	configshard "github.com/kcp-dev/kcp/config/shard"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	"github.com/kcp-dev/kcp/pkg/reconciler/apis/identitycache"
 )
 
 var (
@@ -183,7 +184,7 @@ func wildcardIdentitiesResolver(ids *identities,
 func apiExportIdentityProvider(rootShardKcpClient kcpclient.Interface, localShardKubeClusterClient kubernetes.ClusterInterface) func(ctx context.Context, apiExportName string) (string, error) {
 	return func(ctx context.Context, apiExportName string) (string, error) {
 		if localShardKubeClusterClient != nil {
-			apiExportIdentitiesConfigMap, err := localShardKubeClusterClient.Cluster(configshard.SystemShardCluster).CoreV1().ConfigMaps("default").Get(ctx, configMapName, metav1.GetOptions{})
+			apiExportIdentitiesConfigMap, err := localShardKubeClusterClient.Cluster(configshard.SystemShardCluster).CoreV1().ConfigMaps("default").Get(ctx, identitycache.ConfigMapName, metav1.GetOptions{})
 			if err == nil {
 				apiExportIdentity, found := apiExportIdentitiesConfigMap.Data[apiExportName]
 				if found {
