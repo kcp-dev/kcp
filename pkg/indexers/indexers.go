@@ -36,8 +36,6 @@ const (
 	ByLogicalCluster = "kcp-global-byLogicalCluster"
 	// ByLogicalClusterAndNamespace is the name for the index that indexes by an object's logical cluster and namespace.
 	ByLogicalClusterAndNamespace = "kcp-global-byLogicalClusterAndNamespace"
-	// IndexAPIExportByIdentity is the indexer name for by identity index for the API Export indexers.
-	IndexAPIExportByIdentity = "byIdentity"
 	// BySyncerFinalizerKey is the name for the index that indexes by syncer finalizer label keys.
 	BySyncerFinalizerKey = "bySyncerFinalizerKey"
 	// APIBindingByClusterAndAcceptedClaimedGroupResources is the name for the index that indexes an APIBinding by its
