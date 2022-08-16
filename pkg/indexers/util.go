@@ -43,3 +43,18 @@ func AppendOrDie(indexers ...cache.Indexers) cache.Indexers {
 	}
 	return ret
 }
+
+// AddIfNotPresentOrDie tries to add everything from toAdd to indexer's indexers that does not already exist. It panics
+// if it encounters an error.
+func AddIfNotPresentOrDie(indexer cache.Indexer, toAdd cache.Indexers) {
+	existing := indexer.GetIndexers()
+	for indexName := range toAdd {
+		if _, exists := existing[indexName]; exists {
+			delete(toAdd, indexName)
+		}
+	}
+
+	if err := indexer.AddIndexers(toAdd); err != nil {
+		panic(fmt.Errorf("error adding indexers: %w", err))
+	}
+}

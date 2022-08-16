@@ -35,6 +35,7 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apisinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 )
@@ -72,11 +73,13 @@ func NewAPIReconciler(
 		apiSets: map[dynamiccontext.APIDomainKey]apidefinition.APIDefinitionSet{},
 	}
 
-	if err := apiExportInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorkspace,
-	}); err != nil {
-		return nil, err
-	}
+	indexers.AddIfNotPresentOrDie(
+		apiExportInformer.Informer().GetIndexer(),
+		cache.Indexers{
+			byWorkspace:                  indexByWorkspace,
+			indexers.APIExportByIdentity: indexers.IndexAPIExportByIdentity,
+		},
+	)
 
 	apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
