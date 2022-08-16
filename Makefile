@@ -182,7 +182,10 @@ endif
 test-e2e: TEST_ARGS ?=
 test-e2e: WHAT ?= ./test/e2e...
 test-e2e: build-all
-	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 $(GO_TEST) -race -count $(COUNT) -p $(E2E_PARALLELISM) -parallel $(E2E_PARALLELISM) $(WHAT) $(TEST_ARGS)
+	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true \
+	NO_GORUN=1 \
+	KUBE_CACHE_MUTATION_DETECTOR=1 \
+	$(GO_TEST) -race -count $(COUNT) -p $(E2E_PARALLELISM) -parallel $(E2E_PARALLELISM) $(WHAT) $(TEST_ARGS)
 
 .PHONY: test-e2e-shared
 ifdef USE_GOTESTSUM
@@ -200,7 +203,7 @@ test-e2e-shared: require-kind build-all build-kind-images
 	mkdir -p "$(LOG_DIR)" "$(WORK_DIR)/.kcp"
 	kind get kubeconfig > "$(WORK_DIR)/.kcp/kind.kubeconfig"
 	rm -f "$(WORK_DIR)/.kcp/admin.kubeconfig"
-	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 ./bin/test-server --log-file-path="$(LOG_DIR)/kcp.log" $(TEST_SERVER_ARGS) 2>&1 & PID=$$! && echo "PID $$PID" && \
+	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 KUBE_CACHE_MUTATION_DETECTOR=1 ./bin/test-server --log-file-path="$(LOG_DIR)/kcp.log" $(TEST_SERVER_ARGS) 2>&1 & PID=$$! && echo "PID $$PID" && \
 	trap 'kill -TERM $$PID' TERM INT EXIT && \
 	while [ ! -f "$(WORK_DIR)/.kcp/admin.kubeconfig" ]; do sleep 1; done && \
 	NO_GORUN=1 $(GO_TEST) -race -count $(COUNT) -p $(E2E_PARALLELISM) -parallel $(E2E_PARALLELISM) $(WHAT) $(TEST_ARGS) \
@@ -223,7 +226,7 @@ test-e2e-sharded: require-kind build-all build-kind-images
 	mkdir -p "$(LOG_DIR)" "$(WORK_DIR)/.kcp"
 	kind get kubeconfig > "$(WORK_DIR)/.kcp/kind.kubeconfig"
 	rm -f "$(WORK_DIR)/.kcp/admin.kubeconfig"
-	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 ./bin/sharded-test-server --v=2 --log-dir-path="$(LOG_DIR)" --work-dir-path="$(WORK_DIR)" $(TEST_SERVER_ARGS) --number-of-shards=2 2>&1 & PID=$$!; echo "PID $$PID" && \
+	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 KUBE_CACHE_MUTATION_DETECTOR=1 ./bin/sharded-test-server --v=2 --log-dir-path="$(LOG_DIR)" --work-dir-path="$(WORK_DIR)" $(TEST_SERVER_ARGS) --number-of-shards=2 2>&1 & PID=$$!; echo "PID $$PID" && \
 	trap 'kill -TERM $$PID' TERM INT EXIT && \
 	while [ ! -f "$(WORK_DIR)/.kcp/admin.kubeconfig" ]; do sleep 1; done && \
 	NO_GORUN=1 $(GO_TEST) -race -count $(COUNT) -p $(E2E_PARALLELISM) -parallel $(E2E_PARALLELISM) $(WHAT) $(TEST_ARGS) \
@@ -238,8 +241,8 @@ endif
 test: WHAT ?= ./...
 # We will need to move into the sub package, of pkg/apis to run those tests.
 test:
-	$(GO_TEST) -race -count $(COUNT) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $$(go list "$(WHAT)" | grep -v ./test/e2e/)
-	cd pkg/apis && $(GO_TEST) -race -count $(COUNT) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $(WHAT)
+	KUBE_CACHE_MUTATION_DETECTOR=1 $(GO_TEST) -race -count $(COUNT) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $$(go list "$(WHAT)" | grep -v ./test/e2e/)
+	cd pkg/apis && KUBE_CACHE_MUTATION_DETECTOR=1 $(GO_TEST) -race -count $(COUNT) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $(WHAT)
 
 .PHONY: verify-k8s-deps
 verify-k8s-deps:
