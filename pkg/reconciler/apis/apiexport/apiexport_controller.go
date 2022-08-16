@@ -56,8 +56,6 @@ const (
 	controllerName = "kcp-apiexport"
 
 	DefaultIdentitySecretNamespace = "kcp-system"
-
-	indexAPIExportBySecret = "bySecret"
 )
 
 // NewController returns a new controller for APIExports.
@@ -97,35 +95,13 @@ func NewController(
 
 	c.getSecret = c.readThroughGetSecret
 
-	if err := apiExportInformer.Informer().AddIndexers(
+	indexers.AddIfNotPresentOrDie(
+		apiExportInformer.Informer().GetIndexer(),
 		cache.Indexers{
-			indexers.IndexAPIExportByIdentity: func(obj interface{}) ([]string, error) {
-				apiExport := obj.(*apisv1alpha1.APIExport)
-				return []string{apiExport.Status.IdentityHash}, nil
-			},
-			indexAPIExportBySecret: func(obj interface{}) ([]string, error) {
-				apiExport := obj.(*apisv1alpha1.APIExport)
-
-				if apiExport.Spec.Identity == nil {
-					return []string{}, nil
-				}
-
-				ref := apiExport.Spec.Identity.SecretRef
-				if ref == nil {
-					return []string{}, nil
-				}
-
-				if ref.Namespace == "" || ref.Name == "" {
-					return []string{}, nil
-				}
-
-				// TODO(ncdc): use future shared key func if we ever create one
-				return []string{ref.Namespace + "/" + clusters.ToClusterAwareKey(logicalcluster.From(apiExport), ref.Name)}, nil
-			},
+			indexers.APIExportByIdentity: indexers.IndexAPIExportByIdentity,
+			indexers.APIExportBySecret:   indexers.IndexAPIExportBySecret,
 		},
-	); err != nil {
-		return nil, err
-	}
+	)
 
 	apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
@@ -238,7 +214,7 @@ func (c *controller) enqueueSecret(obj interface{}) {
 		return
 	}
 
-	apiExportKeys, err := c.apiExportIndexer.IndexKeys(indexAPIExportBySecret, secretKey)
+	apiExportKeys, err := c.apiExportIndexer.IndexKeys(indexers.APIExportBySecret, secretKey)
 	if err != nil {
 		runtime.HandleError(err)
 		return
