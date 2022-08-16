@@ -39,6 +39,7 @@ import (
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
@@ -230,8 +231,8 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 			workspaceAttr := authorizer.AttributesRecord{
 				User:            attr.GetUser(),
 				Verb:            verb,
-				APIGroup:        tenancyv1alpha1.SchemeGroupVersion.Group,
-				APIVersion:      tenancyv1alpha1.SchemeGroupVersion.Version,
+				APIGroup:        tenancyv1beta1.SchemeGroupVersion.Group,
+				APIVersion:      tenancyv1beta1.SchemeGroupVersion.Version,
 				Resource:        "workspaces",
 				Subresource:     "content",
 				Name:            cluster.Name.Base(),
