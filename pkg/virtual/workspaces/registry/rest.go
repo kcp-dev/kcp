@@ -39,6 +39,7 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/printers"
 	printerstorage "k8s.io/kubernetes/pkg/printers/storage"
+	"k8s.io/utils/pointer"
 
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/projection"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -294,6 +295,15 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 			Labels: map[string]string{
 				WorkspaceNameLabel: workspace.Name,
 			},
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion:         "tenancy.kcp.dev/v1alpha1",
+					Kind:               "ClusterWorkspace",
+					Name:               clusterWorkspace.Name,
+					UID:                createdClusterWorkspace.UID,
+					BlockOwnerDeletion: pointer.BoolPtr(true),
+				},
+			},
 		},
 		RoleRef: rbacv1.RoleRef{
 			Kind:     "ClusterRole",
@@ -308,10 +318,9 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 			},
 		},
 	}
-	if _, err := s.kubeClusterClient.Cluster(orgClusterName).RbacV1().ClusterRoleBindings().Create(ctx, &clusterRoleBinding, metav1.CreateOptions{}); err != nil {
-		if kerrors.IsAlreadyExists(err) {
-			return nil, kerrors.NewAlreadyExists(tenancyv1beta1.Resource("workspaces"), workspace.Name)
-		}
+	if _, err = s.kubeClusterClient.Cluster(orgClusterName).RbacV1().ClusterRoleBindings().Create(ctx, &clusterRoleBinding, metav1.CreateOptions{}); err != nil && !kerrors.IsAlreadyExists(err) {
+		// best effort deletion
+		s.kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, clusterWorkspace.Name, metav1.DeleteOptions{}) // nolint: errcheck
 		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), workspace.Name, err)
 	}
 
@@ -328,10 +337,21 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 			Labels: map[string]string{
 				WorkspaceNameLabel: workspace.Name,
 			},
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion:         "tenancy.kcp.dev/v1alpha1",
+					Kind:               "ClusterWorkspace",
+					Name:               clusterWorkspace.Name,
+					UID:                createdClusterWorkspace.UID,
+					BlockOwnerDeletion: pointer.BoolPtr(true),
+				},
+			},
 		},
 		Rules: rules,
 	}
 	if _, err := s.kubeClusterClient.Cluster(orgClusterName).RbacV1().ClusterRoles().Create(ctx, ownerClusterRole, metav1.CreateOptions{}); err != nil && !kerrors.IsAlreadyExists(err) {
+		// best effort deletion, will also delete the ClusterRoleBinding
+		s.kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, clusterWorkspace.Name, metav1.DeleteOptions{}) // nolint: errcheck
 		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), workspace.Name, err)
 	}
 
@@ -356,6 +376,8 @@ func (s *REST) Delete(ctx context.Context, name string, deleteValidation rest.Va
 	if kerrors.IsNotFound(errorToReturn) {
 		errorToReturn = kerrors.NewNotFound(tenancyv1beta1.Resource("workspaces"), name)
 	}
+
+	// TODO(sttts): remove when GC is implemented
 	workspaceNameLabelSelector := fmt.Sprintf("%s=%s", WorkspaceNameLabel, name)
 	if err := s.kubeClusterClient.Cluster(orgClusterName).RbacV1().ClusterRoles().DeleteCollection(ctx, *options, metav1.ListOptions{
 		LabelSelector: workspaceNameLabelSelector,

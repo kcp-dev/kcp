@@ -44,6 +44,7 @@ import (
 	clienttesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/kubernetes/pkg/controller"
+	"k8s.io/utils/pointer"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
@@ -578,6 +579,15 @@ func TestCreateWorkspace(t *testing.T) {
 						Labels: map[string]string{
 							WorkspaceNameLabel: "foo",
 						},
+						OwnerReferences: []metav1.OwnerReference{
+							{
+								APIVersion:         "tenancy.kcp.dev/v1alpha1",
+								Kind:               "ClusterWorkspace",
+								Name:               "foo",
+								UID:                "",
+								BlockOwnerDeletion: pointer.BoolPtr(true),
+							},
+						},
 					},
 					RoleRef: rbacv1.RoleRef{
 						APIGroup: "rbac.authorization.k8s.io",
@@ -601,6 +611,15 @@ func TestCreateWorkspace(t *testing.T) {
 						Name: "owner-workspace-foo-test-user",
 						Labels: map[string]string{
 							WorkspaceNameLabel: "foo",
+						},
+						OwnerReferences: []metav1.OwnerReference{
+							{
+								APIVersion:         "tenancy.kcp.dev/v1alpha1",
+								Kind:               "ClusterWorkspace",
+								Name:               "foo",
+								UID:                "",
+								BlockOwnerDeletion: pointer.BoolPtr(true),
+							},
 						},
 					},
 					Rules: []rbacv1.PolicyRule{
@@ -665,6 +684,15 @@ func TestCreateWorkspaceWithCreateAnyPermission(t *testing.T) {
 						Labels: map[string]string{
 							WorkspaceNameLabel: "foo",
 						},
+						OwnerReferences: []metav1.OwnerReference{
+							{
+								APIVersion:         "tenancy.kcp.dev/v1alpha1",
+								Kind:               "ClusterWorkspace",
+								Name:               "foo",
+								UID:                "",
+								BlockOwnerDeletion: pointer.BoolPtr(true),
+							},
+						},
 					},
 					RoleRef: rbacv1.RoleRef{
 						APIGroup: "rbac.authorization.k8s.io",
@@ -688,6 +716,15 @@ func TestCreateWorkspaceWithCreateAnyPermission(t *testing.T) {
 						Name: "owner-workspace-foo-test-user",
 						Labels: map[string]string{
 							WorkspaceNameLabel: "foo",
+						},
+						OwnerReferences: []metav1.OwnerReference{
+							{
+								APIVersion:         "tenancy.kcp.dev/v1alpha1",
+								Kind:               "ClusterWorkspace",
+								Name:               "foo",
+								UID:                "",
+								BlockOwnerDeletion: pointer.BoolPtr(true),
+							},
 						},
 					},
 					Rules: []rbacv1.PolicyRule{
@@ -761,6 +798,15 @@ func TestCreateWorkspaceCustomLocalType(t *testing.T) {
 						Labels: map[string]string{
 							WorkspaceNameLabel: "foo",
 						},
+						OwnerReferences: []metav1.OwnerReference{
+							{
+								APIVersion:         "tenancy.kcp.dev/v1alpha1",
+								Kind:               "ClusterWorkspace",
+								Name:               "foo",
+								UID:                "",
+								BlockOwnerDeletion: pointer.BoolPtr(true),
+							},
+						},
 					},
 					RoleRef: rbacv1.RoleRef{
 						APIGroup: "rbac.authorization.k8s.io",
@@ -784,6 +830,15 @@ func TestCreateWorkspaceCustomLocalType(t *testing.T) {
 						Name: "owner-workspace-foo-test-user",
 						Labels: map[string]string{
 							WorkspaceNameLabel: "foo",
+						},
+						OwnerReferences: []metav1.OwnerReference{
+							{
+								APIVersion:         "tenancy.kcp.dev/v1alpha1",
+								Kind:               "ClusterWorkspace",
+								Name:               "foo",
+								UID:                "",
+								BlockOwnerDeletion: pointer.BoolPtr(true),
+							},
 						},
 					},
 					Rules: []rbacv1.PolicyRule{
