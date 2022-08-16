@@ -205,7 +205,7 @@ func applyTest(t *testing.T, test TestDescription) {
 		kubeClusterClient:     mockKubeClusterClient(func(logicalcluster.Name) kubernetes.Interface { return mockKubeClient }),
 		kcpClusterClient:      mockKcpClusterClient(func(logicalcluster.Name) kcpclientset.Interface { return mockKCPClient }),
 		clusterWorkspaceCache: nil,
-		delegatedAuthz: func(clusterName logicalcluster.Name, client kubernetes.ClusterInterface) (authorizer.Authorizer, error) {
+		delegatedAuthz: func(clusterName logicalcluster.Name, client kubernetes.Interface) (authorizer.Authorizer, error) {
 			if clusterName == tenancyv1alpha1.RootCluster {
 				return test.rootReviewer, nil
 			}

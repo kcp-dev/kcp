@@ -92,7 +92,7 @@ func init() {
 func WithHomeWorkspaces(
 	apiHandler http.Handler,
 	a authorizer.Authorizer,
-	kubeClusterClient kubernetes.ClusterInterface,
+	kubeClusterClient kubernetes.Interface,
 	kcpClusterClient kcpclient.ClusterInterface,
 	kubeSharedInformerFactory coreexternalversions.SharedInformerFactory,
 	kcpSharedInformerFactory kcpexternalversions.SharedInformerFactory,
@@ -125,14 +125,14 @@ type externalKubeClientsAccess struct {
 	createClusterRoleBinding func(ctx context.Context, lcluster logicalcluster.Name, crb *rbacv1.ClusterRoleBinding) error
 }
 
-func buildExternalClientsAccess(kubeClusterClient kubernetes.ClusterInterface, kcpClusterClient kcpclient.ClusterInterface) externalKubeClientsAccess {
+func buildExternalClientsAccess(kubeClusterClient kubernetes.Interface, kcpClusterClient kcpclient.ClusterInterface) externalKubeClientsAccess {
 	return externalKubeClientsAccess{
 		createClusterRole: func(ctx context.Context, workspace logicalcluster.Name, cr *rbacv1.ClusterRole) error {
-			_, err := kubeClusterClient.Cluster(workspace).RbacV1().ClusterRoles().Create(ctx, cr, metav1.CreateOptions{})
+			_, err := kubeClusterClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, workspace), cr, metav1.CreateOptions{})
 			return err
 		},
 		createClusterRoleBinding: func(ctx context.Context, workspace logicalcluster.Name, crb *rbacv1.ClusterRoleBinding) error {
-			_, err := kubeClusterClient.Cluster(workspace).RbacV1().ClusterRoleBindings().Create(ctx, crb, metav1.CreateOptions{})
+			_, err := kubeClusterClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, workspace), crb, metav1.CreateOptions{})
 			return err
 		},
 		createClusterWorkspace: func(ctx context.Context, workspace logicalcluster.Name, cw *tenancyv1alpha1.ClusterWorkspace) error {

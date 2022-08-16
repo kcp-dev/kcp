@@ -23,6 +23,7 @@ import (
 	_ "net/http/pprof"
 	"net/url"
 
+	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
@@ -87,8 +88,12 @@ type ExtraConfig struct {
 
 	// clients
 	DynamicClusterClient       dynamic.ClusterInterface
+<<<<<<< HEAD
 	KubeClusterClient          kubernetes.ClusterInterface
 	DeepSARClient              kubernetes.ClusterInterface
+=======
+	KubeClusterClient          kubernetes.Interface
+>>>>>>> de0cc56e... Part 16: Scope kubeclient in pkg/virtual/apiexport
 	ApiExtensionsClusterClient apiextensionsclient.ClusterInterface
 	KcpClusterClient           kcpclient.ClusterInterface
 	RootShardKcpClusterClient  kcpclient.ClusterInterface
@@ -173,12 +178,19 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 	c.GenericConfig.RequestInfoResolver = requestinfo.NewFactory() // must be set here early to avoid a crash in the EnableMultiCluster roundtrip wrapper
 
 	// Setup kube * informers
-	c.KubeClusterClient, err = kubernetes.NewClusterForConfig(c.GenericConfig.LoopbackClientConfig)
+	c.KubeClusterClient, err = kubernetes.NewForConfig(c.GenericConfig.LoopbackClientConfig)
 	if err != nil {
 		return nil, err
 	}
+
+	kubeinformerConfig := kcpclienthelper.ConfigWithCluster(c.GenericConfig.LoopbackClientConfig, logicalcluster.Wildcard)
+	kubeinformerClient, err := kubernetes.NewForConfig(kubeinformerConfig)
+	if err != nil {
+		return nil, err
+	}
+
 	c.KubeSharedInformerFactory = coreexternalversions.NewSharedInformerFactoryWithOptions(
-		c.KubeClusterClient.Cluster(logicalcluster.Wildcard),
+		kubeinformerClient,
 		resyncPeriod,
 		coreexternalversions.WithExtraClusterScopedIndexers(indexers.ClusterScoped()),
 		coreexternalversions.WithExtraNamespaceScopedIndexers(indexers.NamespaceScoped()),

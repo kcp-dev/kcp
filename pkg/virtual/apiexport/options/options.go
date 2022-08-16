@@ -62,7 +62,7 @@ func (o *APIExport) NewVirtualWorkspaces(
 	if err != nil {
 		return nil, err
 	}
-	kubeClusterClient, err := kubernetes.NewClusterForConfig(config)
+	kubeClusterClient, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return nil, err
 	}

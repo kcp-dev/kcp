@@ -32,7 +32,7 @@ type WantsKcpInformers interface {
 // WantsKubeClusterClient interface should be implemented by admission plugins
 // that want to have a kube cluster client injected.
 type WantsKubeClusterClient interface {
-	SetKubeClusterClient(kubernetes.ClusterInterface)
+	SetKubeClusterClient(kubernetes.Interface)
 }
 
 // WantsKcpClusterClient interface should be implemented by admission plugins
@@ -45,7 +45,7 @@ type WantsKcpClusterClient interface {
 // that want to have a client capable of deep SAR handling.
 // See pkg/authorization.WithDeepSARConfig for details.
 type WantsDeepSARClient interface {
-	SetDeepSARClient(kubernetes.ClusterInterface)
+	SetDeepSARClient(kubernetes.Interface)
 }
 
 // WantsExternalAddressProvider interface should be implemented by admission plugins

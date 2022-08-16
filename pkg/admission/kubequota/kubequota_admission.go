@@ -22,6 +22,7 @@ import (
 	"io"
 	"sync"
 
+	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apiserver/pkg/admission"
@@ -33,6 +34,7 @@ import (
 	quota "k8s.io/apiserver/pkg/quota/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/admission/initializers"
@@ -83,10 +85,11 @@ type KubeResourceQuota struct {
 	// Injected/set via initializers
 	clusterWorkspaceInformer     tenancyinformers.ClusterWorkspaceInformer
 	clusterWorkspaceLister       tenancylisters.ClusterWorkspaceLister
-	kubeClusterClient            kubernetes.ClusterInterface
+	kubeClusterClient            kubernetes.Interface
 	scopingResourceQuotaInformer *kubequotacontroller.ScopingResourceQuotaInformer
 	quotaConfiguration           quota.Configuration
 	serverDone                   <-chan struct{}
+	config                       *rest.Config
 
 	// Manually set
 	userSuppliedConfiguration *resourcequotaapi.Configuration
@@ -187,8 +190,14 @@ func (k *KubeResourceQuota) getOrCreateDelegate(clusterName logicalcluster.Name)
 		stop:           cancel,
 	}
 
+	clusterConfig := kcpclienthelper.ConfigWithCluster(k.config, clusterName)
+	delegateClusterClient, err := kubernetes.NewForConfig(clusterConfig)
+	if err != nil {
+		return nil, err
+	}
+
 	delegate.SetResourceQuotaLister(k.scopingResourceQuotaInformer.ForCluster(clusterName).Lister())
-	delegate.SetExternalKubeClientSet(k.kubeClusterClient.Cluster(clusterName))
+	delegate.SetExternalKubeClientSet(delegateClusterClient)
 	delegate.SetQuotaConfiguration(k.quotaConfiguration)
 
 	if err := delegate.ValidateInitialization(); err != nil {
@@ -223,7 +232,7 @@ func (k *KubeResourceQuota) stopQuotaAdmissionForCluster(clusterName logicalclus
 	delegate.stop()
 }
 
-func (k *KubeResourceQuota) SetKubeClusterClient(kubeClusterClient kubernetes.ClusterInterface) {
+func (k *KubeResourceQuota) SetKubeClusterClient(kubeClusterClient kubernetes.Interface) {
 	k.kubeClusterClient = kubeClusterClient
 }
 

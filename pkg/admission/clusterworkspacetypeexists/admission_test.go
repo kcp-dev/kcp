@@ -560,7 +560,7 @@ func TestValidate(t *testing.T) {
 				Handler:         admission.NewHandler(admission.Create, admission.Update),
 				typeLister:      typeLister,
 				workspaceLister: fakeClusterWorkspaceLister(tt.workspaces),
-				createAuthorizer: func(clusterName logicalcluster.Name, client kubernetes.ClusterInterface) (authorizer.Authorizer, error) {
+				createAuthorizer: func(clusterName logicalcluster.Name, client kubernetes.Interface) (authorizer.Authorizer, error) {
 					return &fakeAuthorizer{
 						tt.authzDecision,
 						tt.authzError,

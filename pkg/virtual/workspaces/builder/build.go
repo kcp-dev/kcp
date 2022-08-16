@@ -177,7 +177,7 @@ func newAuthorizer(cfg *clientrest.Config) func(ctx context.Context, a authorize
 			klog.Errorf("failed to create impersonated kube cluster client: %v", err)
 			return authorizer.DecisionNoOpinion, "", nil
 		}
-		softlyImpersonatedSARClusterClient, err := kubernetes.NewClusterForConfig(impersonatedConfig)
+		softlyImpersonatedSARClusterClient, err := kubernetes.NewForConfig(impersonatedConfig)
 		if err != nil {
 			klog.Errorf("failed to create impersonated kube cluster client: %v", err)
 			return authorizer.DecisionNoOpinion, "", nil

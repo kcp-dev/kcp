@@ -72,7 +72,7 @@ type clusterWorkspaceTypeExists struct {
 	*admission.Handler
 	typeLister             tenancyv1alpha1lister.ClusterWorkspaceTypeLister
 	workspaceLister        tenancyv1alpha1lister.ClusterWorkspaceLister
-	deepSARClient          kubernetes.ClusterInterface
+	deepSARClient          kubernetes.Interface
 	transitiveTypeResolver transitiveTypeResolver
 
 	createAuthorizer delegated.DelegatedAuthorizerFactory
@@ -392,7 +392,7 @@ func (o *clusterWorkspaceTypeExists) SetKcpInformers(informers kcpinformers.Shar
 	o.workspaceLister = informers.Tenancy().V1alpha1().ClusterWorkspaces().Lister()
 }
 
-func (o *clusterWorkspaceTypeExists) SetDeepSARClient(client kubernetes.ClusterInterface) {
+func (o *clusterWorkspaceTypeExists) SetDeepSARClient(client kubernetes.Interface) {
 	o.deepSARClient = client
 }
 

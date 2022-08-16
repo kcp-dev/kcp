@@ -51,7 +51,7 @@ const VirtualWorkspaceName string = "apiexport"
 
 func BuildVirtualWorkspace(
 	rootPathPrefix string,
-	kubeClusterClient kubernetes.ClusterInterface,
+	kubeClusterClient kubernetes.Interface,
 	dynamicClusterClient dynamic.ClusterInterface,
 	kcpClusterClient kcpclient.ClusterInterface,
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
@@ -193,7 +193,7 @@ func BuildVirtualWorkspace(
 	}, nil
 }
 
-func getAuthorizer(client kubernetes.ClusterInterface) authorizer.AuthorizerFunc {
+func getAuthorizer(client kubernetes.Interface) authorizer.AuthorizerFunc {
 	return func(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
 		apiDomainKey := dynamiccontext.APIDomainKeyFrom(ctx)
 		parts := strings.Split(string(apiDomainKey), "/")
