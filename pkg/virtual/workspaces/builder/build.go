@@ -193,8 +193,8 @@ func newAuthorizer(cfg *clientrest.Config) func(ctx context.Context, a authorize
 		workspaceAttr := authorizer.AttributesRecord{
 			User:            a.GetUser(),
 			Verb:            a.GetVerb(),
-			APIGroup:        tenancyv1alpha1.SchemeGroupVersion.Group,
-			APIVersion:      tenancyv1alpha1.SchemeGroupVersion.Version,
+			APIGroup:        tenancyv1beta1.SchemeGroupVersion.Group,
+			APIVersion:      tenancyv1beta1.SchemeGroupVersion.Version,
 			Resource:        "workspaces",
 			Name:            a.GetName(),
 			ResourceRequest: true,
