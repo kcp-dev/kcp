@@ -49,9 +49,6 @@ import (
 
 const resyncPeriod = 10 * time.Hour
 
-// systemShardCluster is the name of a logical cluster on every shard (including the root shard) that holds essential system resources (like the root APIs).
-var systemShardCluster = logicalcluster.New("system:shard")
-
 type Server struct {
 	CompletedConfig
 
@@ -143,7 +140,7 @@ func (s *Server) Run(ctx context.Context) error {
 		klog.Infof("Finished bootstrapping system CRDs")
 
 		if err := wait.PollInfiniteWithContext(goContext(ctx), time.Second, func(ctx context.Context) (bool, error) {
-			if err := configshard.Bootstrap(ctx, s.KcpClusterClient.Cluster(systemShardCluster)); err != nil {
+			if err := configshard.Bootstrap(ctx, s.KcpClusterClient.Cluster(configshard.SystemShardCluster)); err != nil {
 				klog.Errorf("Failed to bootstrap the shard workspace: %v", err)
 				return false, nil // keep trying
 			}

@@ -108,7 +108,7 @@ routed based on paths.`,
 			if err != nil {
 				return fmt.Errorf("failed to create root client: %w", err)
 			}
-			rootShardConfig, resolveIdentities := bootstrap.NewConfigWithWildcardIdentities(nonIdentityRootConfig, bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, nonIdentityRootKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster))
+			rootShardConfig, resolveIdentities := bootstrap.NewConfigWithWildcardIdentities(nonIdentityRootConfig, bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, nonIdentityRootKcpClusterClient, nil)
 			if err := wait.PollImmediateInfiniteWithContext(ctx, time.Millisecond*500, func(ctx context.Context) (bool, error) {
 				if err := resolveIdentities(ctx); err != nil {
 					klog.V(3).Infof("failed to resolve identities, keeping trying: %v", err)

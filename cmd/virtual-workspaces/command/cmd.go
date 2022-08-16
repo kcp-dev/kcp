@@ -42,7 +42,6 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
@@ -100,7 +99,7 @@ func Run(ctx context.Context, o *options.Options) error {
 	if err != nil {
 		return err
 	}
-	identityConfig, resolveIdentities := boostrap.NewConfigWithWildcardIdentities(nonIdentityConfig, boostrap.KcpRootGroupExportNames, boostrap.KcpRootGroupResourceExportNames, nonIdentityKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster))
+	identityConfig, resolveIdentities := boostrap.NewConfigWithWildcardIdentities(nonIdentityConfig, boostrap.KcpRootGroupExportNames, boostrap.KcpRootGroupResourceExportNames, nonIdentityKcpClusterClient, nil)
 	if err := wait.PollImmediateInfiniteWithContext(ctx, time.Millisecond*500, func(ctx context.Context) (bool, error) {
 		if err := resolveIdentities(ctx); err != nil {
 			klog.V(3).Infof("failed to resolve identities, keeping trying: %v", err)

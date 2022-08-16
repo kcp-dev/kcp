@@ -49,7 +49,6 @@ import (
 
 	kcpadmissioninitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
@@ -171,6 +170,18 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 
 	c.GenericConfig.RequestInfoResolver = requestinfo.NewFactory() // must be set here early to avoid a crash in the EnableMultiCluster roundtrip wrapper
 
+	// Setup kube * informers
+	c.KubeClusterClient, err = kubernetes.NewClusterForConfig(c.GenericConfig.LoopbackClientConfig)
+	if err != nil {
+		return nil, err
+	}
+	c.KubeSharedInformerFactory = coreexternalversions.NewSharedInformerFactoryWithOptions(
+		c.KubeClusterClient.Cluster(logicalcluster.Wildcard),
+		resyncPeriod,
+		coreexternalversions.WithExtraClusterScopedIndexers(indexers.ClusterScoped()),
+		coreexternalversions.WithExtraNamespaceScopedIndexers(indexers.NamespaceScoped()),
+	)
+
 	// Setup kcp * informers, but those will need the identities for the APIExports used to make the APIs available.
 	// The identities are not known before we can get them from the APIExports via the loopback client or from the root shard in case this is a non-root shard,
 	// hence we postpone this to getOrCreateKcpIdentities() in the kcp-start-informers post-start hook.
@@ -186,7 +197,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 			return nil, err
 		}
 		var kcpShardIdentityRoundTripper func(rt http.RoundTripper) http.RoundTripper
-		kcpShardIdentityRoundTripper, c.resolveIdentities = boostrap.NewWildcardIdentitiesWrappingRoundTripper(boostrap.KcpRootGroupExportNames, boostrap.KcpRootGroupResourceExportNames, nonIdentityRootKcpShardClient.Cluster(tenancyv1alpha1.RootCluster))
+		kcpShardIdentityRoundTripper, c.resolveIdentities = boostrap.NewWildcardIdentitiesWrappingRoundTripper(boostrap.KcpRootGroupExportNames, boostrap.KcpRootGroupResourceExportNames, nonIdentityRootKcpShardClient, c.KubeClusterClient)
 		rootKcpShardIdentityConfig := rest.CopyConfig(nonIdentityRootKcpShardSystemAdminConfig)
 		rootKcpShardIdentityConfig.Wrap(kcpShardIdentityRoundTripper)
 		c.RootShardKcpClusterClient, err = kcpclient.NewClusterForConfig(rootKcpShardIdentityConfig)
@@ -211,7 +222,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		if err != nil {
 			return nil, err
 		}
-		c.identityConfig, c.resolveIdentities = boostrap.NewConfigWithWildcardIdentities(c.GenericConfig.LoopbackClientConfig, boostrap.KcpRootGroupExportNames, boostrap.KcpRootGroupResourceExportNames, nonIdentityKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster))
+		c.identityConfig, c.resolveIdentities = boostrap.NewConfigWithWildcardIdentities(c.GenericConfig.LoopbackClientConfig, boostrap.KcpRootGroupExportNames, boostrap.KcpRootGroupResourceExportNames, nonIdentityKcpClusterClient, nil)
 	}
 	c.KcpClusterClient, err = kcpclient.NewClusterForConfig(c.identityConfig) // this is now generic to be used for all kcp API groups
 	if err != nil {
@@ -222,18 +233,6 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		resyncPeriod,
 		kcpexternalversions.WithExtraClusterScopedIndexers(indexers.ClusterScoped()),
 		kcpexternalversions.WithExtraNamespaceScopedIndexers(indexers.NamespaceScoped()),
-	)
-
-	// Setup kube * informers
-	c.KubeClusterClient, err = kubernetes.NewClusterForConfig(c.GenericConfig.LoopbackClientConfig)
-	if err != nil {
-		return nil, err
-	}
-	c.KubeSharedInformerFactory = coreexternalversions.NewSharedInformerFactoryWithOptions(
-		c.KubeClusterClient.Cluster(logicalcluster.Wildcard),
-		resyncPeriod,
-		coreexternalversions.WithExtraClusterScopedIndexers(indexers.ClusterScoped()),
-		coreexternalversions.WithExtraNamespaceScopedIndexers(indexers.NamespaceScoped()),
 	)
 
 	// Setup apiextensions * informers
