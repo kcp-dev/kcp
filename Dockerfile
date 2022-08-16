@@ -35,6 +35,10 @@ COPY cmd/ cmd/
 COPY third_party/ third_party/
 COPY hack/ hack/
 COPY .git/ .git/
+# To make sure hack/verify-go-versions.sh succeeds
+COPY .ci-operator.yaml .
+COPY Dockerfile .
+COPY .github/ .github/
 
 RUN apt-get update && apt-get install -y jq && mkdir bin
 RUN CGO_ENABLED=0 make

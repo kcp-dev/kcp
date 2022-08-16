@@ -249,7 +249,7 @@ verify-k8s-deps:
 verify-imports:
 	hack/verify-imports.sh
 
-.PHONY: verify-go-imports
+.PHONY: verify-go-versions
 verify-go-versions:
 	hack/verify-go-versions.sh
 
