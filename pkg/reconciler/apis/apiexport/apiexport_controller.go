@@ -46,7 +46,7 @@ import (
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
-	"github.com/kcp-dev/kcp/pkg/reconciler/postreconcile"
+	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 )
 
 const (
@@ -90,7 +90,7 @@ func NewController(
 		listClusterWorkspaceShards: func() ([]*tenancyv1alpha1.ClusterWorkspaceShard, error) {
 			return clusterWorkspaceShardInformer.Lister().List(labels.Everything())
 		},
-		postReconcile: postreconcile.NewPostReconcile[*APIExport, *APIExportSpec, *APIExportStatus](kcpClusterClient.ApisV1alpha1().APIExports()),
+		commit: committer.NewCommitter[*APIExport, *APIExportSpec, *APIExportStatus](kcpClusterClient.ApisV1alpha1().APIExports()),
 	}
 
 	c.getSecret = c.readThroughGetSecret
@@ -169,8 +169,8 @@ func NewController(
 type APIExport = apisv1alpha1.APIExport
 type APIExportSpec = apisv1alpha1.APIExportSpec
 type APIExportStatus = apisv1alpha1.APIExportStatus
-type Resource = postreconcile.Resource[*APIExportSpec, *APIExportStatus]
-type PostReconcileFunc = func(context.Context, *Resource, *Resource) error
+type Resource = committer.Resource[*APIExportSpec, *APIExportStatus]
+type CommitFunc = func(context.Context, *Resource, *Resource) error
 
 // controller reconciles APIExports. It ensures an export's identity secret exists and is valid.
 type controller struct {
@@ -192,7 +192,7 @@ type controller struct {
 	createSecret func(ctx context.Context, clusterName logicalcluster.Name, secret *corev1.Secret) error
 
 	listClusterWorkspaceShards func() ([]*tenancyv1alpha1.ClusterWorkspaceShard, error)
-	postReconcile              PostReconcileFunc
+	commit                     CommitFunc
 }
 
 // enqueueAPIBinding enqueues an APIExport .
@@ -321,7 +321,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 	// If the object being reconciled changed as a result, update it.
 	oldResource := &Resource{ObjectMeta: old.ObjectMeta, Spec: &old.Spec, Status: &old.Status}
 	newResource := &Resource{ObjectMeta: obj.ObjectMeta, Spec: &obj.Spec, Status: &obj.Status}
-	if err := c.postReconcile(ctx, oldResource, newResource); err != nil {
+	if err := c.commit(ctx, oldResource, newResource); err != nil {
 		errs = append(errs, err)
 	}
 

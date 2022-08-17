@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package postreconcile
+package committer
 
 import (
 	"context"
@@ -43,14 +43,14 @@ type Patcher[R any] interface {
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (R, error)
 }
 
-// NewPostReconciler returns a function that can patch instances of R based on spec or status changes.
-func NewPostReconcile[R any, Sp any, St any](patcher Patcher[R]) func(context.Context, *Resource[Sp, St], *Resource[Sp, St]) error {
+// NewCommitter returns a function that can patch instances of R based on spec or status changes.
+func NewCommitter[R any, Sp any, St any](patcher Patcher[R]) func(context.Context, *Resource[Sp, St], *Resource[Sp, St]) error {
 	focusType := fmt.Sprintf("%T", *new(R))
 	return func(ctx context.Context, old, obj *Resource[Sp, St]) error {
 		logger := klog.FromContext(ctx)
 
-		specChanged := !equality.Semantic.DeepEqual(old.Spec, obj.Spec)
 		objectMetaChanged := !equality.Semantic.DeepEqual(old.ObjectMeta, obj.ObjectMeta)
+		specChanged := !equality.Semantic.DeepEqual(old.Spec, obj.Spec)
 		statusChanged := !equality.Semantic.DeepEqual(old.Status, obj.Status)
 
 		specOrObjectMetaChanged := specChanged || objectMetaChanged

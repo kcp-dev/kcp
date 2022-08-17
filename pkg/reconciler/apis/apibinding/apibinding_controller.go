@@ -46,7 +46,7 @@ import (
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
-	"github.com/kcp-dev/kcp/pkg/reconciler/postreconcile"
+	committer "github.com/kcp-dev/kcp/pkg/reconciler/committer"
 )
 
 const (
@@ -126,7 +126,7 @@ func NewController(
 		},
 		crdIndexer:        crdInformer.Informer().GetIndexer(),
 		deletedCRDTracker: newLockedStringSet(),
-		postReconcile:     postreconcile.NewPostReconcile[*APIBinding, *APIBindingSpec, *APIBindingStatus](kcpClusterClient.ApisV1alpha1().APIBindings()),
+		commit:            committer.NewCommitter[*APIBinding, *APIBindingSpec, *APIBindingStatus](kcpClusterClient.ApisV1alpha1().APIBindings()),
 	}
 
 	logger := logging.WithReconciler(klog.Background(), controllerName)
@@ -216,8 +216,8 @@ func NewController(
 type APIBinding = apisv1alpha1.APIBinding
 type APIBindingSpec = apisv1alpha1.APIBindingSpec
 type APIBindingStatus = apisv1alpha1.APIBindingStatus
-type Resource = postreconcile.Resource[*APIBindingSpec, *APIBindingStatus]
-type PostReconcileFunc = func(context.Context, *Resource, *Resource) error
+type Resource = committer.Resource[*APIBindingSpec, *APIBindingStatus]
+type CommitFunc = func(context.Context, *Resource, *Resource) error
 
 // controller reconciles APIBindings. It creates and maintains CRDs associated with APIResourceSchemas that are
 // referenced from APIBindings. It also watches CRDs, APIResourceSchemas, and APIExports to ensure whenever
@@ -245,7 +245,7 @@ type controller struct {
 	crdIndexer cache.Indexer
 
 	deletedCRDTracker *lockedStringSet
-	postReconcile     PostReconcileFunc
+	commit            CommitFunc
 }
 
 // enqueueAPIBinding enqueues an APIBinding .
@@ -407,8 +407,8 @@ func (c *controller) process(ctx context.Context, key string) error {
 	// If the object being reconciled changed as a result, update it.
 	oldResource := &Resource{ObjectMeta: old.ObjectMeta, Spec: &old.Spec, Status: &old.Status}
 	newResource := &Resource{ObjectMeta: obj.ObjectMeta, Spec: &obj.Spec, Status: &obj.Status}
-	if postReconErr := c.postReconcile(ctx, oldResource, newResource); postReconErr != nil {
-		return postReconErr
+	if commitError := c.commit(ctx, oldResource, newResource); commitError != nil {
+		return commitError
 	}
 
 	return reconcileErr
