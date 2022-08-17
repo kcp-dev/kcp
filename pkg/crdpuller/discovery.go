@@ -634,4 +634,5 @@ func init() {
 
 var knownDefaults map[string]*apiextensionsv1.JSON = map[string]*apiextensionsv1.JSON{
 	"io.k8s.api.core.v1.ContainerPort.protocol": {Raw: []byte(`"TCP"`)},
+	"io.k8s.api.core.v1.ServicePort.protocol":   {Raw: []byte(`"TCP"`)},
 }
