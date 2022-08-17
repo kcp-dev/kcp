@@ -58,6 +58,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibindingdeletion"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiexport"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiresource"
+	"github.com/kcp-dev/kcp/pkg/reconciler/apis/identitycache"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/permissionclaimlabel"
 	"github.com/kcp-dev/kcp/pkg/reconciler/kubequota"
 	schedulinglocationstatus "github.com/kcp-dev/kcp/pkg/reconciler/scheduling/location"
@@ -1010,6 +1011,31 @@ func (s *Server) installKubeQuotaController(
 	}
 
 	return nil
+}
+
+func (s *Server) installApiExportIdentityController(config *rest.Config, server *genericapiserver.GenericAPIServer) error {
+	if s.Options.Extra.ShardName == tenancyv1alpha1.RootShard {
+		return nil
+	}
+	config = rest.AddUserAgent(kcpclienthelper.NewClusterConfig(config), identitycache.ControllerName)
+	kubeClusterClient, err := kubernetes.NewClusterForConfig(config)
+	if err != nil {
+		return err
+	}
+	c, err := identitycache.NewApiExportIdentityProviderController(kubeClusterClient, s.TemporaryRootShardKcpSharedInformerFactory.Apis().V1alpha1().APIExports(), s.KubeSharedInformerFactory.Core().V1().ConfigMaps())
+	if err != nil {
+		return err
+	}
+	return server.AddPostStartHook(identitycache.ControllerName, func(hookContext genericapiserver.PostStartHookContext) error {
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			klog.Errorf("failed to finish post-start-hook %s: %v", identitycache.ControllerName, err)
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		go c.Start(goContext(hookContext), 1)
+		return nil
+	})
 }
 
 func (s *Server) waitForSync(stop <-chan struct{}) error {
