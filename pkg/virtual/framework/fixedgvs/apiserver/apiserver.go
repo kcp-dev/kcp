@@ -29,7 +29,6 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apiserver/pkg/endpoints/discovery"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/apiserver/pkg/registry/rest"
 	restStorage "k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 
@@ -119,7 +118,7 @@ func (c completedConfig) New(virtualWorkspaceName string, groupManager discovery
 
 	codecs := serializer.NewCodecFactory(scheme)
 
-	storage := map[string]rest.Storage{}
+	storage := map[string]restStorage.Storage{}
 	for resource, storageBuilder := range c.ExtraConfig.StorageBuilders {
 		restStorage, err := storageBuilder(c.GenericConfig)
 		if err != nil {

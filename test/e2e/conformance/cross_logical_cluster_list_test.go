@@ -40,7 +40,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	configcrds "github.com/kcp-dev/kcp/config/crds"
-	tenancyapi "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/pkg/indexers"
@@ -66,8 +65,8 @@ func TestCrossLogicalClusterList(t *testing.T) {
 
 	// Note: we put all consumer workspaces onto root shard in order to enforce conflicts.
 	logicalClusters := []logicalcluster.Name{
-		framework.NewOrganizationFixture(t, server, framework.WithShardConstraints(tenancyapi.ShardConstraints{Name: "root"})),
-		framework.NewOrganizationFixture(t, server, framework.WithShardConstraints(tenancyapi.ShardConstraints{Name: "root"})),
+		framework.NewOrganizationFixture(t, server, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"})),
+		framework.NewOrganizationFixture(t, server, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"})),
 	}
 	expectedWorkspaces := sets.NewString()
 	for i, lcluster := range logicalClusters {
@@ -75,7 +74,7 @@ func TestCrossLogicalClusterList(t *testing.T) {
 
 		clustername := lcluster
 		t.Logf("Creating ClusterWorkspace CRs in logical cluster %s", lcluster)
-		sourceWorkspace := &tenancyapi.ClusterWorkspace{
+		sourceWorkspace := &tenancyv1alpha1.ClusterWorkspace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: wsName,
 			},
@@ -91,7 +90,7 @@ func TestCrossLogicalClusterList(t *testing.T) {
 	}
 
 	t.Logf("Listing ClusterWorkspace CRs across logical clusters with identity")
-	tenancyExport, err := kcpClusterClient.ApisV1alpha1().APIExports().Get(logicalcluster.WithCluster(ctx, tenancyapi.RootCluster), "tenancy.kcp.dev", metav1.GetOptions{})
+	tenancyExport, err := kcpClusterClient.ApisV1alpha1().APIExports().Get(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), "tenancy.kcp.dev", metav1.GetOptions{})
 	require.NoError(t, err, "error getting tenancy API export")
 	require.NotEmptyf(t, tenancyExport.Status.IdentityHash, "tenancy API export has no identity hash")
 	dynamicClusterClient, err := kcpdynamic.NewClusterDynamicClientForConfig(rootShardCfg)
@@ -134,11 +133,11 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	// Note: we put all consumer workspaces onto root shard in order to enforce conflicts.
 
 	// These 2 workspaces will have the same sheriffs CRD schema as normal CRDs
-	wsNormalCRD1a := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyapi.ShardConstraints{Name: "root"}))
-	wsNormalCRD1b := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyapi.ShardConstraints{Name: "root"}))
+	wsNormalCRD1a := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
+	wsNormalCRD1b := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
 
 	// This workspace will have a different sherrifs CRD schema as a normal CRD - will conflict with 1a/1b.
-	wsNormalCRD2 := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyapi.ShardConstraints{Name: "root"}))
+	wsNormalCRD2 := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
 
 	// These 2 workspaces will export a sheriffs API with the same schema
 	wsExport1a := framework.NewWorkspaceFixture(t, server, org)
@@ -148,13 +147,13 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	wsExport2 := framework.NewWorkspaceFixture(t, server, org)
 
 	// This workspace will consume from wsExport1a
-	wsConsume1a := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyapi.ShardConstraints{Name: "root"}))
+	wsConsume1a := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
 
 	// This workspace will consume from wsExport1b
-	wsConsume1b := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyapi.ShardConstraints{Name: "root"}))
+	wsConsume1b := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
 
 	// This workspace will consume from wsExport2
-	wsConsume2 := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyapi.ShardConstraints{Name: "root"}))
+	wsConsume2 := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
 
 	cfg := server.BaseConfig(t)
 	rootShardConfig := server.RootShardSystemMasterBaseConfig(t)

@@ -35,7 +35,6 @@ import (
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	utilconditions "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
-	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -45,7 +44,7 @@ func TestWorkspaceController(t *testing.T) {
 
 	type runningServer struct {
 		framework.RunningServer
-		rootKcpClient, orgKcpClient clientset.Interface
+		rootKcpClient, orgKcpClient kcpclientset.Interface
 		orgExpect                   framework.RegisterClusterWorkspaceExpectation
 		rootExpectShard             framework.RegisterWorkspaceShardExpectation
 	}

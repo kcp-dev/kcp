@@ -28,7 +28,6 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/service/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/service/route/v3"
 	cachetypes "github.com/envoyproxy/go-control-plane/pkg/cache/types"
-	"github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	envoycachev3 "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	xds "github.com/envoyproxy/go-control-plane/pkg/server/v3"
@@ -68,13 +67,13 @@ type EnvoyControlPlane struct {
 	ingressLister  v1.IngressLister
 	translator     *translator
 	managementPort uint
-	snapshotCache  cache.SnapshotCache
+	snapshotCache  envoycachev3.SnapshotCache
 	callbacks      xds.Callbacks
 }
 
 // NewEnvoyControlPlane creates a new EnvoyControlPlane instance.
 func NewEnvoyControlPlane(managementPort, envoyListenPort uint, ingressLister v1.IngressLister, callbacks xds.Callbacks) *EnvoyControlPlane {
-	snapshotCache := cache.NewSnapshotCache(true, cache.IDHash{}, nil)
+	snapshotCache := envoycachev3.NewSnapshotCache(true, envoycachev3.IDHash{}, nil)
 
 	ecp := EnvoyControlPlane{
 		managementPort: managementPort,

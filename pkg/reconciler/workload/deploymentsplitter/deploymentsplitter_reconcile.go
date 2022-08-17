@@ -88,7 +88,7 @@ func (c *Controller) reconcile(ctx context.Context, deployment *appsv1.Deploymen
 			return err
 		}
 		if !exists {
-			return fmt.Errorf("Root deployment not found: %s", rootDeploymentName)
+			return fmt.Errorf("root deployment not found: %s", rootDeploymentName)
 		}
 
 		rootDeployment = rootIf.(*appsv1.Deployment)
