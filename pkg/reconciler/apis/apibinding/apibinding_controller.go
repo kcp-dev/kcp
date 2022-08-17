@@ -18,11 +18,9 @@ package apibinding
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
-	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
 	"github.com/kcp-dev/logicalcluster/v2"
 
@@ -30,12 +28,10 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
@@ -50,6 +46,7 @@ import (
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	committer "github.com/kcp-dev/kcp/pkg/reconciler/committer"
 )
 
 const (
@@ -129,6 +126,7 @@ func NewController(
 		},
 		crdIndexer:        crdInformer.Informer().GetIndexer(),
 		deletedCRDTracker: newLockedStringSet(),
+		commit:            committer.NewCommitter[*APIBinding, *APIBindingSpec, *APIBindingStatus](kcpClusterClient.ApisV1alpha1().APIBindings()),
 	}
 
 	logger := logging.WithReconciler(klog.Background(), controllerName)
@@ -215,6 +213,12 @@ func NewController(
 	return c, nil
 }
 
+type APIBinding = apisv1alpha1.APIBinding
+type APIBindingSpec = apisv1alpha1.APIBindingSpec
+type APIBindingStatus = apisv1alpha1.APIBindingStatus
+type Resource = committer.Resource[*APIBindingSpec, *APIBindingStatus]
+type CommitFunc = func(context.Context, *Resource, *Resource) error
+
 // controller reconciles APIBindings. It creates and maintains CRDs associated with APIResourceSchemas that are
 // referenced from APIBindings. It also watches CRDs, APIResourceSchemas, and APIExports to ensure whenever
 // objects related to an APIBinding are updated, the APIBinding is reconciled.
@@ -241,6 +245,7 @@ type controller struct {
 	crdIndexer cache.Indexer
 
 	deletedCRDTracker *lockedStringSet
+	commit            CommitFunc
 }
 
 // enqueueAPIBinding enqueues an APIBinding .
@@ -380,12 +385,6 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 
 func (c *controller) process(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
-	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		logger.Error(err, "invalid key")
-		return nil
-	}
-	clusterName, name := clusters.SplitClusterAwareKey(clusterAwareName)
 
 	obj, err := c.apiBindingsLister.Get(key) // TODO: clients need a way to scope down the lister per-cluster
 	if err != nil {
@@ -406,33 +405,10 @@ func (c *controller) process(ctx context.Context, key string) error {
 	// reconciliation error at the end.
 
 	// If the object being reconciled changed as a result, update it.
-	if !equality.Semantic.DeepEqual(old.Status, obj.Status) {
-		oldData, err := json.Marshal(apisv1alpha1.APIBinding{
-			Status: old.Status,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to Marshal old data for apibinding %s|%s: %w", clusterName, name, err)
-		}
-
-		newData, err := json.Marshal(apisv1alpha1.APIBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				UID:             old.UID,
-				ResourceVersion: old.ResourceVersion,
-			}, // to ensure they appear in the patch as preconditions
-			Status: obj.Status,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to Marshal new data for apibinding %s|%s: %w", clusterName, name, err)
-		}
-
-		patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
-		if err != nil {
-			return fmt.Errorf("failed to create patch for apibinding %s|%s: %w", clusterName, name, err)
-		}
-
-		logger.V(2).Info("patching APIBinding", "patch", string(patchBytes))
-		_, uerr := c.kcpClusterClient.ApisV1alpha1().APIBindings().Patch(logicalcluster.WithCluster(ctx, clusterName), obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
-		return uerr
+	oldResource := &Resource{ObjectMeta: old.ObjectMeta, Spec: &old.Spec, Status: &old.Status}
+	newResource := &Resource{ObjectMeta: obj.ObjectMeta, Spec: &obj.Spec, Status: &obj.Status}
+	if commitError := c.commit(ctx, oldResource, newResource); commitError != nil {
+		return commitError
 	}
 
 	return reconcileErr
