@@ -38,7 +38,7 @@ import (
 
 var (
 	namePrefixRE                 = regexp.MustCompile("^[a-z]([-a-z0-9]*[a-z0-9])?$")
-	singleSegmentGroupExceptions = sets.NewString("apps", "batch", "extensions", "policy") // these are the sins of Kubernetes of single-word group names
+	singleSegmentGroupExceptions = sets.NewString("apps", "batch", "extensions", "policy", "autoscaling") // these are the sins of Kubernetes of single-word group names
 )
 
 // ValidateAPIResourceSchema validates an APIResourceSchema.
