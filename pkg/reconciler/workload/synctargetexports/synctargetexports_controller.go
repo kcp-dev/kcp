@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -36,6 +37,7 @@ import (
 	"k8s.io/klog/v2"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apiresourceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
@@ -49,9 +51,9 @@ import (
 const (
 	controllerName = "kcp-synctarget-export-controller"
 
-	indexSyncTargetsbyExport           = controllerName + "ByExport"
+	indexSyncTargetsByExport           = controllerName + "ByExport"
 	indexAPIExportsByAPIResourceSchema = controllerName + "ByAPIResourceSchema"
-	indexbyWorkspace                   = controllerName + "ByWorkspace" // will go away with scoping
+	indexByWorkspace                   = controllerName + "ByWorkspace" // will go away with scoping
 )
 
 // NewController returns a controller which update syncedResource in status based on supportedExports in spec
@@ -77,7 +79,7 @@ func NewController(
 	}
 
 	if err := syncTargetInformer.Informer().AddIndexers(cache.Indexers{
-		indexSyncTargetsbyExport: indexSyncTargetsByExports,
+		indexSyncTargetsByExport: indexSyncTargetsByExports,
 	}); err != nil {
 		return nil, err
 	}
@@ -89,7 +91,7 @@ func NewController(
 	}
 
 	if err := apiResourceImportInformer.Informer().AddIndexers(cache.Indexers{
-		indexbyWorkspace: indexByWorksapce,
+		indexByWorkspace: indexByWorksapce,
 	}); err != nil {
 		return nil, err
 	}
@@ -123,14 +125,14 @@ func NewController(
 	})
 
 	apiResourceImportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: c.enqueueAPIImport,
+		AddFunc: c.enqueueAPIResourceImport,
 		UpdateFunc: func(old, obj interface{}) {
 			oldImport := old.(*apiresourcev1alpha1.APIResourceImport)
 			newImport := obj.(*apiresourcev1alpha1.APIResourceImport)
 
 			// only enqueue when spec is changed.
 			if oldImport.Generation != newImport.Generation {
-				c.enqueueSyncTarget(obj, "")
+				c.enqueueAPIResourceImport(obj)
 			}
 		},
 		DeleteFunc: func(obj interface{}) {},
@@ -163,7 +165,7 @@ func (c *Controller) enqueueSyncTarget(obj interface{}, logSuffix string) {
 	c.queue.Add(key)
 }
 
-func (c *Controller) enqueueAPIImport(obj interface{}) {
+func (c *Controller) enqueueAPIResourceImport(obj interface{}) {
 	apiImport, ok := obj.(*apiresourcev1alpha1.APIResourceImport)
 	if !ok {
 		runtime.HandleError(fmt.Errorf("obj is supposed to be a APIResourceImport, but is %T", obj))
@@ -184,7 +186,7 @@ func (c *Controller) enqueueAPIExport(obj interface{}, logSuffix string) {
 		return
 	}
 
-	synctargets, err := c.syncTargetIndexer.ByIndex(indexSyncTargetsbyExport, key)
+	synctargets, err := c.syncTargetIndexer.ByIndex(indexSyncTargetsByExport, key)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -257,6 +259,8 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *Controller) process(ctx context.Context, key string) error {
+	var errs []error
+
 	syncTarget, err := c.syncTargetLister.Get(key)
 	if err != nil {
 		klog.Errorf("Failed to get syncTarget with key %q because: %v", key, err)
@@ -266,13 +270,31 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	klog.Infof("Processing syncTarget %q", key)
 
 	currentSyncTarget := syncTarget.DeepCopy()
-	newSyncTarget, err := c.reconcile(ctx, currentSyncTarget)
+
+	exportReconciler := &exportReconciler{
+		getAPIExport:      c.getAPIExport,
+		getResourceSchema: c.getResourceSchema,
+	}
+	currentSyncTarget, err = exportReconciler.reconcile(ctx, currentSyncTarget)
 	if err != nil {
-		klog.Errorf("Failed to reconcile syncTarget %q because: %v", key, err)
-		return err
+		errs = append(errs, err)
 	}
 
-	if equality.Semantic.DeepEqual(syncTarget.Status.SyncedResources, newSyncTarget.Status.SyncedResources) {
+	apiCompatibleReconciler := &apiCompatibleReconciler{
+		getAPIExport:           c.getAPIExport,
+		getResourceSchema:      c.getResourceSchema,
+		listAPIResourceImports: c.listAPIResourceImports,
+	}
+	currentSyncTarget, err = apiCompatibleReconciler.reconcile(ctx, currentSyncTarget)
+	if err != nil {
+		errs = append(errs, err)
+	}
+
+	if len(errs) > 0 {
+		return errors.NewAggregate(errs)
+	}
+
+	if equality.Semantic.DeepEqual(syncTarget.Status.SyncedResources, currentSyncTarget.Status.SyncedResources) {
 		return nil
 	}
 
@@ -291,7 +313,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 			ResourceVersion: syncTarget.ResourceVersion,
 		}, // to ensure they appear in the patch as preconditions
 		Status: workloadv1alpha1.SyncTargetStatus{
-			SyncedResources: newSyncTarget.Status.SyncedResources,
+			SyncedResources: currentSyncTarget.Status.SyncedResources,
 		},
 	})
 	if err != nil {
@@ -304,12 +326,34 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		return err
 	}
 
-	clusterName := logicalcluster.From(newSyncTarget)
-	klog.V(2).Infof("Patching synctarget %s|%s with patch %s", clusterName, newSyncTarget.Name, string(patchBytes))
+	clusterName := logicalcluster.From(currentSyncTarget)
+	klog.V(2).Infof("Patching synctarget %s|%s with patch %s", clusterName, currentSyncTarget.Name, string(patchBytes))
 	if _, err := c.kcpClusterClient.WorkloadV1alpha1().SyncTargets().Patch(logicalcluster.WithCluster(ctx, clusterName), currentSyncTarget.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status"); err != nil {
 		klog.Errorf("failed to patch sync target status: %v", err)
 		return err
 	}
 
 	return nil
+}
+
+func (c *Controller) getAPIExport(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
+	key := clusters.ToClusterAwareKey(clusterName, name)
+	return c.apiExportLister.Get(key)
+}
+
+func (c *Controller) getResourceSchema(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
+	key := clusters.ToClusterAwareKey(clusterName, name)
+	return c.resourceSchemaLister.Get(key)
+}
+
+func (c *Controller) listAPIResourceImports(clusterName logicalcluster.Name) ([]*apiresourcev1alpha1.APIResourceImport, error) {
+	items, err := c.apiImportIndexer.ByIndex(indexByWorkspace, clusterName.String())
+	if err != nil {
+		return nil, err
+	}
+	ret := make([]*apiresourcev1alpha1.APIResourceImport, 0, len(items))
+	for _, item := range items {
+		ret = append(ret, item.(*apiresourcev1alpha1.APIResourceImport))
+	}
+	return ret, nil
 }

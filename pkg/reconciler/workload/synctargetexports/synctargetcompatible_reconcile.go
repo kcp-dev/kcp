@@ -42,7 +42,7 @@ type apiCompatibleReconciler struct {
 	listAPIResourceImports func(clusterName logicalcluster.Name) ([]*apiresourcev1alpha1.APIResourceImport, error)
 }
 
-func (e *apiCompatibleReconciler) reconcile(ctx context.Context, syncTarget *workloadv1alpha1.SyncTarget) (*workloadv1alpha1.SyncTarget, reconcileStatus, error) {
+func (e *apiCompatibleReconciler) reconcile(ctx context.Context, syncTarget *workloadv1alpha1.SyncTarget) (*workloadv1alpha1.SyncTarget, error) {
 	exportKeys := getExportKeys(syncTarget)
 
 	var errs []error
@@ -87,7 +87,7 @@ func (e *apiCompatibleReconciler) reconcile(ctx context.Context, syncTarget *wor
 	apiImportMap := map[schema.GroupVersionResource]*apiextensionsv1.JSONSchemaProps{}
 	apiImports, err := e.listAPIResourceImports(lcluster)
 	if err != nil {
-		return syncTarget, reconcileStatusStop, err
+		return syncTarget, err
 	}
 
 	for _, apiImport := range apiImports {
@@ -125,11 +125,11 @@ func (e *apiCompatibleReconciler) reconcile(ctx context.Context, syncTarget *wor
 				continue
 			}
 
-			// since version is ordered, so if the current version is comptaible, we can skipp the check on other versions.
+			// since version is ordered, so if the current version is comptaible, we can skip the check on other versions.
 			syncTarget.Status.SyncedResources[i].State = workloadv1alpha1.ResourceSchemaAcceptedState
 			break
 		}
 	}
 
-	return syncTarget, reconcileStatusContinue, errors.NewAggregate(errs)
+	return syncTarget, errors.NewAggregate(errs)
 }

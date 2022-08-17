@@ -27,21 +27,9 @@ import (
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
-	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
-
-type reconcileStatus int
-
-const (
-	reconcileStatusStop reconcileStatus = iota
-	reconcileStatusContinue
-)
-
-type reconciler interface {
-	reconcile(ctx context.Context, syncTarget *workloadv1alpha1.SyncTarget) (*workloadv1alpha1.SyncTarget, reconcileStatus, error)
-}
 
 // exportReconciler updates syncedResource in SyncTarget status based on supporteAPIExports.
 type exportReconciler struct {
@@ -49,7 +37,7 @@ type exportReconciler struct {
 	getResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
 }
 
-func (e *exportReconciler) reconcile(ctx context.Context, syncTarget *workloadv1alpha1.SyncTarget) (*workloadv1alpha1.SyncTarget, reconcileStatus, error) {
+func (e *exportReconciler) reconcile(ctx context.Context, syncTarget *workloadv1alpha1.SyncTarget) (*workloadv1alpha1.SyncTarget, error) {
 	exportKeys := getExportKeys(syncTarget)
 
 	var errs []error
@@ -97,7 +85,7 @@ func (e *exportReconciler) reconcile(ctx context.Context, syncTarget *workloadv1
 	}
 
 	syncTarget.Status.SyncedResources = syncedResources
-	return syncTarget, reconcileStatusContinue, errors.NewAggregate(errs)
+	return syncTarget, errors.NewAggregate(errs)
 }
 
 func (e *exportReconciler) convertSchemaToSyncedResource(cluterName logicalcluster.Name, schemaName, identityHash string) (workloadv1alpha1.ResourceToSync, error) {
@@ -123,56 +111,4 @@ func (e *exportReconciler) convertSchemaToSyncedResource(cluterName logicalclust
 	sort.Strings(syncedResource.Versions)
 
 	return syncedResource, nil
-}
-
-func (c *Controller) reconcile(ctx context.Context, syncTarget *workloadv1alpha1.SyncTarget) (*workloadv1alpha1.SyncTarget, error) {
-	reconcilers := []reconciler{
-		&exportReconciler{
-			getAPIExport:      c.getAPIExport,
-			getResourceSchema: c.getResourceSchema,
-		},
-		&apiCompatibleReconciler{
-			getAPIExport:           c.getAPIExport,
-			getResourceSchema:      c.getResourceSchema,
-			listAPIResourceImports: c.listAPIResourceImports,
-		},
-	}
-
-	var errs []error
-
-	for _, r := range reconcilers {
-		var err error
-		var status reconcileStatus
-		syncTarget, status, err = r.reconcile(ctx, syncTarget)
-		if err != nil {
-			errs = append(errs, err)
-		}
-		if status == reconcileStatusStop {
-			break
-		}
-	}
-
-	return syncTarget, errors.NewAggregate(errs)
-}
-
-func (c *Controller) getAPIExport(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
-	key := clusters.ToClusterAwareKey(clusterName, name)
-	return c.apiExportLister.Get(key)
-}
-
-func (c *Controller) getResourceSchema(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
-	key := clusters.ToClusterAwareKey(clusterName, name)
-	return c.resourceSchemaLister.Get(key)
-}
-
-func (c *Controller) listAPIResourceImports(clusterName logicalcluster.Name) ([]*apiresourcev1alpha1.APIResourceImport, error) {
-	items, err := c.apiImportIndexer.ByIndex(indexbyWorkspace, clusterName.String())
-	if err != nil {
-		return nil, err
-	}
-	ret := make([]*apiresourcev1alpha1.APIResourceImport, 0, len(items))
-	for _, item := range items {
-		ret = append(ret, item.(*apiresourcev1alpha1.APIResourceImport))
-	}
-	return ret, nil
 }

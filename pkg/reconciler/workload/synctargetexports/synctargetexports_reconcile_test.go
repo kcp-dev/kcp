@@ -39,8 +39,8 @@ func TestSyncTargetExportReconcile(t *testing.T) {
 		export     *apisv1alpha1.APIExport
 		schemas    []*apisv1alpha1.APIResourceSchema
 
-		wantError          bool
-		wantSyncedResource []workloadv1alpha1.ResourceToSync
+		wantError           bool
+		wantSyncedResources []workloadv1alpha1.ResourceToSync
 	}{
 		{
 			name: "export not found",
@@ -71,7 +71,7 @@ func TestSyncTargetExportReconcile(t *testing.T) {
 				newResourceSchema("apps.v1.deployment", "apps", "deployments", []apisv1alpha1.APIResourceVersion{{Name: "v1", Served: true}}),
 				newResourceSchema("v1.service", "", "services", []apisv1alpha1.APIResourceVersion{{Name: "v1", Served: true}}),
 			},
-			wantSyncedResource: []workloadv1alpha1.ResourceToSync{
+			wantSyncedResources: []workloadv1alpha1.ResourceToSync{
 				{GroupResource: apisv1alpha1.GroupResource{Group: "apps", Resource: "deployments"}, Versions: []string{"v1"}},
 				{GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "services"}, Versions: []string{"v1"}},
 			},
@@ -92,7 +92,7 @@ func TestSyncTargetExportReconcile(t *testing.T) {
 				newResourceSchema("apps.v1.deployment", "apps", "deployments", []apisv1alpha1.APIResourceVersion{{Name: "v1", Served: true}}),
 				newResourceSchema("v1.pod", "", "pods", []apisv1alpha1.APIResourceVersion{{Name: "v1", Served: true}}),
 			},
-			wantSyncedResource: []workloadv1alpha1.ResourceToSync{
+			wantSyncedResources: []workloadv1alpha1.ResourceToSync{
 				{GroupResource: apisv1alpha1.GroupResource{Group: "apps", Resource: "deployments"}, Versions: []string{"v1"}, State: workloadv1alpha1.ResourceSchemaAcceptedState},
 				{GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "pods"}, Versions: []string{"v1"}},
 			},
@@ -113,7 +113,7 @@ func TestSyncTargetExportReconcile(t *testing.T) {
 					{Name: "v1beta1", Served: true},
 				}),
 			},
-			wantSyncedResource: []workloadv1alpha1.ResourceToSync{
+			wantSyncedResources: []workloadv1alpha1.ResourceToSync{
 				{GroupResource: apisv1alpha1.GroupResource{Group: "apps", Resource: "deployments"}, Versions: []string{"v1", "v1beta1"}},
 			},
 		},
@@ -142,14 +142,14 @@ func TestSyncTargetExportReconcile(t *testing.T) {
 				getResourceSchema: getResourceSchema,
 			}
 
-			updated, _, err := reconciler.reconcile(context.TODO(), tc.syncTarget)
+			updated, err := reconciler.reconcile(context.TODO(), tc.syncTarget)
 			if tc.wantError {
 				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
 			}
 
-			require.Equal(t, tc.wantSyncedResource, updated.Status.SyncedResources)
+			require.Equal(t, tc.wantSyncedResources, updated.Status.SyncedResources)
 		})
 	}
 }
