@@ -18,19 +18,30 @@ package shard
 
 import (
 	"context"
+	"embed"
 
 	"github.com/kcp-dev/logicalcluster/v2"
+
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/dynamic"
 
 	confighelpers "github.com/kcp-dev/kcp/config/helpers"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 )
 
+//go:embed *.yaml
+var fs embed.FS
+
 // SystemShardCluster is the name of a logical cluster on every shard (including the root shard) that holds essential system resources (like the root APIs).
 var SystemShardCluster = logicalcluster.New("system:shard")
 
 // Bootstrap creates resources required for a shard.
-// As of today creating API bindings for the root APIs is enough.
-func Bootstrap(ctx context.Context, kcpClient kcpclientset.Interface) error {
+// As of today creating API bindings for the root APIs and the default ns is enough.
+func Bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface, batteriesIncluded sets.String, kcpClient kcpclientset.Interface) error {
 	// note: shards are not really needed. But to avoid breaking the kcp shared informer factory, we also add them.
-	return confighelpers.BindRootAPIs(ctx, kcpClient, "shards.tenancy.kcp.dev", "tenancy.kcp.dev", "scheduling.kcp.dev", "workload.kcp.dev", "apiresource.kcp.dev")
+	if err := confighelpers.BindRootAPIs(ctx, kcpClient, "shards.tenancy.kcp.dev", "tenancy.kcp.dev", "scheduling.kcp.dev", "workload.kcp.dev", "apiresource.kcp.dev"); err != nil {
+		return err
+	}
+	return confighelpers.Bootstrap(ctx, discoveryClient, dynamicClient, batteriesIncluded, fs)
 }
