@@ -168,8 +168,11 @@ func TestAPIBindingAuthorizer(t *testing.T) {
 	kubeClusterClient, err := kubernetes.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
+	user3KcpClient, err := clientset.NewForConfig(framework.UserConfig("user-3", rest.CopyConfig(cfg)))
+	require.NoError(t, err, "failed to construct dynamic cluster client for server")
+
 	serviceProviderWorkspaces := []logicalcluster.Name{rbacServiceProviderWorkspace, serviceProvider2Workspace}
-	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, orgClusterName, []string{"user-1", "user-2"}, nil, []string{"access"})
+	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, orgClusterName, []string{"user-1", "user-2", "user-3"}, nil, []string{"access"})
 
 	// Set up service provider workspace.
 	for _, serviceProviderWorkspace := range serviceProviderWorkspaces {
@@ -192,8 +195,11 @@ func TestAPIBindingAuthorizer(t *testing.T) {
 			},
 		}
 
-		_, err = kcpClusterClient.ApisV1alpha1().APIBindings().Create(logicalcluster.WithCluster(ctx, consumerWorkspace), apiBinding, metav1.CreateOptions{})
-		require.NoError(t, err)
+		// create API bindings in consumerWorkspace as user-3 with only bind permissions in serviceProviderWorkspace but not general access.
+		require.Eventuallyf(t, func() bool {
+			_, err = user3KcpClient.ApisV1alpha1().APIBindings().Create(logicalcluster.WithCluster(ctx, consumerWorkspace), apiBinding, metav1.CreateOptions{})
+			return err == nil
+		}, wait.ForeverTestTimeout, time.Millisecond*100, "expected user-3 to bind cowboys in %q", consumerWorkspace)
 
 		consumerWorkspaceConfig := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), consumerWorkspace)
 		consumerWorkspaceClient, err := clientset.NewForConfig(consumerWorkspaceConfig)
@@ -219,9 +225,9 @@ func TestAPIBindingAuthorizer(t *testing.T) {
 		serviceProvider2Workspace:    consumer2Workspace,
 	}
 	for serviceProvider, consumer := range m {
+		t.Logf("Set up user-1 and user-3 as admin for the consumer workspace %q", consumer)
+		framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, consumer, []string{"user-1", "user-3"}, nil, []string{"admin"})
 		bindConsumerToProvider(consumer, serviceProvider)
-		t.Logf("Set up user 1 as admin for the consumer workspace %q", consumer)
-		framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, consumer, []string{"user-1"}, nil, []string{"admin"})
 		wildwestClusterClient, err := wildwestclientset.NewForConfig(framework.UserConfig("user-1", cfg))
 		cowboyClusterClient := wildwestClusterClient.WildwestV1alpha1().Cowboys("default")
 		require.NoError(t, err)
@@ -242,7 +248,7 @@ func TestAPIBindingAuthorizer(t *testing.T) {
 
 			// in consumer workspace 1 we will create a RBAC for user 2 such that they can only get/list.
 			t.Logf("Install RBAC in consumer workspace %q for user 2", consumer)
-			clusterRole, clusterRoleBinding := createClusterRoleAndBindings("test-get-list", "user-2", "User", []string{"get", "list"})
+			clusterRole, clusterRoleBinding := createClusterRoleAndBindings("test-get-list", "user-2", "User", wildwest.GroupName, "cowboys", "", []string{"get", "list"})
 			_, err = kubeClusterClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, consumer), clusterRole, metav1.CreateOptions{})
 			require.NoError(t, err)
 			_, err = kubeClusterClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, consumer), clusterRoleBinding, metav1.CreateOptions{})
@@ -277,7 +283,7 @@ func TestAPIBindingAuthorizer(t *testing.T) {
 	}
 }
 
-func createClusterRoleAndBindings(name, subjectName, subjectKind string, verbs []string) (*rbacv1.ClusterRole, *rbacv1.ClusterRoleBinding) {
+func createClusterRoleAndBindings(name, subjectName, subjectKind string, apiGroup, resource, resourceName string, verbs []string) (*rbacv1.ClusterRole, *rbacv1.ClusterRoleBinding) {
 	clusterRole := &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -285,14 +291,19 @@ func createClusterRoleAndBindings(name, subjectName, subjectKind string, verbs [
 		Rules: []rbacv1.PolicyRule{
 			{
 				Verbs:     verbs,
-				APIGroups: []string{wildwest.GroupName},
-				Resources: []string{"cowboys"},
+				APIGroups: []string{apiGroup},
+				Resources: []string{resource},
 			},
 		},
 	}
+
+	if resourceName != "" {
+		clusterRole.Rules[0].ResourceNames = []string{resourceName}
+	}
+
 	clusterRoleBinding := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-user2-get-list",
+			Name: name,
 		},
 		Subjects: []rbacv1.Subject{
 			{
@@ -333,13 +344,20 @@ func setUpServiceProvider(ctx context.Context, dynamicClusterClient *kcpdynamic.
 		cowboysAPIExport.Spec.MaximalPermissionPolicy = &apisv1alpha1.MaximalPermissionPolicy{Local: &apisv1alpha1.LocalAPIExportPolicy{}}
 		//install RBAC that allows 	create/list/get/update/watch on cowboys for system:authenticated
 		t.Logf("Install RBAC for API Export in serviceProvider1")
-		clusterRole, clusterRoleBinding := createClusterRoleAndBindings("test-systemauth", "apis.kcp.dev:binding:system:authenticated", "Group", []string{rbacv1.VerbAll})
+		clusterRole, clusterRoleBinding := createClusterRoleAndBindings("test-systemauth", "apis.kcp.dev:binding:system:authenticated", "Group", wildwest.GroupName, "cowboys", "", []string{rbacv1.VerbAll})
 		_, err = kubeClusterClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), clusterRole, metav1.CreateOptions{})
 		require.NoError(t, err)
 		_, err = kubeClusterClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), clusterRoleBinding, metav1.CreateOptions{})
 		require.NoError(t, err)
 	}
 	_, err = kcpClients.ApisV1alpha1().APIExports().Create(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), cowboysAPIExport, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	// permit user-3 to be able to bind the api export
+	clusterRole, clusterRoleBinding := createClusterRoleAndBindings("user-3-binding", "user-3", "User", apisv1alpha1.SchemeGroupVersion.Group, "apiexports", "today-cowboys", []string{"bind"})
+	_, err = kubeClusterClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), clusterRole, metav1.CreateOptions{})
+	require.NoError(t, err)
+	_, err = kubeClusterClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), clusterRoleBinding, metav1.CreateOptions{})
 	require.NoError(t, err)
 }
 
