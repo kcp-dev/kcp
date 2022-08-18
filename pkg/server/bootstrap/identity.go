@@ -34,8 +34,10 @@ import (
 	"k8s.io/klog/v2"
 
 	configshard "github.com/kcp-dev/kcp/config/shard"
+	"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/identitycache"
 )
 
@@ -126,8 +128,15 @@ func wildcardIdentitiesResolver(ids *identities,
 	groupResourceExportNames map[schema.GroupResource]string,
 	apiExportIdentityProviderFn func(ctx context.Context, apiExportName string) (string, error)) func(ctx context.Context) error {
 	return func(ctx context.Context) error {
+		logger := klog.FromContext(ctx)
 		var errs []error
 		for group, name := range groupExportNames {
+			logger := logging.WithObject(logger, &v1alpha1.APIExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        name,
+					Annotations: map[string]string{logging.APIVersionKey: tenancyv1alpha1.RootCluster.String()},
+				},
+			}).WithValues("group", group)
 			ids.lock.RLock()
 			id := ids.groupIdentities[group]
 			ids.lock.RUnlock()
@@ -145,14 +154,21 @@ func wildcardIdentitiesResolver(ids *identities,
 				errs = append(errs, fmt.Errorf("APIExport %s is not ready", name))
 				continue
 			}
+			logger = logger.WithValues("identity", apiExportIdentity)
 
 			ids.lock.Lock()
 			ids.groupIdentities[group] = apiExportIdentity
 			ids.lock.Unlock()
 
-			klog.V(2).Infof("APIExport %s|%s for group %q has identity %s", tenancyv1alpha1.RootCluster, name, group, apiExportIdentity)
+			logger.V(2).Info("APIExport has identity")
 		}
 		for gr, name := range groupResourceExportNames {
+			logger := logging.WithObject(logger, &v1alpha1.APIExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        name,
+					Annotations: map[string]string{logging.APIVersionKey: tenancyv1alpha1.RootCluster.String()},
+				},
+			}).WithValues("gr", gr.String())
 			ids.lock.RLock()
 			id := ids.groupResourceIdentities[gr]
 			ids.lock.RUnlock()
@@ -170,12 +186,13 @@ func wildcardIdentitiesResolver(ids *identities,
 				errs = append(errs, fmt.Errorf("APIExport %s is not ready", name))
 				continue
 			}
+			logger = logger.WithValues("identity", apiExportIdentity)
 
 			ids.lock.Lock()
 			ids.groupResourceIdentities[gr] = apiExportIdentity
 			ids.lock.Unlock()
 
-			klog.V(2).Infof("APIExport %s|%s for resource %s.%s has identity %s", tenancyv1alpha1.RootCluster, name, gr.Resource, gr.Group, apiExportIdentity)
+			logger.V(2).Info("APIExport has identity")
 		}
 		return errorsutil.NewAggregate(errs)
 	}

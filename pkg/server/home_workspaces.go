@@ -56,6 +56,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/softimpersonation"
 )
 
@@ -241,17 +242,20 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 	}
 
 	ctx := req.Context()
+	logger := klog.FromContext(ctx)
 	lcluster, err := request.ValidClusterFrom(ctx)
 	if err != nil {
 		responsewriters.InternalError(rw, req, err)
 		return
 	}
+	logger = logging.WithCluster(logger, lcluster)
 	effectiveUser, ok := request.UserFrom(ctx)
 	if !ok {
 		err := errors.New("no user in HomeWorkspaces filter")
 		responsewriters.InternalError(rw, req, err)
 		return
 	}
+	logger = logging.WithUser(logger, effectiveUser)
 	if sets.NewString(effectiveUser.GetGroups()...).Has(kuser.SystemPrivilegedGroup) {
 		// If we are the system privileged group, it might be a call from the virtual workspace
 		// in which case we also search the user in the soft impersonation header.
@@ -276,6 +280,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 
 		getAttributes := homeWorkspaceAuthorizerAttributes(effectiveUser, "get")
 		homeLogicalClusterName := h.getHomeLogicalClusterName(effectiveUser.GetName())
+		logger := logger.WithValues("homeWorkspace", homeLogicalClusterName)
 
 		homeClusterWorkspace, err := h.localInformers.getClusterWorkspace(homeLogicalClusterName)
 		if err != nil && !kerrors.IsNotFound(err) {
@@ -289,7 +294,11 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 				responsewriters.Forbidden(ctx, getAttributes, rw, req, authorization.WorkspaceAcccessNotPermittedReason, homeWorkspaceCodecs)
 				return
 			} else if info.Username != effectiveUser.GetName() {
-				klog.Warningf("Collision detected for user %q in home workspace %s owned by %q", effectiveUser.GetName(), homeLogicalClusterName, info.Username)
+				logger.WithValues(logging.FromUserPrefix(&kuser.DefaultInfo{
+					Name:   info.Username,
+					UID:    info.UID,
+					Groups: info.Groups,
+				}, "owner")...).Info("collision detected for user in home workspace owned by another user")
 				responsewriters.Forbidden(ctx, getAttributes, rw, req, authorization.WorkspaceAcccessNotPermittedReason, homeWorkspaceCodecs)
 				return
 			}
@@ -323,7 +332,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 
 		var needsAutomaticCreation bool
 		needsAutomaticCreation, workspaceType = h.needsAutomaticCreation(lcluster.Name)
-		klog.V(4).InfoS("Not a ~ request", "cluster", lcluster.Name, "needsAutoCreate", needsAutomaticCreation, "verb", requestInfo.Verb, "url", req.URL)
+		logger.V(4).Info("not a ~ request", "needsAutoCreate", needsAutomaticCreation, "verb", requestInfo.Verb, "url", req.URL)
 		if !needsAutomaticCreation {
 			h.apiHandler.ServeHTTP(rw, req)
 			return
@@ -335,7 +344,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 			return
 		}
 		if foundLocally {
-			klog.V(4).InfoS("Found home workspace", "cluster", lcluster.Name, "retryAfter", retryAfterSeconds)
+			logger.V(4).Info("found home workspace", "retryAfter", retryAfterSeconds)
 			if retryAfterSeconds > 0 {
 				// Return a 429 status asking the client to try again after the creationDelay
 				rw.Header().Set("Retry-After", fmt.Sprintf("%d", retryAfterSeconds))
@@ -349,6 +358,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 
 	// Home or bucket workspace not found in the local informer
 	// Let's try to create it
+	logger = logger.WithValues("workspaceType", workspaceType)
 
 	// But first check we have the right to do so.
 	attributes := homeWorkspaceAuthorizerAttributes(effectiveUser, "create")
@@ -374,16 +384,16 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	klog.V(4).InfoS("ServeHTTP trying to create", "cluster", lcluster.Name, "workspaceType", workspaceType, "effectiveUser", effectiveUser.GetName())
+	logger.V(4).Info("trying to create")
 	retryAfterSeconds, err := h.tryToCreate(ctx, effectiveUser, lcluster.Name, workspaceType)
 	if err != nil {
-		klog.Errorf("failed to create %s workspace %s for user %q: %w", workspaceType, lcluster.Name, effectiveUser.GetName(), err)
+		logger.Error(err, "failed to create workspace for user")
 		responsewriters.ErrorNegotiated(err, errorCodecs, schema.GroupVersion{}, rw, req)
 		return
 	}
 
 	// Return a 429 status asking the client to try again after the creationDelay
-	klog.V(4).InfoS("ServeHTTP tryToCreate need to retry", "cluster", lcluster.Name, "workspaceType", workspaceType, "effectiveUser", effectiveUser.GetName(), "retryAfter", retryAfterSeconds)
+	logger.V(4).Info("tryToCreate need to retry", "retryAfter", retryAfterSeconds)
 	rw.Header().Set("Retry-After", fmt.Sprintf("%d", retryAfterSeconds))
 	http.Error(rw, "Creating the home workspace", http.StatusTooManyRequests)
 }
@@ -517,12 +527,19 @@ func tryToCreate(h *homeWorkspaceHandler, ctx context.Context, user kuser.Info, 
 	parent, name := logicalClusterName.Split()
 	ws := &tenancyv1alpha1.ClusterWorkspace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
+			Name:        name,
+			Annotations: map[string]string{logicalcluster.AnnotationKey: parent.String()},
 		},
 		Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
 			Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: tenancyv1alpha1.RootCluster.String(), Name: workspaceType},
 		},
 	}
+	logger := logging.WithObject(klog.FromContext(ctx).WithValues(
+		"action", "tryToCreate",
+		"parent", parent.String(),
+		"clusterName", logicalClusterName,
+	), ws)
+	logger = logging.WithUser(logger, user)
 	if workspaceType == HomeClusterWorkspaceType {
 		ownerRaw, err := clusterworkspaceadmission.ClusterWorkspaceOwnerAnnotationValue(user)
 		if err != nil {
@@ -533,9 +550,9 @@ func tryToCreate(h *homeWorkspaceHandler, ctx context.Context, user kuser.Info, 
 		}
 	}
 
-	klog.V(4).InfoS("tryToCreate: creating workspace", "parent", parent.String(), "workspace", ws.Name)
+	logger.V(4).Info("creating workspace")
 	err := h.kcp.createClusterWorkspace(ctx, parent, ws)
-	klog.V(4).InfoS("tryToCreate: creating workspace result", "parent", parent.String(), "workspace", ws.Name, "err", err)
+	logger.V(4).Info("create workspace result", "err", err)
 	if err == nil || kerrors.IsAlreadyExists(err) {
 		if workspaceType == HomeClusterWorkspaceType {
 			if kerrors.IsAlreadyExists(err) {
@@ -547,31 +564,35 @@ func tryToCreate(h *homeWorkspaceHandler, ctx context.Context, user kuser.Info, 
 				if info, _ := unmarshalOwner(cw); info == nil {
 					return 0, kerrors.NewForbidden(tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces").GroupResource(), cw.Name, errors.New(authorization.WorkspaceAcccessNotPermittedReason))
 				} else if info.Username != user.GetName() {
-					klog.Warningf("Collision detected for user %q in home workspace %s owned by %q", user.GetName(), logicalClusterName, info.Username)
+					logger.WithValues(logging.FromUserPrefix(&kuser.DefaultInfo{
+						Name:   info.Username,
+						UID:    info.UID,
+						Groups: info.Groups,
+					}, "owner")).Info("collision detected for user in home workspace owned by another user")
 					return 0, kerrors.NewForbidden(tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces").GroupResource(), cw.Name, errors.New(authorization.WorkspaceAcccessNotPermittedReason))
 				}
 			}
 
-			klog.V(4).InfoS("tryToCreate: creating rbac resources", "cluster", logicalClusterName)
+			logger.V(4).Info("creating rbac resources")
 			if err := h.createHomeWorkspaceRBACResources(ctx, user.GetName(), logicalClusterName); err != nil {
-				klog.V(4).InfoS("tryToCreate: error creating rbac resources", "cluster", logicalClusterName, "err", err)
+				logger.V(4).Info("error creating rbac resources", "err", err)
 				return 0, err
 			}
 		}
 		// Retry sooner than the creation delay, because it's probably a question of
 		// letting the local informer cache being updated.
 		// Retrying quickly (after 1 second) should be sufficient to it.
-		klog.V(4).InfoS("tryToCreate: returning retry", "cluster", logicalClusterName, "retryAfter", 1)
+		logger.V(4).Info("returning retry", "retryAfter", 1)
 		return 1, nil
 	}
 
 	if retryAfterCreateSeconds, shouldRetry := kerrors.SuggestsClientDelay(err); shouldRetry {
-		klog.V(4).InfoS("tryToCreate: client suggests delay", "cluster", logicalClusterName, "retryAfter", retryAfterCreateSeconds)
+		logger.V(4).Info("client suggests delay", "retryAfter", retryAfterCreateSeconds)
 		return retryAfterCreateSeconds, nil
 	}
 
 	if !kerrors.IsForbidden(err) && !kerrors.IsNotFound(err) {
-		klog.V(4).InfoS("tryToCreate: returning error", "cluster", logicalClusterName, "err", err)
+		logger.V(4).Info("returning error", "err", err)
 		return 0, err
 	}
 
@@ -594,7 +615,7 @@ func tryToCreate(h *homeWorkspaceHandler, ctx context.Context, user kuser.Info, 
 	if parentWorkspace == nil {
 		// The parent simply probably does not exist => try to create it first
 		_, parentWorkspaceType := h.needsAutomaticCreation(parent)
-		klog.V(4).InfoS("tryToCreate: trying to create parent", "cluster", logicalClusterName, "parent", parent, "parentType", parentWorkspaceType)
+		logger.V(4).Info("trying to create parent", "parentType", parentWorkspaceType)
 		return h.tryToCreate(ctx, user, parent, parentWorkspaceType)
 	}
 
@@ -602,19 +623,19 @@ func tryToCreate(h *homeWorkspaceHandler, ctx context.Context, user kuser.Info, 
 	if parentWorkspace.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady {
 		// if we received 403 but the parent exists and is ready,
 		// there's no reason to wait more => return the error.
-		klog.V(4).InfoS("tryToCreate: parent is ready, returning 0 retry and possible error", "cluster", logicalClusterName, "parent", parent, "err", err)
+		logger.V(4).Info("parent is ready, returning 0 retry and possible error", "err", err)
 		return 0, err
 	}
 
 	if workspaceUnschedulable(parentWorkspace) {
-		klog.V(4).InfoS("tryToCreate: parent is not ready and unschedulable, returning 0 retry and possible error", "cluster", logicalClusterName, "parent", parent, "err", err)
+		logger.V(4).Info("parent is not ready and unschedulable, returning 0 retry and possible error", "err", err)
 		// if we received 403 since the parent exists but cannot be scheduled,
 		// there's no reason to wait more => return the error.
 		return 0, err
 	}
 
 	// We have to wait for the parent workspace to be Ready before trying to create the child workspace
-	klog.V(4).InfoS("tryToCreate: parent is not ready, returning retry", "cluster", logicalClusterName, "parent", parent, "retryAfter", h.creationDelaySeconds)
+	logger.V(4).Info("parent is not ready, returning retry", "retryAfter", h.creationDelaySeconds)
 	return h.creationDelaySeconds, nil
 }
 

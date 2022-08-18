@@ -360,6 +360,7 @@ func mkdirRoot(dir string) error {
 	if dir == "" {
 		return errors.New("missing root directory configuration")
 	}
+	logger := klog.Background().WithValues("dir", dir)
 
 	fi, err := os.Stat(dir)
 	if err != nil {
@@ -367,7 +368,7 @@ func mkdirRoot(dir string) error {
 			return err
 		}
 
-		klog.Infof("Creating root directory %s", dir)
+		logger.Info("creating root directory")
 
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return err
@@ -383,6 +384,6 @@ func mkdirRoot(dir string) error {
 		return fmt.Errorf("%q is a file, please delete or select another location", dir)
 	}
 
-	klog.Infof("Using root directory %s", dir)
+	logger.Info("using root directory")
 	return nil
 }

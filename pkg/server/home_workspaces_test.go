@@ -437,7 +437,6 @@ func TestTryToCreate(t *testing.T) {
 	testCases := []struct {
 		testName string
 
-		context       context.Context
 		userName      string
 		workspaceName string
 		workspaceType string
@@ -466,7 +465,7 @@ func TestTryToCreate(t *testing.T) {
 			expectedCreatedWorkspace: nil,
 		},
 		{
-			testName: "retry quicky when success creating non-home ClusterWorkspace",
+			testName: "retry quickly when success creating non-home ClusterWorkspace",
 
 			workspaceName: "root:users:ab:cd",
 			workspaceType: "homebucket",
@@ -476,7 +475,7 @@ func TestTryToCreate(t *testing.T) {
 				return nil
 			},
 			expectedCreatedWorkspace: &tenancyv1alpha1.ClusterWorkspace{
-				ObjectMeta: metav1.ObjectMeta{Name: "cd"},
+				ObjectMeta: metav1.ObjectMeta{Name: "cd", Annotations: map[string]string{logicalcluster.AnnotationKey: "root:users:ab"}},
 				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 					Path: "root", Name: tenancyv1alpha1.ClusterWorkspaceTypeName("homebucket"),
 				}},
@@ -484,25 +483,7 @@ func TestTryToCreate(t *testing.T) {
 			expectedRetryAfterSeconds: 1,
 		},
 		{
-			testName: "retry quicky when success creating non-home ClusterWorkspace",
-
-			workspaceName: "root:users:ab:cd",
-			workspaceType: "homebucket",
-			userName:      "user-1",
-
-			createClusterWorkspace: func(ctx context.Context, workspace logicalcluster.Name, cw *tenancyv1alpha1.ClusterWorkspace) error {
-				return nil
-			},
-			expectedCreatedWorkspace: &tenancyv1alpha1.ClusterWorkspace{
-				ObjectMeta: metav1.ObjectMeta{Name: "cd"},
-				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-					Path: "root", Name: tenancyv1alpha1.ClusterWorkspaceTypeName("homebucket"),
-				}},
-			},
-			expectedRetryAfterSeconds: 1,
-		},
-		{
-			testName: "retry quicky when non-home ClusterWorkspace already exists",
+			testName: "retry quickly when non-home ClusterWorkspace already exists",
 
 			workspaceName: "root:users:ab:cd",
 			workspaceType: "homebucket",
@@ -538,7 +519,7 @@ func TestTryToCreate(t *testing.T) {
 			expectedCreateError: "clusterworkspaces.tenancy.kcp.dev \"u--r-1\" is forbidden: workspace access not permitted",
 		},
 		{
-			testName: "create RBAC and retry quicky when success creating home ClusterWorkspace",
+			testName: "create RBAC and retry quickly when success creating home ClusterWorkspace",
 
 			workspaceName: "root:users:ab:cd:user-1",
 			workspaceType: "home",
@@ -569,7 +550,7 @@ func TestTryToCreate(t *testing.T) {
 			expectedToCreateRBAC:      true,
 		},
 		{
-			testName: "create RBAC and retry quicky when home ClusterWorkspace already exists",
+			testName: "create RBAC and retry quickly when home ClusterWorkspace already exists",
 
 			workspaceName: "root:users:ab:cd:user-1",
 			workspaceType: "home",
@@ -834,7 +815,7 @@ func TestTryToCreate(t *testing.T) {
 			expectedRetryAfterSeconds: 1,
 			expectedToCreateRBAC:      false,
 			expectedCreatedWorkspace: &tenancyv1alpha1.ClusterWorkspace{
-				ObjectMeta: metav1.ObjectMeta{Name: "cd"},
+				ObjectMeta: metav1.ObjectMeta{Name: "cd", Annotations: map[string]string{logicalcluster.AnnotationKey: "root:users:ab"}},
 				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 					Path: "root", Name: tenancyv1alpha1.ClusterWorkspaceTypeName("homebucket"),
 				}},
@@ -873,7 +854,7 @@ func TestTryToCreate(t *testing.T) {
 				user := &kuser.DefaultInfo{
 					Name: testCase.userName,
 				}
-				retryAfterSeconds, createError := handler.tryToCreate(testCase.context, user, logicalcluster.New(testCase.workspaceName), tenancyv1alpha1.ClusterWorkspaceTypeName(testCase.workspaceType))
+				retryAfterSeconds, createError := handler.tryToCreate(context.Background(), user, logicalcluster.New(testCase.workspaceName), tenancyv1alpha1.ClusterWorkspaceTypeName(testCase.workspaceType))
 
 				require.Equal(t, testCase.expectedRetryAfterSeconds, retryAfterSeconds, "'retryAfterSeconds' value is wrong")
 				var createErrorString string
@@ -1031,7 +1012,6 @@ func TestCreateHomeWorkspaceRBACResources(t *testing.T) {
 	testCases := []struct {
 		testName string
 
-		context       context.Context
 		workspaceName string
 		userName      string
 
@@ -1245,7 +1225,7 @@ func TestCreateHomeWorkspaceRBACResources(t *testing.T) {
 					},
 				}.build()
 
-				createError := handler.createHomeWorkspaceRBACResources(testCase.context, testCase.userName, logicalcluster.New(testCase.workspaceName))
+				createError := handler.createHomeWorkspaceRBACResources(context.Background(), testCase.userName, logicalcluster.New(testCase.workspaceName))
 
 				var createErrorString string
 				if createError != nil {
@@ -1637,7 +1617,7 @@ func TestServeHTTP(t *testing.T) {
 			func(t *testing.T) {
 				delegatedToHandlerChain := false
 
-				ctx := context.TODO()
+				ctx := context.Background()
 				if testCase.contextCluster != nil {
 					ctx = request.WithCluster(ctx, *testCase.contextCluster)
 				}
