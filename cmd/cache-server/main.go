@@ -28,10 +28,11 @@ import (
 	cacheserver "github.com/kcp-dev/kcp/pkg/cache/server"
 	"github.com/kcp-dev/kcp/pkg/cache/server/options"
 	"github.com/kcp-dev/kcp/pkg/cmd/help"
+	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
 )
 
 func main() {
-	serverOptions := options.NewOptions()
+	serverOptions := options.NewOptions(".kcp-cache")
 	cmd := &cobra.Command{
 		Use:   "cache-server",
 		Short: "Runs the cache server for KCP",
@@ -75,7 +76,15 @@ func main() {
 			if err != nil {
 				return err
 			}
-			return server.Run(genericapiserver.SetupSignalContext())
+
+			ctx := genericapiserver.SetupSignalContext()
+			// the etcd server must be up before NewServer because storage decorators access it right away
+			if completedConfig.EmbeddedEtcd.Config != nil {
+				if err := embeddedetcd.NewServer(completedConfig.EmbeddedEtcd).Run(ctx); err != nil {
+					return err
+				}
+			}
+			return server.Run(ctx)
 		},
 	}
 

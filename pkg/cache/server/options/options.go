@@ -16,23 +16,95 @@ limitations under the License.
 
 package options
 
-import "github.com/spf13/pflag"
+import (
+	"github.com/spf13/pflag"
 
-type Options struct{}
+	genericoptions "k8s.io/apiserver/pkg/server/options"
+	"k8s.io/apiserver/pkg/storage/storagebackend"
+	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
 
-type completedOptions struct{}
+	etcdoptions "github.com/kcp-dev/kcp/pkg/embeddedetcd/options"
+)
+
+type Options struct {
+	ServerRunOptions *genericoptions.ServerRunOptions
+	Etcd             *genericoptions.EtcdOptions
+	SecureServing    *genericoptions.SecureServingOptionsWithLoopback
+	Authentication   *genericoptions.DelegatingAuthenticationOptions
+	Authorization    *genericoptions.DelegatingAuthorizationOptions
+	APIEnablement    *genericoptions.APIEnablementOptions
+	EmbeddedEtcd     etcdoptions.Options
+}
+
+type completedOptions struct {
+	ServerRunOptions *genericoptions.ServerRunOptions
+	Etcd             *genericoptions.EtcdOptions
+	SecureServing    *genericoptions.SecureServingOptionsWithLoopback
+	Authentication   *genericoptions.DelegatingAuthenticationOptions
+	Authorization    *genericoptions.DelegatingAuthorizationOptions
+	APIEnablement    *genericoptions.APIEnablementOptions
+	EmbeddedEtcd     etcdoptions.CompletedOptions
+}
 
 type CompletedOptions struct {
 	*completedOptions
 }
 
-func (o *CompletedOptions) Validate() []error { return nil }
-
-// NewOptions creates a new Options with default parameters.
-func NewOptions() *Options { return &Options{} }
-
-func (o *Options) Complete() (*CompletedOptions, error) {
-	return &CompletedOptions{&completedOptions{}}, nil
+func (o *CompletedOptions) Validate() []error {
+	errors := []error{}
+	errors = append(errors, o.ServerRunOptions.Validate()...)
+	errors = append(errors, o.Etcd.Validate()...)
+	errors = append(errors, o.SecureServing.Validate()...)
+	errors = append(errors, o.Authentication.Validate()...)
+	errors = append(errors, o.Authorization.Validate()...)
+	errors = append(errors, o.APIEnablement.Validate()...)
+	errors = append(errors, o.EmbeddedEtcd.Validate()...)
+	return errors
 }
 
-func (o *Options) AddFlags(flags *pflag.FlagSet) {}
+// NewOptions crwates a new Options with default parameters.
+func NewOptions(rootDir string) *Options {
+	o := &Options{
+		ServerRunOptions: genericoptions.NewServerRunOptions(),
+		Etcd:             genericoptions.NewEtcdOptions(storagebackend.NewDefaultConfig(kubeoptions.DefaultEtcdPathPrefix, nil)),
+		SecureServing:    genericoptions.NewSecureServingOptions().WithLoopback(),
+		Authentication:   genericoptions.NewDelegatingAuthenticationOptions(),
+		Authorization:    genericoptions.NewDelegatingAuthorizationOptions(),
+		APIEnablement:    genericoptions.NewAPIEnablementOptions(),
+		EmbeddedEtcd:     *etcdoptions.NewOptions(rootDir),
+	}
+
+	o.ServerRunOptions.EnablePriorityAndFairness = false
+	o.SecureServing.ServerCert.CertDirectory = rootDir
+	o.SecureServing.BindPort = 6443
+	o.Etcd.StorageConfig.Transport.ServerList = []string{"embedded"}
+	return o
+}
+
+func (o *Options) Complete() (*CompletedOptions, error) {
+	if servers := o.Etcd.StorageConfig.Transport.ServerList; len(servers) == 1 && servers[0] == "embedded" {
+		o.EmbeddedEtcd.Enabled = true
+	}
+
+	// TODO: enable authN/Z stack
+	o.Authentication = nil
+	o.Authorization = nil
+
+	if err := o.SecureServing.MaybeDefaultWithSelfSignedCerts("localhost", nil, nil); err != nil {
+		return nil, err
+	}
+
+	return &CompletedOptions{&completedOptions{
+		ServerRunOptions: o.ServerRunOptions,
+		Etcd:             o.Etcd,
+		SecureServing:    o.SecureServing,
+		Authentication:   o.Authentication,
+		Authorization:    o.Authorization,
+		APIEnablement:    o.APIEnablement,
+		EmbeddedEtcd:     o.EmbeddedEtcd.Complete(o.Etcd),
+	}}, nil
+}
+
+func (o *Options) AddFlags(fs *pflag.FlagSet) {
+	// TODO: figure out what flags needs to be exposed
+}
