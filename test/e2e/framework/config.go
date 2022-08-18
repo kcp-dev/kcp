@@ -70,7 +70,7 @@ func (c *testConfig) PClusterKubeconfig() string {
 func (c *testConfig) KCPKubeconfig() string {
 	// TODO(marun) How to validate before use given that the testing package is calling flags.Parse()?
 	if c.useDefaultKCPServer && len(c.kcpKubeconfig) > 0 {
-		panic(errors.New("Only one of --use-default-kcp-server and --kcp-kubeconfig should be set."))
+		panic(errors.New("only one of --use-default-kcp-server and --kcp-kubeconfig should be set"))
 	}
 
 	if c.useDefaultKCPServer {

@@ -21,12 +21,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 )
 
-func toAPIResourceSchema(r *v1alpha1.NegotiatedAPIResource, name string) *apisv1alpha1.APIResourceSchema {
+func toAPIResourceSchema(r *apiresourcev1alpha1.NegotiatedAPIResource, name string) *apisv1alpha1.APIResourceSchema {
 	group := r.Spec.CommonAPIResourceSpec.GroupVersion.Group
 	if group == "core" {
 		group = ""

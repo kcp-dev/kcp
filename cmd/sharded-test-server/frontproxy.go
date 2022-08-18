@@ -65,7 +65,7 @@ func startFrontProxy(ctx context.Context, args []string, servingCA *crypto.CA, h
   proxy_client_cert: .kcp-front-proxy/requestheader.crt
   proxy_client_key: .kcp-front-proxy/requestheader.key
 `), 0644); err != nil {
-		return fmt.Errorf("failed to create front-proxy mapping.yaml: %w\n", err)
+		return fmt.Errorf("failed to create front-proxy mapping.yaml: %w", err)
 	}
 
 	// write root shard kubeconfig
@@ -87,10 +87,10 @@ func startFrontProxy(ctx context.Context, args []string, servingCA *crypto.CA, h
 	klog.Infof("Creating kcp-front-proxy serving cert with hostnames %v", hostnames)
 	cert, err := servingCA.MakeServerCert(hostnames, 365)
 	if err != nil {
-		return fmt.Errorf("failed to create server cert: %w\n", err)
+		return fmt.Errorf("failed to create server cert: %w", err)
 	}
 	if err := cert.WriteCertConfigFile(filepath.Join(workDirPath, ".kcp-front-proxy/apiserver.crt"), filepath.Join(workDirPath, ".kcp-front-proxy/apiserver.key")); err != nil {
-		return fmt.Errorf("failed to write server cert: %w\n", err)
+		return fmt.Errorf("failed to write server cert: %w", err)
 	}
 
 	// run front-proxy command

@@ -36,7 +36,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -252,7 +251,7 @@ func TestWatch(t *testing.T) {
 	ctx := request.WithNamespace(context.Background(), "default")
 	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.New("foo")})
 
-	watchedError := &v1.Status{
+	watchedError := &metav1.Status{
 		Status:  "Failure",
 		Message: "message",
 	}
@@ -296,7 +295,7 @@ func TestWildcardWatchWithPIExportIdentity(t *testing.T) {
 	ctx := request.WithNamespace(context.Background(), "default")
 	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.Wildcard, Wildcard: true})
 
-	watchedError := &v1.Status{
+	watchedError := &metav1.Status{
 		Status:  "Failure",
 		Message: "message",
 	}

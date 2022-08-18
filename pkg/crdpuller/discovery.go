@@ -494,7 +494,7 @@ func (sc *SchemaConverter) VisitKind(k *proto.Kind) {
 func (sc *SchemaConverter) VisitReference(r proto.Reference) {
 	reference := r.Reference()
 	if sc.visited.Has(reference) {
-		*sc.errors = append(*sc.errors, fmt.Errorf("Recursive schema are not supported: %s", reference))
+		*sc.errors = append(*sc.errors, fmt.Errorf("recursive schema are not supported: %s", reference))
 		return
 	}
 	if knownSchema, schemaIsKnown := knownSchemas[reference]; schemaIsKnown {

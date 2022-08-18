@@ -302,7 +302,7 @@ func (c *Controller) patchIfNeeded(ctx context.Context, old, obj *tenancyv1alpha
 
 	if specOrObjectMetaChanged && statusChanged {
 		// enqueue again to take care of the spec change, assuming the patch did nothing
-		return fmt.Errorf("Programmer error: spec and status changed in same reconcile iteration:\n%s", cmp.Diff(old, obj))
+		return fmt.Errorf("programmer error: spec and status changed in same reconcile iteration:\n%s", cmp.Diff(old, obj))
 	}
 
 	return nil

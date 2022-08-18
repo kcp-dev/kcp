@@ -38,7 +38,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/kubernetes"
 	kubernetesclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -334,7 +333,7 @@ type StartedSyncerFixture struct {
 	// Provide cluster-admin config and client for test purposes. The downstream config in
 	// SyncerConfig will be less privileged.
 	DownstreamConfig     *rest.Config
-	DownstreamKubeClient kubernetes.Interface
+	DownstreamKubeClient kubernetesclientset.Interface
 }
 
 // WaitForClusterReady waits for the cluster to be ready with the given reason.

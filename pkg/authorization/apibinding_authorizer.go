@@ -30,7 +30,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
-	"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
@@ -176,14 +175,14 @@ func (a *apiBindingAccessAuthorizer) getAPIBindingReference(attr authorizer.Attr
 	return nil, false, nil
 }
 
-func (a *apiBindingAccessAuthorizer) getAPIExport(exportRef *apisv1alpha1.ExportReference) (*v1alpha1.APIExport, bool, error) {
+func (a *apiBindingAccessAuthorizer) getAPIExport(exportRef *apisv1alpha1.ExportReference) (*apisv1alpha1.APIExport, bool, error) {
 	objs, err := a.apiExportIndexer.ByIndex(byWorkspaceIndex, exportRef.Workspace.Path)
 	if err != nil {
 		return nil, false, err
 	}
 
 	for _, obj := range objs {
-		apiExport := obj.(*v1alpha1.APIExport)
+		apiExport := obj.(*apisv1alpha1.APIExport)
 		if apiExport.Name == exportRef.Workspace.ExportName {
 			return apiExport, true, err
 		}

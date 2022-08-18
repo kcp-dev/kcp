@@ -36,7 +36,6 @@ import (
 
 	kcpadmission "github.com/kcp-dev/kcp/pkg/admission"
 	etcdoptions "github.com/kcp-dev/kcp/pkg/embeddedetcd/options"
-	_ "github.com/kcp-dev/kcp/pkg/features"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/server/options/batteries"
 )

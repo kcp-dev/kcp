@@ -408,7 +408,7 @@ func GetTLSCertificateConfig(certFile, keyFile string) (*TLSCertificateConfig, e
 	}
 	certs, err := cert.ParseCertsPEM(certPEMBlock)
 	if err != nil {
-		return nil, fmt.Errorf("Error reading %s: %s", certFile, err)
+		return nil, fmt.Errorf("error reading %s: %s", certFile, err)
 	}
 
 	keyPEMBlock, err := ioutil.ReadFile(keyFile)
@@ -434,7 +434,7 @@ func GetTLSCertificateConfigFromBytes(certBytes, keyBytes []byte) (*TLSCertifica
 
 	certs, err := cert.ParseCertsPEM(certBytes)
 	if err != nil {
-		return nil, fmt.Errorf("Error reading cert: %s", err)
+		return nil, fmt.Errorf("error reading cert: %s", err)
 	}
 
 	keyPairCert, err := tls.X509KeyPair(certBytes, keyBytes)
@@ -733,7 +733,7 @@ func GetServerCert(certFile, keyFile string, hostnames sets.String) (*TLSCertifi
 		return server, nil
 	}
 
-	return nil, fmt.Errorf("Existing server certificate in %s was missing some hostnames (%v) or IP addresses (%v).", certFile, missingDns, missingIps)
+	return nil, fmt.Errorf("existing server certificate in %s was missing some hostnames (%v) or IP addresses (%v)", certFile, missingDns, missingIps)
 }
 
 func (ca *CA) MakeAndWriteServerCert(certFile, keyFile string, hostnames sets.String, expireDays int) (*TLSCertificateConfig, error) {
@@ -1045,7 +1045,7 @@ func CertsFromPEM(pemCerts []byte) ([]*x509.Certificate, error) {
 	}
 
 	if !ok {
-		return certs, errors.New("Could not read any certificates")
+		return certs, errors.New("could not read any certificates")
 	}
 	return certs, nil
 }
@@ -1099,7 +1099,7 @@ func signCertificate(template *x509.Certificate, requestKey crypto.PublicKey, is
 		return nil, err
 	}
 	if len(certs) != 1 {
-		return nil, errors.New("Expected a single certificate")
+		return nil, errors.New("expected a single certificate")
 	}
 	return certs[0], nil
 }
@@ -1129,7 +1129,7 @@ func encodeKey(key crypto.PrivateKey) ([]byte, error) {
 			return []byte{}, err
 		}
 	default:
-		return []byte{}, errors.New("Unrecognized key type")
+		return []byte{}, errors.New("unrecognized key type")
 
 	}
 	return b.Bytes(), nil

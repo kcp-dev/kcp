@@ -36,7 +36,6 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
-	"k8s.io/client-go/dynamic/fake"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	clienttesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -293,7 +292,7 @@ func TestDeepEqualFinalizersAndStatus(t *testing.T) {
 var _ dynamic.ClusterInterface = (*mockedDynamicCluster)(nil)
 
 type mockedDynamicCluster struct {
-	client *fake.FakeDynamicClient
+	client *dynamicfake.FakeDynamicClient
 }
 
 func (mdc *mockedDynamicCluster) Cluster(name logicalcluster.Name) dynamic.Interface {

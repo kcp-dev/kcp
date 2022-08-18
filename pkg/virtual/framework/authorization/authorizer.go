@@ -52,5 +52,5 @@ func (a *virtualWorkspaceAuthorizer) Authorize(ctx context.Context, attrs author
 
 	// This should never happen if a virtual workspace name has been set in the context by the
 	// ResolveRootPath method of one of the virtual workspaces.
-	return authorizer.DecisionNoOpinion, "", fmt.Errorf("Virtual Workspace %q not found", virtualWorkspaceName)
+	return authorizer.DecisionNoOpinion, "", fmt.Errorf("virtual Workspace %q not found", virtualWorkspaceName)
 }

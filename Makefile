@@ -42,6 +42,10 @@ GOLANGCI_LINT_VER := v1.47.2
 GOLANGCI_LINT_BIN := golangci-lint
 GOLANGCI_LINT := $(TOOLS_GOBIN_DIR)/$(GOLANGCI_LINT_BIN)-$(GOLANGCI_LINT_VER)
 
+STATICCHECK_VER := 2022.1
+STATICCHECK_BIN := staticcheck
+STATICCHECK := $(TOOLS_GOBIN_DIR)/$(STATICCHECK_BIN)-$(STATICCHECK_VER)
+
 GOTESTSUM_VER := v1.8.1
 GOTESTSUM_BIN := gotestsum
 GOTESTSUM := $(abspath $(TOOLS_DIR))/$(GOTESTSUM_BIN)-$(GOTESTSUM_VER)
@@ -103,8 +107,13 @@ install:
 $(GOLANGCI_LINT):
 	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) github.com/golangci/golangci-lint/cmd/golangci-lint $(GOLANGCI_LINT_BIN) $(GOLANGCI_LINT_VER)
 
-lint: $(GOLANGCI_LINT)
+$(STATICCHECK):
+	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) honnef.co/go/tools/cmd/staticcheck $(STATICCHECK_BIN) $(STATICCHECK_VER)
+
+lint: $(GOLANGCI_LINT) $(STATICCHECK)
 	$(GOLANGCI_LINT) run --timeout=10m ./...
+	$(STATICCHECK) -checks ST1019,ST1005 ./...
+
 .PHONY: lint
 
 vendor: ## Vendor the dependencies

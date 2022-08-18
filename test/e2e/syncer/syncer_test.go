@@ -42,7 +42,6 @@ import (
 	kyaml "sigs.k8s.io/yaml"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -466,7 +465,7 @@ func TestCordonUncordonDrain(t *testing.T) {
 	require.NoError(t, err)
 	_, kubeconfigPath := framework.WriteLogicalClusterConfig(t, upstreamRawConfig, "base", wsClusterName)
 
-	kcpClusterClient, err := clientset.NewForConfig(upstreamCfg)
+	kcpClusterClient, err := kcpclientset.NewForConfig(upstreamCfg)
 	require.NoError(t, err, "failed to construct client for server")
 
 	// The Start method of the fixture will initiate syncer start and then wait for
