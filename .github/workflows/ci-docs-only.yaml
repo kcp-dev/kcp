@@ -11,6 +11,7 @@ on:
       - "docs/**"
       - "**/*.md"
       - ".github/ISSUE_TEMPLATE/*"
+      - ".goreleaser.yaml"
 
 jobs:
   e2e-shared-server:
