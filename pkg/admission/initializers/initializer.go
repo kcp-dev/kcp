@@ -21,6 +21,7 @@ import (
 	"k8s.io/apiserver/pkg/admission/initializer"
 	quota "k8s.io/apiserver/pkg/quota/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
@@ -53,6 +54,24 @@ func NewKubeClusterClientInitializer(
 ) *kubeClusterClientInitializer {
 	return &kubeClusterClientInitializer{
 		kubeClusterClient: kubeClusterClient,
+	}
+}
+
+// NewRestConfigInitializer returns an admission plugin initializer that injects
+// a rest config into admission plugins.
+func NewRestConfigInitializer(config *rest.Config) *restConfigInitilizer {
+	return &restConfigInitilizer{
+		rest: config,
+	}
+}
+
+type restConfigInitilizer struct {
+	rest *rest.Config
+}
+
+func (i *restConfigInitilizer) Initialize(plugin admission.Interface) {
+	if wants, ok := plugin.(WantsRestConfig); ok {
+		wants.SetRestConfig(i.rest)
 	}
 }
 
@@ -89,7 +108,7 @@ func (i *kcpClusterClientInitializer) Initialize(plugin admission.Interface) {
 // NewDeepSARClientInitializer returns an admission plugin initializer that injects
 // a deep SAR client into admission plugins.
 func NewDeepSARClientInitializer(
-	deepSARClient kubernetes.ClusterInterface,
+	deepSARClient kubernetes.Interface,
 ) *clientConfigInitializer {
 	return &clientConfigInitializer{
 		deepSARClient: deepSARClient,
@@ -97,7 +116,7 @@ func NewDeepSARClientInitializer(
 }
 
 type clientConfigInitializer struct {
-	deepSARClient kubernetes.ClusterInterface
+	deepSARClient kubernetes.Interface
 }
 
 func (i *clientConfigInitializer) Initialize(plugin admission.Interface) {

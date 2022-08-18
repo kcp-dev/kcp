@@ -55,12 +55,7 @@ func Register(plugins *admission.Plugins) {
 
 type apiBindingAdmission struct {
 	*admission.Handler
-<<<<<<< HEAD
-	deepSARClient kubernetes.ClusterInterface
-=======
-	kubeClusterClient kubernetes.Interface
->>>>>>> de0cc56e... Part 16: Scope kubeclient in pkg/virtual/apiexport
-
+	deepSARClient    kubernetes.Interface
 	createAuthorizer delegated.DelegatedAuthorizerFactory
 }
 
@@ -225,11 +220,6 @@ func (o *apiBindingAdmission) ValidateInitialization() error {
 
 // SetDeepSARClient is an admission plugin initializer function that injects a client capable of deep SAR requests into
 // this admission plugin.
-<<<<<<< HEAD
-func (o *apiBindingAdmission) SetDeepSARClient(client kubernetes.ClusterInterface) {
+func (o *apiBindingAdmission) SetDeepSARClient(client kubernetes.Interface) {
 	o.deepSARClient = client
-=======
-func (o *apiBindingAdmission) SetKubeClusterClient(clusterClient kubernetes.Interface) {
-	o.kubeClusterClient = clusterClient
->>>>>>> de0cc56e... Part 16: Scope kubeclient in pkg/virtual/apiexport
 }

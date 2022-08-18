@@ -88,12 +88,8 @@ type ExtraConfig struct {
 
 	// clients
 	DynamicClusterClient       dynamic.ClusterInterface
-<<<<<<< HEAD
-	KubeClusterClient          kubernetes.ClusterInterface
-	DeepSARClient              kubernetes.ClusterInterface
-=======
 	KubeClusterClient          kubernetes.Interface
->>>>>>> de0cc56e... Part 16: Scope kubeclient in pkg/virtual/apiexport
+	DeepSARClient              kubernetes.Interface
 	ApiExtensionsClusterClient apiextensionsclient.ClusterInterface
 	KcpClusterClient           kcpclient.ClusterInterface
 	RootShardKcpClusterClient  kcpclient.ClusterInterface
@@ -178,12 +174,12 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 	c.GenericConfig.RequestInfoResolver = requestinfo.NewFactory() // must be set here early to avoid a crash in the EnableMultiCluster roundtrip wrapper
 
 	// Setup kube * informers
-	c.KubeClusterClient, err = kubernetes.NewForConfig(c.GenericConfig.LoopbackClientConfig)
+	c.KubeClusterClient, err = kubernetes.NewForConfig(kcpclienthelper.SetMultiClusterRoundTripper(rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)))
 	if err != nil {
 		return nil, err
 	}
 
-	kubeinformerConfig := kcpclienthelper.ConfigWithCluster(c.GenericConfig.LoopbackClientConfig, logicalcluster.Wildcard)
+	kubeinformerConfig := kcpclienthelper.SetCluster(rest.CopyConfig(c.GenericConfig.LoopbackClientConfig), logicalcluster.Wildcard)
 	kubeinformerClient, err := kubernetes.NewForConfig(kubeinformerConfig)
 	if err != nil {
 		return nil, err
@@ -242,7 +238,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		kcpexternalversions.WithExtraClusterScopedIndexers(indexers.ClusterScoped()),
 		kcpexternalversions.WithExtraNamespaceScopedIndexers(indexers.NamespaceScoped()),
 	)
-	c.DeepSARClient, err = kubernetes.NewClusterForConfig(authorization.WithDeepSARConfig(rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)))
+	c.DeepSARClient, err = kubernetes.NewForConfig(authorization.WithDeepSARConfig(rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)))
 	if err != nil {
 		return nil, err
 	}
@@ -358,6 +354,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		kcpadmissioninitializers.NewExternalAddressInitializer(func() string { return c.GenericConfig.ExternalAddress }),
 		kcpadmissioninitializers.NewKubeQuotaConfigurationInitializer(quotaConfiguration),
 		kcpadmissioninitializers.NewServerShutdownInitializer(c.quotaAdmissionStopCh),
+		kcpadmissioninitializers.NewRestConfigInitializer(c.GenericConfig.LoopbackClientConfig),
 	}
 
 	c.Apis, err = genericcontrolplane.CreateKubeAPIServerConfig(c.GenericConfig, opts.GenericControlPlane, c.KubeSharedInformerFactory, admissionPluginInitializers, storageFactory)

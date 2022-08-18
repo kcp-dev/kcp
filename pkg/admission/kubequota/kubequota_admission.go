@@ -190,7 +190,7 @@ func (k *KubeResourceQuota) getOrCreateDelegate(clusterName logicalcluster.Name)
 		stop:           cancel,
 	}
 
-	clusterConfig := kcpclienthelper.ConfigWithCluster(k.config, clusterName)
+	clusterConfig := kcpclienthelper.SetCluster(rest.CopyConfig(k.config), clusterName)
 	delegateClusterClient, err := kubernetes.NewForConfig(clusterConfig)
 	if err != nil {
 		return nil, err
@@ -234,6 +234,10 @@ func (k *KubeResourceQuota) stopQuotaAdmissionForCluster(clusterName logicalclus
 
 func (k *KubeResourceQuota) SetKubeClusterClient(kubeClusterClient kubernetes.Interface) {
 	k.kubeClusterClient = kubeClusterClient
+}
+
+func (k *KubeResourceQuota) SetRestConfig(config *rest.Config) {
+	k.config = config
 }
 
 func (k *KubeResourceQuota) SetKcpInformers(informers kcpinformers.SharedInformerFactory) {

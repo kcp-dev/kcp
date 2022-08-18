@@ -18,6 +18,7 @@ package initializers
 
 import (
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
@@ -33,6 +34,12 @@ type WantsKcpInformers interface {
 // that want to have a kube cluster client injected.
 type WantsKubeClusterClient interface {
 	SetKubeClusterClient(kubernetes.Interface)
+}
+
+// WantsRestConfig interface should be implemented by admission plugins
+// that want to have a rest config injected.
+type WantsRestConfig interface {
+	SetRestConfig(config *rest.Config)
 }
 
 // WantsKcpClusterClient interface should be implemented by admission plugins

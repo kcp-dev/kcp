@@ -27,7 +27,6 @@ import (
 	"sync"
 
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
-
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
