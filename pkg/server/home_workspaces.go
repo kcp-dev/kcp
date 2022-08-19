@@ -93,7 +93,7 @@ func WithHomeWorkspaces(
 	apiHandler http.Handler,
 	a authorizer.Authorizer,
 	kubeClusterClient kubernetes.ClusterInterface,
-	kcpClusterClient kcpclient.ClusterInterface,
+	kcpClusterClient kcpclient.Interface,
 	kubeSharedInformerFactory coreexternalversions.SharedInformerFactory,
 	kcpSharedInformerFactory kcpexternalversions.SharedInformerFactory,
 	externalHost string,
@@ -125,7 +125,7 @@ type externalKubeClientsAccess struct {
 	createClusterRoleBinding func(ctx context.Context, lcluster logicalcluster.Name, crb *rbacv1.ClusterRoleBinding) error
 }
 
-func buildExternalClientsAccess(kubeClusterClient kubernetes.ClusterInterface, kcpClusterClient kcpclient.ClusterInterface) externalKubeClientsAccess {
+func buildExternalClientsAccess(kubeClusterClient kubernetes.ClusterInterface, kcpClusterClient kcpclient.Interface) externalKubeClientsAccess {
 	return externalKubeClientsAccess{
 		createClusterRole: func(ctx context.Context, workspace logicalcluster.Name, cr *rbacv1.ClusterRole) error {
 			_, err := kubeClusterClient.Cluster(workspace).RbacV1().ClusterRoles().Create(ctx, cr, metav1.CreateOptions{})
@@ -136,11 +136,11 @@ func buildExternalClientsAccess(kubeClusterClient kubernetes.ClusterInterface, k
 			return err
 		},
 		createClusterWorkspace: func(ctx context.Context, workspace logicalcluster.Name, cw *tenancyv1alpha1.ClusterWorkspace) error {
-			_, err := kcpClusterClient.Cluster(workspace).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, cw, metav1.CreateOptions{})
+			_, err := kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Create(logicalcluster.WithCluster(ctx, workspace), cw, metav1.CreateOptions{})
 			return err
 		},
 		getClusterWorkspace: func(ctx context.Context, workspace logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspace, error) {
-			return kcpClusterClient.Cluster(workspace).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, name, metav1.GetOptions{})
+			return kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, workspace), name, metav1.GetOptions{})
 		},
 	}
 }

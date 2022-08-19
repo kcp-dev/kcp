@@ -23,6 +23,7 @@ import (
 	_ "net/http/pprof"
 	"net/url"
 
+	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
@@ -90,7 +91,7 @@ type ExtraConfig struct {
 	KubeClusterClient          kubernetes.ClusterInterface
 	DeepSARClient              kubernetes.ClusterInterface
 	ApiExtensionsClusterClient apiextensionsclient.ClusterInterface
-	KcpClusterClient           kcpclient.ClusterInterface
+	KcpClusterClient           kcpclient.Interface
 	RootShardKcpClusterClient  kcpclient.ClusterInterface
 
 	// misc
@@ -220,12 +221,18 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 
 		c.identityConfig, c.resolveIdentities = boostrap.NewConfigWithWildcardIdentities(c.GenericConfig.LoopbackClientConfig, boostrap.KcpRootGroupExportNames, boostrap.KcpRootGroupResourceExportNames, nil)
 	}
-	c.KcpClusterClient, err = kcpclient.NewClusterForConfig(c.identityConfig) // this is now generic to be used for all kcp API groups
+	c.KcpClusterClient, err = kcpclient.NewForConfig(kcpclienthelper.SetMultiClusterRoundTripper(rest.CopyConfig(c.identityConfig))) // this is now generic to be used for all kcp API groups
+	if err != nil {
+		return nil, err
+	}
+
+	kcpInformerConfig := kcpclienthelper.SetCluster(rest.CopyConfig(c.identityConfig), logicalcluster.Wildcard)
+	kcpInformerClient, err := kcpclient.NewForConfig(kcpInformerConfig)
 	if err != nil {
 		return nil, err
 	}
 	c.KcpSharedInformerFactory = kcpexternalversions.NewSharedInformerFactoryWithOptions(
-		c.KcpClusterClient.Cluster(logicalcluster.Wildcard),
+		kcpInformerClient,
 		resyncPeriod,
 		kcpexternalversions.WithExtraClusterScopedIndexers(indexers.ClusterScoped()),
 		kcpexternalversions.WithExtraNamespaceScopedIndexers(indexers.NamespaceScoped()),

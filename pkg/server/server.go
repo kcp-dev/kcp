@@ -150,8 +150,9 @@ func (s *Server) Run(ctx context.Context) error {
 				s.ApiExtensionsClusterClient.Cluster(configshard.SystemShardCluster).Discovery(),
 				s.DynamicClusterClient.Cluster(configshard.SystemShardCluster),
 				sets.NewString(s.Options.Extra.BatteriesIncluded...),
-				s.KcpClusterClient.Cluster(configshard.SystemShardCluster)); err != nil {
-				logger.Error(err, "failed to bootstrap the shard workspace")
+				s.KcpClusterClient,
+				configshard.SystemShardCluster); err != nil {
+				klog.Errorf("Failed to bootstrap the shard workspace: %v", err)
 				return false, nil // keep trying
 			}
 			return true, nil
@@ -178,11 +179,13 @@ func (s *Server) Run(ctx context.Context) error {
 
 		if s.Options.Extra.ShardName == tenancyv1alpha1.RootShard {
 			// bootstrap root workspace phase 0 only if we are on the root shard, no APIBinding resources yet
+
 			if err := configrootphase0.Bootstrap(util.GoContext(hookContext),
-				s.KcpClusterClient.Cluster(tenancyv1alpha1.RootCluster),
+				s.KcpClusterClient,
 				s.ApiExtensionsClusterClient.Cluster(tenancyv1alpha1.RootCluster).Discovery(),
 				s.DynamicClusterClient.Cluster(tenancyv1alpha1.RootCluster),
 				sets.NewString(s.Options.Extra.BatteriesIncluded...),
+				tenancyv1alpha1.RootCluster,
 			); err != nil {
 				// nolint:nilerr
 				logger.Error(err, "failed to bootstrap root workspace phase 0")

@@ -53,7 +53,7 @@ type CreateAPIDefinitionFunc func(apiResourceSchema *apisv1alpha1.APIResourceSch
 // NewAPIReconciler returns a new controller which reconciles APIResourceImport resources
 // and delegates the corresponding SyncTargetAPI management to the given SyncTargetAPIManager.
 func NewAPIReconciler(
-	kcpClusterClient kcpclient.ClusterInterface,
+	kcpClusterClient kcpclient.Interface,
 	apiResourceSchemaInformer apisinformer.APIResourceSchemaInformer,
 	apiExportInformer apisinformer.APIExportInformer,
 	createAPIDefinition CreateAPIDefinitionFunc,
@@ -113,7 +113,7 @@ func NewAPIReconciler(
 // APIReconciler is a controller watching APIExports and APIResourceSchemas, and updates the
 // API definitions driving the virtual workspace.
 type APIReconciler struct {
-	kcpClusterClient kcpclient.ClusterInterface
+	kcpClusterClient kcpclient.Interface
 
 	apiResourceSchemaLister  apislisters.APIResourceSchemaLister
 	apiResourceSchemaIndexer cache.Indexer

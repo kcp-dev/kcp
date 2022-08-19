@@ -53,7 +53,7 @@ func BuildVirtualWorkspace(
 	rootPathPrefix string,
 	kubeClusterClient kubernetes.ClusterInterface,
 	dynamicClusterClient dynamic.ClusterInterface,
-	kcpClusterClient kcpclient.ClusterInterface,
+	kcpClusterClient kcpclient.Interface,
 	wildcardKcpInformers kcpinformer.SharedInformerFactory,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
 	if !strings.HasSuffix(rootPathPrefix, "/") {

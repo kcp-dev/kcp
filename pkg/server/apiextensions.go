@@ -55,7 +55,7 @@ var SystemCRDLogicalCluster = logicalcluster.New("system:system-crds")
 
 // apiBindingAwareCRDLister is a CRD lister combines APIs coming from APIBindings with CRDs in a workspace.
 type apiBindingAwareCRDLister struct {
-	kcpClusterClient     kcpclientset.ClusterInterface
+	kcpClusterClient     kcpclientset.Interface
 	crdLister            apiextensionslisters.CustomResourceDefinitionLister
 	crdIndexer           cache.Indexer
 	workspaceLister      tenancylisters.ClusterWorkspaceLister

@@ -38,7 +38,7 @@ type WantsKubeClusterClient interface {
 // WantsKcpClusterClient interface should be implemented by admission plugins
 // that want to have a kcp cluster client injected.
 type WantsKcpClusterClient interface {
-	SetKcpClusterClient(kcpclientset.ClusterInterface)
+	SetKcpClusterClient(kcpclientset.Interface)
 }
 
 // WantsDeepSARClient interface should be implemented by admission plugins
