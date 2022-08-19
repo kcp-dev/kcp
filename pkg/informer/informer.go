@@ -42,6 +42,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
 )
 
@@ -425,6 +426,15 @@ func (d *DynamicDiscoverySharedInformerFactory) updateInformers() {
 		group := parts[0]
 		version := parts[1]
 		resource := parts[2]
+
+		// Don't start a dynamic informer for tenancy.kcp.dev/v1beta1 Workspaces. These are a virtual projection of
+		// data from tenancy.kcp.dev/v1alpha1 ClusterWorkspaces. Starting an informer for them causes problems when
+		// the virtual-workspaces server is deployed separately. See https://github.com/kcp-dev/kcp/issues/1654 for
+		// more details.
+		if group == tenancy.GroupName && version == "v1beta1" && resource == "workspaces" {
+			continue
+		}
+
 		latest[gvrFor(group, version, resource)] = struct{}{}
 	}
 
