@@ -24,7 +24,7 @@ import (
 
 	"go.uber.org/multierr"
 
-	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -361,14 +361,14 @@ func lcdForObject(fldPath *field.Path, existing, new *schema.Structural, lcd *sc
 				delete(lcd.Properties, removedProperty)
 			}
 
-		} else if new.AdditionalProperties.Structural != nil {
+		} else if new.AdditionalProperties != nil && new.AdditionalProperties.Structural != nil {
 			for _, key := range sets.StringKeySet(existing.Properties).List() {
 				existingPropertySchema := existing.Properties[key]
 				lcdPropertySchema := lcd.Properties[key]
 				multierr.AppendInto(&err, lcdForStructural(fldPath.Child("properties").Key(key), &existingPropertySchema, new.AdditionalProperties.Structural, &lcdPropertySchema, narrowExisting))
 				lcd.Properties[key] = lcdPropertySchema
 			}
-		} else if new.AdditionalProperties.Bool {
+		} else if new.AdditionalProperties != nil && new.AdditionalProperties.Bool {
 			// that allows named properties only.
 			// => Keep the existing schemas as the lcd.
 		} else {
