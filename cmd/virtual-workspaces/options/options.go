@@ -41,6 +41,7 @@ type Options struct {
 	Output io.Writer
 
 	KubeconfigFile string
+	Context        string
 	RootPathPrefix string
 
 	SecureServing  genericapiserveroptions.SecureServingOptions
@@ -79,9 +80,11 @@ func (o *Options) AddFlags(flags *pflag.FlagSet) {
 	o.Logs.AddFlags(flags)
 	o.VirtualWorkspaces.AddFlags(flags)
 
-	flags.StringVar(&o.KubeconfigFile, "kubeconfig", o.KubeconfigFile, ""+
+	flags.StringVar(&o.KubeconfigFile, "kubeconfig", o.KubeconfigFile,
 		"The kubeconfig file of the KCP instance that hosts workspaces.")
 	_ = cobra.MarkFlagRequired(flags, "kubeconfig")
+
+	flags.StringVar(&o.Context, "context", o.Context, "Name of the context in the kubeconfig file to use")
 }
 
 func (o *Options) Validate() error {

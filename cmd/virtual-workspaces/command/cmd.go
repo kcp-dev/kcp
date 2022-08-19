@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/url"
 	"time"
 
@@ -37,7 +36,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/version"
 	"k8s.io/client-go/tools/clientcmd"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/component-base/config"
 	"k8s.io/klog/v2"
 
@@ -79,7 +77,7 @@ func NewCommand(ctx context.Context, errout io.Writer) *cobra.Command {
 // Run takes the options, starts the API server and waits until stopCh is closed or initial listening fails.
 func Run(ctx context.Context, o *options.Options) error {
 	// parse kubeconfig
-	kubeConfig, err := readKubeConfig(o.KubeconfigFile)
+	kubeConfig, err := readKubeConfig(o.KubeconfigFile, o.Context)
 	if err != nil {
 		return err
 	}
@@ -165,20 +163,19 @@ func Run(ctx context.Context, o *options.Options) error {
 	return preparedRootAPIServer.Run(ctx.Done())
 }
 
-func readKubeConfig(kubeConfigFile string) (clientcmd.ClientConfig, error) {
-	// Resolve relative to CWD
-	absoluteKubeConfigFile, err := clientcmdapi.MakeAbs(kubeConfigFile, "")
+func readKubeConfig(kubeConfigFile, context string) (clientcmd.ClientConfig, error) {
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	loadingRules.ExplicitPath = kubeConfigFile
+
+	startingConfig, err := loadingRules.GetStartingConfig()
 	if err != nil {
 		return nil, err
 	}
 
-	kubeConfigBytes, err := ioutil.ReadFile(absoluteKubeConfigFile)
-	if err != nil {
-		return nil, err
+	overrides := &clientcmd.ConfigOverrides{
+		CurrentContext: context,
 	}
-	kubeConfig, err := clientcmd.NewClientConfigFromBytes(kubeConfigBytes)
-	if err != nil {
-		return nil, err
-	}
-	return kubeConfig, nil
+
+	clientConfig := clientcmd.NewDefaultClientConfig(*startingConfig, overrides)
+	return clientConfig, nil
 }
