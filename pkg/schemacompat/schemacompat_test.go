@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"go.uber.org/multierr"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -440,12 +441,52 @@ func TestCompatibility(t *testing.T) {
 				},
 			},
 		},
+	}, {
+		desc: "existing has properties, new has neither properties or additionalProperties",
+		existing: &apiextensionsv1.JSONSchemaProps{
+			Type: "object",
+			Properties: map[string]apiextensionsv1.JSONSchemaProps{
+				"existing": {Type: "boolean"},
+			},
+		},
+		new: &apiextensionsv1.JSONSchemaProps{
+			Type: "array",
+			Items: &apiextensionsv1.JSONSchemaPropsOrArray{
+				Schema: &apiextensionsv1.JSONSchemaProps{
+					Type: "object",
+					Properties: map[string]apiextensionsv1.JSONSchemaProps{
+						"existing": {Type: "integer"},
+					},
+				},
+			},
+		},
+		wantErr: multierr.Append(
+			field.Invalid(
+				field.NewPath("schema", "openAPISchema").Child("type"),
+				"array",
+				`The type changed (was "object", now "array")`,
+			),
+			field.Invalid(
+				field.NewPath("schema", "openAPISchema").Child("properties"),
+				[]string{"existing"},
+				"properties value has been completely cleared in an incompatible way",
+			),
+		),
 	}} {
 		t.Run(c.desc, func(t *testing.T) {
 			gotLCD, err := EnsureStructuralSchemaCompatibility(field.NewPath("schema", "openAPISchema"), c.existing, c.new, c.narrowExisting)
-			if d := cmp.Diff(c.wantErr, err); d != "" {
-				t.Errorf("Error Diff(-want,+got): %s", d)
+			if c.wantErr != nil {
+				if err == nil {
+					t.Fatalf("expected err %v but got nil", c.wantErr)
+				}
+
+				if d := cmp.Diff(c.wantErr.Error(), err.Error()); d != "" {
+					t.Errorf("Error Diff(-want,+got): %s", d)
+				}
+			} else if err != nil {
+				t.Fatalf("unexpected err %v", err)
 			}
+
 			if d := cmp.Diff(c.wantLCD, gotLCD); d != "" {
 				t.Errorf("LCD Diff(-want,+got): %s", d)
 			}
