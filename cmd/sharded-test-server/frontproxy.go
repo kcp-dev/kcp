@@ -41,7 +41,14 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
-func startFrontProxy(ctx context.Context, args []string, servingCA *crypto.CA, hostIP string, logDirPath, workDirPath string) error {
+func startFrontProxy(
+	ctx context.Context,
+	args []string,
+	servingCA *crypto.CA,
+	hostIP string,
+	logDirPath, workDirPath string,
+	vwPort string,
+) error {
 	blue := color.New(color.BgGreen, color.FgBlack).SprintFunc()
 	inverse := color.New(color.BgHiWhite, color.FgGreen).SprintFunc()
 	out := lineprefix.New(
@@ -53,9 +60,9 @@ func startFrontProxy(ctx context.Context, args []string, servingCA *crypto.CA, h
 		lineprefix.Color(color.New(color.FgHiWhite)),
 	)
 
-	if err := ioutil.WriteFile(filepath.Join(workDirPath, ".kcp-front-proxy/mapping.yaml"), []byte(`
+	if err := ioutil.WriteFile(filepath.Join(workDirPath, ".kcp-front-proxy/mapping.yaml"), []byte(fmt.Sprintf(`
 - path: /services/
-  backend: https://localhost:6444
+  backend: https://localhost:%s
   backend_server_ca: .kcp/serving-ca.crt
   proxy_client_cert: .kcp-front-proxy/requestheader.crt
   proxy_client_key: .kcp-front-proxy/requestheader.key
@@ -64,7 +71,7 @@ func startFrontProxy(ctx context.Context, args []string, servingCA *crypto.CA, h
   backend_server_ca: .kcp/serving-ca.crt
   proxy_client_cert: .kcp-front-proxy/requestheader.crt
   proxy_client_key: .kcp-front-proxy/requestheader.key
-`), 0644); err != nil {
+`, vwPort)), 0644); err != nil {
 		return fmt.Errorf("failed to create front-proxy mapping.yaml: %w", err)
 	}
 

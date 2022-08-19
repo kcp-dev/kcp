@@ -22,9 +22,11 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 
 	machineryutilnet "k8s.io/apimachinery/pkg/util/net"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authentication/user"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 
@@ -37,7 +39,7 @@ func main() {
 	workDirPath := flag.String("work-dir-path", "", "Path to the working directory where the .kcp* dot directories are created. If empty, the working directory is the current directory.")
 	numberOfShards := flag.Int("number-of-shards", 1, "The number of shards to create. The first created is assumed root.")
 
-	// split flags into --proxy-*, --shard-* and everything elese (generic). The former are
+	// split flags into --proxy-*, --shard-* and everything else (generic). The former are
 	// passed to the respective components.
 	var proxyFlags, shardFlags, genericFlags []string
 	for _, arg := range os.Args[1:] {
@@ -107,6 +109,11 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		return err
 	}
 
+	standaloneVW := sets.NewString(shardFlags...).Has("--run-virtual-workspaces=false")
+	if standaloneVW {
+		shardFlags = append(shardFlags, fmt.Sprintf("--shard-virtual-workspace-url=https://%s:7444", hostIP))
+	}
+
 	// start shards
 	shardsErrCh := make(chan shardErrTuple)
 	for i := 0; i < numberOfShards; i++ {
@@ -126,8 +133,16 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		return err
 	}
 
+	vwPort := "6444"
+	if standaloneVW {
+		vwPort = "7444"
+		if err := startVirtual(ctx, filepath.Join(".kcp-virtual-workspaces", "out.log")); err != nil {
+			return err
+		}
+	}
+
 	// start front-proxy
-	if err := startFrontProxy(ctx, proxyFlags, servingCA, hostIP.String(), logDirPath, workDirPath); err != nil {
+	if err := startFrontProxy(ctx, proxyFlags, servingCA, hostIP.String(), logDirPath, workDirPath, vwPort); err != nil {
 		return err
 	}
 
