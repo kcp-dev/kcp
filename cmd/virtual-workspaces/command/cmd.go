@@ -43,7 +43,7 @@ import (
 
 	"github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	boostrap "github.com/kcp-dev/kcp/pkg/server/bootstrap"
 	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"

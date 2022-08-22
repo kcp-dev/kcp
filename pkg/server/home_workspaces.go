@@ -43,7 +43,7 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/handlers/negotiation"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
-	coreexternalversions "k8s.io/client-go/informers"
+	coreinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
@@ -55,7 +55,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/softimpersonation"
 )
@@ -94,8 +94,8 @@ func WithHomeWorkspaces(
 	a authorizer.Authorizer,
 	kubeClusterClient kubernetes.ClusterInterface,
 	kcpClusterClient kcpclient.ClusterInterface,
-	kubeSharedInformerFactory coreexternalversions.SharedInformerFactory,
-	kcpSharedInformerFactory kcpexternalversions.SharedInformerFactory,
+	kubeSharedInformerFactory coreinformers.SharedInformerFactory,
+	kcpSharedInformerFactory kcpinformers.SharedInformerFactory,
 	externalHost string,
 	creationDelaySeconds int,
 	homePrefix logicalcluster.Name,
@@ -152,7 +152,7 @@ type localInformersAccess struct {
 	synced                func() bool
 }
 
-func buildLocalInformersAccess(kubeSharedInformerFactory coreexternalversions.SharedInformerFactory, kcpSharedInformerFactory kcpexternalversions.SharedInformerFactory) localInformersAccess {
+func buildLocalInformersAccess(kubeSharedInformerFactory coreinformers.SharedInformerFactory, kcpSharedInformerFactory kcpinformers.SharedInformerFactory) localInformersAccess {
 	clusterWorkspaceInformer := kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces().Informer()
 	crInformer := kubeSharedInformerFactory.Rbac().V1().ClusterRoles().Informer()
 	crbInformer := kubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings().Informer()

@@ -36,8 +36,8 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/admission/initializers"
-	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers"
+	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/tenancy/v1alpha1"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	kubequotacontroller "github.com/kcp-dev/kcp/pkg/reconciler/kubequota"
 )

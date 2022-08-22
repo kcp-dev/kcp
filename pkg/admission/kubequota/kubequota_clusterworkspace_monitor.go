@@ -29,7 +29,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/tenancy/v1alpha1"
 )
 
 const clusterWorkspaceDeletionMonitorControllerName = "kcp-kubequota-cluster-workspace-deletion-monitor"

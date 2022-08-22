@@ -30,7 +30,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers"
 	"github.com/kcp-dev/kcp/pkg/permissionclaim"
 )
 

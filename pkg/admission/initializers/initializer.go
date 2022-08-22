@@ -23,7 +23,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers"
 )
 
 // NewKcpInformersInitializer returns an admission plugin initializer that injects

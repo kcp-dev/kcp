@@ -40,7 +40,7 @@ import (
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	workspaceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	workspaceinformer "github.com/kcp-dev/kcp/pkg/client/informers/tenancy/v1alpha1"
 	kcpopenapi "github.com/kcp-dev/kcp/pkg/openapi"
 	"github.com/kcp-dev/kcp/pkg/softimpersonation"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"

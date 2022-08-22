@@ -33,7 +33,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	apiextensionsexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
+	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -253,7 +253,7 @@ func testDynamicDiscoverySharedInformerFactory(ctx context.Context, t *testing.T
 	rootShardCRDWildcardClient, err := apiextensionsclient.NewForConfig(rootShardWildcardConfig)
 	require.NoError(t, err, "failed to construct apiextensions client")
 
-	apiExtensionsInformerFactory := apiextensionsexternalversions.NewSharedInformerFactoryWithOptions(
+	apiExtensionsInformerFactory := apiextensionsinformers.NewSharedInformerFactoryWithOptions(
 		rootShardCRDWildcardClient,
 		0,
 	)

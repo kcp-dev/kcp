@@ -34,7 +34,7 @@ import (
 	"k8s.io/client-go/tools/clusters"
 
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
-	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers"
 	tenancyv1alpha1lister "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 )
 

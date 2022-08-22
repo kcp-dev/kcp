@@ -32,7 +32,7 @@ import (
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers"
 )
 
 // Expectation closes over a statement of intent, allowing the caller
@@ -203,7 +203,7 @@ type ClusterWorkspaceExpectation func(*tenancyv1alpha1.ClusterWorkspace) error
 
 // ExpectClusterWorkspaces sets up an Expecter in order to allow registering expectations in tests with minimal setup.
 func ExpectClusterWorkspaces(ctx context.Context, t *testing.T, client kcpclientset.Interface) (RegisterClusterWorkspaceExpectation, error) {
-	kcpSharedInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(client, 0)
+	kcpSharedInformerFactory := kcpinformers.NewSharedInformerFactoryWithOptions(client, 0)
 	clusterWorkspaceInformer := kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces()
 	expecter := NewExpecter(clusterWorkspaceInformer.Informer())
 	kcpSharedInformerFactory.Start(ctx.Done())
@@ -234,7 +234,7 @@ type WorkspaceShardExpectation func(*tenancyv1alpha1.ClusterWorkspaceShard) erro
 
 // ExpectWorkspaceShards sets up an Expecter in order to allow registering expectations in tests with minimal setup.
 func ExpectWorkspaceShards(ctx context.Context, t *testing.T, client kcpclientset.Interface) (RegisterWorkspaceShardExpectation, error) {
-	kcpSharedInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(client, 0)
+	kcpSharedInformerFactory := kcpinformers.NewSharedInformerFactoryWithOptions(client, 0)
 	workspaceShardInformer := kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards()
 	expecter := NewExpecter(workspaceShardInformer.Informer())
 	kcpSharedInformerFactory.Start(ctx.Done())

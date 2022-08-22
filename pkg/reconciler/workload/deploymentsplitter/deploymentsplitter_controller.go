@@ -38,7 +38,7 @@ import (
 	"k8s.io/klog/v2"
 
 	clusterclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers"
 	workloadlisters "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
@@ -56,7 +56,7 @@ func NewController(cfg *rest.Config) *Controller {
 	stop := context.TODO()
 	stop, _ = signal.NotifyContext(stop, os.Interrupt)
 
-	csif := externalversions.NewSharedInformerFactoryWithOptions(clusterclient.NewForConfigOrDie(cfg), resyncPeriod)
+	csif := kcpinformers.NewSharedInformerFactoryWithOptions(clusterclient.NewForConfigOrDie(cfg), resyncPeriod)
 
 	c := &Controller{
 		queue:         queue,
@@ -85,7 +85,7 @@ func NewController(cfg *rest.Config) *Controller {
 type Controller struct {
 	queue         workqueue.RateLimitingInterface
 	client        *appsv1client.AppsV1Client
-	clusterLister workloadlisters.SyncTargetLister
+	clusterLister *workloadlisters.SyncTargetClusterLister
 	kubeClient    kubernetes.Interface
 	stop          context.Context
 	indexer       cache.Indexer

@@ -24,7 +24,7 @@ import (
 	"k8s.io/client-go/tools/clusters"
 
 	tenancyapis "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/tenancy/v1alpha1"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 )
 

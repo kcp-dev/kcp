@@ -37,7 +37,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/client/clientset/versioned/fake"
-	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers"
 )
 
 func attr(gvk schema.GroupVersionKind, name, resource string, op admission.Operation) admission.Attributes {

@@ -42,7 +42,7 @@ import (
 	"k8s.io/kube-openapi/pkg/util/sets"
 
 	"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
-	schedulinginformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
+	schedulinginformers "github.com/kcp-dev/kcp/pkg/client/informers/scheduling/v1alpha1"
 	schedulinglisters "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )

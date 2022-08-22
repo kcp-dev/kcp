@@ -37,7 +37,7 @@ import (
 	workspaceapiv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	tenancyfake "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/fake"
-	tenancyInformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	tenancyInformers "github.com/kcp-dev/kcp/pkg/client/informers"
 	workspacecache "github.com/kcp-dev/kcp/pkg/virtual/workspaces/cache"
 	workspaceutil "github.com/kcp-dev/kcp/pkg/virtual/workspaces/util"
 )

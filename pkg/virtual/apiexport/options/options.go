@@ -25,7 +25,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers"
 	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/builder"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/client/dynamic"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
