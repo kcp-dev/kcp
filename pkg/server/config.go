@@ -28,6 +28,7 @@ import (
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
+	kcpapiextensionsexternalversions "k8s.io/apiextensions-apiserver/pkg/client/kcp/informers"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/endpoints/filters"
@@ -37,6 +38,7 @@ import (
 	"k8s.io/apiserver/pkg/util/webhook"
 	"k8s.io/client-go/dynamic"
 	coreexternalversions "k8s.io/client-go/informers"
+	kcpcoreexternalversions "k8s.io/client-go/kcp/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -175,11 +177,9 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	c.KubeSharedInformerFactory = coreexternalversions.NewSharedInformerFactoryWithOptions(
+	c.KubeSharedInformerFactory = kcpcoreexternalversions.NewSharedInformerFactoryWithOptions(
 		c.KubeClusterClient.Cluster(logicalcluster.Wildcard),
 		resyncPeriod,
-		coreexternalversions.WithExtraClusterScopedIndexers(indexers.ClusterScoped()),
-		coreexternalversions.WithExtraNamespaceScopedIndexers(indexers.NamespaceScoped()),
 	)
 
 	// Setup kcp * informers, but those will need the identities for the APIExports used to make the APIs available.
@@ -240,11 +240,9 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	c.ApiExtensionsSharedInformerFactory = apiextensionsexternalversions.NewSharedInformerFactoryWithOptions(
+	c.ApiExtensionsSharedInformerFactory = kcpapiextensionsexternalversions.NewSharedInformerFactoryWithOptions(
 		c.ApiExtensionsClusterClient.Cluster(logicalcluster.Wildcard),
 		resyncPeriod,
-		apiextensionsexternalversions.WithExtraClusterScopedIndexers(indexers.ClusterScoped()),
-		apiextensionsexternalversions.WithExtraNamespaceScopedIndexers(indexers.NamespaceScoped()),
 	)
 
 	// Setup dynamic client
