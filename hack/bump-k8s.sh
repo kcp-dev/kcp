@@ -34,6 +34,11 @@ BRANCH=${BRANCH:-feature-logical-clusters-1.24}
 current_version="$( GOPROXY=direct go mod edit -json | jq '.Replace[] | select(.Old.Path=="k8s.io/kubernetes") | .New.Version' --raw-output )"
 
 # equivalent to go mod edit -replace
-sed -i '' -e "s|${current_version}|${BRANCH}|g" -E -e "s,=> github.com/[^/]+/[a-zA-Z0-9_-]+,=> github.com/${GITHUB_USER}/${GITHUB_REPO},g" go.mod
+if [[ "$( go env GOOS )" == "darwin" ]]; then
+  SED="sed -i ''"
+else
+  SED="sed -i"
+fi
+${SED} -e "s|${current_version}|${BRANCH}|g" -E -e "s,=> github.com/[^/]+/[a-zA-Z0-9_-]+,=> github.com/${GITHUB_USER}/${GITHUB_REPO},g" go.mod
 
 GOPROXY=direct go mod tidy
