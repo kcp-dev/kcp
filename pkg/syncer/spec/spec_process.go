@@ -181,7 +181,8 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 }
 
 // TODO: This function is there as a quick and dirty implementation of namespace creation.
-//       In fact We should also be getting notifications about namespaces created upstream and be creating downstream equivalents.
+//
+//	In fact We should also be getting notifications about namespaces created upstream and be creating downstream equivalents.
 func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downstreamNamespace string, upstreamObj *unstructured.Unstructured) error {
 	namespaces := c.downstreamClient.Resource(schema.GroupVersionResource{
 		Group:    "",
@@ -283,6 +284,31 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 	// Run name transformations on the downstreamObj.
 	transformedName := getTransformedName(downstreamObj)
 
+	// TODO(jmprusi): When using syncer virtual workspace we would check the DeletionTimestamp on the upstream object, instead of the DeletionTimestamp annotation,
+	//                as the virtual workspace will set the the deletionTimestamp() on the location view by a transformation.
+	intendedToBeRemovedFromLocation := upstreamObj.GetAnnotations()[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+c.syncTargetKey] != ""
+
+	// TODO(jmprusi): When using syncer virtual workspace this condition would not be necessary anymore, since directly tested on the virtual workspace side.
+	stillOwnedByExternalActorForLocation := upstreamObj.GetAnnotations()[workloadv1alpha1.ClusterFinalizerAnnotationPrefix+c.syncTargetKey] != ""
+
+	klog.V(4).Infof("Upstream object %s|%s/%s is intended to be removed %t", upstreamObjLogicalCluster, upstreamObj.GetNamespace(), upstreamObj.GetName(), intendedToBeRemovedFromLocation, stillOwnedByExternalActorForLocation)
+	if intendedToBeRemovedFromLocation && !stillOwnedByExternalActorForLocation {
+		if err := c.downstreamClient.Resource(gvr).Namespace(downstreamNamespace).Delete(ctx, transformedName, metav1.DeleteOptions{}); err != nil {
+			if apierrors.IsNotFound(err) {
+				// That's not an error.
+				// Just think about removing the finalizer from the KCP location-specific resource:
+				if err := shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, c.upstreamInformers, c.upstreamClient, upstreamObj.GetNamespace(), c.syncTargetKey, upstreamObjLogicalCluster, upstreamObj.GetName()); err != nil {
+					return err
+				}
+				return nil
+			}
+			klog.Errorf("Error deleting %s %s/%s from downstream %s|%s/%s: %v", gvr.Resource, upstreamObj.GetNamespace(), upstreamObj.GetName(), logicalcluster.From(upstreamObj), downstreamNamespace, downstreamObj.GetName(), err)
+			return err
+		}
+		klog.V(2).Infof("Deleted %s %s/%s from downstream %s|%s/%s", gvr.Resource, upstreamObj.GetNamespace(), downstreamObj.GetName(), logicalcluster.From(upstreamObj), downstreamNamespace, downstreamObj.GetName())
+		return nil
+	}
+
 	// Run any transformations on the object before we apply it to the downstream cluster.
 	if mutator, ok := c.mutators[gvr]; ok {
 		if err := mutator(downstreamObj); err != nil {
@@ -352,32 +378,6 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 				}
 			}
 		}
-	}
-	// TODO: wipe things like finalizers, owner-refs and any other life-cycle fields. The life-cycle
-	//       should exclusively owned by the syncer. Let's not some Kubernetes magic interfere with it.
-
-	// TODO(jmprusi): When using syncer virtual workspace we would check the DeletionTimestamp on the upstream object, instead of the DeletionTimestamp annotation,
-	//                as the virtual workspace will set the the deletionTimestamp() on the location view by a transformation.
-	intendedToBeRemovedFromLocation := upstreamObj.GetAnnotations()[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+c.syncTargetKey] != ""
-
-	// TODO(jmprusi): When using syncer virtual workspace this condition would not be necessary anymore, since directly tested on the virtual workspace side.
-	stillOwnedByExternalActorForLocation := upstreamObj.GetAnnotations()[workloadv1alpha1.ClusterFinalizerAnnotationPrefix+c.syncTargetKey] != ""
-	klog.V(4).Infof("Upstream object %s|%s/%s is intended to be removed %t and owned by external actor is: %t", upstreamObjLogicalCluster, upstreamObj.GetNamespace(), upstreamObj.GetName(), intendedToBeRemovedFromLocation, stillOwnedByExternalActorForLocation)
-	if intendedToBeRemovedFromLocation && !stillOwnedByExternalActorForLocation {
-		if err := c.downstreamClient.Resource(gvr).Namespace(downstreamNamespace).Delete(ctx, downstreamObj.GetName(), metav1.DeleteOptions{}); err != nil {
-			if apierrors.IsNotFound(err) {
-				// That's not an error.
-				// Just think about removing the finalizer from the KCP location-specific resource:
-				if err := shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, c.upstreamInformers, c.upstreamClient, upstreamObj.GetNamespace(), c.syncTargetKey, upstreamObjLogicalCluster, upstreamObj.GetName()); err != nil {
-					return err
-				}
-				return nil
-			}
-			klog.Errorf("Error deleting %s %s/%s from downstream %s|%s/%s: %v", gvr.Resource, upstreamObj.GetNamespace(), upstreamObj.GetName(), logicalcluster.From(upstreamObj), downstreamNamespace, downstreamObj.GetName(), err)
-			return err
-		}
-		klog.V(2).Infof("Deleted %s %s/%s from downstream %s|%s/%s", gvr.Resource, upstreamObj.GetNamespace(), downstreamObj.GetName(), logicalcluster.From(upstreamObj), downstreamNamespace, downstreamObj.GetName())
-		return nil
 	}
 
 	// Marshalling the unstructured object is good enough as SSA patch

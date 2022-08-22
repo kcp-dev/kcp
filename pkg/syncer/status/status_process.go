@@ -101,7 +101,7 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	}
 	if !exists {
 		klog.Infof("Downstream GVR %q object %s|%s/%s does not exist. Removing finalizer upstream", gvr.String(), downstreamClusterName, upstreamNamespace, name)
-		return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, c.upstreamInformers, c.upstreamClient, upstreamNamespace, c.syncTargetKey, upstreamWorkspace, name)
+		return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, c.upstreamInformers, c.upstreamClient, upstreamNamespace, c.syncTargetKey, upstreamWorkspace, getUpstreamResourceName(gvr, name))
 	}
 
 	// update upstream status
@@ -113,7 +113,7 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 }
 
 func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.GroupVersionResource, upstreamNamespace string, upstreamLogicalCluster logicalcluster.Name, downstreamObj *unstructured.Unstructured) error {
-	upstreamName := getUpstreamResourceName(downstreamObj)
+	upstreamName := getUpstreamResourceName(gvr, downstreamObj.GetName())
 
 	downstreamStatus, statusExists, err := unstructured.NestedFieldCopy(downstreamObj.UnstructuredContent(), "status")
 	if err != nil {
@@ -179,11 +179,15 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 }
 
 // getUpstreamResourceName returns the name with which the resource is known upstream.
-func getUpstreamResourceName(downstreamResource *unstructured.Unstructured) string {
-	configMapGVR := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}
+func getUpstreamResourceName(downstreamResourceGVR schema.GroupVersionResource, downstreamResourceName string) string {
+	configMapGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+	secretGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}
 
-	if downstreamResource.GroupVersionKind() == configMapGVR && downstreamResource.GetName() == "kcp-root-ca.crt" {
+	if downstreamResourceGVR == configMapGVR && downstreamResourceName == "kcp-root-ca.crt" {
 		return "kube-root-ca.crt"
 	}
-	return downstreamResource.GetName()
+	if downstreamResourceGVR == secretGVR && strings.HasPrefix(downstreamResourceName, "kcp-default-token") {
+		return strings.TrimPrefix(downstreamResourceName, "kcp-")
+	}
+	return downstreamResourceName
 }
