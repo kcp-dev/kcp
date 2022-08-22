@@ -24,6 +24,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	crdclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
@@ -48,7 +49,7 @@ func (c *controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 	bootstrapCtx, cancel := context.WithDeadline(ctx, time.Now().Add(time.Second*30)) // to not block the controller
 	defer cancel()
 
-	clusterWsConfig := kcpclienthelper.ConfigWithCluster(c.baseConfig, wsClusterName)
+	clusterWsConfig := kcpclienthelper.SetCluster(rest.CopyConfig(c.baseConfig), wsClusterName)
 	crdWsClient, err := crdclientset.NewForConfig(clusterWsConfig)
 	if err != nil {
 		return err

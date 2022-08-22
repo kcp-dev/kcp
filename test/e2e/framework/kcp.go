@@ -555,16 +555,18 @@ func (c *kcpServer) config(context string) (*rest.Config, error) {
 func (c *kcpServer) BaseConfig(t *testing.T) *rest.Config {
 	cfg, err := c.config("base")
 	require.NoError(t, err)
-	cfg = kcpclienthelper.NewClusterConfig(cfg)
-	return rest.AddUserAgent(rest.CopyConfig(cfg), t.Name())
+	cfg = rest.CopyConfig(cfg)
+	cfg = kcpclienthelper.SetMultiClusterRoundTripper(cfg)
+	return rest.AddUserAgent(cfg, t.Name())
 }
 
 // RootShardSystemMasterBaseConfig returns a rest.Config for the "system:admin" context. Client-side throttling is disabled (QPS=-1).
 func (c *kcpServer) RootShardSystemMasterBaseConfig(t *testing.T) *rest.Config {
 	cfg, err := c.config("system:admin")
 	require.NoError(t, err)
-	cfg = kcpclienthelper.NewClusterConfig(cfg)
-	return rest.AddUserAgent(rest.CopyConfig(cfg), t.Name())
+	cfg = rest.CopyConfig(cfg)
+	cfg = kcpclienthelper.SetMultiClusterRoundTripper(cfg)
+	return rest.AddUserAgent(cfg, t.Name())
 }
 
 // RawConfig exposes a copy of the client config for this server.
@@ -830,7 +832,7 @@ func (s *unmanagedKCPServer) BaseConfig(t *testing.T) *rest.Config {
 	defaultConfig, err := config.ClientConfig()
 	require.NoError(t, err)
 
-	wrappedCfg := kcpclienthelper.NewClusterConfig(defaultConfig)
+	wrappedCfg := kcpclienthelper.SetMultiClusterRoundTripper(rest.CopyConfig(defaultConfig))
 	wrappedCfg.QPS = -1
 
 	return wrappedCfg
@@ -846,7 +848,7 @@ func (s *unmanagedKCPServer) RootShardSystemMasterBaseConfig(t *testing.T) *rest
 	defaultConfig, err := config.ClientConfig()
 	require.NoError(t, err)
 
-	wrappedCfg := kcpclienthelper.NewClusterConfig(defaultConfig)
+	wrappedCfg := kcpclienthelper.SetMultiClusterRoundTripper(rest.CopyConfig(defaultConfig))
 	wrappedCfg.QPS = -1
 
 	return wrappedCfg

@@ -30,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
 
@@ -194,11 +195,11 @@ func TestWorkspaceController(t *testing.T) {
 			orgClusterName := framework.NewOrganizationFixture(t, server)
 
 			// create clients
-			orgClusterCfg := kcpclienthelper.ConfigWithCluster(cfg, orgClusterName)
+			orgClusterCfg := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), orgClusterName)
 			orgClusterKcpClient, err := kcpclientset.NewForConfig(orgClusterCfg)
 			require.NoError(t, err)
 
-			rootClusterCfg := kcpclienthelper.ConfigWithCluster(cfg, tenancyv1alpha1.RootCluster)
+			rootClusterCfg := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), tenancyv1alpha1.RootCluster)
 			rootClusterKcpClient, err := kcpclientset.NewForConfig(rootClusterCfg)
 			require.NoError(t, err)
 

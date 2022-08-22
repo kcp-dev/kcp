@@ -29,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery/cached/memory"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 
 	"github.com/kcp-dev/kcp/config/helpers"
@@ -58,7 +59,7 @@ func TestProtectedAPI(t *testing.T) {
 	dynamicClusterClient, err := kcpdynamic.NewClusterDynamicClientForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
-	providerWorkspaceConfig := kcpclienthelper.ConfigWithCluster(cfg, providerWorkspace)
+	providerWorkspaceConfig := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), providerWorkspace)
 	providerWorkspaceClient, err := clientset.NewForConfig(providerWorkspaceConfig)
 	require.NoError(t, err)
 
@@ -107,7 +108,7 @@ func TestProtectedAPI(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "APIBinding %q in workspace %q did not complete", apiBinding.Name, consumerWorkspace)
 
 	t.Logf("Make sure gateway API resource shows up in workspace %q group version discovery", consumerWorkspace)
-	consumerWorkspaceConfig := kcpclienthelper.ConfigWithCluster(cfg, consumerWorkspace)
+	consumerWorkspaceConfig := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), consumerWorkspace)
 	consumerWorkspaceClient, err := clientset.NewForConfig(consumerWorkspaceConfig)
 	require.NoError(t, err)
 	require.Eventually(t, func() bool {

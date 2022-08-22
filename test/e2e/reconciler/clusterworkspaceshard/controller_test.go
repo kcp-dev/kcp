@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	kubernetesclientset "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -70,11 +71,11 @@ func TestWorkspaceShardController(t *testing.T) {
 
 			orgClusterName := framework.NewOrganizationFixture(t, server)
 
-			orgClusterCfg := kcpclienthelper.ConfigWithCluster(cfg, orgClusterName)
+			orgClusterCfg := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), orgClusterName)
 			orgClusterKcpClient, err := kubernetesclientset.NewForConfig(orgClusterCfg)
 			require.NoError(t, err)
 
-			rootClusterCfg := kcpclienthelper.ConfigWithCluster(cfg, tenancyv1alpha1.RootCluster)
+			rootClusterCfg := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), tenancyv1alpha1.RootCluster)
 			rootClusterKcpClient, err := kcpclientset.NewForConfig(rootClusterCfg)
 			require.NoError(t, err)
 

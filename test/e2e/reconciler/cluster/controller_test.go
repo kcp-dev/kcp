@@ -169,7 +169,7 @@ func TestClusterController(t *testing.T) {
 
 			// clients
 			sourceConfig := source.BaseConfig(t)
-			sourceWsClusterConfig := kcpclienthelper.ConfigWithCluster(sourceConfig, wsClusterName)
+			sourceWsClusterConfig := kcpclienthelper.SetCluster(rest.CopyConfig(sourceConfig), wsClusterName)
 
 			sourceKubeClient, err := kubernetesclient.NewForConfig(sourceWsClusterConfig)
 			require.NoError(t, err)

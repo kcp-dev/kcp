@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -54,13 +55,13 @@ func TestMetadataMutations(t *testing.T) {
 
 	workspaceName := framework.NewOrganizationFixture(t, server)
 
-	workspaceCfg := kcpclienthelper.ConfigWithCluster(cfg, workspaceName)
+	workspaceCfg := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), workspaceName)
 	workspaceCRDClient, err := apiextensionclientset.NewForConfig(workspaceCfg)
 	require.NoError(t, err, "error creating crd cluster client")
 
 	kube.Create(t, workspaceCRDClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: "apps.k8s.io", Resource: "deployments"})
 
-	kubeClusterClient, err := kubernetes.NewForConfig(kcpclienthelper.NewClusterConfig(cfg))
+	kubeClusterClient, err := kubernetes.NewForConfig(kcpclienthelper.SetMultiClusterRoundTripper(rest.CopyConfig(cfg)))
 	require.NoError(t, err, "error creating kube cluster client")
 
 	d := &appsv1.Deployment{

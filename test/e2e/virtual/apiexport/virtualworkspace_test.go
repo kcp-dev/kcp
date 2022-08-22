@@ -537,7 +537,7 @@ func setUpServiceProvider(ctx context.Context, dynamicClusterClient *kcpdynamic.
 
 	t.Logf("Install today cowboys APIResourceSchema into service provider workspace %q", serviceProviderWorkspace)
 
-	clusterCfg := kcpclienthelper.ConfigWithCluster(cfg, serviceProviderWorkspace)
+	clusterCfg := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), serviceProviderWorkspace)
 	serviceProviderClient, err := clientset.NewForConfig(clusterCfg)
 	require.NoError(t, err)
 
@@ -620,7 +620,7 @@ func bindConsumerToProvider(ctx context.Context, consumerWorkspace, providerWork
 		},
 	}
 
-	consumerWorkspaceCfg := kcpclienthelper.ConfigWithCluster(cfg, consumerWorkspace)
+	consumerWorkspaceCfg := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), consumerWorkspace)
 	consumerWsClient, err := clientset.NewForConfig(consumerWorkspaceCfg)
 	require.NoError(t, err)
 
