@@ -38,8 +38,6 @@ bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy,client" \
   --input-dir "${SCRIPT_ROOT}/pkg/apis" \
   --group-versions $(echo ${KCP_GVS} | sed 's/ / --group-versions /g') \
   --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.generatego.txt \
-  --listers-package github.com/kcp-dev/kcp/pkg/client/listers \
-  --informers-package github.com/kcp-dev/kcp/pkg/client/informers/externalversions \
   --output-dir "${SCRIPT_ROOT}/pkg/client"
 
 bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy" \
@@ -63,8 +61,6 @@ bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy,client" \
   --input-dir "${SCRIPT_ROOT}/test/e2e/fixtures/wildwest/apis" \
   --group-versions $(echo ${TEST_GVS} | sed 's/ / --group-versions /g') \
   --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.generatego.txt \
-  --listers-package github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/listers \
-  --informers-package github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/informers/externalversions \
   --output-dir "${SCRIPT_ROOT}/test/e2e/fixtures/wildwest/client"
 
 go install "${CODEGEN_PKG}"/cmd/openapi-gen
