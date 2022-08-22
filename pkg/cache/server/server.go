@@ -16,7 +16,11 @@ limitations under the License.
 
 package server
 
-import "context"
+import (
+	"context"
+
+	genericapiserver "k8s.io/apiserver/pkg/server"
+)
 
 type Server struct {
 	CompletedConfig
@@ -30,5 +34,9 @@ func NewServer(c CompletedConfig) (*Server, error) {
 }
 
 func (s *Server) Run(ctx context.Context) error {
-	return nil
+	server, err := s.ApiExtensions.New(genericapiserver.NewEmptyDelegate())
+	if err != nil {
+		return err
+	}
+	return server.GenericAPIServer.PrepareRun().Run(ctx.Done())
 }
