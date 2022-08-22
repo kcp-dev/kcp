@@ -24,12 +24,23 @@ export GOPATH=$(go env GOPATH)
 SCRIPT_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
 CODEGEN_PKG=${CODEGEN_PKG:-$(cd "${SCRIPT_ROOT}"; go list -f '{{.Dir}}' -m k8s.io/code-generator)}
 
-bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy,client,informer,lister" \
+KCP_GVS="workload:v1alpha1 apiresource:v1alpha1 tenancy:v1alpha1 tenancy:v1beta1 apis:v1alpha1 scheduling:v1alpha1"
+
+bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy,client" \
   github.com/kcp-dev/kcp/pkg/client github.com/kcp-dev/kcp/pkg/apis \
-  "workload:v1alpha1 apiresource:v1alpha1 tenancy:v1alpha1 tenancy:v1beta1 apis:v1alpha1 scheduling:v1alpha1" \
+  "${KCP_GVS}" \
   --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.generatego.txt \
   --output-base "${SCRIPT_ROOT}" \
   --trim-path-prefix github.com/kcp-dev/kcp
+
+"${CODE_GENERATOR}" "informer,lister" \
+  --clientset-api-path github.com/kcp-dev/kcp/pkg/client/clientset/versioned \
+  --input-dir "${SCRIPT_ROOT}/pkg/apis" \
+  --group-versions $(echo ${KCP_GVS} | sed 's/ / --group-versions /g') \
+  --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.generatego.txt \
+  --listers-package github.com/kcp-dev/kcp/pkg/client/listers \
+  --informers-package github.com/kcp-dev/kcp/pkg/client/informers/externalversions \
+  --output-dir "${SCRIPT_ROOT}/pkg/client"
 
 bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy" \
   github.com/kcp-dev/kcp/third_party/conditions/client github.com/kcp-dev/kcp/third_party/conditions/apis \
@@ -38,12 +49,23 @@ bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy" \
   --output-base "${SCRIPT_ROOT}" \
   --trim-path-prefix github.com/kcp-dev/kcp
 
-bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy,client,informer,lister" \
+TEST_GVS="wildwest:v1alpha1"
+
+bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy,client" \
   github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis \
-  "wildwest:v1alpha1" \
+  "${TEST_GVS}" \
   --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.generatego.txt \
   --output-base "${SCRIPT_ROOT}" \
   --trim-path-prefix github.com/kcp-dev/kcp
+
+"${CODE_GENERATOR}" "informer,lister" \
+  --clientset-api-path github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned \
+  --input-dir "${SCRIPT_ROOT}/test/e2e/fixtures/wildwest/apis" \
+  --group-versions $(echo ${TEST_GVS} | sed 's/ / --group-versions /g') \
+  --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.generatego.txt \
+  --listers-package github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/listers \
+  --informers-package github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/informers/externalversions \
+  --output-dir "${SCRIPT_ROOT}/test/e2e/fixtures/wildwest/client"
 
 go install "${CODEGEN_PKG}"/cmd/openapi-gen
 

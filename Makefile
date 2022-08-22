@@ -50,6 +50,11 @@ GOTESTSUM_VER := v1.8.1
 GOTESTSUM_BIN := gotestsum
 GOTESTSUM := $(abspath $(TOOLS_DIR))/$(GOTESTSUM_BIN)-$(GOTESTSUM_VER)
 
+CODE_GENERATOR_VER := bc64e8848acca591850491bda9051a1b09f400be
+CODE_GENERATOR_BIN := code-generator
+CODE_GENERATOR := $(TOOLS_DIR)/$(CODE_GENERATOR_BIN)-$(CODE_GENERATOR_VER)
+export CODE_GENERATOR # so hack scripts can use it
+
 ARCH := $(subst 64,,$(shell uname -p | sed s/x86_/amd/))64
 
 KUBE_MAJOR_VERSION := $(shell go mod edit -json | jq '.Require[] | select(.Path == "k8s.io/kubernetes") | .Version' --raw-output | sed 's/v\([0-9]*\).*/\1/')
@@ -121,11 +126,14 @@ vendor: ## Vendor the dependencies
 	go mod vendor
 .PHONY: vendor
 
-tools: $(GOLANGCI_LINT) $(CONTROLLER_GEN) $(YAML_PATCH) $(GOTESTSUM) $(OPENSHIFT_GOIMPORTS)
+tools: $(GOLANGCI_LINT) $(CONTROLLER_GEN) $(YAML_PATCH) $(GOTESTSUM) $(OPENSHIFT_GOIMPORTS) $(CODE_GENERATOR)
 .PHONY: tools
 
 $(CONTROLLER_GEN):
 	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) sigs.k8s.io/controller-tools/cmd/controller-gen $(CONTROLLER_GEN_BIN) $(CONTROLLER_GEN_VER)
+
+$(CODE_GENERATOR):
+	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) github.com/kcp-dev/code-generator $(CODE_GENERATOR_BIN) $(CODE_GENERATOR_VER)
 
 $(YAML_PATCH):
 	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) github.com/pivotal-cf/yaml-patch/cmd/yaml-patch $(YAML_PATCH_BIN) $(YAML_PATCH_VER)
@@ -133,7 +141,7 @@ $(YAML_PATCH):
 $(GOTESTSUM):
 	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) gotest.tools/gotestsum $(GOTESTSUM_BIN) $(GOTESTSUM_VER)
 
-codegen: $(CONTROLLER_GEN) $(YAML_PATCH) ## Run the codegenerators
+codegen: $(CODE_GENERATOR) $(CONTROLLER_GEN) $(YAML_PATCH) ## Run the codegenerators
 	go mod download
 	./hack/update-codegen.sh
 	$(MAKE) imports
