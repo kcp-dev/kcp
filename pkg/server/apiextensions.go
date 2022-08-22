@@ -45,6 +45,7 @@ import (
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 )
 
@@ -69,10 +70,12 @@ var _ kcp.ClusterAwareCRDLister = &apiBindingAwareCRDLister{}
 // List lists all CustomResourceDefinitions that come in via APIBindings as well as all in the current
 // logical cluster retrieved from the context.
 func (c *apiBindingAwareCRDLister) List(ctx context.Context, selector labels.Selector) ([]*apiextensionsv1.CustomResourceDefinition, error) {
+	logger := klog.FromContext(ctx)
 	clusterName, err := request.ClusterNameFrom(ctx)
 	if err != nil {
 		return nil, err
 	}
+	logger = logger.WithValues("workspace", clusterName.String())
 
 	crdName := func(crd *apiextensionsv1.CustomResourceDefinition) string {
 		return crd.Spec.Names.Plural + "." + crd.Spec.Group
@@ -106,9 +109,15 @@ func (c *apiBindingAwareCRDLister) List(ctx context.Context, selector labels.Sel
 
 		for _, boundResource := range apiBinding.Status.BoundResources {
 			crdKey := clusters.ToClusterAwareKey(apibinding.ShadowWorkspaceName, boundResource.Schema.UID)
+			logger := logging.WithObject(logger, &apiextensionsv1.CustomResourceDefinition{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        boundResource.Schema.UID,
+					Annotations: map[string]string{logicalcluster.AnnotationKey: apibinding.ShadowWorkspaceName.String()},
+				},
+			})
 			crd, err := c.crdLister.Get(crdKey)
 			if err != nil {
-				klog.Errorf("Error getting bound CRD %q: %v", crdKey, err)
+				logger.Error(err, "error getting bound CRD")
 				continue
 			}
 
@@ -119,7 +128,7 @@ func (c *apiBindingAwareCRDLister) List(ctx context.Context, selector labels.Sel
 			// system CRDs take priority over APIBindings from the local workspace.
 			if seen.Has(crdName(crd)) {
 				// Came from system
-				klog.Infof("For cluster %s CR access skipping APIBinding CRD %s|%s because it came in via system CRDs", clusterName, logicalcluster.From(crd), crd.Name)
+				logger.Info("skipping APIBinding CRD because it came in via system CRDs")
 				continue
 			}
 
@@ -141,6 +150,7 @@ func (c *apiBindingAwareCRDLister) List(ctx context.Context, selector labels.Sel
 	}
 	for _, obj := range objs {
 		crd := obj.(*apiextensionsv1.CustomResourceDefinition)
+		logger := logging.WithObject(logger, crd)
 
 		if !selector.Matches(labels.Set(crd.Labels)) {
 			continue
@@ -148,7 +158,7 @@ func (c *apiBindingAwareCRDLister) List(ctx context.Context, selector labels.Sel
 
 		// system CRDs and local APIBindings take priority over CRDs from the local workspace.
 		if seen.Has(crdName(crd)) {
-			klog.Infof("For cluster %s CR access skipping local CRD %s|%s because it came in via APIBindings or system CRDs", clusterName, logicalcluster.From(crd), crd.Name)
+			logger.Info("skipping local CRD because it came in via APIBindings or system CRDs")
 			continue
 		}
 

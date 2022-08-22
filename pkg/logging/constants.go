@@ -26,6 +26,8 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apiserver/pkg/authentication/user"
+	"k8s.io/apiserver/pkg/endpoints/request"
 )
 
 const (
@@ -91,4 +93,32 @@ func FromPrefix(prefix string, obj Object) []interface{} {
 		prefix + "." + APIVersionKey,
 		gvk.GroupVersion(),
 	}
+}
+
+// WithUser adds user identifiers to the logger.
+func WithUser(logger logr.Logger, u user.Info) logr.Logger {
+	return logger.WithValues(FromUser(u)...)
+}
+
+// FromUser provides the structured logging fields that identify a user, prefixing with 'user'.
+func FromUser(u user.Info) []interface{} {
+	return FromUserPrefix(u, "user")
+}
+
+// FromUserPrefix provides the structured logging fields that identify a user, allowing any prefix.
+func FromUserPrefix(u user.Info, prefix string) []interface{} {
+	return []interface{}{
+		prefix + ".name", u.GetName(),
+		prefix + ".uid", u.GetUID(),
+		prefix + ".groups", u.GetGroups(),
+	}
+}
+
+// WithCluster adds requested cluster identifiers to the logger.
+func WithCluster(logger logr.Logger, cluster *request.Cluster) logr.Logger {
+	return logger.WithValues(
+		"clusterName", cluster.Name.String(),
+		"partialMetadata", cluster.PartialMetadataRequest,
+		"wildcard", cluster.Wildcard,
+	)
 }

@@ -82,7 +82,7 @@ func (c *Controllers) Complete(rootDir string) error {
 		// use sa.key and auto-generate if not existing
 		c.SAController.ServiceAccountKeyFile = filepath.Join(rootDir, "sa.key")
 		if _, err := os.Stat(c.SAController.ServiceAccountKeyFile); os.IsNotExist(err) {
-			klog.Infof("Generating service account key file %s", c.SAController.ServiceAccountKeyFile)
+			klog.Background().WithValues("file", c.SAController.ServiceAccountKeyFile).Info("generating service account key file")
 			key, err := rsa.GenerateKey(cryptorand.Reader, 4096)
 			if err != nil {
 				return fmt.Errorf("error generating service account private key: %w", err)

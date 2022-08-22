@@ -46,6 +46,7 @@ func (s *Server) installVirtualWorkspaces(
 	externalAddress string,
 	preHandlerChainMux mux,
 ) error {
+	logger := klog.FromContext(ctx)
 	// create virtual workspaces
 	virtualWorkspaces, err := s.Options.Virtual.VirtualWorkspaces.NewVirtualWorkspaces(
 		config,
@@ -110,7 +111,7 @@ func (s *Server) installVirtualWorkspaces(
 		return err
 	}
 
-	klog.Infof("Starting virtual workspace apiserver")
+	logger.Info("starting virtual workspace apiserver")
 	preHandlerChainMux.Handle(virtualcommandoptions.DefaultRootPathPrefix+"/", preparedRootAPIServer.GenericAPIServer.Handler)
 
 	return nil
