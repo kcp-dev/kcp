@@ -249,7 +249,7 @@ func collectCacheHitsFor(ctx context.Context, t *testing.T, rootCfg *rest.Config
 const byWorkspace = "byWorkspace"
 
 func testDynamicDiscoverySharedInformerFactory(ctx context.Context, t *testing.T, rootShardConfig *rest.Config, expectedGVR schema.GroupVersionResource, expectedResName string, expectedClusterName logicalcluster.Name) {
-	rootShardWildcardConfig := kcpclienthelper.ConfigWithCluster(rootShardConfig, logicalcluster.Wildcard)
+	rootShardWildcardConfig := kcpclienthelper.SetCluster(rest.CopyConfig(rootShardConfig), logicalcluster.Wildcard)
 	rootShardCRDWildcardClient, err := apiextensionsclient.NewForConfig(rootShardWildcardConfig)
 	require.NoError(t, err, "failed to construct apiextensions client")
 

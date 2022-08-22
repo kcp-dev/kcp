@@ -98,7 +98,7 @@ func TestAPIBinding(t *testing.T) {
 	for _, serviceProviderWorkspace := range serviceProviderWorkspaces {
 		t.Logf("Install today cowboys APIResourceSchema into %q", serviceProviderWorkspace)
 
-		serviceProviderClusterCfg := kcpclienthelper.ConfigWithCluster(cfg, serviceProviderWorkspace)
+		serviceProviderClusterCfg := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), serviceProviderWorkspace)
 		serviceProviderClient, err := clientset.NewForConfig(serviceProviderClusterCfg)
 		require.NoError(t, err)
 		mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(serviceProviderClient.Discovery()))
@@ -166,7 +166,7 @@ func TestAPIBinding(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Logf("Make sure %s API group does NOT show up in workspace %q group discovery", wildwest.GroupName, providerWorkspace)
-		providerWorkspaceConfig := kcpclienthelper.ConfigWithCluster(cfg, providerWorkspace)
+		providerWorkspaceConfig := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), providerWorkspace)
 		providerWorkspaceClient, err := clientset.NewForConfig(providerWorkspaceConfig)
 		require.NoError(t, err)
 
@@ -175,7 +175,7 @@ func TestAPIBinding(t *testing.T) {
 		require.False(t, groupExists(groups, wildwest.GroupName),
 			"should not have seen %s API group in %q group discovery", wildwest.GroupName, providerWorkspace)
 
-		consumerWorkspaceConfig := kcpclienthelper.ConfigWithCluster(cfg, consumerWorkspace)
+		consumerWorkspaceConfig := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), consumerWorkspace)
 		consumerWorkspaceClient, err := clientset.NewForConfig(consumerWorkspaceConfig)
 		require.NoError(t, err)
 

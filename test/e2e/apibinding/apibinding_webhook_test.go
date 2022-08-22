@@ -40,6 +40,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 
 	"github.com/kcp-dev/kcp/config/helpers"
@@ -74,7 +75,7 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 	kubeClusterClient, err := kubernetes.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct client for server")
 
-	sourceWorkspaceConfig := kcpclienthelper.ConfigWithCluster(cfg, sourceWorkspace)
+	sourceWorkspaceConfig := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), sourceWorkspace)
 	sourceWorkspaceClient, err := clientset.NewForConfig(sourceWorkspaceConfig)
 	require.NoError(t, err)
 
@@ -218,7 +219,7 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 	kubeClusterClient, err := kubernetes.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct client for server")
 
-	sourceWorkspaceConfig := kcpclienthelper.ConfigWithCluster(cfg, sourceWorkspace)
+	sourceWorkspaceConfig := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), sourceWorkspace)
 	sourceWorkspaceClient, err := clientset.NewForConfig(sourceWorkspaceConfig)
 	require.NoError(t, err)
 

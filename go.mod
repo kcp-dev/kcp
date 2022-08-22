@@ -15,7 +15,7 @@ require (
 	github.com/google/gnostic v0.5.7-v3refs
 	github.com/google/go-cmp v0.5.6
 	github.com/google/uuid v1.1.2
-	github.com/kcp-dev/apimachinery v0.0.0-20220803185518-868856d14e8a
+	github.com/kcp-dev/apimachinery v0.0.0-20220819164220-dbb759406933
 	github.com/kcp-dev/kcp/pkg/apis v0.0.0-00010101000000-000000000000
 	github.com/kcp-dev/logicalcluster/v2 v2.0.0-alpha.1
 	github.com/martinlindhe/base36 v1.1.1

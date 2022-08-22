@@ -195,7 +195,7 @@ func TestAPIBindingAuthorizer(t *testing.T) {
 		_, err = kcpClusterClient.ApisV1alpha1().APIBindings().Create(logicalcluster.WithCluster(ctx, consumerWorkspace), apiBinding, metav1.CreateOptions{})
 		require.NoError(t, err)
 
-		consumerWorkspaceConfig := kcpclienthelper.ConfigWithCluster(cfg, consumerWorkspace)
+		consumerWorkspaceConfig := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), consumerWorkspace)
 		consumerWorkspaceClient, err := clientset.NewForConfig(consumerWorkspaceConfig)
 		require.NoError(t, err)
 
@@ -312,7 +312,7 @@ func createClusterRoleAndBindings(name, subjectName, subjectKind string, verbs [
 func setUpServiceProvider(ctx context.Context, dynamicClusterClient *kcpdynamic.ClusterDynamicClient, kcpClients clientset.Interface, kubeClusterClient kubernetes.Interface, serviceProviderWorkspace, rbacServiceProvider logicalcluster.Name, cfg *rest.Config, t *testing.T) {
 	t.Logf("Install today cowboys APIResourceSchema into service provider workspace %q", serviceProviderWorkspace)
 
-	clusterCfg := kcpclienthelper.ConfigWithCluster(cfg, serviceProviderWorkspace)
+	clusterCfg := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), serviceProviderWorkspace)
 	serviceProviderClient, err := clientset.NewForConfig(clusterCfg)
 	require.NoError(t, err)
 

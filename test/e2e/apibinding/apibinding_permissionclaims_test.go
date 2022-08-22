@@ -167,7 +167,7 @@ func TestAPIBindingPermissionClaimsConditions(t *testing.T) {
 
 func setUpServiceProviderWithPermissionClaims(ctx context.Context, dynamicClusterClient *kcpdynamic.ClusterDynamicClient, kcpClusterClients clientset.Interface, serviceProviderWorkspace logicalcluster.Name, cfg *rest.Config, t *testing.T, identityHash string) {
 	t.Logf("Install today cowboys APIResourceSchema into service provider workspace %q", serviceProviderWorkspace)
-	serviceProviderClusterCfg := kcpclienthelper.ConfigWithCluster(cfg, serviceProviderWorkspace)
+	serviceProviderClusterCfg := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), serviceProviderWorkspace)
 	serviceProviderClient, err := clientset.NewForConfig(serviceProviderClusterCfg)
 	require.NoError(t, err)
 
@@ -253,7 +253,7 @@ func bindConsumerToProvider(ctx context.Context, consumerWorkspace, providerWork
 	_, err := kcpClusterClients.ApisV1alpha1().APIBindings().Create(logicalcluster.WithCluster(ctx, consumerWorkspace), apiBinding, metav1.CreateOptions{})
 	require.NoError(t, err)
 
-	consumerWorkspaceConfig := kcpclienthelper.ConfigWithCluster(cfg, consumerWorkspace)
+	consumerWorkspaceConfig := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), consumerWorkspace)
 	consumerWorkspaceClient, err := clientset.NewForConfig(consumerWorkspaceConfig)
 	require.NoError(t, err)
 

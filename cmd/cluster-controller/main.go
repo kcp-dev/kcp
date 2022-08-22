@@ -28,6 +28,7 @@ import (
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	crdexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -84,7 +85,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	clusterConfig := kcpclienthelper.NewClusterConfig(config)
+	clusterConfig := kcpclienthelper.SetMultiClusterRoundTripper(rest.CopyConfig(config))
 
 	crdClusterClient, err := apiextensionsclient.NewForConfig(clusterConfig)
 	if err != nil {
