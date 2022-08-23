@@ -20,10 +20,15 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"time"
+
+	"github.com/kcp-dev/logicalcluster/v2"
 
 	apiextentionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextentionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
+	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apiextensionsexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	apiextensionsoptions "k8s.io/apiextensions-apiserver/pkg/cmd/server/options"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -39,16 +44,28 @@ import (
 	kcpserver "github.com/kcp-dev/kcp/pkg/server"
 )
 
+const resyncPeriod = 10 * time.Hour
+
 type Config struct {
 	Options       *cacheserveroptions.CompletedOptions
 	ApiExtensions *apiextensionsapiserver.Config
 	EmbeddedEtcd  *embeddedetcd.Config
+
+	ExtraConfig
 }
 
 type completedConfig struct {
 	Options       *cacheserveroptions.CompletedOptions
 	ApiExtensions apiextensionsapiserver.CompletedConfig
 	EmbeddedEtcd  embeddedetcd.CompletedConfig
+
+	ExtraConfig
+}
+
+type ExtraConfig struct {
+	ApiExtensionsClusterClient apiextensionsclient.ClusterInterface
+
+	ApiExtensionsSharedInformerFactory apiextensionsexternalversions.SharedInformerFactory
 }
 
 type CompletedConfig struct {
@@ -62,6 +79,7 @@ func (c *Config) Complete() (CompletedConfig, error) {
 		Options:       c.Options,
 		ApiExtensions: c.ApiExtensions.Complete(),
 		EmbeddedEtcd:  c.EmbeddedEtcd.Complete(),
+		ExtraConfig:   c.ExtraConfig,
 	}}, nil
 }
 
@@ -125,6 +143,17 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions) (*Config, error) {
 	serverConfig.LoopbackClientConfig.DisableCompression = true
 	clientutils.EnableMultiCluster(serverConfig.LoopbackClientConfig, &serverConfig.Config, "namespaces", "apiservices", "customresourcedefinitions", "clusterroles", "clusterrolebindings", "roles", "rolebindings", "serviceaccounts", "secrets")
 
+	var err error
+	c.ApiExtensionsClusterClient, err = apiextensionsclient.NewClusterForConfig(serverConfig.LoopbackClientConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	c.ApiExtensionsSharedInformerFactory = apiextensionsexternalversions.NewSharedInformerFactoryWithOptions(
+		c.ApiExtensionsClusterClient.Cluster(logicalcluster.Wildcard),
+		resyncPeriod,
+	)
+
 	c.ApiExtensions = &apiextensionsapiserver.Config{
 		GenericConfig: serverConfig,
 		ExtraConfig: apiextensionsapiserver.ExtraConfig{
@@ -132,10 +161,13 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions) (*Config, error) {
 			// Wire in a ServiceResolver that always returns an error that ResolveEndpoint is not yet
 			// supported. The effect is that CRD webhook conversions are not supported and will always get an
 			// error.
-			ServiceResolver:     &unimplementedServiceResolver{},
-			AuthResolverWrapper: webhook.NewDefaultAuthenticationInfoResolverWrapper(nil, nil, serverConfig.LoopbackClientConfig, nil),
+			ServiceResolver:       &unimplementedServiceResolver{},
+			MasterCount:           1,
+			AuthResolverWrapper:   webhook.NewDefaultAuthenticationInfoResolverWrapper(nil, nil, serverConfig.LoopbackClientConfig, nil),
+			ClusterAwareCRDLister: &crdLister{lister: c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Lister()},
 		},
 	}
+
 	return c, nil
 }
 

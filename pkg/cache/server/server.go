@@ -20,6 +20,10 @@ import (
 	"context"
 
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	"k8s.io/klog/v2"
+
+	"github.com/kcp-dev/kcp/pkg/cache/server/bootstrap"
+	"github.com/kcp-dev/kcp/pkg/util"
 )
 
 type Server struct {
@@ -34,8 +38,34 @@ func NewServer(c CompletedConfig) (*Server, error) {
 }
 
 func (s *Server) Run(ctx context.Context) error {
+	logger := klog.FromContext(ctx).WithValues("component", "cache-server")
 	server, err := s.ApiExtensions.New(genericapiserver.NewEmptyDelegate())
 	if err != nil {
+		return err
+	}
+	if err := server.GenericAPIServer.AddPostStartHook("bootstrap-cache-server", func(hookContext genericapiserver.PostStartHookContext) error {
+		logger = logger.WithValues("postStartHook", "bootstrap-cache-server")
+		if err = bootstrap.Bootstrap(klog.NewContext(util.GoContext(hookContext), logger), s.ApiExtensionsClusterClient); err != nil {
+			logger.Error(err, "failed creating the static CustomResourcesDefinitions")
+			// nolint:nilerr
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	if err := server.GenericAPIServer.AddPostStartHook("cache-server-start-informers", func(hookContext genericapiserver.PostStartHookContext) error {
+		logger := logger.WithValues("postStartHook", "cache-server-start-informers")
+		s.ApiExtensionsSharedInformerFactory.Start(hookContext.StopCh)
+		select {
+		case <-hookContext.StopCh:
+			return nil // context closed, avoid reporting success below
+		default:
+		}
+		logger.Info("finished starting kube informers")
+		return nil
+	}); err != nil {
 		return err
 	}
 	return server.GenericAPIServer.PrepareRun().Run(ctx.Done())
