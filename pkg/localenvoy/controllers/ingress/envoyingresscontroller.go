@@ -46,7 +46,7 @@ const controllerName = "kcp-envoy-ingress-status-aggregator"
 // root ingress object and calls out to the envoy controlplane to update its
 // state.
 func NewController(
-	kubeClient kubernetes.ClusterInterface,
+	kubeClient kubernetes.Interface,
 	ingressInformer networkinginformers.IngressInformer,
 	ecp *envoycontrolplane.EnvoyControlPlane, domain string) *Controller {
 
@@ -77,7 +77,7 @@ func NewController(
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	client kubernetes.ClusterInterface
+	client kubernetes.Interface
 
 	ingressIndexer cache.Indexer
 	ingressLister  networkinglisters.IngressLister
@@ -190,14 +190,14 @@ func (c *Controller) process(ctx context.Context, key string) (requeue bool, err
 		if current.Labels[envoycontrolplane.ToEnvoyLabel] == "" {
 			// If it's a root, we need to patch only status
 			// TODO(jmprusi): Move to patch instead of Update.
-			_, err := c.client.Cluster(logicalcluster.From(current)).NetworkingV1().Ingresses(current.Namespace).UpdateStatus(ctx, current, metav1.UpdateOptions{})
+			_, err := c.client.NetworkingV1().Ingresses(current.Namespace).UpdateStatus(logicalcluster.WithCluster(ctx, logicalcluster.From(current)), current, metav1.UpdateOptions{})
 			if err != nil {
 				return false, err
 			}
 		} else {
 			// If it's a leaf, we need to patch only non-status (to set labels)
 			// TODO(jmprusi): Move to patch instead of Update.
-			_, err := c.client.Cluster(logicalcluster.From(current)).NetworkingV1().Ingresses(current.Namespace).Update(ctx, current, metav1.UpdateOptions{})
+			_, err := c.client.NetworkingV1().Ingresses(current.Namespace).Update(logicalcluster.WithCluster(ctx, logicalcluster.From(current)), current, metav1.UpdateOptions{})
 			if err != nil {
 				return false, err
 			}
