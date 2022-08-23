@@ -95,11 +95,7 @@ func Run(ctx context.Context, o *options.Options) error {
 	nonIdentityConfig.Host = u.String()
 
 	// resolve identities for system APIBindings
-	nonIdentityKcpClusterClient, err := kcpclient.NewClusterForConfig(nonIdentityConfig) // can only used for wildcard requests of apis.kcp.dev
-	if err != nil {
-		return err
-	}
-	identityConfig, resolveIdentities := boostrap.NewConfigWithWildcardIdentities(nonIdentityConfig, boostrap.KcpRootGroupExportNames, boostrap.KcpRootGroupResourceExportNames, nonIdentityKcpClusterClient, nil)
+	identityConfig, resolveIdentities := boostrap.NewConfigWithWildcardIdentities(nonIdentityConfig, boostrap.KcpRootGroupExportNames, boostrap.KcpRootGroupResourceExportNames, nil)
 	if err := wait.PollImmediateInfiniteWithContext(ctx, time.Millisecond*500, func(ctx context.Context) (bool, error) {
 		if err := resolveIdentities(ctx); err != nil {
 			klog.V(3).Infof("failed to resolve identities, keeping trying: %v", err)

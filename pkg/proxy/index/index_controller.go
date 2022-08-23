@@ -48,7 +48,7 @@ type Index interface {
 	Lookup(logicalCluster logicalcluster.Name) (string, bool)
 }
 
-type ClusterWorkspaceClientGetter func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpclientset.ClusterInterface, error)
+type ClusterWorkspaceClientGetter func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpclientset.Interface, error)
 
 func NewController(
 	rootHost string,
@@ -263,7 +263,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		if err != nil {
 			return err
 		}
-		informer := tenancyinformer.NewClusterWorkspaceInformer(client.Cluster(logicalcluster.Wildcard), clusterWorkspaceResyncPeriod, nil)
+		informer := tenancyinformer.NewClusterWorkspaceInformer(client, clusterWorkspaceResyncPeriod, nil)
 		informer.AddEventHandler(c.clusterWorkspaceHandler)
 
 		stopCh := make(chan struct{})

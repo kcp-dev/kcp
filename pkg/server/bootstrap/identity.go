@@ -26,6 +26,8 @@ import (
 	"strings"
 	"sync"
 
+	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	errorsutil "k8s.io/apimachinery/pkg/util/errors"
@@ -87,9 +89,8 @@ func (ids *identities) grIdentity(gr schema.GroupResource) (string, bool) {
 func NewConfigWithWildcardIdentities(config *rest.Config,
 	groupExportNames map[string]string,
 	groupResourceExportNames map[schema.GroupResource]string,
-	rootShardKcpClient kcpclient.ClusterInterface,
 	localShardKubeClusterClient kubernetes.ClusterInterface) (identityConfig *rest.Config, resolve func(ctx context.Context) error) {
-	identityRoundTripper, identityResolver := NewWildcardIdentitiesWrappingRoundTripper(groupExportNames, groupResourceExportNames, rootShardKcpClient, localShardKubeClusterClient)
+	identityRoundTripper, identityResolver := NewWildcardIdentitiesWrappingRoundTripper(groupExportNames, groupResourceExportNames, config, localShardKubeClusterClient)
 	identityConfig = rest.CopyConfig(config)
 	identityConfig.Wrap(identityRoundTripper)
 	return identityConfig, identityResolver
@@ -106,7 +107,7 @@ func NewConfigWithWildcardIdentities(config *rest.Config,
 // with identities.
 func NewWildcardIdentitiesWrappingRoundTripper(groupExportNames map[string]string,
 	groupResourceExportNames map[schema.GroupResource]string,
-	rootShardKcpClient kcpclient.ClusterInterface,
+	config *rest.Config,
 	localShardKubeClusterClient kubernetes.ClusterInterface) (func(rt http.RoundTripper) http.RoundTripper, func(ctx context.Context) error) {
 	ids := &identities{
 		groupIdentities:         map[string]string{},
@@ -120,7 +121,7 @@ func NewWildcardIdentitiesWrappingRoundTripper(groupExportNames map[string]strin
 		ids.groupResourceIdentities[gr] = ""
 	}
 
-	return injectKcpIdentities(ids), wildcardIdentitiesResolver(ids, groupExportNames, groupResourceExportNames, apiExportIdentityProvider(rootShardKcpClient.Cluster(tenancyv1alpha1.RootCluster), localShardKubeClusterClient))
+	return injectKcpIdentities(ids), wildcardIdentitiesResolver(ids, groupExportNames, groupResourceExportNames, apiExportIdentityProvider(config, localShardKubeClusterClient))
 }
 
 func wildcardIdentitiesResolver(ids *identities,
@@ -198,8 +199,14 @@ func wildcardIdentitiesResolver(ids *identities,
 	}
 }
 
-func apiExportIdentityProvider(rootShardKcpClient kcpclient.Interface, localShardKubeClusterClient kubernetes.ClusterInterface) func(ctx context.Context, apiExportName string) (string, error) {
+func apiExportIdentityProvider(config *rest.Config, localShardKubeClusterClient kubernetes.ClusterInterface) func(ctx context.Context, apiExportName string) (string, error) {
 	return func(ctx context.Context, apiExportName string) (string, error) {
+		rootShardConfig := kcpclienthelper.SetCluster(rest.CopyConfig(config), tenancyv1alpha1.RootCluster)
+		rootShardKcpClient, err := kcpclient.NewForConfig(rootShardConfig)
+		if err != nil {
+			return "", err
+		}
+
 		if localShardKubeClusterClient != nil {
 			apiExportIdentitiesConfigMap, err := localShardKubeClusterClient.Cluster(configshard.SystemShardCluster).CoreV1().ConfigMaps("default").Get(ctx, identitycache.ConfigMapName, metav1.GetOptions{})
 			if err == nil {
