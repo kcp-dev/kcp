@@ -24,6 +24,8 @@ import (
 	"os"
 	"time"
 
+	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
+	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
@@ -104,11 +106,8 @@ routed based on paths.`,
 			if err != nil {
 				return fmt.Errorf("failed to load root kubeconfig: %w", err)
 			}
-			nonIdentityRootKcpClusterClient, err := kcpclient.NewClusterForConfig(nonIdentityRootConfig)
-			if err != nil {
-				return fmt.Errorf("failed to create root client: %w", err)
-			}
-			rootShardConfig, resolveIdentities := bootstrap.NewConfigWithWildcardIdentities(nonIdentityRootConfig, bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, nonIdentityRootKcpClusterClient, nil)
+
+			rootShardConfig, resolveIdentities := bootstrap.NewConfigWithWildcardIdentities(nonIdentityRootConfig, bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, nil)
 			if err := wait.PollImmediateInfiniteWithContext(ctx, time.Millisecond*500, func(ctx context.Context) (bool, error) {
 				if err := resolveIdentities(ctx); err != nil {
 					klog.V(3).Infof("failed to resolve identities, keeping trying: %v", err)
@@ -118,20 +117,22 @@ routed based on paths.`,
 			}); err != nil {
 				return fmt.Errorf("failed to get or create identities: %w", err)
 			}
-			rootKcpClusterClient, err := kcpclient.NewClusterForConfig(rootShardConfig)
+
+			rootShardConfigInformerConfig := kcpclienthelper.SetCluster(restclient.CopyConfig(rootShardConfig), tenancyv1alpha1.RootCluster)
+			rootShardConfigInformerClient, err := kcpclient.NewForConfig(rootShardConfigInformerConfig)
 			if err != nil {
-				return fmt.Errorf("failed to create root client: %w", err)
+				return fmt.Errorf("failed to create client for informers: %w", err)
 			}
 
 			// start index
-			kcpSharedInformerFactory := kcpinformers.NewSharedInformerFactoryWithOptions(rootKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster), 30*time.Minute)
+			kcpSharedInformerFactory := kcpinformers.NewSharedInformerFactoryWithOptions(rootShardConfigInformerClient, 30*time.Minute)
 			indexController := index.NewController(
 				rootShardConfig.Host,
 				kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
-				func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpclient.ClusterInterface, error) {
+				func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpclient.Interface, error) {
 					shardConfig := restclient.CopyConfig(rootShardConfig)
 					shardConfig.Host = shard.Spec.BaseURL
-					shardClient, err := kcpclient.NewClusterForConfig(shardConfig)
+					shardClient, err := kcpclient.NewForConfig(kcpclienthelper.SetCluster(restclient.CopyConfig(shardConfig), logicalcluster.Wildcard))
 					if err != nil {
 						return nil, fmt.Errorf("failed to create shard %q client: %w", shard.Name, err)
 					}
