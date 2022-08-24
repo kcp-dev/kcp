@@ -1,8 +1,8 @@
-name: Epic request
+name: Epic
 description: For tracking a large feature, including how to demo it.
 title: "epic: "
 labels:
-  - "epic"
+  - epic
 body:
   - type: textarea
     id: objective
