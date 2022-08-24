@@ -47,7 +47,7 @@ func newUser(name string, groups ...string) *user.DefaultInfo {
 	}
 }
 
-func newServiceAccount(name string, cluster string, groups ...string) *user.DefaultInfo {
+func newServiceAccountWithCluster(name string, cluster string, groups ...string) *user.DefaultInfo {
 	extra := make(map[string][]string)
 	if len(cluster) > 0 {
 		extra[authserviceaccount.ClusterNameKey] = []string{cluster}
@@ -55,6 +55,13 @@ func newServiceAccount(name string, cluster string, groups ...string) *user.Defa
 	return &user.DefaultInfo{
 		Name:   name,
 		Extra:  extra,
+		Groups: groups,
+	}
+}
+
+func newServiceAccount(name string, groups ...string) *user.DefaultInfo {
+	return &user.DefaultInfo{
+		Name:   name,
 		Groups: groups,
 	}
 }
@@ -80,6 +87,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 		wantReason, wantError string
 		wantDecision          authorizer.Decision
 		wantUser              *user.DefaultInfo
+		deepSARHeader         bool
 	}{
 		{
 			testName: "requested cluster is not root",
@@ -131,7 +139,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			testName: "non-permitted service account is denied",
 
 			requestedWorkspace: "root:ready",
-			requestingUser:     newServiceAccount("sa", "anotherws"),
+			requestingUser:     newServiceAccountWithCluster("sa", "anotherws"),
 			wantDecision:       authorizer.DecisionNoOpinion,
 			wantReason:         "workspace access not permitted",
 		},
@@ -139,8 +147,8 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			testName: "permitted service account is granted access",
 
 			requestedWorkspace: "root:ready",
-			requestingUser:     newServiceAccount("sa", "root:ready"),
-			wantUser:           newServiceAccount("sa", "root:ready", "system:kcp:clusterworkspace:access"),
+			requestingUser:     newServiceAccountWithCluster("sa", "root:ready"),
+			wantUser:           newServiceAccountWithCluster("sa", "root:ready", "system:kcp:clusterworkspace:access"),
 		},
 		{
 			testName: "authenticated user is granted access on root",
@@ -153,7 +161,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			testName: "authenticated non-permitted service account is denied on root",
 
 			requestedWorkspace: "root",
-			requestingUser:     newServiceAccount("somebody", "someworkspace", "system:authenticated"),
+			requestingUser:     newServiceAccountWithCluster("somebody", "someworkspace", "system:authenticated"),
 			wantDecision:       authorizer.DecisionNoOpinion,
 			wantReason:         "workspace access not permitted",
 		},
@@ -161,14 +169,14 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			testName: "authenticated permitted root service account is granted access on root",
 
 			requestedWorkspace: "root",
-			requestingUser:     newServiceAccount("somebody", "root", "system:authenticated"),
-			wantUser:           newServiceAccount("somebody", "root", "system:authenticated", "system:kcp:clusterworkspace:access"),
+			requestingUser:     newServiceAccountWithCluster("somebody", "root", "system:authenticated"),
+			wantUser:           newServiceAccountWithCluster("somebody", "root", "system:authenticated", "system:kcp:clusterworkspace:access"),
 		},
 		{
 			testName: "authenticated service account is denied on scheduling workspace",
 
 			requestedWorkspace: "root:scheduling",
-			requestingUser:     newServiceAccount("somebody", "root", "system:authenticated"),
+			requestingUser:     newServiceAccountWithCluster("somebody", "root", "system:authenticated"),
 			wantDecision:       authorizer.DecisionNoOpinion,
 			wantReason:         "workspace access not permitted",
 		},
@@ -176,7 +184,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			testName: "permitted service account is denied on initializing workspace",
 
 			requestedWorkspace: "root:initializing",
-			requestingUser:     newServiceAccount("somebody", "initializing", "system:authenticated"),
+			requestingUser:     newServiceAccountWithCluster("somebody", "initializing", "system:authenticated"),
 			wantDecision:       authorizer.DecisionNoOpinion,
 			wantReason:         "workspace access not permitted",
 		},
@@ -194,6 +202,22 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			requestedWorkspace: "root:initializing",
 			requestingUser:     newUser("user-admin"),
 			wantUser:           newUser("user-admin", "system:kcp:clusterworkspace:access", "system:kcp:clusterworkspace:admin"),
+		},
+		{
+			testName: "any user passed for deep SAR",
+
+			requestedWorkspace: "root:ready",
+			requestingUser:     newUser("user-unknown"),
+			wantUser:           newUser("user-unknown"),
+			deepSARHeader:      true,
+		},
+		{
+			testName: "any service account passed for deep SAR as anyonmous",
+
+			requestedWorkspace: "root:ready",
+			requestingUser:     newServiceAccountWithCluster("somebody", "root", "system:authenticated"),
+			wantUser:           newServiceAccount("system:anonymous", "system:authenticated"),
+			deepSARHeader:      true,
 		},
 	} {
 		t.Run(tt.testName, func(t *testing.T) {
@@ -400,6 +424,9 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			attr := authorizer.AttributesRecord{
 				User: tt.requestingUser,
 			}
+			if tt.deepSARHeader {
+				ctx = context.WithValue(ctx, deepSARKey, true)
+			}
 
 			gotDecision, gotReason, err := w.Authorize(ctx, attr)
 			gotErr := ""
@@ -416,7 +443,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			}
 
 			if gotDecision != tt.wantDecision {
-				t.Errorf("want reason %v, got %v", tt.wantDecision, gotDecision)
+				t.Errorf("want decision %v, got %v", tt.wantDecision, gotDecision)
 			}
 
 			if tt.wantUser == nil {

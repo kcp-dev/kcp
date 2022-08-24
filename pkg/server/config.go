@@ -49,6 +49,7 @@ import (
 
 	kcpadmissioninitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/authorization"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
@@ -87,6 +88,7 @@ type ExtraConfig struct {
 	// clients
 	DynamicClusterClient       dynamic.ClusterInterface
 	KubeClusterClient          kubernetes.ClusterInterface
+	DeepSARClient              kubernetes.ClusterInterface
 	ApiExtensionsClusterClient apiextensionsclient.ClusterInterface
 	KcpClusterClient           kcpclient.ClusterInterface
 	RootShardKcpClusterClient  kcpclient.ClusterInterface
@@ -234,6 +236,10 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		kcpexternalversions.WithExtraClusterScopedIndexers(indexers.ClusterScoped()),
 		kcpexternalversions.WithExtraNamespaceScopedIndexers(indexers.NamespaceScoped()),
 	)
+	c.DeepSARClient, err = kubernetes.NewClusterForConfig(authorization.WithDeepSARConfig(rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)))
+	if err != nil {
+		return nil, err
+	}
 
 	// Setup apiextensions * informers
 	c.ApiExtensionsClusterClient, err = apiextensionsclient.NewClusterForConfig(c.GenericConfig.LoopbackClientConfig)
@@ -284,6 +290,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 	c.GenericConfig.BuildHandlerChainFunc = func(apiHandler http.Handler, genericConfig *genericapiserver.Config) (secure http.Handler) {
 		apiHandler = WithWildcardListWatchGuard(apiHandler)
 		apiHandler = WithWildcardIdentity(apiHandler)
+		apiHandler = authorization.WithDeepSubjectAccessReview(apiHandler)
 
 		apiHandler = genericapiserver.DefaultBuildHandlerChainFromAuthz(apiHandler, genericConfig)
 
@@ -337,6 +344,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		kcpadmissioninitializers.NewKcpInformersInitializer(c.KcpSharedInformerFactory),
 		kcpadmissioninitializers.NewKubeClusterClientInitializer(c.KubeClusterClient),
 		kcpadmissioninitializers.NewKcpClusterClientInitializer(c.KcpClusterClient),
+		kcpadmissioninitializers.NewDeepSARClientInitializer(c.DeepSARClient),
 		kcpadmissioninitializers.NewShardBaseURLInitializer(opts.Extra.ShardBaseURL),
 		kcpadmissioninitializers.NewShardExternalURLInitializer(opts.Extra.ShardExternalURL),
 		// The external address is provided as a function, as its value may be updated

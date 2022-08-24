@@ -26,6 +26,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
+	authorizationv1 "k8s.io/api/authorization/v1"
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -34,13 +35,13 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
-	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 
 	confighelpers "github.com/kcp-dev/kcp/config/helpers"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	kcp "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	"github.com/kcp-dev/kcp/pkg/authorization"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -59,8 +60,6 @@ func TestAuthorizer(t *testing.T) {
 
 	kubeClusterClient, err := kubernetes.NewForConfig(cfg)
 	require.NoError(t, err)
-	kcpClusterClient, err := kcp.NewForConfig(cfg)
-	require.NoError(t, err)
 	dynamicClusterClient, err := kcpdynamic.NewClusterDynamicClientForConfig(cfg)
 	require.NoError(t, err)
 
@@ -70,10 +69,10 @@ func TestAuthorizer(t *testing.T) {
 	createResources(t, ctx, dynamicClusterClient, kubeClusterClient.DiscoveryClient, org1, "org-resources.yaml")
 	createResources(t, ctx, dynamicClusterClient, kubeClusterClient.DiscoveryClient, org2, "org-resources.yaml")
 
-	waitForReady(t, ctx, kcpClusterClient, org1, "workspace1")
-	waitForReady(t, ctx, kcpClusterClient, org1, "workspace2")
-	waitForReady(t, ctx, kcpClusterClient, org2, "workspace1")
-	waitForReady(t, ctx, kcpClusterClient, org2, "workspace2")
+	framework.NewWorkspaceFixture(t, server, org1, framework.WithName("workspace1"))
+	framework.NewWorkspaceFixture(t, server, org1, framework.WithName("workspace2"))
+	framework.NewWorkspaceFixture(t, server, org2, framework.WithName("workspace1"), framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: tenancyv1alpha1.RootShard})) // on root for deep SAR test
+	framework.NewWorkspaceFixture(t, server, org2, framework.WithName("workspace2"))
 
 	createResources(t, ctx, dynamicClusterClient, kubeClusterClient.DiscoveryClient, org1.Join("workspace1"), "workspace1-resources.yaml")
 	createResources(t, ctx, dynamicClusterClient, kubeClusterClient.DiscoveryClient, org2.Join("workspace1"), "workspace1-resources.yaml")
@@ -190,6 +189,37 @@ func TestAuthorizer(t *testing.T) {
 				return true
 			}, wait.ForeverTestTimeout, time.Millisecond*100, "User-3 should now be able to list Namespaces")
 		},
+		"without org access, a deep SAR with user-1 against org2 succeeds even without org access for user-1": func(t *testing.T) {
+			t.Logf("try to list ConfigMap as user-1 in %q without access, should fail", org2.Join("workspace1"))
+			_, err := user1KubeClusterClient.CoreV1().ConfigMaps("default").List(logicalcluster.WithCluster(ctx, org2.Join("workspace1")), metav1.ListOptions{})
+			require.Errorf(t, err, "user-1 should not be able to list configmaps in %q", org2.Join("workspace1"))
+
+			sar := &authorizationv1.SubjectAccessReview{
+				Spec: authorizationv1.SubjectAccessReviewSpec{
+					ResourceAttributes: &authorizationv1.ResourceAttributes{Namespace: "default", Verb: "list", Version: "v1", Resource: "configmaps"},
+					User:               "user-1",
+					Groups:             []string{"team-1"},
+				},
+			}
+
+			t.Logf("ask with normal SAR that user-1 cannot access %q because it has no access", org2.Join("workspace1"))
+			resp, err := kubeClusterClient.AuthorizationV1().SubjectAccessReviews().Create(logicalcluster.WithCluster(ctx, org2.Join("workspace1")), sar, metav1.CreateOptions{})
+			require.NoError(t, err)
+			require.Equalf(t, "workspace access not permitted", resp.Status.Reason, "SAR should answer that user-1 has no workspace access in %q", org2.Join("workspace1"))
+			require.Falsef(t, resp.Status.Allowed, "SAR should correctly answer that user-1 CANNOT list configmaps in %q because it has no access to it", org2.Join("workspace1"))
+
+			t.Logf("ask with normal SAR that user-1 can access %q because it has access", org1.Join("workspace1"))
+			resp, err = kubeClusterClient.AuthorizationV1().SubjectAccessReviews().Create(logicalcluster.WithCluster(ctx, org1.Join("workspace1")), sar, metav1.CreateOptions{})
+			require.NoError(t, err)
+			require.Truef(t, resp.Status.Allowed, "SAR should correctly answer that user-1 CAN list configmaps in %q because it has access to %q", org2.Join("workspace1"), org1.Join("workspace1"))
+
+			t.Logf("ask with deep SAR that user-1 hypothetically could list configmaps in %q if it had access", org2.Join("workspace1"))
+			deepSARClient, err := kubernetes.NewForConfig(authorization.WithDeepSARConfig(rest.CopyConfig(server.RootShardSystemMasterBaseConfig(t))))
+			require.NoError(t, err)
+			resp, err = deepSARClient.AuthorizationV1().SubjectAccessReviews().Create(logicalcluster.WithCluster(ctx, org2.Join("workspace1")), sar, metav1.CreateOptions{})
+			require.NoError(t, err)
+			require.Truef(t, resp.Status.Allowed, "SAR should answer hypothetically that user-1 could list configmaps in %q if it had access", org2.Join("workspace1"))
+		},
 	}
 
 	for tcName, tcFunc := range tests {
@@ -200,18 +230,6 @@ func TestAuthorizer(t *testing.T) {
 			tcFunc(t)
 		})
 	}
-}
-
-func waitForReady(t *testing.T, ctx context.Context, kcpClusterClient kcp.Interface, orgClusterName logicalcluster.Name, workspace string) {
-	t.Logf("Waiting for workspace %s|%s to be ready", orgClusterName, workspace)
-	require.Eventually(t, func() bool {
-		ws, err := kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, orgClusterName), workspace, metav1.GetOptions{})
-		if err != nil {
-			klog.Errorf("failed to get workspace %s|%s: %v", orgClusterName, workspace, err)
-			return false
-		}
-		return ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady
-	}, wait.ForeverTestTimeout, time.Millisecond*100, "workspace %s|%s didn't get ready", orgClusterName, workspace)
 }
 
 func createResources(t *testing.T, ctx context.Context, dynamicClusterClient *kcpdynamic.ClusterDynamicClient, discoveryClusterClient *discovery.DiscoveryClient, clusterName logicalcluster.Name, fileName string) {

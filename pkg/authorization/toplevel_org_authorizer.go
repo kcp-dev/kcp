@@ -75,6 +75,11 @@ type topLevelOrgAccessAuthorizer struct {
 }
 
 func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
+	if IsDeepSubjectAccessReviewFrom(ctx, attr) {
+		// this is a deep SAR request, we have to skip the checks here and delegate to the subsequent authorizer.
+		return a.delegate.Authorize(ctx, attr)
+	}
+
 	cluster, err := genericapirequest.ValidClusterFrom(ctx)
 	if err != nil || cluster == nil || cluster.Name.Empty() {
 		kaudit.AddAuditAnnotations(

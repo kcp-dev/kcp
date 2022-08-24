@@ -34,6 +34,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
+	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 )
@@ -54,15 +55,18 @@ func Register(plugins *admission.Plugins) {
 
 type apiBindingAdmission struct {
 	*admission.Handler
-	kubeClusterClient kubernetes.ClusterInterface
+	deepSARClient kubernetes.ClusterInterface
 
 	createAuthorizer delegated.DelegatedAuthorizerFactory
 }
 
 // Ensure that the required admission interfaces are implemented.
-var _ = admission.ValidationInterface(&apiBindingAdmission{})
-var _ = admission.MutationInterface(&apiBindingAdmission{})
-var _ = admission.InitializationValidator(&apiBindingAdmission{})
+var (
+	_ = admission.ValidationInterface(&apiBindingAdmission{})
+	_ = admission.MutationInterface(&apiBindingAdmission{})
+	_ = admission.InitializationValidator(&apiBindingAdmission{})
+	_ = kcpinitializers.WantsDeepSARClient(&apiBindingAdmission{})
+)
 
 func (o *apiBindingAdmission) Admit(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) error {
 	if a.GetResource().GroupResource() != apisv1alpha1.Resource("apibindings") {
@@ -179,7 +183,7 @@ func (o *apiBindingAdmission) Validate(ctx context.Context, a admission.Attribut
 }
 
 func (o *apiBindingAdmission) checkAPIExportAccess(ctx context.Context, user user.Info, apiExportClusterName logicalcluster.Name, apiExportName string) error {
-	authz, err := o.createAuthorizer(apiExportClusterName, o.kubeClusterClient)
+	authz, err := o.createAuthorizer(apiExportClusterName, o.deepSARClient)
 	if err != nil {
 		// Logging a more specific error for the operator
 		klog.Errorf("error creating authorizer from delegating authorizer config: %v", err)
@@ -208,15 +212,15 @@ func (o *apiBindingAdmission) checkAPIExportAccess(ctx context.Context, user use
 
 // ValidateInitialization ensures the required injected fields are set.
 func (o *apiBindingAdmission) ValidateInitialization() error {
-	if o.kubeClusterClient == nil {
+	if o.deepSARClient == nil {
 		return fmt.Errorf(PluginName + " plugin needs a Kubernetes ClusterInterface")
 	}
 
 	return nil
 }
 
-// SetKubeClusterClient is an admission plugin initializer function that injects a Kubernetes cluster client into
+// SetDeepSARClient is an admission plugin initializer function that injects a client capable of deep SAR requests into
 // this admission plugin.
-func (o *apiBindingAdmission) SetKubeClusterClient(clusterClient kubernetes.ClusterInterface) {
-	o.kubeClusterClient = clusterClient
+func (o *apiBindingAdmission) SetDeepSARClient(client kubernetes.ClusterInterface) {
+	o.deepSARClient = client
 }
