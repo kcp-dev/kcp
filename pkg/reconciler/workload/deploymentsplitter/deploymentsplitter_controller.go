@@ -23,15 +23,15 @@ import (
 	"os/signal"
 	"time"
 
-	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
+	kcpappslister "k8s.io/client-go/kcp/listers/apps/v1"
 	"k8s.io/client-go/kubernetes"
 	appsv1client "k8s.io/client-go/kubernetes/typed/apps/v1"
-	appsv1lister "k8s.io/client-go/listers/apps/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -76,8 +76,7 @@ func NewController(cfg *rest.Config) *Controller {
 	sif.WaitForCacheSync(stop.Done())
 	sif.Start(stop.Done())
 
-	c.indexer = sif.Apps().V1().Deployments().Informer().GetIndexer()
-	c.lister = sif.Apps().V1().Deployments().Lister()
+	c.lister = sif.Apps().V1().Deployments().Lister().(*kcpappslister.DeploymentClusterLister)
 
 	return c
 }
@@ -88,8 +87,7 @@ type Controller struct {
 	clusterLister *workloadlisters.SyncTargetClusterLister
 	kubeClient    kubernetes.Interface
 	stop          context.Context
-	indexer       cache.Indexer
-	lister        appsv1lister.DeploymentLister
+	lister        *kcpappslister.DeploymentClusterLister
 }
 
 func (c *Controller) enqueue(obj interface{}) {
@@ -146,16 +144,21 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 
 func (c *Controller) process(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
-	obj, exists, err := c.indexer.GetByKey(key)
+	clusterName, namespace, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		logger.Error(err, "invalid key")
+		return nil
+	}
+	obj, err := c.lister.Cluster(clusterName).Deployments(namespace).Get(name)
 	if err != nil {
 		return err
 	}
 
-	if !exists {
+	if kerrors.IsNotFound(err) {
 		logger.Info("object was deleted")
 		return nil
 	}
-	current := obj.(*appsv1.Deployment).DeepCopy()
+	current := obj.DeepCopy()
 	previous := current.DeepCopy()
 
 	logger = logging.WithObject(logger, previous)

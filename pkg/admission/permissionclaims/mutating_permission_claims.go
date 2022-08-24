@@ -164,7 +164,7 @@ func (m *mutatingPermissionClaims) Validate(ctx context.Context, a admission.Att
 }
 
 // SetKcpInformers implements the WantsExternalKcpInformerFactory interface.
-func (m *mutatingPermissionClaims) SetKcpInformers(f kcpinformers.SharedInformerFactory) {
+func (m *mutatingPermissionClaims) SetKcpInformers(f *kcpinformers.SharedInformerFactory) {
 	m.apiBindingsHasSynced = f.Apis().V1alpha1().APIBindings().Informer().HasSynced
 	m.apiExportsHasSynced = f.Apis().V1alpha1().APIExports().Informer().HasSynced
 

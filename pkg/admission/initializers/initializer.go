@@ -29,7 +29,7 @@ import (
 // NewKcpInformersInitializer returns an admission plugin initializer that injects
 // kcp shared informer factories into admission plugins.
 func NewKcpInformersInitializer(
-	kcpInformers kcpinformers.SharedInformerFactory,
+	kcpInformers *kcpinformers.SharedInformerFactory,
 ) *kcpInformersInitializer {
 	return &kcpInformersInitializer{
 		kcpInformers: kcpInformers,
@@ -37,7 +37,7 @@ func NewKcpInformersInitializer(
 }
 
 type kcpInformersInitializer struct {
-	kcpInformers kcpinformers.SharedInformerFactory
+	kcpInformers *kcpinformers.SharedInformerFactory
 }
 
 func (i *kcpInformersInitializer) Initialize(plugin admission.Interface) {

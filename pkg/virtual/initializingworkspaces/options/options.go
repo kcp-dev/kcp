@@ -55,7 +55,7 @@ func (o *InitializingWorkspaces) Validate(flagPrefix string) []error {
 func (o *InitializingWorkspaces) NewVirtualWorkspaces(
 	rootPathPrefix string,
 	config *rest.Config,
-	wildcardKcpInformers kcpinformer.SharedInformerFactory,
+	wildcardKcpInformers *kcpinformer.SharedInformerFactory,
 ) (workspaces []rootapiserver.NamedVirtualWorkspace, err error) {
 	config = rest.AddUserAgent(rest.CopyConfig(config), "initializingworkspaces-virtual-workspace")
 	kubeClusterClient, err := kubernetes.NewClusterForConfig(config)

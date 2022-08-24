@@ -37,7 +37,6 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
@@ -100,7 +99,7 @@ type controller struct {
 	crdClusterClient     apiextensionclientset.Interface
 	kcpClusterClient     kcpclient.Interface
 
-	workspaceLister tenancylister.ClusterWorkspaceLister
+	workspaceLister *tenancylister.ClusterWorkspaceClusterLister
 
 	syncChecks []cache.InformerSynced
 
@@ -174,14 +173,13 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 
 func (c *controller) process(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
-	namespace, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	clusterName, namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		logger.Error(err, "invalid key")
 		return nil
 	}
-	clusterName, name := clusters.SplitClusterAwareKey(clusterAwareName)
 
-	obj, err := c.workspaceLister.Get(key) // TODO: clients need a way to scope down the lister per-cluster
+	obj, err := c.workspaceLister.Cluster(clusterName).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil // object deleted before we handled it

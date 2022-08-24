@@ -76,7 +76,7 @@ type Controller struct {
 	kcpClient kcpclient.Interface
 
 	clusterWorkspaceShardIndexer cache.Indexer
-	clusterWorkspaceShardLister  tenancylister.ClusterWorkspaceShardLister
+	clusterWorkspaceShardLister  *tenancylister.ClusterWorkspaceShardClusterLister
 }
 
 func (c *Controller) enqueue(obj interface{}) {
@@ -138,7 +138,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 
 func (c *Controller) process(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
+	clusterName, namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		logger.Error(err, "invalid key")
 		return nil
@@ -148,7 +148,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		return nil
 	}
 
-	obj, err := c.clusterWorkspaceShardLister.Get(key)
+	obj, err := c.clusterWorkspaceShardLister.Cluster(clusterName).Get(name)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return nil // object deleted before we handled it

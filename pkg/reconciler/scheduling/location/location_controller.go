@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -48,7 +49,6 @@ import (
 
 const (
 	controllerName = "kcp-scheduling-location-status"
-	byWorkspace    = controllerName + "-byWorkspace" // will go away with scoping
 )
 
 // NewController returns a new controller reconciling location status.
@@ -65,23 +65,9 @@ func NewController(
 			key := clusters.ToClusterAwareKey(logicalcluster.From(location), location.Name)
 			queue.AddAfter(key, duration)
 		},
-		kcpClusterClient:  kcpClusterClient,
-		locationLister:    locationInformer.Lister(),
-		locationIndexer:   locationInformer.Informer().GetIndexer(),
-		syncTargetLister:  syncTargetInformer.Lister(),
-		syncTargetIndexer: syncTargetInformer.Informer().GetIndexer(),
-	}
-
-	if err := syncTargetInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorkspace,
-	}); err != nil {
-		return nil, err
-	}
-
-	if err := locationInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorkspace,
-	}); err != nil {
-		return nil, err
+		kcpClusterClient: kcpClusterClient,
+		locationLister:   locationInformer.Lister(),
+		syncTargetLister: syncTargetInformer.Lister(),
 	}
 
 	locationInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -125,10 +111,8 @@ type controller struct {
 
 	kcpClusterClient kcpclient.Interface
 
-	locationLister    schedulinglisters.LocationLister
-	locationIndexer   cache.Indexer
-	syncTargetLister  workloadlisters.SyncTargetLister
-	syncTargetIndexer cache.Indexer
+	locationLister   *schedulinglisters.LocationClusterLister
+	syncTargetLister *workloadlisters.SyncTargetClusterLister
 }
 
 func (c *controller) enqueueLocation(obj interface{}) {
@@ -151,7 +135,7 @@ func (c *controller) enqueueSyncTarget(obj interface{}) {
 		return
 	}
 	lcluster, _ := clusters.SplitClusterAwareKey(key)
-	domains, err := c.locationIndexer.ByIndex(byWorkspace, lcluster.String())
+	domains, err := c.locationLister.Cluster(lcluster).List(labels.Everything())
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -219,14 +203,13 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 
 func (c *controller) process(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
-	namespace, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	clusterName, namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		logger.Error(err, "invalid key")
 		return nil
 	}
-	clusterName, name := clusters.SplitClusterAwareKey(clusterAwareName)
 
-	obj, err := c.locationLister.Get(key)
+	obj, err := c.locationLister.Cluster(clusterName).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil // object deleted before we handled it

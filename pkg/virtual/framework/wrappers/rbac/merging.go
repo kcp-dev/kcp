@@ -22,32 +22,15 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
-	rbacinformers "k8s.io/client-go/informers/rbac/v1"
 	rbaclisters "k8s.io/client-go/listers/rbac/v1"
-	"k8s.io/client-go/tools/cache"
 )
 
-var _ rbacinformers.ClusterRoleInformer = (*mergedClusterRoleInformer)(nil)
 var _ rbaclisters.ClusterRoleLister = (*mergedClusterRoleLister)(nil)
 
-func MergedClusterRoleInformer(informers ...rbacinformers.ClusterRoleInformer) rbacinformers.ClusterRoleInformer {
-	return &mergedClusterRoleInformer{
-		informers: informers,
+func MergedClusterRoleBindingLister(listers ...rbaclisters.ClusterRoleBindingLister) rbaclisters.ClusterRoleBindingLister {
+	return &mergedClusterRoleBindingLister{
+		listers: listers,
 	}
-}
-
-func MergedClusterRoleBindingInformer(informers ...rbacinformers.ClusterRoleBindingInformer) rbacinformers.ClusterRoleBindingInformer {
-	return &mergedClusterRoleBindingInformer{
-		informers: informers,
-	}
-}
-
-type mergedClusterRoleBindingInformer struct {
-	informers []rbacinformers.ClusterRoleBindingInformer
-}
-
-func (mergedClusterRoleBindingInformer) Informer() cache.SharedIndexInformer {
-	panic("not implemented")
 }
 
 type mergedClusterRoleBindingLister struct {
@@ -75,36 +58,14 @@ func (l mergedClusterRoleBindingLister) Get(name string) (*rbacv1.ClusterRoleBin
 	panic("not implemented")
 }
 
-func (m mergedClusterRoleBindingInformer) Lister() rbaclisters.ClusterRoleBindingLister {
-	aggregatedListers := make([]rbaclisters.ClusterRoleBindingLister, 0)
-	for _, inf := range m.informers {
-		aggregatedListers = append(aggregatedListers, inf.Lister())
+func MergedClusterRoleLister(listers ...rbaclisters.ClusterRoleLister) rbaclisters.ClusterRoleLister {
+	return &mergedClusterRoleLister{
+		listers: listers,
 	}
-	return &mergedClusterRoleBindingLister{
-		listers: aggregatedListers,
-	}
-}
-
-type mergedClusterRoleInformer struct {
-	informers []rbacinformers.ClusterRoleInformer
 }
 
 type mergedClusterRoleLister struct {
 	listers []rbaclisters.ClusterRoleLister
-}
-
-func (i *mergedClusterRoleInformer) Informer() cache.SharedIndexInformer {
-	panic("not implemented")
-}
-
-func (i *mergedClusterRoleInformer) Lister() rbaclisters.ClusterRoleLister {
-	aggregatedListers := make([]rbaclisters.ClusterRoleLister, 0)
-	for _, inf := range i.informers {
-		aggregatedListers = append(aggregatedListers, inf.Lister())
-	}
-	return &mergedClusterRoleLister{
-		listers: aggregatedListers,
-	}
 }
 
 func (l *mergedClusterRoleLister) List(selector labels.Selector) (ret []*rbacv1.ClusterRole, err error) {
@@ -142,18 +103,11 @@ func (l *mergedClusterRoleLister) Get(name string) (*rbacv1.ClusterRole, error) 
 	return mergedItem, errorHolder
 }
 
-var _ rbacinformers.RoleInformer = (*mergedRoleInformer)(nil)
 var _ rbaclisters.RoleLister = (*mergedRoleLister)(nil)
 var _ rbaclisters.RoleNamespaceLister = (*mergedRoleNamespaceLister)(nil)
 
-func MergedRoleInformer(informers ...rbacinformers.RoleInformer) rbacinformers.RoleInformer {
-	return &mergedRoleInformer{
-		informers: informers,
-	}
-}
-
-type mergedRoleInformer struct {
-	informers []rbacinformers.RoleInformer
+func MergedRoleLister(listers ...rbaclisters.RoleLister) rbaclisters.RoleLister {
+	return &mergedRoleLister{listers: listers}
 }
 
 type mergedRoleLister struct {
@@ -162,20 +116,6 @@ type mergedRoleLister struct {
 
 type mergedRoleNamespaceLister struct {
 	listers []rbaclisters.RoleNamespaceLister
-}
-
-func (i *mergedRoleInformer) Informer() cache.SharedIndexInformer {
-	panic("not implemented")
-}
-
-func (i *mergedRoleInformer) Lister() rbaclisters.RoleLister {
-	aggregatedListers := make([]rbaclisters.RoleLister, 0)
-	for _, inf := range i.informers {
-		aggregatedListers = append(aggregatedListers, inf.Lister())
-	}
-	return &mergedRoleLister{
-		listers: aggregatedListers,
-	}
 }
 
 func (l *mergedRoleLister) List(selector labels.Selector) (ret []*rbacv1.Role, err error) {

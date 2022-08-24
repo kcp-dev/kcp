@@ -19,6 +19,10 @@ Here are what keys look like for an object `foo` for both cluster-scoped and nam
 
 ## Encoding/decoding keys 
 
+The `apimachinerycache "github.com/kcp-dev/apimachinery/pkg/cache"` package provides cluster-aware encoding and decoding functions.
+
+
+
 ### Encoding workspace keys
 To encode a key **for a workspace**, use `helper.WorkspaceKey(org, ws)`. Valid values for `org` are `root` and any
 organization workspace name (e.g. `my-org` from above).
@@ -28,15 +32,11 @@ To encode a key for anything else, use `clusters.ToClusterAwareKey(clusterName, 
 you'll need to do `ns + "/" + clusters.ToClusterAwareKey(clusterName, name)`.
 
 ### Decoding keys
-To decode a key, use `clusters.SplitClusterAwareKey(key)`.
-
-To decode a key for a cluster-scoped object, use it directly. To decode a key for a namespace-scoped object, do this:
+To decode a key, use `apimachinerycache.SplitClusterAwareKey(key)`:
 
 ```go
-namespace, clusterNameAndName, err := cache.SplitMetaNamespaceKey(key)
+clusterName, namespace, name, err := apimachinerycache.SplitClusterAwareKey(key)
 if err != nil {
 	// handle error
 }
-
-clusterName, name := clusters.SplitClusterAwareKey(clusterNameAndName)
 ```

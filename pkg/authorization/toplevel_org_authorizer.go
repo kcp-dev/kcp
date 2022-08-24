@@ -28,8 +28,8 @@ import (
 	authserviceaccount "k8s.io/apiserver/pkg/authentication/serviceaccount"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
-	clientgoinformers "k8s.io/client-go/informers"
-	"k8s.io/client-go/tools/clusters"
+	kcpclientgoinformers "k8s.io/client-go/kcp/informers"
+	kcprbaclister "k8s.io/client-go/kcp/listers/rbac/v1"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
@@ -48,20 +48,26 @@ const (
 // clusterworkspaces/content of the top-level workspace the request workspace is nested in. If one of
 // these verbs are admitted, the delegate authorizer is called. Otherwise, NoOpionion is returned if
 // the top-level workspace exists, and Deny otherwise.
-func NewTopLevelOrganizationAccessAuthorizer(versionedInformers clientgoinformers.SharedInformerFactory, clusterWorkspaceLister tenancyv1.ClusterWorkspaceLister, delegate authorizer.Authorizer) authorizer.Authorizer {
-	rootKubeInformer := rbacwrapper.FilterInformers(tenancyv1alpha1.RootCluster, versionedInformers.Rbac().V1())
-	bootstrapInformer := rbacwrapper.FilterInformers(genericcontrolplane.LocalAdminCluster, versionedInformers.Rbac().V1())
-
-	mergedClusterRoleInformer := rbacwrapper.MergedClusterRoleInformer(rootKubeInformer.ClusterRoles(), bootstrapInformer.ClusterRoles())
-	mergedRoleInformer := rbacwrapper.MergedRoleInformer(rootKubeInformer.Roles(), bootstrapInformer.Roles())
-	mergedClusterRoleBindingsInformer := rbacwrapper.MergedClusterRoleBindingInformer(rootKubeInformer.ClusterRoleBindings(), bootstrapInformer.ClusterRoleBindings())
-
+func NewTopLevelOrganizationAccessAuthorizer(versionedInformers *kcpclientgoinformers.SharedInformerFactory, clusterWorkspaceLister *tenancyv1.ClusterWorkspaceClusterLister, delegate authorizer.Authorizer) authorizer.Authorizer {
+	roleClusterLister := versionedInformers.Rbac().V1().Roles().Lister().(*kcprbaclister.RoleClusterLister)
+	roleBindingClusterLister := versionedInformers.Rbac().V1().RoleBindings().Lister().(*kcprbaclister.RoleBindingClusterLister)
+	clusterRoleClusterLister := versionedInformers.Rbac().V1().ClusterRoles().Lister().(*kcprbaclister.ClusterRoleClusterLister)
+	clusterRoleBindingClusterLister := versionedInformers.Rbac().V1().ClusterRoleBindings().Lister().(*kcprbaclister.ClusterRoleBindingClusterLister)
 	return &topLevelOrgAccessAuthorizer{
 		rootAuthorizer: rbac.New(
-			&rbac.RoleGetter{Lister: mergedRoleInformer.Lister()},
-			&rbac.RoleBindingLister{Lister: rootKubeInformer.RoleBindings().Lister()},
-			&rbac.ClusterRoleGetter{Lister: mergedClusterRoleInformer.Lister()},
-			&rbac.ClusterRoleBindingLister{Lister: mergedClusterRoleBindingsInformer.Lister()},
+			&rbac.RoleGetter{Lister: rbacwrapper.MergedRoleLister(
+				roleClusterLister.Cluster(tenancyv1alpha1.RootCluster),
+				roleClusterLister.Cluster(genericcontrolplane.LocalAdminCluster),
+			)},
+			&rbac.RoleBindingLister{Lister: roleBindingClusterLister.Cluster(tenancyv1alpha1.RootCluster)},
+			&rbac.ClusterRoleGetter{Lister: rbacwrapper.MergedClusterRoleLister(
+				clusterRoleClusterLister.Cluster(tenancyv1alpha1.RootCluster),
+				clusterRoleClusterLister.Cluster(genericcontrolplane.LocalAdminCluster),
+			)},
+			&rbac.ClusterRoleBindingLister{Lister: rbacwrapper.MergedClusterRoleBindingLister(
+				clusterRoleBindingClusterLister.Cluster(tenancyv1alpha1.RootCluster),
+				clusterRoleBindingClusterLister.Cluster(genericcontrolplane.LocalAdminCluster),
+			)},
 		),
 		clusterWorkspaceLister: clusterWorkspaceLister,
 		delegate:               delegate,
@@ -70,7 +76,7 @@ func NewTopLevelOrganizationAccessAuthorizer(versionedInformers clientgoinformer
 
 type topLevelOrgAccessAuthorizer struct {
 	rootAuthorizer         *rbac.RBACAuthorizer
-	clusterWorkspaceLister tenancyv1.ClusterWorkspaceLister
+	clusterWorkspaceLister *tenancyv1.ClusterWorkspaceClusterLister
 	delegate               authorizer.Authorizer
 }
 
@@ -131,13 +137,12 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 	}
 
 	// check the org workspace exists in the root workspace
-	topLevelWSKey := clusters.ToClusterAwareKey(tenancyv1alpha1.RootCluster, requestTopLevelOrgName)
-	if _, err := a.clusterWorkspaceLister.Get(topLevelWSKey); err != nil {
+	if _, err := a.clusterWorkspaceLister.Cluster(tenancyv1alpha1.RootCluster).Get(requestTopLevelOrgName); err != nil {
 		if errors.IsNotFound(err) {
 			kaudit.AddAuditAnnotations(
 				ctx,
 				TopLevelContentAuditDecision, DecisionDenied,
-				TopLevelContentAuditReason, fmt.Sprintf("clusterworkspace %q not found", topLevelWSKey),
+				TopLevelContentAuditReason, fmt.Sprintf("clusterworkspace %s|%s not found", tenancyv1alpha1.RootCluster, requestTopLevelOrgName),
 			)
 			return authorizer.DecisionDeny, WorkspaceAcccessNotPermittedReason, nil
 		}
@@ -145,7 +150,7 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 		kaudit.AddAuditAnnotations(
 			ctx,
 			TopLevelContentAuditDecision, DecisionNoOpinion,
-			TopLevelContentAuditReason, fmt.Sprintf("error getting clusterworkspace %q: %v", topLevelWSKey, err),
+			TopLevelContentAuditReason, fmt.Sprintf("error getting clusterworkspace %s|%s: %v", tenancyv1alpha1.RootCluster, requestTopLevelOrgName, err),
 		)
 		return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, err
 	}

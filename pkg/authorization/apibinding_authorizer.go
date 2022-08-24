@@ -26,13 +26,13 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
-	clientgoinformers "k8s.io/client-go/informers"
+	kcpclientgoinformers "k8s.io/client-go/kcp/informers"
+	kcprbacv1lister "k8s.io/client-go/kcp/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers"
-	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
 )
 
 const (
@@ -43,7 +43,7 @@ const (
 // bound resource or not. If the resource is bound we will check the user has RBAC access in the
 // exported resources workspace. If it is not allowed we will return NoDecision, if allowed we
 // will call the delegate authorizer.
-func NewAPIBindingAccessAuthorizer(kubeInformers clientgoinformers.SharedInformerFactory, kcpInformers kcpinformers.SharedInformerFactory, delegate authorizer.Authorizer) (authorizer.Authorizer, error) {
+func NewAPIBindingAccessAuthorizer(kubeInformers *kcpclientgoinformers.SharedInformerFactory, kcpInformers *kcpinformers.SharedInformerFactory, delegate authorizer.Authorizer) (authorizer.Authorizer, error) {
 	if _, found := kcpInformers.Apis().V1alpha1().APIBindings().Informer().GetIndexer().GetIndexers()[byWorkspaceIndex]; !found {
 		err := kcpInformers.Apis().V1alpha1().APIBindings().Informer().AddIndexers(
 			cache.Indexers{
@@ -86,7 +86,7 @@ func NewAPIBindingAccessAuthorizer(kubeInformers clientgoinformers.SharedInforme
 }
 
 type apiBindingAccessAuthorizer struct {
-	versionedInformers clientgoinformers.SharedInformerFactory
+	versionedInformers *kcpclientgoinformers.SharedInformerFactory
 	apiBindingIndexer  cache.Indexer
 	apiExportIndexer   cache.Indexer
 	delegate           authorizer.Authorizer
@@ -129,12 +129,12 @@ func (a *apiBindingAccessAuthorizer) Authorize(ctx context.Context, attr authori
 	}
 
 	// If bound, create a rbac authorizer filtered to the cluster.
-	clusterKubeInformer := rbacwrapper.FilterInformers(logicalcluster.From(apiExport), a.versionedInformers.Rbac().V1())
+	clusterKubeInformer := a.versionedInformers.Rbac().V1()
 	clusterAuthorizer := rbac.New(
-		&rbac.RoleGetter{Lister: clusterKubeInformer.Roles().Lister()},
-		&rbac.RoleBindingLister{Lister: clusterKubeInformer.RoleBindings().Lister()},
-		&rbac.ClusterRoleGetter{Lister: clusterKubeInformer.ClusterRoles().Lister()},
-		&rbac.ClusterRoleBindingLister{Lister: clusterKubeInformer.ClusterRoleBindings().Lister()},
+		&rbac.RoleGetter{Lister: clusterKubeInformer.Roles().Lister().(*kcprbacv1lister.RoleClusterLister).Cluster(logicalcluster.From(apiExport))},
+		&rbac.RoleBindingLister{Lister: clusterKubeInformer.RoleBindings().Lister().(*kcprbacv1lister.RoleBindingClusterLister).Cluster(logicalcluster.From(apiExport))},
+		&rbac.ClusterRoleGetter{Lister: clusterKubeInformer.ClusterRoles().Lister().(*kcprbacv1lister.ClusterRoleClusterLister).Cluster(logicalcluster.From(apiExport))},
+		&rbac.ClusterRoleBindingLister{Lister: clusterKubeInformer.ClusterRoleBindings().Lister().(*kcprbacv1lister.ClusterRoleBindingClusterLister).Cluster(logicalcluster.From(apiExport))},
 	)
 	prefixedAttr := deepCopyAttributes(attr)
 	userInfo := prefixedAttr.User.(*user.DefaultInfo)

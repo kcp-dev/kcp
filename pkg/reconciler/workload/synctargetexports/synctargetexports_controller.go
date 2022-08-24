@@ -27,6 +27,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -53,7 +54,6 @@ const (
 
 	indexSyncTargetsByExport           = controllerName + "ByExport"
 	indexAPIExportsByAPIResourceSchema = controllerName + "ByAPIResourceSchema"
-	indexByWorkspace                   = controllerName + "ByWorkspace" // will go away with scoping
 )
 
 // NewController returns a controller which update syncedResource in status based on supportedExports in spec
@@ -74,7 +74,6 @@ func NewController(
 		apiExportsIndexer:    apiExportInformer.Informer().GetIndexer(),
 		apiExportLister:      apiExportInformer.Lister(),
 		resourceSchemaLister: apiResourceSchemaInformer.Lister(),
-		apiImportIndexer:     apiResourceImportInformer.Informer().GetIndexer(),
 		apiImportLister:      apiResourceImportInformer.Lister(),
 	}
 
@@ -86,12 +85,6 @@ func NewController(
 
 	if err := apiExportInformer.Informer().AddIndexers(cache.Indexers{
 		indexAPIExportsByAPIResourceSchema: indexAPIExportsByAPIResourceSchemas,
-	}); err != nil {
-		return nil, err
-	}
-
-	if err := apiResourceImportInformer.Informer().AddIndexers(cache.Indexers{
-		indexByWorkspace: indexByWorksapce,
 	}); err != nil {
 		return nil, err
 	}
@@ -146,12 +139,11 @@ type Controller struct {
 	kcpClusterClient kcpclient.Interface
 
 	syncTargetIndexer    cache.Indexer
-	syncTargetLister     workloadlisters.SyncTargetLister
+	syncTargetLister     *workloadlisters.SyncTargetClusterLister
 	apiExportsIndexer    cache.Indexer
-	apiExportLister      apislisters.APIExportLister
-	resourceSchemaLister apislisters.APIResourceSchemaLister
-	apiImportIndexer     cache.Indexer
-	apiImportLister      apiresourcelister.APIResourceImportLister
+	apiExportLister      *apislisters.APIExportClusterLister
+	resourceSchemaLister *apislisters.APIResourceSchemaClusterLister
+	apiImportLister      *apiresourcelister.APIResourceImportClusterLister
 }
 
 func (c *Controller) enqueueSyncTarget(obj interface{}, logSuffix string) {
@@ -260,8 +252,13 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 
 func (c *Controller) process(ctx context.Context, key string) error {
 	var errs []error
-
-	syncTarget, err := c.syncTargetLister.Get(key)
+	logger := klog.FromContext(ctx)
+	clusterName, _, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		logger.Error(err, "invalid key")
+		return nil
+	}
+	syncTarget, err := c.syncTargetLister.Cluster(clusterName).Get(name)
 	if err != nil {
 		klog.Errorf("Failed to get syncTarget with key %q because: %v", key, err)
 		return nil
@@ -326,7 +323,6 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		return err
 	}
 
-	clusterName := logicalcluster.From(currentSyncTarget)
 	klog.V(2).Infof("Patching synctarget %s|%s with patch %s", clusterName, currentSyncTarget.Name, string(patchBytes))
 	if _, err := c.kcpClusterClient.WorkloadV1alpha1().SyncTargets().Patch(logicalcluster.WithCluster(ctx, clusterName), currentSyncTarget.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status"); err != nil {
 		klog.Errorf("failed to patch sync target status: %v", err)
@@ -337,23 +333,13 @@ func (c *Controller) process(ctx context.Context, key string) error {
 }
 
 func (c *Controller) getAPIExport(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
-	key := clusters.ToClusterAwareKey(clusterName, name)
-	return c.apiExportLister.Get(key)
+	return c.apiExportLister.Cluster(clusterName).Get(name)
 }
 
 func (c *Controller) getResourceSchema(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
-	key := clusters.ToClusterAwareKey(clusterName, name)
-	return c.resourceSchemaLister.Get(key)
+	return c.resourceSchemaLister.Cluster(clusterName).Get(name)
 }
 
 func (c *Controller) listAPIResourceImports(clusterName logicalcluster.Name) ([]*apiresourcev1alpha1.APIResourceImport, error) {
-	items, err := c.apiImportIndexer.ByIndex(indexByWorkspace, clusterName.String())
-	if err != nil {
-		return nil, err
-	}
-	ret := make([]*apiresourcev1alpha1.APIResourceImport, 0, len(items))
-	for _, item := range items {
-		ret = append(ret, item.(*apiresourcev1alpha1.APIResourceImport))
-	}
-	return ret, nil
+	return c.apiImportLister.Cluster(clusterName).List(labels.Everything())
 }

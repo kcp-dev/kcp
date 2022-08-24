@@ -62,7 +62,7 @@ type workspaceNamespaceLifecycle struct {
 	namespaceLifecycle *lifecycle.Lifecycle
 
 	*admission.Handler
-	workspaceLister tenancyv1alpha1lister.ClusterWorkspaceLister
+	workspaceLister *tenancyv1alpha1lister.ClusterWorkspaceClusterLister
 }
 
 func newLifcycle() (*workspaceNamespaceLifecycle, error) {
@@ -142,7 +142,7 @@ func (l *workspaceNamespaceLifecycle) SetExternalKubeClientSet(client kubernetes
 	l.namespaceLifecycle.SetExternalKubeClientSet(client)
 }
 
-func (l *workspaceNamespaceLifecycle) SetKcpInformers(informers kcpinformers.SharedInformerFactory) {
+func (l *workspaceNamespaceLifecycle) SetKcpInformers(informers *kcpinformers.SharedInformerFactory) {
 	l.SetReadyFunc(informers.Tenancy().V1alpha1().ClusterWorkspaces().Informer().HasSynced)
 	l.workspaceLister = informers.Tenancy().V1alpha1().ClusterWorkspaces().Lister()
 }

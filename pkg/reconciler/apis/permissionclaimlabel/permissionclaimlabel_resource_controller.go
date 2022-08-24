@@ -51,8 +51,8 @@ func NewResourceController(
 	kcpClusterClient kcpclient.Interface,
 	dynamicClusterClient dynamic.Interface,
 	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory,
-	apiBindingInformer apisinformers.APIBindingInformer,
-	apiExportInformer apisinformers.APIExportInformer,
+	apiBindingInformer *apisinformers.APIBindingInformer,
+	apiExportInformer *apisinformers.APIExportInformer,
 ) (*resourceController, error) {
 	if err := apiBindingInformer.Informer().GetIndexer().AddIndexers(
 		cache.Indexers{

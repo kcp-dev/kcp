@@ -32,9 +32,7 @@ import (
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	clientgoinformers "k8s.io/client-go/informers"
-	rbacv1 "k8s.io/client-go/informers/rbac/v1"
-	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
-	"k8s.io/client-go/tools/clusters"
+	kcprbaclister "k8s.io/client-go/kcp/listers/rbac/v1"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
@@ -56,29 +54,24 @@ const (
 	WorkspaceContentAuditReason   = WorkspaceContentAuditPrefix + "reason"
 )
 
-func NewWorkspaceContentAuthorizer(versionedInformers clientgoinformers.SharedInformerFactory, clusterWorkspaceLister tenancyalphav1.ClusterWorkspaceLister, delegate authorizer.Authorizer) authorizer.Authorizer {
+func NewWorkspaceContentAuthorizer(versionedInformers clientgoinformers.SharedInformerFactory, clusterWorkspaceLister *tenancyalphav1.ClusterWorkspaceClusterLister, delegate authorizer.Authorizer) authorizer.Authorizer {
 	return &workspaceContentAuthorizer{
-		rbacInformers: versionedInformers.Rbac().V1(),
-
-		roleLister:               versionedInformers.Rbac().V1().Roles().Lister(),
-		roleBindingLister:        versionedInformers.Rbac().V1().RoleBindings().Lister(),
-		clusterRoleLister:        versionedInformers.Rbac().V1().ClusterRoles().Lister(),
-		clusterRoleBindingLister: versionedInformers.Rbac().V1().ClusterRoleBindings().Lister(),
-		clusterWorkspaceLister:   clusterWorkspaceLister,
+		roleClusterLister:               versionedInformers.Rbac().V1().Roles().Lister().(*kcprbaclister.RoleClusterLister),
+		roleBindingClusterLister:        versionedInformers.Rbac().V1().RoleBindings().Lister().(*kcprbaclister.RoleBindingClusterLister),
+		clusterRoleClusterLister:        versionedInformers.Rbac().V1().ClusterRoles().Lister().(*kcprbaclister.ClusterRoleClusterLister),
+		clusterRoleBindingClusterLister: versionedInformers.Rbac().V1().ClusterRoleBindings().Lister().(*kcprbaclister.ClusterRoleBindingClusterLister),
+		clusterWorkspaceLister:          clusterWorkspaceLister,
 
 		delegate: delegate,
 	}
 }
 
 type workspaceContentAuthorizer struct {
-	roleLister               rbacv1listers.RoleLister
-	roleBindingLister        rbacv1listers.RoleBindingLister
-	clusterRoleBindingLister rbacv1listers.ClusterRoleBindingLister
-	clusterRoleLister        rbacv1listers.ClusterRoleLister
-	clusterWorkspaceLister   tenancyalphav1.ClusterWorkspaceLister
-
-	// TODO: this will go away when scoping lands. Then we only have those 4 listers above.
-	rbacInformers rbacv1.Interface
+	roleClusterLister               *kcprbaclister.RoleClusterLister
+	roleBindingClusterLister        *kcprbaclister.RoleBindingClusterLister
+	clusterRoleBindingClusterLister *kcprbaclister.ClusterRoleBindingClusterLister
+	clusterRoleClusterLister        *kcprbaclister.ClusterRoleClusterLister
+	clusterWorkspaceLister          *tenancyalphav1.ClusterWorkspaceClusterLister
 
 	// union of local and bootstrap authorizer
 	delegate authorizer.Authorizer
@@ -148,24 +141,26 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 		return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, nil
 	}
 
-	parentWorkspaceKubeInformer := rbacwrapper.FilterInformers(parentClusterName, a.rbacInformers)
-	bootstrapInformer := rbacwrapper.FilterInformers(genericcontrolplane.LocalAdminCluster, a.rbacInformers)
-
-	mergedClusterRoleInformer := rbacwrapper.MergedClusterRoleInformer(parentWorkspaceKubeInformer.ClusterRoles(), bootstrapInformer.ClusterRoles())
-	mergedRoleInformer := rbacwrapper.MergedRoleInformer(parentWorkspaceKubeInformer.Roles(), bootstrapInformer.Roles())
-	mergedClusterRoleBindingsInformer := rbacwrapper.MergedClusterRoleBindingInformer(parentWorkspaceKubeInformer.ClusterRoleBindings(), bootstrapInformer.ClusterRoleBindings())
-
 	parentAuthorizer := rbac.New(
-		&rbac.RoleGetter{Lister: mergedRoleInformer.Lister()},
-		&rbac.RoleBindingLister{Lister: parentWorkspaceKubeInformer.RoleBindings().Lister()},
-		&rbac.ClusterRoleGetter{Lister: mergedClusterRoleInformer.Lister()},
-		&rbac.ClusterRoleBindingLister{Lister: mergedClusterRoleBindingsInformer.Lister()},
+		&rbac.RoleGetter{Lister: rbacwrapper.MergedRoleLister(
+			a.roleClusterLister.Cluster(parentClusterName),
+			a.roleClusterLister.Cluster(genericcontrolplane.LocalAdminCluster),
+		)},
+		&rbac.RoleBindingLister{Lister: a.roleBindingClusterLister.Cluster(parentClusterName)},
+		&rbac.ClusterRoleGetter{Lister: rbacwrapper.MergedClusterRoleLister(
+			a.clusterRoleClusterLister.Cluster(parentClusterName),
+			a.clusterRoleClusterLister.Cluster(genericcontrolplane.LocalAdminCluster),
+		)},
+		&rbac.ClusterRoleBindingLister{Lister: rbacwrapper.MergedClusterRoleBindingLister(
+			a.clusterRoleBindingClusterLister.Cluster(parentClusterName),
+			a.clusterRoleBindingClusterLister.Cluster(genericcontrolplane.LocalAdminCluster),
+		)},
 	)
 
 	extraGroups := sets.NewString()
 
 	// check the workspace even exists
-	ws, err := a.clusterWorkspaceLister.Get(clusters.ToClusterAwareKey(parentClusterName, cluster.Name.Base()))
+	ws, err := a.clusterWorkspaceLister.Cluster(parentClusterName).Get(cluster.Name.Base())
 	if err != nil {
 		if errors.IsNotFound(err) {
 			kaudit.AddAuditAnnotations(

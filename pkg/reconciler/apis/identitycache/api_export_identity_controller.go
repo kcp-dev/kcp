@@ -25,8 +25,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	coreinformers "k8s.io/client-go/informers/core/v1"
+	kcpcorelisters "k8s.io/client-go/kcp/listers/core/v1"
 	"k8s.io/client-go/kubernetes"
-	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
@@ -35,6 +35,7 @@ import (
 	configshard "github.com/kcp-dev/kcp/config/shard"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/apis/v1alpha1"
+	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -60,10 +61,10 @@ func NewApiExportIdentityProviderController(
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
 	c := &controller{
-		queue:                        queue,
-		kubeClient:                   kubeClusterClient.Cluster(configshard.SystemShardCluster),
-		configMapLister:              configMapInformer.Lister(),
-		remoteShardApiExportsIndexer: remoteShardApiExportInformer.Informer().GetIndexer(),
+		queue:                       queue,
+		kubeClient:                  kubeClusterClient.Cluster(configshard.SystemShardCluster),
+		configMapLister:             configMapInformer.Lister().(*kcpcorelisters.ConfigMapClusterLister),
+		remoteShardApiExportsLister: remoteShardApiExportInformer.Lister(),
 	}
 
 	remoteShardApiExportInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
@@ -88,12 +89,11 @@ func NewApiExportIdentityProviderController(
 			if err != nil {
 				return false
 			}
-			_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+			clusterName, _, _, err := cache.SplitMetaNamespaceKey(key)
 			if err != nil {
 				runtime.HandleError(err)
 				return false
 			}
-			clusterName, _ := clusters.SplitClusterAwareKey(clusterAwareName)
 			if clusterName != configshard.SystemShardCluster {
 				return false
 			}
@@ -152,8 +152,8 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 type controller struct {
-	queue                        workqueue.RateLimitingInterface
-	kubeClient                   kubernetes.Interface
-	configMapLister              corelisters.ConfigMapLister
-	remoteShardApiExportsIndexer cache.Indexer
+	queue                       workqueue.RateLimitingInterface
+	kubeClient                  kubernetes.Interface
+	configMapLister             *kcpcorelisters.ConfigMapClusterLister
+	remoteShardApiExportsLister *apislisters.APIExportClusterLister
 }

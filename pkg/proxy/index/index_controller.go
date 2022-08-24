@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
@@ -167,7 +168,7 @@ type Controller struct {
 	clientGetter ClusterWorkspaceClientGetter
 
 	clusterWorkspaceShardIndexer cache.Indexer
-	clusterWorkspaceShardLister  tenancylister.ClusterWorkspaceShardLister
+	clusterWorkspaceShardLister  *tenancylister.ClusterWorkspaceShardClusterLister
 
 	clusterWorkspaceHandler cache.ResourceEventHandler
 
@@ -241,7 +242,8 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *Controller) process(ctx context.Context, key string) error {
-	shard, err := c.clusterWorkspaceShardLister.Get(key) // TODO: clients need a way to scope down the lister per-cluster
+	clusterName, name := clusters.SplitClusterAwareKey(key)
+	shard, err := c.clusterWorkspaceShardLister.Cluster(clusterName).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			c.shardInformersLock.Lock()

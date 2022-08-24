@@ -17,26 +17,29 @@ limitations under the License.
 package rbac
 
 import (
-	rbacinformers "k8s.io/client-go/informers/rbac/v1"
+	"github.com/kcp-dev/logicalcluster/v2"
+
+	kcprbacinformers "k8s.io/client-go/kcp/informers/rbac/v1"
+	kcprbaclister "k8s.io/client-go/kcp/listers/rbac/v1"
 	rbacregistryvalidation "k8s.io/kubernetes/pkg/registry/rbac/validation"
 	rbacauthorizer "k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 )
 
-func NewRuleResolver(informers rbacinformers.Interface) rbacregistryvalidation.AuthorizationRuleResolver {
+func NewRuleResolver(informers *kcprbacinformers.Interface, clusterName logicalcluster.Name) rbacregistryvalidation.AuthorizationRuleResolver {
 	return rbacregistryvalidation.NewDefaultRuleResolver(
-		&rbacauthorizer.RoleGetter{Lister: informers.Roles().Lister()},
-		&rbacauthorizer.RoleBindingLister{Lister: informers.RoleBindings().Lister()},
-		&rbacauthorizer.ClusterRoleGetter{Lister: informers.ClusterRoles().Lister()},
-		&rbacauthorizer.ClusterRoleBindingLister{Lister: informers.ClusterRoleBindings().Lister()},
+		&rbacauthorizer.RoleGetter{Lister: informers.Roles().Lister().(*kcprbaclister.RoleClusterLister).Cluster(clusterName)},
+		&rbacauthorizer.RoleBindingLister{Lister: informers.RoleBindings().Lister().(*kcprbaclister.RoleBindingClusterLister).Cluster(clusterName)},
+		&rbacauthorizer.ClusterRoleGetter{Lister: informers.ClusterRoles().Lister().(*kcprbaclister.ClusterRoleClusterLister).Cluster(clusterName)},
+		&rbacauthorizer.ClusterRoleBindingLister{Lister: informers.ClusterRoleBindings().Lister().(*kcprbaclister.ClusterRoleBindingClusterLister).Cluster(clusterName)},
 	)
 }
 
-func NewSubjectLocator(informers rbacinformers.Interface) rbacauthorizer.SubjectLocator {
+func NewSubjectLocator(informers *kcprbacinformers.Interface, clusterName logicalcluster.Name) rbacauthorizer.SubjectLocator {
 	return rbacauthorizer.NewSubjectAccessEvaluator(
-		&rbacauthorizer.RoleGetter{Lister: informers.Roles().Lister()},
-		&rbacauthorizer.RoleBindingLister{Lister: informers.RoleBindings().Lister()},
-		&rbacauthorizer.ClusterRoleGetter{Lister: informers.ClusterRoles().Lister()},
-		&rbacauthorizer.ClusterRoleBindingLister{Lister: informers.ClusterRoleBindings().Lister()},
+		&rbacauthorizer.RoleGetter{Lister: informers.Roles().Lister().(*kcprbaclister.RoleClusterLister).Cluster(clusterName)},
+		&rbacauthorizer.RoleBindingLister{Lister: informers.RoleBindings().Lister().(*kcprbaclister.RoleBindingClusterLister).Cluster(clusterName)},
+		&rbacauthorizer.ClusterRoleGetter{Lister: informers.ClusterRoles().Lister().(*kcprbaclister.ClusterRoleClusterLister).Cluster(clusterName)},
+		&rbacauthorizer.ClusterRoleBindingLister{Lister: informers.ClusterRoleBindings().Lister().(*kcprbaclister.ClusterRoleBindingClusterLister).Cluster(clusterName)},
 		"",
 	)
 }

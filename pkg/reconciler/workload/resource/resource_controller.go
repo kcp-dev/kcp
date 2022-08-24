@@ -35,7 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	coreinformers "k8s.io/client-go/informers/core/v1"
-	corelisters "k8s.io/client-go/listers/core/v1"
+	kcpcorelisters "k8s.io/client-go/kcp/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
@@ -43,7 +43,6 @@ import (
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/workload/v1alpha1"
-	workloadlisters "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
@@ -68,9 +67,8 @@ func NewController(
 
 		dynClusterClient: dynamicClusterClient,
 
-		namespaceLister: namespaceInformer.Lister(),
+		namespaceLister: namespaceInformer.Lister().(*kcpcorelisters.NamespaceClusterLister),
 
-		syncTargetLister:  syncTargetInformer.Lister(),
 		syncTargetIndexer: syncTargetInformer.Informer().GetIndexer(),
 
 		ddsif: ddsif,
@@ -134,9 +132,8 @@ type Controller struct {
 
 	dynClusterClient dynamic.Interface
 
-	namespaceLister corelisters.NamespaceLister
+	namespaceLister *kcpcorelisters.NamespaceClusterLister
 
-	syncTargetLister  workloadlisters.SyncTargetLister
 	syncTargetIndexer cache.Indexer
 
 	ddsif *informer.DynamicDiscoverySharedInformerFactory
@@ -148,12 +145,11 @@ func filterNamespace(obj interface{}) bool {
 		runtime.HandleError(err)
 		return false
 	}
-	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	_, _, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(err)
 		return false
 	}
-	_, name := clusters.SplitClusterAwareKey(clusterAwareName)
 	if namespaceBlocklist.Has(name) {
 		logging.WithReconciler(klog.Background(), controllerName).WithValues("namespace", name).V(2).Info("skipping syncing Namespace")
 		return false
@@ -186,10 +182,13 @@ func (c *Controller) enqueueNamespace(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	ns, err := c.namespaceLister.Get(key)
-	if err != nil && !errors.IsNotFound(err) {
+	clusterName, _, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
 		runtime.HandleError(err)
 		return
+	}
+	ns, err := c.namespaceLister.Cluster(clusterName).Get(name)
+	if err != nil && !errors.IsNotFound(err) {
 	}
 	if err := c.enqueueResourcesForNamespace(ns); err != nil {
 		runtime.HandleError(err)
@@ -291,13 +290,12 @@ func (c *Controller) processResource(ctx context.Context, key string) error {
 	unstr = unstr.DeepCopy()
 
 	// Get logical cluster name.
-	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	clusterName, _, _, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		logger.Error(err, "failed to split key, dropping")
 		return nil
 	}
-	lclusterName, _ := clusters.SplitClusterAwareKey(clusterAwareName)
-	return c.reconcileResource(ctx, lclusterName, unstr, gvr)
+	return c.reconcileResource(ctx, clusterName, unstr, gvr)
 }
 
 func (c *Controller) processGVR(ctx context.Context, gvrstr string) error {

@@ -59,7 +59,7 @@ type crdNoOverlappingGVRAdmission struct {
 var _ = admission.ValidationInterface(&crdNoOverlappingGVRAdmission{})
 var _ = admission.InitializationValidator(&crdNoOverlappingGVRAdmission{})
 
-func (p *crdNoOverlappingGVRAdmission) SetKcpInformers(informers kcpinformers.SharedInformerFactory) {
+func (p *crdNoOverlappingGVRAdmission) SetKcpInformers(informers *kcpinformers.SharedInformerFactory) {
 	if err := informers.Apis().V1alpha1().APIBindings().Informer().AddIndexers(cache.Indexers{byWorkspace: indexByWorkspace}); err != nil {
 		p.apiBindingIndexerInitError = err
 		return

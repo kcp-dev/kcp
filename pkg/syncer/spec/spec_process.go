@@ -35,7 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/pointer"
 
@@ -107,12 +106,11 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	klog.V(3).InfoS("Processing", "gvr", gvr, "key", key)
 
 	// from upstream
-	upstreamNamespace, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	clusterName, upstreamNamespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		klog.Errorf("Invalid key %q: %v", key, err)
 		return nil
 	}
-	clusterName, name := clusters.SplitClusterAwareKey(clusterAwareName)
 
 	namespaceGvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
 	desiredNSLocator := shared.NewNamespaceLocator(clusterName, c.syncTargetWorkspace, c.syncTargetUID, c.syncTargetName, upstreamNamespace)

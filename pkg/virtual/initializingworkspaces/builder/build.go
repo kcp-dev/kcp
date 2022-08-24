@@ -37,7 +37,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/transport"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/pointer"
@@ -64,7 +63,7 @@ func BuildVirtualWorkspace(
 	rootPathPrefix string,
 	dynamicClusterClient dynamic.ClusterInterface,
 	kubeClusterClient kubernetes.ClusterInterface,
-	wildcardKcpInformers kcpinformer.SharedInformerFactory,
+	wildcardKcpInformers *kcpinformer.SharedInformerFactory,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
 	if !strings.HasSuffix(rootPathPrefix, "/") {
 		rootPathPrefix += "/"
@@ -232,7 +231,7 @@ func BuildVirtualWorkspace(
 					return
 				}
 				parent, name := cluster.Split()
-				clusterWorkspace, err := lister.Get(clusters.ToClusterAwareKey(parent, name))
+				clusterWorkspace, err := lister.Cluster(parent).Get(name)
 				if err != nil {
 					http.Error(writer, fmt.Sprintf("could not find cluster %q: %v", parent, err), http.StatusInternalServerError)
 					return

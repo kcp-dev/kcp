@@ -22,8 +22,8 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
-	clientgoinformers "k8s.io/client-go/informers"
-	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
+	kcpclientgoinformers "k8s.io/client-go/kcp/informers"
+	kcprbaclister "k8s.io/client-go/kcp/listers/rbac/v1"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
@@ -31,23 +31,18 @@ import (
 )
 
 type LocalAuthorizer struct {
-	roleLister               rbacv1listers.RoleLister
-	roleBindingLister        rbacv1listers.RoleBindingLister
-	clusterRoleBindingLister rbacv1listers.ClusterRoleBindingLister
-	clusterRoleLister        rbacv1listers.ClusterRoleLister
-
-	// TODO: this will go away when scoping lands. Then we only have those 4 listers above.
-	versionedInformers clientgoinformers.SharedInformerFactory
+	roleLister               *kcprbaclister.RoleClusterLister
+	roleBindingLister        *kcprbaclister.RoleBindingClusterLister
+	clusterRoleBindingLister *kcprbaclister.ClusterRoleBindingClusterLister
+	clusterRoleLister        *kcprbaclister.ClusterRoleClusterLister
 }
 
-func NewLocalAuthorizer(versionedInformers clientgoinformers.SharedInformerFactory) (authorizer.Authorizer, authorizer.RuleResolver) {
+func NewLocalAuthorizer(versionedInformers *kcpclientgoinformers.SharedInformerFactory) (authorizer.Authorizer, authorizer.RuleResolver) {
 	a := &LocalAuthorizer{
-		roleLister:               versionedInformers.Rbac().V1().Roles().Lister(),
-		roleBindingLister:        versionedInformers.Rbac().V1().RoleBindings().Lister(),
-		clusterRoleLister:        versionedInformers.Rbac().V1().ClusterRoles().Lister(),
-		clusterRoleBindingLister: versionedInformers.Rbac().V1().ClusterRoleBindings().Lister(),
-
-		versionedInformers: versionedInformers,
+		roleLister:               versionedInformers.Rbac().V1().Roles().Lister().(*kcprbaclister.RoleClusterLister),
+		roleBindingLister:        versionedInformers.Rbac().V1().RoleBindings().Lister().(*kcprbaclister.RoleBindingClusterLister),
+		clusterRoleLister:        versionedInformers.Rbac().V1().ClusterRoles().Lister().(*kcprbaclister.ClusterRoleClusterLister),
+		clusterRoleBindingLister: versionedInformers.Rbac().V1().ClusterRoleBindings().Lister().(*kcprbaclister.ClusterRoleBindingClusterLister),
 	}
 	return a, a
 }
@@ -67,17 +62,11 @@ func (a *LocalAuthorizer) Authorize(ctx context.Context, attr authorizer.Attribu
 	}
 
 	reqScope := cluster.Name
-	filteredInformer := rbacwrapper.FilterInformers(reqScope, a.versionedInformers.Rbac().V1())
-	bootstrapInformer := rbacwrapper.FilterInformers(genericcontrolplane.LocalAdminCluster, a.versionedInformers.Rbac().V1())
-
-	mergedClusterRoleInformer := rbacwrapper.MergedClusterRoleInformer(filteredInformer.ClusterRoles(), bootstrapInformer.ClusterRoles())
-	mergedRoleInformer := rbacwrapper.MergedRoleInformer(filteredInformer.Roles(), bootstrapInformer.Roles())
-
 	scopedAuth := rbac.New(
-		&rbac.RoleGetter{Lister: mergedRoleInformer.Lister()},
-		&rbac.RoleBindingLister{Lister: filteredInformer.RoleBindings().Lister()},
-		&rbac.ClusterRoleGetter{Lister: mergedClusterRoleInformer.Lister()},
-		&rbac.ClusterRoleBindingLister{Lister: filteredInformer.ClusterRoleBindings().Lister()},
+		&rbac.RoleGetter{Lister: rbacwrapper.MergedRoleLister(a.roleLister.Cluster(reqScope), a.roleLister.Cluster(genericcontrolplane.LocalAdminCluster))},
+		&rbac.RoleBindingLister{Lister: a.roleBindingLister.Cluster(reqScope)},
+		&rbac.ClusterRoleGetter{Lister: rbacwrapper.MergedClusterRoleLister(a.clusterRoleLister.Cluster(reqScope), a.clusterRoleLister.Cluster(genericcontrolplane.LocalAdminCluster))},
+		&rbac.ClusterRoleBindingLister{Lister: a.clusterRoleBindingLister.Cluster(reqScope)},
 	)
 
 	return scopedAuth.Authorize(ctx, attr)

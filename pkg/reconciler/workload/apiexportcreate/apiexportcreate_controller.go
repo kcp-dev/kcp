@@ -27,6 +27,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -52,8 +53,6 @@ import (
 const (
 	controllerName = "kcp-workload-apiexport-create"
 
-	byWorkspace = controllerName + "-byWorkspace" // will go away with scoping
-
 	DefaultLocationName = "default"
 )
 
@@ -76,28 +75,10 @@ func NewController(
 
 		kcpClusterClient: kcpClusterClient,
 
-		apiExportsLister:  apiExportInformer.Lister(),
-		apiExportsIndexer: apiExportInformer.Informer().GetIndexer(),
-
-		apiBindingLister:  apiBindingInformer.Lister(),
-		apiBindingIndexer: apiBindingInformer.Informer().GetIndexer(),
-
-		syncTargetLister:  syncTargetInformer.Lister(),
-		syncTargetIndexer: syncTargetInformer.Informer().GetIndexer(),
-
-		locationLister: locationInformer.Lister(),
-	}
-
-	if err := syncTargetInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorkspace,
-	}); err != nil {
-		return nil, err
-	}
-
-	if err := apiBindingInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorkspace,
-	}); err != nil {
-		return nil, err
+		apiExportsLister: apiExportInformer.Lister(),
+		apiBindingLister: apiBindingInformer.Lister(),
+		syncTargetLister: syncTargetInformer.Lister(),
+		locationLister:   locationInformer.Lister(),
 	}
 
 	apiExportInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
@@ -148,16 +129,10 @@ type controller struct {
 
 	kcpClusterClient kcpclient.Interface
 
-	syncTargetLister  workloadlisters.SyncTargetLister
-	syncTargetIndexer cache.Indexer
-
-	apiExportsLister  apislisters.APIExportLister
-	apiExportsIndexer cache.Indexer
-
-	apiBindingLister  apislisters.APIBindingLister
-	apiBindingIndexer cache.Indexer
-
-	locationLister schedulinglisters.LocationLister
+	syncTargetLister *workloadlisters.SyncTargetClusterLister
+	apiExportsLister *apislisters.APIExportClusterLister
+	apiBindingLister *apislisters.APIBindingClusterLister
+	locationLister   *schedulinglisters.LocationClusterLister
 }
 
 // enqueue adds the logical cluster to the queue.
@@ -167,12 +142,11 @@ func (c *controller) enqueue(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	clusterName, _, _, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
-	clusterName, _ := clusters.SplitClusterAwareKey(clusterAwareName)
 
 	key = clusterName.String()
 	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), key)
@@ -234,7 +208,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
 	clusterName := logicalcluster.New(key)
 
-	syncTargets, err := c.syncTargetIndexer.ByIndex(byWorkspace, clusterName.String())
+	syncTargets, err := c.syncTargetLister.Cluster(clusterName).List(labels.Everything())
 	if err != nil {
 		logger.Error(err, "failed to list clusters for workspace")
 		return err
@@ -245,7 +219,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 	}
 
 	// check that export exists, and create it if not
-	export, err := c.apiExportsLister.Get(clusters.ToClusterAwareKey(clusterName, reconcilerapiexport.TemporaryComputeServiceExportName))
+	export, err := c.apiExportsLister.Cluster(clusterName).Get(reconcilerapiexport.TemporaryComputeServiceExportName)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	} else if apierrors.IsNotFound(err) {
@@ -270,7 +244,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 	}
 
 	// check that location exists, and create it if not
-	_, err = c.locationLister.Get(clusters.ToClusterAwareKey(clusterName, DefaultLocationName))
+	_, err = c.locationLister.Cluster(clusterName).Get(DefaultLocationName)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	} else if apierrors.IsNotFound(err) {
@@ -298,13 +272,12 @@ func (c *controller) process(ctx context.Context, key string) error {
 	}
 
 	// check that binding exists, and create it if not
-	bindings, err := c.apiBindingIndexer.ByIndex(byWorkspace, clusterName.String())
+	bindings, err := c.apiBindingLister.Cluster(clusterName).List(labels.Everything())
 	if err != nil {
 		logger.Error(err, "failed to list APIBindings")
 		return err
 	}
-	for _, obj := range bindings {
-		binding := obj.(*apisv1alpha1.APIBinding)
+	for _, binding := range bindings {
 		if binding.Spec.Reference.Workspace == nil {
 			continue
 		}

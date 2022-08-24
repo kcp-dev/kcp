@@ -27,11 +27,11 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
@@ -41,6 +41,7 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/apis/v1alpha1"
 	schedulinginformers "github.com/kcp-dev/kcp/pkg/client/informers/scheduling/v1alpha1"
+	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	schedulinglisters "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	reconcilerapiexport "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexport"
@@ -48,8 +49,6 @@ import (
 
 const (
 	controllerName = "kcp-workload-default-placement"
-
-	byWorkspace = controllerName + "-byWorkspace" // will go away with scoping
 
 	// DefaultPlacementName is the name of the default placement
 	DefaultPlacementName = "default"
@@ -68,15 +67,8 @@ func NewController(
 
 		kcpClusterClient: kcpClusterClient,
 
-		apiBindingIndexer: apiBindingInformer.Informer().GetIndexer(),
-
-		placementLister: placementInformer.Lister(),
-	}
-
-	if err := apiBindingInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorkspace,
-	}); err != nil {
-		return nil, err
+		apiBindingLister: apiBindingInformer.Lister(),
+		placementLister:  placementInformer.Lister(),
 	}
 
 	apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -107,9 +99,8 @@ type controller struct {
 
 	kcpClusterClient kcpclient.Interface
 
-	apiBindingIndexer cache.Indexer
-
-	placementLister schedulinglisters.PlacementLister
+	apiBindingLister *apislisters.APIBindingClusterLister
+	placementLister  *schedulinglisters.PlacementClusterLister
 }
 
 // enqueue adds the logical cluster to the queue.
@@ -119,12 +110,11 @@ func (c *controller) enqueue(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	clusterName, _, _, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
-	clusterName, _ := clusters.SplitClusterAwareKey(clusterAwareName)
 
 	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), clusterName.String())
 	if logObj, ok := obj.(logging.Object); ok {
@@ -186,7 +176,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 	clusterName := logicalcluster.New(key)
 
 	// check that binding exists, and create it if not
-	bindings, err := c.apiBindingIndexer.ByIndex(byWorkspace, clusterName.String())
+	bindings, err := c.apiBindingLister.Cluster(clusterName).List(labels.Everything())
 	if err != nil {
 		logger.Error(err, "failed to list APIBindings for ClusterWorkspace")
 		return err
@@ -194,8 +184,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 
 	var workloadBinding *apisv1alpha1.APIBinding
 
-	for _, obj := range bindings {
-		binding := obj.(*apisv1alpha1.APIBinding)
+	for _, binding := range bindings {
 		if binding.Spec.Reference.Workspace == nil {
 			continue
 		}
@@ -216,7 +205,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		return nil
 	}
 
-	_, err = c.placementLister.Get(clusters.ToClusterAwareKey(clusterName, DefaultPlacementName))
+	_, err = c.placementLister.Cluster(clusterName).Get(DefaultPlacementName)
 	if !apierrors.IsNotFound(err) {
 		return err
 	}

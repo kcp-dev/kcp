@@ -31,8 +31,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	coreinformers "k8s.io/client-go/informers/core/v1"
+	kcpcorelisters "k8s.io/client-go/kcp/listers/core/v1"
 	"k8s.io/client-go/kubernetes"
-	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
@@ -79,7 +79,7 @@ func NewController(
 			_, err := kubeClusterClient.CoreV1().Namespaces().Create(logicalcluster.WithCluster(ctx, clusterName), ns, metav1.CreateOptions{})
 			return err
 		},
-		secretLister:    secretInformer.Lister(),
+		secretLister:    secretInformer.Lister().(*kcpcorelisters.SecretClusterLister),
 		secretNamespace: DefaultIdentitySecretNamespace,
 		createSecret: func(ctx context.Context, clusterName logicalcluster.Name, secret *corev1.Secret) error {
 			_, err := kubeClusterClient.CoreV1().Secrets(secret.Namespace).Create(logicalcluster.WithCluster(ctx, clusterName), secret, metav1.CreateOptions{})
@@ -153,7 +153,7 @@ type controller struct {
 	queue workqueue.RateLimitingInterface
 
 	kcpClusterClient kcpclient.Interface
-	apiExportLister  apislisters.APIExportLister
+	apiExportLister  *apislisters.APIExportClusterLister
 	apiExportIndexer cache.Indexer
 
 	kubeClusterClient kubernetes.Interface
@@ -161,7 +161,7 @@ type controller struct {
 	getNamespace    func(clusterName logicalcluster.Name, name string) (*corev1.Namespace, error)
 	createNamespace func(ctx context.Context, clusterName logicalcluster.Name, ns *corev1.Namespace) error
 
-	secretLister    corelisters.SecretLister
+	secretLister    *kcpcorelisters.SecretClusterLister
 	secretNamespace string
 
 	getSecret    func(ctx context.Context, clusterName logicalcluster.Name, ns, name string) (*corev1.Secret, error)
@@ -272,7 +272,13 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *controller) process(ctx context.Context, key string) error {
-	obj, err := c.apiExportLister.Get(key)
+	logger := klog.FromContext(ctx)
+	clusterName, _, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		logger.Error(err, "invalid key")
+		return nil
+	}
+	obj, err := c.apiExportLister.Cluster(clusterName).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil // object deleted before we handled it
@@ -283,7 +289,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 	old := obj
 	obj = obj.DeepCopy()
 
-	logger := logging.WithObject(klog.FromContext(ctx), obj)
+	logger = logging.WithObject(logger, obj)
 	ctx = klog.NewContext(ctx, logger)
 
 	var errs []error
@@ -305,7 +311,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 }
 
 func (c *controller) readThroughGetSecret(ctx context.Context, clusterName logicalcluster.Name, ns, name string) (*corev1.Secret, error) {
-	secret, err := c.secretLister.Secrets(ns).Get(clusters.ToClusterAwareKey(clusterName, name))
+	secret, err := c.secretLister.Cluster(clusterName).Secrets(ns).Get(name)
 	if err == nil {
 		return secret, nil
 	}

@@ -42,7 +42,7 @@ type Stoppable interface {
 // parents for those. This means that workspaces without any ClusterWorkspace (like universal
 // workspaces) will not be started.
 type orgListener struct {
-	lister   listerstenancyv1alpha1.ClusterWorkspaceLister
+	lister   *listerstenancyv1alpha1.ClusterWorkspaceClusterLister
 	informer cache.SharedIndexInformer
 
 	newClusterWorkspaces func(orgClusterName logicalcluster.Name, initialWatchers []authorization.CacheWatcher) registry.FilteredClusterWorkspaces
@@ -52,7 +52,7 @@ type orgListener struct {
 	clusterWorkspacesPerCluster map[logicalcluster.Name]*preCreationClusterWorkspaces
 }
 
-func NewOrgListener(informer workspaceinformer.ClusterWorkspaceInformer, newClusterWorkspaces func(orgClusterName logicalcluster.Name, initialWatchers []authorization.CacheWatcher) registry.FilteredClusterWorkspaces) *orgListener {
+func NewOrgListener(informer *workspaceinformer.ClusterWorkspaceInformer, newClusterWorkspaces func(orgClusterName logicalcluster.Name, initialWatchers []authorization.CacheWatcher) registry.FilteredClusterWorkspaces) *orgListener {
 	l := &orgListener{
 		lister:   informer.Lister(),
 		informer: informer.Informer(),

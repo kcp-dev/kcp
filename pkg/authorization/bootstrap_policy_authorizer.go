@@ -19,20 +19,17 @@ package authorization
 import (
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	clientgoinformers "k8s.io/client-go/informers"
+	kcprbaclister "k8s.io/client-go/kcp/listers/rbac/v1"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
-
-	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
 )
 
 func NewBootstrapPolicyAuthorizer(informers clientgoinformers.SharedInformerFactory) (authorizer.Authorizer, authorizer.RuleResolver) {
-	filteredInformer := rbacwrapper.FilterInformers(genericcontrolplane.LocalAdminCluster, informers.Rbac().V1())
-
 	a := rbac.New(
-		&rbac.RoleGetter{Lister: filteredInformer.Roles().Lister()},
-		&rbac.RoleBindingLister{Lister: filteredInformer.RoleBindings().Lister()},
-		&rbac.ClusterRoleGetter{Lister: filteredInformer.ClusterRoles().Lister()},
-		&rbac.ClusterRoleBindingLister{Lister: filteredInformer.ClusterRoleBindings().Lister()},
+		&rbac.RoleGetter{Lister: informers.Rbac().V1().Roles().Lister().(*kcprbaclister.RoleClusterLister).Cluster(genericcontrolplane.LocalAdminCluster)},
+		&rbac.RoleBindingLister{Lister: informers.Rbac().V1().RoleBindings().Lister().(*kcprbaclister.RoleBindingClusterLister).Cluster(genericcontrolplane.LocalAdminCluster)},
+		&rbac.ClusterRoleGetter{Lister: informers.Rbac().V1().ClusterRoles().Lister().(*kcprbaclister.ClusterRoleClusterLister).Cluster(genericcontrolplane.LocalAdminCluster)},
+		&rbac.ClusterRoleBindingLister{Lister: informers.Rbac().V1().ClusterRoleBindings().Lister().(*kcprbaclister.ClusterRoleBindingClusterLister).Cluster(genericcontrolplane.LocalAdminCluster)},
 	)
 
 	return a, a

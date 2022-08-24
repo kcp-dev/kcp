@@ -95,7 +95,7 @@ func WithHomeWorkspaces(
 	kubeClusterClient kubernetes.ClusterInterface,
 	kcpClusterClient kcpclient.ClusterInterface,
 	kubeSharedInformerFactory coreinformers.SharedInformerFactory,
-	kcpSharedInformerFactory kcpinformers.SharedInformerFactory,
+	kcpSharedInformerFactory *kcpinformers.SharedInformerFactory,
 	externalHost string,
 	creationDelaySeconds int,
 	homePrefix logicalcluster.Name,
@@ -152,7 +152,7 @@ type localInformersAccess struct {
 	synced                func() bool
 }
 
-func buildLocalInformersAccess(kubeSharedInformerFactory coreinformers.SharedInformerFactory, kcpSharedInformerFactory kcpinformers.SharedInformerFactory) localInformersAccess {
+func buildLocalInformersAccess(kubeSharedInformerFactory coreinformers.SharedInformerFactory, kcpSharedInformerFactory *kcpinformers.SharedInformerFactory) localInformersAccess {
 	clusterWorkspaceInformer := kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces().Informer()
 	crInformer := kubeSharedInformerFactory.Rbac().V1().ClusterRoles().Informer()
 	crbInformer := kubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings().Informer()
@@ -163,7 +163,7 @@ func buildLocalInformersAccess(kubeSharedInformerFactory coreinformers.SharedInf
 	return localInformersAccess{
 		getClusterWorkspace: func(logicalCluster logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error) {
 			parentLogicalCluster, workspaceName := logicalCluster.Split()
-			return clusterWorkspaceLister.Get(clusters.ToClusterAwareKey(parentLogicalCluster, workspaceName))
+			return clusterWorkspaceLister.Cluster(parentLogicalCluster).Get(workspaceName)
 		},
 		getClusterRole: func(workspace logicalcluster.Name, name string) (*rbacv1.ClusterRole, error) {
 			return crLister.Get(clusters.ToClusterAwareKey(workspace, name))

@@ -31,7 +31,6 @@ import (
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
-	rbacv1informers "k8s.io/client-go/informers/rbac/v1"
 	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
@@ -162,7 +161,7 @@ type AuthorizationCache struct {
 	// allKnownWorkspaces we track all the known workspaces, so we can detect deletes.
 	// TODO remove this in favor of a list/watch mechanism for workspaces
 	allKnownWorkspaces        sets.String
-	workspaceLister           workspacelisters.ClusterWorkspaceLister
+	workspaceLister           *workspacelisters.ClusterWorkspaceLister
 	lastSyncResourceVersioner LastSyncResourceVersioner
 
 	clusterRoleLister             SyncedClusterRoleLister
@@ -192,19 +191,22 @@ type AuthorizationCache struct {
 
 // NewAuthorizationCache creates a new AuthorizationCache
 func NewAuthorizationCache(
-	workspaceLister workspacelisters.ClusterWorkspaceLister,
+	workspaceLister *workspacelisters.ClusterWorkspaceLister,
 	workspaceLastSyncResourceVersioner LastSyncResourceVersioner,
 	reviewer *Reviewer,
 	reviewTemplate authorizer.AttributesRecord,
-	informers rbacv1informers.Interface,
+	clusterRoleLister rbacv1listers.ClusterRoleLister,
+	clusterRoleInformer cache.SharedIndexInformer,
+	clusterRoleBindingLister rbacv1listers.ClusterRoleBindingLister,
+	clusterRoleBindingInformer cache.SharedIndexInformer,
 ) *AuthorizationCache {
 	scrLister := syncedClusterRoleLister{
-		informers.ClusterRoles().Lister(),
-		informers.ClusterRoles().Informer(),
+		clusterRoleLister,
+		clusterRoleInformer,
 	}
 	scrbLister := syncedClusterRoleBindingLister{
-		informers.ClusterRoleBindings().Lister(),
-		informers.ClusterRoleBindings().Informer(),
+		clusterRoleBindingLister,
+		clusterRoleBindingInformer,
 	}
 	ac := AuthorizationCache{
 		allKnownWorkspaces: sets.String{},

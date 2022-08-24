@@ -23,7 +23,6 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
@@ -41,8 +40,8 @@ type Labeler struct {
 
 // NewLabeler returns a new Labeler.
 func NewLabeler(
-	apiBindingInformer apisinformers.APIBindingInformer,
-	apiExportInformer apisinformers.APIExportInformer,
+	apiBindingInformer *apisinformers.APIBindingInformer,
+	apiExportInformer *apisinformers.APIExportInformer,
 ) *Labeler {
 	return &Labeler{
 		listAPIBindingsAcceptingClaimedGroupResource: func(clusterName logicalcluster.Name, groupResource schema.GroupResource) ([]*apisv1alpha1.APIBinding, error) {
@@ -51,8 +50,7 @@ func NewLabeler(
 		},
 
 		getAPIExport: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
-			key := clusters.ToClusterAwareKey(clusterName, name)
-			return apiExportInformer.Lister().Get(key)
+			return apiExportInformer.Lister().Cluster(clusterName).Get(name)
 		},
 	}
 }

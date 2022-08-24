@@ -138,9 +138,9 @@ func TestReconcile(t *testing.T) {
 			target := &controller{}
 			fakeKubeClient := fake.NewSimpleClientset(scenario.initialConfigMap...)
 			target.kubeClient = fakeKubeClient
-			target.remoteShardApiExportsIndexer = cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{indexers.ByLogicalCluster: indexers.IndexByLogicalCluster})
+			target.remoteShardApiExportsLister = cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{indexers.ByLogicalCluster: indexers.IndexByLogicalCluster})
 			for _, obj := range scenario.initialApiExports {
-				if err := target.remoteShardApiExportsIndexer.Add(obj); err != nil {
+				if err := target.remoteShardApiExportsLister.Add(obj); err != nil {
 					t.Error(err)
 				}
 			}

@@ -123,7 +123,7 @@ func NewSpecSyncer(gvrs []schema.GroupVersionResource, syncTargetWorkspace logic
 					utilruntime.HandleError(fmt.Errorf("error getting key for type %T: %w", obj, err))
 					return
 				}
-				namespace, name, err := cache.SplitMetaNamespaceKey(key)
+				_, namespace, name, err := cache.SplitMetaNamespaceKey(key)
 				if err != nil {
 					utilruntime.HandleError(fmt.Errorf("error splitting key %q: %w", key, err))
 				}

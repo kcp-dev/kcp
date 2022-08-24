@@ -29,12 +29,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	coreinformers "k8s.io/client-go/informers/core/v1"
+	kcpcorelisters "k8s.io/client-go/kcp/listers/core/v1"
 	kubernetesclient "k8s.io/client-go/kubernetes"
-	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
@@ -49,7 +50,6 @@ import (
 
 const (
 	controllerName      = "kcp-namespace-scheduling-placement"
-	byWorkspace         = controllerName + "-byWorkspace" // will go away with scoping
 	byLocationWorkspace = controllerName + "-byLocationWorkspace"
 )
 
@@ -71,22 +71,14 @@ func NewController(
 
 		kubeClusterClient: kubeClusterClient,
 
-		namespaceLister:  namespaceInformer.Lister(),
-		namespaceIndexer: namespaceInformer.Informer().GetIndexer(),
+		namespaceLister: namespaceInformer.Lister().(*kcpcorelisters.NamespaceClusterLister),
 
-		placmentLister:   placementInformer.Lister(),
+		placementLister:  placementInformer.Lister(),
 		placementIndexer: placementInformer.Informer().GetIndexer(),
 	}
 
-	if err := namespaceInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorksapce,
-	}); err != nil {
-		return nil, err
-	}
-
 	if err := placementInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace:         indexByWorksapce,
-		byLocationWorkspace: indexByLoactionWorkspace,
+		byLocationWorkspace: indexByLocationWorkspace,
 	}); err != nil {
 		return nil, err
 	}
@@ -127,10 +119,9 @@ type controller struct {
 
 	kubeClusterClient kubernetesclient.Interface
 
-	namespaceLister  corelisters.NamespaceLister
-	namespaceIndexer cache.Indexer
+	namespaceLister *kcpcorelisters.NamespaceClusterLister
 
-	placmentLister   schedulinglisters.PlacementLister
+	placementLister  *schedulinglisters.PlacementClusterLister
 	placementIndexer cache.Indexer
 }
 
@@ -154,15 +145,14 @@ func (c *controller) enqueuePlacement(obj interface{}) {
 	}
 	clusterName, _ := clusters.SplitClusterAwareKey(key)
 
-	nss, err := c.namespaceIndexer.ByIndex(byWorkspace, clusterName.String())
+	nss, err := c.namespaceLister.Cluster(clusterName).List(labels.Everything())
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
 	logger := logging.WithObject(logging.WithReconciler(klog.Background(), controllerName), obj.(*v1alpha1.Placement))
-	for _, o := range nss {
-		ns := o.(*corev1.Namespace)
+	for _, ns := range nss {
 		logger = logging.WithObject(logger, ns)
 		nskey := clusters.ToClusterAwareKey(logicalcluster.From(ns), ns.Name)
 		logging.WithQueueKey(logger, nskey).V(2).Info("queueing Namespace because of Placement")
@@ -219,14 +209,13 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 
 func (c *controller) process(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
-	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	clusterName, _, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		logger.Error(err, "invalid key")
 		return nil
 	}
-	clusterName, name := clusters.SplitClusterAwareKey(clusterAwareName)
 
-	obj, err := c.namespaceLister.Get(key) // TODO: clients need a way to scope down the lister per-cluster
+	obj, err := c.namespaceLister.Cluster(clusterName).Get(key)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil // object deleted before we handled it

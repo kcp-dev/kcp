@@ -27,7 +27,7 @@ import (
 
 	apiextensionshelpers "k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apiextensionslisters "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1"
+	kcpapiextensionslister "k8s.io/apiextensions-apiserver/pkg/client/kcp/listers/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/kcp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -56,10 +56,10 @@ var SystemCRDLogicalCluster = logicalcluster.New("system:system-crds")
 // apiBindingAwareCRDLister is a CRD lister combines APIs coming from APIBindings with CRDs in a workspace.
 type apiBindingAwareCRDLister struct {
 	kcpClusterClient     kcpclientset.ClusterInterface
-	crdLister            apiextensionslisters.CustomResourceDefinitionLister
+	crdLister            *kcpapiextensionslister.CustomResourceDefinitionClusterLister
 	crdIndexer           cache.Indexer
-	workspaceLister      tenancylisters.ClusterWorkspaceLister
-	apiBindingLister     apislisters.APIBindingLister
+	workspaceLister      *tenancylisters.ClusterWorkspaceClusterLister
+	apiBindingLister     *apislisters.APIBindingClusterLister
 	apiBindingIndexer    cache.Indexer
 	apiExportIndexer     cache.Indexer
 	getAPIResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
@@ -87,22 +87,20 @@ func (c *apiBindingAwareCRDLister) List(ctx context.Context, selector labels.Sel
 	var ret []*apiextensionsv1.CustomResourceDefinition
 
 	// Priority 1: add system CRDs. These take priority over CRDs from APIBindings and CRDs from the local workspace.
-	systemCRDObjs, err := c.crdIndexer.ByIndex(byWorkspace, SystemCRDLogicalCluster.String())
+	systemCRDObjs, err := c.crdLister.Cluster(SystemCRDLogicalCluster).List(labels.Everything())
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving kcp system CRDs: %w", err)
 	}
-	for i := range systemCRDObjs {
-		crd := systemCRDObjs[i].(*apiextensionsv1.CustomResourceDefinition)
+	for _, crd := range systemCRDObjs {
 		ret = append(ret, crd)
 		seen.Insert(crdName(crd))
 	}
 
-	objs, err := c.apiBindingIndexer.ByIndex(byWorkspace, clusterName.String())
+	objs, err := c.apiBindingLister.Cluster(clusterName).List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
-	for _, obj := range objs {
-		apiBinding := obj.(*apisv1alpha1.APIBinding)
+	for _, apiBinding := range objs {
 		if !conditions.IsTrue(apiBinding, apisv1alpha1.InitialBindingCompleted) {
 			continue
 		}
@@ -143,13 +141,11 @@ func (c *apiBindingAwareCRDLister) List(ctx context.Context, selector labels.Sel
 		}
 	}
 
-	// TODO use scoping lister when available
-	objs, err = c.crdIndexer.ByIndex(byWorkspace, clusterName.String())
+	crds, err := c.crdLister.Cluster(clusterName).List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
-	for _, obj := range objs {
-		crd := obj.(*apiextensionsv1.CustomResourceDefinition)
+	for _, crd := range crds {
 		logger := logging.WithObject(logger, crd)
 
 		if !selector.Matches(labels.Set(crd.Labels)) {
@@ -407,12 +403,11 @@ func (c *apiBindingAwareCRDLister) get(clusterName logicalcluster.Name, name str
 	// Priority 1: see if it comes from any APIBindings
 	group, resource := crdNameToGroupResource(name)
 
-	objs, err := c.apiBindingIndexer.ByIndex(byWorkspace, clusterName.String())
+	apiBindings, err := c.apiBindingLister.Cluster(clusterName).List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
-	for _, obj := range objs {
-		apiBinding := obj.(*apisv1alpha1.APIBinding)
+	for _, apiBinding := range apiBindings {
 
 		if !conditions.IsTrue(apiBinding, apisv1alpha1.InitialBindingCompleted) {
 			continue

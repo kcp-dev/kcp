@@ -44,7 +44,6 @@ import (
 
 const (
 	controllerName      = "kcp-workload-placement"
-	byWorkspace         = controllerName + "-byWorkspace" // will go away with scoping
 	byLocationWorkspace = controllerName + "-byLocationWorkspace"
 )
 
@@ -62,30 +61,15 @@ func NewController(
 
 		kcpClusterClient: kcpClusterClient,
 
-		locationLister:  locationInformer.Lister(),
-		locationIndexer: locationInformer.Informer().GetIndexer(),
+		locationLister: locationInformer.Lister(),
 
-		syncTargetLister:  syncTargetInformer.Lister(),
-		syncTargetIndexer: syncTargetInformer.Informer().GetIndexer(),
+		syncTargetLister: syncTargetInformer.Lister(),
 
 		placmentLister:   placementInformer.Lister(),
 		placementIndexer: placementInformer.Informer().GetIndexer(),
 	}
 
-	if err := locationInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorkspace,
-	}); err != nil {
-		return nil, err
-	}
-
-	if err := syncTargetInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorkspace,
-	}); err != nil {
-		return nil, err
-	}
-
 	if err := placementInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace:         indexByWorkspace,
 		byLocationWorkspace: indexByLocationWorkspace,
 	}); err != nil {
 		return nil, err
@@ -150,13 +134,11 @@ type controller struct {
 
 	kcpClusterClient kcpclient.Interface
 
-	locationLister  schedulinglisters.LocationLister
-	locationIndexer cache.Indexer
+	locationLister *schedulinglisters.LocationClusterLister
 
-	syncTargetLister  workloadlisters.SyncTargetLister
-	syncTargetIndexer cache.Indexer
+	syncTargetLister *workloadlisters.SyncTargetClusterLister
 
-	placmentLister   schedulinglisters.PlacementLister
+	placmentLister   *schedulinglisters.PlacementClusterLister
 	placementIndexer cache.Indexer
 }
 
@@ -260,7 +242,13 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *controller) process(ctx context.Context, key string) error {
-	obj, err := c.placmentLister.Get(key) // TODO: clients need a way to scope down the lister per-cluster
+	logger := klog.FromContext(ctx)
+	clusterName, _, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		logger.Error(err, "invalid key")
+		return nil
+	}
+	obj, err := c.placmentLister.Cluster(clusterName).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil // object deleted before we handled it
@@ -269,7 +257,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 	}
 	obj = obj.DeepCopy()
 
-	logger := logging.WithObject(klog.FromContext(ctx), obj)
+	logger = logging.WithObject(logger, obj)
 	ctx = klog.NewContext(ctx, logger)
 
 	reconcileErr := c.reconcile(ctx, obj)

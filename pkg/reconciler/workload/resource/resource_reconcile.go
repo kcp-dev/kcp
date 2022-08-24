@@ -33,7 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
@@ -63,7 +62,7 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 	// Align the resource's assigned cluster with the namespace's assigned
 	// cluster.
 	// First, get the namespace object (from the cached lister).
-	ns, err := c.namespaceLister.Get(clusters.ToClusterAwareKey(lclusterName, obj.GetNamespace()))
+	ns, err := c.namespaceLister.Cluster(lclusterName).Get(obj.GetNamespace())
 	if apierrors.IsNotFound(err) {
 		// Namespace was deleted; this resource will eventually get deleted too, so ignore
 		return nil

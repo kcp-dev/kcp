@@ -33,7 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/wait"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	kubeinformers "k8s.io/client-go/informers"
+	kcpkubeinformers "k8s.io/client-go/kcp/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/version"
 	"k8s.io/client-go/tools/clientcmd"
@@ -117,7 +117,7 @@ func Run(ctx context.Context, o *options.Options) error {
 	}
 
 	wildcardKubeClient := kubeClusterClient.Cluster(logicalcluster.Wildcard)
-	wildcardKubeInformers := kubeinformers.NewSharedInformerFactory(wildcardKubeClient, 10*time.Minute)
+	wildcardKubeInformers := kcpkubeinformers.NewSharedInformerFactory(wildcardKubeClient, 10*time.Minute).(*kcpkubeinformers.SharedInformerFactory)
 
 	kcpClusterClient, err := kcpclient.NewClusterForConfig(identityConfig)
 	if err != nil {

@@ -29,8 +29,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	networkinginformers "k8s.io/client-go/informers/networking/v1"
+	kcpnetworkinglisters "k8s.io/client-go/kcp/listers/networking/v1"
 	"k8s.io/client-go/kubernetes"
-	networkinglisters "k8s.io/client-go/listers/networking/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
@@ -57,7 +57,7 @@ func NewController(
 		domain: domain,
 
 		ingressIndexer: ingressInformer.Informer().GetIndexer(),
-		ingressLister:  ingressInformer.Lister(),
+		ingressLister:  ingressInformer.Lister().(*kcpnetworkinglisters.IngressClusterLister),
 	}
 
 	// Watch for events related to Ingresses
@@ -80,7 +80,7 @@ type Controller struct {
 	client kubernetes.ClusterInterface
 
 	ingressIndexer cache.Indexer
-	ingressLister  networkinglisters.IngressLister
+	ingressLister  *kcpnetworkinglisters.IngressClusterLister
 
 	domain string
 

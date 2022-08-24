@@ -66,7 +66,6 @@ func NewController(
 		workspaceLister:              workspaceInformer.Lister(),
 		clusterWorkspaceShardIndexer: clusterWorkspaceShardInformer.Informer().GetIndexer(),
 		clusterWorkspaceShardLister:  clusterWorkspaceShardInformer.Lister(),
-		apiBindingIndexer:            apiBindingsInformer.Informer().GetIndexer(),
 		apiBindingLister:             apiBindingsInformer.Lister(),
 	}
 
@@ -76,12 +75,6 @@ func NewController(
 		byPhase:        indexByPhase,
 	}); err != nil {
 		return nil, fmt.Errorf("failed to add indexer for ClusterWorkspace: %w", err)
-	}
-
-	if err := c.apiBindingIndexer.AddIndexers(map[string]cache.IndexFunc{
-		byWorkspace: indexByWorkspace,
-	}); err != nil {
-		return nil, fmt.Errorf("failed to add indexer for APIBinding: %w", err)
 	}
 
 	workspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -111,13 +104,12 @@ type Controller struct {
 
 	kcpClusterClient kcpclient.Interface
 	workspaceIndexer cache.Indexer
-	workspaceLister  tenancylister.ClusterWorkspaceLister
+	workspaceLister  *tenancylister.ClusterWorkspaceClusterLister
 
 	clusterWorkspaceShardIndexer cache.Indexer
-	clusterWorkspaceShardLister  tenancylister.ClusterWorkspaceShardLister
+	clusterWorkspaceShardLister  *tenancylister.ClusterWorkspaceShardClusterLister
 
-	apiBindingIndexer cache.Indexer
-	apiBindingLister  apislisters.APIBindingLister
+	apiBindingLister *apislisters.APIBindingClusterLister
 }
 
 func (c *Controller) enqueue(obj interface{}) {
@@ -138,8 +130,13 @@ func (c *Controller) enqueueShard(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
+	clusterName, _, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		logger.Error(err, "invalid key")
+		return
+	}
 
-	shard, err := c.clusterWorkspaceShardLister.Get(key)
+	shard, err := c.clusterWorkspaceShardLister.Cluster(clusterName).Get(name)
 	if err == nil {
 		workspaces, err := c.workspaceIndexer.ByIndex(unschedulable, "true")
 		if err != nil {
@@ -157,7 +154,6 @@ func (c *Controller) enqueueShard(obj interface{}) {
 		}
 	}
 
-	_, name := clusters.SplitClusterAwareKey(key)
 	workspaces, err := c.workspaceIndexer.ByIndex(byCurrentShard, name)
 	if err != nil {
 		runtime.HandleError(err)
@@ -309,7 +305,13 @@ func (c *Controller) patchIfNeeded(ctx context.Context, old, obj *tenancyv1alpha
 }
 
 func (c *Controller) process(ctx context.Context, key string) (bool, error) {
-	obj, err := c.workspaceLister.Get(key)
+	logger := klog.FromContext(ctx)
+	clusterName, _, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		logger.Error(err, "invalid key")
+		return false, nil
+	}
+	obj, err := c.workspaceLister.Cluster(clusterName).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return false, nil // object deleted before we handled it
@@ -320,7 +322,7 @@ func (c *Controller) process(ctx context.Context, key string) (bool, error) {
 	old := obj
 	obj = obj.DeepCopy()
 
-	logger := logging.WithObject(klog.FromContext(ctx), obj)
+	logger = logging.WithObject(logger, obj)
 	ctx = klog.NewContext(ctx, logger)
 
 	var errs []error

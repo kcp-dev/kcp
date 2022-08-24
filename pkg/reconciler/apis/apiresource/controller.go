@@ -26,7 +26,7 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	crdinfomer "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1"
-	crdlister "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1"
+	kcpcrdlister "k8s.io/apiextensions-apiserver/pkg/client/kcp/listers/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -53,8 +53,8 @@ func NewController(
 	crdClusterClient apiextensionsclientset.Interface,
 	kcpClusterClient kcpclient.Interface,
 	autoPublishNegotiatedAPIResource bool,
-	negotiatedAPIResourceInformer apiresourceinformer.NegotiatedAPIResourceInformer,
-	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
+	negotiatedAPIResourceInformer *apiresourceinformer.NegotiatedAPIResourceInformer,
+	apiResourceImportInformer *apiresourceinformer.APIResourceImportInformer,
 	crdInformer crdinfomer.CustomResourceDefinitionInformer,
 ) (*Controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-apiresource")
@@ -69,7 +69,7 @@ func NewController(
 		apiResourceImportIndexer:         apiResourceImportInformer.Informer().GetIndexer(),
 		apiResourceImportLister:          apiResourceImportInformer.Lister(),
 		crdIndexer:                       crdInformer.Informer().GetIndexer(),
-		crdLister:                        crdInformer.Lister(),
+		crdLister:                        crdInformer.Lister().(*kcpcrdlister.CustomResourceDefinitionClusterLister),
 	}
 
 	negotiatedAPIResourceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -132,13 +132,13 @@ type Controller struct {
 	crdClusterClient             apiextensionsclientset.Interface
 	kcpClusterClient             kcpclient.Interface
 	negotiatedApiResourceIndexer cache.Indexer
-	negotiatedApiResourceLister  apiresourcelister.NegotiatedAPIResourceLister
+	negotiatedApiResourceLister  *apiresourcelister.NegotiatedAPIResourceClusterLister
 
 	apiResourceImportIndexer cache.Indexer
-	apiResourceImportLister  apiresourcelister.APIResourceImportLister
+	apiResourceImportLister  *apiresourcelister.APIResourceImportClusterLister
 
 	crdIndexer cache.Indexer
-	crdLister  crdlister.CustomResourceDefinitionLister
+	crdLister  *kcpcrdlister.CustomResourceDefinitionClusterLister
 
 	AutoPublishNegotiatedAPIResource bool
 }

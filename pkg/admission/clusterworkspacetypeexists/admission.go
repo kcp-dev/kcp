@@ -34,7 +34,6 @@ import (
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clusters"
 
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
@@ -57,7 +56,7 @@ func Register(plugins *admission.Plugins) {
 			}
 			plugin.transitiveTypeResolver = transitiveTypeResolver{
 				getter: func(cluster logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
-					return plugin.typeLister.Get(clusters.ToClusterAwareKey(cluster, name))
+					return plugin.typeLister.Cluster(cluster).Get(name)
 				},
 			}
 			return plugin, nil
@@ -70,8 +69,8 @@ func Register(plugins *admission.Plugins) {
 //   transitions to the Initializing state.
 type clusterWorkspaceTypeExists struct {
 	*admission.Handler
-	typeLister             tenancyv1alpha1lister.ClusterWorkspaceTypeLister
-	workspaceLister        tenancyv1alpha1lister.ClusterWorkspaceLister
+	typeLister             *tenancyv1alpha1lister.ClusterWorkspaceTypeClusterLister
+	workspaceLister        *tenancyv1alpha1lister.ClusterWorkspaceClusterLister
 	kubeClusterClient      kubernetes.ClusterInterface
 	transitiveTypeResolver transitiveTypeResolver
 
@@ -184,7 +183,7 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 
 func (o *clusterWorkspaceTypeExists) resolveTypeRef(clusterName logicalcluster.Name, ref tenancyv1alpha1.ClusterWorkspaceTypeReference) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
 	if ref.Path != "" {
-		cwt, err := o.typeLister.Get(clusters.ToClusterAwareKey(logicalcluster.New(ref.Path), tenancyv1alpha1.ObjectName(ref.Name)))
+		cwt, err := o.typeLister.Cluster(logicalcluster.New(ref.Path)).Get(tenancyv1alpha1.ObjectName(ref.Name))
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				if ref.Name == "root" && ref.Path == "root" {
@@ -199,7 +198,7 @@ func (o *clusterWorkspaceTypeExists) resolveTypeRef(clusterName logicalcluster.N
 	}
 
 	for {
-		cwt, err := o.typeLister.Get(clusters.ToClusterAwareKey(clusterName, tenancyv1alpha1.ObjectName(ref.Name)))
+		cwt, err := o.typeLister.Cluster(clusterName).Get(tenancyv1alpha1.ObjectName(ref.Name))
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				var hasParent bool
@@ -223,7 +222,7 @@ func (o *clusterWorkspaceTypeExists) resolveParentType(parentClusterName logical
 		// clusterWorkspaceType is enough. We return a fake object here to express this behavior
 		return tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: "root", Name: "root"}, nil
 	}
-	parentCluster, err := o.workspaceLister.Get(clusters.ToClusterAwareKey(grandparent, parentClusterName.Base()))
+	parentCluster, err := o.workspaceLister.Cluster(grandparent).Get(parentClusterName.Base())
 	if err != nil {
 		return tenancyv1alpha1.ClusterWorkspaceTypeReference{}, fmt.Errorf("could not resolve parent cluster workspace %q: %w", parentClusterName.String(), err)
 	}
@@ -380,7 +379,7 @@ func (o *clusterWorkspaceTypeExists) ValidateInitialization() error {
 	return nil
 }
 
-func (o *clusterWorkspaceTypeExists) SetKcpInformers(informers kcpinformers.SharedInformerFactory) {
+func (o *clusterWorkspaceTypeExists) SetKcpInformers(informers *kcpinformers.SharedInformerFactory) {
 	typesReady := informers.Tenancy().V1alpha1().ClusterWorkspaceTypes().Informer().HasSynced
 	workspacesReady := informers.Tenancy().V1alpha1().ClusterWorkspaces().Informer().HasSynced
 	o.SetReadyFunc(func() bool {

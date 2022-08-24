@@ -52,12 +52,11 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	klog.V(3).InfoS("Processing", "gvr", gvr, "key", key)
 
 	// from downstream
-	downstreamNamespace, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	downstreamClusterName, downstreamNamespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		klog.Errorf("Invalid key: %q: %v", key, err)
 		return nil
 	}
-	downstreamClusterName, name := clusters.SplitClusterAwareKey(clusterAwareName)
 	// TODO(sttts): do not reference the cli plugin here
 	if strings.HasPrefix(workloadcliplugin.SyncerIDPrefix, downstreamNamespace) {
 		// skip syncer namespace

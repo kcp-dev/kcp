@@ -26,14 +26,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	networkinginformers "k8s.io/client-go/informers/networking/v1"
+	kcpnetworkinglisters "k8s.io/client-go/kcp/listers/networking/v1"
 	"k8s.io/client-go/kubernetes"
-	corelisters "k8s.io/client-go/listers/core/v1"
-	networkinglisters "k8s.io/client-go/listers/networking/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
@@ -62,11 +62,7 @@ func NewController(
 		domain:  domain,
 		tracker: newTracker(),
 
-		ingressIndexer: ingressInformer.Informer().GetIndexer(),
-		ingressLister:  ingressInformer.Lister(),
-
-		serviceIndexer: serviceInformer.Informer().GetIndexer(),
-		serviceLister:  serviceInformer.Lister(),
+		ingressLister: ingressInformer.Lister().(*kcpnetworkinglisters.IngressClusterLister),
 
 		aggregateLeavesStatus: aggregateLeaveStatus,
 	}
@@ -121,11 +117,7 @@ type Controller struct {
 
 	client kubernetes.Interface
 
-	ingressIndexer cache.Indexer
-	ingressLister  networkinglisters.IngressLister
-
-	serviceIndexer cache.Indexer
-	serviceLister  corelisters.ServiceLister
+	ingressLister *kcpnetworkinglisters.IngressClusterLister
 
 	domain  string
 	tracker tracker
@@ -197,20 +189,22 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 
 func (c *Controller) process(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
-	obj, exists, err := c.ingressIndexer.GetByKey(key)
+	clusterName, namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		logger.Error(err, "failed to get Ingress")
+		logger.Error(err, "invalid key")
+		return nil
+	}
+	current, err := c.ingressLister.Cluster(clusterName).Ingresses(namespace).Get(name)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			logger.Info("Ingress was deleted")
+			c.tracker.deleteIngress(key)
+		} else {
+			logger.Error(err, "failed to get Ingress")
+		}
 		return nil
 	}
 
-	if !exists {
-		logger.Info("Ingress was deleted")
-		c.tracker.deleteIngress(key)
-
-		return nil
-	}
-
-	current := obj.(*networkingv1.Ingress)
 	previous := current.DeepCopy()
 
 	logger = logging.WithObject(logger, previous)

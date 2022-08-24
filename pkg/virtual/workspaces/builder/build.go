@@ -29,7 +29,8 @@ import (
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	rbacinformers "k8s.io/client-go/informers/rbac/v1"
+	kcprbacinformers "k8s.io/client-go/kcp/informers/rbac/v1"
+	kcprbaclister "k8s.io/client-go/kcp/listers/rbac/v1"
 	"k8s.io/client-go/kubernetes"
 	clientrest "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -46,14 +47,19 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/fixedgvs"
 	frameworkrbac "github.com/kcp-dev/kcp/pkg/virtual/framework/rbac"
-	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
-	tenancywrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/tenancy"
 	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/authorization"
 	workspacecache "github.com/kcp-dev/kcp/pkg/virtual/workspaces/cache"
 	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/registry"
 )
 
-func BuildVirtualWorkspace(cfg *clientrest.Config, rootPathPrefix string, wildcardsClusterWorkspaces workspaceinformer.ClusterWorkspaceInformer, wildcardsRbacInformers rbacinformers.Interface, kubeClusterClient kubernetes.ClusterInterface, kcpClusterClient kcpclient.ClusterInterface) framework.VirtualWorkspace {
+func BuildVirtualWorkspace(
+	cfg *clientrest.Config,
+	rootPathPrefix string,
+	wildcardsClusterWorkspaces *workspaceinformer.ClusterWorkspaceInformer,
+	wildcardsRbacInformers *kcprbacinformers.Interface,
+	kubeClusterClient kubernetes.ClusterInterface,
+	kcpClusterClient kcpclient.ClusterInterface,
+) framework.VirtualWorkspace {
 	crbInformer := wildcardsRbacInformers.ClusterRoleBindings()
 
 	if !strings.HasSuffix(rootPathPrefix, "/") {
@@ -99,29 +105,31 @@ func BuildVirtualWorkspace(cfg *clientrest.Config, rootPathPrefix string, wildca
 				AddToScheme:        tenancyv1beta1.AddToScheme,
 				OpenAPIDefinitions: kcpopenapi.GetOpenAPIDefinitions,
 				BootstrapRestResources: func(mainConfig genericapiserver.CompletedConfig) (map[string]fixedgvs.RestStorageBuilder, error) {
-					rootRBACInformers := rbacwrapper.FilterInformers(tenancyv1alpha1.RootCluster, wildcardsRbacInformers)
-					rootSubjectLocator := frameworkrbac.NewSubjectLocator(rootRBACInformers)
+					rootSubjectLocator := frameworkrbac.NewSubjectLocator(wildcardsRbacInformers, tenancyv1alpha1.RootCluster)
 					rootReviewer := workspaceauth.NewReviewer(rootSubjectLocator)
-					rootClusterWorkspaceInformer := tenancywrapper.FilterClusterWorkspaceInformer(tenancyv1alpha1.RootCluster, wildcardsClusterWorkspaces)
-
 					globalClusterWorkspaceCache = workspacecache.NewClusterWorkspaceCache(wildcardsClusterWorkspaces.Informer(), kcpClusterClient)
 
 					rootWorkspaceAuthorizationCache = workspaceauth.NewAuthorizationCache(
-						rootClusterWorkspaceInformer.Lister(),
-						rootClusterWorkspaceInformer.Informer(),
+						wildcardsClusterWorkspaces.Lister().Cluster(tenancyv1alpha1.RootCluster),
+						wildcardsClusterWorkspaces.Informer(),
 						rootReviewer,
 						*workspaceauth.NewAttributesBuilder().
 							Verb("access").
 							Resource(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces"), "content").
 							AttributesRecord,
-						rootRBACInformers,
+						wildcardsRbacInformers.ClusterRoles().Lister().(*kcprbaclister.ClusterRoleClusterLister).Cluster(tenancyv1alpha1.RootCluster),
+						wildcardsRbacInformers.ClusterRoles().Informer(),
+						wildcardsRbacInformers.ClusterRoleBindings().Lister().(*kcprbaclister.ClusterRoleBindingClusterLister).Cluster(tenancyv1alpha1.RootCluster),
+						wildcardsRbacInformers.ClusterRoleBindings().Informer(),
 					)
 
 					orgListener := NewOrgListener(wildcardsClusterWorkspaces, func(orgClusterName logicalcluster.Name, initialWatchers []workspaceauth.CacheWatcher) registry.FilteredClusterWorkspaces {
 						return CreateAndStartOrg(
-							rbacwrapper.FilterInformers(orgClusterName, wildcardsRbacInformers),
-							tenancywrapper.FilterClusterWorkspaceInformer(orgClusterName, wildcardsClusterWorkspaces),
-							initialWatchers)
+							wildcardsRbacInformers,
+							wildcardsClusterWorkspaces,
+							initialWatchers,
+							orgClusterName,
+						)
 					})
 
 					if err := mainConfig.AddPostStartHook("clusterworkspaces.kcp.dev-workspaceauthorizationcache", func(context genericapiserver.PostStartHookContext) error {

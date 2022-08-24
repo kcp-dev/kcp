@@ -19,10 +19,13 @@ package builder
 import (
 	"time"
 
+	"github.com/kcp-dev/logicalcluster/v2"
+
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apiserver/pkg/authentication/user"
-	rbacinformers "k8s.io/client-go/informers/rbac/v1"
+	kcprbacinformers "k8s.io/client-go/kcp/informers/rbac/v1"
+	kcprbaclister "k8s.io/client-go/kcp/listers/rbac/v1"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	workspaceinformer "github.com/kcp-dev/kcp/pkg/client/informers/tenancy/v1alpha1"
@@ -47,19 +50,23 @@ type authCacheClusterWorkspaces struct {
 // CreateAndStartOrg creates an Org that contains all the required clients and caches to retrieve user workspaces inside an org
 // As part of an Org, a WorkspaceAuthCache is created and ensured to be started.
 func CreateAndStartOrg(
-	rbacInformers rbacinformers.Interface,
-	clusterWorkspaceInformer workspaceinformer.ClusterWorkspaceInformer,
+	rbacInformers *kcprbacinformers.Interface,
+	clusterWorkspaceInformer *workspaceinformer.ClusterWorkspaceInformer,
 	initialWatchers []workspaceauth.CacheWatcher,
+	clusterName logicalcluster.Name,
 ) *authCacheClusterWorkspaces {
 	authCache := workspaceauth.NewAuthorizationCache(
-		clusterWorkspaceInformer.Lister(),
+		clusterWorkspaceInformer.Lister().Cluster(clusterName),
 		clusterWorkspaceInformer.Informer(),
-		workspaceauth.NewReviewer(frameworkrbac.NewSubjectLocator(rbacInformers)),
+		workspaceauth.NewReviewer(frameworkrbac.NewSubjectLocator(rbacInformers, clusterName)),
 		*workspaceauth.NewAttributesBuilder().
 			Verb("get").
 			Resource(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces")).
 			AttributesRecord,
-		rbacInformers,
+		rbacInformers.ClusterRoles().Lister().(*kcprbaclister.ClusterRoleClusterLister).Cluster(clusterName),
+		rbacInformers.ClusterRoles().Informer(),
+		rbacInformers.ClusterRoleBindings().Lister().(*kcprbaclister.ClusterRoleBindingClusterLister).Cluster(clusterName),
+		rbacInformers.ClusterRoleBindings().Informer(),
 	)
 
 	cws := &authCacheClusterWorkspaces{

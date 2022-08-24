@@ -118,7 +118,7 @@ func NewAPIImporter(
 }
 
 type APIImporter struct {
-	kcpInformerFactory       kcpinformers.SharedInformerFactory
+	kcpInformerFactory       *kcpinformers.SharedInformerFactory
 	kcpClusterClient         *kcpclient.Cluster
 	resourcesToSync          []string
 	apiresourceImportIndexer cache.Indexer

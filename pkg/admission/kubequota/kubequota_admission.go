@@ -82,7 +82,7 @@ type KubeResourceQuota struct {
 
 	// Injected/set via initializers
 	clusterWorkspaceInformer     tenancyinformers.ClusterWorkspaceInformer
-	clusterWorkspaceLister       tenancylisters.ClusterWorkspaceLister
+	clusterWorkspaceLister       *tenancylisters.ClusterWorkspaceClusterLister
 	kubeClusterClient            kubernetes.ClusterInterface
 	scopingResourceQuotaInformer *kubequotacontroller.ScopingResourceQuotaInformer
 	quotaConfiguration           quota.Configuration
@@ -227,7 +227,7 @@ func (k *KubeResourceQuota) SetKubeClusterClient(kubeClusterClient kubernetes.Cl
 	k.kubeClusterClient = kubeClusterClient
 }
 
-func (k *KubeResourceQuota) SetKcpInformers(informers kcpinformers.SharedInformerFactory) {
+func (k *KubeResourceQuota) SetKcpInformers(informers *kcpinformers.SharedInformerFactory) {
 	k.clusterWorkspaceLister = informers.Tenancy().V1alpha1().ClusterWorkspaces().Lister()
 	k.clusterWorkspaceInformer = informers.Tenancy().V1alpha1().ClusterWorkspaces()
 }

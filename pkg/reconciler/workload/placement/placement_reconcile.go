@@ -22,9 +22,9 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	utilserrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
@@ -69,20 +69,11 @@ func (c *controller) reconcile(ctx context.Context, placement *schedulingv1alpha
 }
 
 func (c *controller) listSyncTarget(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error) {
-	items, err := c.syncTargetIndexer.ByIndex(byWorkspace, clusterName.String())
-	if err != nil {
-		return nil, err
-	}
-	ret := make([]*workloadv1alpha1.SyncTarget, 0, len(items))
-	for _, item := range items {
-		ret = append(ret, item.(*workloadv1alpha1.SyncTarget))
-	}
-	return ret, nil
+	return c.syncTargetLister.Cluster(clusterName).List(labels.Everything())
 }
 
 func (c *controller) getLocation(clusterName logicalcluster.Name, name string) (*schedulingv1alpha1.Location, error) {
-	key := clusters.ToClusterAwareKey(clusterName, name)
-	return c.locationLister.Get(key)
+	return c.locationLister.Cluster(clusterName).Get(name)
 }
 
 func (c *controller) patchPlacement(ctx context.Context, clusterName logicalcluster.Name, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*schedulingv1alpha1.Placement, error) {

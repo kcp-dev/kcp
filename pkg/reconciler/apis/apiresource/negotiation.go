@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
@@ -39,12 +40,17 @@ import (
 )
 
 func (c *Controller) process(ctx context.Context, key queueElement) error {
-
+	logger := klog.FromContext(ctx)
+	clusterName, _, name, err := cache.SplitMetaNamespaceKey(key.theKey)
+	if err != nil {
+		logger.Error(err, "invalid key")
+		return nil
+	}
 	ctx = request.WithCluster(ctx, request.Cluster{Name: key.clusterName})
 
 	switch key.theType {
 	case customResourceDefinitionType:
-		crd, err := c.crdLister.Get(key.theKey)
+		crd, err := c.crdLister.Cluster(clusterName).Get(name)
 		if err != nil {
 			var deletedObjectExists bool
 			crd, deletedObjectExists = key.deletedObject.(*apiextensionsv1.CustomResourceDefinition)
@@ -83,7 +89,7 @@ func (c *Controller) process(ctx context.Context, key queueElement) error {
 		}
 
 	case apiResourceImportType:
-		apiResourceImport, err := c.apiResourceImportLister.Get(key.theKey)
+		apiResourceImport, err := c.apiResourceImportLister.Cluster(clusterName).Get(name)
 		if err != nil {
 			var deletedObjectExists bool
 			apiResourceImport, deletedObjectExists = key.deletedObject.(*apiresourcev1alpha1.APIResourceImport)
@@ -125,7 +131,7 @@ func (c *Controller) process(ctx context.Context, key queueElement) error {
 			return c.ensureAPIResourceCompatibility(ctx, logicalcluster.From(apiResourceImport), key.gvr, nil, apiresourcev1alpha1.UpdatePublished)
 		}
 	case negotiatedAPIResourceType:
-		negotiatedApiResource, err := c.negotiatedApiResourceLister.Get(key.theKey)
+		negotiatedApiResource, err := c.negotiatedApiResourceLister.Cluster(clusterName).Get(name)
 		if err != nil {
 			var deletedObjectExists bool
 			negotiatedApiResource, deletedObjectExists = key.deletedObject.(*apiresourcev1alpha1.NegotiatedAPIResource)
@@ -401,19 +407,7 @@ func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, cluster
 	} else {
 		crdName = crdName + gvr.Group
 	}
-	crdkey, err := cache.MetaNamespaceKeyFunc(&metav1.PartialObjectMetadata{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: crdName,
-			Annotations: map[string]string{
-				logicalcluster.AnnotationKey: clusterName.String(),
-			},
-		},
-	})
-	if err != nil {
-		logger.Error(err, "error", "caller", runtime.GetCaller())
-		return err
-	}
-	crd, err := c.crdLister.Get(crdkey)
+	crd, err := c.crdLister.Cluster(clusterName).Get(crdName)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		logger.Error(err, "error", "caller", runtime.GetCaller())
 		return err
@@ -553,7 +547,8 @@ func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, cluster
 				logger.Error(err, "error", "caller", runtime.GetCaller())
 				return err
 			}
-			lastOne, err := c.apiResourceImportLister.Get(key)
+			clusterName, name := clusters.SplitClusterAwareKey(key)
+			lastOne, err := c.apiResourceImportLister.Cluster(clusterName).Get(name)
 			if err != nil {
 				logger.Error(err, "error", "caller", runtime.GetCaller())
 				return err
@@ -664,20 +659,7 @@ func (c *Controller) publishNegotiatedResource(ctx context.Context, clusterName 
 		Subresources:             &subResources,
 		AdditionalPrinterColumns: crColumnDefinitions,
 	}
-
-	crdKey, err := cache.MetaNamespaceKeyFunc(&metav1.PartialObjectMetadata{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: crdName,
-			Annotations: map[string]string{
-				logicalcluster.AnnotationKey: clusterName.String(),
-			},
-		},
-	})
-	if err != nil {
-		logger.Error(err, "error", "caller", runtime.GetCaller())
-		return err
-	}
-	crd, err := c.crdLister.Get(crdKey)
+	crd, err := c.crdLister.Cluster(clusterName).Get(crdName)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		logger.Error(err, "error", "caller", runtime.GetCaller())
 		return err
@@ -852,20 +834,7 @@ func (c *Controller) cleanupNegotiatedAPIResource(ctx context.Context, clusterNa
 	} else {
 		crdName = crdName + "." + gvr.Group
 	}
-
-	crdKey, err := cache.MetaNamespaceKeyFunc(&metav1.PartialObjectMetadata{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: crdName,
-			Annotations: map[string]string{
-				logicalcluster.AnnotationKey: clusterName.String(),
-			},
-		},
-	})
-	if err != nil {
-		logger.Error(err, "error", "caller", runtime.GetCaller())
-		return err
-	}
-	crd, err := c.crdLister.Get(crdKey)
+	crd, err := c.crdLister.Cluster(clusterName).Get(crdName)
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}

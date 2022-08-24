@@ -129,22 +129,20 @@ func (c *Controller) reconcileRootStatusFromLeaves(ctx context.Context, ingress 
 	}
 
 	// Create the Root Ingress key and get it.
-	ingressRootKey := rootIngressKeyFor(ingress)
-	rootIf, exists, err := c.ingressIndexer.GetByKey(ingressRootKey)
+	rootIngress, err := c.ingressLister.Cluster(UnescapeClusterNameLabel(ingress.Labels[OwnedByCluster])).Ingresses(ingress.Labels[OwnedByNamespace]).Get(ingress.Labels[OwnedByIngress])
 	if err != nil {
+		// TODO(jmprusi): A leaf without rootIngress? use OwnerRefs to avoid this.
+		if apierrors.IsNotFound(err) {
+			// TODO(jmprusi): Add user-facing condition to leaf.
+			logger.Info("root Ingress not found")
+			return nil
+		}
 		logger.Error(err, "failed to get root Ingress")
 		return nil
 	}
 
-	// TODO(jmprusi): A leaf without rootIngress? use OwnerRefs to avoid this.
-	if !exists {
-		// TODO(jmprusi): Add user-facing condition to leaf.
-		logger.Info("root Ingress not found")
-		return nil
-	}
-
 	// Clean the current rootIngress, and then recreate it from the other leafs.
-	rootIngress := rootIf.(*networkingv1.Ingress).DeepCopy()
+	rootIngress = rootIngress.DeepCopy()
 	rootIngress.Status.LoadBalancer.Ingress = make([]corev1.LoadBalancerIngress, 0, len(others))
 	for _, o := range others {
 		rootIngress.Status.LoadBalancer.Ingress = append(rootIngress.Status.LoadBalancer.Ingress, o.Status.LoadBalancer.Ingress...)

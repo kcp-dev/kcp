@@ -78,7 +78,7 @@ type Controller struct {
 	crdsSynced cache.InformerSynced
 
 	// For better testability
-	getClusterWorkspace func(key string) (*tenancyv1alpha1.ClusterWorkspace, error)
+	getClusterWorkspace func(clusterName logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspace, error)
 	listCRDs            func() ([]*apiextensionsv1.CustomResourceDefinition, error)
 }
 
@@ -113,8 +113,8 @@ func NewController(
 
 		crdsSynced: crdInformer.Informer().HasSynced,
 
-		getClusterWorkspace: func(key string) (*tenancyv1alpha1.ClusterWorkspace, error) {
-			return clusterWorkspacesInformer.Lister().Get(key)
+		getClusterWorkspace: func(clusterName logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspace, error) {
+			return clusterWorkspacesInformer.Lister().Cluster(clusterName).Get(name)
 		},
 
 		listCRDs: func() ([]*apiextensionsv1.CustomResourceDefinition, error) {
@@ -142,14 +142,12 @@ func clusterNameForObj(obj interface{}) logicalcluster.Name {
 		return logicalcluster.Name{}
 	}
 
-	_, clusterAndName, err := cache.SplitMetaNamespaceKey(key)
+	clusterName, _, _, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		utilruntime.HandleError(err)
 		return logicalcluster.Name{}
 	}
-
-	cluster, _ := clusters.SplitClusterAwareKey(clusterAndName)
-	return cluster
+	return clusterName
 }
 
 // enqueue adds the key for a ClusterWorkspace to the queue.
@@ -226,12 +224,17 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
 	// e.g. root:org<separator>ws
 	parent, name := clusters.SplitClusterAwareKey(key)
+	parentClusterName, _, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		logger.Error(err, "invalid key")
+		return nil
+	}
 
 	// turn it into root:org:ws
 	clusterName := parent.Join(name)
 	logger = logger.WithValues("logicalCluster", clusterName.String())
 
-	ws, err := c.getClusterWorkspace(key)
+	ws, err := c.getClusterWorkspace(parentClusterName, name)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			logger.V(2).Info("ClusterWorkspace not found - stopping quota controller for it (if needed)")

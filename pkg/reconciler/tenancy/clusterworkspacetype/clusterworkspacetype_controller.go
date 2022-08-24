@@ -66,7 +66,7 @@ func NewController(
 			return clusterWorkspaceShardLister.List(labels.Everything())
 		},
 		resolveClusterWorkspaceType: func(reference tenancyv1alpha1.ClusterWorkspaceTypeReference) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
-			return clusterWorkspaceTypeLister.Get(keyFor(reference))
+			return clusterWorkspaceTypeLister.Cluster(logicalcluster.New(reference.Path)).Get(tenancyv1alpha1.ObjectName(reference.Name))
 		},
 	}
 
@@ -108,7 +108,7 @@ type controller struct {
 	queue workqueue.RateLimitingInterface
 
 	kcpClusterClient            kcpclient.Interface
-	clusterWorkspaceTypeLister  tenancyv1alpha1lister.ClusterWorkspaceTypeLister
+	clusterWorkspaceTypeLister  *tenancyv1alpha1lister.ClusterWorkspaceTypeClusterLister
 	listClusterWorkspaceShards  func() ([]*tenancyv1alpha1.ClusterWorkspaceShard, error)
 	resolveClusterWorkspaceType func(reference tenancyv1alpha1.ClusterWorkspaceTypeReference) (*tenancyv1alpha1.ClusterWorkspaceType, error)
 }
@@ -195,7 +195,13 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *controller) process(ctx context.Context, key string) error {
-	obj, err := c.clusterWorkspaceTypeLister.Get(key)
+	logger := klog.FromContext(ctx)
+	clusterName, _, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		logger.Error(err, "invalid key")
+		return nil
+	}
+	obj, err := c.clusterWorkspaceTypeLister.Cluster(clusterName).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil // object deleted before we handled it
@@ -206,7 +212,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 	old := obj
 	obj = obj.DeepCopy()
 
-	logger := logging.WithObject(klog.FromContext(ctx), obj)
+	logger = logging.WithObject(logger, obj)
 	ctx = klog.NewContext(ctx, logger)
 
 	c.reconcile(ctx, obj)

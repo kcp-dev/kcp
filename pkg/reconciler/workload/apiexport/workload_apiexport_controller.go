@@ -43,7 +43,6 @@ import (
 
 const (
 	controllerName = "kcp-workload-apiexport"
-	byWorkspace    = controllerName + "-byWorkspace" // will go away with scoping
 
 	// TemporaryComputeServiceExportName is a temporary singleton name of compute service exports.
 	TemporaryComputeServiceExportName = "kubernetes"
@@ -64,31 +63,10 @@ func NewController(
 			key := clusters.ToClusterAwareKey(logicalcluster.From(export), export.Name)
 			queue.AddAfter(key, duration)
 		},
-		kcpClusterClient:             kcpClusterClient,
-		apiExportsLister:             apiExportInformer.Lister(),
-		apiExportsIndexer:            apiExportInformer.Informer().GetIndexer(),
-		apiResourceSchemaLister:      apiResourceSchemaInformer.Lister(),
-		apiResourceSchemaIndexer:     apiResourceSchemaInformer.Informer().GetIndexer(),
-		negotiatedAPIResourceLister:  negotiatedAPIResourceInformer.Lister(),
-		negotiatedAPIResourceIndexer: negotiatedAPIResourceInformer.Informer().GetIndexer(),
-	}
-
-	if err := c.apiResourceSchemaIndexer.AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorkspace,
-	}); err != nil {
-		return nil, err
-	}
-
-	if err := negotiatedAPIResourceInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorkspace,
-	}); err != nil {
-		return nil, err
-	}
-
-	if err := apiExportInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorkspace,
-	}); err != nil {
-		return nil, err
+		kcpClusterClient:            kcpClusterClient,
+		apiExportsLister:            apiExportInformer.Lister(),
+		apiResourceSchemaLister:     apiResourceSchemaInformer.Lister(),
+		negotiatedAPIResourceLister: negotiatedAPIResourceInformer.Lister(),
 	}
 
 	apiExportInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
@@ -128,12 +106,9 @@ type controller struct {
 
 	kcpClusterClient kcpclient.Interface
 
-	apiExportsLister             apislisters.APIExportLister
-	apiExportsIndexer            cache.Indexer
-	apiResourceSchemaLister      apislisters.APIResourceSchemaLister
-	apiResourceSchemaIndexer     cache.Indexer
-	negotiatedAPIResourceLister  apiresourcelisters.NegotiatedAPIResourceLister
-	negotiatedAPIResourceIndexer cache.Indexer
+	apiExportsLister            *apislisters.APIExportClusterLister
+	apiResourceSchemaLister     *apislisters.APIResourceSchemaClusterLister
+	negotiatedAPIResourceLister *apiresourcelisters.NegotiatedAPIResourceClusterLister
 }
 
 func (c *controller) enqueueNegotiatedAPIResource(obj interface{}) {
@@ -145,7 +120,7 @@ func (c *controller) enqueueNegotiatedAPIResource(obj interface{}) {
 
 	clusterName := logicalcluster.From(resource)
 	key := clusters.ToClusterAwareKey(clusterName, TemporaryComputeServiceExportName)
-	if _, err := c.apiExportsLister.Get(clusters.ToClusterAwareKey(clusterName, TemporaryComputeServiceExportName)); errors.IsNotFound(err) {
+	if _, err := c.apiExportsLister.Cluster(clusterName).Get(TemporaryComputeServiceExportName); errors.IsNotFound(err) {
 		return // it's gone
 	} else if err != nil {
 		runtime.HandleError(fmt.Errorf("failed to get APIExport %s|%s: %w", clusterName, TemporaryComputeServiceExportName, err))
@@ -217,7 +192,13 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *controller) process(ctx context.Context, key string) error {
-	obj, err := c.apiExportsLister.Get(key) // TODO: clients need a way to scope down the lister per-cluster
+	logger := klog.FromContext(ctx)
+	clusterName, _, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		logger.Error(err, "invalid key")
+		return nil
+	}
+	obj, err := c.apiExportsLister.Cluster(clusterName).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil // object deleted before we handled it
@@ -226,7 +207,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 	}
 	obj = obj.DeepCopy()
 
-	logger := logging.WithObject(klog.FromContext(ctx), obj)
+	logger = logging.WithObject(logger, obj)
 	ctx = klog.NewContext(ctx, logger)
 
 	if err := c.reconcile(ctx, obj); err != nil {

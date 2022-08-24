@@ -89,7 +89,7 @@ type Controller struct {
 	kcpClusterClient      kcpclient.Interface
 	metadataClusterClient metadata.Interface
 
-	workspaceLister tenancylister.ClusterWorkspaceLister
+	workspaceLister *tenancylister.ClusterWorkspaceClusterLister
 	deleter         deletion.WorkspaceResourcesDeleterInterface
 }
 
@@ -168,7 +168,12 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 
 func (c *Controller) process(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
-	workspace, deleteErr := c.workspaceLister.Get(key)
+	clusterName, _, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		logger.Error(err, "invalid key")
+		return nil
+	}
+	workspace, deleteErr := c.workspaceLister.Cluster(clusterName).Get(name)
 	if apierrors.IsNotFound(deleteErr) {
 		logger.V(2).Info("ClusterWorkspace has been deleted")
 		return nil

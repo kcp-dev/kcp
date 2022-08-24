@@ -107,7 +107,7 @@ type Controller struct {
 	metadataClient   metadata.Interface
 	kcpClusterClient kcpclient.Interface
 
-	apiBindingsLister apislisters.APIBindingLister
+	apiBindingsLister *apislisters.APIBindingClusterLister
 }
 
 func (c *Controller) enqueue(obj interface{}) {
@@ -189,7 +189,12 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		logger.V(4).Info("finished syncing", "duration", time.Since(startTime))
 	}()
 
-	apibinding, deleteErr := c.apiBindingsLister.Get(key)
+	clusterName, _, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		logger.Error(err, "invalid key")
+		return nil
+	}
+	apibinding, deleteErr := c.apiBindingsLister.Cluster(clusterName).Get(name)
 	if apierrors.IsNotFound(deleteErr) {
 		logger.V(3).Info("APIBinding has been deleted")
 		return nil

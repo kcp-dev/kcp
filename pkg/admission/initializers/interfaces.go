@@ -26,7 +26,7 @@ import (
 // WantsKcpInformers interface should be implemented by admission plugins
 // that want to have a kcp informer factory injected.
 type WantsKcpInformers interface {
-	SetKcpInformers(informers kcpinformers.SharedInformerFactory)
+	SetKcpInformers(informers *kcpinformers.SharedInformerFactory)
 }
 
 // WantsKubeClusterClient interface should be implemented by admission plugins

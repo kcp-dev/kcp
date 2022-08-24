@@ -127,7 +127,7 @@ func (p *WebhookDispatcher) SetHookSource(s generic.Source) {
 }
 
 // SetKcpInformers implements the WantsExternalKcpInformerFactory interface.
-func (p *WebhookDispatcher) SetKcpInformers(f kcpinformers.SharedInformerFactory) {
+func (p *WebhookDispatcher) SetKcpInformers(f *kcpinformers.SharedInformerFactory) {
 	if _, found := f.Apis().V1alpha1().APIBindings().Informer().GetIndexer().GetIndexers()[byWorkspaceIndex]; !found {
 		if err := f.Apis().V1alpha1().APIBindings().Informer().AddIndexers(cache.Indexers{
 			byWorkspaceIndex: func(obj interface{}) ([]string, error) {

@@ -26,6 +26,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/kcp-dev/logicalcluster/v2"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -36,11 +37,11 @@ import (
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	workspaceinformer "github.com/kcp-dev/kcp/pkg/client/informers/tenancy/v1alpha1"
 	workloadinformer "github.com/kcp-dev/kcp/pkg/client/informers/workload/v1alpha1"
 	tenancylister "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	workloadlister "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -55,7 +56,7 @@ func NewController(
 	c := &Controller{
 		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
 		kcpClusterClient:     kcpClusterClient,
-		syncTargetIndexer:    syncTargetInformer.Informer().GetIndexer(),
+		syncTargetLister:     syncTargetInformer.Lister(),
 		workspaceShardLister: workspaceShardInformer.Lister(),
 	}
 
@@ -80,8 +81,8 @@ type Controller struct {
 	queue            workqueue.RateLimitingInterface
 	kcpClusterClient kcpclient.Interface
 
-	workspaceShardLister tenancylister.ClusterWorkspaceShardLister
-	syncTargetIndexer    cache.Indexer
+	workspaceShardLister *tenancylister.ClusterWorkspaceShardClusterLister
+	syncTargetLister     *workloadlister.SyncTargetClusterLister
 }
 
 func (c *Controller) enqueueSyncTarget(obj interface{}) {
@@ -98,7 +99,12 @@ func (c *Controller) enqueueSyncTarget(obj interface{}) {
 // On workspaceShard changes, enqueue all the syncTargets.
 func (c *Controller) enqueueWorkspaceShard(obj interface{}) {
 	logger := logging.WithObject(logging.WithReconciler(klog.Background(), controllerName), obj.(*tenancyv1alpha1.ClusterWorkspaceShard))
-	for _, syncTarget := range c.syncTargetIndexer.List() {
+	syncTargets, err := c.syncTargetLister.List(labels.Everything())
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+	for _, syncTarget := range syncTargets {
 		key, err := cache.MetaNamespaceKeyFunc(syncTarget)
 		if err != nil {
 			runtime.HandleError(err)
@@ -159,18 +165,21 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 
 func (c *Controller) process(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
-	obj, exists, err := c.syncTargetIndexer.GetByKey(key)
+	clusterName, _, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		logger.Error(err, "invalid key")
+		return nil
+	}
+	currentSyncTarget, err := c.syncTargetLister.Cluster(clusterName).Get(name)
+	if errors.IsNotFound(err) {
+		logger.Info("syncTarget was deleted")
+		return nil
+	}
 	if err != nil {
 		logger.Error(err, "failed to get SyncTarget")
 		return nil
 	}
 
-	if !exists {
-		logger.Info("syncTarget was deleted")
-		return nil
-	}
-
-	currentSyncTarget := obj.(*workloadv1alpha1.SyncTarget)
 	logger = logging.WithObject(klog.FromContext(ctx), currentSyncTarget)
 	ctx = klog.NewContext(ctx, logger)
 

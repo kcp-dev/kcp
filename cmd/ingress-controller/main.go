@@ -27,6 +27,7 @@ import (
 
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/informers"
+	kcpnetworkinglisters "k8s.io/client-go/kcp/listers/networking/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/component-base/config"
@@ -92,7 +93,7 @@ func main() {
 			if options.EnvoyXDSPort > 0 && options.EnvoyListenerPort > 0 {
 				aggregateLeavesStatus = false
 
-				ecp = envoycontrolplane.NewEnvoyControlPlane(options.EnvoyXDSPort, options.EnvoyListenerPort, ingressInformer.Lister(), nil)
+				ecp = envoycontrolplane.NewEnvoyControlPlane(options.EnvoyXDSPort, options.EnvoyListenerPort, ingressInformer.Lister().(*kcpnetworkinglisters.IngressClusterLister), nil)
 				isr := ingress.NewController(kubeClient, ingressInformer, ecp, options.Domain)
 				go isr.Start(ctx, numThreads)
 				if err := ecp.Start(ctx); err != nil {

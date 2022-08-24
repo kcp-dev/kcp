@@ -73,25 +73,10 @@ func (c *Controller) reconcile(ctx context.Context, deployment *appsv1.Deploymen
 			return err
 		}
 
-		var rootDeployment *appsv1.Deployment
-
-		rootIf, exists, err := c.indexer.Get(&appsv1.Deployment{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: deployment.Namespace,
-				Name:      rootDeploymentName,
-				Annotations: map[string]string{
-					logicalcluster.AnnotationKey: logicalcluster.From(deployment).String(),
-				},
-			},
-		})
+		rootDeployment, err := c.lister.Cluster(logicalcluster.From(deployment)).Deployments(deployment.Namespace).Get(rootDeploymentName)
 		if err != nil {
 			return err
 		}
-		if !exists {
-			return fmt.Errorf("root deployment not found: %s", rootDeploymentName)
-		}
-
-		rootDeployment = rootIf.(*appsv1.Deployment)
 
 		// Aggregate .status from all leafs.
 
