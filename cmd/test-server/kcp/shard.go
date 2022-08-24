@@ -29,7 +29,9 @@ import (
 
 	"github.com/abiosoft/lineprefix"
 	"github.com/fatih/color"
+	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
@@ -162,7 +164,8 @@ func Start(ctx context.Context, name, runtimeDir, logFilePath string, args []str
 		if err != nil {
 			continue
 		}
-		kcpClient, err := kcpclient.NewClusterForConfig(config)
+		clusterConfig := kcpclienthelper.SetMultiClusterRoundTripper(rest.CopyConfig(config))
+		kcpClient, err := kcpclient.NewForConfig(clusterConfig)
 		if err != nil {
 			klog.Errorf("Failed to create kcp client: %v", err)
 			continue

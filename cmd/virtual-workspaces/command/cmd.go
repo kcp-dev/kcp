@@ -24,6 +24,7 @@ import (
 	"net/url"
 	"time"
 
+	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/spf13/cobra"
 
@@ -36,6 +37,7 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/version"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/component-base/config"
@@ -106,21 +108,21 @@ func Run(ctx context.Context, o *options.Options) error {
 		return fmt.Errorf("failed to get or create identities: %w", err)
 	}
 
+	wildcardIdentityConfig := kcpclienthelper.SetCluster(rest.CopyConfig(identityConfig), logicalcluster.Wildcard)
 	// create clients and informers
-	kubeClusterClient, err := kubernetes.NewClusterForConfig(identityConfig)
+	wildcardKubeClusterClient, err := kubernetes.NewForConfig(wildcardIdentityConfig)
 	if err != nil {
 		return err
 	}
 
-	wildcardKubeClient := kubeClusterClient.Cluster(logicalcluster.Wildcard)
-	wildcardKubeInformers := kubeinformers.NewSharedInformerFactory(wildcardKubeClient, 10*time.Minute)
+	wildcardKubeInformers := kubeinformers.NewSharedInformerFactory(wildcardKubeClusterClient, 10*time.Minute)
 
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(identityConfig)
+	wildcardkcpClusterClient, err := kcpclient.NewForConfig(wildcardIdentityConfig)
 	if err != nil {
 		return err
 	}
-	wildcardKcpClient := kcpClusterClient.Cluster(logicalcluster.Wildcard)
-	wildcardKcpInformers := kcpinformer.NewSharedInformerFactory(wildcardKcpClient, 10*time.Minute)
+
+	wildcardKcpInformers := kcpinformer.NewSharedInformerFactory(wildcardkcpClusterClient, 10*time.Minute)
 
 	// create apiserver
 	virtualWorkspaces, err := o.VirtualWorkspaces.NewVirtualWorkspaces(identityConfig, o.RootPathPrefix, wildcardKubeInformers, wildcardKcpInformers)

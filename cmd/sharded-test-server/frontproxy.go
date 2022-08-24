@@ -29,8 +29,10 @@ import (
 
 	"github.com/abiosoft/lineprefix"
 	"github.com/fatih/color"
+	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
@@ -164,7 +166,8 @@ func startFrontProxy(ctx context.Context, args []string, servingCA *crypto.CA, h
 		if err != nil {
 			continue
 		}
-		kcpClient, err := kcpclient.NewClusterForConfig(config)
+		clusterConfig := kcpclienthelper.SetMultiClusterRoundTripper(rest.CopyConfig(config))
+		kcpClient, err := kcpclient.NewForConfig(clusterConfig)
 		if err != nil {
 			klog.Errorf("Failed to create kcp client: %v", err)
 			continue
