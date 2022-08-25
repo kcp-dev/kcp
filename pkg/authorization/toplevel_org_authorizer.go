@@ -76,6 +76,11 @@ type topLevelOrgAccessAuthorizer struct {
 
 func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
 	if IsDeepSubjectAccessReviewFrom(ctx, attr) {
+		kaudit.AddAuditAnnotations(
+			ctx,
+			TopLevelContentAuditDecision, DecisionAllowed,
+			TopLevelContentAuditReason, "deep SAR request",
+		)
 		// this is a deep SAR request, we have to skip the checks here and delegate to the subsequent authorizer.
 		return a.delegate.Authorize(ctx, attr)
 	}
@@ -231,16 +236,4 @@ func topLevelOrg(clusterName logicalcluster.Name) (string, bool) {
 		}
 		clusterName = parent
 	}
-}
-
-func decisionString(dec authorizer.Decision) string {
-	switch dec {
-	case authorizer.DecisionNoOpinion:
-		return DecisionNoOpinion
-	case authorizer.DecisionAllow:
-		return DecisionAllowed
-	case authorizer.DecisionDeny:
-		return DecisionDenied
-	}
-	return ""
 }

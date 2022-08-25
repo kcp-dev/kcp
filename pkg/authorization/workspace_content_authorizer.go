@@ -47,10 +47,6 @@ import (
 const (
 	WorkspaceAcccessNotPermittedReason = "workspace access not permitted"
 
-	DecisionNoOpinion = "NoOpinion"
-	DecisionAllowed   = "Allowed"
-	DecisionDenied    = "Denied"
-
 	WorkspaceContentAuditPrefix   = "content.authorization.kcp.dev/"
 	WorkspaceContentAuditDecision = WorkspaceContentAuditPrefix + "decision"
 	WorkspaceContentAuditReason   = WorkspaceContentAuditPrefix + "reason"
@@ -126,6 +122,11 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 				Groups: []string{"system:authenticated"},
 			}
 		}
+		kaudit.AddAuditAnnotations(
+			ctx,
+			WorkspaceContentAuditDecision, DecisionAllowed,
+			WorkspaceContentAuditReason, "deep SAR request",
+		)
 		return a.delegate.Authorize(ctx, attr)
 	}
 
