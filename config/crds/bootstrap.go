@@ -38,6 +38,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/yaml"
 )
 
 //go:embed *.yaml
@@ -174,6 +175,16 @@ func CreateSingle(ctx context.Context, client apiextensionsv1client.CustomResour
 
 		return crdhelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established), nil
 	})
+}
+
+// Unmarshal YAML-decodes the give embedded file name into the target.
+func Unmarshal(fileName string, crd *apiextensionsv1.CustomResourceDefinition) error {
+	bs, err := raw.ReadFile(fileName)
+	if err != nil {
+		return err
+	}
+
+	return yaml.Unmarshal(bs, crd)
 }
 
 func retryRetryableErrors(f func() error) error {
