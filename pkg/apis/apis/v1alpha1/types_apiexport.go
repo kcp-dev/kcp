@@ -206,7 +206,7 @@ func (p PermissionClaim) String() string {
 func (p PermissionClaim) Equal(claim PermissionClaim) bool {
 	return p.Group == claim.Group &&
 		p.Resource == claim.Resource &&
-		p.IdentityHash == p.IdentityHash
+		p.IdentityHash == claim.IdentityHash
 }
 
 // GroupResource identifies a resource.
