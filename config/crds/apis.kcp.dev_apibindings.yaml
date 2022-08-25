@@ -283,19 +283,9 @@ spec:
                   - type
                   type: object
                 type: array
-              phase:
-                description: 'phase is the current phase of the APIBinding: - "":
-                  the APIBinding has just been created, waiting to be bound. - Binding:
-                  the APIBinding is being bound. - Bound: the APIBinding is bound
-                  and the referenced APIs are available in the workspace.'
-                enum:
-                - ""
-                - Binding
-                - Bound
-                type: string
-              requestedPermissionClaims:
-                description: requestedPermissionClaims records the permissions that
-                  the export provider is asking for the binding to grant.
+              exportPermissionClaims:
+                description: exportPermissionClaims records the permissions that the
+                  export provider is asking for the binding to grant.
                 items:
                   description: PermissionClaim identifies an object by GR and identity
                     hash. It's purpose is to determine the added permisions that a
@@ -324,6 +314,16 @@ spec:
                   - resource
                   type: object
                 type: array
+              phase:
+                description: 'phase is the current phase of the APIBinding: - "":
+                  the APIBinding has just been created, waiting to be bound. - Binding:
+                  the APIBinding is being bound. - Bound: the APIBinding is bound
+                  and the referenced APIs are available in the workspace.'
+                enum:
+                - ""
+                - Binding
+                - Bound
+                type: string
             type: object
         type: object
     served: true

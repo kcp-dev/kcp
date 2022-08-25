@@ -171,10 +171,10 @@ type APIBindingStatus struct {
 	// +optional
 	AppliedPermissionClaims []PermissionClaim `json:"appliedPermissionClaims,omitempty"`
 
-	// requestedPermissionClaims records the permissions that the export provider is asking for
+	// exportPermissionClaims records the permissions that the export provider is asking for
 	// the binding to grant.
 	// +optional
-	RequestedPermissionClaims []PermissionClaim `json:"requestedPermissionClaims,omitempty"`
+	ExportPermissionClaims []PermissionClaim `json:"exportPermissionClaims,omitempty"`
 }
 
 // These are valid conditions of APIBinding.

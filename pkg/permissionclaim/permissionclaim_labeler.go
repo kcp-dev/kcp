@@ -23,7 +23,6 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
@@ -36,23 +35,14 @@ import (
 // Labeler calculates labels to apply to all instances of a cluster-group-resource based on permission claims.
 type Labeler struct {
 	listAPIBindingsAcceptingClaimedGroupResource func(clusterName logicalcluster.Name, groupResource schema.GroupResource) ([]*apisv1alpha1.APIBinding, error)
-	getAPIExport                                 func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error)
 }
 
 // NewLabeler returns a new Labeler.
-func NewLabeler(
-	apiBindingInformer apisinformers.APIBindingInformer,
-	apiExportInformer apisinformers.APIExportInformer,
-) *Labeler {
+func NewLabeler(apiBindingInformer apisinformers.APIBindingInformer) *Labeler {
 	return &Labeler{
 		listAPIBindingsAcceptingClaimedGroupResource: func(clusterName logicalcluster.Name, groupResource schema.GroupResource) ([]*apisv1alpha1.APIBinding, error) {
 			indexKey := indexers.ClusterAndGroupResourceValue(clusterName, groupResource)
 			return indexers.ByIndex[*apisv1alpha1.APIBinding](apiBindingInformer.Informer().GetIndexer(), indexers.APIBindingByClusterAndAcceptedClaimedGroupResources, indexKey)
-		},
-
-		getAPIExport: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
-			key := clusters.ToClusterAwareKey(clusterName, name)
-			return apiExportInformer.Lister().Get(key)
 		},
 	}
 }
@@ -79,20 +69,13 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 		}
 
 		boundAPIExportWorkspace := binding.Status.BoundAPIExport.Workspace
-		export, err := l.getAPIExport(logicalcluster.New(boundAPIExportWorkspace.Path), boundAPIExportWorkspace.ExportName)
-		if err != nil {
-			logger.Error(err, "error getting APIExport", "exportCluster", boundAPIExportWorkspace.Path, "exportName", boundAPIExportWorkspace.ExportName)
-			continue
-		}
 
-		logger = logging.WithObject(logger, export)
-
-		for _, claim := range export.Spec.PermissionClaims {
+		for _, claim := range binding.Status.ExportPermissionClaims {
 			if claim.Group != groupResource.Group || claim.Resource != groupResource.Resource {
 				continue
 			}
 
-			k, v, err := permissionclaims.ToLabelKeyAndValue(logicalcluster.From(export), export.Name, claim)
+			k, v, err := permissionclaims.ToLabelKeyAndValue(logicalcluster.New(boundAPIExportWorkspace.Path), boundAPIExportWorkspace.ExportName, claim)
 			if err != nil {
 				// extremely unlikely to get an error here - it means the json marshaling failed
 				logger.Error(err, "error calculating permission claim label key and value",
