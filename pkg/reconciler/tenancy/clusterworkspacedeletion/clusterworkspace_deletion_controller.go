@@ -154,7 +154,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	if errors.As(err, &estimate) {
 		t := estimate.Estimate/2 + 1
 		duration := time.Duration(t) * time.Second
-		logger.V(2).Error(err, "content remaining in workspace after a wait, waiting more to continue", key, "duration", time.Since(startTime), "waiting", duration)
+		logger.V(2).Error(err, "content remaining in workspace after a wait, waiting more to continue", "duration", time.Since(startTime), "waiting", duration)
 
 		c.queue.AddAfter(key, duration)
 	} else {
@@ -247,7 +247,7 @@ func (c *Controller) finalizeWorkspace(ctx context.Context, workspace *tenancyv1
 		if workspace.Finalizers[i] == deletion.WorkspaceFinalizer {
 			workspace.Finalizers = append(workspace.Finalizers[:i], workspace.Finalizers[i+1:]...)
 
-			logger.V(2).Info("removing finalizer from ClusterWorkspace", logicalcluster.From(workspace), workspace.Name)
+			logger.V(2).Info("removing finalizer from ClusterWorkspace")
 			_, err := c.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Update(
 				logicalcluster.WithCluster(ctx, logicalcluster.From(workspace)), workspace, metav1.UpdateOptions{})
 			return err

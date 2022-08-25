@@ -30,6 +30,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	configcrds "github.com/kcp-dev/kcp/config/crds"
+	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 // SystemCRDLogicalCluster holds a logical cluster name under which we store system-related CRDs.
@@ -60,7 +61,7 @@ func Bootstrap(ctx context.Context, apiExtensionsClusterClient apiextensionsclie
 		for _, crd := range crds {
 			err := configcrds.CreateSingle(ctx, apiExtensionsClusterClient.Cluster(SystemCRDLogicalCluster).ApiextensionsV1().CustomResourceDefinitions(), crd)
 			if err != nil {
-				logger.Error(err, "failed to create CustomResourceDefinition", crd.Name)
+				logging.WithObject(logger, crd).Error(err, "failed to create CustomResourceDefinition")
 				return false, nil
 			}
 		}

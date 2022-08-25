@@ -183,7 +183,7 @@ func (c *Controller) createLeafs(ctx context.Context, root *appsv1.Deployment) e
 		if _, err := c.kubeClient.AppsV1().Deployments(root.Namespace).Create(ctx, vd, metav1.CreateOptions{}); err != nil {
 			return err
 		}
-		logger.WithValues(logging.FromPrefix("child", vd)).Info("created child Deployment")
+		logger.WithValues(logging.FromPrefix("child", vd)...).Info("created child Deployment")
 	}
 
 	return nil

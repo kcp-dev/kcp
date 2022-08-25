@@ -281,7 +281,7 @@ func (s *Server) Run(ctx context.Context) error {
 					logger.Error(err, "failed updating ClusterWorkspaceShard in the root workspace")
 					return false, nil
 				}
-				logger.Info("updated ClusterWorkspaceShard resource in the root workspace", shard.Name)
+				logger.Info("updated ClusterWorkspaceShard resource in the root workspace")
 				return true, nil
 			}); err != nil {
 				logger.Error(err, "failed reconciling ClusterWorkspaceShard resource in the root workspace")
