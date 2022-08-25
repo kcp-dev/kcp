@@ -326,7 +326,23 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 	bindConsumerToProviderWithPermissionClaims(ctx, consumerWorkspace, serviceProviderWorkspace, t, kcpClusterClient, cfg, identityHash)
 
 	framework.Eventually(t, func() (success bool, reason string) {
-		// Get the binding and make sure that observed permission claims are all set.
+		// Get the binding and make sure that observed export permission claims are all set.
+		binding, err := kcpClusterClient.ApisV1alpha1().APIBindings().Get(logicalcluster.WithCluster(ctx, consumerWorkspace), "cowboys", metav1.GetOptions{})
+		if err != nil {
+			return false, err.Error()
+		}
+
+		for _, claim := range binding.Status.ExportPermissionClaims {
+			if claim.IdentityHash == identityHash {
+				return true, "found observed accepted claim for identity"
+			}
+		}
+		return false, "unable to find observed accepted claim"
+
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "unable to find observed exported permission claim for identityHash")
+
+	framework.Eventually(t, func() (success bool, reason string) {
+		// Get the binding and make sure that observed applied permission claims are all set.
 		binding, err := kcpClusterClient.ApisV1alpha1().APIBindings().Get(logicalcluster.WithCluster(ctx, consumerWorkspace), "cowboys", metav1.GetOptions{})
 		if err != nil {
 			return false, err.Error()
