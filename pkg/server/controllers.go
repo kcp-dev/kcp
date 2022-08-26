@@ -642,7 +642,6 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 		dynamicClusterClient,
 		ddsif,
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
-		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
 	)
 	if err != nil {
 		return err

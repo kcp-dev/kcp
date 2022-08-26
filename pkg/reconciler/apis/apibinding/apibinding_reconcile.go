@@ -375,6 +375,9 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 
 	apiBinding.Status.BoundAPIExport = &apiBinding.Spec.Reference
 
+	// Now that the Export is valid and is marked as such, we will add all the claims requested to the status.
+	apiBinding.Status.ExportPermissionClaims = apiExport.Spec.PermissionClaims
+
 	if len(needToWaitForRequeueWhenEstablished) > 0 {
 		sort.Strings(needToWaitForRequeueWhenEstablished)
 
