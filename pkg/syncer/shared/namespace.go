@@ -47,11 +47,11 @@ type SyncTargetLocator struct {
 	UID            types.UID `json:"uid"`
 }
 
-func NewNamespaceLocator(workspace, syncTargetWorkspace logicalcluster.Name, syncTargetUID types.UID, workloadLogicalClusterName, upstreamNamespace string) NamespaceLocator {
+func NewNamespaceLocator(workspace, syncTargetWorkspace logicalcluster.Name, syncTargetUID types.UID, syncTargetName, upstreamNamespace string) NamespaceLocator {
 	return NamespaceLocator{
 		SyncTarget: SyncTargetLocator{
 			Workspace: syncTargetWorkspace.String(),
-			Name:      workloadLogicalClusterName,
+			Name:      syncTargetName,
 			UID:       syncTargetUID,
 		},
 		Workspace: workspace,
@@ -59,11 +59,11 @@ func NewNamespaceLocator(workspace, syncTargetWorkspace logicalcluster.Name, syn
 	}
 }
 
-func NewNamespaceLocatorV060(workspace, syncTargetWorkspace logicalcluster.Name, syncTargetUID types.UID, workloadLogicalClusterName, upstreamNamespace string) NamespaceLocator {
+func NewNamespaceLocatorV060(workspace, syncTargetWorkspace logicalcluster.Name, syncTargetUID types.UID, syncTargetName, upstreamNamespace string) NamespaceLocator {
 	return NamespaceLocator{
 		SyncTarget: SyncTargetLocator{
 			DeprecatedPath: syncTargetWorkspace.String(),
-			Name:           workloadLogicalClusterName,
+			Name:           syncTargetName,
 			UID:            syncTargetUID,
 		},
 		Workspace: workspace,
