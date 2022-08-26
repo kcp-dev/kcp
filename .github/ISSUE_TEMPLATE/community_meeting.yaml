@@ -2,7 +2,7 @@ name: Community Meeting Agenda
 description: Create a new weekly meeting agenda
 title: "Community Meeting [DATE]"
 labels:
-  - "community-meeting"
+  - community-meeting
 body:
   - type: markdown
     attributes:

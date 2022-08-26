@@ -2,7 +2,7 @@ name: Bug Report
 description: Create a report to help us improve
 title: "bug: "
 labels:
-  - "bug"
+  - kind/bug
 body:
   - type: textarea
     id: description
