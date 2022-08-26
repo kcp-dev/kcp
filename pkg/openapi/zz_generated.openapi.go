@@ -1263,6 +1263,20 @@ func schema_pkg_apis_apis_v1alpha1_APIBindingStatus(ref common.ReferenceCallback
 							},
 						},
 					},
+					"exportPermissionClaims": {
+						SchemaProps: spec.SchemaProps{
+							Description: "exportPermissionClaims records the permissions that the export provider is asking for the binding to grant.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.PermissionClaim"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},

@@ -48,7 +48,6 @@ type mutatingPermissionClaims struct {
 	*admission.Handler
 
 	apiBindingsHasSynced cache.InformerSynced
-	apiExportsHasSynced  cache.InformerSynced
 
 	permissionClaimLabeler *permissionclaim.Labeler
 }
@@ -68,7 +67,7 @@ func NewMutatingPermissionClaims() admission.MutationInterface {
 
 	p.SetReadyFunc(
 		func() bool {
-			return p.apiBindingsHasSynced() && p.apiExportsHasSynced()
+			return p.apiBindingsHasSynced()
 		},
 	)
 
@@ -166,20 +165,15 @@ func (m *mutatingPermissionClaims) Validate(ctx context.Context, a admission.Att
 // SetKcpInformers implements the WantsExternalKcpInformerFactory interface.
 func (m *mutatingPermissionClaims) SetKcpInformers(f kcpinformers.SharedInformerFactory) {
 	m.apiBindingsHasSynced = f.Apis().V1alpha1().APIBindings().Informer().HasSynced
-	m.apiExportsHasSynced = f.Apis().V1alpha1().APIExports().Informer().HasSynced
 
 	m.permissionClaimLabeler = permissionclaim.NewLabeler(
 		f.Apis().V1alpha1().APIBindings(),
-		f.Apis().V1alpha1().APIExports(),
 	)
 }
 
 func (m *mutatingPermissionClaims) ValidateInitialization() error {
 	if m.apiBindingsHasSynced == nil {
 		return errors.New("missing apiBindingsHasSynced")
-	}
-	if m.apiExportsHasSynced == nil {
-		return errors.New("missing apiExportsHasSynced")
 	}
 	if m.permissionClaimLabeler == nil {
 		return errors.New("missing permissionClaimLabeler")
