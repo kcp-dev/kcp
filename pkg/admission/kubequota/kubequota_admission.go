@@ -187,9 +187,10 @@ func (k *KubeResourceQuota) getOrCreateDelegate(clusterName logicalcluster.Name)
 		stop:           cancel,
 	}
 
-	delegate.SetResourceQuotaLister(k.scopingResourceQuotaInformer.ForCluster(clusterName).Lister())
+	delegate.SetResourceQuotaInformer(k.scopingResourceQuotaInformer.ForCluster(clusterName))
 	delegate.SetExternalKubeClientSet(k.kubeClusterClient.Cluster(clusterName))
 	delegate.SetQuotaConfiguration(k.quotaConfiguration)
+	delegate.SetClusterName(clusterName)
 
 	if err := delegate.ValidateInitialization(); err != nil {
 		cancel()
