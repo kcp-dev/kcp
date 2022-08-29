@@ -46,7 +46,7 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
 	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned"
-	wildwestclient "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/typed/wildwest/v1alpha1"
+	wildwestv1alpha1client "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/typed/wildwest/v1alpha1"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -57,7 +57,7 @@ func TestClusterController(t *testing.T) {
 	t.Parallel()
 
 	type runningServer struct {
-		client     wildwestclient.WildwestV1alpha1Interface
+		client     wildwestv1alpha1client.WildwestV1alpha1Interface
 		coreClient corev1client.CoreV1Interface
 	}
 	var testCases = []struct {
