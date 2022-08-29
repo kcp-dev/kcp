@@ -41,6 +41,7 @@ import (
 
 	configcrds "github.com/kcp-dev/kcp/config/crds"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
@@ -305,6 +306,112 @@ func TestKubeQuotaNormalCRDs(t *testing.T) {
 			return apierrors.IsForbidden(err), fmt.Sprintf("%v", err)
 		}, wait.ForeverTestTimeout, 100*time.Millisecond, "quota never rejected sheriff creation")
 
+	}
+}
+
+func TestClusterScopedQuota(t *testing.T) {
+	t.Parallel()
+
+	server := framework.SharedKcpServer(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	cfg := server.BaseConfig(t)
+
+	kubeClusterClient, err := kubernetes.NewForConfig(cfg)
+	require.NoError(t, err, "error creating kube cluster client")
+
+	kcpClusterClient, err := kcpclient.NewForConfig(cfg)
+	require.NoError(t, err, "error creating kcp cluster client")
+
+	orgClusterName := framework.NewOrganizationFixture(t, server)
+
+	// Create more than 1 workspace with the same quota restrictions to validate that after we create the first workspace
+	// and fill its quota to capacity, subsequent workspaces have independent quota.
+	for i := 0; i < 3; i++ {
+		ws := framework.NewWorkspaceFixture(t, server, orgClusterName, framework.WithName("quota-%d", i))
+
+		const adminNamespace = "admin"
+		t.Logf("Creating %q namespace %q", ws, adminNamespace)
+		framework.Eventually(t, func() (success bool, reason string) {
+			ns := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: adminNamespace,
+				},
+			}
+
+			_, err := kubeClusterClient.CoreV1().Namespaces().Create(logicalcluster.WithCluster(ctx, ws), ns, metav1.CreateOptions{})
+			return err == nil || apierrors.IsAlreadyExists(err), fmt.Sprintf("%v", err)
+		}, wait.ForeverTestTimeout, 100*time.Millisecond, "error creating %q namespace", adminNamespace)
+
+		t.Logf("Creating a child workspace in %q to make sure the quota controller counts it", ws)
+		_ = framework.NewWorkspaceFixture(t, server, ws, framework.WithName("child"))
+
+		const quotaName = "cluster-scoped"
+		quota := &corev1.ResourceQuota{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: quotaName,
+				Annotations: map[string]string{
+					"experimental.quota.kcp.dev/cluster-scoped": "true",
+				},
+			},
+			Spec: corev1.ResourceQuotaSpec{
+				Hard: map[corev1.ResourceName]resource.Quantity{
+					"count/configmaps":                        resource.MustParse("3"),
+					"count/clusterworkspaces.tenancy.kcp.dev": resource.MustParse("2"),
+				},
+			},
+		}
+
+		t.Logf("Creating cluster-scoped quota in %q", ws)
+		quota, err = kubeClusterClient.CoreV1().ResourceQuotas(adminNamespace).Create(logicalcluster.WithCluster(ctx, ws), quota, metav1.CreateOptions{})
+		require.NoError(t, err, "error creating quota in %q", ws)
+
+		t.Logf("Waiting for %q quota to show usage", ws)
+		framework.Eventually(t, func() (bool, string) {
+			quota, err = kubeClusterClient.CoreV1().ResourceQuotas(adminNamespace).Get(logicalcluster.WithCluster(ctx, ws), quotaName, metav1.GetOptions{})
+			require.NoError(t, err, "Error getting %q quota: %v", ws, err)
+
+			used, ok := quota.Status.Used["count/configmaps"]
+			if !ok {
+				return false, fmt.Sprintf("waiting for %q count/configmaps to show up in used", ws)
+			}
+			// 1 for each kube-root-ca.crt x 2 namespaces = 2
+			if !used.Equal(resource.MustParse("2")) {
+				return false, fmt.Sprintf("waiting for %q count/configmaps %v to be 2", ws, used)
+			}
+
+			used, ok = quota.Status.Used["count/clusterworkspaces.tenancy.kcp.dev"]
+			if !ok {
+				return false, fmt.Sprintf("waiting for %q count/clusterworkspaces.tenancy.kcp.dev to show up in used", ws)
+			}
+			if !used.Equal(resource.MustParse("1")) {
+				return false, fmt.Sprintf("waiting for %q count/clusterworkspaces.tenancy.kcp.dev %v to be 1", ws, used)
+			}
+
+			return true, ""
+		}, wait.ForeverTestTimeout, 100*time.Millisecond, "error waiting for 1 used configmaps")
+
+		t.Logf("Make sure quota is enforcing configmap limits for %q", ws)
+		framework.Eventually(t, func() (bool, string) {
+			t.Logf("Trying to create a configmap in %q", ws)
+			cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{GenerateName: "quota-"}}
+			_, err = kubeClusterClient.CoreV1().ConfigMaps("default").Create(logicalcluster.WithCluster(ctx, ws), cm, metav1.CreateOptions{})
+			return apierrors.IsForbidden(err), fmt.Sprintf("%v", err)
+		}, wait.ForeverTestTimeout, 100*time.Millisecond, "quota never rejected configmap creation in %q", ws)
+
+		t.Logf("Make sure quota is enforcing clusterworkspace limits for %q", ws)
+		framework.Eventually(t, func() (bool, string) {
+			t.Logf("Trying to create a clusterworkspace in %q", ws)
+			childWS := &tenancyv1alpha1.ClusterWorkspace{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "child-",
+				},
+			}
+			_, err = kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Create(logicalcluster.WithCluster(ctx, ws), childWS, metav1.CreateOptions{})
+			return apierrors.IsForbidden(err), fmt.Sprintf("%v", err)
+		}, wait.ForeverTestTimeout, 100*time.Millisecond, "quota never rejected clusterworkspace creation in %q", ws)
 	}
 }
 

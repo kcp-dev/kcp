@@ -192,8 +192,19 @@ type scopedGenericNamespaceLister struct {
 // List lists all instances from the cache.Indexer scoped to a single logical cluster and namespace, and matching
 // selector.
 func (s *scopedGenericNamespaceLister) List(selector labels.Selector) (ret []runtime.Object, err error) {
-	indexValue := clusters.ToClusterAwareKey(s.clusterName, s.namespace)
-	err = listByIndex(s.indexer, indexers.ByLogicalClusterAndNamespace, indexValue, selector, func(obj interface{}) {
+	// To support e.g. quota for cluster-scoped resources, we've hacked the k8s quota to use namespace="" when
+	// checking quota for cluster-scoped resources. But because all the upstream quota code is written to only
+	// support namespace-scoped resources, we have to hack the "namespace lister" to support returning all items
+	// when its namespace is "".
+	var indexName, indexValue string
+	if s.namespace == "" {
+		indexName = indexers.ByLogicalCluster
+		indexValue = s.clusterName.String()
+	} else {
+		indexName = indexers.ByLogicalClusterAndNamespace
+		indexValue = clusters.ToClusterAwareKey(s.clusterName, s.namespace)
+	}
+	err = listByIndex(s.indexer, indexName, indexValue, selector, func(obj interface{}) {
 		ret = append(ret, obj.(runtime.Object))
 	})
 	return ret, err
