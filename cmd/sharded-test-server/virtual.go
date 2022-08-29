@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -31,10 +32,10 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
-func startVirtual(ctx context.Context, logFilePath string) error {
-	klog.Infof("Starting virtual-workspaces standalone server")
+func startVirtual(ctx context.Context, index int, logDirPath string) (<-chan error, error) {
+	klog.Infof("Starting virtual-workspaces standalone server %d", index)
 
-	prefix := "vw"
+	prefix := fmt.Sprintf("VW-%d", index)
 	yellow := color.New(color.BgYellow, color.FgHiWhite).SprintFunc()
 	out := lineprefix.New(
 		lineprefix.Prefix(yellow(prefix)),
@@ -44,9 +45,9 @@ func startVirtual(ctx context.Context, logFilePath string) error {
 	commandLine := framework.DirectOrGoRunCommand("virtual-workspaces")
 	commandLine = append(
 		commandLine,
-		"--kubeconfig=.kcp-0/admin.kubeconfig",
+		fmt.Sprintf("--kubeconfig=.kcp-%d/admin.kubeconfig", index),
 		"--context=system:admin",
-		"--authentication-kubeconfig=.kcp-0/admin.kubeconfig",
+		fmt.Sprintf("--authentication-kubeconfig=.kcp-%d/admin.kubeconfig", index),
 		"--authentication-skip-lookup",
 		"--client-ca-file=.kcp/client-ca.crt",
 		"--tls-private-key-file=.kcp/serving-ca.key",
@@ -54,17 +55,18 @@ func startVirtual(ctx context.Context, logFilePath string) error {
 		"--requestheader-client-ca-file=.kcp/requestheader-ca.crt",
 		"--requestheader-username-headers=X-Remote-User",
 		"--requestheader-group-headers=X-Remote-Group",
-		"--secure-port=7444",
+		fmt.Sprintf("--secure-port=%d", 7444+index),
 	)
 
 	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...)
 
+	logFilePath := filepath.Join(logDirPath, fmt.Sprintf(".kcp-virtual-workspaces-%d", index), "out.log")
 	if err := os.MkdirAll(filepath.Dir(logFilePath), 0755); err != nil {
-		return err
+		return nil, err
 	}
 	logFile, err := os.OpenFile(logFilePath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	writer := helpers.NewHeadWriter(logFile, out)
@@ -73,8 +75,13 @@ func startVirtual(ctx context.Context, logFilePath string) error {
 	cmd.Stderr = writer
 
 	if err := cmd.Start(); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	terminatedCh := make(chan error, 1)
+	go func() {
+		terminatedCh <- cmd.Wait()
+	}()
+
+	return terminatedCh, nil
 }

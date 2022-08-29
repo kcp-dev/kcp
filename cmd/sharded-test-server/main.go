@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"path/filepath"
 	"strings"
 
 	machineryutilnet "k8s.io/apimachinery/pkg/util/net"
@@ -134,10 +133,20 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	}
 
 	vwPort := "6444"
+	virtualWorkspacesErrCh := make(chan shardErrTuple)
 	if standaloneVW {
+		// TODO: support multiple virtual workspace servers (i.e. multiple ports)
 		vwPort = "7444"
-		if err := startVirtual(ctx, filepath.Join(".kcp-virtual-workspaces", "out.log")); err != nil {
-			return err
+
+		for i := 0; i < numberOfShards; i++ {
+			virtualWorkspaceErrCh, err := startVirtual(ctx, i, logDirPath)
+			if err != nil {
+				return fmt.Errorf("error starting virtual workspaces server %d: %w", i, err)
+			}
+			go func(vwIndex int, vwErrCh <-chan error) {
+				err := <-virtualWorkspaceErrCh
+				virtualWorkspacesErrCh <- shardErrTuple{vwIndex, err}
+			}(i, virtualWorkspaceErrCh)
 		}
 	}
 
@@ -149,6 +158,8 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	select {
 	case shardIndexErr := <-shardsErrCh:
 		return fmt.Errorf("shard %d exited: %w", shardIndexErr.index, shardIndexErr.error)
+	case vwIndexErr := <-virtualWorkspacesErrCh:
+		return fmt.Errorf("virtual workspaces %d exited: %w", vwIndexErr.index, vwIndexErr.error)
 	case <-ctx.Done():
 	}
 	return nil
