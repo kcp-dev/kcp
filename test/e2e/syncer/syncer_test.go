@@ -326,6 +326,33 @@ func TestSyncerLifecycle(t *testing.T) {
 		return false
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "upstream Deployment %s/%s was not deleted", upstreamNamespace.Name, upstreamDeployment.Name)
 
+	t.Logf("Deleting upstream namespace %s", upstreamNamespace.Name)
+	err = upstreamKubeClusterClient.CoreV1().Namespaces().Delete(logicalcluster.WithCluster(ctx, wsClusterName), upstreamNamespace.Name, metav1.DeleteOptions{})
+	require.NoError(t, err)
+
+	t.Logf("Checking if upstream namespace %s to be deleted", upstreamNamespace.Name)
+	framework.Eventually(t, func() (bool, string) {
+		_, err := upstreamKubeClusterClient.CoreV1().Namespaces().Get(logicalcluster.WithCluster(ctx, wsClusterName), upstreamNamespace.Name, metav1.GetOptions{})
+		if apierrors.IsNotFound(err) {
+			return true, ""
+		}
+		require.NoError(t, err)
+		return false, ""
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "upstream Namespace %s was not deleted", upstreamNamespace.Name)
+
+	t.Logf("Waiting for downstream namespace %s to be marked for deletion or deleted", downstreamNamespaceName)
+	framework.Eventually(t, func() (bool, string) {
+		namespace, err := downstreamKubeClient.CoreV1().Namespaces().Get(ctx, downstreamNamespaceName, metav1.GetOptions{})
+		if apierrors.IsNotFound(err) {
+			return true, "namespace was deleted"
+		}
+		require.NoError(t, err)
+		if namespace.DeletionTimestamp != nil {
+			return true, "deletionTimestamp is set."
+		}
+		return false, ""
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "downstream Namespace %s was not marked for deletion or deleted", downstreamNamespaceName)
+
 }
 
 func dumpPodEvents(t *testing.T, startAfter time.Time, downstreamKubeClient *kubernetesclientset.Clientset, downstreamNamespaceName string) time.Time {
