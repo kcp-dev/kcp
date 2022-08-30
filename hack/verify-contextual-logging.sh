@@ -26,13 +26,13 @@ LOGCHECK=${LOGCHECK:-logcheck}
 cd "$REPO_ROOT"
 
 set +o errexit
-${LOGCHECK} -check-contextual ./... > "${work_file}" 2>&1
+${LOGCHECK} -test=false -check-contextual ./... > "${work_file}" 2>&1
 set -o errexit
 
 # pkg/apis is a separate module, so check that in addition to our root packages
 cd "${REPO_ROOT}"/pkg/apis
 set +o errexit
-${LOGCHECK} -check-contextual ./... >> "${work_file}" 2>&1
+${LOGCHECK} -test=false -check-contextual ./... >> "${work_file}" 2>&1
 set -o errexit
 
 if [[ "$( go env GOOS )" == "darwin" ]]; then
