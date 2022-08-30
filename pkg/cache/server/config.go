@@ -94,6 +94,16 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions) (*Config, error) {
 			return nil, err
 		}
 	}
+	// change the storage prefix under which all resources are kept
+	// this allows us to store the same GR under a different
+	// prefix than the kcp server. It is useful when this server
+	// shares the database with a kcp instance.
+	//
+	// It boils down to the following on the storage level:
+	// for listing across shard:  /cache/<group>/<resource>:<identity>/*
+	// for listing for one shard: /cache/<group>/<resource>:<identity>/<shard>/*
+	opts.Etcd.StorageConfig.Prefix = "/cache"
+
 	serverConfig := genericapiserver.NewRecommendedConfig(apiextensionsapiserver.Codecs)
 
 	if err := opts.ServerRunOptions.ApplyTo(&serverConfig.Config); err != nil {
