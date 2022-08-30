@@ -433,6 +433,9 @@ func TestPatch(t *testing.T) {
 	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.New("foo")})
 
 	patcher := func(ctx context.Context, newObj, oldObj runtime.Object) (runtime.Object, error) {
+		if oldObj == nil {
+			return nil, errors.NewNotFound(schema.ParseGroupResource("noxus.mygroup.example.com"), "foo")
+		}
 		updated := oldObj.DeepCopyObject().(*unstructured.Unstructured)
 		newReplicas, _, err := unstructured.NestedInt64(updated.UnstructuredContent(), "spec", "replicas")
 		if err != nil {
