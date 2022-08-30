@@ -52,6 +52,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
+	"github.com/kcp-dev/kcp/pkg/projection"
 )
 
 const (
@@ -400,6 +401,13 @@ func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *t
 	}
 	deleteContentErrs := []error{}
 	for gvr, verbs := range groupVersionResources {
+		// Don't try to delete projected resources such as tenancy.kcp.dev v1beta1 Workspaces - these are virtual
+		// projections and we shouldn't try to delete them. The projections will disappear when the real underlying
+		// data (e.g. ClusterWorkspaces) are deleted.
+		if projection.Includes(gvr) {
+			continue
+		}
+
 		gvrDeletionMetadata, err := d.deleteAllContentForGroupVersionResource(ctx, wsClusterName, gvr, verbs, workspaceDeletedAt)
 		if err != nil {
 			// If there is an error, hold on to it but proceed with all the remaining

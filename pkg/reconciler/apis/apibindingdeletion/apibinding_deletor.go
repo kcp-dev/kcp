@@ -30,6 +30,7 @@ import (
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/projection"
 )
 
 type gvrDeletionMetadata struct {
@@ -58,6 +59,13 @@ func (c *Controller) deleteAllCRs(ctx context.Context, apibinding *apisv1alpha1.
 				Group:    resource.Group,
 				Resource: resource.Resource,
 				Version:  version,
+			}
+
+			// Don't try to delete projected resources such as tenancy.kcp.dev v1beta1 Workspaces - these are virtual
+			// projections and we shouldn't try to delete them. The projections will disappear when the real underlying
+			// data (e.g. ClusterWorkspaces) are deleted.
+			if projection.Includes(gvr) {
+				continue
 			}
 
 			logger = logger.WithValues("gvr", gvr.String())
