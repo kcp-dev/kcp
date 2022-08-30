@@ -33,7 +33,8 @@ import (
 )
 
 func startVirtual(ctx context.Context, index int, logDirPath string) (<-chan error, error) {
-	klog.Infof("Starting virtual-workspaces standalone server %d", index)
+	logger := klog.FromContext(ctx)
+	logger.Info("starting virtual-workspaces standalone server", "index", index)
 
 	prefix := fmt.Sprintf("VW-%d", index)
 	yellow := color.New(color.BgYellow, color.FgHiWhite).SprintFunc()
