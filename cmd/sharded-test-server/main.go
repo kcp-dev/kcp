@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	machineryutilnet "k8s.io/apimachinery/pkg/util/net"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authentication/user"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 
@@ -37,7 +38,7 @@ func main() {
 	workDirPath := flag.String("work-dir-path", "", "Path to the working directory where the .kcp* dot directories are created. If empty, the working directory is the current directory.")
 	numberOfShards := flag.Int("number-of-shards", 1, "The number of shards to create. The first created is assumed root.")
 
-	// split flags into --proxy-*, --shard-* and everything elese (generic). The former are
+	// split flags into --proxy-*, --shard-* and everything else (generic). The former are
 	// passed to the respective components.
 	var proxyFlags, shardFlags, genericFlags []string
 	for _, arg := range os.Args[1:] {
@@ -107,6 +108,11 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		return err
 	}
 
+	standaloneVW := sets.NewString(shardFlags...).Has("--run-virtual-workspaces=false")
+	if standaloneVW {
+		shardFlags = append(shardFlags, fmt.Sprintf("--shard-virtual-workspace-url=https://%s:7444", hostIP))
+	}
+
 	// start shards
 	shardsErrCh := make(chan shardErrTuple)
 	for i := 0; i < numberOfShards; i++ {
@@ -126,14 +132,34 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		return err
 	}
 
+	vwPort := "6444"
+	virtualWorkspacesErrCh := make(chan shardErrTuple)
+	if standaloneVW {
+		// TODO: support multiple virtual workspace servers (i.e. multiple ports)
+		vwPort = "7444"
+
+		for i := 0; i < numberOfShards; i++ {
+			virtualWorkspaceErrCh, err := startVirtual(ctx, i, logDirPath)
+			if err != nil {
+				return fmt.Errorf("error starting virtual workspaces server %d: %w", i, err)
+			}
+			go func(vwIndex int, vwErrCh <-chan error) {
+				err := <-virtualWorkspaceErrCh
+				virtualWorkspacesErrCh <- shardErrTuple{vwIndex, err}
+			}(i, virtualWorkspaceErrCh)
+		}
+	}
+
 	// start front-proxy
-	if err := startFrontProxy(ctx, proxyFlags, servingCA, hostIP.String(), logDirPath, workDirPath); err != nil {
+	if err := startFrontProxy(ctx, proxyFlags, servingCA, hostIP.String(), logDirPath, workDirPath, vwPort); err != nil {
 		return err
 	}
 
 	select {
 	case shardIndexErr := <-shardsErrCh:
 		return fmt.Errorf("shard %d exited: %w", shardIndexErr.index, shardIndexErr.error)
+	case vwIndexErr := <-virtualWorkspacesErrCh:
+		return fmt.Errorf("virtual workspaces %d exited: %w", vwIndexErr.index, vwIndexErr.error)
 	case <-ctx.Done():
 	}
 	return nil

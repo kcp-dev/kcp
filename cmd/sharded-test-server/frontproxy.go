@@ -34,6 +34,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/yaml"
 
 	"github.com/kcp-dev/kcp/cmd/sharded-test-server/third_party/library-go/crypto"
 	"github.com/kcp-dev/kcp/cmd/test-server/helpers"
@@ -41,7 +42,14 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
-func startFrontProxy(ctx context.Context, args []string, servingCA *crypto.CA, hostIP string, logDirPath, workDirPath string) error {
+func startFrontProxy(
+	ctx context.Context,
+	args []string,
+	servingCA *crypto.CA,
+	hostIP string,
+	logDirPath, workDirPath string,
+	vwPort string,
+) error {
 	blue := color.New(color.BgGreen, color.FgBlack).SprintFunc()
 	inverse := color.New(color.BgHiWhite, color.FgGreen).SprintFunc()
 	out := lineprefix.New(
@@ -53,18 +61,39 @@ func startFrontProxy(ctx context.Context, args []string, servingCA *crypto.CA, h
 		lineprefix.Color(color.New(color.FgHiWhite)),
 	)
 
-	if err := ioutil.WriteFile(filepath.Join(workDirPath, ".kcp-front-proxy/mapping.yaml"), []byte(`
-- path: /services/
-  backend: https://localhost:6444
-  backend_server_ca: .kcp/serving-ca.crt
-  proxy_client_cert: .kcp-front-proxy/requestheader.crt
-  proxy_client_key: .kcp-front-proxy/requestheader.key
-- path: /clusters/
-  backend: https://localhost:6444
-  backend_server_ca: .kcp/serving-ca.crt
-  proxy_client_cert: .kcp-front-proxy/requestheader.crt
-  proxy_client_key: .kcp-front-proxy/requestheader.key
-`), 0644); err != nil {
+	type mappingEntry struct {
+		Path            string `json:"path"`
+		Backend         string `json:"backend"`
+		BackendServerCA string `json:"backend_server_ca"`
+		ProxyClientCert string `json:"proxy_client_cert"`
+		ProxyClientKey  string `json:"proxy_client_key"`
+	}
+
+	mappings := []mappingEntry{
+		{
+			Path: "/services/",
+			// TODO: support multiple virtual workspace backend servers
+			Backend:         fmt.Sprintf("https://localhost:%s", vwPort),
+			BackendServerCA: ".kcp/serving-ca.crt",
+			ProxyClientCert: ".kcp-front-proxy/requestheader.crt",
+			ProxyClientKey:  ".kcp-front-proxy/requestheader.key",
+		},
+		{
+			Path: "/clusters/",
+			// TODO: support multiple shard backend servers
+			Backend:         "https://localhost:6444",
+			BackendServerCA: ".kcp/serving-ca.crt",
+			ProxyClientCert: ".kcp-front-proxy/requestheader.crt",
+			ProxyClientKey:  ".kcp-front-proxy/requestheader.key",
+		},
+	}
+
+	mappingsYAML, err := yaml.Marshal(mappings)
+	if err != nil {
+		return fmt.Errorf("error marshaling mappings yaml: %w", err)
+	}
+
+	if err := ioutil.WriteFile(filepath.Join(workDirPath, ".kcp-front-proxy/mapping.yaml"), mappingsYAML, 0644); err != nil {
 		return fmt.Errorf("failed to create front-proxy mapping.yaml: %w", err)
 	}
 
