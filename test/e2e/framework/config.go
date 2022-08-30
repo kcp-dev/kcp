@@ -107,7 +107,7 @@ func registerFlags(c *testConfig) {
 // workspace plugin with --kubeconfig.
 func WriteLogicalClusterConfig(t *testing.T, rawConfig clientcmdapi.Config, contextName string, clusterName logicalcluster.Name) (clientcmd.ClientConfig, string) {
 	logicalRawConfig := LogicalClusterRawConfig(rawConfig, clusterName, contextName)
-	artifactDir, err := CreateTempDirForTest(t, "artifacts")
+	artifactDir, _, err := ScratchDirs(t)
 	require.NoError(t, err)
 	pathSafeClusterName := strings.ReplaceAll(clusterName.String(), ":", "_")
 	kubeconfigPath := filepath.Join(artifactDir, fmt.Sprintf("%s.kubeconfig", pathSafeClusterName))

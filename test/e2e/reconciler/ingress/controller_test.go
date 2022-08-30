@@ -323,7 +323,7 @@ func TestIngressController(t *testing.T) {
 			require.NoError(t, err, "failed to pick envoy listener port")
 			xdsListenerPort, err := framework.GetFreePort(t)
 			require.NoError(t, err, "failed to pick xds listener port")
-			artifactDir, err := framework.CreateTempDirForTest(t, "artifacts")
+			artifactDir, _, err := framework.ScratchDirs(t)
 			require.NoError(t, err, "failed to create artifact dir for ingress-controller")
 			kubeconfigPath := filepath.Join(artifactDir, "ingress-controller.kubeconfig")
 			adminConfig, err := source.RawConfig()
