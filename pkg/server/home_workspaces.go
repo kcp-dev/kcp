@@ -270,9 +270,11 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 
 	ctx := req.Context()
 	logger := klog.FromContext(ctx)
-	lcluster, err := request.ValidClusterFrom(ctx)
-	if err != nil {
-		responsewriters.InternalError(rw, req, err)
+	lcluster := request.ClusterFrom(req.Context())
+	if lcluster == nil {
+		// this is not a home workspace request
+		// just pass it to the next handler
+		h.apiHandler.ServeHTTP(rw, req)
 		return
 	}
 	logger = logging.WithCluster(logger, lcluster)
