@@ -49,6 +49,7 @@ import (
 	"k8s.io/klog/v2"
 
 	clusterworkspaceadmission "github.com/kcp-dev/kcp/pkg/admission/clusterworkspace"
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/projection"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
@@ -149,6 +150,7 @@ type localInformersAccess struct {
 	getClusterWorkspace   func(logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error)
 	getClusterRole        func(lcluster logicalcluster.Name, name string) (*rbacv1.ClusterRole, error)
 	getClusterRoleBinding func(lcluster logicalcluster.Name, name string) (*rbacv1.ClusterRoleBinding, error)
+	getAPIBinding         func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error)
 	synced                func() bool
 }
 
@@ -159,6 +161,8 @@ func buildLocalInformersAccess(kubeSharedInformerFactory coreexternalversions.Sh
 	clusterWorkspaceLister := kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces().Lister()
 	crLister := kubeSharedInformerFactory.Rbac().V1().ClusterRoles().Lister()
 	crbLister := kubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings().Lister()
+	apiBindingInformer := kcpSharedInformerFactory.Apis().V1alpha1().APIBindings()
+	apiBindingLister := apiBindingInformer.Lister()
 
 	return localInformersAccess{
 		getClusterWorkspace: func(logicalCluster logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error) {
@@ -171,10 +175,14 @@ func buildLocalInformersAccess(kubeSharedInformerFactory coreexternalversions.Sh
 		getClusterRoleBinding: func(workspace logicalcluster.Name, name string) (*rbacv1.ClusterRoleBinding, error) {
 			return crbLister.Get(clusters.ToClusterAwareKey(workspace, name))
 		},
+		getAPIBinding: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error) {
+			return apiBindingLister.Get(clusters.ToClusterAwareKey(clusterName, name))
+		},
 		synced: func() bool {
 			return clusterWorkspaceInformer.HasSynced() &&
 				crInformer.HasSynced() &&
-				crbInformer.HasSynced()
+				crbInformer.HasSynced() &&
+				apiBindingInformer.Informer().HasSynced()
 		},
 	}
 }
@@ -198,6 +206,7 @@ type homeWorkspaceFeatureLogic struct {
 	createHomeWorkspaceRBACResources                    func(ctx context.Context, userName string, homeWorkspace logicalcluster.Name) error
 	searchForWorkspaceAndRBACInLocalInformers           func(logicalClusterName logicalcluster.Name, isHome bool, userName string) (readyAndRBACAsExpected bool, retryAfterSeconds int, checkError error)
 	tryToCreate                                         func(ctx context.Context, user kuser.Info, workspaceToCheck logicalcluster.Name, workspaceType tenancyv1alpha1.ClusterWorkspaceTypeName) (retryAfterSeconds int, createError error)
+	tenancyAPIBindingReady                              func(logicalClusterName logicalcluster.Name) (bool, error)
 }
 
 type homeWorkspaceHandler struct {
@@ -220,6 +229,24 @@ func (b homeWorkspaceHandlerBuilder) build() *homeWorkspaceHandler {
 		},
 		tryToCreate: func(ctx context.Context, user kuser.Info, logicalClusterName logicalcluster.Name, workspaceType tenancyv1alpha1.ClusterWorkspaceTypeName) (retryAfterSeconds int, createError error) {
 			return tryToCreate(h, ctx, user, logicalClusterName, workspaceType)
+		},
+		tenancyAPIBindingReady: func(logicalClusterName logicalcluster.Name) (bool, error) {
+			binding, err := b.localInformers.getAPIBinding(logicalClusterName, "tenancy.kcp.dev")
+			if err != nil {
+				return false, err
+			}
+
+			if !conditions.IsTrue(binding, apisv1alpha1.InitialBindingCompleted) {
+				return false, nil
+			}
+
+			for _, r := range binding.Status.BoundResources {
+				if r.Group == tenancyv1alpha1.SchemeGroupVersion.Group && r.Resource == "clusterworkspaces" {
+					return true, nil
+				}
+			}
+
+			return false, nil
 		},
 	}
 
@@ -351,6 +378,21 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 				http.Error(rw, "Creating the home workspace", http.StatusTooManyRequests)
 				return
 			}
+
+			if requestInfo.IsResourceRequest && requestInfo.APIGroup == tenancyv1alpha1.SchemeGroupVersion.Group && requestInfo.Resource == "clusterworkspaces" {
+				// If the call to searchForWorkspaceAndRBACInLocalInformers above returns foundLocally=true, and the
+				// request is for clusterworkspaces, there is a chance the tenancy APIBinding is not yet ready (or
+				// the cache is stale). If that is the case, return a retry-after to give the APIBinding cache a
+				// chance to catch up.
+				if ready, err := h.tenancyAPIBindingReady(lcluster.Name); err != nil {
+					responsewriters.InternalError(rw, req, err)
+				} else if !ready {
+					rw.Header().Set("Retry-After", fmt.Sprintf("%d", 1))
+					http.Error(rw, "Creating the home workspace", http.StatusTooManyRequests)
+					return
+				}
+			}
+
 			h.apiHandler.ServeHTTP(rw, req)
 			return
 		}
