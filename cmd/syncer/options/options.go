@@ -87,6 +87,8 @@ func (options *Options) Validate() error {
 	if options.FromKubeconfig == "" {
 		return errors.New("--from-kubeconfig is required")
 	}
-
+	if options.SyncTargetUID == "" {
+		return errors.New("--sync-target-uid is required")
+	}
 	return nil
 }
