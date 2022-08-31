@@ -247,10 +247,8 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	t.Logf("patch (application/merge-patch+json) a cowboy with user-1 via APIExport virtual workspace server")
 	patchedCowboy := cowboy.DeepCopy()
 	patchedCowboy.Spec.Intent = "3"
-	source, err := json.Marshal(cowboy)
-	require.NoError(t, err)
-	target, err := json.Marshal(patchedCowboy)
-	require.NoError(t, err)
+	source := encodeJSON(t, cowboy)
+	target := encodeJSON(t, patchedCowboy)
 	mergePatch, err := jsonpatch.CreateMergePatch(source, target)
 	require.NoError(t, err)
 	cowboy, err = wwUser1VC.WildwestV1alpha1().Cowboys("default").
@@ -260,8 +258,7 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	t.Logf("patch (application/apply-patch+yaml) a cowboy with user-1 via APIExport virtual workspace server")
 	applyCowboy := newCowboy("default", "cowboy-via-vw")
 	applyCowboy.Spec.Intent = "4"
-	applyPatch, err := json.Marshal(applyCowboy)
-	require.NoError(t, err)
+	applyPatch := encodeJSON(t, applyCowboy)
 	cowboy, err = wwUser1VC.WildwestV1alpha1().Cowboys("default").
 		Patch(logicalcluster.WithCluster(ctx, consumerWorkspace), "cowboy-via-vw", types.ApplyPatchType, applyPatch, metav1.PatchOptions{FieldManager: "e2e-test-runner", Force: pointer.Bool(true)})
 	require.NoError(t, err)
@@ -269,8 +266,7 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	t.Logf("create a cowboy with user-1 via APIExport virtual workspace server using Server-Side Apply")
 	cowboySSA := newCowboy("default", "cowboy-via-vw-ssa")
 	cowboySSA.Spec.Intent = "1"
-	applyPatch, err = json.Marshal(cowboySSA)
-	require.NoError(t, err)
+	applyPatch = encodeJSON(t, cowboySSA)
 	cowboy, err = wwUser1VC.WildwestV1alpha1().Cowboys("default").
 		Patch(logicalcluster.WithCluster(ctx, consumerWorkspace), "cowboy-via-vw-ssa", types.ApplyPatchType, applyPatch, metav1.PatchOptions{FieldManager: "e2e-test-runner"})
 	require.NoError(t, err)
