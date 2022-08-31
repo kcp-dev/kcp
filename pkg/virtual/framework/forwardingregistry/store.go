@@ -24,7 +24,6 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -183,9 +182,12 @@ func DefaultDynamicDelegatedStoreFuncs(
 		doUpdate := func() (*unstructured.Unstructured, error) {
 			oldObj, err := s.Get(ctx, name, &metav1.GetOptions{})
 			if err != nil {
-				// Continue on 404 for PATCH requests, so server-side apply requests
+				// Continue on 404 when forceAllowCreate is enabled,
+				// or for PATCH requests, so server-side apply requests
 				// for non-existent objects can still be processed.
-				if !(requestInfo != nil && requestInfo.Verb == "patch" && apierrors.IsNotFound(err)) {
+				if !apierrors.IsNotFound(err) ||
+					!forceAllowCreate &&
+						!(requestInfo != nil && requestInfo.Verb == "patch") {
 					return nil, err
 				}
 				oldObj = nil
@@ -201,12 +203,10 @@ func DefaultDynamicDelegatedStoreFuncs(
 				return nil, fmt.Errorf("not an Unstructured: %T", obj)
 			}
 
-			// If the updated object does not have a CreationTimestamp, it means it doesn't currently exist.
-			// In that case, we switch to calling a create operation on the forwarding registry.
-			// This enables support for server-side apply requests, to create non-existent objects.
-			if exists, err := hasCreationTimestamp(unstructuredObj); err != nil {
-				return nil, err
-			} else if !exists {
+			if oldObj == nil {
+				// The object does not currently exist.
+				// We switch to calling a create operation on the forwarding registry.
+				// This enables support for server-side apply requests, to create non-existent objects.
 				return delegate.Create(ctx, unstructuredObj, updateToCreateOptions(options), subResources...)
 			}
 			return delegate.Update(ctx, unstructuredObj, *options, subResources...)
@@ -299,21 +299,4 @@ func updateToCreateOptions(uo *metav1.UpdateOptions) metav1.CreateOptions {
 	}
 	co.TypeMeta.SetGroupVersionKind(metav1.SchemeGroupVersion.WithKind("CreateOptions"))
 	return co
-}
-
-// hasCreationTimestamp return whether the provided object has a CreationTimestamp.
-func hasCreationTimestamp(obj runtime.Object) (bool, error) {
-	if obj == nil {
-		return false, nil
-	}
-	accessor, err := meta.Accessor(obj)
-	if err != nil {
-		return false, err
-	}
-
-	if t := accessor.GetCreationTimestamp(); !t.IsZero() {
-		return true, nil
-	}
-
-	return false, nil
 }
