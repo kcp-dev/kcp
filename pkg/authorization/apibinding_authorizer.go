@@ -23,6 +23,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kaudit "k8s.io/apiserver/pkg/audit"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -37,6 +38,12 @@ import (
 
 const (
 	byWorkspaceIndex = "apiBindingAuthorizer-byWorkspace"
+)
+
+const (
+	APIBindingContentAuditPrefix   = "apibinding.authorization.kcp.dev/"
+	APIBindingContentAuditDecision = APIBindingContentAuditPrefix + "decision"
+	APIBindingContentAuditReason   = APIBindingContentAuditPrefix + "reason"
 )
 
 // NewAPIBindingAccessAuthorizer returns an authorizer that checks if the the request is for a
@@ -98,33 +105,75 @@ func (a *apiBindingAccessAuthorizer) Authorize(ctx context.Context, attr authori
 	// get the cluster from the ctx.
 	lcluster, err := genericapirequest.ClusterNameFrom(ctx)
 	if err != nil {
+		kaudit.AddAuditAnnotations(
+			ctx,
+			APIBindingContentAuditDecision, DecisionNoOpinion,
+			APIBindingContentAuditReason, fmt.Sprintf("error getting cluster from request: %v", err),
+		)
 		return authorizer.DecisionNoOpinion, apiBindingAccessDenied, err
 	}
 
 	bindingLogicalCluster, bound, err := a.getAPIBindingReference(attr, lcluster)
 	if err != nil {
+		kaudit.AddAuditAnnotations(
+			ctx,
+			APIBindingContentAuditDecision, DecisionNoOpinion,
+			APIBindingContentAuditReason, fmt.Sprintf("error getting API binding reference: %v", err),
+		)
 		return authorizer.DecisionNoOpinion, apiBindingAccessDenied, err
 	}
 
 	if !bound {
+		kaudit.AddAuditAnnotations(
+			ctx,
+			APIBindingContentAuditDecision, DecisionAllowed,
+			APIBindingContentAuditReason, "no API binding bound",
+		)
 		return a.delegate.Authorize(ctx, attr)
 	}
 
 	apiExport, found, err := a.getAPIExport(bindingLogicalCluster)
 	if err != nil {
+		kaudit.AddAuditAnnotations(
+			ctx,
+			APIBindingContentAuditDecision, DecisionNoOpinion,
+			APIBindingContentAuditReason, fmt.Sprintf("error getting API export: %v", err),
+		)
 		return authorizer.DecisionNoOpinion, apiBindingAccessDenied, err
+	}
+
+	path := "unknown"
+	exportName := "unknown"
+	if bindingLogicalCluster.Workspace != nil {
+		exportName = bindingLogicalCluster.Workspace.ExportName
+		path = bindingLogicalCluster.Workspace.Path
 	}
 
 	// If we can't find the export default to close
 	if !found {
+		kaudit.AddAuditAnnotations(
+			ctx,
+			APIBindingContentAuditDecision, DecisionNoOpinion,
+			APIBindingContentAuditReason, fmt.Sprintf("API export %q not found, path: %q", exportName, path),
+		)
 		return authorizer.DecisionNoOpinion, apiBindingAccessDenied, err
 	}
 
 	if apiExport.Spec.MaximalPermissionPolicy == nil {
+		kaudit.AddAuditAnnotations(
+			ctx,
+			APIBindingContentAuditDecision, DecisionAllowed,
+			APIBindingContentAuditReason, fmt.Sprintf("no maximal permission policy present in API export %q, path: %q, owning cluster: %q", exportName, path, logicalcluster.From(apiExport)),
+		)
 		return a.delegate.Authorize(ctx, attr)
 	}
 
 	if apiExport.Spec.MaximalPermissionPolicy.Local == nil {
+		kaudit.AddAuditAnnotations(
+			ctx,
+			APIBindingContentAuditDecision, DecisionAllowed,
+			APIBindingContentAuditReason, fmt.Sprintf("no maximal local permission policy present in API export %q, path: %q, owning cluster: %q", apiExport.Name, path, logicalcluster.From(apiExport)),
+		)
 		return a.delegate.Authorize(ctx, attr)
 	}
 
@@ -145,8 +194,19 @@ func (a *apiBindingAccessAuthorizer) Authorize(ctx context.Context, attr authori
 	}
 	dec, reason, err := clusterAuthorizer.Authorize(ctx, prefixedAttr)
 	if err != nil {
+		kaudit.AddAuditAnnotations(
+			ctx,
+			APIBindingContentAuditDecision, DecisionNoOpinion,
+			APIBindingContentAuditReason, fmt.Sprintf("error authorizing RBAC in API export cluster %q: %v", logicalcluster.From(apiExport), err),
+		)
 		return authorizer.DecisionNoOpinion, reason, err
 	}
+
+	kaudit.AddAuditAnnotations(
+		ctx,
+		APIBindingContentAuditDecision, decisionString(dec),
+		APIBindingContentAuditReason, fmt.Sprintf("API export cluster %q reason: %v", logicalcluster.From(apiExport), reason),
+	)
 
 	if dec == authorizer.DecisionAllow {
 		return a.delegate.Authorize(ctx, attr)
