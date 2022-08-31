@@ -22,20 +22,16 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/abiosoft/lineprefix"
 	"github.com/fatih/color"
-
-	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/cmd/test-server/helpers"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
 func startVirtual(ctx context.Context, index int, logDirPath string) (<-chan error, error) {
-	logger := klog.FromContext(ctx)
-	logger.Info("starting virtual-workspaces standalone server", "index", index)
-
 	prefix := fmt.Sprintf("VW-%d", index)
 	yellow := color.New(color.BgYellow, color.FgHiWhite).SprintFunc()
 	out := lineprefix.New(
@@ -58,6 +54,7 @@ func startVirtual(ctx context.Context, index int, logDirPath string) (<-chan err
 		"--requestheader-group-headers=X-Remote-Group",
 		fmt.Sprintf("--secure-port=%d", 7444+index),
 	)
+	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " ")) // nolint: errcheck
 
 	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...)
 
