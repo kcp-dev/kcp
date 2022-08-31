@@ -47,6 +47,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/kubernetes/pkg/api/genericcontrolplanescheme"
+	"k8s.io/utils/pointer"
 
 	"github.com/kcp-dev/kcp/config/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
@@ -186,6 +187,7 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	wwUser2VC, err := wildwestclientset.NewClusterForConfig(user2VWCfg)
 	require.NoError(t, err)
 	t.Logf("Get Cowboy and update status with user-2")
+	var testCowboy wildwestv1alpha1.Cowboy
 	require.Eventually(t, func() bool {
 		cbs, err := wwUser2VC.Cluster(logicalcluster.Wildcard).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
 		if err != nil {
@@ -199,12 +201,13 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 		cb.Status.Result = "updated"
 		_, err = wwUser2VC.Cluster(logicalcluster.From(&cb)).WildwestV1alpha1().Cowboys(cb.Namespace).UpdateStatus(ctx, &cb, metav1.UpdateOptions{})
 		require.NoError(t, err)
+		testCowboy = cb
 		return true
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "expected user-2 to list cowboys from virtual workspace")
 
 	// Create clusterRoleBindings for content write access.
 	t.Logf("create the cluster role and bindings to give write access to the virtual workspace for user-1")
-	cr, crb = createClusterRoleAndBindings("user-1-vw-write", "user-1", "User", "apiexports/content", "", []string{"create", "update", "delete", "deletecollection"})
+	cr, crb = createClusterRoleAndBindings("user-1-vw-write", "user-1", "User", "apiexports/content", "", []string{"create", "update", "patch", "delete", "deletecollection"})
 	_, err = kubeClusterClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), cr, metav1.CreateOptions{})
 	require.NoError(t, err)
 	_, err = kubeClusterClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), crb, metav1.CreateOptions{})
@@ -241,6 +244,37 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	require.Equal(t, cowboy.Spec.Intent, "1")
 	require.Equal(t, cowboy.Status.Result, "test")
 
+	t.Logf("patch (application/merge-patch+json) a cowboy with user-1 via APIExport virtual workspace server")
+	patchedCowboy := cowboy.DeepCopy()
+	patchedCowboy.Spec.Intent = "3"
+	source, err := json.Marshal(cowboy)
+	require.NoError(t, err)
+	target, err := json.Marshal(patchedCowboy)
+	require.NoError(t, err)
+	mergePatch, err := jsonpatch.CreateMergePatch(source, target)
+	require.NoError(t, err)
+	cowboy, err = wwUser1VC.WildwestV1alpha1().Cowboys("default").
+		Patch(logicalcluster.WithCluster(ctx, consumerWorkspace), "cowboy-via-vw", types.MergePatchType, mergePatch, metav1.PatchOptions{})
+	require.NoError(t, err)
+
+	t.Logf("patch (application/apply-patch+yaml) a cowboy with user-1 via APIExport virtual workspace server")
+	applyCowboy := newCowboy("default", "cowboy-via-vw")
+	applyCowboy.Spec.Intent = "4"
+	applyPatch, err := json.Marshal(applyCowboy)
+	require.NoError(t, err)
+	cowboy, err = wwUser1VC.WildwestV1alpha1().Cowboys("default").
+		Patch(logicalcluster.WithCluster(ctx, consumerWorkspace), "cowboy-via-vw", types.ApplyPatchType, applyPatch, metav1.PatchOptions{FieldManager: "e2e-test-runner", Force: pointer.Bool(true)})
+	require.NoError(t, err)
+
+	t.Logf("create a cowboy with user-1 via APIExport virtual workspace server using Server-Side Apply")
+	cowboySSA := newCowboy("default", "cowboy-via-vw-ssa")
+	cowboySSA.Spec.Intent = "1"
+	applyPatch, err = json.Marshal(cowboySSA)
+	require.NoError(t, err)
+	cowboy, err = wwUser1VC.WildwestV1alpha1().Cowboys("default").
+		Patch(logicalcluster.WithCluster(ctx, consumerWorkspace), "cowboy-via-vw-ssa", types.ApplyPatchType, applyPatch, metav1.PatchOptions{FieldManager: "e2e-test-runner"})
+	require.NoError(t, err)
+
 	t.Logf("delete a cowboy with user-1 via APIExport virtual workspace server")
 	err = wwUser1VC.WildwestV1alpha1().Cowboys("default").Delete(logicalcluster.WithCluster(ctx, consumerWorkspace), "cowboy-via-vw", metav1.DeleteOptions{})
 	require.NoError(t, err)
@@ -248,7 +282,12 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	t.Logf("make sure the cowboy deleted with user-1 via APIExport virtual workspace server is gone")
 	cowboys, err := wwUser1VC.WildwestV1alpha1().Cowboys("").List(logicalcluster.WithCluster(ctx, logicalcluster.Wildcard), metav1.ListOptions{})
 	require.NoError(t, err)
-	require.Equal(t, 1, len(cowboys.Items))
+	require.Equal(t, 2, len(cowboys.Items))
+	var names []string
+	for _, c := range cowboys.Items {
+		names = append(names, c.Name)
+	}
+	require.ElementsMatch(t, []string{testCowboy.Name, "cowboy-via-vw-ssa"}, names)
 
 	t.Logf("delete all cowboys with user-1 via APIExport virtual workspace server")
 	err = wwUser1VC.WildwestV1alpha1().Cowboys("default").DeleteCollection(logicalcluster.WithCluster(ctx, consumerWorkspace), metav1.DeleteOptions{}, metav1.ListOptions{})
@@ -727,6 +766,10 @@ func createCowboyInConsumer(ctx context.Context, t *testing.T, consumer1Workspac
 
 func newCowboy(namespace, name string) *wildwestv1alpha1.Cowboy {
 	return &wildwestv1alpha1.Cowboy{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: wildwestv1alpha1.SchemeGroupVersion.String(),
+			Kind:       "Cowboy",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      name,
