@@ -44,7 +44,6 @@ func TestUserHomeWorkspaces(t *testing.T) {
 
 	type runningServer struct {
 		framework.RunningServer
-		orgClusterName                logicalcluster.Name
 		kubeClusterClient             kubernetes.ClusterInterface
 		rootShardKcpClusterClient     kcpclientset.ClusterInterface
 		kcpUserClusterClients         []kcpclientset.ClusterInterface
@@ -153,8 +152,6 @@ func TestUserHomeWorkspaces(t *testing.T) {
 			ctx, cancelFunc := context.WithCancel(context.Background())
 			t.Cleanup(cancelFunc)
 
-			orgClusterName := framework.NewOrganizationFixture(t, server)
-
 			// create non-virtual clients
 			kcpConfig := server.BaseConfig(t)
 			rootShardCfg := server.RootShardSystemMasterBaseConfig(t)
@@ -176,7 +173,6 @@ func TestUserHomeWorkspaces(t *testing.T) {
 
 			testCase.work(ctx, t, runningServer{
 				RunningServer:                 server,
-				orgClusterName:                orgClusterName,
 				kubeClusterClient:             kubeClusterClient,
 				rootShardKcpClusterClient:     rootShardKcpClusterClient,
 				kcpUserClusterClients:         kcpUserClusterClients,
