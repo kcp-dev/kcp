@@ -63,7 +63,18 @@ import (
 // TestServerArgs returns the set of kcp args used to start a test
 // server using the token auth file from the working tree.
 func TestServerArgs() []string {
-	return TestServerArgsWithTokenAuthFile("test/e2e/framework/auth-tokens.csv")
+	return append(
+		TestServerArgsWithTokenAuthFile("test/e2e/framework/auth-tokens.csv"),
+		TestServerWithAuditPolicyFile("test/e2e/framework/audit-policy.yaml")...,
+	)
+}
+
+// TestServerWithAuditPolicyFile returns the set of kcp args used to
+// start a test server with the given audit policy file.
+func TestServerWithAuditPolicyFile(auditPolicyFile string) []string {
+	return []string{
+		"--audit-policy-file", auditPolicyFile,
+	}
 }
 
 // TestServerArgsWithTokenAuthFile returns the set of kcp args used to
@@ -117,10 +128,12 @@ func SharedKcpServer(t *testing.T) RunningServer {
 	// initializes the shared fixture before tests that rely on the
 	// fixture.
 
-	tokenAuthFile := WriteTokenAuthFile(t)
 	f := newKcpFixture(t, kcpConfig{
 		Name: serverName,
-		Args: TestServerArgsWithTokenAuthFile(tokenAuthFile),
+		Args: append(
+			TestServerArgsWithTokenAuthFile(WriteTokenAuthFile(t)),
+			TestServerWithAuditPolicyFile(WriteEmbedFile(t, "audit-policy.yaml"))...,
+		),
 	})
 	return f.Servers[serverName]
 }
@@ -265,6 +278,7 @@ func newKcpServer(t *testing.T, cfg kcpConfig, artifactDir, dataDir string) (*kc
 			"--embedded-etcd-wal-size-bytes=" + strconv.Itoa(5*1000), // 5KB
 			"--kubeconfig-path=" + filepath.Join(dataDir, "admin.kubeconfig"),
 			"--feature-gates=" + fmt.Sprintf("%s", utilfeature.DefaultFeatureGate),
+			"--audit-log-path", filepath.Join(artifactDir, "kcp.audit"),
 		},
 			cfg.Args...),
 		dataDir:     dataDir,
