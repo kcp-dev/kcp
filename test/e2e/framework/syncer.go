@@ -166,7 +166,7 @@ func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 	// Apply the yaml output from the plugin to the downstream server
 	KubectlApply(t, downstreamKubeconfigPath, syncerYAML)
 
-	artifactDir, err := CreateTempDirForTest(t, "artifacts")
+	artifactDir, _, err := ScratchDirs(t)
 	if err != nil {
 		t.Errorf("failed to create temp dir for syncer artifacts: %v", err)
 	}
