@@ -22,7 +22,6 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kaudit "k8s.io/apiserver/pkg/audit"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
@@ -33,11 +32,8 @@ import (
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
-)
-
-const (
-	byWorkspaceIndex = "apiBindingAuthorizer-byWorkspace"
 )
 
 const (
@@ -46,37 +42,13 @@ const (
 	APIBindingContentAuditReason   = APIBindingContentAuditPrefix + "reason"
 )
 
-// NewAPIBindingAccessAuthorizer returns an authorizer that checks if the the request is for a
+// NewAPIBindingAccessAuthorizer returns an authorizer that checks if the request is for a
 // bound resource or not. If the resource is bound we will check the user has RBAC access in the
-// exported resources workspace. If it is not allowed we will return NoDecision, if allowed we
+// exported resource workspace. If it is not allowed we will return NoDecision, if allowed we
 // will call the delegate authorizer.
 func NewAPIBindingAccessAuthorizer(kubeInformers kubernetesinformers.SharedInformerFactory, kcpInformers kcpinformers.SharedInformerFactory, delegate authorizer.Authorizer) (authorizer.Authorizer, error) {
-	if _, found := kcpInformers.Apis().V1alpha1().APIBindings().Informer().GetIndexer().GetIndexers()[byWorkspaceIndex]; !found {
-		err := kcpInformers.Apis().V1alpha1().APIBindings().Informer().AddIndexers(
-			cache.Indexers{
-				byWorkspaceIndex: func(obj interface{}) ([]string, error) {
-					return []string{logicalcluster.From(obj.(metav1.Object)).String()}, nil
-				},
-			},
-		)
-		if err != nil {
-			// nothing we can do here. But this should also never happen. We check for existence before.
-			return nil, fmt.Errorf("failed to add indexer for APIBindings: %w", err)
-		}
-	}
-	if _, found := kcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer().GetIndexers()[byWorkspaceIndex]; !found {
-		err := kcpInformers.Apis().V1alpha1().APIExports().Informer().AddIndexers(
-			cache.Indexers{
-				byWorkspaceIndex: func(obj interface{}) ([]string, error) {
-					return []string{logicalcluster.From(obj.(metav1.Object)).String()}, nil
-				},
-			},
-		)
-		if err != nil {
-			// nothing we can do here. But this should also never happen. We check for existence before.
-			return nil, fmt.Errorf("failed to add indexer for APIExports: %w", err)
-		}
-	}
+	apiBindingIndexer := kcpInformers.Apis().V1alpha1().APIBindings().Informer().GetIndexer()
+	apiExportIndexer := kcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer()
 
 	// Make sure informer knows what to watch
 	kubeInformers.Rbac().V1().Roles().Lister()
@@ -85,18 +57,31 @@ func NewAPIBindingAccessAuthorizer(kubeInformers kubernetesinformers.SharedInfor
 	kubeInformers.Rbac().V1().ClusterRoleBindings().Lister()
 
 	return &apiBindingAccessAuthorizer{
-		versionedInformers: kubeInformers,
-		apiBindingIndexer:  kcpInformers.Apis().V1alpha1().APIBindings().Informer().GetIndexer(),
-		apiExportIndexer:   kcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer(),
-		delegate:           delegate,
+		getAPIBindingReferenceForAttributes: func(attr authorizer.Attributes, clusterName logicalcluster.Name) (*apisv1alpha1.ExportReference, bool, error) {
+			return getAPIBindingReferenceForAttributes(apiBindingIndexer, attr, clusterName)
+		},
+		getAPIExportByReference: func(exportRef *apisv1alpha1.ExportReference) (*apisv1alpha1.APIExport, bool, error) {
+			return getAPIExportByReference(apiExportIndexer, exportRef)
+		},
+		newAuthorizer: func(clusterName logicalcluster.Name) authorizer.Authorizer {
+			clusterKubeInformer := rbacwrapper.FilterInformers(clusterName, kubeInformers.Rbac().V1())
+			return rbac.New(
+				&rbac.RoleGetter{Lister: clusterKubeInformer.Roles().Lister()},
+				&rbac.RoleBindingLister{Lister: clusterKubeInformer.RoleBindings().Lister()},
+				&rbac.ClusterRoleGetter{Lister: clusterKubeInformer.ClusterRoles().Lister()},
+				&rbac.ClusterRoleBindingLister{Lister: clusterKubeInformer.ClusterRoleBindings().Lister()},
+			)
+		},
+		delegate: delegate,
 	}, nil
 }
 
 type apiBindingAccessAuthorizer struct {
-	versionedInformers kubernetesinformers.SharedInformerFactory
-	apiBindingIndexer  cache.Indexer
-	apiExportIndexer   cache.Indexer
-	delegate           authorizer.Authorizer
+	delegate authorizer.Authorizer
+
+	getAPIBindingReferenceForAttributes func(attr authorizer.Attributes, clusterName logicalcluster.Name) (ref *apisv1alpha1.ExportReference, found bool, err error)
+	getAPIExportByReference             func(exportRef *apisv1alpha1.ExportReference) (ref *apisv1alpha1.APIExport, found bool, err error)
+	newAuthorizer                       func(clusterName logicalcluster.Name) authorizer.Authorizer
 }
 
 func (a *apiBindingAccessAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
@@ -113,7 +98,7 @@ func (a *apiBindingAccessAuthorizer) Authorize(ctx context.Context, attr authori
 		return authorizer.DecisionNoOpinion, apiBindingAccessDenied, err
 	}
 
-	bindingLogicalCluster, bound, err := a.getAPIBindingReference(attr, lcluster)
+	bindingLogicalCluster, bound, err := a.getAPIBindingReferenceForAttributes(attr, lcluster)
 	if err != nil {
 		kaudit.AddAuditAnnotations(
 			ctx,
@@ -132,7 +117,7 @@ func (a *apiBindingAccessAuthorizer) Authorize(ctx context.Context, attr authori
 		return a.delegate.Authorize(ctx, attr)
 	}
 
-	apiExport, found, err := a.getAPIExport(bindingLogicalCluster)
+	apiExport, found, err := a.getAPIExportByReference(bindingLogicalCluster)
 	if err != nil {
 		kaudit.AddAuditAnnotations(
 			ctx,
@@ -178,13 +163,7 @@ func (a *apiBindingAccessAuthorizer) Authorize(ctx context.Context, attr authori
 	}
 
 	// If bound, create a rbac authorizer filtered to the cluster.
-	clusterKubeInformer := rbacwrapper.FilterInformers(logicalcluster.From(apiExport), a.versionedInformers.Rbac().V1())
-	clusterAuthorizer := rbac.New(
-		&rbac.RoleGetter{Lister: clusterKubeInformer.Roles().Lister()},
-		&rbac.RoleBindingLister{Lister: clusterKubeInformer.RoleBindings().Lister()},
-		&rbac.ClusterRoleGetter{Lister: clusterKubeInformer.ClusterRoles().Lister()},
-		&rbac.ClusterRoleBindingLister{Lister: clusterKubeInformer.ClusterRoleBindings().Lister()},
-	)
+	clusterAuthorizer := a.newAuthorizer(logicalcluster.From(apiExport))
 	prefixedAttr := deepCopyAttributes(attr)
 	userInfo := prefixedAttr.User.(*user.DefaultInfo)
 	userInfo.Name = apisv1alpha1.MaximalPermissionPolicyRBACUserGroupPrefix + userInfo.Name
@@ -204,7 +183,7 @@ func (a *apiBindingAccessAuthorizer) Authorize(ctx context.Context, attr authori
 
 	kaudit.AddAuditAnnotations(
 		ctx,
-		APIBindingContentAuditDecision, decisionString(dec),
+		APIBindingContentAuditDecision, DecisionString(dec),
 		APIBindingContentAuditReason, fmt.Sprintf("API export cluster %q reason: %v", logicalcluster.From(apiExport), reason),
 	)
 
@@ -215,9 +194,8 @@ func (a *apiBindingAccessAuthorizer) Authorize(ctx context.Context, attr authori
 	return authorizer.DecisionNoOpinion, reason, nil
 }
 
-// TODO [shawn-hurley]: this should be a helper shared.
-func (a *apiBindingAccessAuthorizer) getAPIBindingReference(attr authorizer.Attributes, clusterName logicalcluster.Name) (*apisv1alpha1.ExportReference, bool, error) {
-	objs, err := a.apiBindingIndexer.ByIndex(byWorkspaceIndex, clusterName.String())
+func getAPIBindingReferenceForAttributes(apiBindingIndexer cache.Indexer, attr authorizer.Attributes, clusterName logicalcluster.Name) (*apisv1alpha1.ExportReference, bool, error) {
+	objs, err := apiBindingIndexer.ByIndex(indexers.ByLogicalCluster, clusterName.String())
 	if err != nil {
 		return nil, false, err
 	}
@@ -235,12 +213,11 @@ func (a *apiBindingAccessAuthorizer) getAPIBindingReference(attr authorizer.Attr
 	return nil, false, nil
 }
 
-func (a *apiBindingAccessAuthorizer) getAPIExport(exportRef *apisv1alpha1.ExportReference) (*apisv1alpha1.APIExport, bool, error) {
-	objs, err := a.apiExportIndexer.ByIndex(byWorkspaceIndex, exportRef.Workspace.Path)
+func getAPIExportByReference(apiExportIndexer cache.Indexer, exportRef *apisv1alpha1.ExportReference) (*apisv1alpha1.APIExport, bool, error) {
+	objs, err := apiExportIndexer.ByIndex(indexers.ByLogicalCluster, exportRef.Workspace.Path)
 	if err != nil {
 		return nil, false, err
 	}
-
 	for _, obj := range objs {
 		apiExport := obj.(*apisv1alpha1.APIExport)
 		if apiExport.Name == exportRef.Workspace.ExportName {

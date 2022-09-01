@@ -1,4 +1,5 @@
 user-1-token,user-1,1111-1111-1111-1111,"team-1"
 user-2-token,user-2,2222-2222-2222-2222,"team-2"
 user-3-token,user-3,3333-3333-3333-3333,"team-3"
-admin-token,admin,4444-4444-4444-4444,"system:masters"
+user-4-token,user-4,4444-4444-4444-4444,"team-4"
+admin-token,admin,5555-5555-5555-5555,"system:masters"

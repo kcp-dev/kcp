@@ -1,0 +1,267 @@
+/*
+Copyright 2022 The KCP Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package apiexport
+
+import (
+	"context"
+	"fmt"
+	"testing"
+	"time"
+
+	jsonpatch "github.com/evanphx/json-patch"
+	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
+	kcpdynamic "github.com/kcp-dev/apimachinery/pkg/dynamic"
+	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/stretchr/testify/require"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/discovery/cached/memory"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/restmapper"
+
+	"github.com/kcp-dev/kcp/config/helpers"
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
+	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest"
+	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned"
+	"github.com/kcp-dev/kcp/test/e2e/framework"
+)
+
+func TestAPIExportAuthorizers(t *testing.T) {
+	t.Parallel()
+
+	server := framework.SharedKcpServer(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	// see https://docs.google.com/drawings/d/1_sOiFZReAfypuUDyHS9rwpxbZgJNJuxdvbgXXgu2KAQ/edit for topology
+	serviceProvider1Workspace := framework.NewWorkspaceFixture(t, server, v1alpha1.RootCluster, framework.WithName("provider-a"))
+	serviceProvider2Workspace := framework.NewWorkspaceFixture(t, server, v1alpha1.RootCluster, framework.WithName("provider-b"))
+	tenantWorkspace := framework.NewWorkspaceFixture(t, server, v1alpha1.RootCluster, framework.WithName("tenant"))
+
+	cfg := server.BaseConfig(t)
+
+	user1KcpClient, err := kcpclientset.NewForConfig(framework.UserConfig("user-1", rest.CopyConfig(cfg)))
+	require.NoError(t, err)
+	user2KcpClient, err := kcpclientset.NewForConfig(framework.UserConfig("user-2", rest.CopyConfig(cfg)))
+	require.NoError(t, err)
+	user3KcpClient, err := kcpclientset.NewForConfig(framework.UserConfig("user-3", rest.CopyConfig(cfg)))
+	require.NoError(t, err)
+	user2DynamicClusterClient, err := kcpdynamic.NewClusterDynamicClientForConfig(framework.UserConfig("user-2", rest.CopyConfig(cfg)))
+	require.NoError(t, err)
+	kubeClient, err := kubernetes.NewForConfig(rest.CopyConfig(cfg))
+	require.NoError(t, err)
+
+	framework.AdmitWorkspaceAccess(t, ctx, kubeClient, serviceProvider1Workspace, []string{"user-1"}, nil, []string{"admin", "access"})
+	framework.AdmitWorkspaceAccess(t, ctx, kubeClient, serviceProvider2Workspace, []string{"user-2"}, nil, []string{"admin", "access"})
+	framework.AdmitWorkspaceAccess(t, ctx, kubeClient, tenantWorkspace, []string{"user-3"}, nil, []string{"admin", "access"})
+
+	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, serviceProvider1Workspace, user1KcpClient, "wild.wild.west", "")
+
+	t.Logf("Setting maximal permission policy on APIExport %s|%s", serviceProvider1Workspace, "wild.wild.west")
+	export, err := user1KcpClient.ApisV1alpha1().APIExports().Get(logicalcluster.WithCluster(ctx, serviceProvider1Workspace), "wild.wild.west", metav1.GetOptions{})
+	require.NoError(t, err, "error getting APIExport %s|%s", serviceProvider1Workspace, export.Name)
+
+	patchedExport := export.DeepCopy()
+	patchedExport.Spec.MaximalPermissionPolicy = &apisv1alpha1.MaximalPermissionPolicy{Local: &apisv1alpha1.LocalAPIExportPolicy{}}
+	mergePatch, err := jsonpatch.CreateMergePatch(encodeJSON(t, export), encodeJSON(t, patchedExport))
+	require.NoError(t, err)
+	_, err = user1KcpClient.ApisV1alpha1().APIExports().Patch(logicalcluster.WithCluster(ctx, serviceProvider1Workspace), export.Name, types.MergePatchType, mergePatch, metav1.PatchOptions{})
+	require.NoError(t, err, "error patching APIExport %s|%s", serviceProvider1Workspace, export.Name)
+
+	t.Logf("get the sheriffs apiexport's generated identity hash")
+	identityHash := ""
+	framework.Eventually(t, func() (done bool, str string) {
+		sheriffExport, err := user1KcpClient.ApisV1alpha1().APIExports().Get(logicalcluster.WithCluster(ctx, serviceProvider1Workspace), "wild.wild.west", metav1.GetOptions{})
+		if err != nil {
+			return false, fmt.Sprintf("error while waiting to get API export: %v", err)
+		}
+		if conditions.IsTrue(sheriffExport, apisv1alpha1.APIExportIdentityValid) {
+			identityHash = sheriffExport.Status.IdentityHash
+			return true, ""
+		}
+		return false, fmt.Sprintf("waiting for API export identity to be valid: %+v", conditions.Get(sheriffExport, apisv1alpha1.APIExportIdentityValid))
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not wait for APIExport to be valid with identity hash")
+	t.Logf("Found identity hash: %v", identityHash)
+
+	t.Logf("Install today cowboys APIResourceSchema into service provider workspace %q", serviceProvider2Workspace)
+	user2serviceProvider2KcpClient, err := kcpclientset.NewForConfig(kcpclienthelper.SetCluster(framework.UserConfig("user-2", rest.CopyConfig(cfg)), serviceProvider2Workspace))
+	require.NoError(t, err)
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(user2serviceProvider2KcpClient.Discovery()))
+	err = helpers.CreateResourceFromFS(ctx, user2DynamicClusterClient.Cluster(serviceProvider2Workspace), mapper, nil, "apiresourceschema_cowboys.yaml", testFiles)
+	require.NoError(t, err)
+
+	t.Logf("Create an APIExport for today cowboys APIResourceSchema in service provider %q", serviceProvider2Workspace)
+	cowboysAPIExport := &apisv1alpha1.APIExport{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "today-cowboys",
+		},
+		Spec: apisv1alpha1.APIExportSpec{
+			LatestResourceSchemas: []string{"today.cowboys.wildwest.dev"},
+			PermissionClaims: []apisv1alpha1.PermissionClaim{
+				{
+					GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "configmaps"},
+				},
+				{
+					GroupResource: apisv1alpha1.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
+					IdentityHash:  identityHash,
+				},
+			},
+		},
+	}
+	_, err = user2KcpClient.ApisV1alpha1().APIExports().Create(logicalcluster.WithCluster(ctx, serviceProvider2Workspace), cowboysAPIExport, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	t.Logf("grant user-3 to be able to bind cowboys API export \"today-cowboys\" from workspace %q", serviceProvider2Workspace)
+	cr, crb := createClusterRoleAndBindings(
+		"user-3-bind",
+		"user-3", "User",
+		[]string{"bind"},
+		"apis.kcp.dev", "apiexports", "today-cowboys",
+	)
+	_, err = kubeClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, serviceProvider2Workspace), cr, metav1.CreateOptions{})
+	require.NoError(t, err)
+	_, err = kubeClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, serviceProvider2Workspace), crb, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	t.Logf("Create an APIBinding in consumer workspace %q that points to the today-cowboys export from %q", tenantWorkspace, serviceProvider2Workspace)
+	apiBinding := &apisv1alpha1.APIBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cowboys",
+		},
+		Spec: apisv1alpha1.APIBindingSpec{
+			Reference: apisv1alpha1.ExportReference{
+				Workspace: &apisv1alpha1.WorkspaceExportReference{
+					Path:       serviceProvider2Workspace.String(),
+					ExportName: "today-cowboys",
+				},
+			},
+		},
+	}
+	framework.Eventually(t, func() (bool, string) {
+		_, err = user3KcpClient.ApisV1alpha1().APIBindings().Create(logicalcluster.WithCluster(ctx, tenantWorkspace), apiBinding, metav1.CreateOptions{})
+		if err != nil {
+			return false, fmt.Sprintf("error creating API binding: %v", err)
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "api binding creation failed")
+
+	t.Logf("grant user-3 to be able to bind sherriffs API export \"wild.wild.west\" from workspace %q", serviceProvider1Workspace)
+	cr, crb = createClusterRoleAndBindings(
+		"user-3-bind",
+		"user-3", "User",
+		[]string{"bind"},
+		"apis.kcp.dev", "apiexports", "wild.wild.west",
+	)
+	_, err = kubeClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, serviceProvider1Workspace), cr, metav1.CreateOptions{})
+	require.NoError(t, err)
+	_, err = kubeClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, serviceProvider1Workspace), crb, metav1.CreateOptions{})
+	require.NoError(t, err)
+	// create API binding in tenant workspace pointing to the sherriffs export
+	apifixtures.BindToExport(ctx, t, serviceProvider1Workspace, "wild.wild.west", tenantWorkspace, user3KcpClient)
+
+	t.Logf("Make sure [%q, %q] API groups shows up in consumer workspace %q group discovery", wildwest.GroupName, "wild.wild.west", tenantWorkspace)
+	user3tenantWorkspaceKcpClient, err := kcpclientset.NewForConfig(kcpclienthelper.SetCluster(framework.UserConfig("user-3", rest.CopyConfig(cfg)), tenantWorkspace))
+	require.NoError(t, err)
+	err = wait.PollImmediateWithContext(ctx, 100*time.Millisecond, wait.ForeverTestTimeout, func(c context.Context) (done bool, err error) {
+		groups, err := user3tenantWorkspaceKcpClient.Discovery().ServerGroups()
+		if err != nil {
+			return false, fmt.Errorf("error retrieving consumer workspace %q group discovery: %w", tenantWorkspace, err)
+		}
+		return groupExists(groups, wildwest.GroupName) && groupExists(groups, "wild.wild.west"), nil
+	})
+	require.NoError(t, err)
+
+	user3wildwestClusterClient, err := wildwestclientset.NewForConfig(framework.UserConfig("user-3", rest.CopyConfig(cfg)))
+	require.NoError(t, err, "failed to construct wildwest cluster client for server")
+	cowboy := newCowboy("default", "cowboy1")
+	_, err = user3wildwestClusterClient.WildwestV1alpha1().Cowboys("default").Create(logicalcluster.WithCluster(ctx, tenantWorkspace), cowboy, metav1.CreateOptions{})
+	require.NoError(t, err, "error creating cowboy in tenant workspace %q", tenantWorkspace)
+
+	t.Logf("get virtual workspace client for \"today-cowboys\" APIExport in workspace %q", serviceProvider2Workspace)
+	var apiExport *apisv1alpha1.APIExport
+	framework.Eventually(t, func() (bool, string) {
+		var err error
+		apiExport, err = user2KcpClient.ApisV1alpha1().APIExports().Get(logicalcluster.WithCluster(ctx, serviceProvider2Workspace), "today-cowboys", metav1.GetOptions{})
+		if err != nil {
+			return false, fmt.Sprintf("waiting on apiexport to be available %v", err.Error())
+		}
+		if len(apiExport.Status.VirtualWorkspaces) > 0 {
+			return true, ""
+		}
+		return false, "waiting on virtual workspace to be ready"
+
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting on virtual workspace to be ready")
+
+	t.Logf("verify that we cannot list claimed resources")
+	user2ApiExportVWCfg := framework.UserConfig("user-2", rest.CopyConfig(cfg))
+	user2ApiExportVWCfg.Host = apiExport.Status.VirtualWorkspaces[0].URL
+	user2DynamicVWClient, err := kcpdynamic.NewClusterDynamicClientForConfig(user2ApiExportVWCfg)
+
+	_, err = user2DynamicVWClient.Cluster(logicalcluster.Wildcard).Resource(schema.GroupVersionResource{Version: "v1", Resource: "sheriffs", Group: "wild.wild.west"}).List(ctx, metav1.ListOptions{})
+	require.ErrorContains(
+		t, err,
+		`sheriffs.wild.wild.west is forbidden: User "user-2" cannot list resource "sheriffs" in API group "wild.wild.west" at the cluster scope: virtual apiexport access not permitted`,
+		"user-2 must not be allowed to list sheriff resources")
+
+	_, err = user2DynamicVWClient.Cluster(logicalcluster.Wildcard).Resource(schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}).List(ctx, metav1.ListOptions{})
+	require.NoError(t, err, "user-2 must be allowed to list native types")
+
+	t.Logf("grant access to sherrifs for %q in workspace %q", apisv1alpha1.MaximalPermissionPolicyRBACUserGroupPrefix+"user-2", serviceProvider1Workspace)
+	cr, crb = createClusterRoleAndBindings(
+		"apiexport-claimed",
+		"apis.kcp.dev:binding:user-2", "User",
+		[]string{"create", "list"},
+		"wild.wild.west", "sheriffs", "",
+	)
+	_, err = kubeClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, serviceProvider1Workspace), cr, metav1.CreateOptions{})
+	require.NoError(t, err)
+	_, err = kubeClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, serviceProvider1Workspace), crb, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	t.Logf("verify that we can lists all claimed resources using a wildcard request")
+	claimedGVRs := []schema.GroupVersionResource{
+		{Version: "v1", Resource: "configmaps"},
+		{Version: "v1", Resource: "sheriffs", Group: "wild.wild.west"},
+	}
+	framework.Eventually(t, func() (success bool, reason string) {
+		for _, gvr := range claimedGVRs {
+			_, err := user2DynamicVWClient.Cluster(logicalcluster.Wildcard).Resource(gvr).List(ctx, metav1.ListOptions{})
+			if err != nil {
+				return false, fmt.Sprintf("error while waiting to list %q: %v", gvr, err)
+			}
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "listing claimed resources failed")
+
+	t.Logf("verify that we can lists all claimed resources using a request towards the tenant workspace")
+	framework.Eventually(t, func() (success bool, reason string) {
+		_, err = user2DynamicVWClient.Cluster(tenantWorkspace).Resource(schema.GroupVersionResource{Version: "v1", Resource: "sheriffs", Group: "wild.wild.west"}).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return false, fmt.Sprintf("error while waiting to list sherriffs: %v", err)
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "listing claimed resources failed")
+}
