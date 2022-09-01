@@ -221,6 +221,32 @@ type ClusterWorkspaceTypeSpec struct {
 	//
 	// +optional
 	LimitAllowedParents *ClusterWorkspaceTypeSelector `json:"limitAllowedParents,omitempty"`
+
+	// defaultAPIBindings are the APIs to bind during initialization of workspaces created from this type.
+	// The APIBinding names will be generated dynamically.
+	//
+	// +optional
+	// +listType=map
+	// +listMapKey=path
+	// +listMapKey=exportName
+	DefaultAPIBindings []APIExportReference `json:"defaultAPIBindings,omitempty"`
+}
+
+// APIExportReference provides the fields necessary to resolve an APIExport.
+type APIExportReference struct {
+	// path is the fully-qualified path to the workspace containing the APIExport.
+	//
+	// +required
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Pattern:="^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+	Path string `json:"path"`
+
+	// exportName is the name of the APIExport.
+	//
+	// +required
+	// +kubebuilder:validation:Required
+	// +kube:validation:MinLength=1
+	ExportName string `json:"exportName"`
 }
 
 // ClusterWorkspaceTypeSelector describes a set of types.
@@ -320,8 +346,12 @@ type ClusterWorkspaceTypeList struct {
 // ClusterWorkspaceInitializer is a unique string corresponding to a cluster workspace
 // initialization controller for the given type of workspaces.
 //
-// +kubebuilder:validation:Pattern:="^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z][a-z0-9]([-a-z0-9]*[a-z0-9])?)$"
+// +kubebuilder:validation:Pattern:="^(root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$"
 type ClusterWorkspaceInitializer string
+
+// ClusterWorkspaceAPIBindingsInitializer is a special-case initializer that waits for APIBindings defined
+// on a ClusterWorkspaceType to be created.
+const ClusterWorkspaceAPIBindingsInitializer ClusterWorkspaceInitializer = "system:apibindings"
 
 // ClusterWorkspacePhaseType is the type of the current phase of the workspace
 type ClusterWorkspacePhaseType string
@@ -399,9 +429,19 @@ const (
 	// WorkspaceInitializedInitializerExists reason in WorkspaceInitialized condition means that there is at least
 	// one initializer still left.
 	WorkspaceInitializedInitializerExists = "InitializerExists"
-	// WorkspaceInitializedAPIBindingNotBound reason in WorkspaceInitialized condition means that at least
-	// one APIBinding is not yet bound to the workspace.
-	WorkspaceInitializedAPIBindingNotBound = "APIBindingNotBound"
+
+	// WorkspaceAPIBindingsInitialized represents the status of the initial APIBindings for the workspace.
+	WorkspaceAPIBindingsInitialized conditionsv1alpha1.ConditionType = "APIBindingsInitialized"
+	// WorkspaceInitializedWaitingOnAPIBindings is a reason for the APIBindingsInitialized condition that indicates
+	// at least one APIBinding is not ready.
+	WorkspaceInitializedWaitingOnAPIBindings = "WaitingOnAPIBindings"
+	// WorkspaceInitializedClusterWorkspaceTypeInvalid is a reason for the APIBindingsInitialized
+	// condition that indicates something is invalid with the ClusterWorkspaceType (e.g. a cycle trying
+	// to resolve all the transitive types).
+	WorkspaceInitializedClusterWorkspaceTypeInvalid = "ClusterWorkspaceTypeInvalid"
+	// WorkspaceInitializedAPIBindingErrors is a reason for the APIBindingsInitialized condition that indicates there
+	// were errors trying to initialize APIBindings for the workspace.
+	WorkspaceInitializedAPIBindingErrors = "APIBindingErrors"
 )
 
 // ClusterWorkspaceLocation specifies workspace placement information, including current, desired (target), and

@@ -3,7 +3,9 @@ kind: ClusterWorkspaceType
 metadata:
   name: homebucket
 spec:
-  initializer: true
+  defaultAPIBindings:
+  - path: root
+    exportName: tenancy.kcp.dev
   defaultChildWorkspaceType:
     name: home
     path: root

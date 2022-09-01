@@ -48,11 +48,12 @@ import (
 	serviceaccountcontroller "k8s.io/kubernetes/pkg/controller/serviceaccount"
 	"k8s.io/kubernetes/pkg/serviceaccount"
 
-	confighomebucket "github.com/kcp-dev/kcp/config/homebucket"
-	confighomeroot "github.com/kcp-dev/kcp/config/homeroot"
 	configuniversal "github.com/kcp-dev/kcp/config/universal"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibindingdeletion"
@@ -68,6 +69,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspacedeletion"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspaceshard"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspacetype"
+	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/initialization"
 	workloadsapiexport "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexport"
 	workloadsapiexportcreate "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexportcreate"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/defaultplacement"
@@ -77,6 +79,7 @@ import (
 	workloadresource "github.com/kcp-dev/kcp/pkg/reconciler/workload/resource"
 	synctargetcontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/synctarget"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/synctargetexports"
+	initializingworkspacesbuilder "github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces/builder"
 )
 
 func postStartHookName(controllerName string) string {
@@ -362,20 +365,20 @@ func (s *Server) installWorkloadResourceScheduler(ctx context.Context, config *r
 
 func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Config) error {
 	controllerName := "kcp-workspace-scheduler"
+
+	// TODO(ncdc): this is here because the call to bootstrap.NewController below needs a bootstrap client for kcp,
+	// but it takes in a kcpclient.Interface, not kcpclient.ClusterInterface. The types on Server are all
+	// *.ClusterInterface. We'll be able to unify things once the work to simplify and consolidate our clients is
+	// done.
+	bootstrapConfig := rest.CopyConfig(config)
+	bootstrapConfig = rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(bootstrapConfig), controllerName)
+	bootstrapConfig.Impersonate.UserName = kcpBootstrapperUserName
+	bootstrapConfig.Impersonate.Groups = []string{bootstrappolicy.SystemKcpWorkspaceBootstrapper}
+
 	config = rest.CopyConfig(config)
 	config = rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(config), controllerName)
 
 	kcpClusterClient, err := kcpclient.NewForConfig(config)
-	if err != nil {
-		return err
-	}
-
-	crdClusterClient, err := apiextensionsclient.NewForConfig(config)
-	if err != nil {
-		return err
-	}
-
-	dynamicClusterClient, err := dynamic.NewForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -410,11 +413,26 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		return err
 	}
 
+	dynamicClusterClient, err := dynamic.NewForConfig(bootstrapConfig)
+	if err != nil {
+		return err
+	}
+
+	crdClusterClient, err := apiextensionsclient.NewForConfig(bootstrapConfig)
+	if err != nil {
+		return err
+	}
+
+	bootstrapKcpClusterClient, err := kcpclient.NewForConfig(bootstrapConfig)
+	if err != nil {
+		return err
+	}
+
 	universalController, err := bootstrap.NewController(
-		config,
+		bootstrapConfig,
 		dynamicClusterClient,
 		crdClusterClient,
-		kcpClusterClient,
+		bootstrapKcpClusterClient,
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
 		tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: "root", Name: "universal"},
 		configuniversal.Bootstrap,
@@ -437,68 +455,6 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		}
 		go workspaceTypeController.Start(ctx, 2)
 		go universalController.Start(ctx, 2)
-
-		return nil
-	})
-}
-
-func (s *Server) installHomeWorkspaces(ctx context.Context, config *rest.Config) error {
-	controllerName := "kcp-home-workspaces"
-	config = rest.CopyConfig(config)
-	config = rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(config), controllerName)
-
-	kcpClusterClient, err := kcpclient.NewForConfig(config)
-	if err != nil {
-		return err
-	}
-
-	crdClusterClient, err := apiextensionsclient.NewForConfig(config)
-	if err != nil {
-		return err
-	}
-
-	dynamicClusterClient, err := dynamic.NewForConfig(config)
-	if err != nil {
-		return err
-	}
-
-	homerootController, err := bootstrap.NewController(
-		config,
-		dynamicClusterClient,
-		crdClusterClient,
-		kcpClusterClient,
-		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
-		tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: "root", Name: "homeroot"},
-		confighomeroot.Bootstrap,
-		sets.NewString(s.Options.Extra.BatteriesIncluded...),
-	)
-	if err != nil {
-		return err
-	}
-
-	homebucketController, err := bootstrap.NewController(
-		config,
-		dynamicClusterClient,
-		crdClusterClient,
-		kcpClusterClient,
-		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
-		tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: "root", Name: "homebucket"},
-		confighomebucket.Bootstrap,
-		sets.NewString(s.Options.Extra.BatteriesIncluded...),
-	)
-	if err != nil {
-		return err
-	}
-
-	return s.AddPostStartHook(postStartHookName(controllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(controllerName))
-		if err := s.waitForSync(hookContext.StopCh); err != nil {
-			logger.Error(err, "failed to finish post-start-hook")
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-
-		go homerootController.Start(ctx, 2)
-		go homebucketController.Start(ctx, 2)
 
 		return nil
 	})
@@ -676,6 +632,61 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 
 		go apibindingDeletionController.Start(goContext(hookContext), 10)
 
+		return nil
+	})
+}
+
+func (s *Server) installAPIBinderController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
+	// Client used to create APIBindings within the initializing workspace
+	config = rest.CopyConfig(config)
+	kcpclienthelper.SetMultiClusterRoundTripper(config)
+	config = rest.AddUserAgent(config, initialization.ControllerName)
+	config.Host = fmt.Sprintf("https://%v%s", s.GenericConfig.ExternalAddress, initializingworkspacesbuilder.URLFor(tenancyv1alpha1.ClusterWorkspaceAPIBindingsInitializer))
+	initializingWorkspacesKcpClusterClient, err := kcpclient.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	// Wildcard client used for informers
+	informerCfg := rest.CopyConfig(config)
+	kcpclienthelper.SetCluster(informerCfg, logicalcluster.Wildcard)
+	informerClient, err := kcpclient.NewForConfig(informerCfg)
+	if err != nil {
+		return err
+	}
+
+	// This informer factory is created here because it is specifically against the initializing workspaces virtual
+	// workspace.
+	initializingWorkspacesKcpInformers := kcpexternalversions.NewSharedInformerFactoryWithOptions(
+		informerClient,
+		resyncPeriod,
+		kcpexternalversions.WithExtraClusterScopedIndexers(indexers.ClusterScoped()),
+		kcpexternalversions.WithExtraNamespaceScopedIndexers(indexers.NamespaceScoped()),
+	)
+
+	c, err := initialization.NewAPIBinder(
+		initializingWorkspacesKcpClusterClient,
+		initializingWorkspacesKcpInformers.Tenancy().V1alpha1().ClusterWorkspaces(),
+		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceTypes(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+	)
+	if err != nil {
+		return err
+	}
+
+	return server.AddPostStartHook(postStartHookName(initialization.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
+		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(initialization.ControllerName))
+
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			logger.Error(err, "failed to finish post-start-hook")
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		initializingWorkspacesKcpInformers.Start(hookContext.StopCh)
+		initializingWorkspacesKcpInformers.WaitForCacheSync(hookContext.StopCh)
+
+		go c.Start(goContext(hookContext), 2)
 		return nil
 	})
 }

@@ -41,6 +41,7 @@ import (
 	"k8s.io/kubernetes/pkg/printers"
 	printerstorage "k8s.io/kubernetes/pkg/printers/storage"
 
+	clusterworkspaceadmission "github.com/kcp-dev/kcp/pkg/admission/clusterworkspace"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/projection"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
@@ -326,6 +327,18 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 			Type: workspace.Spec.Type,
 		},
 	}
+
+	ownerRaw, err := clusterworkspaceadmission.ClusterWorkspaceOwnerAnnotationValue(userInfo)
+	if err != nil {
+		return nil, fmt.Errorf("error constructing workspace owner annotation from user info: %w", err)
+	}
+
+	if clusterWorkspace.Annotations == nil {
+		clusterWorkspace.Annotations = make(map[string]string)
+	}
+
+	clusterWorkspace.Annotations[tenancyv1alpha1.ExperimentalClusterWorkspaceOwnerAnnotationKey] = ownerRaw
+
 	createdClusterWorkspace, err := s.kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, clusterWorkspace, metav1.CreateOptions{})
 	if kerrors.IsAlreadyExists(err) {
 		return nil, kerrors.NewAlreadyExists(tenancyv1beta1.Resource("workspaces"), workspace.Name)
