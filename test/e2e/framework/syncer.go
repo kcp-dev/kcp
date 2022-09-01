@@ -37,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/client-go/dynamic"
 	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -124,12 +125,13 @@ func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 		"workload",
 		"sync",
 		sf.syncTargetName,
-		"--syncer-image", syncerImage,
-		"--output-file", "-",
-		"--qps", "-1",
+		"--syncer-image=" + syncerImage,
+		"--output-file=-",
+		"--qps=-1",
+		"--feature-gates=" + fmt.Sprintf("%s", utilfeature.DefaultFeatureGate),
 	}
 	for _, resource := range sf.extraResourcesToSync {
-		pluginArgs = append(pluginArgs, "--resources", resource)
+		pluginArgs = append(pluginArgs, "--resources="+resource)
 	}
 	syncerYAML := RunKcpCliPlugin(t, kubeconfigPath, pluginArgs)
 
@@ -314,6 +316,7 @@ func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 
 	startedSyncer := &StartedSyncerFixture{
 		SyncerConfig:         syncerConfig,
+		SyncerID:             syncerID,
 		DownstreamConfig:     downstreamConfig,
 		DownstreamKubeClient: downstreamKubeClient,
 	}
@@ -329,7 +332,7 @@ func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 // downstream cluster.
 type StartedSyncerFixture struct {
 	SyncerConfig *syncer.SyncerConfig
-
+	SyncerID     string
 	// Provide cluster-admin config and client for test purposes. The downstream config in
 	// SyncerConfig will be less privileged.
 	DownstreamConfig     *rest.Config
