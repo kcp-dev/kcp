@@ -122,8 +122,11 @@ lint: $(GOLANGCI_LINT) $(STATICCHECK) $(LOGCHECK)
 	$(GOLANGCI_LINT) run --timeout=10m ./...
 	$(STATICCHECK) -checks ST1019,ST1005 ./...
 	./hack/verify-contextual-logging.sh
-
 .PHONY: lint
+
+update-contextual-logging: $(LOGCHECK)
+	UPDATE=true ./hack/verify-contextual-logging.sh
+.PHONY: update-contextual-logging
 
 vendor: ## Vendor the dependencies
 	go mod tidy

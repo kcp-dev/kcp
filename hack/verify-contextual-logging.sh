@@ -59,6 +59,6 @@ if ! changes="$(diff <(echo "${work_cleaned}")  <(echo "${log_cleaned}") )"; the
     echo "[ERROR] Current logging errors and saved logging errors do not match."
     echo "${changes}"
     echo
-    echo "[INFO] If you need to update the saved list, run \`UPDATE=true hack/verify-contextual-logging.sh\` and commit \`hack/logcheck.out\`'"
+    echo "[INFO] If you need to update the saved list, run \`make update-contextual-logging\` and commit \`hack/logcheck.out\`'"
     exit 1
 fi
