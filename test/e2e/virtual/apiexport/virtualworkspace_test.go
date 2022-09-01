@@ -263,6 +263,17 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 		Patch(logicalcluster.WithCluster(ctx, consumerWorkspace), "cowboy-via-vw", types.ApplyPatchType, applyPatch, metav1.PatchOptions{FieldManager: "e2e-test-runner", Force: pointer.Bool(true)})
 	require.NoError(t, err)
 
+	t.Logf("patching a non-existent cowboy with user-1 via APIExport virtual workspace server should fail")
+	patchedCowboy = cowboy.DeepCopy()
+	patchedCowboy.Spec.Intent = "1"
+	source = encodeJSON(t, cowboy)
+	target = encodeJSON(t, patchedCowboy)
+	mergePatch, err = jsonpatch.CreateMergePatch(source, target)
+	require.NoError(t, err)
+	cowboy, err = wwUser1VC.WildwestV1alpha1().Cowboys("default").
+		Patch(logicalcluster.WithCluster(ctx, consumerWorkspace), "cowboy-via-vw-merge-patch", types.MergePatchType, mergePatch, metav1.PatchOptions{})
+	require.EqualError(t, err, "cowboys.wildwest.dev \"cowboy-via-vw-merge-patch\" not found")
+
 	t.Logf("create a cowboy with user-1 via APIExport virtual workspace server using Server-Side Apply")
 	cowboySSA := newCowboy("default", "cowboy-via-vw-ssa")
 	cowboySSA.Spec.Intent = "1"
