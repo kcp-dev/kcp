@@ -150,13 +150,14 @@ func withUpdateValidation(initializer tenancyv1alpha1.ClusterWorkspaceInitialize
 		delegateUpdater := storage.UpdaterFunc
 		storage.UpdaterFunc = func(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
 			validation := rest.ValidateObjectUpdateFunc(func(ctx context.Context, obj, old runtime.Object) error {
+				logger := klog.FromContext(ctx)
 				previous, _, err := unstructured.NestedStringSlice(old.(*unstructured.Unstructured).UnstructuredContent(), "status", "initializers")
 				if err != nil {
 					return errors.NewInternalError(fmt.Errorf("error accessing initializers from old object: %w", err))
 				}
 				current, _, err := unstructured.NestedStringSlice(obj.(*unstructured.Unstructured).UnstructuredContent(), "status", "initializers")
 				if err != nil {
-					klog.V(2).Infof("error accessing initializers from new object: %v", err)
+					logger.Error(err, "error accessing initializers from new object")
 					return errors.NewInternalError(fmt.Errorf("error accessing initializers from old object: %w", err))
 				}
 				invalidUpdateErr := errors.NewInvalid(

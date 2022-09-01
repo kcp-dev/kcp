@@ -298,7 +298,6 @@ var resolver = requestinfo.NewFactory()
 func isClusterWorkspaceRequest(path string) bool {
 	info, err := resolver.NewRequestInfo(&http.Request{URL: &url.URL{Path: path}})
 	if err != nil {
-		klog.V(2).Infof("failed to determine info for request: %v", err)
 		return false
 	}
 	return info.IsResourceRequest && info.APIGroup == tenancyv1alpha1.SchemeGroupVersion.Group && info.Resource == "clusterworkspaces"

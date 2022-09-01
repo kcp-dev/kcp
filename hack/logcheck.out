@@ -58,7 +58,6 @@
 /config/helpers/bootstrap.go:273:3: function "V" should not be used, convert to contextual logging
 /config/helpers/bootstrap.go:92:4: function "Infof" should not be used, convert to contextual logging
 /config/system-crds/bootstrap.go:58:4: function "Errorf" should not be used, convert to contextual logging
-/pkg/admission/apibinding/apibinding_admission.go:189:3: function "Errorf" should not be used, convert to contextual logging
 /pkg/admission/kubequota/kubequota_admission.go:217:3: function "InfoS" should not be used, convert to contextual logging
 /pkg/admission/kubequota/kubequota_admission.go:217:3: function "V" should not be used, convert to contextual logging
 /pkg/admission/kubequota/kubequota_admission.go:221:2: function "InfoS" should not be used, convert to contextual logging
@@ -98,22 +97,22 @@
 /pkg/informer/informer.go:376:3: function "V" should not be used, convert to contextual logging
 /pkg/informer/informer.go:417:2: function "InfoS" should not be used, convert to contextual logging
 /pkg/informer/informer.go:417:2: function "V" should not be used, convert to contextual logging
-/pkg/informer/informer.go:447:3: function "InfoS" should not be used, convert to contextual logging
-/pkg/informer/informer.go:447:3: function "V" should not be used, convert to contextual logging
-/pkg/informer/informer.go:459:3: function "InfoS" should not be used, convert to contextual logging
-/pkg/informer/informer.go:459:3: function "V" should not be used, convert to contextual logging
-/pkg/informer/informer.go:482:3: function "Infof" should not be used, convert to contextual logging
-/pkg/informer/informer.go:482:3: function "V" should not be used, convert to contextual logging
-/pkg/informer/informer.go:486:4: function "Infof" should not be used, convert to contextual logging
-/pkg/informer/informer.go:486:4: function "V" should not be used, convert to contextual logging
-/pkg/informer/informer.go:490:3: function "Infof" should not be used, convert to contextual logging
-/pkg/informer/informer.go:490:3: function "V" should not be used, convert to contextual logging
-/pkg/informer/informer.go:502:3: function "InfoS" should not be used, convert to contextual logging
-/pkg/informer/informer.go:502:3: function "V" should not be used, convert to contextual logging
-/pkg/informer/informer.go:505:4: function "InfoS" should not be used, convert to contextual logging
-/pkg/informer/informer.go:505:4: function "V" should not be used, convert to contextual logging
-/pkg/informer/informer.go:507:4: function "InfoS" should not be used, convert to contextual logging
-/pkg/informer/informer.go:507:4: function "V" should not be used, convert to contextual logging
+/pkg/informer/informer.go:448:3: function "InfoS" should not be used, convert to contextual logging
+/pkg/informer/informer.go:448:3: function "V" should not be used, convert to contextual logging
+/pkg/informer/informer.go:460:3: function "InfoS" should not be used, convert to contextual logging
+/pkg/informer/informer.go:460:3: function "V" should not be used, convert to contextual logging
+/pkg/informer/informer.go:483:3: function "Infof" should not be used, convert to contextual logging
+/pkg/informer/informer.go:483:3: function "V" should not be used, convert to contextual logging
+/pkg/informer/informer.go:487:4: function "Infof" should not be used, convert to contextual logging
+/pkg/informer/informer.go:487:4: function "V" should not be used, convert to contextual logging
+/pkg/informer/informer.go:491:3: function "Infof" should not be used, convert to contextual logging
+/pkg/informer/informer.go:491:3: function "V" should not be used, convert to contextual logging
+/pkg/informer/informer.go:503:3: function "InfoS" should not be used, convert to contextual logging
+/pkg/informer/informer.go:503:3: function "V" should not be used, convert to contextual logging
+/pkg/informer/informer.go:506:4: function "InfoS" should not be used, convert to contextual logging
+/pkg/informer/informer.go:506:4: function "V" should not be used, convert to contextual logging
+/pkg/informer/informer.go:508:4: function "InfoS" should not be used, convert to contextual logging
+/pkg/informer/informer.go:508:4: function "V" should not be used, convert to contextual logging
 /pkg/localenvoy/controllers/ingress/envoyingress.go:37:2: function "InfoS" should not be used, convert to contextual logging
 /pkg/localenvoy/controllers/ingress/envoyingress.go:59:3: function "Infof" should not be used, convert to contextual logging
 /pkg/localenvoy/controllers/ingress/envoyingresscontroller.go:125:2: function "InfoS" should not be used, convert to contextual logging
@@ -169,8 +168,8 @@
 /pkg/reconciler/workload/synctargetexports/synctargetexports_controller.go:332:3: function "Errorf" should not be used, convert to contextual logging
 /pkg/reconciler/workload/synctargetexports/synctargetexports_reconcile.go:58:5: function "Warningf" should not be used, convert to contextual logging
 /pkg/server/controllers.go:1001:4: function "Errorf" should not be used, convert to contextual logging
-/pkg/server/home_workspaces.go:297:5: Additional arguments to WithValues should always be Key Value pairs. Please check if there is any key or value missing.
-/pkg/server/home_workspaces.go:567:6: Additional arguments to WithValues should always be Key Value pairs. Please check if there is any key or value missing.
+/pkg/server/home_workspaces.go:324:5: Additional arguments to WithValues should always be Key Value pairs. Please check if there is any key or value missing.
+/pkg/server/home_workspaces.go:609:6: Additional arguments to WithValues should always be Key Value pairs. Please check if there is any key or value missing.
 /pkg/server/options/controllers.go:54:3: function "Fatal" should not be used, convert to contextual logging
 /pkg/syncer/apiimporter.go:139:2: function "Infof" should not be used, convert to contextual logging
 /pkg/syncer/apiimporter.go:151:2: function "Infof" should not be used, convert to contextual logging
@@ -266,24 +265,18 @@
 /pkg/syncer/syncer.go:329:4: function "Warningf" should not be used, convert to contextual logging
 /pkg/syncer/syncer.go:73:2: function "Infof" should not be used, convert to contextual logging
 /pkg/syncer/syncer.go:90:2: function "Infof" should not be used, convert to contextual logging
-/pkg/virtual/apiexport/builder/build.go:175:7: function "Errorf" should not be used, convert to contextual logging
+/pkg/virtual/apiexport/builder/build.go:166:7: function "Errorf" should not be used, convert to contextual logging
 /pkg/virtual/apiexport/controllers/apireconciler/apiexport_apireconciler_controller.go:147:3: function "Infof" should not be used, convert to contextual logging
 /pkg/virtual/apiexport/controllers/apireconciler/apiexport_apireconciler_controller.go:147:3: function "V" should not be used, convert to contextual logging
 /pkg/virtual/apiexport/controllers/apireconciler/apiexport_apireconciler_controller.go:153:3: function "Infof" should not be used, convert to contextual logging
 /pkg/virtual/apiexport/controllers/apireconciler/apiexport_apireconciler_controller.go:153:3: function "V" should not be used, convert to contextual logging
-/pkg/virtual/apiexport/controllers/apireconciler/apiexport_apireconciler_reconcile.go:255:4: function "Infof" should not be used, convert to contextual logging
-/pkg/virtual/apiexport/controllers/apireconciler/apiexport_apireconciler_reconcile.go:255:4: function "V" should not be used, convert to contextual logging
+/pkg/virtual/apiexport/controllers/apireconciler/apiexport_apireconciler_reconcile.go:270:4: function "Infof" should not be used, convert to contextual logging
+/pkg/virtual/apiexport/controllers/apireconciler/apiexport_apireconciler_reconcile.go:270:4: function "V" should not be used, convert to contextual logging
 /pkg/virtual/framework/dynamic/apiserver/serving_info.go:185:3: function "Infof" should not be used, convert to contextual logging
 /pkg/virtual/framework/dynamic/apiserver/serving_info.go:185:3: function "V" should not be used, convert to contextual logging
-/pkg/virtual/initializingworkspaces/builder/build.go:212:7: function "Errorf" should not be used, convert to contextual logging
+/pkg/virtual/initializingworkspaces/builder/build.go:202:7: function "Errorf" should not be used, convert to contextual logging
 /pkg/virtual/initializingworkspaces/builder/build.go:388:4: function "Info" should not be used, convert to contextual logging
 /pkg/virtual/initializingworkspaces/builder/build.go:388:4: function "V" should not be used, convert to contextual logging
-/pkg/virtual/initializingworkspaces/builder/build.go:77:4: function "Infof" should not be used, convert to contextual logging
-/pkg/virtual/initializingworkspaces/builder/build.go:77:4: function "V" should not be used, convert to contextual logging
-/pkg/virtual/initializingworkspaces/builder/forwarding.go:217:6: function "Infof" should not be used, convert to contextual logging
-/pkg/virtual/initializingworkspaces/builder/forwarding.go:217:6: function "V" should not be used, convert to contextual logging
-/pkg/virtual/initializingworkspaces/builder/forwarding.go:59:4: function "Info" should not be used, convert to contextual logging
-/pkg/virtual/initializingworkspaces/builder/forwarding.go:59:4: function "V" should not be used, convert to contextual logging
 /pkg/virtual/syncer/builder/build.go:212:7: function "Errorf" should not be used, convert to contextual logging
 /pkg/virtual/syncer/controllers/apireconciler/syncer_apireconciler_controller.go:181:3: function "Infof" should not be used, convert to contextual logging
 /pkg/virtual/syncer/controllers/apireconciler/syncer_apireconciler_controller.go:181:3: function "V" should not be used, convert to contextual logging
