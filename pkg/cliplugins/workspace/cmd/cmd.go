@@ -90,7 +90,7 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 	}
 	cmd := &cobra.Command{
 		Aliases:          []string{"ws", "workspaces"},
-		Use:              "workspace [create|create-context|<workspace>|..|.|-|~|<root:absolute:workspace>]",
+		Use:              "workspace [create|create-context|use|current|<workspace>|..|.|-|~|<root:absolute:workspace>]",
 		Short:            "Manages KCP workspaces",
 		Example:          fmt.Sprintf(workspaceExample, "kubectl kcp"),
 		SilenceUsage:     true,
