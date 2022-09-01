@@ -193,6 +193,12 @@ func DefaultDynamicDelegatedStoreFuncs(
 				oldObj = nil
 			}
 
+			// The following call returns a 404 error for non server-side apply
+			// requests, i.e., for json, merge and strategic-merge PATCH requests,
+			// as it's not possible to construct the updated object out of the patch
+			// alone, when the object does not already exist.
+			// For server-side apply, the computed object is used as the body of the
+			// PUT request below, to create the object from the apply patch.
 			obj, err := objInfo.UpdatedObject(ctx, oldObj)
 			if err != nil {
 				return nil, err
