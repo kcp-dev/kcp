@@ -31,8 +31,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 )
 
 // Expectation closes over a statement of intent, allowing the caller
@@ -202,8 +202,8 @@ type RegisterClusterWorkspaceExpectation func(seed *tenancyv1alpha1.ClusterWorks
 type ClusterWorkspaceExpectation func(*tenancyv1alpha1.ClusterWorkspace) error
 
 // ExpectClusterWorkspaces sets up an Expecter in order to allow registering expectations in tests with minimal setup.
-func ExpectClusterWorkspaces(ctx context.Context, t *testing.T, client kcpclientset.Interface) (RegisterClusterWorkspaceExpectation, error) {
-	kcpSharedInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(client, 0)
+func ExpectClusterWorkspaces(ctx context.Context, t *testing.T, client kcpclient.Interface) (RegisterClusterWorkspaceExpectation, error) {
+	kcpSharedInformerFactory := kcpinformers.NewSharedInformerFactoryWithOptions(client, 0)
 	clusterWorkspaceInformer := kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces()
 	expecter := NewExpecter(clusterWorkspaceInformer.Informer())
 	kcpSharedInformerFactory.Start(ctx.Done())
@@ -233,8 +233,8 @@ type RegisterWorkspaceShardExpectation func(seed *tenancyv1alpha1.ClusterWorkspa
 type WorkspaceShardExpectation func(*tenancyv1alpha1.ClusterWorkspaceShard) error
 
 // ExpectWorkspaceShards sets up an Expecter in order to allow registering expectations in tests with minimal setup.
-func ExpectWorkspaceShards(ctx context.Context, t *testing.T, client kcpclientset.Interface) (RegisterWorkspaceShardExpectation, error) {
-	kcpSharedInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(client, 0)
+func ExpectWorkspaceShards(ctx context.Context, t *testing.T, client kcpclient.Interface) (RegisterWorkspaceShardExpectation, error) {
+	kcpSharedInformerFactory := kcpinformers.NewSharedInformerFactoryWithOptions(client, 0)
 	workspaceShardInformer := kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards()
 	expecter := NewExpecter(workspaceShardInformer.Informer())
 	kcpSharedInformerFactory.Start(ctx.Done())

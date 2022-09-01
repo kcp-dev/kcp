@@ -31,21 +31,21 @@ import (
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
-	rbacv1informers "k8s.io/client-go/informers/rbac/v1"
-	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
+	rbacinformers "k8s.io/client-go/informers/rbac/v1"
+	rbaclisters "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
-	workspaceapi "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	workspacelisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	workspaceutil "github.com/kcp-dev/kcp/pkg/virtual/workspaces/util"
 )
 
 // Lister enforces ability to enumerate a resource based on role
 type Lister interface {
 	// List returns the list of ClusterWorkspace items that the user can access
-	List(user user.Info, labelSelector labels.Selector, fieldSelector fields.Selector) (*workspaceapi.ClusterWorkspaceList, error)
+	List(user user.Info, labelSelector labels.Selector, fieldSelector fields.Selector) (*tenancyv1alpha1.ClusterWorkspaceList, error)
 }
 
 // subjectRecord is a cache record for the set of workspaces a subject can access
@@ -130,17 +130,17 @@ func (s *neverSkipSynchronizer) SkipSynchronize(prevState string, versionedObjec
 }
 
 type SyncedClusterRoleLister interface {
-	rbacv1listers.ClusterRoleLister
+	rbaclisters.ClusterRoleLister
 	LastSyncResourceVersioner
 }
 
 type SyncedClusterRoleBindingLister interface {
-	rbacv1listers.ClusterRoleBindingLister
+	rbaclisters.ClusterRoleBindingLister
 	LastSyncResourceVersioner
 }
 
 type syncedClusterRoleLister struct {
-	rbacv1listers.ClusterRoleLister
+	rbaclisters.ClusterRoleLister
 	versioner LastSyncResourceVersioner
 }
 
@@ -149,7 +149,7 @@ func (l syncedClusterRoleLister) LastSyncResourceVersion() string {
 }
 
 type syncedClusterRoleBindingLister struct {
-	rbacv1listers.ClusterRoleBindingLister
+	rbaclisters.ClusterRoleBindingLister
 	versioner LastSyncResourceVersioner
 }
 
@@ -162,7 +162,7 @@ type AuthorizationCache struct {
 	// allKnownWorkspaces we track all the known workspaces, so we can detect deletes.
 	// TODO remove this in favor of a list/watch mechanism for workspaces
 	allKnownWorkspaces        sets.String
-	workspaceLister           workspacelisters.ClusterWorkspaceLister
+	workspaceLister           tenancylisters.ClusterWorkspaceLister
 	lastSyncResourceVersioner LastSyncResourceVersioner
 
 	clusterRoleLister             SyncedClusterRoleLister
@@ -192,11 +192,11 @@ type AuthorizationCache struct {
 
 // NewAuthorizationCache creates a new AuthorizationCache
 func NewAuthorizationCache(
-	workspaceLister workspacelisters.ClusterWorkspaceLister,
+	workspaceLister tenancylisters.ClusterWorkspaceLister,
 	workspaceLastSyncResourceVersioner LastSyncResourceVersioner,
 	reviewer *Reviewer,
 	reviewTemplate authorizer.AttributesRecord,
-	informers rbacv1informers.Interface,
+	informers rbacinformers.Interface,
 ) *AuthorizationCache {
 	scrLister := syncedClusterRoleLister{
 		informers.ClusterRoles().Lister(),
@@ -431,7 +431,7 @@ func (ac *AuthorizationCache) syncRequest(request *reviewRequest, userSubjectRec
 }
 
 // List returns the set of workspace names for all workspaces that match the given selector
-func (ac *AuthorizationCache) ListAllWorkspaces(selector labels.Selector) (*workspaceapi.ClusterWorkspaceList, error) {
+func (ac *AuthorizationCache) ListAllWorkspaces(selector labels.Selector) (*tenancyv1alpha1.ClusterWorkspaceList, error) {
 	ac.rwMutex.RLock()
 	defer ac.rwMutex.RUnlock()
 
@@ -443,7 +443,7 @@ func (ac *AuthorizationCache) ListAllWorkspaces(selector labels.Selector) (*work
 		keys.Insert(subjectRecord.workspaces.List()...)
 	}
 
-	workspaceList := &workspaceapi.ClusterWorkspaceList{}
+	workspaceList := &tenancyv1alpha1.ClusterWorkspaceList{}
 	for _, key := range keys.List() {
 		workspace, err := ac.workspaceLister.Get(key)
 		if apierrors.IsNotFound(err) {
@@ -462,7 +462,7 @@ func (ac *AuthorizationCache) ListAllWorkspaces(selector labels.Selector) (*work
 }
 
 // List returns the set of workspace names the user has access to view
-func (ac *AuthorizationCache) List(userInfo user.Info, labelSelector labels.Selector, fieldSelector fields.Selector) (*workspaceapi.ClusterWorkspaceList, error) {
+func (ac *AuthorizationCache) List(userInfo user.Info, labelSelector labels.Selector, fieldSelector fields.Selector) (*tenancyv1alpha1.ClusterWorkspaceList, error) {
 	ac.rwMutex.RLock()
 	defer ac.rwMutex.RUnlock()
 
@@ -484,7 +484,7 @@ func (ac *AuthorizationCache) List(userInfo user.Info, labelSelector labels.Sele
 		}
 	}
 
-	workspaceList := &workspaceapi.ClusterWorkspaceList{}
+	workspaceList := &tenancyv1alpha1.ClusterWorkspaceList{}
 	for _, key := range keys.List() {
 		workspace, err := ac.workspaceLister.Get(key)
 		if apierrors.IsNotFound(err) {

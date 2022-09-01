@@ -27,7 +27,7 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
-	clientgoinformers "k8s.io/client-go/informers"
+	kubernetesinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
@@ -50,7 +50,7 @@ const (
 // bound resource or not. If the resource is bound we will check the user has RBAC access in the
 // exported resources workspace. If it is not allowed we will return NoDecision, if allowed we
 // will call the delegate authorizer.
-func NewAPIBindingAccessAuthorizer(kubeInformers clientgoinformers.SharedInformerFactory, kcpInformers kcpinformers.SharedInformerFactory, delegate authorizer.Authorizer) (authorizer.Authorizer, error) {
+func NewAPIBindingAccessAuthorizer(kubeInformers kubernetesinformers.SharedInformerFactory, kcpInformers kcpinformers.SharedInformerFactory, delegate authorizer.Authorizer) (authorizer.Authorizer, error) {
 	if _, found := kcpInformers.Apis().V1alpha1().APIBindings().Informer().GetIndexer().GetIndexers()[byWorkspaceIndex]; !found {
 		err := kcpInformers.Apis().V1alpha1().APIBindings().Informer().AddIndexers(
 			cache.Indexers{
@@ -93,7 +93,7 @@ func NewAPIBindingAccessAuthorizer(kubeInformers clientgoinformers.SharedInforme
 }
 
 type apiBindingAccessAuthorizer struct {
-	versionedInformers clientgoinformers.SharedInformerFactory
+	versionedInformers kubernetesinformers.SharedInformerFactory
 	apiBindingIndexer  cache.Indexer
 	apiExportIndexer   cache.Indexer
 	delegate           authorizer.Authorizer

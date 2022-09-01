@@ -30,7 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	aggregateerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/informers"
+	kubernetesinformers "k8s.io/client-go/informers"
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
@@ -230,7 +230,7 @@ func claimFromSetKey(key string) apisv1alpha1.PermissionClaim {
 	}
 }
 
-func (c *controller) getInformerForGroupResource(group, resource string) (informers.GenericInformer, schema.GroupVersionResource, error) {
+func (c *controller) getInformerForGroupResource(group, resource string) (kubernetesinformers.GenericInformer, schema.GroupVersionResource, error) {
 	listers, _ := c.ddsif.Listers()
 
 	for gvr := range listers {

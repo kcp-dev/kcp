@@ -25,7 +25,7 @@ import (
 	rbacinformers "k8s.io/client-go/informers/rbac/v1"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	workspaceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	frameworkrbac "github.com/kcp-dev/kcp/pkg/virtual/framework/rbac"
 	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/authorization"
 	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/registry"
@@ -48,7 +48,7 @@ type authCacheClusterWorkspaces struct {
 // As part of an Org, a WorkspaceAuthCache is created and ensured to be started.
 func CreateAndStartOrg(
 	rbacInformers rbacinformers.Interface,
-	clusterWorkspaceInformer workspaceinformer.ClusterWorkspaceInformer,
+	clusterWorkspaceInformer tenancyinformers.ClusterWorkspaceInformer,
 	initialWatchers []workspaceauth.CacheWatcher,
 ) *authCacheClusterWorkspaces {
 	authCache := workspaceauth.NewAuthorizationCache(

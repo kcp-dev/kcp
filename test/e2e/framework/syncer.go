@@ -38,13 +38,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
-	kubernetesclientset "k8s.io/client-go/kubernetes"
+	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/yaml"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
-	conditionsapi "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
+	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	workloadcliplugin "github.com/kcp-dev/kcp/pkg/cliplugins/workload/plugin"
@@ -233,7 +233,7 @@ func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
-	downstreamKubeClient, err := kubernetesclientset.NewForConfig(downstreamConfig)
+	downstreamKubeClient, err := kubernetesclient.NewForConfig(downstreamConfig)
 	require.NoError(t, err)
 
 	if useDeployedSyncer {
@@ -333,7 +333,7 @@ type StartedSyncerFixture struct {
 	// Provide cluster-admin config and client for test purposes. The downstream config in
 	// SyncerConfig will be less privileged.
 	DownstreamConfig     *rest.Config
-	DownstreamKubeClient kubernetesclientset.Interface
+	DownstreamKubeClient kubernetesclient.Interface
 }
 
 // WaitForClusterReady waits for the cluster to be ready with the given reason.
@@ -344,8 +344,8 @@ func (sf *StartedSyncerFixture) WaitForClusterReady(t *testing.T, ctx context.Co
 	require.NoError(t, err)
 	EventuallyReady(t, func() (conditions.Getter, error) {
 		return kcpClusterClient.WorkloadV1alpha1().SyncTargets().Get(logicalcluster.WithCluster(ctx, cfg.SyncTargetWorkspace), cfg.SyncTargetName, metav1.GetOptions{})
-	}, "Waiting for cluster %q condition %q", cfg.SyncTargetName, conditionsapi.ReadyCondition)
-	t.Logf("Cluster %q is %s", cfg.SyncTargetName, conditionsapi.ReadyCondition)
+	}, "Waiting for cluster %q condition %q", cfg.SyncTargetName, conditionsv1alpha1.ReadyCondition)
+	t.Logf("Cluster %q is %s", cfg.SyncTargetName, conditionsv1alpha1.ReadyCondition)
 }
 
 // syncerConfigFromCluster reads the configuration needed to start an in-process
@@ -354,7 +354,7 @@ func syncerConfigFromCluster(t *testing.T, downstreamConfig *rest.Config, namesp
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
-	downstreamKubeClient, err := kubernetesclientset.NewForConfig(downstreamConfig)
+	downstreamKubeClient, err := kubernetesclient.NewForConfig(downstreamConfig)
 	require.NoError(t, err)
 
 	// Read the upstream kubeconfig from the syncer secret

@@ -40,7 +40,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
-	tenancyv1alpha1lister "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -108,7 +108,7 @@ type controller struct {
 	queue workqueue.RateLimitingInterface
 
 	kcpClusterClient            kcpclient.Interface
-	clusterWorkspaceTypeLister  tenancyv1alpha1lister.ClusterWorkspaceTypeLister
+	clusterWorkspaceTypeLister  tenancylisters.ClusterWorkspaceTypeLister
 	listClusterWorkspaceShards  func() ([]*tenancyv1alpha1.ClusterWorkspaceShard, error)
 	resolveClusterWorkspaceType func(reference tenancyv1alpha1.ClusterWorkspaceTypeReference) (*tenancyv1alpha1.ClusterWorkspaceType, error)
 }

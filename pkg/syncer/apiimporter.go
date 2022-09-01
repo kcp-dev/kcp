@@ -37,7 +37,7 @@ import (
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/crdpuller"
 	clusterctl "github.com/kcp-dev/kcp/pkg/reconciler/workload/basecontroller"
 )
@@ -70,7 +70,7 @@ func NewAPIImporter(
 	}
 
 	kcpClient := kcpClusterClient.Cluster(logicalClusterName)
-	kcpInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpClient, resyncPeriod)
+	kcpInformerFactory := kcpinformers.NewSharedInformerFactoryWithOptions(kcpClient, resyncPeriod)
 	clusterIndexer := kcpInformerFactory.Workload().V1alpha1().SyncTargets().Informer().GetIndexer()
 	importIndexer := kcpInformerFactory.Apiresource().V1alpha1().APIResourceImports().Informer().GetIndexer()
 
@@ -118,7 +118,7 @@ func NewAPIImporter(
 }
 
 type APIImporter struct {
-	kcpInformerFactory       kcpexternalversions.SharedInformerFactory
+	kcpInformerFactory       kcpinformers.SharedInformerFactory
 	kcpClusterClient         *kcpclient.Cluster
 	resourcesToSync          []string
 	apiresourceImportIndexer cache.Indexer

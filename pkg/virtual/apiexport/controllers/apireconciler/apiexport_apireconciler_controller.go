@@ -35,7 +35,7 @@ import (
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	apisinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
+	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
@@ -54,8 +54,8 @@ type CreateAPIDefinitionFunc func(apiResourceSchema *apisv1alpha1.APIResourceSch
 // and delegates the corresponding SyncTargetAPI management to the given SyncTargetAPIManager.
 func NewAPIReconciler(
 	kcpClusterClient kcpclient.ClusterInterface,
-	apiResourceSchemaInformer apisinformer.APIResourceSchemaInformer,
-	apiExportInformer apisinformer.APIExportInformer,
+	apiResourceSchemaInformer apisinformers.APIResourceSchemaInformer,
+	apiExportInformer apisinformers.APIExportInformer,
 	createAPIDefinition CreateAPIDefinitionFunc,
 ) (*APIReconciler, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)

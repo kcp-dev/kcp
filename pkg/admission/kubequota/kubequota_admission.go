@@ -31,8 +31,8 @@ import (
 	"k8s.io/apiserver/pkg/admission/plugin/resourcequota/apis/resourcequota/validation"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	quota "k8s.io/apiserver/pkg/quota/v1"
-	"k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
+	kubernetesinformers "k8s.io/client-go/informers"
+	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/admission/initializers"
@@ -83,7 +83,7 @@ type KubeResourceQuota struct {
 	// Injected/set via initializers
 	clusterWorkspaceInformer     tenancyinformers.ClusterWorkspaceInformer
 	clusterWorkspaceLister       tenancylisters.ClusterWorkspaceLister
-	kubeClusterClient            kubernetes.ClusterInterface
+	kubeClusterClient            kubernetesclient.ClusterInterface
 	scopingResourceQuotaInformer *kubequotacontroller.ScopingResourceQuotaInformer
 	quotaConfiguration           quota.Configuration
 	serverDone                   <-chan struct{}
@@ -224,7 +224,7 @@ func (k *KubeResourceQuota) stopQuotaAdmissionForCluster(clusterName logicalclus
 	delegate.stop()
 }
 
-func (k *KubeResourceQuota) SetKubeClusterClient(kubeClusterClient kubernetes.ClusterInterface) {
+func (k *KubeResourceQuota) SetKubeClusterClient(kubeClusterClient kubernetesclient.ClusterInterface) {
 	k.kubeClusterClient = kubeClusterClient
 }
 
@@ -233,7 +233,7 @@ func (k *KubeResourceQuota) SetKcpInformers(informers kcpinformers.SharedInforme
 	k.clusterWorkspaceInformer = informers.Tenancy().V1alpha1().ClusterWorkspaces()
 }
 
-func (k *KubeResourceQuota) SetExternalKubeInformerFactory(informers informers.SharedInformerFactory) {
+func (k *KubeResourceQuota) SetExternalKubeInformerFactory(informers kubernetesinformers.SharedInformerFactory) {
 	k.scopingResourceQuotaInformer = kubequotacontroller.NewScopingResourceQuotaInformer(informers.Core().V1().ResourceQuotas())
 
 	// Make sure the quota informer gets started

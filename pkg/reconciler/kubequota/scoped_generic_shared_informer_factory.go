@@ -25,7 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/informers"
+	kubernetesinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/controller-manager/pkg/informerfactory"
@@ -78,7 +78,7 @@ func (f *scopedGenericSharedInformerFactory) Start(stop <-chan struct{}) {
 }
 
 // ForResource returns a generic informer implementation that is scoped to a single logical cluster.
-func (f *scopedGenericSharedInformerFactory) ForResource(resource schema.GroupVersionResource) (informers.GenericInformer, error) {
+func (f *scopedGenericSharedInformerFactory) ForResource(resource schema.GroupVersionResource) (kubernetesinformers.GenericInformer, error) {
 	var informer *scopedGenericInformer
 
 	f.lock.RLock()
@@ -117,7 +117,7 @@ func (f *scopedGenericSharedInformerFactory) ForResource(resource schema.GroupVe
 // scopedGenericInformer wraps an informers.GenericInformer and produces instances of cache.GenericLister that are
 // scoped to a single logical cluster.
 type scopedGenericInformer struct {
-	delegate               informers.GenericInformer
+	delegate               kubernetesinformers.GenericInformer
 	clusterName            logicalcluster.Name
 	resource               schema.GroupResource
 	delegatingEventHandler *delegatingEventHandler

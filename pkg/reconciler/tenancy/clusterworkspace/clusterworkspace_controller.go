@@ -40,10 +40,10 @@ import (
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	apisinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
-	tenancyinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
+	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
-	tenancylister "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -53,9 +53,9 @@ const (
 
 func NewController(
 	kcpClusterClient kcpclient.Interface,
-	workspaceInformer tenancyinformer.ClusterWorkspaceInformer,
-	clusterWorkspaceShardInformer tenancyinformer.ClusterWorkspaceShardInformer,
-	apiBindingsInformer apisinformer.APIBindingInformer,
+	workspaceInformer tenancyinformers.ClusterWorkspaceInformer,
+	clusterWorkspaceShardInformer tenancyinformers.ClusterWorkspaceShardInformer,
+	apiBindingsInformer apisinformers.APIBindingInformer,
 ) (*Controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
@@ -111,10 +111,10 @@ type Controller struct {
 
 	kcpClusterClient kcpclient.Interface
 	workspaceIndexer cache.Indexer
-	workspaceLister  tenancylister.ClusterWorkspaceLister
+	workspaceLister  tenancylisters.ClusterWorkspaceLister
 
 	clusterWorkspaceShardIndexer cache.Indexer
-	clusterWorkspaceShardLister  tenancylister.ClusterWorkspaceShardLister
+	clusterWorkspaceShardLister  tenancylisters.ClusterWorkspaceShardLister
 
 	apiBindingIndexer cache.Indexer
 	apiBindingLister  apislisters.APIBindingLister

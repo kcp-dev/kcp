@@ -39,7 +39,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	kubescheme "k8s.io/client-go/kubernetes/scheme"
+	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"sigs.k8s.io/yaml"
@@ -172,7 +172,7 @@ func artifact(t *testing.T, server RunningServer, producer func() (runtime.Objec
 		err = os.MkdirAll(dir, 0755)
 		require.NoError(t, err, "could not create dir")
 
-		gvks, _, err := kubescheme.Scheme.ObjectKinds(data)
+		gvks, _, err := kubernetesscheme.Scheme.ObjectKinds(data)
 		if err != nil {
 			gvks, _, err = kcpscheme.Scheme.ObjectKinds(data)
 		}

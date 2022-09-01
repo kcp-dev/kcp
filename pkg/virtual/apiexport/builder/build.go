@@ -29,14 +29,14 @@ import (
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/kubernetes"
+	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/controllers/apireconciler"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	virtualdynamic "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic"
@@ -51,10 +51,10 @@ const VirtualWorkspaceName string = "apiexport"
 
 func BuildVirtualWorkspace(
 	rootPathPrefix string,
-	kubeClusterClient kubernetes.ClusterInterface,
+	kubeClusterClient kubernetesclient.ClusterInterface,
 	dynamicClusterClient dynamic.ClusterInterface,
 	kcpClusterClient kcpclient.ClusterInterface,
-	wildcardKcpInformers kcpinformer.SharedInformerFactory,
+	wildcardKcpInformers kcpinformers.SharedInformerFactory,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
 	if !strings.HasSuffix(rootPathPrefix, "/") {
 		rootPathPrefix += "/"
@@ -193,7 +193,7 @@ func BuildVirtualWorkspace(
 	}, nil
 }
 
-func getAuthorizer(client kubernetes.ClusterInterface) authorizer.AuthorizerFunc {
+func getAuthorizer(client kubernetesclient.ClusterInterface) authorizer.AuthorizerFunc {
 	return func(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
 		apiDomainKey := dynamiccontext.APIDomainKeyFrom(ctx)
 		parts := strings.Split(string(apiDomainKey), "/")

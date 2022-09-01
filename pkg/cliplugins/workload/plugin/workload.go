@@ -26,7 +26,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 )
 
 // Cordon the sync target and mark it as unschedulable
@@ -61,7 +61,7 @@ func (c *Config) Uncordon(ctx context.Context, syncTargetName string) error {
 
 // change the sync target cordon value
 func modifyCordon(ctx context.Context, config *rest.Config, syncTargetName string, cordon bool) error {
-	kcpClient, err := kcpclientset.NewForConfig(config)
+	kcpClient, err := kcpclient.NewForConfig(config)
 	if err != nil {
 		return fmt.Errorf("failed to create kcp client: %w", err)
 	}
@@ -119,7 +119,7 @@ func (c *Config) Drain(ctx context.Context, syncTargetName string) error {
 		return err
 	}
 
-	kcpClient, err := kcpclientset.NewForConfig(config)
+	kcpClient, err := kcpclient.NewForConfig(config)
 	if err != nil {
 		return fmt.Errorf("failed to create kcp client: %w", err)
 	}

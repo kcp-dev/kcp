@@ -22,10 +22,10 @@ import (
 	"github.com/spf13/pflag"
 
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/kubernetes"
+	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	"github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces"
 	"github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces/builder"
@@ -55,10 +55,10 @@ func (o *InitializingWorkspaces) Validate(flagPrefix string) []error {
 func (o *InitializingWorkspaces) NewVirtualWorkspaces(
 	rootPathPrefix string,
 	config *rest.Config,
-	wildcardKcpInformers kcpinformer.SharedInformerFactory,
+	wildcardKcpInformers kcpinformers.SharedInformerFactory,
 ) (workspaces []rootapiserver.NamedVirtualWorkspace, err error) {
 	config = rest.AddUserAgent(rest.CopyConfig(config), "initializingworkspaces-virtual-workspace")
-	kubeClusterClient, err := kubernetes.NewClusterForConfig(config)
+	kubeClusterClient, err := kubernetesclient.NewClusterForConfig(config)
 	if err != nil {
 		return nil, err
 	}

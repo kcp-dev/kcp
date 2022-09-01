@@ -37,7 +37,7 @@ import (
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
-	tenancyclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	pluginhelpers "github.com/kcp-dev/kcp/pkg/cliplugins/helpers"
 )
 
@@ -55,7 +55,7 @@ type KubeConfig struct {
 	currentContext       string // including override
 	shortWorkspaceOutput bool
 
-	clusterClient tenancyclient.ClusterInterface
+	clusterClient kcpclient.ClusterInterface
 	modifyConfig  func(newConfig *clientcmdapi.Config) error
 
 	genericclioptions.IOStreams
@@ -88,7 +88,7 @@ func NewKubeConfig(opts *Options) (*KubeConfig, error) {
 	clusterConfig := rest.CopyConfig(config)
 	clusterConfig.Host = u.String()
 	clusterConfig.UserAgent = rest.DefaultKubernetesUserAgent()
-	clusterClient, err := tenancyclient.NewClusterForConfig(clusterConfig)
+	clusterClient, err := kcpclient.NewClusterForConfig(clusterConfig)
 	if err != nil {
 		return nil, err
 	}

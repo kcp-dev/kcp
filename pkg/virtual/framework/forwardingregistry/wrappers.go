@@ -22,7 +22,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/internalversion"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -48,13 +48,13 @@ func WithLabelSelector(labelSelectorFrom func(ctx context.Context) labels.Requir
 		}
 
 		delegateGetter := storage.GetterFunc
-		storage.GetterFunc = func(ctx context.Context, name string, options *v1.GetOptions) (runtime.Object, error) {
+		storage.GetterFunc = func(ctx context.Context, name string, options *metav1.GetOptions) (runtime.Object, error) {
 			obj, err := delegateGetter.Get(ctx, name, options)
 			if err != nil {
 				return obj, err
 			}
 
-			metaObj, ok := obj.(v1.Object)
+			metaObj, ok := obj.(metav1.Object)
 			if !ok {
 				return nil, fmt.Errorf("expected a metav1.Object, got %T", obj)
 			}

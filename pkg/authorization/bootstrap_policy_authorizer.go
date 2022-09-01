@@ -23,7 +23,7 @@ import (
 	kaudit "k8s.io/apiserver/pkg/audit"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
-	clientgoinformers "k8s.io/client-go/informers"
+	kubernetesinformers "k8s.io/client-go/informers"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
@@ -40,7 +40,7 @@ type BootstrapPolicyAuthorizer struct {
 	delegate *rbac.RBACAuthorizer
 }
 
-func NewBootstrapPolicyAuthorizer(informers clientgoinformers.SharedInformerFactory) (authorizer.Authorizer, authorizer.RuleResolver) {
+func NewBootstrapPolicyAuthorizer(informers kubernetesinformers.SharedInformerFactory) (authorizer.Authorizer, authorizer.RuleResolver) {
 	filteredInformer := rbacwrapper.FilterInformers(genericcontrolplane.LocalAdminCluster, informers.Rbac().V1())
 
 	a := &BootstrapPolicyAuthorizer{delegate: rbac.New(

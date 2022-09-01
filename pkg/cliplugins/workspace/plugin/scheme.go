@@ -19,7 +19,7 @@ package plugin
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/kcp-dev/kcp/pkg/client/clientset/versioned/scheme"
+	kcpscheme "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/scheme"
 )
 
 func init() {
@@ -30,7 +30,7 @@ func init() {
 	//
 	// As a comparison, it happens that in the kubectl code, those types are added to the main
 	// kubectl scheme.
-	if err := metav1.AddMetaToScheme(scheme.Scheme); err != nil {
+	if err := metav1.AddMetaToScheme(kcpscheme.Scheme); err != nil {
 		panic(err)
 	}
 }

@@ -31,7 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	coreinformers "k8s.io/client-go/informers/core/v1"
-	"k8s.io/client-go/kubernetes"
+	kubernetesclient "k8s.io/client-go/kubernetes"
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
@@ -60,7 +60,7 @@ func NewController(
 	kcpClusterClient kcpclient.Interface,
 	apiExportInformer apisinformers.APIExportInformer,
 	clusterWorkspaceShardInformer tenancyinformers.ClusterWorkspaceShardInformer,
-	kubeClusterClient kubernetes.Interface,
+	kubeClusterClient kubernetesclient.Interface,
 	namespaceInformer coreinformers.NamespaceInformer,
 	secretInformer coreinformers.SecretInformer,
 ) (*controller, error) {
@@ -156,7 +156,7 @@ type controller struct {
 	apiExportLister  apislisters.APIExportLister
 	apiExportIndexer cache.Indexer
 
-	kubeClusterClient kubernetes.Interface
+	kubeClusterClient kubernetesclient.Interface
 
 	getNamespace    func(clusterName logicalcluster.Name, name string) (*corev1.Namespace, error)
 	createNamespace func(ctx context.Context, clusterName logicalcluster.Name, ns *corev1.Namespace) error

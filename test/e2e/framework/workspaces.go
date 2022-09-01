@@ -31,7 +31,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 )
 
 type ClusterWorkspaceOption func(ws *tenancyv1alpha1.ClusterWorkspace)
@@ -63,7 +63,7 @@ func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logi
 	t.Cleanup(cancelFunc)
 
 	cfg := server.BaseConfig(t)
-	clusterClient, err := kcpclientset.NewForConfig(cfg)
+	clusterClient, err := kcpclient.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct client for server")
 
 	tmpl := &tenancyv1alpha1.ClusterWorkspace{
@@ -130,7 +130,7 @@ func NewOrganizationFixture(t *testing.T, server RunningServer, options ...Clust
 	t.Cleanup(cancelFunc)
 
 	cfg := server.BaseConfig(t)
-	clusterClient, err := kcpclientset.NewForConfig(cfg)
+	clusterClient, err := kcpclient.NewForConfig(cfg)
 	require.NoError(t, err, "failed to create kcp cluster client")
 
 	tmpl := &tenancyv1alpha1.ClusterWorkspace{

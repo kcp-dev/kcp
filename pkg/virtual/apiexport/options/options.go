@@ -21,11 +21,11 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"k8s.io/client-go/kubernetes"
+	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/builder"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/client/dynamic"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
@@ -55,14 +55,14 @@ func (o *APIExport) Validate(flagPrefix string) []error {
 func (o *APIExport) NewVirtualWorkspaces(
 	rootPathPrefix string,
 	config *rest.Config,
-	wildcardKcpInformers kcpinformer.SharedInformerFactory,
+	wildcardKcpInformers kcpinformers.SharedInformerFactory,
 ) (workspaces []rootapiserver.NamedVirtualWorkspace, err error) {
 	config = rest.AddUserAgent(rest.CopyConfig(config), "apiexport-virtual-workspace")
-	kcpClusterClient, err := kcpclientset.NewClusterForConfig(config)
+	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
 	if err != nil {
 		return nil, err
 	}
-	kubeClusterClient, err := kubernetes.NewClusterForConfig(config)
+	kubeClusterClient, err := kubernetesclient.NewClusterForConfig(config)
 	if err != nil {
 		return nil, err
 	}

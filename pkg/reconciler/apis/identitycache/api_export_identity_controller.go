@@ -25,7 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	coreinformers "k8s.io/client-go/informers/core/v1"
-	"k8s.io/client-go/kubernetes"
+	kubernetesclient "k8s.io/client-go/kubernetes"
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
@@ -53,7 +53,7 @@ const (
 // The config map is meant to be used by clients/informers to inject the identities
 // for the given GRs when making requests to the server.
 func NewApiExportIdentityProviderController(
-	kubeClusterClient kubernetes.ClusterInterface,
+	kubeClusterClient kubernetesclient.ClusterInterface,
 	remoteShardApiExportInformer apisinformers.APIExportInformer,
 	configMapInformer coreinformers.ConfigMapInformer,
 ) (*controller, error) {
@@ -153,7 +153,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 
 type controller struct {
 	queue                        workqueue.RateLimitingInterface
-	kubeClient                   kubernetes.Interface
+	kubeClient                   kubernetesclient.Interface
 	configMapLister              corelisters.ConfigMapLister
 	remoteShardApiExportsIndexer cache.Indexer
 }

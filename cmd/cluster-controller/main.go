@@ -32,7 +32,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiresource"
 )
 
@@ -98,7 +98,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	kcpSharedInformerFactory := kcpexternalversions.NewSharedInformerFactoryWithOptions(kcpclient.NewForConfigOrDie(config), resyncPeriod)
+	kcpSharedInformerFactory := kcpinformers.NewSharedInformerFactoryWithOptions(kcpclient.NewForConfigOrDie(config), resyncPeriod)
 	crdSharedInformerFactory := crdexternalversions.NewSharedInformerFactoryWithOptions(apiextensionsclient.NewForConfigOrDie(config), resyncPeriod)
 
 	apiResource, err := apiresource.NewController(

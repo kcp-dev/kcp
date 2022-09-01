@@ -41,7 +41,7 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/kube-openapi/pkg/util/sets"
 
-	"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
+	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	schedulinginformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
 	schedulinglisters "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
@@ -160,7 +160,7 @@ func (c *controller) enqueuePlacement(obj interface{}) {
 		return
 	}
 
-	logger := logging.WithObject(logging.WithReconciler(klog.Background(), controllerName), obj.(*v1alpha1.Placement))
+	logger := logging.WithObject(logging.WithReconciler(klog.Background(), controllerName), obj.(*schedulingv1alpha1.Placement))
 	for _, o := range nss {
 		ns := o.(*corev1.Namespace)
 		logger = logging.WithObject(logger, ns)

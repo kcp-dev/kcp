@@ -31,7 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	networkinginformers "k8s.io/client-go/informers/networking/v1"
-	"k8s.io/client-go/kubernetes"
+	kubernetesclient "k8s.io/client-go/kubernetes"
 	corelisters "k8s.io/client-go/listers/core/v1"
 	networkinglisters "k8s.io/client-go/listers/networking/v1"
 	"k8s.io/client-go/tools/cache"
@@ -119,7 +119,7 @@ func NewController(
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	client kubernetes.Interface
+	client kubernetesclient.Interface
 
 	ingressIndexer cache.Indexer
 	ingressLister  networkinglisters.IngressLister

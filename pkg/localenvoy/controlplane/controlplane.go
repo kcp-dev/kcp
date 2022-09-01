@@ -37,7 +37,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
-	v1 "k8s.io/client-go/listers/networking/v1"
+	networkinglisters "k8s.io/client-go/listers/networking/v1"
 	"k8s.io/klog/v2"
 )
 
@@ -64,7 +64,7 @@ var envoyReadySelector labels.Selector
 // EnvoyControlPlane is an envoy control plane that handles configuration update
 // and the management of the xDS server.
 type EnvoyControlPlane struct {
-	ingressLister  v1.IngressLister
+	ingressLister  networkinglisters.IngressLister
 	translator     *translator
 	managementPort uint
 	snapshotCache  envoycachev3.SnapshotCache
@@ -72,7 +72,7 @@ type EnvoyControlPlane struct {
 }
 
 // NewEnvoyControlPlane creates a new EnvoyControlPlane instance.
-func NewEnvoyControlPlane(managementPort, envoyListenPort uint, ingressLister v1.IngressLister, callbacks xds.Callbacks) *EnvoyControlPlane {
+func NewEnvoyControlPlane(managementPort, envoyListenPort uint, ingressLister networkinglisters.IngressLister, callbacks xds.Callbacks) *EnvoyControlPlane {
 	snapshotCache := envoycachev3.NewSnapshotCache(true, envoycachev3.IDHash{}, nil)
 
 	ecp := EnvoyControlPlane{

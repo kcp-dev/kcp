@@ -39,8 +39,8 @@ import (
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	tenancyinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
-	tenancylister "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspacedeletion/deletion"
 )
@@ -52,7 +52,7 @@ const (
 func NewController(
 	kcpClusterClient kcpclient.Interface,
 	metadataClusterClient metadata.Interface,
-	workspaceInformer tenancyinformer.ClusterWorkspaceInformer,
+	workspaceInformer tenancyinformers.ClusterWorkspaceInformer,
 	discoverResourcesFn func(clusterName logicalcluster.Name) ([]*metav1.APIResourceList, error),
 ) *Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
@@ -89,7 +89,7 @@ type Controller struct {
 	kcpClusterClient      kcpclient.Interface
 	metadataClusterClient metadata.Interface
 
-	workspaceLister tenancylister.ClusterWorkspaceLister
+	workspaceLister tenancylisters.ClusterWorkspaceLister
 	deleter         deletion.WorkspaceResourcesDeleterInterface
 }
 

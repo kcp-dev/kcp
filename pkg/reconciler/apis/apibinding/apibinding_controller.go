@@ -26,7 +26,7 @@ import (
 
 	"k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apiextensionclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -46,7 +46,7 @@ import (
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
-	committer "github.com/kcp-dev/kcp/pkg/reconciler/committer"
+	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 )
 
 const (
@@ -59,7 +59,7 @@ var (
 
 // NewController returns a new controller for APIBindings.
 func NewController(
-	crdClusterClient apiextensionclientset.Interface,
+	crdClusterClient apiextensionsclient.Interface,
 	kcpClusterClient kcpclient.Interface,
 	dynamicClusterClient dynamic.Interface,
 	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory,
@@ -225,7 +225,7 @@ type CommitFunc = func(context.Context, *Resource, *Resource) error
 type controller struct {
 	queue workqueue.RateLimitingInterface
 
-	crdClusterClient     apiextensionclientset.Interface
+	crdClusterClient     apiextensionsclient.Interface
 	kcpClusterClient     kcpclient.Interface
 	dynamicClusterClient dynamic.Interface
 	ddsif                *informer.DynamicDiscoverySharedInformerFactory

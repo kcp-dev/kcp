@@ -38,8 +38,8 @@ import (
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	tenancyinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
-	tenancylister "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -49,7 +49,7 @@ const (
 
 func NewController(
 	rootKcpClient kcpclient.Interface,
-	clusterWorkspaceShardInformer tenancyinformer.ClusterWorkspaceShardInformer,
+	clusterWorkspaceShardInformer tenancyinformers.ClusterWorkspaceShardInformer,
 ) (*Controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
@@ -76,7 +76,7 @@ type Controller struct {
 	kcpClient kcpclient.Interface
 
 	clusterWorkspaceShardIndexer cache.Indexer
-	clusterWorkspaceShardLister  tenancylister.ClusterWorkspaceShardLister
+	clusterWorkspaceShardLister  tenancylisters.ClusterWorkspaceShardLister
 }
 
 func (c *Controller) enqueue(obj interface{}) {

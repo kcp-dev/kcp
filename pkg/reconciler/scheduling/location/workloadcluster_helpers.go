@@ -24,7 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
-	conditionsapi "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
+	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
@@ -50,7 +50,7 @@ func LocationSyncTargets(syncTargets []*workloadv1alpha1.SyncTarget, location *s
 func FilterReady(syncTargets []*workloadv1alpha1.SyncTarget) []*workloadv1alpha1.SyncTarget {
 	ready := make([]*workloadv1alpha1.SyncTarget, 0, len(syncTargets))
 	for _, wc := range syncTargets {
-		if conditions.IsTrue(wc, conditionsapi.ReadyCondition) && !wc.Spec.Unschedulable {
+		if conditions.IsTrue(wc, conditionsv1alpha1.ReadyCondition) && !wc.Spec.Unschedulable {
 			ready = append(ready, wc)
 		}
 	}

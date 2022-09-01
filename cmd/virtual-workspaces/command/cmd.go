@@ -32,8 +32,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/wait"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	kubeinformers "k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
+	kubernetesinformers "k8s.io/client-go/informers"
+	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/version"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/component-base/config"
@@ -41,7 +41,7 @@ import (
 
 	"github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	boostrap "github.com/kcp-dev/kcp/pkg/server/bootstrap"
 	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
@@ -105,20 +105,20 @@ func Run(ctx context.Context, o *options.Options) error {
 	}
 
 	// create clients and informers
-	kubeClusterClient, err := kubernetes.NewClusterForConfig(identityConfig)
+	kubeClusterClient, err := kubernetesclient.NewClusterForConfig(identityConfig)
 	if err != nil {
 		return err
 	}
 
 	wildcardKubeClient := kubeClusterClient.Cluster(logicalcluster.Wildcard)
-	wildcardKubeInformers := kubeinformers.NewSharedInformerFactory(wildcardKubeClient, 10*time.Minute)
+	wildcardKubeInformers := kubernetesinformers.NewSharedInformerFactory(wildcardKubeClient, 10*time.Minute)
 
 	kcpClusterClient, err := kcpclient.NewClusterForConfig(identityConfig)
 	if err != nil {
 		return err
 	}
 	wildcardKcpClient := kcpClusterClient.Cluster(logicalcluster.Wildcard)
-	wildcardKcpInformers := kcpinformer.NewSharedInformerFactory(wildcardKcpClient, 10*time.Minute)
+	wildcardKcpInformers := kcpinformers.NewSharedInformerFactory(wildcardKcpClient, 10*time.Minute)
 
 	// create apiserver
 	virtualWorkspaces, err := o.VirtualWorkspaces.NewVirtualWorkspaces(identityConfig, o.RootPathPrefix, wildcardKubeInformers, wildcardKcpInformers)

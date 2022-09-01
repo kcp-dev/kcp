@@ -21,10 +21,10 @@ import (
 
 	"github.com/spf13/pflag"
 
-	kubeinformers "k8s.io/client-go/informers"
+	kubernetesinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/rest"
 
-	kcpinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	apiexportoptions "github.com/kcp-dev/kcp/pkg/virtual/apiexport/options"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	initializingworkspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces/options"
@@ -69,8 +69,8 @@ func (v *Options) AddFlags(fs *pflag.FlagSet) {
 func (o *Options) NewVirtualWorkspaces(
 	config *rest.Config,
 	rootPathPrefix string,
-	wildcardKubeInformers kubeinformers.SharedInformerFactory,
-	wildcardKcpInformers kcpinformer.SharedInformerFactory,
+	wildcardKubeInformers kubernetesinformers.SharedInformerFactory,
+	wildcardKcpInformers kcpinformers.SharedInformerFactory,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
 	workspaces, err := o.Workspaces.NewVirtualWorkspaces(rootPathPrefix, config, wildcardKubeInformers, wildcardKcpInformers)
 	if err != nil {

@@ -37,7 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
-	"k8s.io/client-go/informers"
+	kubernetesinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
@@ -70,7 +70,7 @@ type DynamicDiscoverySharedInformerFactory struct {
 	updateCh chan struct{}
 
 	informersLock    sync.RWMutex
-	informers        map[schema.GroupVersionResource]informers.GenericInformer
+	informers        map[schema.GroupVersionResource]kubernetesinformers.GenericInformer
 	startedInformers map[schema.GroupVersionResource]bool
 	informerStops    map[schema.GroupVersionResource]chan struct{}
 	discoveryData    []*metav1.APIResourceList
@@ -106,7 +106,7 @@ func NewDynamicDiscoverySharedInformerFactory(
 		// Use a buffered channel of size 1 to allow enqueuing 1 update notification
 		updateCh: make(chan struct{}, 1),
 
-		informers:        make(map[schema.GroupVersionResource]informers.GenericInformer),
+		informers:        make(map[schema.GroupVersionResource]kubernetesinformers.GenericInformer),
 		startedInformers: make(map[schema.GroupVersionResource]bool),
 		informerStops:    make(map[schema.GroupVersionResource]chan struct{}),
 
@@ -193,7 +193,7 @@ func NewDynamicDiscoverySharedInformerFactory(
 
 // ForResource returns the GenericInformer for gvr, creating it if needed. The GenericInformer must be started
 // by calling Start on the DynamicDiscoverySharedInformerFactory before the GenericInformer can be used.
-func (d *DynamicDiscoverySharedInformerFactory) ForResource(gvr schema.GroupVersionResource) (informers.GenericInformer, error) {
+func (d *DynamicDiscoverySharedInformerFactory) ForResource(gvr schema.GroupVersionResource) (kubernetesinformers.GenericInformer, error) {
 	// See if we already have it
 	d.informersLock.RLock()
 	inf := d.informers[gvr]
@@ -212,7 +212,7 @@ func (d *DynamicDiscoverySharedInformerFactory) ForResource(gvr schema.GroupVers
 
 // informerForResourceLockHeld returns the GenericInformer for gvr, creating it if needed. The caller must have the write
 // lock before calling this method.
-func (d *DynamicDiscoverySharedInformerFactory) informerForResourceLockHeld(gvr schema.GroupVersionResource) informers.GenericInformer {
+func (d *DynamicDiscoverySharedInformerFactory) informerForResourceLockHeld(gvr schema.GroupVersionResource) kubernetesinformers.GenericInformer {
 	// In case it was created in between the initial check while the rlock was held and when the write lock was
 	// acquired, return it instead of creating a 2nd copy and overwriting.
 	inf := d.informers[gvr]

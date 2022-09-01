@@ -35,7 +35,7 @@ import (
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 )
 
 func init() {
@@ -118,7 +118,7 @@ func WriteLogicalClusterConfig(t *testing.T, rawConfig clientcmdapi.Config, cont
 }
 
 // ShardConfig returns a rest config that talk directly to the given shard.
-func ShardConfig(t *testing.T, kcpClusterClient kcpclientset.Interface, shardName string, cfg *rest.Config) *rest.Config {
+func ShardConfig(t *testing.T, kcpClusterClient kcpclient.Interface, shardName string, cfg *rest.Config) *rest.Config {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 

@@ -43,8 +43,8 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/handlers/negotiation"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
-	coreexternalversions "k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
+	kubernetesinformers "k8s.io/client-go/informers"
+	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
@@ -56,7 +56,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/softimpersonation"
 )
@@ -93,10 +93,10 @@ func init() {
 func WithHomeWorkspaces(
 	apiHandler http.Handler,
 	a authorizer.Authorizer,
-	kubeClusterClient kubernetes.ClusterInterface,
+	kubeClusterClient kubernetesclient.ClusterInterface,
 	kcpClusterClient kcpclient.ClusterInterface,
-	kubeSharedInformerFactory coreexternalversions.SharedInformerFactory,
-	kcpSharedInformerFactory kcpexternalversions.SharedInformerFactory,
+	kubeSharedInformerFactory kubernetesinformers.SharedInformerFactory,
+	kcpSharedInformerFactory kcpinformers.SharedInformerFactory,
 	externalHost string,
 	creationDelaySeconds int,
 	homePrefix logicalcluster.Name,
@@ -126,7 +126,7 @@ type externalKubeClientsAccess struct {
 	createClusterRoleBinding func(ctx context.Context, lcluster logicalcluster.Name, crb *rbacv1.ClusterRoleBinding) error
 }
 
-func buildExternalClientsAccess(kubeClusterClient kubernetes.ClusterInterface, kcpClusterClient kcpclient.ClusterInterface) externalKubeClientsAccess {
+func buildExternalClientsAccess(kubeClusterClient kubernetesclient.ClusterInterface, kcpClusterClient kcpclient.ClusterInterface) externalKubeClientsAccess {
 	return externalKubeClientsAccess{
 		createClusterRole: func(ctx context.Context, workspace logicalcluster.Name, cr *rbacv1.ClusterRole) error {
 			_, err := kubeClusterClient.Cluster(workspace).RbacV1().ClusterRoles().Create(ctx, cr, metav1.CreateOptions{})
@@ -154,7 +154,7 @@ type localInformersAccess struct {
 	synced                func() bool
 }
 
-func buildLocalInformersAccess(kubeSharedInformerFactory coreexternalversions.SharedInformerFactory, kcpSharedInformerFactory kcpexternalversions.SharedInformerFactory) localInformersAccess {
+func buildLocalInformersAccess(kubeSharedInformerFactory kubernetesinformers.SharedInformerFactory, kcpSharedInformerFactory kcpinformers.SharedInformerFactory) localInformersAccess {
 	clusterWorkspaceInformer := kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces().Informer()
 	crInformer := kubeSharedInformerFactory.Rbac().V1().ClusterRoles().Informer()
 	crbInformer := kubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings().Informer()

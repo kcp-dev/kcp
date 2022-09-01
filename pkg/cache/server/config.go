@@ -24,8 +24,8 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
-	apiextentionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apiextentionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
@@ -138,9 +138,9 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions) (*Config, error) {
 
 	opts.Etcd.StorageConfig.Paging = utilfeature.DefaultFeatureGate.Enabled(features.APIListChunking)
 	// this is where the true decodable levels come from.
-	opts.Etcd.StorageConfig.Codec = apiextensionsapiserver.Codecs.LegacyCodec(apiextentionsv1beta1.SchemeGroupVersion, apiextentionsv1.SchemeGroupVersion)
+	opts.Etcd.StorageConfig.Codec = apiextensionsapiserver.Codecs.LegacyCodec(apiextensionsv1beta1.SchemeGroupVersion, apiextensionsv1.SchemeGroupVersion)
 	// prefer the more compact serialization (v1beta1) for storage until http://issue.k8s.io/82292 is resolved for objects whose v1 serialization is too big but whose v1beta1 serialization can be stored
-	opts.Etcd.StorageConfig.EncodeVersioner = runtime.NewMultiGroupVersioner(apiextentionsv1beta1.SchemeGroupVersion, schema.GroupKind{Group: apiextentionsv1beta1.GroupName})
+	opts.Etcd.StorageConfig.EncodeVersioner = runtime.NewMultiGroupVersioner(apiextensionsv1beta1.SchemeGroupVersion, schema.GroupKind{Group: apiextensionsv1beta1.GroupName})
 	serverConfig.RESTOptionsGetter = &genericoptions.SimpleRestOptionsFactory{Options: *opts.Etcd}
 
 	// use protobufs for self-communication.

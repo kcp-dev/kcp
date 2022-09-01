@@ -38,9 +38,9 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	workspaceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
-	workloadinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
-	tenancylister "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
+	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -48,8 +48,8 @@ const controllerName = "kcp-synctarget-controller"
 
 func NewController(
 	kcpClusterClient kcpclient.Interface,
-	syncTargetInformer workloadinformer.SyncTargetInformer,
-	workspaceShardInformer workspaceinformer.ClusterWorkspaceShardInformer,
+	syncTargetInformer workloadinformers.SyncTargetInformer,
+	workspaceShardInformer tenancyinformers.ClusterWorkspaceShardInformer,
 ) *Controller {
 
 	c := &Controller{
@@ -80,7 +80,7 @@ type Controller struct {
 	queue            workqueue.RateLimitingInterface
 	kcpClusterClient kcpclient.Interface
 
-	workspaceShardLister tenancylister.ClusterWorkspaceShardLister
+	workspaceShardLister tenancylisters.ClusterWorkspaceShardLister
 	syncTargetIndexer    cache.Indexer
 }
 

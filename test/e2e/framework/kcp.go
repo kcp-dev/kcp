@@ -41,14 +41,14 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
 
-	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	apierrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	kubernetesclientset "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
+	kubernetesclient "k8s.io/client-go/kubernetes"
+	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -596,7 +596,7 @@ func (c *kcpServer) Ready(keepMonitoring bool) error {
 		return fmt.Errorf("failed to read client configuration: %w", err)
 	}
 	if cfg.NegotiatedSerializer == nil {
-		cfg.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
+		cfg.NegotiatedSerializer = kubernetesscheme.Codecs.WithoutConversion()
 	}
 	client, err := rest.UnversionedRESTClientFor(cfg)
 	if err != nil {
@@ -787,7 +787,7 @@ func NewFakeWorkloadServer(t *testing.T, server RunningServer, org logicalcluste
 	downstreamConfig := fakeServer.BaseConfig(t)
 
 	// Install the deployment crd in the fake cluster to allow creation of the syncer deployment.
-	crdClient, err := apiextensionsclientset.NewForConfig(downstreamConfig)
+	crdClient, err := apiextensionsclient.NewForConfig(downstreamConfig)
 	require.NoError(t, err)
 	kubefixtures.Create(t, crdClient.ApiextensionsV1().CustomResourceDefinitions(),
 		metav1.GroupResource{Group: "apps.k8s.io", Resource: "deployments"},
@@ -796,7 +796,7 @@ func NewFakeWorkloadServer(t *testing.T, server RunningServer, org logicalcluste
 	// Wait for the deployment crd to become ready
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
-	kubeClient, err := kubernetesclientset.NewForConfig(downstreamConfig)
+	kubeClient, err := kubernetesclient.NewForConfig(downstreamConfig)
 	require.NoError(t, err)
 	require.Eventually(t, func() bool {
 		_, err := kubeClient.AppsV1().Deployments("").List(ctx, metav1.ListOptions{})
