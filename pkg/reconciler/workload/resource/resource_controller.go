@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -187,7 +188,12 @@ func (c *Controller) enqueueNamespace(obj interface{}) {
 		return
 	}
 	ns, err := c.namespaceLister.Get(key)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Namespace was deleted
+			return
+		}
+
 		runtime.HandleError(err)
 		return
 	}
@@ -324,11 +330,13 @@ func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 
 	logger.V(4).Info("getting listers")
 	listers, notSynced := c.ddsif.Listers()
+	var errs []error
 	for gvr, lister := range listers {
 		logger = logger.WithValues("gvr", gvr.String())
 		objs, err := lister.ByNamespace(ns.Name).List(labels.Everything())
 		if err != nil {
-			return err
+			errs = append(errs, fmt.Errorf("error listing %q in %s|%s: %w", gvr, clusterName, ns.Name, err))
+			continue
 		}
 
 		logger.WithValues("items", len(objs)).V(4).Info("got items for GVR")
@@ -372,7 +380,7 @@ func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 		c.enqueueGVR(gvr)
 	}
 
-	return nil
+	return utilerrors.NewAggregate(errs)
 }
 
 func (c *Controller) enqueueSyncTarget(obj interface{}) {
