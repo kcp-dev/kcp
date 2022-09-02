@@ -36,6 +36,7 @@ import (
 
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1/permissionclaims"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 )
 
@@ -94,6 +95,19 @@ func (o *apiBindingAdmission) Admit(ctx context.Context, a admission.Attributes,
 	}
 	if apiBinding.Spec.Reference.Workspace.Path == "" {
 		apiBinding.Spec.Reference.Workspace.Path = cluster.Name.String()
+	}
+
+	// set labels
+	if apiBinding.Spec.Reference.Workspace == nil {
+		delete(apiBinding.Labels, apisv1alpha1.InternalAPIBindingExportLabelKey)
+	} else {
+		if apiBinding.Labels == nil {
+			apiBinding.Labels = make(map[string]string)
+		}
+		apiBinding.Labels[apisv1alpha1.InternalAPIBindingExportLabelKey] = permissionclaims.ToAPIBindingExportLabelValue(
+			logicalcluster.New(apiBinding.Spec.Reference.Workspace.Path),
+			apiBinding.Spec.Reference.Workspace.ExportName,
+		)
 	}
 
 	// write back
@@ -170,6 +184,17 @@ func (o *apiBindingAdmission) Validate(ctx context.Context, a admission.Attribut
 		return admission.NewForbidden(a, fmt.Errorf("workspace reference is missing")) // this should not happen due to validation
 	}
 
+	// Verify the labels
+	value, found := apiBinding.Labels[apisv1alpha1.InternalAPIBindingExportLabelKey]
+	if apiBinding.Spec.Reference.Workspace == nil && found {
+		return admission.NewForbidden(a, field.Invalid(field.NewPath("metadata").Child("labels").Key(apisv1alpha1.InternalAPIBindingExportLabelKey), value, "must not be set"))
+	} else if expected := permissionclaims.ToAPIBindingExportLabelValue(
+		logicalcluster.New(apiBinding.Spec.Reference.Workspace.Path),
+		apiBinding.Spec.Reference.Workspace.ExportName,
+	); value != expected {
+		return admission.NewForbidden(a, field.Invalid(field.NewPath("metadata").Child("labels").Key(apisv1alpha1.InternalAPIBindingExportLabelKey), value, fmt.Sprintf("must be set to %q", expected)))
+	}
+
 	// Access check
 	if err := o.checkAPIExportAccess(ctx, a.GetUserInfo(), apiExportClusterName, apiBinding.Spec.Reference.Workspace.ExportName); err != nil {
 		action := "create"
@@ -183,10 +208,11 @@ func (o *apiBindingAdmission) Validate(ctx context.Context, a admission.Attribut
 }
 
 func (o *apiBindingAdmission) checkAPIExportAccess(ctx context.Context, user user.Info, apiExportClusterName logicalcluster.Name, apiExportName string) error {
+	logger := klog.FromContext(ctx)
 	authz, err := o.createAuthorizer(apiExportClusterName, o.deepSARClient)
 	if err != nil {
 		// Logging a more specific error for the operator
-		klog.Errorf("error creating authorizer from delegating authorizer config: %v", err)
+		logger.Error(err, "error creating authorizer from delegating authorizer config")
 		// Returning a less specific error to the end user
 		return errors.New("unable to authorize request")
 	}

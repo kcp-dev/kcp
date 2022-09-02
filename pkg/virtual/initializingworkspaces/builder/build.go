@@ -70,16 +70,6 @@ func BuildVirtualWorkspace(
 		rootPathPrefix += "/"
 	}
 
-	resolver := requestinfo.NewFactory()
-	isClusterWorkspaceRequest := func(path string) bool {
-		info, err := resolver.NewRequestInfo(&http.Request{URL: &url.URL{Path: path}})
-		if err != nil {
-			klog.V(2).Infof("failed to determine info for request: %v", err)
-			return false
-		}
-		return info.IsResourceRequest && info.APIGroup == tenancyv1alpha1.SchemeGroupVersion.Group && info.Resource == "clusterworkspaces"
-	}
-
 	clusterWorkspaceResource := apisv1alpha1.APIResourceSchema{}
 	if err := rootphase0.Unmarshal("apiresourceschema-clusterworkspaces.tenancy.kcp.dev.yaml", &clusterWorkspaceResource); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal clusterworkspace resource: %w", err)
@@ -123,7 +113,7 @@ func BuildVirtualWorkspace(
 				dynamicClusterClient: dynamicClusterClient,
 				exposeSubresources:   false,
 				resource:             &clusterWorkspaceResource,
-				storageProvider:      provideFilteringRestStorage,
+				storageProvider:      provideFilteredReadOnlyRestStorage,
 			}, nil
 		},
 	}
@@ -303,7 +293,22 @@ func BuildVirtualWorkspace(
 	}, nil
 }
 
-func digestUrl(urlPath, rootPathPrefix string) (genericapirequest.Cluster, dynamiccontext.APIDomainKey, string, bool) {
+var resolver = requestinfo.NewFactory()
+
+func isClusterWorkspaceRequest(path string) bool {
+	info, err := resolver.NewRequestInfo(&http.Request{URL: &url.URL{Path: path}})
+	if err != nil {
+		return false
+	}
+	return info.IsResourceRequest && info.APIGroup == tenancyv1alpha1.SchemeGroupVersion.Group && info.Resource == "clusterworkspaces"
+}
+
+func digestUrl(urlPath, rootPathPrefix string) (
+	cluster genericapirequest.Cluster,
+	key dynamiccontext.APIDomainKey,
+	logicalPath string,
+	accepted bool,
+) {
 	if !strings.HasPrefix(urlPath, rootPathPrefix) {
 		return genericapirequest.Cluster{}, dynamiccontext.APIDomainKey(""), "", false
 	}

@@ -41,7 +41,7 @@ import (
 	registry "github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
 )
 
-func provideFilteringRestStorage(ctx context.Context, clusterClient dynamic.ClusterInterface, initializer tenancyv1alpha1.ClusterWorkspaceInitializer) (apiserver.RestProviderFunc, error) {
+func provideFilteredReadOnlyRestStorage(ctx context.Context, clusterClient dynamic.ClusterInterface, initializer tenancyv1alpha1.ClusterWorkspaceInitializer) (apiserver.RestProviderFunc, error) {
 	labelSelector := map[string]string{
 		tenancyv1alpha1.ClusterWorkspacePhaseLabel: string(tenancyv1alpha1.ClusterWorkspacePhaseInitializing),
 	}
@@ -51,65 +51,7 @@ func provideFilteringRestStorage(ctx context.Context, clusterClient dynamic.Clus
 	if !selectable {
 		return nil, fmt.Errorf("unable to create a selector from the provided labels")
 	}
-
-	return func(resource schema.GroupVersionResource, kind schema.GroupVersionKind, listKind schema.GroupVersionKind, typer runtime.ObjectTyper, tableConvertor rest.TableConvertor, namespaceScoped bool, schemaValidator *validate.SchemaValidator, subresourcesSchemaValidator map[string]*validate.SchemaValidator, structuralSchema *structuralschema.Structural) (mainStorage rest.Storage, subresourceStorages map[string]rest.Storage) {
-		statusSchemaValidate, statusEnabled := subresourcesSchemaValidator["status"]
-
-		if statusEnabled {
-			klog.V(3).Info("initializingworkspaces virtual workspace can never have a status subresource")
-		}
-
-		strategy := customresource.NewStrategy(
-			typer,
-			namespaceScoped,
-			kind,
-			schemaValidator,
-			statusSchemaValidate,
-			map[string]*structuralschema.Structural{resource.Version: structuralSchema},
-			nil, // no status here
-			nil, // no scale here
-		)
-
-		storage, _ := registry.NewStorage(
-			ctx,
-			resource,
-			"", // ClusterWorkspaces have no identity
-			kind,
-			listKind,
-			strategy,
-			nil,
-			tableConvertor,
-			nil,
-			clusterClient,
-			nil,
-			registry.WithStaticLabelSelector(requirements),
-		)
-
-		// only expose LIST+WATCH
-		return &struct {
-			registry.FactoryFunc
-			registry.ListFactoryFunc
-			registry.DestroyerFunc
-
-			registry.ListerFunc
-			registry.WatcherFunc
-
-			registry.TableConvertorFunc
-			registry.CategoriesProviderFunc
-			registry.ResetFieldsStrategyFunc
-		}{
-			FactoryFunc:     storage.FactoryFunc,
-			ListFactoryFunc: storage.ListFactoryFunc,
-			DestroyerFunc:   storage.DestroyerFunc,
-
-			ListerFunc:  storage.ListerFunc,
-			WatcherFunc: storage.WatcherFunc,
-
-			TableConvertorFunc:      storage.TableConvertorFunc,
-			CategoriesProviderFunc:  storage.CategoriesProviderFunc,
-			ResetFieldsStrategyFunc: storage.ResetFieldsStrategyFunc,
-		}, nil // no subresources
-	}, nil
+	return registry.ProvideReadOnlyRestStorage(ctx, clusterClient, registry.WithStaticLabelSelector(requirements))
 }
 
 func provideDelegatingRestStorage(ctx context.Context, clusterClient dynamic.ClusterInterface, initializer tenancyv1alpha1.ClusterWorkspaceInitializer) (apiserver.RestProviderFunc, error) {
@@ -208,13 +150,14 @@ func withUpdateValidation(initializer tenancyv1alpha1.ClusterWorkspaceInitialize
 		delegateUpdater := storage.UpdaterFunc
 		storage.UpdaterFunc = func(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
 			validation := rest.ValidateObjectUpdateFunc(func(ctx context.Context, obj, old runtime.Object) error {
+				logger := klog.FromContext(ctx)
 				previous, _, err := unstructured.NestedStringSlice(old.(*unstructured.Unstructured).UnstructuredContent(), "status", "initializers")
 				if err != nil {
 					return errors.NewInternalError(fmt.Errorf("error accessing initializers from old object: %w", err))
 				}
 				current, _, err := unstructured.NestedStringSlice(obj.(*unstructured.Unstructured).UnstructuredContent(), "status", "initializers")
 				if err != nil {
-					klog.V(2).Infof("error accessing initializers from new object: %v", err)
+					logger.Error(err, "error accessing initializers from new object")
 					return errors.NewInternalError(fmt.Errorf("error accessing initializers from old object: %w", err))
 				}
 				invalidUpdateErr := errors.NewInvalid(

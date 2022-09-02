@@ -20,11 +20,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
@@ -37,7 +40,9 @@ import (
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
 	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/controllers/apireconciler"
+	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/schemas"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	virtualdynamic "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
@@ -62,66 +67,52 @@ func BuildVirtualWorkspace(
 
 	readyCh := make(chan struct{})
 
-	boundWorkspaceContent := &virtualdynamic.DynamicVirtualWorkspace{
-		RootPathResolver: framework.RootPathResolverFunc(func(path string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
-			completedContext = requestContext
-
-			if !strings.HasPrefix(path, rootPathPrefix) {
-				return
+	apiBindingsName := VirtualWorkspaceName + "-apibindings"
+	apiBindings := &virtualdynamic.DynamicVirtualWorkspace{
+		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, ctx context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
+			cluster, apiDomain, prefixToStrip, ok := digestUrl(urlPath, rootPathPrefix)
+			if !ok {
+				return false, "", ctx
 			}
 
-			// Incoming requests to this virtual workspace will look like:
-			//  /services/apiexport/root:org:ws/<apiexport-name>/clusters/*/api/v1/configmaps
-			//                     └────────────────────────┐
-			// Where the withoutRootPathPrefix starts here: ┘
-			withoutRootPathPrefix := strings.TrimPrefix(path, rootPathPrefix)
-
-			parts := strings.SplitN(withoutRootPathPrefix, "/", 3)
-			if len(parts) < 3 {
-				return
+			if resourceURL := strings.TrimPrefix(urlPath, prefixToStrip); !isAPIBindingRequest(resourceURL) {
+				return false, "", ctx
 			}
 
-			apiExportClusterName, apiExportName := parts[0], parts[1]
-			if apiExportClusterName == "" {
-				return
+			completedContext = genericapirequest.WithCluster(ctx, cluster)
+			completedContext = dynamiccontext.WithAPIDomainKey(completedContext, apiDomain)
+			return true, prefixToStrip, completedContext
+		}),
+		Authorizer: newAuthorizer(kubeClusterClient),
+		ReadyChecker: framework.ReadyFunc(func() error {
+			select {
+			case <-readyCh:
+				return nil
+			default:
+				return errors.New("apiexport virtual workspace controllers are not started")
 			}
-			if apiExportName == "" {
-				return
-			}
+		}),
+		BootstrapAPISetManagement: func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
+			return &apiSetRetriever{
+				config:               mainConfig,
+				dynamicClusterClient: dynamicClusterClient,
+				exposeSubresources:   true,
+				resource:             schemas.ApisKcpDevSchemas["apibindings"],
+				storageProvider:      provideAPIExportFilteredRestStorage,
+			}, nil
+		},
+	}
 
-			realPath := "/"
-			if len(parts) > 2 {
-				realPath += parts[2]
-			}
-
-			//  /services/apiexport/root:org:ws/<apiexport-name>/clusters/*/api/v1/configmaps
-			//                     ┌────────────────────────────┘
-			// We are now here: ───┘
-			// Now, we parse out the logical cluster.
-			if !strings.HasPrefix(realPath, "/clusters/") {
-				return // don't accept
-			}
-
-			withoutClustersPrefix := strings.TrimPrefix(realPath, "/clusters/")
-			parts = strings.SplitN(withoutClustersPrefix, "/", 2)
-			clusterName := parts[0]
-			realPath = "/"
-			if len(parts) > 1 {
-				realPath += parts[1]
-			}
-			cluster := genericapirequest.Cluster{Name: logicalcluster.New(clusterName)}
-			if clusterName == "*" {
-				cluster.Wildcard = true
+	boundOrClaimedWorkspaceContent := &virtualdynamic.DynamicVirtualWorkspace{
+		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, ctx context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
+			cluster, apiDomain, prefixToStrip, ok := digestUrl(urlPath, rootPathPrefix)
+			if !ok {
+				return false, "", ctx
 			}
 
-			completedContext = genericapirequest.WithCluster(requestContext, cluster)
-			key := fmt.Sprintf("%s/%s", apiExportClusterName, apiExportName)
-			completedContext = dynamiccontext.WithAPIDomainKey(completedContext, dynamiccontext.APIDomainKey(key))
-
-			prefixToStrip = strings.TrimSuffix(path, realPath)
-			accepted = true
-
-			return
+			completedContext = genericapirequest.WithCluster(ctx, cluster)
+			completedContext = dynamiccontext.WithAPIDomainKey(completedContext, apiDomain)
+			return true, prefixToStrip, completedContext
 		}),
 
 		ReadyChecker: framework.ReadyFunc(func() error {
@@ -148,7 +139,7 @@ func BuildVirtualWorkspace(
 						})
 					}
 
-					storageBuilder := NewStorageBuilder(ctx, dynamicClusterClient, identityHash, wrapper)
+					storageBuilder := provideDelegatingRestStorage(ctx, dynamicClusterClient, identityHash, wrapper)
 					def, err := apiserver.CreateServingInfoFor(mainConfig, apiResourceSchema, version, storageBuilder)
 					if err != nil {
 						cancelFn()
@@ -185,15 +176,121 @@ func BuildVirtualWorkspace(
 
 			return apiReconciler, nil
 		},
-		Authorizer: getAuthorizer(kubeClusterClient),
+		Authorizer: newAuthorizer(kubeClusterClient),
 	}
 
 	return []rootapiserver.NamedVirtualWorkspace{
-		{Name: VirtualWorkspaceName, VirtualWorkspace: boundWorkspaceContent},
+		{Name: VirtualWorkspaceName, VirtualWorkspace: boundOrClaimedWorkspaceContent}, // this must come first because a claim will show all bindings, not only those for the export
+		{Name: apiBindingsName, VirtualWorkspace: apiBindings},
 	}, nil
 }
 
-func getAuthorizer(client kubernetesclient.ClusterInterface) authorizer.AuthorizerFunc {
+var resolver = requestinfo.NewFactory()
+
+func isAPIBindingRequest(path string) bool {
+	info, err := resolver.NewRequestInfo(&http.Request{URL: &url.URL{Path: path}})
+	if err != nil {
+		return false
+	}
+	return info.IsResourceRequest && info.APIGroup == apisv1alpha1.SchemeGroupVersion.Group && info.Resource == "apibindings"
+}
+
+func digestUrl(urlPath, rootPathPrefix string) (
+	cluster genericapirequest.Cluster,
+	domainKey dynamiccontext.APIDomainKey,
+	logicalPath string,
+	accepted bool,
+) {
+	if !strings.HasPrefix(urlPath, rootPathPrefix) {
+		return genericapirequest.Cluster{}, "", "", false
+	}
+
+	// Incoming requests to this virtual workspace will look like:
+	//  /services/apiexport/root:org:ws/<apiexport-name>/clusters/*/api/v1/configmaps
+	//                     └────────────────────────┐
+	// Where the withoutRootPathPrefix starts here: ┘
+	withoutRootPathPrefix := strings.TrimPrefix(urlPath, rootPathPrefix)
+
+	parts := strings.SplitN(withoutRootPathPrefix, "/", 3)
+	if len(parts) < 3 {
+		return genericapirequest.Cluster{}, "", "", false
+	}
+
+	apiExportClusterName, apiExportName := parts[0], parts[1]
+	if apiExportClusterName == "" {
+		return genericapirequest.Cluster{}, "", "", false
+	}
+	if apiExportName == "" {
+		return genericapirequest.Cluster{}, "", "", false
+	}
+
+	realPath := "/"
+	if len(parts) > 2 {
+		realPath += parts[2]
+	}
+
+	//  /services/apiexport/root:org:ws/<apiexport-name>/clusters/*/api/v1/configmaps
+	//                     ┌────────────────────────────┘
+	// We are now here: ───┘
+	// Now, we parse out the logical cluster.
+	if !strings.HasPrefix(realPath, "/clusters/") {
+		return genericapirequest.Cluster{}, "", "", false
+	}
+
+	withoutClustersPrefix := strings.TrimPrefix(realPath, "/clusters/")
+	parts = strings.SplitN(withoutClustersPrefix, "/", 2)
+	clusterName := logicalcluster.New(parts[0])
+	realPath = "/"
+	if len(parts) > 1 {
+		realPath += parts[1]
+	}
+
+	key := fmt.Sprintf("%s/%s", apiExportClusterName, apiExportName)
+	return genericapirequest.Cluster{Name: clusterName, Wildcard: clusterName == logicalcluster.Wildcard}, dynamiccontext.APIDomainKey(key), strings.TrimSuffix(urlPath, realPath), true
+}
+
+type apiSetRetriever struct {
+	config               genericapiserver.CompletedConfig
+	dynamicClusterClient dynamic.ClusterInterface
+	resource             *apisv1alpha1.APIResourceSchema
+	exposeSubresources   bool
+	storageProvider      func(ctx context.Context, clusterClient dynamic.ClusterInterface, exportCluster logicalcluster.Name, exportName string) (apiserver.RestProviderFunc, error)
+}
+
+func (a *apiSetRetriever) GetAPIDefinitionSet(ctx context.Context, key dynamiccontext.APIDomainKey) (apis apidefinition.APIDefinitionSet, apisExist bool, err error) {
+	comps := strings.SplitN(string(key), "/", 2)
+	if len(comps) != 2 {
+		return nil, false, fmt.Errorf("invalid key: %s", key)
+	}
+	restProvider, err := a.storageProvider(ctx, a.dynamicClusterClient, logicalcluster.New(comps[0]), comps[1])
+	if err != nil {
+		return nil, false, err
+	}
+
+	apiDefinition, err := apiserver.CreateServingInfoFor(
+		a.config,
+		a.resource,
+		apisv1alpha1.SchemeGroupVersion.Version,
+		restProvider,
+	)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to create serving info: %w", err)
+	}
+
+	apis = apidefinition.APIDefinitionSet{
+		schema.GroupVersionResource{
+			Group:    apisv1alpha1.SchemeGroupVersion.Group,
+			Version:  apisv1alpha1.SchemeGroupVersion.Version,
+			Resource: "apibindings",
+		}: apiDefinition,
+	}
+
+	return apis, len(apis) > 0, nil
+}
+
+var _ apidefinition.APIDefinitionSetGetter = &apiSetRetriever{}
+
+func newAuthorizer(client kubernetesclient.ClusterInterface) authorizer.AuthorizerFunc {
 	return func(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
 		apiDomainKey := dynamiccontext.APIDomainKeyFrom(ctx)
 		parts := strings.Split(string(apiDomainKey), "/")

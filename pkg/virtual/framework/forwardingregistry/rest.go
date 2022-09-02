@@ -19,6 +19,7 @@ package forwardingregistry
 import (
 	"context"
 
+	structuralschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apiextensions-apiserver/pkg/registry/customresource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -29,6 +30,9 @@ import (
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/util/retry"
+	"k8s.io/kube-openapi/pkg/validation/validate"
+
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
 )
 
 // StorageWrapper allows consumers to wrap the delegating Store in order to add custom behavior around it.
@@ -84,4 +88,65 @@ func NewStorage(ctx context.Context, resource schema.GroupVersionResource, apiEx
 	}
 	statusStore := wrapper(resource.GroupResource(), statusDelegate)
 	return store, statusStore
+}
+
+// ProvideReadOnlyRestStorage returns a commonly used REST storage that forwards calls to a dynamic client,
+// but only for read-only requests.
+func ProvideReadOnlyRestStorage(ctx context.Context, clusterClient dynamic.ClusterInterface, wrapper StorageWrapper) (apiserver.RestProviderFunc, error) {
+	return func(resource schema.GroupVersionResource, kind schema.GroupVersionKind, listKind schema.GroupVersionKind, typer runtime.ObjectTyper, tableConvertor rest.TableConvertor, namespaceScoped bool, schemaValidator *validate.SchemaValidator, subresourcesSchemaValidator map[string]*validate.SchemaValidator, structuralSchema *structuralschema.Structural) (mainStorage rest.Storage, subresourceStorages map[string]rest.Storage) {
+		statusSchemaValidate := subresourcesSchemaValidator["status"]
+
+		strategy := customresource.NewStrategy(
+			typer,
+			namespaceScoped,
+			kind,
+			schemaValidator,
+			statusSchemaValidate,
+			map[string]*structuralschema.Structural{resource.Version: structuralSchema},
+			nil, // no status here
+			nil, // no scale here
+		)
+
+		storage, _ := NewStorage(
+			ctx,
+			resource,
+			"",
+			kind,
+			listKind,
+			strategy,
+			nil,
+			tableConvertor,
+			nil,
+			clusterClient,
+			nil,
+			wrapper,
+		)
+
+		// only expose LIST+WATCH
+		return &struct {
+			FactoryFunc
+			ListFactoryFunc
+			DestroyerFunc
+
+			GetterFunc
+			ListerFunc
+			WatcherFunc
+
+			TableConvertorFunc
+			CategoriesProviderFunc
+			ResetFieldsStrategyFunc
+		}{
+			FactoryFunc:     storage.FactoryFunc,
+			ListFactoryFunc: storage.ListFactoryFunc,
+			DestroyerFunc:   storage.DestroyerFunc,
+
+			GetterFunc:  storage.GetterFunc,
+			ListerFunc:  storage.ListerFunc,
+			WatcherFunc: storage.WatcherFunc,
+
+			TableConvertorFunc:      storage.TableConvertorFunc,
+			CategoriesProviderFunc:  storage.CategoriesProviderFunc,
+			ResetFieldsStrategyFunc: storage.ResetFieldsStrategyFunc,
+		}, nil // no subresources
+	}, nil
 }
