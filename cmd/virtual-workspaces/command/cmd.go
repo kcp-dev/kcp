@@ -55,8 +55,8 @@ func NewCommand(ctx context.Context, errout io.Writer) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "workspaces",
-		Short: "Launch workspaces virtual workspace apiserver",
-		Long:  "Start a virtual workspace apiserver to managing personal, shared or organization workspaces",
+		Short: "Launch virtual workspace apiservers",
+		Long:  "Start the root virtual workspace apiserver to enable virtual workspace management.",
 
 		RunE: func(c *cobra.Command, args []string) error {
 			if err := opts.Logs.ValidateAndApply(kcpfeatures.DefaultFeatureGate); err != nil {
