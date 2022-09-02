@@ -78,6 +78,11 @@ func NewOptions(rootDir string) *Options {
 	o.SecureServing.ServerCert.CertDirectory = rootDir
 	o.SecureServing.BindPort = 6443
 	o.Etcd.StorageConfig.Transport.ServerList = []string{"embedded"}
+	// TODO: enable the watch cache, it was disabled because
+	//  - we need to pass a shard name so that the watch cache can calculate the key
+	//    we already do that for cluster names (stored in the obj)
+	//  - we need to modify wildcardClusterNameRegex and crdWildcardPartialMetadataClusterNameRegex
+	o.Etcd.EnableWatchCache = false
 	return o
 }
 

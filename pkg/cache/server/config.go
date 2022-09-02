@@ -133,6 +133,7 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions) (*Config, error) {
 		apiHandler = kcpserver.WithClusterScope(apiHandler)
 		apiHandler = kcpserver.WithAcceptHeader(apiHandler)
 		apiHandler = kcpserver.WithUserAgent(apiHandler)
+		apiHandler = WithShardScope(apiHandler)
 		return apiHandler
 	}
 
@@ -153,6 +154,9 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions) (*Config, error) {
 	serverConfig.LoopbackClientConfig.DisableCompression = true
 	clientutils.EnableMultiCluster(serverConfig.LoopbackClientConfig, &serverConfig.Config, "namespaces", "apiservices", "customresourcedefinitions", "clusterroles", "clusterrolebindings", "roles", "rolebindings", "serviceaccounts", "secrets")
 
+	// TODO: the extension client could be shard-aware
+	//      for now the shard name is implicit and assigned
+	//      by the WithShardScope to "cache"
 	var err error
 	c.ApiExtensionsClusterClient, err = apiextensionsclient.NewClusterForConfig(serverConfig.LoopbackClientConfig)
 	if err != nil {
