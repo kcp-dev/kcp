@@ -391,6 +391,48 @@ func TestUpdate(t *testing.T) {
 	require.Equalf(t, 1, updates, "Should not have retried calling client.Update in case of conflict: it's an Update call.")
 }
 
+func TestUpdateWithForceAllowCreate(t *testing.T) {
+	resource := createResource("default", "foo")
+	resource.SetGeneration(1)
+	resource.SetResourceVersion("100")
+	fakeClient := fake.NewSimpleDynamicClient(runtime.NewScheme())
+	fakeClient.PrependReactor("update", "noxus", updateReactor(fakeClient))
+
+	storage, _ := newStorage(t, &mockedClusterClient{fakeClient}, "", nil)
+	ctx := request.WithNamespace(context.Background(), "default")
+	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.New("foo")})
+	updated := resource.DeepCopy()
+
+	newReplicas, _, err := unstructured.NestedInt64(updated.UnstructuredContent(), "spec", "replicas")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	newReplicas++
+	_ = unstructured.SetNestedField(updated.UnstructuredContent(), newReplicas, "spec", "replicas")
+
+	updater := storage.(rest.Updater)
+	result, _, err := updater.Update(ctx, updated.GetName(), rest.DefaultUpdatedObjectInfo(updated), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, true, &metav1.UpdateOptions{})
+	require.NoError(t, err)
+
+	// Now we can check that the object has been updated
+	require.True(t, apiequality.Semantic.DeepEqual(updated, result), "expected:\n%V\nactual:\n%V", updated, result)
+
+	fakeClient.ClearActions()
+	updated.SetResourceVersion("101")
+	newReplicas++
+	_ = unstructured.SetNestedField(updated.UnstructuredContent(), newReplicas, "spec", "replicas")
+	_, _, err = updater.Update(ctx, updated.GetName(), rest.DefaultUpdatedObjectInfo(updated), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, true, &metav1.UpdateOptions{})
+	require.EqualError(t, err, "Operation cannot be fulfilled on noxus.mygroup.example.com \"foo\": the object has been modified; please apply your changes to the latest version and try again")
+
+	updates := 0
+	for _, action := range fakeClient.Actions() {
+		if action.GetVerb() == "update" {
+			updates++
+		}
+	}
+	require.Equalf(t, 1, updates, "Should not have retried calling client.Update in case of conflict: it's an Update call.")
+}
+
 func TestStatusUpdate(t *testing.T) {
 	resource := createResource("default", "foo")
 	resource.SetGeneration(1)
@@ -433,6 +475,9 @@ func TestPatch(t *testing.T) {
 	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.New("foo")})
 
 	patcher := func(ctx context.Context, newObj, oldObj runtime.Object) (runtime.Object, error) {
+		if oldObj == nil {
+			return nil, errors.NewNotFound(schema.ParseGroupResource("noxus.mygroup.example.com"), "foo")
+		}
 		updated := oldObj.DeepCopyObject().(*unstructured.Unstructured)
 		newReplicas, _, err := unstructured.NestedInt64(updated.UnstructuredContent(), "spec", "replicas")
 		if err != nil {
