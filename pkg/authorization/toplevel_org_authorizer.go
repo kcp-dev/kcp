@@ -34,6 +34,7 @@ import (
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
 )
@@ -186,14 +187,13 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 		return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, nil
 	case isUser:
 		workspaceAttr := authorizer.AttributesRecord{
-			User:        attr.GetUser(),
-			Verb:        "access",
-			APIGroup:    tenancyv1alpha1.SchemeGroupVersion.Group,
-			APIVersion:  tenancyv1alpha1.SchemeGroupVersion.Version,
-			Resource:    "workspaces",
-			Subresource: "content",
-			Name:        requestTopLevelOrgName,
-
+			User:            attr.GetUser(),
+			Verb:            "access",
+			APIGroup:        tenancyv1beta1.SchemeGroupVersion.Group,
+			APIVersion:      tenancyv1beta1.SchemeGroupVersion.Version,
+			Resource:        "workspaces",
+			Subresource:     "content",
+			Name:            requestTopLevelOrgName,
 			ResourceRequest: true,
 		}
 

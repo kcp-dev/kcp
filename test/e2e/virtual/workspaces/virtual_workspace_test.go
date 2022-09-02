@@ -67,16 +67,22 @@ func newTestData() testDataType {
 }
 
 func createWorkspaceAccessRoleForGroup(t *testing.T, ctx context.Context, kubeClusterClient kubernetes.Interface, orgClusterName logicalcluster.Name, admin bool, groupNames ...string) {
+	roleName := "org-" + orgClusterName.Base() + "-access"
+	if admin {
+		roleName = roleName + "-admin"
+	}
+	createWorkspaceAccessRoleForGroupWithCustomName(t, ctx, kubeClusterClient, orgClusterName, admin, roleName, groupNames...)
+}
+
+func createWorkspaceAccessRoleForGroupWithCustomName(t *testing.T, ctx context.Context, kubeClusterClient kubernetes.Interface, orgClusterName logicalcluster.Name, admin bool, roleName string, groupNames ...string) {
 	parent, hasParent := orgClusterName.Parent()
 	require.True(t, hasParent, "org cluster %s should have a parent", orgClusterName)
 
 	t.Logf("Giving groups %v member access to workspace %q in %q", groupNames, orgClusterName.Base(), parent)
 
 	contentVerbs := []string{"access"}
-	roleName := "org-" + orgClusterName.Base() + "-access"
 	if admin {
 		contentVerbs = append(contentVerbs, "admin")
-		roleName = roleName + "-admin"
 	}
 	_, err := kubeClusterClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, parent), &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
@@ -180,8 +186,8 @@ var testCases = []struct {
 	work       func(ctx context.Context, t *testing.T, server runningServer)
 }{
 	{
-		name:       "create a workspace in an org as org content admin, and have only its creator list it, even when another user is org content admin",
-		userTokens: []string{"user-1-token", "user-2-token"},
+		name:       "create a workspace in an org as org content admin, and have only its creator list it, not another user with just access",
+		userTokens: []string{"user-1-token", "user-2-token", "user-3-token"},
 		work: func(ctx context.Context, t *testing.T, server runningServer) {
 			testData := newTestData()
 
@@ -189,8 +195,11 @@ var testCases = []struct {
 
 			vwUser1Client := server.virtualUserKcpClients[0]
 			vwUser2Client := server.virtualUserKcpClients[1]
+			vwUser3Client := server.virtualUserKcpClients[2]
 
-			createWorkspaceAccessRoleForGroup(t, ctx, server.kubeClusterClient, server.orgClusterName, true, "team-1", "team-2")
+			createWorkspaceAccessRoleForGroupWithCustomName(t, ctx, server.kubeClusterClient, server.orgClusterName, true, "org-"+server.orgClusterName.Base()+"-team-1-access", "team-1")
+			createWorkspaceAccessRoleForGroupWithCustomName(t, ctx, server.kubeClusterClient, server.orgClusterName, true, "org-"+server.orgClusterName.Base()+"-team-2-access", "team-2")
+			createWorkspaceAccessRoleForGroupWithCustomName(t, ctx, server.kubeClusterClient, server.orgClusterName, false, "org-"+server.orgClusterName.Base()+"-team-3-access", "team-3")
 
 			t.Logf("Create Workspace workspace1 in the virtual workspace")
 			var workspace1 *tenancyv1beta1.Workspace
@@ -221,17 +230,31 @@ var testCases = []struct {
 				return len(list.Items) == 1 && list.Items[0].Name == workspace1.Name
 			}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to list workspace1")
 
+			t.Logf("Workspace will show up in list of user2")
+			require.Eventually(t, func() bool {
+				list, err := vwUser2Client.Cluster(server.orgClusterName).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
+				if err != nil {
+					t.Logf("failed to get workspaces: %v", err)
+				}
+				return len(list.Items) == 1 && list.Items[0].Name == workspace1.Name
+			}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to list workspace1")
+
 			t.Logf("Workspace will also show up when user1 submits a list to KCP itself (through projection)")
 			list, err := user1Client.Cluster(server.orgClusterName).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
-			require.NoError(t, err, "expected to list workspaces from KCP through projection")
-			require.True(t, len(list.Items) == 1 && list.Items[0].Name == workspace1.Name, "expected to get workspace1 from KCP through projection")
+			require.NoError(t, err, "expected to list workspaces from KCP through projection as org admin user1")
+			require.True(t, len(list.Items) == 1 && list.Items[0].Name == workspace1.Name, "expected to get workspace1 from KCP through projection as org admin user1")
 
-			t.Logf("Workspace will not show up in list of user2")
+			t.Logf("Workspace will also show up when user2 submits a list to KCP itself (through projection)")
 			list, err = vwUser2Client.Cluster(server.orgClusterName).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
+			require.NoError(t, err, "expected to list workspaces from KCP through projection as org admin user2")
+			require.True(t, len(list.Items) == 1 && list.Items[0].Name == workspace1.Name, "expected to get workspace1 from KCP through projection as org admin user2")
+
+			t.Logf("Workspace will not show up in list of user3 (who has only org access, and is not admin)")
+			list, err = vwUser3Client.Cluster(server.orgClusterName).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
 			if err != nil {
 				t.Logf("failed to get workspaces: %v", err)
 			}
-			require.Equal(t, 0, len(list.Items), "expected to see no workspaces as user 2")
+			require.Equal(t, 0, len(list.Items), "expected to see no workspaces as user 3")
 		},
 	},
 	{
