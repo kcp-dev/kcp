@@ -61,6 +61,7 @@ rules:
   - "create"
   - "list"
   - "watch"
+  - "delete"
 - apiGroups:
   - "apiextensions.k8s.io"
   resources:
