@@ -19,9 +19,16 @@ package rootapiserver
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/server/healthz"
 	"k8s.io/apiserver/pkg/warning"
@@ -31,6 +38,17 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	virtualcontext "github.com/kcp-dev/kcp/pkg/virtual/framework/context"
 )
+
+var (
+	errorScheme = runtime.NewScheme()
+	errorCodecs = serializer.NewCodecFactory(errorScheme)
+)
+
+func init() {
+	errorScheme.AddUnversionedTypes(metav1.Unversioned,
+		&metav1.Status{},
+	)
+}
 
 type InformerStart func(stopCh <-chan struct{})
 
@@ -166,7 +184,15 @@ func (c completedConfig) getRootHandlerChain(delegateAPIServer genericapiserver.
 			for _, vw := range c.ExtraConfig.VirtualWorkspaces {
 				if accepted, prefixToStrip, completedContext := vw.ResolveRootPath(req.URL.Path, requestContext); accepted {
 					req.URL.Path = strings.TrimPrefix(req.URL.Path, prefixToStrip)
-					req.URL.RawPath = strings.TrimPrefix(req.URL.RawPath, prefixToStrip)
+					newURL, err := url.Parse(req.URL.String())
+					if err != nil {
+						responsewriters.ErrorNegotiated(
+							apierrors.NewInternalError(fmt.Errorf("unable to resolve %s, err %w", req.URL.Path, err)),
+							errorCodecs, schema.GroupVersion{},
+							w, req)
+						return
+					}
+					req.URL = newURL
 					req = req.WithContext(virtualcontext.WithVirtualWorkspaceName(completedContext, vw.Name))
 					break
 				}
