@@ -29,7 +29,7 @@ import (
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/generic"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/validating"
 	webhookutil "k8s.io/apiserver/pkg/util/webhook"
-	"k8s.io/client-go/informers"
+	kubernetesinformers "k8s.io/client-go/informers"
 
 	"github.com/kcp-dev/kcp/pkg/admission/webhook"
 )
@@ -104,7 +104,7 @@ func (a *Plugin) Validate(ctx context.Context, attr admission.Attributes, o admi
 }
 
 // SetExternalKubeInformerFactory implements the WantsExternalKubeInformerFactory interface.
-func (p *Plugin) SetExternalKubeInformerFactory(f informers.SharedInformerFactory) {
+func (p *Plugin) SetExternalKubeInformerFactory(f kubernetesinformers.SharedInformerFactory) {
 	p.WebhookDispatcher.SetHookSource(configuration.NewValidatingWebhookConfigurationManager(f))
 	p.Plugin.SetExternalKubeInformerFactory(f)
 }

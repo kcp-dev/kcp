@@ -32,9 +32,9 @@ import (
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	tenancyinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
-	tenancylister "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 )
 
 const (
@@ -48,11 +48,11 @@ type Index interface {
 	Lookup(logicalCluster logicalcluster.Name) (string, bool)
 }
 
-type ClusterWorkspaceClientGetter func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpclientset.Interface, error)
+type ClusterWorkspaceClientGetter func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpclient.Interface, error)
 
 func NewController(
 	rootHost string,
-	clusterWorkspaceShardInformer tenancyinformer.ClusterWorkspaceShardInformer,
+	clusterWorkspaceShardInformer tenancyinformers.ClusterWorkspaceShardInformer,
 	clientGetter ClusterWorkspaceClientGetter,
 ) *Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
@@ -167,7 +167,7 @@ type Controller struct {
 	clientGetter ClusterWorkspaceClientGetter
 
 	clusterWorkspaceShardIndexer cache.Indexer
-	clusterWorkspaceShardLister  tenancylister.ClusterWorkspaceShardLister
+	clusterWorkspaceShardLister  tenancylisters.ClusterWorkspaceShardLister
 
 	clusterWorkspaceHandler cache.ResourceEventHandler
 
@@ -263,7 +263,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		if err != nil {
 			return err
 		}
-		informer := tenancyinformer.NewClusterWorkspaceInformer(client, clusterWorkspaceResyncPeriod, nil)
+		informer := tenancyinformers.NewClusterWorkspaceInformer(client, clusterWorkspaceResyncPeriod, nil)
 		informer.AddEventHandler(c.clusterWorkspaceHandler)
 
 		stopCh := make(chan struct{})

@@ -27,7 +27,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
+	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
 
@@ -49,7 +49,7 @@ func main() {
 		log.Panicln("failed to create in-cluster config", err)
 	}
 
-	clientset, err := kubernetes.NewForConfig(config)
+	clientset, err := kubernetesclient.NewForConfig(config)
 	if err != nil {
 		log.Panicln("failed to create clientset with in-cluster config", config, err)
 	}

@@ -27,7 +27,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
-	workspaceapi "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 )
 
@@ -47,8 +47,8 @@ type ClusterWorkspaceCache struct {
 	HasSynced        cache.InformerSynced
 }
 
-func (c *ClusterWorkspaceCache) Get(clusterName logicalcluster.Name, workspaceName string) (*workspaceapi.ClusterWorkspace, error) {
-	key := &workspaceapi.ClusterWorkspace{
+func (c *ClusterWorkspaceCache) Get(clusterName logicalcluster.Name, workspaceName string) (*tenancyv1alpha1.ClusterWorkspace, error) {
+	key := &tenancyv1alpha1.ClusterWorkspace{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
 				logicalcluster.AnnotationKey: clusterName.String(),
@@ -75,9 +75,9 @@ func (c *ClusterWorkspaceCache) Get(clusterName logicalcluster.Name, workspaceNa
 		}
 	}
 
-	var clusterWorkspace *workspaceapi.ClusterWorkspace
+	var clusterWorkspace *tenancyv1alpha1.ClusterWorkspace
 	if exists {
-		clusterWorkspace = clusterWorkspaceObj.(*workspaceapi.ClusterWorkspace)
+		clusterWorkspace = clusterWorkspaceObj.(*tenancyv1alpha1.ClusterWorkspace)
 	} else {
 		// Our watch maybe latent, so we make a best effort to get the object, and only fail if not found
 		clusterWorkspace, err = c.kcpClusterClient.Cluster(clusterName).TenancyV1alpha1().ClusterWorkspaces().Get(context.TODO(), workspaceName, metav1.GetOptions{})

@@ -25,7 +25,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/kcp-dev/logicalcluster/v2"
 
-	apiextensionclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,8 +43,8 @@ import (
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	tenancyinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
-	tenancylister "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -55,9 +55,9 @@ const (
 func NewController(
 	baseConfig *rest.Config,
 	dynamicClusterCLient dynamic.Interface,
-	crdClusterClient apiextensionclientset.Interface,
+	crdClusterClient apiextensionsclient.Interface,
 	kcpClusterClient kcpclient.Interface,
-	workspaceInformer tenancyinformer.ClusterWorkspaceInformer,
+	workspaceInformer tenancyinformers.ClusterWorkspaceInformer,
 	workspaceType tenancyv1alpha1.ClusterWorkspaceTypeReference,
 	bootstrap func(context.Context, discovery.DiscoveryInterface, dynamic.Interface, kcpclient.Interface, sets.String) error,
 	batteriesIncluded sets.String,
@@ -97,10 +97,10 @@ type controller struct {
 	queue          workqueue.RateLimitingInterface
 
 	dynamicClusterClient dynamic.Interface
-	crdClusterClient     apiextensionclientset.Interface
+	crdClusterClient     apiextensionsclient.Interface
 	kcpClusterClient     kcpclient.Interface
 
-	workspaceLister tenancylister.ClusterWorkspaceLister
+	workspaceLister tenancylisters.ClusterWorkspaceLister
 
 	syncChecks []cache.InformerSynced
 

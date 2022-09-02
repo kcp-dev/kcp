@@ -29,7 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	networkinginformers "k8s.io/client-go/informers/networking/v1"
-	"k8s.io/client-go/kubernetes"
+	kubernetesclient "k8s.io/client-go/kubernetes"
 	networkinglisters "k8s.io/client-go/listers/networking/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
@@ -46,7 +46,7 @@ const controllerName = "kcp-envoy-ingress-status-aggregator"
 // root ingress object and calls out to the envoy controlplane to update its
 // state.
 func NewController(
-	kubeClient kubernetes.Interface,
+	kubeClient kubernetesclient.Interface,
 	ingressInformer networkinginformers.IngressInformer,
 	ecp *envoycontrolplane.EnvoyControlPlane, domain string) *Controller {
 
@@ -77,7 +77,7 @@ func NewController(
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	client kubernetes.Interface
+	client kubernetesclient.Interface
 
 	ingressIndexer cache.Indexer
 	ingressLister  networkinglisters.IngressLister

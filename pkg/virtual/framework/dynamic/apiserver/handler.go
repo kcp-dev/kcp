@@ -34,7 +34,7 @@ import (
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/features"
 	"k8s.io/apiserver/pkg/registry/rest"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/kube-openapi/pkg/validation/spec"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
@@ -186,7 +186,7 @@ func (r *resourceHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	//     (by simply converting the request to the json content type),
 	//     since protobuf content type is expected to be supported in a number of client
 	//     contexts (like controller-runtime for example)
-	if clientgoscheme.Scheme.IsGroupRegistered(requestInfo.APIGroup) {
+	if kubernetesscheme.Scheme.IsGroupRegistered(requestInfo.APIGroup) {
 		supportedTypes = append(supportedTypes, string(types.StrategicMergePatchType))
 		req, err := apiextensionsapiserver.ConvertProtobufRequestsToJson(verb, req, schema.GroupVersionKind{
 			Group:   requestInfo.APIGroup,

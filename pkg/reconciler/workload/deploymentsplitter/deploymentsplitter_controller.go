@@ -28,8 +28,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
+	kubernetesinformers "k8s.io/client-go/informers"
+	kubernetesclient "k8s.io/client-go/kubernetes"
 	appsv1client "k8s.io/client-go/kubernetes/typed/apps/v1"
 	appsv1lister "k8s.io/client-go/listers/apps/v1"
 	"k8s.io/client-go/rest"
@@ -37,8 +37,8 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	clusterclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	workloadlisters "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
@@ -51,12 +51,12 @@ const controllerName = "deployment"
 // the Deployment is created.
 func NewController(cfg *rest.Config) *Controller {
 	client := appsv1client.NewForConfigOrDie(cfg)
-	kubeClient := kubernetes.NewForConfigOrDie(cfg)
+	kubeClient := kubernetesclient.NewForConfigOrDie(cfg)
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-deployment")
 	stop := context.TODO()
 	stop, _ = signal.NotifyContext(stop, os.Interrupt)
 
-	csif := externalversions.NewSharedInformerFactoryWithOptions(clusterclient.NewForConfigOrDie(cfg), resyncPeriod)
+	csif := kcpinformers.NewSharedInformerFactoryWithOptions(kcpclient.NewForConfigOrDie(cfg), resyncPeriod)
 
 	c := &Controller{
 		queue:         queue,
@@ -68,7 +68,7 @@ func NewController(cfg *rest.Config) *Controller {
 	csif.WaitForCacheSync(stop.Done())
 	csif.Start(stop.Done())
 
-	sif := informers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
+	sif := kubernetesinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
 	sif.Apps().V1().Deployments().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
@@ -86,7 +86,7 @@ type Controller struct {
 	queue         workqueue.RateLimitingInterface
 	client        *appsv1client.AppsV1Client
 	clusterLister workloadlisters.SyncTargetLister
-	kubeClient    kubernetes.Interface
+	kubeClient    kubernetesclient.Interface
 	stop          context.Context
 	indexer       cache.Indexer
 	lister        appsv1lister.DeploymentLister

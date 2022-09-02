@@ -23,7 +23,7 @@ import (
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	"github.com/kcp-dev/logicalcluster/v2"
 
-	crdclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
@@ -50,7 +50,7 @@ func (c *controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 	defer cancel()
 
 	clusterWsConfig := kcpclienthelper.SetCluster(rest.CopyConfig(c.baseConfig), wsClusterName)
-	crdWsClient, err := crdclientset.NewForConfig(clusterWsConfig)
+	crdWsClient, err := apiextensionsclient.NewForConfig(clusterWsConfig)
 	if err != nil {
 		return err
 	}

@@ -33,8 +33,8 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/projection"
-	workspaceapi "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	workspaceapibeta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	workspacecache "github.com/kcp-dev/kcp/pkg/virtual/workspaces/cache"
 )
 
@@ -48,7 +48,7 @@ type WatchableCache interface {
 	// RemoveWatcher removes a watcher
 	RemoveWatcher(CacheWatcher)
 	// List returns the set of workspace names the user has access to view
-	List(userInfo user.Info, labelSelector labels.Selector, fieldSelector fields.Selector) (*workspaceapi.ClusterWorkspaceList, error)
+	List(userInfo user.Info, labelSelector labels.Selector, fieldSelector fields.Selector) (*tenancyv1alpha1.ClusterWorkspaceList, error)
 }
 
 // userWorkspaceWatcher converts notifications received from the WorkspaceAuthCache to
@@ -78,7 +78,7 @@ type userWorkspaceWatcher struct {
 	clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache
 	authCache             WatchableCache
 
-	initialClusterWorkspaces []workspaceapi.ClusterWorkspace
+	initialClusterWorkspaces []tenancyv1alpha1.ClusterWorkspace
 	// knownWorkspaces maps name to resourceVersion
 	knownWorkspaces map[string]string
 
@@ -99,7 +99,7 @@ func NewUserWorkspaceWatcher(user user.Info, lclusterName logicalcluster.Name, c
 	}
 
 	// this is optional.  If they don't request it, don't include it.
-	initialWorkspaces := []workspaceapi.ClusterWorkspace{}
+	initialWorkspaces := []tenancyv1alpha1.ClusterWorkspace{}
 	if includeAllExistingWorkspaces {
 		initialWorkspaces = append(initialWorkspaces, workspaces.Items...)
 	}
@@ -122,7 +122,7 @@ func NewUserWorkspaceWatcher(user user.Info, lclusterName logicalcluster.Name, c
 	w.emit = func(e watch.Event) {
 		// if dealing with workspace events, ensure that we only emit events for workspaces
 		// that match the field or label selector specified by a consumer
-		if workspace, ok := e.Object.(*workspaceapibeta1.Workspace); ok {
+		if workspace, ok := e.Object.(*tenancyv1beta1.Workspace); ok {
 			if matches, err := predicate.Matches(workspace); err != nil || !matches {
 				return
 			}
@@ -140,8 +140,8 @@ func (w *userWorkspaceWatcher) GroupMembershipChanged(workspaceName string, user
 	hasAccess := users.Has(w.user.GetName()) || groups.HasAny(w.user.GetGroups()...)
 	_, known := w.knownWorkspaces[workspaceName]
 
-	var workspace workspaceapibeta1.Workspace
-	projection.ProjectClusterWorkspaceToWorkspace(&workspaceapi.ClusterWorkspace{
+	var workspace tenancyv1beta1.Workspace
+	projection.ProjectClusterWorkspaceToWorkspace(&tenancyv1alpha1.ClusterWorkspace{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
 				logicalcluster.AnnotationKey: w.lclusterName.String(),
@@ -172,7 +172,7 @@ func (w *userWorkspaceWatcher) GroupMembershipChanged(workspaceName string, user
 			utilruntime.HandleError(err)
 			return
 		}
-		var workspace workspaceapibeta1.Workspace
+		var workspace tenancyv1beta1.Workspace
 		projection.ProjectClusterWorkspaceToWorkspace(clusterWorkspace, &workspace)
 		if err != nil {
 			utilruntime.HandleError(err)
@@ -225,7 +225,7 @@ func (w *userWorkspaceWatcher) Watch() {
 			return
 		default:
 		}
-		var workspace workspaceapibeta1.Workspace
+		var workspace tenancyv1beta1.Workspace
 		projection.ProjectClusterWorkspaceToWorkspace(&w.initialClusterWorkspaces[i], &workspace)
 		w.emit(watch.Event{
 			Type:   watch.Added,

@@ -23,7 +23,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
 
-	tenancyapis "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 )
@@ -85,7 +85,7 @@ func (i *filteredClusterWorkspaceTypeInformer) Lister() tenancylisters.ClusterWo
 	}
 }
 
-func (l *filteredClusterWorkspaceTypeLister) List(selector labels.Selector) (ret []*tenancyapis.ClusterWorkspaceType, err error) {
+func (l *filteredClusterWorkspaceTypeLister) List(selector labels.Selector) (ret []*tenancyv1alpha1.ClusterWorkspaceType, err error) {
 	items, err := l.lister.List(selector)
 	if err != nil {
 		return nil, err
@@ -98,7 +98,7 @@ func (l *filteredClusterWorkspaceTypeLister) List(selector labels.Selector) (ret
 	return
 }
 
-func (l *filteredClusterWorkspaceTypeLister) Get(name string) (*tenancyapis.ClusterWorkspaceType, error) {
+func (l *filteredClusterWorkspaceTypeLister) Get(name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
 	if clusterName, _ := clusters.SplitClusterAwareKey(name); clusterName.Empty() {
 		name = clusters.ToClusterAwareKey(l.clusterName, name)
 	}
@@ -136,7 +136,7 @@ func (i *filteredClusterWorkspaceInformer) Lister() tenancylisters.ClusterWorksp
 	}
 }
 
-func (l *filteredClusterWorkspaceLister) List(selector labels.Selector) (ret []*tenancyapis.ClusterWorkspace, err error) {
+func (l *filteredClusterWorkspaceLister) List(selector labels.Selector) (ret []*tenancyv1alpha1.ClusterWorkspace, err error) {
 	items, err := l.lister.List(selector)
 	if err != nil {
 		return nil, err
@@ -149,7 +149,7 @@ func (l *filteredClusterWorkspaceLister) List(selector labels.Selector) (ret []*
 	return
 }
 
-func (l *filteredClusterWorkspaceLister) Get(name string) (*tenancyapis.ClusterWorkspace, error) {
+func (l *filteredClusterWorkspaceLister) Get(name string) (*tenancyv1alpha1.ClusterWorkspace, error) {
 	if clusterName, _ := clusters.SplitClusterAwareKey(name); clusterName.Empty() {
 		name = clusters.ToClusterAwareKey(l.clusterName, name)
 	}
@@ -187,7 +187,7 @@ func (i *filteredWorkspaceShardInformer) Lister() tenancylisters.ClusterWorkspac
 	}
 }
 
-func (l *filteredWorkspaceShardLister) List(selector labels.Selector) (ret []*tenancyapis.ClusterWorkspaceShard, err error) {
+func (l *filteredWorkspaceShardLister) List(selector labels.Selector) (ret []*tenancyv1alpha1.ClusterWorkspaceShard, err error) {
 	items, err := l.lister.List(selector)
 	if err != nil {
 		return nil, err
@@ -200,7 +200,7 @@ func (l *filteredWorkspaceShardLister) List(selector labels.Selector) (ret []*te
 	return
 }
 
-func (l *filteredWorkspaceShardLister) Get(name string) (*tenancyapis.ClusterWorkspaceShard, error) {
+func (l *filteredWorkspaceShardLister) Get(name string) (*tenancyv1alpha1.ClusterWorkspaceShard, error) {
 	if clusterName, _ := clusters.SplitClusterAwareKey(name); clusterName.Empty() {
 		name = clusters.ToClusterAwareKey(l.clusterName, name)
 	}

@@ -36,10 +36,10 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	apisinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
+	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
+	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
-	tenancylistersv1alpha1 "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
+	workloadlisters "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexport"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
@@ -54,9 +54,9 @@ type CreateAPIDefinitionFunc func(syncTargetWorkspace logicalcluster.Name, syncT
 
 func NewAPIReconciler(
 	kcpClusterClient kcpclient.ClusterInterface,
-	syncTargetInformer tenancyv1alpha1.SyncTargetInformer,
-	apiResourceSchemaInformer apisinformer.APIResourceSchemaInformer,
-	apiExportInformer apisinformer.APIExportInformer,
+	syncTargetInformer workloadinformers.SyncTargetInformer,
+	apiResourceSchemaInformer apisinformers.APIResourceSchemaInformer,
+	apiExportInformer apisinformers.APIExportInformer,
 	createAPIDefinition CreateAPIDefinitionFunc,
 ) (*APIReconciler, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
@@ -146,7 +146,7 @@ func NewAPIReconciler(
 type APIReconciler struct {
 	kcpClusterClient kcpclient.ClusterInterface
 
-	syncTargetLister  tenancylistersv1alpha1.SyncTargetLister
+	syncTargetLister  workloadlisters.SyncTargetLister
 	syncTargetIndexer cache.Indexer
 
 	apiResourceSchemaLister  apislisters.APIResourceSchemaLister

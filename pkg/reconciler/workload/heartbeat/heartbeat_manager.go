@@ -22,7 +22,7 @@ import (
 
 	"k8s.io/klog/v2"
 
-	conditionsapi "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
+	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/basecontroller"
@@ -55,14 +55,14 @@ func (c *clusterManager) Reconcile(ctx context.Context, cluster *workloadv1alpha
 		conditions.MarkFalse(cluster,
 			workloadv1alpha1.HeartbeatHealthy,
 			workloadv1alpha1.ErrorHeartbeatMissedReason,
-			conditionsapi.ConditionSeverityWarning,
+			conditionsv1alpha1.ConditionSeverityWarning,
 			"No heartbeat yet seen")
 	} else if time.Since(latestHeartbeat) > c.heartbeatThreshold {
 		logger.V(5).Info("marking HeartbeatHealthy false for SyncTarget due to a stale heartbeat")
 		conditions.MarkFalse(cluster,
 			workloadv1alpha1.HeartbeatHealthy,
 			workloadv1alpha1.ErrorHeartbeatMissedReason,
-			conditionsapi.ConditionSeverityWarning,
+			conditionsv1alpha1.ConditionSeverityWarning,
 			"No heartbeat since %s", latestHeartbeat)
 	} else {
 		logger.V(5).Info("marking Heartbeat healthy true for SyncTarget")

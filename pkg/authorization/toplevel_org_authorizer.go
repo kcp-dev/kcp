@@ -28,13 +28,13 @@ import (
 	authserviceaccount "k8s.io/apiserver/pkg/authentication/serviceaccount"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
-	clientgoinformers "k8s.io/client-go/informers"
+	kubernetesinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyv1 "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
 )
 
@@ -48,7 +48,7 @@ const (
 // clusterworkspaces/content of the top-level workspace the request workspace is nested in. If one of
 // these verbs are admitted, the delegate authorizer is called. Otherwise, NoOpionion is returned if
 // the top-level workspace exists, and Deny otherwise.
-func NewTopLevelOrganizationAccessAuthorizer(versionedInformers clientgoinformers.SharedInformerFactory, clusterWorkspaceLister tenancyv1.ClusterWorkspaceLister, delegate authorizer.Authorizer) authorizer.Authorizer {
+func NewTopLevelOrganizationAccessAuthorizer(versionedInformers kubernetesinformers.SharedInformerFactory, clusterWorkspaceLister tenancylisters.ClusterWorkspaceLister, delegate authorizer.Authorizer) authorizer.Authorizer {
 	rootKubeInformer := rbacwrapper.FilterInformers(tenancyv1alpha1.RootCluster, versionedInformers.Rbac().V1())
 	bootstrapInformer := rbacwrapper.FilterInformers(genericcontrolplane.LocalAdminCluster, versionedInformers.Rbac().V1())
 
@@ -70,7 +70,7 @@ func NewTopLevelOrganizationAccessAuthorizer(versionedInformers clientgoinformer
 
 type topLevelOrgAccessAuthorizer struct {
 	rootAuthorizer         *rbac.RBACAuthorizer
-	clusterWorkspaceLister tenancyv1.ClusterWorkspaceLister
+	clusterWorkspaceLister tenancylisters.ClusterWorkspaceLister
 	delegate               authorizer.Authorizer
 }
 

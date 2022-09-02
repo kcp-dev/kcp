@@ -47,7 +47,7 @@ import (
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
+	tenancyhelper "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 )
 
@@ -219,7 +219,7 @@ func createResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 				klog.Infof(
 					"Skipping update of %s %s because it has the create-only annotation",
 					gvk,
-					helper.QualifiedObjectName(existing),
+					tenancyhelper.QualifiedObjectName(existing),
 				)
 
 				return nil
@@ -227,16 +227,16 @@ func createResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 
 			u.SetResourceVersion(existing.GetResourceVersion())
 			if _, err = client.Resource(m.Resource).Namespace(u.GetNamespace()).Update(ctx, u, metav1.UpdateOptions{}); err != nil {
-				return fmt.Errorf("could not update %s %s: %w", gvk.Kind, helper.QualifiedObjectName(existing), err)
+				return fmt.Errorf("could not update %s %s: %w", gvk.Kind, tenancyhelper.QualifiedObjectName(existing), err)
 			} else {
-				klog.Infof("Updated %s %s", gvk, helper.QualifiedObjectName(existing))
+				klog.Infof("Updated %s %s", gvk, tenancyhelper.QualifiedObjectName(existing))
 				return nil
 			}
 		}
 		return err
 	}
 
-	klog.Infof("Bootstrapped %s %s", gvk.Kind, helper.QualifiedObjectName(upserted))
+	klog.Infof("Bootstrapped %s %s", gvk.Kind, tenancyhelper.QualifiedObjectName(upserted))
 
 	return nil
 }

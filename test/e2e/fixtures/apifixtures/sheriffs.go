@@ -28,7 +28,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
-	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -36,35 +36,35 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
 // NewSheriffsCRDWithSchemaDescription returns a minimal sheriffs CRD in the API group specified with the description
 // used as the object's description in the OpenAPI schema.
-func NewSheriffsCRDWithSchemaDescription(group, description string) *v1.CustomResourceDefinition {
+func NewSheriffsCRDWithSchemaDescription(group, description string) *apiextensionsv1.CustomResourceDefinition {
 	crdName := fmt.Sprintf("sheriffs.%s", group)
 
-	crd := &v1.CustomResourceDefinition{
+	crd := &apiextensionsv1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: crdName,
 		},
-		Spec: v1.CustomResourceDefinitionSpec{
+		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
 			Group: group,
-			Names: v1.CustomResourceDefinitionNames{
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
 				Plural:   "sheriffs",
 				Singular: "sheriff",
 				Kind:     "Sheriff",
 				ListKind: "SheriffList",
 			},
 			Scope: "Namespaced",
-			Versions: []v1.CustomResourceDefinitionVersion{
+			Versions: []apiextensionsv1.CustomResourceDefinitionVersion{
 				{
 					Name:    "v1",
 					Served:  true,
 					Storage: true,
-					Schema: &v1.CustomResourceValidation{
-						OpenAPIV3Schema: &v1.JSONSchemaProps{
+					Schema: &apiextensionsv1.CustomResourceValidation{
+						OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
 							Type:        "object",
 							Description: description,
 						},
@@ -82,7 +82,7 @@ func CreateSheriffsSchemaAndExport(
 	ctx context.Context,
 	t *testing.T,
 	clusterName logicalcluster.Name,
-	clusterClient kcpclientset.Interface,
+	clusterClient kcpclient.Interface,
 	group string,
 	description string,
 ) {
@@ -92,7 +92,7 @@ func CreateSheriffsSchemaAndExport(
 		},
 		Spec: apisv1alpha1.APIResourceSchemaSpec{
 			Group: group,
-			Names: v1.CustomResourceDefinitionNames{
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
 				Plural:   "sheriffs",
 				Singular: "sheriff",
 				Kind:     "Sheriff",
@@ -106,7 +106,7 @@ func CreateSheriffsSchemaAndExport(
 					Storage: true,
 					Schema: runtime.RawExtension{
 						Raw: jsonOrDie(
-							&v1.JSONSchemaProps{
+							&apiextensionsv1.JSONSchemaProps{
 								Type:        "object",
 								Description: description,
 							},

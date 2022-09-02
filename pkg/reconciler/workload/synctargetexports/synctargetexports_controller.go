@@ -42,8 +42,8 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apiresourceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
 	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
-	apiresourcelister "github.com/kcp-dev/kcp/pkg/client/listers/apiresource/v1alpha1"
+	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
+	apiresourcelisters "github.com/kcp-dev/kcp/pkg/client/listers/apiresource/v1alpha1"
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	workloadlisters "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
 )
@@ -60,7 +60,7 @@ const (
 // of a syncTarget.
 func NewController(
 	kcpClusterClient kcpclient.Interface,
-	syncTargetInformer v1alpha1.SyncTargetInformer,
+	syncTargetInformer workloadinformers.SyncTargetInformer,
 	apiExportInformer apisinformers.APIExportInformer,
 	apiResourceSchemaInformer apisinformers.APIResourceSchemaInformer,
 	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
@@ -151,7 +151,7 @@ type Controller struct {
 	apiExportLister      apislisters.APIExportLister
 	resourceSchemaLister apislisters.APIResourceSchemaLister
 	apiImportIndexer     cache.Indexer
-	apiImportLister      apiresourcelister.APIResourceImportLister
+	apiImportLister      apiresourcelisters.APIResourceImportLister
 }
 
 func (c *Controller) enqueueSyncTarget(obj interface{}, logSuffix string) {

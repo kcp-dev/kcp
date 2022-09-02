@@ -33,7 +33,7 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/client-go/kubernetes"
+	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clusters"
 
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
@@ -41,7 +41,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	tenancyv1alpha1lister "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 )
 
 const (
@@ -70,9 +70,9 @@ func Register(plugins *admission.Plugins) {
 //   transitions to the Initializing state.
 type clusterWorkspaceTypeExists struct {
 	*admission.Handler
-	typeLister             tenancyv1alpha1lister.ClusterWorkspaceTypeLister
-	workspaceLister        tenancyv1alpha1lister.ClusterWorkspaceLister
-	deepSARClient          kubernetes.ClusterInterface
+	typeLister             tenancylisters.ClusterWorkspaceTypeLister
+	workspaceLister        tenancylisters.ClusterWorkspaceLister
+	deepSARClient          kubernetesclient.ClusterInterface
 	transitiveTypeResolver transitiveTypeResolver
 
 	createAuthorizer delegated.DelegatedAuthorizerFactory
@@ -392,7 +392,7 @@ func (o *clusterWorkspaceTypeExists) SetKcpInformers(informers kcpinformers.Shar
 	o.workspaceLister = informers.Tenancy().V1alpha1().ClusterWorkspaces().Lister()
 }
 
-func (o *clusterWorkspaceTypeExists) SetDeepSARClient(client kubernetes.ClusterInterface) {
+func (o *clusterWorkspaceTypeExists) SetDeepSARClient(client kubernetesclient.ClusterInterface) {
 	o.deepSARClient = client
 }
 

@@ -31,16 +31,16 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
-	clientgoinformers "k8s.io/client-go/informers"
-	rbacv1 "k8s.io/client-go/informers/rbac/v1"
-	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
+	kubernetesinformers "k8s.io/client-go/informers"
+	rbacinformers "k8s.io/client-go/informers/rbac/v1"
+	rbaclisters "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
-	tenancyalphav1 "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
 )
 
@@ -52,7 +52,7 @@ const (
 	WorkspaceContentAuditReason   = WorkspaceContentAuditPrefix + "reason"
 )
 
-func NewWorkspaceContentAuthorizer(versionedInformers clientgoinformers.SharedInformerFactory, clusterWorkspaceLister tenancyalphav1.ClusterWorkspaceLister, delegate authorizer.Authorizer) authorizer.Authorizer {
+func NewWorkspaceContentAuthorizer(versionedInformers kubernetesinformers.SharedInformerFactory, clusterWorkspaceLister tenancylisters.ClusterWorkspaceLister, delegate authorizer.Authorizer) authorizer.Authorizer {
 	return &workspaceContentAuthorizer{
 		rbacInformers: versionedInformers.Rbac().V1(),
 
@@ -67,14 +67,14 @@ func NewWorkspaceContentAuthorizer(versionedInformers clientgoinformers.SharedIn
 }
 
 type workspaceContentAuthorizer struct {
-	roleLister               rbacv1listers.RoleLister
-	roleBindingLister        rbacv1listers.RoleBindingLister
-	clusterRoleBindingLister rbacv1listers.ClusterRoleBindingLister
-	clusterRoleLister        rbacv1listers.ClusterRoleLister
-	clusterWorkspaceLister   tenancyalphav1.ClusterWorkspaceLister
+	roleLister               rbaclisters.RoleLister
+	roleBindingLister        rbaclisters.RoleBindingLister
+	clusterRoleBindingLister rbaclisters.ClusterRoleBindingLister
+	clusterRoleLister        rbaclisters.ClusterRoleLister
+	clusterWorkspaceLister   tenancylisters.ClusterWorkspaceLister
 
 	// TODO: this will go away when scoping lands. Then we only have those 4 listers above.
-	rbacInformers rbacv1.Interface
+	rbacInformers rbacinformers.Interface
 
 	// union of local and bootstrap authorizer
 	delegate authorizer.Authorizer

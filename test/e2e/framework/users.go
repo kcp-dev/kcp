@@ -26,12 +26,12 @@ import (
 
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
+	kubernetesclient "k8s.io/client-go/kubernetes"
 )
 
 // AdmitWorkspaceAccess create RBAC rules that allow the given users and/or groups to access the given, fully-qualified workspace, i.e.
 // the RBAC objects are create in its parent.
-func AdmitWorkspaceAccess(t *testing.T, ctx context.Context, kubeClusterClient kubernetes.Interface, orgClusterName logicalcluster.Name, users []string, groups []string, verbs []string) {
+func AdmitWorkspaceAccess(t *testing.T, ctx context.Context, kubeClusterClient kubernetesclient.Interface, orgClusterName logicalcluster.Name, users []string, groups []string, verbs []string) {
 	parent, hasParent := orgClusterName.Parent()
 	require.True(t, hasParent, "org cluster %s should have a parent", orgClusterName)
 

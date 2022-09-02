@@ -29,13 +29,13 @@ import (
 	"k8s.io/apiserver/pkg/admission/initializer"
 	"k8s.io/apiserver/pkg/admission/plugin/namespace/lifecycle"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
+	kubernetesinformers "k8s.io/client-go/informers"
+	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clusters"
 
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	tenancyv1alpha1lister "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 )
 
 const (
@@ -62,7 +62,7 @@ type workspaceNamespaceLifecycle struct {
 	namespaceLifecycle *lifecycle.Lifecycle
 
 	*admission.Handler
-	workspaceLister tenancyv1alpha1lister.ClusterWorkspaceLister
+	workspaceLister tenancylisters.ClusterWorkspaceLister
 }
 
 func newLifcycle() (*workspaceNamespaceLifecycle, error) {
@@ -131,13 +131,13 @@ func (l *workspaceNamespaceLifecycle) Admit(ctx context.Context, a admission.Att
 }
 
 // SetExternalKubeInformerFactory implements the WantsExternalKubeInformerFactory interface.
-func (l *workspaceNamespaceLifecycle) SetExternalKubeInformerFactory(f informers.SharedInformerFactory) {
+func (l *workspaceNamespaceLifecycle) SetExternalKubeInformerFactory(f kubernetesinformers.SharedInformerFactory) {
 	l.legacyNamespaceLifecycle.SetExternalKubeInformerFactory(f)
 	l.namespaceLifecycle.SetExternalKubeInformerFactory(f)
 }
 
 // SetExternalKubeClientSet implements the WantsExternalKubeClientSet interface.
-func (l *workspaceNamespaceLifecycle) SetExternalKubeClientSet(client kubernetes.Interface) {
+func (l *workspaceNamespaceLifecycle) SetExternalKubeClientSet(client kubernetesclient.Interface) {
 	l.legacyNamespaceLifecycle.SetExternalKubeClientSet(client)
 	l.namespaceLifecycle.SetExternalKubeClientSet(client)
 }

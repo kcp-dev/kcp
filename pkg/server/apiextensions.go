@@ -42,7 +42,7 @@ import (
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
@@ -55,7 +55,7 @@ var SystemCRDLogicalCluster = logicalcluster.New("system:system-crds")
 
 // apiBindingAwareCRDLister is a CRD lister combines APIs coming from APIBindings with CRDs in a workspace.
 type apiBindingAwareCRDLister struct {
-	kcpClusterClient     kcpclientset.ClusterInterface
+	kcpClusterClient     kcpclient.ClusterInterface
 	crdLister            apiextensionslisters.CustomResourceDefinitionLister
 	crdIndexer           cache.Indexer
 	workspaceLister      tenancylisters.ClusterWorkspaceLister

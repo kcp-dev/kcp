@@ -24,9 +24,9 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	crdinfomer "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1"
-	crdlister "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1"
+	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1"
+	apiextensionslisters "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -38,7 +38,7 @@ import (
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apiresourceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
-	apiresourcelister "github.com/kcp-dev/kcp/pkg/client/listers/apiresource/v1alpha1"
+	apiresourcelisters "github.com/kcp-dev/kcp/pkg/client/listers/apiresource/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -50,12 +50,12 @@ func GetClusterNameAndGVRIndexKey(clusterName logicalcluster.Name, gvr metav1.Gr
 }
 
 func NewController(
-	crdClusterClient apiextensionsclientset.Interface,
+	crdClusterClient apiextensionsclient.Interface,
 	kcpClusterClient kcpclient.Interface,
 	autoPublishNegotiatedAPIResource bool,
 	negotiatedAPIResourceInformer apiresourceinformer.NegotiatedAPIResourceInformer,
 	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
-	crdInformer crdinfomer.CustomResourceDefinitionInformer,
+	crdInformer apiextensionsinformers.CustomResourceDefinitionInformer,
 ) (*Controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-apiresource")
 
@@ -129,16 +129,16 @@ func NewController(
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	crdClusterClient             apiextensionsclientset.Interface
+	crdClusterClient             apiextensionsclient.Interface
 	kcpClusterClient             kcpclient.Interface
 	negotiatedApiResourceIndexer cache.Indexer
-	negotiatedApiResourceLister  apiresourcelister.NegotiatedAPIResourceLister
+	negotiatedApiResourceLister  apiresourcelisters.NegotiatedAPIResourceLister
 
 	apiResourceImportIndexer cache.Indexer
-	apiResourceImportLister  apiresourcelister.APIResourceImportLister
+	apiResourceImportLister  apiresourcelisters.APIResourceImportLister
 
 	crdIndexer cache.Indexer
-	crdLister  crdlister.CustomResourceDefinitionLister
+	crdLister  apiextensionslisters.CustomResourceDefinitionLister
 
 	AutoPublishNegotiatedAPIResource bool
 }

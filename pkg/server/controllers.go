@@ -36,7 +36,7 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/kubernetes"
+	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
 	certutil "k8s.io/client-go/util/cert"
@@ -87,7 +87,7 @@ func postStartHookName(controllerName string) string {
 func (s *Server) installClusterRoleAggregationController(ctx context.Context, config *rest.Config) error {
 	controllerName := "kube-cluster-role-aggregation-controller"
 	config = rest.AddUserAgent(rest.CopyConfig(config), controllerName)
-	kubeClient, err := kubernetes.NewForConfig(config)
+	kubeClient, err := kubernetesclient.NewForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -104,7 +104,7 @@ func (s *Server) installClusterRoleAggregationController(ctx context.Context, co
 func (s *Server) installKubeNamespaceController(ctx context.Context, config *rest.Config) error {
 	controllerName := "kube-namespace-controller"
 	config = rest.AddUserAgent(rest.CopyConfig(config), controllerName)
-	kubeClient, err := kubernetes.NewForConfig(config)
+	kubeClient, err := kubernetesclient.NewForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -152,7 +152,7 @@ func (s *Server) installKubeNamespaceController(ctx context.Context, config *res
 func (s *Server) installKubeServiceAccountController(ctx context.Context, config *rest.Config) error {
 	controllerName := "kube-service-account-controller"
 	config = rest.AddUserAgent(rest.CopyConfig(config), controllerName)
-	kubeClient, err := kubernetes.NewForConfig(config)
+	kubeClient, err := kubernetesclient.NewForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -183,7 +183,7 @@ func (s *Server) installKubeServiceAccountController(ctx context.Context, config
 func (s *Server) installKubeServiceAccountTokenController(ctx context.Context, config *rest.Config) error {
 	controllerName := "kube-service-account-token-controller"
 	config = rest.AddUserAgent(rest.CopyConfig(config), controllerName)
-	kubeClient, err := kubernetes.NewForConfig(config)
+	kubeClient, err := kubernetesclient.NewForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -242,7 +242,7 @@ func (s *Server) installKubeServiceAccountTokenController(ctx context.Context, c
 func (s *Server) installRootCAConfigMapController(ctx context.Context, config *rest.Config) error {
 	controllerName := "kube-root-ca-configmap-controller"
 	config = rest.AddUserAgent(rest.CopyConfig(config), controllerName)
-	kubeClient, err := kubernetes.NewForConfig(config)
+	kubeClient, err := kubernetesclient.NewForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -703,7 +703,7 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 		return err
 	}
 
-	kubeClusterClient, err := kubernetes.NewForConfig(config)
+	kubeClusterClient, err := kubernetesclient.NewForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -811,7 +811,7 @@ func (s *Server) installWorkloadNamespaceScheduler(ctx context.Context, config *
 	controllerName := "kcp-workload-namespace-scheduler"
 	config = rest.CopyConfig(config)
 	config = rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(config), controllerName)
-	kubeClusterClient, err := kubernetes.NewForConfig(config)
+	kubeClusterClient, err := kubernetesclient.NewForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -1050,7 +1050,7 @@ func (s *Server) installKubeQuotaController(
 	config = rest.CopyConfig(config)
 	// TODO(ncdc): figure out if we need kcpclienthelper.SetMultiClusterRoundTripper(config)
 	config = rest.AddUserAgent(config, controllerName)
-	kubeClusterClient, err := kubernetes.NewClusterForConfig(config)
+	kubeClusterClient, err := kubernetesclient.NewClusterForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -1108,7 +1108,7 @@ func (s *Server) installApiExportIdentityController(ctx context.Context, config 
 	}
 	config = rest.CopyConfig(config)
 	config = rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(config), identitycache.ControllerName)
-	kubeClusterClient, err := kubernetes.NewClusterForConfig(config)
+	kubeClusterClient, err := kubernetesclient.NewClusterForConfig(config)
 	if err != nil {
 		return err
 	}

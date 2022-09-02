@@ -28,7 +28,7 @@ import (
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	conditionsapi "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
+	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 )
 
@@ -58,7 +58,7 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alp
 		}
 	case tenancyv1alpha1.ClusterWorkspacePhaseInitializing:
 		if len(workspace.Status.Initializers) > 0 {
-			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceInitialized, tenancyv1alpha1.WorkspaceInitializedInitializerExists, conditionsapi.ConditionSeverityInfo, "Initializers still exist: %v", workspace.Status.Initializers)
+			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceInitialized, tenancyv1alpha1.WorkspaceInitializedInitializerExists, conditionsv1alpha1.ConditionSeverityInfo, "Initializers still exist: %v", workspace.Status.Initializers)
 			return reconcileStatusContinue, nil
 		}
 
@@ -74,7 +74,7 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alp
 		}
 		if len(unbound) > 0 {
 			sort.Strings(unbound)
-			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceInitialized, tenancyv1alpha1.WorkspaceInitializedAPIBindingNotBound, conditionsapi.ConditionSeverityInfo, "APIBindings not bound: %s", strings.Join(unbound, ", "))
+			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceInitialized, tenancyv1alpha1.WorkspaceInitializedAPIBindingNotBound, conditionsv1alpha1.ConditionSeverityInfo, "APIBindings not bound: %s", strings.Join(unbound, ", "))
 			return reconcileStatusContinue, nil
 		}
 

@@ -31,7 +31,7 @@ import (
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -43,7 +43,7 @@ func BindToExport(
 	exportClusterName logicalcluster.Name,
 	apiExportName string,
 	bindingClusterName logicalcluster.Name,
-	clusterClient kcpclientset.Interface,
+	clusterClient kcpclient.Interface,
 ) {
 	binding := &apisv1alpha1.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{

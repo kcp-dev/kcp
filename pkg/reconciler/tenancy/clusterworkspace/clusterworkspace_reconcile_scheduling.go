@@ -24,10 +24,10 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	apierrors "k8s.io/apimachinery/pkg/util/errors"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/klog/v2"
 
@@ -50,7 +50,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 		// possibly de-schedule while still in scheduling phase
 		if current := workspace.Status.Location.Current; current != "" {
 			// make sure current shard still exists
-			if shard, err := r.getShard(current); errors.IsNotFound(err) {
+			if shard, err := r.getShard(current); apierrors.IsNotFound(err) {
 				logger.Info("de-scheduling workspace from nonexistent shard", "ClusterWorkspaceShard", current)
 				workspace.Status.Location.Current = ""
 				workspace.Status.BaseURL = ""
@@ -77,10 +77,10 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 				}
 				if shardName := workspace.Spec.Shard.Name; shardName != "" {
 					shard, err := r.getShard(workspace.Spec.Shard.Name)
-					if err != nil && !errors.IsNotFound(err) {
+					if err != nil && !apierrors.IsNotFound(err) {
 						return reconcileStatusStopAndRequeue, err
 					}
-					if errors.IsNotFound(err) {
+					if apierrors.IsNotFound(err) {
 						conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonUnschedulable, conditionsv1alpha1.ConditionSeverityError, "shard %q specified in spec.location.name does not exist: %v", shardName, err)
 						return reconcileStatusContinue, nil // retry is automatic when new shards show up
 					}
@@ -158,7 +158,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 				for name, x := range invalidShards {
 					failures = append(failures, fmt.Errorf("  %s: reason %q, message %q", name, x.reason, x.message))
 				}
-				logger.Error(apierrors.NewAggregate(failures), "no valid shards found for workspace, skipping")
+				logger.Error(utilerrors.NewAggregate(failures), "no valid shards found for workspace, skipping")
 			}
 		}
 	case tenancyv1alpha1.ClusterWorkspacePhaseInitializing, tenancyv1alpha1.ClusterWorkspacePhaseReady:
@@ -174,7 +174,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 		}
 
 		_, err := r.getShard(target)
-		if errors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			logger.Info("cannot move to nonexistent shard", "ClusterWorkspaceShard", target)
 		} else if err != nil {
 			return reconcileStatusStopAndRequeue, err
@@ -189,7 +189,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 	// a movement controller in the future (or a human intervention) to move workspaces off a shard.
 	if workspace.Status.Location.Current != "" {
 		shard, err := r.getShard(workspace.Status.Location.Current)
-		if errors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceShardValid, tenancyv1alpha1.WorkspaceShardValidReasonShardNotFound, conditionsv1alpha1.ConditionSeverityError, "ClusterWorkspaceShard %q got deleted.", workspace.Status.Location.Current)
 		} else if err != nil {
 			return reconcileStatusStopAndRequeue, err

@@ -28,8 +28,8 @@ import (
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	workspaceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
-	listerstenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/authorization"
 	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/registry"
 )
@@ -42,7 +42,7 @@ type Stoppable interface {
 // parents for those. This means that workspaces without any ClusterWorkspace (like universal
 // workspaces) will not be started.
 type orgListener struct {
-	lister   listerstenancyv1alpha1.ClusterWorkspaceLister
+	lister   tenancylisters.ClusterWorkspaceLister
 	informer cache.SharedIndexInformer
 
 	newClusterWorkspaces func(orgClusterName logicalcluster.Name, initialWatchers []authorization.CacheWatcher) registry.FilteredClusterWorkspaces
@@ -52,7 +52,7 @@ type orgListener struct {
 	clusterWorkspacesPerCluster map[logicalcluster.Name]*preCreationClusterWorkspaces
 }
 
-func NewOrgListener(informer workspaceinformer.ClusterWorkspaceInformer, newClusterWorkspaces func(orgClusterName logicalcluster.Name, initialWatchers []authorization.CacheWatcher) registry.FilteredClusterWorkspaces) *orgListener {
+func NewOrgListener(informer tenancyinformers.ClusterWorkspaceInformer, newClusterWorkspaces func(orgClusterName logicalcluster.Name, initialWatchers []authorization.CacheWatcher) registry.FilteredClusterWorkspaces) *orgListener {
 	l := &orgListener{
 		lister:   informer.Lister(),
 		informer: informer.Informer(),

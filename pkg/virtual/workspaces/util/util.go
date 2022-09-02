@@ -25,16 +25,16 @@ import (
 	"k8s.io/apiserver/pkg/registry/generic"
 	apistorage "k8s.io/apiserver/pkg/storage"
 
-	workspaceapiv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	workspaceapiv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 )
 
 // getAttrs returns labels and fields of a given object for filtering purposes.
 func getAttrs(obj runtime.Object) (labels.Set, fields.Set, error) {
 	switch workspaceObj := obj.(type) {
-	case *workspaceapiv1beta1.Workspace:
+	case *tenancyv1beta1.Workspace:
 		return labels.Set(workspaceObj.Labels), workspaceToSelectableFields(workspaceObj), nil
-	case *workspaceapiv1alpha1.ClusterWorkspace:
+	case *tenancyv1alpha1.ClusterWorkspace:
 		return labels.Set(workspaceObj.Labels), clusterWorkspaceToSelectableFields(workspaceObj), nil
 	default:
 		return nil, nil, fmt.Errorf("not a workspace")
@@ -51,7 +51,7 @@ func MatchWorkspace(label labels.Selector, field fields.Selector) apistorage.Sel
 }
 
 // workspaceToSelectableFields returns a field set that represents the object
-func workspaceToSelectableFields(workspaceObj *workspaceapiv1beta1.Workspace) fields.Set {
+func workspaceToSelectableFields(workspaceObj *tenancyv1beta1.Workspace) fields.Set {
 	objectMetaFieldsSet := generic.ObjectMetaFieldsSet(&workspaceObj.ObjectMeta, false)
 	specificFieldsSet := fields.Set{
 		"status.phase": string(workspaceObj.Status.Phase),
@@ -60,7 +60,7 @@ func workspaceToSelectableFields(workspaceObj *workspaceapiv1beta1.Workspace) fi
 }
 
 // clusterWorkspaceToSelectableFields returns a field set that represents the object
-func clusterWorkspaceToSelectableFields(workspaceObj *workspaceapiv1alpha1.ClusterWorkspace) fields.Set {
+func clusterWorkspaceToSelectableFields(workspaceObj *tenancyv1alpha1.ClusterWorkspace) fields.Set {
 	objectMetaFieldsSet := generic.ObjectMetaFieldsSet(&workspaceObj.ObjectMeta, false)
 	specificFieldsSet := fields.Set{
 		"status.phase": string(workspaceObj.Status.Phase),

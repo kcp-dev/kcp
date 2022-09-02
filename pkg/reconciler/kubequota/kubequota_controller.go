@@ -32,8 +32,8 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/quota/v1/generic"
-	"k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
+	kubernetesinformers "k8s.io/client-go/informers"
+	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
@@ -58,7 +58,7 @@ type Controller struct {
 	queue workqueue.RateLimitingInterface
 
 	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory
-	kubeClusterClient                     kubernetes.ClusterInterface
+	kubeClusterClient                     kubernetesclient.ClusterInterface
 	informersStarted                      <-chan struct{}
 
 	// quotaRecalculationPeriod controls how often a full quota recalculation is performed
@@ -85,8 +85,8 @@ type Controller struct {
 // NewController creates a new Controller.
 func NewController(
 	clusterWorkspacesInformer tenancyinformers.ClusterWorkspaceInformer,
-	kubeClusterClient kubernetes.ClusterInterface,
-	kubeInformerFactory informers.SharedInformerFactory,
+	kubeClusterClient kubernetesclient.ClusterInterface,
+	kubeInformerFactory kubernetesinformers.SharedInformerFactory,
 	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory,
 	crdInformer apiextensionsinformers.CustomResourceDefinitionInformer,
 	quotaRecalculationPeriod time.Duration,

@@ -25,13 +25,13 @@ import (
 	"sync"
 	"testing"
 
-	v1 "k8s.io/api/admission/v1"
+	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 type AdmissionWebhookServer struct {
-	Response     v1.AdmissionResponse
+	Response     admissionv1.AdmissionResponse
 	ObjectGVK    schema.GroupVersionKind
 	Deserializer runtime.Decoder
 
@@ -100,13 +100,13 @@ func (s *AdmissionWebhookServer) ServeHTTP(resp http.ResponseWriter, req *http.R
 		return
 	}
 
-	if *gvk != v1.SchemeGroupVersion.WithKind("AdmissionReview") {
+	if *gvk != admissionv1.SchemeGroupVersion.WithKind("AdmissionReview") {
 		msg := fmt.Sprintf("Expected AdmissionReview but got: %T", obj)
 		s.t.Logf("%v", msg)
 		http.Error(resp, msg, http.StatusBadRequest)
 		return
 	}
-	requestedAdmissionReview, ok := obj.(*v1.AdmissionReview)
+	requestedAdmissionReview, ok := obj.(*admissionv1.AdmissionReview)
 	if !ok {
 		//return an error
 		msg := fmt.Sprintf("Expected AdmissionReview but got: %T", obj)
@@ -130,7 +130,7 @@ func (s *AdmissionWebhookServer) ServeHTTP(resp http.ResponseWriter, req *http.R
 		return
 	}
 
-	responseAdmissionReview := &v1.AdmissionReview{
+	responseAdmissionReview := &admissionv1.AdmissionReview{
 		TypeMeta: requestedAdmissionReview.TypeMeta,
 	}
 	responseAdmissionReview.Response = &s.Response

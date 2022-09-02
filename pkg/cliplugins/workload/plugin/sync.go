@@ -40,14 +40,14 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/wait"
-	kubernetesclientset "k8s.io/client-go/kubernetes"
+	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/pkg/cliplugins/helpers"
 )
 
@@ -149,7 +149,7 @@ func getSyncerID(syncTarget *workloadv1alpha1.SyncTarget) string {
 // account for the syncer in the given namespace. The expectation is that the provided config is
 // for a logical cluster (workspace). Returns the token the syncer will use to connect to kcp.
 func (c *Config) enableSyncerForWorkspace(ctx context.Context, config *rest.Config, syncTargetName, namespace string) (saToken string, syncerID string, syncTargetUID string, err error) {
-	kcpClient, err := kcpclientset.NewForConfig(config)
+	kcpClient, err := kcpclient.NewForConfig(config)
 	if err != nil {
 		return "", "", "", fmt.Errorf("failed to create kcp client: %w", err)
 	}
@@ -182,7 +182,7 @@ func (c *Config) enableSyncerForWorkspace(ctx context.Context, config *rest.Conf
 		c.ErrOut.Write([]byte(fmt.Sprintf("Synctarget %q already exists.\n", syncTargetName)))
 	}
 
-	kubeClient, err := kubernetesclientset.NewForConfig(config)
+	kubeClient, err := kubernetesclient.NewForConfig(config)
 	if err != nil {
 		return "", "", "", fmt.Errorf("failed to create kubernetes client: %w", err)
 	}

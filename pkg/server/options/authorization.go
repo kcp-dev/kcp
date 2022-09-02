@@ -25,10 +25,10 @@ import (
 	"k8s.io/apiserver/pkg/authorization/path"
 	"k8s.io/apiserver/pkg/authorization/union"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	coreexternalversions "k8s.io/client-go/informers"
+	kubernetesinformers "k8s.io/client-go/informers"
 
 	"github.com/kcp-dev/kcp/pkg/authorization"
-	kcpexternalversions "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 )
 
 type Authorization struct {
@@ -81,7 +81,7 @@ func (s *Authorization) AddFlags(fs *pflag.FlagSet) {
 			"contacting the 'core' kubernetes server.")
 }
 
-func (s *Authorization) ApplyTo(config *genericapiserver.Config, informer coreexternalversions.SharedInformerFactory, kcpinformer kcpexternalversions.SharedInformerFactory) error {
+func (s *Authorization) ApplyTo(config *genericapiserver.Config, informer kubernetesinformers.SharedInformerFactory, kcpinformer kcpinformers.SharedInformerFactory) error {
 	var authorizers []authorizer.Authorizer
 
 	workspaceLister := kcpinformer.Tenancy().V1alpha1().ClusterWorkspaces().Lister()
