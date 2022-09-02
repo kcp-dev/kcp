@@ -125,6 +125,9 @@ spec:
 {{- end}}
         - --qps={{.QPS}}
         - --burst={{.Burst}}
+{{- if .FeatureGatesString }}
+        - --feature-gates={{ .FeatureGatesString }}
+{{- end}}
         image: {{.Image}}
         imagePullPolicy: IfNotPresent
         terminationMessagePolicy: FallbackToLogsOnError
