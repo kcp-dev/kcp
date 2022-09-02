@@ -129,17 +129,15 @@ func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 			}
 			clusterName, path = logicalcluster.New(path[:i]), path[i:]
 			req.URL.Path = path
-			for i := 0; i < 2 && len(req.URL.RawPath) > 1; i++ {
-				slash := strings.Index(req.URL.RawPath[1:], "/")
-				if slash == -1 {
-					responsewriters.ErrorNegotiated(
-						apierrors.NewInternalError(fmt.Errorf("unable to parse cluster when shortening raw path, have clusterName=%q, rawPath=%q", clusterName, req.URL.RawPath)),
-						errorCodecs, schema.GroupVersion{},
-						w, req)
-					return
-				}
-				req.URL.RawPath = req.URL.RawPath[slash:]
+			newURL, err := url.Parse(req.URL.String())
+			if err != nil {
+				responsewriters.ErrorNegotiated(
+					apierrors.NewInternalError(fmt.Errorf("unable to resolve %s, err %w", req.URL.Path, err)),
+					errorCodecs, schema.GroupVersion{},
+					w, req)
+				return
 			}
+			req.URL = newURL
 		} else {
 			clusterName = logicalcluster.New(req.Header.Get(logicalcluster.ClusterHeader))
 		}
