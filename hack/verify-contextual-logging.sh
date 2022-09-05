@@ -43,7 +43,7 @@ fi
 
 # Normalize paths so we don't generate diffs based only on user directory mismatches
 ${SED} -e "s,${REPO_ROOT},,g" "${work_file}"
-sort "${work_file}" -o "${work_file}"
+LC_COLLATE=C sort "${work_file}" -o "${work_file}"
 
 # Copy the current set to the known set, but keep temp file in place for diffing
 if [[ "${UPDATE:-}" == "true" ]]; then

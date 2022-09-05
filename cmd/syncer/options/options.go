@@ -19,6 +19,7 @@ package options
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -27,6 +28,7 @@ import (
 	"k8s.io/component-base/logs"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 )
 
 type Options struct {
@@ -72,6 +74,9 @@ func (options *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&options.SyncTargetUID, "sync-target-uid", options.SyncTargetUID, "The UID from the SyncTarget resource in KCP.")
 	fs.StringArrayVarP(&options.SyncedResourceTypes, "resources", "r", options.SyncedResourceTypes, "Resources to be synchronized in kcp.")
 	fs.DurationVar(&options.APIImportPollInterval, "api-import-poll-interval", options.APIImportPollInterval, "Polling interval for API import.")
+	fs.Var(kcpfeatures.NewFlagValue(), "feature-gates", ""+
+		"A set of key=value pairs that describe feature gates for alpha/experimental features. "+
+		"Options are:\n"+strings.Join(kcpfeatures.KnownFeatures(), "\n")) // hide kube-only gates
 
 	options.Logs.AddFlags(fs)
 }

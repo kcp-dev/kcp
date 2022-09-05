@@ -19,6 +19,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -26,6 +27,7 @@ import (
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
 	"github.com/kcp-dev/kcp/pkg/cliplugins/workload/plugin"
+	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 )
 
 var (
@@ -80,6 +82,7 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 		replicas            = 1
 		outputFile          string
 		downstreamNamespace string
+		featureGatesString  string
 		kcpNamespace                = "default"
 		qps                 float32 = 30
 		burst                       = 20
@@ -140,6 +143,7 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 				replicas,
 				qps,
 				burst,
+				featureGatesString,
 			)
 		},
 	}
@@ -151,6 +155,9 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 	enableSyncerCmd.Flags().StringVarP(&downstreamNamespace, "namespace", "n", downstreamNamespace, "The namespace to create the syncer in in the physical cluster. By default this is \"kcp-syncer-<synctarget-name>-<uid>\".")
 	enableSyncerCmd.Flags().Float32Var(&qps, "qps", qps, "QPS to use when talking to API servers.")
 	enableSyncerCmd.Flags().IntVar(&burst, "burst", burst, "Burst to use when talking to API servers.")
+	enableSyncerCmd.Flags().StringVar(&featureGatesString, "feature-gates", "",
+		"A set of key=value pairs that describe feature gates for alpha/experimental features. "+
+			"Options are:\n"+strings.Join(kcpfeatures.KnownFeatures(), "\n")) // hide kube-only gates
 
 	cmd.AddCommand(enableSyncerCmd)
 

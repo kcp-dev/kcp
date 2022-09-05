@@ -69,6 +69,7 @@ func (c *Config) Sync(
 	replicas int,
 	qps float32,
 	burst int,
+	featureGatesString string,
 ) error {
 	config, err := clientcmd.NewDefaultClientConfig(*c.startingConfig, c.overrides).ClientConfig()
 	if err != nil {
@@ -108,19 +109,20 @@ func (c *Config) Sync(
 	serverURL := configURL.Scheme + "://" + configURL.Host
 
 	input := templateInput{
-		ServerURL:       serverURL,
-		CAData:          base64.StdEncoding.EncodeToString(config.CAData),
-		Token:           token,
-		KCPNamespace:    kcpNamespaceName,
-		Namespace:       downstreamNamespace,
-		LogicalCluster:  currentClusterName.String(),
-		SyncTarget:      syncTargetName,
-		SyncTargetUID:   syncTargetUID,
-		Image:           image,
-		Replicas:        replicas,
-		ResourcesToSync: resourcesToSync,
-		QPS:             qps,
-		Burst:           burst,
+		ServerURL:          serverURL,
+		CAData:             base64.StdEncoding.EncodeToString(config.CAData),
+		Token:              token,
+		KCPNamespace:       kcpNamespaceName,
+		Namespace:          downstreamNamespace,
+		LogicalCluster:     currentClusterName.String(),
+		SyncTarget:         syncTargetName,
+		SyncTargetUID:      syncTargetUID,
+		Image:              image,
+		Replicas:           replicas,
+		ResourcesToSync:    resourcesToSync,
+		QPS:                qps,
+		Burst:              burst,
+		FeatureGatesString: featureGatesString,
 	}
 
 	resources, err := renderSyncerResources(input, syncerID)
@@ -447,6 +449,8 @@ type templateInput struct {
 	QPS float32
 	// Burst is the burst the syncer uses when talking to an apiserver.
 	Burst int
+	// FeatureGatesString is the set of features gates.
+	FeatureGatesString string
 }
 
 // templateArgs represents the full set of arguments required to render the resources

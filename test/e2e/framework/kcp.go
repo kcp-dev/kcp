@@ -47,6 +47,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	kubernetesclient "k8s.io/client-go/kubernetes"
 	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -212,9 +213,9 @@ type kcpConfig struct {
 
 // kcpServer exposes a kcp invocation to a test and
 // ensures the following semantics:
-//  - the server will run only until the test deadline
-//  - all ports and data directories are unique to support
-//    concurrent execution within a test case and across tests
+//   - the server will run only until the test deadline
+//   - all ports and data directories are unique to support
+//     concurrent execution within a test case and across tests
 type kcpServer struct {
 	name        string
 	args        []string
@@ -263,6 +264,7 @@ func newKcpServer(t *testing.T, cfg kcpConfig, artifactDir, dataDir string) (*kc
 			"--embedded-etcd-peer-port=" + etcdPeerPort,
 			"--embedded-etcd-wal-size-bytes=" + strconv.Itoa(5*1000), // 5KB
 			"--kubeconfig-path=" + filepath.Join(dataDir, "admin.kubeconfig"),
+			"--feature-gates=" + fmt.Sprintf("%s", utilfeature.DefaultFeatureGate),
 		},
 			cfg.Args...),
 		dataDir:     dataDir,
