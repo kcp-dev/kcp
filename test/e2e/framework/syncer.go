@@ -424,7 +424,7 @@ func syncerConfigFromCluster(t *testing.T, downstreamConfig *rest.Config, namesp
 func syncerArgsToMap(args []string) (map[string][]string, error) {
 	argMap := map[string][]string{}
 	for _, arg := range args {
-		argParts := strings.Split(arg, "=")
+		argParts := strings.SplitN(arg, "=", 2)
 		if len(argParts) != 2 {
 			return nil, fmt.Errorf("arg %q isn't of the expected form `<key>=<value>`", arg)
 		}
