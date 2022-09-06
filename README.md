@@ -151,7 +151,7 @@ However, `kcp` is not an acronym.
 
 ## How do I get started?
 
-First of all, be sure to have [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl) and [Go](https://golang.org/doc/install) (1.17+) installed.
+First of all, be sure to have [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl) and [Go](https://golang.org/doc/install) (1.18+) installed.
 
 After cloning the repository, you can build `kcp` and our `kubectl kcp` plugins using this command:
 
