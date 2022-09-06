@@ -429,6 +429,7 @@ func (w withProjection) ResultChan() <-chan watch.Event {
 	ch := w.delegate.ResultChan()
 
 	go func() {
+		defer close(w.ch)
 		for ev := range ch {
 			if ev.Object == nil {
 				w.ch <- ev
@@ -447,6 +448,5 @@ func (w withProjection) ResultChan() <-chan watch.Event {
 }
 
 func (w withProjection) Stop() {
-	defer close(w.ch)
 	w.delegate.Stop()
 }
