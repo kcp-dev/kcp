@@ -18,6 +18,8 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"path"
 
 	"github.com/spf13/cobra"
 
@@ -66,11 +68,17 @@ var (
 // New returns a cobra.Command for workspace actions.
 func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 	cmdOpts := plugin.NewUseWorkspaceOptions(streams)
+
+	cliName := "kubectl"
+	if path.Base(os.Args[0]) == "kubectl-kcp" {
+		cliName = "kubectl kcp"
+	}
+
 	cmd := &cobra.Command{
 		Aliases:          []string{"ws", "workspaces"},
 		Use:              "workspace [create|create-context|use|current|<workspace>|..|.|-|~|<root:absolute:workspace>]",
 		Short:            "Manages KCP workspaces",
-		Example:          fmt.Sprintf(workspaceExample, "kubectl kcp"),
+		Example:          fmt.Sprintf(workspaceExample, cliName),
 		SilenceUsage:     true,
 		TraverseChildren: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
