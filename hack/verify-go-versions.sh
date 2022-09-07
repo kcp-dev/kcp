@@ -22,7 +22,6 @@ VERSION=$(grep "go 1." go.mod | sed 's/go //')
 grep "tag: \"" .ci-operator.yaml | { ! grep -v "${VERSION}"; } || { echo "Wrong go version in .ci-operator.yaml, expected ${VERSION}"; exit 1; }
 grep "FROM golang:" Dockerfile | { ! grep -v "${VERSION}"; } || { echo "Wrong go version in Dockerfile, expected ${VERSION}"; exit 1; }
 grep "go-version:" .github/workflows/*.yaml | { ! grep -v "go-version: v${VERSION}"; } || { echo "Wrong go version in .github/workflows/*.yaml, expected ${VERSION}"; exit 1; }
-grep "golang.org/doc/install" README.md | { ! grep -v "${VERSION}"; } || { echo "Wrong go version in README.md expected ${VERSION}"; exit 1; }
 grep "golang.org/doc/install" CONTRIBUTING.md | { ! grep -v "${VERSION}"; } || { echo "Wrong go version in CONTRIBUTING.md expected ${VERSION}"; exit 1; }
 if [ -z "${IGNORE_GO_VERSION}" ]; then
   go version | { ! grep -v go${VERSION}; } || { echo "Unexpected go version installed, expected ${VERSION}. Use IGNORE_GO_VERSION=1 to skip this check."; exit 1; }
