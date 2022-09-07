@@ -91,7 +91,7 @@ func subjectRecordKeyFn(obj interface{}) (string, error) {
 }
 
 type skipSynchronizer interface {
-	// SkipSynchronize returns true if if its safe to skip synchronization of the cache based on provided token from previous observation
+	// SkipSynchronize returns true if it's safe to skip synchronization of the cache based on provided token from previous observation
 	SkipSynchronize(prevState string, versionedObjects ...LastSyncResourceVersioner) (skip bool, currentState string)
 }
 
@@ -530,7 +530,7 @@ func skipReview(request *reviewRequest, lastKnownValue *reviewRecord) bool {
 		return false
 	}
 
-	// if you are making your request relative to a specific resource version, only make it if its different
+	// if you are making your request relative to a specific resource version, only make it if it's different
 	if len(request.workspaceResourceVersion) > 0 && request.workspaceResourceVersion != lastKnownValue.workspaceResourceVersion {
 		return false
 	}
