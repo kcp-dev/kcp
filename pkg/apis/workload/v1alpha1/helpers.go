@@ -23,7 +23,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 )
 
-// ToSyncTargetKey hashes the SyncTarget workspace and the SyncTarget name to a string that is used to idenfity
+// ToSyncTargetKey hashes the SyncTarget workspace and the SyncTarget name to a string that is used to identify
 // in a unique way the synctarget in annotations/labels/finalizers.
 func ToSyncTargetKey(syncTargetWorkspace logicalcluster.Name, syncTargetName string) string {
 	hash := sha256.Sum224([]byte(syncTargetWorkspace.String() + syncTargetName))

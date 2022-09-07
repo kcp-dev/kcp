@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package boostrap
+package bootstrap
 
 import (
 	"context"
@@ -260,11 +260,11 @@ func injectKcpIdentities(ids *identities) func(rt http.RoundTripper) http.RoundT
 
 // decorateWildcardPathsWithResourceIdentities adds per-API-group identity to wildcard URL paths, e.g.
 //
-//   /clusters/*/apis/tenancy.kcp.dev/v1alpha1/clusterworkspaces/root
+//	/clusters/*/apis/tenancy.kcp.dev/v1alpha1/clusterworkspaces/root
 //
 // becomes
 //
-//   /clusters/*/apis/tenancy.kcp.dev/v1alpha1/clusterworkspaces:<identity>/root
+//	/clusters/*/apis/tenancy.kcp.dev/v1alpha1/clusterworkspaces:<identity>/root
 func decorateWildcardPathsWithResourceIdentities(urlPath string, ids *identities) (string, error) {
 	// Check for: /clusters/*/apis/tenancy.kcp.dev/v1alpha1/clusterworkspaces/root
 	if !strings.HasPrefix(urlPath, "/clusters/*/apis/") {

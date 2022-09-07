@@ -54,7 +54,7 @@ func NewTableConverterProvider() *tableConverterProvider {
 // GetTableConverter replaces the table converter of CRDs for built-in Kubernetes resources with the
 // default table converter implementation for the built-in type from Kubernetes. Currently CRDs only
 // allow defining custom table column based on a single basic JsonPath expression. This is not
-// sufficient to reproduce the various colum definitions of built-in Kubernetes resources such as
+// sufficient to reproduce the various column definitions of built-in Kubernetes resources such as
 // deployments, as those definitions are implemented in Go code. In kcp, when deployments are served
 // via a CRD, the table columns shown from a `kubectl get deployments` command are not the ones
 // typically expected.

@@ -888,7 +888,7 @@ func userToSubject(u user.Info) pkix.Name {
 	// This workaround should be killed once Golang's pkix module is fixed to
 	// generate a correct DER encoding.
 	//
-	// The workaround relies on the fact that the first octect that differs
+	// The workaround relies on the fact that the first octet that differs
 	// between the encoding of two group RDNs will end up being the encoded
 	// length which is directly related to the group name's length. So we'll
 	// sort such that shortest names come first.

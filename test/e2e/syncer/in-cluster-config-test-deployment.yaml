@@ -18,4 +18,4 @@ spec:
           env:
             - name: CONFIGMAP_NAME
               value: expected-configmap
-          # TODO(geoberle) once the test image contains more test clients, we need to define args for the entrypoint or somthing similar
+          # TODO(geoberle) once the test image contains more test clients, we need to define args for the entrypoint or something similar

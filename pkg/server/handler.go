@@ -468,7 +468,7 @@ func serveCoreV1Discovery(ctx context.Context, crdLister kcp.ClusterAwareCRDList
 	// Get all the CRDs to see if any of them are in v1
 	crds, err := crdLister.List(ctx, labels.Everything())
 	if err != nil {
-		// Listing from a lister can really only ever fail if invoking meta.Accesor() on an item in the list fails.
+		// Listing from a lister can really only ever fail if invoking meta.Accessor() on an item in the list fails.
 		// Which means it essentially will never fail. But just in case...
 		err = apierrors.NewInternalError(fmt.Errorf("unable to serve /api/v1 discovery: error listing CustomResourceDefinitions: %w", err))
 		_ = responsewriters.ErrorNegotiated(err, errorCodecs, schema.GroupVersion{}, res, req)

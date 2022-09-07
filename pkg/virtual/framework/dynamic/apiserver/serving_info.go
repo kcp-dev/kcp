@@ -56,7 +56,7 @@ import (
 
 var _ apidefinition.APIDefinition = (*servingInfo)(nil)
 
-// RestProviderFunc is the type of a function that builds REST storage implementations for the main resource and sub-resources, based on informations passed by the resource handler about a given API.
+// RestProviderFunc is the type of a function that builds REST storage implementations for the main resource and sub-resources, based on information passed by the resource handler about a given API.
 type RestProviderFunc func(resource schema.GroupVersionResource, kind schema.GroupVersionKind, listKind schema.GroupVersionKind, typer runtime.ObjectTyper, tableConvertor rest.TableConvertor, namespaceScoped bool, schemaValidator *validate.SchemaValidator, subresourcesSchemaValidator map[string]*validate.SchemaValidator, structuralSchema *structuralschema.Structural) (mainStorage rest.Storage, subresourceStorages map[string]rest.Storage)
 
 // CreateServingInfoFor builds an APIDefinition for a apiResourceSchema.

@@ -81,7 +81,7 @@ func TestSyncTargetCompatibleReconcile(t *testing.T) {
 				}),
 			},
 			wantSyncedResources: []workloadv1alpha1.ResourceToSync{
-				{GroupResource: apisv1alpha1.GroupResource{Group: "apps", Resource: "deployments"}, Versions: []string{"v1"}, State: workloadv1alpha1.ResourceSchemaIncomptibleState},
+				{GroupResource: apisv1alpha1.GroupResource{Group: "apps", Resource: "deployments"}, Versions: []string{"v1"}, State: workloadv1alpha1.ResourceSchemaIncompatibleState},
 			},
 		},
 		{
@@ -135,7 +135,7 @@ func TestSyncTargetCompatibleReconcile(t *testing.T) {
 				newAPIResourceImport("apps.v1.deployment", "apps", "deployments", "v1", `{"type":"string"}`),
 			},
 			wantSyncedResources: []workloadv1alpha1.ResourceToSync{
-				{GroupResource: apisv1alpha1.GroupResource{Group: "apps", Resource: "deployments"}, Versions: []string{"v1"}, State: workloadv1alpha1.ResourceSchemaIncomptibleState},
+				{GroupResource: apisv1alpha1.GroupResource{Group: "apps", Resource: "deployments"}, Versions: []string{"v1"}, State: workloadv1alpha1.ResourceSchemaIncompatibleState},
 			},
 		},
 		{

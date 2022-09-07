@@ -28,7 +28,7 @@ import (
 // placement is in Pending state initially. When a location is selected by the placement, the placement
 // turns to Unbound state. In Pending or Unbound state, the selection rule can be updated to select another location.
 // When the a namespace is annotated by another controller or user with the key of "scheduling.kcp.dev/placement",
-// the namespace will pick one placement, and this placement is transfered to Bound state. Any update to spec of the placement
+// the namespace will pick one placement, and this placement is transferred to Bound state. Any update to spec of the placement
 // is ignored in Bound state and reflected in the conditions. The placement will turn back to Unbound state when no namespace
 // uses this placement any more.
 //
@@ -62,7 +62,7 @@ var _ conditions.Getter = &Placement{}
 var _ conditions.Setter = &Placement{}
 
 type PlacementSpec struct {
-	// loacationSelectors represents a slice of label selector to select a location, these label selectors
+	// locationSelectors represents a slice of label selector to select a location, these label selectors
 	// are logically ORed.
 	LocationSelectors []metav1.LabelSelector `json:"locationSelectors,omitempty"`
 
@@ -100,7 +100,7 @@ type PlacementStatus struct {
 	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 }
 
-// LocationReference describes a loaction that are provided in the specified Workspace.
+// LocationReference describes a location that are provided in the specified Workspace.
 type LocationReference struct {
 	// path is an absolute reference to a workspace, e.g. root:org:ws. The workspace must
 	// be some ancestor or a child of some ancestor.

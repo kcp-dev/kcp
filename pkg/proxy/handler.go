@@ -52,14 +52,14 @@ func shardHandler(index index.Index, proxy http.Handler) http.HandlerFunc {
 		if !tenancyhelper.IsValidCluster(clusterName) {
 			// this includes wildcards
 			klog.V(4).Infof("Invalid cluster name %q", req.URL.Path)
-			responsewriters.Forbidden(req.Context(), attributes, w, req, kcpauthorization.WorkspaceAcccessNotPermittedReason, kubernetesscheme.Codecs)
+			responsewriters.Forbidden(req.Context(), attributes, w, req, kcpauthorization.WorkspaceAccessNotPermittedReason, kubernetesscheme.Codecs)
 			return
 		}
 
 		shardURLString, found := index.Lookup(clusterName)
 		if !found {
 			klog.V(4).Infof("Unknown cluster %q", clusterName)
-			responsewriters.Forbidden(req.Context(), attributes, w, req, kcpauthorization.WorkspaceAcccessNotPermittedReason, kubernetesscheme.Codecs)
+			responsewriters.Forbidden(req.Context(), attributes, w, req, kcpauthorization.WorkspaceAccessNotPermittedReason, kubernetesscheme.Codecs)
 			return
 		}
 		shardURL, err := url.Parse(shardURLString)

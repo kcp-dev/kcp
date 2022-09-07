@@ -114,14 +114,14 @@ func (e *apiCompatibleReconciler) reconcile(ctx context.Context, syncTarget *wor
 
 			downStreamSchema, ok := apiImportMap[gvr]
 			if !ok {
-				syncTarget.Status.SyncedResources[i].State = workloadv1alpha1.ResourceSchemaIncomptibleState
+				syncTarget.Status.SyncedResources[i].State = workloadv1alpha1.ResourceSchemaIncompatibleState
 				continue
 			}
 
 			_, err := schemacompat.EnsureStructuralSchemaCompatibility(
 				field.NewPath(gvr.String()), upstreamSchema, downStreamSchema, false)
 			if err != nil {
-				syncTarget.Status.SyncedResources[i].State = workloadv1alpha1.ResourceSchemaIncomptibleState
+				syncTarget.Status.SyncedResources[i].State = workloadv1alpha1.ResourceSchemaIncompatibleState
 				continue
 			}
 

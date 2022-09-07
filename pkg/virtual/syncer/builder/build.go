@@ -52,7 +52,7 @@ import (
 
 const SyncerVirtualWorkspaceName string = "syncer"
 
-// BuildVirtualWorkspace builds a SyncerVirtualWorkspace by instanciating a DynamicVirtualWorkspace which, combined with a
+// BuildVirtualWorkspace builds a SyncerVirtualWorkspace by instantiating a DynamicVirtualWorkspace which, combined with a
 // ForwardingREST REST storage implementation, serves a SyncTargetAPI list maintained by the APIReconciler controller.
 func BuildVirtualWorkspace(
 	rootPathPrefix string,

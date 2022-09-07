@@ -54,7 +54,7 @@ const (
 
 func NewController(
 	baseConfig *rest.Config,
-	dynamicClusterCLient dynamic.Interface,
+	dynamicClusterClient dynamic.Interface,
 	crdClusterClient apiextensionsclient.Interface,
 	kcpClusterClient kcpclient.Interface,
 	workspaceInformer tenancyinformers.ClusterWorkspaceInformer,
@@ -69,7 +69,7 @@ func NewController(
 		baseConfig:           baseConfig,
 		controllerName:       controllerName,
 		queue:                queue,
-		dynamicClusterClient: dynamicClusterCLient,
+		dynamicClusterClient: dynamicClusterClient,
 		crdClusterClient:     crdClusterClient,
 		kcpClusterClient:     kcpClusterClient,
 		workspaceLister:      workspaceInformer.Lister(),

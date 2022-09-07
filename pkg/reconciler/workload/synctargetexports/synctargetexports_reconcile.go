@@ -31,7 +31,7 @@ import (
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
 
-// exportReconciler updates syncedResource in SyncTarget status based on supporteAPIExports.
+// exportReconciler updates syncedResource in SyncTarget status based on supportedAPIExports.
 type exportReconciler struct {
 	getAPIExport      func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error)
 	getResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)

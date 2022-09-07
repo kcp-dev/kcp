@@ -98,7 +98,7 @@ user-1-workspace-2   Active   https://127.0.0.1:6443/clusters/admin_user-1-works
 Current personal workspace is "user-1-workspace-1".
 
 # We can confirm that the current workspace is correctly set.
-# That means that any subsequent call to kubectl will be perfomed against
+# That means that any subsequent call to kubectl will be performed against
 # the current workspace with the user used when previously switching to the workspace
 # (with the use command).
 
@@ -106,7 +106,7 @@ Current personal workspace is "user-1-workspace-1".
 Current personal workspace is "user-1-workspace-1".
 
 # In other words, a new kubectl context, dedicated to this KCP workspace
-# has been created in the curent kubeconfig, and set as the current context.
+# has been created in the current kubeconfig, and set as the current context.
 
 ☸️ $ kubectl config current-context
 workspace.kcp.dev/personal/user-1-workspace-1

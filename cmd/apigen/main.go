@@ -108,7 +108,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	crds, err := loadCustomResourceDefinitons(logger, opts.inputDir)
+	crds, err := loadCustomResourceDefinitions(logger, opts.inputDir)
 	if err != nil {
 		logger.Error(err, "Could not load CustomResourceDefinitions.")
 		os.Exit(1)
@@ -147,7 +147,7 @@ func main() {
 	}
 }
 
-func loadCustomResourceDefinitons(logger logr.Logger, baseDir string) (map[metav1.GroupResource]*apiextensionsv1.CustomResourceDefinition, error) {
+func loadCustomResourceDefinitions(logger logr.Logger, baseDir string) (map[metav1.GroupResource]*apiextensionsv1.CustomResourceDefinition, error) {
 	logger.Info(fmt.Sprintf("Loading CustomResourceDefinitions from %s", baseDir))
 	crds := map[metav1.GroupResource]*apiextensionsv1.CustomResourceDefinition{}
 	if err := filepath.Walk(baseDir, func(path string, info fs.FileInfo, err error) error {
@@ -170,7 +170,7 @@ func loadCustomResourceDefinitons(logger logr.Logger, baseDir string) (map[metav
 			logger.Info(fmt.Sprintf("Skipping CustomResourceDefinition %s from %s", gr.String(), path))
 			return nil
 		}
-		crd, err := readCustomResourceDefiniton(path, gr)
+		crd, err := readCustomResourceDefinition(path, gr)
 		if err != nil {
 			return fmt.Errorf("failed to read %s: %w", info.Name(), err)
 		}
@@ -184,7 +184,7 @@ func loadCustomResourceDefinitons(logger logr.Logger, baseDir string) (map[metav
 	return crds, nil
 }
 
-func readCustomResourceDefiniton(path string, gr metav1.GroupResource) (*apiextensionsv1.CustomResourceDefinition, error) {
+func readCustomResourceDefinition(path string, gr metav1.GroupResource) (*apiextensionsv1.CustomResourceDefinition, error) {
 	raw, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("could not read CRD %s: %w", gr.String(), err)

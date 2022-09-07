@@ -110,7 +110,7 @@ pe "kubectl kcp workspace --token user-1-token use user-1-workspace-1"
 
 echo
 comment "We can confirm that the current workspace is correctly set."
-comment "That means that any subsequent call to kubectl will be perfomed against"
+comment "That means that any subsequent call to kubectl will be performed against"
 comment "the current workspace with the user used when previously switching to the workspace"
 comment "(with the use command)."
 echo
@@ -119,7 +119,7 @@ pe "kubectl kcp workspace --token user-1-token current"
 
 echo
 comment "In other words, a new kubectl context, dedicated to this KCP workspace"
-comment "has been created in the curent kubeconfig, and set as the current context."
+comment "has been created in the current kubeconfig, and set as the current context."
 echo
 
 pe "kubectl config current-context"

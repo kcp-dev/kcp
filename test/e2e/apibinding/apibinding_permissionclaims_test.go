@@ -83,7 +83,7 @@ func TestAPIBindingPermissionClaimsConditions(t *testing.T) {
 		if condition != nil {
 			return false, fmt.Sprintf("not done waiting for API Export condition status:%v - reason: %v - message: %v", condition.Status, condition.Reason, condition.Message)
 		}
-		return false, "not done waiting for APIExportIdentiy to be marked valid, no condition exists"
+		return false, "not done waiting for APIExportIdentity to be marked valid, no condition exists"
 
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not wait for APIExport to be valid with identity hash")
 

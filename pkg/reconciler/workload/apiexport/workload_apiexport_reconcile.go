@@ -73,7 +73,7 @@ func (r *schemaReconciler) reconcile(ctx context.Context, export *apisv1alpha1.A
 		return reconcileStatusStop, err
 	}
 	if len(resources) == 0 {
-		// igore this export. Compare with TODO above about identfication.
+		// ignore this export. Compare with TODO above about identfication.
 		return reconcileStatusStop, nil
 	}
 

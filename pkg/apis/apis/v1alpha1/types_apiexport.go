@@ -183,8 +183,8 @@ const (
 )
 
 // PermissionClaim identifies an object by GR and identity hash.
-// It's purpose is to determine the added permisions that a service provider may
-// request and that a consumer may accept and alllow the service provider access to.
+// Its purpose is to determine the added permissions that a service provider may
+// request and that a consumer may accept and allow the service provider access to.
 type PermissionClaim struct {
 	GroupResource `json:","`
 

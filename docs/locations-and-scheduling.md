@@ -18,7 +18,7 @@ The APIs used for Compute as a Service are:
 
 - `SyncTarget` in `workload.kcp.dev/v1alpha1` – representations of Kubernetes clusters that are attached to a kcp installation to
   execute workload objects from the users' workspaces. On a Kubernetes cluster, there is one syncer
-  process for each `SyncTarget` object. 
+  process for each `SyncTarget` object.
 
   Sync targets are invisible to users, and (medium term) at most identified via a UID.
 
@@ -32,15 +32,15 @@ The APIs used for Compute as a Service are:
   `SyncTarget`s in a `Location` are transparent to the user. Workloads should be able to seamlessly move from one `SyncTarget` to another
   within a `Location`, based on operational concerns of the compute service provider, like decommissioning a cluster, rebalancing
   capacity, or due to an outage of a cluster.
-  
+
   It is compute service's responsibility to ensure that for workloads in a location, to the user it looks like ONE cluster.
 
 - `Placement` in `scheduling.kcp.dev/v1alpha1` – represents a selection rule to choose ONE `Location` via location labels, and bind
-  the selected location to MULTIPLE namespaces in a user workspace. For Workspaces with multiple Namespaces, users can create multiple 
+  the selected location to MULTIPLE namespaces in a user workspace. For Workspaces with multiple Namespaces, users can create multiple
   Placements to assign specific Namespace(s) to specific Locations.
 
   `Placement` are visible and writable to users. A default `Placement` is automatically created when a workload `APIBinding` is
-  created on the user workspace, which randomly select a `Location` and bind to all namespaces in this workspace. The user can mutate 
+  created on the user workspace, which randomly select a `Location` and bind to all namespaces in this workspace. The user can mutate
   or delete the default `Placement`. The corresponding `APIBinding` will be annotated with `workload.kcp.dev/skip-default-object-creation`,
   so that the default `Placement` will not be recreated upon deletion.
 
@@ -59,7 +59,7 @@ Note: it is planned to allow multiple location workspaces for the same compute s
 
 The placement state is one of
 - `Pending` – the placement controller waits for a valid `Location` to select
-- `Bound` – at least one namespace is bound to the placement. When the user updates the spec of the `Placement`, the selected location of 
+- `Bound` – at least one namespace is bound to the placement. When the user updates the spec of the `Placement`, the selected location of
   the placement will be changed in `Bound` state.
 - `Unbound` – a location is selected by the placement, but no namespace is bound to the placement. When the user updates the spec of the `Placement`, the
   selected location of the placement will be changed in `Unbound` state.
@@ -86,10 +86,10 @@ spec:
 ```
 
 A matched location will be selected for this `Placement` at first, which makes the `Placement` turns from `Pending` to `Unbound`. Then if there is at
-least one matching Namespace, the Namespace will be annotated with `scheduling.kcp.dev/placement` and the placement turns from `Unbound` to `Bound`. 
+least one matching Namespace, the Namespace will be annotated with `scheduling.kcp.dev/placement` and the placement turns from `Unbound` to `Bound`.
 After this, a `SyncTarget` will be selected from the location picked by the placement.  `state.workload.kcp.dev/<cluster-id>` label with value of `Sync` will be set if a valid `SyncTarget` is selected.
 
-The user can create another placement targeted to a different location for this Namespace, e.g. 
+The user can create another placement targeted to a different location for this Namespace, e.g.
 
 ```yaml
 apiVersion: scheduling.kcp.dev/v1alpha1
@@ -122,23 +122,23 @@ A sync target will be removed when:
 2. corresponding `Placement` is not in `Ready` condition.
 3. corresponding `SyncTarget` is evicting/not Ready/deleted
 
-All above cases will make the `SyncTraget` represented in the label `state.workload.kcp.dev/<cluster-id>` invalid, which will cause
+All above cases will make the `SyncTarget` represented in the label `state.workload.kcp.dev/<cluster-id>` invalid, which will cause
 `finalizers.workload.kcp.dev/<cluster-id>` annotation with removing time in the format of RFC-3339 added on the Namespace.
 
 ### Resource Syncing
 
-As soon as the `state.workload.kcp.dev/<cluster-id>` label is set on the Namespace, the workload resource controller will 
+As soon as the `state.workload.kcp.dev/<cluster-id>` label is set on the Namespace, the workload resource controller will
 copy the `state.workload.kcp.dev/<cluster-id>` label to the resources in that namespace.
 
-Note: in the future, the label on the resources is first set to empty string `""`, and a coordination controller will be 
+Note: in the future, the label on the resources is first set to empty string `""`, and a coordination controller will be
 able to apply changes before syncing starts. This includes the ability to add per-location finalizers through the
-`finalizers.workload.kcp.dev/<cluster-id>` annotation such that the coordination controller gets full control over 
+`finalizers.workload.kcp.dev/<cluster-id>` annotation such that the coordination controller gets full control over
 the downstream life-cycle of the objects per location (imagine an ingress that blocks downstream removal until the new replicas
 have been launched on another sync target). Finally, the coordination controller will replace the empty string with `Sync`
 such that the state machine continues.
 
 With the state label set to `Sync`, the syncer will start seeing the resources in the namespace
-and starts syncing them downstream, first by creating the namespace. Before syncing, it will also set 
+and starts syncing them downstream, first by creating the namespace. Before syncing, it will also set
 a finalizer `workload.kcp.dev/syncer-<cluster-id>` on the upstream object in order to delay upstream deletion until
 the downstream object is also deleted.
 
@@ -152,6 +152,6 @@ When the downstream deletion is complete, the syncer will remove the finalizer f
 workspace.
 
 
-Note: there is a missing bit in the implementation (in v0.5) about removal of the `state.workload.kcp.dev/<cluster-id>` 
+Note: there is a missing bit in the implementation (in v0.5) about removal of the `state.workload.kcp.dev/<cluster-id>`
 label from namespaces: the syncer currently does not participate in the namespace deletion state-machine, but has to and signal finished
 downstream namespace deletion via `state.workload.kcp.dev/<cluster-id>` label removal.

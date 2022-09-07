@@ -62,7 +62,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	ctx, cancelFn := context.WithCancel(genericapiserver.SetupSignalContext())
 	defer cancelFn()
 
-	// create requst header CA and client cert for front-proxy to connect to shards
+	// create request header CA and client cert for front-proxy to connect to shards
 	requestHeaderCA, err := crypto.MakeSelfSignedCA(".kcp/requestheader-ca.crt", ".kcp/requestheader-ca.key", ".kcp/requestheader-ca-serial.txt", "kcp-front-proxy-requestheader-ca", 365)
 	if err != nil {
 		fmt.Printf("failed to create requestheader-ca: %v\n", err)
