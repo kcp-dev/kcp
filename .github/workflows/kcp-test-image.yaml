@@ -22,5 +22,5 @@ jobs:
           go-version: v1.18
 
       # Build and push the kcp test image, tagged with the commit SHA and the branch name.
-      - uses: imjasonh/setup-ko@v0.5
+      - uses: imjasonh/setup-ko@v0.6
       - run: ko publish -B --platform all ./test/e2e/fixtures/kcp-test-image -t $(git rev-parse --short "$GITHUB_SHA"),${{ github.ref_name }}

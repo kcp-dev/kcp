@@ -22,5 +22,5 @@ jobs:
           go-version: v1.18
 
       # Build and push multi-arch supported syncer image, tagged with the commit SHA and the branch name.
-      - uses: imjasonh/setup-ko@v0.5
+      - uses: imjasonh/setup-ko@v0.6
       - run: ko publish -B ./cmd/syncer --platform linux/amd64,linux/ppc64le,linux/arm64 -t $(git rev-parse --short "$GITHUB_SHA"),${{ github.ref_name }}
