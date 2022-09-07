@@ -342,7 +342,7 @@ func setUpServiceProvider(ctx context.Context, dynamicClusterClient *kcpdynamic.
 	}
 	if serviceProviderWorkspace == rbacServiceProvider {
 		cowboysAPIExport.Spec.MaximalPermissionPolicy = &apisv1alpha1.MaximalPermissionPolicy{Local: &apisv1alpha1.LocalAPIExportPolicy{}}
-		// install RBAC that allows 	create/list/get/update/watch on cowboys for system:authenticated
+		// install RBAC that allows create/list/get/update/watch on cowboys for system:authenticated
 		t.Logf("Install RBAC for API Export in serviceProvider1")
 		clusterRole, clusterRoleBinding := createClusterRoleAndBindings("test-systemauth", "apis.kcp.dev:binding:system:authenticated", "Group", wildwest.GroupName, "cowboys", "", []string{rbacv1.VerbAll})
 		_, err = kubeClusterClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), clusterRole, metav1.CreateOptions{})
