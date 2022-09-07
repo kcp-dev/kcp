@@ -133,7 +133,7 @@ func startFrontProxy(
 		"--secure-port=6443",
 	)
 	commandLine = append(commandLine, args...)
-	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " ")) // nolint: errcheck
+	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " ")) //nolint:errcheck
 
 	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...)
 
@@ -158,13 +158,13 @@ func startFrontProxy(
 
 	go func() {
 		<-ctx.Done()
-		cmd.Process.Kill() // nolint: errcheck
+		cmd.Process.Kill() //nolint:errcheck
 	}()
 
 	terminatedCh := make(chan int, 1)
 	go func() {
 		if err := cmd.Wait(); err != nil {
-			if exitErr, ok := err.(*exec.ExitError); ok { // nolint: errorlint
+			if exitErr, ok := err.(*exec.ExitError); ok { //nolint:errorlint
 				terminatedCh <- exitErr.ExitCode()
 			}
 		} else {
@@ -218,7 +218,7 @@ func startFrontProxy(
 	if !klog.V(3).Enabled() {
 		writer.StopOut()
 	}
-	fmt.Fprintf(successOut, "kcp-front-proxy is ready\n") // nolint: errcheck
+	fmt.Fprintf(successOut, "kcp-front-proxy is ready\n") //nolint:errcheck
 
 	return nil
 }

@@ -35,16 +35,15 @@ import (
 //
 // Repeatably start a persistent test server:
 //
-//   $ rm -rf .kcp/ && make build && ./bin/test-server 2>&1 | tee kcp.log
+//	$ rm -rf .kcp/ && make build && ./bin/test-server 2>&1 | tee kcp.log
 //
 // Run the e2e suite against a persistent server:
 //
-//   $ TEST_ARGS='-args --use-default-kcp-server' E2E_PARALLELISM=6 make test-e2e
+//	$ TEST_ARGS='-args --use-default-kcp-server' E2E_PARALLELISM=6 make test-e2e
 //
 // Run individual tests against a persistent server:
 //
-//   $ go test -v --use-default-kcp-server
-//
+//	$ go test -v --use-default-kcp-server
 func main() {
 	flag.String("log-file-path", ".kcp/kcp.log", "Path to the log file")
 
@@ -62,14 +61,14 @@ func main() {
 			genericFlags = append(genericFlags, arg)
 		}
 	}
-	flag.CommandLine.Parse(genericFlags) // nolint: errcheck
+	flag.CommandLine.Parse(genericFlags) //nolint:errcheck
 
 	if err := start(shardFlags); err != nil {
-		// nolint: errorlint
+		//nolint:errorlint
 		if err, ok := err.(*exec.ExitError); ok {
 			os.Exit(err.ExitCode())
 		}
-		fmt.Fprintf(os.Stderr, "error: %v\n", err) // nolint:errcheck
+		fmt.Fprintf(os.Stderr, "error: %v\n", err) //nolint:errcheck
 		os.Exit(1)
 	}
 }

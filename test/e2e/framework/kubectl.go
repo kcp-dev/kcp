@@ -131,6 +131,6 @@ type split struct {
 }
 
 func (w split) Write(p []byte) (int, error) {
-	w.a.Write(p) // nolint: errcheck
+	w.a.Write(p) //nolint:errcheck
 	return w.b.Write(p)
 }

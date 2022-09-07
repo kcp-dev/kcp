@@ -172,7 +172,7 @@ func (o *Options) rawFlags() cliflag.NamedFlagSets {
 	fs.StringVar(&o.Extra.RootDirectory, "root-directory", o.Extra.RootDirectory, "Root directory.")
 
 	fs.BoolVar(&o.Extra.ExperimentalBindFreePort, "experimental-bind-free-port", o.Extra.ExperimentalBindFreePort, "Bind to a free port. --secure-port must be 0. Use the admin.kubeconfig to extract the chosen port.")
-	fs.MarkHidden("experimental-bind-free-port") // nolint:errcheck
+	fs.MarkHidden("experimental-bind-free-port") //nolint:errcheck
 
 	fs.StringSliceVar(&o.Extra.BatteriesIncluded, "batteries-included", o.Extra.BatteriesIncluded, fmt.Sprintf(
 		`A list of batteries included (= default objects that might be unwanted in production, but are very helpful in trying out kcp or for development). These are the possible values: %s.

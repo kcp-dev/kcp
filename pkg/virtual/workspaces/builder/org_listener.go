@@ -61,7 +61,7 @@ func NewOrgListener(informer tenancyinformers.ClusterWorkspaceInformer, newClust
 		clusterWorkspacesPerCluster: map[logicalcluster.Name]*preCreationClusterWorkspaces{},
 	}
 
-	// nolint: errcheck
+	//nolint:errcheck
 	informer.Informer().AddIndexers(cache.Indexers{
 		"parent": indexByLogicalCluster,
 	})

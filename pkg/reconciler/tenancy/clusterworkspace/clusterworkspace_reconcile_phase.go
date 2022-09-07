@@ -51,7 +51,7 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alp
 				// reschedule
 				workspace.Status.Location.Current = ""
 				workspace.Status.BaseURL = ""
-				return reconcileStatusContinue, nil // nolint:nilerr
+				return reconcileStatusContinue, nil //nolint:nilerr
 			}
 
 			workspace.Status.Phase = tenancyv1alpha1.ClusterWorkspacePhaseInitializing

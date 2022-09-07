@@ -50,7 +50,7 @@ func main() {
 			genericFlags = append(genericFlags, arg)
 		}
 	}
-	flag.CommandLine.Parse(genericFlags) // nolint: errcheck
+	flag.CommandLine.Parse(genericFlags) //nolint:errcheck
 
 	if err := start(proxyFlags, shardFlags, *logDirPath, *workDirPath, *numberOfShards); err != nil {
 		fmt.Println(err.Error())

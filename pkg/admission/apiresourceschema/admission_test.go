@@ -50,7 +50,7 @@ func createAttr(s *apisv1alpha1.APIResourceSchema) admission.Attributes {
 	)
 }
 
-// nolint:deadcode,unused
+//nolint:deadcode,unused
 func updateAttr(s, old *apisv1alpha1.APIResourceSchema) admission.Attributes {
 	return admission.NewAttributesRecord(
 		helpers.ToUnstructuredOrDie(s),

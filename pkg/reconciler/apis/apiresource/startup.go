@@ -35,7 +35,7 @@ func DefaultOptions() *Options {
 // BindOptions binds the apiresource controller options to the flag set.
 func BindOptions(o *Options, fs *pflag.FlagSet) *Options {
 	fs.BoolVar(&o.AutoPublishAPIs, "auto-publish-apis", o.AutoPublishAPIs, "If true, the APIs imported from physical clusters will be published automatically as CRDs")
-	fs.MarkDeprecated("auto-publish-apis", "This flag is deprecated and ignored. It will be removed in a future release.") // nolint: errcheck
+	fs.MarkDeprecated("auto-publish-apis", "This flag is deprecated and ignored. It will be removed in a future release.") //nolint:errcheck
 	fs.IntVar(&o.NumThreads, "apiresource-controller-threads", o.NumThreads, "Number of threads to use for the cluster controller.")
 	return o
 }

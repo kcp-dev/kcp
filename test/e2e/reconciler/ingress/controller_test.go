@@ -82,7 +82,7 @@ func TestIngressController(t *testing.T) {
 
 				rootIngressLogicalCluster := logicalcluster.From(rootIngress)
 				nsLocator := shared.NewNamespaceLocator(rootIngressLogicalCluster, syncerFixture.SyncerConfig.SyncTargetWorkspace, types.UID("syncTargetUID"), syncerFixture.SyncerConfig.SyncTargetName, rootIngress.Namespace)
-				targetNamespace, err := shared.PhysicalClusterNamespaceName(nsLocator) // nolint: staticcheck
+				targetNamespace, err := shared.PhysicalClusterNamespaceName(nsLocator) //nolint:staticcheck
 				require.NoError(t, err, "error determining namespace mapping for %v", nsLocator)
 
 				//
@@ -95,7 +95,7 @@ func TestIngressController(t *testing.T) {
 				//
 				return
 
-				// nolint:govet
+				//nolint:govet
 				t.Logf("Waiting for ingress to be synced to sink cluster to namespace %s", targetNamespace)
 				require.Eventually(t, func() bool {
 					got, err := sinkClient.Ingresses(targetNamespace).List(ctx, metav1.ListOptions{})

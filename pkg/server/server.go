@@ -139,7 +139,7 @@ func (s *Server) Run(ctx context.Context) error {
 			return true, nil
 		}); err != nil {
 			logger.Error(err, "failed to bootstrap system CRDs")
-			// nolint:nilerr
+			//nolint:nilerr
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 		logger.Info("finished bootstrapping system CRDs")
@@ -155,7 +155,7 @@ func (s *Server) Run(ctx context.Context) error {
 			}
 			return true, nil
 		}); err != nil {
-			// nolint:nilerr
+			//nolint:nilerr
 			logger.Error(err, "failed to bootstrap the shard workspace")
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
@@ -170,7 +170,7 @@ func (s *Server) Run(ctx context.Context) error {
 			return exportsSynced && bindingsSynced, nil
 		}); err != nil {
 			logger.Error(err, "failed to start APIExport and/or APIBinding informers")
-			// nolint:nilerr
+			//nolint:nilerr
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 		logger.Info("finished starting APIExport and APIBinding informers")
@@ -183,7 +183,7 @@ func (s *Server) Run(ctx context.Context) error {
 				s.DynamicClusterClient.Cluster(tenancyv1alpha1.RootCluster),
 				sets.NewString(s.Options.Extra.BatteriesIncluded...),
 			); err != nil {
-				// nolint:nilerr
+				//nolint:nilerr
 				logger.Error(err, "failed to bootstrap root workspace phase 0")
 				return nil // don't klog.Fatal. This only happens when context is cancelled.
 			}
@@ -198,7 +198,7 @@ func (s *Server) Run(ctx context.Context) error {
 				return true, nil
 			}); err != nil {
 				logger.Error(err, "failed to get or create identities")
-				// nolint:nilerr
+				//nolint:nilerr
 				return nil // don't klog.Fatal. This only happens when context is cancelled.
 			}
 			logger.Info("finished getting kcp APIExport identities")
@@ -214,7 +214,7 @@ func (s *Server) Run(ctx context.Context) error {
 				return exportsSynced && bindingsSynced, nil
 			}); err != nil {
 				logger.Error(err, "failed to start APIExport and/or APIBinding informers for the root shard")
-				// nolint:nilerr
+				//nolint:nilerr
 				return nil // don't klog.Fatal. This only happens when context is cancelled.
 			}
 			logger.Info("finished starting APIExport and APIBinding informers for the root shard")
@@ -228,7 +228,7 @@ func (s *Server) Run(ctx context.Context) error {
 				return true, nil
 			}); err != nil {
 				logger.Error(err, "failed to get or create identities for the root shard")
-				// nolint:nilerr
+				//nolint:nilerr
 				return nil // don't klog.Fatal. This only happens when context is cancelled.
 			}
 
@@ -284,7 +284,7 @@ func (s *Server) Run(ctx context.Context) error {
 				return true, nil
 			}); err != nil {
 				logger.Error(err, "failed reconciling ClusterWorkspaceShard resource in the root workspace")
-				// nolint:nilerr
+				//nolint:nilerr
 				return nil // don't klog.Fatal. This only happens when context is cancelled.
 			}
 		}
@@ -332,7 +332,7 @@ func (s *Server) Run(ctx context.Context) error {
 				s.Options.HomeWorkspaces.HomeCreatorGroups,
 				sets.NewString(s.Options.Extra.BatteriesIncluded...),
 			); err != nil {
-				// nolint:nilerr
+				//nolint:nilerr
 				logger.Error(err, "failed to bootstrap root workspace phase 1")
 				return nil // don't klog.Fatal. This only happens when context is cancelled.
 			}
