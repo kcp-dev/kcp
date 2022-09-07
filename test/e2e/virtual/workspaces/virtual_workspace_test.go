@@ -69,7 +69,7 @@ func newTestData() testDataType {
 func createWorkspaceAccessRoleForGroup(t *testing.T, ctx context.Context, kubeClusterClient kubernetes.Interface, orgClusterName logicalcluster.Name, admin bool, groupNames ...string) {
 	roleName := "org-" + orgClusterName.Base() + "-access"
 	if admin {
-		roleName = roleName + "-admin"
+		roleName += "-admin"
 	}
 	createWorkspaceAccessRoleForGroupWithCustomName(t, ctx, kubeClusterClient, orgClusterName, admin, roleName, groupNames...)
 }

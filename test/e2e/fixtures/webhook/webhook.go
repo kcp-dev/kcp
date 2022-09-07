@@ -108,7 +108,7 @@ func (s *AdmissionWebhookServer) ServeHTTP(resp http.ResponseWriter, req *http.R
 	}
 	requestedAdmissionReview, ok := obj.(*admissionv1.AdmissionReview)
 	if !ok {
-		//return an error
+		// return an error
 		msg := fmt.Sprintf("Expected AdmissionReview but got: %T", obj)
 		s.t.Logf("%v", msg)
 		http.Error(resp, msg, http.StatusBadRequest)
@@ -123,7 +123,7 @@ func (s *AdmissionWebhookServer) ServeHTTP(resp http.ResponseWriter, req *http.R
 	}
 
 	if s.ObjectGVK != *objGVK {
-		//return an error
+		// return an error
 		msg := fmt.Sprintf("Expected ObjectGVK: %v but got: %T", s.ObjectGVK, obj)
 		s.t.Logf("%v", msg)
 		http.Error(resp, msg, http.StatusBadRequest)
@@ -145,7 +145,7 @@ func (s *AdmissionWebhookServer) ServeHTTP(resp http.ResponseWriter, req *http.R
 
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	s.calls = s.calls + 1
+	s.calls++
 
 	resp.Header().Set("Content-Type", "application/json")
 	if _, err := resp.Write(respBytes); err != nil {

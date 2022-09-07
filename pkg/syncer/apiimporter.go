@@ -209,9 +209,9 @@ func (i *APIImporter) ImportAPIs(ctx context.Context) {
 		} else {
 			apiResourceImportName := gvr.Resource + "." + i.location + "." + gvr.Version + "."
 			if gvr.Group == "" {
-				apiResourceImportName = apiResourceImportName + "core"
+				apiResourceImportName += "core"
 			} else {
-				apiResourceImportName = apiResourceImportName + gvr.Group
+				apiResourceImportName += gvr.Group
 			}
 
 			clusterKey, err := cache.MetaNamespaceKeyFunc(&metav1.PartialObjectMetadata{

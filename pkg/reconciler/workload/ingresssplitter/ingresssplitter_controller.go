@@ -113,9 +113,9 @@ func NewController(
 }
 
 // The Controller struct represents an Ingress controller instance.
-//  - The tracker is used to keep track of the relationship between Ingresses and services.
-//  - The envoycontrolplane, contains an XDS Server and translates the ingress to Envoy
-//    configuration.
+//   - The tracker is used to keep track of the relationship between Ingresses and services.
+//   - The envoycontrolplane, contains an XDS Server and translates the ingress to Envoy
+//     configuration.
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
@@ -222,7 +222,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 
 	// If the object being reconciled changed as a result, update it.
 	if !equality.Semantic.DeepEqual(previous, current) {
-		//TODO(jmprusi): Move to patch instead of Update.
+		// TODO(jmprusi): Move to patch instead of Update.
 		_, err := c.client.NetworkingV1().Ingresses(current.Namespace).Update(logicalcluster.WithCluster(ctx, logicalcluster.From(current)), current, metav1.UpdateOptions{})
 		if err != nil {
 			return err

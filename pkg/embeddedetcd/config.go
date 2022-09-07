@@ -98,7 +98,7 @@ func NewConfig(o options.CompletedOptions, enableWatchCache bool) (*Config, erro
 		if err != nil {
 			return nil, err
 		}
-		cfg.ListenMetricsUrls = append(cfg.LPUrls, *u)
+		cfg.ListenMetricsUrls = append(cfg.LPUrls, *u) // TODO: What was the intent here?
 	}
 
 	if enableUnsafeEtcdDisableFsyncHack, _ := strconv.ParseBool(os.Getenv("UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC")); enableUnsafeEtcdDisableFsyncHack {

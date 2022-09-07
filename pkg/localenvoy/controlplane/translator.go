@@ -66,7 +66,7 @@ func (t *translator) translateIngress(ingress *networkingv1.Ingress) ([]cachetyp
 		endpoints = append(endpoints, endpoint)
 	}
 
-	//TODO(jmprusi): HTTP2 is set to false always, also allow for configuration of the timeout
+	// TODO(jmprusi): HTTP2 is set to false always, also allow for configuration of the timeout
 	ingressKey, err := cache.MetaNamespaceKeyFunc(ingress)
 	if err != nil {
 		klog.Errorf("Error getting key for ingress %s: %v", ingress.Name, err)
@@ -79,7 +79,7 @@ func (t *translator) translateIngress(ingress *networkingv1.Ingress) ([]cachetyp
 	routes := make([]*envoyroutev3.Route, 0)
 	domains := make([]string, 0)
 
-	//TODO(jmprusi): We are ignoring the path type, we need to review this.
+	// TODO(jmprusi): We are ignoring the path type, we need to review this.
 	for i, rule := range ingress.Spec.Rules {
 		// TODO(jmprusi): If the host is empty we just ignore the rule, not ideal.
 		if rule.HTTP.Paths == nil || rule.Host == "" {

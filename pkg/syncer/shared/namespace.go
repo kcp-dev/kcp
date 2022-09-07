@@ -98,7 +98,7 @@ func PhysicalClusterNamespaceName(l NamespaceLocator) (string, error) {
 		return "", err
 	}
 	// hash the marshalled locator
-	hash := sha256.Sum224(b[:])
+	hash := sha256.Sum224(b)
 	// convert the hash to base36 (alphanumeric) to decrease collision probabilities
 	base36hash := strings.ToLower(base36.EncodeBytes(hash[:]))
 	// use 12 chars of the base36hash, should be enough to avoid collisions and

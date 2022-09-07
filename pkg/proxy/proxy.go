@@ -56,21 +56,21 @@ func newTransport(clientCert, clientKeyFile, caFile string) (*http.Transport, er
 
 // WithProxyAuthHeaders does client cert termination by extracting the user and groups and
 // passing them through access headers to the shard.
-func WithProxyAuthHeaders(delegate http.HandlerFunc, UserHeader, GroupHeader string) http.HandlerFunc {
+func WithProxyAuthHeaders(delegate http.HandlerFunc, userHeader, groupHeader string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if u, ok := request.UserFrom(r.Context()); ok {
-			appendClientCertAuthHeaders(r.Header, u, UserHeader, GroupHeader)
+			appendClientCertAuthHeaders(r.Header, u, userHeader, groupHeader)
 		}
 
 		delegate.ServeHTTP(w, r)
 	}
 }
 
-func appendClientCertAuthHeaders(header http.Header, user userinfo.Info, UserHeader, GroupHeader string) {
-	header.Set(UserHeader, user.GetName())
+func appendClientCertAuthHeaders(header http.Header, user userinfo.Info, userHeader, groupHeader string) {
+	header.Set(userHeader, user.GetName())
 
 	for _, group := range user.GetGroups() {
-		header.Add(GroupHeader, group)
+		header.Add(groupHeader, group)
 	}
 }
 

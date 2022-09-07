@@ -215,7 +215,7 @@ func (a *apiBindingAccessAuthorizer) Authorize(ctx context.Context, attr authori
 	return authorizer.DecisionNoOpinion, reason, nil
 }
 
-//TODO [shawn-hurley]: this should be a helper shared.
+// TODO [shawn-hurley]: this should be a helper shared.
 func (a *apiBindingAccessAuthorizer) getAPIBindingReference(attr authorizer.Attributes, clusterName logicalcluster.Name) (*apisv1alpha1.ExportReference, bool, error) {
 	objs, err := a.apiBindingIndexer.ByIndex(byWorkspaceIndex, clusterName.String())
 	if err != nil {
