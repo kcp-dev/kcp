@@ -133,7 +133,7 @@ func startFrontProxy(
 		"--secure-port=6443",
 	)
 	commandLine = append(commandLine, args...)
-	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " ")) //nolint:errcheck
+	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " "))
 
 	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...)
 
@@ -218,7 +218,7 @@ func startFrontProxy(
 	if !klog.V(3).Enabled() {
 		writer.StopOut()
 	}
-	fmt.Fprintf(successOut, "kcp-front-proxy is ready\n") //nolint:errcheck
+	fmt.Fprintf(successOut, "kcp-front-proxy is ready\n")
 
 	return nil
 }

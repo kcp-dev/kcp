@@ -70,7 +70,6 @@ func (c *Controller) reconcile(ctx context.Context, ingress *networkingv1.Ingres
 // TODO(jmprusi): Review the hash algorithm.
 func domainHashString(s string) string {
 	h := fnv.New32a()
-	//nolint:errcheck
 	h.Write([]byte(s))
 	return fmt.Sprint(h.Sum32())
 }

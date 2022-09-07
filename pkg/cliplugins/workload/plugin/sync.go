@@ -192,7 +192,7 @@ func (o *SyncOptions) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		defer outputFile.Close() //nolint:errcheck
+		defer outputFile.Close()
 	}
 
 	token, syncerID, syncTargetUID, err := o.enableSyncerForWorkspace(ctx, config, o.SyncTargetName, o.KCPNamespace)

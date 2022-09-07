@@ -83,7 +83,7 @@ func Start(ctx context.Context, name, runtimeDir, logFilePath string, args []str
 		"--audit-log-batch-throttle-qps=10",
 		"--audit-policy-file", filepath.Join(runtimeDir, "audit-policy.yaml"),
 	)
-	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " ")) //nolint:errcheck
+	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " "))
 
 	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...)
 	if err := os.MkdirAll(filepath.Dir(logFilePath), 0755); err != nil {
@@ -187,7 +187,7 @@ func Start(ctx context.Context, name, runtimeDir, logFilePath string, args []str
 	if !klog.V(3).Enabled() {
 		writer.StopOut()
 	}
-	fmt.Fprintf(successOut, "shard is ready\n") //nolint:errcheck
+	fmt.Fprintf(successOut, "shard is ready\n")
 
 	return terminatedCh, nil
 }

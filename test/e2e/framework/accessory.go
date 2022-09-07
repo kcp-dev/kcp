@@ -125,8 +125,8 @@ func waitForEndpoint(ctx context.Context, t *testing.T, port, endpoint string) {
 		if err != nil {
 			lastError = fmt.Errorf("error contacting %s: %w", url, err)
 			return false, nil
-
 		}
+		defer resp.Body.Close()
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			lastError = fmt.Errorf("error reading response from %s: %w", url, err)

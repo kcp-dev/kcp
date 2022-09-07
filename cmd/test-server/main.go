@@ -68,7 +68,7 @@ func main() {
 		if err, ok := err.(*exec.ExitError); ok {
 			os.Exit(err.ExitCode())
 		}
-		fmt.Fprintf(os.Stderr, "error: %v\n", err) //nolint:errcheck
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
 }

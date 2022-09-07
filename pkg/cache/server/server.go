@@ -56,7 +56,6 @@ func (s *Server) PrepareRun(ctx context.Context) (preparedServer, error) {
 		logger = logger.WithValues("postStartHook", "bootstrap-cache-server")
 		if err := bootstrap.Bootstrap(klog.NewContext(goContext(hookContext), logger), s.ApiExtensionsClusterClient); err != nil {
 			logger.Error(err, "failed creating the static CustomResourcesDefinitions")
-			//nolint:nilerr
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 		return nil
