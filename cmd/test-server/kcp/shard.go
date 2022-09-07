@@ -106,7 +106,9 @@ func Start(ctx context.Context, name, runtimeDir, logFilePath string, args []str
 
 	go func() {
 		<-ctx.Done()
-		cmd.Process.Kill() //nolint:errcheck
+		if err := cmd.Process.Kill(); err != nil {
+			klog.ErrorS(err, "failed to kill process")
+		}
 	}()
 
 	terminatedCh := make(chan error, 1)
