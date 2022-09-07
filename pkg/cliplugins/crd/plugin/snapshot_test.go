@@ -26,20 +26,24 @@ import (
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 )
 
-func TestExecute(t *testing.T) {
+func TestSnapshot(t *testing.T) {
 	streams, stdin, stdout, _ := genericclioptions.NewTestIOStreams()
 
-	opts := NewOptions(streams)
+	opts := NewSnapshotOptions(streams)
 	opts.Prefix = "testing"
 	opts.Filename = "-"
-
-	c := NewCRDSnapshot(opts)
 
 	n, err := stdin.WriteString(multiCRDYaml)
 	require.NoError(t, err)
 	require.Equal(t, len(multiCRDYaml), n)
 
-	err = c.Execute()
+	err = opts.Validate()
+	require.NoError(t, err)
+
+	err = opts.Complete()
+	require.NoError(t, err)
+
+	err = opts.Run()
 	require.NoError(t, err)
 
 	require.Empty(t, cmp.Diff(expectedYAML, strings.Trim(stdout.String(), "\n")))

@@ -234,23 +234,24 @@ func TestCreate(t *testing.T) {
 				})
 			}
 
-			kc := &KubeConfig{
-				startingConfig: tt.config.DeepCopy(),
-				currentContext: tt.config.CurrentContext,
-
-				clusterClient: fakeTenancyClient{
-					t: t,
-					clients: map[logicalcluster.Name]*tenancyfake.Clientset{
-						currentClusterName: client,
-					},
-				},
-				modifyConfig: func(config *clientcmdapi.Config) error {
-					got = config
-					return nil
-				},
-				IOStreams: genericclioptions.NewTestIOStreamsDiscard(),
+			opts := NewCreateWorkspaceOptions(genericclioptions.NewTestIOStreamsDiscard())
+			opts.Name = tt.newWorkspaceName
+			opts.Type = workspaceType.Path + ":" + string(workspaceType.Name)
+			opts.IgnoreExisting = tt.ignoreExisting
+			opts.EnterAfterCreate = tt.useAfterCreation
+			opts.ReadyWaitTimeout = time.Second
+			opts.modifyConfig = func(configAccess clientcmd.ConfigAccess, config *clientcmdapi.Config) error {
+				got = config
+				return nil
 			}
-			err := kc.CreateWorkspace(context.Background(), tt.newWorkspaceName, workspaceType.Path+":"+string(workspaceType.Name), tt.ignoreExisting, tt.useAfterCreation, time.Second)
+			opts.kcpClusterClient = fakeTenancyClient{
+				t: t,
+				clients: map[logicalcluster.Name]*tenancyfake.Clientset{
+					currentClusterName: client,
+				},
+			}
+			opts.ClientConfig = clientcmd.NewDefaultClientConfig(*tt.config.DeepCopy(), nil)
+			err := opts.Run(context.Background())
 			if tt.wantErr {
 				require.Error(t, err)
 			} else {
@@ -860,24 +861,21 @@ func TestUse(t *testing.T) {
 			}
 
 			streams, _, stdout, stderr := genericclioptions.NewTestIOStreams()
-
-			kc := &KubeConfig{
-				startingConfig:       tt.config.DeepCopy(),
-				currentContext:       tt.config.CurrentContext,
-				shortWorkspaceOutput: tt.short,
-
-				clusterClient: fakeTenancyClient{
-					t:             t,
-					clients:       clients,
-					discoveryErrs: tt.discoveryErrors,
-				},
-				modifyConfig: func(config *clientcmdapi.Config) error {
-					got = config
-					return nil
-				},
-				IOStreams: streams,
+			opts := NewUseWorkspaceOptions(streams)
+			opts.Name = tt.param
+			opts.ShortWorkspaceOutput = tt.short
+			opts.modifyConfig = func(configAccess clientcmd.ConfigAccess, config *clientcmdapi.Config) error {
+				got = config
+				return nil
 			}
-			err := kc.UseWorkspace(context.Background(), tt.param)
+			opts.kcpClusterClient = fakeTenancyClient{
+				t:             t,
+				clients:       clients,
+				discoveryErrs: tt.discoveryErrors,
+			}
+			opts.ClientConfig = clientcmd.NewDefaultClientConfig(*tt.config.DeepCopy(), nil)
+			opts.startingConfig = &tt.config
+			err := opts.Run(context.Background())
 			if tt.wantErr {
 				require.Error(t, err)
 			} else {
@@ -1082,19 +1080,16 @@ func TestCreateContext(t *testing.T) {
 			u.Path = ""
 
 			streams, _, stdout, stderr := genericclioptions.NewTestIOStreams()
-
-			kc := &KubeConfig{
-				startingConfig: tt.config.DeepCopy(),
-				currentContext: tt.config.CurrentContext,
-				overrides:      tt.overrides,
-
-				modifyConfig: func(config *clientcmdapi.Config) error {
-					got = config
-					return nil
-				},
-				IOStreams: streams,
+			opts := NewCreateContextOptions(streams)
+			opts.Name = tt.param
+			opts.Overwrite = tt.overwrite
+			opts.modifyConfig = func(configAccess clientcmd.ConfigAccess, config *clientcmdapi.Config) error {
+				got = config
+				return nil
 			}
-			err := kc.CreateContext(context.Background(), tt.param, tt.overwrite)
+			opts.ClientConfig = clientcmd.NewDefaultClientConfig(*tt.config.DeepCopy(), nil)
+			opts.startingConfig = &tt.config
+			err := opts.Run(context.Background())
 			if tt.wantErr {
 				require.Error(t, err)
 			} else {

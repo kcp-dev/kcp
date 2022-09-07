@@ -23,6 +23,7 @@ import (
 	"embed"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -32,23 +33,28 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/martinlindhe/base36"
+	"github.com/spf13/cobra"
 
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	"github.com/kcp-dev/kcp/pkg/cliplugins/base"
 	"github.com/kcp-dev/kcp/pkg/cliplugins/helpers"
+	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 )
 
 //go:embed *.yaml
@@ -60,34 +66,136 @@ const (
 	MaxSyncTargetNameLength = validation.DNS1123SubdomainMaxLength - (9 + len(SyncerIDPrefix))
 )
 
-// Sync prepares a kcp workspace for use with a syncer and outputs the
+// SyncOptions contains options for configuring a SyncTarget and its corresponding syncer.
+type SyncOptions struct {
+	*base.Options
+
+	// ResourcesToSync is a list of fully-qualified resource names that should be synced by the syncer.
+	ResourcesToSync []string
+	// SyncerImage is the container image that should be used for the syncer.
+	SyncerImage string
+	// Replicas is the number of replicas to configure in the syncer's deployment.
+	Replicas int
+	// OutputFile is the path to a file where the YAML for the syncer should be written.
+	OutputFile string
+	// DownstreamNamespace is the name of the namespace in the physical cluster where the syncer deployment is created.
+	DownstreamNamespace string
+	// KCPNamespace is the name of the namespace in the kcp workspace where the service account is created for the
+	// syncer.
+	KCPNamespace string
+	// QPS is the refill rate for the syncer client's rate limiter bucket (steady state requests per second).
+	QPS float32
+	// Burst is the maximum size for the syncer client's rate limiter bucket when idle.
+	Burst int
+	// SyncTargetName is the name of the SyncTarget in the kcp workspace.
+	SyncTargetName string
+	// FeatureGates is used to configure which feature gates are enabled.
+	FeatureGates string
+}
+
+// NewSyncOptions returns a new SyncOptions.
+func NewSyncOptions(streams genericclioptions.IOStreams) *SyncOptions {
+	return &SyncOptions{
+		Options: base.NewOptions(streams),
+
+		Replicas:     1,
+		KCPNamespace: "default",
+		QPS:          20,
+		Burst:        30,
+	}
+}
+
+// BindFlags binds fields SyncOptions as command line flags to cmd's flagset.
+func (o *SyncOptions) BindFlags(cmd *cobra.Command) {
+	o.Options.BindFlags(cmd)
+
+	cmd.Flags().StringSliceVar(&o.ResourcesToSync, "resources", o.ResourcesToSync, "Resources to synchronize with kcp.")
+	cmd.Flags().StringVar(&o.SyncerImage, "syncer-image", o.SyncerImage, "The syncer image to use in the syncer's deployment YAML. Images are published at https://github.com/kcp-dev/kcp/pkgs/container/kcp%2Fsyncer.")
+	cmd.Flags().IntVar(&o.Replicas, "replicas", o.Replicas, "Number of replicas of the syncer deployment.")
+	cmd.Flags().StringVar(&o.KCPNamespace, "kcp-namespace", o.KCPNamespace, "The name of the kcp namespace to create a service account in.")
+	cmd.Flags().StringVarP(&o.OutputFile, "output-file", "o", o.OutputFile, "The manifest file to be created and applied to the physical cluster. Use - for stdout.")
+	cmd.Flags().StringVarP(&o.DownstreamNamespace, "namespace", "n", o.DownstreamNamespace, "The namespace to create the syncer in in the physical cluster. By default this is \"kcp-syncer-<synctarget-name>-<uid>\".")
+	cmd.Flags().Float32Var(&o.QPS, "qps", o.QPS, "QPS to use when talking to API servers.")
+	cmd.Flags().IntVar(&o.Burst, "burst", o.Burst, "Burst to use when talking to API servers.")
+	cmd.Flags().StringVar(&o.FeatureGates, "feature-gates", o.FeatureGates,
+		"A set of key=value pairs that describe feature gates for alpha/experimental features. "+
+			"Options are:\n"+strings.Join(kcpfeatures.KnownFeatures(), "\n")) // hide kube-only gates
+}
+
+// Complete ensures all dynamically populated fields are initialized.
+func (o *SyncOptions) Complete(args []string) error {
+	if err := o.Options.Complete(); err != nil {
+		return err
+	}
+
+	o.SyncTargetName = args[0]
+
+	return nil
+}
+
+// Validate validates the SyncOptions are complete and usable.
+func (o *SyncOptions) Validate() error {
+	var errs []error
+
+	if err := o.Options.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+
+	if o.SyncerImage == "" {
+		errs = append(errs, errors.New("--syncer-image is required"))
+	}
+
+	if o.KCPNamespace == "" {
+		errs = append(errs, errors.New("--kcp-namespace is required"))
+	}
+
+	if o.Replicas < 0 {
+		errs = append(errs, errors.New("--replicas cannot be negative"))
+	}
+	if o.Replicas > 1 {
+		// TODO: relax when we have leader-election in the syncer
+		errs = append(errs, errors.New("only 0 and 1 are valid values for --replicas"))
+	}
+
+	if o.OutputFile == "" {
+		errs = append(errs, errors.New("--output-file is required"))
+	}
+
+	if len(o.SyncTargetName)+len(SyncerIDPrefix)+8 > 254 {
+		errs = append(errs, fmt.Errorf("the maximum length of the sync-target-name is %d", MaxSyncTargetNameLength))
+	}
+
+	return utilerrors.NewAggregate(errs)
+}
+
+// Run prepares a kcp workspace for use with a syncer and outputs the
 // configuration required to deploy a syncer to the pcluster to stdout.
-func (c *Config) Sync(
-	ctx context.Context,
-	outputFilePath, syncTargetName, kcpNamespaceName, downstreamNamespace, image string,
-	resourcesToSync []string,
-	replicas int,
-	qps float32,
-	burst int,
-	featureGatesString string,
-) error {
-	config, err := clientcmd.NewDefaultClientConfig(*c.startingConfig, c.overrides).ClientConfig()
+func (o *SyncOptions) Run(ctx context.Context) error {
+	// Any user-specified types will be synced in addition to the required types
+	// to ensure support for the use case of a synced deployment capable of
+	// talking to kcp.
+	//
+	// TODO(marun) Consider allowing a user-specified and exclusive set of types.
+	requiredResourcesToSync := sets.NewString("deployments.apps", "secrets", "configmaps", "serviceaccounts")
+	resourcesToSync := sets.NewString(o.ResourcesToSync...).Union(requiredResourcesToSync).List()
+
+	config, err := o.ClientConfig.ClientConfig()
 	if err != nil {
 		return err
 	}
 
 	var outputFile *os.File
-	if outputFilePath == "-" {
+	if o.OutputFile == "-" {
 		outputFile = os.Stdout
 	} else {
-		outputFile, err = os.Create(outputFilePath)
+		outputFile, err = os.Create(o.OutputFile)
 		if err != nil {
 			return err
 		}
 		defer outputFile.Close() // nolint: errcheck
 	}
 
-	token, syncerID, syncTargetUID, err := c.enableSyncerForWorkspace(ctx, config, syncTargetName, kcpNamespaceName)
+	token, syncerID, syncTargetUID, err := o.enableSyncerForWorkspace(ctx, config, o.SyncTargetName, o.KCPNamespace)
 	if err != nil {
 		return err
 	}
@@ -97,8 +205,8 @@ func (c *Config) Sync(
 		return fmt.Errorf("current URL %q does not point to cluster workspace", config.Host)
 	}
 
-	if downstreamNamespace == "" {
-		downstreamNamespace = syncerID
+	if o.DownstreamNamespace == "" {
+		o.DownstreamNamespace = syncerID
 	}
 
 	// Compose the syncer's upstream configuration server URL without any path. This is
@@ -112,17 +220,17 @@ func (c *Config) Sync(
 		ServerURL:          serverURL,
 		CAData:             base64.StdEncoding.EncodeToString(config.CAData),
 		Token:              token,
-		KCPNamespace:       kcpNamespaceName,
-		Namespace:          downstreamNamespace,
+		KCPNamespace:       o.KCPNamespace,
+		Namespace:          o.DownstreamNamespace,
 		LogicalCluster:     currentClusterName.String(),
-		SyncTarget:         syncTargetName,
+		SyncTarget:         o.SyncTargetName,
 		SyncTargetUID:      syncTargetUID,
-		Image:              image,
-		Replicas:           replicas,
+		Image:              o.SyncerImage,
+		Replicas:           o.Replicas,
 		ResourcesToSync:    resourcesToSync,
-		QPS:                qps,
-		Burst:              burst,
-		FeatureGatesString: featureGatesString,
+		QPS:                o.QPS,
+		Burst:              o.Burst,
+		FeatureGatesString: o.FeatureGates,
 	}
 
 	resources, err := renderSyncerResources(input, syncerID)
@@ -131,10 +239,10 @@ func (c *Config) Sync(
 	}
 
 	_, err = outputFile.Write(resources)
-	if outputFilePath != "-" {
+	if o.OutputFile != "-" {
 		// nolint: errcheck
-		c.ErrOut.Write([]byte(fmt.Sprintf("\nWrote physical cluster manifest to %s for namespace %q. Use\n\n  KUBECONFIG=<pcluster-config> kubectl apply -f %q\n\nto apply it. "+
-			"Use\n\n  KUBECONFIG=<pcluster-config> kubectl get deployment -n %q %s\n\nto verify the syncer pod is running.\n", outputFilePath, downstreamNamespace, outputFilePath, downstreamNamespace, syncerID)))
+		fmt.Fprintf(o.ErrOut, "\nWrote physical cluster manifest to %s for namespace %q. Use\n\n  KUBECONFIG=<pcluster-config> kubectl apply -f %q\n\nto apply it. "+
+			"Use\n\n  KUBECONFIG=<pcluster-config> kubectl get deployment -n %q %s\n\nto verify the syncer pod is running.\n", o.OutputFile, o.DownstreamNamespace, o.OutputFile, o.DownstreamNamespace, syncerID)
 	}
 	return err
 }
@@ -150,7 +258,7 @@ func getSyncerID(syncTarget *workloadv1alpha1.SyncTarget) string {
 // enableSyncerForWorkspace creates a sync target with the given name and creates a service
 // account for the syncer in the given namespace. The expectation is that the provided config is
 // for a logical cluster (workspace). Returns the token the syncer will use to connect to kcp.
-func (c *Config) enableSyncerForWorkspace(ctx context.Context, config *rest.Config, syncTargetName, namespace string) (saToken string, syncerID string, syncTargetUID string, err error) {
+func (o *SyncOptions) enableSyncerForWorkspace(ctx context.Context, config *rest.Config, syncTargetName, namespace string) (saToken string, syncerID string, syncTargetUID string, err error) {
 	kcpClient, err := kcpclient.NewForConfig(config)
 	if err != nil {
 		return "", "", "", fmt.Errorf("failed to create kcp client: %w", err)
@@ -160,14 +268,14 @@ func (c *Config) enableSyncerForWorkspace(ctx context.Context, config *rest.Conf
 		syncTargetName,
 		metav1.GetOptions{},
 	)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !apierrors.IsNotFound(err) {
 		return "", "", "", fmt.Errorf("failed to get synctarget %q: %w", syncTargetName, err)
-	} else if errors.IsNotFound(err) {
+	} else if apierrors.IsNotFound(err) {
 		// Create the sync target that will serve as a point of coordination between
 		// kcp and the syncer (e.g. heartbeating from the syncer and virtual cluster urls
 		// to the syncer).
 		// nolint: errcheck
-		c.ErrOut.Write([]byte(fmt.Sprintf("Creating synctarget %q\n", syncTargetName)))
+		fmt.Fprintf(o.ErrOut, "Creating synctarget %q\n", syncTargetName)
 		syncTarget, err = kcpClient.WorkloadV1alpha1().SyncTargets().Create(ctx,
 			&workloadv1alpha1.SyncTarget{
 				ObjectMeta: metav1.ObjectMeta{
@@ -176,12 +284,12 @@ func (c *Config) enableSyncerForWorkspace(ctx context.Context, config *rest.Conf
 			},
 			metav1.CreateOptions{},
 		)
-		if err != nil && !errors.IsAlreadyExists(err) {
+		if err != nil && !apierrors.IsAlreadyExists(err) {
 			return "", "", "", fmt.Errorf("failed to create synctarget %q: %w", syncTargetName, err)
 		}
 	} else if err == nil {
 		// nolint: errcheck
-		c.ErrOut.Write([]byte(fmt.Sprintf("Synctarget %q already exists.\n", syncTargetName)))
+		fmt.Fprintf(o.ErrOut, "Synctarget %q already exists.\n", syncTargetName)
 	}
 
 	kubeClient, err := kubernetesclient.NewForConfig(config)
@@ -200,14 +308,14 @@ func (c *Config) enableSyncerForWorkspace(ctx context.Context, config *rest.Conf
 	sa, err := kubeClient.CoreV1().ServiceAccounts(namespace).Get(ctx, syncerID, metav1.GetOptions{})
 
 	switch {
-	case errors.IsNotFound(err):
-		c.ErrOut.Write([]byte(fmt.Sprintf("Creating service account %q\n", syncerID))) // nolint: errcheck
+	case apierrors.IsNotFound(err):
+		fmt.Fprintf(o.ErrOut, "Creating service account %q\n", syncerID)
 		if sa, err = kubeClient.CoreV1().ServiceAccounts(namespace).Create(ctx, &corev1.ServiceAccount{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:            syncerID,
 				OwnerReferences: syncTargetOwnerReferences,
 			},
-		}, metav1.CreateOptions{}); err != nil && !errors.IsAlreadyExists(err) {
+		}, metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
 			return "", "", "", fmt.Errorf("failed to create ServiceAccount %s|%s/%s: %w", syncTargetName, namespace, syncerID, err)
 		}
 	case err == nil:
@@ -236,7 +344,7 @@ func (c *Config) enableSyncerForWorkspace(ctx context.Context, config *rest.Conf
 			return "", "", "", fmt.Errorf("failed to create patch for ServiceAccount %s|%s/%s: %w", syncTargetName, namespace, syncerID, err)
 		}
 
-		c.ErrOut.Write([]byte(fmt.Sprintf("Updating service account %q.\n", syncerID))) // nolint: errcheck
+		fmt.Fprintf(o.ErrOut, "Updating service account %q.\n", syncerID)
 		if sa, err = kubeClient.CoreV1().ServiceAccounts(namespace).Patch(ctx, sa.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
 			return "", "", "", fmt.Errorf("failed to patch ServiceAccount %s|%s/%s: %w", syncTargetName, syncerID, namespace, err)
 		}
@@ -276,15 +384,15 @@ func (c *Config) enableSyncerForWorkspace(ctx context.Context, config *rest.Conf
 		syncerID,
 		metav1.GetOptions{})
 	switch {
-	case errors.IsNotFound(err):
-		c.ErrOut.Write([]byte(fmt.Sprintf("Creating cluster role %q to give service account %q\n\n 1. write and sync access to the synctarget %q\n 2. write access to apiresourceimports.\n\n", syncerID, syncerID, syncerID))) // nolint: errcheck
+	case apierrors.IsNotFound(err):
+		fmt.Fprintf(o.ErrOut, "Creating cluster role %q to give service account %q\n\n 1. write and sync access to the synctarget %q\n 2. write access to apiresourceimports.\n\n", syncerID, syncerID, syncerID)
 		if _, err = kubeClient.RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:            syncerID,
 				OwnerReferences: syncTargetOwnerReferences,
 			},
 			Rules: rules,
-		}, metav1.CreateOptions{}); err != nil && !errors.IsAlreadyExists(err) {
+		}, metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
 			return "", "", "", err
 		}
 	case err == nil:
@@ -315,7 +423,7 @@ func (c *Config) enableSyncerForWorkspace(ctx context.Context, config *rest.Conf
 			return "", "", "", fmt.Errorf("failed to create patch for ClusterRole %s|%s: %w", syncTargetName, syncerID, err)
 		}
 
-		c.ErrOut.Write([]byte(fmt.Sprintf("Updating cluster role %q with\n\n 1. write and sync access to the synctarget %q\n 2. write access to apiresourceimports.\n\n", syncerID, syncerID))) // nolint: errcheck
+		fmt.Fprintf(o.ErrOut, "Updating cluster role %q with\n\n 1. write and sync access to the synctarget %q\n 2. write access to apiresourceimports.\n\n", syncerID, syncerID)
 		if _, err = kubeClient.RbacV1().ClusterRoles().Patch(ctx, cr.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
 			return "", "", "", fmt.Errorf("failed to patch ClusterRole %s|%s/%s: %w", syncTargetName, syncerID, namespace, err)
 		}
@@ -338,7 +446,7 @@ func (c *Config) enableSyncerForWorkspace(ctx context.Context, config *rest.Conf
 	_, err = kubeClient.RbacV1().ClusterRoleBindings().Get(ctx,
 		syncerID,
 		metav1.GetOptions{})
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !apierrors.IsNotFound(err) {
 		return "", "", "", err
 	}
 	if err == nil {
@@ -347,7 +455,7 @@ func (c *Config) enableSyncerForWorkspace(ctx context.Context, config *rest.Conf
 		}
 	}
 
-	c.ErrOut.Write([]byte(fmt.Sprintf("Creating or updating cluster role binding %q to bind service account %q to cluster role %q.\n", syncerID, syncerID, syncerID))) // nolint: errcheck
+	fmt.Fprintf(o.ErrOut, "Creating or updating cluster role binding %q to bind service account %q to cluster role %q.\n", syncerID, syncerID, syncerID)
 	if _, err = kubeClient.RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            syncerID,
@@ -355,7 +463,7 @@ func (c *Config) enableSyncerForWorkspace(ctx context.Context, config *rest.Conf
 		},
 		Subjects: subjects,
 		RoleRef:  roleRef,
-	}, metav1.CreateOptions{}); err != nil && !errors.IsAlreadyExists(err) {
+	}, metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
 		return "", "", "", err
 	}
 
@@ -392,7 +500,7 @@ func (c *Config) enableSyncerForWorkspace(ctx context.Context, config *rest.Conf
 
 // mergeOwnerReference: merge a slice of ownerReference with a given ownerReferences
 func mergeOwnerReference(ownerReferences, newOwnerReferences []metav1.OwnerReference) []metav1.OwnerReference {
-	merged := []metav1.OwnerReference{}
+	var merged []metav1.OwnerReference
 
 	merged = append(merged, ownerReferences...)
 
@@ -545,7 +653,7 @@ func getGroupMappings(resourcesToSync []string) []groupMapping {
 			groupMap[apiGroup] = append(groupMap[apiGroup], name)
 		}
 	}
-	groupMappings := []groupMapping{}
+	var groupMappings []groupMapping
 
 	for apiGroup, resources := range groupMap {
 		groupMappings = append(groupMappings, groupMapping{

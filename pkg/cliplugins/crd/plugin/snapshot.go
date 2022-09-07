@@ -24,33 +24,79 @@ import (
 	"io"
 	"os"
 
+	"github.com/spf13/cobra"
+
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/cliplugins/base"
 )
 
-type CRDSnapshot struct {
-	options *Options
+// SnapshotOptions contains options for the snapshot command.
+type SnapshotOptions struct {
+	*base.Options
+
+	Filename     string
+	Prefix       string
+	OutputFormat string
 }
 
-func NewCRDSnapshot(opts *Options) *CRDSnapshot {
-	return &CRDSnapshot{
-		options: opts,
+// NewSnapshotOptions provides an instance of SnapshotOptions with default values
+func NewSnapshotOptions(streams genericclioptions.IOStreams) *SnapshotOptions {
+	o := &SnapshotOptions{
+		Options:      base.NewOptions(streams),
+		OutputFormat: "yaml",
 	}
+
+	o.OptOutOfDefaultKubectlFlags = true
+
+	return o
 }
 
-func (c *CRDSnapshot) Execute() error {
+// BindFlags binds the arguments common to all sub-commands,
+// to the corresponding main command flags
+func (o *SnapshotOptions) BindFlags(cmd *cobra.Command) {
+	cmd.Flags().StringVarP(&o.Filename, "filename", "f", o.Filename, "Path to a file containing the CRD to convert to an APIResourceSchema, or - for stdin")
+	cmd.Flags().StringVar(&o.Prefix, "prefix", o.Prefix, "Prefix to use for the APIResourceSchema's name, before <resource>.<group>")
+	cmd.Flags().StringVarP(&o.OutputFormat, "output", "o", o.OutputFormat, "Output format. Valid values are 'json' and 'yaml'")
+}
+
+func (o *SnapshotOptions) Validate() error {
+	var errs []error
+
+	if err := o.Options.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+
+	if o.Filename == "" {
+		errs = append(errs, fmt.Errorf("--filename is required"))
+	}
+
+	if o.Prefix == "" {
+		errs = append(errs, fmt.Errorf("--prefix is required"))
+	}
+
+	if o.OutputFormat != "json" && o.OutputFormat != "yaml" {
+		errs = append(errs, fmt.Errorf("invalid value %q for --output; valid values are json, yaml", o.OutputFormat))
+	}
+
+	return utilerrors.NewAggregate(errs)
+}
+
+func (o *SnapshotOptions) Run() error {
 	var in io.Reader
 
-	if c.options.Filename == "-" {
-		in = c.options.In
+	if o.Filename == "-" {
+		in = o.In
 	} else {
-		f, err := os.Open(c.options.Filename)
+		f, err := os.Open(o.Filename)
 		if err != nil {
-			return fmt.Errorf("error opening %s: %w", c.options.Filename, err)
+			return fmt.Errorf("error opening %s: %w", o.Filename, err)
 		}
 
 		defer f.Close()
@@ -69,13 +115,13 @@ func (c *CRDSnapshot) Execute() error {
 	codecs := serializer.NewCodecFactory(scheme)
 
 	var mediaType string
-	switch c.options.OutputFormat {
+	switch o.OutputFormat {
 	case "json":
 		mediaType = runtime.ContentTypeJSON
 	case "yaml":
 		mediaType = runtime.ContentTypeYAML
 	default:
-		return fmt.Errorf("unsupported output format %q", c.options.OutputFormat)
+		return fmt.Errorf("unsupported output format %q", o.OutputFormat)
 	}
 
 	info, ok := runtime.SerializerInfoForMediaType(codecs.SupportedMediaTypes(), mediaType)
@@ -110,7 +156,7 @@ func (c *CRDSnapshot) Execute() error {
 			return fmt.Errorf("unexpected type for CRD %T", decoded)
 		}
 
-		apiResourceSchema, err := apisv1alpha1.CRDToAPIResourceSchema(crd, c.options.Prefix)
+		apiResourceSchema, err := apisv1alpha1.CRDToAPIResourceSchema(crd, o.Prefix)
 		if err != nil {
 			return fmt.Errorf("error converting CRD: %w", err)
 		}
@@ -120,8 +166,8 @@ func (c *CRDSnapshot) Execute() error {
 			return fmt.Errorf("error converting CRD to an APIResourceSchema: %w", err)
 		}
 
-		fmt.Fprintln(c.options.Out, string(out))
-		fmt.Fprintln(c.options.Out, "---")
+		fmt.Fprintln(o.Out, string(out))
+		fmt.Fprintln(o.Out, "---")
 	}
 
 	return nil

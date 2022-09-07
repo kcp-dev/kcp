@@ -20,12 +20,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"path"
 	"strings"
 	"time"
 
 	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/spf13/cobra"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,6 +40,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	"github.com/kcp-dev/kcp/pkg/cliplugins/base"
 	pluginhelpers "github.com/kcp-dev/kcp/pkg/cliplugins/helpers"
 )
 
@@ -46,92 +49,93 @@ const (
 	kcpCurrentWorkspaceContextKey  string = "workspace.kcp.dev/current"
 )
 
-// KubeConfig contains a config loaded from a Kubeconfig
-// and allows modifications on it through workspace-related
-// actions
-type KubeConfig struct {
-	startingConfig       *clientcmdapi.Config
-	overrides            *clientcmd.ConfigOverrides
-	currentContext       string // including override
-	shortWorkspaceOutput bool
+// UseWorkspaceOptions contains options for manipulating or showing the current workspace.
+type UseWorkspaceOptions struct {
+	*base.Options
 
-	clusterClient kcpclient.ClusterInterface
-	modifyConfig  func(newConfig *clientcmdapi.Config) error
+	// Name is the name of the workspace to switch to.
+	Name string
+	// ShortWorkspaceOutput indicates only the workspace name should be printed.
+	ShortWorkspaceOutput bool
 
-	genericclioptions.IOStreams
+	kcpClusterClient kcpclient.ClusterInterface
+	startingConfig   *clientcmdapi.Config
+
+	// for testing
+	modifyConfig func(configAccess clientcmd.ConfigAccess, newConfig *clientcmdapi.Config) error
 }
 
-// NewKubeConfig load a kubeconfig with default config access
-func NewKubeConfig(opts *Options) (*KubeConfig, error) {
-	configAccess := clientcmd.NewDefaultClientConfigLoadingRules()
-	startingConfig, err := configAccess.GetStartingConfig()
-	if err != nil {
-		return nil, err
-	}
+// NewUseWorkspaceOptions returns a new UseWorkspaceOptions.
+func NewUseWorkspaceOptions(streams genericclioptions.IOStreams) *UseWorkspaceOptions {
+	return &UseWorkspaceOptions{
+		Options: base.NewOptions(streams),
 
-	currentContext := startingConfig.CurrentContext
-	if opts.KubectlOverrides.CurrentContext != "" {
-		currentContext = opts.KubectlOverrides.CurrentContext
-	}
-
-	// get lcluster-independent client
-	config, err := clientcmd.NewDefaultClientConfig(*startingConfig, opts.KubectlOverrides).ClientConfig()
-	if err != nil {
-		return nil, err
-	}
-	u, err := url.Parse(config.Host)
-	if err != nil {
-		return nil, err
-	}
-	u.Path = ""
-
-	clusterConfig := rest.CopyConfig(config)
-	clusterConfig.Host = u.String()
-	clusterConfig.UserAgent = rest.DefaultKubernetesUserAgent()
-	clusterClient, err := kcpclient.NewClusterForConfig(clusterConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	return &KubeConfig{
-		startingConfig:       startingConfig,
-		overrides:            opts.KubectlOverrides,
-		currentContext:       currentContext,
-		shortWorkspaceOutput: opts.ShortWorkspaceOutput,
-
-		clusterClient: clusterClient,
-		modifyConfig: func(newConfig *clientcmdapi.Config) error {
+		modifyConfig: func(configAccess clientcmd.ConfigAccess, newConfig *clientcmdapi.Config) error {
 			return clientcmd.ModifyConfig(configAccess, *newConfig, true)
 		},
-
-		IOStreams: opts.IOStreams,
-	}, nil
+	}
 }
 
-// UseWorkspace switch the current workspace to the given workspace.
-// To do so it retrieves the ClusterWorkspace minimal KubeConfig (mainly cluster infos)
-// from the `workspaces` virtual workspace `workspaces/kubeconfig` sub-resources,
-// and adds it (along with the Auth info that is currently used) to the Kubeconfig.
-// Then it make this new context the current context.
-func (kc *KubeConfig) UseWorkspace(ctx context.Context, name string) (err error) {
+// Complete ensures all dynamically populated fields are initialized.
+func (o *UseWorkspaceOptions) Complete(args []string) error {
+	if err := o.Options.Complete(); err != nil {
+		return err
+	}
+
+	if o.Name == "" && len(args) > 0 {
+		o.Name = args[0]
+	}
+
+	var err error
+	o.startingConfig, err = o.ClientConfig.ConfigAccess().GetStartingConfig()
+	if err != nil {
+		return err
+	}
+
+	kcpClusterClient, err := newKCPClusterClient(o.ClientConfig)
+	if err != nil {
+		return err
+	}
+	o.kcpClusterClient = kcpClusterClient
+
+	return nil
+}
+
+// Validate validates the UseWorkspaceOptions are complete and usable.
+func (o *UseWorkspaceOptions) Validate() error {
+	return o.Options.Validate()
+}
+
+// BindFlags binds fields to cmd's flagset.
+func (o *UseWorkspaceOptions) BindFlags(cmd *cobra.Command) {
+	cmd.Flags().BoolVar(&o.ShortWorkspaceOutput, "short", o.ShortWorkspaceOutput, "Print only the name of the workspace, e.g. for integration into the shell prompt")
+}
+
+// Run executes the "use workspace" logic based on the supplied options.
+func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
+	rawConfig, err := o.ClientConfig.RawConfig()
+	if err != nil {
+		return err
+	}
+
 	// Store the currentContext content for later to set as previous context
-	currentContext, found := kc.startingConfig.Contexts[kc.currentContext]
+	currentContext, found := o.startingConfig.Contexts[rawConfig.CurrentContext]
 	if !found {
-		return fmt.Errorf("current %q context not found", kc.currentContext)
+		return fmt.Errorf("current %q context not found", rawConfig.CurrentContext)
 	}
 
 	var newServerHost string
 	var workspaceType *tenancyv1alpha1.ClusterWorkspaceTypeReference
-	switch name {
+	switch o.Name {
 	case "-":
-		prev, exists := kc.startingConfig.Contexts[kcpPreviousWorkspaceContextKey]
+		prev, exists := o.startingConfig.Contexts[kcpPreviousWorkspaceContextKey]
 		if !exists {
 			return errors.New("no previous workspace found in kubeconfig")
 		}
 
-		newKubeConfig := kc.startingConfig.DeepCopy()
+		newKubeConfig := o.startingConfig.DeepCopy()
 		if currentContext.Cluster == kcpCurrentWorkspaceContextKey {
-			oldCluster, found := kc.startingConfig.Clusters[currentContext.Cluster]
+			oldCluster, found := o.startingConfig.Clusters[currentContext.Cluster]
 			if !found {
 				return fmt.Errorf("cluster %q not found in kubeconfig", currentContext.Cluster)
 			}
@@ -140,7 +144,7 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, name string) (err error)
 			newKubeConfig.Clusters[kcpPreviousWorkspaceContextKey] = oldCluster
 		}
 		if prev.Cluster == kcpPreviousWorkspaceContextKey {
-			prevCluster, found := kc.startingConfig.Clusters[prev.Cluster]
+			prevCluster, found := o.startingConfig.Clusters[prev.Cluster]
 			if !found {
 				return fmt.Errorf("cluster %q not found in kubeconfig", currentContext.Cluster)
 			}
@@ -153,14 +157,14 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, name string) (err error)
 
 		newKubeConfig.CurrentContext = kcpCurrentWorkspaceContextKey
 
-		if err := kc.modifyConfig(newKubeConfig); err != nil {
+		if err := o.modifyConfig(o.ClientConfig.ConfigAccess(), newKubeConfig); err != nil {
 			return err
 		}
 
-		return kc.currentWorkspace(ctx, newKubeConfig.Clusters[newKubeConfig.Contexts[kcpCurrentWorkspaceContextKey].Cluster].Server, nil)
+		return currentWorkspace(o.Out, newKubeConfig.Clusters[newKubeConfig.Contexts[kcpCurrentWorkspaceContextKey].Cluster].Server, shortWorkspaceOutput(o.ShortWorkspaceOutput), nil)
 
 	case "..":
-		config, err := clientcmd.NewDefaultClientConfig(*kc.startingConfig, kc.overrides).ClientConfig()
+		config, err := o.ClientConfig.ClientConfig()
 		if err != nil {
 			return err
 		}
@@ -181,29 +185,33 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, name string) (err error)
 	case "":
 		defer func() {
 			if err == nil {
-				_, err = fmt.Fprintf(kc.Out, "Note: 'kubectl ws' now matches 'cd' semantics: go to home workspace. 'kubectl ws -' to go back. 'kubectl ws .' to print current workspace.\n")
+				_, err = fmt.Fprintf(o.Out, "Note: 'kubectl ws' now matches 'cd' semantics: go to home workspace. 'kubectl ws -' to go back. 'kubectl ws .' to print current workspace.\n")
 			}
 		}()
 		fallthrough
 
 	case "~":
-		homeWorkspace, err := kc.clusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1beta1().Workspaces().Get(ctx, "~", metav1.GetOptions{})
+		homeWorkspace, err := o.kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1beta1().Workspaces().Get(ctx, "~", metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
 		newServerHost = homeWorkspace.Status.URL
 
 	case ".":
-		return kc.CurrentWorkspace(ctx)
+		cfg, err := o.ClientConfig.ClientConfig()
+		if err != nil {
+			return err
+		}
+		return currentWorkspace(o.Out, cfg.Host, shortWorkspaceOutput(o.ShortWorkspaceOutput), nil)
 
 	default:
-		cluster := logicalcluster.New(name)
-		if strings.Contains(name, ":") && !cluster.HasPrefix(logicalcluster.New("system")) &&
+		cluster := logicalcluster.New(o.Name)
+		if strings.Contains(o.Name, ":") && !cluster.HasPrefix(logicalcluster.New("system")) &&
 			!cluster.HasPrefix(tenancyv1alpha1.RootCluster) {
-			return fmt.Errorf("invalid workspace name format: %s", name)
+			return fmt.Errorf("invalid workspace name format: %s", o.Name)
 		}
 
-		config, err := clientcmd.NewDefaultClientConfig(*kc.startingConfig, kc.overrides).ClientConfig()
+		config, err := o.ClientConfig.ClientConfig()
 		if err != nil {
 			return err
 		}
@@ -212,22 +220,22 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, name string) (err error)
 			return fmt.Errorf("current URL %q does not point to cluster workspace", config.Host)
 		}
 
-		if strings.Contains(name, ":") && cluster.HasPrefix(tenancyv1alpha1.RootCluster) {
+		if strings.Contains(o.Name, ":") && cluster.HasPrefix(tenancyv1alpha1.RootCluster) {
 			// e.g. root:something:something
 
 			// first try to get Workspace from parent to potentially get a 404. A 403 in the parent though is
 			// not a blocker to enter the workspace. We will do discovery as a final check below
-			parentClusterName, workspaceName := logicalcluster.New(name).Split()
-			if _, err := kc.clusterClient.Cluster(parentClusterName).TenancyV1beta1().Workspaces().Get(ctx, workspaceName, metav1.GetOptions{}); apierrors.IsNotFound(err) {
-				return fmt.Errorf("workspace %q not found", name)
+			parentClusterName, workspaceName := logicalcluster.New(o.Name).Split()
+			if _, err := o.kcpClusterClient.Cluster(parentClusterName).TenancyV1beta1().Workspaces().Get(ctx, workspaceName, metav1.GetOptions{}); apierrors.IsNotFound(err) {
+				return fmt.Errorf("workspace %q not found", o.Name)
 			}
 
-			groups, err := kc.clusterClient.Cluster(cluster).Discovery().ServerGroups()
+			groups, err := o.kcpClusterClient.Cluster(cluster).Discovery().ServerGroups()
 			if err != nil && !apierrors.IsForbidden(err) {
 				return err
 			}
 			if apierrors.IsForbidden(err) || len(groups.Groups) == 0 {
-				return fmt.Errorf("access to workspace %s denied", name)
+				return fmt.Errorf("access to workspace %s denied", o.Name)
 			}
 
 			// TODO(sttts): in both the cases of `root` and absolute paths here we assume that the current cluster
@@ -239,22 +247,22 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, name string) (err error)
 
 			u.Path = path.Join(u.Path, cluster.Path())
 			newServerHost = u.String()
-		} else if strings.Contains(name, ":") {
+		} else if strings.Contains(o.Name, ":") {
 			// e.g. system:something
 			u.Path = path.Join(u.Path, cluster.Path())
 			newServerHost = u.String()
-		} else if name == tenancyv1alpha1.RootCluster.String() {
+		} else if o.Name == tenancyv1alpha1.RootCluster.String() {
 			// root workspace
 			u.Path = path.Join(u.Path, cluster.Path())
 			newServerHost = u.String()
 		} else {
 			// relative logical cluster, get URL from workspace object in current context
-			ws, err := kc.clusterClient.Cluster(currentClusterName).TenancyV1beta1().Workspaces().Get(ctx, name, metav1.GetOptions{})
+			ws, err := o.kcpClusterClient.Cluster(currentClusterName).TenancyV1beta1().Workspaces().Get(ctx, o.Name, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
 			if ws.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseReady {
-				return fmt.Errorf("workspace %q is not ready", name)
+				return fmt.Errorf("workspace %q is not ready", o.Name)
 			}
 
 			newServerHost = ws.Status.URL
@@ -263,8 +271,8 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, name string) (err error)
 	}
 
 	// modify kubeconfig, using the "workspace" context and cluster
-	newKubeConfig := kc.startingConfig.DeepCopy()
-	oldCluster, found := kc.startingConfig.Clusters[currentContext.Cluster]
+	newKubeConfig := o.startingConfig.DeepCopy()
+	oldCluster, found := o.startingConfig.Clusters[currentContext.Cluster]
 	if !found {
 		return fmt.Errorf("cluster %q not found in kubeconfig", currentContext.Cluster)
 	}
@@ -285,50 +293,132 @@ func (kc *KubeConfig) UseWorkspace(ctx context.Context, name string) (err error)
 
 	newKubeConfig.CurrentContext = kcpCurrentWorkspaceContextKey
 
-	if err := kc.modifyConfig(newKubeConfig); err != nil {
+	if err := o.modifyConfig(o.ClientConfig.ConfigAccess(), newKubeConfig); err != nil {
 		return err
 	}
 
-	return kc.currentWorkspace(ctx, newServerHost, workspaceType)
+	return currentWorkspace(o.Out, newServerHost, shortWorkspaceOutput(o.ShortWorkspaceOutput), workspaceType)
 }
 
-// CurrentWorkspace outputs the current workspace.
-func (kc *KubeConfig) CurrentWorkspace(ctx context.Context) error {
-	config, err := clientcmd.NewDefaultClientConfig(*kc.startingConfig, kc.overrides).ClientConfig()
+// CurrentWorkspaceOptions contains options for displaying the current workspace.
+type CurrentWorkspaceOptions struct {
+	*base.Options
+
+	// ShortWorkspaceOutput indicates only the workspace name should be printed.
+	ShortWorkspaceOutput bool
+}
+
+// NewCurrentWorkspaceOptions returns a new CurrentWorkspaceOptions.
+func NewCurrentWorkspaceOptions(streams genericclioptions.IOStreams) *CurrentWorkspaceOptions {
+	return &CurrentWorkspaceOptions{
+		Options: base.NewOptions(streams),
+	}
+}
+
+// BindFlags binds fields to cmd's flagset.
+func (o *CurrentWorkspaceOptions) BindFlags(cmd *cobra.Command) {
+	cmd.Flags().BoolVar(&o.ShortWorkspaceOutput, "short", o.ShortWorkspaceOutput, "Print only the name of the workspace, e.g. for integration into the shell prompt")
+}
+
+// Run outputs the current workspace.
+func (o *CurrentWorkspaceOptions) Run(ctx context.Context) error {
+	cfg, err := o.ClientConfig.ClientConfig()
 	if err != nil {
 		return err
 	}
 
-	return kc.currentWorkspace(ctx, config.Host, nil)
+	return currentWorkspace(o.Out, cfg.Host, shortWorkspaceOutput(o.ShortWorkspaceOutput), nil)
 }
 
-func (kc *KubeConfig) currentWorkspace(ctx context.Context, host string, workspaceType *tenancyv1alpha1.ClusterWorkspaceTypeReference) error {
+type shortWorkspaceOutput bool
+
+func currentWorkspace(out io.Writer, host string, shortWorkspaceOutput shortWorkspaceOutput, workspaceType *tenancyv1alpha1.ClusterWorkspaceTypeReference) error {
 	_, clusterName, err := pluginhelpers.ParseClusterURL(host)
 	if err != nil {
-		if kc.shortWorkspaceOutput {
+		if shortWorkspaceOutput {
 			return nil
 		}
-		_, err = fmt.Fprintf(kc.Out, "Current workspace is the URL %q.\n", host)
+		_, err = fmt.Fprintf(out, "Current workspace is the URL %q.\n", host)
 		return err
 	}
 
-	if kc.shortWorkspaceOutput {
-		fmt.Fprintf(kc.Out, "%s\n", clusterName) // nolint: errcheck
-		return nil
+	if shortWorkspaceOutput {
+		_, err = fmt.Fprintf(out, "%s\n", clusterName)
+		return err
 	}
 
 	message := fmt.Sprintf("Current workspace is %q", clusterName)
 	if workspaceType != nil {
 		message += fmt.Sprintf(" (type %q)", workspaceType.String())
 	}
-	_, err = fmt.Fprintln(kc.Out, message+".")
+	_, err = fmt.Fprintln(out, message+".")
 	return err
 }
 
-// CreateWorkspace creates a workspace owned by the the current user
-// (kubeconfig user possibly overridden by CLI options).
-func (kc *KubeConfig) CreateWorkspace(ctx context.Context, workspaceName string, workspaceType string, ignoreExisting, useAfterCreation bool, readyWaitTimeout time.Duration) error {
-	config, err := clientcmd.NewDefaultClientConfig(*kc.startingConfig, kc.overrides).ClientConfig()
+// CreateWorkspaceOptions contains options for creating a new workspace.
+type CreateWorkspaceOptions struct {
+	*base.Options
+
+	// Name is the name of the workspace to create.
+	Name string
+	// Type is the type of the workspace to create.
+	Type string
+	// EnterAfterCreate enters the newly created workspace if true.
+	EnterAfterCreate bool
+	// IgnoreExisting ignores errors if the workspace already exists.
+	IgnoreExisting bool
+	// ReadyWaitTimeout is how long to wait for the workspace to be ready before returning control to the user.
+	ReadyWaitTimeout time.Duration
+
+	kcpClusterClient kcpclient.ClusterInterface
+
+	// for testing - passed to UseWorkspaceOptions
+	modifyConfig func(configAccess clientcmd.ConfigAccess, newConfig *clientcmdapi.Config) error
+}
+
+// NewCreateWorkspaceOptions returns a new CreateWorkspaceOptions.
+func NewCreateWorkspaceOptions(streams genericclioptions.IOStreams) *CreateWorkspaceOptions {
+	return &CreateWorkspaceOptions{
+		Options: base.NewOptions(streams),
+
+		ReadyWaitTimeout: time.Minute,
+	}
+}
+
+// Complete ensures all dynamically populated fields are initialized.
+func (o *CreateWorkspaceOptions) Complete(args []string) error {
+	if err := o.Options.Complete(); err != nil {
+		return err
+	}
+
+	if len(args) > 0 {
+		o.Name = args[0]
+	}
+
+	kcpClusterClient, err := newKCPClusterClient(o.ClientConfig)
+	if err != nil {
+		return err
+	}
+	o.kcpClusterClient = kcpClusterClient
+
+	return nil
+}
+
+// Validate validates the CreateWorkspaceOptions are complete and usable.
+func (o *CreateWorkspaceOptions) Validate() error {
+	return o.Options.Validate()
+}
+
+// BindFlags binds fields to cmd's flagset.
+func (o *CreateWorkspaceOptions) BindFlags(cmd *cobra.Command) {
+	cmd.Flags().StringVar(&o.Type, "type", o.Type, "A workspace type. The default type depends on where this child workspace is created.")
+	cmd.Flags().BoolVar(&o.EnterAfterCreate, "enter", o.EnterAfterCreate, "Immediately enter the created workspace")
+	cmd.Flags().BoolVar(&o.IgnoreExisting, "ignore-existing", o.IgnoreExisting, "Ignore if the workspace already exists. Requires none or absolute type path.")
+}
+
+// Run creates a workspace.
+func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
+	config, err := o.ClientConfig.ClientConfig()
 	if err != nil {
 		return err
 	}
@@ -337,31 +427,31 @@ func (kc *KubeConfig) CreateWorkspace(ctx context.Context, workspaceName string,
 		return fmt.Errorf("current URL %q does not point to cluster workspace", config.Host)
 	}
 
-	if ignoreExisting && workspaceType != "" && !logicalcluster.New(workspaceType).HasPrefix(tenancyv1alpha1.RootCluster) {
+	if o.IgnoreExisting && o.Type != "" && !logicalcluster.New(o.Type).HasPrefix(tenancyv1alpha1.RootCluster) {
 		return fmt.Errorf("--ignore-existing must not be used with non-absolute type path")
 	}
 
 	var structuredWorkspaceType tenancyv1alpha1.ClusterWorkspaceTypeReference
-	if workspaceType != "" {
-		separatorIndex := strings.LastIndex(workspaceType, ":")
+	if o.Type != "" {
+		separatorIndex := strings.LastIndex(o.Type, ":")
 		switch separatorIndex {
 		case -1:
 			structuredWorkspaceType = tenancyv1alpha1.ClusterWorkspaceTypeReference{
-				Name: tenancyv1alpha1.ClusterWorkspaceTypeName(strings.ToLower(workspaceType)),
+				Name: tenancyv1alpha1.ClusterWorkspaceTypeName(strings.ToLower(o.Type)),
 				// path is defaulted through admission
 			}
 		default:
 			structuredWorkspaceType = tenancyv1alpha1.ClusterWorkspaceTypeReference{
-				Name: tenancyv1alpha1.ClusterWorkspaceTypeName(strings.ToLower(workspaceType[separatorIndex+1:])),
-				Path: workspaceType[:separatorIndex],
+				Name: tenancyv1alpha1.ClusterWorkspaceTypeName(strings.ToLower(o.Type[separatorIndex+1:])),
+				Path: o.Type[:separatorIndex],
 			}
 		}
 	}
 
 	preExisting := false
-	ws, err := kc.clusterClient.Cluster(currentClusterName).TenancyV1beta1().Workspaces().Create(ctx, &tenancyv1beta1.Workspace{
+	ws, err := o.kcpClusterClient.Cluster(currentClusterName).TenancyV1beta1().Workspaces().Create(ctx, &tenancyv1beta1.Workspace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: workspaceName,
+			Name: o.Name,
 		},
 		Spec: tenancyv1beta1.WorkspaceSpec{
 			Type: structuredWorkspaceType,
@@ -369,35 +459,35 @@ func (kc *KubeConfig) CreateWorkspace(ctx context.Context, workspaceName string,
 	}, metav1.CreateOptions{})
 	if apierrors.IsNotFound(err) {
 		// STOP THE BLEEDING: currently, kcp forwards workspace resource request to the workspace virtual apiserver
-		// indpenedently whether the CRD is installed in the workspace. Universal workspaces though don't have that
+		// independently whether the CRD is installed in the workspace. Universal workspaces though don't have that
 		// resource, but the virtual apiserver return 404 in that case, confusingly for clients.
 		// This hack avoids a message confusing for the user.
 		return fmt.Errorf("creating a workspace under a universal type workspace is not supported")
 	}
-	if apierrors.IsAlreadyExists(err) && ignoreExisting {
+	if apierrors.IsAlreadyExists(err) && o.IgnoreExisting {
 		preExisting = true
-		ws, err = kc.clusterClient.Cluster(currentClusterName).TenancyV1beta1().Workspaces().Get(ctx, workspaceName, metav1.GetOptions{})
+		ws, err = o.kcpClusterClient.Cluster(currentClusterName).TenancyV1beta1().Workspaces().Get(ctx, o.Name, metav1.GetOptions{})
 	}
 	if err != nil {
 		return err
 	}
 
-	workspaceReference := fmt.Sprintf("Workspace %q (type %s)", workspaceName, ws.Spec.Type)
+	workspaceReference := fmt.Sprintf("Workspace %q (type %s)", o.Name, ws.Spec.Type)
 	if preExisting {
 		if ws.Spec.Type.Name != "" && ws.Spec.Type.Name != structuredWorkspaceType.Name || ws.Spec.Type.Path != structuredWorkspaceType.Path {
-			return fmt.Errorf("workspace %q cannot be created with type %s, it already exists with different type %s", workspaceName, structuredWorkspaceType.String(), ws.Spec.Type.String())
+			return fmt.Errorf("workspace %q cannot be created with type %s, it already exists with different type %s", o.Name, structuredWorkspaceType.String(), ws.Spec.Type.String())
 		}
-		if ws.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseReady && readyWaitTimeout > 0 {
-			if _, err := fmt.Fprintf(kc.Out, "%s already exists. Waiting for it to be ready...\n", workspaceReference); err != nil {
+		if ws.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseReady && o.ReadyWaitTimeout > 0 {
+			if _, err := fmt.Fprintf(o.Out, "%s already exists. Waiting for it to be ready...\n", workspaceReference); err != nil {
 				return err
 			}
 		} else {
-			if _, err := fmt.Fprintf(kc.Out, "%s already exists.\n", workspaceReference); err != nil {
+			if _, err := fmt.Fprintf(o.Out, "%s already exists.\n", workspaceReference); err != nil {
 				return err
 			}
 		}
-	} else if ws.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseReady && readyWaitTimeout > 0 {
-		if _, err := fmt.Fprintf(kc.Out, "%s created. Waiting for it to be ready...\n", workspaceReference); err != nil {
+	} else if ws.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseReady && o.ReadyWaitTimeout > 0 {
+		if _, err := fmt.Fprintf(o.Out, "%s created. Waiting for it to be ready...\n", workspaceReference); err != nil {
 			return err
 		}
 	} else if ws.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseReady {
@@ -406,7 +496,7 @@ func (kc *KubeConfig) CreateWorkspace(ctx context.Context, workspaceName string,
 
 	// STOP THE BLEEDING: the virtual workspace is still informer based (not good). We have to wait until it shows up.
 	if err := wait.PollImmediate(time.Millisecond*100, time.Second*5, func() (bool, error) {
-		if _, err := kc.clusterClient.Cluster(currentClusterName).TenancyV1beta1().Workspaces().Get(ctx, ws.Name, metav1.GetOptions{}); err != nil {
+		if _, err := o.kcpClusterClient.Cluster(currentClusterName).TenancyV1beta1().Workspaces().Get(ctx, ws.Name, metav1.GetOptions{}); err != nil {
 			if apierrors.IsNotFound(err) {
 				return false, nil
 			}
@@ -419,8 +509,8 @@ func (kc *KubeConfig) CreateWorkspace(ctx context.Context, workspaceName string,
 
 	// wait for being ready
 	if ws.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseReady {
-		if err := wait.PollImmediate(time.Millisecond*500, readyWaitTimeout, func() (bool, error) {
-			ws, err = kc.clusterClient.Cluster(currentClusterName).TenancyV1beta1().Workspaces().Get(ctx, ws.Name, metav1.GetOptions{})
+		if err := wait.PollImmediate(time.Millisecond*500, o.ReadyWaitTimeout, func() (bool, error) {
+			ws, err = o.kcpClusterClient.Cluster(currentClusterName).TenancyV1beta1().Workspaces().Get(ctx, ws.Name, metav1.GetOptions{})
 			if err != nil {
 				return false, err
 			}
@@ -432,25 +522,92 @@ func (kc *KubeConfig) CreateWorkspace(ctx context.Context, workspaceName string,
 			return err
 		}
 	}
-	if _, err := fmt.Fprintf(kc.Out, "%s is ready to use.\n", workspaceReference); err != nil {
+	if _, err := fmt.Fprintf(o.Out, "%s is ready to use.\n", workspaceReference); err != nil {
 		return err
 	}
 
-	if useAfterCreation {
+	if o.EnterAfterCreate {
 		u, err := url.Parse(ws.Status.URL)
 		if err != nil {
 			return err
 		}
-		internalName := path.Base(u.Path)
-		if err := kc.UseWorkspace(ctx, internalName); err != nil {
+
+		useOptions := NewUseWorkspaceOptions(o.IOStreams)
+		useOptions.Name = path.Base(u.Path)
+		// only for unit test needs
+		if o.modifyConfig != nil {
+			useOptions.modifyConfig = o.modifyConfig
+		}
+		if err := useOptions.Complete(nil); err != nil {
 			return err
 		}
+		if err := useOptions.Validate(); err != nil {
+			return err
+		}
+		return useOptions.Run(ctx)
 	}
+
 	return nil
 }
 
-func (kc *KubeConfig) CreateContext(ctx context.Context, name string, overwrite bool) error {
-	config, err := clientcmd.NewDefaultClientConfig(*kc.startingConfig, nil).RawConfig()
+// CreateContextOptions contains options for creating or updating a kubeconfig context.
+type CreateContextOptions struct {
+	*base.Options
+
+	// Name is the name of the context to create.
+	Name string
+	// Overwrite indicates the context should be updated if it already exists. This is required to perform the update.
+	Overwrite bool
+
+	startingConfig *clientcmdapi.Config
+
+	// for testing
+	modifyConfig func(configAccess clientcmd.ConfigAccess, newConfig *clientcmdapi.Config) error
+}
+
+// NewCreateContextOptions returns a new CreateContextOptions.
+func NewCreateContextOptions(streams genericclioptions.IOStreams) *CreateContextOptions {
+	return &CreateContextOptions{
+		Options: base.NewOptions(streams),
+
+		modifyConfig: func(configAccess clientcmd.ConfigAccess, newConfig *clientcmdapi.Config) error {
+			return clientcmd.ModifyConfig(configAccess, *newConfig, true)
+		},
+	}
+}
+
+// BindFlags binds fields to cmd's flagset.
+func (o *CreateContextOptions) BindFlags(cmd *cobra.Command) {
+	cmd.Flags().BoolVar(&o.Overwrite, "overwrite", o.Overwrite, "Overwrite the context if it already exists")
+}
+
+// Complete ensures all dynamically populated fields are initialized.
+func (o *CreateContextOptions) Complete(args []string) error {
+	if err := o.Options.Complete(); err != nil {
+		return err
+	}
+
+	var err error
+	o.startingConfig, err = o.ClientConfig.ConfigAccess().GetStartingConfig()
+	if err != nil {
+		return err
+	}
+
+	if o.Name == "" && len(args) > 0 {
+		o.Name = args[0]
+	}
+
+	return nil
+}
+
+// Validate validates the CreateContextOptions are complete and usable.
+func (o *CreateContextOptions) Validate() error {
+	return o.Options.Validate()
+}
+
+// Run creates or updates a kubeconfig context from the current context.
+func (o *CreateContextOptions) Run(ctx context.Context) error {
+	config, err := o.ClientConfig.RawConfig()
 	if err != nil {
 		return err
 	}
@@ -467,36 +624,52 @@ func (kc *KubeConfig) CreateContext(ctx context.Context, name string, overwrite 
 		return fmt.Errorf("current URL %q does not point to cluster workspace", currentCluster.Server)
 	}
 
-	if name == "" {
-		name = currentClusterName.String()
+	if o.Name == "" {
+		o.Name = currentClusterName.String()
 	}
 
-	_, existedBefore := kc.startingConfig.Contexts[name]
-	if existedBefore && !overwrite {
-		return fmt.Errorf("context %q already exists in kubeconfig, use --overwrite to update it", name)
+	_, existedBefore := o.startingConfig.Contexts[o.Name]
+	if existedBefore && !o.Overwrite {
+		return fmt.Errorf("context %q already exists in kubeconfig, use --overwrite to update it", o.Name)
 	}
 
-	newKubeConfig := kc.startingConfig.DeepCopy()
+	newKubeConfig := o.startingConfig.DeepCopy()
 	newCluster := *currentCluster
-	newKubeConfig.Clusters[name] = &newCluster
+	newKubeConfig.Clusters[o.Name] = &newCluster
 	newContext := *currentContext
-	newContext.Cluster = name
-	newKubeConfig.Contexts[name] = &newContext
-	newKubeConfig.CurrentContext = name
+	newContext.Cluster = o.Name
+	newKubeConfig.Contexts[o.Name] = &newContext
+	newKubeConfig.CurrentContext = o.Name
 
-	if err := kc.modifyConfig(newKubeConfig); err != nil {
+	if err := o.modifyConfig(o.ClientConfig.ConfigAccess(), newKubeConfig); err != nil {
 		return err
 	}
 
 	if existedBefore {
-		if kc.startingConfig.CurrentContext == name {
-			fmt.Fprintf(kc.Out, "Updated context %q.\n", name) // nolint: errcheck
+		if o.startingConfig.CurrentContext == o.Name {
+			_, err = fmt.Fprintf(o.Out, "Updated context %q.\n", o.Name)
 		} else {
-			fmt.Fprintf(kc.Out, "Updated context %q and switched to it.\n", name) // nolint:	errcheck
+			_, err = fmt.Fprintf(o.Out, "Updated context %q and switched to it.\n", o.Name)
 		}
 	} else {
-		fmt.Fprintf(kc.Out, "Created context %q and switched to it.\n", name) // nolint: errcheck
+		_, err = fmt.Fprintf(o.Out, "Created context %q and switched to it.\n", o.Name)
 	}
 
-	return nil
+	return err
+}
+
+func newKCPClusterClient(clientConfig clientcmd.ClientConfig) (kcpclient.ClusterInterface, error) {
+	config, err := clientConfig.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+	clusterConfig := rest.CopyConfig(config)
+	u, err := url.Parse(config.Host)
+	if err != nil {
+		return nil, err
+	}
+	u.Path = ""
+	clusterConfig.Host = u.String()
+	clusterConfig.UserAgent = rest.DefaultKubernetesUserAgent()
+	return kcpclient.NewClusterForConfig(clusterConfig)
 }

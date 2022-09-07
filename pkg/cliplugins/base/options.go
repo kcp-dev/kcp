@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package plugin
+package base
 
 import (
 	"github.com/spf13/cobra"
@@ -23,14 +23,24 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-// Options for the workload commands.
+// Options contains options common to most CLI plugins, including settings for connecting to kcp (kubeconfig, etc).
 type Options struct {
+	// OptOutOfDefaultKubectlFlags indicates that the standard kubectl/kubeconfig-related flags should not be bound
+	// by default.
+	OptOutOfDefaultKubectlFlags bool
+	// Kubeconfig specifies kubeconfig file(s).
+	Kubeconfig string
+	// KubectlOverrides stores the extra client connection fields, such as context, user, etc.
 	KubectlOverrides *clientcmd.ConfigOverrides
 
 	genericclioptions.IOStreams
+
+	// ClientConfig is the resolved cliendcmd.ClientConfig based on the client connection flags. This is only valid
+	// after calling Complete.
+	ClientConfig clientcmd.ClientConfig
 }
 
-// NewOptions provides an instance of Options with default values
+// NewOptions provides an instance of Options with default values.
 func NewOptions(streams genericclioptions.IOStreams) *Options {
 	return &Options{
 		KubectlOverrides: &clientcmd.ConfigOverrides{},
@@ -38,9 +48,14 @@ func NewOptions(streams genericclioptions.IOStreams) *Options {
 	}
 }
 
-// BindFlags binds the arguments common to all sub-commands,
-// to the corresponding main command flags
+// BindFlags binds options fields to cmd's flagset.
 func (o *Options) BindFlags(cmd *cobra.Command) {
+	if o.OptOutOfDefaultKubectlFlags {
+		return
+	}
+
+	cmd.Flags().StringVar(&o.Kubeconfig, "kubeconfig", o.Kubeconfig, "path to the kubeconfig file")
+
 	// We add only a subset of kubeconfig-related flags to the plugin.
 	// All those with with LongName == "" will be ignored.
 	kubectlConfigOverrideFlags := clientcmd.RecommendedConfigOverrideFlags("")
@@ -48,14 +63,28 @@ func (o *Options) BindFlags(cmd *cobra.Command) {
 	kubectlConfigOverrideFlags.AuthOverrideFlags.ClientKey.LongName = ""
 	kubectlConfigOverrideFlags.AuthOverrideFlags.Impersonate.LongName = ""
 	kubectlConfigOverrideFlags.AuthOverrideFlags.ImpersonateGroups.LongName = ""
-	kubectlConfigOverrideFlags.ContextOverrideFlags.AuthInfoName.LongName = ""
 	kubectlConfigOverrideFlags.ContextOverrideFlags.ClusterName.LongName = ""
-	kubectlConfigOverrideFlags.ContextOverrideFlags.Namespace.LongName = ""
 	kubectlConfigOverrideFlags.Timeout.LongName = ""
 
 	clientcmd.BindOverrideFlags(o.KubectlOverrides, cmd.PersistentFlags(), kubectlConfigOverrideFlags)
 }
 
+// Complete initializes ClientConfig based on Kubeconfig and KubectlOverrides.
+func (o *Options) Complete() error {
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	loadingRules.ExplicitPath = o.Kubeconfig
+
+	startingConfig, err := loadingRules.GetStartingConfig()
+	if err != nil {
+		return err
+	}
+
+	o.ClientConfig = clientcmd.NewDefaultClientConfig(*startingConfig, o.KubectlOverrides)
+
+	return nil
+}
+
+// Validate validates the configured options.
 func (o *Options) Validate() error {
 	return nil
 }

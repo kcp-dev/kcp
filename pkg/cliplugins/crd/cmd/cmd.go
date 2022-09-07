@@ -49,7 +49,7 @@ func New(streams genericclioptions.IOStreams) *cobra.Command {
 		},
 	}
 
-	snapshotOptions := plugin.NewOptions(streams)
+	snapshotOptions := plugin.NewSnapshotOptions(streams)
 
 	snapshotCommand := &cobra.Command{
 		Use:          "snapshot -f FILE --prefix PREFIX",
@@ -57,11 +57,15 @@ func New(streams genericclioptions.IOStreams) *cobra.Command {
 		Example:      fmt.Sprintf(crdExample, "kubectl kcp"),
 		SilenceUsage: true,
 		RunE: func(c *cobra.Command, args []string) error {
+			if err := snapshotOptions.Complete(); err != nil {
+				return err
+			}
+
 			if err := snapshotOptions.Validate(); err != nil {
 				return err
 			}
 
-			return plugin.NewCRDSnapshot(snapshotOptions).Execute()
+			return snapshotOptions.Run()
 		},
 	}
 
