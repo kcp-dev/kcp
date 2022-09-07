@@ -9,9 +9,20 @@ linters-settings:
 
 linters:
   enable:
+  - asciicheck
+  - bidichk
+  - durationcheck
+  - errname
   - errorlint
   - exportloopref
   - gofmt
+  - gosimple
+  - govet
   - importas
+  - ineffassign
   - misspell
   - nilerr
+  - unconvert
+  - unused
+  - errcheck
+  - nolintlint
