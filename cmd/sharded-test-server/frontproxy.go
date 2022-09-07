@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -164,7 +165,8 @@ func startFrontProxy(
 	terminatedCh := make(chan int, 1)
 	go func() {
 		if err := cmd.Wait(); err != nil {
-			if exitErr, ok := err.(*exec.ExitError); ok { //nolint:errorlint
+			var exitErr *exec.ExitError
+			if errors.As(err, &exitErr) {
 				terminatedCh <- exitErr.ExitCode()
 			}
 		} else {

@@ -19,6 +19,7 @@ package shard
 import (
 	"context"
 	"embed"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -121,9 +122,10 @@ func Start(ctx context.Context, name, runtimeDir, logFilePath string, args []str
 		case <-ctx.Done():
 			return nil, fmt.Errorf("context canceled")
 		case err := <-terminatedCh:
+			var exitErr *exec.ExitError
 			if err == nil {
 				return nil, fmt.Errorf("kcp shard %s terminated unexpectedly with exit code 0", name)
-			} else if exitErr, ok := err.(*exec.ExitError); ok { //nolint:errorlint
+			} else if errors.As(err, &exitErr) {
 				return nil, fmt.Errorf("kcp shard %s terminated with exit code %d", name, exitErr.ExitCode())
 			}
 			return nil, fmt.Errorf("kcp shard %s terminated with unknown error: %w", name, err)
@@ -145,9 +147,10 @@ func Start(ctx context.Context, name, runtimeDir, logFilePath string, args []str
 		case <-ctx.Done():
 			return nil, fmt.Errorf("context canceled")
 		case err := <-terminatedCh:
+			var exitErr *exec.ExitError
 			if err == nil {
 				return nil, fmt.Errorf("kcp shard %s terminated unexpectedly with exit code 0", name)
-			} else if exitErr, ok := err.(*exec.ExitError); ok { //nolint:errorlint
+			} else if errors.As(err, &exitErr) {
 				return nil, fmt.Errorf("kcp shard %s terminated with exit code %d", name, exitErr.ExitCode())
 			}
 			return nil, fmt.Errorf("kcp shard %s terminated with unknown error: %w", name, err)

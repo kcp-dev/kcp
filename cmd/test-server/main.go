@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -64,9 +65,9 @@ func main() {
 	flag.CommandLine.Parse(genericFlags) //nolint:errcheck
 
 	if err := start(shardFlags); err != nil {
-		//nolint:errorlint
-		if err, ok := err.(*exec.ExitError); ok {
-			os.Exit(err.ExitCode())
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			os.Exit(exitErr.ExitCode())
 		}
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
