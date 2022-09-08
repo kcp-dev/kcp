@@ -127,7 +127,7 @@ func NewSpecSyncer(gvrs []schema.GroupVersionResource, syncTargetWorkspace logic
 				if err != nil {
 					utilruntime.HandleError(fmt.Errorf("error splitting key %q: %w", key, err))
 				}
-				klog.V(3).InfoS("processing  delete event", "key", key, "gvr", gvr, "namespace", namespace, "name", name)
+				klog.V(3).InfoS("processing delete event", "key", key, "gvr", gvr, "namespace", namespace, "name", name)
 
 				// Use namespace lister
 				nsObj, err := namespaceLister.Get(namespace)

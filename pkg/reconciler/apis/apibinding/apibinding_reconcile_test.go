@@ -719,7 +719,7 @@ func TestReconcileBound(t *testing.T) {
 					return tc.apiResourceSchemas[name], nil
 				},
 				listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
-					// TODO: Add tests for  reconcile permisonclaims, this to is to prevent a nil panic in reconciling permission claims.
+					// TODO: Add tests for reconcile permisonclaims, this is to prevent a nil panic in reconciling permission claims.
 					return []*apisv1alpha1.APIBinding{}, nil
 				},
 			}

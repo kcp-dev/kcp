@@ -18,7 +18,7 @@ If a cluster is a desirable unit of tenancy, clusters should be amortized "free"
 A logical cluster that behaves differently from a physical cluster is not valuable for existing tools. We would need to lean heavily on our existing abstractions to ensure clients see no difference, and to focus on implementation options that avoid reduplicating a large amount of the Kube API surface area.
 
 ### Constraint: The implementation must improve isolation within a single process
- 
+
 As clusters grow larger or are used in more complex fashion, the failure modes of a single process API server have received significant attention within the last few years. To offer cheaper clusters, we'd have to also improve isolation between simultaneous clients and manage etcd usage, traffic, and both cpu and memory use at the control plane. These stronger controls would be beneficial to physical clusters and organizations running more complex clusters as well.
 
 ### Constraint: We should improve in-process options for policy
@@ -67,7 +67,7 @@ The use cases of logical cluster can be seen to overlap heavily with [transparen
 
 In the early prototype stage `kcp` has a series of patches that allow a header or API prefix path to alter the prefix used to retrieve resources from etcd. The set of available resources is stripped down to a minimal set of hardcoded APIs including namespaces, rbac, and crds by patching those out of kube-apiserver type registration.
 
-The header `X-Kubernetes-Cluster` supports either a named logical cluster or the value `*`, or the prefix `/cluster/<name>` may be used at the root. This alters the behavior of a number of components, primarily  retrieval and storage of API objects in etcd by adding a new segment to the etcd key (instead of `/<resource>/<namespace>/<name>`, `/<resource>/<cluster>/<namespace>/<name>`). Providing `*` is currently acting on watch to support watching resources across all clusters, which also has the side effect of populating the object `metadata.clusterName` field. If no logical cluster name is provided, the value `admin` is used (which behaves as a normal kube-apiserver would).
+The header `X-Kubernetes-Cluster` supports either a named logical cluster or the value `*`, or the prefix `/cluster/<name>` may be used at the root. This alters the behavior of a number of components, primarily retrieval and storage of API objects in etcd by adding a new segment to the etcd key (instead of `/<resource>/<namespace>/<name>`, `/<resource>/<cluster>/<namespace>/<name>`). Providing `*` is currently acting on watch to support watching resources across all clusters, which also has the side effect of populating the object `metadata.clusterName` field. If no logical cluster name is provided, the value `admin` is used (which behaves as a normal kube-apiserver would).
 
 This means new logical clusters start off empty (no RBAC or CRD resources), which the `kcp` prototype mitigates by calculating the set of API resources available by merging from the default `admin` CRDs + the hardcoded APIs. That demonstrates one avenue of efficiency - a new logical cluster has an amortized cost near zero for both RBAC (no duplication of several hundred RBAC roles into the logical cluster) and API OpenAPI documents (built on demand as the union of another logical cluster and any CRDs added to the new cluster).
 
@@ -76,7 +76,7 @@ To LIST or WATCH these resources, the user specifies `*` as their cluster name w
 #### Next steps
 
 * Continuing to explore how clients might query multiple resources across multiple logical clusters
-* What changes to resource version are necessary to allow 
+* What changes to resource version are necessary to allow
 
 ### Zero configuration on startup in local dev
 

@@ -189,7 +189,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 	// Setup kcp * informers, but those will need the identities for the APIExports used to make the APIs available.
 	// The identities are not known before we can get them from the APIExports via the loopback client or from the root shard in case this is a non-root shard,
 	// hence we postpone this to getOrCreateKcpIdentities() in the kcp-start-informers post-start hook.
-	// The informers here are not  used before the informers are actually started (i.e. no race).
+	// The informers here are not used before the informers are actually started (i.e. no race).
 	if len(c.Options.Extra.RootShardKubeconfigFile) > 0 {
 		// TODO(p0lyn0mial): use kcp-admin instead of system:admin
 		nonIdentityRootKcpShardSystemAdminConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: c.Options.Extra.RootShardKubeconfigFile}, &clientcmd.ConfigOverrides{CurrentContext: "system:admin"}).ClientConfig()

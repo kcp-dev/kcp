@@ -64,10 +64,10 @@ func Register(plugins *admission.Plugins) {
 		})
 }
 
-// clusterWorkspaceTypeExists  does the following
-// - it checks existence of ClusterWorkspaceType in the same workspace,
-// - it applies the ClusterWorkspaceType initializers to the ClusterWorkspace when it
-//   transitions to the Initializing state.
+// clusterWorkspaceTypeExists does the following
+//   - it checks existence of ClusterWorkspaceType in the same workspace,
+//   - it applies the ClusterWorkspaceType initializers to the ClusterWorkspace when it
+//     transitions to the Initializing state.
 type clusterWorkspaceTypeExists struct {
 	*admission.Handler
 	typeLister             tenancylisters.ClusterWorkspaceTypeLister
