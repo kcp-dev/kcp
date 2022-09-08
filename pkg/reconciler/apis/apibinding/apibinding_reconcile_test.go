@@ -207,7 +207,7 @@ func TestReconcileBinding(t *testing.T) {
 		wantBoundResources                      []apisv1alpha1.BoundAPIResource
 		wantNamingConflict                      bool
 		crdEstablished                          bool
-		crdStorageVerions                       []string
+		crdStorageVersions                      []string
 	}{
 		"Update to nil workspace ref reports invalid APIExport": {
 			apiBinding:           binding.DeepCopy().WithoutWorkspaceReference().Build(),
@@ -309,7 +309,7 @@ func TestReconcileBinding(t *testing.T) {
 			getCRDError:               nil,
 			crdExists:                 true,
 			crdEstablished:            false,
-			crdStorageVerions:         []string{"v0", "v1"},
+			crdStorageVersions:        []string{"v0", "v1"},
 			wantAPIExportValid:        true,
 			wantReady:                 false,
 			wantBoundAPIExport:        true,
@@ -321,7 +321,7 @@ func TestReconcileBinding(t *testing.T) {
 			getCRDError:        nil,
 			crdExists:          true,
 			crdEstablished:     true,
-			crdStorageVerions:  []string{"v0", "v1"},
+			crdStorageVersions: []string{"v0", "v1"},
 			wantAPIExportValid: true,
 			wantReady:          true,
 			wantBoundAPIExport: true,
@@ -345,7 +345,7 @@ func TestReconcileBinding(t *testing.T) {
 			getCRDError:        nil,
 			crdExists:          true,
 			crdEstablished:     true,
-			crdStorageVerions:  []string{"v2"},
+			crdStorageVersions: []string{"v2"},
 			wantAPIExportValid: true,
 			wantReady:          true,
 			wantBoundAPIExport: true,
@@ -485,7 +485,7 @@ func TestReconcileBinding(t *testing.T) {
 
 					crd := &apiextensionsv1.CustomResourceDefinition{
 						Status: apiextensionsv1.CustomResourceDefinitionStatus{
-							StoredVersions: tc.crdStorageVerions,
+							StoredVersions: tc.crdStorageVersions,
 						},
 					}
 
@@ -719,7 +719,7 @@ func TestReconcileBound(t *testing.T) {
 					return tc.apiResourceSchemas[name], nil
 				},
 				listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
-					// TODO: Add tests for  reconcile permisonclaims, this to is to prevent a nil panic in reconciling permission claims.
+					// TODO: Add tests for reconcile permisonclaims, this is to prevent a nil panic in reconciling permission claims.
 					return []*apisv1alpha1.APIBinding{}, nil
 				},
 			}

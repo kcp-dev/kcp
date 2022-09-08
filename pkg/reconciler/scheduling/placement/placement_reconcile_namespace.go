@@ -29,7 +29,7 @@ import (
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 )
 
-// placementNamespaceReconciler checkes the namespaces bound to this placement and set the phase.
+// placementNamespaceReconciler checks the namespaces bound to this placement and set the phase.
 // If there are at least one namespace bound to this placement, the placement is in bound state.
 type placementNamespaceReconciler struct {
 	listNamespacesWithAnnotation func(clusterName logicalcluster.Name) ([]*corev1.Namespace, error)

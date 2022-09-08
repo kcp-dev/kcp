@@ -1664,18 +1664,18 @@ func TestServeHTTP(t *testing.T) {
 	}
 }
 
-func overrideLogic(handler *homeWorkspaceHandler, overridenLogic homeWorkspaceFeatureLogic) *homeWorkspaceHandler {
-	if overridenLogic.createHomeWorkspaceRBACResources != nil {
-		handler.createHomeWorkspaceRBACResources = overridenLogic.createHomeWorkspaceRBACResources
+func overrideLogic(handler *homeWorkspaceHandler, overriddenLogic homeWorkspaceFeatureLogic) *homeWorkspaceHandler {
+	if overriddenLogic.createHomeWorkspaceRBACResources != nil {
+		handler.createHomeWorkspaceRBACResources = overriddenLogic.createHomeWorkspaceRBACResources
 	}
-	if overridenLogic.searchForHomeWorkspaceRBACResourcesInLocalInformers != nil {
-		handler.searchForHomeWorkspaceRBACResourcesInLocalInformers = overridenLogic.searchForHomeWorkspaceRBACResourcesInLocalInformers
+	if overriddenLogic.searchForHomeWorkspaceRBACResourcesInLocalInformers != nil {
+		handler.searchForHomeWorkspaceRBACResourcesInLocalInformers = overriddenLogic.searchForHomeWorkspaceRBACResourcesInLocalInformers
 	}
-	if overridenLogic.searchForWorkspaceAndRBACInLocalInformers != nil {
-		handler.searchForWorkspaceAndRBACInLocalInformers = overridenLogic.searchForWorkspaceAndRBACInLocalInformers
+	if overriddenLogic.searchForWorkspaceAndRBACInLocalInformers != nil {
+		handler.searchForWorkspaceAndRBACInLocalInformers = overriddenLogic.searchForWorkspaceAndRBACInLocalInformers
 	}
-	if overridenLogic.tryToCreate != nil {
-		handler.tryToCreate = overridenLogic.tryToCreate
+	if overriddenLogic.tryToCreate != nil {
+		handler.tryToCreate = overriddenLogic.tryToCreate
 	}
 	return handler
 }

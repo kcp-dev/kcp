@@ -86,7 +86,7 @@ func NewController(
 
 	if err := placementInformer.Informer().AddIndexers(cache.Indexers{
 		byWorkspace:         indexByWorksapce,
-		byLocationWorkspace: indexByLoactionWorkspace,
+		byLocationWorkspace: indexByLocationWorkspace,
 	}); err != nil {
 		return nil, err
 	}

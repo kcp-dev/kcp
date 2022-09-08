@@ -52,7 +52,7 @@ const (
 )
 
 // NewController returns a new controller for handling permission claims for an APIBinding.
-// it will own the AppliedPermissionClaims and will own the accepted permision claim condition.
+// it will own the AppliedPermissionClaims and will own the accepted permission claim condition.
 func NewController(
 	kcpClusterClient kcpclient.Interface,
 	dynamicClusterClient dynamic.Interface,

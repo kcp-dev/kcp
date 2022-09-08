@@ -318,7 +318,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 			// check for collision. Chance is super low hitting it by accident. But to protect against malicious users,
 			// we check for collision and return 403.
 			if info, _ := unmarshalOwner(homeClusterWorkspace); info == nil {
-				responsewriters.Forbidden(ctx, getAttributes, rw, req, authorization.WorkspaceAcccessNotPermittedReason, homeWorkspaceCodecs)
+				responsewriters.Forbidden(ctx, getAttributes, rw, req, authorization.WorkspaceAccessNotPermittedReason, homeWorkspaceCodecs)
 				return
 			} else if info.Username != effectiveUser.GetName() {
 				logger.WithValues(logging.FromUserPrefix(&kuser.DefaultInfo{
@@ -326,7 +326,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 					UID:    info.UID,
 					Groups: info.Groups,
 				}, "owner")...).Info("collision detected for user in home workspace owned by another user")
-				responsewriters.Forbidden(ctx, getAttributes, rw, req, authorization.WorkspaceAcccessNotPermittedReason, homeWorkspaceCodecs)
+				responsewriters.Forbidden(ctx, getAttributes, rw, req, authorization.WorkspaceAccessNotPermittedReason, homeWorkspaceCodecs)
 				return
 			}
 
@@ -407,7 +407,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 	if workspaceType == HomeClusterWorkspaceType && lcluster.Name != h.getHomeLogicalClusterName(effectiveUser.GetName()) {
 		// If we're checking a home workspace or home bucket workspace, but not of the consistent user, let's refuse.
 		utilruntime.HandleError(fmt.Errorf("failed to authorize user %q to create a home workspace %q: home workspace can only be created by the user of the home workspace", effectiveUser.GetName(), lcluster.Name))
-		responsewriters.Forbidden(ctx, attributes, rw, req, authorization.WorkspaceAcccessNotPermittedReason, homeWorkspaceCodecs)
+		responsewriters.Forbidden(ctx, attributes, rw, req, authorization.WorkspaceAccessNotPermittedReason, homeWorkspaceCodecs)
 		return
 	}
 
@@ -418,7 +418,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		attributes,
 	); err != nil {
 		utilruntime.HandleError(fmt.Errorf("failed to authorize user %q to create a %s workspace %q: %w", effectiveUser.GetName(), workspaceType, lcluster.Name, err))
-		responsewriters.Forbidden(ctx, attributes, rw, req, authorization.WorkspaceAcccessNotPermittedReason, homeWorkspaceCodecs)
+		responsewriters.Forbidden(ctx, attributes, rw, req, authorization.WorkspaceAccessNotPermittedReason, homeWorkspaceCodecs)
 		return
 	} else if decision != authorizer.DecisionAllow {
 		utilruntime.HandleError(fmt.Errorf("forbidden for user %q to create a %s workspace %q: %w", effectiveUser.GetName(), workspaceType, lcluster.Name, err))
@@ -510,6 +510,7 @@ func (h *homeWorkspaceHandler) needsAutomaticCreation(logicalClusterName logical
 // in local informers.
 // For home workspaces, we also check:
 //   - if related RBAC resources are there,
+//
 // and if not answer to retry later.
 func searchForWorkspaceAndRBACInLocalInformers(h *homeWorkspaceHandler, logicalClusterName logicalcluster.Name, isHome bool, userName string) (readyAndRBACAsExpected bool, retryAfterSeconds int, err error) {
 	workspace, err := h.localInformers.getClusterWorkspace(logicalClusterName)
@@ -551,7 +552,7 @@ func searchForWorkspaceAndRBACInLocalInformers(h *homeWorkspaceHandler, logicalC
 		// Retry sooner than the creation delay, because it's probably a question of
 		// the local informer cache not being up-to-date, or the request having been sent
 		// to the wrong shard.
-		// Retrying quicly should be sufficient to fix it.
+		// Retrying quickly should be sufficient to fix it.
 		return true, 1, nil
 	}
 	return true, 0, nil
@@ -604,14 +605,14 @@ func tryToCreate(h *homeWorkspaceHandler, ctx context.Context, user kuser.Info, 
 				}
 
 				if info, _ := unmarshalOwner(cw); info == nil {
-					return 0, kerrors.NewForbidden(tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces").GroupResource(), cw.Name, errors.New(authorization.WorkspaceAcccessNotPermittedReason))
+					return 0, kerrors.NewForbidden(tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces").GroupResource(), cw.Name, errors.New(authorization.WorkspaceAccessNotPermittedReason))
 				} else if info.Username != user.GetName() {
 					logger.WithValues(logging.FromUserPrefix(&kuser.DefaultInfo{
 						Name:   info.Username,
 						UID:    info.UID,
 						Groups: info.Groups,
 					}, "owner")).Info("collision detected for user in home workspace owned by another user")
-					return 0, kerrors.NewForbidden(tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces").GroupResource(), cw.Name, errors.New(authorization.WorkspaceAcccessNotPermittedReason))
+					return 0, kerrors.NewForbidden(tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces").GroupResource(), cw.Name, errors.New(authorization.WorkspaceAccessNotPermittedReason))
 				}
 			}
 

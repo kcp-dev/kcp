@@ -163,7 +163,7 @@ spec:
                   state:
                     description: state indicate whether the resources schema is compatible
                       to the SyncTarget. It must be updated by syncer after checking
-                      the API compaibility on SyncTarget.
+                      the API compatibility on SyncTarget.
                     type: string
                   versions:
                     description: versions are the resource versions the syncer can

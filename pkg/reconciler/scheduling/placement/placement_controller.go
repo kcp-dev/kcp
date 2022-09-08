@@ -51,7 +51,7 @@ import (
 const (
 	controllerName      = "kcp-scheduling-placement"
 	byWorkspace         = controllerName + "-byWorkspace" // will go away with scoping
-	byLocationWorkspace = controllerName + "-byLoactionWorkspace"
+	byLocationWorkspace = controllerName + "-byLocationWorkspace"
 )
 
 // NewController returns a new controller placing namespaces onto locations by create

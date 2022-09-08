@@ -131,7 +131,7 @@ func TestSyncTargetExport(t *testing.T) {
 		}
 
 		if syncTarget.Status.SyncedResources[0].Resource != "cowboys" ||
-			syncTarget.Status.SyncedResources[0].State != workloadv1alpha1.ResourceSchemaIncomptibleState {
+			syncTarget.Status.SyncedResources[0].State != workloadv1alpha1.ResourceSchemaIncompatibleState {
 			return false
 		}
 

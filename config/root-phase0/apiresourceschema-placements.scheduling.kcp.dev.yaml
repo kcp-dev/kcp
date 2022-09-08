@@ -26,10 +26,10 @@ spec:
         state. In Pending or Unbound state, the selection rule can be updated to select
         another location. When the a namespace is annotated by another controller
         or user with the key of \"scheduling.kcp.dev/placement\", the namespace will
-        pick one placement, and this placement is transfered to Bound state. Any update
-        to spec of the placement is ignored in Bound state and reflected in the conditions.
-        The placement will turn back to Unbound state when no namespace uses this
-        placement any more."
+        pick one placement, and this placement is transferred to Bound state. Any
+        update to spec of the placement is ignored in Bound state and reflected in
+        the conditions. The placement will turn back to Unbound state when no namespace
+        uses this placement any more."
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -72,7 +72,7 @@ spec:
               - version
               type: object
             locationSelectors:
-              description: loacationSelectors represents a slice of label selector
+              description: locationSelectors represents a slice of label selector
                 to select a location, these label selectors are logically ORed.
               items:
                 description: A label selector is a label query over a set of resources.

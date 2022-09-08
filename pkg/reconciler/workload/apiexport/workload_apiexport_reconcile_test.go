@@ -235,7 +235,7 @@ func TestSchemaReconciler(t *testing.T) {
 			},
 			wantReconcileStatus: reconcileStatusContinue,
 		},
-		"non-tripple schema name": {
+		"non-triple schema name": {
 			export: export(logicalcluster.New("root:org:ws"), "kubernetes", "foo"),
 			negotiatedResources: map[logicalcluster.Name][]*apiresourcev1alpha1.NegotiatedAPIResource{
 				logicalcluster.New("root:org:ws"): {

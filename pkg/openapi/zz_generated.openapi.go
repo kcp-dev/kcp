@@ -1982,7 +1982,7 @@ func schema_pkg_apis_apis_v1alpha1_PermissionClaim(ref common.ReferenceCallback)
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "PermissionClaim identifies an object by GR and identity hash. It's purpose is to determine the added permisions that a service provider may request and that a consumer may accept and alllow the service provider access to.",
+				Description: "PermissionClaim identifies an object by GR and identity hash. Its purpose is to determine the added permissions that a service provider may request and that a consumer may accept and allow the service provider access to.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"identityHash": {
@@ -2234,7 +2234,7 @@ func schema_pkg_apis_scheduling_v1alpha1_LocationReference(ref common.ReferenceC
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "LocationReference describes a loaction that are provided in the specified Workspace.",
+				Description: "LocationReference describes a location that are provided in the specified Workspace.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"path": {
@@ -2349,7 +2349,7 @@ func schema_pkg_apis_scheduling_v1alpha1_Placement(ref common.ReferenceCallback)
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "Placement defines a selection rule to choose ONE location for MULTIPLE namespaces in a workspace.\n\nplacement is in Pending state initially. When a location is selected by the placement, the placement turns to Unbound state. In Pending or Unbound state, the selection rule can be updated to select another location. When the a namespace is annotated by another controller or user with the key of \"scheduling.kcp.dev/placement\", the namespace will pick one placement, and this placement is transfered to Bound state. Any update to spec of the placement is ignored in Bound state and reflected in the conditions. The placement will turn back to Unbound state when no namespace uses this placement any more.",
+				Description: "Placement defines a selection rule to choose ONE location for MULTIPLE namespaces in a workspace.\n\nplacement is in Pending state initially. When a location is selected by the placement, the placement turns to Unbound state. In Pending or Unbound state, the selection rule can be updated to select another location. When the a namespace is annotated by another controller or user with the key of \"scheduling.kcp.dev/placement\", the namespace will pick one placement, and this placement is transferred to Bound state. Any update to spec of the placement is ignored in Bound state and reflected in the conditions. The placement will turn back to Unbound state when no namespace uses this placement any more.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -2449,7 +2449,7 @@ func schema_pkg_apis_scheduling_v1alpha1_PlacementSpec(ref common.ReferenceCallb
 				Properties: map[string]spec.Schema{
 					"locationSelectors": {
 						SchemaProps: spec.SchemaProps{
-							Description: "loacationSelectors represents a slice of label selector to select a location, these label selectors are logically ORed.",
+							Description: "locationSelectors represents a slice of label selector to select a location, these label selectors are logically ORed.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -2852,7 +2852,7 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceSpec(ref common.ReferenceC
 					},
 					"shard": {
 						SchemaProps: spec.SchemaProps{
-							Description: "shard constraints onto which shards this cluster workspace can be scheduled to. if the constraint is not fulfilled by the current location stored in the status, movement will be attempted.\n\nEither shard name or shard selector must be specified.\n\nIf the no shard constraints are specified, an aribtrary shard is chosen.",
+							Description: "shard constraints onto which shards this cluster workspace can be scheduled to. if the constraint is not fulfilled by the current location stored in the status, movement will be attempted.\n\nEither shard name or shard selector must be specified.\n\nIf the no shard constraints are specified, an arbitrary shard is chosen.",
 							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ShardConstraints"),
 						},
 					},
@@ -3543,7 +3543,7 @@ func schema_pkg_apis_workload_v1alpha1_ResourceToSync(ref common.ReferenceCallba
 					},
 					"state": {
 						SchemaProps: spec.SchemaProps{
-							Description: "state indicate whether the resources schema is compatible to the SyncTarget. It must be updated by syncer after checking the API compaibility on SyncTarget.",
+							Description: "state indicate whether the resources schema is compatible to the SyncTarget. It must be updated by syncer after checking the API compatibility on SyncTarget.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

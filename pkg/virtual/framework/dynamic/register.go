@@ -22,7 +22,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
 )
 
-// Register builds and returns a DynamicAPIServer which will serve APIs whose serving informations are provided by an APISetRetriever.
+// Register builds and returns a DynamicAPIServer which will serve APIs whose serving information is provided by an APISetRetriever.
 // The APISetRetriever is returned by the virtual workspace BootstrapAPISetManagement function.
 func (vw *DynamicVirtualWorkspace) Register(vwName string, rootAPIServerConfig genericapiserver.CompletedConfig, delegateAPIServer genericapiserver.DelegationTarget) (genericapiserver.DelegationTarget, error) {
 	apiSetRetriever, err := vw.BootstrapAPISetManagement(rootAPIServerConfig)

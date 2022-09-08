@@ -19,11 +19,11 @@ No, the Kubernets conformance suites require that all Kubernetes APIs are suppor
 
 ## Are these ideas being presented to the Kubernetes community?
 
-Yes! All development is public and we have started discussions about what is mature enough to present to various interested parties. It is worth noting that not all of the goals of kcp are necessarily part of the goals of Kubernetes so while some items may be accepted upstream we expect that at least some of the concepts in kcp will live outside the Kuberenetes repository.
+Yes! All development is public and we have started discussions about what is mature enough to present to various interested parties. It is worth noting that not all of the goals of kcp are necessarily part of the goals of Kubernetes so while some items may be accepted upstream we expect that at least some of the concepts in kcp will live outside the Kubernetes repository.
 
 ## How does upgrading Kubernetes work in this model?
 
-kcp depends on a [fork](https://github.com/kcp-dev/kubernetes) of Kubernetes. Updating Kubernetes for the kcp project itself requires a rebase. We are actively following the releases of Kubernetes and rebasing regularly. Updating Kuberentes for clusters attached to kcp is exactly like it is done today, though you may choose to follow different patterns of availability for applications based on kcp's ability to cordon and drain clusters or relocate applications.
+kcp depends on a [fork](https://github.com/kcp-dev/kubernetes) of Kubernetes. Updating Kubernetes for the kcp project itself requires a rebase. We are actively following the releases of Kubernetes and rebasing regularly. Updating Kubernetes for clusters attached to kcp is exactly like it is done today, though you may choose to follow different patterns of availability for applications based on kcp's ability to cordon and drain clusters or relocate applications.
 
 ## Can kcp workloads run on MiniKube clusters?
 
@@ -59,7 +59,7 @@ They do, in the [workload clusters](https://github.com/kcp-dev/kcp/blob/main/doc
 
 ## Let’s take something boring like FIPS compliance. Would a workspace be guaranteed to run accordingly to the regulatory standards? Ie a workspace admin defined some FIPS stuffs and kcp ensures that the resulting pods do run appropriate in the FIPS shard?
 
-In kcp an application should be able to describe the constraints it needs in its runtime environment. This may be techincal requirements like GPU or storage, it may be regulatory like data locality or FIPS, or it may be some other cool thing we haven't thought of yet. kcp expects the integration with [Location and Placement](https://github.com/kcp-dev/kcp/blob/main/docs/terminology.md#location) APIs to handle finding the right placement that fulfills those requirements.
+In kcp an application should be able to describe the constraints it needs in its runtime environment. This may be technical requirements like GPU or storage, it may be regulatory like data locality or FIPS, or it may be some other cool thing we haven't thought of yet. kcp expects the integration with [Location and Placement](https://github.com/kcp-dev/kcp/blob/main/docs/terminology.md#location) APIs to handle finding the right placement that fulfills those requirements.
 
 ## Could you define a 'shard' in the context of kcp?
 

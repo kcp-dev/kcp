@@ -43,7 +43,7 @@ const (
 	OwnedByNamespace = "ingress.kcp.dev/owned-by-namespace"
 )
 
-// reconcile is triggered on every change to an ingress resource, or it's associated services (by tracker).
+// reconcile is triggered on every change to an ingress resource, or its associated services (by tracker).
 func (c *Controller) reconcile(ctx context.Context, ingress *networkingv1.Ingress) error {
 	logger := klog.FromContext(ctx)
 	logger.Info("reconciling Ingress")

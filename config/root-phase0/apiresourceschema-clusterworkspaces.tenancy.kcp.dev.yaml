@@ -71,7 +71,7 @@ spec:
                 can be scheduled to. if the constraint is not fulfilled by the current
                 location stored in the status, movement will be attempted. \n Either
                 shard name or shard selector must be specified. \n If the no shard
-                constraints are specified, an aribtrary shard is chosen."
+                constraints are specified, an arbitrary shard is chosen."
               oneOf:
               - required:
                 - name

@@ -97,7 +97,7 @@ type ClusterWorkspaceSpec struct {
 	//
 	// Either shard name or shard selector must be specified.
 	//
-	// If the no shard constraints are specified, an aribtrary shard is chosen.
+	// If the no shard constraints are specified, an arbitrary shard is chosen.
 	//
 	// +optional
 	Shard *ShardConstraints `json:"shard,omitempty"`

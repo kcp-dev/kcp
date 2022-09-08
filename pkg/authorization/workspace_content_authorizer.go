@@ -46,7 +46,7 @@ import (
 )
 
 const (
-	WorkspaceAcccessNotPermittedReason = "workspace access not permitted"
+	WorkspaceAccessNotPermittedReason = "workspace access not permitted"
 
 	WorkspaceContentAuditPrefix   = "content.authorization.kcp.dev/"
 	WorkspaceContentAuditDecision = WorkspaceContentAuditPrefix + "decision"
@@ -89,7 +89,7 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 			WorkspaceContentAuditDecision, DecisionNoOpinion,
 			WorkspaceContentAuditReason, fmt.Sprintf("error getting cluster from request: %v", err),
 		)
-		return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, err
+		return authorizer.DecisionNoOpinion, WorkspaceAccessNotPermittedReason, err
 	}
 	// empty or non-root based workspaces have no meaning in the context of authorizing workspace content.
 	if cluster == nil || cluster.Name.Empty() || !cluster.Name.HasPrefix(tenancyv1alpha1.RootCluster) {
@@ -98,7 +98,7 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 			WorkspaceContentAuditDecision, DecisionNoOpinion,
 			WorkspaceContentAuditReason, "empty or non root workspace",
 		)
-		return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, nil
+		return authorizer.DecisionNoOpinion, WorkspaceAccessNotPermittedReason, nil
 	}
 
 	subjectClusters := map[logicalcluster.Name]bool{}
@@ -151,7 +151,7 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 			WorkspaceContentAuditDecision, DecisionNoOpinion,
 			WorkspaceContentAuditReason, "root workspace access by non-root service account not permitted",
 		)
-		return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, err
+		return authorizer.DecisionNoOpinion, WorkspaceAccessNotPermittedReason, err
 	}
 
 	// non-root workspaces must have a parent
@@ -162,7 +162,7 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 			WorkspaceContentAuditDecision, DecisionNoOpinion,
 			WorkspaceContentAuditReason, "non-root workspace that does not have a parent",
 		)
-		return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, nil
+		return authorizer.DecisionNoOpinion, WorkspaceAccessNotPermittedReason, nil
 	}
 
 	parentWorkspaceKubeInformer := rbacwrapper.FilterInformers(parentClusterName, a.rbacInformers)
@@ -190,7 +190,7 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 				WorkspaceContentAuditDecision, DecisionDenied,
 				WorkspaceContentAuditReason, "clusterworkspace not found",
 			)
-			return authorizer.DecisionDeny, WorkspaceAcccessNotPermittedReason, nil
+			return authorizer.DecisionDeny, WorkspaceAccessNotPermittedReason, nil
 		}
 
 		kaudit.AddAuditAnnotations(
@@ -207,7 +207,7 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 			WorkspaceContentAuditDecision, DecisionNoOpinion,
 			WorkspaceContentAuditReason, fmt.Sprintf("not permitted due to phase %q", ws.Status.Phase),
 		)
-		return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, nil
+		return authorizer.DecisionNoOpinion, WorkspaceAccessNotPermittedReason, nil
 	}
 
 	switch {
@@ -266,7 +266,7 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 			WorkspaceContentAuditDecision, DecisionNoOpinion,
 			WorkspaceContentAuditReason, "not permitted, clusterworkspace is in initializing phase",
 		)
-		return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, nil
+		return authorizer.DecisionNoOpinion, WorkspaceAccessNotPermittedReason, nil
 	}
 
 	if len(extraGroups) == 0 {
@@ -275,7 +275,7 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 			WorkspaceContentAuditDecision, DecisionNoOpinion,
 			WorkspaceContentAuditReason, "not permitted, subject has not been granted any groups",
 		)
-		return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, nil
+		return authorizer.DecisionNoOpinion, WorkspaceAccessNotPermittedReason, nil
 	}
 
 	withGroups := deepCopyAttributes(attr)

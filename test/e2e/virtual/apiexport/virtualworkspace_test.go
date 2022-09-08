@@ -353,7 +353,7 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 		if condition != nil {
 			return false, fmt.Sprintf("not done waiting for API Export condition status:%v - reason: %v - message: %v", condition.Status, condition.Reason, condition.Message)
 		}
-		return false, "not done waiting for APIExportIdentiy to be marked valid, no condition exists"
+		return false, "not done waiting for APIExportIdentity to be marked valid, no condition exists"
 
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not wait for APIExport to be valid with identity hash")
 
@@ -455,7 +455,7 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 	apiBinding, err = kcpClusterClient.ApisV1alpha1().APIBindings().Patch(logicalcluster.WithCluster(ctx, consumerWorkspace), apiBinding.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
 	require.NoError(t, err, "error patching apibinding to accept all claims")
 
-	t.Logf("waiting for apibinding status to show it's applied the claim for the sheriffs identity")
+	t.Logf("waiting for apibinding status to show it's applied the claim for the sheriff's identity")
 	framework.Eventually(t, func() (success bool, reason string) {
 		// Get the binding and make sure that observed permission claims are all set.
 		binding, err := kcpClusterClient.ApisV1alpha1().APIBindings().Get(logicalcluster.WithCluster(ctx, consumerWorkspace), "cowboys", metav1.GetOptions{})

@@ -201,11 +201,11 @@ func TestPlacementScheduling(t *testing.T) {
 				},
 			}
 
-			listLoaction := func(clusterName logicalcluster.Name) ([]*schedulingv1alpha1.Location, error) {
+			listLocation := func(clusterName logicalcluster.Name) ([]*schedulingv1alpha1.Location, error) {
 				return testCase.locations, testCase.listLocationsError
 			}
 
-			reconciler := &placementReconciler{listLocations: listLoaction}
+			reconciler := &placementReconciler{listLocations: listLocation}
 			_, updated, err := reconciler.reconcile(context.TODO(), testPlacement)
 
 			if testCase.wantError {

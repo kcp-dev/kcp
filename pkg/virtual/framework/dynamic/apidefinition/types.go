@@ -53,7 +53,7 @@ type APIDefinition interface {
 	TearDown()
 }
 
-// APIDefinitionSet contains the APIDefintion objects for the APIs of an API domain.
+// APIDefinitionSet contains the APIDefinition objects for the APIs of an API domain.
 type APIDefinitionSet map[schema.GroupVersionResource]APIDefinition
 
 // APIDefinitionSetGetter provides access to the API definitions of a API domain, based on the API domain key.

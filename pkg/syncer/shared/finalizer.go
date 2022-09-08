@@ -54,7 +54,7 @@ func EnsureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersion
 		return nil
 	}
 
-	// TODO(jmprusi): This check will need to be against "GetDeletionTimestamp()" when using the syncer virtual  workspace.
+	// TODO(jmprusi): This check will need to be against "GetDeletionTimestamp()" when using the syncer virtual workspace.
 	if upstreamObj.GetAnnotations()[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+syncTargetKey] == "" {
 		// Do nothing: the object should not be deleted anymore for this location on the KCP side
 		return nil

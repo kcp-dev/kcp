@@ -234,7 +234,7 @@ func processNext(
 	queue workqueue.RateLimitingInterface,
 	processFunc func(ctx context.Context, key string) error,
 ) bool {
-	// Wait until there is a new item in the working  queue
+	// Wait until there is a new item in the working queue
 	k, quit := queue.Get()
 	if quit {
 		return false

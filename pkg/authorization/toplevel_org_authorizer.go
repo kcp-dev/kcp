@@ -93,7 +93,7 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 			TopLevelContentAuditDecision, DecisionNoOpinion,
 			TopLevelContentAuditReason, fmt.Sprintf("error getting cluster from request: %v", err),
 		)
-		return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, err
+		return authorizer.DecisionNoOpinion, WorkspaceAccessNotPermittedReason, err
 	}
 
 	if !cluster.Name.HasPrefix(tenancyv1alpha1.RootCluster) {
@@ -103,7 +103,7 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 			TopLevelContentAuditDecision, DecisionNoOpinion,
 			TopLevelContentAuditReason, "non-root prefixed workspace access not permitted",
 		)
-		return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, nil
+		return authorizer.DecisionNoOpinion, WorkspaceAccessNotPermittedReason, nil
 	}
 
 	subjectClusters := map[logicalcluster.Name]bool{}
@@ -127,7 +127,7 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 			TopLevelContentAuditDecision, DecisionNoOpinion,
 			TopLevelContentAuditReason, "root workspace access by non-root service account not permitted",
 		)
-		return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, nil
+		return authorizer.DecisionNoOpinion, WorkspaceAccessNotPermittedReason, nil
 	}
 
 	// get org in the root
@@ -138,7 +138,7 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 			TopLevelContentAuditDecision, DecisionNoOpinion,
 			TopLevelContentAuditReason, "not part of root workspace hierarchy",
 		)
-		return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, nil
+		return authorizer.DecisionNoOpinion, WorkspaceAccessNotPermittedReason, nil
 	}
 
 	// check the org workspace exists in the root workspace
@@ -150,7 +150,7 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 				TopLevelContentAuditDecision, DecisionDenied,
 				TopLevelContentAuditReason, fmt.Sprintf("clusterworkspace %q not found", topLevelWSKey),
 			)
-			return authorizer.DecisionDeny, WorkspaceAcccessNotPermittedReason, nil
+			return authorizer.DecisionDeny, WorkspaceAccessNotPermittedReason, nil
 		}
 
 		kaudit.AddAuditAnnotations(
@@ -158,7 +158,7 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 			TopLevelContentAuditDecision, DecisionNoOpinion,
 			TopLevelContentAuditReason, fmt.Sprintf("error getting clusterworkspace %q: %v", topLevelWSKey, err),
 		)
-		return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, err
+		return authorizer.DecisionNoOpinion, WorkspaceAccessNotPermittedReason, err
 	}
 
 	switch {
@@ -184,7 +184,7 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 			TopLevelContentAuditDecision, DecisionNoOpinion,
 			TopLevelContentAuditReason, "serviceaccount does not belong to this top level workspace hierarchy",
 		)
-		return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, nil
+		return authorizer.DecisionNoOpinion, WorkspaceAccessNotPermittedReason, nil
 	case isUser:
 		workspaceAttr := authorizer.AttributesRecord{
 			User:            attr.GetUser(),
@@ -221,7 +221,7 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 		)
 	}
 
-	return authorizer.DecisionNoOpinion, WorkspaceAcccessNotPermittedReason, nil
+	return authorizer.DecisionNoOpinion, WorkspaceAccessNotPermittedReason, nil
 }
 
 func topLevelOrg(clusterName logicalcluster.Name) (string, bool) {

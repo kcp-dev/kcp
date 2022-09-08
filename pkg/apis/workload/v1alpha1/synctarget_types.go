@@ -130,7 +130,7 @@ type ResourceToSync struct {
 	IdentityHash string `json:"identityHash"`
 
 	// state indicate whether the resources schema is compatible to the SyncTarget. It must be updated
-	// by syncer after checking the API compaibility on SyncTarget.
+	// by syncer after checking the API compatibility on SyncTarget.
 	// +kubebuilder:validation:Enum=Pending;Accepted;Incompatible
 	// +kubebuilder:default=Pending
 	// +optional
@@ -140,12 +140,12 @@ type ResourceToSync struct {
 type ResourceCompatibleState string
 
 const (
-	// ResourceSchemaPendingState is the intial state indicating that the syncer has not report compatibility of the resource.
+	// ResourceSchemaPendingState is the initial state indicating that the syncer has not report compatibility of the resource.
 	ResourceSchemaPendingState = "Pending"
-	// ResourceSchemaAcceptedState is the state that the resource schema is comptible and can be synced by syncer.
+	// ResourceSchemaAcceptedState is the state that the resource schema is compatible and can be synced by syncer.
 	ResourceSchemaAcceptedState = "Accepted"
-	// ResourceSchemaIncomptibleState is the state that the resource schema is incomptible for syncer.
-	ResourceSchemaIncomptibleState = "Incompatible"
+	// ResourceSchemaIncompatibleState is the state that the resource schema is incompatible for syncer.
+	ResourceSchemaIncompatibleState = "Incompatible"
 )
 
 type VirtualWorkspace struct {

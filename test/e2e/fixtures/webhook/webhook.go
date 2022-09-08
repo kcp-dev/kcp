@@ -116,7 +116,7 @@ func (s *AdmissionWebhookServer) ServeHTTP(resp http.ResponseWriter, req *http.R
 	}
 	obj, objGVK, err := s.Deserializer.Decode(requestedAdmissionReview.Request.Object.Raw, nil, nil)
 	if err != nil {
-		msg := fmt.Sprintf("Unable to decode admissions reqeusted object: %v", err)
+		msg := fmt.Sprintf("Unable to decode admissions requested object: %v", err)
 		s.t.Logf("%v", msg)
 		http.Error(resp, msg, http.StatusBadRequest)
 		return

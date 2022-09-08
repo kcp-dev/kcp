@@ -104,7 +104,7 @@ func NewREST(
 	kubeClusterClient kubernetesclient.ClusterInterface,
 	kcpClusterClient kcpclient.ClusterInterface,
 	clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache,
-	wilcardsCRBInformer rbacinformers.ClusterRoleBindingInformer,
+	wildcardsCRBInformer rbacinformers.ClusterRoleBindingInformer,
 	getFilteredClusterWorkspaces func(orgClusterName logicalcluster.Name) FilteredClusterWorkspaces,
 ) *REST {
 	mainRest := &REST{
@@ -114,7 +114,7 @@ func NewREST(
 		kcpClusterClient:  kcpClusterClient,
 		delegatedAuthz:    delegated.NewDelegatedAuthorizer,
 
-		crbInformer: wilcardsCRBInformer,
+		crbInformer: wildcardsCRBInformer,
 
 		clusterWorkspaceCache: clusterWorkspaceCache,
 

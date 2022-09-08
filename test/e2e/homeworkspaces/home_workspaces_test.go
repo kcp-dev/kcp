@@ -108,7 +108,7 @@ func TestUserHomeWorkspaces(t *testing.T) {
 					return len(list.Items) == 1 && list.Items[0].Name == "workspace1"
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to list workspace1")
 
-				t.Logf("user-2 doesn't have the right to acces user-1 home workspace")
+				t.Logf("user-2 doesn't have the right to access user-1 home workspace")
 				_, err = vwUser2Client.Cluster(homeWorkspaceName).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
 				require.EqualError(t, err, `workspaces.tenancy.kcp.dev is forbidden: User "user-2" cannot list resource "workspaces" in API group "tenancy.kcp.dev" at the cluster scope: workspace access not permitted`, "user-1 should be able to create a workspace inside his home workspace even though it doesn't exist")
 			},
