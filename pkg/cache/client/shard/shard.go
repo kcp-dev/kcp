@@ -20,6 +20,11 @@ import (
 	"path"
 )
 
+const (
+	// AnnotationKey is the name of the annotation key used to denote an object's shard name.
+	AnnotationKey = "kcp.dev/shard"
+)
+
 // Name hold the name of a shard. It is used by the cache-server
 // to assign resources to a particular shard.
 type Name string
