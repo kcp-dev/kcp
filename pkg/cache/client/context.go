@@ -37,5 +37,9 @@ func WithShardInContext(parent context.Context, shard shard.Name) context.Contex
 // ShardFromContext returns the value of the shard key on the ctx,
 // or an empty Name if there is no shard key.
 func ShardFromContext(ctx context.Context) shard.Name {
-	return ctx.Value(shardContextKey).(shard.Name)
+	shard, ok := ctx.Value(shardContextKey).(shard.Name)
+	if !ok {
+		return ""
+	}
+	return shard
 }
