@@ -224,7 +224,7 @@ func (a *apiBindingAccessAuthorizer) getAPIBindingReference(attr authorizer.Attr
 	for _, obj := range objs {
 		apiBinding := obj.(*apisv1alpha1.APIBinding)
 		for _, br := range apiBinding.Status.BoundResources {
-			if apiBinding.Status.BoundAPIExport.Workspace == nil {
+			if apiBinding.Status.BoundAPIExport == nil || apiBinding.Status.BoundAPIExport.Workspace == nil {
 				continue
 			}
 			if br.Group == attr.GetAPIGroup() && br.Resource == attr.GetResource() {
