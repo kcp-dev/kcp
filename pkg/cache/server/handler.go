@@ -90,12 +90,11 @@ func WithShardScope(handler http.Handler) http.Handler {
 		case shardName == "*":
 			shard = "*"
 		case len(shardName) == 0:
-			// because we don't store a shard name in an object.
-			// requests without a shard name won't be able to find associated data and will fail.
-			// as of today we don't instruct controllers used by the apiextention server
-			// how to assign/extract a shard name to/from an object.
-			// so we need to set a default name here, otherwise these controllers will fail.
-			shard = "system:cache:server"
+			responsewriters.ErrorNegotiated(
+				apierrors.NewBadRequest("a shard name is required"),
+				errorCodecs, schema.GroupVersion{},
+				w, req)
+			return
 		default:
 			if !shardNameRegExp.MatchString(shardName) {
 				responsewriters.ErrorNegotiated(
