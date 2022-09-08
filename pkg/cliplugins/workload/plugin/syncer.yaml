@@ -120,6 +120,7 @@ spec:
         - --sync-target-name={{.SyncTarget}}
         - --sync-target-uid={{.SyncTargetUID}}
         - --from-cluster={{.LogicalCluster}}
+        - --api-import-poll-interval={{ .APIImportPollIntervalString }}
 {{- range $resourceToSync := .ResourcesToSync}}
         - --resources={{$resourceToSync}}
 {{- end}}

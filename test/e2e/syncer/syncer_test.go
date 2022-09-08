@@ -154,8 +154,12 @@ func TestSyncerLifecycle(t *testing.T) {
 	// This test created a new workspace that initially lacked support for deployments, but once the
 	// sync target went ready (checked by the syncer fixture's Start method) the api importer
 	// will have enabled deployments in the logical cluster.
-	upstreamDeployment, err := upstreamKubeClusterClient.AppsV1().Deployments(upstreamNamespace.Name).Create(logicalcluster.WithCluster(ctx, wsClusterName), deployment, metav1.CreateOptions{})
-	require.NoError(t, err, "failed to create deployment")
+	t.Logf("Waiting for deployment to be created in upstream")
+	var upstreamDeployment *appsv1.Deployment
+	require.Eventually(t, func() bool {
+		upstreamDeployment, err = upstreamKubeClusterClient.AppsV1().Deployments(upstreamNamespace.Name).Create(logicalcluster.WithCluster(ctx, wsClusterName), deployment, metav1.CreateOptions{})
+		return err == nil
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "deployment not created")
 
 	syncTargetKey := workloadv1alpha1.ToSyncTargetKey(logicalcluster.From(syncTarget), syncTarget.Name)
 

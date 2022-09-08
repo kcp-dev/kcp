@@ -41,10 +41,12 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
+	"k8s.io/client-go/informers"
 	clienttesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/syncer/resourcesync"
 	"github.com/kcp-dev/kcp/third_party/keyfunctions"
 )
 
@@ -993,17 +995,13 @@ func TestSyncerProcess(t *testing.T) {
 			}, cache.WithResyncPeriod(time.Hour), cache.WithKeyFunction(keyfunctions.DeletionHandlingMetaNamespaceKeyFunc))
 
 			setupServersideApplyPatchReactor(toClient)
-			namespaceWatcherStarted := setupWatchReactor("namespaces", fromClient)
 			resourceWatcherStarted := setupWatchReactor(tc.gvr.Resource, fromClient)
 
-			gvrs := []schema.GroupVersionResource{
-				{Group: "", Version: "v1", Resource: "namespaces"},
-				{Group: "", Version: "v1", Resource: "secrets"},
-				tc.gvr,
-			}
+			fakeInformers := newFakeSyncerInformers(tc.gvr, fromInformers, toInformers)
+
 			upstreamURL, err := url.Parse("https://kcp.dev:6443")
 			require.NoError(t, err)
-			controller, err := NewSpecSyncer(gvrs, kcpLogicalCluster, tc.syncTargetName, syncTargetKey, upstreamURL, tc.advancedSchedulingEnabled, fromClusterClient, toClient, fromInformers, toInformers, syncTargetUID)
+			controller, err := NewSpecSyncer(kcpLogicalCluster, tc.syncTargetName, syncTargetKey, upstreamURL, tc.advancedSchedulingEnabled, fromClusterClient, toClient, fromInformers, toInformers, fakeInformers, syncTargetUID)
 			require.NoError(t, err)
 
 			fromInformers.Start(ctx.Done())
@@ -1013,7 +1011,6 @@ func TestSyncerProcess(t *testing.T) {
 			toInformers.WaitForCacheSync(ctx.Done())
 
 			<-resourceWatcherStarted
-			<-namespaceWatcherStarted
 
 			fromClient.ClearActions()
 			toClient.ClearActions()
@@ -1257,3 +1254,27 @@ func patchSecretAction(name, namespace string, patchType types.PatchType, patch 
 		Patch:      patch,
 	}
 }
+
+type fakeSyncerInformers struct {
+	upstreamInformer   informers.GenericInformer
+	downStreamInformer informers.GenericInformer
+}
+
+func newFakeSyncerInformers(gvr schema.GroupVersionResource, upstreamInformers, downStreamInformers dynamicinformer.DynamicSharedInformerFactory) *fakeSyncerInformers {
+	return &fakeSyncerInformers{
+		upstreamInformer:   upstreamInformers.ForResource(gvr),
+		downStreamInformer: downStreamInformers.ForResource(gvr),
+	}
+}
+
+func (f *fakeSyncerInformers) AddUpstreamEventHandler(handler resourcesync.ResourceEventHandlerPerGVR) {
+}
+func (f *fakeSyncerInformers) AddDownstreamEventHandler(handler resourcesync.ResourceEventHandlerPerGVR) {
+}
+func (f *fakeSyncerInformers) InformerForResource(gvr schema.GroupVersionResource) (*resourcesync.SyncerInformer, bool) {
+	return &resourcesync.SyncerInformer{
+		UpstreamInformer:   f.upstreamInformer,
+		DownstreamInformer: f.downStreamInformer,
+	}, true
+}
+func (f *fakeSyncerInformers) Start(ctx context.Context, numThreads int) {}

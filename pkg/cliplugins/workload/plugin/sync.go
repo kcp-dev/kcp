@@ -89,6 +89,8 @@ type SyncOptions struct {
 	Burst int
 	// SyncTargetName is the name of the SyncTarget in the kcp workspace.
 	SyncTargetName string
+	// APIImportPollInterval is the time interval to push apiimport.
+	APIImportPollInterval time.Duration
 	// FeatureGates is used to configure which feature gates are enabled.
 	FeatureGates string
 }
@@ -98,10 +100,11 @@ func NewSyncOptions(streams genericclioptions.IOStreams) *SyncOptions {
 	return &SyncOptions{
 		Options: base.NewOptions(streams),
 
-		Replicas:     1,
-		KCPNamespace: "default",
-		QPS:          20,
-		Burst:        30,
+		Replicas:              1,
+		KCPNamespace:          "default",
+		QPS:                   20,
+		Burst:                 30,
+		APIImportPollInterval: 1 * time.Minute,
 	}
 }
 
@@ -120,6 +123,7 @@ func (o *SyncOptions) BindFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&o.FeatureGates, "feature-gates", o.FeatureGates,
 		"A set of key=value pairs that describe feature gates for alpha/experimental features. "+
 			"Options are:\n"+strings.Join(kcpfeatures.KnownFeatures(), "\n")) // hide kube-only gates
+	cmd.Flags().DurationVar(&o.APIImportPollInterval, "api-import-poll-interval", o.APIImportPollInterval, "Polling interval for API import.")
 }
 
 // Complete ensures all dynamically populated fields are initialized.
@@ -217,20 +221,21 @@ func (o *SyncOptions) Run(ctx context.Context) error {
 	serverURL := configURL.Scheme + "://" + configURL.Host
 
 	input := templateInput{
-		ServerURL:          serverURL,
-		CAData:             base64.StdEncoding.EncodeToString(config.CAData),
-		Token:              token,
-		KCPNamespace:       o.KCPNamespace,
-		Namespace:          o.DownstreamNamespace,
-		LogicalCluster:     currentClusterName.String(),
-		SyncTarget:         o.SyncTargetName,
-		SyncTargetUID:      syncTargetUID,
-		Image:              o.SyncerImage,
-		Replicas:           o.Replicas,
-		ResourcesToSync:    resourcesToSync,
-		QPS:                o.QPS,
-		Burst:              o.Burst,
-		FeatureGatesString: o.FeatureGates,
+		ServerURL:                   serverURL,
+		CAData:                      base64.StdEncoding.EncodeToString(config.CAData),
+		Token:                       token,
+		KCPNamespace:                o.KCPNamespace,
+		Namespace:                   o.DownstreamNamespace,
+		LogicalCluster:              currentClusterName.String(),
+		SyncTarget:                  o.SyncTargetName,
+		SyncTargetUID:               syncTargetUID,
+		Image:                       o.SyncerImage,
+		Replicas:                    o.Replicas,
+		ResourcesToSync:             resourcesToSync,
+		QPS:                         o.QPS,
+		Burst:                       o.Burst,
+		FeatureGatesString:          o.FeatureGates,
+		APIImportPollIntervalString: o.APIImportPollInterval.String(),
 	}
 
 	resources, err := renderSyncerResources(input, syncerID)
@@ -556,6 +561,8 @@ type templateInput struct {
 	Burst int
 	// FeatureGatesString is the set of features gates.
 	FeatureGatesString string
+	// APIImportPollIntervalString is the string of intevral to poll APIImport.
+	APIImportPollIntervalString string
 }
 
 // templateArgs represents the full set of arguments required to render the resources

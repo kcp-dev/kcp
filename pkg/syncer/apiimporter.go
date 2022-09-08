@@ -22,7 +22,6 @@ import (
 	"reflect"
 	"time"
 
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -39,6 +38,7 @@ import (
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	workloadlisters "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/crdpuller"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	clusterctl "github.com/kcp-dev/kcp/pkg/reconciler/workload/basecontroller"
@@ -58,6 +58,7 @@ func clusterAsOwnerReference(obj *workloadv1alpha1.SyncTarget, controller bool) 
 
 func NewAPIImporter(
 	upstreamConfig, downstreamConfig *rest.Config,
+	kcpInformerFactory kcpinformers.SharedInformerFactory,
 	resourcesToSync []string,
 	logicalClusterName logicalcluster.Name,
 	location string,
@@ -71,9 +72,6 @@ func NewAPIImporter(
 		return nil, err
 	}
 
-	kcpClient := kcpClusterClient.Cluster(logicalClusterName)
-	kcpInformerFactory := kcpinformers.NewSharedInformerFactoryWithOptions(kcpClient, resyncPeriod)
-	clusterIndexer := kcpInformerFactory.Workload().V1alpha1().SyncTargets().Informer().GetIndexer()
 	importIndexer := kcpInformerFactory.Apiresource().V1alpha1().APIResourceImports().Informer().GetIndexer()
 
 	indexers := map[string]cache.IndexFunc{
@@ -111,7 +109,7 @@ func NewAPIImporter(
 		kcpClusterClient:         kcpClusterClient,
 		resourcesToSync:          resourcesToSync,
 		apiresourceImportIndexer: importIndexer,
-		clusterIndexer:           clusterIndexer,
+		syncTargetLister:         kcpInformerFactory.Workload().V1alpha1().SyncTargets().Lister(),
 
 		location:           location,
 		logicalClusterName: logicalClusterName,
@@ -124,7 +122,7 @@ type APIImporter struct {
 	kcpClusterClient         *kcpclient.Cluster
 	resourcesToSync          []string
 	apiresourceImportIndexer cache.Indexer
-	clusterIndexer           cache.Indexer
+	syncTargetLister         workloadlisters.SyncTargetLister
 
 	location           string
 	logicalClusterName logicalcluster.Name
@@ -135,11 +133,11 @@ type APIImporter struct {
 func (i *APIImporter) Start(ctx context.Context, pollInterval time.Duration) {
 	defer runtime.HandleCrash()
 
-	i.kcpInformerFactory.Start(ctx.Done())
 	i.kcpInformerFactory.WaitForCacheSync(ctx.Done())
 	logger := logging.WithReconciler(klog.FromContext(ctx), "api-importer").WithValues("location", i.location, "logical-cluster", i.logicalClusterName)
 	ctx = klog.NewContext(ctx, logger)
-	logger.Info("starting API Importer")
+
+	logger.Info("Starting API Importer")
 
 	clusterContext := request.WithCluster(ctx, request.Cluster{Name: i.logicalClusterName})
 	go wait.UntilWithContext(clusterContext, func(innerCtx context.Context) {
@@ -173,8 +171,29 @@ func (i *APIImporter) Stop(ctx context.Context) {
 
 func (i *APIImporter) ImportAPIs(ctx context.Context) {
 	logger := klog.FromContext(ctx)
-	logger.Info("importing APIs", "resources", i.resourcesToSync)
-	crds, err := i.schemaPuller.PullCRDs(ctx, i.resourcesToSync...)
+
+	// TODO(skuznets): can we figure out how to not leak this detail up to this code?
+	// I guess once the indexer is using kcpcache.MetaClusterNamespaceKeyFunc, we can just use that formatter ...
+	var syncTargetKey string
+	syncTargetKey += i.logicalClusterName.String() + "|"
+	syncTargetKey += i.location
+
+	syncTarget, err := i.syncTargetLister.Get(syncTargetKey)
+
+	if err != nil {
+		logger.Error(err, "error getting syncTarget")
+		return
+	}
+
+	// merge resourceToSync from synctarget with resourcesToSync set on the syncer's flag.
+	resourceToSyncSet := sets.NewString(i.resourcesToSync...)
+	for _, rs := range syncTarget.Status.SyncedResources {
+		resourceToSyncSet.Insert(fmt.Sprintf("%s.%s", rs.Resource, rs.Group))
+	}
+	resourcesToSync := resourceToSyncSet.List()
+
+	logger.Info("Importing APIs", "resources", resourcesToSync)
+	crds, err := i.schemaPuller.PullCRDs(ctx, resourcesToSync...)
 	if err != nil {
 		logger.Error(err, "error pulling CRDs")
 		return
@@ -225,33 +244,6 @@ func (i *APIImporter) ImportAPIs(ctx context.Context) {
 			} else {
 				apiResourceImportName += gvr.Group
 			}
-			logger = logger.WithValues("apiResourceImport", apiResourceImportName)
-			clusterKey, err := kcpcache.MetaClusterNamespaceKeyFunc(&metav1.PartialObjectMetadata{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: i.location,
-					Annotations: map[string]string{
-						logicalcluster.AnnotationKey: i.logicalClusterName.String(),
-					},
-				},
-			})
-			if err != nil {
-				logger.Error(err, "error creating APIResourceImport")
-				continue
-			}
-			clusterObj, exists, err := i.clusterIndexer.GetByKey(clusterKey)
-			if err != nil {
-				logger.Error(err, "error creating APIResourceImport")
-				continue
-			}
-			if !exists {
-				logger.Error(err, "error creating APIResourceImport: the cluster object should exist in the index")
-				continue
-			}
-			cluster, isCluster := clusterObj.(*workloadv1alpha1.SyncTarget)
-			if !isCluster {
-				logger.Error(fmt.Errorf("the object retrieved from the cluster index should be a cluster object, but is of type: %T", clusterObj), "error creating APIResourceImport")
-				continue
-			}
 			groupVersion := apiresourcev1alpha1.GroupVersion{
 				Group:   gvr.Group,
 				Version: gvr.Version,
@@ -260,7 +252,7 @@ func (i *APIImporter) ImportAPIs(ctx context.Context) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: apiResourceImportName,
 					OwnerReferences: []metav1.OwnerReference{
-						clusterAsOwnerReference(cluster, true),
+						clusterAsOwnerReference(syncTarget, true),
 					},
 					Annotations: map[string]string{
 						logicalcluster.AnnotationKey:             i.logicalClusterName.String(),

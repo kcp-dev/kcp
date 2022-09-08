@@ -143,6 +143,7 @@ spec:
         - --sync-target-name=sync-target-name
         - --sync-target-uid=sync-target-uid
         - --from-cluster=root:default:foo
+        - --api-import-poll-interval=1m
         - --resources=resource1
         - --resources=resource2
         - --qps=123.4
@@ -162,19 +163,20 @@ spec:
             optional: false
 `
 	actualYAML, err := renderSyncerResources(templateInput{
-		ServerURL:       "server-url",
-		Token:           "token",
-		CAData:          "ca-data",
-		KCPNamespace:    "kcp-namespace",
-		Namespace:       "kcp-syncer-sync-target-name-34b23c4k",
-		LogicalCluster:  "root:default:foo",
-		SyncTarget:      "sync-target-name",
-		SyncTargetUID:   "sync-target-uid",
-		Image:           "image",
-		Replicas:        1,
-		ResourcesToSync: []string{"resource1", "resource2"},
-		QPS:             123.4,
-		Burst:           456,
+		ServerURL:                   "server-url",
+		Token:                       "token",
+		CAData:                      "ca-data",
+		KCPNamespace:                "kcp-namespace",
+		Namespace:                   "kcp-syncer-sync-target-name-34b23c4k",
+		LogicalCluster:              "root:default:foo",
+		SyncTarget:                  "sync-target-name",
+		SyncTargetUID:               "sync-target-uid",
+		Image:                       "image",
+		Replicas:                    1,
+		ResourcesToSync:             []string{"resource1", "resource2"},
+		APIImportPollIntervalString: "1m",
+		QPS:                         123.4,
+		Burst:                       456,
 	}, "kcp-syncer-sync-target-name-34b23c4k")
 	require.NoError(t, err)
 	require.Empty(t, cmp.Diff(expectedYAML, string(actualYAML)))
@@ -300,6 +302,7 @@ spec:
         - --sync-target-name=sync-target-name
         - --sync-target-uid=sync-target-uid
         - --from-cluster=root:default:foo
+        - --api-import-poll-interval=1m
         - --resources=resource1
         - --resources=resource2
         - --qps=123.4
@@ -320,20 +323,21 @@ spec:
             optional: false
 `
 	actualYAML, err := renderSyncerResources(templateInput{
-		ServerURL:          "server-url",
-		Token:              "token",
-		CAData:             "ca-data",
-		KCPNamespace:       "kcp-namespace",
-		Namespace:          "kcp-syncer-sync-target-name-34b23c4k",
-		LogicalCluster:     "root:default:foo",
-		SyncTarget:         "sync-target-name",
-		SyncTargetUID:      "sync-target-uid",
-		Image:              "image",
-		Replicas:           1,
-		ResourcesToSync:    []string{"resource1", "resource2"},
-		QPS:                123.4,
-		Burst:              456,
-		FeatureGatesString: "myfeature=true",
+		ServerURL:                   "server-url",
+		Token:                       "token",
+		CAData:                      "ca-data",
+		KCPNamespace:                "kcp-namespace",
+		Namespace:                   "kcp-syncer-sync-target-name-34b23c4k",
+		LogicalCluster:              "root:default:foo",
+		SyncTarget:                  "sync-target-name",
+		SyncTargetUID:               "sync-target-uid",
+		Image:                       "image",
+		Replicas:                    1,
+		ResourcesToSync:             []string{"resource1", "resource2"},
+		QPS:                         123.4,
+		Burst:                       456,
+		APIImportPollIntervalString: "1m",
+		FeatureGatesString:          "myfeature=true",
 	}, "kcp-syncer-sync-target-name-34b23c4k")
 	require.NoError(t, err)
 	require.Empty(t, cmp.Diff(expectedYAML, string(actualYAML)))

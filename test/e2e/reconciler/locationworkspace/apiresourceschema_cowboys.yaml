@@ -32,6 +32,9 @@ spec:
           properties:
             intent:
               type: string
+            # this is to ensure it will not be compatible in share environment
+            other-itent:
+              type: string
           type: object
         status:
           description: CowboyStatus communicates the observed state of the Cowboy.

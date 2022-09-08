@@ -129,6 +129,7 @@ func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 		"--output-file=-",
 		"--qps=-1",
 		"--feature-gates=" + fmt.Sprintf("%s", utilfeature.DefaultFeatureGate),
+		"--api-import-poll-interval=5s",
 	}
 	for _, resource := range sf.extraResourcesToSync {
 		pluginArgs = append(pluginArgs, "--resources="+resource)

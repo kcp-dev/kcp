@@ -20,17 +20,14 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/pkg/version"
@@ -40,8 +37,10 @@ import (
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/syncer/namespace"
+	"github.com/kcp-dev/kcp/pkg/syncer/resourcesync"
 	"github.com/kcp-dev/kcp/pkg/syncer/spec"
 	"github.com/kcp-dev/kcp/pkg/syncer/status"
 	"github.com/kcp-dev/kcp/third_party/keyfunctions"
@@ -54,9 +53,6 @@ const (
 
 	// TODO(marun) Coordinate this value with the interval configured for the heartbeat controller
 	heartbeatInterval = 20 * time.Second
-
-	// TODO(marun) Ensure backoff rather than using a constant to avoid thundering herds
-	gvrQueryInterval = 1 * time.Second
 )
 
 // SyncerConfig defines the syncer configuration that is guaranteed to
@@ -83,6 +79,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	if err != nil {
 		return err
 	}
+	kcpClient := kcpClusterClient.Cluster(cfg.SyncTargetWorkspace)
 
 	// TODO(david): Implement real support for several virtual workspace URLs that can change over time.
 	// TODO(david): For now we retrieve the syncerVirtualWorkpaceURL at start, since we temporarily stick to a single URL (sharding not supported).
@@ -96,7 +93,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	var syncTarget *workloadv1alpha1.SyncTarget
 	err = wait.PollImmediateInfinite(5*time.Second, func() (bool, error) {
 		var err error
-		syncTarget, err = kcpClusterClient.Cluster(cfg.SyncTargetWorkspace).WorkloadV1alpha1().SyncTargets().Get(ctx, cfg.SyncTargetName, metav1.GetOptions{})
+		syncTarget, err = kcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx, cfg.SyncTargetName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -121,6 +118,8 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		return err
 	}
 
+	kcpInformerFactory := kcpinformers.NewSharedInformerFactoryWithOptions(kcpClient, resyncPeriod)
+
 	// Resources are accepted as a set to ensure the provision of a
 	// unique set of resources, but all subsequent consumption is via
 	// slice whose entries are assumed to be unique.
@@ -129,11 +128,10 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	// Start api import first because spec and status syncers are blocked by
 	// gvr discovery finding all the configured resource types in the kcp
 	// workspace.
-	apiImporter, err := NewAPIImporter(cfg.UpstreamConfig, cfg.DownstreamConfig, resources, cfg.SyncTargetWorkspace, cfg.SyncTargetName)
+	apiImporter, err := NewAPIImporter(cfg.UpstreamConfig, cfg.DownstreamConfig, kcpInformerFactory, resources, cfg.SyncTargetWorkspace, cfg.SyncTargetName)
 	if err != nil {
 		return err
 	}
-	go apiImporter.Start(ctx, importPollInterval)
 
 	upstreamConfig := rest.CopyConfig(cfg.UpstreamConfig)
 	upstreamConfig.Host = syncerVirtualWorkspaceURL
@@ -149,11 +147,6 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	if err != nil {
 		return err
 	}
-	upstreamDiscoveryClusterClient, err := discovery.NewDiscoveryClientForConfig(upstreamConfig)
-	if err != nil {
-		return err
-	}
-	upstreamDiscoveryClient := upstreamDiscoveryClusterClient.WithCluster(logicalcluster.Wildcard)
 
 	syncTargetKey := workloadv1alpha1.ToSyncTargetKey(cfg.SyncTargetWorkspace, cfg.SyncTargetName)
 	upstreamInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(upstreamDynamicClusterClient.Cluster(logicalcluster.Wildcard), resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
@@ -163,54 +156,39 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		o.LabelSelector = workloadv1alpha1.InternalDownstreamClusterLabel + "=" + syncTargetKey
 	}, cache.WithResyncPeriod(resyncPeriod), cache.WithKeyFunction(keyfunctions.DeletionHandlingMetaNamespaceKeyFunc))
 
-	// TODO(ncdc): we need to provide user-facing details if this polling goes on forever. Blocking here is a bad UX.
-	// TODO(ncdc): Also, any regressions in our code will make any e2e test that starts a syncer (at least in-process)
-	// TODO(ncdc): block until it hits the 10 minute overall test timeout.
-	//
-	// Block syncer start on gvr discovery completing successfully and
-	// including the resources configured for syncing. The spec and status
-	// syncers depend on the types being present to start their informers.
-	var gvrs []schema.GroupVersionResource
-	err = wait.PollImmediateInfinite(gvrQueryInterval, func() (bool, error) {
-		logger.Info("attempting to retrieve GVRs from upstream...")
-
-		var err error
-		// Get all types the upstream API server knows about.
-		// TODO: watch this and learn about new types, or forget about old ones.
-		gvrs, err = getAllGVRs(ctx, upstreamDiscoveryClient, resources...)
-		// TODO(marun) Should some of these errors be fatal?
-		if err != nil {
-			logger.Error(err, "failed to retrieve GVRs from kcp")
-			return false, nil
-		}
-		return true, nil
-	})
+	syncerInformers, err := resourcesync.NewController(
+		upstreamDynamicClusterClient,
+		downstreamDynamicClient,
+		kcpInformerFactory.Workload().V1alpha1().SyncTargets(),
+		cfg.SyncTargetName,
+		cfg.SyncTargetWorkspace,
+		syncTarget.GetUID(),
+	)
 	if err != nil {
-		// Should never happen
 		return err
 	}
 
 	// Check whether we're in the Advanced Scheduling feature-gated mode.
 	advancedSchedulingEnabled := false
 	if syncTarget.GetAnnotations()[AdvancedSchedulingFeatureAnnotation] == "true" {
-		logger.Info("Advanced Scheduling feature is enabled")
+		klog.Infof("Advanced Scheduling feature is enabled for syncTarget %s", cfg.SyncTargetName)
 		advancedSchedulingEnabled = true
 	}
 
-	logger.Info(fmt.Sprintf("creating spec syncer resources %v", resources))
+	klog.Infof("Creating spec syncer for SyncTarget %s|%s, resources %v", cfg.SyncTargetWorkspace, cfg.SyncTargetName, resources)
 	upstreamURL, err := url.Parse(cfg.UpstreamConfig.Host)
 	if err != nil {
 		return err
 	}
-	specSyncer, err := spec.NewSpecSyncer(gvrs, cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, upstreamURL, advancedSchedulingEnabled,
-		upstreamDynamicClusterClient, downstreamDynamicClient, upstreamInformers, downstreamInformers, syncTarget.GetUID())
+	specSyncer, err := spec.NewSpecSyncer(cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, upstreamURL, advancedSchedulingEnabled,
+		upstreamDynamicClusterClient, downstreamDynamicClient, upstreamInformers, downstreamInformers, syncerInformers, syncTarget.GetUID())
 	if err != nil {
 		return err
 	}
 
-	logger.Info(fmt.Sprintf("creating status syncer resources %v", resources))
-	statusSyncer, err := status.NewStatusSyncer(gvrs, cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, advancedSchedulingEnabled,
-		upstreamDynamicClusterClient, downstreamDynamicClient, upstreamInformers, downstreamInformers, syncTarget.GetUID())
+	klog.Infof("Creating status syncer for SyncTarget %s|%s, resources %v", cfg.SyncTargetWorkspace, cfg.SyncTargetName, resources)
+	statusSyncer, err := status.NewStatusSyncer(cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, advancedSchedulingEnabled,
+		upstreamDynamicClusterClient, downstreamDynamicClient, upstreamInformers, downstreamInformers, syncerInformers, syncTarget.GetUID())
 	if err != nil {
 		return err
 	}
@@ -227,10 +205,14 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 
 	upstreamInformers.Start(ctx.Done())
 	downstreamInformers.Start(ctx.Done())
+	kcpInformerFactory.Start(ctx.Done())
 
 	upstreamInformers.WaitForCacheSync(ctx.Done())
 	downstreamInformers.WaitForCacheSync(ctx.Done())
+	kcpInformerFactory.WaitForCacheSync(ctx.Done())
 
+	go apiImporter.Start(ctx, importPollInterval)
+	go syncerInformers.Start(ctx, 1)
 	go specSyncer.Start(ctx, numSyncerThreads)
 	go statusSyncer.Start(ctx, numSyncerThreads)
 	go downstreamNamespaceController.Start(ctx, numSyncerThreads)
@@ -262,100 +244,4 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	}, heartbeatInterval)
 
 	return nil
-}
-
-func contains(ss []string, s string) bool {
-	for _, n := range ss {
-		if n == s {
-			return true
-		}
-	}
-	return false
-}
-
-func getAllGVRs(ctx context.Context, discoveryClient discovery.DiscoveryInterface, resourcesToSync ...string) ([]schema.GroupVersionResource, error) {
-	toSyncSet := sets.NewString(resourcesToSync...)
-	willBeSyncedSet := sets.NewString()
-	rs, err := discoveryClient.ServerPreferredResources()
-	if err != nil {
-		if strings.Contains(err.Error(), "unable to retrieve the complete list of server APIs") {
-			// This error may occur when some API resources added from CRDs are not completely ready.
-			// We should just retry without a limit on the number of retries in such a case.
-			//
-			// In fact this might be related to a bug in the changes made on the feature-logical-cluster
-			// Kubernetes branch to support legacy schema resources added as CRDs.
-			// If this is confirmed, this test will be removed when the CRD bug is fixed.
-			return nil, err
-		} else {
-			return nil, err
-		}
-	}
-	// TODO(jmprusi): Added Configmaps and Secrets to the default syncing, but we should figure out
-	//                a way to avoid doing that: https://github.com/kcp-dev/kcp/issues/727
-	gvrstrs := sets.NewString("configmaps.v1.", "secrets.v1.") // A syncer should always watch secrets and configmaps.
-	logger := klog.FromContext(ctx)
-	for _, r := range rs {
-		// v1 -> v1.
-		// apps/v1 -> v1.apps
-		// tekton.dev/v1beta1 -> v1beta1.tekton.dev
-		groupVersion, err := schema.ParseGroupVersion(r.GroupVersion)
-		if err != nil {
-			logger.Error(err, "unable to parse GroupVersion")
-			continue
-		}
-		vr := groupVersion.Version + "." + groupVersion.Group
-		for _, ai := range r.APIResources {
-			var willBeSynced string
-			groupResource := schema.GroupResource{
-				Group:    groupVersion.Group,
-				Resource: ai.Name,
-			}
-			logger = logger.WithValues(
-				"group", groupVersion.Group,
-				"version", groupVersion.Version,
-				"resource", ai.Name,
-			)
-			if toSyncSet.Has(groupResource.String()) {
-				willBeSynced = groupResource.String()
-			} else if toSyncSet.Has(ai.Name) {
-				willBeSynced = ai.Name
-			} else {
-				// We're not interested in this resource type
-				continue
-			}
-			if strings.Contains(ai.Name, "/") {
-				// foo/status, pods/exec, namespace/finalize, etc.
-				continue
-			}
-			if !ai.Namespaced {
-				// Ignore cluster-scoped things.
-				continue
-			}
-			if !contains(ai.Verbs, "watch") {
-				logger.Info("resource is not watchable")
-				continue
-			}
-			gvrstrs.Insert(fmt.Sprintf("%s.%s", ai.Name, vr))
-			willBeSyncedSet.Insert(willBeSynced)
-		}
-	}
-
-	notFoundResourceTypes := toSyncSet.Difference(willBeSyncedSet)
-	if notFoundResourceTypes.Len() != 0 {
-		// Some of the API resources expected to be there are still not published by KCP.
-		// We should just retry without a limit on the number of retries in such a case,
-		// until the corresponding resources are added inside KCP as CRDs and published as API resources.
-		return nil, fmt.Errorf("the following resource types were requested to be synced, but were not found in the KCP logical cluster: %v", notFoundResourceTypes.List())
-	}
-
-	gvrs := make([]schema.GroupVersionResource, 0, gvrstrs.Len())
-	for _, gvrstr := range gvrstrs.List() {
-		gvr, _ := schema.ParseResourceArg(gvrstr)
-		if gvr == nil {
-			logger.Error(fmt.Errorf("invalid resource: %s", gvrstr), "err parsing resource")
-			continue
-		}
-		gvrs = append(gvrs, *gvr)
-	}
-	return gvrs, nil
 }
