@@ -210,7 +210,7 @@ spec:
                     default: Pending
                     description: state indicate whether the resources schema is compatible
                       to the SyncTarget. It must be updated by syncer after checking
-                      the API compatibility on SyncTarget.
+                      the API compaibility on SyncTarget.
                     enum:
                     - Pending
                     - Accepted
