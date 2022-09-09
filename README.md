@@ -65,7 +65,7 @@ local `kind` cluster.
 Run the following command to tell kcp about the `kind` cluster (replace the syncer image tag as needed):
 
 ```shell
-$ kcp workload sync kind --syncer-image ghcr.io/kcp-dev/kcp/syncer:v0.8.0 -o syncer-kind-main.yaml
+$ kubectl kcp workload sync kind --syncer-image ghcr.io/kcp-dev/kcp/syncer:v0.8.0 -o syncer-kind-main.yaml
 Creating synctarget "kind"
 Creating service account "kcp-syncer-kind-25coemaz"
 Creating cluster role "kcp-syncer-kind-25coemaz" to give service account "kcp-syncer-kind-25coemaz"
