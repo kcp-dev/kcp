@@ -151,15 +151,28 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 func propagateDeletionTimestamp(logger logr.Logger, obj metav1.Object, annotationPatch map[string]interface{}) map[string]interface{} {
 	logger.V(3).Info("resource is being deleted; setting the deletion per locations timestamps")
 	objAnnotations := obj.GetAnnotations()
+	objFinalizers := obj.GetFinalizers()
 	objLocations, _ := locations(objAnnotations, obj.GetLabels(), false)
 	if annotationPatch == nil {
 		annotationPatch = make(map[string]interface{})
 	}
 	for location := range objLocations {
+		hasFinalizerForLocation := false
+		for _, finalizer := range objFinalizers {
+			if finalizer == syncershared.SyncerFinalizerNamePrefix+location {
+				hasFinalizerForLocation = true
+				break
+			}
+		}
+		// If the object doesn't have a syncer finalizer for the given location, we don't need to set the deletion timestamp.
+		if !hasFinalizerForLocation {
+			break
+		}
 		if val, ok := objAnnotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+location]; !ok || val == "" {
 			annotationPatch[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+location] = obj.GetDeletionTimestamp().Format(time.RFC3339)
 		}
 	}
+
 	return annotationPatch
 }
 

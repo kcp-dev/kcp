@@ -250,16 +250,28 @@ func TestPropagateDeletionTimestamp(t *testing.T) {
 		{name: "Object is marked for deletion and has one location",
 			obj: object(nil, map[string]string{
 				"state.workload.kcp.dev/cluster-1": "Sync",
-			}, nil, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}),
+			}, []string{
+				"workload.kcp.dev/syncer-cluster-1",
+			}, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}),
 			wantAnnotationPatch: map[string]interface{}{
 				"deletion.internal.workload.kcp.dev/cluster-1": "2002-10-02T10:00:00Z",
 			},
-		}, {name: "Object is marked for deletion and has multiple locations",
+		}, {name: "Object is marked for deletion and has one location, but there's no finalizer for that location, expect no changes",
+			obj: object(nil, map[string]string{
+				"state.workload.kcp.dev/cluster-1": "Sync",
+			}, []string{}, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}),
+			wantAnnotationPatch: map[string]interface{}{},
+		},
+		{name: "Object is marked for deletion and has multiple locations",
 			obj: object(nil, map[string]string{
 				"state.workload.kcp.dev/cluster-1": "Sync",
 				"state.workload.kcp.dev/cluster-2": "Sync",
 				"state.workload.kcp.dev/cluster-3": "Sync",
-			}, nil, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}),
+			}, []string{
+				"workload.kcp.dev/syncer-cluster-1",
+				"workload.kcp.dev/syncer-cluster-2",
+				"workload.kcp.dev/syncer-cluster-3",
+			}, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}),
 			wantAnnotationPatch: map[string]interface{}{
 				"deletion.internal.workload.kcp.dev/cluster-1": "2002-10-02T10:00:00Z",
 				"deletion.internal.workload.kcp.dev/cluster-2": "2002-10-02T10:00:00Z",
@@ -269,7 +281,9 @@ func TestPropagateDeletionTimestamp(t *testing.T) {
 		{name: "Object is marked for deletion, has one location and the annotationPatch has some value, should be maintained",
 			obj: object(nil, map[string]string{
 				"state.workload.kcp.dev/cluster-1": "Sync",
-			}, nil, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}),
+			}, []string{
+				"workload.kcp.dev/syncer-cluster-1",
+			}, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}),
 			annotationPatch: map[string]interface{}{
 				"new-annotation-that-we-dont-care-about": "new-value",
 			},
@@ -283,7 +297,9 @@ func TestPropagateDeletionTimestamp(t *testing.T) {
 				"deletion.internal.workload.kcp.dev/cluster-1": "2002-10-02T10:00:00Z",
 			}, map[string]string{
 				"state.workload.kcp.dev/cluster-1": "Sync",
-			}, nil, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}),
+			}, []string{
+				"workload.kcp.dev/syncer-cluster-1",
+			}, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}),
 			wantAnnotationPatch: map[string]interface{}{},
 		},
 		{name: "Object is marked for deletion, has one location with a location deletionTimestamp already set, but with different time value, no update",
@@ -291,13 +307,17 @@ func TestPropagateDeletionTimestamp(t *testing.T) {
 				"deletion.internal.workload.kcp.dev/cluster-1": "2000-01-01 10:00:00 +0000 UTC",
 			}, map[string]string{
 				"state.workload.kcp.dev/cluster-1": "Sync",
-			}, nil, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}),
+			}, []string{
+				"workload.kcp.dev/syncer-cluster-1",
+			}, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}),
 			wantAnnotationPatch: map[string]interface{}{},
 		},
 		{name: "Object is marked for deletion, has one pending location, the deletionTimestamp of that location should be set",
 			obj: object(nil, map[string]string{
 				"state.workload.kcp.dev/cluster-1": "",
-			}, nil, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}),
+			}, []string{
+				"workload.kcp.dev/syncer-cluster-1",
+			}, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}),
 			wantAnnotationPatch: map[string]interface{}{
 				"deletion.internal.workload.kcp.dev/cluster-1": "2002-10-02T10:00:00Z",
 			},
