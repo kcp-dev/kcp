@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v220803-727d944d.synctargets.workload.kcp.dev
+  name: v220909-c255fd13.synctargets.workload.kcp.dev
 spec:
   group: workload.kcp.dev
   names:

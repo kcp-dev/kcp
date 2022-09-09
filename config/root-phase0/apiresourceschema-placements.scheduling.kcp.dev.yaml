@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v220801-c65c674d4.placements.scheduling.kcp.dev
+  name: v220909-c255fd13.placements.scheduling.kcp.dev
 spec:
   group: scheduling.kcp.dev
   names:
