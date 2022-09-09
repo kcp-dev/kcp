@@ -17,10 +17,14 @@ limitations under the License.
 package client
 
 import (
+	"bytes"
 	"net/http"
 	"regexp"
 	"strings"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/rest"
 
 	clientshard "github.com/kcp-dev/kcp/pkg/cache/client/shard"
@@ -35,10 +39,10 @@ var (
 	shardNameRegex = regexp.MustCompile(`shards/([^/]+)/.+`)
 )
 
-// WithShardRoundTripper wraps an existing config's with ShardRoundTripper.
+// WithShardNameFromContextRoundTripper wraps an existing config's with ShardRoundTripper.
 //
 // Note: it is the caller responsibility to make a copy of the rest config
-func WithShardRoundTripper(cfg *rest.Config) *rest.Config {
+func WithShardNameFromContextRoundTripper(cfg *rest.Config) *rest.Config {
 	cfg.Wrap(func(rt http.RoundTripper) http.RoundTripper {
 		return NewShardRoundTripper(rt)
 	})
@@ -142,5 +146,75 @@ func (c *DefaultShardRoundTripper) RoundTrip(req *http.Request) (*http.Response,
 	if ShardFromContext(req.Context()).Empty() {
 		req = req.WithContext(WithShardInContext(req.Context(), c.shard))
 	}
+	return c.delegate.RoundTrip(req)
+}
+
+// WithShardNameFromObjectRoundTripper wraps an existing config's with ShardNameFromObjectRoundTripper.
+//
+// Note: it is the caller responsibility to make a copy of the rest config
+func WithShardNameFromObjectRoundTripper(cfg *rest.Config, requestInfoResolver func(*http.Request) (string, string, error), supportedResources ...string) *rest.Config {
+	cfg.Wrap(func(rt http.RoundTripper) http.RoundTripper {
+		return NewShardNameFromObjectRoundTripper(rt, requestInfoResolver, supportedResources...)
+	})
+
+	return cfg
+}
+
+// NewShardNameFromObjectRoundTripper creates a new ShardNameFromObjectRoundTripper for the given resources
+func NewShardNameFromObjectRoundTripper(delegate http.RoundTripper, requestInfoResolver func(*http.Request) (string, string, error), supportedResources ...string) *ShardNameFromObjectRoundTripper {
+	return &ShardNameFromObjectRoundTripper{
+		delegate:            delegate,
+		requestInfoResolver: requestInfoResolver,
+		supportedResources:  sets.NewString(supportedResources...),
+		supportedVerbs:      sets.NewString("create", "update", "patch"),
+	}
+}
+
+// ShardNameFromObjectRoundTripper knows how to read a shard name
+// from an object and store it in the context.
+// it should be only used by the internal kube-clients that are not aware of a shard name.
+type ShardNameFromObjectRoundTripper struct {
+	delegate            http.RoundTripper
+	requestInfoResolver func(*http.Request) (string, string, error) /*res, verb, err*/
+	supportedResources  sets.String
+	supportedVerbs      sets.String
+}
+
+func (c *ShardNameFromObjectRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	// no-op if we already have a shard name in the cxt
+	if shard := ShardFromContext(req.Context()); !shard.Empty() {
+		return c.delegate.RoundTrip(req)
+	}
+
+	resource, verb, err := c.requestInfoResolver(req)
+	if err != nil {
+		return nil, err
+	}
+	if !c.supportedResources.Has(resource) || !c.supportedVerbs.Has(verb) {
+		return c.delegate.RoundTrip(req)
+	}
+
+	bodyReader, err := req.GetBody()
+	if err != nil {
+		return nil, err
+	}
+	defer bodyReader.Close()
+	rawBody := new(bytes.Buffer)
+	_, err = rawBody.ReadFrom(bodyReader)
+	if err != nil {
+		return nil, err
+	}
+	rawObject := rawBody.Bytes()
+	unstructuredObject, _, err := unstructured.UnstructuredJSONScheme.Decode(rawObject, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	if object, ok := unstructuredObject.(metav1.Object); ok {
+		annotations := object.GetAnnotations()
+		if shardName, ok := annotations[clientshard.AnnotationKey]; ok {
+			req = req.WithContext(WithShardInContext(req.Context(), clientshard.New(shardName)))
+		}
+	}
+
 	return c.delegate.RoundTrip(req)
 }
