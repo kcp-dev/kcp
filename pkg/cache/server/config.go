@@ -39,6 +39,7 @@ import (
 	genericoptions "k8s.io/apiserver/pkg/server/options"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/apiserver/pkg/util/webhook"
+	"k8s.io/client-go/rest"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/clientutils"
 
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
@@ -87,7 +88,9 @@ func (c *Config) Complete() (CompletedConfig, error) {
 	}}, nil
 }
 
-func NewConfig(opts *cacheserveroptions.CompletedOptions) (*Config, error) {
+// NewConfig returns a new Config for the given options and optional rest.Config that point to the local server.
+// Pass it only when you combine this server with a different one.
+func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRestConfig *rest.Config) (*Config, error) {
 	c := &Config{
 		Options: opts,
 	}
@@ -116,8 +119,15 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions) (*Config, error) {
 	if err := opts.Etcd.ApplyTo(&serverConfig.Config); err != nil {
 		return nil, err
 	}
-	if err := opts.SecureServing.ApplyTo(&serverConfig.Config.SecureServing, &serverConfig.Config.LoopbackClientConfig); err != nil {
-		return nil, err
+	if optionalLocalShardRestConfig == nil {
+		if err := opts.SecureServing.ApplyTo(&serverConfig.Config.SecureServing, &serverConfig.Config.LoopbackClientConfig); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := opts.SecureServing.ApplyTo(&serverConfig.Config.SecureServing, nil); err != nil {
+			return nil, err
+		}
+		serverConfig.LoopbackClientConfig = rest.CopyConfig(optionalLocalShardRestConfig)
 	}
 	if err := opts.Authentication.ApplyTo(&serverConfig.Config.Authentication, serverConfig.SecureServing, serverConfig.OpenAPIConfig); err != nil {
 		return nil, err
