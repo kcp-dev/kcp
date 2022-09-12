@@ -131,7 +131,6 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions) (*Config, error) {
 		apiHandler = genericapiserver.DefaultBuildHandlerChainBeforeAuthz(apiHandler, genericConfig)
 		apiHandler = filters.WithAuditEventClusterAnnotation(apiHandler)
 		apiHandler = filters.WithClusterScope(apiHandler)
-		apiHandler = filters.WithAcceptHeader(apiHandler)
 		apiHandler = WithShardScope(apiHandler)
 		return apiHandler
 	}

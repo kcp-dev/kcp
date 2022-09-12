@@ -1,9 +1,12 @@
 /*
 Copyright 2022 The KCP Authors.
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
+
     http://www.apache.org/licenses/LICENSE-2.0
+
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -22,9 +25,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"sigs.k8s.io/yaml"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"sigs.k8s.io/yaml"
 )
 
 func Test_isPartialMetadataHeader(t *testing.T) {
@@ -51,7 +54,7 @@ func Test_isPartialMetadataHeader(t *testing.T) {
 
 func TestClusterWorkspaceNamePattern(t *testing.T) {
 	_, fileName, _, _ := runtime.Caller(0)
-	bs, err := ioutil.ReadFile(filepath.Join(filepath.Dir(fileName), "..", "..", "config/crds/tenancy.kcp.dev_clusterworkspaces.yaml"))
+	bs, err := ioutil.ReadFile(filepath.Join(filepath.Dir(fileName), "..", "..", "../config/crds/tenancy.kcp.dev_clusterworkspaces.yaml"))
 	require.NoError(t, err)
 	var crd apiextensionsv1.CustomResourceDefinition
 	err = yaml.Unmarshal(bs, &crd)
