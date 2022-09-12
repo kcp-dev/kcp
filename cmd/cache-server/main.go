@@ -72,11 +72,6 @@ func main() {
 				return err
 			}
 
-			server, err := cacheserver.NewServer(completedConfig)
-			if err != nil {
-				return err
-			}
-
 			ctx := genericapiserver.SetupSignalContext()
 			// the etcd server must be up before NewServer because storage decorators access it right away
 			if completedConfig.EmbeddedEtcd.Config != nil {
@@ -84,7 +79,16 @@ func main() {
 					return err
 				}
 			}
-			return server.Run(ctx)
+
+			server, err := cacheserver.NewServer(completedConfig)
+			if err != nil {
+				return err
+			}
+			prepared, err := server.PrepareRun(ctx)
+			if err != nil {
+				return err
+			}
+			return prepared.Run(ctx)
 		},
 	}
 

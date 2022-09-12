@@ -62,7 +62,7 @@ func (o *CompletedOptions) Validate() []error {
 	return errors
 }
 
-// NewOptions crwates a new Options with default parameters.
+// NewOptions creates a new Options with default parameters.
 func NewOptions(rootDir string) *Options {
 	o := &Options{
 		ServerRunOptions: genericoptions.NewServerRunOptions(),
