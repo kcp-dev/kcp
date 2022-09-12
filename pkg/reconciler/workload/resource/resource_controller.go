@@ -390,7 +390,12 @@ func (c *Controller) enqueueSyncTarget(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	clusterName, name := clusters.SplitClusterAwareKey(key)
+	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+	clusterName, name := clusters.SplitClusterAwareKey(clusterAwareName)
 	finalizer := syncershared.SyncerFinalizerNamePrefix + workloadv1alpha1.ToSyncTargetKey(clusterName, name)
 
 	listers, _ := c.ddsif.Listers()

@@ -152,7 +152,12 @@ func (c *controller) enqueuePlacement(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	clusterName, _ := clusters.SplitClusterAwareKey(key)
+	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+	clusterName, _ := clusters.SplitClusterAwareKey(clusterAwareName)
 
 	nss, err := c.namespaceIndexer.ByIndex(byWorkspace, clusterName.String())
 	if err != nil {

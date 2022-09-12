@@ -70,9 +70,15 @@ func NewApiExportIdentityProviderController(
 		FilterFunc: func(obj interface{}) bool {
 			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 			if err != nil {
+				runtime.HandleError(err)
 				return false
 			}
-			clusterName, _ := clusters.SplitClusterAwareKey(key)
+			_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+			if err != nil {
+				runtime.HandleError(err)
+				return false
+			}
+			clusterName, _ := clusters.SplitClusterAwareKey(clusterAwareName)
 			return clusterName == tenancyv1alpha1.RootCluster
 		},
 		Handler: cache.ResourceEventHandlerFuncs{
@@ -86,6 +92,7 @@ func NewApiExportIdentityProviderController(
 		FilterFunc: func(obj interface{}) bool {
 			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 			if err != nil {
+				runtime.HandleError(err)
 				return false
 			}
 			_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)

@@ -157,7 +157,12 @@ func (c *Controller) enqueueShard(obj interface{}) {
 		}
 	}
 
-	_, name := clusters.SplitClusterAwareKey(key)
+	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+	_, name := clusters.SplitClusterAwareKey(clusterAwareName)
 	workspaces, err := c.workspaceIndexer.ByIndex(byCurrentShard, name)
 	if err != nil {
 		runtime.HandleError(err)
@@ -180,7 +185,12 @@ func (c *Controller) enqueueBinding(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	clusterName, _ := clusters.SplitClusterAwareKey(key)
+	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+	clusterName, _ := clusters.SplitClusterAwareKey(clusterAwareName)
 	if clusterName == tenancyv1alpha1.RootCluster {
 		return
 	}

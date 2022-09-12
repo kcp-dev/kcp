@@ -113,8 +113,13 @@ func (m *clusterWorkspaceDeletionMonitor) processNextWorkItem() bool {
 }
 
 func (m *clusterWorkspaceDeletionMonitor) process(key string) error {
+	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		runtime.HandleError(err)
+		return nil
+	}
 	// e.g. root:org<separator>ws
-	parent, name := clusters.SplitClusterAwareKey(key)
+	parent, name := clusters.SplitClusterAwareKey(clusterAwareName)
 
 	// turn it into root:org:ws
 	clusterName := parent.Join(name)

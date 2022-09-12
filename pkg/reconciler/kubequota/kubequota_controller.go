@@ -224,8 +224,13 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 // process processes a single key from the queue.
 func (c *Controller) process(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
+	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		utilruntime.HandleError(err)
+		return nil
+	}
 	// e.g. root:org<separator>ws
-	parent, name := clusters.SplitClusterAwareKey(key)
+	parent, name := clusters.SplitClusterAwareKey(clusterAwareName)
 
 	// turn it into root:org:ws
 	clusterName := parent.Join(name)
