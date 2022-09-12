@@ -23,7 +23,6 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/cache/server/bootstrap"
-	"github.com/kcp-dev/kcp/pkg/util"
 )
 
 type Server struct {
@@ -45,7 +44,7 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 	if err := server.GenericAPIServer.AddPostStartHook("bootstrap-cache-server", func(hookContext genericapiserver.PostStartHookContext) error {
 		logger = logger.WithValues("postStartHook", "bootstrap-cache-server")
-		if err = bootstrap.Bootstrap(klog.NewContext(util.GoContext(hookContext), logger), s.ApiExtensionsClusterClient); err != nil {
+		if err = bootstrap.Bootstrap(klog.NewContext(goContext(hookContext), logger), s.ApiExtensionsClusterClient); err != nil {
 			logger.Error(err, "failed creating the static CustomResourcesDefinitions")
 			// nolint:nilerr
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
@@ -69,4 +68,16 @@ func (s *Server) Run(ctx context.Context) error {
 		return err
 	}
 	return server.GenericAPIServer.PrepareRun().Run(ctx.Done())
+}
+
+// goContext turns the PostStartHookContext into a context.Context for use in routines that may or may not
+// run inside of a post-start-hook. The k8s APIServer wrote the post-start-hook context code before contexts
+// were part of the Go stdlib.
+func goContext(parent genericapiserver.PostStartHookContext) context.Context {
+	ctx, cancel := context.WithCancel(context.Background())
+	go func(done <-chan struct{}) {
+		<-done
+		cancel()
+	}(parent.StopCh)
+	return ctx
 }

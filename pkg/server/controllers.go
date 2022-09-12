@@ -77,7 +77,6 @@ import (
 	workloadresource "github.com/kcp-dev/kcp/pkg/reconciler/workload/resource"
 	synctargetcontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/synctarget"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/synctargetexports"
-	"github.com/kcp-dev/kcp/pkg/util"
 )
 
 func postStartHookName(controllerName string) string {
@@ -652,7 +651,7 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 		// do custom wait logic here because APIExports+APIBindings are special as system CRDs,
 		// and the controllers must run as soon as these two informers are up in order to bootstrap
 		// the rest of the system. Everything else in the kcp clientset is APIBinding based.
-		if err := wait.PollImmediateInfiniteWithContext(util.GoContext(hookContext), time.Millisecond*100, func(ctx context.Context) (bool, error) {
+		if err := wait.PollImmediateInfiniteWithContext(goContext(hookContext), time.Millisecond*100, func(ctx context.Context) (bool, error) {
 			crdsSynced := s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced()
 			exportsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
 			bindingsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced()
@@ -663,9 +662,9 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(util.GoContext(hookContext), 2)
-		go permissionClaimLabelController.Start(util.GoContext(hookContext), 5)
-		go permissionClaimLabelResourceController.Start(util.GoContext(hookContext), 2)
+		go c.Start(goContext(hookContext), 2)
+		go permissionClaimLabelController.Start(goContext(hookContext), 5)
+		go permissionClaimLabelResourceController.Start(goContext(hookContext), 2)
 
 		return nil
 	}); err != nil {
@@ -687,7 +686,7 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go apibindingDeletionController.Start(util.GoContext(hookContext), 10)
+		go apibindingDeletionController.Start(goContext(hookContext), 10)
 
 		return nil
 	})
@@ -725,7 +724,7 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 		// do custom wait logic here because APIExports+APIBindings are special as system CRDs,
 		// and the controllers must run as soon as these two informers are up in order to bootstrap
 		// the rest of the system. Everything else in the kcp clientset is APIBinding based.
-		if err := wait.PollImmediateInfiniteWithContext(util.GoContext(hookContext), time.Millisecond*100, func(ctx context.Context) (bool, error) {
+		if err := wait.PollImmediateInfiniteWithContext(goContext(hookContext), time.Millisecond*100, func(ctx context.Context) (bool, error) {
 			crdsSynced := s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced()
 			exportsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
 			bindingsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced()
@@ -736,7 +735,7 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(util.GoContext(hookContext), 2)
+		go c.Start(goContext(hookContext), 2)
 
 		return nil
 	})
@@ -769,7 +768,7 @@ func (s *Server) installSchedulingLocationStatusController(ctx context.Context, 
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(util.GoContext(hookContext), 2)
+		go c.Start(goContext(hookContext), 2)
 
 		return nil
 	})
@@ -801,7 +800,7 @@ func (s *Server) installDefaultPlacementController(ctx context.Context, config *
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(util.GoContext(hookContext), 2)
+		go c.Start(goContext(hookContext), 2)
 
 		return nil
 	})
@@ -833,7 +832,7 @@ func (s *Server) installWorkloadNamespaceScheduler(ctx context.Context, config *
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(util.GoContext(hookContext), 2)
+		go c.Start(goContext(hookContext), 2)
 
 		return nil
 	}); err != nil {
@@ -870,7 +869,7 @@ func (s *Server) installWorkloadPlacementScheduler(ctx context.Context, config *
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(util.GoContext(hookContext), 2)
+		go c.Start(goContext(hookContext), 2)
 
 		return nil
 	})
@@ -903,7 +902,7 @@ func (s *Server) installSchedulingPlacementController(ctx context.Context, confi
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(util.GoContext(hookContext), 2)
+		go c.Start(goContext(hookContext), 2)
 
 		return nil
 	})
@@ -936,7 +935,7 @@ func (s *Server) installWorkloadsAPIExportController(ctx context.Context, config
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(util.GoContext(hookContext), 2)
+		go c.Start(goContext(hookContext), 2)
 
 		return nil
 	})
@@ -970,7 +969,7 @@ func (s *Server) installWorkloadsAPIExportCreateController(ctx context.Context, 
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(util.GoContext(hookContext), 2)
+		go c.Start(goContext(hookContext), 2)
 
 		return nil
 	})
@@ -1003,7 +1002,7 @@ func (s *Server) installWorkloadsSyncTargetExportController(ctx context.Context,
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(util.GoContext(hookContext), 2)
+		go c.Start(goContext(hookContext), 2)
 
 		return nil
 	})
@@ -1035,7 +1034,7 @@ func (s *Server) installSyncTargetController(ctx context.Context, config *rest.C
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(util.GoContext(hookContext), 2)
+		go c.Start(goContext(hookContext), 2)
 
 		return nil
 	})
@@ -1085,7 +1084,7 @@ func (s *Server) installKubeQuotaController(
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(util.GoContext(hookContext), 2)
+		go c.Start(goContext(hookContext), 2)
 
 		return nil
 	}); err != nil {
@@ -1124,7 +1123,7 @@ func (s *Server) installApiExportIdentityController(ctx context.Context, config 
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go c.Start(util.GoContext(hookContext), 1)
+		go c.Start(goContext(hookContext), 1)
 		return nil
 	})
 }

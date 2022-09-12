@@ -46,7 +46,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
-	"github.com/kcp-dev/kcp/pkg/util"
 )
 
 const resyncPeriod = 10 * time.Hour
@@ -127,7 +126,7 @@ func (s *Server) Run(ctx context.Context) error {
 
 		logger.Info("finished starting kube informers")
 
-		if err := wait.PollInfiniteWithContext(util.GoContext(hookContext), time.Second, func(ctx context.Context) (bool, error) {
+		if err := wait.PollInfiniteWithContext(goContext(hookContext), time.Second, func(ctx context.Context) (bool, error) {
 			if err := systemcrds.Bootstrap(ctx,
 				s.ApiExtensionsClusterClient.Cluster(SystemCRDLogicalCluster),
 				s.ApiExtensionsClusterClient.Cluster(SystemCRDLogicalCluster).Discovery(),
@@ -145,7 +144,7 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 		logger.Info("finished bootstrapping system CRDs")
 
-		if err := wait.PollInfiniteWithContext(util.GoContext(hookContext), time.Second, func(ctx context.Context) (bool, error) {
+		if err := wait.PollInfiniteWithContext(goContext(hookContext), time.Second, func(ctx context.Context) (bool, error) {
 			if err := configshard.Bootstrap(ctx,
 				s.ApiExtensionsClusterClient.Cluster(configshard.SystemShardCluster).Discovery(),
 				s.DynamicClusterClient.Cluster(configshard.SystemShardCluster),
@@ -165,7 +164,7 @@ func (s *Server) Run(ctx context.Context) error {
 		go s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().Run(hookContext.StopCh)
 		go s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().Run(hookContext.StopCh)
 
-		if err := wait.PollInfiniteWithContext(util.GoContext(hookContext), time.Millisecond*100, func(ctx context.Context) (bool, error) {
+		if err := wait.PollInfiniteWithContext(goContext(hookContext), time.Millisecond*100, func(ctx context.Context) (bool, error) {
 			exportsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
 			bindingsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced()
 			return exportsSynced && bindingsSynced, nil
@@ -178,7 +177,7 @@ func (s *Server) Run(ctx context.Context) error {
 
 		if s.Options.Extra.ShardName == tenancyv1alpha1.RootShard {
 			// bootstrap root workspace phase 0 only if we are on the root shard, no APIBinding resources yet
-			if err := configrootphase0.Bootstrap(util.GoContext(hookContext),
+			if err := configrootphase0.Bootstrap(goContext(hookContext),
 				s.KcpClusterClient.Cluster(tenancyv1alpha1.RootCluster),
 				s.ApiExtensionsClusterClient.Cluster(tenancyv1alpha1.RootCluster).Discovery(),
 				s.DynamicClusterClient.Cluster(tenancyv1alpha1.RootCluster),
@@ -191,7 +190,7 @@ func (s *Server) Run(ctx context.Context) error {
 			logger.Info("bootstrapped root workspace phase 0")
 
 			logger.Info("getting kcp APIExport identities")
-			if err := wait.PollImmediateInfiniteWithContext(util.GoContext(hookContext), time.Millisecond*500, func(ctx context.Context) (bool, error) {
+			if err := wait.PollImmediateInfiniteWithContext(goContext(hookContext), time.Millisecond*500, func(ctx context.Context) (bool, error) {
 				if err := s.resolveIdentities(ctx); err != nil {
 					logger.V(3).Info("failed to resolve identities, keeping trying", "err", err)
 					return false, nil
@@ -209,7 +208,7 @@ func (s *Server) Run(ctx context.Context) error {
 			go s.TemporaryRootShardKcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().Run(hookContext.StopCh)
 			go s.TemporaryRootShardKcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().Run(hookContext.StopCh)
 
-			if err := wait.PollInfiniteWithContext(util.GoContext(hookContext), time.Millisecond*100, func(ctx context.Context) (bool, error) {
+			if err := wait.PollInfiniteWithContext(goContext(hookContext), time.Millisecond*100, func(ctx context.Context) (bool, error) {
 				exportsSynced := s.TemporaryRootShardKcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
 				bindingsSynced := s.TemporaryRootShardKcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced()
 				return exportsSynced && bindingsSynced, nil
@@ -221,7 +220,7 @@ func (s *Server) Run(ctx context.Context) error {
 			logger.Info("finished starting APIExport and APIBinding informers for the root shard")
 
 			logger.Info("getting kcp APIExport identities for the root shard")
-			if err := wait.PollImmediateInfiniteWithContext(util.GoContext(hookContext), time.Millisecond*500, func(ctx context.Context) (bool, error) {
+			if err := wait.PollImmediateInfiniteWithContext(goContext(hookContext), time.Millisecond*500, func(ctx context.Context) (bool, error) {
 				if err := s.resolveIdentities(ctx); err != nil {
 					logger.V(3).Info("failed to resolve identities for the root shard, keeping trying", "err", err)
 					return false, nil
@@ -258,7 +257,7 @@ func (s *Server) Run(ctx context.Context) error {
 			}
 			logger := logging.WithObject(logger, shard)
 
-			if err := wait.PollInfiniteWithContext(util.GoContext(hookContext), time.Second, func(ctx context.Context) (bool, error) {
+			if err := wait.PollInfiniteWithContext(goContext(hookContext), time.Second, func(ctx context.Context) (bool, error) {
 				logger.Info("getting ClusterWorkspaceShard from the root shard")
 				existingShard, err := s.RootShardKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaceShards().Get(ctx, shard.Name, metav1.GetOptions{})
 				if err != nil && !errors.IsNotFound(err) {
@@ -302,7 +301,7 @@ func (s *Server) Run(ctx context.Context) error {
 		logger.Info("finished starting (remaining) kcp informers")
 
 		logger.Info("starting dynamic metadata informer worker")
-		go s.DynamicDiscoverySharedInformerFactory.StartWorker(util.GoContext(hookContext))
+		go s.DynamicDiscoverySharedInformerFactory.StartWorker(goContext(hookContext))
 
 		logger.Info("synced all informers, ready to start controllers")
 		close(s.syncedCh)
@@ -311,7 +310,7 @@ func (s *Server) Run(ctx context.Context) error {
 			// the root ws is only present on the root shard
 			logger.Info("starting bootstrapping root workspace phase 1")
 			servingCert, _ := delegationChainHead.SecureServingInfo.Cert.CurrentCertKeyContent()
-			if err := configroot.Bootstrap(util.GoContext(hookContext),
+			if err := configroot.Bootstrap(goContext(hookContext),
 				s.ApiExtensionsClusterClient.Cluster(tenancyv1alpha1.RootCluster).Discovery(),
 				s.DynamicClusterClient.Cluster(tenancyv1alpha1.RootCluster),
 				s.Options.Extra.ShardName,
@@ -480,4 +479,16 @@ func (mxs *handlerChainMuxes) Handle(pattern string, handler http.Handler) {
 	for _, mx := range *mxs {
 		mx.Handle(pattern, handler)
 	}
+}
+
+// goContext turns the PostStartHookContext into a context.Context for use in routines that may or may not
+// run inside of a post-start-hook. The k8s APIServer wrote the post-start-hook context code before contexts
+// were part of the Go stdlib.
+func goContext(parent genericapiserver.PostStartHookContext) context.Context {
+	ctx, cancel := context.WithCancel(context.Background())
+	go func(done <-chan struct{}) {
+		<-done
+		cancel()
+	}(parent.StopCh)
+	return ctx
 }
