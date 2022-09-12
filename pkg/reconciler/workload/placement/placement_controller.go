@@ -167,7 +167,12 @@ func (c *controller) enqueueLocation(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	clusterName, _ := clusters.SplitClusterAwareKey(key)
+	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+	clusterName, _ := clusters.SplitClusterAwareKey(clusterAwareName)
 
 	placements, err := c.placementIndexer.ByIndex(byLocationWorkspace, clusterName.String())
 	if err != nil {
@@ -198,7 +203,12 @@ func (c *controller) enqueueSyncTarget(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	clusterName, _ := clusters.SplitClusterAwareKey(key)
+	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+	clusterName, _ := clusters.SplitClusterAwareKey(clusterAwareName)
 
 	placements, err := c.placementIndexer.ByIndex(byLocationWorkspace, clusterName.String())
 	if err != nil {

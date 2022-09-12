@@ -136,7 +136,12 @@ func (c *APIReconciler) enqueueAPIResourceSchema(obj interface{}, logger logr.Lo
 		return
 	}
 
-	clusterName, name := clusters.SplitClusterAwareKey(key)
+	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+	clusterName, name := clusters.SplitClusterAwareKey(clusterAwareName)
 	exports, err := c.apiExportIndexer.ByIndex(byWorkspace, clusterName.String())
 	if err != nil {
 		runtime.HandleError(err)
@@ -226,7 +231,12 @@ func (c *APIReconciler) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *APIReconciler) process(ctx context.Context, key string) error {
-	clusterName, apiExportName := clusters.SplitClusterAwareKey(key)
+	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		runtime.HandleError(err)
+		return nil
+	}
+	clusterName, apiExportName := clusters.SplitClusterAwareKey(clusterAwareName)
 	apiDomainKey := dynamiccontext.APIDomainKey(clusterName.String() + "/" + apiExportName)
 
 	logger := klog.FromContext(ctx).WithValues("apiDomainKey", apiDomainKey)

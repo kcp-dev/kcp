@@ -150,7 +150,12 @@ func (c *controller) enqueueSyncTarget(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	lcluster, _ := clusters.SplitClusterAwareKey(key)
+	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+	lcluster, _ := clusters.SplitClusterAwareKey(clusterAwareName)
 	domains, err := c.locationIndexer.ByIndex(byWorkspace, lcluster.String())
 	if err != nil {
 		runtime.HandleError(err)
