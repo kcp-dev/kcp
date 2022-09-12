@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	"github.com/kcp-dev/logicalcluster/v2"
-	"github.com/munnerz/goautoneg"
 
 	apiextensionshelpers "k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -47,6 +46,7 @@ import (
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
+	"github.com/kcp-dev/kcp/pkg/server/filters"
 )
 
 // SystemCRDLogicalCluster is the logical cluster we install system CRDs into for now. These are needed
@@ -169,26 +169,6 @@ func (c *apiBindingAwareCRDLister) List(ctx context.Context, selector labels.Sel
 	return ret, nil
 }
 
-func isPartialMetadataRequest(ctx context.Context) bool {
-	accept := ctx.Value(acceptHeaderContextKey).(string)
-	if accept == "" {
-		return false
-	}
-
-	return isPartialMetadataHeader(accept)
-}
-
-func isPartialMetadataHeader(accept string) bool {
-	clauses := goautoneg.ParseAccept(accept)
-	for _, clause := range clauses {
-		if clause.Params["as"] == "PartialObjectMetadata" || clause.Params["as"] == "PartialObjectMetadataList" {
-			return true
-		}
-	}
-
-	return false
-}
-
 func (c *apiBindingAwareCRDLister) Refresh(crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error) {
 	crdKey := clusters.ToClusterAwareKey(logicalcluster.From(crd), crd.Name)
 
@@ -235,7 +215,7 @@ func (c *apiBindingAwareCRDLister) Get(ctx context.Context, name string) (*apiex
 		return nil, err
 	}
 
-	partialMetadataRequest := isPartialMetadataRequest(ctx)
+	partialMetadataRequest := filters.IsPartialMetadataRequest(ctx)
 
 	if crd == nil {
 		// Not a system CRD, so check in priority order: identity, wildcard, "normal" single cluster

@@ -131,25 +131,3 @@ func TestDecorateCRDWithBinding(t *testing.T) {
 		})
 	}
 }
-
-func Test_isPartialMetadataHeader(t *testing.T) {
-	tests := map[string]struct {
-		accept string
-		want   bool
-	}{
-		"empty header": {
-			accept: "",
-			want:   false,
-		},
-		"metadata informer factory": {
-			accept: "application/vnd.kubernetes.protobuf;as=PartialObjectMetadataList;g=meta.k8s.io;v=v1,application/json;as=PartialObjectMetadataList;g=meta.k8s.io;v=v1,application/json",
-			want:   true,
-		},
-	}
-	for testName, test := range tests {
-		t.Run(testName, func(t *testing.T) {
-			got := isPartialMetadataHeader(test.accept)
-			require.Equal(t, test.want, got)
-		})
-	}
-}
