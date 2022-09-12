@@ -149,7 +149,7 @@ func (c *DefaultShardRoundTripper) RoundTrip(req *http.Request) (*http.Response,
 	return c.delegate.RoundTrip(req)
 }
 
-// WithShardNameFromObjectRoundTripper wraps an existing config's with ShardNameFromObjectRoundTripper.
+// WithShardNameFromObjectRoundTripper wraps an existing config with ShardNameFromObjectRoundTripper.
 //
 // Note: it is the caller responsibility to make a copy of the rest config
 func WithShardNameFromObjectRoundTripper(cfg *rest.Config, requestInfoResolver func(*http.Request) (string, string, error), supportedResources ...string) *rest.Config {

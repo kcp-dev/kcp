@@ -18,10 +18,12 @@ package server
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"time"
 
+	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -39,6 +41,8 @@ import (
 	"k8s.io/apiserver/pkg/util/webhook"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/clientutils"
 
+	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
+	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 	cacheserveroptions "github.com/kcp-dev/kcp/pkg/cache/server/options"
 	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
 	kcpserver "github.com/kcp-dev/kcp/pkg/server"
@@ -152,13 +156,31 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions) (*Config, error) {
 	// disable compression for self-communication, since we are going to be
 	// on a fast local network
 	serverConfig.LoopbackClientConfig.DisableCompression = true
-	clientutils.EnableMultiCluster(serverConfig.LoopbackClientConfig, &serverConfig.Config, "namespaces", "apiservices", "customresourcedefinitions", "clusterroles", "clusterrolebindings", "roles", "rolebindings", "serviceaccounts", "secrets")
 
-	// TODO: the extension client could be shard-aware
-	//      for now the shard name is implicit and assigned
-	//      by the WithShardScope to "cache"
+	// an ordered list of HTTP round trippers that add
+	// shard and cluster awareness to all clients that use
+	// the loopback config.
+	rt := cacheclient.WithShardNameFromContextRoundTripper(serverConfig.LoopbackClientConfig)
+	rt = cacheclient.WithDefaultShardRoundTripper(rt, shard.Wildcard)
+	rt = cacheclient.WithShardNameFromObjectRoundTripper(
+		rt,
+		func(rq *http.Request) (string, string, error) {
+			if serverConfig.Config.RequestInfoResolver == nil {
+				return "", "", fmt.Errorf("RequestInfoResolver wasn't provided")
+			}
+			requestInfo, err := serverConfig.Config.RequestInfoResolver.NewRequestInfo(rq)
+			if err != nil {
+				return "", "", err
+			}
+			return requestInfo.Resource, requestInfo.Verb, nil
+		},
+		"customresourcedefinitions")
+
+	kcpclienthelper.SetMultiClusterRoundTripper(rt)
+	clientutils.EnableMultiCluster(rt, &serverConfig.Config, "namespaces", "apiservices", "customresourcedefinitions", "clusterroles", "clusterrolebindings", "roles", "rolebindings", "serviceaccounts", "secrets")
+
 	var err error
-	c.ApiExtensionsClusterClient, err = apiextensionsclient.NewClusterForConfig(serverConfig.LoopbackClientConfig)
+	c.ApiExtensionsClusterClient, err = apiextensionsclient.NewClusterForConfig(rt)
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +199,7 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions) (*Config, error) {
 			// error.
 			ServiceResolver:       &unimplementedServiceResolver{},
 			MasterCount:           1,
-			AuthResolverWrapper:   webhook.NewDefaultAuthenticationInfoResolverWrapper(nil, nil, serverConfig.LoopbackClientConfig, nil),
+			AuthResolverWrapper:   webhook.NewDefaultAuthenticationInfoResolverWrapper(nil, nil, rt, nil),
 			ClusterAwareCRDLister: &crdLister{lister: c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Lister()},
 		},
 	}

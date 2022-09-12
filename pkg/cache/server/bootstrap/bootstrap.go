@@ -30,12 +30,16 @@ import (
 	"k8s.io/utils/pointer"
 
 	configcrds "github.com/kcp-dev/kcp/config/crds"
+	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 // SystemCRDLogicalCluster holds a logical cluster name under which we store system-related CRDs.
 // We use the same name as the KCP for symmetry.
 var SystemCRDLogicalCluster = logicalcluster.New("system:system-crds")
+
+// SystemCacheServerShard holds a default shard name
+const SystemCacheServerShard = "system:cache:server"
 
 func Bootstrap(ctx context.Context, apiExtensionsClusterClient apiextensionsclient.ClusterInterface) error {
 	crds := []*apiextensionsv1.CustomResourceDefinition{}
@@ -57,6 +61,7 @@ func Bootstrap(ctx context.Context, apiExtensionsClusterClient apiextensionsclie
 	}
 
 	logger := klog.FromContext(ctx)
+	ctx = cacheclient.WithShardInContext(ctx, SystemCacheServerShard)
 	return wait.PollInfiniteWithContext(ctx, time.Second, func(ctx context.Context) (bool, error) {
 		for _, crd := range crds {
 			err := configcrds.CreateSingle(ctx, apiExtensionsClusterClient.Cluster(SystemCRDLogicalCluster).ApiextensionsV1().CustomResourceDefinitions(), crd)
