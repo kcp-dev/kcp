@@ -57,6 +57,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	bootstrap "github.com/kcp-dev/kcp/pkg/server/bootstrap"
+	kcpfilters "github.com/kcp-dev/kcp/pkg/server/filters"
 	kcpserveroptions "github.com/kcp-dev/kcp/pkg/server/options"
 	"github.com/kcp-dev/kcp/pkg/server/options/batteries"
 	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
@@ -322,11 +323,11 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 			apiHandler = tunneler.WithSyncerTunnel(apiHandler)
 		}
 		apiHandler = WithWorkspaceProjection(apiHandler, shardVirtualWorkspaceURL)
-		apiHandler = WithClusterAnnotation(apiHandler)
+		apiHandler = kcpfilters.WithAuditEventClusterAnnotation(apiHandler)
 		apiHandler = WithAuditAnnotation(apiHandler) // Must run before any audit annotation is made
-		apiHandler = WithClusterScope(apiHandler)
+		apiHandler = kcpfilters.WithClusterScope(apiHandler)
 		apiHandler = WithInClusterServiceAccountRequestRewrite(apiHandler)
-		apiHandler = WithAcceptHeader(apiHandler)
+		apiHandler = kcpfilters.WithAcceptHeader(apiHandler)
 		apiHandler = WithUserAgent(apiHandler)
 
 		return apiHandler

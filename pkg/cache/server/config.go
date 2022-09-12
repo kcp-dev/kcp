@@ -45,7 +45,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 	cacheserveroptions "github.com/kcp-dev/kcp/pkg/cache/server/options"
 	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
-	kcpserver "github.com/kcp-dev/kcp/pkg/server"
+	"github.com/kcp-dev/kcp/pkg/server/filters"
 )
 
 const resyncPeriod = 10 * time.Hour
@@ -133,10 +133,8 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions) (*Config, error) {
 	serverConfig.Config.BuildHandlerChainFunc = func(apiHandler http.Handler, genericConfig *genericapiserver.Config) (secure http.Handler) {
 		apiHandler = genericapiserver.DefaultBuildHandlerChainFromAuthz(apiHandler, genericConfig)
 		apiHandler = genericapiserver.DefaultBuildHandlerChainBeforeAuthz(apiHandler, genericConfig)
-		apiHandler = kcpserver.WithClusterAnnotation(apiHandler)
-		apiHandler = kcpserver.WithClusterScope(apiHandler)
-		apiHandler = kcpserver.WithAcceptHeader(apiHandler)
-		apiHandler = kcpserver.WithUserAgent(apiHandler)
+		apiHandler = filters.WithAuditEventClusterAnnotation(apiHandler)
+		apiHandler = filters.WithClusterScope(apiHandler)
 		apiHandler = WithShardScope(apiHandler)
 		return apiHandler
 	}
