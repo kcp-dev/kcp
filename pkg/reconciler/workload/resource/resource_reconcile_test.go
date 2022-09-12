@@ -243,7 +243,6 @@ func TestComputePlacement(t *testing.T) {
 func TestPropagateDeletionTimestamp(t *testing.T) {
 	tests := []struct {
 		name                string
-		annotationPatch     map[string]interface{}
 		obj                 metav1.Object
 		wantAnnotationPatch map[string]interface{} // nil means delete
 	}{
@@ -264,18 +263,6 @@ func TestPropagateDeletionTimestamp(t *testing.T) {
 				"deletion.internal.workload.kcp.dev/cluster-1": "2002-10-02T10:00:00Z",
 				"deletion.internal.workload.kcp.dev/cluster-2": "2002-10-02T10:00:00Z",
 				"deletion.internal.workload.kcp.dev/cluster-3": "2002-10-02T10:00:00Z",
-			},
-		},
-		{name: "Object is marked for deletion, has one location and the annotationPatch has some value, should be maintained",
-			obj: object(nil, map[string]string{
-				"state.workload.kcp.dev/cluster-1": "Sync",
-			}, nil, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}),
-			annotationPatch: map[string]interface{}{
-				"new-annotation-that-we-dont-care-about": "new-value",
-			},
-			wantAnnotationPatch: map[string]interface{}{
-				"deletion.internal.workload.kcp.dev/cluster-1": "2002-10-02T10:00:00Z",
-				"new-annotation-that-we-dont-care-about":       "new-value",
 			},
 		},
 		{name: "Object is marked for deletion, has one location with a location deletionTimestamp already set, no change",
@@ -309,7 +296,7 @@ func TestPropagateDeletionTimestamp(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotAnnotationPatch := propagateDeletionTimestamp(klog.Background(), tt.obj, tt.annotationPatch)
+			gotAnnotationPatch := propagateDeletionTimestamp(klog.Background(), tt.obj)
 			if diff := cmp.Diff(gotAnnotationPatch, tt.wantAnnotationPatch); diff != "" {
 				t.Errorf("incorrect annotation patch: %s", diff)
 			}

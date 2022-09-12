@@ -72,11 +72,14 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 		return fmt.Errorf("error reconciling resource %s|%s/%s: error getting namespace: %w", lclusterName, obj.GetNamespace(), obj.GetName(), err)
 	}
 
-	annotationPatch, labelPatch := computePlacement(ns, obj)
+	var annotationPatch, labelPatch map[string]interface{}
 
 	// If the object DeletionTimestamp is set, we should set all locations deletion timestamps annotations to the same value.
 	if obj.GetDeletionTimestamp() != nil {
-		annotationPatch = propagateDeletionTimestamp(logger, obj, annotationPatch)
+		annotationPatch = propagateDeletionTimestamp(logger, obj)
+	} else {
+		// We only need to compute the new placements if the resource is not being deleted.
+		annotationPatch, labelPatch = computePlacement(ns, obj)
 	}
 
 	// clean finalizers from removed syncers
@@ -148,13 +151,11 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 	return nil
 }
 
-func propagateDeletionTimestamp(logger logr.Logger, obj metav1.Object, annotationPatch map[string]interface{}) map[string]interface{} {
+func propagateDeletionTimestamp(logger logr.Logger, obj metav1.Object) map[string]interface{} {
 	logger.V(3).Info("resource is being deleted; setting the deletion per locations timestamps")
 	objAnnotations := obj.GetAnnotations()
 	objLocations, _ := locations(objAnnotations, obj.GetLabels(), false)
-	if annotationPatch == nil {
-		annotationPatch = make(map[string]interface{})
-	}
+	annotationPatch := make(map[string]interface{})
 	for location := range objLocations {
 		if val, ok := objAnnotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+location]; !ok || val == "" {
 			annotationPatch[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+location] = obj.GetDeletionTimestamp().Format(time.RFC3339)
