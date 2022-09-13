@@ -48,6 +48,7 @@ func NewServer(c CompletedConfig) (*Server, error) {
 // preparedGenericAPIServer is a private wrapper that enforces a call of PrepareRun() before Run can be invoked.
 type preparedServer struct {
 	*Server
+	Handler *genericapiserver.APIServerHandler
 }
 
 func (s *Server) PrepareRun(ctx context.Context) (preparedServer, error) {
@@ -76,11 +77,15 @@ func (s *Server) PrepareRun(ctx context.Context) (preparedServer, error) {
 	}); err != nil {
 		return preparedServer{}, err
 	}
-	return preparedServer{s}, nil
+	return preparedServer{s, s.apiextensions.GenericAPIServer.Handler}, nil
 }
 
 func (s preparedServer) Run(ctx context.Context) error {
 	return s.apiextensions.GenericAPIServer.PrepareRun().Run(ctx.Done())
+}
+
+func (s preparedServer) RunPostStartHooks(stopCh <-chan struct{}) {
+	s.apiextensions.GenericAPIServer.RunPostStartHooks(stopCh)
 }
 
 // goContext turns the PostStartHookContext into a context.Context for use in routines that may or may not
