@@ -40,6 +40,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/kcp-dev/kcp/config/helpers"
+	kube124 "github.com/kcp-dev/kcp/config/rootcompute/kube-1.24"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -68,7 +69,7 @@ func TestMultipleExports(t *testing.T) {
 	serviceSchemaClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
 	t.Logf("Install service APIResourceSchema into service schema workspace %q", serviceSchemaClusterName)
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(kcpClients.Cluster(serviceSchemaClusterName).Discovery()))
-	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(serviceSchemaClusterName), mapper, nil, "apiresourceschema_service.yaml", testFiles)
+	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(serviceSchemaClusterName), mapper, nil, "apiresourceschema_services.yaml", kube124.KubeComputeFS)
 	require.NoError(t, err)
 	t.Logf("Create an APIExport for it")
 	serviceAPIExport := &apisv1alpha1.APIExport{
@@ -76,7 +77,7 @@ func TestMultipleExports(t *testing.T) {
 			Name: "services",
 		},
 		Spec: apisv1alpha1.APIExportSpec{
-			LatestResourceSchemas: []string{"test.services.core"},
+			LatestResourceSchemas: []string{"v124.services.core"},
 		},
 	}
 	_, err = kcpClients.Cluster(serviceSchemaClusterName).ApisV1alpha1().APIExports().Create(ctx, serviceAPIExport, metav1.CreateOptions{})
@@ -85,7 +86,7 @@ func TestMultipleExports(t *testing.T) {
 	ingressSchemaClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
 	t.Logf("Install ingress APIResourceSchema into ingress schema workspace %q", ingressSchemaClusterName)
 	mapper = restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(kcpClients.Cluster(ingressSchemaClusterName).Discovery()))
-	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(ingressSchemaClusterName), mapper, nil, "apiresourceschema_ingress.yaml", testFiles)
+	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(ingressSchemaClusterName), mapper, nil, "apiresourceschema_ingresses.networking.k8s.io.yaml", kube124.KubeComputeFS)
 	require.NoError(t, err)
 	t.Logf("Create an APIExport for it")
 	ingressAPIExport := &apisv1alpha1.APIExport{
@@ -93,7 +94,7 @@ func TestMultipleExports(t *testing.T) {
 			Name: "ingresses",
 		},
 		Spec: apisv1alpha1.APIExportSpec{
-			LatestResourceSchemas: []string{"test.ingresses.networking.k8s.io"},
+			LatestResourceSchemas: []string{"v124.ingresses.networking.k8s.io"},
 		},
 	}
 	_, err = kcpClients.Cluster(ingressSchemaClusterName).ApisV1alpha1().APIExports().Create(ctx, ingressAPIExport, metav1.CreateOptions{})
@@ -180,6 +181,7 @@ func TestMultipleExports(t *testing.T) {
 					Kind:               "Ingress",
 					Name:               "ingresses",
 					SingularName:       "ingress",
+					ShortNames:         []string{"ing"},
 					Namespaced:         true,
 					Verbs:              metav1.Verbs{"get", "list", "patch", "update", "watch"},
 					StorageVersionHash: discovery.StorageVersionHash(ingressSchemaClusterName, "networking.k8s.io", "v1", "Ingress"),

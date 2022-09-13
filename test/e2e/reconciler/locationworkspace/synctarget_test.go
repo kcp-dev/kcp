@@ -42,6 +42,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/kcp-dev/kcp/config/helpers"
+	kube124 "github.com/kcp-dev/kcp/config/rootcompute/kube-1.24"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -73,7 +74,7 @@ func TestSyncTargetExport(t *testing.T) {
 
 	t.Logf("Install today service APIResourceSchema into schema workspace %q", schemaClusterName)
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(kcpClients.Cluster(schemaClusterName).Discovery()))
-	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(schemaClusterName), mapper, nil, "apiresourceschema_service.yaml", testFiles)
+	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(schemaClusterName), mapper, nil, "apiresourceschema_services.yaml", kube124.KubeComputeFS)
 	require.NoError(t, err)
 	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(schemaClusterName), mapper, nil, "apiresourceschema_cowboys.yaml", testFiles)
 	require.NoError(t, err)
@@ -84,7 +85,7 @@ func TestSyncTargetExport(t *testing.T) {
 			Name: "services",
 		},
 		Spec: apisv1alpha1.APIExportSpec{
-			LatestResourceSchemas: []string{"test.services.core", "today.cowboys.wildwest.dev"},
+			LatestResourceSchemas: []string{"v124.services.core", "today.cowboys.wildwest.dev"},
 		},
 	}
 	_, err = kcpClients.Cluster(schemaClusterName).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
@@ -236,6 +237,8 @@ func requiredAPIResourceListWithService(computeClusterName, serviceClusterName l
 				Kind:               "Service",
 				Name:               "services",
 				SingularName:       "service",
+				ShortNames:         []string{"svc"},
+				Categories:         []string{"all"},
 				Namespaced:         true,
 				Verbs:              metav1.Verbs{"get", "list", "patch", "update", "watch"},
 				StorageVersionHash: discovery.StorageVersionHash(serviceClusterName, "", "v1", "Service"),

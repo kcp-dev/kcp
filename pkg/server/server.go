@@ -38,6 +38,7 @@ import (
 
 	configroot "github.com/kcp-dev/kcp/config/root"
 	configrootphase0 "github.com/kcp-dev/kcp/config/root-phase0"
+	configrootcompute "github.com/kcp-dev/kcp/config/rootcompute"
 	configshard "github.com/kcp-dev/kcp/config/shard"
 	systemcrds "github.com/kcp-dev/kcp/config/system-crds"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -370,8 +371,30 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	if s.Options.Controllers.EnableAll || enabled.Has("cluster") {
-		// TODO(marun) Consider enabling each controller via a separate flag
+		// bootstrap root compute worspace
+		computeBoostraphookName := "rootComputeBoostrap"
+		if err := s.AddPostStartHook(computeBoostraphookName, func(hookContext genericapiserver.PostStartHookContext) error {
+			logger := logger.WithValues("postStartHook", computeBoostraphookName)
+			if s.Options.Extra.ShardName == tenancyv1alpha1.RootShard {
+				// the root ws is only present on the root shard
+				logger.Info("starting bootstrapping root compute workspace")
+				if err := configrootcompute.Bootstrap(goContext(hookContext),
+					s.ApiExtensionsClusterClient,
+					s.DynamicClusterClient,
+					sets.NewString(s.Options.Extra.BatteriesIncluded...),
+				); err != nil {
+					// nolint:nilerr
+					logger.Error(err, "failed to bootstrap root workspace phase 1")
+					return nil // don't klog.Fatal. This only happens when context is cancelled.
+				}
+				logger.Info("finished bootstrapping root compute workspace")
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
 
+		// TODO(marun) Consider enabling each controller via a separate flag
 		if err := s.installApiResourceController(ctx, controllerConfig); err != nil {
 			return err
 		}
