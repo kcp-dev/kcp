@@ -380,9 +380,9 @@ func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, cluster
 
 	negotiatedAPIResourceName := gvr.Resource + "." + gvr.Version + "."
 	if gvr.Group == "" {
-		negotiatedAPIResourceName = negotiatedAPIResourceName + "core"
+		negotiatedAPIResourceName += "core"
 	} else {
-		negotiatedAPIResourceName = negotiatedAPIResourceName + gvr.Group
+		negotiatedAPIResourceName += gvr.Group
 	}
 
 	var newNegotiatedAPIResource *apiresourcev1alpha1.NegotiatedAPIResource
@@ -397,9 +397,9 @@ func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, cluster
 	// then the final negotiated API resource will be based the one enforced from the CRD
 	crdName := gvr.Resource + "."
 	if gvr.Group == "" {
-		crdName = crdName + "core"
+		crdName += "core"
 	} else {
-		crdName = crdName + gvr.Group
+		crdName += gvr.Group
 	}
 	crdkey, err := cache.MetaNamespaceKeyFunc(&metav1.PartialObjectMetadata{
 		ObjectMeta: metav1.ObjectMeta{
@@ -628,9 +628,9 @@ func (c *Controller) publishNegotiatedResource(ctx context.Context, clusterName 
 	logger := klog.FromContext(ctx)
 	crdName := gvr.Resource
 	if gvr.Group == "" {
-		crdName = crdName + ".core"
+		crdName += ".core"
 	} else {
-		crdName = crdName + "." + gvr.Group
+		crdName += "." + gvr.Group
 	}
 
 	negotiatedSchema, err := negotiatedApiResource.Spec.CommonAPIResourceSpec.GetSchema()
@@ -848,9 +848,9 @@ func (c *Controller) cleanupNegotiatedAPIResource(ctx context.Context, clusterNa
 
 	crdName := gvr.Resource
 	if gvr.Group == "" {
-		crdName = crdName + ".core"
+		crdName += ".core"
 	} else {
-		crdName = crdName + "." + gvr.Group
+		crdName += "." + gvr.Group
 	}
 
 	crdKey, err := cache.MetaNamespaceKeyFunc(&metav1.PartialObjectMetadata{

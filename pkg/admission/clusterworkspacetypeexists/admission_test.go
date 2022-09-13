@@ -806,7 +806,7 @@ func TestValidateAllowedParents(t *testing.T) {
 			}
 
 			// inverse child/parent inputs for validateAllowedChildren, fully symmetric
-			wantErr := strings.Replace(tt.wantErr, "parent", "child", -1)
+			wantErr := strings.ReplaceAll(tt.wantErr, "parent", "child")
 			childAliases := make([]*tenancyv1alpha1.ClusterWorkspaceType, len(tt.parentAliases))
 			for i, parent := range tt.parentAliases {
 				parent = parent.DeepCopy()

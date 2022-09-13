@@ -58,13 +58,13 @@ func NewHandler(o *proxyoptions.Options, index index.Index) (http.Handler, error
 
 	// TODO: implement proper readyz handler
 	mux.Handle("/readyz", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("OK")) // nolint: errcheck
+		w.Write([]byte("OK")) //nolint:errcheck
 		w.WriteHeader(http.StatusOK)
 	}))
 
 	// TODO: implement proper livez handler
 	mux.Handle("/livez", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("OK")) // nolint: errcheck
+		w.Write([]byte("OK")) //nolint:errcheck
 		w.WriteHeader(http.StatusOK)
 	}))
 

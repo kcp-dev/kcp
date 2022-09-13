@@ -69,7 +69,7 @@ func newTestData() testDataType {
 func createWorkspaceAccessRoleForGroup(t *testing.T, ctx context.Context, kubeClusterClient kubernetes.Interface, orgClusterName logicalcluster.Name, admin bool, groupNames ...string) {
 	roleName := "org-" + orgClusterName.Base() + "-access"
 	if admin {
-		roleName = roleName + "-admin"
+		roleName += "-admin"
 	}
 	createWorkspaceAccessRoleForGroupWithCustomName(t, ctx, kubeClusterClient, orgClusterName, admin, roleName, groupNames...)
 }
@@ -775,8 +775,8 @@ func TestRootWorkspaces(t *testing.T) {
 			require.NoError(t, err)
 
 			t.Cleanup(func() {
-				kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Delete(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), ws1.Name, metav1.DeleteOptions{}) // nolint: errcheck
-				kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Delete(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), ws2.Name, metav1.DeleteOptions{}) // nolint: errcheck
+				kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Delete(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), ws1.Name, metav1.DeleteOptions{}) //nolint:errcheck
+				kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Delete(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), ws2.Name, metav1.DeleteOptions{}) //nolint:errcheck
 			})
 
 			framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, tenancyv1alpha1.RootCluster.Join(ws1.Name), []string{"user-1"}, nil, []string{"access"})

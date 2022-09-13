@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -133,7 +134,7 @@ func startFrontProxy(
 		"--secure-port=6443",
 	)
 	commandLine = append(commandLine, args...)
-	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " ")) // nolint: errcheck
+	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " "))
 
 	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...)
 
@@ -158,13 +159,16 @@ func startFrontProxy(
 
 	go func() {
 		<-ctx.Done()
-		cmd.Process.Kill() // nolint: errcheck
+		if err := cmd.Process.Kill(); err != nil {
+			klog.FromContext(ctx).Error(err, "failed to kill process")
+		}
 	}()
 
 	terminatedCh := make(chan int, 1)
 	go func() {
 		if err := cmd.Wait(); err != nil {
-			if exitErr, ok := err.(*exec.ExitError); ok { // nolint: errorlint
+			var exitErr *exec.ExitError
+			if errors.As(err, &exitErr) {
 				terminatedCh <- exitErr.ExitCode()
 			}
 		} else {
@@ -218,7 +222,7 @@ func startFrontProxy(
 	if !klog.V(3).Enabled() {
 		writer.StopOut()
 	}
-	fmt.Fprintf(successOut, "kcp-front-proxy is ready\n") // nolint: errcheck
+	fmt.Fprintf(successOut, "kcp-front-proxy is ready\n")
 
 	return nil
 }

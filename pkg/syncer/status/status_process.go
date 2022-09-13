@@ -59,7 +59,7 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	}
 	downstreamClusterName, name := clusters.SplitClusterAwareKey(clusterAwareName)
 	// TODO(sttts): do not reference the cli plugin here
-	if strings.HasPrefix(workloadcliplugin.SyncerIDPrefix, downstreamNamespace) {
+	if strings.HasPrefix(downstreamNamespace, workloadcliplugin.SyncerIDPrefix) {
 		// skip syncer namespace
 		return nil
 	}

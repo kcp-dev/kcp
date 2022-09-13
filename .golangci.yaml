@@ -1,17 +1,24 @@
 linters-settings:
-  errorlint:
-    errorf: true
-    asserts: true
-    comparison: true
   misspell:
     ignore-words:
     - creater
 
 linters:
   enable:
+  - asciicheck
+  - bidichk
+  - durationcheck
+  - errname
   - errorlint
   - exportloopref
   - gofmt
+  - gosimple
+  - govet
   - importas
+  - ineffassign
   - misspell
   - nilerr
+  - unconvert
+  - unused
+  - errcheck
+  - nolintlint

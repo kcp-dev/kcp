@@ -167,9 +167,9 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 
 			crdName := apiResource.Name
 			if gv.Group == "" {
-				crdName = crdName + ".core"
+				crdName += ".core"
 			} else {
-				crdName = crdName + "." + gv.Group
+				crdName += "." + gv.Group
 			}
 
 			var resourceScope apiextensionsv1.ResourceScope

@@ -201,9 +201,10 @@ func (d *workspacedResourcesDeleter) deleteCollection(ctx context.Context, clust
 
 // listCollection will list the items in the specified workspace
 // it returns the following:
-//  the list of items in the collection (if found)
-//  a boolean if the operation is supported
-//  an error if the operation is supported but could not be completed.
+//
+//	the list of items in the collection (if found)
+//	a boolean if the operation is supported
+//	an error if the operation is supported but could not be completed.
 func (d *workspacedResourcesDeleter) listCollection(ctx context.Context, clusterName logicalcluster.Name, gvr schema.GroupVersionResource, verbs sets.String) (*metav1.PartialObjectMetadataList, bool, error) {
 	logger := klog.FromContext(ctx).WithValues("operation", "listCollection", "gvr", gvr)
 	logger.V(5).Info("running operation")
@@ -319,7 +320,7 @@ func (d *workspacedResourcesDeleter) deleteAllContentForGroupVersionResource(
 	finalizersToNumRemaining := map[string]int{}
 	for _, item := range unstructuredList.Items {
 		for _, finalizer := range item.GetFinalizers() {
-			finalizersToNumRemaining[finalizer] = finalizersToNumRemaining[finalizer] + 1
+			finalizersToNumRemaining[finalizer]++
 		}
 	}
 
@@ -423,7 +424,7 @@ func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *t
 				if numRemaining == 0 {
 					continue
 				}
-				numRemainingTotals.finalizersToNumRemaining[finalizer] = numRemainingTotals.finalizersToNumRemaining[finalizer] + numRemaining
+				numRemainingTotals.finalizersToNumRemaining[finalizer] += numRemaining
 			}
 		}
 	}

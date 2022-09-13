@@ -47,7 +47,7 @@ func BindToExport(
 ) {
 	binding := &apisv1alpha1.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: strings.Replace(exportClusterName.String(), ":", "-", -1),
+			Name: strings.ReplaceAll(exportClusterName.String(), ":", "-"),
 		},
 		Spec: apisv1alpha1.APIBindingSpec{
 			Reference: apisv1alpha1.ExportReference{

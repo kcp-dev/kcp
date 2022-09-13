@@ -188,7 +188,7 @@ func newAuthorizer(cfg *clientrest.Config) func(ctx context.Context, a authorize
 		authz, err := delegated.NewDelegatedAuthorizer(clusterName, softlyImpersonatedSARClusterClient)
 		if err != nil {
 			klog.Errorf("failed to get delegated authorizer for logical cluster %s", a.GetUser().GetName(), clusterName)
-			return authorizer.DecisionNoOpinion, "", nil
+			return authorizer.DecisionNoOpinion, "", nil //nolint:nilerr
 		}
 		workspaceAttr := authorizer.AttributesRecord{
 			User:            a.GetUser(),
@@ -202,7 +202,7 @@ func newAuthorizer(cfg *clientrest.Config) func(ctx context.Context, a authorize
 		decision, reason, err := authz.Authorize(ctx, workspaceAttr)
 		if err != nil {
 			klog.Errorf("failed to authorize user %q to %q workspaces name %q in %s", a.GetUser().GetName(), a.GetVerb(), a.GetName(), clusterName)
-			return authorizer.DecisionNoOpinion, "", nil
+			return authorizer.DecisionNoOpinion, "", nil //nolint:nilerr
 		}
 
 		return decision, reason, nil

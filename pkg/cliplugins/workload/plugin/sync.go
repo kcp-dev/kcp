@@ -192,7 +192,7 @@ func (o *SyncOptions) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		defer outputFile.Close() // nolint: errcheck
+		defer outputFile.Close()
 	}
 
 	token, syncerID, syncTargetUID, err := o.enableSyncerForWorkspace(ctx, config, o.SyncTargetName, o.KCPNamespace)
@@ -240,7 +240,6 @@ func (o *SyncOptions) Run(ctx context.Context) error {
 
 	_, err = outputFile.Write(resources)
 	if o.OutputFile != "-" {
-		// nolint: errcheck
 		fmt.Fprintf(o.ErrOut, "\nWrote physical cluster manifest to %s for namespace %q. Use\n\n  KUBECONFIG=<pcluster-config> kubectl apply -f %q\n\nto apply it. "+
 			"Use\n\n  KUBECONFIG=<pcluster-config> kubectl get deployment -n %q %s\n\nto verify the syncer pod is running.\n", o.OutputFile, o.DownstreamNamespace, o.OutputFile, o.DownstreamNamespace, syncerID)
 	}
@@ -274,7 +273,6 @@ func (o *SyncOptions) enableSyncerForWorkspace(ctx context.Context, config *rest
 		// Create the sync target that will serve as a point of coordination between
 		// kcp and the syncer (e.g. heartbeating from the syncer and virtual cluster urls
 		// to the syncer).
-		// nolint: errcheck
 		fmt.Fprintf(o.ErrOut, "Creating synctarget %q\n", syncTargetName)
 		syncTarget, err = kcpClient.WorkloadV1alpha1().SyncTargets().Create(ctx,
 			&workloadv1alpha1.SyncTarget{
@@ -288,7 +286,6 @@ func (o *SyncOptions) enableSyncerForWorkspace(ctx context.Context, config *rest
 			return "", "", "", fmt.Errorf("failed to create synctarget %q: %w", syncTargetName, err)
 		}
 	} else if err == nil {
-		// nolint: errcheck
 		fmt.Fprintf(o.ErrOut, "Synctarget %q already exists.\n", syncTargetName)
 	}
 

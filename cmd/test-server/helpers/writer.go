@@ -49,13 +49,13 @@ func (hw *headWriter) Write(p []byte) (n int, err error) {
 			return hw.file.Write(p)
 		}
 		if pos := strings.Index(string(p), "\n"); pos == -1 {
-			hw.out.Write(p) // nolint: errcheck
+			hw.out.Write(p) //nolint:errcheck
 		} else {
 			hw.linePending = false
-			hw.out.Write(p[:pos+1]) // nolint: errcheck
+			hw.out.Write(p[:pos+1]) //nolint:errcheck
 		}
 	default:
-		hw.out.Write(p) // nolint: errcheck
+		hw.out.Write(p) //nolint:errcheck
 	}
 	return hw.file.Write(p)
 }

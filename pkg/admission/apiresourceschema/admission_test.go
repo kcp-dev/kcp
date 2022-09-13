@@ -31,7 +31,6 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/admission/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
 
 func createAttr(s *apisv1alpha1.APIResourceSchema) admission.Attributes {
@@ -44,23 +43,6 @@ func createAttr(s *apisv1alpha1.APIResourceSchema) admission.Attributes {
 		apisv1alpha1.Resource("apiresourceschemas").WithVersion("v1alpha1"),
 		"",
 		admission.Create,
-		&metav1.CreateOptions{},
-		false,
-		&user.DefaultInfo{},
-	)
-}
-
-// nolint:deadcode,unused
-func updateAttr(s, old *apisv1alpha1.APIResourceSchema) admission.Attributes {
-	return admission.NewAttributesRecord(
-		helpers.ToUnstructuredOrDie(s),
-		helpers.ToUnstructuredOrDie(old),
-		tenancyv1alpha1.Kind("APIResourceSchema").WithVersion("v1alpha1"),
-		"",
-		s.Name,
-		tenancyv1alpha1.Resource("apiresourceschemas").WithVersion("v1alpha1"),
-		"",
-		admission.Update,
 		&metav1.CreateOptions{},
 		false,
 		&user.DefaultInfo{},

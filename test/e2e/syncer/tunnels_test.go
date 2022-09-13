@@ -137,7 +137,7 @@ func TestSyncerTunnel(t *testing.T) {
 	if err != nil {
 		require.NoError(t, err, "failed to create downstream role")
 	}
-	// nolint: errcheck
+	//nolint:errcheck
 	defer downstreamKubeClient.RbacV1().ClusterRoles().Delete(context.TODO(), podsAllRole.Name, metav1.DeleteOptions{})
 
 	podsAllRoleBinding := &rbacv1.ClusterRoleBinding{
@@ -152,7 +152,7 @@ func TestSyncerTunnel(t *testing.T) {
 	if err != nil {
 		require.NoError(t, err, "failed to create downstream rolebinding")
 	}
-	// nolint: errcheck
+	//nolint:errcheck
 	defer downstreamKubeClient.RbacV1().ClusterRoleBindings().Delete(context.TODO(), podsAllRoleBinding.Name, metav1.DeleteOptions{})
 
 	t.Log("Creating downstream Deployment ...")

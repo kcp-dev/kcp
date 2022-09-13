@@ -19,6 +19,7 @@ package shard
 import (
 	"context"
 	"embed"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -83,7 +84,7 @@ func Start(ctx context.Context, name, runtimeDir, logFilePath string, args []str
 		"--audit-log-batch-throttle-qps=10",
 		"--audit-policy-file", filepath.Join(runtimeDir, "audit-policy.yaml"),
 	)
-	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " ")) // nolint: errcheck
+	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " "))
 
 	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...)
 	if err := os.MkdirAll(filepath.Dir(logFilePath), 0755); err != nil {
@@ -105,7 +106,9 @@ func Start(ctx context.Context, name, runtimeDir, logFilePath string, args []str
 
 	go func() {
 		<-ctx.Done()
-		cmd.Process.Kill() // nolint: errcheck
+		if err := cmd.Process.Kill(); err != nil {
+			klog.FromContext(ctx).Error(err, "failed to kill process")
+		}
 	}()
 
 	terminatedCh := make(chan error, 1)
@@ -121,9 +124,10 @@ func Start(ctx context.Context, name, runtimeDir, logFilePath string, args []str
 		case <-ctx.Done():
 			return nil, fmt.Errorf("context canceled")
 		case err := <-terminatedCh:
+			var exitErr *exec.ExitError
 			if err == nil {
 				return nil, fmt.Errorf("kcp shard %s terminated unexpectedly with exit code 0", name)
-			} else if exitErr, ok := err.(*exec.ExitError); ok { // nolint: errorlint
+			} else if errors.As(err, &exitErr) {
 				return nil, fmt.Errorf("kcp shard %s terminated with exit code %d", name, exitErr.ExitCode())
 			}
 			return nil, fmt.Errorf("kcp shard %s terminated with unknown error: %w", name, err)
@@ -145,9 +149,10 @@ func Start(ctx context.Context, name, runtimeDir, logFilePath string, args []str
 		case <-ctx.Done():
 			return nil, fmt.Errorf("context canceled")
 		case err := <-terminatedCh:
+			var exitErr *exec.ExitError
 			if err == nil {
 				return nil, fmt.Errorf("kcp shard %s terminated unexpectedly with exit code 0", name)
-			} else if exitErr, ok := err.(*exec.ExitError); ok { // nolint: errorlint
+			} else if errors.As(err, &exitErr) {
 				return nil, fmt.Errorf("kcp shard %s terminated with exit code %d", name, exitErr.ExitCode())
 			}
 			return nil, fmt.Errorf("kcp shard %s terminated with unknown error: %w", name, err)
@@ -187,7 +192,7 @@ func Start(ctx context.Context, name, runtimeDir, logFilePath string, args []str
 	if !klog.V(3).Enabled() {
 		writer.StopOut()
 	}
-	fmt.Fprintf(successOut, "shard is ready\n") // nolint: errcheck
+	fmt.Fprintf(successOut, "shard is ready\n")
 
 	return terminatedCh, nil
 }

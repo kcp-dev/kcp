@@ -62,7 +62,7 @@ func main() {
 				if err != nil {
 					return err
 				}
-				if err := ioutil.WriteFile(name.String()+".yaml", []byte(yamlBytes), os.ModePerm); err != nil {
+				if err := ioutil.WriteFile(name.String()+".yaml", yamlBytes, os.ModePerm); err != nil {
 					return err
 				}
 			}

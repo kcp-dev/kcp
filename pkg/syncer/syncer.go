@@ -243,7 +243,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 			syncTarget, err = kcpClusterClient.Cluster(cfg.SyncTargetWorkspace).WorkloadV1alpha1().SyncTargets().Patch(ctx, cfg.SyncTargetName, types.JSONPatchType, patchBytes, metav1.PatchOptions{}, "status")
 			if err != nil {
 				klog.Errorf("failed to set status.lastSyncerHeartbeatTime for SyncTarget %s|%s: %v", cfg.SyncTargetWorkspace, cfg.SyncTargetName, err)
-				return false, nil
+				return false, nil //nolint:nilerr
 			}
 
 			heartbeatTime = syncTarget.Status.LastSyncerHeartbeatTime.Time

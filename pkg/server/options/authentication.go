@@ -185,7 +185,7 @@ func (s *AdminAuthentication) WriteKubeConfig(config genericapiserver.CompletedC
 
 func createKubeConfig(kcpAdminToken, shardAdminToken, userToken, baseHost, tlsServerName string, caData []byte) *clientcmdapi.Config {
 	var kubeConfig clientcmdapi.Config
-	//Create Client and Shared
+	// Create Client and Shared
 	kubeConfig.AuthInfos = map[string]*clientcmdapi.AuthInfo{
 		kcpAdminUserName:   {Token: kcpAdminToken},
 		shardAdminUserName: {Token: shardAdminToken},

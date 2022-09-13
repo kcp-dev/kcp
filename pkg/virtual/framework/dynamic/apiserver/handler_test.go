@@ -807,7 +807,7 @@ func TestRouting(t *testing.T) {
 						if e, a := metav1.Unversioned.WithKind("Status"), status.GroupVersionKind(); e != a {
 							t.Errorf("expected %#v, got %#v", e, a)
 						}
-						if int(status.Code) != int(expectStatus) {
+						if int(status.Code) != expectStatus {
 							t.Errorf("expected %v, got %v", expectStatus, status.Code)
 						}
 					}

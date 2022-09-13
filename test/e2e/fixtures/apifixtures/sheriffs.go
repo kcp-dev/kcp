@@ -145,7 +145,7 @@ func CreateSheriff(
 	clusterName logicalcluster.Name,
 	group, name string,
 ) {
-	name = strings.Replace(name, ":", "-", -1)
+	name = strings.ReplaceAll(name, ":", "-")
 
 	t.Logf("Creating %s/v1 sheriffs %s|default/%s", group, clusterName, name)
 

@@ -81,7 +81,7 @@ func (c *Controller) deleteAllCRs(ctx context.Context, apibinding *apisv1alpha1.
 					if numRemaining == 0 {
 						continue
 					}
-					totalResourceRemaining.finalizersToNumRemaining[finalizer] = totalResourceRemaining.finalizersToNumRemaining[finalizer] + numRemaining
+					totalResourceRemaining.finalizersToNumRemaining[finalizer] += numRemaining
 				}
 			}
 		}
@@ -138,7 +138,7 @@ func (c *Controller) deleteAllCR(ctx context.Context, clusterName logicalcluster
 	finalizersToNumRemaining := map[string]int{}
 	for _, item := range partialList.Items {
 		for _, finalizer := range item.GetFinalizers() {
-			finalizersToNumRemaining[finalizer] = finalizersToNumRemaining[finalizer] + 1
+			finalizersToNumRemaining[finalizer]++
 		}
 	}
 

@@ -82,7 +82,7 @@ func NewValidatingAdmissionWebhook(configfile io.Reader) (*Plugin, error) {
 		return nil, err
 	}
 
-	//Override the ready func
+	// Override the ready func
 
 	p.SetReadyFunc(func() bool {
 		if p.WebhookDispatcher.HasSynced() && p.Plugin.WaitForReady() {

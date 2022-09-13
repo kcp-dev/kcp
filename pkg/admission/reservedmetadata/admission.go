@@ -76,7 +76,7 @@ var _ = admission.ValidationInterface(&reservedMetadata{})
 // If the user is member of the "system:masters" group, all mutations are allowed.
 func (o *reservedMetadata) Validate(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
 	newMeta, err := meta.Accessor(a.GetObject())
-	// nolint: nilerr
+	//nolint:nilerr
 	if err != nil {
 		// The object we are dealing with doesn't have object metadata defined
 		// hence it doesn't have annotations to be checked.
