@@ -286,7 +286,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 	c.preHandlerChainMux = &handlerChainMuxes{}
 	c.GenericConfig.BuildHandlerChainFunc = func(apiHandler http.Handler, genericConfig *genericapiserver.Config) (secure http.Handler) {
 		apiHandler = WithWildcardListWatchGuard(apiHandler)
-		apiHandler = WithWildcardIdentity(apiHandler)
+		apiHandler = WithRequestIdentity(apiHandler)
 		apiHandler = authorization.WithDeepSubjectAccessReview(apiHandler)
 
 		apiHandler = genericapiserver.DefaultBuildHandlerChainFromAuthz(apiHandler, genericConfig)

@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/kcp-dev/logicalcluster/v2"
-
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -277,11 +275,8 @@ func clientGetter(dynamicClusterClient dynamic.ClusterInterface, namespaceScoped
 		}
 		gvr := resource
 		clusterName := cluster.Name
-		if cluster.Wildcard {
-			clusterName = logicalcluster.Wildcard
-			if apiExportIdentityHash != "" {
-				gvr.Resource += ":" + apiExportIdentityHash
-			}
+		if apiExportIdentityHash != "" {
+			gvr.Resource += ":" + apiExportIdentityHash
 		}
 
 		if namespaceScoped {
