@@ -98,7 +98,7 @@ That means the schema is implicit, maintained, and enforced by the shards pushin
 
 The server exposes the following path:
 
-`/shards/{shard-name}/clusters/{cluster-name}/apis/group/version/namespaces/{namespace-name}/resource/{resource-name}`
+`/services/cache/shards/{shard-name}/clusters/{cluster-name}/apis/group/version/namespaces/{namespace-name}/resource/{resource-name}`
 
 Parameters:
 
@@ -112,11 +112,11 @@ Parameters:
 
 For example:
 
-`/shards/*/clusters/*/apis/apis.kcp.dev/v1alpha1/apiexports`: for listing apiexports for all shards and clusters
+`/services/cache/shards/*/clusters/*/apis/apis.kcp.dev/v1alpha1/apiexports`: for listing apiexports for all shards and clusters
 
-`/shards/amber/clusters/*/apis/apis.kcp.dev/v1alpha1/apiexports`: for listing apiexports for amber shard for all clusters
+`/services/cache/shards/amber/clusters/*/apis/apis.kcp.dev/v1alpha1/apiexports`: for listing apiexports for amber shard for all clusters
 
-`/shards/sapphire/clusters/system:sapphire/apis/apis.kcp.dev/v1alpha1/apiexports`: for listing apiexports for sapphire shard stored in system:sapphire cluster
+`/services/cache/shards/sapphire/clusters/system:sapphire/apis/apis.kcp.dev/v1alpha1/apiexports`: for listing apiexports for sapphire shard stored in system:sapphire cluster
 
 #### On the storage layer
 

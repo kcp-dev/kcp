@@ -18,7 +18,9 @@ package client
 
 import (
 	"bytes"
+	"fmt"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -216,5 +218,45 @@ func (c *ShardNameFromObjectRoundTripper) RoundTrip(req *http.Request) (*http.Re
 		}
 	}
 
+	return c.delegate.RoundTrip(req)
+}
+
+// WithCacheServiceRoundTripper wraps an existing config's with CacheServiceRoundTripper.
+func WithCacheServiceRoundTripper(cfg *rest.Config) *rest.Config {
+	cfg.Wrap(func(rt http.RoundTripper) http.RoundTripper {
+		return NewCacheServiceRoundTripper(rt)
+	})
+	return cfg
+}
+
+// CacheServiceRoundTripper is a http.RoundTripper that appends "/services/cache" prefix to a request.
+type CacheServiceRoundTripper struct {
+	delegate http.RoundTripper
+}
+
+// NewCacheServiceRoundTripper creates a new CacheServiceRoundTripper
+func NewCacheServiceRoundTripper(delegate http.RoundTripper) *CacheServiceRoundTripper {
+	return &CacheServiceRoundTripper{
+		delegate: delegate,
+	}
+}
+
+func (c *CacheServiceRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	cacheServicePrefix := "/services/cache"
+	if !strings.HasPrefix(req.URL.Path, cacheServicePrefix) {
+		req = req.Clone(req.Context())
+		// if the original path is relative, add a / separator
+		if len(req.URL.Path) > 0 && req.URL.Path[0] != '/' {
+			cacheServicePrefix += "/"
+		}
+		// now simply append the cache service prefix to original path
+		// and regenerate the URL address so that the RawPath gets updated as well
+		req.URL.Path = fmt.Sprintf("%s%s", cacheServicePrefix, req.URL.Path)
+		newURL, err := url.Parse(req.URL.String())
+		if err != nil {
+			return nil, err
+		}
+		req.URL = newURL
+	}
 	return c.delegate.RoundTrip(req)
 }
