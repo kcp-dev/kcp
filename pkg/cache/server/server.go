@@ -19,6 +19,7 @@ package server
 import (
 	"context"
 
+	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/klog/v2"
 
@@ -27,34 +28,43 @@ import (
 
 type Server struct {
 	CompletedConfig
+
+	apiextensions *apiextensionsapiserver.CustomResourceDefinitions
 }
 
 func NewServer(c CompletedConfig) (*Server, error) {
 	s := &Server{
 		CompletedConfig: c,
 	}
+
+	var err error
+	s.apiextensions, err = s.ApiExtensions.New(genericapiserver.NewEmptyDelegate())
+	if err != nil {
+		return nil, err
+	}
 	return s, nil
 }
 
-func (s *Server) Run(ctx context.Context) error {
+// preparedGenericAPIServer is a private wrapper that enforces a call of PrepareRun() before Run can be invoked.
+type preparedServer struct {
+	*Server
+}
+
+func (s *Server) PrepareRun(ctx context.Context) (preparedServer, error) {
 	logger := klog.FromContext(ctx).WithValues("component", "cache-server")
-	server, err := s.ApiExtensions.New(genericapiserver.NewEmptyDelegate())
-	if err != nil {
-		return err
-	}
-	if err := server.GenericAPIServer.AddPostStartHook("bootstrap-cache-server", func(hookContext genericapiserver.PostStartHookContext) error {
+	if err := s.apiextensions.GenericAPIServer.AddPostStartHook("bootstrap-cache-server", func(hookContext genericapiserver.PostStartHookContext) error {
 		logger = logger.WithValues("postStartHook", "bootstrap-cache-server")
-		if err = bootstrap.Bootstrap(klog.NewContext(goContext(hookContext), logger), s.ApiExtensionsClusterClient); err != nil {
+		if err := bootstrap.Bootstrap(klog.NewContext(goContext(hookContext), logger), s.ApiExtensionsClusterClient); err != nil {
 			logger.Error(err, "failed creating the static CustomResourcesDefinitions")
 			// nolint:nilerr
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 		return nil
 	}); err != nil {
-		return err
+		return preparedServer{}, err
 	}
 
-	if err := server.GenericAPIServer.AddPostStartHook("cache-server-start-informers", func(hookContext genericapiserver.PostStartHookContext) error {
+	if err := s.apiextensions.GenericAPIServer.AddPostStartHook("cache-server-start-informers", func(hookContext genericapiserver.PostStartHookContext) error {
 		logger := logger.WithValues("postStartHook", "cache-server-start-informers")
 		s.ApiExtensionsSharedInformerFactory.Start(hookContext.StopCh)
 		select {
@@ -65,9 +75,13 @@ func (s *Server) Run(ctx context.Context) error {
 		logger.Info("finished starting kube informers")
 		return nil
 	}); err != nil {
-		return err
+		return preparedServer{}, err
 	}
-	return server.GenericAPIServer.PrepareRun().Run(ctx.Done())
+	return preparedServer{s}, nil
+}
+
+func (s preparedServer) Run(ctx context.Context) error {
+	return s.apiextensions.GenericAPIServer.PrepareRun().Run(ctx.Done())
 }
 
 // goContext turns the PostStartHookContext into a context.Context for use in routines that may or may not
