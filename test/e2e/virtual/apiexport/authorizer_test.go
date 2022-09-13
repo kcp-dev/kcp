@@ -19,6 +19,7 @@ package apiexport
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -28,6 +29,10 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
+	"k8s.io/apiextensions-apiserver/pkg/apihelpers"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -39,7 +44,6 @@ import (
 
 	"github.com/kcp-dev/kcp/config/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
@@ -56,10 +60,13 @@ func TestAPIExportAuthorizers(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
+	org := framework.NewOrganizationFixture(t, server)
+
 	// see https://docs.google.com/drawings/d/1_sOiFZReAfypuUDyHS9rwpxbZgJNJuxdvbgXXgu2KAQ/edit for topology
-	serviceProvider1Workspace := framework.NewWorkspaceFixture(t, server, v1alpha1.RootCluster, framework.WithName("provider-a"))
-	serviceProvider2Workspace := framework.NewWorkspaceFixture(t, server, v1alpha1.RootCluster, framework.WithName("provider-b"))
-	tenantWorkspace := framework.NewWorkspaceFixture(t, server, v1alpha1.RootCluster, framework.WithName("tenant"))
+	serviceProvider1Workspace := framework.NewWorkspaceFixture(t, server, org, framework.WithName("provider-a"))
+	serviceProvider2Workspace := framework.NewWorkspaceFixture(t, server, org, framework.WithName("provider-b"))
+	tenantWorkspace := framework.NewWorkspaceFixture(t, server, org, framework.WithName("tenant"))
+	tenantShadowCRDWorkspace := framework.NewWorkspaceFixture(t, server, org, framework.WithName("tenant-shadowed-crd"))
 
 	cfg := server.BaseConfig(t)
 
@@ -71,12 +78,16 @@ func TestAPIExportAuthorizers(t *testing.T) {
 	require.NoError(t, err)
 	user2DynamicClusterClient, err := kcpdynamic.NewClusterDynamicClientForConfig(framework.UserConfig("user-2", rest.CopyConfig(cfg)))
 	require.NoError(t, err)
+	user3DynamicClusterClient, err := kcpdynamic.NewClusterDynamicClientForConfig(framework.UserConfig("user-3", rest.CopyConfig(cfg)))
+	require.NoError(t, err)
 	kubeClient, err := kubernetes.NewForConfig(rest.CopyConfig(cfg))
 	require.NoError(t, err)
 
+	framework.AdmitWorkspaceAccess(t, ctx, kubeClient, org, []string{"user-1", "user-2", "user-3"}, nil, []string{"access"})
 	framework.AdmitWorkspaceAccess(t, ctx, kubeClient, serviceProvider1Workspace, []string{"user-1"}, nil, []string{"admin", "access"})
 	framework.AdmitWorkspaceAccess(t, ctx, kubeClient, serviceProvider2Workspace, []string{"user-2"}, nil, []string{"admin", "access"})
 	framework.AdmitWorkspaceAccess(t, ctx, kubeClient, tenantWorkspace, []string{"user-3"}, nil, []string{"admin", "access"})
+	framework.AdmitWorkspaceAccess(t, ctx, kubeClient, tenantShadowCRDWorkspace, []string{"user-3"}, nil, []string{"admin", "access"})
 
 	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, serviceProvider1Workspace, user1KcpClient, "wild.wild.west", "")
 
@@ -105,6 +116,20 @@ func TestAPIExportAuthorizers(t *testing.T) {
 		return false, fmt.Sprintf("waiting for API export identity to be valid: %+v", conditions.Get(sheriffExport, apisv1alpha1.APIExportIdentityValid))
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not wait for APIExport to be valid with identity hash")
 	t.Logf("Found identity hash: %v", identityHash)
+
+	t.Logf("grant user-3 to be able to bind sherriffs API export \"wild.wild.west\" from workspace %q", serviceProvider1Workspace)
+	cr, crb := createClusterRoleAndBindings(
+		"user-3-bind",
+		"user-3", "User",
+		[]string{"bind"},
+		"apis.kcp.dev", "apiexports", "wild.wild.west",
+	)
+	_, err = kubeClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, serviceProvider1Workspace), cr, metav1.CreateOptions{})
+	require.NoError(t, err)
+	_, err = kubeClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, serviceProvider1Workspace), crb, metav1.CreateOptions{})
+	require.NoError(t, err)
+	// create API binding in tenant workspace pointing to the sherriffs export
+	apifixtures.BindToExport(ctx, t, serviceProvider1Workspace, "wild.wild.west", tenantWorkspace, user3KcpClient)
 
 	t.Logf("Install today cowboys APIResourceSchema into service provider workspace %q", serviceProvider2Workspace)
 	user2serviceProvider2KcpClient, err := kcpclientset.NewForConfig(kcpclienthelper.SetCluster(framework.UserConfig("user-2", rest.CopyConfig(cfg)), serviceProvider2Workspace))
@@ -135,7 +160,7 @@ func TestAPIExportAuthorizers(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("grant user-3 to be able to bind cowboys API export \"today-cowboys\" from workspace %q", serviceProvider2Workspace)
-	cr, crb := createClusterRoleAndBindings(
+	cr, crb = createClusterRoleAndBindings(
 		"user-3-bind",
 		"user-3", "User",
 		[]string{"bind"},
@@ -168,20 +193,6 @@ func TestAPIExportAuthorizers(t *testing.T) {
 		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "api binding creation failed")
 
-	t.Logf("grant user-3 to be able to bind sherriffs API export \"wild.wild.west\" from workspace %q", serviceProvider1Workspace)
-	cr, crb = createClusterRoleAndBindings(
-		"user-3-bind",
-		"user-3", "User",
-		[]string{"bind"},
-		"apis.kcp.dev", "apiexports", "wild.wild.west",
-	)
-	_, err = kubeClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, serviceProvider1Workspace), cr, metav1.CreateOptions{})
-	require.NoError(t, err)
-	_, err = kubeClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, serviceProvider1Workspace), crb, metav1.CreateOptions{})
-	require.NoError(t, err)
-	// create API binding in tenant workspace pointing to the sherriffs export
-	apifixtures.BindToExport(ctx, t, serviceProvider1Workspace, "wild.wild.west", tenantWorkspace, user3KcpClient)
-
 	t.Logf("Make sure [%q, %q] API groups shows up in consumer workspace %q group discovery", wildwest.GroupName, "wild.wild.west", tenantWorkspace)
 	user3tenantWorkspaceKcpClient, err := kcpclientset.NewForConfig(kcpclienthelper.SetCluster(framework.UserConfig("user-3", rest.CopyConfig(cfg)), tenantWorkspace))
 	require.NoError(t, err)
@@ -194,11 +205,71 @@ func TestAPIExportAuthorizers(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	t.Logf("Install cowboys CRD into tenant workspace %q", tenantShadowCRDWorkspace)
+	user3tenantShadowCRDKubeClient, err := kubernetes.NewForConfig(kcpclienthelper.SetCluster(framework.UserConfig("user-3", rest.CopyConfig(cfg)), tenantShadowCRDWorkspace))
+	require.NoError(t, err)
+	mapper = restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(user3tenantShadowCRDKubeClient.Discovery()))
+	err = helpers.CreateResourceFromFS(ctx, user3DynamicClusterClient.Cluster(tenantShadowCRDWorkspace), mapper, nil, "crd_cowboys.yaml", testFiles)
+	require.NoError(t, err)
+
+	user3APIExtensionsClient, err := apiextensionsclient.NewForConfig(framework.UserConfig("user-3", rest.CopyConfig(cfg)))
+	require.NoError(t, err)
+	framework.Eventually(t, func() (bool, string) {
+		cowboysCRD, err := user3APIExtensionsClient.ApiextensionsV1().CustomResourceDefinitions().Get(logicalcluster.WithCluster(ctx, tenantShadowCRDWorkspace), "cowboys.wildwest.dev", metav1.GetOptions{})
+		if err != nil {
+			return false, fmt.Sprintf("error creating API binding: %v", err)
+		}
+		if apihelpers.IsCRDConditionTrue(cowboysCRD, apiextensionsv1.Established) {
+			return true, ""
+		}
+		return false, "waiting for cowboys CRD to become established"
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "waiting for cowboys CRD to become established failed")
+
+	t.Logf("Create an APIBinding in consumer workspace %q that points to the today-cowboys export from %q but shadows a local cowboys CRD at the same time", tenantShadowCRDWorkspace, serviceProvider2Workspace)
+	apiBinding = &apisv1alpha1.APIBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cowboys",
+		},
+		Spec: apisv1alpha1.APIBindingSpec{
+			Reference: apisv1alpha1.ExportReference{
+				Workspace: &apisv1alpha1.WorkspaceExportReference{
+					Path:       serviceProvider2Workspace.String(),
+					ExportName: "today-cowboys",
+				},
+			},
+		},
+	}
+	framework.Eventually(t, func() (bool, string) {
+		_, err := user3KcpClient.ApisV1alpha1().APIBindings().Create(logicalcluster.WithCluster(ctx, tenantShadowCRDWorkspace), apiBinding, metav1.CreateOptions{})
+		if err != nil {
+			return false, fmt.Sprintf("error creating API binding: %v", err)
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "api binding creation failed")
+
+	framework.Eventually(t, func() (bool, string) {
+		binding, err := user3KcpClient.ApisV1alpha1().APIBindings().Get(logicalcluster.WithCluster(ctx, tenantShadowCRDWorkspace), apiBinding.Name, metav1.GetOptions{})
+		if err != nil {
+			return false, fmt.Sprintf("error creating API binding: %v", err)
+		}
+		condition := conditions.Get(binding, apisv1alpha1.BindingUpToDate)
+		if condition == nil {
+			return false, "binding condition not found"
+		}
+		if strings.Contains(condition.Message, `overlaps with "cowboys.wildwest.dev" CustomResourceDefinition`) {
+			return true, ""
+		}
+		return false, fmt.Sprintf("CRD conflict condition not yet met: %q", condition.Message)
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "api binding creation failed")
+
 	user3wildwestClusterClient, err := wildwestclientset.NewForConfig(framework.UserConfig("user-3", rest.CopyConfig(cfg)))
 	require.NoError(t, err, "failed to construct wildwest cluster client for server")
 	cowboy := newCowboy("default", "cowboy1")
 	_, err = user3wildwestClusterClient.WildwestV1alpha1().Cowboys("default").Create(logicalcluster.WithCluster(ctx, tenantWorkspace), cowboy, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating cowboy in tenant workspace %q", tenantWorkspace)
+
+	_, err = user3wildwestClusterClient.WildwestV1alpha1().Cowboys("default").Create(logicalcluster.WithCluster(ctx, tenantShadowCRDWorkspace), cowboy, metav1.CreateOptions{})
+	require.NoError(t, err, "error creating cowboy in shadowing CRD tenant workspace %q", tenantShadowCRDWorkspace)
 
 	t.Logf("get virtual workspace client for \"today-cowboys\" APIExport in workspace %q", serviceProvider2Workspace)
 	var apiExport *apisv1alpha1.APIExport
@@ -264,4 +335,8 @@ func TestAPIExportAuthorizers(t *testing.T) {
 		}
 		return true, ""
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "listing claimed resources failed")
+
+	_, err = user2DynamicVWClient.Cluster(tenantShadowCRDWorkspace).Resource(schema.GroupVersionResource{Version: "v1alpha1", Resource: "cowboys", Group: "wildwest.dev"}).List(ctx, metav1.ListOptions{})
+	require.Error(t, err, "expected error, got none")
+	require.True(t, errors.IsNotFound(err))
 }
