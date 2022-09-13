@@ -136,6 +136,7 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions) (*Config, error) {
 		apiHandler = filters.WithAuditEventClusterAnnotation(apiHandler)
 		apiHandler = filters.WithClusterScope(apiHandler)
 		apiHandler = WithShardScope(apiHandler)
+		apiHandler = WithServiceScope(apiHandler)
 		return apiHandler
 	}
 
@@ -158,7 +159,8 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions) (*Config, error) {
 	// an ordered list of HTTP round trippers that add
 	// shard and cluster awareness to all clients that use
 	// the loopback config.
-	rt := cacheclient.WithShardNameFromContextRoundTripper(serverConfig.LoopbackClientConfig)
+	rt := cacheclient.WithCacheServiceRoundTripper(serverConfig.LoopbackClientConfig)
+	rt = cacheclient.WithShardNameFromContextRoundTripper(rt)
 	rt = cacheclient.WithDefaultShardRoundTripper(rt, shard.Wildcard)
 	rt = cacheclient.WithShardNameFromObjectRoundTripper(
 		rt,
