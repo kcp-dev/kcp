@@ -110,3 +110,26 @@ func WithShardScope(handler http.Handler) http.Handler {
 		handler.ServeHTTP(w, req.WithContext(ctx))
 	})
 }
+
+// WithServiceScope an HTTP filter that trims "/services/cache" prefix from the URL.
+//
+// for example: /services/cache/shards/amber/clusters/*/apis/apis.kcp.dev/v1alpha1/apiexports
+// is truncated to /shards/amber/clusters/*/apis/apis.kcp.dev/v1alpha1/apiexports
+func WithServiceScope(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if path := req.URL.Path; strings.HasPrefix(path, "/services/cache") {
+			path = strings.TrimPrefix(path, "/services/cache")
+			req.URL.Path = path
+			newURL, err := url.Parse(req.URL.String())
+			if err != nil {
+				responsewriters.ErrorNegotiated(
+					apierrors.NewInternalError(fmt.Errorf("unable to resolve %s, err %w", req.URL.Path, err)),
+					errorCodecs, schema.GroupVersion{},
+					w, req)
+				return
+			}
+			req.URL = newURL
+		}
+		handler.ServeHTTP(w, req)
+	})
+}
