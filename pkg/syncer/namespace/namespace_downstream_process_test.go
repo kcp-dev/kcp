@@ -35,7 +35,6 @@ import (
 	"k8s.io/client-go/tools/clusters"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
 func TestSyncerNamespaceProcess(t *testing.T) {
@@ -49,11 +48,6 @@ func TestSyncerNamespaceProcess(t *testing.T) {
 
 		eventOrigin string // upstream or downstream
 	}{
-		"NamespaceSyncer remove downstream namespace when upstream namespace has been deleted, expect downstream namespace deletion": {
-			upstreamNamespaceExists: false,
-			deletedNamespace:        "kcp-hcbsa8z6c2er",
-			eventOrigin:             "upstream",
-		},
 		"NamespaceSyncer removes downstream namespace when no matching upstream has been found, expect downstream namespace deletion": {
 			upstreamNamespaceExists: false,
 			deletedNamespace:        "kcp-hcbsa8z6c2er",
@@ -64,42 +58,20 @@ func TestSyncerNamespaceProcess(t *testing.T) {
 			deletedNamespace:        "",
 			eventOrigin:             "downstream",
 		},
-		"NamespaceSyncer, upstream event, no deletion as there is a matching upstream namespace, expect no namespace deletion": {
-			upstreamNamespaceExists: true,
-			deletedNamespace:        "",
-			eventOrigin:             "upstream",
-		},
 		"NamespaceSyncer, downstream event, error trying to get the upstream namespace, expect no namespace deletion": {
 			upstreamNamespaceExistsError: errors.New("error"),
 			deletedNamespace:             "",
 			eventOrigin:                  "downstream",
-		},
-		"NamespaceSyncer, upstream event, error trying to get the upstream namespace, expect no namespace deletion": {
-			upstreamNamespaceExistsError: errors.New("error"),
-			deletedNamespace:             "",
-			eventOrigin:                  "upstream",
 		},
 		"NamespaceSyncer, downstream event, error trying to get the downstream namespace, expect no namespace deletion": {
 			getDownstreamNamespaceError: errors.New("error"),
 			deletedNamespace:            "",
 			eventOrigin:                 "downstream",
 		},
-		"NamespaceSyncer, upstream event, error trying to get the downstream namespace, expect no namespace deletion": {
-			getDownstreamNamespaceError:                     errors.New("error"),
-			getDownstreamNamespaceFromNamespaceLocatorError: errors.New("error"),
-			deletedNamespace:                                "",
-			eventOrigin:                                     "upstream",
-		},
 		"NamespaceSyncer, downstream event, downstream namespace is not found, expect no namespace deletion": {
 			getDownstreamNamespaceError: apierrors.NewNotFound(schema.GroupResource(metav1.GroupResource{Group: "", Resource: ""}), "not-found"),
 			deletedNamespace:            "",
 			eventOrigin:                 "downstream",
-		},
-		"NamespaceSyncer, upstream event, downstream namespace is not found, expect no namespace deletion": {
-			getDownstreamNamespaceError:                     apierrors.NewNotFound(schema.GroupResource(metav1.GroupResource{Group: "", Resource: ""}), "not-found"),
-			getDownstreamNamespaceFromNamespaceLocatorError: apierrors.NewNotFound(schema.GroupResource(metav1.GroupResource{Group: "", Resource: ""}), "not-found"),
-			deletedNamespace:                                "",
-			eventOrigin:                                     "upstream",
 		},
 	}
 
@@ -118,7 +90,7 @@ func TestSyncerNamespaceProcess(t *testing.T) {
 			syncTargetKey := workloadv1alpha1.ToSyncTargetKey(syncTargetWorkspace, syncTargetName)
 			deletedNamespace := ""
 
-			nsController := Controller{
+			nsController := DownstreamController{
 				deleteDownstreamNamespace: func(ctx context.Context, downstreamNamespaceName string) error {
 					deletedNamespace = downstreamNamespaceName
 					return nil
@@ -131,12 +103,6 @@ func TestSyncerNamespaceProcess(t *testing.T) {
 					unstructured := &unstructured.Unstructured{}
 					_ = json.Unmarshal(nsJSON, unstructured)
 					return unstructured, tc.getDownstreamNamespaceError
-				},
-				getDownstreamNamespaceFromNamespaceLocator: func(namespaceLocator shared.NamespaceLocator) (runtime.Object, error) {
-					nsJSON, _ := json.Marshal(downstreamNamespace)
-					unstructured := &unstructured.Unstructured{}
-					_ = json.Unmarshal(nsJSON, unstructured)
-					return unstructured, tc.getDownstreamNamespaceFromNamespaceLocatorError
 				},
 				syncTargetName:      syncTargetName,
 				syncTargetWorkspace: syncTargetWorkspace,
