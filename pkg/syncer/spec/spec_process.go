@@ -144,8 +144,18 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 		}
 	}
 
+	// TODO(skuznets): can we figure out how to not leak this detail up to this code?
+	// I guess once the indexer is using kcpcache.MetaClusterNamespaceKeyFunc, we can just use that formatter ...
+	var indexKey string
+	if upstreamNamespace != "" {
+		indexKey += upstreamNamespace + "/"
+	}
+	if !clusterName.Empty() {
+		indexKey += clusterName.String() + "|"
+	}
+	indexKey += name
 	// get the upstream object
-	obj, exists, err := c.upstreamInformers.ForResource(gvr).Informer().GetIndexer().GetByKey(key)
+	obj, exists, err := c.upstreamInformers.ForResource(gvr).Informer().GetIndexer().GetByKey(indexKey)
 	if err != nil {
 		return err
 	}
@@ -289,7 +299,7 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 	// TODO(jmprusi): When using syncer virtual workspace this condition would not be necessary anymore, since directly tested on the virtual workspace side.
 	stillOwnedByExternalActorForLocation := upstreamObj.GetAnnotations()[workloadv1alpha1.ClusterFinalizerAnnotationPrefix+c.syncTargetKey] != ""
 
-	klog.V(4).Infof("Upstream object %s|%s/%s is intended to be removed %t", upstreamObjLogicalCluster, upstreamObj.GetNamespace(), upstreamObj.GetName(), intendedToBeRemovedFromLocation, stillOwnedByExternalActorForLocation)
+	klog.V(4).Infof("Upstream object %s|%s/%s is intended to be removed %t %t", upstreamObjLogicalCluster, upstreamObj.GetNamespace(), upstreamObj.GetName(), intendedToBeRemovedFromLocation, stillOwnedByExternalActorForLocation)
 	if intendedToBeRemovedFromLocation && !stillOwnedByExternalActorForLocation {
 		if err := c.downstreamClient.Resource(gvr).Namespace(downstreamNamespace).Delete(ctx, transformedName, metav1.DeleteOptions{}); err != nil {
 			if apierrors.IsNotFound(err) {

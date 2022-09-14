@@ -25,6 +25,7 @@ import (
 
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
+	"k8s.io/client-go/tools/clusters"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -186,7 +187,12 @@ func (c *Controller) enqueueNamespace(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	ns, err := c.namespaceLister.Get(key)
+	clusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+	ns, err := c.namespaceLister.Get(clusters.ToClusterAwareKey(clusterName, name))
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Namespace was deleted
@@ -279,7 +285,23 @@ func (c *Controller) processResource(ctx context.Context, key string) error {
 	if err != nil {
 		return err
 	}
-	obj, exists, err := inf.Informer().GetIndexer().GetByKey(key)
+
+	lclusterName, namespace, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+	if err != nil {
+		logger.Error(err, "failed to split key, dropping")
+		return nil
+	}
+	// TODO(skuznets): can we figure out how to not leak this detail up to this code?
+	// I guess once the indexer is using kcpcache.MetaClusterNamespaceKeyFunc, we can just use that formatter ...
+	var indexKey string
+	if namespace != "" {
+		indexKey += namespace + "/"
+	}
+	if !lclusterName.Empty() {
+		indexKey += lclusterName.String() + "|"
+	}
+	indexKey += name
+	obj, exists, err := inf.Informer().GetIndexer().GetByKey(indexKey)
 	if err != nil {
 		logger.Error(err, "error getting object from indexer")
 		return err
@@ -295,12 +317,6 @@ func (c *Controller) processResource(ctx context.Context, key string) error {
 	}
 	unstr = unstr.DeepCopy()
 
-	// Get logical cluster name.
-	lclusterName, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
-	if err != nil {
-		logger.Error(err, "failed to split key, dropping")
-		return nil
-	}
 	return c.reconcileResource(ctx, lclusterName, unstr, gvr)
 }
 
