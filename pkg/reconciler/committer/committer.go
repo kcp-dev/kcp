@@ -55,6 +55,11 @@ func NewCommitter[R any, Sp any, St any](patcher Patcher[R]) func(context.Contex
 
 		specOrObjectMetaChanged := specChanged || objectMetaChanged
 
+		// Simultaneous updates of spec and status are never allowed.
+		if specOrObjectMetaChanged && statusChanged {
+			panic(fmt.Sprintf("programmer error: spec and status changed in same reconcile iteration. diff=%s", cmp.Diff(old, obj)))
+		}
+
 		if !specOrObjectMetaChanged && !statusChanged {
 			return nil
 		}
@@ -109,11 +114,6 @@ func NewCommitter[R any, Sp any, St any](patcher Patcher[R]) func(context.Contex
 		_, err = patcher.Patch(logicalcluster.WithCluster(ctx, clusterName), obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, subresources...)
 		if err != nil {
 			return fmt.Errorf("failed to patch %s %s|%s: %w", focusType, clusterName, name, err)
-		}
-
-		// Simultaneous updates of spec and status are never allowed.
-		if specOrObjectMetaChanged && statusChanged {
-			panic(fmt.Sprintf("programmer error: spec and status changed in same reconcile iteration. diff=%s", cmp.Diff(old, obj)))
 		}
 
 		return nil
