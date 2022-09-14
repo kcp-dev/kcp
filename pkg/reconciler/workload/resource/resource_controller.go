@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	corev1 "k8s.io/api/core/v1"
@@ -38,7 +39,6 @@ import (
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
@@ -144,17 +144,16 @@ type Controller struct {
 }
 
 func filterNamespace(obj interface{}) bool {
-	key, err := cache.MetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.MetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return false
 	}
-	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	_, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(err)
 		return false
 	}
-	_, name := clusters.SplitClusterAwareKey(clusterAwareName)
 	if namespaceBlocklist.Has(name) {
 		logging.WithReconciler(klog.Background(), controllerName).WithValues("namespace", name).V(2).Info("skipping syncing Namespace")
 		return false
@@ -163,7 +162,7 @@ func filterNamespace(obj interface{}) bool {
 }
 
 func (c *Controller) enqueueResource(gvr schema.GroupVersionResource, obj interface{}) {
-	key, err := cache.MetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.MetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -182,7 +181,7 @@ func (c *Controller) enqueueGVR(gvr schema.GroupVersionResource) {
 }
 
 func (c *Controller) enqueueNamespace(obj interface{}) {
-	key, err := cache.MetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.MetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -297,12 +296,11 @@ func (c *Controller) processResource(ctx context.Context, key string) error {
 	unstr = unstr.DeepCopy()
 
 	// Get logical cluster name.
-	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	lclusterName, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		logger.Error(err, "failed to split key, dropping")
 		return nil
 	}
-	lclusterName, _ := clusters.SplitClusterAwareKey(clusterAwareName)
 	return c.reconcileResource(ctx, lclusterName, unstr, gvr)
 }
 
@@ -385,17 +383,16 @@ func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 
 func (c *Controller) enqueueSyncTarget(obj interface{}) {
 	logger := logging.WithObject(logging.WithReconciler(klog.Background(), controllerName), obj.(*workloadv1alpha1.SyncTarget)).WithValues("operation", "enqueueSyncTarget")
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
-	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	clusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
-	clusterName, name := clusters.SplitClusterAwareKey(clusterAwareName)
 	finalizer := syncershared.SyncerFinalizerNamePrefix + workloadv1alpha1.ToSyncTargetKey(clusterName, name)
 
 	listers, _ := c.ddsif.Listers()

@@ -20,12 +20,12 @@ import (
 	"fmt"
 	"time"
 
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
@@ -60,7 +60,7 @@ func newClusterWorkspaceDeletionMonitor(
 }
 
 func (m *clusterWorkspaceDeletionMonitor) enqueue(obj interface{}) {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -113,13 +113,11 @@ func (m *clusterWorkspaceDeletionMonitor) processNextWorkItem() bool {
 }
 
 func (m *clusterWorkspaceDeletionMonitor) process(key string) error {
-	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	parent, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(err)
 		return nil
 	}
-	// e.g. root:org<separator>ws
-	parent, name := clusters.SplitClusterAwareKey(clusterAwareName)
 
 	// turn it into root:org:ws
 	clusterName := parent.Join(name)

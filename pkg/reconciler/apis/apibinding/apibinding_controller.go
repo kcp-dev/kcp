@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apiextensions-apiserver/pkg/apihelpers"
@@ -250,7 +251,7 @@ type controller struct {
 
 // enqueueAPIBinding enqueues an APIBinding .
 func (c *controller) enqueueAPIBinding(obj interface{}, logger logr.Logger, logSuffix string) {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -262,7 +263,7 @@ func (c *controller) enqueueAPIBinding(obj interface{}, logger logr.Logger, logS
 
 // enqueueAPIExport enqueues maps an APIExport to APIBindings for enqueuing.
 func (c *controller) enqueueAPIExport(obj interface{}, logger logr.Logger, logSuffix string) {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -312,7 +313,7 @@ func (c *controller) enqueueCRD(obj interface{}, logger logr.Logger) {
 
 // enqueueAPIResourceSchema maps an APIResourceSchema to APIExports for enqueuing.
 func (c *controller) enqueueAPIResourceSchema(obj interface{}, logger logr.Logger, logSuffix string) {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return

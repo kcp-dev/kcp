@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -211,7 +212,7 @@ func ExpectClusterWorkspaces(ctx context.Context, t *testing.T, client kcpclient
 		return nil, errors.New("failed to wait for caches to sync")
 	}
 	return func(seed *tenancyv1alpha1.ClusterWorkspace, expectation ClusterWorkspaceExpectation) error {
-		key, err := cache.MetaNamespaceKeyFunc(seed)
+		key, err := kcpcache.MetaClusterNamespaceKeyFunc(seed)
 		if err != nil {
 			return err
 		}
@@ -242,7 +243,7 @@ func ExpectWorkspaceShards(ctx context.Context, t *testing.T, client kcpclient.I
 		return nil, errors.New("failed to wait for caches to sync")
 	}
 	return func(seed *tenancyv1alpha1.ClusterWorkspaceShard, expectation WorkspaceShardExpectation) error {
-		key, err := cache.MetaNamespaceKeyFunc(seed)
+		key, err := kcpcache.MetaClusterNamespaceKeyFunc(seed)
 		if err != nil {
 			return err
 		}

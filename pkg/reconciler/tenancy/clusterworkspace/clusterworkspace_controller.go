@@ -24,6 +24,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/google/go-cmp/cmp"
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -121,7 +122,7 @@ type Controller struct {
 }
 
 func (c *Controller) enqueue(obj interface{}) {
-	key, err := cache.MetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.MetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -133,7 +134,7 @@ func (c *Controller) enqueue(obj interface{}) {
 
 func (c *Controller) enqueueShard(obj interface{}) {
 	logger := logging.WithReconciler(klog.Background(), controllerName)
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -147,7 +148,7 @@ func (c *Controller) enqueueShard(obj interface{}) {
 			return
 		}
 		for _, workspace := range workspaces {
-			key, err := cache.MetaNamespaceKeyFunc(workspace)
+			key, err := kcpcache.MetaClusterNamespaceKeyFunc(workspace)
 			if err != nil {
 				runtime.HandleError(err)
 				return
@@ -157,19 +158,18 @@ func (c *Controller) enqueueShard(obj interface{}) {
 		}
 	}
 
-	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	_, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
-	_, name := clusters.SplitClusterAwareKey(clusterAwareName)
 	workspaces, err := c.workspaceIndexer.ByIndex(byCurrentShard, name)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 	for _, workspace := range workspaces {
-		key, err := cache.MetaNamespaceKeyFunc(workspace)
+		key, err := kcpcache.MetaClusterNamespaceKeyFunc(workspace)
 		if err != nil {
 			runtime.HandleError(err)
 			return
@@ -180,17 +180,16 @@ func (c *Controller) enqueueShard(obj interface{}) {
 }
 
 func (c *Controller) enqueueBinding(obj interface{}) {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
-	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	clusterName, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
-	clusterName, _ := clusters.SplitClusterAwareKey(clusterAwareName)
 	if clusterName == tenancyv1alpha1.RootCluster {
 		return
 	}

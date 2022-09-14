@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"time"
 
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -214,7 +215,7 @@ func (i *APIImporter) ImportAPIs(ctx context.Context) {
 				apiResourceImportName += gvr.Group
 			}
 
-			clusterKey, err := cache.MetaNamespaceKeyFunc(&metav1.PartialObjectMetadata{
+			clusterKey, err := kcpcache.MetaClusterNamespaceKeyFunc(&metav1.PartialObjectMetadata{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: i.location,
 					Annotations: map[string]string{

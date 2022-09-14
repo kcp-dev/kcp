@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -144,7 +145,7 @@ type APIReconciler struct {
 }
 
 func (c *APIReconciler) enqueueSyncTarget(obj interface{}, logger logr.Logger, logSuffix string) {
-	key, err := cache.MetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.MetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -155,7 +156,7 @@ func (c *APIReconciler) enqueueSyncTarget(obj interface{}, logger logr.Logger, l
 }
 
 func (c *APIReconciler) enqueueAPIExport(obj interface{}, logger logr.Logger, logSuffix string) {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -175,7 +176,7 @@ func (c *APIReconciler) enqueueAPIExport(obj interface{}, logger logr.Logger, lo
 
 // enqueueAPIResourceSchema maps an APIResourceSchema to APIExports for enqueuing.
 func (c *APIReconciler) enqueueAPIResourceSchema(obj interface{}, logger logr.Logger) {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return

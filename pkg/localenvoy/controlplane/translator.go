@@ -30,12 +30,12 @@ import (
 	cachetypes "github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	networkingv1 "k8s.io/api/networking/v1"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 )
 
@@ -67,7 +67,7 @@ func (t *translator) translateIngress(ingress *networkingv1.Ingress) ([]cachetyp
 	}
 
 	// TODO(jmprusi): HTTP2 is set to false always, also allow for configuration of the timeout
-	ingressKey, err := cache.MetaNamespaceKeyFunc(ingress)
+	ingressKey, err := kcpcache.MetaClusterNamespaceKeyFunc(ingress)
 	if err != nil {
 		klog.Errorf("Error getting key for ingress %s: %v", ingress.Name, err)
 		return nil, nil
