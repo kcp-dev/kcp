@@ -31,6 +31,7 @@ import (
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/endpoints/discovery"
 	clientgodiscovery "k8s.io/client-go/discovery"
@@ -69,7 +70,7 @@ func TestMultipleExports(t *testing.T) {
 	serviceSchemaClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
 	t.Logf("Install service APIResourceSchema into service schema workspace %q", serviceSchemaClusterName)
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(kcpClients.Cluster(serviceSchemaClusterName).Discovery()))
-	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(serviceSchemaClusterName), mapper, nil, "apiresourceschema_services.yaml", kube124.KubeComputeFS)
+	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(serviceSchemaClusterName), mapper, sets.NewString("root-compute-workspace"), "apiresourceschema_services.yaml", kube124.KubeComputeFS)
 	require.NoError(t, err)
 	t.Logf("Create an APIExport for it")
 	serviceAPIExport := &apisv1alpha1.APIExport{
@@ -86,7 +87,7 @@ func TestMultipleExports(t *testing.T) {
 	ingressSchemaClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
 	t.Logf("Install ingress APIResourceSchema into ingress schema workspace %q", ingressSchemaClusterName)
 	mapper = restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(kcpClients.Cluster(ingressSchemaClusterName).Discovery()))
-	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(ingressSchemaClusterName), mapper, nil, "apiresourceschema_ingresses.networking.k8s.io.yaml", kube124.KubeComputeFS)
+	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(ingressSchemaClusterName), mapper, sets.NewString("root-compute-workspace"), "apiresourceschema_ingresses.networking.k8s.io.yaml", kube124.KubeComputeFS)
 	require.NoError(t, err)
 	t.Logf("Create an APIExport for it")
 	ingressAPIExport := &apisv1alpha1.APIExport{

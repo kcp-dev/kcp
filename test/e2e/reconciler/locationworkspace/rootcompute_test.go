@@ -23,19 +23,21 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/stretchr/testify/require"
+
+	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/rest"
+
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
-	"github.com/kcp-dev/logicalcluster/v2"
-	"github.com/stretchr/testify/require"
-	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/rest"
 )
 
 func TestRootComputeWorkspace(t *testing.T) {
@@ -96,10 +98,6 @@ func TestRootComputeWorkspace(t *testing.T) {
 		}
 		if syncTarget.Status.SyncedResources[1].Resource != "ingresses" ||
 			syncTarget.Status.SyncedResources[1].State != workloadv1alpha1.ResourceSchemaAcceptedState {
-			return false
-		}
-		if syncTarget.Status.SyncedResources[2].Resource != "deployments" ||
-			syncTarget.Status.SyncedResources[2].State != workloadv1alpha1.ResourceSchemaAcceptedState {
 			return false
 		}
 

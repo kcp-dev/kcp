@@ -383,8 +383,7 @@ func (s *Server) Run(ctx context.Context) error {
 					s.DynamicClusterClient,
 					sets.NewString(s.Options.Extra.BatteriesIncluded...),
 				); err != nil {
-					// nolint:nilerr
-					logger.Error(err, "failed to bootstrap root workspace phase 1")
+					logger.Error(err, "failed to bootstrap root compute workspace")
 					return nil // don't klog.Fatal. This only happens when context is cancelled.
 				}
 				logger.Info("finished bootstrapping root compute workspace")

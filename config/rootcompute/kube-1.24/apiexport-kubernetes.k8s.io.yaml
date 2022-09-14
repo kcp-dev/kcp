@@ -1,7 +1,9 @@
 apiVersion: apis.kcp.dev/v1alpha1
 kind: APIExport
 metadata:
-  creationTimestamp: null
+  annotations:
+    bootstrap.kcp.dev/create-only: "true"
+    bootstrap.kcp.dev/battery: root-compute-workspace
   name: kubernetes
 spec:
   latestResourceSchemas:

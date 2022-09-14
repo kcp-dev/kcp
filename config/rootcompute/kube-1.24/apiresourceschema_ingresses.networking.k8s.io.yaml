@@ -3,6 +3,8 @@ kind: APIResourceSchema
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kcp-dev/kubernetes/pull/4
+    bootstrap.kcp.dev/create-only: "true"
+    bootstrap.kcp.dev/battery: root-compute-workspace
   name: v124.ingresses.networking.k8s.io
 spec:
   group: networking.k8s.io
