@@ -37,9 +37,10 @@ jobs:
           go-version: v1.18
       - run: make build
 
-      # Install kind with a local registry
       - uses: container-tools/kind-action@v1
-        name: Kubernetes KinD Cluster w/local registry
+        name: Kubernetes KinD Cluster
+        with:
+          registry: false
 
       - run: |-
           go install github.com/google/ko@latest
@@ -64,9 +65,10 @@ jobs:
         go-version: v1.18
     - run: make build
 
-    # Install kind with a local registry
     - uses: container-tools/kind-action@v1
-      name: Kubernetes KinD Cluster w/local registry
+      name: Kubernetes KinD Cluster
+      with:
+        registry: false
 
     - run: |-
         go install github.com/google/ko@latest
