@@ -25,7 +25,6 @@ import (
 
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
-	"k8s.io/client-go/tools/clusters"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -40,6 +39,7 @@ import (
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 

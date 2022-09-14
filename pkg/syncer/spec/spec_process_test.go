@@ -24,6 +24,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -40,9 +42,10 @@ import (
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	clienttesting "k8s.io/client-go/testing"
-	"k8s.io/client-go/tools/clusters"
+	"k8s.io/client-go/tools/cache"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/third_party/keyfunctions"
 )
 
 var scheme *runtime.Scheme
@@ -985,9 +988,9 @@ func TestSyncerProcess(t *testing.T) {
 			fromInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClusterClient.Cluster(logicalcluster.Wildcard), time.Hour, metav1.NamespaceAll, func(o *metav1.ListOptions) {
 				o.LabelSelector = workloadv1alpha1.ClusterResourceStateLabelPrefix + syncTargetKey + "=" + string(workloadv1alpha1.ResourceStateSync)
 			})
-			toInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(toClient, time.Hour, metav1.NamespaceAll, func(o *metav1.ListOptions) {
+			toInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactoryWithOptions(toClient, metav1.NamespaceAll, func(o *metav1.ListOptions) {
 				o.LabelSelector = workloadv1alpha1.ClusterResourceStateLabelPrefix + syncTargetKey + "=" + string(workloadv1alpha1.ResourceStateSync)
-			})
+			}, cache.WithResyncPeriod(time.Hour), cache.WithKeyFunction(keyfunctions.DeletionHandlingMetaNamespaceKeyFunc))
 
 			setupServersideApplyPatchReactor(toClient)
 			namespaceWatcherStarted := setupWatchReactor("namespaces", fromClient)
@@ -1015,7 +1018,7 @@ func TestSyncerProcess(t *testing.T) {
 			fromClient.ClearActions()
 			toClient.ClearActions()
 
-			key := tc.fromNamespace.Name + "/" + clusters.ToClusterAwareKey(logicalcluster.New(tc.resourceToProcessLogicalClusterName), tc.resourceToProcessName)
+			key := kcpcache.ToClusterAwareKey(tc.resourceToProcessLogicalClusterName, tc.fromNamespace.Name, tc.resourceToProcessName)
 			err = controller.process(context.Background(),
 				tc.gvr,
 				key,
@@ -1025,8 +1028,8 @@ func TestSyncerProcess(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
-			assert.EqualValues(t, tc.expectActionsOnFrom, fromClient.Actions())
-			assert.EqualValues(t, tc.expectActionsOnTo, toClient.Actions())
+			assert.Empty(t, cmp.Diff(tc.expectActionsOnFrom, fromClient.Actions()))
+			assert.Empty(t, cmp.Diff(tc.expectActionsOnTo, toClient.Actions()))
 		})
 	}
 }
