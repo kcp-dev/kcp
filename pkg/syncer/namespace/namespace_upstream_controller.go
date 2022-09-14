@@ -45,15 +45,14 @@ import (
 
 const (
 	byNamespaceLocatorIndexName = "syncer-namespace-ByNamespaceLocator"
-	controllerName              = "kcp-workload-syncer-namespace"
+	upstreamControllerName      = controllerNameRoot + "-upstream"
 )
 
-type Controller struct {
+type UpstreamController struct {
 	queue workqueue.RateLimitingInterface
 
 	deleteDownstreamNamespace                  func(ctx context.Context, namespace string) error
 	upstreamNamespaceExists                    func(clusterName logicalcluster.Name, upstreamNamespaceName string) (bool, error)
-	getDownstreamNamespace                     func(name string) (runtime.Object, error)
 	getDownstreamNamespaceFromNamespaceLocator func(namespaceLocator shared.NamespaceLocator) (runtime.Object, error)
 
 	syncTargetName      string
@@ -62,19 +61,18 @@ type Controller struct {
 	syncTargetKey       string
 }
 
-func NewNamespaceController(
+func NewUpstreamController(
 	syncTargetWorkspace logicalcluster.Name,
 	syncTargetName, syncTargetKey string,
 	syncTargetUID types.UID,
-	upstreamClusterClient dynamic.ClusterInterface,
 	downstreamClient dynamic.Interface,
 	upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory,
-) (*Controller, error) {
+) (*UpstreamController, error) {
 	namespaceGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
-	logger := logging.WithReconciler(klog.Background(), controllerName)
+	logger := logging.WithReconciler(klog.Background(), upstreamControllerName)
 
-	c := Controller{
-		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
+	c := UpstreamController{
+		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), upstreamControllerName),
 
 		deleteDownstreamNamespace: func(ctx context.Context, namespace string) error {
 			return downstreamClient.Resource(namespaceGVR).Delete(ctx, namespace, metav1.DeleteOptions{})
@@ -83,9 +81,6 @@ func NewNamespaceController(
 			upstreamNamespaceKey := clusters.ToClusterAwareKey(clusterName, upstreamNamespaceName)
 			_, exists, err := upstreamInformers.ForResource(namespaceGVR).Informer().GetIndexer().GetByKey(upstreamNamespaceKey)
 			return exists, err
-		},
-		getDownstreamNamespace: func(downstreamNamespaceName string) (runtime.Object, error) {
-			return downstreamInformers.ForResource(namespaceGVR).Lister().Get(downstreamNamespaceName)
 		},
 		getDownstreamNamespaceFromNamespaceLocator: func(namespaceLocator shared.NamespaceLocator) (runtime.Object, error) {
 			namespaceLocatorJSONBytes, err := json.Marshal(namespaceLocator)
@@ -118,17 +113,6 @@ func NewNamespaceController(
 
 	logger.V(2).Info("Set up upstream namespace informer", "syncTargetWorkspace", syncTargetWorkspace, "syncTargetName", syncTargetName, "syncTargetKey", syncTargetKey)
 
-	// Those handlers are for start/resync cases, in case a namespace deletion event is missed, these handlers
-	// will make sure that we cleanup the namespace in downstream after restart/resync.
-	downstreamInformers.ForResource(namespaceGVR).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			c.AddToQueue(obj, logger)
-		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
-			c.AddToQueue(newObj, logger)
-		},
-	})
-
 	err := downstreamInformers.ForResource(namespaceGVR).Informer().AddIndexers(cache.Indexers{byNamespaceLocatorIndexName: indexByNamespaceLocator})
 	if err != nil {
 		return nil, err
@@ -139,7 +123,7 @@ func NewNamespaceController(
 	return &c, nil
 }
 
-func (c *Controller) AddToQueue(obj interface{}, logger logr.Logger) {
+func (c *UpstreamController) AddToQueue(obj interface{}, logger logr.Logger) {
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		utilruntime.HandleError(err)
@@ -151,11 +135,11 @@ func (c *Controller) AddToQueue(obj interface{}, logger logr.Logger) {
 }
 
 // Start starts N worker processes processing work items.
-func (c *Controller) Start(ctx context.Context, numThreads int) {
+func (c *UpstreamController) Start(ctx context.Context, numThreads int) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
+	logger := logging.WithReconciler(klog.FromContext(ctx), upstreamControllerName)
 	ctx = klog.NewContext(ctx, logger)
 	logger.Info("Starting controller")
 	defer logger.Info("Shutting down controller")
@@ -168,12 +152,12 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 }
 
 // startWorker processes work items until stopCh is closed.
-func (c *Controller) startWorker(ctx context.Context) {
+func (c *UpstreamController) startWorker(ctx context.Context) {
 	for c.processNextWorkItem(ctx) {
 	}
 }
 
-func (c *Controller) processNextWorkItem(ctx context.Context) bool {
+func (c *UpstreamController) processNextWorkItem(ctx context.Context) bool {
 	// Wait until there is a new item in the working queue
 	key, quit := c.queue.Get()
 	if quit {
@@ -190,7 +174,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	defer c.queue.Done(key)
 
 	if err := c.process(ctx, namespaceKey); err != nil {
-		utilruntime.HandleError(fmt.Errorf("%s failed to sync %q, err: %w", controllerName, key, err))
+		utilruntime.HandleError(fmt.Errorf("%s failed to sync %q, err: %w", upstreamControllerName, key, err))
 		c.queue.AddRateLimited(key)
 		return true
 	}

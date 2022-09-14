@@ -18,7 +18,6 @@ package namespace
 
 import (
 	"context"
-	"encoding/json"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -26,11 +25,10 @@ import (
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
-func (c *Controller) process(ctx context.Context, key string) error {
+func (c *UpstreamController) process(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
 	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
@@ -38,48 +36,6 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		return nil
 	}
 	clusterName, namespaceName := clusters.SplitClusterAwareKey(clusterAwareName)
-
-	// If the clusterName is empty, the enqueued namespace is a downstream namespace,
-	// the downstream namespace needs to be deleted if there's no upstream namespace anymore.
-	//
-	// This happens on syncer start or during a resync.
-	if clusterName.Empty() {
-		downstreamNamespaceObj, err := c.getDownstreamNamespace(namespaceName)
-		if apierrors.IsNotFound(err) {
-			logger.V(4).Info("downstream namespace not found, ignoring key", "namespace", namespaceName)
-			return nil
-		} else if err != nil {
-			logger.Error(err, "failed to get downstream namespace", "namespace", namespaceName)
-			return nil
-		}
-
-		downstreamNamespace := downstreamNamespaceObj.(*unstructured.Unstructured)
-		logger := logging.WithObject(logger, downstreamNamespace)
-
-		namespaceLocatorJSON := downstreamNamespace.GetAnnotations()[shared.NamespaceLocatorAnnotation]
-		if namespaceLocatorJSON == "" {
-			logger.Error(nil, "downstream namespace has no namespaceLocator annotation")
-			return nil
-		}
-
-		nsLocator := shared.NamespaceLocator{}
-		if err := json.Unmarshal([]byte(namespaceLocatorJSON), &nsLocator); err != nil {
-			logger.Error(err, "failed to unmarshal namespace locator", "namespaceLocator", namespaceLocatorJSON)
-			return nil
-		}
-		logger = logger.WithValues("upstreamWorkspace", nsLocator.Workspace, "upstreamNamespace", nsLocator.Namespace)
-		exists, err := c.upstreamNamespaceExists(nsLocator.Workspace, nsLocator.Namespace)
-		if err != nil {
-			logger.Error(err, "failed to check if upstream namespace exists")
-			return nil
-		}
-		if !exists {
-			logger.Info("deleting downstream namespace because the upstream namespace doesn't exist")
-			return c.deleteDownstreamNamespace(ctx, namespaceName)
-		}
-		// The upstream namespace still exists, nothing to do.
-		return nil
-	}
 
 	exists, err := c.upstreamNamespaceExists(clusterName, namespaceName)
 	if err != nil {

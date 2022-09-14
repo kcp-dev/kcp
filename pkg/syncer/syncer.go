@@ -212,7 +212,12 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		return err
 	}
 
-	namespaceSyncer, err := namespace.NewNamespaceController(cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, syncTarget.GetUID(), upstreamDynamicClusterClient, downstreamDynamicClient, upstreamInformers, downstreamInformers)
+	downstreamNamespaceController, err := namespace.NewDownstreamController(cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, syncTarget.GetUID(), downstreamDynamicClient, upstreamInformers, downstreamInformers)
+	if err != nil {
+		return err
+	}
+
+	upstreamNamespaceController, err := namespace.NewUpstreamController(cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, syncTarget.GetUID(), downstreamDynamicClient, upstreamInformers, downstreamInformers)
 	if err != nil {
 		return err
 	}
@@ -225,7 +230,8 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 
 	go specSyncer.Start(ctx, numSyncerThreads)
 	go statusSyncer.Start(ctx, numSyncerThreads)
-	go namespaceSyncer.Start(ctx, numSyncerThreads)
+	go downstreamNamespaceController.Start(ctx, numSyncerThreads)
+	go upstreamNamespaceController.Start(ctx, numSyncerThreads)
 
 	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.SyncerTunnel) {
 		go startSyncerTunnel(ctx, upstreamConfig, downstreamConfig, cfg.SyncTargetWorkspace, cfg.SyncTargetName)
