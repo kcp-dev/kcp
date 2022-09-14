@@ -19,9 +19,8 @@ package indexers
 import (
 	"fmt"
 
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
-
-	"k8s.io/client-go/tools/clusters"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 )
@@ -44,7 +43,7 @@ func IndexAPIExportByIdentity(obj interface{}) ([]string, error) {
 }
 
 // IndexAPIExportBySecret is an index function that indexes an APIExport by its identity secret references. Index values
-// are of the form <secret reference namespace>/<cluster name><separator><secret reference name> (cache keys).
+// are of the form <cluster name>|<secret reference namespace>/<secret reference name> (cache keys).
 func IndexAPIExportBySecret(obj interface{}) ([]string, error) {
 	apiExport, ok := obj.(*apisv1alpha1.APIExport)
 	if !ok {
@@ -64,6 +63,5 @@ func IndexAPIExportBySecret(obj interface{}) ([]string, error) {
 		return []string{}, nil
 	}
 
-	// TODO(ncdc): use future shared key func if we ever create one
-	return []string{ref.Namespace + "/" + clusters.ToClusterAwareKey(logicalcluster.From(apiExport), ref.Name)}, nil
+	return []string{kcpcache.ToClusterAwareKey(logicalcluster.From(apiExport).String(), ref.Namespace, ref.Name)}, nil
 }

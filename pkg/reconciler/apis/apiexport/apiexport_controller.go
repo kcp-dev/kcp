@@ -212,14 +212,19 @@ func (c *controller) enqueueSecret(obj interface{}) {
 		return
 	}
 
-	apiExportKeys, err := c.apiExportIndexer.IndexKeys(indexers.APIExportBySecret, secretKey)
+	apiExports, err := c.apiExportIndexer.ByIndex(indexers.APIExportBySecret, secretKey)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
 	logger := logging.WithObject(logging.WithReconciler(klog.Background(), controllerName), obj.(*corev1.Secret))
-	for _, key := range apiExportKeys {
+	for _, apiExport := range apiExports {
+		key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(apiExport)
+		if err != nil {
+			runtime.HandleError(err)
+			return
+		}
 		logging.WithQueueKey(logger, key).V(2).Info("queueing APIExport via identity Secret")
 		c.queue.Add(key)
 	}
