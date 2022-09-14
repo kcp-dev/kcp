@@ -52,12 +52,11 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	klog.V(3).InfoS("Processing", "gvr", gvr, "key", key)
 
 	// from downstream
-	downstreamNamespace, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	downstreamNamespace, downstreamName, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		klog.Errorf("Invalid key: %q: %v", key, err)
 		return nil
 	}
-	downstreamClusterName, name := clusters.SplitClusterAwareKey(clusterAwareName)
 	// TODO(sttts): do not reference the cli plugin here
 	if strings.HasPrefix(downstreamNamespace, workloadcliplugin.SyncerIDPrefix) {
 		// skip syncer namespace
@@ -65,25 +64,19 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	}
 
 	// to upstream
-	nsKey := downstreamNamespace
-	if !downstreamClusterName.Empty() {
-		// If our "physical" cluster is a kcp instance (e.g. for testing purposes), it will return resources
-		// with metadata.clusterName set, which means their keys are cluster-aware, so we need to do the same here.
-		nsKey = clusters.ToClusterAwareKey(downstreamClusterName, nsKey)
-	}
-	nsObj, err := c.downstreamNamespaceLister.Get(nsKey)
+	nsObj, err := c.downstreamNamespaceLister.Get(downstreamNamespace)
 	if err != nil {
-		klog.Errorf("Error retrieving namespace %q from downstream lister: %v", nsKey, err)
+		klog.Errorf("Error retrieving namespace %q from downstream lister: %v", downstreamNamespace, err)
 		return nil
 	}
 	nsMeta, ok := nsObj.(metav1.Object)
 	if !ok {
-		klog.Errorf("Namespace %q expected to be metav1.Object, got %T", nsKey, nsObj)
+		klog.Errorf("Namespace %q expected to be metav1.Object, got %T", downstreamNamespace, nsObj)
 		return nil
 	}
 	namespaceLocator, exists, err := shared.LocatorFromAnnotations(nsMeta.GetAnnotations())
 	if err != nil {
-		klog.Errorf(" namespace %q: error decoding annotation: %v", nsKey, err)
+		klog.Errorf(" namespace %q: error decoding annotation: %v", downstreamNamespace, err)
 		return nil
 	}
 	if !exists || namespaceLocator == nil {
@@ -100,8 +93,8 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 		return err
 	}
 	if !exists {
-		klog.Infof("Downstream GVR %q object %s|%s/%s does not exist. Removing finalizer upstream", gvr.String(), downstreamClusterName, upstreamNamespace, name)
-		return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, c.upstreamInformers, c.upstreamClient, upstreamNamespace, c.syncTargetKey, upstreamWorkspace, getUpstreamResourceName(gvr, name))
+		klog.Infof("Downstream GVR %q object %s/%s does not exist. Removing finalizer upstream", gvr.String(), downstreamNamespace, downstreamName)
+		return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, c.upstreamInformers, c.upstreamClient, upstreamNamespace, c.syncTargetKey, upstreamWorkspace, getUpstreamResourceName(gvr, downstreamName))
 	}
 
 	// update upstream status
