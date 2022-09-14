@@ -48,6 +48,7 @@ type Options struct {
 	AdminAuthentication AdminAuthentication
 	Virtual             Virtual
 	HomeWorkspaces      HomeWorkspaces
+	Cache               Cache
 
 	Extra ExtraOptions
 }
@@ -75,6 +76,7 @@ type completedOptions struct {
 	AdminAuthentication AdminAuthentication
 	Virtual             Virtual
 	HomeWorkspaces      HomeWorkspaces
+	Cache               Cache
 
 	Extra ExtraOptions
 }
@@ -95,6 +97,7 @@ func NewOptions(rootDir string) *Options {
 		AdminAuthentication: *NewAdminAuthentication(rootDir),
 		Virtual:             *NewVirtual(),
 		HomeWorkspaces:      *NewHomeWorkspaces(),
+		Cache:               *NewCache(),
 
 		Extra: ExtraOptions{
 			RootDirectory:            rootDir,
@@ -160,6 +163,7 @@ func (o *Options) rawFlags() cliflag.NamedFlagSets {
 	o.AdminAuthentication.AddFlags(fss.FlagSet("KCP Authentication"))
 	o.Virtual.AddFlags(fss.FlagSet("KCP Virtual Workspaces"))
 	o.HomeWorkspaces.AddFlags(fss.FlagSet("KCP Home Workspaces"))
+	o.Cache.AddFlags(fss.FlagSet("KCP Cache Server"))
 
 	fs := fss.FlagSet("KCP")
 	fs.StringVar(&o.Extra.ProfilerAddress, "profiler-address", o.Extra.ProfilerAddress, "[Address]:port to bind the profiler to")
@@ -203,6 +207,7 @@ func (o *CompletedOptions) Validate() []error {
 	errs = append(errs, o.AdminAuthentication.Validate()...)
 	errs = append(errs, o.Virtual.Validate()...)
 	errs = append(errs, o.HomeWorkspaces.Validate()...)
+	errs = append(errs, o.Cache.Validate()...)
 
 	differential := false
 	for i, b := range o.Extra.BatteriesIncluded {
@@ -324,6 +329,8 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 		o.Extra.BatteriesIncluded = bats.List()
 	}
 
+	o.Cache.Complete(completedGenericControlPlane.SecureServing)
+
 	return &CompletedOptions{
 		completedOptions: &completedOptions{
 			// TODO: GenericControlPlane here should be completed. But the k/k repo does not expose the CompleteOptions type, but should.
@@ -334,6 +341,7 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 			AdminAuthentication: o.AdminAuthentication,
 			Virtual:             o.Virtual,
 			HomeWorkspaces:      o.HomeWorkspaces,
+			Cache:               o.Cache,
 			Extra:               o.Extra,
 		},
 	}, nil
