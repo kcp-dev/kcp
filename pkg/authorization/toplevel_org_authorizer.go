@@ -86,14 +86,14 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 		return a.delegate.Authorize(ctx, attr)
 	}
 
-	cluster, err := genericapirequest.ValidClusterFrom(ctx)
-	if err != nil || cluster == nil || cluster.Name.Empty() {
+	cluster := genericapirequest.ClusterFrom(ctx)
+	if cluster == nil || cluster.Name.Empty() {
 		kaudit.AddAuditAnnotations(
 			ctx,
 			TopLevelContentAuditDecision, DecisionNoOpinion,
-			TopLevelContentAuditReason, fmt.Sprintf("error getting cluster from request: %v", err),
+			TopLevelContentAuditReason, "empty cluster name",
 		)
-		return authorizer.DecisionNoOpinion, WorkspaceAccessNotPermittedReason, err
+		return authorizer.DecisionNoOpinion, WorkspaceAccessNotPermittedReason, nil
 	}
 
 	if !cluster.Name.HasPrefix(tenancyv1alpha1.RootCluster) {

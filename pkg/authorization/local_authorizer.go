@@ -66,16 +66,13 @@ func (a *LocalAuthorizer) RulesFor(user user.Info, namespace string) ([]authoriz
 }
 
 func (a *LocalAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
-	cluster, err := genericapirequest.ValidClusterFrom(ctx)
-	if err != nil {
+	cluster := genericapirequest.ClusterFrom(ctx)
+	if cluster == nil || cluster.Name.Empty() {
 		kaudit.AddAuditAnnotations(
 			ctx,
 			LocalAuditDecision, DecisionNoOpinion,
-			LocalAuditReason, fmt.Sprintf("error getting cluster from request: %v", err),
+			LocalAuditReason, "empty cluster name",
 		)
-		return authorizer.DecisionNoOpinion, "", err
-	}
-	if cluster == nil || cluster.Name.Empty() {
 		return authorizer.DecisionNoOpinion, "", nil
 	}
 

@@ -18,7 +18,6 @@ package authorization
 
 import (
 	"context"
-	"fmt"
 
 	kaudit "k8s.io/apiserver/pkg/audit"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
@@ -45,15 +44,7 @@ func NewSystemCRDAuthorizer(delegate authorizer.Authorizer) authorizer.Authorize
 }
 
 func (a *SystemCRDAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
-	cluster, err := genericapirequest.ValidClusterFrom(ctx)
-	if err != nil {
-		kaudit.AddAuditAnnotations(
-			ctx,
-			SystemCRDAuditDecision, DecisionNoOpinion,
-			SystemCRDAuditReason, fmt.Sprintf("error getting cluster from request: %v", err),
-		)
-		return authorizer.DecisionNoOpinion, "", err
-	}
+	cluster := genericapirequest.ClusterFrom(ctx)
 	if cluster == nil || cluster.Name.Empty() {
 		kaudit.AddAuditAnnotations(
 			ctx,
