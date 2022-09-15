@@ -220,6 +220,20 @@ Then, to have your test use that shared kcp server, you add `-args --use-default
 ```shell
 go test ./test/e2e/apibinding -count 20 -failfast -args --use-default-kcp-server
 ```
+
+Syncer e2e tests in mode 1 have an additional option - by default, they run an in-process syncer against a logical
+cluster. However, with `make test-e2e-shared` they instead run the syncer on a physical cluster by supplying a
+kubeconfig for that cluster using the `--pcluster-kubeconfig` argument. Additionally, the syncer image and a test image
+are made available to that physical cluster and supplied to the tests via `--syncer-image` and `--kcp-test-image`.
+
+```shell
+make build-kind-images
+kind get kubeconfig > .kcp/kind.kubeconfig
+go test ./test/e2e/syncer -args --use-default-kcp-server --pcluster-kubeconfig=$(pwd)/.kcp/kind.kubeconfig \
+                                --syncer-image=kind.local/syncer-c2e307... \
+                                --kcp-test-image=kind.local/kcp-test-image-7d34ff7...
+```
+
 ## Community Roles
 
 ### Reviewers
