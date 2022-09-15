@@ -91,16 +91,15 @@ users have to install a special component named [syncer](https://github.com/kcp-
 
 ## For syncer development
 
-### Running in a kind cluster with a local registry
+### Running in a kind cluster using a locally built image
 
-You can run the syncer in a kind cluster for development.
+You can run the syncer using a locally built image in a kind cluster for development.
 
-1. Create a `kind` cluster with a local registry to simplify syncer development
-   by executing the following script:
+1. Create a `kind` cluster
 
-   ```bash
-   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/kubernetes-sigs/kind/main/site/static/examples/kind-with-registry.sh)"
-   ```
+    ```sh
+    kind create cluster
+    ```
 
 1. Install `ko`:
 
@@ -108,10 +107,10 @@ You can run the syncer in a kind cluster for development.
     go install github.com/google/ko@latest
     ```
 
-1. Build image and push to the local registry integrated with `kind`:
+1. Build image and push to the kind cluster:
 
     ```sh
-    KO_DOCKER_REPO=localhost:5001 ko publish ./cmd/syncer -t <image tag>
+    KO_DOCKER_REPO=kind.local ko publish ./cmd/syncer
     ```
 
     By default `ko` will build for `amd64`. To build for `arm64`
@@ -126,12 +125,12 @@ You can run the syncer in a kind cluster for development.
     Current workspace is "root:my-org" (type "root:organization").
     ```
 
-1. To use the image pushed to the local registry, supply `<image name>` to the
+1. To use the image pushed to the kind cluster, supply `<image name>` to the
    `kcp workload sync` plugin command, where `<image name>` is
    from the output of `ko publish`:
 
     ```sh
-    kubectl kcp workload sync <mycluster> --syncer-image <image name> -o syncer.yaml
+    kubectl kcp workload sync <mycluster> --syncer-image kind.local/syncer-<image hash> -o syncer.yaml
     ```
 
 1. Apply the manifest to the p-cluster:
