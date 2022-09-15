@@ -5,5 +5,5 @@ metadata:
 spec:
   reference:
     workspace:
-      name: cert-manager-service
+      path: root:cert-manager-service
       exportName: cert-manager-stable
