@@ -607,6 +607,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 		// write kubeconfig to disk, next to kcp kubeconfig
 		kcpAdminConfig, _ := server.RawConfig()
 		var baseCluster = *kcpAdminConfig.Clusters["base"] // shallow copy
+		baseCluster.Server = fmt.Sprintf("%s/clusters/system:admin", baseCluster.Server)
 		virtualWorkspaceKubeConfig := clientcmdapi.Config{
 			Clusters: map[string]*clientcmdapi.Cluster{
 				"shard": &baseCluster,

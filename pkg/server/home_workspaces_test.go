@@ -1258,14 +1258,13 @@ func TestServeHTTP(t *testing.T) {
 		expectedResponseHeaders map[string]string
 	}{
 		{
-			testName:           "Error when no cluster in context",
+			testName:           "delegate to the next handler when no cluster in context",
 			contextUser:        &kuser.DefaultInfo{Name: "user-1"},
 			contextRequestInfo: &request.RequestInfo{},
 			synced:             true,
 
-			expectedStatusCode:   500,
-			expectedToDelegate:   false,
-			expectedResponseBody: `Internal Server Error: "/dummy-target": no cluster in the request context - RequestInfo: &amp;request.RequestInfo{IsResourceRequest:false, Path:"", Verb:"", APIPrefix:"", APIGroup:"", APIVersion:"", Namespace:"", Resource:"", Subresource:"", Name:"", Parts:[]string(nil)}`,
+			expectedStatusCode: 200,
+			expectedToDelegate: true,
 		},
 		{
 			testName:           "Error when no user in context",

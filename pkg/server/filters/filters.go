@@ -35,7 +35,6 @@ import (
 	kaudit "k8s.io/apiserver/pkg/audit"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/kubernetes/pkg/genericcontrolplane"
 )
 
 type (
@@ -120,9 +119,7 @@ func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 			cluster.Wildcard = true
 			// fallthrough
 			cluster.Name = logicalcluster.Wildcard
-		case clusterName.Empty():
-			cluster.Name = genericcontrolplane.LocalAdminCluster
-		default:
+		case !clusterName.Empty():
 			if !reClusterName.MatchString(clusterName.String()) {
 				responsewriters.ErrorNegotiated(
 					apierrors.NewBadRequest(fmt.Sprintf("invalid cluster: %q does not match the regex", clusterName)),
@@ -134,7 +131,6 @@ func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 		}
 
 		ctx := request.WithCluster(req.Context(), cluster)
-
 		apiHandler.ServeHTTP(w, req.WithContext(ctx))
 	}
 }
