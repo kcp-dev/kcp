@@ -140,11 +140,13 @@ func TestClusterController(t *testing.T) {
 					return true
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "expected source to show status change")
 
+				t.Logf("Deleting object in the source")
 				err = servers[sourceClusterName].client.Cowboys(testNamespace).Delete(ctx, cowboy.Name, metav1.DeleteOptions{})
 				require.NoError(t, err, "error deleting source cowboy")
 
 				// TODO(ncdc): the expect code for cowboys currently expects the cowboy to exist. See if we can adjust it
 				// so we can reuse that here instead of polling.
+				t.Logf("Expecting the object in the sink to be deleted")
 				require.Eventually(t, func() bool {
 					_, err := servers[sinkClusterName].client.Cowboys(targetNamespace).Get(ctx, cowboy.Name, metav1.GetOptions{})
 					return apierrors.IsNotFound(err)

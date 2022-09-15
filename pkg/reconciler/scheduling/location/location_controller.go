@@ -23,6 +23,7 @@ import (
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -132,7 +133,7 @@ type controller struct {
 }
 
 func (c *controller) enqueueLocation(obj interface{}) {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -145,17 +146,16 @@ func (c *controller) enqueueLocation(obj interface{}) {
 
 // enqueueSyncTarget maps a SyncTarget to LocationDomain for enqueuing.
 func (c *controller) enqueueSyncTarget(obj interface{}) {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
-	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	lcluster, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
-	lcluster, _ := clusters.SplitClusterAwareKey(clusterAwareName)
 	domains, err := c.locationIndexer.ByIndex(byWorkspace, lcluster.String())
 	if err != nil {
 		runtime.HandleError(err)
@@ -164,7 +164,7 @@ func (c *controller) enqueueSyncTarget(obj interface{}) {
 
 	for _, domain := range domains {
 		syncTargetKey := key
-		key, err := cache.MetaNamespaceKeyFunc(domain)
+		key, err := kcpcache.MetaClusterNamespaceKeyFunc(domain)
 		if err != nil {
 			runtime.HandleError(err)
 			return
@@ -224,12 +224,11 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 
 func (c *controller) process(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
-	namespace, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	clusterName, namespace, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		logger.Error(err, "invalid key")
 		return nil
 	}
-	clusterName, name := clusters.SplitClusterAwareKey(clusterAwareName)
 
 	obj, err := c.locationLister.Get(key)
 	if err != nil {

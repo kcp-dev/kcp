@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	corev1 "k8s.io/api/core/v1"
@@ -173,7 +174,7 @@ type controller struct {
 
 // enqueueAPIBinding enqueues an APIExport .
 func (c *controller) enqueueAPIExport(obj interface{}) {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -193,7 +194,7 @@ func (c *controller) enqueueAllAPIExports(clusterWorkspaceShard interface{}) {
 
 	logger := logging.WithObject(logging.WithReconciler(klog.Background(), controllerName), clusterWorkspaceShard.(*tenancyv1alpha1.ClusterWorkspaceShard))
 	for i := range list {
-		key, err := cache.MetaNamespaceKeyFunc(list[i])
+		key, err := kcpcache.MetaClusterNamespaceKeyFunc(list[i])
 		if err != nil {
 			runtime.HandleError(err)
 			continue
@@ -205,20 +206,25 @@ func (c *controller) enqueueAllAPIExports(clusterWorkspaceShard interface{}) {
 }
 
 func (c *controller) enqueueSecret(obj interface{}) {
-	secretKey, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	secretKey, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
-	apiExportKeys, err := c.apiExportIndexer.IndexKeys(indexers.APIExportBySecret, secretKey)
+	apiExports, err := c.apiExportIndexer.ByIndex(indexers.APIExportBySecret, secretKey)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
 	logger := logging.WithObject(logging.WithReconciler(klog.Background(), controllerName), obj.(*corev1.Secret))
-	for _, key := range apiExportKeys {
+	for _, apiExport := range apiExports {
+		key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(apiExport)
+		if err != nil {
+			runtime.HandleError(err)
+			return
+		}
 		logging.WithQueueKey(logger, key).V(2).Info("queueing APIExport via identity Secret")
 		c.queue.Add(key)
 	}

@@ -21,6 +21,7 @@ import (
 	"errors"
 	"reflect"
 
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	crdhelpers "k8s.io/apiextensions-apiserver/pkg/apihelpers"
@@ -31,7 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
@@ -401,7 +401,7 @@ func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, cluster
 	} else {
 		crdName += gvr.Group
 	}
-	crdkey, err := cache.MetaNamespaceKeyFunc(&metav1.PartialObjectMetadata{
+	crdkey, err := kcpcache.MetaClusterNamespaceKeyFunc(&metav1.PartialObjectMetadata{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: crdName,
 			Annotations: map[string]string{
@@ -548,7 +548,7 @@ func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, cluster
 			}
 		}
 		apiResourceImportUpdateStatusFuncs = append(apiResourceImportUpdateStatusFuncs, func() error {
-			key, err := cache.MetaNamespaceKeyFunc(apiResourceImport)
+			key, err := kcpcache.MetaClusterNamespaceKeyFunc(apiResourceImport)
 			if err != nil {
 				logger.Error(err, "error", "caller", runtime.GetCaller())
 				return err
@@ -665,7 +665,7 @@ func (c *Controller) publishNegotiatedResource(ctx context.Context, clusterName 
 		AdditionalPrinterColumns: crColumnDefinitions,
 	}
 
-	crdKey, err := cache.MetaNamespaceKeyFunc(&metav1.PartialObjectMetadata{
+	crdKey, err := kcpcache.MetaClusterNamespaceKeyFunc(&metav1.PartialObjectMetadata{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: crdName,
 			Annotations: map[string]string{
@@ -853,7 +853,7 @@ func (c *Controller) cleanupNegotiatedAPIResource(ctx context.Context, clusterNa
 		crdName += "." + gvr.Group
 	}
 
-	crdKey, err := cache.MetaNamespaceKeyFunc(&metav1.PartialObjectMetadata{
+	crdKey, err := kcpcache.MetaClusterNamespaceKeyFunc(&metav1.PartialObjectMetadata{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: crdName,
 			Annotations: map[string]string{

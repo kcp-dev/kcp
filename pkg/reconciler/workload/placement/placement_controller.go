@@ -23,12 +23,12 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
@@ -162,17 +162,16 @@ type controller struct {
 
 // enqueueLocation finds placement ref to this location at first, and then namespaces bound to this placement.
 func (c *controller) enqueueLocation(obj interface{}) {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
-	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	clusterName, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
-	clusterName, _ := clusters.SplitClusterAwareKey(clusterAwareName)
 
 	placements, err := c.placementIndexer.ByIndex(byLocationWorkspace, clusterName.String())
 	if err != nil {
@@ -187,7 +186,7 @@ func (c *controller) enqueueLocation(obj interface{}) {
 }
 
 func (c *controller) enqueuePlacement(obj interface{}, logger logr.Logger, logSuffix string) {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -198,17 +197,16 @@ func (c *controller) enqueuePlacement(obj interface{}, logger logr.Logger, logSu
 }
 
 func (c *controller) enqueueSyncTarget(obj interface{}) {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
-	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	clusterName, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
-	clusterName, _ := clusters.SplitClusterAwareKey(clusterAwareName)
 
 	placements, err := c.placementIndexer.ByIndex(byLocationWorkspace, clusterName.String())
 	if err != nil {

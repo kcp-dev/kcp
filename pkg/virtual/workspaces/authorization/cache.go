@@ -22,6 +22,8 @@ import (
 	"sync"
 	"time"
 
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -277,7 +279,7 @@ func (ac *AuthorizationCache) synchronizeWorkspaces(userSubjectRecordStore cache
 	}
 	for i := range workspaces {
 		workspace := workspaces[i]
-		workspaceKey, err := cache.MetaNamespaceKeyFunc(workspace)
+		workspaceKey, err := kcpcache.MetaClusterNamespaceKeyFunc(workspace)
 		if err != nil {
 			klog.Warning(err)
 		}

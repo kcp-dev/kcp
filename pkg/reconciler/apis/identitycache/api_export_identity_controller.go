@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -28,7 +30,6 @@ import (
 	kubernetesclient "k8s.io/client-go/kubernetes"
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
@@ -68,17 +69,16 @@ func NewApiExportIdentityProviderController(
 
 	remoteShardApiExportInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
-			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+			key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 			if err != nil {
 				runtime.HandleError(err)
 				return false
 			}
-			_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+			clusterName, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 			if err != nil {
 				runtime.HandleError(err)
 				return false
 			}
-			clusterName, _ := clusters.SplitClusterAwareKey(clusterAwareName)
 			return clusterName == tenancyv1alpha1.RootCluster
 		},
 		Handler: cache.ResourceEventHandlerFuncs{
@@ -90,17 +90,16 @@ func NewApiExportIdentityProviderController(
 
 	configMapInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
-			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+			key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 			if err != nil {
 				runtime.HandleError(err)
 				return false
 			}
-			_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+			clusterName, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 			if err != nil {
 				runtime.HandleError(err)
 				return false
 			}
-			clusterName, _ := clusters.SplitClusterAwareKey(clusterAwareName)
 			if clusterName != configshard.SystemShardCluster {
 				return false
 			}

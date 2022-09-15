@@ -20,10 +20,11 @@ import (
 	"context"
 	"sync"
 
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
-	k8scache "k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/logging"
@@ -67,13 +68,13 @@ func (t *tracker) add(ctx context.Context, ingress *networkingv1.Ingress, s *cor
 
 	logger.Info("tracking Service")
 
-	ingressKey, err := k8scache.MetaNamespaceKeyFunc(ingress)
+	ingressKey, err := kcpcache.MetaClusterNamespaceKeyFunc(ingress)
 	if err != nil {
 		logger.Error(err, "failed to get Ingress key")
 		return
 	}
 
-	serviceKey, err := k8scache.MetaNamespaceKeyFunc(s)
+	serviceKey, err := kcpcache.MetaClusterNamespaceKeyFunc(s)
 	if err != nil {
 		logger.Error(err, "failed to get Service key")
 		return

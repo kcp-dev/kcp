@@ -23,13 +23,13 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
@@ -130,18 +130,17 @@ type APIReconciler struct {
 }
 
 func (c *APIReconciler) enqueueAPIResourceSchema(obj interface{}, logger logr.Logger) {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
-	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	clusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
-	clusterName, name := clusters.SplitClusterAwareKey(clusterAwareName)
 	exports, err := c.apiExportIndexer.ByIndex(byWorkspace, clusterName.String())
 	if err != nil {
 		runtime.HandleError(err)
@@ -161,7 +160,7 @@ func (c *APIReconciler) enqueueAPIResourceSchema(obj interface{}, logger logr.Lo
 }
 
 func (c *APIReconciler) enqueueAPIExport(obj interface{}, logger logr.Logger) {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -231,12 +230,11 @@ func (c *APIReconciler) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *APIReconciler) process(ctx context.Context, key string) error {
-	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	clusterName, _, apiExportName, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(err)
 		return nil
 	}
-	clusterName, apiExportName := clusters.SplitClusterAwareKey(clusterAwareName)
 	apiDomainKey := dynamiccontext.APIDomainKey(clusterName.String() + "/" + apiExportName)
 
 	logger := klog.FromContext(ctx).WithValues("apiDomainKey", apiDomainKey)

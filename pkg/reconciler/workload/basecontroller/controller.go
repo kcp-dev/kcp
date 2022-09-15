@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -127,7 +128,7 @@ type queueAdapter struct {
 }
 
 func (a queueAdapter) EnqueueAfter(cl *workloadv1alpha1.SyncTarget, dur time.Duration) {
-	key, err := cache.MetaNamespaceKeyFunc(cl)
+	key, err := kcpcache.MetaClusterNamespaceKeyFunc(cl)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -146,7 +147,7 @@ type ClusterReconciler struct {
 }
 
 func (c *ClusterReconciler) enqueue(obj interface{}) {
-	key, err := cache.MetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.MetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return

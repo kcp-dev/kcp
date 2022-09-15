@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	networkingv1 "k8s.io/api/networking/v1"
@@ -109,7 +110,7 @@ func (c *Controller) enqueue(obj interface{}) {
 	}
 
 	// Enqueue the key from obj (could be root or leaf)
-	key, err := cache.MetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.MetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return

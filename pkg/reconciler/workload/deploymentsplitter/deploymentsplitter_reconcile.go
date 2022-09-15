@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -27,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
@@ -117,7 +117,7 @@ func (c *Controller) reconcile(ctx context.Context, deployment *appsv1.Deploymen
 
 		if _, err := c.client.Deployments(rootDeployment.Namespace).UpdateStatus(ctx, rootDeployment, metav1.UpdateOptions{}); err != nil {
 			if errors.IsConflict(err) {
-				key, err := cache.MetaNamespaceKeyFunc(deployment)
+				key, err := kcpcache.MetaClusterNamespaceKeyFunc(deployment)
 				if err != nil {
 					return err
 				}

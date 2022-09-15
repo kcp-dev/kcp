@@ -19,10 +19,10 @@ package namespace
 import (
 	"context"
 
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
@@ -30,12 +30,11 @@ import (
 
 func (c *UpstreamController) process(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
-	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	clusterName, _, namespaceName, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		logger.Error(err, "invalid key")
 		return nil
 	}
-	clusterName, namespaceName := clusters.SplitClusterAwareKey(clusterAwareName)
 
 	exists, err := c.upstreamNamespaceExists(clusterName, namespaceName)
 	if err != nil {

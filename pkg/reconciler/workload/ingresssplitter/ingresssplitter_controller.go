@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	corev1 "k8s.io/api/core/v1"
@@ -134,7 +135,7 @@ type Controller struct {
 }
 
 func (c *Controller) enqueue(obj interface{}) {
-	key, err := cache.MetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.MetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -237,7 +238,7 @@ func (c *Controller) ingressesFromService(obj interface{}) {
 	logger := logging.WithReconciler(klog.Background(), controllerName)
 	service := obj.(*corev1.Service)
 
-	serviceKey, err := cache.MetaNamespaceKeyFunc(service)
+	serviceKey, err := kcpcache.MetaClusterNamespaceKeyFunc(service)
 	if err != nil {
 		runtime.HandleError(err)
 		return

@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	corev1 "k8s.io/api/core/v1"
@@ -144,17 +145,16 @@ type Controller struct {
 }
 
 func filterNamespace(obj interface{}) bool {
-	key, err := cache.MetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.MetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return false
 	}
-	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	_, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(err)
 		return false
 	}
-	_, name := clusters.SplitClusterAwareKey(clusterAwareName)
 	if namespaceBlocklist.Has(name) {
 		logging.WithReconciler(klog.Background(), controllerName).WithValues("namespace", name).V(2).Info("skipping syncing Namespace")
 		return false
@@ -163,7 +163,7 @@ func filterNamespace(obj interface{}) bool {
 }
 
 func (c *Controller) enqueueResource(gvr schema.GroupVersionResource, obj interface{}) {
-	key, err := cache.MetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.MetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -182,12 +182,17 @@ func (c *Controller) enqueueGVR(gvr schema.GroupVersionResource) {
 }
 
 func (c *Controller) enqueueNamespace(obj interface{}) {
-	key, err := cache.MetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.MetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
-	ns, err := c.namespaceLister.Get(key)
+	clusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+	ns, err := c.namespaceLister.Get(clusters.ToClusterAwareKey(clusterName, name))
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Namespace was deleted
@@ -280,7 +285,23 @@ func (c *Controller) processResource(ctx context.Context, key string) error {
 	if err != nil {
 		return err
 	}
-	obj, exists, err := inf.Informer().GetIndexer().GetByKey(key)
+
+	lclusterName, namespace, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+	if err != nil {
+		logger.Error(err, "failed to split key, dropping")
+		return nil
+	}
+	// TODO(skuznets): can we figure out how to not leak this detail up to this code?
+	// I guess once the indexer is using kcpcache.MetaClusterNamespaceKeyFunc, we can just use that formatter ...
+	var indexKey string
+	if namespace != "" {
+		indexKey += namespace + "/"
+	}
+	if !lclusterName.Empty() {
+		indexKey += lclusterName.String() + "|"
+	}
+	indexKey += name
+	obj, exists, err := inf.Informer().GetIndexer().GetByKey(indexKey)
 	if err != nil {
 		logger.Error(err, "error getting object from indexer")
 		return err
@@ -296,13 +317,6 @@ func (c *Controller) processResource(ctx context.Context, key string) error {
 	}
 	unstr = unstr.DeepCopy()
 
-	// Get logical cluster name.
-	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		logger.Error(err, "failed to split key, dropping")
-		return nil
-	}
-	lclusterName, _ := clusters.SplitClusterAwareKey(clusterAwareName)
 	return c.reconcileResource(ctx, lclusterName, unstr, gvr)
 }
 
@@ -385,17 +399,16 @@ func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 
 func (c *Controller) enqueueSyncTarget(obj interface{}) {
 	logger := logging.WithObject(logging.WithReconciler(klog.Background(), controllerName), obj.(*workloadv1alpha1.SyncTarget)).WithValues("operation", "enqueueSyncTarget")
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
-	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	clusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
-	clusterName, name := clusters.SplitClusterAwareKey(clusterAwareName)
 	finalizer := syncershared.SyncerFinalizerNamePrefix + workloadv1alpha1.ToSyncTargetKey(clusterName, name)
 
 	listers, _ := c.ddsif.Listers()

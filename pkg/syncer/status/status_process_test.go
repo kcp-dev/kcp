@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -39,9 +40,9 @@ import (
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	clienttesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/third_party/keyfunctions"
 )
 
 var scheme *runtime.Scheme
@@ -306,8 +307,7 @@ func TestSyncerProcess(t *testing.T) {
 		fromResource  runtime.Object
 		toResources   []runtime.Object
 
-		resourceToProcessName               string
-		resourceToProcessLogicalClusterName string
+		resourceToProcessName string
 
 		upstreamURL               string
 		upstreamLogicalCluster    string
@@ -342,9 +342,8 @@ func TestSyncerProcess(t *testing.T) {
 					"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync",
 				}, nil, nil),
 			},
-			resourceToProcessLogicalClusterName: "",
-			resourceToProcessName:               "theDeployment",
-			syncTargetName:                      "us-west1",
+			resourceToProcessName: "theDeployment",
+			syncTargetName:        "us-west1",
 
 			expectActionsOnFrom: []clienttesting.Action{},
 			expectActionsOnTo: []clienttesting.Action{
@@ -379,9 +378,8 @@ func TestSyncerProcess(t *testing.T) {
 					"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync",
 				}, nil, nil),
 			},
-			resourceToProcessLogicalClusterName: "",
-			resourceToProcessName:               "theDeployment",
-			syncTargetName:                      "us-west1",
+			resourceToProcessName: "theDeployment",
+			syncTargetName:        "us-west1",
 
 			expectActionsOnFrom: []clienttesting.Action{},
 			expectActionsOnTo:   []clienttesting.Action{},
@@ -408,10 +406,9 @@ func TestSyncerProcess(t *testing.T) {
 					"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync",
 				}, nil, nil),
 			},
-			resourceToProcessLogicalClusterName: "",
-			resourceToProcessName:               "theDeployment",
-			syncTargetName:                      "us-west1",
-			advancedSchedulingEnabled:           true,
+			resourceToProcessName:     "theDeployment",
+			syncTargetName:            "us-west1",
+			advancedSchedulingEnabled: true,
 
 			expectActionsOnFrom: []clienttesting.Action{},
 			expectActionsOnTo: []clienttesting.Action{
@@ -449,10 +446,9 @@ func TestSyncerProcess(t *testing.T) {
 					"experimental.status.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "{\"replicas\":15}",
 				}, []string{"workload.kcp.dev/syncer-2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5"}),
 			},
-			resourceToProcessLogicalClusterName: "",
-			resourceToProcessName:               "theDeployment",
-			syncTargetName:                      "us-west1",
-			advancedSchedulingEnabled:           true,
+			resourceToProcessName:     "theDeployment",
+			syncTargetName:            "us-west1",
+			advancedSchedulingEnabled: true,
 
 			expectActionsOnFrom: []clienttesting.Action{},
 			expectActionsOnTo:   []clienttesting.Action{},
@@ -477,10 +473,9 @@ func TestSyncerProcess(t *testing.T) {
 					"experimental.status.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": `{"replicas":15}`,
 				}, []string{"workload.kcp.dev/syncer-2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5"}),
 			},
-			resourceToProcessLogicalClusterName: "",
-			resourceToProcessName:               "theDeployment",
-			syncTargetName:                      "us-west1",
-			advancedSchedulingEnabled:           true,
+			resourceToProcessName:     "theDeployment",
+			syncTargetName:            "us-west1",
+			advancedSchedulingEnabled: true,
 
 			expectActionsOnFrom: []clienttesting.Action{},
 			expectActionsOnTo: []clienttesting.Action{
@@ -523,9 +518,9 @@ func TestSyncerProcess(t *testing.T) {
 			}
 
 			syncTargetKey := workloadv1alpha1.ToSyncTargetKey(tc.syncTargetWorkspace, tc.syncTargetName)
-			fromInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClient, time.Hour, metav1.NamespaceAll, func(o *metav1.ListOptions) {
+			fromInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactoryWithOptions(fromClient, metav1.NamespaceAll, func(o *metav1.ListOptions) {
 				o.LabelSelector = workloadv1alpha1.InternalDownstreamClusterLabel + "=" + syncTargetKey
-			})
+			}, cache.WithResyncPeriod(time.Hour), cache.WithKeyFunction(keyfunctions.DeletionHandlingMetaNamespaceKeyFunc))
 			toInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(toClusterClient.Cluster(logicalcluster.Wildcard), time.Hour, metav1.NamespaceAll, func(o *metav1.ListOptions) {
 				o.LabelSelector = workloadv1alpha1.ClusterResourceStateLabelPrefix + syncTargetKey + "=" + string(workloadv1alpha1.ResourceStateSync)
 			})
@@ -557,7 +552,7 @@ func TestSyncerProcess(t *testing.T) {
 			fromClient.ClearActions()
 			toClient.ClearActions()
 
-			key := tc.fromNamespace.Name + "/" + clusters.ToClusterAwareKey(logicalcluster.New(tc.resourceToProcessLogicalClusterName), tc.resourceToProcessName)
+			key := tc.fromNamespace.Name + "/" + tc.resourceToProcessName
 			err = controller.process(context.Background(),
 				schema.GroupVersionResource{
 					Group:    "apps",
@@ -571,8 +566,8 @@ func TestSyncerProcess(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
-			assert.EqualValues(t, tc.expectActionsOnFrom, fromClient.Actions())
-			assert.EqualValues(t, tc.expectActionsOnTo, toClient.Actions())
+			assert.Empty(t, cmp.Diff(tc.expectActionsOnFrom, fromClient.Actions()))
+			assert.Empty(t, cmp.Diff(tc.expectActionsOnTo, toClient.Actions()))
 		})
 	}
 }

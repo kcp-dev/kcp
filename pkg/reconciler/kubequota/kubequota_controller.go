@@ -23,6 +23,7 @@ import (
 	"sync"
 	"time"
 
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -35,7 +36,6 @@ import (
 	kubernetesinformers "k8s.io/client-go/informers"
 	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/component-base/metrics/prometheus/ratelimiter"
 	"k8s.io/klog/v2"
@@ -136,25 +136,24 @@ func NewController(
 }
 
 func clusterNameForObj(obj interface{}) logicalcluster.Name {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		utilruntime.HandleError(err)
 		return logicalcluster.Name{}
 	}
 
-	_, clusterAndName, err := cache.SplitMetaNamespaceKey(key)
+	cluster, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		utilruntime.HandleError(err)
 		return logicalcluster.Name{}
 	}
 
-	cluster, _ := clusters.SplitClusterAwareKey(clusterAndName)
 	return cluster
 }
 
 // enqueue adds the key for a ClusterWorkspace to the queue.
 func (c *Controller) enqueue(obj interface{}) {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		utilruntime.HandleError(err)
 		return
@@ -224,13 +223,11 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 // process processes a single key from the queue.
 func (c *Controller) process(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
-	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	parent, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		utilruntime.HandleError(err)
 		return nil
 	}
-	// e.g. root:org<separator>ws
-	parent, name := clusters.SplitClusterAwareKey(clusterAwareName)
 
 	// turn it into root:org:ws
 	clusterName := parent.Join(name)

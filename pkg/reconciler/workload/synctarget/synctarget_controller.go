@@ -24,6 +24,7 @@ import (
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -85,7 +86,7 @@ type Controller struct {
 }
 
 func (c *Controller) enqueueSyncTarget(obj interface{}) {
-	key, err := cache.MetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.MetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -99,7 +100,7 @@ func (c *Controller) enqueueSyncTarget(obj interface{}) {
 func (c *Controller) enqueueWorkspaceShard(obj interface{}) {
 	logger := logging.WithObject(logging.WithReconciler(klog.Background(), controllerName), obj.(*tenancyv1alpha1.ClusterWorkspaceShard))
 	for _, syncTarget := range c.syncTargetIndexer.List() {
-		key, err := cache.MetaNamespaceKeyFunc(syncTarget)
+		key, err := kcpcache.MetaClusterNamespaceKeyFunc(syncTarget)
 		if err != nil {
 			runtime.HandleError(err)
 			return

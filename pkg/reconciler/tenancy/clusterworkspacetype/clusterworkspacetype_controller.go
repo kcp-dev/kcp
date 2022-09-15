@@ -23,6 +23,7 @@ import (
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -115,7 +116,7 @@ type controller struct {
 
 // enqueueClusterWorkspaceType enqueues a ClusterWorkspaceType.
 func (c *controller) enqueueClusterWorkspaceType(obj interface{}) {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -135,7 +136,7 @@ func (c *controller) enqueueAllClusterWorkspaceTypes(clusterWorkspaceShard inter
 
 	logger := logging.WithObject(logging.WithReconciler(klog.Background(), controllerName), clusterWorkspaceShard.(*tenancyv1alpha1.ClusterWorkspaceShard))
 	for i := range list {
-		key, err := cache.MetaNamespaceKeyFunc(list[i])
+		key, err := kcpcache.MetaClusterNamespaceKeyFunc(list[i])
 		if err != nil {
 			runtime.HandleError(err)
 			continue

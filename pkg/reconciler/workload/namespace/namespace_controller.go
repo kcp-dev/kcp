@@ -23,6 +23,7 @@ import (
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	corev1 "k8s.io/api/core/v1"
@@ -135,7 +136,7 @@ type controller struct {
 }
 
 func (c *controller) enqueueNamespace(obj interface{}) {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -147,17 +148,16 @@ func (c *controller) enqueueNamespace(obj interface{}) {
 }
 
 func (c *controller) enqueuePlacement(obj interface{}) {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
-	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	clusterName, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
-	clusterName, _ := clusters.SplitClusterAwareKey(clusterAwareName)
 
 	nss, err := c.namespaceIndexer.ByIndex(byWorkspace, clusterName.String())
 	if err != nil {
@@ -224,12 +224,11 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 
 func (c *controller) process(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
-	_, clusterAwareName, err := cache.SplitMetaNamespaceKey(key)
+	clusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		logger.Error(err, "invalid key")
 		return nil
 	}
-	clusterName, name := clusters.SplitClusterAwareKey(clusterAwareName)
 
 	obj, err := c.namespaceLister.Get(key) // TODO: clients need a way to scope down the lister per-cluster
 	if err != nil {

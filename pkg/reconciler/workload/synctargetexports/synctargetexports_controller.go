@@ -23,6 +23,7 @@ import (
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -155,7 +156,7 @@ type Controller struct {
 }
 
 func (c *Controller) enqueueSyncTarget(obj interface{}, logSuffix string) {
-	key, err := cache.MetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.MetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -180,7 +181,7 @@ func (c *Controller) enqueueAPIResourceImport(obj interface{}) {
 }
 
 func (c *Controller) enqueueAPIExport(obj interface{}, logSuffix string) {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -199,7 +200,7 @@ func (c *Controller) enqueueAPIExport(obj interface{}, logSuffix string) {
 
 // enqueueAPIResourceSchema maps an APIResourceSchema to APIExports for enqueuing.
 func (c *Controller) enqueueAPIResourceSchema(obj interface{}) {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
