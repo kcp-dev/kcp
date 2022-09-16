@@ -62,6 +62,8 @@ func startFrontProxy(
 		lineprefix.Color(color.New(color.FgHiWhite)),
 	)
 
+	logger := klog.FromContext(ctx)
+
 	type mappingEntry struct {
 		Path            string `json:"path"`
 		Backend         string `json:"backend"`
@@ -114,7 +116,7 @@ func startFrontProxy(
 
 	// create serving cert
 	hostnames := sets.NewString("localhost", hostIP)
-	klog.Infof("Creating kcp-front-proxy serving cert with hostnames %v", hostnames)
+	logger.Info("creating kcp-front-proxy serving cert with hostnames", "hostnames", hostnames)
 	cert, err := servingCA.MakeServerCert(hostnames, 365)
 	if err != nil {
 		return fmt.Errorf("failed to create server cert: %w", err)
@@ -160,7 +162,7 @@ func startFrontProxy(
 	go func() {
 		<-ctx.Done()
 		if err := cmd.Process.Kill(); err != nil {
-			klog.FromContext(ctx).Error(err, "failed to kill process")
+			logger.Error(err, "failed to kill process")
 		}
 	}()
 
@@ -177,7 +179,7 @@ func startFrontProxy(
 	}()
 
 	// wait for readiness
-	klog.Infof("Waiting for kcp-front-proxy to be up")
+	logger.Info("waiting for kcp-front-proxy to be up")
 	for {
 		time.Sleep(time.Second)
 
@@ -199,13 +201,13 @@ func startFrontProxy(
 		}
 		kcpClient, err := kcpclient.NewClusterForConfig(config)
 		if err != nil {
-			klog.Errorf("Failed to create kcp client: %v", err)
+			logger.Error(err, "failed to create kcp client")
 			continue
 		}
 
 		res := kcpClient.RESTClient().Get().AbsPath("/readyz").Do(ctx)
 		if err := res.Error(); err != nil {
-			klog.V(3).Infof("kcp-front-proxy not ready: %v", err)
+			logger.V(3).Info("kcp-front-proxy not ready", "err", err)
 		} else {
 			var rc int
 			res.StatusCode(&rc)
@@ -213,13 +215,13 @@ func startFrontProxy(
 				break
 			}
 			if bs, err := res.Raw(); err != nil {
-				klog.V(3).Infof("kcp-front-proxy not ready: %v", err)
+				logger.V(3).Info("kcp-front-proxy not ready", "err", err)
 			} else {
-				klog.V(3).Infof("kcp-front-proxy not ready: http %d: %s", rc, string(bs))
+				logger.V(3).WithValues("rc", rc, "raw", string(bs)).Info("kcp-front-proxy not ready: http")
 			}
 		}
 	}
-	if !klog.V(3).Enabled() {
+	if !logger.V(3).Enabled() {
 		writer.StopOut()
 	}
 	fmt.Fprintf(successOut, "kcp-front-proxy is ready\n")

@@ -73,6 +73,7 @@ func main() {
 
 func NewProxyCommand(ctx context.Context) *cobra.Command {
 	options := frontproxyoptions.NewOptions()
+	logger := klog.FromContext(ctx).WithValues("component", "front-proxy")
 	cmd := &cobra.Command{
 		Use:   "kcp-front-proxy",
 		Short: "Terminate TLS and handles client cert auth for backend API servers",
@@ -110,7 +111,7 @@ routed based on paths.`,
 			rootShardConfig, resolveIdentities := bootstrap.NewConfigWithWildcardIdentities(nonIdentityRootConfig, bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, nil)
 			if err := wait.PollImmediateInfiniteWithContext(ctx, time.Millisecond*500, func(ctx context.Context) (bool, error) {
 				if err := resolveIdentities(ctx); err != nil {
-					klog.V(3).Infof("failed to resolve identities, keeping trying: %v", err)
+					logger.V(3).Info("failed to resolve identities, keeping trying", "err", err)
 					return false, nil
 				}
 				return true, nil
