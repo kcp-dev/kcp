@@ -23,9 +23,32 @@ import (
 	"github.com/spf13/pflag"
 
 	genericoptions "k8s.io/apiserver/pkg/server/options"
+
+	cacheoptions "github.com/kcp-dev/kcp/pkg/cache/server/options"
 )
 
+type cacheCompleted struct {
+	Server *cacheoptions.CompletedOptions
+	Extra
+}
+
+func (c cacheCompleted) Validate() []error {
+	var errs []error
+	if _, err := url.Parse(c.URL); err != nil {
+		errs = append(errs, err)
+	}
+	if err := c.Server.Validate(); err != nil {
+		errs = append(errs, err...)
+	}
+	return errs
+}
+
 type Cache struct {
+	// Server includes options provided by the cache server
+	Server *cacheoptions.Options
+	Extra
+}
+type Extra struct {
 	// Enabled if true indicates that the cache server should be run with the kcp-server (in-process)
 	Enabled bool
 
@@ -33,27 +56,20 @@ type Cache struct {
 	URL string
 }
 
-func NewCache() *Cache {
+func NewCache(rootDir string) *Cache {
 	return &Cache{
-		URL:     "",
-		Enabled: false,
+		Server: cacheoptions.NewOptions(rootDir),
 	}
-}
-
-func (c *Cache) Validate() []error {
-	var errs []error
-	if _, err := url.Parse(c.URL); err != nil {
-		errs = append(errs, err)
-	}
-	return errs
 }
 
 func (c *Cache) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&c.URL, "cache-url", c.URL, "A URL address of a cache server associated with this instance (default https://localhost:6443)")
 	fs.BoolVar(&c.Enabled, "run-cache-server", c.Enabled, "If set to true it runs the cache server with this instance (default false)")
+
+	c.Server.AddFlags(fs)
 }
 
-func (c *Cache) Complete(secureServing *genericoptions.SecureServingOptionsWithLoopback) {
+func (c *Cache) Complete(secureServing *genericoptions.SecureServingOptionsWithLoopback) (cacheCompleted, error) {
 	if len(c.URL) == 0 {
 		bindPort := 6443
 		if secureServing != nil && secureServing.BindPort != bindPort {
@@ -61,4 +77,10 @@ func (c *Cache) Complete(secureServing *genericoptions.SecureServingOptionsWithL
 		}
 		c.URL = fmt.Sprintf("https://localhost:%v", bindPort)
 	}
+	serverCompletedOptions, err := c.Server.Complete()
+	if err != nil {
+		return cacheCompleted{}, err
+	}
+
+	return cacheCompleted{serverCompletedOptions, c.Extra}, nil
 }

@@ -76,7 +76,7 @@ type completedOptions struct {
 	AdminAuthentication AdminAuthentication
 	Virtual             Virtual
 	HomeWorkspaces      HomeWorkspaces
-	Cache               Cache
+	Cache               cacheCompleted
 
 	Extra ExtraOptions
 }
@@ -97,7 +97,7 @@ func NewOptions(rootDir string) *Options {
 		AdminAuthentication: *NewAdminAuthentication(rootDir),
 		Virtual:             *NewVirtual(),
 		HomeWorkspaces:      *NewHomeWorkspaces(),
-		Cache:               *NewCache(),
+		Cache:               *NewCache(rootDir),
 
 		Extra: ExtraOptions{
 			RootDirectory:            rootDir,
@@ -329,7 +329,18 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 		o.Extra.BatteriesIncluded = bats.List()
 	}
 
-	o.Cache.Complete(completedGenericControlPlane.SecureServing)
+	cacheServerEtcdOptions := *completedGenericControlPlane.Etcd
+	o.Cache.Server.Etcd = &cacheServerEtcdOptions
+	// TODO: enable the watch cache, it was disabled because
+	//  - we need to pass a shard name so that the watch cache can calculate the key
+	//    we already do that for cluster names (stored in the obj)
+	//  - we need to modify wildcardClusterNameRegex and crdWildcardPartialMetadataClusterNameRegex
+	o.Cache.Server.Etcd.EnableWatchCache = false
+	o.Cache.Server.SecureServing = completedGenericControlPlane.SecureServing
+	cacheCompletedOptions, err := o.Cache.Complete(completedGenericControlPlane.SecureServing)
+	if err != nil {
+		return nil, err
+	}
 
 	return &CompletedOptions{
 		completedOptions: &completedOptions{
@@ -341,7 +352,7 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 			AdminAuthentication: o.AdminAuthentication,
 			Virtual:             o.Virtual,
 			HomeWorkspaces:      o.HomeWorkspaces,
-			Cache:               o.Cache,
+			Cache:               cacheCompletedOptions,
 			Extra:               o.Extra,
 		},
 	}, nil
