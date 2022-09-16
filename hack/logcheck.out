@@ -1,7 +1,4 @@
 /cmd/deployment-splitter/main.go:45:3: function "Fatal" should not be used, convert to contextual logging
-/cmd/kcp-front-proxy/filters.go:47:5: function "ErrorS" should not be used, convert to contextual logging
-/cmd/kcp-front-proxy/main.go:113:6: function "Infof" should not be used, convert to contextual logging
-/cmd/kcp-front-proxy/main.go:113:6: function "V" should not be used, convert to contextual logging
 /cmd/kcp/kcp.go:116:4: function "Infof" should not be used, convert to contextual logging
 /cmd/kubectl-kcp/main.go:61:2: function "InitFlags" should not be used, convert to contextual logging
 /cmd/kubectl-workspaces/main.go:44:2: function "InitFlags" should not be used, convert to contextual logging

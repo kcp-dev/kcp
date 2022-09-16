@@ -44,7 +44,8 @@ func withOptionalClientCert(handler, failed http.Handler, auth authenticator.Req
 		resp, ok, err := auth.AuthenticateRequest(req)
 		if err != nil || !ok {
 			if err != nil {
-				klog.ErrorS(err, "Unable to authenticate the request")
+				logger := klog.FromContext(req.Context())
+				logger.Error(err, "Unable to authenticate the request")
 			}
 			failed.ServeHTTP(w, req)
 			return
