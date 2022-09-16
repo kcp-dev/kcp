@@ -3,17 +3,6 @@
 /cmd/kubectl-kcp/main.go:61:2: function "InitFlags" should not be used, convert to contextual logging
 /cmd/kubectl-workspaces/main.go:44:2: function "InitFlags" should not be used, convert to contextual logging
 /cmd/kubectl-ws/main.go:44:2: function "InitFlags" should not be used, convert to contextual logging
-/cmd/sharded-test-server/frontproxy.go:117:2: function "Infof" should not be used, convert to contextual logging
-/cmd/sharded-test-server/frontproxy.go:180:2: function "Infof" should not be used, convert to contextual logging
-/cmd/sharded-test-server/frontproxy.go:202:4: function "Errorf" should not be used, convert to contextual logging
-/cmd/sharded-test-server/frontproxy.go:208:4: function "Infof" should not be used, convert to contextual logging
-/cmd/sharded-test-server/frontproxy.go:208:4: function "V" should not be used, convert to contextual logging
-/cmd/sharded-test-server/frontproxy.go:216:5: function "Infof" should not be used, convert to contextual logging
-/cmd/sharded-test-server/frontproxy.go:216:5: function "V" should not be used, convert to contextual logging
-/cmd/sharded-test-server/frontproxy.go:218:5: function "Infof" should not be used, convert to contextual logging
-/cmd/sharded-test-server/frontproxy.go:218:5: function "V" should not be used, convert to contextual logging
-/cmd/sharded-test-server/frontproxy.go:222:6: function "Enabled" should not be used, convert to contextual logging
-/cmd/sharded-test-server/frontproxy.go:222:6: function "V" should not be used, convert to contextual logging
 /cmd/sharded-test-server/shard.go:34:2: function "Infof" should not be used, convert to contextual logging
 /cmd/sharded-test-server/shard.go:43:2: function "Infof" should not be used, convert to contextual logging
 /cmd/sharded-test-server/third_party/library-go/crypto/crypto.go:616:2: function "Infof" should not be used, convert to contextual logging
