@@ -146,32 +146,6 @@
 /pkg/server/home_workspaces.go:352:5: Additional arguments to WithValues should always be Key Value pairs. Please check if there is any key or value missing.
 /pkg/server/home_workspaces.go:638:6: Additional arguments to WithValues should always be Key Value pairs. Please check if there is any key or value missing.
 /pkg/server/options/controllers.go:54:3: function "Fatal" should not be used, convert to contextual logging
-/pkg/server/controllers.go:980:4: function "Errorf" should not be used, convert to contextual logging
-/pkg/server/home_workspaces.go:326:5: Additional arguments to WithValues should always be Key Value pairs. Please check if there is any key or value missing.
-/pkg/server/home_workspaces.go:612:6: Additional arguments to WithValues should always be Key Value pairs. Please check if there is any key or value missing.
-/pkg/server/options/controllers.go:54:3: function "Fatal" should not be used, convert to contextual logging
-/pkg/syncer/apiimporter.go:140:2: function "Infof" should not be used, convert to contextual logging
-/pkg/syncer/apiimporter.go:152:2: function "Infof" should not be used, convert to contextual logging
-/pkg/syncer/apiimporter.go:159:3: function "Errorf" should not be used, convert to contextual logging
-/pkg/syncer/apiimporter.go:165:4: function "Errorf" should not be used, convert to contextual logging
-/pkg/syncer/apiimporter.go:171:2: function "Infof" should not be used, convert to contextual logging
-/pkg/syncer/apiimporter.go:174:3: function "Errorf" should not be used, convert to contextual logging
-/pkg/syncer/apiimporter.go:192:4: function "Errorf" should not be used, convert to contextual logging
-/pkg/syncer/apiimporter.go:196:4: function "Errorf" should not be used, convert to contextual logging
-/pkg/syncer/apiimporter.go:202:5: function "Errorf" should not be used, convert to contextual logging
-/pkg/syncer/apiimporter.go:205:4: function "Infof" should not be used, convert to contextual logging
-/pkg/syncer/apiimporter.go:207:5: function "Errorf" should not be used, convert to contextual logging
-/pkg/syncer/apiimporter.go:227:5: function "Errorf" should not be used, convert to contextual logging
-/pkg/syncer/apiimporter.go:232:5: function "Errorf" should not be used, convert to contextual logging
-/pkg/syncer/apiimporter.go:236:5: function "Errorf" should not be used, convert to contextual logging
-/pkg/syncer/apiimporter.go:241:5: function "Errorf" should not be used, convert to contextual logging
-/pkg/syncer/apiimporter.go:275:5: function "Errorf" should not be used, convert to contextual logging
-/pkg/syncer/apiimporter.go:282:4: function "Infof" should not be used, convert to contextual logging
-/pkg/syncer/apiimporter.go:284:5: function "Errorf" should not be used, convert to contextual logging
-/pkg/syncer/apiimporter.go:299:4: function "Errorf" should not be used, convert to contextual logging
-/pkg/syncer/apiimporter.go:303:4: function "Errorf" should not be used, convert to contextual logging
-/pkg/syncer/apiimporter.go:308:4: function "Infof" should not be used, convert to contextual logging
-/pkg/syncer/apiimporter.go:311:5: function "Errorf" should not be used, convert to contextual logging
 /pkg/syncer/shared/finalizer.go:53:3: function "Errorf" should not be used, convert to contextual logging
 /pkg/syncer/shared/finalizer.go:91:3: function "Errorf" should not be used, convert to contextual logging
 /pkg/syncer/shared/finalizer.go:94:2: function "Infof" should not be used, convert to contextual logging
