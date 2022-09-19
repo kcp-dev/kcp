@@ -72,6 +72,7 @@ func (o *Options) NewVirtualWorkspaces(
 	wildcardKubeInformers kubernetesinformers.SharedInformerFactory,
 	wildcardKcpInformers kcpinformers.SharedInformerFactory,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
+
 	workspaces, err := o.Workspaces.NewVirtualWorkspaces(rootPathPrefix, config, wildcardKubeInformers, wildcardKcpInformers)
 	if err != nil {
 		return nil, err
