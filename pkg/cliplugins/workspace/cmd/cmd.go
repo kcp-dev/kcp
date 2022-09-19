@@ -37,7 +37,7 @@ var (
 	# short-hand for the use syntax
 	%[1]s workspace my-workspace
 
-	# list sub-workspaces in the current workspace 
+	# list sub-workspaces in the current workspace
 	%[1]s get workspaces
 
 	# enter a given absolute workspace
@@ -49,7 +49,7 @@ var (
 	# enter the previous workspace
 	%[1]s workspace -
 
-	# go to your home workspace 
+	# go to your home workspace
 	%[1]s workspace
 
 	# create a workspace and immediately enter it
@@ -167,7 +167,29 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 	}
 	createContextOpts.BindFlags(createContextCmd)
 
+	treeCmdOpts := plugin.NewTreeOptions(streams)
+	treeCmd := &cobra.Command{
+		Use:          "tree",
+		Short:        "Print the current workspace tree.",
+		Example:      "kcp workspace tree",
+		SilenceUsage: true,
+		RunE: func(c *cobra.Command, args []string) error {
+			if len(args) != 0 {
+				return cmd.Help()
+			}
+			if err := treeCmdOpts.Validate(); err != nil {
+				return err
+			}
+			if err := treeCmdOpts.Complete(); err != nil {
+				return err
+			}
+			return treeCmdOpts.Run(c.Context())
+		},
+	}
+	treeCmdOpts.BindFlags(treeCmd)
+
 	cmd.AddCommand(useCmd)
+	cmd.AddCommand(treeCmd)
 	cmd.AddCommand(currentCmd)
 	cmd.AddCommand(createCmd)
 	cmd.AddCommand(createContextCmd)

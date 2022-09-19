@@ -28,6 +28,7 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/spf13/cobra"
+	"github.com/xlab/treeprint"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -672,4 +673,90 @@ func newKCPClusterClient(clientConfig clientcmd.ClientConfig) (kcpclient.Cluster
 	clusterConfig.Host = u.String()
 	clusterConfig.UserAgent = rest.DefaultKubernetesUserAgent()
 	return kcpclient.NewClusterForConfig(clusterConfig)
+}
+
+// TreeOptions contains options for displaying the workspace tree
+type TreeOptions struct {
+	*base.Options
+
+	Full bool
+
+	kcpClusterClient kcpclient.ClusterInterface
+}
+
+// NewShowWorkspaceTreeOptions returns a new ShowWorkspaceTreeOptions.
+func NewTreeOptions(streams genericclioptions.IOStreams) *TreeOptions {
+	return &TreeOptions{
+		Options: base.NewOptions(streams),
+	}
+}
+
+// BindFlags binds fields to cmd's flagset.
+func (o *TreeOptions) BindFlags(cmd *cobra.Command) {
+	cmd.Flags().BoolVarP(&o.Full, "full", "f", o.Full, "Show full workspaces names")
+}
+
+// Complete ensures all dynamically populated fields are initialized.
+func (o *TreeOptions) Complete() error {
+	if err := o.Options.Complete(); err != nil {
+		return err
+	}
+
+	kcpClusterClient, err := newKCPClusterClient(o.ClientConfig)
+	if err != nil {
+		return err
+	}
+	o.kcpClusterClient = kcpClusterClient
+
+	return nil
+}
+
+// Run outputs the current workspace.
+func (o *TreeOptions) Run(ctx context.Context) error {
+	config, err := o.ClientConfig.ClientConfig()
+	if err != nil {
+		return err
+	}
+	_, currentClusterName, err := pluginhelpers.ParseClusterURL(config.Host)
+	if err != nil {
+		return fmt.Errorf("current config context URL %q does not point to workspace", config.Host)
+	}
+
+	tree := treeprint.New()
+	err = o.populateBranch(ctx, tree, currentClusterName)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(tree.String())
+	return nil
+}
+
+func (o *TreeOptions) populateBranch(ctx context.Context, tree treeprint.Tree, name logicalcluster.Name) error {
+	results, err := o.kcpClusterClient.Cluster(name).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	var b treeprint.Tree
+	if o.Full {
+		b = tree.AddBranch(name.String())
+	} else {
+		b = tree.AddBranch(name.Base())
+	}
+
+	for _, workspace := range results.Items {
+		_, currentClusterName, err := pluginhelpers.ParseClusterURL(workspace.Status.URL)
+		if err != nil {
+			return fmt.Errorf("current config context URL %q does not point to workspace", workspace.Status.URL)
+		}
+		err = o.populateBranch(ctx, b, currentClusterName)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
