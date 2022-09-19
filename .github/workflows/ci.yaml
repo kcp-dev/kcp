@@ -119,7 +119,7 @@ jobs:
             chmod +x kubectl
             export PATH=$PATH:/root/
             
-            git clone https://github.com/snehakpersistent/kcp.git && cd kcp
+            git clone https://github.com/kcp-dev/kcp.git && cd kcp
             git checkout ppc-support
             export PATH=$PWD/bin:$PATH
             LOG_DIR=/tmp/e2e/shared-server/artifacts ARTIFACT_DIR=/tmp/e2e  \
