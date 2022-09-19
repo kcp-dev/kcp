@@ -35,10 +35,11 @@ set +o errexit
 ${LOGCHECK} -check-contextual ./... >> "${work_file}" 2>&1
 set -o errexit
 
-if [[ "$( go env GOOS )" == "darwin" ]]; then
-  SED="sed -i ''"
-else
+is_gnu_sed() { sed --version >/dev/null 2>&1; }
+if is_gnu_sed; then
   SED="sed -i"
+else
+  SED="sed -i ''"
 fi
 
 # Normalize paths so we don't generate diffs based only on user directory mismatches
