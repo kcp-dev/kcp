@@ -63,7 +63,7 @@ func main() {
 				return errors.NewAggregate(errs)
 			}
 
-			config, err := cacheserver.NewConfig(completed)
+			config, err := cacheserver.NewConfig(completed, nil)
 			if err != nil {
 				return err
 			}
