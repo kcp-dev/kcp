@@ -101,12 +101,12 @@ jobs:
             apt-get install wget tar gcc git curl runc iptables libdevmapper1.02.1 make jq -y
             
             #Install docker
-            mkdir /root/docker; cd /root/docker
-            wget https://oplab9.parqtec.unicamp.br/pub/ppc64el/docker/version-20.10.0/ubuntu-bionic/docker-ce_20.10.0~3-0~ubuntu-bionic_ppc64el.deb
-            wget https://oplab9.parqtec.unicamp.br/pub/ppc64el/docker/version-20.10.0/ubuntu-bionic/docker-ce-cli_20.10.0~3-0~ubuntu-bionic_ppc64el.deb
-            wget https://oplab9.parqtec.unicamp.br/pub/ppc64el/docker/version-20.10.0/ubuntu-bionic/docker-ce-rootless-extras_20.10.0~3-0~ubuntu-bionic_ppc64el.deb
-            wget https://oplab9.parqtec.unicamp.br/pub/repository/debian/ppc64el/containerd/containerd-1.6.4-ppc64le.deb
-            dpkg -i docker-ce_20.10.0~3-0~ubuntu-bionic_ppc64el.deb docker-ce-cli_20.10.0~3-0~ubuntu-bionic_ppc64el.deb docker-ce-rootless-extras_20.10.0~3-0~ubuntu-bionic_ppc64el.deb containerd-1.6.4-ppc64le.deb
+            apt-get install apt-transport-https ca-certificates software-properties-common -y
+            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+            add-apt-repository "deb [arch=ppc64el] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+            apt-get update -y
+            apt-get install docker-ce -y
+            service docker start
             
             #Install Go, Kind, kubectl
             cd /root/ && wget https://go.dev/dl/go1.18.linux-ppc64le.tar.gz
@@ -120,7 +120,6 @@ jobs:
             export PATH=$PATH:/root/
             
             git clone https://github.com/kcp-dev/kcp.git && cd kcp
-            git checkout ppc-support
             export PATH=$PWD/bin:$PATH
             LOG_DIR=/tmp/e2e/shared-server/artifacts ARTIFACT_DIR=/tmp/e2e  \
-            ARCH=ppc64le E2E_PARALLELISM=4 make test-e2e -e TEST_ARGS="-timeout 50m"
+            OS=linux ARCH=ppc64le E2E_PARALLELISM=4 make test-e2e -e TEST_ARGS="-timeout 50m"
