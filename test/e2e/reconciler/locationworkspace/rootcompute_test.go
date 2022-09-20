@@ -26,13 +26,17 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
+	corev1 "k8s.io/api/core/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -54,10 +58,12 @@ func TestRootComputeWorkspace(t *testing.T) {
 
 	kcpClients, err := clientset.NewClusterForConfig(source.BaseConfig(t))
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
+	kubeClusterClient, err := kubernetes.NewForConfig(source.BaseConfig(t))
+	require.NoError(t, err)
 
 	syncTargetName := fmt.Sprintf("synctarget-%d", +rand.Intn(1000000))
 	t.Logf("Creating a SyncTarget and syncer in %s", computeClusterName)
-	_ = framework.NewSyncerFixture(t, source, computeClusterName,
+	syncerFixture := framework.NewSyncerFixture(t, source, computeClusterName,
 		framework.WithExtraResources("ingresses.networking.k8s.io", "services", "deployments.apps"),
 		framework.WithSyncTarget(computeClusterName, syncTargetName),
 		framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
@@ -128,5 +134,82 @@ func TestRootComputeWorkspace(t *testing.T) {
 		require.NoError(t, err)
 
 		return conditions.IsTrue(binding, apisv1alpha1.InitialBindingCompleted)
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	t.Logf("create a placement")
+	p1 := &schedulingv1alpha1.Placement{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test",
+		},
+		Spec: schedulingv1alpha1.PlacementSpec{
+			LocationSelectors: []metav1.LabelSelector{{}},
+			NamespaceSelector: &metav1.LabelSelector{},
+			LocationResource: schedulingv1alpha1.GroupVersionResource{
+				Group:    "workload.kcp.dev",
+				Version:  "v1alpha1",
+				Resource: "synctargets",
+			},
+			LocationWorkspace: computeClusterName.String(),
+		},
+	}
+	_, err = kcpClients.Cluster(consumerWorkspace).SchedulingV1alpha1().Placements().Create(logicalcluster.WithCluster(ctx, consumerWorkspace), p1, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	t.Logf("Wait for placement to be ready")
+	framework.Eventually(t, func() (bool, string) {
+		placement, err := kcpClients.Cluster(consumerWorkspace).SchedulingV1alpha1().Placements().Get(logicalcluster.WithCluster(ctx, consumerWorkspace), "test", metav1.GetOptions{})
+		if err != nil {
+			return false, fmt.Sprintf("failed to get placement: %v", err)
+		}
+
+		return conditions.IsTrue(placement, schedulingv1alpha1.PlacementReady), fmt.Sprintf("placement is not ready: %v", placement)
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	t.Logf("Wait for being able to list Services in the user workspace")
+	require.Eventually(t, func() bool {
+		_, err := kubeClusterClient.CoreV1().Services("default").List(logicalcluster.WithCluster(ctx, consumerWorkspace), metav1.ListOptions{})
+		if errors.IsNotFound(err) {
+			t.Logf("service err %v", err)
+			return false
+		} else if err != nil {
+			t.Logf("service err %v", err)
+			return false
+		}
+		return true
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	t.Logf("Create a service in the user workspace")
+	_, err = kubeClusterClient.CoreV1().Services("default").Create(logicalcluster.WithCluster(ctx, consumerWorkspace), &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "first",
+			Labels: map[string]string{
+				"test.workload.kcp.dev": syncTargetName,
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Port:     80,
+					Protocol: corev1.ProtocolTCP,
+				},
+			},
+		},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	t.Logf("Wait for the service to be synced to the downstream cluster")
+	framework.Eventually(t, func() (bool, string) {
+		downstreamServices, err := syncerFixture.DownstreamKubeClient.CoreV1().Services("").List(ctx, metav1.ListOptions{
+			LabelSelector: "test.workload.kcp.dev=" + syncTargetName,
+		})
+
+		if err != nil {
+			return false, fmt.Sprintf("Failed to list service: %v", err)
+		}
+
+		if len(downstreamServices.Items) < 1 {
+			return false, "service is not synced"
+		}
+		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 }
