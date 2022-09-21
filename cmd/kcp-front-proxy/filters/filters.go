@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package filters
 
 import (
 	"net/http"
@@ -29,10 +29,10 @@ import (
 	"k8s.io/klog/v2"
 )
 
-// withOptionalClientCert creates a handler that verifies a request's client
+// WithOptionalClientCert creates a handler that verifies a request's client
 // cert if one is presented but passes through to the next handler if one is
 // not.
-func withOptionalClientCert(handler, failed http.Handler, auth authenticator.Request) http.Handler {
+func WithOptionalClientCert(handler, failed http.Handler, auth authenticator.Request) http.Handler {
 	if auth == nil {
 		return handler
 	}
@@ -55,7 +55,7 @@ func withOptionalClientCert(handler, failed http.Handler, auth authenticator.Req
 	})
 }
 
-func newUnauthorizedHandler() http.Handler {
+func NewUnauthorizedHandler() http.Handler {
 	scheme := runtime.NewScheme()
 	metav1.AddToGroupVersion(scheme, schema.GroupVersion{Group: "", Version: "v1"})
 	codecs := serializer.NewCodecFactory(scheme)
