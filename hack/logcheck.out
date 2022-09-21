@@ -116,14 +116,6 @@
 /pkg/logging/constants.go:52:9: Key positional arguments are expected to be inlined constant strings. Please replace ReconcilerKey provided with string value.
 /pkg/logging/constants.go:57:9: Key positional arguments are expected to be inlined constant strings. Please replace QueueKeyKey provided with string value.
 /pkg/logging/constants.go:67:9: Additional arguments to WithValues should always be Key Value pairs. Please check if there is any key or value missing.
-/pkg/proxy/handler.go:54:4: function "Infof" should not be used, convert to contextual logging
-/pkg/proxy/handler.go:54:4: function "V" should not be used, convert to contextual logging
-/pkg/proxy/handler.go:61:4: function "Infof" should not be used, convert to contextual logging
-/pkg/proxy/handler.go:61:4: function "V" should not be used, convert to contextual logging
-/pkg/proxy/handler.go:71:3: function "Infof" should not be used, convert to contextual logging
-/pkg/proxy/handler.go:71:3: function "V" should not be used, convert to contextual logging
-/pkg/proxy/index/index_controller.go:195:2: function "Infof" should not be used, convert to contextual logging
-/pkg/proxy/index/index_controller.go:196:8: function "Infof" should not be used, convert to contextual logging
 /pkg/proxy/index/index_controller.go:212:2: function "Infof" should not be used, convert to contextual logging
 /pkg/proxy/mapping.go:72:3: function "Infof" should not be used, convert to contextual logging
 /pkg/proxy/mapping.go:72:3: function "V" should not be used, convert to contextual logging

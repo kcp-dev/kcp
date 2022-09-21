@@ -42,6 +42,7 @@ func shardHandler(index index.Index, proxy http.Handler) http.HandlerFunc {
 		}
 
 		ctx := req.Context()
+		logger := klog.FromContext(ctx)
 		attributes, err := filters.GetAuthorizerAttributes(ctx)
 		if err != nil {
 			responsewriters.InternalError(w, req, err)
@@ -51,14 +52,14 @@ func shardHandler(index index.Index, proxy http.Handler) http.HandlerFunc {
 		clusterName := logicalcluster.New(cs[1])
 		if !tenancyhelper.IsValidCluster(clusterName) {
 			// this includes wildcards
-			klog.V(4).Infof("Invalid cluster name %q", req.URL.Path)
+			logger.WithValues("path", req.URL.Path).V(4).Info("Invalid cluster name")
 			responsewriters.Forbidden(req.Context(), attributes, w, req, kcpauthorization.WorkspaceAccessNotPermittedReason, kubernetesscheme.Codecs)
 			return
 		}
 
 		shardURLString, found := index.Lookup(clusterName)
 		if !found {
-			klog.V(4).Infof("Unknown cluster %q", clusterName)
+			logger.WithValues("clusterName", clusterName).V(4).Info("Unknown cluster")
 			responsewriters.Forbidden(req.Context(), attributes, w, req, kcpauthorization.WorkspaceAccessNotPermittedReason, kubernetesscheme.Codecs)
 			return
 		}
@@ -68,7 +69,7 @@ func shardHandler(index index.Index, proxy http.Handler) http.HandlerFunc {
 			return
 		}
 
-		klog.V(4).Infof("Redirecting %q to %s", req.URL.Path, shardURL)
+		logger.WithValues("from", req.URL.Path, "to", shardURL).V(4).Info("Redirecting")
 
 		ctx = WithShardURL(ctx, shardURL)
 		req = req.WithContext(ctx)
