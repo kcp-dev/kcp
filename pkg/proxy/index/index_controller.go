@@ -193,8 +193,9 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 		}
 	}()
 
-	klog.Infof("Starting %s controller", controllerName)
-	defer klog.Infof("Shutting %s controller", controllerName)
+	logger := klog.FromContext(ctx).WithValues("controller", controllerName)
+	logger.Info("Starting controller")
+	defer logger.Info("Shutting down controller")
 
 	for i := 0; i < numThreads; i++ {
 		go wait.UntilWithContext(ctx, c.startWorker, time.Second)
