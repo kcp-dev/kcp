@@ -20,19 +20,20 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/kcp-dev/logicalcluster/v2"
 
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
@@ -164,11 +165,10 @@ func propagateDeletionTimestamp(logger logr.Logger, obj metav1.Object) map[strin
 	return annotationPatch
 }
 
-// computePlacement computes the patch against annotations and labels. Nil means to remove the key.
-func computePlacement(ns *corev1.Namespace, obj metav1.Object) (annotationPatch map[string]interface{}, labelPatch map[string]interface{}) {
-	nsLocations, nsDeleting := locations(ns.Annotations, ns.Labels, true)
-	objLocations, objDeleting := locations(obj.GetAnnotations(), obj.GetLabels(), false)
-	if objLocations.Equal(nsLocations) && objDeleting.Equal(nsDeleting) {
+// computePlacement computes the patch against annotations and labels. Nil means to remove the key.ResourceStatePending
+func computePlacement(expectedSyncTargetKeys sets.String, expectedDeletedSynctargetKeys map[string]string, obj metav1.Object) (annotationPatch map[string]interface{}, labelPatch map[string]interface{}) {
+	currentSynctargetKeys, currentSynctargetKeysDeleting := locations(obj.GetAnnotations(), obj.GetLabels(), false)
+	if currentSynctargetKeys.Equal(expectedSyncTargetKeys) && reflect.DeepEqual(currentSynctargetKeysDeleting, expectedDeletedSynctargetKeys) {
 		// already correctly assigned.
 		return
 	}
@@ -178,7 +178,7 @@ func computePlacement(ns *corev1.Namespace, obj metav1.Object) (annotationPatch 
 	labelPatch = map[string]interface{}{}
 
 	// unschedule objects on locations where the namespace is not scheduled
-	for _, loc := range objLocations.Difference(nsLocations).List() {
+	for _, loc := range currentSynctargetKeys.Difference(expectedSyncTargetKeys).List() {
 		// That's an inconsistent state, probably due to the namespace deletion reaching its grace period => let's repair it
 		var hasSyncerFinalizer, hasClusterFinalizer bool
 		// Check if there's still the syncer or the cluster finalizer.
@@ -203,18 +203,17 @@ func computePlacement(ns *corev1.Namespace, obj metav1.Object) (annotationPatch 
 	}
 
 	// sync deletion timestamps if both namespace and object are scheduled
-	for _, loc := range nsLocations.Intersection(objLocations).List() {
-		if nsTimestamp, found := ns.Annotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+loc]; found && validRFC3339(nsTimestamp) {
-			objTimestamp, found := obj.GetAnnotations()[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+loc]
-			if !found || !validRFC3339(objTimestamp) {
-				annotationPatch[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+loc] = nsTimestamp
+	for _, loc := range expectedSyncTargetKeys.Intersection(currentSynctargetKeys).List() {
+		if expectedTimestamp, ok := expectedDeletedSynctargetKeys[loc]; ok {
+			if currentTimestamp, ok := currentSynctargetKeysDeleting[loc]; !ok || currentTimestamp != expectedTimestamp {
+				annotationPatch[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+loc] = expectedTimestamp
 			}
 		}
 	}
 
 	// set label on unscheduled objects if namespace is scheduled and not deleting
-	for _, loc := range nsLocations.Difference(objLocations).List() {
-		if nsDeleting.Has(loc) {
+	for _, loc := range expectedSyncTargetKeys.Difference(currentSynctargetKeys).List() {
+		if val := expectedDeletedSynctargetKeys[loc]; val != "" {
 			continue
 		}
 		// TODO(sttts): add way to go into pending state first, maybe with a namespace annotation

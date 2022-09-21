@@ -368,7 +368,7 @@ func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 
 			objLocations, objDeleting := locations(u.GetAnnotations(), u.GetLabels(), false)
 			logger := logging.WithObject(logger, u).WithValues("gvk", gvr.GroupVersion().WithKind(u.GetKind()))
-			if !objLocations.Equal(nsLocations) || !objDeleting.Equal(nsDeleting) {
+			if !objLocations.Equal(nsLocations) || !reflect.DeepEqual(objDeleting, nsDeleting) {
 				c.enqueueResource(gvr, obj)
 
 				if klog.V(2).Enabled() && !klog.V(4).Enabled() && len(enqueuedResources) < 10 {
@@ -439,18 +439,17 @@ func (c *Controller) enqueueSyncTarget(obj interface{}) {
 	}
 }
 
-func locations(annotations, labels map[string]string, skipPending bool) (locations sets.String, deleting sets.String) {
+func locations(annotations, labels map[string]string, skipPending bool) (locations sets.String, deleting map[string]string) {
 	locations = sets.NewString()
-	deleting = sets.NewString()
-
+	deleting = make(map[string]string)
 	for k, v := range labels {
 		if strings.HasPrefix(k, workloadv1alpha1.ClusterResourceStateLabelPrefix) && (!skipPending || v == string(workloadv1alpha1.ResourceStateSync)) {
 			locations.Insert(strings.TrimPrefix(k, workloadv1alpha1.ClusterResourceStateLabelPrefix))
 		}
 	}
-	for k := range annotations {
+	for k, v := range annotations {
 		if strings.HasPrefix(k, workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix) {
-			deleting.Insert(strings.TrimPrefix(k, workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix))
+			deleting[strings.TrimPrefix(k, workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix)] = v
 		}
 	}
 	return
