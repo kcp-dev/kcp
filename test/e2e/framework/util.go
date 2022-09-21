@@ -51,6 +51,7 @@ import (
 )
 
 //go:embed *.csv
+//go:embed *.yaml
 var fs embed.FS
 
 // WriteTokenAuthFile writes the embedded token file to the current
@@ -64,21 +65,22 @@ var fs embed.FS
 // TODO(marun) Is there a way to avoid embedding by determining the
 // path to the file during test execution?
 func WriteTokenAuthFile(t *testing.T) string {
-	// This file is expected to be embedded from the package directory.
-	tokensFilename := "auth-tokens.csv"
+	return WriteEmbedFile(t, "auth-tokens.csv")
+}
 
-	data, err := fs.ReadFile(tokensFilename)
-	require.NoError(t, err, "error reading tokens file")
+func WriteEmbedFile(t *testing.T, source string) string {
+	data, err := fs.ReadFile(source)
+	require.NoErrorf(t, err, "error reading embed file: %q", source)
 
-	tokensPath := path.Join(t.TempDir(), tokensFilename)
-	tokensFile, err := os.Create(tokensPath)
-	require.NoError(t, err, "failed to create tokens file")
-	defer tokensFile.Close()
+	targetPath := path.Join(t.TempDir(), source)
+	targetFile, err := os.Create(targetPath)
+	require.NoErrorf(t, err, "failed to create target file: %q", targetPath)
+	defer targetFile.Close()
 
-	_, err = tokensFile.Write(data)
-	require.NoError(t, err, "error writing tokens file")
+	_, err = targetFile.Write(data)
+	require.NoError(t, err, "error writing target file: %q", targetPath)
 
-	return tokensPath
+	return targetPath
 }
 
 // Persistent mapping of test name to base temp dir used to ensure
