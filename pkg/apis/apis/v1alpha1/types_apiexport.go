@@ -197,6 +197,10 @@ type PermissionClaim struct {
 }
 
 func (p PermissionClaim) String() string {
+	// core resources have no group or identity hash
+	if p.Group == "" {
+		return p.Resource
+	}
 	if p.IdentityHash == "" {
 		return fmt.Sprintf("%s.%s", p.Resource, p.Group)
 	}
