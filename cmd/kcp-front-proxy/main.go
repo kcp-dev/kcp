@@ -41,6 +41,7 @@ import (
 	"k8s.io/component-base/version"
 	"k8s.io/klog/v2"
 
+	frontproxyfilters "github.com/kcp-dev/kcp/cmd/kcp-front-proxy/filters"
 	frontproxyoptions "github.com/kcp-dev/kcp/cmd/kcp-front-proxy/options"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -151,8 +152,8 @@ routed based on paths.`,
 			if err != nil {
 				return err
 			}
-			failedHandler := newUnauthorizedHandler()
-			handler = withOptionalClientCert(handler, failedHandler, authenticationInfo.Authenticator)
+			failedHandler := frontproxyfilters.NewUnauthorizedHandler()
+			handler = frontproxyfilters.WithOptionalClientCert(handler, failedHandler, authenticationInfo.Authenticator)
 
 			requestInfoFactory := requestinfo.NewFactory()
 			handler = server.WithInClusterServiceAccountRequestRewrite(handler)
