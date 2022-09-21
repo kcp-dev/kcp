@@ -52,6 +52,7 @@ type Index interface {
 type ClusterWorkspaceClientGetter func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpclient.Interface, error)
 
 func NewController(
+	ctx context.Context,
 	rootHost string,
 	clusterWorkspaceShardInformer tenancyinformers.ClusterWorkspaceShardInformer,
 	clientGetter ClusterWorkspaceClientGetter,
@@ -125,7 +126,7 @@ func NewController(
 				c.shardBaseURLs[shard.Name] = expected
 			}
 
-			c.enqueueShard(shard)
+			c.enqueueShard(ctx, shard)
 		},
 		UpdateFunc: func(old, obj interface{}) {
 			shard := obj.(*tenancyv1alpha1.ClusterWorkspaceShard)
@@ -151,7 +152,7 @@ func NewController(
 			defer c.lock.Unlock()
 			delete(c.shardBaseURLs, shard.Name)
 
-			c.enqueueShard(shard)
+			c.enqueueShard(ctx, shard)
 		},
 	})
 
@@ -204,14 +205,15 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	<-ctx.Done()
 }
 
-func (c *Controller) enqueueShard(obj interface{}) {
+func (c *Controller) enqueueShard(ctx context.Context, obj interface{}) {
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
-	klog.Infof("Enqueueing ClusterWorkspaceShard %q", key)
+	logger := klog.FromContext(ctx)
+	logger.WithValues("key", key).Info("enqueueing ClusterWorkspaceShard")
 
 	c.queue.Add(key)
 }

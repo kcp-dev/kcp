@@ -17,6 +17,7 @@ limitations under the License.
 package proxy
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -43,7 +44,7 @@ type PathMapping struct {
 	GroupHeader     string `json:"group_header,omitempty"`
 }
 
-func NewHandler(o *proxyoptions.Options, index index.Index) (http.Handler, error) {
+func NewHandler(ctx context.Context, o *proxyoptions.Options, index index.Index) (http.Handler, error) {
 	mappingData, err := ioutil.ReadFile(o.MappingFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read mapping file %q: %w", o.MappingFile, err)
@@ -68,8 +69,9 @@ func NewHandler(o *proxyoptions.Options, index index.Index) (http.Handler, error
 		w.WriteHeader(http.StatusOK)
 	}))
 
+	logger := klog.FromContext(ctx)
 	for _, m := range mapping {
-		klog.V(2).Infof("Adding mapping %v", m)
+		logger.WithValues("mapping", m).V(2).Info("adding mapping")
 
 		u, err := url.Parse(m.Backend)
 		if err != nil {
