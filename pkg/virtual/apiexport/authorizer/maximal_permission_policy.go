@@ -30,16 +30,11 @@ import (
 	"k8s.io/client-go/tools/clusters"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/authorization"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
-)
-
-const (
-	VirtualAPIExportMaximumPermissionPolicyAuditPrefix   = "virtual.apiexport.maxpermissionpolicy.authorization.kcp.dev/"
-	VirtualAPIExportMaximumPermissionPolicyAuditDecision = VirtualAPIExportMaximumPermissionPolicyAuditPrefix + "decision"
-	VirtualAPIExportMaximumPermissionPolicyAuditReason   = VirtualAPIExportMaximumPermissionPolicyAuditPrefix + "reason"
 )
 
 type maximalPermissionAuthorizer struct {
@@ -58,7 +53,7 @@ func NewMaximalPermissionAuthorizer(deepSARClient kubernetes.ClusterInterface, a
 	apiExportLister := apiExportInformer.Lister()
 	apiExportIndexer := apiExportInformer.Informer().GetIndexer()
 
-	return &maximalPermissionAuthorizer{
+	auth := &maximalPermissionAuthorizer{
 		getAPIExport: func(clusterName, apiExportName string) (*apisv1alpha1.APIExport, error) {
 			return apiExportLister.Get(clusters.ToClusterAwareKey(logicalcluster.New(clusterName), apiExportName))
 		},
@@ -69,13 +64,16 @@ func NewMaximalPermissionAuthorizer(deepSARClient kubernetes.ClusterInterface, a
 			return delegated.NewDelegatedAuthorizer(clusterName, deepSARClient)
 		},
 	}
+
+	return authorization.NewAnonymizer("virtual apiexport maximum permission policy authorizer",
+		authorization.NewAuditLogger("virtual.apiexport.maxpermissionpolicy.authorization.kcp.dev", auth))
 }
 
 func (a *maximalPermissionAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
 	apiDomainKey := dynamiccontext.APIDomainKeyFrom(ctx)
 	parts := strings.Split(string(apiDomainKey), "/")
 	if len(parts) < 2 {
-		return authorizer.DecisionNoOpinion, VirtualAPIExportNotPermittedReason, fmt.Errorf("invalid API domain key")
+		return authorizer.DecisionNoOpinion, "", fmt.Errorf("invalid API domain key")
 	}
 
 	claimingAPIExportCluster := parts[0]
@@ -83,29 +81,34 @@ func (a *maximalPermissionAuthorizer) Authorize(ctx context.Context, attr author
 
 	claimingAPIExport, err := a.getAPIExport(claimingAPIExportCluster, claimingAPIExportName)
 	if kerrors.IsNotFound(err) {
-		return authorizer.DecisionNoOpinion, VirtualAPIExportNotPermittedReason, fmt.Errorf("API export not found: %w", err)
+		return authorizer.DecisionNoOpinion, "", fmt.Errorf("API export not found: %w", err)
+	}
+	if err != nil {
+		return authorizer.DecisionNoOpinion, "", err
 	}
 
 	claimedIdentityHash, found := getClaimedIdentity(claimingAPIExport, attr)
 	if !found {
 		// it's a resource in the claiming API export, hence unclaimed
-		return authorizer.DecisionAllow, "unclaimed resource", nil
+		return authorizer.DecisionAllow, fmt.Sprintf("unclaimed resource in API export: %q, workspace :%q",
+			claimingAPIExport.Name, logicalcluster.From(claimingAPIExport)), nil
 	}
 	if claimedIdentityHash == "" {
 		// it's a native k8s resource (secret, configmap, ...), or a system kcp CRD resource (apis.kcp.dev)
 		// For neither case a maximum permission policy can exist.
-		return authorizer.DecisionAllow, "unclaimable resource", nil
+		return authorizer.DecisionAllow, fmt.Sprintf("unclaimable resource, identity hash not set in claiming API export: %q, workspace :%q",
+			claimingAPIExport.Name, logicalcluster.From(claimingAPIExport)), nil
 	}
 
 	apiExportsProvidingClaimedResources, err := a.getAPIExportsByIdentity(claimedIdentityHash)
 	if err != nil {
-		return authorizer.DecisionNoOpinion, VirtualAPIExportNotPermittedReason, fmt.Errorf("error getting API export identity: %q: %w", claimedIdentityHash, err)
+		return authorizer.DecisionNoOpinion, "", fmt.Errorf("error getting API export identity: %q: %w", claimedIdentityHash, err)
 	}
 
 	if len(apiExportsProvidingClaimedResources) == 0 {
 		// a claimed identity hash exists but not API export can be found referring to it (potentially eventually consistent).
 		// In this case be safe and deny the request, forcing the caller to retry.
-		return authorizer.DecisionDeny, VirtualAPIExportNotPermittedReason, nil
+		return authorizer.DecisionDeny, fmt.Sprintf("no API export providing claimed resources found for identity hash: %q", claimedIdentityHash), nil
 	}
 
 	// multiple claimed API exports can share the same identity hash (even in different workspaces).
@@ -121,17 +124,20 @@ func (a *maximalPermissionAuthorizer) Authorize(ctx context.Context, attr author
 
 		authz, err := a.newDeepSARAuthorizer(logicalcluster.From(apiExportProvidingClaimedResource))
 		if err != nil {
-			return authorizer.DecisionNoOpinion, VirtualAPIExportNotPermittedReason, err
+			return authorizer.DecisionNoOpinion, "", fmt.Errorf("error executing deep SAR in API export name: %q, workspace: %q: %w",
+				apiExportProvidingClaimedResource.Name, logicalcluster.From(apiExportProvidingClaimedResource), err)
 		}
 
-		dec, _, err := authz.Authorize(ctx, prefixAttributes(attr))
+		dec, reason, err := authz.Authorize(ctx, prefixAttributes(attr))
 		if err != nil {
-			return authorizer.DecisionNoOpinion, VirtualAPIExportNotPermittedReason, err
+			return authorizer.DecisionNoOpinion, "", fmt.Errorf("error authorizing against API export name: %q, workspace: %q: %w",
+				apiExportProvidingClaimedResource.Name, logicalcluster.From(apiExportProvidingClaimedResource), err)
 		}
 
 		// all maximum permission policies must grant access
 		if dec != authorizer.DecisionAllow {
-			return authorizer.DecisionNoOpinion, VirtualAPIExportNotPermittedReason, nil
+			return authorizer.DecisionNoOpinion, fmt.Sprintf("API export: %q, workspace: %q RBAC decision: %v",
+				apiExportProvidingClaimedResource.Name, logicalcluster.From(apiExportProvidingClaimedResource), reason), nil
 		}
 	}
 

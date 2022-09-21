@@ -23,7 +23,6 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
-	kaudit "k8s.io/apiserver/pkg/audit"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/client-go/kubernetes"
 
@@ -31,17 +30,6 @@ import (
 	kcpauth "github.com/kcp-dev/kcp/pkg/authorization"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
-)
-
-const (
-	VirtualAPIExportNotPermittedReason = "virtual apiexport access not permitted"
-	VirtualAPIExportPermittedReason    = "virtual apiexport access permitted"
-)
-
-const (
-	VirtualAPIExportContentAuditPrefix   = "virtual.apiexport.content.authorization.kcp.dev/"
-	VirtualAPIExportContentAuditDecision = VirtualAPIExportContentAuditPrefix + "decision"
-	VirtualAPIExportContentAuditReason   = VirtualAPIExportContentAuditPrefix + "reason"
 )
 
 type apiExportsContentAuthorizer struct {
@@ -55,25 +43,29 @@ type apiExportsContentAuthorizer struct {
 // If the SAR decision allows access, the given delegate authorizer is executed to proceed the authorizer chain,
 // else access is denied.
 func NewAPIExportsContentAuthorizer(delegate authorizer.Authorizer, kubeClusterClient kubernetes.ClusterInterface) authorizer.Authorizer {
-	return &apiExportsContentAuthorizer{
+	auth := &apiExportsContentAuthorizer{
 		newDelegatedAuthorizer: func(clusterName string) (authorizer.Authorizer, error) {
 			return delegated.NewDelegatedAuthorizer(logicalcluster.New(clusterName), kubeClusterClient)
 		},
 		delegate: delegate,
 	}
+
+	return kcpauth.NewAnonymizer("virtual apiexport content authorizer",
+		kcpauth.NewAuditLogger("virtual.apiexport.content.authorization.kcp.dev", auth))
 }
 
 func (a *apiExportsContentAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
 	apiDomainKey := dynamiccontext.APIDomainKeyFrom(ctx)
 	parts := strings.Split(string(apiDomainKey), "/")
 	if len(parts) < 2 {
-		return authorizer.DecisionNoOpinion, VirtualAPIExportNotPermittedReason, fmt.Errorf("invalid API domain key")
+		return authorizer.DecisionNoOpinion, "", fmt.Errorf("invalid API domain key")
 	}
 
 	apiExportCluster, apiExportName := parts[0], parts[1]
 	authz, err := a.newDelegatedAuthorizer(apiExportCluster)
 	if err != nil {
-		return authorizer.DecisionNoOpinion, VirtualAPIExportNotPermittedReason, fmt.Errorf("error creating delegated authorizer for API export cluster: %w", err)
+		return authorizer.DecisionNoOpinion, "",
+			fmt.Errorf("error creating delegated authorizer for API export %q, workspace %q: %w", apiExportName, apiExportCluster, err)
 	}
 
 	SARAttributes := authorizer.AttributesRecord{
@@ -89,18 +81,14 @@ func (a *apiExportsContentAuthorizer) Authorize(ctx context.Context, attr author
 
 	dec, reason, err := authz.Authorize(ctx, SARAttributes)
 	if err != nil {
-		return authorizer.DecisionNoOpinion, VirtualAPIExportNotPermittedReason, fmt.Errorf("error authorizing RBAC in API export cluster: %w", err)
+		return authorizer.DecisionNoOpinion, "",
+			fmt.Errorf("error authorizing RBAC in API export %q, workspace %q: %w", apiExportName, apiExportCluster, err)
 	}
-
-	kaudit.AddAuditAnnotations(
-		ctx,
-		VirtualAPIExportContentAuditDecision, kcpauth.DecisionString(dec),
-		VirtualAPIExportContentAuditReason, fmt.Sprintf("API export cluster RBAC reason: %v", reason),
-	)
 
 	if dec == authorizer.DecisionAllow {
 		return a.delegate.Authorize(ctx, attr)
 	}
 
-	return authorizer.DecisionNoOpinion, VirtualAPIExportNotPermittedReason, nil
+	return dec, fmt.Sprintf("API export: %q, workspace: %q RBAC decision: %v",
+		apiExportName, apiExportCluster, reason), nil
 }
