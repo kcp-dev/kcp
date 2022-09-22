@@ -47,12 +47,15 @@ func startSyncerTunnel(ctx context.Context, upstream, downstream *rest.Config, s
 	)
 
 	backoffMgr := wait.NewExponentialBackoffManager(initBackoff, maxBackoff, resetDuration, backoffFactor, jitter, clock)
+	logger := klog.FromContext(ctx)
+	logger.WithValues("target-workspace", syncTargetWorkspace, "target-name", syncTargetName)
+	ctx = klog.NewContext(ctx, logger)
 
 	wait.BackoffUntil(func() {
-		klog.V(5).Infof("Starting tunnel for SyncTarget %s|%s", syncTargetWorkspace, syncTargetName)
+		logger.V(5).Info("starting tunnel")
 		err := startTunneler(ctx, upstream, downstream, syncTargetWorkspace, syncTargetName)
 		if err != nil {
-			klog.Errorf("Failed to create tunnel for SyncTarget %s|%s: %v", syncTargetWorkspace, syncTargetName, err)
+			logger.Error(err, "failed to create tunnel")
 		}
 	}, backoffMgr, sliding, ctx.Done())
 }
@@ -96,7 +99,9 @@ func startTunneler(ctx context.Context, upstream, downstream *rest.Config, syncT
 	if err != nil {
 		return err
 	}
-	klog.Infof("connecting to %s|%s at %s", syncTargetWorkspace, syncTargetName, dst)
+
+	logger := klog.FromContext(ctx).WithValues("syncer-tunnel-url", dst)
+	logger.Info("connecting to destination URL")
 	l, err := tunneler.NewListener(clientUpstream, dst)
 	if err != nil {
 		return err
@@ -107,7 +112,7 @@ func startTunneler(ctx context.Context, upstream, downstream *rest.Config, syncT
 	server := &http.Server{Handler: proxy}
 	defer server.Close()
 
-	klog.V(2).Infof("Serving on reverse connection")
+	logger.V(2).Info("serving on reverse connection")
 	errCh := make(chan error)
 	go func() {
 		errCh <- server.Serve(l)
@@ -118,6 +123,6 @@ func startTunneler(ctx context.Context, upstream, downstream *rest.Config, syncT
 	case <-ctx.Done():
 		err = server.Close()
 	}
-	klog.V(2).Infof("Stop serving on reverse connection")
+	logger.V(2).Info("stop serving on reverse connection")
 	return err
 }

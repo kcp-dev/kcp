@@ -72,7 +72,10 @@ type SyncerConfig struct {
 }
 
 func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, importPollInterval time.Duration) error {
-	klog.Infof("Starting syncer for SyncTarget: %s|%s", cfg.SyncTargetWorkspace, cfg.SyncTargetName)
+	logger := klog.FromContext(ctx)
+	logger.WithValues("target-workspace", cfg.SyncTargetWorkspace, "target-name", cfg.SyncTargetName)
+	ctx = klog.NewContext(ctx, logger)
+	logger.V(2).Info("starting syncer")
 
 	kcpVersion := version.Get().GitVersion
 
@@ -89,7 +92,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	// TODO(david): we need to provide user-facing details if this polling goes on forever. Blocking here is a bad UX.
 	// TODO(david): Also, any regressions in our code will make any e2e test that starts a syncer (at least in-process)
 	// TODO(david): block until it hits the 10 minute overall test timeout.
-	klog.Infof("Attempting to retrieve the Syncer virtual workspace URL from SyncTarget %s|%s", cfg.SyncTargetWorkspace, cfg.SyncTargetName)
+	logger.Info("attempting to retrieve the Syncer virtual workspace URL")
 	var syncTarget *workloadv1alpha1.SyncTarget
 	err = wait.PollImmediateInfinite(5*time.Second, func() (bool, error) {
 		var err error
@@ -109,7 +112,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		}
 
 		if len(syncTarget.Status.VirtualWorkspaces) > 1 {
-			klog.Errorf("SyncTarget %s|%s should not have several Syncer virtual workspace URLs: not supported for now, ignoring additional URLs", cfg.SyncTargetWorkspace, cfg.SyncTargetName)
+			logger.Error(fmt.Errorf("SyncTarget should not have several Syncer virtual workspace URLs: not supported for now, ignoring additional URLs"), "error processing SyncTarget")
 		}
 		syncerVirtualWorkspaceURL = syncTarget.Status.VirtualWorkspaces[0].URL
 		return true, nil
@@ -169,15 +172,15 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	// syncers depend on the types being present to start their informers.
 	var gvrs []schema.GroupVersionResource
 	err = wait.PollImmediateInfinite(gvrQueryInterval, func() (bool, error) {
-		klog.Infof("Attempting to retrieve GVRs from upstream...")
+		logger.Info("attempting to retrieve GVRs from upstream...")
 
 		var err error
 		// Get all types the upstream API server knows about.
 		// TODO: watch this and learn about new types, or forget about old ones.
-		gvrs, err = getAllGVRs(upstreamDiscoveryClient, resources...)
+		gvrs, err = getAllGVRs(ctx, upstreamDiscoveryClient, resources...)
 		// TODO(marun) Should some of these errors be fatal?
 		if err != nil {
-			klog.Errorf("Failed to retrieve GVRs from kcp: %v", err)
+			logger.Error(err, "failed to retrieve GVRs from kcp")
 			return false, nil
 		}
 		return true, nil
@@ -190,11 +193,11 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	// Check whether we're in the Advanced Scheduling feature-gated mode.
 	advancedSchedulingEnabled := false
 	if syncTarget.GetAnnotations()[AdvancedSchedulingFeatureAnnotation] == "true" {
-		klog.Infof("Advanced Scheduling feature is enabled for syncTarget %s", cfg.SyncTargetName)
+		logger.Info("Advanced Scheduling feature is enabled")
 		advancedSchedulingEnabled = true
 	}
 
-	klog.Infof("Creating spec syncer for SyncTarget %s|%s, resources %v", cfg.SyncTargetWorkspace, cfg.SyncTargetName, resources)
+	logger.Info(fmt.Sprintf("creating spec syncer resources %v", resources))
 	upstreamURL, err := url.Parse(cfg.UpstreamConfig.Host)
 	if err != nil {
 		return err
@@ -205,7 +208,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		return err
 	}
 
-	klog.Infof("Creating status syncer for SyncTarget %s|%s, resources %v", cfg.SyncTargetWorkspace, cfg.SyncTargetName, resources)
+	logger.Info(fmt.Sprintf("creating status syncer resources %v", resources))
 	statusSyncer, err := status.NewStatusSyncer(gvrs, cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, advancedSchedulingEnabled,
 		upstreamDynamicClusterClient, downstreamDynamicClient, upstreamInformers, downstreamInformers, syncTarget.GetUID())
 	if err != nil {
@@ -248,14 +251,14 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 			patchBytes := []byte(fmt.Sprintf(`[{"op":"test","path":"/metadata/uid","value":%q},{"op":"replace","path":"/status/lastSyncerHeartbeatTime","value":%q}]`, cfg.SyncTargetUID, time.Now().Format(time.RFC3339)))
 			syncTarget, err = kcpClusterClient.Cluster(cfg.SyncTargetWorkspace).WorkloadV1alpha1().SyncTargets().Patch(ctx, cfg.SyncTargetName, types.JSONPatchType, patchBytes, metav1.PatchOptions{}, "status")
 			if err != nil {
-				klog.Errorf("failed to set status.lastSyncerHeartbeatTime for SyncTarget %s|%s: %v", cfg.SyncTargetWorkspace, cfg.SyncTargetName, err)
+				logger.Error(err, "failed to set status.lastSyncerHeartbeatTime")
 				return false, nil //nolint:nilerr
 			}
 
 			heartbeatTime = syncTarget.Status.LastSyncerHeartbeatTime.Time
 			return true, nil
 		})
-		klog.V(5).Infof("Heartbeat set for SyncTarget %s|%s: %s", cfg.SyncTargetWorkspace, cfg.SyncTargetName, heartbeatTime)
+		logger.V(5).Info("Heartbeat set", "heartbeatTime", heartbeatTime)
 	}, heartbeatInterval)
 
 	return nil
@@ -270,7 +273,7 @@ func contains(ss []string, s string) bool {
 	return false
 }
 
-func getAllGVRs(discoveryClient discovery.DiscoveryInterface, resourcesToSync ...string) ([]schema.GroupVersionResource, error) {
+func getAllGVRs(ctx context.Context, discoveryClient discovery.DiscoveryInterface, resourcesToSync ...string) ([]schema.GroupVersionResource, error) {
 	toSyncSet := sets.NewString(resourcesToSync...)
 	willBeSyncedSet := sets.NewString()
 	rs, err := discoveryClient.ServerPreferredResources()
@@ -290,13 +293,14 @@ func getAllGVRs(discoveryClient discovery.DiscoveryInterface, resourcesToSync ..
 	// TODO(jmprusi): Added Configmaps and Secrets to the default syncing, but we should figure out
 	//                a way to avoid doing that: https://github.com/kcp-dev/kcp/issues/727
 	gvrstrs := sets.NewString("configmaps.v1.", "secrets.v1.") // A syncer should always watch secrets and configmaps.
+	logger := klog.FromContext(ctx)
 	for _, r := range rs {
 		// v1 -> v1.
 		// apps/v1 -> v1.apps
 		// tekton.dev/v1beta1 -> v1beta1.tekton.dev
 		groupVersion, err := schema.ParseGroupVersion(r.GroupVersion)
 		if err != nil {
-			klog.Warningf("Unable to parse GroupVersion %s : %v", r.GroupVersion, err)
+			logger.Error(err, "unable to parse GroupVersion")
 			continue
 		}
 		vr := groupVersion.Version + "." + groupVersion.Group
@@ -306,7 +310,11 @@ func getAllGVRs(discoveryClient discovery.DiscoveryInterface, resourcesToSync ..
 				Group:    groupVersion.Group,
 				Resource: ai.Name,
 			}
-
+			logger = logger.WithValues(
+				"group", groupVersion.Group,
+				"version", groupVersion.Version,
+				"resource", ai.Name,
+			)
 			if toSyncSet.Has(groupResource.String()) {
 				willBeSynced = groupResource.String()
 			} else if toSyncSet.Has(ai.Name) {
@@ -324,7 +332,7 @@ func getAllGVRs(discoveryClient discovery.DiscoveryInterface, resourcesToSync ..
 				continue
 			}
 			if !contains(ai.Verbs, "watch") {
-				klog.Infof("resource %s %s is not watchable: %v", vr, ai.Name, ai.Verbs)
+				logger.Info("resource is not watchable")
 				continue
 			}
 			gvrstrs.Insert(fmt.Sprintf("%s.%s", ai.Name, vr))
@@ -344,7 +352,7 @@ func getAllGVRs(discoveryClient discovery.DiscoveryInterface, resourcesToSync ..
 	for _, gvrstr := range gvrstrs.List() {
 		gvr, _ := schema.ParseResourceArg(gvrstr)
 		if gvr == nil {
-			klog.Warningf("Unable to parse resource %q as <resource>.<version>.<group>", gvrstr)
+			logger.Error(fmt.Errorf("invalid resource: %s", gvrstr), "err parsing resource")
 			continue
 		}
 		gvrs = append(gvrs, *gvr)
