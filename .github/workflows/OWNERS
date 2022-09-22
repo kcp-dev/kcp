@@ -1,0 +1,10 @@
+options:
+  no_parent_owners: true
+filters:
+  ".*":
+    approvers:
+      - snehakpersistent
+      - mayurwaghmode
+  ".\\e2e-ci-ppc64le.yml":
+      labels:
+        - kind/api-change
