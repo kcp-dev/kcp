@@ -84,6 +84,12 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 		// that syncers for multiple logical clusters can coexist.
 		return nil
 	}
+
+	if namespaceLocator.SyncTarget.UID != c.syncTargetUID || namespaceLocator.SyncTarget.Workspace != c.syncTargetWorkspace.String() {
+		// not our resource.
+		return nil
+	}
+
 	upstreamNamespace := namespaceLocator.Namespace
 	upstreamWorkspace := namespaceLocator.Workspace
 
