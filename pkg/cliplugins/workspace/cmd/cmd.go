@@ -65,21 +65,7 @@ var (
 
 // New returns a cobra.Command for workspace actions.
 func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
-	opts := plugin.NewOptions(streams)
-
-	useWorkspaceOpts := plugin.NewUseWorkspaceOptions(streams)
-	useRunE := func(cmd *cobra.Command, args []string) error {
-		if len(args) > 1 {
-			return cmd.Help()
-		}
-		if err := useWorkspaceOpts.Complete(args); err != nil {
-			return err
-		}
-		if err := useWorkspaceOpts.Validate(); err != nil {
-			return err
-		}
-		return useWorkspaceOpts.Run(cmd.Context())
-	}
+	cmdOpts := plugin.NewUseWorkspaceOptions(streams)
 	cmd := &cobra.Command{
 		Aliases:          []string{"ws", "workspaces"},
 		Use:              "workspace [create|create-context|use|current|<workspace>|..|.|-|~|<root:absolute:workspace>]",
@@ -87,21 +73,40 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 		Example:          fmt.Sprintf(workspaceExample, "kubectl kcp"),
 		SilenceUsage:     true,
 		TraverseChildren: true,
-		RunE:             useRunE,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 1 {
+				return cmd.Help()
+			}
+			if err := cmdOpts.Complete(args); err != nil {
+				return err
+			}
+			if err := cmdOpts.Validate(); err != nil {
+				return err
+			}
+			return cmdOpts.Run(cmd.Context())
+		},
 	}
-	opts.BindFlags(cmd)
+	cmdOpts.BindFlags(cmd)
 
+	useWorkspaceOpts := plugin.NewUseWorkspaceOptions(streams)
 	useCmd := &cobra.Command{
 		Use:          "use <workspace>|..|.|-|~|<root:absolute:workspace>",
 		Short:        "Uses the given workspace as the current workspace. Using - means previous workspace, .. means parent workspace, . mean current, ~ means home workspace",
 		SilenceUsage: true,
 		RunE: func(c *cobra.Command, args []string) error {
-			if len(args) == 0 {
+			if len(args) != 1 {
 				return c.Help()
 			}
-			return useRunE(c, args)
+			if err := useWorkspaceOpts.Complete(args); err != nil {
+				return err
+			}
+			if err := useWorkspaceOpts.Validate(); err != nil {
+				return err
+			}
+			return useWorkspaceOpts.Run(cmd.Context())
 		},
 	}
+	useWorkspaceOpts.BindFlags(useCmd)
 
 	currentWorkspaceOpts := plugin.NewCurrentWorkspaceOptions(streams)
 	currentCmd := &cobra.Command{

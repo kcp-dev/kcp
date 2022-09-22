@@ -109,6 +109,7 @@ func (o *UseWorkspaceOptions) Validate() error {
 
 // BindFlags binds fields to cmd's flagset.
 func (o *UseWorkspaceOptions) BindFlags(cmd *cobra.Command) {
+	o.Options.BindFlags(cmd)
 	cmd.Flags().BoolVar(&o.ShortWorkspaceOutput, "short", o.ShortWorkspaceOutput, "Print only the name of the workspace, e.g. for integration into the shell prompt")
 }
 
@@ -318,6 +319,7 @@ func NewCurrentWorkspaceOptions(streams genericclioptions.IOStreams) *CurrentWor
 
 // BindFlags binds fields to cmd's flagset.
 func (o *CurrentWorkspaceOptions) BindFlags(cmd *cobra.Command) {
+	o.Options.BindFlags(cmd)
 	cmd.Flags().BoolVar(&o.ShortWorkspaceOutput, "short", o.ShortWorkspaceOutput, "Print only the name of the workspace, e.g. for integration into the shell prompt")
 }
 
@@ -412,6 +414,7 @@ func (o *CreateWorkspaceOptions) Validate() error {
 
 // BindFlags binds fields to cmd's flagset.
 func (o *CreateWorkspaceOptions) BindFlags(cmd *cobra.Command) {
+	o.Options.BindFlags(cmd)
 	cmd.Flags().StringVar(&o.Type, "type", o.Type, "A workspace type. The default type depends on where this child workspace is created.")
 	cmd.Flags().BoolVar(&o.EnterAfterCreate, "enter", o.EnterAfterCreate, "Immediately enter the created workspace")
 	cmd.Flags().BoolVar(&o.IgnoreExisting, "ignore-existing", o.IgnoreExisting, "Ignore if the workspace already exists. Requires none or absolute type path.")
@@ -579,6 +582,7 @@ func NewCreateContextOptions(streams genericclioptions.IOStreams) *CreateContext
 
 // BindFlags binds fields to cmd's flagset.
 func (o *CreateContextOptions) BindFlags(cmd *cobra.Command) {
+	o.Options.BindFlags(cmd)
 	cmd.Flags().BoolVar(&o.Overwrite, "overwrite", o.Overwrite, "Overwrite the context if it already exists")
 }
 
@@ -693,6 +697,7 @@ func NewTreeOptions(streams genericclioptions.IOStreams) *TreeOptions {
 
 // BindFlags binds fields to cmd's flagset.
 func (o *TreeOptions) BindFlags(cmd *cobra.Command) {
+	o.Options.BindFlags(cmd)
 	cmd.Flags().BoolVarP(&o.Full, "full", "f", o.Full, "Show full workspaces names")
 }
 
