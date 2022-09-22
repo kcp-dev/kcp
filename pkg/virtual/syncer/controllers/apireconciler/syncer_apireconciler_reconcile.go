@@ -261,4 +261,14 @@ var syncerInternalAPIs = []internalapis.InternalAPI{
 		Instance:      &corev1.ServiceAccount{},
 		ResourceScope: apiextensionsv1.NamespaceScoped,
 	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "resourcequotas",
+			Singular: "resourcequota",
+			Kind:     "ResourceQuota",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "", Version: "v1"},
+		Instance:      &corev1.ResourceQuota{},
+		ResourceScope: apiextensionsv1.NamespaceScoped,
+	},
 }
