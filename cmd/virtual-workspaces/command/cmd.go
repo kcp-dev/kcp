@@ -138,6 +138,9 @@ func Run(ctx context.Context, o *options.Options) error {
 	if err := o.Authorization.ApplyTo(&recommendedConfig.Config, virtualWorkspaces); err != nil {
 		return err
 	}
+	if err := o.Audit.ApplyTo(&recommendedConfig.Config); err != nil {
+		return err
+	}
 	rootAPIServerConfig, err := virtualrootapiserver.NewRootAPIConfig(recommendedConfig, []virtualrootapiserver.InformerStart{
 		wildcardKubeInformers.Start,
 		wildcardKcpInformers.Start,
