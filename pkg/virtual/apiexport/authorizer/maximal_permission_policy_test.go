@@ -70,7 +70,7 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 			expectedReason:   `unclaimed resource in API export: "fooExport", workspace :"someWorkspace"`,
 		},
 		{
-			name: "claimed identity without idenity hash",
+			name: "claimed identity without identity hash",
 			attr: &authorizer.AttributesRecord{
 				User:     &user.DefaultInfo{},
 				APIGroup: "claimedGroup",

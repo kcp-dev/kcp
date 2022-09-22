@@ -225,7 +225,6 @@ func TestAPIExportAuthorizers(t *testing.T) {
 		return false, "waiting for cowboys CRD to become established"
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "waiting for cowboys CRD to become established failed")
 
-	t.Logf("Create an APIBinding in consumer workspace %q that points to the today-cowboys export from %q but shadows a local cowboys CRD at the same time", tenantShadowCRDWorkspace, serviceProvider2Workspace)
 	apiBinding = &apisv1alpha1.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "cowboys",
@@ -239,6 +238,7 @@ func TestAPIExportAuthorizers(t *testing.T) {
 			},
 		},
 	}
+	t.Logf("Create an APIBinding %q in consumer workspace %q that points to the today-cowboys export from %q but shadows a local cowboys CRD at the same time", apiBinding.Name, tenantShadowCRDWorkspace, serviceProvider2Workspace)
 	framework.Eventually(t, func() (bool, string) {
 		_, err := user3KcpClient.ApisV1alpha1().APIBindings().Create(logicalcluster.WithCluster(ctx, tenantShadowCRDWorkspace), apiBinding, metav1.CreateOptions{})
 		if err != nil {
@@ -247,6 +247,7 @@ func TestAPIExportAuthorizers(t *testing.T) {
 		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "api binding creation failed")
 
+	t.Logf("Waiting for APIBinding %q in consumer workspace %q to have the condition %q mentioning the conflict with the shadowing local cowboys CRD", apiBinding.Name, tenantShadowCRDWorkspace, apisv1alpha1.BindingUpToDate)
 	framework.Eventually(t, func() (bool, string) {
 		binding, err := user3KcpClient.ApisV1alpha1().APIBindings().Get(logicalcluster.WithCluster(ctx, tenantShadowCRDWorkspace), apiBinding.Name, metav1.GetOptions{})
 		if err != nil {
@@ -265,9 +266,12 @@ func TestAPIExportAuthorizers(t *testing.T) {
 	user3wildwestClusterClient, err := wildwestclientset.NewForConfig(framework.UserConfig("user-3", rest.CopyConfig(cfg)))
 	require.NoError(t, err, "failed to construct wildwest cluster client for server")
 	cowboy := newCowboy("default", "cowboy1")
+
+	t.Logf("Creating a cowboy resource available via API binding in consumer workspace %q", tenantWorkspace)
 	_, err = user3wildwestClusterClient.WildwestV1alpha1().Cowboys("default").Create(logicalcluster.WithCluster(ctx, tenantWorkspace), cowboy, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating cowboy in tenant workspace %q", tenantWorkspace)
 
+	t.Logf("Creating a cowboy resource available via CRD in consumer workspace %q", tenantShadowCRDWorkspace)
 	_, err = user3wildwestClusterClient.WildwestV1alpha1().Cowboys("default").Create(logicalcluster.WithCluster(ctx, tenantShadowCRDWorkspace), cowboy, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating cowboy in shadowing CRD tenant workspace %q", tenantShadowCRDWorkspace)
 
@@ -286,11 +290,11 @@ func TestAPIExportAuthorizers(t *testing.T) {
 
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting on virtual workspace to be ready")
 
-	t.Logf("verify that we cannot list claimed resources")
 	user2ApiExportVWCfg := framework.UserConfig("user-2", rest.CopyConfig(cfg))
 	user2ApiExportVWCfg.Host = apiExport.Status.VirtualWorkspaces[0].URL
 	user2DynamicVWClient, err := kcpdynamic.NewClusterDynamicClientForConfig(user2ApiExportVWCfg)
 
+	t.Logf("verify that user-2 cannot list sherrifs resources via virtual apiexport apiserver because we have no local maximal permissions yet granted")
 	_, err = user2DynamicVWClient.Cluster(logicalcluster.Wildcard).Resource(schema.GroupVersionResource{Version: "v1", Resource: "sheriffs", Group: "wild.wild.west"}).List(ctx, metav1.ListOptions{})
 	require.ErrorContains(
 		t, err,
@@ -312,7 +316,7 @@ func TestAPIExportAuthorizers(t *testing.T) {
 	_, err = kubeClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, serviceProvider1Workspace), crb, metav1.CreateOptions{})
 	require.NoError(t, err)
 
-	t.Logf("verify that we can lists all claimed resources using a wildcard request")
+	t.Logf("verify that user-2 can lists all claimed resources using a wildcard request")
 	claimedGVRs := []schema.GroupVersionResource{
 		{Version: "v1", Resource: "configmaps"},
 		{Version: "v1", Resource: "sheriffs", Group: "wild.wild.west"},
@@ -327,7 +331,7 @@ func TestAPIExportAuthorizers(t *testing.T) {
 		return true, ""
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "listing claimed resources failed")
 
-	t.Logf("verify that we can lists all claimed resources using a request towards the tenant workspace")
+	t.Logf("verify that user-2 can lists sherriffs resources in the tenant workspace %q via the virtual apiexport apiserver", tenantWorkspace)
 	framework.Eventually(t, func() (success bool, reason string) {
 		_, err = user2DynamicVWClient.Cluster(tenantWorkspace).Resource(schema.GroupVersionResource{Version: "v1", Resource: "sheriffs", Group: "wild.wild.west"}).List(ctx, metav1.ListOptions{})
 		if err != nil {
@@ -336,6 +340,7 @@ func TestAPIExportAuthorizers(t *testing.T) {
 		return true, ""
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "listing claimed resources failed")
 
+	t.Logf("verify that user-2 cannot lists CRD shadowed sherriffs resources in the tenant workspace %q via the virtual apiexport apiserver", tenantShadowCRDWorkspace)
 	_, err = user2DynamicVWClient.Cluster(tenantShadowCRDWorkspace).Resource(schema.GroupVersionResource{Version: "v1alpha1", Resource: "cowboys", Group: "wildwest.dev"}).List(ctx, metav1.ListOptions{})
 	require.Error(t, err, "expected error, got none")
 	require.True(t, errors.IsNotFound(err))

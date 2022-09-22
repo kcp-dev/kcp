@@ -19,6 +19,7 @@ package authorization
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	kaudit "k8s.io/apiserver/pkg/audit"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
@@ -33,18 +34,22 @@ const (
 // for the given audit prefix key.
 // Note: the prefix key must not contain a trailing slash `/`.
 func NewAuditLogger(auditPrefix string, delegate authorizer.Authorizer) authorizer.Authorizer {
+	if strings.HasSuffix(auditPrefix, "/") {
+		panic(fmt.Sprintf("audit prefix must not have a trailing slash: %q", auditPrefix))
+	}
+
 	return authorizer.AuthorizerFunc(func(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
 		dec, reason, err := delegate.Authorize(ctx, attr)
 
-		auditReason := reason
+		auditReasonMsg := reason
 		if err != nil {
-			auditReason = fmt.Sprintf("reason: %q, error: %v", reason, err)
+			auditReasonMsg = fmt.Sprintf("reason: %q, error: %v", reason, err)
 		}
 
 		kaudit.AddAuditAnnotations(
 			ctx,
 			auditPrefix+"/"+auditDecision, DecisionString(dec),
-			auditPrefix+"/"+auditReason, auditReason,
+			auditPrefix+"/"+auditReason, auditReasonMsg,
 		)
 
 		return dec, reason, err
