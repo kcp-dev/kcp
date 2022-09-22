@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	kaudit "k8s.io/apiserver/pkg/audit"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/server/healthz"
 	"k8s.io/client-go/rest"
@@ -44,6 +45,7 @@ func (s *Server) installVirtualWorkspaces(
 	server *genericapiserver.GenericAPIServer,
 	auth genericapiserver.AuthenticationInfo,
 	externalAddress string,
+	auditEvaluator kaudit.PolicyRuleEvaluator,
 	preHandlerChainMux mux,
 ) error {
 	logger := klog.FromContext(ctx)
@@ -87,6 +89,8 @@ func (s *Server) installVirtualWorkspaces(
 	rootAPIServerConfig.GenericConfig.ExternalAddress = externalAddress
 
 	completedRootAPIServerConfig := rootAPIServerConfig.Complete()
+	completedRootAPIServerConfig.GenericConfig.AuditBackend = server.AuditBackend
+	completedRootAPIServerConfig.GenericConfig.AuditPolicyRuleEvaluator = auditEvaluator
 
 	rootAPIServer, err := completedRootAPIServerConfig.New(genericapiserver.NewEmptyDelegate())
 	if err != nil {

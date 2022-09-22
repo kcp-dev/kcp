@@ -474,7 +474,7 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	if s.Options.Virtual.Enabled {
-		if err := s.installVirtualWorkspaces(ctx, controllerConfig, delegationChainHead, s.GenericConfig.Authentication, s.GenericConfig.ExternalAddress, s.preHandlerChainMux); err != nil {
+		if err := s.installVirtualWorkspaces(ctx, controllerConfig, delegationChainHead, s.GenericConfig.Authentication, s.GenericConfig.ExternalAddress, s.GenericConfig.AuditPolicyRuleEvaluator, s.preHandlerChainMux); err != nil {
 			return err
 		}
 	}
