@@ -37,10 +37,10 @@ import (
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
+	virtualapiexportauth "github.com/kcp-dev/kcp/pkg/virtual/apiexport/authorizer"
 	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/controllers/apireconciler"
 	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/schemas"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
@@ -56,7 +56,7 @@ const VirtualWorkspaceName string = "apiexport"
 
 func BuildVirtualWorkspace(
 	rootPathPrefix string,
-	kubeClusterClient kubernetesclient.ClusterInterface,
+	kubeClusterClient, deepSARClient kubernetesclient.ClusterInterface,
 	dynamicClusterClient dynamic.ClusterInterface,
 	kcpClusterClient kcpclient.ClusterInterface,
 	wildcardKcpInformers kcpinformers.SharedInformerFactory,
@@ -83,7 +83,7 @@ func BuildVirtualWorkspace(
 			completedContext = dynamiccontext.WithAPIDomainKey(completedContext, apiDomain)
 			return true, prefixToStrip, completedContext
 		}),
-		Authorizer: newAuthorizer(kubeClusterClient),
+		Authorizer: newAuthorizer(kubeClusterClient, deepSARClient, wildcardKcpInformers),
 		ReadyChecker: framework.ReadyFunc(func() error {
 			select {
 			case <-readyCh:
@@ -176,7 +176,7 @@ func BuildVirtualWorkspace(
 
 			return apiReconciler, nil
 		},
-		Authorizer: newAuthorizer(kubeClusterClient),
+		Authorizer: newAuthorizer(kubeClusterClient, deepSARClient, wildcardKcpInformers),
 	}
 
 	return []rootapiserver.NamedVirtualWorkspace{
@@ -290,33 +290,9 @@ func (a *apiSetRetriever) GetAPIDefinitionSet(ctx context.Context, key dynamicco
 
 var _ apidefinition.APIDefinitionSetGetter = &apiSetRetriever{}
 
-func newAuthorizer(client kubernetesclient.ClusterInterface) authorizer.AuthorizerFunc {
-	return func(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
-		apiDomainKey := dynamiccontext.APIDomainKeyFrom(ctx)
-		parts := strings.Split(string(apiDomainKey), "/")
-		if len(parts) < 2 {
-			return authorizer.DecisionNoOpinion, "unable to determine api export", fmt.Errorf("access not permitted")
-		}
-
-		apiExportCluster, apiExportName := parts[0], parts[1]
-		authz, err := delegated.NewDelegatedAuthorizer(logicalcluster.New(apiExportCluster), client)
-		if err != nil {
-			return authorizer.DecisionNoOpinion, "error", err
-		}
-
-		SARAttributes := authorizer.AttributesRecord{
-			APIGroup:        apisv1alpha1.SchemeGroupVersion.Group,
-			APIVersion:      apisv1alpha1.SchemeGroupVersion.Version,
-			User:            attr.GetUser(),
-			Verb:            attr.GetVerb(),
-			Name:            apiExportName,
-			Resource:        "apiexports",
-			ResourceRequest: true,
-			Subresource:     "content",
-		}
-
-		return authz.Authorize(ctx, SARAttributes)
-	}
+func newAuthorizer(kubeClusterClient, deepSARClient kubernetesclient.ClusterInterface, kcpinformers kcpinformers.SharedInformerFactory) authorizer.Authorizer {
+	maximalPermissionAuth := virtualapiexportauth.NewMaximalPermissionAuthorizer(deepSARClient, kcpinformers.Apis().V1alpha1().APIExports(), kcpinformers.Apis().V1alpha1().APIBindings())
+	return virtualapiexportauth.NewAPIExportsContentAuthorizer(maximalPermissionAuth, kubeClusterClient)
 }
 
 // apiDefinitionWithCancel calls the cancelFn on tear-down.

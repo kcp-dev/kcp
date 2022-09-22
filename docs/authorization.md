@@ -55,7 +55,7 @@ They are related in the following way:
 [ASCIIFlow document](https://asciiflow.com/#/share/eJyrVspLzE1VslLydg5QcCwtycgvyqxKLVLSUcpJrATSVkrVMUoVMUpWlpaGOjFKlUCWkaUZkFWSWlEC5MQoKdAAPJrS82hKA9FoQkxMHm2c0YQhgGoViQ5FuJhM3RPIsXgCFvXTdoE855OfnJijEJCfk5lcCVQyB0eAgpSG5Bfo5qSWpeaghQ1GGCGLoEtC%2BMhaE%2BFJDiYBDeOi1MLS1OISqKh%2FUXpiXmZVYklmfh667eH5RdnFBYnJqWie3IIebiDFjgGeCk6ZeSmZeelYXIPpWIhrCIQwJDBRvALWPweLKuf8vJLUPKi%2FtNOL8ksLilFUYhqGatASqOFTSEk3M7CmXfSYwxU1qJatQTWXUCxjgkfT9pDmEuwyJIbCDLxu8g9CjgF055EU1qiBQ4buGTjciBIqpBWQoEDfRPVSEiWOnPLzS4oVihILFFCyDrVtRA1MSGaBlWBQJfDcMoOW9QJqDqW%2BV5GsQhOgmVWkFSkxSrVKtQBJrg9s)
 ## Top-Level Organization authorizer
 
-An top-level organization is a workspace directly under root. When a user accesses a top-level organization or
+A top-level organization is a workspace directly under root. When a user accesses a top-level organization or
 a sub-workspace like `root:org:ws:ws`, this authorizer will check in `root` whether the user has permission
 to the top-level org workspace represented by the `ClusterWorkspace` named `org` in `root` with the following verbs:
 
@@ -163,6 +163,72 @@ can be access only by users that are granted `admin` verb on the `workspaces/con
 parent workspace.
 
 Service accounts declared within a workspace don't have access to initializing workspaces.
+
+## API binding authorizer
+
+If the requested resource type is part of an API binding, then the API binding authorizer verifies that
+the request is not exceeding the maximum permission policy of the related API export.
+Currently, the "local policy" maximum permission policy type is supported.
+
+### Local policy
+
+The local maximum permission policy delegates the decision to the RBAC of the related API export.
+To distinguish between local RBAC role bindings in that workspace and those for this these maximum permission policy,
+every name and group is prefixed with `apis.kcp.dev:binding:`.
+
+Example:
+
+Given an API binding for type `foo` declared in workspace `consumer` that refers to an API export declared in workspace `provider`
+and a user `user-1` having the group `group-1` requesting a `create` of `foo` in the `default` namespace in the `consumer` workspace,
+the API binding authorizer verifies that `user-1` is allowed to execute this request by delegating to `provider`'s RBAC using prefixed attributes.
+
+Here, the API binding authorizer prepends the `apis.kcp.dev:binding:` prefix to the username and all groups the user belongs to.
+Using prefixed attributes prevents RBAC collisions i.e. if `user-1` is granted to execute requests within the `provider` workspace directly.
+
+For the given example RBAC request looks as follows:
+
+- Username: `apis.kcp.dev:binding:user-1`
+- Group: `apis.kcp.dev:binding:group-1`
+- Resource: `foo`
+- Namespace: `default`
+- Workspace: `provider`
+- Verb: `create`
+
+The following role and role binding declared within the `provider` workspace will grant access to the request:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: foo-creator
+  clusterName: provider
+rules:
+- apiGroups:
+  - foo.api
+  resources:
+  - foos
+  verbs:
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: user-1-foo-creator
+  namespace: default
+  clusterName: provider
+subjects:
+- kind: User
+  name: apis.kcp.dev:binding:user-1
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: foo-creator
+```
+
+Note: The same authorization scheme is enforced when executing the request of a claimed resource via the virtual API Export API server,
+i.e. a claimed resource is bound to the same maximal permission policy. Only the actual owner of that resources can go beyond that policy.
+
+TBD: Example
 
 ## Kubernetes Bootstrap Policy authorizer
 

@@ -24,7 +24,8 @@ const (
 	DecisionDenied    = "Denied"
 )
 
-func decisionString(dec authorizer.Decision) string {
+// DecisionString returns a kcp-opinionated string representation of an authorizer decision for audit logging.
+func DecisionString(dec authorizer.Decision) string {
 	switch dec {
 	case authorizer.DecisionNoOpinion:
 		return DecisionNoOpinion

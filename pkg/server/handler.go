@@ -237,18 +237,12 @@ func WithInClusterServiceAccountRequestRewrite(handler http.Handler) http.Handle
 	})
 }
 
-// WithWildcardIdentity checks wildcard list/watch requests for an APIExport identity for the resource in the path.
+// WithRequestIdentity checks list/watch requests for an APIExport identity for the resource in the path.
 // If it finds one (e.g. /api/v1/services:identityabcd1234/default/my-service), it places the identity from the path
 // to the context, updates the request to remove the identity from the path, and updates requestInfo.Resource to also
 // remove the identity. Finally, it hands off to the passed in handler to handle the request.
-func WithWildcardIdentity(handler http.Handler) http.Handler {
+func WithRequestIdentity(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		cluster := request.ClusterFrom(req.Context())
-		if cluster == nil || !cluster.Wildcard {
-			handler.ServeHTTP(w, req)
-			return
-		}
-
 		requestInfo, ok := request.RequestInfoFrom(req.Context())
 		if !ok {
 			responsewriters.ErrorNegotiated(
@@ -260,7 +254,7 @@ func WithWildcardIdentity(handler http.Handler) http.Handler {
 
 		updatedReq, err := processResourceIdentity(req, requestInfo)
 		if err != nil {
-			klog.FromContext(req.Context()).WithValues("operation", "WithWildcardIdentity", "path", req.URL.Path).Error(err, "unable to determine resource")
+			klog.FromContext(req.Context()).WithValues("operation", "WithRequestIdentity", "path", req.URL.Path).Error(err, "unable to determine resource")
 
 			responsewriters.ErrorNegotiated(
 				apierrors.NewInternalError(err),

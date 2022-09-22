@@ -58,7 +58,7 @@ func (a *BootstrapPolicyAuthorizer) Authorize(ctx context.Context, attr authoriz
 
 	kaudit.AddAuditAnnotations(
 		ctx,
-		BootstrapPolicyAuditDecision, decisionString(dec),
+		BootstrapPolicyAuditDecision, DecisionString(dec),
 		BootstrapPolicyAuditReason, fmt.Sprintf("bootstrap policy reason: %v", reason),
 	)
 

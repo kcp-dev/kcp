@@ -94,7 +94,7 @@ func (a *LocalAuthorizer) Authorize(ctx context.Context, attr authorizer.Attribu
 
 	kaudit.AddAuditAnnotations(
 		ctx,
-		LocalAuditDecision, decisionString(dec),
+		LocalAuditDecision, DecisionString(dec),
 		LocalAuditReason, fmt.Sprintf("cluster %q or bootstrap policy reason: %v", cluster.Name, reason),
 	)
 

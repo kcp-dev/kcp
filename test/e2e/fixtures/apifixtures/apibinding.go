@@ -18,6 +18,7 @@ package apifixtures
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -59,9 +60,14 @@ func BindToExport(
 		},
 	}
 
-	t.Logf("Creating APIBinding %s|%s", bindingClusterName, binding.Name)
-	_, err := clusterClient.ApisV1alpha1().APIBindings().Create(logicalcluster.WithCluster(ctx, bindingClusterName), binding, metav1.CreateOptions{})
-	require.NoError(t, err, "error creating APIBinding %s|%s", bindingClusterName, binding.Name)
+	framework.Eventually(t, func() (bool, string) {
+		t.Logf("Creating APIBinding %s|%s", bindingClusterName, binding.Name)
+		_, err := clusterClient.ApisV1alpha1().APIBindings().Create(logicalcluster.WithCluster(ctx, bindingClusterName), binding, metav1.CreateOptions{})
+		if err != nil {
+			return false, fmt.Sprintf("error creating APIBinding %s|%s: %v", bindingClusterName, binding.Name, err)
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 	framework.Eventually(t, func() (bool, string) {
 		b, err := clusterClient.ApisV1alpha1().APIBindings().Get(logicalcluster.WithCluster(ctx, bindingClusterName), binding.Name, metav1.GetOptions{})

@@ -94,7 +94,7 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, serviceProviderWorkspace, []string{"user-1", "user-2"}, nil, []string{"access"})
 	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, consumerWorkspace, []string{"user-3"}, nil, []string{"admin"})
 
-	cr, crb := createClusterRoleAndBindings("user-3-binding", "user-3", "User", "apiexports", "today-cowboys", []string{"bind"})
+	cr, crb := createClusterRoleAndBindings("user-3-binding", "user-3", "User", []string{"bind"}, apisv1alpha1.SchemeGroupVersion.Group, "apiexports", "today-cowboys")
 	_, err = kubeClusterClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), cr, metav1.CreateOptions{})
 	require.NoError(t, err)
 	_, err = kubeClusterClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), crb, metav1.CreateOptions{})
@@ -150,7 +150,7 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 
 	// Create clusterRoleBindings for content access.
 	t.Logf("create the cluster role and bindings to give access to the virtual workspace for user-1")
-	cr, crb = createClusterRoleAndBindings("user-1-vw", "user-1", "User", "apiexports/content", "", []string{"list", "get"})
+	cr, crb = createClusterRoleAndBindings("user-1-vw", "user-1", "User", []string{"list", "get"}, apisv1alpha1.SchemeGroupVersion.Group, "apiexports/content", "")
 	_, err = kubeClusterClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), cr, metav1.CreateOptions{})
 	require.NoError(t, err)
 	_, err = kubeClusterClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), crb, metav1.CreateOptions{})
@@ -177,7 +177,7 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 
 	// Test that users are able to update status of cowboys status
 	t.Logf("create the cluster role and bindings to give access to the virtual workspace for user-2")
-	cr, crb = createClusterRoleAndBindings("user-2-vw", "user-2", "User", "apiexports/content", "", []string{"update", "list"})
+	cr, crb = createClusterRoleAndBindings("user-2-vw", "user-2", "User", []string{"update", "list"}, apisv1alpha1.SchemeGroupVersion.Group, "apiexports/content", "")
 	_, err = kubeClusterClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), cr, metav1.CreateOptions{})
 	require.NoError(t, err)
 	_, err = kubeClusterClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), crb, metav1.CreateOptions{})
@@ -207,7 +207,7 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 
 	// Create clusterRoleBindings for content write access.
 	t.Logf("create the cluster role and bindings to give write access to the virtual workspace for user-1")
-	cr, crb = createClusterRoleAndBindings("user-1-vw-write", "user-1", "User", "apiexports/content", "", []string{"create", "update", "patch", "delete", "deletecollection"})
+	cr, crb = createClusterRoleAndBindings("user-1-vw-write", "user-1", "User", []string{"create", "update", "patch", "delete", "deletecollection"}, apisv1alpha1.SchemeGroupVersion.Group, "apiexports/content", "")
 	_, err = kubeClusterClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), cr, metav1.CreateOptions{})
 	require.NoError(t, err)
 	_, err = kubeClusterClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), crb, metav1.CreateOptions{})
@@ -785,41 +785,48 @@ func newCowboy(namespace, name string) *wildwestv1alpha1.Cowboy {
 	}
 }
 
-func createClusterRoleAndBindings(name, subjectName, subjectKind, resource, resourceName string, verbs []string) (*rbacv1.ClusterRole, *rbacv1.ClusterRoleBinding) {
-	clusterRole := &rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
-		Rules: []rbacv1.PolicyRule{
-			{
-				Verbs:     verbs,
-				APIGroups: []string{apisv1alpha1.SchemeGroupVersion.Group},
-				Resources: []string{resource},
-			},
-		},
+func createClusterRoleAndBindings(name, subjectName, subjectKind string, verbs []string, resources ...string) (*rbacv1.ClusterRole, *rbacv1.ClusterRoleBinding) {
+	var rules []rbacv1.PolicyRule
+
+	for i := 0; i < len(resources)/3; i++ {
+		group := resources[i*3]
+		resource := resources[i*3+1]
+		resourceName := resources[i*3+2]
+
+		r := rbacv1.PolicyRule{
+			Verbs:     verbs,
+			APIGroups: []string{group},
+			Resources: []string{resource},
+		}
+
+		if resourceName != "" {
+			r.ResourceNames = []string{resourceName}
+		}
+
+		rules = append(rules, r)
 	}
 
-	if resourceName != "" {
-		clusterRole.Rules[0].ResourceNames = []string{resourceName}
-	}
-
-	clusterRoleBinding := &rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
-		Subjects: []rbacv1.Subject{
-			{
-				Kind: subjectKind,
-				Name: subjectName,
+	return &rbacv1.ClusterRole{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: name,
 			},
-		},
-		RoleRef: rbacv1.RoleRef{
-			APIGroup: rbacv1.SchemeGroupVersion.Group,
-			Kind:     "ClusterRole",
-			Name:     name,
-		},
-	}
-	return clusterRole, clusterRoleBinding
+			Rules: rules,
+		}, &rbacv1.ClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: name,
+			},
+			Subjects: []rbacv1.Subject{
+				{
+					Kind: subjectKind,
+					Name: subjectName,
+				},
+			},
+			RoleRef: rbacv1.RoleRef{
+				APIGroup: rbacv1.SchemeGroupVersion.Group,
+				Kind:     "ClusterRole",
+				Name:     name,
+			},
+		}
 }
 
 func encodeJSON(t *testing.T, obj interface{}) []byte {

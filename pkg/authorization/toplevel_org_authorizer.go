@@ -216,7 +216,7 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 
 		kaudit.AddAuditAnnotations(
 			ctx,
-			TopLevelContentAuditDecision, decisionString(dec),
+			TopLevelContentAuditDecision, DecisionString(dec),
 			TopLevelContentAuditReason, fmt.Sprintf(`forbidden by root workspace RBAC, verb="access" resource="workspaces/content", name=%q, reason=%q`, requestTopLevelOrgName, reason),
 		)
 	}

@@ -24,6 +24,7 @@ import (
 	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
+	"github.com/kcp-dev/kcp/pkg/authorization"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/builder"
@@ -70,6 +71,10 @@ func (o *APIExport) NewVirtualWorkspaces(
 	if err != nil {
 		return nil, err
 	}
+	deepSARClient, err := kubernetesclient.NewClusterForConfig(authorization.WithDeepSARConfig(rest.CopyConfig(config)))
+	if err != nil {
+		return nil, err
+	}
 
-	return builder.BuildVirtualWorkspace(path.Join(rootPathPrefix, builder.VirtualWorkspaceName), kubeClusterClient, dynamicClusterClient, kcpClusterClient, wildcardKcpInformers)
+	return builder.BuildVirtualWorkspace(path.Join(rootPathPrefix, builder.VirtualWorkspaceName), kubeClusterClient, deepSARClient, dynamicClusterClient, kcpClusterClient, wildcardKcpInformers)
 }
