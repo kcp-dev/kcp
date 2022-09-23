@@ -30,6 +30,8 @@ func TestIsValidCluster(t *testing.T) {
 		{"", false},
 
 		{"root", true},
+		{"root:a", true},
+		{"root:a:b", true},
 		{"root:foo", true},
 		{"root:foo:bar", true},
 
@@ -49,7 +51,6 @@ func TestIsValidCluster(t *testing.T) {
 		{"root::foo", false},
 		{"root:föö:bär", false},
 		{"root:bar_bar", false},
-		{"root:a", false},
 		{"root:0a", false},
 		{"root:0bar", false},
 		{"root/bar", false},

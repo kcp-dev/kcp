@@ -18,7 +18,6 @@ package helper
 
 import (
 	"fmt"
-	"regexp"
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
@@ -27,10 +26,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
 
-var lclusterRegExp = regexp.MustCompile(`^[a-z][a-z0-9-]*[a-z0-9](:[a-z][a-z0-9-]*[a-z0-9])*$`)
-
 func IsValidCluster(cluster logicalcluster.Name) bool {
-	if !lclusterRegExp.MatchString(cluster.String()) {
+	if !cluster.IsValid() {
 		return false
 	}
 

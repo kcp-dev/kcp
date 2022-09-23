@@ -18,7 +18,7 @@ require (
 	github.com/google/uuid v1.1.2
 	github.com/kcp-dev/apimachinery v0.0.0-20220912132244-efe716c18e43
 	github.com/kcp-dev/kcp/pkg/apis v0.0.0-00010101000000-000000000000
-	github.com/kcp-dev/logicalcluster/v2 v2.0.0-alpha.1
+	github.com/kcp-dev/logicalcluster/v2 v2.0.0-alpha.1.0.20220919135525-b0e6f07aec39
 	github.com/martinlindhe/base36 v1.1.1
 	github.com/muesli/reflow v0.1.0
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
