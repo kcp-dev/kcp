@@ -113,9 +113,8 @@ type ExportReference struct {
 // WorkspaceExportReference describes an API and backing implementation that are provided by an actor in the
 // specified Workspace.
 type WorkspaceExportReference struct {
-	// path is an absolute reference to a workspace, e.g. root:org:ws. The workspace must
-	// be some ancestor or a child of some ancestor. If it is unset, the path of the APIBinding
-	// is used.
+	// path is an absolute reference to a workspace, e.g. root:org:ws.
+	// If it is unset, the path of the APIBinding is used.
 	// +optional
 	// +kubebuilder:validation:Pattern:="^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
 	Path string `json:"path,omitempty"`
