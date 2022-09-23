@@ -120,7 +120,7 @@ type ResourceToSync struct {
 	// first version compatible is preferred by syncer.
 	// +kubebuilder:validation:MinItems=1
 	// +required
-	// +kubebuilder:Required
+	// +kubebuilder:validation:Required
 	Versions []string `json:"versions"`
 
 	// identityHash is the identity for a given APIExport that the APIResourceSchema belongs to.

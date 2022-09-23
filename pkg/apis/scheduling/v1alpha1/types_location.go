@@ -63,7 +63,7 @@ type LocationSpec struct {
 	// resource is the group-version-resource of the instances that are subject to this location.
 	//
 	// +required
-	// +kubebuilder:Required
+	// +kubebuilder:validation:Required
 	Resource GroupVersionResource `json:"resource"`
 
 	// description is a human-readable description of the location.
@@ -102,7 +102,7 @@ type GroupVersionResource struct {
 	// +kubebuilder:validation:MinLength:1
 	// +kubebuilder:validation:Enum="v1alpha1"
 	// +required
-	// +kubebuilder:Required
+	// +kubebuilder:validation:Required
 	Version string `json:"version"`
 
 	// resource is the name of the resource.
@@ -110,7 +110,7 @@ type GroupVersionResource struct {
 	// +kubebuilder:validation:MinLength:1
 	// +kubebuilder:validation:Enum="synctargets"
 	// +required
-	// +kubebuilder:Required
+	// +kubebuilder:validation:Required
 	Resource string `json:"resource"`
 }
 
@@ -119,14 +119,14 @@ type AvailableSelectorLabel struct {
 	// key is the name of the label.
 	//
 	// +required
-	// +kubebuilder:Required
+	// +kubebuilder:validation:Required
 	Key LabelKey `json:"key"`
 
 	// values are the possible values for this labels.
 	//
 	// +kubebuilder:validation:MinItems=1
 	// +required
-	// +kubebuilder:Required
+	// +kubebuilder:validation:Required
 	// +listType=set
 	Values []LabelValue `json:"values"`
 

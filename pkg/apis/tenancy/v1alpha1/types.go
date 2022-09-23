@@ -493,7 +493,7 @@ type ClusterWorkspaceShardSpec struct {
 	//
 	// +kubebuilder:validation:Format=uri
 	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:Required
+	// +kubebuilder:validation:Required
 	// +required
 	ExternalURL string `json:"externalURL"`
 

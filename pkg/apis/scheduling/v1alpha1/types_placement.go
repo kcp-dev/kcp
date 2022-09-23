@@ -69,7 +69,7 @@ type PlacementSpec struct {
 	// locationResource is the group-version-resource of the instances that are subject to the locations to select.
 	//
 	// +required
-	// +kubebuilder:Required
+	// +kubebuilder:validation:Required
 	LocationResource GroupVersionResource `json:"locationResource"`
 
 	// namespaceSelector is a label selector to select ns. It match all ns by default, but can be specified to
