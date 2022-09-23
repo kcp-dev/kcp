@@ -165,22 +165,7 @@ func (o *apiBindingAdmission) Validate(ctx context.Context, a admission.Attribut
 	}
 
 	// Verify the workspace reference.
-	var apiExportClusterName logicalcluster.Name
-	cluster, err := genericapirequest.ValidClusterFrom(ctx)
-	if err != nil {
-		return admission.NewForbidden(a, fmt.Errorf("error determining workspace: %w", err))
-	}
-	switch {
-	case apiBinding.Spec.Reference.Workspace.Path != "":
-		absoluteRef := logicalcluster.New(apiBinding.Spec.Reference.Workspace.Path)
-		absoluteRefParent, _ := absoluteRef.Parent()
-		isAncestor := cluster.Name.HasPrefix(absoluteRef)
-		isAncestorChild := cluster.Name != absoluteRefParent && cluster.Name.HasPrefix(absoluteRefParent)
-		if !isAncestor && !isAncestorChild {
-			return admission.NewForbidden(a, fmt.Errorf("spec.reference.workspace.path: not pointing to an ancestor or child of an ancestor of %q", cluster.Name))
-		}
-		apiExportClusterName = absoluteRef
-	default:
+	if apiBinding.Spec.Reference.Workspace.Path == "" {
 		return admission.NewForbidden(a, fmt.Errorf("workspace reference is missing")) // this should not happen due to validation
 	}
 
@@ -196,7 +181,7 @@ func (o *apiBindingAdmission) Validate(ctx context.Context, a admission.Attribut
 	}
 
 	// Access check
-	if err := o.checkAPIExportAccess(ctx, a.GetUserInfo(), apiExportClusterName, apiBinding.Spec.Reference.Workspace.ExportName); err != nil {
+	if err := o.checkAPIExportAccess(ctx, a.GetUserInfo(), logicalcluster.New(apiBinding.Spec.Reference.Workspace.Path), apiBinding.Spec.Reference.Workspace.ExportName); err != nil {
 		action := "create"
 		if a.GetOperation() == admission.Update {
 			action = "update"
