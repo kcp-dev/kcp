@@ -65,9 +65,8 @@ spec:
                         type: string
                       path:
                         description: path is an absolute reference to a workspace,
-                          e.g. root:org:ws. The workspace must be some ancestor or
-                          a child of some ancestor. If it is unset, the path of the
-                          APIBinding is used.
+                          e.g. root:org:ws. If it is unset, the path of the APIBinding
+                          is used.
                         type: string
                     required:
                     - exportName

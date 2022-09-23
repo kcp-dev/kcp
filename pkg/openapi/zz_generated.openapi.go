@@ -2028,7 +2028,7 @@ func schema_pkg_apis_apis_v1alpha1_WorkspaceExportReference(ref common.Reference
 				Properties: map[string]spec.Schema{
 					"path": {
 						SchemaProps: spec.SchemaProps{
-							Description: "path is an absolute reference to a workspace, e.g. root:org:ws. The workspace must be some ancestor or a child of some ancestor. If it is unset, the path of the APIBinding is used.",
+							Description: "path is an absolute reference to a workspace, e.g. root:org:ws. If it is unset, the path of the APIBinding is used.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

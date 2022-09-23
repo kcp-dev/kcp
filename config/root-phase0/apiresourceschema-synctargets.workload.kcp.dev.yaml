@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v220909-c255fd13.synctargets.workload.kcp.dev
+  name: v220923-836dfac8.synctargets.workload.kcp.dev
 spec:
   group: workload.kcp.dev
   names:
@@ -98,9 +98,8 @@ spec:
                         type: string
                       path:
                         description: path is an absolute reference to a workspace,
-                          e.g. root:org:ws. The workspace must be some ancestor or
-                          a child of some ancestor. If it is unset, the path of the
-                          APIBinding is used.
+                          e.g. root:org:ws. If it is unset, the path of the APIBinding
+                          is used.
                         pattern: ^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                         type: string
                     required:

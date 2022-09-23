@@ -237,19 +237,20 @@ func TestValidate(t *testing.T) {
 			authzDecision: authorizer.DecisionAllow,
 		},
 		{
-			name: "Create: complete non-ancestor absolute workspace reference fails",
+			name: "Create: complete non-ancestor absolute workspace reference does not fail",
 			attr: createAttr(
 				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:some-other-org:bla", "someExport").
-					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:some-other-org:bla")).APIBinding,
+					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:some-other-org:bla:someExport")).APIBinding,
 			),
-			expectedErrors: []string{"spec.reference.workspace.path: not pointing to an ancestor or child of an ancestor of \"root:org:ws\""},
+			authzDecision: authorizer.DecisionAllow,
 		},
 		{
-			name: "Create: complete child absolute workspace reference fails",
+			name: "Create: complete child absolute workspace reference does not fail",
 			attr: createAttr(
-				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:org:ws:child", "someExport").APIBinding,
+				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:org:ws:child", "someExport").
+					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:org:ws:child:someExport")).APIBinding,
 			),
-			expectedErrors: []string{"spec.reference.workspace.path: not pointing to an ancestor or child of an ancestor of \"root:org:ws\""},
+			authzDecision: authorizer.DecisionAllow,
 		},
 		{
 			name: "Create: complete workspace reference fails with no authorization decision",
@@ -449,7 +450,7 @@ func TestValidate(t *testing.T) {
 			err := o.Validate(ctx, tc.attr, nil)
 
 			wantErr := len(tc.expectedErrors) > 0
-			require.Equal(t, wantErr, err != nil)
+			require.Equal(t, wantErr, err != nil, "err: %v", err)
 
 			if err != nil {
 				t.Logf("Got admission errors: %v", err)
