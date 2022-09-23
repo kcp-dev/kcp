@@ -18,7 +18,6 @@ package kubequota
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -75,8 +74,6 @@ type Controller struct {
 	scopingResourceQuotaInformer        *ScopingResourceQuotaInformer
 	scopingGenericSharedInformerFactory *scopingGenericSharedInformerFactory
 
-	crdsSynced cache.InformerSynced
-
 	// For better testability
 	getClusterWorkspace func(key string) (*tenancyv1alpha1.ClusterWorkspace, error)
 	listCRDs            func() ([]*apiextensionsv1.CustomResourceDefinition, error)
@@ -110,8 +107,6 @@ func NewController(
 
 		scopingGenericSharedInformerFactory: newScopingGenericSharedInformerFactory(dynamicDiscoverySharedInformerFactory),
 		scopingResourceQuotaInformer:        NewScopingResourceQuotaInformer(kubeInformerFactory.Core().V1().ResourceQuotas()),
-
-		crdsSynced: crdInformer.Informer().HasSynced,
 
 		getClusterWorkspace: func(key string) (*tenancyv1alpha1.ClusterWorkspace, error) {
 			return clusterWorkspacesInformer.Lister().Get(key)
@@ -173,11 +168,6 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	ctx = klog.NewContext(ctx, logger)
 	logger.Info("Starting controller")
 	defer logger.Info("Shutting down controller")
-
-	if !cache.WaitForCacheSync(ctx.Done(), c.crdsSynced) {
-		logger.Error(errors.New("CRD informer never synced"), "error waiting for informers to sync")
-		return
-	}
 
 	for i := 0; i < numThreads; i++ {
 		go wait.UntilWithContext(ctx, c.startWorker, time.Second)

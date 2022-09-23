@@ -73,12 +73,9 @@ func NewController(
 		crdClusterClient:     crdClusterClient,
 		kcpClusterClient:     kcpClusterClient,
 		workspaceLister:      workspaceInformer.Lister(),
-		syncChecks: []cache.InformerSynced{
-			workspaceInformer.Informer().HasSynced,
-		},
-		workspaceType:     workspaceType,
-		bootstrap:         bootstrap,
-		batteriesIncluded: batteriesIncluded,
+		workspaceType:        workspaceType,
+		bootstrap:            bootstrap,
+		batteriesIncluded:    batteriesIncluded,
 	}
 
 	workspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -101,8 +98,6 @@ type controller struct {
 	kcpClusterClient     kcpclient.Interface
 
 	workspaceLister tenancylisters.ClusterWorkspaceLister
-
-	syncChecks []cache.InformerSynced
 
 	workspaceType     tenancyv1alpha1.ClusterWorkspaceTypeReference
 	bootstrap         func(context.Context, discovery.DiscoveryInterface, dynamic.Interface, kcpclient.Interface, sets.String) error
@@ -129,11 +124,6 @@ func (c *controller) Start(ctx context.Context, numThreads int) {
 	ctx = klog.NewContext(ctx, logger)
 	logger.Info("Starting controller")
 	defer logger.Info("Shutting down controller")
-
-	if !cache.WaitForNamedCacheSync(c.controllerName, ctx.Done(), c.syncChecks...) {
-		logger.Error(nil, "Failed to wait for caches to sync")
-		return
-	}
 
 	for i := 0; i < numThreads; i++ {
 		go wait.Until(func() { c.startWorker(ctx) }, time.Second, ctx.Done())
