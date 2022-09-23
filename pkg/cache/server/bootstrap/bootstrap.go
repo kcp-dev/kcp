@@ -56,6 +56,7 @@ func Bootstrap(ctx context.Context, apiExtensionsClusterClient apiextensionsclie
 					XPreserveUnknownFields: pointer.BoolPtr(true),
 				},
 			} // wipe the schema, we don't need validation
+			v.Subresources = nil // wipe subresources so that updates don't have to be made against the status endpoint
 		}
 		crds = append(crds, crd)
 	}
