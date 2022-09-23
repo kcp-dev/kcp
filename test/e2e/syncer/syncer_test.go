@@ -37,7 +37,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	kubernetesclientset "k8s.io/client-go/kubernetes"
-	"k8s.io/klog/v2"
 	"k8s.io/utils/pointer"
 	kyaml "sigs.k8s.io/yaml"
 
@@ -378,7 +377,7 @@ func dumpPodEvents(t *testing.T, startAfter time.Time, downstreamKubeClient *kub
 
 	eventList, err := downstreamKubeClient.CoreV1().Events(downstreamNamespaceName).List(ctx, metav1.ListOptions{})
 	if err != nil {
-		klog.Errorf("Error getting events: %v", err)
+		t.Logf("Error getting events: %v", err)
 		return startAfter // ignore. Error here are not the ones we care for.
 	}
 
@@ -401,7 +400,7 @@ func dumpPodEvents(t *testing.T, startAfter time.Time, downstreamKubeClient *kub
 
 	pods, err := downstreamKubeClient.CoreV1().Pods(downstreamNamespaceName).List(ctx, metav1.ListOptions{})
 	if err != nil {
-		klog.Errorf("Error getting pods: %v", err)
+		t.Logf("Error getting pods: %v", err)
 		return last // ignore. Error here are not the ones we care for.
 	}
 
@@ -426,7 +425,7 @@ func dumpPodLogs(t *testing.T, startAfter map[string]*metav1.Time, downstreamKub
 
 	pods, err := downstreamKubeClient.CoreV1().Pods(downstreamNamespaceName).List(ctx, metav1.ListOptions{})
 	if err != nil {
-		klog.Errorf("Error getting pods: %v", err)
+		t.Logf("Error getting pods: %v", err)
 		return startAfter // ignore. Error here are not the ones we care for.
 	}
 	for _, pod := range pods.Items {
@@ -438,7 +437,7 @@ func dumpPodLogs(t *testing.T, startAfter map[string]*metav1.Time, downstreamKub
 				Container: c.Name,
 			}).DoRaw(ctx)
 			if err != nil {
-				klog.Errorf("Failed to get logs for pod %s/%s container %s: %v", pod.Namespace, pod.Name, c.Name, err)
+				t.Logf("Failed to get logs for pod %s/%s container %s: %v", pod.Namespace, pod.Name, c.Name, err)
 				continue
 			}
 			for _, line := range strings.Split(string(res), "\n") {

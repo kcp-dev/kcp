@@ -31,7 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -232,7 +231,6 @@ func isUnschedulable(workspace *tenancyv1alpha1.ClusterWorkspace) bool {
 
 func unschedulable(object *tenancyv1alpha1.ClusterWorkspace) error {
 	if !isUnschedulable(object) {
-		klog.Infof("Workspace is not unscheduled: %v", utilconditions.Get(object, tenancyv1alpha1.WorkspaceScheduled))
 		return fmt.Errorf("expected an unschedulable workspace, got status.conditions: %#v", object.Status.Conditions)
 	}
 	return nil

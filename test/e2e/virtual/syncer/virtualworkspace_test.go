@@ -41,7 +41,6 @@ import (
 	kubernetesclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
@@ -454,7 +453,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.Eventually(t, func() bool {
 					binding, err := kcpClusterClient.ApisV1alpha1().APIBindings().Get(logicalcluster.WithCluster(ctx, otherWorkspace), binding.Name, metav1.GetOptions{})
 					if err != nil {
-						klog.Errorf("Failed to list Locations: %v", err)
+						t.Logf("Failed to list Locations: %v", err)
 						return false
 					}
 					return conditions.IsTrue(binding, apisv1alpha1.InitialBindingCompleted)
@@ -464,7 +463,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.Eventually(t, func() bool {
 					binding, err := kcpClusterClient.ApisV1alpha1().APIBindings().Get(logicalcluster.WithCluster(ctx, otherWorkspace), binding.Name, metav1.GetOptions{})
 					if err != nil {
-						klog.Errorf("Failed to list Locations: %v", err)
+						t.Logf("Failed to list Locations: %v", err)
 						return false
 					}
 					for _, r := range binding.Status.BoundResources {
@@ -484,7 +483,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					if errors.IsNotFound(err) {
 						return false
 					} else if err != nil {
-						klog.Errorf("Failed to list Services: %v", err)
+						t.Logf("Failed to list Services: %v", err)
 						return false
 					}
 					return true

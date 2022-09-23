@@ -584,10 +584,7 @@ func gatherInternalAPIs(discoveryClient discovery.DiscoveryInterface, t *testing
 
 	for _, apiResourcesList := range apiResourcesLists {
 		gv, err := schema.ParseGroupVersion(apiResourcesList.GroupVersion)
-		if err != nil {
-			t.Errorf("error parsing group version %v, err: %v", apiResourcesList.GroupVersion, err)
-			continue
-		}
+		require.NoError(t, err)
 		// ignore kcp resources
 		if strings.HasSuffix(gv.Group, ".kcp.dev") {
 			continue
