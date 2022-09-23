@@ -129,6 +129,7 @@ routed based on paths.`,
 			// start index
 			kcpSharedInformerFactory := kcpinformers.NewSharedInformerFactoryWithOptions(rootShardConfigInformerClient, 30*time.Minute)
 			indexController := index.NewController(
+				ctx,
 				rootShardConfig.Host,
 				kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
 				func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpclient.Interface, error) {
@@ -148,7 +149,7 @@ routed based on paths.`,
 			kcpSharedInformerFactory.WaitForCacheSync(ctx.Done())
 
 			// start the server
-			handler, err := proxy.NewHandler(&options.Proxy, indexController)
+			handler, err := proxy.NewHandler(ctx, &options.Proxy, indexController)
 			if err != nil {
 				return err
 			}
