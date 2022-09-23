@@ -274,6 +274,18 @@ verify-imports:
 verify-go-versions:
 	hack/verify-go-versions.sh
 
+.PHONY: modules
+modules: ## Run go mod tidy to ensure modules are up to date
+	go mod tidy
+	cd pkg/apis; go mod tidy
+
+.PHONY: verify-modules
+verify-modules: modules  ## Verify go modules are up to date
+	@if !(git diff --quiet HEAD -- go.sum go.mod pkg/apis/go.mod pkg/apis/go.sum); then \
+		git diff; \
+		echo "go module files are out of date"; exit 1; \
+	fi
+
 .PHONY: help
 help: ## Show this help.
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
