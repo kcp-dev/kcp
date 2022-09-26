@@ -397,6 +397,8 @@ var _ = rest.GracefulDeleter(&REST{})
 
 func (s *REST) Delete(ctx context.Context, name string, deleteValidation rest.ValidateObjectFunc, options *metav1.DeleteOptions) (runtime.Object, bool, error) {
 	orgClusterName := ctx.Value(WorkspacesOrgKey).(logicalcluster.Name)
+	logger := klog.FromContext(ctx).WithValues("parent", orgClusterName, "name", name)
+	ctx = klog.NewContext(ctx, logger)
 
 	errorToReturn := s.kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, name, *options)
 	if errorToReturn != nil && !kerrors.IsNotFound(errorToReturn) {
@@ -409,12 +411,12 @@ func (s *REST) Delete(ctx context.Context, name string, deleteValidation rest.Va
 	if err := s.kubeClusterClient.Cluster(orgClusterName).RbacV1().ClusterRoles().DeleteCollection(ctx, *options, metav1.ListOptions{
 		LabelSelector: workspaceNameLabelSelector,
 	}); err != nil {
-		klog.Error(err)
+		logger.Error(err, "could not delete clusterroles")
 	}
 	if err := s.kubeClusterClient.Cluster(orgClusterName).RbacV1().ClusterRoleBindings().DeleteCollection(ctx, *options, metav1.ListOptions{
 		LabelSelector: workspaceNameLabelSelector,
 	}); err != nil {
-		klog.Error(err)
+		logger.Error(err, "could not delete clusterrolebindings")
 	}
 
 	return nil, false, errorToReturn
