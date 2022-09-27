@@ -1,0 +1,5 @@
+filters:
+  ".\\e2e-ci-ppc64le.yml":
+    approvers:
+      - snehakpersistent
+      - mayurwaghmode
