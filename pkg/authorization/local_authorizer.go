@@ -80,13 +80,13 @@ func (a *LocalAuthorizer) Authorize(ctx context.Context, attr authorizer.Attribu
 	filteredInformer := rbacwrapper.FilterInformers(reqScope, a.versionedInformers.Rbac().V1())
 	bootstrapInformer := rbacwrapper.FilterInformers(genericcontrolplane.LocalAdminCluster, a.versionedInformers.Rbac().V1())
 
-	mergedClusterRoleInformer := rbacwrapper.MergedClusterRoleInformer(filteredInformer.ClusterRoles(), bootstrapInformer.ClusterRoles())
-	mergedRoleInformer := rbacwrapper.MergedRoleInformer(filteredInformer.Roles(), bootstrapInformer.Roles())
+	mergedClusterRoleLister := rbacwrapper.NewMergedClusterRoleLister(filteredInformer.ClusterRoles().Lister(), bootstrapInformer.ClusterRoles().Lister())
+	mergedRoleLister := rbacwrapper.NewMergedRoleLister(filteredInformer.Roles().Lister(), bootstrapInformer.Roles().Lister())
 
 	scopedAuth := rbac.New(
-		&rbac.RoleGetter{Lister: mergedRoleInformer.Lister()},
+		&rbac.RoleGetter{Lister: mergedRoleLister},
 		&rbac.RoleBindingLister{Lister: filteredInformer.RoleBindings().Lister()},
-		&rbac.ClusterRoleGetter{Lister: mergedClusterRoleInformer.Lister()},
+		&rbac.ClusterRoleGetter{Lister: mergedClusterRoleLister},
 		&rbac.ClusterRoleBindingLister{Lister: filteredInformer.ClusterRoleBindings().Lister()},
 	)
 

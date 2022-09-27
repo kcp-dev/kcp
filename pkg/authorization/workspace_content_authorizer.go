@@ -160,15 +160,15 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 	parentWorkspaceKubeInformer := rbacwrapper.FilterInformers(parentClusterName, a.rbacInformers)
 	bootstrapInformer := rbacwrapper.FilterInformers(genericcontrolplane.LocalAdminCluster, a.rbacInformers)
 
-	mergedClusterRoleInformer := rbacwrapper.MergedClusterRoleInformer(parentWorkspaceKubeInformer.ClusterRoles(), bootstrapInformer.ClusterRoles())
-	mergedRoleInformer := rbacwrapper.MergedRoleInformer(parentWorkspaceKubeInformer.Roles(), bootstrapInformer.Roles())
-	mergedClusterRoleBindingsInformer := rbacwrapper.MergedClusterRoleBindingInformer(parentWorkspaceKubeInformer.ClusterRoleBindings(), bootstrapInformer.ClusterRoleBindings())
+	mergedClusterRoleLister := rbacwrapper.NewMergedClusterRoleLister(parentWorkspaceKubeInformer.ClusterRoles().Lister(), bootstrapInformer.ClusterRoles().Lister())
+	mergedRoleLister := rbacwrapper.NewMergedRoleLister(parentWorkspaceKubeInformer.Roles().Lister(), bootstrapInformer.Roles().Lister())
+	mergedClusterRoleBindingsLister := rbacwrapper.NewMergedClusterRoleBindingLister(parentWorkspaceKubeInformer.ClusterRoleBindings().Lister(), bootstrapInformer.ClusterRoleBindings().Lister())
 
 	parentAuthorizer := rbac.New(
-		&rbac.RoleGetter{Lister: mergedRoleInformer.Lister()},
+		&rbac.RoleGetter{Lister: mergedRoleLister},
 		&rbac.RoleBindingLister{Lister: parentWorkspaceKubeInformer.RoleBindings().Lister()},
-		&rbac.ClusterRoleGetter{Lister: mergedClusterRoleInformer.Lister()},
-		&rbac.ClusterRoleBindingLister{Lister: mergedClusterRoleBindingsInformer.Lister()},
+		&rbac.ClusterRoleGetter{Lister: mergedClusterRoleLister},
+		&rbac.ClusterRoleBindingLister{Lister: mergedClusterRoleBindingsLister},
 	)
 
 	extraGroups := sets.NewString()

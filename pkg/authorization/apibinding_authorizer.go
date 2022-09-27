@@ -68,15 +68,15 @@ func NewAPIBindingAccessAuthorizer(kubeInformers kubernetesinformers.SharedInfor
 			clusterKubeInformer := rbacwrapper.FilterInformers(clusterName, kubeInformers.Rbac().V1())
 			bootstrapInformer := rbacwrapper.FilterInformers(genericcontrolplane.LocalAdminCluster, kubeInformers.Rbac().V1())
 
-			mergedClusterRoleInformer := rbacwrapper.MergedClusterRoleInformer(clusterKubeInformer.ClusterRoles(), bootstrapInformer.ClusterRoles())
-			mergedRoleInformer := rbacwrapper.MergedRoleInformer(clusterKubeInformer.Roles(), bootstrapInformer.Roles())
-			mergedClusterRoleBindingsInformer := rbacwrapper.MergedClusterRoleBindingInformer(clusterKubeInformer.ClusterRoleBindings(), bootstrapInformer.ClusterRoleBindings())
+			mergedClusterRoleLister := rbacwrapper.NewMergedClusterRoleLister(clusterKubeInformer.ClusterRoles().Lister(), bootstrapInformer.ClusterRoles().Lister())
+			mergedRoleLister := rbacwrapper.NewMergedRoleLister(clusterKubeInformer.Roles().Lister(), bootstrapInformer.Roles().Lister())
+			mergedClusterRoleBindingsLister := rbacwrapper.NewMergedClusterRoleBindingLister(clusterKubeInformer.ClusterRoleBindings().Lister(), bootstrapInformer.ClusterRoleBindings().Lister())
 
 			return rbac.New(
-				&rbac.RoleGetter{Lister: mergedRoleInformer.Lister()},
+				&rbac.RoleGetter{Lister: mergedRoleLister},
 				&rbac.RoleBindingLister{Lister: clusterKubeInformer.RoleBindings().Lister()},
-				&rbac.ClusterRoleGetter{Lister: mergedClusterRoleInformer.Lister()},
-				&rbac.ClusterRoleBindingLister{Lister: mergedClusterRoleBindingsInformer.Lister()},
+				&rbac.ClusterRoleGetter{Lister: mergedClusterRoleLister},
+				&rbac.ClusterRoleBindingLister{Lister: mergedClusterRoleBindingsLister},
 			)
 		},
 		delegate: delegate,
