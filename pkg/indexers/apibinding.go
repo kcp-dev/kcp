@@ -52,3 +52,25 @@ func IndexAPIBindingByClusterAndAcceptedClaimedGroupResources(obj interface{}) (
 
 	return ret, nil
 }
+
+const APIBindingByBoundResources = "byBoundResources"
+
+func IndexAPIBindingByBoundResources(obj interface{}) ([]string, error) {
+	apiBinding, ok := obj.(*apisv1alpha1.APIBinding)
+	if !ok {
+		return []string{}, fmt.Errorf("obj %T is not an APIBinding", obj)
+	}
+
+	clusterName := logicalcluster.From(apiBinding)
+
+	var ret []string
+	for _, r := range apiBinding.Status.BoundResources {
+		ret = append(ret, APIBindingBoundResourceValue(clusterName, r.Group, r.Resource))
+	}
+
+	return ret, nil
+}
+
+func APIBindingBoundResourceValue(clusterName logicalcluster.Name, group, resource string) string {
+	return fmt.Sprintf("%s|%s.%s", clusterName, resource, group)
+}

@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"path"
 	"strings"
 
 	"github.com/kcp-dev/logicalcluster/v2"
@@ -224,7 +225,7 @@ func BuildVirtualWorkspace(
 				parent, name := cluster.Split()
 				clusterWorkspace, err := lister.Get(clusters.ToClusterAwareKey(parent, name))
 				if err != nil {
-					http.Error(writer, fmt.Sprintf("could not find cluster %q: %v", parent, err), http.StatusInternalServerError)
+					http.Error(writer, fmt.Sprintf("error getting clusterworkspace %s|%s: %v", parent, name, err), http.StatusInternalServerError)
 					return
 				}
 
@@ -236,7 +237,7 @@ func BuildVirtualWorkspace(
 
 				rawInfo, ok := clusterWorkspace.Annotations[tenancyv1alpha1.ExperimentalClusterWorkspaceOwnerAnnotationKey]
 				if !ok {
-					http.Error(writer, fmt.Sprintf("cluster %q had no user recorded", parent), http.StatusInternalServerError)
+					http.Error(writer, fmt.Sprintf("workspace %s|%s had no user recorded", parent, name), http.StatusInternalServerError)
 					return
 				}
 				var info authenticationv1.UserInfo
@@ -347,6 +348,12 @@ func digestUrl(urlPath, rootPathPrefix string) (
 	}
 
 	return genericapirequest.Cluster{Name: clusterName, Wildcard: clusterName == logicalcluster.Wildcard}, dynamiccontext.APIDomainKey(initializerName), strings.TrimSuffix(urlPath, realPath), true
+}
+
+// URLFor returns the absolute path for the specified initializer.
+func URLFor(initializerName tenancyv1alpha1.ClusterWorkspaceInitializer) string {
+	// TODO(ncdc): make /services hard-coded everywhere instead of configurable.
+	return path.Join("/services", initializingworkspaces.VirtualWorkspaceName, string(initializerName))
 }
 
 type apiSetRetriever struct {

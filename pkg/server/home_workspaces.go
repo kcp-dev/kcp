@@ -45,6 +45,7 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 	kubernetesinformers "k8s.io/client-go/informers"
 	kubernetesclient "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
@@ -57,6 +58,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/softimpersonation"
 )
@@ -95,6 +97,7 @@ func WithHomeWorkspaces(
 	a authorizer.Authorizer,
 	kubeClusterClient kubernetesclient.ClusterInterface,
 	kcpClusterClient kcpclient.ClusterInterface,
+	bootstrapKcpClusterClient kcpclient.ClusterInterface,
 	kubeSharedInformerFactory kubernetesinformers.SharedInformerFactory,
 	kcpSharedInformerFactory kcpinformers.SharedInformerFactory,
 	externalHost string,
@@ -114,7 +117,7 @@ func WithHomeWorkspaces(
 		homePrefix:           homePrefix,
 		bucketLevels:         bucketLevels,
 		bucketSize:           bucketSize,
-		kcp:                  buildExternalClientsAccess(kubeClusterClient, kcpClusterClient),
+		kcp:                  buildExternalClientsAccess(kubeClusterClient, kcpClusterClient, bootstrapKcpClusterClient),
 		localInformers:       buildLocalInformersAccess(kubeSharedInformerFactory, kcpSharedInformerFactory),
 	}.build()
 }
@@ -126,7 +129,7 @@ type externalKubeClientsAccess struct {
 	createClusterRoleBinding func(ctx context.Context, lcluster logicalcluster.Name, crb *rbacv1.ClusterRoleBinding) error
 }
 
-func buildExternalClientsAccess(kubeClusterClient kubernetesclient.ClusterInterface, kcpClusterClient kcpclient.ClusterInterface) externalKubeClientsAccess {
+func buildExternalClientsAccess(kubeClusterClient kubernetesclient.ClusterInterface, kcpClusterClient, bootstrapKcpClusterClient kcpclient.ClusterInterface) externalKubeClientsAccess {
 	return externalKubeClientsAccess{
 		createClusterRole: func(ctx context.Context, workspace logicalcluster.Name, cr *rbacv1.ClusterRole) error {
 			_, err := kubeClusterClient.Cluster(workspace).RbacV1().ClusterRoles().Create(ctx, cr, metav1.CreateOptions{})
@@ -137,7 +140,20 @@ func buildExternalClientsAccess(kubeClusterClient kubernetesclient.ClusterInterf
 			return err
 		},
 		createClusterWorkspace: func(ctx context.Context, workspace logicalcluster.Name, cw *tenancyv1alpha1.ClusterWorkspace) error {
-			_, err := kcpClusterClient.Cluster(workspace).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, cw, metav1.CreateOptions{})
+			var client kcpclient.ClusterInterface
+			switch cw.Spec.Type.Name {
+			case HomeClusterWorkspaceType:
+				// If we're creating an actual home workspace, the request is coming from a real user, and their info
+				// will be assigned to the owner annotation. Use the loopback client to avoid impersonation that happens
+				// with the bootstrap client.
+				client = kcpClusterClient
+			default:
+				// If we're creating anything other than the home workspace (e.g. buckets), we have to use the bootstrap
+				// client, so we can impersonate the bootstrap user to get the clusterworkspace owner annotation filled
+				// in.
+				client = bootstrapKcpClusterClient
+			}
+			_, err := client.Cluster(workspace).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, cw, metav1.CreateOptions{})
 			return err
 		},
 		getClusterWorkspace: func(ctx context.Context, workspace logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspace, error) {
@@ -150,7 +166,7 @@ type localInformersAccess struct {
 	getClusterWorkspace   func(logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error)
 	getClusterRole        func(lcluster logicalcluster.Name, name string) (*rbacv1.ClusterRole, error)
 	getClusterRoleBinding func(lcluster logicalcluster.Name, name string) (*rbacv1.ClusterRoleBinding, error)
-	getAPIBinding         func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error)
+	getTenancyAPIBinding  func(clusterName logicalcluster.Name) (*apisv1alpha1.APIBinding, bool, error)
 	synced                func() bool
 }
 
@@ -162,7 +178,10 @@ func buildLocalInformersAccess(kubeSharedInformerFactory kubernetesinformers.Sha
 	crLister := kubeSharedInformerFactory.Rbac().V1().ClusterRoles().Lister()
 	crbLister := kubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings().Lister()
 	apiBindingInformer := kcpSharedInformerFactory.Apis().V1alpha1().APIBindings()
-	apiBindingLister := apiBindingInformer.Lister()
+
+	indexers.AddIfNotPresentOrDie(apiBindingInformer.Informer().GetIndexer(), cache.Indexers{
+		indexers.APIBindingByBoundResources: indexers.IndexAPIBindingByBoundResources,
+	})
 
 	return localInformersAccess{
 		getClusterWorkspace: func(logicalCluster logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error) {
@@ -175,8 +194,18 @@ func buildLocalInformersAccess(kubeSharedInformerFactory kubernetesinformers.Sha
 		getClusterRoleBinding: func(workspace logicalcluster.Name, name string) (*rbacv1.ClusterRoleBinding, error) {
 			return crbLister.Get(clusters.ToClusterAwareKey(workspace, name))
 		},
-		getAPIBinding: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error) {
-			return apiBindingLister.Get(clusters.ToClusterAwareKey(clusterName, name))
+		getTenancyAPIBinding: func(clusterName logicalcluster.Name) (*apisv1alpha1.APIBinding, bool, error) {
+			bindings, err := indexers.ByIndex[*apisv1alpha1.APIBinding](apiBindingInformer.Informer().GetIndexer(), indexers.APIBindingByBoundResources, indexers.APIBindingBoundResourceValue(clusterName, "tenancy.kcp.dev", "clusterworkspaces"))
+			if err != nil {
+				return nil, false, err
+			}
+			if len(bindings) == 0 {
+				return nil, false, nil
+			}
+			if len(bindings) != 1 {
+				return nil, false, fmt.Errorf("error getting APIBinding providing clusterworkspaces.tenancy.kcp.dev: expected to find 1 APIBinding, got %d", len(bindings))
+			}
+			return bindings[0], true, nil
 		},
 		synced: func() bool {
 			return clusterWorkspaceInformer.HasSynced() &&
@@ -231,22 +260,19 @@ func (b homeWorkspaceHandlerBuilder) build() *homeWorkspaceHandler {
 			return tryToCreate(h, ctx, user, logicalClusterName, workspaceType)
 		},
 		tenancyAPIBindingReady: func(logicalClusterName logicalcluster.Name) (bool, error) {
-			binding, err := b.localInformers.getAPIBinding(logicalClusterName, "tenancy.kcp.dev")
+			binding, found, err := b.localInformers.getTenancyAPIBinding(logicalClusterName)
 			if err != nil {
 				return false, err
+			}
+			if !found {
+				return false, nil
 			}
 
 			if !conditions.IsTrue(binding, apisv1alpha1.InitialBindingCompleted) {
 				return false, nil
 			}
 
-			for _, r := range binding.Status.BoundResources {
-				if r.Group == tenancyv1alpha1.SchemeGroupVersion.Group && r.Resource == "clusterworkspaces" {
-					return true, nil
-				}
-			}
-
-			return false, nil
+			return true, nil
 		},
 	}
 

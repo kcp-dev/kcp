@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v220909-c255fd13.clusterworkspaces.tenancy.kcp.dev
+  name: v220915-b4cf5d4e.clusterworkspaces.tenancy.kcp.dev
 spec:
   group: tenancy.kcp.dev
   names:
@@ -216,7 +216,7 @@ spec:
                 description: ClusterWorkspaceInitializer is a unique string corresponding
                   to a cluster workspace initialization controller for the given type
                   of workspaces.
-                pattern: ^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z][a-z0-9]([-a-z0-9]*[a-z0-9])?)$
+                pattern: ^(root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$
                 type: string
               type: array
             location:

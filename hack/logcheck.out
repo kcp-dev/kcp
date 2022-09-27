@@ -142,14 +142,14 @@
 /pkg/reconciler/workload/synctargetexports/synctargetexports_controller.go:331:2: function "V" should not be used, convert to contextual logging
 /pkg/reconciler/workload/synctargetexports/synctargetexports_controller.go:333:3: function "Errorf" should not be used, convert to contextual logging
 /pkg/reconciler/workload/synctargetexports/synctargetexports_reconcile.go:58:5: function "Warningf" should not be used, convert to contextual logging
-/pkg/server/controllers.go:980:4: function "Errorf" should not be used, convert to contextual logging
-/pkg/server/home_workspaces.go:326:5: Additional arguments to WithValues should always be Key Value pairs. Please check if there is any key or value missing.
-/pkg/server/home_workspaces.go:612:6: Additional arguments to WithValues should always be Key Value pairs. Please check if there is any key or value missing.
+/pkg/server/controllers.go:991:4: function "Errorf" should not be used, convert to contextual logging
+/pkg/server/home_workspaces.go:352:5: Additional arguments to WithValues should always be Key Value pairs. Please check if there is any key or value missing.
+/pkg/server/home_workspaces.go:638:6: Additional arguments to WithValues should always be Key Value pairs. Please check if there is any key or value missing.
 /pkg/server/options/controllers.go:54:3: function "Fatal" should not be used, convert to contextual logging
 /pkg/syncer/shared/finalizer.go:53:3: function "Errorf" should not be used, convert to contextual logging
-/pkg/syncer/shared/finalizer.go:85:3: function "Errorf" should not be used, convert to contextual logging
-/pkg/syncer/shared/finalizer.go:88:2: function "Infof" should not be used, convert to contextual logging
-/pkg/syncer/shared/finalizer.go:88:2: function "V" should not be used, convert to contextual logging
+/pkg/syncer/shared/finalizer.go:91:3: function "Errorf" should not be used, convert to contextual logging
+/pkg/syncer/shared/finalizer.go:94:2: function "Infof" should not be used, convert to contextual logging
+/pkg/syncer/shared/finalizer.go:94:2: function "V" should not be used, convert to contextual logging
 /pkg/syncer/spec/spec_controller.go:118:3: function "InfoS" should not be used, convert to contextual logging
 /pkg/syncer/spec/spec_controller.go:118:3: function "V" should not be used, convert to contextual logging
 /pkg/syncer/spec/spec_controller.go:131:5: function "InfoS" should not be used, convert to contextual logging
@@ -239,9 +239,9 @@
 /pkg/virtual/apiexport/controllers/apireconciler/apiexport_apireconciler_reconcile.go:270:4: function "V" should not be used, convert to contextual logging
 /pkg/virtual/framework/dynamic/apiserver/serving_info.go:185:3: function "Infof" should not be used, convert to contextual logging
 /pkg/virtual/framework/dynamic/apiserver/serving_info.go:185:3: function "V" should not be used, convert to contextual logging
-/pkg/virtual/initializingworkspaces/builder/build.go:202:7: function "Errorf" should not be used, convert to contextual logging
-/pkg/virtual/initializingworkspaces/builder/build.go:393:4: function "Info" should not be used, convert to contextual logging
-/pkg/virtual/initializingworkspaces/builder/build.go:393:4: function "V" should not be used, convert to contextual logging
+/pkg/virtual/initializingworkspaces/builder/build.go:203:7: function "Errorf" should not be used, convert to contextual logging
+/pkg/virtual/initializingworkspaces/builder/build.go:400:4: function "Info" should not be used, convert to contextual logging
+/pkg/virtual/initializingworkspaces/builder/build.go:400:4: function "V" should not be used, convert to contextual logging
 /pkg/virtual/syncer/builder/build.go:212:7: function "Errorf" should not be used, convert to contextual logging
 /pkg/virtual/workspaces/authorization/cache.go:284:4: function "Warning" should not be used, convert to contextual logging
 /pkg/virtual/workspaces/authorization/cache.go:430:3: function "ErrorS" should not be used, convert to contextual logging
@@ -296,7 +296,7 @@
 /test/e2e/virtual/syncer/virtualworkspace_test.go:457:7: function "Errorf" should not be used, convert to contextual logging
 /test/e2e/virtual/syncer/virtualworkspace_test.go:467:7: function "Errorf" should not be used, convert to contextual logging
 /test/e2e/virtual/syncer/virtualworkspace_test.go:487:7: function "Errorf" should not be used, convert to contextual logging
-/test/e2e/virtual/workspaces/virtual_workspace_test.go:211:6: function "Errorf" should not be used, convert to contextual logging
-/test/e2e/virtual/workspaces/virtual_workspace_test.go:284:6: function "Errorf" should not be used, convert to contextual logging
-/test/e2e/virtual/workspaces/virtual_workspace_test.go:658:5: function "Warningf" should not be used, convert to contextual logging
-/test/e2e/virtual/workspaces/virtual_workspace_test.go:665:4: function "Infof" should not be used, convert to contextual logging
+/test/e2e/virtual/workspaces/virtual_workspace_test.go:214:6: function "Errorf" should not be used, convert to contextual logging
+/test/e2e/virtual/workspaces/virtual_workspace_test.go:287:6: function "Errorf" should not be used, convert to contextual logging
+/test/e2e/virtual/workspaces/virtual_workspace_test.go:661:5: function "Warningf" should not be used, convert to contextual logging
+/test/e2e/virtual/workspaces/virtual_workspace_test.go:668:4: function "Infof" should not be used, convert to contextual logging

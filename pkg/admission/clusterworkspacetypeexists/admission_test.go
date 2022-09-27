@@ -158,6 +158,30 @@ func TestAdmit(t *testing.T) {
 			}).ClusterWorkspace,
 		},
 		{
+			name: "adds kcp-dev:apibindings initializer when API bindings are on spec",
+			types: []*tenancyv1alpha1.ClusterWorkspaceType{
+				newType("root:org:foo").withAPIBindings().ClusterWorkspaceType,
+			},
+			clusterName: logicalcluster.New("root:org:ws"),
+			a: updateAttr(
+				newWorkspace("root:org:ws:test").withType("root:org:foo").withStatus(tenancyv1alpha1.ClusterWorkspaceStatus{
+					Phase:    tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
+					Location: tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
+					BaseURL:  "https://kcp.bigcorp.com/clusters/org:test",
+				}).ClusterWorkspace,
+				newWorkspace("root:org:ws:test").withType("root:org:foo").withStatus(tenancyv1alpha1.ClusterWorkspaceStatus{
+					Phase:        tenancyv1alpha1.ClusterWorkspacePhaseScheduling,
+					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{},
+				}).ClusterWorkspace,
+			),
+			expectedObj: newWorkspace("root:org:ws:test").withType("root:org:foo").withStatus(tenancyv1alpha1.ClusterWorkspaceStatus{
+				Phase:        tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
+				Location:     tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
+				Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{tenancyv1alpha1.ClusterWorkspaceAPIBindingsInitializer},
+				BaseURL:      "https://kcp.bigcorp.com/clusters/org:test",
+			}).ClusterWorkspace,
+		},
+		{
 			name:        "ignores different resources",
 			clusterName: logicalcluster.New("root:org:ws"),
 			a: admission.NewAttributesRecord(
@@ -270,11 +294,9 @@ func TestAdmit(t *testing.T) {
 				Handler:         admission.NewHandler(admission.Create, admission.Update),
 				typeLister:      typeLister,
 				workspaceLister: fakeClusterWorkspaceLister(tt.workspaces),
-				transitiveTypeResolver: transitiveTypeResolver{
-					getter: func(cluster logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
-						return typeLister.Get(clusters.ToClusterAwareKey(cluster, name))
-					},
-				},
+				transitiveTypeResolver: NewTransitiveTypeResolver(func(cluster logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
+					return typeLister.Get(clusters.ToClusterAwareKey(cluster, name))
+				}),
 			}
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: tt.clusterName})
 			if err := o.Admit(ctx, tt.a, nil); (err != nil) != tt.wantErr {
@@ -566,11 +588,9 @@ func TestValidate(t *testing.T) {
 						tt.authzError,
 					}, nil
 				},
-				transitiveTypeResolver: transitiveTypeResolver{
-					getter: func(cluster logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
-						return typeLister.Get(clusters.ToClusterAwareKey(cluster, name))
-					},
-				},
+				transitiveTypeResolver: NewTransitiveTypeResolver(func(cluster logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
+					return typeLister.Get(clusters.ToClusterAwareKey(cluster, name))
+				}),
 			}
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: tt.path})
 			if err := o.Validate(ctx, tt.attr, nil); (err != nil) != tt.wantErr {
@@ -928,6 +948,16 @@ func (b builder) withInitializer() builder {
 
 func (b builder) withAdditionalLabel(labels map[string]string) builder {
 	b.ClusterWorkspaceType.Spec.AdditionalWorkspaceLabels = labels
+	return b
+}
+
+func (b builder) withAPIBindings() builder {
+	b.ClusterWorkspaceType.Spec.DefaultAPIBindings = []tenancyv1alpha1.APIExportReference{
+		{
+			Path:       "root",
+			ExportName: "bar",
+		},
+	}
 	return b
 }
 

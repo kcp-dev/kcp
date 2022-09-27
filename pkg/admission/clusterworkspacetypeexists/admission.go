@@ -55,11 +55,12 @@ func Register(plugins *admission.Plugins) {
 				Handler:          admission.NewHandler(admission.Create, admission.Update),
 				createAuthorizer: delegated.NewDelegatedAuthorizer,
 			}
-			plugin.transitiveTypeResolver = transitiveTypeResolver{
-				getter: func(cluster logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
+			plugin.transitiveTypeResolver = NewTransitiveTypeResolver(
+				func(cluster logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
 					return plugin.typeLister.Get(clusters.ToClusterAwareKey(cluster, name))
 				},
-			}
+			)
+
 			return plugin, nil
 		})
 }
@@ -73,7 +74,7 @@ type clusterWorkspaceTypeExists struct {
 	typeLister             tenancylisters.ClusterWorkspaceTypeLister
 	workspaceLister        tenancylisters.ClusterWorkspaceLister
 	deepSARClient          kubernetesclient.ClusterInterface
-	transitiveTypeResolver transitiveTypeResolver
+	transitiveTypeResolver *transitiveTypeResolver
 
 	createAuthorizer delegated.DelegatedAuthorizerFactory
 }
@@ -178,6 +179,9 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 	for _, alias := range cwtAliases {
 		if alias.Spec.Initializer {
 			cw.Status.Initializers = initialization.EnsureInitializerPresent(initialization.InitializerForType(alias), cw.Status.Initializers)
+		}
+		if len(alias.Spec.DefaultAPIBindings) > 0 {
+			cw.Status.Initializers = initialization.EnsureInitializerPresent(tenancyv1alpha1.ClusterWorkspaceAPIBindingsInitializer, cw.Status.Initializers)
 		}
 	}
 
@@ -426,10 +430,18 @@ func addAdditionalWorkspaceLabels(
 	}
 }
 
+// TODO: Move this out of admission to some shared location
 type transitiveTypeResolver struct {
 	getter func(cluster logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error)
 }
 
+func NewTransitiveTypeResolver(getter func(cluster logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error)) *transitiveTypeResolver {
+	return &transitiveTypeResolver{
+		getter: getter,
+	}
+}
+
+// Resolve returns all ClusterWorkspaceTypes that a given Type extends.
 func (r *transitiveTypeResolver) Resolve(t *tenancyv1alpha1.ClusterWorkspaceType) ([]*tenancyv1alpha1.ClusterWorkspaceType, error) {
 	ret, err := r.resolve(t, map[string]bool{}, map[string]bool{}, []string{})
 	if err != nil {

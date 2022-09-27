@@ -79,6 +79,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.PlacementList":                         schema_pkg_apis_scheduling_v1alpha1_PlacementList(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.PlacementSpec":                         schema_pkg_apis_scheduling_v1alpha1_PlacementSpec(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.PlacementStatus":                       schema_pkg_apis_scheduling_v1alpha1_PlacementStatus(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.APIExportReference":                       schema_pkg_apis_tenancy_v1alpha1_APIExportReference(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspace":                         schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspace(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceList":                     schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceList(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceLocation":                 schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceLocation(ref),
@@ -2531,6 +2532,36 @@ func schema_pkg_apis_scheduling_v1alpha1_PlacementStatus(ref common.ReferenceCal
 	}
 }
 
+func schema_pkg_apis_tenancy_v1alpha1_APIExportReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "APIExportReference provides the fields necessary to resolve an APIExport.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"path": {
+						SchemaProps: spec.SchemaProps{
+							Description: "path is the fully-qualified path to the workspace containing the APIExport.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"exportName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "exportName is the name of the APIExport.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"path", "exportName"},
+			},
+		},
+	}
+}
+
 func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspace(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -3174,11 +3205,34 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeSpec(ref common.Refere
 							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeSelector"),
 						},
 					},
+					"defaultAPIBindings": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"path",
+									"exportName",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "defaultAPIBindings are the APIs to bind during initialization of workspaces created from this type. The APIBinding names will be generated dynamically.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.APIExportReference"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeExtension", "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference", "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeSelector"},
+			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.APIExportReference", "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeExtension", "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference", "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeSelector"},
 	}
 }
 

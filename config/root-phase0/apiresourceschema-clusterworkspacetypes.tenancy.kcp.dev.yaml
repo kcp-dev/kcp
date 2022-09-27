@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v220713-f9bb7307.clusterworkspacetypes.tenancy.kcp.dev
+  name: v220923-596b9074.clusterworkspacetypes.tenancy.kcp.dev
 spec:
   group: tenancy.kcp.dev
   names:
@@ -49,6 +49,31 @@ spec:
               description: additionalWorkspaceLabels are a set of labels that will
                 be added to a ClusterWorkspace on creation.
               type: object
+            defaultAPIBindings:
+              description: defaultAPIBindings are the APIs to bind during initialization
+                of workspaces created from this type. The APIBinding names will be
+                generated dynamically.
+              items:
+                description: APIExportReference provides the fields necessary to resolve
+                  an APIExport.
+                properties:
+                  exportName:
+                    description: exportName is the name of the APIExport.
+                    type: string
+                  path:
+                    description: path is the fully-qualified path to the workspace
+                      containing the APIExport.
+                    pattern: ^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                required:
+                - exportName
+                - path
+                type: object
+              type: array
+              x-kubernetes-list-map-keys:
+              - path
+              - exportName
+              x-kubernetes-list-type: map
             defaultChildWorkspaceType:
               default:
                 name: universal
