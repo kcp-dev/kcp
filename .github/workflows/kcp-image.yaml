@@ -51,24 +51,3 @@ jobs:
           registry: ghcr.io/${{ github.repository_owner }}
           username: ${{ github.actor }}
           password: ${{ github.token }}
-
-  deploy:
-    if: "github.repository_owner == 'kcp-dev' && github.ref_name == 'main'"
-    name: Deploy KCP
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out shared-resources (gitops repo)
-        uses: actions/checkout@v3
-        with:
-          repository: kcp-dev/shared-resources
-          token: ${{ secrets.KCP_BOT_TOKEN }}
-
-      - name: Update sha and commit
-        run: |-
-          sed -i -e 's/tag: "[0-9a-f]\{7\}"/tag: "${{ github.sha }}"/' kcp/unstable-values.yaml
-          git config user.email "klape+kcp-bot@redhat.com"
-          git config user.name "KCP Bot"
-          git add kcp/unstable-values.yaml
-          git commit -m "Automatic update of test environment to ${{ github.sha }}"
-          git push origin main
