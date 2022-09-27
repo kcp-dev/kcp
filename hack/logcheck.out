@@ -146,10 +146,6 @@
 /pkg/server/home_workspaces.go:352:5: Additional arguments to WithValues should always be Key Value pairs. Please check if there is any key or value missing.
 /pkg/server/home_workspaces.go:638:6: Additional arguments to WithValues should always be Key Value pairs. Please check if there is any key or value missing.
 /pkg/server/options/controllers.go:54:3: function "Fatal" should not be used, convert to contextual logging
-/pkg/syncer/shared/finalizer.go:53:3: function "Errorf" should not be used, convert to contextual logging
-/pkg/syncer/shared/finalizer.go:91:3: function "Errorf" should not be used, convert to contextual logging
-/pkg/syncer/shared/finalizer.go:94:2: function "Infof" should not be used, convert to contextual logging
-/pkg/syncer/shared/finalizer.go:94:2: function "V" should not be used, convert to contextual logging
 /pkg/syncer/spec/spec_controller.go:118:3: function "InfoS" should not be used, convert to contextual logging
 /pkg/syncer/spec/spec_controller.go:118:3: function "V" should not be used, convert to contextual logging
 /pkg/syncer/spec/spec_controller.go:131:5: function "InfoS" should not be used, convert to contextual logging
@@ -291,10 +287,10 @@
 /test/e2e/reconciler/scheduling/placement_scheduler_test.go:134:4: function "Errorf" should not be used, convert to contextual logging
 /test/e2e/reconciler/scheduling/placement_scheduler_test.go:245:4: function "Errorf" should not be used, convert to contextual logging
 /test/e2e/reconciler/scheduling/placement_scheduler_test.go:333:4: function "Errorf" should not be used, convert to contextual logging
-/test/e2e/syncer/syncer_test.go:364:3: function "Errorf" should not be used, convert to contextual logging
-/test/e2e/syncer/syncer_test.go:387:3: function "Errorf" should not be used, convert to contextual logging
-/test/e2e/syncer/syncer_test.go:412:3: function "Errorf" should not be used, convert to contextual logging
-/test/e2e/syncer/syncer_test.go:424:5: function "Errorf" should not be used, convert to contextual logging
+/test/e2e/syncer/syncer_test.go:381:3: function "Errorf" should not be used, convert to contextual logging
+/test/e2e/syncer/syncer_test.go:404:3: function "Errorf" should not be used, convert to contextual logging
+/test/e2e/syncer/syncer_test.go:429:3: function "Errorf" should not be used, convert to contextual logging
+/test/e2e/syncer/syncer_test.go:441:5: function "Errorf" should not be used, convert to contextual logging
 /test/e2e/virtual/syncer/virtualworkspace_test.go:457:7: function "Errorf" should not be used, convert to contextual logging
 /test/e2e/virtual/syncer/virtualworkspace_test.go:467:7: function "Errorf" should not be used, convert to contextual logging
 /test/e2e/virtual/syncer/virtualworkspace_test.go:487:7: function "Errorf" should not be used, convert to contextual logging
