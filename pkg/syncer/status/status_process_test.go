@@ -382,18 +382,7 @@ func TestSyncerProcess(t *testing.T) {
 			syncTargetName:        "us-west1",
 
 			expectActionsOnFrom: []clienttesting.Action{},
-			expectActionsOnTo: []clienttesting.Action{
-				updateDeploymentAction("test",
-					changeUnstructured(
-						toUnstructured(t, changeDeployment(
-							deployment("theDeployment", "test", "root:org:ws", map[string]string{}, map[string]string{}, nil))),
-						// The following "changes" are required for the test to pass, as it expects some empty/nil fields to be there
-						setNestedField(map[string]interface{}{}, "metadata", "labels"),
-						setNestedField([]interface{}{}, "metadata", "finalizers"),
-						setNestedField(nil, "spec", "selector"),
-					),
-				),
-			},
+			expectActionsOnTo:   []clienttesting.Action{},
 		},
 		"StatusSyncer with AdvancedScheduling, update status upstream": {
 			upstreamLogicalCluster: "root:org:ws",
