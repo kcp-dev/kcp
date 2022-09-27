@@ -358,7 +358,7 @@ func TestSyncerProcess(t *testing.T) {
 					"status"),
 			},
 		},
-		"StatusSyncer upstream deletion": {
+		"StatusSyncer upstream deletion, expect finalizer removal": {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
 				map[string]string{
@@ -382,7 +382,19 @@ func TestSyncerProcess(t *testing.T) {
 			syncTargetName:        "us-west1",
 
 			expectActionsOnFrom: []clienttesting.Action{},
-			expectActionsOnTo:   []clienttesting.Action{},
+			expectActionsOnTo: []clienttesting.Action{
+				updateDeploymentAction("test",
+					changeUnstructured(
+						toUnstructured(t, changeDeployment(
+							deployment("theDeployment", "test", "root:org:ws",
+								map[string]string{"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync"},
+								map[string]string{}, nil))),
+						// The following "changes" are required for the test to pass, as it expects some empty/nil fields to be there
+						setNestedField([]interface{}{}, "metadata", "finalizers"),
+						setNestedField(nil, "spec", "selector"),
+					),
+				),
+			},
 		},
 		"StatusSyncer with AdvancedScheduling, update status upstream": {
 			upstreamLogicalCluster: "root:org:ws",
@@ -482,9 +494,14 @@ func TestSyncerProcess(t *testing.T) {
 				updateDeploymentAction("test",
 					changeUnstructured(
 						toUnstructured(t, changeDeployment(
-							deployment("theDeployment", "test", "root:org:ws", map[string]string{}, map[string]string{}, nil))),
+							deployment("theDeployment", "test", "root:org:ws",
+								map[string]string{"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync"},
+								map[string]string{
+									"deletion.internal.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5":   time.Now().Format(time.RFC3339),
+									"experimental.status.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": `{"replicas":15}`,
+								}, nil))),
 						// The following "changes" are required for the test to pass, as it expects some empty/nil fields to be there
-						setNestedField(map[string]interface{}{}, "metadata", "labels"),
+						// setNestedField(map[string]interface{}{}, "metadata", "labels"),
 						setNestedField([]interface{}{}, "metadata", "finalizers"),
 						setNestedField(nil, "spec", "selector"),
 					),

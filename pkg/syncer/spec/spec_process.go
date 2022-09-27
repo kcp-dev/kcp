@@ -303,9 +303,9 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 	if intendedToBeRemovedFromLocation && !stillOwnedByExternalActorForLocation {
 		if err := c.downstreamClient.Resource(gvr).Namespace(downstreamNamespace).Delete(ctx, transformedName, metav1.DeleteOptions{}); err != nil {
 			if apierrors.IsNotFound(err) {
-				// That's not an error.
-				// Just think about removing the finalizer from the KCP location-specific resource:
-				if err := shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, c.upstreamInformers, c.upstreamClient, upstreamObj.GetNamespace(), c.syncTargetKey, upstreamObjLogicalCluster, upstreamObj.GetName()); err != nil {
+				// That's not an error, now that the downstream resource has been deleted we need to cleanup all the syncer related labels/annotations/finalizers.
+				if err := c.cleanupSyncerLabelsAnnotationsFinalizers(ctx, gvr, upstreamObj); err != nil {
+					klog.Errorf("Error cleaning up upstream resource %s %s/%s from downstream %s|%s/%s: %v", gvr.Resource, upstreamObj.GetNamespace(), upstreamObj.GetName(), logicalcluster.From(upstreamObj), downstreamNamespace, downstreamObj.GetName(), err)
 					return err
 				}
 				return nil
@@ -400,6 +400,28 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 	}
 	klog.Infof("Upserted %s %s/%s from upstream %s|%s/%s", gvr.Resource, downstreamObj.GetNamespace(), downstreamObj.GetName(), logicalcluster.From(upstreamObj), upstreamObj.GetNamespace(), upstreamObj.GetName())
 
+	return nil
+}
+
+func (c *Controller) cleanupSyncerLabelsAnnotationsFinalizers(ctx context.Context, gvr schema.GroupVersionResource, upstreamObj *unstructured.Unstructured) error {
+	obj := upstreamObj.DeepCopy()
+
+	annotations := obj.GetAnnotations()
+	delete(annotations, workloadv1alpha1.InternalClusterStatusAnnotationPrefix+c.syncTargetKey)
+	delete(annotations, workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+c.syncTargetKey)
+	obj.SetAnnotations(annotations)
+
+	upstreamLabels := upstreamObj.GetLabels()
+	delete(upstreamLabels, workloadv1alpha1.ClusterResourceStateLabelPrefix+c.syncTargetKey)
+	obj.SetLabels(upstreamLabels)
+
+	finalizers := obj.GetFinalizers()
+	desiredFinalizers := sets.NewString(finalizers...).Delete(shared.SyncerFinalizerNamePrefix + c.syncTargetKey).List()
+	obj.SetFinalizers(desiredFinalizers)
+
+	if _, err := c.upstreamClient.Cluster(logicalcluster.From(obj)).Resource(gvr).Namespace(obj.GetNamespace()).Update(ctx, obj, metav1.UpdateOptions{}); err != nil {
+		return err
+	}
 	return nil
 }
 

@@ -267,6 +267,23 @@ func TestSyncerLifecycle(t *testing.T) {
 		return deployment.UID != newDeployment.UID
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "downstream deployment %s/%s was not synced", downstreamNamespaceName, upstreamDeployment.Name)
 
+	t.Logf("Waiting for upstream deployment %s/%s to get the syncer finalizer again", upstreamNamespace.Name, upstreamDeployment.Name)
+	framework.Eventually(t, func() (bool, string) {
+		deployment, err = upstreamKubeClusterClient.AppsV1().Deployments(upstreamNamespace.Name).Get(logicalcluster.WithCluster(ctx, wsClusterName), upstreamDeployment.Name, metav1.GetOptions{})
+		if apierrors.IsNotFound(err) {
+			return false, "deployment is not found"
+		}
+		if err != nil {
+			t.Errorf("saw an error waiting for upstream deployment %s/%s to get the syncer finalizer: %v", upstreamNamespace.Name, upstreamDeployment.Name, err)
+		}
+		for _, finalizer := range deployment.Finalizers {
+			if finalizer == "workload.kcp.dev/syncer-"+syncTargetKey {
+				return true, ""
+			}
+		}
+		return false, "finalizer not found"
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "Upstream deployment %s/%s syncer finalizer was not re-added", upstreamNamespace.Name, upstreamDeployment.Name)
+
 	// Add a virtual Finalizer to the deployment and update it.
 	t.Logf("Adding a virtual finalizer to the upstream deployment %s/%s in order to simulate an external controller", upstreamNamespace.Name, upstreamDeployment.Name)
 	deploymentPatch := []byte(`{"metadata":{"annotations":{"finalizers.workload.kcp.dev/` + syncTargetKey + `":"external-controller-finalizer"}}}`)
@@ -281,7 +298,7 @@ func TestSyncerLifecycle(t *testing.T) {
 	framework.Eventually(t, func() (bool, string) {
 		deployment, err := upstreamKubeClusterClient.AppsV1().Deployments(upstreamNamespace.Name).Get(logicalcluster.WithCluster(ctx, wsClusterName), upstreamDeployment.Name, metav1.GetOptions{})
 		if apierrors.IsNotFound(err) {
-			return false, ""
+			return false, "error: upstream deployment not found"
 		}
 		require.NoError(t, err)
 		if val, ok := deployment.GetAnnotations()["deletion.internal.workload.kcp.dev/"+syncTargetKey]; ok && val != "" {

@@ -26,9 +26,11 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
@@ -93,8 +95,9 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 		return err
 	}
 	if !exists {
+		// If the downstream resource has been deleted, we need to remove the upstream resource finalizer.
 		klog.Infof("Downstream GVR %q object %s/%s does not exist. Removing finalizer upstream", gvr.String(), downstreamNamespace, downstreamName)
-		return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, c.upstreamInformers, c.upstreamClient, upstreamNamespace, c.syncTargetKey, upstreamWorkspace, getUpstreamResourceName(gvr, downstreamName))
+		return c.removeUpstreamFinalizer(ctx, gvr, upstreamWorkspace, upstreamNamespace, getUpstreamResourceName(gvr, downstreamName))
 	}
 
 	// update upstream status
@@ -168,6 +171,40 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 		return err
 	}
 	klog.Infof("Updated status of resource %q %s|%s/%s from pcluster namespace %s", gvr.String(), upstreamLogicalCluster, upstreamNamespace, upstreamName, downstreamObj.GetNamespace())
+	return nil
+}
+
+func (c *Controller) removeUpstreamFinalizer(ctx context.Context, gvr schema.GroupVersionResource, upstreamWorkspace logicalcluster.Name, upstreamNamespace, upstreamResourceName string) error {
+	logger := klog.FromContext(ctx).WithValues("gvr", gvr.String(), "upstreamWorkspace", upstreamWorkspace, "upstreamNamespace", upstreamNamespace, "upstreamResourceName", upstreamResourceName)
+
+	upstreamObjFromLister, err := c.upstreamInformers.ForResource(gvr).Lister().ByNamespace(upstreamNamespace).Get(clusters.ToClusterAwareKey(upstreamWorkspace, upstreamResourceName))
+	if err != nil && !apierrors.IsNotFound(err) {
+		return err
+	}
+	if apierrors.IsNotFound(err) {
+		// If the upstream resource has been deleted, we don't need to do anything.
+		return nil
+	}
+
+	upstreamObj, ok := upstreamObjFromLister.(*unstructured.Unstructured)
+	if !ok {
+		logger.Error(nil, "Resource expected to be *unstructured.Unstructured, got %T")
+		return nil
+	}
+
+	upstreamObj = upstreamObj.DeepCopy()
+
+	// Remove the syncer finalizer to reflect that the resource is no longer owned by the syncer as it's been deleted.
+	currentFinalizers := upstreamObj.GetFinalizers()
+	desiredFinalizers := sets.NewString(currentFinalizers...).Delete(shared.SyncerFinalizerNamePrefix + c.syncTargetKey)
+	upstreamObj.SetFinalizers(desiredFinalizers.List())
+
+	if _, err := c.upstreamClient.Cluster(upstreamWorkspace).Resource(gvr).Namespace(upstreamObj.GetNamespace()).Update(ctx, upstreamObj, metav1.UpdateOptions{}); err != nil {
+		logger.Error(err, "Failed to remove finalizer from upstream resource")
+		return err
+	}
+
+	logger.V(2).Info("Removed finalizer from upstream resource")
 	return nil
 }
 
