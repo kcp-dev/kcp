@@ -107,7 +107,7 @@ build-kind-images: build-kind-images-ko
 
 install: WHAT ?= ./cmd/...
 install:
-	go install GOOS=$(OS) GOARCH=$(ARCH) -ldflags="$(LDFLAGS)" $(WHAT)
+	GOOS=$(OS) GOARCH=$(ARCH) go install -ldflags="$(LDFLAGS)" $(WHAT)
 .PHONY: install
 
 $(GOLANGCI_LINT):
