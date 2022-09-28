@@ -126,6 +126,23 @@ func TestSyncerLifecycle(t *testing.T) {
 		return true
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "downstream configmap %s/%s was not created", downstreamNamespaceName, configMapName)
 
+	t.Logf("Deleting the downstream kcp-root-ca.crt configmap to ensure it is recreated.")
+	err = downstreamKubeClient.CoreV1().ConfigMaps(downstreamNamespaceName).Delete(ctx, configMapName, metav1.DeleteOptions{})
+	require.NoError(t, err)
+
+	t.Logf("Waiting for downstream configmap %s/%s to be recreated...", downstreamNamespaceName, configMapName)
+	framework.Eventually(t, func() (bool, string) {
+		_, err = downstreamKubeClient.CoreV1().ConfigMaps(downstreamNamespaceName).Get(ctx, configMapName, metav1.GetOptions{})
+		if apierrors.IsNotFound(err) {
+			return false, "not found"
+		}
+		if err != nil {
+			t.Errorf("saw an error waiting for downstream configmap %s/%s to be recreated: %v", downstreamNamespaceName, configMapName, err)
+			return false, "error getting configmap"
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "downstream configmap %s/%s was not recreated", downstreamNamespaceName, configMapName)
+
 	t.Log("Creating upstream deployment...")
 
 	deploymentYAML, err := embeddedResources.ReadFile("deployment.yaml")
