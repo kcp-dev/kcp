@@ -90,7 +90,7 @@ func (c *controller) handleObjectDeletion(ctx context.Context, cluster logicalcl
 		return nil // the cached object already removed
 	}
 	if cacheObject.GetDeletionTimestamp() == nil {
-		return c.dynamicCacheClient.Cluster(cluster).Resource(*gvr).Delete(ctx, cacheObject.GetName(), metav1.DeleteOptions{})
+		return c.dynamicCacheClient.Cluster(cluster).Resource(*gvr).Namespace(cacheObject.GetNamespace()).Delete(ctx, cacheObject.GetName(), metav1.DeleteOptions{})
 	}
 	return nil
 }

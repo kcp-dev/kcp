@@ -57,7 +57,7 @@ func TestReconcileAPIExports(t *testing.T) {
 		{
 			name:                   "case 1: creation of the object in the cache server",
 			initialLocalApiExports: []runtime.Object{newAPIExport("foo")},
-			reconcileKey:           "root|foo",
+			reconcileKey:           fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
 			validateFunc: func(ts *testing.T, cacheClientActions []clientgotesting.Action, localClientActions []clientgotesting.Action, targetClusterCacheClient, targetClusterLocalClient logicalcluster.Name) {
 				if len(localClientActions) != 0 {
 					ts.Fatal("unexpected REST calls were made to the localDynamicClient")
@@ -101,7 +101,7 @@ func TestReconcileAPIExports(t *testing.T) {
 			},
 			initialCacheApiExports:                   []runtime.Object{newAPIExportWithShardAnnotation("foo")},
 			initCacheFakeClientWithInitialApiExports: true,
-			reconcileKey:                             "root|foo",
+			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
 			validateFunc: func(ts *testing.T, cacheClientActions []clientgotesting.Action, localClientActions []clientgotesting.Action, targetClusterCacheClient, targetClusterLocalClient logicalcluster.Name) {
 				if len(localClientActions) != 0 {
 					ts.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", targetClusterCacheClient)
@@ -129,7 +129,7 @@ func TestReconcileAPIExports(t *testing.T) {
 			name:                                     "case 2: cached object is removed when local object was not found",
 			initialCacheApiExports:                   []runtime.Object{newAPIExportWithShardAnnotation("foo")},
 			initCacheFakeClientWithInitialApiExports: true,
-			reconcileKey:                             "root|foo",
+			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
 			validateFunc: func(ts *testing.T, cacheClientActions []clientgotesting.Action, localClientActions []clientgotesting.Action, targetClusterCacheClient, targetClusterLocalClient logicalcluster.Name) {
 				if targetClusterCacheClient.String() != "root" {
 					ts.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", targetClusterCacheClient)
@@ -178,7 +178,7 @@ func TestReconcileAPIExports(t *testing.T) {
 			},
 			initialCacheApiExports:                   []runtime.Object{newAPIExportWithShardAnnotation("foo")},
 			initCacheFakeClientWithInitialApiExports: true,
-			reconcileKey:                             "root|foo",
+			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
 			validateFunc: func(ts *testing.T, cacheClientActions []clientgotesting.Action, localClientActions []clientgotesting.Action, targetClusterCacheClient, targetClusterLocalClient logicalcluster.Name) {
 				if len(localClientActions) != 0 {
 					ts.Fatal("unexpected REST calls were made to the localDynamicClient")
@@ -221,7 +221,7 @@ func TestReconcileAPIExports(t *testing.T) {
 			},
 			initialCacheApiExports:                   []runtime.Object{newAPIExportWithShardAnnotation("foo")},
 			initCacheFakeClientWithInitialApiExports: true,
-			reconcileKey:                             "root|foo",
+			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
 			validateFunc: func(ts *testing.T, cacheClientActions []clientgotesting.Action, localClientActions []clientgotesting.Action, targetClusterCacheClient, targetClusterLocalClient logicalcluster.Name) {
 				if len(localClientActions) != 0 {
 					ts.Fatal("unexpected REST calls were made to the localDynamicClient")
@@ -264,7 +264,7 @@ func TestReconcileAPIExports(t *testing.T) {
 			},
 			initialCacheApiExports:                   []runtime.Object{newAPIExportWithShardAnnotation("foo")},
 			initCacheFakeClientWithInitialApiExports: true,
-			reconcileKey:                             "root|foo",
+			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
 			validateFunc: func(ts *testing.T, cacheClientActions []clientgotesting.Action, localClientActions []clientgotesting.Action, targetClusterCacheClient, targetClusterLocalClient logicalcluster.Name) {
 				if len(localClientActions) != 0 {
 					ts.Fatal("unexpected REST calls were made to the localDynamicClient")
@@ -322,7 +322,7 @@ func TestReconcileAPIExports(t *testing.T) {
 			target.dynamicCacheClient = fakeCacheDynamicClient
 			fakeLocalDynamicClient := newFakeKcpClusterClient(dynamicfake.NewSimpleDynamicClient(scheme))
 			target.dynamicLocalClient = fakeLocalDynamicClient
-			if err := target.reconcileAPIExports(context.TODO(), scenario.reconcileKey, apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")); err != nil {
+			if err := target.reconcile(context.TODO(), scenario.reconcileKey); err != nil {
 				tt.Fatal(err)
 			}
 			if scenario.validateFunc != nil {

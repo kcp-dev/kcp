@@ -23,6 +23,8 @@ import (
 
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
@@ -33,7 +35,7 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
-	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
+	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
@@ -57,38 +59,52 @@ func NewController(
 	shardName string,
 	dynamicCacheClient dynamic.ClusterInterface,
 	dynamicLocalClient dynamic.ClusterInterface,
-	localApiExportInformer apisinformers.APIExportInformer,
-	cacheApiExportInformer apisinformers.APIExportInformer,
+	localKcpInformers kcpinformers.SharedInformerFactory,
+	cacheKcpInformers kcpinformers.SharedInformerFactory,
 ) (*controller, error) {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := &controller{
-		shardName:              shardName,
-		queue:                  queue,
-		dynamicCacheClient:     dynamicCacheClient,
-		dynamicLocalClient:     dynamicLocalClient,
-		localApiExportLister:   localApiExportInformer.Lister(),
-		cacheApiExportsIndexer: cacheApiExportInformer.Informer().GetIndexer(),
+		shardName:                     shardName,
+		queue:                         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
+		dynamicCacheClient:            dynamicCacheClient,
+		dynamicLocalClient:            dynamicLocalClient,
+		localApiExportLister:          localKcpInformers.Apis().V1alpha1().APIExports().Lister(),
+		localApiResourceSchemaLister:  localKcpInformers.Apis().V1alpha1().APIResourceSchemas().Lister(),
+		cacheApiExportsIndexer:        cacheKcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer(),
+		cacheApiResourceSchemaIndexer: cacheKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer().GetIndexer(),
 	}
 
-	if err := cacheApiExportInformer.Informer().AddIndexers(cache.Indexers{
+	if err := cacheKcpInformers.Apis().V1alpha1().APIExports().Informer().AddIndexers(cache.Indexers{
 		ByShardAndLogicalClusterAndNamespaceAndName: IndexByShardAndLogicalClusterAndNamespace,
 	}); err != nil {
 		return nil, err
 	}
-	c.cacheApiExportsIndexer = cacheApiExportInformer.Informer().GetIndexer()
+	if err := cacheKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer().AddIndexers(cache.Indexers{
+		ByShardAndLogicalClusterAndNamespaceAndName: IndexByShardAndLogicalClusterAndNamespace,
+	}); err != nil {
+		return nil, err
+	}
 
-	localApiExportInformer.Informer().AddEventHandler(c.apiExportInformerEventHandler())
-	cacheApiExportInformer.Informer().AddEventHandler(c.apiExportInformerEventHandler())
+	localKcpInformers.Apis().V1alpha1().APIExports().Informer().AddEventHandler(c.apiExportInformerEventHandler())
+	localKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer().AddEventHandler(c.apiResourceSchemaInformerEventHandler())
+	cacheKcpInformers.Apis().V1alpha1().APIExports().Informer().AddEventHandler(c.apiExportInformerEventHandler())
+	cacheKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer().AddEventHandler(c.apiResourceSchemaInformerEventHandler())
 	return c, nil
 }
 
 func (c *controller) enqueueAPIExport(obj interface{}) {
+	c.enqueueObject(obj, apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"))
+}
+
+func (c *controller) enqueueAPIResourceSchema(obj interface{}) {
+	c.enqueueObject(obj, apisv1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas"))
+}
+
+func (c *controller) enqueueObject(obj interface{}, gvr schema.GroupVersionResource) {
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
-	gvr := apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")
 	gvrKey := fmt.Sprintf("%v::%v", gvr.String(), key)
 	c.queue.Add(gvrKey)
 }
@@ -136,19 +152,28 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *controller) apiExportInformerEventHandler() cache.FilteringResourceEventHandler {
+	return objectInformerEventHandler(c.enqueueAPIExport)
+}
+
+func (c *controller) apiResourceSchemaInformerEventHandler() cache.FilteringResourceEventHandler {
+	return objectInformerEventHandler(c.enqueueAPIResourceSchema)
+}
+
+func objectInformerEventHandler(enqueueObject func(obj interface{})) cache.FilteringResourceEventHandler {
 	return cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
-			apiExport, ok := obj.(*apisv1alpha1.APIExport)
-			if !ok {
+			metadata, err := meta.Accessor(obj)
+			if err != nil {
+				runtime.HandleError(err)
 				return false
 			}
-			_, hasReplicationLabel := apiExport.Annotations[AnnotationKey]
+			_, hasReplicationLabel := metadata.GetAnnotations()[AnnotationKey]
 			return hasReplicationLabel
 		},
 		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    func(obj interface{}) { c.enqueueAPIExport(obj) },
-			UpdateFunc: func(_, obj interface{}) { c.enqueueAPIExport(obj) },
-			DeleteFunc: func(obj interface{}) { c.enqueueAPIExport(obj) },
+			AddFunc:    func(obj interface{}) { enqueueObject(obj) },
+			UpdateFunc: func(_, obj interface{}) { enqueueObject(obj) },
+			DeleteFunc: func(obj interface{}) { enqueueObject(obj) },
 		},
 	}
 }
@@ -160,7 +185,9 @@ type controller struct {
 	dynamicCacheClient dynamic.ClusterInterface
 	dynamicLocalClient dynamic.ClusterInterface
 
-	localApiExportLister apislisters.APIExportLister
+	localApiExportLister         apislisters.APIExportLister
+	localApiResourceSchemaLister apislisters.APIResourceSchemaLister
 
-	cacheApiExportsIndexer cache.Indexer
+	cacheApiExportsIndexer        cache.Indexer
+	cacheApiResourceSchemaIndexer cache.Indexer
 }
