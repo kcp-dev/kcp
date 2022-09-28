@@ -65,9 +65,7 @@ func TestWorkspaceTerminating(t *testing.T) {
 			name:           "discovery client error",
 			existingObject: []runtime.Object{},
 			metadataClientActionSet: []metaAction{
-				{"secrets", "list"},
-				{"secrets", "list"},
-				{"customresourcedefinitions", "list"},
+				{"customresourcedefinitions", "delete-collection"},
 				{"customresourcedefinitions", "list"},
 			},
 			gvrError:            fmt.Errorf("test error"),
@@ -84,20 +82,15 @@ func TestWorkspaceTerminating(t *testing.T) {
 			},
 		},
 		{
-			name: "delete ns scoped resource",
+			name: "do not delete ns scoped resource",
 			existingObject: []runtime.Object{
 				newPartialObject("v1", "Secret", "s1", "ns1"),
 				newPartialObject("v1", "Secret", "s2", "ns2"),
 			},
 			metadataClientActionSet: []metaAction{
-				{"secrets", "list"},
-				{"secrets", "delete-collection"},
-				{"secrets", "delete-collection"},
-				{"secrets", "list"},
-				{"customresourcedefinitions", "list"},
+				{"customresourcedefinitions", "delete-collection"},
 				{"customresourcedefinitions", "list"},
 			},
-			expectErrorOnDelete: &ResourcesRemainingError{5, "Some resources are remaining: secrets. has 2 resource instances"},
 			expectConditions: conditionsv1alpha1.Conditions{
 				{
 					Type:   tenancyv1alpha1.WorkspaceDeletionContentSuccess,
@@ -105,7 +98,7 @@ func TestWorkspaceTerminating(t *testing.T) {
 				},
 				{
 					Type:   tenancyv1alpha1.WorkspaceContentDeleted,
-					Status: v1.ConditionFalse,
+					Status: v1.ConditionTrue,
 				},
 			},
 		},
@@ -116,9 +109,6 @@ func TestWorkspaceTerminating(t *testing.T) {
 				newPartialObject("apiextensions.k8s.io/v1", "CustomResourceDefinition", "crd2", ""),
 			},
 			metadataClientActionSet: []metaAction{
-				{"secrets", "list"},
-				{"secrets", "list"},
-				{"customresourcedefinitions", "list"},
 				{"customresourcedefinitions", "delete-collection"},
 				{"customresourcedefinitions", "list"},
 			},

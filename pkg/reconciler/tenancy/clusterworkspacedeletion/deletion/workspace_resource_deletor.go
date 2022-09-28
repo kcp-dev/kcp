@@ -153,6 +153,7 @@ const (
 )
 
 // deleteCollection is a helper function that will delete the collection of resources
+// it only handles cluster scoped resource.
 // it returns true if the operation was supported on the server.
 // it returns an error if the operation was supported on the server but was unable to complete.
 func (d *workspacedResourcesDeleter) deleteCollection(ctx context.Context, clusterName logicalcluster.Name, gvr schema.GroupVersionResource, verbs sets.String) (bool, error) {
@@ -164,39 +165,15 @@ func (d *workspacedResourcesDeleter) deleteCollection(ctx context.Context, clust
 		return false, nil
 	}
 
-	unstructuredList, listSupported, err := d.listCollection(ctx, clusterName, gvr, verbs)
-	if err != nil {
-		return false, err
-	}
-	if !listSupported {
-		return false, nil
-	}
-
-	deletedNamespaces := sets.String{}
-	deleteErrors := []error{}
-	for _, item := range unstructuredList.Items {
-		if deletedNamespaces.Has(item.GetNamespace()) {
-			continue
-		}
-		// don't retry deleting the same namespace
-		deletedNamespaces.Insert(item.GetNamespace())
-		background := metav1.DeletePropagationBackground
-		opts := metav1.DeleteOptions{PropagationPolicy: &background}
-		if err := d.metadataClusterClient.Resource(gvr).Namespace(item.GetNamespace()).DeleteCollection(
-			logicalcluster.WithCluster(ctx, clusterName), opts, metav1.ListOptions{}); err != nil {
-			deleteErrors = append(deleteErrors, err)
-			continue
-		}
+	background := metav1.DeletePropagationBackground
+	opts := metav1.DeleteOptions{PropagationPolicy: &background}
+	if err := d.metadataClusterClient.Resource(gvr).DeleteCollection(
+		logicalcluster.WithCluster(ctx, clusterName), opts, metav1.ListOptions{}); err != nil {
+		logger.V(5).Error(err, "unexpected deleteColection error")
+		return true, err
 	}
 
-	deleteError := utilerrors.NewAggregate(deleteErrors)
-
-	if deleteError == nil {
-		return true, nil
-	}
-
-	logger.V(5).Error(err, "unexpected error")
-	return true, deleteError
+	return true, nil
 }
 
 // listCollection will list the items in the specified workspace
@@ -385,7 +362,13 @@ func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *t
 
 	deletableResources := discovery.FilteredBy(and{
 		discovery.SupportsAllVerbs{Verbs: []string{"delete"}},
+		// Don't try to delete projected resources such as tenancy.kcp.dev v1beta1 Workspaces - these are virtual
+		// projections and we shouldn't try to delete them. The projections will disappear when the real underlying
+		// data (e.g. ClusterWorkspaces) are deleted.
 		isNotVirtualResource{},
+		// no need to delete namespace scoped resource since it will be handled by namespace deletion anyway. This
+		// can avoid redundant list/delete requests.
+		isNotNamespaceScoped{},
 	}, resources)
 	groupVersionResources, err := groupVersionResources(deletableResources)
 	if err != nil {
@@ -402,13 +385,6 @@ func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *t
 	}
 	deleteContentErrs := []error{}
 	for gvr, verbs := range groupVersionResources {
-		// Don't try to delete projected resources such as tenancy.kcp.dev v1beta1 Workspaces - these are virtual
-		// projections and we shouldn't try to delete them. The projections will disappear when the real underlying
-		// data (e.g. ClusterWorkspaces) are deleted.
-		if projection.Includes(gvr) {
-			continue
-		}
-
 		gvrDeletionMetadata, err := d.deleteAllContentForGroupVersionResource(ctx, wsClusterName, gvr, verbs, workspaceDeletedAt)
 		if err != nil {
 			// If there is an error, hold on to it but proceed with all the remaining
@@ -517,14 +493,6 @@ func groupVersionResources(rls []*metav1.APIResourceList) (map[schema.GroupVersi
 	return gvrs, nil
 }
 
-// virtualResources are those that are mapped into a workspace, but are not actually the
-// backing resource. This can be because the backing resource is in the same workspace,
-// it can be that the source of the resource is another workspace.
-// TODO(sttts): this is a hack, there should be serious mechanism to map in resources into workspaces.
-var virtualResources = sets.NewString(
-	"workspaces.tenancy.kcp.dev",
-)
-
 type isNotVirtualResource struct{}
 
 // Match checks if a resource contains all the given verbs.
@@ -533,8 +501,15 @@ func (vr isNotVirtualResource) Match(groupVersion string, r *metav1.APIResource)
 	if err != nil {
 		return true
 	}
-	gr := metav1.GroupResource{Group: gv.Group, Resource: r.Name}
-	return !virtualResources.Has(gr.String())
+	gvr := schema.GroupVersionResource{Group: gv.Group, Version: gv.Version, Resource: r.Name}
+	return !projection.Includes(gvr)
+}
+
+type isNotNamespaceScoped struct{}
+
+// Match checks if the resource is a cluster scoped resource
+func (n isNotNamespaceScoped) Match(groupVersion string, r *metav1.APIResource) bool {
+	return !r.Namespaced
 }
 
 type and []discovery.ResourcePredicate
