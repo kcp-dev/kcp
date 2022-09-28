@@ -55,7 +55,7 @@ LOGCHECK_BIN := logcheck
 LOGCHECK := $(TOOLS_GOBIN_DIR)/$(LOGCHECK_BIN)-$(LOGCHECK_VER)
 export LOGCHECK # so hack scripts can use it
 
-ARCH := $(subst 64,,$(shell uname -p | sed s/x86_/amd/))64
+ARCH := $(shell go env GOARCH)
 OS := "" #fallback to go build default behaviour, but it can be overridden from outside
 
 KUBE_MAJOR_VERSION := $(shell go mod edit -json | jq '.Require[] | select(.Path == "k8s.io/kubernetes") | .Version' --raw-output | sed 's/v\([0-9]*\).*/\1/')
