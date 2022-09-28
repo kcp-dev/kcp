@@ -55,8 +55,8 @@ LOGCHECK_BIN := logcheck
 LOGCHECK := $(TOOLS_GOBIN_DIR)/$(LOGCHECK_BIN)-$(LOGCHECK_VER)
 export LOGCHECK # so hack scripts can use it
 
-ARCH := $(go env GOARCH)
-OS := $(go env GOOS)
+ARCH := $(shell go env GOARCH)
+OS := $(shell go env GOOS)
 
 KUBE_MAJOR_VERSION := $(shell go mod edit -json | jq '.Require[] | select(.Path == "k8s.io/kubernetes") | .Version' --raw-output | sed 's/v\([0-9]*\).*/\1/')
 KUBE_MINOR_VERSION := $(shell go mod edit -json | jq '.Require[] | select(.Path == "k8s.io/kubernetes") | .Version' --raw-output | sed "s/v[0-9]*\.\([0-9]*\).*/\1/")
