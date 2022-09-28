@@ -186,6 +186,164 @@ func TestAdmission(t *testing.T) {
 				return []apisv1alpha1.PermissionClaim{}
 			},
 		},
+		"IntersectingVerbs": {
+			kind:     "APIExport",
+			resource: "apiexports",
+			modifyPCs: func(pc []apisv1alpha1.PermissionClaim) []apisv1alpha1.PermissionClaim {
+				return []apisv1alpha1.PermissionClaim{{
+					IdentityHash: "coolidentityhash",
+					Verbs: apisv1alpha1.Verbs{
+						Claimed:    []string{"get"},
+						RestrictTo: []string{"get"},
+					},
+				}}
+			},
+		},
+		"IntersectingMutationVerbs": {
+			kind:     "APIExport",
+			resource: "apiexports",
+			modifyPCs: func(pc []apisv1alpha1.PermissionClaim) []apisv1alpha1.PermissionClaim {
+				return []apisv1alpha1.PermissionClaim{{
+					IdentityHash: "coolidentityhash",
+					Verbs: apisv1alpha1.Verbs{
+						Claimed:    []string{"get", "delete", "patch"},
+						RestrictTo: []string{"get", "delete"},
+					},
+				}}
+			},
+			want: field.Invalid(
+				field.NewPath("spec").
+					Child("permissionClaims").
+					Index(0).
+					Child("verbs"),
+				"",
+				"verbs.claimed and verbs.restrictTo must not have intersecting mutation verbs"),
+		},
+		"NonIntersectingMutationVerbs": {
+			kind:     "APIExport",
+			resource: "apiexports",
+			modifyPCs: func(pc []apisv1alpha1.PermissionClaim) []apisv1alpha1.PermissionClaim {
+				return []apisv1alpha1.PermissionClaim{{
+					IdentityHash: "coolidentityhash",
+					Verbs: apisv1alpha1.Verbs{
+						Claimed:    []string{"get", "patch"},
+						RestrictTo: []string{"get", "delete"},
+					},
+				}}
+			},
+		},
+		"RestrictToMutationVerbs": {
+			kind:     "APIExport",
+			resource: "apiexports",
+			modifyPCs: func(pc []apisv1alpha1.PermissionClaim) []apisv1alpha1.PermissionClaim {
+				return []apisv1alpha1.PermissionClaim{{
+					IdentityHash: "coolidentityhash",
+					Verbs: apisv1alpha1.Verbs{
+						Claimed:    []string{"get"},
+						RestrictTo: []string{"get", "delete"},
+					},
+				}}
+			},
+		},
+		"ClaimedMutationVerbs": {
+			kind:     "APIExport",
+			resource: "apiexports",
+			modifyPCs: func(pc []apisv1alpha1.PermissionClaim) []apisv1alpha1.PermissionClaim {
+				return []apisv1alpha1.PermissionClaim{{
+					IdentityHash: "coolidentityhash",
+					Verbs: apisv1alpha1.Verbs{
+						Claimed:    []string{"get", "delete"},
+						RestrictTo: []string{"get"},
+					},
+				}}
+			},
+		},
+		"ClaimedWildcardVerbs": {
+			kind:     "APIExport",
+			resource: "apiexports",
+			modifyPCs: func(pc []apisv1alpha1.PermissionClaim) []apisv1alpha1.PermissionClaim {
+				return []apisv1alpha1.PermissionClaim{{
+					IdentityHash: "coolidentityhash",
+					Verbs: apisv1alpha1.Verbs{
+						Claimed:    []string{"*"},
+						RestrictTo: []string{"get"},
+					},
+				}}
+			},
+		},
+		"RestrictTodWildcardVerbs": {
+			kind:     "APIExport",
+			resource: "apiexports",
+			modifyPCs: func(pc []apisv1alpha1.PermissionClaim) []apisv1alpha1.PermissionClaim {
+				return []apisv1alpha1.PermissionClaim{{
+					IdentityHash: "coolidentityhash",
+					Verbs: apisv1alpha1.Verbs{
+						Claimed:    []string{"get"},
+						RestrictTo: []string{"*"},
+					},
+				}}
+			},
+		},
+		"ClaimedWildcardVerbsConflict": {
+			kind:     "APIExport",
+			resource: "apiexports",
+			modifyPCs: func(pc []apisv1alpha1.PermissionClaim) []apisv1alpha1.PermissionClaim {
+				return []apisv1alpha1.PermissionClaim{{
+					IdentityHash: "coolidentityhash",
+					Verbs: apisv1alpha1.Verbs{
+						Claimed:    []string{"*"},
+						RestrictTo: []string{"delete"},
+					},
+				}}
+			},
+			want: field.Invalid(
+				field.NewPath("spec").
+					Child("permissionClaims").
+					Index(0).
+					Child("verbs"),
+				"",
+				"verbs.claimed and verbs.restrictTo must not have intersecting mutation verbs"),
+		},
+		"RestrictTodWildcardVerbsConflict": {
+			kind:     "APIExport",
+			resource: "apiexports",
+			modifyPCs: func(pc []apisv1alpha1.PermissionClaim) []apisv1alpha1.PermissionClaim {
+				return []apisv1alpha1.PermissionClaim{{
+					IdentityHash: "coolidentityhash",
+					Verbs: apisv1alpha1.Verbs{
+						Claimed:    []string{"delete"},
+						RestrictTo: []string{"*"},
+					},
+				}}
+			},
+			want: field.Invalid(
+				field.NewPath("spec").
+					Child("permissionClaims").
+					Index(0).
+					Child("verbs"),
+				"",
+				"verbs.claimed and verbs.restrictTo must not have intersecting mutation verbs"),
+		},
+		"WildcardConflict": {
+			kind:     "APIExport",
+			resource: "apiexports",
+			modifyPCs: func(pc []apisv1alpha1.PermissionClaim) []apisv1alpha1.PermissionClaim {
+				return []apisv1alpha1.PermissionClaim{{
+					IdentityHash: "coolidentityhash",
+					Verbs: apisv1alpha1.Verbs{
+						Claimed:    []string{"*"},
+						RestrictTo: []string{"*"},
+					},
+				}}
+			},
+			want: field.Invalid(
+				field.NewPath("spec").
+					Child("permissionClaims").
+					Index(0).
+					Child("verbs"),
+				"",
+				"verbs.claimed and verbs.restrictTo must not have intersecting mutation verbs"),
+		},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {

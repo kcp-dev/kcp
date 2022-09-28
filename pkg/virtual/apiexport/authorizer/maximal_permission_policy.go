@@ -46,7 +46,6 @@ type maximalPermissionAuthorizer struct {
 // The check is omitted if the requested resource itself is not associated with an API export.
 //
 // If the request is a cluster request the authorizer skips authorization if the request is not for a bound resource.
-// If the request is a wildcard request this check is skipped because no unique API binding can be determined.
 func NewMaximalPermissionAuthorizer(deepSARClient kcpkubernetesclientset.ClusterInterface, apiExportInformer apisv1alpha1informers.APIExportClusterInformer) authorizer.Authorizer {
 	apiExportLister := apiExportInformer.Lister()
 	apiExportIndexer := apiExportInformer.Informer().GetIndexer()

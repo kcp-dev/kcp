@@ -29,3 +29,8 @@ A normal service account lives in just ONE workspace and can only access its own
 - **Will there be multiple virtual workspace URLs my controller has to watch?** Yes, as soon as we add sharding, it will become a list. So it might be that 1000 tenants are accessible under one URL, the next 1000 under another one, and so on. The controllers have to watch the mentioned URL lists in status of objects and start new instances (either with their own controller sharding eventually, or just in process with another go routine).
 - **Show me the code.** The stock kcp virtual workspaces are in [`pkg/virtual`](../pkg/virtual).
 - **Who runs the virtual workspaces?** The stock kcp virtual workspaces will be run through `kcp start` in-process. The personal workspace one (example 1) can also be run as its own process and the kcp apiserver will forward traffic to the external address. There might be reasons in the future like scalability that the later model is preferred. For the clients of virtual workspaces that has no impact. They are supposed to "blindly" use the URLs published in the API objects' status. Those URLs might point to in-process instances or external addresses depending on deployment topology.
+
+## Virtual API export workspace
+
+A virtual API export workspace allows the service provider to ask the system for only the objects which the service provider is to handle within the context of an APIExport,
+allowing the control plane to close over the data filtering and selection required to serve that data.

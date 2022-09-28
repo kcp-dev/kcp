@@ -192,6 +192,97 @@ i.e. a claimed resource is bound to the same maximal permission policy. Only the
 
 TBD: Example
 
+### Permission Claims Authorizer
+
+The permission claims authorizer checks whether the requested resource matches a claimed resource of an API export
+bound in the requested workspace, whether the underlying permission claim is accepted,
+and whether the requested verb is claimed as specified in the `verbs.claimed` field.
+
+If the requested resource doesn't match a permission claim resource selector,
+or if the permission claim is not accepted, access is denied.
+If the verb matches an entry in the `verbs.claimed` field or if it specifies `*` (all verbs), access is allowed.
+If the verb doesn't match any entry in the `verbs.claimed` field, or if the `verbs.claimed` field is empty, access is denied.
+Access to any other resource is denied.
+
+In case of referencing API exports the export identity hash must be provided.
+Access to any resource other than the bound API export type or matching accepted permission claims is denied.
+This authorizer is only applied in the virtual API export service and thus is always executed with the context of a concrete API export.
+
+If the requested resource is also referenced as permission claims in other API bindings within the same requested workspace,
+then the reverse permission claims authorization rules described below are applied.
+
+The following rules are enforced for the `verbs.claimed` field:
+
+- It is required.
+- `"*"` matches all verbs. If present, it must be the only entry.
+- If the list is empty, no verbs are allowed, effectively denying any access to the requested resource.
+
+If the APIExport of the requested and claimed resource has a maximum permission policy configured,
+access to the requested resource can be further constrained.
+
+Example: Given an APIExport `foo` a service provider claims to have full `*` access to the claimed resource `bar.some.group`,
+access to consumers of the API export are restricted to read-only `get`, `watch`, `list` access:
+
+```yaml
+apiVersion: apis.kcp.dev/v1alpha1
+kind: APIExport
+metadata:
+  name: foo
+spec:
+...
+  permissionClaims:
+  - resource: bars
+    group: some.group
+    all: true
+    verbs:
+      claimed: ["*"]
+      restrictTo: ["get", "watch", "list"] 
+    identityHash: 580de6010242a491e8a072512753badf80887af5d569b9980f661f246b29f804
+```
+
+### Reverse Permission Claims Authorizer
+
+The reverse permission claims authorizer checks whether the requested resource matches a claimed resource of an API export
+within the requested workspace. If the requested resource matches a permission claim resource selector
+and the permission claim is accepted, access is subject of the rules below.
+
+The API service provider can restrict access by users that bind their APIs by specifying verbs in the `verbs.restrictTo` field on their `APIExport`.
+If the requested verb matches an entry in the `verbs.restrictTo` field or if it specifies `*` (all verbs), access is allowed.
+If the requested verb doesn't match any entry in the `verbs.restrictTo` field, or if the `verbs.restrictTo` field is empty, access is denied.
+Access to any other resource is allowed.
+
+If the requested resource type is claimed by different API Exports in the same workspace,
+the intersection of the above rules are applied.
+
+The following rules are enforced for the `verbs.claimed` field:
+
+- It is required.
+- `"*"` matches all verbs. If present, it must be the only entry.
+- If the list is empty, no verbs are allowed, effectively denying any access to the requested resource.
+
+If the APIExport of the requested and claimed resource has a maximum permission policy configured,
+access to the requested resource can be further constrained as explained in the "API binding authorizer" section.
+
+Example: Given an APIExport `foo` a service provider claims read-only access `get`, `watch`, `list` to the claimed resource `bar.some.group`,
+access to consumers of the API export are "restricted" to have full `*` access:
+
+```yaml
+apiVersion: apis.kcp.dev/v1alpha1
+kind: APIExport
+metadata:
+  name: foo
+spec:
+...
+  permissionClaims:
+  - resource: bars
+    group: some.group
+    identityHash: 580de6010242a491e8a072512753badf80887af5d569b9980f661f246b29f804
+    all: true
+    verbs:
+      claimed: ["get", "watch", "list"]
+      restrictTo: ["*"]
+```
+
 ### Kubernetes Bootstrap Policy authorizer
 
 The bootstrap policy authorizer works just like the local authorizer but references RBAC rules

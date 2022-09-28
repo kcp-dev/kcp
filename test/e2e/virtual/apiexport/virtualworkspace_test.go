@@ -706,22 +706,28 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "clusterroles"},
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "clusterrolebindings"},
 		sheriffsGVR,
+		// read-only access to API bindings is generally allowed
 		apisv1alpha1.SchemeGroupVersion.WithResource("apibindings"),
+		// access to the actually bound API is not under jurisdiction of permission claims
+		{Group: "wildwest.dev", Version: "v1alpha1", Resource: "cowboys"},
 	}
 
-	t.Logf("verify that we get empty lists for all claimed resources (other than apibindings) because the claims have not been accepted yet")
+	t.Logf("verify that we get access denied for all claimed resources (other than apibindings and cowboys bindings) because the claims have not been accepted yet")
 	for _, gvr := range claimedGVRs {
 		t.Logf("Trying to wildcard list %q", gvr)
 		list, err := dynamicVWClusterClient.Resource(gvr).List(ctx, metav1.ListOptions{})
-		require.NoError(t, err, "error listing %q", gvr)
-		if gvr == apisv1alpha1.SchemeGroupVersion.WithResource("apibindings") {
+		if gvr.Resource == "cowboys" {
+			require.NoError(t, err, "error listing %q", gvr)
+		} else if gvr == apisv1alpha1.SchemeGroupVersion.WithResource("apibindings") {
+			require.NoError(t, err, "error listing %q", gvr)
 			// for this one we always see the reflexive objects
 			require.Equal(t, 1, len(list.Items), "expected to find 1 apibinding, got %#v", list.Items)
 			for _, binding := range list.Items {
 				require.Equal(t, "cowboys", binding.GetName(), "expected binding name to be \"cowboys\"")
 			}
 		} else {
-			require.Empty(t, list.Items, "expected 0 items but got %#v for gvr %s", list.Items, gvr)
+			require.Error(t, err, "error listing %q", gvr)
+			require.ErrorContains(t, err, `access denied`, "access must not be allowed to permission claims that are not accepted yet")
 		}
 	}
 
@@ -835,12 +841,15 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 	_, err = kcpClusterClient.Cluster(consumerClusterName.Path()).ApisV1alpha1().APIBindings().Patch(ctx, apiBinding.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
 	require.NoError(t, err, "error patching apibinding")
 
-	t.Logf("making sure list sheriffs is now empty")
+	t.Logf("making sure list sheriffs returns access denied now")
 	framework.Eventually(t, func() (success bool, reason string) {
-		list, err := dynamicVWClusterClient.Resource(sheriffsGVR).List(ctx, metav1.ListOptions{})
-		require.NoError(t, err, "error listing sheriffs")
-		return len(list.Items) == 0, fmt.Sprintf("waiting for empty list, got %#v", list.Items)
-	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected to eventually get 0 sheriffs")
+		_, err := dynamicVWClusterClient.Resource(sheriffsGVR).List(ctx, metav1.ListOptions{})
+		if err == nil {
+			return false, "waiting for the permission claim rejection to have effect"
+		}
+		require.ErrorContains(t, err, `access denied`, "access must not be allowed to permission claims that are rejected")
+		return true, ""
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected to eventually have access denied to sheriffs")
 }
 
 func TestAPIExportInternalAPIsDrift(t *testing.T) {
@@ -962,31 +971,59 @@ func setUpServiceProviderWithPermissionClaims(ctx context.Context, dynamicCluste
 		{
 			GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "configmaps"},
 			All:           true,
+			Verbs: apisv1alpha1.Verbs{
+				Claimed:    []string{"*"},
+				RestrictTo: []string{"list", "get", "watch"},
+			},
 		},
 		{
 			GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "secrets"},
 			All:           true,
+			Verbs: apisv1alpha1.Verbs{
+				Claimed:    []string{"*"},
+				RestrictTo: []string{"list", "get", "watch"},
+			},
 		},
 		{
 			GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "serviceaccounts"},
 			All:           true,
+			Verbs: apisv1alpha1.Verbs{
+				Claimed:    []string{"*"},
+				RestrictTo: []string{"list", "get", "watch"},
+			},
 		},
 		{
 			GroupResource: apisv1alpha1.GroupResource{Group: "rbac.authorization.k8s.io", Resource: "clusterroles"},
 			All:           true,
+			Verbs: apisv1alpha1.Verbs{
+				Claimed:    []string{"*"},
+				RestrictTo: []string{"list", "get", "watch"},
+			},
 		},
 		{
 			GroupResource: apisv1alpha1.GroupResource{Group: "rbac.authorization.k8s.io", Resource: "clusterrolebindings"},
 			All:           true,
+			Verbs: apisv1alpha1.Verbs{
+				Claimed:    []string{"*"},
+				RestrictTo: []string{"list", "get", "watch"},
+			},
 		},
 		{
 			GroupResource: apisv1alpha1.GroupResource{Group: "apis.kcp.io", Resource: "apibindings"},
 			All:           true,
+			Verbs: apisv1alpha1.Verbs{
+				Claimed:    []string{"get", "list", "watch"},
+				RestrictTo: []string{"list", "get", "watch", "patch"},
+			},
 		},
 		{
 			GroupResource: apisv1alpha1.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
 			IdentityHash:  identityHash,
 			All:           true,
+			Verbs: apisv1alpha1.Verbs{
+				Claimed:    []string{"get", "list", "watch"},
+				RestrictTo: []string{"get", "list", "watch", "create", "patch"},
+			},
 		},
 	}
 	setUpServiceProvider(ctx, dynamicClusterClient, kcpClients, serviceProviderWorkspace, cfg, t, claims...)

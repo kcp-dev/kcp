@@ -301,6 +301,7 @@ func TestAPIExportAuthorizers(t *testing.T) {
 	user2ApiExportVWCfg := framework.UserConfig("user-2", rest.CopyConfig(cfg))
 	user2ApiExportVWCfg.Host = apiExport.Status.VirtualWorkspaces[0].URL
 	user2DynamicVWClient, err := kcpdynamic.NewForConfig(user2ApiExportVWCfg)
+	require.NoError(t, err)
 
 	t.Logf("verify that user-2 cannot list sherrifs resources via virtual apiexport apiserver because we have no local maximal permissions yet granted")
 	_, err = user2DynamicVWClient.Resource(schema.GroupVersionResource{Version: "v1", Resource: "sheriffs", Group: "wild.wild.west"}).List(ctx, metav1.ListOptions{})

@@ -110,7 +110,10 @@ func (s *Authorization) ApplyTo(config *genericapiserver.Config, informer kcpkub
 	maxPermissionPolicyAuth := authz.NewMaximalPermissionPolicyAuthorizer(informer, kcpinformer, union.New(bootstrapAuth, localAuth))
 	maxPermissionPolicyAuth = authz.NewDecorator("maxpermissionpolicy.authorization.kcp.io", maxPermissionPolicyAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
-	systemCRDAuth := authz.NewSystemCRDAuthorizer(maxPermissionPolicyAuth)
+	reversePermissionAuth := authz.NewReversePermissionClaimsAuthorizer(kcpinformer.Apis().V1alpha1().APIBindings().Lister(), maxPermissionPolicyAuth)
+	reversePermissionAuth = authz.NewDecorator("reverse-permission.authorization.kcp.io", reversePermissionAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+
+	systemCRDAuth := authz.NewSystemCRDAuthorizer(reversePermissionAuth)
 	systemCRDAuth = authz.NewDecorator("systemcrd.authorization.kcp.io", systemCRDAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
 	contentAuth := authz.NewWorkspaceContentAuthorizer(informer, workspaceLister, systemCRDAuth)

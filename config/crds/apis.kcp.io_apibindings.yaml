@@ -104,9 +104,32 @@ spec:
                       - Accepted
                       - Rejected
                       type: string
+                    verbs:
+                      description: contains both claimed verbs and those verbs which
+                        are restricted to be used on this claim.
+                      properties:
+                        claimed:
+                          description: claimed is a list of verbs that restrict access
+                            via services. '*' represents all verbs.
+                          items:
+                            type: string
+                          type: array
+                        restrictTo:
+                          description: restrictTo is a list of verbs that restrict
+                            access via workspaces. They also restrict access via services
+                            if the same resources are claimed by a different API export
+                            in the same workspace. '*' represents all verbs.
+                          items:
+                            type: string
+                          type: array
+                      required:
+                      - claimed
+                      - restrictTo
+                      type: object
                   required:
                   - resource
                   - state
+                  - verbs
                   type: object
                   x-kubernetes-validations:
                   - message: either "all" or "resourceSelector" must be set
@@ -210,8 +233,31 @@ spec:
                         - message: at least one field must be set
                           rule: has(self.__namespace__) || has(self.name)
                       type: array
+                    verbs:
+                      description: contains both claimed verbs and those verbs which
+                        are restricted to be used on this claim.
+                      properties:
+                        claimed:
+                          description: claimed is a list of verbs that restrict access
+                            via services. '*' represents all verbs.
+                          items:
+                            type: string
+                          type: array
+                        restrictTo:
+                          description: restrictTo is a list of verbs that restrict
+                            access via workspaces. They also restrict access via services
+                            if the same resources are claimed by a different API export
+                            in the same workspace. '*' represents all verbs.
+                          items:
+                            type: string
+                          type: array
+                      required:
+                      - claimed
+                      - restrictTo
+                      type: object
                   required:
                   - resource
+                  - verbs
                   type: object
                   x-kubernetes-validations:
                   - message: either "all" or "resourceSelector" must be set
@@ -388,8 +434,31 @@ spec:
                         - message: at least one field must be set
                           rule: has(self.__namespace__) || has(self.name)
                       type: array
+                    verbs:
+                      description: contains both claimed verbs and those verbs which
+                        are restricted to be used on this claim.
+                      properties:
+                        claimed:
+                          description: claimed is a list of verbs that restrict access
+                            via services. '*' represents all verbs.
+                          items:
+                            type: string
+                          type: array
+                        restrictTo:
+                          description: restrictTo is a list of verbs that restrict
+                            access via workspaces. They also restrict access via services
+                            if the same resources are claimed by a different API export
+                            in the same workspace. '*' represents all verbs.
+                          items:
+                            type: string
+                          type: array
+                      required:
+                      - claimed
+                      - restrictTo
+                      type: object
                   required:
                   - resource
+                  - verbs
                   type: object
                   x-kubernetes-validations:
                   - message: either "all" or "resourceSelector" must be set

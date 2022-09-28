@@ -23,6 +23,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/admission"
 
@@ -33,6 +34,8 @@ import (
 
 // PluginName is the name used to identify this admission webhook.
 const PluginName = "apis.kcp.io/APIExport"
+
+var mutationVerbs = []string{"create", "update", "patch", "delete", "deletecollection"}
 
 // Register registers the reserved name admission webhook.
 func Register(plugins *admission.Plugins) {
@@ -79,17 +82,42 @@ func (e *APIExportAdmission) Validate(ctx context.Context, a admission.Attribute
 		return fmt.Errorf("failed to convert unstructured to APIExport: %w", err)
 	}
 
+	errs := field.ErrorList{}
 	for i, pc := range ae.Spec.PermissionClaims {
-		if pc.IdentityHash == "" && !e.isBuiltIn(pc.GroupResource) && pc.Group != apis.GroupName {
-			return admission.NewForbidden(a,
-				field.Invalid(
-					field.NewPath("spec").
-						Child("permissionClaims").
-						Index(i).
-						Child("identityHash"),
-					"",
-					"identityHash is required for API types that are not built-in"))
+		restrictToVerbs := sets.NewString(pc.Verbs.RestrictTo...)
+		claimedVerbs := sets.NewString(pc.Verbs.Claimed...)
+		commonVerbs := claimedVerbs.Intersection(restrictToVerbs)
+		claimsIsWildcard := len(pc.Verbs.Claimed) > 0 && pc.Verbs.Claimed[0] == "*"
+		restrictToIsWildcard := len(pc.Verbs.RestrictTo) > 0 && pc.Verbs.RestrictTo[0] == "*"
+
+		hasMutationConflict := commonVerbs.HasAny(mutationVerbs...)
+		hasMutationConflict = hasMutationConflict || claimsIsWildcard && restrictToVerbs.HasAny(mutationVerbs...)
+		hasMutationConflict = hasMutationConflict || restrictToIsWildcard && claimedVerbs.HasAny(mutationVerbs...)
+		hasMutationConflict = hasMutationConflict || restrictToIsWildcard && claimsIsWildcard
+
+		if hasMutationConflict {
+			errs = append(errs, field.Invalid(
+				field.NewPath("spec").
+					Child("permissionClaims").
+					Index(i).
+					Child("verbs"),
+				"",
+				"verbs.claimed and verbs.restrictTo must not have intersecting mutation verbs"))
 		}
+
+		if pc.IdentityHash == "" && !e.isBuiltIn(pc.GroupResource) && pc.Group != apis.GroupName {
+			errs = append(errs, field.Invalid(
+				field.NewPath("spec").
+					Child("permissionClaims").
+					Index(i).
+					Child("identityHash"),
+				"",
+				"identityHash is required for API types that are not built-in"))
+		}
+	}
+
+	if len(errs) > 0 {
+		return admission.NewForbidden(a, fmt.Errorf("%v", errs))
 	}
 
 	return nil

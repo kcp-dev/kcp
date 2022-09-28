@@ -78,6 +78,10 @@ func TestWorkspaceTypesAPIBindingInitialization(t *testing.T) {
 						Resource: "configmaps",
 					},
 					All: true,
+					Verbs: apisv1alpha1.Verbs{
+						Claimed:    []string{"*"},
+						RestrictTo: []string{"list", "get", "watch"},
+					},
 				},
 			},
 		},

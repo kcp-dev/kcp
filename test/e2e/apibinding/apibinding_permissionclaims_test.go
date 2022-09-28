@@ -175,19 +175,35 @@ func makePermissionClaims(identityHash string) []apisv1alpha1.PermissionClaim {
 		{
 			GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "configmaps"},
 			All:           true,
+			Verbs: apisv1alpha1.Verbs{
+				Claimed:    []string{"*"},
+				RestrictTo: []string{"get", "list", "watch"},
+			},
 		},
 		{
 			GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "secrets"},
 			All:           true,
+			Verbs: apisv1alpha1.Verbs{
+				Claimed:    []string{"*"},
+				RestrictTo: []string{"get", "list", "watch"},
+			},
 		},
 		{
 			GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "serviceaccounts"},
 			All:           true,
+			Verbs: apisv1alpha1.Verbs{
+				Claimed:    []string{"*"},
+				RestrictTo: []string{"get", "list", "watch"},
+			},
 		},
 		{
 			GroupResource: apisv1alpha1.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
 			All:           true,
 			IdentityHash:  identityHash,
+			Verbs: apisv1alpha1.Verbs{
+				Claimed:    []string{"*"},
+				RestrictTo: []string{"get", "list", "watch"},
+			},
 		},
 	}
 }
@@ -221,6 +237,10 @@ func getAcceptedPermissionClaims(identityHash string) []apisv1alpha1.AcceptableP
 			PermissionClaim: apisv1alpha1.PermissionClaim{
 				GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "configmaps"},
 				All:           true,
+				Verbs: apisv1alpha1.Verbs{
+					Claimed:    []string{"*"},
+					RestrictTo: []string{"get", "list", "watch"},
+				},
 			},
 			State: apisv1alpha1.ClaimAccepted,
 		},
@@ -228,6 +248,10 @@ func getAcceptedPermissionClaims(identityHash string) []apisv1alpha1.AcceptableP
 			PermissionClaim: apisv1alpha1.PermissionClaim{
 				GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "secrets"},
 				All:           true,
+				Verbs: apisv1alpha1.Verbs{
+					Claimed:    []string{"*"},
+					RestrictTo: []string{"get", "list", "watch"},
+				},
 			},
 			State: apisv1alpha1.ClaimAccepted,
 		},
@@ -235,6 +259,10 @@ func getAcceptedPermissionClaims(identityHash string) []apisv1alpha1.AcceptableP
 			PermissionClaim: apisv1alpha1.PermissionClaim{
 				GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "serviceaccounts"},
 				All:           true,
+				Verbs: apisv1alpha1.Verbs{
+					Claimed:    []string{"*"},
+					RestrictTo: []string{"get", "list", "watch"},
+				},
 			},
 			State: apisv1alpha1.ClaimAccepted,
 		},
@@ -243,6 +271,10 @@ func getAcceptedPermissionClaims(identityHash string) []apisv1alpha1.AcceptableP
 				GroupResource: apisv1alpha1.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
 				IdentityHash:  identityHash,
 				All:           true,
+				Verbs: apisv1alpha1.Verbs{
+					Claimed:    []string{"*"},
+					RestrictTo: []string{"get", "list", "watch"},
+				},
 			},
 			State: apisv1alpha1.ClaimAccepted,
 		},
