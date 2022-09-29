@@ -36,7 +36,6 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	genericfilters "k8s.io/apiserver/pkg/server/filters"
 	restclient "k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/component-base/cli"
 	utilflag "k8s.io/component-base/cli/flag"
 	"k8s.io/component-base/version"
@@ -51,7 +50,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/proxy"
 	"github.com/kcp-dev/kcp/pkg/proxy/index"
 	"github.com/kcp-dev/kcp/pkg/server"
-	bootstrap "github.com/kcp-dev/kcp/pkg/server/bootstrap"
 	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
 )
 
@@ -94,25 +92,17 @@ routed based on paths.`,
 				go http.ListenAndServe(options.Proxy.ProfilerAddress, nil)
 			}
 
-			var servingInfo *genericapiserver.SecureServingInfo
-			var loopbackClientConfig *restclient.Config
-			if err := options.Proxy.SecureServing.ApplyTo(&servingInfo, &loopbackClientConfig); err != nil {
-				return err
-			}
-			var authenticationInfo genericapiserver.AuthenticationInfo
-			if err := options.Proxy.Authentication.ApplyTo(&authenticationInfo, servingInfo); err != nil {
-				return err
-			}
-
-			// get root API identities
-			nonIdentityRootConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: options.Proxy.RootKubeconfig}, nil).ClientConfig()
+			config, err := proxy.NewConfig(options.Proxy)
 			if err != nil {
-				return fmt.Errorf("failed to load root kubeconfig: %w", err)
+				return err
+			}
+			completedConfig, err := config.Complete()
+			if err != nil {
+				return err
 			}
 
-			rootShardConfig, resolveIdentities := bootstrap.NewConfigWithWildcardIdentities(nonIdentityRootConfig, bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, nil)
 			if err := wait.PollImmediateInfiniteWithContext(ctx, time.Millisecond*500, func(ctx context.Context) (bool, error) {
-				if err := resolveIdentities(ctx); err != nil {
+				if err := completedConfig.ResolveIdentities(ctx); err != nil {
 					logger.V(3).Info("failed to resolve identities, keeping trying", "err", err)
 					return false, nil
 				}
@@ -121,7 +111,7 @@ routed based on paths.`,
 				return fmt.Errorf("failed to get or create identities: %w", err)
 			}
 
-			rootShardConfigInformerConfig := kcpclienthelper.SetCluster(restclient.CopyConfig(rootShardConfig), tenancyv1alpha1.RootCluster)
+			rootShardConfigInformerConfig := kcpclienthelper.SetCluster(restclient.CopyConfig(completedConfig.RootShardConfig), tenancyv1alpha1.RootCluster)
 			rootShardConfigInformerClient, err := kcpclient.NewForConfig(rootShardConfigInformerConfig)
 			if err != nil {
 				return fmt.Errorf("failed to create client for informers: %w", err)
@@ -131,10 +121,10 @@ routed based on paths.`,
 			kcpSharedInformerFactory := kcpinformers.NewSharedInformerFactoryWithOptions(rootShardConfigInformerClient, 30*time.Minute)
 			indexController := index.NewController(
 				ctx,
-				rootShardConfig.Host,
+				completedConfig.RootShardConfig.Host,
 				kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
 				func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpclient.Interface, error) {
-					shardConfig := restclient.CopyConfig(rootShardConfig)
+					shardConfig := restclient.CopyConfig(completedConfig.RootShardConfig)
 					shardConfig.Host = shard.Spec.BaseURL
 					shardClient, err := kcpclient.NewForConfig(kcpclienthelper.SetCluster(restclient.CopyConfig(shardConfig), logicalcluster.Wildcard))
 					if err != nil {
@@ -155,14 +145,14 @@ routed based on paths.`,
 				return err
 			}
 			failedHandler := frontproxyfilters.NewUnauthorizedHandler()
-			handler = frontproxyfilters.WithOptionalClientCert(handler, failedHandler, authenticationInfo.Authenticator)
+			handler = frontproxyfilters.WithOptionalClientCert(handler, failedHandler, completedConfig.AuthenticationInfo.Authenticator)
 
 			requestInfoFactory := requestinfo.NewFactory()
 			handler = server.WithInClusterServiceAccountRequestRewrite(handler)
 			handler = genericapifilters.WithRequestInfo(handler, requestInfoFactory)
 			handler = genericfilters.WithHTTPLogging(handler)
 			handler = genericfilters.WithPanicRecovery(handler, requestInfoFactory)
-			doneCh, _, err := servingInfo.Serve(handler, time.Second*60, ctx.Done())
+			doneCh, _, err := completedConfig.ServingInfo.Serve(handler, time.Second*60, ctx.Done())
 			if err != nil {
 				return err
 			}
