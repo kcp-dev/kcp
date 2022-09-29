@@ -561,7 +561,7 @@ type templateInput struct {
 	Burst int
 	// FeatureGatesString is the set of features gates.
 	FeatureGatesString string
-	// APIImportPollIntervalString is the string of intevral to poll APIImport.
+	// APIImportPollIntervalString is the string of interval to poll APIImport.
 	APIImportPollIntervalString string
 }
 

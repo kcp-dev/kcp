@@ -224,7 +224,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 
 	syncTarget, err := c.syncTargetLister.Get(indexKey)
 	if apierrors.IsNotFound(err) {
-		c.stopSyncerInformers(ctx, map[schema.GroupVersionResource]bool{})
+		c.stopUnusedSyncerInformers(ctx, map[schema.GroupVersionResource]bool{})
 		return nil
 	}
 
@@ -242,13 +242,13 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		c.startSyncerInformer(ctx, gvr, syncTarget)
 	}
 
-	c.stopSyncerInformers(ctx, requiredGVRs)
+	c.stopUnusedSyncerInformers(ctx, requiredGVRs)
 
 	return nil
 }
 
-// stopSyncer stop syncers for gvrs not in requiredGVRs
-func (c *Controller) stopSyncerInformers(ctx context.Context, requiredGVRs map[schema.GroupVersionResource]bool) {
+// stopUnusedSyncerInformers stop syncers for gvrs not in requiredGVRs
+func (c *Controller) stopUnusedSyncerInformers(ctx context.Context, requiredGVRs map[schema.GroupVersionResource]bool) {
 	logger := klog.FromContext(ctx)
 
 	c.mutex.Lock()
@@ -276,9 +276,9 @@ func (c *Controller) startSyncerInformer(ctx context.Context, gvr schema.GroupVe
 
 	syncTargetKey := workloadv1alpha1.ToSyncTargetKey(c.syncTargetWorkspace, c.syncTargetName)
 
-	upstreamInformer := dynamicinformer.NewFilteredDynamicInformerWithOptions(c.upstreamDynamicClusterClient.Cluster(logicalcluster.Wildcard), gvr, metav1.NamespaceAll, func(o *metav1.ListOptions) {
-		o.LabelSelector = workloadv1alpha1.ClusterResourceStateLabelPrefix + syncTargetKey + "=" + string(workloadv1alpha1.ResourceStateSync)
-	})
+	upstreamInformer := dynamicinformer.NewFilteredDynamicInformerWithOptions(c.upstreamDynamicClusterClient.Cluster(logicalcluster.Wildcard), gvr, metav1.NamespaceAll, func(o *metav1.ListOptions) {},
+		cache.WithResyncPeriod(resyncPeriod),
+	)
 	downstreamInformer := dynamicinformer.NewFilteredDynamicInformerWithOptions(c.downstreamDynamicClient, gvr, metav1.NamespaceAll, func(o *metav1.ListOptions) {
 		o.LabelSelector = workloadv1alpha1.InternalDownstreamClusterLabel + "=" + syncTargetKey
 	}, cache.WithResyncPeriod(resyncPeriod), cache.WithKeyFunction(keyfunctions.DeletionHandlingMetaNamespaceKeyFunc))
