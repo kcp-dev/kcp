@@ -34,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
@@ -242,7 +241,7 @@ func TestMultiPlacement(t *testing.T) {
 		if errors.IsNotFound(err) {
 			return false
 		} else if err != nil {
-			klog.Errorf("Failed to list Services: %v", err)
+			t.Logf("Failed to list Services: %v", err)
 			return false
 		}
 		return true

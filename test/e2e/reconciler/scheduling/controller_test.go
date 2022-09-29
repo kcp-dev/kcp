@@ -34,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
@@ -96,7 +95,7 @@ func TestScheduling(t *testing.T) {
 	require.Eventually(t, func() bool {
 		imports, err := kcpClusterClient.ApiresourceV1alpha1().APIResourceImports().List(logicalcluster.WithCluster(ctx, negotiationClusterName), metav1.ListOptions{})
 		if err != nil {
-			klog.Errorf("Failed to list APIResourceImports: %v", err)
+			t.Logf("Failed to list APIResourceImports: %v", err)
 			return false
 		}
 
@@ -107,7 +106,7 @@ func TestScheduling(t *testing.T) {
 	require.Eventually(t, func() bool {
 		resources, err := kcpClusterClient.ApiresourceV1alpha1().NegotiatedAPIResources().List(logicalcluster.WithCluster(ctx, negotiationClusterName), metav1.ListOptions{})
 		if err != nil {
-			klog.Errorf("Failed to list NegotiatedAPIResources: %v", err)
+			t.Logf("Failed to list NegotiatedAPIResources: %v", err)
 			return false
 		}
 
@@ -125,7 +124,7 @@ func TestScheduling(t *testing.T) {
 	framework.Eventually(t, func() (bool, string) {
 		binding, err := kcpClusterClient.ApisV1alpha1().APIBindings().Get(logicalcluster.WithCluster(ctx, negotiationClusterName), "kubernetes", metav1.GetOptions{})
 		if err != nil {
-			klog.Error(err)
+			t.Log(err)
 			return false, ""
 		}
 		return binding.Status.Phase == apisv1alpha1.APIBindingPhaseBound, toYaml(binding)
@@ -135,7 +134,7 @@ func TestScheduling(t *testing.T) {
 	require.Eventually(t, func() bool {
 		schemas, err := kcpClusterClient.ApisV1alpha1().APIResourceSchemas().List(logicalcluster.WithCluster(ctx, negotiationClusterName), metav1.ListOptions{})
 		if err != nil {
-			klog.Errorf("Failed to list APIResourceSchemas: %v", err)
+			t.Logf("Failed to list APIResourceSchemas: %v", err)
 			return false
 		}
 
@@ -216,7 +215,7 @@ func TestScheduling(t *testing.T) {
 		if errors.IsNotFound(err) {
 			return false
 		} else if err != nil {
-			klog.Errorf("Failed to list Services: %v", err)
+			t.Logf("Failed to list Services: %v", err)
 			return false
 		}
 		return true
@@ -252,7 +251,7 @@ func TestScheduling(t *testing.T) {
 		if errors.IsNotFound(err) {
 			return false
 		} else if err != nil {
-			klog.Errorf("Failed to list Services: %v", err)
+			t.Logf("Failed to list Services: %v", err)
 			return false
 		}
 		return true
@@ -307,7 +306,7 @@ func TestScheduling(t *testing.T) {
 		if errors.IsNotFound(err) {
 			return false
 		} else if err != nil {
-			klog.Errorf("Failed to list Services: %v", err)
+			t.Logf("Failed to list Services: %v", err)
 			return false
 		} else if len(downstreamServices.Items) < 2 {
 			return false

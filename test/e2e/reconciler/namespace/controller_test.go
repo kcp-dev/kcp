@@ -42,7 +42,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/retry"
-	"k8s.io/klog/v2"
 
 	configcrds "github.com/kcp-dev/kcp/config/crds"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
@@ -104,7 +103,7 @@ func TestNamespaceScheduler(t *testing.T) {
 				require.Eventually(t, func() bool {
 					binding, err := server.kcpClient.ApisV1alpha1().APIBindings().Get(ctx, "kubernetes", metav1.GetOptions{})
 					if err != nil {
-						klog.Error(err)
+						t.Log(err)
 						return false
 					}
 					return binding.Status.Phase == apisv1alpha1.APIBindingPhaseBound
@@ -115,7 +114,7 @@ func TestNamespaceScheduler(t *testing.T) {
 				require.Eventually(t, func() bool {
 					ns, err := server.client.CoreV1().Namespaces().Get(ctx, namespace.Name, metav1.GetOptions{})
 					if err != nil {
-						klog.Error(err)
+						t.Log(err)
 						return false
 					}
 					return scheduledMatcher(syncTargetKey)(ns) == nil
@@ -165,7 +164,7 @@ func TestNamespaceScheduler(t *testing.T) {
 					if err != nil {
 						// we can survive several of these errors. If 6 in a row fail and the sync target is marked
 						// non-ready, we likely have other problems than these failures here.
-						klog.Errorf("failed to set status.lastSyncerHeartbeatTime: %v", err)
+						t.Logf("failed to set status.lastSyncerHeartbeatTime: %v", err)
 						return
 					}
 				}, time.Second*10)
@@ -191,7 +190,7 @@ func TestNamespaceScheduler(t *testing.T) {
 				require.Eventually(t, func() bool {
 					obj, err := dynamicClusterClient.Cluster(server.clusterName).Resource(gvr).Namespace("default").Get(ctx, "woody", metav1.GetOptions{})
 					if err != nil {
-						klog.Errorf("failed to get sheriff: %v", err)
+						t.Logf("failed to get sheriff: %v", err)
 						return false
 					}
 					return obj.GetLabels()[workloadv1alpha1.ClusterResourceStateLabelPrefix+syncTargetKey] != ""
@@ -217,7 +216,7 @@ func TestNamespaceScheduler(t *testing.T) {
 				require.Eventually(t, func() bool {
 					obj, err := dynamicClusterClient.Cluster(server.clusterName).Resource(gvr).Namespace("default").Get(ctx, "lucky-luke", metav1.GetOptions{})
 					if err != nil {
-						klog.Errorf("failed to get sheriff: %v", err)
+						t.Logf("failed to get sheriff: %v", err)
 						return false
 					}
 					return obj.GetLabels()[workloadv1alpha1.ClusterResourceStateLabelPrefix+syncTargetKey] != ""
