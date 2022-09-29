@@ -36,6 +36,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/admission/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
 
 func createAttr(apiBinding *apisv1alpha1.APIBinding) admission.Attributes {
@@ -442,6 +443,9 @@ func TestValidate(t *testing.T) {
 						tc.authzDecision,
 						tc.authzError,
 					}, nil
+				},
+				getWorkspace: func(name string) (*tenancyv1alpha1.ClusterWorkspace, error) {
+					return nil, errors.New("not implemented")
 				},
 			}
 

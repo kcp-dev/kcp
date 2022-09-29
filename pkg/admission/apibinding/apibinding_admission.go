@@ -24,6 +24,7 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -32,12 +33,15 @@ import (
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	kubernetesclient "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1/permissionclaims"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
+	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 )
 
 const (
@@ -59,6 +63,7 @@ type apiBindingAdmission struct {
 	deepSARClient kubernetesclient.ClusterInterface
 
 	createAuthorizer delegated.DelegatedAuthorizerFactory
+	getWorkspace     func(name string) (*v1alpha1.ClusterWorkspace, error)
 }
 
 // Ensure that the required admission interfaces are implemented.
@@ -67,6 +72,7 @@ var (
 	_ = admission.MutationInterface(&apiBindingAdmission{})
 	_ = admission.InitializationValidator(&apiBindingAdmission{})
 	_ = kcpinitializers.WantsDeepSARClient(&apiBindingAdmission{})
+	_ = kcpinitializers.WantsKcpInformers(&apiBindingAdmission{})
 )
 
 func (o *apiBindingAdmission) Admit(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) error {
@@ -169,6 +175,17 @@ func (o *apiBindingAdmission) Validate(ctx context.Context, a admission.Attribut
 		return admission.NewForbidden(a, fmt.Errorf("workspace reference is missing")) // this should not happen due to validation
 	}
 
+	clusterName := logicalcluster.New(apiBinding.Spec.Reference.Workspace.Path)
+	org, hasParent := clusterName.Parent()
+	if hasParent {
+		// Checking workspace references only make sense for non-root workspaces.
+		// The root workspace (which has no parent) always exists and wouldn't be found by the lister.
+		_, err := o.getWorkspace(clusters.ToClusterAwareKey(org, clusterName.Base()))
+		if apierrors.IsNotFound(err) {
+			return admission.NewForbidden(a, err)
+		}
+	}
+
 	// Verify the labels
 	value, found := apiBinding.Labels[apisv1alpha1.InternalAPIBindingExportLabelKey]
 	if apiBinding.Spec.Reference.Workspace == nil && found {
@@ -227,6 +244,10 @@ func (o *apiBindingAdmission) ValidateInitialization() error {
 		return fmt.Errorf(PluginName + " plugin needs a Kubernetes ClusterInterface")
 	}
 
+	if o.getWorkspace == nil {
+		return fmt.Errorf(PluginName + " missing workspaceLister")
+	}
+
 	return nil
 }
 
@@ -234,4 +255,11 @@ func (o *apiBindingAdmission) ValidateInitialization() error {
 // this admission plugin.
 func (o *apiBindingAdmission) SetDeepSARClient(client kubernetesclient.ClusterInterface) {
 	o.deepSARClient = client
+}
+
+func (o *apiBindingAdmission) SetKcpInformers(informers kcpinformers.SharedInformerFactory) {
+	o.SetReadyFunc(informers.Tenancy().V1alpha1().ClusterWorkspaces().Informer().HasSynced)
+	o.getWorkspace = func(name string) (*v1alpha1.ClusterWorkspace, error) {
+		return informers.Tenancy().V1alpha1().ClusterWorkspaces().Lister().Get(name)
+	}
 }

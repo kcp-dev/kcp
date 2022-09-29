@@ -146,6 +146,23 @@ func TestAPIBinding(t *testing.T) {
 			serviceProviderWorkspace, cowboysAPIExport.Name)
 	}
 
+	apiBinding := &apisv1alpha1.APIBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cowboys",
+		},
+		Spec: apisv1alpha1.APIBindingSpec{
+			Reference: apisv1alpha1.ExportReference{
+				Workspace: &apisv1alpha1.WorkspaceExportReference{
+					Path:       "root:some-org:non-existent",
+					ExportName: "today-cowboys",
+				},
+			},
+		},
+	}
+
+	_, err = kcpClusterClient.ApisV1alpha1().APIBindings().Create(logicalcluster.WithCluster(ctx, serviceProvider1Workspace), apiBinding, metav1.CreateOptions{})
+	require.ErrorContains(t, err, `apibindings.apis.kcp.dev "cowboys" is forbidden: clusterworkspace.tenancy.kcp.dev "root:some-org|non-existent" not found`)
+
 	bindConsumerToProvider := func(consumerWorkspace, providerWorkspace logicalcluster.Name) {
 		t.Logf("Create an APIBinding in %q that points to the today-cowboys export from %q", consumerWorkspace, providerWorkspace)
 		apiBinding := &apisv1alpha1.APIBinding{
