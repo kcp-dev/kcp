@@ -89,23 +89,23 @@ routed based on paths.`,
 				return errors.NewAggregate(errs)
 			}
 
-			if options.ProfilerAddress != "" {
+			if options.Proxy.ProfilerAddress != "" {
 				//nolint:errcheck
-				go http.ListenAndServe(options.ProfilerAddress, nil)
+				go http.ListenAndServe(options.Proxy.ProfilerAddress, nil)
 			}
 
 			var servingInfo *genericapiserver.SecureServingInfo
 			var loopbackClientConfig *restclient.Config
-			if err := options.SecureServing.ApplyTo(&servingInfo, &loopbackClientConfig); err != nil {
+			if err := options.Proxy.SecureServing.ApplyTo(&servingInfo, &loopbackClientConfig); err != nil {
 				return err
 			}
 			var authenticationInfo genericapiserver.AuthenticationInfo
-			if err := options.Authentication.ApplyTo(&authenticationInfo, servingInfo); err != nil {
+			if err := options.Proxy.Authentication.ApplyTo(&authenticationInfo, servingInfo); err != nil {
 				return err
 			}
 
 			// get root API identities
-			nonIdentityRootConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: options.RootKubeconfig}, nil).ClientConfig()
+			nonIdentityRootConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: options.Proxy.RootKubeconfig}, nil).ClientConfig()
 			if err != nil {
 				return fmt.Errorf("failed to load root kubeconfig: %w", err)
 			}
