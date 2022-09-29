@@ -194,7 +194,7 @@ func TestClusterController(t *testing.T) {
 					fixturewildwest.Create(t, logicalcluster.Name{}, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 
 					if isFakePCluster {
-						// Only need to install services and ingresses in a non-logical cluster
+						// Only need to install services in a non-logical cluster
 						kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
 							metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
 						)

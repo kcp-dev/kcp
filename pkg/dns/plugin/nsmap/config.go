@@ -17,6 +17,7 @@ limitations under the License.
 package nsmap
 
 import (
+	"context"
 	"errors"
 	"os"
 
@@ -34,9 +35,12 @@ const (
 	ConfigMapName = "config-nsmap"
 )
 
-type OnUpdateFn func(configMap *corev1.ConfigMap)
+// OnUpdateFn is the function signature for receiving ConfigMap updates.
+type OnUpdateFn func(ctx context.Context, configMap *corev1.ConfigMap)
 
-func StartWatcher(done chan struct{}, callback OnUpdateFn) error {
+// StartWatcher starts watching for nsmap ConfigMap updates and
+// notifies the given callback when an update occurs. This is a non-blocking function.
+func StartWatcher(ctx context.Context, callback OnUpdateFn) error {
 	config, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		&clientcmd.ClientConfigLoadingRules{},
 		&clientcmd.ConfigOverrides{}).ClientConfig()
@@ -57,23 +61,23 @@ func StartWatcher(done chan struct{}, callback OnUpdateFn) error {
 
 	informer := factory.Core().V1().ConfigMaps().Informer()
 
-	go informer.Run(done)
-
-	if synced := cache.WaitForCacheSync(done, informer.HasSynced); !synced {
-		return errors.New("configmap informer cache failed to sync")
-	}
-
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			callback(obj.(*corev1.ConfigMap))
+			callback(ctx, obj.(*corev1.ConfigMap))
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
-			callback(newObj.(*corev1.ConfigMap))
+			callback(ctx, newObj.(*corev1.ConfigMap))
 		},
 		DeleteFunc: func(obj interface{}) {
-			callback(nil)
+			callback(ctx, nil)
 		},
 	})
+
+	go factory.Start(ctx.Done())
+
+	if synced := cache.WaitForCacheSync(ctx.Done(), informer.HasSynced); !synced {
+		return errors.New("configmap informer cache failed to sync")
+	}
 
 	return nil
 }

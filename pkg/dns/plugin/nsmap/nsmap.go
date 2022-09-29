@@ -25,19 +25,15 @@ import (
 	"github.com/miekg/dns"
 )
 
-// NsMap is a plugin to map logical namespaces to physical namespaces.
-type NsMap struct {
+// LogicalToPhysicalNamespaceMapper is a CoreDNS plugin to map logical namespaces to physical namespaces.
+type LogicalToPhysicalNamespaceMapper struct {
 	Next         plugin.Handler
 	namespace    *namespaceRewriter
 	revertPolicy rewrite.RevertPolicy
 }
 
 // ServeDNS implements the plugin.Handler interface.
-func (nm NsMap) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-	if nm.revertPolicy == nil {
-		nm.revertPolicy = rewrite.NewRevertPolicy(false, false)
-	}
-
+func (nm LogicalToPhysicalNamespaceMapper) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	wr := rewrite.NewResponseReverter(w, r, nm.revertPolicy)
 	state := request.Request{W: w, Req: r}
 
@@ -53,4 +49,6 @@ func (nm NsMap) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 }
 
 // Name implements the Handler interface.
-func (nm NsMap) Name() string { return "nsmap" }
+func (nm LogicalToPhysicalNamespaceMapper) Name() string {
+	return "nsmap"
+}

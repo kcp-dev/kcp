@@ -71,7 +71,7 @@ func NewSyncerCommand() *cobra.Command {
 		syncerCommand.Version = v
 	}
 
-	syncerCommand.AddCommand(NewDnsCommand())
+	syncerCommand.AddCommand(NewDNSCommand())
 
 	return syncerCommand
 }

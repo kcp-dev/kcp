@@ -18,7 +18,6 @@ package dns
 
 import (
 	"context"
-	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -59,11 +58,13 @@ func StartNsMapSyncer(ctx context.Context, client *dynamic.DynamicClient, inform
 }
 
 func updateConfigMap(ctx context.Context, client dynamic.ResourceInterface, nslister cache.GenericLister, namespace string) {
-	fmt.Println("update configmap")
+	logger := klog.FromContext(ctx)
+	logger.WithName("dns")
+	logger.Info("refreshing namespace map")
 
 	objs, err := nslister.List(labels.Everything()) // filtering the done at the informer level
 	if err != nil {
-		klog.Warningf("failed to update %s (%v)", nsmap.ConfigMapName, err)
+		logger.Error(err, "failed to get the ConfigMap", "name", nsmap.ConfigMapName)
 		return
 	}
 
@@ -80,7 +81,7 @@ func updateConfigMap(ctx context.Context, client dynamic.ResourceInterface, nsli
 		locator, found, err := shared.LocatorFromAnnotations(annotations)
 		if err != nil {
 			// Corrupted ns locator annotation value
-			klog.Warningf("invalid namespace locator %s (%w)", ns.GetName(), err)
+			logger.Error(err, "invalid namespace locator", "name", ns.GetName())
 			continue
 		}
 
@@ -102,7 +103,7 @@ func updateConfigMap(ctx context.Context, client dynamic.ResourceInterface, nsli
 
 	obj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&cm)
 	if err != nil {
-		klog.Warningf("failed to convert configmap: %v", err)
+		logger.Error(err, "failed to convert ConfigMap to Unstructured")
 		return
 	}
 
@@ -116,6 +117,6 @@ func updateConfigMap(ctx context.Context, client dynamic.ResourceInterface, nsli
 	})
 
 	if err != nil {
-		klog.Warningf("failed to update the nsmap configmap: %v", err)
+		logger.Error(err, "failed to update the ConfigMap")
 	}
 }

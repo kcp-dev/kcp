@@ -19,10 +19,10 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/kcp-dev/kcp/pkg/dns"
+	"github.com/kcp-dev/kcp/third_party/coredns/coremain"
 )
 
-func NewDnsCommand() *cobra.Command {
+func NewDNSCommand() *cobra.Command {
 	dnsCommand := &cobra.Command{
 		Use:   "dns",
 		Short: "Manage kcp dns server",
@@ -33,7 +33,7 @@ func NewDnsCommand() *cobra.Command {
 		Short: "Start the kcp dns server",
 
 		RunE: func(cmd *cobra.Command, args []string) error {
-			dns.Start()
+			coremain.Start()
 			return nil
 		},
 	}

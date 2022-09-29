@@ -95,7 +95,7 @@ func TestNamespaceScheduler(t *testing.T) {
 					framework.WithExtraResources("services"),
 					framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 						if !isFakePCluster {
-							// Only need to install services and ingresses in a logical cluster
+							// Only need to install services in a logical cluster
 							return
 						}
 						crdClusterClient, err := apiextensionsclient.NewForConfig(config)

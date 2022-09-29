@@ -17,29 +17,41 @@ limitations under the License.
 package nsmap
 
 import (
+	"context"
+
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/rewrite"
+	"k8s.io/klog/v2"
 )
 
-func init() { plugin.Register("nsmap", setup) }
+func init() {
+	plugin.Register("nsmap", setup)
+}
 
 func setup(c *caddy.Controller) error {
-	mapper := &namespaceRewriter{Namespaces: map[string]string{}}
+	rewriter := &namespaceRewriter{Namespaces: map[string]string{}}
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
-		return NsMap{Next: next, namespace: mapper}
+		return LogicalToPhysicalNamespaceMapper{
+			Next:         next,
+			namespace:    rewriter,
+			revertPolicy: rewrite.NewRevertPolicy(false, false),
+		}
 	})
 
-	// Start config map watcher and notify the mapper
-	done := make(chan struct{})
-	err := StartWatcher(done, mapper.updateFromConfigmap)
+	// Start ConfigMap watcher and notify the namespace rewriter
+	ctx, cancel := context.WithCancel(context.Background())
+	ctx = klog.NewContext(ctx, klog.Background())
+
+	err := StartWatcher(ctx, rewriter.updateFromConfigmap)
 	if err != nil {
 		return err
 	}
 
 	c.OnFinalShutdown(func() error {
-		close(done)
+		cancel()
 		return nil
 	})
 

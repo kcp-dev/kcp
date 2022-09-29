@@ -599,7 +599,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				framework.WithExtraResources("ingresses.networking.k8s.io", "services"),
 				framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 					if !isFakePCluster {
-						// Only need to install services and ingresses in a logical cluster
+						// Only need to install services in a logical cluster
 						return
 					}
 					sinkCrdClient, err := apiextensionsclientset.NewForConfig(config)
