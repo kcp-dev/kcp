@@ -6,12 +6,12 @@ kcp is a highly-multi-tenant Kubernetes control-plane, built for SaaS service-pr
 
 ## What is a ....
 
-Check out our [terminology](https://github.com/kcp-dev/kcp/blob/main/docs/terminology.md) document and feel free to open an issue if something is not covered.
+Check out our [concepts](https://github.com/kcp-dev/kcp/blob/main/docs/concepts.md) document and feel free to open an issue if something is not covered.
 
 
 ## If kcp is a Kubernetes API server without pod-like APIs, how do resources like Deployments get scheduled?
 
-kcp has a concept called [syncer](https://github.com/kcp-dev/kcp/blob/main/docs/terminology.md#syncer) which is installed on each [SyncTarget](https://github.com/kcp-dev/kcp/blob/main/docs/terminology.md#workload-cluster). The [syncer](https://github.com/kcp-dev/kcp/blob/main/docs/terminology.md#syncer) negotiates, with kcp, a set of APIs to make accessible in the workspace. This may include things like [Deployments](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/) or other resources you may explicitly configure the syncer to synchronize to kcp. Once these APIs are made available in your [Workspace](https://github.com/kcp-dev/kcp/blob/main/docs/terminology.md#workspace) you may then create resources of that type. From there, the [Location and Placement](https://github.com/kcp-dev/kcp/blob/main/docs/terminology.md#location) APIs help determine which [Location](https://github.com/kcp-dev/kcp/blob/main/docs/terminology.md#location) your deployable resource lands on.
+kcp has a concept called [syncer](https://github.com/kcp-dev/kcp/blob/main/docs/concepts.md#syncer) which is installed on each [SyncTarget](https://github.com/kcp-dev/kcp/blob/main/docs/concepts.md#workload-cluster). The [syncer](https://github.com/kcp-dev/kcp/blob/main/docs/concepts.md#syncer) negotiates, with kcp, a set of APIs to make accessible in the workspace. This may include things like [Deployments](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/) or other resources you may explicitly configure the syncer to synchronize to kcp. Once these APIs are made available in your [Workspace](https://github.com/kcp-dev/kcp/blob/main/docs/concepts.md#workspace) you may then create resources of that type. From there, the [Location and Placement](https://github.com/kcp-dev/kcp/blob/main/docs/concepts.md#location) APIs help determine which [Location](https://github.com/kcp-dev/kcp/blob/main/docs/concepts.md#location) your deployable resource lands on.
 
 ## Will KCP be able to pass the K8S conformance tests in [CNCF Conformance Suites](https://www.cncf.io/certification/software-conformance/)?
 
@@ -55,11 +55,11 @@ Yes. [Validating and mutating webhooks](https://github.com/kcp-dev/kcp/pull/818)
 
 ## kcp hides nodes - does it mean that Pod does not have a nodeName field set?
 
-They do, in the [workload clusters](https://github.com/kcp-dev/kcp/blob/main/docs/terminology.md#workload-cluster) where the pods live and run. The control plane doesn't have pods (at least not by default, today).
+They do, in the [workload clusters](https://github.com/kcp-dev/kcp/blob/main/docs/concepts.md#workload-cluster) where the pods live and run. The control plane doesn't have pods (at least not by default, today).
 
 ## Let’s take something boring like FIPS compliance. Would a workspace be guaranteed to run accordingly to the regulatory standards? Ie a workspace admin defined some FIPS stuffs and kcp ensures that the resulting pods do run appropriate in the FIPS shard?
 
-In kcp an application should be able to describe the constraints it needs in its runtime environment. This may be technical requirements like GPU or storage, it may be regulatory like data locality or FIPS, or it may be some other cool thing we haven't thought of yet. kcp expects the integration with [Location and Placement](https://github.com/kcp-dev/kcp/blob/main/docs/terminology.md#location) APIs to handle finding the right placement that fulfills those requirements.
+In kcp an application should be able to describe the constraints it needs in its runtime environment. This may be technical requirements like GPU or storage, it may be regulatory like data locality or FIPS, or it may be some other cool thing we haven't thought of yet. kcp expects the integration with [Location and Placement](https://github.com/kcp-dev/kcp/blob/main/docs/concepts.md#location) APIs to handle finding the right placement that fulfills those requirements.
 
 ## Could you define a 'shard' in the context of kcp?
 
