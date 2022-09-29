@@ -52,6 +52,7 @@ type Options struct {
 	Logs logs.Options
 
 	VirtualWorkspaces virtualworkspacesoptions.Options
+	ProfilerAddress   string
 }
 
 func NewOptions() *Options {
@@ -67,6 +68,7 @@ func NewOptions() *Options {
 		Logs:           *logs.NewOptions(),
 
 		VirtualWorkspaces: *virtualworkspacesoptions.NewOptions(),
+		ProfilerAddress:   "",
 	}
 
 	opts.SecureServing.ServerCert.CertKey.CertFile = filepath.Join(".", ".kcp", "apiserver.crt")
@@ -87,6 +89,7 @@ func (o *Options) AddFlags(flags *pflag.FlagSet) {
 	_ = cobra.MarkFlagRequired(flags, "kubeconfig")
 
 	flags.StringVar(&o.Context, "context", o.Context, "Name of the context in the kubeconfig file to use")
+	flags.StringVar(&o.ProfilerAddress, "profiler-address", "", "[Address]:port to bind the profiler to")
 }
 
 func (o *Options) Validate() error {

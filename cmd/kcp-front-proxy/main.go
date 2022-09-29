@@ -21,6 +21,7 @@ import (
 	goflags "flag"
 	"fmt"
 	"math/rand"
+	"net/http"
 	"os"
 	"time"
 
@@ -91,6 +92,11 @@ routed based on paths.`,
 			}
 			if errs := options.Validate(); errs != nil {
 				return errors.NewAggregate(errs)
+			}
+
+			if options.ProfilerAddress != "" {
+				//nolint:errcheck
+				go http.ListenAndServe(options.ProfilerAddress, nil)
 			}
 
 			var servingInfo *genericapiserver.SecureServingInfo

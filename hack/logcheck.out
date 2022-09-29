@@ -26,9 +26,6 @@
 /cmd/test-server/kcp/shard.go:188:5: function "V" should not be used, convert to contextual logging
 /cmd/test-server/kcp/shard.go:192:6: function "Enabled" should not be used, convert to contextual logging
 /cmd/test-server/kcp/shard.go:192:6: function "V" should not be used, convert to contextual logging
-/cmd/virtual-workspaces/command/cmd.go:164:2: function "Infof" should not be used, convert to contextual logging
-/cmd/virtual-workspaces/command/cmd.go:99:4: function "Infof" should not be used, convert to contextual logging
-/cmd/virtual-workspaces/command/cmd.go:99:4: function "V" should not be used, convert to contextual logging
 /config/crds/bootstrap.go:128:2: function "Infof" should not be used, convert to contextual logging
 /config/crds/bootstrap.go:128:2: function "V" should not be used, convert to contextual logging
 /config/crds/bootstrap.go:149:5: function "Infof" should not be used, convert to contextual logging

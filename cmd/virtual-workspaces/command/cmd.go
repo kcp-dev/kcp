@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"time"
 
@@ -76,6 +77,7 @@ func NewCommand(ctx context.Context, errout io.Writer) *cobra.Command {
 
 // Run takes the options, starts the API server and waits until stopCh is closed or initial listening fails.
 func Run(ctx context.Context, o *options.Options) error {
+	logger := klog.FromContext(ctx).WithValues("component", "virtual-workspaces")
 	// parse kubeconfig
 	kubeConfig, err := readKubeConfig(o.KubeconfigFile, o.Context)
 	if err != nil {
@@ -96,7 +98,7 @@ func Run(ctx context.Context, o *options.Options) error {
 	identityConfig, resolveIdentities := bootstrap.NewConfigWithWildcardIdentities(nonIdentityConfig, bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, nil)
 	if err := wait.PollImmediateInfiniteWithContext(ctx, time.Millisecond*500, func(ctx context.Context) (bool, error) {
 		if err := resolveIdentities(ctx); err != nil {
-			klog.V(3).Infof("failed to resolve identities, keeping trying: %v", err)
+			logger.V(3).Info("failed to resolve identities, keeping trying: ", "err", err)
 			return false, nil
 		}
 		return true, nil
@@ -119,6 +121,11 @@ func Run(ctx context.Context, o *options.Options) error {
 	}
 	wildcardKcpClient := kcpClusterClient.Cluster(logicalcluster.Wildcard)
 	wildcardKcpInformers := kcpinformers.NewSharedInformerFactory(wildcardKcpClient, 10*time.Minute)
+
+	if o.ProfilerAddress != "" {
+		//nolint:errcheck
+		go http.ListenAndServe(o.ProfilerAddress, nil)
+	}
 
 	// create apiserver
 	virtualWorkspaces, err := o.VirtualWorkspaces.NewVirtualWorkspaces(identityConfig, o.RootPathPrefix, wildcardKubeInformers, wildcardKcpInformers)
@@ -161,7 +168,7 @@ func Run(ctx context.Context, o *options.Options) error {
 		return err
 	}
 
-	klog.Infof("Starting virtual workspace apiserver on %s (%s)", rootAPIServerConfig.GenericConfig.ExternalAddress, version.Get().String())
+	logger.Info("Starting virtual workspace apiserver on ", "externalAddress", rootAPIServerConfig.GenericConfig.ExternalAddress, "version", version.Get().String())
 
 	return preparedRootAPIServer.Run(ctx.Done())
 }
