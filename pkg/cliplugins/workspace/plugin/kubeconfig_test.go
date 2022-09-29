@@ -39,10 +39,11 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
-	tenancyclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	tenancyfake "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/fake"
+	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	fakeclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/fake"
 )
 
 func TestCreate(t *testing.T) {
@@ -208,7 +209,7 @@ func TestCreate(t *testing.T) {
 					},
 				})
 			}
-			client := tenancyfake.NewSimpleClientset(objects...)
+			client := fakeclient.NewSimpleClientset(objects...)
 
 			workspaceType := tt.newWorkspaceType
 			empty := tenancyv1alpha1.ClusterWorkspaceTypeReference{}
@@ -246,7 +247,7 @@ func TestCreate(t *testing.T) {
 			}
 			opts.kcpClusterClient = fakeTenancyClient{
 				t: t,
-				clients: map[logicalcluster.Name]*tenancyfake.Clientset{
+				clients: map[logicalcluster.Name]*fakeclient.Clientset{
 					currentClusterName: client,
 				},
 			}
@@ -280,6 +281,8 @@ func TestUse(t *testing.T) {
 		discovery          map[logicalcluster.Name][]*metav1.APIResourceList
 		discoveryErrors    map[logicalcluster.Name]error
 		unready            map[logicalcluster.Name]map[string]bool // unready workspaces
+		apiBindings        []apisv1alpha1.APIBinding               // APIBindings that exist in the destination workspace, if any
+		destination        string                                  // workspace set to 'current' at the end of execution
 		short              bool
 
 		param string
@@ -288,6 +291,7 @@ func TestUse(t *testing.T) {
 		wantStdout []string
 		wantErrors []string
 		wantErr    bool
+		noWarn     bool
 	}{
 		{
 			name: "current, context named workspace",
@@ -299,8 +303,9 @@ func TestUse(t *testing.T) {
 			existingObjects: map[logicalcluster.Name][]string{
 				logicalcluster.New("root:foo"): {"bar"},
 			},
-			param:      ".",
-			wantStdout: []string{"Current workspace is \"root:foo:bar\""},
+			param:       ".",
+			destination: "root:foo:bar",
+			wantStdout:  []string{"Current workspace is \"root:foo:bar\""},
 		},
 		{
 			name: "current, no cluster URL",
@@ -334,7 +339,8 @@ func TestUse(t *testing.T) {
 				},
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
-			wantStdout: []string{"Current workspace is \"root:foo:bar\""},
+			destination: "root:foo:bar",
+			wantStdout:  []string{"Current workspace is \"root:foo:bar\""},
 		},
 		{
 			name: "workspace name, short output",
@@ -359,7 +365,8 @@ func TestUse(t *testing.T) {
 				},
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
-			wantStdout: []string{"root:foo:bar"},
+			destination: "root:foo:bar",
+			wantStdout:  []string{"root:foo:bar"},
 		},
 		{
 			name: "workspace name, no cluster URL",
@@ -399,7 +406,8 @@ func TestUse(t *testing.T) {
 				},
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
-			wantStdout: []string{"Current workspace is \"root:foo:bar\""},
+			destination: "root:foo:bar",
+			wantStdout:  []string{"Current workspace is \"root:foo:bar\""},
 		},
 		{
 			name: "absolute name without access to parent",
@@ -427,7 +435,8 @@ func TestUse(t *testing.T) {
 				},
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
-			wantStdout: []string{"Current workspace is \"root:foo:bar\""},
+			destination: "root:foo:bar",
+			wantStdout:  []string{"Current workspace is \"root:foo:bar\""},
 		},
 		{
 			name: "absolute workspace doesn't exist error",
@@ -502,7 +511,8 @@ func TestUse(t *testing.T) {
 				},
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
-			wantStdout: []string{"Current workspace is \"system:admin\""},
+			destination: "system:admin",
+			wantStdout:  []string{"Current workspace is \"system:admin\""},
 		},
 		{
 			name: "root",
@@ -523,7 +533,8 @@ func TestUse(t *testing.T) {
 				},
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
-			wantStdout: []string{"Current workspace is \"root\""},
+			destination: "root",
+			wantStdout:  []string{"Current workspace is \"root\""},
 		},
 		{
 			name: "root, no cluster URL",
@@ -557,7 +568,8 @@ func TestUse(t *testing.T) {
 				},
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
-			wantStdout: []string{"Current workspace is \"root:foo\""},
+			destination: "root:foo",
+			wantStdout:  []string{"Current workspace is \"root:foo\""},
 		},
 		{
 			name: ".., no cluster URL",
@@ -588,7 +600,8 @@ func TestUse(t *testing.T) {
 				},
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
-			wantStdout: []string{"Current workspace is \"root\""},
+			destination: "root",
+			wantStdout:  []string{"Current workspace is \"root\""},
 		},
 		{
 			name: ".. in root",
@@ -635,7 +648,8 @@ func TestUse(t *testing.T) {
 					"test2": {Token: "test2"},
 				},
 			},
-			wantStdout: []string{"Current workspace is \"root:foo:bar\""},
+			destination: "root:foo:bar",
+			wantStdout:  []string{"Current workspace is \"root:foo:bar\""},
 		},
 		{
 			name: "- without existing previous context",
@@ -756,7 +770,8 @@ func TestUse(t *testing.T) {
 				},
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
-			wantStdout: []string{fmt.Sprintf("Current workspace is \"%s\"", homeWorkspaceLogicalCluster.String())},
+			destination: homeWorkspaceLogicalCluster.String(),
+			wantStdout:  []string{fmt.Sprintf("Current workspace is \"%s\"", homeWorkspaceLogicalCluster.String())},
 		},
 		{
 			name: "no arg",
@@ -780,7 +795,391 @@ func TestUse(t *testing.T) {
 				},
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
-			wantStdout: []string{fmt.Sprintf("Current workspace is \"%s\".\nNote: 'kubectl ws' now matches 'cd' semantics: go to home workspace. 'kubectl ws -' to go back. 'kubectl ws .' to print current workspace.", homeWorkspaceLogicalCluster.String())},
+			destination: homeWorkspaceLogicalCluster.String(),
+			wantStdout:  []string{fmt.Sprintf("Current workspace is \"%s\".\nNote: 'kubectl ws' now matches 'cd' semantics: go to home workspace. 'kubectl ws -' to go back. 'kubectl ws .' to print current workspace.", homeWorkspaceLogicalCluster.String())},
+		},
+		{
+			name: "workspace name, apibindings have matching permission and export claims",
+			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.dev/current": {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"}},
+				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo"}},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			existingObjects: map[logicalcluster.Name][]string{
+				logicalcluster.New("root:foo"): {"bar"},
+			},
+			param: "bar",
+			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts: map[string]*clientcmdapi.Context{
+					"workspace.kcp.dev/current":  {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"},
+					"workspace.kcp.dev/previous": {Cluster: "workspace.kcp.dev/previous", AuthInfo: "test"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"workspace.kcp.dev/current":  {Server: "https://test/clusters/root:foo:bar"},
+					"workspace.kcp.dev/previous": {Server: "https://test/clusters/root:foo"},
+				},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			destination: "root:foo:bar",
+			apiBindings: []apisv1alpha1.APIBinding{
+				newBindingBuilder("a").
+					WithPermissionClaim("test.kcp.dev", "test", "abcdef", apisv1alpha1.ClaimAccepted).
+					WithExportClaim("test.kcp.dev", "test", "abcdef").
+					Build(),
+			},
+			wantStdout: []string{"Current workspace is \"root:foo:bar\""},
+		},
+		{
+			name: "workspace name, apibindings don't have matching permission or export claims",
+			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.dev/current": {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"}},
+				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo"}},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			existingObjects: map[logicalcluster.Name][]string{
+				logicalcluster.New("root:foo"): {"bar"},
+			},
+			param: "bar",
+			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts: map[string]*clientcmdapi.Context{
+					"workspace.kcp.dev/current":  {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"},
+					"workspace.kcp.dev/previous": {Cluster: "workspace.kcp.dev/previous", AuthInfo: "test"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"workspace.kcp.dev/current":  {Server: "https://test/clusters/root:foo:bar"},
+					"workspace.kcp.dev/previous": {Server: "https://test/clusters/root:foo"},
+				},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			destination: "root:foo:bar",
+			apiBindings: []apisv1alpha1.APIBinding{
+				newBindingBuilder("a").
+					WithPermissionClaim("test.kcp.dev", "test", "abcdef", "").
+					WithExportClaim("test.kcp.dev", "test", "abcdef").
+					WithExportClaim("", "configmaps", "").
+					Build(),
+			},
+			wantStdout: []string{
+				"Warning: claim for configmaps exported but not specified on APIBinding a\nAdd this claim to the APIBinding's Spec.\n",
+				"Current workspace is \"root:foo:bar\""},
+		},
+		{
+			name: "~, apibinding claims/exports don't match",
+			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.dev/current": {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"}},
+				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo"}},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			existingObjects: map[logicalcluster.Name][]string{
+				tenancyv1alpha1.RootCluster: {"~"},
+			},
+			param: "~",
+			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts: map[string]*clientcmdapi.Context{
+					"workspace.kcp.dev/current":  {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"},
+					"workspace.kcp.dev/previous": {Cluster: "workspace.kcp.dev/previous", AuthInfo: "test"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"workspace.kcp.dev/previous": {Server: "https://test/clusters/root:foo"},
+					"workspace.kcp.dev/current":  {Server: "https://test" + homeWorkspaceLogicalCluster.Path()},
+				},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			destination: homeWorkspaceLogicalCluster.String(),
+			apiBindings: []apisv1alpha1.APIBinding{
+				newBindingBuilder("a").
+					WithPermissionClaim("test.kcp.dev", "test", "abcdef", apisv1alpha1.ClaimAccepted).
+					WithExportClaim("test.kcp.dev", "test", "abcdef").
+					WithExportClaim("", "configmaps", "").
+					Build(),
+			},
+			wantStdout: []string{
+				"Warning: claim for configmaps exported but not specified on APIBinding a\nAdd this claim to the APIBinding's Spec.\n",
+				fmt.Sprintf("Current workspace is \"%s\"", homeWorkspaceLogicalCluster.String())},
+		},
+		{
+			name: "- with existing previous context, apibinding claims/exports don't match ",
+			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts: map[string]*clientcmdapi.Context{
+					"workspace.kcp.dev/current":  {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"},
+					"workspace.kcp.dev/previous": {Cluster: "workspace.kcp.dev/previous", AuthInfo: "test2"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"workspace.kcp.dev/current":  {Server: "https://test/clusters/root:foo"},
+					"workspace.kcp.dev/previous": {Server: "https://test/clusters/root:foo:bar"},
+				},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{
+					"test":  {Token: "test"},
+					"test2": {Token: "test2"},
+				},
+			},
+			existingObjects: map[logicalcluster.Name][]string{
+				logicalcluster.New("root:foo"): {"bar"},
+			},
+			param: "-",
+			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts: map[string]*clientcmdapi.Context{
+					"workspace.kcp.dev/current":  {Cluster: "workspace.kcp.dev/current", AuthInfo: "test2"},
+					"workspace.kcp.dev/previous": {Cluster: "workspace.kcp.dev/previous", AuthInfo: "test"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"workspace.kcp.dev/current":  {Server: "https://test/clusters/root:foo:bar"},
+					"workspace.kcp.dev/previous": {Server: "https://test/clusters/root:foo"},
+				},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{
+					"test":  {Token: "test"},
+					"test2": {Token: "test2"},
+				},
+			},
+			destination: "root:foo:bar",
+			apiBindings: []apisv1alpha1.APIBinding{
+				newBindingBuilder("a").
+					WithPermissionClaim("test.kcp.dev", "test", "abcdef", apisv1alpha1.ClaimAccepted).
+					WithExportClaim("test.kcp.dev", "test", "abcdef").
+					WithExportClaim("", "configmaps", "").
+					Build(),
+			},
+			wantStdout: []string{
+				"Warning: claim for configmaps exported but not specified on APIBinding a\nAdd this claim to the APIBinding's Spec.\n",
+				"Current workspace is \"root:foo:bar\""},
+		},
+		{
+			name: "workspace name, apibindings rejected",
+			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.dev/current": {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"}},
+				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo"}},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			existingObjects: map[logicalcluster.Name][]string{
+				logicalcluster.New("root:foo"): {"bar"},
+			},
+			param: "bar",
+			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts: map[string]*clientcmdapi.Context{
+					"workspace.kcp.dev/current":  {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"},
+					"workspace.kcp.dev/previous": {Cluster: "workspace.kcp.dev/previous", AuthInfo: "test"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"workspace.kcp.dev/current":  {Server: "https://test/clusters/root:foo:bar"},
+					"workspace.kcp.dev/previous": {Server: "https://test/clusters/root:foo"},
+				},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			destination: "root:foo:bar",
+			apiBindings: []apisv1alpha1.APIBinding{
+				newBindingBuilder("a").
+					WithPermissionClaim("test.kcp.dev", "test", "abcdef", apisv1alpha1.ClaimRejected).
+					WithExportClaim("test.kcp.dev", "test", "abcdef").
+					Build(),
+			},
+			wantStdout: []string{
+				"Current workspace is \"root:foo:bar\""},
+			noWarn: true,
+		},
+		{
+			name: "workspace name, apibindings accepted",
+			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.dev/current": {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"}},
+				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo"}},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			existingObjects: map[logicalcluster.Name][]string{
+				logicalcluster.New("root:foo"): {"bar"},
+			},
+			param: "bar",
+			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts: map[string]*clientcmdapi.Context{
+					"workspace.kcp.dev/current":  {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"},
+					"workspace.kcp.dev/previous": {Cluster: "workspace.kcp.dev/previous", AuthInfo: "test"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"workspace.kcp.dev/current":  {Server: "https://test/clusters/root:foo:bar"},
+					"workspace.kcp.dev/previous": {Server: "https://test/clusters/root:foo"},
+				},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			destination: "root:foo:bar",
+			apiBindings: []apisv1alpha1.APIBinding{
+				newBindingBuilder("a").
+					WithPermissionClaim("test.kcp.dev", "test", "abcdef", apisv1alpha1.ClaimAccepted).
+					WithExportClaim("test.kcp.dev", "test", "abcdef").
+					Build(),
+			},
+			wantStdout: []string{
+				"Current workspace is \"root:foo:bar\""},
+			noWarn: true,
+		},
+		{
+			name: "workspace name, some apibindings accepted",
+			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.dev/current": {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"}},
+				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo"}},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			existingObjects: map[logicalcluster.Name][]string{
+				logicalcluster.New("root:foo"): {"bar"},
+			},
+			param: "bar",
+			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts: map[string]*clientcmdapi.Context{
+					"workspace.kcp.dev/current":  {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"},
+					"workspace.kcp.dev/previous": {Cluster: "workspace.kcp.dev/previous", AuthInfo: "test"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"workspace.kcp.dev/current":  {Server: "https://test/clusters/root:foo:bar"},
+					"workspace.kcp.dev/previous": {Server: "https://test/clusters/root:foo"},
+				},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			destination: "root:foo:bar",
+			apiBindings: []apisv1alpha1.APIBinding{
+				newBindingBuilder("a").
+					WithPermissionClaim("test.kcp.dev", "test", "abcdef", apisv1alpha1.ClaimAccepted).
+					WithExportClaim("test.kcp.dev", "test", "abcdef").
+					WithExportClaim("", "configmaps", "").
+					Build(),
+			},
+			wantStdout: []string{
+				"Warning: claim for configmaps exported but not specified on APIBinding a\nAdd this claim to the APIBinding's Spec.\n",
+				"Current workspace is \"root:foo:bar\""},
+		},
+		{
+			name: "workspace name, apibindings not acknowledged",
+			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.dev/current": {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"}},
+				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo"}},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			existingObjects: map[logicalcluster.Name][]string{
+				logicalcluster.New("root:foo"): {"bar"},
+			},
+			param: "bar",
+			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts: map[string]*clientcmdapi.Context{
+					"workspace.kcp.dev/current":  {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"},
+					"workspace.kcp.dev/previous": {Cluster: "workspace.kcp.dev/previous", AuthInfo: "test"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"workspace.kcp.dev/current":  {Server: "https://test/clusters/root:foo:bar"},
+					"workspace.kcp.dev/previous": {Server: "https://test/clusters/root:foo"},
+				},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			destination: "root:foo:bar",
+			apiBindings: []apisv1alpha1.APIBinding{
+				newBindingBuilder("a").
+					WithPermissionClaim("test.kcp.dev", "test", "abcdef", "").
+					WithExportClaim("test.kcp.dev", "test", "abcdef").
+					Build(),
+			},
+			wantStdout: []string{
+				"Warning: claim for test.test.kcp.dev:abcdef specified on APIBinding a but not accepted or rejected.\n",
+				"Current workspace is \"root:foo:bar\""},
+		},
+		{
+			name: "workspace name, APIBindings unacknowledged and unspecified",
+			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.dev/current": {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"}},
+				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo"}},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			existingObjects: map[logicalcluster.Name][]string{
+				logicalcluster.New("root:foo"): {"bar"},
+			},
+			param: "bar",
+			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts: map[string]*clientcmdapi.Context{
+					"workspace.kcp.dev/current":  {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"},
+					"workspace.kcp.dev/previous": {Cluster: "workspace.kcp.dev/previous", AuthInfo: "test"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"workspace.kcp.dev/current":  {Server: "https://test/clusters/root:foo:bar"},
+					"workspace.kcp.dev/previous": {Server: "https://test/clusters/root:foo"},
+				},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			destination: "root:foo:bar",
+			apiBindings: []apisv1alpha1.APIBinding{
+				newBindingBuilder("a").
+					WithPermissionClaim("test.kcp.dev", "test", "abcdef", "").
+					WithExportClaim("test.kcp.dev", "test", "abcdef").
+					WithExportClaim("", "configmaps", "").
+					Build(),
+			},
+			wantStdout: []string{
+				"Warning: claim for configmaps exported but not specified on APIBinding a\nAdd this claim to the APIBinding's Spec.\n",
+				"Warning: claim for test.test.kcp.dev:abcdef specified on APIBinding a but not accepted or rejected.\n",
+				"Current workspace is \"root:foo:bar\""},
+		},
+		{
+			name: "workspace name, multiple APIBindings unacknowledged",
+			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.dev/current": {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"}},
+				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo"}},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			existingObjects: map[logicalcluster.Name][]string{
+				logicalcluster.New("root:foo"): {"bar"},
+			},
+			param: "bar",
+			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts: map[string]*clientcmdapi.Context{
+					"workspace.kcp.dev/current":  {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"},
+					"workspace.kcp.dev/previous": {Cluster: "workspace.kcp.dev/previous", AuthInfo: "test"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"workspace.kcp.dev/current":  {Server: "https://test/clusters/root:foo:bar"},
+					"workspace.kcp.dev/previous": {Server: "https://test/clusters/root:foo"},
+				},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			destination: "root:foo:bar",
+			apiBindings: []apisv1alpha1.APIBinding{
+				newBindingBuilder("a").
+					WithPermissionClaim("test.kcp.dev", "test", "abcdef", "").
+					WithExportClaim("test.kcp.dev", "test", "abcdef").
+					WithPermissionClaim("test2.kcp.dev", "test2", "abcdef", "").
+					WithExportClaim("test2.kcp.dev", "test2", "abcdef").
+					Build(),
+			},
+			wantStdout: []string{
+				"Warning: claim for test.test.kcp.dev:abcdef specified on APIBinding a but not accepted or rejected.\n",
+				"Warning: claim for test2.test2.kcp.dev:abcdef specified on APIBinding a but not accepted or rejected.\n",
+				"Current workspace is \"root:foo:bar\""},
+		},
+		{
+			name: "workspace name, multiple APIBindings unspecified",
+			config: clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts:  map[string]*clientcmdapi.Context{"workspace.kcp.dev/current": {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"}},
+				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo"}},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			existingObjects: map[logicalcluster.Name][]string{
+				logicalcluster.New("root:foo"): {"bar"},
+			},
+			param: "bar",
+			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
+				Contexts: map[string]*clientcmdapi.Context{
+					"workspace.kcp.dev/current":  {Cluster: "workspace.kcp.dev/current", AuthInfo: "test"},
+					"workspace.kcp.dev/previous": {Cluster: "workspace.kcp.dev/previous", AuthInfo: "test"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"workspace.kcp.dev/current":  {Server: "https://test/clusters/root:foo:bar"},
+					"workspace.kcp.dev/previous": {Server: "https://test/clusters/root:foo"},
+				},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			destination: "root:foo:bar",
+			apiBindings: []apisv1alpha1.APIBinding{
+				newBindingBuilder("a").
+					WithExportClaim("test.kcp.dev", "test", "abcdef").
+					WithExportClaim("", "configmaps", "").
+					Build(),
+			},
+			wantStdout: []string{
+				"Warning: claim for configmaps exported but not specified on APIBinding a\nAdd this claim to the APIBinding's Spec.\n",
+				"Warning: claim for test.test.kcp.dev:abcdef exported but not specified on APIBinding a\nAdd this claim to the APIBinding's Spec.\n",
+				"Current workspace is \"root:foo:bar\""},
 		},
 	}
 	for _, tt := range tests {
@@ -791,7 +1190,7 @@ func TestUse(t *testing.T) {
 			u := parseURLOrDie(cluster.Server)
 			u.Path = ""
 
-			clients := map[logicalcluster.Name]*tenancyfake.Clientset{}
+			clients := map[logicalcluster.Name]*fakeclient.Clientset{}
 			for lcluster, names := range tt.existingObjects {
 				objs := []runtime.Object{}
 				for _, name := range names {
@@ -812,7 +1211,8 @@ func TestUse(t *testing.T) {
 					}
 					objs = append(objs, obj)
 				}
-				clients[lcluster] = tenancyfake.NewSimpleClientset(objs...)
+
+				clients[lcluster] = fakeclient.NewSimpleClientset(objs...)
 
 				if lcluster == tenancyv1alpha1.RootCluster {
 					clients[lcluster].PrependReactor("get", "workspaces", func(action clientgotesting.Action) (handled bool, ret runtime.Object, err error) {
@@ -838,9 +1238,29 @@ func TestUse(t *testing.T) {
 				}
 			}
 
+			// return nothing in the default case.
+			getAPIBindings := func(ctx context.Context, kcpClusterClient kcpclient.ClusterInterface, host string) ([]apisv1alpha1.APIBinding, error) {
+				return nil, nil
+			}
+
+			if tt.destination != "" {
+				destCluster := logicalcluster.New(tt.destination)
+				// Only make a new clientset if it doesn't already exist
+				if _, ok := clients[destCluster]; !ok {
+					clients[destCluster] = fakeclient.NewSimpleClientset()
+				}
+
+				// Add APIBindings to our Clientset if we have them
+				if len(tt.apiBindings) > 0 {
+					getAPIBindings = func(ctx context.Context, kcpClusterClient kcpclient.ClusterInterface, host string) ([]apisv1alpha1.APIBinding, error) {
+						return tt.apiBindings, nil
+					}
+				}
+			}
+
 			for lcluster, err := range tt.getWorkspaceErrors {
 				if _, ok := clients[lcluster]; !ok {
-					clients[lcluster] = tenancyfake.NewSimpleClientset()
+					clients[lcluster] = fakeclient.NewSimpleClientset()
 				}
 				clients[lcluster].PrependReactor("get", "workspaces", func(action clientgotesting.Action) (bool, runtime.Object, error) {
 					return true, nil, err
@@ -849,14 +1269,14 @@ func TestUse(t *testing.T) {
 
 			for lcluster, d := range tt.discovery {
 				if _, ok := clients[lcluster]; !ok {
-					clients[lcluster] = tenancyfake.NewSimpleClientset()
+					clients[lcluster] = fakeclient.NewSimpleClientset()
 				}
 				clients[lcluster].Resources = d
 			}
 
 			for lcluster := range tt.discoveryErrors {
 				if _, ok := clients[lcluster]; !ok {
-					clients[lcluster] = tenancyfake.NewSimpleClientset()
+					clients[lcluster] = fakeclient.NewSimpleClientset()
 				}
 			}
 
@@ -868,6 +1288,7 @@ func TestUse(t *testing.T) {
 				got = config
 				return nil
 			}
+			opts.getAPIBindings = getAPIBindings
 			opts.kcpClusterClient = fakeTenancyClient{
 				t:             t,
 				clients:       clients,
@@ -895,6 +1316,9 @@ func TestUse(t *testing.T) {
 
 			for _, s := range tt.wantStdout {
 				require.Contains(t, stdout.String(), s)
+			}
+			if tt.noWarn {
+				require.NotContains(t, stdout.String(), "Warning")
 			}
 			if err != nil {
 				for _, s := range tt.wantErrors {
@@ -1129,18 +1553,18 @@ func parseURLOrDie(host string) *url.URL {
 
 type fakeTenancyClient struct {
 	t             *testing.T
-	clients       map[logicalcluster.Name]*tenancyfake.Clientset
+	clients       map[logicalcluster.Name]*fakeclient.Clientset
 	discoveryErrs map[logicalcluster.Name]error
 }
 
-func (f fakeTenancyClient) Cluster(cluster logicalcluster.Name) tenancyclient.Interface {
+func (f fakeTenancyClient) Cluster(cluster logicalcluster.Name) kcpclient.Interface {
 	client, ok := f.clients[cluster]
 	require.True(f.t, ok, "no client for cluster %s", cluster)
 	return withErrorDiscovery{client, f.discoveryErrs[cluster]}
 }
 
 type withErrorDiscovery struct {
-	tenancyclient.Interface
+	kcpclient.Interface
 
 	err error
 }
@@ -1160,4 +1584,60 @@ func (c errorDiscoveryClient) ServerGroups() (*metav1.APIGroupList, error) {
 		return nil, c.err
 	}
 	return c.DiscoveryInterface.ServerGroups()
+}
+
+type bindingBuilder struct {
+	apisv1alpha1.APIBinding
+}
+
+func newBindingBuilder(name string) *bindingBuilder {
+	b := new(bindingBuilder)
+	b.ObjectMeta = metav1.ObjectMeta{
+		Name: name,
+	}
+	return b
+}
+
+func (b *bindingBuilder) WithPermissionClaim(group, resource, identityHash string, state apisv1alpha1.AcceptablePermissionClaimState) *bindingBuilder {
+	if len(b.Spec.PermissionClaims) == 0 {
+		b.Spec.PermissionClaims = make([]apisv1alpha1.AcceptablePermissionClaim, 0)
+	}
+
+	pc := apisv1alpha1.AcceptablePermissionClaim{
+		PermissionClaim: apisv1alpha1.PermissionClaim{
+			GroupResource: apisv1alpha1.GroupResource{
+				Group:    group,
+				Resource: resource,
+			},
+			IdentityHash: identityHash,
+		},
+	}
+
+	if state != "" {
+		pc.State = state
+	}
+
+	b.Spec.PermissionClaims = append(b.Spec.PermissionClaims, pc)
+	return b
+}
+
+func (b *bindingBuilder) WithExportClaim(group, resource, identityHash string) *bindingBuilder {
+	if len(b.Status.ExportPermissionClaims) == 0 {
+		b.Status.ExportPermissionClaims = make([]apisv1alpha1.PermissionClaim, 0)
+	}
+
+	pc := apisv1alpha1.PermissionClaim{
+		GroupResource: apisv1alpha1.GroupResource{
+			Group:    group,
+			Resource: resource,
+		},
+		IdentityHash: identityHash,
+	}
+
+	b.Status.ExportPermissionClaims = append(b.Status.ExportPermissionClaims, pc)
+	return b
+}
+
+func (b *bindingBuilder) Build() apisv1alpha1.APIBinding {
+	return b.APIBinding
 }
