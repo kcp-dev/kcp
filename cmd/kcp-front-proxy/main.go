@@ -37,8 +37,8 @@ import (
 	genericfilters "k8s.io/apiserver/pkg/server/filters"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/component-base/cli"
 	utilflag "k8s.io/component-base/cli/flag"
-	"k8s.io/component-base/logs"
 	"k8s.io/component-base/version"
 	"k8s.io/klog/v2"
 
@@ -63,14 +63,9 @@ func main() {
 	pflag.CommandLine.SetNormalizeFunc(utilflag.WordSepNormalizeFunc)
 	pflag.CommandLine.AddGoFlagSet(goflags.CommandLine)
 
-	logs.InitLogs()
-	defer logs.FlushLogs()
-
-	command := NewProxyCommand(ctx)
-	if err := command.Execute(); err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		os.Exit(1)
-	}
+	cmd := NewProxyCommand(ctx)
+	code := cli.Run(cmd)
+	os.Exit(code)
 }
 
 func NewProxyCommand(ctx context.Context) *cobra.Command {
