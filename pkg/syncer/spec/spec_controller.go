@@ -141,20 +141,34 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetWorkspace logicalcluster.
 					logger := logging.WithQueueKey(logger, key).WithValues("gvr", gvr, logging.DownstreamNamespaceKey, namespace, logging.DownstreamNameKey, name)
 					logger.V(3).Info("processing delete event")
 
-					// Use namespace lister
-					nsObj, err := namespaceLister.Get(namespace)
-					if err != nil {
-						utilruntime.HandleError(err)
-						return
+					var nsLocatorHolder *unstructured.Unstructured
+					var ok bool
+					// Handle namespaced resources
+					if namespace != "" {
+						// Use namespace lister
+						nsObj, err := namespaceLister.Get(namespace)
+						if err != nil {
+							utilruntime.HandleError(err)
+							return
+						}
+						nsLocatorHolder, ok = nsObj.(*unstructured.Unstructured)
+						if !ok {
+							utilruntime.HandleError(fmt.Errorf("unexpected object type: %T", nsObj))
+							return
+						}
+					} else {
+						// The nsLocatorHolder is in the resource itself for cluster-scoped resources.
+						nsLocatorHolder, ok = obj.(*unstructured.Unstructured)
+						if !ok {
+							utilruntime.HandleError(fmt.Errorf("unexpected object type: %T", obj))
+							return
+						}
 					}
-					ns, ok := nsObj.(*unstructured.Unstructured)
+					logger = logging.WithObject(logger, nsLocatorHolder)
+
+					locator, ok := nsLocatorHolder.GetAnnotations()[shared.NamespaceLocatorAnnotation]
 					if !ok {
-						utilruntime.HandleError(fmt.Errorf("unexpected object type: %T", nsObj))
-						return
-					}
-					locator, ok := ns.GetAnnotations()[shared.NamespaceLocatorAnnotation]
-					if !ok {
-						utilruntime.HandleError(fmt.Errorf("unable to find the locator annotation in namespace %s", namespace))
+						utilruntime.HandleError(fmt.Errorf("unable to find the locator annotation in resource %s", nsLocatorHolder.GetName()))
 						return
 					}
 					nsLocator := &shared.NamespaceLocator{}

@@ -19,6 +19,7 @@ package syncer
 import (
 	"context"
 	"embed"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -388,6 +389,80 @@ func TestSyncerLifecycle(t *testing.T) {
 		return false, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "downstream Namespace %s was not marked for deletion or deleted", downstreamNamespaceName)
 
+	t.Logf("Creating Persistent Volume to test cluster-wide resource syncing")
+	pvYAML, err := embeddedResources.ReadFile("persistentvolume.yaml")
+	require.NoError(t, err, "failed to read embedded persistenvolume")
+
+	var persistentVolume *corev1.PersistentVolume
+	err = yaml.Unmarshal(pvYAML, &persistentVolume)
+	require.NoError(t, err, "failed to unmarshal persistentvolume")
+
+	upstreamPersistentVolume, err := upstreamKubeClusterClient.CoreV1().PersistentVolumes().Create(logicalcluster.WithCluster(ctx, wsClusterName), persistentVolume, metav1.CreateOptions{})
+	require.NoError(t, err, "failed to create persistentVolume")
+
+	t.Logf("Waiting for the Persistent Volume to be scheduled upstream")
+	framework.Eventually(t, func() (bool, string) {
+		pv, err := upstreamKubeClusterClient.CoreV1().PersistentVolumes().Get(logicalcluster.WithCluster(ctx, wsClusterName), upstreamPersistentVolume.Name, metav1.GetOptions{})
+		if err != nil {
+			return false, err.Error()
+		}
+		if val, ok := pv.GetLabels()["state.workload.kcp.dev/"+syncTargetKey]; ok {
+			if val != "" {
+				return false, "state label is not empty, should be."
+			}
+			return true, ""
+		}
+		return false, ""
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "Persistent Volume %s was not scheduled", upstreamPersistentVolume.Name)
+
+	t.Logf("Updating the PV to be force it to be scheduled downstream")
+	pvPatch := []byte(`{"metadata":{"labels":{"state.workload.kcp.dev/` + syncTargetKey + `": "Sync"}}}`)
+	_, err = upstreamKubeClusterClient.CoreV1().PersistentVolumes().Patch(logicalcluster.WithCluster(ctx, wsClusterName), upstreamPersistentVolume.Name, types.MergePatchType, pvPatch, metav1.PatchOptions{})
+	require.NoError(t, err, "failed to patch persistentVolume")
+
+	t.Logf("Waiting for the Persistent Volume to be synced downstream and validate its NamespceLocator")
+	framework.Eventually(t, func() (bool, string) {
+		pv, err := downstreamKubeClient.CoreV1().PersistentVolumes().Get(ctx, upstreamPersistentVolume.Name, metav1.GetOptions{})
+		if err != nil {
+			return false, err.Error()
+		}
+		if val := pv.GetAnnotations()[shared.NamespaceLocatorAnnotation]; val != "" {
+			desiredNSLocator.Namespace = ""
+			desiredNSLocatorByte, err := json.Marshal(desiredNSLocator)
+			require.NoError(t, err, "failed to marshal namespaceLocator")
+			if string(desiredNSLocatorByte) != val {
+				return false, "namespaceLocator for persistentVolume doesn't match the expected one"
+			}
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "Persistent Volume %s was not synced downstream", upstreamPersistentVolume.Name)
+
+	t.Logf("Deleting the Persistent Volume upstream")
+	err = upstreamKubeClusterClient.CoreV1().PersistentVolumes().Delete(logicalcluster.WithCluster(ctx, wsClusterName), upstreamPersistentVolume.Name, metav1.DeleteOptions{})
+	require.NoError(t, err, "failed to delete persistentVolume upstream")
+
+	t.Logf("Waiting for the Persistent Volume to be deleted upstream")
+	framework.Eventually(t, func() (bool, string) {
+		_, err := upstreamKubeClusterClient.CoreV1().PersistentVolumes().Get(logicalcluster.WithCluster(ctx, wsClusterName), upstreamPersistentVolume.Name, metav1.GetOptions{})
+		if apierrors.IsNotFound(err) {
+			return true, ""
+		}
+		require.NoError(t, err)
+		return false, ""
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "Persistent Volume %s was not deleted upstream", upstreamPersistentVolume.Name)
+
+	t.Logf("Waiting for the Persistent Volume to be deleted downstream")
+	framework.Eventually(t, func() (bool, string) {
+		pv, err := downstreamKubeClient.CoreV1().PersistentVolumes().Get(ctx, upstreamPersistentVolume.Name, metav1.GetOptions{})
+		if apierrors.IsNotFound(err) {
+			return true, "pv is not found"
+		}
+		if pv.DeletionTimestamp != nil {
+			return true, "deletionTimestamp is set."
+		}
+		require.NoError(t, err)
+		return false, ""
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "Persistent Volume %s was not deleted downstream", upstreamPersistentVolume.Name)
 }
 
 func dumpPodEvents(t *testing.T, startAfter time.Time, downstreamKubeClient *kubernetesclientset.Clientset, downstreamNamespaceName string) time.Time {
@@ -541,7 +616,7 @@ func TestCordonUncordonDrain(t *testing.T) {
 				// Only need to install services in a logical cluster
 				return
 			}
-			crdClusterClient, err := apiextensionsclient.NewForConfig(config)
+			crdClusterClient, err := apiextensionsclientset.NewForConfig(config)
 			require.NoError(t, err, "failed to construct apiextensions client for server")
 			kubefixtures.Create(t, crdClusterClient.ApiextensionsV1().CustomResourceDefinitions(),
 				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
