@@ -113,6 +113,11 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 
 	serverConfig := genericapiserver.NewRecommendedConfig(apiextensionsapiserver.Codecs)
 
+	// disable SSA since the cache server should not change objects in any way
+	// note, that this will break when (if) the feature is locked, until then we should be fine
+	if err := utilfeature.DefaultMutableFeatureGate.Set(fmt.Sprintf("%s=false", features.ServerSideApply)); err != nil {
+		return nil, err
+	}
 	if err := opts.ServerRunOptions.ApplyTo(&serverConfig.Config); err != nil {
 		return nil, err
 	}
