@@ -44,12 +44,12 @@ import (
 	clusterctl "github.com/kcp-dev/kcp/pkg/reconciler/workload/basecontroller"
 )
 
-var clusterKind = reflect.TypeOf(workloadv1alpha1.SyncTarget{}).Name()
+var syncTargetKind = reflect.TypeOf(workloadv1alpha1.SyncTarget{}).Name()
 
-func clusterAsOwnerReference(obj *workloadv1alpha1.SyncTarget, controller bool) metav1.OwnerReference {
+func syncTargetAsOwnerReference(obj *workloadv1alpha1.SyncTarget, controller bool) metav1.OwnerReference {
 	return metav1.OwnerReference{
 		APIVersion: workloadv1alpha1.SchemeGroupVersion.String(),
-		Kind:       clusterKind,
+		Kind:       syncTargetKind,
 		Name:       obj.Name,
 		UID:        obj.UID,
 		Controller: &controller,
@@ -61,9 +61,9 @@ func NewAPIImporter(
 	kcpInformerFactory kcpinformers.SharedInformerFactory,
 	resourcesToSync []string,
 	logicalClusterName logicalcluster.Name,
-	location string,
+	syncTargetName string,
 ) (*APIImporter, error) {
-	agent := fmt.Sprintf("kcp-workload-api-importer-%s-%s", logicalClusterName, location)
+	agent := fmt.Sprintf("kcp-workload-api-importer-%s-%s", logicalClusterName, syncTargetName)
 	upstreamConfig = rest.AddUserAgent(rest.CopyConfig(upstreamConfig), agent)
 	downstreamConfig = rest.AddUserAgent(rest.CopyConfig(downstreamConfig), agent)
 
@@ -111,7 +111,7 @@ func NewAPIImporter(
 		apiresourceImportIndexer: importIndexer,
 		syncTargetLister:         kcpInformerFactory.Workload().V1alpha1().SyncTargets().Lister(),
 
-		location:           location,
+		syncTargetName:     syncTargetName,
 		logicalClusterName: logicalClusterName,
 		schemaPuller:       schemaPuller,
 	}, nil
@@ -124,7 +124,7 @@ type APIImporter struct {
 	apiresourceImportIndexer cache.Indexer
 	syncTargetLister         workloadlisters.SyncTargetLister
 
-	location           string
+	syncTargetName     string
 	logicalClusterName logicalcluster.Name
 	schemaPuller       crdpuller.SchemaPuller
 	SyncedGVRs         map[string]metav1.GroupVersionResource
@@ -154,7 +154,7 @@ func (i *APIImporter) Stop(ctx context.Context) {
 
 	objs, err := i.apiresourceImportIndexer.ByIndex(
 		clusterctl.LocationInLogicalClusterIndexName,
-		clusterctl.GetLocationInLogicalClusterIndexKey(i.location, i.logicalClusterName),
+		clusterctl.GetLocationInLogicalClusterIndexKey(i.syncTargetName, i.logicalClusterName),
 	)
 	if err != nil {
 		logger.Error(err, "error trying to list APIResourceImport objects")
@@ -176,7 +176,7 @@ func (i *APIImporter) ImportAPIs(ctx context.Context) {
 	// I guess once the indexer is using kcpcache.MetaClusterNamespaceKeyFunc, we can just use that formatter ...
 	var syncTargetKey string
 	syncTargetKey += i.logicalClusterName.String() + "|"
-	syncTargetKey += i.location
+	syncTargetKey += i.syncTargetName
 
 	syncTarget, err := i.syncTargetLister.Get(syncTargetKey)
 
@@ -215,7 +215,7 @@ func (i *APIImporter) ImportAPIs(ctx context.Context) {
 
 		objs, err := i.apiresourceImportIndexer.ByIndex(
 			clusterctl.GVRForLocationInLogicalClusterIndexName,
-			clusterctl.GetGVRForLocationInLogicalClusterIndexKey(i.location, i.logicalClusterName, gvr),
+			clusterctl.GetGVRForLocationInLogicalClusterIndexKey(i.syncTargetName, i.logicalClusterName, gvr),
 		)
 		if err != nil {
 			logger.Error(err, "error pulling CRDs")
@@ -238,7 +238,7 @@ func (i *APIImporter) ImportAPIs(ctx context.Context) {
 				continue
 			}
 		} else {
-			apiResourceImportName := gvr.Resource + "." + i.location + "." + gvr.Version + "."
+			apiResourceImportName := gvr.Resource + "." + i.syncTargetName + "." + gvr.Version + "."
 			if gvr.Group == "" {
 				apiResourceImportName += "core"
 			} else {
@@ -252,7 +252,7 @@ func (i *APIImporter) ImportAPIs(ctx context.Context) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: apiResourceImportName,
 					OwnerReferences: []metav1.OwnerReference{
-						clusterAsOwnerReference(syncTarget, true),
+						syncTargetAsOwnerReference(syncTarget, true),
 					},
 					Annotations: map[string]string{
 						logicalcluster.AnnotationKey:             i.logicalClusterName.String(),
@@ -260,7 +260,7 @@ func (i *APIImporter) ImportAPIs(ctx context.Context) {
 					},
 				},
 				Spec: apiresourcev1alpha1.APIResourceImportSpec{
-					Location:             i.location,
+					Location:             i.syncTargetName,
 					SchemaUpdateStrategy: apiresourcev1alpha1.UpdateUnpublished,
 					CommonAPIResourceSpec: apiresourcev1alpha1.CommonAPIResourceSpec{
 						GroupVersion: apiresourcev1alpha1.GroupVersion{
@@ -296,7 +296,7 @@ func (i *APIImporter) ImportAPIs(ctx context.Context) {
 		gvr := i.SyncedGVRs[gvrToRemove]
 		objs, err := i.apiresourceImportIndexer.ByIndex(
 			clusterctl.GVRForLocationInLogicalClusterIndexName,
-			clusterctl.GetGVRForLocationInLogicalClusterIndexKey(i.location, i.logicalClusterName, gvr),
+			clusterctl.GetGVRForLocationInLogicalClusterIndexKey(i.syncTargetName, i.logicalClusterName, gvr),
 		)
 		logger := logger.WithValues(
 			"group", gvr.Group,
