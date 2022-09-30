@@ -32,9 +32,9 @@ builds:
     goarch: ppc64le
   - goos: windows
     goarch: ppc64le
-- id: "kubectl-ws"
-  main: ./cmd/kubectl-ws
-  binary: bin/kubectl-ws
+- id: "kubectl-workspace"
+  main: ./cmd/kubectl-workspace
+  binary: bin/kubectl-workspace
   ldflags:
   - "{{ .Env.LDFLAGS }}"
   goos:
@@ -50,24 +50,10 @@ builds:
     goarch: ppc64le
   - goos: windows
     goarch: ppc64le
-- id: "kubectl-workspaces"
-  main: ./cmd/kubectl-workspaces
-  binary: bin/kubectl-workspaces
-  ldflags:
-  - "{{ .Env.LDFLAGS }}"
-  goos:
-  - linux
-  - darwin
-  - windows
-  goarch:
-  - amd64
-  - arm64
-  - ppc64le
-  ignore:
-  - goos: darwin
-    goarch: ppc64le
-  - goos: windows
-    goarch: ppc64le
+  hooks:
+    post:
+      - ln -sfr bin/kubectl-workspace bin/kubectl-workspaces
+      - ln -sfr bin/kubectl-workspace bin/kubectl-ws
 archives:
 - id: kcp
   builds:
@@ -75,9 +61,11 @@ archives:
 - id: kubectl-kcp-plugin
   builds:
   - kubectl-kcp
-  - kubectl-ws
-  - kubectl-workspaces
+  - kubectl-workspace
   name_template: "kubectl-kcp-plugin_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+  files:
+    - bin/kubectl-workspaces
+    - bin/kubectl-ws
 release:
   draft: true
   prerelease: auto

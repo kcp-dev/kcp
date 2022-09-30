@@ -23,6 +23,13 @@ GOBIN_DIR=$(abspath ./bin )
 PATH := $(GOBIN_DIR):$(TOOLS_GOBIN_DIR):$(PATH)
 TMPDIR := $(shell mktemp -d)
 
+# Detect the path used for the install target
+ifeq (,$(shell go env GOBIN))
+INSTALL_GOBIN=$(shell go env GOPATH)/bin
+else
+INSTALL_GOBIN=$(shell go env GOBIN)
+endif
+
 CONTROLLER_GEN_VER := v0.7.0
 CONTROLLER_GEN_BIN := controller-gen
 CONTROLLER_GEN := $(TOOLS_DIR)/$(CONTROLLER_GEN_BIN)-$(CONTROLLER_GEN_VER)
@@ -108,6 +115,8 @@ build-kind-images: build-kind-images-ko
 install: WHAT ?= ./cmd/...
 install:
 	GOOS=$(OS) GOARCH=$(ARCH) go install -ldflags="$(LDFLAGS)" $(WHAT)
+	ln -sfr $(INSTALL_GOBIN)/kubectl-workspace $(INSTALL_GOBIN)/kubectl-ws
+	ln -sfr $(INSTALL_GOBIN)/kubectl-workspace $(INSTALL_GOBIN)/kubectl-workspaces
 .PHONY: install
 
 $(GOLANGCI_LINT):

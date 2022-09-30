@@ -50,6 +50,7 @@ FROM alpine:3.15
 WORKDIR /
 COPY --from=builder workspace/bin/kcp-front-proxy workspace/bin/kcp workspace/bin/virtual-workspaces /
 COPY --from=builder workspace/bin/kubectl-* /usr/local/bin/
+RUN ln -s /usr/local/bin/kubectl-workspace /usr/local/bin/kubectl-workspaces && ln -s /usr/local/bin/kubectl-workspace /usr/local/bin/kubectl-ws
 RUN apk add --update curl && rm -rf /var/cache/apk/*
 RUN curl -fL -o /usr/local/bin/kubectl "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/$(uname -m | sed 's/aarch.*/arm64/;s/armv8.*/arm64/;s/x86_64/amd64/')/kubectl" && \
   chmod +x /usr/local/bin/kubectl
