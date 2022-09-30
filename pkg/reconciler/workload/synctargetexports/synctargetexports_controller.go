@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -166,6 +167,8 @@ func (c *Controller) enqueueSyncTarget(obj interface{}, logSuffix string) {
 	c.queue.Add(key)
 }
 
+var syncTargetKind = reflect.TypeOf(workloadv1alpha1.SyncTarget{}).Name()
+
 func (c *Controller) enqueueAPIResourceImport(obj interface{}) {
 	apiImport, ok := obj.(*apiresourcev1alpha1.APIResourceImport)
 	if !ok {
@@ -174,10 +177,14 @@ func (c *Controller) enqueueAPIResourceImport(obj interface{}) {
 	}
 
 	lcluster := logicalcluster.From(apiImport)
-	key := clusters.ToClusterAwareKey(lcluster, apiImport.Spec.Location)
 
-	klog.V(2).Infof("Queueing SyncTarget %q because of APIResourceImport %s", key, apiImport.Name)
-	c.queue.Add(key)
+	for _, ref := range apiImport.OwnerReferences {
+		if ref.APIVersion == workloadv1alpha1.SchemeGroupVersion.String() && ref.Kind == syncTargetKind {
+			key := clusters.ToClusterAwareKey(lcluster, ref.Name)
+			klog.V(2).Infof("Queueing SyncTarget %q because of APIResourceImport %s", key, apiImport.Name)
+			c.queue.Add(key)
+		}
+	}
 }
 
 func (c *Controller) enqueueAPIExport(obj interface{}, logSuffix string) {
