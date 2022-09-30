@@ -28,6 +28,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
+	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -43,6 +44,7 @@ import (
 	"github.com/kcp-dev/kcp/config/helpers"
 	kube124 "github.com/kcp-dev/kcp/config/rootcompute/kube-1.24"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/client/dynamic"
@@ -104,6 +106,7 @@ func TestMultipleExports(t *testing.T) {
 	syncTargetName := fmt.Sprintf("synctarget-%d", +rand.Intn(1000000))
 	t.Logf("Creating a SyncTarget and syncer in %s", computeClusterName)
 	syncTarget := framework.NewSyncerFixture(t, source, computeClusterName,
+		framework.WithExtraResources("services"),
 		framework.WithSyncTarget(computeClusterName, syncTargetName),
 		framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 			if !isFakePCluster {
@@ -121,8 +124,43 @@ func TestMultipleExports(t *testing.T) {
 		}),
 	).Start(t)
 
-	t.Logf("Patch synctarget with new export")
+	t.Logf("Patch synctarget with service export")
 	patchData := fmt.Sprintf(
+		`{"spec":{"supportedAPIExports":[{"workspace":{"path":%q,"exportName":"services"}}]}}`, serviceSchemaClusterName.String())
+	_, err = kcpClients.Cluster(computeClusterName).WorkloadV1alpha1().SyncTargets().Patch(ctx, syncTargetName, types.MergePatchType, []byte(patchData), metav1.PatchOptions{})
+	require.NoError(t, err)
+
+	t.Logf("syncTarget should have one resource to sync")
+	require.Eventually(t, func() bool {
+		syncTarget, err := kcpClients.Cluster(computeClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
+		if err != nil {
+			return false
+		}
+
+		if len(syncTarget.Status.SyncedResources) != 1 {
+			return false
+		}
+
+		if syncTarget.Status.SyncedResources[0].Resource != "services" ||
+			syncTarget.Status.SyncedResources[0].State != workloadv1alpha1.ResourceSchemaAcceptedState {
+			return false
+		}
+
+		return true
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	t.Logf("Synctarget should be authorized to access downstream clusters")
+	require.Eventually(t, func() bool {
+		syncTarget, err := kcpClients.Cluster(computeClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
+		if err != nil {
+			return false
+		}
+
+		return conditions.IsTrue(syncTarget, workloadv1alpha1.SyncerAuthorized)
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	t.Logf("Patch synctarget with new export")
+	patchData = fmt.Sprintf(
 		`{"spec":{"supportedAPIExports":[{"workspace":{"path":%q,"exportName":"services"}},{"workspace":{"path":%q,"exportName":"ingresses"}}]}}`, serviceSchemaClusterName.String(), ingressSchemaClusterName.String())
 	_, err = kcpClients.Cluster(computeClusterName).WorkloadV1alpha1().SyncTargets().Patch(ctx, syncTargetName, types.MergePatchType, []byte(patchData), metav1.PatchOptions{})
 	require.NoError(t, err)
@@ -148,6 +186,44 @@ func TestMultipleExports(t *testing.T) {
 		}
 
 		return true
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	t.Logf("Synctarget should not be authorized to access downstream clusters")
+	require.Eventually(t, func() bool {
+		syncTarget, err := kcpClients.Cluster(computeClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
+		if err != nil {
+			return false
+		}
+
+		return conditions.IsFalse(syncTarget, workloadv1alpha1.SyncerAuthorized)
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	t.Logf("Update clusterole so syncer can start to sync")
+	downstreamKubeClient := syncTarget.DownstreamKubeClient
+	require.Eventually(t, func() bool {
+		clusterRole, err := downstreamKubeClient.RbacV1().ClusterRoles().Get(ctx, syncTarget.SyncerID, metav1.GetOptions{})
+		if err != nil {
+			return false
+		}
+
+		clusterRole.Rules = append(clusterRole.Rules, rbacv1.PolicyRule{
+			APIGroups: []string{"networking.k8s.io"},
+			Resources: []string{"ingresses"},
+			Verbs:     []string{"*"},
+		})
+
+		_, err = downstreamKubeClient.RbacV1().ClusterRoles().Update(ctx, clusterRole, metav1.UpdateOptions{})
+		return err == nil
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	t.Logf("Synctarget should be authorized to access downstream clusters")
+	require.Eventually(t, func() bool {
+		syncTarget, err := kcpClients.Cluster(computeClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
+		if err != nil {
+			return false
+		}
+
+		return conditions.IsTrue(syncTarget, workloadv1alpha1.SyncerAuthorized)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	// create virtual workspace rest configs

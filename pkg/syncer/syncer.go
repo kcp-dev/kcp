@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/version"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -147,6 +148,10 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	if err != nil {
 		return err
 	}
+	downstreamKubeClient, err := kubernetes.NewForConfig(downstreamConfig)
+	if err != nil {
+		return err
+	}
 
 	syncTargetKey := workloadv1alpha1.ToSyncTargetKey(cfg.SyncTargetWorkspace, cfg.SyncTargetName)
 	upstreamInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(upstreamDynamicClusterClient.Cluster(logicalcluster.Wildcard), resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
@@ -159,6 +164,8 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	syncerInformers, err := resourcesync.NewController(
 		upstreamDynamicClusterClient,
 		downstreamDynamicClient,
+		downstreamKubeClient,
+		kcpClusterClient,
 		kcpInformerFactory.Workload().V1alpha1().SyncTargets(),
 		cfg.SyncTargetName,
 		cfg.SyncTargetWorkspace,

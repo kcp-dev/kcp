@@ -18,28 +18,38 @@ package resourcesync
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
 
+	authorizationv1 "k8s.io/api/authorization/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
+	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
 	workloadlisters "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
@@ -74,6 +84,7 @@ type Controller struct {
 	queue                        workqueue.RateLimitingInterface
 	upstreamDynamicClusterClient *dynamic.Cluster
 	downstreamDynamicClient      dynamic.Interface
+	downstreamKubeClient         kubernetes.Interface
 
 	upstreamEventHandlers   []ResourceEventHandlerPerGVR
 	downstreamEventHandlers []ResourceEventHandlerPerGVR
@@ -82,6 +93,7 @@ type Controller struct {
 	syncTargetWorkspace logicalcluster.Name
 	syncTargetUID       types.UID
 	syncTargetLister    workloadlisters.SyncTargetLister
+	kcpClusterClient    *kcpclient.Cluster
 
 	syncerInformerMap map[schema.GroupVersionResource]*SyncerInformer
 	mutex             sync.RWMutex
@@ -90,6 +102,8 @@ type Controller struct {
 func NewController(
 	upstreamDynamicClusterClient *dynamic.Cluster,
 	downstreamDynamicClient dynamic.Interface,
+	downstreamKubeClient kubernetes.Interface,
+	kcpClusterClient *kcpclient.Cluster,
 	syncTargetInformer workloadinformers.SyncTargetInformer,
 	syncTargetName string,
 	syncTargetWorkspace logicalcluster.Name,
@@ -99,6 +113,8 @@ func NewController(
 		queue:                        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
 		upstreamDynamicClusterClient: upstreamDynamicClusterClient,
 		downstreamDynamicClient:      downstreamDynamicClient,
+		downstreamKubeClient:         downstreamKubeClient,
+		kcpClusterClient:             kcpClusterClient,
 		upstreamEventHandlers:        []ResourceEventHandlerPerGVR{},
 		downstreamEventHandlers:      []ResourceEventHandlerPerGVR{},
 		syncerInformerMap:            map[schema.GroupVersionResource]*SyncerInformer{},
@@ -207,7 +223,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *Controller) process(ctx context.Context, key string) error {
-	logger := klog.FromContext(ctx)
+	logger := klog.FromContext(ctx).WithValues("syncTarget", c.syncTargetName)
 
 	lclusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
@@ -238,13 +254,107 @@ func (c *Controller) process(ctx context.Context, key string) error {
 
 	requiredGVRs := getAllGVRs(syncTarget)
 
+	var errs []error
+	var unauthorizedGVRs []string
 	for gvr := range requiredGVRs {
+		logger := klog.FromContext(ctx).WithValues("gvr", gvr.String())
+		allowed, err := c.checkSSAR(ctx, gvr)
+		if err != nil {
+			logger.Error(err, "Failed to check ssar")
+			errs = append(errs, err)
+			unauthorizedGVRs = append(unauthorizedGVRs, gvr.String())
+			continue
+		}
+
+		if !allowed {
+			logger.V(2).Info("Stop informer since the syncer is not authorized to sync")
+			// remove this from requiredGVRs so its informer will be stopped later.
+			delete(requiredGVRs, gvr)
+			unauthorizedGVRs = append(unauthorizedGVRs, gvr.String())
+			continue
+		}
+
 		c.startSyncerInformer(ctx, gvr, syncTarget)
 	}
 
 	c.stopUnusedSyncerInformers(ctx, requiredGVRs)
 
-	return nil
+	newSyncTarget := syncTarget.DeepCopy()
+
+	if len(unauthorizedGVRs) > 0 {
+		conditions.MarkFalse(
+			newSyncTarget,
+			workloadv1alpha1.SyncerAuthorized,
+			"SyncerUnauthorized",
+			conditionsv1alpha1.ConditionSeverityError,
+			"SSAR check failed for gvrs: %s", strings.Join(unauthorizedGVRs, ";"),
+		)
+	} else {
+		conditions.MarkTrue(newSyncTarget, workloadv1alpha1.SyncerAuthorized)
+	}
+
+	if err := c.patchSyncTargetCondition(ctx, lclusterName, newSyncTarget, syncTarget); err != nil {
+		errs = append(errs, err)
+	}
+
+	return errors.NewAggregate(errs)
+}
+
+func (c *Controller) patchSyncTargetCondition(ctx context.Context, cluster logicalcluster.Name, new, old *workloadv1alpha1.SyncTarget) error {
+	logger := klog.FromContext(ctx)
+	// If the object being reconciled changed as a result, update it.
+	if equality.Semantic.DeepEqual(old.Status.Conditions, new.Status.Conditions) {
+		return nil
+	}
+	oldData, err := json.Marshal(workloadv1alpha1.SyncTarget{
+		Status: workloadv1alpha1.SyncTargetStatus{
+			Conditions: old.Status.Conditions,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to Marshal old data for syncTarget %s|%s: %w", cluster, old.Name, err)
+	}
+
+	newData, err := json.Marshal(workloadv1alpha1.SyncTarget{
+		ObjectMeta: metav1.ObjectMeta{
+			UID:             old.UID,
+			ResourceVersion: old.ResourceVersion,
+		}, // to ensure they appear in the patch as preconditions
+		Status: workloadv1alpha1.SyncTargetStatus{
+			Conditions: new.Status.Conditions,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to Marshal new data for syncTarget %s|%s: %w", cluster, new.Name, err)
+	}
+
+	patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
+	if err != nil {
+		return fmt.Errorf("failed to create patch for LocationDomain %s|%s: %w", cluster, new.Name, err)
+	}
+	logger.V(2).Info("patching placement", "patch", string(patchBytes))
+	_, uerr := c.kcpClusterClient.Cluster(cluster).WorkloadV1alpha1().SyncTargets().Patch(logicalcluster.WithCluster(ctx, cluster), new.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+	return uerr
+}
+
+func (c *Controller) checkSSAR(ctx context.Context, gvr schema.GroupVersionResource) (bool, error) {
+	ssar := &authorizationv1.SelfSubjectAccessReview{
+		Spec: authorizationv1.SelfSubjectAccessReviewSpec{
+			ResourceAttributes: &authorizationv1.ResourceAttributes{
+				Group:    gvr.Group,
+				Resource: gvr.Resource,
+				Version:  gvr.Version,
+				Verb:     "*",
+			},
+		},
+	}
+
+	sar, err := c.downstreamKubeClient.AuthorizationV1().SelfSubjectAccessReviews().Create(ctx, ssar, metav1.CreateOptions{})
+	if err != nil {
+		return false, err
+	}
+
+	return sar.Status.Allowed, nil
 }
 
 // stopUnusedSyncerInformers stop syncers for gvrs not in requiredGVRs
@@ -264,7 +374,7 @@ func (c *Controller) stopUnusedSyncerInformers(ctx context.Context, requiredGVRs
 }
 
 func (c *Controller) startSyncerInformer(ctx context.Context, gvr schema.GroupVersionResource, syncTarget *workloadv1alpha1.SyncTarget) {
-	logger := klog.FromContext(ctx).WithValues("syncTarget", c.syncTargetName).WithValues("gvr", gvr.String())
+	logger := klog.FromContext(ctx).WithValues("gvr", gvr.String())
 
 	c.mutex.Lock()
 	defer c.mutex.Unlock()

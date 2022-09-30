@@ -30,6 +30,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
+	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -45,6 +46,7 @@ import (
 	"github.com/kcp-dev/kcp/config/helpers"
 	kube124 "github.com/kcp-dev/kcp/config/rootcompute/kube-1.24"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/client/dynamic"
@@ -163,6 +165,44 @@ func TestSyncTargetExport(t *testing.T) {
 		// not compatible to the synctarget.
 		return len(cmp.Diff([]*metav1.APIResourceList{
 			requiredAPIResourceListWithService(computeClusterName, schemaClusterName)}, sortAPIResourceList(existingAPIResourceLists))) == 0
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	t.Logf("Synctarget should not be authorized to access downstream clusters")
+	require.Eventually(t, func() bool {
+		syncTarget, err := kcpClients.Cluster(computeClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
+		if err != nil {
+			return false
+		}
+
+		return conditions.IsFalse(syncTarget, workloadv1alpha1.SyncerAuthorized)
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	t.Logf("Update clusterole so syncer can start to sync")
+	downstreamKubeClient := syncTarget.DownstreamKubeClient
+	require.Eventually(t, func() bool {
+		clusterRole, err := downstreamKubeClient.RbacV1().ClusterRoles().Get(ctx, syncTarget.SyncerID, metav1.GetOptions{})
+		if err != nil {
+			return false
+		}
+
+		clusterRole.Rules = append(clusterRole.Rules, rbacv1.PolicyRule{
+			APIGroups: []string{""},
+			Resources: []string{"services"},
+			Verbs:     []string{"*"},
+		})
+
+		_, err = downstreamKubeClient.RbacV1().ClusterRoles().Update(ctx, clusterRole, metav1.UpdateOptions{})
+		return err == nil
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	t.Logf("Synctarget should be authorized to access downstream clusters")
+	require.Eventually(t, func() bool {
+		syncTarget, err := kcpClients.Cluster(computeClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
+		if err != nil {
+			return false
+		}
+
+		return conditions.IsTrue(syncTarget, workloadv1alpha1.SyncerAuthorized)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 }
 
