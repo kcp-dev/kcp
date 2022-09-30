@@ -287,7 +287,7 @@ func (i *APIImporter) ImportAPIs(ctx context.Context) {
 					},
 				},
 				Spec: apiresourcev1alpha1.APIResourceImportSpec{
-					Location:             i.syncTargetName,
+					DeprecatedLocation:   i.syncTargetName,
 					SchemaUpdateStrategy: apiresourcev1alpha1.UpdateUnpublished,
 					CommonAPIResourceSpec: apiresourcev1alpha1.CommonAPIResourceSpec{
 						GroupVersion: apiresourcev1alpha1.GroupVersion{

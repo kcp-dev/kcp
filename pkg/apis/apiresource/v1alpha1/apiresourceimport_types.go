@@ -29,7 +29,6 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster,categories=kcp
-// +kubebuilder:printcolumn:name="Location",type="string",JSONPath=`.spec.location`,priority=1
 // +kubebuilder:printcolumn:name="Schema update strategy",type="string",JSONPath=`.spec.schemaUpdateStrategy`,priority=2
 // +kubebuilder:printcolumn:name="API Version",type="string",JSONPath=`.metadata.annotations.apiresource\.kcp\.dev/apiVersion`,priority=3
 // +kubebuilder:printcolumn:name="API Resource",type="string",JSONPath=`.spec.plural`,priority=4
@@ -102,9 +101,10 @@ type APIResourceImportSpec struct {
 	// +optional
 	SchemaUpdateStrategy SchemaUpdateStrategyType `json:"schemaUpdateStrategy,omitempty"`
 
-	// Locaton the API resource is imported from
-	// This field is required
-	Location string `json:"location"`
+	// Location is a deprecated field. It previously contained the name
+	// of the SyncTarget that created this resource. This can now be found
+	// via the OwnerReferences field.
+	DeprecatedLocation string `json:"location"`
 }
 
 // APIResourceImportConditionType is a valid value for APIResourceImportCondition.Type
