@@ -55,6 +55,16 @@ func syncTargetAsOwnerReference(obj *workloadv1alpha1.SyncTarget, controller boo
 	}
 }
 
+func getSyncTargetOwnersFromImport(apiResourceImport *apiresourcev1alpha1.APIResourceImport) []string {
+	var syncTargets []string
+	for _, ref := range apiResourceImport.OwnerReferences {
+		if ref.APIVersion == workloadv1alpha1.SchemeGroupVersion.String() && ref.Kind == syncTargetKind {
+			syncTargets = append(syncTargets, ref.Name)
+		}
+	}
+	return syncTargets
+}
+
 const gvrForSyncTargetInLogicalClusterIndexName = "GVRForSyncTargetInLogicalCluster"
 
 func getGVRForSyncTargetInLogicalClusterIndexKey(syncTarget string, clusterName logicalcluster.Name, gvr metav1.GroupVersionResource) string {
@@ -87,16 +97,22 @@ func NewAPIImporter(
 
 	indexers := map[string]cache.IndexFunc{
 		gvrForSyncTargetInLogicalClusterIndexName: func(obj interface{}) ([]string, error) {
+			var indexKeys []string
 			if apiResourceImport, ok := obj.(*apiresourcev1alpha1.APIResourceImport); ok {
-				return []string{getGVRForSyncTargetInLogicalClusterIndexKey(apiResourceImport.Spec.Location, logicalcluster.From(apiResourceImport), apiResourceImport.GVR())}, nil
+				for _, syncTarget := range getSyncTargetOwnersFromImport(apiResourceImport) {
+					indexKeys = append(indexKeys, getGVRForSyncTargetInLogicalClusterIndexKey(syncTarget, logicalcluster.From(apiResourceImport), apiResourceImport.GVR()))
+				}
 			}
-			return []string{}, nil
+			return indexKeys, nil
 		},
 		syncTargetInLogicalClusterIndexName: func(obj interface{}) ([]string, error) {
+			var indexKeys []string
 			if apiResourceImport, ok := obj.(*apiresourcev1alpha1.APIResourceImport); ok {
-				return []string{getSyncTargetInLogicalClusterIndexKey(apiResourceImport.Spec.Location, logicalcluster.From(apiResourceImport))}, nil
+				for _, syncTarget := range getSyncTargetOwnersFromImport(apiResourceImport) {
+					indexKeys = append(indexKeys, getSyncTargetInLogicalClusterIndexKey(syncTarget, logicalcluster.From(apiResourceImport)))
+				}
 			}
-			return []string{}, nil
+			return indexKeys, nil
 		},
 	}
 
