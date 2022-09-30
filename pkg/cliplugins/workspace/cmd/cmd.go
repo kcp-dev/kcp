@@ -103,7 +103,7 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 			if err := useWorkspaceOpts.Validate(); err != nil {
 				return err
 			}
-			return useWorkspaceOpts.Run(cmd.Context())
+			return useWorkspaceOpts.Run(c.Context())
 		},
 	}
 	useWorkspaceOpts.BindFlags(useCmd)
