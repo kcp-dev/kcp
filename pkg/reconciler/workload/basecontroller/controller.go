@@ -38,20 +38,7 @@ import (
 	apiresourceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
 	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
-	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiresource"
 )
-
-const GVRForLocationInLogicalClusterIndexName = "GVRForLocationInLogicalCluster"
-
-func GetGVRForLocationInLogicalClusterIndexKey(location string, clusterName logicalcluster.Name, gvr metav1.GroupVersionResource) string {
-	return location + "$$" + apiresource.GetClusterNameAndGVRIndexKey(clusterName, gvr)
-}
-
-const LocationInLogicalClusterIndexName = "LocationInLogicalCluster"
-
-func GetLocationInLogicalClusterIndexKey(location string, clusterName logicalcluster.Name) string {
-	return location + "/" + clusterName.String()
-}
 
 // ClusterReconcileImpl defines the methods that ClusterReconciler
 // will call in response to changes to Cluster resources.
@@ -98,25 +85,6 @@ func NewClusterReconciler(
 			c.enqueueAPIResourceImportRelatedCluster(obj)
 		},
 	})
-
-	indexers := map[string]cache.IndexFunc{
-		LocationInLogicalClusterIndexName: func(obj interface{}) ([]string, error) {
-			if apiResourceImport, ok := obj.(*apiresourcev1alpha1.APIResourceImport); ok {
-				return []string{GetLocationInLogicalClusterIndexKey(apiResourceImport.Spec.Location, logicalcluster.From(apiResourceImport))}, nil
-			}
-			return []string{}, nil
-		},
-	}
-
-	// Ensure the indexers are only added if not already present.
-	for indexName := range c.apiresourceImportIndexer.GetIndexers() {
-		delete(indexers, indexName)
-	}
-	if len(indexers) > 0 {
-		if err := c.apiresourceImportIndexer.AddIndexers(indexers); err != nil {
-			return nil, nil, fmt.Errorf("failed to add indexer for APIResourceImport: %w", err)
-		}
-	}
 
 	return c, queueAdapter{queue}, nil
 }
