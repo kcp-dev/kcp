@@ -32,10 +32,8 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	apiresourceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
 	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
@@ -59,31 +57,21 @@ func NewClusterReconciler(
 	reconciler ClusterReconcileImpl,
 	kcpClusterClient kcpclient.Interface,
 	clusterInformer workloadinformers.SyncTargetInformer,
-	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
 ) (*ClusterReconciler, ClusterQueue, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), name)
 
 	c := &ClusterReconciler{
-		name:                     name,
-		reconciler:               reconciler,
-		kcpClusterClient:         kcpClusterClient,
-		clusterIndexer:           clusterInformer.Informer().GetIndexer(),
-		apiresourceImportIndexer: apiResourceImportInformer.Informer().GetIndexer(),
-		queue:                    queue,
+		name:             name,
+		reconciler:       reconciler,
+		kcpClusterClient: kcpClusterClient,
+		clusterIndexer:   clusterInformer.Informer().GetIndexer(),
+		queue:            queue,
 	}
 
 	clusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
 		DeleteFunc: func(obj interface{}) { c.deletedCluster(obj) },
-	})
-	apiResourceImportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		UpdateFunc: func(_, obj interface{}) {
-			c.enqueueAPIResourceImportRelatedCluster(obj)
-		},
-		DeleteFunc: func(obj interface{}) {
-			c.enqueueAPIResourceImportRelatedCluster(obj)
-		},
 	})
 
 	return c, queueAdapter{queue}, nil
@@ -105,11 +93,10 @@ func (a queueAdapter) EnqueueAfter(cl *workloadv1alpha1.SyncTarget, dur time.Dur
 }
 
 type ClusterReconciler struct {
-	name                     string
-	reconciler               ClusterReconcileImpl
-	kcpClusterClient         kcpclient.Interface
-	clusterIndexer           cache.Indexer
-	apiresourceImportIndexer cache.Indexer
+	name             string
+	reconciler       ClusterReconcileImpl
+	kcpClusterClient kcpclient.Interface
+	clusterIndexer   cache.Indexer
 
 	queue workqueue.RateLimitingInterface
 }
@@ -124,30 +111,6 @@ func (c *ClusterReconciler) enqueue(obj interface{}) {
 	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), c.name), key)
 	logger.V(2).Info("queueing SyncTarget")
 	c.queue.Add(key)
-}
-
-func (c *ClusterReconciler) enqueueAPIResourceImportRelatedCluster(obj interface{}) {
-	var apiResourceImport *apiresourcev1alpha1.APIResourceImport
-	switch typedObj := obj.(type) {
-	case *apiresourcev1alpha1.APIResourceImport:
-		apiResourceImport = typedObj
-	case cache.DeletedFinalStateUnknown:
-		deletedImport, ok := typedObj.Obj.(*apiresourcev1alpha1.APIResourceImport)
-		if ok {
-			apiResourceImport = deletedImport
-		}
-	}
-	if apiResourceImport != nil {
-		c.enqueue(&metav1.PartialObjectMetadata{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: apiResourceImport.Spec.Location,
-				// TODO: (shawn-hurley)
-				Annotations: map[string]string{
-					logicalcluster.AnnotationKey: logicalcluster.From(apiResourceImport).String(),
-				},
-			},
-		})
-	}
 }
 
 func (c *ClusterReconciler) startWorker(ctx context.Context) {

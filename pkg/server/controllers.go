@@ -515,7 +515,6 @@ func (s *Server) installSyncTargetHeartbeatController(ctx context.Context, confi
 	c, err := heartbeat.NewController(
 		kcpClusterClient,
 		s.KcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
-		s.KcpSharedInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
 		s.Options.Controllers.SyncTargetHeartbeat.HeartbeatThreshold,
 	)
 	if err != nil {

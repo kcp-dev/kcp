@@ -20,7 +20,6 @@ import (
 	"time"
 
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	apiresourceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
 	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/basecontroller"
 )
@@ -28,7 +27,6 @@ import (
 func NewController(
 	kcpClusterClient kcpclient.Interface,
 	clusterInformer workloadinformers.SyncTargetInformer,
-	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
 	heartbeatThreshold time.Duration,
 ) (*basecontroller.ClusterReconciler, error) {
 	cm := &clusterManager{
@@ -40,7 +38,6 @@ func NewController(
 		cm,
 		kcpClusterClient,
 		clusterInformer,
-		apiResourceImportInformer,
 	)
 	if err != nil {
 		return nil, err
