@@ -28,7 +28,7 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	apiserveroptions "k8s.io/apiserver/pkg/server/options"
 
-	kcpauthentication "github.com/kcp-dev/kcp/cmd/kcp-front-proxy/authentication"
+	kcpauthentication "github.com/kcp-dev/kcp/pkg/proxy/authentication"
 )
 
 // Authentication wraps ClientCertAuthenticationOptions so we don't pull in
