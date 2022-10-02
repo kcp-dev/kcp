@@ -254,7 +254,7 @@ func TestListWorkspacesWithGroupPermission(t *testing.T) {
 							logicalcluster.AnnotationKey: "root:orgName",
 						},
 						Labels: map[string]string{
-							WorkspaceNameLabel: "foo",
+							tenancyv1beta1.WorkspaceNameLabel: "foo",
 						},
 					},
 					Subjects: []rbacv1.Subject{
@@ -324,7 +324,7 @@ func TestListWorkspacesWithUserPermission(t *testing.T) {
 							logicalcluster.AnnotationKey: "root:orgName",
 						},
 						Labels: map[string]string{
-							WorkspaceNameLabel: "foo",
+							tenancyv1beta1.WorkspaceNameLabel: "foo",
 						},
 					},
 					Subjects: []rbacv1.Subject{
@@ -433,7 +433,7 @@ func TestGetWorkspace(t *testing.T) {
 							logicalcluster.AnnotationKey: "root:orgName",
 						},
 						Labels: map[string]string{
-							WorkspaceNameLabel: "foo",
+							tenancyv1beta1.WorkspaceNameLabel: "foo",
 						},
 					},
 					Subjects: []rbacv1.Subject{
@@ -514,7 +514,7 @@ func TestGetWorkspaceNotFoundNoPermission(t *testing.T) {
 							logicalcluster.AnnotationKey: "root:orgName",
 						},
 						Labels: map[string]string{
-							WorkspaceNameLabel: "foo",
+							tenancyv1beta1.WorkspaceNameLabel: "foo",
 						},
 					},
 					Subjects: []rbacv1.Subject{
@@ -576,7 +576,7 @@ func TestCreateWorkspace(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "owner-workspace-foo-test-user",
 						Labels: map[string]string{
-							WorkspaceNameLabel: "foo",
+							tenancyv1beta1.WorkspaceNameLabel: "foo",
 						},
 					},
 					RoleRef: rbacv1.RoleRef{
@@ -600,7 +600,7 @@ func TestCreateWorkspace(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "owner-workspace-foo-test-user",
 						Labels: map[string]string{
-							WorkspaceNameLabel: "foo",
+							tenancyv1beta1.WorkspaceNameLabel: "foo",
 						},
 					},
 					Rules: []rbacv1.PolicyRule{
@@ -663,7 +663,7 @@ func TestCreateWorkspaceWithCreateAnyPermission(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "owner-workspace-foo-test-user",
 						Labels: map[string]string{
-							WorkspaceNameLabel: "foo",
+							tenancyv1beta1.WorkspaceNameLabel: "foo",
 						},
 					},
 					RoleRef: rbacv1.RoleRef{
@@ -687,7 +687,7 @@ func TestCreateWorkspaceWithCreateAnyPermission(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "owner-workspace-foo-test-user",
 						Labels: map[string]string{
-							WorkspaceNameLabel: "foo",
+							tenancyv1beta1.WorkspaceNameLabel: "foo",
 						},
 					},
 					Rules: []rbacv1.PolicyRule{
@@ -759,7 +759,7 @@ func TestCreateWorkspaceCustomLocalType(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "owner-workspace-foo-test-user",
 						Labels: map[string]string{
-							WorkspaceNameLabel: "foo",
+							tenancyv1beta1.WorkspaceNameLabel: "foo",
 						},
 					},
 					RoleRef: rbacv1.RoleRef{
@@ -783,7 +783,7 @@ func TestCreateWorkspaceCustomLocalType(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "owner-workspace-foo-test-user",
 						Labels: map[string]string{
-							WorkspaceNameLabel: "foo",
+							tenancyv1beta1.WorkspaceNameLabel: "foo",
 						},
 					},
 					Rules: []rbacv1.PolicyRule{
@@ -849,7 +849,7 @@ func TestCreateWorkspaceNameAlreadyExists(t *testing.T) {
 							logicalcluster.AnnotationKey: "root:orgName",
 						},
 						Labels: map[string]string{
-							WorkspaceNameLabel: "foo",
+							tenancyv1beta1.WorkspaceNameLabel: "foo",
 						},
 					},
 					Subjects: []rbacv1.Subject{
@@ -868,7 +868,7 @@ func TestCreateWorkspaceNameAlreadyExists(t *testing.T) {
 							logicalcluster.AnnotationKey: "root:orgName",
 						},
 						Labels: map[string]string{
-							WorkspaceNameLabel: "foo",
+							tenancyv1beta1.WorkspaceNameLabel: "foo",
 						},
 					},
 					Rules: []rbacv1.PolicyRule{
@@ -1004,7 +1004,7 @@ func TestDeleteWorkspaceNotFound(t *testing.T) {
 							logicalcluster.AnnotationKey: "root:orgName",
 						},
 						Labels: map[string]string{
-							WorkspaceNameLabel: "foo",
+							tenancyv1beta1.WorkspaceNameLabel: "foo",
 						},
 					},
 					Subjects: []rbacv1.Subject{
@@ -1023,7 +1023,7 @@ func TestDeleteWorkspaceNotFound(t *testing.T) {
 							logicalcluster.AnnotationKey: "root:orgName",
 						},
 						Labels: map[string]string{
-							WorkspaceNameLabel: "foo",
+							tenancyv1beta1.WorkspaceNameLabel: "foo",
 						},
 					},
 					Rules: []rbacv1.PolicyRule{
@@ -1101,7 +1101,7 @@ func TestDeleteWorkspace(t *testing.T) {
 							logicalcluster.AnnotationKey: "root:orgName",
 						},
 						Labels: map[string]string{
-							WorkspaceNameLabel: "foo",
+							tenancyv1beta1.WorkspaceNameLabel: "foo",
 						},
 					},
 					Subjects: []rbacv1.Subject{
@@ -1120,7 +1120,7 @@ func TestDeleteWorkspace(t *testing.T) {
 							logicalcluster.AnnotationKey: "root:orgName",
 						},
 						Labels: map[string]string{
-							WorkspaceNameLabel: "foo",
+							tenancyv1beta1.WorkspaceNameLabel: "foo",
 						},
 					},
 					Rules: []rbacv1.PolicyRule{

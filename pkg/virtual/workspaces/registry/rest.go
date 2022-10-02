@@ -53,10 +53,6 @@ import (
 	workspaceutil "github.com/kcp-dev/kcp/pkg/virtual/workspaces/util"
 )
 
-const (
-	WorkspaceNameLabel string = "workspaces.kcp.dev/name"
-)
-
 // FilteredClusterWorkspaces allows to list and watch ClusterWorkspaces
 // filtered by authorizaation, i.e. a user only sees those object he has access to.
 type FilteredClusterWorkspaces interface {
@@ -354,7 +350,7 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 		ObjectMeta: metav1.ObjectMeta{
 			Name: ownerRoleBindingName,
 			Labels: map[string]string{
-				WorkspaceNameLabel: workspace.Name,
+				tenancyv1beta1.WorkspaceNameLabel: workspace.Name,
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -388,7 +384,7 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 		ObjectMeta: metav1.ObjectMeta{
 			Name: ownerRoleBindingName,
 			Labels: map[string]string{
-				WorkspaceNameLabel: workspace.Name,
+				tenancyv1beta1.WorkspaceNameLabel: workspace.Name,
 			},
 		},
 		Rules: rules,
