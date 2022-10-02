@@ -262,6 +262,10 @@ func (c *Controller) finalizeWorkspace(ctx context.Context, workspace *tenancyv1
 			listOpts := metav1.ListOptions{
 				LabelSelector: helper.WorkspaceLabelSelector(workspace.Name),
 			}
+
+			// TODO(hasheddan): ClusterRole and ClusterRoleBinding cleanup
+			// should be handled by garbage collection when the controller is
+			// implemented.
 			if err := c.kubeClusterClient.Cluster(clusterName).RbacV1().ClusterRoles().DeleteCollection(ctx, backgroudDeletion, listOpts); err != nil && !apierrors.IsNotFound(err) {
 				return fmt.Errorf("could not delete clusterroles for workspace %s: %w", clusterName, err)
 			}
