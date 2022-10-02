@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/kcp-dev/logicalcluster/v2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestIsValidCluster(t *testing.T) {
@@ -60,7 +61,35 @@ func TestIsValidCluster(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.workspace, func(t *testing.T) {
 			if got := IsValidCluster(logicalcluster.New(tt.workspace)); got != tt.valid {
-				t.Errorf("isValid(%q) = %v, want %v", tt.workspace, got, tt.valid)
+				t.Errorf("IsValidCluster(%q) = %v, want %v", tt.workspace, got, tt.valid)
+			}
+		})
+	}
+}
+
+func TestQualifiedObjectName(t *testing.T) {
+	tests := []struct {
+		obj  metav1.Object
+		name string
+	}{
+		{&metav1.ObjectMeta{
+			Name: "cool-name",
+			Annotations: map[string]string{
+				logicalcluster.AnnotationKey: "cool-cluster",
+			},
+		}, "cool-cluster|cool-name"},
+		{&metav1.ObjectMeta{
+			Name:      "cool-name",
+			Namespace: "cool-namespace",
+			Annotations: map[string]string{
+				logicalcluster.AnnotationKey: "cool-cluster",
+			},
+		}, "cool-cluster|cool-namespace/cool-name"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.obj.GetName(), func(t *testing.T) {
+			if got := QualifiedObjectName(tt.obj); got != tt.name {
+				t.Errorf("QualifiedObjectName(%v) = %s, want %s", tt.obj, got, tt.name)
 			}
 		})
 	}
