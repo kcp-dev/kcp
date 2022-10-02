@@ -33,12 +33,14 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
@@ -50,7 +52,13 @@ const (
 	controllerName = "kcp-clusterworkspacedeletion"
 )
 
+var (
+	background        = metav1.DeletePropagationBackground
+	backgroudDeletion = metav1.DeleteOptions{PropagationPolicy: &background}
+)
+
 func NewController(
+	kubeClusterClient kubernetesclient.ClusterInterface,
 	kcpClusterClient kcpclient.Interface,
 	metadataClusterClient metadata.Interface,
 	workspaceInformer tenancyinformers.ClusterWorkspaceInformer,
@@ -60,6 +68,7 @@ func NewController(
 
 	c := &Controller{
 		queue:                 queue,
+		kubeClusterClient:     kubeClusterClient,
 		kcpClusterClient:      kcpClusterClient,
 		metadataClusterClient: metadataClusterClient,
 		workspaceLister:       workspaceInformer.Lister(),
@@ -87,6 +96,7 @@ func NewController(
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
+	kubeClusterClient     kubernetesclient.ClusterInterface
 	kcpClusterClient      kcpclient.Interface
 	metadataClusterClient metadata.Interface
 
@@ -248,9 +258,19 @@ func (c *Controller) finalizeWorkspace(ctx context.Context, workspace *tenancyv1
 		if workspace.Finalizers[i] == deletion.WorkspaceFinalizer {
 			workspace.Finalizers = append(workspace.Finalizers[:i], workspace.Finalizers[i+1:]...)
 
+			clusterName := logicalcluster.From(workspace)
+			listOpts := metav1.ListOptions{
+				LabelSelector: helper.WorkspaceLabelSelector(workspace.Name),
+			}
+			if err := c.kubeClusterClient.Cluster(clusterName).RbacV1().ClusterRoles().DeleteCollection(ctx, backgroudDeletion, listOpts); err != nil && !apierrors.IsNotFound(err) {
+				return fmt.Errorf("could not delete clusterroles for workspace %s: %w", clusterName, err)
+			}
+			if err := c.kubeClusterClient.Cluster(clusterName).RbacV1().ClusterRoleBindings().DeleteCollection(ctx, backgroudDeletion, listOpts); err != nil && !apierrors.IsNotFound(err) {
+				return fmt.Errorf("could not delete clusterrolebindings for workspace %s: %w", clusterName, err)
+			}
 			logger.V(2).Info("removing finalizer from ClusterWorkspace")
 			_, err := c.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Update(
-				logicalcluster.WithCluster(ctx, logicalcluster.From(workspace)), workspace, metav1.UpdateOptions{})
+				logicalcluster.WithCluster(ctx, clusterName), workspace, metav1.UpdateOptions{})
 			return err
 		}
 	}
