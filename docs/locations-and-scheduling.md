@@ -67,7 +67,7 @@ The placement state is one of
 Note: sync targets from different locations can be bound at the same time, while each location can only have one sync target bound to the
 namespace.
 
-The user interface to influence the placement decisions is the `Placement` object. For example, use can create a placement to bind namespace with
+The user interface to influence the placement decisions is the `Placement` object. For example, user can create a placement to bind namespace with
 label of "app=foo" to a location with label "cloud=aws" as below:
 
 ```yaml
