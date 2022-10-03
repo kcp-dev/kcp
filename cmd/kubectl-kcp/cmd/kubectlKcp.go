@@ -22,7 +22,6 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/cobra/doc"
 
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/component-base/version"
@@ -82,8 +81,4 @@ func KubectlKcpCommand() *cobra.Command {
 	root.AddCommand(crdCmd)
 
 	return root
-}
-
-func GenerateDocs(filepath string) error {
-	return doc.GenMarkdownTree(KubectlKcpCommand(), filepath)
 }
