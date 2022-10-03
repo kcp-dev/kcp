@@ -75,7 +75,7 @@ func TestReconcileAPIExports(t *testing.T) {
 							ts.Fatalf("failed to convert unstructured to APIExport: %v", err)
 						}
 
-						expectedApiExport := newAPIExport("foo")
+						expectedApiExport := newAPIExportWithShardAnnotation("foo")
 						if !equality.Semantic.DeepEqual(cacheApiExportFromUnstructured, expectedApiExport) {
 							ts.Errorf("unexpected ApiExport was creaetd:\n%s", cmp.Diff(cacheApiExportFromUnstructured, expectedApiExport))
 						}
@@ -99,7 +99,7 @@ func TestReconcileAPIExports(t *testing.T) {
 					return apiExport
 				}(),
 			},
-			initialCacheApiExports:                   []runtime.Object{newAPIExport("foo")},
+			initialCacheApiExports:                   []runtime.Object{newAPIExportWithShardAnnotation("foo")},
 			initCacheFakeClientWithInitialApiExports: true,
 			reconcileKey:                             "root|foo",
 			validateFunc: func(ts *testing.T, cacheClientActions []clientgotesting.Action, localClientActions []clientgotesting.Action, targetClusterCacheClient, targetClusterLocalClient logicalcluster.Name) {
@@ -127,7 +127,7 @@ func TestReconcileAPIExports(t *testing.T) {
 		},
 		{
 			name:                                     "case 2: cached object is removed when local object was not found",
-			initialCacheApiExports:                   []runtime.Object{newAPIExport("foo")},
+			initialCacheApiExports:                   []runtime.Object{newAPIExportWithShardAnnotation("foo")},
 			initCacheFakeClientWithInitialApiExports: true,
 			reconcileKey:                             "root|foo",
 			validateFunc: func(ts *testing.T, cacheClientActions []clientgotesting.Action, localClientActions []clientgotesting.Action, targetClusterCacheClient, targetClusterLocalClient logicalcluster.Name) {
@@ -176,7 +176,7 @@ func TestReconcileAPIExports(t *testing.T) {
 					return apiExport
 				}(),
 			},
-			initialCacheApiExports:                   []runtime.Object{newAPIExport("foo")},
+			initialCacheApiExports:                   []runtime.Object{newAPIExportWithShardAnnotation("foo")},
 			initCacheFakeClientWithInitialApiExports: true,
 			reconcileKey:                             "root|foo",
 			validateFunc: func(ts *testing.T, cacheClientActions []clientgotesting.Action, localClientActions []clientgotesting.Action, targetClusterCacheClient, targetClusterLocalClient logicalcluster.Name) {
@@ -196,7 +196,7 @@ func TestReconcileAPIExports(t *testing.T) {
 							ts.Fatalf("failed to convert unstructured to APIExport: %v", err)
 						}
 
-						expectedApiExport := newAPIExport("foo")
+						expectedApiExport := newAPIExportWithShardAnnotation("foo")
 						expectedApiExport.Labels["fooLabel"] = "fooLabelVal"
 						if !equality.Semantic.DeepEqual(cacheApiExportFromUnstructured, expectedApiExport) {
 							ts.Errorf("unexpected update to the ApiExport:\n%s", cmp.Diff(cacheApiExportFromUnstructured, expectedApiExport))
@@ -219,7 +219,7 @@ func TestReconcileAPIExports(t *testing.T) {
 					return apiExport
 				}(),
 			},
-			initialCacheApiExports:                   []runtime.Object{newAPIExport("foo")},
+			initialCacheApiExports:                   []runtime.Object{newAPIExportWithShardAnnotation("foo")},
 			initCacheFakeClientWithInitialApiExports: true,
 			reconcileKey:                             "root|foo",
 			validateFunc: func(ts *testing.T, cacheClientActions []clientgotesting.Action, localClientActions []clientgotesting.Action, targetClusterCacheClient, targetClusterLocalClient logicalcluster.Name) {
@@ -239,7 +239,7 @@ func TestReconcileAPIExports(t *testing.T) {
 							ts.Fatalf("failed to convert unstructured to APIExport: %v", err)
 						}
 
-						expectedApiExport := newAPIExport("foo")
+						expectedApiExport := newAPIExportWithShardAnnotation("foo")
 						expectedApiExport.Spec.PermissionClaims = []apisv1alpha1.PermissionClaim{{GroupResource: apisv1alpha1.GroupResource{}, IdentityHash: "abc"}}
 						if !equality.Semantic.DeepEqual(cacheApiExportFromUnstructured, expectedApiExport) {
 							ts.Errorf("unexpected update to the ApiExport:\n%s", cmp.Diff(cacheApiExportFromUnstructured, expectedApiExport))
@@ -262,7 +262,7 @@ func TestReconcileAPIExports(t *testing.T) {
 					return apiExport
 				}(),
 			},
-			initialCacheApiExports:                   []runtime.Object{newAPIExport("foo")},
+			initialCacheApiExports:                   []runtime.Object{newAPIExportWithShardAnnotation("foo")},
 			initCacheFakeClientWithInitialApiExports: true,
 			reconcileKey:                             "root|foo",
 			validateFunc: func(ts *testing.T, cacheClientActions []clientgotesting.Action, localClientActions []clientgotesting.Action, targetClusterCacheClient, targetClusterLocalClient logicalcluster.Name) {
@@ -282,7 +282,7 @@ func TestReconcileAPIExports(t *testing.T) {
 							ts.Fatalf("failed to convert unstructured to APIExport: %v", err)
 						}
 
-						expectedApiExport := newAPIExport("foo")
+						expectedApiExport := newAPIExportWithShardAnnotation("foo")
 						expectedApiExport.Status.VirtualWorkspaces = []apisv1alpha1.VirtualWorkspace{{URL: "https://acme.dev"}}
 						if !equality.Semantic.DeepEqual(cacheApiExportFromUnstructured, expectedApiExport) {
 							ts.Errorf("unexpected update to the ApiExport:\n%s", cmp.Diff(cacheApiExportFromUnstructured, expectedApiExport))
@@ -342,7 +342,6 @@ func newAPIExport(name string) *apisv1alpha1.APIExport {
 			Labels: map[string]string{},
 			Annotations: map[string]string{
 				logicalcluster.AnnotationKey: "root",
-				"kcp.dev/shard":              "amber",
 			},
 			Name: name,
 		},
@@ -353,6 +352,12 @@ func newAPIExport(name string) *apisv1alpha1.APIExport {
 			IdentityHash: fmt.Sprintf("%s-identity", name),
 		},
 	}
+}
+
+func newAPIExportWithShardAnnotation(name string) *apisv1alpha1.APIExport {
+	apiExport := newAPIExport(name)
+	apiExport.Annotations["kcp.dev/shard"] = "amber"
+	return apiExport
 }
 
 func newFakeKcpClusterClient(ds *dynamicfake.FakeDynamicClient) *fakeKcpClusterClient {
