@@ -23,6 +23,13 @@ GOBIN_DIR=$(abspath ./bin )
 PATH := $(GOBIN_DIR):$(TOOLS_GOBIN_DIR):$(PATH)
 TMPDIR := $(shell mktemp -d)
 
+# Detect the path used for the install target
+ifeq (,$(shell go env GOBIN))
+INSTALL_GOBIN=$(shell go env GOPATH)/bin
+else
+INSTALL_GOBIN=$(shell go env GOBIN)
+endif
+
 CONTROLLER_GEN_VER := v0.7.0
 CONTROLLER_GEN_BIN := controller-gen
 CONTROLLER_GEN := $(TOOLS_DIR)/$(CONTROLLER_GEN_BIN)-$(CONTROLLER_GEN_VER)
@@ -55,8 +62,8 @@ LOGCHECK_BIN := logcheck
 LOGCHECK := $(TOOLS_GOBIN_DIR)/$(LOGCHECK_BIN)-$(LOGCHECK_VER)
 export LOGCHECK # so hack scripts can use it
 
-ARCH := $(subst 64,,$(shell uname -p | sed s/x86_/amd/))64
-OS := "" #fallback to go build default behaviour, but it can be overridden from outside
+ARCH := $(shell go env GOARCH)
+OS := $(shell go env GOOS)
 
 KUBE_MAJOR_VERSION := $(shell go mod edit -json | jq '.Require[] | select(.Path == "k8s.io/kubernetes") | .Version' --raw-output | sed 's/v\([0-9]*\).*/\1/')
 KUBE_MINOR_VERSION := $(shell go mod edit -json | jq '.Require[] | select(.Path == "k8s.io/kubernetes") | .Version' --raw-output | sed "s/v[0-9]*\.\([0-9]*\).*/\1/")
@@ -107,7 +114,9 @@ build-kind-images: build-kind-images-ko
 
 install: WHAT ?= ./cmd/...
 install:
-	go install GOOS=$(OS) GOARCH=$(ARCH) -ldflags="$(LDFLAGS)" $(WHAT)
+	GOOS=$(OS) GOARCH=$(ARCH) go install -ldflags="$(LDFLAGS)" $(WHAT)
+	ln -sfr $(INSTALL_GOBIN)/kubectl-workspace $(INSTALL_GOBIN)/kubectl-ws
+	ln -sfr $(INSTALL_GOBIN)/kubectl-workspace $(INSTALL_GOBIN)/kubectl-workspaces
 .PHONY: install
 
 $(GOLANGCI_LINT):
@@ -277,6 +286,18 @@ verify-imports:
 .PHONY: verify-go-versions
 verify-go-versions:
 	hack/verify-go-versions.sh
+
+.PHONY: modules
+modules: ## Run go mod tidy to ensure modules are up to date
+	go mod tidy
+	cd pkg/apis; go mod tidy
+
+.PHONY: verify-modules
+verify-modules: modules  ## Verify go modules are up to date
+	@if !(git diff --quiet HEAD -- go.sum go.mod pkg/apis/go.mod pkg/apis/go.sum); then \
+		git diff; \
+		echo "go module files are out of date"; exit 1; \
+	fi
 
 .PHONY: help
 help: ## Show this help.

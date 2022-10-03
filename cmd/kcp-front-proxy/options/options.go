@@ -35,8 +35,9 @@ type Options struct {
 	Proxy          proxyoptions.Options
 	Logs           *logs.Options
 
-	RootKubeconfig string
-	RootDirectory  string
+	RootKubeconfig  string
+	RootDirectory   string
+	ProfilerAddress string
 }
 
 func NewOptions() *Options {
@@ -69,6 +70,8 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 
 	fs.StringVar(&o.RootDirectory, "root-directory", o.RootDirectory, "Root directory.")
 	fs.StringVar(&o.RootKubeconfig, "root-kubeconfig", o.RootKubeconfig, "The path to the kubeconfig of the root shard.")
+
+	fs.StringVar(&o.ProfilerAddress, "profiler-address", "", "[Address]:port to bind the profiler to")
 }
 
 func (o *Options) Complete() error {

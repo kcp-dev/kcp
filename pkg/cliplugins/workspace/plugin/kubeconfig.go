@@ -38,6 +38,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -63,7 +64,8 @@ type UseWorkspaceOptions struct {
 	startingConfig   *clientcmdapi.Config
 
 	// for testing
-	modifyConfig func(configAccess clientcmd.ConfigAccess, newConfig *clientcmdapi.Config) error
+	modifyConfig   func(configAccess clientcmd.ConfigAccess, newConfig *clientcmdapi.Config) error
+	getAPIBindings func(ctx context.Context, kcpClusterClient kcpclient.ClusterInterface, host string) ([]apisv1alpha1.APIBinding, error)
 }
 
 // NewUseWorkspaceOptions returns a new UseWorkspaceOptions.
@@ -73,6 +75,9 @@ func NewUseWorkspaceOptions(streams genericclioptions.IOStreams) *UseWorkspaceOp
 
 		modifyConfig: func(configAccess clientcmd.ConfigAccess, newConfig *clientcmdapi.Config) error {
 			return clientcmd.ModifyConfig(configAccess, *newConfig, true)
+		},
+		getAPIBindings: func(ctx context.Context, kcpClusterClient kcpclient.ClusterInterface, host string) ([]apisv1alpha1.APIBinding, error) {
+			return getAPIBindings(ctx, kcpClusterClient, host)
 		},
 	}
 }
@@ -163,7 +168,19 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 			return err
 		}
 
-		return currentWorkspace(o.Out, newKubeConfig.Clusters[newKubeConfig.Contexts[kcpCurrentWorkspaceContextKey].Cluster].Server, shortWorkspaceOutput(o.ShortWorkspaceOutput), nil)
+		newServerHost = newKubeConfig.Clusters[newKubeConfig.Contexts[kcpCurrentWorkspaceContextKey].Cluster].Server
+
+		bindings, err := o.getAPIBindings(ctx, o.kcpClusterClient, newServerHost)
+		if err != nil {
+			// display the error, but don't stop the current workspace from being reported.
+			fmt.Fprintf(o.ErrOut, "error checking APIBindings: %v", err)
+		}
+		if err = findUnresolvedPermissionClaims(o.Out, bindings); err != nil {
+			// display the error, but don't stop the current workspace from being reported.
+			fmt.Fprintf(o.ErrOut, "error checking APIBindings: %v", err)
+		}
+
+		return currentWorkspace(o.Out, newServerHost, shortWorkspaceOutput(o.ShortWorkspaceOutput), nil)
 
 	case "..":
 		config, err := o.ClientConfig.ClientConfig()
@@ -299,7 +316,56 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 		return err
 	}
 
+	bindings, err := o.getAPIBindings(ctx, o.kcpClusterClient, newServerHost)
+	if err != nil {
+		// display the error, but don't stop the current workspace from being reported.
+		fmt.Fprintf(o.ErrOut, "error checking APIBindings: %v", err)
+	}
+	if err := findUnresolvedPermissionClaims(o.Out, bindings); err != nil {
+		// display the error, but don't stop the current workspace from being reported.
+		fmt.Fprintf(o.ErrOut, "error checking APIBindings: %v", err)
+	}
+
 	return currentWorkspace(o.Out, newServerHost, shortWorkspaceOutput(o.ShortWorkspaceOutput), workspaceType)
+}
+
+// getAPIBindings retrieves APIBindings within the workspace
+func getAPIBindings(ctx context.Context, kcpClusterClient kcpclient.ClusterInterface, host string) ([]apisv1alpha1.APIBinding, error) {
+	_, clusterName, err := pluginhelpers.ParseClusterURL(host)
+	if err != nil {
+		return nil, err
+	}
+
+	apiBindings, err := kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIBindings().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	return apiBindings.Items, nil
+}
+
+// findUnresolvedPermissionClaims finds and reports any APIBindings that do not specify permission claims matching those on the target APIExport.
+func findUnresolvedPermissionClaims(out io.Writer, apiBindings []apisv1alpha1.APIBinding) error {
+	for _, binding := range apiBindings {
+		for _, exportedClaim := range binding.Status.ExportPermissionClaims {
+			var found, ack bool
+			for _, specClaim := range binding.Spec.PermissionClaims {
+				if !exportedClaim.Equal(specClaim.PermissionClaim) {
+					continue
+				}
+				found = true
+				ack = (specClaim.State == apisv1alpha1.ClaimAccepted) || specClaim.State == apisv1alpha1.ClaimRejected
+
+			}
+			if !found {
+				fmt.Fprintf(out, "Warning: claim for %s exported but not specified on APIBinding %s\nAdd this claim to the APIBinding's Spec.\n", exportedClaim.String(), binding.Name)
+			}
+			if !ack {
+				fmt.Fprintf(out, "Warning: claim for %s specified on APIBinding %s but not accepted or rejected.\n", exportedClaim.String(), binding.Name)
+			}
+		}
+	}
+	return nil
 }
 
 // CurrentWorkspaceOptions contains options for displaying the current workspace.

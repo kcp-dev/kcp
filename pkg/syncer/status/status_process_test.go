@@ -327,7 +327,7 @@ func TestSyncerProcess(t *testing.T) {
 					"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
 				},
 				map[string]string{
-					"kcp.dev/namespace-locator": `{"workspace":"root:org:ws","namespace":"test"}`,
+					"kcp.dev/namespace-locator": `{"syncTarget":{"workspace":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
 				}),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResource: changeDeployment(
@@ -358,6 +358,34 @@ func TestSyncerProcess(t *testing.T) {
 					"status"),
 			},
 		},
+		"StatusSyncer upsert to existing resource but owned by another synctarget, expect no update": {
+			upstreamLogicalCluster: "root:org:ws",
+			fromNamespace: namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
+				map[string]string{
+					"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
+				},
+				map[string]string{
+					"kcp.dev/namespace-locator": `{"syncTarget":{"workspace":"root:org:ws","name":"us-west1","uid":"ANOTHERSYNCTARGETUID"},"workspace":"root:org:ws","namespace":"test"}`,
+				}),
+			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+			fromResource: changeDeployment(
+				deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
+					"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
+				}, nil, nil),
+				addDeploymentStatus(appsv1.DeploymentStatus{
+					Replicas: 15,
+				})),
+			toResources: []runtime.Object{
+				deployment("theDeployment", "test", "root:org:ws", map[string]string{
+					"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync",
+				}, nil, nil),
+			},
+			resourceToProcessName: "theDeployment",
+			syncTargetName:        "us-west1",
+
+			expectActionsOnFrom: []clienttesting.Action{},
+			expectActionsOnTo:   []clienttesting.Action{},
+		},
 		"StatusSyncer upstream deletion": {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "",
@@ -365,7 +393,7 @@ func TestSyncerProcess(t *testing.T) {
 					"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
 				},
 				map[string]string{
-					"kcp.dev/namespace-locator": `{"workspace":"root:org:ws","namespace":"test"}`,
+					"kcp.dev/namespace-locator": `{"syncTarget":{"workspace":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
 				}),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResource: changeDeployment(
@@ -391,7 +419,7 @@ func TestSyncerProcess(t *testing.T) {
 					"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
 				},
 				map[string]string{
-					"kcp.dev/namespace-locator": `{"workspace":"root:org:ws","namespace":"test"}`,
+					"kcp.dev/namespace-locator": `{"syncTarget":{"workspace":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
 				}),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResource: changeDeployment(
@@ -428,7 +456,7 @@ func TestSyncerProcess(t *testing.T) {
 					"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
 				},
 				map[string]string{
-					"kcp.dev/namespace-locator": `{"workspace":"root:org:ws","namespace":"test"}`,
+					"kcp.dev/namespace-locator": `{"syncTarget":{"workspace":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
 				}),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResource: changeDeployment(
@@ -460,7 +488,7 @@ func TestSyncerProcess(t *testing.T) {
 					"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
 				},
 				map[string]string{
-					"kcp.dev/namespace-locator": `{"workspace":"root:org:ws","namespace":"test"}`,
+					"kcp.dev/namespace-locator": `{"syncTarget":{"workspace":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
 				}),
 			gvr:          schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResource: nil,

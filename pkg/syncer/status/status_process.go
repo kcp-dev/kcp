@@ -84,6 +84,12 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 		// that syncers for multiple logical clusters can coexist.
 		return nil
 	}
+
+	if namespaceLocator.SyncTarget.UID != c.syncTargetUID || namespaceLocator.SyncTarget.Workspace != c.syncTargetWorkspace.String() {
+		// not our resource.
+		return nil
+	}
+
 	upstreamNamespace := namespaceLocator.Namespace
 	upstreamWorkspace := namespaceLocator.Workspace
 
@@ -94,7 +100,7 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	}
 	if !exists {
 		klog.Infof("Downstream GVR %q object %s/%s does not exist. Removing finalizer upstream", gvr.String(), downstreamNamespace, downstreamName)
-		return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, c.upstreamInformers, c.upstreamClient, upstreamNamespace, c.syncTargetKey, upstreamWorkspace, getUpstreamResourceName(gvr, downstreamName))
+		return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, c.upstreamInformers, c.upstreamClient, upstreamNamespace, c.syncTargetKey, upstreamWorkspace, shared.GetUpstreamResourceName(gvr, downstreamName))
 	}
 
 	// update upstream status
@@ -106,7 +112,7 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 }
 
 func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.GroupVersionResource, upstreamNamespace string, upstreamLogicalCluster logicalcluster.Name, downstreamObj *unstructured.Unstructured) error {
-	upstreamName := getUpstreamResourceName(gvr, downstreamObj.GetName())
+	upstreamName := shared.GetUpstreamResourceName(gvr, downstreamObj.GetName())
 
 	downstreamStatus, statusExists, err := unstructured.NestedFieldCopy(downstreamObj.UnstructuredContent(), "status")
 	if err != nil {
@@ -169,18 +175,4 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 	}
 	klog.Infof("Updated status of resource %q %s|%s/%s from pcluster namespace %s", gvr.String(), upstreamLogicalCluster, upstreamNamespace, upstreamName, downstreamObj.GetNamespace())
 	return nil
-}
-
-// getUpstreamResourceName returns the name with which the resource is known upstream.
-func getUpstreamResourceName(downstreamResourceGVR schema.GroupVersionResource, downstreamResourceName string) string {
-	configMapGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
-	secretGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}
-
-	if downstreamResourceGVR == configMapGVR && downstreamResourceName == "kcp-root-ca.crt" {
-		return "kube-root-ca.crt"
-	}
-	if downstreamResourceGVR == secretGVR && strings.HasPrefix(downstreamResourceName, "kcp-default-token") {
-		return strings.TrimPrefix(downstreamResourceName, "kcp-")
-	}
-	return downstreamResourceName
 }

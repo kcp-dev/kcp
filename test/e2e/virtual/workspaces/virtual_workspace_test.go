@@ -42,7 +42,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"k8s.io/klog/v2"
 
 	virtualcommand "github.com/kcp-dev/kcp/cmd/virtual-workspaces/command"
 	virtualoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
@@ -211,7 +210,7 @@ var testCases = []struct {
 				var err error
 				workspace1, err = vwUser1Client.Cluster(server.orgClusterName).TenancyV1beta1().Workspaces().Create(ctx, testData.workspace1.DeepCopy(), metav1.CreateOptions{})
 				if err != nil {
-					klog.Errorf("Failed to create workspace1: %v", err)
+					t.Logf("Failed to create workspace1: %v", err)
 					return false
 				}
 				return true
@@ -284,7 +283,7 @@ var testCases = []struct {
 				var err error
 				workspace1, err = vwUser1Client.Cluster(server.orgClusterName).TenancyV1beta1().Workspaces().Create(ctx, testData.workspace1.DeepCopy(), metav1.CreateOptions{})
 				if err != nil {
-					klog.Errorf("Failed to create workspace1: %v", err)
+					t.Logf("Failed to create workspace1: %v", err)
 					return false
 				}
 				return true
@@ -658,14 +657,14 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 		require.Eventually(t, func() bool {
 			resp, err := client.Get(fmt.Sprintf("%s/readyz", virtualWorkspaceServerHost))
 			if err != nil {
-				klog.Warningf("error checking virtual workspace readiness: %v", err)
+				t.Logf("error checking virtual workspace readiness: %v", err)
 				return false
 			}
 			defer resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
 				return true
 			}
-			klog.Infof("virtual workspace is not ready yet, status code: %d", resp.StatusCode)
+			t.Logf("virtual workspace is not ready yet, status code: %d", resp.StatusCode)
 			return false
 		}, wait.ForeverTestTimeout, time.Millisecond*100, "virtual workspace apiserver not ready")
 	} else {

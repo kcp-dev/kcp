@@ -37,7 +37,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	kubernetesclientset "k8s.io/client-go/kubernetes"
-	"k8s.io/klog/v2"
 	"k8s.io/utils/pointer"
 	kyaml "sigs.k8s.io/yaml"
 
@@ -125,6 +124,23 @@ func TestSyncerLifecycle(t *testing.T) {
 		}
 		return true
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "downstream configmap %s/%s was not created", downstreamNamespaceName, configMapName)
+
+	t.Logf("Deleting the downstream kcp-root-ca.crt configmap to ensure it is recreated.")
+	err = downstreamKubeClient.CoreV1().ConfigMaps(downstreamNamespaceName).Delete(ctx, configMapName, metav1.DeleteOptions{})
+	require.NoError(t, err)
+
+	t.Logf("Waiting for downstream configmap %s/%s to be recreated...", downstreamNamespaceName, configMapName)
+	framework.Eventually(t, func() (bool, string) {
+		_, err = downstreamKubeClient.CoreV1().ConfigMaps(downstreamNamespaceName).Get(ctx, configMapName, metav1.GetOptions{})
+		if apierrors.IsNotFound(err) {
+			return false, "not found"
+		}
+		if err != nil {
+			t.Errorf("saw an error waiting for downstream configmap %s/%s to be recreated: %v", downstreamNamespaceName, configMapName, err)
+			return false, "error getting configmap"
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "downstream configmap %s/%s was not recreated", downstreamNamespaceName, configMapName)
 
 	t.Log("Creating upstream deployment...")
 
@@ -361,7 +377,7 @@ func dumpPodEvents(t *testing.T, startAfter time.Time, downstreamKubeClient *kub
 
 	eventList, err := downstreamKubeClient.CoreV1().Events(downstreamNamespaceName).List(ctx, metav1.ListOptions{})
 	if err != nil {
-		klog.Errorf("Error getting events: %v", err)
+		t.Logf("Error getting events: %v", err)
 		return startAfter // ignore. Error here are not the ones we care for.
 	}
 
@@ -384,7 +400,7 @@ func dumpPodEvents(t *testing.T, startAfter time.Time, downstreamKubeClient *kub
 
 	pods, err := downstreamKubeClient.CoreV1().Pods(downstreamNamespaceName).List(ctx, metav1.ListOptions{})
 	if err != nil {
-		klog.Errorf("Error getting pods: %v", err)
+		t.Logf("Error getting pods: %v", err)
 		return last // ignore. Error here are not the ones we care for.
 	}
 
@@ -409,7 +425,7 @@ func dumpPodLogs(t *testing.T, startAfter map[string]*metav1.Time, downstreamKub
 
 	pods, err := downstreamKubeClient.CoreV1().Pods(downstreamNamespaceName).List(ctx, metav1.ListOptions{})
 	if err != nil {
-		klog.Errorf("Error getting pods: %v", err)
+		t.Logf("Error getting pods: %v", err)
 		return startAfter // ignore. Error here are not the ones we care for.
 	}
 	for _, pod := range pods.Items {
@@ -421,7 +437,7 @@ func dumpPodLogs(t *testing.T, startAfter map[string]*metav1.Time, downstreamKub
 				Container: c.Name,
 			}).DoRaw(ctx)
 			if err != nil {
-				klog.Errorf("Failed to get logs for pod %s/%s container %s: %v", pod.Namespace, pod.Name, c.Name, err)
+				t.Logf("Failed to get logs for pod %s/%s container %s: %v", pod.Namespace, pod.Name, c.Name, err)
 				continue
 			}
 			for _, line := range strings.Split(string(res), "\n") {

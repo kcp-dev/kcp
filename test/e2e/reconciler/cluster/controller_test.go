@@ -36,7 +36,6 @@ import (
 	kubernetesclient "k8s.io/client-go/kubernetes"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
@@ -132,7 +131,7 @@ func TestClusterController(t *testing.T) {
 						if apierrors.IsNotFound(err) {
 							return false
 						}
-						klog.Errorf("Error getting cowboy %q in source: %v", cowboy.Name, err)
+						t.Logf("Error getting cowboy %q in source: %v", cowboy.Name, err)
 						return false
 					} else if diff := cmp.Diff(updated.Status, got.Status); diff != "" {
 						return false

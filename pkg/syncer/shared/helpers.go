@@ -19,6 +19,8 @@ package shared
 import (
 	"strings"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
 
@@ -33,4 +35,18 @@ func DeprecatedGetAssignedSyncTarget(labels map[string]string) string {
 		}
 	}
 	return ""
+}
+
+// GetUpstreamResourceName returns the name with which the resource is known upstream.
+func GetUpstreamResourceName(downstreamResourceGVR schema.GroupVersionResource, downstreamResourceName string) string {
+	configMapGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+	secretGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}
+
+	if downstreamResourceGVR == configMapGVR && downstreamResourceName == "kcp-root-ca.crt" {
+		return "kube-root-ca.crt"
+	}
+	if downstreamResourceGVR == secretGVR && strings.HasPrefix(downstreamResourceName, "kcp-default-token") {
+		return strings.TrimPrefix(downstreamResourceName, "kcp-")
+	}
+	return downstreamResourceName
 }

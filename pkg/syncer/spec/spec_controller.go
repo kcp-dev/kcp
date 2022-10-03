@@ -158,7 +158,7 @@ func NewSpecSyncer(gvrs []schema.GroupVersionResource, syncTargetWorkspace logic
 						logicalcluster.AnnotationKey: nsLocator.Workspace.String(),
 					},
 					Namespace: nsLocator.Namespace,
-					Name:      name,
+					Name:      shared.GetUpstreamResourceName(gvr, name),
 				}
 				c.AddToQueue(gvr, m)
 			},
