@@ -55,6 +55,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/admission/reservedcrdannotations"
 	"github.com/kcp-dev/kcp/pkg/admission/reservedcrdgroups"
 	"github.com/kcp-dev/kcp/pkg/admission/reservedmetadata"
+	"github.com/kcp-dev/kcp/pkg/admission/reservednames"
 	kcpvalidatingwebhook "github.com/kcp-dev/kcp/pkg/admission/validatingwebhook"
 )
 
@@ -73,6 +74,7 @@ var AllOrderedPlugins = beforeWebhooks(kubeapiserveroptions.AllOrderedPlugins,
 	kcpmutatingwebhook.PluginName,
 	reservedcrdannotations.PluginName,
 	reservedcrdgroups.PluginName,
+	reservednames.PluginName,
 	crdnooverlappinggvr.PluginName,
 	reservedmetadata.PluginName,
 	permissionclaims.PluginName,
@@ -107,6 +109,7 @@ func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 	kcpmutatingwebhook.Register(plugins)
 	reservedcrdannotations.Register(plugins)
 	reservedcrdgroups.Register(plugins)
+	reservednames.Register(plugins)
 	crdnooverlappinggvr.Register(plugins)
 	reservedmetadata.Register(plugins)
 	permissionclaims.Register(plugins)
@@ -133,6 +136,7 @@ var defaultOnPluginsInKcp = sets.NewString(
 	kcpmutatingwebhook.PluginName,
 	reservedcrdannotations.PluginName,
 	reservedcrdgroups.PluginName,
+	reservednames.PluginName,
 	permissionclaims.PluginName,
 	kubequota.PluginName,
 )
