@@ -46,6 +46,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/projection"
 )
 
 const (
@@ -68,8 +69,10 @@ type Controller struct {
 	lock        sync.RWMutex
 	cancelFuncs map[logicalcluster.Name]func()
 
+	ignoredResources map[schema.GroupResource]struct{}
+
 	// For better testability
-	listCRDs            func() ([]*apiextensionsv1.CustomResourceDefinition, error)
+	listCRDs func() ([]*apiextensionsv1.CustomResourceDefinition, error)
 }
 
 // NewController creates a new Controller.
@@ -95,6 +98,8 @@ func NewController(
 
 		cancelFuncs: map[logicalcluster.Name]func(){},
 
+		ignoredResources: defaultIgnoredResources(),
+
 		listCRDs: func() ([]*apiextensionsv1.CustomResourceDefinition, error) {
 			return crdInformer.Lister().List(labels.Everything())
 		},
@@ -111,6 +116,19 @@ func NewController(
 	)
 
 	return c, nil
+}
+
+func defaultIgnoredResources() (ret map[schema.GroupResource]struct{}) {
+	ret = make(map[schema.GroupResource]struct{})
+	// Add default ignored resources
+	for gr := range garbagecollector.DefaultIgnoredResources() {
+		ret[gr] = struct{}{}
+	}
+	// Add projected API resources
+	for gvr := range projection.ProjectedAPIs() {
+		ret[gvr.GroupResource()] = struct{}{}
+	}
+	return ret
 }
 
 // enqueue adds the key for a ClusterWorkspace to the queue.
@@ -238,18 +256,11 @@ func (c *Controller) process(ctx context.Context, key string) error {
 func (c *Controller) startGarbageCollectorForClusterWorkspace(ctx context.Context, clusterName logicalcluster.Name) error {
 	kubeClient := c.kubeClusterClient.Cluster(clusterName)
 
-	ignoredResources := map[schema.GroupResource]struct{}{
-		schema.GroupResource{
-			Group:    "tenancy.kcp.dev",
-			Resource: "workspaces",
-		}: {},
-	}
-
 	garbageCollector, err := garbagecollector.NewClusterAwareGarbageCollector(
 		kubeClient,
 		c.metadataClient.Cluster(clusterName),
 		restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(kubeClient.Discovery())),
-		ignoredResources,
+		c.ignoredResources,
 		c.dynamicDiscoverySharedInformerFactory.Cluster(clusterName),
 		c.informersStarted,
 		clusterName,

@@ -37,3 +37,12 @@ func Includes(gvr schema.GroupVersionResource) bool {
 	_, exists := projectedAPIs[gvr]
 	return exists
 }
+
+// ProjectedAPIs returns the set of GVRs for projected APIs.
+func ProjectedAPIs() map[schema.GroupVersionResource]struct{} {
+	ret := make(map[schema.GroupVersionResource]struct{}, len(projectedAPIs))
+	for gvr := range projectedAPIs {
+		ret[gvr] = struct{}{}
+	}
+	return ret
+}
