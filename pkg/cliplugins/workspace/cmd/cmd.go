@@ -18,10 +18,9 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"path"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
@@ -70,7 +69,7 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 	cmdOpts := plugin.NewUseWorkspaceOptions(streams)
 
 	cliName := "kubectl"
-	if path.Base(os.Args[0]) == "kubectl-kcp" {
+	if pflag.CommandLine.Name() == "kubectl-kcp" {
 		cliName = "kubectl kcp"
 	}
 

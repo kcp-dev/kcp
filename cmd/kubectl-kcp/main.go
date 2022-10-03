@@ -20,10 +20,15 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/spf13/pflag"
+
 	"github.com/kcp-dev/kcp/cmd/kubectl-kcp/cmd"
 )
 
 func main() {
+	flags := pflag.NewFlagSet("kubectl-kcp", pflag.ExitOnError)
+	pflag.CommandLine = flags
+
 	cmd := cmd.KubectlKcpCommand()
 	if err := cmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
