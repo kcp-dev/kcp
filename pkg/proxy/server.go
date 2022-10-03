@@ -19,6 +19,7 @@ package proxy
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
@@ -41,11 +42,39 @@ import (
 
 type Server struct {
 	CompletedConfig
+	Handler                  http.Handler
+	IndexController          *index.Controller
+	KcpSharedInformerFactory kcpinformers.SharedInformerFactory
 }
 
-func NewServer(c CompletedConfig) (*Server, error) {
+func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	s := &Server{
 		CompletedConfig: c,
+	}
+	rootShardConfigInformerConfig := kcpclienthelper.SetCluster(restclient.CopyConfig(s.CompletedConfig.RootShardConfig), tenancyv1alpha1.RootCluster)
+	rootShardConfigInformerClient, err := kcpclient.NewForConfig(rootShardConfigInformerConfig)
+	if err != nil {
+		return s, fmt.Errorf("failed to create client for informers: %w", err)
+	}
+	s.KcpSharedInformerFactory = kcpinformers.NewSharedInformerFactoryWithOptions(rootShardConfigInformerClient, 30*time.Minute)
+	s.IndexController = index.NewController(
+		ctx,
+		s.CompletedConfig.RootShardConfig.Host,
+		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
+		func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpclient.Interface, error) {
+			shardConfig := restclient.CopyConfig(s.CompletedConfig.RootShardConfig)
+			shardConfig.Host = shard.Spec.BaseURL
+			shardClient, err := kcpclient.NewForConfig(kcpclienthelper.SetCluster(restclient.CopyConfig(shardConfig), logicalcluster.Wildcard))
+			if err != nil {
+				return nil, fmt.Errorf("failed to create shard %q client: %w", shard.Name, err)
+			}
+			return shardClient, nil
+		},
+	)
+
+	s.Handler, err = NewHandler(ctx, s.CompletedConfig.Options, s.IndexController)
+	if err != nil {
+		return s, err
 	}
 
 	return s, nil
@@ -73,48 +102,22 @@ func (s preparedServer) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to get or create identities: %w", err)
 	}
 
-	rootShardConfigInformerConfig := kcpclienthelper.SetCluster(restclient.CopyConfig(s.CompletedConfig.RootShardConfig), tenancyv1alpha1.RootCluster)
-	rootShardConfigInformerClient, err := kcpclient.NewForConfig(rootShardConfigInformerConfig)
-	if err != nil {
-		return fmt.Errorf("failed to create client for informers: %w", err)
-	}
-
 	// start index
-	kcpSharedInformerFactory := kcpinformers.NewSharedInformerFactoryWithOptions(rootShardConfigInformerClient, 30*time.Minute)
-	indexController := index.NewController(
-		ctx,
-		s.CompletedConfig.RootShardConfig.Host,
-		kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
-		func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpclient.Interface, error) {
-			shardConfig := restclient.CopyConfig(s.CompletedConfig.RootShardConfig)
-			shardConfig.Host = shard.Spec.BaseURL
-			shardClient, err := kcpclient.NewForConfig(kcpclienthelper.SetCluster(restclient.CopyConfig(shardConfig), logicalcluster.Wildcard))
-			if err != nil {
-				return nil, fmt.Errorf("failed to create shard %q client: %w", shard.Name, err)
-			}
-			return shardClient, nil
-		},
-	)
+	go s.IndexController.Start(ctx, 2)
 
-	go indexController.Start(ctx, 2)
-
-	kcpSharedInformerFactory.Start(ctx.Done())
-	kcpSharedInformerFactory.WaitForCacheSync(ctx.Done())
+	s.KcpSharedInformerFactory.Start(ctx.Done())
+	s.KcpSharedInformerFactory.WaitForCacheSync(ctx.Done())
 
 	// start the server
-	handler, err := NewHandler(ctx, s.CompletedConfig.Options, indexController)
-	if err != nil {
-		return err
-	}
 	failedHandler := frontproxyfilters.NewUnauthorizedHandler()
-	handler = frontproxyfilters.WithOptionalClientCert(handler, failedHandler, s.CompletedConfig.AuthenticationInfo.Authenticator)
+	s.Handler = frontproxyfilters.WithOptionalClientCert(s.Handler, failedHandler, s.CompletedConfig.AuthenticationInfo.Authenticator)
 
 	requestInfoFactory := requestinfo.NewFactory()
-	handler = server.WithInClusterServiceAccountRequestRewrite(handler)
-	handler = genericapifilters.WithRequestInfo(handler, requestInfoFactory)
-	handler = genericfilters.WithHTTPLogging(handler)
-	handler = genericfilters.WithPanicRecovery(handler, requestInfoFactory)
-	doneCh, _, err := s.CompletedConfig.ServingInfo.Serve(handler, time.Second*60, ctx.Done())
+	s.Handler = server.WithInClusterServiceAccountRequestRewrite(s.Handler)
+	s.Handler = genericapifilters.WithRequestInfo(s.Handler, requestInfoFactory)
+	s.Handler = genericfilters.WithHTTPLogging(s.Handler)
+	s.Handler = genericfilters.WithPanicRecovery(s.Handler, requestInfoFactory)
+	doneCh, _, err := s.CompletedConfig.ServingInfo.Serve(s.Handler, time.Second*60, ctx.Done())
 	if err != nil {
 		return err
 	}

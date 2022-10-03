@@ -85,7 +85,7 @@ routed based on paths.`,
 				return err
 			}
 
-			server, err := proxy.NewServer(completedConfig)
+			server, err := proxy.NewServer(ctx, completedConfig)
 			if err != nil {
 				return err
 			}
