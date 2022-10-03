@@ -31,7 +31,7 @@ Yes.
 
 ## How will storage work at the workspace level for administration?
 
-We are in the early stages of (brainstorming storage use cases)[https://docs.google.com/document/d/13VpnyBQHpaishrastdO3kGApKLzYBeb9QXdKn3o2vHs/edit#heading=h.tg51mxx1tg19]. Please join in the conversation if you have opinions or use cases in this areas.
+We are in the early stages of [brainstorming storage use cases](https://docs.google.com/document/d/13VpnyBQHpaishrastdO3kGApKLzYBeb9QXdKn3o2vHs/edit#heading=h.tg51mxx1tg19). Please join in the conversation if you have opinions or use cases in this areas.
 
 ## With multiple `Workspaces` on a single cluster, that implies `Pods` from multiple tenants are on the same host VM. Does this mean privileged `Pods` are forbidden to avoid cross contamination with host ports and host paths?
 
@@ -43,11 +43,11 @@ Controller patterns are something we are actively working on defining better.  I
 
 ## Can I get the logs of a pod deployed via kcp? Can I attach to a pod or exec to a pod?
 
-Yes. We are tracking [read-through of resources](https://github.com/kcp-dev/kcp/issues/25) and [debugging](https://github.com/kcp-dev/kcp/issues/521) as use cases we need to support. You can view a demo of the current work in our (April 26 Community Call Recording)[https://www.youtube.com/watch?v=joR39RR2Gwo].
+Yes. We are tracking [read-through of resources](https://github.com/kcp-dev/kcp/issues/25) and [debugging](https://github.com/kcp-dev/kcp/issues/521) as use cases we need to support. You can view a demo of the current work in our [April 26 Community Call Recording](https://www.youtube.com/watch?v=joR39RR2Gwo).
 
 ## Are workspaces hierarchical?
 
-[Workspaces](https://github.com/kcp-dev/kcp/blob/main/docs/workspaces.md) can contain other workspaces and workspaces are typed. Please see the [Worksapce documentation](https://github.com/kcp-dev/kcp/blob/main/docs/workspaces.md) for more details.
+[Workspaces](https://github.com/kcp-dev/kcp/blob/main/docs/workspaces.md) can contain other workspaces and workspaces are typed. Please see the [Workspace documentation](https://github.com/kcp-dev/kcp/blob/main/docs/workspaces.md) for more details.
 
 ## Are custom admission controllers considered? How would that work across clusters if api server and the actual service is located elsewhere?
 
