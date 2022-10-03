@@ -36,6 +36,8 @@ var RootShard = "root"
 
 // ClusterWorkspaceReservedNames defines the set of names that may not be used
 // on user-supplied ClusterWorkspaces.
+// TODO(hasheddan): tie this definition of reserved names to the patches used to
+// apply the same restrictions to the OpenAPISchema.
 func ClusterWorkspaceReservedNames() []string {
 	return []string{
 		"root",
@@ -156,6 +158,8 @@ func (r ClusterWorkspaceTypeReference) Equal(other ClusterWorkspaceTypeReference
 
 // ClusterWorkspaceTypeReservedNames defines the set of names that may not be
 // used on user-supplied ClusterWorkspaceTypes.
+// TODO(hasheddan): tie this definition of reserved names to the patches used to
+// apply the same restrictions to the OpenAPISchema.
 func ClusterWorkspaceTypeReservedNames() []string {
 	return []string{
 		"any",
