@@ -32,7 +32,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -69,17 +69,21 @@ func TestSyncerLifecycle(t *testing.T) {
 	// heartbeating and the heartbeat controller setting the sync target ready in
 	// response.
 	syncerFixture := framework.NewSyncerFixture(t, upstreamServer, wsClusterName,
+		framework.WithExtraResources("persistentvolumes"),
 		framework.WithExtraResources("services"),
 		framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 			if !isFakePCluster {
-				// Only need to install services in a logical cluster
+				// Only need to install services and ingresses in a logical cluster
 				return
 			}
-			crdClusterClient, err := apiextensionsclient.NewForConfig(config)
-			require.NoError(t, err, "failed to construct apiextensions client for server")
-			kubefixtures.Create(t, crdClusterClient.ApiextensionsV1().CustomResourceDefinitions(),
+			sinkCrdClient, err := apiextensionsclientset.NewForConfig(config)
+			require.NoError(t, err, "failed to create apiextensions client")
+			t.Logf("Installing test CRDs into sink cluster...")
+			kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
 				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
+				metav1.GroupResource{Group: "core.k8s.io", Resource: "persistentvolumes"},
 			)
+			require.NoError(t, err)
 		})).Start(t)
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
@@ -286,7 +290,6 @@ func TestSyncerLifecycle(t *testing.T) {
 			require.NoError(t, err)
 			return true
 		}, wait.ForeverTestTimeout, time.Millisecond*100, "upstream configmap %s/%s was not found", upstreamNamespace.Name, expectedConfigMapName)
-
 	}
 	// Delete the deployment
 	err = downstreamKubeClient.AppsV1().Deployments(downstreamNamespaceName).Delete(ctx, deployment.Name, metav1.DeleteOptions{})
@@ -463,6 +466,7 @@ func TestSyncerLifecycle(t *testing.T) {
 		require.NoError(t, err)
 		return false, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "Persistent Volume %s was not deleted downstream", upstreamPersistentVolume.Name)
+
 }
 
 func dumpPodEvents(t *testing.T, startAfter time.Time, downstreamKubeClient *kubernetesclientset.Clientset, downstreamNamespaceName string) time.Time {
