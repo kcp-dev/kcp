@@ -214,24 +214,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						},
 						addToAPIResourceList(
 							requiredCoreAPIResourceList(kubelikeClusterName),
-							metav1.APIResource{
-								Kind:               "Service",
-								Name:               "services",
-								SingularName:       "service",
-								Namespaced:         true,
-								Verbs:              metav1.Verbs{"get", "list", "patch", "update", "watch"},
-								StorageVersionHash: discovery.StorageVersionHash(kubelikeClusterName, "", "v1", "Service"),
-								Categories:         []string{"all"},
-								ShortNames:         []string{"svc"},
-							},
-							metav1.APIResource{
-								Kind:               "Service",
-								Name:               "services/status",
-								SingularName:       "",
-								Namespaced:         true,
-								Verbs:              metav1.Verbs{"get", "patch", "update"},
-								StorageVersionHash: "",
-							}),
+						),
 					}, sortAPIResourceList(kubelikeAPIResourceLists))) == 0
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
@@ -599,7 +582,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				framework.WithExtraResources("ingresses.networking.k8s.io", "services"),
 				framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 					if !isFakePCluster {
-						// Only need to install services in a logical cluster
+						// Only need to install services and ingresses in a logical cluster
 						return
 					}
 					sinkCrdClient, err := apiextensionsclientset.NewForConfig(config)
@@ -679,7 +662,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					fixturewildwest.Create(t, logicalcluster.Name{}, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 
 					if isFakePCluster {
-						// Only need to install services and ingresses in a non-logical cluster
+						// Only need to install services in a non-logical cluster
 						kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: "core.k8s.io", Resource: "services"})
 					}
 				}),

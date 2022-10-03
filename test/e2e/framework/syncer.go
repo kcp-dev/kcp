@@ -312,7 +312,7 @@ func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 	} else {
 		// Start an in-process syncer
 		syncerConfig.DNSServer = "localhost" // TODO(LV): start a dns server
-		os.Setenv("NAMESPACE", "dnsns")
+		os.Setenv("NAMESPACE", syncerID)
 		err := syncer.StartSyncer(ctx, syncerConfig, 2, 5*time.Second)
 		require.NoError(t, err, "syncer failed to start")
 	}

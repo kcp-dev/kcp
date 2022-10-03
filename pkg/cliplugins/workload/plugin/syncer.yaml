@@ -13,7 +13,7 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{.DnsServiceAccount}}
+  name: {{.DNSServiceAccount}}
   namespace: {{.Namespace}}
 ---
 apiVersion: v1
@@ -61,7 +61,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{.DnsClusterRole}}
+  name: {{.DNSClusterRole}}
 rules:
   - apiGroups:
       - ""
@@ -88,14 +88,14 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{.DnsClusterRoleBinding}}
+  name: {{.DNSClusterRoleBinding}}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: {{.DnsClusterRole}}
+  name: {{.DNSClusterRole}}
 subjects:
   - kind: ServiceAccount
-    name: {{.DnsServiceAccount}}
+    name: {{.DNSServiceAccount}}
     namespace: {{.Namespace}}
 ---
 apiVersion: v1
@@ -159,7 +159,7 @@ spec:
 {{- if .FeatureGatesString }}
         - --feature-gates={{ .FeatureGatesString }}
 {{- end}}
-        - --dns={{.DnsAppName}}.{{.Namespace}}.svc.cluster.local
+        - --dns={{.DNSAppName}}.{{.Namespace}}.svc.cluster.local
         env:
         - name: NAMESPACE
           valueFrom:
@@ -182,7 +182,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{.DnsAppName}}
+  name: {{.DNSAppName}}
   namespace: {{.Namespace}}
 spec:
   replicas: {{.Replicas}}
@@ -190,11 +190,11 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      app: {{.DnsAppName}}
+      app: {{.DNSAppName}}
   template:
     metadata:
       labels:
-        app: {{.DnsAppName}}
+        app: {{.DNSAppName}}
     spec:
       containers:
       - name: kcp-dns
@@ -211,19 +211,19 @@ spec:
         image: {{.Image}}
         imagePullPolicy: IfNotPresent
         terminationMessagePolicy: FallbackToLogsOnError
-      serviceAccountName: {{.DnsServiceAccount}}
+      serviceAccountName: {{.DNSServiceAccount}}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{.DnsAppName}}
+  name: {{.DNSAppName}}
   namespace: {{.Namespace}}
   labels:
-    app: {{.DnsAppName}}
+    app: {{.DNSAppName}}
 spec:
   type: ClusterIP
   selector:
-    app: {{.DnsAppName}}
+    app: {{.DNSAppName}}
   ports:
     - name: dns
       port: 53

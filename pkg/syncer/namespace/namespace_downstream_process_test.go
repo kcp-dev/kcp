@@ -104,6 +104,15 @@ func TestSyncerNamespaceProcess(t *testing.T) {
 					_ = json.Unmarshal(nsJSON, unstructured)
 					return unstructured, tc.getDownstreamNamespaceError
 				},
+				listDownstreamNamespaces: func() (ret []runtime.Object, err error) {
+					return []runtime.Object{}, nil
+				},
+				createConfigMap: func(ctx context.Context, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
+					return nil, nil
+				},
+				updateConfigMap: func(ctx context.Context, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
+					return nil, nil
+				},
 				syncTargetName:      syncTargetName,
 				syncTargetWorkspace: syncTargetWorkspace,
 				syncTargetUID:       types.UID("syncTargetUID"),

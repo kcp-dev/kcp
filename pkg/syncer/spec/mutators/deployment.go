@@ -211,6 +211,7 @@ func (dm *DeploymentMutator) Mutate(obj *unstructured.Unstructured) error {
 		templateSpec.Volumes = append(templateSpec.Volumes, serviceAccountVolume)
 	}
 
+	// TODO: multiple worskpaces support. See https://github.com/kcp-dev/kcp/issues/1987
 	if dm.syncTargetLogicalClusterName == upstreamLogicalName {
 		// Overrides DNS to point to the workspace DNS
 		deployment.Spec.Template.Spec.DNSPolicy = corev1.DNSNone

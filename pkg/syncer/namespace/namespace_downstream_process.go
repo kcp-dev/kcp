@@ -20,11 +20,14 @@ import (
 	"context"
 	"encoding/json"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/kcp/pkg/dns/plugin/nsmap"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
@@ -35,6 +38,12 @@ func (c *DownstreamController) process(ctx context.Context, key string) error {
 	if err != nil {
 		logger.Error(err, "invalid key")
 		return nil
+	}
+
+	// Always refresh the DNS ConfigMap
+	err = c.updateDNSConfigMap(ctx)
+	if err != nil {
+		return err
 	}
 
 	downstreamNamespaceObj, err := c.getDownstreamNamespace(namespaceName)
@@ -71,5 +80,70 @@ func (c *DownstreamController) process(ctx context.Context, key string) error {
 		return c.deleteDownstreamNamespace(ctx, namespaceName)
 	}
 	// The upstream namespace still exists, nothing to do.
+	return nil
+}
+
+func (c *DownstreamController) updateDNSConfigMap(ctx context.Context) error {
+	logger := klog.FromContext(ctx)
+	logger.WithName("dns")
+	logger.Info("refreshing logical to physical namespace mapping table")
+
+	// Reconstruct ConfigMap from scratch because:
+	// - it's safer compare to incremental updates
+	// - it's low overhead considering operations on namespaces are relatively rare.
+
+	namespaces, err := c.listDownstreamNamespaces()
+	if err != nil {
+		logger.Error(err, "failed to list downstream namespaces")
+		return err // retry
+	}
+
+	data := make(map[string]string)
+	for _, obj := range namespaces {
+		namespace := obj.(*unstructured.Unstructured)
+		annotations := namespace.GetAnnotations()
+		if annotations == nil {
+			// skip
+			continue
+		}
+
+		locator, found, err := shared.LocatorFromAnnotations(annotations)
+		if err != nil {
+			// Corrupted ns locator annotation value
+			logger.Error(err, "invalid namespace locator", "name", namespace.GetName())
+			continue
+		}
+
+		if !found {
+			continue
+		}
+
+		data[locator.Namespace] = namespace.GetName()
+	}
+
+	cm := &corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      nsmap.ConfigMapName,
+			Namespace: c.dnsNamespace,
+		},
+		Data: data,
+	}
+
+	// TODO(LV): consider comparing the new ConfigMap with the cached one to avoid a rest api call.
+
+	_, err = c.updateConfigMap(ctx, cm)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			_, err = c.createConfigMap(ctx, cm)
+			if err != nil {
+				logger.Error(err, "failed to create ConfigMap (retrying)", "name", nsmap.ConfigMapName, "namespace", c.dnsNamespace)
+				return err // retry
+			}
+		}
+
+		logger.Error(err, "failed to update ConfigMap (retrying)", "name", nsmap.ConfigMapName, "namespace", c.dnsNamespace)
+		return err // retry
+	}
 	return nil
 }

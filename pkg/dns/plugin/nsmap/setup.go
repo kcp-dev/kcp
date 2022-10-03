@@ -23,6 +23,7 @@ import (
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/rewrite"
+
 	"k8s.io/klog/v2"
 )
 
@@ -47,6 +48,7 @@ func setup(c *caddy.Controller) error {
 
 	err := StartWatcher(ctx, rewriter.updateFromConfigmap)
 	if err != nil {
+		cancel()
 		return err
 	}
 

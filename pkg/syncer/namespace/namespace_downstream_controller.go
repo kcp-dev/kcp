@@ -24,7 +24,9 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kcp-dev/logicalcluster/v2"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -32,6 +34,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
@@ -52,22 +56,29 @@ type DownstreamController struct {
 	deleteDownstreamNamespace func(ctx context.Context, namespace string) error
 	upstreamNamespaceExists   func(clusterName logicalcluster.Name, upstreamNamespaceName string) (bool, error)
 	getDownstreamNamespace    func(name string) (runtime.Object, error)
+	listDownstreamNamespaces  func() ([]runtime.Object, error)
+	createConfigMap           func(ctx context.Context, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
+	updateConfigMap           func(ctx context.Context, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
 
 	syncTargetName      string
 	syncTargetWorkspace logicalcluster.Name
 	syncTargetUID       types.UID
 	syncTargetKey       string
+	dnsNamespace        string
 }
 
 func NewDownstreamController(
 	syncTargetWorkspace logicalcluster.Name,
 	syncTargetName, syncTargetKey string,
 	syncTargetUID types.UID,
+	downstreamConfig *rest.Config,
 	downstreamClient dynamic.Interface,
 	upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory,
+	dnsNamespace string,
 ) (*DownstreamController, error) {
 	namespaceGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
 	logger := logging.WithReconciler(klog.Background(), downstreamControllerName)
+	kubeClient := kubernetes.NewForConfigOrDie(downstreamConfig)
 
 	c := DownstreamController{
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), downstreamControllerName),
@@ -83,11 +94,21 @@ func NewDownstreamController(
 		getDownstreamNamespace: func(downstreamNamespaceName string) (runtime.Object, error) {
 			return downstreamInformers.ForResource(namespaceGVR).Lister().Get(downstreamNamespaceName)
 		},
+		listDownstreamNamespaces: func() ([]runtime.Object, error) {
+			return downstreamInformers.ForResource(namespaceGVR).Lister().List(labels.Everything())
+		},
+		createConfigMap: func(ctx context.Context, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
+			return kubeClient.CoreV1().ConfigMaps(configMap.Namespace).Create(ctx, configMap, metav1.CreateOptions{})
+		},
+		updateConfigMap: func(ctx context.Context, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
+			return kubeClient.CoreV1().ConfigMaps(configMap.Namespace).Update(ctx, configMap, metav1.UpdateOptions{})
+		},
 
 		syncTargetName:      syncTargetName,
 		syncTargetWorkspace: syncTargetWorkspace,
 		syncTargetUID:       syncTargetUID,
 		syncTargetKey:       syncTargetKey,
+		dnsNamespace:        dnsNamespace,
 	}
 
 	// Those handlers are for start/resync cases, in case a namespace deletion event is missed, these handlers
@@ -98,6 +119,9 @@ func NewDownstreamController(
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			c.AddToQueue(newObj, logger)
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.AddToQueue(obj, logger)
 		},
 	})
 

@@ -43,7 +43,6 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
-	"github.com/kcp-dev/kcp/pkg/syncer/dns"
 	"github.com/kcp-dev/kcp/pkg/syncer/namespace"
 	"github.com/kcp-dev/kcp/pkg/syncer/resourcesync"
 	"github.com/kcp-dev/kcp/pkg/syncer/spec"
@@ -224,7 +223,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		return err
 	}
 
-	downstreamNamespaceController, err := namespace.NewDownstreamController(cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, syncTarget.GetUID(), downstreamDynamicClient, upstreamInformers, downstreamInformers)
+	downstreamNamespaceController, err := namespace.NewDownstreamController(cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, syncTarget.GetUID(), downstreamConfig, downstreamDynamicClient, upstreamInformers, downstreamInformers, dnsNamespace)
 	if err != nil {
 		return err
 	}
@@ -233,9 +232,6 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	if err != nil {
 		return err
 	}
-
-	// Start watching for workspace namespaces changes and update the coredns nsmap configmap
-	dns.StartNsMapSyncer(ctx, downstreamDynamicClient, downstreamInformers, dnsNamespace)
 
 	upstreamInformers.Start(ctx.Done())
 	downstreamInformers.Start(ctx.Done())
