@@ -23,6 +23,10 @@ import (
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
+// WorkspaceNameLabel is a label indicating the workspace in which the given
+// object resides.
+const WorkspaceNameLabel = "workspaces.kcp.dev/name"
+
 // Workspace defines a generic Kubernetes-cluster-like endpoint, with standard Kubernetes
 // discovery APIs, OpenAPI and resource API endpoints.
 //

@@ -312,8 +312,12 @@ func (s *Server) installWorkspaceDeletionController(ctx context.Context, config 
 		}
 		return discoveryClient.ServerPreferredResources()
 	}
-
+	kubeClusterClient, err := kubernetesclient.NewClusterForConfig(config)
+	if err != nil {
+		return err
+	}
 	workspaceDeletionController := clusterworkspacedeletion.NewController(
+		kubeClusterClient,
 		kcpClusterClient,
 		metadataClusterClient,
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),

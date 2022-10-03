@@ -169,7 +169,7 @@ func (d *workspacedResourcesDeleter) deleteCollection(ctx context.Context, clust
 	opts := metav1.DeleteOptions{PropagationPolicy: &background}
 	if err := d.metadataClusterClient.Resource(gvr).DeleteCollection(
 		logicalcluster.WithCluster(ctx, clusterName), opts, metav1.ListOptions{}); err != nil {
-		logger.V(5).Error(err, "unexpected deleteColection error")
+		logger.V(5).Error(err, "unexpected deleteCollection error")
 		return true, err
 	}
 

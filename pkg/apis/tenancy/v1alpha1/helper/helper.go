@@ -24,8 +24,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 )
 
+// IsValidCluster indicates whether a cluster is valid based on whether it
+// adheres to logical cluster naming requirements and is rooted at root or
+// system.
 func IsValidCluster(cluster logicalcluster.Name) bool {
 	if !cluster.IsValid() {
 		return false
@@ -34,9 +38,18 @@ func IsValidCluster(cluster logicalcluster.Name) bool {
 	return cluster.HasPrefix(v1alpha1.RootCluster) || cluster.HasPrefix(logicalcluster.New("system"))
 }
 
+// QualifiedObjectName builds a fully qualified identifier for an object
+// consisting of its logical cluster, namespace if applicable, and object
+// metadata name.
 func QualifiedObjectName(obj metav1.Object) string {
 	if len(obj.GetNamespace()) > 0 {
 		return fmt.Sprintf("%s|%s/%s", logicalcluster.From(obj), obj.GetNamespace(), obj.GetName())
 	}
 	return fmt.Sprintf("%s|%s", logicalcluster.From(obj), obj.GetName())
+}
+
+// WorkspaceLabelSelector builds a label selector for objects associated with a
+// given workspace.
+func WorkspaceLabelSelector(name string) string {
+	return fmt.Sprintf("%s=%s", v1beta1.WorkspaceNameLabel, name)
 }

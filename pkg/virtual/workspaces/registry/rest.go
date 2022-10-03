@@ -53,10 +53,6 @@ import (
 	workspaceutil "github.com/kcp-dev/kcp/pkg/virtual/workspaces/util"
 )
 
-const (
-	WorkspaceNameLabel string = "workspaces.kcp.dev/name"
-)
-
 // FilteredClusterWorkspaces allows to list and watch ClusterWorkspaces
 // filtered by authorizaation, i.e. a user only sees those object he has access to.
 type FilteredClusterWorkspaces interface {
@@ -354,7 +350,7 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 		ObjectMeta: metav1.ObjectMeta{
 			Name: ownerRoleBindingName,
 			Labels: map[string]string{
-				WorkspaceNameLabel: workspace.Name,
+				tenancyv1beta1.WorkspaceNameLabel: workspace.Name,
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -388,7 +384,7 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 		ObjectMeta: metav1.ObjectMeta{
 			Name: ownerRoleBindingName,
 			Labels: map[string]string{
-				WorkspaceNameLabel: workspace.Name,
+				tenancyv1beta1.WorkspaceNameLabel: workspace.Name,
 			},
 		},
 		Rules: rules,
@@ -413,26 +409,12 @@ func (s *REST) Delete(ctx context.Context, name string, deleteValidation rest.Va
 	logger := klog.FromContext(ctx).WithValues("parent", orgClusterName, "name", name)
 	ctx = klog.NewContext(ctx, logger)
 
-	errorToReturn := s.kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, name, *options)
-	if errorToReturn != nil && !kerrors.IsNotFound(errorToReturn) {
-		return nil, false, errorToReturn
-	}
-	if kerrors.IsNotFound(errorToReturn) {
-		errorToReturn = kerrors.NewNotFound(tenancyv1beta1.Resource("workspaces"), name)
-	}
-	workspaceNameLabelSelector := fmt.Sprintf("%s=%s", WorkspaceNameLabel, name)
-	if err := s.kubeClusterClient.Cluster(orgClusterName).RbacV1().ClusterRoles().DeleteCollection(ctx, *options, metav1.ListOptions{
-		LabelSelector: workspaceNameLabelSelector,
-	}); err != nil {
-		logger.Error(err, "could not delete clusterroles")
-	}
-	if err := s.kubeClusterClient.Cluster(orgClusterName).RbacV1().ClusterRoleBindings().DeleteCollection(ctx, *options, metav1.ListOptions{
-		LabelSelector: workspaceNameLabelSelector,
-	}); err != nil {
-		logger.Error(err, "could not delete clusterrolebindings")
+	err := s.kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, name, *options)
+	if kerrors.IsNotFound(err) {
+		err = kerrors.NewNotFound(tenancyv1beta1.Resource("workspaces"), name)
 	}
 
-	return nil, false, errorToReturn
+	return nil, false, err
 }
 
 type withProjection struct {
