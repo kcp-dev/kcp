@@ -381,9 +381,6 @@ func (c *Controller) processGVR(ctx context.Context, gvrstr string) error {
 // namespaceBlocklist holds a set of namespaces that should never be synced from kcp to physical clusters.
 var namespaceBlocklist = sets.NewString("kube-system", "kube-public", "kube-node-lease")
 
-// syncableClusterScopedResources holds a set of cluster-wide GVR that are allowed to be synced.
-var syncableClusterScopedResources = sets.NewString(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumes"}.String())
-
 // enqueueResourcesForNamespace adds the resources contained by the given
 // namespace to the queue if there scheduling label differs from the namespace's.
 func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {

@@ -82,7 +82,7 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 
 	} else {
 		// We only allow some cluster-wide types of resources.
-		if !syncableClusterScopedResources.Has(gvr.String()) {
+		if !syncershared.SyncableClusterScopedResources.Has(gvr.String()) {
 			logger.V(5).Info("skipping syncing cluster-scoped resource because it is not in the allowed list of syncable cluster-scoped resources", "name", obj.GetName())
 			return nil
 		}
