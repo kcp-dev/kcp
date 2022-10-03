@@ -1,6 +1,8 @@
 apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
+  annotations:
+    internal.sharding.kcp.dev/replicate: "true"
   creationTimestamp: null
   name: v220915-b4cf5d4e.clusterworkspaces.tenancy.kcp.dev
 spec:

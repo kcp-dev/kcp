@@ -1,6 +1,8 @@
 apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
+  annotations:
+    internal.sharding.kcp.dev/replicate: "true"
   creationTimestamp: null
   name: v220909-c255fd13.placements.scheduling.kcp.dev
 spec:
