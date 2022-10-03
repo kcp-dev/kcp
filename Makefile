@@ -138,6 +138,9 @@ update-contextual-logging: $(LOGCHECK)
 	UPDATE=true ./hack/verify-contextual-logging.sh
 .PHONY: update-contextual-logging
 
+generate-docs:
+	go run hack/generate/cli-doc/gen-cli-doc.go
+
 vendor: ## Vendor the dependencies
 	go mod tidy
 	go mod vendor

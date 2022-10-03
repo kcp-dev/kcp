@@ -17,16 +17,29 @@ limitations under the License.
 package main
 
 import (
-	"fmt"
+	"log"
 	"os"
+	"path/filepath"
 
-	"github.com/kcp-dev/kcp/cmd/kubectl-kcp/cmd"
+	kubectlKcp "github.com/kcp-dev/kcp/cmd/kubectl-kcp/cmd"
 )
 
 func main() {
-	cmd := cmd.KubectlKcpCommand()
-	if err := cmd.Execute(); err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
+	currentDir, err := os.Getwd()
+	if err != nil {
+		log.Fatalf("Failed to get current directory: %v", err)
+	}
+
+	cliDocsPath := filepath.Join(currentDir, "docs", "cli")
+
+	if err := os.RemoveAll(cliDocsPath); err != nil {
+		log.Fatalf("Failed to remove existing generated docs: %v", err)
+	}
+	if err := os.MkdirAll(cliDocsPath, 0755); err != nil {
+		log.Fatalf("Failed to re-create docs directory: %v", err)
+	}
+
+	if err := kubectlKcp.GenerateDocs(cliDocsPath); err != nil {
+		log.Fatalf("Failed to generate docs: %v", err)
 	}
 }

@@ -1,5 +1,5 @@
 /cmd/kcp/kcp.go:116:4: function "Infof" should not be used, convert to contextual logging
-/cmd/kubectl-kcp/main.go:61:2: function "InitFlags" should not be used, convert to contextual logging
+/cmd/kubectl-kcp/cmd/kubectlKcp.go:62:2: function "InitFlags" should not be used, convert to contextual logging
 /cmd/kubectl-workspace/main.go:44:2: function "InitFlags" should not be used, convert to contextual logging
 /cmd/sharded-test-server/shard.go:34:2: function "Infof" should not be used, convert to contextual logging
 /cmd/sharded-test-server/shard.go:43:2: function "Infof" should not be used, convert to contextual logging
