@@ -1,4 +1,10 @@
-# Registering Kubernetes Clusters using syncer
+---
+title: "Registering Kubernetes Clusters using syncer"
+linkTitle: "Syncer"
+weight: 1
+description: >
+  How to register Kubernetes clusters using syncer
+---
 
 In order to register a Kubernetes clusters with the kcp server,
 users have to install a special component named [syncer](https://github.com/kcp-dev/kcp/tree/main/docs/architecture#syncer).
@@ -23,8 +29,10 @@ users have to install a special component named [syncer](https://github.com/kcp-
 
     kubectl cluster-info --context kind-kind
     ```
-    **Note** that this step sets current context to the new kind cluster.
-    Make sure to use a KCP kubeconfig for the next steps unless told otherwise.
+
+{{% alert title="Note" color="primary" %}}
+This step sets current context to the new kind cluster. Make sure to use a KCP kubeconfig for the next steps unless told otherwise.
+{{% /alert %}}
 
 1. Create an organisation and immediately enter it:
 
@@ -40,6 +48,7 @@ users have to install a special component named [syncer](https://github.com/kcp-
     ```sh
     kubectl kcp workload sync <mycluster> --syncer-image <image name> -o syncer.yaml
     ```
+
     Where `<image name>` [one of the syncer images](https://github.com/kcp-dev/kcp/pkgs/container/kcp%2Fsyncer) for your corresponding KCP release (e.g. `ghcr.io/kcp-dev/kcp/syncer:v0.7.5`).
 
 1. Apply the manifest to the p-cluster:
@@ -77,9 +86,10 @@ users have to install a special component named [syncer](https://github.com/kcp-
     kubectl create deployment kuard --image gcr.io/kuar-demo/kuard-amd64:blue
     ```
 
-    **Note:** replace "gcr.io/kuar-demo/kuard-amd64:blue" with
-    "gcr.io/kuar-demo/kuard-arm64:blue" in case you're running
-    an Apple M1 based virtual machine.
+{{% alert title="Note" color="primary" %}}
+Replace "gcr.io/kuar-demo/kuard-amd64:blue" with "gcr.io/kuar-demo/kuard-arm64:blue" in case you're running
+an Apple M1 based virtual machine.
+{{% /alert %}}
 
 1. Verify the deployment on the local workspace:
 
@@ -200,6 +210,7 @@ This assumes that KCP is also being run locally.
     ```sh
     kubectl kcp workload sync <mycluster> --syncer-image <image name> -o syncer.yaml
     ```
+
     `<image name>` can be anything here as it will only be used to generate `syncer.yaml` which we are not going to apply.
 
 1. Gather data required for the syncer:

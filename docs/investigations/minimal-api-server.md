@@ -1,8 +1,14 @@
-# Minimal API Server
+---
+title: "Minimal API Server"
+linkTitle: "Minimal API Server"
+weight: 1
+description: >
+  Investigation on minimal API Server
+---
 
 The Kubernetes API machinery provides a pattern for declarative config-driven API with a number of conventions that simplify building configuration loops and consolidating sources of truth. There have been many efforts to make that tooling more reusable and less dependent on the rest of the Kube concepts but without a strong use case driving separation and a design the tooling is still fairly coupled to Kube.
 
-## Goal: 
+## Goal
 
 Building and sustaining an API server that:
 
@@ -12,7 +18,6 @@ Building and sustaining an API server that:
 4. replaces / modifies some implementations like custom resources, backend storage (etcd vs others), RBAC, admission control, and other primitives
 
 As a secondary goal, identifying where exceptions or undocumented assumptions exist in the libraries that would make clients behave differently generically (where an abstraction is not complete) should help ensure future clients can more concretely work across different API servers consistently.
-
 
 ### Constraint: The abstraction for a minimal API server should not hinder Kubernetes development
 
@@ -24,8 +29,7 @@ While it is certainly possible to rebuild all of Kube from scratch, a large amou
 
 It should be possible to add an arbitrary set of the existing Kube resources to the minimal API server, up to and including what an existing kube-apiserver exposes. Several use cases desire RBAC, Namespaces, Secrets, or other parts of the workload, while ensuring a "pick and choose" mindset keeps the interface supporting the needs of the full Kubernetes server.
 
-In the short term, it would not be a goal of this investigation to replace the underlying storage implementation `etcd`, but it should be possible to more easily inject the appropriate initialization code so that someone can easily start an API server that uses a different storage mechanism. 
-
+In the short term, it would not be a goal of this investigation to replace the underlying storage implementation `etcd`, but it should be possible to more easily inject the appropriate initialization code so that someone can easily start an API server that uses a different storage mechanism.
 
 ## Areas of investigation
 
@@ -34,23 +38,22 @@ In the short term, it would not be a goal of this investigation to replace the u
 3. Identify near-term SIG API-Machinery work that would benefit from additional decoupling (also wg-code-organization)
 4. Find consensus points on near term changes and draft a KEP
 
-
 ## Use cases
 
-### As a developer of CRDs / controllers / extensions ...
+### As a developer of CRDs / controllers / extensions
 
 * I can launch a local Kube API and test out multiple different versions of the same CRD in parallel quickly (shared with [logical-clusters](logical-clusters.md))
 * I can create a control plane for my organization's cloud resources (CRDs) that is centralized but doesn't require me to provision nodes (shared with [logical-clusters](logical-clusters.md))
 * ... benefits for unit testing CRDs in controller projects?
 
-### As a Kubernetes core developer ...
+### As a Kubernetes core developer
 
 * The core API server libraries are better separated and more strongly reviewed
 * Additional contributors are incentivized to maintain the core libraries of Kube because of a broader set of use cases
 * Kube client tools have fewer edge cases because they are tested against multiple sets of resources
 * ...
 
-### As an aggregated API server developer ...
+### As an aggregated API server developer
 
 * It is easy to reuse the k8s.io/apiserver code base to provide:
   * A virtual read-only resource that proxies to another type
@@ -59,10 +62,10 @@ In the short term, it would not be a goal of this investigation to replace the u
     * e.g. service catalog
   * A subresource implementation for a core type (pod/logs) that is not embedded in the Kube apiserver code
 
-### As a devops team ...
+### As a devops team
 
 * I want to be able to create declarative APIs using the controller pattern ...
-  * So that I can have declarative infrastructure without a full Kube cluster (https://github.com/thetirefire/badidea and https://docs.google.com/presentation/d/1TfCrsBEgvyOQ1MGC7jBKTvyaelAYCZzl3udRjPlVmWg/edit#slide=id.g401c104a3c_0_0)
+  * So that I can have declarative infrastructure without a full Kube cluster (<https://github.com/thetirefire/badidea> and <https://docs.google.com/presentation/d/1TfCrsBEgvyOQ1MGC7jBKTvyaelAYCZzl3udRjPlVmWg/edit#slide=id.g401c104a3c_0_0>)
   * So that I can have controllers that list/watch/sync/react to user focused changes
   * So that I can have a kubectl apply loop for my intent (spec) and see the current state (status)
   * So that I can move cloud infrastructure integrations like [AWS Controllers for k8s](https://github.com/aws-controllers-k8s/community) out of individual clusters into a centrally secured spot
@@ -83,7 +86,6 @@ More detailed requests
   * A custom admission chain that does not depend on webhooks but is inline code
   * A different backend for storage other than etcd (projects like [kine](https://github.com/k3s-io/kine))
   * Add / wrap some HTTP handlers with middleware
-
 
 ## Progress
 

@@ -1,4 +1,10 @@
-# Workspaces
+---
+title: "Workspaces"
+linkTitle: "Workspaces"
+weight: 1
+description: >
+  What are workspaces and how to use them
+---
 
 Multi-tenancy is implemented through workspaces. A workspace is a Kubernetes-cluster-like
 HTTPS endpoint, i.e. an endpoint usual Kubernetes client tooling (client-go, controller-runtime
@@ -50,10 +56,12 @@ or special properties by default, and it can be used without a corresponding
 ClusterWorkspaceType object (though one can be added and its initializers will be
 applied). ClusterWorkSpaces of type `Organization` are described in the next section.
 
-Note: in order to create cluster workspaces of a given type (including `Universal`)
+{{% alert title="Note" color="primary" %}}
+In order to create cluster workspaces of a given type (including `Universal`)
 you must have `use` permissions against the `clusterworkspacetypes` resources with the
 lower-case name of the cluster workspace type (e.g. `universal`). All `system:authenticated`
 users inherit this permission automatically for type `Universal`.
+{{% /alert %}}
 
 ClusterWorkspaces persisted in etcd on a shard have disjoint etcd prefix ranges, i.e.
 they have independent behaviour and no cluster workspace sees objects from other
@@ -77,28 +85,30 @@ home-creator-groups (default `system:authenticated`) will have a home workspace.
 
 The following cluster workspace types are created internally to support User Home Workspaces:
 
-* `homeroot`: the workspace that will contain all the Home workspaces, spread across buckets. - Can contain only Homebucket workspaces
-* `homebucket`: the type of workspaces that will contain a subset of all home workspaces. - Can contain either Homebucket (multi-level bucketing) or Home workspaces
-* `home`: the ClusterWorkspace of home workspaces - can contain any type of workspaces as children (especially universal workspaces)
+- `homeroot`: the workspace that will contain all the Home workspaces, spread across buckets. - Can contain only Homebucket workspaces
+- `homebucket`: the type of workspaces that will contain a subset of all home workspaces. - Can contain either Homebucket (multi-level bucketing) or Home workspaces
+- `home`: the ClusterWorkspace of home workspaces - can contain any type of workspaces as children (especially universal workspaces)
 
 ### Bucket configuration options
 
 The `kcp` administrator can configure:
 
-* `<prefix>`, which defaults to `root:users`
-* bucket depth, which defaults to 2
-* bucket name length, in characters, which defaults to 2
+- `<prefix>`, which defaults to `root:users`
+- bucket depth, which defaults to 2
+- bucket name length, in characters, which defaults to 2
 
 The following outlines valid configuration options. With the default setup, ~5 users or ~700 sub-buckets will be in
 any bucket.
 
-> **NOTE**: DO NOT set the bucket size to be longer than 2, as this will adversely impact performance.
+{{% alert title="Warning" color="warning" %}}
+DO NOT set the bucket size to be longer than 2, as this will adversely impact performance.
+{{% /alert %}}
 
 User-names have `(26 * [(26 + 10 + 2) * 61] * 36 = 2169648)` permutations, and buckets are made up of lowercase-alpha
 chars.  Invalid configurations break the scale limit in sub-buckets or users. Valid configurations should target
 having not more than ~1000 sub-buckets per bucket and at least 5 users per bucket.
 
-**Valid Configurations**
+### Valid Configurations
 
 |length|depth|sub-buckets|users|
 |------|-----|-----------|-----|
@@ -106,7 +116,7 @@ having not more than ~1000 sub-buckets per bucket and at least 5 users per bucke
 |1     |4    |26 * 1 = 26|2169648 / (26)^4 = 5 |
 |2     |2    |26 * 26 = 676|2169648 / (26*26)^2 = 5 |
 
-**Invalid Configurations**
+### Invalid Configurations
 
 These are examples of invalid configurations and are for illustrative purposes only. In nearly all cases, the default values
 will be sufficient.
@@ -117,16 +127,18 @@ will be sufficient.
 |1     |2    |26 * 1 = 26|2169648 / (26)^2 = 3209 |
 |2     |1    |26 * 26 = 676|2169648 / (26*26) = 3209 |
 |2     |3    |26 * 26 = 676|2169648 / (26*26)^3 = .007 |
-|3     |1    |26 * 26 * 26 = 17576|2169648 / (26*26*26) = 124 |
-|3     |2    |26 * 26 * 26 = 17576|2169648 / (26*26*26)^2 = .007 |
+|3     |1    |26 *26* 26 = 17576|2169648 / (26*26*26) = 124 |
+|3     |2    |26 *26* 26 = 17576|2169648 / (26*26*26)^2 = .007 |
 
 ## Organization Workspaces
 
 Organization workspaces are ClusterWorkspaces of type `Organization`, defined in the
 root workspace. Organization workspaces are accessible at `/clusters/root:<org-name>`.
 
-Note: the organization ClusterWorkspaceType can only be created in the root workspace
+{{% alert title="Note" color="primary" %}}
+The organization ClusterWorkspaceType can only be created in the root workspace
 verified through admission.
+{{% /alert %}}
 
 Organization workspaces have standard resources (on-top of `Universal` workspaces)
 which include the `ClusterWorkspace` API defined through an CRD deployed during
@@ -161,4 +173,3 @@ that the system workspace exists.
 
 The `system:admin` system workspace is special as it is also accessible through `/`
 of the shard, and at `/cluster/system:admin` at the same time.
-

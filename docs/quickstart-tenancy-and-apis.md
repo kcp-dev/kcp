@@ -1,4 +1,10 @@
-# Quickstart: Tenancy and APIs
+---
+title: "Quickstart: Tenancy and APIs"
+linkTitle: "Tenancy and APIs"
+weight: 1
+description: >
+  How to create a new API and use it with tenancy
+---
 
 ## Prerequisites
 
@@ -316,7 +322,7 @@ look at a specific namespace across all workspaces, so you have to list across a
 Q: If I attempt to use an `APIExport` virtual workspace before there are any `APIBindings` I get the "Error from server
 (NotFound): Unable to list ...: the server could not find the requested resource". Is this a bug?
 
-A: It is a bug. See https://github.com/kcp-dev/kcp/issues/1183
+A: It is a bug. See <https://github.com/kcp-dev/kcp/issues/1183>
 
 When fixed, we expect the `APIExport` behavior will change such that there will be no virtual workspace URLs until an
 `APIBinding` is created.

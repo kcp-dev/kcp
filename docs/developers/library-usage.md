@@ -1,4 +1,10 @@
-# Using `kcp` as a library
+---
+title: "Using kcp as a library"
+linkTitle: "Library Usage"
+weight: 1
+description: >
+  How to use kcp as a library
+---
 
 Instead of running the kcp as a binary using `go run`, you can include the kcp api-server in your own projects. To create and start the api-server with the default options (including an embedded etcd server):
 

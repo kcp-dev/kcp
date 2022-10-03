@@ -1,4 +1,10 @@
-# Placement, Locations and Scheduling
+---
+title: "Placement, Locations and Scheduling"
+linkTitle: "Placement, Locations and Scheduling"
+weight: 1
+description: >
+  KCP implements *Compute as a Service* via a concept of Transparent Multi Cluster (TMC).
+---
 
 KCP implements *Compute as a Service* via a concept of Transparent Multi Cluster (TMC). TMC means that
 Kubernetes clusters are attached to a kcp installation to execute workload objects from the users'
@@ -50,22 +56,27 @@ The APIs used for Compute as a Service are:
   The user binds to the `APIExport` called `kubernetes` using an `APIBinding`. From this moment on, the users' workspaces
   are subject to placement.
 
-Note: binding to a compute service is a permanent decision. Unbinding (i.e. deleting of the APIBinding object) means deletion of the
+{{% alert title="Note" color="primary" %}}
+Binding to a compute service is a permanent decision. Unbinding (i.e. deleting of the APIBinding object) means deletion of the
 workload objects.
 
-Note: it is planned to allow multiple location workspaces for the same compute service, even with different owners.
+It is planned to allow multiple location workspaces for the same compute service, even with different owners.
+{{% /alert %}}
 
 ### Placement and resource scheduling
 
 The placement state is one of
+
 - `Pending` – the placement controller waits for a valid `Location` to select
 - `Bound` – at least one namespace is bound to the placement. When the user updates the spec of the `Placement`, the selected location of
   the placement will be changed in `Bound` state.
 - `Unbound` – a location is selected by the placement, but no namespace is bound to the placement. When the user updates the spec of the `Placement`, the
   selected location of the placement will be changed in `Unbound` state.
 
-Note: sync targets from different locations can be bound at the same time, while each location can only have one sync target bound to the
+{{% alert title="Note" color="primary" %}}
+Sync targets from different locations can be bound at the same time, while each location can only have one sync target bound to the
 namespace.
+{{% /alert %}}
 
 The user interface to influence the placement decisions is the `Placement` object. For example, user can create a placement to bind namespace with
 label of "app=foo" to a location with label "cloud=aws" as below:
@@ -130,12 +141,14 @@ All above cases will make the `SyncTarget` represented in the label `state.workl
 As soon as the `state.workload.kcp.dev/<cluster-id>` label is set on the Namespace, the workload resource controller will
 copy the `state.workload.kcp.dev/<cluster-id>` label to the resources in that namespace.
 
-Note: in the future, the label on the resources is first set to empty string `""`, and a coordination controller will be
+{{% alert title="Note" color="primary" %}}
+In the future, the label on the resources is first set to empty string `""`, and a coordination controller will be
 able to apply changes before syncing starts. This includes the ability to add per-location finalizers through the
 `finalizers.workload.kcp.dev/<cluster-id>` annotation such that the coordination controller gets full control over
 the downstream life-cycle of the objects per location (imagine an ingress that blocks downstream removal until the new replicas
 have been launched on another sync target). Finally, the coordination controller will replace the empty string with `Sync`
 such that the state machine continues.
+{{% /alert %}}
 
 With the state label set to `Sync`, the syncer will start seeing the resources in the namespace
 and starts syncing them downstream, first by creating the namespace. Before syncing, it will also set
@@ -151,14 +164,17 @@ When the downstream deletion is complete, the syncer will remove the finalizer f
 `state.workload.kcp.dev/<cluster-id>` labels gets deleted as well. The syncer stops seeing the object in the virtual
 workspace.
 
-
-Note: there is a missing bit in the implementation (in v0.5) about removal of the `state.workload.kcp.dev/<cluster-id>`
+{{% alert title="Note" color="primary" %}}
+There is a missing bit in the implementation (in v0.5) about removal of the `state.workload.kcp.dev/<cluster-id>`
 label from namespaces: the syncer currently does not participate in the namespace deletion state-machine, but has to and signal finished
 downstream namespace deletion via `state.workload.kcp.dev/<cluster-id>` label removal.
 
+For more information on the upsync use case for storage, refer to the [storage doc](storage.md).
+{{% /alert %}}
+
 ### Resource Upsyncing
 
-In most cases kcp will be the source for syncing resources to the `SyncTarget`, however, in some cases, 
+In most cases kcp will be the source for syncing resources to the `SyncTarget`, however, in some cases,
 kcp would need to receive a resource that was provisioned by a controller on the `SyncTarget`.
 This is the case with storage PVs, which are created on the `SyncTarget` by a CSI driver.
 
@@ -166,8 +182,6 @@ Unlike the `Sync` state, the `Upsync` state is exclusive, and only a single `Syn
 In addition, other `SyncTargets` cannot be syncing down while the resource is being upsynced.
 
 A resource coordination controller will be responsible for changing the `state.workload.kcp.dev/<cluster-id>` label,
-to drive the different flows on the resource. A resource can be changed from `Upsync` to `Sync` in order to share it across `SyncTargets`. 
+to drive the different flows on the resource. A resource can be changed from `Upsync` to `Sync` in order to share it across `SyncTargets`.
 This change will be applied by the coordination controller when needed, and the original syncer will detect that change and stop upsyncing to that resource,
 and all the sync targets involved will be in `Sync` state.
-
-For more information on the upsync use case for storage, refer to the [storage doc](storage.md).
