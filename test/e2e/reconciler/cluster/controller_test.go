@@ -77,16 +77,21 @@ func TestClusterController(t *testing.T) {
 				syncTargetKey := workloadv1alpha1.ToSyncTargetKey(logicalcluster.From(syncTarget), syncTarget.GetName())
 
 				t.Logf("Creating cowboy timothy")
-				cowboy, err := servers[sourceClusterName].client.Cowboys(testNamespace).Create(ctx, &wildwestv1alpha1.Cowboy{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "timothy",
-						Labels: map[string]string{
-							"state.workload.kcp.dev/" + syncTargetKey: string(workloadv1alpha1.ResourceStateSync),
+				var cowboy *wildwestv1alpha1.Cowboy
+				require.Eventually(t, func() bool {
+					cowboy, err = servers[sourceClusterName].client.Cowboys(testNamespace).Create(ctx, &wildwestv1alpha1.Cowboy{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "timothy",
+							Namespace: testNamespace,
+							Labels: map[string]string{
+								"state.workload.kcp.dev/" + syncTargetKey: string(workloadv1alpha1.ResourceStateSync),
+							},
 						},
-					},
-					Spec: wildwestv1alpha1.CowboySpec{Intent: "yeehaw"},
-				}, metav1.CreateOptions{})
-				require.NoError(t, err, "failed to create cowboy")
+						Spec: wildwestv1alpha1.CowboySpec{Intent: "yeehaw"},
+					}, metav1.CreateOptions{})
+
+					return err == nil
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "expected cowboy resource to be created")
 
 				nsLocator := shared.NewNamespaceLocator(logicalcluster.From(cowboy), logicalcluster.From(syncTarget), syncTarget.GetUID(), syncTarget.GetName(), cowboy.Namespace)
 				targetNamespace, err := shared.PhysicalClusterNamespaceName(nsLocator)

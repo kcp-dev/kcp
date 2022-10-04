@@ -26,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
@@ -39,8 +39,8 @@ const (
 	SyncerFinalizerNamePrefix = "workload.kcp.dev/syncer-"
 )
 
-func EnsureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersionResource, upstreamInformers dynamicinformer.DynamicSharedInformerFactory, upstreamClient dynamic.ClusterInterface, upstreamNamespace, syncTargetKey string, logicalClusterName logicalcluster.Name, resourceName string) error {
-	upstreamObjFromLister, err := upstreamInformers.ForResource(gvr).Lister().ByNamespace(upstreamNamespace).Get(clusters.ToClusterAwareKey(logicalClusterName, resourceName))
+func EnsureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersionResource, upstreamInformer informers.GenericInformer, upstreamClient dynamic.ClusterInterface, upstreamNamespace, syncTargetKey string, logicalClusterName logicalcluster.Name, resourceName string) error {
+	upstreamObjFromLister, err := upstreamInformer.Lister().ByNamespace(upstreamNamespace).Get(clusters.ToClusterAwareKey(logicalClusterName, resourceName))
 	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}

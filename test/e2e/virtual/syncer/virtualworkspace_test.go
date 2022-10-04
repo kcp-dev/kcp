@@ -162,90 +162,98 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.NoError(t, err)
 
 				t.Logf("Check discovery in kubelike virtual workspace")
-				_, kubelikeAPIResourceLists, err := kubelikeVWDiscoverClusterClient.WithCluster(logicalcluster.Wildcard).ServerGroupsAndResources()
-				require.NoError(t, err)
-				require.Empty(t, cmp.Diff([]*metav1.APIResourceList{
-					deploymentsAPIResourceList(kubelikeClusterName),
-					{
-						TypeMeta: metav1.TypeMeta{
-							Kind:       "APIResourceList",
-							APIVersion: "v1",
+				require.Eventually(t, func() bool {
+					_, kubelikeAPIResourceLists, err := kubelikeVWDiscoverClusterClient.WithCluster(logicalcluster.Wildcard).ServerGroupsAndResources()
+					if err != nil {
+						return false
+					}
+					return len(cmp.Diff([]*metav1.APIResourceList{
+						deploymentsAPIResourceList(kubelikeClusterName),
+						{
+							TypeMeta: metav1.TypeMeta{
+								Kind:       "APIResourceList",
+								APIVersion: "v1",
+							},
+							GroupVersion: "networking.k8s.io/v1",
+							APIResources: []metav1.APIResource{
+								{
+									Kind:               "Ingress",
+									Name:               "ingresses",
+									SingularName:       "ingress",
+									Namespaced:         true,
+									Verbs:              metav1.Verbs{"get", "list", "patch", "update", "watch"},
+									ShortNames:         []string{"ing"},
+									StorageVersionHash: discovery.StorageVersionHash(kubelikeClusterName, "networking.k8s.io", "v1", "Ingress"),
+								},
+								{
+									Kind:               "Ingress",
+									Name:               "ingresses/status",
+									Namespaced:         true,
+									Verbs:              metav1.Verbs{"get", "patch", "update"},
+									StorageVersionHash: "",
+								},
+							},
 						},
-						GroupVersion: "networking.k8s.io/v1",
-						APIResources: []metav1.APIResource{
-							{
-								Kind:               "Ingress",
-								Name:               "ingresses",
-								SingularName:       "ingress",
+						addToAPIResourceList(
+							requiredCoreAPIResourceList(kubelikeClusterName),
+							metav1.APIResource{
+								Kind:               "Service",
+								Name:               "services",
+								SingularName:       "service",
 								Namespaced:         true,
 								Verbs:              metav1.Verbs{"get", "list", "patch", "update", "watch"},
-								ShortNames:         []string{"ing"},
-								StorageVersionHash: discovery.StorageVersionHash(kubelikeClusterName, "networking.k8s.io", "v1", "Ingress"),
+								StorageVersionHash: discovery.StorageVersionHash(kubelikeClusterName, "", "v1", "Service"),
+								Categories:         []string{"all"},
+								ShortNames:         []string{"svc"},
 							},
-							{
-								Kind:               "Ingress",
-								Name:               "ingresses/status",
+							metav1.APIResource{
+								Kind:               "Service",
+								Name:               "services/status",
+								SingularName:       "",
 								Namespaced:         true,
 								Verbs:              metav1.Verbs{"get", "patch", "update"},
 								StorageVersionHash: "",
-							},
-						},
-					},
-					addToAPIResourceList(
-						requiredCoreAPIResourceList(kubelikeClusterName),
-						metav1.APIResource{
-							Kind:               "Service",
-							Name:               "services",
-							SingularName:       "service",
-							Namespaced:         true,
-							Verbs:              metav1.Verbs{"get", "list", "patch", "update", "watch"},
-							StorageVersionHash: discovery.StorageVersionHash(kubelikeClusterName, "", "v1", "Service"),
-							Categories:         []string{"all"},
-							ShortNames:         []string{"svc"},
-						},
-						metav1.APIResource{
-							Kind:               "Service",
-							Name:               "services/status",
-							SingularName:       "",
-							Namespaced:         true,
-							Verbs:              metav1.Verbs{"get", "patch", "update"},
-							StorageVersionHash: "",
-						}),
-				}, sortAPIResourceList(kubelikeAPIResourceLists)))
+							}),
+					}, sortAPIResourceList(kubelikeAPIResourceLists))) == 0
+				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				t.Logf("Check discovery in wildwest virtual workspace")
 				wildwestVWDiscoverClusterClient, err := clientgodiscovery.NewDiscoveryClientForConfig(wildwestSyncerVWConfig)
 				require.NoError(t, err)
-				_, wildwestAPIResourceLists, err := wildwestVWDiscoverClusterClient.WithCluster(logicalcluster.Wildcard).ServerGroupsAndResources()
-				require.NoError(t, err)
-				require.Empty(t, cmp.Diff([]*metav1.APIResourceList{
-					deploymentsAPIResourceList(wildwestClusterName),
-					requiredCoreAPIResourceList(wildwestClusterName),
-					{
-						TypeMeta: metav1.TypeMeta{
-							Kind:       "APIResourceList",
-							APIVersion: "v1",
-						},
-						GroupVersion: "wildwest.dev/v1alpha1",
-						APIResources: []metav1.APIResource{
-							{
-								Kind:               "Cowboy",
-								Name:               "cowboys",
-								SingularName:       "cowboy",
-								Namespaced:         true,
-								Verbs:              metav1.Verbs{"get", "list", "patch", "update", "watch"},
-								StorageVersionHash: discovery.StorageVersionHash(wildwestClusterName, "wildwest.dev", "v1alpha1", "Cowboy"),
+				require.Eventually(t, func() bool {
+					_, wildwestAPIResourceLists, err := wildwestVWDiscoverClusterClient.WithCluster(logicalcluster.Wildcard).ServerGroupsAndResources()
+					if err != nil {
+						return false
+					}
+					return len(cmp.Diff([]*metav1.APIResourceList{
+						deploymentsAPIResourceList(wildwestClusterName),
+						requiredCoreAPIResourceList(wildwestClusterName),
+						{
+							TypeMeta: metav1.TypeMeta{
+								Kind:       "APIResourceList",
+								APIVersion: "v1",
 							},
-							{
-								Kind:               "Cowboy",
-								Name:               "cowboys/status",
-								Namespaced:         true,
-								Verbs:              metav1.Verbs{"get", "patch", "update"},
-								StorageVersionHash: "",
+							GroupVersion: "wildwest.dev/v1alpha1",
+							APIResources: []metav1.APIResource{
+								{
+									Kind:               "Cowboy",
+									Name:               "cowboys",
+									SingularName:       "cowboy",
+									Namespaced:         true,
+									Verbs:              metav1.Verbs{"get", "list", "patch", "update", "watch"},
+									StorageVersionHash: discovery.StorageVersionHash(wildwestClusterName, "wildwest.dev", "v1alpha1", "Cowboy"),
+								},
+								{
+									Kind:               "Cowboy",
+									Name:               "cowboys/status",
+									Namespaced:         true,
+									Verbs:              metav1.Verbs{"get", "patch", "update"},
+									StorageVersionHash: "",
+								},
 							},
 						},
-					},
-				}, sortAPIResourceList(wildwestAPIResourceLists)))
+					}, sortAPIResourceList(wildwestAPIResourceLists))) == 0
+				}, wait.ForeverTestTimeout, time.Millisecond*100)
 			},
 		},
 		{

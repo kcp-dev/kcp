@@ -94,13 +94,17 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	upstreamWorkspace := namespaceLocator.Workspace
 
 	// get the downstream object
-	obj, exists, err := c.downstreamInformers.ForResource(gvr).Informer().GetIndexer().GetByKey(key)
+	syncerInformer, ok := c.syncerInformers.InformerForResource(gvr)
+	if !ok {
+		return nil
+	}
+	obj, exists, err := syncerInformer.DownstreamInformer.Informer().GetIndexer().GetByKey(key)
 	if err != nil {
 		return err
 	}
 	if !exists {
 		klog.Infof("Downstream GVR %q object %s/%s does not exist. Removing finalizer upstream", gvr.String(), downstreamNamespace, downstreamName)
-		return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, c.upstreamInformers, c.upstreamClient, upstreamNamespace, c.syncTargetKey, upstreamWorkspace, shared.GetUpstreamResourceName(gvr, downstreamName))
+		return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, syncerInformer.UpstreamInformer, c.upstreamClient, upstreamNamespace, c.syncTargetKey, upstreamWorkspace, shared.GetUpstreamResourceName(gvr, downstreamName))
 	}
 
 	// update upstream status
@@ -122,7 +126,11 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 		return nil
 	}
 
-	existingObj, err := c.upstreamInformers.ForResource(gvr).Lister().ByNamespace(upstreamNamespace).Get(clusters.ToClusterAwareKey(upstreamLogicalCluster, upstreamName))
+	syncerInformer, ok := c.syncerInformers.InformerForResource(gvr)
+	if !ok {
+		return nil
+	}
+	existingObj, err := syncerInformer.UpstreamInformer.Lister().ByNamespace(upstreamNamespace).Get(clusters.ToClusterAwareKey(upstreamLogicalCluster, upstreamName))
 	if err != nil {
 		klog.Errorf("Getting resource %s/%s: %v", upstreamNamespace, upstreamName, err)
 		return err

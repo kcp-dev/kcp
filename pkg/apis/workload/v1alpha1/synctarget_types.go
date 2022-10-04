@@ -178,6 +178,9 @@ const (
 	// HeartbeatHealthy means the HeartbeatManager has seen a heartbeat for the SyncTarget within the expected interval.
 	HeartbeatHealthy conditionsv1alpha1.ConditionType = "HeartbeatHealthy"
 
+	// SyncerAuthorized means the syncer is authorized to sync resources to downstream cluster.
+	SyncerAuthorized conditionsv1alpha1.ConditionType = "SyncerAuthorized"
+
 	// ErrorHeartbeatMissedReason indicates that a heartbeat update was not received within the configured threshold.
 	ErrorHeartbeatMissedReason = "ErrorHeartbeat"
 )

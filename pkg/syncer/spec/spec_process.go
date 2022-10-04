@@ -112,13 +112,12 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 		return nil
 	}
 
-	namespaceGvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
 	desiredNSLocator := shared.NewNamespaceLocator(clusterName, c.syncTargetWorkspace, c.syncTargetUID, c.syncTargetName, upstreamNamespace)
 	jsonNSLocator, err := json.Marshal(desiredNSLocator)
 	if err != nil {
 		return err
 	}
-	downstreamNamespaces, err := c.downstreamInformers.ForResource(namespaceGvr).Informer().GetIndexer().ByIndex(byNamespaceLocatorIndexName, string(jsonNSLocator))
+	downstreamNamespaces, err := c.downstreamNSInformer.Informer().GetIndexer().ByIndex(byNamespaceLocatorIndexName, string(jsonNSLocator))
 	if err != nil {
 		return err
 	}
@@ -155,7 +154,12 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	}
 	indexKey += name
 	// get the upstream object
-	obj, exists, err := c.upstreamInformers.ForResource(gvr).Informer().GetIndexer().GetByKey(indexKey)
+	syncerInformer, ok := c.syncerInformers.InformerForResource(gvr)
+	if !ok {
+		return nil
+	}
+
+	obj, exists, err := syncerInformer.UpstreamInformer.Informer().GetIndexer().GetByKey(indexKey)
 	if err != nil {
 		return err
 	}
@@ -223,7 +227,7 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 	}
 
 	// Check if the namespace already exists, if not create it.
-	namespace, err := c.downstreamInformers.ForResource(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}).Lister().Get(newNamespace.GetName())
+	namespace, err := c.downstreamNSInformer.Lister().Get(newNamespace.GetName())
 	if err != nil && apierrors.IsNotFound(err) {
 		if _, err := namespaces.Create(ctx, newNamespace, metav1.CreateOptions{}); err != nil {
 			return err
@@ -299,13 +303,18 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 	// TODO(jmprusi): When using syncer virtual workspace this condition would not be necessary anymore, since directly tested on the virtual workspace side.
 	stillOwnedByExternalActorForLocation := upstreamObj.GetAnnotations()[workloadv1alpha1.ClusterFinalizerAnnotationPrefix+c.syncTargetKey] != ""
 
+	syncerInformer, ok := c.syncerInformers.InformerForResource(gvr)
+	if !ok {
+		return nil
+	}
+
 	klog.V(4).Infof("Upstream object %s|%s/%s is intended to be removed %t %t", upstreamObjLogicalCluster, upstreamObj.GetNamespace(), upstreamObj.GetName(), intendedToBeRemovedFromLocation, stillOwnedByExternalActorForLocation)
 	if intendedToBeRemovedFromLocation && !stillOwnedByExternalActorForLocation {
 		if err := c.downstreamClient.Resource(gvr).Namespace(downstreamNamespace).Delete(ctx, transformedName, metav1.DeleteOptions{}); err != nil {
 			if apierrors.IsNotFound(err) {
 				// That's not an error.
 				// Just think about removing the finalizer from the KCP location-specific resource:
-				if err := shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, c.upstreamInformers, c.upstreamClient, upstreamObj.GetNamespace(), c.syncTargetKey, upstreamObjLogicalCluster, upstreamObj.GetName()); err != nil {
+				if err := shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, syncerInformer.UpstreamInformer, c.upstreamClient, upstreamObj.GetNamespace(), c.syncTargetKey, upstreamObjLogicalCluster, upstreamObj.GetName()); err != nil {
 					return err
 				}
 				return nil

@@ -23,6 +23,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/go-logr/logr"
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
 
@@ -34,10 +35,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/syncer/resourcesync"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	specmutators "github.com/kcp-dev/kcp/pkg/syncer/spec/mutators"
 	"github.com/kcp-dev/kcp/third_party/keyfunctions"
@@ -54,9 +58,10 @@ type Controller struct {
 
 	mutators mutatorGvrMap
 
-	upstreamClient                         dynamic.ClusterInterface
-	downstreamClient                       dynamic.Interface
-	upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory
+	upstreamClient       dynamic.ClusterInterface
+	downstreamClient     dynamic.Interface
+	syncerInformers      resourcesync.SyncerInformerFactory
+	downstreamNSInformer informers.GenericInformer
 
 	syncTargetName            string
 	syncTargetWorkspace       logicalcluster.Name
@@ -65,17 +70,16 @@ type Controller struct {
 	advancedSchedulingEnabled bool
 }
 
-func NewSpecSyncer(gvrs []schema.GroupVersionResource, syncTargetWorkspace logicalcluster.Name, syncTargetName, syncTargetKey string, upstreamURL *url.URL, advancedSchedulingEnabled bool,
-	upstreamClient dynamic.ClusterInterface, downstreamClient dynamic.Interface, upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory, syncTargetUID types.UID) (*Controller, error) {
+func NewSpecSyncer(syncTargetWorkspace logicalcluster.Name, syncTargetName, syncTargetKey string, upstreamURL *url.URL, advancedSchedulingEnabled bool,
+	upstreamClient dynamic.ClusterInterface, downstreamClient dynamic.Interface, upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory, syncerInformers resourcesync.SyncerInformerFactory, syncTargetUID types.UID) (*Controller, error) {
 
 	c := Controller{
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
 
-		upstreamClient:      upstreamClient,
-		downstreamClient:    downstreamClient,
-		upstreamInformers:   upstreamInformers,
-		downstreamInformers: downstreamInformers,
+		upstreamClient:   upstreamClient,
+		downstreamClient: downstreamClient,
 
+		syncerInformers:           syncerInformers,
 		syncTargetName:            syncTargetName,
 		syncTargetWorkspace:       syncTargetWorkspace,
 		syncTargetUID:             syncTargetUID,
@@ -94,77 +98,81 @@ func NewSpecSyncer(gvrs []schema.GroupVersionResource, syncTargetWorkspace logic
 	if err != nil {
 		return nil, err
 	}
+	c.downstreamNSInformer = downstreamInformers.ForResource(namespaceGVR)
 
-	for _, gvr := range gvrs {
-		gvr := gvr // because used in closure
+	logger := logging.WithReconciler(klog.Background(), controllerName)
 
-		upstreamInformers.ForResource(gvr).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				c.AddToQueue(gvr, obj)
-			},
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				oldUnstrob := oldObj.(*unstructured.Unstructured)
-				newUnstrob := newObj.(*unstructured.Unstructured)
+	syncerInformers.AddUpstreamEventHandler(
+		func(gvr schema.GroupVersionResource) cache.ResourceEventHandler {
+			logger.V(2).Info("Set up upstream informer", "syncTargetWorkspace", syncTargetWorkspace, "syncTargetName", syncTargetName, "syncTargetKey", syncTargetKey, "gvr", gvr.String())
+			return cache.ResourceEventHandlerFuncs{
+				AddFunc: func(obj interface{}) {
+					c.AddToQueue(gvr, obj, logger)
+				},
+				UpdateFunc: func(oldObj, newObj interface{}) {
+					oldUnstrob := oldObj.(*unstructured.Unstructured)
+					newUnstrob := newObj.(*unstructured.Unstructured)
 
-				if !deepEqualApartFromStatus(oldUnstrob, newUnstrob) {
-					c.AddToQueue(gvr, newUnstrob)
-				}
-			},
-			DeleteFunc: func(obj interface{}) {
-				c.AddToQueue(gvr, obj)
-			},
+					if !deepEqualApartFromStatus(oldUnstrob, newUnstrob) {
+						c.AddToQueue(gvr, newUnstrob, logger)
+					}
+				},
+				DeleteFunc: func(obj interface{}) {
+					c.AddToQueue(gvr, obj, logger)
+				},
+			}
 		})
 
-		klog.V(2).InfoS("Set up upstream informer", "syncTargetWorkspace", syncTargetWorkspace, "syncTargetName", syncTargetName, "syncTargetKey", syncTargetKey, "gvr", gvr.String())
+	syncerInformers.AddDownstreamEventHandler(
+		func(gvr schema.GroupVersionResource) cache.ResourceEventHandler {
+			logger.V(2).Info("Set up downstream informer", "SyncTarget Workspace", syncTargetWorkspace, "SyncTarget Name", syncTargetName, "gvr", gvr.String())
+			return cache.ResourceEventHandlerFuncs{
+				DeleteFunc: func(obj interface{}) {
+					key, err := keyfunctions.DeletionHandlingMetaNamespaceKeyFunc(obj)
+					if err != nil {
+						utilruntime.HandleError(fmt.Errorf("error getting key for type %T: %w", obj, err))
+						return
+					}
+					namespace, name, err := cache.SplitMetaNamespaceKey(key)
+					if err != nil {
+						utilruntime.HandleError(fmt.Errorf("error splitting key %q: %w", key, err))
+					}
+					klog.V(3).InfoS("processing delete event", "key", key, "gvr", gvr, "namespace", namespace, "name", name)
 
-		downstreamInformers.ForResource(gvr).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-			DeleteFunc: func(obj interface{}) {
-				key, err := keyfunctions.DeletionHandlingMetaNamespaceKeyFunc(obj)
-				if err != nil {
-					utilruntime.HandleError(fmt.Errorf("error getting key for type %T: %w", obj, err))
-					return
-				}
-				namespace, name, err := cache.SplitMetaNamespaceKey(key)
-				if err != nil {
-					utilruntime.HandleError(fmt.Errorf("error splitting key %q: %w", key, err))
-				}
-				klog.V(3).InfoS("processing delete event", "key", key, "gvr", gvr, "namespace", namespace, "name", name)
-
-				// Use namespace lister
-				nsObj, err := namespaceLister.Get(namespace)
-				if err != nil {
-					utilruntime.HandleError(err)
-					return
-				}
-				ns, ok := nsObj.(*unstructured.Unstructured)
-				if !ok {
-					utilruntime.HandleError(fmt.Errorf("unexpected object type: %T", nsObj))
-					return
-				}
-				locator, ok := ns.GetAnnotations()[shared.NamespaceLocatorAnnotation]
-				if !ok {
-					utilruntime.HandleError(fmt.Errorf("unable to find the locator annotation in namespace %s", namespace))
-					return
-				}
-				nsLocator := &shared.NamespaceLocator{}
-				err = json.Unmarshal([]byte(locator), nsLocator)
-				if err != nil {
-					utilruntime.HandleError(err)
-					return
-				}
-				klog.V(4).InfoS("found", "NamespaceLocator", nsLocator)
-				m := &metav1.ObjectMeta{
-					Annotations: map[string]string{
-						logicalcluster.AnnotationKey: nsLocator.Workspace.String(),
-					},
-					Namespace: nsLocator.Namespace,
-					Name:      shared.GetUpstreamResourceName(gvr, name),
-				}
-				c.AddToQueue(gvr, m)
-			},
+					// Use namespace lister
+					nsObj, err := namespaceLister.Get(namespace)
+					if err != nil {
+						utilruntime.HandleError(err)
+						return
+					}
+					ns, ok := nsObj.(*unstructured.Unstructured)
+					if !ok {
+						utilruntime.HandleError(fmt.Errorf("unexpected object type: %T", nsObj))
+						return
+					}
+					locator, ok := ns.GetAnnotations()[shared.NamespaceLocatorAnnotation]
+					if !ok {
+						utilruntime.HandleError(fmt.Errorf("unable to find the locator annotation in namespace %s", namespace))
+						return
+					}
+					nsLocator := &shared.NamespaceLocator{}
+					err = json.Unmarshal([]byte(locator), nsLocator)
+					if err != nil {
+						utilruntime.HandleError(err)
+						return
+					}
+					klog.V(4).InfoS("found", "NamespaceLocator", nsLocator)
+					m := &metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: nsLocator.Workspace.String(),
+						},
+						Namespace: nsLocator.Namespace,
+						Name:      shared.GetUpstreamResourceName(gvr, name),
+					}
+					c.AddToQueue(gvr, m, logger)
+				},
+			}
 		})
-		klog.V(2).InfoS("Set up downstream informer", "SyncTarget Workspace", syncTargetWorkspace, "SyncTarget Name", syncTargetName, "gvr", gvr.String())
-	}
 
 	secretMutator := specmutators.NewSecretMutator()
 
@@ -189,14 +197,14 @@ type queueKey struct {
 	key string // meta namespace key
 }
 
-func (c *Controller) AddToQueue(gvr schema.GroupVersionResource, obj interface{}) {
+func (c *Controller) AddToQueue(gvr schema.GroupVersionResource, obj interface{}, logger logr.Logger) {
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		utilruntime.HandleError(err)
 		return
 	}
 
-	klog.Infof("%s queueing GVR %q %s", controllerName, gvr.String(), key)
+	logger.Info("queueing GVR", "controller", controllerName, "gvr", gvr.String(), "key", key)
 	c.queue.Add(
 		queueKey{
 			gvr: gvr,
@@ -210,8 +218,10 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	klog.InfoS("Starting syncer workers", "controller", controllerName)
-	defer klog.InfoS("Stopping syncer workers", "controller", controllerName)
+	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
+	ctx = klog.NewContext(ctx, logger)
+	logger.Info("Starting syncer workers", "controller", controllerName)
+	defer logger.Info("Stopping syncer workers", "controller", controllerName)
 	for i := 0; i < numThreads; i++ {
 		go wait.UntilWithContext(ctx, c.startWorker, time.Second)
 	}
@@ -263,6 +273,10 @@ func newSecretLister(secretIndexer cache.Indexer) specmutators.ListSecretFunc {
 	}
 }
 
+func workspaceAndNamespaceIndexKey(logicalcluster logicalcluster.Name, namespace string) string {
+	return logicalcluster.String() + "/" + namespace
+}
+
 func indexByWorkspaceAndNamespace(obj interface{}) ([]string, error) {
 	metaObj, ok := obj.(metav1.Object)
 	if !ok {
@@ -270,10 +284,6 @@ func indexByWorkspaceAndNamespace(obj interface{}) ([]string, error) {
 	}
 	lcluster := logicalcluster.From(metaObj)
 	return []string{workspaceAndNamespaceIndexKey(lcluster, metaObj.GetNamespace())}, nil
-}
-
-func workspaceAndNamespaceIndexKey(logicalcluster logicalcluster.Name, namespace string) string {
-	return logicalcluster.String() + "/" + namespace
 }
 
 // indexByNamespaceLocator is a cache.IndexFunc that indexes namespaces by the namespaceLocator annotation.

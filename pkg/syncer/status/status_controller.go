@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -34,6 +35,8 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/syncer/resourcesync"
 	"github.com/kcp-dev/kcp/third_party/keyfunctions"
 )
 
@@ -44,11 +47,11 @@ const (
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	upstreamClient                         dynamic.ClusterInterface
-	downstreamClient                       dynamic.Interface
-	upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory
-	downstreamNamespaceLister              cache.GenericLister
+	upstreamClient            dynamic.ClusterInterface
+	downstreamClient          dynamic.Interface
+	downstreamNamespaceLister cache.GenericLister
 
+	syncerInformers           resourcesync.SyncerInformerFactory
 	syncTargetName            string
 	syncTargetWorkspace       logicalcluster.Name
 	syncTargetUID             types.UID
@@ -56,18 +59,17 @@ type Controller struct {
 	advancedSchedulingEnabled bool
 }
 
-func NewStatusSyncer(gvrs []schema.GroupVersionResource, syncTargetWorkspace logicalcluster.Name, syncTargetName, syncTargetKey string, advancedSchedulingEnabled bool,
-	upstreamClient dynamic.ClusterInterface, downstreamClient dynamic.Interface, upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory, syncTargetUID types.UID) (*Controller, error) {
+func NewStatusSyncer(syncTargetWorkspace logicalcluster.Name, syncTargetName, syncTargetKey string, advancedSchedulingEnabled bool,
+	upstreamClient dynamic.ClusterInterface, downstreamClient dynamic.Interface, upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory, syncerInformers resourcesync.SyncerInformerFactory, syncTargetUID types.UID) (*Controller, error) {
 
 	c := &Controller{
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
 
 		upstreamClient:            upstreamClient,
 		downstreamClient:          downstreamClient,
-		upstreamInformers:         upstreamInformers,
-		downstreamInformers:       downstreamInformers,
 		downstreamNamespaceLister: downstreamInformers.ForResource(schema.GroupVersionResource{Version: "v1", Resource: "namespaces"}).Lister(),
 
+		syncerInformers:           syncerInformers,
 		syncTargetName:            syncTargetName,
 		syncTargetWorkspace:       syncTargetWorkspace,
 		syncTargetUID:             syncTargetUID,
@@ -75,27 +77,28 @@ func NewStatusSyncer(gvrs []schema.GroupVersionResource, syncTargetWorkspace log
 		advancedSchedulingEnabled: advancedSchedulingEnabled,
 	}
 
-	for _, gvr := range gvrs {
-		gvr := gvr // because used in closure
+	logger := logging.WithReconciler(klog.Background(), controllerName)
 
-		downstreamInformers.ForResource(gvr).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				c.AddToQueue(gvr, obj)
-			},
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				oldUnstrob := oldObj.(*unstructured.Unstructured)
-				newUnstrob := newObj.(*unstructured.Unstructured)
+	syncerInformers.AddDownstreamEventHandler(
+		func(gvr schema.GroupVersionResource) cache.ResourceEventHandler {
+			logger.Info("Set up informer", "SyncTarget Workspace", syncTargetWorkspace, "SyncTarget Name", syncTargetName, "gvr", gvr.String())
+			return cache.ResourceEventHandlerFuncs{
+				AddFunc: func(obj interface{}) {
+					c.AddToQueue(gvr, obj, logger)
+				},
+				UpdateFunc: func(oldObj, newObj interface{}) {
+					oldUnstrob := oldObj.(*unstructured.Unstructured)
+					newUnstrob := newObj.(*unstructured.Unstructured)
 
-				if !deepEqualFinalizersAndStatus(oldUnstrob, newUnstrob) {
-					c.AddToQueue(gvr, newUnstrob)
-				}
-			},
-			DeleteFunc: func(obj interface{}) {
-				c.AddToQueue(gvr, obj)
-			},
+					if !deepEqualFinalizersAndStatus(oldUnstrob, newUnstrob) {
+						c.AddToQueue(gvr, newUnstrob, logger)
+					}
+				},
+				DeleteFunc: func(obj interface{}) {
+					c.AddToQueue(gvr, obj, logger)
+				},
+			}
 		})
-		klog.InfoS("Set up informer", "SyncTarget Workspace", syncTargetWorkspace, "SyncTarget Name", syncTargetName, "gvr", gvr.String())
-	}
 
 	return c, nil
 }
@@ -105,14 +108,14 @@ type queueKey struct {
 	key string // meta namespace key
 }
 
-func (c *Controller) AddToQueue(gvr schema.GroupVersionResource, obj interface{}) {
+func (c *Controller) AddToQueue(gvr schema.GroupVersionResource, obj interface{}, logger logr.Logger) {
 	key, err := keyfunctions.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
-	klog.Infof("%s queueing GVR %q %s", controllerName, gvr.String(), key)
+	logger.Info("queueing GVR", "controller", controllerName, "gvr", gvr.String(), "key", key)
 	c.queue.Add(
 		queueKey{
 			gvr: gvr,
@@ -126,8 +129,10 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	klog.InfoS("Starting syncer workers", "controller", controllerName)
-	defer klog.InfoS("Stopping syncer workers", "controller", controllerName)
+	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
+	ctx = klog.NewContext(ctx, logger)
+	logger.Info("Starting syncer workers", "controller", controllerName)
+	defer logger.Info("Stopping syncer workers", "controller", controllerName)
 	for i := 0; i < numThreads; i++ {
 		go wait.UntilWithContext(ctx, c.startWorker, time.Second)
 	}
