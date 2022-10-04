@@ -17,12 +17,8 @@ limitations under the License.
 package options
 
 import (
-	"os"
-	"path/filepath"
-
 	"github.com/spf13/pflag"
 
-	apiserveroptions "k8s.io/apiserver/pkg/server/options"
 	"k8s.io/component-base/config"
 	"k8s.io/component-base/logs"
 
@@ -30,82 +26,36 @@ import (
 )
 
 type Options struct {
-	SecureServing  apiserveroptions.SecureServingOptionsWithLoopback
-	Authentication Authentication
-	Proxy          proxyoptions.Options
-	Logs           *logs.Options
-
-	RootKubeconfig  string
-	RootDirectory   string
-	ProfilerAddress string
+	Proxy *proxyoptions.Options
+	Logs  *logs.Options
 }
 
 func NewOptions() *Options {
 	o := &Options{
-		SecureServing:  *apiserveroptions.NewSecureServingOptions().WithLoopback(),
-		Authentication: *NewAuthentication(),
-		Proxy:          *proxyoptions.NewOptions(),
-		Logs:           logs.NewOptions(),
-
-		RootKubeconfig: "",
-		RootDirectory:  ".kcp",
+		Proxy: proxyoptions.NewOptions(),
+		Logs:  logs.NewOptions(),
 	}
 
 	// Default to -v=2
 	o.Logs.Config.Verbosity = config.VerbosityLevel(2)
-
-	// override all the things
-	o.SecureServing.BindPort = 443
-	o.SecureServing.ServerCert.CertDirectory = ""
-	o.SecureServing.ServerCert.PairName = "apiserver" // we want to reuse the apiserver certs by default
 	return o
 }
 
 func (o *Options) AddFlags(fs *pflag.FlagSet) {
-	o.SecureServing.AddFlags(fs)
-	o.Authentication.AddFlags(fs)
 	o.Proxy.AddFlags(fs)
-
 	o.Logs.AddFlags(fs)
-
-	fs.StringVar(&o.RootDirectory, "root-directory", o.RootDirectory, "Root directory.")
-	fs.StringVar(&o.RootKubeconfig, "root-kubeconfig", o.RootKubeconfig, "The path to the kubeconfig of the root shard.")
-
-	fs.StringVar(&o.ProfilerAddress, "profiler-address", "", "[Address]:port to bind the profiler to")
 }
 
 func (o *Options) Complete() error {
 	if err := o.Proxy.Complete(); err != nil {
 		return err
 	}
-
-	if !filepath.IsAbs(o.RootDirectory) {
-		pwd, err := os.Getwd()
-		if err != nil {
-			return err
-		}
-		o.RootDirectory = filepath.Join(pwd, o.RootDirectory)
-	}
-
-	if len(o.SecureServing.ServerCert.CertDirectory) == 0 {
-		o.SecureServing.ServerCert.CertDirectory = o.RootDirectory
-	}
-	if !filepath.IsAbs(o.SecureServing.ServerCert.CertDirectory) {
-		o.SecureServing.ServerCert.CertDirectory = filepath.Join(o.RootDirectory, o.SecureServing.ServerCert.CertDirectory)
-	}
-
-	if err := o.SecureServing.MaybeDefaultWithSelfSignedCerts("localhost", []string{"kubernetes.default.svc", "kubernetes.default", "kubernetes"}, nil); err != nil {
-		return err
-	}
-
 	return nil
 }
 
 func (o *Options) Validate() []error {
 	var errs []error
 
-	errs = append(errs, o.SecureServing.Validate()...)
-	errs = append(errs, o.Authentication.Validate()...)
 	errs = append(errs, o.Proxy.Validate()...)
 
 	return errs

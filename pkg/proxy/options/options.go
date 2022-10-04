@@ -18,24 +18,67 @@ package options
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/spf13/pflag"
+
+	apiserveroptions "k8s.io/apiserver/pkg/server/options"
 )
 
 type Options struct {
-	MappingFile string
+	SecureServing   apiserveroptions.SecureServingOptionsWithLoopback
+	Authentication  Authentication
+	MappingFile     string
+	RootDirectory   string
+	RootKubeconfig  string
+	ProfilerAddress string
 }
 
 func NewOptions() *Options {
-	o := &Options{}
+	o := &Options{
+		SecureServing:  *apiserveroptions.NewSecureServingOptions().WithLoopback(),
+		Authentication: *NewAuthentication(),
+		RootKubeconfig: "",
+		RootDirectory:  ".kcp",
+	}
+
+	// override all the things
+	o.SecureServing.BindPort = 443
+	o.SecureServing.ServerCert.CertDirectory = ""
+	o.SecureServing.ServerCert.PairName = "apiserver" // we want to reuse the apiserver certs by default
 	return o
 }
 
 func (o *Options) AddFlags(fs *pflag.FlagSet) {
+	o.SecureServing.AddFlags(fs)
+	o.Authentication.AddFlags(fs)
 	fs.StringVar(&o.MappingFile, "mapping-file", o.MappingFile, "Config file mapping paths to backends")
+	fs.StringVar(&o.RootDirectory, "root-directory", o.RootDirectory, "Root directory.")
+	fs.StringVar(&o.RootKubeconfig, "root-kubeconfig", o.RootKubeconfig, "The path to the kubeconfig of the root shard.")
+	fs.StringVar(&o.ProfilerAddress, "profiler-address", "", "[Address]:port to bind the profiler to")
 }
 
 func (o *Options) Complete() error {
+	if !filepath.IsAbs(o.RootDirectory) {
+		pwd, err := os.Getwd()
+		if err != nil {
+			return err
+		}
+		o.RootDirectory = filepath.Join(pwd, o.RootDirectory)
+	}
+
+	if len(o.SecureServing.ServerCert.CertDirectory) == 0 {
+		o.SecureServing.ServerCert.CertDirectory = o.RootDirectory
+	}
+	if !filepath.IsAbs(o.SecureServing.ServerCert.CertDirectory) {
+		o.SecureServing.ServerCert.CertDirectory = filepath.Join(o.RootDirectory, o.SecureServing.ServerCert.CertDirectory)
+	}
+
+	if err := o.SecureServing.MaybeDefaultWithSelfSignedCerts("localhost", []string{"kubernetes.default.svc", "kubernetes.default", "kubernetes"}, nil); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -45,6 +88,9 @@ func (o *Options) Validate() []error {
 	if o.MappingFile == "" {
 		errs = append(errs, fmt.Errorf("--mapping-file is required"))
 	}
+
+	errs = append(errs, o.SecureServing.Validate()...)
+	errs = append(errs, o.Authentication.Validate()...)
 
 	return errs
 }
