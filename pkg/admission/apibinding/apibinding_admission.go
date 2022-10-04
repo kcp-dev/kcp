@@ -215,7 +215,7 @@ func (o *apiBindingAdmission) checkAPIExportAccess(ctx context.Context, user use
 	if decision, _, err := authz.Authorize(ctx, bindAttr); err != nil {
 		return fmt.Errorf("unable to determine access to apiexports: %w", err)
 	} else if decision != authorizer.DecisionAllow {
-		return errors.New("missing verb='bind' permission on apiexports")
+		return fmt.Errorf("no permission to bind to export %q", apiExportName)
 	}
 
 	return nil

@@ -281,6 +281,22 @@ func TestAPIBindingAuthorizer(t *testing.T) {
 			require.NoError(t, err, "expected error updating status of cowboys")
 		}
 	}
+
+	apiBinding := &apisv1alpha1.APIBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cowboys",
+		},
+		Spec: apisv1alpha1.APIBindingSpec{
+			Reference: apisv1alpha1.ExportReference{
+				Workspace: &apisv1alpha1.WorkspaceExportReference{
+					Path:       "root:not-existent",
+					ExportName: "today-cowboys",
+				},
+			},
+		},
+	}
+	_, err = user3KcpClient.ApisV1alpha1().APIBindings().Create(logicalcluster.WithCluster(ctx, consumer1Workspace), apiBinding, metav1.CreateOptions{})
+	require.ErrorContains(t, err, `no permission to bind to export "today-cowboys"`)
 }
 
 func createClusterRoleAndBindings(name, subjectName, subjectKind string, apiGroup, resource, resourceName string, verbs []string) (*rbacv1.ClusterRole, *rbacv1.ClusterRoleBinding) {
