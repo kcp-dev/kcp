@@ -80,6 +80,14 @@ func TestComputePlacement(t *testing.T) {
 				"state.workload.kcp.dev/cluster-1": "Sync",
 			},
 		},
+		{name: "syncing but deleting namespace, unscheduled object, don't schedule the object at all",
+			ns: namespace(map[string]string{
+				"deletion.internal.workload.kcp.dev/cluster-1": "2002-10-02T10:00:00-05:00",
+			}, map[string]string{
+				"state.workload.kcp.dev/cluster-1": "Sync",
+			}),
+			obj: object(nil, nil, nil, nil),
+		},
 		{name: "new location on namespace",
 			ns: namespace(nil, map[string]string{
 				"state.workload.kcp.dev/cluster-1": "Sync",
