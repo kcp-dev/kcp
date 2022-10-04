@@ -259,7 +259,7 @@ func TestValidate(t *testing.T) {
 					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:org:workspaceName:someExport")).APIBinding,
 			),
 			authzDecision:  authorizer.DecisionNoOpinion,
-			expectedErrors: []string{"missing verb='bind' permission on apiexport"},
+			expectedErrors: []string{`no permission to bind to export "someExport"`},
 		},
 		{
 			name: "Create: complete workspace reference fails when denied",
@@ -268,7 +268,7 @@ func TestValidate(t *testing.T) {
 					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:org:workspaceName:someExport")).APIBinding,
 			),
 			authzDecision:  authorizer.DecisionDeny,
-			expectedErrors: []string{"missing verb='bind' permission on apiexports"},
+			expectedErrors: []string{`no permission to bind to export "someExport"`},
 		},
 		{
 			name: "Create: complete workspace reference fails when there's an error checking authorization",
@@ -335,7 +335,7 @@ func TestValidate(t *testing.T) {
 					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:org:workspaceName:someExport")).APIBinding,
 			),
 			authzDecision:  authorizer.DecisionNoOpinion,
-			expectedErrors: []string{"missing verb='bind' permission on apiexports"},
+			expectedErrors: []string{`no permission to bind to export "someExport"`},
 		},
 		{
 			name: "Update: complete workspace reference fails when denied",
@@ -346,7 +346,7 @@ func TestValidate(t *testing.T) {
 					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:org:workspaceName:someExport")).APIBinding,
 			),
 			authzDecision:  authorizer.DecisionDeny,
-			expectedErrors: []string{"missing verb='bind' permission on apiexports"},
+			expectedErrors: []string{`no permission to bind to export "someExport"`},
 		},
 		{
 			name: "Update: complete workspace reference fails when there's an error checking authorization",
