@@ -28,6 +28,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -158,6 +159,15 @@ func filterNamespace(obj interface{}) bool {
 	if namespaceBlocklist.Has(name) {
 		logging.WithReconciler(klog.Background(), controllerName).WithValues("namespace", name).V(2).Info("skipping syncing Namespace")
 		return false
+	}
+	// Filter out namespaces which have been synced to a SyncTarget living on a KCP shard (typical e2e test situation)
+	if meta, ok := obj.(metav1.Object); ok {
+		if annotations := meta.GetAnnotations(); annotations != nil {
+			if _, ok := annotations[syncershared.NamespaceLocatorAnnotation]; ok {
+				logging.WithReconciler(klog.Background(), controllerName).WithValues("namespace", name).V(2).Info("skipping syncing Namespace: it is a SyncTarget namespace")
+				return false
+			}
+		}
 	}
 	return true
 }

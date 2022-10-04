@@ -60,6 +60,14 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 		return nil
 	}
 
+	// Filter out resources which have been synced to a SyncTarget living on a KCP shard (typical e2e test situation)
+	if labels := obj.GetLabels(); labels != nil {
+		if _, ok := labels[workloadv1alpha1.InternalDownstreamClusterLabel]; ok {
+			logging.WithReconciler(klog.Background(), controllerName).WithValues("namespace", obj.GetNamespace()).V(2).Info("skipping scheduling resource: it is a SyncTarget resource")
+			return nil
+		}
+	}
+
 	// Align the resource's assigned cluster with the namespace's assigned
 	// cluster.
 	// First, get the namespace object (from the cached lister).
