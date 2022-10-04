@@ -23,7 +23,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
-	"github.com/spf13/pflag"
 
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/component-base/version"
@@ -36,9 +35,6 @@ import (
 )
 
 func KubectlKcpCommand() *cobra.Command {
-	flags := pflag.NewFlagSet("kubectl-kcp", pflag.ExitOnError)
-	pflag.CommandLine = flags
-
 	root := &cobra.Command{
 		Use:   "kcp",
 		Short: "kubectl plugin for KCP",
