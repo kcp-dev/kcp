@@ -85,7 +85,7 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 	// clean finalizers from removed syncers
 	filteredFinalizers := make([]string, 0, len(obj.GetFinalizers()))
 	for _, f := range obj.GetFinalizers() {
-		logger = logger.WithValues("finalizer", f)
+		logger := logger.WithValues("finalizer", f)
 		if !strings.HasPrefix(f, syncershared.SyncerFinalizerNamePrefix) {
 			filteredFinalizers = append(filteredFinalizers, f)
 			continue
