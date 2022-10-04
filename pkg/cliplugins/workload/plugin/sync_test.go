@@ -29,9 +29,6 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: kcp-syncer-sync-target-name-34b23c4k
-  labels:
-    workload.kcp.io/logical-cluster: root_default_foo
-    workload.kcp.io/sync-target: sync-target-name
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -188,9 +185,6 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: kcp-syncer-sync-target-name-34b23c4k
-  labels:
-    workload.kcp.io/logical-cluster: root_default_foo
-    workload.kcp.io/sync-target: sync-target-name
 ---
 apiVersion: v1
 kind: ServiceAccount
