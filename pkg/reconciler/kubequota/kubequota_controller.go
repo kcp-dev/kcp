@@ -275,7 +275,7 @@ func (c *Controller) startQuotaForClusterWorkspace(ctx context.Context, clusterN
 		ReplenishmentResyncPeriod: func() time.Duration {
 			return c.fullResyncPeriod
 		},
-		DiscoveryFunc:        c.dynamicDiscoverySharedInformerFactory.DiscoveryData,
+		DiscoveryFunc:        c.dynamicDiscoverySharedInformerFactory.ServerPreferredResources,
 		IgnoredResourcesFunc: quotaConfiguration.IgnoredResources,
 		InformersStarted:     c.informersStarted,
 		Registry:             generic.NewRegistry(quotaConfiguration.Evaluators()),
@@ -300,7 +300,7 @@ func (c *Controller) startQuotaForClusterWorkspace(ctx context.Context, clusterN
 		clusterName: clusterName,
 		queue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "quota-"+clusterName.String()),
 		work: func(ctx context.Context) {
-			resourceQuotaController.UpdateMonitors(ctx, c.dynamicDiscoverySharedInformerFactory.DiscoveryData)
+			resourceQuotaController.UpdateMonitors(ctx, c.dynamicDiscoverySharedInformerFactory.ServerPreferredResources)
 		},
 	}
 	go quotaController.Start(ctx)

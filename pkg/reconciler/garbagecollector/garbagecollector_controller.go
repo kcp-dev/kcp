@@ -254,12 +254,14 @@ func (c *Controller) process(ctx context.Context, key string) error {
 }
 
 func (c *Controller) startGarbageCollectorForClusterWorkspace(ctx context.Context, clusterName logicalcluster.Name) error {
+	logger := klog.FromContext(ctx)
+
 	kubeClient := c.kubeClusterClient.Cluster(clusterName)
 
 	garbageCollector, err := garbagecollector.NewClusterAwareGarbageCollector(
 		kubeClient,
 		c.metadataClient.Cluster(clusterName),
-		restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(kubeClient.Discovery())),
+		restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(c.dynamicDiscoverySharedInformerFactory)),
 		c.ignoredResources,
 		c.dynamicDiscoverySharedInformerFactory.Cluster(clusterName),
 		c.informersStarted,
@@ -275,12 +277,37 @@ func (c *Controller) startGarbageCollectorForClusterWorkspace(ctx context.Contex
 		}
 	}
 
-	go garbageCollector.Run(ctx, c.workersPerLogicalCluster)
+	// Here we diverge from what upstream does. Upstream starts a goroutine that retrieves discovery every 30 seconds,
+	// starting/stopping dynamic informers as needed based on the updated discovery data. We know that kcp contains
+	// the combination of built-in types plus CRDs. We use that information to drive what garbage collector evaluates.
+	// TODO: support scoped shared dynamic discovery to avoid emitting global discovery events.
+	apisChanged := c.dynamicDiscoverySharedInformerFactory.Subscribe("gc-" + clusterName.String())
 
-	// FIXME: use dynamicDiscoverySharedInformerFactory for discovery on changes, instead of periodic sync
-	// Periodically refresh the RESTMapper with new discovery information and sync
-	// the garbage collector.
-	go garbageCollector.Sync(kubeClient.Discovery(), 30*time.Second, ctx.Done())
+	go func() {
+		var discoveryCancel func()
+
+		for {
+			select {
+			case <-ctx.Done():
+				if discoveryCancel != nil {
+					discoveryCancel()
+				}
+
+				return
+			case <-apisChanged:
+				if discoveryCancel != nil {
+					discoveryCancel()
+				}
+
+				logger.V(4).Info("got API change notification")
+
+				ctx, discoveryCancel = context.WithCancel(ctx)
+				garbageCollector.ResyncMonitors(ctx, c.dynamicDiscoverySharedInformerFactory)
+			}
+		}
+	}()
+
+	go garbageCollector.Run(ctx, c.workersPerLogicalCluster)
 
 	return nil
 }

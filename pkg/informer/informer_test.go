@@ -24,9 +24,11 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/kubernetes/pkg/api/genericcontrolplanescheme"
 	_ "k8s.io/kubernetes/pkg/genericcontrolplane/apis/install"
 )
@@ -110,7 +112,12 @@ func TestBuiltInInformableTypes(t *testing.T) {
 		builtInGVRs[gvr] = struct{}{}
 	}
 
-	require.Empty(t, cmp.Diff(builtInGVRs, builtInInformableTypes()))
+	builtInTypes := map[schema.GroupVersionResource]struct{}{}
+	for gvr := range builtInInformableTypes() {
+		builtInTypes[gvr] = struct{}{}
+	}
+
+	require.Empty(t, cmp.Diff(builtInGVRs, builtInTypes))
 }
 
 func TestGVRsToDiscoveryData(t *testing.T) {
@@ -163,7 +170,86 @@ func TestGVRsToDiscoveryData(t *testing.T) {
 		},
 	}
 
-	actual := gvrsToDiscoveryData(input)
+	crdIndexer := cache.NewIndexer(func(obj interface{}) (string, error) {
+		if index, err := byGroupFirstFoundVersionResourceIndexFunc(obj); err != nil {
+			return "", err
+		} else {
+			return index[0], nil
+		}
+	}, cache.Indexers{})
+
+	err := crdIndexer.AddIndexers(cache.Indexers{
+		byGroupFirstFoundVersionResourceIndex: byGroupFirstFoundVersionResourceIndexFunc,
+	})
+	require.NoError(t, err)
+
+	err = crdIndexer.Add(&apiextensionsv1.CustomResourceDefinition{
+		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
+				Plural: "g1-v1-r1",
+			},
+			Group: "g1",
+			Versions: []apiextensionsv1.CustomResourceDefinitionVersion{
+				{
+					Served: true,
+					Name:   "v1",
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	err = crdIndexer.Add(&apiextensionsv1.CustomResourceDefinition{
+		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
+				Plural: "g1-v1-r2",
+			},
+			Group: "g1",
+			Versions: []apiextensionsv1.CustomResourceDefinitionVersion{
+				{
+					Served: true,
+					Name:   "v1",
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	err = crdIndexer.Add(&apiextensionsv1.CustomResourceDefinition{
+		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
+				Plural: "g2-v1-r1",
+			},
+			Group: "g2",
+			Versions: []apiextensionsv1.CustomResourceDefinitionVersion{
+				{
+					Served: true,
+					Name:   "v1",
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	err = crdIndexer.Add(&apiextensionsv1.CustomResourceDefinition{
+		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
+				Plural: "g3-v3-r1",
+			},
+			Group: "g3",
+			Versions: []apiextensionsv1.CustomResourceDefinitionVersion{
+				{
+					Served: true,
+					Name:   "v3",
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	sif := DynamicDiscoverySharedInformerFactory{crdIndexer: crdIndexer}
+
+	actual := sif.gvrsToDiscoveryData(input)
 
 	require.Empty(t, cmp.Diff(expected, actual))
 }
