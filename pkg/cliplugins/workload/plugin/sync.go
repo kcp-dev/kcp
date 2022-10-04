@@ -569,9 +569,6 @@ type templateInput struct {
 // required to deploy the syncer.
 type templateArgs struct {
 	templateInput
-	// LabelSafeLogicalCluster is the qualified kcp logical cluster name that is
-	// safe to appear as a label value
-	LabelSafeLogicalCluster string
 	// ServiceAccount is the name of the service account to create in the syncer
 	// namespace on the pcluster.
 	ServiceAccount string
@@ -606,16 +603,15 @@ type templateArgs struct {
 // of the namespace.
 func renderSyncerResources(input templateInput, syncerID string) ([]byte, error) {
 	tmplArgs := templateArgs{
-		templateInput:           input,
-		LabelSafeLogicalCluster: strings.ReplaceAll(input.LogicalCluster, ":", "_"),
-		ServiceAccount:          syncerID,
-		ClusterRole:             syncerID,
-		ClusterRoleBinding:      syncerID,
-		GroupMappings:           getGroupMappings(input.ResourcesToSync),
-		Secret:                  syncerID,
-		SecretConfigKey:         SyncerSecretConfigKey,
-		Deployment:              syncerID,
-		DeploymentApp:           syncerID,
+		templateInput:      input,
+		ServiceAccount:     syncerID,
+		ClusterRole:        syncerID,
+		ClusterRoleBinding: syncerID,
+		GroupMappings:      getGroupMappings(input.ResourcesToSync),
+		Secret:             syncerID,
+		SecretConfigKey:    SyncerSecretConfigKey,
+		Deployment:         syncerID,
+		DeploymentApp:      syncerID,
 	}
 
 	syncerTemplate, err := embeddedResources.ReadFile("syncer.yaml")
