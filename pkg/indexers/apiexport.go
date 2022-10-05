@@ -28,7 +28,7 @@ import (
 const (
 	// APIExportByIdentity is the indexer name for retrieving APIExports by identity hash.
 	APIExportByIdentity = "APIExportByIdentity"
-	// APIExportBySecret is the indexer name for retrieving APIExports by
+	// APIExportBySecret is the indexer name for retrieving APIExports by secret.
 	APIExportBySecret = "APIExportSecret"
 )
 
@@ -64,4 +64,8 @@ func IndexAPIExportBySecret(obj interface{}) ([]string, error) {
 	}
 
 	return []string{kcpcache.ToClusterAwareKey(logicalcluster.From(apiExport).String(), ref.Namespace, ref.Name)}, nil
+}
+
+func ClusterPathAndAPIExportName(clusterPath, exportName string) string {
+	return fmt.Sprintf("%s|%s", clusterPath, exportName)
 }

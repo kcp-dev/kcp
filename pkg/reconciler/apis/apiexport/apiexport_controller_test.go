@@ -48,6 +48,8 @@ func TestReconcile(t *testing.T) {
 		hasPreexistingVerifyFailure          bool
 		listClusterWorkspaceShardsError      error
 
+		apiBindings []interface{}
+
 		wantGenerationFailed          bool
 		wantError                     bool
 		wantCreateSecretCalled        bool
@@ -85,8 +87,6 @@ func TestReconcile(t *testing.T) {
 
 			wantStatusHashSet: true,
 			wantIdentityValid: true,
-
-			wantVirtualWorkspaceURLsReady: true,
 		},
 		"identity verification fails when reference secret doesn't exist": {
 			secretRefSet: true,
@@ -109,8 +109,6 @@ func TestReconcile(t *testing.T) {
 			hasPreexistingVerifyFailure: true,
 
 			wantIdentityValid: true,
-
-			wantVirtualWorkspaceURLsReady: true,
 		},
 		"error listing clusterworkspaceshards": {
 			secretRefSet: true,
@@ -119,8 +117,23 @@ func TestReconcile(t *testing.T) {
 			wantStatusHashSet: true,
 			wantIdentityValid: true,
 
+			apiBindings: []interface{}{
+				"something",
+			},
 			listClusterWorkspaceShardsError: errors.New("foo"),
 			wantVirtualWorkspaceURLsError:   true,
+		},
+		"virtualWorkspaceURLs set when APIBindings present": {
+			secretRefSet: true,
+			secretExists: true,
+
+			wantStatusHashSet: true,
+			wantIdentityValid: true,
+
+			apiBindings: []interface{}{
+				"something",
+			},
+			wantVirtualWorkspaceURLsReady: true,
 		},
 	}
 
@@ -162,6 +175,13 @@ func TestReconcile(t *testing.T) {
 				createSecret: func(ctx context.Context, clusterName logicalcluster.Name, secret *corev1.Secret) error {
 					createSecretCalled = true
 					return tc.createSecretError
+				},
+				getAPIBindingsForAPIExport: func(_ logicalcluster.Name, _ string) ([]interface{}, error) {
+					if len(tc.apiBindings) > 0 {
+						return tc.apiBindings, nil
+					}
+
+					return make([]interface{}, 0), nil
 				},
 				listClusterWorkspaceShards: func() ([]*tenancyv1alpha1.ClusterWorkspaceShard, error) {
 					if tc.listClusterWorkspaceShardsError != nil {

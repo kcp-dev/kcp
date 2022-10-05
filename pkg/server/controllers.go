@@ -718,6 +718,7 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 		kubeClusterClient,
 		s.KubeSharedInformerFactory.Core().V1().Namespaces(),
 		s.KubeSharedInformerFactory.Core().V1().Secrets(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
 	)
 	if err != nil {
 		return err
