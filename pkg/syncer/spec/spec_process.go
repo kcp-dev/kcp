@@ -342,6 +342,8 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 	// Strip cluster name annotation
 	downstreamAnnotations := downstreamObj.GetAnnotations()
 	delete(downstreamAnnotations, logicalcluster.AnnotationKey)
+	//TODO(jmprusi): To be removed when switching to the syncer Virtual Workspace transformations.
+	delete(downstreamAnnotations, workloadv1alpha1.InternalClusterStatusAnnotationPrefix+c.syncTargetKey)
 	// If we're left with 0 annotations, nil out the map so it's not included in the patch
 	if len(downstreamAnnotations) == 0 {
 		downstreamAnnotations = nil
