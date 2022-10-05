@@ -85,7 +85,7 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 	// clean finalizers from removed syncers
 	filteredFinalizers := make([]string, 0, len(obj.GetFinalizers()))
 	for _, f := range obj.GetFinalizers() {
-		logger = logger.WithValues("finalizer", f)
+		logger := logger.WithValues("finalizer", f)
 		if !strings.HasPrefix(f, syncershared.SyncerFinalizerNamePrefix) {
 			filteredFinalizers = append(filteredFinalizers, f)
 			continue
@@ -176,8 +176,10 @@ func computePlacement(ns *corev1.Namespace, obj metav1.Object) (annotationPatch 
 	// create merge patch
 	annotationPatch = map[string]interface{}{}
 	labelPatch = map[string]interface{}{}
+
+	// unschedule objects on locations where the namespace is not scheduled
 	for _, loc := range objLocations.Difference(nsLocations).List() {
-		// location was removed from namespace, but is still on the object
+		// That's an inconsistent state, probably due to the namespace deletion reaching its grace period => let's repair it
 		var hasSyncerFinalizer, hasClusterFinalizer bool
 		// Check if there's still the syncer or the cluster finalizer.
 		for _, finalizer := range obj.GetFinalizers() {
@@ -199,7 +201,9 @@ func computePlacement(ns *corev1.Namespace, obj metav1.Object) (annotationPatch 
 			}
 		}
 	}
-	for _, loc := range nsLocations.Intersection(nsLocations).List() {
+
+	// sync deletion timestamps if both namespace and object are scheduled
+	for _, loc := range nsLocations.Intersection(objLocations).List() {
 		if nsTimestamp, found := ns.Annotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+loc]; found && validRFC3339(nsTimestamp) {
 			objTimestamp, found := obj.GetAnnotations()[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+loc]
 			if !found || !validRFC3339(objTimestamp) {
@@ -207,8 +211,12 @@ func computePlacement(ns *corev1.Namespace, obj metav1.Object) (annotationPatch 
 			}
 		}
 	}
+
+	// set label on unscheduled objects if namespace is scheduled and not deleting
 	for _, loc := range nsLocations.Difference(objLocations).List() {
-		// location was missing on the object
+		if nsDeleting.Has(loc) {
+			continue
+		}
 		// TODO(sttts): add way to go into pending state first, maybe with a namespace annotation
 		labelPatch[workloadv1alpha1.ClusterResourceStateLabelPrefix+loc] = string(workloadv1alpha1.ResourceStateSync)
 	}

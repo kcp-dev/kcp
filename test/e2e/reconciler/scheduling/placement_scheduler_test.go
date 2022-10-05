@@ -30,6 +30,7 @@ import (
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -136,12 +137,17 @@ func TestPlacementUpdate(t *testing.T) {
 		return true
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
+	firstSyncTargetKey := workloadv1alpha1.ToSyncTargetKey(syncerFixture.SyncerConfig.SyncTargetWorkspace, firstSyncTargetName)
+
 	t.Logf("Create a service in the user workspace")
 	_, err = kubeClusterClient.CoreV1().Services("default").Create(logicalcluster.WithCluster(ctx, userClusterName), &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "first",
 			Labels: map[string]string{
 				"test.workload.kcp.dev": firstSyncTargetName,
+			},
+			Annotations: map[string]string{
+				"finalizers.workload.kcp.dev/" + firstSyncTargetKey: "wait-a-bit",
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -154,7 +160,6 @@ func TestPlacementUpdate(t *testing.T) {
 		},
 	}, metav1.CreateOptions{})
 	require.NoError(t, err)
-	firstSyncTargetKey := workloadv1alpha1.ToSyncTargetKey(syncerFixture.SyncerConfig.SyncTargetWorkspace, firstSyncTargetName)
 
 	t.Logf("Wait for the service to have the sync label")
 	framework.Eventually(t, func() (bool, string) {
@@ -232,6 +237,11 @@ func TestPlacementUpdate(t *testing.T) {
 		}
 		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	t.Logf("Remove the soft finalizer on the service")
+	_, err = kubeClusterClient.CoreV1().Services("default").Patch(logicalcluster.WithCluster(ctx, userClusterName), "first", types.MergePatchType,
+		[]byte("{\"metadata\":{\"annotations\":{\"deletion.internal.workload.kcp.dev/"+firstSyncTargetKey+"\":\"\"}}}"), metav1.PatchOptions{})
+	require.NoError(t, err)
 
 	t.Logf("Wait for the service to be removed in the downstream cluster")
 	require.Eventually(t, func() bool {

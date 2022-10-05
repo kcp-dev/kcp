@@ -448,7 +448,7 @@ func locations(annotations, labels map[string]string, skipPending bool) (locatio
 	}
 	for k := range annotations {
 		if strings.HasPrefix(k, workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix) {
-			deleting.Insert(strings.TrimPrefix(k, workloadv1alpha1.ClusterResourceStateLabelPrefix))
+			deleting.Insert(strings.TrimPrefix(k, workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix))
 		}
 	}
 	return
