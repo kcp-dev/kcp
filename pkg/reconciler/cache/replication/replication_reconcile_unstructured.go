@@ -56,6 +56,12 @@ func (c *controller) reconcileUnstructuredObjects(ctx context.Context, cluster l
 		// TODO: in the future the original RV will have to be stored in an annotation (?)
 		// so that the clients that need to modify the original/local object can do it
 		localObject.SetResourceVersion("")
+		annotations := localObject.GetAnnotations()
+		if annotations == nil {
+			annotations = map[string]string{}
+		}
+		annotations[genericrequest.AnnotationKey] = c.shardName
+		localObject.SetAnnotations(annotations)
 		_, err := c.dynamicCacheClient.Cluster(cluster).Resource(*gvr).Namespace(localObject.GetNamespace()).Create(ctx, localObject, metav1.CreateOptions{})
 		return err
 	}
