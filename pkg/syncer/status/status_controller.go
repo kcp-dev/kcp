@@ -59,7 +59,7 @@ type Controller struct {
 	advancedSchedulingEnabled bool
 }
 
-func NewStatusSyncer(syncTargetWorkspace logicalcluster.Name, syncTargetName, syncTargetKey string, advancedSchedulingEnabled bool,
+func NewStatusSyncer(syncerLogger logr.Logger, syncTargetWorkspace logicalcluster.Name, syncTargetName, syncTargetKey string, advancedSchedulingEnabled bool,
 	upstreamClient dynamic.ClusterInterface, downstreamClient dynamic.Interface, upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory, syncerInformers resourcesync.SyncerInformerFactory, syncTargetUID types.UID) (*Controller, error) {
 
 	c := &Controller{
@@ -77,11 +77,11 @@ func NewStatusSyncer(syncTargetWorkspace logicalcluster.Name, syncTargetName, sy
 		advancedSchedulingEnabled: advancedSchedulingEnabled,
 	}
 
-	logger := logging.WithReconciler(klog.Background(), controllerName)
+	logger := logging.WithReconciler(syncerLogger, controllerName)
 
 	syncerInformers.AddDownstreamEventHandler(
 		func(gvr schema.GroupVersionResource) cache.ResourceEventHandler {
-			logger.Info("Set up informer", "SyncTarget Workspace", syncTargetWorkspace, "SyncTarget Name", syncTargetName, "gvr", gvr.String())
+			logger.V(2).Info("Set up downstream informer", "gvr", gvr.String())
 			return cache.ResourceEventHandlerFuncs{
 				AddFunc: func(obj interface{}) {
 					c.AddToQueue(gvr, obj, logger)
@@ -115,7 +115,7 @@ func (c *Controller) AddToQueue(gvr schema.GroupVersionResource, obj interface{}
 		return
 	}
 
-	logger.Info("queueing GVR", "controller", controllerName, "gvr", gvr.String(), "key", key)
+	logging.WithQueueKey(logger, key).V(2).Info("queueing GVR", "gvr", gvr.String())
 	c.queue.Add(
 		queueKey{
 			gvr: gvr,
@@ -131,8 +131,9 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 
 	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
 	ctx = klog.NewContext(ctx, logger)
-	logger.Info("Starting syncer workers", "controller", controllerName)
-	defer logger.Info("Stopping syncer workers", "controller", controllerName)
+	logger.Info("Starting syncer workers")
+	defer logger.Info("Stopping syncer workers")
+
 	for i := 0; i < numThreads; i++ {
 		go wait.UntilWithContext(ctx, c.startWorker, time.Second)
 	}
@@ -153,6 +154,10 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 		return false
 	}
 	qk := key.(queueKey)
+
+	logger := logging.WithQueueKey(klog.FromContext(ctx), qk.key).WithValues("gvr", qk.gvr.String())
+	ctx = klog.NewContext(ctx, logger)
+	logger.V(1).Info("processing key")
 
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.

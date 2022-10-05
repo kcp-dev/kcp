@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
+	"github.com/go-logr/logr"
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
 
@@ -39,6 +40,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
@@ -48,12 +50,12 @@ const (
 
 type mutatorGvrMap map[schema.GroupVersionResource]func(obj *unstructured.Unstructured) error
 
-func deepEqualApartFromStatus(oldUnstrob, newUnstrob *unstructured.Unstructured) bool {
+func deepEqualApartFromStatus(logger logr.Logger, oldUnstrob, newUnstrob *unstructured.Unstructured) bool {
 	// TODO(jmprusi): Remove this after switching to virtual workspaces.
 	// remove status annotation from oldObj and newObj before comparing
 	oldAnnotations, _, err := unstructured.NestedStringMap(oldUnstrob.Object, "metadata", "annotations")
 	if err != nil {
-		klog.Errorf("failed to get annotations from object: %v", err)
+		logger.Error(err, "failed to get annotations from object")
 		return false
 	}
 	for k := range oldAnnotations {
@@ -64,7 +66,7 @@ func deepEqualApartFromStatus(oldUnstrob, newUnstrob *unstructured.Unstructured)
 
 	newAnnotations, _, err := unstructured.NestedStringMap(newUnstrob.Object, "metadata", "annotations")
 	if err != nil {
-		klog.Errorf("failed to get annotations from object: %v", err)
+		logger.Error(err, "failed to get annotations from object")
 		return false
 	}
 	for k := range newAnnotations {
@@ -103,14 +105,15 @@ func deepEqualApartFromStatus(oldUnstrob, newUnstrob *unstructured.Unstructured)
 }
 
 func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResource, key string) error {
-	klog.V(3).InfoS("Processing", "gvr", gvr, "key", key)
+	logger := klog.FromContext(ctx)
 
 	// from upstream
 	clusterName, upstreamNamespace, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
-		klog.Errorf("Invalid key %q: %v", key, err)
+		logger.Error(err, "Invalid key")
 		return nil
 	}
+	logger = logger.WithValues(logging.WorkspaceKey, clusterName, logging.NamespaceKey, upstreamNamespace, logging.NameKey, name)
 
 	desiredNSLocator := shared.NewNamespaceLocator(clusterName, c.syncTargetWorkspace, c.syncTargetUID, c.syncTargetName, upstreamNamespace)
 	jsonNSLocator, err := json.Marshal(desiredNSLocator)
@@ -125,7 +128,7 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	var downstreamNamespace string
 	if len(downstreamNamespaces) == 1 {
 		namespace := downstreamNamespaces[0].(*unstructured.Unstructured)
-		klog.V(4).Infof("Found downstream namespace %s for upstream namespace %s", namespace.GetName(), upstreamNamespace)
+		logger.WithValues(logging.DownstreamNameKey, namespace.GetName()).V(4).Info("Found downstream namespace for upstream namespace")
 		downstreamNamespace = namespace.GetName()
 	} else if len(downstreamNamespaces) > 1 {
 		// This should never happen unless there's some namespace collision.
@@ -135,13 +138,15 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 		}
 		return fmt.Errorf("(namespace collision) found multiple downstream namespaces: %s for upstream namespace %s|%s", strings.Join(namespacesCollisions, ","), clusterName, upstreamNamespace)
 	} else {
-		klog.V(4).Infof("No downstream namespaces found for %s", key)
+		logger.V(4).Info("No downstream namespaces found")
 		downstreamNamespace, err = shared.PhysicalClusterNamespaceName(desiredNSLocator)
 		if err != nil {
-			klog.Errorf("Error hashing namespace %s|%s: %v", clusterName, upstreamNamespace, err)
+			logger.Error(err, "Error hashing namespace")
 			return nil
 		}
 	}
+
+	logger = logger.WithValues(logging.DownstreamNamespaceKey, downstreamNamespace)
 
 	// TODO(skuznets): can we figure out how to not leak this detail up to this code?
 	// I guess once the indexer is using kcpcache.MetaClusterNamespaceKeyFunc, we can just use that formatter ...
@@ -165,7 +170,7 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	}
 	if !exists {
 		// deleted upstream => delete downstream
-		klog.Infof("Deleting downstream GVR %q object %s/%s for upstream cluster %q", gvr.String(), downstreamNamespace, name, clusterName)
+		logger.Info("Deleting downstream object for upstream object")
 		if err := c.downstreamClient.Resource(gvr).Namespace(downstreamNamespace).Delete(ctx, name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}
@@ -196,6 +201,8 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 //
 //	In fact We should also be getting notifications about namespaces created upstream and be creating downstream equivalents.
 func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downstreamNamespace string, upstreamObj *unstructured.Unstructured) error {
+	logger := klog.FromContext(ctx)
+
 	namespaces := c.downstreamClient.Resource(schema.GroupVersionResource{
 		Group:    "",
 		Version:  "v1",
@@ -232,7 +239,7 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 		if _, err := namespaces.Create(ctx, newNamespace, metav1.CreateOptions{}); err != nil {
 			return err
 		}
-		klog.Infof("Created downstream namespace %s for upstream namespace %s|%s", newNamespace.GetName(), desiredNSLocator.Workspace, desiredNSLocator.Namespace)
+		logger.Info("Created downstream namespace for upstream namespace")
 		return nil
 	} else if err != nil {
 		return err
@@ -255,6 +262,8 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 }
 
 func (c *Controller) ensureSyncerFinalizer(ctx context.Context, gvr schema.GroupVersionResource, upstreamObj *unstructured.Unstructured) (bool, error) {
+	logger := klog.FromContext(ctx)
+
 	upstreamFinalizers := upstreamObj.GetFinalizers()
 	hasFinalizer := false
 	for _, finalizer := range upstreamFinalizers {
@@ -272,17 +281,16 @@ func (c *Controller) ensureSyncerFinalizer(ctx context.Context, gvr schema.Group
 
 	if !hasFinalizer && (!intendedToBeRemovedFromLocation || stillOwnedByExternalActorForLocation) {
 		upstreamObjCopy := upstreamObj.DeepCopy()
-		name := upstreamObjCopy.GetName()
 		namespace := upstreamObjCopy.GetNamespace()
 		logicalCluster := logicalcluster.From(upstreamObjCopy)
 
 		upstreamFinalizers = append(upstreamFinalizers, shared.SyncerFinalizerNamePrefix+c.syncTargetKey)
 		upstreamObjCopy.SetFinalizers(upstreamFinalizers)
 		if _, err := c.upstreamClient.Cluster(logicalCluster).Resource(gvr).Namespace(namespace).Update(ctx, upstreamObjCopy, metav1.UpdateOptions{}); err != nil {
-			klog.Errorf("Failed adding finalizer upstream on resource %s|%s/%s: %v", logicalCluster, namespace, name, err)
+			logger.Error(err, "Failed adding finalizer on upstream upstreamresource")
 			return false, err
 		}
-		klog.Infof("Updated resource %s|%s/%s with syncer finalizer upstream", logicalCluster, namespace, name)
+		logger.Info("Updated upstream resource with syncer finalizer")
 		return true, nil
 	}
 
@@ -290,6 +298,8 @@ func (c *Controller) ensureSyncerFinalizer(ctx context.Context, gvr schema.Group
 }
 
 func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVersionResource, downstreamNamespace string, upstreamObj *unstructured.Unstructured) error {
+	logger := klog.FromContext(ctx)
+
 	upstreamObjLogicalCluster := logicalcluster.From(upstreamObj)
 	downstreamObj := upstreamObj.DeepCopy()
 
@@ -308,7 +318,10 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 		return nil
 	}
 
-	klog.V(4).Infof("Upstream object %s|%s/%s is intended to be removed %t %t", upstreamObjLogicalCluster, upstreamObj.GetNamespace(), upstreamObj.GetName(), intendedToBeRemovedFromLocation, stillOwnedByExternalActorForLocation)
+	logger = logger.WithValues(logging.DownstreamNameKey, transformedName)
+	ctx = klog.NewContext(ctx, logger)
+
+	logger.V(4).Info("Upstream object is intended to be removed", "intendedToBeRemovedFromLocation", intendedToBeRemovedFromLocation, "stillOwnedByExternalActorForLocation", stillOwnedByExternalActorForLocation)
 	if intendedToBeRemovedFromLocation && !stillOwnedByExternalActorForLocation {
 		if err := c.downstreamClient.Resource(gvr).Namespace(downstreamNamespace).Delete(ctx, transformedName, metav1.DeleteOptions{}); err != nil {
 			if apierrors.IsNotFound(err) {
@@ -319,10 +332,10 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 				}
 				return nil
 			}
-			klog.Errorf("Error deleting %s %s/%s from downstream %s|%s/%s: %v", gvr.Resource, upstreamObj.GetNamespace(), upstreamObj.GetName(), logicalcluster.From(upstreamObj), downstreamNamespace, downstreamObj.GetName(), err)
+			logger.Error(err, "Error deleting upstream resource from downstream")
 			return err
 		}
-		klog.V(2).Infof("Deleted %s %s/%s from downstream %s|%s/%s", gvr.Resource, upstreamObj.GetNamespace(), downstreamObj.GetName(), logicalcluster.From(upstreamObj), downstreamNamespace, downstreamObj.GetName())
+		logger.V(2).Info("Deleted upstream resource from downstream")
 		return nil
 	}
 
@@ -377,7 +390,7 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 				// TODO(jmprusi): Surface those errors to the user.
 				patch, err := jsonpatch.DecodePatch([]byte(specDiffPatch))
 				if err != nil {
-					klog.Errorf("Failed to decode spec diff patch: %v", err)
+					logger.Error(err, "Failed to decode spec diff patch")
 					return err
 				}
 				upstreamSpecJSON, err := json.Marshal(upstreamSpec)
@@ -406,10 +419,10 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 	}
 
 	if _, err := c.downstreamClient.Resource(gvr).Namespace(downstreamNamespace).Patch(ctx, downstreamObj.GetName(), types.ApplyPatchType, data, metav1.PatchOptions{FieldManager: syncerApplyManager, Force: pointer.Bool(true)}); err != nil {
-		klog.Errorf("Error upserting %s %s/%s from upstream %s|%s/%s: %v", gvr.Resource, downstreamObj.GetNamespace(), downstreamObj.GetName(), logicalcluster.From(upstreamObj), upstreamObj.GetNamespace(), upstreamObj.GetName(), err)
+		logger.Error(err, "Error upserting upstream resource to downstream")
 		return err
 	}
-	klog.Infof("Upserted %s %s/%s from upstream %s|%s/%s", gvr.Resource, downstreamObj.GetNamespace(), downstreamObj.GetName(), logicalcluster.From(upstreamObj), upstreamObj.GetNamespace(), upstreamObj.GetName())
+	logger.Info("Upserted upstream resource to downstream")
 
 	return nil
 }

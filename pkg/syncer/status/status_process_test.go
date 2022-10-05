@@ -41,6 +41,7 @@ import (
 	"k8s.io/client-go/informers"
 	clienttesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/syncer/resourcesync"
@@ -527,6 +528,7 @@ func TestSyncerProcess(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
+			logger := klog.FromContext(ctx)
 
 			kcpLogicalCluster := logicalcluster.New(tc.upstreamLogicalCluster)
 			if tc.syncTargetUID == "" {
@@ -560,7 +562,7 @@ func TestSyncerProcess(t *testing.T) {
 			toClientResourceWatcherStarted := setupWatchReactor(tc.gvr.Resource, toClient)
 
 			fakeInformers := newFakeSyncerInformers(tc.gvr, toInformers, fromInformers)
-			controller, err := NewStatusSyncer(kcpLogicalCluster, tc.syncTargetName, syncTargetKey, tc.advancedSchedulingEnabled, toClusterClient, fromClient, toInformers, fromInformers, fakeInformers, tc.syncTargetUID)
+			controller, err := NewStatusSyncer(logger, kcpLogicalCluster, tc.syncTargetName, syncTargetKey, tc.advancedSchedulingEnabled, toClusterClient, fromClient, toInformers, fromInformers, fakeInformers, tc.syncTargetUID)
 			require.NoError(t, err)
 
 			toInformers.ForResource(tc.gvr).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{})

@@ -48,8 +48,6 @@ func startSyncerTunnel(ctx context.Context, upstream, downstream *rest.Config, s
 
 	backoffMgr := wait.NewExponentialBackoffManager(initBackoff, maxBackoff, resetDuration, backoffFactor, jitter, clock)
 	logger := klog.FromContext(ctx)
-	logger.WithValues("target-workspace", syncTargetWorkspace, "target-name", syncTargetName)
-	ctx = klog.NewContext(ctx, logger)
 
 	wait.BackoffUntil(func() {
 		logger.V(5).Info("starting tunnel")
@@ -61,6 +59,8 @@ func startSyncerTunnel(ctx context.Context, upstream, downstream *rest.Config, s
 }
 
 func startTunneler(ctx context.Context, upstream, downstream *rest.Config, syncTargetWorkspace logicalcluster.Name, syncTargetName string) error {
+	logger := klog.FromContext(ctx)
+
 	// syncer --> kcp
 	clientUpstream, err := rest.HTTPClientFor(upstream)
 	if err != nil {
@@ -100,7 +100,7 @@ func startTunneler(ctx context.Context, upstream, downstream *rest.Config, syncT
 		return err
 	}
 
-	logger := klog.FromContext(ctx).WithValues("syncer-tunnel-url", dst)
+	logger = logger.WithValues("syncer-tunnel-url", dst)
 	logger.Info("connecting to destination URL")
 	l, err := tunneler.NewListener(clientUpstream, dst)
 	if err != nil {

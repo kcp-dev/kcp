@@ -35,6 +35,7 @@ import (
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	workloadcliplugin "github.com/kcp-dev/kcp/pkg/cliplugins/workload/plugin"
+	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
@@ -49,12 +50,12 @@ func deepEqualFinalizersAndStatus(oldUnstrob, newUnstrob *unstructured.Unstructu
 }
 
 func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResource, key string) error {
-	klog.V(3).InfoS("Processing", "gvr", gvr, "key", key)
+	logger := klog.FromContext(ctx)
 
 	// from downstream
 	downstreamNamespace, downstreamName, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		klog.Errorf("Invalid key: %q: %v", key, err)
+		logger.Error(err, "Invalid key")
 		return nil
 	}
 	// TODO(sttts): do not reference the cli plugin here
@@ -63,20 +64,22 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 		return nil
 	}
 
+	logger = logger.WithValues(logging.DownstreamNamespaceKey, downstreamNamespace, logging.DownstreamNameKey, downstreamName)
+
 	// to upstream
 	nsObj, err := c.downstreamNamespaceLister.Get(downstreamNamespace)
 	if err != nil {
-		klog.Errorf("Error retrieving namespace %q from downstream lister: %v", downstreamNamespace, err)
+		logger.Error(err, "Error retrieving downstream namespace from downstream lister")
 		return nil
 	}
 	nsMeta, ok := nsObj.(metav1.Object)
 	if !ok {
-		klog.Errorf("Namespace %q expected to be metav1.Object, got %T", downstreamNamespace, nsObj)
+		logger.Info(fmt.Sprintf("Error: downstream namespace expected to be metav1.Object, got %T", nsObj))
 		return nil
 	}
 	namespaceLocator, exists, err := shared.LocatorFromAnnotations(nsMeta.GetAnnotations())
 	if err != nil {
-		klog.Errorf(" namespace %q: error decoding annotation: %v", downstreamNamespace, err)
+		logger.Error(err, "Error decoding annotation on downstream namespace")
 		return nil
 	}
 	if !exists || namespaceLocator == nil {
@@ -92,6 +95,10 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 
 	upstreamNamespace := namespaceLocator.Namespace
 	upstreamWorkspace := namespaceLocator.Workspace
+	upstreamName := shared.GetUpstreamResourceName(gvr, downstreamName)
+
+	logger = logger.WithValues(logging.WorkspaceKey, upstreamWorkspace, logging.NamespaceKey, upstreamNamespace, logging.NameKey, upstreamName)
+	ctx = klog.NewContext(ctx, logger)
 
 	// get the downstream object
 	syncerInformer, ok := c.syncerInformers.InformerForResource(gvr)
@@ -103,8 +110,8 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 		return err
 	}
 	if !exists {
-		klog.Infof("Downstream GVR %q object %s/%s does not exist. Removing finalizer upstream", gvr.String(), downstreamNamespace, downstreamName)
-		return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, syncerInformer.UpstreamInformer, c.upstreamClient, upstreamNamespace, c.syncTargetKey, upstreamWorkspace, shared.GetUpstreamResourceName(gvr, downstreamName))
+		logger.Info("Downstream object does not exist. Removing finalizer on upstream object")
+		return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, syncerInformer.UpstreamInformer, c.upstreamClient, upstreamNamespace, c.syncTargetKey, upstreamWorkspace, upstreamName)
 	}
 
 	// update upstream status
@@ -112,17 +119,17 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	if !ok {
 		return fmt.Errorf("object to synchronize is expected to be Unstructured, but is %T", obj)
 	}
-	return c.updateStatusInUpstream(ctx, gvr, upstreamNamespace, upstreamWorkspace, u)
+	return c.updateStatusInUpstream(ctx, gvr, upstreamNamespace, upstreamName, upstreamWorkspace, u)
 }
 
-func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.GroupVersionResource, upstreamNamespace string, upstreamLogicalCluster logicalcluster.Name, downstreamObj *unstructured.Unstructured) error {
-	upstreamName := shared.GetUpstreamResourceName(gvr, downstreamObj.GetName())
+func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.GroupVersionResource, upstreamNamespace, upstreamName string, upstreamLogicalCluster logicalcluster.Name, downstreamObj *unstructured.Unstructured) error {
+	logger := klog.FromContext(ctx)
 
 	downstreamStatus, statusExists, err := unstructured.NestedFieldCopy(downstreamObj.UnstructuredContent(), "status")
 	if err != nil {
 		return err
 	} else if !statusExists {
-		klog.V(5).Infof("Resource doesn't contain a status. Skipping updating status of resource %s|%s/%s from syncTargetName namespace %s", upstreamLogicalCluster, upstreamNamespace, upstreamName, downstreamObj.GetNamespace())
+		logger.V(5).Info("Downstream resource doesn't contain a status. Skipping updating the status of upstream resource")
 		return nil
 	}
 
@@ -132,13 +139,13 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 	}
 	existingObj, err := syncerInformer.UpstreamInformer.Lister().ByNamespace(upstreamNamespace).Get(clusters.ToClusterAwareKey(upstreamLogicalCluster, upstreamName))
 	if err != nil {
-		klog.Errorf("Getting resource %s/%s: %v", upstreamNamespace, upstreamName, err)
+		logger.Error(err, "Error getting upstream resource")
 		return err
 	}
 
 	existing, ok := existingObj.(*unstructured.Unstructured)
 	if !ok {
-		klog.Errorf("Resource %s|%s/%s expected to be *unstructured.Unstructured, got %T", upstreamLogicalCluster.String(), upstreamNamespace, upstreamName, existing)
+		logger.Info(fmt.Sprintf("Error: Upstream resource expected to be *unstructured.Unstructured, got %T", existing))
 		return nil
 	}
 
@@ -157,19 +164,20 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 		newUpstream.SetAnnotations(newUpstreamAnnotations)
 
 		if reflect.DeepEqual(existing, newUpstream) {
-			klog.V(2).Infof("No need to update the status of resource %s|%s/%s from syncTargetName namespace %s", upstreamLogicalCluster, upstreamNamespace, upstreamName, downstreamObj.GetNamespace())
+			logger.V(2).Info("No need to update the status annotation of upstream resource")
 			return nil
 		}
 
 		if _, err := c.upstreamClient.Cluster(upstreamLogicalCluster).Resource(gvr).Namespace(upstreamNamespace).Update(ctx, newUpstream, metav1.UpdateOptions{}); err != nil {
-			klog.Errorf("Failed updating location status annotation of resource %s|%s/%s from syncTargetName namespace %s: %v", upstreamLogicalCluster, upstreamNamespace, upstreamName, downstreamObj.GetNamespace(), err)
+			logger.Error(err, "Failed updating the status annotation of upstream resource")
 			return err
 		}
-		klog.Infof("Updated status of resource %s|%s/%s from syncTargetName namespace %s", upstreamLogicalCluster, upstreamNamespace, upstreamName, downstreamObj.GetNamespace())
+		logger.Info("Updated the status annotation of upstream resource")
 		return nil
 	}
 
 	if err := unstructured.SetNestedField(newUpstream.UnstructuredContent(), downstreamStatus, "status"); err != nil {
+		logger.Error(err, "Failed setting status of upstream resource")
 		return err
 	}
 
@@ -178,9 +186,9 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 	// But for now let's only update the status.
 
 	if _, err := c.upstreamClient.Cluster(upstreamLogicalCluster).Resource(gvr).Namespace(upstreamNamespace).UpdateStatus(ctx, newUpstream, metav1.UpdateOptions{}); err != nil {
-		klog.Errorf("Failed updating status of resource %q %s|%s/%s from pcluster namespace %s: %v", gvr.String(), upstreamLogicalCluster, upstreamNamespace, upstreamName, downstreamObj.GetNamespace(), err)
+		logger.Error(err, "Failed updating status of upstream resource")
 		return err
 	}
-	klog.Infof("Updated status of resource %q %s|%s/%s from pcluster namespace %s", gvr.String(), upstreamLogicalCluster, upstreamNamespace, upstreamName, downstreamObj.GetNamespace())
+	logger.Info("Updated status of upstream resource")
 	return nil
 }

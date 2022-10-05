@@ -18,6 +18,7 @@ package shared
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
@@ -40,6 +41,8 @@ const (
 )
 
 func EnsureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersionResource, upstreamInformer informers.GenericInformer, upstreamClient dynamic.ClusterInterface, upstreamNamespace, syncTargetKey string, logicalClusterName logicalcluster.Name, resourceName string) error {
+	logger := klog.FromContext(ctx)
+
 	upstreamObjFromLister, err := upstreamInformer.Lister().ByNamespace(upstreamNamespace).Get(clusters.ToClusterAwareKey(logicalClusterName, resourceName))
 	if err != nil && !apierrors.IsNotFound(err) {
 		return err
@@ -50,7 +53,7 @@ func EnsureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersion
 
 	upstreamObj, ok := upstreamObjFromLister.(*unstructured.Unstructured)
 	if !ok {
-		klog.Errorf("Resource %s|%s/%s expected to be *unstructured.Unstructured, got %T", logicalClusterName.String(), upstreamNamespace, resourceName, upstreamObjFromLister)
+		logger.Info(fmt.Sprintf("Error: upstream resource expected to be *unstructured.Unstructured, got %T", upstreamObjFromLister))
 		return nil
 	}
 
@@ -88,9 +91,9 @@ func EnsureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersion
 	// - End of block to be removed once the virtual workspace syncer is integrated -
 
 	if _, err := upstreamClient.Cluster(logicalClusterName).Resource(gvr).Namespace(upstreamObj.GetNamespace()).Update(ctx, upstreamObj, metav1.UpdateOptions{}); err != nil {
-		klog.Errorf("Failed updating after removing the finalizers of resource %s|%s/%s: %v", logicalClusterName, upstreamNamespace, upstreamObj.GetName(), err)
+		logger.Error(err, "Failed updating upstream resource after removing the syncer finalizer")
 		return err
 	}
-	klog.V(2).Infof("Updated resource %s|%s/%s after removing the finalizers", logicalClusterName, upstreamNamespace, upstreamObj.GetName())
+	logger.V(2).Info("Updated upstream resource to removing the syncer finalizer")
 	return nil
 }
