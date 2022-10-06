@@ -307,6 +307,9 @@ func (c *Controller) startGarbageCollectorForClusterWorkspace(ctx context.Contex
 		}
 	}()
 
+	// Make sure the GC monitors are synced at least once
+	garbageCollector.ResyncMonitors(ctx, c.dynamicDiscoverySharedInformerFactory)
+
 	go garbageCollector.Run(ctx, c.workersPerLogicalCluster)
 
 	return nil
