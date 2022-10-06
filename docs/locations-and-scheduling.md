@@ -158,20 +158,16 @@ downstream namespace deletion via `state.workload.kcp.dev/<cluster-id>` label re
 
 ### Resource Upsyncing
 
-In most cases kcp will be the source for syncing resources to the workload clusters, however, in some cases, 
-kcp would need to receive a resource that was provisioned by a controller on the workload cluster.
-This is the case with storage PVs, which are created on the workload cluster by a CSI driver.
+In most cases kcp will be the source for syncing resources to the `SyncTarget`, however, in some cases, 
+kcp would need to receive a resource that was provisioned by a controller on the `SyncTarget`.
+This is the case with storage PVs, which are created on the `SyncTarget` by a CSI driver.
 
-Unlike the `Sync` state, the `Upsync` state is exclusive, and only a single cluster can be upsyncing a resource to KCP.
-In addition, other clusters cannot be syncing down while the resource is upsyncing.
+Unlike the `Sync` state, the `Upsync` state is exclusive, and only a single `SyncTarget` can be upsyncing a resource to KCP.
+In addition, other `SyncTargets` cannot be syncing down while the resource is upsyncing.
 
-A resource coordination controller will be responsible for setting the `state.workload.kcp.dev/<cluster-id>` label,
-to avoid race conditions on the same resource. However the actual creation of the resource will be triggered
-by the syncer when provisioning is detected on the cluster itself. The virtual workspace apiserver will assert that 
-only the assigned `Upsync` target is allowed to make changes to the resource.
-
-A resource can be changed from `Upsync` to `Sync` in order to share it across multiple targets. This change will be applied
-by the coordination controller when needed, and the syncer will detect that change and stop upsyncing to that resource,
-while the virtual workspace will prevent race conditions until that change is fully propagated to the target.
+A resource coordination controller will be responsible for changing the `state.workload.kcp.dev/<cluster-id>` label,
+to drive the different flows on the resource. A resource can be changed from `Upsync` to `Sync` in order to share it across `SyncTargets`. 
+This change will be applied by the coordination controller when needed, and the original syncer will detect that change and stop upsyncing to that resource,
+and all the sync targets involved will be in `Sync` state.
 
 For more information on the upsync use case for storage, refer to the [storage doc](storage.md).
