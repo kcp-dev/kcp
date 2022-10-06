@@ -40,6 +40,8 @@ func (c *DownstreamController) process(ctx context.Context, key string) error {
 		return nil
 	}
 
+	logger = logger.WithValues(logging.DownstreamNamespaceKey, namespaceName)
+
 	// Always refresh the DNS ConfigMap
 	err = c.updateDNSConfigMap(ctx)
 	if err != nil {
@@ -48,10 +50,10 @@ func (c *DownstreamController) process(ctx context.Context, key string) error {
 
 	downstreamNamespaceObj, err := c.getDownstreamNamespace(namespaceName)
 	if apierrors.IsNotFound(err) {
-		logger.V(4).Info("downstream namespace not found, ignoring key", "namespace", namespaceName)
+		logger.V(4).Info("downstream namespace not found, ignoring key")
 		return nil
 	} else if err != nil {
-		logger.Error(err, "failed to get downstream namespace", "namespace", namespaceName)
+		logger.Error(err, "failed to get downstream namespace")
 		return nil
 	}
 
@@ -69,7 +71,7 @@ func (c *DownstreamController) process(ctx context.Context, key string) error {
 		logger.Error(err, "failed to unmarshal namespace locator", "namespaceLocator", namespaceLocatorJSON)
 		return nil
 	}
-	logger = logger.WithValues("upstreamWorkspace", nsLocator.Workspace, "upstreamNamespace", nsLocator.Namespace)
+	logger = logger.WithValues(logging.WorkspaceKey, nsLocator.Workspace, logging.NamespaceKey, nsLocator.Namespace)
 	exists, err := c.upstreamNamespaceExists(nsLocator.Workspace, nsLocator.Namespace)
 	if err != nil {
 		logger.Error(err, "failed to check if upstream namespace exists")

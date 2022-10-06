@@ -68,6 +68,7 @@ type DownstreamController struct {
 }
 
 func NewDownstreamController(
+	syncerLogger logr.Logger,
 	syncTargetWorkspace logicalcluster.Name,
 	syncTargetName, syncTargetKey string,
 	syncTargetUID types.UID,
@@ -77,7 +78,7 @@ func NewDownstreamController(
 	dnsNamespace string,
 ) (*DownstreamController, error) {
 	namespaceGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
-	logger := logging.WithReconciler(klog.Background(), downstreamControllerName)
+	logger := logging.WithReconciler(syncerLogger, downstreamControllerName)
 	kubeClient := kubernetes.NewForConfigOrDie(downstreamConfig)
 
 	c := DownstreamController{
@@ -111,6 +112,8 @@ func NewDownstreamController(
 		dnsNamespace:        dnsNamespace,
 	}
 
+	logger.V(2).Info("Set up downstream namespace informer")
+
 	// Those handlers are for start/resync cases, in case a namespace deletion event is missed, these handlers
 	// will make sure that we cleanup the namespace in downstream after restart/resync.
 	downstreamInformers.ForResource(namespaceGVR).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -125,8 +128,6 @@ func NewDownstreamController(
 		},
 	})
 
-	logger.V(2).Info("Set up downstream namespace informer", "syncTargetWorkspace", syncTargetWorkspace, "syncTargetName", syncTargetName, "syncTargetKey", syncTargetKey)
-
 	return &c, nil
 }
 
@@ -137,7 +138,7 @@ func (c *DownstreamController) AddToQueue(obj interface{}, logger logr.Logger) {
 		return
 	}
 
-	logger.V(4).Info("queueing namespace", "key", key)
+	logging.WithQueueKey(logger, key).V(2).Info("queueing namespace")
 	c.queue.Add(key)
 }
 

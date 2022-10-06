@@ -70,7 +70,7 @@ type Controller struct {
 	advancedSchedulingEnabled bool
 }
 
-func NewSpecSyncer(syncTargetWorkspace logicalcluster.Name, syncTargetName, syncTargetKey string, upstreamURL *url.URL, advancedSchedulingEnabled bool,
+func NewSpecSyncer(syncerLogger logr.Logger, syncTargetWorkspace logicalcluster.Name, syncTargetName, syncTargetKey string, upstreamURL *url.URL, advancedSchedulingEnabled bool,
 	upstreamClient dynamic.ClusterInterface, downstreamClient dynamic.Interface, upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory, syncerInformers resourcesync.SyncerInformerFactory, syncTargetUID types.UID,
 	dnsIP string) (*Controller, error) {
 
@@ -101,11 +101,11 @@ func NewSpecSyncer(syncTargetWorkspace logicalcluster.Name, syncTargetName, sync
 	}
 	c.downstreamNSInformer = downstreamInformers.ForResource(namespaceGVR)
 
-	logger := logging.WithReconciler(klog.Background(), controllerName)
+	logger := logging.WithReconciler(syncerLogger, controllerName)
 
 	syncerInformers.AddUpstreamEventHandler(
 		func(gvr schema.GroupVersionResource) cache.ResourceEventHandler {
-			logger.V(2).Info("Set up upstream informer", "syncTargetWorkspace", syncTargetWorkspace, "syncTargetName", syncTargetName, "syncTargetKey", syncTargetKey, "gvr", gvr.String())
+			logger.V(2).Info("Set up upstream informer", "gvr", gvr.String())
 			return cache.ResourceEventHandlerFuncs{
 				AddFunc: func(obj interface{}) {
 					c.AddToQueue(gvr, obj, logger)
@@ -114,7 +114,7 @@ func NewSpecSyncer(syncTargetWorkspace logicalcluster.Name, syncTargetName, sync
 					oldUnstrob := oldObj.(*unstructured.Unstructured)
 					newUnstrob := newObj.(*unstructured.Unstructured)
 
-					if !deepEqualApartFromStatus(oldUnstrob, newUnstrob) {
+					if !deepEqualApartFromStatus(logger, oldUnstrob, newUnstrob) {
 						c.AddToQueue(gvr, newUnstrob, logger)
 					}
 				},
@@ -126,7 +126,7 @@ func NewSpecSyncer(syncTargetWorkspace logicalcluster.Name, syncTargetName, sync
 
 	syncerInformers.AddDownstreamEventHandler(
 		func(gvr schema.GroupVersionResource) cache.ResourceEventHandler {
-			logger.V(2).Info("Set up downstream informer", "SyncTarget Workspace", syncTargetWorkspace, "SyncTarget Name", syncTargetName, "gvr", gvr.String())
+			logger.V(2).Info("Set up downstream informer", "gvr", gvr.String())
 			return cache.ResourceEventHandlerFuncs{
 				DeleteFunc: func(obj interface{}) {
 					key, err := keyfunctions.DeletionHandlingMetaNamespaceKeyFunc(obj)
@@ -138,7 +138,8 @@ func NewSpecSyncer(syncTargetWorkspace logicalcluster.Name, syncTargetName, sync
 					if err != nil {
 						utilruntime.HandleError(fmt.Errorf("error splitting key %q: %w", key, err))
 					}
-					klog.V(3).InfoS("processing delete event", "key", key, "gvr", gvr, "namespace", namespace, "name", name)
+					logger := logging.WithQueueKey(logger, key).WithValues("gvr", gvr, logging.DownstreamNamespaceKey, namespace, logging.DownstreamNameKey, name)
+					logger.V(3).Info("processing delete event")
 
 					// Use namespace lister
 					nsObj, err := namespaceLister.Get(namespace)
@@ -162,7 +163,7 @@ func NewSpecSyncer(syncTargetWorkspace logicalcluster.Name, syncTargetName, sync
 						utilruntime.HandleError(err)
 						return
 					}
-					klog.V(4).InfoS("found", "NamespaceLocator", nsLocator)
+					logger.V(4).Info("found", "NamespaceLocator", nsLocator)
 					m := &metav1.ObjectMeta{
 						Annotations: map[string]string{
 							logicalcluster.AnnotationKey: nsLocator.Workspace.String(),
@@ -205,7 +206,7 @@ func (c *Controller) AddToQueue(gvr schema.GroupVersionResource, obj interface{}
 		return
 	}
 
-	logger.Info("queueing GVR", "controller", controllerName, "gvr", gvr.String(), "key", key)
+	logging.WithQueueKey(logger, key).V(2).Info("queueing GVR", "gvr", gvr.String())
 	c.queue.Add(
 		queueKey{
 			gvr: gvr,
@@ -221,8 +222,9 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 
 	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
 	ctx = klog.NewContext(ctx, logger)
-	logger.Info("Starting syncer workers", "controller", controllerName)
-	defer logger.Info("Stopping syncer workers", "controller", controllerName)
+	logger.Info("Starting syncer workers")
+	defer logger.Info("Stopping syncer workers")
+
 	for i := 0; i < numThreads; i++ {
 		go wait.UntilWithContext(ctx, c.startWorker, time.Second)
 	}
@@ -243,6 +245,10 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 		return false
 	}
 	qk := key.(queueKey)
+
+	logger := logging.WithQueueKey(klog.FromContext(ctx), qk.key).WithValues("gvr", qk.gvr)
+	ctx = klog.NewContext(ctx, logger)
+	logger.V(1).Info("processing key")
 
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.

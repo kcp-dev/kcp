@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
@@ -35,6 +36,8 @@ func (c *UpstreamController) process(ctx context.Context, key string) error {
 		logger.Error(err, "invalid key")
 		return nil
 	}
+
+	logger = logger.WithValues(logging.WorkspaceKey, clusterName, logging.NameKey, namespaceName)
 
 	exists, err := c.upstreamNamespaceExists(clusterName, namespaceName)
 	if err != nil {
@@ -72,6 +75,7 @@ func (c *UpstreamController) process(ctx context.Context, key string) error {
 	}
 
 	downstreamNamespaceName := downstreamNamespace.(*unstructured.Unstructured).GetName()
-	logger.V(2).Info("deleting downstream namespace because the upstream namespace doesn't exist", "downstreamNamespace", downstreamNamespaceName, "upstreamWorkspace", clusterName, "upstreamNamespace", namespaceName)
+	logger = logger.WithValues(logging.DownstreamNamespaceKey, downstreamNamespaceName)
+	logger.V(2).Info("deleting downstream namespace because the upstream namespace doesn't exist")
 	return c.deleteDownstreamNamespace(ctx, downstreamNamespaceName)
 }

@@ -63,6 +63,7 @@ type UpstreamController struct {
 }
 
 func NewUpstreamController(
+	syncerLogger logr.Logger,
 	syncTargetWorkspace logicalcluster.Name,
 	syncTargetName, syncTargetKey string,
 	syncTargetUID types.UID,
@@ -70,7 +71,7 @@ func NewUpstreamController(
 	upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory,
 ) (*UpstreamController, error) {
 	namespaceGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
-	logger := logging.WithReconciler(klog.Background(), upstreamControllerName)
+	logger := logging.WithReconciler(syncerLogger, upstreamControllerName)
 
 	c := UpstreamController{
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), upstreamControllerName),
@@ -105,6 +106,8 @@ func NewUpstreamController(
 		syncTargetKey:       syncTargetKey,
 	}
 
+	logger.V(2).Info("Set up upstream namespace informer")
+
 	// React when there's a namespace deletion upstream.
 	upstreamInformers.ForResource(namespaceGVR).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		DeleteFunc: func(obj interface{}) {
@@ -112,14 +115,12 @@ func NewUpstreamController(
 		},
 	})
 
-	logger.V(2).Info("Set up upstream namespace informer", "syncTargetWorkspace", syncTargetWorkspace, "syncTargetName", syncTargetName, "syncTargetKey", syncTargetKey)
+	logger.V(2).Info("Set up downstream namespace informer")
 
 	err := downstreamInformers.ForResource(namespaceGVR).Informer().AddIndexers(cache.Indexers{byNamespaceLocatorIndexName: indexByNamespaceLocator})
 	if err != nil {
 		return nil, err
 	}
-
-	logger.V(2).Info("Set up downstream namespace informer", "syncTargetWorkspace", syncTargetWorkspace, "syncTargetName", syncTargetName, "syncTargetKey", syncTargetKey)
 
 	return &c, nil
 }
@@ -131,7 +132,7 @@ func (c *UpstreamController) AddToQueue(obj interface{}, logger logr.Logger) {
 		return
 	}
 
-	logger.V(4).Info("queueing namespace", "key", key)
+	logging.WithQueueKey(logger, key).V(2).Info("queueing namespace")
 	c.queue.Add(key)
 }
 

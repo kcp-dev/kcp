@@ -44,6 +44,7 @@ import (
 	"k8s.io/client-go/informers"
 	clienttesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/syncer/resourcesync"
@@ -443,9 +444,10 @@ func TestDeepEqualApartFromStatus(t *testing.T) {
 			want: false,
 		},
 	}
+	logger := klog.Background()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := deepEqualApartFromStatus(tt.args.a, tt.args.b); got != tt.want {
+			if got := deepEqualApartFromStatus(logger, tt.args.a, tt.args.b); got != tt.want {
 				t.Errorf("deepEqualApartFromStatus() = %v, want %v", got, tt.want)
 			}
 		})
@@ -962,6 +964,7 @@ func TestSyncerProcess(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
+			logger := klog.FromContext(ctx)
 
 			kcpLogicalCluster := logicalcluster.New(tc.upstreamLogicalCluster)
 			syncTargetUID := tc.syncTargetUID
@@ -1001,7 +1004,7 @@ func TestSyncerProcess(t *testing.T) {
 
 			upstreamURL, err := url.Parse("https://kcp.dev:6443")
 			require.NoError(t, err)
-			controller, err := NewSpecSyncer(kcpLogicalCluster, tc.syncTargetName, syncTargetKey, upstreamURL, tc.advancedSchedulingEnabled, fromClusterClient, toClient, fromInformers, toInformers, fakeInformers, syncTargetUID, "8.8.8.8")
+			controller, err := NewSpecSyncer(logger, kcpLogicalCluster, tc.syncTargetName, syncTargetKey, upstreamURL, tc.advancedSchedulingEnabled, fromClusterClient, toClient, fromInformers, toInformers, fakeInformers, syncTargetUID, "8.8.8.8")
 			require.NoError(t, err)
 
 			fromInformers.Start(ctx.Done())

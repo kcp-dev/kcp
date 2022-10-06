@@ -84,13 +84,13 @@ func From(obj Object) []interface{} {
 func FromPrefix(prefix string, obj Object) []interface{} {
 	gvk := obj.GetObjectKind().GroupVersionKind()
 	return []interface{}{
-		prefix + "." + WorkspaceKey,
+		prefix + "." + string(WorkspaceKey),
 		logicalcluster.From(obj).String(),
-		prefix + "." + NamespaceKey,
+		prefix + "." + string(NamespaceKey),
 		obj.GetNamespace(),
-		prefix + "." + NameKey,
+		prefix + "." + string(NameKey),
 		obj.GetName(),
-		prefix + "." + APIVersionKey,
+		prefix + "." + string(APIVersionKey),
 		gvk.GroupVersion(),
 	}
 }

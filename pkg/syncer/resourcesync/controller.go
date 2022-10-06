@@ -100,6 +100,7 @@ type Controller struct {
 }
 
 func NewController(
+	syncerLogger logr.Logger,
 	upstreamDynamicClusterClient *dynamic.Cluster,
 	downstreamDynamicClient dynamic.Interface,
 	downstreamKubeClient kubernetes.Interface,
@@ -124,7 +125,7 @@ func NewController(
 		syncTargetLister:             syncTargetInformer.Lister(),
 	}
 
-	logger := logging.WithReconciler(klog.Background(), controllerName)
+	logger := logging.WithReconciler(syncerLogger, controllerName)
 
 	syncTargetInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
@@ -208,6 +209,10 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	}
 	key := k.(string)
 
+	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
+	ctx = klog.NewContext(ctx, logger)
+	logger.V(1).Info("processing key")
+
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.
 	defer c.queue.Done(key)
@@ -223,7 +228,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *Controller) process(ctx context.Context, key string) error {
-	logger := klog.FromContext(ctx).WithValues("syncTarget", c.syncTargetName)
+	logger := klog.FromContext(ctx)
 
 	lclusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
@@ -257,7 +262,8 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	var errs []error
 	var unauthorizedGVRs []string
 	for gvr := range requiredGVRs {
-		logger := klog.FromContext(ctx).WithValues("gvr", gvr.String())
+		logger := logger.WithValues("gvr", gvr.String())
+		ctx := klog.NewContext(ctx, logger)
 		allowed, err := c.checkSSAR(ctx, gvr)
 		if err != nil {
 			logger.Error(err, "Failed to check ssar")
@@ -374,7 +380,7 @@ func (c *Controller) stopUnusedSyncerInformers(ctx context.Context, requiredGVRs
 }
 
 func (c *Controller) startSyncerInformer(ctx context.Context, gvr schema.GroupVersionResource, syncTarget *workloadv1alpha1.SyncTarget) {
-	logger := klog.FromContext(ctx).WithValues("gvr", gvr.String())
+	logger := klog.FromContext(ctx)
 
 	c.mutex.Lock()
 	defer c.mutex.Unlock()

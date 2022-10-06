@@ -134,7 +134,7 @@ func (i *APIImporter) Start(ctx context.Context, pollInterval time.Duration) {
 	defer runtime.HandleCrash()
 
 	i.kcpInformerFactory.WaitForCacheSync(ctx.Done())
-	logger := logging.WithReconciler(klog.FromContext(ctx), "api-importer").WithValues("location", i.location, "logical-cluster", i.logicalClusterName)
+	logger := logging.WithReconciler(klog.FromContext(ctx), "api-importer")
 	ctx = klog.NewContext(ctx, logger)
 
 	logger.Info("Starting API Importer")
@@ -161,7 +161,7 @@ func (i *APIImporter) Stop(ctx context.Context) {
 	}
 	for _, obj := range objs {
 		apiResourceImportToDelete := obj.(*apiresourcev1alpha1.APIResourceImport)
-		logger = logger.WithValues("apiResourceImport", apiResourceImportToDelete.Name)
+		logger := logger.WithValues("apiResourceImport", apiResourceImportToDelete.Name)
 		err := i.kcpClusterClient.Cluster(i.logicalClusterName).ApiresourceV1alpha1().APIResourceImports().Delete(request.WithCluster(context.Background(), request.Cluster{Name: i.logicalClusterName}), apiResourceImportToDelete.Name, metav1.DeleteOptions{})
 		if err != nil {
 			logger.Error(err, "error deleting APIResourceImport")
@@ -192,7 +192,7 @@ func (i *APIImporter) ImportAPIs(ctx context.Context) {
 	}
 	resourcesToSync := resourceToSyncSet.List()
 
-	logger.Info("Importing APIs", "resources", resourcesToSync)
+	logger.V(2).Info("Importing APIs", "resourcesToImport", resourcesToSync)
 	crds, err := i.schemaPuller.PullCRDs(ctx, resourcesToSync...)
 	if err != nil {
 		logger.Error(err, "error pulling CRDs")
@@ -207,7 +207,7 @@ func (i *APIImporter) ImportAPIs(ctx context.Context) {
 			Version:  crdVersion.Name,
 			Resource: groupResource.Resource,
 		}
-		logger = logger.WithValues(
+		logger := logger.WithValues(
 			"group", gvr.Group,
 			"version", gvr.Version,
 			"resource", gvr.Resource,
@@ -275,7 +275,7 @@ func (i *APIImporter) ImportAPIs(ctx context.Context) {
 				},
 			}
 			if err := apiResourceImport.Spec.SetSchema(crdVersion.Schema.OpenAPIV3Schema); err != nil {
-				logger.Error(err, "error setting schema:")
+				logger.Error(err, "error setting schema")
 				continue
 			}
 			if value, found := pulledCrd.Annotations[apiextensionsv1.KubeAPIApprovedAnnotation]; found {
@@ -298,7 +298,7 @@ func (i *APIImporter) ImportAPIs(ctx context.Context) {
 			clusterctl.GVRForLocationInLogicalClusterIndexName,
 			clusterctl.GetGVRForLocationInLogicalClusterIndexKey(i.location, i.logicalClusterName, gvr),
 		)
-		logger = logger.WithValues(
+		logger := logger.WithValues(
 			"group", gvr.Group,
 			"version", gvr.Version,
 			"resource", gvr.Resource,
@@ -318,7 +318,7 @@ func (i *APIImporter) ImportAPIs(ctx context.Context) {
 			logger.Info("deleting APIResourceImport")
 			err := i.kcpClusterClient.Cluster(i.logicalClusterName).ApiresourceV1alpha1().APIResourceImports().Delete(ctx, apiResourceImportToRemove.Name, metav1.DeleteOptions{})
 			if err != nil {
-				logger.Error(err, "error deleting APIResourceImportg")
+				logger.Error(err, "error deleting APIResourceImport")
 				continue
 			}
 		}

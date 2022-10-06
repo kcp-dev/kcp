@@ -43,6 +43,7 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
+	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/syncer/namespace"
 	"github.com/kcp-dev/kcp/pkg/syncer/resourcesync"
 	"github.com/kcp-dev/kcp/pkg/syncer/spec"
@@ -74,8 +75,7 @@ type SyncerConfig struct {
 
 func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, importPollInterval time.Duration) error {
 	logger := klog.FromContext(ctx)
-	logger.WithValues("target-workspace", cfg.SyncTargetWorkspace, "target-name", cfg.SyncTargetName)
-	ctx = klog.NewContext(ctx, logger)
+	logger = logger.WithValues(logging.SyncTargetWorkspaceKey, cfg.SyncTargetWorkspace, logging.SyncTargetNameKey, cfg.SyncTargetName)
 	logger.V(2).Info("starting syncer")
 
 	kcpVersion := version.Get().GitVersion
@@ -163,6 +163,9 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	}
 
 	syncTargetKey := workloadv1alpha1.ToSyncTargetKey(cfg.SyncTargetWorkspace, cfg.SyncTargetName)
+	logger = logger.WithValues(logging.SyncTargetNameKey, syncTargetKey)
+	ctx = klog.NewContext(ctx, logger)
+
 	upstreamInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(upstreamDynamicClusterClient.Cluster(logicalcluster.Wildcard), resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
 		o.LabelSelector = workloadv1alpha1.ClusterResourceStateLabelPrefix + syncTargetKey + "=" + string(workloadv1alpha1.ResourceStateSync)
 	})
@@ -171,6 +174,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	}, cache.WithResyncPeriod(resyncPeriod), cache.WithKeyFunction(keyfunctions.DeletionHandlingMetaNamespaceKeyFunc))
 
 	syncerInformers, err := resourcesync.NewController(
+		logger,
 		upstreamDynamicClusterClient,
 		downstreamDynamicClient,
 		downstreamKubeClient,
@@ -187,7 +191,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	// Check whether we're in the Advanced Scheduling feature-gated mode.
 	advancedSchedulingEnabled := false
 	if syncTarget.GetAnnotations()[AdvancedSchedulingFeatureAnnotation] == "true" {
-		klog.Infof("Advanced Scheduling feature is enabled for syncTarget %s", cfg.SyncTargetName)
+		logger.Info("Advanced Scheduling feature is enabled")
 		advancedSchedulingEnabled = true
 	}
 
@@ -205,30 +209,30 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		return err
 	}
 
-	klog.Infof("Creating spec syncer for SyncTarget %s|%s, resources %v", cfg.SyncTargetWorkspace, cfg.SyncTargetName, resources)
+	logger.Info("Creating spec syncer")
 	upstreamURL, err := url.Parse(cfg.UpstreamConfig.Host)
 	if err != nil {
 		return err
 	}
-	specSyncer, err := spec.NewSpecSyncer(cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, upstreamURL, advancedSchedulingEnabled,
+	specSyncer, err := spec.NewSpecSyncer(logger, cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, upstreamURL, advancedSchedulingEnabled,
 		upstreamDynamicClusterClient, downstreamDynamicClient, upstreamInformers, downstreamInformers, syncerInformers, syncTarget.GetUID(), dnsIP)
 	if err != nil {
 		return err
 	}
 
-	klog.Infof("Creating status syncer for SyncTarget %s|%s, resources %v", cfg.SyncTargetWorkspace, cfg.SyncTargetName, resources)
-	statusSyncer, err := status.NewStatusSyncer(cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, advancedSchedulingEnabled,
+	logger.Info("Creating status syncer")
+	statusSyncer, err := status.NewStatusSyncer(logger, cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, advancedSchedulingEnabled,
 		upstreamDynamicClusterClient, downstreamDynamicClient, upstreamInformers, downstreamInformers, syncerInformers, syncTarget.GetUID())
 	if err != nil {
 		return err
 	}
 
-	downstreamNamespaceController, err := namespace.NewDownstreamController(cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, syncTarget.GetUID(), downstreamConfig, downstreamDynamicClient, upstreamInformers, downstreamInformers, dnsNamespace)
+	downstreamNamespaceController, err := namespace.NewDownstreamController(logger, cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, syncTarget.GetUID(), downstreamConfig, downstreamDynamicClient, upstreamInformers, downstreamInformers, dnsNamespace)
 	if err != nil {
 		return err
 	}
 
-	upstreamNamespaceController, err := namespace.NewUpstreamController(cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, syncTarget.GetUID(), downstreamDynamicClient, upstreamInformers, downstreamInformers)
+	upstreamNamespaceController, err := namespace.NewUpstreamController(logger, cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, syncTarget.GetUID(), downstreamDynamicClient, upstreamInformers, downstreamInformers)
 	if err != nil {
 		return err
 	}
@@ -241,7 +245,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	downstreamInformers.WaitForCacheSync(ctx.Done())
 	kcpInformerFactory.WaitForCacheSync(ctx.Done())
 
-	go apiImporter.Start(ctx, importPollInterval)
+	go apiImporter.Start(klog.NewContext(ctx, logger.WithValues("resources", resources)), importPollInterval)
 	go syncerInformers.Start(ctx, 1)
 	go specSyncer.Start(ctx, numSyncerThreads)
 	go statusSyncer.Start(ctx, numSyncerThreads)
