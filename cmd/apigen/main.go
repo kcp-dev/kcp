@@ -114,6 +114,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	if _, err := os.Stat(opts.outputDir); os.IsNotExist(err) {
+		if err := os.MkdirAll(opts.outputDir, os.FileMode(0755)); err != nil {
+			logger.Error(err, "Could not create directory to write output files.")
+			os.Exit(1)
+		}
+	}
 	previousApiResourceSchemas, err := loadAPIResourceSchemas(logger, opts.outputDir)
 	if err != nil {
 		logger.Error(err, "Could not load previous APIResourceSchemas.")
