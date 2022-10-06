@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v220915-b4cf5d4e.clusterworkspaces.tenancy.kcp.dev
+  name: v221006-eaaf199d.clusterworkspaces.tenancy.kcp.dev
 spec:
   group: tenancy.kcp.dev
   names:
@@ -127,6 +127,7 @@ spec:
                         are ANDed.
                       type: object
                   type: object
+                  x-kubernetes-map-type: atomic
               type: object
             type:
               description: "type defines properties of the workspace both on creation

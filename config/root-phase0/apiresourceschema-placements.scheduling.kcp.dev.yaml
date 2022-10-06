@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v220909-c255fd13.placements.scheduling.kcp.dev
+  name: v221006-eaaf199d.placements.scheduling.kcp.dev
 spec:
   group: scheduling.kcp.dev
   names:
@@ -121,6 +121,7 @@ spec:
                       are ANDed.
                     type: object
                 type: object
+                x-kubernetes-map-type: atomic
               type: array
             locationWorkspace:
               description: locationWorkspace is an absolute reference to a workspace
@@ -173,6 +174,7 @@ spec:
                     are ANDed.
                   type: object
               type: object
+              x-kubernetes-map-type: atomic
           required:
           - locationResource
           type: object
