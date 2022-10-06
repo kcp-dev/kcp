@@ -1,5 +1,5 @@
 /cmd/kcp/kcp.go:116:4: function "Infof" should not be used, convert to contextual logging
-/cmd/kubectl-kcp/cmd/kubectlKcp.go:62:2: function "InitFlags" should not be used, convert to contextual logging
+/cmd/kubectl-kcp/cmd/kubectlKcp.go:58:2: function "InitFlags" should not be used, convert to contextual logging
 /cmd/kubectl-workspace/main.go:44:2: function "InitFlags" should not be used, convert to contextual logging
 /cmd/sharded-test-server/shard.go:34:2: function "Infof" should not be used, convert to contextual logging
 /cmd/sharded-test-server/shard.go:43:2: function "Infof" should not be used, convert to contextual logging
@@ -11,7 +11,7 @@
 /cmd/sharded-test-server/third_party/library-go/crypto/crypto.go:740:2: function "V" should not be used, convert to contextual logging
 /cmd/sharded-test-server/third_party/library-go/crypto/crypto.go:809:2: function "Infof" should not be used, convert to contextual logging
 /cmd/sharded-test-server/third_party/library-go/crypto/crypto.go:809:2: function "V" should not be used, convert to contextual logging
-/cmd/syncer/cmd/syncer.go:78:2: function "Infof" should not be used, convert to contextual logging
+/cmd/syncer/cmd/syncer.go:80:2: function "Infof" should not be used, convert to contextual logging
 /cmd/test-server/kcp/shard.go:121:2: function "Infof" should not be used, convert to contextual logging
 /cmd/test-server/kcp/shard.go:141:2: function "Infof" should not be used, convert to contextual logging
 /cmd/test-server/kcp/shard.go:144:2: function "Infof" should not be used, convert to contextual logging
@@ -64,6 +64,8 @@
 /pkg/crdpuller/discovery.go:213:6: function "Errorf" should not be used, convert to contextual logging
 /pkg/crdpuller/discovery.go:218:6: function "Infof" should not be used, convert to contextual logging
 /pkg/crdpuller/discovery.go:232:6: function "Errorf" should not be used, convert to contextual logging
+/pkg/dns/plugin/nsmap/namespace.go:68:2: function "Info" should not be used, convert to contextual logging
+/pkg/dns/plugin/nsmap/namespace.go:68:2: function "V" should not be used, convert to contextual logging
 /pkg/embeddedetcd/server.go:44:2: function "Info" should not be used, convert to contextual logging
 /pkg/informer/informer.go:156:4: function "InfoS" should not be used, convert to contextual logging
 /pkg/informer/informer.go:156:4: function "V" should not be used, convert to contextual logging
@@ -120,7 +122,7 @@
 /pkg/reconciler/workload/synctargetexports/synctargetexports_controller.go:331:2: function "V" should not be used, convert to contextual logging
 /pkg/reconciler/workload/synctargetexports/synctargetexports_controller.go:333:3: function "Errorf" should not be used, convert to contextual logging
 /pkg/reconciler/workload/synctargetexports/synctargetexports_reconcile.go:58:5: function "Warningf" should not be used, convert to contextual logging
-/pkg/server/controllers.go:992:4: function "Errorf" should not be used, convert to contextual logging
+/pkg/server/controllers.go:996:4: function "Errorf" should not be used, convert to contextual logging
 /pkg/server/home_workspaces.go:352:5: Additional arguments to WithValues should always be Key Value pairs. Please check if there is any key or value missing.
 /pkg/server/home_workspaces.go:638:6: Additional arguments to WithValues should always be Key Value pairs. Please check if there is any key or value missing.
 /pkg/server/options/controllers.go:54:3: function "Fatal" should not be used, convert to contextual logging
@@ -128,10 +130,10 @@
 /pkg/syncer/shared/finalizer.go:91:3: function "Errorf" should not be used, convert to contextual logging
 /pkg/syncer/shared/finalizer.go:94:2: function "Infof" should not be used, convert to contextual logging
 /pkg/syncer/shared/finalizer.go:94:2: function "V" should not be used, convert to contextual logging
-/pkg/syncer/spec/spec_controller.go:140:6: function "InfoS" should not be used, convert to contextual logging
-/pkg/syncer/spec/spec_controller.go:140:6: function "V" should not be used, convert to contextual logging
-/pkg/syncer/spec/spec_controller.go:164:6: function "InfoS" should not be used, convert to contextual logging
-/pkg/syncer/spec/spec_controller.go:164:6: function "V" should not be used, convert to contextual logging
+/pkg/syncer/spec/spec_controller.go:141:6: function "InfoS" should not be used, convert to contextual logging
+/pkg/syncer/spec/spec_controller.go:141:6: function "V" should not be used, convert to contextual logging
+/pkg/syncer/spec/spec_controller.go:165:6: function "InfoS" should not be used, convert to contextual logging
+/pkg/syncer/spec/spec_controller.go:165:6: function "V" should not be used, convert to contextual logging
 /pkg/syncer/spec/spec_process.go:106:2: function "InfoS" should not be used, convert to contextual logging
 /pkg/syncer/spec/spec_process.go:106:2: function "V" should not be used, convert to contextual logging
 /pkg/syncer/spec/spec_process.go:111:3: function "Errorf" should not be used, convert to contextual logging
@@ -171,9 +173,9 @@
 /pkg/syncer/status/status_process.go:69:3: function "Errorf" should not be used, convert to contextual logging
 /pkg/syncer/status/status_process.go:74:3: function "Errorf" should not be used, convert to contextual logging
 /pkg/syncer/status/status_process.go:79:3: function "Errorf" should not be used, convert to contextual logging
-/pkg/syncer/syncer.go:174:3: function "Infof" should not be used, convert to contextual logging
-/pkg/syncer/syncer.go:178:2: function "Infof" should not be used, convert to contextual logging
-/pkg/syncer/syncer.go:189:2: function "Infof" should not be used, convert to contextual logging
+/pkg/syncer/syncer.go:190:3: function "Infof" should not be used, convert to contextual logging
+/pkg/syncer/syncer.go:208:2: function "Infof" should not be used, convert to contextual logging
+/pkg/syncer/syncer.go:219:2: function "Infof" should not be used, convert to contextual logging
 /pkg/tunneler/dialer.go:148:8: function "Infof" should not be used, convert to contextual logging
 /pkg/tunneler/dialer.go:148:8: function "V" should not be used, convert to contextual logging
 /pkg/tunneler/listener.go:157:3: function "Infof" should not be used, convert to contextual logging

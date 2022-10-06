@@ -31,18 +31,21 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	kubernetesclientset "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/utils/pointer"
 	kyaml "sigs.k8s.io/yaml"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
+	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -64,7 +67,19 @@ func TestSyncerLifecycle(t *testing.T) {
 	// its sync target to go ready. This implicitly validates the syncer
 	// heartbeating and the heartbeat controller setting the sync target ready in
 	// response.
-	syncerFixture := framework.NewSyncerFixture(t, upstreamServer, wsClusterName).Start(t)
+	syncerFixture := framework.NewSyncerFixture(t, upstreamServer, wsClusterName,
+		framework.WithExtraResources("services"),
+		framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
+			if !isFakePCluster {
+				// Only need to install services in a logical cluster
+				return
+			}
+			crdClusterClient, err := apiextensionsclient.NewForConfig(config)
+			require.NoError(t, err, "failed to construct apiextensions client for server")
+			kubefixtures.Create(t, crdClusterClient.ApiextensionsV1().CustomResourceDefinitions(),
+				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
+			)
+		})).Start(t)
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
@@ -519,7 +534,19 @@ func TestCordonUncordonDrain(t *testing.T) {
 	// its sync target to go ready. This implicitly validates the syncer
 	// heartbeating and the heartbeat controller setting the sync target ready in
 	// response.
-	syncerFixture := framework.NewSyncerFixture(t, upstreamServer, wsClusterName).Start(t)
+	syncerFixture := framework.NewSyncerFixture(t, upstreamServer, wsClusterName,
+		framework.WithExtraResources("services"),
+		framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
+			if !isFakePCluster {
+				// Only need to install services in a logical cluster
+				return
+			}
+			crdClusterClient, err := apiextensionsclient.NewForConfig(config)
+			require.NoError(t, err, "failed to construct apiextensions client for server")
+			kubefixtures.Create(t, crdClusterClient.ApiextensionsV1().CustomResourceDefinitions(),
+				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
+			)
+		})).Start(t)
 	syncTargetName := syncerFixture.SyncerConfig.SyncTargetName
 
 	ctx, cancelFunc := context.WithCancel(context.Background())

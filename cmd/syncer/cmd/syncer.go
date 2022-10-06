@@ -71,6 +71,8 @@ func NewSyncerCommand() *cobra.Command {
 		syncerCommand.Version = v
 	}
 
+	syncerCommand.AddCommand(NewDNSCommand())
+
 	return syncerCommand
 }
 
@@ -111,6 +113,7 @@ func Run(options *synceroptions.Options, ctx context.Context) error {
 			SyncTargetWorkspace: logicalcluster.New(options.FromClusterName),
 			SyncTargetName:      options.SyncTargetName,
 			SyncTargetUID:       options.SyncTargetUID,
+			DNSServer:           options.DNSServer,
 		},
 		numThreads,
 		options.APIImportPollInterval,

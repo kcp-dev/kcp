@@ -130,6 +130,24 @@ func requiredCoreAPIResourceList(workspaceName logicalcluster.Name) *metav1.APIR
 				Verbs:              metav1.Verbs{"get", "list", "patch", "update", "watch"},
 				StorageVersionHash: discovery.StorageVersionHash(workspaceName, "", "v1", "ServiceAccount"),
 			},
+			{
+				Kind:               "Service",
+				Name:               "services",
+				SingularName:       "service",
+				Namespaced:         true,
+				Verbs:              metav1.Verbs{"get", "list", "patch", "update", "watch"},
+				ShortNames:         []string{"svc"},
+				Categories:         []string{"all"},
+				StorageVersionHash: discovery.StorageVersionHash(workspaceName, "", "v1", "Service"),
+			},
+			{
+				Kind:               "Service",
+				Name:               "services/status",
+				SingularName:       "",
+				Namespaced:         true,
+				Verbs:              metav1.Verbs{"get", "patch", "update"},
+				StorageVersionHash: "",
+			},
 		},
 	}
 }
@@ -196,24 +214,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						},
 						addToAPIResourceList(
 							requiredCoreAPIResourceList(kubelikeClusterName),
-							metav1.APIResource{
-								Kind:               "Service",
-								Name:               "services",
-								SingularName:       "service",
-								Namespaced:         true,
-								Verbs:              metav1.Verbs{"get", "list", "patch", "update", "watch"},
-								StorageVersionHash: discovery.StorageVersionHash(kubelikeClusterName, "", "v1", "Service"),
-								Categories:         []string{"all"},
-								ShortNames:         []string{"svc"},
-							},
-							metav1.APIResource{
-								Kind:               "Service",
-								Name:               "services/status",
-								SingularName:       "",
-								Namespaced:         true,
-								Verbs:              metav1.Verbs{"get", "patch", "update"},
-								StorageVersionHash: "",
-							}),
+						),
 					}, sortAPIResourceList(kubelikeAPIResourceLists))) == 0
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
@@ -650,7 +651,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 
 			t.Logf("Deploying syncer into workspace %s", wildwestWorkspace)
 			wildwestSyncer := framework.NewSyncerFixture(t, server, wildwestWorkspace,
-				framework.WithExtraResources("cowboys.wildwest.dev"),
+				framework.WithExtraResources("cowboys.wildwest.dev", "services"),
 				framework.WithSyncTarget(wildwestWorkspace, wildwestSyncTargetName),
 				framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 					// Always install the crd regardless of whether the target is
@@ -659,6 +660,11 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					require.NoError(t, err)
 					t.Log("Installing test CRDs into sink cluster...")
 					fixturewildwest.Create(t, logicalcluster.Name{}, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
+
+					if isFakePCluster {
+						// Only need to install services in a non-logical cluster
+						kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: "core.k8s.io", Resource: "services"})
+					}
 				}),
 			).Start(t)
 

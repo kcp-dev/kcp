@@ -71,7 +71,8 @@ type Controller struct {
 }
 
 func NewSpecSyncer(syncTargetWorkspace logicalcluster.Name, syncTargetName, syncTargetKey string, upstreamURL *url.URL, advancedSchedulingEnabled bool,
-	upstreamClient dynamic.ClusterInterface, downstreamClient dynamic.Interface, upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory, syncerInformers resourcesync.SyncerInformerFactory, syncTargetUID types.UID) (*Controller, error) {
+	upstreamClient dynamic.ClusterInterface, downstreamClient dynamic.Interface, upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory, syncerInformers resourcesync.SyncerInformerFactory, syncTargetUID types.UID,
+	dnsIP string) (*Controller, error) {
 
 	c := Controller{
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
@@ -177,7 +178,7 @@ func NewSpecSyncer(syncTargetWorkspace logicalcluster.Name, syncTargetName, sync
 	secretMutator := specmutators.NewSecretMutator()
 
 	upstreamSecretIndexer := upstreamInformers.ForResource(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}).Informer().GetIndexer()
-	deploymentMutator := specmutators.NewDeploymentMutator(upstreamURL, newSecretLister(upstreamSecretIndexer))
+	deploymentMutator := specmutators.NewDeploymentMutator(upstreamURL, newSecretLister(upstreamSecretIndexer), syncTargetWorkspace, dnsIP)
 
 	if err := upstreamSecretIndexer.AddIndexers(cache.Indexers{
 		byWorkspaceAndNamespaceIndexName: indexByWorkspaceAndNamespace,

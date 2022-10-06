@@ -576,7 +576,7 @@ func TestSyncerProcess(t *testing.T) {
 								"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
 							}, nil, nil)),
 							setNestedField(map[string]interface{}{}, "status"),
-							setPodSpecServiceAccount("spec", "template", "spec"),
+							setPodSpec("spec", "template", "spec"),
 						),
 					),
 				),
@@ -769,7 +769,7 @@ func TestSyncerProcess(t *testing.T) {
 								},
 							}, "spec", "template"),
 							setNestedField(map[string]interface{}{}, "status"),
-							setPodSpecServiceAccount("spec", "template", "spec"),
+							setPodSpec("spec", "template", "spec"),
 						),
 					),
 				),
@@ -1001,7 +1001,7 @@ func TestSyncerProcess(t *testing.T) {
 
 			upstreamURL, err := url.Parse("https://kcp.dev:6443")
 			require.NoError(t, err)
-			controller, err := NewSpecSyncer(kcpLogicalCluster, tc.syncTargetName, syncTargetKey, upstreamURL, tc.advancedSchedulingEnabled, fromClusterClient, toClient, fromInformers, toInformers, fakeInformers, syncTargetUID)
+			controller, err := NewSpecSyncer(kcpLogicalCluster, tc.syncTargetName, syncTargetKey, upstreamURL, tc.advancedSchedulingEnabled, fromClusterClient, toClient, fromInformers, toInformers, fakeInformers, syncTargetUID, "8.8.8.8")
 			require.NoError(t, err)
 
 			fromInformers.Start(ctx.Done())
@@ -1166,9 +1166,15 @@ func setNestedField(value interface{}, fields ...string) unstructuredChange {
 	}
 }
 
-func setPodSpecServiceAccount(fields ...string) unstructuredChange {
+func setPodSpec(fields ...string) unstructuredChange {
 	var j interface{}
 	err := json.Unmarshal([]byte(`{
+	"dnsConfig": {
+       "nameservers": [ "8.8.8.8" ],
+       "options": [{ "name": "ndots", "value": "5"}],
+       "searches": ["test.svc.cluster.local", "svc.cluster.local", "cluster.local"]
+    },
+	"dnsPolicy": "None",
 	"automountServiceAccountToken":false,
 	"containers":null,
 	"volumes":[

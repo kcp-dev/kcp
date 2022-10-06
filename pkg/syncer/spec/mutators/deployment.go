@@ -34,8 +34,10 @@ import (
 type ListSecretFunc func(clusterName logicalcluster.Name, namespace string) ([]*unstructured.Unstructured, error)
 
 type DeploymentMutator struct {
-	upstreamURL *url.URL
-	listSecrets ListSecretFunc
+	upstreamURL                  *url.URL
+	listSecrets                  ListSecretFunc
+	syncTargetLogicalClusterName logicalcluster.Name
+	dnsIP                        string
 }
 
 func (dm *DeploymentMutator) GVR() schema.GroupVersionResource {
@@ -46,10 +48,12 @@ func (dm *DeploymentMutator) GVR() schema.GroupVersionResource {
 	}
 }
 
-func NewDeploymentMutator(upstreamURL *url.URL, secretLister ListSecretFunc) *DeploymentMutator {
+func NewDeploymentMutator(upstreamURL *url.URL, secretLister ListSecretFunc, syncTargetLogicalClusterName logicalcluster.Name, dnsIP string) *DeploymentMutator {
 	return &DeploymentMutator{
-		upstreamURL: upstreamURL,
-		listSecrets: secretLister,
+		upstreamURL:                  upstreamURL,
+		listSecrets:                  secretLister,
+		syncTargetLogicalClusterName: syncTargetLogicalClusterName,
+		dnsIP:                        dnsIP,
 	}
 }
 
@@ -205,6 +209,26 @@ func (dm *DeploymentMutator) Mutate(obj *unstructured.Unstructured) error {
 	}
 	if !found {
 		templateSpec.Volumes = append(templateSpec.Volumes, serviceAccountVolume)
+	}
+
+	// TODO: multiple worskpaces support. See https://github.com/kcp-dev/kcp/issues/1987
+	if dm.syncTargetLogicalClusterName == upstreamLogicalName {
+		// Overrides DNS to point to the workspace DNS
+		deployment.Spec.Template.Spec.DNSPolicy = corev1.DNSNone
+		deployment.Spec.Template.Spec.DNSConfig = &corev1.PodDNSConfig{
+			Nameservers: []string{dm.dnsIP},
+			Searches: []string{ // TODO(LV): from /etc/resolv.conf
+				obj.GetNamespace() + ".svc.cluster.local",
+				"svc.cluster.local",
+				"cluster.local",
+			},
+			Options: []corev1.PodDNSConfigOption{
+				{
+					Name:  "ndots",
+					Value: utilspointer.String("5"),
+				},
+			},
+		}
 	}
 
 	unstructured, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&deployment)
