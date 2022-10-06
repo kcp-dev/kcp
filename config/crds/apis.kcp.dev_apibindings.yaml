@@ -107,6 +107,9 @@ spec:
                     - exportName
                     type: object
                 type: object
+                x-kubernetes-validations:
+                - message: APIExport reference must not be changed
+                  rule: self == oldSelf
             required:
             - reference
             type: object

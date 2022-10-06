@@ -69,6 +69,7 @@ type APIBindingSpec struct {
 	//
 	// +required
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="APIExport reference must not be changed"
 	Reference ExportReference `json:"reference"`
 
 	// permissionClaims records decisions about permission claims requested by the API service provider.
