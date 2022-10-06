@@ -1,10 +1,9 @@
-
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.7.0
+    controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
   name: placements.scheduling.kcp.dev
 spec:
@@ -126,6 +125,7 @@ spec:
                         are ANDed.
                       type: object
                   type: object
+                  x-kubernetes-map-type: atomic
                 type: array
               locationWorkspace:
                 description: locationWorkspace is an absolute reference to a workspace
@@ -179,6 +179,7 @@ spec:
                       are ANDed.
                     type: object
                 type: object
+                x-kubernetes-map-type: atomic
             required:
             - locationResource
             type: object
@@ -260,9 +261,3 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []

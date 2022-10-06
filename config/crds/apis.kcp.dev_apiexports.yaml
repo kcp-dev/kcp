@@ -2,7 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.7.0
+    controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
   name: apiexports.apis.kcp.dev
 spec:
@@ -69,6 +69,7 @@ spec:
                           secret name must be unique.
                         type: string
                     type: object
+                    x-kubernetes-map-type: atomic
                 type: object
               latestResourceSchemas:
                 description: "latestResourceSchemas records the latest APIResourceSchemas
@@ -222,9 +223,3 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
