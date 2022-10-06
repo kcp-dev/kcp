@@ -162,8 +162,8 @@ In most cases kcp will be the source for syncing resources to the `SyncTarget`, 
 kcp would need to receive a resource that was provisioned by a controller on the `SyncTarget`.
 This is the case with storage PVs, which are created on the `SyncTarget` by a CSI driver.
 
-Unlike the `Sync` state, the `Upsync` state is exclusive, and only a single `SyncTarget` can be upsyncing a resource to KCP.
-In addition, other `SyncTargets` cannot be syncing down while the resource is upsyncing.
+Unlike the `Sync` state, the `Upsync` state is exclusive, and only a single `SyncTarget` can be the source of truth for an upsynced resource.
+In addition, other `SyncTargets` cannot be syncing down while the resource is being upsynced.
 
 A resource coordination controller will be responsible for changing the `state.workload.kcp.dev/<cluster-id>` label,
 to drive the different flows on the resource. A resource can be changed from `Upsync` to `Sync` in order to share it across `SyncTargets`. 
