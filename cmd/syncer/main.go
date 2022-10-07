@@ -20,6 +20,7 @@ import (
 	"os"
 
 	"k8s.io/component-base/cli"
+	_ "k8s.io/component-base/logs/json/register"
 
 	"github.com/kcp-dev/kcp/cmd/syncer/cmd"
 )

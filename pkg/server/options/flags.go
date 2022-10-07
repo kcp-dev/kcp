@@ -120,7 +120,7 @@ var (
 		"service-account-max-token-expiration",    // The maximum validity duration of a token created by the service account token issuer. If an otherwise valid TokenRequest with a validity duration larger than this value is requested, a token will be issued with a validity duration of this value.
 
 		// logs flags
-		"logging-format",      // Sets the log format. Permitted formats: "text".
+		"logging-format",      // Sets the log format. Permitted formats: "text", "json".
 		"log-flush-frequency", // Maximum number of seconds between log flushes
 		"v",                   // number for the log level verbosity
 		"vmodule",             // comma-separated list of pattern=N settings for file-filtered logging (only works for text log format)
