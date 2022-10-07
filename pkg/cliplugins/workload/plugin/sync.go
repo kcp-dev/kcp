@@ -180,7 +180,7 @@ func (o *SyncOptions) Run(ctx context.Context) error {
 	// talking to kcp.
 	//
 	// TODO(marun) Consider allowing a user-specified and exclusive set of types.
-	requiredResourcesToSync := sets.NewString("deployments.apps", "secrets", "configmaps", "serviceaccounts")
+	requiredResourcesToSync := sets.NewString("deployments.apps", "secrets", "configmaps")
 	resourcesToSync := sets.NewString(o.ResourcesToSync...).Union(requiredResourcesToSync).List()
 
 	config, err := o.ClientConfig.ClientConfig()
