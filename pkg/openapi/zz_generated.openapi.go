@@ -1200,12 +1200,6 @@ func schema_pkg_apis_apis_v1alpha1_APIBindingStatus(ref common.ReferenceCallback
 				Description: "APIBindingStatus records which schemas are bound.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"boundExport": {
-						SchemaProps: spec.SchemaProps{
-							Description: "boundExport records the export this binding is bound to currently. It can differ from the export that was specified in the spec while rebinding to a different APIExport.\n\nThis field is what gives the APIExport visibility into the objects in this workspace.",
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportReference"),
-						},
-					},
 					"boundResources": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
@@ -1282,7 +1276,7 @@ func schema_pkg_apis_apis_v1alpha1_APIBindingStatus(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.BoundAPIResource", "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportReference", "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.PermissionClaim", "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
+			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.BoundAPIResource", "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.PermissionClaim", "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
 	}
 }
 
