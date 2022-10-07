@@ -509,4 +509,14 @@ var InternalAPIs = []internalapis.InternalAPI{
 		Instance:      &eventsv1.Event{},
 		ResourceScope: apiextensionsv1.NamespaceScoped,
 	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "customresourcedefinitions",
+			Singular: "customresourcedefinition",
+			Kind:     "CustomResourceDefinition",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "apiextensions.k8s.io", Version: "v1"},
+		Instance:      &apiextensionsv1.CustomResourceDefinition{},
+		ResourceScope: apiextensionsv1.ClusterScoped,
+	},
 }
