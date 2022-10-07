@@ -31,7 +31,7 @@ func main() {
 		log.Fatalf("Failed to get current directory: %v", err)
 	}
 
-	cliDocsPath := filepath.Join(currentDir, "docs", "cli")
+	cliDocsPath := filepath.Join(currentDir, "docs", "content", "en", "main", "cli")
 
 	if err := os.RemoveAll(cliDocsPath); err != nil {
 		log.Fatalf("Failed to remove existing generated docs: %v", err)

@@ -1,0 +1,95 @@
+# Copyright 2021 The KCP Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+template_path: ./crd.template.md
+
+source_repositories:
+  - url: https://github.com/kcp-dev/kcp
+    organization: kcp-dev
+    short_name: kcp
+    commit_reference: main
+    crd_paths:
+      - config/crds
+    cr_paths:
+      - docs/cr
+    metadata:
+      apiresourceimports.apiresource.kcp.dev:
+        owner:
+          - https://github.com/kcp-dev/kcp
+        topics:
+          - apiresource
+      negotiatedapiresources.apiresource.kcp.dev:
+        owner:
+          - https://github.com/kcp-dev/kcp
+        topics:
+          - apiresource
+      apibindings.apis.kcp.dev:
+        owner:
+          - https://github.com/kcp-dev/kcp
+        topics:
+          - apis
+      apiexports.apis.kcp.dev:
+        owner:
+          - https://github.com/kcp-dev/kcp
+        topics:
+          - apis
+      apiresourceschemas.apis.kcp.dev:
+        owner:
+          - https://github.com/kcp-dev/kcp
+        topics:
+          - apis
+      locations.scheduling.kcp.dev:
+        owner:
+          - https://github.com/kcp-dev/kcp
+        topics:
+          - schuduling
+          - location
+      placements.scheduling.kcp.dev:
+        owner:
+          - https://github.com/kcp-dev/kcp
+        topics:
+          - scheduling
+          - placements
+      clusterworkspaces.tenancy.kcp.dev:
+        owner:
+          - https://github.com/kcp-dev/kcp
+        topics:
+          - tenancy
+          - workspaces
+      clusterworkspaceshards.tenancy.kcp.dev:
+        owner:
+          - https://github.com/kcp-dev/kcp
+        topics:
+          - tenancy
+          - workspaces
+          - shards
+      clusterworkspacetypes.tenancy.kcp.dev:
+        owner:
+          - https://github.com/kcp-dev/kcp
+        topics:
+          - tenancy
+          - workspaces
+          - types
+      workspaces.tenancy.kcp.dev:
+        owner:
+          - https://github.com/kcp-dev/kcp
+        topics:
+          - tenancy
+          - workspaces
+      synctargets.workload.kcp.dev:
+        owner:
+          - https://github.com/kcp-dev/kcp
+        topics:
+          - workload
+          - synctargets

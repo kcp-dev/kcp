@@ -140,6 +140,7 @@ update-contextual-logging: $(LOGCHECK)
 
 generate-docs:
 	go run hack/generate/cli-doc/gen-cli-doc.go
+	./hack/generate/crd-ref/run-crd-ref-gen.sh
 
 vendor: ## Vendor the dependencies
 	go mod tidy
