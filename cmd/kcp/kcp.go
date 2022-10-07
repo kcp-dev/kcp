@@ -31,6 +31,7 @@ import (
 	"k8s.io/component-base/cli/globalflag"
 	"k8s.io/component-base/config"
 	"k8s.io/component-base/logs"
+	_ "k8s.io/component-base/logs/json/register"
 	"k8s.io/component-base/term"
 	"k8s.io/component-base/version"
 	"k8s.io/klog/v2"

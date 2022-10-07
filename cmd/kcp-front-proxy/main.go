@@ -31,6 +31,7 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/component-base/cli"
 	utilflag "k8s.io/component-base/cli/flag"
+	_ "k8s.io/component-base/logs/json/register"
 	"k8s.io/component-base/version"
 
 	frontproxyoptions "github.com/kcp-dev/kcp/cmd/kcp-front-proxy/options"
