@@ -21,6 +21,9 @@ import (
 	"fmt"
 	"io"
 
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	"github.com/kcp-dev/logicalcluster/v2"
+
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,11 +34,10 @@ import (
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	kubernetesinformers "k8s.io/client-go/informers"
 	kubernetesclient "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clusters"
 
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 )
 
 const (
@@ -46,7 +48,7 @@ const (
 // Register registers a plugin
 func Register(plugins *admission.Plugins) {
 	plugins.Register(PluginName, func(config io.Reader) (admission.Interface, error) {
-		return newLifcycle()
+		return newWorkspaceNamespaceLifecycle()
 	})
 }
 
@@ -55,17 +57,18 @@ func Register(plugins *admission.Plugins) {
 // immortal namespaces when the workspaces is deleting. This can ensure we can remove all immortal
 // namespaces when workspaces is deleting.
 type workspaceNamespaceLifecycle struct {
+	*admission.Handler
+
 	// legacyNamespaceLifecycle is the kube legacy namespace lifecycle
 	legacyNamespaceLifecycle *lifecycle.Lifecycle
 
 	// namespaceLifecycle is used only when workspace is deleting
 	namespaceLifecycle *lifecycle.Lifecycle
 
-	*admission.Handler
-	workspaceLister tenancylisters.ClusterWorkspaceLister
+	getClusterWorkspace func(clusterName logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspace, error)
 }
 
-func newLifcycle() (*workspaceNamespaceLifecycle, error) {
+func newWorkspaceNamespaceLifecycle() (*workspaceNamespaceLifecycle, error) {
 	legacyLifecycle, err := lifecycle.NewLifecycle(sets.NewString(metav1.NamespaceDefault, metav1.NamespaceSystem, metav1.NamespacePublic))
 	if err != nil {
 		return nil, err
@@ -89,7 +92,6 @@ var _ = initializer.WantsExternalKubeClientSet(&workspaceNamespaceLifecycle{})
 
 // Admit makes an admission decision based on the request attributes
 func (l *workspaceNamespaceLifecycle) Admit(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) error {
-
 	// call legacy namespace lifecycle at first
 	admissionErr := l.legacyNamespaceLifecycle.Admit(ctx, a, o)
 
@@ -114,9 +116,7 @@ func (l *workspaceNamespaceLifecycle) Admit(ctx context.Context, a admission.Att
 		return admissionErr
 	}
 
-	workspaceKey := clusters.ToClusterAwareKey(org, clusterName.Base())
-
-	workspace, err := l.workspaceLister.Get(workspaceKey)
+	workspace, err := l.getClusterWorkspace(org, clusterName.Base())
 	// The shard hosting the workspace could be down,
 	// just return error from legacy namespace lifecycle admission in this case
 	if err != nil && !apierrors.IsNotFound(err) {
@@ -144,7 +144,10 @@ func (l *workspaceNamespaceLifecycle) SetExternalKubeClientSet(client kubernetes
 
 func (l *workspaceNamespaceLifecycle) SetKcpInformers(informers kcpinformers.SharedInformerFactory) {
 	l.SetReadyFunc(informers.Tenancy().V1alpha1().ClusterWorkspaces().Informer().HasSynced)
-	l.workspaceLister = informers.Tenancy().V1alpha1().ClusterWorkspaces().Lister()
+
+	l.getClusterWorkspace = func(clusterName logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspace, error) {
+		return informers.Tenancy().V1alpha1().ClusterWorkspaces().Lister().Get(kcpcache.ToClusterAwareKey(clusterName.String(), "", name))
+	}
 }
 
 // ValidateInitialization implements the InitializationValidator interface.
@@ -157,8 +160,8 @@ func (l *workspaceNamespaceLifecycle) ValidateInitialization() error {
 		return err
 	}
 
-	if l.workspaceLister == nil {
-		return fmt.Errorf("missing workspaceLister")
+	if l.getClusterWorkspace == nil {
+		return fmt.Errorf("missing getClusterWorkspace")
 	}
 	return nil
 }
