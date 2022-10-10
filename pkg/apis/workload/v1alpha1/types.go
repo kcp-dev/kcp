@@ -27,6 +27,11 @@ const (
 	// This includes the deletion process until the resource is deleted downstream and the
 	// syncer removes the state.workload.kcp.dev/<sync-target-name> label.
 	ResourceStateSync ResourceState = "Sync"
+	// ResourceStateUpsync is the state of a resource when it is synced up from the sync target.
+	// Compared to Sync state, this state is exclusive, meaning that only one sync target can
+	// be up-syncing a resource, and in addition, others sync targets cannot sync from this resource
+	// because the up-syncer is owning both the spec and the status of that resource.
+	ResourceStateUpsync ResourceState = "Upsync"
 )
 
 const (

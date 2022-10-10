@@ -155,3 +155,19 @@ workspace.
 Note: there is a missing bit in the implementation (in v0.5) about removal of the `state.workload.kcp.dev/<cluster-id>`
 label from namespaces: the syncer currently does not participate in the namespace deletion state-machine, but has to and signal finished
 downstream namespace deletion via `state.workload.kcp.dev/<cluster-id>` label removal.
+
+### Resource Upsyncing
+
+In most cases kcp will be the source for syncing resources to the `SyncTarget`, however, in some cases, 
+kcp would need to receive a resource that was provisioned by a controller on the `SyncTarget`.
+This is the case with storage PVs, which are created on the `SyncTarget` by a CSI driver.
+
+Unlike the `Sync` state, the `Upsync` state is exclusive, and only a single `SyncTarget` can be the source of truth for an upsynced resource.
+In addition, other `SyncTargets` cannot be syncing down while the resource is being upsynced.
+
+A resource coordination controller will be responsible for changing the `state.workload.kcp.dev/<cluster-id>` label,
+to drive the different flows on the resource. A resource can be changed from `Upsync` to `Sync` in order to share it across `SyncTargets`. 
+This change will be applied by the coordination controller when needed, and the original syncer will detect that change and stop upsyncing to that resource,
+and all the sync targets involved will be in `Sync` state.
+
+For more information on the upsync use case for storage, refer to the [storage doc](storage.md).
