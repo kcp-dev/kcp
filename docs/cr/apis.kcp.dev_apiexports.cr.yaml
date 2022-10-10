@@ -1,0 +1,22 @@
+apiVersion: apis.kcp.dev/v1alpha1
+kind: APIExport
+metadata:
+  name: example
+  namespace: default
+spec:
+  identity:
+    secretRef: corev1.SecretReference
+  latestResourceSchemas:
+  - scuttle
+  maximalPermissionPolicy:
+    local: LocalAPIExportPolicy
+  permissionClaims:
+  - GroupResource:
+      group: parrel
+      resource: provost
+    identityHash: deadlights
+status:
+  conditions: conditionsv1alpha1.Conditions
+  identityHash: jack
+  virtualWorkspaces:
+  - url: lad

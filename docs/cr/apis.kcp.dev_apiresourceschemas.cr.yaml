@@ -1,0 +1,19 @@
+apiVersion: apis.kcp.dev/v1alpha1
+kind: APIResourceSchema
+metadata:
+  name: example
+  namespace: default
+spec:
+  group: schooner
+  names: apiextensionsv1.CustomResourceDefinitionNames
+  scope: apiextensionsv1.ResourceScope
+  versions:
+    - additionalPrinterColumns:
+        - apiextensionsv1.CustomResourceColumnDefinition
+      deprecated: "true"
+      deprecationWarning: dance
+      name: scallywag
+      schema: runtime.RawExtension
+      served: true
+      storage: "true"
+      subresources: apiextensionsv1.CustomResourceSubresources

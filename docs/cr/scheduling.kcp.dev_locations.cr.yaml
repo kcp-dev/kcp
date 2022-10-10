@@ -1,0 +1,20 @@
+apiVersion: scheduling.kcp.dev/v1alpha1
+kind: Location
+metadata:
+  name: example
+  namespace: default
+spec:
+  availableSelectorLabels:
+  - description: deadlights
+    key: LabelKey
+    values:
+    - LabelValue
+  description: provost
+  instanceSelector: metav1.LabelSelector
+  resource:
+    group: prow
+    resource: parrel
+    version: scuttle
+status:
+  availableInstances: uint32
+  instances: uint32

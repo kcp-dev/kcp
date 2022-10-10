@@ -1,0 +1,20 @@
+apiVersion: scheduling.kcp.dev/v1alpha1
+kind: Placement
+metadata:
+  name: example
+  namespace: default
+spec:
+  locationResource:
+    group: jack
+    resource: schooner
+    version: lad
+  locationSelectors:
+  - metav1.LabelSelector
+  locationWorkspace: scallywag
+  namespaceSelector: metav1.LabelSelector
+status:
+  conditions: conditionsv1alpha1.Conditions
+  phase: Pending
+  selectedLocation:
+    locationName: Pinnace
+    path: dance

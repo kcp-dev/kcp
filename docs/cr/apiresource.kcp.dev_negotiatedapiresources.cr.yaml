@@ -1,0 +1,21 @@
+apiVersion: apiresource.kcp.dev/v1alpha1
+kind: NegotiatedAPIResource
+metadata:
+  name: example
+  namespace: default
+spec:
+  columnDefinitions: ColumnDefinitions
+  groupVersion:
+    group: jack
+    version: lad
+  openAPIV3Schema: runtime.RawExtension
+  publish: "true"
+  scope: apiextensionsv1.ResourceScope
+  subResources: SubResources
+status:
+  conditions:
+    - lastTransitionTime: metav1.Time
+      message: scallywag
+      reason: schooner
+      status: metav1.ConditionStatus
+      type: NegotiatedAPIResourceConditionType

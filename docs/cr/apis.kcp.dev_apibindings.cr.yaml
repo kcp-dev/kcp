@@ -1,0 +1,42 @@
+apiVersion: apis.kcp.dev/v1alpha1
+kind: APIBinding
+metadata:
+  name: example
+  namespace: default
+spec:
+  permissionClaims:
+    - GroupResource:
+        group: parrel
+        resource: provost
+      identityHash: deadlights
+      state: AcceptablePermissionClaimState
+  reference:
+    workspace:
+      exportName: scuttle
+      path: prow
+status:
+  appliedPermissionClaims:
+    - GroupResource:
+        group: quarter
+        resource: lookout
+      identityHash: wherry
+  boundExport:
+    workspace:
+      exportName: lad
+      path: jack
+  boundResources:
+    - group: schooner
+      resource: scallywag
+      schema:
+        UID: Pinnace
+        identityHash: holystone
+        name: dance
+      storageVersions:
+        - mizzenmast
+  conditions: conditionsv1alpha1.Conditions
+  exportPermissionClaims:
+    - GroupResource:
+        group: doubloon
+        resource: chase
+      identityHash: prow
+  phase: APIBindingPhaseType

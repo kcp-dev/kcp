@@ -1,0 +1,22 @@
+apiVersion: apiresource.kcp.dev/v1alpha1
+kind: APIResourceImport
+metadata:
+  name: example
+  namespace: default
+spec:
+  columnDefinitions: ColumnDefinitions
+  groupVersion:
+    group: scuttle
+    version: parrel
+  location: prow
+  openAPIV3Schema: runtime.RawExtension
+  schemaUpdateStrategy: SchemaUpdateStrategyType
+  scope: apiextensionsv1.ResourceScope
+  subResources: SubResources
+status:
+  conditions:
+  - lastTransitionTime: metav1.Time
+    message: deadlights
+    reason: provost
+    status: metav1.ConditionStatus
+    type: APIResourceImportConditionType
