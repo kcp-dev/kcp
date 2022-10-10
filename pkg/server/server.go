@@ -92,7 +92,8 @@ func NewServer(c CompletedConfig) (*Server, error) {
 		indexers.AppendOrDie(
 			indexers.NamespaceScoped(),
 			cache.Indexers{
-				indexers.BySyncerFinalizerKey: indexers.IndexBySyncerFinalizerKey,
+				indexers.BySyncerFinalizerKey:           indexers.IndexBySyncerFinalizerKey,
+				indexers.ByClusterResourceStateLabelKey: indexers.IndexByClusterResourceStateLabelKey,
 			},
 		),
 	)
