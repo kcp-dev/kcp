@@ -64,8 +64,10 @@ func findCEL(t *testing.T, s *schema.Structural, pth *field.Path) (map[string]CE
 	ret := map[string]CELValidateFunc{}
 
 	if len(s.XValidations) > 0 {
+		s := *s
+		pth := *pth
 		ret[pth.String()] = func(obj, old interface{}) field.ErrorList {
-			errs, _ := cel.NewValidator(s, 10000000).Validate(context.TODO(), pth, s, obj, old, 10000000)
+			errs, _ := cel.NewValidator(&s, 10000000).Validate(context.TODO(), &pth, &s, obj, old, 10000000)
 			return errs
 		}
 	}
