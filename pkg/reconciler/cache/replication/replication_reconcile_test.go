@@ -23,313 +23,388 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/dynamic"
-	dynamicfake "k8s.io/client-go/dynamic/fake"
-	clientgotesting "k8s.io/client-go/testing"
-	"k8s.io/client-go/tools/cache"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 )
-
-var scheme *runtime.Scheme
-
-func init() {
-	scheme = runtime.NewScheme()
-	_ = apisv1alpha1.AddToScheme(scheme)
-}
 
 func TestReconcileAPIExports(t *testing.T) {
 	scenarios := []struct {
-		name                                     string
-		initialLocalApiExports                   []runtime.Object
-		initialCacheApiExports                   []runtime.Object
-		initCacheFakeClientWithInitialApiExports bool
-		reconcileKey                             string
-		validateFunc                             func(ts *testing.T, cacheClientActions []clientgotesting.Action, localClientActions []clientgotesting.Action, targetClusterCacheClient, targetClusterLocalClient logicalcluster.Name)
+		name                  string
+		initialLocalApiExport *apisv1alpha1.APIExport
+		initialCacheApiExport *apisv1alpha1.APIExport
+		reconcileKey          string
+		getCachedAPIExport    func(gvr schema.GroupVersionResource, shard string, cluster logicalcluster.Name, namespace, name string) (*apisv1alpha1.APIExport, error)
+		getLocalAPIExport     func(cluster logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error)
+		getLocalObject        func(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error)
+		createCachedObject    func(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace string, object *unstructured.Unstructured) (*unstructured.Unstructured, error)
+		updateCachedObject    func(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace string, object *unstructured.Unstructured) (*unstructured.Unstructured, error)
+		deleteCachedObject    func(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) error
+		validateCalls         func(t *testing.T, calls callContext)
 	}{
 		{
-			name:                   "case 1: creation of the object in the cache server",
-			initialLocalApiExports: []runtime.Object{newAPIExport("foo")},
-			reconcileKey:           fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
-			validateFunc: func(ts *testing.T, cacheClientActions []clientgotesting.Action, localClientActions []clientgotesting.Action, targetClusterCacheClient, targetClusterLocalClient logicalcluster.Name) {
-				if len(localClientActions) != 0 {
-					ts.Fatal("unexpected REST calls were made to the localDynamicClient")
+			name:                  "case 1: creation of the object in the cache server",
+			initialLocalApiExport: newAPIExport("foo"),
+			reconcileKey:          fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
+			createCachedObject: func(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace string, object *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+				if diff := cmp.Diff(gvr, apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")); diff != "" {
+					return nil, fmt.Errorf("got CREATE for incorrect GVR: %v", diff)
 				}
-				if targetClusterCacheClient.String() != "root" {
-					ts.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", targetClusterCacheClient)
+				if actual, expected := kcpcache.ToClusterAwareKey(cluster.String(), namespace, object.GetName()), kcpcache.ToClusterAwareKey("root", "", "foo"); actual != expected {
+					return nil, fmt.Errorf("got CREATE %s, expected CREATE %s", actual, expected)
 				}
-				wasCacheApiExportValidated := false
-				for _, action := range cacheClientActions {
-					if action.Matches("create", "apiexports") {
-						createAction := action.(clientgotesting.CreateAction)
-						createdUnstructuredApiExport := createAction.GetObject().(*unstructured.Unstructured)
-						cacheApiExportFromUnstructured := &apisv1alpha1.APIExport{}
-						if err := runtime.DefaultUnstructuredConverter.FromUnstructured(createdUnstructuredApiExport.Object, cacheApiExportFromUnstructured); err != nil {
-							ts.Fatalf("failed to convert unstructured to APIExport: %v", err)
-						}
+				cacheApiExportFromUnstructured := &apisv1alpha1.APIExport{}
+				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(object.Object, cacheApiExportFromUnstructured); err != nil {
+					return nil, fmt.Errorf("failed to convert unstructured to APIExport: %w", err)
+				}
 
-						expectedApiExport := newAPIExportWithShardAnnotation("foo")
-						if !equality.Semantic.DeepEqual(cacheApiExportFromUnstructured, expectedApiExport) {
-							ts.Errorf("unexpected ApiExport was creaetd:\n%s", cmp.Diff(cacheApiExportFromUnstructured, expectedApiExport))
-						}
-						wasCacheApiExportValidated = true
-						break
-					}
+				expectedApiExport := newAPIExportWithShardAnnotation("foo")
+				if !equality.Semantic.DeepEqual(cacheApiExportFromUnstructured, expectedApiExport) {
+					return nil, fmt.Errorf("unexpected ApiExport was created:\n%s", cmp.Diff(cacheApiExportFromUnstructured, expectedApiExport))
 				}
-				if !wasCacheApiExportValidated {
-					ts.Errorf("an ApiExport on the cache sever wasn't created")
+				return object, nil
+			},
+			validateCalls: func(t *testing.T, calls callContext) {
+				if !calls.createCachedObject.called {
+					t.Error("cached object was not created")
 				}
 			},
 		},
 		{
 			name: "case 2: cached object is removed when local object was removed",
-			initialLocalApiExports: []runtime.Object{
-				func() *apisv1alpha1.APIExport {
-					t := metav1.NewTime(time.Now())
-					apiExport := newAPIExport("foo")
-					apiExport.DeletionTimestamp = &t
-					apiExport.Finalizers = []string{"aFinalizer"}
-					return apiExport
-				}(),
+			initialLocalApiExport: func() *apisv1alpha1.APIExport {
+				t := metav1.NewTime(time.Now())
+				apiExport := newAPIExport("foo")
+				apiExport.DeletionTimestamp = &t
+				apiExport.Finalizers = []string{"aFinalizer"}
+				return apiExport
+			}(),
+			initialCacheApiExport: newAPIExportWithShardAnnotation("foo"),
+			reconcileKey:          fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
+			deleteCachedObject: func(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) error {
+				if diff := cmp.Diff(gvr, apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")); diff != "" {
+					return fmt.Errorf("got DELETE for incorrect GVR: %v", diff)
+				}
+				if actual, expected := kcpcache.ToClusterAwareKey(cluster.String(), namespace, name), kcpcache.ToClusterAwareKey("root", "", "foo"); actual != expected {
+					return fmt.Errorf("got DELETE %s, expected DELETE %s", actual, expected)
+				}
+				return nil
 			},
-			initialCacheApiExports:                   []runtime.Object{newAPIExportWithShardAnnotation("foo")},
-			initCacheFakeClientWithInitialApiExports: true,
-			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
-			validateFunc: func(ts *testing.T, cacheClientActions []clientgotesting.Action, localClientActions []clientgotesting.Action, targetClusterCacheClient, targetClusterLocalClient logicalcluster.Name) {
-				if len(localClientActions) != 0 {
-					ts.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", targetClusterCacheClient)
-				}
-				if targetClusterCacheClient.String() != "root" {
-					ts.Fatalf("wrong cluster = %s was targeted", targetClusterCacheClient)
-				}
-				wasCacheApiExportValidated := false
-				for _, action := range cacheClientActions {
-					if action.Matches("delete", "apiexports") {
-						deleteAction := action.(clientgotesting.DeleteAction)
-						if deleteAction.GetName() != "foo" {
-							ts.Fatalf("unexpected APIExport was removed = %v, expected = %v", deleteAction.GetName(), "foo")
-						}
-						wasCacheApiExportValidated = true
-						break
-					}
-				}
-				if !wasCacheApiExportValidated {
-					ts.Errorf("an ApiExport on the cache sever wasn't deleted")
+			validateCalls: func(t *testing.T, calls callContext) {
+				if !calls.deleteCachedObject.called {
+					t.Error("cached object was not deleted")
 				}
 			},
 		},
 		{
-			name:                                     "case 2: cached object is removed when local object was not found",
-			initialCacheApiExports:                   []runtime.Object{newAPIExportWithShardAnnotation("foo")},
-			initCacheFakeClientWithInitialApiExports: true,
-			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
-			validateFunc: func(ts *testing.T, cacheClientActions []clientgotesting.Action, localClientActions []clientgotesting.Action, targetClusterCacheClient, targetClusterLocalClient logicalcluster.Name) {
-				if targetClusterCacheClient.String() != "root" {
-					ts.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", targetClusterCacheClient)
+			name:                  "case 2: cached object is removed when local object was not found",
+			initialCacheApiExport: newAPIExportWithShardAnnotation("foo"),
+			reconcileKey:          fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
+			getLocalAPIExport: func(cluster logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
+				if actual, expected := kcpcache.ToClusterAwareKey(cluster.String(), "", name), kcpcache.ToClusterAwareKey("root", "", "foo"); actual != expected {
+					return nil, fmt.Errorf("got GET %s, expected GET %s", actual, expected)
 				}
-				if targetClusterCacheClient.String() != "root" {
-					ts.Fatalf("wrong cluster = %s was targeted for localDynamicClient", targetClusterLocalClient)
+				return nil, errors.NewNotFound(apisv1alpha1.Resource("apiexports"), "foo")
+			},
+			getLocalObject: func(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error) {
+				if diff := cmp.Diff(gvr, apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")); diff != "" {
+					return nil, fmt.Errorf("got GET for incorrect GVR: %v", diff)
 				}
-				wasCacheApiExportDeletionValidated := false
-				wasCacheApiExportRetrievalValidated := false
-				for _, action := range localClientActions {
-					if action.Matches("get", "apiexports") {
-						getAction := action.(clientgotesting.GetAction)
-						if getAction.GetName() != "foo" {
-							ts.Fatalf("unexpected ApiExport was retrieved = %s, expected = %s", getAction.GetName(), "foo")
-						}
-						wasCacheApiExportRetrievalValidated = true
-						break
-					}
+				if actual, expected := kcpcache.ToClusterAwareKey(cluster.String(), namespace, name), kcpcache.ToClusterAwareKey("root", "", "foo"); actual != expected {
+					return nil, fmt.Errorf("got GET %s, expected GET %s", actual, expected)
 				}
-				if !wasCacheApiExportRetrievalValidated {
-					ts.Errorf("before deleting an ApiExport the controller should live GET it")
+				return nil, errors.NewNotFound(apisv1alpha1.Resource("apiexports"), "foo")
+			},
+			deleteCachedObject: func(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) error {
+				if diff := cmp.Diff(gvr, apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")); diff != "" {
+					return fmt.Errorf("got DELETE for incorrect GVR: %v", diff)
 				}
-				for _, action := range cacheClientActions {
-					if action.Matches("delete", "apiexports") {
-						deleteAction := action.(clientgotesting.DeleteAction)
-						if deleteAction.GetName() != "foo" {
-							ts.Fatalf("unexpected APIExport was removed = %v, expected = %v", deleteAction.GetName(), "foo")
-						}
-						wasCacheApiExportDeletionValidated = true
-						break
-					}
+				if actual, expected := kcpcache.ToClusterAwareKey(cluster.String(), namespace, name), kcpcache.ToClusterAwareKey("root", "", "foo"); actual != expected {
+					return fmt.Errorf("got DELETE %s, expected DELETE %s", actual, expected)
 				}
-				if !wasCacheApiExportDeletionValidated {
-					ts.Errorf("an ApiExport on the cache sever wasn't deleted")
+				return nil
+			},
+			validateCalls: func(t *testing.T, calls callContext) {
+				if !calls.getLocalApiExport.called {
+					t.Error("before deleting an ApiExport the controller should cached GET it")
+				}
+				if !calls.getLocalLiveObject.called {
+					t.Error("before deleting an ApiExport the controller should live GET it")
+				}
+				if !calls.deleteCachedObject.called {
+					t.Error("an ApiExport on the cache sever wasn't deleted")
 				}
 			},
 		},
 		{
 			name: "case 3: update, metadata mismatch",
-			initialLocalApiExports: []runtime.Object{
-				func() *apisv1alpha1.APIExport {
-					apiExport := newAPIExport("foo")
-					apiExport.Labels["fooLabel"] = "fooLabelVal"
-					return apiExport
-				}(),
-			},
-			initialCacheApiExports:                   []runtime.Object{newAPIExportWithShardAnnotation("foo")},
-			initCacheFakeClientWithInitialApiExports: true,
-			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
-			validateFunc: func(ts *testing.T, cacheClientActions []clientgotesting.Action, localClientActions []clientgotesting.Action, targetClusterCacheClient, targetClusterLocalClient logicalcluster.Name) {
-				if len(localClientActions) != 0 {
-					ts.Fatal("unexpected REST calls were made to the localDynamicClient")
+			initialLocalApiExport: func() *apisv1alpha1.APIExport {
+				apiExport := newAPIExport("foo")
+				apiExport.Labels["fooLabel"] = "fooLabelVal"
+				return apiExport
+			}(),
+			initialCacheApiExport: newAPIExportWithShardAnnotation("foo"),
+			reconcileKey:          fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
+			updateCachedObject: func(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace string, object *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+				if diff := cmp.Diff(gvr, apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")); diff != "" {
+					return nil, fmt.Errorf("got UPDATE for incorrect GVR: %v", diff)
 				}
-				if targetClusterCacheClient.String() != "root" {
-					ts.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", targetClusterCacheClient)
+				if actual, expected := kcpcache.ToClusterAwareKey(cluster.String(), namespace, object.GetName()), kcpcache.ToClusterAwareKey("root", "", "foo"); actual != expected {
+					return nil, fmt.Errorf("got UPDATE %s, expected UPDATE %s", actual, expected)
 				}
-				wasCacheApiExportValidated := false
-				for _, action := range cacheClientActions {
-					if action.Matches("update", "apiexports") {
-						updateAction := action.(clientgotesting.UpdateAction)
-						updatedUnstructuredApiExport := updateAction.GetObject().(*unstructured.Unstructured)
-						cacheApiExportFromUnstructured := &apisv1alpha1.APIExport{}
-						if err := runtime.DefaultUnstructuredConverter.FromUnstructured(updatedUnstructuredApiExport.Object, cacheApiExportFromUnstructured); err != nil {
-							ts.Fatalf("failed to convert unstructured to APIExport: %v", err)
-						}
+				cacheApiExportFromUnstructured := &apisv1alpha1.APIExport{}
+				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(object.Object, cacheApiExportFromUnstructured); err != nil {
+					return nil, fmt.Errorf("failed to convert unstructured to APIExport: %w", err)
+				}
 
-						expectedApiExport := newAPIExportWithShardAnnotation("foo")
-						expectedApiExport.Labels["fooLabel"] = "fooLabelVal"
-						if !equality.Semantic.DeepEqual(cacheApiExportFromUnstructured, expectedApiExport) {
-							ts.Errorf("unexpected update to the ApiExport:\n%s", cmp.Diff(cacheApiExportFromUnstructured, expectedApiExport))
-						}
-						wasCacheApiExportValidated = true
-						break
-					}
+				expectedApiExport := newAPIExportWithShardAnnotation("foo")
+				expectedApiExport.Labels["fooLabel"] = "fooLabelVal"
+				if !equality.Semantic.DeepEqual(cacheApiExportFromUnstructured, expectedApiExport) {
+					return nil, fmt.Errorf("unexpected update to the ApiExport:\n%s", cmp.Diff(cacheApiExportFromUnstructured, expectedApiExport))
 				}
-				if !wasCacheApiExportValidated {
-					ts.Errorf("an ApiExport on the cache sever wasn't updated")
+				return object, nil
+			},
+			validateCalls: func(t *testing.T, calls callContext) {
+				if !calls.updateCachedObject.called {
+					t.Error("an ApiExport on the cache sever wasn't updated")
 				}
 			},
 		},
 		{
 			name: "case 3: update, spec changed",
-			initialLocalApiExports: []runtime.Object{
-				func() *apisv1alpha1.APIExport {
-					apiExport := newAPIExport("foo")
-					apiExport.Spec.PermissionClaims = []apisv1alpha1.PermissionClaim{{GroupResource: apisv1alpha1.GroupResource{}, IdentityHash: "abc"}}
-					return apiExport
-				}(),
-			},
-			initialCacheApiExports:                   []runtime.Object{newAPIExportWithShardAnnotation("foo")},
-			initCacheFakeClientWithInitialApiExports: true,
-			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
-			validateFunc: func(ts *testing.T, cacheClientActions []clientgotesting.Action, localClientActions []clientgotesting.Action, targetClusterCacheClient, targetClusterLocalClient logicalcluster.Name) {
-				if len(localClientActions) != 0 {
-					ts.Fatal("unexpected REST calls were made to the localDynamicClient")
+			initialLocalApiExport: func() *apisv1alpha1.APIExport {
+				apiExport := newAPIExport("foo")
+				apiExport.Spec.PermissionClaims = []apisv1alpha1.PermissionClaim{{GroupResource: apisv1alpha1.GroupResource{}, IdentityHash: "abc"}}
+				return apiExport
+			}(),
+			initialCacheApiExport: newAPIExportWithShardAnnotation("foo"),
+			reconcileKey:          fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
+			updateCachedObject: func(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace string, object *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+				if diff := cmp.Diff(gvr, apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")); diff != "" {
+					return nil, fmt.Errorf("got UPDATE for incorrect GVR: %v", diff)
 				}
-				if targetClusterCacheClient.String() != "root" {
-					ts.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", targetClusterCacheClient)
+				if actual, expected := kcpcache.ToClusterAwareKey(cluster.String(), namespace, object.GetName()), kcpcache.ToClusterAwareKey("root", "", "foo"); actual != expected {
+					return nil, fmt.Errorf("got UPDATE %s, expected UPDATE %s", actual, expected)
 				}
-				wasCacheApiExportValidated := false
-				for _, action := range cacheClientActions {
-					if action.Matches("update", "apiexports") {
-						updateAction := action.(clientgotesting.UpdateAction)
-						updatedUnstructuredApiExport := updateAction.GetObject().(*unstructured.Unstructured)
-						cacheApiExportFromUnstructured := &apisv1alpha1.APIExport{}
-						if err := runtime.DefaultUnstructuredConverter.FromUnstructured(updatedUnstructuredApiExport.Object, cacheApiExportFromUnstructured); err != nil {
-							ts.Fatalf("failed to convert unstructured to APIExport: %v", err)
-						}
+				cacheApiExportFromUnstructured := &apisv1alpha1.APIExport{}
+				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(object.Object, cacheApiExportFromUnstructured); err != nil {
+					return nil, fmt.Errorf("failed to convert unstructured to APIExport: %w", err)
+				}
 
-						expectedApiExport := newAPIExportWithShardAnnotation("foo")
-						expectedApiExport.Spec.PermissionClaims = []apisv1alpha1.PermissionClaim{{GroupResource: apisv1alpha1.GroupResource{}, IdentityHash: "abc"}}
-						if !equality.Semantic.DeepEqual(cacheApiExportFromUnstructured, expectedApiExport) {
-							ts.Errorf("unexpected update to the ApiExport:\n%s", cmp.Diff(cacheApiExportFromUnstructured, expectedApiExport))
-						}
-						wasCacheApiExportValidated = true
-						break
-					}
+				expectedApiExport := newAPIExportWithShardAnnotation("foo")
+				expectedApiExport.Spec.PermissionClaims = []apisv1alpha1.PermissionClaim{{GroupResource: apisv1alpha1.GroupResource{}, IdentityHash: "abc"}}
+				if !equality.Semantic.DeepEqual(cacheApiExportFromUnstructured, expectedApiExport) {
+					return nil, fmt.Errorf("unexpected update to the ApiExport:\n%s", cmp.Diff(cacheApiExportFromUnstructured, expectedApiExport))
 				}
-				if !wasCacheApiExportValidated {
-					ts.Errorf("an ApiExport on the cache sever wasn't updated")
+				return object, nil
+			},
+			validateCalls: func(t *testing.T, calls callContext) {
+				if !calls.updateCachedObject.called {
+					t.Error("an ApiExport on the cache sever wasn't updated")
 				}
 			},
 		},
 		{
 			name: "case 3: update, status changed",
-			initialLocalApiExports: []runtime.Object{
-				func() *apisv1alpha1.APIExport {
-					apiExport := newAPIExport("foo")
-					apiExport.Status.VirtualWorkspaces = []apisv1alpha1.VirtualWorkspace{{URL: "https://acme.dev"}}
-					return apiExport
-				}(),
-			},
-			initialCacheApiExports:                   []runtime.Object{newAPIExportWithShardAnnotation("foo")},
-			initCacheFakeClientWithInitialApiExports: true,
-			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
-			validateFunc: func(ts *testing.T, cacheClientActions []clientgotesting.Action, localClientActions []clientgotesting.Action, targetClusterCacheClient, targetClusterLocalClient logicalcluster.Name) {
-				if len(localClientActions) != 0 {
-					ts.Fatal("unexpected REST calls were made to the localDynamicClient")
+			initialLocalApiExport: func() *apisv1alpha1.APIExport {
+				apiExport := newAPIExport("foo")
+				apiExport.Status.VirtualWorkspaces = []apisv1alpha1.VirtualWorkspace{{URL: "https://acme.dev"}}
+				return apiExport
+			}(),
+			initialCacheApiExport: newAPIExportWithShardAnnotation("foo"),
+			reconcileKey:          fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
+			updateCachedObject: func(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace string, object *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+				if diff := cmp.Diff(gvr, apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")); diff != "" {
+					return nil, fmt.Errorf("got UPDATE for incorrect GVR: %v", diff)
 				}
-				if targetClusterCacheClient.String() != "root" {
-					ts.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", targetClusterCacheClient)
+				if actual, expected := kcpcache.ToClusterAwareKey(cluster.String(), namespace, object.GetName()), kcpcache.ToClusterAwareKey("root", "", "foo"); actual != expected {
+					return nil, fmt.Errorf("got UPDATE %s, expected UPDATE %s", actual, expected)
 				}
-				wasCacheApiExportValidated := false
-				for _, action := range cacheClientActions {
-					if action.Matches("update", "apiexports") {
-						updateAction := action.(clientgotesting.UpdateAction)
-						updatedUnstructuredApiExport := updateAction.GetObject().(*unstructured.Unstructured)
-						cacheApiExportFromUnstructured := &apisv1alpha1.APIExport{}
-						if err := runtime.DefaultUnstructuredConverter.FromUnstructured(updatedUnstructuredApiExport.Object, cacheApiExportFromUnstructured); err != nil {
-							ts.Fatalf("failed to convert unstructured to APIExport: %v", err)
-						}
+				cacheApiExportFromUnstructured := &apisv1alpha1.APIExport{}
+				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(object.Object, cacheApiExportFromUnstructured); err != nil {
+					return nil, fmt.Errorf("failed to convert unstructured to APIExport: %w", err)
+				}
 
-						expectedApiExport := newAPIExportWithShardAnnotation("foo")
-						expectedApiExport.Status.VirtualWorkspaces = []apisv1alpha1.VirtualWorkspace{{URL: "https://acme.dev"}}
-						if !equality.Semantic.DeepEqual(cacheApiExportFromUnstructured, expectedApiExport) {
-							ts.Errorf("unexpected update to the ApiExport:\n%s", cmp.Diff(cacheApiExportFromUnstructured, expectedApiExport))
-						}
-						wasCacheApiExportValidated = true
-						break
-					}
+				expectedApiExport := newAPIExportWithShardAnnotation("foo")
+				expectedApiExport.Status.VirtualWorkspaces = []apisv1alpha1.VirtualWorkspace{{URL: "https://acme.dev"}}
+				if !equality.Semantic.DeepEqual(cacheApiExportFromUnstructured, expectedApiExport) {
+					return nil, fmt.Errorf("unexpected update to the ApiExport:\n%s", cmp.Diff(cacheApiExportFromUnstructured, expectedApiExport))
 				}
-				if !wasCacheApiExportValidated {
-					ts.Errorf("an ApiExport on the cache sever wasn't updated")
+				return object, nil
+			},
+			validateCalls: func(t *testing.T, calls callContext) {
+				if !calls.updateCachedObject.called {
+					t.Error("an ApiExport on the cache sever wasn't updated")
 				}
 			},
 		},
 	}
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(tt *testing.T) {
-			target := &controller{shardName: "amber"}
-			localApiExportIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
-			for _, obj := range scenario.initialLocalApiExports {
-				if err := localApiExportIndexer.Add(obj); err != nil {
-					tt.Error(err)
-				}
+			calls := callContext{
+				getCachedApiExport: getCachedAPIExportRecord{
+					delegate: scenario.getCachedAPIExport,
+					defaulted: func(gvr schema.GroupVersionResource, shard string, cluster logicalcluster.Name, namespace, name string) (*apisv1alpha1.APIExport, error) {
+						return scenario.initialCacheApiExport, nil
+					},
+				},
+				getLocalApiExport: getLocalAPIExportRecord{
+					delegate: scenario.getLocalAPIExport,
+					defaulted: func(cluster logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
+						return scenario.initialLocalApiExport, nil
+					},
+				},
+				getLocalLiveObject: getLocalObjectRecord{
+					delegate: scenario.getLocalObject,
+					defaulted: func(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error) {
+						err := fmt.Errorf("unexpected live call to get local object %s %s", gvr, kcpcache.ToClusterAwareKey(cluster.String(), namespace, name))
+						t.Error(err)
+						return nil, err
+					},
+				},
+				createCachedObject: createCachedObjectRecord{
+					delegate: scenario.createCachedObject,
+					defaulted: func(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace string, object *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+						err := fmt.Errorf("unexpected live call to create cached object %s %s", gvr, kcpcache.ToClusterAwareKey(cluster.String(), namespace, object.GetName()))
+						t.Error(err)
+						return nil, err
+					},
+				},
+				updateCachedObject: updateCachedObjectRecord{
+					delegate: scenario.updateCachedObject,
+					defaulted: func(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace string, object *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+						err := fmt.Errorf("unexpected live call to update cached object %s %s", gvr, kcpcache.ToClusterAwareKey(cluster.String(), namespace, object.GetName()))
+						t.Error(err)
+						return nil, err
+					},
+				},
+				deleteCachedObject: deleteCachedObjectRecord{
+					delegate: scenario.deleteCachedObject,
+					defaulted: func(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) error {
+						err := fmt.Errorf("unexpected live call to delete cached object %s %s", gvr, kcpcache.ToClusterAwareKey(cluster.String(), namespace, name))
+						t.Error(err)
+						return err
+					},
+				},
 			}
-			target.localApiExportLister = apislisters.NewAPIExportLister(localApiExportIndexer)
-			target.cacheApiExportsIndexer = cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{ByShardAndLogicalClusterAndNamespaceAndName: IndexByShardAndLogicalClusterAndNamespace})
-			for _, obj := range scenario.initialCacheApiExports {
-				if err := target.cacheApiExportsIndexer.Add(obj); err != nil {
-					tt.Error(err)
-				}
+			target := &controller{
+				shardName:          "amber",
+				getCachedAPIExport: calls.getCachedApiExport.call,
+				getLocalAPIExport:  calls.getLocalApiExport.call,
+				getLocalLiveObject: calls.getLocalLiveObject.call,
+				createCachedObject: calls.createCachedObject.call,
+				updateCachedObject: calls.updateCachedObject.call,
+				deleteCachedObject: calls.deleteCachedObject.call,
 			}
-			fakeCacheDynamicClient := newFakeKcpClusterClient(dynamicfake.NewSimpleDynamicClient(scheme, func() []runtime.Object {
-				if scenario.initCacheFakeClientWithInitialApiExports {
-					return scenario.initialCacheApiExports
-				}
-				return []runtime.Object{}
-			}()...))
-			target.dynamicCacheClient = fakeCacheDynamicClient
-			fakeLocalDynamicClient := newFakeKcpClusterClient(dynamicfake.NewSimpleDynamicClient(scheme))
-			target.dynamicLocalClient = fakeLocalDynamicClient
 			if err := target.reconcile(context.TODO(), scenario.reconcileKey); err != nil {
 				tt.Fatal(err)
 			}
-			if scenario.validateFunc != nil {
-				scenario.validateFunc(tt, fakeCacheDynamicClient.fakeDs.Actions(), fakeLocalDynamicClient.fakeDs.Actions(), fakeCacheDynamicClient.cluster, fakeLocalDynamicClient.cluster)
+			if scenario.validateCalls != nil {
+				scenario.validateCalls(t, calls)
 			}
 		})
 	}
+}
+
+type callContext struct {
+	getCachedApiExport getCachedAPIExportRecord
+	getLocalApiExport  getLocalAPIExportRecord
+	getLocalLiveObject getLocalObjectRecord
+	createCachedObject createCachedObjectRecord
+	updateCachedObject updateCachedObjectRecord
+	deleteCachedObject deleteCachedObjectRecord
+}
+
+type getCachedAPIExportRecord struct {
+	called              bool
+	delegate, defaulted func(gvr schema.GroupVersionResource, shard string, cluster logicalcluster.Name, namespace, name string) (*apisv1alpha1.APIExport, error)
+}
+
+func (r *getCachedAPIExportRecord) call(gvr schema.GroupVersionResource, shard string, cluster logicalcluster.Name, namespace, name string) (interface{}, error) {
+	r.called = true
+	delegate := r.delegate
+	if delegate == nil {
+		delegate = r.defaulted
+	}
+	return delegate(gvr, shard, cluster, namespace, name)
+}
+
+type getLocalAPIExportRecord struct {
+	called              bool
+	delegate, defaulted func(cluster logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error)
+}
+
+func (r *getLocalAPIExportRecord) call(cluster logicalcluster.Name, name string) (interface{}, error) {
+	r.called = true
+	delegate := r.delegate
+	if delegate == nil {
+		delegate = r.defaulted
+	}
+	return delegate(cluster, name)
+}
+
+type getLocalObjectRecord struct {
+	called              bool
+	delegate, defaulted func(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error)
+}
+
+func (r *getLocalObjectRecord) call(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error) {
+	r.called = true
+	delegate := r.delegate
+	if delegate == nil {
+		delegate = r.defaulted
+	}
+	return delegate(ctx, gvr, cluster, namespace, name)
+}
+
+type createCachedObjectRecord struct {
+	called              bool
+	delegate, defaulted func(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace string, object *unstructured.Unstructured) (*unstructured.Unstructured, error)
+}
+
+func (r *createCachedObjectRecord) call(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace string, object *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+	r.called = true
+	delegate := r.delegate
+	if delegate == nil {
+		delegate = r.defaulted
+	}
+	return delegate(ctx, gvr, cluster, namespace, object)
+}
+
+type updateCachedObjectRecord struct {
+	called              bool
+	delegate, defaulted func(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace string, object *unstructured.Unstructured) (*unstructured.Unstructured, error)
+}
+
+func (r *updateCachedObjectRecord) call(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace string, object *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+	r.called = true
+	delegate := r.delegate
+	if delegate == nil {
+		delegate = r.defaulted
+	}
+	return delegate(ctx, gvr, cluster, namespace, object)
+}
+
+type deleteCachedObjectRecord struct {
+	called              bool
+	delegate, defaulted func(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) error
+}
+
+func (r *deleteCachedObjectRecord) call(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) error {
+	r.called = true
+	delegate := r.delegate
+	if delegate == nil {
+		delegate = r.defaulted
+	}
+	return delegate(ctx, gvr, cluster, namespace, name)
 }
 
 func newAPIExport(name string) *apisv1alpha1.APIExport {
@@ -358,18 +433,4 @@ func newAPIExportWithShardAnnotation(name string) *apisv1alpha1.APIExport {
 	apiExport := newAPIExport(name)
 	apiExport.Annotations["kcp.dev/shard"] = "amber"
 	return apiExport
-}
-
-func newFakeKcpClusterClient(ds *dynamicfake.FakeDynamicClient) *fakeKcpClusterClient {
-	return &fakeKcpClusterClient{fakeDs: ds}
-}
-
-type fakeKcpClusterClient struct {
-	fakeDs  *dynamicfake.FakeDynamicClient
-	cluster logicalcluster.Name
-}
-
-func (f *fakeKcpClusterClient) Cluster(name logicalcluster.Name) dynamic.Interface {
-	f.cluster = name
-	return f.fakeDs
 }

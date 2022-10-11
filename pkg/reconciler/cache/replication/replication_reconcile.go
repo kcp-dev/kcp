@@ -27,10 +27,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/tools/cache"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 )
@@ -46,23 +44,17 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 			keyParts[1],
 			apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"),
 			apisv1alpha1.SchemeGroupVersion.WithKind("APIExport"),
-			func(gvr schema.GroupVersionResource, cluster, namespace, name string) (interface{}, error) {
-				return retrieveCacheObject(&gvr, c.cacheApiExportsIndexer, c.shardName, cluster, namespace, name)
-			},
-			func(key string) (interface{}, error) {
-				return c.localApiExportLister.Get(key)
-			})
+			c.getCachedAPIExport,
+			c.getLocalAPIExport,
+		)
 	case apisv1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas").String():
 		return c.reconcileObject(ctx,
 			keyParts[1],
 			apisv1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas"),
 			apisv1alpha1.SchemeGroupVersion.WithKind("ApiResourceSchema"),
-			func(gvr schema.GroupVersionResource, cluster, namespace, name string) (interface{}, error) {
-				return retrieveCacheObject(&gvr, c.cacheApiResourceSchemaIndexer, c.shardName, cluster, namespace, name)
-			},
-			func(key string) (interface{}, error) {
-				return c.localApiResourceSchemaLister.Get(key)
-			})
+			c.getCachedAPIResourceSchema,
+			c.getLocalAPIResourceSchema,
+		)
 	default:
 		return fmt.Errorf("unsupported resource %v", keyParts[0])
 	}
@@ -75,23 +67,23 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 //  3. modification of the cached object to match the original one when meta.annotations, meta.labels, spec or status are different
 func (c *controller) reconcileObject(ctx context.Context,
 	key string, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind,
-	retriveCacheObject func(gvr schema.GroupVersionResource, cluster, namespace, name string) (interface{}, error),
-	retriveLocalObject func(key string) (interface{}, error)) error {
+	getCacheObject func(gvr schema.GroupVersionResource, shard string, cluster logicalcluster.Name, namespace, name string) (interface{}, error),
+	getLocalObject func(cluster logicalcluster.Name, key string) (interface{}, error)) error {
 	cluster, namespace, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		return err
 	}
-	cacheObject, err := retriveCacheObject(gvr, cluster.String(), namespace, name)
+	cacheObject, err := getCacheObject(gvr, c.shardName, cluster, namespace, name)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
-	localObject, err := retriveLocalObject(key)
+	localObject, err := getLocalObject(cluster, name)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
 	if errors.IsNotFound(err) {
 		// issue a live GET to make sure the localObject was removed
-		_, err = c.dynamicLocalClient.Cluster(cluster).Resource(gvr).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+		_, err = c.getLocalLiveObject(ctx, gvr, cluster, namespace, name)
 		if err == nil {
 			return fmt.Errorf("the informer used by this controller is stale, the following %s resource was found on the local server: %s/%s/%s but was missing from the informer", gvr, cluster, namespace, name)
 		}
@@ -126,21 +118,7 @@ func (c *controller) reconcileObject(ctx context.Context,
 		cluster = logicalcluster.From(metadata)
 	}
 
-	return c.reconcileUnstructuredObjects(ctx, cluster, &gvr, unstructuredCacheObject, unstructuredLocalObject)
-}
-
-func retrieveCacheObject(gvr *schema.GroupVersionResource, cacheIndex cache.Indexer, shard, cluster, namespace, name string) (interface{}, error) {
-	cacheObjects, err := cacheIndex.ByIndex(ByShardAndLogicalClusterAndNamespaceAndName, ShardAndLogicalClusterAndNamespaceKey(shard, cluster, namespace, name))
-	if err != nil {
-		return nil, err
-	}
-	if len(cacheObjects) == 0 {
-		return nil, errors.NewNotFound(gvr.GroupResource(), name)
-	}
-	if len(cacheObjects) > 1 {
-		return nil, fmt.Errorf("expected to find only one instance of %s resource for the key %s, found %d", gvr, ShardAndLogicalClusterAndNamespaceKey(shard, cluster, namespace, name), len(cacheObjects))
-	}
-	return cacheObjects[0], nil
+	return c.reconcileUnstructuredObjects(ctx, cluster, gvr, unstructuredCacheObject, unstructuredLocalObject)
 }
 
 func isNotNil(obj interface{}) bool {

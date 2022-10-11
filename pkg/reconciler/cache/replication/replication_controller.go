@@ -22,13 +22,18 @@ import (
 	"time"
 
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	"github.com/kcp-dev/logicalcluster/v2"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
@@ -36,7 +41,6 @@ import (
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -62,15 +66,60 @@ func NewController(
 	localKcpInformers kcpinformers.SharedInformerFactory,
 	cacheKcpInformers kcpinformers.SharedInformerFactory,
 ) (*controller, error) {
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := &controller{
-		shardName:                     shardName,
-		queue:                         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
-		dynamicCacheClient:            dynamicCacheClient,
-		dynamicLocalClient:            dynamicLocalClient,
-		localApiExportLister:          localKcpInformers.Apis().V1alpha1().APIExports().Lister(),
-		localApiResourceSchemaLister:  localKcpInformers.Apis().V1alpha1().APIResourceSchemas().Lister(),
-		cacheApiExportsIndexer:        cacheKcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer(),
-		cacheApiResourceSchemaIndexer: cacheKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer().GetIndexer(),
+		shardName: shardName,
+		queue:     queue,
+
+		getCachedObject: func(gvr schema.GroupVersionResource, cacheIndex cache.Indexer, shard string, cluster logicalcluster.Name, namespace, name string) (interface{}, error) {
+			cacheObjects, err := cacheIndex.ByIndex(ByShardAndLogicalClusterAndNamespaceAndName, ShardAndLogicalClusterAndNamespaceKey(shard, cluster.String(), namespace, name))
+			if err != nil {
+				return nil, err
+			}
+			if len(cacheObjects) == 0 {
+				return nil, errors.NewNotFound(gvr.GroupResource(), name)
+			}
+			if len(cacheObjects) > 1 {
+				return nil, fmt.Errorf("expected to find only one instance of %s resource for the key %s, found %d", gvr, ShardAndLogicalClusterAndNamespaceKey(shard, cluster.String(), namespace, name), len(cacheObjects))
+			}
+			return cacheObjects[0], nil
+		},
+		getLocalAPIExport: func(cluster logicalcluster.Name, name string) (interface{}, error) {
+			return localKcpInformers.Apis().V1alpha1().APIExports().Lister().Get(clusters.ToClusterAwareKey(cluster, name))
+		},
+		getLocalAPIResourceSchema: func(cluster logicalcluster.Name, name string) (interface{}, error) {
+			return localKcpInformers.Apis().V1alpha1().APIResourceSchemas().Lister().Get(clusters.ToClusterAwareKey(cluster, name))
+		},
+		getLocalLiveObject: func(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error) {
+			if namespace == "" {
+				return dynamicLocalClient.Cluster(cluster).Resource(gvr).Get(ctx, name, metav1.GetOptions{})
+			}
+			return dynamicLocalClient.Cluster(cluster).Resource(gvr).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+		},
+		createCachedObject: func(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace string, object *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+			if namespace == "" {
+				return dynamicCacheClient.Cluster(cluster).Resource(gvr).Create(ctx, object, metav1.CreateOptions{})
+			}
+			return dynamicCacheClient.Cluster(cluster).Resource(gvr).Namespace(namespace).Create(ctx, object, metav1.CreateOptions{})
+		},
+		updateCachedObject: func(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace string, object *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+			if namespace == "" {
+				return dynamicCacheClient.Cluster(cluster).Resource(gvr).Update(ctx, object, metav1.UpdateOptions{})
+			}
+			return dynamicCacheClient.Cluster(cluster).Resource(gvr).Namespace(namespace).Update(ctx, object, metav1.UpdateOptions{})
+		},
+		deleteCachedObject: func(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) error {
+			if namespace == "" {
+				return dynamicCacheClient.Cluster(cluster).Resource(gvr).Delete(ctx, name, metav1.DeleteOptions{})
+			}
+			return dynamicCacheClient.Cluster(cluster).Resource(gvr).Namespace(namespace).Delete(ctx, name, metav1.DeleteOptions{})
+		},
+	}
+	c.getCachedAPIExport = func(gvr schema.GroupVersionResource, shard string, cluster logicalcluster.Name, namespace, name string) (interface{}, error) {
+		return c.getCachedObject(gvr, cacheKcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer(), shard, cluster, namespace, name)
+	}
+	c.getCachedAPIResourceSchema = func(gvr schema.GroupVersionResource, shard string, cluster logicalcluster.Name, namespace, name string) (interface{}, error) {
+		return c.getCachedObject(gvr, cacheKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer().GetIndexer(), shard, cluster, namespace, name)
 	}
 
 	if err := cacheKcpInformers.Apis().V1alpha1().APIExports().Informer().AddIndexers(cache.Indexers{
@@ -182,12 +231,13 @@ type controller struct {
 	shardName string
 	queue     workqueue.RateLimitingInterface
 
-	dynamicCacheClient dynamic.ClusterInterface
-	dynamicLocalClient dynamic.ClusterInterface
-
-	localApiExportLister         apislisters.APIExportLister
-	localApiResourceSchemaLister apislisters.APIResourceSchemaLister
-
-	cacheApiExportsIndexer        cache.Indexer
-	cacheApiResourceSchemaIndexer cache.Indexer
+	getCachedObject            func(gvr schema.GroupVersionResource, cacheIndex cache.Indexer, shard string, cluster logicalcluster.Name, namespace, name string) (interface{}, error)
+	getCachedAPIExport         func(gvr schema.GroupVersionResource, shard string, cluster logicalcluster.Name, namespace, name string) (interface{}, error)
+	getCachedAPIResourceSchema func(gvr schema.GroupVersionResource, shard string, cluster logicalcluster.Name, namespace, name string) (interface{}, error)
+	getLocalAPIExport          func(cluster logicalcluster.Name, name string) (interface{}, error)
+	getLocalAPIResourceSchema  func(cluster logicalcluster.Name, name string) (interface{}, error)
+	getLocalLiveObject         func(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error)
+	createCachedObject         func(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace string, object *unstructured.Unstructured) (*unstructured.Unstructured, error)
+	updateCachedObject         func(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace string, object *unstructured.Unstructured) (*unstructured.Unstructured, error)
+	deleteCachedObject         func(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) error
 }
