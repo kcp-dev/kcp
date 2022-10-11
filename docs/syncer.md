@@ -208,12 +208,20 @@ This assumes that KCP is also being run locally.
     syncTargetName=<mycluster>
     syncTargetUID=$(kubectl get synctarget $syncTargetName -o jsonpath="{.metadata.uid}")
     fromCluster=$(kubectl ws current --short)
+    syncerNamespace="kcp-syncer-${syncTargetName}-test"
+    ```
+
+1. Run the DNS mapper:
+
+    ```bash
+    kubectl --kubeconfig=$HOME/.kube/config create namespace $syncerNamespace
+    NAMESPACE=$syncerNamespace KUBECONFIG=$HOME/.kube/config go run ./cmd/syncer dns start
     ```
 
 1. Run the following snippet:
 
     ```bash
-    go run ./cmd/syncer \
+    NAMESPACE=$syncerNamespace go run ./cmd/syncer \
       --from-kubeconfig=.kcp/admin.kubeconfig \
       --from-context=base \
       --to-kubeconfig=$HOME/.kube/config \
@@ -225,7 +233,8 @@ This assumes that KCP is also being run locally.
       --resources=secrets \
       --resources=serviceaccounts \
       --qps=30 \
-      --burst=20
+      --burst=20 \
+      --dns=localhost
     ```
 
 1. Wait for the kcp sync target to go ready:
