@@ -76,15 +76,7 @@ func NewApiExportIdentityProviderController(
 			return kubeClusterClient.Cluster(cluster).CoreV1().ConfigMaps(namespace).Update(ctx, configMap, metav1.UpdateOptions{})
 		},
 		listAPIExportsFromRemoteShard: func(cluster logicalcluster.Name) ([]*apisv1alpha1.APIExport, error) {
-			rawApiExports, err := remoteShardApiExportInformer.Informer().GetIndexer().ByIndex(indexers.ByLogicalCluster, cluster.String())
-			if err != nil {
-				return nil, err
-			}
-			var exports []*apisv1alpha1.APIExport
-			for i := range rawApiExports {
-				exports = append(exports, rawApiExports[i].(*apisv1alpha1.APIExport))
-			}
-			return exports, nil
+			return indexers.ByIndex[*apisv1alpha1.APIExport](remoteShardApiExportInformer.Informer().GetIndexer(), indexers.ByLogicalCluster, cluster.String())
 		},
 	}
 
