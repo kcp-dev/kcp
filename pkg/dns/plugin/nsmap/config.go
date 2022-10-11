@@ -42,7 +42,7 @@ type OnUpdateFn func(ctx context.Context, configMap *corev1.ConfigMap)
 // notifies the given callback when an update occurs. This is a non-blocking function.
 func StartWatcher(ctx context.Context, callback OnUpdateFn) error {
 	config, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		&clientcmd.ClientConfigLoadingRules{},
+		clientcmd.NewDefaultClientConfigLoadingRules(),
 		&clientcmd.ConfigOverrides{}).ClientConfig()
 	if err != nil {
 		return err
