@@ -34,10 +34,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apiserver/pkg/endpoints/openapi"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/klog/v2"
 	"k8s.io/kube-openapi/pkg/util"
@@ -47,42 +47,26 @@ import (
 	_ "k8s.io/kubernetes/pkg/genericcontrolplane/apis/install"
 )
 
-// SchemaPuller allows pulling the API resources as CRDs
-// from a kubernetes cluster.
-type SchemaPuller interface {
-	// PullCRDs allows pulling the resources named by their plural names
-	// and make them available as CRDs in the output map.
-	PullCRDs(context context.Context, resourceNames ...string) (map[schema.GroupResource]*apiextensionsv1.CustomResourceDefinition, error)
-}
-
 type schemaPuller struct {
-	discoveryClient discovery.DiscoveryInterface
-	crdClient       apiextensionsv1client.ApiextensionsV1Interface
-	models          openapi.ModelsByGKV
+	serverGroupsAndResources func() ([]*metav1.APIGroup, []*metav1.APIResourceList, error)
+	serverPreferredResources func() ([]*metav1.APIResourceList, error)
+	resourceFor              func(groupResource schema.GroupResource) (schema.GroupResource, error)
+	getCRD                   func(ctx context.Context, name string) (*apiextensionsv1.CustomResourceDefinition, error)
+	models                   openapi.ModelsByGKV
 }
-
-var _ SchemaPuller = &schemaPuller{}
 
 // NewSchemaPuller allows creating a SchemaPuller from the `Config` of
 // a given Kubernetes cluster, that will be able to pull API resources
 // as CRDs from the given Kubernetes cluster.
-func NewSchemaPuller(config *rest.Config) (SchemaPuller, error) {
-	crdClient, err := apiextensionsv1client.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-	return newPuller(discoveryClient, crdClient)
-}
-
-func newPuller(discoveryClient discovery.DiscoveryInterface, crdClient apiextensionsv1client.ApiextensionsV1Interface) (SchemaPuller, error) {
+func NewSchemaPuller(
+	discoveryClient discovery.DiscoveryInterface,
+	crdClient apiextensionsv1client.ApiextensionsV1Interface,
+) (*schemaPuller, error) {
 	openapiSchema, err := discoveryClient.OpenAPISchema()
 	if err != nil {
 		return nil, err
 	}
+
 	models, err := proto.NewOpenAPIData(openapiSchema)
 	if err != nil {
 		return nil, err
@@ -91,31 +75,45 @@ func newPuller(discoveryClient discovery.DiscoveryInterface, crdClient apiextens
 	if err != nil {
 		return nil, err
 	}
+
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(discoveryClient))
+
 	return &schemaPuller{
-		discoveryClient: discoveryClient,
-		crdClient:       crdClient,
-		models:          modelsByGKV,
+		serverGroupsAndResources: discoveryClient.ServerGroupsAndResources,
+		serverPreferredResources: discoveryClient.ServerPreferredResources,
+		resourceFor: func(groupResource schema.GroupResource) (schema.GroupResource, error) {
+			gvr, err := mapper.ResourceFor(groupResource.WithVersion(""))
+			if err != nil {
+				return schema.GroupResource{}, err
+			}
+			return gvr.GroupResource(), nil
+		},
+		getCRD: func(ctx context.Context, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
+			return crdClient.CustomResourceDefinitions().Get(ctx, name, metav1.GetOptions{})
+		},
+		models: modelsByGKV,
 	}, nil
 }
 
 // PullCRDs allows pulling the resources named by their plural names
 // and make them available as CRDs in the output map.
 // If the list of resources is empty, it will try pulling all the resources it finds.
-func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...string) (map[schema.GroupResource]*apiextensionsv1.CustomResourceDefinition, error) {
-	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(sp.discoveryClient))
+func (sp *schemaPuller) PullCRDs(ctx context.Context, resourceNames ...string) (map[schema.GroupResource]*apiextensionsv1.CustomResourceDefinition, error) {
+	logger := klog.FromContext(ctx)
+
 	pullAllResources := len(resourceNames) == 0
 	resourcesToPull := sets.NewString()
 	for _, resourceToPull := range resourceNames {
 		gr := schema.ParseGroupResource(resourceToPull)
-		gvr, err := mapper.ResourceFor(gr.WithVersion(""))
+		grToPull, err := sp.resourceFor(gr)
 		if err != nil {
-			klog.Errorf("error mapping resource %q: %v", resourceToPull, err)
+			logger.Error(err, "error mapping", "resource", resourceToPull)
 			continue
 		}
-		resourcesToPull.Insert(gvr.GroupResource().String())
+		resourcesToPull.Insert(grToPull.String())
 	}
 
-	_, apiResourcesLists, err := sp.discoveryClient.ServerGroupsAndResources()
+	_, apiResourcesLists, err := sp.serverGroupsAndResources()
 	if err != nil {
 		return nil, err
 	}
@@ -134,14 +132,16 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 	}
 
 	crds := map[schema.GroupResource]*apiextensionsv1.CustomResourceDefinition{}
-	apiResourcesLists, err = sp.discoveryClient.ServerPreferredResources()
+	apiResourcesLists, err = sp.serverPreferredResources()
 	if err != nil {
 		return nil, err
 	}
 	for _, apiResourcesList := range apiResourcesLists {
+		logger := logger.WithValues("groupVersion", apiResourcesList.GroupVersion)
+
 		gv, err := schema.ParseGroupVersion(apiResourcesList.GroupVersion)
 		if err != nil {
-			klog.Errorf("skipping discovery due to error parsing GroupVersion %s: %v", apiResourcesList.GroupVersion, err)
+			logger.Error(err, "skipping discovery: error parsing")
 			continue
 		}
 
@@ -154,14 +154,18 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 				continue
 			}
 
+			logger := logger.WithValues("resource", apiResource.Name)
+
 			if genericcontrolplanescheme.Scheme.IsGroupRegistered(gv.Group) && !genericcontrolplanescheme.Scheme.IsVersionRegistered(gv) {
-				klog.Warningf("ignoring an apiVersion since it is part of the core KCP resources, but not compatible with KCP version: %s", gv.String())
+				logger.Info("ignoring an apiVersion since it is part of the core KCP resources, but not compatible with KCP version")
 				continue
 			}
 
 			gvk := gv.WithKind(apiResource.Kind)
+			logger = logger.WithValues("kind", apiResource.Kind)
+
 			if genericcontrolplanescheme.Scheme.Recognizes(gvk) || extensionsapiserver.Scheme.Recognizes(gvk) {
-				klog.Infof("ignoring a resource since it is part of the core KCP resources: %s (%s)", apiResource.Name, gvk.String())
+				logger.Info("ignoring a resource since it is part of the core KCP resources")
 				continue
 			}
 
@@ -179,13 +183,14 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 				resourceScope = apiextensionsv1.ClusterScoped
 			}
 
-			klog.Infof("processing discovery for resource %s (%s)", apiResource.Name, crdName)
+			logger = logger.WithValues("crd", crdName)
+			logger.Info("processing discovery")
 			var schemaProps apiextensionsv1.JSONSchemaProps
 			var additionalPrinterColumns []apiextensionsv1.CustomResourceColumnDefinition
-			crd, err := sp.crdClient.CustomResourceDefinitions().Get(context, crdName, metav1.GetOptions{})
+			crd, err := sp.getCRD(ctx, crdName)
 			if err == nil {
 				if apihelpers.IsCRDConditionTrue(crd, apiextensionsv1.NonStructuralSchema) {
-					klog.Warningf("non-structural schema for resource %s (%s): the resources will not be validated", apiResource.Name, gvk.String())
+					logger.Info("non-structural schema: the resources will not be validated")
 					schemaProps = apiextensionsv1.JSONSchemaProps{
 						Type:                   "object",
 						XPreserveUnknownFields: boolPtr(true),
@@ -201,7 +206,7 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 						}
 					}
 					if !versionFound {
-						klog.Errorf("expected version not found in CRD %s: %s", crdName, gv.Version)
+						logger.Error(nil, "expected version not found in CRD")
 						schemaProps = apiextensionsv1.JSONSchemaProps{
 							Type:                   "object",
 							XPreserveUnknownFields: boolPtr(true),
@@ -210,12 +215,12 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 				}
 			} else {
 				if !errors.IsNotFound(err) {
-					klog.Errorf("error looking up CRD for %s: %v", crdName, err)
+					logger.Error(err, "error looking up CRD")
 					return nil, err
 				}
 				protoSchema := sp.models[gvk]
 				if protoSchema == nil {
-					klog.Infof("ignoring a resource that has no OpenAPI Schema: %s (%s)", apiResource.Name, gvk.String())
+					logger.Info("ignoring a resource that has no OpenAPI Schema")
 					continue
 				}
 				swaggerSpecDefinitionName := protoSchema.GetPath().String()
@@ -229,7 +234,7 @@ func (sp *schemaPuller) PullCRDs(context context.Context, resourceNames ...strin
 				}
 				protoSchema.Accept(converter)
 				if len(*converter.errors) > 0 {
-					klog.Errorf("error during the OpenAPI schema import of resource %s (%s) : %v", apiResource.Name, gvk.String(), *converter.errors)
+					logger.Error(kerrors.NewAggregate(*converter.errors), "error during the OpenAPI schema import of resource")
 					continue
 				}
 			}

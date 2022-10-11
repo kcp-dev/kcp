@@ -24,11 +24,13 @@ import (
 
 	"github.com/spf13/cobra"
 
+	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/yaml"
 
 	"github.com/kcp-dev/kcp/pkg/cmd/help"
-	crdpuller "github.com/kcp-dev/kcp/pkg/crdpuller"
+	"github.com/kcp-dev/kcp/pkg/crdpuller"
 )
 
 func main() {
@@ -49,7 +51,17 @@ func main() {
 			if err != nil {
 				return err
 			}
-			puller, err := crdpuller.NewSchemaPuller(config)
+
+			crdClient, err := apiextensionsv1client.NewForConfig(config)
+			if err != nil {
+				return err
+			}
+			discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
+			if err != nil {
+				return err
+			}
+
+			puller, err := crdpuller.NewSchemaPuller(discoveryClient, crdClient)
 			if err != nil {
 				return err
 			}
