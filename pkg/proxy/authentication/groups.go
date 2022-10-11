@@ -17,18 +17,12 @@ limitations under the License.
 package authentication
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
 
-	"github.com/spf13/pflag"
-
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
-	"k8s.io/apiserver/pkg/authentication/request/x509"
 	"k8s.io/apiserver/pkg/authentication/user"
-	genericapiserver "k8s.io/apiserver/pkg/server"
-	apiserveroptions "k8s.io/apiserver/pkg/server/options"
 )
 
 // GroupFilter is a filter that filters out group that are not in the allowed groups,
@@ -87,50 +81,4 @@ func hasPrefix(v string, prefixes ...string) bool {
 		}
 	}
 	return false
-}
-
-// Authentication wraps ClientCertAuthenticationOptions so we don't pull in
-// more auth machinery than we need with DelegatingAuthenticationOptions
-type Authentication struct {
-	ClientCert apiserveroptions.ClientCertAuthenticationOptions
-
-	PassOnGroups []string
-	DropGroups   []string
-}
-
-// NewAuthentication creates a default Authentication
-func NewAuthentication() *Authentication {
-	return &Authentication{}
-}
-
-// ApplyTo sets up the x509 Authenticator if the client-ca-file option was passed
-func (c *Authentication) ApplyTo(authenticationInfo *genericapiserver.AuthenticationInfo, servingInfo *genericapiserver.SecureServingInfo) error {
-	clientCAProvider, err := c.ClientCert.GetClientCAContentProvider()
-	if err != nil {
-		return fmt.Errorf("unable to load client CA provider: %w", err)
-	}
-	if clientCAProvider != nil {
-		if err = authenticationInfo.ApplyClientCert(clientCAProvider, servingInfo); err != nil {
-			return fmt.Errorf("unable to assign client CA provider: %w", err)
-		}
-		authenticationInfo.Authenticator = x509.NewDynamic(clientCAProvider.VerifyOptions, x509.CommonNameUserConversion)
-	}
-	return nil
-}
-
-// AddFlags delegates to ClientCertAuthenticationOptions
-func (c *Authentication) AddFlags(fs *pflag.FlagSet) {
-	c.ClientCert.AddFlags(fs)
-
-	fs.StringSliceVar(&c.PassOnGroups, "authentication-pass-on-groups", c.PassOnGroups,
-		"Groups that are passed on to the shard. Empty matches all. \"prefix*\" matches "+
-			"all beginning with the given prefix. Dropping trumps over passing on.")
-	fs.StringSliceVar(&c.DropGroups, "authentication-drop-groups", c.DropGroups,
-		"Groups that are not passed on to the shard. Empty matches none. \"prefix*\" matches "+
-			"all beginning with the given prefix. Dropping trumps over passing on.")
-}
-
-// Validate just completes the options pattern. Returns nil.
-func (c *Authentication) Validate() []error {
-	return nil
 }
