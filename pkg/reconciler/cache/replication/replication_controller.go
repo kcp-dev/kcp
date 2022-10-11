@@ -22,11 +22,17 @@ import (
 	"time"
 
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	"github.com/kcp-dev/logicalcluster/v2"
 
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
@@ -34,7 +40,6 @@ import (
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
-	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -62,12 +67,50 @@ func NewController(
 ) (*controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := &controller{
-		shardName:              shardName,
-		queue:                  queue,
-		dynamicCacheClient:     dynamicCacheClient,
-		dynamicLocalClient:     dynamicLocalClient,
-		localApiExportLister:   localApiExportInformer.Lister(),
-		cacheApiExportsIndexer: cacheApiExportInformer.Informer().GetIndexer(),
+		shardName: shardName,
+		queue:     queue,
+
+		getCachedAPIExport: func(shardName string, cluster logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
+			key := ShardAndLogicalClusterAndNamespaceKey(shardName, cluster.String(), "", name)
+			cacheApiExports, err := cacheApiExportInformer.Informer().GetIndexer().ByIndex(ByShardAndLogicalClusterAndNamespaceAndName, key)
+			if err != nil {
+				return nil, err
+			}
+			if len(cacheApiExports) == 0 {
+				return nil, errors.NewNotFound(apisv1alpha1.Resource("apiexport"), name)
+			}
+			if len(cacheApiExports) > 1 {
+				return nil, fmt.Errorf("expected to find only one instance for the key %s, found %d", key, len(cacheApiExports))
+			}
+			return cacheApiExports[0].(*apisv1alpha1.APIExport), nil
+		},
+		getLocalAPIExport: func(cluster logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
+			return localApiExportInformer.Lister().Get(clusters.ToClusterAwareKey(cluster, name))
+		},
+		getLocalObject: func(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error) {
+			if namespace == "" {
+				return dynamicLocalClient.Cluster(cluster).Resource(gvr).Get(ctx, name, metav1.GetOptions{})
+			}
+			return dynamicLocalClient.Cluster(cluster).Resource(gvr).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+		},
+		createCachedObject: func(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace string, object *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+			if namespace == "" {
+				return dynamicCacheClient.Cluster(cluster).Resource(gvr).Create(ctx, object, metav1.CreateOptions{})
+			}
+			return dynamicCacheClient.Cluster(cluster).Resource(gvr).Namespace(namespace).Create(ctx, object, metav1.CreateOptions{})
+		},
+		updateCachedObject: func(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace string, object *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+			if namespace == "" {
+				return dynamicCacheClient.Cluster(cluster).Resource(gvr).Update(ctx, object, metav1.UpdateOptions{})
+			}
+			return dynamicCacheClient.Cluster(cluster).Resource(gvr).Namespace(namespace).Update(ctx, object, metav1.UpdateOptions{})
+		},
+		deleteCachedObject: func(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) error {
+			if namespace == "" {
+				return dynamicCacheClient.Cluster(cluster).Resource(gvr).Delete(ctx, name, metav1.DeleteOptions{})
+			}
+			return dynamicCacheClient.Cluster(cluster).Resource(gvr).Namespace(namespace).Delete(ctx, name, metav1.DeleteOptions{})
+		},
 	}
 
 	if err := cacheApiExportInformer.Informer().AddIndexers(cache.Indexers{
@@ -75,7 +118,6 @@ func NewController(
 	}); err != nil {
 		return nil, err
 	}
-	c.cacheApiExportsIndexer = cacheApiExportInformer.Informer().GetIndexer()
 
 	localApiExportInformer.Informer().AddEventHandler(c.apiExportInformerEventHandler())
 	cacheApiExportInformer.Informer().AddEventHandler(c.apiExportInformerEventHandler())
@@ -157,10 +199,10 @@ type controller struct {
 	shardName string
 	queue     workqueue.RateLimitingInterface
 
-	dynamicCacheClient dynamic.ClusterInterface
-	dynamicLocalClient dynamic.ClusterInterface
-
-	localApiExportLister apislisters.APIExportLister
-
-	cacheApiExportsIndexer cache.Indexer
+	getCachedAPIExport func(shardName string, cluster logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error)
+	getLocalAPIExport  func(cluster logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error)
+	getLocalObject     func(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error)
+	createCachedObject func(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace string, object *unstructured.Unstructured) (*unstructured.Unstructured, error)
+	updateCachedObject func(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace string, object *unstructured.Unstructured) (*unstructured.Unstructured, error)
+	deleteCachedObject func(ctx context.Context, gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) error
 }

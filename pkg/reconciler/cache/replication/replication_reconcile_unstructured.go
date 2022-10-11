@@ -23,7 +23,6 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -62,7 +61,7 @@ func (c *controller) reconcileUnstructuredObjects(ctx context.Context, cluster l
 		}
 		annotations[genericrequest.AnnotationKey] = c.shardName
 		localObject.SetAnnotations(annotations)
-		_, err := c.dynamicCacheClient.Cluster(cluster).Resource(*gvr).Namespace(localObject.GetNamespace()).Create(ctx, localObject, metav1.CreateOptions{})
+		_, err := c.createCachedObject(ctx, *gvr, cluster, localObject.GetNamespace(), localObject)
 		return err
 	}
 
@@ -79,7 +78,7 @@ func (c *controller) reconcileUnstructuredObjects(ctx context.Context, cluster l
 	}
 
 	if metaChanged || remainingChanged {
-		_, err := c.dynamicCacheClient.Cluster(cluster).Resource(*gvr).Namespace(cacheObject.GetNamespace()).Update(ctx, cacheObject, metav1.UpdateOptions{})
+		_, err := c.updateCachedObject(ctx, *gvr, cluster, cacheObject.GetNamespace(), cacheObject)
 		return err
 	}
 	return nil
@@ -90,7 +89,7 @@ func (c *controller) handleObjectDeletion(ctx context.Context, cluster logicalcl
 		return nil // the cached object already removed
 	}
 	if cacheObject.GetDeletionTimestamp() == nil {
-		return c.dynamicCacheClient.Cluster(cluster).Resource(*gvr).Delete(ctx, cacheObject.GetName(), metav1.DeleteOptions{})
+		return c.deleteCachedObject(ctx, *gvr, cluster, "", cacheObject.GetName())
 	}
 	return nil
 }

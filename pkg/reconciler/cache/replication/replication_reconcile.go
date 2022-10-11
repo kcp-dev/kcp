@@ -25,7 +25,6 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -53,25 +52,21 @@ func (c *controller) reconcile(ctx context.Context, grKey string) error {
 func (c *controller) reconcileAPIExports(ctx context.Context, key string, gvr schema.GroupVersionResource) error {
 	var cacheApiExport *apisv1alpha1.APIExport
 	var localApiExport *apisv1alpha1.APIExport
-	var cluster logicalcluster.Name
-	var namespace string
-	var apiExportName string
-	var err error
-	cluster, namespace, apiExportName, err = kcpcache.SplitMetaClusterNamespaceKey(key)
+	cluster, _, apiExportName, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		return err
 	}
-	cacheApiExport, err = c.retrieveApiExport(&gvr, cluster.String(), namespace, apiExportName)
+	cacheApiExport, err = c.getCachedAPIExport(c.shardName, cluster, apiExportName)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
-	localApiExport, err = c.localApiExportLister.Get(key)
+	localApiExport, err = c.getLocalAPIExport(cluster, apiExportName)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
 	if errors.IsNotFound(err) {
 		// issue a live GET to make sure the localApiExport was removed
-		unstructuredLiveLocalApiExport, err := c.dynamicLocalClient.Cluster(cluster).Resource(gvr).Get(ctx, apiExportName, metav1.GetOptions{})
+		unstructuredLiveLocalApiExport, err := c.getLocalObject(ctx, gvr, cluster, "", apiExportName)
 		if err == nil {
 			return fmt.Errorf("the informer used by this controller is stale, the following APIExport was found on the local server: %s/%s/%s but was missing in the informer", cluster, unstructuredLiveLocalApiExport.GetNamespace(), unstructuredLiveLocalApiExport.GetName())
 		}
@@ -103,18 +98,4 @@ func (c *controller) reconcileAPIExports(ctx context.Context, key string, gvr sc
 	}
 
 	return c.reconcileUnstructuredObjects(ctx, cluster, &gvr, unstructuredCacheApiExport, unstructuredLocalApiExport)
-}
-
-func (c *controller) retrieveApiExport(gvr *schema.GroupVersionResource, clusterName, namespace, apiExportName string) (*apisv1alpha1.APIExport, error) {
-	cacheApiExports, err := c.cacheApiExportsIndexer.ByIndex(ByShardAndLogicalClusterAndNamespaceAndName, ShardAndLogicalClusterAndNamespaceKey(c.shardName, clusterName, namespace, apiExportName))
-	if err != nil {
-		return nil, err
-	}
-	if len(cacheApiExports) == 0 {
-		return nil, errors.NewNotFound(gvr.GroupResource(), apiExportName)
-	}
-	if len(cacheApiExports) > 1 {
-		return nil, fmt.Errorf("expected to find only one instance for the key %s, found %d", ShardAndLogicalClusterAndNamespaceKey(c.shardName, clusterName, namespace, apiExportName), len(cacheApiExports))
-	}
-	return cacheApiExports[0].(*apisv1alpha1.APIExport), nil
 }
