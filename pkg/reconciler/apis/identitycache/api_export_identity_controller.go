@@ -22,20 +22,24 @@ import (
 	"time"
 
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	"github.com/kcp-dev/logicalcluster/v2"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	kubernetesclient "k8s.io/client-go/kubernetes"
-	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
 	configshard "github.com/kcp-dev/kcp/config/shard"
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -61,10 +65,27 @@ func NewApiExportIdentityProviderController(
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
 	c := &controller{
-		queue:                        queue,
-		kubeClient:                   kubeClusterClient.Cluster(configshard.SystemShardCluster),
-		configMapLister:              configMapInformer.Lister(),
-		remoteShardApiExportsIndexer: remoteShardApiExportInformer.Informer().GetIndexer(),
+		queue: queue,
+		createConfigMap: func(ctx context.Context, cluster logicalcluster.Name, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
+			return kubeClusterClient.Cluster(cluster).CoreV1().ConfigMaps(namespace).Create(ctx, configMap, metav1.CreateOptions{})
+		},
+		getConfigMap: func(cluster logicalcluster.Name, namespace, name string) (*corev1.ConfigMap, error) {
+			return configMapInformer.Lister().ConfigMaps(namespace).Get(clusters.ToClusterAwareKey(cluster, name))
+		},
+		updateConfigMap: func(ctx context.Context, cluster logicalcluster.Name, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
+			return kubeClusterClient.Cluster(cluster).CoreV1().ConfigMaps(namespace).Update(ctx, configMap, metav1.UpdateOptions{})
+		},
+		listAPIExportsFromRemoteShard: func(cluster logicalcluster.Name) ([]*apisv1alpha1.APIExport, error) {
+			rawApiExports, err := remoteShardApiExportInformer.Informer().GetIndexer().ByIndex(indexers.ByLogicalCluster, cluster.String())
+			if err != nil {
+				return nil, err
+			}
+			var exports []*apisv1alpha1.APIExport
+			for i := range rawApiExports {
+				exports = append(exports, rawApiExports[i].(*apisv1alpha1.APIExport))
+			}
+			return exports, nil
+		},
 	}
 
 	remoteShardApiExportInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
@@ -158,8 +179,9 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 type controller struct {
-	queue                        workqueue.RateLimitingInterface
-	kubeClient                   kubernetesclient.Interface
-	configMapLister              corelisters.ConfigMapLister
-	remoteShardApiExportsIndexer cache.Indexer
+	queue                         workqueue.RateLimitingInterface
+	createConfigMap               func(ctx context.Context, cluster logicalcluster.Name, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
+	getConfigMap                  func(cluster logicalcluster.Name, namespace, name string) (*corev1.ConfigMap, error)
+	updateConfigMap               func(ctx context.Context, cluster logicalcluster.Name, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
+	listAPIExportsFromRemoteShard func(logicalcluster.Name) ([]*apisv1alpha1.APIExport, error)
 }

@@ -23,16 +23,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/clusters"
 
 	configshard "github.com/kcp-dev/kcp/config/shard"
-	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/indexers"
 )
 
 func (c *controller) reconcile(ctx context.Context) error {
-	rawApiExports, err := c.remoteShardApiExportsIndexer.ByIndex(indexers.ByLogicalCluster, tenancyv1alpha1.RootCluster.String())
+	apiExports, err := c.listAPIExportsFromRemoteShard(tenancyv1alpha1.RootCluster)
 	if err != nil {
 		return err
 	}
@@ -43,17 +40,16 @@ func (c *controller) reconcile(ctx context.Context) error {
 		},
 		Data: map[string]string{},
 	}
-	for _, rawApiExport := range rawApiExports {
-		apiExport := rawApiExport.(*apisv1alpha1.APIExport)
+	for _, apiExport := range apiExports {
 		if apiExport.Status.IdentityHash == "" {
 			return nil // we cannot do anything here, we will get notified when an identity is assigned.
 		}
 		requiredApiExportIdentitiesConfigMap.Data[apiExport.Name] = apiExport.Status.IdentityHash
 	}
 
-	apiExportIdentitiesConfigMap, err := c.configMapLister.ConfigMaps("default").Get(clusters.ToClusterAwareKey(configshard.SystemShardCluster, ConfigMapName))
+	apiExportIdentitiesConfigMap, err := c.getConfigMap(configshard.SystemShardCluster, "default", ConfigMapName)
 	if apierrors.IsNotFound(err) {
-		_, err := c.kubeClient.CoreV1().ConfigMaps("default").Create(ctx, requiredApiExportIdentitiesConfigMap, metav1.CreateOptions{})
+		_, err := c.createConfigMap(ctx, configshard.SystemShardCluster, "default", requiredApiExportIdentitiesConfigMap)
 		return err
 	}
 	if err != nil {
@@ -62,7 +58,7 @@ func (c *controller) reconcile(ctx context.Context) error {
 	if !equality.Semantic.DeepEqual(apiExportIdentitiesConfigMap.Data, requiredApiExportIdentitiesConfigMap.Data) {
 		toUpdateResourceIdentitiesConfigMap := apiExportIdentitiesConfigMap.DeepCopy()
 		toUpdateResourceIdentitiesConfigMap.Data = requiredApiExportIdentitiesConfigMap.Data
-		_, err := c.kubeClient.CoreV1().ConfigMaps("default").Update(ctx, toUpdateResourceIdentitiesConfigMap, metav1.UpdateOptions{})
+		_, err := c.updateConfigMap(ctx, configshard.SystemShardCluster, "default", toUpdateResourceIdentitiesConfigMap)
 		return err
 	}
 	return nil
