@@ -387,7 +387,8 @@ func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 	logger := logging.WithObject(logging.WithReconciler(klog.Background(), controllerName), ns).WithValues("operation", "enqueueResourcesForNamespace")
 	clusterName := logicalcluster.From(ns)
 
-	nsLocations, nsDeleting := locations(ns.Annotations, ns.Labels, true)
+	nsLocations := getLocations(ns.Labels, true)
+	nsDeleting := getDeletingLocations(ns.Annotations)
 	logger = logger.WithValues("nsLocations", nsLocations.List())
 
 	logger.V(4).Info("getting listers")
@@ -411,8 +412,9 @@ func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 			if logicalcluster.From(u) != clusterName {
 				continue
 			}
+			objLocations := getLocations(u.GetLabels(), false)
+			objDeleting := getDeletingLocations(u.GetAnnotations())
 
-			objLocations, objDeleting := locations(u.GetAnnotations(), u.GetLabels(), false)
 			logger := logging.WithObject(logger, u).WithValues("gvk", gvr.GroupVersion().WithKind(u.GetKind()))
 			if !objLocations.Equal(nsLocations) || !reflect.DeepEqual(objDeleting, nsDeleting) {
 				c.enqueueResource(gvr, obj)
@@ -507,20 +509,26 @@ func (c *Controller) enqueueSyncTargetKey(syncTargetKey string) {
 	}
 }
 
-func locations(annotations, labels map[string]string, skipPending bool) (locations sets.String, deleting map[string]string) {
-	locations = sets.NewString()
-	deleting = make(map[string]string)
+// getLocations returns a set with of all the locations extracted from a resource labels, setting skipPending to true will ignore resources in not Sync state.
+func getLocations(labels map[string]string, skipPending bool) sets.String {
+	locations := sets.NewString()
 	for k, v := range labels {
 		if strings.HasPrefix(k, workloadv1alpha1.ClusterResourceStateLabelPrefix) && (!skipPending || v == string(workloadv1alpha1.ResourceStateSync)) {
 			locations.Insert(strings.TrimPrefix(k, workloadv1alpha1.ClusterResourceStateLabelPrefix))
 		}
 	}
+	return locations
+}
+
+// getDeletingLocations returns a map of synctargetkeys that are being deleted with the value being the deletion timestamp.
+func getDeletingLocations(annotations map[string]string) map[string]string {
+	deletingLocations := make(map[string]string)
 	for k, v := range annotations {
 		if strings.HasPrefix(k, workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix) {
-			deleting[strings.TrimPrefix(k, workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix)] = v
+			deletingLocations[strings.TrimPrefix(k, workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix)] = v
 		}
 	}
-	return
+	return deletingLocations
 }
 
 func (c *Controller) enqueuePlacement(obj interface{}) {

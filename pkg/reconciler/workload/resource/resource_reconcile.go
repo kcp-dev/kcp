@@ -78,8 +78,8 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 			return fmt.Errorf("error reconciling resource %s|%s/%s: error getting namespace: %w", lclusterName, namespaceName, obj.GetName(), err)
 		}
 
-		expectedSyncTargetKeys, expectedDeletedSynctargetKeys = locations(namespace.GetAnnotations(), namespace.GetLabels(), false)
-
+		expectedSyncTargetKeys = getLocations(namespace.GetLabels(), false)
+		expectedDeletedSynctargetKeys = getDeletingLocations(namespace.GetAnnotations())
 	} else {
 		// We only allow some cluster-wide types of resources.
 		if !syncershared.SyncableClusterScopedResources.Has(gvr.String()) {
@@ -100,7 +100,7 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 		}
 
 		deletionTimestamp := time.Now().Format(time.RFC3339)
-		currentLocations, _ := locations(obj.GetAnnotations(), obj.GetLabels(), false)
+		currentLocations := getLocations(obj.GetLabels(), false)
 
 		for _, location := range currentLocations.Difference(expectedSyncTargetKeys).List() {
 			expectedDeletedSynctargetKeys[location] = deletionTimestamp
@@ -194,7 +194,7 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 func propagateDeletionTimestamp(logger logr.Logger, obj metav1.Object) map[string]interface{} {
 	logger.V(3).Info("resource is being deleted; setting the deletion per locations timestamps")
 	objAnnotations := obj.GetAnnotations()
-	objLocations, _ := locations(objAnnotations, obj.GetLabels(), false)
+	objLocations := getLocations(obj.GetLabels(), false)
 	annotationPatch := make(map[string]interface{})
 	for location := range objLocations {
 		if val, ok := objAnnotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+location]; !ok || val == "" {
@@ -206,7 +206,8 @@ func propagateDeletionTimestamp(logger logr.Logger, obj metav1.Object) map[strin
 
 // computePlacement computes the patch against annotations and labels. Nil means to remove the key.ResourceStatePending
 func computePlacement(expectedSyncTargetKeys sets.String, expectedDeletedSynctargetKeys map[string]string, obj metav1.Object) (annotationPatch map[string]interface{}, labelPatch map[string]interface{}) {
-	currentSynctargetKeys, currentSynctargetKeysDeleting := locations(obj.GetAnnotations(), obj.GetLabels(), false)
+	currentSynctargetKeys := getLocations(obj.GetLabels(), false)
+	currentSynctargetKeysDeleting := getDeletingLocations(obj.GetAnnotations())
 	if currentSynctargetKeys.Equal(expectedSyncTargetKeys) && reflect.DeepEqual(currentSynctargetKeysDeleting, expectedDeletedSynctargetKeys) {
 		// already correctly assigned.
 		return
