@@ -26,108 +26,86 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes/fake"
-	corelisters "k8s.io/client-go/listers/core/v1"
-	clientgotesting "k8s.io/client-go/testing"
-	"k8s.io/client-go/tools/cache"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/indexers"
 )
 
 func TestReconcile(t *testing.T) {
 	scenarios := []struct {
 		name              string
-		initialApiExports []runtime.Object
-		initialConfigMap  []runtime.Object
-		validateFunc      func(ts *testing.T, actions []clientgotesting.Action)
+		initialApiExports []*apisv1alpha1.APIExport
+		initialConfigMap  *corev1.ConfigMap
+		createConfigMap   func(ctx context.Context, cluster logicalcluster.Name, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
+		updateConfigMap   func(ctx context.Context, cluster logicalcluster.Name, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
+		validateCalls     func(t *testing.T, ctx callContext)
 	}{
 		{
 			name: "scenario 1: happy path, cm doesn't exist",
-			initialApiExports: []runtime.Object{
+			initialApiExports: []*apisv1alpha1.APIExport{
 				newAPIExport("export-1"),
 				newAPIExport("export-2"),
 			},
-			validateFunc: func(ts *testing.T, actions []clientgotesting.Action) {
-				wasConfigValidated := false
-				for _, action := range actions {
-					if action.Matches("create", "configmaps") {
-						createAction := action.(clientgotesting.CreateAction)
-						configMap := createAction.GetObject().(*corev1.ConfigMap)
+			createConfigMap: func(ctx context.Context, cluster logicalcluster.Name, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
+				requiredConfigMap := newEmptyRequiredConfigmap()
+				requiredConfigMap.Data["export-1"] = "export-1-identity"
+				requiredConfigMap.Data["export-2"] = "export-2-identity"
 
-						requiredConfigMap := newEmptyRequiredConfigmap()
-						requiredConfigMap.Data["export-1"] = "export-1-identity"
-						requiredConfigMap.Data["export-2"] = "export-2-identity"
+				// copy the annotations since the logicalcluster.AnnotationKey is added on the server side
+				configMap.Annotations = requiredConfigMap.Annotations
 
-						// copy the annotations since the logicalcluster.AnnotationKey is added on the server side
-						configMap.Annotations = requiredConfigMap.Annotations
-
-						if !equality.Semantic.DeepEqual(configMap, requiredConfigMap) {
-							t.Errorf("unexpected ConfigMap:\n%s", cmp.Diff(configMap, requiredConfigMap))
-						}
-						wasConfigValidated = true
-						break
-					}
+				if !equality.Semantic.DeepEqual(configMap, requiredConfigMap) {
+					return nil, fmt.Errorf("unexpected ConfigMap:\n%s", cmp.Diff(configMap, requiredConfigMap))
 				}
-				if !wasConfigValidated {
-					ts.Errorf("the config map wasn't created")
+				return nil, nil
+			},
+			validateCalls: func(t *testing.T, ctx callContext) {
+				if !ctx.createConfigMap.called {
+					t.Error("configmap never created")
 				}
 			},
 		},
 		{
 			name: "scenario 2: no-op cm exist",
-			initialApiExports: []runtime.Object{
+			initialApiExports: []*apisv1alpha1.APIExport{
 				newAPIExport("export-1"),
 				newAPIExport("export-2"),
 			},
-			initialConfigMap: func() []runtime.Object {
+			initialConfigMap: func() *corev1.ConfigMap {
 				requiredConfigMap := newEmptyRequiredConfigmap()
 				requiredConfigMap.Data["export-1"] = "export-1-identity"
 				requiredConfigMap.Data["export-2"] = "export-2-identity"
-				return []runtime.Object{requiredConfigMap}
+				return requiredConfigMap
 			}(),
-			validateFunc: func(ts *testing.T, actions []clientgotesting.Action) {
-				if len(actions) != 0 {
-					t.Fatal("didn't expect any changes to the configmap")
-				}
-			},
 		},
 		{
 			name: "scenario 3: cm updated",
-			initialApiExports: []runtime.Object{
+			initialApiExports: []*apisv1alpha1.APIExport{
 				newAPIExport("export-1"),
 				newAPIExport("export-2"),
 			},
-			initialConfigMap: func() []runtime.Object {
+			initialConfigMap: func() *corev1.ConfigMap {
 				requiredConfigMap := newEmptyRequiredConfigmap()
 				requiredConfigMap.Data["export-1"] = "export-1-identity"
-				return []runtime.Object{requiredConfigMap}
+				return requiredConfigMap
 			}(),
-			validateFunc: func(ts *testing.T, actions []clientgotesting.Action) {
-				wasConfigValidated := false
-				for _, action := range actions {
-					if action.Matches("update", "configmaps") {
-						createAction := action.(clientgotesting.CreateAction)
-						configMap := createAction.GetObject().(*corev1.ConfigMap)
+			updateConfigMap: func(ctx context.Context, cluster logicalcluster.Name, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
+				requiredConfigMap := newEmptyRequiredConfigmap()
+				requiredConfigMap.Data["export-1"] = "export-1-identity"
+				requiredConfigMap.Data["export-2"] = "export-2-identity"
 
-						requiredConfigMap := newEmptyRequiredConfigmap()
-						requiredConfigMap.Data["export-1"] = "export-1-identity"
-						requiredConfigMap.Data["export-2"] = "export-2-identity"
+				// copy the annotations since the logicalcluster.AnnotationKey is added on the server side
+				configMap.Annotations = requiredConfigMap.Annotations
 
-						// copy the annotations since the logicalcluster.AnnotationKey is added on the server side
-						configMap.Annotations = requiredConfigMap.Annotations
-
-						if !equality.Semantic.DeepEqual(configMap, requiredConfigMap) {
-							t.Errorf("unexpected ConfigMap:\n%s", cmp.Diff(configMap, requiredConfigMap))
-						}
-						wasConfigValidated = true
-						break
-					}
+				if !equality.Semantic.DeepEqual(configMap, requiredConfigMap) {
+					return nil, fmt.Errorf("unexpected ConfigMap:\n%s", cmp.Diff(configMap, requiredConfigMap))
 				}
-				if !wasConfigValidated {
-					ts.Errorf("the config map wasn't updated")
+				return nil, nil
+			},
+			validateCalls: func(t *testing.T, ctx callContext) {
+				if !ctx.updateConfigMap.called {
+					t.Error("configmap never updated")
 				}
 			},
 		},
@@ -135,31 +113,114 @@ func TestReconcile(t *testing.T) {
 
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
-			target := &controller{}
-			fakeKubeClient := fake.NewSimpleClientset(scenario.initialConfigMap...)
-			target.kubeClient = fakeKubeClient
-			target.remoteShardApiExportsIndexer = cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{indexers.ByLogicalCluster: indexers.IndexByLogicalCluster})
-			for _, obj := range scenario.initialApiExports {
-				if err := target.remoteShardApiExportsIndexer.Add(obj); err != nil {
-					t.Error(err)
-				}
+			calls := callContext{
+				createConfigMap: createConfigMapRecord{
+					delegate: scenario.createConfigMap,
+					defaulted: func(ctx context.Context, cluster logicalcluster.Name, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
+						err := fmt.Errorf("unexpected create call for configmap %s|%s/%s", cluster, namespace, configMap.Name)
+						t.Error(err)
+						return nil, err
+					},
+				},
+				getConfigMap: getConfigMapRecord{
+					defaulted: func(cluster logicalcluster.Name, namespace, name string) (*corev1.ConfigMap, error) {
+						if scenario.initialConfigMap == nil {
+							return nil, errors.NewNotFound(corev1.Resource("configmaps"), name)
+						}
+						return scenario.initialConfigMap, nil
+					},
+				},
+				updateConfigMap: updateConfigMapRecord{
+					delegate: scenario.updateConfigMap,
+					defaulted: func(ctx context.Context, cluster logicalcluster.Name, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
+						err := fmt.Errorf("unexpected update call for configmap %s|%s/%s", cluster, namespace, configMap.Name)
+						t.Error(err)
+						return nil, err
+					},
+				},
+				listAPIExportsFromRemoteShard: listAPIExportsFromRemoteShardRecord{
+					defaulted: func(name logicalcluster.Name) ([]*apisv1alpha1.APIExport, error) {
+						return scenario.initialApiExports, nil
+					},
+				},
 			}
-			configMapIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
-			for _, obj := range scenario.initialConfigMap {
-				if err := configMapIndexer.Add(obj); err != nil {
-					t.Error(err)
-				}
+			target := &controller{
+				createConfigMap:               calls.createConfigMap.call,
+				updateConfigMap:               calls.updateConfigMap.call,
+				getConfigMap:                  calls.getConfigMap.call,
+				listAPIExportsFromRemoteShard: calls.listAPIExportsFromRemoteShard.call,
 			}
-			target.configMapLister = corelisters.NewConfigMapLister(configMapIndexer)
-
 			if err := target.reconcile(context.TODO()); err != nil {
-				t.Fatal(err)
+				t.Error(err)
 			}
-			if scenario.validateFunc != nil {
-				scenario.validateFunc(t, fakeKubeClient.Actions())
+			if scenario.validateCalls != nil {
+				scenario.validateCalls(t, calls)
 			}
 		})
 	}
+}
+
+type callContext struct {
+	createConfigMap               createConfigMapRecord
+	getConfigMap                  getConfigMapRecord
+	updateConfigMap               updateConfigMapRecord
+	listAPIExportsFromRemoteShard listAPIExportsFromRemoteShardRecord
+}
+
+type createConfigMapRecord struct {
+	called              bool
+	delegate, defaulted func(ctx context.Context, cluster logicalcluster.Name, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
+}
+
+func (r *createConfigMapRecord) call(ctx context.Context, cluster logicalcluster.Name, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
+	r.called = true
+	delegate := r.delegate
+	if delegate == nil {
+		delegate = r.defaulted
+	}
+	return delegate(ctx, cluster, namespace, configMap)
+}
+
+type getConfigMapRecord struct {
+	called              bool
+	delegate, defaulted func(cluster logicalcluster.Name, namespace, name string) (*corev1.ConfigMap, error)
+}
+
+func (r *getConfigMapRecord) call(cluster logicalcluster.Name, namespace, name string) (*corev1.ConfigMap, error) {
+	r.called = true
+	delegate := r.delegate
+	if delegate == nil {
+		delegate = r.defaulted
+	}
+	return delegate(cluster, namespace, name)
+}
+
+type updateConfigMapRecord struct {
+	called              bool
+	delegate, defaulted func(ctx context.Context, cluster logicalcluster.Name, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
+}
+
+func (r *updateConfigMapRecord) call(ctx context.Context, cluster logicalcluster.Name, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
+	r.called = true
+	delegate := r.delegate
+	if delegate == nil {
+		delegate = r.defaulted
+	}
+	return delegate(ctx, cluster, namespace, configMap)
+}
+
+type listAPIExportsFromRemoteShardRecord struct {
+	called              bool
+	delegate, defaulted func(logicalcluster.Name) ([]*apisv1alpha1.APIExport, error)
+}
+
+func (r *listAPIExportsFromRemoteShardRecord) call(cluster logicalcluster.Name) ([]*apisv1alpha1.APIExport, error) {
+	r.called = true
+	delegate := r.delegate
+	if delegate == nil {
+		delegate = r.defaulted
+	}
+	return delegate(cluster)
 }
 
 func newAPIExport(name string) *apisv1alpha1.APIExport {
