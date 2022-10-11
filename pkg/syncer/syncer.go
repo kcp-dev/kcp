@@ -207,7 +207,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		return true, nil
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("DNS lookup of %s failed: %s", cfg.DNSServer, err)
 	}
 
 	logger.Info("Creating spec syncer")
