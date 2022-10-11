@@ -54,7 +54,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/controllers/apireconciler"
+	apiexportbuiltin "github.com/kcp-dev/kcp/pkg/virtual/apiexport/schemas/builtin"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/internalapis"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest"
@@ -568,9 +568,9 @@ func TestAPIExportInternalAPIsDrift(t *testing.T) {
 	apis, err := gatherInternalAPIs(discoveryClient.WithCluster(anyWorkspace), t)
 	require.NoError(t, err, "failed to gather built-in apis for server")
 
-	require.Equal(t, len(apis), len(apireconciler.InternalAPIs))
+	require.Equal(t, len(apis), len(apiexportbuiltin.BuiltInAPIs))
 
-	require.ElementsMatch(t, apis, apireconciler.InternalAPIs)
+	require.ElementsMatch(t, apis, apiexportbuiltin.BuiltInAPIs)
 }
 
 func gatherInternalAPIs(discoveryClient discovery.DiscoveryInterface, t *testing.T) ([]internalapis.InternalAPI, error) {
