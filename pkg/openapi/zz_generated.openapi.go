@@ -1251,6 +1251,15 @@ func schema_pkg_apis_apis_v1alpha1_APIBindingStatus(ref common.ReferenceCallback
 						},
 					},
 					"appliedPermissionClaims": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"group",
+									"resource",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
 						SchemaProps: spec.SchemaProps{
 							Description: "appliedPermissionClaims is a list of the permission claims the system has seen and applied, according to the requests of the API service provider in the APIExport and the acceptance state in spec.permissionClaims.",
 							Type:        []string{"array"},
@@ -1265,6 +1274,15 @@ func schema_pkg_apis_apis_v1alpha1_APIBindingStatus(ref common.ReferenceCallback
 						},
 					},
 					"exportPermissionClaims": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"group",
+									"resource",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
 						SchemaProps: spec.SchemaProps{
 							Description: "exportPermissionClaims records the permissions that the export provider is asking for the binding to grant.",
 							Type:        []string{"array"},

@@ -174,11 +174,17 @@ type APIBindingStatus struct {
 	// state in spec.permissionClaims.
 	//
 	// +optional
+	// +listType=map
+	// +listMapKey=group
+	// +listMapKey=resource
 	AppliedPermissionClaims []PermissionClaim `json:"appliedPermissionClaims,omitempty"`
 
 	// exportPermissionClaims records the permissions that the export provider is asking for
 	// the binding to grant.
 	// +optional
+	// +listType=map
+	// +listMapKey=group
+	// +listMapKey=resource
 	ExportPermissionClaims []PermissionClaim `json:"exportPermissionClaims,omitempty"`
 }
 
