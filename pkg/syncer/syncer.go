@@ -198,6 +198,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	dnsIP := ""
 	// Get the DNS IP. The DNS service cannot be recreated as existing dnsConfig won't be updated.
 	err = wait.PollImmediate(2*time.Second, time.Minute, func() (bool, error) {
+		logger.Info(fmt.Sprintf("performing a DNS lookup of %s", cfg.DNSServer))
 		ips, err := net.LookupIP(cfg.DNSServer)
 		if len(ips) == 0 || err != nil {
 			return false, nil //nolint:nilerr
