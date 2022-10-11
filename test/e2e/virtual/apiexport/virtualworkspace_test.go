@@ -102,6 +102,11 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 
 	setUpServiceProvider(ctx, dynamicClusterClient, kcpClients, serviceProviderWorkspace, cfg, t)
 
+	t.Logf("test that the virtualWorkspaceURL is not set on initial APIExport creation")
+	apiExport, err := kcpClients.ApisV1alpha1().APIExports().Get(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), "today-cowboys", metav1.GetOptions{})
+	require.Empty(t, apiExport.Status.VirtualWorkspaces)
+	require.NoError(t, err, "error getting APIExport")
+
 	// create API bindings in consumerWorkspace as user-3 with only bind permissions in serviceProviderWorkspace but not general access.
 	user3KcpClient, err := kcpclientset.NewForConfig(framework.UserConfig("user-3", rest.CopyConfig(cfg)))
 	require.NoError(t, err, "failed to construct client for user-3")
@@ -127,7 +132,7 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected all ClusterWorkspaceShards to have a VirtualWorkspaceURL assigned")
 
 	t.Logf("test that the admin user can use the virtual workspace to get cowboys")
-	apiExport, err := kcpClients.ApisV1alpha1().APIExports().Get(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), "today-cowboys", metav1.GetOptions{})
+	apiExport, err = kcpClients.ApisV1alpha1().APIExports().Get(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), "today-cowboys", metav1.GetOptions{})
 	require.NoError(t, err, "error getting APIExport")
 	require.Len(t, apiExport.Status.VirtualWorkspaces, clusterWorkspaceShardVirtualWorkspaceURLs.Len(), "unexpected virtual workspace URLs: %#v", apiExport.Status.VirtualWorkspaces)
 

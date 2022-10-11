@@ -93,8 +93,8 @@ func TestAPIBinding(t *testing.T) {
 		return true
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected all ClusterWorkspaceShards to have a VirtualWorkspaceURL assigned")
 
+	exportName := "today-cowboys"
 	serviceProviderWorkspaces := []logicalcluster.Name{serviceProvider1Workspace, serviceProvider2Workspace}
-
 	for _, serviceProviderWorkspace := range serviceProviderWorkspaces {
 		t.Logf("Install today cowboys APIResourceSchema into %q", serviceProviderWorkspace)
 
@@ -105,45 +105,17 @@ func TestAPIBinding(t *testing.T) {
 		err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(serviceProviderWorkspace), mapper, nil, "apiresourceschema_cowboys.yaml", testFiles)
 		require.NoError(t, err)
 
-		t.Logf("Create an APIExport today-cowboys in %q", serviceProviderWorkspace)
 		cowboysAPIExport := &apisv1alpha1.APIExport{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "today-cowboys",
+				Name: exportName,
 			},
 			Spec: apisv1alpha1.APIExportSpec{
 				LatestResourceSchemas: []string{"today.cowboys.wildwest.dev"},
 			},
 		}
-		cowboysAPIExport, err = kcpClusterClient.ApisV1alpha1().APIExports().Create(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), cowboysAPIExport, metav1.CreateOptions{})
+		t.Logf("Create an APIExport today-cowboys in %q", serviceProviderWorkspace)
+		_, err = kcpClusterClient.ApisV1alpha1().APIExports().Create(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), cowboysAPIExport, metav1.CreateOptions{})
 		require.NoError(t, err)
-
-		var expectedURLs []string
-		for _, urlString := range clusterWorkspaceShardVirtualWorkspaceURLs.List() {
-			u, err := url.Parse(urlString)
-			require.NoError(t, err, "error parsing %q", urlString)
-			u.Path = path.Join(u.Path, "services", "apiexport", serviceProviderWorkspace.String(), cowboysAPIExport.Name)
-			expectedURLs = append(expectedURLs, u.String())
-		}
-
-		t.Logf("Make sure the APIExport gets status.virtualWorkspaceURLs set")
-		framework.Eventually(t, func() (bool, string) {
-			e, err := kcpClusterClient.ApisV1alpha1().APIExports().Get(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), cowboysAPIExport.Name, metav1.GetOptions{})
-			if err != nil {
-				t.Logf("Unexpected error getting APIExport %s|%s: %v", serviceProviderWorkspace, cowboysAPIExport.Name, err)
-			}
-
-			var actualURLs []string
-			for _, u := range e.Status.VirtualWorkspaces {
-				actualURLs = append(actualURLs, u.URL)
-			}
-
-			if !reflect.DeepEqual(expectedURLs, actualURLs) {
-				return false, fmt.Sprintf("Unexpected URLs. Diff: %s", cmp.Diff(expectedURLs, actualURLs))
-			}
-
-			return true, ""
-		}, wait.ForeverTestTimeout, 100*time.Millisecond, "APIExport %s|%s didn't get status.virtualWorkspaceURLs set correctly",
-			serviceProviderWorkspace, cowboysAPIExport.Name)
 	}
 
 	bindConsumerToProvider := func(consumerWorkspace, providerWorkspace logicalcluster.Name) {
@@ -248,13 +220,45 @@ func TestAPIBinding(t *testing.T) {
 		}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected naming conflict")
 	}
 
+	verifyVirtualWorkspaceURLs := func(serviceProviderWorkspace logicalcluster.Name) {
+		var expectedURLs []string
+		for _, urlString := range clusterWorkspaceShardVirtualWorkspaceURLs.List() {
+			u, err := url.Parse(urlString)
+			require.NoError(t, err, "error parsing %q", urlString)
+			u.Path = path.Join(u.Path, "services", "apiexport", serviceProviderWorkspace.String(), exportName)
+			expectedURLs = append(expectedURLs, u.String())
+		}
+
+		t.Logf("Make sure the APIExport gets status.virtualWorkspaceURLs set")
+		framework.Eventually(t, func() (bool, string) {
+			e, err := kcpClusterClient.ApisV1alpha1().APIExports().Get(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), exportName, metav1.GetOptions{})
+			if err != nil {
+				t.Logf("Unexpected error getting APIExport %s|%s: %v", serviceProviderWorkspace, exportName, err)
+			}
+
+			var actualURLs []string
+			for _, u := range e.Status.VirtualWorkspaces {
+				actualURLs = append(actualURLs, u.URL)
+			}
+
+			if !reflect.DeepEqual(expectedURLs, actualURLs) {
+				return false, fmt.Sprintf("Unexpected URLs. Diff: %s", cmp.Diff(expectedURLs, actualURLs))
+			}
+
+			return true, ""
+		}, wait.ForeverTestTimeout, 100*time.Millisecond, "APIExport %s|%s didn't get status.virtualWorkspaceURLs set correctly",
+			serviceProviderWorkspace, exportName)
+	}
+
 	consumersOfServiceProvider1 := []logicalcluster.Name{consumer1Workspace, consumer2Workspace}
 	for _, consumerWorkspace := range consumersOfServiceProvider1 {
 		bindConsumerToProvider(consumerWorkspace, serviceProvider1Workspace)
 	}
+	verifyVirtualWorkspaceURLs(serviceProvider1Workspace)
 
 	t.Logf("=== Binding %q to %q", consumer3Workspace, serviceProvider2Workspace)
 	bindConsumerToProvider(consumer3Workspace, serviceProvider2Workspace)
+	verifyVirtualWorkspaceURLs(serviceProvider2Workspace)
 
 	t.Logf("=== Testing identity wildcards")
 
