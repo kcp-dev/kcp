@@ -25,10 +25,14 @@ import (
 	"time"
 
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	"github.com/kcp-dev/logicalcluster/v2"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -39,7 +43,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
-	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspacedeletion/deletion"
@@ -73,11 +76,19 @@ func NewController(
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
 	c := &Controller{
-		queue:             queue,
-		metadataClient:    metadataClient,
-		kcpClusterClient:  kcpClusterClient,
-		apiBindingsLister: apiBindingInformer.Lister(),
-		commit:            committer.NewCommitter[*APIBinding, *APIBindingSpec, *APIBindingStatus](kcpClusterClient.ApisV1alpha1().APIBindings()),
+		queue: queue,
+		listResources: func(ctx context.Context, cluster logicalcluster.Name, gvr schema.GroupVersionResource) (*metav1.PartialObjectMetadataList, error) {
+			return metadataClient.Resource(gvr).Namespace(metav1.NamespaceAll).List(genericapirequest.WithCluster(ctx, genericapirequest.Cluster{Name: cluster}), metav1.ListOptions{})
+		},
+		deleteResources: func(ctx context.Context, cluster logicalcluster.Name, gvr schema.GroupVersionResource, namespace string) error {
+			background := metav1.DeletePropagationBackground
+			opts := metav1.DeleteOptions{PropagationPolicy: &background}
+			return metadataClient.Resource(gvr).Namespace(namespace).DeleteCollection(genericapirequest.WithCluster(ctx, genericapirequest.Cluster{Name: cluster}), opts, metav1.ListOptions{})
+		},
+		getAPIBinding: func(cluster logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error) {
+			return apiBindingInformer.Lister().Get(kcpcache.ToClusterAwareKey(cluster.String(), "", name))
+		},
+		commit: committer.NewCommitter[*APIBinding, *APIBindingSpec, *APIBindingStatus](kcpClusterClient.ApisV1alpha1().APIBindings()),
 	}
 
 	apiBindingInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
@@ -107,15 +118,15 @@ type CommitFunc = func(context.Context, *Resource, *Resource) error
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	metadataClient   metadata.Interface
-	kcpClusterClient kcpclient.Interface
+	listResources   func(ctx context.Context, cluster logicalcluster.Name, gvr schema.GroupVersionResource) (*metav1.PartialObjectMetadataList, error)
+	deleteResources func(ctx context.Context, cluster logicalcluster.Name, gvr schema.GroupVersionResource, namespace string) error
 
-	apiBindingsLister apislisters.APIBindingLister
-	commit            CommitFunc
+	getAPIBinding func(cluster logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error)
+	commit        CommitFunc
 }
 
 func (c *Controller) enqueue(obj interface{}) {
-	key, err := kcpcache.MetaClusterNamespaceKeyFunc(obj)
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -188,12 +199,17 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 func (c *Controller) process(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
 	startTime := time.Now()
+	cluster, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+	if err != nil {
+		runtime.HandleError(err)
+		return nil
+	}
 
 	defer func() {
 		logger.V(4).Info("finished syncing", "duration", time.Since(startTime))
 	}()
 
-	apibinding, deleteErr := c.apiBindingsLister.Get(key)
+	apibinding, deleteErr := c.getAPIBinding(cluster, name)
 	if apierrors.IsNotFound(deleteErr) {
 		logger.V(3).Info("APIBinding has been deleted")
 		return nil

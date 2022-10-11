@@ -21,26 +21,18 @@ import (
 	"reflect"
 	"testing"
 
-	v1 "k8s.io/api/core/v1"
+	"github.com/kcp-dev/logicalcluster/v2"
+
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	metadatafake "k8s.io/client-go/metadata/fake"
-	clienttesting "k8s.io/client-go/testing"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspacedeletion/deletion"
 )
-
-var scheme *runtime.Scheme
-
-func init() {
-	scheme = runtime.NewScheme()
-	utilruntime.Must(metav1.AddMetaToScheme(scheme))
-}
 
 func TestMutateResourceRemainingStatus(t *testing.T) {
 	now := metav1.Now()
@@ -69,7 +61,7 @@ func TestMutateResourceRemainingStatus(t *testing.T) {
 			expectConditions: conditionsv1alpha1.Conditions{
 				{
 					Type:   apisv1alpha1.BindingResourceDeleteSuccess,
-					Status: v1.ConditionTrue,
+					Status: corev1.ConditionTrue,
 				},
 			},
 		},
@@ -87,7 +79,7 @@ func TestMutateResourceRemainingStatus(t *testing.T) {
 			expectConditions: conditionsv1alpha1.Conditions{
 				{
 					Type:   apisv1alpha1.BindingResourceDeleteSuccess,
-					Status: v1.ConditionFalse,
+					Status: corev1.ConditionFalse,
 					Reason: ResourceFinalizersRemainReason,
 				},
 			},
@@ -104,7 +96,7 @@ func TestMutateResourceRemainingStatus(t *testing.T) {
 			expectConditions: conditionsv1alpha1.Conditions{
 				{
 					Type:   apisv1alpha1.BindingResourceDeleteSuccess,
-					Status: v1.ConditionFalse,
+					Status: corev1.ConditionFalse,
 					Reason: ResourceRemainingReason,
 				},
 			},
@@ -163,18 +155,11 @@ func TestAPIBindingTerminating(t *testing.T) {
 
 	tests := []struct {
 		name                      string
-		existingObject            []runtime.Object
-		metadataClientActionSet   metaActionSet
-		expectErrorOnDelete       error
+		existingObjects           map[schema.GroupVersionResource]*metav1.PartialObjectMetadata
 		expectedResourceRemaining gvrDeletionMetadataTotal
 	}{
 		{
-			name:           "no resource left for apibinding to delete",
-			existingObject: []runtime.Object{},
-			metadataClientActionSet: []metaAction{
-				{"pods", "list"},
-				{"deployments", "list"},
-			},
+			name: "no resource left for apibinding to delete",
 			expectedResourceRemaining: gvrDeletionMetadataTotal{
 				gvrToNumRemaining:        map[schema.GroupVersionResource]int{},
 				finalizersToNumRemaining: map[string]int{},
@@ -182,15 +167,9 @@ func TestAPIBindingTerminating(t *testing.T) {
 		},
 		{
 			name: "some resource remaining after apibinding deletion",
-			existingObject: []runtime.Object{
-				newPartialObject("v1", "Pod", "pod1", "ns1", nil),
-				newPartialObject("apps/v1", "Deployment", "deploy1", "ns1", nil),
-			},
-			metadataClientActionSet: []metaAction{
-				{"pods", "list"},
-				{"pods", "delete-collection"},
-				{"deployments", "list"},
-				{"deployments", "delete-collection"},
+			existingObjects: map[schema.GroupVersionResource]*metav1.PartialObjectMetadata{
+				corev1.SchemeGroupVersion.WithResource("pods"):        newPartialObject("v1", "Pod", "pod1", "ns1", nil),
+				appsv1.SchemeGroupVersion.WithResource("deployments"): newPartialObject("apps/v1", "Deployment", "deploy1", "ns1", nil),
 			},
 			expectedResourceRemaining: gvrDeletionMetadataTotal{
 				gvrToNumRemaining: map[schema.GroupVersionResource]int{
@@ -202,15 +181,9 @@ func TestAPIBindingTerminating(t *testing.T) {
 		},
 		{
 			name: "some resource remaining after apibinding deletion",
-			existingObject: []runtime.Object{
-				newPartialObject("v1", "Pod", "pod1", "ns1", []string{"test.kcp.io/finalizer"}),
-				newPartialObject("apps/v1", "Deployment", "deploy1", "ns1", []string{"test.kcp.io/finalizer"}),
-			},
-			metadataClientActionSet: []metaAction{
-				{"pods", "list"},
-				{"pods", "delete-collection"},
-				{"deployments", "list"},
-				{"deployments", "delete-collection"},
+			existingObjects: map[schema.GroupVersionResource]*metav1.PartialObjectMetadata{
+				corev1.SchemeGroupVersion.WithResource("pods"):        newPartialObject("v1", "Pod", "pod1", "ns1", []string{"test.kcp.io/finalizer"}),
+				appsv1.SchemeGroupVersion.WithResource("deployments"): newPartialObject("apps/v1", "Deployment", "deploy1", "ns1", []string{"test.kcp.io/finalizer"}),
 			},
 			expectedResourceRemaining: gvrDeletionMetadataTotal{
 				gvrToNumRemaining: map[schema.GroupVersionResource]int{
@@ -226,9 +199,19 @@ func TestAPIBindingTerminating(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockMetadataClient := metadatafake.NewSimpleMetadataClient(scheme, tt.existingObject...)
 			controller := &Controller{
-				metadataClient: mockMetadataClient,
+				listResources: func(ctx context.Context, cluster logicalcluster.Name, gvr schema.GroupVersionResource) (*metav1.PartialObjectMetadataList, error) {
+					if tt.existingObjects == nil {
+						return &metav1.PartialObjectMetadataList{Items: []metav1.PartialObjectMetadata{}}, nil
+					}
+					if item, recorded := tt.existingObjects[gvr]; recorded {
+						return &metav1.PartialObjectMetadataList{Items: []metav1.PartialObjectMetadata{*item}}, nil
+					}
+					return &metav1.PartialObjectMetadataList{Items: []metav1.PartialObjectMetadata{}}, nil
+				},
+				deleteResources: func(ctx context.Context, cluster logicalcluster.Name, gvr schema.GroupVersionResource, namespace string) error {
+					return nil
+				},
 			}
 
 			apibindingCopy := apibinding.DeepCopy()
@@ -238,35 +221,8 @@ func TestAPIBindingTerminating(t *testing.T) {
 			if !reflect.DeepEqual(resourceRemaining, tt.expectedResourceRemaining) {
 				t.Errorf("expect remainint resource %v, got %v", tt.expectedResourceRemaining, resourceRemaining)
 			}
-
-			if len(mockMetadataClient.Actions()) != len(tt.metadataClientActionSet) {
-				t.Fatalf("mismatched actions, expect %d actions, got %d actions", len(tt.metadataClientActionSet), len(mockMetadataClient.Actions()))
-			}
-
-			for index, action := range mockMetadataClient.Actions() {
-				if !tt.metadataClientActionSet.match(action) {
-					t.Errorf("expect action for resource %q for verb %q but got %v", tt.metadataClientActionSet[index].resource, tt.metadataClientActionSet[index].verb, action)
-				}
-			}
 		})
 	}
-}
-
-type metaAction struct {
-	resource string
-	verb     string
-}
-
-type metaActionSet []metaAction
-
-func (m metaActionSet) match(action clienttesting.Action) bool {
-	for _, a := range m {
-		if action.Matches(a.verb, a.resource) {
-			return true
-		}
-	}
-
-	return false
 }
 
 func newPartialObject(apiversion, kind, name, namespace string, finlizers []string) *metav1.PartialObjectMetadata {

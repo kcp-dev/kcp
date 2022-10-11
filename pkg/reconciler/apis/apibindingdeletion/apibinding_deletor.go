@@ -21,11 +21,9 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
-	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
@@ -96,7 +94,7 @@ func (c *Controller) deleteAllCRs(ctx context.Context, apibinding *apisv1alpha1.
 
 func (c *Controller) deleteAllCR(ctx context.Context, clusterName logicalcluster.Name, gvr schema.GroupVersionResource) (gvrDeletionMetadata, error) {
 	logger := klog.FromContext(ctx)
-	partialList, err := c.metadataClient.Resource(gvr).Namespace(metav1.NamespaceAll).List(genericapirequest.WithCluster(ctx, genericapirequest.Cluster{Name: clusterName}), metav1.ListOptions{})
+	partialList, err := c.listResources(ctx, clusterName, gvr)
 	if err != nil {
 		return gvrDeletionMetadata{}, err
 	}
@@ -111,12 +109,9 @@ func (c *Controller) deleteAllCR(ctx context.Context, clusterName logicalcluster
 
 		// don't retry deleting the same namespace
 		deletedNamespaces.Insert(item.GetNamespace())
-		background := metav1.DeletePropagationBackground
-		opts := metav1.DeleteOptions{PropagationPolicy: &background}
 
 		// CRs always support deletecollection verb
-		if err := c.metadataClient.Resource(gvr).Namespace(item.GetNamespace()).DeleteCollection(
-			genericapirequest.WithCluster(ctx, genericapirequest.Cluster{Name: clusterName}), opts, metav1.ListOptions{}); err != nil {
+		if err := c.deleteResources(ctx, clusterName, gvr, item.GetNamespace()); err != nil {
 			deleteErrors = append(deleteErrors, err)
 			continue
 		}
