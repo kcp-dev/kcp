@@ -86,9 +86,10 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 		if _, found := apiResourceSchemas[gr]; found {
 			if otherClaim, found := claims[gr]; found {
 				logger.Info("permission claim is shadowed by another claim", "claim", pc, "otherClaim", otherClaim)
-			} else {
-				logger.Info("permission claim is shadowed by exported resource", "claim", pc)
+				continue
 			}
+
+			logger.Info("permission claim is shadowed by exported resource", "claim", pc)
 			continue
 		}
 
@@ -106,8 +107,9 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 			apiResourceSchemas[gr] = &shallow
 			claims[gr] = pc
 			continue
-		} else if pc.GroupResource.Group == apis.GroupName {
-			apisSchema, found := schemas.ApisKcpDevSchemas[pc.GroupResource.Resource]
+		}
+		if pc.Group == apis.GroupName {
+			apisSchema, found := schemas.ApisKcpDevSchemas[pc.Resource]
 			if !found {
 				logger.Info("permission claim is for an unknown resource", "claim", pc)
 				continue
@@ -115,7 +117,8 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 			apiResourceSchemas[gr] = apisSchema
 			claims[gr] = pc
 			continue
-		} else if pc.IdentityHash == "" {
+		}
+		if pc.IdentityHash == "" {
 			// NOTE(hasheddan): this is checked by admission so we should never
 			// hit this case.
 			logger.Info("permission claim is not internal and does not have an identity hash", "claim", pc)
