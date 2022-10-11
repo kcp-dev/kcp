@@ -25,11 +25,14 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
@@ -99,7 +102,16 @@ func NewAPIImporter(
 		}
 	}
 
-	schemaPuller, err := crdpuller.NewSchemaPuller(downstreamConfig)
+	crdClient, err := apiextensionsv1client.NewForConfig(downstreamConfig)
+	if err != nil {
+		return nil, fmt.Errorf("error creating downstream apiextensions client: %w", err)
+	}
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(downstreamConfig)
+	if err != nil {
+		return nil, fmt.Errorf("error creating downstream discovery client: %w", err)
+	}
+
+	schemaPuller, err := crdpuller.NewSchemaPuller(discoveryClient, crdClient)
 	if err != nil {
 		return nil, err
 	}
@@ -126,8 +138,16 @@ type APIImporter struct {
 
 	location           string
 	logicalClusterName logicalcluster.Name
-	schemaPuller       crdpuller.SchemaPuller
+	schemaPuller       schemaPuller
 	SyncedGVRs         map[string]metav1.GroupVersionResource
+}
+
+// schemaPuller allows pulling the API resources as CRDs
+// from a kubernetes cluster.
+type schemaPuller interface {
+	// PullCRDs allows pulling the resources named by their plural names
+	// and make them available as CRDs in the output map.
+	PullCRDs(context context.Context, resourceNames ...string) (map[schema.GroupResource]*apiextensionsv1.CustomResourceDefinition, error)
 }
 
 func (i *APIImporter) Start(ctx context.Context, pollInterval time.Duration) {

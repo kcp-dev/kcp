@@ -1,4 +1,4 @@
-/cmd/kcp/kcp.go:116:4: function "Infof" should not be used, convert to contextual logging
+/cmd/kcp/kcp.go:117:4: function "Infof" should not be used, convert to contextual logging
 /cmd/kubectl-kcp/cmd/kubectlKcp.go:58:2: function "InitFlags" should not be used, convert to contextual logging
 /cmd/kubectl-workspace/main.go:44:2: function "InitFlags" should not be used, convert to contextual logging
 /cmd/sharded-test-server/shard.go:34:2: function "Infof" should not be used, convert to contextual logging
@@ -54,16 +54,6 @@
 /pkg/authorization/delegated/authorizer.go:50:3: function "Errorf" should not be used, convert to contextual logging
 /pkg/cliplugins/workload/plugin/sync.go:477:4: function "Infof" should not be used, convert to contextual logging
 /pkg/cliplugins/workload/plugin/sync.go:477:4: function "V" should not be used, convert to contextual logging
-/pkg/crdpuller/discovery.go:112:4: function "Errorf" should not be used, convert to contextual logging
-/pkg/crdpuller/discovery.go:144:4: function "Errorf" should not be used, convert to contextual logging
-/pkg/crdpuller/discovery.go:158:5: function "Warningf" should not be used, convert to contextual logging
-/pkg/crdpuller/discovery.go:164:5: function "Infof" should not be used, convert to contextual logging
-/pkg/crdpuller/discovery.go:182:4: function "Infof" should not be used, convert to contextual logging
-/pkg/crdpuller/discovery.go:188:6: function "Warningf" should not be used, convert to contextual logging
-/pkg/crdpuller/discovery.go:204:7: function "Errorf" should not be used, convert to contextual logging
-/pkg/crdpuller/discovery.go:213:6: function "Errorf" should not be used, convert to contextual logging
-/pkg/crdpuller/discovery.go:218:6: function "Infof" should not be used, convert to contextual logging
-/pkg/crdpuller/discovery.go:232:6: function "Errorf" should not be used, convert to contextual logging
 /pkg/dns/plugin/nsmap/namespace.go:68:2: function "Info" should not be used, convert to contextual logging
 /pkg/dns/plugin/nsmap/namespace.go:68:2: function "V" should not be used, convert to contextual logging
 /pkg/embeddedetcd/server.go:44:2: function "Info" should not be used, convert to contextual logging

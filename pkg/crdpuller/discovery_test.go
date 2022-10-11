@@ -18,134 +18,98 @@ package crdpuller
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
-	openapi_v2 "github.com/google/gnostic/openapiv2"
-	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/require"
 
-	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/version"
-	"k8s.io/client-go/openapi"
-	"k8s.io/client-go/rest"
-	k8stesting "k8s.io/client-go/testing"
 )
 
 func TestPuller(t *testing.T) {
-	crdClient := fake.NewSimpleClientset()
+	getCRDCount := 0
+	getCRDName := ""
 
-	puller, err := newPuller(&fakeDiscovery{}, crdClient.ApiextensionsV1())
-	if err != nil {
-		t.Error(err)
-	}
-
-	_, err = puller.PullCRDs(context.Background(), "pods")
-	if err != nil {
-		t.Error(err)
-	}
-
-	wantActions := []k8stesting.Action{}
-	wantActions = append(wantActions, k8stesting.NewGetAction(schema.GroupVersionResource{
-		Group:    "apiextensions.k8s.io",
-		Version:  "v1",
-		Resource: "customresourcedefinitions",
-	}, "", "pods.core"))
-	if diff := cmp.Diff(wantActions, crdClient.Actions()); diff != "" {
-		t.Fatalf("Unexpected actions: (-got,+want): %s", diff)
-	}
-}
-
-type fakeDiscovery struct{}
-
-func (fakeDiscovery) RESTClient() rest.Interface {
-	return nil
-}
-
-func (fakeDiscovery) ServerGroups() (*metav1.APIGroupList, error) {
-	return &metav1.APIGroupList{
-		Groups: []metav1.APIGroup{
-			{
-				Name: "",
-				Versions: []metav1.GroupVersionForDiscovery{
+	puller := &schemaPuller{
+		serverGroupsAndResources: func() ([]*metav1.APIGroup, []*metav1.APIResourceList, error) {
+			return []*metav1.APIGroup{
+					{
+						Name: "",
+						Versions: []metav1.GroupVersionForDiscovery{
+							{
+								GroupVersion: "v1",
+								Version:      "v1",
+							},
+						},
+						PreferredVersion: metav1.GroupVersionForDiscovery{
+							GroupVersion: "v1",
+							Version:      "v1",
+						},
+					},
+					{
+						Name: "metrics.k8s.io",
+						Versions: []metav1.GroupVersionForDiscovery{
+							{
+								GroupVersion: "metrics.k8s.io/v1beta1",
+								Version:      "v1beta1",
+							},
+						},
+						PreferredVersion: metav1.GroupVersionForDiscovery{
+							GroupVersion: "metrics.k8s.io/v1beta1",
+							Version:      "v1beta1",
+						},
+					},
+				}, []*metav1.APIResourceList{
 					{
 						GroupVersion: "v1",
-						Version:      "v1",
+						APIResources: []metav1.APIResource{
+							{
+								Name:       "pods",
+								Namespaced: true,
+								Kind:       "Pod",
+							},
+						},
+					},
+					{
+						GroupVersion: "metrics.k8s.io/v1beta1",
+						APIResources: []metav1.APIResource{
+							{
+								Name:       "pods",
+								Namespaced: true,
+								Kind:       "Pod",
+							},
+						},
+					},
+				}, nil
+		},
+		serverPreferredResources: func() ([]*metav1.APIResourceList, error) {
+			return []*metav1.APIResourceList{
+				{
+					GroupVersion: "v1",
+					APIResources: []metav1.APIResource{
+						{
+							Name:       "pods",
+							Namespaced: false,
+							Kind:       "Pod",
+						},
 					},
 				},
-				PreferredVersion: metav1.GroupVersionForDiscovery{
-					GroupVersion: "v1",
-					Version:      "v1",
-				},
-			},
+			}, nil
 		},
-	}, nil
-}
-
-func (fakeDiscovery) ServerResourcesForGroupVersion(groupVersion string) (*metav1.APIResourceList, error) {
-	if groupVersion == "v1" {
-		return &metav1.APIResourceList{
-			GroupVersion: "v1",
-			APIResources: []metav1.APIResource{
-				{
-					Name:       "pods",
-					Namespaced: false,
-					Kind:       "Pod",
-				},
-			},
-		}, nil
-	}
-	if groupVersion == "metrics.k8s.io/v1beta1" {
-		return &metav1.APIResourceList{
-			GroupVersion: "metrics.k8s.io/v1beta1",
-			APIResources: []metav1.APIResource{
-				{
-					Name:       "pods",
-					Namespaced: false,
-					Kind:       "Pod",
-				},
-			},
-		}, nil
-	}
-	return nil, fmt.Errorf("groupVersion %s not found", groupVersion)
-}
-
-func (fakeDiscovery) ServerResources() ([]*metav1.APIResourceList, error) {
-	return nil, nil
-}
-
-func (fakeDiscovery) ServerGroupsAndResources() ([]*metav1.APIGroup, []*metav1.APIResourceList, error) {
-	return nil, nil, nil
-}
-
-func (fakeDiscovery) ServerPreferredResources() ([]*metav1.APIResourceList, error) {
-	return []*metav1.APIResourceList{
-		{
-			GroupVersion: "v1",
-			APIResources: []metav1.APIResource{
-				{
-					Name:       "pods",
-					Namespaced: false,
-					Kind:       "Pod",
-				},
-			},
+		getCRD: func(ctx context.Context, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
+			getCRDCount++
+			getCRDName = name
+			return &apiextensionsv1.CustomResourceDefinition{}, nil
 		},
-	}, nil
-}
+		resourceFor: func(groupResource schema.GroupResource) (schema.GroupResource, error) {
+			return groupResource, nil
+		},
+	}
 
-func (fakeDiscovery) ServerPreferredNamespacedResources() ([]*metav1.APIResourceList, error) {
-	return nil, nil
-}
+	_, err := puller.PullCRDs(context.Background(), "pods")
+	require.NoError(t, err, "error pulling")
 
-func (fakeDiscovery) ServerVersion() (*version.Info, error) {
-	return nil, nil
-}
-
-func (d fakeDiscovery) OpenAPISchema() (*openapi_v2.Document, error) {
-	return &openapi_v2.Document{}, nil
-}
-
-func (d fakeDiscovery) OpenAPIV3() openapi.Client {
-	return openapi.NewClient(nil)
+	require.Equal(t, 1, getCRDCount)
+	require.Equal(t, "pods.core", getCRDName)
 }
