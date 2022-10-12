@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
@@ -67,25 +68,62 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	logger = logger.WithValues(logging.DownstreamNamespaceKey, downstreamNamespace, logging.DownstreamNameKey, downstreamName)
 
 	// to upstream
-	nsObj, err := c.downstreamNamespaceLister.Get(downstreamNamespace)
-	if err != nil {
-		logger.Error(err, "Error retrieving downstream namespace from downstream lister")
-		return nil
+	var namespaceLocator *shared.NamespaceLocator
+	var locatorExists bool
+	if downstreamNamespace != "" {
+		nsObj, err := c.downstreamNamespaceLister.Get(downstreamNamespace)
+		if err != nil {
+			logger.Error(err, "Error retrieving downstream namespace from downstream lister")
+			return nil
+		}
+		nsMeta, ok := nsObj.(metav1.Object)
+		if !ok {
+			logger.Info(fmt.Sprintf("Error: downstream namespace expected to be metav1.Object, got %T", nsObj))
+			return nil
+		}
+
+		namespaceLocator, locatorExists, err = shared.LocatorFromAnnotations(nsMeta.GetAnnotations())
+		if err != nil {
+			logger.Error(err, "Error decoding annotation on downstream namespace")
+			return nil
+		}
+		if !locatorExists || namespaceLocator == nil {
+			// Only sync resources for the configured logical cluster to ensure
+			// that syncers for multiple logical clusters can coexist.
+			return nil
+		}
 	}
-	nsMeta, ok := nsObj.(metav1.Object)
+
+	// get the downstream object
+	syncerInformer, ok := c.syncerInformers.InformerForResource(gvr)
 	if !ok {
-		logger.Info(fmt.Sprintf("Error: downstream namespace expected to be metav1.Object, got %T", nsObj))
 		return nil
 	}
-	namespaceLocator, exists, err := shared.LocatorFromAnnotations(nsMeta.GetAnnotations())
+	obj, resourceExists, err := syncerInformer.DownstreamInformer.Informer().GetIndexer().GetByKey(key)
 	if err != nil {
-		logger.Error(err, "Error decoding annotation on downstream namespace")
-		return nil
+		return err
 	}
-	if !exists || namespaceLocator == nil {
-		// Only sync resources for the configured logical cluster to ensure
-		// that syncers for multiple logical clusters can coexist.
-		return nil
+
+	if downstreamNamespace == "" {
+		if !resourceExists {
+			return nil
+		}
+
+		objMeta, ok := obj.(metav1.Object)
+		if !ok {
+			logger.Info(fmt.Sprintf("Error: downstream cluster-wide resource expected to be metav1.Object, got %T", obj))
+			return nil
+		}
+		namespaceLocator, locatorExists, err = shared.LocatorFromAnnotations(objMeta.GetAnnotations())
+		if err != nil {
+			logger.Error(err, "Error decoding annotation on downstream cluster-wide resource")
+			return nil
+		}
+		if !locatorExists || namespaceLocator == nil {
+			// Only sync resources for the configured logical cluster to ensure
+			// that syncers for multiple logical clusters can coexist.
+			return nil
+		}
 	}
 
 	if namespaceLocator.SyncTarget.UID != c.syncTargetUID || namespaceLocator.SyncTarget.Workspace != c.syncTargetWorkspace.String() {
@@ -100,18 +138,9 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	logger = logger.WithValues(logging.WorkspaceKey, upstreamWorkspace, logging.NamespaceKey, upstreamNamespace, logging.NameKey, upstreamName)
 	ctx = klog.NewContext(ctx, logger)
 
-	// get the downstream object
-	syncerInformer, ok := c.syncerInformers.InformerForResource(gvr)
-	if !ok {
-		return nil
-	}
-	obj, exists, err := syncerInformer.DownstreamInformer.Informer().GetIndexer().GetByKey(key)
-	if err != nil {
-		return err
-	}
-	if !exists {
+	if !resourceExists {
 		logger.Info("Downstream object does not exist. Removing finalizer on upstream object")
-		return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, syncerInformer.UpstreamInformer, c.upstreamClient, upstreamNamespace, c.syncTargetKey, upstreamWorkspace, upstreamName)
+		return shared.EnsureUpstreamFinalizerRemoved(ctx, gvr, syncerInformer.UpstreamInformer, c.upstreamClient, upstreamNamespace, c.syncTargetKey, upstreamWorkspace, shared.GetUpstreamResourceName(gvr, downstreamName))
 	}
 
 	// update upstream status
@@ -137,7 +166,14 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 	if !ok {
 		return nil
 	}
-	existingObj, err := syncerInformer.UpstreamInformer.Lister().ByNamespace(upstreamNamespace).Get(clusters.ToClusterAwareKey(upstreamLogicalCluster, upstreamName))
+
+	var existingObj runtime.Object
+	if upstreamNamespace != "" {
+		existingObj, err = syncerInformer.UpstreamInformer.Lister().ByNamespace(upstreamNamespace).Get(clusters.ToClusterAwareKey(upstreamLogicalCluster, upstreamName))
+	} else {
+		existingObj, err = syncerInformer.UpstreamInformer.Lister().Get(clusters.ToClusterAwareKey(upstreamLogicalCluster, upstreamName))
+	}
+
 	if err != nil {
 		logger.Error(err, "Error getting upstream resource")
 		return err
@@ -168,7 +204,15 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 			return nil
 		}
 
-		if _, err := c.upstreamClient.Cluster(upstreamLogicalCluster).Resource(gvr).Namespace(upstreamNamespace).Update(ctx, newUpstream, metav1.UpdateOptions{}); err != nil {
+		if upstreamNamespace != "" {
+			// In this case we will update the whole resource, not the status, as the status is in the annotation.
+			// this is specific to the advancedScheduling flag.
+			_, err = c.upstreamClient.Cluster(upstreamLogicalCluster).Resource(gvr).Namespace(upstreamNamespace).Update(ctx, newUpstream, metav1.UpdateOptions{})
+		} else {
+			_, err = c.upstreamClient.Cluster(upstreamLogicalCluster).Resource(gvr).Update(ctx, newUpstream, metav1.UpdateOptions{})
+		}
+
+		if err != nil {
 			logger.Error(err, "Failed updating the status annotation of upstream resource")
 			return err
 		}
@@ -184,11 +228,16 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 	// TODO (davidfestal): Here in the future we might want to also set some fields of the Spec, per resource type, for example:
 	// clusterIP for service, or other field values set by SyncTarget cluster admission.
 	// But for now let's only update the status.
-
-	if _, err := c.upstreamClient.Cluster(upstreamLogicalCluster).Resource(gvr).Namespace(upstreamNamespace).UpdateStatus(ctx, newUpstream, metav1.UpdateOptions{}); err != nil {
+	if upstreamNamespace != "" {
+		_, err = c.upstreamClient.Cluster(upstreamLogicalCluster).Resource(gvr).Namespace(upstreamNamespace).UpdateStatus(ctx, newUpstream, metav1.UpdateOptions{})
+	} else {
+		_, err = c.upstreamClient.Cluster(upstreamLogicalCluster).Resource(gvr).UpdateStatus(ctx, newUpstream, metav1.UpdateOptions{})
+	}
+	if err != nil {
 		logger.Error(err, "Failed updating status of upstream resource")
 		return err
 	}
+
 	logger.Info("Updated status of upstream resource")
 	return nil
 }

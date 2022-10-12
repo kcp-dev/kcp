@@ -17,6 +17,7 @@ limitations under the License.
 package resource
 
 import (
+	"reflect"
 	"testing"
 	"time"
 
@@ -36,13 +37,14 @@ func namespace(annotations, labels map[string]string) *corev1.Namespace {
 	}
 }
 
-func object(annotations, labels map[string]string, finalizers []string, deletionTimestamp *metav1.Time) metav1.Object {
+func object(annotations, labels map[string]string, finalizers []string, deletionTimestamp *metav1.Time, namespace string) metav1.Object {
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations:       annotations,
 			Labels:            labels,
 			DeletionTimestamp: deletionTimestamp,
 			Finalizers:        finalizers,
+			Namespace:         namespace,
 		},
 	}
 }
@@ -57,25 +59,25 @@ func TestComputePlacement(t *testing.T) {
 	}{
 		{name: "unscheduled namespace and object",
 			ns:  namespace(nil, nil),
-			obj: object(nil, nil, nil, nil),
+			obj: object(nil, nil, nil, nil, "ns"),
 		},
 		{name: "pending namespace, unscheduled object",
 			ns: namespace(nil, map[string]string{
 				"state.workload.kcp.dev/cluster-1": "",
 			}),
-			obj: object(nil, nil, nil, nil),
+			obj: object(nil, nil, nil, nil, "ns"),
 		},
 		{name: "invalid state value on namespace",
 			ns: namespace(nil, map[string]string{
 				"state.workload.kcp.dev/cluster-1": "Foo",
 			}),
-			obj: object(nil, nil, nil, nil),
+			obj: object(nil, nil, nil, nil, "ns"),
 		},
 		{name: "syncing namespace, unscheduled object",
 			ns: namespace(nil, map[string]string{
 				"state.workload.kcp.dev/cluster-1": "Sync",
 			}),
-			obj: object(nil, nil, nil, nil),
+			obj: object(nil, nil, nil, nil, "ns"),
 			wantLabelPatch: map[string]interface{}{
 				"state.workload.kcp.dev/cluster-1": "Sync",
 			},
@@ -86,7 +88,7 @@ func TestComputePlacement(t *testing.T) {
 			}, map[string]string{
 				"state.workload.kcp.dev/cluster-1": "Sync",
 			}),
-			obj: object(nil, nil, nil, nil),
+			obj: object(nil, nil, nil, nil, "ns"),
 		},
 		{name: "new location on namespace",
 			ns: namespace(nil, map[string]string{
@@ -95,7 +97,7 @@ func TestComputePlacement(t *testing.T) {
 			}),
 			obj: object(nil, map[string]string{
 				"state.workload.kcp.dev/cluster-1": "Sync",
-			}, nil, nil),
+			}, nil, nil, "ns"),
 			wantLabelPatch: map[string]interface{}{
 				"state.workload.kcp.dev/cluster-2": "Sync",
 			},
@@ -108,7 +110,7 @@ func TestComputePlacement(t *testing.T) {
 			}),
 			obj: object(nil, map[string]string{
 				"state.workload.kcp.dev/cluster-4": "Sync",
-			}, nil, nil),
+			}, nil, nil, "ns"),
 			wantLabelPatch: nil,
 			wantAnnotationPatch: map[string]interface{}{
 				"deletion.internal.workload.kcp.dev/cluster-4": "2002-10-02T10:00:00-05:00",
@@ -124,7 +126,7 @@ func TestComputePlacement(t *testing.T) {
 				"deletion.internal.workload.kcp.dev/cluster-3": "2002-10-02T10:00:00-05:00",
 			}, map[string]string{
 				"state.workload.kcp.dev/cluster-3": "Sync",
-			}, nil, nil),
+			}, nil, nil, "ns"),
 		},
 		{name: "hard delete after namespace is not scheduled",
 			ns: namespace(nil, nil),
@@ -132,7 +134,7 @@ func TestComputePlacement(t *testing.T) {
 				"deletion.internal.workload.kcp.dev/cluster-3": "2002-10-02T10:00:00-05:00",
 			}, map[string]string{
 				"state.workload.kcp.dev/cluster-3": "Sync", // removed hard because namespace is not scheduled
-			}, nil, nil),
+			}, nil, nil, "ns"),
 			wantLabelPatch: map[string]interface{}{
 				"state.workload.kcp.dev/cluster-3": nil,
 			},
@@ -147,7 +149,7 @@ func TestComputePlacement(t *testing.T) {
 				"finalizers.workload.kcp.dev/cluster-3":        "external-coordinator",
 			}, map[string]string{
 				"state.workload.kcp.dev/cluster-3": "Sync",
-			}, nil, nil),
+			}, nil, nil, "ns"),
 			wantLabelPatch:      nil,
 			wantAnnotationPatch: nil,
 		},
@@ -159,7 +161,7 @@ func TestComputePlacement(t *testing.T) {
 				"state.workload.kcp.dev/cluster-3": "Sync",
 			}, []string{
 				"workload.kcp.dev/syncer-cluster-3",
-			}, nil),
+			}, nil, "ns"),
 			wantLabelPatch:      nil,
 			wantAnnotationPatch: nil,
 		},
@@ -169,7 +171,7 @@ func TestComputePlacement(t *testing.T) {
 				"deletion.internal.workload.kcp.dev/cluster-3": "2002-10-02T10:00:00-05:00",
 			}, map[string]string{
 				"state.workload.kcp.dev/cluster-3": "Sync",
-			}, nil, nil),
+			}, nil, nil, "ns"),
 			wantLabelPatch: map[string]interface{}{
 				"state.workload.kcp.dev/cluster-3": nil,
 			},
@@ -185,7 +187,7 @@ func TestComputePlacement(t *testing.T) {
 				"deletion.internal.workload.kcp.dev/cluster-3": "2002-10-02T10:00:00-05:00",
 			}, map[string]string{
 				"state.workload.kcp.dev/cluster-3": "Sync",
-			}, nil, nil),
+			}, nil, nil, "ns"),
 		},
 		{name: "multiple locations, added and removed on namespace and object",
 			ns: namespace(map[string]string{
@@ -201,7 +203,7 @@ func TestComputePlacement(t *testing.T) {
 				"state.workload.kcp.dev/cluster-2": "Sync",
 				"state.workload.kcp.dev/cluster-3": "Sync", // removed hard
 				"state.workload.kcp.dev/cluster-4": "Sync",
-			}, nil, nil),
+			}, nil, nil, "ns"),
 			wantLabelPatch: map[string]interface{}{
 				"state.workload.kcp.dev/cluster-1": "Sync",
 				"state.workload.kcp.dev/cluster-3": nil,
@@ -226,7 +228,7 @@ func TestComputePlacement(t *testing.T) {
 				"state.workload.kcp.dev/cluster-2": "Sync",
 				"state.workload.kcp.dev/cluster-3": "Sync",
 				"state.workload.kcp.dev/cluster-4": "Sync",
-			}, nil, nil),
+			}, nil, nil, "ns"),
 			wantLabelPatch: map[string]interface{}{
 				"state.workload.kcp.dev/cluster-1": "Sync",
 			},
@@ -237,7 +239,9 @@ func TestComputePlacement(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotAnnotationPatch, gotLabelPatch := computePlacement(tt.ns, tt.obj)
+			expectedSynctargetKeys := getLocations(tt.ns.GetLabels(), true)
+			expectedDeletedSynctargetKeys := getDeletingLocations(tt.ns.GetAnnotations())
+			gotAnnotationPatch, gotLabelPatch := computePlacement(expectedSynctargetKeys, expectedDeletedSynctargetKeys, tt.obj)
 			if diff := cmp.Diff(gotAnnotationPatch, tt.wantAnnotationPatch); diff != "" {
 				t.Errorf("incorrect annotation patch: %s", diff)
 			}
@@ -257,7 +261,7 @@ func TestPropagateDeletionTimestamp(t *testing.T) {
 		{name: "Object is marked for deletion and has one location",
 			obj: object(nil, map[string]string{
 				"state.workload.kcp.dev/cluster-1": "Sync",
-			}, nil, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}),
+			}, nil, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}, "ns"),
 			wantAnnotationPatch: map[string]interface{}{
 				"deletion.internal.workload.kcp.dev/cluster-1": "2002-10-02T10:00:00Z",
 			},
@@ -266,7 +270,7 @@ func TestPropagateDeletionTimestamp(t *testing.T) {
 				"state.workload.kcp.dev/cluster-1": "Sync",
 				"state.workload.kcp.dev/cluster-2": "Sync",
 				"state.workload.kcp.dev/cluster-3": "Sync",
-			}, nil, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}),
+			}, nil, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}, "ns"),
 			wantAnnotationPatch: map[string]interface{}{
 				"deletion.internal.workload.kcp.dev/cluster-1": "2002-10-02T10:00:00Z",
 				"deletion.internal.workload.kcp.dev/cluster-2": "2002-10-02T10:00:00Z",
@@ -278,7 +282,7 @@ func TestPropagateDeletionTimestamp(t *testing.T) {
 				"deletion.internal.workload.kcp.dev/cluster-1": "2002-10-02T10:00:00Z",
 			}, map[string]string{
 				"state.workload.kcp.dev/cluster-1": "Sync",
-			}, nil, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}),
+			}, nil, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}, "ns"),
 			wantAnnotationPatch: map[string]interface{}{},
 		},
 		{name: "Object is marked for deletion, has one location with a location deletionTimestamp already set, but with different time value, no update",
@@ -286,19 +290,19 @@ func TestPropagateDeletionTimestamp(t *testing.T) {
 				"deletion.internal.workload.kcp.dev/cluster-1": "2000-01-01 10:00:00 +0000 UTC",
 			}, map[string]string{
 				"state.workload.kcp.dev/cluster-1": "Sync",
-			}, nil, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}),
+			}, nil, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}, "ns"),
 			wantAnnotationPatch: map[string]interface{}{},
 		},
 		{name: "Object is marked for deletion, has one pending location, the deletionTimestamp of that location should be set",
 			obj: object(nil, map[string]string{
 				"state.workload.kcp.dev/cluster-1": "",
-			}, nil, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}),
+			}, nil, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}, "ns"),
 			wantAnnotationPatch: map[string]interface{}{
 				"deletion.internal.workload.kcp.dev/cluster-1": "2002-10-02T10:00:00Z",
 			},
 		},
 		{name: "Object is marked for deletion and has no locations",
-			obj:                 object(nil, nil, nil, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}),
+			obj:                 object(nil, nil, nil, &metav1.Time{Time: time.Date(2002, 10, 2, 10, 0, 0, 0, time.UTC)}, "ns"),
 			wantAnnotationPatch: map[string]interface{}{},
 		},
 	}
@@ -307,6 +311,121 @@ func TestPropagateDeletionTimestamp(t *testing.T) {
 			gotAnnotationPatch := propagateDeletionTimestamp(klog.Background(), tt.obj)
 			if diff := cmp.Diff(gotAnnotationPatch, tt.wantAnnotationPatch); diff != "" {
 				t.Errorf("incorrect annotation patch: %s", diff)
+			}
+		})
+	}
+}
+
+func TestGetLocations(t *testing.T) {
+	tests := []struct {
+		name        string
+		labels      map[string]string
+		skipPending bool
+		wantKeys    []string
+	}{
+		{name: "No locations",
+			labels:      map[string]string{},
+			skipPending: false,
+			wantKeys:    []string{},
+		},
+		{name: "One location",
+			labels: map[string]string{
+				"state.workload.kcp.dev/cluster-1": "Sync",
+			},
+			skipPending: false,
+			wantKeys:    []string{"cluster-1"},
+		},
+		{name: "Multiple locations",
+			labels: map[string]string{
+				"state.workload.kcp.dev/cluster-1": "Sync",
+				"state.workload.kcp.dev/cluster-2": "Sync",
+				"state.workload.kcp.dev/cluster-3": "Sync",
+			},
+			skipPending: false,
+			wantKeys:    []string{"cluster-1", "cluster-2", "cluster-3"},
+		},
+		{name: "Multiple locations, some pending, skipPending false",
+			labels: map[string]string{
+				"state.workload.kcp.dev/cluster-1": "Sync",
+				"state.workload.kcp.dev/cluster-2": "Sync",
+				"state.workload.kcp.dev/cluster-3": "Sync",
+				"state.workload.kcp.dev/cluster-4": "",
+				"state.workload.kcp.dev/cluster-5": "",
+				"state.workload.kcp.dev/cluster-6": "",
+			},
+			skipPending: false,
+			wantKeys:    []string{"cluster-1", "cluster-2", "cluster-3", "cluster-4", "cluster-5", "cluster-6"},
+		},
+		{name: "Multiple locations, some pending, skipPending true",
+			labels: map[string]string{
+				"state.workload.kcp.dev/cluster-1": "Sync",
+				"state.workload.kcp.dev/cluster-2": "Sync",
+				"state.workload.kcp.dev/cluster-3": "Sync",
+				"state.workload.kcp.dev/cluster-4": "",
+				"state.workload.kcp.dev/cluster-5": "",
+				"state.workload.kcp.dev/cluster-6": "",
+			},
+			skipPending: true,
+			wantKeys:    []string{"cluster-1", "cluster-2", "cluster-3"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if gotKeys := getLocations(tt.labels, tt.skipPending); !reflect.DeepEqual(gotKeys.List(), tt.wantKeys) {
+				t.Errorf("getLocations() = %v, want %v", gotKeys, tt.wantKeys)
+			}
+		})
+	}
+}
+
+func TestGetDeletingLocations(t *testing.T) {
+	tests := []struct {
+		name        string
+		annotations map[string]string
+		wantKeys    map[string]string
+	}{
+		{name: "No locations",
+			annotations: map[string]string{},
+			wantKeys:    map[string]string{},
+		},
+		{name: "One location",
+			annotations: map[string]string{
+				"deletion.internal.workload.kcp.dev/cluster-1": "2002-10-02T10:00:00Z",
+			},
+			wantKeys: map[string]string{
+				"cluster-1": "2002-10-02T10:00:00Z",
+			},
+		},
+		{name: "Multiple locations",
+			annotations: map[string]string{
+				"deletion.internal.workload.kcp.dev/cluster-1": "2002-10-02T10:00:00Z",
+				"deletion.internal.workload.kcp.dev/cluster-2": "2002-10-02T10:00:00Z",
+				"deletion.internal.workload.kcp.dev/cluster-3": "2002-10-02T10:00:00Z",
+			},
+			wantKeys: map[string]string{
+				"cluster-1": "2002-10-02T10:00:00Z",
+				"cluster-2": "2002-10-02T10:00:00Z",
+				"cluster-3": "2002-10-02T10:00:00Z",
+			},
+		},
+		{name: "Multiple locations, other annotations",
+			annotations: map[string]string{
+				"deletion.internal.workload.kcp.dev/cluster-1": "2002-10-02T10:00:00Z",
+				"deletion.internal.workload.kcp.dev/cluster-2": "2002-10-02T10:00:00Z",
+				"deletion.internal.workload.kcp.dev/cluster-3": "2002-10-02T10:00:00Z",
+				"this.is.not.a.deletion/annotation":            "2002-10-02T10:00:00Z",
+			},
+			wantKeys: map[string]string{
+				"cluster-1": "2002-10-02T10:00:00Z",
+				"cluster-2": "2002-10-02T10:00:00Z",
+				"cluster-3": "2002-10-02T10:00:00Z",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if gotKeys := getDeletingLocations(tt.annotations); !reflect.DeepEqual(gotKeys, tt.wantKeys) {
+				t.Errorf("getDeletingLocations() = %v, want %v", gotKeys, tt.wantKeys)
 			}
 		})
 	}

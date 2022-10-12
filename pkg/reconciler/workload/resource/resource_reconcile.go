@@ -20,24 +20,23 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/kcp-dev/logicalcluster/v2"
 
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/clusters"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	syncershared "github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
@@ -48,28 +47,64 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 	logger := logging.WithObject(logging.WithReconciler(klog.Background(), controllerName), obj).WithValues("groupVersionResource", gvr.String(), "logicalCluster", lclusterName.String())
 	logger.V(4).Info("reconciling resource")
 
-	// If the resource is not namespaced (incl if the resource is itself a
-	// namespace), ignore it.
-	if obj.GetNamespace() == "" {
-		logger.V(4).Info("resource had no namespace; ignoring")
+	// if the resource is a namespace, let's return early. nothing to do.
+	namespaceGVR := &schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
+	if gvr == namespaceGVR {
+		logger.V(5).Info("resource is a namespace; ignoring")
 		return nil
 	}
 
-	if namespaceBlocklist.Has(obj.GetNamespace()) {
-		logger.V(4).Info("skipping syncing namespace")
-		return nil
-	}
+	var err error
+	var expectedSyncTargetKeys sets.String
+	expectedDeletedSynctargetKeys := make(map[string]string)
 
-	// Align the resource's assigned cluster with the namespace's assigned
-	// cluster.
-	// First, get the namespace object (from the cached lister).
-	ns, err := c.namespaceLister.Get(clusters.ToClusterAwareKey(lclusterName, obj.GetNamespace()))
-	if apierrors.IsNotFound(err) {
-		// Namespace was deleted; this resource will eventually get deleted too, so ignore
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("error reconciling resource %s|%s/%s: error getting namespace: %w", lclusterName, obj.GetNamespace(), obj.GetName(), err)
+	namespaceName := obj.GetNamespace()
+	// We need to handle namespaced and non-namespaced resources differently, as namespaced resources
+	// will get the locations from its namespace, and non-namespaced will get the locations from all the
+	// workspace placements.
+	if namespaceName != "" {
+		logger := logger.WithValues("namespace", namespaceName)
+		if namespaceBlocklist.Has(namespaceName) {
+			logger.V(4).Info("skipping syncing namespace because it is in the block list")
+			return nil
+		}
+
+		namespace, err := c.getNamespace(lclusterName, namespaceName)
+		if apierrors.IsNotFound(err) {
+			// Namespace was deleted; this resource will eventually get deleted too, so ignore
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("error reconciling resource %s|%s/%s: error getting namespace: %w", lclusterName, namespaceName, obj.GetName(), err)
+		}
+
+		expectedSyncTargetKeys = getLocations(namespace.GetLabels(), false)
+		expectedDeletedSynctargetKeys = getDeletingLocations(namespace.GetAnnotations())
+	} else {
+		// We only allow some cluster-wide types of resources.
+		if !syncershared.SyncableClusterScopedResources.Has(gvr.String()) {
+			logger.V(5).Info("skipping syncing cluster-scoped resource because it is not in the allowed list of syncable cluster-scoped resources", "name", obj.GetName())
+			return nil
+		}
+
+		logger.Info("reconciling cluster-wide resource", "name", obj.GetName(), "labels", obj.GetLabels())
+
+		// now we need to calculate the synctargets that need to be deleted.
+		// we do this by getting the current locations of the resource and
+		// comparing against the expected locations.
+
+		expectedSyncTargetKeys, err = c.getValidSyncTargetKeysForWorkspace(logicalcluster.From(obj))
+		if err != nil {
+			logger.Error(err, "error getting valid sync target keys for workspace")
+			return nil
+		}
+
+		deletionTimestamp := time.Now().Format(time.RFC3339)
+		currentLocations := getLocations(obj.GetLabels(), false)
+
+		for _, location := range currentLocations.Difference(expectedSyncTargetKeys).List() {
+			expectedDeletedSynctargetKeys[location] = deletionTimestamp
+		}
 	}
 
 	var annotationPatch, labelPatch map[string]interface{}
@@ -79,7 +114,7 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 		annotationPatch = propagateDeletionTimestamp(logger, obj)
 	} else {
 		// We only need to compute the new placements if the resource is not being deleted.
-		annotationPatch, labelPatch = computePlacement(ns, obj)
+		annotationPatch, labelPatch = computePlacement(expectedSyncTargetKeys, expectedDeletedSynctargetKeys, obj)
 	}
 
 	// clean finalizers from removed syncers
@@ -93,17 +128,16 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 
 		syncTargetKey := strings.TrimPrefix(f, syncershared.SyncerFinalizerNamePrefix)
 		logger = logger.WithValues("syncTargetKey", syncTargetKey)
-		objs, err := c.syncTargetIndexer.ByIndex(indexers.SyncTargetsBySyncTargetKey, syncTargetKey)
+		_, found, err := c.getSyncTargetFromKey(syncTargetKey)
 		if err != nil {
-			logger.Error(err, "error getting SyncTarget via index")
+			logger.Error(err, "error checking if sync target key exists")
 			continue
 		}
-		if len(objs) == 0 {
+		if !found {
 			logger.V(3).Info("SyncTarget under the key was deleted, removing finalizer")
 			continue
 		}
-		aCluster := objs[0].(*workloadv1alpha1.SyncTarget)
-		logging.WithObject(logger, aCluster).V(5).Info("keeping finalizer because of SyncTarget")
+		logger.V(4).Info("SyncTarget under the key still exists, keeping finalizer")
 		filteredFinalizers = append(filteredFinalizers, f)
 	}
 
@@ -143,8 +177,14 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 	}
 
 	logger.WithValues("patch", string(patchBytes)).V(2).Info("patching resource")
-	if _, err := c.dynClusterClient.Resource(*gvr).Namespace(ns.Name).
-		Patch(logicalcluster.WithCluster(ctx, lclusterName), obj.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
+	if namespaceName != "" {
+		if _, err := c.dynClusterClient.Resource(*gvr).Namespace(namespaceName).Patch(logicalcluster.WithCluster(ctx, lclusterName), obj.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	if _, err := c.dynClusterClient.Resource(*gvr).Patch(logicalcluster.WithCluster(ctx, lclusterName), obj.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
 		return err
 	}
 
@@ -154,7 +194,7 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 func propagateDeletionTimestamp(logger logr.Logger, obj metav1.Object) map[string]interface{} {
 	logger.V(3).Info("resource is being deleted; setting the deletion per locations timestamps")
 	objAnnotations := obj.GetAnnotations()
-	objLocations, _ := locations(objAnnotations, obj.GetLabels(), false)
+	objLocations := getLocations(obj.GetLabels(), false)
 	annotationPatch := make(map[string]interface{})
 	for location := range objLocations {
 		if val, ok := objAnnotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+location]; !ok || val == "" {
@@ -164,11 +204,11 @@ func propagateDeletionTimestamp(logger logr.Logger, obj metav1.Object) map[strin
 	return annotationPatch
 }
 
-// computePlacement computes the patch against annotations and labels. Nil means to remove the key.
-func computePlacement(ns *corev1.Namespace, obj metav1.Object) (annotationPatch map[string]interface{}, labelPatch map[string]interface{}) {
-	nsLocations, nsDeleting := locations(ns.Annotations, ns.Labels, true)
-	objLocations, objDeleting := locations(obj.GetAnnotations(), obj.GetLabels(), false)
-	if objLocations.Equal(nsLocations) && objDeleting.Equal(nsDeleting) {
+// computePlacement computes the patch against annotations and labels. Nil means to remove the key.ResourceStatePending
+func computePlacement(expectedSyncTargetKeys sets.String, expectedDeletedSynctargetKeys map[string]string, obj metav1.Object) (annotationPatch map[string]interface{}, labelPatch map[string]interface{}) {
+	currentSynctargetKeys := getLocations(obj.GetLabels(), false)
+	currentSynctargetKeysDeleting := getDeletingLocations(obj.GetAnnotations())
+	if currentSynctargetKeys.Equal(expectedSyncTargetKeys) && reflect.DeepEqual(currentSynctargetKeysDeleting, expectedDeletedSynctargetKeys) {
 		// already correctly assigned.
 		return
 	}
@@ -177,9 +217,9 @@ func computePlacement(ns *corev1.Namespace, obj metav1.Object) (annotationPatch 
 	annotationPatch = map[string]interface{}{}
 	labelPatch = map[string]interface{}{}
 
-	// unschedule objects on locations where the namespace is not scheduled
-	for _, loc := range objLocations.Difference(nsLocations).List() {
-		// That's an inconsistent state, probably due to the namespace deletion reaching its grace period => let's repair it
+	// unschedule objects from SyncTargets that are no longer expected.
+	for _, loc := range currentSynctargetKeys.Difference(expectedSyncTargetKeys).List() {
+		// That's an inconsistent state, in case of namespaced resources, it's probably due to the namespace deletion reaching its grace period => let's repair it
 		var hasSyncerFinalizer, hasClusterFinalizer bool
 		// Check if there's still the syncer or the cluster finalizer.
 		for _, finalizer := range obj.GetFinalizers() {
@@ -197,28 +237,34 @@ func computePlacement(ns *corev1.Namespace, obj metav1.Object) (annotationPatch 
 		} else {
 			if _, found := obj.GetAnnotations()[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+loc]; found {
 				annotationPatch[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+loc] = nil
-				labelPatch[workloadv1alpha1.ClusterResourceStateLabelPrefix+loc] = nil
+			}
+			labelPatch[workloadv1alpha1.ClusterResourceStateLabelPrefix+loc] = nil
+		}
+	}
+
+	// sync deletion timestamps if the location is expected to be deleted.
+	for _, loc := range expectedSyncTargetKeys.Intersection(currentSynctargetKeys).List() {
+		if expectedTimestamp, ok := expectedDeletedSynctargetKeys[loc]; ok {
+			if _, ok := currentSynctargetKeysDeleting[loc]; !ok {
+				annotationPatch[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+loc] = expectedTimestamp
 			}
 		}
 	}
 
-	// sync deletion timestamps if both namespace and object are scheduled
-	for _, loc := range nsLocations.Intersection(objLocations).List() {
-		if nsTimestamp, found := ns.Annotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+loc]; found && validRFC3339(nsTimestamp) {
-			objTimestamp, found := obj.GetAnnotations()[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+loc]
-			if !found || !validRFC3339(objTimestamp) {
-				annotationPatch[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+loc] = nsTimestamp
-			}
-		}
+	// If the resource is namespaced, set the initial resource state to Sync, otherwise set it to Pending.
+	// TODO(jmprusi): ResourceStatePending will be the default state once there is a default coordinators for resources.
+	resourceState := workloadv1alpha1.ResourceStateSync
+	if obj.GetNamespace() == "" {
+		resourceState = workloadv1alpha1.ResourceStatePending
 	}
 
-	// set label on unscheduled objects if namespace is scheduled and not deleting
-	for _, loc := range nsLocations.Difference(objLocations).List() {
-		if nsDeleting.Has(loc) {
+	// set label on unscheduled objects if resource is scheduled and not deleting
+	for _, loc := range expectedSyncTargetKeys.Difference(currentSynctargetKeys).List() {
+		if _, ok := expectedDeletedSynctargetKeys[loc]; ok {
 			continue
 		}
 		// TODO(sttts): add way to go into pending state first, maybe with a namespace annotation
-		labelPatch[workloadv1alpha1.ClusterResourceStateLabelPrefix+loc] = string(workloadv1alpha1.ResourceStateSync)
+		labelPatch[workloadv1alpha1.ClusterResourceStateLabelPrefix+loc] = string(resourceState)
 	}
 
 	if len(annotationPatch) == 0 {
@@ -249,9 +295,4 @@ func (c *Controller) reconcileGVR(gvr schema.GroupVersionResource) error {
 		c.enqueueResource(gvr, obj)
 	}
 	return nil
-}
-
-func validRFC3339(ts string) bool {
-	_, err := time.Parse(time.RFC3339, ts)
-	return err == nil
 }

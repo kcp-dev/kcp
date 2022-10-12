@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clusters"
 
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	syncershared "github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
@@ -41,6 +42,8 @@ const (
 	// APIBindingByClusterAndAcceptedClaimedGroupResources is the name for the index that indexes an APIBinding by its
 	// cluster name and accepted claimed group resources.
 	APIBindingByClusterAndAcceptedClaimedGroupResources = "byClusterAndAcceptedClaimedGroupResources"
+	// ByClusterResourceStateLabelKey indexes resources based on the cluster state label key.
+	ByClusterResourceStateLabelKey = "ByClusterResourceStateLabelKey"
 )
 
 // ClusterScoped returns cache.Indexers appropriate for cluster-scoped resources.
@@ -93,6 +96,22 @@ func IndexBySyncerFinalizerKey(obj interface{}) ([]string, error) {
 	}
 
 	return syncerFinalizers, nil
+}
+
+// IndexByClusterResourceStateLabelKey indexes resources based on the cluster state key label.
+func IndexByClusterResourceStateLabelKey(obj interface{}) ([]string, error) {
+	metaObj, ok := obj.(metav1.Object)
+	if !ok {
+		return []string{}, fmt.Errorf("obj is supposed to be a metav1.Object, but is %T", obj)
+	}
+
+	ClusterResourceStateLabelKeys := []string{}
+	for k := range metaObj.GetLabels() {
+		if strings.HasPrefix(k, workloadv1alpha1.ClusterResourceStateLabelPrefix) {
+			ClusterResourceStateLabelKeys = append(ClusterResourceStateLabelKeys, k)
+		}
+	}
+	return ClusterResourceStateLabelKeys, nil
 }
 
 // ByIndex returns all instances of T that match indexValue in indexName in indexer.

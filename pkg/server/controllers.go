@@ -350,6 +350,7 @@ func (s *Server) installWorkloadResourceScheduler(ctx context.Context, config *r
 		s.DynamicDiscoverySharedInformerFactory,
 		s.KcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
 		s.KubeSharedInformerFactory.Core().V1().Namespaces(),
+		s.KcpSharedInformerFactory.Scheduling().V1alpha1().Placements(),
 	)
 	if err != nil {
 		return err

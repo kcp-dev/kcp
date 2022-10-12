@@ -25,6 +25,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers"
@@ -43,7 +44,14 @@ const (
 func EnsureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersionResource, upstreamInformer informers.GenericInformer, upstreamClient dynamic.ClusterInterface, upstreamNamespace, syncTargetKey string, logicalClusterName logicalcluster.Name, resourceName string) error {
 	logger := klog.FromContext(ctx)
 
-	upstreamObjFromLister, err := upstreamInformer.Lister().ByNamespace(upstreamNamespace).Get(clusters.ToClusterAwareKey(logicalClusterName, resourceName))
+	var upstreamObjFromLister runtime.Object
+	var err error
+	if upstreamNamespace != "" {
+		upstreamObjFromLister, err = upstreamInformer.Lister().ByNamespace(upstreamNamespace).Get(clusters.ToClusterAwareKey(logicalClusterName, resourceName))
+	} else {
+		upstreamObjFromLister, err = upstreamInformer.Lister().Get(clusters.ToClusterAwareKey(logicalClusterName, resourceName))
+	}
+
 	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
@@ -90,7 +98,13 @@ func EnsureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersion
 	upstreamObj.SetLabels(upstreamLabels)
 	// - End of block to be removed once the virtual workspace syncer is integrated -
 
-	if _, err := upstreamClient.Cluster(logicalClusterName).Resource(gvr).Namespace(upstreamObj.GetNamespace()).Update(ctx, upstreamObj, metav1.UpdateOptions{}); err != nil {
+	if upstreamNamespace != "" {
+		_, err = upstreamClient.Cluster(logicalClusterName).Resource(gvr).Namespace(upstreamObj.GetNamespace()).Update(ctx, upstreamObj, metav1.UpdateOptions{})
+	} else {
+		_, err = upstreamClient.Cluster(logicalClusterName).Resource(gvr).Update(ctx, upstreamObj, metav1.UpdateOptions{})
+	}
+
+	if err != nil {
 		logger.Error(err, "Failed updating upstream resource after removing the syncer finalizer")
 		return err
 	}

@@ -68,7 +68,7 @@ func NewController(
 		syncTargetLister:  syncTargetInformer.Lister(),
 		syncTargetIndexer: syncTargetInformer.Informer().GetIndexer(),
 
-		placmentLister:   placementInformer.Lister(),
+		placementLister:  placementInformer.Lister(),
 		placementIndexer: placementInformer.Informer().GetIndexer(),
 	}
 
@@ -156,7 +156,7 @@ type controller struct {
 	syncTargetLister  workloadlisters.SyncTargetLister
 	syncTargetIndexer cache.Indexer
 
-	placmentLister   schedulinglisters.PlacementLister
+	placementLister  schedulinglisters.PlacementLister
 	placementIndexer cache.Indexer
 }
 
@@ -268,7 +268,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *controller) process(ctx context.Context, key string) error {
-	obj, err := c.placmentLister.Get(key) // TODO: clients need a way to scope down the lister per-cluster
+	obj, err := c.placementLister.Get(key) // TODO: clients need a way to scope down the lister per-cluster
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil // object deleted before we handled it

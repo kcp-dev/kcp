@@ -28,31 +28,36 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	coreinformers "k8s.io/client-go/informers/core/v1"
-	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
+	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	schedulinginformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
 	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
-	workloadlisters "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
-	syncershared "github.com/kcp-dev/kcp/pkg/syncer/shared"
+	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
-const controllerName = "kcp-workload-resource-scheduler"
+const (
+	controllerName      = "kcp-workload-resource-scheduler"
+	byLocationWorkspace = controllerName + "byLocationWorkspace"
+	bySyncTargetKey     = controllerName + "bySyncTargetKey"
+)
 
 // NewController returns a new Controller which schedules resources in scheduled namespaces.
 func NewController(
@@ -60,6 +65,7 @@ func NewController(
 	ddsif *informer.DynamicDiscoverySharedInformerFactory,
 	syncTargetInformer workloadinformers.SyncTargetInformer,
 	namespaceInformer coreinformers.NamespaceInformer,
+	placementInformer schedulinginformers.PlacementInformer,
 ) (*Controller, error) {
 	resourceQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-namespace-resource")
 	gvrQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-namespace-gvr")
@@ -70,10 +76,39 @@ func NewController(
 
 		dynClusterClient: dynamicClusterClient,
 
-		namespaceLister: namespaceInformer.Lister(),
+		getNamespace: func(clusterName logicalcluster.Name, namespaceName string) (*corev1.Namespace, error) {
+			return namespaceInformer.Lister().Get(kcpcache.ToClusterAwareKey(clusterName.String(), "", namespaceName))
+		},
 
-		syncTargetLister:  syncTargetInformer.Lister(),
-		syncTargetIndexer: syncTargetInformer.Informer().GetIndexer(),
+		getValidSyncTargetKeysForWorkspace: func(clusterName logicalcluster.Name) (sets.String, error) {
+			placements, err := indexers.ByIndex[*schedulingv1alpha1.Placement](placementInformer.Informer().GetIndexer(), byLocationWorkspace, clusterName.String())
+			if err != nil {
+				return nil, err
+			}
+
+			expectedSyncTargetKeys := sets.String{}
+			for _, placement := range placements {
+				if val := placement.Annotations[workloadv1alpha1.InternalSyncTargetPlacementAnnotationKey]; val != "" {
+					expectedSyncTargetKeys.Insert(val)
+				}
+			}
+			return expectedSyncTargetKeys, err
+		},
+
+		getSyncTargetFromKey: func(syncTargetKey string) (*workloadv1alpha1.SyncTarget, bool, error) {
+			syncTargets, err := indexers.ByIndex[*workloadv1alpha1.SyncTarget](syncTargetInformer.Informer().GetIndexer(), bySyncTargetKey, syncTargetKey)
+			if err != nil {
+				return nil, false, err
+			}
+			// This shouldn't happen, more than one SyncTarget with the same key means a hash collision.
+			if len(syncTargets) > 1 {
+				return nil, false, fmt.Errorf("possible collision: multiple sync targets found for key %q", syncTargetKey)
+			}
+			if len(syncTargets) == 0 {
+				return nil, false, nil
+			}
+			return syncTargets[0], true, nil
+		},
 
 		ddsif: ddsif,
 	}
@@ -95,10 +130,24 @@ func NewController(
 		},
 	})
 
-	c.ddsif.AddEventHandler(informer.GVREventHandlerFuncs{
+	indexers.AddIfNotPresentOrDie(placementInformer.Informer().GetIndexer(), cache.Indexers{
+		byLocationWorkspace: indexByLocationWorkspace,
+	})
+
+	placementInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.enqueuePlacement,
+		UpdateFunc: func(oldObj, _ interface{}) { c.enqueuePlacement(oldObj) },
+		DeleteFunc: c.enqueuePlacement,
+	})
+
+	ddsif.AddEventHandler(informer.GVREventHandlerFuncs{
 		AddFunc:    func(gvr schema.GroupVersionResource, obj interface{}) { c.enqueueResource(gvr, obj) },
 		UpdateFunc: func(gvr schema.GroupVersionResource, _, obj interface{}) { c.enqueueResource(gvr, obj) },
 		DeleteFunc: nil, // Nothing to do.
+	})
+
+	indexers.AddIfNotPresentOrDie(syncTargetInformer.Informer().GetIndexer(), cache.Indexers{
+		bySyncTargetKey: indexBySyncTargetKey,
 	})
 
 	syncTargetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -136,10 +185,9 @@ type Controller struct {
 
 	dynClusterClient dynamic.Interface
 
-	namespaceLister corelisters.NamespaceLister
-
-	syncTargetLister  workloadlisters.SyncTargetLister
-	syncTargetIndexer cache.Indexer
+	getNamespace                       func(clusterName logicalcluster.Name, namespaceName string) (*corev1.Namespace, error)
+	getValidSyncTargetKeysForWorkspace func(clusterName logicalcluster.Name) (sets.String, error)
+	getSyncTargetFromKey               func(syncTargetKey string) (*workloadv1alpha1.SyncTarget, bool, error)
 
 	ddsif *informer.DynamicDiscoverySharedInformerFactory
 }
@@ -192,7 +240,7 @@ func (c *Controller) enqueueNamespace(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	ns, err := c.namespaceLister.Get(clusters.ToClusterAwareKey(clusterName, name))
+	ns, err := c.getNamespace(clusterName, name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Namespace was deleted
@@ -339,7 +387,8 @@ func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 	logger := logging.WithObject(logging.WithReconciler(klog.Background(), controllerName), ns).WithValues("operation", "enqueueResourcesForNamespace")
 	clusterName := logicalcluster.From(ns)
 
-	nsLocations, nsDeleting := locations(ns.Annotations, ns.Labels, true)
+	nsLocations := getLocations(ns.Labels, true)
+	nsDeleting := getDeletingLocations(ns.Annotations)
 	logger = logger.WithValues("nsLocations", nsLocations.List())
 
 	logger.V(4).Info("getting listers")
@@ -363,10 +412,11 @@ func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 			if logicalcluster.From(u) != clusterName {
 				continue
 			}
+			objLocations := getLocations(u.GetLabels(), false)
+			objDeleting := getDeletingLocations(u.GetAnnotations())
 
-			objLocations, objDeleting := locations(u.GetAnnotations(), u.GetLabels(), false)
 			logger := logging.WithObject(logger, u).WithValues("gvk", gvr.GroupVersion().WithKind(u.GetKind()))
-			if !objLocations.Equal(nsLocations) || !objDeleting.Equal(nsDeleting) {
+			if !objLocations.Equal(nsLocations) || !reflect.DeepEqual(objDeleting, nsDeleting) {
 				c.enqueueResource(gvr, obj)
 
 				if klog.V(2).Enabled() && !klog.V(4).Enabled() && len(enqueuedResources) < 10 {
@@ -398,18 +448,19 @@ func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 }
 
 func (c *Controller) enqueueSyncTarget(obj interface{}) {
-	logger := logging.WithObject(logging.WithReconciler(klog.Background(), controllerName), obj.(*workloadv1alpha1.SyncTarget)).WithValues("operation", "enqueueSyncTarget")
-	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
-	if err != nil {
-		runtime.HandleError(err)
+	metaObj, ok := obj.(metav1.Object)
+	if !ok {
+		runtime.HandleError(fmt.Errorf("object is not a metav1.Object: %T", obj))
 		return
 	}
-	clusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
-	if err != nil {
-		runtime.HandleError(err)
-		return
-	}
-	finalizer := syncershared.SyncerFinalizerNamePrefix + workloadv1alpha1.ToSyncTargetKey(clusterName, name)
+	clusterName := logicalcluster.From(metaObj)
+	syncTargetKey := workloadv1alpha1.ToSyncTargetKey(clusterName, metaObj.GetName())
+
+	c.enqueueSyncTargetKey(syncTargetKey)
+}
+
+func (c *Controller) enqueueSyncTargetKey(syncTargetKey string) {
+	logger := logging.WithReconciler(klog.Background(), controllerName).WithValues("syncTargetKey", syncTargetKey)
 
 	listers, _ := c.ddsif.Listers()
 	queued := map[string]int{}
@@ -419,11 +470,32 @@ func (c *Controller) enqueueSyncTarget(obj interface{}) {
 			runtime.HandleError(err)
 			continue
 		}
-		objs, err := inf.Informer().GetIndexer().ByIndex(indexers.BySyncerFinalizerKey, finalizer)
+		stateLabelObjs, err := inf.Informer().GetIndexer().ByIndex(indexers.ByClusterResourceStateLabelKey, workloadv1alpha1.ClusterResourceStateLabelPrefix+syncTargetKey)
 		if err != nil {
 			runtime.HandleError(err)
-			continue // ignore
+			continue
 		}
+		syncerFinalizerObjs, err := inf.Informer().GetIndexer().ByIndex(indexers.BySyncerFinalizerKey, shared.SyncerFinalizerNamePrefix+syncTargetKey)
+		if err != nil {
+			runtime.HandleError(err)
+			continue
+		}
+
+		// let's deduplicate the objects from both indexes.
+		inObjs := make(map[types.UID]bool)
+		var objs []interface{}
+		for _, obj := range append(stateLabelObjs, syncerFinalizerObjs...) {
+			obj, ok := obj.(*unstructured.Unstructured)
+			if !ok {
+				runtime.HandleError(fmt.Errorf("object is not an *unstructured.Unstructured: %T", obj))
+				continue
+			}
+			if _, ok := inObjs[obj.GetUID()]; !ok {
+				inObjs[obj.GetUID()] = true
+				objs = append(objs, obj)
+			}
+		}
+
 		if len(objs) == 0 {
 			continue
 		}
@@ -433,23 +505,73 @@ func (c *Controller) enqueueSyncTarget(obj interface{}) {
 		queued[gvr.String()] = len(objs)
 	}
 	if len(queued) > 0 {
-		logger.WithValues("finalizer", finalizer, "resources", queued).V(2).Info("queued GVRs with finalizer because SyncTarget got deleted")
+		logger.WithValues("syncTargetKey", syncTargetKey, "resources", queued).V(2).Info("queued GVRs assigned to a syncTargetKey because SyncTarget or Placement changed.")
 	}
 }
 
-func locations(annotations, labels map[string]string, skipPending bool) (locations sets.String, deleting sets.String) {
-	locations = sets.NewString()
-	deleting = sets.NewString()
-
+// getLocations returns a set with of all the locations extracted from a resource labels, setting skipPending to true will ignore resources in not Sync state.
+func getLocations(labels map[string]string, skipPending bool) sets.String {
+	locations := sets.NewString()
 	for k, v := range labels {
 		if strings.HasPrefix(k, workloadv1alpha1.ClusterResourceStateLabelPrefix) && (!skipPending || v == string(workloadv1alpha1.ResourceStateSync)) {
 			locations.Insert(strings.TrimPrefix(k, workloadv1alpha1.ClusterResourceStateLabelPrefix))
 		}
 	}
-	for k := range annotations {
+	return locations
+}
+
+// getDeletingLocations returns a map of synctargetkeys that are being deleted with the value being the deletion timestamp.
+func getDeletingLocations(annotations map[string]string) map[string]string {
+	deletingLocations := make(map[string]string)
+	for k, v := range annotations {
 		if strings.HasPrefix(k, workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix) {
-			deleting.Insert(strings.TrimPrefix(k, workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix))
+			deletingLocations[strings.TrimPrefix(k, workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix)] = v
 		}
 	}
-	return
+	return deletingLocations
+}
+
+func (c *Controller) enqueuePlacement(obj interface{}) {
+	_, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+	placement, ok := obj.(*schedulingv1alpha1.Placement)
+	if !ok {
+		runtime.HandleError(fmt.Errorf("expected a Placement, got a %T", obj))
+		return
+	}
+	syncTargetKey := placement.Annotations[workloadv1alpha1.InternalSyncTargetPlacementAnnotationKey]
+	if syncTargetKey == "" {
+		return
+	}
+
+	c.enqueueSyncTargetKey(syncTargetKey)
+}
+
+func indexByLocationWorkspace(obj interface{}) ([]string, error) {
+	placement, ok := obj.(*schedulingv1alpha1.Placement)
+	if !ok {
+		return []string{}, fmt.Errorf("obj is supposed to be a Placement, but is %T", obj)
+	}
+
+	if placement.Status.SelectedLocation == nil {
+		return []string{}, nil
+	}
+
+	return []string{placement.Status.SelectedLocation.Path}, nil
+}
+
+func indexBySyncTargetKey(obj interface{}) ([]string, error) {
+	syncTarget, ok := obj.(*workloadv1alpha1.SyncTarget)
+	if !ok {
+		return []string{}, fmt.Errorf("obj is supposed to be a syncTarget, but is %T", obj)
+	}
+
+	if _, ok := syncTarget.GetLabels()[workloadv1alpha1.InternalSyncTargetKeyLabel]; !ok {
+		return []string{}, nil
+	}
+
+	return []string{syncTarget.GetLabels()[workloadv1alpha1.InternalSyncTargetKeyLabel]}, nil
 }
