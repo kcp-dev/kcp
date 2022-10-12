@@ -132,14 +132,6 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 			}
 
 			logger := logging.WithObject(logger, u)
-
-			if gvr == apisv1alpha1.SchemeGroupVersion.WithResource("apibindings") && logicalcluster.From(u) == clusterName && u.GetName() == apiBinding.Name {
-				// Don't issue a generic patch when obj == the APIBinding being reconciled. That will be covered when
-				// this call to reconcile exits and the controller patches this APIBinding. Otherwise, the generic patch
-				// here will conflict with the controller's attempt to update the APIBinding's status.
-				continue
-			}
-
 			logger.V(4).Info("patching to get claim labels updated")
 
 			// Empty patch, allowing the admission plugin to update the resource to the correct labels
@@ -188,7 +180,7 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 
 	fullyApplied := expectedClaims.Difference(applyErrors)
 	apiBinding.Status.AppliedPermissionClaims = []apisv1alpha1.PermissionClaim{}
-	for _, s := range fullyApplied.List() {
+	for _, s := range fullyApplied.UnsortedList() {
 		claim := claimFromSetKey(s)
 		apiBinding.Status.AppliedPermissionClaims = append(apiBinding.Status.AppliedPermissionClaims, claim)
 	}
