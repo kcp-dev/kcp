@@ -27,6 +27,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -46,38 +47,43 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/transforming"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	syncercontext "github.com/kcp-dev/kcp/pkg/virtual/syncer/context"
 	"github.com/kcp-dev/kcp/pkg/virtual/syncer/controllers/apireconciler"
-	"github.com/kcp-dev/kcp/pkg/virtual/syncer/transformations"
 )
 
-const SyncerVirtualWorkspaceName string = "syncer"
+const (
+	// SyncerVirtualWorkspaceName holds the name of the virtual workspace for the syncer, used to sync resources from upstream to downstream.
+	SyncerVirtualWorkspaceName string = "syncer"
+	// UpsyncerVirtualWorkspaceName holds the name of the virtual workspace for the upsyncer, used to sync resources from downstream to upstream.
+	UpsyncerVirtualWorkspaceName string = "upsyncer"
+)
 
-// BuildVirtualWorkspace builds a SyncerVirtualWorkspace by instantiating a DynamicVirtualWorkspace which, combined with a
-// ForwardingREST REST storage implementation, serves a SyncTargetAPI list maintained by the APIReconciler controller.
+type buildRequirementsFunc func(syncTargetKey string) (labels.Requirements, error)
+
+// BuildVirtualWorkspace builds two virtual workspaces, SyncerVirtualWorkspace and UpsyncerVirtualWorkspace by instantiating a DynamicVirtualWorkspace which,
+// combined with a ForwardingREST REST storage implementation, serves a SyncTargetAPI list maintained by the APIReconciler controller.
 func BuildVirtualWorkspace(
 	rootPathPrefix string,
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	dynamicClusterClient kcpdynamic.ClusterInterface,
 	kcpClusterClient kcpclient.ClusterInterface,
 	wildcardKcpInformers kcpinformers.SharedInformerFactory,
-) framework.VirtualWorkspace {
+) []rootapiserver.NamedVirtualWorkspace {
 
 	if !strings.HasSuffix(rootPathPrefix, "/") {
 		rootPathPrefix += "/"
 	}
 
-	readyCh := make(chan struct{})
-
-	return &virtualworkspacesdynamic.DynamicVirtualWorkspace{
-		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
+	resolverProvider := func(virtualWorkspaceName string, readyCh chan struct{}) framework.RootPathResolver {
+		return framework.RootPathResolverFunc(func(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
 			select {
 			case <-readyCh:
 			default:
 				return
 			}
 
+			rootPathPrefix := rootPathPrefix + virtualWorkspaceName + "/"
 			completedContext = requestContext
 			if !strings.HasPrefix(urlPath, rootPathPrefix) {
 				return
@@ -85,8 +91,8 @@ func BuildVirtualWorkspace(
 			withoutRootPathPrefix := strings.TrimPrefix(urlPath, rootPathPrefix)
 
 			// Incoming requests to this virtual workspace will look like:
-			//  /services/syncer/root:org:ws/<sync-target-name>/<sync-target-uid>/clusters/*/api/v1/configmaps
-			//                  └───────────────────────────┐
+			//  /services/(up)syncer/root:org:ws/<sync-target-name>/<sync-target-uid>/clusters/*/api/v1/configmaps
+			//                      └───────────────────────┐
 			// Where the withoutRootPathPrefix starts here: ┘
 			parts := strings.SplitN(withoutRootPathPrefix, "/", 4)
 			if len(parts) < 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
@@ -116,8 +122,8 @@ func BuildVirtualWorkspace(
 				realPath += parts[3]
 			}
 
-			//  /services/syncer/root:org:ws/<sync-target-name>/<sync-target-uid>/clusters/*/api/v1/configmaps
-			//                  ┌───────────────────────────────────────────────┘
+			//  /services/(up)syncer/root:org:ws/<sync-target-name>/<sync-target-uid>/clusters/*/api/v1/configmaps
+			//                  ┌────────────────────────────────────────────────────┘
 			// We are now here: ┘
 			// Now, we parse out the logical cluster.
 			if !strings.HasPrefix(realPath, "/clusters/") {
@@ -143,58 +149,52 @@ func BuildVirtualWorkspace(
 			prefixToStrip = strings.TrimSuffix(urlPath, realPath)
 			accepted = true
 			return
-		}),
-		Authorizer: authorizer.AuthorizerFunc(func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
-			apiDomainKey := dynamiccontext.APIDomainKeyFrom(ctx)
-			negotiationWorkspaceName, syncTargetName := client.SplitClusterAwareKey(string(apiDomainKey))
+		})
+	}
 
-			authz, err := delegated.NewDelegatedAuthorizer(negotiationWorkspaceName, kubeClusterClient)
-			if err != nil {
-				return authorizer.DecisionNoOpinion, "Error", err
+	// Setup the APIReconciler indexes to share between both virtualworkspaces.
+	if err := wildcardKcpInformers.Workload().V1alpha1().SyncTargets().Informer().AddIndexers(cache.Indexers{
+		apireconciler.IndexSyncTargetsByExport: apireconciler.IndexSyncTargetsByExports,
+	}); err != nil {
+		return nil
+	}
+
+	if err := wildcardKcpInformers.Apis().V1alpha1().APIExports().Informer().AddIndexers(cache.Indexers{
+		apireconciler.IndexAPIExportsByAPIResourceSchema: apireconciler.IndexAPIExportsByAPIResourceSchemas,
+	}); err != nil {
+		return nil
+	}
+
+	buildRequirements := func(resourceState workloadv1alpha1.ResourceState) buildRequirementsFunc {
+		return func(syncTargetKey string) (labels.Requirements, error) {
+			requirements, selectable := labels.SelectorFromSet(map[string]string{
+				workloadv1alpha1.ClusterResourceStateLabelPrefix + syncTargetKey: string(resourceState),
+			}).Requirements()
+			if !selectable {
+				return nil, fmt.Errorf("unable to build requirements for synctargetkey %s and resource state %s", syncTargetKey, resourceState)
 			}
-			SARAttributes := authorizer.AttributesRecord{
-				User:            a.GetUser(),
-				Verb:            "sync",
-				Name:            syncTargetName,
-				APIGroup:        workloadv1alpha1.SchemeGroupVersion.Group,
-				APIVersion:      workloadv1alpha1.SchemeGroupVersion.Version,
-				Resource:        "synctargets",
-				ResourceRequest: true,
-			}
-			return authz.Authorize(ctx, SARAttributes)
-		}),
-		ReadyChecker: framework.ReadyFunc(func() error {
-			select {
-			case <-readyCh:
-				return nil
-			default:
-				return errors.New("syncer virtual workspace controllers are not started")
-			}
-		}),
-		BootstrapAPISetManagement: func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
+			return requirements, nil
+		}
+	}
+
+	bootstrapManagementProvider := func(storageBuilderProvider StorageBuilderProvider, virtualWorkspaceName string, allowedAPIFilter apireconciler.AllowedAPIfilterFunc, buildRequirements buildRequirementsFunc, readyCh chan struct{}) func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
+		return func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
 			apiReconciler, err := apireconciler.NewAPIReconciler(
+				virtualWorkspaceName,
 				kcpClusterClient,
 				wildcardKcpInformers.Workload().V1alpha1().SyncTargets(),
 				wildcardKcpInformers.Apis().V1alpha1().APIResourceSchemas(),
 				wildcardKcpInformers.Apis().V1alpha1().APIExports(),
 				func(syncTargetWorkspace logicalcluster.Name, syncTargetName string, apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, apiExportIdentityHash string) (apidefinition.APIDefinition, error) {
 					syncTargetKey := workloadv1alpha1.ToSyncTargetKey(syncTargetWorkspace, syncTargetName)
-					requirements, selectable := labels.SelectorFromSet(map[string]string{
-						workloadv1alpha1.ClusterResourceStateLabelPrefix + syncTargetKey: string(workloadv1alpha1.ResourceStateSync),
-					}).Requirements()
-					if !selectable {
-						return nil, fmt.Errorf("unable to create a selector from the provided labels")
+					requirements, err := buildRequirements(syncTargetKey)
+					if err != nil {
+						return nil, err
 					}
 					storageWrapper := forwardingregistry.WithStaticLabelSelector(requirements)
 
 					ctx, cancelFn := context.WithCancel(context.Background())
-
-					transformer := &transformations.SyncerResourceTransformer{
-						TransformationProvider:   &transformations.SpecDiffTransformation{},
-						SummarizingRulesProvider: &transformations.DefaultSummarizingRules{},
-					}
-
-					storageBuilder := NewStorageBuilder(ctx, transforming.WithResourceTransformer(dynamicClusterClient, transformer), apiExportIdentityHash, storageWrapper)
+					storageBuilder := storageBuilderProvider(ctx, dynamicClusterClient, apiExportIdentityHash, storageWrapper)
 					def, err := apiserver.CreateServingInfoFor(mainConfig, apiResourceSchema, version, storageBuilder)
 					if err != nil {
 						cancelFn()
@@ -205,12 +205,13 @@ func BuildVirtualWorkspace(
 						cancelFn:      cancelFn,
 					}, nil
 				},
+				allowedAPIFilter,
 			)
 			if err != nil {
 				return nil, err
 			}
 
-			if err := mainConfig.AddPostStartHook(apireconciler.ControllerName, func(hookContext genericapiserver.PostStartHookContext) error {
+			if err := mainConfig.AddPostStartHook(apireconciler.ControllerName+virtualWorkspaceName, func(hookContext genericapiserver.PostStartHookContext) error {
 				defer close(readyCh)
 
 				for name, informer := range map[string]cache.SharedIndexInformer{
@@ -231,6 +232,68 @@ func BuildVirtualWorkspace(
 			}
 
 			return apiReconciler, nil
+		}
+	}
+	readyCheckerProvider := func(readyCh chan struct{}) framework.ReadyChecker {
+		return framework.ReadyFunc(func() error {
+			select {
+			case <-readyCh:
+				return nil
+			default:
+				return errors.New("syncer virtual workspace controllers are not started")
+			}
+		})
+	}
+
+	virtualWorkspaceAuthorizer := func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
+		syncTargetKey := dynamiccontext.APIDomainKeyFrom(ctx)
+		negotiationWorkspaceName, syncTargetName := client.SplitClusterAwareKey(string(syncTargetKey))
+
+		authz, err := delegated.NewDelegatedAuthorizer(negotiationWorkspaceName, kubeClusterClient)
+		if err != nil {
+			return authorizer.DecisionNoOpinion, "Error", err
+		}
+		SARAttributes := authorizer.AttributesRecord{
+			User:            a.GetUser(),
+			Verb:            "sync",
+			Name:            syncTargetName,
+			APIGroup:        workloadv1alpha1.SchemeGroupVersion.Group,
+			APIVersion:      workloadv1alpha1.SchemeGroupVersion.Version,
+			Resource:        "synctargets",
+			ResourceRequest: true,
+		}
+		return authz.Authorize(ctx, SARAttributes)
+	}
+
+	syncerReadyCh := make(chan struct{})
+	syncerVW := &virtualworkspacesdynamic.DynamicVirtualWorkspace{
+		RootPathResolver:          resolverProvider(SyncerVirtualWorkspaceName, syncerReadyCh),
+		Authorizer:                authorizer.AuthorizerFunc(virtualWorkspaceAuthorizer),
+		ReadyChecker:              readyCheckerProvider(syncerReadyCh),
+		BootstrapAPISetManagement: bootstrapManagementProvider(NewSyncerStorageBuilder, SyncerVirtualWorkspaceName, nil, buildRequirements(workloadv1alpha1.ResourceStateSync), syncerReadyCh),
+	}
+
+	upsyncerAllowedAPIFunc := func(apiGroupResource schema.GroupResource) bool {
+		// Only allow persistentvolumes to be Upsynced.
+		return apiGroupResource.Group == "" && apiGroupResource.Resource == "persistentvolumes"
+	}
+
+	upsyncerReadyCh := make(chan struct{})
+	upsyncerVW := &virtualworkspacesdynamic.DynamicVirtualWorkspace{
+		RootPathResolver:          resolverProvider(UpsyncerVirtualWorkspaceName, upsyncerReadyCh),
+		Authorizer:                authorizer.AuthorizerFunc(virtualWorkspaceAuthorizer),
+		ReadyChecker:              readyCheckerProvider(upsyncerReadyCh),
+		BootstrapAPISetManagement: bootstrapManagementProvider(NewUpSyncerStorageBuilder, UpsyncerVirtualWorkspaceName, upsyncerAllowedAPIFunc, buildRequirements(workloadv1alpha1.ResourceStateUpsync), upsyncerReadyCh),
+	}
+
+	return []rootapiserver.NamedVirtualWorkspace{
+		{
+			Name:             SyncerVirtualWorkspaceName,
+			VirtualWorkspace: syncerVW,
+		},
+		{
+			Name:             UpsyncerVirtualWorkspaceName,
+			VirtualWorkspace: upsyncerVW,
 		},
 	}
 }

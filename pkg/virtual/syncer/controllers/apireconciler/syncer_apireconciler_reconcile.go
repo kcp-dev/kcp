@@ -68,6 +68,11 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiDomainKey dynamicconte
 	newGVRs := []string{}
 	preservedGVR := []string{}
 	for gr, apiResourceSchema := range apiResourceSchemas {
+
+		if c.allowedAPIfilter != nil && !c.allowedAPIfilter(gr) {
+			continue
+		}
+
 		for _, version := range apiResourceSchema.Spec.Versions {
 			if !version.Served {
 				continue
