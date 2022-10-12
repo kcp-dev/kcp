@@ -47,8 +47,9 @@ type ExtraConfig struct {
 	ResolveIdentities func(ctx context.Context) error
 	RootShardConfig   *rest.Config
 
-	AuthenticationInfo genericapiserver.AuthenticationInfo
-	ServingInfo        *genericapiserver.SecureServingInfo
+	AuthenticationInfo    genericapiserver.AuthenticationInfo
+	ServingInfo           *genericapiserver.SecureServingInfo
+	AdditionalAuthEnabled bool
 }
 
 type CompletedConfig struct {
@@ -85,6 +86,8 @@ func NewConfig(opts *proxyoptions.Options) (*Config, error) {
 	}
 
 	c.RootShardConfig, c.ResolveIdentities = bootstrap.NewConfigWithWildcardIdentities(nonIdentityRootConfig, bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, nil)
+
+	c.AdditionalAuthEnabled = c.Options.Authentication.AdditionalAuthEnabled()
 
 	return c, nil
 }

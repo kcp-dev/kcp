@@ -110,7 +110,11 @@ func (s preparedServer) Run(ctx context.Context) error {
 
 	// start the server
 	failedHandler := frontproxyfilters.NewUnauthorizedHandler()
-	s.Handler = frontproxyfilters.WithOptionalClientCert(s.Handler, failedHandler, s.CompletedConfig.AuthenticationInfo.Authenticator)
+	s.Handler = frontproxyfilters.WithOptionalAuthentication(
+		s.Handler,
+		failedHandler,
+		s.CompletedConfig.AuthenticationInfo.Authenticator,
+		s.CompletedConfig.AdditionalAuthEnabled)
 
 	requestInfoFactory := requestinfo.NewFactory()
 	s.Handler = server.WithInClusterServiceAccountRequestRewrite(s.Handler)

@@ -23,7 +23,6 @@ import (
 	"github.com/spf13/pflag"
 
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apiserver/pkg/authentication/request/x509"
 	"k8s.io/apiserver/pkg/authentication/user"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
@@ -45,9 +44,16 @@ type Authentication struct {
 func NewAuthentication() *Authentication {
 	return &Authentication{
 		BuiltInOptions: kubeoptions.NewBuiltInAuthenticationOptions().
-			WithClientCert(),
+			WithClientCert().
+			WithTokenFile(),
+		// when adding new auth methods, also update AdditionalAuthEnabled below
 		DropGroups: []string{user.SystemPrivilegedGroup},
 	}
+}
+
+// When configured to enable auth other than ClientCert, this returns true
+func (c *Authentication) AdditionalAuthEnabled() bool {
+	return c.BuiltInOptions.TokenFile.TokenFile != ""
 }
 
 func (c *Authentication) ApplyTo(authenticationInfo *genericapiserver.AuthenticationInfo, servingInfo *genericapiserver.SecureServingInfo) error {
@@ -58,12 +64,17 @@ func (c *Authentication) ApplyTo(authenticationInfo *genericapiserver.Authentica
 		return err
 	}
 
-	// Set up the x509 Authenticator if the client-ca-file option was passed
+	// Set up the ClientCert if the client-ca-file option was passed
 	if authenticatorConfig.ClientCAContentProvider != nil {
 		if err = authenticationInfo.ApplyClientCert(authenticatorConfig.ClientCAContentProvider, servingInfo); err != nil {
-			return fmt.Errorf("unable to load client CA file: %v", err)
+			return fmt.Errorf("unable to load client CA file: %w", err)
 		}
-		authenticationInfo.Authenticator = x509.NewDynamic(authenticatorConfig.ClientCAContentProvider.VerifyOptions, x509.CommonNameUserConversion)
+	}
+
+	// Sets up a union Authenticator for all enabled auth methods
+	authenticationInfo.Authenticator, _, err = authenticatorConfig.New()
+	if err != nil {
+		return err
 	}
 
 	// only pass on those groups to the shards we want
@@ -96,7 +107,7 @@ func (c *Authentication) ApplyTo(authenticationInfo *genericapiserver.Authentica
 
 // AddFlags delegates to ClientCertAuthenticationOptions
 func (c *Authentication) AddFlags(fs *pflag.FlagSet) {
-	c.BuiltInOptions.ClientCert.AddFlags(fs)
+	c.BuiltInOptions.AddFlags(fs)
 
 	fs.StringSliceVar(&c.PassOnGroups, "authentication-pass-on-groups", c.PassOnGroups,
 		"Groups that are passed on to the shard. Empty matches all. \"prefix*\" matches "+
