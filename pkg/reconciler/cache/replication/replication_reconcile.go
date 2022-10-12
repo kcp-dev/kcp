@@ -19,102 +19,130 @@ package replication
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/tools/cache"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 )
 
-func (c *controller) reconcile(ctx context.Context, grKey string) error {
-	keyParts := strings.Split(grKey, "::")
+func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
+	keyParts := strings.Split(gvrKey, "::")
 	if len(keyParts) != 2 {
-		return fmt.Errorf("incorrect key: %v, expected group.resource::key", grKey)
+		return fmt.Errorf("incorrect key: %v, expected group.version.resource::key", gvrKey)
 	}
 	switch keyParts[0] {
 	case apisv1alpha1.SchemeGroupVersion.WithResource("apiexports").String():
-		return c.reconcileAPIExports(ctx, keyParts[1], apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"))
+		return c.reconcileObject(ctx,
+			keyParts[1],
+			apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"),
+			apisv1alpha1.SchemeGroupVersion.WithKind("APIExport"),
+			func(gvr schema.GroupVersionResource, cluster, namespace, name string) (interface{}, error) {
+				return retrieveCacheObject(&gvr, c.cacheApiExportsIndexer, c.shardName, cluster, namespace, name)
+			},
+			func(key string) (interface{}, error) {
+				return c.localApiExportLister.Get(key)
+			})
+	case apisv1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas").String():
+		return c.reconcileObject(ctx,
+			keyParts[1],
+			apisv1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas"),
+			apisv1alpha1.SchemeGroupVersion.WithKind("ApiResourceSchema"),
+			func(gvr schema.GroupVersionResource, cluster, namespace, name string) (interface{}, error) {
+				return retrieveCacheObject(&gvr, c.cacheApiResourceSchemaIndexer, c.shardName, cluster, namespace, name)
+			},
+			func(key string) (interface{}, error) {
+				return c.localApiResourceSchemaLister.Get(key)
+			})
 	default:
 		return fmt.Errorf("unsupported resource %v", keyParts[0])
 	}
 }
 
-// reconcileAPIExports makes sure that the ApiExport under the given key from the local shard is replicated to the cache server.
+// reconcileObject makes sure that the object under the given key from the local shard is replicated to the cache server.
 // the replication function handles the following cases:
-//  1. creation of the object in the cache server when the cached object is not found in c.localApiExportLister
-//  2. deletion of the object from the cache server when the original/local object was removed OR was not found in c.localApiExportLister
+//  1. creation of the object in the cache server when the cached object is not found by retriveLocalObject
+//  2. deletion of the object from the cache server when the original/local object was removed OR was not found by retriveLocalObject
 //  3. modification of the cached object to match the original one when meta.annotations, meta.labels, spec or status are different
-func (c *controller) reconcileAPIExports(ctx context.Context, key string, gvr schema.GroupVersionResource) error {
-	var cacheApiExport *apisv1alpha1.APIExport
-	var localApiExport *apisv1alpha1.APIExport
-	var cluster logicalcluster.Name
-	var namespace string
-	var apiExportName string
-	var err error
-	cluster, namespace, apiExportName, err = kcpcache.SplitMetaClusterNamespaceKey(key)
+func (c *controller) reconcileObject(ctx context.Context,
+	key string, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind,
+	retriveCacheObject func(gvr schema.GroupVersionResource, cluster, namespace, name string) (interface{}, error),
+	retriveLocalObject func(key string) (interface{}, error)) error {
+	cluster, namespace, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		return err
 	}
-	cacheApiExport, err = c.retrieveApiExport(&gvr, cluster.String(), namespace, apiExportName)
+	cacheObject, err := retriveCacheObject(gvr, cluster.String(), namespace, name)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
-	localApiExport, err = c.localApiExportLister.Get(key)
+	localObject, err := retriveLocalObject(key)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
 	if errors.IsNotFound(err) {
-		// issue a live GET to make sure the localApiExport was removed
-		unstructuredLiveLocalApiExport, err := c.dynamicLocalClient.Cluster(cluster).Resource(gvr).Get(ctx, apiExportName, metav1.GetOptions{})
+		// issue a live GET to make sure the localObject was removed
+		_, err = c.dynamicLocalClient.Cluster(cluster).Resource(gvr).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err == nil {
-			return fmt.Errorf("the informer used by this controller is stale, the following APIExport was found on the local server: %s/%s/%s but was missing in the informer", cluster, unstructuredLiveLocalApiExport.GetNamespace(), unstructuredLiveLocalApiExport.GetName())
+			return fmt.Errorf("the informer used by this controller is stale, the following %s resource was found on the local server: %s/%s/%s but was missing from the informer", gvr, cluster, namespace, name)
 		}
 		if !errors.IsNotFound(err) {
 			return err
 		}
 	}
 
-	var unstructuredCacheApiExport *unstructured.Unstructured
-	var unstructuredLocalApiExport *unstructured.Unstructured
-	if cacheApiExport != nil {
-		unstructuredCacheApiExport, err = toUnstructured(cacheApiExport)
+	var unstructuredCacheObject *unstructured.Unstructured
+	var unstructuredLocalObject *unstructured.Unstructured
+	if isNotNil(cacheObject) {
+		unstructuredCacheObject, err = toUnstructured(cacheObject)
 		if err != nil {
 			return err
 		}
-		unstructuredCacheApiExport.SetKind("APIExport")
-		unstructuredCacheApiExport.SetAPIVersion(gvr.GroupVersion().String())
+		unstructuredCacheObject.SetKind(gvk.Kind)
+		unstructuredCacheObject.SetAPIVersion(gvr.GroupVersion().String())
 	}
-	if localApiExport != nil {
-		unstructuredLocalApiExport, err = toUnstructured(localApiExport)
+	if isNotNil(localObject) {
+		unstructuredLocalObject, err = toUnstructured(localObject)
 		if err != nil {
 			return err
 		}
-		unstructuredLocalApiExport.SetKind("APIExport")
-		unstructuredLocalApiExport.SetAPIVersion(gvr.GroupVersion().String())
+		unstructuredLocalObject.SetKind(gvk.Kind)
+		unstructuredLocalObject.SetAPIVersion(gvr.GroupVersion().String())
 	}
-	if cluster.Empty() && localApiExport != nil {
-		cluster = logicalcluster.From(localApiExport)
+	if cluster.Empty() && isNotNil(localObject) {
+		metadata, err := meta.Accessor(localObject)
+		if err != nil {
+			return err
+		}
+		cluster = logicalcluster.From(metadata)
 	}
 
-	return c.reconcileUnstructuredObjects(ctx, cluster, &gvr, unstructuredCacheApiExport, unstructuredLocalApiExport)
+	return c.reconcileUnstructuredObjects(ctx, cluster, &gvr, unstructuredCacheObject, unstructuredLocalObject)
 }
 
-func (c *controller) retrieveApiExport(gvr *schema.GroupVersionResource, clusterName, namespace, apiExportName string) (*apisv1alpha1.APIExport, error) {
-	cacheApiExports, err := c.cacheApiExportsIndexer.ByIndex(ByShardAndLogicalClusterAndNamespaceAndName, ShardAndLogicalClusterAndNamespaceKey(c.shardName, clusterName, namespace, apiExportName))
+func retrieveCacheObject(gvr *schema.GroupVersionResource, cacheIndex cache.Indexer, shard, cluster, namespace, name string) (interface{}, error) {
+	cacheObjects, err := cacheIndex.ByIndex(ByShardAndLogicalClusterAndNamespaceAndName, ShardAndLogicalClusterAndNamespaceKey(shard, cluster, namespace, name))
 	if err != nil {
 		return nil, err
 	}
-	if len(cacheApiExports) == 0 {
-		return nil, errors.NewNotFound(gvr.GroupResource(), apiExportName)
+	if len(cacheObjects) == 0 {
+		return nil, errors.NewNotFound(gvr.GroupResource(), name)
 	}
-	if len(cacheApiExports) > 1 {
-		return nil, fmt.Errorf("expected to find only one instance for the key %s, found %d", ShardAndLogicalClusterAndNamespaceKey(c.shardName, clusterName, namespace, apiExportName), len(cacheApiExports))
+	if len(cacheObjects) > 1 {
+		return nil, fmt.Errorf("expected to find only one instance of %s resource for the key %s, found %d", gvr, ShardAndLogicalClusterAndNamespaceKey(shard, cluster, namespace, name), len(cacheObjects))
 	}
-	return cacheApiExports[0].(*apisv1alpha1.APIExport), nil
+	return cacheObjects[0], nil
+}
+
+func isNotNil(obj interface{}) bool {
+	return obj != nil && (reflect.ValueOf(obj).Kind() == reflect.Ptr && !reflect.ValueOf(obj).IsNil())
 }
