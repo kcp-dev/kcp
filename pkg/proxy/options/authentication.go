@@ -26,38 +26,44 @@ import (
 	"k8s.io/apiserver/pkg/authentication/request/x509"
 	"k8s.io/apiserver/pkg/authentication/user"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	apiserveroptions "k8s.io/apiserver/pkg/server/options"
+	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
 
 	kcpauthentication "github.com/kcp-dev/kcp/pkg/proxy/authentication"
 )
 
-// Authentication wraps ClientCertAuthenticationOptions so we don't pull in
-// more auth machinery than we need with DelegatingAuthenticationOptions
+// Authentication wraps BuiltInAuthenticationOptions so we can minimize the
+// dependencies on apiserver auth machinery, specifically by overriding the
+// ApplyTo so we can remove those config dependencies not relevant to the
+// subset of auth methods we enable in the proxy
 type Authentication struct {
-	ClientCert apiserveroptions.ClientCertAuthenticationOptions
-
-	PassOnGroups []string
-	DropGroups   []string
+	BuiltInOptions *kubeoptions.BuiltInAuthenticationOptions
+	PassOnGroups   []string
+	DropGroups     []string
 }
 
 // NewAuthentication creates a default Authentication
 func NewAuthentication() *Authentication {
 	return &Authentication{
+		BuiltInOptions: kubeoptions.NewBuiltInAuthenticationOptions().
+			WithClientCert(),
 		DropGroups: []string{user.SystemPrivilegedGroup},
 	}
 }
 
-// ApplyTo sets up the x509 Authenticator if the client-ca-file option was passed
 func (c *Authentication) ApplyTo(authenticationInfo *genericapiserver.AuthenticationInfo, servingInfo *genericapiserver.SecureServingInfo) error {
-	clientCAProvider, err := c.ClientCert.GetClientCAContentProvider()
+	// Note BuiltInAuthenticationOptions.ApplyTo is not called, so we
+	// can reduce the dependencies pulled in from auth methods which aren't enabled
+	authenticatorConfig, err := c.BuiltInOptions.ToAuthenticationConfig()
 	if err != nil {
-		return fmt.Errorf("unable to load client CA provider: %w", err)
+		return err
 	}
-	if clientCAProvider != nil {
-		if err = authenticationInfo.ApplyClientCert(clientCAProvider, servingInfo); err != nil {
-			return fmt.Errorf("unable to assign client CA provider: %w", err)
+
+	// Set up the x509 Authenticator if the client-ca-file option was passed
+	if authenticatorConfig.ClientCAContentProvider != nil {
+		if err = authenticationInfo.ApplyClientCert(authenticatorConfig.ClientCAContentProvider, servingInfo); err != nil {
+			return fmt.Errorf("unable to load client CA file: %v", err)
 		}
-		authenticationInfo.Authenticator = x509.NewDynamic(clientCAProvider.VerifyOptions, x509.CommonNameUserConversion)
+		authenticationInfo.Authenticator = x509.NewDynamic(authenticatorConfig.ClientCAContentProvider.VerifyOptions, x509.CommonNameUserConversion)
 	}
 
 	// only pass on those groups to the shards we want
@@ -90,7 +96,7 @@ func (c *Authentication) ApplyTo(authenticationInfo *genericapiserver.Authentica
 
 // AddFlags delegates to ClientCertAuthenticationOptions
 func (c *Authentication) AddFlags(fs *pflag.FlagSet) {
-	c.ClientCert.AddFlags(fs)
+	c.BuiltInOptions.ClientCert.AddFlags(fs)
 
 	fs.StringSliceVar(&c.PassOnGroups, "authentication-pass-on-groups", c.PassOnGroups,
 		"Groups that are passed on to the shard. Empty matches all. \"prefix*\" matches "+
