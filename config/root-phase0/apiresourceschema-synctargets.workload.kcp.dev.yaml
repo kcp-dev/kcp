@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v221011-1af9d713.synctargets.workload.kcp.dev
+  name: v220923-836dfac8.synctargets.workload.kcp.dev
 spec:
   group: workload.kcp.dev
   names:
@@ -189,7 +189,6 @@ spec:
               items:
                 properties:
                   group:
-                    default: ""
                     description: group is the name of an API group. For core groups
                       this is the empty string '""'.
                     pattern: ^(|[a-z0-9]([-a-z0-9]*[a-z0-9](\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)?)$

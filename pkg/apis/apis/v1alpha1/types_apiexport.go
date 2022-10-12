@@ -220,7 +220,6 @@ type GroupResource struct {
 	//
 	// +kubebuilder:validation:Pattern=`^(|[a-z0-9]([-a-z0-9]*[a-z0-9](\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)?)$`
 	// +optional
-	// +kubebuilder:default=""
 	Group string `json:"group,omitempty"`
 
 	// resource is the name of the resource.
