@@ -28,6 +28,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -47,23 +48,28 @@ import (
 )
 
 const (
-	ControllerName                     = "kcp-virtual-syncer-api-reconciler"
-	indexSyncTargetsByExport           = ControllerName + "ByExport"
-	indexAPIExportsByAPIResourceSchema = ControllerName + "ByAPIResourceSchema"
+	ControllerName                     = "kcp-virtual-syncer-api-reconciler-"
+	IndexSyncTargetsByExport           = ControllerName + "ByExport"
+	IndexAPIExportsByAPIResourceSchema = ControllerName + "ByAPIResourceSchema"
 )
 
 type CreateAPIDefinitionFunc func(syncTargetWorkspace logicalcluster.Name, syncTargetName string, apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identityHash string) (apidefinition.APIDefinition, error)
+type AllowedAPIfilterFunc func(apiGroupResource schema.GroupResource) bool
 
 func NewAPIReconciler(
+	virtualWorkspaceName string,
 	kcpClusterClient kcpclient.ClusterInterface,
 	syncTargetInformer workloadinformers.SyncTargetInformer,
 	apiResourceSchemaInformer apisinformers.APIResourceSchemaInformer,
 	apiExportInformer apisinformers.APIExportInformer,
 	createAPIDefinition CreateAPIDefinitionFunc,
+	allowedAPIfilter AllowedAPIfilterFunc,
 ) (*APIReconciler, error) {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName+virtualWorkspaceName)
 
 	c := &APIReconciler{
+		virtualWorkspaceName: virtualWorkspaceName,
+
 		kcpClusterClient: kcpClusterClient,
 
 		syncTargetLister:  syncTargetInformer.Lister(),
@@ -77,23 +83,12 @@ func NewAPIReconciler(
 		queue: queue,
 
 		createAPIDefinition: createAPIDefinition,
+		allowedAPIfilter:    allowedAPIfilter,
 
 		apiSets: map[dynamiccontext.APIDomainKey]apidefinition.APIDefinitionSet{},
 	}
 
-	if err := syncTargetInformer.Informer().AddIndexers(cache.Indexers{
-		indexSyncTargetsByExport: indexSyncTargetsByExports,
-	}); err != nil {
-		return nil, err
-	}
-
-	if err := apiExportInformer.Informer().AddIndexers(cache.Indexers{
-		indexAPIExportsByAPIResourceSchema: indexAPIExportsByAPIResourceSchemas,
-	}); err != nil {
-		return nil, err
-	}
-
-	logger := logging.WithReconciler(klog.Background(), ControllerName)
+	logger := logging.WithReconciler(klog.Background(), ControllerName+virtualWorkspaceName)
 
 	syncTargetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) { c.enqueueSyncTarget(obj, logger, "") },
@@ -126,6 +121,8 @@ func NewAPIReconciler(
 // APIReconciler is a controller watching APIExports, APIResourceSchemas and SyncTargets, and updates the
 // API definitions driving the virtual workspace.
 type APIReconciler struct {
+	virtualWorkspaceName string
+
 	kcpClusterClient kcpclient.ClusterInterface
 
 	syncTargetLister  workloadlisters.SyncTargetLister
@@ -139,6 +136,7 @@ type APIReconciler struct {
 	queue workqueue.RateLimitingInterface
 
 	createAPIDefinition CreateAPIDefinitionFunc
+	allowedAPIfilter    AllowedAPIfilterFunc
 
 	mutex   sync.RWMutex // protects the map, not the values!
 	apiSets map[dynamiccontext.APIDomainKey]apidefinition.APIDefinitionSet
@@ -162,7 +160,7 @@ func (c *APIReconciler) enqueueAPIExport(obj interface{}, logger logr.Logger, lo
 		return
 	}
 
-	synctargets, err := c.syncTargetIndexer.ByIndex(indexSyncTargetsByExport, key)
+	synctargets, err := c.syncTargetIndexer.ByIndex(IndexSyncTargetsByExport, key)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -182,7 +180,7 @@ func (c *APIReconciler) enqueueAPIResourceSchema(obj interface{}, logger logr.Lo
 		return
 	}
 
-	apiExports, err := c.apiExportIndexer.ByIndex(indexAPIExportsByAPIResourceSchema, key)
+	apiExports, err := c.apiExportIndexer.ByIndex(IndexAPIExportsByAPIResourceSchema, key)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -203,7 +201,7 @@ func (c *APIReconciler) Start(ctx context.Context) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName)
+	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName+c.virtualWorkspaceName)
 	ctx = klog.NewContext(ctx, logger)
 	logger.Info("Starting controller")
 	defer logger.Info("Shutting down controller")
@@ -241,7 +239,7 @@ func (c *APIReconciler) processNextWorkItem(ctx context.Context) bool {
 	defer c.queue.Done(key)
 
 	if err := c.process(ctx, key); err != nil {
-		runtime.HandleError(fmt.Errorf("%s: failed to sync %q, err: %w", ControllerName, key, err))
+		runtime.HandleError(fmt.Errorf("%s: failed to sync %q, err: %w", ControllerName+c.virtualWorkspaceName, key, err))
 		c.queue.AddRateLimited(key)
 		return true
 	}

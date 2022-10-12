@@ -33,8 +33,10 @@ import (
 	registry "github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
 )
 
-// NewStorageBuilder returns a forwarding storage build function, with an optional storage wrapper e.g. to add label based filtering.
-func NewStorageBuilder(ctx context.Context, clusterClient kcpdynamic.ClusterInterface, apiExportIdentityHash string, wrapper registry.StorageWrapper) apiserver.RestProviderFunc {
+type StorageBuilderProvider func(ctx context.Context, clusterClient kcpdynamic.ClusterInterface, apiExportIdentityHash string, wrapper registry.StorageWrapper) apiserver.RestProviderFunc
+
+// NewSyncerStorageBuilder returns a forwarding storage build function, with an optional storage wrapper e.g. to add label based filtering.
+func NewSyncerStorageBuilder(ctx context.Context, clusterClient kcpdynamic.ClusterInterface, apiExportIdentityHash string, wrapper registry.StorageWrapper) apiserver.RestProviderFunc {
 	return func(resource schema.GroupVersionResource, kind schema.GroupVersionKind, listKind schema.GroupVersionKind, typer runtime.ObjectTyper, tableConvertor rest.TableConvertor, namespaceScoped bool, schemaValidator *validate.SchemaValidator, subresourcesSchemaValidator map[string]*validate.SchemaValidator, structuralSchema *structuralschema.Structural) (mainStorage rest.Storage, subresourceStorages map[string]rest.Storage) {
 		statusSchemaValidate, statusEnabled := subresourcesSchemaValidator["status"]
 
@@ -123,6 +125,69 @@ func NewStorageBuilder(ctx context.Context, clusterClient kcpdynamic.ClusterInte
 			ListerFunc:  storage.ListerFunc,
 			UpdaterFunc: storage.UpdaterFunc,
 			WatcherFunc: storage.WatcherFunc,
+
+			TableConvertorFunc:      storage.TableConvertorFunc,
+			CategoriesProviderFunc:  storage.CategoriesProviderFunc,
+			ResetFieldsStrategyFunc: storage.ResetFieldsStrategyFunc,
+		}, subresourceStorages
+	}
+}
+
+// NewUpSyncerStorageBuilder returns a forwarding storage build function, with an optional storage wrapper e.g. to add label based filtering.
+func NewUpSyncerStorageBuilder(ctx context.Context, clusterClient kcpdynamic.ClusterInterface, apiExportIdentityHash string, wrapper registry.StorageWrapper) apiserver.RestProviderFunc {
+	return func(resource schema.GroupVersionResource, kind schema.GroupVersionKind, listKind schema.GroupVersionKind, typer runtime.ObjectTyper, tableConvertor rest.TableConvertor, namespaceScoped bool, schemaValidator *validate.SchemaValidator, subresourcesSchemaValidator map[string]*validate.SchemaValidator, structuralSchema *structuralschema.Structural) (mainStorage rest.Storage, subresourceStorages map[string]rest.Storage) {
+		strategy := customresource.NewStrategy(
+			typer,
+			namespaceScoped,
+			kind,
+			schemaValidator,
+			nil,
+			map[string]*structuralschema.Structural{resource.Version: structuralSchema},
+			nil,
+			nil,
+		)
+
+		storage, _ := registry.NewStorage(
+			ctx,
+			resource,
+			apiExportIdentityHash,
+			kind,
+			listKind,
+			strategy,
+			nil,
+			tableConvertor,
+			nil,
+			clusterClient,
+			nil,
+			wrapper,
+		)
+
+		return &struct {
+			registry.FactoryFunc
+			registry.ListFactoryFunc
+			registry.DestroyerFunc
+
+			registry.GetterFunc
+			registry.ListerFunc
+			registry.CreaterFunc
+			registry.UpdaterFunc
+			registry.WatcherFunc
+			registry.GracefulDeleterFunc
+
+			registry.TableConvertorFunc
+			registry.CategoriesProviderFunc
+			registry.ResetFieldsStrategyFunc
+		}{
+			FactoryFunc:     storage.FactoryFunc,
+			ListFactoryFunc: storage.ListFactoryFunc,
+			DestroyerFunc:   storage.DestroyerFunc,
+
+			GetterFunc:          storage.GetterFunc,
+			ListerFunc:          storage.ListerFunc,
+			CreaterFunc:         storage.CreaterFunc,
+			UpdaterFunc:         storage.UpdaterFunc,
+			WatcherFunc:         storage.WatcherFunc,
+			GracefulDeleterFunc: storage.GracefulDeleterFunc,
 
 			TableConvertorFunc:      storage.TableConvertorFunc,
 			CategoriesProviderFunc:  storage.CategoriesProviderFunc,
