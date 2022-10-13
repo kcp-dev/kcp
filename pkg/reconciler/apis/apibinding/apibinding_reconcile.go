@@ -373,8 +373,6 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 
 	conditions.MarkTrue(apiBinding, apisv1alpha1.APIExportValid)
 
-	apiBinding.Status.BoundAPIExport = &apiBinding.Spec.Reference
-
 	// Now that the Export is valid and is marked as such, we will add all the claims requested to the status.
 	apiBinding.Status.ExportPermissionClaims = apiExport.Spec.PermissionClaims
 
@@ -422,11 +420,6 @@ func (c *controller) reconcileBound(ctx context.Context, apiBinding *apisv1alpha
 		)
 
 		return false, nil
-	}
-
-	if referencedAPIExportChanged(apiBinding) {
-		logger.V(2).Info("APIBinding needs rebinding because it now points to a different APIExport")
-		return true, nil
 	}
 
 	apiExport, err := c.getAPIExport(apiExportClusterName, apiBinding.Spec.Reference.Workspace.ExportName)
@@ -550,15 +543,6 @@ func getAPIExportClusterName(apiBinding *apisv1alpha1.APIBinding) (logicalcluste
 	}
 
 	return logicalcluster.New(apiBinding.Spec.Reference.Workspace.Path), nil
-}
-
-func referencedAPIExportChanged(apiBinding *apisv1alpha1.APIBinding) bool {
-	// Can't happen because of OpenAPI, but just in case
-	if apiBinding.Spec.Reference.Workspace == nil {
-		return false
-	}
-
-	return *apiBinding.Spec.Reference.Workspace != *apiBinding.Status.BoundAPIExport.Workspace
 }
 
 func apiExportLatestResourceSchemasChanged(apiBinding *apisv1alpha1.APIBinding, exportedSchemas []*apisv1alpha1.APIResourceSchema) bool {

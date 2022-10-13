@@ -69,6 +69,7 @@ type APIBindingSpec struct {
 	//
 	// +required
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="APIExport reference must not be changed"
 	Reference ExportReference `json:"reference"`
 
 	// permissionClaims records decisions about permission claims requested by the API service provider.
@@ -137,16 +138,6 @@ const (
 
 // APIBindingStatus records which schemas are bound.
 type APIBindingStatus struct {
-	// boundExport records the export this binding is bound to currently. It can
-	// differ from the export that was specified in the spec while rebinding
-	// to a different APIExport.
-	//
-	// This field is what gives the APIExport visibility into the objects in this
-	// workspace.
-	//
-	// +optional
-	BoundAPIExport *ExportReference `json:"boundExport,omitempty"`
-
 	// boundResources records the state of bound APIs.
 	//
 	// +optional

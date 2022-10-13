@@ -130,16 +130,18 @@ func TestDispatch(t *testing.T) {
 							logicalcluster.AnnotationKey: "root:org:dest-cluster",
 						},
 					},
+					Spec: v1alpha1.APIBindingSpec{
+						Reference: v1alpha1.ExportReference{
+							Workspace: &v1alpha1.WorkspaceExportReference{
+								Path: "root:org:source-cluster",
+							},
+						},
+					},
 					Status: v1alpha1.APIBindingStatus{
 						BoundResources: []v1alpha1.BoundAPIResource{
 							{
 								Group:    "wildwest.dev",
 								Resource: "cowboys",
-							},
-						},
-						BoundAPIExport: &v1alpha1.ExportReference{
-							Workspace: &v1alpha1.WorkspaceExportReference{
-								Path: "root:org:source-cluster",
 							},
 						},
 					},
@@ -196,11 +198,6 @@ func TestDispatch(t *testing.T) {
 								Resource: "Horses",
 							},
 						},
-						BoundAPIExport: &v1alpha1.ExportReference{
-							Workspace: &v1alpha1.WorkspaceExportReference{
-								Path: "root:org:source-cluster",
-							},
-						},
 					},
 				},
 				{
@@ -215,11 +212,6 @@ func TestDispatch(t *testing.T) {
 							{
 								Group:    "wildwest.dev",
 								Resource: "Cowboys",
-							},
-						},
-						BoundAPIExport: &v1alpha1.ExportReference{
-							Workspace: &v1alpha1.WorkspaceExportReference{
-								Path: "root:org:source-cluster",
 							},
 						},
 					},

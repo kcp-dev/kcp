@@ -71,12 +71,11 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 	for _, binding := range bindings {
 		logger := logging.WithObject(logger, binding)
 
-		if binding.Status.BoundAPIExport == nil {
-			logger.V(4).Info("skipping APIBinding because it has no bound APIExport")
+		if binding.Spec.Reference.Workspace == nil {
+			logger.V(4).Info("skipping APIBinding because it has no workspace set")
 			continue
 		}
-
-		boundAPIExportWorkspace := binding.Status.BoundAPIExport.Workspace
+		boundAPIExportWorkspace := binding.Spec.Reference.Workspace
 
 		for _, claim := range binding.Status.ExportPermissionClaims {
 			if claim.Group != groupResource.Group || claim.Resource != groupResource.Resource {
@@ -104,7 +103,7 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 			return labels, nil // can only be a NotFound
 		}
 
-		if exportRef := binding.Status.BoundAPIExport; exportRef != nil && exportRef.Workspace != nil {
+		if exportRef := binding.Spec.Reference; exportRef.Workspace != nil {
 			k, v := permissionclaims.ToReflexiveAPIBindingLabelKeyAndValue(logicalcluster.New(exportRef.Workspace.Path), exportRef.Workspace.ExportName)
 			if _, found := labels[k]; !found {
 				labels[k] = v

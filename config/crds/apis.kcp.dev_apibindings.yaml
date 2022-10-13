@@ -107,6 +107,9 @@ spec:
                     - exportName
                     type: object
                 type: object
+                x-kubernetes-validations:
+                - message: APIExport reference must not be changed
+                  rule: self == oldSelf
             required:
             - reference
             type: object
@@ -146,31 +149,6 @@ spec:
                   - resource
                   type: object
                 type: array
-              boundExport:
-                description: "boundExport records the export this binding is bound
-                  to currently. It can differ from the export that was specified in
-                  the spec while rebinding to a different APIExport. \n This field
-                  is what gives the APIExport visibility into the objects in this
-                  workspace."
-                properties:
-                  workspace:
-                    description: workspace is a reference to an APIExport in the same
-                      organization. The creator of the APIBinding needs to have access
-                      to the APIExport with the verb `bind` in order to bind to it.
-                    properties:
-                      exportName:
-                        description: Name of the APIExport that describes the API.
-                        type: string
-                      path:
-                        description: path is an absolute reference to a workspace,
-                          e.g. root:org:ws. If it is unset, the path of the APIBinding
-                          is used.
-                        pattern: ^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
-                        type: string
-                    required:
-                    - exportName
-                    type: object
-                type: object
               boundResources:
                 description: boundResources records the state of bound APIs.
                 items:

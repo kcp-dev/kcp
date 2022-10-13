@@ -96,14 +96,14 @@ func (p *WebhookDispatcher) getAPIBindingWorkspace(attr admission.Attributes, cl
 	for _, obj := range objs {
 		apiBinding := obj.(*apisv1alpha1.APIBinding)
 		for _, br := range apiBinding.Status.BoundResources {
-			if apiBinding.Status.BoundAPIExport != nil && apiBinding.Status.BoundAPIExport.Workspace == nil {
+			// this can never happen by OpenAPI validation
+			if apiBinding.Spec.Reference.Workspace == nil {
 				// this will never happen today. But as soon as we add other reference types (like exports), this log output will remind out of necessary work here.
 				klog.Errorf("APIBinding %s has no referenced workspace", clusterName, apiBinding.Name)
 				continue
 			}
-			if apiBinding.Status.BoundAPIExport != nil && apiBinding.Status.BoundAPIExport.Workspace != nil &&
-				br.Group == attr.GetResource().Group && br.Resource == attr.GetResource().Resource {
-				return logicalcluster.New(apiBinding.Status.BoundAPIExport.Workspace.Path), true, nil
+			if br.Group == attr.GetResource().Group && br.Resource == attr.GetResource().Resource {
+				return logicalcluster.New(apiBinding.Spec.Reference.Workspace.Path), true, nil
 			}
 		}
 	}

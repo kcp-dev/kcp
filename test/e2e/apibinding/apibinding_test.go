@@ -18,6 +18,7 @@ package apibinding
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"path"
@@ -25,6 +26,7 @@ import (
 	"testing"
 	"time"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/google/go-cmp/cmp"
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	kcpdynamic "github.com/kcp-dev/apimachinery/pkg/dynamic"
@@ -32,6 +34,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery/cached/memory"
@@ -50,6 +53,62 @@ import (
 	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
+
+func TestAPIBindingAPIExportReferenceImmutability(t *testing.T) {
+	server := framework.SharedKcpServer(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	orgClusterName := framework.NewOrganizationFixture(t, server)
+	serviceProviderWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName, framework.WithName("service-provider-1"))
+	consumerWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName, framework.WithName("consumer-1-bound-against-1"))
+
+	cfg := server.BaseConfig(t)
+
+	kcpClusterClient, err := clientset.NewForConfig(cfg)
+	require.NoError(t, err, "failed to construct kcp cluster client for server")
+
+	t.Logf("Create an APIExport today-cowboys in %q", serviceProviderWorkspace)
+	cowboysAPIExport := &apisv1alpha1.APIExport{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "today-cowboys",
+		},
+		Spec: apisv1alpha1.APIExportSpec{
+			LatestResourceSchemas: []string{"today.cowboys.wildwest.dev"},
+		},
+	}
+	_, err = kcpClusterClient.ApisV1alpha1().APIExports().Create(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), cowboysAPIExport, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	t.Logf("Create an APIBinding in %q that points to the today-cowboys export from %q", consumerWorkspace, serviceProviderWorkspace)
+	apiBinding := &apisv1alpha1.APIBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cowboys",
+		},
+		Spec: apisv1alpha1.APIBindingSpec{
+			Reference: apisv1alpha1.ExportReference{
+				Workspace: &apisv1alpha1.WorkspaceExportReference{
+					Path:       serviceProviderWorkspace.String(),
+					ExportName: "today-cowboys",
+				},
+			},
+		},
+	}
+
+	_, err = kcpClusterClient.ApisV1alpha1().APIBindings().Create(logicalcluster.WithCluster(ctx, consumerWorkspace), apiBinding, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	apiBinding, err = kcpClusterClient.ApisV1alpha1().APIBindings().Get(logicalcluster.WithCluster(ctx, consumerWorkspace), apiBinding.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+
+	patchedBinding := apiBinding.DeepCopy()
+	patchedBinding.Spec.Reference.Workspace.ExportName = "other-export"
+	mergePatch, err := jsonpatch.CreateMergePatch(encodeJSON(t, apiBinding), encodeJSON(t, patchedBinding))
+	require.NoError(t, err)
+	_, err = kcpClusterClient.ApisV1alpha1().APIBindings().Patch(logicalcluster.WithCluster(ctx, consumerWorkspace), apiBinding.Name, types.MergePatchType, mergePatch, metav1.PatchOptions{})
+	require.ErrorContains(t, err, "APIExport reference must not be changed")
+}
 
 func TestAPIBinding(t *testing.T) {
 	t.Parallel()
@@ -326,4 +385,10 @@ func apiexportVWConfig(t *testing.T, kubeconfig clientcmdapi.Config, clusterName
 	require.NoError(t, err)
 
 	return rest.AddUserAgent(rest.CopyConfig(config), t.Name())
+}
+
+func encodeJSON(t *testing.T, obj interface{}) []byte {
+	ret, err := json.Marshal(obj)
+	require.NoError(t, err)
+	return ret
 }

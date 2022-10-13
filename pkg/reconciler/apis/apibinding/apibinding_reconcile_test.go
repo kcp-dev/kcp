@@ -73,7 +73,6 @@ var (
 	binding = unbound.DeepCopy().WithPhase(apisv1alpha1.APIBindingPhaseBinding)
 
 	rebinding = binding.DeepCopy().
-			WithBoundAPIExport("org:some-workspace", "some-export").
 			WithBoundResources(
 			new(boundAPIResourceBuilder).
 				WithGroupResource("kcp.dev", "widgets").
@@ -86,7 +85,6 @@ var (
 
 	bound = unbound.DeepCopy().
 		WithPhase(apisv1alpha1.APIBindingPhaseBound).
-		WithBoundAPIExport("org:some-workspace", "some-export").
 		WithBoundResources(
 			new(boundAPIResourceBuilder).
 				WithGroupResource("mygroup", "someresources").
@@ -102,7 +100,6 @@ var (
 			WithName("conflicting").
 			WithPhase(apisv1alpha1.APIBindingPhaseBound).
 			WithWorkspaceReference("org:some-workspace", "conflict").
-			WithBoundAPIExport("org:some-workspace", "conflict").
 			WithBoundResources(
 			new(boundAPIResourceBuilder).
 				WithGroupResource("other.io", "widgets").
@@ -566,13 +563,6 @@ func TestReconcileBinding(t *testing.T) {
 				requireConditionMatches(t, tc.apiBinding, conditions.FalseCondition(conditionsv1alpha1.ReadyCondition, "", "", ""))
 			}
 
-			if tc.wantBoundAPIExport {
-				require.NotNil(t, tc.apiBinding.Status.BoundAPIExport)
-				require.Equal(t, tc.apiBinding.Spec.Reference, *tc.apiBinding.Status.BoundAPIExport)
-			} else {
-				require.Nil(t, tc.apiBinding.Status.BoundAPIExport)
-			}
-
 			if tc.wantInitialBindingComplete {
 				requireConditionMatches(t, tc.apiBinding, conditions.TrueCondition(apisv1alpha1.InitialBindingCompleted))
 			}
@@ -643,13 +633,6 @@ func TestReconcileBound(t *testing.T) {
 		wantError             bool
 		wantAPIExportNotFound bool
 	}{
-		"rebinding when referenced export changes": {
-			apiBinding: bound.DeepCopy().
-				WithWorkspaceReference("root:org:new-workspace", "new-export").
-				Build(),
-			wantRebinding: true,
-			wantPhase:     "Bound",
-		},
 		"rebinding when export changes what it's exporting": {
 			apiBinding: bound.Build(),
 			apiExport: &apisv1alpha1.APIExport{
@@ -1011,16 +994,6 @@ func (b *bindingBuilder) WithWorkspaceReference(path, exportName string) *bindin
 
 func (b *bindingBuilder) WithPhase(phase apisv1alpha1.APIBindingPhaseType) *bindingBuilder {
 	b.Status.Phase = phase
-	return b
-}
-
-func (b *bindingBuilder) WithBoundAPIExport(path, exportName string) *bindingBuilder {
-	b.Status.BoundAPIExport = &apisv1alpha1.ExportReference{
-		Workspace: &apisv1alpha1.WorkspaceExportReference{
-			Path:       path,
-			ExportName: exportName,
-		},
-	}
 	return b
 }
 
