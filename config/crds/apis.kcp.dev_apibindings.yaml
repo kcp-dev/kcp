@@ -53,7 +53,6 @@ spec:
                     records if the user accepts or rejects it.
                   properties:
                     group:
-                      default: ""
                       description: group is the name of an API group. For core groups
                         this is the empty string '""'.
                       pattern: ^(|[a-z0-9]([-a-z0-9]*[a-z0-9](\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)?)$
@@ -126,7 +125,6 @@ spec:
                     allow the service provider access to.
                   properties:
                     group:
-                      default: ""
                       description: group is the name of an API group. For core groups
                         this is the empty string '""'.
                       pattern: ^(|[a-z0-9]([-a-z0-9]*[a-z0-9](\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)?)$
@@ -148,10 +146,6 @@ spec:
                   - resource
                   type: object
                 type: array
-                x-kubernetes-list-map-keys:
-                - group
-                - resource
-                x-kubernetes-list-type: map
               boundExport:
                 description: "boundExport records the export this binding is bound
                   to currently. It can differ from the export that was specified in
@@ -297,7 +291,6 @@ spec:
                     allow the service provider access to.
                   properties:
                     group:
-                      default: ""
                       description: group is the name of an API group. For core groups
                         this is the empty string '""'.
                       pattern: ^(|[a-z0-9]([-a-z0-9]*[a-z0-9](\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)?)$
@@ -319,10 +312,6 @@ spec:
                   - resource
                   type: object
                 type: array
-                x-kubernetes-list-map-keys:
-                - group
-                - resource
-                x-kubernetes-list-type: map
               phase:
                 description: 'phase is the current phase of the APIBinding: - "":
                   the APIBinding has just been created, waiting to be bound. - Binding:
