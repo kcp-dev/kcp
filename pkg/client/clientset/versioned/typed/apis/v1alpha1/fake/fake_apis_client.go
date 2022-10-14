@@ -33,6 +33,10 @@ func (c *FakeApisV1alpha1) APIBindings() v1alpha1.APIBindingInterface {
 	return &FakeAPIBindings{c}
 }
 
+func (c *FakeApisV1alpha1) APIConversions() v1alpha1.APIConversionInterface {
+	return &FakeAPIConversions{c}
+}
+
 func (c *FakeApisV1alpha1) APIExports() v1alpha1.APIExportInterface {
 	return &FakeAPIExports{c}
 }

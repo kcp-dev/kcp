@@ -67,11 +67,13 @@ func (s *Server) PrepareRun(ctx context.Context) (preparedServer, error) {
 	if err := s.apiextensions.GenericAPIServer.AddPostStartHook("cache-server-start-informers", func(hookContext genericapiserver.PostStartHookContext) error {
 		logger := logger.WithValues("postStartHook", "cache-server-start-informers")
 		s.ApiExtensionsSharedInformerFactory.Start(hookContext.StopCh)
+
 		select {
 		case <-hookContext.StopCh:
 			return nil // context closed, avoid reporting success below
 		default:
 		}
+
 		logger.Info("finished starting kube informers")
 		return nil
 	}); err != nil {

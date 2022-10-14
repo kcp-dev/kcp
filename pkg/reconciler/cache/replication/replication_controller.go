@@ -79,6 +79,11 @@ func NewController(
 				local:  localKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer(),
 				global: globalKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer(),
 			},
+			apisv1alpha1.SchemeGroupVersion.WithResource("apiconversions"): {
+				kind:   "APIConversion",
+				local:  localKcpInformers.Apis().V1alpha1().APIConversions().Informer(),
+				global: globalKcpInformers.Apis().V1alpha1().APIConversions().Informer(),
+			},
 			corev1alpha1.SchemeGroupVersion.WithResource("shards"): {
 				kind:   "Shard",
 				local:  localKcpInformers.Core().V1alpha1().Shards().Informer(),

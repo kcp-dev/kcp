@@ -45,6 +45,7 @@ func Bootstrap(ctx context.Context, apiExtensionsClusterClient kcpapiextensionsc
 	crds := []*apiextensionsv1.CustomResourceDefinition{}
 	for _, gr := range []struct{ group, resource string }{
 		{"apis.kcp.io", "apiresourceschemas"},
+		{"apis.kcp.io", "apiconversions"},
 		{"apis.kcp.io", "apiexports"},
 		{"core.kcp.io", "shards"},
 		{"tenancy.kcp.io", "workspacetypes"},

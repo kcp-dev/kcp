@@ -34,6 +34,8 @@ type ClusterInterface interface {
 	APIExportEndpointSlices() APIExportEndpointSliceClusterInformer
 	// APIResourceSchemas returns a APIResourceSchemaClusterInformer
 	APIResourceSchemas() APIResourceSchemaClusterInformer
+	// APIConversions returns a APIConversionClusterInformer
+	APIConversions() APIConversionClusterInformer
 }
 
 type version struct {
@@ -66,6 +68,11 @@ func (v *version) APIResourceSchemas() APIResourceSchemaClusterInformer {
 	return &aPIResourceSchemaClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
+// APIConversions returns a APIConversionClusterInformer
+func (v *version) APIConversions() APIConversionClusterInformer {
+	return &aPIConversionClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
 type Interface interface {
 	// APIBindings returns a APIBindingInformer
 	APIBindings() APIBindingInformer
@@ -75,6 +82,8 @@ type Interface interface {
 	APIExportEndpointSlices() APIExportEndpointSliceInformer
 	// APIResourceSchemas returns a APIResourceSchemaInformer
 	APIResourceSchemas() APIResourceSchemaInformer
+	// APIConversions returns a APIConversionInformer
+	APIConversions() APIConversionInformer
 }
 
 type scopedVersion struct {
@@ -106,4 +115,9 @@ func (v *scopedVersion) APIExportEndpointSlices() APIExportEndpointSliceInformer
 // APIResourceSchemas returns a APIResourceSchemaInformer
 func (v *scopedVersion) APIResourceSchemas() APIResourceSchemaInformer {
 	return &aPIResourceSchemaScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// APIConversions returns a APIConversionInformer
+func (v *scopedVersion) APIConversions() APIConversionInformer {
+	return &aPIConversionScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }

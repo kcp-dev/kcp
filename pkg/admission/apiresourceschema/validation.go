@@ -158,7 +158,6 @@ func ValidateAPIResourceSchemaSpec(ctx context.Context, spec *apisv1alpha1.APIRe
 	}
 
 	// TODO(sttts): validate predecessors
-	// TODO(sttts): validate conversions
 
 	return allErrs
 }
@@ -187,7 +186,7 @@ func ValidateAPIResourceVersion(ctx context.Context, version *apisv1alpha1.APIRe
 	}
 
 	if len(version.Schema.Raw) == 0 || string(version.Schema.Raw) == "null" {
-		allErrs = append(allErrs, field.Required(fldPath.Child("schema"), "schemas are required"))
+		allErrs = append(allErrs, field.Required(fldPath.Child("schema"), ""))
 	} else {
 		statusEnabled := version.Subresources.Status != nil
 		var crdSchemaV1 apiextensionsv1.CustomResourceValidation

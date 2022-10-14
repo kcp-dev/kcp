@@ -31,11 +31,11 @@ import (
 	kcpapiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/kcp/clientset/versioned"
 	kcpapiextensionsv1informers "k8s.io/apiextensions-apiserver/pkg/client/kcp/informers/externalversions/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/apimachinery/pkg/util/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -47,7 +47,6 @@ import (
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	apisv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apis/v1alpha1"
 	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
-	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
@@ -71,8 +70,10 @@ func NewController(
 	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
 	apiExportInformer apisv1alpha1informers.APIExportClusterInformer,
 	apiResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
+	apiConversionInformer apisv1alpha1informers.APIConversionClusterInformer,
 	globalAPIExportInformer apisv1alpha1informers.APIExportClusterInformer,
 	globalAPIResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
+	globalAPIConversionInformer apisv1alpha1informers.APIConversionClusterInformer,
 	crdInformer kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer,
 ) (*controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
@@ -84,7 +85,6 @@ func NewController(
 		dynamicClusterClient: dynamicClusterClient,
 		ddsif:                dynamicDiscoverySharedInformerFactory,
 
-		apiBindingsLister: apiBindingInformer.Lister(),
 		listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
 			list, err := apiBindingInformer.Lister().List(labels.Everything())
 			if err != nil {
@@ -103,7 +103,40 @@ func NewController(
 
 			return ret, nil
 		},
-		apiBindingsIndexer: apiBindingInformer.Informer().GetIndexer(),
+		listAPIBindingsByAPIExport: func(export *apisv1alpha1.APIExport) ([]*apisv1alpha1.APIBinding, error) {
+			// binding keys by full path
+			keys := sets.NewString()
+			if path := logicalcluster.NewPath(export.Annotations[core.LogicalClusterPathAnnotationKey]); !path.Empty() {
+				pathKeys, err := apiBindingInformer.Informer().GetIndexer().IndexKeys(indexers.APIBindingsByAPIExport, path.Join(export.Name).String())
+				if err != nil {
+					return nil, err
+				}
+				keys.Insert(pathKeys...)
+			}
+
+			clusterKeys, err := apiBindingInformer.Informer().GetIndexer().IndexKeys(indexers.APIBindingsByAPIExport, logicalcluster.From(export).Path().Join(export.Name).String())
+			if err != nil {
+				return nil, err
+			}
+			keys.Insert(clusterKeys...)
+
+			bindings := make([]*apisv1alpha1.APIBinding, 0, keys.Len())
+			for _, key := range keys.List() {
+				binding, exists, err := apiBindingInformer.Informer().GetIndexer().GetByKey(key)
+				if err != nil {
+					utilruntime.HandleError(err)
+					continue
+				} else if !exists {
+					utilruntime.HandleError(fmt.Errorf("APIBinding %q does not exist", key))
+					continue
+				}
+				bindings = append(bindings, binding.(*apisv1alpha1.APIBinding))
+			}
+			return bindings, nil
+		},
+		getAPIBinding: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error) {
+			return apiBindingInformer.Lister().Cluster(clusterName).Get(name)
+		},
 
 		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
 			// Try local informer first
@@ -119,8 +152,20 @@ func NewController(
 			// Didn't find it locally - try remote
 			return indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), globalAPIExportInformer.Informer().GetIndexer(), path, name)
 		},
-		apiExportsIndexer:       apiExportInformer.Informer().GetIndexer(),
-		globalAPIExportsIndexer: globalAPIExportInformer.Informer().GetIndexer(),
+		getAPIExportsBySchema: func(schema *apisv1alpha1.APIResourceSchema) ([]*apisv1alpha1.APIExport, error) {
+			key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(schema)
+			if err != nil {
+				return nil, err
+			}
+			exports, err := indexers.ByIndex[*apisv1alpha1.APIExport](apiExportInformer.Informer().GetIndexer(), indexAPIExportsByAPIResourceSchema, key)
+			if err != nil {
+				return nil, err
+			}
+			if len(exports) > 0 {
+				return exports, nil
+			}
+			return indexers.ByIndex[*apisv1alpha1.APIExport](globalAPIExportInformer.Informer().GetIndexer(), indexAPIExportsByAPIResourceSchema, key)
+		},
 
 		getAPIResourceSchema: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
 			apiResourceSchema, err := apiResourceSchemaInformer.Lister().Cluster(clusterName).Get(name)
@@ -128,6 +173,14 @@ func NewController(
 				return globalAPIResourceSchemaInformer.Lister().Cluster(clusterName).Get(name)
 			}
 			return apiResourceSchema, err
+		},
+
+		getAPIConversion: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIConversion, error) {
+			apiConversion, err := apiConversionInformer.Cluster(clusterName).Lister().Get(name)
+			if apierrors.IsNotFound(err) {
+				return globalAPIConversionInformer.Lister().Cluster(clusterName).Get(name)
+			}
+			return apiConversion, err
 		},
 
 		createCRD: func(ctx context.Context, clusterName logicalcluster.Path, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error) {
@@ -145,12 +198,12 @@ func NewController(
 
 	logger := logging.WithReconciler(klog.Background(), ControllerName)
 
-	if err := apiBindingInformer.Informer().AddIndexers(cache.Indexers{
+	// APIBinding indexers
+	indexers.AddIfNotPresentOrDie(apiBindingInformer.Informer().GetIndexer(), cache.Indexers{
 		indexers.APIBindingsByAPIExport: indexers.IndexAPIBindingByAPIExport,
-	}); err != nil {
-		return nil, err
-	}
+	})
 
+	// APIExport indexers
 	indexers.AddIfNotPresentOrDie(apiExportInformer.Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 		indexAPIExportsByAPIResourceSchema:   indexAPIExportsByAPIResourceSchemasFunc,
@@ -160,64 +213,106 @@ func NewController(
 		indexAPIExportsByAPIResourceSchema:   indexAPIExportsByAPIResourceSchemasFunc,
 	})
 
+	// APIBinding handlers
 	apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueueAPIBinding(obj, logger, "") },
-		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIBinding(obj, logger, "") },
-		DeleteFunc: func(obj interface{}) { c.enqueueAPIBinding(obj, logger, "") },
+		AddFunc: func(obj interface{}) { c.enqueueAPIBinding(objOrTombstone[*apisv1alpha1.APIBinding](obj), logger, "") },
+		UpdateFunc: func(_, obj interface{}) {
+			c.enqueueAPIBinding(objOrTombstone[*apisv1alpha1.APIBinding](obj), logger, "")
+		},
+		DeleteFunc: func(obj interface{}) { c.enqueueAPIBinding(objOrTombstone[*apisv1alpha1.APIBinding](obj), logger, "") },
 	})
 
+	// CRD handlers
 	crdInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
-			crd, ok := obj.(*apiextensionsv1.CustomResourceDefinition)
-			if !ok {
-				return false
-			}
-
+			crd := obj.(*apiextensionsv1.CustomResourceDefinition)
 			return logicalcluster.From(crd) == SystemBoundCRDsClusterName
 		},
 		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    func(obj interface{}) { c.enqueueCRD(obj, logger) },
-			UpdateFunc: func(_, obj interface{}) { c.enqueueCRD(obj, logger) },
+			AddFunc: func(obj interface{}) {
+				c.enqueueCRD(objOrTombstone[*apiextensionsv1.CustomResourceDefinition](obj), logger)
+			},
+			UpdateFunc: func(_, obj interface{}) {
+				c.enqueueCRD(objOrTombstone[*apiextensionsv1.CustomResourceDefinition](obj), logger)
+			},
 			DeleteFunc: func(obj interface{}) {
-				meta, err := meta.Accessor(obj)
-				if err != nil {
-					runtime.HandleError(err)
-					return
-				}
+				crd := objOrTombstone[*apiextensionsv1.CustomResourceDefinition](obj)
 
 				// If something deletes one of our bound CRDs, we need to keep track of it so when we're reconciling,
 				// we know we need to recreate it. This set is there to fight against stale informers still seeing
 				// the deleted CRD.
-				c.deletedCRDTracker.Add(meta.GetName())
+				c.deletedCRDTracker.Add(crd.Name)
 
-				c.enqueueCRD(obj, logger)
+				c.enqueueCRD(crd, logger)
 			},
 		},
 	})
 
-	apiResourceSchemaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueueAPIResourceSchema(obj, logger, "") },
-		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIResourceSchema(obj, logger, "") },
-		DeleteFunc: func(obj interface{}) { c.enqueueAPIResourceSchema(obj, logger, "") },
-	})
-
+	// APIExport handlers
 	apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueueAPIExport(obj, logger, "") },
-		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIExport(obj, logger, "") },
-		DeleteFunc: func(obj interface{}) { c.enqueueAPIExport(obj, logger, "") },
+		AddFunc:    func(obj interface{}) { c.enqueueAPIExport(objOrTombstone[*apisv1alpha1.APIExport](obj), logger, "") },
+		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIExport(objOrTombstone[*apisv1alpha1.APIExport](obj), logger, "") },
+		DeleteFunc: func(obj interface{}) { c.enqueueAPIExport(objOrTombstone[*apisv1alpha1.APIExport](obj), logger, "") },
 	})
 	globalAPIExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueueAPIExport(obj, logger, "") },
-		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIExport(obj, logger, "") },
-		DeleteFunc: func(obj interface{}) { c.enqueueAPIExport(obj, logger, "") },
+		AddFunc:    func(obj interface{}) { c.enqueueAPIExport(objOrTombstone[*apisv1alpha1.APIExport](obj), logger, "") },
+		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIExport(objOrTombstone[*apisv1alpha1.APIExport](obj), logger, "") },
+		DeleteFunc: func(obj interface{}) { c.enqueueAPIExport(objOrTombstone[*apisv1alpha1.APIExport](obj), logger, "") },
+	})
+
+	// APIResourceSchema handlers
+	apiResourceSchemaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.enqueueAPIResourceSchema(objOrTombstone[*apisv1alpha1.APIResourceSchema](obj), logger, "")
+		},
+		UpdateFunc: func(_, obj interface{}) {
+			c.enqueueAPIResourceSchema(objOrTombstone[*apisv1alpha1.APIResourceSchema](obj), logger, "")
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.enqueueAPIResourceSchema(objOrTombstone[*apisv1alpha1.APIResourceSchema](obj), logger, "")
+		},
 	})
 	globalAPIResourceSchemaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueueAPIResourceSchema(obj, logger, "") },
-		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIResourceSchema(obj, logger, "") },
-		DeleteFunc: func(obj interface{}) { c.enqueueAPIResourceSchema(obj, logger, "") },
+		AddFunc: func(obj interface{}) {
+			c.enqueueAPIResourceSchema(objOrTombstone[*apisv1alpha1.APIResourceSchema](obj), logger, "")
+		},
+		UpdateFunc: func(_, obj interface{}) {
+			c.enqueueAPIResourceSchema(objOrTombstone[*apisv1alpha1.APIResourceSchema](obj), logger, "")
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.enqueueAPIResourceSchema(objOrTombstone[*apisv1alpha1.APIResourceSchema](obj), logger, "")
+		},
+	})
+
+	// APIConversion handlers
+	apiConversionInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.enqueueAPIConversion(objOrTombstone[*apisv1alpha1.APIConversion](obj), logger)
+		},
+		UpdateFunc: func(_, obj interface{}) {
+			c.enqueueAPIConversion(objOrTombstone[*apisv1alpha1.APIConversion](obj), logger)
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.enqueueAPIConversion(objOrTombstone[*apisv1alpha1.APIConversion](obj), logger)
+		},
 	})
 
 	return c, nil
+}
+
+func objOrTombstone[T runtime.Object](obj any) T {
+	if t, ok := obj.(T); ok {
+		return t
+	}
+	if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+		if t, ok := tombstone.Obj.(T); ok {
+			return t
+		}
+
+		panic(fmt.Errorf("tombstone %T is not a %T", tombstone, new(T)))
+	}
+
+	panic(fmt.Errorf("%T is not a %T", obj, new(T)))
 }
 
 type APIBinding = apisv1alpha1.APIBinding
@@ -238,15 +333,16 @@ type controller struct {
 	dynamicClusterClient kcpdynamic.ClusterInterface
 	ddsif                *informer.DiscoveringDynamicSharedInformerFactory
 
-	apiBindingsLister  apisv1alpha1listers.APIBindingClusterLister
-	listAPIBindings    func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
-	apiBindingsIndexer cache.Indexer
+	listAPIBindings            func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
+	listAPIBindingsByAPIExport func(apiExport *apisv1alpha1.APIExport) ([]*apisv1alpha1.APIBinding, error)
+	getAPIBinding              func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error)
 
-	getAPIExport            func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
-	apiExportsIndexer       cache.Indexer
-	globalAPIExportsIndexer cache.Indexer
+	getAPIExport          func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
+	getAPIExportsBySchema func(schema *apisv1alpha1.APIResourceSchema) ([]*apisv1alpha1.APIExport, error)
 
 	getAPIResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
+
+	getAPIConversion func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIConversion, error)
 
 	createCRD func(ctx context.Context, clusterName logicalcluster.Path, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error)
 	getCRD    func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error)
@@ -257,10 +353,10 @@ type controller struct {
 }
 
 // enqueueAPIBinding enqueues an APIBinding .
-func (c *controller) enqueueAPIBinding(obj interface{}, logger logr.Logger, logSuffix string) {
-	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
+func (c *controller) enqueueAPIBinding(apiBinding *apisv1alpha1.APIBinding, logger logr.Logger, logSuffix string) {
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(apiBinding)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return
 	}
 
@@ -269,55 +365,20 @@ func (c *controller) enqueueAPIBinding(obj interface{}, logger logr.Logger, logS
 }
 
 // enqueueAPIExport enqueues maps an APIExport to APIBindings for enqueuing.
-func (c *controller) enqueueAPIExport(obj interface{}, logger logr.Logger, logSuffix string) {
-	if d, ok := obj.(cache.DeletedFinalStateUnknown); ok {
-		obj = d.Obj
-	}
-
-	export, ok := obj.(*apisv1alpha1.APIExport)
-	if !ok {
-		runtime.HandleError(fmt.Errorf("obj is supposed to be a APIExport, but is %T", obj))
-		return
-	}
-
-	// binding keys by full path
-	keys := sets.NewString()
-	if path := logicalcluster.NewPath(export.Annotations[core.LogicalClusterPathAnnotationKey]); !path.Empty() {
-		pathKeys, err := c.apiBindingsIndexer.IndexKeys(indexers.APIBindingsByAPIExport, path.Join(export.Name).String())
-		if err != nil {
-			runtime.HandleError(err)
-			return
-		}
-		keys.Insert(pathKeys...)
-	}
-
-	clusterKeys, err := c.apiBindingsIndexer.IndexKeys(indexers.APIBindingsByAPIExport, logicalcluster.From(export).Path().Join(export.Name).String())
+func (c *controller) enqueueAPIExport(export *apisv1alpha1.APIExport, logger logr.Logger, logSuffix string) {
+	bindings, err := c.listAPIBindingsByAPIExport(export)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return
 	}
-	keys.Insert(clusterKeys...)
 
-	for _, key := range keys.List() {
-		binding, exists, err := c.apiBindingsIndexer.GetByKey(key)
-		if err != nil {
-			runtime.HandleError(err)
-			continue
-		} else if !exists {
-			runtime.HandleError(fmt.Errorf("APIBinding %q does not exist", key))
-			continue
-		}
-		c.enqueueAPIBinding(binding, logging.WithObject(logger, obj.(*apisv1alpha1.APIExport)), fmt.Sprintf(" because of APIExport%s", logSuffix))
+	for _, binding := range bindings {
+		c.enqueueAPIBinding(binding, logging.WithObject(logger, export), fmt.Sprintf(" because of APIExport%s", logSuffix))
 	}
 }
 
 // enqueueCRD maps a CRD to APIResourceSchema for enqueuing.
-func (c *controller) enqueueCRD(obj interface{}, logger logr.Logger) {
-	crd, ok := obj.(*apiextensionsv1.CustomResourceDefinition)
-	if !ok {
-		runtime.HandleError(fmt.Errorf("obj is supposed to be a CustomResourceDefinition, but is %T", obj))
-		return
-	}
+func (c *controller) enqueueCRD(crd *apiextensionsv1.CustomResourceDefinition, logger logr.Logger) {
 	logger = logging.WithObject(logger, crd).WithValues(
 		"groupResource", fmt.Sprintf("%s.%s", crd.Spec.Names.Plural, crd.Spec.Group),
 		"established", apihelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established),
@@ -331,46 +392,48 @@ func (c *controller) enqueueCRD(obj interface{}, logger logr.Logger) {
 	clusterName := logicalcluster.Name(crd.Annotations[apisv1alpha1.AnnotationSchemaClusterKey])
 	apiResourceSchema, err := c.getAPIResourceSchema(clusterName, crd.Annotations[apisv1alpha1.AnnotationSchemaNameKey])
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return
 	}
 
 	// this log here is kind of redundant normally. But we are seeing missing CRD update events
-	// and hence stale APIBindings. So this might help to undersand what's going on.
+	// and hence stale APIBindings. So this might help to understand what's going on.
 	logger.V(4).Info("queueing APIResourceSchema because of CRD", "key", kcpcache.ToClusterAwareKey(clusterName.String(), "", apiResourceSchema.Name))
 
 	c.enqueueAPIResourceSchema(apiResourceSchema, logger, " because of CRD")
 }
 
 // enqueueAPIResourceSchema maps an APIResourceSchema to APIExports for enqueuing.
-func (c *controller) enqueueAPIResourceSchema(obj interface{}, logger logr.Logger, logSuffix string) {
-	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
+func (c *controller) enqueueAPIResourceSchema(schema *apisv1alpha1.APIResourceSchema, logger logr.Logger, logSuffix string) {
+	apiExports, err := c.getAPIExportsBySchema(schema)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return
-	}
-
-	apiExports, err := c.apiExportsIndexer.ByIndex(indexAPIExportsByAPIResourceSchema, key)
-	if err != nil {
-		runtime.HandleError(err)
-		return
-	}
-	if len(apiExports) == 0 {
-		apiExports, err = c.globalAPIExportsIndexer.ByIndex(indexAPIExportsByAPIResourceSchema, key)
-		if err != nil {
-			runtime.HandleError(err)
-			return
-		}
 	}
 
 	for _, export := range apiExports {
-		c.enqueueAPIExport(export, logging.WithObject(logger, obj.(*apisv1alpha1.APIResourceSchema)), fmt.Sprintf(" because of APIResourceSchema%s", logSuffix))
+		c.enqueueAPIExport(export, logging.WithObject(logger, schema), fmt.Sprintf(" because of APIResourceSchema%s", logSuffix))
 	}
+}
+
+func (c *controller) enqueueAPIConversion(apiConversion *apisv1alpha1.APIConversion, logger logr.Logger) {
+	logger = logging.WithObject(logger, apiConversion)
+
+	clusterName := logicalcluster.From(apiConversion)
+	apiResourceSchema, err := c.getAPIResourceSchema(clusterName, apiConversion.Name)
+	if err != nil {
+		utilruntime.HandleError(err)
+		return
+	}
+
+	logger.V(4).Info("queueing APIResourceSchema because of APIConversion", "key", kcpcache.ToClusterAwareKey(clusterName.String(), "", apiConversion.Name))
+
+	c.enqueueAPIResourceSchema(apiResourceSchema, logger, "")
 }
 
 // Start starts the controller, which stops when ctx.Done() is closed.
 func (c *controller) Start(ctx context.Context, numThreads int) {
-	defer runtime.HandleCrash()
+	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
 	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName)
@@ -407,7 +470,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	defer c.queue.Done(key)
 
 	if requeue, err := c.process(ctx, key); err != nil {
-		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", ControllerName, key, err))
+		utilruntime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", ControllerName, key, err))
 		c.queue.AddRateLimited(key)
 		return true
 	} else if requeue {
@@ -423,11 +486,11 @@ func (c *controller) process(ctx context.Context, key string) (bool, error) {
 	logger := klog.FromContext(ctx)
 	clusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
-		runtime.HandleError(err)
+		utilruntime.HandleError(err)
 		return false, nil
 	}
 
-	obj, err := c.apiBindingsLister.Cluster(clusterName).Get(name)
+	binding, err := c.getAPIBinding(clusterName, name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			logger.Error(err, "failed to get APIBinding from lister", "cluster", clusterName)
@@ -436,21 +499,21 @@ func (c *controller) process(ctx context.Context, key string) (bool, error) {
 		return false, nil // nothing we can do here
 	}
 
-	old := obj
-	obj = obj.DeepCopy()
+	old := binding
+	binding = binding.DeepCopy()
 
-	logger = logging.WithObject(logger, obj)
+	logger = logging.WithObject(logger, binding)
 	ctx = klog.NewContext(ctx, logger)
 
 	var errs []error
-	requeue, err := c.reconcile(ctx, obj)
+	requeue, err := c.reconcile(ctx, binding)
 	if err != nil {
 		errs = append(errs, err)
 	}
 
 	// If the object being reconciled changed as a result, update it.
 	oldResource := &Resource{ObjectMeta: old.ObjectMeta, Spec: &old.Spec, Status: &old.Status}
-	newResource := &Resource{ObjectMeta: obj.ObjectMeta, Spec: &obj.Spec, Status: &obj.Status}
+	newResource := &Resource{ObjectMeta: binding.ObjectMeta, Spec: &binding.Spec, Status: &binding.Status}
 	if err := c.commit(ctx, oldResource, newResource); err != nil {
 		errs = append(errs, err)
 	}
