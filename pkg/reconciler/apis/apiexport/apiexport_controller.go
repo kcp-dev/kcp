@@ -52,7 +52,7 @@ import (
 )
 
 const (
-	controllerName = "kcp-apiexport"
+	ControllerName = "kcp-apiexport"
 
 	DefaultIdentitySecretNamespace = "kcp-system"
 )
@@ -67,7 +67,7 @@ func NewController(
 	secretInformer coreinformers.SecretInformer,
 	apiBindingInformer apisinformers.APIBindingInformer,
 ) (*controller, error) {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
 	c := &controller{
 		queue:             queue,
@@ -209,7 +209,7 @@ func (c *controller) enqueueAPIExport(obj interface{}) {
 		return
 	}
 
-	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), key)
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
 	logger.V(4).Info("queueing APIExport")
 	c.queue.Add(key)
 }
@@ -221,7 +221,7 @@ func (c *controller) enqueueAllAPIExports(clusterWorkspaceShard interface{}) {
 		return
 	}
 
-	logger := logging.WithObject(logging.WithReconciler(klog.Background(), controllerName), clusterWorkspaceShard.(*tenancyv1alpha1.ClusterWorkspaceShard))
+	logger := logging.WithObject(logging.WithReconciler(klog.Background(), ControllerName), clusterWorkspaceShard.(*tenancyv1alpha1.ClusterWorkspaceShard))
 	for i := range list {
 		key, err := kcpcache.MetaClusterNamespaceKeyFunc(list[i])
 		if err != nil {
@@ -247,7 +247,7 @@ func (c *controller) enqueueSecret(obj interface{}) {
 		return
 	}
 
-	logger := logging.WithObject(logging.WithReconciler(klog.Background(), controllerName), obj.(*corev1.Secret))
+	logger := logging.WithObject(logging.WithReconciler(klog.Background(), ControllerName), obj.(*corev1.Secret))
 	for _, apiExport := range apiExports {
 		key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(apiExport)
 		if err != nil {
@@ -270,7 +270,7 @@ func (c *controller) enqueueFromAPIBinding(obj interface{}) {
 		return
 	}
 
-	logger := logging.WithObject(logging.WithReconciler(klog.Background(), controllerName), binding)
+	logger := logging.WithObject(logging.WithReconciler(klog.Background(), ControllerName), binding)
 
 	if binding.Spec.Reference.Workspace == nil {
 		return
@@ -286,7 +286,7 @@ func (c *controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
+	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName)
 	ctx = klog.NewContext(ctx, logger)
 	logger.Info("Starting controller")
 	defer logger.Info("Shutting down controller")
@@ -320,7 +320,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	defer c.queue.Done(key)
 
 	if err := c.process(ctx, key); err != nil {
-		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", controllerName, key, err))
+		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", ControllerName, key, err))
 		c.queue.AddRateLimited(key)
 		return true
 	}

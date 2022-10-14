@@ -44,7 +44,7 @@ import (
 )
 
 const clusterNameAndGVRIndexName = "clusterNameAndGVR"
-const controllerName = "kcp-apiresource"
+const ControllerName = "kcp-apiresource"
 
 func GetClusterNameAndGVRIndexKey(clusterName logicalcluster.Name, gvr metav1.GroupVersionResource) string {
 	return clusterName.String() + "$" + gvr.String()
@@ -295,7 +295,7 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
+	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName)
 	ctx = klog.NewContext(ctx, logger)
 	logger.Info("Starting controller")
 	defer logger.Info("Shutting down controller")
@@ -334,7 +334,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	defer c.queue.Done(key)
 
 	if err := c.process(ctx, key); err != nil {
-		runtime.HandleError(fmt.Errorf("%q controller failed to sync %v, err: %w", controllerName, key, err))
+		runtime.HandleError(fmt.Errorf("%q controller failed to sync %v, err: %w", ControllerName, key, err))
 		c.queue.AddRateLimited(key)
 		return true
 	}

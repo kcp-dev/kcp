@@ -50,11 +50,11 @@ import (
 )
 
 const (
-	controllerName = "kcp-synctarget-export-controller"
+	ControllerName = "kcp-synctarget-export-controller"
 
-	indexSyncTargetsByExport           = controllerName + "ByExport"
-	indexAPIExportsByAPIResourceSchema = controllerName + "ByAPIResourceSchema"
-	indexByWorkspace                   = controllerName + "ByWorkspace" // will go away with scoping
+	indexSyncTargetsByExport           = ControllerName + "ByExport"
+	indexAPIExportsByAPIResourceSchema = ControllerName + "ByAPIResourceSchema"
+	indexByWorkspace                   = ControllerName + "ByWorkspace" // will go away with scoping
 )
 
 // NewController returns a controller which update syncedResource in status based on supportedExports in spec
@@ -68,7 +68,7 @@ func NewController(
 ) (*Controller, error) {
 
 	c := &Controller{
-		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
+		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
 		kcpClusterClient:     kcpClusterClient,
 		syncTargetIndexer:    syncTargetInformer.Informer().GetIndexer(),
 		syncTargetLister:     syncTargetInformer.Lister(),
@@ -222,8 +222,8 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	klog.InfoS("Starting workers", "controller", controllerName)
-	defer klog.InfoS("Stopping workers", "controller", controllerName)
+	klog.InfoS("Starting workers", "controller", ControllerName)
+	defer klog.InfoS("Stopping workers", "controller", ControllerName)
 
 	for i := 0; i < numThreads; i++ {
 		go wait.UntilWithContext(ctx, c.startWorker, time.Second)

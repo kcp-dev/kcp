@@ -44,7 +44,7 @@ import (
 )
 
 const (
-	resourceControllerName = "kcp-resource-permissionclaimlabel"
+	ResourceControllerName = "kcp-resource-permissionclaimlabel"
 )
 
 // NewController returns a new controller for labeling resources for accepted permission claims.
@@ -63,15 +63,14 @@ func NewResourceController(
 	}
 
 	c := &resourceController{
-		queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), resourceControllerName),
+		queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ResourceControllerName),
 		kcpClusterClient:       kcpClusterClient,
 		dynamicClusterClient:   dynamicClusterClient,
 		ddsif:                  dynamicDiscoverySharedInformerFactory,
 		permissionClaimLabeler: permissionclaim.NewLabeler(apiBindingInformer),
 	}
 
-	logger := logging.WithReconciler(klog.Background(), controllerName)
-
+	logger := logging.WithReconciler(klog.Background(), ControllerName)
 	c.ddsif.AddEventHandler(informer.GVREventHandlerFuncs{
 		AddFunc:    func(gvr schema.GroupVersionResource, obj interface{}) { c.enqueueForResource(logger, gvr, obj) },
 		UpdateFunc: func(gvr schema.GroupVersionResource, _, obj interface{}) { c.enqueueForResource(logger, gvr, obj) },
@@ -112,7 +111,7 @@ func (c *resourceController) Start(ctx context.Context, numThreads int) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	logger := logging.WithReconciler(klog.FromContext(ctx), resourceControllerName)
+	logger := logging.WithReconciler(klog.FromContext(ctx), ResourceControllerName)
 	ctx = klog.NewContext(ctx, logger)
 	logger.Info("starting controller")
 	defer logger.Info("shutting down controller")
@@ -146,7 +145,7 @@ func (c *resourceController) processNextWorkItem(ctx context.Context) bool {
 	defer c.queue.Done(key)
 
 	if err := c.process(ctx, key); err != nil {
-		utilruntime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", resourceControllerName, key, err))
+		utilruntime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", ResourceControllerName, key, err))
 		c.queue.AddRateLimited(key)
 		return true
 	}

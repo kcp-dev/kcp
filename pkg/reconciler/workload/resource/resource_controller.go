@@ -54,9 +54,9 @@ import (
 )
 
 const (
-	controllerName      = "kcp-workload-resource-scheduler"
-	byLocationWorkspace = controllerName + "byLocationWorkspace"
-	bySyncTargetKey     = controllerName + "bySyncTargetKey"
+	ControllerName      = "kcp-workload-resource-scheduler"
+	byLocationWorkspace = ControllerName + "byLocationWorkspace"
+	bySyncTargetKey     = ControllerName + "bySyncTargetKey"
 )
 
 // NewController returns a new Controller which schedules resources in scheduled namespaces.
@@ -204,7 +204,7 @@ func filterNamespace(obj interface{}) bool {
 		return false
 	}
 	if namespaceBlocklist.Has(name) {
-		logging.WithReconciler(klog.Background(), controllerName).WithValues("namespace", name).V(2).Info("skipping syncing Namespace")
+		logging.WithReconciler(klog.Background(), ControllerName).WithValues("namespace", name).V(2).Info("skipping syncing Namespace")
 		return false
 	}
 	return true
@@ -217,14 +217,14 @@ func (c *Controller) enqueueResource(gvr schema.GroupVersionResource, obj interf
 		return
 	}
 	queueKey := strings.Join([]string{gvr.Resource, gvr.Version, gvr.Group}, ".") + "::" + key
-	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), queueKey)
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), queueKey)
 	logger.V(2).Info("queueing resource")
 	c.resourceQueue.Add(queueKey)
 }
 
 func (c *Controller) enqueueGVR(gvr schema.GroupVersionResource) {
 	queueKey := strings.Join([]string{gvr.Resource, gvr.Version, gvr.Group}, ".")
-	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), queueKey)
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), queueKey)
 	logger.V(2).Info("queueing GVR")
 	c.gvrQueue.Add(queueKey)
 }
@@ -261,7 +261,7 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	defer c.resourceQueue.ShutDown()
 	defer c.gvrQueue.ShutDown()
 
-	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
+	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName)
 	ctx = klog.NewContext(ctx, logger)
 	logger.Info("Starting controller")
 	defer logger.Info("Shutting down controller")
@@ -303,7 +303,7 @@ func processNext(
 	defer queue.Done(key)
 
 	if err := processFunc(ctx, key); err != nil {
-		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", controllerName, key, err))
+		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", ControllerName, key, err))
 		queue.AddRateLimited(key)
 		return true
 	}
@@ -384,7 +384,7 @@ var namespaceBlocklist = sets.NewString("kube-system", "kube-public", "kube-node
 // enqueueResourcesForNamespace adds the resources contained by the given
 // namespace to the queue if there scheduling label differs from the namespace's.
 func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
-	logger := logging.WithObject(logging.WithReconciler(klog.Background(), controllerName), ns).WithValues("operation", "enqueueResourcesForNamespace")
+	logger := logging.WithObject(logging.WithReconciler(klog.Background(), ControllerName), ns).WithValues("operation", "enqueueResourcesForNamespace")
 	clusterName := logicalcluster.From(ns)
 
 	nsLocations := getLocations(ns.Labels, true)
@@ -460,7 +460,7 @@ func (c *Controller) enqueueSyncTarget(obj interface{}) {
 }
 
 func (c *Controller) enqueueSyncTargetKey(syncTargetKey string) {
-	logger := logging.WithReconciler(klog.Background(), controllerName).WithValues("syncTargetKey", syncTargetKey)
+	logger := logging.WithReconciler(klog.Background(), ControllerName).WithValues("syncTargetKey", syncTargetKey)
 
 	listers, _ := c.ddsif.Listers()
 	queued := map[string]int{}

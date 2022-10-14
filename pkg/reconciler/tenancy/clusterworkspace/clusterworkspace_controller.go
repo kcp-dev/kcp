@@ -49,7 +49,7 @@ import (
 )
 
 const (
-	controllerName = "kcp-clusterworkspace"
+	ControllerName = "kcp-clusterworkspace"
 )
 
 func NewController(
@@ -58,7 +58,7 @@ func NewController(
 	clusterWorkspaceShardInformer tenancyinformers.ClusterWorkspaceShardInformer,
 	apiBindingsInformer apisinformers.APIBindingInformer,
 ) (*Controller, error) {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
 	c := &Controller{
 		queue:                        queue,
@@ -127,13 +127,13 @@ func (c *Controller) enqueue(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), key)
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
 	logger.V(2).Info("queueing ClusterWorkspace")
 	c.queue.Add(key)
 }
 
 func (c *Controller) enqueueShard(obj interface{}) {
-	logger := logging.WithReconciler(klog.Background(), controllerName)
+	logger := logging.WithReconciler(klog.Background(), ControllerName)
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
@@ -196,7 +196,7 @@ func (c *Controller) enqueueBinding(obj interface{}) {
 	parent, ws := clusterName.Split()
 
 	queueKey := clusters.ToClusterAwareKey(parent, ws)
-	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), queueKey)
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), queueKey)
 	logger.V(2).Info("queueing initializing ClusterWorkspace because APIBinding changed", "APIBinding", key)
 	c.queue.Add(queueKey)
 }
@@ -205,7 +205,7 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
+	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName)
 	ctx = klog.NewContext(ctx, logger)
 	logger.Info("Starting controller")
 	defer logger.Info("Shutting down controller")
@@ -239,7 +239,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	defer c.queue.Done(key)
 
 	if requeue, err := c.process(ctx, key); err != nil {
-		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", controllerName, key, err))
+		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", ControllerName, key, err))
 		c.queue.AddRateLimited(key)
 		return true
 	} else if requeue {

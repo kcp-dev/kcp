@@ -25,6 +25,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/basecontroller"
 )
 
+const ControllerName = "kcp-cluster-heartbeat"
+
 func NewController(
 	kcpClusterClient kcpclient.Interface,
 	clusterInformer workloadinformers.SyncTargetInformer,
@@ -36,7 +38,7 @@ func NewController(
 	}
 
 	r, queue, err := basecontroller.NewClusterReconciler(
-		"kcp-cluster-heartbeat-manager",
+		ControllerName,
 		cm,
 		kcpClusterClient,
 		clusterInformer,

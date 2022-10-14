@@ -49,7 +49,7 @@ import (
 )
 
 const (
-	controllerNameBase = "kcp-clusterworkspacetypes-bootstrap"
+	ControllerNameBase = "kcp-clusterworkspacetypes-bootstrap"
 )
 
 func NewController(
@@ -62,7 +62,7 @@ func NewController(
 	bootstrap func(context.Context, discovery.DiscoveryInterface, dynamic.Interface, kcpclient.Interface, sets.String) error,
 	batteriesIncluded sets.String,
 ) (*controller, error) {
-	controllerName := fmt.Sprintf("%s-%s", controllerNameBase, workspaceType)
+	controllerName := fmt.Sprintf("%s-%s", ControllerNameBase, workspaceType)
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
 	c := &controller{

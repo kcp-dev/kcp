@@ -46,7 +46,7 @@ import (
 )
 
 const (
-	controllerName = "kcp-clusterworkspacetype"
+	ControllerName = "kcp-clusterworkspacetype"
 )
 
 // NewController returns a new controller for APIExports.
@@ -55,7 +55,7 @@ func NewController(
 	clusterWorkspaceTypeInformer tenancyinformers.ClusterWorkspaceTypeInformer,
 	clusterWorkspaceShardInformer tenancyinformers.ClusterWorkspaceShardInformer,
 ) (*controller, error) {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
 	clusterWorkspaceShardLister := clusterWorkspaceShardInformer.Lister()
 	clusterWorkspaceTypeLister := clusterWorkspaceTypeInformer.Lister()
@@ -122,7 +122,7 @@ func (c *controller) enqueueClusterWorkspaceType(obj interface{}) {
 		return
 	}
 
-	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), key)
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
 	logger.V(2).Info("queueing ClusterWorkspaceType")
 	c.queue.Add(key)
 }
@@ -134,7 +134,7 @@ func (c *controller) enqueueAllClusterWorkspaceTypes(clusterWorkspaceShard inter
 		return
 	}
 
-	logger := logging.WithObject(logging.WithReconciler(klog.Background(), controllerName), clusterWorkspaceShard.(*tenancyv1alpha1.ClusterWorkspaceShard))
+	logger := logging.WithObject(logging.WithReconciler(klog.Background(), ControllerName), clusterWorkspaceShard.(*tenancyv1alpha1.ClusterWorkspaceShard))
 	for i := range list {
 		key, err := kcpcache.MetaClusterNamespaceKeyFunc(list[i])
 		if err != nil {
@@ -153,7 +153,7 @@ func (c *controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
+	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName)
 	ctx = klog.NewContext(ctx, logger)
 	logger.Info("Starting controller")
 	defer logger.Info("Shutting down controller")
@@ -187,7 +187,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	logger.V(1).Info("processing key")
 
 	if err := c.process(ctx, key); err != nil {
-		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", controllerName, key, err))
+		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", ControllerName, key, err))
 		c.queue.AddRateLimited(key)
 		return true
 	}

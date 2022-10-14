@@ -31,7 +31,7 @@ const (
 	byCurrentShard = "byCurrentShard"
 	unschedulable  = "unschedulable"
 	byPhase        = "byPhase"
-	byWorkspace    = controllerName + "byWorkspace" // will go away with scoping
+	byWorkspace    = ControllerName + "byWorkspace" // will go away with scoping
 )
 
 func indexByCurrentShard(obj interface{}) ([]string, error) {
