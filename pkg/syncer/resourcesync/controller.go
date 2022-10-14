@@ -336,9 +336,9 @@ func (c *Controller) patchSyncTargetCondition(ctx context.Context, cluster logic
 
 	patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
 	if err != nil {
-		return fmt.Errorf("failed to create patch for LocationDomain %s|%s: %w", cluster, new.Name, err)
+		return fmt.Errorf("failed to create patch for syncTarget %s|%s: %w", cluster, new.Name, err)
 	}
-	logger.V(2).Info("patching placement", "patch", string(patchBytes))
+	logger.V(2).Info("patching syncTarget", "patch", string(patchBytes))
 	_, uerr := c.kcpClusterClient.Cluster(cluster).WorkloadV1alpha1().SyncTargets().Patch(logicalcluster.WithCluster(ctx, cluster), new.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 	return uerr
 }

@@ -33,8 +33,10 @@ import (
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/kcp/config/rootcompute"
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -45,6 +47,14 @@ const (
 	reconcileStatusContinue
 )
 
+// rootComputeResourceSchema are the APIResourceSchemas which should not be added into the APIExport. These are
+// APIResourceSchemas of kubernetes in root:compute workspace
+var rootComputeResourceSchema = sets.NewString(
+	"deployments.apps",
+	"services.core",
+	"ingresses.networking.k8s.io",
+)
+
 type reconciler interface {
 	reconcile(ctx context.Context, export *apisv1alpha1.APIExport) (reconcileStatus, error)
 }
@@ -52,6 +62,7 @@ type reconciler interface {
 type schemaReconciler struct {
 	listNegotiatedAPIResources func(clusterName logicalcluster.Name) ([]*apiresourcev1alpha1.NegotiatedAPIResource, error)
 	listAPIResourceSchemas     func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIResourceSchema, error)
+	listSyncTargets            func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error)
 	getAPIResourceSchema       func(ctx context.Context, clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
 	createAPIResourceSchema    func(ctx context.Context, clusterName logicalcluster.Name, schema *apisv1alpha1.APIResourceSchema) (*apisv1alpha1.APIResourceSchema, error)
 	deleteAPIResourceSchema    func(ctx context.Context, clusterName logicalcluster.Name, name string) error
@@ -77,6 +88,11 @@ func (r *schemaReconciler) reconcile(ctx context.Context, export *apisv1alpha1.A
 		return reconcileStatusStop, nil
 	}
 
+	shouldSkip, err := r.shouldSkipComputeAPIs(clusterName)
+	if err != nil {
+		return reconcileStatusStop, err
+	}
+
 	// we expect schemas for all negotiated resources
 	expectedResourceGroups := sets.NewString()
 	resourcesByResourceGroup := map[string]*apiresourcev1alpha1.NegotiatedAPIResource{}
@@ -87,6 +103,11 @@ func (r *schemaReconciler) reconcile(ctx context.Context, export *apisv1alpha1.A
 			continue
 		}
 		schemaName := fmt.Sprintf("%s.%s", resource, group)
+
+		// APIResourceSchemas already in root:compute should be skipped.
+		if shouldSkip && rootComputeResourceSchema.Has(schemaName) {
+			continue
+		}
 
 		expectedResourceGroups.Insert(schemaName)
 		resourcesByResourceGroup[schemaName] = r
@@ -190,6 +211,26 @@ func (r *schemaReconciler) reconcile(ctx context.Context, export *apisv1alpha1.A
 	return reconcileStatusContinue, nil
 }
 
+func (r *schemaReconciler) shouldSkipComputeAPIs(clusterName logicalcluster.Name) (bool, error) {
+	syncTargets, err := r.listSyncTargets(clusterName)
+	if err != nil {
+		return false, err
+	}
+
+	for _, syncTarget := range syncTargets {
+		for _, export := range syncTarget.Spec.SupportedAPIExports {
+			if export.Workspace == nil {
+				continue
+			}
+			if export.Workspace.ExportName == TemporaryComputeServiceExportName && export.Workspace.Path == rootcompute.RootComputeWorkspace.String() {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
+}
+
 func split3(s string, sep string) (string, string, string, bool) {
 	comps := strings.SplitN(s, sep, 3)
 	if len(comps) != 3 {
@@ -203,6 +244,7 @@ func (c *controller) reconcile(ctx context.Context, export *apisv1alpha1.APIExpo
 		&schemaReconciler{
 			listNegotiatedAPIResources: c.listNegotiatedAPIResources,
 			listAPIResourceSchemas:     c.listAPIResourceSchemas,
+			listSyncTargets:            c.listSyncTarget,
 			getAPIResourceSchema:       c.getAPIResourceSchema,
 			createAPIResourceSchema:    c.createAPIResourceSchema,
 			deleteAPIResourceSchema:    c.deleteAPIResourceSchema,
@@ -246,6 +288,19 @@ func (c *controller) listAPIResourceSchemas(clusterName logicalcluster.Name) ([]
 	ret := make([]*apisv1alpha1.APIResourceSchema, 0, len(objs))
 	for _, obj := range objs {
 		ret = append(ret, obj.(*apisv1alpha1.APIResourceSchema))
+	}
+	return ret, nil
+}
+
+func (c *controller) listSyncTarget(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error) {
+	objs, err := c.syncTargetIndexer.ByIndex(byWorkspace, clusterName.String())
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]*workloadv1alpha1.SyncTarget, 0, len(objs))
+	for _, obj := range objs {
+		ret = append(ret, obj.(*workloadv1alpha1.SyncTarget))
 	}
 	return ret, nil
 }
