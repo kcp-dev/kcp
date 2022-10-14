@@ -142,9 +142,9 @@ func TestNamesConflict(t *testing.T) {
 		}
 	}
 
-	newCRDFn := func(group, plural, singular, shortName, kind, listKind string) *apiextensionsv1.CustomResourceDefinition {
-		return &apiextensionsv1.CustomResourceDefinition{
-			Spec: apiextensionsv1.CustomResourceDefinitionSpec{
+	newSchemaFn := func(group, plural, singular, shortName, kind, listKind string) *apisv1alpha1.APIResourceSchema {
+		return &apisv1alpha1.APIResourceSchema{
+			Spec: apisv1alpha1.APIResourceSchemaSpec{
 				Group: group,
 				Names: apiextensionsv1.CustomResourceDefinitionNames{
 					Plural:     plural,
@@ -160,78 +160,78 @@ func TestNamesConflict(t *testing.T) {
 	scenarios := []struct {
 		name         string
 		existingCrd  *apiextensionsv1.CustomResourceDefinition
-		newCrd       *apiextensionsv1.CustomResourceDefinition
+		schema       *apisv1alpha1.APIResourceSchema
 		wantConflict bool
 	}{
 		{
 			name:         "same group, plural conflict",
 			existingCrd:  existingCRDFn("acme.dev", "a", "", "", "", ""),
-			newCrd:       newCRDFn("acme.dev", "a", "", "", "", ""),
+			schema:       newSchemaFn("acme.dev", "a", "", "", "", ""),
 			wantConflict: true,
 		},
 
 		{
 			name:         "same group, singular conflict",
 			existingCrd:  existingCRDFn("acme.dev", "", "b", "", "", ""),
-			newCrd:       newCRDFn("acme.dev", "", "b", "", "", ""),
+			schema:       newSchemaFn("acme.dev", "", "b", "", "", ""),
 			wantConflict: true,
 		},
 
 		{
 			name:         "same group, shortnames conflict",
 			existingCrd:  existingCRDFn("acme.dev", "", "", "c", "", ""),
-			newCrd:       newCRDFn("acme.dev", "", "", "c", "", ""),
+			schema:       newSchemaFn("acme.dev", "", "", "c", "", ""),
 			wantConflict: true,
 		},
 
 		{
 			name:         "same group, kind conflict",
 			existingCrd:  existingCRDFn("acme.dev", "", "", "", "d", ""),
-			newCrd:       newCRDFn("acme.dev", "", "", "", "d", ""),
+			schema:       newSchemaFn("acme.dev", "", "", "", "d", ""),
 			wantConflict: true,
 		},
 
 		{
 			name:         "same group, listKind conflict",
 			existingCrd:  existingCRDFn("acme.dev", "", "", "", "", "e"),
-			newCrd:       newCRDFn("acme.dev", "", "", "", "", "e"),
+			schema:       newSchemaFn("acme.dev", "", "", "", "", "e"),
 			wantConflict: true,
 		},
 
 		{
 			name:        "different group, no plural conflict",
 			existingCrd: existingCRDFn("acme.dev", "a", "", "", "", ""),
-			newCrd:      newCRDFn("new.acme.dev", "a", "", "", "", ""),
+			schema:      newSchemaFn("new.acme.dev", "a", "", "", "", ""),
 		},
 
 		{
 			name:        "different group, no singular conflict",
 			existingCrd: existingCRDFn("acme.dev", "", "b", "", "", ""),
-			newCrd:      newCRDFn("new.acme.dev", "", "b", "", "", ""),
+			schema:      newSchemaFn("new.acme.dev", "", "b", "", "", ""),
 		},
 
 		{
 			name:        "different group, no shortnames conflict",
 			existingCrd: existingCRDFn("acme.dev", "", "", "c", "", ""),
-			newCrd:      newCRDFn("new.acme.dev", "", "", "c", "", ""),
+			schema:      newSchemaFn("new.acme.dev", "", "", "c", "", ""),
 		},
 
 		{
 			name:        "different group, no kind conflict",
 			existingCrd: existingCRDFn("acme.dev", "", "", "", "d", ""),
-			newCrd:      newCRDFn("new.acme.dev", "", "", "", "d", ""),
+			schema:      newSchemaFn("new.acme.dev", "", "", "", "d", ""),
 		},
 
 		{
 			name:        "different group, no listKind conflict",
 			existingCrd: existingCRDFn("acme.dev", "", "", "", "", "e"),
-			newCrd:      newCRDFn("new.acme.dev", "", "", "", "", "e"),
+			schema:      newSchemaFn("new.acme.dev", "", "", "", "", "e"),
 		},
 	}
 
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
-			actualConflict, _ := namesConflict(scenario.existingCrd, scenario.newCrd)
+			actualConflict, _ := namesConflict(scenario.existingCrd, scenario.schema)
 			if actualConflict != scenario.wantConflict {
 				t.Fatal("didn't expect to hit name conflict")
 			}
@@ -243,14 +243,14 @@ func TestGVRConflict(t *testing.T) {
 	scenarios := []struct {
 		name        string
 		initialCRDs []runtime.Object
-		crd         *apiextensionsv1.CustomResourceDefinition
+		schema      *apisv1alpha1.APIResourceSchema
 		binding     *apisv1alpha1.APIBinding
 		wantErr     bool
 	}{
 		{
 			name:    "no initial CRDs, no conflicts",
 			binding: new(bindingBuilder).WithClusterName("root:acme").WithName("newBinding").Build(),
-			crd:     createCRD("", "crd1", "acmeGR", "acmeRS"),
+			schema:  schemaFor(t, createCRD("", "crd1", "acmeGR", "acmeRS")),
 		},
 		{
 			name: "no conflict when non-overlapping initial CRDs exist",
@@ -258,7 +258,7 @@ func TestGVRConflict(t *testing.T) {
 				createCRD("root:example", "crd1", "acmeGR", "acmeRS"),
 			},
 			binding: new(bindingBuilder).WithClusterName("root:acme").WithName("newBinding").Build(),
-			crd:     createCRD("", "crd1", "acmeGR", "acmeRS"),
+			schema:  schemaFor(t, createCRD("", "crd1", "acmeGR", "acmeRS")),
 		},
 		{
 			name: "creating conflicting CRD fails",
@@ -266,7 +266,7 @@ func TestGVRConflict(t *testing.T) {
 				createCRD("root:acme", "crd1", "acmeGR", "acmeRS"),
 			},
 			binding: new(bindingBuilder).WithClusterName("root:acme").WithName("newBinding").Build(),
-			crd:     createCRD("", "crd1", "acmeGR", "acmeRS"),
+			schema:  schemaFor(t, createCRD("", "crd1", "acmeGR", "acmeRS")),
 			wantErr: true,
 		},
 	}
@@ -282,7 +282,7 @@ func TestGVRConflict(t *testing.T) {
 				}
 			}
 			c := &conflictChecker{crdIndexer: indexer}
-			if err := c.gvrConflict(scenario.crd, scenario.binding); err != nil != scenario.wantErr {
+			if err := c.gvrConflict(scenario.schema, scenario.binding); err != nil != scenario.wantErr {
 				t.Fatalf("error = %v, wantErr %v", err, scenario.wantErr)
 			}
 		})
@@ -302,4 +302,12 @@ func createCRD(clusterName, name, group, resource string) *apiextensionsv1.Custo
 			Names: apiextensionsv1.CustomResourceDefinitionNames{Plural: resource},
 		},
 	}
+}
+
+func schemaFor(t *testing.T, crd *apiextensionsv1.CustomResourceDefinition) *apisv1alpha1.APIResourceSchema {
+	t.Helper()
+
+	s, err := apisv1alpha1.CRDToAPIResourceSchema(crd, "someprefix")
+	require.NoError(t, err)
+	return s
 }

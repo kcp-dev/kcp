@@ -35,6 +35,7 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	extensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -48,8 +49,10 @@ import (
 	"k8s.io/client-go/restmapper"
 	"k8s.io/kubernetes/pkg/api/genericcontrolplanescheme"
 	"k8s.io/utils/pointer"
+	"sigs.k8s.io/yaml"
 
 	"github.com/kcp-dev/kcp/config/helpers"
+	"github.com/kcp-dev/kcp/pkg/apis/apis"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
@@ -144,6 +147,11 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	cowboysProjected, err := wildwestVCClusterClient.WildwestV1alpha1().Cowboys("").List(logicalcluster.WithCluster(ctx, logicalcluster.Wildcard), metav1.ListOptions{})
 	require.NoError(t, err)
 	require.Equal(t, 1, len(cowboysProjected.Items))
+
+	t.Logf("test that the virtual workspace includes APIBindings")
+	resources, err := wildwestVCClusterClient.WithCluster(logicalcluster.Wildcard).ServerResourcesForGroupVersion(apisv1alpha1.SchemeGroupVersion.String())
+	require.NoError(t, err, "error retrieving APIExport discovery")
+	require.True(t, resourceExists(resources, "apibindings"), "missing apibindings")
 
 	// Attempt to use VW using user-1 should expect an error
 	t.Logf("Make sure that user-1 is denied")
@@ -309,6 +317,273 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	cowboys, err = wwUser1VC.WildwestV1alpha1().Cowboys("").List(logicalcluster.WithCluster(ctx, logicalcluster.Wildcard), metav1.ListOptions{})
 	require.NoError(t, err)
 	require.Equal(t, 0, len(cowboys.Items))
+}
+
+func TestAPIExportAPIBindingsAccess(t *testing.T) {
+	t.Parallel()
+
+	server := framework.SharedKcpServer(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	orgClusterName := framework.NewOrganizationFixture(t, server)
+	workspace1 := framework.NewWorkspaceFixture(t, server, orgClusterName, framework.WithName("workspace1"))
+	workspace2 := framework.NewWorkspaceFixture(t, server, orgClusterName, framework.WithName("workspace2"))
+
+	cfg := server.BaseConfig(t)
+
+	kcpClusterClient, err := kcpclientset.NewClusterForConfig(cfg)
+	require.NoError(t, err, "failed to construct kcp cluster client for server")
+
+	mappers := make(map[logicalcluster.Name]meta.RESTMapper)
+	mappers[workspace1] = restmapper.NewDeferredDiscoveryRESTMapper(
+		memory.NewMemCacheClient(kcpClusterClient.Cluster(workspace1).Discovery()),
+	)
+	mappers[workspace2] = restmapper.NewDeferredDiscoveryRESTMapper(
+		memory.NewMemCacheClient(kcpClusterClient.Cluster(workspace2).Discovery()),
+	)
+
+	dynamicClusterClient, err := kcpdynamic.NewClusterDynamicClientForConfig(cfg)
+	require.NoError(t, err, "error creating dynamic cluster client")
+
+	create := func(clusterName logicalcluster.Name, msg, file string, transforms ...helpers.TransformFileFunc) {
+		t.Helper()
+		t.Logf("%s: creating %s", clusterName, msg)
+		err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(clusterName), mappers[clusterName], nil, file, testFiles, transforms...)
+		require.NoError(t, err, "%s: error creating %s", clusterName, msg)
+	}
+
+	create(workspace1, "APIResourceSchema 1", "apibindings_access_schema1.yaml")
+	create(workspace1, "APIExport 1", "apibindings_access_export1.yaml")
+	create(workspace1, "APIResourceSchema 2", "apibindings_access_schema2.yaml")
+	create(workspace1, "APIExport 2", "apibindings_access_export2.yaml")
+	create(workspace1, "APIBinding referencing APIExport 1", "apibindings_access_binding1.yaml")
+	create(workspace1, "APIBinding referencing APIExport 2", "apibindings_access_binding2.yaml")
+
+	create(workspace2, "APIBinding referencing APIExport 1", "apibindings_access_binding1.yaml", func(bs []byte) ([]byte, error) {
+		var binding apisv1alpha1.APIBinding
+		err := yaml.Unmarshal(bs, &binding)
+		require.NoError(t, err, "error unmarshaling binding")
+		binding.Spec.Reference.Workspace.Path = workspace1.String()
+		out, err := yaml.Marshal(&binding)
+		require.NoError(t, err, "error marshaling binding")
+		return out, nil
+	})
+	create(workspace2, "APIResourceSchema 3", "apibindings_access_schema3.yaml")
+	create(workspace2, "APIExport 3", "apibindings_access_export3.yaml")
+	create(workspace2, "APIBinding referencing APIExport 3", "apibindings_access_binding3.yaml")
+
+	exportURLs := make(map[string]string)
+	getExportURL := func(clusterName logicalcluster.Name, exportName string) string {
+		var url string
+		framework.Eventually(t, func() (bool, string) {
+			apiExport, err := kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIExports().Get(ctx, exportName, metav1.GetOptions{})
+			require.NoError(t, err, "error getting APIExport %s|%s", clusterName, exportName)
+
+			if len(apiExport.Status.VirtualWorkspaces) == 0 {
+				return false, fmt.Sprintf("%#v", apiExport.Status)
+			}
+
+			url = apiExport.Status.VirtualWorkspaces[0].URL
+			return true, ""
+		}, wait.ForeverTestTimeout, 100*time.Millisecond, "did not get a virtual workspace URL for APIExport %s", exportName)
+		return url
+	}
+
+	exportURLs["export1"] = getExportURL(workspace1, "export1")
+	exportURLs["export2"] = getExportURL(workspace1, "export2")
+	exportURLs["export3"] = getExportURL(workspace2, "export3")
+
+	verifyDiscovery := func(clusterName logicalcluster.Name, exportName string) {
+		t.Helper()
+
+		t.Logf("Verifying APIExport %s|%s discovery has apis.kcp.dev", clusterName, exportName)
+		discoveryClient := kcpClusterClient.WithCluster(clusterName)
+		framework.Eventually(t, func() (bool, string) {
+			groups, err := discoveryClient.ServerGroups()
+			require.NoError(t, err, "error getting discovery server groups for %s|%s", clusterName, exportName)
+
+			return groupExists(groups, apis.GroupName), fmt.Sprintf("%#v", groups)
+		}, wait.ForeverTestTimeout, 100*time.Millisecond, "never saw apis.kcp.dev group for export %s|%s", clusterName, exportName)
+
+		t.Logf("Verifying APIExport %s discovery has apibindings", exportName)
+		framework.Eventually(t, func() (bool, string) {
+			resources, err := discoveryClient.ServerResourcesForGroupVersion(apisv1alpha1.SchemeGroupVersion.String())
+			require.NoError(t, err, "error getting discovery server resources for apis.kcp.dev for %s|%s", clusterName, exportName)
+
+			return resourceExists(resources, "apibindings"), fmt.Sprintf("%#v", resources)
+		}, wait.ForeverTestTimeout, 100*time.Millisecond, "never saw apis.kcp.dev group for export %s|%s", clusterName, exportName)
+	}
+
+	verifyDiscovery(workspace1, "export1")
+	verifyDiscovery(workspace1, "export2")
+	verifyDiscovery(workspace2, "export3")
+
+	verifyBindings := func(clusterName logicalcluster.Name, exportName string, isValid func(bindings []apisv1alpha1.APIBinding) error) {
+		t.Helper()
+
+		apiExportCfg := rest.CopyConfig(cfg)
+		apiExportCfg.Host = exportURLs[exportName] + "/clusters/*"
+
+		apiExportKCPClient, err := kcpclientset.NewForConfig(apiExportCfg)
+		require.NoError(t, err, "error creating wildcard kcp client for %s|%s", clusterName, exportName)
+
+		framework.Eventually(t, func() (bool, string) {
+			bindings, err := apiExportKCPClient.ApisV1alpha1().APIBindings().List(ctx, metav1.ListOptions{})
+			require.NoError(t, err, "error listing bindings for %s|%s", clusterName, exportName)
+
+			if err := isValid(bindings.Items); err != nil {
+				return false, err.Error()
+			}
+
+			return true, ""
+		}, wait.ForeverTestTimeout, 100*time.Millisecond, "did not see expected bindings for %s|%s", clusterName, exportName)
+
+	}
+	t.Logf("Verifying APIExport 1 only serves APIBinding 1|1 and 2|1")
+	verifyBindings(workspace1, "export1", func(bindings []apisv1alpha1.APIBinding) error {
+		for _, b := range bindings {
+			clusterName := logicalcluster.From(&b)
+			if clusterName == workspace1 && b.Name == "binding1" {
+				continue
+			}
+			if clusterName == workspace2 && b.Name == "binding1" {
+				continue
+			}
+
+			return fmt.Errorf("unexpected binding %s|%s", clusterName, b.Name)
+		}
+
+		return nil
+	})
+
+	t.Logf("Verifying APIExport 2 only serves APIBinding 2")
+	verifyBindings(workspace1, "export2", func(bindings []apisv1alpha1.APIBinding) error {
+		for _, b := range bindings {
+			clusterName := logicalcluster.From(&b)
+			if clusterName == workspace1 && b.Name == "binding2" {
+				continue
+			}
+
+			return fmt.Errorf("unexpected binding %s|%s", clusterName, b.Name)
+		}
+
+		return nil
+	})
+
+	t.Logf("Updating APIExport 1 to claim APIBindings")
+	export1, err := kcpClusterClient.Cluster(workspace1).ApisV1alpha1().APIExports().Get(ctx, "export1", metav1.GetOptions{})
+	require.NoError(t, err)
+	export1.Spec.PermissionClaims = []apisv1alpha1.PermissionClaim{
+		{
+			GroupResource: apisv1alpha1.GroupResource{
+				Group:    "apis.kcp.dev",
+				Resource: "apibindings",
+			},
+		},
+	}
+	_, err = kcpClusterClient.Cluster(workspace1).ApisV1alpha1().APIExports().Update(ctx, export1, metav1.UpdateOptions{})
+	require.NoError(t, err)
+
+	t.Logf("Updating APIBinding 1 to accept APIBindings claim")
+	binding1, err := kcpClusterClient.Cluster(workspace1).ApisV1alpha1().APIBindings().Get(ctx, "binding1", metav1.GetOptions{})
+	require.NoError(t, err)
+	oldData := encodeJSON(t, apisv1alpha1.APIBinding{})
+	newData := encodeJSON(t, apisv1alpha1.APIBinding{
+		Spec: apisv1alpha1.APIBindingSpec{
+			PermissionClaims: []apisv1alpha1.AcceptablePermissionClaim{
+				{
+					PermissionClaim: export1.Spec.PermissionClaims[0],
+					State:           apisv1alpha1.ClaimAccepted,
+				},
+			},
+		},
+	})
+	patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
+	require.NoError(t, err, "error creating patch")
+	framework.Eventually(t, func() (bool, string) {
+		_, err = kcpClusterClient.Cluster(workspace1).ApisV1alpha1().APIBindings().Patch(ctx, binding1.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
+		if err == nil {
+			return true, ""
+		}
+		require.False(t, apierrors.IsConflict(err))
+		return false, err.Error()
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "error updating %s|%s to accept claims", workspace1, binding1.Name)
+
+	t.Logf("Verifying APIExport 1 serves APIBindings 1|1, 1|2, and 2|1")
+	verifyBindings(workspace1, "export1", func(bindings []apisv1alpha1.APIBinding) error {
+		// "workspace1|binding1", "workspace2|binding1", "workspace1|binding2")
+		actualWorkspace1 := sets.NewString()
+
+		for _, b := range bindings {
+			clusterName := logicalcluster.From(&b)
+			if clusterName != workspace1 {
+				if clusterName == workspace2 && b.Name == "binding1" {
+					continue
+				}
+
+				return fmt.Errorf("unexpected binding %s|%s", clusterName, b.Name)
+			}
+
+			actualWorkspace1.Insert(b.Name)
+		}
+
+		expectedWorkspace1 := sets.NewString("binding1", "binding2")
+		if !actualWorkspace1.IsSuperset(expectedWorkspace1) {
+			return fmt.Errorf("mismatch %s", cmp.Diff(expectedWorkspace1, actualWorkspace1))
+		}
+
+		return nil
+	})
+
+	t.Logf("Verifying APIExport 2 still only serves APIBinding 2")
+	verifyBindings(workspace1, "export2", func(bindings []apisv1alpha1.APIBinding) error {
+		for _, b := range bindings {
+			clusterName := logicalcluster.From(&b)
+			if clusterName == workspace1 && b.Name == "binding2" {
+				continue
+			}
+
+			return fmt.Errorf("unexpected binding %s|%s", clusterName, b.Name)
+		}
+
+		return nil
+	})
+
+	t.Logf("Updating APIBinding 1 to reject APIBindings claim")
+	binding1, err = kcpClusterClient.Cluster(workspace1).ApisV1alpha1().APIBindings().Get(ctx, "binding1", metav1.GetOptions{})
+	require.NoError(t, err)
+	oldData = encodeJSON(t, binding1)
+	binding1.Spec.PermissionClaims = nil
+	newData = encodeJSON(t, binding1)
+	patchBytes, err = jsonpatch.CreateMergePatch(oldData, newData)
+	require.NoError(t, err, "error creating patch")
+	framework.Eventually(t, func() (bool, string) {
+		_, err = kcpClusterClient.Cluster(workspace1).ApisV1alpha1().APIBindings().Patch(ctx, binding1.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
+		if err == nil {
+			return true, ""
+		}
+		require.False(t, apierrors.IsConflict(err))
+		return false, err.Error()
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "error updating %s|%s to no longer accept claims", workspace1, binding1.Name)
+
+	t.Logf("Verifying APIExport 1 back to only serving its own bindings")
+	verifyBindings(workspace1, "export1", func(bindings []apisv1alpha1.APIBinding) error {
+		for _, b := range bindings {
+			clusterName := logicalcluster.From(&b)
+			if clusterName == workspace1 && b.Name == "binding1" {
+				continue
+			}
+			if clusterName == workspace2 && b.Name == "binding1" {
+				continue
+			}
+
+			return fmt.Errorf("unexpected binding %s|%s", clusterName, b.Name)
+		}
+
+		return nil
+	})
 }
 
 func TestAPIExportPermissionClaims(t *testing.T) {
@@ -686,7 +961,6 @@ func setUpServiceProviderWithPermissionClaims(ctx context.Context, dynamicCluste
 }
 
 func setUpServiceProvider(ctx context.Context, dynamicClusterClient *kcpdynamic.ClusterDynamicClient, kcpClients kcpclientset.Interface, serviceProviderWorkspace logicalcluster.Name, cfg *rest.Config, t *testing.T, claims ...apisv1alpha1.PermissionClaim) {
-
 	t.Logf("Install today cowboys APIResourceSchema into service provider workspace %q", serviceProviderWorkspace)
 
 	clusterCfg := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), serviceProviderWorkspace)

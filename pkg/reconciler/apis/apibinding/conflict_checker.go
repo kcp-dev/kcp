@@ -101,22 +101,22 @@ func (ncc *conflictChecker) getBoundCRDs(apiBindingToExclude *apisv1alpha1.APIBi
 	return nil
 }
 
-func (ncc *conflictChecker) checkForConflicts(crd *apiextensionsv1.CustomResourceDefinition, apiBinding *apisv1alpha1.APIBinding) error {
+func (ncc *conflictChecker) checkForConflicts(schema *apisv1alpha1.APIResourceSchema, apiBinding *apisv1alpha1.APIBinding) error {
 	if err := ncc.getBoundCRDs(apiBinding); err != nil {
 		return fmt.Errorf("error checking for naming conflicts for APIBinding %s|%s: error getting CRDs: %w", logicalcluster.From(apiBinding), apiBinding.Name, err)
 	}
 
 	for _, boundCRD := range ncc.boundCRDs {
-		if foundConflict, details := namesConflict(boundCRD, crd); foundConflict {
+		if foundConflict, details := namesConflict(boundCRD, schema); foundConflict {
 			conflict := ncc.crdToBinding[boundCRD.Name]
 			return fmt.Errorf("naming conflict with a bound API %s, %s", conflict.Name, details)
 		}
 	}
 
-	return ncc.gvrConflict(crd, apiBinding)
+	return ncc.gvrConflict(schema, apiBinding)
 }
 
-func (ncc *conflictChecker) gvrConflict(crd *apiextensionsv1.CustomResourceDefinition, apiBinding *apisv1alpha1.APIBinding) error {
+func (ncc *conflictChecker) gvrConflict(schema *apisv1alpha1.APIResourceSchema, apiBinding *apisv1alpha1.APIBinding) error {
 	bindingClusterName := logicalcluster.From(apiBinding)
 	rawBindingClusterCRDs, err := ncc.crdIndexer.ByIndex(indexByWorkspace, bindingClusterName.String())
 	if err != nil {
@@ -124,15 +124,15 @@ func (ncc *conflictChecker) gvrConflict(crd *apiextensionsv1.CustomResourceDefin
 	}
 	for _, rawBindClusterCRD := range rawBindingClusterCRDs {
 		bindingClusterCRD := rawBindClusterCRD.(*apiextensionsv1.CustomResourceDefinition)
-		if bindingClusterCRD.Spec.Group == crd.Spec.Group && bindingClusterCRD.Spec.Names.Plural == crd.Spec.Names.Plural {
-			return fmt.Errorf("cannot create %q CustomResourceDefinition with %q group and %q resource because it overlaps with %q CustomResourceDefinition in %q logical cluster",
-				crd.Name, crd.Spec.Group, crd.Spec.Names.Plural, bindingClusterCRD.Name, bindingClusterName)
+		if bindingClusterCRD.Spec.Group == schema.Spec.Group && bindingClusterCRD.Spec.Names.Plural == schema.Spec.Names.Plural {
+			return fmt.Errorf("cannot create CustomResourceDefinition with %q group and %q resource because it overlaps with %q CustomResourceDefinition in %q logical cluster",
+				schema.Spec.Group, schema.Spec.Names.Plural, bindingClusterCRD.Name, bindingClusterName)
 		}
 	}
 	return nil
 }
 
-func namesConflict(existing, incoming *apiextensionsv1.CustomResourceDefinition) (bool, string) {
+func namesConflict(existing *apiextensionsv1.CustomResourceDefinition, incoming *apisv1alpha1.APIResourceSchema) (bool, string) {
 	if existing.Spec.Group != incoming.Spec.Group {
 		return false, ""
 	}
