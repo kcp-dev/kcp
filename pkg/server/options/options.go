@@ -338,7 +338,7 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 	//  - we need to modify wildcardClusterNameRegex and crdWildcardPartialMetadataClusterNameRegex
 	o.Cache.Server.Etcd.EnableWatchCache = false
 	o.Cache.Server.SecureServing = completedGenericControlPlane.SecureServing
-	cacheCompletedOptions, err := o.Cache.Complete(completedGenericControlPlane.SecureServing)
+	cacheCompletedOptions, err := o.Cache.Complete()
 	if err != nil {
 		return nil, err
 	}

@@ -17,12 +17,7 @@ limitations under the License.
 package options
 
 import (
-	"fmt"
-	"net/url"
-
 	"github.com/spf13/pflag"
-
-	genericoptions "k8s.io/apiserver/pkg/server/options"
 
 	cacheoptions "github.com/kcp-dev/kcp/pkg/cache/server/options"
 )
@@ -34,9 +29,6 @@ type cacheCompleted struct {
 
 func (c cacheCompleted) Validate() []error {
 	var errs []error
-	if _, err := url.Parse(c.URL); err != nil {
-		errs = append(errs, err)
-	}
 	if err := c.Server.Validate(); err != nil {
 		errs = append(errs, err...)
 	}
@@ -52,8 +44,8 @@ type Extra struct {
 	// Enabled if true indicates that the cache server should be run with the kcp-server (in-process)
 	Enabled bool
 
-	// URL the url address of the cache server
-	URL string
+	// KubeconfigFile path to a file that holds a kubeconfig for the cache server
+	KubeconfigFile string
 }
 
 func NewCache(rootDir string) *Cache {
@@ -63,20 +55,13 @@ func NewCache(rootDir string) *Cache {
 }
 
 func (c *Cache) AddFlags(fs *pflag.FlagSet) {
-	fs.StringVar(&c.URL, "cache-url", c.URL, "A URL address of a cache server associated with this instance (default https://localhost:6443)")
-	fs.BoolVar(&c.Enabled, "run-cache-server", c.Enabled, "If set to true it runs the cache server with this instance (default false)")
+	fs.StringVar(&c.KubeconfigFile, "cache-server-kubeconfig-file", c.KubeconfigFile, "Kubeconfig for the cache server this instance connects to (defaults to loop back configuration).")
+	fs.BoolVar(&c.Enabled, "run-cache-server", c.Enabled, "If set to true it turns the cache server support on this instance (default false).")
 
 	c.Server.AddFlags(fs)
 }
 
-func (c *Cache) Complete(secureServing *genericoptions.SecureServingOptionsWithLoopback) (cacheCompleted, error) {
-	if len(c.URL) == 0 {
-		bindPort := 6443
-		if secureServing != nil && secureServing.BindPort != bindPort {
-			bindPort = secureServing.BindPort
-		}
-		c.URL = fmt.Sprintf("https://localhost:%v", bindPort)
-	}
+func (c *Cache) Complete() (cacheCompleted, error) {
 	serverCompletedOptions, err := c.Server.Complete()
 	if err != nil {
 		return cacheCompleted{}, err
