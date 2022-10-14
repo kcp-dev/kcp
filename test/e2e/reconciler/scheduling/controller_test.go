@@ -114,9 +114,8 @@ func TestScheduling(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Log("Wait for \"kubernetes\" apiexport")
-	var export *apisv1alpha1.APIExport
 	require.Eventually(t, func() bool {
-		export, err = kcpClusterClient.ApisV1alpha1().APIExports().Get(logicalcluster.WithCluster(ctx, negotiationClusterName), "kubernetes", metav1.GetOptions{})
+		_, err := kcpClusterClient.ApisV1alpha1().APIExports().Get(logicalcluster.WithCluster(ctx, negotiationClusterName), "kubernetes", metav1.GetOptions{})
 		return err == nil
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
@@ -128,24 +127,6 @@ func TestScheduling(t *testing.T) {
 			return false, ""
 		}
 		return binding.Status.Phase == apisv1alpha1.APIBindingPhaseBound, toYaml(binding)
-	}, wait.ForeverTestTimeout, time.Millisecond*100)
-
-	t.Log("Wait for APIResourceSchemas to show up in the negotiation workspace")
-	require.Eventually(t, func() bool {
-		schemas, err := kcpClusterClient.ApisV1alpha1().APIResourceSchemas().List(logicalcluster.WithCluster(ctx, negotiationClusterName), metav1.ListOptions{})
-		if err != nil {
-			t.Logf("Failed to list APIResourceSchemas: %v", err)
-			return false
-		}
-
-		return len(schemas.Items) > 0
-	}, wait.ForeverTestTimeout, time.Millisecond*100)
-
-	t.Log("Wait for APIResourceSchemas to show up in the APIExport spec")
-	require.Eventually(t, func() bool {
-		export, err := kcpClusterClient.ApisV1alpha1().APIExports().Get(logicalcluster.WithCluster(ctx, negotiationClusterName), export.Name, metav1.GetOptions{})
-		require.NoError(t, err)
-		return len(export.Spec.LatestResourceSchemas) > 0
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Log("Create a location in the negotiation workspace")

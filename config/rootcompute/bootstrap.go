@@ -34,6 +34,9 @@ import (
 //go:embed *.yaml
 var fs embed.FS
 
+// RootComuteWorkspace is the workspace to host common kubernetes APIs
+var RootComputeWorkspace = logicalcluster.New("root:compute")
+
 // Bootstrap creates resources in this package by continuously retrying the list.
 // This is blocking, i.e. it only returns (with error) when the context is closed or with nil when
 // the bootstrapping is successfully completed.
@@ -44,9 +47,8 @@ func Bootstrap(ctx context.Context, apiExtensionClusterClient apiextensionsclien
 		return err
 	}
 
-	computeWorkspace := logicalcluster.New("root:compute")
-	computeDiscoveryClient := apiExtensionClusterClient.Cluster(computeWorkspace).Discovery()
-	computeDynamicClient := dynamicClusterClient.Cluster(computeWorkspace)
+	computeDiscoveryClient := apiExtensionClusterClient.Cluster(RootComputeWorkspace).Discovery()
+	computeDynamicClient := dynamicClusterClient.Cluster(RootComputeWorkspace)
 
 	return kube124.Bootstrap(ctx, computeDiscoveryClient, computeDynamicClient, batteriesIncluded)
 }

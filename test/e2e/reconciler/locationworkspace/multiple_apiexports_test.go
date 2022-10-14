@@ -106,7 +106,7 @@ func TestMultipleExports(t *testing.T) {
 	syncTargetName := fmt.Sprintf("synctarget-%d", +rand.Intn(1000000))
 	t.Logf("Creating a SyncTarget and syncer in %s", computeClusterName)
 	syncTarget := framework.NewSyncerFixture(t, source, computeClusterName,
-		framework.WithExtraResources("services"),
+		framework.WithAPIExports(fmt.Sprintf("%s|%s", serviceSchemaClusterName.String(), serviceAPIExport.Name)),
 		framework.WithSyncTarget(computeClusterName, syncTargetName),
 		framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 			if !isFakePCluster {
@@ -123,12 +123,6 @@ func TestMultipleExports(t *testing.T) {
 			require.NoError(t, err)
 		}),
 	).Start(t)
-
-	t.Logf("Patch synctarget with service export")
-	patchData := fmt.Sprintf(
-		`{"spec":{"supportedAPIExports":[{"workspace":{"path":%q,"exportName":"services"}}]}}`, serviceSchemaClusterName.String())
-	_, err = kcpClients.Cluster(computeClusterName).WorkloadV1alpha1().SyncTargets().Patch(ctx, syncTargetName, types.MergePatchType, []byte(patchData), metav1.PatchOptions{})
-	require.NoError(t, err)
 
 	t.Logf("syncTarget should have one resource to sync")
 	require.Eventually(t, func() bool {
@@ -160,7 +154,7 @@ func TestMultipleExports(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Patch synctarget with new export")
-	patchData = fmt.Sprintf(
+	patchData := fmt.Sprintf(
 		`{"spec":{"supportedAPIExports":[{"workspace":{"path":%q,"exportName":"services"}},{"workspace":{"path":%q,"exportName":"ingresses"}}]}}`, serviceSchemaClusterName.String(), ingressSchemaClusterName.String())
 	_, err = kcpClients.Cluster(computeClusterName).WorkloadV1alpha1().SyncTargets().Patch(ctx, syncTargetName, types.MergePatchType, []byte(patchData), metav1.PatchOptions{})
 	require.NoError(t, err)

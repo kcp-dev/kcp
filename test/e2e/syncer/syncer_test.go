@@ -70,7 +70,6 @@ func TestSyncerLifecycle(t *testing.T) {
 	// response.
 	syncerFixture := framework.NewSyncerFixture(t, upstreamServer, wsClusterName,
 		framework.WithExtraResources("persistentvolumes"),
-		framework.WithExtraResources("services"),
 		framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 			if !isFakePCluster {
 				// Only need to install services and ingresses in a logical cluster

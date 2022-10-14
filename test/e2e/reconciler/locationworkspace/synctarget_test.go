@@ -30,10 +30,8 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
-	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/endpoints/discovery"
@@ -97,6 +95,7 @@ func TestSyncTargetExport(t *testing.T) {
 	syncTargetName := fmt.Sprintf("synctarget-%d", +rand.Intn(1000000))
 	t.Logf("Creating a SyncTarget and syncer in %s", computeClusterName)
 	syncTarget := framework.NewSyncerFixture(t, source, computeClusterName,
+		framework.WithAPIExports(fmt.Sprintf("%s|%s", schemaClusterName.String(), cowboysAPIExport.Name)),
 		framework.WithSyncTarget(computeClusterName, syncTargetName),
 		framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 			if !isFakePCluster {
@@ -112,11 +111,6 @@ func TestSyncTargetExport(t *testing.T) {
 			require.NoError(t, err)
 		}),
 	).Start(t)
-
-	t.Logf("Patch synctarget with new export")
-	patchData := fmt.Sprintf(`{"spec":{"supportedAPIExports":[{"workspace":{"path":%q,"exportName":"services"}}]}}`, schemaClusterName.String())
-	_, err = kcpClients.Cluster(computeClusterName).WorkloadV1alpha1().SyncTargets().Patch(ctx, syncTargetName, types.MergePatchType, []byte(patchData), metav1.PatchOptions{})
-	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {
 		syncTarget, err := kcpClients.Cluster(computeClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
@@ -165,34 +159,6 @@ func TestSyncTargetExport(t *testing.T) {
 		// not compatible to the synctarget.
 		return len(cmp.Diff([]*metav1.APIResourceList{
 			requiredAPIResourceListWithService(computeClusterName, schemaClusterName)}, sortAPIResourceList(existingAPIResourceLists))) == 0
-	}, wait.ForeverTestTimeout, time.Millisecond*100)
-
-	t.Logf("Synctarget should not be authorized to access downstream clusters")
-	require.Eventually(t, func() bool {
-		syncTarget, err := kcpClients.Cluster(computeClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
-		if err != nil {
-			return false
-		}
-
-		return conditions.IsFalse(syncTarget, workloadv1alpha1.SyncerAuthorized)
-	}, wait.ForeverTestTimeout, time.Millisecond*100)
-
-	t.Logf("Update clusterole so syncer can start to sync")
-	downstreamKubeClient := syncTarget.DownstreamKubeClient
-	require.Eventually(t, func() bool {
-		clusterRole, err := downstreamKubeClient.RbacV1().ClusterRoles().Get(ctx, syncTarget.SyncerID, metav1.GetOptions{})
-		if err != nil {
-			return false
-		}
-
-		clusterRole.Rules = append(clusterRole.Rules, rbacv1.PolicyRule{
-			APIGroups: []string{""},
-			Resources: []string{"services"},
-			Verbs:     []string{"*"},
-		})
-
-		_, err = downstreamKubeClient.RbacV1().ClusterRoles().Update(ctx, clusterRole, metav1.UpdateOptions{})
-		return err == nil
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Synctarget should be authorized to access downstream clusters")

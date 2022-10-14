@@ -78,6 +78,7 @@ type syncerFixture struct {
 	syncTargetName        string
 
 	extraResourcesToSync []string
+	apiExports           []string
 	prepareDownstream    func(config *rest.Config, isFakePCluster bool)
 }
 
@@ -91,6 +92,12 @@ func WithSyncTarget(clusterName logicalcluster.Name, name string) SyncerOption {
 func WithExtraResources(resources ...string) SyncerOption {
 	return func(t *testing.T, sf *syncerFixture) {
 		sf.extraResourcesToSync = append(sf.extraResourcesToSync, resources...)
+	}
+}
+
+func WithAPIExports(exports ...string) SyncerOption {
+	return func(t *testing.T, sf *syncerFixture) {
+		sf.apiExports = append(sf.apiExports, exports...)
 	}
 }
 
@@ -133,6 +140,9 @@ func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 	}
 	for _, resource := range sf.extraResourcesToSync {
 		pluginArgs = append(pluginArgs, "--resources="+resource)
+	}
+	for _, export := range sf.apiExports {
+		pluginArgs = append(pluginArgs, "--apiexports="+export)
 	}
 	syncerYAML := RunKcpCliPlugin(t, kubeconfigPath, pluginArgs)
 

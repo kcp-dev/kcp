@@ -40,6 +40,8 @@ jobs:
       # Install kind with a local registry
       - uses: container-tools/kind-action@v1
         name: Kubernetes KinD Cluster w/local registry
+        with:
+          version: v0.14.0
 
       - run: |-
           go install github.com/google/ko@latest
@@ -67,6 +69,8 @@ jobs:
     # Install kind with a local registry
     - uses: container-tools/kind-action@v1
       name: Kubernetes KinD Cluster w/local registry
+      with:
+        version: v0.14.0
 
     - run: |-
         go install github.com/google/ko@latest

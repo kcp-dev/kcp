@@ -43,6 +43,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/yaml"
 
+	"github.com/kcp-dev/kcp/config/rootcompute"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -130,32 +131,62 @@ func requiredCoreAPIResourceList(workspaceName logicalcluster.Name) *metav1.APIR
 				Verbs:              metav1.Verbs{"get", "list", "patch", "update", "watch"},
 				StorageVersionHash: discovery.StorageVersionHash(workspaceName, "", "v1", "ServiceAccount"),
 			},
-			{
-				Kind:               "Service",
-				Name:               "services",
-				SingularName:       "service",
-				Namespaced:         true,
-				Verbs:              metav1.Verbs{"get", "list", "patch", "update", "watch"},
-				ShortNames:         []string{"svc"},
-				Categories:         []string{"all"},
-				StorageVersionHash: discovery.StorageVersionHash(workspaceName, "", "v1", "Service"),
-			},
-			{
-				Kind:               "Service",
-				Name:               "services/status",
-				SingularName:       "",
-				Namespaced:         true,
-				Verbs:              metav1.Verbs{"get", "patch", "update"},
-				StorageVersionHash: "",
-			},
 		},
 	}
 }
 
-func addToAPIResourceList(list *metav1.APIResourceList, resources ...metav1.APIResource) *metav1.APIResourceList {
-	list.APIResources = append(list.APIResources, resources...)
+func withRootComputeAPIResourceList(workspaceName logicalcluster.Name) []*metav1.APIResourceList {
+	coreResourceList := requiredCoreAPIResourceList(workspaceName)
+	coreResourceList.APIResources = append(coreResourceList.APIResources,
+		metav1.APIResource{
+			Kind:               "Service",
+			Name:               "services",
+			SingularName:       "service",
+			Namespaced:         true,
+			Verbs:              metav1.Verbs{"get", "list", "patch", "update", "watch"},
+			ShortNames:         []string{"svc"},
+			Categories:         []string{"all"},
+			StorageVersionHash: discovery.StorageVersionHash(rootcompute.RootComputeWorkspace, "", "v1", "Service"),
+		},
+		metav1.APIResource{
+			Kind:               "Service",
+			Name:               "services/status",
+			SingularName:       "",
+			Namespaced:         true,
+			Verbs:              metav1.Verbs{"get", "patch", "update"},
+			StorageVersionHash: "",
+		},
+	)
 
-	return list
+	return []*metav1.APIResourceList{
+		deploymentsAPIResourceList(rootcompute.RootComputeWorkspace),
+		{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "APIResourceList",
+				APIVersion: "v1",
+			},
+			GroupVersion: "networking.k8s.io/v1",
+			APIResources: []metav1.APIResource{
+				{
+					Kind:               "Ingress",
+					Name:               "ingresses",
+					SingularName:       "ingress",
+					Namespaced:         true,
+					Verbs:              metav1.Verbs{"get", "list", "patch", "update", "watch"},
+					ShortNames:         []string{"ing"},
+					StorageVersionHash: discovery.StorageVersionHash(rootcompute.RootComputeWorkspace, "networking.k8s.io", "v1", "Ingress"),
+				},
+				{
+					Kind:               "Ingress",
+					Name:               "ingresses/status",
+					Namespaced:         true,
+					Verbs:              metav1.Verbs{"get", "patch", "update"},
+					StorageVersionHash: "",
+				},
+			},
+		},
+		coreResourceList,
+	}
 }
 
 func TestSyncerVirtualWorkspace(t *testing.T) {
@@ -185,37 +216,9 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					if err != nil {
 						return false
 					}
-					return len(cmp.Diff([]*metav1.APIResourceList{
-						deploymentsAPIResourceList(kubelikeClusterName),
-						{
-							TypeMeta: metav1.TypeMeta{
-								Kind:       "APIResourceList",
-								APIVersion: "v1",
-							},
-							GroupVersion: "networking.k8s.io/v1",
-							APIResources: []metav1.APIResource{
-								{
-									Kind:               "Ingress",
-									Name:               "ingresses",
-									SingularName:       "ingress",
-									Namespaced:         true,
-									Verbs:              metav1.Verbs{"get", "list", "patch", "update", "watch"},
-									ShortNames:         []string{"ing"},
-									StorageVersionHash: discovery.StorageVersionHash(kubelikeClusterName, "networking.k8s.io", "v1", "Ingress"),
-								},
-								{
-									Kind:               "Ingress",
-									Name:               "ingresses/status",
-									Namespaced:         true,
-									Verbs:              metav1.Verbs{"get", "patch", "update"},
-									StorageVersionHash: "",
-								},
-							},
-						},
-						addToAPIResourceList(
-							requiredCoreAPIResourceList(kubelikeClusterName),
-						),
-					}, sortAPIResourceList(kubelikeAPIResourceLists))) == 0
+					return len(cmp.Diff(
+						withRootComputeAPIResourceList(kubelikeClusterName),
+						sortAPIResourceList(kubelikeAPIResourceLists))) == 0
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				t.Logf("Check discovery in wildwest virtual workspace")
@@ -227,7 +230,6 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						return false
 					}
 					return len(cmp.Diff([]*metav1.APIResourceList{
-						deploymentsAPIResourceList(wildwestClusterName),
 						requiredCoreAPIResourceList(wildwestClusterName),
 						{
 							TypeMeta: metav1.TypeMeta{
@@ -579,7 +581,6 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 			t.Logf("Deploying syncer into workspace %s", kubelikeWorkspace)
 			kubelikeSyncer := framework.NewSyncerFixture(t, server, kubelikeWorkspace,
 				framework.WithSyncTarget(kubelikeWorkspace, "kubelike"),
-				framework.WithExtraResources("ingresses.networking.k8s.io", "services"),
 				framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 					if !isFakePCluster {
 						// Only need to install services and ingresses in a logical cluster
@@ -651,7 +652,9 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 
 			t.Logf("Deploying syncer into workspace %s", wildwestWorkspace)
 			wildwestSyncer := framework.NewSyncerFixture(t, server, wildwestWorkspace,
-				framework.WithExtraResources("cowboys.wildwest.dev", "services"),
+				framework.WithExtraResources("cowboys.wildwest.dev"),
+				// empty APIExports so we do not add global kubernetes APIExport.
+				framework.WithAPIExports(""),
 				framework.WithSyncTarget(wildwestWorkspace, wildwestSyncTargetName),
 				framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 					// Always install the crd regardless of whether the target is
@@ -660,7 +663,6 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					require.NoError(t, err)
 					t.Log("Installing test CRDs into sink cluster...")
 					fixturewildwest.Create(t, logicalcluster.Name{}, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
-
 					if isFakePCluster {
 						// Only need to install services in a non-logical cluster
 						kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: "core.k8s.io", Resource: "services"})

@@ -270,7 +270,7 @@ spec:
 		APIImportPollIntervalString: "1m",
 		QPS:                         123.4,
 		Burst:                       456,
-	}, "kcp-syncer-sync-target-name-34b23c4k")
+	}, "kcp-syncer-sync-target-name-34b23c4k", []string{"resource1", "resource2"})
 	require.NoError(t, err)
 	require.Empty(t, cmp.Diff(expectedYAML, string(actualYAML)))
 }
@@ -523,7 +523,7 @@ spec:
 		Burst:                       456,
 		APIImportPollIntervalString: "1m",
 		FeatureGatesString:          "myfeature=true",
-	}, "kcp-syncer-sync-target-name-34b23c4k")
+	}, "kcp-syncer-sync-target-name-34b23c4k", []string{"resource1", "resource2"})
 	require.NoError(t, err)
 	require.Empty(t, cmp.Diff(expectedYAML, string(actualYAML)))
 }
