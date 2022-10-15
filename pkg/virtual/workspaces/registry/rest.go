@@ -342,15 +342,17 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 	if err != nil {
 		return nil, err
 	}
+	var createdWorkspace tenancyv1beta1.Workspace
+	projection.ProjectClusterWorkspaceToWorkspace(createdClusterWorkspace, &createdWorkspace)
 
-	ownerRoleBindingName := getOwnerRoleBindingName(workspace.Name, userInfo)
+	ownerRoleBindingName := getOwnerRoleBindingName(createdWorkspace.Name, userInfo)
 
 	// First create the ClusterRoleBinding that will link the workspace cluster role with the user Subject
 	clusterRoleBinding := rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: ownerRoleBindingName,
 			Labels: map[string]string{
-				tenancyv1beta1.WorkspaceNameLabel: workspace.Name,
+				tenancyv1beta1.WorkspaceNameLabel: createdWorkspace.Name,
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -368,37 +370,31 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 	}
 	if _, err := s.kubeClusterClient.Cluster(orgClusterName).RbacV1().ClusterRoleBindings().Create(ctx, &clusterRoleBinding, metav1.CreateOptions{}); err != nil {
 		if kerrors.IsAlreadyExists(err) {
-			return nil, kerrors.NewAlreadyExists(tenancyv1beta1.Resource("workspaces"), workspace.Name)
+			return nil, kerrors.NewAlreadyExists(tenancyv1beta1.Resource("workspaces"), createdWorkspace.Name)
 		}
-		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), workspace.Name, err)
+		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), createdWorkspace.Name, err)
 	}
 
 	// Then create the owner role related to the given workspace.
 	var rules []rbacv1.PolicyRule
 	for _, rule := range ownerRoleRules {
 		rule.APIGroups = []string{tenancyv1beta1.SchemeGroupVersion.Group}
-		rule.ResourceNames = []string{workspace.Name}
+		rule.ResourceNames = []string{createdWorkspace.Name}
 		rules = append(rules, rule)
 	}
 	ownerClusterRole := &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: ownerRoleBindingName,
 			Labels: map[string]string{
-				tenancyv1beta1.WorkspaceNameLabel: workspace.Name,
+				tenancyv1beta1.WorkspaceNameLabel: createdWorkspace.Name,
 			},
 		},
 		Rules: rules,
 	}
 	if _, err := s.kubeClusterClient.Cluster(orgClusterName).RbacV1().ClusterRoles().Create(ctx, ownerClusterRole, metav1.CreateOptions{}); err != nil && !kerrors.IsAlreadyExists(err) {
-		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), workspace.Name, err)
+		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), createdWorkspace.Name, err)
 	}
 
-	var createdWorkspace tenancyv1beta1.Workspace
-	projection.ProjectClusterWorkspaceToWorkspace(createdClusterWorkspace, &createdWorkspace)
-
-	// The workspace has been created with the internal name in KCP,
-	// but will be returned to the user (in personal scope) with the pretty name.
-	createdWorkspace.Name = workspace.Name
 	return &createdWorkspace, nil
 }
 
