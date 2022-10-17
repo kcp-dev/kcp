@@ -95,12 +95,22 @@ type kcpFixture struct {
 
 // PrivateKcpServer returns a new kcp server fixture managing a new
 // server process that is not intended to be shared between tests.
-func PrivateKcpServer(t *testing.T, args ...string) RunningServer {
+func PrivateKcpServer(t *testing.T, options ...KcpConfigOption) RunningServer {
 	serverName := "main"
-	f := newKcpFixture(t, kcpConfig{
-		Name: serverName,
-		Args: args,
-	})
+
+	cfg := &kcpConfig{Name: serverName}
+	for _, opt := range options {
+		cfg = opt(cfg)
+	}
+
+	if len(cfg.ArtifactDir) == 0 || len(cfg.DataDir) == 0 {
+		artifactDir, dataDir, err := ScratchDirs(t)
+		require.NoError(t, err, "failed to create scratch dirs: %v", err)
+		cfg.ArtifactDir = artifactDir
+		cfg.DataDir = dataDir
+	}
+
+	f := newKcpFixture(t, *cfg)
 	return f.Servers[serverName]
 }
 
@@ -128,12 +138,17 @@ func SharedKcpServer(t *testing.T) RunningServer {
 	// initializes the shared fixture before tests that rely on the
 	// fixture.
 
+	artifactDir, dataDir, err := ScratchDirs(t)
+	require.NoError(t, err, "failed to create scratch dirs: %v", err)
+
 	f := newKcpFixture(t, kcpConfig{
 		Name: serverName,
 		Args: append(
 			TestServerArgsWithTokenAuthFile(WriteTokenAuthFile(t)),
 			TestServerWithAuditPolicyFile(WriteEmbedFile(t, "audit-policy.yaml"))...,
 		),
+		ArtifactDir: artifactDir,
+		DataDir:     dataDir,
 	})
 	return f.Servers[serverName]
 }
@@ -142,14 +157,17 @@ func SharedKcpServer(t *testing.T) RunningServer {
 func newKcpFixture(t *testing.T, cfgs ...kcpConfig) *kcpFixture {
 	f := &kcpFixture{}
 
-	artifactDir, dataDir, err := ScratchDirs(t)
-	require.NoError(t, err, "failed to create scratch dirs: %v", err)
-
 	// Initialize servers from the provided configuration
 	var servers []*kcpServer
 	f.Servers = map[string]RunningServer{}
 	for _, cfg := range cfgs {
-		server, err := newKcpServer(t, cfg, artifactDir, dataDir)
+		if len(cfg.ArtifactDir) == 0 {
+			panic(fmt.Sprintf("provided kcpConfig for %s is incorrect, missing ArtifactDir", cfg.Name))
+		}
+		if len(cfg.DataDir) == 0 {
+			panic(fmt.Sprintf("provided kcpConfig for %s is incorrect, missing DataDir", cfg.Name))
+		}
+		server, err := newKcpServer(t, cfg, cfg.ArtifactDir, cfg.DataDir)
 		require.NoError(t, err)
 
 		servers = append(servers, server)
@@ -213,12 +231,34 @@ type RunningServer interface {
 	Artifact(t *testing.T, producer func() (runtime.Object, error))
 }
 
+// KcpConfigOption a function that wish to modify a given kcp configuration
+type KcpConfigOption func(*kcpConfig) *kcpConfig
+
+// WithScratchDirectories adds custom scratch directories to a kcp configuration
+func WithScratchDirectories(artifactDir, dataDir string) KcpConfigOption {
+	return func(cfg *kcpConfig) *kcpConfig {
+		cfg.ArtifactDir = artifactDir
+		cfg.DataDir = dataDir
+		return cfg
+	}
+}
+
+// WithCustomArguments applies provided arguments to a given kcp configuration
+func WithCustomArguments(args ...string) KcpConfigOption {
+	return func(cfg *kcpConfig) *kcpConfig {
+		cfg.Args = args
+		return cfg
+	}
+}
+
 // kcpConfig qualify a kcp server to start
 //
 // Deprecated for use outside this package. Prefer PrivateKcpServer().
 type kcpConfig struct {
-	Name string
-	Args []string
+	Name        string
+	Args        []string
+	ArtifactDir string
+	DataDir     string
 
 	LogToConsole bool
 	RunInProcess bool
