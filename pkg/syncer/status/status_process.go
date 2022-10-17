@@ -38,6 +38,7 @@ import (
 	workloadcliplugin "github.com/kcp-dev/kcp/pkg/cliplugins/workload/plugin"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
+	. "github.com/kcp-dev/kcp/tmc/pkg/logging"
 )
 
 func deepEqualFinalizersAndStatus(oldUnstrob, newUnstrob *unstructured.Unstructured) bool {
@@ -65,7 +66,7 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 		return nil
 	}
 
-	logger = logger.WithValues(logging.DownstreamNamespaceKey, downstreamNamespace, logging.DownstreamNameKey, downstreamName)
+	logger = logger.WithValues(DownstreamNamespace, downstreamNamespace, DownstreamName, downstreamName)
 
 	// to upstream
 	var namespaceLocator *shared.NamespaceLocator

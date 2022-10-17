@@ -42,6 +42,7 @@ import (
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
+	. "github.com/kcp-dev/kcp/tmc/pkg/logging"
 )
 
 const (
@@ -131,7 +132,7 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 
 		if len(downstreamNamespaces) == 1 {
 			namespace := downstreamNamespaces[0].(*unstructured.Unstructured)
-			logger.WithValues(logging.DownstreamNameKey, namespace.GetName()).V(4).Info("Found downstream namespace for upstream namespace")
+			logger.WithValues(DownstreamName, namespace.GetName()).V(4).Info("Found downstream namespace for upstream namespace")
 			downstreamNamespace = namespace.GetName()
 		} else if len(downstreamNamespaces) > 1 {
 			// This should never happen unless there's some namespace collision.
@@ -149,7 +150,7 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 			}
 		}
 	}
-	logger = logger.WithValues(logging.DownstreamNamespaceKey, downstreamNamespace)
+	logger = logger.WithValues(DownstreamNamespace, downstreamNamespace)
 
 	// TODO(skuznets): can we figure out how to not leak this detail up to this code?
 	// I guess once the indexer is using kcpcache.MetaClusterNamespaceKeyFunc, we can just use that formatter ...
@@ -364,7 +365,7 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 		return nil
 	}
 
-	logger = logger.WithValues(logging.DownstreamNameKey, transformedName)
+	logger = logger.WithValues(DownstreamName, transformedName)
 	ctx = klog.NewContext(ctx, logger)
 
 	logger.V(4).Info("Upstream object is intended to be removed", "intendedToBeRemovedFromLocation", intendedToBeRemovedFromLocation, "stillOwnedByExternalActorForLocation", stillOwnedByExternalActorForLocation)
