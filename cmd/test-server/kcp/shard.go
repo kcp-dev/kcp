@@ -45,6 +45,8 @@ var embeddedResources embed.FS
 // Start starts a kcp shard server. It returns with nil when it is ready, or
 // when the context is done.
 func Start(ctx context.Context, name, runtimeDir, logFilePath string, args []string) (<-chan error, error) {
+	logger := klog.FromContext(ctx).WithValues("shard", name)
+
 	// setup color output
 	prefix := strings.ToUpper(name)
 	blue := color.New(color.BgBlue, color.FgHiWhite).SprintFunc()
@@ -107,7 +109,7 @@ func Start(ctx context.Context, name, runtimeDir, logFilePath string, args []str
 	go func() {
 		<-ctx.Done()
 		if err := cmd.Process.Kill(); err != nil {
-			klog.FromContext(ctx).Error(err, "failed to kill process")
+			logger.Error(err, "failed to kill process")
 		}
 	}()
 
@@ -118,7 +120,7 @@ func Start(ctx context.Context, name, runtimeDir, logFilePath string, args []str
 
 	// wait for admin.kubeconfig
 	kubeconfigPath := filepath.Join(runtimeDir, "admin.kubeconfig")
-	klog.Infof("Waiting for %s", kubeconfigPath)
+	logger.Info("Waiting for kubeconfig", "path", kubeconfigPath)
 	for {
 		select {
 		case <-ctx.Done():
@@ -138,10 +140,10 @@ func Start(ctx context.Context, name, runtimeDir, logFilePath string, args []str
 		}
 		time.Sleep(time.Millisecond * 1000)
 	}
-	klog.Infof("Found %s", kubeconfigPath)
+	logger.Info("Found kubeconfig", "path", kubeconfigPath)
 
 	// wait for readiness
-	klog.Infof("Waiting for %s shard /readyz to succeed", name)
+	logger.Info("Waiting for shard /readyz to succeed")
 	for {
 		time.Sleep(time.Second)
 
@@ -169,13 +171,13 @@ func Start(ctx context.Context, name, runtimeDir, logFilePath string, args []str
 		}
 		kcpClient, err := kcpclient.NewClusterForConfig(config)
 		if err != nil {
-			klog.Errorf("Failed to create kcp client: %v", err)
+			logger.Error(err, "Failed to create kcp client")
 			continue
 		}
 
 		res := kcpClient.RESTClient().Get().AbsPath("/readyz").Do(ctx)
 		if err := res.Error(); err != nil {
-			klog.V(3).Infof("kcp shard %s not ready: %v", name, err)
+			logger.V(3).Info("kcp shard not ready", "error", err)
 		} else {
 			var rc int
 			res.StatusCode(&rc)
@@ -183,13 +185,13 @@ func Start(ctx context.Context, name, runtimeDir, logFilePath string, args []str
 				break
 			}
 			if bs, err := res.Raw(); err != nil {
-				klog.V(3).Infof("kcp shard %s not ready: %v", name, err)
+				logger.V(3).Info("kcp shard not ready", "error", err)
 			} else {
-				klog.V(3).Infof("kcp shard %s not ready: http %d: %s", name, rc, string(bs))
+				logger.V(3).Info("kcp shard not ready", "responseCode", rc, "response", string(bs))
 			}
 		}
 	}
-	if !klog.V(3).Enabled() {
+	if !logger.V(3).Enabled() {
 		writer.StopOut()
 	}
 	fmt.Fprintf(successOut, "shard is ready\n")
