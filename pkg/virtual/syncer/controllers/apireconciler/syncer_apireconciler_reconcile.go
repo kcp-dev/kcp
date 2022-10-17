@@ -22,25 +22,19 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
-	corev1 "k8s.io/api/core/v1"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
-	"k8s.io/kube-openapi/pkg/common"
-	"k8s.io/kubernetes/pkg/api/legacyscheme"
-	generatedopenapi "k8s.io/kubernetes/pkg/generated/openapi"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/internalapis"
+	syncerbuiltin "github.com/kcp-dev/kcp/pkg/virtual/syncer/schemas/builtin"
 )
 
 func (c *APIReconciler) reconcile(ctx context.Context, apiDomainKey dynamiccontext.APIDomainKey, syncTarget *workloadv1alpha1.SyncTarget) error {
@@ -57,7 +51,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiDomainKey dynamicconte
 	}
 
 	// add built-in apiResourceSchema
-	for _, apiResourceSchema := range syncerSchemas {
+	for _, apiResourceSchema := range syncerbuiltin.SyncerSchemas {
 		shallow := *apiResourceSchema
 		if shallow.Annotations == nil {
 			shallow.Annotations = make(map[string]string)
@@ -202,63 +196,4 @@ func (c *APIReconciler) getAllAcceptedResourceSchemas(syncTarget *workloadv1alph
 	}
 
 	return apiResourceSchemas, identityHashByGroupResource, errors.NewAggregate(errs)
-}
-
-// syncerSchemas contains a list of internal APIs that should be exposed for the syncer of any SyncTarget.
-var syncerSchemas []*apisv1alpha1.APIResourceSchema
-
-func init() {
-	schemes := []*runtime.Scheme{legacyscheme.Scheme}
-	openAPIDefinitionsGetters := []common.GetOpenAPIDefinitions{generatedopenapi.GetOpenAPIDefinitions}
-
-	if apis, err := internalapis.CreateAPIResourceSchemas(schemes, openAPIDefinitionsGetters, syncerInternalAPIs...); err != nil {
-		panic(err)
-	} else {
-		syncerSchemas = apis
-	}
-}
-
-// syncerInternalAPIs provides a list of built-in APIs that are available for all workspaces accessed via the syncer virtual workspace.
-var syncerInternalAPIs = []internalapis.InternalAPI{
-	{
-		Names: apiextensionsv1.CustomResourceDefinitionNames{
-			Plural:   "namespaces",
-			Singular: "namespace",
-			Kind:     "Namespace",
-		},
-		GroupVersion:  schema.GroupVersion{Group: "", Version: "v1"},
-		Instance:      &corev1.Namespace{},
-		ResourceScope: apiextensionsv1.ClusterScoped,
-		HasStatus:     true,
-	},
-	{
-		Names: apiextensionsv1.CustomResourceDefinitionNames{
-			Plural:   "configmaps",
-			Singular: "configmap",
-			Kind:     "ConfigMap",
-		},
-		GroupVersion:  schema.GroupVersion{Group: "", Version: "v1"},
-		Instance:      &corev1.ConfigMap{},
-		ResourceScope: apiextensionsv1.NamespaceScoped,
-	},
-	{
-		Names: apiextensionsv1.CustomResourceDefinitionNames{
-			Plural:   "secrets",
-			Singular: "secret",
-			Kind:     "Secret",
-		},
-		GroupVersion:  schema.GroupVersion{Group: "", Version: "v1"},
-		Instance:      &corev1.Secret{},
-		ResourceScope: apiextensionsv1.NamespaceScoped,
-	},
-	{
-		Names: apiextensionsv1.CustomResourceDefinitionNames{
-			Plural:   "serviceaccounts",
-			Singular: "serviceaccount",
-			Kind:     "ServiceAccount",
-		},
-		GroupVersion:  schema.GroupVersion{Group: "", Version: "v1"},
-		Instance:      &corev1.ServiceAccount{},
-		ResourceScope: apiextensionsv1.NamespaceScoped,
-	},
 }
