@@ -1177,6 +1177,121 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.Empty(t, cmp.Diff(expectedModifiedKcpCowboy.Spec, virtualWorkspaceCowboy.Spec))
 			},
 		},
+		{
+			name: "Override summarizing rules to disable status promotion",
+			work: func(t *testing.T, kubelikeSyncerVWConfig, wildwestSyncerVWConfig *rest.Config, kubelikeClusterName, wildwestClusterName logicalcluster.Name, wildwestSyncTargetName string) {
+				ctx, cancelFunc := context.WithCancel(context.Background())
+				t.Cleanup(cancelFunc)
+
+				wildwestClusterClient, err := wildwestclientset.NewForConfig(server.BaseConfig(t))
+				require.NoError(t, err)
+
+				syncTargetKey := workloadv1alpha1.ToSyncTargetKey(wildwestClusterName, wildwestSyncTargetName)
+
+				t.Log("Create cowboy luckyluke")
+				_, err = wildwestClusterClient.WildwestV1alpha1().Cowboys("default").Create(logicalcluster.WithCluster(ctx, wildwestClusterName), &wildwestv1alpha1.Cowboy{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "luckyluke",
+						Annotations: map[string]string{
+							"experimental.summarizing.workload.kcp.dev": `[{"fieldPath": "status", "promoteToUpstream": false}]`,
+						},
+					},
+					Spec: wildwestv1alpha1.CowboySpec{
+						Intent: "should catch joe",
+					},
+				}, metav1.CreateOptions{})
+				require.NoError(t, err)
+
+				vwClusterClient, err := wildwestclientset.NewForConfig(wildwestSyncerVWConfig)
+				require.NoError(t, err)
+
+				t.Log("Verify there is one cowboy via direct access")
+				kcpCowboys, err := wildwestClusterClient.WildwestV1alpha1().Cowboys("").List(logicalcluster.WithCluster(ctx, wildwestClusterName), metav1.ListOptions{})
+				require.NoError(t, err)
+				require.Len(t, kcpCowboys.Items, 1)
+
+				t.Log("Wait until the virtual workspace has the resource")
+				require.Eventually(t, func() bool {
+					// resources show up asynchronously, so we have to try until List works. Then it should return all object immediately.
+					_, err := vwClusterClient.WildwestV1alpha1().Cowboys("").List(logicalcluster.WithCluster(ctx, logicalcluster.Wildcard), metav1.ListOptions{})
+					return err == nil
+				}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+				t.Log("Wait for resource controller to schedule cowboy and then show up via virtual workspace wildcard request")
+				var cowboys *wildwestv1alpha1.CowboyList
+				require.Eventually(t, func() bool {
+					cowboys, err = vwClusterClient.WildwestV1alpha1().Cowboys("").List(logicalcluster.WithCluster(ctx, logicalcluster.Wildcard), metav1.ListOptions{})
+					require.NoError(t, err)
+					require.LessOrEqual(t, len(cowboys.Items), 1, "expected no other cowboy than luckyluke, got: %s", toYAML(t, cowboys))
+					return len(cowboys.Items) == 1
+				}, wait.ForeverTestTimeout, time.Millisecond)
+				require.Equal(t, "luckyluke", cowboys.Items[0].Name)
+
+				t.Log("Verify there is luckyluke via virtual workspace workspace request")
+				kcpCowboy, err := wildwestClusterClient.WildwestV1alpha1().Cowboys("default").Get(logicalcluster.WithCluster(ctx, wildwestClusterName), "luckyluke", metav1.GetOptions{})
+				require.NoError(t, err)
+				virtualWorkspaceCowboy, err := vwClusterClient.WildwestV1alpha1().Cowboys("default").Get(logicalcluster.WithCluster(ctx, wildwestClusterName), "luckyluke", metav1.GetOptions{})
+				require.NoError(t, err)
+				require.Equal(t, kcpCowboy.UID, virtualWorkspaceCowboy.UID)
+				require.Equal(t, kcpCowboy.Spec, virtualWorkspaceCowboy.Spec)
+				require.Equal(t, kcpCowboy.Status, virtualWorkspaceCowboy.Status)
+				require.Eventually(t, func() bool {
+					kcpCowboy, err = wildwestClusterClient.WildwestV1alpha1().Cowboys("default").Get(logicalcluster.WithCluster(ctx, wildwestClusterName), "luckyluke", metav1.GetOptions{})
+					if errors.IsNotFound(err) {
+						return false
+					}
+					require.NoError(t, err)
+					syncTargetsToSync := map[string]string{}
+					for name, value := range kcpCowboy.Labels {
+						if strings.HasPrefix(name, workloadv1alpha1.ClusterResourceStateLabelPrefix) {
+							syncTargetsToSync[strings.TrimPrefix(name, workloadv1alpha1.ClusterResourceStateLabelPrefix)] = value
+						}
+					}
+
+					syncTargetsWithFinalizer := sets.NewString()
+					for _, name := range kcpCowboy.Finalizers {
+						if strings.HasPrefix(name, shared.SyncerFinalizerNamePrefix) {
+							syncTargetsWithFinalizer.Insert(strings.TrimPrefix(name, shared.SyncerFinalizerNamePrefix))
+						}
+					}
+
+					return len(syncTargetsToSync) == 1 &&
+						syncTargetsToSync[syncTargetKey] == "Sync" &&
+						syncTargetsWithFinalizer.Len() == 1 &&
+						syncTargetsWithFinalizer.Has(syncTargetKey)
+				}, wait.ForeverTestTimeout, time.Millisecond)
+
+				t.Log("Patch luckyluke via virtual workspace to report in status that joe is in prison")
+				_, err = vwClusterClient.WildwestV1alpha1().Cowboys("default").Patch(logicalcluster.WithCluster(ctx, wildwestClusterName), "luckyluke", types.MergePatchType, []byte("{\"status\":{\"result\":\"joe in prison\"}}"), metav1.PatchOptions{}, "status")
+				require.NoError(t, err)
+
+				t.Log("Patch luckyluke via virtual workspace to catch averell")
+				_, err = vwClusterClient.WildwestV1alpha1().Cowboys("default").Patch(logicalcluster.WithCluster(ctx, wildwestClusterName), "luckyluke", types.MergePatchType, []byte("{\"spec\":{\"intent\":\"should catch averell\"}}"), metav1.PatchOptions{})
+				require.NoError(t, err)
+
+				t.Log("Verify that luckyluke has only status changed on the syncer view, since the spec.intent field is not part of summarized fields")
+				virtualWorkspaceModifiedkcpCowboy, err := vwClusterClient.WildwestV1alpha1().Cowboys("default").Get(logicalcluster.WithCluster(ctx, wildwestClusterName), "luckyluke", metav1.GetOptions{})
+				require.NoError(t, err)
+				require.NotEqual(t, kcpCowboy.ResourceVersion, virtualWorkspaceModifiedkcpCowboy.ResourceVersion)
+
+				expectedModifiedKcpCowboy := kcpCowboy.DeepCopy()
+				expectedModifiedKcpCowboy.Status.Result = "joe in prison"
+				expectedModifiedKcpCowboy.Spec.Intent = "should catch joe"
+				require.Empty(t, cmp.Diff(expectedModifiedKcpCowboy.Status, virtualWorkspaceModifiedkcpCowboy.Status))
+				require.Empty(t, cmp.Diff(expectedModifiedKcpCowboy.Spec, virtualWorkspaceModifiedkcpCowboy.Spec))
+
+				t.Log("Verify that luckyluke has status unchanged on the upstream view, since the status field promotion has been disabled by annotation")
+				modifiedkcpCowboy, err := wildwestClusterClient.WildwestV1alpha1().Cowboys("default").Get(logicalcluster.WithCluster(ctx, wildwestClusterName), "luckyluke", metav1.GetOptions{})
+				require.NoError(t, err)
+				require.NotEqual(t, kcpCowboy.ResourceVersion, modifiedkcpCowboy.ResourceVersion)
+				require.Equal(t, virtualWorkspaceModifiedkcpCowboy.ResourceVersion, modifiedkcpCowboy.ResourceVersion)
+
+				expectedModifiedKcpCowboy.Status.Result = ""
+				expectedModifiedKcpCowboy.Spec.Intent = "should catch joe"
+				require.Empty(t, cmp.Diff(expectedModifiedKcpCowboy.Status, modifiedkcpCowboy.Status))
+				require.Empty(t, cmp.Diff(expectedModifiedKcpCowboy.Spec, modifiedkcpCowboy.Spec))
+			},
+		},
 	}
 
 	for i := range testCases {

@@ -17,11 +17,14 @@ limitations under the License.
 package transformations
 
 import (
+	"encoding/json"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
 
 var _ SummarizingRules = (*DefaultSummarizingRules)(nil)
@@ -74,7 +77,26 @@ func (f field) IsStatus() bool {
 	return len(elements) == 1 && elements[0] == "status"
 }
 
+type fields []field
+
+var _ SummarizingRules = (fields)(nil)
+
+func (fs fields) FieldsToSummarize(gvr schema.GroupVersionResource) []FieldToSummarize {
+	var result []FieldToSummarize
+	for _, f := range fs {
+		result = append(result, FieldToSummarize(f))
+	}
+	return result
+}
+
 func (s *DefaultSummarizingRules) SummarizingRulesFor(resource metav1.Object) (SummarizingRules, error) {
+	if encoded := resource.GetAnnotations()[v1alpha1.ExperimentalSummarizingRulesAnnotation]; encoded != "" {
+		var decoded []field
+		if err := json.Unmarshal([]byte(encoded), &decoded); err != nil {
+			return nil, err
+		}
+		return fields(decoded), nil
+	}
 	return s, nil
 }
 
