@@ -19,12 +19,18 @@ package options
 import (
 	"fmt"
 	"strings"
+	"time"
 
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/clients/informers"
 	"github.com/spf13/pflag"
 
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	"k8s.io/client-go/rest"
+	serviceaccountcontroller "k8s.io/kubernetes/pkg/controller/serviceaccount"
 	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
 
 	kcpauthentication "github.com/kcp-dev/kcp/pkg/proxy/authentication"
@@ -42,21 +48,32 @@ type Authentication struct {
 
 // NewAuthentication creates a default Authentication
 func NewAuthentication() *Authentication {
-	return &Authentication{
+	auth := &Authentication{
 		BuiltInOptions: kubeoptions.NewBuiltInAuthenticationOptions().
 			WithClientCert().
+			WithServiceAccounts().
 			WithTokenFile(),
 		// when adding new auth methods, also update AdditionalAuthEnabled below
 		DropGroups: []string{user.SystemPrivilegedGroup},
 	}
+	auth.BuiltInOptions.ServiceAccounts.Issuers = []string{"https://kcp.default.svc"}
+	return auth
 }
 
 // When configured to enable auth other than ClientCert, this returns true
 func (c *Authentication) AdditionalAuthEnabled() bool {
-	return c.BuiltInOptions.TokenFile.TokenFile != ""
+	return c.tokenAuthEnabled() || c.serviceAccountAuthEnabled()
 }
 
-func (c *Authentication) ApplyTo(authenticationInfo *genericapiserver.AuthenticationInfo, servingInfo *genericapiserver.SecureServingInfo) error {
+func (c *Authentication) tokenAuthEnabled() bool {
+	return c.BuiltInOptions.TokenFile != nil && c.BuiltInOptions.TokenFile.TokenFile != ""
+}
+
+func (c *Authentication) serviceAccountAuthEnabled() bool {
+	return c.BuiltInOptions.ServiceAccounts != nil && len(c.BuiltInOptions.ServiceAccounts.KeyFiles) != 0
+}
+
+func (c *Authentication) ApplyTo(authenticationInfo *genericapiserver.AuthenticationInfo, servingInfo *genericapiserver.SecureServingInfo, rootShardConfig *rest.Config) error {
 	// Note BuiltInAuthenticationOptions.ApplyTo is not called, so we
 	// can reduce the dependencies pulled in from auth methods which aren't enabled
 	authenticatorConfig, err := c.BuiltInOptions.ToAuthenticationConfig()
@@ -69,6 +86,28 @@ func (c *Authentication) ApplyTo(authenticationInfo *genericapiserver.Authentica
 		if err = authenticationInfo.ApplyClientCert(authenticatorConfig.ClientCAContentProvider, servingInfo); err != nil {
 			return fmt.Errorf("unable to load client CA file: %w", err)
 		}
+	}
+
+	// Set for service account auth, if enabled
+	if c.serviceAccountAuthEnabled() {
+		authenticationInfo.APIAudiences = c.BuiltInOptions.APIAudiences
+		if len(c.BuiltInOptions.ServiceAccounts.Issuers) != 0 && len(c.BuiltInOptions.APIAudiences) == 0 {
+			authenticationInfo.APIAudiences = authenticator.Audiences(c.BuiltInOptions.ServiceAccounts.Issuers)
+		}
+
+		config := rest.CopyConfig(rootShardConfig)
+		tokenGetterClient, err := kcpkubernetesclientset.NewForConfig(config)
+		if err != nil {
+			return fmt.Errorf("failed to create client for ServiceAccountTokenGetter: %w", err)
+		}
+
+		versionedInformers := kcpkubernetesinformers.NewSharedInformerFactory(tokenGetterClient, 10*time.Minute)
+
+		authenticatorConfig.ServiceAccountTokenGetter = serviceaccountcontroller.NewClusterGetterFromClient(
+			tokenGetterClient,
+			versionedInformers.Core().V1().Secrets().Lister(),
+			versionedInformers.Core().V1().ServiceAccounts().Lister(),
+		)
 	}
 
 	// Sets up a union Authenticator for all enabled auth methods
