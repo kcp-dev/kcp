@@ -163,7 +163,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	}
 
 	syncTargetKey := workloadv1alpha1.ToSyncTargetKey(cfg.SyncTargetWorkspace, cfg.SyncTargetName)
-	logger = logger.WithValues(logging.SyncTargetNameKey, syncTargetKey)
+	logger = logger.WithValues("syncTarget.key", syncTargetKey)
 	ctx = klog.NewContext(ctx, logger)
 
 	upstreamInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(upstreamDynamicClusterClient.Cluster(logicalcluster.Wildcard), resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
