@@ -38,7 +38,7 @@ jobs:
       - run: make build
 
       # Install kind with a local registry
-      - uses: container-tools/kind-action@v1
+      - uses: container-tools/kind-action@v2
         name: Kubernetes KinD Cluster w/local registry
         with:
           version: v0.14.0
@@ -67,7 +67,7 @@ jobs:
     - run: make build
 
     # Install kind with a local registry
-    - uses: container-tools/kind-action@v1
+    - uses: container-tools/kind-action@v2
       name: Kubernetes KinD Cluster w/local registry
       with:
         version: v0.14.0
