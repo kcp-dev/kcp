@@ -299,7 +299,7 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 		o.GenericControlPlane.ServerRunOptions.ServiceAccountSigningKeyFile = o.Controllers.SAController.ServiceAccountKeyFile
 	}
 
-	completedGenericControlPlane, err := o.GenericControlPlane.ServerRunOptions.Complete()
+	completedGenericServerRunOptions, err := o.GenericControlPlane.ServerRunOptions.Complete()
 	if err != nil {
 		return nil, err
 	}
@@ -330,14 +330,15 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 		o.Extra.BatteriesIncluded = bats.List()
 	}
 
-	cacheServerEtcdOptions := *completedGenericControlPlane.Etcd
+	completedEmbeddedEtcd := o.EmbeddedEtcd.Complete(o.GenericControlPlane.Etcd)
+	cacheServerEtcdOptions := *o.GenericControlPlane.Etcd
 	o.Cache.Server.Etcd = &cacheServerEtcdOptions
 	// TODO: enable the watch cache, it was disabled because
 	//  - we need to pass a shard name so that the watch cache can calculate the key
 	//    we already do that for cluster names (stored in the obj)
 	//  - we need to modify wildcardClusterNameRegex and crdWildcardPartialMetadataClusterNameRegex
 	o.Cache.Server.Etcd.EnableWatchCache = false
-	o.Cache.Server.SecureServing = completedGenericControlPlane.SecureServing
+	o.Cache.Server.SecureServing = completedGenericServerRunOptions.SecureServing
 	cacheCompletedOptions, err := o.Cache.Complete()
 	if err != nil {
 		return nil, err
@@ -346,8 +347,8 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 	return &CompletedOptions{
 		completedOptions: &completedOptions{
 			// TODO: GenericControlPlane here should be completed. But the k/k repo does not expose the CompleteOptions type, but should.
-			GenericControlPlane: completedGenericControlPlane,
-			EmbeddedEtcd:        o.EmbeddedEtcd.Complete(o.GenericControlPlane.Etcd),
+			GenericControlPlane: completedGenericServerRunOptions,
+			EmbeddedEtcd:        completedEmbeddedEtcd,
 			Controllers:         o.Controllers,
 			Authorization:       o.Authorization,
 			AdminAuthentication: o.AdminAuthentication,
