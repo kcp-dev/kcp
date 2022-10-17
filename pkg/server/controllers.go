@@ -61,6 +61,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiresource"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/identitycache"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/permissionclaimlabel"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cache/replication"
 	"github.com/kcp-dev/kcp/pkg/reconciler/kubequota"
 	schedulinglocationstatus "github.com/kcp-dev/kcp/pkg/reconciler/scheduling/location"
 	schedulingplacement "github.com/kcp-dev/kcp/pkg/reconciler/scheduling/placement"
@@ -1206,6 +1207,37 @@ func (s *Server) installApiExportIdentityController(ctx context.Context, config 
 	})
 }
 
+func (s *Server) installReplicationController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
+	if !s.Options.Cache.Enabled {
+		return nil
+	}
+
+	config = rest.CopyConfig(config)
+	config = rest.AddUserAgent(config, replication.ControllerName)
+	dynamicLocalClient, err := dynamic.NewClusterForConfig(config)
+	if err != nil {
+		return err
+	}
+	controller, err := replication.NewController(s.Options.Extra.ShardName, s.CacheDynamicClient, dynamicLocalClient, s.KcpSharedInformerFactory, s.CacheKcpSharedInformerFactory)
+	if err != nil {
+		return err
+	}
+	return server.AddPostStartHook(postStartHookName(replication.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
+		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(replication.ControllerName))
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			logger.Error(err, "failed to finish post-start-hook")
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+		if err := s.waitForOptionalSync(hookContext.StopCh); err != nil {
+			logger.Error(err, "failed to finish post-start-hook")
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		go controller.Start(goContext(hookContext), 2)
+		return nil
+	})
+}
+
 func (s *Server) waitForSync(stop <-chan struct{}) error {
 	// Wait for shared informer factories to by synced.
 	// factory. Otherwise, informer list calls may go into backoff (before the CRDs are ready) and
@@ -1213,6 +1245,17 @@ func (s *Server) waitForSync(stop <-chan struct{}) error {
 	select {
 	case <-stop:
 		return errors.New("timed out waiting for informers to sync")
+	case <-s.syncedCh:
+		return nil
+	}
+}
+
+// waitForOptionalSync waits until optional informers have been synced.
+// use this method before starting controllers that require additional informers.
+func (s *Server) waitForOptionalSync(stop <-chan struct{}) error {
+	select {
+	case <-stop:
+		return errors.New("timed out waiting for optional informers to sync")
 	case <-s.syncedCh:
 		return nil
 	}
