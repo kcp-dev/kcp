@@ -34,9 +34,11 @@ import (
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apiresourceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
 	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
+	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
 	apiresourcelisters "github.com/kcp-dev/kcp/pkg/client/listers/apiresource/v1alpha1"
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
@@ -56,6 +58,7 @@ func NewController(
 	apiExportInformer apisinformers.APIExportInformer,
 	apiResourceSchemaInformer apisinformers.APIResourceSchemaInformer,
 	negotiatedAPIResourceInformer apiresourceinformer.NegotiatedAPIResourceInformer,
+	syncTargetInformer workloadinformers.SyncTargetInformer,
 ) (*controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
@@ -72,6 +75,7 @@ func NewController(
 		apiResourceSchemaIndexer:     apiResourceSchemaInformer.Informer().GetIndexer(),
 		negotiatedAPIResourceLister:  negotiatedAPIResourceInformer.Lister(),
 		negotiatedAPIResourceIndexer: negotiatedAPIResourceInformer.Informer().GetIndexer(),
+		syncTargetIndexer:            syncTargetInformer.Informer().GetIndexer(),
 	}
 
 	if err := c.apiResourceSchemaIndexer.AddIndexers(cache.Indexers{
@@ -81,6 +85,12 @@ func NewController(
 	}
 
 	if err := negotiatedAPIResourceInformer.Informer().AddIndexers(cache.Indexers{
+		byWorkspace: indexByWorkspace,
+	}); err != nil {
+		return nil, err
+	}
+
+	if err := syncTargetInformer.Informer().AddIndexers(cache.Indexers{
 		byWorkspace: indexByWorkspace,
 	}); err != nil {
 		return nil, err
@@ -113,6 +123,11 @@ func NewController(
 		DeleteFunc: func(obj interface{}) { c.enqueueNegotiatedAPIResource(obj) },
 	})
 
+	syncTargetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    func(obj interface{}) { c.enqueueSyncTarget(obj) },
+		UpdateFunc: func(_, obj interface{}) { c.enqueueSyncTarget(obj) },
+	})
+
 	return c, nil
 }
 
@@ -135,6 +150,7 @@ type controller struct {
 	apiResourceSchemaIndexer     cache.Indexer
 	negotiatedAPIResourceLister  apiresourcelisters.NegotiatedAPIResourceLister
 	negotiatedAPIResourceIndexer cache.Indexer
+	syncTargetIndexer            cache.Indexer
 }
 
 func (c *controller) enqueueNegotiatedAPIResource(obj interface{}) {
@@ -155,6 +171,27 @@ func (c *controller) enqueueNegotiatedAPIResource(obj interface{}) {
 
 	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), key)
 	logging.WithObject(logger, resource).V(2).Info("queueing APIExport due to NegotiatedAPIResource")
+	c.queue.Add(key)
+}
+
+func (c *controller) enqueueSyncTarget(obj interface{}) {
+	resource, ok := obj.(*workloadv1alpha1.SyncTarget)
+	if !ok {
+		runtime.HandleError(fmt.Errorf("obj is supposed to be a SyncTarget, but is %T", obj))
+		return
+	}
+
+	clusterName := logicalcluster.From(resource)
+	key := clusters.ToClusterAwareKey(clusterName, TemporaryComputeServiceExportName)
+	if _, err := c.apiExportsLister.Get(clusters.ToClusterAwareKey(clusterName, TemporaryComputeServiceExportName)); errors.IsNotFound(err) {
+		return // it's gone
+	} else if err != nil {
+		runtime.HandleError(fmt.Errorf("failed to get APIExport %s|%s: %w", clusterName, TemporaryComputeServiceExportName, err))
+		return
+	}
+
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), key)
+	logging.WithObject(logger, resource).V(2).Info("queueing APIExport due to SyncTarget")
 	c.queue.Add(key)
 }
 

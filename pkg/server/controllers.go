@@ -791,6 +791,7 @@ func (s *Server) installDefaultPlacementController(ctx context.Context, config *
 		kcpClusterClient,
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
 		s.KcpSharedInformerFactory.Scheduling().V1alpha1().Placements(),
+		s.KcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
 	)
 	if err != nil {
 		return err
@@ -922,6 +923,7 @@ func (s *Server) installWorkloadsAPIExportController(ctx context.Context, config
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
 		s.KcpSharedInformerFactory.Apiresource().V1alpha1().NegotiatedAPIResources(),
+		s.KcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
 	)
 	if err != nil {
 		return err

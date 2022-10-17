@@ -34,8 +34,10 @@ import (
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/yaml"
 
+	"github.com/kcp-dev/kcp/config/rootcompute"
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
 
 type SchemaCheck func(t *testing.T, s *apisv1alpha1.APIResourceSchema)
@@ -62,6 +64,7 @@ func TestSchemaReconciler(t *testing.T) {
 	tests := map[string]struct {
 		negotiatedResources map[logicalcluster.Name][]*apiresourcev1alpha1.NegotiatedAPIResource
 		schemas             map[logicalcluster.Name][]*apisv1alpha1.APIResourceSchema
+		syncTargets         map[logicalcluster.Name][]*workloadv1alpha1.SyncTarget
 		export              *apisv1alpha1.APIExport
 
 		listNegotiatedAPIResourcesError error
@@ -326,6 +329,48 @@ func TestSchemaReconciler(t *testing.T) {
 			wantSchemaDeletes:   map[string]struct{}{"rev-19.deployments.apps": {}},
 			wantReconcileStatus: reconcileStatusContinue,
 		},
+		"skip kubernetes schema": {
+			export: export(logicalcluster.New("root:org:ws"), "kubernetes", "rev-10.services.core"),
+			negotiatedResources: map[logicalcluster.Name][]*apiresourcev1alpha1.NegotiatedAPIResource{
+				logicalcluster.New("root:org:ws"): {
+					negotiatedAPIResource(logicalcluster.New("root:org:ws"), "core", "v1", "Service"),
+				},
+			},
+			syncTargets: map[logicalcluster.Name][]*workloadv1alpha1.SyncTarget{
+				logicalcluster.New("root:org:ws"): {
+					syncTarget("syncTarget1", rootcompute.RootComputeWorkspace, "kubernetes"),
+				},
+			},
+			schemas: map[logicalcluster.Name][]*apisv1alpha1.APIResourceSchema{
+				logicalcluster.New("root:org:ws"): {
+					withExportOwner(apiResourceSchema(logicalcluster.New("root:org:ws"), "rev-15", "", "v1", "Service"), "kubernetes"),
+				},
+			},
+			wantSchemaDeletes: map[string]struct{}{"rev-15.services.core": {}},
+			wantExportUpdates: map[string]ExportCheck{
+				"kubernetes": hasSchemas([]string{}...),
+			},
+			wantReconcileStatus: reconcileStatusContinue,
+		},
+		"keep local kubernetes schema": {
+			export: export(logicalcluster.New("root:org:ws"), "kubernetes", "rev-10.services.core"),
+			negotiatedResources: map[logicalcluster.Name][]*apiresourcev1alpha1.NegotiatedAPIResource{
+				logicalcluster.New("root:org:ws"): {
+					negotiatedAPIResource(logicalcluster.New("root:org:ws"), "core", "v1", "Service"),
+				},
+			},
+			syncTargets: map[logicalcluster.Name][]*workloadv1alpha1.SyncTarget{
+				logicalcluster.New("root:org:ws"): {
+					syncTarget("syncTarget1", logicalcluster.New("root:org:ws"), "other-export"),
+				},
+			},
+			schemas: map[logicalcluster.Name][]*apisv1alpha1.APIResourceSchema{
+				logicalcluster.New("root:org:ws"): {
+					withExportOwner(apiResourceSchema(logicalcluster.New("root:org:ws"), "rev-10", "", "v1", "Service"), "kubernetes"), // older RV
+				},
+			},
+			wantReconcileStatus: reconcileStatusContinue,
+		},
 	}
 
 	for name, tc := range tests {
@@ -340,6 +385,9 @@ func TestSchemaReconciler(t *testing.T) {
 						return nil, tc.listNegotiatedAPIResourcesError
 					}
 					return tc.negotiatedResources[clusterName], nil
+				},
+				listSyncTargets: func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error) {
+					return tc.syncTargets[clusterName], nil
 				},
 				listAPIResourceSchemas: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIResourceSchema, error) {
 					if tc.listAPIResourceSchemaError != nil {
@@ -523,6 +571,24 @@ func negotiatedAPIResource(clusterName logicalcluster.Name, group string, versio
 				},
 			},
 			Publish: false,
+		},
+	}
+}
+
+func syncTarget(syncTargetName string, exportWorkspace logicalcluster.Name, exportName string) *workloadv1alpha1.SyncTarget {
+	return &workloadv1alpha1.SyncTarget{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: syncTargetName,
+		},
+		Spec: workloadv1alpha1.SyncTargetSpec{
+			SupportedAPIExports: []apisv1alpha1.ExportReference{
+				{
+					Workspace: &apisv1alpha1.WorkspaceExportReference{
+						Path:       exportWorkspace.String(),
+						ExportName: exportName,
+					},
+				},
+			},
 		},
 	}
 }

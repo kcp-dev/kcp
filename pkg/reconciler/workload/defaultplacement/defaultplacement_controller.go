@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-logr/logr"
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
 
@@ -36,12 +37,14 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/kcp/config/rootcompute"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	schedulinginformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
+	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
 	schedulinglisters "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	reconcilerapiexport "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexport"
@@ -50,7 +53,8 @@ import (
 const (
 	controllerName = "kcp-workload-default-placement"
 
-	byWorkspace = controllerName + "-byWorkspace" // will go away with scoping
+	byWorkspace         = controllerName + "-byWorkspace" // will go away with scoping
+	byLocationWorkspace = controllerName + "-byLocationWorkspace"
 
 	// DefaultPlacementName is the name of the default placement
 	DefaultPlacementName = "default"
@@ -61,6 +65,7 @@ func NewController(
 	kcpClusterClient kcpclient.Interface,
 	apiBindingInformer apisinformers.APIBindingInformer,
 	placementInformer schedulinginformers.PlacementInformer,
+	syncTargetInformer workloadinformers.SyncTargetInformer,
 ) (*controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
@@ -71,7 +76,10 @@ func NewController(
 
 		apiBindingIndexer: apiBindingInformer.Informer().GetIndexer(),
 
-		placementLister: placementInformer.Lister(),
+		placementLister:  placementInformer.Lister(),
+		placementIndexer: placementInformer.Informer().GetIndexer(),
+
+		syncTargetIndexer: syncTargetInformer.Informer().GetIndexer(),
 	}
 
 	if err := apiBindingInformer.Informer().AddIndexers(cache.Indexers{
@@ -80,10 +88,29 @@ func NewController(
 		return nil, err
 	}
 
+	if err := syncTargetInformer.Informer().AddIndexers(cache.Indexers{
+		byWorkspace: indexByWorkspace,
+	}); err != nil {
+		return nil, err
+	}
+
+	if err := placementInformer.Informer().AddIndexers(cache.Indexers{
+		byLocationWorkspace: indexByLocationWorkspace,
+	}); err != nil {
+		return nil, err
+	}
+
+	logger := logging.WithReconciler(klog.Background(), controllerName)
+
 	apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
-		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
-		DeleteFunc: func(obj interface{}) { c.enqueue(obj) },
+		AddFunc:    func(obj interface{}) { c.enqueue(obj, logger) },
+		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj, logger) },
+		DeleteFunc: func(obj interface{}) { c.enqueue(obj, logger) },
+	})
+
+	syncTargetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    func(obj interface{}) { c.enqueueSyncTarget(obj, logger) },
+		UpdateFunc: func(_, obj interface{}) { c.enqueueSyncTarget(obj, logger) },
 	})
 
 	placementInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
@@ -95,7 +122,7 @@ func NewController(
 			return false
 		},
 		Handler: cache.ResourceEventHandlerFuncs{
-			DeleteFunc: func(obj interface{}) { c.enqueue(obj) },
+			DeleteFunc: func(obj interface{}) { c.enqueue(obj, logger) },
 		},
 	})
 
@@ -110,11 +137,14 @@ type controller struct {
 
 	apiBindingIndexer cache.Indexer
 
-	placementLister schedulinglisters.PlacementLister
+	placementLister  schedulinglisters.PlacementLister
+	placementIndexer cache.Indexer
+
+	syncTargetIndexer cache.Indexer
 }
 
 // enqueue adds the logical cluster to the queue.
-func (c *controller) enqueue(obj interface{}) {
+func (c *controller) enqueue(obj interface{}, logger logr.Logger) {
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
@@ -126,12 +156,36 @@ func (c *controller) enqueue(obj interface{}) {
 		return
 	}
 
-	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), clusterName.String())
+	logger = logging.WithQueueKey(logger, clusterName.String())
 	if logObj, ok := obj.(logging.Object); ok {
 		logger = logging.WithObject(logger, logObj)
 	}
 	logger.V(2).Info(fmt.Sprintf("queueing ClusterWorkspace because of %T", obj))
 	c.queue.Add(clusterName.String())
+}
+
+func (c *controller) enqueueSyncTarget(obj interface{}, logger logr.Logger) {
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+	clusterName, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+
+	placements, err := c.placementIndexer.ByIndex(byLocationWorkspace, clusterName.String())
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+
+	logger = logging.WithObject(logger, obj.(*workloadv1alpha1.SyncTarget))
+	for _, placement := range placements {
+		c.enqueue(placement, logger)
+	}
 }
 
 // Start starts the controller, which stops when ctx.Done() is closed.
@@ -203,6 +257,11 @@ func (c *controller) process(ctx context.Context, key string) error {
 			continue
 		}
 
+		// skip export from root compute workspace
+		if binding.Spec.Reference.Workspace.Path == rootcompute.RootComputeWorkspace.String() {
+			continue
+		}
+
 		workloadBinding = binding
 		break
 	}
@@ -247,6 +306,32 @@ func (c *controller) process(ctx context.Context, key string) error {
 		return err
 	}
 
+	// create apibinding to root:compute when at least one of the synctargets has it as supported export.
+	shouldCreate, err := c.shouldCreateRootComputBinding(logicalcluster.New(workloadBinding.Spec.Reference.Workspace.Path))
+	if err != nil {
+		return err
+	}
+	if shouldCreate {
+		apibinding := &apisv1alpha1.APIBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "global-kubernetes",
+			},
+			Spec: apisv1alpha1.APIBindingSpec{
+				Reference: apisv1alpha1.ExportReference{
+					Workspace: &apisv1alpha1.WorkspaceExportReference{
+						Path:       rootcompute.RootComputeWorkspace.String(),
+						ExportName: "kubernetes",
+					},
+				},
+			},
+		}
+
+		_, err = c.kcpClusterClient.ApisV1alpha1().APIBindings().Create(logicalcluster.WithCluster(ctx, clusterName), apibinding, metav1.CreateOptions{})
+		if err != nil && !apierrors.IsAlreadyExists(err) {
+			return err
+		}
+	}
+
 	// patch the apibinding, so we do not create the placement again even if it is deleted.
 	bindingPatch := map[string]interface{}{}
 	expectedAnnotations := map[string]interface{}{
@@ -263,4 +348,25 @@ func (c *controller) process(ctx context.Context, key string) error {
 	logger.WithValues("patch", string(patchData)).V(2).Info("patching APIBinding")
 	_, err = c.kcpClusterClient.ApisV1alpha1().APIBindings().Patch(logicalcluster.WithCluster(ctx, clusterName), workloadBinding.Name, types.MergePatchType, patchData, metav1.PatchOptions{})
 	return err
+}
+
+func (c *controller) shouldCreateRootComputBinding(clusterName logicalcluster.Name) (bool, error) {
+	items, err := c.syncTargetIndexer.ByIndex(byWorkspace, clusterName.String())
+	if err != nil {
+		return false, err
+	}
+
+	for _, item := range items {
+		syncTarget := item.(*workloadv1alpha1.SyncTarget)
+		for _, export := range syncTarget.Spec.SupportedAPIExports {
+			if export.Workspace == nil {
+				continue
+			}
+			if export.Workspace.ExportName == reconcilerapiexport.TemporaryComputeServiceExportName && export.Workspace.Path == rootcompute.RootComputeWorkspace.String() {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
 }
