@@ -43,12 +43,12 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
-	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/syncer/namespace"
 	"github.com/kcp-dev/kcp/pkg/syncer/resourcesync"
 	"github.com/kcp-dev/kcp/pkg/syncer/spec"
 	"github.com/kcp-dev/kcp/pkg/syncer/status"
 	"github.com/kcp-dev/kcp/third_party/keyfunctions"
+	. "github.com/kcp-dev/kcp/tmc/pkg/logging"
 )
 
 const (
@@ -75,7 +75,7 @@ type SyncerConfig struct {
 
 func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, importPollInterval time.Duration) error {
 	logger := klog.FromContext(ctx)
-	logger = logger.WithValues(logging.SyncTargetWorkspaceKey, cfg.SyncTargetWorkspace, logging.SyncTargetNameKey, cfg.SyncTargetName)
+	logger = logger.WithValues(SyncTargetWorkspace, cfg.SyncTargetWorkspace, SyncTargetName, cfg.SyncTargetName)
 	logger.V(2).Info("starting syncer")
 
 	kcpVersion := version.Get().GitVersion
@@ -163,7 +163,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	}
 
 	syncTargetKey := workloadv1alpha1.ToSyncTargetKey(cfg.SyncTargetWorkspace, cfg.SyncTargetName)
-	logger = logger.WithValues(logging.SyncTargetNameKey, syncTargetKey)
+	logger = logger.WithValues(SyncTargetKey, syncTargetKey)
 	ctx = klog.NewContext(ctx, logger)
 
 	upstreamInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(upstreamDynamicClusterClient.Cluster(logicalcluster.Wildcard), resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {

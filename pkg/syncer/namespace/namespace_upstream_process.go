@@ -27,6 +27,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
+	. "github.com/kcp-dev/kcp/tmc/pkg/logging"
 )
 
 func (c *UpstreamController) process(ctx context.Context, key string) error {
@@ -75,7 +76,7 @@ func (c *UpstreamController) process(ctx context.Context, key string) error {
 	}
 
 	downstreamNamespaceName := downstreamNamespace.(*unstructured.Unstructured).GetName()
-	logger = logger.WithValues(logging.DownstreamNamespaceKey, downstreamNamespaceName)
+	logger = logger.WithValues(DownstreamNamespace, downstreamNamespaceName)
 	logger.V(2).Info("deleting downstream namespace because the upstream namespace doesn't exist")
 	return c.deleteDownstreamNamespace(ctx, downstreamNamespaceName)
 }

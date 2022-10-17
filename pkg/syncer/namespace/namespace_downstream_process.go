@@ -30,6 +30,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/dns/plugin/nsmap"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
+	. "github.com/kcp-dev/kcp/tmc/pkg/logging"
 )
 
 func (c *DownstreamController) process(ctx context.Context, key string) error {
@@ -40,7 +41,7 @@ func (c *DownstreamController) process(ctx context.Context, key string) error {
 		return nil
 	}
 
-	logger = logger.WithValues(logging.DownstreamNamespaceKey, namespaceName)
+	logger = logger.WithValues(DownstreamNamespace, namespaceName)
 
 	// Always refresh the DNS ConfigMap
 	err = c.updateDNSConfigMap(ctx)

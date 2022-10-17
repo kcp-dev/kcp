@@ -21,18 +21,20 @@ const (
 	// SyncTargetKeyPrefix is the prefix used for all the keys related to a SyncTarget.
 	SyncTargetKeyPrefix = "syncTarget."
 
-	// SyncTargetWorkspaceKey is used to specify a workspace when a log is related to a SyncTarget.
-	SyncTargetWorkspaceKey = SyncTargetKeyPrefix + "workspace"
-	// SyncTargetNamespaceKey is used to specify a namespace when a log is related to a SyncTarget.
-	SyncTargetNamespaceKey = SyncTargetKeyPrefix + "namespace"
-	// SyncTargetNameKey is used to specify a name when a log is related to a SyncTarget.
-	SyncTargetNameKey = SyncTargetKeyPrefix + "name"
+	// SyncTargetWorkspace is used to specify a workspace when a log is related to a SyncTarget.
+	SyncTargetWorkspace = SyncTargetKeyPrefix + "workspace"
+	// SyncTargetNamespace is used to specify a namespace when a log is related to a SyncTarget.
+	SyncTargetNamespace = SyncTargetKeyPrefix + "namespace"
+	// SyncTargetName is used to specify a name when a log is related to a SyncTarget.
+	SyncTargetName = SyncTargetKeyPrefix + "name"
+	// SyncTargetKey is used to specify the obfuscated key of a SyncTarget as used in the Syncer labels and annotations.
+	SyncTargetKey = SyncTargetKeyPrefix + "key"
 
 	// DownstreamKeyPrefix is the prefix used for all the keys related to a downstream object.
 	DownstreamKeyPrefix = "downstream."
 
-	// DownstreamNamespaceKey is used to specify a namespace when a log is related to a downstream object.
-	DownstreamNamespaceKey = DownstreamKeyPrefix + "namespace"
-	// DownstreamNameKey is used to specify a name when a log is related to a downstream object.
-	DownstreamNameKey = DownstreamKeyPrefix + "name"
+	// DownstreamNamespace is used to specify a namespace when a log is related to a downstream object.
+	DownstreamNamespace = DownstreamKeyPrefix + "namespace"
+	// DownstreamName is used to specify a name when a log is related to a downstream object.
+	DownstreamName = DownstreamKeyPrefix + "name"
 )

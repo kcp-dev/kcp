@@ -45,6 +45,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	specmutators "github.com/kcp-dev/kcp/pkg/syncer/spec/mutators"
 	"github.com/kcp-dev/kcp/third_party/keyfunctions"
+	. "github.com/kcp-dev/kcp/tmc/pkg/logging"
 )
 
 const (
@@ -138,7 +139,7 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetWorkspace logicalcluster.
 					if err != nil {
 						utilruntime.HandleError(fmt.Errorf("error splitting key %q: %w", key, err))
 					}
-					logger := logging.WithQueueKey(logger, key).WithValues("gvr", gvr, logging.DownstreamNamespaceKey, namespace, logging.DownstreamNameKey, name)
+					logger := logging.WithQueueKey(logger, key).WithValues("gvr", gvr, DownstreamNamespace, namespace, DownstreamName, name)
 					logger.V(3).Info("processing delete event")
 
 					var nsLocatorHolder *unstructured.Unstructured
