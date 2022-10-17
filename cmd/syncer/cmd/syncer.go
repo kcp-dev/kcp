@@ -53,7 +53,7 @@ func NewSyncerCommand() *cobra.Command {
 			}
 
 			ctx := genericapiserver.SetupSignalContext()
-			if err := Run(options, ctx); err != nil {
+			if err := Run(ctx, options); err != nil {
 				return err
 			}
 
@@ -76,8 +76,9 @@ func NewSyncerCommand() *cobra.Command {
 	return syncerCommand
 }
 
-func Run(options *synceroptions.Options, ctx context.Context) error {
-	klog.Infof("Syncing the following resource types: %s", options.SyncedResourceTypes)
+func Run(ctx context.Context, options *synceroptions.Options) error {
+	logger := klog.FromContext(ctx)
+	logger.Info("syncing", "resource-types", options.SyncedResourceTypes)
 
 	kcpConfigOverrides := &clientcmd.ConfigOverrides{
 		CurrentContext: options.FromContext,
