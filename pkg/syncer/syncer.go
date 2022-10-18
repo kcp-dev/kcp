@@ -54,6 +54,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/syncer/resourcesync"
 	"github.com/kcp-dev/kcp/pkg/syncer/spec"
 	"github.com/kcp-dev/kcp/pkg/syncer/status"
+	"github.com/kcp-dev/kcp/pkg/syncer/upsync"
 	. "github.com/kcp-dev/kcp/tmc/pkg/logging"
 )
 
@@ -291,6 +292,12 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		return err
 	}
 
+	logger.Info("Creating resource upsyncer")
+	upSyncer, err := upsync.NewUpSyncer(logger, logicalcluster.From(syncTarget), cfg.SyncTargetName, syncTargetKey, upstreamUpsyncerClusterClient, downstreamDynamicClient, ddsifForUpstreamSyncer, ddsifForUpstreamUpsyncer, ddsifForDownstream, syncTarget.GetUID())
+	if err != nil {
+		return err
+	}
+
 	// Start and sync informer factories
 	var cacheSyncsForAlwaysRequiredGVRs []cache.InformerSynced
 	for _, alwaysRequired := range []string{"secrets", "namespaces"} {
@@ -326,7 +333,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	go syncTargetGVRSource.Start(ctx, 1)
 	go specSyncer.Start(ctx, numSyncerThreads)
 	go statusSyncer.Start(ctx, numSyncerThreads)
-
+	go upSyncer.Start(ctx, numSyncerThreads)
 	go downstreamNamespaceController.Start(ctx, numSyncerThreads)
 
 	// Create and start GVR-specific controllers through controller managers
