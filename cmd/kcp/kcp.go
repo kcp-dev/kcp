@@ -114,7 +114,8 @@ func main() {
 				return errors.NewAggregate(errs)
 			}
 
-			klog.Infof("Batteries included: %s", strings.Join(completed.Extra.BatteriesIncluded, ","))
+			logger := klog.FromContext(cmd.Context())
+			logger.Info("running with selected batteries", "batteries", strings.Join(completed.Extra.BatteriesIncluded, ","))
 
 			config, err := server.NewConfig(completed)
 			if err != nil {

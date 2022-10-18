@@ -1,4 +1,3 @@
-/cmd/kcp/kcp.go:117:4: function "Infof" should not be used, convert to contextual logging
 /cmd/kubectl-kcp/cmd/kubectlKcp.go:58:2: function "InitFlags" should not be used, convert to contextual logging
 /cmd/kubectl-workspace/main.go:44:2: function "InitFlags" should not be used, convert to contextual logging
 /cmd/sharded-test-server/shard.go:34:2: function "Infof" should not be used, convert to contextual logging
@@ -52,8 +51,8 @@
 /pkg/admission/webhook/generic_webhook.go:85:3: function "Infof" should not be used, convert to contextual logging
 /pkg/admission/webhook/generic_webhook.go:85:3: function "V" should not be used, convert to contextual logging
 /pkg/authorization/delegated/authorizer.go:50:3: function "Errorf" should not be used, convert to contextual logging
-/pkg/cliplugins/workload/plugin/sync.go:477:4: function "Infof" should not be used, convert to contextual logging
-/pkg/cliplugins/workload/plugin/sync.go:477:4: function "V" should not be used, convert to contextual logging
+/pkg/cliplugins/workload/plugin/sync.go:595:4: function "Infof" should not be used, convert to contextual logging
+/pkg/cliplugins/workload/plugin/sync.go:595:4: function "V" should not be used, convert to contextual logging
 /pkg/dns/plugin/nsmap/namespace.go:68:2: function "Info" should not be used, convert to contextual logging
 /pkg/dns/plugin/nsmap/namespace.go:68:2: function "V" should not be used, convert to contextual logging
 /pkg/embeddedetcd/server.go:44:2: function "Info" should not be used, convert to contextual logging
@@ -112,7 +111,7 @@
 /pkg/reconciler/workload/synctargetexports/synctargetexports_controller.go:331:2: function "V" should not be used, convert to contextual logging
 /pkg/reconciler/workload/synctargetexports/synctargetexports_controller.go:333:3: function "Errorf" should not be used, convert to contextual logging
 /pkg/reconciler/workload/synctargetexports/synctargetexports_reconcile.go:58:5: function "Warningf" should not be used, convert to contextual logging
-/pkg/server/controllers.go:998:4: function "Errorf" should not be used, convert to contextual logging
+/pkg/server/controllers.go:1000:4: function "Errorf" should not be used, convert to contextual logging
 /pkg/server/home_workspaces.go:352:5: Additional arguments to WithValues should always be Key Value pairs. Please check if there is any key or value missing.
 /pkg/server/home_workspaces.go:638:6: Additional arguments to WithValues should always be Key Value pairs. Please check if there is any key or value missing.
 /pkg/server/options/controllers.go:54:3: function "Fatal" should not be used, convert to contextual logging
@@ -169,8 +168,8 @@
 /pkg/virtual/apiexport/controllers/apireconciler/apiexport_apireconciler_controller.go:151:3: function "V" should not be used, convert to contextual logging
 /pkg/virtual/apiexport/controllers/apireconciler/apiexport_apireconciler_controller.go:157:3: function "Infof" should not be used, convert to contextual logging
 /pkg/virtual/apiexport/controllers/apireconciler/apiexport_apireconciler_controller.go:157:3: function "V" should not be used, convert to contextual logging
-/pkg/virtual/apiexport/controllers/apireconciler/apiexport_apireconciler_reconcile.go:270:4: function "Infof" should not be used, convert to contextual logging
-/pkg/virtual/apiexport/controllers/apireconciler/apiexport_apireconciler_reconcile.go:270:4: function "V" should not be used, convert to contextual logging
+/pkg/virtual/apiexport/controllers/apireconciler/apiexport_apireconciler_reconcile.go:263:4: function "Infof" should not be used, convert to contextual logging
+/pkg/virtual/apiexport/controllers/apireconciler/apiexport_apireconciler_reconcile.go:263:4: function "V" should not be used, convert to contextual logging
 /pkg/virtual/framework/dynamic/apiserver/serving_info.go:185:3: function "Infof" should not be used, convert to contextual logging
 /pkg/virtual/framework/dynamic/apiserver/serving_info.go:185:3: function "V" should not be used, convert to contextual logging
 /pkg/virtual/initializingworkspaces/builder/build.go:203:7: function "Errorf" should not be used, convert to contextual logging
