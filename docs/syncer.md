@@ -77,6 +77,32 @@ This step sets current context to the new kind cluster. Make sure to use a KCP k
     ```bash
     kubectl wait --for=condition=Ready synctarget/<mycluster>
     ```
+### Select resources to sync.
+
+Syncer will by default use the `kubernetes` APIExport in `root:compute` workspace and sync `deployments/services/ingresses`
+to the physical cluster. The related API schemas of the physical cluster should be comptible with kubernetes 1.24. User can
+select to sync other resources in physical clusters or from other APIExports on kcp server.
+
+To sync resources that the KCP server does not have an APIExport to support yet, run
+
+```sh
+kubectl kcp workload sync <mycluster> --syncer-image <image name> --resources foo.bar -o syncer.yaml
+```
+
+And apply the generated manifests to the physical cluster. The syncer will then import the API schema of foo.bar
+to the workspace of the synctarget, following up with an auto generated kubernetes APIExport/APIBinding in the same workspace.
+You can then create foo.bar in this workspace, or create an APIBinding in another workspace to bind this APIExport.
+
+To sync resource from another existing APIExport in the KCP server, run
+
+```sh
+kubectl kcp workload sync <mycluster> --syncer-image <image name> --apiexports another-workspace|another-apiexport -o syncer.yaml
+```
+
+Syncer will start syncing the resources in this APIExport as long as the physical clusters has the compatible API schemas.
+
+To see if a certain resource is supported to be synced by the syncer, you can check the state of the `syncedResources` in `SyncTarget`
+status.
 
 ### Running a workload
 
