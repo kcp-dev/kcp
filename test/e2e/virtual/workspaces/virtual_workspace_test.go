@@ -600,11 +600,11 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 
 		tokenAuthFile := framework.WriteTokenAuthFile(t)
 		server = framework.PrivateKcpServer(t,
-			append(framework.TestServerArgsWithTokenAuthFile(tokenAuthFile),
+			framework.WithCustomArguments(append(framework.TestServerArgsWithTokenAuthFile(tokenAuthFile),
 				"--run-virtual-workspaces=false",
 				fmt.Sprintf("--shard-virtual-workspace-url=https://localhost:%s", portStr),
 			)...,
-		)
+			))
 
 		// write kubeconfig to disk, next to kcp kubeconfig
 		kcpAdminConfig, _ := server.RawConfig()
