@@ -1,8 +1,15 @@
-# Virtual Workspaces
+---
+title: "Virtual Workspaces"
+linkTitle: "Virtual Workspaces"
+weight: 1
+description: >
+  What are virtual workspaces and how do they work?
+---
 
 Virtual workspaces are proxy-like apiservers under a custom URL that provide some computed view of real workspaces.
 
-## Examples:
+## Examples
+
 1. when the user does `kubectl get workspaces` only workspaces are shown that the user has access to. That resource is implemented through a virtual workspace under `/services/workspaces/<org>/personal/apis/tenancy.kcp.dev/v1beta1/workspaces`.
 2. controllers should not be able to directly access customer workspaces. They should only be able to access the objects that are connected to their provided APIs. In [April 19's community call this virtual workspace was showcased](https://www.youtube.com/watch?v=Ca3vh3lS6YI&t=1280s), developed during v0.4 phase.
 3. if we keep the initializer model with `ClusterWorkspaceTypes`, there must be a virtual workspace for the "workspace type owner" that gives access to initializing workspaces.
@@ -12,7 +19,10 @@ Virtual workspaces are proxy-like apiservers under a custom URL that provide som
 
 - **Can we use go clients to watch resources on a virtual workspace?** Absolutely. From the point of view of the controllers it is just a normal (client) URL. So one can use client-go informers (or controller-runtime) to watch the objects in a virtual workspace.
 
-  **Note:** a normal service account lives in just ONE workspace and can only access its own workspace. So in order to use a service account for accessing cross-workspace data (and that's what is necessary in example 2 and 3 at least), we need a virtual workspace to add the necessary authz.
+{{% alert title="Note" color="primary" %}}
+A normal service account lives in just ONE workspace and can only access its own workspace. So in order to use a service account for accessing cross-workspace data (and that's what is necessary in example 2 and 3 at least), we need a virtual workspace to add the necessary authz.
+{{% /alert %}}
+
 - **Are virtual workspaces read-only?** No, they are not necessarily. Some are, some are not. The controller view virtual workspace will be writable, as well as the syncer virtual workspace.
 - **Do service teams have to write their own virtual workspace?** Not for the standard cases as described above. There might be cases in the future where service teams provide their own virtual workspace for some very special purpose access patterns. But we are not there yet.
 - **Where does the developer get the URL from of the virtual workspace?** The URLs will be "published" in some object status. E.g. APIExport.status will have a list of URLs that controllers have to connect to (example 2). Similarly, SyncTarget.status will have URLs for the syncer virtual workspaces, etc. We might do the same in ClusterWorkspaceType.status (example 3).

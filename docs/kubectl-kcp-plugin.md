@@ -1,5 +1,10 @@
-# Kubectl kcp plugin
-
+---
+title: "Kubectl kcp plugin"
+linkTitle: "Kubectl kcp plugin"
+weight: 1
+description: >
+  How to use the kubectl kcp plugin
+---
 
 kcp provides a kubectl plugin that simplifies the operations with the kcp server.
 

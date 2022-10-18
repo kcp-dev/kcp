@@ -1,4 +1,10 @@
-# Introduction
+---
+title: "Authorization"
+linkTitle: "Authorization"
+weight: 1
+description: >
+  How to authorize requests to kcp
+---
 
 Within workspaces, KCP implements the same RBAC-based authorization mechanism as Kubernetes.
 Other authorization schemes (i.e. ABAC) are not supported.
@@ -13,11 +19,11 @@ In addition, additional RBAC semantics is implemented cross-workspaces, namely t
   - workspace creation checks for organization membership (see above).
   - workspace creation checks for `use` verb on the `ClusterWorkspaceType`.
   - API binding via APIBinding objects requires verb `bind` access to the corresponding `APIExport`.
-- **System Workspaces** access: system workspaces are prefixed with `system:` and are not accessible by users. 
+- **System Workspaces** access: system workspaces are prefixed with `system:` and are not accessible by users.
 
 The details are outlined below.
 
-# Authorizers
+## Authorizers
 
 The following authorizers are configured in kcp:
 
@@ -52,8 +58,10 @@ They are related in the following way:
                                                                                     │              │
                                                                                     └──────────────┘
 ```
+
 [ASCIIFlow document](https://asciiflow.com/#/share/eJyrVspLzE1VslLydg5QcCwtycgvyqxKLVLSUcpJrATSVkrVMUoVMUpWlpaGOjFKlUCWkaUZkFWSWlEC5MQoKdAAPJrS82hKA9FoQkxMHm2c0YQhgGoViQ5FuJhM3RPIsXgCFvXTdoE855OfnJijEJCfk5lcCVQyB0eAgpSG5Bfo5qSWpeaghQ1GGCGLoEtC%2BMhaE%2BFJDiYBDeOi1MLS1OISqKh%2FUXpiXmZVYklmfh667eH5RdnFBYnJqWie3IIebiDFjgGeCk6ZeSmZeelYXIPpWIhrCIQwJDBRvALWPweLKuf8vJLUPKi%2FtNOL8ksLilFUYhqGatASqOFTSEk3M7CmXfSYwxU1qJatQTWXUCxjgkfT9pDmEuwyJIbCDLxu8g9CjgF055EU1qiBQ4buGTjciBIqpBWQoEDfRPVSEiWOnPLzS4oVihILFFCyDrVtRA1MSGaBlWBQJfDcMoOW9QJqDqW%2BV5GsQhOgmVWkFSkxSrVKtQBJrg9s)
-## Top-Level Organization authorizer
+
+### Top-Level Organization authorizer
 
 A top-level organization is a workspace directly under root. When a user accesses a top-level organization or
 a sub-workspace like `root:org:ws:ws`, this authorizer will check in `root` whether the user has permission
@@ -81,10 +89,10 @@ rules:
   - access
 ```
 
-## Workspace Content authorizer
+### Workspace Content authorizer
 
-The workspace content authorizer checks whether the user is granted `admin` or `access` verbs in 
-the parent workspace against the `workspaces/content` resource with the `resourceNames` of 
+The workspace content authorizer checks whether the user is granted `admin` or `access` verbs in
+the parent workspace against the `workspaces/content` resource with the `resourceNames` of
 the workspace being accessed.
 
 If any of the verbs is granted, the associated group is added to the user's attributes
@@ -156,7 +164,7 @@ roleRef:
   name: workspace-admin
 ```
 
-### Initializing Workspaces
+#### Initializing Workspaces
 
 By default, workspaces are only accessible to a user if they are in `Ready` phase. Workspaces that are initializing
 can be access only by users that are granted `admin` verb on the `workspaces/content` resource in the
@@ -164,13 +172,13 @@ parent workspace.
 
 Service accounts declared within a workspace don't have access to initializing workspaces.
 
-## API binding authorizer
+### API binding authorizer
 
 If the requested resource type is part of an API binding, then the API binding authorizer verifies that
 the request is not exceeding the maximum permission policy of the related API export.
 Currently, the "local policy" maximum permission policy type is supported.
 
-### Local policy
+#### Local policy
 
 The local maximum permission policy delegates the decision to the RBAC of the related API export.
 To distinguish between local RBAC role bindings in that workspace and those for this these maximum permission policy,
@@ -225,17 +233,19 @@ roleRef:
   name: foo-creator
 ```
 
-Note: The same authorization scheme is enforced when executing the request of a claimed resource via the virtual API Export API server,
+{{% alert title="Note" color="primary" %}}
+The same authorization scheme is enforced when executing the request of a claimed resource via the virtual API Export API server,
 i.e. a claimed resource is bound to the same maximal permission policy. Only the actual owner of that resources can go beyond that policy.
+{{% /alert %}}
 
 TBD: Example
 
-## Kubernetes Bootstrap Policy authorizer
+### Kubernetes Bootstrap Policy authorizer
 
 The bootstrap policy authorizer works just like the local authorizer but references RBAC rules
 defined in the `system:admin` system workspace.
 
-## Local Policy authorizer
+### Local Policy authorizer
 
 Once the top-level organization authorizer and the workspace content authorizer granted access to a
 workspace, RBAC rules contained in the workspace derived from the request context are evaluated.
@@ -243,11 +253,13 @@ workspace, RBAC rules contained in the workspace derived from the request contex
 This authorizer ensures that RBAC rules contained within a workspace are being applied
 and work just like in a regular Kubernetes cluster.
 
-Note: groups added by the workspace content authorizer can be used for role bindings in that workspace.
+{{% alert title="Note" color="primary" %}}
+Groups added by the workspace content authorizer can be used for role bindings in that workspace.
+{{% /alert %}}
 
 It is possible to bind to roles and cluster roles in the bootstrap policy from a local policy `RoleBinding` or `ClusterRoleBinding`.
 
-# Service Accounts
+### Service Accounts
 
 Kubernetes service accounts are granted access to the workspaces they are defined in and that are ready.
 

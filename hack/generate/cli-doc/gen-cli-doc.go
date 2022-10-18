@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 
 	kubectlKcp "github.com/kcp-dev/kcp/cmd/kubectl-kcp/cmd"
+	"github.com/kcp-dev/kcp/hack/third_party/github.com/spf13/cobra/doc"
 )
 
 func main() {
@@ -39,7 +40,7 @@ func main() {
 		log.Fatalf("Failed to re-create docs directory: %v", err)
 	}
 
-	if err := kubectlKcp.GenerateDocs(cliDocsPath); err != nil {
+	if err := doc.GenMarkdownTree(kubectlKcp.KubectlKcpCommand(), cliDocsPath); err != nil {
 		log.Fatalf("Failed to generate docs: %v", err)
 	}
 }

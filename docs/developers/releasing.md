@@ -1,18 +1,24 @@
-# Publishing a new kcp release
-This document describes the processes to follow when creating and publishing a new kcp release.
+---
+title: "Publishing a new kcp release"
+linkTitle: "Publishing"
+weight: 1
+description: >
+  kcp release process.
+---
 
-Note, you currently need write access to the [kcp-dev/kcp](https://github.com/kcp-dev/kcp) repository to perform these tasks.
+{{% alert title="Note" color="primary" %}}
+You currently need write access to the [kcp-dev/kcp](https://github.com/kcp-dev/kcp) repository to perform these tasks.
 
-You also need an available
-team member with approval permissions from https://github.com/openshift/release/blob/master/ci-operator/config/kcp-dev/kcp/OWNERS.
+You also need an available team member with approval permissions from <https://github.com/openshift/release/blob/master/ci-operator/config/kcp-dev/kcp/OWNERS>.
+{{% /alert %}}
 
 ## Create git tags
 
 ### Prerequisite - make sure you have a GPG signing key
 
-1. https://docs.github.com/en/authentication/managing-commit-signature-verification/generating-a-new-gpg-key
-2. https://docs.github.com/en/authentication/managing-commit-signature-verification/adding-a-gpg-key-to-your-github-account
-3. https://docs.github.com/en/authentication/managing-commit-signature-verification/telling-git-about-your-signing-key
+1. <https://docs.github.com/en/authentication/managing-commit-signature-verification/generating-a-new-gpg-key>
+2. <https://docs.github.com/en/authentication/managing-commit-signature-verification/adding-a-gpg-key-to-your-github-account>
+3. <https://docs.github.com/en/authentication/managing-commit-signature-verification/telling-git-about-your-signing-key>
 
 ### Create the tags
 

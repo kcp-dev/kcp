@@ -1,4 +1,10 @@
-# Logical clusters
+---
+title: "Logical clusters"
+linkTitle: "Logical clusters"
+weight: 1
+description: >
+  Investigation on logical clusters
+---
 
 Kubernetes evolved from and was influenced by earlier systems that had weaker internal tenancy than a general-purpose compute platform requires. The namespace, quota, admission, and RBAC concepts were all envisioned quite early in the project, but evolved with Kubernetes and not all impacts to future evolution were completely anticipated. Tenancy within clusters is handled at the resource and namespace level, and within a namespace there are a limited number of boundaries. Most organizations use either namespace or cluster separation as their primary unit of self service, with variations leveraging a rich ecosystem of tools.
 
@@ -7,7 +13,6 @@ The one concrete component that cannot be tenanted are API resources - from a Ku
 Our admission chain has historically been very powerful and allowed deep policy to be enforced for tenancy, but the lack of a dynamic plugin model in golang has limited us to what can be accomplished to external RPC webhooks which have a number of significant performance and reliability impacts (especially when coupled to the cluster the webhook is acting on). If we want to have larger numbers of tenants or stronger subdivision, we need to consider improving the scalability of our policy chain in a number of dimensions.
 
 Ideally, as a community we could improve both namespace and cluster tenancy at the same time in a way that provides enhanced tools for teams and organizations, addresses extensions holistically, and improves the reliability and performance of policy control from our control planes.
-
 
 ## Goal: Getting a new cluster that allows a team to add extensions efficiently should be effectively zero cost
 
@@ -25,7 +30,6 @@ As clusters grow larger or are used in more complex fashion, the failure modes o
 
 Early in Kubernetes we discussed our options for extension of the core capability - admission control and controllers are the two primary levers, with aggregated APIs being an escape hatch for more complex API behavior (including the ability to wrap existing APIs or CRDs). We should consider options that could reduce the cost of complex policy such as making using the Kube API more library-like (to enable forking) as well as in-process options for policy that could deliver order of magnitude higher reliability and performance than webhooks.
 
-
 ## Areas of investigation
 
 1. Define high level user use cases
@@ -39,27 +43,25 @@ Early in Kubernetes we discussed our options for extension of the core capabilit
 9. Explore providing a read only resource underlay from another logical cluster so that immutable default objects can be provided
 10. Investigate use cases that would benefit even a single cluster (justify having this be a feature in kube-apiserver on by default)
 
-
 ## Use cases
 
 The use cases of logical cluster can be seen to overlap heavily with [transparent multi-cluster](transparent-multi-cluster.md) use cases, and are captured at the highest level in [GOALS.md](../../GOALS.md).  The use cases below attempt to focus on logical clusters independent of the broader goals.
 
-### As a developer of CRDs / controllers / extensions ...
+### As a developer of CRDs / controllers / extensions
 
 * I can launch a local Kube control plane and test out multiple different versions of the same CRD in parallel quickly
 * I can create a control plane for my organization's cloud resources (CRDs) that is centralized but doesn't require me to provision nodes.
 
-### As an infrastructure admin ...
+### As an infrastructure admin
 
 * I can have strong tenant separation between different application teams
 * Allow tenant teams to run their own custom resources (CRDs) and controllers without impacting others
 * Subdivide access to the underlying clusters, keep those clusters simpler and with fewer extensions, and reduce the impact of cluster failure
 
-### As a user on an existing Kubernetes cluster ...
+### As a user on an existing Kubernetes cluster
 
 * I can get a temporary space to test an extension before installing it
 * I can create clusters that have my own namespaces
-
 
 ## Progress
 

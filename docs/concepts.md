@@ -1,9 +1,15 @@
-# Terminology for control plane
-Contains the definitions shared across design documents around prototyping a kube-like control plane (in KCP).  This is
-a derivative work of other design documents intended to frame terminology.  All future statements that may be changed by
-designs is covered by those designs, and not duplicated here.
+---
+title: "Terminology for kcp"
+linkTitle: "Terminology"
+weight: 1
+description: >
+  Contains the definitions shared across design documents around prototyping a kube-like control plane (in KCP).  This is
+  a derivative work of other design documents intended to frame terminology.  All future statements that may be changed by
+  designs is covered by those designs, and not duplicated here.
+---
 
 ## Logical cluster
+
 A logical cluster is a way to subdivide a single kube-apiserver + etcd storage into multiple clusters (different APIs,
 separate semantics for access, policy, and control) without requiring multiple instances.  A logical cluster is a
 mechanism for achieving separation, but may be modelled differently in different use cases.  A logical cluster is
@@ -15,11 +21,13 @@ kube-apiserver.  Regular servers identify objects by (group, version, resource, 
 cluster enriches an identifier: (group, version, resource, **logical cluster name**, optional namespace, name).
 
 ## Workload Cluster
+
 A physical cluster is a “real Kubernetes cluster”, i.e. one that can run Kubernetes workloads and accepts standard
 Kubernetes API objects.  For the near term, it is assumed that a physical cluster is a distribution of Kubernetes and
 passes the conformance tests and exposes the behavior a regular Kubernetes admin or user expects.
 
 ## Workspace
+
 A workspace models a set of user-facing APIs for CRUD.  Each workspace is backed by a logical cluster, but not all
 logical clusters may be exposed as workspaces.  Creating a Workspace object results in a logical cluster being available
 via a URL for the client to connect and create resources supported by the APIs in that workspace.  There could be
@@ -43,6 +51,7 @@ name, a workspace subdivides the universe into chunks of meaningful work.
 Workspaces are the containers for all API objects, so users orient by viewing lists of workspaces from APIs.
 
 ## Workspace type
+
 Workspaces have types, which are mostly oriented around a set of default or optional APIs exposed.  For instance, a
 workspace intended for use deploying Kube applications might expose the same API objects a user would encounter on a
 physical cluster.  A workspace intended for building functions might expose only the knative serving APIs, config maps
@@ -52,6 +61,7 @@ At the current time there is no decision on whether a workspace type represents 
 although in general we prefer composition approaches.  We also do not have a fully resolved design.
 
 ## Virtual Workspace
+
 An API object has one source of truth (is stored transactionally in one system), but may be exposed to different use
 cases with different fields or schemas.  Since a workspace is the user facing interaction with an API object, if we want
 to deal with Workspaces in aggregate, we need to be able to list them.  Since a user may have access to workspaces in
@@ -61,6 +71,7 @@ user inside a workspace.  That workspace is “virtual” - it adapts or transfo
 object and potentially the schema the user sees.
 
 ## Index (e.g. Workspace Index)
+
 An index is the authoritative list of a particular API in their source of truth across the system.  For instance, in
 order for a user to see all the workspaces they have available, they must consult the workspace index to return a list
 of their workspaces.  It is expected that indices are suitable for consistent LIST/WATCHing (in the kubernetes sense) so
@@ -70,6 +81,7 @@ Index in the control plane sense should not be confused with secondary indices (
 used to enable a particular index.
 
 ## Shard
+
 A failure domain within the larger control plane service that cuts across the primary functionality. Most distributed
 systems must separate functionality across shards to mitigate failures, and typically users interact with shards through
 some transparent serving infrastructure.  Since the primary problem of building distributed systems is reasoning about
@@ -80,6 +92,7 @@ A control plane should be shardable in a way that maximizes application SLO - gi
 better define their applications not to fail.
 
 ## API Binding
+
 The act of associating a set of APIs with a given logical cluster.  The Workspace model defines one particular
 implementation of the lifecycle of a logical cluster and the APIs within it.  Because APIs and the implementations that
 back an API evolve over time, it is important that the binding be introspectable and orchestrate-able - that a consumer
@@ -102,4 +115,3 @@ A syncer is installed on a SyncTarget and is responsible for synchronizing data 
 A collection of SyncTargets that describe runtime characteristics that allow placement of applications.
 Characteristics are not limited but could describe things like GPU, supported storage, compliance or
 regulatory fulfillment, or geographical placement.
-
