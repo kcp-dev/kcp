@@ -52,19 +52,19 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
-// TestInProcessReplicateAPIExport tests if an APIExport is propagated to the cache server.
+type testScenario struct {
+	name string
+	work func(ctx context.Context, t *testing.T, server framework.RunningServer)
+}
+
+// scenarios all test scenarios that will be run against in-process and standalone cache server
+var scenarios = []testScenario{
+	{"TestReplicateAPIExport", replicateAPIExportScenario},
+}
+
+// replicateAPIExportScenario tests if an APIExport is propagated to the cache server.
 // The test exercises creation, modification and removal of the APIExport object.
-func TestInProcessReplicateAPIExport(t *testing.T) {
-	t.Parallel()
-	// TODO(p0lyn0mial): switch to framework.SharedKcpServer when caching is turned on by default
-	tokenAuthFile := framework.WriteTokenAuthFile(t)
-	server := framework.PrivateKcpServer(t,
-		framework.WithCustomArguments(append(framework.TestServerArgsWithTokenAuthFile(tokenAuthFile),
-			"--run-cache-server=true",
-		)...,
-		))
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+func replicateAPIExportScenario(ctx context.Context, t *testing.T, server framework.RunningServer) {
 	org := framework.NewOrganizationFixture(t, server)
 	cluster := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
 	kcpRootShardConfig := server.RootShardSystemMasterBaseConfig(t)
@@ -132,7 +132,65 @@ func TestInProcessReplicateAPIExport(t *testing.T) {
 	}, wait.ForeverTestTimeout, 400*time.Millisecond)
 }
 
-func TestStandaloneReplicateAPIExport(t *testing.T) {
+func verifyAPIExportUpdate(ctx context.Context, t *testing.T, cluster logicalcluster.Name, kcpRootShardClient clientset.ClusterInterface, cacheKcpClusterClient clientset.ClusterInterface, changeApiExportFn func(*apisv1alpha1.APIExport)) {
+	var wildAPIExport *apisv1alpha1.APIExport
+	var updatedWildAPIExport *apisv1alpha1.APIExport
+	var err error
+	framework.Eventually(t, func() (bool, string) {
+		wildAPIExport, err = kcpRootShardClient.Cluster(cluster).ApisV1alpha1().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
+		if err != nil {
+			return true, err.Error()
+		}
+		changeApiExportFn(wildAPIExport)
+		updatedWildAPIExport, err = kcpRootShardClient.Cluster(cluster).ApisV1alpha1().APIExports().Update(ctx, wildAPIExport, metav1.UpdateOptions{})
+		if err != nil {
+			if !errors.IsConflict(err) {
+				return true, fmt.Sprintf("unknow error while updating the cached %s/%s/%s APIExport, err: %s", "root", cluster, "wild.wild.west", err.Error())
+			}
+			return false, err.Error() // try again
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, 400*time.Millisecond)
+	t.Logf("Get root/%s/%s APIExport from the cache server", cluster, "wild.wild.west")
+	framework.Eventually(t, func() (bool, string) {
+		cachedWildAPIExport, err := cacheKcpClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Get(cacheclient.WithShardInContext(ctx, shard.New("root")), wildAPIExport.Name, metav1.GetOptions{})
+		if err != nil {
+			return true, err.Error()
+		}
+		t.Logf("Verify if both the orignal APIExport and replicated are the same except %s annotation and ResourceVersion after an update to the spec", genericapirequest.AnnotationKey)
+		if _, found := cachedWildAPIExport.Annotations[genericapirequest.AnnotationKey]; !found {
+			return true, fmt.Sprintf("replicated APIExport root/%s/%s, doesn't have %s annotation", cluster, cachedWildAPIExport.Name, genericapirequest.AnnotationKey)
+		}
+		delete(cachedWildAPIExport.Annotations, genericapirequest.AnnotationKey)
+		if diff := cmp.Diff(cachedWildAPIExport, updatedWildAPIExport, cmpopts.IgnoreFields(metav1.ObjectMeta{}, "ResourceVersion")); len(diff) > 0 {
+			return false, fmt.Sprintf("replicated APIExport root/%s/%s is different that the original, diff: %s", cluster, wildAPIExport.Name, diff)
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, 400*time.Millisecond)
+}
+
+// TestAllAgainstInProcessCacheServer runs all test scenarios against a cache server that runs with a kcp server
+func TestAllAgainstInProcessCacheServer(t *testing.T) {
+	t.Parallel()
+	// TODO(p0lyn0mial): switch to framework.SharedKcpServer when caching is turned on by default
+	tokenAuthFile := framework.WriteTokenAuthFile(t)
+	server := framework.PrivateKcpServer(t,
+		framework.WithCustomArguments(append(framework.TestServerArgsWithTokenAuthFile(tokenAuthFile),
+			"--run-cache-server=true",
+		)...,
+		))
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	for _, scenario := range scenarios {
+		t.Run(scenario.name, func(tt *testing.T) {
+			scenario.work(ctx, tt, server)
+		})
+	}
+}
+
+// TestAllScenariosAgainstStandaloneCacheServer runs all test scenarios against a standalone cache server
+func TestAllScenariosAgainstStandaloneCacheServer(t *testing.T) {
 	artifactDir, dataDir, err := framework.ScratchDirs(t)
 	require.NoError(t, err)
 
@@ -185,46 +243,16 @@ func TestStandaloneReplicateAPIExport(t *testing.T) {
 	err = clientcmd.WriteToFile(cacheServerKubeConfig, cacheKubeconfigPath)
 	require.NoError(t, err)
 
+	// TODO(p0lyn0mial): switch to framework.SharedKcpServer when caching is turned on by default
 	tokenAuthFile := framework.WriteTokenAuthFile(t)
 	server := framework.PrivateKcpServer(t,
 		framework.WithCustomArguments(append(framework.TestServerArgsWithTokenAuthFile(tokenAuthFile), "--run-cache-server=true", fmt.Sprintf("cache-server-kubeconfig-file=%s", cacheKubeconfigPath))...),
 		framework.WithScratchDirectories(artifactDir, dataDir),
 	)
-}
 
-func verifyAPIExportUpdate(ctx context.Context, t *testing.T, cluster logicalcluster.Name, kcpRootShardClient clientset.ClusterInterface, cacheKcpClusterClient clientset.ClusterInterface, changeApiExportFn func(*apisv1alpha1.APIExport)) {
-	var wildAPIExport *apisv1alpha1.APIExport
-	var updatedWildAPIExport *apisv1alpha1.APIExport
-	var err error
-	framework.Eventually(t, func() (bool, string) {
-		wildAPIExport, err = kcpRootShardClient.Cluster(cluster).ApisV1alpha1().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
-		if err != nil {
-			return true, err.Error()
-		}
-		changeApiExportFn(wildAPIExport)
-		updatedWildAPIExport, err = kcpRootShardClient.Cluster(cluster).ApisV1alpha1().APIExports().Update(ctx, wildAPIExport, metav1.UpdateOptions{})
-		if err != nil {
-			if !errors.IsConflict(err) {
-				return true, fmt.Sprintf("unknow error while updating the cached %s/%s/%s APIExport, err: %s", "root", cluster, "wild.wild.west", err.Error())
-			}
-			return false, err.Error() // try again
-		}
-		return true, ""
-	}, wait.ForeverTestTimeout, 400*time.Millisecond)
-	t.Logf("Get root/%s/%s APIExport from the cache server", cluster, "wild.wild.west")
-	framework.Eventually(t, func() (bool, string) {
-		cachedWildAPIExport, err := cacheKcpClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Get(cacheclient.WithShardInContext(ctx, shard.New("root")), wildAPIExport.Name, metav1.GetOptions{})
-		if err != nil {
-			return true, err.Error()
-		}
-		t.Logf("Verify if both the orignal APIExport and replicated are the same except %s annotation and ResourceVersion after an update to the spec", genericapirequest.AnnotationKey)
-		if _, found := cachedWildAPIExport.Annotations[genericapirequest.AnnotationKey]; !found {
-			return true, fmt.Sprintf("replicated APIExport root/%s/%s, doesn't have %s annotation", cluster, cachedWildAPIExport.Name, genericapirequest.AnnotationKey)
-		}
-		delete(cachedWildAPIExport.Annotations, genericapirequest.AnnotationKey)
-		if diff := cmp.Diff(cachedWildAPIExport, updatedWildAPIExport, cmpopts.IgnoreFields(metav1.ObjectMeta{}, "ResourceVersion")); len(diff) > 0 {
-			return false, fmt.Sprintf("replicated APIExport root/%s/%s is different that the original, diff: %s", cluster, wildAPIExport.Name, diff)
-		}
-		return true, ""
-	}, wait.ForeverTestTimeout, 400*time.Millisecond)
+	for _, scenario := range scenarios {
+		t.Run(scenario.name, func(tt *testing.T) {
+			scenario.work(ctx, tt, server)
+		})
+	}
 }
