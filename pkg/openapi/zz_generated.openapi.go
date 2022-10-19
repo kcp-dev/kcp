@@ -66,6 +66,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.LocalAPIExportPolicy":                        schema_pkg_apis_apis_v1alpha1_LocalAPIExportPolicy(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.MaximalPermissionPolicy":                     schema_pkg_apis_apis_v1alpha1_MaximalPermissionPolicy(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.PermissionClaim":                             schema_pkg_apis_apis_v1alpha1_PermissionClaim(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ResourceSelector":                            schema_pkg_apis_apis_v1alpha1_ResourceSelector(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.VirtualWorkspace":                            schema_pkg_apis_apis_v1alpha1_VirtualWorkspace(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.WorkspaceExportReference":                    schema_pkg_apis_apis_v1alpha1_WorkspaceExportReference(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.AvailableSelectorLabel":                schema_pkg_apis_scheduling_v1alpha1_AvailableSelectorLabel(ref),
@@ -1752,6 +1753,28 @@ func schema_pkg_apis_apis_v1alpha1_AcceptablePermissionClaim(ref common.Referenc
 				Description: "AcceptablePermissionClaim is a PermissionClaim that records if the user accepts or rejects it.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"all": {
+						SchemaProps: spec.SchemaProps{
+							Description: "all claims all resources for the given group/resource. This is mutually exclusive with resourceSelector.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"resourceSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "resourceSelector is a list of claimed resource selectors.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ResourceSelector"),
+									},
+								},
+							},
+						},
+					},
 					"identityHash": {
 						SchemaProps: spec.SchemaProps{
 							Description: "This is the identity for a given APIExport that the APIResourceSchema belongs to. The hash can be found on APIExport and APIResourceSchema's status. It will be empty for core types. Note that one must look this up for a particular KCP instance.",
@@ -1767,9 +1790,11 @@ func schema_pkg_apis_apis_v1alpha1_AcceptablePermissionClaim(ref common.Referenc
 						},
 					},
 				},
-				Required: []string{"state"},
+				Required: []string{"all", "state"},
 			},
 		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ResourceSelector"},
 	}
 }
 
@@ -1980,6 +2005,28 @@ func schema_pkg_apis_apis_v1alpha1_PermissionClaim(ref common.ReferenceCallback)
 				Description: "PermissionClaim identifies an object by GR and identity hash. Its purpose is to determine the added permissions that a service provider may request and that a consumer may accept and allow the service provider access to.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"all": {
+						SchemaProps: spec.SchemaProps{
+							Description: "all claims all resources for the given group/resource. This is mutually exclusive with resourceSelector.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"resourceSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "resourceSelector is a list of claimed resource selectors.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ResourceSelector"),
+									},
+								},
+							},
+						},
+					},
 					"identityHash": {
 						SchemaProps: spec.SchemaProps{
 							Description: "This is the identity for a given APIExport that the APIResourceSchema belongs to. The hash can be found on APIExport and APIResourceSchema's status. It will be empty for core types. Note that one must look this up for a particular KCP instance.",
@@ -1988,6 +2035,37 @@ func schema_pkg_apis_apis_v1alpha1_PermissionClaim(ref common.ReferenceCallback)
 						},
 					},
 				},
+				Required: []string{"all"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ResourceSelector"},
+	}
+}
+
+func schema_pkg_apis_apis_v1alpha1_ResourceSelector(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "name of an object within a claimed group/resource. It matches the metadata.name field of the underlying object.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"namespace": {
+						SchemaProps: spec.SchemaProps{
+							Description: "namespace containing the named object. Matches metadata.namespace field. If \"name\" is unset, all objects from the namespace are being claimed.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"namespace"},
 			},
 		},
 	}
