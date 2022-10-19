@@ -54,7 +54,7 @@ import (
 
 type testScenario struct {
 	name string
-	work func(ctx context.Context, t *testing.T, server framework.RunningServer)
+	work func(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterClient clientset.ClusterInterface, cacheKcpClusterClient clientset.ClusterInterface)
 }
 
 // scenarios all test scenarios that will be run against in-process and standalone cache server
@@ -64,26 +64,18 @@ var scenarios = []testScenario{
 
 // replicateAPIExportScenario tests if an APIExport is propagated to the cache server.
 // The test exercises creation, modification and removal of the APIExport object.
-func replicateAPIExportScenario(ctx context.Context, t *testing.T, server framework.RunningServer) {
+func replicateAPIExportScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterClient clientset.ClusterInterface, cacheKcpClusterClient clientset.ClusterInterface) {
 	org := framework.NewOrganizationFixture(t, server)
 	cluster := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
-	kcpRootShardConfig := server.RootShardSystemMasterBaseConfig(t)
-	kcpRootShardClient, err := clientset.NewClusterForConfig(kcpRootShardConfig)
-	require.NoError(t, err)
-	cacheClientRT := cacheclient.WithCacheServiceRoundTripper(rest.CopyConfig(kcpRootShardConfig))
-	cacheClientRT = cacheclient.WithShardNameFromContextRoundTripper(cacheClientRT)
-	cacheClientRT = cacheclient.WithDefaultShardRoundTripper(cacheClientRT, shard.Wildcard)
-	kcpclienthelper.SetMultiClusterRoundTripper(cacheClientRT)
-	cacheKcpClusterClient, err := clientset.NewClusterForConfig(cacheClientRT)
-	require.NoError(t, err)
 
 	t.Logf("Create an APIExport in %s workspace on the root shard", cluster)
-	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, cluster, kcpRootShardClient.Cluster(cluster), "wild.wild.west", "testing replication to the cache server")
+	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, cluster, kcpShardClusterClient.Cluster(cluster), "wild.wild.west", "testing replication to the cache server")
 	var cachedWildAPIExport *apisv1alpha1.APIExport
 	var wildAPIExport *apisv1alpha1.APIExport
+	var err error
 	t.Logf("Get %s/%s APIExport from the root shard and the cache server for comparison", cluster, "wild.wild.west")
 	framework.Eventually(t, func() (bool, string) {
-		wildAPIExport, err = kcpRootShardClient.Cluster(cluster).ApisV1alpha1().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
+		wildAPIExport, err = kcpShardClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
 		if err != nil {
 			return false, err.Error()
 		}
@@ -106,11 +98,11 @@ func replicateAPIExportScenario(ctx context.Context, t *testing.T, server framew
 	}, wait.ForeverTestTimeout, 400*time.Millisecond)
 
 	t.Logf("Verify that a spec update on %s/%s APIExport is propagated to the cached object", cluster, "wild.wild.west")
-	verifyAPIExportUpdate(ctx, t, cluster, kcpRootShardClient, cacheKcpClusterClient, func(apiExport *apisv1alpha1.APIExport) {
+	verifyAPIExportUpdate(ctx, t, cluster, kcpShardClusterClient, cacheKcpClusterClient, func(apiExport *apisv1alpha1.APIExport) {
 		apiExport.Spec.LatestResourceSchemas = append(apiExport.Spec.LatestResourceSchemas, "foo.bar")
 	})
 	t.Logf("Verify that a metadata update on %s/%s APIExport is propagated ot the cached object", cluster, "wild.wild.west")
-	verifyAPIExportUpdate(ctx, t, cluster, kcpRootShardClient, cacheKcpClusterClient, func(apiExport *apisv1alpha1.APIExport) {
+	verifyAPIExportUpdate(ctx, t, cluster, kcpShardClusterClient, cacheKcpClusterClient, func(apiExport *apisv1alpha1.APIExport) {
 		if apiExport.Annotations == nil {
 			apiExport.Annotations = map[string]string{}
 		}
@@ -118,7 +110,7 @@ func replicateAPIExportScenario(ctx context.Context, t *testing.T, server framew
 	})
 
 	t.Logf("Verify that deleting %s/%s APIExport leads to removal of the cached object", cluster, "wild.wild.west")
-	err = kcpRootShardClient.Cluster(cluster).ApisV1alpha1().APIExports().Delete(ctx, "wild.wild.west", metav1.DeleteOptions{})
+	err = kcpShardClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Delete(ctx, "wild.wild.west", metav1.DeleteOptions{})
 	require.NoError(t, err)
 	framework.Eventually(t, func() (bool, string) {
 		_, err := cacheKcpClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Get(cacheclient.WithShardInContext(ctx, shard.New("root")), wildAPIExport.Name, metav1.GetOptions{})
@@ -182,9 +174,16 @@ func TestAllAgainstInProcessCacheServer(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
+	kcpRootShardConfig := server.RootShardSystemMasterBaseConfig(t)
+	kcpRootShardClient, err := clientset.NewClusterForConfig(kcpRootShardConfig)
+	require.NoError(t, err)
+	cacheClientRT := cacheClientRoundTrippersFor(kcpRootShardConfig)
+	cacheKcpClusterClient, err := clientset.NewClusterForConfig(cacheClientRT)
+	require.NoError(t, err)
+
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(tt *testing.T) {
-			scenario.work(ctx, tt, server)
+			scenario.work(ctx, tt, server, kcpRootShardClient, cacheKcpClusterClient)
 		})
 	}
 }
@@ -252,13 +251,31 @@ func TestAllScenariosAgainstStandaloneCacheServer(t *testing.T) {
 	// TODO(p0lyn0mial): switch to framework.SharedKcpServer when caching is turned on by default
 	tokenAuthFile := framework.WriteTokenAuthFile(t)
 	server := framework.PrivateKcpServer(t,
-		framework.WithCustomArguments(append(framework.TestServerArgsWithTokenAuthFile(tokenAuthFile), "--run-cache-server=true", fmt.Sprintf("cache-server-kubeconfig-file=%s", cacheKubeconfigPath))...),
+		framework.WithCustomArguments(append(framework.TestServerArgsWithTokenAuthFile(tokenAuthFile), "--run-cache-server=true", fmt.Sprintf("--cache-server-kubeconfig-file=%s", cacheKubeconfigPath))...),
 		framework.WithScratchDirectories(artifactDir, dataDir),
 	)
 
+	kcpRootShardConfig := server.RootShardSystemMasterBaseConfig(t)
+	kcpRootShardClient, err := clientset.NewClusterForConfig(kcpRootShardConfig)
+	require.NoError(t, err)
+	cacheClientConfig := clientcmd.NewNonInteractiveClientConfig(cacheServerKubeConfig, "cache", nil, nil)
+	cacheClientRestConfig, err := cacheClientConfig.ClientConfig()
+	require.NoError(t, err)
+	cacheClientRT := cacheClientRoundTrippersFor(cacheClientRestConfig)
+	cacheKcpClusterClient, err := clientset.NewClusterForConfig(cacheClientRT)
+	require.NoError(t, err)
+
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(tt *testing.T) {
-			scenario.work(ctx, tt, server)
+			scenario.work(ctx, tt, server, kcpRootShardClient, cacheKcpClusterClient)
 		})
 	}
+}
+
+func cacheClientRoundTrippersFor(cfg *rest.Config) *rest.Config {
+	cacheClientRT := cacheclient.WithCacheServiceRoundTripper(rest.CopyConfig(cfg))
+	cacheClientRT = cacheclient.WithShardNameFromContextRoundTripper(cacheClientRT)
+	cacheClientRT = cacheclient.WithDefaultShardRoundTripper(cacheClientRT, shard.Wildcard)
+	kcpclienthelper.SetMultiClusterRoundTripper(cacheClientRT)
+	return cacheClientRT
 }
