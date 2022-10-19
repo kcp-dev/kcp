@@ -102,8 +102,8 @@ spec:
                   - local
                 properties:
                   local:
-                    description: local is policy that is defined in same namespace
-                      as API Export.
+                    description: local is the policy that is defined in same workspace
+                      as the API Export.
                     type: object
                 type: object
               permissionClaims:

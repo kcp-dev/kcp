@@ -47,7 +47,7 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
-func TestAPIBindingAuthorizerSystemGroupProtection(t *testing.T) {
+func TestMaximalPermissionPolicyAuthorizerSystemGroupProtection(t *testing.T) {
 	t.Parallel()
 
 	server := framework.SharedKcpServer(t)
@@ -143,7 +143,7 @@ func TestAPIBindingAuthorizerSystemGroupProtection(t *testing.T) {
 	}
 }
 
-func TestAPIBindingAuthorizer(t *testing.T) {
+func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 	t.Parallel()
 
 	server := framework.SharedKcpServer(t)
