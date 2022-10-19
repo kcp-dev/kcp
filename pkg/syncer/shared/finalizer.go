@@ -55,8 +55,7 @@ func EnsureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersion
 		return nil
 	}
 
-	// TODO(jmprusi): This check will need to be against "GetDeletionTimestamp()" when using the syncer virtual workspace.
-	if upstreamObj.GetAnnotations()[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+syncTargetKey] == "" {
+	if upstreamObj.GetDeletionTimestamp() == nil {
 		// Do nothing: the object should not be deleted anymore for this location on the KCP side
 		return nil
 	}
@@ -73,31 +72,26 @@ func EnsureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersion
 	}
 	upstreamObj.SetFinalizers(desiredFinalizers)
 
-	//  TODO(jmprusi): This code block will be handled by the syncer virtual workspace, so we can remove it once
-	//                 the virtual workspace syncer is integrated
+	// TODO(davidfestal): The following code block should be removed as soon as the Advanced Scheduling feature is
+	// removed as well as the corresponding status annotation (superseded by Syncer transformations)
 	//  - Begin -
-	// Clean up the status annotation and the locationDeletionAnnotation.
 	annotations := upstreamObj.GetAnnotations()
 	delete(annotations, workloadv1alpha1.InternalClusterStatusAnnotationPrefix+syncTargetKey)
-	delete(annotations, workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+syncTargetKey)
 	upstreamObj.SetAnnotations(annotations)
-
-	// remove the cluster label.
-	upstreamLabels := upstreamObj.GetLabels()
-	delete(upstreamLabels, workloadv1alpha1.ClusterResourceStateLabelPrefix+syncTargetKey)
-	upstreamObj.SetLabels(upstreamLabels)
-	// - End of block to be removed once the virtual workspace syncer is integrated -
+	// - End -
 
 	if upstreamNamespace != "" {
 		_, err = upstreamClient.Cluster(logicalClusterName).Resource(gvr).Namespace(upstreamObj.GetNamespace()).Update(ctx, upstreamObj, metav1.UpdateOptions{})
 	} else {
 		_, err = upstreamClient.Cluster(logicalClusterName).Resource(gvr).Update(ctx, upstreamObj, metav1.UpdateOptions{})
 	}
-
-	if err != nil {
+	if err != nil && !apierrors.IsNotFound(err) {
 		logger.Error(err, "Failed updating upstream resource after removing the syncer finalizer")
 		return err
+	} else if err == nil {
+		logger.V(2).Info("Updated upstream resource to remove the syncer finalizer")
+	} else {
+		logger.V(3).Info("Didn't update upstream resource to remove the syncer finalizer, since the upstream resource doesn't exist anymore")
 	}
-	logger.V(2).Info("Updated upstream resource to removing the syncer finalizer")
 	return nil
 }

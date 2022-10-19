@@ -112,8 +112,7 @@ const (
 	//   experimental.spec-diff.workload.kcp.dev/<sync-target-name>
 	//
 	// on upstream resources storing the desired spec diffs to be applied to the resource when syncing
-	// down to the <sync-target-name>. This feature requires the "Advanced Scheduling" feature gate
-	// to be enabled.
+	// down to the <sync-target-name>.
 	//
 	// The patch will be applied to the resource Spec field of the resource, so the JSON root path is the
 	// resource's Spec field.

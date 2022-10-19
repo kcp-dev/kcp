@@ -296,6 +296,8 @@ func TestDeepEqualFinalizersAndStatus(t *testing.T) {
 	}
 }
 
+var deletionTimestamp = metav1.Now()
+
 func TestSyncerProcess(t *testing.T) {
 	tests := map[string]struct {
 		fromNamespace *corev1.Namespace
@@ -327,14 +329,14 @@ func TestSyncerProcess(t *testing.T) {
 				}),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResource: changeDeployment(
-				deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
+				deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", nil, map[string]string{
 					"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
 				}, nil, nil),
 				addDeploymentStatus(appsv1.DeploymentStatus{
 					Replicas: 15,
 				})),
 			toResources: []runtime.Object{
-				deployment("theDeployment", "test", "root:org:ws", map[string]string{
+				deployment("theDeployment", "test", "root:org:ws", nil, map[string]string{
 					"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync",
 				}, nil, nil),
 			},
@@ -345,7 +347,7 @@ func TestSyncerProcess(t *testing.T) {
 			expectActionsOnTo: []kcptesting.Action{
 				updateDeploymentAction("test",
 					toUnstructured(t, changeDeployment(
-						deployment("theDeployment", "test", "root:org:ws", map[string]string{
+						deployment("theDeployment", "test", "root:org:ws", nil, map[string]string{
 							"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync",
 						}, nil, nil),
 						addDeploymentStatus(appsv1.DeploymentStatus{
@@ -365,14 +367,14 @@ func TestSyncerProcess(t *testing.T) {
 				}),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResource: changeDeployment(
-				deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
+				deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", nil, map[string]string{
 					"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
 				}, nil, nil),
 				addDeploymentStatus(appsv1.DeploymentStatus{
 					Replicas: 15,
 				})),
 			toResources: []runtime.Object{
-				deployment("theDeployment", "test", "root:org:ws", map[string]string{
+				deployment("theDeployment", "test", "root:org:ws", nil, map[string]string{
 					"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync",
 				}, nil, nil),
 			},
@@ -393,12 +395,12 @@ func TestSyncerProcess(t *testing.T) {
 				}),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResource: changeDeployment(
-				deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", nil, nil, nil),
+				deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", nil, nil, nil, nil),
 				addDeploymentStatus(appsv1.DeploymentStatus{
 					Replicas: 15,
 				})),
 			toResources: []runtime.Object{
-				deployment("theDeployment", "test", "root:org:ws", map[string]string{
+				deployment("theDeployment", "test", "root:org:ws", nil, map[string]string{
 					"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync",
 				}, nil, nil),
 			},
@@ -419,14 +421,14 @@ func TestSyncerProcess(t *testing.T) {
 				}),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResource: changeDeployment(
-				deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
+				deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", nil, map[string]string{
 					"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
 				}, nil, nil),
 				addDeploymentStatus(appsv1.DeploymentStatus{
 					Replicas: 15,
 				})),
 			toResources: []runtime.Object{
-				deployment("theDeployment", "test", "root:org:ws", map[string]string{
+				deployment("theDeployment", "test", "root:org:ws", nil, map[string]string{
 					"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync",
 				}, nil, nil),
 			},
@@ -438,7 +440,7 @@ func TestSyncerProcess(t *testing.T) {
 			expectActionsOnTo: []kcptesting.Action{
 				updateDeploymentAction("test",
 					toUnstructured(t, changeDeployment(
-						deployment("theDeployment", "test", "root:org:ws", map[string]string{
+						deployment("theDeployment", "test", "root:org:ws", nil, map[string]string{
 							"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync",
 						}, map[string]string{
 							"experimental.status.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "{\"replicas\":15}",
@@ -456,17 +458,16 @@ func TestSyncerProcess(t *testing.T) {
 				}),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResource: changeDeployment(
-				deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", map[string]string{
+				deployment("theDeployment", "kcp0124d7647eb6a00b1fcb6f2252201601634989dd79deb7375c373973", "", nil, map[string]string{
 					"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
 				}, nil, nil),
 				addDeploymentStatus(appsv1.DeploymentStatus{
 					Replicas: 15,
 				})),
 			toResources: []runtime.Object{
-				deployment("theDeployment", "test", "root:org:ws", map[string]string{
+				deployment("theDeployment", "test", "root:org:ws", &deletionTimestamp, map[string]string{
 					"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync",
 				}, map[string]string{
-					"deletion.internal.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5":   time.Now().Format(time.RFC3339),
 					"experimental.status.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "{\"replicas\":15}",
 				}, []string{"workload.kcp.dev/syncer-2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5"}),
 			},
@@ -490,10 +491,9 @@ func TestSyncerProcess(t *testing.T) {
 			fromResource: nil,
 			toResources: []runtime.Object{
 				namespace("test", "root:org:ws", map[string]string{"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync"}, nil),
-				deployment("theDeployment", "test", "root:org:ws", map[string]string{
+				deployment("theDeployment", "test", "root:org:ws", &deletionTimestamp, map[string]string{
 					"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync",
 				}, map[string]string{
-					"deletion.internal.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5":   time.Now().Format(time.RFC3339),
 					"experimental.status.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": `{"replicas":15}`,
 				}, []string{"workload.kcp.dev/syncer-2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5"}),
 			},
@@ -506,9 +506,10 @@ func TestSyncerProcess(t *testing.T) {
 				updateDeploymentAction("test",
 					changeUnstructured(
 						toUnstructured(t, changeDeployment(
-							deployment("theDeployment", "test", "root:org:ws", map[string]string{}, map[string]string{}, nil))),
+							deployment("theDeployment", "test", "root:org:ws", &deletionTimestamp, map[string]string{
+								"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync",
+							}, map[string]string{}, nil))),
 						// The following "changes" are required for the test to pass, as it expects some empty/nil fields to be there
-						setNestedField(map[string]interface{}{}, "metadata", "labels"),
 						setNestedField([]interface{}{}, "metadata", "finalizers"),
 						setNestedField(nil, "spec", "selector"),
 					),
@@ -651,7 +652,7 @@ func namespace(name, clusterName string, labels, annotations map[string]string) 
 	}
 }
 
-func deployment(name, namespace, clusterName string, labels, annotations map[string]string, finalizers []string) *appsv1.Deployment {
+func deployment(name, namespace, clusterName string, deletionTimestamp *metav1.Time, labels, annotations map[string]string, finalizers []string) *appsv1.Deployment {
 	if clusterName != "" {
 		if annotations == nil {
 			annotations = make(map[string]string)
@@ -661,11 +662,12 @@ func deployment(name, namespace, clusterName string, labels, annotations map[str
 
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        name,
-			Namespace:   namespace,
-			Labels:      labels,
-			Annotations: annotations,
-			Finalizers:  finalizers,
+			Name:              name,
+			Namespace:         namespace,
+			Labels:            labels,
+			Annotations:       annotations,
+			Finalizers:        finalizers,
+			DeletionTimestamp: deletionTimestamp,
 		},
 	}
 }

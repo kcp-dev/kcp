@@ -52,15 +52,17 @@ const (
 type mutatorGvrMap map[schema.GroupVersionResource]func(obj *unstructured.Unstructured) error
 
 func deepEqualApartFromStatus(logger logr.Logger, oldUnstrob, newUnstrob *unstructured.Unstructured) bool {
-	// TODO(jmprusi): Remove this after switching to virtual workspaces.
-	// remove status annotation from oldObj and newObj before comparing
 	oldAnnotations, _, err := unstructured.NestedStringMap(oldUnstrob.Object, "metadata", "annotations")
 	if err != nil {
 		logger.Error(err, "failed to get annotations from object")
 		return false
 	}
 	for k := range oldAnnotations {
+		// TODO(jmprusi): Remove this after when removing the Advanced Scheduling syncer feature.
 		if strings.HasPrefix(k, workloadv1alpha1.InternalClusterStatusAnnotationPrefix) {
+			delete(oldAnnotations, k)
+		}
+		if strings.HasPrefix(k, workloadv1alpha1.InternalSyncerViewAnnotationPrefix) {
 			delete(oldAnnotations, k)
 		}
 	}
@@ -71,7 +73,11 @@ func deepEqualApartFromStatus(logger logr.Logger, oldUnstrob, newUnstrob *unstru
 		return false
 	}
 	for k := range newAnnotations {
+		// TODO(jmprusi): Remove this after when removing the Advanced Scheduling syncer feature.
 		if strings.HasPrefix(k, workloadv1alpha1.InternalClusterStatusAnnotationPrefix) {
+			delete(newAnnotations, k)
+		}
+		if strings.HasPrefix(k, workloadv1alpha1.InternalSyncerViewAnnotationPrefix) {
 			delete(newAnnotations, k)
 		}
 	}
@@ -151,6 +157,7 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 		}
 	}
 	logger = logger.WithValues(DownstreamNamespace, downstreamNamespace)
+	ctx = klog.NewContext(ctx, logger)
 
 	// get the upstream object
 	syncerInformer, ok := c.syncerInformers.InformerForResource(gvr)
@@ -308,15 +315,7 @@ func (c *Controller) ensureSyncerFinalizer(ctx context.Context, gvr schema.Group
 			hasFinalizer = true
 		}
 	}
-
-	// TODO(davidfestal): When using syncer virtual workspace we would check the DeletionTimestamp on the upstream object, instead of the DeletionTimestamp annotation,
-	//                as the virtual workspace will set the the deletionTimestamp() on the location view by a transformation.
-	intendedToBeRemovedFromLocation := upstreamObj.GetAnnotations()[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+c.syncTargetKey] != ""
-
-	// TODO(davidfestal): When using syncer virtual workspace this condition would not be necessary anymore, since directly tested on the virtual workspace side.
-	stillOwnedByExternalActorForLocation := upstreamObj.GetAnnotations()[workloadv1alpha1.ClusterFinalizerAnnotationPrefix+c.syncTargetKey] != ""
-
-	if !hasFinalizer && (!intendedToBeRemovedFromLocation || stillOwnedByExternalActorForLocation) {
+	if !hasFinalizer && upstreamObj.GetDeletionTimestamp() == nil {
 		upstreamObjCopy := upstreamObj.DeepCopy()
 		namespace := upstreamObjCopy.GetNamespace()
 		logicalCluster := logicalcluster.From(upstreamObjCopy)
@@ -343,13 +342,6 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 	// Run name transformations on the downstreamObj.
 	transformedName := getTransformedName(downstreamObj)
 
-	// TODO(jmprusi): When using syncer virtual workspace we would check the DeletionTimestamp on the upstream object, instead of the DeletionTimestamp annotation,
-	//                as the virtual workspace will set the the deletionTimestamp() on the location view by a transformation.
-	intendedToBeRemovedFromLocation := upstreamObj.GetAnnotations()[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+c.syncTargetKey] != ""
-
-	// TODO(jmprusi): When using syncer virtual workspace this condition would not be necessary anymore, since directly tested on the virtual workspace side.
-	stillOwnedByExternalActorForLocation := upstreamObj.GetAnnotations()[workloadv1alpha1.ClusterFinalizerAnnotationPrefix+c.syncTargetKey] != ""
-
 	syncerInformer, ok := c.syncerInformers.InformerForResource(gvr)
 	if !ok {
 		return nil
@@ -358,8 +350,9 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 	logger = logger.WithValues(DownstreamName, transformedName)
 	ctx = klog.NewContext(ctx, logger)
 
-	logger.V(4).Info("Upstream object is intended to be removed", "intendedToBeRemovedFromLocation", intendedToBeRemovedFromLocation, "stillOwnedByExternalActorForLocation", stillOwnedByExternalActorForLocation)
-	if intendedToBeRemovedFromLocation && !stillOwnedByExternalActorForLocation {
+	deletionTimestamp := upstreamObj.GetDeletionTimestamp()
+	if deletionTimestamp != nil {
+		logger.V(4).Info("Upstream object is intended to be removed now => delete downstream object", "deletionTimestamp", deletionTimestamp)
 		var err error
 		if downstreamNamespace != "" {
 			err = c.downstreamClient.Resource(gvr).Namespace(downstreamNamespace).Delete(ctx, transformedName, metav1.DeleteOptions{})
