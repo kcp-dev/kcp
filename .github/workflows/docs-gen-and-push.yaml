@@ -13,6 +13,14 @@ on:
       - "README.md"
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+
 jobs:
   generate-and-push:
     name: Generate and push docs
@@ -49,16 +57,30 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-node-
       - name: Install dependencies
-      - run: cd kcp/docs && npm install && npm ci
+        run: cd kcp/docs && npm install && npm ci
 
       - name: Copy readmes
-        run: tail -n +4 kcp/README.md >> docs/content/en/main/_index.md
+        run: tail -n +4 kcp/README.md >> kcp/docs/content/en/main/_index.md
 
       - name: Generate CLI and CRD docs
-        run: cd kcp && make generate-docs
+        run: |
+          cd kcp
+          make generate-docs
+          cat <<EOF > docs/content/en/main/cli/_index.md
+          ---
+          title: "CLI Reference"
+          linkTitle: "CLI Reference"
+          weight: 4
+          description: >
+            Reference documentation for the kcp CLI.
+          ---
+          EOF
 
       - name: Build hugo docs
-        run: cd kcp/docs && hugo --minify
+        run: |
+          cd kcp/docs
+          hugo --minify
+          mv public ../../public
 
       # This step check if the trigger is a tag and if so, it will update the version in the
       # config.toml file and mark it as archived, since the tag is also a latest main, the same
@@ -67,7 +89,6 @@ jobs:
       - name: Update version info on tag for archive
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
-          mv kcp/docs/public public
           cd kcp/docs
           cat <<EOF > temp.txt
           #version-start
