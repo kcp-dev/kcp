@@ -27,39 +27,40 @@ The details are outlined below.
 
 The following authorizers are configured in kcp:
 
-| Authorizer                             | Description                                                    |
-|----------------------------------------|----------------------------------------------------------------|
-| Top-Level organization authorizer      | checks that the user is allowed to access the organization     |
-| Workspace content authorizer           | determines additional groups a user gets inside of a workspace |
-| API binding authorizer                 | validates the RBAC policy in the api exporters workspace       |
-| Local Policy authorizer                | validates the RBAC policy in the workspace that is accessed    |
-| Kubernetes Bootstrap Policy authorizer | validates the RBAC Kubernetes standard policy                  |
+| Authorizer                             | Description                                                                       |
+|----------------------------------------|-----------------------------------------------------------------------------------|
+| Top-Level organization authorizer      | checks that the user is allowed to access the organization                        |
+| Workspace content authorizer           | determines additional groups a user gets inside of a workspace                    |
+| Maximal permission policy authorizer   | validates the maximal permission policy RBAC policy in the API exporter workspace |
+| Local Policy authorizer                | validates the RBAC policy in the workspace that is accessed                       |
+| Kubernetes Bootstrap Policy authorizer | validates the RBAC Kubernetes standard policy                                     |
 
 They are related in the following way:
 
 1. top-level organization authorizer must allow
 2. workspace content authorizer must allow, and adds additional (virtual per-request) groups to the request user influencing the follow authorizers.
-3. api binding authorizer must allow
+3. maximal permission policy authorizer must allow
 4. one of the local authorizer or bootstrap policy authorizer must allow.
 
 ```
-                                                                                    ┌──────────────┐
-                                                                                    │              │
-           ┌─────────────────┐     ┌───────────────┐        ┌─────────────┐   ┌────►│ Local Policy ├──┐
-           │ Top-level       │     │               │        │             │   │     │ authorizer   │  │
- request   │ Organization    │     │ Workspace ┌───┴───┐    │ API Binding │   │     │              │  │
-──────────►│ authorizer      ├────►│ Content   │+groups├───►│ authorizer  ├───┤     └──────────────┘  │
-           │                 │     │ authorizer└───┬───┘    │             │   │                       ▼
-           │                 │     │               │        └─────────────┘   │                       OR───►
-           └─────────────────┘     └───────────────┘                          │     ┌──────────────┐  ▲
-                                                                              │     │  Bootstrap   │  │
-                                                                              └────►│  Policy      ├──┘
-                                                                                    │  authorizer  │
-                                                                                    │              │
-                                                                                    └──────────────┘
+                                                                                          ┌──────────────┐
+                                                                                          │              │
+           ┌─────────────────┐     ┌───────────────┐        ┌───────────────────┐   ┌────►│ Local Policy ├──┐
+           │ Top-level       │     │               │        │                   │   │     │ authorizer   │  │
+ request   │ Organization    │     │ Workspace ┌───┴───┐    │ Max. Permission   │   │     │              │  │
+──────────►│ authorizer      ├────►│ Content   │+groups├───►│ Policy authorizer ├───┤     └──────────────┘  │
+           │                 │     │ authorizer└───┬───┘    │                   │   │                       ▼
+           │                 │     │               │        └───────────────────┘   │                       OR───►
+           └─────────────────┘     └───────────────┘                                │     ┌──────────────┐  ▲
+                                                                                    │     │  Bootstrap   │  │
+                                                                                    └────►│  Policy      ├──┘
+                                                                                          │  authorizer  │
+                                                                                          │              │
+                                                                                          └──────────────┘
+
 ```
 
-[ASCIIFlow document](https://asciiflow.com/#/share/eJyrVspLzE1VslLydg5QcCwtycgvyqxKLVLSUcpJrATSVkrVMUoVMUpWlpaGOjFKlUCWkaUZkFWSWlEC5MQoKdAAPJrS82hKA9FoQkxMHm2c0YQhgGoViQ5FuJhM3RPIsXgCFvXTdoE855OfnJijEJCfk5lcCVQyB0eAgpSG5Bfo5qSWpeaghQ1GGCGLoEtC%2BMhaE%2BFJDiYBDeOi1MLS1OISqKh%2FUXpiXmZVYklmfh667eH5RdnFBYnJqWie3IIebiDFjgGeCk6ZeSmZeelYXIPpWIhrCIQwJDBRvALWPweLKuf8vJLUPKi%2FtNOL8ksLilFUYhqGatASqOFTSEk3M7CmXfSYwxU1qJatQTWXUCxjgkfT9pDmEuwyJIbCDLxu8g9CjgF055EU1qiBQ4buGTjciBIqpBWQoEDfRPVSEiWOnPLzS4oVihILFFCyDrVtRA1MSGaBlWBQJfDcMoOW9QJqDqW%2BV5GsQhOgmVWkFSkxSrVKtQBJrg9s)
+[ASCIIFlow document](https://asciiflow.com/#/share/eJy1VUFLwzAU%2FislV6egB6G96Y4qKyJ4ySWUMItdU9NM2o2BePbQQxk97OjRk3iS%2FZr9Ets125omxWaQEmj68vLe974vL52DEE0wcMDN0LWupuyJUH%2BGKRiAAKXl2wFzCBIIHNs%2BH0CQlrML%2B7KcMZyw8gMCy9izyT82%2BVvvkUEYmgTzLhnEhJpwD7iP3J3pJV53jEwRYflblXtLPBRYLgl8Ly1dVh1EV64PJDoN8CsOWmxJrDUt8uLB2gyA9sdyt8C5p%2FhlimPGrSM6RqE%2FQ8wnYRvDI6HPcYQ83Cr1p81n5XyHkjPLxXTix3EdS8YkQ64x%2FaNCTaxQ0Hb%2FSuE1JCHDIa%2FuZEzJNIoFz9qN69OIKYb75ClynbNVKM%2B3LJdaJjHZlxi3n%2B6K9eVaD496pR8XXc3CS%2BhGObpv6tMGrKWBSNoRu4sOjAq29C7aSoxvQ7etoOA1ISxmFEWW0GRm8or01s216y7usu%2Brwvy%2FpnlJmCu7kbBlMJxQ7zqCYAEWf%2BVCNyA%3D))
 
 ### Top-Level Organization authorizer
 
@@ -172,9 +173,9 @@ parent workspace.
 
 Service accounts declared within a workspace don't have access to initializing workspaces.
 
-### API binding authorizer
+### Maximal permission policy authorizer
 
-If the requested resource type is part of an API binding, then the API binding authorizer verifies that
+If the requested resource type is part of an API binding, then this authorizer verifies that
 the request is not exceeding the maximum permission policy of the related API export.
 Currently, the "local policy" maximum permission policy type is supported.
 
@@ -188,9 +189,9 @@ Example:
 
 Given an API binding for type `foo` declared in workspace `consumer` that refers to an API export declared in workspace `provider`
 and a user `user-1` having the group `group-1` requesting a `create` of `foo` in the `default` namespace in the `consumer` workspace,
-the API binding authorizer verifies that `user-1` is allowed to execute this request by delegating to `provider`'s RBAC using prefixed attributes.
+this authorizer verifies that `user-1` is allowed to execute this request by delegating to `provider`'s RBAC using prefixed attributes.
 
-Here, the API binding authorizer prepends the `apis.kcp.dev:binding:` prefix to the username and all groups the user belongs to.
+Here, this authorizer prepends the `apis.kcp.dev:binding:` prefix to the username and all groups the user belongs to.
 Using prefixed attributes prevents RBAC collisions i.e. if `user-1` is granted to execute requests within the `provider` workspace directly.
 
 For the given example RBAC request looks as follows:

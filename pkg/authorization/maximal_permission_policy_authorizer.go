@@ -38,16 +38,16 @@ import (
 )
 
 const (
-	APIBindingContentAuditPrefix   = "apibinding.authorization.kcp.dev/"
-	APIBindingContentAuditDecision = APIBindingContentAuditPrefix + "decision"
-	APIBindingContentAuditReason   = APIBindingContentAuditPrefix + "reason"
+	MaximalPermissionPolicyAccessNotPermittedReason = "access not permitted by maximal permission policy"
+
+	MaximalPermissionPolicyAuditPrefix   = "maxpermissionpolicy.authorization.kcp.dev/"
+	MaximalPermissionPolicyAuditDecision = MaximalPermissionPolicyAuditPrefix + "decision"
+	MaximalPermissionPolicyAuditReason   = MaximalPermissionPolicyAuditPrefix + "reason"
 )
 
-// NewAPIBindingAccessAuthorizer returns an authorizer that checks if the request is for a
-// bound resource or not. If the resource is bound we will check the user has RBAC access in the
-// exported resource workspace. If it is not allowed we will return NoDecision, if allowed we
-// will call the delegate authorizer.
-func NewAPIBindingAccessAuthorizer(kubeInformers kubernetesinformers.SharedInformerFactory, kcpInformers kcpinformers.SharedInformerFactory, delegate authorizer.Authorizer) (authorizer.Authorizer, error) {
+// NewMaximalPermissionPolicyAuthorizer returns an authorizer that first checks if the request is for a
+// bound resource or not. If the resource is bound it checks the maximal permission policy of the underlying API export.
+func NewMaximalPermissionPolicyAuthorizer(kubeInformers kubernetesinformers.SharedInformerFactory, kcpInformers kcpinformers.SharedInformerFactory, delegate authorizer.Authorizer) (authorizer.Authorizer, error) {
 	apiBindingIndexer := kcpInformers.Apis().V1alpha1().APIBindings().Informer().GetIndexer()
 	apiExportIndexer := kcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer()
 
@@ -57,7 +57,7 @@ func NewAPIBindingAccessAuthorizer(kubeInformers kubernetesinformers.SharedInfor
 	kubeInformers.Rbac().V1().ClusterRoles().Lister()
 	kubeInformers.Rbac().V1().ClusterRoleBindings().Lister()
 
-	return &apiBindingAccessAuthorizer{
+	return &MaximalPermissionPolicyAuthorizer{
 		getAPIBindingReferenceForAttributes: func(attr authorizer.Attributes, clusterName logicalcluster.Name) (*apisv1alpha1.ExportReference, bool, error) {
 			return getAPIBindingReferenceForAttributes(apiBindingIndexer, attr, clusterName)
 		},
@@ -83,7 +83,7 @@ func NewAPIBindingAccessAuthorizer(kubeInformers kubernetesinformers.SharedInfor
 	}, nil
 }
 
-type apiBindingAccessAuthorizer struct {
+type MaximalPermissionPolicyAuthorizer struct {
 	delegate authorizer.Authorizer
 
 	getAPIBindingReferenceForAttributes func(attr authorizer.Attributes, clusterName logicalcluster.Name) (ref *apisv1alpha1.ExportReference, found bool, err error)
@@ -91,35 +91,33 @@ type apiBindingAccessAuthorizer struct {
 	newAuthorizer                       func(clusterName logicalcluster.Name) authorizer.Authorizer
 }
 
-func (a *apiBindingAccessAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
-	apiBindingAccessDenied := "bound api access is not permitted"
-
+func (a *MaximalPermissionPolicyAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
 	// get the cluster from the ctx.
 	lcluster, err := genericapirequest.ClusterNameFrom(ctx)
 	if err != nil {
 		kaudit.AddAuditAnnotations(
 			ctx,
-			APIBindingContentAuditDecision, DecisionNoOpinion,
-			APIBindingContentAuditReason, fmt.Sprintf("error getting cluster from request: %v", err),
+			MaximalPermissionPolicyAuditDecision, DecisionNoOpinion,
+			MaximalPermissionPolicyAuditReason, fmt.Sprintf("error getting cluster from request: %v", err),
 		)
-		return authorizer.DecisionNoOpinion, apiBindingAccessDenied, err
+		return authorizer.DecisionNoOpinion, MaximalPermissionPolicyAccessNotPermittedReason, err
 	}
 
 	bindingLogicalCluster, bound, err := a.getAPIBindingReferenceForAttributes(attr, lcluster)
 	if err != nil {
 		kaudit.AddAuditAnnotations(
 			ctx,
-			APIBindingContentAuditDecision, DecisionNoOpinion,
-			APIBindingContentAuditReason, fmt.Sprintf("error getting API binding reference: %v", err),
+			MaximalPermissionPolicyAuditDecision, DecisionNoOpinion,
+			MaximalPermissionPolicyAuditReason, fmt.Sprintf("error getting API binding reference: %v", err),
 		)
-		return authorizer.DecisionNoOpinion, apiBindingAccessDenied, err
+		return authorizer.DecisionNoOpinion, MaximalPermissionPolicyAccessNotPermittedReason, err
 	}
 
 	if !bound {
 		kaudit.AddAuditAnnotations(
 			ctx,
-			APIBindingContentAuditDecision, DecisionAllowed,
-			APIBindingContentAuditReason, "no API binding bound",
+			MaximalPermissionPolicyAuditDecision, DecisionAllowed,
+			MaximalPermissionPolicyAuditReason, "no API binding bound",
 		)
 		return a.delegate.Authorize(ctx, attr)
 	}
@@ -128,10 +126,10 @@ func (a *apiBindingAccessAuthorizer) Authorize(ctx context.Context, attr authori
 	if err != nil {
 		kaudit.AddAuditAnnotations(
 			ctx,
-			APIBindingContentAuditDecision, DecisionNoOpinion,
-			APIBindingContentAuditReason, fmt.Sprintf("error getting API export: %v", err),
+			MaximalPermissionPolicyAuditDecision, DecisionNoOpinion,
+			MaximalPermissionPolicyAuditReason, fmt.Sprintf("error getting API export: %v", err),
 		)
-		return authorizer.DecisionNoOpinion, apiBindingAccessDenied, err
+		return authorizer.DecisionNoOpinion, MaximalPermissionPolicyAccessNotPermittedReason, err
 	}
 
 	path := "unknown"
@@ -145,17 +143,17 @@ func (a *apiBindingAccessAuthorizer) Authorize(ctx context.Context, attr authori
 	if !found {
 		kaudit.AddAuditAnnotations(
 			ctx,
-			APIBindingContentAuditDecision, DecisionNoOpinion,
-			APIBindingContentAuditReason, fmt.Sprintf("API export %q not found, path: %q", exportName, path),
+			MaximalPermissionPolicyAuditDecision, DecisionNoOpinion,
+			MaximalPermissionPolicyAuditReason, fmt.Sprintf("API export %q not found, path: %q", exportName, path),
 		)
-		return authorizer.DecisionNoOpinion, apiBindingAccessDenied, err
+		return authorizer.DecisionNoOpinion, MaximalPermissionPolicyAccessNotPermittedReason, err
 	}
 
 	if apiExport.Spec.MaximalPermissionPolicy == nil {
 		kaudit.AddAuditAnnotations(
 			ctx,
-			APIBindingContentAuditDecision, DecisionAllowed,
-			APIBindingContentAuditReason, fmt.Sprintf("no maximal permission policy present in API export %q, path: %q, owning cluster: %q", exportName, path, logicalcluster.From(apiExport)),
+			MaximalPermissionPolicyAuditDecision, DecisionAllowed,
+			MaximalPermissionPolicyAuditReason, fmt.Sprintf("no maximal permission policy present in API export %q, path: %q, owning cluster: %q", exportName, path, logicalcluster.From(apiExport)),
 		)
 		return a.delegate.Authorize(ctx, attr)
 	}
@@ -163,8 +161,8 @@ func (a *apiBindingAccessAuthorizer) Authorize(ctx context.Context, attr authori
 	if apiExport.Spec.MaximalPermissionPolicy.Local == nil {
 		kaudit.AddAuditAnnotations(
 			ctx,
-			APIBindingContentAuditDecision, DecisionAllowed,
-			APIBindingContentAuditReason, fmt.Sprintf("no maximal local permission policy present in API export %q, path: %q, owning cluster: %q", apiExport.Name, path, logicalcluster.From(apiExport)),
+			MaximalPermissionPolicyAuditDecision, DecisionAllowed,
+			MaximalPermissionPolicyAuditReason, fmt.Sprintf("no maximal local permission policy present in API export %q, path: %q, owning cluster: %q", apiExport.Name, path, logicalcluster.From(apiExport)),
 		)
 		return a.delegate.Authorize(ctx, attr)
 	}
@@ -182,16 +180,16 @@ func (a *apiBindingAccessAuthorizer) Authorize(ctx context.Context, attr authori
 	if err != nil {
 		kaudit.AddAuditAnnotations(
 			ctx,
-			APIBindingContentAuditDecision, DecisionNoOpinion,
-			APIBindingContentAuditReason, fmt.Sprintf("error authorizing RBAC in API export cluster %q: %v", logicalcluster.From(apiExport), err),
+			MaximalPermissionPolicyAuditDecision, DecisionNoOpinion,
+			MaximalPermissionPolicyAuditReason, fmt.Sprintf("error authorizing RBAC in API export cluster %q: %v", logicalcluster.From(apiExport), err),
 		)
 		return authorizer.DecisionNoOpinion, reason, err
 	}
 
 	kaudit.AddAuditAnnotations(
 		ctx,
-		APIBindingContentAuditDecision, DecisionString(dec),
-		APIBindingContentAuditReason, fmt.Sprintf("API export cluster %q reason: %v", logicalcluster.From(apiExport), reason),
+		MaximalPermissionPolicyAuditDecision, DecisionString(dec),
+		MaximalPermissionPolicyAuditReason, fmt.Sprintf("API export cluster %q reason: %v", logicalcluster.From(apiExport), reason),
 	)
 
 	if dec == authorizer.DecisionAllow {

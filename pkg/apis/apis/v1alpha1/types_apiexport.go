@@ -169,13 +169,16 @@ type Identity struct {
 
 // MaximalPermissionPolicy is a wrapper type around the multiple options that would be allowed.
 type MaximalPermissionPolicy struct {
-	// local is policy that is defined in same namespace as API Export.
+	// local is the policy that is defined in same workspace as the API Export.
 	// +optional
 	Local *LocalAPIExportPolicy `json:"local,omitempty"`
 }
 
-// LocalAPIExportPolicy will tell the APIBinding authorizer to check policy in the local namespace
-// of the API Export
+// LocalAPIExportPolicy is a maximal permission policy
+// that checks RBAC in the workspace of the API Export.
+//
+// In order to avoid conflicts the user and group name will be prefixed
+// with "apis.kcp.dev:binding:".
 type LocalAPIExportPolicy struct{}
 
 const (
