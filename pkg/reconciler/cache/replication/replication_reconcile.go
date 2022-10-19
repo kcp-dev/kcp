@@ -56,7 +56,7 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 		return c.reconcileObject(ctx,
 			keyParts[1],
 			apisv1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas"),
-			apisv1alpha1.SchemeGroupVersion.WithKind("ApiResourceSchema"),
+			apisv1alpha1.SchemeGroupVersion.WithKind("APIResourceSchema"),
 			func(gvr schema.GroupVersionResource, cluster, namespace, name string) (interface{}, error) {
 				return retrieveCacheObject(&gvr, c.cacheApiResourceSchemaIndexer, c.shardName, cluster, namespace, name)
 			},
