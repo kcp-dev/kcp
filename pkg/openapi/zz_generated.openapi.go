@@ -1945,7 +1945,7 @@ func schema_pkg_apis_apis_v1alpha1_LocalAPIExportPolicy(ref common.ReferenceCall
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "LocalAPIExportPolicy will tell the APIBinding authorizer to check policy in the local namespace of the API Export",
+				Description: "LocalAPIExportPolicy is a maximal permission policy that checks RBAC in the workspace of the API Export.\n\nIn order to avoid conflicts the user and group name will be prefixed with \"apis.kcp.dev:binding:\".",
 				Type:        []string{"object"},
 			},
 		},
@@ -1961,7 +1961,7 @@ func schema_pkg_apis_apis_v1alpha1_MaximalPermissionPolicy(ref common.ReferenceC
 				Properties: map[string]spec.Schema{
 					"local": {
 						SchemaProps: spec.SchemaProps{
-							Description: "local is policy that is defined in same namespace as API Export.",
+							Description: "local is the policy that is defined in same workspace as the API Export.",
 							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.LocalAPIExportPolicy"),
 						},
 					},

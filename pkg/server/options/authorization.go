@@ -103,7 +103,7 @@ func (s *Authorization) ApplyTo(config *genericapiserver.Config, informer kubern
 	// kcp authorizers
 	bootstrapAuth, bootstrapRules := authorization.NewBootstrapPolicyAuthorizer(informer)
 	localAuth, localResolver := authorization.NewLocalAuthorizer(informer)
-	apiBindingAuth, err := authorization.NewAPIBindingAccessAuthorizer(informer, kcpinformer,
+	apiBindingAuth, err := authorization.NewMaximalPermissionPolicyAuthorizer(informer, kcpinformer,
 		union.New(bootstrapAuth, localAuth),
 	)
 	if err != nil {
