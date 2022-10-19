@@ -43,9 +43,9 @@ import (
 )
 
 const (
-	controllerName      = "kcp-workload-placement"
-	byWorkspace         = controllerName + "-byWorkspace" // will go away with scoping
-	byLocationWorkspace = controllerName + "-byLocationWorkspace"
+	ControllerName      = "kcp-workload-placement"
+	byWorkspace         = ControllerName + "-byWorkspace" // will go away with scoping
+	byLocationWorkspace = ControllerName + "-byLocationWorkspace"
 )
 
 // NewController returns a new controller starting the process of selecting synctarget for a placement
@@ -55,7 +55,7 @@ func NewController(
 	syncTargetInformer workloadinformers.SyncTargetInformer,
 	placementInformer schedulinginformers.PlacementInformer,
 ) (*controller, error) {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
 	c := &controller{
 		queue: queue,
@@ -134,7 +134,7 @@ func NewController(
 		},
 	)
 
-	logger := logging.WithReconciler(klog.Background(), controllerName)
+	logger := logging.WithReconciler(klog.Background(), ControllerName)
 	placementInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueuePlacement(obj, logger, "") },
 		UpdateFunc: func(_, obj interface{}) { c.enqueuePlacement(obj, logger, "") },
@@ -179,7 +179,7 @@ func (c *controller) enqueueLocation(obj interface{}) {
 		return
 	}
 
-	logger := logging.WithObject(logging.WithReconciler(klog.Background(), controllerName), obj.(*schedulingv1alpha1.Location))
+	logger := logging.WithObject(logging.WithReconciler(klog.Background(), ControllerName), obj.(*schedulingv1alpha1.Location))
 	for _, placement := range placements {
 		c.enqueuePlacement(placement, logger, " because of Location")
 	}
@@ -214,7 +214,7 @@ func (c *controller) enqueueSyncTarget(obj interface{}) {
 		return
 	}
 
-	logger := logging.WithObject(logging.WithReconciler(klog.Background(), controllerName), obj.(*workloadv1alpha1.SyncTarget))
+	logger := logging.WithObject(logging.WithReconciler(klog.Background(), ControllerName), obj.(*workloadv1alpha1.SyncTarget))
 	for _, placement := range placements {
 		c.enqueuePlacement(placement, logger, " because of SyncTarget")
 	}
@@ -225,7 +225,7 @@ func (c *controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
+	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName)
 	ctx = klog.NewContext(ctx, logger)
 	logger.Info("Starting controller")
 	defer logger.Info("Shutting down controller")
@@ -259,7 +259,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	defer c.queue.Done(key)
 
 	if err := c.process(ctx, key); err != nil {
-		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", controllerName, key, err))
+		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", ControllerName, key, err))
 		c.queue.AddRateLimited(key)
 		return true
 	}

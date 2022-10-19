@@ -51,10 +51,10 @@ import (
 )
 
 const (
-	controllerName = "kcp-workload-default-placement"
+	ControllerName = "kcp-workload-default-placement"
 
-	byWorkspace         = controllerName + "-byWorkspace" // will go away with scoping
-	byLocationWorkspace = controllerName + "-byLocationWorkspace"
+	byWorkspace         = ControllerName + "-byWorkspace" // will go away with scoping
+	byLocationWorkspace = ControllerName + "-byLocationWorkspace"
 
 	// DefaultPlacementName is the name of the default placement
 	DefaultPlacementName = "default"
@@ -67,7 +67,7 @@ func NewController(
 	placementInformer schedulinginformers.PlacementInformer,
 	syncTargetInformer workloadinformers.SyncTargetInformer,
 ) (*controller, error) {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
 	c := &controller{
 		queue: queue,
@@ -100,7 +100,7 @@ func NewController(
 		return nil, err
 	}
 
-	logger := logging.WithReconciler(klog.Background(), controllerName)
+	logger := logging.WithReconciler(klog.Background(), ControllerName)
 
 	apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(obj, logger) },
@@ -193,7 +193,7 @@ func (c *controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
+	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName)
 	ctx = klog.NewContext(ctx, logger)
 	logger.Info("Starting controller")
 	defer logger.Info("Shutting down controller")
@@ -227,7 +227,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	defer c.queue.Done(key)
 
 	if err := c.process(ctx, key); err != nil {
-		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", controllerName, key, err))
+		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", ControllerName, key, err))
 		c.queue.AddRateLimited(key)
 		return true
 	}

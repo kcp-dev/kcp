@@ -50,9 +50,9 @@ import (
 )
 
 const (
-	controllerName      = "kcp-scheduling-placement"
-	byWorkspace         = controllerName + "-byWorkspace" // will go away with scoping
-	byLocationWorkspace = controllerName + "-byLocationWorkspace"
+	ControllerName      = "kcp-scheduling-placement"
+	byWorkspace         = ControllerName + "-byWorkspace" // will go away with scoping
+	byLocationWorkspace = ControllerName + "-byLocationWorkspace"
 )
 
 // NewController returns a new controller placing namespaces onto locations by create
@@ -63,7 +63,7 @@ func NewController(
 	locationInformer schedulinginformers.LocationInformer,
 	placementInformer schedulinginformers.PlacementInformer,
 ) (*controller, error) {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
 	c := &controller{
 		queue: queue,
@@ -176,14 +176,14 @@ func (c *controller) enqueuePlacement(obj interface{}) {
 		return
 	}
 
-	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), key)
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
 	logger.V(2).Info("queueing Placement")
 	c.queue.Add(key)
 }
 
 // enqueueNamespace enqueues all placements for the namespace.
 func (c *controller) enqueueNamespace(obj interface{}) {
-	logger := logging.WithReconciler(klog.Background(), controllerName)
+	logger := logging.WithReconciler(klog.Background(), ControllerName)
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
@@ -211,7 +211,7 @@ func (c *controller) enqueueNamespace(obj interface{}) {
 }
 
 func (c *controller) enqueueLocation(obj interface{}) {
-	logger := logging.WithReconciler(klog.Background(), controllerName)
+	logger := logging.WithReconciler(klog.Background(), ControllerName)
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
@@ -243,7 +243,7 @@ func (c *controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
+	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName)
 	ctx = klog.NewContext(ctx, logger)
 	logger.Info("Starting controller")
 	defer logger.Info("Shutting down controller")
@@ -277,7 +277,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	defer c.queue.Done(key)
 
 	if err := c.process(ctx, key); err != nil {
-		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", controllerName, key, err))
+		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", ControllerName, key, err))
 		c.queue.AddRateLimited(key)
 		return true
 	}

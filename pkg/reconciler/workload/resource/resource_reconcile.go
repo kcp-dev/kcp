@@ -44,7 +44,7 @@ import (
 // reconcileResource is responsible for setting the cluster for a resource of
 // any type, to match the cluster where its namespace is assigned.
 func (c *Controller) reconcileResource(ctx context.Context, lclusterName logicalcluster.Name, obj *unstructured.Unstructured, gvr *schema.GroupVersionResource) error {
-	logger := logging.WithObject(logging.WithReconciler(klog.Background(), controllerName), obj).WithValues("groupVersionResource", gvr.String(), "logicalCluster", lclusterName.String())
+	logger := logging.WithObject(logging.WithReconciler(klog.Background(), ControllerName), obj).WithValues("groupVersionResource", gvr.String(), "logicalCluster", lclusterName.String())
 	logger.V(4).Info("reconciling resource")
 
 	// if the resource is a namespace, let's return early. nothing to do.

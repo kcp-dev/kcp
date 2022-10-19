@@ -45,7 +45,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
-const controllerName = "kcp-synctarget-controller"
+const ControllerName = "kcp-synctarget-controller"
 
 func NewController(
 	kcpClusterClient kcpclient.Interface,
@@ -54,7 +54,7 @@ func NewController(
 ) *Controller {
 
 	c := &Controller{
-		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
+		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
 		kcpClusterClient:     kcpClusterClient,
 		syncTargetIndexer:    syncTargetInformer.Informer().GetIndexer(),
 		workspaceShardLister: workspaceShardInformer.Lister(),
@@ -91,14 +91,14 @@ func (c *Controller) enqueueSyncTarget(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), key)
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
 	logger.V(2).Info("queueing SyncTarget")
 	c.queue.Add(key)
 }
 
 // On workspaceShard changes, enqueue all the syncTargets.
 func (c *Controller) enqueueWorkspaceShard(obj interface{}) {
-	logger := logging.WithObject(logging.WithReconciler(klog.Background(), controllerName), obj.(*tenancyv1alpha1.ClusterWorkspaceShard))
+	logger := logging.WithObject(logging.WithReconciler(klog.Background(), ControllerName), obj.(*tenancyv1alpha1.ClusterWorkspaceShard))
 	for _, syncTarget := range c.syncTargetIndexer.List() {
 		key, err := kcpcache.MetaClusterNamespaceKeyFunc(syncTarget)
 		if err != nil {
@@ -115,7 +115,7 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
+	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName)
 	ctx = klog.NewContext(ctx, logger)
 	logger.Info("Starting controller")
 	defer logger.Info("Shutting down controller")

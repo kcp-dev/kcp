@@ -49,7 +49,7 @@ import (
 )
 
 const (
-	controllerName = "kcp-kube-quota"
+	ControllerName = "kcp-kube-quota"
 )
 
 // Controller manages per-workspace resource quota controllers.
@@ -92,7 +92,7 @@ func NewController(
 	informersStarted <-chan struct{},
 ) (*Controller, error) {
 	c := &Controller{
-		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
+		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
 
 		dynamicDiscoverySharedInformerFactory: dynamicDiscoverySharedInformerFactory,
 		kubeClusterClient:                     kubeClusterClient,
@@ -154,7 +154,7 @@ func (c *Controller) enqueue(obj interface{}) {
 		return
 	}
 
-	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), key)
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
 	logger.V(2).Info("queueing ClusterWorkspace")
 	c.queue.Add(key)
 }
@@ -164,7 +164,7 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
+	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName)
 	ctx = klog.NewContext(ctx, logger)
 	logger.Info("Starting controller")
 	defer logger.Info("Shutting down controller")
@@ -200,7 +200,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	defer c.queue.Done(key)
 
 	if err := c.process(ctx, key); err != nil {
-		utilruntime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", controllerName, key, err))
+		utilruntime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", ControllerName, key, err))
 		c.queue.AddRateLimited(key)
 		return true
 	}

@@ -45,8 +45,8 @@ import (
 )
 
 const (
-	controllerName = "kcp-workload-apiexport"
-	byWorkspace    = controllerName + "-byWorkspace" // will go away with scoping
+	ControllerName = "kcp-workload-apiexport"
+	byWorkspace    = ControllerName + "-byWorkspace" // will go away with scoping
 
 	// TemporaryComputeServiceExportName is a temporary singleton name of compute service exports.
 	TemporaryComputeServiceExportName = "kubernetes"
@@ -60,7 +60,7 @@ func NewController(
 	negotiatedAPIResourceInformer apiresourceinformer.NegotiatedAPIResourceInformer,
 	syncTargetInformer workloadinformers.SyncTargetInformer,
 ) (*controller, error) {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
 	c := &controller{
 		queue: queue,
@@ -169,7 +169,7 @@ func (c *controller) enqueueNegotiatedAPIResource(obj interface{}) {
 		return
 	}
 
-	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), key)
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
 	logging.WithObject(logger, resource).V(2).Info("queueing APIExport due to NegotiatedAPIResource")
 	c.queue.Add(key)
 }
@@ -190,7 +190,7 @@ func (c *controller) enqueueSyncTarget(obj interface{}) {
 		return
 	}
 
-	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), key)
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
 	logging.WithObject(logger, resource).V(2).Info("queueing APIExport due to SyncTarget")
 	c.queue.Add(key)
 }
@@ -202,7 +202,7 @@ func (c *controller) enqueueAPIExport(obj interface{}) {
 		return
 	}
 
-	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), key)
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
 	logger.V(2).Info("queueing APIExport")
 	c.queue.Add(key)
 }
@@ -212,7 +212,7 @@ func (c *controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
+	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName)
 	ctx = klog.NewContext(ctx, logger)
 	logger.Info("Starting controller")
 	defer logger.Info("Shutting down controller")
@@ -246,7 +246,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	defer c.queue.Done(key)
 
 	if err := c.process(ctx, key); err != nil {
-		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", controllerName, key, err))
+		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", ControllerName, key, err))
 		c.queue.AddRateLimited(key)
 		return true
 	}

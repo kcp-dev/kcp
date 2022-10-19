@@ -51,9 +51,9 @@ import (
 )
 
 const (
-	controllerName = "kcp-workload-apiexport-create"
+	ControllerName = "kcp-workload-apiexport-create"
 
-	byWorkspace = controllerName + "-byWorkspace" // will go away with scoping
+	byWorkspace = ControllerName + "-byWorkspace" // will go away with scoping
 
 	DefaultLocationName = "default"
 )
@@ -66,7 +66,7 @@ func NewController(
 	apiBindingInformer apisinformers.APIBindingInformer,
 	locationInformer schedulinginformers.LocationInformer,
 ) (*controller, error) {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
 	c := &controller{
 		queue: queue,
@@ -175,7 +175,7 @@ func (c *controller) enqueue(obj interface{}) {
 	}
 
 	key = clusterName.String()
-	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), controllerName), key)
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
 	if logObj, ok := obj.(logging.Object); ok {
 		logger = logging.WithObject(logger, logObj)
 	}
@@ -188,7 +188,7 @@ func (c *controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	logger := logging.WithReconciler(klog.FromContext(ctx), controllerName)
+	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName)
 	ctx = klog.NewContext(ctx, logger)
 	logger.Info("Starting controller")
 	defer logger.Info("Shutting down controller")
@@ -222,7 +222,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	defer c.queue.Done(key)
 
 	if err := c.process(ctx, key); err != nil {
-		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", controllerName, key, err))
+		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", ControllerName, key, err))
 		c.queue.AddRateLimited(key)
 		return true
 	}
