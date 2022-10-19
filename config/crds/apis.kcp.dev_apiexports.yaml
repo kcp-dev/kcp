@@ -23,9 +23,8 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: "APIExport registers an API and implementation to allow consumption
-          by others through APIBindings. \n APIExports cannot be deleted until status.resourceSchemasInUse
-          is empty."
+        description: APIExport registers an API and implementation to allow consumption
+          by others through APIBindings.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation

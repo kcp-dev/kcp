@@ -46,8 +46,6 @@ const (
 // APIExport registers an API and implementation to allow consumption by others
 // through APIBindings.
 //
-// APIExports cannot be deleted until status.resourceSchemasInUse is empty.
-//
 // +crd
 // +genclient
 // +genclient:nonNamespaced

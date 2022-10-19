@@ -1284,7 +1284,7 @@ func schema_pkg_apis_apis_v1alpha1_APIExport(ref common.ReferenceCallback) commo
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "APIExport registers an API and implementation to allow consumption by others through APIBindings.\n\nAPIExports cannot be deleted until status.resourceSchemasInUse is empty.",
+				Description: "APIExport registers an API and implementation to allow consumption by others through APIBindings.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
