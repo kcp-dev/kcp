@@ -23,7 +23,6 @@ import (
 
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -43,9 +42,6 @@ import (
 const (
 	// ControllerName hold this controller name.
 	ControllerName = "kcp-replication-controller"
-
-	// AnnotationKey is the name of the annotation key used to mark an object for replication.
-	AnnotationKey = "internal.sharding.kcp.dev/replicate"
 )
 
 // NewController returns a new replication controller.
@@ -151,30 +147,19 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	return true
 }
 
-func (c *controller) apiExportInformerEventHandler() cache.FilteringResourceEventHandler {
+func (c *controller) apiExportInformerEventHandler() cache.ResourceEventHandler {
 	return objectInformerEventHandler(c.enqueueAPIExport)
 }
 
-func (c *controller) apiResourceSchemaInformerEventHandler() cache.FilteringResourceEventHandler {
+func (c *controller) apiResourceSchemaInformerEventHandler() cache.ResourceEventHandler {
 	return objectInformerEventHandler(c.enqueueAPIResourceSchema)
 }
 
-func objectInformerEventHandler(enqueueObject func(obj interface{})) cache.FilteringResourceEventHandler {
-	return cache.FilteringResourceEventHandler{
-		FilterFunc: func(obj interface{}) bool {
-			metadata, err := meta.Accessor(obj)
-			if err != nil {
-				runtime.HandleError(err)
-				return false
-			}
-			_, hasReplicationLabel := metadata.GetAnnotations()[AnnotationKey]
-			return hasReplicationLabel
-		},
-		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    func(obj interface{}) { enqueueObject(obj) },
-			UpdateFunc: func(_, obj interface{}) { enqueueObject(obj) },
-			DeleteFunc: func(obj interface{}) { enqueueObject(obj) },
-		},
+func objectInformerEventHandler(enqueueObject func(obj interface{})) cache.ResourceEventHandler {
+	return cache.ResourceEventHandlerFuncs{
+		AddFunc:    func(obj interface{}) { enqueueObject(obj) },
+		UpdateFunc: func(_, obj interface{}) { enqueueObject(obj) },
+		DeleteFunc: func(obj interface{}) { enqueueObject(obj) },
 	}
 }
 
