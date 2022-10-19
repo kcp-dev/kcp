@@ -457,6 +457,8 @@ func TestDeepEqualApartFromStatus(t *testing.T) {
 	}
 }
 
+var deletionTimestamp = metav1.Now()
+
 func TestSyncerProcess(t *testing.T) {
 	tests := map[string]struct {
 		fromNamespace *corev1.Namespace
@@ -492,7 +494,7 @@ func TestSyncerProcess(t *testing.T) {
 						"token":     []byte("token"),
 						"namespace": []byte("namespace"),
 					}),
-				deployment("theDeployment", "test", "root:org:ws", map[string]string{
+				deployment("theDeployment", "test", "root:org:ws", nil, map[string]string{
 					"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync",
 				}, nil, nil),
 			},
@@ -503,7 +505,7 @@ func TestSyncerProcess(t *testing.T) {
 			expectActionsOnFrom: []kcptesting.Action{
 				updateDeploymentAction("test",
 					toUnstructured(t, changeDeployment(
-						deployment("theDeployment", "test", "root:org:ws", map[string]string{
+						deployment("theDeployment", "test", "root:org:ws", nil, map[string]string{
 							"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync",
 						}, nil, []string{"workload.kcp.dev/syncer-2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5"}),
 					))),
@@ -538,7 +540,7 @@ func TestSyncerProcess(t *testing.T) {
 						"token":     []byte("token"),
 						"namespace": []byte("namespace"),
 					}),
-				deployment("theDeployment", "test", "root:org:ws", map[string]string{
+				deployment("theDeployment", "test", "root:org:ws", nil, map[string]string{
 					"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync",
 				}, nil, []string{"workload.kcp.dev/syncer-2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5"}),
 			},
@@ -567,7 +569,7 @@ func TestSyncerProcess(t *testing.T) {
 					types.ApplyPatchType,
 					toJson(t,
 						changeUnstructured(
-							toUnstructured(t, deployment("theDeployment", "kcp-hcbsa8z6c2er", "", map[string]string{
+							toUnstructured(t, deployment("theDeployment", "kcp-hcbsa8z6c2er", "", nil, map[string]string{
 								"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
 							}, nil, nil)),
 							setNestedField(map[string]interface{}{}, "status"),
@@ -591,7 +593,7 @@ func TestSyncerProcess(t *testing.T) {
 						"token":     []byte("token"),
 						"namespace": []byte("namespace"),
 					}),
-				deployment("theDeployment", "test", "root:org:ws", nil, nil, nil),
+				deployment("theDeployment", "test", "root:org:ws", nil, nil, nil, nil),
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
 			resourceToProcessName:               "theDeployment",
@@ -618,7 +620,7 @@ func TestSyncerProcess(t *testing.T) {
 					map[string]string{
 						"kcp.dev/namespace-locator": `{"syncTarget":{"workspace":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
 					}),
-				deployment("theDeployment", "kcp-hcbsa8z6c2er", "root:org:ws", map[string]string{
+				deployment("theDeployment", "kcp-hcbsa8z6c2er", "root:org:ws", nil, map[string]string{
 					"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
 				}, nil, []string{"workload.kcp.dev/syncer-2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5"}),
 			},
@@ -630,9 +632,9 @@ func TestSyncerProcess(t *testing.T) {
 						"token":     []byte("token"),
 						"namespace": []byte("namespace"),
 					}),
-				deployment("theDeployment", "test", "root:org:ws",
+				deployment("theDeployment", "test", "root:org:ws", &deletionTimestamp,
 					map[string]string{"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync"},
-					map[string]string{"deletion.internal.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": time.Now().Format(time.RFC3339)},
+					nil,
 					[]string{"workload.kcp.dev/syncer-2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5"}),
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
@@ -669,10 +671,9 @@ func TestSyncerProcess(t *testing.T) {
 						"token":     []byte("token"),
 						"namespace": []byte("namespace"),
 					}),
-				deployment("theDeployment", "test", "root:org:ws",
+				deployment("theDeployment", "test", "root:org:ws", &deletionTimestamp,
 					map[string]string{"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync"},
-					map[string]string{"another.valid.annotation/this": "value",
-						"deletion.internal.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": time.Now().Format(time.RFC3339)},
+					map[string]string{"another.valid.annotation/this": "value"},
 					[]string{"workload.kcp.dev/syncer-2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5"}),
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
@@ -682,12 +683,13 @@ func TestSyncerProcess(t *testing.T) {
 				updateDeploymentAction("test",
 					changeUnstructured(
 						toUnstructured(t, changeDeployment(
-							deployment("theDeployment", "test", "root:org:ws", nil, map[string]string{"another.valid.annotation/this": "value"}, nil),
+							deployment("theDeployment", "test", "root:org:ws", &deletionTimestamp,
+								map[string]string{"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync"},
+								map[string]string{"another.valid.annotation/this": "value"}, nil),
 						),
 						),
 						// TODO(jmprusi): Those next changes do "nothing", it's just for the test to pass
 						//                as the test expects some null fields to be there...
-						setNestedField(map[string]interface{}{}, "metadata", "labels"),
 						setNestedField([]interface{}{}, "metadata", "finalizers"),
 						setNestedField(nil, "spec", "selector"),
 					)),
@@ -696,77 +698,6 @@ func TestSyncerProcess(t *testing.T) {
 				deleteDeploymentSingleClusterAction(
 					"theDeployment",
 					"kcp-hcbsa8z6c2er",
-				),
-			},
-		},
-		"SpecSyncer deletion: upstream object has external finalizer, the object shouldn't be deleted": {
-			upstreamLogicalCluster: "root:org:ws",
-			fromNamespace: namespace("test", "root:org:ws", map[string]string{
-				"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync",
-			}, nil),
-			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
-			toResources: []runtime.Object{
-				namespace("kcp-hcbsa8z6c2er", "", map[string]string{
-					"internal.workload.kcp.dev/cluster":                             "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
-					"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync",
-				},
-					map[string]string{
-						"kcp.dev/namespace-locator": `{"syncTarget":{"workspace":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
-					}),
-				deployment("theDeployment", "kcp-hcbsa8z6c2er", "", map[string]string{
-					"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
-				}, nil, nil),
-			},
-			fromResources: []runtime.Object{
-				secret("default-token-abc", "test", "root:org:ws",
-					map[string]string{"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync"},
-					map[string]string{"kubernetes.io/service-account.name": "default"},
-					map[string][]byte{
-						"token":     []byte("token"),
-						"namespace": []byte("namespace"),
-					}),
-				deployment("theDeployment", "test", "root:org:ws",
-					map[string]string{"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync"},
-					map[string]string{
-						"deletion.internal.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": time.Now().Format(time.RFC3339),
-						"finalizers.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5":        "another-controller-finalizer",
-					},
-					[]string{"workload.kcp.dev/syncer-2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5"}),
-			},
-			resourceToProcessLogicalClusterName: "root:org:ws",
-			resourceToProcessName:               "theDeployment",
-			syncTargetName:                      "us-west1",
-
-			expectActionsOnFrom: []kcptesting.Action{},
-			expectActionsOnTo: []clienttesting.Action{
-				patchDeploymentSingleClusterAction(
-					"theDeployment",
-					"kcp-hcbsa8z6c2er",
-					types.ApplyPatchType,
-					toJson(t,
-						changeUnstructured(
-							toUnstructured(t, deployment("theDeployment", "kcp-hcbsa8z6c2er", "", map[string]string{
-								"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
-							}, map[string]string{
-								"deletion.internal.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": time.Now().Format(time.RFC3339),
-								"finalizers.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5":        "another-controller-finalizer",
-							}, nil)),
-							// TODO(jmprusi): Those next changes do "nothing", it's just for the test to pass
-							//                as the test expects some null fields to be there...
-							setNestedField(nil, "spec", "selector"),
-							setNestedField(map[string]interface{}{}, "spec", "strategy"),
-							setNestedField(map[string]interface{}{
-								"metadata": map[string]interface{}{
-									"creationTimestamp": nil,
-								},
-								"spec": map[string]interface{}{
-									"containers": nil,
-								},
-							}, "spec", "template"),
-							setNestedField(map[string]interface{}{}, "status"),
-							setPodSpec("spec", "template", "spec"),
-						),
-					),
 				),
 			},
 		},
@@ -784,7 +715,7 @@ func TestSyncerProcess(t *testing.T) {
 						"token":     []byte("token"),
 						"namespace": []byte("namespace"),
 					}),
-				deployment("theDeployment", "test", "root:org:ws",
+				deployment("theDeployment", "test", "root:org:ws", nil,
 					map[string]string{
 						"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync",
 					},
@@ -817,7 +748,7 @@ func TestSyncerProcess(t *testing.T) {
 					types.ApplyPatchType,
 					toJson(t,
 						changeUnstructured(
-							toUnstructured(t, deployment("theDeployment", "kcp-hcbsa8z6c2er", "", map[string]string{
+							toUnstructured(t, deployment("theDeployment", "kcp-hcbsa8z6c2er", "", nil, map[string]string{
 								"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
 							}, map[string]string{"experimental.spec-diff.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "[{\"op\":\"replace\",\"path\":\"/replicas\",\"value\":3}]"}, nil)),
 							setNestedField(map[string]interface{}{
@@ -855,7 +786,7 @@ func TestSyncerProcess(t *testing.T) {
 						"token":     []byte("token"),
 						"namespace": []byte("namespace"),
 					}),
-				deployment("theDeployment", "test", "root:org:ws", map[string]string{
+				deployment("theDeployment", "test", "root:org:ws", nil, map[string]string{
 					"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync",
 				}, nil, []string{"workload.kcp.dev/syncer-2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5"}),
 			},
@@ -888,7 +819,7 @@ func TestSyncerProcess(t *testing.T) {
 						"token":     []byte("token"),
 						"namespace": []byte("namespace"),
 					}),
-				deployment("theDeployment", "test", "root:org:ws", map[string]string{
+				deployment("theDeployment", "test", "root:org:ws", nil, map[string]string{
 					"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync",
 				}, nil, []string{"workload.kcp.dev/syncer-2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5"}),
 			},
@@ -1071,7 +1002,7 @@ func namespace(name, clusterName string, labels, annotations map[string]string) 
 	}
 }
 
-func deployment(name, namespace, clusterName string, labels, annotations map[string]string, finalizers []string) *appsv1.Deployment {
+func deployment(name, namespace, clusterName string, deletionTimestamp *metav1.Time, labels, annotations map[string]string, finalizers []string) *appsv1.Deployment {
 	if clusterName != "" {
 		if annotations == nil {
 			annotations = make(map[string]string)
@@ -1081,11 +1012,12 @@ func deployment(name, namespace, clusterName string, labels, annotations map[str
 
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        name,
-			Namespace:   namespace,
-			Labels:      labels,
-			Annotations: annotations,
-			Finalizers:  finalizers,
+			Name:              name,
+			Namespace:         namespace,
+			Labels:            labels,
+			Annotations:       annotations,
+			Finalizers:        finalizers,
+			DeletionTimestamp: deletionTimestamp,
 		},
 	}
 }
