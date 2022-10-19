@@ -90,7 +90,7 @@ func replicateAPIExportScenario(ctx context.Context, t *testing.T, server framew
 		cachedWildAPIExport, err = cacheKcpClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Get(cacheclient.WithShardInContext(ctx, shard.New("root")), wildAPIExport.Name, metav1.GetOptions{})
 		if err != nil {
 			if !errors.IsNotFound(err) {
-				return true, err.Error()
+				return false, err.Error()
 			}
 			return false, err.Error()
 		}
@@ -107,7 +107,7 @@ func replicateAPIExportScenario(ctx context.Context, t *testing.T, server framew
 
 	t.Logf("Verify that a spec update on %s/%s APIExport is propagated to the cached object", cluster, "wild.wild.west")
 	verifyAPIExportUpdate(ctx, t, cluster, kcpRootShardClient, cacheKcpClusterClient, func(apiExport *apisv1alpha1.APIExport) {
-		apiExport.Spec.PermissionClaims = append(wildAPIExport.Spec.PermissionClaims, apisv1alpha1.PermissionClaim{GroupResource: apisv1alpha1.GroupResource{Group: "foo", Resource: "bar"}})
+		apiExport.Spec.LatestResourceSchemas = append(apiExport.Spec.LatestResourceSchemas, "foo.bar")
 	})
 	t.Logf("Verify that a metadata update on %s/%s APIExport is propagated ot the cached object", cluster, "wild.wild.west")
 	verifyAPIExportUpdate(ctx, t, cluster, kcpRootShardClient, cacheKcpClusterClient, func(apiExport *apisv1alpha1.APIExport) {
@@ -139,13 +139,13 @@ func verifyAPIExportUpdate(ctx context.Context, t *testing.T, cluster logicalclu
 	framework.Eventually(t, func() (bool, string) {
 		wildAPIExport, err = kcpRootShardClient.Cluster(cluster).ApisV1alpha1().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
 		if err != nil {
-			return true, err.Error()
+			return false, err.Error()
 		}
 		changeApiExportFn(wildAPIExport)
 		updatedWildAPIExport, err = kcpRootShardClient.Cluster(cluster).ApisV1alpha1().APIExports().Update(ctx, wildAPIExport, metav1.UpdateOptions{})
 		if err != nil {
 			if !errors.IsConflict(err) {
-				return true, fmt.Sprintf("unknow error while updating the cached %s/%s/%s APIExport, err: %s", "root", cluster, "wild.wild.west", err.Error())
+				return false, fmt.Sprintf("unknow error while updating the cached %s/%s/%s APIExport, err: %s", "root", cluster, "wild.wild.west", err.Error())
 			}
 			return false, err.Error() // try again
 		}
@@ -155,11 +155,11 @@ func verifyAPIExportUpdate(ctx context.Context, t *testing.T, cluster logicalclu
 	framework.Eventually(t, func() (bool, string) {
 		cachedWildAPIExport, err := cacheKcpClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Get(cacheclient.WithShardInContext(ctx, shard.New("root")), wildAPIExport.Name, metav1.GetOptions{})
 		if err != nil {
-			return true, err.Error()
+			return false, err.Error()
 		}
 		t.Logf("Verify if both the orignal APIExport and replicated are the same except %s annotation and ResourceVersion after an update to the spec", genericapirequest.AnnotationKey)
 		if _, found := cachedWildAPIExport.Annotations[genericapirequest.AnnotationKey]; !found {
-			return true, fmt.Sprintf("replicated APIExport root/%s/%s, doesn't have %s annotation", cluster, cachedWildAPIExport.Name, genericapirequest.AnnotationKey)
+			return false, fmt.Sprintf("replicated APIExport root/%s/%s, doesn't have %s annotation", cluster, cachedWildAPIExport.Name, genericapirequest.AnnotationKey)
 		}
 		delete(cachedWildAPIExport.Annotations, genericapirequest.AnnotationKey)
 		if diff := cmp.Diff(cachedWildAPIExport, updatedWildAPIExport, cmpopts.IgnoreFields(metav1.ObjectMeta{}, "ResourceVersion")); len(diff) > 0 {
@@ -200,6 +200,12 @@ func TestAllScenariosAgainstStandaloneCacheServer(t *testing.T) {
 	require.NoError(t, err)
 	cacheServerOptions := cacheopitons.NewOptions(path.Join(dataDir, "cache"))
 	cacheServerOptions.SecureServing.BindPort = cacheServerPort
+	cacheServerEmbeddedEtcdClientPort, err := framework.GetFreePort(t)
+	require.NoError(t, err)
+	cacheServerEmbeddedEtcdPeerPort, err := framework.GetFreePort(t)
+	require.NoError(t, err)
+	cacheServerOptions.EmbeddedEtcd.ClientPort = cacheServerEmbeddedEtcdClientPort
+	cacheServerOptions.EmbeddedEtcd.PeerPort = cacheServerEmbeddedEtcdPeerPort
 	cacheServerCompletedOptions, err := cacheServerOptions.Complete()
 	require.NoError(t, err)
 	if errs := cacheServerCompletedOptions.Validate(); len(errs) > 0 {
