@@ -1203,64 +1203,10 @@ func deploymentAction(verb, namespace string, subresources ...string) kcptesting
 	}
 }
 
-func namespaceAction(verb string, subresources ...string) kcptesting.ActionImpl {
-	return kcptesting.ActionImpl{
-		Namespace:   "",
-		Cluster:     logicalcluster.New("root:org:ws"),
-		Verb:        verb,
-		Resource:    schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"},
-		Subresource: strings.Join(subresources, "/"),
-	}
-}
-
-func createNamespaceAction(name string, object runtime.Object) kcptesting.CreateActionImpl {
-	return kcptesting.CreateActionImpl{
-		ActionImpl: namespaceAction("create"),
-		Name:       name,
-		Object:     object,
-	}
-}
-
 func updateDeploymentAction(namespace string, object runtime.Object, subresources ...string) kcptesting.UpdateActionImpl {
 	return kcptesting.UpdateActionImpl{
 		ActionImpl: deploymentAction("update", namespace, subresources...),
 		Object:     object,
-	}
-}
-
-func patchDeploymentAction(name, namespace string, patchType types.PatchType, patch []byte, subresources ...string) kcptesting.PatchActionImpl {
-	return kcptesting.PatchActionImpl{
-		ActionImpl: deploymentAction("patch", namespace, subresources...),
-		Name:       name,
-		PatchType:  patchType,
-		Patch:      patch,
-	}
-}
-
-func deleteDeploymentAction(name, namespace string, subresources ...string) kcptesting.DeleteActionImpl {
-	return kcptesting.DeleteActionImpl{
-		ActionImpl:    deploymentAction("delete", namespace, subresources...),
-		Name:          name,
-		DeleteOptions: metav1.DeleteOptions{},
-	}
-}
-
-func secretAction(verb, namespace string, subresources ...string) kcptesting.ActionImpl {
-	return kcptesting.ActionImpl{
-		Namespace:   namespace,
-		Cluster:     logicalcluster.New("root:org:ws"),
-		Verb:        verb,
-		Resource:    schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"},
-		Subresource: strings.Join(subresources, "/"),
-	}
-}
-
-func patchSecretAction(name, namespace string, patchType types.PatchType, patch []byte, subresources ...string) kcptesting.PatchActionImpl {
-	return kcptesting.PatchActionImpl{
-		ActionImpl: secretAction("patch", namespace, subresources...),
-		Name:       name,
-		PatchType:  patchType,
-		Patch:      patch,
 	}
 }
 
@@ -1286,13 +1232,6 @@ func createNamespaceSingleClusterAction(name string, object runtime.Object) clie
 	return clienttesting.CreateActionImpl{
 		ActionImpl: namespaceSingleClusterAction("create"),
 		Name:       name,
-		Object:     object,
-	}
-}
-
-func updateDeploymentSingleClusterAction(namespace string, object runtime.Object, subresources ...string) clienttesting.UpdateActionImpl {
-	return clienttesting.UpdateActionImpl{
-		ActionImpl: deploymentSingleClusterAction("update", namespace, subresources...),
 		Object:     object,
 	}
 }

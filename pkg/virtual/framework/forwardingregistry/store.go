@@ -315,7 +315,7 @@ func listerWatcherGetter(dynamicClusterClient kcpdynamic.ClusterInterface, names
 			}
 			return dynamicClusterClient.Resource(gvr), nil
 		default:
-			if namespaceScoped && !namespaceSet {
+			if namespaceScoped {
 				if !namespaceSet {
 					return nil, fmt.Errorf("there should be a Namespace context in a request for a namespaced resource: %s", gvr.String())
 				}

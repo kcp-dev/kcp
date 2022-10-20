@@ -135,22 +135,6 @@ func NewController(
 	return c, nil
 }
 
-func clusterNameForObj(obj interface{}) logicalcluster.Name {
-	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
-	if err != nil {
-		utilruntime.HandleError(err)
-		return logicalcluster.Name{}
-	}
-
-	cluster, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
-	if err != nil {
-		utilruntime.HandleError(err)
-		return logicalcluster.Name{}
-	}
-
-	return cluster
-}
-
 // enqueue adds the key for a ClusterWorkspace to the queue.
 func (c *Controller) enqueue(obj interface{}) {
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)

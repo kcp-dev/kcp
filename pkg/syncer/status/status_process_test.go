@@ -727,22 +727,6 @@ func updateDeploymentAction(namespace string, object runtime.Object, subresource
 	}
 }
 
-func deploymentSingleClusterAction(verb, namespace string, subresources ...string) clienttesting.ActionImpl {
-	return clienttesting.ActionImpl{
-		Namespace:   namespace,
-		Verb:        verb,
-		Resource:    schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
-		Subresource: strings.Join(subresources, "/"),
-	}
-}
-
-func updateDeploymentSingleClusterAction(namespace string, object runtime.Object, subresources ...string) clienttesting.UpdateActionImpl {
-	return clienttesting.UpdateActionImpl{
-		ActionImpl: deploymentSingleClusterAction("update", namespace, subresources...),
-		Object:     object,
-	}
-}
-
 type fakeSyncerInformers struct {
 	upstreamInformer   kcpkubernetesinformers.GenericClusterInformer
 	downStreamInformer informers.GenericInformer

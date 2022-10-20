@@ -350,6 +350,7 @@ func mergeCRDsIntoCoreGroup(crdLister kcp.ClusterAwareCRDClusterLister, crdHandl
 					// TODO is this the right Codecs?
 					errorCodecs, schema.GroupVersion{Group: requestInfo.APIGroup, Version: requestInfo.APIVersion}, res.ResponseWriter, req.Request,
 				)
+				return
 			}
 
 			if _, err := crdLister.Cluster(clusterName).Get(req.Request.Context(), crdName); err == nil {
@@ -372,6 +373,7 @@ func serveCoreV1Discovery(ctx context.Context, crdLister kcp.ClusterAwareCRDClus
 			apierrors.NewInternalError(fmt.Errorf("no cluster found in the context")),
 			errorCodecs, schema.GroupVersion{}, res, req,
 		)
+		return
 	}
 	// Get all the CRDs to see if any of them are in v1
 	crds, err := crdLister.Cluster(clusterName).List(ctx, labels.Everything())
