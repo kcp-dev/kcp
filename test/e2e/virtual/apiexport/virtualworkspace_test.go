@@ -486,6 +486,7 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 				Group:    "apis.kcp.dev",
 				Resource: "apibindings",
 			},
+			All: true,
 		},
 	}
 	_, err = kcpClusterClient.Cluster(workspace1).ApisV1alpha1().APIExports().Update(ctx, export1, metav1.UpdateOptions{})
@@ -957,25 +958,32 @@ func setUpServiceProviderWithPermissionClaims(ctx context.Context, dynamicCluste
 	claims := []apisv1alpha1.PermissionClaim{
 		{
 			GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "configmaps"},
+			All:           true,
 		},
 		{
 			GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "secrets"},
+			All:           true,
 		},
 		{
 			GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "serviceaccounts"},
+			All:           true,
 		},
 		{
 			GroupResource: apisv1alpha1.GroupResource{Group: "rbac.authorization.k8s.io", Resource: "clusterroles"},
+			All:           true,
 		},
 		{
 			GroupResource: apisv1alpha1.GroupResource{Group: "rbac.authorization.k8s.io", Resource: "clusterrolebindings"},
+			All:           true,
 		},
 		{
 			GroupResource: apisv1alpha1.GroupResource{Group: "apis.kcp.dev", Resource: "apibindings"},
+			All:           true,
 		},
 		{
 			GroupResource: apisv1alpha1.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
 			IdentityHash:  identityHash,
+			All:           true,
 		},
 	}
 	setUpServiceProvider(ctx, dynamicClusterClient, kcpClients, serviceProviderWorkspace, cfg, t, claims...)

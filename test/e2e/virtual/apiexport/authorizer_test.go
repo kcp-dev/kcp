@@ -149,10 +149,12 @@ func TestAPIExportAuthorizers(t *testing.T) {
 			PermissionClaims: []apisv1alpha1.PermissionClaim{
 				{
 					GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "configmaps"},
+					All:           true,
 				},
 				{
 					GroupResource: apisv1alpha1.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
 					IdentityHash:  identityHash,
+					All:           true,
 				},
 			},
 		},
