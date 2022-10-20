@@ -845,12 +845,26 @@ func TestAPIExportInternalAPIsDrift(t *testing.T) {
 	orgClusterName := framework.NewOrganizationFixture(t, server)
 	anyWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
 
-	apis, err := gatherInternalAPIs(discoveryClient.WithCluster(anyWorkspace), t)
+	apis, err := gatherInternalAPIs(discoveryClient.Cluster(anyWorkspace), t)
 	require.NoError(t, err, "failed to gather built-in apis for server")
 
-	require.Equal(t, len(apis), len(apiexportbuiltin.BuiltInAPIs))
+	sort.Slice(apis, func(i, j int) bool {
+		if apis[i].GroupVersion.String() == apis[j].GroupVersion.String() {
+			return apis[i].Names.Plural < apis[j].Names.Plural
+		}
+		return apis[i].GroupVersion.String() < apis[j].GroupVersion.String()
+	})
 
-	require.ElementsMatch(t, apis, apiexportbuiltin.BuiltInAPIs)
+	expected := apiexportbuiltin.BuiltInAPIs
+
+	sort.Slice(expected, func(i, j int) bool {
+		if expected[i].GroupVersion.String() == expected[j].GroupVersion.String() {
+			return expected[i].Names.Plural < expected[j].Names.Plural
+		}
+		return expected[i].GroupVersion.String() < expected[j].GroupVersion.String()
+	})
+
+	require.Empty(t, cmp.Diff(apis, expected))
 }
 
 func gatherInternalAPIs(discoveryClient discovery.DiscoveryInterface, t *testing.T) ([]internalapis.InternalAPI, error) {

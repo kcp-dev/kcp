@@ -24,8 +24,6 @@ import (
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	eventsv1 "k8s.io/api/events/v1"
-	flowcontrolv1beta1 "k8s.io/api/flowcontrol/v1beta1"
-	flowcontrolv1beta2 "k8s.io/api/flowcontrol/v1beta2"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -214,50 +212,6 @@ var BuiltInAPIs = []internalapis.InternalAPI{
 		GroupVersion:  schema.GroupVersion{Group: "coordination.k8s.io", Version: "v1"},
 		Instance:      &coordinationv1.Lease{},
 		ResourceScope: apiextensionsv1.NamespaceScoped,
-	},
-	{
-		Names: apiextensionsv1.CustomResourceDefinitionNames{
-			Plural:   "flowschemas",
-			Singular: "flowschema",
-			Kind:     "FlowSchema",
-		},
-		GroupVersion:  schema.GroupVersion{Group: "flowcontrol.apiserver.k8s.io", Version: "v1beta1"},
-		Instance:      &flowcontrolv1beta1.FlowSchema{},
-		ResourceScope: apiextensionsv1.ClusterScoped,
-		HasStatus:     true,
-	},
-	{
-		Names: apiextensionsv1.CustomResourceDefinitionNames{
-			Plural:   "prioritylevelconfigurations",
-			Singular: "prioritylevelconfiguration",
-			Kind:     "PriorityLevelConfiguration",
-		},
-		GroupVersion:  schema.GroupVersion{Group: "flowcontrol.apiserver.k8s.io", Version: "v1beta1"},
-		Instance:      &flowcontrolv1beta1.PriorityLevelConfiguration{},
-		ResourceScope: apiextensionsv1.ClusterScoped,
-		HasStatus:     true,
-	},
-	{
-		Names: apiextensionsv1.CustomResourceDefinitionNames{
-			Plural:   "flowschemas",
-			Singular: "flowschema",
-			Kind:     "FlowSchema",
-		},
-		GroupVersion:  schema.GroupVersion{Group: "flowcontrol.apiserver.k8s.io", Version: "v1beta2"},
-		Instance:      &flowcontrolv1beta2.FlowSchema{},
-		ResourceScope: apiextensionsv1.ClusterScoped,
-		HasStatus:     true,
-	},
-	{
-		Names: apiextensionsv1.CustomResourceDefinitionNames{
-			Plural:   "prioritylevelconfigurations",
-			Singular: "prioritylevelconfiguration",
-			Kind:     "PriorityLevelConfiguration",
-		},
-		GroupVersion:  schema.GroupVersion{Group: "flowcontrol.apiserver.k8s.io", Version: "v1beta2"},
-		Instance:      &flowcontrolv1beta2.PriorityLevelConfiguration{},
-		ResourceScope: apiextensionsv1.ClusterScoped,
-		HasStatus:     true,
 	},
 	{
 		Names: apiextensionsv1.CustomResourceDefinitionNames{

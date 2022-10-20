@@ -23,8 +23,5 @@ import (
 )
 
 func TestInit(t *testing.T) {
-	// NOTE(hasheddan): the length of APIResourceSchemas should be two less than
-	// the list of internal APIs due to the fact that v1beta1 and v1beta2 API
-	// versions are registered for FlowSchemas and PriorityLevelConfigurations.
-	require.Equal(t, len(BuiltInAPIs)-2, len(builtInAPIResourceSchemas))
+	require.Equal(t, len(BuiltInAPIs), len(builtInAPIResourceSchemas))
 }
