@@ -42,7 +42,7 @@ id = "UA-00000000-0"
 
 [languages]
 [languages.en]
-title = 'kcp - a Kubernetes-like multi-tenant control plane'
+title = 'kcp - a multi-tenant control plane for Kubernetes APIs'
 description = "kcp documentation"
 languageName = "English"
 weight = 1
@@ -130,6 +130,10 @@ path = "github.com/google/docsy/dependencies"
 disable = false
 
 [menu]
+[[menu.main]]
+name = "Documentation"
+weight = -1000
+url = "/main"
 [[menu.main]]
 name = "GitHub"
 weight = -99
