@@ -20,6 +20,10 @@ import (
 	"strconv"
 	"testing"
 
+	kcpfakeclient "github.com/kcp-dev/client-go/clients/clientset/versioned/fake"
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/clients/informers"
+	"github.com/kcp-dev/logicalcluster/v2"
+
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -27,8 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
-	"k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/kubernetes/pkg/controller"
 
@@ -128,18 +130,18 @@ func TestSyncWorkspace(t *testing.T) {
 	workspaceList := workspaceapi.ClusterWorkspaceList{
 		Items: []workspaceapi.ClusterWorkspace{
 			{
-				ObjectMeta: metav1.ObjectMeta{Name: "foo", ResourceVersion: "1"},
+				ObjectMeta: metav1.ObjectMeta{Name: "foo", ResourceVersion: "1", Annotations: map[string]string{logicalcluster.AnnotationKey: "root"}},
 			},
 			{
-				ObjectMeta: metav1.ObjectMeta{Name: "bar", ResourceVersion: "2", Labels: map[string]string{"label": "value"}},
+				ObjectMeta: metav1.ObjectMeta{Name: "bar", ResourceVersion: "2", Annotations: map[string]string{logicalcluster.AnnotationKey: "root"}, Labels: map[string]string{"label": "value"}},
 			},
 			{
-				ObjectMeta: metav1.ObjectMeta{Name: "car", ResourceVersion: "3"},
+				ObjectMeta: metav1.ObjectMeta{Name: "car", ResourceVersion: "3", Annotations: map[string]string{logicalcluster.AnnotationKey: "root"}},
 			},
 		},
 	}
 	mockKCPClient := tenancyv1fake.NewSimpleClientset(&workspaceList)
-	mockKubeClient := fake.NewSimpleClientset()
+	mockKubeClient := kcpfakeclient.NewSimpleClientset()
 
 	subjectLocator := &mockSubjectLocator{
 		subjects: map[string][]rbacv1.Subject{
@@ -149,7 +151,7 @@ func TestSyncWorkspace(t *testing.T) {
 		},
 	}
 
-	kubeInformers := informers.NewSharedInformerFactory(mockKubeClient, controller.NoResyncPeriodFunc())
+	kubeInformers := kcpkubernetesinformers.NewSharedInformerFactory(mockKubeClient, controller.NoResyncPeriodFunc())
 	kcpInformers := tenancyInformers.NewSharedInformerFactory(mockKCPClient, controller.NoResyncPeriodFunc())
 	wsIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 	wsLister := workspacelisters.NewClusterWorkspaceLister(wsIndexer)
@@ -160,6 +162,7 @@ func TestSyncWorkspace(t *testing.T) {
 		kcpInformers.Tenancy().V1alpha1().ClusterWorkspaces().Informer(),
 		NewReviewer(subjectLocator),
 		authorizer.AttributesRecord{},
+		logicalcluster.New("test"),
 		kubeInformers.Rbac().V1(),
 	)
 	// we prime the data we need here since we are not running reflectors
