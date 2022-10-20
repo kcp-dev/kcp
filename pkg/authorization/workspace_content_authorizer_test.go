@@ -21,6 +21,8 @@ import (
 	"reflect"
 	"testing"
 
+	kcpfakeclient "github.com/kcp-dev/client-go/clients/clientset/versioned/fake"
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/clients/informers"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
@@ -30,10 +32,7 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/client-go/informers"
-	kubefake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/kubernetes/pkg/controller"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -223,11 +222,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 		t.Run(tt.testName, func(t *testing.T) {
 			ctx := context.Background()
 
-			kubeClient := kubefake.NewSimpleClientset()
-			kubeShareInformerFactory := informers.NewSharedInformerFactory(kubeClient, controller.NoResyncPeriodFunc())
-			kubeShareInformerFactory.Start(ctx.Done())
-
-			require.NoError(t, kubeShareInformerFactory.Rbac().V1().ClusterRoles().Informer().GetIndexer().Add(
+			kubeClient := kcpfakeclient.NewSimpleClientset(
 				&v1.ClusterRole{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
@@ -244,9 +239,6 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 						},
 					},
 				},
-			))
-
-			require.NoError(t, kubeShareInformerFactory.Rbac().V1().ClusterRoles().Informer().GetIndexer().Add(
 				&v1.ClusterRole{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
@@ -263,9 +255,6 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 						},
 					},
 				},
-			))
-
-			require.NoError(t, kubeShareInformerFactory.Rbac().V1().ClusterRoles().Informer().GetIndexer().Add(
 				&v1.ClusterRole{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
@@ -282,9 +271,6 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 						},
 					},
 				},
-			))
-
-			require.NoError(t, kubeShareInformerFactory.Rbac().V1().ClusterRoles().Informer().GetIndexer().Add(
 				&v1.ClusterRole{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
@@ -301,9 +287,6 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 						},
 					},
 				},
-			))
-
-			require.NoError(t, kubeShareInformerFactory.Rbac().V1().ClusterRoleBindings().Informer().GetIndexer().Add(
 				&v1.ClusterRoleBinding{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
@@ -324,9 +307,6 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 						Name:     "ready-admin",
 					},
 				},
-			))
-
-			require.NoError(t, kubeShareInformerFactory.Rbac().V1().ClusterRoleBindings().Informer().GetIndexer().Add(
 				&v1.ClusterRoleBinding{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
@@ -347,9 +327,6 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 						Name:     "initializing-admin",
 					},
 				},
-			))
-
-			require.NoError(t, kubeShareInformerFactory.Rbac().V1().ClusterRoleBindings().Informer().GetIndexer().Add(
 				&v1.ClusterRoleBinding{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
@@ -370,9 +347,6 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 						Name:     "ready-access",
 					},
 				},
-			))
-
-			require.NoError(t, kubeShareInformerFactory.Rbac().V1().ClusterRoleBindings().Informer().GetIndexer().Add(
 				&v1.ClusterRoleBinding{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
@@ -393,7 +367,20 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 						Name:     "initializing-access",
 					},
 				},
-			))
+			)
+			kubeShareInformerFactory := kcpkubernetesinformers.NewSharedInformerFactory(kubeClient, controller.NoResyncPeriodFunc())
+			informers := []cache.SharedIndexInformer{
+				kubeShareInformerFactory.Rbac().V1().Roles().Informer(),
+				kubeShareInformerFactory.Rbac().V1().RoleBindings().Informer(),
+				kubeShareInformerFactory.Rbac().V1().ClusterRoles().Informer(),
+				kubeShareInformerFactory.Rbac().V1().ClusterRoleBindings().Informer(),
+			}
+			var syncs []cache.InformerSynced
+			for i := range informers {
+				go informers[i].Run(ctx.Done())
+				syncs = append(syncs, informers[i].HasSynced)
+			}
+			cache.WaitForCacheSync(ctx.Done(), syncs...)
 
 			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 			require.NoError(t, indexer.Add(&tenancyv1alpha1.ClusterWorkspace{
@@ -411,11 +398,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			lister := v1alpha1.NewClusterWorkspaceLister(indexer)
 
 			recordingAuthorizer := &recordingAuthorizer{}
-			w := &workspaceContentAuthorizer{
-				clusterWorkspaceLister: lister,
-				rbacInformers:          kubeShareInformerFactory.Rbac().V1(),
-				delegate:               recordingAuthorizer,
-			}
+			w := NewWorkspaceContentAuthorizer(kubeShareInformerFactory, lister, recordingAuthorizer)
 
 			requestedCluster := request.Cluster{
 				Name: logicalcluster.New(tt.requestedWorkspace),
