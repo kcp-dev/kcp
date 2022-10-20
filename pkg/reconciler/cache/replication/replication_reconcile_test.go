@@ -25,13 +25,12 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/kcp-dev/logicalcluster/v2"
 
+	kcpfakedynamic "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/dynamic/fake"
+	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/dynamic"
-	dynamicfake "k8s.io/client-go/dynamic/fake"
-	clientgotesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
@@ -52,23 +51,23 @@ func TestReconcileAPIExports(t *testing.T) {
 		initialCacheApiExports                   []runtime.Object
 		initCacheFakeClientWithInitialApiExports bool
 		reconcileKey                             string
-		validateFunc                             func(ts *testing.T, cacheClientActions []clientgotesting.Action, localClientActions []clientgotesting.Action, targetClusterCacheClient, targetClusterLocalClient logicalcluster.Name)
+		validateFunc                             func(ts *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action)
 	}{
 		{
 			name:                   "case 1: creation of the object in the cache server",
 			initialLocalApiExports: []runtime.Object{newAPIExport("foo")},
 			reconcileKey:           fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
-			validateFunc: func(ts *testing.T, cacheClientActions []clientgotesting.Action, localClientActions []clientgotesting.Action, targetClusterCacheClient, targetClusterLocalClient logicalcluster.Name) {
+			validateFunc: func(ts *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
 				if len(localClientActions) != 0 {
 					ts.Fatal("unexpected REST calls were made to the localDynamicClient")
-				}
-				if targetClusterCacheClient.String() != "root" {
-					ts.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", targetClusterCacheClient)
 				}
 				wasCacheApiExportValidated := false
 				for _, action := range cacheClientActions {
 					if action.Matches("create", "apiexports") {
-						createAction := action.(clientgotesting.CreateAction)
+						createAction := action.(kcptesting.CreateAction)
+						if createAction.GetCluster().String() != "root" {
+							ts.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", createAction.GetCluster())
+						}
 						createdUnstructuredApiExport := createAction.GetObject().(*unstructured.Unstructured)
 						cacheApiExportFromUnstructured := &apisv1alpha1.APIExport{}
 						if err := runtime.DefaultUnstructuredConverter.FromUnstructured(createdUnstructuredApiExport.Object, cacheApiExportFromUnstructured); err != nil {
@@ -102,17 +101,17 @@ func TestReconcileAPIExports(t *testing.T) {
 			initialCacheApiExports:                   []runtime.Object{newAPIExportWithShardAnnotation("foo")},
 			initCacheFakeClientWithInitialApiExports: true,
 			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
-			validateFunc: func(ts *testing.T, cacheClientActions []clientgotesting.Action, localClientActions []clientgotesting.Action, targetClusterCacheClient, targetClusterLocalClient logicalcluster.Name) {
+			validateFunc: func(ts *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
 				if len(localClientActions) != 0 {
-					ts.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", targetClusterCacheClient)
-				}
-				if targetClusterCacheClient.String() != "root" {
-					ts.Fatalf("wrong cluster = %s was targeted", targetClusterCacheClient)
+					ts.Fatal("unexpected REST calls were made to the localDynamicClient")
 				}
 				wasCacheApiExportValidated := false
 				for _, action := range cacheClientActions {
 					if action.Matches("delete", "apiexports") {
-						deleteAction := action.(clientgotesting.DeleteAction)
+						deleteAction := action.(kcptesting.DeleteAction)
+						if deleteAction.GetCluster().String() != "root" {
+							ts.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", deleteAction.GetCluster())
+						}
 						if deleteAction.GetName() != "foo" {
 							ts.Fatalf("unexpected APIExport was removed = %v, expected = %v", deleteAction.GetName(), "foo")
 						}
@@ -130,18 +129,15 @@ func TestReconcileAPIExports(t *testing.T) {
 			initialCacheApiExports:                   []runtime.Object{newAPIExportWithShardAnnotation("foo")},
 			initCacheFakeClientWithInitialApiExports: true,
 			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
-			validateFunc: func(ts *testing.T, cacheClientActions []clientgotesting.Action, localClientActions []clientgotesting.Action, targetClusterCacheClient, targetClusterLocalClient logicalcluster.Name) {
-				if targetClusterCacheClient.String() != "root" {
-					ts.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", targetClusterCacheClient)
-				}
-				if targetClusterCacheClient.String() != "root" {
-					ts.Fatalf("wrong cluster = %s was targeted for localDynamicClient", targetClusterLocalClient)
-				}
+			validateFunc: func(ts *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
 				wasCacheApiExportDeletionValidated := false
 				wasCacheApiExportRetrievalValidated := false
 				for _, action := range localClientActions {
 					if action.Matches("get", "apiexports") {
-						getAction := action.(clientgotesting.GetAction)
+						getAction := action.(kcptesting.GetAction)
+						if getAction.GetCluster().String() != "root" {
+							ts.Fatalf("wrong cluster = %s was targeted for localDynamicClient", getAction.GetCluster())
+						}
 						if getAction.GetName() != "foo" {
 							ts.Fatalf("unexpected ApiExport was retrieved = %s, expected = %s", getAction.GetName(), "foo")
 						}
@@ -154,7 +150,10 @@ func TestReconcileAPIExports(t *testing.T) {
 				}
 				for _, action := range cacheClientActions {
 					if action.Matches("delete", "apiexports") {
-						deleteAction := action.(clientgotesting.DeleteAction)
+						deleteAction := action.(kcptesting.DeleteAction)
+						if deleteAction.GetCluster().String() != "root" {
+							ts.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", deleteAction.GetCluster())
+						}
 						if deleteAction.GetName() != "foo" {
 							ts.Fatalf("unexpected APIExport was removed = %v, expected = %v", deleteAction.GetName(), "foo")
 						}
@@ -179,17 +178,17 @@ func TestReconcileAPIExports(t *testing.T) {
 			initialCacheApiExports:                   []runtime.Object{newAPIExportWithShardAnnotation("foo")},
 			initCacheFakeClientWithInitialApiExports: true,
 			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
-			validateFunc: func(ts *testing.T, cacheClientActions []clientgotesting.Action, localClientActions []clientgotesting.Action, targetClusterCacheClient, targetClusterLocalClient logicalcluster.Name) {
+			validateFunc: func(ts *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
 				if len(localClientActions) != 0 {
 					ts.Fatal("unexpected REST calls were made to the localDynamicClient")
-				}
-				if targetClusterCacheClient.String() != "root" {
-					ts.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", targetClusterCacheClient)
 				}
 				wasCacheApiExportValidated := false
 				for _, action := range cacheClientActions {
 					if action.Matches("update", "apiexports") {
-						updateAction := action.(clientgotesting.UpdateAction)
+						updateAction := action.(kcptesting.UpdateAction)
+						if updateAction.GetCluster().String() != "root" {
+							ts.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", updateAction.GetCluster())
+						}
 						updatedUnstructuredApiExport := updateAction.GetObject().(*unstructured.Unstructured)
 						cacheApiExportFromUnstructured := &apisv1alpha1.APIExport{}
 						if err := runtime.DefaultUnstructuredConverter.FromUnstructured(updatedUnstructuredApiExport.Object, cacheApiExportFromUnstructured); err != nil {
@@ -222,17 +221,17 @@ func TestReconcileAPIExports(t *testing.T) {
 			initialCacheApiExports:                   []runtime.Object{newAPIExportWithShardAnnotation("foo")},
 			initCacheFakeClientWithInitialApiExports: true,
 			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
-			validateFunc: func(ts *testing.T, cacheClientActions []clientgotesting.Action, localClientActions []clientgotesting.Action, targetClusterCacheClient, targetClusterLocalClient logicalcluster.Name) {
+			validateFunc: func(ts *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
 				if len(localClientActions) != 0 {
 					ts.Fatal("unexpected REST calls were made to the localDynamicClient")
-				}
-				if targetClusterCacheClient.String() != "root" {
-					ts.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", targetClusterCacheClient)
 				}
 				wasCacheApiExportValidated := false
 				for _, action := range cacheClientActions {
 					if action.Matches("update", "apiexports") {
-						updateAction := action.(clientgotesting.UpdateAction)
+						updateAction := action.(kcptesting.UpdateAction)
+						if updateAction.GetCluster().String() != "root" {
+							ts.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", updateAction.GetCluster())
+						}
 						updatedUnstructuredApiExport := updateAction.GetObject().(*unstructured.Unstructured)
 						cacheApiExportFromUnstructured := &apisv1alpha1.APIExport{}
 						if err := runtime.DefaultUnstructuredConverter.FromUnstructured(updatedUnstructuredApiExport.Object, cacheApiExportFromUnstructured); err != nil {
@@ -265,17 +264,17 @@ func TestReconcileAPIExports(t *testing.T) {
 			initialCacheApiExports:                   []runtime.Object{newAPIExportWithShardAnnotation("foo")},
 			initCacheFakeClientWithInitialApiExports: true,
 			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
-			validateFunc: func(ts *testing.T, cacheClientActions []clientgotesting.Action, localClientActions []clientgotesting.Action, targetClusterCacheClient, targetClusterLocalClient logicalcluster.Name) {
+			validateFunc: func(ts *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
 				if len(localClientActions) != 0 {
 					ts.Fatal("unexpected REST calls were made to the localDynamicClient")
-				}
-				if targetClusterCacheClient.String() != "root" {
-					ts.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", targetClusterCacheClient)
 				}
 				wasCacheApiExportValidated := false
 				for _, action := range cacheClientActions {
 					if action.Matches("update", "apiexports") {
-						updateAction := action.(clientgotesting.UpdateAction)
+						updateAction := action.(kcptesting.UpdateAction)
+						if updateAction.GetCluster().String() != "root" {
+							ts.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", updateAction.GetCluster())
+						}
 						updatedUnstructuredApiExport := updateAction.GetObject().(*unstructured.Unstructured)
 						cacheApiExportFromUnstructured := &apisv1alpha1.APIExport{}
 						if err := runtime.DefaultUnstructuredConverter.FromUnstructured(updatedUnstructuredApiExport.Object, cacheApiExportFromUnstructured); err != nil {
@@ -313,20 +312,20 @@ func TestReconcileAPIExports(t *testing.T) {
 					tt.Error(err)
 				}
 			}
-			fakeCacheDynamicClient := newFakeKcpClusterClient(dynamicfake.NewSimpleDynamicClient(scheme, func() []runtime.Object {
+			fakeCacheDynamicClient := kcpfakedynamic.NewSimpleDynamicClient(scheme, func() []runtime.Object {
 				if scenario.initCacheFakeClientWithInitialApiExports {
 					return scenario.initialCacheApiExports
 				}
 				return []runtime.Object{}
-			}()...))
+			}()...)
 			target.dynamicCacheClient = fakeCacheDynamicClient
-			fakeLocalDynamicClient := newFakeKcpClusterClient(dynamicfake.NewSimpleDynamicClient(scheme))
+			fakeLocalDynamicClient := kcpfakedynamic.NewSimpleDynamicClient(scheme)
 			target.dynamicLocalClient = fakeLocalDynamicClient
 			if err := target.reconcile(context.TODO(), scenario.reconcileKey); err != nil {
 				tt.Fatal(err)
 			}
 			if scenario.validateFunc != nil {
-				scenario.validateFunc(tt, fakeCacheDynamicClient.fakeDs.Actions(), fakeLocalDynamicClient.fakeDs.Actions(), fakeCacheDynamicClient.cluster, fakeLocalDynamicClient.cluster)
+				scenario.validateFunc(tt, fakeCacheDynamicClient.Actions(), fakeLocalDynamicClient.Actions())
 			}
 		})
 	}
@@ -358,18 +357,4 @@ func newAPIExportWithShardAnnotation(name string) *apisv1alpha1.APIExport {
 	apiExport := newAPIExport(name)
 	apiExport.Annotations["kcp.dev/shard"] = "amber"
 	return apiExport
-}
-
-func newFakeKcpClusterClient(ds *dynamicfake.FakeDynamicClient) *fakeKcpClusterClient {
-	return &fakeKcpClusterClient{fakeDs: ds}
-}
-
-type fakeKcpClusterClient struct {
-	fakeDs  *dynamicfake.FakeDynamicClient
-	cluster logicalcluster.Name
-}
-
-func (f *fakeKcpClusterClient) Cluster(name logicalcluster.Name) dynamic.Interface {
-	f.cluster = name
-	return f.fakeDs
 }

@@ -25,11 +25,11 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/kcp-dev/logicalcluster/v2"
 
+	kcpfakedynamic "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/dynamic/fake"
+	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	dynamicfake "k8s.io/client-go/dynamic/fake"
-	clientgotesting "k8s.io/client-go/testing"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 )
@@ -397,7 +397,7 @@ func TestHandleUnstructuredObjectDeletion(t *testing.T) {
 	scenarios := []struct {
 		name                        string
 		cacheObject                 *apisv1alpha1.APIExport
-		validateCacheObjectDeletion func(ts *testing.T, actions []clientgotesting.Action)
+		validateCacheObjectDeletion func(ts *testing.T, actions []kcptesting.Action)
 	}{
 		{
 			name: "no-op",
@@ -405,11 +405,11 @@ func TestHandleUnstructuredObjectDeletion(t *testing.T) {
 		{
 			name:        "DeletionTimestamp filed not set on cacheObject",
 			cacheObject: newAPIExport("foo"),
-			validateCacheObjectDeletion: func(ts *testing.T, actions []clientgotesting.Action) {
+			validateCacheObjectDeletion: func(ts *testing.T, actions []kcptesting.Action) {
 				wasCacheApiExportValidated := false
 				for _, action := range actions {
 					if action.Matches("delete", "apiexports") {
-						deleteAction := action.(clientgotesting.DeleteAction)
+						deleteAction := action.(kcptesting.DeleteAction)
 						if deleteAction.GetName() != "foo" {
 							ts.Fatalf("unexpected APIExport was removed = %v, expected = %v", deleteAction.GetName(), "foo")
 						}
@@ -430,7 +430,7 @@ func TestHandleUnstructuredObjectDeletion(t *testing.T) {
 				apiExport.DeletionTimestamp = &t
 				return apiExport
 			}(),
-			validateCacheObjectDeletion: func(ts *testing.T, actions []clientgotesting.Action) {
+			validateCacheObjectDeletion: func(ts *testing.T, actions []kcptesting.Action) {
 				if len(actions) > 0 {
 					ts.Fatalf("didn't expect any API calls, got %v", actions)
 				}
@@ -445,7 +445,7 @@ func TestHandleUnstructuredObjectDeletion(t *testing.T) {
 				apiExport.Finalizers = []string{"aFinalizer"}
 				return apiExport
 			}(),
-			validateCacheObjectDeletion: func(ts *testing.T, actions []clientgotesting.Action) {
+			validateCacheObjectDeletion: func(ts *testing.T, actions []kcptesting.Action) {
 				if len(actions) > 0 {
 					ts.Fatalf("didn't expect any API calls, got %v", actions)
 				}
@@ -465,12 +465,12 @@ func TestHandleUnstructuredObjectDeletion(t *testing.T) {
 			}
 			gvr := apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")
 			target := &controller{}
-			fakeDynamicClient := newFakeKcpClusterClient(dynamicfake.NewSimpleDynamicClient(scheme, func() []runtime.Object {
+			fakeDynamicClient := kcpfakedynamic.NewSimpleDynamicClient(scheme, func() []runtime.Object {
 				if unstructuredCacheObject == nil {
 					return []runtime.Object{}
 				}
 				return []runtime.Object{unstructuredCacheObject}
-			}()...))
+			}()...)
 			target.dynamicCacheClient = fakeDynamicClient
 
 			err = target.handleObjectDeletion(context.TODO(), logicalcluster.New("root"), &gvr, unstructuredCacheObject)
@@ -478,7 +478,7 @@ func TestHandleUnstructuredObjectDeletion(t *testing.T) {
 				tt.Fatal(err)
 			}
 			if scenario.validateCacheObjectDeletion != nil {
-				scenario.validateCacheObjectDeletion(tt, fakeDynamicClient.fakeDs.Actions())
+				scenario.validateCacheObjectDeletion(tt, fakeDynamicClient.Actions())
 			}
 		})
 	}
