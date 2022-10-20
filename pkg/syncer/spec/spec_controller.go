@@ -51,7 +51,6 @@ import (
 const (
 	controllerName                   = "kcp-workload-syncer-spec"
 	byNamespaceLocatorIndexName      = "syncer-spec-ByNamespaceLocator"
-	byWorkspaceAndNamespaceIndexName = "syncer-spec-WorkspaceNamespace" // will go away with scoping
 )
 
 type Controller struct {
@@ -193,14 +192,14 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetWorkspace logicalcluster.
 
 	secretMutator := specmutators.NewSecretMutator()
 
-	upstreamSecretIndexer := upstreamInformers.ForResource(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}).Informer().GetIndexer()
-	deploymentMutator := specmutators.NewDeploymentMutator(upstreamURL, newSecretLister(upstreamSecretIndexer), syncTargetWorkspace, dnsIP)
+	// make sure the secrets informer gets started
+	_ = upstreamInformers.ForResource(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}).Informer()
+	deploymentMutator := specmutators.NewDeploymentMutator(upstreamURL, func(clusterName logicalcluster.Name, namespace string) ([]runtime.Object, error) {
+		items, err := upstreamInformers.ForResource(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}).Lister().ByCluster(clusterName).ByNamespace(namespace).List(labels.Everything())
+		fmt.Printf("SKUZNETS: %s|%s got %d items, (%v)\n", clusterName, namespace, items, err)
+		return items, err
+	}, syncTargetWorkspace, dnsIP)
 
-	if err := upstreamSecretIndexer.AddIndexers(cache.Indexers{
-		byWorkspaceAndNamespaceIndexName: indexByWorkspaceAndNamespace,
-	}); err != nil {
-		return nil, err
-	}
 	c.mutators = mutatorGvrMap{
 		deploymentMutator.GVR(): deploymentMutator.Mutate,
 		secretMutator.GVR():     secretMutator.Mutate,
@@ -278,34 +277,6 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	c.queue.Forget(key)
 
 	return true
-}
-
-func newSecretLister(secretIndexer cache.Indexer) specmutators.ListSecretFunc {
-	return func(clusterName logicalcluster.Name, namespace string) ([]*unstructured.Unstructured, error) {
-		secretList, err := secretIndexer.ByIndex(byWorkspaceAndNamespaceIndexName, workspaceAndNamespaceIndexKey(clusterName, namespace))
-		if err != nil {
-			return nil, fmt.Errorf("error listing secrets for workspace %s: %w", clusterName, err)
-		}
-		secrets := make([]*unstructured.Unstructured, 0, len(secretList))
-		for _, elem := range secretList {
-			unstrSecret := elem.(*unstructured.Unstructured)
-			secrets = append(secrets, unstrSecret)
-		}
-		return secrets, nil
-	}
-}
-
-func workspaceAndNamespaceIndexKey(logicalcluster logicalcluster.Name, namespace string) string {
-	return logicalcluster.String() + "/" + namespace
-}
-
-func indexByWorkspaceAndNamespace(obj interface{}) ([]string, error) {
-	metaObj, ok := obj.(metav1.Object)
-	if !ok {
-		return []string{}, fmt.Errorf("obj is supposed to be a metav1.Object, but is %T", obj)
-	}
-	lcluster := logicalcluster.From(metaObj)
-	return []string{workspaceAndNamespaceIndexKey(lcluster, metaObj.GetNamespace())}, nil
 }
 
 // indexByNamespaceLocator is a cache.IndexFunc that indexes namespaces by the namespaceLocator annotation.
