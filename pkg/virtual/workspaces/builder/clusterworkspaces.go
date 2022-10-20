@@ -52,6 +52,7 @@ func CreateAndStartOrg(
 	initialWatchers []workspaceauth.CacheWatcher,
 ) *authCacheClusterWorkspaces {
 	authCache := workspaceauth.NewAuthorizationCache(
+		workspaceauth.CacheTypeOrg,
 		clusterWorkspaceInformer.Lister(),
 		clusterWorkspaceInformer.Informer(),
 		workspaceauth.NewReviewer(frameworkrbac.NewSubjectLocator(rbacInformers)),
