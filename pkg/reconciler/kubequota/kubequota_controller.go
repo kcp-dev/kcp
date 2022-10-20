@@ -319,6 +319,9 @@ func (c *Controller) startQuotaForClusterWorkspace(ctx context.Context, clusterN
 		}
 	}()
 
+	// Make sure the monitors are synced at least once
+	resourceQuotaController.UpdateMonitors(ctx, c.dynamicDiscoverySharedInformerFactory.ServerPreferredResources)
+
 	go resourceQuotaController.Run(ctx, c.workersPerLogicalCluster)
 
 	return nil
