@@ -384,15 +384,15 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 
 			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 			require.NoError(t, indexer.Add(&tenancyv1alpha1.ClusterWorkspace{
-				ObjectMeta: metav1.ObjectMeta{Name: clusters.ToClusterAwareKey(logicalcluster.New("root"), "ready")},
+				ObjectMeta: metav1.ObjectMeta{Name: "ready", Annotations: map[string]string{logicalcluster.AnnotationKey: "root"}},
 				Status:     tenancyv1alpha1.ClusterWorkspaceStatus{Phase: tenancyv1alpha1.ClusterWorkspacePhaseReady},
 			}))
 			require.NoError(t, indexer.Add(&tenancyv1alpha1.ClusterWorkspace{
-				ObjectMeta: metav1.ObjectMeta{Name: clusters.ToClusterAwareKey(logicalcluster.New("root"), "scheduling")},
+				ObjectMeta: metav1.ObjectMeta{Name: "scheduling", Annotations: map[string]string{logicalcluster.AnnotationKey: "root"}},
 				Status:     tenancyv1alpha1.ClusterWorkspaceStatus{Phase: tenancyv1alpha1.ClusterWorkspacePhaseScheduling},
 			}))
 			require.NoError(t, indexer.Add(&tenancyv1alpha1.ClusterWorkspace{
-				ObjectMeta: metav1.ObjectMeta{Name: clusters.ToClusterAwareKey(logicalcluster.New("root"), "initializing")},
+				ObjectMeta: metav1.ObjectMeta{Name: "initializing", Annotations: map[string]string{logicalcluster.AnnotationKey: "root"}},
 				Status:     tenancyv1alpha1.ClusterWorkspaceStatus{Phase: tenancyv1alpha1.ClusterWorkspacePhaseInitializing},
 			}))
 			lister := v1alpha1.NewClusterWorkspaceLister(indexer)
