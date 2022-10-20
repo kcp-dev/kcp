@@ -57,6 +57,7 @@ type Server struct {
 	*genericcontrolplane.ServerChain
 
 	syncedCh             chan struct{}
+	syncedOptionalCh     chan struct{}
 	rootPhase1FinishedCh chan struct{}
 }
 
@@ -68,6 +69,7 @@ func NewServer(c CompletedConfig) (*Server, error) {
 	s := &Server{
 		CompletedConfig:      c,
 		syncedCh:             make(chan struct{}),
+		syncedOptionalCh:     make(chan struct{}),
 		rootPhase1FinishedCh: make(chan struct{}),
 	}
 
@@ -340,6 +342,27 @@ func (s *Server) Run(ctx context.Context) error {
 		return err
 	}
 
+	if s.Options.Cache.Enabled {
+		if err := s.AddPostStartHook("kcp-start-optional-informers", func(hookContext genericapiserver.PostStartHookContext) error {
+			// TODO(p0lyn0mial): failing the optional hook should not render the main server unhealthy
+			logger := logger.WithValues("postStartHook", "kcp-start-optional-informers")
+			s.CacheKcpSharedInformerFactory.Start(hookContext.StopCh)
+			s.CacheKcpSharedInformerFactory.WaitForCacheSync(hookContext.StopCh)
+
+			select {
+			case <-hookContext.StopCh:
+				return nil // context closed, avoid reporting success below
+			default:
+			}
+
+			logger.Info("finished starting optional cache informers, ready to start controllers")
+			close(s.syncedOptionalCh)
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+
 	// ========================================================================================================
 	// TODO: split apart everything after this line, into their own commands, optional launched in this process
 
@@ -366,6 +389,9 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	if err := s.installApiExportIdentityController(ctx, controllerConfig, delegationChainHead); err != nil {
+		return err
+	}
+	if err := s.installReplicationController(ctx, controllerConfig, delegationChainHead); err != nil {
 		return err
 	}
 

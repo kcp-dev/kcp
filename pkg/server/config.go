@@ -22,6 +22,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 
+	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
@@ -50,6 +51,8 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
+	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
+	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
@@ -98,6 +101,7 @@ type ExtraConfig struct {
 	BootstrapDynamicClusterClient       dynamic.ClusterInterface
 	BootstrapApiExtensionsClusterClient apiextensionsclient.ClusterInterface
 	BootstrapKcpClusterClient           kcpclient.ClusterInterface
+	CacheDynamicClient                  dynamic.ClusterInterface
 
 	// misc
 	preHandlerChainMux   *handlerChainMuxes
@@ -108,7 +112,7 @@ type ExtraConfig struct {
 	KubeSharedInformerFactory             kubernetesinformers.SharedInformerFactory
 	ApiExtensionsSharedInformerFactory    apiextensionsexternalversions.SharedInformerFactory
 	DynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory
-
+	CacheKcpSharedInformerFactory         kcpinformers.SharedInformerFactory
 	// TODO(p0lyn0mial):  get rid of TemporaryRootShardKcpSharedInformerFactory, in the future
 	//                    we should have multi-shard aware informers
 	//
@@ -192,6 +196,37 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		kubernetesinformers.WithExtraNamespaceScopedIndexers(indexers.NamespaceScoped()),
 	)
 
+	if c.Options.Cache.Enabled {
+		var cacheClientConfig *rest.Config
+		if len(c.Options.Cache.KubeconfigFile) > 0 {
+			cacheClientConfig, err = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: c.Options.Cache.KubeconfigFile}, nil).ClientConfig()
+			if err != nil {
+				return nil, fmt.Errorf("failed to load the kubeconfig from: %s, for a cache client, err: %w", c.Options.Cache.KubeconfigFile, err)
+			}
+		} else {
+			cacheClientConfig = rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
+		}
+		rt := cacheclient.WithCacheServiceRoundTripper(cacheClientConfig)
+		rt = cacheclient.WithShardNameFromContextRoundTripper(rt)
+		rt = cacheclient.WithDefaultShardRoundTripper(rt, shard.Wildcard)
+		kcpclienthelper.SetMultiClusterRoundTripper(rt)
+
+		cacheKcpClusterClient, err := kcpclient.NewClusterForConfig(rt)
+		if err != nil {
+			return nil, err
+		}
+		c.CacheKcpSharedInformerFactory = kcpinformers.NewSharedInformerFactoryWithOptions(
+			cacheKcpClusterClient.Cluster(logicalcluster.Wildcard),
+			resyncPeriod,
+			kcpinformers.WithExtraClusterScopedIndexers(indexers.ClusterScoped()),
+			kcpinformers.WithExtraNamespaceScopedIndexers(indexers.NamespaceScoped()),
+		)
+		c.CacheDynamicClient, err = dynamic.NewClusterForConfig(rt)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	// Setup kcp * informers, but those will need the identities for the APIExports used to make the APIs available.
 	// The identities are not known before we can get them from the APIExports via the loopback client or from the root shard in case this is a non-root shard,
 	// hence we postpone this to getOrCreateKcpIdentities() in the kcp-start-informers post-start hook.
@@ -228,6 +263,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 
 		c.identityConfig, c.resolveIdentities = bootstrap.NewConfigWithWildcardIdentities(c.GenericConfig.LoopbackClientConfig, bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, nil)
 	}
+
 	c.KcpClusterClient, err = kcpclient.NewClusterForConfig(c.identityConfig) // this is now generic to be used for all kcp API groups
 	if err != nil {
 		return nil, err
