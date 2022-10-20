@@ -261,10 +261,11 @@ func TestNamespaceScheduler(t *testing.T) {
 			require.NoError(t, err)
 
 			kcpClusterClient, err := clientset.NewForConfig(clusterConfig)
+			expecterClient, err := kcpkubernetesclientset.NewForConfig(server.RootShardSystemMasterBaseConfig(t))
 			require.NoError(t, err)
 
 			t.Logf("Starting namespace expecter")
-			expect, err := expectNamespaces(ctx, t, kubeClusterClient)
+			expect, err := expectNamespaces(ctx, t, expecterClient)
 			require.NoError(t, err, "failed to start expecter")
 
 			s := runningServer{
@@ -312,8 +313,8 @@ func scheduledMatcher(target string) namespaceExpectation {
 
 type registerNamespaceExpectation func(seed *corev1.Namespace, expectation namespaceExpectation) error
 
-func expectNamespaces(ctx context.Context, t *testing.T, client kubernetes.Interface) (registerNamespaceExpectation, error) {
-	informerFactory := informers.NewSharedInformerFactory(client, 0)
+func expectNamespaces(ctx context.Context, t *testing.T, client kcpkubernetesclientset.ClusterInterface) (registerNamespaceExpectation, error) {
+	informerFactory := kcpkubernetesinformers.NewSharedInformerFactory(client, 0)
 	informer := informerFactory.Core().V1().Namespaces()
 	expecter := framework.NewExpecter(informer.Informer())
 	informerFactory.Start(ctx.Done())
@@ -321,12 +322,16 @@ func expectNamespaces(ctx context.Context, t *testing.T, client kubernetes.Inter
 		return nil, errors.New("failed to wait for caches to sync")
 	}
 	return func(seed *corev1.Namespace, expectation namespaceExpectation) error {
-		key, err := cache.MetaNamespaceKeyFunc(seed)
+		key, err := kcpcache.MetaClusterNamespaceKeyFunc(seed)
+		if err != nil {
+			return err
+		}
+		clusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 		if err != nil {
 			return err
 		}
 		return expecter.ExpectBefore(ctx, func(ctx context.Context) (done bool, err error) {
-			current, err := informer.Lister().Get(key)
+			current, err := informer.Lister().Cluster(clusterName).Get(name)
 			if err != nil {
 				// Retry on all errors
 				return false, err
