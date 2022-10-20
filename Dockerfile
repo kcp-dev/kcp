@@ -32,6 +32,7 @@ COPY Makefile Makefile
 COPY config/ config/
 COPY pkg/ pkg/
 COPY cmd/ cmd/
+COPY tmc/ tmc/
 COPY third_party/ third_party/
 COPY hack/ hack/
 COPY .git/ .git/
