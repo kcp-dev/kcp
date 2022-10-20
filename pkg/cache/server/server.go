@@ -54,7 +54,7 @@ type preparedServer struct {
 func (s *Server) PrepareRun(ctx context.Context) (preparedServer, error) {
 	logger := klog.FromContext(ctx).WithValues("component", "cache-server")
 	if err := s.apiextensions.GenericAPIServer.AddPostStartHook("bootstrap-cache-server", func(hookContext genericapiserver.PostStartHookContext) error {
-		logger = logger.WithValues("postStartHook", "bootstrap-cache-server")
+		logger := logger.WithValues("postStartHook", "bootstrap-cache-server")
 		if err := bootstrap.Bootstrap(klog.NewContext(goContext(hookContext), logger), s.ApiExtensionsClusterClient); err != nil {
 			logger.Error(err, "failed creating the static CustomResourcesDefinitions")
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
