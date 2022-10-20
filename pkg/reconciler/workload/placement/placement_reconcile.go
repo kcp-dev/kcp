@@ -24,11 +24,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	utilserrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/client"
 )
 
 type reconcileStatus int
@@ -81,7 +81,7 @@ func (c *controller) listSyncTarget(clusterName logicalcluster.Name) ([]*workloa
 }
 
 func (c *controller) getLocation(clusterName logicalcluster.Name, name string) (*schedulingv1alpha1.Location, error) {
-	key := clusters.ToClusterAwareKey(clusterName, name)
+	key := client.ToClusterAwareKey(clusterName, name)
 	return c.locationLister.Get(key)
 }
 

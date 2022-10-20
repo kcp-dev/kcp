@@ -34,11 +34,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/client"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
@@ -101,7 +101,7 @@ func NewController(
 }
 
 func keyFor(reference tenancyv1alpha1.ClusterWorkspaceTypeReference) string {
-	return clusters.ToClusterAwareKey(logicalcluster.New(reference.Path), tenancyv1alpha1.ObjectName(reference.Name))
+	return client.ToClusterAwareKey(logicalcluster.New(reference.Path), tenancyv1alpha1.ObjectName(reference.Name))
 }
 
 // controller reconciles APIExports. It ensures an export's identity secret exists and is valid.

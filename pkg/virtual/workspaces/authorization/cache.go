@@ -33,13 +33,12 @@ import (
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
-	rbacinformers "k8s.io/client-go/informers/rbac/v1"
-	rbaclisters "k8s.io/client-go/listers/rbac/v1"
+	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/client"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/authorization/metrics"
 	workspaceutil "github.com/kcp-dev/kcp/pkg/virtual/workspaces/util"
@@ -432,7 +431,7 @@ func (ac *AuthorizationCache) syncRequest(request *reviewRequest, userSubjectRec
 	reviewAttributes := ac.reviewTemplate
 
 	// And set the resource name on it
-	_, workspaceName := clusters.SplitClusterAwareKey(workspace)
+	_, workspaceName := client.SplitClusterAwareKey(workspace)
 	reviewAttributes.Name = workspaceName
 
 	review := ac.reviewer.Review(reviewAttributes)
@@ -613,7 +612,7 @@ func addSubjectsToWorkspace(subjectRecordStore cache.Store, subjects []string, w
 }
 
 func (ac *AuthorizationCache) notifyWatchers(workspaceKey string, exists *reviewRecord, users, groups sets.String) {
-	_, workspaceName := clusters.SplitClusterAwareKey(workspaceKey)
+	_, workspaceName := client.SplitClusterAwareKey(workspaceKey)
 	ac.watcherLock.Lock()
 	defer ac.watcherLock.Unlock()
 	for _, watcher := range ac.watchers {

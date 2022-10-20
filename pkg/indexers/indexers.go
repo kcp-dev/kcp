@@ -26,9 +26,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/client"
 	syncershared "github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
@@ -78,7 +78,7 @@ func IndexByLogicalClusterAndNamespace(obj interface{}) ([]string, error) {
 		return nil, err
 	}
 
-	return []string{clusters.ToClusterAwareKey(logicalcluster.From(a), a.GetNamespace())}, nil
+	return []string{client.ToClusterAwareKey(logicalcluster.From(a), a.GetNamespace())}, nil
 }
 
 // IndexBySyncerFinalizerKey indexes by syncer finalizer label keys.

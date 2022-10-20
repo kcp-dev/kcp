@@ -23,9 +23,9 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/clusters"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/client"
 )
 
 func TestIndexAPIBindingByWorkspaceExport(t *testing.T) {
@@ -61,7 +61,7 @@ func TestIndexAPIBindingByWorkspaceExport(t *testing.T) {
 					},
 				},
 			},
-			want:    []string{clusters.ToClusterAwareKey(logicalcluster.New("root:workspace1"), "export1")},
+			want:    []string{client.ToClusterAwareKey(logicalcluster.New("root:workspace1"), "export1")},
 			wantErr: false,
 		},
 	}
@@ -104,8 +104,8 @@ func TestIndexAPIExportByAPIResourceSchemas(t *testing.T) {
 				},
 			},
 			want: []string{
-				clusters.ToClusterAwareKey(logicalcluster.New("root:default"), "schema1"),
-				clusters.ToClusterAwareKey(logicalcluster.New("root:default"), "some-other-schema"),
+				client.ToClusterAwareKey(logicalcluster.New("root:default"), "schema1"),
+				client.ToClusterAwareKey(logicalcluster.New("root:default"), "some-other-schema"),
 			},
 			wantErr: false,
 		},

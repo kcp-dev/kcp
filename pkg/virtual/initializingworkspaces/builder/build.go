@@ -48,6 +48,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
+	"github.com/kcp-dev/kcp/pkg/client"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
@@ -223,7 +224,7 @@ func BuildVirtualWorkspace(
 					return
 				}
 				parent, name := cluster.Split()
-				clusterWorkspace, err := lister.Get(clusters.ToClusterAwareKey(parent, name))
+				clusterWorkspace, err := lister.Get(client.ToClusterAwareKey(parent, name))
 				if err != nil {
 					http.Error(writer, fmt.Sprintf("error getting clusterworkspace %s|%s: %v", parent, name, err), http.StatusInternalServerError)
 					return

@@ -29,12 +29,12 @@ import (
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	kubernetesinformers "k8s.io/client-go/informers"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
+	"github.com/kcp-dev/kcp/pkg/client"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
 )
@@ -142,7 +142,7 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 	}
 
 	// check the org workspace exists in the root workspace
-	topLevelWSKey := clusters.ToClusterAwareKey(tenancyv1alpha1.RootCluster, requestTopLevelOrgName)
+	topLevelWSKey := client.ToClusterAwareKey(tenancyv1alpha1.RootCluster, requestTopLevelOrgName)
 	if _, err := a.clusterWorkspaceLister.Get(topLevelWSKey); err != nil {
 		if errors.IsNotFound(err) {
 			kaudit.AddAuditAnnotations(

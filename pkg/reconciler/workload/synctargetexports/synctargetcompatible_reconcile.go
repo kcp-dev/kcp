@@ -26,11 +26,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	"k8s.io/client-go/tools/clusters"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/client"
 	"github.com/kcp-dev/kcp/pkg/schemacompat"
 )
 
@@ -50,7 +50,7 @@ func (e *apiCompatibleReconciler) reconcile(ctx context.Context, syncTarget *wor
 
 	// Get json schema from all related resource schemas
 	for _, exportKey := range exportKeys {
-		exportCluster, name := clusters.SplitClusterAwareKey(exportKey)
+		exportCluster, name := client.SplitClusterAwareKey(exportKey)
 		export, err := e.getAPIExport(exportCluster, name)
 		if apierrors.IsNotFound(err) {
 			continue

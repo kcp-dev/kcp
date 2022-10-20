@@ -37,10 +37,10 @@ import (
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clusters"
 
 	"github.com/kcp-dev/kcp/pkg/admission/helpers"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/client"
 )
 
 func createAttr(obj *tenancyv1alpha1.ClusterWorkspace) admission.Attributes {
@@ -295,7 +295,7 @@ func TestAdmit(t *testing.T) {
 				typeLister:      typeLister,
 				workspaceLister: fakeClusterWorkspaceLister(tt.workspaces),
 				transitiveTypeResolver: NewTransitiveTypeResolver(func(cluster logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
-					return typeLister.Get(clusters.ToClusterAwareKey(cluster, name))
+					return typeLister.Get(client.ToClusterAwareKey(cluster, name))
 				}),
 			}
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: tt.clusterName})
@@ -589,7 +589,7 @@ func TestValidate(t *testing.T) {
 					}, nil
 				},
 				transitiveTypeResolver: NewTransitiveTypeResolver(func(cluster logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
-					return typeLister.Get(clusters.ToClusterAwareKey(cluster, name))
+					return typeLister.Get(client.ToClusterAwareKey(cluster, name))
 				}),
 			}
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: tt.path})
@@ -616,7 +616,7 @@ func (l fakeClusterWorkspaceTypeLister) Get(name string) (*tenancyv1alpha1.Clust
 
 func (l fakeClusterWorkspaceTypeLister) GetWithContext(ctx context.Context, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
 	for _, t := range l {
-		if clusters.ToClusterAwareKey(logicalcluster.From(t), t.Name) == name {
+		if client.ToClusterAwareKey(logicalcluster.From(t), t.Name) == name {
 			return t, nil
 		}
 	}
@@ -639,7 +639,7 @@ func (l fakeClusterWorkspaceLister) Get(name string) (*tenancyv1alpha1.ClusterWo
 
 func (l fakeClusterWorkspaceLister) GetWithContext(ctx context.Context, name string) (*tenancyv1alpha1.ClusterWorkspace, error) {
 	for _, t := range l {
-		if clusters.ToClusterAwareKey(logicalcluster.From(t), t.Name) == name {
+		if client.ToClusterAwareKey(logicalcluster.From(t), t.Name) == name {
 			return t, nil
 		}
 	}

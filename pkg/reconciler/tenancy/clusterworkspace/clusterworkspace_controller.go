@@ -35,11 +35,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/client"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
@@ -195,7 +195,7 @@ func (c *Controller) enqueueBinding(obj interface{}) {
 	}
 	parent, ws := clusterName.Split()
 
-	queueKey := clusters.ToClusterAwareKey(parent, ws)
+	queueKey := client.ToClusterAwareKey(parent, ws)
 	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), queueKey)
 	logger.V(2).Info("queueing initializing ClusterWorkspace because APIBinding changed", "APIBinding", key)
 	c.queue.Add(queueKey)

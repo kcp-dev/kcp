@@ -33,12 +33,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/client"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	schedulinginformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
 	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
@@ -63,7 +63,7 @@ func NewController(
 	c := &controller{
 		queue: queue,
 		enqueueAfter: func(location *schedulingv1alpha1.Location, duration time.Duration) {
-			key := clusters.ToClusterAwareKey(logicalcluster.From(location), location.Name)
+			key := client.ToClusterAwareKey(logicalcluster.From(location), location.Name)
 			queue.AddAfter(key, duration)
 		},
 		kcpClusterClient:  kcpClusterClient,

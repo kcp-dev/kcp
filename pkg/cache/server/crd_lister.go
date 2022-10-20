@@ -23,9 +23,9 @@ import (
 	apiextensionslisters "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/kcp"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/clusters"
 
 	"github.com/kcp-dev/kcp/pkg/cache/server/bootstrap"
+	"github.com/kcp-dev/kcp/pkg/client"
 )
 
 // crdLister is a CRD lister
@@ -48,5 +48,5 @@ func (c *crdLister) Refresh(crd *apiextensionsv1.CustomResourceDefinition) (*api
 // Get gets a CustomResourceDefinition
 func (c *crdLister) Get(ctx context.Context, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 	// TODO: make it shard and cluster aware, for now just return what we have in the system ws
-	return c.lister.Get(clusters.ToClusterAwareKey(bootstrap.SystemCRDLogicalCluster, name))
+	return c.lister.Get(client.ToClusterAwareKey(c.cluster, name))
 }

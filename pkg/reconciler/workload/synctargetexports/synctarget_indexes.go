@@ -22,10 +22,10 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/clusters"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/client"
 	reconcilerapiexport "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexport"
 )
 
@@ -38,7 +38,7 @@ func indexAPIExportsByAPIResourceSchemas(obj interface{}) ([]string, error) {
 
 	ret := make([]string, len(apiExport.Spec.LatestResourceSchemas))
 	for i := range apiExport.Spec.LatestResourceSchemas {
-		ret[i] = clusters.ToClusterAwareKey(logicalcluster.From(apiExport), apiExport.Spec.LatestResourceSchemas[i])
+		ret[i] = client.ToClusterAwareKey(logicalcluster.From(apiExport), apiExport.Spec.LatestResourceSchemas[i])
 	}
 
 	return ret, nil
@@ -56,7 +56,7 @@ func indexSyncTargetsByExports(obj interface{}) ([]string, error) {
 func getExportKeys(synctarget *workloadv1alpha1.SyncTarget) []string {
 	lcluster := logicalcluster.From(synctarget)
 	if len(synctarget.Spec.SupportedAPIExports) == 0 {
-		return []string{clusters.ToClusterAwareKey(lcluster, reconcilerapiexport.TemporaryComputeServiceExportName)}
+		return []string{client.ToClusterAwareKey(lcluster, reconcilerapiexport.TemporaryComputeServiceExportName)}
 	}
 
 	var keys []string
@@ -65,10 +65,10 @@ func getExportKeys(synctarget *workloadv1alpha1.SyncTarget) []string {
 			continue
 		}
 		if len(export.Workspace.Path) == 0 {
-			keys = append(keys, clusters.ToClusterAwareKey(lcluster, export.Workspace.ExportName))
+			keys = append(keys, client.ToClusterAwareKey(lcluster, export.Workspace.ExportName))
 			continue
 		}
-		keys = append(keys, clusters.ToClusterAwareKey(logicalcluster.New(export.Workspace.Path), export.Workspace.ExportName))
+		keys = append(keys, client.ToClusterAwareKey(logicalcluster.New(export.Workspace.Path), export.Workspace.ExportName))
 	}
 
 	return keys

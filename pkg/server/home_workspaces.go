@@ -46,7 +46,6 @@ import (
 	kubernetesinformers "k8s.io/client-go/informers"
 	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
 	clusterworkspaceadmission "github.com/kcp-dev/kcp/pkg/admission/clusterworkspace"
@@ -56,6 +55,7 @@ import (
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	"github.com/kcp-dev/kcp/pkg/authorization"
+	"github.com/kcp-dev/kcp/pkg/client"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/indexers"
@@ -186,7 +186,7 @@ func buildLocalInformersAccess(kubeSharedInformerFactory kubernetesinformers.Sha
 	return localInformersAccess{
 		getClusterWorkspace: func(logicalCluster logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error) {
 			parentLogicalCluster, workspaceName := logicalCluster.Split()
-			return clusterWorkspaceLister.Get(clusters.ToClusterAwareKey(parentLogicalCluster, workspaceName))
+			return clusterWorkspaceLister.Get(client.ToClusterAwareKey(parentLogicalCluster, workspaceName))
 		},
 		getClusterRole: func(workspace logicalcluster.Name, name string) (*rbacv1.ClusterRole, error) {
 			return crLister.Get(clusters.ToClusterAwareKey(workspace, name))

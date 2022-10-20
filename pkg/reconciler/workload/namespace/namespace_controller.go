@@ -37,12 +37,12 @@ import (
 	kubernetesclient "k8s.io/client-go/kubernetes"
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 	"k8s.io/kube-openapi/pkg/util/sets"
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/client"
 	schedulinginformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
 	schedulinglisters "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
@@ -66,7 +66,7 @@ func NewController(
 	c := &controller{
 		queue: queue,
 		enqueueAfter: func(ns *corev1.Namespace, duration time.Duration) {
-			key := clusters.ToClusterAwareKey(logicalcluster.From(ns), ns.Name)
+			key := client.ToClusterAwareKey(logicalcluster.From(ns), ns.Name)
 			queue.AddAfter(key, duration)
 		},
 
@@ -169,7 +169,7 @@ func (c *controller) enqueuePlacement(obj interface{}) {
 	for _, o := range nss {
 		ns := o.(*corev1.Namespace)
 		logger = logging.WithObject(logger, ns)
-		nskey := clusters.ToClusterAwareKey(logicalcluster.From(ns), ns.Name)
+		nskey := client.ToClusterAwareKey(logicalcluster.From(ns), ns.Name)
 		logging.WithQueueKey(logger, nskey).V(2).Info("queueing Namespace because of Placement")
 		c.queue.Add(nskey)
 	}

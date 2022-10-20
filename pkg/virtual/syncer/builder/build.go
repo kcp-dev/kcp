@@ -38,6 +38,7 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
+	"github.com/kcp-dev/kcp/pkg/client"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
@@ -93,11 +94,11 @@ func BuildVirtualWorkspace(
 			workspace := parts[0]
 			workloadCusterName := parts[1]
 			syncTargetUID := parts[2]
-			apiDomainKey := dynamiccontext.APIDomainKey(clusters.ToClusterAwareKey(logicalcluster.New(parts[0]), workloadCusterName))
+			apiDomainKey := dynamiccontext.APIDomainKey(client.ToClusterAwareKey(logicalcluster.New(parts[0]), workloadCusterName))
 
 			// In order to avoid conflicts with reusing deleted synctarget names, let's make sure that the synctarget name and synctarget UID match, if not,
 			// that likely means that a syncer is running with a stale synctarget that got deleted.
-			syncTarget, exists, err := wildcardKcpInformers.Workload().V1alpha1().SyncTargets().Informer().GetIndexer().GetByKey(clusters.ToClusterAwareKey(logicalcluster.New(workspace), workloadCusterName))
+			syncTarget, exists, err := wildcardKcpInformers.Workload().V1alpha1().SyncTargets().Informer().GetIndexer().GetByKey(client.ToClusterAwareKey(logicalcluster.New(workspace), workloadCusterName))
 			if !exists || err != nil {
 				runtime.HandleError(fmt.Errorf("failed to get synctarget %s|%s: %w", workspace, workloadCusterName, err))
 				return
@@ -142,7 +143,7 @@ func BuildVirtualWorkspace(
 		}),
 		Authorizer: authorizer.AuthorizerFunc(func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
 			syncTargetKey := dynamiccontext.APIDomainKeyFrom(ctx)
-			negotiationWorkspaceName, syncTargetName := clusters.SplitClusterAwareKey(string(syncTargetKey))
+			negotiationWorkspaceName, syncTargetName := client.SplitClusterAwareKey(string(syncTargetKey))
 
 			authz, err := delegated.NewDelegatedAuthorizer(negotiationWorkspaceName, kubeClusterClient)
 			if err != nil {

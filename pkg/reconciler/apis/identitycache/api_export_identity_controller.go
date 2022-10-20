@@ -31,7 +31,6 @@ import (
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 

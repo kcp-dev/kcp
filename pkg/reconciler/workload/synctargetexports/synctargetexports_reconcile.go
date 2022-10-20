@@ -24,11 +24,11 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/client"
 )
 
 // exportReconciler updates syncedResource in SyncTarget status based on supportedAPIExports.
@@ -43,7 +43,7 @@ func (e *exportReconciler) reconcile(ctx context.Context, syncTarget *workloadv1
 	var errs []error
 	var syncedResources []workloadv1alpha1.ResourceToSync
 	for _, exportKey := range exportKeys {
-		exportCluster, name := clusters.SplitClusterAwareKey(exportKey)
+		exportCluster, name := client.SplitClusterAwareKey(exportKey)
 		export, err := e.getAPIExport(exportCluster, name)
 		if apierrors.IsNotFound(err) {
 			continue

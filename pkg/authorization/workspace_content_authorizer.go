@@ -34,13 +34,13 @@ import (
 	kubernetesinformers "k8s.io/client-go/informers"
 	rbacinformers "k8s.io/client-go/informers/rbac/v1"
 	rbaclisters "k8s.io/client-go/listers/rbac/v1"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
+	"github.com/kcp-dev/kcp/pkg/client"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
 )
@@ -174,7 +174,7 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 	extraGroups := sets.NewString()
 
 	// check the workspace even exists
-	ws, err := a.clusterWorkspaceLister.Get(clusters.ToClusterAwareKey(parentClusterName, cluster.Name.Base()))
+	ws, err := a.clusterWorkspaceLister.Get(client.ToClusterAwareKey(parentClusterName, cluster.Name.Base()))
 	if err != nil {
 		if errors.IsNotFound(err) {
 			kaudit.AddAuditAnnotations(

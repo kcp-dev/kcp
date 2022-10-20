@@ -32,6 +32,7 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
+	"github.com/kcp-dev/kcp/pkg/client"
 	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
@@ -55,7 +56,7 @@ func NewMaximalPermissionAuthorizer(deepSARClient kubernetes.ClusterInterface, a
 
 	auth := &maximalPermissionAuthorizer{
 		getAPIExport: func(clusterName, apiExportName string) (*apisv1alpha1.APIExport, error) {
-			return apiExportLister.Get(clusters.ToClusterAwareKey(logicalcluster.New(clusterName), apiExportName))
+			return apiExportLister.Get(client.ToClusterAwareKey(logicalcluster.New(clusterName), apiExportName))
 		},
 		getAPIExportsByIdentity: func(identityHash string) ([]*apisv1alpha1.APIExport, error) {
 			return indexers.ByIndex[*apisv1alpha1.APIExport](apiExportIndexer, indexers.APIExportByIdentity, identityHash)
