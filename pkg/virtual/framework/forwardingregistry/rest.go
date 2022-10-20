@@ -19,6 +19,8 @@ package forwardingregistry
 import (
 	"context"
 
+	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
+
 	structuralschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apiextensions-apiserver/pkg/registry/customresource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/endpoints/handlers/fieldmanager"
 	"k8s.io/apiserver/pkg/registry/rest"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/kube-openapi/pkg/validation/validate"
 
@@ -41,7 +42,7 @@ type StorageWrapper func(schema.GroupResource, *StoreFuncs) *StoreFuncs
 
 // NewStorage returns a REST storage that forwards calls to a dynamic client
 func NewStorage(ctx context.Context, resource schema.GroupVersionResource, apiExportIdentityHash string, kind, listKind schema.GroupVersionKind, strategy customresource.CustomResourceStrategy, categories []string, tableConvertor rest.TableConvertor, replicasPathMapping fieldmanager.ResourcePathMappings,
-	dynamicClusterClient dynamic.ClusterInterface, patchConflictRetryBackoff *wait.Backoff, wrapper StorageWrapper) (mainStorage, statusStorage *StoreFuncs) {
+	dynamicClusterClient kcpdynamic.ClusterInterface, patchConflictRetryBackoff *wait.Backoff, wrapper StorageWrapper) (mainStorage, statusStorage *StoreFuncs) {
 	if patchConflictRetryBackoff == nil {
 		patchConflictRetryBackoff = &retry.DefaultRetry
 	}
@@ -92,7 +93,7 @@ func NewStorage(ctx context.Context, resource schema.GroupVersionResource, apiEx
 
 // ProvideReadOnlyRestStorage returns a commonly used REST storage that forwards calls to a dynamic client,
 // but only for read-only requests.
-func ProvideReadOnlyRestStorage(ctx context.Context, clusterClient dynamic.ClusterInterface, wrapper StorageWrapper) (apiserver.RestProviderFunc, error) {
+func ProvideReadOnlyRestStorage(ctx context.Context, clusterClient kcpdynamic.ClusterInterface, wrapper StorageWrapper) (apiserver.RestProviderFunc, error) {
 	return func(resource schema.GroupVersionResource, kind schema.GroupVersionKind, listKind schema.GroupVersionKind, typer runtime.ObjectTyper, tableConvertor rest.TableConvertor, namespaceScoped bool, schemaValidator *validate.SchemaValidator, subresourcesSchemaValidator map[string]*validate.SchemaValidator, structuralSchema *structuralschema.Structural) (mainStorage rest.Storage, subresourceStorages map[string]rest.Storage) {
 		statusSchemaValidate := subresourcesSchemaValidator["status"]
 

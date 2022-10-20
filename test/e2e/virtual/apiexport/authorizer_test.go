@@ -25,7 +25,8 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
-	kcpdynamic "github.com/kcp-dev/apimachinery/pkg/dynamic"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
+	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
@@ -38,7 +39,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery/cached/memory"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 
@@ -76,11 +76,11 @@ func TestAPIExportAuthorizers(t *testing.T) {
 	require.NoError(t, err)
 	user3KcpClient, err := kcpclientset.NewForConfig(framework.UserConfig("user-3", rest.CopyConfig(cfg)))
 	require.NoError(t, err)
-	user2DynamicClusterClient, err := kcpdynamic.NewClusterDynamicClientForConfig(framework.UserConfig("user-2", rest.CopyConfig(cfg)))
+	user2DynamicClusterClient, err := kcpdynamic.NewForConfig(framework.UserConfig("user-2", rest.CopyConfig(cfg)))
 	require.NoError(t, err)
-	user3DynamicClusterClient, err := kcpdynamic.NewClusterDynamicClientForConfig(framework.UserConfig("user-3", rest.CopyConfig(cfg)))
+	user3DynamicClusterClient, err := kcpdynamic.NewForConfig(framework.UserConfig("user-3", rest.CopyConfig(cfg)))
 	require.NoError(t, err)
-	kubeClient, err := kubernetes.NewForConfig(rest.CopyConfig(cfg))
+	kubeClient, err := kcpkubernetesclientset.NewForConfig(rest.CopyConfig(cfg))
 	require.NoError(t, err)
 
 	framework.AdmitWorkspaceAccess(t, ctx, kubeClient, org, []string{"user-1", "user-2", "user-3"}, nil, []string{"access"})
@@ -124,9 +124,9 @@ func TestAPIExportAuthorizers(t *testing.T) {
 		[]string{"bind"},
 		"apis.kcp.dev", "apiexports", "wild.wild.west",
 	)
-	_, err = kubeClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, serviceProvider1Workspace), cr, metav1.CreateOptions{})
+	_, err = kubeClient.Cluster(serviceProvider1Workspace).RbacV1().ClusterRoles().Create(ctx, cr, metav1.CreateOptions{})
 	require.NoError(t, err)
-	_, err = kubeClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, serviceProvider1Workspace), crb, metav1.CreateOptions{})
+	_, err = kubeClient.Cluster(serviceProvider1Workspace).RbacV1().ClusterRoleBindings().Create(ctx, crb, metav1.CreateOptions{})
 	require.NoError(t, err)
 	// create API binding in tenant workspace pointing to the sherriffs export
 	apifixtures.BindToExport(ctx, t, serviceProvider1Workspace, "wild.wild.west", tenantWorkspace, user3KcpClient)
@@ -166,9 +166,9 @@ func TestAPIExportAuthorizers(t *testing.T) {
 		[]string{"bind"},
 		"apis.kcp.dev", "apiexports", "today-cowboys",
 	)
-	_, err = kubeClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, serviceProvider2Workspace), cr, metav1.CreateOptions{})
+	_, err = kubeClient.Cluster(serviceProvider2Workspace).RbacV1().ClusterRoles().Create(ctx, cr, metav1.CreateOptions{})
 	require.NoError(t, err)
-	_, err = kubeClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, serviceProvider2Workspace), crb, metav1.CreateOptions{})
+	_, err = kubeClient.Cluster(serviceProvider2Workspace).RbacV1().ClusterRoleBindings().Create(ctx, crb, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	t.Logf("Create an APIBinding in consumer workspace %q that points to the today-cowboys export from %q", tenantWorkspace, serviceProvider2Workspace)
@@ -206,7 +206,7 @@ func TestAPIExportAuthorizers(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Install cowboys CRD into tenant workspace %q", tenantShadowCRDWorkspace)
-	user3tenantShadowCRDKubeClient, err := kubernetes.NewForConfig(kcpclienthelper.SetCluster(framework.UserConfig("user-3", rest.CopyConfig(cfg)), tenantShadowCRDWorkspace))
+	user3tenantShadowCRDKubeClient, err := kcpkubernetesclientset.NewForConfig(kcpclienthelper.SetCluster(framework.UserConfig("user-3", rest.CopyConfig(cfg)), tenantShadowCRDWorkspace))
 	require.NoError(t, err)
 	mapper = restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(user3tenantShadowCRDKubeClient.Discovery()))
 	err = helpers.CreateResourceFromFS(ctx, user3DynamicClusterClient.Cluster(tenantShadowCRDWorkspace), mapper, nil, "crd_cowboys.yaml", testFiles)
@@ -292,7 +292,7 @@ func TestAPIExportAuthorizers(t *testing.T) {
 
 	user2ApiExportVWCfg := framework.UserConfig("user-2", rest.CopyConfig(cfg))
 	user2ApiExportVWCfg.Host = apiExport.Status.VirtualWorkspaces[0].URL
-	user2DynamicVWClient, err := kcpdynamic.NewClusterDynamicClientForConfig(user2ApiExportVWCfg)
+	user2DynamicVWClient, err := kcpdynamic.NewForConfig(user2ApiExportVWCfg)
 
 	t.Logf("verify that user-2 cannot list sherrifs resources via virtual apiexport apiserver because we have no local maximal permissions yet granted")
 	_, err = user2DynamicVWClient.Cluster(logicalcluster.Wildcard).Resource(schema.GroupVersionResource{Version: "v1", Resource: "sheriffs", Group: "wild.wild.west"}).List(ctx, metav1.ListOptions{})
@@ -311,9 +311,9 @@ func TestAPIExportAuthorizers(t *testing.T) {
 		[]string{"create", "list"},
 		"wild.wild.west", "sheriffs", "",
 	)
-	_, err = kubeClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, serviceProvider1Workspace), cr, metav1.CreateOptions{})
+	_, err = kubeClient.Cluster(serviceProvider1Workspace).RbacV1().ClusterRoles().Create(ctx, cr, metav1.CreateOptions{})
 	require.NoError(t, err)
-	_, err = kubeClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, serviceProvider1Workspace), crb, metav1.CreateOptions{})
+	_, err = kubeClient.Cluster(serviceProvider1Workspace).RbacV1().ClusterRoleBindings().Create(ctx, crb, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	t.Logf("verify that user-2 can lists all claimed resources using a wildcard request")

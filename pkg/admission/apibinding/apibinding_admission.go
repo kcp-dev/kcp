@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -31,7 +32,6 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
-	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
@@ -56,7 +56,7 @@ func Register(plugins *admission.Plugins) {
 
 type apiBindingAdmission struct {
 	*admission.Handler
-	deepSARClient kubernetesclient.ClusterInterface
+	deepSARClient kcpkubernetesclientset.ClusterInterface
 
 	createAuthorizer delegated.DelegatedAuthorizerFactory
 }
@@ -232,6 +232,6 @@ func (o *apiBindingAdmission) ValidateInitialization() error {
 
 // SetDeepSARClient is an admission plugin initializer function that injects a client capable of deep SAR requests into
 // this admission plugin.
-func (o *apiBindingAdmission) SetDeepSARClient(client kubernetesclient.ClusterInterface) {
+func (o *apiBindingAdmission) SetDeepSARClient(client kcpkubernetesclientset.ClusterInterface) {
 	o.deepSARClient = client
 }

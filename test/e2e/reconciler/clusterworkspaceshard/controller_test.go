@@ -21,9 +21,9 @@ import (
 	"testing"
 
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
 	"github.com/stretchr/testify/require"
 
-	kubernetesclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -38,7 +38,7 @@ func TestWorkspaceShardController(t *testing.T) {
 	type runningServer struct {
 		framework.RunningServer
 		rootShardClient               tenancyv1alpha1client.ClusterWorkspaceShardInterface
-		rootKubeClient, orgKubeClient kubernetesclientset.Interface
+		rootKubeClient, orgKubeClient kcpkubernetesclientset.ClusterInterface
 		expect                        framework.RegisterWorkspaceShardExpectation
 	}
 	var testCases = []struct {
@@ -72,7 +72,7 @@ func TestWorkspaceShardController(t *testing.T) {
 			orgClusterName := framework.NewOrganizationFixture(t, server)
 
 			orgClusterCfg := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), orgClusterName)
-			orgClusterKcpClient, err := kubernetesclientset.NewForConfig(orgClusterCfg)
+			orgClusterKcpClient, err := kcpkubernetesclientset.NewForConfig(orgClusterCfg)
 			require.NoError(t, err)
 
 			rootClusterCfg := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), tenancyv1alpha1.RootCluster)
@@ -82,7 +82,7 @@ func TestWorkspaceShardController(t *testing.T) {
 			expect, err := framework.ExpectWorkspaceShards(ctx, t, rootClusterKcpClient)
 			require.NoError(t, err, "failed to start expecter")
 
-			rootKubeClient, err := kubernetesclientset.NewForConfig(rootClusterCfg)
+			rootKubeClient, err := kcpkubernetesclientset.NewForConfig(rootClusterCfg)
 			require.NoError(t, err, "failed to construct kube rootShardClient for server")
 
 			testCase.work(ctx, t, runningServer{

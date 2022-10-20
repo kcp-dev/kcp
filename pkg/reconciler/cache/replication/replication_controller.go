@@ -22,11 +22,11 @@ import (
 	"time"
 
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
@@ -53,8 +53,8 @@ const (
 // For example: shards/{shardName}/clusters/{clusterName}/apis/apis.kcp.dev/v1alpha1/apiexports
 func NewController(
 	shardName string,
-	dynamicCacheClient dynamic.ClusterInterface,
-	dynamicLocalClient dynamic.ClusterInterface,
+	dynamicCacheClient kcpdynamic.ClusterInterface,
+	dynamicLocalClient kcpdynamic.ClusterInterface,
 	localKcpInformers kcpinformers.SharedInformerFactory,
 	cacheKcpInformers kcpinformers.SharedInformerFactory,
 ) (*controller, error) {
@@ -167,8 +167,8 @@ type controller struct {
 	shardName string
 	queue     workqueue.RateLimitingInterface
 
-	dynamicCacheClient dynamic.ClusterInterface
-	dynamicLocalClient dynamic.ClusterInterface
+	dynamicCacheClient kcpdynamic.ClusterInterface
+	dynamicLocalClient kcpdynamic.ClusterInterface
 
 	localApiExportLister         apislisters.APIExportLister
 	localApiResourceSchemaLister apislisters.APIResourceSchemaLister

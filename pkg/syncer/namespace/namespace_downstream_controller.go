@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// +kcp-code-generator:skip
+
 package namespace
 
 import (
@@ -22,9 +24,11 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	kcpdynamicinformer "github.com/kcp-dev/client-go/clients/dynamic/dynamicinformer"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -37,7 +41,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
@@ -74,7 +77,8 @@ func NewDownstreamController(
 	syncTargetUID types.UID,
 	downstreamConfig *rest.Config,
 	downstreamClient dynamic.Interface,
-	upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory,
+	upstreamInformers kcpdynamicinformer.DynamicSharedInformerFactory,
+	downstreamInformers dynamicinformer.DynamicSharedInformerFactory,
 	dnsNamespace string,
 ) (*DownstreamController, error) {
 	namespaceGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
@@ -88,9 +92,11 @@ func NewDownstreamController(
 			return downstreamClient.Resource(namespaceGVR).Delete(ctx, namespace, metav1.DeleteOptions{})
 		},
 		upstreamNamespaceExists: func(clusterName logicalcluster.Name, upstreamNamespaceName string) (bool, error) {
-			upstreamNamespaceKey := clusters.ToClusterAwareKey(clusterName, upstreamNamespaceName)
-			_, exists, err := upstreamInformers.ForResource(namespaceGVR).Informer().GetIndexer().GetByKey(upstreamNamespaceKey)
-			return exists, err
+			_, err := upstreamInformers.ForResource(namespaceGVR).Lister().ByCluster(clusterName).Get(upstreamNamespaceName)
+			if errors.IsNotFound(err) {
+				return false, nil
+			}
+			return !errors.IsNotFound(err), err
 		},
 		getDownstreamNamespace: func(downstreamNamespaceName string) (runtime.Object, error) {
 			return downstreamInformers.ForResource(namespaceGVR).Lister().Get(downstreamNamespaceName)

@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -27,7 +28,9 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/google/go-cmp/cmp"
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
-	kcpdynamic "github.com/kcp-dev/apimachinery/pkg/dynamic"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
+	kcpdiscovery "github.com/kcp-dev/client-go/clients/discovery"
+	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
@@ -44,7 +47,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/kubernetes/pkg/api/genericcontrolplanescheme"
@@ -84,10 +86,10 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	kcpClients, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
 
-	dynamicClusterClient, err := kcpdynamic.NewClusterDynamicClientForConfig(cfg)
+	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
-	kubeClusterClient, err := kubernetes.NewForConfig(cfg)
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct kube cluster client for server")
 
 	wildwestClusterClient, err := wildwestclientset.NewForConfig(cfg)
@@ -98,9 +100,9 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, consumerWorkspace, []string{"user-3"}, nil, []string{"admin"})
 
 	cr, crb := createClusterRoleAndBindings("user-3-binding", "user-3", "User", []string{"bind"}, apisv1alpha1.SchemeGroupVersion.Group, "apiexports", "today-cowboys")
-	_, err = kubeClusterClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), cr, metav1.CreateOptions{})
+	_, err = kubeClusterClient.Cluster(serviceProviderWorkspace).RbacV1().ClusterRoles().Create(ctx, cr, metav1.CreateOptions{})
 	require.NoError(t, err)
-	_, err = kubeClusterClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), crb, metav1.CreateOptions{})
+	_, err = kubeClusterClient.Cluster(serviceProviderWorkspace).RbacV1().ClusterRoleBindings().Create(ctx, crb, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	setUpServiceProvider(ctx, dynamicClusterClient, kcpClients, serviceProviderWorkspace, cfg, t)
@@ -164,9 +166,9 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	// Create clusterRoleBindings for content access.
 	t.Logf("create the cluster role and bindings to give access to the virtual workspace for user-1")
 	cr, crb = createClusterRoleAndBindings("user-1-vw", "user-1", "User", []string{"list", "get"}, apisv1alpha1.SchemeGroupVersion.Group, "apiexports/content", "")
-	_, err = kubeClusterClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), cr, metav1.CreateOptions{})
+	_, err = kubeClusterClient.Cluster(serviceProviderWorkspace).RbacV1().ClusterRoles().Create(ctx, cr, metav1.CreateOptions{})
 	require.NoError(t, err)
-	_, err = kubeClusterClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), crb, metav1.CreateOptions{})
+	_, err = kubeClusterClient.Cluster(serviceProviderWorkspace).RbacV1().ClusterRoleBindings().Create(ctx, crb, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	// Get cowboys from the virtual workspace with user-1.
@@ -191,9 +193,9 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	// Test that users are able to update status of cowboys status
 	t.Logf("create the cluster role and bindings to give access to the virtual workspace for user-2")
 	cr, crb = createClusterRoleAndBindings("user-2-vw", "user-2", "User", []string{"update", "list"}, apisv1alpha1.SchemeGroupVersion.Group, "apiexports/content", "")
-	_, err = kubeClusterClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), cr, metav1.CreateOptions{})
+	_, err = kubeClusterClient.Cluster(serviceProviderWorkspace).RbacV1().ClusterRoles().Create(ctx, cr, metav1.CreateOptions{})
 	require.NoError(t, err)
-	_, err = kubeClusterClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), crb, metav1.CreateOptions{})
+	_, err = kubeClusterClient.Cluster(serviceProviderWorkspace).RbacV1().ClusterRoleBindings().Create(ctx, crb, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	user2VWCfg := framework.UserConfig("user-2", apiExportVWCfg)
@@ -221,9 +223,9 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	// Create clusterRoleBindings for content write access.
 	t.Logf("create the cluster role and bindings to give write access to the virtual workspace for user-1")
 	cr, crb = createClusterRoleAndBindings("user-1-vw-write", "user-1", "User", []string{"create", "update", "patch", "delete", "deletecollection"}, apisv1alpha1.SchemeGroupVersion.Group, "apiexports/content", "")
-	_, err = kubeClusterClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), cr, metav1.CreateOptions{})
+	_, err = kubeClusterClient.Cluster(serviceProviderWorkspace).RbacV1().ClusterRoles().Create(ctx, cr, metav1.CreateOptions{})
 	require.NoError(t, err)
-	_, err = kubeClusterClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), crb, metav1.CreateOptions{})
+	_, err = kubeClusterClient.Cluster(serviceProviderWorkspace).RbacV1().ClusterRoleBindings().Create(ctx, crb, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	// Test that user-1 is able to create, update, and delete cowboys
@@ -344,7 +346,7 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 		memory.NewMemCacheClient(kcpClusterClient.Cluster(workspace2).Discovery()),
 	)
 
-	dynamicClusterClient, err := kcpdynamic.NewClusterDynamicClientForConfig(cfg)
+	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
 	require.NoError(t, err, "error creating dynamic cluster client")
 
 	create := func(clusterName logicalcluster.Name, msg, file string, transforms ...helpers.TransformFileFunc) {
@@ -607,7 +609,7 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
 
-	dynamicClusterClient, err := kcpdynamic.NewClusterDynamicClientForConfig(cfg)
+	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
 	wildwestClusterClient, err := wildwestclientset.NewForConfig(cfg)
@@ -684,7 +686,7 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(cowboysProjected.Items))
 
-	dynamicVWClusterClient, err := kcpdynamic.NewClusterDynamicClientForConfig(apiExportVWCfg)
+	dynamicVWClusterClient, err := kcpdynamic.NewForConfig(apiExportVWCfg)
 	require.NoError(t, err, "error creating dynamic cluster client for %q", apiExportVWCfg.Host)
 
 	sheriffsGVR := schema.GroupVersionResource{Version: "v1", Resource: "sheriffs", Group: "wild.wild.west"}
@@ -839,7 +841,7 @@ func TestAPIExportInternalAPIsDrift(t *testing.T) {
 	server := framework.SharedKcpServer(t)
 
 	cfg := server.BaseConfig(t)
-	discoveryClient, err := discovery.NewDiscoveryClientForConfig(cfg)
+	discoveryClient, err := kcpdiscovery.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct discovery client for server")
 
 	orgClusterName := framework.NewOrganizationFixture(t, server)
@@ -946,7 +948,7 @@ func gatherInternalAPIs(discoveryClient discovery.DiscoveryInterface, t *testing
 	return internalAPIs, nil
 }
 
-func setUpServiceProviderWithPermissionClaims(ctx context.Context, dynamicClusterClient *kcpdynamic.ClusterDynamicClient, kcpClients kcpclientset.Interface, serviceProviderWorkspace logicalcluster.Name, cfg *rest.Config, identityHash string, t *testing.T) {
+func setUpServiceProviderWithPermissionClaims(ctx context.Context, dynamicClusterClient kcpdynamic.ClusterInterface, kcpClients kcpclientset.Interface, serviceProviderWorkspace logicalcluster.Name, cfg *rest.Config, identityHash string, t *testing.T) {
 	claims := []apisv1alpha1.PermissionClaim{
 		{
 			GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "configmaps"},
@@ -974,7 +976,7 @@ func setUpServiceProviderWithPermissionClaims(ctx context.Context, dynamicCluste
 	setUpServiceProvider(ctx, dynamicClusterClient, kcpClients, serviceProviderWorkspace, cfg, t, claims...)
 }
 
-func setUpServiceProvider(ctx context.Context, dynamicClusterClient *kcpdynamic.ClusterDynamicClient, kcpClients kcpclientset.Interface, serviceProviderWorkspace logicalcluster.Name, cfg *rest.Config, t *testing.T, claims ...apisv1alpha1.PermissionClaim) {
+func setUpServiceProvider(ctx context.Context, dynamicClusterClient kcpdynamic.ClusterInterface, kcpClients kcpclientset.Interface, serviceProviderWorkspace logicalcluster.Name, cfg *rest.Config, t *testing.T, claims ...apisv1alpha1.PermissionClaim) {
 	t.Logf("Install today cowboys APIResourceSchema into service provider workspace %q", serviceProviderWorkspace)
 
 	clusterCfg := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), serviceProviderWorkspace)

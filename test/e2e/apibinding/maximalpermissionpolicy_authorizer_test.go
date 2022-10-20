@@ -23,7 +23,8 @@ import (
 	"time"
 
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
-	kcpdynamic "github.com/kcp-dev/apimachinery/pkg/dynamic"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
+	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
@@ -32,7 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery/cached/memory"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"sigs.k8s.io/yaml"
@@ -55,7 +55,7 @@ func TestMaximalPermissionPolicyAuthorizerSystemGroupProtection(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	kubeClusterClient, err := kubernetes.NewForConfig(server.BaseConfig(t))
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(server.BaseConfig(t))
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
 	kcpClusterClient, err := clientset.NewForConfig(server.BaseConfig(t))
@@ -162,10 +162,10 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 	kcpClusterClient, err := clientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
 
-	dynamicClients, err := kcpdynamic.NewClusterDynamicClientForConfig(cfg)
+	dynamicClients, err := kcpdynamic.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
-	kubeClusterClient, err := kubernetes.NewForConfig(cfg)
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
 	user3KcpClient, err := clientset.NewForConfig(framework.UserConfig("user-3", rest.CopyConfig(cfg)))
@@ -249,9 +249,9 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 			// in consumer workspace 1 we will create a RBAC for user 2 such that they can only get/list.
 			t.Logf("Install RBAC in consumer workspace %q for user 2", consumer)
 			clusterRole, clusterRoleBinding := createClusterRoleAndBindings("test-get-list", "user-2", "User", wildwest.GroupName, "cowboys", "", []string{"get", "list"})
-			_, err = kubeClusterClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, consumer), clusterRole, metav1.CreateOptions{})
+			_, err = kubeClusterClient.Cluster(consumer).RbacV1().ClusterRoles().Create(ctx, clusterRole, metav1.CreateOptions{})
 			require.NoError(t, err)
-			_, err = kubeClusterClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, consumer), clusterRoleBinding, metav1.CreateOptions{})
+			_, err = kubeClusterClient.Cluster(consumer).RbacV1().ClusterRoleBindings().Create(ctx, clusterRoleBinding, metav1.CreateOptions{})
 			require.NoError(t, err)
 
 			framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, consumer, []string{"user-2"}, nil, []string{"access"})
@@ -336,7 +336,7 @@ func createClusterRoleAndBindings(name, subjectName, subjectKind string, apiGrou
 	return clusterRole, clusterRoleBinding
 }
 
-func setUpServiceProvider(ctx context.Context, dynamicClusterClient *kcpdynamic.ClusterDynamicClient, kcpClients clientset.Interface, kubeClusterClient kubernetes.Interface, serviceProviderWorkspace, rbacServiceProvider logicalcluster.Name, cfg *rest.Config, t *testing.T) {
+func setUpServiceProvider(ctx context.Context, dynamicClusterClient kcpdynamic.ClusterInterface, kcpClients clientset.Interface, kubeClusterClient kcpkubernetesclientset.ClusterInterface, serviceProviderWorkspace, rbacServiceProvider logicalcluster.Name, cfg *rest.Config, t *testing.T) {
 	t.Logf("Install today cowboys APIResourceSchema into service provider workspace %q", serviceProviderWorkspace)
 
 	clusterCfg := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), serviceProviderWorkspace)
@@ -361,9 +361,9 @@ func setUpServiceProvider(ctx context.Context, dynamicClusterClient *kcpdynamic.
 		// install RBAC that allows create/list/get/update/watch on cowboys for system:authenticated
 		t.Logf("Install RBAC for API Export in serviceProvider1")
 		clusterRole, clusterRoleBinding := createClusterRoleAndBindings("test-systemauth", "apis.kcp.dev:binding:system:authenticated", "Group", wildwest.GroupName, "cowboys", "", []string{rbacv1.VerbAll})
-		_, err = kubeClusterClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), clusterRole, metav1.CreateOptions{})
+		_, err = kubeClusterClient.Cluster(serviceProviderWorkspace).RbacV1().ClusterRoles().Create(ctx, clusterRole, metav1.CreateOptions{})
 		require.NoError(t, err)
-		_, err = kubeClusterClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), clusterRoleBinding, metav1.CreateOptions{})
+		_, err = kubeClusterClient.Cluster(serviceProviderWorkspace).RbacV1().ClusterRoleBindings().Create(ctx, clusterRoleBinding, metav1.CreateOptions{})
 		require.NoError(t, err)
 	}
 	_, err = kcpClients.ApisV1alpha1().APIExports().Create(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), cowboysAPIExport, metav1.CreateOptions{})
@@ -371,9 +371,9 @@ func setUpServiceProvider(ctx context.Context, dynamicClusterClient *kcpdynamic.
 
 	// permit user-3 to be able to bind the api export
 	clusterRole, clusterRoleBinding := createClusterRoleAndBindings("user-3-binding", "user-3", "User", apisv1alpha1.SchemeGroupVersion.Group, "apiexports", "today-cowboys", []string{"bind"})
-	_, err = kubeClusterClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), clusterRole, metav1.CreateOptions{})
+	_, err = kubeClusterClient.Cluster(serviceProviderWorkspace).RbacV1().ClusterRoles().Create(ctx, clusterRole, metav1.CreateOptions{})
 	require.NoError(t, err)
-	_, err = kubeClusterClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, serviceProviderWorkspace), clusterRoleBinding, metav1.CreateOptions{})
+	_, err = kubeClusterClient.Cluster(serviceProviderWorkspace).RbacV1().ClusterRoleBindings().Create(ctx, clusterRoleBinding, metav1.CreateOptions{})
 	require.NoError(t, err)
 }
 

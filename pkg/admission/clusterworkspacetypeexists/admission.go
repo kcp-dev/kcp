@@ -23,6 +23,7 @@ import (
 	"io"
 	"strings"
 
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -33,7 +34,6 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
-	kubernetesclient "k8s.io/client-go/kubernetes"
 
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
@@ -73,7 +73,7 @@ type clusterWorkspaceTypeExists struct {
 	*admission.Handler
 	typeLister             tenancylisters.ClusterWorkspaceTypeLister
 	workspaceLister        tenancylisters.ClusterWorkspaceLister
-	deepSARClient          kubernetesclient.ClusterInterface
+	deepSARClient          kcpkubernetesclientset.ClusterInterface
 	transitiveTypeResolver *transitiveTypeResolver
 
 	createAuthorizer delegated.DelegatedAuthorizerFactory
@@ -396,7 +396,7 @@ func (o *clusterWorkspaceTypeExists) SetKcpInformers(informers kcpinformers.Shar
 	o.workspaceLister = informers.Tenancy().V1alpha1().ClusterWorkspaces().Lister()
 }
 
-func (o *clusterWorkspaceTypeExists) SetDeepSARClient(client kubernetesclient.ClusterInterface) {
+func (o *clusterWorkspaceTypeExists) SetDeepSARClient(client kcpkubernetesclientset.ClusterInterface) {
 	o.deepSARClient = client
 }
 

@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
@@ -32,7 +33,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
@@ -56,13 +56,13 @@ func TestMultiPlacement(t *testing.T) {
 	locationClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
 	userClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
 
-	kubeClusterClient, err := kubernetes.NewForConfig(source.BaseConfig(t))
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(source.BaseConfig(t))
 	require.NoError(t, err)
 	kcpClusterClient, err := kcpclient.NewForConfig(source.BaseConfig(t))
 	require.NoError(t, err)
 
 	t.Logf("Check that there is no services resource in the user workspace")
-	_, err = kubeClusterClient.CoreV1().Services("").List(logicalcluster.WithCluster(ctx, userClusterName), metav1.ListOptions{})
+	_, err = kubeClusterClient.Cluster(userClusterName).CoreV1().Services("").List(ctx, metav1.ListOptions{})
 	require.Error(t, err)
 
 	firstSyncTargetName := fmt.Sprintf("synctarget-%d", +rand.Intn(1000000))
@@ -237,7 +237,7 @@ func TestMultiPlacement(t *testing.T) {
 
 	t.Logf("Wait for being able to list Services in the user workspace")
 	require.Eventually(t, func() bool {
-		_, err := kubeClusterClient.CoreV1().Services("").List(logicalcluster.WithCluster(ctx, userClusterName), metav1.ListOptions{})
+		_, err := kubeClusterClient.Cluster(userClusterName).CoreV1().Services("").List(ctx, metav1.ListOptions{})
 		if errors.IsNotFound(err) {
 			return false
 		} else if err != nil {
@@ -248,7 +248,7 @@ func TestMultiPlacement(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Create a service in the user workspace")
-	_, err = kubeClusterClient.CoreV1().Services("default").Create(logicalcluster.WithCluster(ctx, userClusterName), &corev1.Service{
+	_, err = kubeClusterClient.Cluster(userClusterName).CoreV1().Services("default").Create(ctx, &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "first",
 			Labels: map[string]string{
@@ -268,7 +268,7 @@ func TestMultiPlacement(t *testing.T) {
 
 	t.Logf("Wait for the service to have the sync label")
 	framework.Eventually(t, func() (bool, string) {
-		svc, err := kubeClusterClient.CoreV1().Services("default").Get(logicalcluster.WithCluster(ctx, userClusterName), "first", metav1.GetOptions{})
+		svc, err := kubeClusterClient.Cluster(userClusterName).CoreV1().Services("default").Get(ctx, "first", metav1.GetOptions{})
 		if err != nil {
 			return false, fmt.Sprintf("Failed to get service: %v", err)
 		}

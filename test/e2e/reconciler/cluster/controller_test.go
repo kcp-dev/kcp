@@ -24,6 +24,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
@@ -33,7 +34,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-	kubernetesclient "k8s.io/client-go/kubernetes"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/yaml"
@@ -178,7 +178,7 @@ func TestClusterController(t *testing.T) {
 			sourceConfig := source.BaseConfig(t)
 			sourceWsClusterConfig := kcpclienthelper.SetCluster(rest.CopyConfig(sourceConfig), wsClusterName)
 
-			sourceKubeClient, err := kubernetesclient.NewForConfig(sourceWsClusterConfig)
+			sourceKubeClient, err := kcpkubernetesclientset.NewForConfig(sourceConfig)
 			require.NoError(t, err)
 			sourceWildwestClient, err := wildwestclientset.NewForConfig(sourceWsClusterConfig)
 			require.NoError(t, err)
@@ -205,7 +205,7 @@ func TestClusterController(t *testing.T) {
 			require.NoError(t, err)
 
 			t.Log("Creating namespace in source cluster...")
-			_, err = sourceKubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+			_, err = sourceKubeClient.Cluster(wsClusterName).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{Name: testNamespace},
 			}, metav1.CreateOptions{})
 			require.NoError(t, err)
@@ -213,7 +213,7 @@ func TestClusterController(t *testing.T) {
 			runningServers := map[string]runningServer{
 				sourceClusterName: {
 					client:     sourceWildwestClient.WildwestV1alpha1(),
-					coreClient: sourceKubeClient.CoreV1(),
+					coreClient: sourceKubeClient.Cluster(wsClusterName).CoreV1(),
 				},
 				sinkClusterName: {
 					client:     sinkWildwestClient.WildwestV1alpha1(),

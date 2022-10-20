@@ -22,12 +22,12 @@ import (
 	"testing"
 	"time"
 
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	virtualoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
@@ -44,7 +44,7 @@ func TestUserHomeWorkspaces(t *testing.T) {
 
 	type runningServer struct {
 		framework.RunningServer
-		kubeClusterClient             kubernetes.ClusterInterface
+		kubeClusterClient             kcpkubernetesclientset.ClusterInterface
 		rootShardKcpClusterClient     kcpclientset.ClusterInterface
 		kcpUserClusterClients         []kcpclientset.ClusterInterface
 		virtualPersonalClusterClients []kcpclientset.ClusterInterface
@@ -155,7 +155,7 @@ func TestUserHomeWorkspaces(t *testing.T) {
 			// create non-virtual clients
 			kcpConfig := server.BaseConfig(t)
 			rootShardCfg := server.RootShardSystemMasterBaseConfig(t)
-			kubeClusterClient, err := kubernetes.NewClusterForConfig(kcpConfig)
+			kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(kcpConfig)
 			require.NoError(t, err, "failed to construct client for server")
 			rootShardKcpClusterClient, err := kcpclientset.NewClusterForConfig(rootShardCfg)
 			require.NoError(t, err, "failed to construct client for server")

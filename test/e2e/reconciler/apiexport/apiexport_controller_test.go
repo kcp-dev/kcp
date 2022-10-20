@@ -21,13 +21,13 @@ import (
 	"testing"
 	"time"
 
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
@@ -52,7 +52,7 @@ func TestRequeueWhenIdentitySecretAdded(t *testing.T) {
 	kcpClusterClient, err := clientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating kcp cluster client")
 
-	kubeClusterClient, err := kubernetes.NewForConfig(cfg)
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating kube cluster client")
 
 	apiExport := &apisv1alpha1.APIExport{
@@ -100,7 +100,7 @@ func TestRequeueWhenIdentitySecretAdded(t *testing.T) {
 	}
 
 	t.Logf("Creating the referenced secret")
-	_, err = kubeClusterClient.CoreV1().Secrets("default").Create(logicalcluster.WithCluster(ctx, workspaceClusterName), secret, metav1.CreateOptions{})
+	_, err = kubeClusterClient.Cluster(workspaceClusterName).CoreV1().Secrets("default").Create(ctx, secret, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating secret")
 
 	t.Logf("Verifying the APIExport verifies and the identity and gets the expected generated identity hash")

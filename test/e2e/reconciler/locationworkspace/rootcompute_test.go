@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
@@ -32,7 +33,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
@@ -58,7 +58,7 @@ func TestRootComputeWorkspace(t *testing.T) {
 
 	kcpClients, err := clientset.NewClusterForConfig(source.BaseConfig(t))
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
-	kubeClusterClient, err := kubernetes.NewForConfig(source.BaseConfig(t))
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(source.BaseConfig(t))
 	require.NoError(t, err)
 
 	syncTargetName := fmt.Sprintf("synctarget-%d", +rand.Intn(1000000))
@@ -166,7 +166,7 @@ func TestRootComputeWorkspace(t *testing.T) {
 
 	t.Logf("Wait for being able to list Services in the user workspace")
 	require.Eventually(t, func() bool {
-		_, err := kubeClusterClient.CoreV1().Services("default").List(logicalcluster.WithCluster(ctx, consumerWorkspace), metav1.ListOptions{})
+		_, err := kubeClusterClient.Cluster(consumerWorkspace).CoreV1().Services("default").List(ctx, metav1.ListOptions{})
 		if errors.IsNotFound(err) {
 			t.Logf("service err %v", err)
 			return false
@@ -178,7 +178,7 @@ func TestRootComputeWorkspace(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Create a service in the user workspace")
-	_, err = kubeClusterClient.CoreV1().Services("default").Create(logicalcluster.WithCluster(ctx, consumerWorkspace), &corev1.Service{
+	_, err = kubeClusterClient.Cluster(consumerWorkspace).CoreV1().Services("default").Create(ctx, &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "first",
 			Labels: map[string]string{

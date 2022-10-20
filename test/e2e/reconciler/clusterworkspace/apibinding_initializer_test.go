@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
-	kcpdynamic "github.com/kcp-dev/apimachinery/pkg/dynamic"
+	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
@@ -53,7 +53,7 @@ func TestClusterWorkspaceTypeAPIBindingInitialization(t *testing.T) {
 	kcpClusterClient, err := kcpclient.NewForConfig(cfg)
 	require.NoError(t, err, "error creating kcp cluster client")
 
-	dynamicClusterClient, err := kcpdynamic.NewClusterDynamicClientForConfig(cfg)
+	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
 	require.NoError(t, err, "error creating dynamic cluster client")
 
 	cowboysProviderConfig := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), cowboysProvider)

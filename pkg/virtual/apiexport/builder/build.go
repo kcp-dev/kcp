@@ -22,14 +22,14 @@ import (
 	"fmt"
 	"strings"
 
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
+	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	"k8s.io/client-go/dynamic"
-	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
@@ -52,8 +52,8 @@ const VirtualWorkspaceName string = "apiexport"
 
 func BuildVirtualWorkspace(
 	rootPathPrefix string,
-	kubeClusterClient, deepSARClient kubernetesclient.ClusterInterface,
-	dynamicClusterClient dynamic.ClusterInterface,
+	kubeClusterClient, deepSARClient kcpkubernetesclientset.ClusterInterface,
+	dynamicClusterClient kcpdynamic.ClusterInterface,
 	kcpClusterClient kcpclient.ClusterInterface,
 	wildcardKcpInformers kcpinformers.SharedInformerFactory,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
@@ -211,7 +211,7 @@ func digestUrl(urlPath, rootPathPrefix string) (
 	return genericapirequest.Cluster{Name: clusterName, Wildcard: clusterName == logicalcluster.Wildcard}, dynamiccontext.APIDomainKey(key), strings.TrimSuffix(urlPath, realPath), true
 }
 
-func newAuthorizer(kubeClusterClient, deepSARClient kubernetesclient.ClusterInterface, kcpinformers kcpinformers.SharedInformerFactory) authorizer.Authorizer {
+func newAuthorizer(kubeClusterClient, deepSARClient kcpkubernetesclientset.ClusterInterface, kcpinformers kcpinformers.SharedInformerFactory) authorizer.Authorizer {
 	maximalPermissionAuth := virtualapiexportauth.NewMaximalPermissionAuthorizer(deepSARClient, kcpinformers.Apis().V1alpha1().APIExports(), kcpinformers.Apis().V1alpha1().APIBindings())
 	return virtualapiexportauth.NewAPIExportsContentAuthorizer(maximalPermissionAuth, kubeClusterClient)
 }

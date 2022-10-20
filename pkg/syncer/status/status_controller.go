@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// +kcp-code-generator:skip
+
 package status
 
 import (
@@ -22,6 +24,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -47,7 +50,7 @@ const (
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	upstreamClient            dynamic.ClusterInterface
+	upstreamClient            kcpdynamic.ClusterInterface
 	downstreamClient          dynamic.Interface
 	downstreamNamespaceLister cache.GenericLister
 
@@ -60,7 +63,7 @@ type Controller struct {
 }
 
 func NewStatusSyncer(syncerLogger logr.Logger, syncTargetWorkspace logicalcluster.Name, syncTargetName, syncTargetKey string, advancedSchedulingEnabled bool,
-	upstreamClient dynamic.ClusterInterface, downstreamClient dynamic.Interface, downstreamInformers dynamicinformer.DynamicSharedInformerFactory, syncerInformers resourcesync.SyncerInformerFactory, syncTargetUID types.UID) (*Controller, error) {
+	upstreamClient kcpdynamic.ClusterInterface, downstreamClient dynamic.Interface, downstreamInformers dynamicinformer.DynamicSharedInformerFactory, syncerInformers resourcesync.SyncerInformerFactory, syncTargetUID types.UID) (*Controller, error) {
 
 	c := &Controller{
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),

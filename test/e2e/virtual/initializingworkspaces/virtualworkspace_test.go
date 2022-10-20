@@ -28,6 +28,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
@@ -42,7 +43,6 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/endpoints/discovery"
 	clientgodiscovery "k8s.io/client-go/discovery"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
@@ -101,7 +101,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	sourceKcpClusterClient, err := kcpclient.NewForConfig(sourceConfig)
 	require.NoError(t, err)
 
-	kubeClusterClient, err := kubernetes.NewForConfig(sourceConfig)
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(sourceConfig)
 	require.NoError(t, err)
 
 	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, clusterName, []string{"user-1"}, nil, []string{"access"})
@@ -232,7 +232,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	t.Log("Create clients through the virtual workspace")
 	adminVwKcpClusterClients := map[string]kcpclient.Interface{}
 	user1VwKcpClusterClients := map[string]kcpclient.Interface{}
-	user1VwKubeClusterClients := map[string]kubernetes.Interface{}
+	user1VwKubeClusterClients := map[string]kcpkubernetesclientset.ClusterInterface{}
 	for _, initializer := range []string{
 		"alpha",
 		"beta",
@@ -242,7 +242,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		virtualWorkspaceConfig.Host = clusterWorkspaceTypes[initializer].Status.VirtualWorkspaces[0].URL
 		virtualKcpClusterClient, err := kcpclient.NewForConfig(framework.UserConfig("user-1", virtualWorkspaceConfig))
 		require.NoError(t, err)
-		virtualKubeClusterClient, err := kubernetes.NewForConfig(framework.UserConfig("user-1", virtualWorkspaceConfig))
+		virtualKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(framework.UserConfig("user-1", virtualWorkspaceConfig))
 		require.NoError(t, err)
 		user1VwKcpClusterClients[initializer] = virtualKcpClusterClient
 		user1VwKubeClusterClients[initializer] = virtualKubeClusterClient
@@ -283,7 +283,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		"gamma",
 	} {
 		cwt := clusterWorkspaceTypes[initializer]
-		role, err := kubeClusterClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, clusterName), &rbacv1.ClusterRole{
+		role, err := kubeClusterClient.Cluster(clusterName).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: string(initialization.InitializerForType(cwt)) + "-initializer",
 			},
@@ -298,9 +298,9 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		}, metav1.CreateOptions{})
 		require.NoError(t, err)
 		source.Artifact(t, func() (runtime.Object, error) {
-			return kubeClusterClient.RbacV1().ClusterRoles().Get(logicalcluster.WithCluster(ctx, clusterName), role.Name, metav1.GetOptions{})
+			return kubeClusterClient.Cluster(clusterName).RbacV1().ClusterRoles().Get(ctx, role.Name, metav1.GetOptions{})
 		})
-		binding, err := kubeClusterClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, clusterName), &rbacv1.ClusterRoleBinding{
+		binding, err := kubeClusterClient.Cluster(clusterName).RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: role.Name,
 			},
@@ -317,7 +317,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		}, metav1.CreateOptions{})
 		require.NoError(t, err)
 		source.Artifact(t, func() (runtime.Object, error) {
-			return kubeClusterClient.RbacV1().ClusterRoleBindings().Get(logicalcluster.WithCluster(ctx, clusterName), binding.Name, metav1.GetOptions{})
+			return kubeClusterClient.Cluster(clusterName).RbacV1().ClusterRoleBindings().Get(ctx, binding.Name, metav1.GetOptions{})
 		})
 	}
 
@@ -414,10 +414,10 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		"beta",
 		"gamma",
 	} {
-		coreClusterClient := user1VwKubeClusterClients[initializer].CoreV1()
+		coreClusterClient := user1VwKubeClusterClients[initializer]
 
 		nsName := "testing"
-		_, err := coreClusterClient.Namespaces().Create(logicalcluster.WithCluster(ctx, logicalcluster.From(ws).Join(ws.Name)), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nsName}}, metav1.CreateOptions{})
+		_, err := coreClusterClient.Cluster(logicalcluster.From(ws).Join(ws.Name)).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nsName}}, metav1.CreateOptions{})
 		if err != nil && !errors.IsAlreadyExists(err) {
 			require.NoError(t, err)
 		}
@@ -425,11 +425,11 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		labelSelector := map[string]string{
 			"internal.kcp.dev/test-initializer": initializer,
 		}
-		configMaps, err := coreClusterClient.ConfigMaps(nsName).List(logicalcluster.WithCluster(ctx, logicalcluster.From(ws).Join(ws.Name)), metav1.ListOptions{LabelSelector: labels.SelectorFromSet(labelSelector).String()})
+		configMaps, err := coreClusterClient.Cluster(logicalcluster.From(ws).Join(ws.Name)).CoreV1().ConfigMaps(nsName).List(ctx, metav1.ListOptions{LabelSelector: labels.SelectorFromSet(labelSelector).String()})
 		require.NoError(t, err)
 		require.Empty(t, cmp.Diff(configMaps.Items, []corev1.ConfigMap{}))
 
-		configMap, err := coreClusterClient.ConfigMaps(nsName).Create(logicalcluster.WithCluster(ctx, logicalcluster.From(ws).Join(ws.Name)), &corev1.ConfigMap{
+		configMap, err := coreClusterClient.Cluster(logicalcluster.From(ws).Join(ws.Name)).CoreV1().ConfigMaps(nsName).Create(ctx, &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   "whatever" + suffix(),
 				Labels: labelSelector,
@@ -440,19 +440,19 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		}, metav1.CreateOptions{})
 		require.NoError(t, err)
 
-		configMaps, err = coreClusterClient.ConfigMaps(nsName).List(logicalcluster.WithCluster(ctx, logicalcluster.From(ws).Join(ws.Name)), metav1.ListOptions{LabelSelector: labels.SelectorFromSet(labelSelector).String()})
+		configMaps, err = coreClusterClient.Cluster(logicalcluster.From(ws).Join(ws.Name)).CoreV1().ConfigMaps(nsName).List(ctx, metav1.ListOptions{LabelSelector: labels.SelectorFromSet(labelSelector).String()})
 		require.NoError(t, err)
 		require.Empty(t, cmp.Diff(configMaps.Items, []corev1.ConfigMap{*configMap}))
 
 		t.Log("Ensure that the object is visible from outside the virtual workspace")
-		configMaps, err = coreClusterClient.ConfigMaps(nsName).List(logicalcluster.WithCluster(ctx, logicalcluster.From(ws).Join(ws.Name)), metav1.ListOptions{LabelSelector: labels.SelectorFromSet(labelSelector).String()})
+		configMaps, err = coreClusterClient.Cluster(logicalcluster.From(ws).Join(ws.Name)).CoreV1().ConfigMaps(nsName).List(ctx, metav1.ListOptions{LabelSelector: labels.SelectorFromSet(labelSelector).String()})
 		require.NoError(t, err)
 		require.Empty(t, cmp.Diff(configMaps.Items, []corev1.ConfigMap{*configMap}))
 
-		err = coreClusterClient.ConfigMaps(nsName).Delete(logicalcluster.WithCluster(ctx, logicalcluster.From(ws).Join(ws.Name)), configMap.Name, metav1.DeleteOptions{})
+		err = coreClusterClient.Cluster(logicalcluster.From(ws).Join(ws.Name)).CoreV1().ConfigMaps(nsName).Delete(ctx, configMap.Name, metav1.DeleteOptions{})
 		require.NoError(t, err)
 
-		configMaps, err = coreClusterClient.ConfigMaps(nsName).List(logicalcluster.WithCluster(ctx, logicalcluster.From(ws).Join(ws.Name)), metav1.ListOptions{LabelSelector: labels.SelectorFromSet(labelSelector).String()})
+		configMaps, err = coreClusterClient.Cluster(logicalcluster.From(ws).Join(ws.Name)).CoreV1().ConfigMaps(nsName).List(ctx, metav1.ListOptions{LabelSelector: labels.SelectorFromSet(labelSelector).String()})
 		require.NoError(t, err)
 		require.Empty(t, cmp.Diff(configMaps.Items, []corev1.ConfigMap{}))
 	}
@@ -531,8 +531,8 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		"beta",
 		"gamma",
 	} {
-		kubeClusterClient := user1VwKubeClusterClients[initializer].CoreV1().ConfigMaps("testing")
-		_, err := kubeClusterClient.List(logicalcluster.WithCluster(ctx, logicalcluster.From(ws).Join(ws.Name)), metav1.ListOptions{})
+		kubeClusterClient := user1VwKubeClusterClients[initializer].Cluster(logicalcluster.From(ws).Join(ws.Name)).CoreV1().ConfigMaps("testing")
+		_, err := kubeClusterClient.List(ctx, metav1.ListOptions{})
 		if !errors.IsForbidden(err) {
 			t.Fatalf("got %#v error from initial list, expected unauthorized", err)
 		}

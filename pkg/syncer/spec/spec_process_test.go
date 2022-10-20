@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// +kcp-code-generator:skip
+
 package spec
 
 import (
@@ -26,10 +28,14 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpdynamicinformer "github.com/kcp-dev/client-go/clients/dynamic/dynamicinformer"
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/clients/informers"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	kcpfakedynamic "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/dynamic/fake"
+	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,7 +44,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/informers"
@@ -454,16 +459,6 @@ func TestDeepEqualApartFromStatus(t *testing.T) {
 	}
 }
 
-var _ dynamic.ClusterInterface = (*mockedDynamicCluster)(nil)
-
-type mockedDynamicCluster struct {
-	client *dynamicfake.FakeDynamicClient
-}
-
-func (mdc *mockedDynamicCluster) Cluster(name logicalcluster.Name) dynamic.Interface {
-	return mdc.client
-}
-
 func TestSyncerProcess(t *testing.T) {
 	tests := map[string]struct {
 		fromNamespace *corev1.Namespace
@@ -482,7 +477,7 @@ func TestSyncerProcess(t *testing.T) {
 		advancedSchedulingEnabled bool
 
 		expectError         bool
-		expectActionsOnFrom []clienttesting.Action
+		expectActionsOnFrom []kcptesting.Action
 		expectActionsOnTo   []clienttesting.Action
 	}{
 		"SpecSyncer sync deployment to downstream, upstream gets patched with the finalizer and the object is not created downstream (will be in the next reconciliation)": {
@@ -507,7 +502,7 @@ func TestSyncerProcess(t *testing.T) {
 			resourceToProcessName:               "theDeployment",
 			syncTargetName:                      "us-west1",
 
-			expectActionsOnFrom: []clienttesting.Action{
+			expectActionsOnFrom: []kcptesting.Action{
 				updateDeploymentAction("test",
 					toUnstructured(t, changeDeployment(
 						deployment("theDeployment", "test", "root:org:ws", map[string]string{
@@ -516,7 +511,7 @@ func TestSyncerProcess(t *testing.T) {
 					))),
 			},
 			expectActionsOnTo: []clienttesting.Action{
-				createNamespaceAction(
+				createNamespaceSingleClusterAction(
 					"",
 					changeUnstructured(
 						toUnstructured(t, namespace("kcp-hcbsa8z6c2er", "",
@@ -553,9 +548,9 @@ func TestSyncerProcess(t *testing.T) {
 			resourceToProcessName:               "theDeployment",
 			syncTargetName:                      "us-west1",
 
-			expectActionsOnFrom: []clienttesting.Action{},
+			expectActionsOnFrom: []kcptesting.Action{},
 			expectActionsOnTo: []clienttesting.Action{
-				createNamespaceAction(
+				createNamespaceSingleClusterAction(
 					"",
 					changeUnstructured(
 						toUnstructured(t, namespace("kcp-hcbsa8z6c2er", "",
@@ -568,7 +563,7 @@ func TestSyncerProcess(t *testing.T) {
 						removeNilOrEmptyFields,
 					),
 				),
-				patchDeploymentAction(
+				patchDeploymentSingleClusterAction(
 					"theDeployment",
 					"kcp-hcbsa8z6c2er",
 					types.ApplyPatchType,
@@ -604,9 +599,9 @@ func TestSyncerProcess(t *testing.T) {
 			resourceToProcessName:               "theDeployment",
 			syncTargetName:                      "us-west1",
 
-			expectActionsOnFrom: []clienttesting.Action{},
+			expectActionsOnFrom: []kcptesting.Action{},
 			expectActionsOnTo: []clienttesting.Action{
-				deleteDeploymentAction(
+				deleteDeploymentSingleClusterAction(
 					"theDeployment",
 					"kcp-hcbsa8z6c2er",
 				),
@@ -646,9 +641,9 @@ func TestSyncerProcess(t *testing.T) {
 			resourceToProcessName:               "theDeployment",
 			syncTargetName:                      "us-west1",
 
-			expectActionsOnFrom: []clienttesting.Action{},
+			expectActionsOnFrom: []kcptesting.Action{},
 			expectActionsOnTo: []clienttesting.Action{
-				deleteDeploymentAction(
+				deleteDeploymentSingleClusterAction(
 					"theDeployment",
 					"kcp-hcbsa8z6c2er",
 				),
@@ -685,7 +680,7 @@ func TestSyncerProcess(t *testing.T) {
 			resourceToProcessLogicalClusterName: "root:org:ws",
 			resourceToProcessName:               "theDeployment",
 			syncTargetName:                      "us-west1",
-			expectActionsOnFrom: []clienttesting.Action{
+			expectActionsOnFrom: []kcptesting.Action{
 				updateDeploymentAction("test",
 					changeUnstructured(
 						toUnstructured(t, changeDeployment(
@@ -700,7 +695,7 @@ func TestSyncerProcess(t *testing.T) {
 					)),
 			},
 			expectActionsOnTo: []clienttesting.Action{
-				deleteDeploymentAction(
+				deleteDeploymentSingleClusterAction(
 					"theDeployment",
 					"kcp-hcbsa8z6c2er",
 				),
@@ -744,9 +739,9 @@ func TestSyncerProcess(t *testing.T) {
 			resourceToProcessName:               "theDeployment",
 			syncTargetName:                      "us-west1",
 
-			expectActionsOnFrom: []clienttesting.Action{},
+			expectActionsOnFrom: []kcptesting.Action{},
 			expectActionsOnTo: []clienttesting.Action{
-				patchDeploymentAction(
+				patchDeploymentSingleClusterAction(
 					"theDeployment",
 					"kcp-hcbsa8z6c2er",
 					types.ApplyPatchType,
@@ -803,9 +798,9 @@ func TestSyncerProcess(t *testing.T) {
 			syncTargetName:                      "us-west1",
 			advancedSchedulingEnabled:           true,
 
-			expectActionsOnFrom: []clienttesting.Action{},
+			expectActionsOnFrom: []kcptesting.Action{},
 			expectActionsOnTo: []clienttesting.Action{
-				createNamespaceAction(
+				createNamespaceSingleClusterAction(
 					"",
 					changeUnstructured(
 						toUnstructured(t, namespace("kcp-hcbsa8z6c2er", "",
@@ -818,7 +813,7 @@ func TestSyncerProcess(t *testing.T) {
 						removeNilOrEmptyFields,
 					),
 				),
-				patchDeploymentAction(
+				patchDeploymentSingleClusterAction(
 					"theDeployment",
 					"kcp-hcbsa8z6c2er",
 					types.ApplyPatchType,
@@ -878,7 +873,7 @@ func TestSyncerProcess(t *testing.T) {
 			resourceToProcessName:               "theDeployment",
 			syncTargetName:                      "us-west1",
 			expectError:                         true,
-			expectActionsOnFrom:                 []clienttesting.Action{},
+			expectActionsOnFrom:                 []kcptesting.Action{},
 			expectActionsOnTo:                   []clienttesting.Action{},
 		},
 		"SpecSyncer namespace conflict: try to sync to an already existing namespace without a namespace-locator, expect error": {
@@ -910,7 +905,7 @@ func TestSyncerProcess(t *testing.T) {
 			resourceToProcessName:               "theDeployment",
 			syncTargetName:                      "us-west1",
 			expectError:                         true,
-			expectActionsOnFrom:                 []clienttesting.Action{},
+			expectActionsOnFrom:                 []kcptesting.Action{},
 			expectActionsOnTo:                   []clienttesting.Action{},
 		},
 		"old v0.6.0 namespace locator exists downstream": {
@@ -948,9 +943,9 @@ func TestSyncerProcess(t *testing.T) {
 			resourceToProcessName:               "foo",
 			syncTargetName:                      "us-west1",
 
-			expectActionsOnFrom: []clienttesting.Action{},
+			expectActionsOnFrom: []kcptesting.Action{},
 			expectActionsOnTo: []clienttesting.Action{
-				patchSecretAction(
+				patchSecretSingleClusterAction(
 					"foo",
 					"kcp-01c0zzvlqsi7n",
 					types.ApplyPatchType,
@@ -982,15 +977,12 @@ func TestSyncerProcess(t *testing.T) {
 				allFromResources = append(allFromResources, tc.fromResources...)
 			}
 
-			fromClient := dynamicfake.NewSimpleDynamicClient(scheme, allFromResources...)
-			fromClusterClient := &mockedDynamicCluster{
-				client: fromClient,
-			}
+			fromClusterClient := kcpfakedynamic.NewSimpleDynamicClient(scheme, allFromResources...)
 
 			syncTargetKey := workloadv1alpha1.ToSyncTargetKey(tc.syncTargetWorkspace, tc.syncTargetName)
 
 			toClient := dynamicfake.NewSimpleDynamicClient(scheme, tc.toResources...)
-			fromInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClusterClient.Cluster(logicalcluster.Wildcard), time.Hour, metav1.NamespaceAll, func(o *metav1.ListOptions) {
+			fromInformers := kcpdynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClusterClient, time.Hour, func(o *metav1.ListOptions) {
 				o.LabelSelector = workloadv1alpha1.ClusterResourceStateLabelPrefix + syncTargetKey + "=" + string(workloadv1alpha1.ResourceStateSync)
 			})
 			toInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactoryWithOptions(toClient, metav1.NamespaceAll, func(o *metav1.ListOptions) {
@@ -998,7 +990,7 @@ func TestSyncerProcess(t *testing.T) {
 			}, cache.WithResyncPeriod(time.Hour), cache.WithKeyFunction(keyfunctions.DeletionHandlingMetaNamespaceKeyFunc))
 
 			setupServersideApplyPatchReactor(toClient)
-			resourceWatcherStarted := setupWatchReactor(tc.gvr.Resource, fromClient)
+			resourceWatcherStarted := setupWatchReactor(tc.gvr.Resource, fromClusterClient)
 
 			fakeInformers := newFakeSyncerInformers(tc.gvr, fromInformers, toInformers)
 
@@ -1015,7 +1007,7 @@ func TestSyncerProcess(t *testing.T) {
 
 			<-resourceWatcherStarted
 
-			fromClient.ClearActions()
+			fromClusterClient.ClearActions()
 			toClient.ClearActions()
 
 			key := kcpcache.ToClusterAwareKey(tc.resourceToProcessLogicalClusterName, tc.fromNamespace.Name, tc.resourceToProcessName)
@@ -1028,7 +1020,7 @@ func TestSyncerProcess(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
-			assert.Empty(t, cmp.Diff(tc.expectActionsOnFrom, fromClient.Actions()))
+			assert.Empty(t, cmp.Diff(tc.expectActionsOnFrom, fromClusterClient.Actions(), cmp.AllowUnexported(logicalcluster.Name{})))
 			assert.Empty(t, cmp.Diff(tc.expectActionsOnTo, toClient.Actions()))
 		})
 	}
@@ -1044,17 +1036,22 @@ func setupServersideApplyPatchReactor(toClient *dynamicfake.FakeDynamicClient) {
 	})
 }
 
-func setupWatchReactor(resource string, fromClient *dynamicfake.FakeDynamicClient) chan struct{} {
+func setupWatchReactor(resource string, fromClient *kcpfakedynamic.FakeDynamicClusterClientset) chan struct{} {
 	watcherStarted := make(chan struct{})
-	fromClient.PrependWatchReactor(resource, func(action clienttesting.Action) (handled bool, ret watch.Interface, err error) {
+	fromClient.PrependWatchReactor(resource, func(action kcptesting.Action) (bool, watch.Interface, error) {
+		cluster := action.GetCluster()
 		gvr := action.GetResource()
 		ns := action.GetNamespace()
-		watch, err := fromClient.Tracker().Watch(gvr, ns)
-		if err != nil {
-			return false, nil, err
+		var watcher watch.Interface
+		var err error
+		switch cluster {
+		case logicalcluster.Wildcard:
+			watcher, err = fromClient.Tracker().Watch(gvr, ns)
+		default:
+			watcher, err = fromClient.Tracker().Cluster(cluster).Watch(gvr, ns)
 		}
 		close(watcherStarted)
-		return true, watch, nil
+		return true, watcher, err
 	})
 	return watcherStarted
 }
@@ -1196,7 +1193,78 @@ func setPodSpec(fields ...string) unstructuredChange {
 	return setNestedField(j, fields...)
 }
 
-func deploymentAction(verb, namespace string, subresources ...string) clienttesting.ActionImpl {
+func deploymentAction(verb, namespace string, subresources ...string) kcptesting.ActionImpl {
+	return kcptesting.ActionImpl{
+		Namespace:   namespace,
+		Cluster:     logicalcluster.New("root:org:ws"),
+		Verb:        verb,
+		Resource:    schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+		Subresource: strings.Join(subresources, "/"),
+	}
+}
+
+func namespaceAction(verb string, subresources ...string) kcptesting.ActionImpl {
+	return kcptesting.ActionImpl{
+		Namespace:   "",
+		Cluster:     logicalcluster.New("root:org:ws"),
+		Verb:        verb,
+		Resource:    schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"},
+		Subresource: strings.Join(subresources, "/"),
+	}
+}
+
+func createNamespaceAction(name string, object runtime.Object) kcptesting.CreateActionImpl {
+	return kcptesting.CreateActionImpl{
+		ActionImpl: namespaceAction("create"),
+		Name:       name,
+		Object:     object,
+	}
+}
+
+func updateDeploymentAction(namespace string, object runtime.Object, subresources ...string) kcptesting.UpdateActionImpl {
+	return kcptesting.UpdateActionImpl{
+		ActionImpl: deploymentAction("update", namespace, subresources...),
+		Object:     object,
+	}
+}
+
+func patchDeploymentAction(name, namespace string, patchType types.PatchType, patch []byte, subresources ...string) kcptesting.PatchActionImpl {
+	return kcptesting.PatchActionImpl{
+		ActionImpl: deploymentAction("patch", namespace, subresources...),
+		Name:       name,
+		PatchType:  patchType,
+		Patch:      patch,
+	}
+}
+
+func deleteDeploymentAction(name, namespace string, subresources ...string) kcptesting.DeleteActionImpl {
+	return kcptesting.DeleteActionImpl{
+		ActionImpl:    deploymentAction("delete", namespace, subresources...),
+		Name:          name,
+		DeleteOptions: metav1.DeleteOptions{},
+	}
+}
+
+func secretAction(verb, namespace string, subresources ...string) kcptesting.ActionImpl {
+	return kcptesting.ActionImpl{
+		Namespace:   namespace,
+		Cluster:     logicalcluster.New("root:org:ws"),
+		Verb:        verb,
+		Resource:    schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"},
+		Subresource: strings.Join(subresources, "/"),
+	}
+}
+
+func patchSecretAction(name, namespace string, patchType types.PatchType, patch []byte, subresources ...string) kcptesting.PatchActionImpl {
+	return kcptesting.PatchActionImpl{
+		ActionImpl: secretAction("patch", namespace, subresources...),
+		Name:       name,
+		PatchType:  patchType,
+		Patch:      patch,
+	}
+}
+
+func deploymentSingleClusterAction(verb, namespace string, subresources ...string) clienttesting.ActionImpl {
 	return clienttesting.ActionImpl{
 		Namespace:   namespace,
 		Verb:        verb,
@@ -1205,7 +1273,7 @@ func deploymentAction(verb, namespace string, subresources ...string) clienttest
 	}
 }
 
-func namespaceAction(verb string, subresources ...string) clienttesting.ActionImpl {
+func namespaceSingleClusterAction(verb string, subresources ...string) clienttesting.ActionImpl {
 	return clienttesting.ActionImpl{
 		Namespace:   "",
 		Verb:        verb,
@@ -1214,39 +1282,39 @@ func namespaceAction(verb string, subresources ...string) clienttesting.ActionIm
 	}
 }
 
-func createNamespaceAction(name string, object runtime.Object) clienttesting.CreateActionImpl {
+func createNamespaceSingleClusterAction(name string, object runtime.Object) clienttesting.CreateActionImpl {
 	return clienttesting.CreateActionImpl{
-		ActionImpl: namespaceAction("create"),
+		ActionImpl: namespaceSingleClusterAction("create"),
 		Name:       name,
 		Object:     object,
 	}
 }
 
-func updateDeploymentAction(namespace string, object runtime.Object, subresources ...string) clienttesting.UpdateActionImpl {
+func updateDeploymentSingleClusterAction(namespace string, object runtime.Object, subresources ...string) clienttesting.UpdateActionImpl {
 	return clienttesting.UpdateActionImpl{
-		ActionImpl: deploymentAction("update", namespace, subresources...),
+		ActionImpl: deploymentSingleClusterAction("update", namespace, subresources...),
 		Object:     object,
 	}
 }
 
-func patchDeploymentAction(name, namespace string, patchType types.PatchType, patch []byte, subresources ...string) clienttesting.PatchActionImpl {
+func patchDeploymentSingleClusterAction(name, namespace string, patchType types.PatchType, patch []byte, subresources ...string) clienttesting.PatchActionImpl {
 	return clienttesting.PatchActionImpl{
-		ActionImpl: deploymentAction("patch", namespace, subresources...),
+		ActionImpl: deploymentSingleClusterAction("patch", namespace, subresources...),
 		Name:       name,
 		PatchType:  patchType,
 		Patch:      patch,
 	}
 }
 
-func deleteDeploymentAction(name, namespace string, subresources ...string) clienttesting.DeleteActionImpl {
+func deleteDeploymentSingleClusterAction(name, namespace string, subresources ...string) clienttesting.DeleteActionImpl {
 	return clienttesting.DeleteActionImpl{
-		ActionImpl:    deploymentAction("delete", namespace, subresources...),
+		ActionImpl:    deploymentSingleClusterAction("delete", namespace, subresources...),
 		Name:          name,
 		DeleteOptions: metav1.DeleteOptions{},
 	}
 }
 
-func secretAction(verb, namespace string, subresources ...string) clienttesting.ActionImpl {
+func secretSingleClusterAction(verb, namespace string, subresources ...string) clienttesting.ActionImpl {
 	return clienttesting.ActionImpl{
 		Namespace:   namespace,
 		Verb:        verb,
@@ -1255,9 +1323,9 @@ func secretAction(verb, namespace string, subresources ...string) clienttesting.
 	}
 }
 
-func patchSecretAction(name, namespace string, patchType types.PatchType, patch []byte, subresources ...string) clienttesting.PatchActionImpl {
+func patchSecretSingleClusterAction(name, namespace string, patchType types.PatchType, patch []byte, subresources ...string) clienttesting.PatchActionImpl {
 	return clienttesting.PatchActionImpl{
-		ActionImpl: secretAction("patch", namespace, subresources...),
+		ActionImpl: secretSingleClusterAction("patch", namespace, subresources...),
 		Name:       name,
 		PatchType:  patchType,
 		Patch:      patch,
@@ -1265,11 +1333,11 @@ func patchSecretAction(name, namespace string, patchType types.PatchType, patch 
 }
 
 type fakeSyncerInformers struct {
-	upstreamInformer   informers.GenericInformer
+	upstreamInformer   kcpkubernetesinformers.GenericClusterInformer
 	downStreamInformer informers.GenericInformer
 }
 
-func newFakeSyncerInformers(gvr schema.GroupVersionResource, upstreamInformers, downStreamInformers dynamicinformer.DynamicSharedInformerFactory) *fakeSyncerInformers {
+func newFakeSyncerInformers(gvr schema.GroupVersionResource, upstreamInformers kcpdynamicinformer.DynamicSharedInformerFactory, downStreamInformers dynamicinformer.DynamicSharedInformerFactory) *fakeSyncerInformers {
 	return &fakeSyncerInformers{
 		upstreamInformer:   upstreamInformers.ForResource(gvr),
 		downStreamInformer: downStreamInformers.ForResource(gvr),

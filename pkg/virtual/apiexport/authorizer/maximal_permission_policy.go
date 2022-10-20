@@ -21,13 +21,12 @@ import (
 	"fmt"
 	"strings"
 
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clusters"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization"
@@ -50,7 +49,7 @@ type maximalPermissionAuthorizer struct {
 //
 // If the request is a cluster request the authorizer skips authorization if the request is not for a bound resource.
 // If the request is a wildcard request this check is skipped because no unique API binding can be determined.
-func NewMaximalPermissionAuthorizer(deepSARClient kubernetes.ClusterInterface, apiExportInformer apisinformers.APIExportInformer, apiBindingInformer apisinformers.APIBindingInformer) authorizer.Authorizer {
+func NewMaximalPermissionAuthorizer(deepSARClient kcpkubernetesclientset.ClusterInterface, apiExportInformer apisinformers.APIExportInformer, apiBindingInformer apisinformers.APIBindingInformer) authorizer.Authorizer {
 	apiExportLister := apiExportInformer.Lister()
 	apiExportIndexer := apiExportInformer.Informer().GetIndexer()
 

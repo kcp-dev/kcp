@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// +kcp-code-generator:skip
+
 package bootstrap
 
 import (
@@ -54,7 +56,7 @@ func (c *controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 	if err != nil {
 		return err
 	}
-	if err := c.bootstrap(logicalcluster.WithCluster(bootstrapCtx, wsClusterName), crdWsClient.Discovery(), c.dynamicClusterClient, c.kcpClusterClient, c.batteriesIncluded); err != nil {
+	if err := c.bootstrap(logicalcluster.WithCluster(bootstrapCtx, wsClusterName), crdWsClient.Discovery(), c.dynamicClusterClient.Cluster(wsClusterName), c.kcpClusterClient, c.batteriesIncluded); err != nil {
 		return err // requeue
 	}
 

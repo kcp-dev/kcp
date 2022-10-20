@@ -26,6 +26,8 @@ import (
 	"path"
 	"strings"
 
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
+	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -34,11 +36,8 @@ import (
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	"k8s.io/client-go/dynamic"
-	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/transport"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/pointer"
@@ -64,8 +63,8 @@ import (
 func BuildVirtualWorkspace(
 	cfg *rest.Config,
 	rootPathPrefix string,
-	dynamicClusterClient dynamic.ClusterInterface,
-	kubeClusterClient kubernetesclient.ClusterInterface,
+	dynamicClusterClient kcpdynamic.ClusterInterface,
+	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	wildcardKcpInformers kcpinformers.SharedInformerFactory,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
 	if !strings.HasSuffix(rootPathPrefix, "/") {
@@ -359,10 +358,10 @@ func URLFor(initializerName tenancyv1alpha1.ClusterWorkspaceInitializer) string 
 
 type apiSetRetriever struct {
 	config               genericapiserver.CompletedConfig
-	dynamicClusterClient dynamic.ClusterInterface
+	dynamicClusterClient kcpdynamic.ClusterInterface
 	resource             *apisv1alpha1.APIResourceSchema
 	exposeSubresources   bool
-	storageProvider      func(ctx context.Context, clusterClient dynamic.ClusterInterface, initializer tenancyv1alpha1.ClusterWorkspaceInitializer) (apiserver.RestProviderFunc, error)
+	storageProvider      func(ctx context.Context, clusterClient kcpdynamic.ClusterInterface, initializer tenancyv1alpha1.ClusterWorkspaceInitializer) (apiserver.RestProviderFunc, error)
 }
 
 func (a *apiSetRetriever) GetAPIDefinitionSet(ctx context.Context, key dynamiccontext.APIDomainKey) (apis apidefinition.APIDefinitionSet, apisExist bool, err error) {
@@ -394,7 +393,7 @@ func (a *apiSetRetriever) GetAPIDefinitionSet(ctx context.Context, key dynamicco
 
 var _ apidefinition.APIDefinitionSetGetter = &apiSetRetriever{}
 
-func newAuthorizer(client kubernetesclient.ClusterInterface) authorizer.AuthorizerFunc {
+func newAuthorizer(client kcpkubernetesclientset.ClusterInterface) authorizer.AuthorizerFunc {
 	return func(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
 		workspace, name, err := initialization.TypeFrom(tenancyv1alpha1.ClusterWorkspaceInitializer(dynamiccontext.APIDomainKeyFrom(ctx)))
 		if err != nil {

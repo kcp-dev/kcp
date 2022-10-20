@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// +kcp-code-generator:skip
+
 package spec
 
 import (
@@ -25,10 +27,14 @@ import (
 
 	"github.com/go-logr/logr"
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
+	kcpdynamicinformer "github.com/kcp-dev/client-go/clients/dynamic/dynamicinformer"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -49,8 +55,8 @@ import (
 )
 
 const (
-	controllerName                   = "kcp-workload-syncer-spec"
-	byNamespaceLocatorIndexName      = "syncer-spec-ByNamespaceLocator"
+	controllerName              = "kcp-workload-syncer-spec"
+	byNamespaceLocatorIndexName = "syncer-spec-ByNamespaceLocator"
 )
 
 type Controller struct {
@@ -58,7 +64,7 @@ type Controller struct {
 
 	mutators mutatorGvrMap
 
-	upstreamClient       dynamic.ClusterInterface
+	upstreamClient       kcpdynamic.ClusterInterface
 	downstreamClient     dynamic.Interface
 	syncerInformers      resourcesync.SyncerInformerFactory
 	downstreamNSInformer informers.GenericInformer
@@ -71,7 +77,7 @@ type Controller struct {
 }
 
 func NewSpecSyncer(syncerLogger logr.Logger, syncTargetWorkspace logicalcluster.Name, syncTargetName, syncTargetKey string, upstreamURL *url.URL, advancedSchedulingEnabled bool,
-	upstreamClient dynamic.ClusterInterface, downstreamClient dynamic.Interface, upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory, syncerInformers resourcesync.SyncerInformerFactory, syncTargetUID types.UID,
+	upstreamClient kcpdynamic.ClusterInterface, downstreamClient dynamic.Interface, upstreamInformers kcpdynamicinformer.DynamicSharedInformerFactory, downstreamInformers dynamicinformer.DynamicSharedInformerFactory, syncerInformers resourcesync.SyncerInformerFactory, syncTargetUID types.UID,
 	dnsIP string) (*Controller, error) {
 
 	c := Controller{

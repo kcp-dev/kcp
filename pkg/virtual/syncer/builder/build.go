@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"strings"
 
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
+	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/labels"
@@ -29,10 +31,7 @@ import (
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	"k8s.io/client-go/dynamic"
-	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
@@ -57,8 +56,8 @@ const SyncerVirtualWorkspaceName string = "syncer"
 // ForwardingREST REST storage implementation, serves a SyncTargetAPI list maintained by the APIReconciler controller.
 func BuildVirtualWorkspace(
 	rootPathPrefix string,
-	kubeClusterClient kubernetesclient.ClusterInterface,
-	dynamicClusterClient dynamic.ClusterInterface,
+	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
+	dynamicClusterClient kcpdynamic.ClusterInterface,
 	kcpClusterClient kcpclient.ClusterInterface,
 	wildcardKcpInformers kcpinformers.SharedInformerFactory,
 ) framework.VirtualWorkspace {

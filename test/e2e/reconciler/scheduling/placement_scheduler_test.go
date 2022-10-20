@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
@@ -32,7 +33,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
@@ -56,13 +56,13 @@ func TestPlacementUpdate(t *testing.T) {
 	locationClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
 	userClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
 
-	kubeClusterClient, err := kubernetes.NewForConfig(source.BaseConfig(t))
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(source.BaseConfig(t))
 	require.NoError(t, err)
 	kcpClusterClient, err := kcpclient.NewForConfig(source.BaseConfig(t))
 	require.NoError(t, err)
 
 	t.Logf("Check that there is no services resource in the user workspace")
-	_, err = kubeClusterClient.CoreV1().Services("").List(logicalcluster.WithCluster(ctx, userClusterName), metav1.ListOptions{})
+	_, err = kubeClusterClient.Cluster(userClusterName).CoreV1().Services("").List(ctx, metav1.ListOptions{})
 	require.Error(t, err)
 
 	firstSyncTargetName := fmt.Sprintf("synctarget-%d", +rand.Intn(1000000))
@@ -80,6 +80,7 @@ func TestPlacementUpdate(t *testing.T) {
 			t.Logf("Installing test CRDs into sink cluster...")
 			kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
 				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
+				metav1.GroupResource{Group: "networking.k8s.io", Resource: "ingresses"},
 			)
 			require.NoError(t, err)
 		}),
@@ -127,7 +128,7 @@ func TestPlacementUpdate(t *testing.T) {
 
 	t.Logf("Wait for being able to list Services in the user workspace")
 	require.Eventually(t, func() bool {
-		_, err := kubeClusterClient.CoreV1().Services("").List(logicalcluster.WithCluster(ctx, userClusterName), metav1.ListOptions{})
+		_, err := kubeClusterClient.Cluster(userClusterName).CoreV1().Services("").List(ctx, metav1.ListOptions{})
 		if errors.IsNotFound(err) {
 			return false
 		} else if err != nil {
@@ -140,7 +141,7 @@ func TestPlacementUpdate(t *testing.T) {
 	firstSyncTargetKey := workloadv1alpha1.ToSyncTargetKey(syncerFixture.SyncerConfig.SyncTargetWorkspace, firstSyncTargetName)
 
 	t.Logf("Create a service in the user workspace")
-	_, err = kubeClusterClient.CoreV1().Services("default").Create(logicalcluster.WithCluster(ctx, userClusterName), &corev1.Service{
+	_, err = kubeClusterClient.Cluster(userClusterName).CoreV1().Services("default").Create(ctx, &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "first",
 			Labels: map[string]string{
@@ -163,7 +164,7 @@ func TestPlacementUpdate(t *testing.T) {
 
 	t.Logf("Wait for the service to have the sync label")
 	framework.Eventually(t, func() (bool, string) {
-		svc, err := kubeClusterClient.CoreV1().Services("default").Get(logicalcluster.WithCluster(ctx, userClusterName), "first", metav1.GetOptions{})
+		svc, err := kubeClusterClient.Cluster(userClusterName).CoreV1().Services("default").Get(ctx, "first", metav1.GetOptions{})
 		if err != nil {
 			return false, fmt.Sprintf("Failed to get service: %v", err)
 		}
@@ -215,7 +216,7 @@ func TestPlacementUpdate(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	framework.Eventually(t, func() (bool, string) {
-		ns, err := kubeClusterClient.CoreV1().Namespaces().Get(logicalcluster.WithCluster(ctx, userClusterName), "default", metav1.GetOptions{})
+		ns, err := kubeClusterClient.Cluster(userClusterName).CoreV1().Namespaces().Get(ctx, "default", metav1.GetOptions{})
 		if err != nil {
 			return false, fmt.Sprintf("Failed to get ns: %v", err)
 		}
@@ -227,7 +228,7 @@ func TestPlacementUpdate(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	framework.Eventually(t, func() (bool, string) {
-		svc, err := kubeClusterClient.CoreV1().Services("default").Get(logicalcluster.WithCluster(ctx, userClusterName), "first", metav1.GetOptions{})
+		svc, err := kubeClusterClient.Cluster(userClusterName).CoreV1().Services("default").Get(ctx, "first", metav1.GetOptions{})
 		if err != nil {
 			return false, fmt.Sprintf("Failed to get service: %v", err)
 		}
@@ -239,7 +240,7 @@ func TestPlacementUpdate(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Remove the soft finalizer on the service")
-	_, err = kubeClusterClient.CoreV1().Services("default").Patch(logicalcluster.WithCluster(ctx, userClusterName), "first", types.MergePatchType,
+	_, err = kubeClusterClient.Cluster(userClusterName).CoreV1().Services("default").Patch(ctx, "first", types.MergePatchType,
 		[]byte("{\"metadata\":{\"annotations\":{\"deletion.internal.workload.kcp.dev/"+firstSyncTargetKey+"\":\"\"}}}"), metav1.PatchOptions{})
 	require.NoError(t, err)
 
@@ -320,7 +321,7 @@ func TestPlacementUpdate(t *testing.T) {
 
 	t.Logf("Wait for resource to by synced again")
 	framework.Eventually(t, func() (bool, string) {
-		svc, err := kubeClusterClient.CoreV1().Services("default").Get(logicalcluster.WithCluster(ctx, userClusterName), "first", metav1.GetOptions{})
+		svc, err := kubeClusterClient.Cluster(userClusterName).CoreV1().Services("default").Get(ctx, "first", metav1.GetOptions{})
 		if err != nil {
 			return false, fmt.Sprintf("Failed to get service: %v", err)
 		}

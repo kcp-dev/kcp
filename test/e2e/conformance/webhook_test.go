@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
@@ -34,7 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
 
 	webhookserver "github.com/kcp-dev/kcp/test/e2e/fixtures/webhook"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest"
@@ -88,7 +88,7 @@ func TestMutatingWebhookInWorkspace(t *testing.T) {
 		framework.NewWorkspaceFixture(t, server, organization),
 	}
 
-	kubeClusterClient, err := kubernetes.NewForConfig(cfg)
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct client for server")
 	cowbyClusterClient, err := client.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct cowboy client for server")
@@ -128,7 +128,7 @@ func TestMutatingWebhookInWorkspace(t *testing.T) {
 			AdmissionReviewVersions: []string{"v1"},
 		}},
 	}
-	_, err = kubeClusterClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Create(logicalcluster.WithCluster(ctx, logicalClusters[0]), webhook, metav1.CreateOptions{})
+	_, err = kubeClusterClient.Cluster(logicalClusters[0]).AdmissionregistrationV1().MutatingWebhookConfigurations().Create(ctx, webhook, metav1.CreateOptions{})
 	require.NoError(t, err, "failed to add validating webhook configurations")
 
 	cowboy := v1alpha1.Cowboy{
@@ -207,7 +207,7 @@ func TestValidatingWebhookInWorkspace(t *testing.T) {
 		framework.NewWorkspaceFixture(t, server, organization),
 	}
 
-	kubeClusterClient, err := kubernetes.NewForConfig(cfg)
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct client for server")
 	cowbyClusterClient, err := client.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct cowboy client for server")
@@ -247,7 +247,7 @@ func TestValidatingWebhookInWorkspace(t *testing.T) {
 			AdmissionReviewVersions: []string{"v1"},
 		}},
 	}
-	_, err = kubeClusterClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(logicalcluster.WithCluster(ctx, logicalClusters[0]), webhook, metav1.CreateOptions{})
+	_, err = kubeClusterClient.Cluster(logicalClusters[0]).AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(ctx, webhook, metav1.CreateOptions{})
 	require.NoError(t, err, "failed to add validating webhook configurations")
 
 	cowboy := v1alpha1.Cowboy{

@@ -22,7 +22,8 @@ import (
 	"testing"
 	"time"
 
-	kcpdynamic "github.com/kcp-dev/apimachinery/pkg/dynamic"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
+	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
@@ -36,7 +37,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/yaml"
 
 	configcrds "github.com/kcp-dev/kcp/config/crds"
@@ -59,7 +59,7 @@ func TestKubeQuotaBuiltInCoreV1Types(t *testing.T) {
 
 	cfg := server.BaseConfig(t)
 
-	kubeClusterClient, err := kubernetes.NewForConfig(cfg)
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating kube cluster client")
 
 	orgClusterName := framework.NewOrganizationFixture(t, server)
@@ -81,12 +81,12 @@ func TestKubeQuotaBuiltInCoreV1Types(t *testing.T) {
 		}
 
 		t.Logf("Creating ws quota")
-		ws1Quota, err = kubeClusterClient.CoreV1().ResourceQuotas("default").Create(logicalcluster.WithCluster(ctx, ws), ws1Quota, metav1.CreateOptions{})
+		ws1Quota, err = kubeClusterClient.Cluster(ws).CoreV1().ResourceQuotas("default").Create(ctx, ws1Quota, metav1.CreateOptions{})
 		require.NoError(t, err, "error creating ws quota")
 
 		t.Logf("Waiting for ws quota to show used configmaps (kube-root-ca.crt)")
 		framework.Eventually(t, func() (bool, string) {
-			ws1Quota, err = kubeClusterClient.CoreV1().ResourceQuotas("default").Get(logicalcluster.WithCluster(ctx, ws), "quota", metav1.GetOptions{})
+			ws1Quota, err = kubeClusterClient.Cluster(ws).CoreV1().ResourceQuotas("default").Get(ctx, "quota", metav1.GetOptions{})
 			require.NoError(t, err, "Error getting ws quota %s|default/quota: %v", ws, err)
 
 			used, ok := ws1Quota.Status.Used["count/configmaps"]
@@ -97,7 +97,7 @@ func TestKubeQuotaBuiltInCoreV1Types(t *testing.T) {
 		framework.Eventually(t, func() (bool, string) {
 			t.Logf("Trying to create a configmap")
 			cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{GenerateName: "quota-"}}
-			_, err = kubeClusterClient.CoreV1().ConfigMaps("default").Create(logicalcluster.WithCluster(ctx, ws), cm, metav1.CreateOptions{})
+			_, err = kubeClusterClient.Cluster(ws).CoreV1().ConfigMaps("default").Create(ctx, cm, metav1.CreateOptions{})
 			return apierrors.IsForbidden(err), fmt.Sprintf("%v", err)
 		}, wait.ForeverTestTimeout, 100*time.Millisecond, "quota never rejected configmap creation")
 	}
@@ -120,13 +120,13 @@ func TestKubeQuotaCoreV1TypesFromBinding(t *testing.T) {
 			apiProviderClustername := framework.NewWorkspaceFixture(t, source, orgClusterName)
 			userClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
 
-			kubeClusterClient, err := kubernetes.NewForConfig(source.BaseConfig(t))
+			kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(source.BaseConfig(t))
 			require.NoError(t, err)
 			kcpClusterClient, err := kcpclient.NewForConfig(source.BaseConfig(t))
 			require.NoError(t, err)
 
 			t.Logf("Check that there is no services resource in the user workspace")
-			_, err = kubeClusterClient.CoreV1().Services("").List(logicalcluster.WithCluster(ctx, userClusterName), metav1.ListOptions{})
+			_, err = kubeClusterClient.Cluster(userClusterName).CoreV1().Services("").List(ctx, metav1.ListOptions{})
 			require.Error(t, err)
 
 			t.Logf("Getting services CRD")
@@ -182,7 +182,7 @@ func TestKubeQuotaCoreV1TypesFromBinding(t *testing.T) {
 
 			t.Logf("Wait for being able to list Services in the user workspace")
 			framework.Eventually(t, func() (bool, string) {
-				_, err := kubeClusterClient.CoreV1().Services("").List(logicalcluster.WithCluster(ctx, userClusterName), metav1.ListOptions{})
+				_, err := kubeClusterClient.Cluster(userClusterName).CoreV1().Services("").List(ctx, metav1.ListOptions{})
 				if err != nil {
 					return false, fmt.Sprintf("Failed to list Services: %v", err)
 				}
@@ -201,12 +201,12 @@ func TestKubeQuotaCoreV1TypesFromBinding(t *testing.T) {
 				},
 			}
 
-			_, err = kubeClusterClient.CoreV1().ResourceQuotas("default").Create(logicalcluster.WithCluster(ctx, userClusterName), quota, metav1.CreateOptions{})
+			_, err = kubeClusterClient.Cluster(userClusterName).CoreV1().ResourceQuotas("default").Create(ctx, quota, metav1.CreateOptions{})
 			require.NoError(t, err, "error creating quota")
 
 			t.Logf("Waiting for quota to show 0 used Services")
 			framework.Eventually(t, func() (bool, string) {
-				quota, err = kubeClusterClient.CoreV1().ResourceQuotas("default").Get(logicalcluster.WithCluster(ctx, userClusterName), "quota", metav1.GetOptions{})
+				quota, err = kubeClusterClient.Cluster(userClusterName).CoreV1().ResourceQuotas("default").Get(ctx, "quota", metav1.GetOptions{})
 				require.NoError(t, err, "Error getting ws quota %s|default/quota: %v", userClusterName, err)
 
 				used, ok := quota.Status.Used["count/services"]
@@ -217,7 +217,7 @@ func TestKubeQuotaCoreV1TypesFromBinding(t *testing.T) {
 			framework.Eventually(t, func() (bool, string) {
 				t.Logf("Trying to create a service")
 				service := &corev1.Service{ObjectMeta: metav1.ObjectMeta{GenerateName: "quota-"}}
-				_, err = kubeClusterClient.CoreV1().Services("default").Create(logicalcluster.WithCluster(ctx, userClusterName), service, metav1.CreateOptions{})
+				_, err = kubeClusterClient.Cluster(userClusterName).CoreV1().Services("default").Create(ctx, service, metav1.CreateOptions{})
 				return apierrors.IsForbidden(err), fmt.Sprintf("%v", err)
 			}, wait.ForeverTestTimeout, 100*time.Millisecond, "quota never rejected service creation")
 		})
@@ -234,13 +234,13 @@ func TestKubeQuotaNormalCRDs(t *testing.T) {
 
 	cfg := server.BaseConfig(t)
 
-	kubeClusterClient, err := kubernetes.NewForConfig(cfg)
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating kube cluster client")
 
 	crdClusterClient, err := apiextensionsclient.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct apiextensions client for server")
 
-	dynamicClusterClient, err := kcpdynamic.NewClusterDynamicClientForConfig(cfg)
+	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic client for server")
 
 	orgClusterName := framework.NewOrganizationFixture(t, server)
@@ -279,12 +279,12 @@ func TestKubeQuotaNormalCRDs(t *testing.T) {
 		}
 
 		t.Logf("Creating ws %d quota", wsIndex)
-		quota, err = kubeClusterClient.CoreV1().ResourceQuotas("default").Create(logicalcluster.WithCluster(ctx, ws), quota, metav1.CreateOptions{})
+		quota, err = kubeClusterClient.Cluster(ws).CoreV1().ResourceQuotas("default").Create(ctx, quota, metav1.CreateOptions{})
 		require.NoError(t, err, "error creating ws %d quota", wsIndex)
 
 		t.Logf("Waiting for ws %d quota to show usage", wsIndex)
 		framework.Eventually(t, func() (bool, string) {
-			quota, err = kubeClusterClient.CoreV1().ResourceQuotas("default").Get(logicalcluster.WithCluster(ctx, ws), quotaName, metav1.GetOptions{})
+			quota, err = kubeClusterClient.Cluster(ws).CoreV1().ResourceQuotas("default").Get(ctx, quotaName, metav1.GetOptions{})
 			require.NoError(t, err, "error getting ws %d quota %s|default/quota: %v", wsIndex, ws, err)
 
 			used, ok := quota.Status.Used[sheriffsObjectCountName]
@@ -319,7 +319,7 @@ func TestClusterScopedQuota(t *testing.T) {
 
 	cfg := server.BaseConfig(t)
 
-	kubeClusterClient, err := kubernetes.NewForConfig(cfg)
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating kube cluster client")
 
 	kcpClusterClient, err := kcpclient.NewForConfig(cfg)
@@ -341,7 +341,7 @@ func TestClusterScopedQuota(t *testing.T) {
 				},
 			}
 
-			_, err := kubeClusterClient.CoreV1().Namespaces().Create(logicalcluster.WithCluster(ctx, ws), ns, metav1.CreateOptions{})
+			_, err := kubeClusterClient.Cluster(ws).CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
 			return err == nil || apierrors.IsAlreadyExists(err), fmt.Sprintf("%v", err)
 		}, wait.ForeverTestTimeout, 100*time.Millisecond, "error creating %q namespace", adminNamespace)
 
@@ -365,12 +365,12 @@ func TestClusterScopedQuota(t *testing.T) {
 		}
 
 		t.Logf("Creating cluster-scoped quota in %q", ws)
-		quota, err = kubeClusterClient.CoreV1().ResourceQuotas(adminNamespace).Create(logicalcluster.WithCluster(ctx, ws), quota, metav1.CreateOptions{})
+		quota, err = kubeClusterClient.Cluster(ws).CoreV1().ResourceQuotas(adminNamespace).Create(ctx, quota, metav1.CreateOptions{})
 		require.NoError(t, err, "error creating quota in %q", ws)
 
 		t.Logf("Waiting for %q quota to show usage", ws)
 		framework.Eventually(t, func() (bool, string) {
-			quota, err = kubeClusterClient.CoreV1().ResourceQuotas(adminNamespace).Get(logicalcluster.WithCluster(ctx, ws), quotaName, metav1.GetOptions{})
+			quota, err = kubeClusterClient.Cluster(ws).CoreV1().ResourceQuotas(adminNamespace).Get(ctx, quotaName, metav1.GetOptions{})
 			require.NoError(t, err, "Error getting %q quota: %v", ws, err)
 
 			used, ok := quota.Status.Used["count/configmaps"]
@@ -379,7 +379,7 @@ func TestClusterScopedQuota(t *testing.T) {
 			}
 			// 1 for each kube-root-ca.crt x 2 namespaces = 2
 			if !used.Equal(resource.MustParse("2")) {
-				return false, fmt.Sprintf("waiting for %q count/configmaps %v to be 2", ws, used)
+				return false, fmt.Sprintf("waiting for %q count/configmaps %s to be 2", ws, used.String())
 			}
 
 			used, ok = quota.Status.Used["count/clusterworkspaces.tenancy.kcp.dev"]
@@ -387,17 +387,17 @@ func TestClusterScopedQuota(t *testing.T) {
 				return false, fmt.Sprintf("waiting for %q count/clusterworkspaces.tenancy.kcp.dev to show up in used", ws)
 			}
 			if !used.Equal(resource.MustParse("1")) {
-				return false, fmt.Sprintf("waiting for %q count/clusterworkspaces.tenancy.kcp.dev %v to be 1", ws, used)
+				return false, fmt.Sprintf("waiting for %q count/clusterworkspaces.tenancy.kcp.dev %s to be 1", ws, used.String())
 			}
 
 			return true, ""
-		}, wait.ForeverTestTimeout, 100*time.Millisecond, "error waiting for 1 used configmaps")
+		}, wait.ForeverTestTimeout, 100*time.Millisecond, "error waiting for 2 used configmaps and 1 used clusterworkspace")
 
 		t.Logf("Make sure quota is enforcing configmap limits for %q", ws)
 		framework.Eventually(t, func() (bool, string) {
 			t.Logf("Trying to create a configmap in %q", ws)
 			cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{GenerateName: "quota-"}}
-			_, err = kubeClusterClient.CoreV1().ConfigMaps("default").Create(logicalcluster.WithCluster(ctx, ws), cm, metav1.CreateOptions{})
+			_, err = kubeClusterClient.Cluster(ws).CoreV1().ConfigMaps("default").Create(ctx, cm, metav1.CreateOptions{})
 			return apierrors.IsForbidden(err), fmt.Sprintf("%v", err)
 		}, wait.ForeverTestTimeout, 100*time.Millisecond, "quota never rejected configmap creation in %q", ws)
 

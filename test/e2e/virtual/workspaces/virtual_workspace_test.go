@@ -29,6 +29,7 @@ import (
 	"testing"
 	"time"
 
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
@@ -38,7 +39,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -65,7 +65,7 @@ func newTestData() testDataType {
 	}
 }
 
-func createWorkspaceAccessRoleForGroup(t *testing.T, ctx context.Context, kubeClusterClient kubernetes.Interface, orgClusterName logicalcluster.Name, admin bool, groupNames ...string) {
+func createWorkspaceAccessRoleForGroup(t *testing.T, ctx context.Context, kubeClusterClient kcpkubernetesclientset.ClusterInterface, orgClusterName logicalcluster.Name, admin bool, groupNames ...string) {
 	roleName := "org-" + orgClusterName.Base() + "-access"
 	if admin {
 		roleName += "-admin"
@@ -73,7 +73,7 @@ func createWorkspaceAccessRoleForGroup(t *testing.T, ctx context.Context, kubeCl
 	createWorkspaceAccessRoleForGroupWithCustomName(t, ctx, kubeClusterClient, orgClusterName, admin, roleName, groupNames...)
 }
 
-func createWorkspaceAccessRoleForGroupWithCustomName(t *testing.T, ctx context.Context, kubeClusterClient kubernetes.Interface, orgClusterName logicalcluster.Name, admin bool, roleName string, groupNames ...string) {
+func createWorkspaceAccessRoleForGroupWithCustomName(t *testing.T, ctx context.Context, kubeClusterClient kcpkubernetesclientset.ClusterInterface, orgClusterName logicalcluster.Name, admin bool, roleName string, groupNames ...string) {
 	parent, hasParent := orgClusterName.Parent()
 	require.True(t, hasParent, "org cluster %s should have a parent", orgClusterName)
 
@@ -83,7 +83,7 @@ func createWorkspaceAccessRoleForGroupWithCustomName(t *testing.T, ctx context.C
 	if admin {
 		contentVerbs = append(contentVerbs, "admin")
 	}
-	_, err := kubeClusterClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, parent), &rbacv1.ClusterRole{
+	_, err := kubeClusterClient.Cluster(parent).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: roleName,
 		},
@@ -116,14 +116,14 @@ func createWorkspaceAccessRoleForGroupWithCustomName(t *testing.T, ctx context.C
 			Namespace: "",
 		})
 	}
-	_, err = kubeClusterClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, parent), binding, metav1.CreateOptions{})
+	_, err = kubeClusterClient.Cluster(parent).RbacV1().ClusterRoleBindings().Create(ctx, binding, metav1.CreateOptions{})
 	require.NoError(t, err)
 }
 
-func createWorkspaceRoleForGroup(t *testing.T, ctx context.Context, kubeClusterClient kubernetes.Interface, roleName string, orgClusterName logicalcluster.Name, rules []rbacv1.PolicyRule, groupNames ...string) {
+func createWorkspaceRoleForGroup(t *testing.T, ctx context.Context, kubeClusterClient kcpkubernetesclientset.ClusterInterface, roleName string, orgClusterName logicalcluster.Name, rules []rbacv1.PolicyRule, groupNames ...string) {
 	t.Logf("Giving groups %v permissions %v in workspace %q", groupNames, rules, orgClusterName)
 
-	_, err := kubeClusterClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, orgClusterName), &rbacv1.ClusterRole{
+	_, err := kubeClusterClient.Cluster(orgClusterName).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: roleName,
 		},
@@ -149,7 +149,7 @@ func createWorkspaceRoleForGroup(t *testing.T, ctx context.Context, kubeClusterC
 			Namespace: "",
 		})
 	}
-	_, err = kubeClusterClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, orgClusterName), binding, metav1.CreateOptions{})
+	_, err = kubeClusterClient.Cluster(orgClusterName).RbacV1().ClusterRoleBindings().Create(ctx, binding, metav1.CreateOptions{})
 	require.NoError(t, err, "Failed giving groups %v permissions %v in workspace %q", groupNames, rules, orgClusterName)
 }
 
@@ -176,7 +176,7 @@ func TestInProcessWorkspacesVirtualWorkspaces(t *testing.T) {
 type runningServer struct {
 	framework.RunningServer
 	orgClusterName        logicalcluster.Name
-	kubeClusterClient     kubernetes.Interface
+	kubeClusterClient     kcpkubernetesclientset.ClusterInterface
 	kcpClusterClient      kcpclientset.Interface
 	virtualUserKcpClients []kcpclientset.ClusterInterface
 	UserKcpClients        []kcpclientset.ClusterInterface
@@ -684,7 +684,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 
 			// create non-virtual clients
 			kcpConfig := server.BaseConfig(t)
-			kubeClusterClient, err := kubernetes.NewForConfig(kcpConfig)
+			kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(kcpConfig)
 			require.NoError(t, err, "failed to construct client for server")
 			kcpClusterClient, err := kcpclientset.NewForConfig(kcpConfig)
 			require.NoError(t, err, "failed to construct client for server")
@@ -727,7 +727,7 @@ func TestRootWorkspaces(t *testing.T) {
 
 	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err)
-	kubeClusterClient, err := kubernetes.NewForConfig(cfg)
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err)
 
 	user1KcpClusterClient, err := kcpclientset.NewForConfig(framework.UserConfig("user-1", cfg))

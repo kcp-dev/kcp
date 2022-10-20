@@ -26,7 +26,8 @@ import (
 	"testing"
 	"time"
 
-	kcpdynamic "github.com/kcp-dev/apimachinery/pkg/dynamic"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
+	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
@@ -35,7 +36,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
-	kubernetesclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -111,7 +111,7 @@ func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
 	rootShardConfig := server.RootShardSystemMasterBaseConfig(t)
 	kcpClusterClient, err := kcpclientset.NewForConfig(rootShardConfig)
 	require.NoError(t, err)
-	dynamicClusterClient, err := kcpdynamic.NewClusterDynamicClientForConfig(rootShardConfig)
+	dynamicClusterClient, err := kcpdynamic.NewForConfig(rootShardConfig)
 	require.NoError(t, err)
 
 	org := framework.NewOrganizationFixture(t, server)
@@ -157,7 +157,7 @@ func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	rootShardConfig := server.RootShardSystemMasterBaseConfig(t)
-	kubeClusterClient, err := kubernetesclientset.NewForConfig(rootShardConfig)
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(rootShardConfig)
 	require.NoError(t, err)
 	secretsGR := metav1.GroupResource{Group: "", Resource: "secrets"}
 
@@ -165,11 +165,11 @@ func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
 	cluster := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
 
 	t.Logf("Creating a secret in the default namespace for %q cluster", cluster)
-	_, err = kubeClusterClient.CoreV1().Secrets("default").Create(logicalcluster.WithCluster(ctx, cluster), &v1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "topsecret"}}, metav1.CreateOptions{})
+	_, err = kubeClusterClient.Cluster(cluster).CoreV1().Secrets("default").Create(ctx, &v1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "topsecret"}}, metav1.CreateOptions{})
 	require.NoError(t, err)
 	t.Logf("Waiting until the watch cache is primed for %v for cluster %v", secretsGR, cluster)
 	assertWatchCacheIsPrimed(t, func() error {
-		res, err := kubeClusterClient.CoreV1().Secrets("default").List(logicalcluster.WithCluster(ctx, cluster), metav1.ListOptions{ResourceVersion: "0"})
+		res, err := kubeClusterClient.Cluster(cluster).CoreV1().Secrets("default").List(ctx, metav1.ListOptions{ResourceVersion: "0"})
 		if err != nil {
 			return err
 		}
@@ -182,7 +182,7 @@ func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
 	// since secrets might be common resources to LIST, try to get them an odd number of times
 	t.Logf("Getting core.secret 115 times from the watch cache for %q cluster", cluster)
 	for i := 0; i < 115; i++ {
-		res, err := kubeClusterClient.CoreV1().Secrets("default").List(logicalcluster.WithCluster(ctx, cluster), metav1.ListOptions{ResourceVersion: "0"})
+		res, err := kubeClusterClient.Cluster(cluster).CoreV1().Secrets("default").List(ctx, metav1.ListOptions{ResourceVersion: "0"})
 		require.NoError(t, err)
 		require.GreaterOrEqual(t, len(res.Items), 1, "expected to get at least one secret")
 
@@ -208,7 +208,7 @@ func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
 }
 
 func collectCacheHitsFor(ctx context.Context, t *testing.T, rootCfg *rest.Config, metricResourcePrefix string) (int, int) {
-	rootShardKubeClusterClient, err := kubernetesclientset.NewForConfig(rootCfg)
+	rootShardKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(rootCfg)
 	require.NoError(t, err)
 
 	t.Logf("Reading %q metrics from the API server via %q endpoint for %q prefix", "apiserver_cache_list_total", "/metrics", metricResourcePrefix)

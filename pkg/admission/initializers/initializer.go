@@ -17,10 +17,11 @@ limitations under the License.
 package initializers
 
 import (
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
+
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/initializer"
 	quota "k8s.io/apiserver/pkg/quota/v1"
-	kubernetesclient "k8s.io/client-go/kubernetes"
 
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
@@ -49,7 +50,7 @@ func (i *kcpInformersInitializer) Initialize(plugin admission.Interface) {
 // NewKubeClusterClientInitializer returns an admission plugin initializer that injects
 // a kube cluster client into admission plugins.
 func NewKubeClusterClientInitializer(
-	kubeClusterClient kubernetesclient.ClusterInterface,
+	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 ) *kubeClusterClientInitializer {
 	return &kubeClusterClientInitializer{
 		kubeClusterClient: kubeClusterClient,
@@ -57,7 +58,7 @@ func NewKubeClusterClientInitializer(
 }
 
 type kubeClusterClientInitializer struct {
-	kubeClusterClient kubernetesclient.ClusterInterface
+	kubeClusterClient kcpkubernetesclientset.ClusterInterface
 }
 
 func (i *kubeClusterClientInitializer) Initialize(plugin admission.Interface) {
@@ -89,7 +90,7 @@ func (i *kcpClusterClientInitializer) Initialize(plugin admission.Interface) {
 // NewDeepSARClientInitializer returns an admission plugin initializer that injects
 // a deep SAR client into admission plugins.
 func NewDeepSARClientInitializer(
-	deepSARClient kubernetesclient.ClusterInterface,
+	deepSARClient kcpkubernetesclientset.ClusterInterface,
 ) *clientConfigInitializer {
 	return &clientConfigInitializer{
 		deepSARClient: deepSARClient,
@@ -97,7 +98,7 @@ func NewDeepSARClientInitializer(
 }
 
 type clientConfigInitializer struct {
-	deepSARClient kubernetesclient.ClusterInterface
+	deepSARClient kcpkubernetesclientset.ClusterInterface
 }
 
 func (i *clientConfigInitializer) Initialize(plugin admission.Interface) {

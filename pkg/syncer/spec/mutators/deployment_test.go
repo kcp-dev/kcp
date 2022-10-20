@@ -904,8 +904,8 @@ func TestDeploymentMutate(t *testing.T) {
 				upstreamURL, err := url.Parse(c.config.Host)
 				require.NoError(t, err)
 
-				dm := NewDeploymentMutator(upstreamURL, func(upstreamLogicalCluster logicalcluster.Name, namespace string) ([]*unstructured.Unstructured, error) {
-					unstructuredObjects := make([]*unstructured.Unstructured, 0, len(c.upstreamSecrets))
+				dm := NewDeploymentMutator(upstreamURL, func(upstreamLogicalCluster logicalcluster.Name, namespace string) ([]runtime.Object, error) {
+					unstructuredObjects := make([]runtime.Object, 0, len(c.upstreamSecrets))
 					for _, obj := range c.upstreamSecrets {
 						unstObj, err := toUnstructured(obj)
 						require.NoError(t, err)

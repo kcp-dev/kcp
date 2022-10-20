@@ -26,7 +26,8 @@ import (
 	"time"
 
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
-	kcpdynamic "github.com/kcp-dev/apimachinery/pkg/dynamic"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
+	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
@@ -39,7 +40,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery/cached/memory"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 
@@ -69,10 +69,10 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 	kcpClusterClient, err := clientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
 
-	dynamicClusterClient, err := kcpdynamic.NewClusterDynamicClientForConfig(cfg)
+	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
-	kubeClusterClient, err := kubernetes.NewForConfig(cfg)
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct client for server")
 
 	sourceWorkspaceConfig := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), sourceWorkspace)
@@ -171,7 +171,7 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 				AdmissionReviewVersions: []string{"v1"},
 			}},
 		}
-		_, err = kubeClusterClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Create(logicalcluster.WithCluster(ctx, cluster), webhook, metav1.CreateOptions{})
+		_, err = kubeClusterClient.Cluster(cluster).AdmissionregistrationV1().MutatingWebhookConfigurations().Create(ctx, webhook, metav1.CreateOptions{})
 		require.NoError(t, err, "failed to add validating webhook configurations")
 	}
 
@@ -186,6 +186,7 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 	t.Logf("Creating cowboy resource in target logical cluster")
 	require.Eventually(t, func() bool {
 		_, err = cowbyClusterClient.WildwestV1alpha1().Cowboys("default").Create(logicalcluster.WithCluster(ctx, targetWorkspace), &cowboy, metav1.CreateOptions{})
+		t.Log(err)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			return false
 		}
@@ -213,10 +214,10 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 	kcpClients, err := clientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
 
-	dynamicClusterClient, err := kcpdynamic.NewClusterDynamicClientForConfig(cfg)
+	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
-	kubeClusterClient, err := kubernetes.NewForConfig(cfg)
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct client for server")
 
 	sourceWorkspaceConfig := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), sourceWorkspace)
@@ -321,7 +322,7 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 				AdmissionReviewVersions: []string{"v1"},
 			}},
 		}
-		_, err = kubeClusterClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(logicalcluster.WithCluster(ctx, cluster), webhook, metav1.CreateOptions{})
+		_, err = kubeClusterClient.Cluster(cluster).AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(ctx, webhook, metav1.CreateOptions{})
 		require.NoError(t, err, "failed to add validating webhook configurations")
 	}
 

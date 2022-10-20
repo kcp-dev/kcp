@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// +kcp-code-generator:skip
+
 package framework
 
 import (
@@ -48,7 +50,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
-	kubernetesclient "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes"
 	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -852,7 +854,7 @@ func NewFakeWorkloadServer(t *testing.T, server RunningServer, org logicalcluste
 	// Wait for the deployment crd to become ready
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
-	kubeClient, err := kubernetesclient.NewForConfig(downstreamConfig)
+	kubeClient, err := kubernetes.NewForConfig(downstreamConfig)
 	require.NoError(t, err)
 	require.Eventually(t, func() bool {
 		_, err := kubeClient.AppsV1().Deployments("").List(ctx, metav1.ListOptions{})

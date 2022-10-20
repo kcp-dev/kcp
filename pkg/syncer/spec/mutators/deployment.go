@@ -31,7 +31,7 @@ import (
 	utilspointer "k8s.io/utils/pointer"
 )
 
-type ListSecretFunc func(clusterName logicalcluster.Name, namespace string) ([]*unstructured.Unstructured, error)
+type ListSecretFunc func(clusterName logicalcluster.Name, namespace string) ([]runtime.Object, error)
 
 type DeploymentMutator struct {
 	upstreamURL                  *url.URL
@@ -75,9 +75,14 @@ func (dm *DeploymentMutator) Mutate(obj *unstructured.Unstructured) error {
 		desiredServiceAccountName = templateSpec.ServiceAccountName
 	}
 
-	secretList, err := dm.listSecrets(upstreamLogicalName, deployment.Namespace)
+	rawSecretList, err := dm.listSecrets(upstreamLogicalName, deployment.Namespace)
 	if err != nil {
 		return fmt.Errorf("error listing secrets for workspace %s: %w", upstreamLogicalName.String(), err)
+	}
+
+	var secretList []*unstructured.Unstructured
+	for i := range rawSecretList {
+		secretList = append(secretList, rawSecretList[i].(*unstructured.Unstructured))
 	}
 
 	// In order to avoid triggering a deployment update on resyncs, we need to make sure that the list

@@ -20,11 +20,11 @@ import (
 	"context"
 	"embed"
 
+	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/dynamic"
 
 	confighelpers "github.com/kcp-dev/kcp/config/helpers"
 	kube124 "github.com/kcp-dev/kcp/config/rootcompute/kube-1.24"
@@ -40,7 +40,7 @@ var RootComputeWorkspace = logicalcluster.New("root:compute")
 // Bootstrap creates resources in this package by continuously retrying the list.
 // This is blocking, i.e. it only returns (with error) when the context is closed or with nil when
 // the bootstrapping is successfully completed.
-func Bootstrap(ctx context.Context, apiExtensionClusterClient apiextensionsclient.ClusterInterface, dynamicClusterClient dynamic.ClusterInterface, batteriesIncluded sets.String) error {
+func Bootstrap(ctx context.Context, apiExtensionClusterClient apiextensionsclient.ClusterInterface, dynamicClusterClient kcpdynamic.ClusterInterface, batteriesIncluded sets.String) error {
 	rootDiscoveryClient := apiExtensionClusterClient.Cluster(tenancyv1alpha1.RootCluster).Discovery()
 	rootDynamicClient := dynamicClusterClient.Cluster(tenancyv1alpha1.RootCluster)
 	if err := confighelpers.Bootstrap(ctx, rootDiscoveryClient, rootDynamicClient, batteriesIncluded, fs); err != nil {

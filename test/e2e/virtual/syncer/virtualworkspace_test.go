@@ -26,6 +26,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
@@ -38,7 +39,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/endpoints/discovery"
 	clientgodiscovery "k8s.io/client-go/discovery"
-	kubernetesclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/yaml"
@@ -195,7 +195,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 	server := framework.SharedKcpServer(t)
 	orgClusterName := framework.NewOrganizationFixture(t, server)
 
-	kubeClusterClient, err := kubernetesclientset.NewForConfig(server.BaseConfig(t))
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(server.BaseConfig(t))
 	require.NoError(t, err)
 	wildwestClusterClient, err := wildwestclientset.NewForConfig(server.BaseConfig(t))
 	require.NoError(t, err)
@@ -266,13 +266,13 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				t.Cleanup(cancelFunc)
 
 				t.Logf("Create two service accounts")
-				_, err := kubeClusterClient.CoreV1().ServiceAccounts("default").Create(logicalcluster.WithCluster(ctx, wildwestClusterName), &corev1.ServiceAccount{
+				_, err := kubeClusterClient.Cluster(wildwestClusterName).CoreV1().ServiceAccounts("default").Create(ctx, &corev1.ServiceAccount{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "service-account-1",
 					},
 				}, metav1.CreateOptions{})
 				require.NoError(t, err)
-				_, err = kubeClusterClient.CoreV1().ServiceAccounts("default").Create(logicalcluster.WithCluster(ctx, wildwestClusterName), &corev1.ServiceAccount{
+				_, err = kubeClusterClient.Cluster(wildwestClusterName).CoreV1().ServiceAccounts("default").Create(ctx, &corev1.ServiceAccount{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "service-account-2",
 					},
@@ -280,7 +280,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.NoError(t, err)
 				var token1, token2 string
 				require.Eventually(t, func() bool {
-					secrets, err := kubeClusterClient.CoreV1().Secrets("default").List(logicalcluster.WithCluster(ctx, wildwestClusterName), metav1.ListOptions{})
+					secrets, err := kubeClusterClient.Cluster(wildwestClusterName).CoreV1().Secrets("default").List(ctx, metav1.ListOptions{})
 					require.NoError(t, err, "failed to list secrets")
 					for _, secret := range secrets.Items {
 						if secret.Annotations[corev1.ServiceAccountNameKey] == "service-account-1" {
@@ -308,7 +308,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				require.True(t, errors.IsForbidden(err))
 
 				t.Logf("Giving service-account-2 permissions to access wildwest virtual workspace")
-				_, err = kubeClusterClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, wildwestClusterName),
+				_, err = kubeClusterClient.Cluster(wildwestClusterName).RbacV1().ClusterRoleBindings().Create(ctx,
 					&rbacv1.ClusterRoleBinding{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "service-account-2-sync-access",
@@ -328,7 +328,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					}, metav1.CreateOptions{},
 				)
 				require.NoError(t, err)
-				_, err = kubeClusterClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, wildwestClusterName),
+				_, err = kubeClusterClient.Cluster(wildwestClusterName).RbacV1().ClusterRoles().Create(ctx,
 					&rbacv1.ClusterRole{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: wildwestSyncTargetName + "-syncer",
@@ -599,7 +599,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 
 			t.Log("Waiting for ingresses crd to be imported and available in the kubelike source cluster...")
 			require.Eventually(t, func() bool {
-				_, err := kubeClusterClient.NetworkingV1().Ingresses("").List(logicalcluster.WithCluster(ctx, kubelikeWorkspace), metav1.ListOptions{})
+				_, err := kubeClusterClient.Cluster(kubelikeWorkspace).NetworkingV1().Ingresses("").List(ctx, metav1.ListOptions{})
 				if err != nil {
 					t.Logf("error seen waiting for ingresses crd to become active: %v", err)
 					return false
@@ -609,7 +609,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 
 			t.Log("Waiting for services crd to be imported and available in the kubelike source cluster...")
 			require.Eventually(t, func() bool {
-				_, err := kubeClusterClient.CoreV1().Services("").List(logicalcluster.WithCluster(ctx, kubelikeWorkspace), metav1.ListOptions{})
+				_, err := kubeClusterClient.Cluster(kubelikeWorkspace).CoreV1().Services("").List(ctx, metav1.ListOptions{})
 				if err != nil {
 					t.Logf("error seen waiting for services crd to become active: %v", err)
 					return false

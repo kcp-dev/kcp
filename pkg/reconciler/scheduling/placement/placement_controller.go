@@ -25,6 +25,8 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpcorev1informers "github.com/kcp-dev/client-go/clients/informers/core/v1"
+	corev1listers "github.com/kcp-dev/client-go/clients/listers/core/v1"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	corev1 "k8s.io/api/core/v1"
@@ -35,8 +37,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	coreinformers "k8s.io/client-go/informers/core/v1"
-	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
@@ -59,7 +59,7 @@ const (
 // a placement annotation..
 func NewController(
 	kcpClusterClient kcpclient.Interface,
-	namespaceInformer coreinformers.NamespaceInformer,
+	namespaceInformer kcpcorev1informers.NamespaceClusterInformer,
 	locationInformer schedulinginformers.LocationInformer,
 	placementInformer schedulinginformers.PlacementInformer,
 ) (*controller, error) {
@@ -159,7 +159,7 @@ type controller struct {
 
 	kcpClusterClient kcpclient.Interface
 
-	namespaceLister  corelisters.NamespaceLister
+	namespaceLister  corev1listers.NamespaceClusterLister
 	namespaceIndexer cache.Indexer
 
 	locationLister  schedulinglisters.LocationLister

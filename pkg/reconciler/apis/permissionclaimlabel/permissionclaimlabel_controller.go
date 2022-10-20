@@ -25,6 +25,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -34,7 +35,6 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
@@ -56,7 +56,7 @@ const (
 // it will own the AppliedPermissionClaims and will own the accepted permission claim condition.
 func NewController(
 	kcpClusterClient kcpclient.Interface,
-	dynamicClusterClient dynamic.Interface,
+	dynamicClusterClient kcpdynamic.ClusterInterface,
 	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory,
 	apiBindingInformer apisinformers.APIBindingInformer,
 	apiExportInformer apisinformers.APIExportInformer,
@@ -100,7 +100,7 @@ type controller struct {
 
 	kcpClusterClient     kcpclient.Interface
 	apiBindingsIndexer   cache.Indexer
-	dynamicClusterClient dynamic.Interface
+	dynamicClusterClient kcpdynamic.ClusterInterface
 	ddsif                *informer.DynamicDiscoverySharedInformerFactory
 
 	apiBindingsLister apislisters.APIBindingLister

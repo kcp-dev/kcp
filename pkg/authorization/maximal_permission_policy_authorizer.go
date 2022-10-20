@@ -47,7 +47,7 @@ const (
 
 // NewMaximalPermissionPolicyAuthorizer returns an authorizer that first checks if the request is for a
 // bound resource or not. If the resource is bound it checks the maximal permission policy of the underlying API export.
-func NewAPIBindingAccessAuthorizer(kubeInformers kcpkubernetesinformers.SharedInformerFactory, kcpInformers kcpinformers.SharedInformerFactory, delegate authorizer.Authorizer) (authorizer.Authorizer, error) {
+func NewMaximalPermissionPolicyAuthorizer(kubeInformers kcpkubernetesinformers.SharedInformerFactory, kcpInformers kcpinformers.SharedInformerFactory, delegate authorizer.Authorizer) (authorizer.Authorizer, error) {
 	apiBindingIndexer := kcpInformers.Apis().V1alpha1().APIBindings().Informer().GetIndexer()
 	apiExportIndexer := kcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer()
 

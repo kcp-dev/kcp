@@ -19,10 +19,10 @@ package options
 import (
 	"path"
 
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/clients/informers"
 	"github.com/spf13/pflag"
 
-	kubernetesinformers "k8s.io/client-go/informers"
-	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -55,7 +55,7 @@ func (o *Workspaces) Validate(flagPrefix string) []error {
 func (o *Workspaces) NewVirtualWorkspaces(
 	rootPathPrefix string,
 	config *rest.Config,
-	wildcardKubeInformers kubernetesinformers.SharedInformerFactory,
+	wildcardKubeInformers kcpkubernetesinformers.SharedInformerFactory,
 	wildcardKcpInformers kcpinformers.SharedInformerFactory,
 ) (workspaces []rootapiserver.NamedVirtualWorkspace, err error) {
 	config = rest.AddUserAgent(rest.CopyConfig(config), "workspaces-virtual-workspace")
@@ -63,7 +63,7 @@ func (o *Workspaces) NewVirtualWorkspaces(
 	if err != nil {
 		return nil, err
 	}
-	kubeClusterClient, err := kubernetesclient.NewClusterForConfig(config)
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(config)
 	if err != nil {
 		return nil, err
 	}

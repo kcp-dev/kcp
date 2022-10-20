@@ -22,7 +22,8 @@ import (
 	"testing"
 	"time"
 
-	kcpdynamic "github.com/kcp-dev/apimachinery/pkg/dynamic"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
+	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
@@ -37,7 +38,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
 
 	configcrds "github.com/kcp-dev/kcp/config/crds"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -93,7 +93,7 @@ func TestCrossLogicalClusterList(t *testing.T) {
 	tenancyExport, err := kcpClusterClient.ApisV1alpha1().APIExports().Get(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), "tenancy.kcp.dev", metav1.GetOptions{})
 	require.NoError(t, err, "error getting tenancy API export")
 	require.NotEmptyf(t, tenancyExport.Status.IdentityHash, "tenancy API export has no identity hash")
-	dynamicClusterClient, err := kcpdynamic.NewClusterDynamicClientForConfig(rootShardCfg)
+	dynamicClusterClient, err := kcpdynamic.NewForConfig(rootShardCfg)
 	require.NoError(t, err, "failed to construct kcp client for server")
 	client := dynamicClusterClient.Cluster(logicalcluster.Wildcard).Resource(tenancyv1alpha1.SchemeGroupVersion.WithResource(fmt.Sprintf("clusterworkspaces:%s", tenancyExport.Status.IdentityHash)))
 	workspaces, err := client.List(ctx, metav1.ListOptions{})
@@ -161,7 +161,7 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	crdClusterClient, err := apiextensionsclient.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct apiextensions client for server")
 
-	dynamicClusterClient, err := kcpdynamic.NewClusterDynamicClientForConfig(cfg)
+	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic client for server")
 
 	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
@@ -181,7 +181,7 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	bootstrapCRD(t, wsNormalCRD1b, crdClusterClient.ApiextensionsV1().CustomResourceDefinitions(), sheriffCRD1)
 
 	t.Logf("Create a root shard client that is able to do wildcard requests")
-	rootShardDynamicClients, err := kcpdynamic.NewClusterDynamicClientForConfig(rootShardConfig)
+	rootShardDynamicClients, err := kcpdynamic.NewForConfig(rootShardConfig)
 	require.NoError(t, err)
 
 	t.Logf("Trying to wildcard list without identity. It should fail.")
@@ -240,7 +240,7 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	go informerFactory.StartWorker(ctx)
 
 	t.Logf("Wait for the sheriff to show up in the informer")
-	// key := "default/" + clusters.ToClusterAwareKey(wsNormalCRD1a, "john-hicks-adams")
+	// key := "default/" + client.ToClusterAwareKey(wsNormalCRD1a, "john-hicks-adams")
 	require.Eventually(t, func() bool {
 		listers, _ := informerFactory.Listers()
 
@@ -273,7 +273,7 @@ func TestBuiltInCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	cfg := server.BaseConfig(t)
 	rootShardCfg := server.RootShardSystemMasterBaseConfig(t)
 
-	kubeClusterClient, err := kubernetes.NewForConfig(cfg)
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating kube cluster client")
 
 	for i := 0; i < 3; i++ {
@@ -287,7 +287,7 @@ func TestBuiltInCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 		}
 
 		t.Logf("Creating configmap %s|default/%s", ws, configMapName)
-		_, err = kubeClusterClient.CoreV1().ConfigMaps("default").Create(logicalcluster.WithCluster(ctx, ws), configMap, metav1.CreateOptions{})
+		_, err = kubeClusterClient.Cluster(ws).CoreV1().ConfigMaps("default").Create(ctx, configMap, metav1.CreateOptions{})
 		require.NoError(t, err, "error creating configmap %s", configMapName)
 	}
 

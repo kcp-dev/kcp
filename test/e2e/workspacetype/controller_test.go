@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
@@ -29,7 +30,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/retry"
 
@@ -149,7 +149,7 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 				typesource := framework.NewWorkspaceFixture(t, server, tenancyv1alpha1.RootCluster)
 
 				cfg := server.BaseConfig(t)
-				kubeClusterClient, err := kubernetes.NewForConfig(cfg)
+				kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 				require.NoError(t, err, "failed to construct kube cluster client for server")
 
 				framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, universal, []string{"user-1"}, nil, []string{"access"})
@@ -162,9 +162,9 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 					[]string{"create"},
 				)
 				t.Logf("Admit create clusterworkspaces to user-1 in universal workspace %q", universal)
-				_, err = kubeClusterClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, universal), cr, metav1.CreateOptions{})
+				_, err = kubeClusterClient.Cluster(universal).RbacV1().ClusterRoles().Create(ctx, cr, metav1.CreateOptions{})
 				require.NoError(t, err)
-				_, err = kubeClusterClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, universal), crb, metav1.CreateOptions{})
+				_, err = kubeClusterClient.Cluster(universal).RbacV1().ClusterRoleBindings().Create(ctx, crb, metav1.CreateOptions{})
 				require.NoError(t, err)
 
 				cr, crb = createClusterRoleAndBindings(
@@ -176,9 +176,9 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 					[]string{"create"},
 				)
 				t.Logf("Admit create clusterworkspaces for api bindings to %q in root workspace %q", kcpapisv1alpha1.MaximalPermissionPolicyRBACUserGroupPrefix+"user-1", tenancyv1alpha1.RootCluster)
-				_, err = kubeClusterClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), cr, metav1.CreateOptions{})
+				_, err = kubeClusterClient.Cluster(tenancyv1alpha1.RootCluster).RbacV1().ClusterRoles().Create(ctx, cr, metav1.CreateOptions{})
 				require.NoError(t, err)
-				_, err = kubeClusterClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), crb, metav1.CreateOptions{})
+				_, err = kubeClusterClient.Cluster(tenancyv1alpha1.RootCluster).RbacV1().ClusterRoleBindings().Create(ctx, crb, metav1.CreateOptions{})
 				require.NoError(t, err)
 
 				cr, crb = createClusterRoleAndBindings(
@@ -190,9 +190,9 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 					[]string{"use"},
 				)
 				t.Logf("Admit use clusterworkspacetypes to user-1 in typesource workspace %q", typesource)
-				_, err = kubeClusterClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, typesource), cr, metav1.CreateOptions{})
+				_, err = kubeClusterClient.Cluster(typesource).RbacV1().ClusterRoles().Create(ctx, cr, metav1.CreateOptions{})
 				require.NoError(t, err)
-				_, err = kubeClusterClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, typesource), crb, metav1.CreateOptions{})
+				_, err = kubeClusterClient.Cluster(typesource).RbacV1().ClusterRoleBindings().Create(ctx, crb, metav1.CreateOptions{})
 				require.NoError(t, err)
 
 				t.Logf("Create type Bar in typesource workspace %q", typesource)

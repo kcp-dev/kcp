@@ -19,10 +19,10 @@ package options
 import (
 	"path"
 
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
+	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
 	"github.com/spf13/pflag"
 
-	"k8s.io/client-go/dynamic"
-	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
@@ -58,11 +58,11 @@ func (o *InitializingWorkspaces) NewVirtualWorkspaces(
 	wildcardKcpInformers kcpinformers.SharedInformerFactory,
 ) (workspaces []rootapiserver.NamedVirtualWorkspace, err error) {
 	config = rest.AddUserAgent(rest.CopyConfig(config), "initializingworkspaces-virtual-workspace")
-	kubeClusterClient, err := kubernetesclient.NewClusterForConfig(config)
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(config)
 	if err != nil {
 		return nil, err
 	}
-	dynamicClusterClient, err := dynamic.NewClusterForConfig(config)
+	dynamicClusterClient, err := kcpdynamic.NewForConfig(config)
 	if err != nil {
 		return nil, err
 	}
