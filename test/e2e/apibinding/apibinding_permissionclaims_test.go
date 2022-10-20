@@ -175,15 +175,19 @@ func makePermissionClaims(identityHash string) []apisv1alpha1.PermissionClaim {
 	return []apisv1alpha1.PermissionClaim{
 		{
 			GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "configmaps"},
+			All:           true,
 		},
 		{
 			GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "secrets"},
+			All:           true,
 		},
 		{
 			GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "serviceaccounts"},
+			All:           true,
 		},
 		{
 			GroupResource: apisv1alpha1.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
+			All:           true,
 			IdentityHash:  identityHash,
 		},
 	}
@@ -218,18 +222,21 @@ func getAcceptedPermissionClaims(identityHash string) []apisv1alpha1.AcceptableP
 		{
 			PermissionClaim: apisv1alpha1.PermissionClaim{
 				GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "configmaps"},
+				All:           true,
 			},
 			State: apisv1alpha1.ClaimAccepted,
 		},
 		{
 			PermissionClaim: apisv1alpha1.PermissionClaim{
 				GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "secrets"},
+				All:           true,
 			},
 			State: apisv1alpha1.ClaimAccepted,
 		},
 		{
 			PermissionClaim: apisv1alpha1.PermissionClaim{
 				GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "serviceaccounts"},
+				All:           true,
 			},
 			State: apisv1alpha1.ClaimAccepted,
 		},
@@ -237,6 +244,7 @@ func getAcceptedPermissionClaims(identityHash string) []apisv1alpha1.AcceptableP
 			PermissionClaim: apisv1alpha1.PermissionClaim{
 				GroupResource: apisv1alpha1.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
 				IdentityHash:  identityHash,
+				All:           true,
 			},
 			State: apisv1alpha1.ClaimAccepted,
 		},
