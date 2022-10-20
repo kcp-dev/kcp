@@ -27,6 +27,7 @@ import (
 	"k8s.io/component-base/version"
 	"k8s.io/klog/v2"
 
+	bindcmd "github.com/kcp-dev/kcp/pkg/cliplugins/bind/cmd"
 	crdcmd "github.com/kcp-dev/kcp/pkg/cliplugins/crd/cmd"
 	workloadcmd "github.com/kcp-dev/kcp/pkg/cliplugins/workload/cmd"
 	workspacecmd "github.com/kcp-dev/kcp/pkg/cliplugins/workspace/cmd"
@@ -79,6 +80,9 @@ func KubectlKcpCommand() *cobra.Command {
 
 	crdCmd := crdcmd.New(genericclioptions.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr})
 	root.AddCommand(crdCmd)
+
+	bindCmd := bindcmd.New(genericclioptions.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr})
+	root.AddCommand(bindCmd)
 
 	return root
 }
