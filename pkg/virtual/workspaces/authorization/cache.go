@@ -41,6 +41,7 @@ import (
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/authorization/metrics"
 	workspaceutil "github.com/kcp-dev/kcp/pkg/virtual/workspaces/util"
 )
 
@@ -159,8 +160,17 @@ func (l syncedClusterRoleBindingLister) LastSyncResourceVersion() string {
 	return l.versioner.LastSyncResourceVersion()
 }
 
+type CacheType string
+
+const (
+	CacheTypeRoot CacheType = "root"
+	CacheTypeOrg  CacheType = "org"
+)
+
 // AuthorizationCache maintains a cache on the set of workspaces a user or group can access.
 type AuthorizationCache struct {
+	cacheType CacheType
+
 	// allKnownWorkspaces we track all the known workspaces, so we can detect deletes.
 	// TODO remove this in favor of a list/watch mechanism for workspaces
 	allKnownWorkspaces        sets.String
@@ -194,6 +204,7 @@ type AuthorizationCache struct {
 
 // NewAuthorizationCache creates a new AuthorizationCache
 func NewAuthorizationCache(
+	cacheType CacheType,
 	workspaceLister tenancylisters.ClusterWorkspaceLister,
 	workspaceLastSyncResourceVersioner LastSyncResourceVersioner,
 	reviewer *Reviewer,
@@ -208,7 +219,9 @@ func NewAuthorizationCache(
 		informers.ClusterRoleBindings().Lister(),
 		informers.ClusterRoleBindings().Informer(),
 	}
+	metrics.AuthorizationCaches.WithLabelValues(string(cacheType)).Inc()
 	ac := AuthorizationCache{
+		cacheType:          cacheType,
 		allKnownWorkspaces: sets.String{},
 		workspaceLister:    workspaceLister,
 
@@ -348,14 +361,27 @@ func (ac *AuthorizationCache) invalidateCache() bool {
 	return invalidateCache
 }
 
+type syncResult string
+
+const (
+	syncResultSkip    syncResult = "skip"
+	syncResultSuccess syncResult = "success"
+)
+
 // synchronize runs a a full synchronization over the cache data.  it must be run in a single-writer model, it's not thread-safe by design.
 func (ac *AuthorizationCache) synchronize() {
 	ac.rwMutex.Lock()
 	defer ac.rwMutex.Unlock()
+	result := syncResultSuccess
+	start := time.Now()
+	defer func() {
+		metrics.AuthorizationCacheSyncLatency.WithLabelValues(string(ac.cacheType), string(result)).Observe(time.Since(start).Seconds())
+	}()
 
 	// if none of our internal reflectors changed, then we can skip reviewing the cache
 	skip, currentState := ac.skip.SkipSynchronize(ac.lastState, ac.lastSyncResourceVersioner, ac.roleLastSyncResourceVersioner)
 	if skip {
+		result = syncResultSkip
 		return
 	}
 
@@ -367,6 +393,7 @@ func (ac *AuthorizationCache) synchronize() {
 	// if there was a global change that forced complete invalidation, we rebuild our cache and do a fast swap at end
 	invalidateCache := ac.invalidateCache()
 	if invalidateCache {
+		metrics.AuthorizationCacheInvalidations.WithLabelValues(string(ac.cacheType)).Inc()
 		userSubjectRecordStore = cache.NewStore(subjectRecordKeyFn)
 		groupSubjectRecordStore = cache.NewStore(subjectRecordKeyFn)
 		reviewRecordStore = cache.NewStore(reviewRecordKeyFn)
