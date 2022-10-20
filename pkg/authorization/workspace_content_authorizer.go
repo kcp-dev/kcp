@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"strings"
 
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/clients/informers"
+	rbacv1listers "github.com/kcp-dev/client-go/clients/listers/rbac/v1"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -31,9 +33,6 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
-	kubernetesinformers "k8s.io/client-go/informers"
-	rbacinformers "k8s.io/client-go/informers/rbac/v1"
-	rbaclisters "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
@@ -53,10 +52,8 @@ const (
 	WorkspaceContentAuditReason   = WorkspaceContentAuditPrefix + "reason"
 )
 
-func NewWorkspaceContentAuthorizer(versionedInformers kubernetesinformers.SharedInformerFactory, clusterWorkspaceLister tenancylisters.ClusterWorkspaceLister, delegate authorizer.Authorizer) authorizer.Authorizer {
+func NewWorkspaceContentAuthorizer(versionedInformers kcpkubernetesinformers.SharedInformerFactory, clusterWorkspaceLister tenancylisters.ClusterWorkspaceLister, delegate authorizer.Authorizer) authorizer.Authorizer {
 	return &workspaceContentAuthorizer{
-		rbacInformers: versionedInformers.Rbac().V1(),
-
 		roleLister:               versionedInformers.Rbac().V1().Roles().Lister(),
 		roleBindingLister:        versionedInformers.Rbac().V1().RoleBindings().Lister(),
 		clusterRoleLister:        versionedInformers.Rbac().V1().ClusterRoles().Lister(),
@@ -68,14 +65,11 @@ func NewWorkspaceContentAuthorizer(versionedInformers kubernetesinformers.Shared
 }
 
 type workspaceContentAuthorizer struct {
-	roleLister               rbaclisters.RoleLister
-	roleBindingLister        rbaclisters.RoleBindingLister
-	clusterRoleBindingLister rbaclisters.ClusterRoleBindingLister
-	clusterRoleLister        rbaclisters.ClusterRoleLister
+	roleLister               rbacv1listers.RoleClusterLister
+	roleBindingLister        rbacv1listers.RoleBindingClusterLister
+	clusterRoleBindingLister rbacv1listers.ClusterRoleBindingClusterLister
+	clusterRoleLister        rbacv1listers.ClusterRoleClusterLister
 	clusterWorkspaceLister   tenancylisters.ClusterWorkspaceLister
-
-	// TODO: this will go away when scoping lands. Then we only have those 4 listers above.
-	rbacInformers rbacinformers.Interface
 
 	// union of local and bootstrap authorizer
 	delegate authorizer.Authorizer
@@ -157,18 +151,20 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 		return authorizer.DecisionNoOpinion, WorkspaceAccessNotPermittedReason, nil
 	}
 
-	parentWorkspaceKubeInformer := rbacwrapper.FilterInformers(parentClusterName, a.rbacInformers)
-	bootstrapInformer := rbacwrapper.FilterInformers(genericcontrolplane.LocalAdminCluster, a.rbacInformers)
-
-	mergedClusterRoleLister := rbacwrapper.NewMergedClusterRoleLister(parentWorkspaceKubeInformer.ClusterRoles().Lister(), bootstrapInformer.ClusterRoles().Lister())
-	mergedRoleLister := rbacwrapper.NewMergedRoleLister(parentWorkspaceKubeInformer.Roles().Lister(), bootstrapInformer.Roles().Lister())
-	mergedClusterRoleBindingsLister := rbacwrapper.NewMergedClusterRoleBindingLister(parentWorkspaceKubeInformer.ClusterRoleBindings().Lister(), bootstrapInformer.ClusterRoleBindings().Lister())
-
 	parentAuthorizer := rbac.New(
-		&rbac.RoleGetter{Lister: mergedRoleLister},
-		&rbac.RoleBindingLister{Lister: parentWorkspaceKubeInformer.RoleBindings().Lister()},
-		&rbac.ClusterRoleGetter{Lister: mergedClusterRoleLister},
-		&rbac.ClusterRoleBindingLister{Lister: mergedClusterRoleBindingsLister},
+		&rbac.RoleGetter{Lister: rbacwrapper.NewMergedRoleLister(
+			a.roleLister.Cluster(parentClusterName),
+			a.roleLister.Cluster(genericcontrolplane.LocalAdminCluster),
+		)},
+		&rbac.RoleBindingLister{Lister: a.roleBindingLister.Cluster(parentClusterName)},
+		&rbac.ClusterRoleGetter{Lister: rbacwrapper.NewMergedClusterRoleLister(
+			a.clusterRoleLister.Cluster(parentClusterName),
+			a.clusterRoleLister.Cluster(genericcontrolplane.LocalAdminCluster),
+		)},
+		&rbac.ClusterRoleBindingLister{Lister: rbacwrapper.NewMergedClusterRoleBindingLister(
+			a.clusterRoleBindingLister.Cluster(parentClusterName),
+			a.clusterRoleBindingLister.Cluster(genericcontrolplane.LocalAdminCluster),
+		)},
 	)
 
 	extraGroups := sets.NewString()

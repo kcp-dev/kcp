@@ -20,13 +20,13 @@ import (
 	"context"
 	"fmt"
 
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/clients/informers"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	kaudit "k8s.io/apiserver/pkg/audit"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
-	kubernetesinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
@@ -47,7 +47,7 @@ const (
 
 // NewMaximalPermissionPolicyAuthorizer returns an authorizer that first checks if the request is for a
 // bound resource or not. If the resource is bound it checks the maximal permission policy of the underlying API export.
-func NewMaximalPermissionPolicyAuthorizer(kubeInformers kubernetesinformers.SharedInformerFactory, kcpInformers kcpinformers.SharedInformerFactory, delegate authorizer.Authorizer) (authorizer.Authorizer, error) {
+func NewAPIBindingAccessAuthorizer(kubeInformers kcpkubernetesinformers.SharedInformerFactory, kcpInformers kcpinformers.SharedInformerFactory, delegate authorizer.Authorizer) (authorizer.Authorizer, error) {
 	apiBindingIndexer := kcpInformers.Apis().V1alpha1().APIBindings().Informer().GetIndexer()
 	apiExportIndexer := kcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer()
 
@@ -65,18 +65,20 @@ func NewMaximalPermissionPolicyAuthorizer(kubeInformers kubernetesinformers.Shar
 			return getAPIExportByReference(apiExportIndexer, exportRef)
 		},
 		newAuthorizer: func(clusterName logicalcluster.Name) authorizer.Authorizer {
-			clusterKubeInformer := rbacwrapper.FilterInformers(clusterName, kubeInformers.Rbac().V1())
-			bootstrapInformer := rbacwrapper.FilterInformers(genericcontrolplane.LocalAdminCluster, kubeInformers.Rbac().V1())
-
-			mergedClusterRoleLister := rbacwrapper.NewMergedClusterRoleLister(clusterKubeInformer.ClusterRoles().Lister(), bootstrapInformer.ClusterRoles().Lister())
-			mergedRoleLister := rbacwrapper.NewMergedRoleLister(clusterKubeInformer.Roles().Lister(), bootstrapInformer.Roles().Lister())
-			mergedClusterRoleBindingsLister := rbacwrapper.NewMergedClusterRoleBindingLister(clusterKubeInformer.ClusterRoleBindings().Lister(), bootstrapInformer.ClusterRoleBindings().Lister())
-
 			return rbac.New(
-				&rbac.RoleGetter{Lister: mergedRoleLister},
-				&rbac.RoleBindingLister{Lister: clusterKubeInformer.RoleBindings().Lister()},
-				&rbac.ClusterRoleGetter{Lister: mergedClusterRoleLister},
-				&rbac.ClusterRoleBindingLister{Lister: mergedClusterRoleBindingsLister},
+				&rbac.RoleGetter{Lister: rbacwrapper.NewMergedRoleLister(
+					kubeInformers.Rbac().V1().Roles().Lister().Cluster(clusterName),
+					kubeInformers.Rbac().V1().Roles().Lister().Cluster(genericcontrolplane.LocalAdminCluster),
+				)},
+				&rbac.RoleBindingLister{Lister: kubeInformers.Rbac().V1().RoleBindings().Lister().Cluster(clusterName)},
+				&rbac.ClusterRoleGetter{Lister: rbacwrapper.NewMergedClusterRoleLister(
+					kubeInformers.Rbac().V1().ClusterRoles().Lister().Cluster(clusterName),
+					kubeInformers.Rbac().V1().ClusterRoles().Lister().Cluster(genericcontrolplane.LocalAdminCluster),
+				)},
+				&rbac.ClusterRoleBindingLister{Lister: rbacwrapper.NewMergedClusterRoleBindingLister(
+					kubeInformers.Rbac().V1().ClusterRoleBindings().Lister().Cluster(clusterName),
+					kubeInformers.Rbac().V1().ClusterRoleBindings().Lister().Cluster(genericcontrolplane.LocalAdminCluster),
+				)},
 			)
 		},
 		delegate: delegate,

@@ -17,26 +17,18 @@ limitations under the License.
 package rbac
 
 import (
-	rbacinformers "k8s.io/client-go/informers/rbac/v1"
-	rbacregistryvalidation "k8s.io/kubernetes/pkg/registry/rbac/validation"
+	kcprbacinformers "github.com/kcp-dev/client-go/clients/informers/rbac/v1"
+	"github.com/kcp-dev/logicalcluster/v2"
+
 	rbacauthorizer "k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 )
 
-func NewRuleResolver(informers rbacinformers.Interface) rbacregistryvalidation.AuthorizationRuleResolver {
-	return rbacregistryvalidation.NewDefaultRuleResolver(
-		&rbacauthorizer.RoleGetter{Lister: informers.Roles().Lister()},
-		&rbacauthorizer.RoleBindingLister{Lister: informers.RoleBindings().Lister()},
-		&rbacauthorizer.ClusterRoleGetter{Lister: informers.ClusterRoles().Lister()},
-		&rbacauthorizer.ClusterRoleBindingLister{Lister: informers.ClusterRoleBindings().Lister()},
-	)
-}
-
-func NewSubjectLocator(informers rbacinformers.Interface) rbacauthorizer.SubjectLocator {
+func NewSubjectLocator(cluster logicalcluster.Name, informers kcprbacinformers.ClusterInterface) rbacauthorizer.SubjectLocator {
 	return rbacauthorizer.NewSubjectAccessEvaluator(
-		&rbacauthorizer.RoleGetter{Lister: informers.Roles().Lister()},
-		&rbacauthorizer.RoleBindingLister{Lister: informers.RoleBindings().Lister()},
-		&rbacauthorizer.ClusterRoleGetter{Lister: informers.ClusterRoles().Lister()},
-		&rbacauthorizer.ClusterRoleBindingLister{Lister: informers.ClusterRoleBindings().Lister()},
+		&rbacauthorizer.RoleGetter{Lister: informers.Roles().Lister().Cluster(cluster)},
+		&rbacauthorizer.RoleBindingLister{Lister: informers.RoleBindings().Lister().Cluster(cluster)},
+		&rbacauthorizer.ClusterRoleGetter{Lister: informers.ClusterRoles().Lister().Cluster(cluster)},
+		&rbacauthorizer.ClusterRoleBindingLister{Lister: informers.ClusterRoleBindings().Lister().Cluster(cluster)},
 		"",
 	)
 }
