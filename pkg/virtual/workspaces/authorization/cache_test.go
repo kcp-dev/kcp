@@ -155,6 +155,7 @@ func TestSyncWorkspace(t *testing.T) {
 	wsLister := workspacelisters.NewClusterWorkspaceLister(wsIndexer)
 
 	authorizationCache := NewAuthorizationCache(
+		"",
 		wsLister,
 		kcpInformers.Tenancy().V1alpha1().ClusterWorkspaces().Informer(),
 		NewReviewer(subjectLocator),
