@@ -29,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
-	webhookconfiguration "k8s.io/apiserver/pkg/admission/configuration"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/endpoints/request"
@@ -60,7 +59,7 @@ func attr(gvk schema.GroupVersionKind, name, resource string, op admission.Opera
 }
 
 type validatingDispatcher struct {
-	hooks []webhook.WebhookAccessor
+	hooks map[logicalcluster.Name][]webhook.WebhookAccessor
 }
 
 func (d *validatingDispatcher) Dispatch(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces, hooks []webhook.WebhookAccessor) error {
@@ -69,9 +68,11 @@ func (d *validatingDispatcher) Dispatch(ctx context.Context, a admission.Attribu
 	}
 	uidMatches := map[string]*struct{}{}
 	for _, h := range hooks {
-		for _, expectedHook := range d.hooks {
-			if h.GetUID() == expectedHook.GetUID() {
-				uidMatches[h.GetUID()] = &struct{}{}
+		for _, allHooks := range d.hooks {
+			for _, expectedHook := range allHooks {
+				if h.GetUID() == expectedHook.GetUID() {
+					uidMatches[h.GetUID()] = &struct{}{}
+				}
 			}
 		}
 	}
@@ -82,12 +83,12 @@ func (d *validatingDispatcher) Dispatch(ctx context.Context, a admission.Attribu
 }
 
 type fakeHookSource struct {
-	hooks     []webhook.WebhookAccessor
+	hooks     map[logicalcluster.Name][]webhook.WebhookAccessor
 	hasSynced bool
 }
 
-func (f fakeHookSource) Webhooks() []webhook.WebhookAccessor {
-	return f.hooks
+func (f fakeHookSource) Webhooks(cluster logicalcluster.Name) []webhook.WebhookAccessor {
+	return f.hooks[cluster]
 
 }
 func (f fakeHookSource) HasSynced() bool {
@@ -99,8 +100,8 @@ func TestDispatch(t *testing.T) {
 		name                string
 		attr                admission.Attributes
 		cluster             string
-		expectedHooks       []webhook.WebhookAccessor
-		hooksInSource       []webhook.WebhookAccessor
+		expectedHooks       map[logicalcluster.Name][]webhook.WebhookAccessor
+		hooksInSource       map[logicalcluster.Name][]webhook.WebhookAccessor
 		hookSourceNotSynced bool
 		apiBindings         []*v1alpha1.APIBinding
 		apiBindingsSynced   func() bool
@@ -115,12 +116,12 @@ func TestDispatch(t *testing.T) {
 				admission.Create,
 			),
 			cluster: "root:org:dest-cluster",
-			expectedHooks: []webhook.WebhookAccessor{
-				webhookconfiguration.WithCluster(logicalcluster.New("root:org:source-cluster"), webhook.NewValidatingWebhookAccessor("1", "api-registration-hook", nil)),
+			expectedHooks: map[logicalcluster.Name][]webhook.WebhookAccessor{
+				logicalcluster.New("root:org:source-cluster"): {webhook.NewValidatingWebhookAccessor("1", "api-registration-hook", nil)},
 			},
-			hooksInSource: []webhook.WebhookAccessor{
-				webhookconfiguration.WithCluster(logicalcluster.New("root:org:source-cluster"), webhook.NewValidatingWebhookAccessor("1", "api-registration-hook", nil)),
-				webhookconfiguration.WithCluster(logicalcluster.New("root:org:dest-cluster"), webhook.NewValidatingWebhookAccessor("2", "secrets", nil)),
+			hooksInSource: map[logicalcluster.Name][]webhook.WebhookAccessor{
+				logicalcluster.New("root:org:source-cluster"): {webhook.NewValidatingWebhookAccessor("1", "api-registration-hook", nil)},
+				logicalcluster.New("root:org:dest-cluster"):   {webhook.NewValidatingWebhookAccessor("2", "secrets", nil)},
 			},
 			apiBindings: []*v1alpha1.APIBinding{
 				{
@@ -157,13 +158,13 @@ func TestDispatch(t *testing.T) {
 				admission.Create,
 			),
 			cluster: "root:org:dest-cluster",
-			expectedHooks: []webhook.WebhookAccessor{
-				webhookconfiguration.WithCluster(logicalcluster.New("root:org:dest-cluster"), webhook.NewValidatingWebhookAccessor("3", "secrets", nil)),
+			expectedHooks: map[logicalcluster.Name][]webhook.WebhookAccessor{
+				logicalcluster.New("root:org:dest-cluster"): {webhook.NewValidatingWebhookAccessor("3", "secrets", nil)},
 			},
-			hooksInSource: []webhook.WebhookAccessor{
-				webhookconfiguration.WithCluster(logicalcluster.New("root:org:source-cluster"), webhook.NewValidatingWebhookAccessor("1", "cowboy-hook", nil)),
-				webhookconfiguration.WithCluster(logicalcluster.New("root:org:source-cluster"), webhook.NewValidatingWebhookAccessor("2", "secrets", nil)),
-				webhookconfiguration.WithCluster(logicalcluster.New("root:org:dest-cluster"), webhook.NewValidatingWebhookAccessor("3", "secrets", nil)),
+			hooksInSource: map[logicalcluster.Name][]webhook.WebhookAccessor{
+				logicalcluster.New("root:org:source-cluster"): {webhook.NewValidatingWebhookAccessor("1", "cowboy-hook", nil)},
+				logicalcluster.New("root:org:source-cluster"): {webhook.NewValidatingWebhookAccessor("2", "secrets", nil)},
+				logicalcluster.New("root:org:dest-cluster"):   {webhook.NewValidatingWebhookAccessor("3", "secrets", nil)},
 			},
 		},
 		{
@@ -175,13 +176,13 @@ func TestDispatch(t *testing.T) {
 				admission.Create,
 			),
 			cluster: "root:org:dest-cluster",
-			expectedHooks: []webhook.WebhookAccessor{
-				webhookconfiguration.WithCluster(logicalcluster.New("root:org:dest-cluster"), webhook.NewValidatingWebhookAccessor("3", "secrets", nil)),
+			expectedHooks: map[logicalcluster.Name][]webhook.WebhookAccessor{
+				logicalcluster.New("root:org:dest-cluster"): {webhook.NewValidatingWebhookAccessor("3", "secrets", nil)},
 			},
-			hooksInSource: []webhook.WebhookAccessor{
-				webhookconfiguration.WithCluster(logicalcluster.New("root:org:source-cluster"), webhook.NewValidatingWebhookAccessor("1", "cowboy-hook", nil)),
-				webhookconfiguration.WithCluster(logicalcluster.New("root:org:source-cluster"), webhook.NewValidatingWebhookAccessor("2", "secrets", nil)),
-				webhookconfiguration.WithCluster(logicalcluster.New("root:org:dest-cluster"), webhook.NewValidatingWebhookAccessor("3", "secrets", nil)),
+			hooksInSource: map[logicalcluster.Name][]webhook.WebhookAccessor{
+				logicalcluster.New("root:org:source-cluster"): {webhook.NewValidatingWebhookAccessor("1", "cowboy-hook", nil)},
+				logicalcluster.New("root:org:source-cluster"): {webhook.NewValidatingWebhookAccessor("2", "secrets", nil)},
+				logicalcluster.New("root:org:dest-cluster"):   {webhook.NewValidatingWebhookAccessor("3", "secrets", nil)},
 			},
 			apiBindings: []*v1alpha1.APIBinding{
 				{
