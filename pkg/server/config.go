@@ -177,24 +177,12 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 
 	var err error
 	var storageFactory *serverstorage.DefaultStorageFactory
-	c.GenericConfig, storageFactory, err = genericcontrolplane.BuildGenericConfig(opts.GenericControlPlane)
+	c.GenericConfig, storageFactory, c.KubeSharedInformerFactory, c.KubeClusterClient, err = genericcontrolplane.BuildGenericConfig(opts.GenericControlPlane)
 	if err != nil {
 		return nil, err
 	}
 
 	c.GenericConfig.RequestInfoResolver = requestinfo.NewFactory() // must be set here early to avoid a crash in the EnableMultiCluster roundtrip wrapper
-
-	// Setup kube * informers
-	c.KubeClusterClient, err = kubernetesclient.NewClusterForConfig(c.GenericConfig.LoopbackClientConfig)
-	if err != nil {
-		return nil, err
-	}
-	c.KubeSharedInformerFactory = kubernetesinformers.NewSharedInformerFactoryWithOptions(
-		c.KubeClusterClient.Cluster(logicalcluster.Wildcard),
-		resyncPeriod,
-		kubernetesinformers.WithExtraClusterScopedIndexers(indexers.ClusterScoped()),
-		kubernetesinformers.WithExtraNamespaceScopedIndexers(indexers.NamespaceScoped()),
-	)
 
 	if c.Options.Cache.Enabled {
 		var cacheClientConfig *rest.Config
