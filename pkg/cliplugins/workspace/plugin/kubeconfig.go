@@ -804,19 +804,19 @@ func (o *TreeOptions) Run(ctx context.Context) error {
 }
 
 func (o *TreeOptions) populateBranch(ctx context.Context, tree treeprint.Tree, name logicalcluster.Name) error {
+	var b treeprint.Tree
+	if o.Full {
+		b = tree.AddBranch(name.String())
+	} else {
+		b = tree.AddBranch(name.Base())
+	}
+
 	results, err := o.kcpClusterClient.Cluster(name).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil
 		}
 		return err
-	}
-
-	var b treeprint.Tree
-	if o.Full {
-		b = tree.AddBranch(name.String())
-	} else {
-		b = tree.AddBranch(name.Base())
 	}
 
 	for _, workspace := range results.Items {
