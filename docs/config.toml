@@ -133,7 +133,11 @@ disable = false
 [[menu.main]]
 name = "Documentation"
 weight = -1000
-url = "/main"
+url = "https://docs.kcp.io/kcp/main"
+[[menu.main]]
+name = "Blog"
+weight = -500
+url = "https://kcp.io/blog"
 [[menu.main]]
 name = "GitHub"
 weight = -99
