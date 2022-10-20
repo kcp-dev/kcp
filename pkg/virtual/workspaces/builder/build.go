@@ -49,11 +49,14 @@ import (
 	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
 	tenancywrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/tenancy"
 	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/authorization"
+	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/authorization/metrics"
 	workspacecache "github.com/kcp-dev/kcp/pkg/virtual/workspaces/cache"
 	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/registry"
 )
 
 func BuildVirtualWorkspace(cfg *clientrest.Config, rootPathPrefix string, wildcardsClusterWorkspaces tenancyinformers.ClusterWorkspaceInformer, wildcardsRbacInformers rbacinformers.Interface, kubeClusterClient kubernetesclient.ClusterInterface, kcpClusterClient kcpclient.ClusterInterface) framework.VirtualWorkspace {
+	metrics.Register()
+
 	crbInformer := wildcardsRbacInformers.ClusterRoleBindings()
 
 	if !strings.HasSuffix(rootPathPrefix, "/") {
