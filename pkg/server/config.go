@@ -450,7 +450,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 	c.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer().AddIndexers(cache.Indexers{byIdentityGroupResource: indexAPIBindingByIdentityGroupResource})                   //nolint:errcheck
 	c.KcpSharedInformerFactory.Workload().V1alpha1().SyncTargets().Informer().GetIndexer().AddIndexers(cache.Indexers{indexers.SyncTargetsBySyncTargetKey: indexers.IndexSyncTargetsBySyncTargetKey}) //nolint:errcheck
 
-	c.ApiExtensions.ExtraConfig.ClusterAwareCRDLister = &apiBindingAwareCRDLister{
+	c.ApiExtensions.ExtraConfig.ClusterAwareCRDLister = &apiBindingAwareCRDClusterLister{
 		kcpClusterClient:  c.KcpClusterClient,
 		crdLister:         c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Lister(),
 		crdIndexer:        c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().GetIndexer(),

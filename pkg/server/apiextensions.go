@@ -34,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
@@ -52,8 +51,7 @@ import (
 // to start wildcard informers until a "real" workspace gets them installed.
 var SystemCRDLogicalCluster = logicalcluster.New("system:system-crds")
 
-// apiBindingAwareCRDLister is a CRD lister combines APIs coming from APIBindings with CRDs in a workspace.
-type apiBindingAwareCRDLister struct {
+type apiBindingAwareCRDClusterLister struct {
 	kcpClusterClient     kcpclient.ClusterInterface
 	crdLister            apiextensionslisters.CustomResourceDefinitionLister
 	crdIndexer           cache.Indexer
@@ -64,16 +62,28 @@ type apiBindingAwareCRDLister struct {
 	getAPIResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
 }
 
+func (a *apiBindingAwareCRDClusterLister) Cluster(name logicalcluster.Name) kcp.ClusterAwareCRDLister {
+	return &apiBindingAwareCRDLister{
+		apiBindingAwareCRDClusterLister: a,
+		cluster:                         name,
+	}
+}
+
+var _ kcp.ClusterAwareCRDClusterLister = &apiBindingAwareCRDClusterLister{}
+
+// apiBindingAwareCRDLister is a CRD lister combines APIs coming from APIBindings with CRDs in a workspace.
+type apiBindingAwareCRDLister struct {
+	*apiBindingAwareCRDClusterLister
+	cluster logicalcluster.Name
+}
+
 var _ kcp.ClusterAwareCRDLister = &apiBindingAwareCRDLister{}
 
 // List lists all CustomResourceDefinitions that come in via APIBindings as well as all in the current
 // logical cluster retrieved from the context.
 func (c *apiBindingAwareCRDLister) List(ctx context.Context, selector labels.Selector) ([]*apiextensionsv1.CustomResourceDefinition, error) {
 	logger := klog.FromContext(ctx)
-	clusterName, err := request.ClusterNameFrom(ctx)
-	if err != nil {
-		return nil, err
-	}
+	clusterName := c.cluster
 	logger = logger.WithValues("workspace", clusterName.String())
 
 	crdName := func(crd *apiextensionsv1.CustomResourceDefinition) string {
@@ -200,10 +210,7 @@ func (c *apiBindingAwareCRDLister) Get(ctx context.Context, name string) (*apiex
 		err error
 	)
 
-	clusterName, err := request.ClusterNameFrom(ctx)
-	if err != nil {
-		return nil, err
-	}
+	clusterName := c.cluster
 
 	// Priority 1: system CRD
 	crd, err = c.getSystemCRD(clusterName, name)
