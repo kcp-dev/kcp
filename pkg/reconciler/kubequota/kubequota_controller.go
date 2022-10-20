@@ -23,6 +23,9 @@ import (
 	"time"
 
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/clients/informers"
+	kcpcorev1informers "github.com/kcp-dev/client-go/clients/informers/core/v1"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -32,8 +35,6 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/quota/v1/generic"
-	kubernetesinformers "k8s.io/client-go/informers"
-	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/component-base/metrics/prometheus/ratelimiter"
@@ -52,12 +53,16 @@ const (
 	ControllerName = "kcp-kube-quota"
 )
 
+type scopeableInformerFactory interface {
+	Cluster(logicalcluster.Name) kcpkubernetesinformers.ScopedDynamicSharedInformerFactory
+}
+
 // Controller manages per-workspace resource quota controllers.
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
 	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory
-	kubeClusterClient                     kubernetesclient.ClusterInterface
+	kubeClusterClient                     kcpkubernetesclientset.ClusterInterface
 	informersStarted                      <-chan struct{}
 
 	// quotaRecalculationPeriod controls how often a full quota recalculation is performed
@@ -71,8 +76,8 @@ type Controller struct {
 	lock        sync.RWMutex
 	cancelFuncs map[logicalcluster.Name]func()
 
-	scopingResourceQuotaInformer        *ScopingResourceQuotaInformer
-	scopingGenericSharedInformerFactory *scopingGenericSharedInformerFactory
+	resourceQuotaClusterInformer        kcpcorev1informers.ResourceQuotaClusterInformer
+	scopingGenericSharedInformerFactory scopeableInformerFactory
 
 	// For better testability
 	getClusterWorkspace func(key string) (*tenancyv1alpha1.ClusterWorkspace, error)
@@ -82,8 +87,8 @@ type Controller struct {
 // NewController creates a new Controller.
 func NewController(
 	clusterWorkspacesInformer tenancyinformers.ClusterWorkspaceInformer,
-	kubeClusterClient kubernetesclient.ClusterInterface,
-	kubeInformerFactory kubernetesinformers.SharedInformerFactory,
+	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
+	kubeInformerFactory kcpkubernetesinformers.SharedInformerFactory,
 	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory,
 	crdInformer apiextensionsinformers.CustomResourceDefinitionInformer,
 	quotaRecalculationPeriod time.Duration,
@@ -105,8 +110,8 @@ func NewController(
 
 		cancelFuncs: map[logicalcluster.Name]func(){},
 
-		scopingGenericSharedInformerFactory: newScopingGenericSharedInformerFactory(dynamicDiscoverySharedInformerFactory),
-		scopingResourceQuotaInformer:        NewScopingResourceQuotaInformer(kubeInformerFactory.Core().V1().ResourceQuotas()),
+		scopingGenericSharedInformerFactory: dynamicDiscoverySharedInformerFactory,
+		resourceQuotaClusterInformer:        kubeInformerFactory.Core().V1().ResourceQuotas(),
 
 		getClusterWorkspace: func(key string) (*tenancyv1alpha1.ClusterWorkspace, error) {
 			return clusterWorkspacesInformer.Lister().Get(key)
@@ -280,9 +285,9 @@ func (c *Controller) startQuotaForClusterWorkspace(ctx context.Context, clusterN
 
 	resourceQuotaControllerOptions := &resourcequota.ControllerOptions{
 		QuotaClient:           resourceQuotaControllerClient.CoreV1(),
-		ResourceQuotaInformer: c.scopingResourceQuotaInformer.ForCluster(clusterName),
+		ResourceQuotaInformer: c.resourceQuotaClusterInformer.Cluster(clusterName),
 		ResyncPeriod:          controller.StaticResyncPeriodFunc(c.quotaRecalculationPeriod),
-		InformerFactory:       c.scopingGenericSharedInformerFactory.ForCluster(clusterName),
+		InformerFactory:       c.scopingGenericSharedInformerFactory.Cluster(clusterName),
 		ReplenishmentResyncPeriod: func() time.Duration {
 			return c.fullResyncPeriod
 		},

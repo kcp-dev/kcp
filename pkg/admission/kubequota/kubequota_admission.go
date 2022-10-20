@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// +kcp-code-generator:skip
+
 package kubequota
 
 import (
@@ -22,6 +24,8 @@ import (
 	"io"
 	"sync"
 
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
+	kcpcorev1informers "github.com/kcp-dev/client-go/clients/informers/core/v1"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apiserver/pkg/admission"
@@ -30,16 +34,15 @@ import (
 	resourcequotaapi "k8s.io/apiserver/pkg/admission/plugin/resourcequota/apis/resourcequota"
 	"k8s.io/apiserver/pkg/admission/plugin/resourcequota/apis/resourcequota/validation"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/apiserver/pkg/informerfactoryhack"
 	quota "k8s.io/apiserver/pkg/quota/v1"
-	kubernetesinformers "k8s.io/client-go/informers"
-	kubernetesclient "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/informers"
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/admission/initializers"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
-	kubequotacontroller "github.com/kcp-dev/kcp/pkg/reconciler/kubequota"
 )
 
 // PluginName is the name of this admission plugin.
@@ -83,8 +86,8 @@ type KubeResourceQuota struct {
 	// Injected/set via initializers
 	clusterWorkspaceInformer     tenancyinformers.ClusterWorkspaceInformer
 	clusterWorkspaceLister       tenancylisters.ClusterWorkspaceLister
-	kubeClusterClient            kubernetesclient.ClusterInterface
-	scopingResourceQuotaInformer *kubequotacontroller.ScopingResourceQuotaInformer
+	kubeClusterClient            kcpkubernetesclientset.ClusterInterface
+	scopingResourceQuotaInformer kcpcorev1informers.ResourceQuotaClusterInformer
 	quotaConfiguration           quota.Configuration
 	serverDone                   <-chan struct{}
 
@@ -187,10 +190,9 @@ func (k *KubeResourceQuota) getOrCreateDelegate(clusterName logicalcluster.Name)
 		stop:           cancel,
 	}
 
-	delegate.SetResourceQuotaInformer(k.scopingResourceQuotaInformer.ForCluster(clusterName))
+	delegate.SetResourceQuotaLister(k.scopingResourceQuotaInformer.Cluster(clusterName).Lister())
 	delegate.SetExternalKubeClientSet(k.kubeClusterClient.Cluster(clusterName))
 	delegate.SetQuotaConfiguration(k.quotaConfiguration)
-	delegate.SetClusterName(clusterName)
 
 	if err := delegate.ValidateInitialization(); err != nil {
 		cancel()
@@ -224,7 +226,7 @@ func (k *KubeResourceQuota) stopQuotaAdmissionForCluster(clusterName logicalclus
 	delegate.stop()
 }
 
-func (k *KubeResourceQuota) SetKubeClusterClient(kubeClusterClient kubernetesclient.ClusterInterface) {
+func (k *KubeResourceQuota) SetKubeClusterClient(kubeClusterClient kcpkubernetesclientset.ClusterInterface) {
 	k.kubeClusterClient = kubeClusterClient
 }
 
@@ -233,11 +235,11 @@ func (k *KubeResourceQuota) SetKcpInformers(informers kcpinformers.SharedInforme
 	k.clusterWorkspaceInformer = informers.Tenancy().V1alpha1().ClusterWorkspaces()
 }
 
-func (k *KubeResourceQuota) SetExternalKubeInformerFactory(informers kubernetesinformers.SharedInformerFactory) {
-	k.scopingResourceQuotaInformer = kubequotacontroller.NewScopingResourceQuotaInformer(informers.Core().V1().ResourceQuotas())
+func (k *KubeResourceQuota) SetExternalKubeInformerFactory(informers informers.SharedInformerFactory) {
+	k.scopingResourceQuotaInformer = informerfactoryhack.Unwrap(informers).Core().V1().ResourceQuotas()
 
 	// Make sure the quota informer gets started
-	_ = informers.Core().V1().ResourceQuotas().Informer()
+	_ = informerfactoryhack.Unwrap(informers).Core().V1().ResourceQuotas().Informer()
 }
 
 func (k *KubeResourceQuota) SetQuotaConfiguration(quotaConfiguration quota.Configuration) {
