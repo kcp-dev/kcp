@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// +kcp-code-generator:skip
+
 package informer
 
 import (
@@ -25,9 +27,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
+	kcpdynamicinformer "github.com/kcp-dev/client-go/clients/dynamic/dynamicinformer"
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/clients/informers"
 	"github.com/kcp-dev/logicalcluster/v2"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1"
@@ -35,9 +40,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/dynamic/dynamicinformer"
-	kubernetesinformers "k8s.io/client-go/informers"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
@@ -55,7 +58,7 @@ const (
 // DynamicDiscoverySharedInformerFactory is a SharedInformerFactory that
 // dynamically discovers new types and begins informing on them.
 type DynamicDiscoverySharedInformerFactory struct {
-	dynamicClient     dynamic.Interface
+	dynamicClient     kcpdynamic.ClusterInterface
 	filterFunc        func(interface{}) bool
 	indexers          cache.Indexers
 	crdIndexer        cache.Indexer
@@ -70,7 +73,7 @@ type DynamicDiscoverySharedInformerFactory struct {
 	updateCh chan struct{}
 
 	informersLock    sync.RWMutex
-	informers        map[schema.GroupVersionResource]kubernetesinformers.GenericInformer
+	informers        map[schema.GroupVersionResource]kcpkubernetesinformers.GenericClusterInformer
 	startedInformers map[schema.GroupVersionResource]bool
 	informerStops    map[schema.GroupVersionResource]chan struct{}
 	discoveryData    []*metav1.APIResourceList
@@ -97,7 +100,7 @@ func NewDynamicDiscoverySharedInformerFactory(
 	}
 
 	f := &DynamicDiscoverySharedInformerFactory{
-		dynamicClient:     metadataClusterClient.Cluster(logicalcluster.Wildcard),
+		dynamicClient:     metadataClusterClient,
 		filterFunc:        filterFunc,
 		indexers:          indexers,
 		crdIndexer:        crdInformer.Informer().GetIndexer(),
@@ -106,7 +109,7 @@ func NewDynamicDiscoverySharedInformerFactory(
 		// Use a buffered channel of size 1 to allow enqueuing 1 update notification
 		updateCh: make(chan struct{}, 1),
 
-		informers:        make(map[schema.GroupVersionResource]kubernetesinformers.GenericInformer),
+		informers:        make(map[schema.GroupVersionResource]kcpkubernetesinformers.GenericClusterInformer),
 		startedInformers: make(map[schema.GroupVersionResource]bool),
 		informerStops:    make(map[schema.GroupVersionResource]chan struct{}),
 
@@ -191,9 +194,31 @@ func NewDynamicDiscoverySharedInformerFactory(
 	return f, nil
 }
 
+func (d *DynamicDiscoverySharedInformerFactory) Cluster(cluster logicalcluster.Name) kcpkubernetesinformers.ScopedDynamicSharedInformerFactory {
+	return &scopedDynamicDiscoverySharedInformerFactory{
+		DynamicDiscoverySharedInformerFactory: d,
+		cluster:                               cluster,
+	}
+}
+
+type scopedDynamicDiscoverySharedInformerFactory struct {
+	*DynamicDiscoverySharedInformerFactory
+	cluster logicalcluster.Name
+}
+
 // ForResource returns the GenericInformer for gvr, creating it if needed. The GenericInformer must be started
 // by calling Start on the DynamicDiscoverySharedInformerFactory before the GenericInformer can be used.
-func (d *DynamicDiscoverySharedInformerFactory) ForResource(gvr schema.GroupVersionResource) (kubernetesinformers.GenericInformer, error) {
+func (d *scopedDynamicDiscoverySharedInformerFactory) ForResource(gvr schema.GroupVersionResource) (informers.GenericInformer, error) {
+	clusterInformer, err := d.DynamicDiscoverySharedInformerFactory.ForResource(gvr)
+	if err != nil {
+		return nil, err
+	}
+	return clusterInformer.Cluster(d.cluster), nil
+}
+
+// ForResource returns the GenericInformer for gvr, creating it if needed. The GenericInformer must be started
+// by calling Start on the DynamicDiscoverySharedInformerFactory before the GenericInformer can be used.
+func (d *DynamicDiscoverySharedInformerFactory) ForResource(gvr schema.GroupVersionResource) (kcpkubernetesinformers.GenericClusterInformer, error) {
 	// See if we already have it
 	d.informersLock.RLock()
 	inf := d.informers[gvr]
@@ -212,7 +237,7 @@ func (d *DynamicDiscoverySharedInformerFactory) ForResource(gvr schema.GroupVers
 
 // informerForResourceLockHeld returns the GenericInformer for gvr, creating it if needed. The caller must have the write
 // lock before calling this method.
-func (d *DynamicDiscoverySharedInformerFactory) informerForResourceLockHeld(gvr schema.GroupVersionResource) kubernetesinformers.GenericInformer {
+func (d *DynamicDiscoverySharedInformerFactory) informerForResourceLockHeld(gvr schema.GroupVersionResource) kcpkubernetesinformers.GenericClusterInformer {
 	// In case it was created in between the initial check while the rlock was held and when the write lock was
 	// acquired, return it instead of creating a 2nd copy and overwriting.
 	inf := d.informers[gvr]
@@ -222,8 +247,10 @@ func (d *DynamicDiscoverySharedInformerFactory) informerForResourceLockHeld(gvr 
 
 	klog.V(2).Infof("Adding dynamic informer for %q", gvr)
 
-	// TODO(ncdc) remove NamespaceIndex when scoping is fully integrated
-	indexers := cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}
+	indexers := cache.Indexers{
+		kcpcache.ClusterIndexName:             kcpcache.ClusterIndexFunc,
+		kcpcache.ClusterAndNamespaceIndexName: kcpcache.ClusterAndNamespaceIndexFunc,
+	}
 
 	for k, v := range d.indexers {
 		if k == cache.NamespaceIndex {
@@ -235,10 +262,9 @@ func (d *DynamicDiscoverySharedInformerFactory) informerForResourceLockHeld(gvr 
 	}
 
 	// Definitely need to create it
-	inf = dynamicinformer.NewFilteredDynamicInformer(
+	inf = kcpdynamicinformer.NewFilteredDynamicInformer(
 		d.dynamicClient,
 		gvr,
-		corev1.NamespaceAll,
 		resyncPeriod,
 		indexers,
 		nil,
@@ -276,8 +302,8 @@ func (d *DynamicDiscoverySharedInformerFactory) informerForResourceLockHeld(gvr 
 //
 // If any informers aren't synced, their GVRs are returned so that they can be
 // checked and processed later.
-func (d *DynamicDiscoverySharedInformerFactory) Listers() (listers map[schema.GroupVersionResource]cache.GenericLister, notSynced []schema.GroupVersionResource) {
-	listers = map[schema.GroupVersionResource]cache.GenericLister{}
+func (d *DynamicDiscoverySharedInformerFactory) Listers() (listers map[schema.GroupVersionResource]kcpcache.GenericClusterLister, notSynced []schema.GroupVersionResource) {
+	listers = map[schema.GroupVersionResource]kcpcache.GenericClusterLister{}
 
 	d.informersLock.RLock()
 	defer d.informersLock.RUnlock()
@@ -389,25 +415,23 @@ func gvrFor(group, version, resource string) schema.GroupVersionResource {
 func builtInInformableTypes() map[schema.GroupVersionResource]struct{} {
 	// Hard-code built in types that support list+watch
 	latest := map[schema.GroupVersionResource]struct{}{
-		gvrFor("", "v1", "configmaps"):                                                   {},
-		gvrFor("", "v1", "events"):                                                       {},
-		gvrFor("", "v1", "limitranges"):                                                  {},
-		gvrFor("", "v1", "namespaces"):                                                   {},
-		gvrFor("", "v1", "resourcequotas"):                                               {},
-		gvrFor("", "v1", "secrets"):                                                      {},
-		gvrFor("", "v1", "serviceaccounts"):                                              {},
-		gvrFor("certificates.k8s.io", "v1", "certificatesigningrequests"):                {},
-		gvrFor("coordination.k8s.io", "v1", "leases"):                                    {},
-		gvrFor("rbac.authorization.k8s.io", "v1", "clusterroles"):                        {},
-		gvrFor("rbac.authorization.k8s.io", "v1", "clusterrolebindings"):                 {},
-		gvrFor("rbac.authorization.k8s.io", "v1", "roles"):                               {},
-		gvrFor("rbac.authorization.k8s.io", "v1", "rolebindings"):                        {},
-		gvrFor("flowcontrol.apiserver.k8s.io", "v1beta2", "flowschemas"):                 {},
-		gvrFor("flowcontrol.apiserver.k8s.io", "v1beta2", "prioritylevelconfigurations"): {},
-		gvrFor("events.k8s.io", "v1", "events"):                                          {},
-		gvrFor("admissionregistration.k8s.io", "v1", "mutatingwebhookconfigurations"):    {},
-		gvrFor("admissionregistration.k8s.io", "v1", "validatingwebhookconfigurations"):  {},
-		gvrFor("apiextensions.k8s.io", "v1", "customresourcedefinitions"):                {},
+		gvrFor("", "v1", "configmaps"):                                                  {},
+		gvrFor("", "v1", "events"):                                                      {},
+		gvrFor("", "v1", "limitranges"):                                                 {},
+		gvrFor("", "v1", "namespaces"):                                                  {},
+		gvrFor("", "v1", "resourcequotas"):                                              {},
+		gvrFor("", "v1", "secrets"):                                                     {},
+		gvrFor("", "v1", "serviceaccounts"):                                             {},
+		gvrFor("certificates.k8s.io", "v1", "certificatesigningrequests"):               {},
+		gvrFor("coordination.k8s.io", "v1", "leases"):                                   {},
+		gvrFor("rbac.authorization.k8s.io", "v1", "clusterroles"):                       {},
+		gvrFor("rbac.authorization.k8s.io", "v1", "clusterrolebindings"):                {},
+		gvrFor("rbac.authorization.k8s.io", "v1", "roles"):                              {},
+		gvrFor("rbac.authorization.k8s.io", "v1", "rolebindings"):                       {},
+		gvrFor("events.k8s.io", "v1", "events"):                                         {},
+		gvrFor("admissionregistration.k8s.io", "v1", "mutatingwebhookconfigurations"):   {},
+		gvrFor("admissionregistration.k8s.io", "v1", "validatingwebhookconfigurations"): {},
+		gvrFor("apiextensions.k8s.io", "v1", "customresourcedefinitions"):               {},
 	}
 
 	return latest
