@@ -19,10 +19,12 @@ package builder
 import (
 	"time"
 
+	kcprbacv1informers "github.com/kcp-dev/client-go/clients/informers/rbac/v1"
+	"github.com/kcp-dev/logicalcluster/v2"
+
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apiserver/pkg/authentication/user"
-	rbacinformers "k8s.io/client-go/informers/rbac/v1"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
@@ -47,7 +49,8 @@ type authCacheClusterWorkspaces struct {
 // CreateAndStartOrg creates an Org that contains all the required clients and caches to retrieve user workspaces inside an org
 // As part of an Org, a WorkspaceAuthCache is created and ensured to be started.
 func CreateAndStartOrg(
-	rbacInformers rbacinformers.Interface,
+	org logicalcluster.Name,
+	rbacInformers kcprbacv1informers.ClusterInterface,
 	clusterWorkspaceInformer tenancyinformers.ClusterWorkspaceInformer,
 	initialWatchers []workspaceauth.CacheWatcher,
 ) *authCacheClusterWorkspaces {
@@ -55,11 +58,12 @@ func CreateAndStartOrg(
 		workspaceauth.CacheTypeOrg,
 		clusterWorkspaceInformer.Lister(),
 		clusterWorkspaceInformer.Informer(),
-		workspaceauth.NewReviewer(frameworkrbac.NewSubjectLocator(rbacInformers)),
+		workspaceauth.NewReviewer(frameworkrbac.NewSubjectLocator(org, rbacInformers)),
 		*workspaceauth.NewAttributesBuilder().
 			Verb("get").
 			Resource(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces")).
 			AttributesRecord,
+		org,
 		rbacInformers,
 	)
 
