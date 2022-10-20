@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// +kcp-code-generator:skip
+
 package forwardingregistry
 
 import (
@@ -23,6 +25,7 @@ import (
 
 	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -112,7 +115,7 @@ func DefaultDynamicDelegatedStoreFuncs(
 			return nil, false, err
 		}
 
-		deleter, err := withDeleter(delegate)
+		deleter, err := dynamicextension.NewDeleterWithResults(delegate)
 		if err != nil {
 			return nil, false, err
 		}
@@ -146,7 +149,7 @@ func DefaultDynamicDelegatedStoreFuncs(
 			return nil, err
 		}
 
-		deleter, err := withDeleter(delegate)
+		deleter, err := dynamicextension.NewDeleterWithResults(delegate)
 		if err != nil {
 			return nil, err
 		}
@@ -261,13 +264,6 @@ func DefaultDynamicDelegatedStoreFuncs(
 	}
 	s.ResetFieldsStrategyFunc = strategy.GetResetFields
 	return s
-}
-
-func withDeleter(dynamicResourceInterface dynamic.ResourceInterface) (dynamicextension.ResourceInterface, error) {
-	if c, ok := dynamicResourceInterface.(dynamicextension.ResourceInterface); ok {
-		return c, nil
-	}
-	return nil, fmt.Errorf("dynamic client does not implement ResourceDeleterInterface")
 }
 
 func clientGetter(dynamicClusterClient kcpdynamic.ClusterInterface, namespaceScoped bool, resource schema.GroupVersionResource, apiExportIdentityHash string) func(ctx context.Context) (dynamic.ResourceInterface, error) {
