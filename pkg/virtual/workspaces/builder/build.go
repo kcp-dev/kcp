@@ -107,6 +107,7 @@ func BuildVirtualWorkspace(cfg *clientrest.Config, rootPathPrefix string, wildca
 					globalClusterWorkspaceCache = workspacecache.NewClusterWorkspaceCache(wildcardsClusterWorkspaces.Informer(), kcpClusterClient)
 
 					rootWorkspaceAuthorizationCache = workspaceauth.NewAuthorizationCache(
+						workspaceauth.CacheTypeRoot,
 						rootClusterWorkspaceInformer.Lister(),
 						rootClusterWorkspaceInformer.Informer(),
 						rootReviewer,
