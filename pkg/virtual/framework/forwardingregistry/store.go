@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"net/http"
 
+	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
+	"github.com/kcp-dev/logicalcluster/v2"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -72,12 +74,13 @@ func DefaultDynamicDelegatedStoreFuncs(
 	resource schema.GroupVersionResource,
 	apiExportIdentityHash string,
 	categories []string,
-	dynamicClusterClient dynamic.ClusterInterface,
+	dynamicClusterClient kcpdynamic.ClusterInterface,
 	subResources []string,
 	patchConflictRetryBackoff wait.Backoff,
 	stopWatchesCh <-chan struct{},
 ) *StoreFuncs {
 	client := clientGetter(dynamicClusterClient, strategy.NamespaceScoped(), resource, apiExportIdentityHash)
+	listerWatcher := listerWatcherGetter(dynamicClusterClient, strategy.NamespaceScoped(), resource, apiExportIdentityHash)
 	s := &StoreFuncs{}
 	s.FactoryFunc = factory
 	s.ListFactoryFunc = listFactory
@@ -162,7 +165,7 @@ func DefaultDynamicDelegatedStoreFuncs(
 			return nil, err
 		}
 
-		delegate, err := client(ctx)
+		delegate, err := listerWatcher(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -235,7 +238,7 @@ func DefaultDynamicDelegatedStoreFuncs(
 		if err := metainternalversion.Convert_internalversion_ListOptions_To_v1_ListOptions(options, &v1ListOptions, nil); err != nil {
 			return nil, err
 		}
-		delegate, err := client(ctx)
+		delegate, err := listerWatcher(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -267,7 +270,7 @@ func withDeleter(dynamicResourceInterface dynamic.ResourceInterface) (dynamicext
 	return nil, fmt.Errorf("dynamic client does not implement ResourceDeleterInterface")
 }
 
-func clientGetter(dynamicClusterClient dynamic.ClusterInterface, namespaceScoped bool, resource schema.GroupVersionResource, apiExportIdentityHash string) func(ctx context.Context) (dynamic.ResourceInterface, error) {
+func clientGetter(dynamicClusterClient kcpdynamic.ClusterInterface, namespaceScoped bool, resource schema.GroupVersionResource, apiExportIdentityHash string) func(ctx context.Context) (dynamic.ResourceInterface, error) {
 	return func(ctx context.Context) (dynamic.ResourceInterface, error) {
 		cluster, err := genericapirequest.ValidClusterFrom(ctx)
 		if err != nil {
@@ -286,6 +289,42 @@ func clientGetter(dynamicClusterClient dynamic.ClusterInterface, namespaceScoped
 				return nil, fmt.Errorf("there should be a Namespace context in a request for a namespaced resource: %s", gvr.String())
 			}
 		} else {
+			return dynamicClusterClient.Cluster(clusterName).Resource(gvr), nil
+		}
+	}
+}
+
+type listerWatcher interface {
+	List(ctx context.Context, opts metav1.ListOptions) (*unstructured.UnstructuredList, error)
+	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
+}
+
+func listerWatcherGetter(dynamicClusterClient kcpdynamic.ClusterInterface, namespaceScoped bool, resource schema.GroupVersionResource, apiExportIdentityHash string) func(ctx context.Context) (listerWatcher, error) {
+	return func(ctx context.Context) (listerWatcher, error) {
+		cluster, err := genericapirequest.ValidClusterFrom(ctx)
+		if err != nil {
+			return nil, err
+		}
+		gvr := resource
+		clusterName := cluster.Name
+		if apiExportIdentityHash != "" {
+			gvr.Resource += ":" + apiExportIdentityHash
+		}
+		namespace, namespaceSet := genericapirequest.NamespaceFrom(ctx)
+
+		switch clusterName {
+		case logicalcluster.Wildcard:
+			if namespaceScoped && namespaceSet && namespace != metav1.NamespaceAll {
+				return nil, fmt.Errorf("cross-cluster LIST and WATCH are required to be cross-namespace, not scoped to namespace %s", namespace)
+			}
+			return dynamicClusterClient.Resource(gvr), nil
+		default:
+			if namespaceScoped && !namespaceSet {
+				if !namespaceSet {
+					return nil, fmt.Errorf("there should be a Namespace context in a request for a namespaced resource: %s", gvr.String())
+				}
+				return dynamicClusterClient.Cluster(clusterName).Resource(gvr).Namespace(namespace), nil
+			}
 			return dynamicClusterClient.Cluster(clusterName).Resource(gvr), nil
 		}
 	}
