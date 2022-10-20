@@ -25,27 +25,4 @@ Here are what keys look like for an object `foo` for both cluster-scoped and nam
 
 ## Encoding/decoding keys
 
-### Encoding workspace keys
-
-To encode a key **for a workspace**, use `helper.WorkspaceKey(org, ws)`. Valid values for `org` are `root` and any
-organization workspace name (e.g. `my-org` from above).
-
-### Encoding all other keys
-
-To encode a key for anything else, use `clusters.ToClusterAwareKey(clusterName, name)`. If your object is namespace-scoped,
-you'll need to do `ns + "/" + clusters.ToClusterAwareKey(clusterName, name)`.
-
-### Decoding keys
-
-To decode a key, use `clusters.SplitClusterAwareKey(key)`.
-
-To decode a key for a cluster-scoped object, use it directly. To decode a key for a namespace-scoped object, do this:
-
-```go
-namespace, clusterNameAndName, err := cache.SplitMetaNamespaceKey(key)
-if err != nil {
- // handle error
-}
-
-clusterName, name := clusters.SplitClusterAwareKey(clusterNameAndName)
-```
+Use the `github.com/kcp-dev/apimachinery/pkg/cache` package to encode and decode keys.
