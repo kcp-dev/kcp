@@ -61,6 +61,7 @@ type testScenario struct {
 // scenarios all test scenarios that will be run against in-process and standalone cache server
 var scenarios = []testScenario{
 	{"TestReplicateAPIExport", replicateAPIExportScenario},
+	{"TestReplicateAPIResourceSchema", replicateAPIResourceSchemaScenario},
 }
 
 // baseScenario an auxiliary struct that is used by replicateResourceScenario
@@ -77,6 +78,41 @@ type baseScenario struct {
 	deleteSourceResource        func(logicalcluster.Name) error
 
 	getCachedResource func(logicalcluster.Name) (interface{}, error)
+}
+
+// replicateAPIResourceSchemaScenario tests if an APIResourceSchema is propagated to the cache server.
+// The test exercises creation, modification and removal of the APIExport object.
+func replicateAPIResourceSchemaScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterClient clientset.ClusterInterface, cacheKcpClusterClient clientset.ClusterInterface) {
+	replicateResourceScenario(t, baseScenario{
+		server:       server,
+		resourceName: "today.sheriffs.wild.wild.west",
+		resourceKind: "APIResourceSchema",
+		createSourceResource: func(cluster logicalcluster.Name) error {
+			apifixtures.CreateSheriffsSchemaAndExport(ctx, t, cluster, kcpShardClusterClient.Cluster(cluster), "wild.wild.west", "testing replication to the cache server")
+			return nil
+		},
+		getSourceResource: func(cluster logicalcluster.Name) (interface{}, error) {
+			return kcpShardClusterClient.Cluster(cluster).ApisV1alpha1().APIResourceSchemas().Get(ctx, "today.sheriffs.wild.wild.west", metav1.GetOptions{})
+		},
+		updateSourceResource: func(cluster logicalcluster.Name, res interface{}) (interface{}, error) {
+			apiResSchema, ok := res.(*apisv1alpha1.APIResourceSchema)
+			if !ok {
+				return nil, fmt.Errorf("%T is not *APIResourceSchema", res)
+			}
+			return kcpShardClusterClient.Cluster(cluster).ApisV1alpha1().APIResourceSchemas().Update(ctx, apiResSchema, metav1.UpdateOptions{})
+		},
+		updateSpecForSourceResource: func(res interface{}) error {
+			// no-op, spec of an APIResourceSchema is immutable
+			// there is an admission enforcing it
+			return nil
+		},
+		deleteSourceResource: func(cluster logicalcluster.Name) error {
+			return kcpShardClusterClient.Cluster(cluster).ApisV1alpha1().APIResourceSchemas().Delete(ctx, "today.sheriffs.wild.wild.west", metav1.DeleteOptions{})
+		},
+		getCachedResource: func(cluster logicalcluster.Name) (interface{}, error) {
+			return cacheKcpClusterClient.Cluster(cluster).ApisV1alpha1().APIResourceSchemas().Get(cacheclient.WithShardInContext(ctx, shard.New("root")), "today.sheriffs.wild.wild.west", metav1.GetOptions{})
+		},
+	})
 }
 
 // replicateAPIExportScenario tests if an APIExport is propagated to the cache server.
@@ -214,7 +250,7 @@ func verifyResourceUpdate(t *testing.T, scenario baseScenario, cluster logicalcl
 		if err != nil {
 			return false, err.Error()
 		}
-		t.Logf("Verify if both the orignal and replicated resources (%s/%s/%s) are the same except %s annotation and ResourceVersion after creation", scenario.resourceKind, cluster, scenario.resourceName, genericapirequest.AnnotationKey)
+		t.Logf("Verify if both the orignal and replicated resources (%s/%s/%s) are the same except %s annotation and ResourceVersion after modification", scenario.resourceKind, cluster, scenario.resourceName, genericapirequest.AnnotationKey)
 		cachedResourceMeta, err := meta.Accessor(cachedResource)
 		if err != nil {
 			return false, err.Error()
