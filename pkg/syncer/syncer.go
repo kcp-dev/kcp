@@ -222,7 +222,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 
 	logger.Info("Creating status syncer")
 	statusSyncer, err := status.NewStatusSyncer(logger, cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, advancedSchedulingEnabled,
-		upstreamDynamicClusterClient, downstreamDynamicClient, upstreamInformers, downstreamInformers, syncerInformers, syncTarget.GetUID())
+		upstreamDynamicClusterClient, downstreamDynamicClient, downstreamInformers, syncerInformers, syncTarget.GetUID())
 	if err != nil {
 		return err
 	}

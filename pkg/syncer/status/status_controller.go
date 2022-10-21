@@ -60,7 +60,7 @@ type Controller struct {
 }
 
 func NewStatusSyncer(syncerLogger logr.Logger, syncTargetWorkspace logicalcluster.Name, syncTargetName, syncTargetKey string, advancedSchedulingEnabled bool,
-	upstreamClient dynamic.ClusterInterface, downstreamClient dynamic.Interface, upstreamInformers, downstreamInformers dynamicinformer.DynamicSharedInformerFactory, syncerInformers resourcesync.SyncerInformerFactory, syncTargetUID types.UID) (*Controller, error) {
+	upstreamClient dynamic.ClusterInterface, downstreamClient dynamic.Interface, downstreamInformers dynamicinformer.DynamicSharedInformerFactory, syncerInformers resourcesync.SyncerInformerFactory, syncTargetUID types.UID) (*Controller, error) {
 
 	c := &Controller{
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
