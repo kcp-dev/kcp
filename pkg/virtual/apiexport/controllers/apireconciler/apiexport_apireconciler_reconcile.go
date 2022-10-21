@@ -80,6 +80,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 
 	// Find schemas for claimed resources
 	claims := map[schema.GroupResource]apisv1alpha1.PermissionClaim{}
+	claimsAPIBindings := false
 	for _, pc := range apiExport.Spec.PermissionClaims {
 		// APIExport resources have priority over claimed resources
 		gr := schema.GroupResource{Group: pc.Group, Resource: pc.Resource}
@@ -114,6 +115,11 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 				logger.Info("permission claim is for an unknown resource", "claim", pc)
 				continue
 			}
+
+			if pc.Resource == "apibindings" {
+				claimsAPIBindings = true
+			}
+
 			apiResourceSchemas[gr] = apisSchema
 			claims[gr] = pc
 			continue
@@ -217,6 +223,20 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 			}
 			newGVRs = append(newGVRs, gvrString(gvr))
 		}
+	}
+
+	if !claimsAPIBindings {
+		d, err := c.createAPIBindingAPIDefinition(ctx, clusterName, apiExport.Name)
+		if err != nil {
+			// TODO(ncdc): would be nice to expose some sort of user-visible error
+			logger.Error(err, "error creating api definition for apibindings")
+		}
+
+		gvr := apisv1alpha1.SchemeGroupVersion.WithResource("apibindings")
+		newSet[gvr] = apiResourceSchemaApiDefinition{
+			APIDefinition: d,
+		}
+		newGVRs = append(newGVRs, gvrString(gvr))
 	}
 
 	// cleanup old definitions

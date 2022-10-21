@@ -20,14 +20,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
-	"net/url"
 	"strings"
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
@@ -39,7 +36,6 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
 	virtualapiexportauth "github.com/kcp-dev/kcp/pkg/virtual/apiexport/authorizer"
 	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/controllers/apireconciler"
 	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/schemas"
@@ -66,42 +62,6 @@ func BuildVirtualWorkspace(
 	}
 
 	readyCh := make(chan struct{})
-
-	apiBindingsName := VirtualWorkspaceName + "-apibindings"
-	apiBindings := &virtualdynamic.DynamicVirtualWorkspace{
-		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, ctx context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
-			cluster, apiDomain, prefixToStrip, ok := digestUrl(urlPath, rootPathPrefix)
-			if !ok {
-				return false, "", ctx
-			}
-
-			if resourceURL := strings.TrimPrefix(urlPath, prefixToStrip); !isAPIBindingRequest(resourceURL) {
-				return false, "", ctx
-			}
-
-			completedContext = genericapirequest.WithCluster(ctx, cluster)
-			completedContext = dynamiccontext.WithAPIDomainKey(completedContext, apiDomain)
-			return true, prefixToStrip, completedContext
-		}),
-		Authorizer: newAuthorizer(kubeClusterClient, deepSARClient, wildcardKcpInformers),
-		ReadyChecker: framework.ReadyFunc(func() error {
-			select {
-			case <-readyCh:
-				return nil
-			default:
-				return errors.New("apiexport virtual workspace controllers are not started")
-			}
-		}),
-		BootstrapAPISetManagement: func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
-			return &apiSetRetriever{
-				config:               mainConfig,
-				dynamicClusterClient: dynamicClusterClient,
-				exposeSubresources:   true,
-				resource:             schemas.ApisKcpDevSchemas["apibindings"],
-				storageProvider:      provideAPIExportFilteredRestStorage,
-			}, nil
-		},
-	}
 
 	boundOrClaimedWorkspaceContent := &virtualdynamic.DynamicVirtualWorkspace{
 		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, ctx context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
@@ -150,6 +110,19 @@ func BuildVirtualWorkspace(
 						cancelFn:      cancelFn,
 					}, nil
 				},
+				func(ctx context.Context, clusterName logicalcluster.Name, apiExportName string) (apidefinition.APIDefinition, error) {
+					restProvider, err := provideAPIExportFilteredRestStorage(ctx, dynamicClusterClient, clusterName, apiExportName)
+					if err != nil {
+						return nil, err
+					}
+
+					return apiserver.CreateServingInfoFor(
+						mainConfig,
+						schemas.ApisKcpDevSchemas["apibindings"],
+						apisv1alpha1.SchemeGroupVersion.Version,
+						restProvider,
+					)
+				},
 			)
 			if err != nil {
 				return nil, err
@@ -180,19 +153,8 @@ func BuildVirtualWorkspace(
 	}
 
 	return []rootapiserver.NamedVirtualWorkspace{
-		{Name: VirtualWorkspaceName, VirtualWorkspace: boundOrClaimedWorkspaceContent}, // this must come first because a claim will show all bindings, not only those for the export
-		{Name: apiBindingsName, VirtualWorkspace: apiBindings},
+		{Name: VirtualWorkspaceName, VirtualWorkspace: boundOrClaimedWorkspaceContent},
 	}, nil
-}
-
-var resolver = requestinfo.NewFactory()
-
-func isAPIBindingRequest(path string) bool {
-	info, err := resolver.NewRequestInfo(&http.Request{URL: &url.URL{Path: path}})
-	if err != nil {
-		return false
-	}
-	return info.IsResourceRequest && info.APIGroup == apisv1alpha1.SchemeGroupVersion.Group && info.Resource == "apibindings"
 }
 
 func digestUrl(urlPath, rootPathPrefix string) (
@@ -248,47 +210,6 @@ func digestUrl(urlPath, rootPathPrefix string) (
 	key := fmt.Sprintf("%s/%s", apiExportClusterName, apiExportName)
 	return genericapirequest.Cluster{Name: clusterName, Wildcard: clusterName == logicalcluster.Wildcard}, dynamiccontext.APIDomainKey(key), strings.TrimSuffix(urlPath, realPath), true
 }
-
-type apiSetRetriever struct {
-	config               genericapiserver.CompletedConfig
-	dynamicClusterClient dynamic.ClusterInterface
-	resource             *apisv1alpha1.APIResourceSchema
-	exposeSubresources   bool
-	storageProvider      func(ctx context.Context, clusterClient dynamic.ClusterInterface, exportCluster logicalcluster.Name, exportName string) (apiserver.RestProviderFunc, error)
-}
-
-func (a *apiSetRetriever) GetAPIDefinitionSet(ctx context.Context, key dynamiccontext.APIDomainKey) (apis apidefinition.APIDefinitionSet, apisExist bool, err error) {
-	comps := strings.SplitN(string(key), "/", 2)
-	if len(comps) != 2 {
-		return nil, false, fmt.Errorf("invalid key: %s", key)
-	}
-	restProvider, err := a.storageProvider(ctx, a.dynamicClusterClient, logicalcluster.New(comps[0]), comps[1])
-	if err != nil {
-		return nil, false, err
-	}
-
-	apiDefinition, err := apiserver.CreateServingInfoFor(
-		a.config,
-		a.resource,
-		apisv1alpha1.SchemeGroupVersion.Version,
-		restProvider,
-	)
-	if err != nil {
-		return nil, false, fmt.Errorf("failed to create serving info: %w", err)
-	}
-
-	apis = apidefinition.APIDefinitionSet{
-		schema.GroupVersionResource{
-			Group:    apisv1alpha1.SchemeGroupVersion.Group,
-			Version:  apisv1alpha1.SchemeGroupVersion.Version,
-			Resource: "apibindings",
-		}: apiDefinition,
-	}
-
-	return apis, len(apis) > 0, nil
-}
-
-var _ apidefinition.APIDefinitionSetGetter = &apiSetRetriever{}
 
 func newAuthorizer(kubeClusterClient, deepSARClient kubernetesclient.ClusterInterface, kcpinformers kcpinformers.SharedInformerFactory) authorizer.Authorizer {
 	maximalPermissionAuth := virtualapiexportauth.NewMaximalPermissionAuthorizer(deepSARClient, kcpinformers.Apis().V1alpha1().APIExports(), kcpinformers.Apis().V1alpha1().APIBindings())

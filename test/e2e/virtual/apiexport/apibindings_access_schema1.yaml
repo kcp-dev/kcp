@@ -1,0 +1,39 @@
+apiVersion: apis.kcp.dev/v1alpha1
+kind: APIResourceSchema
+metadata:
+  name: v1.widgets.example.io
+spec:
+  group: example.io
+  names:
+    kind: Widget
+    listKind: WidgetList
+    plural: widgets
+    singular: widget
+  scope: Cluster
+  versions:
+  - name: v1
+    schema:
+      properties:
+        apiVersion:
+          type: string
+        kind:
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            firstName:
+              type: string
+            lastName:
+              type: string
+          type: object
+        status:
+          properties:
+            phase:
+              type: string
+          type: object
+      type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

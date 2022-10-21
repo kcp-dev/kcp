@@ -24,6 +24,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	"github.com/kcp-dev/logicalcluster/v2"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -57,6 +58,7 @@ func NewAPIReconciler(
 	apiResourceSchemaInformer apisinformers.APIResourceSchemaInformer,
 	apiExportInformer apisinformers.APIExportInformer,
 	createAPIDefinition CreateAPIDefinitionFunc,
+	createAPIBindingAPIDefinition func(ctx context.Context, clusterName logicalcluster.Name, apiExportName string) (apidefinition.APIDefinition, error),
 ) (*APIReconciler, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
@@ -71,7 +73,8 @@ func NewAPIReconciler(
 
 		queue: queue,
 
-		createAPIDefinition: createAPIDefinition,
+		createAPIDefinition:           createAPIDefinition,
+		createAPIBindingAPIDefinition: createAPIBindingAPIDefinition,
 
 		apiSets: map[dynamiccontext.APIDomainKey]apidefinition.APIDefinitionSet{},
 	}
@@ -123,7 +126,8 @@ type APIReconciler struct {
 
 	queue workqueue.RateLimitingInterface
 
-	createAPIDefinition CreateAPIDefinitionFunc
+	createAPIDefinition           CreateAPIDefinitionFunc
+	createAPIBindingAPIDefinition func(ctx context.Context, clusterName logicalcluster.Name, apiExportName string) (apidefinition.APIDefinition, error)
 
 	mutex   sync.RWMutex // protects the map, not the values!
 	apiSets map[dynamiccontext.APIDomainKey]apidefinition.APIDefinitionSet

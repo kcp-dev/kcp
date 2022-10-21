@@ -1,0 +1,7 @@
+apiVersion: apis.kcp.dev/v1alpha1
+kind: APIExport
+metadata:
+  name: export2
+spec:
+  latestResourceSchemas:
+  - v1.widgets.anotherexample.io
