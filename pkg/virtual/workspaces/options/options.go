@@ -17,7 +17,9 @@ limitations under the License.
 package options
 
 import (
+	"fmt"
 	"path"
+	"time"
 
 	"github.com/spf13/pflag"
 
@@ -31,16 +33,44 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/builder"
 )
 
-type Workspaces struct{}
+type Workspaces struct {
+	AuthorizationCache AuthorizationCache
+}
+
+// AuthorizationCache contains options for the authorization caches in the workspaces service.
+type AuthorizationCache struct {
+	Period       time.Duration
+	JitterFactor float64
+	Sliding      bool
+}
 
 func New() *Workspaces {
-	return &Workspaces{}
+	return &Workspaces{
+		AuthorizationCache: AuthorizationCache{
+			Period:       1 * time.Minute,
+			JitterFactor: 0,    // use the default
+			Sliding:      true, // take into account processing time
+		},
+	}
 }
+
+const workspacesPrefix = "workspaces."
+const authorizationCachePrefix = "authorization-cache."
 
 func (o *Workspaces) AddFlags(flags *pflag.FlagSet, prefix string) {
 	if o == nil {
 		return
 	}
+	o.AuthorizationCache.AddFlags(flags, prefix+workspacesPrefix+authorizationCachePrefix)
+}
+
+func (o *AuthorizationCache) AddFlags(flags *pflag.FlagSet, prefix string) {
+	if o == nil {
+		return
+	}
+	flags.DurationVar(&o.Period, prefix+"resync-period", o.Period, "Period for cache re-sync.")
+	flags.Float64Var(&o.JitterFactor, prefix+"jitter-factor", o.JitterFactor, "Jitter factor for cache re-sync. Leave unset to use a default factor.")
+	flags.BoolVar(&o.Sliding, prefix+"sliding", o.Sliding, "Whether or not to take into account sync duration in period calculations.")
 }
 
 func (o *Workspaces) Validate(flagPrefix string) []error {
@@ -48,7 +78,19 @@ func (o *Workspaces) Validate(flagPrefix string) []error {
 		return nil
 	}
 	errs := []error{}
+	errs = append(errs, o.AuthorizationCache.Validate(flagPrefix+workspacesPrefix+authorizationCachePrefix)...)
 
+	return errs
+}
+
+func (o *AuthorizationCache) Validate(flagPrefix string) []error {
+	var errs []error
+	if o.Period == 0 {
+		errs = append(errs, fmt.Errorf("--%sresync-period cannot be 0", flagPrefix))
+	}
+	if o.JitterFactor < 0 {
+		errs = append(errs, fmt.Errorf("--%sjitter-factor cannot be less than 0", flagPrefix))
+	}
 	return errs
 }
 
@@ -69,6 +111,6 @@ func (o *Workspaces) NewVirtualWorkspaces(
 	}
 
 	return []rootapiserver.NamedVirtualWorkspace{
-		{Name: "workspaces", VirtualWorkspace: builder.BuildVirtualWorkspace(config, path.Join(rootPathPrefix, "workspaces"), wildcardKcpInformers.Tenancy().V1alpha1().ClusterWorkspaces(), wildcardKubeInformers.Rbac().V1(), kubeClusterClient, kcpClusterClient)},
+		{Name: "workspaces", VirtualWorkspace: builder.BuildVirtualWorkspace(config, path.Join(rootPathPrefix, "workspaces"), wildcardKcpInformers.Tenancy().V1alpha1().ClusterWorkspaces(), wildcardKubeInformers.Rbac().V1(), kubeClusterClient, kcpClusterClient, o.AuthorizationCache.Period, o.AuthorizationCache.JitterFactor, o.AuthorizationCache.Sliding)},
 	}, nil
 }
