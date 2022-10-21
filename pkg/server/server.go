@@ -118,6 +118,9 @@ func (s *Server) Run(ctx context.Context) error {
 	hookName := "kcp-start-informers"
 	if err := s.AddPostStartHook(hookName, func(hookContext genericapiserver.PostStartHookContext) error {
 		logger := logger.WithValues("postStartHook", hookName)
+		ctx = klog.NewContext(ctx, logger)
+
+		logger.Info("starting kube informers")
 		s.KubeSharedInformerFactory.Start(hookContext.StopCh)
 		s.ApiExtensionsSharedInformerFactory.Start(hookContext.StopCh)
 
@@ -132,6 +135,7 @@ func (s *Server) Run(ctx context.Context) error {
 
 		logger.Info("finished starting kube informers")
 
+		logger.Info("bootstrapping system CRDs")
 		if err := wait.PollInfiniteWithContext(goContext(hookContext), time.Second, func(ctx context.Context) (bool, error) {
 			if err := systemcrds.Bootstrap(ctx,
 				s.ApiExtensionsClusterClient.Cluster(SystemCRDLogicalCluster),
@@ -139,7 +143,7 @@ func (s *Server) Run(ctx context.Context) error {
 				s.DynamicClusterClient.Cluster(SystemCRDLogicalCluster),
 				sets.NewString(s.Options.Extra.BatteriesIncluded...),
 			); err != nil {
-				logger.Error(err, "failed to bootstrap system CRDs")
+				logger.Error(err, "failed to bootstrap system CRDs, retrying")
 				return false, nil // keep trying
 			}
 			return true, nil
@@ -149,6 +153,7 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 		logger.Info("finished bootstrapping system CRDs")
 
+		logger.Info("bootstrapping the shard workspace")
 		if err := wait.PollInfiniteWithContext(goContext(hookContext), time.Second, func(ctx context.Context) (bool, error) {
 			if err := configshard.Bootstrap(ctx,
 				s.ApiExtensionsClusterClient.Cluster(configshard.SystemShardCluster).Discovery(),
@@ -168,6 +173,7 @@ func (s *Server) Run(ctx context.Context) error {
 		go s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().Run(hookContext.StopCh)
 		go s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().Run(hookContext.StopCh)
 
+		logger.Info("starting APIExport and APIBinding informers")
 		if err := wait.PollInfiniteWithContext(goContext(hookContext), time.Millisecond*100, func(ctx context.Context) (bool, error) {
 			exportsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
 			bindingsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced()
@@ -179,6 +185,7 @@ func (s *Server) Run(ctx context.Context) error {
 		logger.Info("finished starting APIExport and APIBinding informers")
 
 		if s.Options.Extra.ShardName == tenancyv1alpha1.RootShard {
+			logger.Info("bootstrapping root workspace phase 0")
 			// bootstrap root workspace phase 0 only if we are on the root shard, no APIBinding resources yet
 			if err := configrootphase0.Bootstrap(goContext(hookContext),
 				s.KcpClusterClient.Cluster(tenancyv1alpha1.RootCluster),

@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// +kcp-code-generator:skip
+
 package framework
 
 import (
@@ -26,7 +28,7 @@ import (
 	"testing"
 	"time"
 
-	kcpdynamic "github.com/kcp-dev/apimachinery/pkg/dynamic"
+	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
@@ -210,7 +212,7 @@ func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 			}
 		}
 
-		upstreamClusterDynamic, err := kcpdynamic.NewClusterDynamicClientForConfig(upstreamCfg)
+		upstreamClusterDynamic, err := kcpdynamic.NewForConfig(upstreamCfg)
 		require.NoError(t, err, "error creating upstream dynamic client")
 
 		downstreamDynamic, err := dynamic.NewForConfig(downstreamConfig)

@@ -48,17 +48,17 @@ func (s *AdmissionWebhookServer) StartTLS(t *testing.T, certFile, keyFile string
 
 	serv := &http.Server{Addr: fmt.Sprintf(":%v", port), Handler: s}
 	t.Cleanup(func() {
-		fmt.Printf("Shutting down the HTTP server")
+		t.Log("Shutting down the HTTP server")
 		err := serv.Shutdown(context.TODO())
 		if err != nil {
-			fmt.Printf("unable to shutdown server gracefully err: %v", err)
+			t.Logf("unable to shutdown server gracefully err: %v", err)
 		}
 	})
 
 	go func() {
 		err := serv.ListenAndServeTLS(certFile, keyFile)
 		if err != nil && err != http.ErrServerClosed {
-			fmt.Printf("unable to shutdown server gracefully err: %v", err)
+			t.Logf("unable to shutdown server gracefully err: %v", err)
 		}
 	}()
 }

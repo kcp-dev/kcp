@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
@@ -29,7 +30,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	kubernetesclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -44,7 +44,7 @@ func TestWorkspaceDeletionController(t *testing.T) {
 	type runningServer struct {
 		framework.RunningServer
 		kcpClusterClient  clientset.Interface
-		kubeClusterClient kubernetesclientset.Interface
+		kubeClusterClient kcpkubernetesclientset.ClusterInterface
 	}
 
 	testCases := []struct {
@@ -89,12 +89,12 @@ func TestWorkspaceDeletionController(t *testing.T) {
 
 				t.Logf("Wait for default namespace to be created")
 				framework.Eventually(t, func() (bool, string) {
-					_, err := server.kubeClusterClient.CoreV1().Namespaces().Get(logicalcluster.WithCluster(ctx, workspaceCluster), "default", metav1.GetOptions{})
+					_, err := server.kubeClusterClient.Cluster(workspaceCluster).CoreV1().Namespaces().Get(ctx, "default", metav1.GetOptions{})
 					return err == nil, fmt.Sprintf("%v", err)
 				}, wait.ForeverTestTimeout, 100*time.Millisecond, "default namespace was never created")
 
 				t.Logf("Delete default ns should be forbidden")
-				err = server.kubeClusterClient.CoreV1().Namespaces().Delete(logicalcluster.WithCluster(ctx, workspaceCluster), metav1.NamespaceDefault, metav1.DeleteOptions{})
+				err = server.kubeClusterClient.Cluster(workspaceCluster).CoreV1().Namespaces().Delete(ctx, metav1.NamespaceDefault, metav1.DeleteOptions{})
 				if !apierrors.IsForbidden(err) {
 					t.Fatalf("expect default namespace deletion to be forbidden")
 				}
@@ -111,7 +111,7 @@ func TestWorkspaceDeletionController(t *testing.T) {
 					},
 				}
 
-				configmap, err = server.kubeClusterClient.CoreV1().ConfigMaps(metav1.NamespaceDefault).Create(logicalcluster.WithCluster(ctx, workspaceCluster), configmap, metav1.CreateOptions{})
+				configmap, err = server.kubeClusterClient.Cluster(workspaceCluster).CoreV1().ConfigMaps(metav1.NamespaceDefault).Create(ctx, configmap, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create configmap in workspace %s", workspace.Name)
 
 				t.Logf("Create a namespace in the workspace")
@@ -120,7 +120,7 @@ func TestWorkspaceDeletionController(t *testing.T) {
 						Name: "test",
 					},
 				}
-				_, err = server.kubeClusterClient.CoreV1().Namespaces().Create(logicalcluster.WithCluster(ctx, workspaceCluster), ns, metav1.CreateOptions{})
+				_, err = server.kubeClusterClient.Cluster(workspaceCluster).CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create ns in workspace %s", workspace.Name)
 
 				err = server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Delete(logicalcluster.WithCluster(ctx, orgClusterName), workspace.Name, metav1.DeleteOptions{})
@@ -138,12 +138,12 @@ func TestWorkspaceDeletionController(t *testing.T) {
 
 				t.Logf("Clean finalizer to remove the configmap")
 				err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-					configmap, err = server.kubeClusterClient.CoreV1().ConfigMaps(metav1.NamespaceDefault).Get(logicalcluster.WithCluster(ctx, workspaceCluster), configmap.Name, metav1.GetOptions{})
+					configmap, err = server.kubeClusterClient.Cluster(workspaceCluster).CoreV1().ConfigMaps(metav1.NamespaceDefault).Get(ctx, configmap.Name, metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
 					configmap.Finalizers = []string{}
-					_, err := server.kubeClusterClient.CoreV1().ConfigMaps(metav1.NamespaceDefault).Update(logicalcluster.WithCluster(ctx, workspaceCluster), configmap, metav1.UpdateOptions{})
+					_, err := server.kubeClusterClient.Cluster(workspaceCluster).CoreV1().ConfigMaps(metav1.NamespaceDefault).Update(ctx, configmap, metav1.UpdateOptions{})
 					return err
 				})
 				require.NoError(t, err, "failed to update configmap in workspace %s", workspace.Name)
@@ -157,13 +157,13 @@ func TestWorkspaceDeletionController(t *testing.T) {
 				t.Logf("Finally check if all resources has been removed")
 
 				// Note: we have to access the shard direction to access a logical cluster without workspace
-				rootShardKubeClusterClient, err := kubernetesclientset.NewForConfig(server.RunningServer.RootShardSystemMasterBaseConfig(t))
+				rootShardKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(server.RunningServer.RootShardSystemMasterBaseConfig(t))
 
-				nslist, err := rootShardKubeClusterClient.CoreV1().Namespaces().List(logicalcluster.WithCluster(ctx, workspaceCluster), metav1.ListOptions{})
+				nslist, err := rootShardKubeClusterClient.Cluster(workspaceCluster).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 				require.NoError(t, err, "failed to list namespaces in workspace %s", workspace.Name)
 				require.Equal(t, 0, len(nslist.Items))
 
-				cmlist, err := rootShardKubeClusterClient.CoreV1().ConfigMaps(metav1.NamespaceAll).List(logicalcluster.WithCluster(ctx, workspaceCluster), metav1.ListOptions{})
+				cmlist, err := rootShardKubeClusterClient.Cluster(workspaceCluster).CoreV1().ConfigMaps(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
 				require.NoError(t, err, "failed to list configmaps in workspace %s", workspace.Name)
 				require.Equal(t, 0, len(cmlist.Items))
 			},
@@ -199,17 +199,17 @@ func TestWorkspaceDeletionController(t *testing.T) {
 					},
 				}
 
-				_, err := server.kubeClusterClient.CoreV1().Namespaces().Create(logicalcluster.WithCluster(ctx, workspaceClusterName), ns, metav1.CreateOptions{})
+				_, err := server.kubeClusterClient.Cluster(workspaceClusterName).CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create ns in workspace %s", workspaceClusterName)
 
-				_, err = server.kubeClusterClient.CoreV1().Namespaces().Create(logicalcluster.WithCluster(ctx, orgClusterName), ns, metav1.CreateOptions{})
+				_, err = server.kubeClusterClient.Cluster(orgClusterName).CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create ns in workspace %s", orgClusterName)
 
 				// get clients for the right shards. We have to access the shards directly to see object (Namespace and ClusterWorkspace) deletion
 				// without being stopped at the (front-proxy) gate because the parent workspace is already gone.
 				rootShardKcpClusterClient, err := clientset.NewForConfig(server.RunningServer.RootShardSystemMasterBaseConfig(t))
 				require.NoError(t, err, "failed to create kcp client for root shard")
-				rootShardKubeClusterClient, err := kubernetesclientset.NewForConfig(server.RunningServer.RootShardSystemMasterBaseConfig(t))
+				rootShardKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(server.RunningServer.RootShardSystemMasterBaseConfig(t))
 				require.NoError(t, err, "failed to create kube client for root shard")
 
 				t.Logf("Delete org workspace")
@@ -218,7 +218,7 @@ func TestWorkspaceDeletionController(t *testing.T) {
 
 				t.Logf("Ensure namespace in the workspace is deleted")
 				require.Eventually(t, func() bool {
-					nslist, err := rootShardKubeClusterClient.CoreV1().Namespaces().List(logicalcluster.WithCluster(ctx, workspaceClusterName), metav1.ListOptions{})
+					nslist, err := rootShardKubeClusterClient.Cluster(workspaceClusterName).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 					if err != nil {
 						return false
 					}
@@ -228,7 +228,7 @@ func TestWorkspaceDeletionController(t *testing.T) {
 
 				t.Logf("Ensure namespace in the org workspace is deleted")
 				require.Eventually(t, func() bool {
-					nslist, err := rootShardKubeClusterClient.CoreV1().Namespaces().List(logicalcluster.WithCluster(ctx, orgClusterName), metav1.ListOptions{})
+					nslist, err := rootShardKubeClusterClient.Cluster(orgClusterName).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 					if err != nil {
 						return false
 					}
@@ -272,7 +272,7 @@ func TestWorkspaceDeletionController(t *testing.T) {
 			kcpClusterClient, err := clientset.NewForConfig(cfg)
 			require.NoError(t, err, "failed to construct client for server")
 
-			kubeClusterClient, err := kubernetesclientset.NewForConfig(cfg)
+			kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 			require.NoError(t, err, "failed to construct kube client for server")
 
 			testCase.work(ctx, t, runningServer{

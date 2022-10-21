@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// +kcp-code-generator:skip
+
 package rbac
 
 import (
@@ -24,7 +26,8 @@ import (
 	rbacinformers "k8s.io/client-go/informers/rbac/v1"
 	rbaclisters "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
+
+	"github.com/kcp-dev/kcp/pkg/client"
 )
 
 func FilterInformers(clusterName logicalcluster.Name, informers rbacinformers.Interface) rbacinformers.Interface {
@@ -102,8 +105,8 @@ func (l *filteredClusterRoleBindingLister) List(selector labels.Selector) (ret [
 }
 
 func (l *filteredClusterRoleBindingLister) Get(name string) (*rbacv1.ClusterRoleBinding, error) {
-	if clusterName, _ := clusters.SplitClusterAwareKey(name); clusterName.Empty() {
-		name = clusters.ToClusterAwareKey(l.clusterName, name)
+	if clusterName, _ := client.SplitClusterAwareKey(name); clusterName.Empty() {
+		name = client.ToClusterAwareKey(l.clusterName, name)
 	}
 	return l.lister.Get(name)
 }
@@ -153,8 +156,8 @@ func (l *filteredClusterRoleLister) List(selector labels.Selector) (ret []*rbacv
 }
 
 func (l *filteredClusterRoleLister) Get(name string) (*rbacv1.ClusterRole, error) {
-	if clusterName, _ := clusters.SplitClusterAwareKey(name); clusterName.Empty() {
-		name = clusters.ToClusterAwareKey(l.clusterName, name)
+	if clusterName, _ := client.SplitClusterAwareKey(name); clusterName.Empty() {
+		name = client.ToClusterAwareKey(l.clusterName, name)
 	}
 	return l.lister.Get(name)
 }
@@ -230,8 +233,8 @@ func (l *filteredRoleBindingNamespaceLister) List(selector labels.Selector) (ret
 }
 
 func (l *filteredRoleBindingNamespaceLister) Get(name string) (*rbacv1.RoleBinding, error) {
-	if clusterName, _ := clusters.SplitClusterAwareKey(name); clusterName.Empty() {
-		name = clusters.ToClusterAwareKey(l.clusterName, name)
+	if clusterName, _ := client.SplitClusterAwareKey(name); clusterName.Empty() {
+		name = client.ToClusterAwareKey(l.clusterName, name)
 	}
 	return l.lister.Get(name)
 }
@@ -307,8 +310,8 @@ func (l *filteredRoleNamespaceLister) List(selector labels.Selector) (ret []*rba
 }
 
 func (l *filteredRoleNamespaceLister) Get(name string) (*rbacv1.Role, error) {
-	if clusterName, _ := clusters.SplitClusterAwareKey(name); clusterName.Empty() {
-		name = clusters.ToClusterAwareKey(l.clusterName, name)
+	if clusterName, _ := client.SplitClusterAwareKey(name); clusterName.Empty() {
+		name = client.ToClusterAwareKey(l.clusterName, name)
 	}
 	return l.lister.Get(name)
 }

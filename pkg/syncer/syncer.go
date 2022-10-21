@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// +kcp-code-generator:skip
+
 package syncer
 
 import (
@@ -25,6 +27,8 @@ import (
 	"os"
 	"time"
 
+	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
+	kcpdynamicinformer "github.com/kcp-dev/client-go/clients/dynamic/dynamicinformer"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -149,7 +153,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	downstreamConfig := rest.CopyConfig(cfg.DownstreamConfig)
 	downstreamConfig.UserAgent = "kcp#status-syncer/" + kcpVersion
 
-	upstreamDynamicClusterClient, err := dynamic.NewClusterForConfig(upstreamConfig)
+	upstreamDynamicClusterClient, err := kcpdynamic.NewForConfig(upstreamConfig)
 	if err != nil {
 		return err
 	}
@@ -166,7 +170,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	logger = logger.WithValues(SyncTargetKey, syncTargetKey)
 	ctx = klog.NewContext(ctx, logger)
 
-	upstreamInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(upstreamDynamicClusterClient.Cluster(logicalcluster.Wildcard), resyncPeriod, metav1.NamespaceAll, func(o *metav1.ListOptions) {
+	upstreamInformers := kcpdynamicinformer.NewFilteredDynamicSharedInformerFactory(upstreamDynamicClusterClient, resyncPeriod, func(o *metav1.ListOptions) {
 		o.LabelSelector = workloadv1alpha1.ClusterResourceStateLabelPrefix + syncTargetKey + "=" + string(workloadv1alpha1.ResourceStateSync)
 	})
 	downstreamInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactoryWithOptions(downstreamDynamicClient, metav1.NamespaceAll, func(o *metav1.ListOptions) {

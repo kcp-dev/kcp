@@ -18,19 +18,41 @@ package server
 
 import (
 	"context"
+	"fmt"
+
+	"github.com/kcp-dev/logicalcluster/v2"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionslisters "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/kcp"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/clusters"
+	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/cache/server/bootstrap"
+	"github.com/kcp-dev/kcp/pkg/client"
 )
+
+// crdClusterLister is a CRD lister
+type crdClusterLister struct {
+	lister apiextensionslisters.CustomResourceDefinitionLister
+}
+
+func (c *crdClusterLister) Cluster(name logicalcluster.Name) kcp.ClusterAwareCRDLister {
+	if name != bootstrap.SystemCRDLogicalCluster {
+		klog.Background().Error(fmt.Errorf("cluster-unaware crd lister got asked for %v cluster", name), "programmer error")
+	}
+	return &crdLister{
+		crdClusterLister: c,
+		cluster:          bootstrap.SystemCRDLogicalCluster,
+	}
+}
+
+var _ kcp.ClusterAwareCRDClusterLister = &crdClusterLister{}
 
 // crdLister is a CRD lister
 type crdLister struct {
-	lister apiextensionslisters.CustomResourceDefinitionLister
+	*crdClusterLister
+	cluster logicalcluster.Name
 }
 
 var _ kcp.ClusterAwareCRDLister = &crdLister{}
@@ -48,5 +70,5 @@ func (c *crdLister) Refresh(crd *apiextensionsv1.CustomResourceDefinition) (*api
 // Get gets a CustomResourceDefinition
 func (c *crdLister) Get(ctx context.Context, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 	// TODO: make it shard and cluster aware, for now just return what we have in the system ws
-	return c.lister.Get(clusters.ToClusterAwareKey(bootstrap.SystemCRDLogicalCluster, name))
+	return c.lister.Get(client.ToClusterAwareKey(c.cluster, name))
 }

@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// +kcp-code-generator:skip
+
 package plugin
 
 import (
@@ -47,7 +49,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
-	kubernetesclient "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	"k8s.io/kube-openapi/pkg/util/sets"
@@ -412,7 +414,7 @@ func (o *SyncOptions) enableSyncerForWorkspace(ctx context.Context, config *rest
 		return "", "", "", fmt.Errorf("failed to apply synctarget %q: %w", syncTargetName, err)
 	}
 
-	kubeClient, err := kubernetesclient.NewForConfig(config)
+	kubeClient, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return "", "", "", fmt.Errorf("failed to create kubernetes client: %w", err)
 	}

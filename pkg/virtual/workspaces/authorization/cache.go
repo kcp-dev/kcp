@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// +kcp-code-generator:skip
+
 package authorization
 
 import (
@@ -23,6 +25,8 @@ import (
 	"time"
 
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcprbacv1informers "github.com/kcp-dev/client-go/clients/informers/rbac/v1"
+	"github.com/kcp-dev/logicalcluster/v2"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
@@ -33,13 +37,12 @@ import (
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
-	rbacinformers "k8s.io/client-go/informers/rbac/v1"
-	rbaclisters "k8s.io/client-go/listers/rbac/v1"
+	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/client"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/authorization/metrics"
 	workspaceutil "github.com/kcp-dev/kcp/pkg/virtual/workspaces/util"
@@ -133,17 +136,17 @@ func (s *neverSkipSynchronizer) SkipSynchronize(prevState string, versionedObjec
 }
 
 type SyncedClusterRoleLister interface {
-	rbaclisters.ClusterRoleLister
+	rbacv1listers.ClusterRoleLister
 	LastSyncResourceVersioner
 }
 
 type SyncedClusterRoleBindingLister interface {
-	rbaclisters.ClusterRoleBindingLister
+	rbacv1listers.ClusterRoleBindingLister
 	LastSyncResourceVersioner
 }
 
 type syncedClusterRoleLister struct {
-	rbaclisters.ClusterRoleLister
+	rbacv1listers.ClusterRoleLister
 	versioner LastSyncResourceVersioner
 }
 
@@ -152,7 +155,7 @@ func (l syncedClusterRoleLister) LastSyncResourceVersion() string {
 }
 
 type syncedClusterRoleBindingLister struct {
-	rbaclisters.ClusterRoleBindingLister
+	rbacv1listers.ClusterRoleBindingLister
 	versioner LastSyncResourceVersioner
 }
 
@@ -209,14 +212,15 @@ func NewAuthorizationCache(
 	workspaceLastSyncResourceVersioner LastSyncResourceVersioner,
 	reviewer *Reviewer,
 	reviewTemplate authorizer.AttributesRecord,
-	informers rbacinformers.Interface,
+	clusterName logicalcluster.Name,
+	informers kcprbacv1informers.ClusterInterface,
 ) *AuthorizationCache {
 	scrLister := syncedClusterRoleLister{
-		informers.ClusterRoles().Lister(),
+		informers.ClusterRoles().Lister().Cluster(clusterName),
 		informers.ClusterRoles().Informer(),
 	}
 	scrbLister := syncedClusterRoleBindingLister{
-		informers.ClusterRoleBindings().Lister(),
+		informers.ClusterRoleBindings().Lister().Cluster(clusterName),
 		informers.ClusterRoleBindings().Informer(),
 	}
 	metrics.AuthorizationCaches.WithLabelValues(string(cacheType)).Inc()
@@ -432,7 +436,7 @@ func (ac *AuthorizationCache) syncRequest(request *reviewRequest, userSubjectRec
 	reviewAttributes := ac.reviewTemplate
 
 	// And set the resource name on it
-	_, workspaceName := clusters.SplitClusterAwareKey(workspace)
+	_, workspaceName := client.SplitClusterAwareKey(workspace)
 	reviewAttributes.Name = workspaceName
 
 	review := ac.reviewer.Review(reviewAttributes)
@@ -613,7 +617,7 @@ func addSubjectsToWorkspace(subjectRecordStore cache.Store, subjects []string, w
 }
 
 func (ac *AuthorizationCache) notifyWatchers(workspaceKey string, exists *reviewRecord, users, groups sets.String) {
-	_, workspaceName := clusters.SplitClusterAwareKey(workspaceKey)
+	_, workspaceName := client.SplitClusterAwareKey(workspaceKey)
 	ac.watcherLock.Lock()
 	defer ac.watcherLock.Unlock()
 	for _, watcher := range ac.watchers {

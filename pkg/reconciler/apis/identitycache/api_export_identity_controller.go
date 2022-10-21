@@ -22,16 +22,15 @@ import (
 	"time"
 
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
+	kcpcorev1informers "github.com/kcp-dev/client-go/clients/informers/core/v1"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	coreinformers "k8s.io/client-go/informers/core/v1"
-	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
@@ -58,9 +57,9 @@ const (
 // The config map is meant to be used by clients/informers to inject the identities
 // for the given GRs when making requests to the server.
 func NewApiExportIdentityProviderController(
-	kubeClusterClient kubernetesclient.ClusterInterface,
+	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	remoteShardApiExportInformer apisinformers.APIExportInformer,
-	configMapInformer coreinformers.ConfigMapInformer,
+	configMapInformer kcpcorev1informers.ConfigMapClusterInformer,
 ) (*controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
@@ -70,7 +69,7 @@ func NewApiExportIdentityProviderController(
 			return kubeClusterClient.Cluster(cluster).CoreV1().ConfigMaps(namespace).Create(ctx, configMap, metav1.CreateOptions{})
 		},
 		getConfigMap: func(cluster logicalcluster.Name, namespace, name string) (*corev1.ConfigMap, error) {
-			return configMapInformer.Lister().ConfigMaps(namespace).Get(clusters.ToClusterAwareKey(cluster, name))
+			return configMapInformer.Lister().Cluster(cluster).ConfigMaps(namespace).Get(name)
 		},
 		updateConfigMap: func(ctx context.Context, cluster logicalcluster.Name, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
 			return kubeClusterClient.Cluster(cluster).CoreV1().ConfigMaps(namespace).Update(ctx, configMap, metav1.UpdateOptions{})

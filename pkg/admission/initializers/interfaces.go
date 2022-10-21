@@ -17,7 +17,7 @@ limitations under the License.
 package initializers
 
 import (
-	kubernetesclient "k8s.io/client-go/kubernetes"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
 
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
@@ -32,7 +32,7 @@ type WantsKcpInformers interface {
 // WantsKubeClusterClient interface should be implemented by admission plugins
 // that want to have a kube cluster client injected.
 type WantsKubeClusterClient interface {
-	SetKubeClusterClient(kubernetesclient.ClusterInterface)
+	SetKubeClusterClient(kcpkubernetesclientset.ClusterInterface)
 }
 
 // WantsKcpClusterClient interface should be implemented by admission plugins
@@ -45,7 +45,7 @@ type WantsKcpClusterClient interface {
 // that want to have a client capable of deep SAR handling.
 // See pkg/authorization.WithDeepSARConfig for details.
 type WantsDeepSARClient interface {
-	SetDeepSARClient(kubernetesclient.ClusterInterface)
+	SetDeepSARClient(kcpkubernetesclientset.ClusterInterface)
 }
 
 // WantsExternalAddressProvider interface should be implemented by admission plugins

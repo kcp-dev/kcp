@@ -178,13 +178,13 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 
 	logger.WithValues("patch", string(patchBytes)).V(2).Info("patching resource")
 	if namespaceName != "" {
-		if _, err := c.dynClusterClient.Resource(*gvr).Namespace(namespaceName).Patch(logicalcluster.WithCluster(ctx, lclusterName), obj.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
+		if _, err := c.dynClusterClient.Resource(*gvr).Cluster(lclusterName).Namespace(namespaceName).Patch(ctx, obj.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
 			return err
 		}
 		return nil
 	}
 
-	if _, err := c.dynClusterClient.Resource(*gvr).Patch(logicalcluster.WithCluster(ctx, lclusterName), obj.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
+	if _, err := c.dynClusterClient.Resource(*gvr).Cluster(lclusterName).Patch(ctx, obj.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
 		return err
 	}
 

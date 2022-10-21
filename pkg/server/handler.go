@@ -289,7 +289,7 @@ func processResourceIdentity(req *http.Request, requestInfo *request.RequestInfo
 	return req, nil
 }
 
-func mergeCRDsIntoCoreGroup(crdLister kcp.ClusterAwareCRDLister, crdHandler, coreHandler func(res http.ResponseWriter, req *http.Request)) restful.FilterFunction {
+func mergeCRDsIntoCoreGroup(crdLister kcp.ClusterAwareCRDClusterLister, crdHandler, coreHandler func(res http.ResponseWriter, req *http.Request)) restful.FilterFunction {
 	return func(req *restful.Request, res *restful.Response, chain *restful.FilterChain) {
 		ctx := req.Request.Context()
 		requestInfo, ok := request.RequestInfoFrom(ctx)
@@ -343,7 +343,17 @@ func mergeCRDsIntoCoreGroup(crdLister kcp.ClusterAwareCRDLister, crdHandler, cor
 			// server handle it.
 			crdName := requestInfo.Resource + ".core"
 
-			if _, err := crdLister.Get(req.Request.Context(), crdName); err == nil {
+			clusterName, err := request.ClusterNameFrom(req.Request.Context())
+			if err != nil {
+				responsewriters.ErrorNegotiated(
+					apierrors.NewInternalError(fmt.Errorf("no cluster found in the context")),
+					// TODO is this the right Codecs?
+					errorCodecs, schema.GroupVersion{Group: requestInfo.APIGroup, Version: requestInfo.APIVersion}, res.ResponseWriter, req.Request,
+				)
+				return
+			}
+
+			if _, err := crdLister.Cluster(clusterName).Get(req.Request.Context(), crdName); err == nil {
 				crdHandler(res.ResponseWriter, req.Request)
 				return
 			}
@@ -356,9 +366,17 @@ func mergeCRDsIntoCoreGroup(crdLister kcp.ClusterAwareCRDLister, crdHandler, cor
 	}
 }
 
-func serveCoreV1Discovery(ctx context.Context, crdLister kcp.ClusterAwareCRDLister, coreHandler func(w http.ResponseWriter, req *http.Request), res http.ResponseWriter, req *http.Request) {
+func serveCoreV1Discovery(ctx context.Context, crdLister kcp.ClusterAwareCRDClusterLister, coreHandler func(w http.ResponseWriter, req *http.Request), res http.ResponseWriter, req *http.Request) {
+	clusterName, err := request.ClusterNameFrom(ctx)
+	if err != nil {
+		responsewriters.ErrorNegotiated(
+			apierrors.NewInternalError(fmt.Errorf("no cluster found in the context")),
+			errorCodecs, schema.GroupVersion{}, res, req,
+		)
+		return
+	}
 	// Get all the CRDs to see if any of them are in v1
-	crds, err := crdLister.List(ctx, labels.Everything())
+	crds, err := crdLister.Cluster(clusterName).List(ctx, labels.Everything())
 	if err != nil {
 		// Listing from a lister can really only ever fail if invoking meta.Accessor() on an item in the list fails.
 		// Which means it essentially will never fail. But just in case...

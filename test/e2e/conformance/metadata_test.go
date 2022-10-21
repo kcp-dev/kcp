@@ -23,7 +23,7 @@ import (
 	"time"
 
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v2"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
 	"github.com/stretchr/testify/require"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -32,7 +32,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
@@ -61,7 +60,7 @@ func TestMetadataMutations(t *testing.T) {
 
 	kube.Create(t, workspaceCRDClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: "apps.k8s.io", Resource: "deployments"})
 
-	kubeClusterClient, err := kubernetes.NewForConfig(kcpclienthelper.SetMultiClusterRoundTripper(rest.CopyConfig(cfg)))
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(kcpclienthelper.SetMultiClusterRoundTripper(rest.CopyConfig(cfg)))
 	require.NoError(t, err, "error creating kube cluster client")
 
 	d := &appsv1.Deployment{
@@ -81,7 +80,7 @@ func TestMetadataMutations(t *testing.T) {
 	}
 
 	t.Logf("Creating deployment")
-	d, err = kubeClusterClient.AppsV1().Deployments("default").Create(logicalcluster.WithCluster(ctx, workspaceName), d, metav1.CreateOptions{})
+	d, err = kubeClusterClient.Cluster(workspaceName).AppsV1().Deployments("default").Create(ctx, d, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating deployment")
 
 	originalCreationTimestamp := d.CreationTimestamp
@@ -93,7 +92,7 @@ func TestMetadataMutations(t *testing.T) {
 	require.NoError(t, err, "error creating patch")
 
 	t.Logf("Patching deployment - trying to change creation timestamp")
-	patched, err := kubeClusterClient.AppsV1().Deployments("default").Patch(logicalcluster.WithCluster(ctx, workspaceName), d.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
+	patched, err := kubeClusterClient.Cluster(workspaceName).AppsV1().Deployments("default").Patch(ctx, d.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
 	require.NoError(t, err)
 	t.Logf("Verifying creation timestamp was not modified")
 	require.Equal(t, originalCreationTimestamp, patched.GetCreationTimestamp())

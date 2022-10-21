@@ -33,13 +33,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/client"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apiresourceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
 	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
@@ -174,7 +174,7 @@ func (c *Controller) enqueueAPIResourceImport(obj interface{}) {
 	}
 
 	lcluster := logicalcluster.From(apiImport)
-	key := clusters.ToClusterAwareKey(lcluster, apiImport.Spec.Location)
+	key := client.ToClusterAwareKey(lcluster, apiImport.Spec.Location)
 
 	klog.V(2).Infof("Queueing SyncTarget %q because of APIResourceImport %s", key, apiImport.Name)
 	c.queue.Add(key)
@@ -338,12 +338,12 @@ func (c *Controller) process(ctx context.Context, key string) error {
 }
 
 func (c *Controller) getAPIExport(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
-	key := clusters.ToClusterAwareKey(clusterName, name)
+	key := client.ToClusterAwareKey(clusterName, name)
 	return c.apiExportLister.Get(key)
 }
 
 func (c *Controller) getResourceSchema(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
-	key := clusters.ToClusterAwareKey(clusterName, name)
+	key := client.ToClusterAwareKey(clusterName, name)
 	return c.resourceSchemaLister.Get(key)
 }
 

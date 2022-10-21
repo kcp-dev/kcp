@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// +kcp-code-generator:skip
+
 package server
 
 import (
@@ -23,6 +25,9 @@ import (
 	_ "net/http/pprof"
 
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
+	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/clients/informers"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
@@ -31,17 +36,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/endpoints/filters"
+	"k8s.io/apiserver/pkg/informerfactoryhack"
 	"k8s.io/apiserver/pkg/quota/v1/generic"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	serverstorage "k8s.io/apiserver/pkg/server/storage"
 	"k8s.io/apiserver/pkg/util/webhook"
-	"k8s.io/client-go/dynamic"
-	kubernetesinformers "k8s.io/client-go/informers"
-	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/aggregator"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/apis"
@@ -53,6 +55,7 @@ import (
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
+	"github.com/kcp-dev/kcp/pkg/client"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
@@ -92,16 +95,16 @@ type ExtraConfig struct {
 	shardAdminTokenHash                       []byte
 
 	// clients
-	DynamicClusterClient                dynamic.ClusterInterface
-	KubeClusterClient                   kubernetesclient.ClusterInterface
-	DeepSARClient                       kubernetesclient.ClusterInterface
+	DynamicClusterClient                kcpdynamic.ClusterInterface
+	KubeClusterClient                   kcpkubernetesclientset.ClusterInterface
+	DeepSARClient                       kcpkubernetesclientset.ClusterInterface
 	ApiExtensionsClusterClient          apiextensionsclient.ClusterInterface
 	KcpClusterClient                    kcpclient.ClusterInterface
 	RootShardKcpClusterClient           kcpclient.ClusterInterface
-	BootstrapDynamicClusterClient       dynamic.ClusterInterface
+	BootstrapDynamicClusterClient       kcpdynamic.ClusterInterface
 	BootstrapApiExtensionsClusterClient apiextensionsclient.ClusterInterface
 	BootstrapKcpClusterClient           kcpclient.ClusterInterface
-	CacheDynamicClient                  dynamic.ClusterInterface
+	CacheDynamicClient                  kcpdynamic.ClusterInterface
 
 	// misc
 	preHandlerChainMux   *handlerChainMuxes
@@ -109,7 +112,7 @@ type ExtraConfig struct {
 
 	// informers
 	KcpSharedInformerFactory              kcpinformers.SharedInformerFactory
-	KubeSharedInformerFactory             kubernetesinformers.SharedInformerFactory
+	KubeSharedInformerFactory             kcpkubernetesinformers.SharedInformerFactory
 	ApiExtensionsSharedInformerFactory    apiextensionsexternalversions.SharedInformerFactory
 	DynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory
 	CacheKcpSharedInformerFactory         kcpinformers.SharedInformerFactory
@@ -145,9 +148,9 @@ func (c *Config) Complete() (CompletedConfig, error) {
 	return CompletedConfig{&completedConfig{
 		Options: c.Options,
 
-		GenericConfig:  c.GenericConfig.Complete(c.KubeSharedInformerFactory),
+		GenericConfig:  c.GenericConfig.Complete(informerfactoryhack.Wrap(c.KubeSharedInformerFactory)),
 		EmbeddedEtcd:   c.EmbeddedEtcd.Complete(),
-		MiniAggregator: c.MiniAggregator.Complete(c.KubeSharedInformerFactory),
+		MiniAggregator: c.MiniAggregator.Complete(),
 		Apis:           c.Apis.Complete(),
 		ApiExtensions:  c.ApiExtensions.Complete(),
 
@@ -177,24 +180,12 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 
 	var err error
 	var storageFactory *serverstorage.DefaultStorageFactory
-	c.GenericConfig, storageFactory, err = genericcontrolplane.BuildGenericConfig(opts.GenericControlPlane)
+	c.GenericConfig, storageFactory, c.KubeSharedInformerFactory, c.KubeClusterClient, err = genericcontrolplane.BuildGenericConfig(opts.GenericControlPlane)
 	if err != nil {
 		return nil, err
 	}
 
 	c.GenericConfig.RequestInfoResolver = requestinfo.NewFactory() // must be set here early to avoid a crash in the EnableMultiCluster roundtrip wrapper
-
-	// Setup kube * informers
-	c.KubeClusterClient, err = kubernetesclient.NewClusterForConfig(c.GenericConfig.LoopbackClientConfig)
-	if err != nil {
-		return nil, err
-	}
-	c.KubeSharedInformerFactory = kubernetesinformers.NewSharedInformerFactoryWithOptions(
-		c.KubeClusterClient.Cluster(logicalcluster.Wildcard),
-		resyncPeriod,
-		kubernetesinformers.WithExtraClusterScopedIndexers(indexers.ClusterScoped()),
-		kubernetesinformers.WithExtraNamespaceScopedIndexers(indexers.NamespaceScoped()),
-	)
 
 	if c.Options.Cache.Enabled {
 		var cacheClientConfig *rest.Config
@@ -221,7 +212,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 			kcpinformers.WithExtraClusterScopedIndexers(indexers.ClusterScoped()),
 			kcpinformers.WithExtraNamespaceScopedIndexers(indexers.NamespaceScoped()),
 		)
-		c.CacheDynamicClient, err = dynamic.NewClusterForConfig(rt)
+		c.CacheDynamicClient, err = kcpdynamic.NewForConfig(rt)
 		if err != nil {
 			return nil, err
 		}
@@ -274,7 +265,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		kcpinformers.WithExtraClusterScopedIndexers(indexers.ClusterScoped()),
 		kcpinformers.WithExtraNamespaceScopedIndexers(indexers.NamespaceScoped()),
 	)
-	c.DeepSARClient, err = kubernetesclient.NewClusterForConfig(authorization.WithDeepSARConfig(rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)))
+	c.DeepSARClient, err = kcpkubernetesclientset.NewForConfig(authorization.WithDeepSARConfig(rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)))
 	if err != nil {
 		return nil, err
 	}
@@ -292,7 +283,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 	)
 
 	// Setup dynamic client
-	c.DynamicClusterClient, err = dynamic.NewClusterForConfig(c.GenericConfig.LoopbackClientConfig)
+	c.DynamicClusterClient, err = kcpdynamic.NewForConfig(c.GenericConfig.LoopbackClientConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -328,7 +319,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		return nil, err
 	}
 
-	c.BootstrapDynamicClusterClient, err = dynamic.NewClusterForConfig(bootstrapConfig)
+	c.BootstrapDynamicClusterClient, err = kcpdynamic.NewForConfig(bootstrapConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -423,7 +414,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 	// If additional API servers are added, they should be gated.
 	c.ApiExtensions, err = genericcontrolplane.CreateAPIExtensionsConfig(
 		*c.Apis.GenericConfig,
-		c.Apis.ExtraConfig.VersionedInformers,
+		informerfactoryhack.Wrap(c.Apis.ExtraConfig.VersionedInformers),
 		admissionPluginInitializers,
 		opts.GenericControlPlane,
 
@@ -450,7 +441,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 	c.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer().AddIndexers(cache.Indexers{byIdentityGroupResource: indexAPIBindingByIdentityGroupResource})                   //nolint:errcheck
 	c.KcpSharedInformerFactory.Workload().V1alpha1().SyncTargets().Informer().GetIndexer().AddIndexers(cache.Indexers{indexers.SyncTargetsBySyncTargetKey: indexers.IndexSyncTargetsBySyncTargetKey}) //nolint:errcheck
 
-	c.ApiExtensions.ExtraConfig.ClusterAwareCRDLister = &apiBindingAwareCRDLister{
+	c.ApiExtensions.ExtraConfig.ClusterAwareCRDLister = &apiBindingAwareCRDClusterLister{
 		kcpClusterClient:  c.KcpClusterClient,
 		crdLister:         c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Lister(),
 		crdIndexer:        c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().GetIndexer(),
@@ -459,7 +450,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		apiBindingIndexer: c.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer(),
 		apiExportIndexer:  c.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().GetIndexer(),
 		getAPIResourceSchema: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
-			key := clusters.ToClusterAwareKey(clusterName, name)
+			key := client.ToClusterAwareKey(clusterName, name)
 			return c.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Lister().Get(key)
 		},
 	}

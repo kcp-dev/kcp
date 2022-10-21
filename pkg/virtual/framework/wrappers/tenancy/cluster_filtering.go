@@ -21,9 +21,9 @@ import (
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/client"
 	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 )
@@ -99,8 +99,8 @@ func (l *filteredClusterWorkspaceTypeLister) List(selector labels.Selector) (ret
 }
 
 func (l *filteredClusterWorkspaceTypeLister) Get(name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
-	if clusterName, _ := clusters.SplitClusterAwareKey(name); clusterName.Empty() {
-		name = clusters.ToClusterAwareKey(l.clusterName, name)
+	if clusterName, _ := client.SplitClusterAwareKey(name); clusterName.Empty() {
+		name = client.ToClusterAwareKey(l.clusterName, name)
 	}
 	return l.lister.Get(name)
 }
@@ -150,8 +150,8 @@ func (l *filteredClusterWorkspaceLister) List(selector labels.Selector) (ret []*
 }
 
 func (l *filteredClusterWorkspaceLister) Get(name string) (*tenancyv1alpha1.ClusterWorkspace, error) {
-	if clusterName, _ := clusters.SplitClusterAwareKey(name); clusterName.Empty() {
-		name = clusters.ToClusterAwareKey(l.clusterName, name)
+	if clusterName, _ := client.SplitClusterAwareKey(name); clusterName.Empty() {
+		name = client.ToClusterAwareKey(l.clusterName, name)
 	}
 	return l.lister.Get(name)
 }
@@ -201,8 +201,8 @@ func (l *filteredWorkspaceShardLister) List(selector labels.Selector) (ret []*te
 }
 
 func (l *filteredWorkspaceShardLister) Get(name string) (*tenancyv1alpha1.ClusterWorkspaceShard, error) {
-	if clusterName, _ := clusters.SplitClusterAwareKey(name); clusterName.Empty() {
-		name = clusters.ToClusterAwareKey(l.clusterName, name)
+	if clusterName, _ := client.SplitClusterAwareKey(name); clusterName.Empty() {
+		name = client.ToClusterAwareKey(l.clusterName, name)
 	}
 	return l.lister.Get(name)
 }

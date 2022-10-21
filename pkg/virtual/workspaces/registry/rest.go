@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
+	kcprbacv1informers "github.com/kcp-dev/client-go/clients/informers/rbac/v1"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -35,8 +37,6 @@ import (
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
-	rbacinformers "k8s.io/client-go/informers/rbac/v1"
-	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/printers"
 	printerstorage "k8s.io/kubernetes/pkg/printers/storage"
@@ -73,9 +73,9 @@ type REST struct {
 	getFilteredClusterWorkspaces func(orgClusterName logicalcluster.Name) FilteredClusterWorkspaces
 
 	// crbInformer allows listing or searching for RBAC cluster role bindings through all orgs
-	crbInformer rbacinformers.ClusterRoleBindingInformer
+	crbInformer kcprbacv1informers.ClusterRoleBindingClusterInformer
 
-	kubeClusterClient kubernetesclient.ClusterInterface
+	kubeClusterClient kcpkubernetesclientset.ClusterInterface
 	kcpClusterClient  kcpclient.ClusterInterface
 
 	// clusterWorkspaceCache is a global cache of cluster workspaces (for all orgs) used by the watcher.
@@ -98,10 +98,10 @@ var _ rest.GracefulDeleter = &REST{}
 // NewREST returns a RESTStorage object that will work against ClusterWorkspace resources in
 // org workspaces, projecting them to the Workspace type.
 func NewREST(
-	kubeClusterClient kubernetesclient.ClusterInterface,
+	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	kcpClusterClient kcpclient.ClusterInterface,
 	clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache,
-	wildcardsCRBInformer rbacinformers.ClusterRoleBindingInformer,
+	wildcardsCRBInformer kcprbacv1informers.ClusterRoleBindingClusterInformer,
 	getFilteredClusterWorkspaces func(orgClusterName logicalcluster.Name) FilteredClusterWorkspaces,
 ) *REST {
 	mainRest := &REST{

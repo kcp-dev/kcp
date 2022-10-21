@@ -28,13 +28,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/client"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apiresourceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
 	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
@@ -65,7 +65,7 @@ func NewController(
 	c := &controller{
 		queue: queue,
 		enqueueAfter: func(export *apisv1alpha1.APIExport, duration time.Duration) {
-			key := clusters.ToClusterAwareKey(logicalcluster.From(export), export.Name)
+			key := client.ToClusterAwareKey(logicalcluster.From(export), export.Name)
 			queue.AddAfter(key, duration)
 		},
 		kcpClusterClient:             kcpClusterClient,
@@ -161,8 +161,8 @@ func (c *controller) enqueueNegotiatedAPIResource(obj interface{}) {
 	}
 
 	clusterName := logicalcluster.From(resource)
-	key := clusters.ToClusterAwareKey(clusterName, TemporaryComputeServiceExportName)
-	if _, err := c.apiExportsLister.Get(clusters.ToClusterAwareKey(clusterName, TemporaryComputeServiceExportName)); errors.IsNotFound(err) {
+	key := client.ToClusterAwareKey(clusterName, TemporaryComputeServiceExportName)
+	if _, err := c.apiExportsLister.Get(client.ToClusterAwareKey(clusterName, TemporaryComputeServiceExportName)); errors.IsNotFound(err) {
 		return // it's gone
 	} else if err != nil {
 		runtime.HandleError(fmt.Errorf("failed to get APIExport %s|%s: %w", clusterName, TemporaryComputeServiceExportName, err))
@@ -182,8 +182,8 @@ func (c *controller) enqueueSyncTarget(obj interface{}) {
 	}
 
 	clusterName := logicalcluster.From(resource)
-	key := clusters.ToClusterAwareKey(clusterName, TemporaryComputeServiceExportName)
-	if _, err := c.apiExportsLister.Get(clusters.ToClusterAwareKey(clusterName, TemporaryComputeServiceExportName)); errors.IsNotFound(err) {
+	key := client.ToClusterAwareKey(clusterName, TemporaryComputeServiceExportName)
+	if _, err := c.apiExportsLister.Get(client.ToClusterAwareKey(clusterName, TemporaryComputeServiceExportName)); errors.IsNotFound(err) {
 		return // it's gone
 	} else if err != nil {
 		runtime.HandleError(fmt.Errorf("failed to get APIExport %s|%s: %w", clusterName, TemporaryComputeServiceExportName, err))

@@ -23,8 +23,10 @@ import (
 	"testing"
 	"time"
 
-	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
-	kcpdynamic "github.com/kcp-dev/apimachinery/pkg/dynamic"
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
+	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/clients/informers"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
@@ -37,7 +39,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -156,10 +157,10 @@ func TestNamespaceScheduler(t *testing.T) {
 				crdClusterClient, err := apiextensionsclient.NewForConfig(server.BaseConfig(t))
 				require.NoError(t, err, "failed to construct apiextensions client for server")
 
-				dynamicClusterClient, err := kcpdynamic.NewClusterDynamicClientForConfig(server.BaseConfig(t))
+				dynamicClusterClient, err := kcpdynamic.NewForConfig(server.BaseConfig(t))
 				require.NoError(t, err, "failed to construct dynamic client for server")
 
-				kubeClusterClient, err := kubernetes.NewForConfig(server.BaseConfig(t))
+				kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(server.BaseConfig(t))
 				require.NoError(t, err, "failed to construct kubernetes client for server")
 
 				t.Log("Create a ready SyncTarget, and keep it artificially ready") // we don't want the syncer to do anything with CRDs, hence we fake the syncer
@@ -220,7 +221,7 @@ func TestNamespaceScheduler(t *testing.T) {
 				t.Log("Recreate the CRD, and then quickly a namespace and a CR whose CRD was just recreated")
 				err = configcrds.CreateSingle(logicalcluster.WithCluster(ctx, server.clusterName), crdClusterClient.ApiextensionsV1().CustomResourceDefinitions(), crd)
 				require.NoError(t, err, "error bootstrapping CRD %s in cluster %s", crd.Name, server.clusterName)
-				_, err = kubeClusterClient.CoreV1().Namespaces().Create(logicalcluster.WithCluster(ctx, server.clusterName), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "namespace-test"}}, metav1.CreateOptions{})
+				_, err = kubeClusterClient.Cluster(server.clusterName).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "namespace-test"}}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create namespace")
 				_, err = dynamicClusterClient.Cluster(server.clusterName).Resource(gvr).Namespace("default").Create(ctx, newSheriff(group, "lucky-luke"), metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create sheriff")
@@ -256,22 +257,24 @@ func TestNamespaceScheduler(t *testing.T) {
 
 			clusterName := framework.NewWorkspaceFixture(t, server, orgClusterName)
 
-			clusterConfig := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), clusterName)
-			kubeClusterClient, err := kubernetes.NewForConfig(clusterConfig)
+			kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 			require.NoError(t, err)
 
-			kcpClusterClient, err := clientset.NewForConfig(clusterConfig)
+			kcpClusterClient, err := clientset.NewClusterForConfig(cfg)
+			require.NoError(t, err)
+
+			expecterClient, err := kcpkubernetesclientset.NewForConfig(server.RootShardSystemMasterBaseConfig(t))
 			require.NoError(t, err)
 
 			t.Logf("Starting namespace expecter")
-			expect, err := expectNamespaces(ctx, t, kubeClusterClient)
+			expect, err := expectNamespaces(ctx, t, expecterClient)
 			require.NoError(t, err, "failed to start expecter")
 
 			s := runningServer{
 				RunningServer:  server,
 				clusterName:    clusterName,
-				client:         kubeClusterClient,
-				kcpClient:      kcpClusterClient,
+				client:         kubeClusterClient.Cluster(clusterName),
+				kcpClient:      kcpClusterClient.Cluster(clusterName),
 				expect:         expect,
 				orgClusterName: orgClusterName,
 			}
@@ -312,8 +315,8 @@ func scheduledMatcher(target string) namespaceExpectation {
 
 type registerNamespaceExpectation func(seed *corev1.Namespace, expectation namespaceExpectation) error
 
-func expectNamespaces(ctx context.Context, t *testing.T, client kubernetes.Interface) (registerNamespaceExpectation, error) {
-	informerFactory := informers.NewSharedInformerFactory(client, 0)
+func expectNamespaces(ctx context.Context, t *testing.T, client kcpkubernetesclientset.ClusterInterface) (registerNamespaceExpectation, error) {
+	informerFactory := kcpkubernetesinformers.NewSharedInformerFactory(client, 0)
 	informer := informerFactory.Core().V1().Namespaces()
 	expecter := framework.NewExpecter(informer.Informer())
 	informerFactory.Start(ctx.Done())
@@ -321,12 +324,16 @@ func expectNamespaces(ctx context.Context, t *testing.T, client kubernetes.Inter
 		return nil, errors.New("failed to wait for caches to sync")
 	}
 	return func(seed *corev1.Namespace, expectation namespaceExpectation) error {
-		key, err := cache.MetaNamespaceKeyFunc(seed)
+		key, err := kcpcache.MetaClusterNamespaceKeyFunc(seed)
+		if err != nil {
+			return err
+		}
+		clusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 		if err != nil {
 			return err
 		}
 		return expecter.ExpectBefore(ctx, func(ctx context.Context) (done bool, err error) {
-			current, err := informer.Lister().Get(key)
+			current, err := informer.Lister().Cluster(clusterName).Get(name)
 			if err != nil {
 				// Retry on all errors
 				return false, err

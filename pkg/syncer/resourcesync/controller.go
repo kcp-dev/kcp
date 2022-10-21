@@ -27,6 +27,9 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
+	kcpdynamicinformer "github.com/kcp-dev/client-go/clients/dynamic/dynamicinformer"
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/clients/informers"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	authorizationv1 "k8s.io/api/authorization/v1"
@@ -62,7 +65,7 @@ const (
 )
 
 type SyncerInformer struct {
-	UpstreamInformer   informers.GenericInformer
+	UpstreamInformer   kcpkubernetesinformers.GenericClusterInformer
 	DownstreamInformer informers.GenericInformer
 	cancel             context.CancelFunc
 }
@@ -82,7 +85,7 @@ type ResourceEventHandlerPerGVR func(schema.GroupVersionResource) cache.Resource
 // for gvr is started separated for each syncer.
 type Controller struct {
 	queue                        workqueue.RateLimitingInterface
-	upstreamDynamicClusterClient *dynamic.Cluster
+	upstreamDynamicClusterClient kcpdynamic.ClusterInterface
 	downstreamDynamicClient      dynamic.Interface
 	downstreamKubeClient         kubernetes.Interface
 
@@ -101,7 +104,7 @@ type Controller struct {
 
 func NewController(
 	syncerLogger logr.Logger,
-	upstreamDynamicClusterClient *dynamic.Cluster,
+	upstreamDynamicClusterClient kcpdynamic.ClusterInterface,
 	downstreamDynamicClient dynamic.Interface,
 	downstreamKubeClient kubernetes.Interface,
 	kcpClusterClient *kcpclient.Cluster,
@@ -392,8 +395,9 @@ func (c *Controller) startSyncerInformer(ctx context.Context, gvr schema.GroupVe
 
 	syncTargetKey := workloadv1alpha1.ToSyncTargetKey(c.syncTargetWorkspace, c.syncTargetName)
 
-	upstreamInformer := dynamicinformer.NewFilteredDynamicInformerWithOptions(c.upstreamDynamicClusterClient.Cluster(logicalcluster.Wildcard), gvr, metav1.NamespaceAll, func(o *metav1.ListOptions) {},
-		cache.WithResyncPeriod(resyncPeriod),
+	upstreamInformer := kcpdynamicinformer.NewFilteredDynamicInformer(c.upstreamDynamicClusterClient, gvr, resyncPeriod, cache.Indexers{
+		kcpcache.ClusterIndexName:             kcpcache.ClusterIndexFunc,
+		kcpcache.ClusterAndNamespaceIndexName: kcpcache.ClusterAndNamespaceIndexFunc}, func(o *metav1.ListOptions) {},
 	)
 	downstreamInformer := dynamicinformer.NewFilteredDynamicInformerWithOptions(c.downstreamDynamicClient, gvr, metav1.NamespaceAll, func(o *metav1.ListOptions) {
 		o.LabelSelector = workloadv1alpha1.InternalDownstreamClusterLabel + "=" + syncTargetKey

@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// +kcp-code-generator:skip
+
 package status
 
 import (
@@ -28,10 +30,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
@@ -168,13 +168,7 @@ func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.Grou
 		return nil
 	}
 
-	var existingObj runtime.Object
-	if upstreamNamespace != "" {
-		existingObj, err = syncerInformer.UpstreamInformer.Lister().ByNamespace(upstreamNamespace).Get(clusters.ToClusterAwareKey(upstreamLogicalCluster, upstreamName))
-	} else {
-		existingObj, err = syncerInformer.UpstreamInformer.Lister().Get(clusters.ToClusterAwareKey(upstreamLogicalCluster, upstreamName))
-	}
-
+	existingObj, err := syncerInformer.UpstreamInformer.Lister().ByCluster(upstreamLogicalCluster).ByNamespace(upstreamNamespace).Get(upstreamName)
 	if err != nil {
 		logger.Error(err, "Error getting upstream resource")
 		return err

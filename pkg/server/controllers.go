@@ -26,6 +26,9 @@ import (
 	"time"
 
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
+	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
+	kcpmetadata "github.com/kcp-dev/client-go/clients/metadata"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	corev1 "k8s.io/api/core/v1"
@@ -35,9 +38,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/dynamic"
-	kubernetesclient "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
 	certutil "k8s.io/client-go/util/cert"
 	"k8s.io/client-go/util/keyutil"
@@ -90,7 +90,7 @@ func postStartHookName(controllerName string) string {
 func (s *Server) installClusterRoleAggregationController(ctx context.Context, config *rest.Config) error {
 	controllerName := "kube-cluster-role-aggregation-controller"
 	config = rest.AddUserAgent(rest.CopyConfig(config), controllerName)
-	kubeClient, err := kubernetesclient.NewForConfig(config)
+	kubeClient, err := kcpkubernetesclientset.NewForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -107,11 +107,11 @@ func (s *Server) installClusterRoleAggregationController(ctx context.Context, co
 func (s *Server) installKubeNamespaceController(ctx context.Context, config *rest.Config) error {
 	controllerName := "kube-namespace-controller"
 	config = rest.AddUserAgent(rest.CopyConfig(config), controllerName)
-	kubeClient, err := kubernetesclient.NewForConfig(config)
+	kubeClient, err := kcpkubernetesclientset.NewForConfig(config)
 	if err != nil {
 		return err
 	}
-	metadata, err := metadata.NewForConfig(config)
+	metadata, err := kcpmetadata.NewForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -154,7 +154,7 @@ func (s *Server) installKubeNamespaceController(ctx context.Context, config *res
 func (s *Server) installKubeServiceAccountController(ctx context.Context, config *rest.Config) error {
 	controllerName := "kube-service-account-controller"
 	config = rest.AddUserAgent(rest.CopyConfig(config), controllerName)
-	kubeClient, err := kubernetesclient.NewForConfig(config)
+	kubeClient, err := kcpkubernetesclientset.NewForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -184,7 +184,7 @@ func (s *Server) installKubeServiceAccountController(ctx context.Context, config
 func (s *Server) installKubeServiceAccountTokenController(ctx context.Context, config *rest.Config) error {
 	controllerName := "kube-service-account-token-controller"
 	config = rest.AddUserAgent(rest.CopyConfig(config), controllerName)
-	kubeClient, err := kubernetesclient.NewForConfig(config)
+	kubeClient, err := kcpkubernetesclientset.NewForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -242,7 +242,7 @@ func (s *Server) installKubeServiceAccountTokenController(ctx context.Context, c
 func (s *Server) installRootCAConfigMapController(ctx context.Context, config *rest.Config) error {
 	controllerName := "kube-root-ca-configmap-controller"
 	config = rest.AddUserAgent(rest.CopyConfig(config), controllerName)
-	kubeClient, err := kubernetesclient.NewForConfig(config)
+	kubeClient, err := kcpkubernetesclientset.NewForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -299,7 +299,7 @@ func (s *Server) installWorkspaceDeletionController(ctx context.Context, config 
 	if err != nil {
 		return err
 	}
-	metadataClusterClient, err := metadata.NewForConfig(config)
+	metadataClusterClient, err := kcpmetadata.NewForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -312,7 +312,7 @@ func (s *Server) installWorkspaceDeletionController(ctx context.Context, config 
 		}
 		return discoveryClient.ServerPreferredResources()
 	}
-	kubeClusterClient, err := kubernetesclient.NewClusterForConfig(config)
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -339,7 +339,7 @@ func (s *Server) installWorkspaceDeletionController(ctx context.Context, config 
 func (s *Server) installWorkloadResourceScheduler(ctx context.Context, config *rest.Config, ddsif *informer.DynamicDiscoverySharedInformerFactory) error {
 	config = rest.CopyConfig(config)
 	config = rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(config), workloadresource.ControllerName)
-	dynamicClusterClient, err := dynamic.NewForConfig(config)
+	dynamicClusterClient, err := kcpdynamic.NewForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -468,7 +468,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 	bootstrapConfig.Impersonate.UserName = kcpBootstrapperUserName
 	bootstrapConfig.Impersonate.Groups = []string{bootstrappolicy.SystemKcpWorkspaceBootstrapper}
 
-	dynamicClusterClient, err := dynamic.NewForConfig(bootstrapConfig)
+	dynamicClusterClient, err := kcpdynamic.NewForConfig(bootstrapConfig)
 	if err != nil {
 		return err
 	}
@@ -585,7 +585,7 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 	if err != nil {
 		return err
 	}
-	dynamicClusterClient, err := dynamic.NewForConfig(apiBindingConfig)
+	dynamicClusterClient, err := kcpdynamic.NewForConfig(apiBindingConfig)
 	if err != nil {
 		return err
 	}
@@ -640,7 +640,7 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 	if err != nil {
 		return err
 	}
-	dynamicClusterClient, err = dynamic.NewForConfig(permissionClaimLabelConfig)
+	dynamicClusterClient, err = kcpdynamic.NewForConfig(permissionClaimLabelConfig)
 	if err != nil {
 		return err
 	}
@@ -677,7 +677,7 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 	if err != nil {
 		return err
 	}
-	dynamicClusterClient, err = dynamic.NewForConfig(resourceConfig)
+	dynamicClusterClient, err = kcpdynamic.NewForConfig(resourceConfig)
 	if err != nil {
 		return err
 	}
@@ -711,7 +711,7 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 	if err != nil {
 		return err
 	}
-	metadataClient, err := metadata.NewForConfig(deletionConfig)
+	metadataClient, err := kcpmetadata.NewForConfig(deletionConfig)
 	if err != nil {
 		return err
 	}
@@ -799,7 +799,7 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 		return err
 	}
 
-	kubeClusterClient, err := kubernetesclient.NewForConfig(config)
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -904,7 +904,7 @@ func (s *Server) installDefaultPlacementController(ctx context.Context, config *
 func (s *Server) installWorkloadNamespaceScheduler(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
 	config = rest.CopyConfig(config)
 	config = rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(config), workloadnamespace.ControllerName)
-	kubeClusterClient, err := kubernetesclient.NewForConfig(config)
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -1130,7 +1130,7 @@ func (s *Server) installKubeQuotaController(
 	config = rest.CopyConfig(config)
 	// TODO(ncdc): figure out if we need kcpclienthelper.SetMultiClusterRoundTripper(config)
 	config = rest.AddUserAgent(config, kubequota.ControllerName)
-	kubeClusterClient, err := kubernetesclient.NewClusterForConfig(config)
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -1187,7 +1187,7 @@ func (s *Server) installApiExportIdentityController(ctx context.Context, config 
 	}
 	config = rest.CopyConfig(config)
 	config = rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(config), identitycache.ControllerName)
-	kubeClusterClient, err := kubernetesclient.NewClusterForConfig(config)
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -1214,7 +1214,7 @@ func (s *Server) installReplicationController(ctx context.Context, config *rest.
 
 	config = rest.CopyConfig(config)
 	config = rest.AddUserAgent(config, replication.ControllerName)
-	dynamicLocalClient, err := dynamic.NewClusterForConfig(config)
+	dynamicLocalClient, err := kcpdynamic.NewForConfig(config)
 	if err != nil {
 		return err
 	}

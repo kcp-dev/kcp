@@ -23,12 +23,12 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/apis/apis"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1/permissionclaims"
+	"github.com/kcp-dev/kcp/pkg/client"
 	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
@@ -49,7 +49,7 @@ func NewLabeler(apiBindingInformer apisinformers.APIBindingInformer) *Labeler {
 		},
 
 		getAPIBinding: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error) {
-			key := clusters.ToClusterAwareKey(clusterName, name)
+			key := client.ToClusterAwareKey(clusterName, name)
 			return apiBindingInformer.Lister().Get(key)
 		},
 	}

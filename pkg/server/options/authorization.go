@@ -17,6 +17,7 @@ limitations under the License.
 package options
 
 import (
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/clients/informers"
 	"github.com/spf13/pflag"
 
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -25,7 +26,6 @@ import (
 	"k8s.io/apiserver/pkg/authorization/path"
 	"k8s.io/apiserver/pkg/authorization/union"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	kubernetesinformers "k8s.io/client-go/informers"
 
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
@@ -81,7 +81,7 @@ func (s *Authorization) AddFlags(fs *pflag.FlagSet) {
 			"contacting the 'core' kubernetes server.")
 }
 
-func (s *Authorization) ApplyTo(config *genericapiserver.Config, informer kubernetesinformers.SharedInformerFactory, kcpinformer kcpinformers.SharedInformerFactory) error {
+func (s *Authorization) ApplyTo(config *genericapiserver.Config, informer kcpkubernetesinformers.SharedInformerFactory, kcpinformer kcpinformers.SharedInformerFactory) error {
 	var authorizers []authorizer.Authorizer
 
 	workspaceLister := kcpinformer.Tenancy().V1alpha1().ClusterWorkspaces().Lister()

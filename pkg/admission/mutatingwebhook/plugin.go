@@ -14,11 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// +kcp-code-generator:skip
+
 package mutatingwebhook
 
 import (
 	"context"
 	"io"
+
+	"github.com/kcp-dev/logicalcluster/v2"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
@@ -28,8 +32,9 @@ import (
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/config"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/generic"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/mutating"
+	"k8s.io/apiserver/pkg/informerfactoryhack"
 	webhookutil "k8s.io/apiserver/pkg/util/webhook"
-	kubernetesinformers "k8s.io/client-go/informers"
+	"k8s.io/client-go/informers"
 
 	"github.com/kcp-dev/kcp/pkg/admission/webhook"
 )
@@ -106,7 +111,11 @@ func (a *Plugin) Admit(ctx context.Context, attr admission.Attributes, o admissi
 }
 
 // SetExternalKubeInformerFactory implements the WantsExternalKubeInformerFactory interface.
-func (p *Plugin) SetExternalKubeInformerFactory(f kubernetesinformers.SharedInformerFactory) {
-	p.WebhookDispatcher.SetHookSource(configuration.NewMutatingWebhookConfigurationManager(f))
+func (p *Plugin) SetExternalKubeInformerFactory(f informers.SharedInformerFactory) {
+	clusterAwareFactory := informerfactoryhack.Unwrap(f)
+	p.WebhookDispatcher.SetHookSource(func(cluster logicalcluster.Name) generic.Source {
+		informer := clusterAwareFactory.Admissionregistration().V1().MutatingWebhookConfigurations().Cluster(cluster)
+		return configuration.NewMutatingWebhookConfigurationManagerForInformer(informer)
+	}, clusterAwareFactory.Admissionregistration().V1().MutatingWebhookConfigurations().Informer().HasSynced)
 	p.Plugin.SetExternalKubeInformerFactory(f)
 }

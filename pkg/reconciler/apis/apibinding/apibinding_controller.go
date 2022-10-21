@@ -23,6 +23,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apiextensions-apiserver/pkg/apihelpers"
@@ -35,13 +36,12 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/client"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
@@ -62,7 +62,7 @@ var (
 func NewController(
 	crdClusterClient apiextensionsclient.Interface,
 	kcpClusterClient kcpclient.Interface,
-	dynamicClusterClient dynamic.Interface,
+	dynamicClusterClient kcpdynamic.ClusterInterface,
 	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory,
 	apiBindingInformer apisinformers.APIBindingInformer,
 	apiExportInformer apisinformers.APIExportInformer,
@@ -102,9 +102,9 @@ func NewController(
 		apiBindingsIndexer: apiBindingInformer.Informer().GetIndexer(),
 
 		getAPIExport: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
-			apiExport, err := apiExportInformer.Lister().Get(clusters.ToClusterAwareKey(clusterName, name))
+			apiExport, err := apiExportInformer.Lister().Get(client.ToClusterAwareKey(clusterName, name))
 			if errors.IsNotFound(err) {
-				return temporaryRemoteShardApiExportInformer.Lister().Get(clusters.ToClusterAwareKey(clusterName, name))
+				return temporaryRemoteShardApiExportInformer.Lister().Get(client.ToClusterAwareKey(clusterName, name))
 			}
 			return apiExport, err
 		},
@@ -112,9 +112,9 @@ func NewController(
 		temporaryRemoteShardApiExportsIndexer: temporaryRemoteShardApiExportInformer.Informer().GetIndexer(),
 
 		getAPIResourceSchema: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
-			apiResourceSchema, err := apiResourceSchemaInformer.Lister().Get(clusters.ToClusterAwareKey(clusterName, name))
+			apiResourceSchema, err := apiResourceSchemaInformer.Lister().Get(client.ToClusterAwareKey(clusterName, name))
 			if errors.IsNotFound(err) {
-				return temporaryRemoteShardApiResourceSchemaInformer.Lister().Get(clusters.ToClusterAwareKey(clusterName, name))
+				return temporaryRemoteShardApiResourceSchemaInformer.Lister().Get(client.ToClusterAwareKey(clusterName, name))
 			}
 			return apiResourceSchema, err
 		},
@@ -123,7 +123,7 @@ func NewController(
 			return crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Create(logicalcluster.WithCluster(ctx, clusterName), crd, metav1.CreateOptions{})
 		},
 		getCRD: func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
-			return crdInformer.Lister().Get(clusters.ToClusterAwareKey(clusterName, name))
+			return crdInformer.Lister().Get(client.ToClusterAwareKey(clusterName, name))
 		},
 		crdIndexer:        crdInformer.Informer().GetIndexer(),
 		deletedCRDTracker: newLockedStringSet(),
@@ -228,7 +228,7 @@ type controller struct {
 
 	crdClusterClient     apiextensionsclient.Interface
 	kcpClusterClient     kcpclient.Interface
-	dynamicClusterClient dynamic.Interface
+	dynamicClusterClient kcpdynamic.ClusterInterface
 	ddsif                *informer.DynamicDiscoverySharedInformerFactory
 
 	apiBindingsLister  apislisters.APIBindingLister
@@ -306,7 +306,7 @@ func (c *controller) enqueueCRD(obj interface{}, logger logr.Logger) {
 
 	// this log here is kind of redundant normally. But we are seeing missing CRD update events
 	// and hence stale APIBindings. So this might help to undersand what's going on.
-	logger.V(4).Info("queueing APIResourceSchema because of CRD", "key", clusters.ToClusterAwareKey(clusterName, apiResourceSchema.Name))
+	logger.V(4).Info("queueing APIResourceSchema because of CRD", "key", client.ToClusterAwareKey(clusterName, apiResourceSchema.Name))
 
 	c.enqueueAPIResourceSchema(apiResourceSchema, logger, " because of CRD")
 }

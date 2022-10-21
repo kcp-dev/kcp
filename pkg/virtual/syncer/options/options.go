@@ -19,10 +19,10 @@ package options
 import (
 	"path"
 
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
+	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
 	"github.com/spf13/pflag"
 
-	"k8s.io/client-go/dynamic"
-	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -62,11 +62,11 @@ func (o *Syncer) NewVirtualWorkspaces(
 	if err != nil {
 		return nil, err
 	}
-	kubeClusterClient, err := kubernetesclient.NewClusterForConfig(config)
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(config)
 	if err != nil {
 		return nil, err
 	}
-	dynamicClusterClient, err := dynamic.NewClusterForConfig(config)
+	dynamicClusterClient, err := kcpdynamic.NewForConfig(config)
 	if err != nil {
 		return nil, err
 	}

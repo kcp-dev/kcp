@@ -22,6 +22,8 @@ import (
 	"strings"
 	"time"
 
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
+	kcprbacv1informers "github.com/kcp-dev/client-go/clients/informers/rbac/v1"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -29,8 +31,6 @@ import (
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	rbacinformers "k8s.io/client-go/informers/rbac/v1"
-	kubernetesclient "k8s.io/client-go/kubernetes"
 	clientrest "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
@@ -46,7 +46,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/fixedgvs"
 	frameworkrbac "github.com/kcp-dev/kcp/pkg/virtual/framework/rbac"
-	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
 	tenancywrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/tenancy"
 	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/authorization"
 	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/authorization/metrics"
@@ -54,9 +53,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/registry"
 )
 
-func BuildVirtualWorkspace(cfg *clientrest.Config, rootPathPrefix string, wildcardsClusterWorkspaces tenancyinformers.ClusterWorkspaceInformer, wildcardsRbacInformers rbacinformers.Interface, kubeClusterClient kubernetesclient.ClusterInterface, kcpClusterClient kcpclient.ClusterInterface) framework.VirtualWorkspace {
+func BuildVirtualWorkspace(cfg *clientrest.Config, rootPathPrefix string, wildcardsClusterWorkspaces tenancyinformers.ClusterWorkspaceInformer, wildcardsRbacInformers kcprbacv1informers.ClusterInterface, kubeClusterClient kcpkubernetesclientset.ClusterInterface, kcpClusterClient kcpclient.ClusterInterface) framework.VirtualWorkspace {
 	metrics.Register()
-
 	crbInformer := wildcardsRbacInformers.ClusterRoleBindings()
 
 	if !strings.HasSuffix(rootPathPrefix, "/") {
@@ -102,8 +100,7 @@ func BuildVirtualWorkspace(cfg *clientrest.Config, rootPathPrefix string, wildca
 				AddToScheme:        tenancyv1beta1.AddToScheme,
 				OpenAPIDefinitions: kcpopenapi.GetOpenAPIDefinitions,
 				BootstrapRestResources: func(mainConfig genericapiserver.CompletedConfig) (map[string]fixedgvs.RestStorageBuilder, error) {
-					rootRBACInformers := rbacwrapper.FilterInformers(tenancyv1alpha1.RootCluster, wildcardsRbacInformers)
-					rootSubjectLocator := frameworkrbac.NewSubjectLocator(rootRBACInformers)
+					rootSubjectLocator := frameworkrbac.NewSubjectLocator(tenancyv1alpha1.RootCluster, wildcardsRbacInformers)
 					rootReviewer := workspaceauth.NewReviewer(rootSubjectLocator)
 					rootClusterWorkspaceInformer := tenancywrapper.FilterClusterWorkspaceInformer(tenancyv1alpha1.RootCluster, wildcardsClusterWorkspaces)
 
@@ -118,12 +115,14 @@ func BuildVirtualWorkspace(cfg *clientrest.Config, rootPathPrefix string, wildca
 							Verb("access").
 							Resource(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces"), "content").
 							AttributesRecord,
-						rootRBACInformers,
+						tenancyv1alpha1.RootCluster,
+						wildcardsRbacInformers,
 					)
 
 					orgListener := NewOrgListener(wildcardsClusterWorkspaces, func(orgClusterName logicalcluster.Name, initialWatchers []workspaceauth.CacheWatcher) registry.FilteredClusterWorkspaces {
 						return CreateAndStartOrg(
-							rbacwrapper.FilterInformers(orgClusterName, wildcardsRbacInformers),
+							orgClusterName,
+							wildcardsRbacInformers,
 							tenancywrapper.FilterClusterWorkspaceInformer(orgClusterName, wildcardsClusterWorkspaces),
 							initialWatchers)
 					})
@@ -181,7 +180,7 @@ func newAuthorizer(cfg *clientrest.Config) func(ctx context.Context, a authorize
 			klog.Errorf("failed to create impersonated kube cluster client: %v", err)
 			return authorizer.DecisionNoOpinion, "", nil
 		}
-		softlyImpersonatedSARClusterClient, err := kubernetesclient.NewClusterForConfig(impersonatedConfig)
+		softlyImpersonatedSARClusterClient, err := kcpkubernetesclientset.NewForConfig(impersonatedConfig)
 		if err != nil {
 			klog.Errorf("failed to create impersonated kube cluster client: %v", err)
 			return authorizer.DecisionNoOpinion, "", nil

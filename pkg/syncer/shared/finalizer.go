@@ -20,16 +20,14 @@ import (
 	"context"
 	"fmt"
 
+	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/clients/informers"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/informers"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
@@ -41,17 +39,9 @@ const (
 	SyncerFinalizerNamePrefix = "workload.kcp.dev/syncer-"
 )
 
-func EnsureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersionResource, upstreamInformer informers.GenericInformer, upstreamClient dynamic.ClusterInterface, upstreamNamespace, syncTargetKey string, logicalClusterName logicalcluster.Name, resourceName string) error {
+func EnsureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersionResource, upstreamInformer kcpkubernetesinformers.GenericClusterInformer, upstreamClient kcpdynamic.ClusterInterface, upstreamNamespace, syncTargetKey string, logicalClusterName logicalcluster.Name, resourceName string) error {
 	logger := klog.FromContext(ctx)
-
-	var upstreamObjFromLister runtime.Object
-	var err error
-	if upstreamNamespace != "" {
-		upstreamObjFromLister, err = upstreamInformer.Lister().ByNamespace(upstreamNamespace).Get(clusters.ToClusterAwareKey(logicalClusterName, resourceName))
-	} else {
-		upstreamObjFromLister, err = upstreamInformer.Lister().Get(clusters.ToClusterAwareKey(logicalClusterName, resourceName))
-	}
-
+	upstreamObjFromLister, err := upstreamInformer.Lister().ByCluster(logicalClusterName).ByNamespace(upstreamNamespace).Get(resourceName)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}

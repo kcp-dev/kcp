@@ -30,13 +30,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/config/rootcompute"
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/client"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -306,7 +306,7 @@ func (c *controller) listSyncTarget(clusterName logicalcluster.Name) ([]*workloa
 }
 
 func (c *controller) getAPIResourceSchema(ctx context.Context, clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
-	schema, err := c.apiResourceSchemaLister.Get(clusters.ToClusterAwareKey(clusterName, name))
+	schema, err := c.apiResourceSchemaLister.Get(client.ToClusterAwareKey(clusterName, name))
 	if apierrors.IsNotFound(err) {
 		return c.kcpClusterClient.ApisV1alpha1().APIResourceSchemas().Get(logicalcluster.WithCluster(ctx, clusterName), name, metav1.GetOptions{})
 	}

@@ -25,6 +25,8 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpcorev1informers "github.com/kcp-dev/client-go/clients/informers/core/v1"
+	corev1listers "github.com/kcp-dev/client-go/clients/listers/core/v1"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	corev1 "k8s.io/api/core/v1"
@@ -35,14 +37,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	coreinformers "k8s.io/client-go/informers/core/v1"
-	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/client"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	schedulinginformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
 	schedulinglisters "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
@@ -59,7 +59,7 @@ const (
 // a placement annotation..
 func NewController(
 	kcpClusterClient kcpclient.Interface,
-	namespaceInformer coreinformers.NamespaceInformer,
+	namespaceInformer kcpcorev1informers.NamespaceClusterInformer,
 	locationInformer schedulinginformers.LocationInformer,
 	placementInformer schedulinginformers.PlacementInformer,
 ) (*controller, error) {
@@ -68,7 +68,7 @@ func NewController(
 	c := &controller{
 		queue: queue,
 		enqueueAfter: func(ns *corev1.Namespace, duration time.Duration) {
-			key := clusters.ToClusterAwareKey(logicalcluster.From(ns), ns.Name)
+			key := client.ToClusterAwareKey(logicalcluster.From(ns), ns.Name)
 			queue.AddAfter(key, duration)
 		},
 		kcpClusterClient: kcpClusterClient,
@@ -159,7 +159,7 @@ type controller struct {
 
 	kcpClusterClient kcpclient.Interface
 
-	namespaceLister  corelisters.NamespaceLister
+	namespaceLister  corev1listers.NamespaceClusterLister
 	namespaceIndexer cache.Indexer
 
 	locationLister  schedulinglisters.LocationLister
@@ -204,7 +204,7 @@ func (c *controller) enqueueNamespace(obj interface{}) {
 	for _, obj := range placements {
 		placement := obj.(*schedulingv1alpha1.Placement)
 		namespaceKey := key
-		key := clusters.ToClusterAwareKey(logicalcluster.From(placement), placement.Name)
+		key := client.ToClusterAwareKey(logicalcluster.From(placement), placement.Name)
 		logging.WithQueueKey(logger, key).V(2).Info("queueing Placement because Namespace changed", "Namespace", namespaceKey)
 		c.queue.Add(key)
 	}
@@ -232,7 +232,7 @@ func (c *controller) enqueueLocation(obj interface{}) {
 	for _, obj := range placements {
 		placement := obj.(*schedulingv1alpha1.Placement)
 		locationKey := key
-		key := clusters.ToClusterAwareKey(logicalcluster.From(placement), placement.Name)
+		key := client.ToClusterAwareKey(logicalcluster.From(placement), placement.Name)
 		logging.WithQueueKey(logger, key).V(2).Info("queueing Placement because Location changed", "Location", locationKey)
 		c.queue.Add(key)
 	}

@@ -21,17 +21,17 @@ import (
 	"strings"
 	"testing"
 
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kubernetesclient "k8s.io/client-go/kubernetes"
 )
 
 // AdmitWorkspaceAccess create RBAC rules that allow the given users and/or groups to access the given, fully-qualified workspace, i.e.
 // the RBAC objects are create in its parent.
-func AdmitWorkspaceAccess(t *testing.T, ctx context.Context, kubeClusterClient kubernetesclient.Interface, orgClusterName logicalcluster.Name, users []string, groups []string, verbs []string) {
+func AdmitWorkspaceAccess(t *testing.T, ctx context.Context, kubeClusterClient kcpkubernetesclientset.ClusterInterface, orgClusterName logicalcluster.Name, users []string, groups []string, verbs []string) {
 	parent, hasParent := orgClusterName.Parent()
 	require.True(t, hasParent, "org cluster %s should have a parent", orgClusterName)
 
@@ -43,7 +43,7 @@ func AdmitWorkspaceAccess(t *testing.T, ctx context.Context, kubeClusterClient k
 	}
 
 	roleName := orgClusterName.Base() + "-" + strings.Join(verbs, "-")
-	_, err := kubeClusterClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, parent), &rbacv1.ClusterRole{
+	_, err := kubeClusterClient.Cluster(parent).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: roleName,
 		},
@@ -90,6 +90,6 @@ func AdmitWorkspaceAccess(t *testing.T, ctx context.Context, kubeClusterClient k
 		})
 	}
 
-	_, err = kubeClusterClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, parent), binding, metav1.CreateOptions{})
+	_, err = kubeClusterClient.Cluster(parent).RbacV1().ClusterRoleBindings().Create(ctx, binding, metav1.CreateOptions{})
 	require.NoError(t, err)
 }

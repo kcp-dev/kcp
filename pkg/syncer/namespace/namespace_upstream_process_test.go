@@ -31,9 +31,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/clusters"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/client"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
@@ -116,7 +116,7 @@ func TestSyncerNamespaceUpstreamProcess(t *testing.T) {
 			if tc.eventOrigin == "downstream" {
 				key = downstreamNamespace.GetName()
 			} else if tc.eventOrigin == "upstream" {
-				key = clusters.ToClusterAwareKey(logicalcluster.New("root:org:ws"), "test")
+				key = client.ToClusterAwareKey(logicalcluster.New("root:org:ws"), "test")
 			} else {
 				t.Fatalf("unexpected event origin: %s", tc.eventOrigin)
 			}

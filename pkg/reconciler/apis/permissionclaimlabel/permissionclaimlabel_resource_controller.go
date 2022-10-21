@@ -25,12 +25,12 @@ import (
 
 	"github.com/go-logr/logr"
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
@@ -50,7 +50,7 @@ const (
 // NewController returns a new controller for labeling resources for accepted permission claims.
 func NewResourceController(
 	kcpClusterClient kcpclient.Interface,
-	dynamicClusterClient dynamic.Interface,
+	dynamicClusterClient kcpdynamic.ClusterInterface,
 	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory,
 	apiBindingInformer apisinformers.APIBindingInformer,
 ) (*resourceController, error) {
@@ -86,7 +86,7 @@ func NewResourceController(
 type resourceController struct {
 	queue                  workqueue.RateLimitingInterface
 	kcpClusterClient       kcpclient.Interface
-	dynamicClusterClient   dynamic.Interface
+	dynamicClusterClient   kcpdynamic.ClusterInterface
 	ddsif                  *informer.DynamicDiscoverySharedInformerFactory
 	permissionClaimLabeler *permissionclaim.Labeler
 }

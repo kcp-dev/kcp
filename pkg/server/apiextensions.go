@@ -34,12 +34,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/client"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
@@ -52,8 +51,7 @@ import (
 // to start wildcard informers until a "real" workspace gets them installed.
 var SystemCRDLogicalCluster = logicalcluster.New("system:system-crds")
 
-// apiBindingAwareCRDLister is a CRD lister combines APIs coming from APIBindings with CRDs in a workspace.
-type apiBindingAwareCRDLister struct {
+type apiBindingAwareCRDClusterLister struct {
 	kcpClusterClient     kcpclient.ClusterInterface
 	crdLister            apiextensionslisters.CustomResourceDefinitionLister
 	crdIndexer           cache.Indexer
@@ -64,16 +62,28 @@ type apiBindingAwareCRDLister struct {
 	getAPIResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
 }
 
+func (a *apiBindingAwareCRDClusterLister) Cluster(name logicalcluster.Name) kcp.ClusterAwareCRDLister {
+	return &apiBindingAwareCRDLister{
+		apiBindingAwareCRDClusterLister: a,
+		cluster:                         name,
+	}
+}
+
+var _ kcp.ClusterAwareCRDClusterLister = &apiBindingAwareCRDClusterLister{}
+
+// apiBindingAwareCRDLister is a CRD lister combines APIs coming from APIBindings with CRDs in a workspace.
+type apiBindingAwareCRDLister struct {
+	*apiBindingAwareCRDClusterLister
+	cluster logicalcluster.Name
+}
+
 var _ kcp.ClusterAwareCRDLister = &apiBindingAwareCRDLister{}
 
 // List lists all CustomResourceDefinitions that come in via APIBindings as well as all in the current
 // logical cluster retrieved from the context.
 func (c *apiBindingAwareCRDLister) List(ctx context.Context, selector labels.Selector) ([]*apiextensionsv1.CustomResourceDefinition, error) {
 	logger := klog.FromContext(ctx)
-	clusterName, err := request.ClusterNameFrom(ctx)
-	if err != nil {
-		return nil, err
-	}
+	clusterName := c.cluster
 	logger = logger.WithValues("workspace", clusterName.String())
 
 	crdName := func(crd *apiextensionsv1.CustomResourceDefinition) string {
@@ -104,7 +114,7 @@ func (c *apiBindingAwareCRDLister) List(ctx context.Context, selector labels.Sel
 		apiBinding := obj.(*apisv1alpha1.APIBinding)
 
 		for _, boundResource := range apiBinding.Status.BoundResources {
-			crdKey := clusters.ToClusterAwareKey(apibinding.ShadowWorkspaceName, boundResource.Schema.UID)
+			crdKey := client.ToClusterAwareKey(apibinding.ShadowWorkspaceName, boundResource.Schema.UID)
 			logger := logging.WithObject(logger, &apiextensionsv1.CustomResourceDefinition{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        boundResource.Schema.UID,
@@ -166,7 +176,7 @@ func (c *apiBindingAwareCRDLister) List(ctx context.Context, selector labels.Sel
 }
 
 func (c *apiBindingAwareCRDLister) Refresh(crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error) {
-	crdKey := clusters.ToClusterAwareKey(logicalcluster.From(crd), crd.Name)
+	crdKey := client.ToClusterAwareKey(logicalcluster.From(crd), crd.Name)
 
 	updatedCRD, err := c.crdLister.Get(crdKey)
 	if err != nil {
@@ -200,10 +210,7 @@ func (c *apiBindingAwareCRDLister) Get(ctx context.Context, name string) (*apiex
 		err error
 	)
 
-	clusterName, err := request.ClusterNameFrom(ctx)
-	if err != nil {
-		return nil, err
-	}
+	clusterName := c.cluster
 
 	// Priority 1: system CRD
 	crd, err = c.getSystemCRD(clusterName, name)
@@ -337,7 +344,7 @@ func (c *apiBindingAwareCRDLister) getForIdentityWildcard(name, identity string)
 		return nil, apierrors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
 	}
 
-	crdKey := clusters.ToClusterAwareKey(apibinding.ShadowWorkspaceName, boundCRDName)
+	crdKey := client.ToClusterAwareKey(apibinding.ShadowWorkspaceName, boundCRDName)
 	crd, err := c.crdLister.Get(crdKey)
 	if err != nil {
 		return nil, err
@@ -367,11 +374,11 @@ func (c *apiBindingAwareCRDLister) getForWildcardPartialMetadata(name string) (*
 
 func (c *apiBindingAwareCRDLister) getSystemCRD(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 	if clusterName == logicalcluster.Wildcard {
-		systemCRDKeyName := clusters.ToClusterAwareKey(SystemCRDLogicalCluster, name)
+		systemCRDKeyName := client.ToClusterAwareKey(SystemCRDLogicalCluster, name)
 		return c.crdLister.Get(systemCRDKeyName)
 	}
 
-	return c.crdLister.Get(clusters.ToClusterAwareKey(SystemCRDLogicalCluster, name))
+	return c.crdLister.Get(client.ToClusterAwareKey(SystemCRDLogicalCluster, name))
 }
 
 func (c *apiBindingAwareCRDLister) get(clusterName logicalcluster.Name, name, identity string) (*apiextensionsv1.CustomResourceDefinition, error) {
@@ -393,7 +400,7 @@ func (c *apiBindingAwareCRDLister) get(clusterName logicalcluster.Name, name, id
 			matchingIdentity := identity == "" || boundResource.Schema.IdentityHash == identity
 
 			if boundResource.Group == group && boundResource.Resource == resource && matchingIdentity {
-				crdKey := clusters.ToClusterAwareKey(apibinding.ShadowWorkspaceName, boundResource.Schema.UID)
+				crdKey := client.ToClusterAwareKey(apibinding.ShadowWorkspaceName, boundResource.Schema.UID)
 				crd, err = c.crdLister.Get(crdKey)
 				if err != nil && apierrors.IsNotFound(err) {
 					// If we got here, it means there is supposed to be a CRD coming from an APIBinding, but
@@ -415,7 +422,7 @@ func (c *apiBindingAwareCRDLister) get(clusterName logicalcluster.Name, name, id
 
 	if identity == "" {
 		// Priority 2: see if it exists in the current logical cluster
-		crdKey := clusters.ToClusterAwareKey(clusterName, name)
+		crdKey := client.ToClusterAwareKey(clusterName, name)
 		crd, err = c.crdLister.Get(crdKey)
 		if err != nil && !apierrors.IsNotFound(err) {
 			// something went wrong w/the lister - could only happen if meta.Accessor() fails on an item in the store.

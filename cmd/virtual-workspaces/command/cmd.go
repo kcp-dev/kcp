@@ -24,6 +24,8 @@ import (
 	"net/url"
 	"time"
 
+	kcpkubernetesclient "github.com/kcp-dev/client-go/clients/clientset/versioned"
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/clients/informers"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/spf13/cobra"
 
@@ -33,8 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/wait"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	kubernetesinformers "k8s.io/client-go/informers"
-	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/version"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/component-base/config"
@@ -44,7 +44,7 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
-	bootstrap "github.com/kcp-dev/kcp/pkg/server/bootstrap"
+	"github.com/kcp-dev/kcp/pkg/server/bootstrap"
 	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 )
 
@@ -107,13 +107,12 @@ func Run(ctx context.Context, o *options.Options) error {
 	}
 
 	// create clients and informers
-	kubeClusterClient, err := kubernetesclient.NewClusterForConfig(identityConfig)
+	kubeClusterClient, err := kcpkubernetesclient.NewForConfig(identityConfig)
 	if err != nil {
 		return err
 	}
 
-	wildcardKubeClient := kubeClusterClient.Cluster(logicalcluster.Wildcard)
-	wildcardKubeInformers := kubernetesinformers.NewSharedInformerFactory(wildcardKubeClient, 10*time.Minute)
+	wildcardKubeInformers := kcpkubernetesinformers.NewSharedInformerFactory(kubeClusterClient, 10*time.Minute)
 
 	kcpClusterClient, err := kcpclient.NewClusterForConfig(identityConfig)
 	if err != nil {

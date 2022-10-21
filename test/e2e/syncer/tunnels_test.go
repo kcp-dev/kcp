@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
@@ -68,11 +69,11 @@ func TestSyncerTunnel(t *testing.T) {
 	t.Cleanup(cancelFunc)
 
 	upstreamConfig := upstreamServer.BaseConfig(t)
-	upstreamKubeClusterClient, err := kubernetesclientset.NewForConfig(upstreamConfig)
+	upstreamKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(upstreamConfig)
 	require.NoError(t, err)
 
 	t.Log("Creating upstream namespace...")
-	upstreamNamespace, err := upstreamKubeClusterClient.CoreV1().Namespaces().Create(logicalcluster.WithCluster(ctx, wsClusterName), &corev1.Namespace{
+	upstreamNamespace, err := upstreamKubeClusterClient.Cluster(wsClusterName).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-syncer",
 		},

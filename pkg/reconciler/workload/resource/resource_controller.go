@@ -24,6 +24,8 @@ import (
 	"time"
 
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
+	kcpcorev1informers "github.com/kcp-dev/client-go/clients/informers/core/v1"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	corev1 "k8s.io/api/core/v1"
@@ -37,8 +39,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/dynamic"
-	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
@@ -61,10 +61,10 @@ const (
 
 // NewController returns a new Controller which schedules resources in scheduled namespaces.
 func NewController(
-	dynamicClusterClient dynamic.Interface,
+	dynamicClusterClient kcpdynamic.ClusterInterface,
 	ddsif *informer.DynamicDiscoverySharedInformerFactory,
 	syncTargetInformer workloadinformers.SyncTargetInformer,
-	namespaceInformer coreinformers.NamespaceInformer,
+	namespaceInformer kcpcorev1informers.NamespaceClusterInformer,
 	placementInformer schedulinginformers.PlacementInformer,
 ) (*Controller, error) {
 	resourceQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-namespace-resource")
@@ -77,7 +77,7 @@ func NewController(
 		dynClusterClient: dynamicClusterClient,
 
 		getNamespace: func(clusterName logicalcluster.Name, namespaceName string) (*corev1.Namespace, error) {
-			return namespaceInformer.Lister().Get(kcpcache.ToClusterAwareKey(clusterName.String(), "", namespaceName))
+			return namespaceInformer.Lister().Cluster(clusterName).Get(namespaceName)
 		},
 
 		getValidSyncTargetKeysForWorkspace: func(clusterName logicalcluster.Name) (sets.String, error) {
@@ -183,7 +183,7 @@ type Controller struct {
 	resourceQueue workqueue.RateLimitingInterface
 	gvrQueue      workqueue.RateLimitingInterface
 
-	dynClusterClient dynamic.Interface
+	dynClusterClient kcpdynamic.ClusterInterface
 
 	getNamespace                       func(clusterName logicalcluster.Name, namespaceName string) (*corev1.Namespace, error)
 	getValidSyncTargetKeysForWorkspace func(clusterName logicalcluster.Name) (sets.String, error)
@@ -339,24 +339,10 @@ func (c *Controller) processResource(ctx context.Context, key string) error {
 		logger.Error(err, "failed to split key, dropping")
 		return nil
 	}
-	// TODO(skuznets): can we figure out how to not leak this detail up to this code?
-	// I guess once the indexer is using kcpcache.MetaClusterNamespaceKeyFunc, we can just use that formatter ...
-	var indexKey string
-	if namespace != "" {
-		indexKey += namespace + "/"
-	}
-	if !lclusterName.Empty() {
-		indexKey += lclusterName.String() + "|"
-	}
-	indexKey += name
-	obj, exists, err := inf.Informer().GetIndexer().GetByKey(indexKey)
+	obj, err := inf.Lister().ByCluster(lclusterName).ByNamespace(namespace).Get(name)
 	if err != nil {
 		logger.Error(err, "error getting object from indexer")
 		return err
-	}
-	if !exists {
-		logger.V(3).Info("object does not exist")
-		return nil
 	}
 	unstr, ok := obj.(*unstructured.Unstructured)
 	if !ok {
@@ -396,7 +382,7 @@ func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 	var errs []error
 	for gvr, lister := range listers {
 		logger = logger.WithValues("gvr", gvr.String())
-		objs, err := lister.ByNamespace(ns.Name).List(labels.Everything())
+		objs, err := lister.ByCluster(clusterName).ByNamespace(ns.Name).List(labels.Everything())
 		if err != nil {
 			errs = append(errs, fmt.Errorf("error listing %q in %s|%s: %w", gvr, clusterName, ns.Name, err))
 			continue
@@ -408,13 +394,8 @@ func (c *Controller) enqueueResourcesForNamespace(ns *corev1.Namespace) error {
 		for _, obj := range objs {
 			u := obj.(*unstructured.Unstructured)
 
-			// TODO(ncdc): remove this when we have namespaced listers that only return for the scoped cluster (https://github.com/kcp-dev/kcp/issues/685).
-			if logicalcluster.From(u) != clusterName {
-				continue
-			}
 			objLocations := getLocations(u.GetLabels(), false)
 			objDeleting := getDeletingLocations(u.GetAnnotations())
-
 			logger := logging.WithObject(logger, u).WithValues("gvk", gvr.GroupVersion().WithKind(u.GetKind()))
 			if !objLocations.Equal(nsLocations) || !reflect.DeepEqual(objDeleting, nsDeleting) {
 				c.enqueueResource(gvr, obj)

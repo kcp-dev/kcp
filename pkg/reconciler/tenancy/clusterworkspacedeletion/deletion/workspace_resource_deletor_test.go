@@ -23,12 +23,12 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
+	kcpfakemetadata "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/metadata/fake"
+	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	metadatafake "k8s.io/client-go/metadata/fake"
-	clienttesting "k8s.io/client-go/testing"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
@@ -49,6 +49,7 @@ func TestWorkspaceTerminating(t *testing.T) {
 			Name:              "test",
 			DeletionTimestamp: &now,
 			Finalizers:        []string{WorkspaceFinalizer},
+			Annotations:       map[string]string{logicalcluster.AnnotationKey: "root"},
 		},
 	}
 	resources := testResources()
@@ -131,7 +132,7 @@ func TestWorkspaceTerminating(t *testing.T) {
 			fn := func(clusterName logicalcluster.Name) ([]*metav1.APIResourceList, error) {
 				return resources, tt.gvrError
 			}
-			mockMetadataClient := metadatafake.NewSimpleMetadataClient(scheme, tt.existingObject...)
+			mockMetadataClient := kcpfakemetadata.NewSimpleMetadataClient(scheme, tt.existingObject...)
 			d := NewWorkspacedResourcesDeleter(mockMetadataClient, fn)
 
 			err := d.Delete(context.TODO(), ws)
@@ -169,7 +170,7 @@ type metaAction struct {
 
 type metaActionSet []metaAction
 
-func (m metaActionSet) match(action clienttesting.Action) bool {
+func (m metaActionSet) match(action kcptesting.Action) bool {
 	for _, a := range m {
 		if action.Matches(a.verb, a.resource) {
 			return true
@@ -186,8 +187,9 @@ func newPartialObject(apiversion, kind, name, namespace string) *metav1.PartialO
 			Kind:       kind,
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
+			Name:        name,
+			Namespace:   namespace,
+			Annotations: map[string]string{logicalcluster.AnnotationKey: "root:test"},
 		},
 	}
 }

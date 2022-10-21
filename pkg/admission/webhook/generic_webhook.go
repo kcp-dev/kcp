@@ -19,12 +19,12 @@ package webhook
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/admission"
-	webhookconfiguration "k8s.io/apiserver/pkg/admission/configuration"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/generic"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/rules"
@@ -39,13 +39,52 @@ import (
 
 const byWorkspaceIndex = "webhookDispatcher-byWorkspace"
 
+type ClusterAwareSource interface {
+	Webhooks(cluster logicalcluster.Name) []webhook.WebhookAccessor
+	HasSynced() bool
+}
+
+type clusterAwareSource struct {
+	factory   func(cluster logicalcluster.Name) generic.Source
+	hasSynced func() bool
+
+	lock    sync.RWMutex
+	sources map[logicalcluster.Name]generic.Source
+}
+
+func (c *clusterAwareSource) Webhooks(cluster logicalcluster.Name) []webhook.WebhookAccessor {
+	var source generic.Source
+	var found bool
+	c.lock.RLock()
+	source, found = c.sources[cluster]
+	c.lock.RUnlock()
+	if found {
+		return source.Webhooks()
+	}
+
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	source, found = c.sources[cluster]
+	if found {
+		return source.Webhooks()
+	}
+
+	source = c.factory(cluster)
+	c.sources[cluster] = source
+	return source.Webhooks()
+}
+
+func (c *clusterAwareSource) HasSynced() bool {
+	return c.hasSynced()
+}
+
 var _ initializers.WantsKcpInformers = &WebhookDispatcher{}
 
 type WebhookDispatcher struct {
 	dispatcher           generic.Dispatcher
-	hookSource           generic.Source
+	hookSource           ClusterAwareSource
 	apiBindingsIndexer   cache.Indexer
-	apiBindingsHasSynced func() bool
+	apiBindingsHasSynced cache.InformerSynced
 	*admission.Handler
 }
 
@@ -71,17 +110,18 @@ func (p *WebhookDispatcher) Dispatch(ctx context.Context, attr admission.Attribu
 		return admission.NewForbidden(attr, fmt.Errorf("not yet ready to handle request"))
 	}
 
-	hooks := p.hookSource.Webhooks()
 	var whAccessor []webhook.WebhookAccessor
 
 	// Determine the type of request, is it api binding or not.
 	if workspace, isAPIBinding, err := p.getAPIBindingWorkspace(attr, lcluster); err != nil {
 		return err
 	} else if isAPIBinding {
-		whAccessor = p.restrictToLogicalCluster(hooks, workspace)
+		whAccessor = p.hookSource.Webhooks(workspace)
+		attr.SetCluster(workspace)
 		klog.V(7).Infof("restricting call to api registration hooks in cluster: %v", workspace)
 	} else {
-		whAccessor = p.restrictToLogicalCluster(hooks, lcluster)
+		whAccessor = p.hookSource.Webhooks(lcluster)
+		attr.SetCluster(lcluster)
 		klog.V(7).Infof("restricting call to hooks in cluster: %v", lcluster)
 	}
 
@@ -110,21 +150,14 @@ func (p *WebhookDispatcher) getAPIBindingWorkspace(attr admission.Attributes, cl
 	return logicalcluster.New(""), false, nil
 }
 
-// In the future use a restricted list call
-func (p *WebhookDispatcher) restrictToLogicalCluster(hooks []webhook.WebhookAccessor, lc logicalcluster.Name) []webhook.WebhookAccessor {
-	// TODO(sttts): this might not scale if there are many webhooks. This is called per request, and traverses all
-	//              webhook registrations. The hope is that there are not many webhooks per shard.
-	wh := []webhook.WebhookAccessor{}
-	for _, hook := range hooks {
-		if hook.(webhookconfiguration.WebhookClusterAccessor).GetLogicalCluster() == lc {
-			wh = append(wh, hook)
-		}
-	}
-	return wh
-}
+func (p *WebhookDispatcher) SetHookSource(factory func(cluster logicalcluster.Name) generic.Source, hasSynced func() bool) {
+	p.hookSource = &clusterAwareSource{
+		hasSynced: hasSynced,
+		factory:   factory,
 
-func (p *WebhookDispatcher) SetHookSource(s generic.Source) {
-	p.hookSource = s
+		lock:    sync.RWMutex{},
+		sources: map[logicalcluster.Name]generic.Source{},
+	}
 }
 
 // SetKcpInformers implements the WantsExternalKcpInformerFactory interface.

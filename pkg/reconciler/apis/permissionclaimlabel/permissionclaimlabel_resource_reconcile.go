@@ -57,9 +57,10 @@ func (c *resourceController) reconcile(ctx context.Context, obj *unstructured.Un
 
 	logger.V(2).Info("patch needed", "expectedClaimLabels", expectedLabels, "actualClaimLabels", actualClaimLabels, "diff", cmp.Diff(expectedLabels, actualClaimLabels))
 	_, err = c.dynamicClusterClient.
+		Cluster(clusterName).
 		Resource(*gvr).
 		Namespace(obj.GetNamespace()).
-		Patch(logicalcluster.WithCluster(ctx, clusterName), obj.GetName(), types.MergePatchType, []byte("{}"), metav1.PatchOptions{})
+		Patch(ctx, obj.GetName(), types.MergePatchType, []byte("{}"), metav1.PatchOptions{})
 
 	if err != nil {
 		if apierrors.IsNotFound(err) {

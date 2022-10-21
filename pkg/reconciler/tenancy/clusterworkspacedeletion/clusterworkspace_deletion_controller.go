@@ -25,6 +25,8 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
+	kcpmetadata "github.com/kcp-dev/client-go/clients/metadata"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -33,8 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	kubernetesclient "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
@@ -58,9 +58,9 @@ var (
 )
 
 func NewController(
-	kubeClusterClient kubernetesclient.ClusterInterface,
+	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	kcpClusterClient kcpclient.Interface,
-	metadataClusterClient metadata.Interface,
+	metadataClusterClient kcpmetadata.ClusterInterface,
 	workspaceInformer tenancyinformers.ClusterWorkspaceInformer,
 	discoverResourcesFn func(clusterName logicalcluster.Name) ([]*metav1.APIResourceList, error),
 ) *Controller {
@@ -96,9 +96,9 @@ func NewController(
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	kubeClusterClient     kubernetesclient.ClusterInterface
+	kubeClusterClient     kcpkubernetesclientset.ClusterInterface
 	kcpClusterClient      kcpclient.Interface
-	metadataClusterClient metadata.Interface
+	metadataClusterClient kcpmetadata.ClusterInterface
 
 	workspaceLister tenancylisters.ClusterWorkspaceLister
 	deleter         deletion.WorkspaceResourcesDeleterInterface

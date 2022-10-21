@@ -22,6 +22,9 @@ import (
 	"time"
 
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
+	kcpcorev1informers "github.com/kcp-dev/client-go/clients/informers/core/v1"
+	corev1listers "github.com/kcp-dev/client-go/clients/listers/core/v1"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	corev1 "k8s.io/api/core/v1"
@@ -31,11 +34,7 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	coreinformers "k8s.io/client-go/informers/core/v1"
-	kubernetesclient "k8s.io/client-go/kubernetes"
-	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clusters"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
@@ -62,9 +61,9 @@ func NewController(
 	kcpClusterClient kcpclient.Interface,
 	apiExportInformer apisinformers.APIExportInformer,
 	clusterWorkspaceShardInformer tenancyinformers.ClusterWorkspaceShardInformer,
-	kubeClusterClient kubernetesclient.Interface,
-	namespaceInformer coreinformers.NamespaceInformer,
-	secretInformer coreinformers.SecretInformer,
+	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
+	namespaceInformer kcpcorev1informers.NamespaceClusterInformer,
+	secretInformer kcpcorev1informers.SecretClusterInformer,
 	apiBindingInformer apisinformers.APIBindingInformer,
 ) (*controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
@@ -76,16 +75,16 @@ func NewController(
 		apiExportIndexer:  apiExportInformer.Informer().GetIndexer(),
 		kubeClusterClient: kubeClusterClient,
 		getNamespace: func(clusterName logicalcluster.Name, name string) (*corev1.Namespace, error) {
-			return namespaceInformer.Lister().Get(clusters.ToClusterAwareKey(clusterName, name))
+			return namespaceInformer.Lister().Cluster(clusterName).Get(name)
 		},
 		createNamespace: func(ctx context.Context, clusterName logicalcluster.Name, ns *corev1.Namespace) error {
-			_, err := kubeClusterClient.CoreV1().Namespaces().Create(logicalcluster.WithCluster(ctx, clusterName), ns, metav1.CreateOptions{})
+			_, err := kubeClusterClient.Cluster(clusterName).CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
 			return err
 		},
 		secretLister:    secretInformer.Lister(),
 		secretNamespace: DefaultIdentitySecretNamespace,
 		createSecret: func(ctx context.Context, clusterName logicalcluster.Name, secret *corev1.Secret) error {
-			_, err := kubeClusterClient.CoreV1().Secrets(secret.Namespace).Create(logicalcluster.WithCluster(ctx, clusterName), secret, metav1.CreateOptions{})
+			_, err := kubeClusterClient.Cluster(clusterName).CoreV1().Secrets(secret.Namespace).Create(ctx, secret, metav1.CreateOptions{})
 			return err
 		},
 		getAPIBindingsForAPIExport: func(clusterName logicalcluster.Name, name string) ([]interface{}, error) {
@@ -184,12 +183,12 @@ type controller struct {
 	apiExportLister  apislisters.APIExportLister
 	apiExportIndexer cache.Indexer
 
-	kubeClusterClient kubernetesclient.Interface
+	kubeClusterClient kcpkubernetesclientset.ClusterInterface
 
 	getNamespace    func(clusterName logicalcluster.Name, name string) (*corev1.Namespace, error)
 	createNamespace func(ctx context.Context, clusterName logicalcluster.Name, ns *corev1.Namespace) error
 
-	secretLister    corelisters.SecretLister
+	secretLister    corev1listers.SecretClusterLister
 	secretNamespace string
 
 	getSecret    func(ctx context.Context, clusterName logicalcluster.Name, ns, name string) (*corev1.Secret, error)
@@ -362,13 +361,13 @@ func (c *controller) process(ctx context.Context, key string) error {
 }
 
 func (c *controller) readThroughGetSecret(ctx context.Context, clusterName logicalcluster.Name, ns, name string) (*corev1.Secret, error) {
-	secret, err := c.secretLister.Secrets(ns).Get(clusters.ToClusterAwareKey(clusterName, name))
+	secret, err := c.secretLister.Cluster(clusterName).Secrets(ns).Get(name)
 	if err == nil {
 		return secret, nil
 	}
 
 	// In case the lister is slow to catch up, try a live read
-	secret, err = c.kubeClusterClient.CoreV1().Secrets(ns).Get(logicalcluster.WithCluster(ctx, clusterName), name, metav1.GetOptions{})
+	secret, err = c.kubeClusterClient.Cluster(clusterName).CoreV1().Secrets(ns).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}

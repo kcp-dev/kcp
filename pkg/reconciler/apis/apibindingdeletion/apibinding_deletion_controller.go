@@ -25,6 +25,7 @@ import (
 	"time"
 
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpmetadata "github.com/kcp-dev/client-go/clients/metadata"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -32,8 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
@@ -69,7 +68,7 @@ const (
 )
 
 func NewController(
-	metadataClient metadata.Interface,
+	metadataClient kcpmetadata.ClusterInterface,
 	kcpClusterClient kcpclient.Interface,
 	apiBindingInformer apisinformers.APIBindingInformer,
 ) *Controller {
@@ -78,12 +77,12 @@ func NewController(
 	c := &Controller{
 		queue: queue,
 		listResources: func(ctx context.Context, cluster logicalcluster.Name, gvr schema.GroupVersionResource) (*metav1.PartialObjectMetadataList, error) {
-			return metadataClient.Resource(gvr).Namespace(metav1.NamespaceAll).List(genericapirequest.WithCluster(ctx, genericapirequest.Cluster{Name: cluster}), metav1.ListOptions{})
+			return metadataClient.Cluster(cluster).Resource(gvr).Namespace(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
 		},
 		deleteResources: func(ctx context.Context, cluster logicalcluster.Name, gvr schema.GroupVersionResource, namespace string) error {
 			background := metav1.DeletePropagationBackground
 			opts := metav1.DeleteOptions{PropagationPolicy: &background}
-			return metadataClient.Resource(gvr).Namespace(namespace).DeleteCollection(genericapirequest.WithCluster(ctx, genericapirequest.Cluster{Name: cluster}), opts, metav1.ListOptions{})
+			return metadataClient.Cluster(cluster).Resource(gvr).Namespace(namespace).DeleteCollection(ctx, opts, metav1.ListOptions{})
 		},
 		getAPIBinding: func(cluster logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error) {
 			return apiBindingInformer.Lister().Get(kcpcache.ToClusterAwareKey(cluster.String(), "", name))

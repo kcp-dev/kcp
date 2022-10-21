@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
@@ -32,7 +33,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/yaml"
 
@@ -58,17 +58,17 @@ func TestScheduling(t *testing.T) {
 	userClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
 	secondUserClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
 
-	kubeClusterClient, err := kubernetes.NewForConfig(source.BaseConfig(t))
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(source.BaseConfig(t))
 	require.NoError(t, err)
 	kcpClusterClient, err := kcpclient.NewForConfig(source.BaseConfig(t))
 	require.NoError(t, err)
 
 	t.Logf("Check that there is no services resource in the user workspace")
-	_, err = kubeClusterClient.CoreV1().Services("").List(logicalcluster.WithCluster(ctx, userClusterName), metav1.ListOptions{})
+	_, err = kubeClusterClient.Cluster(userClusterName).CoreV1().Services("").List(ctx, metav1.ListOptions{})
 	require.Error(t, err)
 
 	t.Logf("Check that there is no services resource in the second user workspace")
-	_, err = kubeClusterClient.CoreV1().Services("").List(logicalcluster.WithCluster(ctx, secondUserClusterName), metav1.ListOptions{})
+	_, err = kubeClusterClient.Cluster(secondUserClusterName).CoreV1().Services("").List(ctx, metav1.ListOptions{})
 	require.Error(t, err)
 
 	syncTargetName := fmt.Sprintf("synctarget-%d", +rand.Intn(1000000))
@@ -192,7 +192,7 @@ func TestScheduling(t *testing.T) {
 
 	t.Logf("Wait for being able to list Services in the user workspace")
 	require.Eventually(t, func() bool {
-		_, err := kubeClusterClient.CoreV1().Services("").List(logicalcluster.WithCluster(ctx, userClusterName), metav1.ListOptions{})
+		_, err := kubeClusterClient.Cluster(userClusterName).CoreV1().Services("").List(ctx, metav1.ListOptions{})
 		if errors.IsNotFound(err) {
 			return false
 		} else if err != nil {
@@ -228,7 +228,7 @@ func TestScheduling(t *testing.T) {
 
 	t.Logf("Wait for being able to list Services in the user workspace")
 	require.Eventually(t, func() bool {
-		_, err := kubeClusterClient.CoreV1().Services("").List(logicalcluster.WithCluster(ctx, secondUserClusterName), metav1.ListOptions{})
+		_, err := kubeClusterClient.Cluster(secondUserClusterName).CoreV1().Services("").List(ctx, metav1.ListOptions{})
 		if errors.IsNotFound(err) {
 			return false
 		} else if err != nil {
@@ -241,7 +241,7 @@ func TestScheduling(t *testing.T) {
 	syncTargetKey := workloadv1alpha1.ToSyncTargetKey(syncerFixture.SyncerConfig.SyncTargetWorkspace, syncTargetName)
 
 	t.Logf("Create a service in the user workspace")
-	_, err = kubeClusterClient.CoreV1().Services("default").Create(logicalcluster.WithCluster(ctx, userClusterName), &corev1.Service{
+	_, err = kubeClusterClient.Cluster(userClusterName).CoreV1().Services("default").Create(ctx, &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "first",
 			Labels: map[string]string{
@@ -260,7 +260,7 @@ func TestScheduling(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Create a service in the second user workspace")
-	_, err = kubeClusterClient.CoreV1().Services("default").Create(logicalcluster.WithCluster(ctx, secondUserClusterName), &corev1.Service{
+	_, err = kubeClusterClient.Cluster(secondUserClusterName).CoreV1().Services("default").Create(ctx, &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "second",
 			Labels: map[string]string{
@@ -309,7 +309,7 @@ func TestScheduling(t *testing.T) {
 
 	t.Logf("Wait for placement annotation on the default namespace")
 	framework.Eventually(t, func() (bool, string) {
-		ns, err := kubeClusterClient.CoreV1().Namespaces().Get(logicalcluster.WithCluster(ctx, userClusterName), "default", metav1.GetOptions{})
+		ns, err := kubeClusterClient.Cluster(userClusterName).CoreV1().Namespaces().Get(ctx, "default", metav1.GetOptions{})
 		require.NoError(t, err)
 
 		_, found := ns.Annotations[schedulingv1alpha1.PlacementAnnotationKey]

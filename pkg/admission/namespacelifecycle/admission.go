@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// +kcp-code-generator:skip
+
 package namespacelifecycle
 
 import (
@@ -31,8 +33,10 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/initializer"
 	"k8s.io/apiserver/pkg/admission/plugin/namespace/lifecycle"
+	"k8s.io/apiserver/pkg/clientsethack"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
-	kubernetesinformers "k8s.io/client-go/informers"
+	"k8s.io/apiserver/pkg/informerfactoryhack"
+	"k8s.io/client-go/informers"
 	kubernetesclient "k8s.io/client-go/kubernetes"
 
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
@@ -131,15 +135,15 @@ func (l *workspaceNamespaceLifecycle) Admit(ctx context.Context, a admission.Att
 }
 
 // SetExternalKubeInformerFactory implements the WantsExternalKubeInformerFactory interface.
-func (l *workspaceNamespaceLifecycle) SetExternalKubeInformerFactory(f kubernetesinformers.SharedInformerFactory) {
-	l.legacyNamespaceLifecycle.SetExternalKubeInformerFactory(f)
-	l.namespaceLifecycle.SetExternalKubeInformerFactory(f)
+func (l *workspaceNamespaceLifecycle) SetExternalKubeInformerFactory(f informers.SharedInformerFactory) {
+	l.legacyNamespaceLifecycle.SetExternalKubeInformerFactory(informerfactoryhack.Unwrap(f))
+	l.namespaceLifecycle.SetExternalKubeInformerFactory(informerfactoryhack.Unwrap(f))
 }
 
 // SetExternalKubeClientSet implements the WantsExternalKubeClientSet interface.
 func (l *workspaceNamespaceLifecycle) SetExternalKubeClientSet(client kubernetesclient.Interface) {
-	l.legacyNamespaceLifecycle.SetExternalKubeClientSet(client)
-	l.namespaceLifecycle.SetExternalKubeClientSet(client)
+	l.legacyNamespaceLifecycle.SetExternalKubeClientSet(clientsethack.Unwrap(client))
+	l.namespaceLifecycle.SetExternalKubeClientSet(clientsethack.Unwrap(client))
 }
 
 func (l *workspaceNamespaceLifecycle) SetKcpInformers(informers kcpinformers.SharedInformerFactory) {

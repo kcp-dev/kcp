@@ -38,6 +38,7 @@ import (
 	"sort"
 	"strings"
 
+	kcpmetadata "github.com/kcp-dev/client-go/clients/metadata"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -46,7 +47,6 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/metadata"
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -70,7 +70,7 @@ type WorkspaceResourcesDeleterInterface interface {
 
 // NewWorkspacedResourcesDeleter returns a new NamespacedResourcesDeleter.
 func NewWorkspacedResourcesDeleter(
-	metadataClusterClient metadata.Interface,
+	metadataClusterClient kcpmetadata.ClusterInterface,
 	discoverResourcesFn func(clusterName logicalcluster.Name) ([]*metav1.APIResourceList, error)) WorkspaceResourcesDeleterInterface {
 	d := &workspacedResourcesDeleter{
 		metadataClusterClient: metadataClusterClient,
@@ -84,7 +84,7 @@ var _ WorkspaceResourcesDeleterInterface = &workspacedResourcesDeleter{}
 // workspacedResourcesDeleter is used to delete all resources in a given workspace.
 type workspacedResourcesDeleter struct {
 	// Dynamic client to list and delete all resources in the workspace.
-	metadataClusterClient metadata.Interface
+	metadataClusterClient kcpmetadata.ClusterInterface
 
 	discoverResourcesFn func(clusterName logicalcluster.Name) ([]*metav1.APIResourceList, error)
 }
@@ -167,8 +167,8 @@ func (d *workspacedResourcesDeleter) deleteCollection(ctx context.Context, clust
 
 	background := metav1.DeletePropagationBackground
 	opts := metav1.DeleteOptions{PropagationPolicy: &background}
-	if err := d.metadataClusterClient.Resource(gvr).DeleteCollection(
-		logicalcluster.WithCluster(ctx, clusterName), opts, metav1.ListOptions{}); err != nil {
+	if err := d.metadataClusterClient.Resource(gvr).Cluster(clusterName).DeleteCollection(
+		ctx, opts, metav1.ListOptions{}); err != nil {
 		logger.V(5).Error(err, "unexpected deleteCollection error")
 		return true, err
 	}
@@ -191,7 +191,7 @@ func (d *workspacedResourcesDeleter) listCollection(ctx context.Context, cluster
 		return nil, false, nil
 	}
 
-	partialList, err := d.metadataClusterClient.Resource(gvr).Namespace(metav1.NamespaceAll).List(logicalcluster.WithCluster(ctx, clusterName), metav1.ListOptions{})
+	partialList, err := d.metadataClusterClient.Cluster(clusterName).Resource(gvr).Namespace(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
 	if err == nil {
 		return partialList, true, nil
 	}
@@ -225,7 +225,7 @@ func (d *workspacedResourcesDeleter) deleteEachItem(ctx context.Context, cluster
 	for _, item := range unstructuredList.Items {
 		background := metav1.DeletePropagationBackground
 		opts := metav1.DeleteOptions{PropagationPolicy: &background}
-		if err = d.metadataClusterClient.Resource(gvr).Namespace(item.GetNamespace()).Delete(logicalcluster.WithCluster(ctx, clusterName), item.GetName(), opts); err != nil && !errors.IsNotFound(err) && !errors.IsMethodNotSupported(err) {
+		if err = d.metadataClusterClient.Cluster(clusterName).Resource(gvr).Namespace(item.GetNamespace()).Delete(ctx, item.GetName(), opts); err != nil && !errors.IsNotFound(err) && !errors.IsMethodNotSupported(err) {
 			return err
 		}
 	}

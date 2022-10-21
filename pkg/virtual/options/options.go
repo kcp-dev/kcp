@@ -19,9 +19,9 @@ package options
 import (
 	"fmt"
 
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/clients/informers"
 	"github.com/spf13/pflag"
 
-	kubernetesinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/rest"
 
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
@@ -69,7 +69,7 @@ func (v *Options) AddFlags(fs *pflag.FlagSet) {
 func (o *Options) NewVirtualWorkspaces(
 	config *rest.Config,
 	rootPathPrefix string,
-	wildcardKubeInformers kubernetesinformers.SharedInformerFactory,
+	wildcardKubeInformers kcpkubernetesinformers.SharedInformerFactory,
 	wildcardKcpInformers kcpinformers.SharedInformerFactory,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
 

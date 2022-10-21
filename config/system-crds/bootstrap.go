@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// +kcp-code-generator:skip
+
 package systemcrds
 
 import (
@@ -42,6 +44,7 @@ var fs embed.FS
 // This is blocking, i.e. it only returns (with error) when the context is closed or with nil when
 // the bootstrapping is successfully completed.
 func Bootstrap(ctx context.Context, crdClient apiextensionsclient.Interface, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface, batteriesIncluded sets.String) error {
+	logger := klog.FromContext(ctx)
 	// This is the full list of CRDs that kcp owns and manages in the system:system-crds logical cluster. Our custom CRD
 	// lister currently has a hard-coded list of which system CRDs are made available to which workspaces. See
 	// pkg/server/apiextensions.go newSystemCRDProvider for the list. These CRDs should never be installed in any other
@@ -55,7 +58,7 @@ func Bootstrap(ctx context.Context, crdClient apiextensionsclient.Interface, dis
 
 	if err := wait.PollImmediateInfiniteWithContext(ctx, time.Second, func(ctx context.Context) (bool, error) {
 		if err := configcrds.Create(ctx, crdClient.ApiextensionsV1().CustomResourceDefinitions(), crds...); err != nil {
-			klog.Errorf("failed to bootstrap system CRDs: %v", err)
+			logger.Error(err, "failed to bootstrap system CRDs, retrying")
 			return false, nil // keep retrying
 		}
 		return true, nil

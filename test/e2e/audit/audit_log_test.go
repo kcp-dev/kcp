@@ -23,12 +23,11 @@ import (
 	"strings"
 	"testing"
 
-	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/apis/audit"
-	kubernetesclientset "k8s.io/client-go/kubernetes"
 
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -46,11 +45,10 @@ func TestAuditLogs(t *testing.T) {
 	cfg := server.BaseConfig(t)
 
 	workspaceName := framework.NewOrganizationFixture(t, server)
-	workspaceCfg := kcpclienthelper.SetCluster(cfg, workspaceName)
-	workspaceKubeClient, err := kubernetesclientset.NewForConfig(workspaceCfg)
+	workspaceKubeClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err)
 
-	_, err = workspaceKubeClient.CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
+	_, err = workspaceKubeClient.Cluster(workspaceName).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
 	require.NoError(t, err, "Error listing configmaps")
 
 	data, err := os.ReadFile("./audit-log")

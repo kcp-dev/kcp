@@ -21,22 +21,22 @@ import (
 	"fmt"
 	"strings"
 
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/clients/informers"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	aggregateerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
-	kubernetesinformers "k8s.io/client-go/informers"
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
-	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -112,7 +112,7 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 		}
 
 		claimLogger.V(4).Info("listing resources")
-		objs, err := informer.Informer().GetIndexer().ByIndex(indexers.ByLogicalCluster, clusterName.String())
+		objs, err := informer.Lister().ByCluster(clusterName).List(labels.Everything())
 		if err != nil {
 			allErrs = append(allErrs, fmt.Errorf("error listing group=%q, resource=%q: %w", claim.Group, claim.Resource, err))
 			if acceptedClaims.Has(s) {
@@ -238,7 +238,7 @@ func claimFromSetKey(key string) apisv1alpha1.PermissionClaim {
 	}
 }
 
-func (c *controller) getInformerForGroupResource(group, resource string) (kubernetesinformers.GenericInformer, schema.GroupVersionResource, error) {
+func (c *controller) getInformerForGroupResource(group, resource string) (kcpkubernetesinformers.GenericClusterInformer, schema.GroupVersionResource, error) {
 	listers, _ := c.ddsif.Listers()
 
 	for gvr := range listers {
@@ -253,9 +253,10 @@ func (c *controller) getInformerForGroupResource(group, resource string) (kubern
 
 func (c *controller) patchGenericObject(ctx context.Context, obj metav1.Object, gvr schema.GroupVersionResource, lc logicalcluster.Name) error {
 	_, err := c.dynamicClusterClient.
+		Cluster(lc).
 		Resource(gvr).
 		Namespace(obj.GetNamespace()).
-		Patch(logicalcluster.WithCluster(ctx, lc), obj.GetName(), types.MergePatchType, []byte("{}"), metav1.PatchOptions{})
+		Patch(ctx, obj.GetName(), types.MergePatchType, []byte("{}"), metav1.PatchOptions{})
 	// if we don't find it, and we can update lets continue on.
 	if err != nil && !errors.IsNotFound(err) {
 		return err

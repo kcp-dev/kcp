@@ -152,23 +152,13 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	}
 	logger = logger.WithValues(DownstreamNamespace, downstreamNamespace)
 
-	// TODO(skuznets): can we figure out how to not leak this detail up to this code?
-	// I guess once the indexer is using kcpcache.MetaClusterNamespaceKeyFunc, we can just use that formatter ...
-	var indexKey string
-	if upstreamNamespace != "" {
-		indexKey += upstreamNamespace + "/"
-	}
-	if !clusterName.Empty() {
-		indexKey += clusterName.String() + "|"
-	}
-	indexKey += name
 	// get the upstream object
 	syncerInformer, ok := c.syncerInformers.InformerForResource(gvr)
 	if !ok {
 		return nil
 	}
 
-	obj, exists, err := syncerInformer.UpstreamInformer.Informer().GetIndexer().GetByKey(indexKey)
+	obj, exists, err := syncerInformer.UpstreamInformer.Informer().GetIndexer().GetByKey(kcpcache.ToClusterAwareKey(clusterName.String(), upstreamNamespace, name))
 	if err != nil {
 		return err
 	}

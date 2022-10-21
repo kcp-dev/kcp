@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// +kcp-code-generator:skip
+
 package bootstrap
 
 import (
@@ -24,6 +26,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -54,7 +57,7 @@ const (
 
 func NewController(
 	baseConfig *rest.Config,
-	dynamicClusterClient dynamic.Interface,
+	dynamicClusterClient kcpdynamic.ClusterInterface,
 	crdClusterClient apiextensionsclient.Interface,
 	kcpClusterClient kcpclient.Interface,
 	workspaceInformer tenancyinformers.ClusterWorkspaceInformer,
@@ -93,7 +96,7 @@ type controller struct {
 	baseConfig     *rest.Config
 	queue          workqueue.RateLimitingInterface
 
-	dynamicClusterClient dynamic.Interface
+	dynamicClusterClient kcpdynamic.ClusterInterface
 	crdClusterClient     apiextensionsclient.Interface
 	kcpClusterClient     kcpclient.Interface
 
