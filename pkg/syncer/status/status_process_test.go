@@ -562,7 +562,7 @@ func TestSyncerProcess(t *testing.T) {
 			toClientResourceWatcherStarted := setupWatchReactor(tc.gvr.Resource, toClient)
 
 			fakeInformers := newFakeSyncerInformers(tc.gvr, toInformers, fromInformers)
-			controller, err := NewStatusSyncer(logger, kcpLogicalCluster, tc.syncTargetName, syncTargetKey, tc.advancedSchedulingEnabled, toClusterClient, fromClient, toInformers, fromInformers, fakeInformers, tc.syncTargetUID)
+			controller, err := NewStatusSyncer(logger, kcpLogicalCluster, tc.syncTargetName, syncTargetKey, tc.advancedSchedulingEnabled, toClusterClient, fromClient, fromInformers, fakeInformers, tc.syncTargetUID)
 			require.NoError(t, err)
 
 			toInformers.ForResource(tc.gvr).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{})
