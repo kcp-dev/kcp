@@ -253,9 +253,9 @@ func NewAuthorizationCache(
 }
 
 // Run begins watching and synchronizing the cache
-func (ac *AuthorizationCache) Run(period time.Duration, stopCh <-chan struct{}) {
+func (ac *AuthorizationCache) Run(period time.Duration, jitterFactor float64, sliding bool, stopCh <-chan struct{}) {
 	ac.skip = &statelessSkipSynchronizer{}
-	go utilwait.Until(func() { ac.synchronize() }, period, stopCh)
+	go utilwait.JitterUntil(func() { ac.synchronize() }, period, jitterFactor, sliding, stopCh)
 }
 
 func (ac *AuthorizationCache) AddWatcher(watcher CacheWatcher) {
