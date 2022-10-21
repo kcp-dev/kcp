@@ -56,21 +56,30 @@ func newTransport(clientCert, clientKeyFile, caFile string) (*http.Transport, er
 
 // WithProxyAuthHeaders does client cert termination by extracting the user and groups and
 // passing them through access headers to the shard.
-func WithProxyAuthHeaders(delegate http.HandlerFunc, userHeader, groupHeader string) http.HandlerFunc {
+func WithProxyAuthHeaders(delegate http.HandlerFunc, userHeader, groupHeader string, extraHeaderPrefix string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if u, ok := request.UserFrom(r.Context()); ok {
-			appendClientCertAuthHeaders(r.Header, u, userHeader, groupHeader)
+			appendClientCertAuthHeaders(r.Header, u, userHeader, groupHeader, extraHeaderPrefix)
 		}
 
 		delegate.ServeHTTP(w, r)
 	}
 }
 
-func appendClientCertAuthHeaders(header http.Header, user userinfo.Info, userHeader, groupHeader string) {
+func appendClientCertAuthHeaders(header http.Header, user userinfo.Info, userHeader, groupHeader, extraHeaderPrefix string) {
 	header.Set(userHeader, user.GetName())
 
 	for _, group := range user.GetGroups() {
 		header.Add(groupHeader, group)
+	}
+
+	for k, values := range user.GetExtra() {
+		// Key must be encoded to enable e.g authentication.kubernetes.io/cluster-name
+		// This is decoded in the RequestHeader auth handler
+		encodedKey := url.PathEscape(k)
+		for _, v := range values {
+			header.Add(extraHeaderPrefix+encodedKey, v)
+		}
 	}
 }
 
