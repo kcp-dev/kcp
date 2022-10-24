@@ -26,6 +26,7 @@ import (
 	"time"
 
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpapiextensionsv1informers "github.com/kcp-dev/client-go/apiextensions/clients/informers/apiextensions/v1"
 	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
 	kcpdynamicinformer "github.com/kcp-dev/client-go/clients/dynamic/dynamicinformer"
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/clients/informers"
@@ -33,7 +34,6 @@ import (
 
 	"k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -87,7 +87,7 @@ type DynamicDiscoverySharedInformerFactory struct {
 func NewDynamicDiscoverySharedInformerFactory(
 	cfg *rest.Config,
 	filterFunc func(obj interface{}) bool,
-	crdInformer apiextensionsinformers.CustomResourceDefinitionInformer,
+	crdInformer kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer,
 	indexers cache.Indexers,
 ) (*DynamicDiscoverySharedInformerFactory, error) {
 	cfg = rest.AddUserAgent(rest.CopyConfig(cfg), "kcp-partial-metadata-informers")

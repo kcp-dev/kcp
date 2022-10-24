@@ -22,6 +22,9 @@ import (
 	"testing"
 	"time"
 
+	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/clients/clientset/versioned"
+	kcpapiextensionsv1client "github.com/kcp-dev/client-go/apiextensions/clients/clientset/versioned/typed/apiextensions/v1"
+	kcpapiextensionsinformers "github.com/kcp-dev/client-go/apiextensions/clients/informers"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
 	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
@@ -29,9 +32,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
-	apiextensionsexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -109,13 +109,13 @@ func TestCrossLogicalClusterList(t *testing.T) {
 func bootstrapCRD(
 	t *testing.T,
 	clusterName logicalcluster.Name,
-	clusterClient apiextensionsv1client.CustomResourceDefinitionInterface,
+	clusterClient kcpapiextensionsv1client.CustomResourceDefinitionClusterInterface,
 	crd *apiextensionsv1.CustomResourceDefinition,
 ) {
 	ctx, cancelFunc := context.WithTimeout(logicalcluster.WithCluster(context.Background(), clusterName), wait.ForeverTestTimeout)
 	t.Cleanup(cancelFunc)
 
-	err := configcrds.CreateSingle(ctx, clusterClient, crd)
+	err := configcrds.CreateSingle(ctx, clusterClient.Cluster(clusterName), crd)
 	require.NoError(t, err, "error bootstrapping CRD %s in cluster %s", crd.Name, clusterName)
 }
 
@@ -158,7 +158,7 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	cfg := server.BaseConfig(t)
 	rootShardConfig := server.RootShardSystemMasterBaseConfig(t)
 
-	crdClusterClient, err := apiextensionsclient.NewForConfig(cfg)
+	crdClusterClient, err := kcpapiextensionsclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct apiextensions client for server")
 
 	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
@@ -212,11 +212,11 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	_, err = rootShardMetadataClusterClient.Cluster(logicalcluster.Wildcard).Resource(sheriffsGVR).List(ctx, metav1.ListOptions{})
 	require.NoError(t, err, "expected wildcard list to work with metadata client even though schemas are different")
 
-	rootShardCRDClusterClient, err := apiextensionsclient.NewClusterForConfig(rootShardConfig)
+	rootShardCRDClusterClient, err := kcpapiextensionsclientset.NewForConfig(rootShardConfig)
 	require.NoError(t, err, "error creating root shard crd client")
 
-	apiExtensionsInformerFactory := apiextensionsexternalversions.NewSharedInformerFactoryWithOptions(
-		rootShardCRDClusterClient.Cluster(logicalcluster.Wildcard),
+	apiExtensionsInformerFactory := kcpapiextensionsinformers.NewSharedInformerFactoryWithOptions(
+		rootShardCRDClusterClient,
 		0,
 	)
 

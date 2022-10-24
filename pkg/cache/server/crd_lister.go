@@ -20,21 +20,20 @@ import (
 	"context"
 	"fmt"
 
+	kcpapiextensionsv1listers "github.com/kcp-dev/client-go/apiextensions/clients/listers/apiextensions/v1"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apiextensionslisters "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/kcp"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/cache/server/bootstrap"
-	"github.com/kcp-dev/kcp/pkg/client"
 )
 
 // crdClusterLister is a CRD lister
 type crdClusterLister struct {
-	lister apiextensionslisters.CustomResourceDefinitionLister
+	lister kcpapiextensionsv1listers.CustomResourceDefinitionClusterLister
 }
 
 func (c *crdClusterLister) Cluster(name logicalcluster.Name) kcp.ClusterAwareCRDLister {
@@ -70,5 +69,5 @@ func (c *crdLister) Refresh(crd *apiextensionsv1.CustomResourceDefinition) (*api
 // Get gets a CustomResourceDefinition
 func (c *crdLister) Get(ctx context.Context, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 	// TODO: make it shard and cluster aware, for now just return what we have in the system ws
-	return c.lister.Get(client.ToClusterAwareKey(c.cluster, name))
+	return c.lister.Cluster(c.cluster).Get(name)
 }

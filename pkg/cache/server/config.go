@@ -24,13 +24,12 @@ import (
 	"time"
 
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v2"
+	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/clients/clientset/versioned"
+	kcpapiextensionsinformers "github.com/kcp-dev/client-go/apiextensions/clients/informers"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	apiextensionsexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	apiextensionsoptions "k8s.io/apiextensions-apiserver/pkg/cmd/server/options"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -68,9 +67,9 @@ type completedConfig struct {
 }
 
 type ExtraConfig struct {
-	ApiExtensionsClusterClient apiextensionsclient.ClusterInterface
+	ApiExtensionsClusterClient kcpapiextensionsclientset.ClusterInterface
 
-	ApiExtensionsSharedInformerFactory apiextensionsexternalversions.SharedInformerFactory
+	ApiExtensionsSharedInformerFactory kcpapiextensionsinformers.SharedInformerFactory
 }
 
 type CompletedConfig struct {
@@ -195,13 +194,13 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 	clientutils.EnableMultiCluster(rt, &serverConfig.Config, "namespaces", "apiservices", "customresourcedefinitions", "clusterroles", "clusterrolebindings", "roles", "rolebindings", "serviceaccounts", "secrets")
 
 	var err error
-	c.ApiExtensionsClusterClient, err = apiextensionsclient.NewClusterForConfig(rt)
+	c.ApiExtensionsClusterClient, err = kcpapiextensionsclientset.NewForConfig(rt)
 	if err != nil {
 		return nil, err
 	}
 
-	c.ApiExtensionsSharedInformerFactory = apiextensionsexternalversions.NewSharedInformerFactoryWithOptions(
-		c.ApiExtensionsClusterClient.Cluster(logicalcluster.Wildcard),
+	c.ApiExtensionsSharedInformerFactory = kcpapiextensionsinformers.NewSharedInformerFactoryWithOptions(
+		c.ApiExtensionsClusterClient,
 		resyncPeriod,
 	)
 

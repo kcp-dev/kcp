@@ -21,10 +21,10 @@ import (
 	"fmt"
 	"time"
 
+	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/clients/clientset/versioned"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/pointer"
@@ -41,7 +41,7 @@ var SystemCRDLogicalCluster = logicalcluster.New("system:system-crds")
 // SystemCacheServerShard holds a default shard name
 const SystemCacheServerShard = "system:cache:server"
 
-func Bootstrap(ctx context.Context, apiExtensionsClusterClient apiextensionsclient.ClusterInterface) error {
+func Bootstrap(ctx context.Context, apiExtensionsClusterClient kcpapiextensionsclientset.ClusterInterface) error {
 	crds := []*apiextensionsv1.CustomResourceDefinition{}
 	for _, resource := range []string{"apiresourceschemas", "apiexports"} {
 		crd := &apiextensionsv1.CustomResourceDefinition{}

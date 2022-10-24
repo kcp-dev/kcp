@@ -22,13 +22,13 @@ import (
 	"testing"
 	"time"
 
+	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/clients/clientset/versioned"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
 	v1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -92,7 +92,7 @@ func TestMutatingWebhookInWorkspace(t *testing.T) {
 	require.NoError(t, err, "failed to construct client for server")
 	cowbyClusterClient, err := client.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct cowboy client for server")
-	apiExtensionsClients, err := apiextensionsclient.NewForConfig(cfg)
+	apiExtensionsClients, err := kcpapiextensionsclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct apiextensions client for server")
 
 	t.Logf("Install the Cowboy resources into logical clusters")
@@ -211,7 +211,7 @@ func TestValidatingWebhookInWorkspace(t *testing.T) {
 	require.NoError(t, err, "failed to construct client for server")
 	cowbyClusterClient, err := client.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct cowboy client for server")
-	apiExtensionsClients, err := apiextensionsclient.NewForConfig(cfg)
+	apiExtensionsClients, err := kcpapiextensionsclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct apiextensions client for server")
 
 	t.Logf("Install the Cowboy resources into logical clusters")

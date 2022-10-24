@@ -26,13 +26,13 @@ import (
 	"testing"
 	"time"
 
+	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/clients/clientset/versioned"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
 	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
 	v1 "k8s.io/api/core/v1"
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -58,7 +58,7 @@ func TestWatchCacheEnabledForCRD(t *testing.T) {
 	cowBoysGR := metav1.GroupResource{Group: "wildwest.dev", Resource: "cowboys"}
 
 	t.Log("Creating wildwest.dev CRD")
-	rootCRDClusterClient, err := apiextensionsclient.NewForConfig(rootShardConfig)
+	rootCRDClusterClient, err := kcpapiextensionsclientset.NewForConfig(rootShardConfig)
 	require.NoError(t, err)
 	rootShardCRDWildcardClient := rootCRDClusterClient.ApiextensionsV1().CustomResourceDefinitions()
 

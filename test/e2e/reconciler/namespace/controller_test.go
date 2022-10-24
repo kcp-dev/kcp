@@ -24,6 +24,7 @@ import (
 	"time"
 
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/clients/clientset/versioned"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
 	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/clients/informers"
@@ -154,7 +155,7 @@ func TestNamespaceScheduler(t *testing.T) {
 		{
 			name: "GVRs are removed, and then quickly re-added to a new workspace",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				crdClusterClient, err := apiextensionsclient.NewForConfig(server.BaseConfig(t))
+				crdClusterClient, err := kcpapiextensionsclientset.NewForConfig(server.BaseConfig(t))
 				require.NoError(t, err, "failed to construct apiextensions client for server")
 
 				dynamicClusterClient, err := kcpdynamic.NewForConfig(server.BaseConfig(t))
@@ -191,7 +192,7 @@ func TestNamespaceScheduler(t *testing.T) {
 					Version:  crd.Spec.Versions[0].Name,
 					Resource: crd.Spec.Names.Plural,
 				}
-				err = configcrds.CreateSingle(logicalcluster.WithCluster(ctx, server.clusterName), crdClusterClient.ApiextensionsV1().CustomResourceDefinitions(), crd)
+				err = configcrds.CreateSingle(ctx, crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Cluster(server.clusterName), crd)
 				require.NoError(t, err, "error bootstrapping CRD %s in cluster %s", crd.Name, server.clusterName)
 				require.Eventually(t, func() bool {
 					_, err := dynamicClusterClient.Cluster(server.clusterName).Resource(gvr).Namespace("").List(ctx, metav1.ListOptions{})
@@ -213,13 +214,13 @@ func TestNamespaceScheduler(t *testing.T) {
 				t.Log("Delete the sheriff and the sheriff CRD")
 				err = dynamicClusterClient.Cluster(server.clusterName).Resource(gvr).Namespace("default").Delete(ctx, "woody", metav1.DeleteOptions{})
 				require.NoError(t, err, "failed to delete sheriff")
-				err = crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Delete(logicalcluster.WithCluster(ctx, server.clusterName), crd.Name, metav1.DeleteOptions{})
+				err = crdClusterClient.Cluster(server.clusterName).ApiextensionsV1().CustomResourceDefinitions().Delete(ctx, crd.Name, metav1.DeleteOptions{})
 				require.NoError(t, err, "failed to delete CRD")
 
 				time.Sleep(7 * time.Second) // this must be longer than discovery repoll interval (5s in tests)
 
 				t.Log("Recreate the CRD, and then quickly a namespace and a CR whose CRD was just recreated")
-				err = configcrds.CreateSingle(logicalcluster.WithCluster(ctx, server.clusterName), crdClusterClient.ApiextensionsV1().CustomResourceDefinitions(), crd)
+				err = configcrds.CreateSingle(ctx, crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Cluster(server.clusterName), crd)
 				require.NoError(t, err, "error bootstrapping CRD %s in cluster %s", crd.Name, server.clusterName)
 				_, err = kubeClusterClient.Cluster(server.clusterName).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "namespace-test"}}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create namespace")

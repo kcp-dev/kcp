@@ -22,11 +22,11 @@ import (
 	_ "net/http/pprof"
 	"strings"
 
+	kcpapiextensionsv1listers "github.com/kcp-dev/client-go/apiextensions/clients/listers/apiextensions/v1"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	apiextensionshelpers "k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apiextensionslisters "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/kcp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,7 +38,6 @@ import (
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/client"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
@@ -53,7 +52,7 @@ var SystemCRDLogicalCluster = logicalcluster.New("system:system-crds")
 
 type apiBindingAwareCRDClusterLister struct {
 	kcpClusterClient     kcpclient.ClusterInterface
-	crdLister            apiextensionslisters.CustomResourceDefinitionLister
+	crdLister            kcpapiextensionsv1listers.CustomResourceDefinitionClusterLister
 	crdIndexer           cache.Indexer
 	workspaceLister      tenancylisters.ClusterWorkspaceLister
 	apiBindingLister     apislisters.APIBindingLister

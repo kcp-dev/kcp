@@ -26,13 +26,13 @@ import (
 	"time"
 
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
+	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/clients/clientset/versioned"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
 	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
 	kcpmetadata "github.com/kcp-dev/client-go/clients/metadata"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	corev1 "k8s.io/api/core/v1"
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -473,7 +473,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		return err
 	}
 
-	crdClusterClient, err := apiextensionsclient.NewForConfig(bootstrapConfig)
+	crdClusterClient, err := kcpapiextensionsclientset.NewForConfig(bootstrapConfig)
 	if err != nil {
 		return err
 	}
@@ -511,7 +511,7 @@ func (s *Server) installApiResourceController(ctx context.Context, config *rest.
 	config = rest.CopyConfig(config)
 	config = rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(config), apiresource.ControllerName)
 
-	crdClusterClient, err := apiextensionsclient.NewForConfig(config)
+	crdClusterClient, err := kcpapiextensionsclientset.NewForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -590,7 +590,7 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 		return err
 	}
 
-	crdClusterClient, err := apiextensionsclient.NewForConfig(apiBindingConfig)
+	crdClusterClient, err := kcpapiextensionsclientset.NewForConfig(apiBindingConfig)
 	if err != nil {
 		return err
 	}

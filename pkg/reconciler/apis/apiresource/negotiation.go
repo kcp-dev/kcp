@@ -707,7 +707,7 @@ func (c *Controller) publishNegotiatedResource(ctx context.Context, clusterName 
 			cr.ObjectMeta.Annotations["api-approved.kubernetes.io"] = "https://github.com/kcp-dev/kubernetes/pull/4"
 		}
 
-		if _, err := c.crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Create(logicalcluster.WithCluster(ctx, clusterName), cr, metav1.CreateOptions{}); err != nil {
+		if _, err := c.crdClusterClient.Cluster(clusterName).ApiextensionsV1().CustomResourceDefinitions().Create(ctx, cr, metav1.CreateOptions{}); err != nil {
 			logger.Error(err, "error", "caller", runtime.GetCaller())
 			return err
 		}
@@ -757,7 +757,7 @@ func (c *Controller) publishNegotiatedResource(ctx context.Context, clusterName 
 				NegotiatedAPIResourceAsOwnerReference(negotiatedApiResource))
 		}
 
-		if _, err := c.crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Update(logicalcluster.WithCluster(ctx, clusterName), crd, metav1.UpdateOptions{}); err != nil {
+		if _, err := c.crdClusterClient.Cluster(clusterName).ApiextensionsV1().CustomResourceDefinitions().Update(ctx, crd, metav1.UpdateOptions{}); err != nil {
 			logger.Error(err, "error", "caller", runtime.GetCaller())
 			return err
 		}
@@ -867,7 +867,7 @@ func (c *Controller) cleanupNegotiatedAPIResource(ctx context.Context, clusterNa
 		return nil
 	}
 	if len(cleanedVersions) == 0 {
-		if err := c.crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Delete(logicalcluster.WithCluster(ctx, clusterName), crd.Name, metav1.DeleteOptions{}); err != nil {
+		if err := c.crdClusterClient.Cluster(clusterName).ApiextensionsV1().CustomResourceDefinitions().Delete(ctx, crd.Name, metav1.DeleteOptions{}); err != nil {
 			logger.Error(err, "error", "caller", runtime.GetCaller())
 			return err
 		}
@@ -875,7 +875,7 @@ func (c *Controller) cleanupNegotiatedAPIResource(ctx context.Context, clusterNa
 		crd = crd.DeepCopy()
 		crd.Spec.Versions = cleanedVersions
 		crd.OwnerReferences = cleanedOwnerReferences
-		if _, err := c.crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Update(logicalcluster.WithCluster(ctx, clusterName), crd, metav1.UpdateOptions{}); err != nil {
+		if _, err := c.crdClusterClient.Cluster(clusterName).ApiextensionsV1().CustomResourceDefinitions().Update(ctx, crd, metav1.UpdateOptions{}); err != nil {
 			logger.Error(err, "error", "caller", runtime.GetCaller())
 			return err
 		}
