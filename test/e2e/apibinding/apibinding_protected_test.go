@@ -35,6 +35,7 @@ import (
 	"github.com/kcp-dev/kcp/config/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
+	"github.com/kcp-dev/kcp/pkg/apis/workload"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -117,4 +118,38 @@ func TestProtectedAPI(t *testing.T) {
 		require.NoError(t, err, "error retrieving consumer workspace %q API discovery", consumerWorkspace)
 		return resourceExists(resources, "tlsroutes")
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "consumer workspace %q discovery is missing tlsroutes resource", consumerWorkspace)
+}
+
+// TestProtectedAPIFromServiceExports is testing if we can access service exports
+// from root workspace. See https://github.com/kcp-dev/kcp/issues/2184 for more details.
+func TestProtectedAPIFromServiceExports(t *testing.T) {
+	t.Parallel()
+	framework.Suite(t, "control-plane")
+
+	server := framework.SharedKcpServer(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	rootWorkspace := logicalcluster.New("root")
+	cfg := server.BaseConfig(t)
+
+	kcpClusterClient, err := clientset.NewForConfig(cfg)
+	require.NoError(t, err, "failed to construct kcp cluster client for server")
+
+	t.Logf("Get tenancy APIExport from root workspace")
+	workloadsRoot, err := kcpClusterClient.ApisV1alpha1().APIExports().Get(logicalcluster.WithCluster(ctx, rootWorkspace), workload.GroupName, metav1.GetOptions{})
+	require.NoError(t, err)
+
+	t.Logf("Construct VirtualWorkspace client")
+	vwURL := workloadsRoot.Status.VirtualWorkspaces[0].URL
+	cfgVW := server.RootShardSystemMasterBaseConfig(t)
+	cfgVW.Host = vwURL
+
+	vwClient, err := clientset.NewClusterForConfig(cfgVW)
+	require.NoError(t, err)
+
+	t.Logf("Make sure we can access tenancy API from VirtualWorkspace")
+	_, err = vwClient.Cluster(logicalcluster.Wildcard).WorkloadV1alpha1().SyncTargets().List(ctx, metav1.ListOptions{})
+	require.NoError(t, err)
 }
