@@ -275,16 +275,17 @@ func decorateWildcardPathsWithResourceIdentities(urlPath string, ids *identities
 		return urlPath, nil
 	}
 
+	if strings.Contains(comps[5], ":") {
+		return urlPath, nil
+	}
+
 	gr := schema.GroupResource{Group: comps[3], Resource: comps[5]}
 	if id, found := ids.grIdentity(gr); found {
 		if len(id) == 0 {
 			return "", fmt.Errorf("identity for %s is unknown", gr)
 		}
 
-		// Check if identity already exists in the URL path before appending it.
-		if !strings.Contains(comps[5], ":") {
-			comps[5] += ":" + id
-		}
+		comps[5] += ":" + id
 
 		return "/" + path.Join(comps...), nil
 	}

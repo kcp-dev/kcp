@@ -22,6 +22,7 @@ import (
 	"time"
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,6 +33,7 @@ import (
 	"github.com/kcp-dev/kcp/config/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
+	"github.com/kcp-dev/kcp/pkg/apis/workload"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -112,4 +114,38 @@ func TestProtectedAPI(t *testing.T) {
 		require.NoError(t, err, "error retrieving consumer workspace %q API discovery", consumerWorkspace)
 		return resourceExists(resources, "tlsroutes")
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "consumer workspace %q discovery is missing tlsroutes resource", consumerWorkspace)
+}
+
+// TestProtectedAPIFromServiceExports is testing if we can access service exports
+// from root workspace. See https://github.com/kcp-dev/kcp/issues/2184 for more details.
+func TestProtectedAPIFromServiceExports(t *testing.T) {
+	t.Parallel()
+	framework.Suite(t, "control-plane")
+
+	server := framework.SharedKcpServer(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	rootWorkspace := logicalcluster.New("root")
+	cfg := server.BaseConfig(t)
+
+	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
+	require.NoError(t, err, "failed to construct kcp cluster client for server")
+
+	t.Logf("Get tenancy APIExport from root workspace")
+	workloadsRoot, err := kcpClusterClient.ApisV1alpha1().APIExports().Cluster(rootWorkspace).Get(ctx, workload.GroupName, metav1.GetOptions{})
+	require.NoError(t, err)
+
+	t.Logf("Construct VirtualWorkspace client")
+	vwURL := workloadsRoot.Status.VirtualWorkspaces[0].URL
+	cfgVW := server.RootShardSystemMasterBaseConfig(t)
+	cfgVW.Host = vwURL
+
+	vwClient, err := kcpclientset.NewForConfig(cfgVW)
+	require.NoError(t, err)
+
+	t.Logf("Make sure we can access tenancy API from VirtualWorkspace")
+	_, err = vwClient.WorkloadV1alpha1().SyncTargets().List(ctx, metav1.ListOptions{})
+	require.NoError(t, err)
 }
