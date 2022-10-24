@@ -44,7 +44,12 @@ func (c *Controller) process(ctx context.Context, key queueElement) error {
 
 	switch key.theType {
 	case customResourceDefinitionType:
-		crd, err := c.crdLister.Get(key.theKey)
+		clusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key.theKey)
+		if err != nil {
+			runtime.HandleError(err)
+			return nil
+		}
+		crd, err := c.crdLister.Cluster(clusterName).Get(name)
 		if err != nil {
 			var deletedObjectExists bool
 			crd, deletedObjectExists = key.deletedObject.(*apiextensionsv1.CustomResourceDefinition)
@@ -401,19 +406,7 @@ func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, cluster
 	} else {
 		crdName += gvr.Group
 	}
-	crdkey, err := kcpcache.MetaClusterNamespaceKeyFunc(&metav1.PartialObjectMetadata{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: crdName,
-			Annotations: map[string]string{
-				logicalcluster.AnnotationKey: clusterName.String(),
-			},
-		},
-	})
-	if err != nil {
-		logger.Error(err, "error", "caller", runtime.GetCaller())
-		return err
-	}
-	crd, err := c.crdLister.Get(crdkey)
+	crd, err := c.crdLister.Cluster(clusterName).Get(crdName)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		logger.Error(err, "error", "caller", runtime.GetCaller())
 		return err
@@ -665,19 +658,7 @@ func (c *Controller) publishNegotiatedResource(ctx context.Context, clusterName 
 		AdditionalPrinterColumns: crColumnDefinitions,
 	}
 
-	crdKey, err := kcpcache.MetaClusterNamespaceKeyFunc(&metav1.PartialObjectMetadata{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: crdName,
-			Annotations: map[string]string{
-				logicalcluster.AnnotationKey: clusterName.String(),
-			},
-		},
-	})
-	if err != nil {
-		logger.Error(err, "error", "caller", runtime.GetCaller())
-		return err
-	}
-	crd, err := c.crdLister.Get(crdKey)
+	crd, err := c.crdLister.Cluster(clusterName).Get(crdName)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		logger.Error(err, "error", "caller", runtime.GetCaller())
 		return err
@@ -853,19 +834,7 @@ func (c *Controller) cleanupNegotiatedAPIResource(ctx context.Context, clusterNa
 		crdName += "." + gvr.Group
 	}
 
-	crdKey, err := kcpcache.MetaClusterNamespaceKeyFunc(&metav1.PartialObjectMetadata{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: crdName,
-			Annotations: map[string]string{
-				logicalcluster.AnnotationKey: clusterName.String(),
-			},
-		},
-	})
-	if err != nil {
-		logger.Error(err, "error", "caller", runtime.GetCaller())
-		return err
-	}
-	crd, err := c.crdLister.Get(crdKey)
+	crd, err := c.crdLister.Cluster(clusterName).Get(crdName)
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}
