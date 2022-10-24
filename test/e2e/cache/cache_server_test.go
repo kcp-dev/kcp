@@ -115,6 +115,55 @@ func testUIDGenerationCreationTime(ctx context.Context, t *testing.T, cacheClien
 	validateFn(initialMangoDB, cachedMangoDBRaw)
 }
 
+// testUIDGenerationCreationTimeNegative checks if UID, Generation, CreationTime are set when the shard annotation is NOT set
+func testUIDGenerationCreationTimeNegative(ctx context.Context, t *testing.T, cacheClientRT *rest.Config, cluster logicalcluster.Name, gvr schema.GroupVersionResource) {
+	cacheDynamicClient, err := dynamic.NewClusterForConfig(cacheClientRT)
+	require.NoError(t, err)
+	initialMangoDB := newFakeAPIExport("mangodbnegative")
+	initialMangoDB.UID = "3"
+	initialMangoDB.Generation = 8
+	initialMangoDB.CreationTimestamp = metav1.Now()
+	mangoDBRaw, err := toUnstructured(&initialMangoDB)
+	require.NoError(t, err)
+	validateFn := func(mangoDB fakeAPIExport, cachedMangoDBRaw *unstructured.Unstructured) {
+		cachedMangoDBJson, err := cachedMangoDBRaw.MarshalJSON()
+		require.NoError(t, err)
+		cachedMangoDB := &fakeAPIExport{}
+		require.NoError(t, json.Unmarshal(cachedMangoDBJson, cachedMangoDB))
+
+		if cachedMangoDB.UID == mangoDB.UID {
+			t.Fatalf("unexpected UID %v set on amber/%s/%s, an UID should be assinged by the server", cachedMangoDB.UID, cluster, mangoDB.Name)
+		}
+		if cachedMangoDB.Generation == mangoDB.Generation {
+			t.Fatalf("unexpected Generation %v set on amber/%s/%s, a Generation should be assinged by the server", cachedMangoDB.Generation, cluster, mangoDB.Name)
+		}
+		if cachedMangoDB.CreationTimestamp == mangoDB.CreationTimestamp {
+			t.Fatalf("unexpected CreationTimestamp %v set on amber/%s/%s, a CreationTimestamp should be assinged by the server", cachedMangoDB.CreationTimestamp, cluster, mangoDB.Name)
+		}
+
+		mangoDB.UID = cachedMangoDB.UID
+		mangoDB.Generation = cachedMangoDB.Generation
+		mangoDB.ResourceVersion = cachedMangoDB.ResourceVersion
+		mangoDB.CreationTimestamp = cachedMangoDB.CreationTimestamp
+		mangoDB.Annotations["kcp.dev/cluster"] = cluster.String()
+		mangoDB.Annotations["kcp.dev/shard"] = "amber"
+		if !reflect.DeepEqual(cachedMangoDB, &mangoDB) {
+			t.Errorf("received object from the cache server differs from the expected one :\n%s", cmp.Diff(cachedMangoDB, &mangoDB))
+		}
+	}
+
+	t.Logf("Create abmer/%s/%s on the cache server", cluster, initialMangoDB.Name)
+	cachedMangoDBRaw, err := cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(ctx, mangoDBRaw, metav1.CreateOptions{})
+	require.NoError(t, err)
+	validateFn(initialMangoDB, cachedMangoDBRaw)
+
+	// do additional sanity check with GET
+	t.Logf("Get abmer/%s/%s from the cache server", cluster, initialMangoDB.Name)
+	cachedMangoDBRaw, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Get(ctx, initialMangoDB.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+	validateFn(initialMangoDB, cachedMangoDBRaw)
+}
+
 func newFakeAPIExport(name string) fakeAPIExport {
 	return fakeAPIExport{
 		TypeMeta: metav1.TypeMeta{
