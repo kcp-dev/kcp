@@ -14,8 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// +kcp-code-generator:skip
-
 package server
 
 import (
@@ -25,14 +23,14 @@ import (
 	_ "net/http/pprof"
 
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
+	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/clients/clientset/versioned"
+	kcpapiextensionsinformers "github.com/kcp-dev/client-go/apiextensions/clients/informers"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
 	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/clients/informers"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	apiextensionsexternalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/endpoints/filters"
@@ -98,11 +96,11 @@ type ExtraConfig struct {
 	DynamicClusterClient                kcpdynamic.ClusterInterface
 	KubeClusterClient                   kcpkubernetesclientset.ClusterInterface
 	DeepSARClient                       kcpkubernetesclientset.ClusterInterface
-	ApiExtensionsClusterClient          apiextensionsclient.ClusterInterface
+	ApiExtensionsClusterClient          kcpapiextensionsclientset.ClusterInterface
 	KcpClusterClient                    kcpclient.ClusterInterface
 	RootShardKcpClusterClient           kcpclient.ClusterInterface
 	BootstrapDynamicClusterClient       kcpdynamic.ClusterInterface
-	BootstrapApiExtensionsClusterClient apiextensionsclient.ClusterInterface
+	BootstrapApiExtensionsClusterClient kcpapiextensionsclientset.ClusterInterface
 	BootstrapKcpClusterClient           kcpclient.ClusterInterface
 	CacheDynamicClient                  kcpdynamic.ClusterInterface
 
@@ -113,7 +111,7 @@ type ExtraConfig struct {
 	// informers
 	KcpSharedInformerFactory              kcpinformers.SharedInformerFactory
 	KubeSharedInformerFactory             kcpkubernetesinformers.SharedInformerFactory
-	ApiExtensionsSharedInformerFactory    apiextensionsexternalversions.SharedInformerFactory
+	ApiExtensionsSharedInformerFactory    kcpapiextensionsinformers.SharedInformerFactory
 	DynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory
 	CacheKcpSharedInformerFactory         kcpinformers.SharedInformerFactory
 	// TODO(p0lyn0mial):  get rid of TemporaryRootShardKcpSharedInformerFactory, in the future
@@ -271,15 +269,13 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 	}
 
 	// Setup apiextensions * informers
-	c.ApiExtensionsClusterClient, err = apiextensionsclient.NewClusterForConfig(c.GenericConfig.LoopbackClientConfig)
+	c.ApiExtensionsClusterClient, err = kcpapiextensionsclientset.NewForConfig(c.GenericConfig.LoopbackClientConfig)
 	if err != nil {
 		return nil, err
 	}
-	c.ApiExtensionsSharedInformerFactory = apiextensionsexternalversions.NewSharedInformerFactoryWithOptions(
-		c.ApiExtensionsClusterClient.Cluster(logicalcluster.Wildcard),
+	c.ApiExtensionsSharedInformerFactory = kcpapiextensionsinformers.NewSharedInformerFactoryWithOptions(
+		c.ApiExtensionsClusterClient,
 		resyncPeriod,
-		apiextensionsexternalversions.WithExtraClusterScopedIndexers(indexers.ClusterScoped()),
-		apiextensionsexternalversions.WithExtraNamespaceScopedIndexers(indexers.NamespaceScoped()),
 	)
 
 	// Setup dynamic client
@@ -314,7 +310,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 	bootstrapConfig.Impersonate.Groups = []string{bootstrappolicy.SystemKcpWorkspaceBootstrapper}
 	bootstrapConfig = rest.AddUserAgent(bootstrapConfig, "kcp-bootstrapper")
 
-	c.BootstrapApiExtensionsClusterClient, err = apiextensionsclient.NewClusterForConfig(bootstrapConfig)
+	c.BootstrapApiExtensionsClusterClient, err = kcpapiextensionsclientset.NewForConfig(bootstrapConfig)
 	if err != nil {
 		return nil, err
 	}

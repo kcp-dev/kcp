@@ -22,12 +22,12 @@ import (
 	"time"
 
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/clients/clientset/versioned"
+	kcpapiextensionsv1informers "github.com/kcp-dev/client-go/apiextensions/clients/informers/apiextensions/v1"
+	kcpapiextensionsv1listers "github.com/kcp-dev/client-go/apiextensions/clients/listers/apiextensions/v1"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1"
-	apiextensionslisters "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -51,12 +51,12 @@ func GetClusterNameAndGVRIndexKey(clusterName logicalcluster.Name, gvr metav1.Gr
 }
 
 func NewController(
-	crdClusterClient apiextensionsclient.Interface,
+	crdClusterClient kcpapiextensionsclientset.ClusterInterface,
 	kcpClusterClient kcpclient.Interface,
 	autoPublishNegotiatedAPIResource bool,
 	negotiatedAPIResourceInformer apiresourceinformer.NegotiatedAPIResourceInformer,
 	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
-	crdInformer apiextensionsinformers.CustomResourceDefinitionInformer,
+	crdInformer kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer,
 ) (*Controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-apiresource")
 
@@ -130,7 +130,7 @@ func NewController(
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	crdClusterClient             apiextensionsclient.Interface
+	crdClusterClient             kcpapiextensionsclientset.ClusterInterface
 	kcpClusterClient             kcpclient.Interface
 	negotiatedApiResourceIndexer cache.Indexer
 	negotiatedApiResourceLister  apiresourcelisters.NegotiatedAPIResourceLister
@@ -139,7 +139,7 @@ type Controller struct {
 	apiResourceImportLister  apiresourcelisters.APIResourceImportLister
 
 	crdIndexer cache.Indexer
-	crdLister  apiextensionslisters.CustomResourceDefinitionLister
+	crdLister  kcpapiextensionsv1listers.CustomResourceDefinitionClusterLister
 
 	AutoPublishNegotiatedAPIResource bool
 }

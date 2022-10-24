@@ -21,10 +21,10 @@ import (
 	"embed"
 	"testing"
 
+	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/clients/clientset/versioned"
 	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
 	"github.com/stretchr/testify/require"
 
-	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/restmapper"
 
@@ -48,7 +48,7 @@ func TestCustomResourceCreation(t *testing.T) {
 
 	cfg := server.BaseConfig(t)
 
-	kcpClients, err := clientset.NewClusterForConfig(cfg)
+	kcpClients, err := kcpapiextensionsclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
 
 	dynamicClients, err := kcpdynamic.NewForConfig(cfg)

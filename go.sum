@@ -460,8 +460,9 @@ github.com/jung-kurt/gofpdf v1.0.3-0.20190309125859-24315acbbda5/go.mod h1:7Id9E
 github.com/karrick/godirwalk v1.16.1/go.mod h1:j4mkqPuvaLI8mp1DroR3P6ad7cyYd4c1qeJ3RV7ULlk=
 github.com/kcp-dev/apimachinery v0.0.0-20221019133255-9e1e13940519 h1:eU1HvmmP8TbzS2pB9IX2Spky20n6V79/KgX4ssiG/A8=
 github.com/kcp-dev/apimachinery v0.0.0-20221019133255-9e1e13940519/go.mod h1:qnvUHkdxOrNzX17yX+z8r81CZEBuFdveNzWqFlwZ55w=
-github.com/kcp-dev/client-go v0.0.0-20221019184858-60e56386a574 h1:M73BZSrOxfUkSJ58ckwuTebpQDNuX5UG5s16k2Xl4vY=
 github.com/kcp-dev/client-go v0.0.0-20221019184858-60e56386a574/go.mod h1:Qmq1OxUOSdVQ8YIGnjbya5Xt04KMJ5fN41QvErl/XnI=
+github.com/kcp-dev/client-go v0.0.0-20221023141420-aa2709fd364f h1:8fXuqk1fTBIQv0/k6OhrafVWddxEI8w26rHtsBup92I=
+github.com/kcp-dev/client-go v0.0.0-20221023141420-aa2709fd364f/go.mod h1:jo6aMHy7JglKs2YixRXr4DjVzQiqFSA7RPqHQCi3WNo=
 github.com/kcp-dev/kubernetes v0.0.0-20221021135508-401e4f0fc370 h1:J7IgeABi7HDOkF7DHm1RyeV3uKXdMrbdXoLz0JaTfr8=
 github.com/kcp-dev/kubernetes v0.0.0-20221021135508-401e4f0fc370/go.mod h1:2D6mZWHzz+u16P91KvbcSBrR2/6zwdp7mlkF4IH8fXU=
 github.com/kcp-dev/kubernetes/staging/src/k8s.io/api v0.0.0-20221021135508-401e4f0fc370 h1:BTwFKxwRKzOr+/SgND/UuVRppcuITp2AYwaZxIQj/hM=

@@ -44,7 +44,12 @@ func (c *Controller) process(ctx context.Context, key queueElement) error {
 
 	switch key.theType {
 	case customResourceDefinitionType:
-		crd, err := c.crdLister.Get(key.theKey)
+		clusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key.theKey)
+		if err != nil {
+			runtime.HandleError(err)
+			return nil
+		}
+		crd, err := c.crdLister.Cluster(clusterName).Get(name)
 		if err != nil {
 			var deletedObjectExists bool
 			crd, deletedObjectExists = key.deletedObject.(*apiextensionsv1.CustomResourceDefinition)
@@ -401,19 +406,7 @@ func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, cluster
 	} else {
 		crdName += gvr.Group
 	}
-	crdkey, err := kcpcache.MetaClusterNamespaceKeyFunc(&metav1.PartialObjectMetadata{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: crdName,
-			Annotations: map[string]string{
-				logicalcluster.AnnotationKey: clusterName.String(),
-			},
-		},
-	})
-	if err != nil {
-		logger.Error(err, "error", "caller", runtime.GetCaller())
-		return err
-	}
-	crd, err := c.crdLister.Get(crdkey)
+	crd, err := c.crdLister.Cluster(clusterName).Get(crdName)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		logger.Error(err, "error", "caller", runtime.GetCaller())
 		return err
@@ -665,19 +658,7 @@ func (c *Controller) publishNegotiatedResource(ctx context.Context, clusterName 
 		AdditionalPrinterColumns: crColumnDefinitions,
 	}
 
-	crdKey, err := kcpcache.MetaClusterNamespaceKeyFunc(&metav1.PartialObjectMetadata{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: crdName,
-			Annotations: map[string]string{
-				logicalcluster.AnnotationKey: clusterName.String(),
-			},
-		},
-	})
-	if err != nil {
-		logger.Error(err, "error", "caller", runtime.GetCaller())
-		return err
-	}
-	crd, err := c.crdLister.Get(crdKey)
+	crd, err := c.crdLister.Cluster(clusterName).Get(crdName)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		logger.Error(err, "error", "caller", runtime.GetCaller())
 		return err
@@ -726,7 +707,7 @@ func (c *Controller) publishNegotiatedResource(ctx context.Context, clusterName 
 			cr.ObjectMeta.Annotations["api-approved.kubernetes.io"] = "https://github.com/kcp-dev/kubernetes/pull/4"
 		}
 
-		if _, err := c.crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Create(logicalcluster.WithCluster(ctx, clusterName), cr, metav1.CreateOptions{}); err != nil {
+		if _, err := c.crdClusterClient.Cluster(clusterName).ApiextensionsV1().CustomResourceDefinitions().Create(ctx, cr, metav1.CreateOptions{}); err != nil {
 			logger.Error(err, "error", "caller", runtime.GetCaller())
 			return err
 		}
@@ -776,7 +757,7 @@ func (c *Controller) publishNegotiatedResource(ctx context.Context, clusterName 
 				NegotiatedAPIResourceAsOwnerReference(negotiatedApiResource))
 		}
 
-		if _, err := c.crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Update(logicalcluster.WithCluster(ctx, clusterName), crd, metav1.UpdateOptions{}); err != nil {
+		if _, err := c.crdClusterClient.Cluster(clusterName).ApiextensionsV1().CustomResourceDefinitions().Update(ctx, crd, metav1.UpdateOptions{}); err != nil {
 			logger.Error(err, "error", "caller", runtime.GetCaller())
 			return err
 		}
@@ -853,19 +834,7 @@ func (c *Controller) cleanupNegotiatedAPIResource(ctx context.Context, clusterNa
 		crdName += "." + gvr.Group
 	}
 
-	crdKey, err := kcpcache.MetaClusterNamespaceKeyFunc(&metav1.PartialObjectMetadata{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: crdName,
-			Annotations: map[string]string{
-				logicalcluster.AnnotationKey: clusterName.String(),
-			},
-		},
-	})
-	if err != nil {
-		logger.Error(err, "error", "caller", runtime.GetCaller())
-		return err
-	}
-	crd, err := c.crdLister.Get(crdKey)
+	crd, err := c.crdLister.Cluster(clusterName).Get(crdName)
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}
@@ -898,7 +867,7 @@ func (c *Controller) cleanupNegotiatedAPIResource(ctx context.Context, clusterNa
 		return nil
 	}
 	if len(cleanedVersions) == 0 {
-		if err := c.crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Delete(logicalcluster.WithCluster(ctx, clusterName), crd.Name, metav1.DeleteOptions{}); err != nil {
+		if err := c.crdClusterClient.Cluster(clusterName).ApiextensionsV1().CustomResourceDefinitions().Delete(ctx, crd.Name, metav1.DeleteOptions{}); err != nil {
 			logger.Error(err, "error", "caller", runtime.GetCaller())
 			return err
 		}
@@ -906,7 +875,7 @@ func (c *Controller) cleanupNegotiatedAPIResource(ctx context.Context, clusterNa
 		crd = crd.DeepCopy()
 		crd.Spec.Versions = cleanedVersions
 		crd.OwnerReferences = cleanedOwnerReferences
-		if _, err := c.crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Update(logicalcluster.WithCluster(ctx, clusterName), crd, metav1.UpdateOptions{}); err != nil {
+		if _, err := c.crdClusterClient.Cluster(clusterName).ApiextensionsV1().CustomResourceDefinitions().Update(ctx, crd, metav1.UpdateOptions{}); err != nil {
 			logger.Error(err, "error", "caller", runtime.GetCaller())
 			return err
 		}

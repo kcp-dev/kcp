@@ -23,12 +23,12 @@ import (
 	"time"
 
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
+	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/clients/clientset/versioned"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
 	"github.com/stretchr/testify/require"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	apiextensionclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
@@ -54,11 +54,10 @@ func TestMetadataMutations(t *testing.T) {
 
 	workspaceName := framework.NewOrganizationFixture(t, server)
 
-	workspaceCfg := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), workspaceName)
-	workspaceCRDClient, err := apiextensionclientset.NewForConfig(workspaceCfg)
+	workspaceCRDClient, err := kcpapiextensionsclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating crd cluster client")
 
-	kube.Create(t, workspaceCRDClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: "apps.k8s.io", Resource: "deployments"})
+	kube.Create(t, workspaceCRDClient.ApiextensionsV1().CustomResourceDefinitions().Cluster(workspaceName), metav1.GroupResource{Group: "apps.k8s.io", Resource: "deployments"})
 
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(kcpclienthelper.SetMultiClusterRoundTripper(rest.CopyConfig(cfg)))
 	require.NoError(t, err, "error creating kube cluster client")

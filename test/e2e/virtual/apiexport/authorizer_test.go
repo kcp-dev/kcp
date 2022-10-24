@@ -25,6 +25,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
+	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/clients/clientset/versioned"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
 	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
@@ -32,7 +33,6 @@ import (
 
 	"k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -212,10 +212,10 @@ func TestAPIExportAuthorizers(t *testing.T) {
 	err = helpers.CreateResourceFromFS(ctx, user3DynamicClusterClient.Cluster(tenantShadowCRDWorkspace), mapper, nil, "crd_cowboys.yaml", testFiles)
 	require.NoError(t, err)
 
-	user3APIExtensionsClient, err := apiextensionsclient.NewForConfig(framework.UserConfig("user-3", rest.CopyConfig(cfg)))
+	user3APIExtensionsClient, err := kcpapiextensionsclientset.NewForConfig(framework.UserConfig("user-3", rest.CopyConfig(cfg)))
 	require.NoError(t, err)
 	framework.Eventually(t, func() (bool, string) {
-		cowboysCRD, err := user3APIExtensionsClient.ApiextensionsV1().CustomResourceDefinitions().Get(logicalcluster.WithCluster(ctx, tenantShadowCRDWorkspace), "cowboys.wildwest.dev", metav1.GetOptions{})
+		cowboysCRD, err := user3APIExtensionsClient.Cluster(tenantShadowCRDWorkspace).ApiextensionsV1().CustomResourceDefinitions().Get(ctx, "cowboys.wildwest.dev", metav1.GetOptions{})
 		if err != nil {
 			return false, fmt.Sprintf("error creating API binding: %v", err)
 		}

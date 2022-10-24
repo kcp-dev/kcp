@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/clients/clientset/versioned"
+	kcpapiextensionsv1client "github.com/kcp-dev/client-go/apiextensions/clients/clientset/versioned/typed/apiextensions/v1"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
 	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
@@ -29,8 +31,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -237,7 +237,7 @@ func TestKubeQuotaNormalCRDs(t *testing.T) {
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating kube cluster client")
 
-	crdClusterClient, err := apiextensionsclient.NewForConfig(cfg)
+	crdClusterClient, err := kcpapiextensionsclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct apiextensions client for server")
 
 	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
@@ -418,13 +418,13 @@ func TestClusterScopedQuota(t *testing.T) {
 func bootstrapCRD(
 	t *testing.T,
 	clusterName logicalcluster.Name,
-	client apiextensionsv1client.CustomResourceDefinitionInterface,
+	client kcpapiextensionsv1client.CustomResourceDefinitionClusterInterface,
 	crd *apiextensionsv1.CustomResourceDefinition,
 ) {
 	ctx, cancelFunc := context.WithTimeout(context.Background(), wait.ForeverTestTimeout)
 	t.Cleanup(cancelFunc)
 
-	err := configcrds.CreateSingle(logicalcluster.WithCluster(ctx, clusterName), client, crd)
+	err := configcrds.CreateSingle(ctx, client.Cluster(clusterName), crd)
 	require.NoError(t, err, "error bootstrapping CRD %s in cluster %s", crd.Name, clusterName)
 }
 

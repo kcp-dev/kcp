@@ -14,8 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// +kcp-code-generator:skip
-
 package bootstrap
 
 import (
@@ -26,10 +24,10 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/clients/clientset/versioned"
 	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
 
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,7 +56,7 @@ const (
 func NewController(
 	baseConfig *rest.Config,
 	dynamicClusterClient kcpdynamic.ClusterInterface,
-	crdClusterClient apiextensionsclient.Interface,
+	crdClusterClient kcpapiextensionsclientset.ClusterInterface,
 	kcpClusterClient kcpclient.Interface,
 	workspaceInformer tenancyinformers.ClusterWorkspaceInformer,
 	workspaceType tenancyv1alpha1.ClusterWorkspaceTypeReference,
@@ -97,7 +95,7 @@ type controller struct {
 	queue          workqueue.RateLimitingInterface
 
 	dynamicClusterClient kcpdynamic.ClusterInterface
-	crdClusterClient     apiextensionsclient.Interface
+	crdClusterClient     kcpapiextensionsclientset.ClusterInterface
 	kcpClusterClient     kcpclient.Interface
 
 	workspaceLister tenancylisters.ClusterWorkspaceLister

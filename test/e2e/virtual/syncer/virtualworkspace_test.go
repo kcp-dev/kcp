@@ -26,6 +26,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
+	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/clients/clientset/versioned"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
@@ -621,7 +622,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 
 			unrelatedWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
 
-			sourceCrdClient, err := apiextensionsclientset.NewForConfig(server.BaseConfig(t))
+			sourceCrdClient, err := kcpapiextensionsclientset.NewForConfig(server.BaseConfig(t))
 			require.NoError(t, err)
 
 			fixturewildwest.Create(t, unrelatedWorkspace, sourceCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
@@ -662,7 +663,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					sinkCrdClient, err := apiextensionsclientset.NewForConfig(config)
 					require.NoError(t, err)
 					t.Log("Installing test CRDs into sink cluster...")
-					fixturewildwest.Create(t, logicalcluster.Name{}, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
+					fixturewildwest.FakePClusterCreate(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 					if isFakePCluster {
 						// Only need to install services in a non-logical cluster
 						kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: "core.k8s.io", Resource: "services"})

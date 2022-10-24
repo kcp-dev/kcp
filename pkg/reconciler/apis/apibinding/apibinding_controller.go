@@ -23,13 +23,13 @@ import (
 
 	"github.com/go-logr/logr"
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/clients/clientset/versioned"
+	kcpapiextensionsv1informers "github.com/kcp-dev/client-go/apiextensions/clients/informers/apiextensions/v1"
 	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -60,7 +60,7 @@ var (
 
 // NewController returns a new controller for APIBindings.
 func NewController(
-	crdClusterClient apiextensionsclient.Interface,
+	crdClusterClient kcpapiextensionsclientset.ClusterInterface,
 	kcpClusterClient kcpclient.Interface,
 	dynamicClusterClient kcpdynamic.ClusterInterface,
 	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory,
@@ -69,7 +69,7 @@ func NewController(
 	apiResourceSchemaInformer apisinformers.APIResourceSchemaInformer,
 	temporaryRemoteShardApiExportInformer apisinformers.APIExportInformer, /*TODO(p0lyn0mial): replace with multi-shard informers*/
 	temporaryRemoteShardApiResourceSchemaInformer apisinformers.APIResourceSchemaInformer, /*TODO(p0lyn0mial): replace with multi-shard informers*/
-	crdInformer apiextensionsinformers.CustomResourceDefinitionInformer,
+	crdInformer kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer,
 ) (*controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
@@ -120,10 +120,10 @@ func NewController(
 		},
 
 		createCRD: func(ctx context.Context, clusterName logicalcluster.Name, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error) {
-			return crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Create(logicalcluster.WithCluster(ctx, clusterName), crd, metav1.CreateOptions{})
+			return crdClusterClient.Cluster(clusterName).ApiextensionsV1().CustomResourceDefinitions().Create(ctx, crd, metav1.CreateOptions{})
 		},
 		getCRD: func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
-			return crdInformer.Lister().Get(client.ToClusterAwareKey(clusterName, name))
+			return crdInformer.Lister().Cluster(clusterName).Get(name)
 		},
 		crdIndexer:        crdInformer.Informer().GetIndexer(),
 		deletedCRDTracker: newLockedStringSet(),
@@ -226,7 +226,7 @@ type CommitFunc = func(context.Context, *Resource, *Resource) error
 type controller struct {
 	queue workqueue.RateLimitingInterface
 
-	crdClusterClient     apiextensionsclient.Interface
+	crdClusterClient     kcpapiextensionsclientset.ClusterInterface
 	kcpClusterClient     kcpclient.Interface
 	dynamicClusterClient kcpdynamic.ClusterInterface
 	ddsif                *informer.DynamicDiscoverySharedInformerFactory
