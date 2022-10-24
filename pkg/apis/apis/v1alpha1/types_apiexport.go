@@ -202,12 +202,31 @@ type PermissionClaim struct {
 	// +optional
 	ResourceSelector []ResourceSelector `json:"resourceSelector,omitempty"`
 
+	// +required
+	Verbs Verbs `json:"verbs"`
+
 	// This is the identity for a given APIExport that the APIResourceSchema belongs to.
 	// The hash can be found on APIExport and APIResourceSchema's status.
 	// It will be empty for core types.
 	// Note that one must look this up for a particular KCP instance.
 	// +optional
 	IdentityHash string `json:"identityHash,omitempty"`
+}
+
+type Verbs struct {
+	// claimed is a list of verbs that restrict access via services.
+	// '*' represents all verbs.
+	//
+	// +required
+	Claimed []string `json:"claimed"`
+
+	// restrictTo is a list of verbs that restrict access via workspaces.
+	// They also restrict access via services if the same resources
+	// are claimed by a different API export in the same workspace.
+	// '*' represents all verbs.
+	//
+	// +required
+	RestrictTo []string `json:"restrictTo"`
 }
 
 type ResourceSelector struct {
