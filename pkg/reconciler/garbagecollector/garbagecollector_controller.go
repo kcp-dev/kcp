@@ -22,14 +22,11 @@ import (
 	"sync"
 	"time"
 
-	kcpapiextensionsv1informers "github.com/kcp-dev/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1"
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	kcpmetadata "github.com/kcp-dev/client-go/metadata"
 	"github.com/kcp-dev/logicalcluster/v2"
 
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -70,9 +67,6 @@ type Controller struct {
 	cancelFuncs map[logicalcluster.Name]func()
 
 	ignoredResources map[schema.GroupResource]struct{}
-
-	// For better testability
-	listCRDs func() ([]*apiextensionsv1.CustomResourceDefinition, error)
 }
 
 // NewController creates a new Controller.
@@ -81,7 +75,6 @@ func NewController(
 	kubeClusterClient kubernetesclient.ClusterInterface,
 	metadataClient kcpmetadata.ClusterInterface,
 	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory,
-	crdInformer kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer,
 	workersPerLogicalCluster int,
 	informersStarted <-chan struct{},
 ) (*Controller, error) {
@@ -99,10 +92,6 @@ func NewController(
 		cancelFuncs: map[logicalcluster.Name]func(){},
 
 		ignoredResources: defaultIgnoredResources(),
-
-		listCRDs: func() ([]*apiextensionsv1.CustomResourceDefinition, error) {
-			return crdInformer.Lister().List(labels.Everything())
-		},
 	}
 
 	clusterWorkspaceInformer.Informer().AddEventHandler(

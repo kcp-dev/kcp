@@ -1116,7 +1116,6 @@ func (s *Server) installKubeQuotaController(
 		kubeClusterClient,
 		s.KubeSharedInformerFactory,
 		s.DynamicDiscoverySharedInformerFactory,
-		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
 		quotaResyncPeriod,
 		replenishmentPeriod,
 		workersPerLogicalCluster,
@@ -1231,7 +1230,6 @@ func (s *Server) installGarbageCollectorController(ctx context.Context, config *
 		kubeClusterClient,
 		metadataClient,
 		s.DynamicDiscoverySharedInformerFactory,
-		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
 		workersPerLogicalCluster,
 		s.syncedCh,
 	)
