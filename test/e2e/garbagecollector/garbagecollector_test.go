@@ -115,9 +115,6 @@ func TestGarbageCollectorTypesFromBinding(t *testing.T) {
 
 	cfg := server.BaseConfig(t)
 
-	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
-	require.NoError(t, err, "error creating kube cluster client")
-
 	kcpClusterClient, err := kcpclient.NewForConfig(cfg)
 	require.NoError(t, err, "error creating kcp cluster client")
 
@@ -170,6 +167,12 @@ func TestGarbageCollectorTypesFromBinding(t *testing.T) {
 					},
 				},
 			}
+
+			kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
+			require.NoError(t, err, "error creating kube cluster client")
+
+			kcpClusterClient, err := kcpclient.NewForConfig(cfg)
+			require.NoError(t, err, "error creating kcp cluster client")
 
 			_, err = kcpClusterClient.ApisV1alpha1().APIBindings().Create(logicalcluster.WithCluster(c, userClusterName), binding, metav1.CreateOptions{})
 			require.NoError(t, err)
