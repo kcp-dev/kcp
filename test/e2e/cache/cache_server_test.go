@@ -110,7 +110,7 @@ func testSchemaIsNotEnforced(ctx context.Context, t *testing.T, cacheClientRT *r
 		}
 	}
 
-	t.Logf("Create abmer/%s/earth on the cache server without type information", cluster)
+	t.Logf("Create abmer|%s/earth (shard|cluster/name) on the cache server without type information", cluster)
 	earthRaw, err := toUnstructured(&earth)
 	require.NoError(t, err)
 	_, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(ctx, earthRaw, metav1.CreateOptions{})
@@ -129,7 +129,7 @@ func testSchemaIsNotEnforced(ctx context.Context, t *testing.T, cacheClientRT *r
 	}
 
 	earth.Name = "earth"
-	t.Logf("Create abmer/%s/%s on the cache server", cluster, earth.Name)
+	t.Logf("Create abmer|%s/%s (shard|cluster/name) on the cache server", cluster, earth.Name)
 	earthRaw, err = toUnstructured(&earth)
 	require.NoError(t, err)
 	cachedEarthRaw, err := cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(ctx, earthRaw, metav1.CreateOptions{})
@@ -137,7 +137,7 @@ func testSchemaIsNotEnforced(ctx context.Context, t *testing.T, cacheClientRT *r
 	validateFn(earth, cachedEarthRaw)
 
 	// do additional sanity check with GET
-	t.Logf("Get abmer/%s/%s from the cache server", cluster, earth.Name)
+	t.Logf("Get abmer|%s/%s (shard|cluster/name) from the cache server", cluster, earth.Name)
 	cachedEarthRaw, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Get(ctx, earth.Name, metav1.GetOptions{})
 	require.NoError(t, err)
 	validateFn(earth, cachedEarthRaw)
@@ -155,14 +155,14 @@ func testShardClusterNamesAssigned(ctx context.Context, t *testing.T, cacheClien
 		cachedComicDB := &fakeAPIExport{}
 		require.NoError(t, json.Unmarshal(cachedComicDBJson, cachedComicDB))
 		if cachedComicDB.Annotations["kcp.dev/shard"] != "amber" {
-			t.Fatalf("unexpected shard name %v assigned to cached amber/%s/%s, expected %s", cachedComicDB.Annotations["kcp.dev/shard"], cluster, cachedComicDB.Name, "amber")
+			t.Fatalf("unexpected shard name %v assigned to cached amber|%s/%s (shard|cluster/name) , expected %s", cachedComicDB.Annotations["kcp.dev/shard"], cluster, cachedComicDB.Name, "amber")
 		}
 		if cachedComicDB.Annotations["kcp.dev/cluster"] != cluster.String() {
-			t.Fatalf("unexpected cluster name %v assigned to cached amber/%s/%s, expected %s", cachedComicDB.Annotations["kcp.dev/cluster"], cluster, cachedComicDB.Name, cluster.String())
+			t.Fatalf("unexpected cluster name %v assigned to cached amber|%s/%s (shard|cluster/name), expected %s", cachedComicDB.Annotations["kcp.dev/cluster"], cluster, cachedComicDB.Name, cluster.String())
 		}
 	}
 
-	t.Logf("Create abmer/%s/%s on the cache server", cluster, initialComicDB.Name)
+	t.Logf("Create abmer|%s/%s (shard|cluster/name) on the cache server", cluster, initialComicDB.Name)
 	comicDBRaw, err := toUnstructured(&initialComicDB)
 	require.NoError(t, err)
 	cachedComicDBRaw, err := cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(ctx, comicDBRaw, metav1.CreateOptions{})
@@ -170,7 +170,7 @@ func testShardClusterNamesAssigned(ctx context.Context, t *testing.T, cacheClien
 	validateFn(cachedComicDBRaw)
 
 	// do additional sanity check with GET
-	t.Logf("Get abmer/%s/%s from the cache server", cluster, initialComicDB.Name)
+	t.Logf("Get abmer|%s/%s (shard|cluster/name) from the cache server", cluster, initialComicDB.Name)
 	cachedComicDBRaw, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Get(ctx, initialComicDB.Name, metav1.GetOptions{})
 	require.NoError(t, err)
 	validateFn(cachedComicDBRaw)
@@ -198,7 +198,7 @@ func testUIDGenerationCreationTime(ctx context.Context, t *testing.T, cacheClien
 		}
 	}
 
-	t.Logf("Create abmer/%s/%s on the cache server", cluster, initialMangoDB.Name)
+	t.Logf("Create abmer|%s/%s (shard|cluster/name) on the cache server", cluster, initialMangoDB.Name)
 	mangoDBRaw, err := toUnstructured(&initialMangoDB)
 	require.NoError(t, err)
 	cachedMangoDBRaw, err := cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(ctx, mangoDBRaw, metav1.CreateOptions{})
@@ -206,7 +206,7 @@ func testUIDGenerationCreationTime(ctx context.Context, t *testing.T, cacheClien
 	validateFn(initialMangoDB, cachedMangoDBRaw)
 
 	// do additional sanity check with GET
-	t.Logf("Get abmer/%s/%s from the cache server", cluster, initialMangoDB.Name)
+	t.Logf("Get abmer|%s/%s (shard|cluster/name) from the cache server", cluster, initialMangoDB.Name)
 	cachedMangoDBRaw, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Get(ctx, initialMangoDB.Name, metav1.GetOptions{})
 	require.NoError(t, err)
 	validateFn(initialMangoDB, cachedMangoDBRaw)
@@ -229,13 +229,13 @@ func testUIDGenerationCreationTimeNegative(ctx context.Context, t *testing.T, ca
 		require.NoError(t, json.Unmarshal(cachedMangoDBJson, cachedMangoDB))
 
 		if cachedMangoDB.UID == mangoDB.UID {
-			t.Fatalf("unexpected UID %v set on amber/%s/%s, an UID should be assinged by the server", cachedMangoDB.UID, cluster, mangoDB.Name)
+			t.Fatalf("unexpected UID %v set on amber|%s/%s (shard|cluster/name), an UID should be assinged by the server", cachedMangoDB.UID, cluster, mangoDB.Name)
 		}
 		if cachedMangoDB.Generation == mangoDB.Generation {
-			t.Fatalf("unexpected Generation %v set on amber/%s/%s, a Generation should be assinged by the server", cachedMangoDB.Generation, cluster, mangoDB.Name)
+			t.Fatalf("unexpected Generation %v set on amber|%s/%s (shard|cluster/name), a Generation should be assinged by the server", cachedMangoDB.Generation, cluster, mangoDB.Name)
 		}
 		if cachedMangoDB.CreationTimestamp == mangoDB.CreationTimestamp {
-			t.Fatalf("unexpected CreationTimestamp %v set on amber/%s/%s, a CreationTimestamp should be assinged by the server", cachedMangoDB.CreationTimestamp, cluster, mangoDB.Name)
+			t.Fatalf("unexpected CreationTimestamp %v set on amber|%s/%s (shard|cluster/name), a CreationTimestamp should be assinged by the server", cachedMangoDB.CreationTimestamp, cluster, mangoDB.Name)
 		}
 
 		mangoDB.UID = cachedMangoDB.UID
@@ -249,13 +249,13 @@ func testUIDGenerationCreationTimeNegative(ctx context.Context, t *testing.T, ca
 		}
 	}
 
-	t.Logf("Create abmer/%s/%s on the cache server", cluster, initialMangoDB.Name)
+	t.Logf("Create abmer|%s/%s (shard|cluster/name) on the cache server", cluster, initialMangoDB.Name)
 	cachedMangoDBRaw, err := cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(ctx, mangoDBRaw, metav1.CreateOptions{})
 	require.NoError(t, err)
 	validateFn(initialMangoDB, cachedMangoDBRaw)
 
 	// do additional sanity check with GET
-	t.Logf("Get abmer/%s/%s from the cache server", cluster, initialMangoDB.Name)
+	t.Logf("Get abmer|%s/%s (shard|cluster/name) from the cache server", cluster, initialMangoDB.Name)
 	cachedMangoDBRaw, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Get(ctx, initialMangoDB.Name, metav1.GetOptions{})
 	require.NoError(t, err)
 	validateFn(initialMangoDB, cachedMangoDBRaw)
@@ -267,7 +267,7 @@ func testGenerationOnSpecChanges(ctx context.Context, t *testing.T, cacheClientR
 	require.NoError(t, err)
 	initialCinnamonDB := newFakeAPIExport("cinnamondb")
 
-	t.Logf("Create abmer/%s/%s on the cache server", cluster, initialCinnamonDB.Name)
+	t.Logf("Create abmer|%s/%s (shard|cluster/name) on the cache server", cluster, initialCinnamonDB.Name)
 	cinnamonDBRaw, err := toUnstructured(&initialCinnamonDB)
 	require.NoError(t, err)
 	cachedCinnamonDBRaw, err := cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(ctx, cinnamonDBRaw, metav1.CreateOptions{})
@@ -277,7 +277,7 @@ func testGenerationOnSpecChanges(ctx context.Context, t *testing.T, cacheClientR
 	cachedCinnamonDB := &fakeAPIExport{}
 	require.NoError(t, json.Unmarshal(cachedCinnamonDBJson, cachedCinnamonDB))
 
-	t.Logf("Update amber/%s/%s on the cache server", cluster, initialCinnamonDB.Name)
+	t.Logf("Update amber|%s/%s (shard|cluster/name) on the cache server", cluster, initialCinnamonDB.Name)
 	generationBeforeUpdate := cachedCinnamonDB.Generation
 	cachedCinnamonDB.Spec.Size = 5
 	cachedCinnamonDBRaw, err = toUnstructured(cachedCinnamonDB)
@@ -289,11 +289,11 @@ func testGenerationOnSpecChanges(ctx context.Context, t *testing.T, cacheClientR
 	cachedCinnamonDB = &fakeAPIExport{}
 	require.NoError(t, json.Unmarshal(cachedCinnamonDBJson, cachedCinnamonDB))
 	if cachedCinnamonDB.Generation != generationBeforeUpdate {
-		t.Fatalf("generation musn't be updated after a spec update, generationBeforeUpdate %v, generateAfterUpdate %v, object amber/%s/%s", generationBeforeUpdate, cachedCinnamonDB.Generation, cluster, initialCinnamonDB.Name)
+		t.Fatalf("generation musn't be updated after a spec update, generationBeforeUpdate %v, generateAfterUpdate %v, object amber|%s/%s (shard|cluster/name)", generationBeforeUpdate, cachedCinnamonDB.Generation, cluster, initialCinnamonDB.Name)
 	}
 
 	// do additional sanity check with GET
-	t.Logf("Get abmer/%s/%s from the cache server", cluster, initialCinnamonDB.Name)
+	t.Logf("Get abmer|%s/%s (shard|cluster/name) from the cache server", cluster, initialCinnamonDB.Name)
 	cachedCinnamonDBRaw, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Get(ctx, initialCinnamonDB.Name, metav1.GetOptions{})
 	require.NoError(t, err)
 	cachedCinnamonDBJson, err = cachedCinnamonDBRaw.MarshalJSON()
@@ -301,7 +301,7 @@ func testGenerationOnSpecChanges(ctx context.Context, t *testing.T, cacheClientR
 	cachedCinnamonDB = &fakeAPIExport{}
 	require.NoError(t, json.Unmarshal(cachedCinnamonDBJson, cachedCinnamonDB))
 	if cachedCinnamonDB.Generation != generationBeforeUpdate {
-		t.Fatalf("generation musn't be updated after a spec update, generationBeforeUpdate %v, currentGeneration %v, object amber/%s/%s", generationBeforeUpdate, cachedCinnamonDB.Generation, cluster, initialCinnamonDB.Name)
+		t.Fatalf("generation musn't be updated after a spec update, generationBeforeUpdate %v, currentGeneration %v, object amber|%s/%s (shard|cluster/name)", generationBeforeUpdate, cachedCinnamonDB.Generation, cluster, initialCinnamonDB.Name)
 	}
 }
 
@@ -312,13 +312,13 @@ func testDeletionWithFinalizers(ctx context.Context, t *testing.T, cacheClientRT
 	initialGhostDB := newFakeAPIExport("ghostdb")
 	initialGhostDB.Finalizers = append(initialGhostDB.Finalizers, "doNotRemove")
 
-	t.Logf("Create abmer/%s/%s on the cache server", cluster, initialGhostDB.Name)
+	t.Logf("Create abmer|%s/%s (shard|cluster/name) on the cache server", cluster, initialGhostDB.Name)
 	ghostDBRaw, err := toUnstructured(&initialGhostDB)
 	require.NoError(t, err)
 	_, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(ctx, ghostDBRaw, metav1.CreateOptions{})
 	require.NoError(t, err)
 
-	t.Logf("Remove amber/%s/%s from the cache server", cluster, initialGhostDB.Name)
+	t.Logf("Remove amber|%s/%s (shard|cluster/name) from the cache server", cluster, initialGhostDB.Name)
 	err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Delete(ctx, initialGhostDB.Name, metav1.DeleteOptions{})
 	require.NoError(t, err)
 
@@ -335,7 +335,7 @@ func testSpecStatusSimultaneously(ctx context.Context, t *testing.T, cacheClient
 	require.NoError(t, err)
 	initialCucumberDB := newFakeAPIExport("cucumberdb")
 
-	t.Logf("Create abmer/%s/%s on the cache server", cluster, initialCucumberDB.Name)
+	t.Logf("Create abmer|%s/%s (shard|cluster/name) on the cache server", cluster, initialCucumberDB.Name)
 	cucumberDBRaw, err := toUnstructured(&initialCucumberDB)
 	require.NoError(t, err)
 	cachedCucumberDBRaw, err := cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(ctx, cucumberDBRaw, metav1.CreateOptions{})
@@ -345,7 +345,7 @@ func testSpecStatusSimultaneously(ctx context.Context, t *testing.T, cacheClient
 	cachedCucumberDB := &fakeAPIExport{}
 	require.NoError(t, json.Unmarshal(cachedCucumberDBJson, cachedCucumberDB))
 
-	t.Logf("Update amber/%s/%s on the cache server", cluster, initialCucumberDB.Name)
+	t.Logf("Update amber|%s/%s (shard|cluster/name) on the cache server", cluster, initialCucumberDB.Name)
 	cachedCucumberDB.Status.Condition = "run out"
 	cachedCucumberDB.Spec.Size = 1111
 	cachedCucumberDBRaw, err = toUnstructured(cachedCucumberDB)
@@ -357,10 +357,10 @@ func testSpecStatusSimultaneously(ctx context.Context, t *testing.T, cacheClient
 	cachedCucumberDB = &fakeAPIExport{}
 	require.NoError(t, json.Unmarshal(cachedCucumberDBJson, cachedCucumberDB))
 	if cachedCucumberDB.Spec.Size != 1111 {
-		t.Fatalf("unexpected spec.size %v after an update of amber/%s/%s, epxected %v", cachedCucumberDB.Spec.Size, cluster, initialCucumberDB.Name, 1111)
+		t.Fatalf("unexpected spec.size %v after an update of amber|%s/%s (shard|cluster/name), epxected %v", cachedCucumberDB.Spec.Size, cluster, initialCucumberDB.Name, 1111)
 	}
 	if cachedCucumberDB.Status.Condition != "run out" {
-		t.Fatalf("unexpected status.condition %v after an update of amber/%s/%s, epxected %v", cachedCucumberDB.Status.Condition, cluster, initialCucumberDB.Name, "run out")
+		t.Fatalf("unexpected status.condition %v after an update of amber|%s/%s (shard|cluster/name), epxected %v", cachedCucumberDB.Status.Condition, cluster, initialCucumberDB.Name, "run out")
 	}
 
 }
