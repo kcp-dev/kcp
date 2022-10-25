@@ -153,13 +153,13 @@ Thanks for checking out our quickstart!
 If you're interested in learning more about all the features kcp has to offer, please check out our additional
 documentation:
 
-- [Concepts](docs/concepts.md) - a high level overview of kcp concepts
-- [Workspaces](docs/workspaces.md) - a more thorough introduction on kcp's workspaces
-- [Locations & scheduling](docs/locations-and-scheduling.md) - details on kcp's primitives that abstract over clusters
-- [Syncer](docs/syncer.md) - information on running the kcp agent that syncs content between kcp and a physical cluster
-- [kubectl plugin](docs/kubectl-kcp-plugin.md)
-- [Authorization](docs/authorization.md) - how kcp manages access control to workspaces and content
-- [Virtual workspaces](docs/virtual-workspaces.md) - details on kcp's mechanism for virtual views of workspace content
+- [Concepts](docs/content/en/main/concepts/concepts.md) - a high level overview of kcp concepts
+- [Workspaces](docs/content/en/main/concepts/workspaces.md) - a more thorough introduction on kcp's workspaces
+- [Locations & scheduling](docs/content/en/main/concepts/locations-and-scheduling.md) - details on kcp's primitives that abstract over clusters
+- [Syncer](docs/content/en/main/concepts/syncer.md) - information on running the kcp agent that syncs content between kcp and a physical cluster
+- [kubectl plugin](docs/content/en/main/concepts/kubectl-kcp-plugin.md)
+- [Authorization](docs/content/en/main/concepts/authorization.md) - how kcp manages access control to workspaces and content
+- [Virtual workspaces](docs/content/en/main/concepts/virtual-workspaces.md) - details on kcp's mechanism for virtual views of workspace content
 
 ## Contributing
 
