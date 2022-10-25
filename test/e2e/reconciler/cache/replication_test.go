@@ -266,8 +266,8 @@ func verifyResourceUpdate(t *testing.T, scenario baseScenario, cluster logicalcl
 	}, wait.ForeverTestTimeout, 400*time.Millisecond)
 }
 
-// TestAllAgainstInProcessCacheServer runs all test scenarios against a cache server that runs with a kcp server
-func TestAllAgainstInProcessCacheServer(t *testing.T) {
+// TestAllReplicationScenariosAgainstInProcessCacheServer runs all test scenarios against a cache server that runs with a kcp server
+func TestAllReplicationScenariosAgainstInProcessCacheServer(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
@@ -296,8 +296,8 @@ func TestAllAgainstInProcessCacheServer(t *testing.T) {
 	}
 }
 
-// TestAllScenariosAgainstStandaloneCacheServer runs all test scenarios against a standalone cache server
-func TestAllScenariosAgainstStandaloneCacheServer(t *testing.T) {
+// TestAllReplicationScenariosAgainstStandaloneCacheServer runs all test scenarios against a standalone cache server
+func TestAllReplicationScenariosAgainstStandaloneCacheServer(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
