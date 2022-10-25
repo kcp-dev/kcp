@@ -58,7 +58,7 @@ type testScenario struct {
 // scenarios holds all test scenarios
 var scenarios = []testScenario{
 	{"TestSchemaIsNotEnforced", testSchemaIsNotEnforced},
-	// TODO: a shard name is assigned to a replicated obj
+	{"TestShardClusterNamesAssigned", testShardClusterNamesAssigned},
 	{"TestUIDGenerationCreationTimeOverwrite", testUIDGenerationCreationTime},
 	{"TestUIDGenerationCreationTimeNegativeOverwriteNegative", testUIDGenerationCreationTimeNegative},
 	// TODO: changing spec doesn't increase the Generation of a replicated object
@@ -140,6 +140,39 @@ func testSchemaIsNotEnforced(ctx context.Context, t *testing.T, cacheClientRT *r
 	cachedEarthRaw, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Get(ctx, earth.Name, metav1.GetOptions{})
 	require.NoError(t, err)
 	validateFn(earth, cachedEarthRaw)
+}
+
+// testShardNamesAssigned checks if a shard name is provided in the "kcp.dev/shard" annotation and
+// if a cluster name is stored at "kcp.dev/cluster" annotation
+func testShardClusterNamesAssigned(ctx context.Context, t *testing.T, cacheClientRT *rest.Config, cluster logicalcluster.Name, gvr schema.GroupVersionResource) {
+	cacheDynamicClient, err := dynamic.NewClusterForConfig(cacheClientRT)
+	require.NoError(t, err)
+	initialComicDB := newFakeAPIExport("comicdb")
+	validateFn := func(cachedComicDBRaw *unstructured.Unstructured) {
+		cachedComicDBJson, err := cachedComicDBRaw.MarshalJSON()
+		require.NoError(t, err)
+		cachedComicDB := &fakeAPIExport{}
+		require.NoError(t, json.Unmarshal(cachedComicDBJson, cachedComicDB))
+		if cachedComicDB.Annotations["kcp.dev/shard"] != "amber" {
+			t.Fatalf("unexpected shard name %v assigned to cached amber/%s/%s, expected %s", cachedComicDB.Annotations["kcp.dev/shard"], cluster, cachedComicDB.Name, "amber")
+		}
+		if cachedComicDB.Annotations["kcp.dev/cluster"] != cluster.String() {
+			t.Fatalf("unexpected cluster name %v assigned to cached amber/%s/%s, expected %s", cachedComicDB.Annotations["kcp.dev/cluster"], cluster, cachedComicDB.Name, cluster.String())
+		}
+	}
+
+	t.Logf("Create abmer/%s/%s on the cache server", cluster, initialComicDB.Name)
+	comicDBRaw, err := toUnstructured(&initialComicDB)
+	require.NoError(t, err)
+	cachedComicDBRaw, err := cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(ctx, comicDBRaw, metav1.CreateOptions{})
+	require.NoError(t, err)
+	validateFn(cachedComicDBRaw)
+
+	// do additional sanity check with GET
+	t.Logf("Get abmer/%s/%s from the cache server", cluster, initialComicDB.Name)
+	cachedComicDBRaw, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Get(ctx, initialComicDB.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+	validateFn(cachedComicDBRaw)
 }
 
 // testUIDGenerationCreationTime checks if overwriting UID, Generation, CreationTime when the shard annotation is set works
