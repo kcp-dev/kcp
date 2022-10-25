@@ -35,13 +35,14 @@ import (
 // Each Path is registered with the DefaultServeMux with a handler that
 // delegates to the specified backend.
 type PathMapping struct {
-	Path            string `json:"path"`
-	Backend         string `json:"backend"`
-	BackendServerCA string `json:"backend_server_ca"`
-	ProxyClientCert string `json:"proxy_client_cert"`
-	ProxyClientKey  string `json:"proxy_client_key"`
-	UserHeader      string `json:"user_header,omitempty"`
-	GroupHeader     string `json:"group_header,omitempty"`
+	Path              string `json:"path"`
+	Backend           string `json:"backend"`
+	BackendServerCA   string `json:"backend_server_ca"`
+	ProxyClientCert   string `json:"proxy_client_cert"`
+	ProxyClientKey    string `json:"proxy_client_key"`
+	UserHeader        string `json:"user_header,omitempty"`
+	GroupHeader       string `json:"group_header,omitempty"`
+	ExtraHeaderPrefix string `json:"extra_header_prefix"`
 }
 
 func NewHandler(ctx context.Context, o *proxyoptions.Options, index index.Index) (http.Handler, error) {
@@ -97,14 +98,18 @@ func NewHandler(ctx context.Context, o *proxyoptions.Options, index index.Index)
 
 		userHeader := "X-Remote-User"
 		groupHeader := "X-Remote-Group"
+		extraHeaderPrefix := "X-Remote-Extra-"
 		if m.UserHeader != "" {
 			userHeader = m.UserHeader
 		}
 		if m.GroupHeader != "" {
 			groupHeader = m.GroupHeader
 		}
+		if m.ExtraHeaderPrefix != "" {
+			extraHeaderPrefix = m.ExtraHeaderPrefix
+		}
 
-		handler = WithProxyAuthHeaders(handler, userHeader, groupHeader)
+		handler = WithProxyAuthHeaders(handler, userHeader, groupHeader, extraHeaderPrefix)
 
 		mux.Handle(m.Path, handler)
 	}

@@ -47,8 +47,9 @@ type ExtraConfig struct {
 	ResolveIdentities func(ctx context.Context) error
 	RootShardConfig   *rest.Config
 
-	AuthenticationInfo genericapiserver.AuthenticationInfo
-	ServingInfo        *genericapiserver.SecureServingInfo
+	AuthenticationInfo    genericapiserver.AuthenticationInfo
+	ServingInfo           *genericapiserver.SecureServingInfo
+	AdditionalAuthEnabled bool
 }
 
 type CompletedConfig struct {
@@ -70,14 +71,6 @@ func NewConfig(opts *proxyoptions.Options) (*Config, error) {
 		Options: opts,
 	}
 
-	var loopbackClientConfig *rest.Config
-	if err := c.Options.SecureServing.ApplyTo(&c.ServingInfo, &loopbackClientConfig); err != nil {
-		return nil, err
-	}
-	if err := c.Options.Authentication.ApplyTo(&c.AuthenticationInfo, c.ServingInfo); err != nil {
-		return nil, err
-	}
-
 	// get root API identities
 	nonIdentityRootConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: c.Options.RootKubeconfig}, nil).ClientConfig()
 	if err != nil {
@@ -85,6 +78,16 @@ func NewConfig(opts *proxyoptions.Options) (*Config, error) {
 	}
 
 	c.RootShardConfig, c.ResolveIdentities = bootstrap.NewConfigWithWildcardIdentities(nonIdentityRootConfig, bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, nil)
+
+	var loopbackClientConfig *rest.Config
+	if err := c.Options.SecureServing.ApplyTo(&c.ServingInfo, &loopbackClientConfig); err != nil {
+		return nil, err
+	}
+	if err := c.Options.Authentication.ApplyTo(&c.AuthenticationInfo, c.ServingInfo, c.RootShardConfig); err != nil {
+		return nil, err
+	}
+
+	c.AdditionalAuthEnabled = c.Options.Authentication.AdditionalAuthEnabled()
 
 	return c, nil
 }

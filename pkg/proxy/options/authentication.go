@@ -19,45 +19,101 @@ package options
 import (
 	"fmt"
 	"strings"
+	"time"
 
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/clients/informers"
 	"github.com/spf13/pflag"
 
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apiserver/pkg/authentication/request/x509"
+	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	apiserveroptions "k8s.io/apiserver/pkg/server/options"
+	"k8s.io/client-go/rest"
+	serviceaccountcontroller "k8s.io/kubernetes/pkg/controller/serviceaccount"
+	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
 
 	kcpauthentication "github.com/kcp-dev/kcp/pkg/proxy/authentication"
 )
 
-// Authentication wraps ClientCertAuthenticationOptions so we don't pull in
-// more auth machinery than we need with DelegatingAuthenticationOptions
+// Authentication wraps BuiltInAuthenticationOptions so we can minimize the
+// dependencies on apiserver auth machinery, specifically by overriding the
+// ApplyTo so we can remove those config dependencies not relevant to the
+// subset of auth methods we enable in the proxy
 type Authentication struct {
-	ClientCert apiserveroptions.ClientCertAuthenticationOptions
-
-	PassOnGroups []string
-	DropGroups   []string
+	BuiltInOptions *kubeoptions.BuiltInAuthenticationOptions
+	PassOnGroups   []string
+	DropGroups     []string
 }
 
 // NewAuthentication creates a default Authentication
 func NewAuthentication() *Authentication {
-	return &Authentication{
+	auth := &Authentication{
+		BuiltInOptions: kubeoptions.NewBuiltInAuthenticationOptions().
+			WithClientCert().
+			WithServiceAccounts().
+			WithTokenFile(),
+		// when adding new auth methods, also update AdditionalAuthEnabled below
 		DropGroups: []string{user.SystemPrivilegedGroup},
 	}
+	auth.BuiltInOptions.ServiceAccounts.Issuers = []string{"https://kcp.default.svc"}
+	return auth
 }
 
-// ApplyTo sets up the x509 Authenticator if the client-ca-file option was passed
-func (c *Authentication) ApplyTo(authenticationInfo *genericapiserver.AuthenticationInfo, servingInfo *genericapiserver.SecureServingInfo) error {
-	clientCAProvider, err := c.ClientCert.GetClientCAContentProvider()
+// When configured to enable auth other than ClientCert, this returns true
+func (c *Authentication) AdditionalAuthEnabled() bool {
+	return c.tokenAuthEnabled() || c.serviceAccountAuthEnabled()
+}
+
+func (c *Authentication) tokenAuthEnabled() bool {
+	return c.BuiltInOptions.TokenFile != nil && c.BuiltInOptions.TokenFile.TokenFile != ""
+}
+
+func (c *Authentication) serviceAccountAuthEnabled() bool {
+	return c.BuiltInOptions.ServiceAccounts != nil && len(c.BuiltInOptions.ServiceAccounts.KeyFiles) != 0
+}
+
+func (c *Authentication) ApplyTo(authenticationInfo *genericapiserver.AuthenticationInfo, servingInfo *genericapiserver.SecureServingInfo, rootShardConfig *rest.Config) error {
+	// Note BuiltInAuthenticationOptions.ApplyTo is not called, so we
+	// can reduce the dependencies pulled in from auth methods which aren't enabled
+	authenticatorConfig, err := c.BuiltInOptions.ToAuthenticationConfig()
 	if err != nil {
-		return fmt.Errorf("unable to load client CA provider: %w", err)
+		return err
 	}
-	if clientCAProvider != nil {
-		if err = authenticationInfo.ApplyClientCert(clientCAProvider, servingInfo); err != nil {
-			return fmt.Errorf("unable to assign client CA provider: %w", err)
+
+	// Set up the ClientCert if the client-ca-file option was passed
+	if authenticatorConfig.ClientCAContentProvider != nil {
+		if err = authenticationInfo.ApplyClientCert(authenticatorConfig.ClientCAContentProvider, servingInfo); err != nil {
+			return fmt.Errorf("unable to load client CA file: %w", err)
 		}
-		authenticationInfo.Authenticator = x509.NewDynamic(clientCAProvider.VerifyOptions, x509.CommonNameUserConversion)
+	}
+
+	// Set for service account auth, if enabled
+	if c.serviceAccountAuthEnabled() {
+		authenticationInfo.APIAudiences = c.BuiltInOptions.APIAudiences
+		if len(c.BuiltInOptions.ServiceAccounts.Issuers) != 0 && len(c.BuiltInOptions.APIAudiences) == 0 {
+			authenticationInfo.APIAudiences = authenticator.Audiences(c.BuiltInOptions.ServiceAccounts.Issuers)
+		}
+
+		config := rest.CopyConfig(rootShardConfig)
+		tokenGetterClient, err := kcpkubernetesclientset.NewForConfig(config)
+		if err != nil {
+			return fmt.Errorf("failed to create client for ServiceAccountTokenGetter: %w", err)
+		}
+
+		versionedInformers := kcpkubernetesinformers.NewSharedInformerFactory(tokenGetterClient, 10*time.Minute)
+
+		authenticatorConfig.ServiceAccountTokenGetter = serviceaccountcontroller.NewClusterGetterFromClient(
+			tokenGetterClient,
+			versionedInformers.Core().V1().Secrets().Lister(),
+			versionedInformers.Core().V1().ServiceAccounts().Lister(),
+		)
+	}
+
+	// Sets up a union Authenticator for all enabled auth methods
+	authenticationInfo.Authenticator, _, err = authenticatorConfig.New()
+	if err != nil {
+		return err
 	}
 
 	// only pass on those groups to the shards we want
@@ -90,7 +146,7 @@ func (c *Authentication) ApplyTo(authenticationInfo *genericapiserver.Authentica
 
 // AddFlags delegates to ClientCertAuthenticationOptions
 func (c *Authentication) AddFlags(fs *pflag.FlagSet) {
-	c.ClientCert.AddFlags(fs)
+	c.BuiltInOptions.AddFlags(fs)
 
 	fs.StringSliceVar(&c.PassOnGroups, "authentication-pass-on-groups", c.PassOnGroups,
 		"Groups that are passed on to the shard. Empty matches all. \"prefix*\" matches "+

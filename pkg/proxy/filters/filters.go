@@ -29,15 +29,17 @@ import (
 	"k8s.io/klog/v2"
 )
 
-// WithOptionalClientCert creates a handler that verifies a request's client
-// cert if one is presented but passes through to the next handler if one is
+// WithOptionalAuthentication creates a handler that authenticates a request
+// if a ClientCert is presented but passes through to the next handler if one is
 // not.
-func WithOptionalClientCert(handler, failed http.Handler, auth authenticator.Request) http.Handler {
+// When additionalAuthMethods is true we also attempt to authenticate even when
+// no client cert is detected in the request.
+func WithOptionalAuthentication(handler, failed http.Handler, auth authenticator.Request, additionalAuthMethods bool) http.Handler {
 	if auth == nil {
 		return handler
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if req.TLS == nil || len(req.TLS.PeerCertificates) == 0 {
+		if (req.TLS == nil || len(req.TLS.PeerCertificates) == 0) && !additionalAuthMethods {
 			handler.ServeHTTP(w, req)
 			return
 		}
