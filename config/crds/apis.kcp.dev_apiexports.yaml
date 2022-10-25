@@ -208,6 +208,13 @@ spec:
                   URLs.
                 items:
                   properties:
+                    labels:
+                      additionalProperties:
+                        type: string
+                      description: Map of string keys and values that can be used
+                        to organize and categorize (scope and select) objects. May
+                        match selectors of controllers and services.
+                      type: object
                     url:
                       description: url is an APIExport virtual workspace URL.
                       minLength: 1

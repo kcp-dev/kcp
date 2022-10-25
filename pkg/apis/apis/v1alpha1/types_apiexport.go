@@ -257,6 +257,12 @@ type VirtualWorkspace struct {
 	// +kubebuilder:format:URL
 	// +required
 	URL string `json:"url"`
+
+	// Map of string keys and values that can be used to organize and categorize
+	// (scope and select) objects. May match selectors of controllers and services.
+	//
+	// +optional
+	Labels map[string]string `json:"labels,omitempty"`
 }
 
 // APIExportList is a list of APIExport resources
