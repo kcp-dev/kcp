@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"path"
-	"reflect"
 	"strconv"
 	"sync"
 	"testing"
@@ -105,8 +104,8 @@ func testSchemaIsNotEnforced(ctx context.Context, t *testing.T, cacheClientRT *r
 		earth.CreationTimestamp = cachedEarth.CreationTimestamp
 		earth.ResourceVersion = cachedEarth.ResourceVersion
 		earth.Annotations = cachedEarth.Annotations
-		if !reflect.DeepEqual(cachedEarth, &earth) {
-			t.Errorf("received object from the cache server differs from the expected one :\n%s", cmp.Diff(cachedEarth, &earth))
+		if !cmp.Equal(cachedEarth, &earth) {
+			t.Fatalf("received object from the cache server differs from the expected one:\n%s", cmp.Diff(cachedEarth, &earth))
 		}
 	}
 
@@ -160,8 +159,8 @@ func testUIDGenerationCreationTime(ctx context.Context, t *testing.T, cacheClien
 
 		mangoDB.ResourceVersion = cachedMangoDB.ResourceVersion
 		mangoDB.Annotations["kcp.dev/cluster"] = cluster.String()
-		if !reflect.DeepEqual(cachedMangoDB, &mangoDB) {
-			t.Errorf("received object from the cache server differs from the expected one :\n%s", cmp.Diff(cachedMangoDB, &mangoDB))
+		if !cmp.Equal(cachedMangoDB, &mangoDB) {
+			t.Fatalf("received object from the cache server differs from the expected one:\n%s", cmp.Diff(cachedMangoDB, &mangoDB))
 		}
 	}
 
@@ -211,8 +210,8 @@ func testUIDGenerationCreationTimeNegative(ctx context.Context, t *testing.T, ca
 		mangoDB.CreationTimestamp = cachedMangoDB.CreationTimestamp
 		mangoDB.Annotations["kcp.dev/cluster"] = cluster.String()
 		mangoDB.Annotations["kcp.dev/shard"] = "amber"
-		if !reflect.DeepEqual(cachedMangoDB, &mangoDB) {
-			t.Errorf("received object from the cache server differs from the expected one :\n%s", cmp.Diff(cachedMangoDB, &mangoDB))
+		if !cmp.Equal(cachedMangoDB, &mangoDB) {
+			t.Fatalf("received object from the cache server differs from the expected one:\n%s", cmp.Diff(cachedMangoDB, &mangoDB))
 		}
 	}
 
