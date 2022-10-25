@@ -26,8 +26,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
-	kcpdynamicinformer "github.com/kcp-dev/client-go/clients/dynamic/dynamicinformer"
-	kcpkubernetesinformers "github.com/kcp-dev/client-go/clients/informers"
+	kcpdynamicinformer "github.com/kcp-dev/client-go/dynamic/dynamicinformer"
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

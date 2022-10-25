@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/stretchr/testify/require"
 
 	"k8s.io/client-go/rest"

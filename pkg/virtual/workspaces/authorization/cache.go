@@ -23,7 +23,7 @@ import (
 	"time"
 
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
-	kcprbacv1informers "github.com/kcp-dev/client-go/clients/informers/rbac/v1"
+	kcprbacv1informers "github.com/kcp-dev/client-go/informers/rbac/v1"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"

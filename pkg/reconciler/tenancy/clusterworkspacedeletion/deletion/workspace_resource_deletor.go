@@ -38,7 +38,7 @@ import (
 	"sort"
 	"strings"
 
-	kcpmetadata "github.com/kcp-dev/client-go/clients/metadata"
+	kcpmetadata "github.com/kcp-dev/client-go/metadata"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/api/errors"

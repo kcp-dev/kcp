@@ -17,7 +17,7 @@ limitations under the License.
 package options
 
 import (
-	kcpkubernetesinformers "github.com/kcp-dev/client-go/clients/informers"
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	"github.com/spf13/pflag"
 
 	"k8s.io/apiserver/pkg/authentication/user"

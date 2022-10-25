@@ -17,7 +17,7 @@ limitations under the License.
 package rbac
 
 import (
-	kcprbacinformers "github.com/kcp-dev/client-go/clients/informers/rbac/v1"
+	kcprbacinformers "github.com/kcp-dev/client-go/informers/rbac/v1"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	rbacauthorizer "k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"

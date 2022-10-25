@@ -24,8 +24,8 @@ import (
 	"time"
 
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
-	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
-	kcpcorev1informers "github.com/kcp-dev/client-go/clients/informers/core/v1"
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	kcpcorev1informers "github.com/kcp-dev/client-go/informers/core/v1"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	corev1 "k8s.io/api/core/v1"

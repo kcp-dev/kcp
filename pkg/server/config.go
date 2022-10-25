@@ -22,12 +22,12 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 
+	kcpapiextensionsclientset "github.com/kcp-dev/apiextensions-apiserver/pkg/client/clientset/versioned"
+	kcpapiextensionsinformers "github.com/kcp-dev/apiextensions-apiserver/pkg/client/informers/externalversions"
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
-	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/clients/clientset/versioned"
-	kcpapiextensionsinformers "github.com/kcp-dev/client-go/apiextensions/clients/informers"
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
-	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
-	kcpkubernetesinformers "github.com/kcp-dev/client-go/clients/informers"
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"

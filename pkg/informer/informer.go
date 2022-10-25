@@ -25,11 +25,11 @@ import (
 	"sync/atomic"
 	"time"
 
+	kcpapiextensionsv1informers "github.com/kcp-dev/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1"
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
-	kcpapiextensionsv1informers "github.com/kcp-dev/client-go/apiextensions/clients/informers/apiextensions/v1"
-	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
-	kcpdynamicinformer "github.com/kcp-dev/client-go/clients/dynamic/dynamicinformer"
-	kcpkubernetesinformers "github.com/kcp-dev/client-go/clients/informers"
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	kcpdynamicinformer "github.com/kcp-dev/client-go/dynamic/dynamicinformer"
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apiextensions-apiserver/pkg/apihelpers"

@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	kcpapiextensionsv1listers "github.com/kcp-dev/client-go/apiextensions/clients/listers/apiextensions/v1"
+	kcpapiextensionsv1listers "github.com/kcp-dev/apiextensions-apiserver/pkg/client/listers/apiextensions/v1"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"

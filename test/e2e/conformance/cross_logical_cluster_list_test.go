@@ -22,11 +22,11 @@ import (
 	"testing"
 	"time"
 
-	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/clients/clientset/versioned"
-	kcpapiextensionsv1client "github.com/kcp-dev/client-go/apiextensions/clients/clientset/versioned/typed/apiextensions/v1"
-	kcpapiextensionsinformers "github.com/kcp-dev/client-go/apiextensions/clients/informers"
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
-	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
+	kcpapiextensionsclientset "github.com/kcp-dev/apiextensions-apiserver/pkg/client/clientset/versioned"
+	kcpapiextensionsv1client "github.com/kcp-dev/apiextensions-apiserver/pkg/client/clientset/versioned/typed/apiextensions/v1"
+	kcpapiextensionsinformers "github.com/kcp-dev/apiextensions-apiserver/pkg/client/informers/externalversions"
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 

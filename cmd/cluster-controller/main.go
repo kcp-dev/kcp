@@ -22,9 +22,9 @@ import (
 	"os"
 	"time"
 
+	kcpapiextensionsclientset "github.com/kcp-dev/apiextensions-apiserver/pkg/client/clientset/versioned"
+	kcpapiextensionsinformers "github.com/kcp-dev/apiextensions-apiserver/pkg/client/informers/externalversions"
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
-	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/clients/clientset/versioned"
-	kcpapiextensionsinformers "github.com/kcp-dev/client-go/apiextensions/clients/informers"
 	"github.com/spf13/pflag"
 
 	genericapiserver "k8s.io/apiserver/pkg/server"

@@ -20,8 +20,8 @@ import (
 	"context"
 	"fmt"
 
-	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
-	kcpkubernetesinformers "github.com/kcp-dev/client-go/clients/informers"
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"

@@ -21,8 +21,8 @@ import (
 	"reflect"
 	"testing"
 
-	kcpfakeclient "github.com/kcp-dev/client-go/clients/clientset/versioned/fake"
-	kcpkubernetesinformers "github.com/kcp-dev/client-go/clients/informers"
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
+	kcpfakeclient "github.com/kcp-dev/client-go/kubernetes/fake"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
