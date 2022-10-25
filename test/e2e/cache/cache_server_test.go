@@ -61,6 +61,7 @@ var scenarios = []testScenario{
 	{"TestShardClusterNamesAssigned", testShardClusterNamesAssigned},
 	{"TestUIDGenerationCreationTimeOverwrite", testUIDGenerationCreationTime},
 	{"TestUIDGenerationCreationTimeNegativeOverwriteNegative", testUIDGenerationCreationTimeNegative},
+	{"TestGenerationOnSpecChanges", testGenerationOnSpecChanges},
 	// TODO: changing spec doesn't increase the Generation of a replicated object
 	// TODO: deleting an object with finalizers immediately removes the obj
 	// TODO: spec and status can be updated at the same time
@@ -258,6 +259,50 @@ func testUIDGenerationCreationTimeNegative(ctx context.Context, t *testing.T, ca
 	cachedMangoDBRaw, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Get(ctx, initialMangoDB.Name, metav1.GetOptions{})
 	require.NoError(t, err)
 	validateFn(initialMangoDB, cachedMangoDBRaw)
+}
+
+// testGenerationOnSpecChanges checks if Generation is not increased when the spec is changed
+func testGenerationOnSpecChanges(ctx context.Context, t *testing.T, cacheClientRT *rest.Config, cluster logicalcluster.Name, gvr schema.GroupVersionResource) {
+	cacheDynamicClient, err := dynamic.NewClusterForConfig(cacheClientRT)
+	require.NoError(t, err)
+	initialCinnamonDB := newFakeAPIExport("cinnamondb")
+
+	t.Logf("Create abmer/%s/%s on the cache server", cluster, initialCinnamonDB.Name)
+	cinnamonDBRaw, err := toUnstructured(&initialCinnamonDB)
+	require.NoError(t, err)
+	cachedCinnamonDBRaw, err := cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(ctx, cinnamonDBRaw, metav1.CreateOptions{})
+	require.NoError(t, err)
+	cachedCinnamonDBJson, err := cachedCinnamonDBRaw.MarshalJSON()
+	require.NoError(t, err)
+	cachedCinnamonDB := &fakeAPIExport{}
+	require.NoError(t, json.Unmarshal(cachedCinnamonDBJson, cachedCinnamonDB))
+
+	t.Logf("Update amber/%s/%s on the cache server", cluster, initialCinnamonDB.Name)
+	generationBeforeUpdate := cachedCinnamonDB.Generation
+	cachedCinnamonDB.Spec.Size = 5
+	cachedCinnamonDBRaw, err = toUnstructured(cachedCinnamonDB)
+	require.NoError(t, err)
+	cachedCinnamonDBRaw, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Update(ctx, cachedCinnamonDBRaw, metav1.UpdateOptions{})
+	require.NoError(t, err)
+	cachedCinnamonDBJson, err = cachedCinnamonDBRaw.MarshalJSON()
+	require.NoError(t, err)
+	cachedCinnamonDB = &fakeAPIExport{}
+	require.NoError(t, json.Unmarshal(cachedCinnamonDBJson, cachedCinnamonDB))
+	if cachedCinnamonDB.Generation != generationBeforeUpdate {
+		t.Fatalf("generation musn't be updated after a spec update, generationBeforeUpdate %v, generateAfterUpdate %v, object amber/%s/%s", generationBeforeUpdate, cachedCinnamonDB.Generation, cluster, initialCinnamonDB.Name)
+	}
+
+	// do additional sanity check with GET
+	t.Logf("Get abmer/%s/%s from the cache server", cluster, initialCinnamonDB.Name)
+	cachedCinnamonDBRaw, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Get(ctx, initialCinnamonDB.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+	cachedCinnamonDBJson, err = cachedCinnamonDBRaw.MarshalJSON()
+	require.NoError(t, err)
+	cachedCinnamonDB = &fakeAPIExport{}
+	require.NoError(t, json.Unmarshal(cachedCinnamonDBJson, cachedCinnamonDB))
+	if cachedCinnamonDB.Generation != generationBeforeUpdate {
+		t.Fatalf("generation musn't be updated after a spec update, generationBeforeUpdate %v, currentGeneration %v, object amber/%s/%s", generationBeforeUpdate, cachedCinnamonDB.Generation, cluster, initialCinnamonDB.Name)
+	}
 }
 
 func newFakeAPIExport(name string) fakeAPIExport {
