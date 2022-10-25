@@ -64,7 +64,7 @@ var scenarios = []testScenario{
 	{"TestUIDGenerationCreationTimeNegativeOverwriteNegative", testUIDGenerationCreationTimeNegative},
 	{"TestGenerationOnSpecChanges", testGenerationOnSpecChanges},
 	{"TestDeletionWithFinalizers", testDeletionWithFinalizers},
-	// TODO: spec and status can be updated at the same time
+	{"TestUpdatingSpecStatusSimultaneously", testSpecStatusSimultaneously},
 }
 
 type fakeAPIExport struct {
@@ -327,6 +327,42 @@ func testDeletionWithFinalizers(ctx context.Context, t *testing.T, cacheClientRT
 	if !apierrors.IsNotFound(err) {
 		t.Fatalf("expected to get a NotFound error, got %v", err)
 	}
+}
+
+// testSpecStatusSimultaneously checks if updating spec and status at the same time works
+func testSpecStatusSimultaneously(ctx context.Context, t *testing.T, cacheClientRT *rest.Config, cluster logicalcluster.Name, gvr schema.GroupVersionResource) {
+	cacheDynamicClient, err := dynamic.NewClusterForConfig(cacheClientRT)
+	require.NoError(t, err)
+	initialCucumberDB := newFakeAPIExport("cucumberdb")
+
+	t.Logf("Create abmer/%s/%s on the cache server", cluster, initialCucumberDB.Name)
+	cucumberDBRaw, err := toUnstructured(&initialCucumberDB)
+	require.NoError(t, err)
+	cachedCucumberDBRaw, err := cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(ctx, cucumberDBRaw, metav1.CreateOptions{})
+	require.NoError(t, err)
+	cachedCucumberDBJson, err := cachedCucumberDBRaw.MarshalJSON()
+	require.NoError(t, err)
+	cachedCucumberDB := &fakeAPIExport{}
+	require.NoError(t, json.Unmarshal(cachedCucumberDBJson, cachedCucumberDB))
+
+	t.Logf("Update amber/%s/%s on the cache server", cluster, initialCucumberDB.Name)
+	cachedCucumberDB.Status.Condition = "run out"
+	cachedCucumberDB.Spec.Size = 1111
+	cachedCucumberDBRaw, err = toUnstructured(cachedCucumberDB)
+	require.NoError(t, err)
+	cachedCucumberDBRaw, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Update(ctx, cachedCucumberDBRaw, metav1.UpdateOptions{})
+	require.NoError(t, err)
+	cachedCucumberDBJson, err = cachedCucumberDBRaw.MarshalJSON()
+	require.NoError(t, err)
+	cachedCucumberDB = &fakeAPIExport{}
+	require.NoError(t, json.Unmarshal(cachedCucumberDBJson, cachedCucumberDB))
+	if cachedCucumberDB.Spec.Size != 1111 {
+		t.Fatalf("unexpected spec.size %v after an update of amber/%s/%s, epxected %v", cachedCucumberDB.Spec.Size, cluster, initialCucumberDB.Name, 1111)
+	}
+	if cachedCucumberDB.Status.Condition != "run out" {
+		t.Fatalf("unexpected status.condition %v after an update of amber/%s/%s, epxected %v", cachedCucumberDB.Status.Condition, cluster, initialCucumberDB.Name, "run out")
+	}
+
 }
 
 func newFakeAPIExport(name string) fakeAPIExport {
