@@ -32,7 +32,6 @@ import (
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/martinlindhe/base36"
 	"github.com/spf13/cobra"
@@ -111,7 +110,7 @@ func NewSyncOptions(streams genericclioptions.IOStreams) *SyncOptions {
 		QPS:                   20,
 		Burst:                 30,
 		APIImportPollInterval: 1 * time.Minute,
-		APIExports:            []string{"root:compute|kubernetes"},
+		APIExports:            []string{"root:compute:kubernetes"},
 	}
 }
 
@@ -121,7 +120,7 @@ func (o *SyncOptions) BindFlags(cmd *cobra.Command) {
 
 	cmd.Flags().StringSliceVar(&o.ResourcesToSync, "resources", o.ResourcesToSync, "Resources to synchronize with kcp.")
 	cmd.Flags().StringSliceVar(&o.APIExports, "apiexports", o.APIExports,
-		"APIExport to be supported by the syncer, each APIExoport should be in the format of {workspace}|{export name}, "+
+		"APIExport to be supported by the syncer, each APIExoport should be in the format of <absolute_ref_to_workspace>:<apiexport>, "+
 			"e.g. root:compute|kubernetes is the kubernetes APIExport in root:compute workspace")
 	cmd.Flags().StringVar(&o.SyncerImage, "syncer-image", o.SyncerImage, "The syncer image to use in the syncer's deployment YAML. Images are published at https://github.com/kcp-dev/kcp/pkgs/container/kcp%2Fsyncer.")
 	cmd.Flags().IntVar(&o.Replicas, "replicas", o.Replicas, "Number of replicas of the syncer deployment.")
@@ -267,14 +266,9 @@ func getSyncerID(syncTarget *workloadv1alpha1.SyncTarget) string {
 }
 
 func (o *SyncOptions) applySyncTarget(ctx context.Context, kcpClient kcpclient.Interface, syncTargetName string) (*workloadv1alpha1.SyncTarget, error) {
-	syncTarget, err := kcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
-
 	supportedAPIExports := make([]apisv1alpha1.ExportReference, len(o.APIExports))
 	for _, export := range o.APIExports {
-		lclusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(export)
-		if err != nil {
-			return nil, fmt.Errorf("export %s format is not correct: %w", export, err)
-		}
+		lclusterName, name := logicalcluster.New(export).Split()
 		supportedAPIExports = append(supportedAPIExports, apisv1alpha1.ExportReference{
 			Workspace: &apisv1alpha1.WorkspaceExportReference{
 				ExportName: name,
@@ -291,6 +285,8 @@ func (o *SyncOptions) applySyncTarget(ctx context.Context, kcpClient kcpclient.I
 			},
 		})
 	}
+
+	syncTarget, err := kcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
 
 	switch {
 	case apierrors.IsNotFound(err):

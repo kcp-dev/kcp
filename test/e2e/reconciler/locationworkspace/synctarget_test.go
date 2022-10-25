@@ -96,7 +96,7 @@ func TestSyncTargetExport(t *testing.T) {
 	syncTargetName := fmt.Sprintf("synctarget-%d", +rand.Intn(1000000))
 	t.Logf("Creating a SyncTarget and syncer in %s", computeClusterName)
 	syncTarget := framework.NewSyncerFixture(t, source, computeClusterName,
-		framework.WithAPIExports(fmt.Sprintf("%s|%s", schemaClusterName.String(), cowboysAPIExport.Name)),
+		framework.WithAPIExports(fmt.Sprintf("%s:%s", schemaClusterName.String(), cowboysAPIExport.Name)),
 		framework.WithSyncTarget(computeClusterName, syncTargetName),
 		framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 			if !isFakePCluster {

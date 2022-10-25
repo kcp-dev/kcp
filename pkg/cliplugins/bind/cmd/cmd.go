@@ -31,6 +31,11 @@ var (
 	# Create an APIBinding named "my-binding" that binds to the APIExport "my-export" in the "root:my-service" workspace.
 	%[1]s bind apiexport root:my-service:my-export --name my-binding
 	`
+
+	bindWorkloadExampleUses = `
+	# Create a placement to deploy workload to synctargets in the workspace "root:compute".
+	%[1]s bind workload root:compute
+	`
 )
 
 func New(streams genericclioptions.IOStreams) *cobra.Command {
@@ -65,5 +70,27 @@ func New(streams genericclioptions.IOStreams) *cobra.Command {
 	bindOpts.BindFlags(bindCmd)
 
 	cmd.AddCommand(bindCmd)
+
+	bindWorkloadOpts := plugin.NewBindWorkloadOptions(streams)
+	bindWorkloadCmd := &cobra.Command{
+		Use:          "workload <compute workspace>",
+		Short:        "Bind to compute workspace",
+		Example:      fmt.Sprintf(bindWorkloadExampleUses, "kubectl kcp"),
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := bindWorkloadOpts.Complete(args); err != nil {
+				return err
+			}
+
+			if err := bindWorkloadOpts.Validate(); err != nil {
+				return err
+			}
+
+			return bindWorkloadOpts.Run(cmd.Context())
+		},
+	}
+	bindWorkloadOpts.BindFlags(bindWorkloadCmd)
+
+	cmd.AddCommand(bindWorkloadCmd)
 	return cmd
 }
