@@ -85,6 +85,17 @@ const (
 	// the label is removed. They then set the placement state to "Unbound".
 	ClusterResourceStateLabelPrefix = "state.workload.kcp.dev/"
 
+	// InternalSyncerViewAnnotationPrefix is the prefix of the annotation
+	//
+	//   diff.syncer.internal.kcp.dev/<sync-target-key>
+	//
+	// on upstream resources storing the value of fields as they have been reported by the Syncer for the given SyncTarget,
+	// so possibly different from the field value in the upstream resource itself, and overriding it for the given SyncTarget.
+	//
+	// The format is a Json object, whose keys are fields identifiers (for example "status" or "spec.clusterIP"),
+	// and values are overriding field values.
+	InternalSyncerViewAnnotationPrefix = "diff.syncer.internal.kcp.dev/"
+
 	// InternalClusterStatusAnnotationPrefix is the prefix of the annotation
 	//
 	//   experimental.status.workload.kcp.dev/<sync-target-name>

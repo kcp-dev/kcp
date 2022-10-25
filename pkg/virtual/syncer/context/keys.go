@@ -27,18 +27,18 @@ type syncTargetNameContextKeyType string
 
 // apiDomainKeyContextKey is the key for the request context value
 // that will carry the name of the SyncTarget resources with be synced with.
-const syncTargetNameContextKey syncTargetNameContextKeyType = "SyncerVirtualWorkspaceSyncTargetKey"
+const syncTargetKeyContextKey syncTargetNameContextKeyType = "SyncerVirtualWorkspaceSyncTargetKey"
 
-// WithSyncTargetName adds a SyncTarget name to the context.
-func WithSyncTargetName(ctx context.Context, syncTargetName string) context.Context {
-	return context.WithValue(ctx, syncTargetNameContextKey, syncTargetName)
+// WithSyncTargetKey adds a SyncTarget key to the context.
+func WithSyncTargetKey(ctx context.Context, syncTargetKey string) context.Context {
+	return context.WithValue(ctx, syncTargetKeyContextKey, syncTargetKey)
 }
 
-// SyncTargetNameFrom retrieves the SyncTarget name key from the context, if any.
-func SyncTargetNameFrom(ctx context.Context) (string, error) {
-	wcn, hasSyncTargetName := ctx.Value(syncTargetNameContextKey).(string)
-	if !hasSyncTargetName {
-		return "", errors.New("context must contain a valid non-empty SyncTarget name")
+// SyncTargetKeyFrom retrieves the SyncTarget name key from the context, if any.
+func SyncTargetKeyFrom(ctx context.Context) (string, error) {
+	stk, hasSyncTargetKey := ctx.Value(syncTargetKeyContextKey).(string)
+	if !hasSyncTargetKey {
+		return "", errors.New("context must contain a valid non-empty SyncTarget key")
 	}
-	return wcn, nil
+	return stk, nil
 }
