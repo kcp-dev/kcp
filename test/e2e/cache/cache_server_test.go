@@ -30,6 +30,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -62,8 +63,7 @@ var scenarios = []testScenario{
 	{"TestUIDGenerationCreationTimeOverwrite", testUIDGenerationCreationTime},
 	{"TestUIDGenerationCreationTimeNegativeOverwriteNegative", testUIDGenerationCreationTimeNegative},
 	{"TestGenerationOnSpecChanges", testGenerationOnSpecChanges},
-	// TODO: changing spec doesn't increase the Generation of a replicated object
-	// TODO: deleting an object with finalizers immediately removes the obj
+	{"TestDeletionWithFinalizers", testDeletionWithFinalizers},
 	// TODO: spec and status can be updated at the same time
 }
 
@@ -302,6 +302,30 @@ func testGenerationOnSpecChanges(ctx context.Context, t *testing.T, cacheClientR
 	require.NoError(t, json.Unmarshal(cachedCinnamonDBJson, cachedCinnamonDB))
 	if cachedCinnamonDB.Generation != generationBeforeUpdate {
 		t.Fatalf("generation musn't be updated after a spec update, generationBeforeUpdate %v, currentGeneration %v, object amber/%s/%s", generationBeforeUpdate, cachedCinnamonDB.Generation, cluster, initialCinnamonDB.Name)
+	}
+}
+
+// testDeletionWithFinalizers checks if deleting an object with finalizers immediately removes it
+func testDeletionWithFinalizers(ctx context.Context, t *testing.T, cacheClientRT *rest.Config, cluster logicalcluster.Name, gvr schema.GroupVersionResource) {
+	cacheDynamicClient, err := dynamic.NewClusterForConfig(cacheClientRT)
+	require.NoError(t, err)
+	initialGhostDB := newFakeAPIExport("ghostdb")
+	initialGhostDB.Finalizers = append(initialGhostDB.Finalizers, "doNotRemove")
+
+	t.Logf("Create abmer/%s/%s on the cache server", cluster, initialGhostDB.Name)
+	ghostDBRaw, err := toUnstructured(&initialGhostDB)
+	require.NoError(t, err)
+	_, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(ctx, ghostDBRaw, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	t.Logf("Remove amber/%s/%s from the cache server", cluster, initialGhostDB.Name)
+	err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Delete(ctx, initialGhostDB.Name, metav1.DeleteOptions{})
+	require.NoError(t, err)
+
+	t.Logf("Get abmer/%s/%s from the cache server", cluster, initialGhostDB.Name)
+	_, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Get(ctx, initialGhostDB.Name, metav1.GetOptions{})
+	if !apierrors.IsNotFound(err) {
+		t.Fatalf("expected to get a NotFound error, got %v", err)
 	}
 }
 
