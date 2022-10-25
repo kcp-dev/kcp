@@ -58,7 +58,7 @@ type testScenario struct {
 
 // scenarios holds all test scenarios
 var scenarios = []testScenario{
-	// TODO: schema is not enforced
+	{"TestSchemaIsNotEnforced", testSchemaIsNotEnforced},
 	// TODO: a shard name is assigned to a replicated obj
 	{"TestUIDGenerationCreationTimeOverwrite", testUIDGenerationCreationTime},
 	{"TestUIDGenerationCreationTimeNegativeOverwriteNegative", testUIDGenerationCreationTimeNegative},
@@ -80,6 +80,67 @@ type spec struct {
 
 type status struct {
 	Condition string `json:"condition,omitempty"`
+}
+
+// testSchemaIsNotEnforced checks if an object of any schema can be stored as "apis.kcp.dev.v1alpha1.apiexports"
+func testSchemaIsNotEnforced(ctx context.Context, t *testing.T, cacheClientRT *rest.Config, cluster logicalcluster.Name, gvr schema.GroupVersionResource) {
+	cacheDynamicClient, err := dynamic.NewClusterForConfig(cacheClientRT)
+	require.NoError(t, err)
+	type planet struct {
+		metav1.TypeMeta   `json:",inline"`
+		metav1.ObjectMeta `json:"metadata,omitempty"`
+		Star              string `json:"spec,omitempty"`
+		Size              int    `json:"size,omitempty"`
+	}
+	earth := planet{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{}}, Star: "TheSun", Size: 40000}
+	validateFn := func(earth planet, cachedPlatenRaw *unstructured.Unstructured) {
+		cachedEarthJson, err := cachedPlatenRaw.MarshalJSON()
+		require.NoError(t, err)
+		cachedEarth := &planet{}
+		require.NoError(t, json.Unmarshal(cachedEarthJson, cachedEarth))
+
+		earth.UID = cachedEarth.UID
+		earth.Generation = cachedEarth.Generation
+		earth.ResourceVersion = cachedEarth.ResourceVersion
+		earth.CreationTimestamp = cachedEarth.CreationTimestamp
+		earth.ResourceVersion = cachedEarth.ResourceVersion
+		earth.Annotations = cachedEarth.Annotations
+		if !reflect.DeepEqual(cachedEarth, &earth) {
+			t.Errorf("received object from the cache server differs from the expected one :\n%s", cmp.Diff(cachedEarth, &earth))
+		}
+	}
+
+	t.Logf("Create abmer/%s/earth on the cache server without type information", cluster)
+	earthRaw, err := toUnstructured(&earth)
+	require.NoError(t, err)
+	_, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(ctx, earthRaw, metav1.CreateOptions{})
+	if err == nil {
+		t.Fatalf("expected to receive an error when storing an object without providing TypeMeta")
+	}
+
+	earth.APIVersion = "apis.kcp.dev/v1alpha1"
+	earth.Kind = "APIExport"
+	t.Logf("Create abmer/%s/earth on the cache server without providing a name", cluster)
+	earthRaw, err = toUnstructured(&earth)
+	require.NoError(t, err)
+	_, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(ctx, earthRaw, metav1.CreateOptions{})
+	if err == nil {
+		t.Fatalf("expected to receive an error when storing an object without a name")
+	}
+
+	earth.Name = "earth"
+	t.Logf("Create abmer/%s/%s on the cache server", cluster, earth.Name)
+	earthRaw, err = toUnstructured(&earth)
+	require.NoError(t, err)
+	cachedEarthRaw, err := cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(ctx, earthRaw, metav1.CreateOptions{})
+	require.NoError(t, err)
+	validateFn(earth, cachedEarthRaw)
+
+	// do additional sanity check with GET
+	t.Logf("Get abmer/%s/%s from the cache server", cluster, earth.Name)
+	cachedEarthRaw, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Get(ctx, earth.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+	validateFn(earth, cachedEarthRaw)
 }
 
 // testUIDGenerationCreationTime checks if overwriting UID, Generation, CreationTime when the shard annotation is set works
@@ -180,7 +241,7 @@ func newFakeAPIExport(name string) fakeAPIExport {
 	}
 }
 
-func toUnstructured(obj *fakeAPIExport) (*unstructured.Unstructured, error) {
+func toUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
 	unstructured := &unstructured.Unstructured{Object: map[string]interface{}{}}
 	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
 	if err != nil {
@@ -191,7 +252,7 @@ func toUnstructured(obj *fakeAPIExport) (*unstructured.Unstructured, error) {
 }
 
 // TODO: refactor with TestAllScenariosAgainstStandaloneCacheServer
-func TestAllScenarios(t *testing.T) {
+func TestCacheServerAllScenarios(t *testing.T) {
 	_, dataDir, err := framework.ScratchDirs(t)
 	require.NoError(t, err)
 
