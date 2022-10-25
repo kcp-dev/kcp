@@ -347,6 +347,105 @@ func TestGarbageCollectorNormalCRDs(t *testing.T) {
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "error waiting for owned configmaps to be garbage collected")
 }
 
+func TestGarbageCollectorVersionedCRDs(t *testing.T) {
+	t.Parallel()
+	framework.Suite(t, "control-plane")
+
+	server := framework.SharedKcpServer(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	cfg := server.BaseConfig(t)
+
+	crdClusterClient, err := kcpapiextensionsclientset.NewForConfig(cfg)
+	require.NoError(t, err, "failed to construct apiextensions client for server")
+
+	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
+	require.NoError(t, err, "failed to construct dynamic client for server")
+
+	orgClusterName := framework.NewOrganizationFixture(t, server)
+
+	group := framework.UniqueGroup(".io")
+
+	sheriffCRD := apifixtures.NewSheriffsCRDWithVersions(group, "v1", "v2")
+
+	ws := framework.NewWorkspaceFixture(t, server, orgClusterName, framework.WithName("gc-crd-versions"))
+
+	t.Logf("Install a versioned sheriffs CRD into workspace %q", ws)
+	bootstrapCRD(t, ws, crdClusterClient.ApiextensionsV1().CustomResourceDefinitions(), sheriffCRD)
+
+	sheriffsGVRv1 := schema.GroupVersionResource{Group: group, Resource: "sheriffs", Version: "v1"}
+	sheriffsGVRv2 := schema.GroupVersionResource{Group: group, Resource: "sheriffs", Version: "v2"}
+
+	t.Logf("Creating owner sheriff")
+	owner, err := dynamicClusterClient.Cluster(ws).Resource(sheriffsGVRv1).Namespace("default").
+		Create(ctx, &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": sheriffsGVRv1.GroupVersion().String(),
+				"kind":       "Sheriff",
+				"metadata": map[string]interface{}{
+					"name": "owner",
+				},
+			},
+		}, metav1.CreateOptions{})
+	require.NoError(t, err, "Error creating owner sheriff %s|default/owner", ws)
+
+	t.Logf("Creating owned v1 sheriff")
+	_, err = dynamicClusterClient.Cluster(ws).Resource(sheriffsGVRv1).Namespace("default").
+		Create(ctx, &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": sheriffsGVRv1.GroupVersion().String(),
+				"kind":       "Sheriff",
+				"metadata": map[string]interface{}{
+					"name": "owned-v1",
+					"ownerReferences": []map[string]interface{}{
+						{
+							"apiVersion": owner.GetAPIVersion(),
+							"kind":       owner.GetKind(),
+							"name":       owner.GetName(),
+							"uid":        owner.GetUID(),
+						},
+					},
+				},
+			},
+		}, metav1.CreateOptions{})
+	require.NoError(t, err, "Error creating owner sheriff %s|default/owned-v1", ws)
+
+	t.Logf("Creating owned v2 sheriff")
+	_, err = dynamicClusterClient.Cluster(ws).Resource(sheriffsGVRv2).Namespace("default").
+		Create(ctx, &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": sheriffsGVRv2.GroupVersion().String(),
+				"kind":       "Sheriff",
+				"metadata": map[string]interface{}{
+					"name": "owned-v2",
+					"ownerReferences": []map[string]interface{}{
+						{
+							"apiVersion": owner.GetAPIVersion(),
+							"kind":       owner.GetKind(),
+							"name":       owner.GetName(),
+							"uid":        owner.GetUID(),
+						},
+					},
+				},
+			},
+		}, metav1.CreateOptions{})
+	require.NoError(t, err, "Error creating owner sheriff %s|default/owned-v2", ws)
+
+	t.Logf("Deleting owner sheriff")
+	err = dynamicClusterClient.Cluster(ws).Resource(sheriffsGVRv1).Namespace("default").
+		Delete(ctx, owner.GetName(), metav1.DeleteOptions{})
+	require.NoError(t, err, "Error deleting sheriff %s in %s", owner.GetName(), ws)
+
+	t.Logf("Waiting for the owned sheriffs to be garbage collected")
+	framework.Eventually(t, func() (bool, string) {
+		_, err1 := dynamicClusterClient.Cluster(ws).Resource(sheriffsGVRv1).Namespace("default").Get(ctx, "owned-v1", metav1.GetOptions{})
+		_, err2 := dynamicClusterClient.Cluster(ws).Resource(sheriffsGVRv2).Namespace("default").Get(ctx, "owned-v2", metav1.GetOptions{})
+		return apierrors.IsNotFound(err1) && apierrors.IsNotFound(err2), "sheriffs not garbage collected"
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "error waiting for owned sheriffs to be garbage collected")
+}
+
 func TestGarbageCollectorClusterScopedCRD(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
