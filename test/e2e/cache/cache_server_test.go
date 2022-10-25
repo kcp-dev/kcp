@@ -23,6 +23,7 @@ import (
 	"path"
 	"reflect"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -35,8 +36,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apimachineryerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/wait"
 	genericrequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/dynamic"
+	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -55,12 +58,12 @@ type testScenario struct {
 
 // scenarios holds all test scenarios
 var scenarios = []testScenario{
+	// TODO: schema is not enforced
+	// TODO: a shard name is assigned to a replicated obj
 	{"TestUIDGenerationCreationTimeOverwrite", testUIDGenerationCreationTime},
 	{"TestUIDGenerationCreationTimeNegativeOverwriteNegative", testUIDGenerationCreationTimeNegative},
 	// TODO: changing spec doesn't increase the Generation of a replicated object
 	// TODO: deleting an object with finalizers immediately removes the obj
-	// TODO: a shard name is assigned to a replicated obj
-	// TODO: schema is not enforced
 	// TODO: spec and status can be updated at the same time
 }
 
@@ -225,10 +228,8 @@ func TestAllScenarios(t *testing.T) {
 	require.NoError(t, err)
 	t.Logf("Starting the cache server")
 	go func() {
-		// TODO (p0lyn0mial): check readiness of the cache server
 		require.NoError(t, preparedCachedServer.Run(ctx))
 	}()
-	t.Logf("Creating kubeconfig for the cache server at %s", dataDir)
 	cacheServerKubeConfig := clientcmdapi.Config{
 		Clusters: map[string]*clientcmdapi.Cluster{
 			"cache": {
@@ -247,10 +248,9 @@ func TestAllScenarios(t *testing.T) {
 	cacheClientConfig := clientcmd.NewNonInteractiveClientConfig(cacheServerKubeConfig, "cache", nil, nil)
 	cacheClientRestConfig, err := cacheClientConfig.ClientConfig()
 	require.NoError(t, err)
+	t.Logf("waiting for the cache server at %v to become ready", cacheClientRestConfig.Host)
+	waitUntilCacheServerIsReady(ctx, t, cacheClientRestConfig)
 	cacheClientRT := cacheClientRoundTrippersFor(cacheClientRestConfig)
-
-	// TODO (p0lyn0mial): check readiness of the cache server
-	time.Sleep(3 * time.Second)
 
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(tt *testing.T) {
@@ -265,4 +265,42 @@ func cacheClientRoundTrippersFor(cfg *rest.Config) *rest.Config {
 	cacheClientRT = cacheclient.WithShardNameFromContextRoundTripper(cacheClientRT)
 	cacheClientRT = cacheclient.WithDefaultShardRoundTripper(cacheClientRT, "amber")
 	return cacheClientRT
+}
+
+func waitUntilCacheServerIsReady(ctx context.Context, t *testing.T, cacheClientRT *rest.Config) {
+	cacheClientRT = rest.CopyConfig(cacheClientRT)
+	if cacheClientRT.NegotiatedSerializer == nil {
+		cacheClientRT.NegotiatedSerializer = kubernetesscheme.Codecs.WithoutConversion()
+	}
+	client, err := rest.UnversionedRESTClientFor(cacheClientRT)
+	if err != nil {
+		t.Fatalf("failed to create unversioned client: %v", err)
+	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+	for _, endpoint := range []string{"/livez", "/readyz"} {
+		go func(endpoint string) {
+			defer wg.Done()
+			waitForEndpoint(ctx, t, client, endpoint)
+		}(endpoint)
+	}
+	wg.Wait()
+}
+
+func waitForEndpoint(ctx context.Context, t *testing.T, client *rest.RESTClient, endpoint string) {
+	var lastError error
+	if err := wait.PollImmediateWithContext(ctx, 100*time.Millisecond, time.Minute, func(ctx context.Context) (bool, error) {
+		req := rest.NewRequest(client).RequestURI(endpoint)
+		_, err := req.Do(ctx).Raw()
+		if err != nil {
+			lastError = fmt.Errorf("error contacting %s: failed components: %w", req.URL(), err)
+			return false, nil
+		}
+
+		t.Logf("success contacting %s", req.URL())
+		return true, nil
+	}); err != nil && lastError != nil {
+		t.Error(lastError)
+	}
 }
