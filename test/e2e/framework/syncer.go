@@ -186,7 +186,7 @@ func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 
 	// collect both in deployed and in-process mode
 	t.Cleanup(func() {
-		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(time.Second*30))
+		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(wait.ForeverTestTimeout))
 		defer cancelFn()
 
 		t.Logf("Collecting imported resource info: %s", artifactDir)
@@ -251,7 +251,7 @@ func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 
 	if useDeployedSyncer {
 		t.Cleanup(func() {
-			ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(time.Second*30))
+			ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(wait.ForeverTestTimeout))
 			defer cancelFn()
 
 			// collect syncer logs

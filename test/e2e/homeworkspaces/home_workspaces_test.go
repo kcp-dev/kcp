@@ -38,6 +38,7 @@ import (
 )
 
 func TestUserHomeWorkspaces(t *testing.T) {
+	t.Parallel()
 	type clientInfo struct {
 		Token string
 	}

@@ -329,25 +329,15 @@ func TestSyncerLifecycle(t *testing.T) {
 		return false, toYaml(deployment)
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "upstream Deployment %s/%s didn't get the per-location deletion annotation set or there was an error", upstreamNamespace.Name, upstreamDeployment.Name)
 
-	t.Logf("Checking if upstream deployment %s/%s is getting deleted, shouldn't as the syncer will not remove its finalizer due to the virtual finalizer", upstreamNamespace.Name, upstreamDeployment.Name)
-	require.Never(t, func() bool {
-		_, err := upstreamKubeClusterClient.Cluster(wsClusterName).AppsV1().Deployments(upstreamNamespace.Name).Get(ctx, upstreamDeployment.Name, metav1.GetOptions{})
-		if apierrors.IsNotFound(err) {
-			return true
-		}
-		require.NoError(t, err)
-		return false
-	}, 5*time.Second, time.Second, "upstream Deployment %s/%s got deleted or there was an error", upstreamNamespace.Name, upstreamDeployment.Name)
+	t.Logf("Checking if upstream deployment %s/%s is deleted, shouldn't as the syncer will not remove its finalizer due to the virtual finalizer", upstreamNamespace.Name, upstreamDeployment.Name)
+	_, err = upstreamKubeClusterClient.Cluster(wsClusterName).AppsV1().Deployments(upstreamNamespace.Name).Get(ctx, upstreamDeployment.Name, metav1.GetOptions{})
+	require.False(t, apierrors.IsNotFound(err))
+	require.NoError(t, err)
 
 	t.Logf("Checking if the downstream deployment %s/%s is deleted or not (shouldn't as there's a virtual finalizer that blocks the deletion of the downstream resource)", downstreamNamespaceName, upstreamDeployment.Name)
-	require.Neverf(t, func() bool {
-		_, err := downstreamKubeClient.AppsV1().Deployments(downstreamNamespaceName).Get(ctx, upstreamDeployment.Name, metav1.GetOptions{})
-		if apierrors.IsNotFound(err) {
-			return true
-		}
-		require.NoError(t, err)
-		return false
-	}, 5*time.Second, time.Second, "downstream Deployment %s/%s got deleted or there was an error", downstreamNamespaceName, upstreamDeployment.Name)
+	_, err = downstreamKubeClient.AppsV1().Deployments(downstreamNamespaceName).Get(ctx, upstreamDeployment.Name, metav1.GetOptions{})
+	require.False(t, apierrors.IsNotFound(err))
+	require.NoError(t, err)
 
 	// deleting a virtual Finalizer on the deployment and updating it.
 	t.Logf("Removing the virtual finalizer on the upstream deployment %s/%s, the deployment deletion should go through after this", upstreamNamespace.Name, upstreamDeployment.Name)

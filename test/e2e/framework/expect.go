@@ -29,6 +29,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -223,7 +224,7 @@ func ExpectClusterWorkspaces(ctx context.Context, t *testing.T, client kcpclient
 			}
 			expectErr := expectation(current.DeepCopy())
 			return expectErr == nil, expectErr
-		}, 30*time.Second)
+		}, wait.ForeverTestTimeout)
 	}, nil
 }
 
@@ -254,6 +255,6 @@ func ExpectWorkspaceShards(ctx context.Context, t *testing.T, client kcpclient.I
 			}
 			expectErr := expectation(current.DeepCopy())
 			return expectErr == nil, expectErr
-		}, 30*time.Second)
+		}, wait.ForeverTestTimeout)
 	}, nil
 }

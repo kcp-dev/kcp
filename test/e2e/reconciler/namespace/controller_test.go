@@ -133,7 +133,7 @@ func TestNamespaceScheduler(t *testing.T) {
 						return false
 					}
 					return scheduledMatcher(syncTargetKey)(ns) == nil
-				}, wait.ForeverTestTimeout, time.Second)
+				}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 				t.Log("Cordon the cluster and expect the namespace to end up unschedulable")
 				err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
@@ -182,7 +182,7 @@ func TestNamespaceScheduler(t *testing.T) {
 						t.Logf("failed to set status.lastSyncerHeartbeatTime: %v", err)
 						return
 					}
-				}, time.Second*10)
+				}, 100*time.Millisecond)
 
 				t.Log("Create a new unique sheriff CRD")
 				group := framework.UniqueGroup(".io")
@@ -341,7 +341,7 @@ func expectNamespaces(ctx context.Context, t *testing.T, client kcpkubernetescli
 			}
 			expectErr := expectation(current.DeepCopy())
 			return expectErr == nil, expectErr
-		}, 30*time.Second)
+		}, wait.ForeverTestTimeout)
 	}, nil
 }
 

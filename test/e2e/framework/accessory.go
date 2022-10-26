@@ -119,7 +119,7 @@ func Ready(ctx context.Context, t *testing.T, port string) bool {
 
 func waitForEndpoint(ctx context.Context, t *testing.T, port, endpoint string) {
 	var lastError error
-	if err := wait.PollImmediateWithContext(ctx, 100*time.Millisecond, 30*time.Second, func(ctx context.Context) (bool, error) {
+	if err := wait.PollImmediateWithContext(ctx, 100*time.Millisecond, wait.ForeverTestTimeout, func(ctx context.Context) (bool, error) {
 		url := fmt.Sprintf("http://[::1]:%s%s", port, endpoint)
 		resp, err := http.Get(url)
 		if err != nil {
