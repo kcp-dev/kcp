@@ -161,33 +161,9 @@ func replicateResourceScenario(t *testing.T, scenario baseScenario) {
 
 	t.Logf("Create %s/%s in %s workspace on the root shard", scenario.resourceKind, scenario.resourceName, cluster)
 	require.NoError(t, scenario.createSourceResource(cluster))
-	t.Logf("Get %s/%s %s from the root shard and the cache server for comparison", cluster, scenario.resourceName, scenario.resourceKind)
-	framework.Eventually(t, func() (bool, string) {
-		originalResource, err := scenario.getSourceResource(cluster)
-		if err != nil {
-			return false, err.Error()
-		}
-		cachedResource, err := scenario.getCachedResource(cluster)
-		if err != nil {
-			if !errors.IsNotFound(err) {
-				return false, err.Error()
-			}
-			return false, err.Error()
-		}
-		t.Logf("Verify if both the orignal and replicated resources (%s/%s/%s) are the same except %s annotation and ResourceVersion after creation", scenario.resourceKind, cluster, scenario.resourceName, genericapirequest.AnnotationKey)
-		cachedResourceMeta, err := meta.Accessor(cachedResource)
-		if err != nil {
-			return false, err.Error()
-		}
-		if _, found := cachedResourceMeta.GetAnnotations()[genericapirequest.AnnotationKey]; !found {
-			t.Fatalf("replicated %s root/%s/%s, doesn't have %s annotation", scenario.resourceKind, cluster, cachedResourceMeta.GetName(), genericapirequest.AnnotationKey)
-		}
-		delete(cachedResourceMeta.GetAnnotations(), genericapirequest.AnnotationKey)
-		if diff := cmp.Diff(cachedResource, originalResource, cmpopts.IgnoreFields(metav1.ObjectMeta{}, "ResourceVersion")); len(diff) > 0 {
-			return false, fmt.Sprintf("replicated %s root/%s/%s is different that the original", scenario.resourceKind, cluster, cachedResourceMeta.GetName())
-		}
-		return true, ""
-	}, wait.ForeverTestTimeout, 400*time.Millisecond)
+
+	t.Logf("Verify that the resource %s/%s/%s is propagated to the cached object", scenario.resourceKind, cluster, scenario.resourceName)
+	verifyResourceExistence(t, scenario, cluster)
 
 	t.Logf("Verify that a spec update on %s/%s/%s is propagated to the cached object", scenario.resourceKind, cluster, scenario.resourceName)
 	verifyResourceUpdate(t, scenario, cluster, scenario.updateSpecForSourceResource)
@@ -218,6 +194,36 @@ func replicateResourceScenario(t *testing.T, scenario baseScenario) {
 			return false, err.Error()
 		}
 		return false, fmt.Sprintf("replicated %s/%s/%s wasn't removed", scenario.resourceKind, cluster, scenario.resourceName)
+	}, wait.ForeverTestTimeout, 400*time.Millisecond)
+}
+
+func verifyResourceExistence(t *testing.T, scenario baseScenario, cluster logicalcluster.Name) {
+	t.Logf("Get %s/%s %s from the root shard and the cache server for comparison", cluster, scenario.resourceName, scenario.resourceKind)
+	framework.Eventually(t, func() (bool, string) {
+		originalResource, err := scenario.getSourceResource(cluster)
+		if err != nil {
+			return false, err.Error()
+		}
+		cachedResource, err := scenario.getCachedResource(cluster)
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				return false, err.Error()
+			}
+			return false, err.Error()
+		}
+		t.Logf("Verify if both the orignal and replicated resources (%s/%s/%s) are the same except %s annotation and ResourceVersion after creation", scenario.resourceKind, cluster, scenario.resourceName, genericapirequest.AnnotationKey)
+		cachedResourceMeta, err := meta.Accessor(cachedResource)
+		if err != nil {
+			return false, err.Error()
+		}
+		if _, found := cachedResourceMeta.GetAnnotations()[genericapirequest.AnnotationKey]; !found {
+			t.Fatalf("replicated %s root/%s/%s, doesn't have %s annotation", scenario.resourceKind, cluster, cachedResourceMeta.GetName(), genericapirequest.AnnotationKey)
+		}
+		delete(cachedResourceMeta.GetAnnotations(), genericapirequest.AnnotationKey)
+		if diff := cmp.Diff(cachedResource, originalResource, cmpopts.IgnoreFields(metav1.ObjectMeta{}, "ResourceVersion")); len(diff) > 0 {
+			return false, fmt.Sprintf("replicated %s root/%s/%s is different that the original", scenario.resourceKind, cluster, cachedResourceMeta.GetName())
+		}
+		return true, ""
 	}, wait.ForeverTestTimeout, 400*time.Millisecond)
 }
 
