@@ -20,7 +20,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"path"
 	"strings"
 
 	"github.com/kcp-dev/logicalcluster/v2"
@@ -60,7 +59,11 @@ type BindWorkloadOptions struct {
 
 func NewBindWorkloadOptions(streams genericclioptions.IOStreams) *BindWorkloadOptions {
 	return &BindWorkloadOptions{
-		Options: base.NewOptions(streams),
+		Options:           base.NewOptions(streams),
+		NamespaceSelector: labels.Everything().String(),
+		LocationSelectors: []string{
+			labels.Everything().String(),
+		},
 	}
 }
 
@@ -69,7 +72,7 @@ func (o *BindWorkloadOptions) BindFlags(cmd *cobra.Command) {
 	o.Options.BindFlags(cmd)
 
 	cmd.Flags().StringSliceVar(&o.APIExports, "apiexports", o.APIExports,
-		"APIExport to bind to this workspace for workload, each APIExoport should be in the format of <absolute_ref_to_workspace>:<apiexport>")
+		"APIExport to bind to this workspace for workload, each APIExport should be in the format of <absolute_ref_to_workspace>:<apiexport>")
 	cmd.Flags().StringVar(&o.NamespaceSelector, "namespace-selector", o.NamespaceSelector, "Label select to select namespaces to create workload.")
 	cmd.Flags().StringSliceVar(&o.LocationSelectors, "location-selectors", o.LocationSelectors,
 		"A list of label selectors to select locations in the compute workspace to sync workload.")
@@ -93,7 +96,11 @@ func (o *BindWorkloadOptions) Complete(args []string) error {
 		}
 		o.ComputeWorkspace = clusterName
 	} else if len(args[0]) == 1 {
-		o.ComputeWorkspace = logicalcluster.New(args[0])
+		clusterName, validated := logicalcluster.NewValidated(args[0])
+		if !validated {
+			return fmt.Errorf("compute workspace type is incorrect")
+		}
+		o.ComputeWorkspace = clusterName
 	} else {
 		return fmt.Errorf("a compute workspace should be specified")
 	}
@@ -104,16 +111,6 @@ func (o *BindWorkloadOptions) Complete(args []string) error {
 			"root:compute:kubernetes",
 			fmt.Sprintf("%s:kubernetes", o.ComputeWorkspace.String()),
 		}
-	}
-
-	// select all ns if namespace selector is not set
-	if len(o.NamespaceSelector) == 0 {
-		o.NamespaceSelector = labels.Everything().String()
-	}
-
-	// select all locations is location selectos is not set
-	if len(o.LocationSelectors) == 0 {
-		o.LocationSelectors = []string{labels.Everything().String()}
 	}
 
 	return nil
@@ -136,31 +133,27 @@ func (o *BindWorkloadOptions) Run(ctx context.Context) error {
 	}
 
 	// build config to connect to compute workspace
-	computeWorkspaceConfig := rest.CopyConfig(config)
+	kcpConfig := rest.CopyConfig(config)
 	url, _, err := helpers.ParseClusterURL(config.Host)
 	if err != nil {
 		return err
 	}
 
-	url.Path = path.Join(url.Path, o.ComputeWorkspace.Path())
-	computeWorkspaceConfig.Host = url.String()
-	computeWorkspaceKcpClient, err := kcpclient.NewForConfig(computeWorkspaceConfig)
+	kcpConfig.Host = url.String()
+	kcpClient, err := kcpclient.NewClusterForConfig(kcpConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create kcp client: %w", err)
 	}
 
-	err = o.hasSupportedSyncTargets(ctx, computeWorkspaceKcpClient)
-	if err != nil {
+	if err := o.hasSupportedSyncTargets(ctx, kcpClient.Cluster(o.ComputeWorkspace)); err != nil {
 		return err
 	}
 
-	err = o.applyPlacement(ctx, userWorkspaceKcpClient)
-	if err != nil {
+	if err := o.applyPlacement(ctx, userWorkspaceKcpClient); err != nil {
 		return err
 	}
 
-	err = o.applyAPIBinding(ctx, userWorkspaceKcpClient)
-	if err != nil {
+	if err := o.applyAPIBinding(ctx, userWorkspaceKcpClient); err != nil {
 		return err
 	}
 
@@ -191,15 +184,15 @@ func (o *BindWorkloadOptions) applyAPIBinding(ctx context.Context, client kcpcli
 	diff := desiredAPIExports.Difference(existingAPIExports)
 	var errs []error
 	for export := range diff {
-		lclusterName, name := logicalcluster.New(export).Split()
+		clusterName, name := logicalcluster.New(export).Split()
 		apiBinding := &apisv1alpha1.APIBinding{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: apiBindingName(lclusterName, name),
+				Name: apiBindingName(clusterName, name),
 			},
 			Spec: apisv1alpha1.APIBindingSpec{
 				Reference: apisv1alpha1.ExportReference{
 					Workspace: &apisv1alpha1.WorkspaceExportReference{
-						Path:       lclusterName.String(),
+						Path:       clusterName.String(),
 						ExportName: name,
 					},
 				},
@@ -258,14 +251,8 @@ func (o *BindWorkloadOptions) applyPlacement(ctx context.Context, client kcpclie
 		},
 	}
 
-	_, err = client.SchedulingV1alpha1().Placements().Get(ctx, placement.Name, metav1.GetOptions{})
-	switch {
-	case errors.IsNotFound(err):
-		_, err := client.SchedulingV1alpha1().Placements().Create(ctx, placement, metav1.CreateOptions{})
-		if err != nil && !errors.IsAlreadyExists(err) {
-			return err
-		}
-	case err != nil:
+	_, err = client.SchedulingV1alpha1().Placements().Create(ctx, placement, metav1.CreateOptions{})
+	if err != nil && !errors.IsAlreadyExists(err) {
 		return err
 	}
 
@@ -299,7 +286,7 @@ func (o *BindWorkloadOptions) hasSupportedSyncTargets(ctx context.Context, clien
 
 	diff := currentExports.Difference(supportedExports)
 	if diff.Len() > 0 {
-		return fmt.Errorf("not all apiexports is supported by the synctargets in workspace %s: %s", o.ComputeWorkspace, strings.Join(diff.List(), ","))
+		return fmt.Errorf("the following APIExports are not supported by the synctargets in workspace %s: %s", o.ComputeWorkspace, strings.Join(diff.List(), ","))
 	}
 
 	return nil
