@@ -22,8 +22,8 @@ import (
 	"io"
 	"sync"
 
-	kcpkubernetesclient "github.com/kcp-dev/client-go/clients/clientset/versioned"
-	kcpcorev1listers "github.com/kcp-dev/client-go/clients/listers/core/v1"
+	kcpkubernetesclient "github.com/kcp-dev/client-go/kubernetes"
+	kcpcorev1listers "github.com/kcp-dev/client-go/listers/core/v1"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"

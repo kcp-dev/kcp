@@ -25,7 +25,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
-	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"

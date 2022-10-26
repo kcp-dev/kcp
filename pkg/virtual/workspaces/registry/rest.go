@@ -20,8 +20,8 @@ import (
 	"context"
 	"fmt"
 
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
-	kcprbacv1informers "github.com/kcp-dev/client-go/clients/informers/rbac/v1"
+	kcprbacv1informers "github.com/kcp-dev/client-go/informers/rbac/v1"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	rbacv1 "k8s.io/api/rbac/v1"

@@ -21,7 +21,7 @@ import (
 	"strings"
 	"testing"
 
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 

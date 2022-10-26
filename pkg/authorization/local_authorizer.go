@@ -20,8 +20,8 @@ import (
 	"context"
 	"fmt"
 
-	kcpkubernetesinformers "github.com/kcp-dev/client-go/clients/informers"
-	rbacv1listers "github.com/kcp-dev/client-go/clients/listers/rbac/v1"
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
+	rbacv1listers "github.com/kcp-dev/client-go/listers/rbac/v1"
 
 	kaudit "k8s.io/apiserver/pkg/audit"
 	"k8s.io/apiserver/pkg/authentication/user"

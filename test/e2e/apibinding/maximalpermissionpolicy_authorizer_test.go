@@ -23,8 +23,8 @@ import (
 	"time"
 
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
-	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 

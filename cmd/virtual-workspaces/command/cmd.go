@@ -24,8 +24,8 @@ import (
 	"net/url"
 	"time"
 
-	kcpkubernetesclient "github.com/kcp-dev/client-go/clients/clientset/versioned"
-	kcpkubernetesinformers "github.com/kcp-dev/client-go/clients/informers"
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
+	kcpkubernetesclient "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/spf13/cobra"
 

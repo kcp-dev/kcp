@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"

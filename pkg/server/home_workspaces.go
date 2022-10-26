@@ -27,8 +27,8 @@ import (
 	"regexp"
 	"strings"
 
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
-	kcpkubernetesinformers "github.com/kcp-dev/client-go/clients/informers"
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	authenticationv1 "k8s.io/api/authentication/v1"

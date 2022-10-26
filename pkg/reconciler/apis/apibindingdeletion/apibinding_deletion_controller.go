@@ -25,7 +25,7 @@ import (
 	"time"
 
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
-	kcpmetadata "github.com/kcp-dev/client-go/clients/metadata"
+	kcpmetadata "github.com/kcp-dev/client-go/metadata"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"

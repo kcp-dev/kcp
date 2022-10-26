@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	kcpkubernetesinformers "github.com/kcp-dev/client-go/clients/informers"
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/api/errors"

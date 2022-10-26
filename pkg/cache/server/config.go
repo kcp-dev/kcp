@@ -23,9 +23,9 @@ import (
 	"net/url"
 	"time"
 
+	kcpapiextensionsclientset "github.com/kcp-dev/apiextensions-apiserver/pkg/client/clientset/versioned"
+	kcpapiextensionsinformers "github.com/kcp-dev/apiextensions-apiserver/pkg/client/informers/externalversions"
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
-	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/clients/clientset/versioned"
-	kcpapiextensionsinformers "github.com/kcp-dev/client-go/apiextensions/clients/informers"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"

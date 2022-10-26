@@ -24,7 +24,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
-	kcpdynamicinformer "github.com/kcp-dev/client-go/clients/dynamic/dynamicinformer"
+	kcpdynamicinformer "github.com/kcp-dev/client-go/dynamic/dynamicinformer"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/api/errors"

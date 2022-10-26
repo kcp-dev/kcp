@@ -21,8 +21,8 @@ import (
 	"embed"
 	"testing"
 
-	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/clients/clientset/versioned"
-	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
+	kcpapiextensionsclientset "github.com/kcp-dev/apiextensions-apiserver/pkg/client/clientset/versioned"
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/stretchr/testify/require"
 
 	"k8s.io/client-go/discovery/cached/memory"

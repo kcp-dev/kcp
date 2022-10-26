@@ -21,7 +21,7 @@ import (
 	"embed"
 	"testing"
 
-	kcpapiextensionsv1client "github.com/kcp-dev/client-go/apiextensions/clients/clientset/versioned/typed/apiextensions/v1"
+	kcpapiextensionsv1client "github.com/kcp-dev/apiextensions-apiserver/pkg/client/clientset/versioned/typed/apiextensions/v1"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 

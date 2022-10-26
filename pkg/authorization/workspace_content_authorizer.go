@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"strings"
 
-	kcpkubernetesinformers "github.com/kcp-dev/client-go/clients/informers"
-	rbacv1listers "github.com/kcp-dev/client-go/clients/listers/rbac/v1"
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
+	rbacv1listers "github.com/kcp-dev/client-go/listers/rbac/v1"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/api/errors"

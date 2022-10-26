@@ -28,9 +28,9 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/google/go-cmp/cmp"
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
-	kcpdiscovery "github.com/kcp-dev/client-go/clients/discovery"
-	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
+	kcpdiscovery "github.com/kcp-dev/client-go/discovery"
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
@@ -322,6 +322,7 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 }
 
 func TestAPIExportAPIBindingsAccess(t *testing.T) {
+	t.Skip("https://github.com/kcp-dev/kcp/issues/2263")
 	t.Parallel()
 
 	server := framework.SharedKcpServer(t)

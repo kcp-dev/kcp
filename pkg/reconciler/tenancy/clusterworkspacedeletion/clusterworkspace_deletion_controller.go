@@ -25,8 +25,8 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
-	kcpmetadata "github.com/kcp-dev/client-go/clients/metadata"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+	kcpmetadata "github.com/kcp-dev/client-go/metadata"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/api/equality"

@@ -24,9 +24,9 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	kcpkubernetesclient "github.com/kcp-dev/client-go/clients/clientset/versioned"
-	kcpfake "github.com/kcp-dev/client-go/clients/clientset/versioned/fake"
-	kcpkubernetesinformers "github.com/kcp-dev/client-go/clients/informers"
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
+	kcpkubernetesclient "github.com/kcp-dev/client-go/kubernetes"
+	kcpfake "github.com/kcp-dev/client-go/kubernetes/fake"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -20,8 +20,8 @@ import (
 	"context"
 	"time"
 
+	kcpapiextensionsclientset "github.com/kcp-dev/apiextensions-apiserver/pkg/client/clientset/versioned"
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
-	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/clients/clientset/versioned"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/client-go/rest"

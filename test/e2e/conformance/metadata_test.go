@@ -22,9 +22,9 @@ import (
 	"testing"
 	"time"
 
+	kcpapiextensionsclientset "github.com/kcp-dev/apiextensions-apiserver/pkg/client/clientset/versioned"
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
-	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/clients/clientset/versioned"
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/stretchr/testify/require"
 
 	appsv1 "k8s.io/api/apps/v1"

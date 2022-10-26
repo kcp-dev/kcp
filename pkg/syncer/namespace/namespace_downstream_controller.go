@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kcpdynamicinformer "github.com/kcp-dev/client-go/clients/dynamic/dynamicinformer"
+	kcpdynamicinformer "github.com/kcp-dev/client-go/dynamic/dynamicinformer"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	corev1 "k8s.io/api/core/v1"

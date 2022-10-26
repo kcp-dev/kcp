@@ -23,7 +23,7 @@ import (
 	"io"
 	"strings"
 
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/clients/clientset/versioned"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"

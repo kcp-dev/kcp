@@ -27,9 +27,9 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
-	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
-	kcpdynamicinformer "github.com/kcp-dev/client-go/clients/dynamic/dynamicinformer"
-	kcpkubernetesinformers "github.com/kcp-dev/client-go/clients/informers"
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	kcpdynamicinformer "github.com/kcp-dev/client-go/dynamic/dynamicinformer"
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	authorizationv1 "k8s.io/api/authorization/v1"

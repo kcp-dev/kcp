@@ -19,7 +19,7 @@ package delegated
 import (
 	"time"
 
-	kcpkubernetesclient "github.com/kcp-dev/client-go/clients/clientset/versioned"
+	kcpkubernetesclient "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apiserver/pkg/authorization/authorizer"

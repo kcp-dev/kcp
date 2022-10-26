@@ -25,8 +25,8 @@ import (
 	"os"
 	"time"
 
-	kcpdynamic "github.com/kcp-dev/client-go/clients/dynamic"
-	kcpdynamicinformer "github.com/kcp-dev/client-go/clients/dynamic/dynamicinformer"
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	kcpdynamicinformer "github.com/kcp-dev/client-go/dynamic/dynamicinformer"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
