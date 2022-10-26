@@ -73,7 +73,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/initialization"
 	workloadsapiexport "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexport"
 	workloadsapiexportcreate "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexportcreate"
-	"github.com/kcp-dev/kcp/pkg/reconciler/workload/defaultplacement"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/heartbeat"
 	workloadnamespace "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
 	workloadplacement "github.com/kcp-dev/kcp/pkg/reconciler/workload/placement"
@@ -859,37 +858,6 @@ func (s *Server) installSchedulingLocationStatusController(ctx context.Context, 
 
 	return server.AddPostStartHook(postStartHookName(controllerName), func(hookContext genericapiserver.PostStartHookContext) error {
 		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(controllerName))
-		if err := s.waitForSync(hookContext.StopCh); err != nil {
-			logger.Error(err, "failed to finish post-start-hook")
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-
-		go c.Start(goContext(hookContext), 2)
-
-		return nil
-	})
-}
-
-func (s *Server) installDefaultPlacementController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
-	config = rest.CopyConfig(config)
-	config = rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(config), defaultplacement.ControllerName)
-	kcpClusterClient, err := kcpclient.NewForConfig(config)
-	if err != nil {
-		return err
-	}
-
-	c, err := defaultplacement.NewController(
-		kcpClusterClient,
-		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
-		s.KcpSharedInformerFactory.Scheduling().V1alpha1().Placements(),
-		s.KcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
-	)
-	if err != nil {
-		return err
-	}
-
-	return server.AddPostStartHook(postStartHookName(defaultplacement.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(defaultplacement.ControllerName))
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			logger.Error(err, "failed to finish post-start-hook")
 			return nil // don't klog.Fatal. This only happens when context is cancelled.

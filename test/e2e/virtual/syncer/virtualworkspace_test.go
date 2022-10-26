@@ -45,9 +45,6 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/kcp-dev/kcp/config/rootcompute"
-	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
 	fixturewildwest "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest"
@@ -440,52 +437,13 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
-				kcpClusterClient, err := kcpclient.NewForConfig(server.BaseConfig(t))
-				require.NoError(t, err)
-
 				otherWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
 
-				t.Logf("Create a binding in the other workspace")
-				binding := &apisv1alpha1.APIBinding{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "kubernetes",
-					},
-					Spec: apisv1alpha1.APIBindingSpec{
-						Reference: apisv1alpha1.ExportReference{
-							Workspace: &apisv1alpha1.WorkspaceExportReference{
-								Path:       wildwestClusterName.String(),
-								ExportName: "kubernetes",
-							},
-						},
-					},
-				}
-				_, err = kcpClusterClient.ApisV1alpha1().APIBindings().Create(logicalcluster.WithCluster(ctx, otherWorkspace), binding, metav1.CreateOptions{})
-				require.NoError(t, err)
-
-				t.Logf("Wait for binding to be ready")
-				require.Eventually(t, func() bool {
-					binding, err := kcpClusterClient.ApisV1alpha1().APIBindings().Get(logicalcluster.WithCluster(ctx, otherWorkspace), binding.Name, metav1.GetOptions{})
-					if err != nil {
-						t.Logf("Failed to list Locations: %v", err)
-						return false
-					}
-					return conditions.IsTrue(binding, apisv1alpha1.InitialBindingCompleted)
-				}, wait.ForeverTestTimeout, time.Millisecond*100)
-
-				t.Logf("Wait for binding to have cowboy resource")
-				require.Eventually(t, func() bool {
-					binding, err := kcpClusterClient.ApisV1alpha1().APIBindings().Get(logicalcluster.WithCluster(ctx, otherWorkspace), binding.Name, metav1.GetOptions{})
-					if err != nil {
-						t.Logf("Failed to list Locations: %v", err)
-						return false
-					}
-					for _, r := range binding.Status.BoundResources {
-						if r.Resource == "cowboys" {
-							return true
-						}
-					}
-					return false
-				}, wait.ForeverTestTimeout, time.Millisecond*100)
+				t.Logf("Bind wildwest workspace")
+				framework.NewBindCompute(t, otherWorkspace, server,
+					framework.WithAPIExportsWorkloadBindOption(wildwestClusterName.String()+":kubernetes"),
+					framework.WithLocationWorkspaceWorkloadBindOption(wildwestClusterName),
+				).Bind(t)
 
 				wildwestClusterClient, err := wildwestclientset.NewForConfig(server.BaseConfig(t))
 				require.NoError(t, err)
@@ -599,6 +557,11 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				}),
 			).Start(t)
 
+			t.Logf("Bind kubelike workspace")
+			framework.NewBindCompute(t, kubelikeWorkspace, server,
+				framework.WithAPIExportsWorkloadBindOption("root:compute:kubernetes"),
+			).Bind(t)
+
 			t.Log("Waiting for ingresses crd to be imported and available in the kubelike source cluster...")
 			require.Eventually(t, func() bool {
 				_, err := kubeClusterClient.Cluster(kubelikeWorkspace).NetworkingV1().Ingresses("").List(ctx, metav1.ListOptions{})
@@ -671,6 +634,11 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					}
 				}),
 			).Start(t)
+
+			t.Logf("Bind wildwest workspace")
+			framework.NewBindCompute(t, wildwestWorkspace, server,
+				framework.WithAPIExportsWorkloadBindOption(wildwestWorkspace.String()+":kubernetes"),
+			).Bind(t)
 
 			t.Log("Waiting for cowboys crd to be imported and available in the wildwest source workspace...")
 			require.Eventually(t, func() bool {

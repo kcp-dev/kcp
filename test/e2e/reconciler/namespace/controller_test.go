@@ -109,6 +109,9 @@ func TestNamespaceScheduler(t *testing.T) {
 					})).Start(t)
 				syncTargetName := syncerFixture.SyncerConfig.SyncTargetName
 
+				t.Logf("Bind to location workspace")
+				framework.NewBindCompute(t, server.clusterName, server).Bind(t)
+
 				t.Log("Wait for \"kubernetes\" apiexport")
 				require.Eventually(t, func() bool {
 					_, err := server.kcpClient.ApisV1alpha1().APIExports().Get(ctx, "kubernetes", metav1.GetOptions{})
@@ -168,11 +171,25 @@ func TestNamespaceScheduler(t *testing.T) {
 				t.Log("Create a ready SyncTarget, and keep it artificially ready") // we don't want the syncer to do anything with CRDs, hence we fake the syncer
 				cluster := &workloadv1alpha1.SyncTarget{
 					ObjectMeta: metav1.ObjectMeta{Name: "cluster7"},
-					Spec:       workloadv1alpha1.SyncTargetSpec{},
+					Spec: workloadv1alpha1.SyncTargetSpec{
+						SupportedAPIExports: []apisv1alpha1.ExportReference{
+							{
+								Workspace: &apisv1alpha1.WorkspaceExportReference{
+									ExportName: "kubernetes",
+									Path:       server.clusterName.String(),
+								},
+							},
+						},
+					},
 				}
 				cluster, err = server.kcpClient.WorkloadV1alpha1().SyncTargets().Create(ctx, cluster, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create cluster")
 				syncTargetKey := workloadv1alpha1.ToSyncTargetKey(logicalcluster.From(cluster), cluster.Name)
+
+				t.Logf("Bind to location workspace")
+				framework.NewBindCompute(t, server.clusterName, server,
+					framework.WithAPIExportsWorkloadBindOption(server.clusterName.String()+":kubernetes"),
+				).Bind(t)
 
 				go wait.UntilWithContext(ctx, func(ctx context.Context) {
 					patchBytes := []byte(fmt.Sprintf(`[{"op":"replace","path":"/status/lastSyncerHeartbeatTime","value":%q}]`, time.Now().Format(time.RFC3339)))

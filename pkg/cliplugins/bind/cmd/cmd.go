@@ -32,9 +32,15 @@ var (
 	%[1]s bind apiexport root:my-service:my-export --name my-binding
 	`
 
-	bindWorkloadExampleUses = `
-	# Create a placement to deploy workload to synctargets in the workspace "root:compute".
-	%[1]s bind workload root:compute
+	bindComputeExampleUses = `
+    # Create a placement to deploy standard kubernetes workloads to synctargets in the "root:mylocations" location workspace.
+    %[1]s bind compute root:mylocations
+
+    # Create a placement to deploy custom workloads to synctargets in the "root:mylocations" location workspace.
+    %[1]s bind compute root:mylocations --apiexports=root:myapis:customapiexport
+
+    # Create a placement to deploy standard kubernetes workloads to synctargets in the "root:mylocations" location workspace, and select only locations in the us-east region.
+    %[1]s bind compute root:mylocations --location-selectors=region=us-east1
 	`
 )
 
@@ -71,26 +77,26 @@ func New(streams genericclioptions.IOStreams) *cobra.Command {
 
 	cmd.AddCommand(bindCmd)
 
-	bindWorkloadOpts := plugin.NewBindWorkloadOptions(streams)
-	bindWorkloadCmd := &cobra.Command{
-		Use:          "workload <compute workspace>",
-		Short:        "Bind to compute workspace",
-		Example:      fmt.Sprintf(bindWorkloadExampleUses, "kubectl kcp"),
+	bindComputeOpts := plugin.NewBindComputeOptions(streams)
+	bindComputeCmd := &cobra.Command{
+		Use:          "compute <location workspace>",
+		Short:        "Bind to a location workspace",
+		Example:      fmt.Sprintf(bindComputeExampleUses, "kubectl kcp"),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := bindWorkloadOpts.Complete(args); err != nil {
+			if err := bindComputeOpts.Complete(args); err != nil {
 				return err
 			}
 
-			if err := bindWorkloadOpts.Validate(); err != nil {
+			if err := bindComputeOpts.Validate(); err != nil {
 				return err
 			}
 
-			return bindWorkloadOpts.Run(cmd.Context())
+			return bindComputeOpts.Run(cmd.Context())
 		},
 	}
-	bindWorkloadOpts.BindFlags(bindWorkloadCmd)
+	bindComputeOpts.BindFlags(bindComputeCmd)
 
-	cmd.AddCommand(bindWorkloadCmd)
+	cmd.AddCommand(bindComputeCmd)
 	return cmd
 }

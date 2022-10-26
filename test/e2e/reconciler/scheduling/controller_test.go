@@ -38,7 +38,6 @@ import (
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
@@ -163,56 +162,10 @@ func TestScheduling(t *testing.T) {
 		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
-	binding := &apisv1alpha1.APIBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "kubernetes",
-		},
-		Spec: apisv1alpha1.APIBindingSpec{
-			Reference: apisv1alpha1.ExportReference{
-				Workspace: &apisv1alpha1.WorkspaceExportReference{
-					Path:       negotiationClusterName.String(),
-					ExportName: "kubernetes",
-				},
-			},
-		},
-	}
-
-	t.Logf("Create a binding in the user workspace")
-	_, err = kcpClusterClient.ApisV1alpha1().APIBindings().Create(logicalcluster.WithCluster(ctx, userClusterName), binding, metav1.CreateOptions{})
-	require.NoError(t, err)
-
-	t.Logf("Wait for binding to be ready")
-	framework.Eventually(t, func() (bool, string) {
-		binding, err := kcpClusterClient.ApisV1alpha1().APIBindings().Get(logicalcluster.WithCluster(ctx, userClusterName), binding.Name, metav1.GetOptions{})
-		if err != nil {
-			return false, fmt.Sprintf("failed to get binding: %v", err)
-		}
-		condition := conditions.Get(binding, apisv1alpha1.InitialBindingCompleted)
-		if condition == nil {
-			return false, fmt.Sprintf("no %s condition exists", apisv1alpha1.InitialBindingCompleted)
-		}
-		if condition.Status == corev1.ConditionTrue {
-			return true, ""
-		}
-		return false, fmt.Sprintf("not done waiting for the binding to be initially bound, reason: %v - message: %v", condition.Reason, condition.Message)
-	}, wait.ForeverTestTimeout, time.Millisecond*100)
-
-	t.Logf("Wait for placement to be ready")
-	framework.Eventually(t, func() (bool, string) {
-		placement, err := kcpClusterClient.SchedulingV1alpha1().Placements().Get(logicalcluster.WithCluster(ctx, userClusterName), "default", metav1.GetOptions{})
-		if err != nil {
-			return false, fmt.Sprintf("failed to get placement: %v", err)
-		}
-
-		condition := conditions.Get(placement, schedulingv1alpha1.PlacementReady)
-		if condition == nil {
-			return false, fmt.Sprintf("no %s condition exists", schedulingv1alpha1.PlacementReady)
-		}
-		if condition.Status == corev1.ConditionTrue {
-			return true, ""
-		}
-		return false, fmt.Sprintf("not done waiting for the placement to be ready, reason: %v - message: %v", condition.Reason, condition.Message)
-	}, wait.ForeverTestTimeout, time.Millisecond*100)
+	t.Logf("Bind to location workspace")
+	framework.NewBindCompute(t, userClusterName, source,
+		framework.WithLocationWorkspaceWorkloadBindOption(negotiationClusterName),
+	).Bind(t)
 
 	t.Logf("Wait for being able to list Services in the user workspace")
 	require.Eventually(t, func() bool {
@@ -226,43 +179,10 @@ func TestScheduling(t *testing.T) {
 		return true
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
-	t.Logf("Create a binding in the second user workspace")
-	_, err = kcpClusterClient.ApisV1alpha1().APIBindings().Create(logicalcluster.WithCluster(ctx, secondUserClusterName), binding, metav1.CreateOptions{})
-	require.NoError(t, err)
-
-	t.Logf("Wait for binding to be ready")
-	framework.Eventually(t, func() (bool, string) {
-		binding, err := kcpClusterClient.ApisV1alpha1().APIBindings().Get(logicalcluster.WithCluster(ctx, secondUserClusterName), binding.Name, metav1.GetOptions{})
-		if err != nil {
-			return false, fmt.Sprintf("failed to list Locations: %v", err)
-		}
-
-		condition := conditions.Get(binding, apisv1alpha1.InitialBindingCompleted)
-		if condition == nil {
-			return false, fmt.Sprintf("no %s condition exists", apisv1alpha1.InitialBindingCompleted)
-		}
-		if condition.Status == corev1.ConditionTrue {
-			return true, ""
-		}
-		return false, fmt.Sprintf("not done waiting for the binding to be initially bound, reason: %v - message: %v", condition.Reason, condition.Message)
-	}, wait.ForeverTestTimeout, time.Millisecond*100)
-
-	t.Logf("Wait for placement to be ready")
-	framework.Eventually(t, func() (bool, string) {
-		placement, err := kcpClusterClient.SchedulingV1alpha1().Placements().Get(logicalcluster.WithCluster(ctx, secondUserClusterName), "default", metav1.GetOptions{})
-		if err != nil {
-			return false, fmt.Sprintf("failed to get placement: %v", err)
-		}
-
-		condition := conditions.Get(placement, schedulingv1alpha1.PlacementReady)
-		if condition == nil {
-			return false, fmt.Sprintf("no %s condition exists", schedulingv1alpha1.PlacementReady)
-		}
-		if condition.Status == corev1.ConditionTrue {
-			return true, ""
-		}
-		return false, fmt.Sprintf("not done waiting for the placement to be ready, reason: %v - message: %v", condition.Reason, condition.Message)
-	}, wait.ForeverTestTimeout, time.Millisecond*100)
+	t.Logf("Bind second user workspace to location workspace")
+	framework.NewBindCompute(t, secondUserClusterName, source,
+		framework.WithLocationWorkspaceWorkloadBindOption(negotiationClusterName),
+	).Bind(t)
 
 	t.Logf("Wait for being able to list Services in the user workspace")
 	require.Eventually(t, func() bool {

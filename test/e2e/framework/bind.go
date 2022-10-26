@@ -25,26 +25,27 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type WorkloadBindOption func(t *testing.T, w *workloadBind)
+type BindComputeOption func(t *testing.T, w *bindCompute)
 
-// workloadBind construct and run a kcp workload bind command
-type workloadBind struct {
+// bindCompute construct and run a kcp compute bind command
+type bindCompute struct {
 	apiExports        []string
 	nsSelector        string
 	locationSelectors []string
-	computeWorkspace  logicalcluster.Name
+	locationWorkspace logicalcluster.Name
 	kubeconfigPath    string
+	placementName     string
 }
 
-func NewWorkloadBind(t *testing.T, clusterName logicalcluster.Name, server RunningServer, opts ...WorkloadBindOption) *workloadBind {
+func NewBindCompute(t *testing.T, clusterName logicalcluster.Name, server RunningServer, opts ...BindComputeOption) *bindCompute {
 	upstreamRawConfig, err := server.RawConfig()
 	require.NoError(t, err)
 
 	_, kubeconfigPath := WriteLogicalClusterConfig(t, upstreamRawConfig, "base", clusterName)
 
-	workloadBind := &workloadBind{
-		kubeconfigPath:   kubeconfigPath,
-		computeWorkspace: clusterName,
+	workloadBind := &bindCompute{
+		kubeconfigPath:    kubeconfigPath,
+		locationWorkspace: clusterName,
 	}
 
 	for _, opt := range opts {
@@ -54,16 +55,20 @@ func NewWorkloadBind(t *testing.T, clusterName logicalcluster.Name, server Runni
 	return workloadBind
 }
 
-func (w workloadBind) Bind(t *testing.T) {
-	t.Logf("Bind workload workspace %s", w.computeWorkspace)
+func (w bindCompute) Bind(t *testing.T) {
+	t.Logf("Bind workload workspace %s", w.locationWorkspace)
 	pluginArgs := []string{
 		"bind",
-		"workload",
-		w.computeWorkspace.String(),
+		"compute",
+		w.locationWorkspace.String(),
 	}
 
 	if len(w.nsSelector) > 0 {
 		pluginArgs = append(pluginArgs, "--namespace-selector="+w.nsSelector)
+	}
+
+	if len(w.placementName) > 0 {
+		pluginArgs = append(pluginArgs, "--name="+w.placementName)
 	}
 
 	for _, apiexport := range w.apiExports {
@@ -77,28 +82,34 @@ func (w workloadBind) Bind(t *testing.T) {
 	RunKcpCliPlugin(t, w.kubeconfigPath, pluginArgs)
 }
 
-func WithComputeWorkspaceWorkloadBindOption(clusterName logicalcluster.Name) WorkloadBindOption {
-	return func(t *testing.T, w *workloadBind) {
-		w.computeWorkspace = clusterName
+func WithPlacementNameBindOption(placementName string) BindComputeOption {
+	return func(t *testing.T, w *bindCompute) {
+		w.placementName = placementName
 	}
 }
 
-func WithAPIExportsWorkloadBindOption(apiexports ...string) WorkloadBindOption {
-	return func(t *testing.T, w *workloadBind) {
+func WithLocationWorkspaceWorkloadBindOption(clusterName logicalcluster.Name) BindComputeOption {
+	return func(t *testing.T, w *bindCompute) {
+		w.locationWorkspace = clusterName
+	}
+}
+
+func WithAPIExportsWorkloadBindOption(apiexports ...string) BindComputeOption {
+	return func(t *testing.T, w *bindCompute) {
 		w.apiExports = apiexports
 	}
 }
 
-func WithNSSelectorWorkloadBindOption(selector metav1.LabelSelector) WorkloadBindOption {
-	return func(t *testing.T, w *workloadBind) {
+func WithNSSelectorWorkloadBindOption(selector metav1.LabelSelector) BindComputeOption {
+	return func(t *testing.T, w *bindCompute) {
 		labelSelector, err := metav1.LabelSelectorAsSelector(&selector)
 		require.NoError(t, err)
 		w.nsSelector = labelSelector.String()
 	}
 }
 
-func WithLocationSelectorWorkloadBindOption(selectors ...metav1.LabelSelector) WorkloadBindOption {
-	return func(t *testing.T, w *workloadBind) {
+func WithLocationSelectorWorkloadBindOption(selectors ...metav1.LabelSelector) BindComputeOption {
+	return func(t *testing.T, w *bindCompute) {
 		for _, selector := range selectors {
 			labelSelector, err := metav1.LabelSelectorAsSelector(&selector)
 			require.NoError(t, err)
