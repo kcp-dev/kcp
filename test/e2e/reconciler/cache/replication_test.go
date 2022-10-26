@@ -62,6 +62,7 @@ type testScenario struct {
 var scenarios = []testScenario{
 	{"TestReplicateAPIExport", replicateAPIExportScenario},
 	{"TestReplicateAPIResourceSchema", replicateAPIResourceSchemaScenario},
+	{"TestReplicateAPIExportNegative", replicateAPIExportNegativeScenario},
 }
 
 // baseScenario an auxiliary struct that is used by replicateResourceScenario
@@ -197,6 +198,50 @@ func replicateResourceScenario(t *testing.T, scenario baseScenario) {
 	}, wait.ForeverTestTimeout, 400*time.Millisecond)
 }
 
+// replicateAPIExportNegativeScenario checks if modified or even deleted cached APIExport will be reconciled to match the original object
+func replicateAPIExportNegativeScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterClient clientset.ClusterInterface, cacheKcpClusterClient clientset.ClusterInterface) {
+	org := framework.NewOrganizationFixture(t, server)
+	cluster := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
+	export := &apisv1alpha1.APIExport{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "mangodb",
+		},
+	}
+	scenario := baseScenario{
+		server:       server,
+		resourceName: export.Name,
+		resourceKind: "APIExport",
+		getSourceResource: func(cluster logicalcluster.Name) (interface{}, error) {
+			return kcpShardClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Get(ctx, export.Name, metav1.GetOptions{})
+		},
+		getCachedResource: func(cluster logicalcluster.Name) (interface{}, error) {
+			return cacheKcpClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Get(cacheclient.WithShardInContext(ctx, shard.New("root")), export.Name, metav1.GetOptions{})
+		},
+	}
+
+	t.Logf("Creating APIExport %s|%s", cluster, export.Name)
+	_, err := kcpShardClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Create(ctx, export, metav1.CreateOptions{})
+	require.NoError(t, err, "error creating APIExport %s|%s", cluster, export.Name)
+
+	t.Logf("Verify that APIExport %s|%s is propagated to the cached object", cluster, export.Name)
+	verifyResourceExistence(t, scenario, cluster)
+
+	t.Logf("Delete APIExport %s|%s", cluster, export.Name)
+	err = cacheKcpClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Delete(cacheclient.WithShardInContext(ctx, shard.New("root")), export.Name, metav1.DeleteOptions{})
+	require.NoError(t, err)
+	t.Logf("Verify that APIExport %s|%s is propagated to the cached object after deletion", cluster, export.Name)
+	verifyResourceExistence(t, scenario, cluster)
+
+	t.Logf("Update APIExport %s|%s so that it differs from the original object", cluster, scenario.resourceName)
+	cachedExport, err := cacheKcpClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Get(cacheclient.WithShardInContext(ctx, shard.New("root")), export.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+	cachedExport.Spec.LatestResourceSchemas = append(cachedExport.Spec.LatestResourceSchemas, "foo")
+	_, err = cacheKcpClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Update(cacheclient.WithShardInContext(ctx, shard.New("root")), cachedExport, metav1.UpdateOptions{})
+	require.NoError(t, err)
+	t.Logf("Verify that APIExport %s|%s is propaged to the cached object after an update", cluster, export.Name)
+	verifyResourceExistence(t, scenario, cluster)
+}
+
 func verifyResourceExistence(t *testing.T, scenario baseScenario, cluster logicalcluster.Name) {
 	t.Logf("Get %s/%s %s from the root shard and the cache server for comparison", cluster, scenario.resourceName, scenario.resourceKind)
 	framework.Eventually(t, func() (bool, string) {
@@ -207,7 +252,7 @@ func verifyResourceExistence(t *testing.T, scenario baseScenario, cluster logica
 		cachedResource, err := scenario.getCachedResource(cluster)
 		if err != nil {
 			if !errors.IsNotFound(err) {
-				return false, err.Error()
+				return true, err.Error()
 			}
 			return false, err.Error()
 		}
