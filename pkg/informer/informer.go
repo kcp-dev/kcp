@@ -418,8 +418,8 @@ func gvrFor(group, version, resource string) schema.GroupVersionResource {
 	}
 }
 
-func withCRDSpec(scope apiextensionsv1.ResourceScope, kind, singular string) apiextensionsv1.CustomResourceDefinitionSpec {
-	return apiextensionsv1.CustomResourceDefinitionSpec{
+func withGVRPartialMetadata(scope apiextensionsv1.ResourceScope, kind, singular string) gvrPartialMetadata {
+	return gvrPartialMetadata{
 		Scope: scope,
 		Names: apiextensionsv1.CustomResourceDefinitionNames{
 			Kind:     kind,
@@ -428,37 +428,38 @@ func withCRDSpec(scope apiextensionsv1.ResourceScope, kind, singular string) api
 	}
 }
 
-func builtInInformableTypes() map[schema.GroupVersionResource]apiextensionsv1.CustomResourceDefinitionSpec {
+type gvrPartialMetadata struct {
+	Names apiextensionsv1.CustomResourceDefinitionNames
+	Scope apiextensionsv1.ResourceScope
+}
+
+func builtInInformableTypes() map[schema.GroupVersionResource]gvrPartialMetadata {
 	// Hard-code built in types that support list+watch
-	return map[schema.GroupVersionResource]apiextensionsv1.CustomResourceDefinitionSpec{
-		gvrFor("", "v1", "configmaps"):                                                  withCRDSpec(apiextensionsv1.NamespaceScoped, "ConfigMap", "configmap"),
-		gvrFor("", "v1", "events"):                                                      withCRDSpec(apiextensionsv1.NamespaceScoped, "Event", "event"),
-		gvrFor("", "v1", "limitranges"):                                                 withCRDSpec(apiextensionsv1.NamespaceScoped, "LimitRange", "limitrange"),
-		gvrFor("", "v1", "namespaces"):                                                  withCRDSpec(apiextensionsv1.ClusterScoped, "Namespace", "namespace"),
-		gvrFor("", "v1", "resourcequotas"):                                              withCRDSpec(apiextensionsv1.NamespaceScoped, "ResourceQuota", "resourcequota"),
-		gvrFor("", "v1", "secrets"):                                                     withCRDSpec(apiextensionsv1.NamespaceScoped, "Secret", "secret"),
-		gvrFor("", "v1", "serviceaccounts"):                                             withCRDSpec(apiextensionsv1.NamespaceScoped, "ServiceAccount", "serviceaccount"),
-		gvrFor("certificates.k8s.io", "v1", "certificatesigningrequests"):               withCRDSpec(apiextensionsv1.ClusterScoped, "CertificateSigningRequest", "certificatesigningrequest"),
-		gvrFor("coordination.k8s.io", "v1", "leases"):                                   withCRDSpec(apiextensionsv1.NamespaceScoped, "Lease", "lease"),
-		gvrFor("rbac.authorization.k8s.io", "v1", "clusterroles"):                       withCRDSpec(apiextensionsv1.ClusterScoped, "ClusterRole", "clusterrole"),
-		gvrFor("rbac.authorization.k8s.io", "v1", "clusterrolebindings"):                withCRDSpec(apiextensionsv1.ClusterScoped, "ClusterRoleBinding", "clusterrolebinding"),
-		gvrFor("rbac.authorization.k8s.io", "v1", "roles"):                              withCRDSpec(apiextensionsv1.NamespaceScoped, "Role", "role"),
-		gvrFor("rbac.authorization.k8s.io", "v1", "rolebindings"):                       withCRDSpec(apiextensionsv1.NamespaceScoped, "RoleBinding", "rolebinding"),
-		gvrFor("events.k8s.io", "v1", "events"):                                         withCRDSpec(apiextensionsv1.NamespaceScoped, "Event", "event"),
-		gvrFor("admissionregistration.k8s.io", "v1", "mutatingwebhookconfigurations"):   withCRDSpec(apiextensionsv1.ClusterScoped, "MutatingWebhookConfiguration", "mutatingwebhookconfiguration"),
-		gvrFor("admissionregistration.k8s.io", "v1", "validatingwebhookconfigurations"): withCRDSpec(apiextensionsv1.ClusterScoped, "ValidatingWebhookConfiguration", "validatingwebhookconfiguration"),
-		gvrFor("apiextensions.k8s.io", "v1", "customresourcedefinitions"):               withCRDSpec(apiextensionsv1.ClusterScoped, "CustomResourceDefinition", "customresourcedefinition"),
+	return map[schema.GroupVersionResource]gvrPartialMetadata{
+		gvrFor("", "v1", "configmaps"):                                                  withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "ConfigMap", "configmap"),
+		gvrFor("", "v1", "events"):                                                      withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "Event", "event"),
+		gvrFor("", "v1", "limitranges"):                                                 withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "LimitRange", "limitrange"),
+		gvrFor("", "v1", "namespaces"):                                                  withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "Namespace", "namespace"),
+		gvrFor("", "v1", "resourcequotas"):                                              withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "ResourceQuota", "resourcequota"),
+		gvrFor("", "v1", "secrets"):                                                     withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "Secret", "secret"),
+		gvrFor("", "v1", "serviceaccounts"):                                             withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "ServiceAccount", "serviceaccount"),
+		gvrFor("certificates.k8s.io", "v1", "certificatesigningrequests"):               withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "CertificateSigningRequest", "certificatesigningrequest"),
+		gvrFor("coordination.k8s.io", "v1", "leases"):                                   withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "Lease", "lease"),
+		gvrFor("rbac.authorization.k8s.io", "v1", "clusterroles"):                       withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "ClusterRole", "clusterrole"),
+		gvrFor("rbac.authorization.k8s.io", "v1", "clusterrolebindings"):                withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "ClusterRoleBinding", "clusterrolebinding"),
+		gvrFor("rbac.authorization.k8s.io", "v1", "roles"):                              withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "Role", "role"),
+		gvrFor("rbac.authorization.k8s.io", "v1", "rolebindings"):                       withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "RoleBinding", "rolebinding"),
+		gvrFor("events.k8s.io", "v1", "events"):                                         withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "Event", "event"),
+		gvrFor("admissionregistration.k8s.io", "v1", "mutatingwebhookconfigurations"):   withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "MutatingWebhookConfiguration", "mutatingwebhookconfiguration"),
+		gvrFor("admissionregistration.k8s.io", "v1", "validatingwebhookconfigurations"): withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "ValidatingWebhookConfiguration", "validatingwebhookconfiguration"),
+		gvrFor("apiextensions.k8s.io", "v1", "customresourcedefinitions"):               withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "CustomResourceDefinition", "customresourcedefinition"),
 	}
 }
 
 func (d *DynamicDiscoverySharedInformerFactory) updateInformers() {
 	klog.V(5).InfoS("Determining dynamic informer additions and removals")
 
-	latest := make(map[schema.GroupVersionResource]struct{})
-
-	for gvr := range builtInInformableTypes() {
-		latest[gvr] = struct{}{}
-	}
+	latest := builtInInformableTypes()
 
 	// Get the unique set of Group(Version)Resources (version doesn't matter because we're expecting a wildcard
 	// partial metadata client, but we need a version in the request, so we need it here) and add them to latest.
@@ -478,7 +479,24 @@ func (d *DynamicDiscoverySharedInformerFactory) updateInformers() {
 			continue
 		}
 
-		latest[gvr] = struct{}{}
+		obj, err := indexers.ByIndex[*apiextensionsv1.CustomResourceDefinition](d.crdIndexer, byGroupFirstFoundVersionResourceIndex, fmt.Sprintf("%s/%s/%s", gvr.Group, gvr.Version, gvr.Resource))
+		if err != nil {
+			utilruntime.HandleError(err)
+			continue
+		}
+		if len(obj) == 0 {
+			utilruntime.HandleError(fmt.Errorf("unable to retrieve CRD for GVR: %s", gvr))
+			continue
+		}
+		// We assume CRDs partial metadata for the same GVR are constant
+		crd := obj[0]
+		latest[gvr] = gvrPartialMetadata{
+			Scope: crd.Spec.Scope,
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
+				Kind:     crd.Spec.Names.Kind,
+				Singular: crd.Spec.Names.Singular,
+			},
+		}
 	}
 
 	// Grab a read lock to compare against d.informers to see if we need to start or stop any informers
@@ -536,7 +554,7 @@ func (d *DynamicDiscoverySharedInformerFactory) updateInformers() {
 		delete(d.startedInformers, gvr)
 	}
 
-	d.discoveryData = d.gvrsToDiscoveryData(latest)
+	d.discoveryData = gvrsToDiscoveryData(latest)
 
 	d.subscribersLock.Lock()
 	defer d.subscribersLock.Unlock()
@@ -554,46 +572,20 @@ func (d *DynamicDiscoverySharedInformerFactory) updateInformers() {
 
 // gvrsToDiscoveryData returns "fake"/simulated discovery data for all the resources covered by the factory. It only
 // includes enough data in each APIResource to support what kcp currently needs (scheduling, placement, quota).
-func (d *DynamicDiscoverySharedInformerFactory) gvrsToDiscoveryData(gvrs map[schema.GroupVersionResource]struct{}) []*metav1.APIResourceList {
+func gvrsToDiscoveryData(gvrs map[schema.GroupVersionResource]gvrPartialMetadata) []*metav1.APIResourceList {
 	var discoveryData []*metav1.APIResourceList
 	gvResources := make(map[schema.GroupVersion][]metav1.APIResource)
-	builtInTypes := builtInInformableTypes()
 
-	for gvr := range gvrs {
-		var apiResource metav1.APIResource
-		if spec, ok := builtInTypes[gvr]; ok {
-			apiResource = metav1.APIResource{
-				Name:         gvr.Resource,
-				Group:        gvr.Group,
-				Version:      gvr.Version,
-				Kind:         spec.Names.Kind,
-				SingularName: spec.Names.Singular,
-				Namespaced:   spec.Scope == apiextensionsv1.NamespaceScoped,
-				// Everything we're informing on supports these
-				Verbs: []string{"create", "list", "watch", "delete"},
-			}
-		} else {
-			obj, err := indexers.ByIndex[*apiextensionsv1.CustomResourceDefinition](d.crdIndexer, byGroupFirstFoundVersionResourceIndex, fmt.Sprintf("%s/%s/%s", gvr.Group, gvr.Version, gvr.Resource))
-			if err != nil {
-				utilruntime.HandleError(err)
-				continue
-			}
-			if len(obj) == 0 {
-				utilruntime.HandleError(fmt.Errorf("unable to retrieve CRD for GVR: %s", gvr))
-				continue
-			}
-			// We assume CRDs partial metadata for the same GVR are constant
-			crd := obj[0]
-			apiResource = metav1.APIResource{
-				Name:         gvr.Resource,
-				Group:        gvr.Group,
-				Version:      gvr.Version,
-				Kind:         crd.Spec.Names.Kind,
-				SingularName: crd.Spec.Names.Singular,
-				Namespaced:   crd.Spec.Scope == apiextensionsv1.NamespaceScoped,
-				// Everything we're informing on supports these
-				Verbs: []string{"create", "list", "watch", "delete"},
-			}
+	for gvr, metadata := range gvrs {
+		apiResource := metav1.APIResource{
+			Name:         gvr.Resource,
+			Group:        gvr.Group,
+			Version:      gvr.Version,
+			Kind:         metadata.Names.Kind,
+			SingularName: metadata.Names.Singular,
+			Namespaced:   metadata.Scope == apiextensionsv1.NamespaceScoped,
+			// Everything we're informing on supports these
+			Verbs: []string{"create", "list", "watch", "delete"},
 		}
 		gv := gvr.GroupVersion()
 		gvResources[gv] = append(gvResources[gv], apiResource)
@@ -637,7 +629,7 @@ func (d *DynamicDiscoverySharedInformerFactory) Start(_ <-chan struct{}) {
 	}
 }
 
-func (d *DynamicDiscoverySharedInformerFactory) calculateInformersLockHeld(latest map[schema.GroupVersionResource]struct{}) (toAdd, toRemove []schema.GroupVersionResource) {
+func (d *DynamicDiscoverySharedInformerFactory) calculateInformersLockHeld(latest map[schema.GroupVersionResource]gvrPartialMetadata) (toAdd, toRemove []schema.GroupVersionResource) {
 	for gvr := range latest {
 		if _, found := d.informers[gvr]; !found {
 			toAdd = append(toAdd, gvr)
