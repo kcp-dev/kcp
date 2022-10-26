@@ -322,6 +322,7 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 }
 
 func TestAPIExportAPIBindingsAccess(t *testing.T) {
+	t.Skip("https://github.com/kcp-dev/kcp/issues/2263")
 	t.Parallel()
 
 	server := framework.SharedKcpServer(t)
