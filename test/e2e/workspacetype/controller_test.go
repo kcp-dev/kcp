@@ -18,6 +18,7 @@ package workspace
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -287,10 +288,16 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 				})
 
 				t.Logf("Expect workspace to be stuck in initializing phase")
-				time.Sleep(5 * time.Second)
-				workspace, err = server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, universal), workspace.Name, metav1.GetOptions{})
-				require.NoError(t, err)
-				require.Equal(t, workspace.Status.Phase, tenancyv1alpha1.ClusterWorkspacePhaseInitializing)
+				framework.Eventually(t, func() (success bool, reason string) {
+					workspace, err = server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, universal), workspace.Name, metav1.GetOptions{})
+					if err != nil {
+						return false, err.Error()
+					}
+					if actual, expected := workspace.Status.Phase, tenancyv1alpha1.ClusterWorkspacePhaseInitializing; actual != expected {
+						return false, fmt.Sprintf("workspace phase was %s, not %s", actual, expected)
+					}
+					return true, ""
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for new workspace to be stuck in initializing")
 
 				t.Logf("Remove initializer")
 				err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
