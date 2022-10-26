@@ -27,7 +27,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 
 	virtualworkspacesoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
@@ -185,7 +184,8 @@ func (c *controller) updateVirtualWorkspaceURLs(ctx context.Context, apiExport *
 		return fmt.Errorf("error listing ClusterWorkspaceShards: %w", err)
 	}
 
-	desiredURLs := sets.NewString()
+	apiExport.Status.VirtualWorkspaces = nil
+
 	for _, clusterWorkspaceShard := range clusterWorkspaceShards {
 		logger = logging.WithObject(logger, clusterWorkspaceShard)
 		if clusterWorkspaceShard.Spec.VirtualWorkspaceURL == "" {
@@ -211,14 +211,9 @@ func (c *controller) updateVirtualWorkspaceURLs(ctx context.Context, apiExport *
 			apiExport.Name,
 		)
 
-		desiredURLs.Insert(u.String())
-	}
-
-	apiExport.Status.VirtualWorkspaces = nil
-
-	for _, u := range desiredURLs.List() {
 		apiExport.Status.VirtualWorkspaces = append(apiExport.Status.VirtualWorkspaces, apisv1alpha1.VirtualWorkspace{
-			URL: u,
+			URL:    u.String(),
+			Labels: clusterWorkspaceShard.Labels,
 		})
 	}
 

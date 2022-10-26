@@ -128,33 +128,36 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	// other workers.
 	defer c.queue.Done(key)
 
-	if err := c.process(ctx, key); err != nil {
+	if requeue, err := c.process(ctx, key); err != nil {
 		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", ControllerName, key, err))
 		c.queue.AddRateLimited(key)
 		return true
+	} else if requeue {
+		// only requeue if we didn't error, but we still want to requeue
+		c.queue.Add(key)
 	}
 	c.queue.Forget(key)
 	return true
 }
 
-func (c *Controller) process(ctx context.Context, key string) error {
+func (c *Controller) process(ctx context.Context, key string) (bool, error) {
 	logger := klog.FromContext(ctx)
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		logger.Error(err, "invalid key")
-		return nil
+		return false, nil
 	}
 	if namespace != "" {
 		logger.Error(errors.New("namespace found in key for cluster-wide ClusterWorkspaceShard object"), "invalid key")
-		return nil
+		return false, nil
 	}
 
 	obj, err := c.clusterWorkspaceShardLister.Get(key)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
-			return nil // object deleted before we handled it
+			return false, nil // object deleted before we handled it
 		}
-		return err
+		return true, err
 	}
 	previous := obj
 	obj = obj.DeepCopy()
@@ -163,16 +166,20 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	ctx = klog.NewContext(ctx, logger)
 
 	if err := c.reconcile(ctx, obj); err != nil {
-		return err
+		return true, err
 	}
 
-	// If the object being reconciled changed as a result, update it.
+	// If the status of the object being reconciled changed as a result, update it.
 	if !equality.Semantic.DeepEqual(previous.Status, obj.Status) {
 		oldData, err := json.Marshal(tenancyv1alpha1.ClusterWorkspaceShard{
+			ObjectMeta: metav1.ObjectMeta{
+				UID:             previous.UID,
+				ResourceVersion: previous.ResourceVersion,
+			},
 			Status: previous.Status,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to Marshal old data for workspace shard %s|%s/%s: %w", tenancyv1alpha1.RootCluster, namespace, name, err)
+			return true, fmt.Errorf("failed to Marshal old data for workspace shard %s|%s/%s: %w", tenancyv1alpha1.RootCluster, namespace, name, err)
 		}
 
 		newData, err := json.Marshal(tenancyv1alpha1.ClusterWorkspaceShard{
@@ -183,21 +190,66 @@ func (c *Controller) process(ctx context.Context, key string) error {
 			Status: obj.Status,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to Marshal new data for workspace shard %s|%s/%s: %w", tenancyv1alpha1.RootCluster, namespace, name, err)
+			return true, fmt.Errorf("failed to Marshal new data for workspace shard %s|%s/%s: %w", tenancyv1alpha1.RootCluster, namespace, name, err)
 		}
 
 		patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
 		if err != nil {
-			return fmt.Errorf("failed to create patch for workspace shard %s|%s/%s: %w", tenancyv1alpha1.RootCluster, namespace, name, err)
+			return true, fmt.Errorf("failed to create patch for workspace shard %s|%s/%s: %w", tenancyv1alpha1.RootCluster, namespace, name, err)
 		}
 		_, uerr := c.kcpClient.TenancyV1alpha1().ClusterWorkspaceShards().Patch(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
-		return uerr
+		if uerr != nil {
+			return true, uerr
+		}
+
+		return true, nil
+	}
+
+	// If the labels of the object being reconciled changed as a result, update it.
+	if previous.Labels == nil ||
+		!equality.Semantic.DeepEqual(previous.Labels, obj.Labels) {
+		oldData, err := json.Marshal(tenancyv1alpha1.ClusterWorkspaceShard{
+			ObjectMeta: metav1.ObjectMeta{
+				UID:             previous.UID,
+				ResourceVersion: previous.ResourceVersion,
+				Labels:          previous.Labels,
+			},
+		})
+		if err != nil {
+			return true, fmt.Errorf("failed to Marshal old data for workspace shard %s|%s/%s: %w", tenancyv1alpha1.RootCluster, namespace, name, err)
+		}
+
+		newData, err := json.Marshal(tenancyv1alpha1.ClusterWorkspaceShard{
+			ObjectMeta: metav1.ObjectMeta{
+				UID:             previous.UID,
+				ResourceVersion: previous.ResourceVersion,
+				Labels:          obj.Labels,
+			}, // to ensure they appear in the patch as preconditions
+		})
+		if err != nil {
+			return true, fmt.Errorf("failed to Marshal new data for workspace shard %s|%s/%s: %w", tenancyv1alpha1.RootCluster, namespace, name, err)
+		}
+
+		patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
+		if err != nil {
+			return true, fmt.Errorf("failed to create patch for workspace shard %s|%s/%s: %w", tenancyv1alpha1.RootCluster, namespace, name, err)
+		}
+		_, uerr := c.kcpClient.TenancyV1alpha1().ClusterWorkspaceShards().Patch(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
+		if uerr != nil {
+			return true, uerr
+		}
+
+		return true, nil
 	}
 
 	logger.V(6).Info("processed ClusterWorkspaceShard")
-	return nil
+	return false, nil
 }
 
 func (c *Controller) reconcile(ctx context.Context, workspaceShard *tenancyv1alpha1.ClusterWorkspaceShard) error {
+	if workspaceShard.Labels == nil {
+		workspaceShard.Labels = map[string]string{}
+	}
+	workspaceShard.Labels["tenancy.kcp.dev/shard"] = workspaceShard.Name
 	return nil
 }
