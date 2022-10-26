@@ -41,6 +41,7 @@ func TestSyncerNamespaceProcess(t *testing.T) {
 	tests := map[string]struct {
 		upstreamNamespaceExists bool
 		deletedNamespace        string
+		syncTargetUID           types.UID
 
 		upstreamNamespaceExistsError                    error
 		getDownstreamNamespaceError                     error
@@ -52,6 +53,12 @@ func TestSyncerNamespaceProcess(t *testing.T) {
 			upstreamNamespaceExists: false,
 			deletedNamespace:        "kcp-hcbsa8z6c2er",
 			eventOrigin:             "downstream",
+		},
+		"NamespaceSyncer doesn't remove downstream namespace when nsLocator synctarget UID is different, expect no namespace deletion": {
+			upstreamNamespaceExists: false,
+			deletedNamespace:        "",
+			eventOrigin:             "downstream",
+			syncTargetUID:           "1234",
 		},
 		"NamespaceSyncer, downstream event, no deletion as there is a matching upstream namespace, expect no namespace deletion": {
 			upstreamNamespaceExists: true,
@@ -89,7 +96,10 @@ func TestSyncerNamespaceProcess(t *testing.T) {
 			syncTargetName := "us-west1"
 			syncTargetKey := workloadv1alpha1.ToSyncTargetKey(syncTargetWorkspace, syncTargetName)
 			deletedNamespace := ""
-
+			syncTargetUID := types.UID("syncTargetUID")
+			if tc.syncTargetUID != "" {
+				syncTargetUID = tc.syncTargetUID
+			}
 			nsController := DownstreamController{
 				deleteDownstreamNamespace: func(ctx context.Context, downstreamNamespaceName string) error {
 					deletedNamespace = downstreamNamespaceName
@@ -115,7 +125,7 @@ func TestSyncerNamespaceProcess(t *testing.T) {
 				},
 				syncTargetName:      syncTargetName,
 				syncTargetWorkspace: syncTargetWorkspace,
-				syncTargetUID:       types.UID("syncTargetUID"),
+				syncTargetUID:       syncTargetUID,
 				syncTargetKey:       syncTargetKey,
 			}
 
