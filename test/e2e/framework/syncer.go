@@ -56,6 +56,9 @@ import (
 type SyncerOption func(t *testing.T, fs *syncerFixture)
 
 func NewSyncerFixture(t *testing.T, server RunningServer, clusterName logicalcluster.Name, opts ...SyncerOption) *syncerFixture {
+	if !sets.NewString(TestConfig.Suites()...).HasAny("transparent-multi-cluster", "transparent-multi-cluster:requires-kind") {
+		t.Fatalf("invalid to use a syncer fixture when only the following suites were requested: %v", TestConfig.Suites())
+	}
 	sf := &syncerFixture{
 		upstreamServer:        server,
 		workspaceClusterName:  clusterName,

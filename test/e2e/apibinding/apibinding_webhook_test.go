@@ -54,6 +54,7 @@ import (
 
 func TestAPIBindingMutatingWebhook(t *testing.T) {
 	t.Parallel()
+	framework.Suite(t, "control-plane")
 
 	server := framework.SharedKcpServer(t)
 
@@ -199,6 +200,7 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 
 func TestAPIBindingValidatingWebhook(t *testing.T) {
 	t.Parallel()
+	framework.Suite(t, "control-plane")
 
 	server := framework.SharedKcpServer(t)
 

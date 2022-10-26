@@ -216,6 +216,14 @@ E2E_PARALLELISM ?=
 ifdef E2E_PARALLELISM
 PARALLELISM_ARG = -p $(E2E_PARALLELISM) -parallel $(E2E_PARALLELISM)
 endif
+SUITES ?=
+SUITES_ARG =
+COMPLETE_SUITES_ARG =
+ifdef SUITES
+SUITES_ARG = --suites $(SUITES)
+COMPLETE_SUITES_ARG = -args $(SUITES_ARG)
+endif
+
 
 .PHONY: test-e2e
 ifdef USE_GOTESTSUM
@@ -224,7 +232,7 @@ endif
 test-e2e: TEST_ARGS ?=
 test-e2e: WHAT ?= ./test/e2e...
 test-e2e: build-all
-	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 GOOS=$(OS) GOARCH=$(ARCH) $(GO_TEST) -race $(COUNT_ARG) $(PARALLELISM_ARG) $(WHAT) $(TEST_ARGS)
+	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 GOOS=$(OS) GOARCH=$(ARCH) $(GO_TEST) -race $(COUNT_ARG) $(PARALLELISM_ARG) $(WHAT) $(TEST_ARGS) $(COMPLETE_SUITES_ARG)
 
 .PHONY: test-e2e-shared
 ifdef USE_GOTESTSUM
@@ -246,7 +254,7 @@ test-e2e-shared: require-kind build-all build-kind-images
 	trap 'kill -TERM $$PID' TERM INT EXIT && \
 	while [ ! -f "$(WORK_DIR)/.kcp/admin.kubeconfig" ]; do sleep 1; done && \
 	NO_GORUN=1 GOOS=$(OS) GOARCH=$(ARCH) $(GO_TEST) -race $(COUNT_ARG) $(PARALLELISM_ARG) $(WHAT) $(TEST_ARGS) \
-		-args --use-default-kcp-server --syncer-image="$(SYNCER_IMAGE)" --kcp-test-image="$(TEST_IMAGE)" --pcluster-kubeconfig="$(abspath $(WORK_DIR)/.kcp/kind.kubeconfig)" \
+		-args --use-default-kcp-server --syncer-image="$(SYNCER_IMAGE)" --kcp-test-image="$(TEST_IMAGE)" --pcluster-kubeconfig="$(abspath $(WORK_DIR)/.kcp/kind.kubeconfig)" $(SUITES_ARGS) \
 	$(if $(value WAIT),|| { echo "Terminated with $$?"; wait "$$PID"; },)
 
 .PHONY: test-e2e-shared-minimal
@@ -268,7 +276,7 @@ test-e2e-shared-minimal: build-all
 	trap 'kill -TERM $$PID' TERM INT EXIT && \
 	while [ ! -f "$(WORK_DIR)/.kcp/admin.kubeconfig" ]; do sleep 1; done && \
 	NO_GORUN=1 GOOS=$(OS) GOARCH=$(ARCH) $(GO_TEST) -race $(COUNT_ARG) $(PARALLELISM_ARG) $(WHAT) $(TEST_ARGS) \
-		-args --use-default-kcp-server \
+		-args --use-default-kcp-server $(SUITES_ARGS) \
 	$(if $(value WAIT),|| { echo "Terminated with $$?"; wait "$$PID"; },)
 
 .PHONY: test-e2e-sharded
@@ -291,7 +299,7 @@ test-e2e-sharded: require-kind build-all build-kind-images
 	trap 'kill -TERM $$PID' TERM INT EXIT && \
 	while [ ! -f "$(WORK_DIR)/.kcp/admin.kubeconfig" ]; do sleep 1; done && \
 	NO_GORUN=1 GOOS=$(OS) GOARCH=$(ARCH) $(GO_TEST) -race $(COUNT_ARG) $(PARALLELISM_ARG) $(WHAT) $(TEST_ARGS) \
-		-args --use-default-kcp-server --root-shard-kubeconfig=$(PWD)/.kcp-0/admin.kubeconfig \
+		-args --use-default-kcp-server --root-shard-kubeconfig=$(PWD)/.kcp-0/admin.kubeconfig $(SUITES_ARGS) \
 		--syncer-image="$(SYNCER_IMAGE)" --kcp-test-image="$(TEST_IMAGE)" --pcluster-kubeconfig="$(abspath $(WORK_DIR)/.kcp/kind.kubeconfig)" \
 	$(if $(value WAIT),|| { echo "Terminated with $$?"; wait "$$PID"; },)
 
@@ -314,7 +322,7 @@ test-e2e-sharded-minimal: build-all
 	trap 'kill -TERM $$PID' TERM INT EXIT && \
 	while [ ! -f "$(WORK_DIR)/.kcp/admin.kubeconfig" ]; do sleep 1; done && \
 	NO_GORUN=1 GOOS=$(OS) GOARCH=$(ARCH) $(GO_TEST) -race $(COUNT_ARG) $(PARALLELISM_ARG) $(WHAT) $(TEST_ARGS) \
-		-args --use-default-kcp-server --root-shard-kubeconfig=$(PWD)/.kcp-0/admin.kubeconfig \
+		-args --use-default-kcp-server --root-shard-kubeconfig=$(PWD)/.kcp-0/admin.kubeconfig $(SUITES_ARGS) \
 	$(if $(value WAIT),|| { echo "Terminated with $$?"; wait "$$PID"; },)
 
 .PHONY: test

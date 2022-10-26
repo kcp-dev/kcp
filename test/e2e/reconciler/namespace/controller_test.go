@@ -57,6 +57,7 @@ import (
 
 func TestNamespaceScheduler(t *testing.T) {
 	t.Parallel()
+	framework.Suite(t, "transparent-multi-cluster")
 
 	type runningServer struct {
 		framework.RunningServer

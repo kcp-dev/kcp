@@ -41,6 +41,7 @@ import (
 
 func TestProtectedAPI(t *testing.T) {
 	t.Parallel()
+	framework.Suite(t, "control-plane")
 
 	server := framework.SharedKcpServer(t)
 

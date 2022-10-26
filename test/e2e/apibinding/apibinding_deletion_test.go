@@ -47,6 +47,7 @@ import (
 
 func TestAPIBindingDeletion(t *testing.T) {
 	t.Parallel()
+	framework.Suite(t, "control-plane")
 
 	server := framework.SharedKcpServer(t)
 

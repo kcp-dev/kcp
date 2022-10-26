@@ -56,6 +56,7 @@ var embeddedResources embed.FS
 
 func TestSyncerLifecycle(t *testing.T) {
 	t.Parallel()
+	framework.Suite(t, "transparent-multi-cluster")
 
 	upstreamServer := framework.SharedKcpServer(t)
 
@@ -548,6 +549,7 @@ func toYaml(obj interface{}) string {
 
 func TestSyncWorkload(t *testing.T) {
 	t.Parallel()
+	framework.Suite(t, "transparent-multi-cluster")
 
 	syncTargetName := "test-wlc"
 	upstreamServer := framework.SharedKcpServer(t)
@@ -580,6 +582,7 @@ func TestSyncWorkload(t *testing.T) {
 
 func TestCordonUncordonDrain(t *testing.T) {
 	t.Parallel()
+	framework.Suite(t, "transparent-multi-cluster")
 
 	upstreamServer := framework.SharedKcpServer(t)
 

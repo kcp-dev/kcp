@@ -49,6 +49,7 @@ import (
 
 func TestMaximalPermissionPolicyAuthorizerSystemGroupProtection(t *testing.T) {
 	t.Parallel()
+	framework.Suite(t, "control-plane")
 
 	server := framework.SharedKcpServer(t)
 
@@ -145,6 +146,7 @@ func TestMaximalPermissionPolicyAuthorizerSystemGroupProtection(t *testing.T) {
 
 func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 	t.Parallel()
+	framework.Suite(t, "control-plane")
 
 	server := framework.SharedKcpServer(t)
 

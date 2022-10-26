@@ -51,6 +51,7 @@ import (
 
 func TestKubeQuotaBuiltInCoreV1Types(t *testing.T) {
 	t.Parallel()
+	framework.Suite(t, "control-plane")
 
 	server := framework.SharedKcpServer(t)
 
@@ -105,6 +106,7 @@ func TestKubeQuotaBuiltInCoreV1Types(t *testing.T) {
 
 func TestKubeQuotaCoreV1TypesFromBinding(t *testing.T) {
 	t.Parallel()
+	framework.Suite(t, "control-plane")
 
 	// Test multiple workspaces in parallel
 	for i := 0; i < 5; i++ {
@@ -226,6 +228,7 @@ func TestKubeQuotaCoreV1TypesFromBinding(t *testing.T) {
 
 func TestKubeQuotaNormalCRDs(t *testing.T) {
 	t.Parallel()
+	framework.Suite(t, "control-plane")
 
 	server := framework.SharedKcpServer(t)
 
@@ -311,6 +314,7 @@ func TestKubeQuotaNormalCRDs(t *testing.T) {
 
 func TestClusterScopedQuota(t *testing.T) {
 	t.Parallel()
+	framework.Suite(t, "control-plane")
 
 	server := framework.SharedKcpServer(t)
 

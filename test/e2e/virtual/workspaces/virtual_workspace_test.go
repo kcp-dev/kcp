@@ -155,6 +155,7 @@ func createWorkspaceRoleForGroup(t *testing.T, ctx context.Context, kubeClusterC
 
 func TestStandaloneWorkspacesVirtualWorkspaces(t *testing.T) {
 	t.Parallel()
+	framework.Suite(t, "control-plane")
 	if len(framework.TestConfig.KCPKubeconfig()) != 0 {
 		t.Skip("Skip testing standalone when running against persistent fixture to minimize test execution cost for development")
 	}
@@ -169,6 +170,7 @@ func TestStandaloneWorkspacesVirtualWorkspaces(t *testing.T) {
 
 func TestInProcessWorkspacesVirtualWorkspaces(t *testing.T) {
 	t.Parallel()
+	framework.Suite(t, "control-plane")
 	t.Run("In-process virtual workspace apiserver", func(t *testing.T) {
 		t.Parallel()
 		testWorkspacesVirtualWorkspaces(t, false)
@@ -720,6 +722,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 
 func TestRootWorkspaces(t *testing.T) {
 	t.Parallel()
+	framework.Suite(t, "control-plane")
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)

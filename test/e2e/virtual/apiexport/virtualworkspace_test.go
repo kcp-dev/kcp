@@ -70,6 +70,7 @@ import (
 
 func TestAPIExportVirtualWorkspace(t *testing.T) {
 	t.Parallel()
+	framework.Suite(t, "control-plane")
 
 	server := framework.SharedKcpServer(t)
 
@@ -324,6 +325,7 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 func TestAPIExportAPIBindingsAccess(t *testing.T) {
 	t.Skip("https://github.com/kcp-dev/kcp/issues/2263")
 	t.Parallel()
+	framework.Suite(t, "control-plane")
 
 	server := framework.SharedKcpServer(t)
 
@@ -591,6 +593,7 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 
 func TestAPIExportPermissionClaims(t *testing.T) {
 	t.Parallel()
+	framework.Suite(t, "control-plane")
 
 	server := framework.SharedKcpServer(t)
 
@@ -838,6 +841,7 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 
 func TestAPIExportInternalAPIsDrift(t *testing.T) {
 	t.Parallel()
+	framework.Suite(t, "control-plane")
 
 	server := framework.SharedKcpServer(t)
 

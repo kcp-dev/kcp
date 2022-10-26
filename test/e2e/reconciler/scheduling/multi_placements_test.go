@@ -46,6 +46,7 @@ import (
 
 func TestMultiPlacement(t *testing.T) {
 	t.Parallel()
+	framework.Suite(t, "transparent-multi-cluster")
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)

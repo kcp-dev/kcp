@@ -45,6 +45,7 @@ import (
 
 func TestMutatingWebhookInWorkspace(t *testing.T) {
 	t.Parallel()
+	framework.Suite(t, "control-plane")
 
 	server := framework.SharedKcpServer(t)
 
@@ -164,6 +165,7 @@ func TestMutatingWebhookInWorkspace(t *testing.T) {
 
 func TestValidatingWebhookInWorkspace(t *testing.T) {
 	t.Parallel()
+	framework.Suite(t, "control-plane")
 
 	server := framework.SharedKcpServer(t)
 

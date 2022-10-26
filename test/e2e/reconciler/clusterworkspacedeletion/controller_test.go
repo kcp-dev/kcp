@@ -40,6 +40,7 @@ import (
 
 func TestWorkspaceDeletionController(t *testing.T) {
 	t.Parallel()
+	framework.Suite(t, "control-plane")
 
 	type runningServer struct {
 		framework.RunningServer

@@ -55,6 +55,9 @@ import (
 )
 
 func TestAPIBindingAPIExportReferenceImmutability(t *testing.T) {
+	t.Parallel()
+	framework.Suite(t, "control-plane")
+
 	server := framework.SharedKcpServer(t)
 
 	ctx, cancel := context.WithCancel(context.Background())

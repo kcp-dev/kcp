@@ -164,6 +164,8 @@ func verifyAPIExportUpdate(ctx context.Context, t *testing.T, cluster logicalclu
 // TestAllAgainstInProcessCacheServer runs all test scenarios against a cache server that runs with a kcp server
 func TestAllAgainstInProcessCacheServer(t *testing.T) {
 	t.Parallel()
+	framework.Suite(t, "control-plane")
+
 	// TODO(p0lyn0mial): switch to framework.SharedKcpServer when caching is turned on by default
 	tokenAuthFile := framework.WriteTokenAuthFile(t)
 	server := framework.PrivateKcpServer(t,
@@ -183,6 +185,7 @@ func TestAllAgainstInProcessCacheServer(t *testing.T) {
 
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(tt *testing.T) {
+			tt.Parallel()
 			scenario.work(ctx, tt, server, kcpRootShardClient, cacheKcpClusterClient)
 		})
 	}
@@ -190,6 +193,9 @@ func TestAllAgainstInProcessCacheServer(t *testing.T) {
 
 // TestAllScenariosAgainstStandaloneCacheServer runs all test scenarios against a standalone cache server
 func TestAllScenariosAgainstStandaloneCacheServer(t *testing.T) {
+	t.Parallel()
+	framework.Suite(t, "control-plane")
+
 	artifactDir, dataDir, err := framework.ScratchDirs(t)
 	require.NoError(t, err)
 
@@ -267,6 +273,7 @@ func TestAllScenariosAgainstStandaloneCacheServer(t *testing.T) {
 
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(tt *testing.T) {
+			tt.Parallel()
 			scenario.work(ctx, tt, server, kcpRootShardClient, cacheKcpClusterClient)
 		})
 	}

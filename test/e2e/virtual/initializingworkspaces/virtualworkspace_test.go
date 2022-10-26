@@ -54,6 +54,7 @@ import (
 
 func TestInitializingWorkspacesVirtualWorkspaceDiscovery(t *testing.T) {
 	t.Parallel()
+	framework.Suite(t, "control-plane")
 
 	source := framework.SharedKcpServer(t)
 	rootShardCfg := source.RootShardSystemMasterBaseConfig(t)
@@ -90,6 +91,7 @@ func TestInitializingWorkspacesVirtualWorkspaceDiscovery(t *testing.T) {
 
 func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	t.Parallel()
+	framework.Suite(t, "control-plane")
 
 	source := framework.SharedKcpServer(t)
 	clusterName := framework.NewWorkspaceFixture(t, source, tenancyv1alpha1.RootCluster)

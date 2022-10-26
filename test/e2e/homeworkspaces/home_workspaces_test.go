@@ -39,6 +39,8 @@ import (
 
 func TestUserHomeWorkspaces(t *testing.T) {
 	t.Parallel()
+	framework.Suite(t, "control-plane")
+
 	type clientInfo struct {
 		Token string
 	}

@@ -49,6 +49,8 @@ import (
 
 func TestWatchCacheEnabledForCRD(t *testing.T) {
 	t.Parallel()
+	framework.Suite(t, "control-plane")
+
 	server := framework.SharedKcpServer(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -105,6 +107,8 @@ func TestWatchCacheEnabledForCRD(t *testing.T) {
 
 func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
 	t.Parallel()
+	framework.Suite(t, "control-plane")
+
 	server := framework.SharedKcpServer(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -153,6 +157,8 @@ func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
 
 func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
 	t.Parallel()
+	framework.Suite(t, "control-plane")
+
 	server := framework.SharedKcpServer(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
