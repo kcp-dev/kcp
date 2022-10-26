@@ -578,10 +578,11 @@ func (d *DynamicDiscoverySharedInformerFactory) gvrsToDiscoveryData(gvrs map[sch
 				utilruntime.HandleError(err)
 				continue
 			}
-			if len(obj) != 1 {
+			if len(obj) == 0 {
 				utilruntime.HandleError(fmt.Errorf("unable to retrieve CRD for GVR: %s", gvr))
 				continue
 			}
+			// We assume CRDs partial metadata for the same GVR are constant
 			crd := obj[0]
 			apiResource = metav1.APIResource{
 				Name:         gvr.Resource,
