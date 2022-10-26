@@ -37,6 +37,7 @@ var testFiles embed.FS
 
 func TestCustomResourceCreation(t *testing.T) {
 	t.Parallel()
+	framework.Suite(t, "control-plane")
 
 	server := framework.SharedKcpServer(t)
 

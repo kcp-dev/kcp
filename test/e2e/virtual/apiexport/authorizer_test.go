@@ -54,6 +54,7 @@ import (
 
 func TestAPIExportAuthorizers(t *testing.T) {
 	t.Parallel()
+	framework.Suite(t, "control-plane")
 
 	server := framework.SharedKcpServer(t)
 

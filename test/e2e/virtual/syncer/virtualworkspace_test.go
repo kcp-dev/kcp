@@ -192,6 +192,7 @@ func withRootComputeAPIResourceList(workspaceName logicalcluster.Name) []*metav1
 
 func TestSyncerVirtualWorkspace(t *testing.T) {
 	t.Parallel()
+	framework.Suite(t, "transparent-multi-cluster")
 
 	server := framework.SharedKcpServer(t)
 	orgClusterName := framework.NewOrganizationFixture(t, server)

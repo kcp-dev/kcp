@@ -50,6 +50,7 @@ import (
 // TODO(qiujian16) This might be removed when we do not support local export later.
 func TestSyncTargetLocalExport(t *testing.T) {
 	t.Parallel()
+	framework.Suite(t, "transparent-multi-cluster")
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)

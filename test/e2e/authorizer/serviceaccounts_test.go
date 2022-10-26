@@ -40,6 +40,7 @@ import (
 
 func TestServiceAccounts(t *testing.T) {
 	t.Parallel()
+	framework.Suite(t, "control-plane")
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)

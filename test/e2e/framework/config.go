@@ -51,6 +51,7 @@ type testConfig struct {
 	pclusterKubeconfig                 string
 	kcpKubeconfig, rootShardKubeconfig string
 	useDefaultKCPServer                bool
+	suites                             string
 }
 
 var TestConfig *testConfig
@@ -87,6 +88,10 @@ func (c *testConfig) RootShardKubeconfig() string {
 	return c.rootShardKubeconfig
 }
 
+func (c *testConfig) Suites() []string {
+	return strings.Split(c.suites, ",")
+}
+
 func init() {
 	TestConfig = &testConfig{}
 	registerFlags(TestConfig)
@@ -100,6 +105,7 @@ func registerFlags(c *testConfig) {
 	flag.StringVar(&c.syncerImage, "syncer-image", "", "The syncer image to use with the pcluster. Requires --pcluster-kubeconfig")
 	flag.StringVar(&c.kcpTestImage, "kcp-test-image", "", "The test image to use with the pcluster. Requires --pcluster-kubeconfig")
 	flag.BoolVar(&c.useDefaultKCPServer, "use-default-kcp-server", false, "Whether to use server configuration from .kcp/admin.kubeconfig.")
+	flag.StringVar(&c.suites, "suites", "control-plane,transparent-multi-cluster,transparent-multi-cluster:requires-kind", "A comma-delimited list of suites to run.")
 }
 
 // WriteLogicalClusterConfig creates a logical cluster config for the given config and
