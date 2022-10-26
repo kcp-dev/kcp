@@ -160,16 +160,16 @@ func replicateResourceScenario(t *testing.T, scenario baseScenario) {
 	org := framework.NewOrganizationFixture(t, scenario.server)
 	cluster := framework.NewWorkspaceFixture(t, scenario.server, org, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
 
-	t.Logf("Create %s/%s in %s workspace on the root shard", scenario.resourceKind, scenario.resourceName, cluster)
+	t.Logf("Create %s %s/%s on the root shard", scenario.resourceKind, cluster, scenario.resourceName)
 	require.NoError(t, scenario.createSourceResource(cluster))
 
-	t.Logf("Verify that the resource %s/%s/%s is propagated to the cached object", scenario.resourceKind, cluster, scenario.resourceName)
+	t.Logf("Verify that the resource %s %s/%s is propagated to the cached object", scenario.resourceKind, cluster, scenario.resourceName)
 	verifyResourceExistence(t, scenario, cluster)
 
-	t.Logf("Verify that a spec update on %s/%s/%s is propagated to the cached object", scenario.resourceKind, cluster, scenario.resourceName)
+	t.Logf("Verify that a spec update on %s %s/%s is propagated to the cached object", scenario.resourceKind, cluster, scenario.resourceName)
 	verifyResourceUpdate(t, scenario, cluster, scenario.updateSpecForSourceResource)
 
-	t.Logf("Verify that a metadata update on %s/%s/%s is propagated ot the cached object", scenario.resourceKind, cluster, scenario.resourceName)
+	t.Logf("Verify that a metadata update on %s %s/%s is propagated ot the cached object", scenario.resourceKind, cluster, scenario.resourceName)
 	verifyResourceUpdate(t, scenario, cluster, func(originalResource interface{}) error {
 		originalResourceMeta, err := meta.Accessor(originalResource)
 		if err != nil {
@@ -184,7 +184,7 @@ func replicateResourceScenario(t *testing.T, scenario baseScenario) {
 		return nil
 	})
 
-	t.Logf("Verify that deleting %s/%s/%s leads to removal of the cached object", scenario.resourceKind, cluster, scenario.resourceName)
+	t.Logf("Verify that deleting %s %s/%s leads to removal of the cached object", scenario.resourceKind, cluster, scenario.resourceName)
 	require.NoError(t, scenario.deleteSourceResource(cluster))
 	framework.Eventually(t, func() (bool, string) {
 		_, err := scenario.getCachedResource(cluster)
@@ -194,7 +194,7 @@ func replicateResourceScenario(t *testing.T, scenario baseScenario) {
 		if err != nil {
 			return false, err.Error()
 		}
-		return false, fmt.Sprintf("replicated %s/%s/%s wasn't removed", scenario.resourceKind, cluster, scenario.resourceName)
+		return false, fmt.Sprintf("replicated %s %s/%s wasn't removed", scenario.resourceKind, cluster, scenario.resourceName)
 	}, wait.ForeverTestTimeout, 400*time.Millisecond)
 }
 
@@ -219,31 +219,31 @@ func replicateAPIExportNegativeScenario(ctx context.Context, t *testing.T, serve
 		},
 	}
 
-	t.Logf("Creating APIExport %s|%s", cluster, export.Name)
+	t.Logf("Creating APIExport %s/%s", cluster, export.Name)
 	_, err := kcpShardClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Create(ctx, export, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating APIExport %s|%s", cluster, export.Name)
 
-	t.Logf("Verify that APIExport %s|%s is propagated to the cached object", cluster, export.Name)
+	t.Logf("Verify that APIExport %s/%s is propagated to the cached object", cluster, export.Name)
 	verifyResourceExistence(t, scenario, cluster)
 
-	t.Logf("Delete APIExport %s|%s", cluster, export.Name)
+	t.Logf("Delete APIExport %s/%s", cluster, export.Name)
 	err = cacheKcpClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Delete(cacheclient.WithShardInContext(ctx, shard.New("root")), export.Name, metav1.DeleteOptions{})
 	require.NoError(t, err)
-	t.Logf("Verify that APIExport %s|%s is propagated to the cached object after deletion", cluster, export.Name)
+	t.Logf("Verify that APIExport %s/%s is propagated to the cached object after deletion", cluster, export.Name)
 	verifyResourceExistence(t, scenario, cluster)
 
-	t.Logf("Update APIExport %s|%s so that it differs from the original object", cluster, scenario.resourceName)
+	t.Logf("Update APIExport %s/%s so that it differs from the original object", cluster, scenario.resourceName)
 	cachedExport, err := cacheKcpClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Get(cacheclient.WithShardInContext(ctx, shard.New("root")), export.Name, metav1.GetOptions{})
 	require.NoError(t, err)
 	cachedExport.Spec.LatestResourceSchemas = append(cachedExport.Spec.LatestResourceSchemas, "foo")
 	_, err = cacheKcpClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Update(cacheclient.WithShardInContext(ctx, shard.New("root")), cachedExport, metav1.UpdateOptions{})
 	require.NoError(t, err)
-	t.Logf("Verify that APIExport %s|%s is propaged to the cached object after an update", cluster, export.Name)
+	t.Logf("Verify that APIExport %s/%s is propaged to the cached object after an update", cluster, export.Name)
 	verifyResourceExistence(t, scenario, cluster)
 }
 
 func verifyResourceExistence(t *testing.T, scenario baseScenario, cluster logicalcluster.Name) {
-	t.Logf("Get %s/%s %s from the root shard and the cache server for comparison", cluster, scenario.resourceName, scenario.resourceKind)
+	t.Logf("Get %s %s/%s from the root shard and the cache server for comparison", scenario.resourceKind, cluster, scenario.resourceName)
 	framework.Eventually(t, func() (bool, string) {
 		originalResource, err := scenario.getSourceResource(cluster)
 		if err != nil {
@@ -256,17 +256,17 @@ func verifyResourceExistence(t *testing.T, scenario baseScenario, cluster logica
 			}
 			return false, err.Error()
 		}
-		t.Logf("Verify if both the orignal and replicated resources (%s/%s/%s) are the same except %s annotation and ResourceVersion after creation", scenario.resourceKind, cluster, scenario.resourceName, genericapirequest.AnnotationKey)
+		t.Logf("Verify if both the orignal and replicated resources (%s %s/%s) are the same except %s annotation and ResourceVersion after creation", scenario.resourceKind, cluster, scenario.resourceName, genericapirequest.AnnotationKey)
 		cachedResourceMeta, err := meta.Accessor(cachedResource)
 		if err != nil {
 			return false, err.Error()
 		}
 		if _, found := cachedResourceMeta.GetAnnotations()[genericapirequest.AnnotationKey]; !found {
-			t.Fatalf("replicated %s root/%s/%s, doesn't have %s annotation", scenario.resourceKind, cluster, cachedResourceMeta.GetName(), genericapirequest.AnnotationKey)
+			t.Fatalf("replicated %s root|%s/%s, doesn't have %s annotation", scenario.resourceKind, cluster, cachedResourceMeta.GetName(), genericapirequest.AnnotationKey)
 		}
 		delete(cachedResourceMeta.GetAnnotations(), genericapirequest.AnnotationKey)
 		if diff := cmp.Diff(cachedResource, originalResource, cmpopts.IgnoreFields(metav1.ObjectMeta{}, "ResourceVersion")); len(diff) > 0 {
-			return false, fmt.Sprintf("replicated %s root/%s/%s is different that the original", scenario.resourceKind, cluster, cachedResourceMeta.GetName())
+			return false, fmt.Sprintf("replicated %s root|%s/%s is different that the original", scenario.resourceKind, cluster, cachedResourceMeta.GetName())
 		}
 		return true, ""
 	}, wait.ForeverTestTimeout, 400*time.Millisecond)
