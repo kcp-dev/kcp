@@ -33,6 +33,7 @@ import (
 )
 
 func TestAuditLogs(t *testing.T) {
+	t.Parallel()
 	server := framework.PrivateKcpServer(t, framework.WithCustomArguments([]string{"--audit-log-path", "./audit-log", "--audit-policy-file", "./policy.yaml"}...))
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
