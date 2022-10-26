@@ -51,10 +51,10 @@ func main() {
 			KCP is the easiest way to manage Kubernetes applications against one or
 			more clusters, by giving you a personal control plane that schedules your
 			workloads onto one or many clusters, and making it simple to pick up and
-			move. Advanced use cases including spreading your apps across clusters for
-			resiliency, scheduling batch workloads onto clusters with free capacity,
-			and enabling collaboration for individual teams without having access to
-			the underlying clusters.
+			move. It supports advanced use cases such as spreading your apps across
+			clusters for resiliency, scheduling batch workloads onto clusters with
+			free capacity, and enabling collaboration for individual teams without
+			having access to the underlying clusters.
 
 			To get started, launch a new cluster with 'kcp start', which will
 			initialize your personal control plane and write an admin kubeconfig file
