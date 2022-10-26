@@ -90,7 +90,7 @@ func TestAuthorizer(t *testing.T) {
 	require.Eventually(t, func() bool {
 		_, err := user1KubeClusterClient.Cluster(org1.Join("workspace1")).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
 		return err == nil
-	}, time.Minute, time.Second)
+	}, 2*wait.ForeverTestTimeout, 100*time.Millisecond)
 
 	tests := map[string]func(t *testing.T){
 		"as org member, workspace admin user-1 can access everything": func(t *testing.T) {

@@ -83,7 +83,7 @@ func TestWorkspaceDeletionController(t *testing.T) {
 					}
 
 					return conditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceScheduled)
-				}, wait.ForeverTestTimeout, 1*time.Second)
+				}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 				workspaceCluster := orgClusterName.Join(workspace.Name)
 
@@ -134,7 +134,7 @@ func TestWorkspaceDeletionController(t *testing.T) {
 					}
 
 					return conditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceDeletionContentSuccess) && conditions.IsFalse(workspace, tenancyv1alpha1.WorkspaceContentDeleted)
-				}, wait.ForeverTestTimeout, 1*time.Second)
+				}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 				t.Logf("Clean finalizer to remove the configmap")
 				err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
@@ -152,7 +152,7 @@ func TestWorkspaceDeletionController(t *testing.T) {
 				require.Eventually(t, func() bool {
 					_, err := server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, orgClusterName), workspace.Name, metav1.GetOptions{})
 					return apierrors.IsNotFound(err)
-				}, wait.ForeverTestTimeout, 1*time.Second)
+				}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 				t.Logf("Finally check if all resources has been removed")
 
@@ -190,7 +190,7 @@ func TestWorkspaceDeletionController(t *testing.T) {
 					workspace, err := server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, orgClusterName), workspaceName, metav1.GetOptions{})
 					require.NoError(t, err, "failed to get workspace %s", workspaceName)
 					return len(workspace.Finalizers) > 0
-				}, wait.ForeverTestTimeout, 1*time.Second)
+				}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 				t.Logf("Create namespace in both the workspace and org workspace")
 				ns := &corev1.Namespace{
@@ -224,7 +224,7 @@ func TestWorkspaceDeletionController(t *testing.T) {
 					}
 
 					return len(nslist.Items) == 0
-				}, wait.ForeverTestTimeout, 1*time.Second)
+				}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 				t.Logf("Ensure namespace in the org workspace is deleted")
 				require.Eventually(t, func() bool {
@@ -233,7 +233,7 @@ func TestWorkspaceDeletionController(t *testing.T) {
 						return false
 					}
 					return len(nslist.Items) == 0
-				}, wait.ForeverTestTimeout, 1*time.Second)
+				}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 				t.Logf("Ensure workspace in the org workspace is deleted")
 				require.Eventually(t, func() bool {
@@ -244,13 +244,13 @@ func TestWorkspaceDeletionController(t *testing.T) {
 					}
 					require.NoError(t, err, "failed to list workspaces in org workspace")
 					return len(wslist.Items) == 0
-				}, wait.ForeverTestTimeout, 1*time.Second)
+				}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 				t.Logf("Ensure the org workspace is deleted")
 				require.Eventually(t, func() bool {
 					_, err := rootShardKcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), orgWorkspaceName, metav1.GetOptions{})
 					return apierrors.IsNotFound(err)
-				}, wait.ForeverTestTimeout, 1*time.Second)
+				}, wait.ForeverTestTimeout, 100*time.Millisecond)
 			},
 		},
 	}

@@ -757,7 +757,7 @@ func (c *kcpServer) monitorEndpoint(client *rest.RESTClient, endpoint string) {
 		if errs.Len() > 0 {
 			errs = sets.NewString()
 		}
-	}, 1*time.Second)
+	}, 100*time.Millisecond)
 }
 
 // there doesn't seem to be any simple way to get a metav1.Status from the Go client, so we get
