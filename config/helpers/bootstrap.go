@@ -244,38 +244,48 @@ func createResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 }
 
 func BindRootAPIs(ctx context.Context, kcpClient kcpclient.Interface, exportNames ...string) error {
+	logger := klog.FromContext(ctx)
 	for _, exportName := range exportNames {
-		binding := &apisv1alpha1.APIBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: exportName,
-			},
-			Spec: apisv1alpha1.APIBindingSpec{
-				Reference: apisv1alpha1.ExportReference{
-					Workspace: &apisv1alpha1.WorkspaceExportReference{
-						Path:       tenancyv1alpha1.RootCluster.String(),
-						ExportName: exportName,
+		if err := wait.PollImmediateInfiniteWithContext(ctx, time.Second, func(ctx context.Context) (bool, error) {
+			binding := &apisv1alpha1.APIBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: exportName,
+				},
+				Spec: apisv1alpha1.APIBindingSpec{
+					Reference: apisv1alpha1.ExportReference{
+						Workspace: &apisv1alpha1.WorkspaceExportReference{
+							Path:       tenancyv1alpha1.RootCluster.String(),
+							ExportName: exportName,
+						},
 					},
 				},
-			},
-		}
+			}
 
-		created, err := kcpClient.ApisV1alpha1().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
-		if err == nil {
-			klog.V(2).Infof("Created API binding %s|%s", logicalcluster.From(created), created.Name)
-			continue
-		}
-		if !apierrors.IsAlreadyExists(err) {
-			return err
-		}
+			created, err := kcpClient.ApisV1alpha1().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
+			if err == nil {
+				logger.V(2).Info("Created APIBinding", "APIBinding", fmt.Sprintf("%s|%s", logicalcluster.From(created), created.Name))
+				return true, nil
+			}
+			if !apierrors.IsAlreadyExists(err) {
+				logger.Error(err, "Failed to create APIBinding, retrying", "APIBinding", created.Name)
+				return false, nil
+			}
 
-		existing, err := kcpClient.ApisV1alpha1().APIBindings().Get(ctx, exportName, metav1.GetOptions{})
-		if err != nil {
+			logger = logger.WithValues("APIBinding", fmt.Sprintf("%s|%s", logicalcluster.From(created), created.Name))
+			existing, err := kcpClient.ApisV1alpha1().APIBindings().Get(ctx, exportName, metav1.GetOptions{})
+			if err != nil {
+				logger.Error(err, "Failed to get APIBinding, retrying")
+				return false, nil
+			}
+			logger.V(2).Info("Updating APIBinding")
+			existing.Spec = binding.Spec
+			if _, err := kcpClient.ApisV1alpha1().APIBindings().Update(ctx, existing, metav1.UpdateOptions{}); err != nil {
+				logger.Error(err, "Failed to update APIBinding")
+				return false, nil
+			}
+			return true, nil
+		}); err != nil {
 			return err
-		}
-		klog.V(2).Infof("Updating API binding %s", exportName)
-		existing.Spec = binding.Spec
-		if _, err := kcpClient.ApisV1alpha1().APIBindings().Update(ctx, existing, metav1.UpdateOptions{}); err != nil {
-			return fmt.Errorf("could not update API binding %s|%s: %w", logicalcluster.From(existing), existing.Name, err)
 		}
 	}
 	return nil
