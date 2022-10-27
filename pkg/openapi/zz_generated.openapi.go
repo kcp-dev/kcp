@@ -67,6 +67,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.MaximalPermissionPolicy":                     schema_pkg_apis_apis_v1alpha1_MaximalPermissionPolicy(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.PermissionClaim":                             schema_pkg_apis_apis_v1alpha1_PermissionClaim(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ResourceSelector":                            schema_pkg_apis_apis_v1alpha1_ResourceSelector(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.Verbs":                                       schema_pkg_apis_apis_v1alpha1_Verbs(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.VirtualWorkspace":                            schema_pkg_apis_apis_v1alpha1_VirtualWorkspace(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.WorkspaceExportReference":                    schema_pkg_apis_apis_v1alpha1_WorkspaceExportReference(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.AvailableSelectorLabel":                schema_pkg_apis_scheduling_v1alpha1_AvailableSelectorLabel(ref),
@@ -1775,6 +1776,12 @@ func schema_pkg_apis_apis_v1alpha1_AcceptablePermissionClaim(ref common.Referenc
 							},
 						},
 					},
+					"verbs": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.Verbs"),
+						},
+					},
 					"identityHash": {
 						SchemaProps: spec.SchemaProps{
 							Description: "This is the identity for a given APIExport that the APIResourceSchema belongs to. The hash can be found on APIExport and APIResourceSchema's status. It will be empty for core types. Note that one must look this up for a particular KCP instance.",
@@ -1790,11 +1797,11 @@ func schema_pkg_apis_apis_v1alpha1_AcceptablePermissionClaim(ref common.Referenc
 						},
 					},
 				},
-				Required: []string{"all", "state"},
+				Required: []string{"all", "verbs", "state"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ResourceSelector"},
+			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ResourceSelector", "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.Verbs"},
 	}
 }
 
@@ -2027,6 +2034,12 @@ func schema_pkg_apis_apis_v1alpha1_PermissionClaim(ref common.ReferenceCallback)
 							},
 						},
 					},
+					"verbs": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.Verbs"),
+						},
+					},
 					"identityHash": {
 						SchemaProps: spec.SchemaProps{
 							Description: "This is the identity for a given APIExport that the APIResourceSchema belongs to. The hash can be found on APIExport and APIResourceSchema's status. It will be empty for core types. Note that one must look this up for a particular KCP instance.",
@@ -2035,11 +2048,11 @@ func schema_pkg_apis_apis_v1alpha1_PermissionClaim(ref common.ReferenceCallback)
 						},
 					},
 				},
-				Required: []string{"all"},
+				Required: []string{"all", "verbs"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ResourceSelector"},
+			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ResourceSelector", "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.Verbs"},
 	}
 }
 
@@ -2066,6 +2079,49 @@ func schema_pkg_apis_apis_v1alpha1_ResourceSelector(ref common.ReferenceCallback
 					},
 				},
 				Required: []string{"namespace"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_apis_v1alpha1_Verbs(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"claimed": {
+						SchemaProps: spec.SchemaProps{
+							Description: "claimed is a list of verbs that restrict access via services. '*' represents all verbs.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"restrictTo": {
+						SchemaProps: spec.SchemaProps{
+							Description: "restrictTo is a list of verbs that restrict access via workspaces. They also restrict access via services if the same resources are claimed by a different API export in the same workspace. '*' represents all verbs.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"claimed", "restrictTo"},
 			},
 		},
 	}

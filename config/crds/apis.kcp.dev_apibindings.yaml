@@ -101,10 +101,31 @@ spec:
                       - Accepted
                       - Rejected
                       type: string
+                    verbs:
+                      properties:
+                        claimed:
+                          description: claimed is a list of verbs that restrict access
+                            via services. '*' represents all verbs.
+                          items:
+                            type: string
+                          type: array
+                        restrictTo:
+                          description: restrictTo is a list of verbs that restrict
+                            access via workspaces. They also restrict access via services
+                            if the same resources are claimed by a different API export
+                            in the same workspace. '*' represents all verbs.
+                          items:
+                            type: string
+                          type: array
+                      required:
+                      - claimed
+                      - restrictTo
+                      type: object
                   required:
                   - all
                   - resource
                   - state
+                  - verbs
                   type: object
                   x-kubernetes-validations:
                   - message: either "all" or "resourceSelector" must be set
@@ -201,9 +222,30 @@ spec:
                         - namespace
                         type: object
                       type: array
+                    verbs:
+                      properties:
+                        claimed:
+                          description: claimed is a list of verbs that restrict access
+                            via services. '*' represents all verbs.
+                          items:
+                            type: string
+                          type: array
+                        restrictTo:
+                          description: restrictTo is a list of verbs that restrict
+                            access via workspaces. They also restrict access via services
+                            if the same resources are claimed by a different API export
+                            in the same workspace. '*' represents all verbs.
+                          items:
+                            type: string
+                          type: array
+                      required:
+                      - claimed
+                      - restrictTo
+                      type: object
                   required:
                   - all
                   - resource
+                  - verbs
                   type: object
                   x-kubernetes-validations:
                   - message: either "all" or "resourceSelector" must be set
@@ -372,9 +414,30 @@ spec:
                         - namespace
                         type: object
                       type: array
+                    verbs:
+                      properties:
+                        claimed:
+                          description: claimed is a list of verbs that restrict access
+                            via services. '*' represents all verbs.
+                          items:
+                            type: string
+                          type: array
+                        restrictTo:
+                          description: restrictTo is a list of verbs that restrict
+                            access via workspaces. They also restrict access via services
+                            if the same resources are claimed by a different API export
+                            in the same workspace. '*' represents all verbs.
+                          items:
+                            type: string
+                          type: array
+                      required:
+                      - claimed
+                      - restrictTo
+                      type: object
                   required:
                   - all
                   - resource
+                  - verbs
                   type: object
                   x-kubernetes-validations:
                   - message: either "all" or "resourceSelector" must be set
