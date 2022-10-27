@@ -53,7 +53,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/registry"
 )
 
-func BuildVirtualWorkspace(cfg *clientrest.Config, rootPathPrefix string, wildcardsClusterWorkspaces tenancyinformers.ClusterWorkspaceInformer, wildcardsRbacInformers kcprbacv1informers.ClusterInterface, kubeClusterClient kcpkubernetesclientset.ClusterInterface, kcpClusterClient kcpclient.ClusterInterface) framework.VirtualWorkspace {
+func BuildVirtualWorkspace(cfg *clientrest.Config, rootPathPrefix string, wildcardsClusterWorkspaces tenancyinformers.ClusterWorkspaceInformer, wildcardsRbacInformers kcprbacv1informers.ClusterInterface, kubeClusterClient kcpkubernetesclientset.ClusterInterface, kcpClusterClient kcpclient.ClusterInterface, authorizationCacheResyncPeriod time.Duration, authorizationCacheResyncJitterFactor float64, authorizationCacheResyncSliding bool) framework.VirtualWorkspace {
 	metrics.Register()
 	crbInformer := wildcardsRbacInformers.ClusterRoleBindings()
 
@@ -124,7 +124,7 @@ func BuildVirtualWorkspace(cfg *clientrest.Config, rootPathPrefix string, wildca
 							orgClusterName,
 							wildcardsRbacInformers,
 							tenancywrapper.FilterClusterWorkspaceInformer(orgClusterName, wildcardsClusterWorkspaces),
-							initialWatchers)
+							initialWatchers, authorizationCacheResyncPeriod, authorizationCacheResyncJitterFactor, authorizationCacheResyncSliding)
 					})
 
 					if err := mainConfig.AddPostStartHook("clusterworkspaces.kcp.dev-workspaceauthorizationcache", func(context genericapiserver.PostStartHookContext) error {
@@ -140,7 +140,7 @@ func BuildVirtualWorkspace(cfg *clientrest.Config, rootPathPrefix string, wildca
 								return nil
 							}
 						}
-						rootWorkspaceAuthorizationCache.Run(1*time.Second, context.StopCh)
+						rootWorkspaceAuthorizationCache.Run(authorizationCacheResyncPeriod, authorizationCacheResyncJitterFactor, authorizationCacheResyncSliding, context.StopCh)
 						return nil
 					}); err != nil {
 						return nil, err

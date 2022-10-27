@@ -85,6 +85,7 @@ func Start(ctx context.Context, name, runtimeDir, logFilePath string, args []str
 		"--audit-log-batch-throttle-enable=true",
 		"--audit-log-batch-throttle-qps=10",
 		"--audit-policy-file", filepath.Join(runtimeDir, "audit-policy.yaml"),
+		"--virtual-workspaces-workspaces.authorization-cache.resync-period=1s",
 	)
 	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " "))
 
