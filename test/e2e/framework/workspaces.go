@@ -28,7 +28,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"sigs.k8s.io/yaml"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -117,7 +116,10 @@ func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logi
 			t.Logf("failed to get workspace %s: %v", ws.Name, err)
 			return false, err.Error()
 		}
-		return ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady, toYaml(t, ws)
+		if actual, expected := ws.Status.Phase, tenancyv1alpha1.ClusterWorkspacePhaseReady; actual != expected {
+			return false, fmt.Sprintf("workspace phase is %s, not %s", actual, expected)
+		}
+		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for workspace %s to become ready", orgClusterName.Join(ws.Name))
 
 	wsClusterName := orgClusterName.Join(ws.Name)
@@ -184,16 +186,13 @@ func NewOrganizationFixture(t *testing.T, server RunningServer, options ...Clust
 			t.Logf("failed to get workspace %s: %v", org.Name, err)
 			return false, ""
 		}
-		return ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady, toYaml(t, ws.Status.Conditions)
+		if actual, expected := ws.Status.Phase, tenancyv1alpha1.ClusterWorkspacePhaseReady; actual != expected {
+			return false, fmt.Sprintf("workspace phase is %s, not %s", actual, expected)
+		}
+		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for organization workspace %s to become ready", org.Name)
 
 	clusterName := tenancyv1alpha1.RootCluster.Join(org.Name)
 	t.Logf("Created organization workspace %s", clusterName)
 	return clusterName
-}
-
-func toYaml(t *testing.T, obj interface{}) string {
-	bs, err := yaml.Marshal(obj)
-	require.NoError(t, err)
-	return string(bs)
 }

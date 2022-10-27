@@ -176,7 +176,14 @@ func TestMultiPlacement(t *testing.T) {
 		binding, err := kcpClusterClient.ApisV1alpha1().APIBindings().Get(logicalcluster.WithCluster(ctx, userClusterName), binding.Name, metav1.GetOptions{})
 		require.NoError(t, err)
 
-		return conditions.IsTrue(binding, apisv1alpha1.InitialBindingCompleted), fmt.Sprintf("binding not bound: %s", toYaml(binding))
+		condition := conditions.Get(binding, apisv1alpha1.InitialBindingCompleted)
+		if condition == nil {
+			return false, fmt.Sprintf("no %s condition exists", apisv1alpha1.InitialBindingCompleted)
+		}
+		if condition.Status == corev1.ConditionTrue {
+			return true, ""
+		}
+		return false, fmt.Sprintf("not done waiting for the binding to be initially bound, reason: %v - message: %v", condition.Reason, condition.Message)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("create two placements")

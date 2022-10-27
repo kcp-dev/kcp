@@ -37,7 +37,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"sigs.k8s.io/yaml"
 
 	configcrds "github.com/kcp-dev/kcp/config/crds"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
@@ -179,7 +178,14 @@ func TestKubeQuotaCoreV1TypesFromBinding(t *testing.T) {
 			framework.Eventually(t, func() (bool, string) {
 				binding, err := kcpClusterClient.ApisV1alpha1().APIBindings().Get(logicalcluster.WithCluster(ctx, userClusterName), binding.Name, metav1.GetOptions{})
 				require.NoError(t, err, "error getting binding %s", binding.Name)
-				return conditions.IsTrue(binding, apisv1alpha1.InitialBindingCompleted), fmt.Sprintf("binding not bound: %s", toYaml(binding))
+				condition := conditions.Get(binding, apisv1alpha1.InitialBindingCompleted)
+				if condition == nil {
+					return false, fmt.Sprintf("no %s condition exists", apisv1alpha1.InitialBindingCompleted)
+				}
+				if condition.Status == corev1.ConditionTrue {
+					return true, ""
+				}
+				return false, fmt.Sprintf("not done waiting for the binding to be initially bound, reason: %v - message: %v", condition.Reason, condition.Message)
 			}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 			t.Logf("Wait for being able to list Services in the user workspace")
@@ -443,12 +449,4 @@ func NewSheriff(group, name string) *unstructured.Unstructured {
 			},
 		},
 	}
-}
-
-func toYaml(obj interface{}) string {
-	b, err := yaml.Marshal(obj)
-	if err != nil {
-		panic(err)
-	}
-	return string(b)
 }

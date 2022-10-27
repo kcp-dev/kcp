@@ -36,7 +36,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
-	"sigs.k8s.io/yaml"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -119,7 +118,7 @@ func TestClusterController(t *testing.T) {
 							if err != nil {
 								return false, fmt.Sprintf("error getting cowboy %q: %v", cowboy.Name, err)
 							}
-							return false, fmt.Sprintf("Downstream cowboy couldn't be found. Here is the upstream cowboy:\n%s", toYaml(t, cowboy))
+							return false, "Downstream cowboy couldn't be found."
 						}
 						return false, fmt.Sprintf("error getting cowboy %q in sink: %v", cowboy.Name, err)
 					} else if diff := cmp.Diff(cowboy.Spec, got.Spec); diff != "" {
@@ -226,10 +225,4 @@ func TestClusterController(t *testing.T) {
 			testCase.work(ctx, t, runningServers, syncerFixture)
 		})
 	}
-}
-
-func toYaml(t *testing.T, obj interface{}) string {
-	bytes, err := yaml.Marshal(obj)
-	require.NoError(t, err)
-	return string(bytes)
 }
