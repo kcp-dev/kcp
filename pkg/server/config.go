@@ -114,14 +114,6 @@ type ExtraConfig struct {
 	ApiExtensionsSharedInformerFactory    kcpapiextensionsinformers.SharedInformerFactory
 	DynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory
 	CacheKcpSharedInformerFactory         kcpinformers.SharedInformerFactory
-	// TODO(p0lyn0mial):  get rid of TemporaryRootShardKcpSharedInformerFactory, in the future
-	//                    we should have multi-shard aware informers
-	//
-	// TODO(p0lyn0mial): wire it to the root shard, this will be needed to get bindings,
-	//                   eventually it will be replaced by replication
-	//
-	// TemporaryRootShardKcpSharedInformerFactory bring data from the root shard
-	TemporaryRootShardKcpSharedInformerFactory kcpinformers.SharedInformerFactory
 }
 
 type completedConfig struct {
@@ -185,6 +177,47 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 
 	c.GenericConfig.RequestInfoResolver = requestinfo.NewFactory() // must be set here early to avoid a crash in the EnableMultiCluster roundtrip wrapper
 
+	// a note on the identities in a multi-shard environment
+	//
+	// case 1: read the identities from the local instance when we are on the root shard
+	// case 2: read the identities from the local instance when we are on the root shard and the caching layer was provided
+	// case 3: read the identities from the root shard when we are on a non-root shard and the caching layer and RootShardKubeconfigFile was provided
+	//
+	// case 4: RootShardKubeconfigFile was provided which indicates we are on a non-root shard
+	// thus we need to establish a connection to the root shard for identities
+	//
+	// invalid cases:
+	//
+	// case 5: we are on a non-root shard and the caching layer was provided
+	// we don't have enough info to read the identities (since we need RootShardKubeconfigFile)
+	//
+	// case 6: we are on a non-root shard and RootShardKubeconfigFile was provided
+	// even though we can read the identities we won't be able to read actual resources (like APIExports)
+	// since these are synced from the CacheKcpSharedInformerFactory first to KcpSharedInformerFactory (there is a controller)
+	//
+	// note: in the future we should stop reading the identities from the root shard and simply get them from the caching layer
+	var kcpIdentityRoundTripper func(rt http.RoundTripper) http.RoundTripper
+	kcpIdentityRoundTripper, c.resolveIdentities = bootstrap.NewWildcardIdentitiesWrappingRoundTripper(bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, c.GenericConfig.LoopbackClientConfig, nil)
+	c.identityConfig = rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
+	c.identityConfig.Wrap(kcpIdentityRoundTripper)
+	// create an empty non-functional factory so that code that uses it but doesn't need it, doesn't have to check against the nil value
+	c.CacheKcpSharedInformerFactory = kcpinformers.NewSharedInformerFactory(nil, resyncPeriod)
+	if len(c.Options.Extra.RootShardKubeconfigFile) > 0 {
+		// TODO(p0lyn0mial): use kcp-admin instead of system:admin
+		nonIdentityRootKcpShardSystemAdminConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: c.Options.Extra.RootShardKubeconfigFile}, &clientcmd.ConfigOverrides{CurrentContext: "system:admin"}).ClientConfig()
+		if err != nil {
+			return nil, fmt.Errorf("failed to load the kubeconfig from: %s, for the root shard, err: %w", c.Options.Extra.RootShardKubeconfigFile, err)
+		}
+		kcpIdentityRoundTripper, c.resolveIdentities = bootstrap.NewWildcardIdentitiesWrappingRoundTripper(bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, nonIdentityRootKcpShardSystemAdminConfig, c.KubeClusterClient)
+		identityRootKcpShardSystemAdminConfig := rest.CopyConfig(nonIdentityRootKcpShardSystemAdminConfig)
+		identityRootKcpShardSystemAdminConfig.Wrap(kcpIdentityRoundTripper)
+		c.RootShardKcpClusterClient, err = kcpclient.NewClusterForConfig(identityRootKcpShardSystemAdminConfig)
+		if err != nil {
+			return nil, err
+		}
+		c.identityConfig = rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
+		c.identityConfig.Wrap(kcpIdentityRoundTripper)
+	}
 	if c.Options.Cache.Enabled {
 		var cacheClientConfig *rest.Config
 		if len(c.Options.Cache.KubeconfigFile) > 0 {
@@ -195,12 +228,15 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		} else {
 			cacheClientConfig = rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
 		}
-		rt := cacheclient.WithCacheServiceRoundTripper(cacheClientConfig)
-		rt = cacheclient.WithShardNameFromContextRoundTripper(rt)
-		rt = cacheclient.WithDefaultShardRoundTripper(rt, shard.Wildcard)
-		kcpclienthelper.SetMultiClusterRoundTripper(rt)
+		nonIdentityCacheClientRT := cacheclient.WithCacheServiceRoundTripper(cacheClientConfig)
+		nonIdentityCacheClientRT = cacheclient.WithShardNameFromContextRoundTripper(nonIdentityCacheClientRT)
+		nonIdentityCacheClientRT = cacheclient.WithDefaultShardRoundTripper(nonIdentityCacheClientRT, shard.Wildcard)
+		kcpclienthelper.SetMultiClusterRoundTripper(nonIdentityCacheClientRT)
 
-		cacheKcpClusterClient, err := kcpclient.NewClusterForConfig(rt)
+		identityCacheClientRT := rest.CopyConfig(nonIdentityCacheClientRT)
+		identityCacheClientRT.Wrap(kcpIdentityRoundTripper)
+
+		cacheKcpClusterClient, err := kcpclient.NewClusterForConfig(identityCacheClientRT)
 		if err != nil {
 			return nil, err
 		}
@@ -210,7 +246,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 			kcpinformers.WithExtraClusterScopedIndexers(indexers.ClusterScoped()),
 			kcpinformers.WithExtraNamespaceScopedIndexers(indexers.NamespaceScoped()),
 		)
-		c.CacheDynamicClient, err = kcpdynamic.NewForConfig(rt)
+		c.CacheDynamicClient, err = kcpdynamic.NewForConfig(identityCacheClientRT)
 		if err != nil {
 			return nil, err
 		}
@@ -220,39 +256,6 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 	// The identities are not known before we can get them from the APIExports via the loopback client or from the root shard in case this is a non-root shard,
 	// hence we postpone this to getOrCreateKcpIdentities() in the kcp-start-informers post-start hook.
 	// The informers here are not used before the informers are actually started (i.e. no race).
-	if len(c.Options.Extra.RootShardKubeconfigFile) > 0 {
-		// TODO(p0lyn0mial): use kcp-admin instead of system:admin
-		nonIdentityRootKcpShardSystemAdminConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: c.Options.Extra.RootShardKubeconfigFile}, &clientcmd.ConfigOverrides{CurrentContext: "system:admin"}).ClientConfig()
-		if err != nil {
-			return nil, fmt.Errorf("failed to load the kubeconfig from: %s, for the root shard, err: %w", c.Options.Extra.RootShardKubeconfigFile, err)
-		}
-
-		var kcpShardIdentityRoundTripper func(rt http.RoundTripper) http.RoundTripper
-		kcpShardIdentityRoundTripper, c.resolveIdentities = bootstrap.NewWildcardIdentitiesWrappingRoundTripper(bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, nonIdentityRootKcpShardSystemAdminConfig, c.KubeClusterClient)
-		rootKcpShardIdentityConfig := rest.CopyConfig(nonIdentityRootKcpShardSystemAdminConfig)
-		rootKcpShardIdentityConfig.Wrap(kcpShardIdentityRoundTripper)
-		c.RootShardKcpClusterClient, err = kcpclient.NewClusterForConfig(rootKcpShardIdentityConfig)
-		if err != nil {
-			return nil, err
-		}
-		c.TemporaryRootShardKcpSharedInformerFactory = kcpinformers.NewSharedInformerFactoryWithOptions(
-			c.RootShardKcpClusterClient.Cluster(logicalcluster.Wildcard),
-			resyncPeriod,
-			kcpinformers.WithExtraClusterScopedIndexers(indexers.ClusterScoped()),
-			kcpinformers.WithExtraNamespaceScopedIndexers(indexers.NamespaceScoped()),
-		)
-
-		c.identityConfig = rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
-		c.identityConfig.Wrap(kcpShardIdentityRoundTripper)
-	} else {
-		// create an empty non-functional factory so that code that uses it but doesn't need it, doesn't have to check against the nil value
-		c.TemporaryRootShardKcpSharedInformerFactory = kcpinformers.NewSharedInformerFactory(nil, resyncPeriod)
-
-		// The informers here are not used before the informers are actually started (i.e. no race).
-
-		c.identityConfig, c.resolveIdentities = bootstrap.NewConfigWithWildcardIdentities(c.GenericConfig.LoopbackClientConfig, bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, nil)
-	}
-
 	c.KcpClusterClient, err = kcpclient.NewClusterForConfig(c.identityConfig) // this is now generic to be used for all kcp API groups
 	if err != nil {
 		return nil, err

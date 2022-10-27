@@ -602,8 +602,8 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
-		s.TemporaryRootShardKcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
-		s.TemporaryRootShardKcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
 		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
 	)
 	if err != nil {
@@ -1159,7 +1159,7 @@ func (s *Server) installApiExportIdentityController(ctx context.Context, config 
 	if err != nil {
 		return err
 	}
-	c, err := identitycache.NewApiExportIdentityProviderController(kubeClusterClient, s.TemporaryRootShardKcpSharedInformerFactory.Apis().V1alpha1().APIExports(), s.KubeSharedInformerFactory.Core().V1().ConfigMaps())
+	c, err := identitycache.NewApiExportIdentityProviderController(kubeClusterClient, s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports(), s.KubeSharedInformerFactory.Core().V1().ConfigMaps())
 	if err != nil {
 		return err
 	}

@@ -211,21 +211,6 @@ func (s *Server) Run(ctx context.Context) error {
 			}
 			logger.Info("finished getting kcp APIExport identities")
 		} else if len(s.Options.Extra.RootShardKubeconfigFile) > 0 {
-			logger.Info("starting setting up kcp informers for the root shard")
-
-			go s.TemporaryRootShardKcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().Run(hookContext.StopCh)
-			go s.TemporaryRootShardKcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().Run(hookContext.StopCh)
-
-			if err := wait.PollInfiniteWithContext(goContext(hookContext), time.Millisecond*100, func(ctx context.Context) (bool, error) {
-				exportsSynced := s.TemporaryRootShardKcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
-				bindingsSynced := s.TemporaryRootShardKcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced()
-				return exportsSynced && bindingsSynced, nil
-			}); err != nil {
-				logger.Error(err, "failed to start APIExport and/or APIBinding informers for the root shard")
-				return nil // don't klog.Fatal. This only happens when context is cancelled.
-			}
-			logger.Info("finished starting APIExport and APIBinding informers for the root shard")
-
 			logger.Info("getting kcp APIExport identities for the root shard")
 			if err := wait.PollImmediateInfiniteWithContext(goContext(hookContext), time.Millisecond*500, func(ctx context.Context) (bool, error) {
 				if err := s.resolveIdentities(ctx); err != nil {
@@ -239,16 +224,6 @@ func (s *Server) Run(ctx context.Context) error {
 			}
 
 			logger.Info("finished getting kcp APIExport identities for the root shard")
-
-			s.TemporaryRootShardKcpSharedInformerFactory.Start(hookContext.StopCh)
-			s.TemporaryRootShardKcpSharedInformerFactory.WaitForCacheSync(hookContext.StopCh)
-
-			select {
-			case <-hookContext.StopCh:
-				return nil // context closed, avoid reporting success below
-			default:
-			}
-			logger.Info("finished starting kcp informers for the root shard")
 
 			shard := &tenancyv1alpha1.ClusterWorkspaceShard{
 				ObjectMeta: metav1.ObjectMeta{
