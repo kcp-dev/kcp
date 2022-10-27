@@ -35,6 +35,7 @@ jobs:
       - uses: actions/setup-go@v3
         with:
           go-version: v1.18
+          cache: true
       - run: make build
 
       # Install kind with a local registry
@@ -64,6 +65,7 @@ jobs:
     - uses: actions/setup-go@v3
       with:
         go-version: v1.18
+        cache: true
     - run: make build
 
     # Install kind with a local registry
