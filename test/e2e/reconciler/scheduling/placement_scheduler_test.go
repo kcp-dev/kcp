@@ -116,7 +116,14 @@ func TestPlacementUpdate(t *testing.T) {
 		binding, err := kcpClusterClient.ApisV1alpha1().APIBindings().Get(logicalcluster.WithCluster(ctx, userClusterName), binding.Name, metav1.GetOptions{})
 		require.NoError(t, err)
 
-		return conditions.IsTrue(binding, apisv1alpha1.InitialBindingCompleted), fmt.Sprintf("binding not bound: %s", toYaml(binding))
+		condition := conditions.Get(binding, apisv1alpha1.InitialBindingCompleted)
+		if condition == nil {
+			return false, fmt.Sprintf("no %s condition exists", apisv1alpha1.InitialBindingCompleted)
+		}
+		if condition.Status == corev1.ConditionTrue {
+			return true, ""
+		}
+		return false, fmt.Sprintf("not done waiting for the binding to be initially bound, reason: %v - message: %v", condition.Reason, condition.Message)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Wait for placement to be ready")
@@ -124,7 +131,14 @@ func TestPlacementUpdate(t *testing.T) {
 		placement, err := kcpClusterClient.SchedulingV1alpha1().Placements().Get(logicalcluster.WithCluster(ctx, userClusterName), "default", metav1.GetOptions{})
 		require.NoError(t, err)
 
-		return conditions.IsTrue(placement, schedulingv1alpha1.PlacementReady), fmt.Sprintf("placement is not ready: %s", toYaml(binding))
+		condition := conditions.Get(placement, schedulingv1alpha1.PlacementReady)
+		if condition == nil {
+			return false, fmt.Sprintf("no %s condition exists", schedulingv1alpha1.PlacementReady)
+		}
+		if condition.Status == corev1.ConditionTrue {
+			return true, ""
+		}
+		return false, fmt.Sprintf("not done waiting for the placement to be ready, reason: %v - message: %v", condition.Reason, condition.Message)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Wait for being able to list Services in the user workspace")
@@ -223,7 +237,7 @@ func TestPlacementUpdate(t *testing.T) {
 		}
 
 		if len(ns.Annotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+firstSyncTargetKey]) == 0 {
-			return false, fmt.Sprintf("resource should be removed but got %s", toYaml(ns))
+			return false, fmt.Sprintf("namespace should have a %s annotation, but it does not", workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+firstSyncTargetKey)
 		}
 		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
@@ -235,7 +249,7 @@ func TestPlacementUpdate(t *testing.T) {
 		}
 
 		if len(svc.Annotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+firstSyncTargetKey]) == 0 {
-			return false, fmt.Sprintf("resource should be removed but got %s", toYaml(svc))
+			return false, fmt.Sprintf("service should have a %s annotation, but it does not", workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+firstSyncTargetKey)
 		}
 		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
@@ -317,7 +331,14 @@ func TestPlacementUpdate(t *testing.T) {
 			return false, fmt.Sprintf("Failed to get placement: %v", err)
 		}
 
-		return conditions.IsTrue(placement, schedulingv1alpha1.PlacementReady), fmt.Sprintf("placement is not ready: %s", toYaml(binding))
+		condition := conditions.Get(placement, schedulingv1alpha1.PlacementReady)
+		if condition == nil {
+			return false, fmt.Sprintf("no %s condition exists", schedulingv1alpha1.PlacementReady)
+		}
+		if condition.Status == corev1.ConditionTrue {
+			return true, ""
+		}
+		return false, fmt.Sprintf("not done waiting for the placement to be ready, reason: %v - message: %v", condition.Reason, condition.Message)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Wait for resource to by synced again")
@@ -328,7 +349,7 @@ func TestPlacementUpdate(t *testing.T) {
 		}
 
 		if len(svc.Annotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+firstSyncTargetKey]) != 0 {
-			return false, fmt.Sprintf("resource should not be removed but got %s", toYaml(svc))
+			return false, fmt.Sprintf("resource should not have the %s annotation, but have %s", workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+firstSyncTargetKey, svc.Annotations[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+firstSyncTargetKey])
 		}
 		return svc.Labels[workloadv1alpha1.ClusterResourceStateLabelPrefix+firstSyncTargetKey] == string(workloadv1alpha1.ResourceStateSync), ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100)

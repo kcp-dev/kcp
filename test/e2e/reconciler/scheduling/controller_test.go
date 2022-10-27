@@ -127,7 +127,10 @@ func TestScheduling(t *testing.T) {
 			t.Log(err)
 			return false, ""
 		}
-		return binding.Status.Phase == apisv1alpha1.APIBindingPhaseBound, toYaml(binding)
+		if actual, expected := binding.Status.Phase, apisv1alpha1.APIBindingPhaseBound; actual != expected {
+			return false, fmt.Sprintf("APIBinding is in phase %s, not %s", actual, expected)
+		}
+		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Log("Create a location in the negotiation workspace")
@@ -151,7 +154,13 @@ func TestScheduling(t *testing.T) {
 	framework.Eventually(t, func() (bool, string) {
 		location, err := kcpClusterClient.SchedulingV1alpha1().Locations().Get(logicalcluster.WithCluster(ctx, negotiationClusterName), location.Name, metav1.GetOptions{})
 		require.NoError(t, err)
-		return location.Status.AvailableInstances != nil && *location.Status.AvailableInstances == 1, fmt.Sprintf("instances in status not updated:\n%s", toYaml(location))
+		if location.Status.AvailableInstances == nil {
+			return false, "location.Status.AvailableInstances not present"
+		}
+		if actual, expected := *location.Status.AvailableInstances, uint32(1); actual != expected {
+			return false, fmt.Sprintf("location.Status.AvailableInstances is %d, not %d", actual, expected)
+		}
+		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	binding := &apisv1alpha1.APIBinding{
@@ -176,9 +185,16 @@ func TestScheduling(t *testing.T) {
 	framework.Eventually(t, func() (bool, string) {
 		binding, err := kcpClusterClient.ApisV1alpha1().APIBindings().Get(logicalcluster.WithCluster(ctx, userClusterName), binding.Name, metav1.GetOptions{})
 		if err != nil {
-			return false, fmt.Sprintf("failed to list Locations: %v", err)
+			return false, fmt.Sprintf("failed to get binding: %v", err)
 		}
-		return conditions.IsTrue(binding, apisv1alpha1.InitialBindingCompleted), fmt.Sprintf("binding not bound: %s", toYaml(binding))
+		condition := conditions.Get(binding, apisv1alpha1.InitialBindingCompleted)
+		if condition == nil {
+			return false, fmt.Sprintf("no %s condition exists", apisv1alpha1.InitialBindingCompleted)
+		}
+		if condition.Status == corev1.ConditionTrue {
+			return true, ""
+		}
+		return false, fmt.Sprintf("not done waiting for the binding to be initially bound, reason: %v - message: %v", condition.Reason, condition.Message)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Wait for placement to be ready")
@@ -188,7 +204,14 @@ func TestScheduling(t *testing.T) {
 			return false, fmt.Sprintf("failed to get placement: %v", err)
 		}
 
-		return conditions.IsTrue(placement, schedulingv1alpha1.PlacementReady), fmt.Sprintf("placement is not ready: %s", toYaml(binding))
+		condition := conditions.Get(placement, schedulingv1alpha1.PlacementReady)
+		if condition == nil {
+			return false, fmt.Sprintf("no %s condition exists", schedulingv1alpha1.PlacementReady)
+		}
+		if condition.Status == corev1.ConditionTrue {
+			return true, ""
+		}
+		return false, fmt.Sprintf("not done waiting for the placement to be ready, reason: %v - message: %v", condition.Reason, condition.Message)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Wait for being able to list Services in the user workspace")
@@ -214,7 +237,14 @@ func TestScheduling(t *testing.T) {
 			return false, fmt.Sprintf("failed to list Locations: %v", err)
 		}
 
-		return conditions.IsTrue(binding, apisv1alpha1.InitialBindingCompleted), fmt.Sprintf("binding not bound: %s", toYaml(binding))
+		condition := conditions.Get(binding, apisv1alpha1.InitialBindingCompleted)
+		if condition == nil {
+			return false, fmt.Sprintf("no %s condition exists", apisv1alpha1.InitialBindingCompleted)
+		}
+		if condition.Status == corev1.ConditionTrue {
+			return true, ""
+		}
+		return false, fmt.Sprintf("not done waiting for the binding to be initially bound, reason: %v - message: %v", condition.Reason, condition.Message)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Wait for placement to be ready")
@@ -224,7 +254,14 @@ func TestScheduling(t *testing.T) {
 			return false, fmt.Sprintf("failed to get placement: %v", err)
 		}
 
-		return conditions.IsTrue(placement, schedulingv1alpha1.PlacementReady), fmt.Sprintf("placement is not ready: %s", toYaml(binding))
+		condition := conditions.Get(placement, schedulingv1alpha1.PlacementReady)
+		if condition == nil {
+			return false, fmt.Sprintf("no %s condition exists", schedulingv1alpha1.PlacementReady)
+		}
+		if condition.Status == corev1.ConditionTrue {
+			return true, ""
+		}
+		return false, fmt.Sprintf("not done waiting for the placement to be ready, reason: %v - message: %v", condition.Reason, condition.Message)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Wait for being able to list Services in the user workspace")
@@ -314,14 +351,6 @@ func TestScheduling(t *testing.T) {
 		require.NoError(t, err)
 
 		_, found := ns.Annotations[schedulingv1alpha1.PlacementAnnotationKey]
-		return found, fmt.Sprintf("no %s annotation:\n%s", schedulingv1alpha1.PlacementAnnotationKey, toYaml(ns))
+		return found, fmt.Sprintf("no %s annotation:\n%s", schedulingv1alpha1.PlacementAnnotationKey, ns.Annotations)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
-}
-
-func toYaml(obj interface{}) string {
-	b, err := yaml.Marshal(obj)
-	if err != nil {
-		panic(err)
-	}
-	return string(b)
 }
