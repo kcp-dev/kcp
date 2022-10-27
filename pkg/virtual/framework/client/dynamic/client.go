@@ -27,6 +27,11 @@ import (
 )
 
 func NewDeleterWithResults(delegate dynamic.ResourceInterface) (DeleterWithResults, error) {
+	deleterWithResult, ok := delegate.(DeleterWithResults)
+	if ok {
+		return deleterWithResult, nil
+	}
+
 	dynamicRawDeleter, ok := delegate.(DynamicRawDeleter)
 	if !ok {
 		return nil, fmt.Errorf("expected a dynamic client that supports raw delete calls, got %T", delegate)
