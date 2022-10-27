@@ -72,6 +72,14 @@ func (c *DownstreamController) process(ctx context.Context, key string) error {
 		logger.Error(err, "failed to unmarshal namespace locator", "namespaceLocator", namespaceLocatorJSON)
 		return nil
 	}
+
+	// Check if the nsLocator SyncTarget UID is the same as ours. If not, we should ignore this namespace as it could be
+	// managed by different syncer.
+	if nsLocator.SyncTarget.UID != c.syncTargetUID {
+		logger.V(4).Info("downstream namespace is not handled by this sync target, ignoring")
+		return nil
+	}
+
 	logger = logger.WithValues(logging.WorkspaceKey, nsLocator.Workspace, logging.NamespaceKey, nsLocator.Namespace)
 	exists, err := c.upstreamNamespaceExists(nsLocator.Workspace, nsLocator.Namespace)
 	if err != nil {
