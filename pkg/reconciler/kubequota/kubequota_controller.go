@@ -296,28 +296,25 @@ func (c *Controller) startQuotaForClusterWorkspace(ctx context.Context, clusterN
 	// starting/stopping dynamic informers as needed based on the updated discovery data. We know that kcp contains
 	// the combination of built-in types plus CRDs. We use that information to drive what quota evaluates.
 
+	quotaController := quotaController{
+		clusterName: clusterName,
+		queue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "quota-"+clusterName.String()),
+		work: func(ctx context.Context) {
+			resourceQuotaController.UpdateMonitors(ctx, c.dynamicDiscoverySharedInformerFactory.DiscoveryData)
+		},
+	}
+	go quotaController.Start(ctx)
+
 	apisChanged := c.dynamicDiscoverySharedInformerFactory.Subscribe("quota-" + clusterName.String())
 
 	go func() {
-		var discoveryCancel func()
-
 		for {
 			select {
 			case <-ctx.Done():
-				if discoveryCancel != nil {
-					discoveryCancel()
-				}
-
 				return
 			case <-apisChanged:
-				if discoveryCancel != nil {
-					discoveryCancel()
-				}
-
 				logger.V(4).Info("got API change notification")
-
-				ctx, discoveryCancel = context.WithCancel(ctx)
-				resourceQuotaController.UpdateMonitors(ctx, c.dynamicDiscoverySharedInformerFactory.DiscoveryData)
+				quotaController.queue.Add("resync") // this queue only ever has one key in it, as long as it's constant we are OK
 			}
 		}
 	}()
@@ -325,4 +322,50 @@ func (c *Controller) startQuotaForClusterWorkspace(ctx context.Context, clusterN
 	go resourceQuotaController.Run(ctx, c.workersPerLogicalCluster)
 
 	return nil
+}
+
+type quotaController struct {
+	clusterName    logicalcluster.Name
+	queue          workqueue.RateLimitingInterface
+	work           func(context.Context)
+	previousCancel func()
+}
+
+// Start starts the controller, which stops when ctx.Done() is closed.
+func (c *quotaController) Start(ctx context.Context) {
+	defer utilruntime.HandleCrash()
+	defer c.queue.ShutDown()
+
+	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName+"-"+c.clusterName.String()+"-monitors")
+	ctx = klog.NewContext(ctx, logger)
+	logger.Info("Starting controller")
+	defer logger.Info("Shutting down controller")
+
+	go wait.UntilWithContext(ctx, c.startWorker, time.Second)
+	<-ctx.Done()
+	if c.previousCancel != nil {
+		c.previousCancel()
+	}
+}
+
+func (c *quotaController) startWorker(ctx context.Context) {
+	for c.processNextWorkItem(ctx) {
+	}
+}
+
+func (c *quotaController) processNextWorkItem(ctx context.Context) bool {
+	key, quit := c.queue.Get()
+	if quit {
+		return false
+	}
+	defer c.queue.Done(key)
+
+	if c.previousCancel != nil {
+		c.previousCancel()
+	}
+
+	ctx, c.previousCancel = context.WithCancel(ctx)
+	c.work(ctx)
+	c.queue.Forget(key)
+	return true
 }
