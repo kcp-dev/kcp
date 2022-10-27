@@ -270,28 +270,26 @@ func (c *Controller) startGarbageCollectorForClusterWorkspace(ctx context.Contex
 	// starting/stopping dynamic informers as needed based on the updated discovery data. We know that kcp contains
 	// the combination of built-in types plus CRDs. We use that information to drive what garbage collector evaluates.
 	// TODO: support scoped shared dynamic discovery to avoid emitting global discovery events.
+
+	garbageCollectorController := garbageCollectorController{
+		clusterName: clusterName,
+		queue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "quota-"+clusterName.String()),
+		work: func(ctx context.Context) {
+			garbageCollector.ResyncMonitors(ctx, c.dynamicDiscoverySharedInformerFactory)
+		},
+	}
+	go garbageCollectorController.Start(ctx)
+
 	apisChanged := c.dynamicDiscoverySharedInformerFactory.Subscribe("gc-" + clusterName.String())
 
 	go func() {
-		var discoveryCancel func()
-
 		for {
 			select {
 			case <-ctx.Done():
-				if discoveryCancel != nil {
-					discoveryCancel()
-				}
-
 				return
 			case <-apisChanged:
-				if discoveryCancel != nil {
-					discoveryCancel()
-				}
-
 				logger.V(4).Info("got API change notification")
-
-				ctx, discoveryCancel = context.WithCancel(ctx)
-				garbageCollector.ResyncMonitors(ctx, c.dynamicDiscoverySharedInformerFactory)
+				garbageCollectorController.queue.Add("resync") // this queue only ever has one key in it, as long as it's constant we are OK
 			}
 		}
 	}()
@@ -302,4 +300,50 @@ func (c *Controller) startGarbageCollectorForClusterWorkspace(ctx context.Contex
 	go garbageCollector.Run(ctx, c.workersPerLogicalCluster)
 
 	return nil
+}
+
+type garbageCollectorController struct {
+	clusterName    logicalcluster.Name
+	queue          workqueue.RateLimitingInterface
+	work           func(context.Context)
+	previousCancel func()
+}
+
+// Start starts the controller, which stops when ctx.Done() is closed.
+func (c *garbageCollectorController) Start(ctx context.Context) {
+	defer utilruntime.HandleCrash()
+	defer c.queue.ShutDown()
+
+	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName+"-"+c.clusterName.String()+"-monitors")
+	ctx = klog.NewContext(ctx, logger)
+	logger.Info("Starting controller")
+	defer logger.Info("Shutting down controller")
+
+	go wait.UntilWithContext(ctx, c.startWorker, time.Second)
+	<-ctx.Done()
+	if c.previousCancel != nil {
+		c.previousCancel()
+	}
+}
+
+func (c *garbageCollectorController) startWorker(ctx context.Context) {
+	for c.processNextWorkItem(ctx) {
+	}
+}
+
+func (c *garbageCollectorController) processNextWorkItem(ctx context.Context) bool {
+	key, quit := c.queue.Get()
+	if quit {
+		return false
+	}
+	defer c.queue.Done(key)
+
+	if c.previousCancel != nil {
+		c.previousCancel()
+	}
+
+	ctx, c.previousCancel = context.WithCancel(ctx)
+	c.work(ctx)
+	c.queue.Forget(key)
+	return true
 }
