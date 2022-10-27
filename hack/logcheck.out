@@ -10,16 +10,6 @@
 /cmd/sharded-test-server/third_party/library-go/crypto/crypto.go:740:2: function "V" should not be used, convert to contextual logging
 /cmd/sharded-test-server/third_party/library-go/crypto/crypto.go:809:2: function "Infof" should not be used, convert to contextual logging
 /cmd/sharded-test-server/third_party/library-go/crypto/crypto.go:809:2: function "V" should not be used, convert to contextual logging
-/config/helpers/bootstrap.go:202:4: function "Infof" should not be used, convert to contextual logging
-/config/helpers/bootstrap.go:202:4: function "V" should not be used, convert to contextual logging
-/config/helpers/bootstrap.go:221:5: function "Infof" should not be used, convert to contextual logging
-/config/helpers/bootstrap.go:234:5: function "Infof" should not be used, convert to contextual logging
-/config/helpers/bootstrap.go:241:2: function "Infof" should not be used, convert to contextual logging
-/config/helpers/bootstrap.go:264:4: function "Infof" should not be used, convert to contextual logging
-/config/helpers/bootstrap.go:264:4: function "V" should not be used, convert to contextual logging
-/config/helpers/bootstrap.go:275:3: function "Infof" should not be used, convert to contextual logging
-/config/helpers/bootstrap.go:275:3: function "V" should not be used, convert to contextual logging
-/config/helpers/bootstrap.go:94:4: function "Infof" should not be used, convert to contextual logging
 /pkg/admission/kubequota/kubequota_admission.go:217:3: function "InfoS" should not be used, convert to contextual logging
 /pkg/admission/kubequota/kubequota_admission.go:217:3: function "V" should not be used, convert to contextual logging
 /pkg/admission/kubequota/kubequota_admission.go:221:2: function "InfoS" should not be used, convert to contextual logging
