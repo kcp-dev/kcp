@@ -56,7 +56,7 @@ import (
 const (
 	resyncPeriod = 10 * time.Hour
 
-	byGroupFirstFoundVersionResourceIndex = "byGroup-firstFoundVersion-resource"
+	byGroupVersionResourceIndex = "byGroupVersionResource"
 )
 
 // DynamicDiscoverySharedInformerFactory is a SharedInformerFactory that
@@ -122,12 +122,9 @@ func NewDynamicDiscoverySharedInformerFactory(
 
 	f.handlers.Store([]GVREventHandler{})
 
-	// Add an index function that indexes a CRD by its group/firstServedVersion/resource. We only need the first
-	// served version because this shared informer factory is expected to be using a wildcard client for partial
-	// metadata only. In this instance, version does not matter, because a wildcard partial metadata list request
-	// for CRs always serves all CRs for the group-resource, regardless of storage version.
+	// Add an index function that indexes a CRD by its group/version/resource.
 	if err := crdInformer.Informer().AddIndexers(cache.Indexers{
-		byGroupFirstFoundVersionResourceIndex: byGroupFirstFoundVersionResourceIndexFunc,
+		byGroupVersionResourceIndex: byGroupVersionResourceIndexFunc,
 	}); err != nil {
 		return nil, err
 	}
@@ -174,30 +171,26 @@ func NewDynamicDiscoverySharedInformerFactory(
 	return f, nil
 }
 
-func byGroupFirstFoundVersionResourceIndexFunc(obj interface{}) ([]string, error) {
+func byGroupVersionResourceKeyFunc(group, version, resource string) string {
+	return fmt.Sprintf("%s/%s/%s", group, version, resource)
+}
+
+func byGroupVersionResourceIndexFunc(obj interface{}) ([]string, error) {
 	crd, ok := obj.(*apiextensionsv1.CustomResourceDefinition)
 	if !ok {
 		return nil, fmt.Errorf("%T is not a CustomResourceDefinition", obj)
 	}
 
-	firstServedVersion := ""
-	for _, version := range crd.Spec.Versions {
-		if !version.Served {
+	var ret []string
+
+	for _, v := range crd.Spec.Versions {
+		if !v.Served {
 			continue
 		}
-		firstServedVersion = version.Name
-		break
+		ret = append(ret, byGroupVersionResourceKeyFunc(crd.Spec.Group, v.Name, crd.Spec.Names.Plural))
 	}
 
-	if firstServedVersion == "" {
-		return []string{}, nil
-	}
-
-	group := crd.Spec.Group
-	resource := crd.Spec.Names.Plural
-
-	indexValue := fmt.Sprintf("%s/%s/%s", group, firstServedVersion, resource)
-	return []string{indexValue}, nil
+	return ret, nil
 }
 
 func (d *DynamicDiscoverySharedInformerFactory) Cluster(cluster logicalcluster.Name) kcpkubernetesinformers.ScopedDynamicSharedInformerFactory {
@@ -463,7 +456,7 @@ func (d *DynamicDiscoverySharedInformerFactory) updateInformers() {
 
 	// Get the unique set of Group(Version)Resources (version doesn't matter because we're expecting a wildcard
 	// partial metadata client, but we need a version in the request, so we need it here) and add them to latest.
-	crdGVRs := d.crdIndexer.ListIndexFuncValues(byGroupFirstFoundVersionResourceIndex)
+	crdGVRs := d.crdIndexer.ListIndexFuncValues(byGroupVersionResourceIndex)
 	for _, s := range crdGVRs {
 		parts := strings.Split(s, "/")
 		group := parts[0]
@@ -479,7 +472,7 @@ func (d *DynamicDiscoverySharedInformerFactory) updateInformers() {
 			continue
 		}
 
-		obj, err := indexers.ByIndex[*apiextensionsv1.CustomResourceDefinition](d.crdIndexer, byGroupFirstFoundVersionResourceIndex, fmt.Sprintf("%s/%s/%s", gvr.Group, gvr.Version, gvr.Resource))
+		obj, err := indexers.ByIndex[*apiextensionsv1.CustomResourceDefinition](d.crdIndexer, byGroupVersionResourceIndex, byGroupVersionResourceKeyFunc(gvr.Group, gvr.Version, gvr.Resource))
 		if err != nil {
 			utilruntime.HandleError(err)
 			continue
