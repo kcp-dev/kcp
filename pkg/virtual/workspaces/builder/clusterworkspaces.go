@@ -50,6 +50,7 @@ func CreateAndStartOrg(
 	rbacInformers rbacinformers.Interface,
 	clusterWorkspaceInformer tenancyinformers.ClusterWorkspaceInformer,
 	initialWatchers []workspaceauth.CacheWatcher,
+	period time.Duration, jitterFactor float64, sliding bool,
 ) *authCacheClusterWorkspaces {
 	authCache := workspaceauth.NewAuthorizationCache(
 		workspaceauth.CacheTypeOrg,
@@ -73,7 +74,7 @@ func CreateAndStartOrg(
 		authCache.AddWatcher(watcher)
 	}
 
-	cws.authCache.Run(1*time.Second, cws.stopCh)
+	cws.authCache.Run(period, jitterFactor, sliding, cws.stopCh)
 
 	return cws
 }

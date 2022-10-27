@@ -79,6 +79,7 @@ func startShard(ctx context.Context, n int, args []string, servingCA *crypto.CA,
 		fmt.Sprintf("--tls-cert-file=%s", filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d/apiserver.crt", n))),
 		fmt.Sprintf("--tls-private-key-file=%s", filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d/apiserver.key", n))),
 		fmt.Sprintf("--secure-port=%d", 6444+n),
+		"--virtual-workspaces-workspaces.authorization-cache.resync-period=1s",
 	)
 
 	return shard.Start(ctx,
