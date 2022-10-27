@@ -378,18 +378,18 @@ func TestGarbageCollectorVersionedCRDs(t *testing.T) {
 	sheriffsGVRv1 := schema.GroupVersionResource{Group: group, Resource: "sheriffs", Version: "v1"}
 	sheriffsGVRv2 := schema.GroupVersionResource{Group: group, Resource: "sheriffs", Version: "v2"}
 
-	t.Logf("Creating owner sheriff")
-	owner, err := dynamicClusterClient.Cluster(ws).Resource(sheriffsGVRv1).Namespace("default").
+	t.Logf("Creating owner v1 sheriff")
+	ownerv1, err := dynamicClusterClient.Cluster(ws).Resource(sheriffsGVRv1).Namespace("default").
 		Create(ctx, &unstructured.Unstructured{
 			Object: map[string]interface{}{
 				"apiVersion": sheriffsGVRv1.GroupVersion().String(),
 				"kind":       "Sheriff",
 				"metadata": map[string]interface{}{
-					"name": "owner",
+					"name": "owner-v1",
 				},
 			},
 		}, metav1.CreateOptions{})
-	require.NoError(t, err, "Error creating owner sheriff %s|default/owner", ws)
+	require.NoError(t, err, "Error creating owner sheriff %s|default/owner-v1", ws)
 
 	t.Logf("Creating owned v1 sheriff")
 	_, err = dynamicClusterClient.Cluster(ws).Resource(sheriffsGVRv1).Namespace("default").
@@ -401,16 +401,16 @@ func TestGarbageCollectorVersionedCRDs(t *testing.T) {
 					"name": "owned-v1",
 					"ownerReferences": []map[string]interface{}{
 						{
-							"apiVersion": owner.GetAPIVersion(),
-							"kind":       owner.GetKind(),
-							"name":       owner.GetName(),
-							"uid":        owner.GetUID(),
+							"apiVersion": ownerv1.GetAPIVersion(),
+							"kind":       ownerv1.GetKind(),
+							"name":       ownerv1.GetName(),
+							"uid":        ownerv1.GetUID(),
 						},
 					},
 				},
 			},
 		}, metav1.CreateOptions{})
-	require.NoError(t, err, "Error creating owner sheriff %s|default/owned-v1", ws)
+	require.NoError(t, err, "Error creating owned sheriff %s|default/owned-v1", ws)
 
 	t.Logf("Creating owned v2 sheriff")
 	_, err = dynamicClusterClient.Cluster(ws).Resource(sheriffsGVRv2).Namespace("default").
@@ -422,21 +422,88 @@ func TestGarbageCollectorVersionedCRDs(t *testing.T) {
 					"name": "owned-v2",
 					"ownerReferences": []map[string]interface{}{
 						{
-							"apiVersion": owner.GetAPIVersion(),
-							"kind":       owner.GetKind(),
-							"name":       owner.GetName(),
-							"uid":        owner.GetUID(),
+							"apiVersion": ownerv1.GetAPIVersion(),
+							"kind":       ownerv1.GetKind(),
+							"name":       ownerv1.GetName(),
+							"uid":        ownerv1.GetUID(),
 						},
 					},
 				},
 			},
 		}, metav1.CreateOptions{})
-	require.NoError(t, err, "Error creating owner sheriff %s|default/owned-v2", ws)
+	require.NoError(t, err, "Error creating owned sheriff %s|default/owned-v2", ws)
 
-	t.Logf("Deleting owner sheriff")
+	t.Logf("Deleting owner v1 sheriff")
 	err = dynamicClusterClient.Cluster(ws).Resource(sheriffsGVRv1).Namespace("default").
-		Delete(ctx, owner.GetName(), metav1.DeleteOptions{})
-	require.NoError(t, err, "Error deleting sheriff %s in %s", owner.GetName(), ws)
+		Delete(ctx, ownerv1.GetName(), metav1.DeleteOptions{})
+	require.NoError(t, err, "Error deleting sheriff %s in %s", ownerv1.GetName(), ws)
+
+	t.Logf("Waiting for the owned sheriffs to be garbage collected")
+	framework.Eventually(t, func() (bool, string) {
+		_, err1 := dynamicClusterClient.Cluster(ws).Resource(sheriffsGVRv1).Namespace("default").Get(ctx, "owned-v1", metav1.GetOptions{})
+		_, err2 := dynamicClusterClient.Cluster(ws).Resource(sheriffsGVRv2).Namespace("default").Get(ctx, "owned-v2", metav1.GetOptions{})
+		return apierrors.IsNotFound(err1) && apierrors.IsNotFound(err2), "sheriffs not garbage collected"
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "error waiting for owned sheriffs to be garbage collected")
+
+	t.Logf("Creating owner v2 sheriff")
+	ownerv2, err := dynamicClusterClient.Cluster(ws).Resource(sheriffsGVRv2).Namespace("default").
+		Create(ctx, &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": sheriffsGVRv2.GroupVersion().String(),
+				"kind":       "Sheriff",
+				"metadata": map[string]interface{}{
+					"name": "owner-v2",
+				},
+			},
+		}, metav1.CreateOptions{})
+	require.NoError(t, err, "Error creating owner sheriff %s|default/owner-v2", ws)
+
+	t.Logf("Creating owned v1 sheriff")
+	_, err = dynamicClusterClient.Cluster(ws).Resource(sheriffsGVRv1).Namespace("default").
+		Create(ctx, &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": sheriffsGVRv1.GroupVersion().String(),
+				"kind":       "Sheriff",
+				"metadata": map[string]interface{}{
+					"name": "owned-v1",
+					"ownerReferences": []map[string]interface{}{
+						{
+							"apiVersion": ownerv2.GetAPIVersion(),
+							"kind":       ownerv2.GetKind(),
+							"name":       ownerv2.GetName(),
+							"uid":        ownerv2.GetUID(),
+						},
+					},
+				},
+			},
+		}, metav1.CreateOptions{})
+	require.NoError(t, err, "Error creating owned sheriff %s|default/owned-v1", ws)
+
+	t.Logf("Creating owned v2 sheriff")
+	_, err = dynamicClusterClient.Cluster(ws).Resource(sheriffsGVRv2).Namespace("default").
+		Create(ctx, &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": sheriffsGVRv2.GroupVersion().String(),
+				"kind":       "Sheriff",
+				"metadata": map[string]interface{}{
+					"name": "owned-v2",
+					"ownerReferences": []map[string]interface{}{
+						{
+							"apiVersion": ownerv2.GetAPIVersion(),
+							"kind":       ownerv2.GetKind(),
+							"name":       ownerv2.GetName(),
+							"uid":        ownerv2.GetUID(),
+						},
+					},
+				},
+			},
+		}, metav1.CreateOptions{})
+	require.NoError(t, err, "Error creating owned sheriff %s|default/owned-v2", ws)
+
+	t.Logf("Deleting owner v2 sheriff")
+	err = dynamicClusterClient.Cluster(ws).Resource(sheriffsGVRv2).Namespace("default").
+		Delete(ctx, ownerv2.GetName(), metav1.DeleteOptions{})
+	require.NoError(t, err, "Error deleting sheriff %s in %s", ownerv2.GetName(), ws)
 
 	t.Logf("Waiting for the owned sheriffs to be garbage collected")
 	framework.Eventually(t, func() (bool, string) {
