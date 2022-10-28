@@ -150,11 +150,19 @@ func TestAPIExportAuthorizers(t *testing.T) {
 				{
 					GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "configmaps"},
 					All:           true,
+					Verbs: apisv1alpha1.Verbs{
+						Claimed:    []string{"*"},
+						RestrictTo: []string{"get", "watch"},
+					},
 				},
 				{
 					GroupResource: apisv1alpha1.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
 					IdentityHash:  identityHash,
 					All:           true,
+					Verbs: apisv1alpha1.Verbs{
+						Claimed:    []string{"*"},
+						RestrictTo: []string{"get", "list", "watch"},
+					},
 				},
 			},
 		},
@@ -184,6 +192,31 @@ func TestAPIExportAuthorizers(t *testing.T) {
 				Workspace: &apisv1alpha1.WorkspaceExportReference{
 					Path:       serviceProvider2Workspace.String(),
 					ExportName: "today-cowboys",
+				},
+			},
+			PermissionClaims: []apisv1alpha1.AcceptablePermissionClaim{
+				{
+					PermissionClaim: apisv1alpha1.PermissionClaim{
+						GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "configmaps"},
+						All:           true,
+						Verbs: apisv1alpha1.Verbs{
+							Claimed:    []string{"*"},
+							RestrictTo: []string{"get", "watch"},
+						},
+					},
+					State: apisv1alpha1.ClaimAccepted,
+				},
+				{
+					PermissionClaim: apisv1alpha1.PermissionClaim{
+						GroupResource: apisv1alpha1.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
+						IdentityHash:  identityHash,
+						All:           true,
+						Verbs: apisv1alpha1.Verbs{
+							Claimed:    []string{"*"},
+							RestrictTo: []string{"get", "list", "watch"},
+						},
+					},
+					State: apisv1alpha1.ClaimAccepted,
 				},
 			},
 		},
@@ -347,4 +380,31 @@ func TestAPIExportAuthorizers(t *testing.T) {
 	_, err = user2DynamicVWClient.Cluster(tenantShadowCRDWorkspace).Resource(schema.GroupVersionResource{Version: "v1alpha1", Resource: "cowboys", Group: "wildwest.dev"}).List(ctx, metav1.ListOptions{})
 	require.Error(t, err, "expected error, got none")
 	require.True(t, errors.IsNotFound(err))
+
+	// TODO(sur): Change the following test to something more appropriate
+	t.Logf("grant access to sherrifs for %q in workspace %q", apisv1alpha1.MaximalPermissionPolicyRBACUserGroupPrefix+"user-3", serviceProvider1Workspace)
+	cr, crb = createClusterRoleAndBindings(
+		"apiexport-claimed-user-3",
+		"apis.kcp.dev:binding:user-3", "User",
+		[]string{"create", "list"},
+		"wild.wild.west", "sheriffs", "",
+	)
+	_, err = kubeClient.Cluster(serviceProvider1Workspace).RbacV1().ClusterRoles().Create(ctx, cr, metav1.CreateOptions{})
+	require.NoError(t, err)
+	_, err = kubeClient.Cluster(serviceProvider1Workspace).RbacV1().ClusterRoleBindings().Create(ctx, crb, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	// configmaps
+	_, err = user3DynamicClusterClient.Cluster(tenantWorkspace).Resource(claimedGVRs[0]).List(ctx, metav1.ListOptions{})
+	require.Error(t, err)
+
+	// eventually to let the above maximal permission policy cluster role bindings soak in
+	framework.Eventually(t, func() (success bool, reason string) {
+		// sherriffs
+		_, err = user3DynamicClusterClient.Cluster(tenantWorkspace).Resource(claimedGVRs[1]).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return false, fmt.Sprintf("error while waiting to list sherriffs: %v", err)
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "listing claimed resources failed")
 }

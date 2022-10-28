@@ -114,7 +114,7 @@ func (s *Authorization) ApplyTo(config *genericapiserver.Config, informer kcpkub
 		authorization.NewTopLevelOrganizationAccessAuthorizer(informer, workspaceLister,
 			authorization.NewWorkspaceContentAuthorizer(informer, workspaceLister,
 				authorization.NewSystemCRDAuthorizer(
-					apiBindingAuth,
+					authorization.NewReversePermissionClaimsAuthorizer(kcpinformer, apiBindingAuth),
 				),
 			),
 		),
