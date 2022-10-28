@@ -186,8 +186,21 @@ const (
 // PermissionClaim identifies an object by GR and identity hash.
 // Its purpose is to determine the added permissions that a service provider may
 // request and that a consumer may accept and allow the service provider access to.
+//
+// +kubebuilder:validation:XValidation:rule="self.all != has(self.resourceSelector)",message="either \"all\" or \"resourceSelector\" must be set"
 type PermissionClaim struct {
 	GroupResource `json:","`
+
+	// all claims all resources for the given group/resource.
+	// This is mutually exclusive with resourceSelector.
+	// +required
+	// +kubebuilder:default=false
+	All bool `json:"all"`
+
+	// resourceSelector is a list of claimed resource selectors.
+	//
+	// +optional
+	ResourceSelector []ResourceSelector `json:"resourceSelector,omitempty"`
 
 	// This is the identity for a given APIExport that the APIResourceSchema belongs to.
 	// The hash can be found on APIExport and APIResourceSchema's status.
@@ -195,6 +208,22 @@ type PermissionClaim struct {
 	// Note that one must look this up for a particular KCP instance.
 	// +optional
 	IdentityHash string `json:"identityHash,omitempty"`
+}
+
+type ResourceSelector struct {
+	// name of an object within a claimed group/resource.
+	// It matches the metadata.name field of the underlying object.
+	//
+	// +optional
+	// +kubebuilder:validation:Pattern="^([a-z0-9][-a-z0-9_.]*)?[a-z0-9]$"
+	// +kubebuilder:validation:MaxLength=253
+	Name string `json:"name,omitempty"`
+
+	// namespace containing the named object. Matches metadata.namespace field.
+	// If "name" is unset, all objects from the namespace are being claimed.
+	//
+	// +required
+	Namespace string `json:"namespace"`
 }
 
 func (p PermissionClaim) String() string {

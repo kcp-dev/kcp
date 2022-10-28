@@ -78,6 +78,7 @@ func TestClusterWorkspaceTypeAPIBindingInitialization(t *testing.T) {
 					GroupResource: apisv1alpha1.GroupResource{
 						Resource: "configmaps",
 					},
+					All: true,
 				},
 			},
 		},
