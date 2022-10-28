@@ -111,5 +111,6 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 }
 
 func (o *Options) AddFlags(fs *pflag.FlagSet) {
-	// TODO: figure out what flags needs to be exposed
+	o.EmbeddedEtcd.AddFlags(fs)
+	o.SecureServing.AddFlags(fs)
 }
