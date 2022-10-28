@@ -148,16 +148,30 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		shardFlags = append(shardFlags, fmt.Sprintf("--shard-virtual-workspace-url=https://%s:7444", hostIP))
 	}
 
+	cacheServerErrCh := make(chan indexErrTuple)
+	cacheServerConfigPath := ""
+	if sets.NewString(shardFlags...).Has("--run-cache-server=true") {
+		cacheServerCh, configPath, err := startCacheServer(ctx, logDirPath, workDirPath)
+		if err != nil {
+			return fmt.Errorf("error starting the cache server: %w", err)
+		}
+		cacheServerConfigPath = configPath
+		go func() {
+			err := <-cacheServerCh
+			cacheServerErrCh <- indexErrTuple{0, err}
+		}()
+	}
+
 	// start shards
-	shardsErrCh := make(chan shardErrTuple)
+	shardsErrCh := make(chan indexErrTuple)
 	for i := 0; i < numberOfShards; i++ {
-		shardErrCh, err := startShard(ctx, i, shardFlags, servingCA, hostIP.String(), logDirPath, workDirPath)
+		shardErrCh, err := startShard(ctx, i, shardFlags, servingCA, hostIP.String(), logDirPath, workDirPath, cacheServerConfigPath)
 		if err != nil {
 			return err
 		}
 		go func(shardIndex int, shardErrCh <-chan error) {
 			err := <-shardErrCh
-			shardsErrCh <- shardErrTuple{shardIndex, err}
+			shardsErrCh <- indexErrTuple{shardIndex, err}
 
 		}(i, shardErrCh)
 	}
@@ -168,7 +182,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	}
 
 	vwPort := "6444"
-	virtualWorkspacesErrCh := make(chan shardErrTuple)
+	virtualWorkspacesErrCh := make(chan indexErrTuple)
 	if standaloneVW {
 		// TODO: support multiple virtual workspace servers (i.e. multiple ports)
 		vwPort = "7444"
@@ -180,7 +194,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 			}
 			go func(vwIndex int, vwErrCh <-chan error) {
 				err := <-virtualWorkspaceErrCh
-				virtualWorkspacesErrCh <- shardErrTuple{vwIndex, err}
+				virtualWorkspacesErrCh <- indexErrTuple{vwIndex, err}
 			}(i, virtualWorkspaceErrCh)
 		}
 	}
@@ -195,12 +209,14 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		return fmt.Errorf("shard %d exited: %w", shardIndexErr.index, shardIndexErr.error)
 	case vwIndexErr := <-virtualWorkspacesErrCh:
 		return fmt.Errorf("virtual workspaces %d exited: %w", vwIndexErr.index, vwIndexErr.error)
+	case cacheErr := <-cacheServerErrCh:
+		return fmt.Errorf("cache server exited: %w", cacheErr.error)
 	case <-ctx.Done():
 	}
 	return nil
 }
 
-type shardErrTuple struct {
+type indexErrTuple struct {
 	index int
 	error error
 }
