@@ -43,7 +43,8 @@ else
 fi
 
 # Normalize paths so we don't generate diffs based only on user directory mismatches
-${SED} -e "s,${REPO_ROOT},,g" "${work_file}"
+# Also remove warning about not using inlined strings.
+${SED} -e "s,${REPO_ROOT},,g" -e "/Key positional arguments are expected to be inlined constant strings./d" "${work_file}"
 LC_COLLATE=C sort "${work_file}" -o "${work_file}"
 
 # Copy the current set to the known set, but keep temp file in place for diffing
