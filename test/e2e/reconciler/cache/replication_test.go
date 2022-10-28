@@ -71,63 +71,100 @@ var scenarios = []testScenario{
 
 // baseScenario an auxiliary struct that is used by replicateResourceScenario
 type baseScenario struct {
-	server framework.RunningServer
+	ctx                   context.Context
+	server                framework.RunningServer
+	kcpShardClusterClient clientset.ClusterInterface
+	cacheKcpClusterClient clientset.ClusterInterface
 
 	resourceName string
 	resourceKind string
 
 	createSourceResource        func(logicalcluster.Name) error
-	getSourceResource           func(logicalcluster.Name) (interface{}, error)
-	updateSourceResource        func(logicalcluster.Name, interface{}) (interface{}, error)
-	updateSpecForSourceResource func(interface{}) error
-	deleteSourceResource        func(logicalcluster.Name) error
+	updateSourceResource        func(logicalcluster.Name, runtime.Object) error
+	updateSpecForSourceResource func(runtime.Object) error
 
-	getCachedResource    func(logicalcluster.Name) (interface{}, error)
-	deleteCachedResource func(logicalcluster.Name) error
 	updateCachedResource func(logicalcluster.Name) error
+}
+
+func (s *baseScenario) getSourceResource(cluster logicalcluster.Name) (runtime.Object, error) {
+	switch s.resourceKind {
+	case "APIExport":
+		return s.kcpShardClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Get(s.ctx, s.resourceName, metav1.GetOptions{})
+	case "APIResourceSchema":
+		return s.kcpShardClusterClient.Cluster(cluster).ApisV1alpha1().APIResourceSchemas().Get(s.ctx, s.resourceName, metav1.GetOptions{})
+	}
+	return nil, fmt.Errorf("unable to get a REST client for an uknown %s Kind", s.resourceKind)
+}
+
+func (s *baseScenario) deleteSourceResource(cluster logicalcluster.Name) error {
+	switch s.resourceKind {
+	case "APIExport":
+		return s.kcpShardClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Delete(s.ctx, s.resourceName, metav1.DeleteOptions{})
+	case "APIResourceSchema":
+		return s.kcpShardClusterClient.Cluster(cluster).ApisV1alpha1().APIResourceSchemas().Delete(s.ctx, s.resourceName, metav1.DeleteOptions{})
+	}
+	return fmt.Errorf("unable to get a REST client for an uknown %s Kind", s.resourceKind)
+}
+
+func (s *baseScenario) getCachedResource(cluster logicalcluster.Name) (runtime.Object, error) {
+	switch s.resourceKind {
+	case "APIExport":
+		return s.cacheKcpClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Get(cacheclient.WithShardInContext(s.ctx, shard.New("root")), s.resourceName, metav1.GetOptions{})
+	case "APIResourceSchema":
+		return s.cacheKcpClusterClient.Cluster(cluster).ApisV1alpha1().APIResourceSchemas().Get(cacheclient.WithShardInContext(s.ctx, shard.New("root")), s.resourceName, metav1.GetOptions{})
+	}
+	return nil, fmt.Errorf("unable to get a REST client for an uknown %s Kind", s.resourceKind)
+}
+
+func (s *baseScenario) deleteCachedResource(cluster logicalcluster.Name) error {
+	switch s.resourceKind {
+	case "APIExport":
+		return s.cacheKcpClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Delete(cacheclient.WithShardInContext(s.ctx, shard.New("root")), s.resourceName, metav1.DeleteOptions{})
+	case "APIResourceSchema":
+		return s.cacheKcpClusterClient.Cluster(cluster).ApisV1alpha1().APIResourceSchemas().Delete(cacheclient.WithShardInContext(s.ctx, shard.New("root")), s.resourceName, metav1.DeleteOptions{})
+	}
+	return fmt.Errorf("unable to get a REST client for an uknown %s Kind", s.resourceKind)
 }
 
 // replicateAPIResourceSchemaScenario tests if an APIResourceSchema is propagated to the cache server.
 // The test exercises creation, modification and removal of the APIExport object.
 func replicateAPIResourceSchemaScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterClient clientset.ClusterInterface, cacheKcpClusterClient clientset.ClusterInterface) {
-	replicateResourceScenario(t, baseScenario{
-		server:       server,
-		resourceName: "today.sheriffs.wild.wild.west",
-		resourceKind: "APIResourceSchema",
+	replicateResourceScenario(t, &baseScenario{
+		ctx:                   ctx,
+		server:                server,
+		kcpShardClusterClient: kcpShardClusterClient,
+		cacheKcpClusterClient: cacheKcpClusterClient,
+		resourceName:          "today.sheriffs.wild.wild.west",
+		resourceKind:          "APIResourceSchema",
 		createSourceResource: func(cluster logicalcluster.Name) error {
 			apifixtures.CreateSheriffsSchemaAndExport(ctx, t, cluster, kcpShardClusterClient.Cluster(cluster), "wild.wild.west", "testing replication to the cache server")
 			return nil
 		},
-		getSourceResource: func(cluster logicalcluster.Name) (interface{}, error) {
-			return kcpShardClusterClient.Cluster(cluster).ApisV1alpha1().APIResourceSchemas().Get(ctx, "today.sheriffs.wild.wild.west", metav1.GetOptions{})
-		},
-		updateSourceResource: func(cluster logicalcluster.Name, res interface{}) (interface{}, error) {
+		updateSourceResource: func(cluster logicalcluster.Name, res runtime.Object) error {
 			apiResSchema, ok := res.(*apisv1alpha1.APIResourceSchema)
 			if !ok {
-				return nil, fmt.Errorf("%T is not *APIResourceSchema", res)
+				return fmt.Errorf("%T is not *APIResourceSchema", res)
 			}
-			return kcpShardClusterClient.Cluster(cluster).ApisV1alpha1().APIResourceSchemas().Update(ctx, apiResSchema, metav1.UpdateOptions{})
+			_, err := kcpShardClusterClient.Cluster(cluster).ApisV1alpha1().APIResourceSchemas().Update(ctx, apiResSchema, metav1.UpdateOptions{})
+			return err
 		},
-		updateSpecForSourceResource: func(res interface{}) error {
+		updateSpecForSourceResource: func(res runtime.Object) error {
 			// no-op, spec of an APIResourceSchema is immutable
 			// there is an admission enforcing it
 			return nil
-		},
-		deleteSourceResource: func(cluster logicalcluster.Name) error {
-			return kcpShardClusterClient.Cluster(cluster).ApisV1alpha1().APIResourceSchemas().Delete(ctx, "today.sheriffs.wild.wild.west", metav1.DeleteOptions{})
-		},
-		getCachedResource: func(cluster logicalcluster.Name) (interface{}, error) {
-			return cacheKcpClusterClient.Cluster(cluster).ApisV1alpha1().APIResourceSchemas().Get(cacheclient.WithShardInContext(ctx, shard.New("root")), "today.sheriffs.wild.wild.west", metav1.GetOptions{})
 		},
 	})
 }
 
 // replicateAPIResourceSchemaNegativeScenario checks if modified or even deleted cached APIResourceSchema will be reconciled to match the original object
 func replicateAPIResourceSchemaNegativeScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterClient clientset.ClusterInterface, cacheKcpClusterClient clientset.ClusterInterface) {
-	replicateResourceNegativeScenario(t, baseScenario{
-		server:       server,
-		resourceName: "mangodb",
-		resourceKind: "APIResourceSchema",
+	replicateResourceNegativeScenario(t, &baseScenario{
+		ctx:                   ctx,
+		server:                server,
+		kcpShardClusterClient: kcpShardClusterClient,
+		cacheKcpClusterClient: cacheKcpClusterClient,
+		resourceName:          "juicy.mangodbs.db.io",
+		resourceKind:          "APIResourceSchema",
 		createSourceResource: func(cluster logicalcluster.Name) error {
 			schema := &apisv1alpha1.APIResourceSchema{
 				ObjectMeta: metav1.ObjectMeta{
@@ -167,15 +204,6 @@ func replicateAPIResourceSchemaNegativeScenario(ctx context.Context, t *testing.
 			_, err := kcpShardClusterClient.Cluster(cluster).ApisV1alpha1().APIResourceSchemas().Create(ctx, schema, metav1.CreateOptions{})
 			return err
 		},
-		getSourceResource: func(cluster logicalcluster.Name) (interface{}, error) {
-			return kcpShardClusterClient.Cluster(cluster).ApisV1alpha1().APIResourceSchemas().Get(ctx, "juicy.mangodbs.db.io", metav1.GetOptions{})
-		},
-		getCachedResource: func(cluster logicalcluster.Name) (interface{}, error) {
-			return cacheKcpClusterClient.Cluster(cluster).ApisV1alpha1().APIResourceSchemas().Get(cacheclient.WithShardInContext(ctx, shard.New("root")), "juicy.mangodbs.db.io", metav1.GetOptions{})
-		},
-		deleteCachedResource: func(cluster logicalcluster.Name) error {
-			return cacheKcpClusterClient.Cluster(cluster).ApisV1alpha1().APIResourceSchemas().Delete(cacheclient.WithShardInContext(ctx, shard.New("root")), "juicy.mangodbs.db.io", metav1.DeleteOptions{})
-		},
 		updateCachedResource: func(cluster logicalcluster.Name) error {
 			cachedSchema, err := cacheKcpClusterClient.Cluster(cluster).ApisV1alpha1().APIResourceSchemas().Get(cacheclient.WithShardInContext(ctx, shard.New("root")), "juicy.mangodbs.db.io", metav1.GetOptions{})
 			if err != nil {
@@ -196,25 +224,26 @@ func replicateAPIResourceSchemaNegativeScenario(ctx context.Context, t *testing.
 // replicateAPIExportScenario tests if an APIExport is propagated to the cache server.
 // The test exercises creation, modification and removal of the APIExport object.
 func replicateAPIExportScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterClient clientset.ClusterInterface, cacheKcpClusterClient clientset.ClusterInterface) {
-	replicateResourceScenario(t, baseScenario{
-		server:       server,
-		resourceName: "wild.wild.west",
-		resourceKind: "APIExport",
+	replicateResourceScenario(t, &baseScenario{
+		ctx:                   ctx,
+		server:                server,
+		kcpShardClusterClient: kcpShardClusterClient,
+		cacheKcpClusterClient: cacheKcpClusterClient,
+		resourceName:          "wild.wild.west",
+		resourceKind:          "APIExport",
 		createSourceResource: func(cluster logicalcluster.Name) error {
 			apifixtures.CreateSheriffsSchemaAndExport(ctx, t, cluster, kcpShardClusterClient.Cluster(cluster), "wild.wild.west", "testing replication to the cache server")
 			return nil
 		},
-		getSourceResource: func(cluster logicalcluster.Name) (interface{}, error) {
-			return kcpShardClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
-		},
-		updateSourceResource: func(cluster logicalcluster.Name, res interface{}) (interface{}, error) {
+		updateSourceResource: func(cluster logicalcluster.Name, res runtime.Object) error {
 			apiExport, ok := res.(*apisv1alpha1.APIExport)
 			if !ok {
-				return nil, fmt.Errorf("%T is not *APIExport", res)
+				return fmt.Errorf("%T is not *APIExport", res)
 			}
-			return kcpShardClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Update(ctx, apiExport, metav1.UpdateOptions{})
+			_, err := kcpShardClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Update(ctx, apiExport, metav1.UpdateOptions{})
+			return err
 		},
-		updateSpecForSourceResource: func(res interface{}) error {
+		updateSpecForSourceResource: func(res runtime.Object) error {
 			apiExport, ok := res.(*apisv1alpha1.APIExport)
 			if !ok {
 				return fmt.Errorf("%T is not *APIExport", res)
@@ -222,21 +251,18 @@ func replicateAPIExportScenario(ctx context.Context, t *testing.T, server framew
 			apiExport.Spec.LatestResourceSchemas = append(apiExport.Spec.LatestResourceSchemas, "foo.bar")
 			return nil
 		},
-		deleteSourceResource: func(cluster logicalcluster.Name) error {
-			return kcpShardClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Delete(ctx, "wild.wild.west", metav1.DeleteOptions{})
-		},
-		getCachedResource: func(cluster logicalcluster.Name) (interface{}, error) {
-			return cacheKcpClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Get(cacheclient.WithShardInContext(ctx, shard.New("root")), "wild.wild.west", metav1.GetOptions{})
-		},
 	})
 }
 
 // replicateAPIExportNegativeScenario checks if modified or even deleted cached APIExport will be reconciled to match the original object
 func replicateAPIExportNegativeScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterClient clientset.ClusterInterface, cacheKcpClusterClient clientset.ClusterInterface) {
-	replicateResourceNegativeScenario(t, baseScenario{
-		server:       server,
-		resourceName: "mangodb",
-		resourceKind: "APIExport",
+	replicateResourceNegativeScenario(t, &baseScenario{
+		ctx:                   ctx,
+		server:                server,
+		kcpShardClusterClient: kcpShardClusterClient,
+		cacheKcpClusterClient: cacheKcpClusterClient,
+		resourceName:          "mangodb",
+		resourceKind:          "APIExport",
 		createSourceResource: func(cluster logicalcluster.Name) error {
 			export := &apisv1alpha1.APIExport{
 				ObjectMeta: metav1.ObjectMeta{
@@ -245,15 +271,6 @@ func replicateAPIExportNegativeScenario(ctx context.Context, t *testing.T, serve
 			}
 			_, err := kcpShardClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Create(ctx, export, metav1.CreateOptions{})
 			return err
-		},
-		getSourceResource: func(cluster logicalcluster.Name) (interface{}, error) {
-			return kcpShardClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Get(ctx, "mangodb", metav1.GetOptions{})
-		},
-		getCachedResource: func(cluster logicalcluster.Name) (interface{}, error) {
-			return cacheKcpClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Get(cacheclient.WithShardInContext(ctx, shard.New("root")), "mangodb", metav1.GetOptions{})
-		},
-		deleteCachedResource: func(cluster logicalcluster.Name) error {
-			return cacheKcpClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Delete(cacheclient.WithShardInContext(ctx, shard.New("root")), "mangodb", metav1.DeleteOptions{})
 		},
 		updateCachedResource: func(cluster logicalcluster.Name) error {
 			cachedExport, err := cacheKcpClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Get(cacheclient.WithShardInContext(ctx, shard.New("root")), "mangodb", metav1.GetOptions{})
@@ -269,7 +286,7 @@ func replicateAPIExportNegativeScenario(ctx context.Context, t *testing.T, serve
 
 // replicateResourceScenario tests if a given resource is propagated to the cache server.
 // The test exercises creation, modification and removal of the provided resource.
-func replicateResourceScenario(t *testing.T, scenario baseScenario) {
+func replicateResourceScenario(t *testing.T, scenario *baseScenario) {
 	org := framework.NewOrganizationFixture(t, scenario.server)
 	cluster := framework.NewWorkspaceFixture(t, scenario.server, org, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
 
@@ -283,7 +300,7 @@ func replicateResourceScenario(t *testing.T, scenario baseScenario) {
 	verifyResourceUpdate(t, scenario, cluster, scenario.updateSpecForSourceResource)
 
 	t.Logf("Verify that a metadata update on %s %s/%s is propagated ot the cached object", scenario.resourceKind, cluster, scenario.resourceName)
-	verifyResourceUpdate(t, scenario, cluster, func(originalResource interface{}) error {
+	verifyResourceUpdate(t, scenario, cluster, func(originalResource runtime.Object) error {
 		originalResourceMeta, err := meta.Accessor(originalResource)
 		if err != nil {
 			return err
@@ -308,11 +325,11 @@ func replicateResourceScenario(t *testing.T, scenario baseScenario) {
 			return false, err.Error()
 		}
 		return false, fmt.Sprintf("replicated %s %s/%s wasn't removed", scenario.resourceKind, cluster, scenario.resourceName)
-	}, wait.ForeverTestTimeout, 400*time.Millisecond)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 }
 
 // replicateAPIExportNegativeScenario checks if modified or even deleted cached resource will be reconciled to match the original object
-func replicateResourceNegativeScenario(t *testing.T, scenario baseScenario) {
+func replicateResourceNegativeScenario(t *testing.T, scenario *baseScenario) {
 	org := framework.NewOrganizationFixture(t, scenario.server)
 	cluster := framework.NewWorkspaceFixture(t, scenario.server, org, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
 
@@ -336,7 +353,7 @@ func replicateResourceNegativeScenario(t *testing.T, scenario baseScenario) {
 	verifyResourceExistence(t, scenario, cluster)
 }
 
-func verifyResourceExistence(t *testing.T, scenario baseScenario, cluster logicalcluster.Name) {
+func verifyResourceExistence(t *testing.T, scenario *baseScenario, cluster logicalcluster.Name) {
 	t.Logf("Get %s %s/%s from the root shard and the cache server for comparison", scenario.resourceKind, cluster, scenario.resourceName)
 	framework.Eventually(t, func() (bool, string) {
 		originalResource, err := scenario.getSourceResource(cluster)
@@ -363,10 +380,10 @@ func verifyResourceExistence(t *testing.T, scenario baseScenario, cluster logica
 			return false, fmt.Sprintf("replicated %s root|%s/%s is different that the original", scenario.resourceKind, cluster, cachedResourceMeta.GetName())
 		}
 		return true, ""
-	}, wait.ForeverTestTimeout, 400*time.Millisecond)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 }
 
-func verifyResourceUpdate(t *testing.T, scenario baseScenario, cluster logicalcluster.Name, updateSourceResource func(interface{}) error) {
+func verifyResourceUpdate(t *testing.T, scenario *baseScenario, cluster logicalcluster.Name, updateSourceResource func(runtime.Object) error) {
 	t.Logf("Update %s/%s/%s on a shard", scenario.resourceKind, cluster, scenario.resourceName)
 	framework.Eventually(t, func() (bool, string) {
 		originalResource, err := scenario.getSourceResource(cluster)
@@ -376,7 +393,7 @@ func verifyResourceUpdate(t *testing.T, scenario baseScenario, cluster logicalcl
 		if err = updateSourceResource(originalResource); err != nil {
 			return false, err.Error()
 		}
-		_, err = scenario.updateSourceResource(cluster, originalResource)
+		err = scenario.updateSourceResource(cluster, originalResource)
 		if err != nil {
 			if !errors.IsConflict(err) {
 				return false, fmt.Sprintf("unknow error while updating the cached %s/%s/%s, err: %s", scenario.resourceKind, cluster, scenario.resourceName, err.Error())
@@ -384,7 +401,7 @@ func verifyResourceUpdate(t *testing.T, scenario baseScenario, cluster logicalcl
 			return false, err.Error() // try again
 		}
 		return true, ""
-	}, wait.ForeverTestTimeout, 400*time.Millisecond)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 	t.Logf("Get %s/%s/%s from the cache server", scenario.resourceKind, cluster, scenario.resourceName)
 	framework.Eventually(t, func() (bool, string) {
 		originalResource, err := scenario.getSourceResource(cluster)
@@ -408,7 +425,7 @@ func verifyResourceUpdate(t *testing.T, scenario baseScenario, cluster logicalcl
 			return false, fmt.Sprintf("replicated %s root/%s/%s is different that the original", scenario.resourceKind, cluster, cachedResourceMeta.GetName())
 		}
 		return true, ""
-	}, wait.ForeverTestTimeout, 400*time.Millisecond)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 }
 
 // TestCacheServerInProcess runs all test scenarios against a cache server that runs with a kcp server
