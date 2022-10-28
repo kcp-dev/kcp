@@ -30,9 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/discovery/cached/memory"
 	kubernetesclient "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/component-base/metrics/prometheus/ratelimiter"
@@ -250,7 +248,7 @@ func (c *Controller) startGarbageCollectorForClusterWorkspace(ctx context.Contex
 	garbageCollector, err := garbagecollector.NewClusterAwareGarbageCollector(
 		kubeClient,
 		c.metadataClient.Cluster(clusterName),
-		restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(c.dynamicDiscoverySharedInformerFactory)),
+		c.dynamicDiscoverySharedInformerFactory.RESTMapper(),
 		c.ignoredResources,
 		c.dynamicDiscoverySharedInformerFactory.Cluster(clusterName),
 		c.informersStarted,
