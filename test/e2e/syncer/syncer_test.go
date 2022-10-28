@@ -26,6 +26,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
@@ -170,6 +171,7 @@ func TestSyncerLifecycle(t *testing.T) {
 	var deployment *appsv1.Deployment
 	err = yaml.Unmarshal(deploymentYAML, &deployment)
 	require.NoError(t, err, "failed to unmarshal deployment")
+	t.Logf("unmarshalled into: %#v", deployment)
 
 	// This test created a new workspace that initially lacked support for deployments, but once the
 	// sync target went ready (checked by the syncer fixture's Start method) the api importer
@@ -180,6 +182,8 @@ func TestSyncerLifecycle(t *testing.T) {
 		upstreamDeployment, err = upstreamKubeClusterClient.Cluster(wsClusterName).AppsV1().Deployments(upstreamNamespace.Name).Create(ctx, deployment, metav1.CreateOptions{})
 		return err == nil
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "deployment not created")
+
+	t.Logf("difference between what we sent and what we got: %v", cmp.Diff(deployment, upstreamDeployment))
 
 	syncTargetKey := workloadv1alpha1.ToSyncTargetKey(logicalcluster.From(syncTarget), syncTarget.Name)
 
