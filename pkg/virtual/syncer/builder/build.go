@@ -26,11 +26,15 @@ import (
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v2"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
@@ -109,12 +113,12 @@ func BuildVirtualWorkspace(
 			// that likely means that a syncer is running with a stale synctarget that got deleted.
 			syncTarget, exists, err := wildcardKcpInformers.Workload().V1alpha1().SyncTargets().Informer().GetIndexer().GetByKey(client.ToClusterAwareKey(workspace, syncTargetName))
 			if !exists || err != nil {
-				runtime.HandleError(fmt.Errorf("failed to get synctarget %s|%s: %w", workspace, syncTargetName, err))
+				utilruntime.HandleError(fmt.Errorf("failed to get synctarget %s|%s: %w", workspace, syncTargetName, err))
 				return
 			}
 			syncTargetObj := syncTarget.(*workloadv1alpha1.SyncTarget)
 			if string(syncTargetObj.UID) != syncTargetUID {
-				runtime.HandleError(fmt.Errorf("sync target UID mismatch: %s != %s", syncTargetObj.UID, syncTargetUID))
+				utilruntime.HandleError(fmt.Errorf("sync target UID mismatch: %s != %s", syncTargetObj.UID, syncTargetUID))
 				return
 			}
 
@@ -178,7 +182,7 @@ func BuildVirtualWorkspace(
 		}
 	}
 
-	bootstrapManagementProvider := func(storageBuilderProvider StorageBuilderProvider, virtualWorkspaceName string, allowedAPIFilter apireconciler.AllowedAPIfilterFunc, buildRequirements buildRequirementsFunc, readyCh chan struct{}) func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
+	bootstrapManagementProvider := func(storageBuilderProvider StorageBuilderProvider, virtualWorkspaceName string, allowedAPIFilter apireconciler.AllowedAPIfilterFunc, buildRequirements buildRequirementsFunc, storageWrapperBuilder func(labels.Requirements) forwardingregistry.StorageWrapper, readyCh chan struct{}) func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
 		return func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
 			apiReconciler, err := apireconciler.NewAPIReconciler(
 				virtualWorkspaceName,
@@ -192,7 +196,11 @@ func BuildVirtualWorkspace(
 					if err != nil {
 						return nil, err
 					}
-					storageWrapper := forwardingregistry.WithStaticLabelSelector(requirements)
+
+					storageWrapper := storageWrapperBuilder(requirements)
+					if err != nil {
+						return nil, err
+					}
 
 					ctx, cancelFn := context.WithCancel(context.Background())
 					storageBuilder := storageBuilderProvider(ctx, dynamicClusterClient, apiExportIdentityHash, storageWrapper)
@@ -289,7 +297,7 @@ func BuildVirtualWorkspace(
 		RootPathResolver:          resolverProvider(UpsyncerVirtualWorkspaceName, upsyncerReadyCh),
 		Authorizer:                authorizer.AuthorizerFunc(virtualWorkspaceAuthorizer),
 		ReadyChecker:              readyCheckerProvider(upsyncerReadyCh),
-		BootstrapAPISetManagement: bootstrapManagementProvider(NewUpSyncerStorageBuilder, UpsyncerVirtualWorkspaceName, upsyncerAllowedAPIFunc, buildRequirements(workloadv1alpha1.ResourceStateUpsync), upsyncerReadyCh),
+		BootstrapAPISetManagement: bootstrapManagementProvider(NewUpSyncerStorageBuilder, UpsyncerVirtualWorkspaceName, upsyncerAllowedAPIFunc, buildRequirements(workloadv1alpha1.ResourceStateUpsync), withStaticLabelSelectorAndInWriteCallsCheck, upsyncerReadyCh),
 	}
 
 	return []rootapiserver.NamedVirtualWorkspace{
@@ -322,4 +330,41 @@ func goContext(parent genericapiserver.PostStartHookContext) context.Context {
 		cancel()
 	}(parent.StopCh)
 	return ctx
+}
+
+func withStaticLabelSelectorAndInWriteCallsCheck(labelSelector labels.Requirements) forwardingregistry.StorageWrapper {
+	return func(resource schema.GroupResource, storage *forwardingregistry.StoreFuncs) *forwardingregistry.StoreFuncs {
+
+		delegateCreater := storage.CreaterFunc
+		storage.CreaterFunc = func(ctx context.Context, obj runtime.Object, createValidation rest.ValidateObjectFunc, options *metav1.CreateOptions) (runtime.Object, error) {
+			if meta, ok := obj.(metav1.Object); ok {
+				if !labels.Everything().Add(labelSelector...).Matches(labels.Set(meta.GetLabels())) {
+					return nil, apierrors.NewBadRequest(fmt.Sprintf("label selector %q does not match labels %v", labelSelector, meta.GetLabels()))
+				}
+			}
+			return delegateCreater.Create(ctx, obj, createValidation, options)
+		}
+
+		delegateUpdater := storage.UpdaterFunc
+		storage.UpdaterFunc = func(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
+			obj, err := objInfo.UpdatedObject(ctx, nil)
+			if apierrors.IsNotFound(err) {
+				return delegateUpdater.Update(ctx, name, objInfo, createValidation, updateValidation, forceAllowCreate, options)
+			}
+			if err != nil {
+				return nil, false, err
+			}
+
+			if meta, ok := obj.(metav1.Object); ok {
+				if !labels.Everything().Add(labelSelector...).Matches(labels.Set(meta.GetLabels())) {
+					return nil, false, apierrors.NewBadRequest(fmt.Sprintf("label selector %q does not match labels %v", labelSelector, meta.GetLabels()))
+				}
+			}
+			return delegateUpdater.Update(ctx, name, objInfo, createValidation, updateValidation, forceAllowCreate, options)
+		}
+
+		staticStorage := forwardingregistry.WithStaticLabelSelector(labelSelector)
+
+		return staticStorage(resource, storage)
+	}
 }
