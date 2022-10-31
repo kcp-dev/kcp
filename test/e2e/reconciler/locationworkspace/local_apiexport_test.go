@@ -140,6 +140,11 @@ func TestSyncTargetLocalExport(t *testing.T) {
 		return conditions.IsTrue(syncTarget, workloadv1alpha1.SyncerAuthorized)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
+	t.Logf("Bind to location workspace")
+	framework.NewBindCompute(t, computeClusterName, source,
+		framework.WithAPIExportsWorkloadBindOption(computeClusterName.String()+":kubernetes"),
+	).Bind(t)
+
 	t.Logf("Wait for being able to list Services in the user workspace")
 	require.Eventually(t, func() bool {
 		_, err := kubeClusterClient.Cluster(computeClusterName).CoreV1().Services("default").List(ctx, metav1.ListOptions{})

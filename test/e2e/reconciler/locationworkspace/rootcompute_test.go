@@ -24,20 +24,15 @@ import (
 	"time"
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 
-	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
@@ -83,11 +78,6 @@ func TestRootComputeWorkspace(t *testing.T) {
 		}),
 	).Start(t)
 
-	t.Logf("Patch synctarget with new export")
-	patchData := `{"spec":{"supportedAPIExports":[{"workspace":{"path":"root:compute","exportName":"kubernetes"}}]}}`
-	_, err = kcpClients.Cluster(computeClusterName).WorkloadV1alpha1().SyncTargets().Patch(ctx, syncTargetName, types.MergePatchType, []byte(patchData), metav1.PatchOptions{})
-	require.NoError(t, err)
-
 	require.Eventually(t, func() bool {
 		syncTarget, err := kcpClients.Cluster(computeClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
 		if err != nil {
@@ -110,60 +100,11 @@ func TestRootComputeWorkspace(t *testing.T) {
 		return true
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
-	t.Logf("Create an APIBinding in consumer workspace %q that points to the kubernetes export", consumerWorkspace)
-	apiBinding := &apisv1alpha1.APIBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "kubernetes",
-		},
-		Spec: apisv1alpha1.APIBindingSpec{
-			Reference: apisv1alpha1.ExportReference{
-				Workspace: &apisv1alpha1.WorkspaceExportReference{
-					Path:       "root:compute",
-					ExportName: "kubernetes",
-				},
-			},
-		},
-	}
-
-	_, err = kcpClients.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Create(logicalcluster.WithCluster(ctx, consumerWorkspace), apiBinding, metav1.CreateOptions{})
-	require.NoError(t, err)
-
-	t.Logf("Wait for binding to be ready")
-	require.Eventually(t, func() bool {
-		binding, err := kcpClients.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Get(logicalcluster.WithCluster(ctx, consumerWorkspace), apiBinding.Name, metav1.GetOptions{})
-		require.NoError(t, err)
-
-		return conditions.IsTrue(binding, apisv1alpha1.InitialBindingCompleted)
-	}, wait.ForeverTestTimeout, time.Millisecond*100)
-
-	t.Logf("create a placement")
-	p1 := &schedulingv1alpha1.Placement{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test",
-		},
-		Spec: schedulingv1alpha1.PlacementSpec{
-			LocationSelectors: []metav1.LabelSelector{{}},
-			NamespaceSelector: &metav1.LabelSelector{},
-			LocationResource: schedulingv1alpha1.GroupVersionResource{
-				Group:    "workload.kcp.dev",
-				Version:  "v1alpha1",
-				Resource: "synctargets",
-			},
-			LocationWorkspace: computeClusterName.String(),
-		},
-	}
-	_, err = kcpClients.Cluster(consumerWorkspace).SchedulingV1alpha1().Placements().Create(logicalcluster.WithCluster(ctx, consumerWorkspace), p1, metav1.CreateOptions{})
-	require.NoError(t, err)
-
-	t.Logf("Wait for placement to be ready")
-	framework.Eventually(t, func() (bool, string) {
-		placement, err := kcpClients.Cluster(consumerWorkspace).SchedulingV1alpha1().Placements().Get(logicalcluster.WithCluster(ctx, consumerWorkspace), "test", metav1.GetOptions{})
-		if err != nil {
-			return false, fmt.Sprintf("failed to get placement: %v", err)
-		}
-
-		return conditions.IsTrue(placement, schedulingv1alpha1.PlacementReady), fmt.Sprintf("placement is not ready: %v", placement)
-	}, wait.ForeverTestTimeout, time.Millisecond*100)
+	t.Logf("Bind to location workspace")
+	framework.NewBindCompute(t, consumerWorkspace, source,
+		framework.WithAPIExportsWorkloadBindOption("root:compute:kubernetes"),
+		framework.WithLocationWorkspaceWorkloadBindOption(computeClusterName),
+	).Bind(t)
 
 	t.Logf("Wait for being able to list Services in the user workspace")
 	require.Eventually(t, func() bool {

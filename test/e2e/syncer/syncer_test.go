@@ -90,6 +90,9 @@ func TestSyncerLifecycle(t *testing.T) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
+	t.Logf("Bind location workspace")
+	framework.NewBindCompute(t, wsClusterName, upstreamServer).Bind(t)
+
 	upstreamConfig := upstreamServer.BaseConfig(t)
 	upstreamKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(upstreamConfig)
 	require.NoError(t, err)

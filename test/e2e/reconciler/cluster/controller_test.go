@@ -201,6 +201,9 @@ func TestClusterController(t *testing.T) {
 					}
 				})).Start(t)
 
+			t.Logf("Bind second user workspace to location workspace")
+			framework.NewBindCompute(t, wsClusterName, source).Bind(t)
+
 			sinkWildwestClient, err := wildwestclientset.NewForConfig(syncerFixture.DownstreamConfig)
 			require.NoError(t, err)
 
