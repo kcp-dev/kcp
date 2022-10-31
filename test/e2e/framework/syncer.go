@@ -268,6 +268,11 @@ func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 				}
 
 				for _, pod := range pods.Items {
+					//Check if the POD is ready before trying to get the logs, ignore if not to avoid the test failing.
+					if pod.Status.Phase != corev1.PodRunning {
+						t.Logf("Pod %s is not running", pod.Name)
+						continue
+					}
 					artifactPath := filepath.Join(artifactDir, fmt.Sprintf("syncer-%s-%s.log", syncerID, pod.Name))
 
 					t.Logf("Collecting downstream logs for pod %s/%s: %s", syncerID, pod.Name, artifactPath)
