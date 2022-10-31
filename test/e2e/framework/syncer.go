@@ -275,8 +275,14 @@ func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 					}
 					artifactPath := filepath.Join(artifactDir, fmt.Sprintf("syncer-%s-%s.log", syncerID, pod.Name))
 
+					// if the log is stopped or has crashed we will try to get --previous logs.
+					extraArg := ""
+					if pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed {
+						extraArg = "--previous"
+					}
+
 					t.Logf("Collecting downstream logs for pod %s/%s: %s", syncerID, pod.Name, artifactPath)
-					logs := Kubectl(t, downstreamKubeconfigPath, "-n", syncerID, "logs", pod.Name)
+					logs := Kubectl(t, downstreamKubeconfigPath, "-n", syncerID, "logs", pod.Name, extraArg)
 
 					err = ioutil.WriteFile(artifactPath, logs, 0644)
 					if err != nil {
