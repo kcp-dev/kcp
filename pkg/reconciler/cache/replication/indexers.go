@@ -43,18 +43,18 @@ func IndexByShardAndLogicalClusterAndNamespace(obj interface{}) ([]string, error
 	// TODO: rename to genericapirequest.ShardNameAnnotationKey
 	shardName := annotations[genericapirequest.AnnotationKey]
 
-	return []string{ShardAndLogicalClusterAndNamespaceKey(shardName, logicalcluster.From(a).String(), a.GetNamespace(), a.GetName())}, nil
+	return []string{ShardAndLogicalClusterAndNamespaceKey(shardName, logicalcluster.From(a), a.GetNamespace(), a.GetName())}, nil
 }
 
 // ShardAndLogicalClusterAndNamespaceKey creates an index key from the given parameters.
 // As of today this function is used by IndexByShardAndLogicalClusterAndNamespace indexer.
-func ShardAndLogicalClusterAndNamespaceKey(shard, cluster, namespace, name string) string {
+func ShardAndLogicalClusterAndNamespaceKey(shard string, cluster logicalcluster.Name, namespace, name string) string {
 	var key string
 	if len(shard) > 0 {
 		key += shard + "|"
 	}
-	if len(cluster) > 0 {
-		key += cluster + "|"
+	if !cluster.Empty() {
+		key += cluster.String() + "|"
 	}
 	if len(namespace) > 0 {
 		key += namespace + "/"
