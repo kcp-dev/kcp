@@ -72,11 +72,9 @@ func TestWorkspaceShardController(t *testing.T) {
 
 			orgClusterName := framework.NewOrganizationFixture(t, server)
 
-			orgClusterCfg := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), orgClusterName)
 			orgClusterKcpClient, err := kcpkubernetesclientset.NewForConfig(orgClusterCfg)
 			require.NoError(t, err)
 
-			rootClusterCfg := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), tenancyv1alpha1.RootCluster)
 			rootClusterKcpClient, err := kcpclientset.NewForConfig(rootClusterCfg)
 			require.NoError(t, err)
 

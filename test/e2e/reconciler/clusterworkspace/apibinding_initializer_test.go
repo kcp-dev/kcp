@@ -57,7 +57,6 @@ func TestClusterWorkspaceTypeAPIBindingInitialization(t *testing.T) {
 	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
 	require.NoError(t, err, "error creating dynamic cluster client")
 
-	cowboysProviderConfig := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), cowboysProvider)
 	cowboysProviderKCPClient, err := kcpclient.NewForConfig(cowboysProviderConfig)
 	require.NoError(t, err, "error creating cowboys provider kcp client")
 

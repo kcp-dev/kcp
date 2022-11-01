@@ -294,8 +294,8 @@ func readCA(file string) ([]byte, error) {
 
 func (s *Server) installWorkspaceDeletionController(ctx context.Context, config *rest.Config) error {
 	config = rest.CopyConfig(config)
-	config = rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(config), clusterworkspacedeletion.ControllerName)
 	kcpClusterClient, err := kcpclient.NewForConfig(config)
+	config = rest.AddUserAgent(config, clusterworkspacedeletion.ControllerName)
 	if err != nil {
 		return err
 	}
@@ -338,7 +338,7 @@ func (s *Server) installWorkspaceDeletionController(ctx context.Context, config 
 
 func (s *Server) installWorkloadResourceScheduler(ctx context.Context, config *rest.Config, ddsif *informer.DynamicDiscoverySharedInformerFactory) error {
 	config = rest.CopyConfig(config)
-	config = rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(config), workloadresource.ControllerName)
+	config = rest.AddUserAgent(config, workloadresource.ControllerName)
 	dynamicClusterClient, err := kcpdynamic.NewForConfig(config)
 	if err != nil {
 		return err
@@ -370,8 +370,8 @@ func (s *Server) installWorkloadResourceScheduler(ctx context.Context, config *r
 func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Config) error {
 	// NOTE: keep `config` unaltered so there isn't cross-use between controllers installed here.
 	clusterWorkspaceConfig := rest.CopyConfig(config)
-	clusterWorkspaceConfig = rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(clusterWorkspaceConfig), clusterworkspace.ControllerName)
 	kcpClusterClient, err := kcpclient.NewForConfig(clusterWorkspaceConfig)
+	clusterWorkspaceConfig = rest.AddUserAgent(clusterWorkspaceConfig, clusterworkspace.ControllerName)
 	if err != nil {
 		return err
 	}
@@ -399,8 +399,8 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 	}
 
 	clusterShardConfig := rest.CopyConfig(config)
-	clusterShardConfig = rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(clusterShardConfig), clusterworkspaceshard.ControllerName)
 	kcpClusterClient, err = kcpclient.NewForConfig(clusterShardConfig)
+	clusterShardConfig = rest.AddUserAgent(clusterShardConfig, clusterworkspaceshard.ControllerName)
 	if err != nil {
 		return err
 	}
@@ -431,8 +431,8 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 	}
 
 	workspaceTypeConfig := rest.CopyConfig(config)
-	workspaceTypeConfig = rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(workspaceTypeConfig), clusterworkspacetype.ControllerName)
 	kcpClusterClient, err = kcpclient.NewForConfig(workspaceTypeConfig)
+	workspaceTypeConfig = rest.AddUserAgent(workspaceTypeConfig, clusterworkspacetype.ControllerName)
 	if err != nil {
 		return err
 	}
@@ -464,7 +464,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 	// done.
 	bootstrapConfig := rest.CopyConfig(config)
 	universalControllerName := fmt.Sprintf("%s-%s", bootstrap.ControllerNameBase, "universal")
-	bootstrapConfig = rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(bootstrapConfig), universalControllerName)
+	bootstrapConfig = rest.AddUserAgent(bootstrapConfig, universalControllerName)
 	bootstrapConfig.Impersonate.UserName = kcpBootstrapperUserName
 	bootstrapConfig.Impersonate.Groups = []string{bootstrappolicy.SystemKcpWorkspaceBootstrapper}
 
@@ -509,7 +509,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 
 func (s *Server) installApiResourceController(ctx context.Context, config *rest.Config) error {
 	config = rest.CopyConfig(config)
-	config = rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(config), apiresource.ControllerName)
+	config = rest.AddUserAgent(config, apiresource.ControllerName)
 
 	crdClusterClient, err := kcpapiextensionsclientset.NewForConfig(config)
 	if err != nil {
@@ -547,8 +547,8 @@ func (s *Server) installApiResourceController(ctx context.Context, config *rest.
 
 func (s *Server) installSyncTargetHeartbeatController(ctx context.Context, config *rest.Config) error {
 	config = rest.CopyConfig(config)
-	config = rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(config), heartbeat.ControllerName)
 	kcpClusterClient, err := kcpclient.NewForConfig(config)
+	config = rest.AddUserAgent(config, heartbeat.ControllerName)
 	if err != nil {
 		return err
 	}
@@ -579,7 +579,7 @@ func (s *Server) installSyncTargetHeartbeatController(ctx context.Context, confi
 func (s *Server) installAPIBindingController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer, ddsif *informer.DynamicDiscoverySharedInformerFactory) error {
 	// NOTE: keep `config` unaltered so there isn't cross-use between controllers installed here.
 	apiBindingConfig := rest.CopyConfig(config)
-	apiBindingConfig = rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(apiBindingConfig), apibinding.ControllerName)
+	apiBindingConfig = rest.AddUserAgent(apiBindingConfig, apibinding.ControllerName)
 
 	kcpClusterClient, err := kcpclient.NewForConfig(apiBindingConfig)
 	if err != nil {
@@ -634,7 +634,7 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 	}
 
 	permissionClaimLabelConfig := rest.CopyConfig(config)
-	permissionClaimLabelConfig = rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(permissionClaimLabelConfig), permissionclaimlabel.ControllerName)
+	permissionClaimLabelConfig = rest.AddUserAgent(permissionClaimLabelConfig, permissionclaimlabel.ControllerName)
 
 	kcpClusterClient, err = kcpclient.NewForConfig(permissionClaimLabelConfig)
 	if err != nil {
@@ -671,7 +671,7 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 	}
 
 	resourceConfig := rest.CopyConfig(config)
-	resourceConfig = rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(resourceConfig), permissionclaimlabel.ResourceControllerName)
+	resourceConfig = rest.AddUserAgent(resourceConfig, permissionclaimlabel.ResourceControllerName)
 
 	kcpClusterClient, err = kcpclient.NewForConfig(resourceConfig)
 	if err != nil {
@@ -705,7 +705,7 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 	}
 
 	deletionConfig := rest.CopyConfig(config)
-	deletionConfig = rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(deletionConfig), apibindingdeletion.ControllerName)
+	deletionConfig = rest.AddUserAgent(deletionConfig, apibindingdeletion.ControllerName)
 
 	kcpClusterClient, err = kcpclient.NewForConfig(deletionConfig)
 	if err != nil {
@@ -737,7 +737,6 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 func (s *Server) installAPIBinderController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
 	// Client used to create APIBindings within the initializing workspace
 	config = rest.CopyConfig(config)
-	kcpclienthelper.SetMultiClusterRoundTripper(config)
 	config = rest.AddUserAgent(config, initialization.ControllerName)
 	// TODO(ncdc): support standalone vw server when --shard-virtual-workspace-url is set
 	config.Host += initializingworkspacesbuilder.URLFor(tenancyv1alpha1.ClusterWorkspaceAPIBindingsInitializer)
@@ -747,8 +746,6 @@ func (s *Server) installAPIBinderController(ctx context.Context, config *rest.Co
 	}
 
 	// Wildcard client used for informers
-	informerCfg := rest.CopyConfig(config)
-	kcpclienthelper.SetCluster(informerCfg, logicalcluster.Wildcard)
 	informerClient, err := kcpclient.NewForConfig(informerCfg)
 	if err != nil {
 		return err
@@ -823,7 +820,7 @@ func (s *Server) installCRDCleanupController(ctx context.Context, config *rest.C
 
 func (s *Server) installAPIExportController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
 	config = rest.CopyConfig(config)
-	config = rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(config), apiexport.ControllerName)
+	config = rest.AddUserAgent(config, apiexport.ControllerName)
 
 	kcpClusterClient, err := kcpclient.NewForConfig(config)
 	if err != nil {
@@ -872,7 +869,7 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 func (s *Server) installSchedulingLocationStatusController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
 	controllerName := "kcp-scheduling-location-status-controller"
 	config = rest.CopyConfig(config)
-	config = rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(config), controllerName)
+	config = rest.AddUserAgent(config, controllerName)
 
 	kcpClusterClient, err := kcpclient.NewForConfig(config)
 	if err != nil {
@@ -901,9 +898,43 @@ func (s *Server) installSchedulingLocationStatusController(ctx context.Context, 
 	})
 }
 
+<<<<<<< HEAD
+=======
+func (s *Server) installDefaultPlacementController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
+	config = rest.CopyConfig(config)
+	kcpClusterClient, err := kcpclient.NewForConfig(config)
+	config = rest.AddUserAgent(config, defaultplacement.ControllerName)
+	if err != nil {
+		return err
+	}
+
+	c, err := defaultplacement.NewController(
+		kcpClusterClient,
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
+		s.KcpSharedInformerFactory.Scheduling().V1alpha1().Placements(),
+		s.KcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
+	)
+	if err != nil {
+		return err
+	}
+
+	return server.AddPostStartHook(postStartHookName(defaultplacement.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
+		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(defaultplacement.ControllerName))
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			logger.Error(err, "failed to finish post-start-hook")
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		go c.Start(goContext(hookContext), 2)
+
+		return nil
+	})
+}
+
+>>>>>>> 11049dfb (*: stop using implicit *rest.Config behavior)
 func (s *Server) installWorkloadNamespaceScheduler(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
 	config = rest.CopyConfig(config)
-	config = rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(config), workloadnamespace.ControllerName)
+	config = rest.AddUserAgent(config, workloadnamespace.ControllerName)
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(config)
 	if err != nil {
 		return err
@@ -937,8 +968,8 @@ func (s *Server) installWorkloadNamespaceScheduler(ctx context.Context, config *
 
 func (s *Server) installWorkloadPlacementScheduler(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
 	config = rest.CopyConfig(config)
-	config = rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(config), workloadplacement.ControllerName)
 	kcpClusterClient, err := kcpclient.NewForConfig(config)
+	config = rest.AddUserAgent(config, workloadplacement.ControllerName)
 	if err != nil {
 		return err
 	}
@@ -968,8 +999,8 @@ func (s *Server) installWorkloadPlacementScheduler(ctx context.Context, config *
 
 func (s *Server) installSchedulingPlacementController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
 	config = rest.CopyConfig(config)
-	config = rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(config), schedulingplacement.ControllerName)
 	kcpClusterClient, err := kcpclient.NewForConfig(config)
+	config = rest.AddUserAgent(config, schedulingplacement.ControllerName)
 	if err != nil {
 		return err
 	}
@@ -999,8 +1030,8 @@ func (s *Server) installSchedulingPlacementController(ctx context.Context, confi
 
 func (s *Server) installWorkloadsAPIExportController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
 	config = rest.CopyConfig(config)
-	config = rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(config), workloadsapiexport.ControllerName)
 	kcpClusterClient, err := kcpclient.NewForConfig(config)
+	config = rest.AddUserAgent(config, workloadsapiexport.ControllerName)
 	if err != nil {
 		return err
 	}
@@ -1031,8 +1062,8 @@ func (s *Server) installWorkloadsAPIExportController(ctx context.Context, config
 
 func (s *Server) installWorkloadsAPIExportCreateController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
 	config = rest.CopyConfig(config)
-	config = rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(config), workloadsapiexportcreate.ControllerName)
 	kcpClusterClient, err := kcpclient.NewForConfig(config)
+	config = rest.AddUserAgent(config, workloadsapiexportcreate.ControllerName)
 	if err != nil {
 		return err
 	}
@@ -1063,8 +1094,8 @@ func (s *Server) installWorkloadsAPIExportCreateController(ctx context.Context, 
 
 func (s *Server) installWorkloadsSyncTargetExportController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
 	config = rest.CopyConfig(config)
-	config = rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(config), synctargetexports.ControllerName)
 	kcpClusterClient, err := kcpclient.NewForConfig(config)
+	config = rest.AddUserAgent(config, synctargetexports.ControllerName)
 	if err != nil {
 		return err
 	}
@@ -1094,8 +1125,8 @@ func (s *Server) installWorkloadsSyncTargetExportController(ctx context.Context,
 
 func (s *Server) installSyncTargetController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
 	config = rest.CopyConfig(config)
-	config = rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(config), synctargetcontroller.ControllerName)
 	kcpClusterClient, err := kcpclient.NewForConfig(config)
+	config = rest.AddUserAgent(config, synctargetcontroller.ControllerName)
 	if err != nil {
 		return err
 	}
@@ -1128,7 +1159,7 @@ func (s *Server) installKubeQuotaController(
 	server *genericapiserver.GenericAPIServer,
 ) error {
 	config = rest.CopyConfig(config)
-	// TODO(ncdc): figure out if we need kcpclienthelper.SetMultiClusterRoundTripper(config)
+	// TODO(ncdc): figure out if we need config
 	config = rest.AddUserAgent(config, kubequota.ControllerName)
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(config)
 	if err != nil {
@@ -1185,7 +1216,7 @@ func (s *Server) installApiExportIdentityController(ctx context.Context, config 
 		return nil
 	}
 	config = rest.CopyConfig(config)
-	config = rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(config), identitycache.ControllerName)
+	config = rest.AddUserAgent(config, identitycache.ControllerName)
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(config)
 	if err != nil {
 		return err

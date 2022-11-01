@@ -202,8 +202,7 @@ func wildcardIdentitiesResolver(ids *identities,
 
 func apiExportIdentityProvider(config *rest.Config, localShardKubeClusterClient kcpkubernetesclientset.ClusterInterface) func(ctx context.Context, apiExportName string) (string, error) {
 	return func(ctx context.Context, apiExportName string) (string, error) {
-		rootShardConfig := kcpclienthelper.SetCluster(rest.CopyConfig(config), tenancyv1alpha1.RootCluster)
-		rootShardKcpClient, err := kcpclient.NewForConfig(rootShardConfig)
+		rootShardKcpClient, err := kcpclientset.NewForConfig(config)
 		if err != nil {
 			return "", err
 		}

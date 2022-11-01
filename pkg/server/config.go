@@ -203,7 +203,6 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		rt := cacheclient.WithCacheServiceRoundTripper(cacheClientConfig)
 		rt = cacheclient.WithShardNameFromContextRoundTripper(rt)
 		rt = cacheclient.WithDefaultShardRoundTripper(rt, shard.Wildcard)
-		kcpclienthelper.SetMultiClusterRoundTripper(rt)
 
 		cacheKcpClusterClient, err := kcpclient.NewClusterForConfig(rt)
 		if err != nil {

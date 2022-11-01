@@ -176,10 +176,11 @@ func TestClusterController(t *testing.T) {
 
 			// clients
 			sourceConfig := source.BaseConfig(t)
-			sourceWsClusterConfig := kcpclienthelper.SetCluster(rest.CopyConfig(sourceConfig), wsClusterName)
 
 			sourceKubeClient, err := kcpkubernetesclientset.NewForConfig(sourceConfig)
 			require.NoError(t, err)
+
+			sourceWsClusterConfig := kcpclienthelper.SetCluster(kcpclienthelper.SetMultiClusterRoundTripper(rest.CopyConfig(sourceConfig)), wsClusterName)
 			sourceWildwestClient, err := wildwestclientset.NewForConfig(sourceWsClusterConfig)
 			require.NoError(t, err)
 

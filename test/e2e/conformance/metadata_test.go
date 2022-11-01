@@ -60,7 +60,7 @@ func TestMetadataMutations(t *testing.T) {
 
 	kube.Create(t, workspaceCRDClient.ApiextensionsV1().CustomResourceDefinitions().Cluster(workspaceName), metav1.GroupResource{Group: "apps.k8s.io", Resource: "deployments"})
 
-	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(kcpclienthelper.SetMultiClusterRoundTripper(rest.CopyConfig(cfg)))
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating kube cluster client")
 
 	d := &appsv1.Deployment{

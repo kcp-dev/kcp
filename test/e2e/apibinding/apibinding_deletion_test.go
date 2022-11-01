@@ -70,7 +70,6 @@ func TestAPIBindingDeletion(t *testing.T) {
 	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
-	serviceProviderClusterCfg := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), serviceProviderWorkspace)
 	serviceProviderClient, err := clientset.NewForConfig(serviceProviderClusterCfg)
 	require.NoError(t, err)
 
@@ -123,7 +122,6 @@ func TestAPIBindingDeletion(t *testing.T) {
 		return true
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
-	consumerWorkspaceConfig := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), consumerWorkspace)
 	consumerWorkspaceClient, err := clientset.NewForConfig(consumerWorkspaceConfig)
 	require.NoError(t, err)
 

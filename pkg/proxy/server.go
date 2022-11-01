@@ -53,8 +53,7 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	s := &Server{
 		CompletedConfig: c,
 	}
-	rootShardConfigInformerConfig := kcpclienthelper.SetCluster(restclient.CopyConfig(s.CompletedConfig.RootShardConfig), tenancyv1alpha1.RootCluster)
-	rootShardConfigInformerClient, err := kcpclient.NewForConfig(rootShardConfigInformerConfig)
+	rootShardConfigInformerClient, err := kcpclientset.NewForConfig(s.CompletedConfig.RootShardConfig)
 	if err != nil {
 		return s, fmt.Errorf("failed to create client for informers: %w", err)
 	}
@@ -63,10 +62,10 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 		ctx,
 		s.CompletedConfig.RootShardConfig.Host,
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
-		func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpclient.Interface, error) {
+		func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpclientset.ClusterInterface, error) {
 			shardConfig := restclient.CopyConfig(s.CompletedConfig.RootShardConfig)
 			shardConfig.Host = shard.Spec.BaseURL
-			shardClient, err := kcpclient.NewForConfig(kcpclienthelper.SetCluster(restclient.CopyConfig(shardConfig), logicalcluster.Wildcard))
+			shardClient, err := kcpclientset.NewForConfig(shardConfig)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create shard %q client: %w", shard.Name, err)
 			}

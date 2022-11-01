@@ -115,7 +115,7 @@ func TestSyncTargetLocalExport(t *testing.T) {
 	virtualWorkspaceRawConfig.Contexts["syncvervw"].Cluster = "syncvervw"
 	virtualWorkspaceConfig, err := clientcmd.NewNonInteractiveClientConfig(*virtualWorkspaceRawConfig, "syncvervw", nil, nil).ClientConfig()
 	require.NoError(t, err)
-	virtualWorkspaceConfig = kcpclienthelper.SetMultiClusterRoundTripper(rest.AddUserAgent(rest.CopyConfig(virtualWorkspaceConfig), t.Name()))
+	virtualWorkspaceConfig = rest.AddUserAgent(rest.CopyConfig(virtualWorkspaceConfig), t.Name())
 
 	virtualWorkspaceiscoverClusterClient, err := clientgodiscovery.NewDiscoveryClientForConfig(virtualWorkspaceConfig)
 	require.NoError(t, err)

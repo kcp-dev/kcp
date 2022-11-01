@@ -133,7 +133,7 @@ func TestAPIExportAuthorizers(t *testing.T) {
 	apifixtures.BindToExport(ctx, t, serviceProvider1Workspace, "wild.wild.west", tenantWorkspace, user3KcpClient)
 
 	t.Logf("Install today cowboys APIResourceSchema into service provider workspace %q", serviceProvider2Workspace)
-	user2serviceProvider2KcpClient, err := kcpclientset.NewForConfig(kcpclienthelper.SetCluster(framework.UserConfig("user-2", rest.CopyConfig(cfg)), serviceProvider2Workspace))
+	user2serviceProvider2KcpClient, err := kcpclientset.NewForConfig(framework.UserConfig("user-2", rest.CopyConfig(cfg)))
 	require.NoError(t, err)
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(user2serviceProvider2KcpClient.Discovery()))
 	err = helpers.CreateResourceFromFS(ctx, user2DynamicClusterClient.Cluster(serviceProvider2Workspace), mapper, nil, "apiresourceschema_cowboys.yaml", testFiles)
@@ -197,7 +197,7 @@ func TestAPIExportAuthorizers(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "api binding creation failed")
 
 	t.Logf("Make sure [%q, %q] API groups shows up in consumer workspace %q group discovery", wildwest.GroupName, "wild.wild.west", tenantWorkspace)
-	user3tenantWorkspaceKcpClient, err := kcpclientset.NewForConfig(kcpclienthelper.SetCluster(framework.UserConfig("user-3", rest.CopyConfig(cfg)), tenantWorkspace))
+	user3tenantWorkspaceKcpClient, err := kcpclientset.NewForConfig(framework.UserConfig("user-3", rest.CopyConfig(cfg)))
 	require.NoError(t, err)
 	err = wait.PollImmediateWithContext(ctx, 100*time.Millisecond, wait.ForeverTestTimeout, func(c context.Context) (done bool, err error) {
 		groups, err := user3tenantWorkspaceKcpClient.Discovery().ServerGroups()
@@ -209,7 +209,7 @@ func TestAPIExportAuthorizers(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Install cowboys CRD into tenant workspace %q", tenantShadowCRDWorkspace)
-	user3tenantShadowCRDKubeClient, err := kcpkubernetesclientset.NewForConfig(kcpclienthelper.SetCluster(framework.UserConfig("user-3", rest.CopyConfig(cfg)), tenantShadowCRDWorkspace))
+	user3tenantShadowCRDKubeClient, err := kcpkubernetesclientset.NewForConfig(framework.UserConfig("user-3", rest.CopyConfig(cfg)))
 	require.NoError(t, err)
 	mapper = restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(user3tenantShadowCRDKubeClient.Discovery()))
 	err = helpers.CreateResourceFromFS(ctx, user3DynamicClusterClient.Cluster(tenantShadowCRDWorkspace), mapper, nil, "crd_cowboys.yaml", testFiles)

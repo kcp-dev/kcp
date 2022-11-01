@@ -203,7 +203,6 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 			return err == nil
 		}, wait.ForeverTestTimeout, time.Millisecond*100, "expected user-3 to bind cowboys in %q", consumerWorkspace)
 
-		consumerWorkspaceConfig := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), consumerWorkspace)
 		consumerWorkspaceClient, err := clientset.NewForConfig(consumerWorkspaceConfig)
 		require.NoError(t, err)
 
@@ -341,7 +340,6 @@ func createClusterRoleAndBindings(name, subjectName, subjectKind string, apiGrou
 func setUpServiceProvider(ctx context.Context, dynamicClusterClient kcpdynamic.ClusterInterface, kcpClients clientset.Interface, kubeClusterClient kcpkubernetesclientset.ClusterInterface, serviceProviderWorkspace, rbacServiceProvider logicalcluster.Name, cfg *rest.Config, t *testing.T) {
 	t.Logf("Install today cowboys APIResourceSchema into service provider workspace %q", serviceProviderWorkspace)
 
-	clusterCfg := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), serviceProviderWorkspace)
 	serviceProviderClient, err := clientset.NewForConfig(clusterCfg)
 	require.NoError(t, err)
 

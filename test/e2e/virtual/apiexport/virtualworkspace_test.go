@@ -992,7 +992,6 @@ func setUpServiceProviderWithPermissionClaims(ctx context.Context, dynamicCluste
 func setUpServiceProvider(ctx context.Context, dynamicClusterClient kcpdynamic.ClusterInterface, kcpClients kcpclientset.Interface, serviceProviderWorkspace logicalcluster.Name, cfg *rest.Config, t *testing.T, claims ...apisv1alpha1.PermissionClaim) {
 	t.Logf("Install today cowboys APIResourceSchema into service provider workspace %q", serviceProviderWorkspace)
 
-	clusterCfg := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), serviceProviderWorkspace)
 	serviceProviderClient, err := kcpclientset.NewForConfig(clusterCfg)
 	require.NoError(t, err)
 
@@ -1031,7 +1030,6 @@ func bindConsumerToProvider(ctx context.Context, consumerWorkspace, providerWork
 		},
 	}
 
-	consumerWorkspaceCfg := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), consumerWorkspace)
 	consumerWsClient, err := kcpclientset.NewForConfig(consumerWorkspaceCfg)
 	require.NoError(t, err)
 

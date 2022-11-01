@@ -76,7 +76,6 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct client for server")
 
-	sourceWorkspaceConfig := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), sourceWorkspace)
 	sourceWorkspaceClient, err := clientset.NewForConfig(sourceWorkspaceConfig)
 	require.NoError(t, err)
 
@@ -222,7 +221,6 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct client for server")
 
-	sourceWorkspaceConfig := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), sourceWorkspace)
 	sourceWorkspaceClient, err := clientset.NewForConfig(sourceWorkspaceConfig)
 	require.NoError(t, err)
 

@@ -1450,7 +1450,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 			virtualWorkspaceRawConfig.Contexts["wildwest"] = rawConfig.Contexts["base"].DeepCopy()
 			virtualWorkspaceRawConfig.Contexts["wildwest"].Cluster = "wildwest"
 			kubelikeVWConfig, err := clientcmd.NewNonInteractiveClientConfig(*virtualWorkspaceRawConfig, "kubelike", nil, nil).ClientConfig()
-			kubelikeVWConfig = kcpclienthelper.SetMultiClusterRoundTripper(rest.AddUserAgent(rest.CopyConfig(kubelikeVWConfig), t.Name()))
+			kubelikeVWConfig = rest.AddUserAgent(rest.CopyConfig(kubelikeVWConfig), t.Name())
 			require.NoError(t, err)
 			wildwestVWConfig, err := clientcmd.NewNonInteractiveClientConfig(*virtualWorkspaceRawConfig, "wildwest", nil, nil).ClientConfig()
 			wildwestVWConfig = kcpclienthelper.SetMultiClusterRoundTripper(rest.AddUserAgent(rest.CopyConfig(wildwestVWConfig), t.Name()))
