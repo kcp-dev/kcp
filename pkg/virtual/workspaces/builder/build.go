@@ -123,7 +123,7 @@ func BuildVirtualWorkspace(cfg *clientrest.Config, rootPathPrefix string, wildca
 						return CreateAndStartOrg(
 							orgClusterName,
 							wildcardsRbacInformers,
-							tenancywrapper.FilterClusterWorkspaceInformer(orgClusterName, wildcardsClusterWorkspaces),
+							wildcardsClusterWorkspaces,
 							initialWatchers, authorizationCacheResyncPeriod, authorizationCacheResyncJitterFactor, authorizationCacheResyncSliding)
 					})
 
