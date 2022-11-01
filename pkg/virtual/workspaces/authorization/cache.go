@@ -476,7 +476,8 @@ func (ac *AuthorizationCache) ListAllWorkspaces(selector labels.Selector) (*tena
 
 	workspaceList := &tenancyv1alpha1.ClusterWorkspaceList{}
 	for _, key := range keys.List() {
-		workspace, err := ac.workspaceLister.Get(key)
+		clusterName, name := client.SplitClusterAwareKey(key)
+		workspace, err := ac.workspaceLister.Cluster(clusterName).Get(name)
 		if apierrors.IsNotFound(err) {
 			continue
 		}
@@ -517,7 +518,8 @@ func (ac *AuthorizationCache) List(userInfo user.Info, labelSelector labels.Sele
 
 	workspaceList := &tenancyv1alpha1.ClusterWorkspaceList{}
 	for _, key := range keys.List() {
-		workspace, err := ac.workspaceLister.Get(key)
+		clusterName, name := client.SplitClusterAwareKey(key)
+		workspace, err := ac.workspaceLister.Cluster(clusterName).Get(name)
 		if apierrors.IsNotFound(err) {
 			continue
 		}
