@@ -1756,7 +1756,6 @@ func schema_pkg_apis_apis_v1alpha1_AcceptablePermissionClaim(ref common.Referenc
 					"all": {
 						SchemaProps: spec.SchemaProps{
 							Description: "all claims all resources for the given group/resource. This is mutually exclusive with resourceSelector.",
-							Default:     false,
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -1790,7 +1789,7 @@ func schema_pkg_apis_apis_v1alpha1_AcceptablePermissionClaim(ref common.Referenc
 						},
 					},
 				},
-				Required: []string{"all", "state"},
+				Required: []string{"state"},
 			},
 		},
 		Dependencies: []string{
@@ -2008,7 +2007,6 @@ func schema_pkg_apis_apis_v1alpha1_PermissionClaim(ref common.ReferenceCallback)
 					"all": {
 						SchemaProps: spec.SchemaProps{
 							Description: "all claims all resources for the given group/resource. This is mutually exclusive with resourceSelector.",
-							Default:     false,
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -2035,7 +2033,6 @@ func schema_pkg_apis_apis_v1alpha1_PermissionClaim(ref common.ReferenceCallback)
 						},
 					},
 				},
-				Required: []string{"all"},
 			},
 		},
 		Dependencies: []string{
@@ -2051,7 +2048,7 @@ func schema_pkg_apis_apis_v1alpha1_ResourceSelector(ref common.ReferenceCallback
 				Properties: map[string]spec.Schema{
 					"name": {
 						SchemaProps: spec.SchemaProps{
-							Description: "name of an object within a claimed group/resource. It matches the metadata.name field of the underlying object.",
+							Description: "name of an object within a claimed group/resource. It matches the metadata.name field of the underlying object. If namespace is unset, all objects matching that name will be claimed.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -2059,13 +2056,11 @@ func schema_pkg_apis_apis_v1alpha1_ResourceSelector(ref common.ReferenceCallback
 					"namespace": {
 						SchemaProps: spec.SchemaProps{
 							Description: "namespace containing the named object. Matches metadata.namespace field. If \"name\" is unset, all objects from the namespace are being claimed.",
-							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 				},
-				Required: []string{"namespace"},
 			},
 		},
 	}
