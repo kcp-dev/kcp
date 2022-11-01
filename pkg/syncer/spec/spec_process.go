@@ -194,6 +194,12 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 		}
 	}
 
+	// Make sure the DNS nameserver for the spec workspace is up and running
+	if err := c.dnsProcessor.Process(ctx, clusterName); err != nil {
+		logger.Error(err, "failed to check DNS nameserver is up and running (retrying)")
+		return err
+	}
+
 	if added, err := c.ensureSyncerFinalizer(ctx, gvr, upstreamObj); added {
 		// The successful update of the upstream resource finalizer will trigger a new reconcile
 		return nil

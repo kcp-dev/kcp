@@ -595,7 +595,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				t.Logf("Deploying second syncer into workspace %s", wildwestClusterName)
 				wildwestSecondSyncTargetName := wildwestSyncTargetName + "second"
 				wildwestSecondSyncer := framework.NewSyncerFixture(t, server, wildwestClusterName,
-					framework.WithExtraResources("cowboys.wildwest.dev", "services"),
+					framework.WithExtraResources("cowboys.wildwest.dev", "services", "roles.rbac.authorization.k8s.io", "rolebindings.rbac.authorization.k8s.io"),
 					framework.WithSyncTarget(wildwestClusterName, wildwestSecondSyncTargetName),
 					framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 						// Always install the crd regardless of whether the target is
@@ -608,6 +608,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 							// Only need to install services in a logical cluster
 							kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
 								metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
+								metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
 							)
 						}
 					}),
@@ -818,7 +819,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				t.Logf("Deploying second syncer into workspace %s", wildwestClusterName)
 				wildwestSecondSyncTargetName := wildwestSyncTargetName + "second"
 				wildwestSecondSyncer := framework.NewSyncerFixture(t, server, wildwestClusterName,
-					framework.WithExtraResources("cowboys.wildwest.dev"),
+					framework.WithExtraResources("cowboys.wildwest.dev", "roles.rbac.authorization.k8s.io", "rolebindings.rbac.authorization.k8s.io"),
 					framework.WithSyncTarget(wildwestClusterName, wildwestSecondSyncTargetName),
 					framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 						// Always install the crd regardless of whether the target is
@@ -833,6 +834,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 							require.NoError(t, err)
 							kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
 								metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
+								metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
 							)
 						}
 					}),
@@ -1306,6 +1308,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 
 			t.Logf("Deploying syncer into workspace %s", kubelikeWorkspace)
 			kubelikeSyncer := framework.NewSyncerFixture(t, server, kubelikeWorkspace,
+				framework.WithExtraResources("roles.rbac.authorization.k8s.io", "rolebindings.rbac.authorization.k8s.io"),
 				framework.WithSyncTarget(kubelikeWorkspace, "kubelike"),
 				framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 					if !isFakePCluster {
@@ -1317,6 +1320,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					t.Logf("Installing test CRDs into sink cluster...")
 					kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
 						metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
+						metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
 						metav1.GroupResource{Group: "networking.k8s.io", Resource: "ingresses"},
 					)
 					require.NoError(t, err)
@@ -1383,7 +1387,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 
 			t.Logf("Deploying syncer into workspace %s", wildwestWorkspace)
 			wildwestSyncer := framework.NewSyncerFixture(t, server, wildwestWorkspace,
-				framework.WithExtraResources("cowboys.wildwest.dev"),
+				framework.WithExtraResources("cowboys.wildwest.dev", "roles.rbac.authorization.k8s.io", "rolebindings.rbac.authorization.k8s.io"),
 				// empty APIExports so we do not add global kubernetes APIExport.
 				framework.WithAPIExports(""),
 				framework.WithSyncTarget(wildwestWorkspace, wildwestSyncTargetName),
@@ -1396,7 +1400,9 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					fixturewildwest.FakePClusterCreate(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
 					if isFakePCluster {
 						// Only need to install services in a non-logical cluster
-						kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: "core.k8s.io", Resource: "services"})
+						kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
+							metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
+							metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"})
 					}
 				}),
 			).Start(t)

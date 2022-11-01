@@ -11,12 +11,6 @@ metadata:
   namespace: {{.Namespace}}
 ---
 apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: {{.DNSServiceAccount}}
-  namespace: {{.Namespace}}
----
-apiVersion: v1
 kind: Secret
 metadata:
   name: {{.ServiceAccount}}-token
@@ -59,20 +53,6 @@ rules:
 {{- end}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: {{.DNSClusterRole}}
-rules:
-  - apiGroups:
-      - ""
-    resources:
-      - configmaps
-    verbs:
-      - "get"
-      - "list"
-      - "watch"
----
-apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: {{.ClusterRoleBinding}}
@@ -86,16 +66,67 @@ subjects:
   namespace: {{.Namespace}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: Role
 metadata:
-  name: {{.DNSClusterRoleBinding}}
+  name: {{.DNSRole}}
+  namespace: {{.Namespace}}
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  - services
+  verbs:
+  - "create"
+  - "get"
+  - "list"
+  - "update"
+  - "delete"
+  - "watch"
+- apiGroups:
+  - ""
+  resources:
+  - endpoints
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+- apiGroups:
+  - "apps"
+  resources:
+  - deployments
+  verbs:
+  - "create"
+  - "get"
+  - "list"
+  - "update"
+  - "delete"
+  - "watch"
+- apiGroups:
+  - "rbac.authorization.k8s.io"
+  resources:
+  - roles
+  - rolebindings
+  verbs:
+  - "create"
+  - "get"
+  - "list"
+  - "update"
+  - "delete"
+  - "watch"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{.DNSRoleBinding}}
+  namespace: {{.Namespace}}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: {{.DNSClusterRole}}
+  kind: Role
+  name: {{.DNSRole}}
 subjects:
   - kind: ServiceAccount
-    name: {{.DNSServiceAccount}}
+    name: {{.ServiceAccount}}
     namespace: {{.Namespace}}
 ---
 apiVersion: v1
@@ -159,7 +190,7 @@ spec:
 {{- if .FeatureGatesString }}
         - --feature-gates={{ .FeatureGatesString }}
 {{- end}}
-        - --dns={{.DNSAppName}}.{{.Namespace}}.svc.cluster.local
+        - --dns-image={{.Image}}
         env:
         - name: NAMESPACE
           valueFrom:
@@ -178,59 +209,3 @@ spec:
           secret:
             secretName: {{.Secret}}
             optional: false
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: {{.DNSAppName}}
-  namespace: {{.Namespace}}
-spec:
-  replicas: {{.Replicas}}
-  strategy:
-    type: Recreate
-  selector:
-    matchLabels:
-      app: {{.DNSAppName}}
-  template:
-    metadata:
-      labels:
-        app: {{.DNSAppName}}
-    spec:
-      containers:
-      - name: kcp-dns
-        command:
-        - /ko-app/syncer
-        args:
-        - dns
-        - start
-        env:
-        - name: NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        image: {{.Image}}
-        imagePullPolicy: IfNotPresent
-        terminationMessagePolicy: FallbackToLogsOnError
-      serviceAccountName: {{.DNSServiceAccount}}
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: {{.DNSAppName}}
-  namespace: {{.Namespace}}
-  labels:
-    app: {{.DNSAppName}}
-spec:
-  type: ClusterIP
-  selector:
-    app: {{.DNSAppName}}
-  ports:
-    - name: dns
-      port: 53
-      protocol: UDP
-      targetPort: 5353
-    - name: dns-tcp
-      port: 53
-      protocol: TCP
-      targetPort: 5353
-

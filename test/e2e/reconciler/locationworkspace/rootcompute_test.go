@@ -66,6 +66,7 @@ func TestRootComputeWorkspace(t *testing.T) {
 	syncTargetName := fmt.Sprintf("synctarget-%d", +rand.Intn(1000000))
 	t.Logf("Creating a SyncTarget and syncer in %s", computeClusterName)
 	syncerFixture := framework.NewSyncerFixture(t, source, computeClusterName,
+		framework.WithExtraResources("roles.rbac.authorization.k8s.io", "rolebindings.rbac.authorization.k8s.io"),
 		framework.WithSyncTarget(computeClusterName, syncTargetName),
 		framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 			if !isFakePCluster {
@@ -79,6 +80,7 @@ func TestRootComputeWorkspace(t *testing.T) {
 				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
 				metav1.GroupResource{Group: "apps.k8s.io", Resource: "deployments"},
 				metav1.GroupResource{Group: "networking.k8s.io", Resource: "ingresses"},
+				metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
 			)
 			require.NoError(t, err)
 		}),

@@ -43,7 +43,7 @@ type Options struct {
 	SyncTargetUID                 string
 	Logs                          *logs.Options
 	SyncedResourceTypes           []string
-	DNSServer                     string
+	DNSImage                      string
 	DownstreamNamespaceCleanDelay time.Duration
 
 	APIImportPollInterval time.Duration
@@ -80,8 +80,9 @@ func (options *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.Var(kcpfeatures.NewFlagValue(), "feature-gates", ""+
 		"A set of key=value pairs that describe feature gates for alpha/experimental features. "+
 		"Options are:\n"+strings.Join(kcpfeatures.KnownFeatures(), "\n")) // hide kube-only gates
-	fs.StringVar(&options.DNSServer, "dns", options.DNSServer, "kcp DNS server name.")
+	fs.StringVar(&options.DNSImage, "dns-image", options.DNSImage, "kcp DNS server image.")
 	fs.DurationVar(&options.DownstreamNamespaceCleanDelay, "downstream-namespace-clean-delay", options.DownstreamNamespaceCleanDelay, "Time to wait before deleting of a downstream namespace.")
+
 	options.Logs.AddFlags(fs)
 }
 

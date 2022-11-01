@@ -132,6 +132,7 @@ func TestSyncerNamespaceProcess(t *testing.T) {
 				syncTargetWorkspace: syncTargetWorkspace,
 				syncTargetUID:       syncTargetUID,
 				syncTargetKey:       syncTargetKey,
+				dnsNamespace:        "kcp-hcbsa8z6c2er",
 			}
 
 			var key string

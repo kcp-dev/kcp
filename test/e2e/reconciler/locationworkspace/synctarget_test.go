@@ -108,6 +108,7 @@ func TestSyncTargetExport(t *testing.T) {
 			t.Logf("Installing test CRDs into sink cluster...")
 			kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
 				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
+				metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
 			)
 			require.NoError(t, err)
 		}),

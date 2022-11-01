@@ -20,9 +20,11 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -51,9 +53,12 @@ import (
 	workloadcliplugin "github.com/kcp-dev/kcp/pkg/cliplugins/workload/plugin"
 	"github.com/kcp-dev/kcp/pkg/syncer"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
+	"github.com/kcp-dev/kcp/pkg/syncer/spec/mutators"
 )
 
 type SyncerOption func(t *testing.T, fs *syncerFixture)
+
+var dnsLookupIPOnce sync.Once
 
 func NewSyncerFixture(t *testing.T, server RunningServer, clusterName logicalcluster.Name, opts ...SyncerOption) *syncerFixture {
 	if !sets.NewString(TestConfig.Suites()...).HasAny("transparent-multi-cluster", "transparent-multi-cluster:requires-kind") {
@@ -335,10 +340,17 @@ func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 		})
 	} else {
 		// Start an in-process syncer
-		syncerConfig.DNSServer = "localhost" // TODO(LV): start a dns server
+		syncerConfig.DNSImage = "TODO"
 		os.Setenv("NAMESPACE", syncerID)
 		err := syncer.StartSyncer(ctx, syncerConfig, 2, 5*time.Second)
 		require.NoError(t, err, "syncer failed to start")
+
+		dnsLookupIPOnce.Do(func() {
+			// DNS IP lookup always resolves
+			mutators.DefaultLookupIPFn = func(host string) ([]net.IP, error) {
+				return []net.IP{net.ParseIP("8.8.8.8")}, nil
+			}
+		})
 	}
 
 	startedSyncer := &StartedSyncerFixture{
@@ -415,8 +427,8 @@ func syncerConfigFromCluster(t *testing.T, downstreamConfig *rest.Config, namesp
 	resourcesToSync := argMap["--resources"]
 	require.NotEmpty(t, fromCluster, "--resources is required")
 
-	require.NotEmpty(t, argMap["--dns"], "--dns is required")
-	dns := argMap["--dns"][0]
+	require.NotEmpty(t, argMap["--dns-image"], "--dns-image is required")
+	dnsImage := argMap["--dns-image"][0]
 
 	syncTargetUID := argMap["--sync-target-uid"][0]
 
@@ -449,7 +461,7 @@ func syncerConfigFromCluster(t *testing.T, downstreamConfig *rest.Config, namesp
 		SyncTargetWorkspace:           kcpClusterName,
 		SyncTargetName:                syncTargetName,
 		SyncTargetUID:                 syncTargetUID,
-		DNSServer:                     dns,
+		DNSImage:                      dnsImage,
 		DownstreamNamespaceCleanDelay: 2 * time.Second,
 	}
 }

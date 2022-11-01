@@ -66,6 +66,7 @@ var embeddedResources embed.FS
 const (
 	SyncerSecretConfigKey   = "kubeconfig"
 	SyncerIDPrefix          = "kcp-syncer-"
+	DNSIDPrefix             = "kcp-dns-"
 	MaxSyncTargetNameLength = validation.DNS1123SubdomainMaxLength - (9 + len(SyncerIDPrefix))
 )
 
@@ -174,7 +175,8 @@ func (o *SyncOptions) Validate() error {
 		errs = append(errs, errors.New("--output-file is required"))
 	}
 
-	if len(o.SyncTargetName)+len(SyncerIDPrefix)+8 > 254 {
+	// see pkg/syncer/shared/GetDNSID
+	if len(o.SyncTargetName)+len(DNSIDPrefix)+8+8+2 > 254 {
 		errs = append(errs, fmt.Errorf("the maximum length of the sync-target-name is %d", MaxSyncTargetNameLength))
 	}
 
@@ -687,21 +689,17 @@ type templateArgs struct {
 	// ServiceAccount is the name of the service account to create in the syncer
 	// namespace on the pcluster.
 	ServiceAccount string
-	// DNSServiceAccount is the name of the DNS service account to create in the syncer
-	// namespace on the pcluster.
-	DNSServiceAccount string
 	// ClusterRole is the name of the cluster role to create for the syncer on the
 	// pcluster.
 	ClusterRole string
-	// ClusterRoleBinding is the name of the DNS cluster role binding to create for the
-	// syncer on the pcluster.
-	DNSClusterRole string
 	// ClusterRoleBinding is the name of the cluster role binding to create for the
 	// syncer on the pcluster.
 	ClusterRoleBinding string
-	// ClusterRoleBinding is the name of the DNS cluster role binding to create for the
+	// DnsRole is the name of the DNS role to create for the syncer on the pcluster.
+	DNSRole string
+	// DNSRoleBinding is the name of the DNS role binding to create for the
 	// syncer on the pcluster.
-	DNSClusterRoleBinding string
+	DNSRoleBinding string
 	// GroupMappings is the mapping of api group to resources that will be used to
 	// define the cluster role rules for the syncer in the pcluster. The syncer will be
 	// granted full permissions for the resources it will synchronize.
@@ -718,8 +716,6 @@ type templateArgs struct {
 	// DeploymentApp is the label value that the syncer's deployment will select its
 	// pods with.
 	DeploymentApp string
-	// DNSAppName is the name of the deployment that will run the kcp dns resolver
-	DNSAppName string
 }
 
 // renderSyncerResources renders the resources required to deploy a syncer to a pcluster.
@@ -731,19 +727,17 @@ func renderSyncerResources(input templateInput, syncerID string, resourceForPerm
 	dnsSyncerID := strings.Replace(syncerID, "syncer", "dns", 1)
 
 	tmplArgs := templateArgs{
-		templateInput:         input,
-		ServiceAccount:        syncerID,
-		DNSServiceAccount:     dnsSyncerID,
-		ClusterRole:           syncerID,
-		DNSClusterRole:        dnsSyncerID,
-		ClusterRoleBinding:    syncerID,
-		DNSClusterRoleBinding: dnsSyncerID,
-		GroupMappings:         getGroupMappings(resourceForPermission),
-		Secret:                syncerID,
-		SecretConfigKey:       SyncerSecretConfigKey,
-		Deployment:            syncerID,
-		DeploymentApp:         syncerID,
-		DNSAppName:            dnsSyncerID,
+		templateInput:      input,
+		ServiceAccount:     syncerID,
+		ClusterRole:        syncerID,
+		ClusterRoleBinding: syncerID,
+		DNSRole:            dnsSyncerID,
+		DNSRoleBinding:     dnsSyncerID,
+		GroupMappings:      getGroupMappings(resourceForPermission),
+		Secret:             syncerID,
+		SecretConfigKey:    SyncerSecretConfigKey,
+		Deployment:         syncerID,
+		DeploymentApp:      syncerID,
 	}
 
 	syncerTemplate, err := embeddedResources.ReadFile("syncer.yaml")

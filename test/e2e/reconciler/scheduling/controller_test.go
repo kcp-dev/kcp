@@ -74,7 +74,7 @@ func TestScheduling(t *testing.T) {
 	syncTargetName := fmt.Sprintf("synctarget-%d", +rand.Intn(1000000))
 	t.Logf("Creating a SyncTarget and syncer in %s", negotiationClusterName)
 	syncerFixture := framework.NewSyncerFixture(t, source, negotiationClusterName,
-		framework.WithExtraResources("services"),
+		framework.WithExtraResources("services", "roles.rbac.authorization.k8s.io", "rolebindings.rbac.authorization.k8s.io"),
 		framework.WithSyncTarget(negotiationClusterName, syncTargetName),
 		framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 			if !isFakePCluster {
@@ -86,6 +86,7 @@ func TestScheduling(t *testing.T) {
 			t.Logf("Installing test CRDs into sink cluster...")
 			kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
 				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
+				metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
 			)
 			require.NoError(t, err)
 		}),

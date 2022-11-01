@@ -17,9 +17,15 @@ limitations under the License.
 package shared
 
 import (
+	"crypto/sha256"
+	"fmt"
 	"strings"
 
+	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/martinlindhe/base36"
+
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/kube-openapi/pkg/util/sets"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
@@ -53,4 +59,15 @@ func GetUpstreamResourceName(downstreamResourceGVR schema.GroupVersionResource, 
 		return strings.TrimPrefix(downstreamResourceName, "kcp-")
 	}
 	return downstreamResourceName
+}
+
+// GetDNSID returns a unique ID for DNS object derived from the sync target name, its UID and workspace. It's
+// a valid DNS segment and can be used as namespace or object names.
+func GetDNSID(workspace logicalcluster.Name, syncTargetUID types.UID, syncTargetName string) string {
+	syncerHash := sha256.Sum224([]byte(syncTargetUID))
+	uid36hash := strings.ToLower(base36.EncodeBytes(syncerHash[:]))
+	workspaceHash := sha256.Sum224([]byte(workspace.String()))
+	workspace36hash := strings.ToLower(base36.EncodeBytes(workspaceHash[:]))
+
+	return fmt.Sprintf("kcp-dns-%s-%s-%s", syncTargetName, uid36hash[:8], workspace36hash[:8])
 }

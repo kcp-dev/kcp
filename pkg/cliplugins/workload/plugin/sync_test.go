@@ -37,12 +37,6 @@ metadata:
   namespace: kcp-syncer-sync-target-name-34b23c4k
 ---
 apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: kcp-dns-sync-target-name-34b23c4k
-  namespace: kcp-syncer-sync-target-name-34b23c4k
----
-apiVersion: v1
 kind: Secret
 metadata:
   name: kcp-syncer-sync-target-name-34b23c4k-token
@@ -82,20 +76,6 @@ rules:
   - "*"
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: kcp-dns-sync-target-name-34b23c4k
-rules:
-  - apiGroups:
-      - ""
-    resources:
-      - configmaps
-    verbs:
-      - "get"
-      - "list"
-      - "watch"
----
-apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: kcp-syncer-sync-target-name-34b23c4k
@@ -109,16 +89,67 @@ subjects:
   namespace: kcp-syncer-sync-target-name-34b23c4k
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: Role
 metadata:
   name: kcp-dns-sync-target-name-34b23c4k
+  namespace: kcp-syncer-sync-target-name-34b23c4k
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  - services
+  verbs:
+  - "create"
+  - "get"
+  - "list"
+  - "update"
+  - "delete"
+  - "watch"
+- apiGroups:
+  - ""
+  resources:
+  - endpoints
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+- apiGroups:
+  - "apps"
+  resources:
+  - deployments
+  verbs:
+  - "create"
+  - "get"
+  - "list"
+  - "update"
+  - "delete"
+  - "watch"
+- apiGroups:
+  - "rbac.authorization.k8s.io"
+  resources:
+  - roles
+  - rolebindings
+  verbs:
+  - "create"
+  - "get"
+  - "list"
+  - "update"
+  - "delete"
+  - "watch"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kcp-dns-sync-target-name-34b23c4k
+  namespace: kcp-syncer-sync-target-name-34b23c4k
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
+  kind: Role
   name: kcp-dns-sync-target-name-34b23c4k
 subjects:
   - kind: ServiceAccount
-    name: kcp-dns-sync-target-name-34b23c4k
+    name: kcp-syncer-sync-target-name-34b23c4k
     namespace: kcp-syncer-sync-target-name-34b23c4k
 ---
 apiVersion: v1
@@ -178,7 +209,7 @@ spec:
         - --resources=resource2
         - --qps=123.4
         - --burst=456
-        - --dns=kcp-dns-sync-target-name-34b23c4k.kcp-syncer-sync-target-name-34b23c4k.svc.cluster.local
+        - --dns-image=image
         env:
         - name: NAMESPACE
           valueFrom:
@@ -197,62 +228,6 @@ spec:
           secret:
             secretName: kcp-syncer-sync-target-name-34b23c4k
             optional: false
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: kcp-dns-sync-target-name-34b23c4k
-  namespace: kcp-syncer-sync-target-name-34b23c4k
-spec:
-  replicas: 1
-  strategy:
-    type: Recreate
-  selector:
-    matchLabels:
-      app: kcp-dns-sync-target-name-34b23c4k
-  template:
-    metadata:
-      labels:
-        app: kcp-dns-sync-target-name-34b23c4k
-    spec:
-      containers:
-      - name: kcp-dns
-        command:
-        - /ko-app/syncer
-        args:
-        - dns
-        - start
-        env:
-        - name: NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        image: image
-        imagePullPolicy: IfNotPresent
-        terminationMessagePolicy: FallbackToLogsOnError
-      serviceAccountName: kcp-dns-sync-target-name-34b23c4k
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: kcp-dns-sync-target-name-34b23c4k
-  namespace: kcp-syncer-sync-target-name-34b23c4k
-  labels:
-    app: kcp-dns-sync-target-name-34b23c4k
-spec:
-  type: ClusterIP
-  selector:
-    app: kcp-dns-sync-target-name-34b23c4k
-  ports:
-    - name: dns
-      port: 53
-      protocol: UDP
-      targetPort: 5353
-    - name: dns-tcp
-      port: 53
-      protocol: TCP
-      targetPort: 5353
-
 `
 
 	actualYAML, err := renderSyncerResources(templateInput{
@@ -286,12 +261,6 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: kcp-syncer-sync-target-name-34b23c4k
-  namespace: kcp-syncer-sync-target-name-34b23c4k
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: kcp-dns-sync-target-name-34b23c4k
   namespace: kcp-syncer-sync-target-name-34b23c4k
 ---
 apiVersion: v1
@@ -334,20 +303,6 @@ rules:
   - "*"
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: kcp-dns-sync-target-name-34b23c4k
-rules:
-  - apiGroups:
-      - ""
-    resources:
-      - configmaps
-    verbs:
-      - "get"
-      - "list"
-      - "watch"
----
-apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: kcp-syncer-sync-target-name-34b23c4k
@@ -361,16 +316,67 @@ subjects:
   namespace: kcp-syncer-sync-target-name-34b23c4k
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: Role
 metadata:
   name: kcp-dns-sync-target-name-34b23c4k
+  namespace: kcp-syncer-sync-target-name-34b23c4k
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  - services
+  verbs:
+  - "create"
+  - "get"
+  - "list"
+  - "update"
+  - "delete"
+  - "watch"
+- apiGroups:
+  - ""
+  resources:
+  - endpoints
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+- apiGroups:
+  - "apps"
+  resources:
+  - deployments
+  verbs:
+  - "create"
+  - "get"
+  - "list"
+  - "update"
+  - "delete"
+  - "watch"
+- apiGroups:
+  - "rbac.authorization.k8s.io"
+  resources:
+  - roles
+  - rolebindings
+  verbs:
+  - "create"
+  - "get"
+  - "list"
+  - "update"
+  - "delete"
+  - "watch"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kcp-dns-sync-target-name-34b23c4k
+  namespace: kcp-syncer-sync-target-name-34b23c4k
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
+  kind: Role
   name: kcp-dns-sync-target-name-34b23c4k
 subjects:
   - kind: ServiceAccount
-    name: kcp-dns-sync-target-name-34b23c4k
+    name: kcp-syncer-sync-target-name-34b23c4k
     namespace: kcp-syncer-sync-target-name-34b23c4k
 ---
 apiVersion: v1
@@ -431,7 +437,7 @@ spec:
         - --qps=123.4
         - --burst=456
         - --feature-gates=myfeature=true
-        - --dns=kcp-dns-sync-target-name-34b23c4k.kcp-syncer-sync-target-name-34b23c4k.svc.cluster.local
+        - --dns-image=image
         env:
         - name: NAMESPACE
           valueFrom:
@@ -450,62 +456,6 @@ spec:
           secret:
             secretName: kcp-syncer-sync-target-name-34b23c4k
             optional: false
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: kcp-dns-sync-target-name-34b23c4k
-  namespace: kcp-syncer-sync-target-name-34b23c4k
-spec:
-  replicas: 1
-  strategy:
-    type: Recreate
-  selector:
-    matchLabels:
-      app: kcp-dns-sync-target-name-34b23c4k
-  template:
-    metadata:
-      labels:
-        app: kcp-dns-sync-target-name-34b23c4k
-    spec:
-      containers:
-      - name: kcp-dns
-        command:
-        - /ko-app/syncer
-        args:
-        - dns
-        - start
-        env:
-        - name: NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        image: image
-        imagePullPolicy: IfNotPresent
-        terminationMessagePolicy: FallbackToLogsOnError
-      serviceAccountName: kcp-dns-sync-target-name-34b23c4k
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: kcp-dns-sync-target-name-34b23c4k
-  namespace: kcp-syncer-sync-target-name-34b23c4k
-  labels:
-    app: kcp-dns-sync-target-name-34b23c4k
-spec:
-  type: ClusterIP
-  selector:
-    app: kcp-dns-sync-target-name-34b23c4k
-  ports:
-    - name: dns
-      port: 53
-      protocol: UDP
-      targetPort: 5353
-    - name: dns-tcp
-      port: 53
-      protocol: TCP
-      targetPort: 5353
-
 `
 	actualYAML, err := renderSyncerResources(templateInput{
 		ServerURL:                   "server-url",

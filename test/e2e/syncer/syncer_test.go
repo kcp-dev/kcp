@@ -71,7 +71,7 @@ func TestSyncerLifecycle(t *testing.T) {
 	// heartbeating and the heartbeat controller setting the sync target ready in
 	// response.
 	syncerFixture := framework.NewSyncerFixture(t, upstreamServer, wsClusterName,
-		framework.WithExtraResources("persistentvolumes"),
+		framework.WithExtraResources("persistentvolumes", "roles.rbac.authorization.k8s.io", "rolebindings.rbac.authorization.k8s.io"),
 		framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 			if !isFakePCluster {
 				// Only need to install services and ingresses in a logical cluster
@@ -83,6 +83,7 @@ func TestSyncerLifecycle(t *testing.T) {
 			kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
 				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
 				metav1.GroupResource{Group: "core.k8s.io", Resource: "persistentvolumes"},
+				metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
 			)
 			require.NoError(t, err)
 		})).Start(t)
@@ -618,6 +619,7 @@ func TestCordonUncordonDrain(t *testing.T) {
 			require.NoError(t, err, "failed to construct apiextensions client for server")
 			kubefixtures.Create(t, crdClusterClient.ApiextensionsV1().CustomResourceDefinitions(),
 				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
+				metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
 			)
 		})).Start(t)
 	syncTargetName := syncerFixture.SyncerConfig.SyncTargetName

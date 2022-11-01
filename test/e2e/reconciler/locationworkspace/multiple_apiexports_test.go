@@ -120,6 +120,7 @@ func TestMultipleExports(t *testing.T) {
 			kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
 				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
 				metav1.GroupResource{Group: "networking.k8s.io", Resource: "ingresses"},
+				metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
 			)
 			require.NoError(t, err)
 		}),

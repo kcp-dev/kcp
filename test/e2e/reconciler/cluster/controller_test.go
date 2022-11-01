@@ -184,7 +184,7 @@ func TestClusterController(t *testing.T) {
 			require.NoError(t, err)
 
 			syncerFixture := framework.NewSyncerFixture(t, source, wsClusterName,
-				framework.WithExtraResources("cowboys.wildwest.dev", "services"),
+				framework.WithExtraResources("cowboys.wildwest.dev", "services", "roles.rbac.authorization.k8s.io", "rolebindings.rbac.authorization.k8s.io"),
 				framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 					// Always install the crd regardless of whether the target is
 					// logical or not since cowboys is not a native type.
@@ -197,6 +197,7 @@ func TestClusterController(t *testing.T) {
 						// Only need to install services in a non-logical cluster
 						kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
 							metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
+							metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
 						)
 					}
 				})).Start(t)
