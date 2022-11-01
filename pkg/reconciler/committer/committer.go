@@ -27,6 +27,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 )
@@ -38,13 +39,18 @@ type Resource[Sp any, St any] struct {
 	Status            St `json:"status,omitempty"`
 }
 
+// ClusterPatcher is just the cluster-aware Patch API with a generic to keep use sites type safe
+type ClusterPatcher[R runtime.Object, P Patcher[R]] interface {
+	Cluster(cluster logicalcluster.Name) P
+}
+
 // Patcher is just the Patch API with a generic to keep use sites type safe
-type Patcher[R any] interface {
+type Patcher[R runtime.Object] interface {
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (R, error)
 }
 
 // NewCommitter returns a function that can patch instances of R based on spec or status changes.
-func NewCommitter[R any, Sp any, St any](patcher Patcher[R]) func(context.Context, *Resource[Sp, St], *Resource[Sp, St]) error {
+func NewCommitter[R runtime.Object, P Patcher[R], Sp any, St any](patcher ClusterPatcher[R, P]) func(context.Context, *Resource[Sp, St], *Resource[Sp, St]) error {
 	focusType := fmt.Sprintf("%T", *new(R))
 	return func(ctx context.Context, old, obj *Resource[Sp, St]) error {
 		logger := klog.FromContext(ctx)
@@ -111,7 +117,7 @@ func NewCommitter[R any, Sp any, St any](patcher Patcher[R]) func(context.Contex
 		}
 
 		logger.V(2).Info(fmt.Sprintf("patching %s", focusType), "patch", string(patchBytes))
-		_, err = patcher.Patch(logicalcluster.WithCluster(ctx, clusterName), obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, subresources...)
+		_, err = patcher.Cluster(clusterName).Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, subresources...)
 		if err != nil {
 			return fmt.Errorf("failed to patch %s %s|%s: %w", focusType, clusterName, name, err)
 		}
