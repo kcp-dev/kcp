@@ -36,7 +36,7 @@ func startShard(ctx context.Context, n int, args []string, servingCA *crypto.CA,
 	if err != nil {
 		return nil, fmt.Errorf("failed to create server cert: %w", err)
 	}
-	if err := cert.WriteCertConfigFile(fmt.Sprintf(".kcp-%d/apiserver.crt", n), filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d/apiserver.key", n))); err != nil {
+	if err := cert.WriteCertConfigFile(filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d/apiserver.crt", n)), filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d/apiserver.key", n))); err != nil {
 		return nil, fmt.Errorf("failed to write server cert: %w", err)
 	}
 
@@ -61,7 +61,7 @@ func startShard(ctx context.Context, n int, args []string, servingCA *crypto.CA,
 
 	if n > 0 {
 		args = append(args, fmt.Sprintf("--shard-name=shard-%d", n))
-		args = append(args, "--root-shard-kubeconfig-file=.kcp-0/admin.kubeconfig")
+		args = append(args, fmt.Sprintf("--root-shard-kubeconfig-file=%s", filepath.Join(workDirPath, ".kcp-0/admin.kubeconfig")))
 		args = append(args, fmt.Sprintf("--embedded-etcd-client-port=%d", 2379+n+1))
 		args = append(args, fmt.Sprintf("--embedded-etcd-peer-port=%d", (2379+n+1)+1)) // prev value +1
 	}
