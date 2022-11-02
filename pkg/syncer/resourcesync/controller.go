@@ -96,7 +96,7 @@ type Controller struct {
 	syncTargetWorkspace logicalcluster.Name
 	syncTargetUID       types.UID
 	syncTargetLister    workloadlisters.SyncTargetLister
-	kcpClusterClient    *kcpclient.Cluster
+	kcpClient           kcpclient.Interface
 
 	syncerInformerMap map[schema.GroupVersionResource]*SyncerInformer
 	mutex             sync.RWMutex
@@ -107,7 +107,7 @@ func NewController(
 	upstreamDynamicClusterClient kcpdynamic.ClusterInterface,
 	downstreamDynamicClient dynamic.Interface,
 	downstreamKubeClient kubernetes.Interface,
-	kcpClusterClient *kcpclient.Cluster,
+	kcpClient kcpclient.Interface,
 	syncTargetInformer workloadinformers.SyncTargetInformer,
 	syncTargetName string,
 	syncTargetWorkspace logicalcluster.Name,
@@ -118,7 +118,7 @@ func NewController(
 		upstreamDynamicClusterClient: upstreamDynamicClusterClient,
 		downstreamDynamicClient:      downstreamDynamicClient,
 		downstreamKubeClient:         downstreamKubeClient,
-		kcpClusterClient:             kcpClusterClient,
+		kcpClient:                    kcpClient,
 		upstreamEventHandlers:        []ResourceEventHandlerPerGVR{},
 		downstreamEventHandlers:      []ResourceEventHandlerPerGVR{},
 		syncerInformerMap:            map[schema.GroupVersionResource]*SyncerInformer{},
@@ -342,7 +342,7 @@ func (c *Controller) patchSyncTargetCondition(ctx context.Context, cluster logic
 		return fmt.Errorf("failed to create patch for syncTarget %s|%s: %w", cluster, new.Name, err)
 	}
 	logger.V(2).Info("patching syncTarget", "patch", string(patchBytes))
-	_, uerr := c.kcpClusterClient.Cluster(cluster).WorkloadV1alpha1().SyncTargets().Patch(logicalcluster.WithCluster(ctx, cluster), new.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+	_, uerr := c.kcpClient.WorkloadV1alpha1().SyncTargets().Patch(ctx, new.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 	return uerr
 }
 
