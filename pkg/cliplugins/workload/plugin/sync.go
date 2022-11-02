@@ -479,9 +479,10 @@ func (o *SyncOptions) enableSyncerForWorkspace(ctx context.Context, config *rest
 			Resources:     []string{"synctargets"},
 		},
 		{
-			Verbs:     []string{"get", "list", "watch"},
-			APIGroups: []string{workloadv1alpha1.SchemeGroupVersion.Group},
-			Resources: []string{"synctargets"},
+			Verbs:         []string{"get", "list", "watch"},
+			APIGroups:     []string{workloadv1alpha1.SchemeGroupVersion.Group},
+			Resources:     []string{"synctargets"},
+			ResourceNames: []string{syncTargetName},
 		},
 		{
 			Verbs:         []string{"update", "patch"},
