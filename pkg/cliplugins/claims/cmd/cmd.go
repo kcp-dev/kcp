@@ -85,5 +85,35 @@ func New(streams genericclioptions.IOStreams) *cobra.Command {
 	apibindingGetOpts.BindFlags(apibindingGetCmd)
 	getcmd.AddCommand(apibindingGetCmd)
 	claimsCmd.AddCommand(getcmd)
+
+	editcmd := &cobra.Command{
+		Use:              "edit",
+		Short:            "Operations related to editing the status of permission claims",
+		SilenceUsage:     true,
+		TraverseChildren: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return cmd.Help()
+		},
+	}
+
+	apibindingEditOpts := plugin.NewEditAPIBindingOptions(streams)
+	apibindingEditCmd := &cobra.Command{
+		Use:          "apibinding <apibinding_name>",
+		Short:        "Edit claims related to apibinding",
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := apibindingEditOpts.Complete(args); err != nil {
+				return err
+			}
+			if err := apibindingEditOpts.Validate(); err != nil {
+				return err
+			}
+			return apibindingEditOpts.Run(cmd.Context())
+		},
+	}
+	apibindingEditOpts.BindFlags(apibindingEditCmd)
+	editcmd.AddCommand(apibindingEditCmd)
+	claimsCmd.AddCommand(editcmd)
+
 	return claimsCmd
 }
