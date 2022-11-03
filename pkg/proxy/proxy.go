@@ -21,10 +21,10 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 
 	"k8s.io/apimachinery/pkg/util/runtime"
 	userinfo "k8s.io/apiserver/pkg/authentication/user"
@@ -32,7 +32,7 @@ import (
 )
 
 func newTransport(clientCert, clientKeyFile, caFile string) (*http.Transport, error) {
-	caCert, err := ioutil.ReadFile(caFile)
+	caCert, err := os.ReadFile(caFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read CA file %q: %w", caFile, err)
 	}
@@ -56,7 +56,7 @@ func newTransport(clientCert, clientKeyFile, caFile string) (*http.Transport, er
 
 // WithProxyAuthHeaders does client cert termination by extracting the user and groups and
 // passing them through access headers to the shard.
-func WithProxyAuthHeaders(delegate http.HandlerFunc, userHeader, groupHeader string, extraHeaderPrefix string) http.HandlerFunc {
+func WithProxyAuthHeaders(delegate http.Handler, userHeader, groupHeader string, extraHeaderPrefix string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if u, ok := request.UserFrom(r.Context()); ok {
 			appendClientCertAuthHeaders(r.Header, u, userHeader, groupHeader, extraHeaderPrefix)
