@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 
 	machineryutilnet "k8s.io/apimachinery/pkg/util/net"
@@ -63,41 +64,75 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	defer cancelFn()
 
 	// create request header CA and client cert for front-proxy to connect to shards
-	requestHeaderCA, err := crypto.MakeSelfSignedCA(".kcp/requestheader-ca.crt", ".kcp/requestheader-ca.key", ".kcp/requestheader-ca-serial.txt", "kcp-front-proxy-requestheader-ca", 365)
+	requestHeaderCA, err := crypto.MakeSelfSignedCA(
+		filepath.Join(workDirPath, ".kcp/requestheader-ca.crt"),
+		filepath.Join(workDirPath, ".kcp/requestheader-ca.key"),
+		filepath.Join(workDirPath, ".kcp/requestheader-ca-serial.txt"),
+		"kcp-front-proxy-requestheader-ca",
+		365,
+	)
 	if err != nil {
 		fmt.Printf("failed to create requestheader-ca: %v\n", err)
 		os.Exit(1)
 	}
-	_, err = requestHeaderCA.MakeClientCertificate(".kcp-front-proxy/requestheader.crt", ".kcp-front-proxy/requestheader.key", &user.DefaultInfo{Name: "kcp-front-proxy"}, 365)
+	_, err = requestHeaderCA.MakeClientCertificate(
+		filepath.Join(workDirPath, ".kcp-front-proxy/requestheader.crt"),
+		filepath.Join(workDirPath, ".kcp-front-proxy/requestheader.key"),
+		&user.DefaultInfo{Name: "kcp-front-proxy"},
+		365,
+	)
 	if err != nil {
 		fmt.Printf("failed to create requestheader client cert: %v\n", err)
 		os.Exit(1)
 	}
 
 	// create client CA and kcp-admin client cert to connect through front-proxy
-	clientCA, err := crypto.MakeSelfSignedCA(".kcp/client-ca.crt", ".kcp/client-ca.key", ".kcp/client-ca-serial.txt", "kcp-client-ca", 365)
+	clientCA, err := crypto.MakeSelfSignedCA(
+		filepath.Join(workDirPath, ".kcp/client-ca.crt"),
+		filepath.Join(workDirPath, ".kcp/client-ca.key"),
+		filepath.Join(workDirPath, ".kcp/client-ca-serial.txt"),
+		"kcp-client-ca",
+		365,
+	)
 	if err != nil {
 		fmt.Printf("failed to create client-ca: %v\n", err)
 		os.Exit(1)
 	}
-	_, err = clientCA.MakeClientCertificate(".kcp/kcp-admin.crt", ".kcp/kcp-admin.key", &user.DefaultInfo{
-		Name:   "kcp-admin",
-		Groups: []string{bootstrap.SystemKcpClusterWorkspaceAdminGroup, bootstrap.SystemKcpAdminGroup},
-	}, 365)
+	_, err = clientCA.MakeClientCertificate(
+		filepath.Join(workDirPath, ".kcp/kcp-admin.crt"),
+		filepath.Join(workDirPath, ".kcp/kcp-admin.key"),
+		&user.DefaultInfo{
+			Name:   "kcp-admin",
+			Groups: []string{bootstrap.SystemKcpClusterWorkspaceAdminGroup, bootstrap.SystemKcpAdminGroup},
+		},
+		365,
+	)
 	if err != nil {
 		fmt.Printf("failed to create kcp-admin client cert: %v\n", err)
 		os.Exit(1)
 	}
 
 	// create server CA to be used to sign shard serving certs
-	servingCA, err := crypto.MakeSelfSignedCA(".kcp/serving-ca.crt", ".kcp/serving-ca.key", ".kcp/serving-ca-serial.txt", "kcp-serving-ca", 365)
+	servingCA, err := crypto.MakeSelfSignedCA(
+		filepath.Join(workDirPath, ".kcp/serving-ca.crt"),
+		filepath.Join(workDirPath, ".kcp/serving-ca.key"),
+		filepath.Join(workDirPath, ".kcp/serving-ca-serial.txt"),
+		"kcp-serving-ca",
+		365,
+	)
 	if err != nil {
-		fmt.Printf("failed to create requestheader-ca: %v\n", err)
+		fmt.Printf("failed to create serving-ca: %v\n", err)
 		os.Exit(1)
 	}
 
 	// create service account signing and verification key
-	if _, err := crypto.MakeSelfSignedCA(".kcp/service-account.crt", ".kcp/service-account.key", ".kcp/service-account-serial.txt", "kcp-service-account-signing-ca", 365); err != nil {
+	if _, err := crypto.MakeSelfSignedCA(
+		filepath.Join(workDirPath, ".kcp/service-account.crt"),
+		filepath.Join(workDirPath, ".kcp/service-account.key"),
+		filepath.Join(workDirPath, ".kcp/service-account-serial.txt"),
+		"kcp-service-account-signing-ca",
+		365,
+	); err != nil {
 		fmt.Printf("failed to create service-account-signing-ca: %v\n", err)
 		os.Exit(1)
 	}
@@ -139,7 +174,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		vwPort = "7444"
 
 		for i := 0; i < numberOfShards; i++ {
-			virtualWorkspaceErrCh, err := startVirtual(ctx, i, logDirPath)
+			virtualWorkspaceErrCh, err := startVirtual(ctx, i, logDirPath, workDirPath)
 			if err != nil {
 				return fmt.Errorf("error starting virtual workspaces server %d: %w", i, err)
 			}

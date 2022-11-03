@@ -31,7 +31,7 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
-func startVirtual(ctx context.Context, index int, logDirPath string) (<-chan error, error) {
+func startVirtual(ctx context.Context, index int, logDirPath, workDirPath string) (<-chan error, error) {
 	prefix := fmt.Sprintf("VW-%d", index)
 	yellow := color.New(color.BgYellow, color.FgHiWhite).SprintFunc()
 	out := lineprefix.New(
@@ -39,26 +39,29 @@ func startVirtual(ctx context.Context, index int, logDirPath string) (<-chan err
 		lineprefix.Color(color.New(color.FgHiYellow)),
 	)
 
+	authenticationKubeconfigPath := filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d", index), "admin.kubeconfig")
+	clientCAFilePath := filepath.Join(workDirPath, ".kcp", "client-ca.crt")
+
 	commandLine := framework.DirectOrGoRunCommand("virtual-workspaces")
 	commandLine = append(
 		commandLine,
-		fmt.Sprintf("--kubeconfig=.kcp-%d/admin.kubeconfig", index),
-		"--context=system:admin",
-		fmt.Sprintf("--authentication-kubeconfig=.kcp-%d/admin.kubeconfig", index),
+		fmt.Sprintf("--kubeconfig=%s", authenticationKubeconfigPath),
+		fmt.Sprintf("--authentication-kubeconfig=%s", authenticationKubeconfigPath),
 		"--authentication-skip-lookup",
-		"--client-ca-file=.kcp/client-ca.crt",
-		"--tls-private-key-file=.kcp/serving-ca.key",
-		"--tls-cert-file=.kcp/serving-ca.crt",
-		"--requestheader-client-ca-file=.kcp/requestheader-ca.crt",
+		fmt.Sprintf("--client-ca-file=%s", clientCAFilePath),
+		fmt.Sprintf("--tls-private-key-file=%s", filepath.Join(workDirPath, ".kcp/serving-ca.key")),
+		fmt.Sprintf("--tls-cert-file=%s", filepath.Join(workDirPath, ".kcp/serving-ca.crt")),
+		fmt.Sprintf("--secure-port=%d", 7444+index),
 		"--requestheader-username-headers=X-Remote-User",
 		"--requestheader-group-headers=X-Remote-Group",
-		fmt.Sprintf("--secure-port=%d", 7444+index),
+		fmt.Sprintf("--requestheader-client-ca-file=%s", filepath.Join(workDirPath, ".kcp/requestheader-ca.crt")),
+		"--v=4",
 	)
 	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " "))
 
 	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...)
 
-	logFilePath := filepath.Join(logDirPath, fmt.Sprintf(".kcp-virtual-workspaces-%d", index), "out.log")
+	logFilePath := filepath.Join(logDirPath, fmt.Sprintf("kcp-virtual-workspaces-%d.log", index))
 	if err := os.MkdirAll(filepath.Dir(logFilePath), 0755); err != nil {
 		return nil, err
 	}
