@@ -27,6 +27,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
+	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -61,6 +62,9 @@ func TestAPIBindingDeletion(t *testing.T) {
 
 	kcpClusterClient, err := clientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
+
+	crdClusterClient, err := apiextensionsclient.NewForConfig(server.RootShardSystemMasterBaseConfig(t))
+	require.NoError(t, err, "failed to construct crd cluster client for server")
 
 	dynamicClusterClient, err := kcpdynamic.NewClusterDynamicClientForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
@@ -158,6 +162,9 @@ func TestAPIBindingDeletion(t *testing.T) {
 	_, err = cowboyClusterClient.Create(logicalcluster.WithCluster(ctx, consumerWorkspace), cowboy, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating cowboy in consumer workspace %q", consumerWorkspace)
 
+	apiBindingCopy, err := kcpClusterClient.ApisV1alpha1().APIBindings().Get(logicalcluster.WithCluster(ctx, consumerWorkspace), apiBinding.Name, metav1.GetOptions{})
+	require.NoError(t, err, "error getting apibinding in consumer workspace %q", consumerWorkspace)
+
 	err = kcpClusterClient.ApisV1alpha1().APIBindings().Delete(logicalcluster.WithCluster(ctx, consumerWorkspace), apiBinding.Name, metav1.DeleteOptions{})
 	require.NoError(t, err)
 
@@ -232,6 +239,13 @@ func TestAPIBindingDeletion(t *testing.T) {
 	t.Logf("apibinding should be deleted")
 	require.Eventually(t, func() bool {
 		_, err := kcpClusterClient.ApisV1alpha1().APIBindings().Get(logicalcluster.WithCluster(ctx, consumerWorkspace), apiBinding.Name, metav1.GetOptions{})
+		return apierrors.IsNotFound(err)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+
+	crdName := apiBindingCopy.Status.BoundResources[0].Schema.UID
+	t.Logf("shadow CRD %s should be deleted", crdName)
+	require.Eventually(t, func() bool {
+		_, err := crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Get(logicalcluster.WithCluster(ctx, logicalcluster.New("system:bound-crds")), crdName, metav1.GetOptions{})
 		return apierrors.IsNotFound(err)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 }

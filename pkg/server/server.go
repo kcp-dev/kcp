@@ -433,6 +433,9 @@ func (s *Server) Run(ctx context.Context) error {
 		if err := s.installAPIBindingController(ctx, controllerConfig, delegationChainHead, s.DynamicDiscoverySharedInformerFactory); err != nil {
 			return err
 		}
+		if err := s.installCRDCleanupController(ctx, controllerConfig, delegationChainHead); err != nil {
+			return err
+		}
 	}
 
 	if s.Options.Controllers.EnableAll || enabled.Has("apiexport") {
