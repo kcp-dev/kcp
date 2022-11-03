@@ -58,3 +58,38 @@ func (v *version) APIExports() APIExportClusterInformer {
 func (v *version) APIResourceSchemas() APIResourceSchemaClusterInformer {
 	return &aPIResourceSchemaClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
+
+type Interface interface {
+	// APIBindings returns a APIBindingInformer
+	APIBindings() APIBindingInformer
+	// APIExports returns a APIExportInformer
+	APIExports() APIExportInformer
+	// APIResourceSchemas returns a APIResourceSchemaInformer
+	APIResourceSchemas() APIResourceSchemaInformer
+}
+
+type scopedVersion struct {
+	factory          internalinterfaces.SharedScopedInformerFactory
+	tweakListOptions internalinterfaces.TweakListOptionsFunc
+	namespace        string
+}
+
+// New returns a new ClusterInterface.
+func NewScoped(f internalinterfaces.SharedScopedInformerFactory, namespace string, tweakListOptions internalinterfaces.TweakListOptionsFunc) Interface {
+	return &scopedVersion{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
+}
+
+// APIBindings returns a APIBindingInformer
+func (v *scopedVersion) APIBindings() APIBindingInformer {
+	return &aPIBindingScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// APIExports returns a APIExportInformer
+func (v *scopedVersion) APIExports() APIExportInformer {
+	return &aPIExportScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// APIResourceSchemas returns a APIResourceSchemaInformer
+func (v *scopedVersion) APIResourceSchemas() APIResourceSchemaInformer {
+	return &aPIResourceSchemaScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}

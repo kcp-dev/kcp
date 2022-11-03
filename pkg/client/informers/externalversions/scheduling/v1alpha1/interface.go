@@ -51,3 +51,31 @@ func (v *version) Locations() LocationClusterInformer {
 func (v *version) Placements() PlacementClusterInformer {
 	return &placementClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
+
+type Interface interface {
+	// Locations returns a LocationInformer
+	Locations() LocationInformer
+	// Placements returns a PlacementInformer
+	Placements() PlacementInformer
+}
+
+type scopedVersion struct {
+	factory          internalinterfaces.SharedScopedInformerFactory
+	tweakListOptions internalinterfaces.TweakListOptionsFunc
+	namespace        string
+}
+
+// New returns a new ClusterInterface.
+func NewScoped(f internalinterfaces.SharedScopedInformerFactory, namespace string, tweakListOptions internalinterfaces.TweakListOptionsFunc) Interface {
+	return &scopedVersion{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
+}
+
+// Locations returns a LocationInformer
+func (v *scopedVersion) Locations() LocationInformer {
+	return &locationScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// Placements returns a PlacementInformer
+func (v *scopedVersion) Placements() PlacementInformer {
+	return &placementScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}

@@ -33,9 +33,14 @@ import (
 )
 
 // LocationClusterLister can list Locations across all workspaces, or scope down to a LocationLister for one workspace.
+// All objects returned here must be treated as read-only.
 type LocationClusterLister interface {
+	// List lists all Locations in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*schedulingv1alpha1.Location, err error)
+	// Cluster returns a lister that can list and get Locations in one workspace.
 	Cluster(cluster logicalcluster.Name) LocationLister
+	LocationClusterListerExpansion
 }
 
 type locationClusterLister struct {
@@ -43,6 +48,10 @@ type locationClusterLister struct {
 }
 
 // NewLocationClusterLister returns a new LocationClusterLister.
+// We assume that the indexer:
+// - is fed by a cross-workspace LIST+WATCH
+// - uses kcpcache.MetaClusterNamespaceKeyFunc as the key function
+// - has the kcpcache.ClusterIndex as an index
 func NewLocationClusterLister(indexer cache.Indexer) *locationClusterLister {
 	return &locationClusterLister{indexer: indexer}
 }
@@ -60,9 +69,16 @@ func (s *locationClusterLister) Cluster(cluster logicalcluster.Name) LocationLis
 	return &locationLister{indexer: s.indexer, cluster: cluster}
 }
 
+// LocationLister can list all Locations, or get one in particular.
+// All objects returned here must be treated as read-only.
 type LocationLister interface {
+	// List lists all Locations in the workspace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*schedulingv1alpha1.Location, err error)
+	// Get retrieves the Location from the indexer for a given workspace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*schedulingv1alpha1.Location, error)
+	LocationListerExpansion
 }
 
 // locationLister can list all Locations inside a workspace.
@@ -73,30 +89,49 @@ type locationLister struct {
 
 // List lists all Locations in the indexer for a workspace.
 func (s *locationLister) List(selector labels.Selector) (ret []*schedulingv1alpha1.Location, err error) {
-	selectAll := selector == nil || selector.Empty()
-
-	list, err := s.indexer.ByIndex(kcpcache.ClusterIndexName, kcpcache.ClusterIndexKey(s.cluster))
-	if err != nil {
-		return nil, err
-	}
-
-	for i := range list {
-		obj := list[i].(*schedulingv1alpha1.Location)
-		if selectAll {
-			ret = append(ret, obj)
-		} else {
-			if selector.Matches(labels.Set(obj.GetLabels())) {
-				ret = append(ret, obj)
-			}
-		}
-	}
-
+	err = kcpcache.ListAllByCluster(s.indexer, s.cluster, selector, func(i interface{}) {
+		ret = append(ret, i.(*schedulingv1alpha1.Location))
+	})
 	return ret, err
 }
 
 // Get retrieves the Location from the indexer for a given workspace and name.
 func (s *locationLister) Get(name string) (*schedulingv1alpha1.Location, error) {
 	key := kcpcache.ToClusterAwareKey(s.cluster.String(), "", name)
+	obj, exists, err := s.indexer.GetByKey(key)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, errors.NewNotFound(schedulingv1alpha1.Resource("Location"), name)
+	}
+	return obj.(*schedulingv1alpha1.Location), nil
+}
+
+// NewLocationLister returns a new LocationLister.
+// We assume that the indexer:
+// - is fed by a workspace-scoped LIST+WATCH
+// - uses cache.MetaNamespaceKeyFunc as the key function
+func NewLocationLister(indexer cache.Indexer) *locationScopedLister {
+	return &locationScopedLister{indexer: indexer}
+}
+
+// locationScopedLister can list all Locations inside a workspace.
+type locationScopedLister struct {
+	indexer cache.Indexer
+}
+
+// List lists all Locations in the indexer for a workspace.
+func (s *locationScopedLister) List(selector labels.Selector) (ret []*schedulingv1alpha1.Location, err error) {
+	err = cache.ListAll(s.indexer, selector, func(i interface{}) {
+		ret = append(ret, i.(*schedulingv1alpha1.Location))
+	})
+	return ret, err
+}
+
+// Get retrieves the Location from the indexer for a given workspace and name.
+func (s *locationScopedLister) Get(name string) (*schedulingv1alpha1.Location, error) {
+	key := name
 	obj, exists, err := s.indexer.GetByKey(key)
 	if err != nil {
 		return nil, err

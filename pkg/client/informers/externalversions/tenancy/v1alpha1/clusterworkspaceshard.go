@@ -35,6 +35,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	scopedclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions/internalinterfaces"
 	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
@@ -126,4 +127,53 @@ func (f *clusterWorkspaceShardInformer) Informer() cache.SharedIndexInformer {
 
 func (f *clusterWorkspaceShardInformer) Lister() tenancyv1alpha1listers.ClusterWorkspaceShardLister {
 	return f.lister
+}
+
+type clusterWorkspaceShardScopedInformer struct {
+	factory          internalinterfaces.SharedScopedInformerFactory
+	tweakListOptions internalinterfaces.TweakListOptionsFunc
+}
+
+func (f *clusterWorkspaceShardScopedInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&tenancyv1alpha1.ClusterWorkspaceShard{}, f.defaultInformer)
+}
+
+func (f *clusterWorkspaceShardScopedInformer) Lister() tenancyv1alpha1listers.ClusterWorkspaceShardLister {
+	return tenancyv1alpha1listers.NewClusterWorkspaceShardLister(f.Informer().GetIndexer())
+}
+
+// NewClusterWorkspaceShardInformer constructs a new informer for ClusterWorkspaceShard type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewClusterWorkspaceShardInformer(client scopedclientset.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredClusterWorkspaceShardInformer(client, resyncPeriod, indexers, nil)
+}
+
+// NewFilteredClusterWorkspaceShardInformer constructs a new informer for ClusterWorkspaceShard type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewFilteredClusterWorkspaceShardInformer(client scopedclientset.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+	return cache.NewSharedIndexInformer(
+		&cache.ListWatch{
+			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.TenancyV1alpha1().ClusterWorkspaceShards().List(context.TODO(), options)
+			},
+			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.TenancyV1alpha1().ClusterWorkspaceShards().Watch(context.TODO(), options)
+			},
+		},
+		&tenancyv1alpha1.ClusterWorkspaceShard{},
+		resyncPeriod,
+		indexers,
+	)
+}
+
+func (f *clusterWorkspaceShardScopedInformer) defaultInformer(client scopedclientset.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredClusterWorkspaceShardInformer(client, resyncPeriod, cache.Indexers{}, f.tweakListOptions)
 }

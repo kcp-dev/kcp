@@ -35,6 +35,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	scopedclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions/internalinterfaces"
 	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
@@ -126,4 +127,53 @@ func (f *aPIExportInformer) Informer() cache.SharedIndexInformer {
 
 func (f *aPIExportInformer) Lister() apisv1alpha1listers.APIExportLister {
 	return f.lister
+}
+
+type aPIExportScopedInformer struct {
+	factory          internalinterfaces.SharedScopedInformerFactory
+	tweakListOptions internalinterfaces.TweakListOptionsFunc
+}
+
+func (f *aPIExportScopedInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&apisv1alpha1.APIExport{}, f.defaultInformer)
+}
+
+func (f *aPIExportScopedInformer) Lister() apisv1alpha1listers.APIExportLister {
+	return apisv1alpha1listers.NewAPIExportLister(f.Informer().GetIndexer())
+}
+
+// NewAPIExportInformer constructs a new informer for APIExport type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewAPIExportInformer(client scopedclientset.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredAPIExportInformer(client, resyncPeriod, indexers, nil)
+}
+
+// NewFilteredAPIExportInformer constructs a new informer for APIExport type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewFilteredAPIExportInformer(client scopedclientset.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+	return cache.NewSharedIndexInformer(
+		&cache.ListWatch{
+			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.ApisV1alpha1().APIExports().List(context.TODO(), options)
+			},
+			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.ApisV1alpha1().APIExports().Watch(context.TODO(), options)
+			},
+		},
+		&apisv1alpha1.APIExport{},
+		resyncPeriod,
+		indexers,
+	)
+}
+
+func (f *aPIExportScopedInformer) defaultInformer(client scopedclientset.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredAPIExportInformer(client, resyncPeriod, cache.Indexers{}, f.tweakListOptions)
 }

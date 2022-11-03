@@ -35,6 +35,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
+	scopedclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions/internalinterfaces"
 	apiresourcev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apiresource/v1alpha1"
@@ -126,4 +127,53 @@ func (f *aPIResourceImportInformer) Informer() cache.SharedIndexInformer {
 
 func (f *aPIResourceImportInformer) Lister() apiresourcev1alpha1listers.APIResourceImportLister {
 	return f.lister
+}
+
+type aPIResourceImportScopedInformer struct {
+	factory          internalinterfaces.SharedScopedInformerFactory
+	tweakListOptions internalinterfaces.TweakListOptionsFunc
+}
+
+func (f *aPIResourceImportScopedInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&apiresourcev1alpha1.APIResourceImport{}, f.defaultInformer)
+}
+
+func (f *aPIResourceImportScopedInformer) Lister() apiresourcev1alpha1listers.APIResourceImportLister {
+	return apiresourcev1alpha1listers.NewAPIResourceImportLister(f.Informer().GetIndexer())
+}
+
+// NewAPIResourceImportInformer constructs a new informer for APIResourceImport type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewAPIResourceImportInformer(client scopedclientset.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredAPIResourceImportInformer(client, resyncPeriod, indexers, nil)
+}
+
+// NewFilteredAPIResourceImportInformer constructs a new informer for APIResourceImport type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewFilteredAPIResourceImportInformer(client scopedclientset.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+	return cache.NewSharedIndexInformer(
+		&cache.ListWatch{
+			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.ApiresourceV1alpha1().APIResourceImports().List(context.TODO(), options)
+			},
+			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.ApiresourceV1alpha1().APIResourceImports().Watch(context.TODO(), options)
+			},
+		},
+		&apiresourcev1alpha1.APIResourceImport{},
+		resyncPeriod,
+		indexers,
+	)
+}
+
+func (f *aPIResourceImportScopedInformer) defaultInformer(client scopedclientset.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredAPIResourceImportInformer(client, resyncPeriod, cache.Indexers{}, f.tweakListOptions)
 }

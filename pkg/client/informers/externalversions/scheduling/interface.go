@@ -45,3 +45,24 @@ func New(f internalinterfaces.SharedInformerFactory, tweakListOptions internalin
 func (g *group) V1alpha1() v1alpha1.ClusterInterface {
 	return v1alpha1.New(g.factory, g.tweakListOptions)
 }
+
+type Interface interface {
+	// V1alpha1 provides access to the shared informers in V1alpha1.
+	V1alpha1() v1alpha1.Interface
+}
+
+type scopedGroup struct {
+	factory          internalinterfaces.SharedScopedInformerFactory
+	tweakListOptions internalinterfaces.TweakListOptionsFunc
+	namespace        string
+}
+
+// New returns a new Interface.
+func NewScoped(f internalinterfaces.SharedScopedInformerFactory, namespace string, tweakListOptions internalinterfaces.TweakListOptionsFunc) Interface {
+	return &scopedGroup{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
+}
+
+// V1alpha1 returns a new v1alpha1.ClusterInterface.
+func (g *scopedGroup) V1alpha1() v1alpha1.Interface {
+	return v1alpha1.NewScoped(g.factory, g.namespace, g.tweakListOptions)
+}

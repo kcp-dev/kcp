@@ -35,6 +35,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	scopedclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions/internalinterfaces"
 	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
@@ -126,4 +127,53 @@ func (f *aPIResourceSchemaInformer) Informer() cache.SharedIndexInformer {
 
 func (f *aPIResourceSchemaInformer) Lister() apisv1alpha1listers.APIResourceSchemaLister {
 	return f.lister
+}
+
+type aPIResourceSchemaScopedInformer struct {
+	factory          internalinterfaces.SharedScopedInformerFactory
+	tweakListOptions internalinterfaces.TweakListOptionsFunc
+}
+
+func (f *aPIResourceSchemaScopedInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&apisv1alpha1.APIResourceSchema{}, f.defaultInformer)
+}
+
+func (f *aPIResourceSchemaScopedInformer) Lister() apisv1alpha1listers.APIResourceSchemaLister {
+	return apisv1alpha1listers.NewAPIResourceSchemaLister(f.Informer().GetIndexer())
+}
+
+// NewAPIResourceSchemaInformer constructs a new informer for APIResourceSchema type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewAPIResourceSchemaInformer(client scopedclientset.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredAPIResourceSchemaInformer(client, resyncPeriod, indexers, nil)
+}
+
+// NewFilteredAPIResourceSchemaInformer constructs a new informer for APIResourceSchema type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewFilteredAPIResourceSchemaInformer(client scopedclientset.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+	return cache.NewSharedIndexInformer(
+		&cache.ListWatch{
+			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.ApisV1alpha1().APIResourceSchemas().List(context.TODO(), options)
+			},
+			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.ApisV1alpha1().APIResourceSchemas().Watch(context.TODO(), options)
+			},
+		},
+		&apisv1alpha1.APIResourceSchema{},
+		resyncPeriod,
+		indexers,
+	)
+}
+
+func (f *aPIResourceSchemaScopedInformer) defaultInformer(client scopedclientset.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredAPIResourceSchemaInformer(client, resyncPeriod, cache.Indexers{}, f.tweakListOptions)
 }

@@ -33,9 +33,14 @@ import (
 )
 
 // APIResourceSchemaClusterLister can list APIResourceSchemas across all workspaces, or scope down to a APIResourceSchemaLister for one workspace.
+// All objects returned here must be treated as read-only.
 type APIResourceSchemaClusterLister interface {
+	// List lists all APIResourceSchemas in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*apisv1alpha1.APIResourceSchema, err error)
+	// Cluster returns a lister that can list and get APIResourceSchemas in one workspace.
 	Cluster(cluster logicalcluster.Name) APIResourceSchemaLister
+	APIResourceSchemaClusterListerExpansion
 }
 
 type aPIResourceSchemaClusterLister struct {
@@ -43,6 +48,10 @@ type aPIResourceSchemaClusterLister struct {
 }
 
 // NewAPIResourceSchemaClusterLister returns a new APIResourceSchemaClusterLister.
+// We assume that the indexer:
+// - is fed by a cross-workspace LIST+WATCH
+// - uses kcpcache.MetaClusterNamespaceKeyFunc as the key function
+// - has the kcpcache.ClusterIndex as an index
 func NewAPIResourceSchemaClusterLister(indexer cache.Indexer) *aPIResourceSchemaClusterLister {
 	return &aPIResourceSchemaClusterLister{indexer: indexer}
 }
@@ -60,9 +69,16 @@ func (s *aPIResourceSchemaClusterLister) Cluster(cluster logicalcluster.Name) AP
 	return &aPIResourceSchemaLister{indexer: s.indexer, cluster: cluster}
 }
 
+// APIResourceSchemaLister can list all APIResourceSchemas, or get one in particular.
+// All objects returned here must be treated as read-only.
 type APIResourceSchemaLister interface {
+	// List lists all APIResourceSchemas in the workspace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*apisv1alpha1.APIResourceSchema, err error)
+	// Get retrieves the APIResourceSchema from the indexer for a given workspace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*apisv1alpha1.APIResourceSchema, error)
+	APIResourceSchemaListerExpansion
 }
 
 // aPIResourceSchemaLister can list all APIResourceSchemas inside a workspace.
@@ -73,30 +89,49 @@ type aPIResourceSchemaLister struct {
 
 // List lists all APIResourceSchemas in the indexer for a workspace.
 func (s *aPIResourceSchemaLister) List(selector labels.Selector) (ret []*apisv1alpha1.APIResourceSchema, err error) {
-	selectAll := selector == nil || selector.Empty()
-
-	list, err := s.indexer.ByIndex(kcpcache.ClusterIndexName, kcpcache.ClusterIndexKey(s.cluster))
-	if err != nil {
-		return nil, err
-	}
-
-	for i := range list {
-		obj := list[i].(*apisv1alpha1.APIResourceSchema)
-		if selectAll {
-			ret = append(ret, obj)
-		} else {
-			if selector.Matches(labels.Set(obj.GetLabels())) {
-				ret = append(ret, obj)
-			}
-		}
-	}
-
+	err = kcpcache.ListAllByCluster(s.indexer, s.cluster, selector, func(i interface{}) {
+		ret = append(ret, i.(*apisv1alpha1.APIResourceSchema))
+	})
 	return ret, err
 }
 
 // Get retrieves the APIResourceSchema from the indexer for a given workspace and name.
 func (s *aPIResourceSchemaLister) Get(name string) (*apisv1alpha1.APIResourceSchema, error) {
 	key := kcpcache.ToClusterAwareKey(s.cluster.String(), "", name)
+	obj, exists, err := s.indexer.GetByKey(key)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, errors.NewNotFound(apisv1alpha1.Resource("APIResourceSchema"), name)
+	}
+	return obj.(*apisv1alpha1.APIResourceSchema), nil
+}
+
+// NewAPIResourceSchemaLister returns a new APIResourceSchemaLister.
+// We assume that the indexer:
+// - is fed by a workspace-scoped LIST+WATCH
+// - uses cache.MetaNamespaceKeyFunc as the key function
+func NewAPIResourceSchemaLister(indexer cache.Indexer) *aPIResourceSchemaScopedLister {
+	return &aPIResourceSchemaScopedLister{indexer: indexer}
+}
+
+// aPIResourceSchemaScopedLister can list all APIResourceSchemas inside a workspace.
+type aPIResourceSchemaScopedLister struct {
+	indexer cache.Indexer
+}
+
+// List lists all APIResourceSchemas in the indexer for a workspace.
+func (s *aPIResourceSchemaScopedLister) List(selector labels.Selector) (ret []*apisv1alpha1.APIResourceSchema, err error) {
+	err = cache.ListAll(s.indexer, selector, func(i interface{}) {
+		ret = append(ret, i.(*apisv1alpha1.APIResourceSchema))
+	})
+	return ret, err
+}
+
+// Get retrieves the APIResourceSchema from the indexer for a given workspace and name.
+func (s *aPIResourceSchemaScopedLister) Get(name string) (*apisv1alpha1.APIResourceSchema, error) {
+	key := name
 	obj, exists, err := s.indexer.GetByKey(key)
 	if err != nil {
 		return nil, err

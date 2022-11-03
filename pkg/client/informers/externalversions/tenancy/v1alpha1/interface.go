@@ -58,3 +58,38 @@ func (v *version) ClusterWorkspaceTypes() ClusterWorkspaceTypeClusterInformer {
 func (v *version) ClusterWorkspaceShards() ClusterWorkspaceShardClusterInformer {
 	return &clusterWorkspaceShardClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
+
+type Interface interface {
+	// ClusterWorkspaces returns a ClusterWorkspaceInformer
+	ClusterWorkspaces() ClusterWorkspaceInformer
+	// ClusterWorkspaceTypes returns a ClusterWorkspaceTypeInformer
+	ClusterWorkspaceTypes() ClusterWorkspaceTypeInformer
+	// ClusterWorkspaceShards returns a ClusterWorkspaceShardInformer
+	ClusterWorkspaceShards() ClusterWorkspaceShardInformer
+}
+
+type scopedVersion struct {
+	factory          internalinterfaces.SharedScopedInformerFactory
+	tweakListOptions internalinterfaces.TweakListOptionsFunc
+	namespace        string
+}
+
+// New returns a new ClusterInterface.
+func NewScoped(f internalinterfaces.SharedScopedInformerFactory, namespace string, tweakListOptions internalinterfaces.TweakListOptionsFunc) Interface {
+	return &scopedVersion{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
+}
+
+// ClusterWorkspaces returns a ClusterWorkspaceInformer
+func (v *scopedVersion) ClusterWorkspaces() ClusterWorkspaceInformer {
+	return &clusterWorkspaceScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// ClusterWorkspaceTypes returns a ClusterWorkspaceTypeInformer
+func (v *scopedVersion) ClusterWorkspaceTypes() ClusterWorkspaceTypeInformer {
+	return &clusterWorkspaceTypeScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// ClusterWorkspaceShards returns a ClusterWorkspaceShardInformer
+func (v *scopedVersion) ClusterWorkspaceShards() ClusterWorkspaceShardInformer {
+	return &clusterWorkspaceShardScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}

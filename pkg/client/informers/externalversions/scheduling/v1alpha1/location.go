@@ -35,6 +35,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
+	scopedclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions/internalinterfaces"
 	schedulingv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
@@ -126,4 +127,53 @@ func (f *locationInformer) Informer() cache.SharedIndexInformer {
 
 func (f *locationInformer) Lister() schedulingv1alpha1listers.LocationLister {
 	return f.lister
+}
+
+type locationScopedInformer struct {
+	factory          internalinterfaces.SharedScopedInformerFactory
+	tweakListOptions internalinterfaces.TweakListOptionsFunc
+}
+
+func (f *locationScopedInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&schedulingv1alpha1.Location{}, f.defaultInformer)
+}
+
+func (f *locationScopedInformer) Lister() schedulingv1alpha1listers.LocationLister {
+	return schedulingv1alpha1listers.NewLocationLister(f.Informer().GetIndexer())
+}
+
+// NewLocationInformer constructs a new informer for Location type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewLocationInformer(client scopedclientset.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredLocationInformer(client, resyncPeriod, indexers, nil)
+}
+
+// NewFilteredLocationInformer constructs a new informer for Location type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewFilteredLocationInformer(client scopedclientset.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+	return cache.NewSharedIndexInformer(
+		&cache.ListWatch{
+			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.SchedulingV1alpha1().Locations().List(context.TODO(), options)
+			},
+			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.SchedulingV1alpha1().Locations().Watch(context.TODO(), options)
+			},
+		},
+		&schedulingv1alpha1.Location{},
+		resyncPeriod,
+		indexers,
+	)
+}
+
+func (f *locationScopedInformer) defaultInformer(client scopedclientset.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredLocationInformer(client, resyncPeriod, cache.Indexers{}, f.tweakListOptions)
 }

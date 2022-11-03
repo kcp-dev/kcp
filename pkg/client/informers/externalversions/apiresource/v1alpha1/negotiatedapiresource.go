@@ -35,6 +35,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
+	scopedclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions/internalinterfaces"
 	apiresourcev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apiresource/v1alpha1"
@@ -126,4 +127,53 @@ func (f *negotiatedAPIResourceInformer) Informer() cache.SharedIndexInformer {
 
 func (f *negotiatedAPIResourceInformer) Lister() apiresourcev1alpha1listers.NegotiatedAPIResourceLister {
 	return f.lister
+}
+
+type negotiatedAPIResourceScopedInformer struct {
+	factory          internalinterfaces.SharedScopedInformerFactory
+	tweakListOptions internalinterfaces.TweakListOptionsFunc
+}
+
+func (f *negotiatedAPIResourceScopedInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&apiresourcev1alpha1.NegotiatedAPIResource{}, f.defaultInformer)
+}
+
+func (f *negotiatedAPIResourceScopedInformer) Lister() apiresourcev1alpha1listers.NegotiatedAPIResourceLister {
+	return apiresourcev1alpha1listers.NewNegotiatedAPIResourceLister(f.Informer().GetIndexer())
+}
+
+// NewNegotiatedAPIResourceInformer constructs a new informer for NegotiatedAPIResource type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewNegotiatedAPIResourceInformer(client scopedclientset.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredNegotiatedAPIResourceInformer(client, resyncPeriod, indexers, nil)
+}
+
+// NewFilteredNegotiatedAPIResourceInformer constructs a new informer for NegotiatedAPIResource type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewFilteredNegotiatedAPIResourceInformer(client scopedclientset.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+	return cache.NewSharedIndexInformer(
+		&cache.ListWatch{
+			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.ApiresourceV1alpha1().NegotiatedAPIResources().List(context.TODO(), options)
+			},
+			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.ApiresourceV1alpha1().NegotiatedAPIResources().Watch(context.TODO(), options)
+			},
+		},
+		&apiresourcev1alpha1.NegotiatedAPIResource{},
+		resyncPeriod,
+		indexers,
+	)
+}
+
+func (f *negotiatedAPIResourceScopedInformer) defaultInformer(client scopedclientset.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredNegotiatedAPIResourceInformer(client, resyncPeriod, cache.Indexers{}, f.tweakListOptions)
 }

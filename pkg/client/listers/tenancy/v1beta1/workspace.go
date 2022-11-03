@@ -33,9 +33,14 @@ import (
 )
 
 // WorkspaceClusterLister can list Workspaces across all workspaces, or scope down to a WorkspaceLister for one workspace.
+// All objects returned here must be treated as read-only.
 type WorkspaceClusterLister interface {
+	// List lists all Workspaces in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*tenancyv1beta1.Workspace, err error)
+	// Cluster returns a lister that can list and get Workspaces in one workspace.
 	Cluster(cluster logicalcluster.Name) WorkspaceLister
+	WorkspaceClusterListerExpansion
 }
 
 type workspaceClusterLister struct {
@@ -43,6 +48,10 @@ type workspaceClusterLister struct {
 }
 
 // NewWorkspaceClusterLister returns a new WorkspaceClusterLister.
+// We assume that the indexer:
+// - is fed by a cross-workspace LIST+WATCH
+// - uses kcpcache.MetaClusterNamespaceKeyFunc as the key function
+// - has the kcpcache.ClusterIndex as an index
 func NewWorkspaceClusterLister(indexer cache.Indexer) *workspaceClusterLister {
 	return &workspaceClusterLister{indexer: indexer}
 }
@@ -60,9 +69,16 @@ func (s *workspaceClusterLister) Cluster(cluster logicalcluster.Name) WorkspaceL
 	return &workspaceLister{indexer: s.indexer, cluster: cluster}
 }
 
+// WorkspaceLister can list all Workspaces, or get one in particular.
+// All objects returned here must be treated as read-only.
 type WorkspaceLister interface {
+	// List lists all Workspaces in the workspace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*tenancyv1beta1.Workspace, err error)
+	// Get retrieves the Workspace from the indexer for a given workspace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*tenancyv1beta1.Workspace, error)
+	WorkspaceListerExpansion
 }
 
 // workspaceLister can list all Workspaces inside a workspace.
@@ -73,30 +89,49 @@ type workspaceLister struct {
 
 // List lists all Workspaces in the indexer for a workspace.
 func (s *workspaceLister) List(selector labels.Selector) (ret []*tenancyv1beta1.Workspace, err error) {
-	selectAll := selector == nil || selector.Empty()
-
-	list, err := s.indexer.ByIndex(kcpcache.ClusterIndexName, kcpcache.ClusterIndexKey(s.cluster))
-	if err != nil {
-		return nil, err
-	}
-
-	for i := range list {
-		obj := list[i].(*tenancyv1beta1.Workspace)
-		if selectAll {
-			ret = append(ret, obj)
-		} else {
-			if selector.Matches(labels.Set(obj.GetLabels())) {
-				ret = append(ret, obj)
-			}
-		}
-	}
-
+	err = kcpcache.ListAllByCluster(s.indexer, s.cluster, selector, func(i interface{}) {
+		ret = append(ret, i.(*tenancyv1beta1.Workspace))
+	})
 	return ret, err
 }
 
 // Get retrieves the Workspace from the indexer for a given workspace and name.
 func (s *workspaceLister) Get(name string) (*tenancyv1beta1.Workspace, error) {
 	key := kcpcache.ToClusterAwareKey(s.cluster.String(), "", name)
+	obj, exists, err := s.indexer.GetByKey(key)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, errors.NewNotFound(tenancyv1beta1.Resource("Workspace"), name)
+	}
+	return obj.(*tenancyv1beta1.Workspace), nil
+}
+
+// NewWorkspaceLister returns a new WorkspaceLister.
+// We assume that the indexer:
+// - is fed by a workspace-scoped LIST+WATCH
+// - uses cache.MetaNamespaceKeyFunc as the key function
+func NewWorkspaceLister(indexer cache.Indexer) *workspaceScopedLister {
+	return &workspaceScopedLister{indexer: indexer}
+}
+
+// workspaceScopedLister can list all Workspaces inside a workspace.
+type workspaceScopedLister struct {
+	indexer cache.Indexer
+}
+
+// List lists all Workspaces in the indexer for a workspace.
+func (s *workspaceScopedLister) List(selector labels.Selector) (ret []*tenancyv1beta1.Workspace, err error) {
+	err = cache.ListAll(s.indexer, selector, func(i interface{}) {
+		ret = append(ret, i.(*tenancyv1beta1.Workspace))
+	})
+	return ret, err
+}
+
+// Get retrieves the Workspace from the indexer for a given workspace and name.
+func (s *workspaceScopedLister) Get(name string) (*tenancyv1beta1.Workspace, error) {
+	key := name
 	obj, exists, err := s.indexer.GetByKey(key)
 	if err != nil {
 		return nil, err

@@ -44,3 +44,24 @@ func New(f internalinterfaces.SharedInformerFactory, tweakListOptions internalin
 func (v *version) Workspaces() WorkspaceClusterInformer {
 	return &workspaceClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
+
+type Interface interface {
+	// Workspaces returns a WorkspaceInformer
+	Workspaces() WorkspaceInformer
+}
+
+type scopedVersion struct {
+	factory          internalinterfaces.SharedScopedInformerFactory
+	tweakListOptions internalinterfaces.TweakListOptionsFunc
+	namespace        string
+}
+
+// New returns a new ClusterInterface.
+func NewScoped(f internalinterfaces.SharedScopedInformerFactory, namespace string, tweakListOptions internalinterfaces.TweakListOptionsFunc) Interface {
+	return &scopedVersion{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
+}
+
+// Workspaces returns a WorkspaceInformer
+func (v *scopedVersion) Workspaces() WorkspaceInformer {
+	return &workspaceScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}

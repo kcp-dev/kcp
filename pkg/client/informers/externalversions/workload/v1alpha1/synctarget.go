@@ -35,6 +35,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	scopedclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions/internalinterfaces"
 	workloadv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
@@ -126,4 +127,53 @@ func (f *syncTargetInformer) Informer() cache.SharedIndexInformer {
 
 func (f *syncTargetInformer) Lister() workloadv1alpha1listers.SyncTargetLister {
 	return f.lister
+}
+
+type syncTargetScopedInformer struct {
+	factory          internalinterfaces.SharedScopedInformerFactory
+	tweakListOptions internalinterfaces.TweakListOptionsFunc
+}
+
+func (f *syncTargetScopedInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&workloadv1alpha1.SyncTarget{}, f.defaultInformer)
+}
+
+func (f *syncTargetScopedInformer) Lister() workloadv1alpha1listers.SyncTargetLister {
+	return workloadv1alpha1listers.NewSyncTargetLister(f.Informer().GetIndexer())
+}
+
+// NewSyncTargetInformer constructs a new informer for SyncTarget type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewSyncTargetInformer(client scopedclientset.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredSyncTargetInformer(client, resyncPeriod, indexers, nil)
+}
+
+// NewFilteredSyncTargetInformer constructs a new informer for SyncTarget type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewFilteredSyncTargetInformer(client scopedclientset.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+	return cache.NewSharedIndexInformer(
+		&cache.ListWatch{
+			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.WorkloadV1alpha1().SyncTargets().List(context.TODO(), options)
+			},
+			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.WorkloadV1alpha1().SyncTargets().Watch(context.TODO(), options)
+			},
+		},
+		&workloadv1alpha1.SyncTarget{},
+		resyncPeriod,
+		indexers,
+	)
+}
+
+func (f *syncTargetScopedInformer) defaultInformer(client scopedclientset.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredSyncTargetInformer(client, resyncPeriod, cache.Indexers{}, f.tweakListOptions)
 }

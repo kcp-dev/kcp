@@ -51,3 +51,31 @@ func (v *version) APIResourceImports() APIResourceImportClusterInformer {
 func (v *version) NegotiatedAPIResources() NegotiatedAPIResourceClusterInformer {
 	return &negotiatedAPIResourceClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
+
+type Interface interface {
+	// APIResourceImports returns a APIResourceImportInformer
+	APIResourceImports() APIResourceImportInformer
+	// NegotiatedAPIResources returns a NegotiatedAPIResourceInformer
+	NegotiatedAPIResources() NegotiatedAPIResourceInformer
+}
+
+type scopedVersion struct {
+	factory          internalinterfaces.SharedScopedInformerFactory
+	tweakListOptions internalinterfaces.TweakListOptionsFunc
+	namespace        string
+}
+
+// New returns a new ClusterInterface.
+func NewScoped(f internalinterfaces.SharedScopedInformerFactory, namespace string, tweakListOptions internalinterfaces.TweakListOptionsFunc) Interface {
+	return &scopedVersion{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
+}
+
+// APIResourceImports returns a APIResourceImportInformer
+func (v *scopedVersion) APIResourceImports() APIResourceImportInformer {
+	return &aPIResourceImportScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// NegotiatedAPIResources returns a NegotiatedAPIResourceInformer
+func (v *scopedVersion) NegotiatedAPIResources() NegotiatedAPIResourceInformer {
+	return &negotiatedAPIResourceScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}

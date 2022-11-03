@@ -33,9 +33,14 @@ import (
 )
 
 // ClusterWorkspaceClusterLister can list ClusterWorkspaces across all workspaces, or scope down to a ClusterWorkspaceLister for one workspace.
+// All objects returned here must be treated as read-only.
 type ClusterWorkspaceClusterLister interface {
+	// List lists all ClusterWorkspaces in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*tenancyv1alpha1.ClusterWorkspace, err error)
+	// Cluster returns a lister that can list and get ClusterWorkspaces in one workspace.
 	Cluster(cluster logicalcluster.Name) ClusterWorkspaceLister
+	ClusterWorkspaceClusterListerExpansion
 }
 
 type clusterWorkspaceClusterLister struct {
@@ -43,6 +48,10 @@ type clusterWorkspaceClusterLister struct {
 }
 
 // NewClusterWorkspaceClusterLister returns a new ClusterWorkspaceClusterLister.
+// We assume that the indexer:
+// - is fed by a cross-workspace LIST+WATCH
+// - uses kcpcache.MetaClusterNamespaceKeyFunc as the key function
+// - has the kcpcache.ClusterIndex as an index
 func NewClusterWorkspaceClusterLister(indexer cache.Indexer) *clusterWorkspaceClusterLister {
 	return &clusterWorkspaceClusterLister{indexer: indexer}
 }
@@ -60,9 +69,16 @@ func (s *clusterWorkspaceClusterLister) Cluster(cluster logicalcluster.Name) Clu
 	return &clusterWorkspaceLister{indexer: s.indexer, cluster: cluster}
 }
 
+// ClusterWorkspaceLister can list all ClusterWorkspaces, or get one in particular.
+// All objects returned here must be treated as read-only.
 type ClusterWorkspaceLister interface {
+	// List lists all ClusterWorkspaces in the workspace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*tenancyv1alpha1.ClusterWorkspace, err error)
+	// Get retrieves the ClusterWorkspace from the indexer for a given workspace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*tenancyv1alpha1.ClusterWorkspace, error)
+	ClusterWorkspaceListerExpansion
 }
 
 // clusterWorkspaceLister can list all ClusterWorkspaces inside a workspace.
@@ -73,30 +89,49 @@ type clusterWorkspaceLister struct {
 
 // List lists all ClusterWorkspaces in the indexer for a workspace.
 func (s *clusterWorkspaceLister) List(selector labels.Selector) (ret []*tenancyv1alpha1.ClusterWorkspace, err error) {
-	selectAll := selector == nil || selector.Empty()
-
-	list, err := s.indexer.ByIndex(kcpcache.ClusterIndexName, kcpcache.ClusterIndexKey(s.cluster))
-	if err != nil {
-		return nil, err
-	}
-
-	for i := range list {
-		obj := list[i].(*tenancyv1alpha1.ClusterWorkspace)
-		if selectAll {
-			ret = append(ret, obj)
-		} else {
-			if selector.Matches(labels.Set(obj.GetLabels())) {
-				ret = append(ret, obj)
-			}
-		}
-	}
-
+	err = kcpcache.ListAllByCluster(s.indexer, s.cluster, selector, func(i interface{}) {
+		ret = append(ret, i.(*tenancyv1alpha1.ClusterWorkspace))
+	})
 	return ret, err
 }
 
 // Get retrieves the ClusterWorkspace from the indexer for a given workspace and name.
 func (s *clusterWorkspaceLister) Get(name string) (*tenancyv1alpha1.ClusterWorkspace, error) {
 	key := kcpcache.ToClusterAwareKey(s.cluster.String(), "", name)
+	obj, exists, err := s.indexer.GetByKey(key)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, errors.NewNotFound(tenancyv1alpha1.Resource("ClusterWorkspace"), name)
+	}
+	return obj.(*tenancyv1alpha1.ClusterWorkspace), nil
+}
+
+// NewClusterWorkspaceLister returns a new ClusterWorkspaceLister.
+// We assume that the indexer:
+// - is fed by a workspace-scoped LIST+WATCH
+// - uses cache.MetaNamespaceKeyFunc as the key function
+func NewClusterWorkspaceLister(indexer cache.Indexer) *clusterWorkspaceScopedLister {
+	return &clusterWorkspaceScopedLister{indexer: indexer}
+}
+
+// clusterWorkspaceScopedLister can list all ClusterWorkspaces inside a workspace.
+type clusterWorkspaceScopedLister struct {
+	indexer cache.Indexer
+}
+
+// List lists all ClusterWorkspaces in the indexer for a workspace.
+func (s *clusterWorkspaceScopedLister) List(selector labels.Selector) (ret []*tenancyv1alpha1.ClusterWorkspace, err error) {
+	err = cache.ListAll(s.indexer, selector, func(i interface{}) {
+		ret = append(ret, i.(*tenancyv1alpha1.ClusterWorkspace))
+	})
+	return ret, err
+}
+
+// Get retrieves the ClusterWorkspace from the indexer for a given workspace and name.
+func (s *clusterWorkspaceScopedLister) Get(name string) (*tenancyv1alpha1.ClusterWorkspace, error) {
+	key := name
 	obj, exists, err := s.indexer.GetByKey(key)
 	if err != nil {
 		return nil, err

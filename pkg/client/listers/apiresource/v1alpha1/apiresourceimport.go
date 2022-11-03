@@ -33,9 +33,14 @@ import (
 )
 
 // APIResourceImportClusterLister can list APIResourceImports across all workspaces, or scope down to a APIResourceImportLister for one workspace.
+// All objects returned here must be treated as read-only.
 type APIResourceImportClusterLister interface {
+	// List lists all APIResourceImports in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*apiresourcev1alpha1.APIResourceImport, err error)
+	// Cluster returns a lister that can list and get APIResourceImports in one workspace.
 	Cluster(cluster logicalcluster.Name) APIResourceImportLister
+	APIResourceImportClusterListerExpansion
 }
 
 type aPIResourceImportClusterLister struct {
@@ -43,6 +48,10 @@ type aPIResourceImportClusterLister struct {
 }
 
 // NewAPIResourceImportClusterLister returns a new APIResourceImportClusterLister.
+// We assume that the indexer:
+// - is fed by a cross-workspace LIST+WATCH
+// - uses kcpcache.MetaClusterNamespaceKeyFunc as the key function
+// - has the kcpcache.ClusterIndex as an index
 func NewAPIResourceImportClusterLister(indexer cache.Indexer) *aPIResourceImportClusterLister {
 	return &aPIResourceImportClusterLister{indexer: indexer}
 }
@@ -60,9 +69,16 @@ func (s *aPIResourceImportClusterLister) Cluster(cluster logicalcluster.Name) AP
 	return &aPIResourceImportLister{indexer: s.indexer, cluster: cluster}
 }
 
+// APIResourceImportLister can list all APIResourceImports, or get one in particular.
+// All objects returned here must be treated as read-only.
 type APIResourceImportLister interface {
+	// List lists all APIResourceImports in the workspace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*apiresourcev1alpha1.APIResourceImport, err error)
+	// Get retrieves the APIResourceImport from the indexer for a given workspace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*apiresourcev1alpha1.APIResourceImport, error)
+	APIResourceImportListerExpansion
 }
 
 // aPIResourceImportLister can list all APIResourceImports inside a workspace.
@@ -73,30 +89,49 @@ type aPIResourceImportLister struct {
 
 // List lists all APIResourceImports in the indexer for a workspace.
 func (s *aPIResourceImportLister) List(selector labels.Selector) (ret []*apiresourcev1alpha1.APIResourceImport, err error) {
-	selectAll := selector == nil || selector.Empty()
-
-	list, err := s.indexer.ByIndex(kcpcache.ClusterIndexName, kcpcache.ClusterIndexKey(s.cluster))
-	if err != nil {
-		return nil, err
-	}
-
-	for i := range list {
-		obj := list[i].(*apiresourcev1alpha1.APIResourceImport)
-		if selectAll {
-			ret = append(ret, obj)
-		} else {
-			if selector.Matches(labels.Set(obj.GetLabels())) {
-				ret = append(ret, obj)
-			}
-		}
-	}
-
+	err = kcpcache.ListAllByCluster(s.indexer, s.cluster, selector, func(i interface{}) {
+		ret = append(ret, i.(*apiresourcev1alpha1.APIResourceImport))
+	})
 	return ret, err
 }
 
 // Get retrieves the APIResourceImport from the indexer for a given workspace and name.
 func (s *aPIResourceImportLister) Get(name string) (*apiresourcev1alpha1.APIResourceImport, error) {
 	key := kcpcache.ToClusterAwareKey(s.cluster.String(), "", name)
+	obj, exists, err := s.indexer.GetByKey(key)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, errors.NewNotFound(apiresourcev1alpha1.Resource("APIResourceImport"), name)
+	}
+	return obj.(*apiresourcev1alpha1.APIResourceImport), nil
+}
+
+// NewAPIResourceImportLister returns a new APIResourceImportLister.
+// We assume that the indexer:
+// - is fed by a workspace-scoped LIST+WATCH
+// - uses cache.MetaNamespaceKeyFunc as the key function
+func NewAPIResourceImportLister(indexer cache.Indexer) *aPIResourceImportScopedLister {
+	return &aPIResourceImportScopedLister{indexer: indexer}
+}
+
+// aPIResourceImportScopedLister can list all APIResourceImports inside a workspace.
+type aPIResourceImportScopedLister struct {
+	indexer cache.Indexer
+}
+
+// List lists all APIResourceImports in the indexer for a workspace.
+func (s *aPIResourceImportScopedLister) List(selector labels.Selector) (ret []*apiresourcev1alpha1.APIResourceImport, err error) {
+	err = cache.ListAll(s.indexer, selector, func(i interface{}) {
+		ret = append(ret, i.(*apiresourcev1alpha1.APIResourceImport))
+	})
+	return ret, err
+}
+
+// Get retrieves the APIResourceImport from the indexer for a given workspace and name.
+func (s *aPIResourceImportScopedLister) Get(name string) (*apiresourcev1alpha1.APIResourceImport, error) {
+	key := name
 	obj, exists, err := s.indexer.GetByKey(key)
 	if err != nil {
 		return nil, err

@@ -35,6 +35,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	scopedclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions/internalinterfaces"
 	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
@@ -126,4 +127,53 @@ func (f *aPIBindingInformer) Informer() cache.SharedIndexInformer {
 
 func (f *aPIBindingInformer) Lister() apisv1alpha1listers.APIBindingLister {
 	return f.lister
+}
+
+type aPIBindingScopedInformer struct {
+	factory          internalinterfaces.SharedScopedInformerFactory
+	tweakListOptions internalinterfaces.TweakListOptionsFunc
+}
+
+func (f *aPIBindingScopedInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&apisv1alpha1.APIBinding{}, f.defaultInformer)
+}
+
+func (f *aPIBindingScopedInformer) Lister() apisv1alpha1listers.APIBindingLister {
+	return apisv1alpha1listers.NewAPIBindingLister(f.Informer().GetIndexer())
+}
+
+// NewAPIBindingInformer constructs a new informer for APIBinding type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewAPIBindingInformer(client scopedclientset.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredAPIBindingInformer(client, resyncPeriod, indexers, nil)
+}
+
+// NewFilteredAPIBindingInformer constructs a new informer for APIBinding type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewFilteredAPIBindingInformer(client scopedclientset.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+	return cache.NewSharedIndexInformer(
+		&cache.ListWatch{
+			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.ApisV1alpha1().APIBindings().List(context.TODO(), options)
+			},
+			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.ApisV1alpha1().APIBindings().Watch(context.TODO(), options)
+			},
+		},
+		&apisv1alpha1.APIBinding{},
+		resyncPeriod,
+		indexers,
+	)
+}
+
+func (f *aPIBindingScopedInformer) defaultInformer(client scopedclientset.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredAPIBindingInformer(client, resyncPeriod, cache.Indexers{}, f.tweakListOptions)
 }

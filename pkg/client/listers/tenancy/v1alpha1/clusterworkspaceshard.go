@@ -33,9 +33,14 @@ import (
 )
 
 // ClusterWorkspaceShardClusterLister can list ClusterWorkspaceShards across all workspaces, or scope down to a ClusterWorkspaceShardLister for one workspace.
+// All objects returned here must be treated as read-only.
 type ClusterWorkspaceShardClusterLister interface {
+	// List lists all ClusterWorkspaceShards in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*tenancyv1alpha1.ClusterWorkspaceShard, err error)
+	// Cluster returns a lister that can list and get ClusterWorkspaceShards in one workspace.
 	Cluster(cluster logicalcluster.Name) ClusterWorkspaceShardLister
+	ClusterWorkspaceShardClusterListerExpansion
 }
 
 type clusterWorkspaceShardClusterLister struct {
@@ -43,6 +48,10 @@ type clusterWorkspaceShardClusterLister struct {
 }
 
 // NewClusterWorkspaceShardClusterLister returns a new ClusterWorkspaceShardClusterLister.
+// We assume that the indexer:
+// - is fed by a cross-workspace LIST+WATCH
+// - uses kcpcache.MetaClusterNamespaceKeyFunc as the key function
+// - has the kcpcache.ClusterIndex as an index
 func NewClusterWorkspaceShardClusterLister(indexer cache.Indexer) *clusterWorkspaceShardClusterLister {
 	return &clusterWorkspaceShardClusterLister{indexer: indexer}
 }
@@ -60,9 +69,16 @@ func (s *clusterWorkspaceShardClusterLister) Cluster(cluster logicalcluster.Name
 	return &clusterWorkspaceShardLister{indexer: s.indexer, cluster: cluster}
 }
 
+// ClusterWorkspaceShardLister can list all ClusterWorkspaceShards, or get one in particular.
+// All objects returned here must be treated as read-only.
 type ClusterWorkspaceShardLister interface {
+	// List lists all ClusterWorkspaceShards in the workspace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*tenancyv1alpha1.ClusterWorkspaceShard, err error)
+	// Get retrieves the ClusterWorkspaceShard from the indexer for a given workspace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*tenancyv1alpha1.ClusterWorkspaceShard, error)
+	ClusterWorkspaceShardListerExpansion
 }
 
 // clusterWorkspaceShardLister can list all ClusterWorkspaceShards inside a workspace.
@@ -73,30 +89,49 @@ type clusterWorkspaceShardLister struct {
 
 // List lists all ClusterWorkspaceShards in the indexer for a workspace.
 func (s *clusterWorkspaceShardLister) List(selector labels.Selector) (ret []*tenancyv1alpha1.ClusterWorkspaceShard, err error) {
-	selectAll := selector == nil || selector.Empty()
-
-	list, err := s.indexer.ByIndex(kcpcache.ClusterIndexName, kcpcache.ClusterIndexKey(s.cluster))
-	if err != nil {
-		return nil, err
-	}
-
-	for i := range list {
-		obj := list[i].(*tenancyv1alpha1.ClusterWorkspaceShard)
-		if selectAll {
-			ret = append(ret, obj)
-		} else {
-			if selector.Matches(labels.Set(obj.GetLabels())) {
-				ret = append(ret, obj)
-			}
-		}
-	}
-
+	err = kcpcache.ListAllByCluster(s.indexer, s.cluster, selector, func(i interface{}) {
+		ret = append(ret, i.(*tenancyv1alpha1.ClusterWorkspaceShard))
+	})
 	return ret, err
 }
 
 // Get retrieves the ClusterWorkspaceShard from the indexer for a given workspace and name.
 func (s *clusterWorkspaceShardLister) Get(name string) (*tenancyv1alpha1.ClusterWorkspaceShard, error) {
 	key := kcpcache.ToClusterAwareKey(s.cluster.String(), "", name)
+	obj, exists, err := s.indexer.GetByKey(key)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, errors.NewNotFound(tenancyv1alpha1.Resource("ClusterWorkspaceShard"), name)
+	}
+	return obj.(*tenancyv1alpha1.ClusterWorkspaceShard), nil
+}
+
+// NewClusterWorkspaceShardLister returns a new ClusterWorkspaceShardLister.
+// We assume that the indexer:
+// - is fed by a workspace-scoped LIST+WATCH
+// - uses cache.MetaNamespaceKeyFunc as the key function
+func NewClusterWorkspaceShardLister(indexer cache.Indexer) *clusterWorkspaceShardScopedLister {
+	return &clusterWorkspaceShardScopedLister{indexer: indexer}
+}
+
+// clusterWorkspaceShardScopedLister can list all ClusterWorkspaceShards inside a workspace.
+type clusterWorkspaceShardScopedLister struct {
+	indexer cache.Indexer
+}
+
+// List lists all ClusterWorkspaceShards in the indexer for a workspace.
+func (s *clusterWorkspaceShardScopedLister) List(selector labels.Selector) (ret []*tenancyv1alpha1.ClusterWorkspaceShard, err error) {
+	err = cache.ListAll(s.indexer, selector, func(i interface{}) {
+		ret = append(ret, i.(*tenancyv1alpha1.ClusterWorkspaceShard))
+	})
+	return ret, err
+}
+
+// Get retrieves the ClusterWorkspaceShard from the indexer for a given workspace and name.
+func (s *clusterWorkspaceShardScopedLister) Get(name string) (*tenancyv1alpha1.ClusterWorkspaceShard, error) {
+	key := name
 	obj, exists, err := s.indexer.GetByKey(key)
 	if err != nil {
 		return nil, err

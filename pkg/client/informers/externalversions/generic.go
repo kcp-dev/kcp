@@ -125,3 +125,54 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 
 	return nil, fmt.Errorf("no informer found for %v", resource)
 }
+
+// ForResource gives generic access to a shared informer of the matching type
+// TODO extend this to unknown resources with a client pool
+func (f *sharedScopedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
+	switch resource {
+	// Group=apiresource.kcp.dev, Version=V1alpha1
+	case apiresourcev1alpha1.SchemeGroupVersion.WithResource("apiresourceimports"):
+		informer := f.Apiresource().V1alpha1().APIResourceImports().Informer()
+		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
+	case apiresourcev1alpha1.SchemeGroupVersion.WithResource("negotiatedapiresources"):
+		informer := f.Apiresource().V1alpha1().NegotiatedAPIResources().Informer()
+		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
+	// Group=apis.kcp.dev, Version=V1alpha1
+	case apisv1alpha1.SchemeGroupVersion.WithResource("apibindings"):
+		informer := f.Apis().V1alpha1().APIBindings().Informer()
+		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
+	case apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"):
+		informer := f.Apis().V1alpha1().APIExports().Informer()
+		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
+	case apisv1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas"):
+		informer := f.Apis().V1alpha1().APIResourceSchemas().Informer()
+		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
+	// Group=scheduling.kcp.dev, Version=V1alpha1
+	case schedulingv1alpha1.SchemeGroupVersion.WithResource("locations"):
+		informer := f.Scheduling().V1alpha1().Locations().Informer()
+		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
+	case schedulingv1alpha1.SchemeGroupVersion.WithResource("placements"):
+		informer := f.Scheduling().V1alpha1().Placements().Informer()
+		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
+	// Group=tenancy.kcp.dev, Version=V1alpha1
+	case tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces"):
+		informer := f.Tenancy().V1alpha1().ClusterWorkspaces().Informer()
+		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
+	case tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspacetypes"):
+		informer := f.Tenancy().V1alpha1().ClusterWorkspaceTypes().Informer()
+		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
+	case tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaceshards"):
+		informer := f.Tenancy().V1alpha1().ClusterWorkspaceShards().Informer()
+		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
+	// Group=tenancy.kcp.dev, Version=V1beta1
+	case tenancyv1beta1.SchemeGroupVersion.WithResource("workspaces"):
+		informer := f.Tenancy().V1beta1().Workspaces().Informer()
+		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
+	// Group=workload.kcp.dev, Version=V1alpha1
+	case workloadv1alpha1.SchemeGroupVersion.WithResource("synctargets"):
+		informer := f.Workload().V1alpha1().SyncTargets().Informer()
+		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
+	}
+
+	return nil, fmt.Errorf("no informer found for %v", resource)
+}

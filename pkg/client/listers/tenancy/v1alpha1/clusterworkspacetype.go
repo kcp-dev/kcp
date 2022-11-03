@@ -33,9 +33,14 @@ import (
 )
 
 // ClusterWorkspaceTypeClusterLister can list ClusterWorkspaceTypes across all workspaces, or scope down to a ClusterWorkspaceTypeLister for one workspace.
+// All objects returned here must be treated as read-only.
 type ClusterWorkspaceTypeClusterLister interface {
+	// List lists all ClusterWorkspaceTypes in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*tenancyv1alpha1.ClusterWorkspaceType, err error)
+	// Cluster returns a lister that can list and get ClusterWorkspaceTypes in one workspace.
 	Cluster(cluster logicalcluster.Name) ClusterWorkspaceTypeLister
+	ClusterWorkspaceTypeClusterListerExpansion
 }
 
 type clusterWorkspaceTypeClusterLister struct {
@@ -43,6 +48,10 @@ type clusterWorkspaceTypeClusterLister struct {
 }
 
 // NewClusterWorkspaceTypeClusterLister returns a new ClusterWorkspaceTypeClusterLister.
+// We assume that the indexer:
+// - is fed by a cross-workspace LIST+WATCH
+// - uses kcpcache.MetaClusterNamespaceKeyFunc as the key function
+// - has the kcpcache.ClusterIndex as an index
 func NewClusterWorkspaceTypeClusterLister(indexer cache.Indexer) *clusterWorkspaceTypeClusterLister {
 	return &clusterWorkspaceTypeClusterLister{indexer: indexer}
 }
@@ -60,9 +69,16 @@ func (s *clusterWorkspaceTypeClusterLister) Cluster(cluster logicalcluster.Name)
 	return &clusterWorkspaceTypeLister{indexer: s.indexer, cluster: cluster}
 }
 
+// ClusterWorkspaceTypeLister can list all ClusterWorkspaceTypes, or get one in particular.
+// All objects returned here must be treated as read-only.
 type ClusterWorkspaceTypeLister interface {
+	// List lists all ClusterWorkspaceTypes in the workspace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*tenancyv1alpha1.ClusterWorkspaceType, err error)
+	// Get retrieves the ClusterWorkspaceType from the indexer for a given workspace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*tenancyv1alpha1.ClusterWorkspaceType, error)
+	ClusterWorkspaceTypeListerExpansion
 }
 
 // clusterWorkspaceTypeLister can list all ClusterWorkspaceTypes inside a workspace.
@@ -73,30 +89,49 @@ type clusterWorkspaceTypeLister struct {
 
 // List lists all ClusterWorkspaceTypes in the indexer for a workspace.
 func (s *clusterWorkspaceTypeLister) List(selector labels.Selector) (ret []*tenancyv1alpha1.ClusterWorkspaceType, err error) {
-	selectAll := selector == nil || selector.Empty()
-
-	list, err := s.indexer.ByIndex(kcpcache.ClusterIndexName, kcpcache.ClusterIndexKey(s.cluster))
-	if err != nil {
-		return nil, err
-	}
-
-	for i := range list {
-		obj := list[i].(*tenancyv1alpha1.ClusterWorkspaceType)
-		if selectAll {
-			ret = append(ret, obj)
-		} else {
-			if selector.Matches(labels.Set(obj.GetLabels())) {
-				ret = append(ret, obj)
-			}
-		}
-	}
-
+	err = kcpcache.ListAllByCluster(s.indexer, s.cluster, selector, func(i interface{}) {
+		ret = append(ret, i.(*tenancyv1alpha1.ClusterWorkspaceType))
+	})
 	return ret, err
 }
 
 // Get retrieves the ClusterWorkspaceType from the indexer for a given workspace and name.
 func (s *clusterWorkspaceTypeLister) Get(name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
 	key := kcpcache.ToClusterAwareKey(s.cluster.String(), "", name)
+	obj, exists, err := s.indexer.GetByKey(key)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, errors.NewNotFound(tenancyv1alpha1.Resource("ClusterWorkspaceType"), name)
+	}
+	return obj.(*tenancyv1alpha1.ClusterWorkspaceType), nil
+}
+
+// NewClusterWorkspaceTypeLister returns a new ClusterWorkspaceTypeLister.
+// We assume that the indexer:
+// - is fed by a workspace-scoped LIST+WATCH
+// - uses cache.MetaNamespaceKeyFunc as the key function
+func NewClusterWorkspaceTypeLister(indexer cache.Indexer) *clusterWorkspaceTypeScopedLister {
+	return &clusterWorkspaceTypeScopedLister{indexer: indexer}
+}
+
+// clusterWorkspaceTypeScopedLister can list all ClusterWorkspaceTypes inside a workspace.
+type clusterWorkspaceTypeScopedLister struct {
+	indexer cache.Indexer
+}
+
+// List lists all ClusterWorkspaceTypes in the indexer for a workspace.
+func (s *clusterWorkspaceTypeScopedLister) List(selector labels.Selector) (ret []*tenancyv1alpha1.ClusterWorkspaceType, err error) {
+	err = cache.ListAll(s.indexer, selector, func(i interface{}) {
+		ret = append(ret, i.(*tenancyv1alpha1.ClusterWorkspaceType))
+	})
+	return ret, err
+}
+
+// Get retrieves the ClusterWorkspaceType from the indexer for a given workspace and name.
+func (s *clusterWorkspaceTypeScopedLister) Get(name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
+	key := name
 	obj, exists, err := s.indexer.GetByKey(key)
 	if err != nil {
 		return nil, err

@@ -33,9 +33,14 @@ import (
 )
 
 // APIExportClusterLister can list APIExports across all workspaces, or scope down to a APIExportLister for one workspace.
+// All objects returned here must be treated as read-only.
 type APIExportClusterLister interface {
+	// List lists all APIExports in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*apisv1alpha1.APIExport, err error)
+	// Cluster returns a lister that can list and get APIExports in one workspace.
 	Cluster(cluster logicalcluster.Name) APIExportLister
+	APIExportClusterListerExpansion
 }
 
 type aPIExportClusterLister struct {
@@ -43,6 +48,10 @@ type aPIExportClusterLister struct {
 }
 
 // NewAPIExportClusterLister returns a new APIExportClusterLister.
+// We assume that the indexer:
+// - is fed by a cross-workspace LIST+WATCH
+// - uses kcpcache.MetaClusterNamespaceKeyFunc as the key function
+// - has the kcpcache.ClusterIndex as an index
 func NewAPIExportClusterLister(indexer cache.Indexer) *aPIExportClusterLister {
 	return &aPIExportClusterLister{indexer: indexer}
 }
@@ -60,9 +69,16 @@ func (s *aPIExportClusterLister) Cluster(cluster logicalcluster.Name) APIExportL
 	return &aPIExportLister{indexer: s.indexer, cluster: cluster}
 }
 
+// APIExportLister can list all APIExports, or get one in particular.
+// All objects returned here must be treated as read-only.
 type APIExportLister interface {
+	// List lists all APIExports in the workspace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*apisv1alpha1.APIExport, err error)
+	// Get retrieves the APIExport from the indexer for a given workspace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*apisv1alpha1.APIExport, error)
+	APIExportListerExpansion
 }
 
 // aPIExportLister can list all APIExports inside a workspace.
@@ -73,30 +89,49 @@ type aPIExportLister struct {
 
 // List lists all APIExports in the indexer for a workspace.
 func (s *aPIExportLister) List(selector labels.Selector) (ret []*apisv1alpha1.APIExport, err error) {
-	selectAll := selector == nil || selector.Empty()
-
-	list, err := s.indexer.ByIndex(kcpcache.ClusterIndexName, kcpcache.ClusterIndexKey(s.cluster))
-	if err != nil {
-		return nil, err
-	}
-
-	for i := range list {
-		obj := list[i].(*apisv1alpha1.APIExport)
-		if selectAll {
-			ret = append(ret, obj)
-		} else {
-			if selector.Matches(labels.Set(obj.GetLabels())) {
-				ret = append(ret, obj)
-			}
-		}
-	}
-
+	err = kcpcache.ListAllByCluster(s.indexer, s.cluster, selector, func(i interface{}) {
+		ret = append(ret, i.(*apisv1alpha1.APIExport))
+	})
 	return ret, err
 }
 
 // Get retrieves the APIExport from the indexer for a given workspace and name.
 func (s *aPIExportLister) Get(name string) (*apisv1alpha1.APIExport, error) {
 	key := kcpcache.ToClusterAwareKey(s.cluster.String(), "", name)
+	obj, exists, err := s.indexer.GetByKey(key)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, errors.NewNotFound(apisv1alpha1.Resource("APIExport"), name)
+	}
+	return obj.(*apisv1alpha1.APIExport), nil
+}
+
+// NewAPIExportLister returns a new APIExportLister.
+// We assume that the indexer:
+// - is fed by a workspace-scoped LIST+WATCH
+// - uses cache.MetaNamespaceKeyFunc as the key function
+func NewAPIExportLister(indexer cache.Indexer) *aPIExportScopedLister {
+	return &aPIExportScopedLister{indexer: indexer}
+}
+
+// aPIExportScopedLister can list all APIExports inside a workspace.
+type aPIExportScopedLister struct {
+	indexer cache.Indexer
+}
+
+// List lists all APIExports in the indexer for a workspace.
+func (s *aPIExportScopedLister) List(selector labels.Selector) (ret []*apisv1alpha1.APIExport, err error) {
+	err = cache.ListAll(s.indexer, selector, func(i interface{}) {
+		ret = append(ret, i.(*apisv1alpha1.APIExport))
+	})
+	return ret, err
+}
+
+// Get retrieves the APIExport from the indexer for a given workspace and name.
+func (s *aPIExportScopedLister) Get(name string) (*apisv1alpha1.APIExport, error) {
+	key := name
 	obj, exists, err := s.indexer.GetByKey(key)
 	if err != nil {
 		return nil, err

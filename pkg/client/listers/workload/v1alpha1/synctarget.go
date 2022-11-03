@@ -33,9 +33,14 @@ import (
 )
 
 // SyncTargetClusterLister can list SyncTargets across all workspaces, or scope down to a SyncTargetLister for one workspace.
+// All objects returned here must be treated as read-only.
 type SyncTargetClusterLister interface {
+	// List lists all SyncTargets in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*workloadv1alpha1.SyncTarget, err error)
+	// Cluster returns a lister that can list and get SyncTargets in one workspace.
 	Cluster(cluster logicalcluster.Name) SyncTargetLister
+	SyncTargetClusterListerExpansion
 }
 
 type syncTargetClusterLister struct {
@@ -43,6 +48,10 @@ type syncTargetClusterLister struct {
 }
 
 // NewSyncTargetClusterLister returns a new SyncTargetClusterLister.
+// We assume that the indexer:
+// - is fed by a cross-workspace LIST+WATCH
+// - uses kcpcache.MetaClusterNamespaceKeyFunc as the key function
+// - has the kcpcache.ClusterIndex as an index
 func NewSyncTargetClusterLister(indexer cache.Indexer) *syncTargetClusterLister {
 	return &syncTargetClusterLister{indexer: indexer}
 }
@@ -60,9 +69,16 @@ func (s *syncTargetClusterLister) Cluster(cluster logicalcluster.Name) SyncTarge
 	return &syncTargetLister{indexer: s.indexer, cluster: cluster}
 }
 
+// SyncTargetLister can list all SyncTargets, or get one in particular.
+// All objects returned here must be treated as read-only.
 type SyncTargetLister interface {
+	// List lists all SyncTargets in the workspace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*workloadv1alpha1.SyncTarget, err error)
+	// Get retrieves the SyncTarget from the indexer for a given workspace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*workloadv1alpha1.SyncTarget, error)
+	SyncTargetListerExpansion
 }
 
 // syncTargetLister can list all SyncTargets inside a workspace.
@@ -73,30 +89,49 @@ type syncTargetLister struct {
 
 // List lists all SyncTargets in the indexer for a workspace.
 func (s *syncTargetLister) List(selector labels.Selector) (ret []*workloadv1alpha1.SyncTarget, err error) {
-	selectAll := selector == nil || selector.Empty()
-
-	list, err := s.indexer.ByIndex(kcpcache.ClusterIndexName, kcpcache.ClusterIndexKey(s.cluster))
-	if err != nil {
-		return nil, err
-	}
-
-	for i := range list {
-		obj := list[i].(*workloadv1alpha1.SyncTarget)
-		if selectAll {
-			ret = append(ret, obj)
-		} else {
-			if selector.Matches(labels.Set(obj.GetLabels())) {
-				ret = append(ret, obj)
-			}
-		}
-	}
-
+	err = kcpcache.ListAllByCluster(s.indexer, s.cluster, selector, func(i interface{}) {
+		ret = append(ret, i.(*workloadv1alpha1.SyncTarget))
+	})
 	return ret, err
 }
 
 // Get retrieves the SyncTarget from the indexer for a given workspace and name.
 func (s *syncTargetLister) Get(name string) (*workloadv1alpha1.SyncTarget, error) {
 	key := kcpcache.ToClusterAwareKey(s.cluster.String(), "", name)
+	obj, exists, err := s.indexer.GetByKey(key)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, errors.NewNotFound(workloadv1alpha1.Resource("SyncTarget"), name)
+	}
+	return obj.(*workloadv1alpha1.SyncTarget), nil
+}
+
+// NewSyncTargetLister returns a new SyncTargetLister.
+// We assume that the indexer:
+// - is fed by a workspace-scoped LIST+WATCH
+// - uses cache.MetaNamespaceKeyFunc as the key function
+func NewSyncTargetLister(indexer cache.Indexer) *syncTargetScopedLister {
+	return &syncTargetScopedLister{indexer: indexer}
+}
+
+// syncTargetScopedLister can list all SyncTargets inside a workspace.
+type syncTargetScopedLister struct {
+	indexer cache.Indexer
+}
+
+// List lists all SyncTargets in the indexer for a workspace.
+func (s *syncTargetScopedLister) List(selector labels.Selector) (ret []*workloadv1alpha1.SyncTarget, err error) {
+	err = cache.ListAll(s.indexer, selector, func(i interface{}) {
+		ret = append(ret, i.(*workloadv1alpha1.SyncTarget))
+	})
+	return ret, err
+}
+
+// Get retrieves the SyncTarget from the indexer for a given workspace and name.
+func (s *syncTargetScopedLister) Get(name string) (*workloadv1alpha1.SyncTarget, error) {
+	key := name
 	obj, exists, err := s.indexer.GetByKey(key)
 	if err != nil {
 		return nil, err
