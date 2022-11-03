@@ -28,7 +28,7 @@ import (
 	shard "github.com/kcp-dev/kcp/cmd/test-server/kcp"
 )
 
-func startShard(ctx context.Context, n int, args []string, servingCA *crypto.CA, hostIP string, logDirPath, workDirPath, cacheServerConfigPath string) (<-chan error, error) {
+func newShard(ctx context.Context, n int, args []string, servingCA *crypto.CA, hostIP string, logDirPath, workDirPath, cacheServerConfigPath string) (*shard.Shard, error) {
 	// create serving cert
 	hostnames := sets.NewString("localhost", hostIP)
 	klog.Infof("Creating shard server %d serving cert with hostnames %v", n, hostnames)
@@ -86,9 +86,10 @@ func startShard(ctx context.Context, n int, args []string, servingCA *crypto.CA,
 		args = append(args, fmt.Sprintf("--cache-server-kubeconfig-file=%s", cacheServerConfigPath))
 	}
 
-	return shard.Start(ctx,
+	return shard.NewShard(
 		fmt.Sprintf("kcp-%d", n),                              // name
 		filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d", n)), // runtime directory, etcd data etc.
 		logFilePath,
-		args)
+		args,
+	), nil
 }

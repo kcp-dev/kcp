@@ -193,7 +193,7 @@ func startFrontProxy(
 
 		// intentionally load again every iteration because it can change
 		configLoader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: filepath.Join(workDirPath, ".kcp/admin.kubeconfig")},
-			&clientcmd.ConfigOverrides{CurrentContext: "system:admin"},
+			&clientcmd.ConfigOverrides{CurrentContext: "base"},
 		)
 		config, err := configLoader.ClientConfig()
 		if err != nil {

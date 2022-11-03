@@ -21,6 +21,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -42,39 +43,57 @@ import (
 //go:embed *.yaml
 var embeddedResources embed.FS
 
-// Start starts a kcp shard server. It returns with nil when it is ready, or
-// when the context is done.
-func Start(ctx context.Context, name, runtimeDir, logFilePath string, args []string) (<-chan error, error) {
-	logger := klog.FromContext(ctx).WithValues("shard", name)
+type headWriter interface {
+	io.Writer
+	StopOut()
+}
 
+type Shard struct {
+	name        string
+	runtimeDir  string
+	logFilePath string
+	args        []string
+
+	terminatedCh <-chan error
+	writer       headWriter
+}
+
+func NewShard(name, runtimeDir, logFilePath string, args []string) *Shard {
+	return &Shard{
+		name:        name,
+		runtimeDir:  runtimeDir,
+		logFilePath: logFilePath,
+		args:        args,
+	}
+}
+
+// Start starts a kcp Shard server.
+func (s *Shard) Start(ctx context.Context) error {
+	logger := klog.FromContext(ctx).WithValues("shard", s.name)
 	// setup color output
-	prefix := strings.ToUpper(name)
+	prefix := strings.ToUpper(s.name)
 	blue := color.New(color.BgBlue, color.FgHiWhite).SprintFunc()
-	inverse := color.New(color.BgHiWhite, color.FgBlue).SprintFunc()
+
 	out := lineprefix.New(
 		lineprefix.Prefix(blue(prefix)),
 		lineprefix.Color(color.New(color.FgHiBlue)),
 	)
-	successOut := lineprefix.New(
-		lineprefix.Prefix(inverse(fmt.Sprintf(" %s ", prefix))),
-		lineprefix.Color(color.New(color.FgHiWhite)),
-	)
 
 	// write audit policy
-	if err := os.MkdirAll(runtimeDir, 0755); err != nil {
-		return nil, err
+	if err := os.MkdirAll(s.runtimeDir, 0755); err != nil {
+		return err
 	}
 	bs, err := embeddedResources.ReadFile("audit-policy.yaml")
 	if err != nil {
-		return nil, err
+		return err
 	}
-	if err := os.WriteFile(filepath.Join(runtimeDir, "audit-policy.yaml"), bs, 0644); err != nil {
-		return nil, err
+	if err := os.WriteFile(filepath.Join(s.runtimeDir, "audit-policy.yaml"), bs, 0644); err != nil {
+		return err
 	}
 
 	// setup command
 	commandLine := append(framework.StartKcpCommand(), framework.TestServerArgs()...)
-	commandLine = append(commandLine, args...)
+	commandLine = append(commandLine, s.args...)
 	commandLine = append(commandLine,
 		"--audit-log-maxsize", "1024",
 		"--audit-log-mode=batch",
@@ -84,27 +103,27 @@ func Start(ctx context.Context, name, runtimeDir, logFilePath string, args []str
 		"--audit-log-batch-throttle-burst=15",
 		"--audit-log-batch-throttle-enable=true",
 		"--audit-log-batch-throttle-qps=10",
-		"--audit-policy-file", filepath.Join(runtimeDir, "audit-policy.yaml"),
+		"--audit-policy-file", filepath.Join(s.runtimeDir, "audit-policy.yaml"),
 		"--virtual-workspaces-workspaces.authorization-cache.resync-period=1s",
 	)
 	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " "))
 
 	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...)
-	if err := os.MkdirAll(filepath.Dir(logFilePath), 0755); err != nil {
-		return nil, err
+	if err := os.MkdirAll(filepath.Dir(s.logFilePath), 0755); err != nil {
+		return err
 	}
-	logFile, err := os.OpenFile(logFilePath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
+	logFile, err := os.OpenFile(s.logFilePath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	writer := helpers.NewHeadWriter(logFile, out)
-	cmd.Stdout = writer
+	s.writer = helpers.NewHeadWriter(logFile, out)
+	cmd.Stdout = s.writer
 	cmd.Stdin = os.Stdin
-	cmd.Stderr = writer
+	cmd.Stderr = s.writer
 
 	if err := cmd.Start(); err != nil {
-		return nil, err
+		return err
 	}
 
 	go func() {
@@ -114,26 +133,28 @@ func Start(ctx context.Context, name, runtimeDir, logFilePath string, args []str
 		}
 	}()
 
+	// Start a goroutine that will notify when the process has exited
 	terminatedCh := make(chan error, 1)
+	s.terminatedCh = terminatedCh
 	go func() {
 		terminatedCh <- cmd.Wait()
 	}()
 
 	// wait for admin.kubeconfig
-	kubeconfigPath := filepath.Join(runtimeDir, "admin.kubeconfig")
+	kubeconfigPath := filepath.Join(s.runtimeDir, "admin.kubeconfig")
 	logger.Info("Waiting for kubeconfig", "path", kubeconfigPath)
 	for {
 		select {
 		case <-ctx.Done():
-			return nil, fmt.Errorf("context canceled")
-		case err := <-terminatedCh:
+			return fmt.Errorf("context canceled")
+		case err := <-s.terminatedCh:
 			var exitErr *exec.ExitError
 			if err == nil {
-				return nil, fmt.Errorf("kcp shard %s terminated unexpectedly with exit code 0", name)
+				return fmt.Errorf("kcp Shard %s terminated unexpectedly with exit code 0", s.name)
 			} else if errors.As(err, &exitErr) {
-				return nil, fmt.Errorf("kcp shard %s terminated with exit code %d", name, exitErr.ExitCode())
+				return fmt.Errorf("kcp Shard %s terminated with exit code %d", s.name, exitErr.ExitCode())
 			}
-			return nil, fmt.Errorf("kcp shard %s terminated with unknown error: %w", name, err)
+			return fmt.Errorf("kcp Shard %s terminated with unknown error: %w", s.name, err)
 		default:
 		}
 		if _, err := os.Stat(kubeconfigPath); err == nil {
@@ -143,7 +164,12 @@ func Start(ctx context.Context, name, runtimeDir, logFilePath string, args []str
 	}
 	logger.Info("Found kubeconfig", "path", kubeconfigPath)
 
+	return nil
+}
+
+func (s *Shard) WaitForReady(ctx context.Context) (<-chan error, error) {
 	// wait for readiness
+	logger := klog.FromContext(ctx)
 	logger.Info("Waiting for shard /readyz to succeed")
 	for {
 		time.Sleep(time.Second)
@@ -151,18 +177,19 @@ func Start(ctx context.Context, name, runtimeDir, logFilePath string, args []str
 		select {
 		case <-ctx.Done():
 			return nil, fmt.Errorf("context canceled")
-		case err := <-terminatedCh:
+		case err := <-s.terminatedCh:
 			var exitErr *exec.ExitError
 			if err == nil {
-				return nil, fmt.Errorf("kcp shard %s terminated unexpectedly with exit code 0", name)
+				return nil, fmt.Errorf("kcp Shard %s terminated unexpectedly with exit code 0", s.name)
 			} else if errors.As(err, &exitErr) {
-				return nil, fmt.Errorf("kcp shard %s terminated with exit code %d", name, exitErr.ExitCode())
+				return nil, fmt.Errorf("kcp Shard %s terminated with exit code %d", s.name, exitErr.ExitCode())
 			}
-			return nil, fmt.Errorf("kcp shard %s terminated with unknown error: %w", name, err)
+			return nil, fmt.Errorf("kcp Shard %s terminated with unknown error: %w", s.name, err)
 		default:
 		}
 
 		// intentionally load again every iteration because it can change
+		kubeconfigPath := filepath.Join(s.runtimeDir, "admin.kubeconfig")
 		configLoader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfigPath},
 			&clientcmd.ConfigOverrides{CurrentContext: "system:admin"},
 		)
@@ -193,9 +220,16 @@ func Start(ctx context.Context, name, runtimeDir, logFilePath string, args []str
 		}
 	}
 	if !logger.V(3).Enabled() {
-		writer.StopOut()
+		s.writer.StopOut()
 	}
-	fmt.Fprintf(successOut, "shard is ready\n")
 
-	return terminatedCh, nil
+	prefix := strings.ToUpper(s.name)
+	inverse := color.New(color.BgHiWhite, color.FgBlue).SprintFunc()
+	successOut := lineprefix.New(
+		lineprefix.Prefix(inverse(fmt.Sprintf(" %s ", prefix))),
+		lineprefix.Color(color.New(color.FgHiWhite)),
+	)
+
+	fmt.Fprintf(successOut, "Shard is ready\n")
+	return s.terminatedCh, nil
 }
