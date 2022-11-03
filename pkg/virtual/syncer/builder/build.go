@@ -52,9 +52,11 @@ import (
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/transforming"
 	syncercontext "github.com/kcp-dev/kcp/pkg/virtual/syncer/context"
 	"github.com/kcp-dev/kcp/pkg/virtual/syncer/controllers/apireconciler"
 	"github.com/kcp-dev/kcp/pkg/virtual/syncer/transformations"
+	"github.com/kcp-dev/kcp/pkg/virtual/syncer/upsyncer"
 )
 
 const (
@@ -64,7 +66,7 @@ const (
 	UpsyncerVirtualWorkspaceName string = "upsyncer"
 )
 
-type buildRequirementsFunc func(syncTargetKey string) (labels.Requirements, error)
+type requirementsBuilderProviderFunc func(syncTargetKey string) (labels.Requirements, error)
 
 // BuildVirtualWorkspace builds two virtual workspaces, SyncerVirtualWorkspace and UpsyncerVirtualWorkspace by instantiating a DynamicVirtualWorkspace which,
 // combined with a ForwardingREST REST storage implementation, serves a SyncTargetAPI list maintained by the APIReconciler controller.
@@ -170,7 +172,7 @@ func BuildVirtualWorkspace(
 		return nil
 	}
 
-	buildRequirements := func(resourceState workloadv1alpha1.ResourceState) buildRequirementsFunc {
+	requirementsBuilderProvider := func(resourceState workloadv1alpha1.ResourceState) requirementsBuilderProviderFunc {
 		return func(syncTargetKey string) (labels.Requirements, error) {
 			requirements, selectable := labels.SelectorFromSet(map[string]string{
 				workloadv1alpha1.ClusterResourceStateLabelPrefix + syncTargetKey: string(resourceState),
@@ -182,7 +184,12 @@ func BuildVirtualWorkspace(
 		}
 	}
 
-	bootstrapManagementProvider := func(storageBuilderProvider StorageBuilderProvider, virtualWorkspaceName string, allowedAPIFilter apireconciler.AllowedAPIfilterFunc, buildRequirements buildRequirementsFunc, storageWrapperBuilder func(labels.Requirements) forwardingregistry.StorageWrapper, readyCh chan struct{}) func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
+	bootstrapManagementProvider := func(storageBuilderProvider BuildRestProviderFunc,
+		virtualWorkspaceName string,
+		allowedAPIFilter apireconciler.AllowedAPIfilterFunc,
+		buildRequirements requirementsBuilderProviderFunc,
+		transformer transforming.ResourceTransformer,
+		buildStorageWrapper func(labels.Requirements) forwardingregistry.StorageWrapper, readyCh chan struct{}) func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
 		return func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
 			apiReconciler, err := apireconciler.NewAPIReconciler(
 				virtualWorkspaceName,
@@ -196,14 +203,16 @@ func BuildVirtualWorkspace(
 					if err != nil {
 						return nil, err
 					}
-
-					storageWrapper := storageWrapperBuilder(requirements)
+					storageWrapper := buildStorageWrapper(requirements)
 					if err != nil {
 						return nil, err
 					}
-
+					transformingClient := dynamicClusterClient
+					if transformer != nil {
+						transformingClient = transforming.WithResourceTransformer(dynamicClusterClient, transformer)
+					}
 					ctx, cancelFn := context.WithCancel(context.Background())
-					storageBuilder := storageBuilderProvider(ctx, dynamicClusterClient, apiExportIdentityHash, storageWrapper)
+					storageBuilder := storageBuilderProvider(ctx, transformingClient, apiExportIdentityHash, storageWrapper)
 					def, err := apiserver.CreateServingInfoFor(mainConfig, apiResourceSchema, version, storageBuilder)
 					if err != nil {
 						cancelFn()
@@ -297,7 +306,7 @@ func BuildVirtualWorkspace(
 		RootPathResolver:          resolverProvider(UpsyncerVirtualWorkspaceName, upsyncerReadyCh),
 		Authorizer:                authorizer.AuthorizerFunc(virtualWorkspaceAuthorizer),
 		ReadyChecker:              readyCheckerProvider(upsyncerReadyCh),
-		BootstrapAPISetManagement: bootstrapManagementProvider(NewUpSyncerStorageBuilder, UpsyncerVirtualWorkspaceName, upsyncerAllowedAPIFunc, buildRequirements(workloadv1alpha1.ResourceStateUpsync), withStaticLabelSelectorAndInWriteCallsCheck, upsyncerReadyCh),
+		BootstrapAPISetManagement: bootstrapManagementProvider(NewUpSyncerRestProvider, UpsyncerVirtualWorkspaceName, upsyncerAllowedAPIFunc, requirementsBuilderProvider(workloadv1alpha1.ResourceStateUpsync), &upsyncer.UpsyncerResourceTransformer{}, withStaticLabelSelectorAndInWriteCallsCheck, upsyncerReadyCh),
 	}
 
 	return []rootapiserver.NamedVirtualWorkspace{
