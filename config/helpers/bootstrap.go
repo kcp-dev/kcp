@@ -30,8 +30,6 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster/v2"
-
 	extensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -51,6 +49,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyhelper "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 // TransformFileFunc transforms a resource file before being applied to the cluster.
@@ -244,6 +243,8 @@ func createResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 }
 
 func BindRootAPIs(ctx context.Context, kcpClient kcpclient.Interface, exportNames ...string) error {
+	logger := klog.FromContext(ctx)
+
 	for _, exportName := range exportNames {
 		binding := &apisv1alpha1.APIBinding{
 			ObjectMeta: metav1.ObjectMeta{
@@ -261,22 +262,43 @@ func BindRootAPIs(ctx context.Context, kcpClient kcpclient.Interface, exportName
 
 		created, err := kcpClient.ApisV1alpha1().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
 		if err == nil {
-			klog.V(2).Infof("Created API binding %s|%s", logicalcluster.From(created), created.Name)
+			logger := logging.WithObject(logger, created)
+			logger.V(2).Info("Created API binding")
 			continue
 		}
 		if !apierrors.IsAlreadyExists(err) {
 			return err
 		}
 
-		existing, err := kcpClient.ApisV1alpha1().APIBindings().Get(ctx, exportName, metav1.GetOptions{})
-		if err != nil {
+		if err := wait.PollImmediateInfiniteWithContext(ctx, time.Second, func(ctx context.Context) (bool, error) {
+			existing, err := kcpClient.ApisV1alpha1().APIBindings().Get(ctx, exportName, metav1.GetOptions{})
+			if err != nil {
+				logger.Error(err, "error getting APIBinding", "name", exportName)
+				// Always keep trying. Don't ever return an error out of this function.
+				return false, nil
+			}
+
+			logger := logging.WithObject(logger, existing)
+			logger.V(2).Info("Updating API binding")
+
+			existing.Spec = binding.Spec
+
+			_, err = kcpClient.ApisV1alpha1().APIBindings().Update(ctx, existing, metav1.UpdateOptions{})
+			if err == nil {
+				return true, nil
+			}
+			if apierrors.IsConflict(err) {
+				logger.V(2).Info("API binding update conflict, retrying")
+				return false, nil
+			}
+
+			logger.Error(err, "error updating APIBinding")
+			// Always keep trying. Don't ever return an error out of this function.
+			return false, nil
+		}); err != nil {
 			return err
 		}
-		klog.V(2).Infof("Updating API binding %s", exportName)
-		existing.Spec = binding.Spec
-		if _, err := kcpClient.ApisV1alpha1().APIBindings().Update(ctx, existing, metav1.UpdateOptions{}); err != nil {
-			return fmt.Errorf("could not update API binding %s|%s: %w", logicalcluster.From(existing), existing.Name, err)
-		}
 	}
+
 	return nil
 }
