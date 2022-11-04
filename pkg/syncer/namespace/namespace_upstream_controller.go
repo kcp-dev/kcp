@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -42,6 +43,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/syncer/resourcesync"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
@@ -56,6 +58,8 @@ type UpstreamController struct {
 	deleteDownstreamNamespace                  func(ctx context.Context, namespace string) error
 	upstreamNamespaceExists                    func(clusterName logicalcluster.Name, upstreamNamespaceName string) (bool, error)
 	getDownstreamNamespaceFromNamespaceLocator func(namespaceLocator shared.NamespaceLocator) (runtime.Object, error)
+	isDowntreamNamespaceEmpty                  func(ctx context.Context, namespace string) (bool, error)
+	namespaceCleaner                           shared.Cleaner
 
 	syncTargetName      string
 	syncTargetWorkspace logicalcluster.Name
@@ -68,9 +72,11 @@ func NewUpstreamController(
 	syncTargetWorkspace logicalcluster.Name,
 	syncTargetName, syncTargetKey string,
 	syncTargetUID types.UID,
+	syncerInformers resourcesync.SyncerInformerFactory,
 	downstreamClient dynamic.Interface,
 	upstreamInformers kcpdynamicinformer.DynamicSharedInformerFactory,
 	downstreamInformers dynamicinformer.DynamicSharedInformerFactory,
+	namespaceCleaner shared.Cleaner,
 ) (*UpstreamController, error) {
 	namespaceGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
 	logger := logging.WithReconciler(syncerLogger, upstreamControllerName)
@@ -103,6 +109,28 @@ func NewUpstreamController(
 			// There should be only one namespace with the same namespace locator, return it.
 			return namespaces[0].(*unstructured.Unstructured), nil
 		},
+		isDowntreamNamespaceEmpty: func(ctx context.Context, namespace string) (bool, error) {
+			gvrs, err := syncerInformers.SyncableGVRs()
+			if err != nil {
+				return false, err
+			}
+			for _, k := range gvrs {
+				// Skip namespaces.
+				if k.Group == "" && k.Version == "v1" && k.Resource == "namespaces" {
+					continue
+				}
+				gvr := schema.GroupVersionResource{Group: k.Group, Version: k.Version, Resource: k.Resource}
+				list, err := downstreamInformers.ForResource(gvr).Lister().ByNamespace(namespace).List(labels.Everything())
+				if err != nil {
+					return false, err
+				}
+				if len(list) > 0 {
+					return false, nil
+				}
+			}
+			return true, nil
+		},
+		namespaceCleaner: namespaceCleaner,
 
 		syncTargetName:      syncTargetName,
 		syncTargetWorkspace: syncTargetWorkspace,

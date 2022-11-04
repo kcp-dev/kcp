@@ -233,6 +233,17 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	if err != nil {
 		return err
 	}
+
+	downstreamNamespaceController, err := namespace.NewDownstreamController(logger, cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, syncTarget.GetUID(), syncerInformers, downstreamConfig, downstreamDynamicClient, upstreamInformers, downstreamInformers, dnsNamespace)
+	if err != nil {
+		return err
+	}
+
+	upstreamNamespaceController, err := namespace.NewUpstreamController(logger, cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, syncTarget.GetUID(), syncerInformers, downstreamDynamicClient, upstreamInformers, downstreamInformers, downstreamNamespaceController)
+	if err != nil {
+		return err
+	}
+
 	specSyncer, err := spec.NewSpecSyncer(logger, cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, upstreamURL, advancedSchedulingEnabled,
 		upstreamDynamicClusterClient, downstreamDynamicClient, upstreamInformers, downstreamInformers, syncerInformers, syncTarget.GetUID(), dnsIP)
 	if err != nil {
@@ -242,16 +253,6 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	logger.Info("Creating status syncer")
 	statusSyncer, err := status.NewStatusSyncer(logger, cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, advancedSchedulingEnabled,
 		upstreamDynamicClusterClient, downstreamDynamicClient, downstreamInformers, syncerInformers, syncTarget.GetUID())
-	if err != nil {
-		return err
-	}
-
-	downstreamNamespaceController, err := namespace.NewDownstreamController(logger, cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, syncTarget.GetUID(), downstreamConfig, downstreamDynamicClient, upstreamInformers, downstreamInformers, dnsNamespace)
-	if err != nil {
-		return err
-	}
-
-	upstreamNamespaceController, err := namespace.NewUpstreamController(logger, cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, syncTarget.GetUID(), downstreamDynamicClient, upstreamInformers, downstreamInformers)
 	if err != nil {
 		return err
 	}

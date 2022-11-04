@@ -90,11 +90,9 @@ func TestSyncerNamespaceUpstreamProcess(t *testing.T) {
 			syncTargetWorkspace := logicalcluster.New("root:org:ws")
 			syncTargetName := "us-west1"
 			syncTargetKey := workloadv1alpha1.ToSyncTargetKey(syncTargetWorkspace, syncTargetName)
-			deletedNamespace := ""
 
 			nsController := UpstreamController{
 				deleteDownstreamNamespace: func(ctx context.Context, downstreamNamespaceName string) error {
-					deletedNamespace = downstreamNamespaceName
 					return nil
 				},
 				upstreamNamespaceExists: func(clusterName logicalcluster.Name, upstreamNamespaceName string) (bool, error) {
@@ -106,10 +104,15 @@ func TestSyncerNamespaceUpstreamProcess(t *testing.T) {
 					_ = json.Unmarshal(nsJSON, unstructured)
 					return unstructured, tc.getDownstreamNamespaceFromNamespaceLocatorError
 				},
+				isDowntreamNamespaceEmpty: func(ctx context.Context, namespaceName string) (bool, error) {
+					return true, nil
+				},
 				syncTargetName:      syncTargetName,
 				syncTargetWorkspace: syncTargetWorkspace,
 				syncTargetUID:       types.UID("syncTargetUID"),
 				syncTargetKey:       syncTargetKey,
+
+				namespaceCleaner: &fakeNamespaceCleaner{},
 			}
 
 			var key string
@@ -123,7 +126,23 @@ func TestSyncerNamespaceUpstreamProcess(t *testing.T) {
 
 			err := nsController.process(ctx, key)
 			require.NoError(t, err)
-			require.Equal(t, tc.deletedNamespace, deletedNamespace)
+			require.True(t, nsController.namespaceCleaner.IsPlannedForCleaning(tc.deletedNamespace))
 		})
 	}
+}
+
+type fakeNamespaceCleaner struct {
+	deletedNamespace string
+}
+
+func (f *fakeNamespaceCleaner) PlanCleaning(key string) {
+	f.deletedNamespace = key
+}
+
+func (f *fakeNamespaceCleaner) CancelCleaning(key string) {
+	f.deletedNamespace = ""
+}
+
+func (f *fakeNamespaceCleaner) IsPlannedForCleaning(key string) bool {
+	return f.deletedNamespace == key
 }

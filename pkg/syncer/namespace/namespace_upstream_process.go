@@ -18,6 +18,7 @@ package namespace
 
 import (
 	"context"
+	"fmt"
 
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 
@@ -77,6 +78,13 @@ func (c *UpstreamController) process(ctx context.Context, key string) error {
 
 	downstreamNamespaceName := downstreamNamespace.(*unstructured.Unstructured).GetName()
 	logger = logger.WithValues(DownstreamNamespace, downstreamNamespaceName)
-	logger.V(2).Info("deleting downstream namespace because the upstream namespace doesn't exist")
-	return c.deleteDownstreamNamespace(ctx, downstreamNamespaceName)
+	// Check if the namespace is empty before deleting trying to delete it
+	if empty, err := c.isDowntreamNamespaceEmpty(ctx, downstreamNamespaceName); err != nil {
+		return fmt.Errorf("failed to check if downstream namespace %q is empty: %w", downstreamNamespaceName, err)
+	} else if !empty {
+		return fmt.Errorf("downstream namespace %q is not empty", downstreamNamespaceName)
+	}
+	logger.Info("adding the downstream namespace to the delayed deletion queue because the upstream namespace doesn't exist and is empty.")
+	c.namespaceCleaner.PlanCleaning(downstreamNamespaceName)
+	return nil
 }
