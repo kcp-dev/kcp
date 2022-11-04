@@ -35,6 +35,12 @@ var (
 
 	# List permission claims and their respective status for all APIBindings in current workspace.
 	%[1]s claims get apibinding
+
+	# Edit the permission claims' status related to a specific APIBinding with an interactive prompt.
+	%[1]s claims get apibinding cert-manager
+
+	# Edit the permission claims' status for all APIBindings in current workspace with an interactive prompt.
+	%[1]s claims get apibinding
 	`
 )
 

@@ -11,3 +11,6 @@ spec:
     - today.clusterissuers.cert-manager.io
     - today.issuers.cert-manager.io
     - today.orders.acme.cert-manager.io
+    permissionClaims:
+      - resource: secrets
+        all: true

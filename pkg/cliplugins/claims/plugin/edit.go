@@ -20,15 +20,17 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/spf13/cobra"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
+
 	apiv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/pkg/cliplugins/base"
 	pluginhelpers "github.com/kcp-dev/kcp/pkg/cliplugins/helpers"
-	"github.com/kcp-dev/logicalcluster/v2"
-	"github.com/spf13/cobra"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
 )
 
 // EditAPIBindingOptions contains the options for fetching claims
@@ -88,12 +90,7 @@ func (e *EditAPIBindingOptions) Run(ctx context.Context) error {
 		return fmt.Errorf("error while creating kcp client %w", err)
 	}
 
-	_, err = fmt.Fprintf(e.Out, "Running interactive promt. Enter (%s/%s/%s)", "Yes", "No", "Skip")
-	if err != nil {
-		return err
-	}
-
-	//     The status of an apibinding has a set of `exportClaims`. The subset which is present in exportClaims but not in spec.AcceptableClaims, are the open claims.
+	// The status of an apibinding has a set of `exportClaims`. The subset which is present in exportClaims but not in spec.AcceptableClaims, are the open claims.
 	// The command will list those open claims and update `spec.AcceptableClaims` with the status based on the input of the user.
 
 	apibindings := []apiv1alpha1.APIBinding{}
@@ -112,15 +109,39 @@ func (e *EditAPIBindingOptions) Run(ctx context.Context) error {
 		apibindings = append(apibindings, *binding)
 	}
 
+	if len(apibindings) == 0 {
+		_, err = fmt.Fprintf(e.Out, "No apibindings available in %s.", currentClusterName)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	_, err = fmt.Fprintf(e.Out, "Running interactive prompt. Enter (%s/%s/%s)\n", "Yes", "No", "Skip")
+	if err != nil {
+		return err
+	}
+
 	allErrors := []error{}
 	for _, apibinding := range apibindings {
 		openClaims := getOpenClaims(apibinding.Status.ExportPermissionClaims, apibinding.Spec.PermissionClaims)
-		// The status of an apibinding has a set of `exportClaims`. The subset which is present in exportClaims but not in spec.AcceptableClaims, are the open claims.
-		// The command will list those open claims and update `spec.AcceptableClaims` with the status based on the input of the user.
+		if len(openClaims) == 0 {
+			_, err = fmt.Fprintf(e.Out, "No open claims found for apibinding: %q\n", apibinding.Name)
+			if err != nil {
+				allErrors = append(allErrors, err)
+			}
+		}
+
+		// List open claims and update `spec.AcceptableClaims` with the status based on the input of the user.
 		for _, openClaim := range openClaims {
 			// print the prompt and infer the user input.
-			action := getRequiredInput(e.In, apibinding.Name, openClaim.Group, openClaim.Resource)
-			err := updateAPIBinding(ctx, action, openClaim, &apibinding, currentClusterName, kcpClusterClient)
+			action, err := getRequiredInput(e.In, e.Out, apibinding.Name, openClaim.Group, openClaim.Resource)
+			if err != nil {
+				allErrors = append(allErrors, err)
+			}
+
+			// Update apibinding based on the user input.
+			err = updateAPIBinding(ctx, action, openClaim, &apibinding, currentClusterName, kcpClusterClient)
 			if err != nil {
 				allErrors = append(allErrors, err)
 			}
@@ -133,40 +154,39 @@ func (e *EditAPIBindingOptions) Run(ctx context.Context) error {
 func getOpenClaims(exportClaims []apiv1alpha1.PermissionClaim, aceptableClaims []apiv1alpha1.AcceptablePermissionClaim) []apiv1alpha1.PermissionClaim {
 	openPermissionClaims := []apiv1alpha1.PermissionClaim{}
 
-	// Convert both the lists into a map, with IdentityHash being the key so that
-	// the complexity of finding a resource which in in both export and acceptable claim is not n^2.
-	exportClaimsMap := map[string]apiv1alpha1.PermissionClaim{}
+	// Find the subset which is in exportClaims but not in AcceptableClaims.
+	exportClaimsMap := map[apiv1alpha1.GroupResource]apiv1alpha1.PermissionClaim{}
 	for _, e := range exportClaims {
-		exportClaimsMap[e.IdentityHash] = e
+		exportClaimsMap[e.GroupResource] = e
 	}
 
-	acceptableClaimsMap := map[string]apiv1alpha1.PermissionClaim{}
+	acceptableClaimsMap := map[apiv1alpha1.GroupResource]apiv1alpha1.PermissionClaim{}
 	for _, a := range aceptableClaims {
-		acceptableClaimsMap[a.IdentityHash] = a.PermissionClaim
+		acceptableClaimsMap[a.GroupResource] = a.PermissionClaim
 	}
 
-	for identity, _ := range exportClaimsMap {
-		if val, ok := acceptableClaimsMap[identity]; !ok {
-			openPermissionClaims = append(openPermissionClaims, val)
+	for gr, cl := range exportClaimsMap {
+		if _, ok := acceptableClaimsMap[gr]; !ok {
+			openPermissionClaims = append(openPermissionClaims, cl)
 		}
 	}
 	return openPermissionClaims
 }
 
+// updateAPIBinding send a request to API server to update the APIBinding with the updated status of the claim.
 func updateAPIBinding(ctx context.Context, action ClaimAction, permissionClaim apiv1alpha1.PermissionClaim, apibinding *apiv1alpha1.APIBinding, clusterName logicalcluster.Name, kcpclusterclient kcpclient.ClusterInterface) error {
 	if action == SkipClaim {
 		return nil
 	}
 
-	for _, pc := range apibinding.Spec.PermissionClaims {
-		if pc.IdentityHash == permissionClaim.IdentityHash {
-			if action == AcceptClaim {
-				pc.State = apiv1alpha1.ClaimAccepted
-			} else if action == RejectClaim {
-				pc.State = apiv1alpha1.ClaimRejected
-			}
-		}
+	var state apiv1alpha1.AcceptablePermissionClaimState
+	if action == AcceptClaim {
+		state = apiv1alpha1.ClaimAccepted
+	} else if action == RejectClaim {
+		state = apiv1alpha1.ClaimRejected
 	}
+
+	apibinding.Spec.PermissionClaims = append(apibinding.Spec.PermissionClaims, apiv1alpha1.AcceptablePermissionClaim{PermissionClaim: permissionClaim, State: state})
 
 	_, err := kcpclusterclient.Cluster(clusterName).ApisV1alpha1().APIBindings().Update(ctx, apibinding, metav1.UpdateOptions{})
 	return err

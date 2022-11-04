@@ -24,8 +24,9 @@ import (
 	"strings"
 )
 
-// ClaimAction captures the user preference on action with permission claim.
-// commands.
+// ClaimAction captures the user's preference of a specific action
+// on permission claim. They can either accept, reject or ignore/ skip
+// ay action on an open permission claim.
 type ClaimAction int
 
 const (
@@ -37,20 +38,32 @@ const (
 	SkipClaim
 )
 
+// Print the message for the user in the prompt. The resource name in a claim is a required field,
+// but the group can be empty.
 func printMessage(bindingName, claimGroup, claimResource string) string {
-	return fmt.Sprintf("Accept %s-%s (APIBinding: %s) >\n", claimGroup, claimResource, bindingName)
+	if claimGroup != "" {
+		return fmt.Sprintf("Accept permission claim for Group: %s, Resource: %s (APIBinding: %s) > ", claimGroup, claimResource, bindingName)
+	}
+	return fmt.Sprintf("Accept permission claim for Resource: %s (APIBinding: %s) > ", claimResource, bindingName)
 }
 
-func getRequiredInput(rd io.Reader, bindingName, claimGroup, claimResource string) ClaimAction {
+func getRequiredInput(rd io.Reader, wr io.Writer, bindingName, claimGroup, claimResource string) (ClaimAction, error) {
 	reader := bufio.NewReader(rd)
 
 	for {
-		printMessage(bindingName, claimGroup, claimResource)
+		_, err := fmt.Fprint(wr, printMessage(bindingName, claimGroup, claimResource))
+		if err != nil {
+			return -1, err
+		}
+
 		value := readInput(reader)
 		if value != "" {
-			return inferText(value)
+			return inferText(value, wr)
 		}
-		fmt.Printf("Input is required. ")
+		_, err = fmt.Fprintf(wr, "Input is required. Enter `skip/s` instead. ")
+		if err != nil {
+			return -1, err
+		}
 	}
 }
 
@@ -70,15 +83,18 @@ func readLine(reader *bufio.Reader) string {
 	return strings.ToLower(strings.Trim(strings.TrimSpace(text), "`'\""))
 }
 
-func inferText(input string) ClaimAction {
+func inferText(input string, wr io.Writer) (ClaimAction, error) {
 	if input == "y" || input == "yes" {
-		return AcceptClaim
+		return AcceptClaim, nil
 	} else if input == "n" || input == "no" {
-		return RejectClaim
+		return RejectClaim, nil
 	} else if input == "skip" || input == "s" {
-		return SkipClaim
+		return SkipClaim, nil
 	} else {
-		fmt.Println("Unknown input, skipping any action")
-		return SkipClaim
+		_, err := fmt.Fprintf(wr, "Unknown input, skipping any action.\n")
+		if err != nil {
+			return -1, err
+		}
+		return SkipClaim, nil
 	}
 }
