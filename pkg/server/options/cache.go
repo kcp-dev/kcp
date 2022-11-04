@@ -58,7 +58,10 @@ func (c *Cache) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&c.KubeconfigFile, "cache-server-kubeconfig-file", c.KubeconfigFile, "Kubeconfig for the cache server this instance connects to (defaults to loop back configuration).")
 	fs.BoolVar(&c.Enabled, "run-cache-server", c.Enabled, "If set to true it turns the cache server support on this instance (default false).")
 
-	c.Server.AddFlags(fs)
+	// note do not add cache server's flag c.Server.AddFlags(fs)
+	// it will cause an undefined behavior as some flags will be overwritten (also defined by the kcp server)
+	// as of today all required flags (embedded etcd, secure port)) are provided by the kcp server, so we are fine for now
+	// it will be finally addressed in https://github.com/kcp-dev/kcp/issues/2021
 }
 
 func (c *Cache) Complete() (cacheCompleted, error) {
