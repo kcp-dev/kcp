@@ -22,6 +22,9 @@ set -o xtrace
 export GOPATH=$(go env GOPATH)
 
 SCRIPT_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
+pushd "${SCRIPT_ROOT}"
+BOILERPLATE_HEADER="$( pwd )/hack/boilerplate/boilerplate.go.txt"
+popd
 CODEGEN_PKG=${CODEGEN_PKG:-$(cd "${SCRIPT_ROOT}"; go list -f '{{.Dir}}' -m k8s.io/code-generator)}
 
 bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy,client" \
@@ -33,9 +36,9 @@ bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy,client" \
 
 pushd ./pkg/apis
 ${CODE_GENERATOR} \
-  "client:outputPackagePath=github.com/kcp-dev/kcp/pkg/client,apiPackagePath=github.com/kcp-dev/kcp/pkg/apis,singleClusterClientPackagePath=github.com/kcp-dev/kcp/pkg/client/clientset/versioned,headerFile=./../../hack/boilerplate/boilerplate.go.txt" \
-  "lister:apiPackagePath=github.com/kcp-dev/kcp/pkg/apis,headerFile=./../../hack/boilerplate/boilerplate.go.txt" \
-  "informer:outputPackagePath=github.com/kcp-dev/kcp/pkg/client,singleClusterClientPackagePath=github.com/kcp-dev/kcp/pkg/client/clientset/versioned,apiPackagePath=github.com/kcp-dev/kcp/pkg/apis,headerFile=./../../hack/boilerplate/boilerplate.go.txt" \
+  "client:outputPackagePath=github.com/kcp-dev/kcp/pkg/client,apiPackagePath=github.com/kcp-dev/kcp/pkg/apis,singleClusterClientPackagePath=github.com/kcp-dev/kcp/pkg/client/clientset/versioned,headerFile=${BOILERPLATE_HEADER}" \
+  "lister:apiPackagePath=github.com/kcp-dev/kcp/pkg/apis,headerFile=${BOILERPLATE_HEADER}" \
+  "informer:outputPackagePath=github.com/kcp-dev/kcp/pkg/client,singleClusterClientPackagePath=github.com/kcp-dev/kcp/pkg/client/clientset/versioned,apiPackagePath=github.com/kcp-dev/kcp/pkg/apis,headerFile=${BOILERPLATE_HEADER}" \
   "paths=./..." \
   "output:dir=./../client"
 popd
@@ -53,6 +56,13 @@ bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy,client" \
   --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.generatego.txt \
   --output-base "${SCRIPT_ROOT}" \
   --trim-path-prefix github.com/kcp-dev/kcp
+
+pushd ./test/e2e/fixtures/wildwest/apis
+${CODE_GENERATOR} \
+  "client:outputPackagePath=github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client,apiPackagePath=github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis,singleClusterClientPackagePath=github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned,headerFile=${BOILERPLATE_HEADER}" \
+  "paths=./..." \
+  "output:dir=./../client"
+popd
 
 go install "${CODEGEN_PKG}"/cmd/openapi-gen
 
