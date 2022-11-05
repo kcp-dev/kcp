@@ -43,9 +43,9 @@ import (
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/client"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	schedulinginformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
-	schedulinglisters "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	schedulingv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
+	schedulingv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -58,10 +58,10 @@ const (
 // NewController returns a new controller placing namespaces onto locations by create
 // a placement annotation..
 func NewController(
-	kcpClusterClient kcpclient.Interface,
+	kcpClusterClient kcpclientset.ClusterInterface,
 	namespaceInformer kcpcorev1informers.NamespaceClusterInformer,
-	locationInformer schedulinginformers.LocationInformer,
-	placementInformer schedulinginformers.PlacementInformer,
+	locationInformer schedulingv1alpha1informers.LocationClusterInformer,
+	placementInformer schedulingv1alpha1informers.PlacementClusterInformer,
 ) (*controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
@@ -157,15 +157,15 @@ type controller struct {
 	queue        workqueue.RateLimitingInterface
 	enqueueAfter func(*corev1.Namespace, time.Duration)
 
-	kcpClusterClient kcpclient.Interface
+	kcpClusterClient kcpclientset.ClusterInterface
 
 	namespaceLister  corev1listers.NamespaceClusterLister
 	namespaceIndexer cache.Indexer
 
-	locationLister  schedulinglisters.LocationLister
+	locationLister  schedulingv1alpha1listers.LocationClusterLister
 	locationIndexer cache.Indexer
 
-	placementLister  schedulinglisters.PlacementLister
+	placementLister  schedulingv1alpha1listers.PlacementClusterLister
 	placementIndexer cache.Indexer
 }
 
@@ -293,7 +293,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		return nil
 	}
 
-	obj, err := c.placementLister.Get(key) // TODO: clients need a way to scope down the lister per-cluster
+	obj, err := c.placementLister.Cluster(clusterName).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil // object deleted before we handled it
@@ -333,7 +333,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 			return fmt.Errorf("failed to create patch for LocationDomain %s|%s: %w", clusterName, name, err)
 		}
 		logger.V(2).Info("patching placement", "patch", string(patchBytes))
-		_, uerr := c.kcpClusterClient.SchedulingV1alpha1().Placements().Patch(logicalcluster.WithCluster(ctx, clusterName), obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+		_, uerr := c.kcpClusterClient.Cluster(clusterName).SchedulingV1alpha1().Placements().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 		return uerr
 	}
 

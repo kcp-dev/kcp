@@ -49,7 +49,7 @@ import (
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	workloadcliplugin "github.com/kcp-dev/kcp/pkg/cliplugins/workload/plugin"
 	"github.com/kcp-dev/kcp/pkg/syncer"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
@@ -380,10 +380,10 @@ type StartedSyncerFixture struct {
 func (sf *StartedSyncerFixture) WaitForClusterReady(t *testing.T, ctx context.Context) {
 	cfg := sf.SyncerConfig
 
-	kcpClusterClient, err := kcpclient.NewForConfig(cfg.UpstreamConfig)
+	kcpClusterClient, err := kcpclientset.NewForConfig(cfg.UpstreamConfig)
 	require.NoError(t, err)
 	EventuallyReady(t, func() (conditions.Getter, error) {
-		return kcpClusterClient.WorkloadV1alpha1().SyncTargets().Get(logicalcluster.WithCluster(ctx, cfg.SyncTargetWorkspace), cfg.SyncTargetName, metav1.GetOptions{})
+		return kcpClusterClient.Cluster(cfg.SyncTargetWorkspace).WorkloadV1alpha1().SyncTargets().Get(ctx, cfg.SyncTargetName, metav1.GetOptions{})
 	}, "Waiting for cluster %q condition %q", cfg.SyncTargetName, conditionsv1alpha1.ReadyCondition)
 	t.Logf("Cluster %q is %s", cfg.SyncTargetName, conditionsv1alpha1.ReadyCondition)
 }
@@ -431,6 +431,7 @@ func syncerConfigFromCluster(t *testing.T, downstreamConfig *rest.Config, namesp
 	require.NoError(t, err)
 	upstreamConfigBytes := secret.Data[workloadcliplugin.SyncerSecretConfigKey]
 	require.NotEmpty(t, upstreamConfigBytes, "upstream config is required")
+	fmt.Println(string(upstreamConfigBytes))
 	upstreamConfig, err := clientcmd.RESTConfigFromKubeConfig(upstreamConfigBytes)
 	require.NoError(t, err, "failed to load upstream config")
 

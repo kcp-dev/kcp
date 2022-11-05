@@ -39,7 +39,7 @@ import (
 	featuregatetesting "k8s.io/component-base/featuregate/testing"
 	rbachelper "k8s.io/kubernetes/pkg/apis/rbac/v1"
 
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	"github.com/kcp-dev/kcp/pkg/tunneler"
@@ -92,7 +92,7 @@ func TestSyncerTunnel(t *testing.T) {
 	upstreamKcpClient, err := kcpclientset.NewForConfig(syncerFixture.SyncerConfig.UpstreamConfig)
 	require.NoError(t, err)
 
-	syncTarget, err := upstreamKcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx,
+	syncTarget, err := upstreamKcpClient.Cluster(wsClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx,
 		syncerFixture.SyncerConfig.SyncTargetName,
 		metav1.GetOptions{},
 	)
@@ -140,7 +140,7 @@ func TestSyncerTunnel(t *testing.T) {
 		},
 	}
 
-	_, err = downstreamKubeClient.RbacV1().ClusterRoles().Create(logicalcluster.WithCluster(ctx, wsClusterName), podsAllRole, metav1.CreateOptions{})
+	_, err = downstreamKubeClient.RbacV1().ClusterRoles().Create(ctx, podsAllRole, metav1.CreateOptions{})
 	if err != nil {
 		require.NoError(t, err, "failed to create downstream role")
 	}
@@ -155,7 +155,7 @@ func TestSyncerTunnel(t *testing.T) {
 		RoleRef: rbacv1.RoleRef{Kind: "ClusterRole", Name: "test-pods-all"},
 	}
 
-	_, err = downstreamKubeClient.RbacV1().ClusterRoleBindings().Create(logicalcluster.WithCluster(ctx, wsClusterName), podsAllRoleBinding, metav1.CreateOptions{})
+	_, err = downstreamKubeClient.RbacV1().ClusterRoleBindings().Create(ctx, podsAllRoleBinding, metav1.CreateOptions{})
 	if err != nil {
 		require.NoError(t, err, "failed to create downstream rolebinding")
 	}

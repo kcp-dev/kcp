@@ -37,9 +37,9 @@ import (
 	"k8s.io/klog/v2"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	apiresourceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
-	apiresourcelisters "github.com/kcp-dev/kcp/pkg/client/listers/apiresource/v1alpha1"
+	apiresourcev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apiresource/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -52,10 +52,10 @@ func GetClusterNameAndGVRIndexKey(clusterName logicalcluster.Name, gvr metav1.Gr
 
 func NewController(
 	crdClusterClient kcpapiextensionsclientset.ClusterInterface,
-	kcpClusterClient kcpclient.Interface,
+	kcpClusterClient kcpclientset.ClusterInterface,
 	autoPublishNegotiatedAPIResource bool,
-	negotiatedAPIResourceInformer apiresourceinformer.NegotiatedAPIResourceInformer,
-	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
+	negotiatedAPIResourceInformer apiresourceinformer.NegotiatedAPIResourceClusterInformer,
+	apiResourceImportInformer apiresourceinformer.APIResourceImportClusterInformer,
 	crdInformer kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer,
 ) (*Controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-apiresource")
@@ -131,12 +131,12 @@ type Controller struct {
 	queue workqueue.RateLimitingInterface
 
 	crdClusterClient             kcpapiextensionsclientset.ClusterInterface
-	kcpClusterClient             kcpclient.Interface
+	kcpClusterClient             kcpclientset.ClusterInterface
 	negotiatedApiResourceIndexer cache.Indexer
-	negotiatedApiResourceLister  apiresourcelisters.NegotiatedAPIResourceLister
+	negotiatedApiResourceLister  apiresourcev1alpha1listers.NegotiatedAPIResourceClusterLister
 
 	apiResourceImportIndexer cache.Indexer
-	apiResourceImportLister  apiresourcelisters.APIResourceImportLister
+	apiResourceImportLister  apiresourcev1alpha1listers.APIResourceImportClusterLister
 
 	crdIndexer cache.Indexer
 	crdLister  kcpapiextensionsv1listers.CustomResourceDefinitionClusterLister

@@ -40,7 +40,7 @@ import (
 	"k8s.io/client-go/scale"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -58,7 +58,7 @@ func TestRootComputeWorkspace(t *testing.T) {
 	computeClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
 	consumerWorkspace := framework.NewWorkspaceFixture(t, source, orgClusterName)
 
-	kcpClients, err := clientset.NewClusterForConfig(source.BaseConfig(t))
+	kcpClients, err := kcpclientset.NewForConfig(source.BaseConfig(t))
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(source.BaseConfig(t))
 	require.NoError(t, err)

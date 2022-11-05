@@ -89,7 +89,6 @@ func NewServer(c CompletedConfig) (*Server, error) {
 		func(obj interface{}) bool { return true },
 		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
 		indexers.AppendOrDie(
-			indexers.NamespaceScoped(),
 			cache.Indexers{
 				indexers.BySyncerFinalizerKey:           indexers.IndexBySyncerFinalizerKey,
 				indexers.ByClusterResourceStateLabelKey: indexers.IndexByClusterResourceStateLabelKey,

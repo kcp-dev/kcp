@@ -22,9 +22,6 @@ import (
 	"net/http"
 	"time"
 
-	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v2"
-
 	"k8s.io/apimachinery/pkg/util/wait"
 	genericapifilters "k8s.io/apiserver/pkg/endpoints/filters"
 	genericfilters "k8s.io/apiserver/pkg/server/filters"
@@ -33,7 +30,7 @@ import (
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	frontproxyfilters "github.com/kcp-dev/kcp/pkg/proxy/filters"
 	"github.com/kcp-dev/kcp/pkg/proxy/index"

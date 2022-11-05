@@ -23,7 +23,6 @@ import (
 	"time"
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -34,7 +33,7 @@ import (
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
-	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -44,7 +43,7 @@ func TestWorkspaceDeletionController(t *testing.T) {
 
 	type runningServer struct {
 		framework.RunningServer
-		kcpClusterClient  clientset.Interface
+		kcpClusterClient  kcpclientset.ClusterInterface
 		kubeClusterClient kcpkubernetesclientset.ClusterInterface
 	}
 
@@ -58,7 +57,7 @@ func TestWorkspaceDeletionController(t *testing.T) {
 				orgClusterName := framework.NewOrganizationFixture(t, server)
 
 				t.Logf("Create a workspace with a shard")
-				workspace, err := server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Create(logicalcluster.WithCluster(ctx, orgClusterName), &tenancyv1alpha1.ClusterWorkspace{
+				workspace, err := server.kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{
 					ObjectMeta: metav1.ObjectMeta{Name: "ws-cleanup"},
 					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
 						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
@@ -74,7 +73,7 @@ func TestWorkspaceDeletionController(t *testing.T) {
 
 				t.Logf("Should have finalizer added in workspace")
 				require.Eventually(t, func() bool {
-					workspace, err := server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, orgClusterName), workspace.Name, metav1.GetOptions{})
+					workspace, err := server.kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 					if err != nil {
 						return false
 					}
@@ -124,12 +123,12 @@ func TestWorkspaceDeletionController(t *testing.T) {
 				_, err = server.kubeClusterClient.Cluster(workspaceCluster).CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create ns in workspace %s", workspace.Name)
 
-				err = server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Delete(logicalcluster.WithCluster(ctx, orgClusterName), workspace.Name, metav1.DeleteOptions{})
+				err = server.kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, workspace.Name, metav1.DeleteOptions{})
 				require.NoError(t, err, "failed to delete workspace %s", workspace.Name)
 
 				t.Logf("The workspace condition should be updated since there is resource in the workspace pending finalization.")
 				require.Eventually(t, func() bool {
-					workspace, err := server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, orgClusterName), workspace.Name, metav1.GetOptions{})
+					workspace, err := server.kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 					if err != nil {
 						return false
 					}
@@ -151,7 +150,7 @@ func TestWorkspaceDeletionController(t *testing.T) {
 
 				t.Logf("Ensure workspace is removed")
 				require.Eventually(t, func() bool {
-					_, err := server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, orgClusterName), workspace.Name, metav1.GetOptions{})
+					_, err := server.kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 					return apierrors.IsNotFound(err)
 				}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
@@ -177,7 +176,7 @@ func TestWorkspaceDeletionController(t *testing.T) {
 				t.Logf("Should have finalizer in org workspace")
 				orgWorkspaceName := orgClusterName.Base()
 				require.Eventually(t, func() bool {
-					orgWorkspace, err := server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), orgWorkspaceName, metav1.GetOptions{})
+					orgWorkspace, err := server.kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, orgWorkspaceName, metav1.GetOptions{})
 					require.NoError(t, err, "failed to get org workspace %s", orgWorkspaceName)
 					return len(orgWorkspace.Finalizers) > 0
 				}, wait.ForeverTestTimeout, 100*time.Millisecond)
@@ -188,7 +187,7 @@ func TestWorkspaceDeletionController(t *testing.T) {
 
 				t.Logf("Should have finalizer added in workspace")
 				require.Eventually(t, func() bool {
-					workspace, err := server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, orgClusterName), workspaceName, metav1.GetOptions{})
+					workspace, err := server.kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspaceName, metav1.GetOptions{})
 					require.NoError(t, err, "failed to get workspace %s", workspaceName)
 					return len(workspace.Finalizers) > 0
 				}, wait.ForeverTestTimeout, 100*time.Millisecond)
@@ -208,13 +207,13 @@ func TestWorkspaceDeletionController(t *testing.T) {
 
 				// get clients for the right shards. We have to access the shards directly to see object (Namespace and ClusterWorkspace) deletion
 				// without being stopped at the (front-proxy) gate because the parent workspace is already gone.
-				rootShardKcpClusterClient, err := clientset.NewForConfig(server.RunningServer.RootShardSystemMasterBaseConfig(t))
+				rootShardKcpClusterClient, err := kcpclientset.NewForConfig(server.RunningServer.RootShardSystemMasterBaseConfig(t))
 				require.NoError(t, err, "failed to create kcp client for root shard")
 				rootShardKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(server.RunningServer.RootShardSystemMasterBaseConfig(t))
 				require.NoError(t, err, "failed to create kube client for root shard")
 
 				t.Logf("Delete org workspace")
-				err = server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Delete(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), orgWorkspaceName, metav1.DeleteOptions{})
+				err = server.kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, orgWorkspaceName, metav1.DeleteOptions{})
 				require.NoError(t, err, "failed to delete workspace %s", orgWorkspaceName)
 
 				t.Logf("Ensure namespace in the workspace is deleted")
@@ -238,7 +237,7 @@ func TestWorkspaceDeletionController(t *testing.T) {
 
 				t.Logf("Ensure workspace in the org workspace is deleted")
 				require.Eventually(t, func() bool {
-					wslist, err := rootShardKcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().List(logicalcluster.WithCluster(ctx, orgClusterName), metav1.ListOptions{})
+					wslist, err := rootShardKcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().List(ctx, metav1.ListOptions{})
 					// 404 could be returned if the org workspace is deleted.
 					if apierrors.IsNotFound(err) {
 						return true
@@ -249,7 +248,7 @@ func TestWorkspaceDeletionController(t *testing.T) {
 
 				t.Logf("Ensure the org workspace is deleted")
 				require.Eventually(t, func() bool {
-					_, err := rootShardKcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), orgWorkspaceName, metav1.GetOptions{})
+					_, err := rootShardKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, orgWorkspaceName, metav1.GetOptions{})
 					return apierrors.IsNotFound(err)
 				}, wait.ForeverTestTimeout, 100*time.Millisecond)
 			},
@@ -270,7 +269,7 @@ func TestWorkspaceDeletionController(t *testing.T) {
 
 			cfg := server.BaseConfig(t)
 
-			kcpClusterClient, err := clientset.NewForConfig(cfg)
+			kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 			require.NoError(t, err, "failed to construct client for server")
 
 			kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)

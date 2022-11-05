@@ -24,7 +24,6 @@ import (
 	"time"
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -38,7 +37,7 @@ import (
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -58,7 +57,7 @@ func TestPlacementUpdate(t *testing.T) {
 
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(source.BaseConfig(t))
 	require.NoError(t, err)
-	kcpClusterClient, err := kcpclient.NewForConfig(source.BaseConfig(t))
+	kcpClusterClient, err := kcpclientset.NewForConfig(source.BaseConfig(t))
 	require.NoError(t, err)
 
 	t.Logf("Check that there is no services resource in the user workspace")
@@ -89,7 +88,7 @@ func TestPlacementUpdate(t *testing.T) {
 
 	t.Log("Wait for \"default\" location")
 	require.Eventually(t, func() bool {
-		_, err = kcpClusterClient.SchedulingV1alpha1().Locations().Get(logicalcluster.WithCluster(ctx, locationClusterName), "default", metav1.GetOptions{})
+		_, err = kcpClusterClient.Cluster(locationClusterName).SchedulingV1alpha1().Locations().Get(ctx, "default", metav1.GetOptions{})
 		return err == nil
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
@@ -166,13 +165,13 @@ func TestPlacementUpdate(t *testing.T) {
 
 	t.Logf("Update placement to disable scheduling on the ns")
 	framework.Eventually(t, func() (bool, string) {
-		placement, err := kcpClusterClient.SchedulingV1alpha1().Placements().Get(logicalcluster.WithCluster(ctx, userClusterName), placementName, metav1.GetOptions{})
+		placement, err := kcpClusterClient.Cluster(userClusterName).SchedulingV1alpha1().Placements().Get(ctx, placementName, metav1.GetOptions{})
 		if err != nil {
 			return false, fmt.Sprintf("Failed to get placement: %v", err)
 		}
 
 		placement.Spec.NamespaceSelector = nil
-		_, err = kcpClusterClient.SchedulingV1alpha1().Placements().Update(logicalcluster.WithCluster(ctx, userClusterName), placement, metav1.UpdateOptions{})
+		_, err = kcpClusterClient.Cluster(userClusterName).SchedulingV1alpha1().Placements().Update(ctx, placement, metav1.UpdateOptions{})
 		if err != nil {
 			return false, fmt.Sprintf("Failed to update placement: %v", err)
 		}
@@ -182,7 +181,7 @@ func TestPlacementUpdate(t *testing.T) {
 
 	t.Logf("Placement should turn to unbound phase")
 	framework.Eventually(t, func() (bool, string) {
-		placement, err := kcpClusterClient.SchedulingV1alpha1().Placements().Get(logicalcluster.WithCluster(ctx, userClusterName), placementName, metav1.GetOptions{})
+		placement, err := kcpClusterClient.Cluster(userClusterName).SchedulingV1alpha1().Placements().Get(ctx, placementName, metav1.GetOptions{})
 		if err != nil {
 			return false, fmt.Sprintf("Failed to get placement: %v", err)
 		}
@@ -236,7 +235,7 @@ func TestPlacementUpdate(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	framework.Eventually(t, func() (bool, string) {
-		placement, err := kcpClusterClient.SchedulingV1alpha1().Placements().Get(logicalcluster.WithCluster(ctx, userClusterName), placementName, metav1.GetOptions{})
+		placement, err := kcpClusterClient.Cluster(userClusterName).SchedulingV1alpha1().Placements().Get(ctx, placementName, metav1.GetOptions{})
 		if err != nil {
 			return false, fmt.Sprintf("Failed to get placement: %v", err)
 		}
@@ -248,7 +247,7 @@ func TestPlacementUpdate(t *testing.T) {
 				},
 			},
 		}
-		_, err = kcpClusterClient.SchedulingV1alpha1().Placements().Update(logicalcluster.WithCluster(ctx, userClusterName), placement, metav1.UpdateOptions{})
+		_, err = kcpClusterClient.Cluster(userClusterName).SchedulingV1alpha1().Placements().Update(ctx, placement, metav1.UpdateOptions{})
 		if err != nil {
 			return false, fmt.Sprintf("Failed to update placement: %v", err)
 		}
@@ -257,7 +256,7 @@ func TestPlacementUpdate(t *testing.T) {
 
 	t.Logf("Placement should turn to pending phase")
 	framework.Eventually(t, func() (bool, string) {
-		placement, err := kcpClusterClient.SchedulingV1alpha1().Placements().Get(logicalcluster.WithCluster(ctx, userClusterName), placementName, metav1.GetOptions{})
+		placement, err := kcpClusterClient.Cluster(userClusterName).SchedulingV1alpha1().Placements().Get(ctx, placementName, metav1.GetOptions{})
 		if err != nil {
 			return false, fmt.Sprintf("Failed to get placement: %v", err)
 		}
@@ -281,12 +280,12 @@ func TestPlacementUpdate(t *testing.T) {
 			LocationWorkspace: locationClusterName.String(),
 		},
 	}
-	_, err = kcpClusterClient.SchedulingV1alpha1().Placements().Create(logicalcluster.WithCluster(ctx, userClusterName), newPlacement, metav1.CreateOptions{})
+	_, err = kcpClusterClient.Cluster(userClusterName).SchedulingV1alpha1().Placements().Create(ctx, newPlacement, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	t.Logf("Wait for new placement to be ready")
 	framework.Eventually(t, func() (bool, string) {
-		placement, err := kcpClusterClient.SchedulingV1alpha1().Placements().Get(logicalcluster.WithCluster(ctx, userClusterName), newPlacement.Name, metav1.GetOptions{})
+		placement, err := kcpClusterClient.Cluster(userClusterName).SchedulingV1alpha1().Placements().Get(ctx, newPlacement.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, fmt.Sprintf("Failed to get placement: %v", err)
 		}

@@ -35,9 +35,9 @@ import (
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
-	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
+	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
@@ -54,9 +54,9 @@ type CreateAPIDefinitionFunc func(apiResourceSchema *apisv1alpha1.APIResourceSch
 // NewAPIReconciler returns a new controller which reconciles APIResourceImport resources
 // and delegates the corresponding SyncTargetAPI management to the given SyncTargetAPIManager.
 func NewAPIReconciler(
-	kcpClusterClient kcpclient.ClusterInterface,
-	apiResourceSchemaInformer apisinformers.APIResourceSchemaInformer,
-	apiExportInformer apisinformers.APIExportInformer,
+	kcpClusterClient kcpclientset.ClusterInterface,
+	apiResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
+	apiExportInformer apisv1alpha1informers.APIExportClusterInformer,
 	createAPIDefinition CreateAPIDefinitionFunc,
 	createAPIBindingAPIDefinition func(ctx context.Context, clusterName logicalcluster.Name, apiExportName string) (apidefinition.APIDefinition, error),
 ) (*APIReconciler, error) {
@@ -116,12 +116,12 @@ func NewAPIReconciler(
 // APIReconciler is a controller watching APIExports and APIResourceSchemas, and updates the
 // API definitions driving the virtual workspace.
 type APIReconciler struct {
-	kcpClusterClient kcpclient.ClusterInterface
+	kcpClusterClient kcpclientset.ClusterInterface
 
-	apiResourceSchemaLister  apislisters.APIResourceSchemaLister
+	apiResourceSchemaLister  apisv1alpha1listers.APIResourceSchemaClusterLister
 	apiResourceSchemaIndexer cache.Indexer
 
-	apiExportLister  apislisters.APIExportLister
+	apiExportLister  apisv1alpha1listers.APIExportClusterLister
 	apiExportIndexer cache.Indexer
 
 	queue workqueue.RateLimitingInterface
@@ -243,7 +243,7 @@ func (c *APIReconciler) process(ctx context.Context, key string) error {
 
 	logger := klog.FromContext(ctx).WithValues("apiDomainKey", apiDomainKey)
 
-	apiExport, err := c.apiExportLister.Get(key)
+	apiExport, err := c.apiExportLister.Cluster(clusterName).Get(apiExportName)
 	if err != nil && !apierrors.IsNotFound(err) {
 		logger.Error(err, "error getting APIExport")
 		return nil // nothing we can do here

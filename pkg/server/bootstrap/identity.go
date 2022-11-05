@@ -26,7 +26,6 @@ import (
 	"strings"
 	"sync"
 
-	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v2"
 
@@ -39,7 +38,7 @@ import (
 	configshard "github.com/kcp-dev/kcp/config/shard"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/identitycache"
 )
@@ -220,7 +219,7 @@ func apiExportIdentityProvider(config *rest.Config, localShardKubeClusterClient 
 			// - the cm wasn't found
 			// - an entry in the cm wasn't found
 		}
-		apiExport, err := rootShardKcpClient.ApisV1alpha1().APIExports().Get(ctx, apiExportName, metav1.GetOptions{})
+		apiExport, err := rootShardKcpClient.Cluster(tenancyv1alpha1.RootCluster).ApisV1alpha1().APIExports().Get(ctx, apiExportName, metav1.GetOptions{})
 		if err != nil {
 			return "", err
 		}

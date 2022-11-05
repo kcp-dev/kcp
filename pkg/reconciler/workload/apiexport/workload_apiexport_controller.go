@@ -35,12 +35,12 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/client"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	apiresourceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
-	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
-	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
-	apiresourcelisters "github.com/kcp-dev/kcp/pkg/client/listers/apiresource/v1alpha1"
-	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	apiresourcev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
+	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
+	workloadv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
+	apiresourcev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apiresource/v1alpha1"
+	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -54,11 +54,11 @@ const (
 
 // NewController returns a new controller instance.
 func NewController(
-	kcpClusterClient kcpclient.Interface,
-	apiExportInformer apisinformers.APIExportInformer,
-	apiResourceSchemaInformer apisinformers.APIResourceSchemaInformer,
-	negotiatedAPIResourceInformer apiresourceinformer.NegotiatedAPIResourceInformer,
-	syncTargetInformer workloadinformers.SyncTargetInformer,
+	kcpClusterClient kcpclientset.ClusterInterface,
+	apiExportInformer apisv1alpha1informers.APIExportClusterInformer,
+	apiResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
+	negotiatedAPIResourceInformer apiresourcev1alpha1informers.NegotiatedAPIResourceClusterInformer,
+	syncTargetInformer workloadv1alpha1informers.SyncTargetClusterInformer,
 ) (*controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
@@ -142,13 +142,13 @@ type controller struct {
 	queue        workqueue.RateLimitingInterface
 	enqueueAfter func(*apisv1alpha1.APIExport, time.Duration)
 
-	kcpClusterClient kcpclient.Interface
+	kcpClusterClient kcpclientset.ClusterInterface
 
-	apiExportsLister             apislisters.APIExportLister
+	apiExportsLister             apisv1alpha1listers.APIExportClusterLister
 	apiExportsIndexer            cache.Indexer
-	apiResourceSchemaLister      apislisters.APIResourceSchemaLister
+	apiResourceSchemaLister      apisv1alpha1listers.APIResourceSchemaClusterLister
 	apiResourceSchemaIndexer     cache.Indexer
-	negotiatedAPIResourceLister  apiresourcelisters.NegotiatedAPIResourceLister
+	negotiatedAPIResourceLister  apiresourcev1alpha1listers.NegotiatedAPIResourceClusterLister
 	negotiatedAPIResourceIndexer cache.Indexer
 	syncTargetIndexer            cache.Indexer
 }
@@ -162,7 +162,7 @@ func (c *controller) enqueueNegotiatedAPIResource(obj interface{}) {
 
 	clusterName := logicalcluster.From(resource)
 	key := client.ToClusterAwareKey(clusterName, TemporaryComputeServiceExportName)
-	if _, err := c.apiExportsLister.Get(client.ToClusterAwareKey(clusterName, TemporaryComputeServiceExportName)); errors.IsNotFound(err) {
+	if _, err := c.apiExportsLister.Cluster(clusterName).Get(TemporaryComputeServiceExportName); errors.IsNotFound(err) {
 		return // it's gone
 	} else if err != nil {
 		runtime.HandleError(fmt.Errorf("failed to get APIExport %s|%s: %w", clusterName, TemporaryComputeServiceExportName, err))
@@ -183,7 +183,7 @@ func (c *controller) enqueueSyncTarget(obj interface{}) {
 
 	clusterName := logicalcluster.From(resource)
 	key := client.ToClusterAwareKey(clusterName, TemporaryComputeServiceExportName)
-	if _, err := c.apiExportsLister.Get(client.ToClusterAwareKey(clusterName, TemporaryComputeServiceExportName)); errors.IsNotFound(err) {
+	if _, err := c.apiExportsLister.Cluster(clusterName).Get(TemporaryComputeServiceExportName); errors.IsNotFound(err) {
 		return // it's gone
 	} else if err != nil {
 		runtime.HandleError(fmt.Errorf("failed to get APIExport %s|%s: %w", clusterName, TemporaryComputeServiceExportName, err))
@@ -255,7 +255,13 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *controller) process(ctx context.Context, key string) error {
-	obj, err := c.apiExportsLister.Get(key) // TODO: clients need a way to scope down the lister per-cluster
+	logger := klog.FromContext(ctx)
+	clusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+	if err != nil {
+		runtime.HandleError(err)
+		return nil
+	}
+	obj, err := c.apiExportsLister.Cluster(clusterName).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil // object deleted before we handled it
@@ -264,7 +270,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 	}
 	obj = obj.DeepCopy()
 
-	logger := logging.WithObject(klog.FromContext(ctx), obj)
+	logger = logging.WithObject(klog.FromContext(ctx), obj)
 	ctx = klog.NewContext(ctx, logger)
 
 	if err := c.reconcile(ctx, obj); err != nil {

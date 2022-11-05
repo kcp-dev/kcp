@@ -24,6 +24,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/kcp-dev/apimachinery/pkg/client"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpdynamicinformer "github.com/kcp-dev/client-go/dynamic/dynamicinformer"
 	"github.com/kcp-dev/logicalcluster/v2"
@@ -84,7 +85,10 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 
 	kcpVersion := version.Get().GitVersion
 
-	kcpBootstrapClient, err := kcpclientset.NewForConfig(rest.AddUserAgent(rest.CopyConfig(cfg.UpstreamConfig), "kcp#syncer/"+kcpVersion))
+	bootstrapConfig := rest.CopyConfig(cfg.UpstreamConfig)
+	client.SetCluster(bootstrapConfig, cfg.SyncTargetWorkspace)
+	rest.AddUserAgent(bootstrapConfig, "kcp#syncer/"+kcpVersion)
+	kcpBootstrapClient, err := kcpclientset.NewForConfig(bootstrapConfig)
 	if err != nil {
 		return err
 	}
@@ -139,7 +143,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 
 	upstreamConfig := rest.CopyConfig(cfg.UpstreamConfig)
 	upstreamConfig.Host = syncerVirtualWorkspaceURL
-	upstreamConfig.UserAgent = "kcp#spec-syncer/" + kcpVersion
+	rest.AddUserAgent(upstreamConfig, "kcp#spec-syncer/"+kcpVersion)
 
 	upstreamDynamicClusterClient, err := kcpdynamic.NewForConfig(upstreamConfig)
 	if err != nil {
@@ -171,7 +175,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	kcpImporterInformerFactory.Start(ctx.Done())
 
 	downstreamConfig := rest.CopyConfig(cfg.DownstreamConfig)
-	downstreamConfig.UserAgent = "kcp#status-syncer/" + kcpVersion
+	rest.AddUserAgent(downstreamConfig, "kcp#status-syncer/"+kcpVersion)
 	downstreamDynamicClient, err := dynamic.NewForConfig(downstreamConfig)
 	if err != nil {
 		return err

@@ -43,8 +43,8 @@ import (
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/client"
-	schedulinginformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
-	schedulinglisters "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
+	schedulingv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
+	schedulingv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -59,7 +59,7 @@ const (
 func NewController(
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	namespaceInformer kcpcorev1informers.NamespaceClusterInformer,
-	placementInformer schedulinginformers.PlacementInformer,
+	placementInformer schedulingv1alpha1informers.PlacementClusterInformer,
 ) (*controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
@@ -131,7 +131,7 @@ type controller struct {
 	namespaceLister  corev1listers.NamespaceClusterLister
 	namespaceIndexer cache.Indexer
 
-	placmentLister   schedulinglisters.PlacementLister
+	placmentLister   schedulingv1alpha1listers.PlacementClusterLister
 	placementIndexer cache.Indexer
 }
 

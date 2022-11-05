@@ -37,7 +37,7 @@ import (
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
+	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
@@ -53,7 +53,7 @@ const (
 func NewController(
 	crdInformer kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer,
 	crdClusterClient kcpapiextensionsclientset.ClusterInterface,
-	apiBindingInformer apisinformers.APIBindingInformer,
+	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
 ) (*controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 

@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
@@ -47,7 +46,7 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -68,7 +67,7 @@ func TestSyncTargetExport(t *testing.T) {
 	schemaClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
 	computeClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
 
-	kcpClients, err := clientset.NewClusterForConfig(source.BaseConfig(t))
+	kcpClients, err := kcpclientset.NewForConfig(source.BaseConfig(t))
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
 
 	dynamicClients, err := kcpdynamic.NewForConfig(source.BaseConfig(t))

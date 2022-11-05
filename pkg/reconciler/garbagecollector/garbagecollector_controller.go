@@ -37,8 +37,8 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/controller/garbagecollector"
 
-	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/projection"
@@ -55,7 +55,7 @@ type Controller struct {
 	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory
 	kubeClusterClient                     kubernetesclient.ClusterInterface
 	metadataClient                        kcpmetadata.ClusterInterface
-	clusterWorkspaceLister                v1alpha1.ClusterWorkspaceLister
+	clusterWorkspaceLister                tenancyv1alpha1listers.ClusterWorkspaceClusterLister
 	informersStarted                      <-chan struct{}
 
 	workersPerLogicalCluster int
@@ -69,7 +69,7 @@ type Controller struct {
 
 // NewController creates a new Controller.
 func NewController(
-	clusterWorkspaceInformer tenancyinformers.ClusterWorkspaceInformer,
+	clusterWorkspaceInformer tenancyv1alpha1informers.ClusterWorkspaceClusterInformer,
 	kubeClusterClient kubernetesclient.ClusterInterface,
 	metadataClient kcpmetadata.ClusterInterface,
 	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory,
@@ -195,7 +195,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	clusterName := parent.Join(name)
 	logger = logger.WithValues("logicalCluster", clusterName.String())
 
-	ws, err := c.clusterWorkspaceLister.Get(key)
+	ws, err := c.clusterWorkspaceLister.Cluster(parent).Get(name)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			logger.V(2).Info("ClusterWorkspace not found - stopping garbage collector controller for it (if needed)")

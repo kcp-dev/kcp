@@ -34,11 +34,11 @@ import (
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	schedulinginformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
-	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
-	schedulinglisters "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
-	workloadlisters "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	schedulingv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
+	workloadv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
+	schedulingv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
+	workloadv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -50,10 +50,10 @@ const (
 
 // NewController returns a new controller starting the process of selecting synctarget for a placement
 func NewController(
-	kcpClusterClient kcpclient.Interface,
-	locationInformer schedulinginformers.LocationInformer,
-	syncTargetInformer workloadinformers.SyncTargetInformer,
-	placementInformer schedulinginformers.PlacementInformer,
+	kcpClusterClient kcpclientset.ClusterInterface,
+	locationInformer schedulingv1alpha1informers.LocationClusterInformer,
+	syncTargetInformer workloadv1alpha1informers.SyncTargetClusterInformer,
+	placementInformer schedulingv1alpha1informers.PlacementClusterInformer,
 ) (*controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
@@ -148,15 +148,15 @@ func NewController(
 type controller struct {
 	queue workqueue.RateLimitingInterface
 
-	kcpClusterClient kcpclient.Interface
+	kcpClusterClient kcpclientset.ClusterInterface
 
-	locationLister  schedulinglisters.LocationLister
+	locationLister  schedulingv1alpha1listers.LocationClusterLister
 	locationIndexer cache.Indexer
 
-	syncTargetLister  workloadlisters.SyncTargetLister
+	syncTargetLister  workloadv1alpha1listers.SyncTargetClusterLister
 	syncTargetIndexer cache.Indexer
 
-	placementLister  schedulinglisters.PlacementLister
+	placementLister  schedulingv1alpha1listers.PlacementClusterLister
 	placementIndexer cache.Indexer
 }
 
@@ -268,7 +268,12 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *controller) process(ctx context.Context, key string) error {
-	obj, err := c.placementLister.Get(key) // TODO: clients need a way to scope down the lister per-cluster
+	clusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+	if err != nil {
+		runtime.HandleError(err)
+		return nil
+	}
+	obj, err := c.placementLister.Cluster(clusterName).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil // object deleted before we handled it

@@ -38,7 +38,7 @@ import (
 
 	"github.com/kcp-dev/kcp/cmd/sharded-test-server/third_party/library-go/crypto"
 	"github.com/kcp-dev/kcp/cmd/test-server/helpers"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -198,7 +198,7 @@ func startFrontProxy(
 		if err != nil {
 			continue
 		}
-		kcpClient, err := kcpclient.NewClusterForConfig(config)
+		kcpClient, err := kcpclientset.NewForConfig(config)
 		if err != nil {
 			logger.Error(err, "failed to create kcp client")
 			continue

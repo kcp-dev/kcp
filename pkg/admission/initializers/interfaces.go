@@ -19,7 +19,7 @@ package initializers
 import (
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 )
 
@@ -38,7 +38,7 @@ type WantsKubeClusterClient interface {
 // WantsKcpClusterClient interface should be implemented by admission plugins
 // that want to have a kcp cluster client injected.
 type WantsKcpClusterClient interface {
-	SetKcpClusterClient(kcpclient.ClusterInterface)
+	SetKcpClusterClient(kcpclientset.ClusterInterface)
 }
 
 // WantsDeepSARClient interface should be implemented by admission plugins

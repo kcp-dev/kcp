@@ -26,7 +26,6 @@ import (
 
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	kcpkubernetesclient "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/spf13/cobra"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,7 +40,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/server/bootstrap"
@@ -114,12 +113,11 @@ func Run(ctx context.Context, o *options.Options) error {
 
 	wildcardKubeInformers := kcpkubernetesinformers.NewSharedInformerFactory(kubeClusterClient, 10*time.Minute)
 
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(identityConfig)
+	kcpClusterClient, err := kcpclientset.NewForConfig(identityConfig)
 	if err != nil {
 		return err
 	}
-	wildcardKcpClient := kcpClusterClient.Cluster(logicalcluster.Wildcard)
-	wildcardKcpInformers := kcpinformers.NewSharedInformerFactory(wildcardKcpClient, 10*time.Minute)
+	wildcardKcpInformers := kcpinformers.NewSharedInformerFactory(kcpClusterClient, 10*time.Minute)
 
 	if o.ProfilerAddress != "" {
 		//nolint:errcheck

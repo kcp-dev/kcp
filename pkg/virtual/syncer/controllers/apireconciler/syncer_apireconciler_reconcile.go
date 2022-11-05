@@ -169,7 +169,8 @@ func (c *APIReconciler) getAllAcceptedResourceSchemas(syncTarget *workloadv1alph
 
 	var errs []error
 	for _, apiExportKey := range apiExportKeys {
-		apiExport, err := c.apiExportLister.Get(apiExportKey)
+		clusterName, apiExportName := client.SplitClusterAwareKey(apiExportKey)
+		apiExport, err := c.apiExportLister.Cluster(clusterName).Get(apiExportName)
 		if apierrors.IsNotFound(err) {
 			continue
 		}
@@ -179,7 +180,7 @@ func (c *APIReconciler) getAllAcceptedResourceSchemas(syncTarget *workloadv1alph
 		}
 
 		for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
-			apiResourceSchema, err := c.apiResourceSchemaLister.Get(client.ToClusterAwareKey(logicalcluster.From(apiExport), schemaName))
+			apiResourceSchema, err := c.apiResourceSchemaLister.Cluster(logicalcluster.From(apiExport)).Get(schemaName)
 			if apierrors.IsNotFound(err) {
 				continue
 			}

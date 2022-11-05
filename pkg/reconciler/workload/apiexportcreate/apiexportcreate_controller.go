@@ -39,13 +39,13 @@ import (
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/client"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
-	schedulinginformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
-	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
-	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
-	schedulinglisters "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
-	workloadlisters "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
+	schedulingv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
+	workloadv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
+	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
+	schedulingv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
+	workloadv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	reconcilerapiexport "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexport"
 )
@@ -60,11 +60,11 @@ const (
 
 // NewController returns a new controller instance.
 func NewController(
-	kcpClusterClient kcpclient.Interface,
-	syncTargetInformer workloadinformers.SyncTargetInformer,
-	apiExportInformer apisinformers.APIExportInformer,
-	apiBindingInformer apisinformers.APIBindingInformer,
-	locationInformer schedulinginformers.LocationInformer,
+	kcpClusterClient kcpclientset.ClusterInterface,
+	syncTargetInformer workloadv1alpha1informers.SyncTargetClusterInformer,
+	apiExportInformer apisv1alpha1informers.APIExportClusterInformer,
+	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
+	locationInformer schedulingv1alpha1informers.LocationClusterInformer,
 ) (*controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
@@ -147,18 +147,18 @@ type controller struct {
 	queue        workqueue.RateLimitingInterface
 	enqueueAfter func(*apisv1alpha1.APIExport, time.Duration)
 
-	kcpClusterClient kcpclient.Interface
+	kcpClusterClient kcpclientset.ClusterInterface
 
-	syncTargetLister  workloadlisters.SyncTargetLister
+	syncTargetLister  workloadv1alpha1listers.SyncTargetClusterLister
 	syncTargetIndexer cache.Indexer
 
-	apiExportsLister  apislisters.APIExportLister
+	apiExportsLister  apisv1alpha1listers.APIExportClusterLister
 	apiExportsIndexer cache.Indexer
 
-	apiBindingLister  apislisters.APIBindingLister
+	apiBindingLister  apisv1alpha1listers.APIBindingClusterLister
 	apiBindingIndexer cache.Indexer
 
-	locationLister schedulinglisters.LocationLister
+	locationLister schedulingv1alpha1listers.LocationClusterLister
 }
 
 // enqueue adds the logical cluster to the queue.
@@ -245,7 +245,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 	}
 
 	// check that export exists, and create it if not
-	export, err := c.apiExportsLister.Get(client.ToClusterAwareKey(clusterName, reconcilerapiexport.TemporaryComputeServiceExportName))
+	export, err := c.apiExportsLister.Cluster(clusterName).Get(reconcilerapiexport.TemporaryComputeServiceExportName)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	} else if apierrors.IsNotFound(err) {
@@ -258,7 +258,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		}
 		logger = logging.WithObject(logger, export)
 		logger.Info("creating APIExport")
-		export, err = c.kcpClusterClient.ApisV1alpha1().APIExports().Create(logicalcluster.WithCluster(ctx, clusterName), export, metav1.CreateOptions{})
+		export, err = c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIExports().Create(ctx, export, metav1.CreateOptions{})
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			logger.Error(err, "failed to create APIExport")
 			return err
@@ -270,7 +270,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 	}
 
 	// check that location exists, and create it if not
-	_, err = c.locationLister.Get(client.ToClusterAwareKey(clusterName, DefaultLocationName))
+	_, err = c.locationLister.Cluster(clusterName).Get(DefaultLocationName)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	} else if apierrors.IsNotFound(err) {
@@ -290,7 +290,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		}
 		logger = logging.WithObject(logger, location)
 		logger.Info("creating Location")
-		_, err = c.kcpClusterClient.SchedulingV1alpha1().Locations().Create(logicalcluster.WithCluster(ctx, clusterName), location, metav1.CreateOptions{})
+		_, err = c.kcpClusterClient.Cluster(clusterName).SchedulingV1alpha1().Locations().Create(ctx, location, metav1.CreateOptions{})
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			logger.Error(err, "failed to create Location")
 			return err
@@ -334,7 +334,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 	}
 	logger = logging.WithObject(logger, binding)
 	logger.V(2).Info("creating APIBinding")
-	_, err = c.kcpClusterClient.ApisV1alpha1().APIBindings().Create(logicalcluster.WithCluster(ctx, clusterName), binding, metav1.CreateOptions{})
+	_, err = c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
 
 	if err != nil && !apierrors.IsAlreadyExists(err) {
 		logger.Error(err, "failed to create APIBinding")
@@ -355,6 +355,6 @@ func (c *controller) process(ctx context.Context, key string) error {
 	}
 
 	logger.WithValues("patch", string(patchData)).V(2).Info("patching APIExport")
-	_, err = c.kcpClusterClient.ApisV1alpha1().APIExports().Patch(logicalcluster.WithCluster(ctx, clusterName), export.Name, types.MergePatchType, patchData, metav1.PatchOptions{})
+	_, err = c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIExports().Patch(ctx, export.Name, types.MergePatchType, patchData, metav1.PatchOptions{})
 	return err
 }

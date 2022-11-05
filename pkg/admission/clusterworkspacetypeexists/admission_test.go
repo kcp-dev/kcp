@@ -40,17 +40,17 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/admission/helpers"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/client"
+	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 )
 
 func createAttr(obj *tenancyv1alpha1.ClusterWorkspace) admission.Attributes {
 	return admission.NewAttributesRecord(
 		helpers.ToUnstructuredOrDie(obj),
 		nil,
-		tenancyv1alpha1.Kind("ClusterWorkspace").WithVersion("v1alpha1"),
+		tenancyv1alpha1.Kind("ClusterWorkspace").WithVersion("tenancyv1alpha1listers"),
 		"",
 		"test",
-		tenancyv1alpha1.Resource("clusterworkspaces").WithVersion("v1alpha1"),
+		tenancyv1alpha1.Resource("clusterworkspaces").WithVersion("tenancyv1alpha1listers"),
 		"",
 		admission.Create,
 		&metav1.CreateOptions{},
@@ -63,10 +63,10 @@ func updateAttr(obj, old *tenancyv1alpha1.ClusterWorkspace) admission.Attributes
 	return admission.NewAttributesRecord(
 		helpers.ToUnstructuredOrDie(obj),
 		helpers.ToUnstructuredOrDie(old),
-		tenancyv1alpha1.Kind("ClusterWorkspace").WithVersion("v1alpha1"),
+		tenancyv1alpha1.Kind("ClusterWorkspace").WithVersion("tenancyv1alpha1listers"),
 		"",
 		"test",
-		tenancyv1alpha1.Resource("clusterworkspaces").WithVersion("v1alpha1"),
+		tenancyv1alpha1.Resource("clusterworkspaces").WithVersion("tenancyv1alpha1listers"),
 		"",
 		admission.Update,
 		&metav1.CreateOptions{},
@@ -198,10 +198,10 @@ func TestAdmit(t *testing.T) {
 					"status": map[string]interface{}{},
 				}},
 				nil,
-				tenancyv1alpha1.Kind("ClusterWorkspaceShard").WithVersion("v1alpha1"),
+				tenancyv1alpha1.Kind("ClusterWorkspaceShard").WithVersion("tenancyv1alpha1listers"),
 				"",
 				"test",
-				tenancyv1alpha1.Resource("clusterworkspaceshards").WithVersion("v1alpha1"),
+				tenancyv1alpha1.Resource("clusterworkspaceshards").WithVersion("tenancyv1alpha1listers"),
 				"",
 				admission.Create,
 				&metav1.CreateOptions{},
@@ -580,10 +580,10 @@ func TestValidate(t *testing.T) {
 					},
 				},
 				nil,
-				tenancyv1alpha1.Kind("ClusterWorkspaceShard").WithVersion("v1alpha1"),
+				tenancyv1alpha1.Kind("ClusterWorkspaceShard").WithVersion("tenancyv1alpha1listers"),
 				"",
 				"test",
-				tenancyv1alpha1.Resource("clusterworkspaceshards").WithVersion("v1alpha1"),
+				tenancyv1alpha1.Resource("clusterworkspaceshards").WithVersion("tenancyv1alpha1listers"),
 				"",
 				admission.Create,
 				&metav1.CreateOptions{},
@@ -623,7 +623,7 @@ func TestValidate(t *testing.T) {
 					}, nil
 				},
 				transitiveTypeResolver: NewTransitiveTypeResolver(func(cluster logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
-					return typeLister.Get(client.ToClusterAwareKey(cluster, name))
+					return typeLister.Cluster(cluster).Get(name)
 				}),
 			}
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: tt.path})

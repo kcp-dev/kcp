@@ -28,7 +28,6 @@ import (
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/client"
 )
 
 type reconcileStatus int
@@ -81,12 +80,11 @@ func (c *controller) listSyncTarget(clusterName logicalcluster.Name) ([]*workloa
 }
 
 func (c *controller) getLocation(clusterName logicalcluster.Name, name string) (*schedulingv1alpha1.Location, error) {
-	key := client.ToClusterAwareKey(clusterName, name)
-	return c.locationLister.Get(key)
+	return c.locationLister.Cluster(clusterName).Get(name)
 }
 
 func (c *controller) patchPlacement(ctx context.Context, clusterName logicalcluster.Name, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*schedulingv1alpha1.Placement, error) {
 	logger := klog.FromContext(ctx)
 	logger.WithValues("patch", string(data)).V(2).Info("patching Placement")
-	return c.kcpClusterClient.SchedulingV1alpha1().Placements().Patch(logicalcluster.WithCluster(ctx, clusterName), name, pt, data, opts, subresources...)
+	return c.kcpClusterClient.Cluster(clusterName).SchedulingV1alpha1().Placements().Patch(ctx, name, pt, data, opts, subresources...)
 }

@@ -43,14 +43,13 @@ import (
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
-	clienttesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/kubernetes/pkg/controller"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	tenancyv1fake "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/fake"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	kcpfakeclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/fake"
 	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/authorization"
 )
 
@@ -85,7 +84,7 @@ type TestData struct {
 
 type TestDescription struct {
 	TestData
-	apply func(t *testing.T, storage *REST, ctx context.Context, kubeClient *kcpfake.ClusterClientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData)
+	apply func(t *testing.T, storage *REST, ctx context.Context, kubeClient *kcpfake.ClusterClientset, kcpClient *kcpfakeclient.ClusterClientset, listerCheckedUsers func() []kuser.Info, testData TestData)
 }
 
 func applyTest(t *testing.T, test TestDescription) {
@@ -103,9 +102,9 @@ func applyTest(t *testing.T, test TestDescription) {
 	crList := rbacv1.ClusterRoleList{
 		Items: test.clusterRoles,
 	}
-	mockKCPClient := tenancyv1fake.NewSimpleClientset(&workspaceList)
-	mockKCPClient.PrependReactor("create", "clusterworkspaces", func(action clienttesting.Action) (bool, runtime.Object, error) {
-		create := action.(clienttesting.CreateAction)
+	mockKCPClient := kcpfakeclient.NewSimpleClientset(&workspaceList)
+	mockKCPClient.PrependReactor("create", "clusterworkspaces", func(action kcptesting.Action) (bool, runtime.Object, error) {
+		create := action.(kcptesting.CreateAction)
 		workspace := create.GetObject().(*tenancyv1alpha1.ClusterWorkspace)
 		for _, w := range workspaceList.Items {
 			if workspace.Name == w.Name {
@@ -123,7 +122,7 @@ func applyTest(t *testing.T, test TestDescription) {
 			workspace.GenerateName = ""
 		}
 
-		if err := mockKCPClient.Tracker().Add(workspace); err != nil {
+		if err := mockKCPClient.Tracker().Cluster(create.GetCluster()).Add(workspace); err != nil {
 			return true, nil, err
 		}
 
@@ -205,7 +204,7 @@ func applyTest(t *testing.T, test TestDescription) {
 		},
 		crbInformer:           kubeInformers.Rbac().V1().ClusterRoleBindings(),
 		kubeClusterClient:     mockKubeClient,
-		kcpClusterClient:      mockKcpClusterClient(func(logicalcluster.Name) kcpclientset.Interface { return mockKCPClient }),
+		kcpClusterClient:      mockKCPClient,
 		clusterWorkspaceCache: nil,
 		delegatedAuthz: func(clusterName logicalcluster.Name, client kcpkubernetesclient.ClusterInterface) (authorizer.Authorizer, error) {
 			if clusterName == tenancyv1alpha1.RootCluster {
@@ -268,7 +267,7 @@ func TestListWorkspacesWithGroupPermission(t *testing.T) {
 				},
 			},
 		},
-		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *kcpfake.ClusterClientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *kcpfake.ClusterClientset, kcpClient *kcpfakeclient.ClusterClientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			response, err := storage.List(ctx, nil)
 			require.NoError(t, err)
 			workspaces := response.(*tenancyv1beta1.WorkspaceList)
@@ -338,7 +337,7 @@ func TestListWorkspacesWithUserPermission(t *testing.T) {
 				},
 			},
 		},
-		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *kcpfake.ClusterClientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *kcpfake.ClusterClientset, kcpClient *kcpfakeclient.ClusterClientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			response, err := storage.List(ctx, nil)
 			require.NoError(t, err)
 			workspaces := response.(*tenancyv1beta1.WorkspaceList)
@@ -381,7 +380,7 @@ func TestListWorkspacesOnRootOrgWithPermission(t *testing.T) {
 			clusterWorkspaces:   []tenancyv1alpha1.ClusterWorkspace{{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{logicalcluster.AnnotationKey: "root"}, Name: "orgName"}}},
 			clusterRoleBindings: []rbacv1.ClusterRoleBinding{},
 		},
-		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *kcpfake.ClusterClientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *kcpfake.ClusterClientset, kcpClient *kcpfakeclient.ClusterClientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			response, err := storage.List(ctx, nil)
 			require.NoError(t, err)
 			workspaces := response.(*tenancyv1beta1.WorkspaceList)
@@ -447,7 +446,7 @@ func TestGetWorkspace(t *testing.T) {
 				},
 			},
 		},
-		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *kcpfake.ClusterClientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *kcpfake.ClusterClientset, kcpClient *kcpfakeclient.ClusterClientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			response, err := storage.Get(ctx, "foo", nil)
 			require.NoError(t, err)
 			require.IsType(t, &tenancyv1beta1.Workspace{}, response)
@@ -528,7 +527,7 @@ func TestGetWorkspaceNotFoundNoPermission(t *testing.T) {
 				},
 			},
 		},
-		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *kcpfake.ClusterClientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *kcpfake.ClusterClientset, kcpClient *kcpfakeclient.ClusterClientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			response, err := storage.Get(ctx, "foo", nil)
 			require.NoError(t, err, "get is authorized through the delegated authorizer only, i.e. here it should be allowed")
 			require.NotNil(t, response)
@@ -558,7 +557,7 @@ func TestCreateWorkspace(t *testing.T) {
 			}),
 			rootReviewer: workspaceauth.NewReviewer(nil),
 		},
-		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *kcpfake.ClusterClientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *kcpfake.ClusterClientset, kcpClient *kcpfakeclient.ClusterClientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			newWorkspace := tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "foo",
@@ -645,7 +644,7 @@ func TestCreateWorkspaceWithCreateAnyPermission(t *testing.T) {
 			}),
 			rootReviewer: workspaceauth.NewReviewer(nil),
 		},
-		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *kcpfake.ClusterClientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *kcpfake.ClusterClientset, kcpClient *kcpfakeclient.ClusterClientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			newWorkspace := tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "foo",
@@ -735,7 +734,7 @@ func TestCreateWorkspaceCustomLocalType(t *testing.T) {
 			}),
 			rootReviewer: workspaceauth.NewReviewer(nil),
 		},
-		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *kcpfake.ClusterClientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *kcpfake.ClusterClientset, kcpClient *kcpfakeclient.ClusterClientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			newWorkspace := tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "foo",
@@ -890,7 +889,7 @@ func TestCreateWorkspaceNameAlreadyExists(t *testing.T) {
 				},
 			},
 		},
-		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *kcpfake.ClusterClientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *kcpfake.ClusterClientset, kcpClient *kcpfakeclient.ClusterClientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			newWorkspace := tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "foo",
@@ -943,7 +942,7 @@ func TestCreateWorkspaceWithClusterWorkspaceCreationError(t *testing.T) {
 				},
 			}),
 		},
-		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *kcpfake.ClusterClientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *kcpfake.ClusterClientset, kcpClient *kcpfakeclient.ClusterClientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			newWorkspace := tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "foo",
@@ -1039,7 +1038,7 @@ func TestDeleteWorkspaceNotFound(t *testing.T) {
 				},
 			},
 		},
-		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *kcpfake.ClusterClientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *kcpfake.ClusterClientset, kcpClient *kcpfakeclient.ClusterClientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			response, deletedNow, err := storage.Delete(ctx, "foo-with-does-not-exist", nil, &metav1.DeleteOptions{})
 			assert.EqualError(t, err, "workspaces.tenancy.kcp.dev \"foo-with-does-not-exist\" not found")
 			assert.Nil(t, response)
@@ -1137,7 +1136,7 @@ func TestDeleteWorkspace(t *testing.T) {
 				},
 			},
 		},
-		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *kcpfake.ClusterClientset, kcpClient *tenancyv1fake.Clientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
+		apply: func(t *testing.T, storage *REST, ctx context.Context, kubeClient *kcpfake.ClusterClientset, kcpClient *kcpfakeclient.ClusterClientset, listerCheckedUsers func() []kuser.Info, testData TestData) {
 			response, deletedNow, err := storage.Delete(ctx, "foo", nil, &metav1.DeleteOptions{})
 			assert.NoError(t, err)
 			assert.Nil(t, response)
@@ -1176,9 +1175,9 @@ func (c clusterWorkspaces) RemoveWatcher(watcher workspaceauth.CacheWatcher) {
 func (c clusterWorkspaces) AddWatcher(watcher workspaceauth.CacheWatcher) {
 }
 
-type mockKcpClusterClient func(cluster logicalcluster.Name) kcpclientset.Interface
+type mockKcpClusterClient func(cluster logicalcluster.Name) kcpclientset.ClusterInterface
 
-func (m mockKcpClusterClient) Cluster(cluster logicalcluster.Name) kcpclientset.Interface {
+func (m mockKcpClusterClient) Cluster(cluster logicalcluster.Name) kcpclientset.ClusterInterface {
 	return m(cluster)
 }
 

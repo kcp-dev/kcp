@@ -35,7 +35,7 @@ pushd ./pkg/apis
 ${CODE_GENERATOR} \
   "client:outputPackagePath=github.com/kcp-dev/kcp/pkg/client,apiPackagePath=github.com/kcp-dev/kcp/pkg/apis,singleClusterClientPackagePath=github.com/kcp-dev/kcp/pkg/client/clientset/versioned,headerFile=./../../hack/boilerplate/boilerplate.go.txt" \
   "lister:apiPackagePath=github.com/kcp-dev/kcp/pkg/apis,headerFile=./../../hack/boilerplate/boilerplate.go.txt" \
-  "informer:outputPackagePath=github.com/kcp-dev/kcp/pkg/client,apiPackagePath=github.com/kcp-dev/kcp/pkg/apis,headerFile=./../../hack/boilerplate/boilerplate.go.txt" \
+  "informer:outputPackagePath=github.com/kcp-dev/kcp/pkg/client,singleClusterClientPackagePath=github.com/kcp-dev/kcp/pkg/client/clientset/versioned,apiPackagePath=github.com/kcp-dev/kcp/pkg/apis,headerFile=./../../hack/boilerplate/boilerplate.go.txt" \
   "paths=./..." \
   "output:dir=./../client"
 popd

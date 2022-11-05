@@ -26,7 +26,6 @@ import (
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/client"
 )
 
 type reconcileStatus int
@@ -45,14 +44,13 @@ func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1alpha1.ClusterW
 		&metaDataReconciler{},
 		&schedulingReconciler{
 			getShard: func(name string) (*tenancyv1alpha1.ClusterWorkspaceShard, error) {
-				return c.clusterWorkspaceShardLister.Get(client.ToClusterAwareKey(tenancyv1alpha1.RootCluster, name))
+				return c.clusterWorkspaceShardLister.Cluster(tenancyv1alpha1.RootCluster).Get(name)
 			},
 			listShards: c.clusterWorkspaceShardLister.List,
 		},
 		&phaseReconciler{
 			getShardWithQuorum: func(ctx context.Context, name string, options metav1.GetOptions) (*tenancyv1alpha1.ClusterWorkspaceShard, error) {
-				rootCtx := logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster)
-				return c.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaceShards().Get(rootCtx, name, options)
+				return c.kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaceShards().Get(ctx, name, options)
 			},
 			getAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
 				objs, err := c.apiBindingIndexer.ByIndex(byWorkspace, clusterName.String())

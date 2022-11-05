@@ -40,8 +40,9 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	apisv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apis/v1alpha1"
+	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspacedeletion/deletion"
@@ -69,8 +70,8 @@ const (
 
 func NewController(
 	metadataClient kcpmetadata.ClusterInterface,
-	kcpClusterClient kcpclient.Interface,
-	apiBindingInformer apisinformers.APIBindingInformer,
+	kcpClusterClient kcpclientset.ClusterInterface,
+	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
 ) *Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
@@ -85,9 +86,9 @@ func NewController(
 			return metadataClient.Cluster(cluster).Resource(gvr).Namespace(namespace).DeleteCollection(ctx, opts, metav1.ListOptions{})
 		},
 		getAPIBinding: func(cluster logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error) {
-			return apiBindingInformer.Lister().Get(kcpcache.ToClusterAwareKey(cluster.String(), "", name))
+			return apiBindingInformer.Lister().Cluster(cluster).Get(name)
 		},
-		commit: committer.NewCommitter[*APIBinding, *APIBindingSpec, *APIBindingStatus](kcpClusterClient.ApisV1alpha1().APIBindings()),
+		commit: committer.NewCommitter[*APIBinding, Patcher, *APIBindingSpec, *APIBindingStatus](kcpClusterClient.ApisV1alpha1().APIBindings()),
 	}
 
 	apiBindingInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
@@ -111,6 +112,7 @@ func NewController(
 type APIBinding = apisv1alpha1.APIBinding
 type APIBindingSpec = apisv1alpha1.APIBindingSpec
 type APIBindingStatus = apisv1alpha1.APIBindingStatus
+type Patcher = apisv1alpha1client.APIBindingInterface
 type Resource = committer.Resource[*APIBindingSpec, *APIBindingStatus]
 type CommitFunc = func(context.Context, *Resource, *Resource) error
 

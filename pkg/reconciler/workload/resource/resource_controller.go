@@ -45,8 +45,8 @@ import (
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	schedulinginformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
-	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
+	schedulingv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
+	workloadv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
@@ -63,9 +63,9 @@ const (
 func NewController(
 	dynamicClusterClient kcpdynamic.ClusterInterface,
 	ddsif *informer.DynamicDiscoverySharedInformerFactory,
-	syncTargetInformer workloadinformers.SyncTargetInformer,
+	syncTargetInformer workloadv1alpha1informers.SyncTargetClusterInformer,
 	namespaceInformer kcpcorev1informers.NamespaceClusterInformer,
-	placementInformer schedulinginformers.PlacementInformer,
+	placementInformer schedulingv1alpha1informers.PlacementClusterInformer,
 ) (*Controller, error) {
 	resourceQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-namespace-resource")
 	gvrQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-namespace-gvr")

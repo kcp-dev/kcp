@@ -24,7 +24,6 @@ import (
 	"time"
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -37,7 +36,7 @@ import (
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -57,7 +56,7 @@ func TestMultiPlacement(t *testing.T) {
 
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(source.BaseConfig(t))
 	require.NoError(t, err)
-	kcpClusterClient, err := kcpclient.NewForConfig(source.BaseConfig(t))
+	kcpClusterClient, err := kcpclientset.NewForConfig(source.BaseConfig(t))
 	require.NoError(t, err)
 
 	t.Logf("Check that there is no services resource in the user workspace")
@@ -108,10 +107,10 @@ func TestMultiPlacement(t *testing.T) {
 
 	t.Log("Label synctarget")
 	patchData1 := `{"metadata":{"labels":{"loc":"loc1"}}}`
-	_, err = kcpClusterClient.WorkloadV1alpha1().SyncTargets().Patch(logicalcluster.WithCluster(ctx, locationClusterName), firstSyncTargetName, types.MergePatchType, []byte(patchData1), metav1.PatchOptions{})
+	_, err = kcpClusterClient.Cluster(locationClusterName).WorkloadV1alpha1().SyncTargets().Patch(ctx, firstSyncTargetName, types.MergePatchType, []byte(patchData1), metav1.PatchOptions{})
 	require.NoError(t, err)
 	patchData2 := `{"metadata":{"labels":{"loc":"loc2"}}}`
-	_, err = kcpClusterClient.WorkloadV1alpha1().SyncTargets().Patch(logicalcluster.WithCluster(ctx, locationClusterName), secondSyncTargetName, types.MergePatchType, []byte(patchData2), metav1.PatchOptions{})
+	_, err = kcpClusterClient.Cluster(locationClusterName).WorkloadV1alpha1().SyncTargets().Patch(ctx, secondSyncTargetName, types.MergePatchType, []byte(patchData2), metav1.PatchOptions{})
 	require.NoError(t, err)
 
 	t.Log("Create locations")
@@ -131,7 +130,7 @@ func TestMultiPlacement(t *testing.T) {
 			},
 		},
 	}
-	_, err = kcpClusterClient.SchedulingV1alpha1().Locations().Create(logicalcluster.WithCluster(ctx, locationClusterName), loc1, metav1.CreateOptions{})
+	_, err = kcpClusterClient.Cluster(locationClusterName).SchedulingV1alpha1().Locations().Create(ctx, loc1, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	loc2 := &schedulingv1alpha1.Location{
@@ -150,7 +149,7 @@ func TestMultiPlacement(t *testing.T) {
 			},
 		},
 	}
-	_, err = kcpClusterClient.SchedulingV1alpha1().Locations().Create(logicalcluster.WithCluster(ctx, locationClusterName), loc2, metav1.CreateOptions{})
+	_, err = kcpClusterClient.Cluster(locationClusterName).SchedulingV1alpha1().Locations().Create(ctx, loc2, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	t.Logf("Bind user workspace to location workspace with loc 1")

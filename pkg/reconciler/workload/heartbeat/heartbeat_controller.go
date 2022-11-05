@@ -19,18 +19,18 @@ package heartbeat
 import (
 	"time"
 
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	apiresourceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
-	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	apiresourcev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
+	workloadv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/basecontroller"
 )
 
 const ControllerName = "kcp-cluster-heartbeat"
 
 func NewController(
-	kcpClusterClient kcpclient.Interface,
-	clusterInformer workloadinformers.SyncTargetInformer,
-	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
+	kcpClusterClient kcpclientset.ClusterInterface,
+	clusterInformer workloadv1alpha1informers.SyncTargetClusterInformer,
+	apiResourceImportInformer apiresourcev1alpha1informers.APIResourceImportClusterInformer,
 	heartbeatThreshold time.Duration,
 ) (*basecontroller.ClusterReconciler, error) {
 	cm := &clusterManager{

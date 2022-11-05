@@ -30,7 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 )
 
 type ClusterWorkspaceOption func(ws *tenancyv1alpha1.ClusterWorkspace)
@@ -62,7 +62,7 @@ func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logi
 	t.Cleanup(cancelFunc)
 
 	cfg := server.BaseConfig(t)
-	clusterClient, err := kcpclient.NewForConfig(cfg)
+	clusterClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct client for server")
 
 	tmpl := &tenancyv1alpha1.ClusterWorkspace{
@@ -87,7 +87,7 @@ func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logi
 	var ws *tenancyv1alpha1.ClusterWorkspace
 	require.Eventually(t, func() bool {
 		var err error
-		ws, err = clusterClient.TenancyV1alpha1().ClusterWorkspaces().Create(logicalcluster.WithCluster(ctx, orgClusterName), tmpl, metav1.CreateOptions{})
+		ws, err = clusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, tmpl, metav1.CreateOptions{})
 		if err != nil {
 			t.Logf("error creating workspace under %s: %v", orgClusterName, err)
 		}
@@ -102,7 +102,7 @@ func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logi
 		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(time.Second*30))
 		defer cancelFn()
 
-		err := clusterClient.TenancyV1alpha1().ClusterWorkspaces().Delete(logicalcluster.WithCluster(ctx, orgClusterName), ws.Name, metav1.DeleteOptions{})
+		err := clusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, ws.Name, metav1.DeleteOptions{})
 		if apierrors.IsNotFound(err) || apierrors.IsForbidden(err) {
 			return // ignore not found and forbidden because this probably means the parent has been deleted
 		}
@@ -110,7 +110,7 @@ func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logi
 	})
 
 	Eventually(t, func() (bool, string) {
-		ws, err := clusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, orgClusterName), ws.Name, metav1.GetOptions{})
+		ws, err := clusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, ws.Name, metav1.GetOptions{})
 		require.Falsef(t, apierrors.IsNotFound(err), "workspace %s was deleted", ws.Name)
 		if err != nil {
 			t.Logf("failed to get workspace %s: %v", ws.Name, err)
@@ -132,7 +132,7 @@ func NewOrganizationFixture(t *testing.T, server RunningServer, options ...Clust
 	t.Cleanup(cancelFunc)
 
 	cfg := server.BaseConfig(t)
-	clusterClient, err := kcpclient.NewForConfig(cfg)
+	clusterClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to create kcp cluster client")
 
 	tmpl := &tenancyv1alpha1.ClusterWorkspace{
@@ -157,7 +157,7 @@ func NewOrganizationFixture(t *testing.T, server RunningServer, options ...Clust
 	var org *tenancyv1alpha1.ClusterWorkspace
 	require.Eventually(t, func() bool {
 		var err error
-		org, err = clusterClient.TenancyV1alpha1().ClusterWorkspaces().Create(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), tmpl, metav1.CreateOptions{})
+		org, err = clusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, tmpl, metav1.CreateOptions{})
 		if err != nil {
 			t.Logf("error creating org workspace under %s: %v", tenancyv1alpha1.RootCluster, err)
 		}
@@ -172,7 +172,7 @@ func NewOrganizationFixture(t *testing.T, server RunningServer, options ...Clust
 		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(time.Second*30))
 		defer cancelFn()
 
-		err := clusterClient.TenancyV1alpha1().ClusterWorkspaces().Delete(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), org.Name, metav1.DeleteOptions{})
+		err := clusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, org.Name, metav1.DeleteOptions{})
 		if apierrors.IsNotFound(err) {
 			return // ignore not found error
 		}
@@ -180,7 +180,7 @@ func NewOrganizationFixture(t *testing.T, server RunningServer, options ...Clust
 	})
 
 	Eventually(t, func() (bool, string) {
-		ws, err := clusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), org.Name, metav1.GetOptions{})
+		ws, err := clusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, org.Name, metav1.GetOptions{})
 		require.Falsef(t, apierrors.IsNotFound(err), "workspace %s was deleted", org.Name)
 		if err != nil {
 			t.Logf("failed to get workspace %s: %v", org.Name, err)

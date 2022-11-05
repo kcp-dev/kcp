@@ -38,7 +38,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
 	fixturewildwest "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest"
@@ -70,7 +70,7 @@ func TestClusterController(t *testing.T) {
 				kcpClient, err := kcpclientset.NewForConfig(syncerFixture.SyncerConfig.UpstreamConfig)
 				require.NoError(t, err)
 
-				syncTarget, err := kcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx,
+				syncTarget, err := kcpClient.Cluster(syncerFixture.SyncerConfig.SyncTargetWorkspace).WorkloadV1alpha1().SyncTargets().Get(ctx,
 					syncerFixture.SyncerConfig.SyncTargetName,
 					metav1.GetOptions{},
 				)
@@ -90,6 +90,9 @@ func TestClusterController(t *testing.T) {
 						},
 						Spec: wildwestv1alpha1.CowboySpec{Intent: "yeehaw"},
 					}, metav1.CreateOptions{})
+					if err != nil {
+						t.Logf("err: %v", err)
+					}
 
 					return err == nil
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "expected cowboy resource to be created")
@@ -172,7 +175,7 @@ func TestClusterController(t *testing.T) {
 			t.Cleanup(cancelFunc)
 
 			t.Log("Creating a workspace")
-			wsClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
+			wsClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName, framework.WithName("source"))
 
 			// clients
 			sourceConfig := source.BaseConfig(t)
@@ -180,7 +183,7 @@ func TestClusterController(t *testing.T) {
 			sourceKubeClient, err := kcpkubernetesclientset.NewForConfig(sourceConfig)
 			require.NoError(t, err)
 
-			sourceWsClusterConfig := kcpclienthelper.SetCluster(kcpclienthelper.SetMultiClusterRoundTripper(rest.CopyConfig(sourceConfig)), wsClusterName)
+			sourceWsClusterConfig := kcpclienthelper.SetCluster(rest.CopyConfig(sourceConfig), wsClusterName)
 			sourceWildwestClient, err := wildwestclientset.NewForConfig(sourceWsClusterConfig)
 			require.NoError(t, err)
 

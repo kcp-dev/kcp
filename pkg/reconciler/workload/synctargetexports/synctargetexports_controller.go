@@ -40,13 +40,13 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/client"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	apiresourceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
-	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
-	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
-	apiresourcelisters "github.com/kcp-dev/kcp/pkg/client/listers/apiresource/v1alpha1"
-	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
-	workloadlisters "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	apiresourcev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
+	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
+	workloadv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
+	apiresourcev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apiresource/v1alpha1"
+	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
+	workloadv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
 )
 
 const (
@@ -60,11 +60,11 @@ const (
 // NewController returns a controller which update syncedResource in status based on supportedExports in spec
 // of a syncTarget.
 func NewController(
-	kcpClusterClient kcpclient.Interface,
-	syncTargetInformer workloadinformers.SyncTargetInformer,
-	apiExportInformer apisinformers.APIExportInformer,
-	apiResourceSchemaInformer apisinformers.APIResourceSchemaInformer,
-	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
+	kcpClusterClient kcpclientset.ClusterInterface,
+	syncTargetInformer workloadv1alpha1informers.SyncTargetClusterInformer,
+	apiExportInformer apisv1alpha1informers.APIExportClusterInformer,
+	apiResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
+	apiResourceImportInformer apiresourcev1alpha1informers.APIResourceImportClusterInformer,
 ) (*Controller, error) {
 
 	c := &Controller{
@@ -144,15 +144,15 @@ func NewController(
 
 type Controller struct {
 	queue            workqueue.RateLimitingInterface
-	kcpClusterClient kcpclient.Interface
+	kcpClusterClient kcpclientset.ClusterInterface
 
 	syncTargetIndexer    cache.Indexer
-	syncTargetLister     workloadlisters.SyncTargetLister
+	syncTargetLister     workloadv1alpha1listers.SyncTargetClusterLister
 	apiExportsIndexer    cache.Indexer
-	apiExportLister      apislisters.APIExportLister
-	resourceSchemaLister apislisters.APIResourceSchemaLister
+	apiExportLister      apisv1alpha1listers.APIExportClusterLister
+	resourceSchemaLister apisv1alpha1listers.APIResourceSchemaClusterLister
 	apiImportIndexer     cache.Indexer
-	apiImportLister      apiresourcelisters.APIResourceImportLister
+	apiImportLister      apiresourcev1alpha1listers.APIResourceImportClusterLister
 }
 
 func (c *Controller) enqueueSyncTarget(obj interface{}, logSuffix string) {
@@ -260,9 +260,14 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *Controller) process(ctx context.Context, key string) error {
+	cluster, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+	if err != nil {
+		runtime.HandleError(err)
+		return nil
+	}
 	var errs []error
 
-	syncTarget, err := c.syncTargetLister.Get(key)
+	syncTarget, err := c.syncTargetLister.Cluster(cluster).Get(name)
 	if err != nil {
 		klog.Errorf("Failed to get syncTarget with key %q because: %v", key, err)
 		return nil
@@ -329,7 +334,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 
 	clusterName := logicalcluster.From(currentSyncTarget)
 	klog.V(2).Infof("Patching synctarget %s|%s with patch %s", clusterName, currentSyncTarget.Name, string(patchBytes))
-	if _, err := c.kcpClusterClient.WorkloadV1alpha1().SyncTargets().Patch(logicalcluster.WithCluster(ctx, clusterName), currentSyncTarget.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status"); err != nil {
+	if _, err := c.kcpClusterClient.Cluster(clusterName).WorkloadV1alpha1().SyncTargets().Patch(ctx, currentSyncTarget.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status"); err != nil {
 		klog.Errorf("failed to patch sync target status: %v", err)
 		return err
 	}
@@ -338,13 +343,11 @@ func (c *Controller) process(ctx context.Context, key string) error {
 }
 
 func (c *Controller) getAPIExport(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
-	key := client.ToClusterAwareKey(clusterName, name)
-	return c.apiExportLister.Get(key)
+	return c.apiExportLister.Cluster(clusterName).Get(name)
 }
 
 func (c *Controller) getResourceSchema(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
-	key := client.ToClusterAwareKey(clusterName, name)
-	return c.resourceSchemaLister.Get(key)
+	return c.resourceSchemaLister.Cluster(clusterName).Get(name)
 }
 
 func (c *Controller) listAPIResourceImports(clusterName logicalcluster.Name) ([]*apiresourcev1alpha1.APIResourceImport, error) {

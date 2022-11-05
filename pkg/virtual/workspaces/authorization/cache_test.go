@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
-	kcpfakeclient "github.com/kcp-dev/client-go/kubernetes/fake"
+	kcpfakekubernetesclient "github.com/kcp-dev/client-go/kubernetes/fake"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -35,9 +35,9 @@ import (
 	"k8s.io/kubernetes/pkg/controller"
 
 	workspaceapi "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyv1fake "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/fake"
-	tenancyInformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	workspacelisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	kcpfakeclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/fake"
+	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 )
 
 // common test users
@@ -140,8 +140,8 @@ func TestSyncWorkspace(t *testing.T) {
 			},
 		},
 	}
-	mockKCPClient := tenancyv1fake.NewSimpleClientset(&workspaceList)
-	mockKubeClient := kcpfakeclient.NewSimpleClientset()
+	mockKCPClient := kcpfakeclient.NewSimpleClientset(&workspaceList)
+	mockKubeClient := kcpfakekubernetesclient.NewSimpleClientset()
 
 	subjectLocator := &mockSubjectLocator{
 		subjects: map[string][]rbacv1.Subject{
@@ -152,9 +152,9 @@ func TestSyncWorkspace(t *testing.T) {
 	}
 
 	kubeInformers := kcpkubernetesinformers.NewSharedInformerFactory(mockKubeClient, controller.NoResyncPeriodFunc())
-	kcpInformers := tenancyInformers.NewSharedInformerFactory(mockKCPClient, controller.NoResyncPeriodFunc())
+	kcpInformers := kcpinformers.NewSharedInformerFactory(mockKCPClient, controller.NoResyncPeriodFunc())
 	wsIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
-	wsLister := workspacelisters.NewClusterWorkspaceLister(wsIndexer)
+	wsLister := tenancyv1alpha1listers.NewClusterWorkspaceClusterLister(wsIndexer)
 
 	authorizationCache := NewAuthorizationCache(
 		"",

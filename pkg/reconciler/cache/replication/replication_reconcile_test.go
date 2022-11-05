@@ -34,7 +34,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
+	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 )
 
 var scheme *runtime.Scheme
@@ -305,7 +305,7 @@ func TestReconcileAPIExports(t *testing.T) {
 					tt.Error(err)
 				}
 			}
-			target.localApiExportLister = apislisters.NewAPIExportLister(localApiExportIndexer)
+			target.localApiExportLister = apisv1alpha1listers.NewAPIExportClusterLister(localApiExportIndexer)
 			target.cacheApiExportsIndexer = cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{ByShardAndLogicalClusterAndNamespaceAndName: IndexByShardAndLogicalClusterAndNamespace})
 			for _, obj := range scenario.initialCacheApiExports {
 				if err := target.cacheApiExportsIndexer.Add(obj); err != nil {

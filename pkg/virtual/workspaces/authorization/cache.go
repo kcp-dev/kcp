@@ -41,7 +41,7 @@ import (
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/client"
-	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/authorization/metrics"
 	workspaceutil "github.com/kcp-dev/kcp/pkg/virtual/workspaces/util"
 )
@@ -175,7 +175,7 @@ type AuthorizationCache struct {
 	// allKnownWorkspaces we track all the known workspaces, so we can detect deletes.
 	// TODO remove this in favor of a list/watch mechanism for workspaces
 	allKnownWorkspaces        sets.String
-	workspaceLister           tenancylisters.ClusterWorkspaceLister
+	workspaceLister           tenancyv1alpha1listers.ClusterWorkspaceClusterLister
 	lastSyncResourceVersioner LastSyncResourceVersioner
 
 	clusterRoleLister             SyncedClusterRoleLister
@@ -206,7 +206,7 @@ type AuthorizationCache struct {
 // NewAuthorizationCache creates a new AuthorizationCache
 func NewAuthorizationCache(
 	cacheType CacheType,
-	workspaceLister tenancylisters.ClusterWorkspaceLister,
+	workspaceLister tenancyv1alpha1listers.ClusterWorkspaceClusterLister,
 	workspaceLastSyncResourceVersioner LastSyncResourceVersioner,
 	reviewer *Reviewer,
 	reviewTemplate authorizer.AttributesRecord,

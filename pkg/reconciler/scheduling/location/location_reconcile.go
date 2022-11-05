@@ -134,5 +134,5 @@ func (c *controller) listSyncTarget(clusterName logicalcluster.Name) ([]*workloa
 }
 
 func (c *controller) updateLocation(ctx context.Context, clusterName logicalcluster.Name, location *schedulingv1alpha1.Location) (*schedulingv1alpha1.Location, error) {
-	return c.kcpClusterClient.SchedulingV1alpha1().Locations().Update(logicalcluster.WithCluster(ctx, clusterName), location, metav1.UpdateOptions{})
+	return c.kcpClusterClient.Cluster(clusterName).SchedulingV1alpha1().Locations().Update(ctx, location, metav1.UpdateOptions{})
 }

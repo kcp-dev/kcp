@@ -41,10 +41,11 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
-	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
-	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	apisv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apis/v1alpha1"
+	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
+	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
@@ -58,13 +59,13 @@ const (
 
 // NewController returns a new controller for APIExports.
 func NewController(
-	kcpClusterClient kcpclient.Interface,
-	apiExportInformer apisinformers.APIExportInformer,
-	clusterWorkspaceShardInformer tenancyinformers.ClusterWorkspaceShardInformer,
+	kcpClusterClient kcpclientset.ClusterInterface,
+	apiExportInformer apisv1alpha1informers.APIExportClusterInformer,
+	clusterWorkspaceShardInformer tenancyv1alpha1informers.ClusterWorkspaceShardClusterInformer,
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	namespaceInformer kcpcorev1informers.NamespaceClusterInformer,
 	secretInformer kcpcorev1informers.SecretClusterInformer,
-	apiBindingInformer apisinformers.APIBindingInformer,
+	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
 ) (*controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
@@ -94,7 +95,7 @@ func NewController(
 		listClusterWorkspaceShards: func() ([]*tenancyv1alpha1.ClusterWorkspaceShard, error) {
 			return clusterWorkspaceShardInformer.Lister().List(labels.Everything())
 		},
-		commit: committer.NewCommitter[*APIExport, *APIExportSpec, *APIExportStatus](kcpClusterClient.ApisV1alpha1().APIExports()),
+		commit: committer.NewCommitter[*APIExport, Patcher, *APIExportSpec, *APIExportStatus](kcpClusterClient.ApisV1alpha1().APIExports()),
 	}
 
 	c.getSecret = c.readThroughGetSecret
@@ -172,6 +173,7 @@ func NewController(
 type APIExport = apisv1alpha1.APIExport
 type APIExportSpec = apisv1alpha1.APIExportSpec
 type APIExportStatus = apisv1alpha1.APIExportStatus
+type Patcher = apisv1alpha1client.APIExportInterface
 type Resource = committer.Resource[*APIExportSpec, *APIExportStatus]
 type CommitFunc = func(context.Context, *Resource, *Resource) error
 
@@ -179,8 +181,8 @@ type CommitFunc = func(context.Context, *Resource, *Resource) error
 type controller struct {
 	queue workqueue.RateLimitingInterface
 
-	kcpClusterClient kcpclient.Interface
-	apiExportLister  apislisters.APIExportLister
+	kcpClusterClient kcpclientset.ClusterInterface
+	apiExportLister  apisv1alpha1listers.APIExportClusterLister
 	apiExportIndexer cache.Indexer
 
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface
@@ -328,7 +330,13 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *controller) process(ctx context.Context, key string) error {
-	obj, err := c.apiExportLister.Get(key)
+	cluster, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+	if err != nil {
+		runtime.HandleError(err)
+		return nil
+	}
+
+	obj, err := c.apiExportLister.Cluster(cluster).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil // object deleted before we handled it
