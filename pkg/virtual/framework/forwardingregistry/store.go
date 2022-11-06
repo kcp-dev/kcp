@@ -268,7 +268,7 @@ func clientGetter(dynamicClusterClient kcpdynamic.ClusterInterface, namespaceSco
 	return func(ctx context.Context) (dynamic.ResourceInterface, error) {
 		cluster, err := genericapirequest.ValidClusterFrom(ctx)
 		if err != nil {
-			return nil, err
+			return nil, apiErrorBadRequest(err)
 		}
 		gvr := resource
 		clusterName := cluster.Name
@@ -280,7 +280,7 @@ func clientGetter(dynamicClusterClient kcpdynamic.ClusterInterface, namespaceSco
 			if namespace, ok := genericapirequest.NamespaceFrom(ctx); ok {
 				return dynamicClusterClient.Cluster(clusterName).Resource(gvr).Namespace(namespace), nil
 			} else {
-				return nil, fmt.Errorf("there should be a Namespace context in a request for a namespaced resource: %s", gvr.String())
+				return nil, apiErrorBadRequest(fmt.Errorf("there should be a Namespace context in a request for a namespaced resource: %s", gvr.String()))
 			}
 		} else {
 			return dynamicClusterClient.Cluster(clusterName).Resource(gvr), nil
@@ -297,7 +297,7 @@ func listerWatcherGetter(dynamicClusterClient kcpdynamic.ClusterInterface, names
 	return func(ctx context.Context) (listerWatcher, error) {
 		cluster, err := genericapirequest.ValidClusterFrom(ctx)
 		if err != nil {
-			return nil, err
+			return nil, apiErrorBadRequest(err)
 		}
 		gvr := resource
 		clusterName := cluster.Name
@@ -309,13 +309,13 @@ func listerWatcherGetter(dynamicClusterClient kcpdynamic.ClusterInterface, names
 		switch clusterName {
 		case logicalcluster.Wildcard:
 			if namespaceScoped && namespaceSet && namespace != metav1.NamespaceAll {
-				return nil, fmt.Errorf("cross-cluster LIST and WATCH are required to be cross-namespace, not scoped to namespace %s", namespace)
+				return nil, apiErrorBadRequest(fmt.Errorf("cross-cluster LIST and WATCH are required to be cross-namespace, not scoped to namespace %s", namespace))
 			}
 			return dynamicClusterClient.Resource(gvr), nil
 		default:
 			if namespaceScoped {
 				if !namespaceSet {
-					return nil, fmt.Errorf("there should be a Namespace context in a request for a namespaced resource: %s", gvr.String())
+					return nil, apiErrorBadRequest(fmt.Errorf("there should be a Namespace context in a request for a namespaced resource: %s", gvr.String()))
 				}
 				return dynamicClusterClient.Cluster(clusterName).Resource(gvr).Namespace(namespace), nil
 			}
@@ -333,4 +333,13 @@ func updateToCreateOptions(uo *metav1.UpdateOptions) metav1.CreateOptions {
 	}
 	co.TypeMeta.SetGroupVersionKind(metav1.SchemeGroupVersion.WithKind("CreateOptions"))
 	return co
+}
+
+// apiErrorBadRequest returns a apierrors.StatusError with a BadRequest reason.
+func apiErrorBadRequest(err error) *apierrors.StatusError {
+	return &apierrors.StatusError{ErrStatus: metav1.Status{
+		Status:  metav1.StatusFailure,
+		Code:    http.StatusBadRequest,
+		Message: err.Error(),
+	}}
 }
