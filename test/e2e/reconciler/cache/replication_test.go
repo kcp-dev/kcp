@@ -274,8 +274,10 @@ func TestCacheServerInProcess(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, scenario := range scenarios {
-		t.Run(scenario.name, func(tt *testing.T) {
-			scenario.work(ctx, tt, server, kcpRootShardClient, cacheKcpClusterClient)
+		scenario := scenario
+		t.Run(scenario.name, func(t *testing.T) {
+			t.Parallel()
+			scenario.work(ctx, t, server, kcpRootShardClient, cacheKcpClusterClient)
 		})
 	}
 }
@@ -312,8 +314,10 @@ func TestCacheServerStandalone(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, scenario := range scenarios {
-		t.Run(scenario.name, func(tt *testing.T) {
-			scenario.work(ctx, tt, server, kcpRootShardClient, cacheKcpClusterClient)
+		scenario := scenario
+		t.Run(scenario.name, func(t *testing.T) {
+			t.Parallel()
+			scenario.work(ctx, t, server, kcpRootShardClient, cacheKcpClusterClient)
 		})
 	}
 }

@@ -380,8 +380,10 @@ func TestCacheServerAllScenarios(t *testing.T) {
 
 	cacheClientRT := cache2e.CacheClientRoundTrippersFor(cacheClientRestConfig)
 	for _, scenario := range scenarios {
-		t.Run(scenario.name, func(tt *testing.T) {
-			scenario.work(ctx, tt, cacheClientRT, logicalcluster.New("acme"), schema.GroupVersionResource{Group: "apis.kcp.dev", Version: "v1alpha1", Resource: "apiexports"})
+		scenario := scenario
+		t.Run(scenario.name, func(t *testing.T) {
+			t.Parallel()
+			scenario.work(ctx, t, cacheClientRT, logicalcluster.New("acme"), schema.GroupVersionResource{Group: "apis.kcp.dev", Version: "v1alpha1", Resource: "apiexports"})
 		})
 	}
 }
