@@ -22,6 +22,8 @@ import (
 	"io"
 	"log"
 	"strings"
+
+	apiv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 )
 
 // ClaimAction captures the user's preference of a specific action
@@ -47,11 +49,11 @@ func printMessage(bindingName, claimGroup, claimResource string) string {
 	return fmt.Sprintf("Accept permission claim for Resource: %s (APIBinding: %s) > ", claimResource, bindingName)
 }
 
-func getRequiredInput(rd io.Reader, wr io.Writer, bindingName, claimGroup, claimResource string) (ClaimAction, error) {
+func getRequiredInput(rd io.Reader, wr io.Writer, bindingName string, claim apiv1alpha1.PermissionClaim) (ClaimAction, error) {
 	reader := bufio.NewReader(rd)
 
 	for {
-		_, err := fmt.Fprint(wr, printMessage(bindingName, claimGroup, claimResource))
+		_, err := fmt.Fprint(wr, printMessage(bindingName, claim.Group, claim.Resource))
 		if err != nil {
 			return -1, err
 		}
@@ -60,7 +62,7 @@ func getRequiredInput(rd io.Reader, wr io.Writer, bindingName, claimGroup, claim
 		if value != "" {
 			return inferText(value, wr)
 		}
-		_, err = fmt.Fprintf(wr, "Input is required. Enter `skip/s` instead. ")
+		_, err = fmt.Fprintf(wr, "Input is required. Enter `(s)kip` instead. ")
 		if err != nil {
 			return -1, err
 		}

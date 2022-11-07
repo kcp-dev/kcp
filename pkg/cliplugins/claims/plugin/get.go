@@ -85,9 +85,9 @@ func (g *GetAPIBindingOptions) Run(ctx context.Context) error {
 		return err
 	}
 
-	_, currentClusterName, err := pluginhelpers.ParseClusterURL(cfg.Host)
+	currentClusterName, err := pluginhelpers.GetCurrentClusterName(cfg.Host)
 	if err != nil {
-		return fmt.Errorf("current URL %q does not point to cluster workspace", cfg.Host)
+		return err
 	}
 
 	kcpClusterClient, err := newKCPClusterClient(g.ClientConfig)

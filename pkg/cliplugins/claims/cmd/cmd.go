@@ -37,10 +37,10 @@ var (
 	%[1]s claims get apibinding
 
 	# Edit the permission claims' status related to a specific APIBinding with an interactive prompt.
-	%[1]s claims get apibinding cert-manager
+	%[1]s claims edit apibinding cert-manager
 
 	# Edit the permission claims' status for all APIBindings in current workspace with an interactive prompt.
-	%[1]s claims get apibinding
+	%[1]s claims edit apibinding
 	`
 )
 
@@ -105,7 +105,7 @@ func New(streams genericclioptions.IOStreams) *cobra.Command {
 	apibindingEditOpts := plugin.NewEditAPIBindingOptions(streams)
 	apibindingEditCmd := &cobra.Command{
 		Use:          "apibinding <apibinding_name>",
-		Short:        "Edit claims related to apibinding",
+		Short:        "Edit open permission claims",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := apibindingEditOpts.Complete(args); err != nil {
