@@ -19,10 +19,7 @@ package cache
 import (
 	"context"
 	"encoding/json"
-	"fmt"
-	"sync"
 	"testing"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/kcp-dev/logicalcluster/v2"
@@ -33,10 +30,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/wait"
 	genericrequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/dynamic"
-	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -399,52 +394,10 @@ func TestCacheServerAllScenarios(t *testing.T) {
 	cacheClientRestConfig, err := cacheClientConfig.ClientConfig()
 	require.NoError(t, err)
 
-	// TODO: p0lyn0mial: move to StartStandaloneCacheServer
-	t.Logf("waiting for the cache server at %v to become ready", cacheClientRestConfig.Host)
-	waitUntilCacheServerIsReady(ctx, t, cacheClientRestConfig)
-
 	cacheClientRT := cache2e.CacheClientRoundTrippersFor(cacheClientRestConfig)
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(tt *testing.T) {
 			scenario.work(ctx, tt, cacheClientRT, logicalcluster.New("acme"), schema.GroupVersionResource{Group: "apis.kcp.dev", Version: "v1alpha1", Resource: "apiexports"})
 		})
-	}
-}
-
-func waitUntilCacheServerIsReady(ctx context.Context, t *testing.T, cacheClientRT *rest.Config) {
-	cacheClientRT = rest.CopyConfig(cacheClientRT)
-	if cacheClientRT.NegotiatedSerializer == nil {
-		cacheClientRT.NegotiatedSerializer = kubernetesscheme.Codecs.WithoutConversion()
-	}
-	client, err := rest.UnversionedRESTClientFor(cacheClientRT)
-	if err != nil {
-		t.Fatalf("failed to create unversioned client: %v", err)
-	}
-
-	wg := sync.WaitGroup{}
-	wg.Add(2)
-	for _, endpoint := range []string{"/livez", "/readyz"} {
-		go func(endpoint string) {
-			defer wg.Done()
-			waitForEndpoint(ctx, t, client, endpoint)
-		}(endpoint)
-	}
-	wg.Wait()
-}
-
-func waitForEndpoint(ctx context.Context, t *testing.T, client *rest.RESTClient, endpoint string) {
-	var lastError error
-	if err := wait.PollImmediateWithContext(ctx, 100*time.Millisecond, time.Minute, func(ctx context.Context) (bool, error) {
-		req := rest.NewRequest(client).RequestURI(endpoint)
-		_, err := req.Do(ctx).Raw()
-		if err != nil {
-			lastError = fmt.Errorf("error contacting %s: failed components: %w", req.URL(), err)
-			return false, nil
-		}
-
-		t.Logf("success contacting %s", req.URL())
-		return true, nil
-	}); err != nil && lastError != nil {
-		t.Error(lastError)
 	}
 }
