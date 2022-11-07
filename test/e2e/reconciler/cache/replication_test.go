@@ -20,9 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"path"
-	"path/filepath"
-	"strconv"
 	"testing"
 	"time"
 
@@ -37,21 +34,16 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	apimachineryerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
-	cacheserver "github.com/kcp-dev/kcp/pkg/cache/server"
-	cacheopitons "github.com/kcp-dev/kcp/pkg/cache/server/options"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -297,61 +289,10 @@ func TestCacheServerStandalone(t *testing.T) {
 
 	artifactDir, dataDir, err := framework.ScratchDirs(t)
 	require.NoError(t, err)
-
-	cacheServerPortStr, err := framework.GetFreePort(t)
-	require.NoError(t, err)
-	cacheServerPort, err := strconv.Atoi(cacheServerPortStr)
-	require.NoError(t, err)
-	cacheServerOptions := cacheopitons.NewOptions(path.Join(dataDir, "cache"))
-	cacheServerOptions.SecureServing.BindPort = cacheServerPort
-	cacheServerEmbeddedEtcdClientPort, err := framework.GetFreePort(t)
-	require.NoError(t, err)
-	cacheServerEmbeddedEtcdPeerPort, err := framework.GetFreePort(t)
-	require.NoError(t, err)
-	cacheServerOptions.EmbeddedEtcd.ClientPort = cacheServerEmbeddedEtcdClientPort
-	cacheServerOptions.EmbeddedEtcd.PeerPort = cacheServerEmbeddedEtcdPeerPort
-	cacheServerCompletedOptions, err := cacheServerOptions.Complete()
-	require.NoError(t, err)
-	if errs := cacheServerCompletedOptions.Validate(); len(errs) > 0 {
-		require.NoError(t, apimachineryerrors.NewAggregate(errs))
-	}
-	cacheServerConfig, err := cacheserver.NewConfig(cacheServerCompletedOptions, nil)
-	require.NoError(t, err)
-	cacheServerCompletedConfig, err := cacheServerConfig.Complete()
-	require.NoError(t, err)
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
-	if cacheServerCompletedConfig.EmbeddedEtcd.Config != nil {
-		t.Logf("Starting embedded etcd for the cache server")
-		require.NoError(t, embeddedetcd.NewServer(cacheServerCompletedConfig.EmbeddedEtcd).Run(ctx))
-	}
-	cacheServer, err := cacheserver.NewServer(cacheServerCompletedConfig)
-	require.NoError(t, err)
-	preparedCachedServer, err := cacheServer.PrepareRun(ctx)
-	require.NoError(t, err)
-	t.Logf("Starting the cache server")
-	go func() {
-		// TODO (p0lyn0mial): check readiness of the cache server
-		require.NoError(t, preparedCachedServer.Run(ctx))
-	}()
-	t.Logf("Creating kubeconfig for the cache server at %s", dataDir)
-	cacheServerKubeConfig := clientcmdapi.Config{
-		Clusters: map[string]*clientcmdapi.Cluster{
-			"cache": {
-				Server:               fmt.Sprintf("https://localhost:%s", cacheServerPortStr),
-				CertificateAuthority: path.Join(dataDir, "cache", "apiserver.crt"),
-			},
-		},
-		Contexts: map[string]*clientcmdapi.Context{
-			"cache": {
-				Cluster: "cache",
-			},
-		},
-		CurrentContext: "cache",
-	}
-	cacheKubeconfigPath := filepath.Join(dataDir, "cache", "cache.kubeconfig")
-	err = clientcmd.WriteToFile(cacheServerKubeConfig, cacheKubeconfigPath)
-	require.NoError(t, err)
+
+	cacheKubeconfigPath := StartStandaloneCacheServer(ctx, t, dataDir)
 
 	// TODO(p0lyn0mial): switch to framework.SharedKcpServer when caching is turned on by default
 	tokenAuthFile := framework.WriteTokenAuthFile(t)
@@ -359,11 +300,13 @@ func TestCacheServerStandalone(t *testing.T) {
 		framework.WithCustomArguments(append(framework.TestServerArgsWithTokenAuthFile(tokenAuthFile), "--run-cache-server=true", fmt.Sprintf("--cache-server-kubeconfig-file=%s", cacheKubeconfigPath))...),
 		framework.WithScratchDirectories(artifactDir, dataDir),
 	)
-
 	kcpRootShardConfig := server.RootShardSystemMasterBaseConfig(t)
 	kcpRootShardClient, err := clientset.NewClusterForConfig(kcpRootShardConfig)
 	require.NoError(t, err)
-	cacheClientConfig := clientcmd.NewNonInteractiveClientConfig(cacheServerKubeConfig, "cache", nil, nil)
+
+	cacheServerKubeConfig, err := clientcmd.LoadFromFile(cacheKubeconfigPath)
+	require.NoError(t, err)
+	cacheClientConfig := clientcmd.NewNonInteractiveClientConfig(*cacheServerKubeConfig, "cache", nil, nil)
 	cacheClientRestConfig, err := cacheClientConfig.ClientConfig()
 	require.NoError(t, err)
 	cacheClientRT := cacheClientRoundTrippersFor(cacheClientRestConfig)
