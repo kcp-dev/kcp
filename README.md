@@ -45,8 +45,8 @@ To see a complete list of server options, run `kcp start options`.
 
 ### Set your KUBECONFIG
 
-During its startup, kcp generates a kubeconfig in `.kcp/admin.kubeconfig`. Use this to connect to kcp and display the
-version to confirm it's working:
+During its startup, kcp generates a kubeconfig in `.kcp/admin.kubeconfig`. 
+Use this in a different terminal to connect to `kcp` and display the version to confirm it's working:
 
 ```shell
 $ export KUBECONFIG=.kcp/admin.kubeconfig
@@ -59,10 +59,37 @@ Server Version: version.Info{Major:"1", Minor:"24", GitVersion:"v1.24.3+kcp-v0.8
 
 ### Configure kcp to sync to your cluster
 
-kcp can't run pods by itself - it needs at least one physical cluster for that. For this example, we'll be using a
-local `kind` cluster.
+kcp can't run pods by itself - it needs at least one physical cluster for that. 
+For this example, we'll be using a local `kind` cluster. 
+You can create a new `kind` cluster by running `kind create cluster` in a separate terminal. 
 
-Run the following command to tell kcp about the `kind` cluster (replace the syncer image tag as needed):
+You should see something like this: 
+```
+Creating cluster "kind" ...
+ ✓ Ensuring node image (kindest/node:v1.24.0) 🖼 
+ ✓ Preparing nodes 📦  
+ ✓ Writing configuration 📜 
+ ✓ Starting control-plane 🕹️ 
+ ✓ Installing CNI 🔌 
+ ✓ Installing StorageClass 💾 
+Set kubectl context to "kind"
+You can now use your cluster with:
+
+kubectl cluster-info --context kind
+
+Not sure what to do next? 😅  Check out https://kind.sigs.k8s.io/docs/user/quick-start/
+```
+
+You need to create a `locations` workspace for your sync targets, these are the clusters where you will be syncing your workloads. 
+
+You can do that by running: 
+
+```
+kubectl kcp workspace create "locations" --enter
+```
+
+
+Run the following command to tell kcp about the `kind` cluster (replace the syncer image tag as needed, [you can check here for the latest builds](https://github.com/kcp-dev/kcp/pkgs/container/kcp%2Fsyncer)):
 
 ```shell
 $ kubectl kcp workload sync kind --syncer-image ghcr.io/kcp-dev/kcp/syncer:v0.8.0 -o syncer-kind-main.yaml
@@ -86,8 +113,9 @@ to apply it. Use
 to verify the syncer pod is running.
 ```
 
-Next, we need to install the syncer pod on our `kind` cluster - this is what actually syncs content from kcp to the
-physical cluster. Run the following command:
+Next, we need to install the syncer pod on our `kind` cluster - this is what actually syncs content from kcp to the physical cluster. 
+
+Run the following command, make sure that you are connected to your `kind` cluster, or export KUBECONFIG as it is shown below:
 
 ```shell
 $ KUBECONFIG=</path/to/kind/kubeconfig> kubectl apply -f "syncer-kind-main.yaml"
@@ -100,9 +128,26 @@ secret/kcp-syncer-kind-25coemaz created
 deployment.apps/kcp-syncer-kind-25coemaz created
 ```
 
+Now you need to use `kubectl kcp bind compute` to let `kcp` know about this new `kind` cluster that is providing compute resources. You do that by running: 
+
+```
+kubectl kcp bind compute "root:users:zu:yc:kcp-admin:locations"
+```
+
+Notice that we are pointing to our `locations` workspace that we created before. 
+
+Once you created the binding you can create a new workspace for deploying your applications. First you move to your home workspace and then you can create a `myapps` workspace by running:
+
+```
+kubectl kcp workspace
+kubectl kcp workspace create "myapps" --enter
+```
+
+
+
 ### Create a deployment in kcp
 
-Let's create a deployment in our kcp workspace and see it get synced to our cluster:
+Let's create a deployment in our `kcp` `myapps` workspace and see it get synced to our cluster:
 
 ```shell
 $ kubectl create deployment --image=gcr.io/kuar-demo/kuard-amd64:blue --port=8080 kuard
