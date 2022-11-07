@@ -25,7 +25,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
@@ -36,7 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
@@ -271,7 +269,7 @@ func TestCacheServerInProcess(t *testing.T) {
 	kcpRootShardConfig := server.RootShardSystemMasterBaseConfig(t)
 	kcpRootShardClient, err := clientset.NewClusterForConfig(kcpRootShardConfig)
 	require.NoError(t, err)
-	cacheClientRT := cacheClientRoundTrippersFor(kcpRootShardConfig)
+	cacheClientRT := CacheClientRoundTrippersFor(kcpRootShardConfig)
 	cacheKcpClusterClient, err := clientset.NewClusterForConfig(cacheClientRT)
 	require.NoError(t, err)
 
@@ -309,7 +307,7 @@ func TestCacheServerStandalone(t *testing.T) {
 	cacheClientConfig := clientcmd.NewNonInteractiveClientConfig(*cacheServerKubeConfig, "cache", nil, nil)
 	cacheClientRestConfig, err := cacheClientConfig.ClientConfig()
 	require.NoError(t, err)
-	cacheClientRT := cacheClientRoundTrippersFor(cacheClientRestConfig)
+	cacheClientRT := CacheClientRoundTrippersFor(cacheClientRestConfig)
 	cacheKcpClusterClient, err := clientset.NewClusterForConfig(cacheClientRT)
 	require.NoError(t, err)
 
@@ -318,14 +316,6 @@ func TestCacheServerStandalone(t *testing.T) {
 			scenario.work(ctx, tt, server, kcpRootShardClient, cacheKcpClusterClient)
 		})
 	}
-}
-
-func cacheClientRoundTrippersFor(cfg *rest.Config) *rest.Config {
-	cacheClientRT := cacheclient.WithCacheServiceRoundTripper(rest.CopyConfig(cfg))
-	cacheClientRT = cacheclient.WithShardNameFromContextRoundTripper(cacheClientRT)
-	cacheClientRT = cacheclient.WithDefaultShardRoundTripper(cacheClientRT, shard.Wildcard)
-	kcpclienthelper.SetMultiClusterRoundTripper(cacheClientRT)
-	return cacheClientRT
 }
 
 // replicateResourceScenario an auxiliary struct that is used by all test scenarios defined in this pkg

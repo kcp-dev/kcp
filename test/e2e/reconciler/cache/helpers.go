@@ -24,12 +24,16 @@ import (
 	"strconv"
 	"testing"
 
+	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	"github.com/stretchr/testify/require"
 
 	apimachineryerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
+	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
+	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 	cacheserver "github.com/kcp-dev/kcp/pkg/cache/server"
 	cacheopitons "github.com/kcp-dev/kcp/pkg/cache/server/options"
 	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
@@ -93,4 +97,12 @@ func StartStandaloneCacheServer(ctx context.Context, t *testing.T, dataDir strin
 	err = clientcmd.WriteToFile(cacheServerKubeConfig, cacheKubeconfigPath)
 	require.NoError(t, err)
 	return cacheKubeconfigPath
+}
+
+func CacheClientRoundTrippersFor(cfg *rest.Config) *rest.Config {
+	cacheClientRT := cacheclient.WithCacheServiceRoundTripper(rest.CopyConfig(cfg))
+	cacheClientRT = cacheclient.WithShardNameFromContextRoundTripper(cacheClientRT)
+	cacheClientRT = cacheclient.WithDefaultShardRoundTripper(cacheClientRT, shard.Wildcard)
+	kcpclienthelper.SetMultiClusterRoundTripper(cacheClientRT)
+	return cacheClientRT
 }
