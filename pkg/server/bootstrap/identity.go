@@ -275,7 +275,7 @@ func decorateWildcardPathsWithResourceIdentities(urlPath string, ids *identities
 		return urlPath, nil
 	}
 
-	// It's possible the incoming request already has an identity specified. Make sure we exclude that when
+	// It's possible the outgoing request already has an identity specified. Make sure we exclude that when
 	// determining the resource in question.
 	parts := strings.SplitN(comps[5], ":", 2)
 	if len(parts) == 0 {

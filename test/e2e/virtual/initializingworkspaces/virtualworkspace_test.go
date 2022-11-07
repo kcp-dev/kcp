@@ -539,6 +539,19 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 			t.Fatalf("got %#v error from initial list, expected unauthorized", err)
 		}
 	}
+
+	t.Log("Ensure get workspace requests are 404 now that it is not initializing")
+	for _, initializer := range []string{
+		"alpha",
+		"beta",
+		"gamma",
+	} {
+		wsClient := user1VwKcpClusterClients[initializer].TenancyV1alpha1().ClusterWorkspaces()
+		_, err := wsClient.Cluster(logicalcluster.From(ws)).Get(ctx, ws.Name, metav1.GetOptions{})
+		if !errors.IsNotFound(err) {
+			t.Fatalf("got %v error from get, expected not found", err)
+		}
+	}
 }
 
 func workspaceForType(workspaceType *tenancyv1alpha1.ClusterWorkspaceType, testLabelSelector map[string]string) *tenancyv1alpha1.ClusterWorkspace {
