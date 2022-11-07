@@ -103,16 +103,17 @@ func NewController(ctx context.Context, versionedInformers informers.SharedInfor
 
 // GetRuleSet returns the parsed rules that determine whether a user
 // is allowed through the gate.
-func (c *Controller) GetRuleSet() (ruleset.RuleSet, bool) {
+func (c *Controller) GetRuleSet() (*ruleset.RuleSet, bool) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 	if c.Rules != nil {
-		return *c.Rules, true
+		clone := c.Rules.Clone()
+		return &clone, true
 	}
 	if c.DefaultRules != nil {
-		return *c.DefaultRules, true
+		return c.DefaultRules, true
 	}
-	return ruleset.RuleSet{}, false
+	return &ruleset.RuleSet{}, false
 }
 
 func (c *Controller) enqueueSecret(ctx context.Context, obj interface{}) {

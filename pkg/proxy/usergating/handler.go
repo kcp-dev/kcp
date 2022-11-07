@@ -44,7 +44,7 @@ func WithUserGating(delegate http.Handler, failed http.Handler, getRuleSet rules
 			return
 		}
 
-		decision := gate.Decide(ctx, u)
+		decision := gate.Authorize(ctx, u)
 		if decision != authorizer.DecisionDeny {
 			delegate.ServeHTTP(w, r)
 			return
@@ -54,9 +54,9 @@ func WithUserGating(delegate http.Handler, failed http.Handler, getRuleSet rules
 	})
 }
 
-// Decide whether the user is allowed to make the request
-func (a *UserGate) Decide(ctx context.Context, info user.Info) authorizer.Decision {
-	logger := klog.FromContext(ctx).WithValues("component", "usergate")
+// Authorize whether the user is allowed to make the request
+func (a *UserGate) Authorize(ctx context.Context, info user.Info) authorizer.Decision {
+	logger := klog.FromContext(ctx).WithValues("component", "user-gating")
 	logger.V(1).Info("checking auth", "user", info.GetName())
 
 	if rules, found := a.GetRuleSet(); found {

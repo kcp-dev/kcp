@@ -23,7 +23,7 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-type RuleSetGetter func() (RuleSet, bool)
+type RuleSetGetter func() (*RuleSet, bool)
 
 type matchFunc func(string) bool
 
@@ -90,4 +90,17 @@ func FromYAML(data []byte) (*RuleSet, error) {
 	}
 
 	return &rules, nil
+}
+
+func (rs *RuleSet) Clone() RuleSet {
+	d := make([]matchFunc, len(rs.denyMatchers))
+	copy(d, rs.denyMatchers)
+
+	a := make([]matchFunc, len(rs.allowMatchers))
+	copy(a, rs.allowMatchers)
+
+	return RuleSet{
+		allowMatchers: a,
+		denyMatchers:  d,
+	}
 }
