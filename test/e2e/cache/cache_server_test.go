@@ -41,37 +41,6 @@ import (
 	cache2e "github.com/kcp-dev/kcp/test/e2e/reconciler/cache"
 )
 
-type testScenario struct {
-	name string
-	work func(ctx context.Context, t *testing.T, cacheClientRT *rest.Config, cluster logicalcluster.Name, gvr schema.GroupVersionResource)
-}
-
-// scenarios holds all test scenarios
-var scenarios = []testScenario{
-	{"TestSchemaIsNotEnforced", testSchemaIsNotEnforced},
-	{"TestShardClusterNamesAssigned", testShardClusterNamesAssigned},
-	{"TestUIDGenerationCreationTimeOverwrite", testUIDGenerationCreationTime},
-	{"TestUIDGenerationCreationTimeNegativeOverwriteNegative", testUIDGenerationCreationTimeNegative},
-	{"TestGenerationOnSpecChanges", testGenerationOnSpecChanges},
-	{"TestDeletionWithFinalizers", testDeletionWithFinalizers},
-	{"TestUpdatingSpecStatusSimultaneously", testSpecStatusSimultaneously},
-}
-
-type fakeAPIExport struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              spec   `json:"spec,omitempty"`
-	Status            status `json:"status,omitempty"`
-}
-
-type spec struct {
-	Size int `json:"size,omitempty"`
-}
-
-type status struct {
-	Condition string `json:"condition,omitempty"`
-}
-
 // testSchemaIsNotEnforced checks if an object of any schema can be stored as "apis.kcp.dev.v1alpha1.apiexports"
 func testSchemaIsNotEnforced(ctx context.Context, t *testing.T, cacheClientRT *rest.Config, cluster logicalcluster.Name, gvr schema.GroupVersionResource) {
 	cacheDynamicClient, err := dynamic.NewClusterForConfig(cacheClientRT)
@@ -368,6 +337,21 @@ func newFakeAPIExport(name string) fakeAPIExport {
 	}
 }
 
+type fakeAPIExport struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              spec   `json:"spec,omitempty"`
+	Status            status `json:"status,omitempty"`
+}
+
+type spec struct {
+	Size int `json:"size,omitempty"`
+}
+
+type status struct {
+	Condition string `json:"condition,omitempty"`
+}
+
 func toUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
 	unstructured := &unstructured.Unstructured{Object: map[string]interface{}{}}
 	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
@@ -400,4 +384,20 @@ func TestCacheServerAllScenarios(t *testing.T) {
 			scenario.work(ctx, tt, cacheClientRT, logicalcluster.New("acme"), schema.GroupVersionResource{Group: "apis.kcp.dev", Version: "v1alpha1", Resource: "apiexports"})
 		})
 	}
+}
+
+type testScenario struct {
+	name string
+	work func(ctx context.Context, t *testing.T, cacheClientRT *rest.Config, cluster logicalcluster.Name, gvr schema.GroupVersionResource)
+}
+
+// scenarios holds all test scenarios
+var scenarios = []testScenario{
+	{"TestSchemaIsNotEnforced", testSchemaIsNotEnforced},
+	{"TestShardClusterNamesAssigned", testShardClusterNamesAssigned},
+	{"TestUIDGenerationCreationTimeOverwrite", testUIDGenerationCreationTime},
+	{"TestUIDGenerationCreationTimeNegativeOverwriteNegative", testUIDGenerationCreationTimeNegative},
+	{"TestGenerationOnSpecChanges", testGenerationOnSpecChanges},
+	{"TestDeletionWithFinalizers", testDeletionWithFinalizers},
+	{"TestUpdatingSpecStatusSimultaneously", testSpecStatusSimultaneously},
 }
