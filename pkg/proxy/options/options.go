@@ -29,6 +29,7 @@ import (
 type Options struct {
 	SecureServing   apiserveroptions.SecureServingOptionsWithLoopback
 	Authentication  Authentication
+	UserGating      UserGating
 	MappingFile     string
 	RootDirectory   string
 	RootKubeconfig  string
@@ -39,6 +40,7 @@ func NewOptions() *Options {
 	o := &Options{
 		SecureServing:  *apiserveroptions.NewSecureServingOptions().WithLoopback(),
 		Authentication: *NewAuthentication(),
+		UserGating:     *NewUserGating(),
 		RootKubeconfig: "",
 		RootDirectory:  ".kcp",
 	}
@@ -53,6 +55,7 @@ func NewOptions() *Options {
 func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	o.SecureServing.AddFlags(fs)
 	o.Authentication.AddFlags(fs)
+	o.UserGating.AddFlags(fs)
 	fs.StringVar(&o.MappingFile, "mapping-file", o.MappingFile, "Config file mapping paths to backends")
 	fs.StringVar(&o.RootDirectory, "root-directory", o.RootDirectory, "Root directory.")
 	fs.StringVar(&o.RootKubeconfig, "root-kubeconfig", o.RootKubeconfig, "The path to the kubeconfig of the root shard.")
@@ -91,6 +94,7 @@ func (o *Options) Validate() []error {
 
 	errs = append(errs, o.SecureServing.Validate()...)
 	errs = append(errs, o.Authentication.Validate()...)
+	errs = append(errs, o.UserGating.Validate()...)
 
 	return errs
 }
