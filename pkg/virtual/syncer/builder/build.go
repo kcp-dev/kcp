@@ -46,8 +46,10 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/transforming"
 	syncercontext "github.com/kcp-dev/kcp/pkg/virtual/syncer/context"
 	"github.com/kcp-dev/kcp/pkg/virtual/syncer/controllers/apireconciler"
+	"github.com/kcp-dev/kcp/pkg/virtual/syncer/transformations"
 )
 
 const SyncerVirtualWorkspaceName string = "syncer"
@@ -90,16 +92,17 @@ func BuildVirtualWorkspace(
 			if len(parts) < 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
 				return
 			}
-			workspace := parts[0]
-			workloadCusterName := parts[1]
+			workspace := logicalcluster.New(parts[0])
+			syncTargetName := parts[1]
 			syncTargetUID := parts[2]
-			apiDomainKey := dynamiccontext.APIDomainKey(client.ToClusterAwareKey(logicalcluster.New(parts[0]), workloadCusterName))
+
+			apiDomainKey := dynamiccontext.APIDomainKey(client.ToClusterAwareKey(logicalcluster.New(parts[0]), syncTargetName))
 
 			// In order to avoid conflicts with reusing deleted synctarget names, let's make sure that the synctarget name and synctarget UID match, if not,
 			// that likely means that a syncer is running with a stale synctarget that got deleted.
-			syncTarget, exists, err := wildcardKcpInformers.Workload().V1alpha1().SyncTargets().Informer().GetIndexer().GetByKey(client.ToClusterAwareKey(logicalcluster.New(workspace), workloadCusterName))
+			syncTarget, exists, err := wildcardKcpInformers.Workload().V1alpha1().SyncTargets().Informer().GetIndexer().GetByKey(client.ToClusterAwareKey(workspace, syncTargetName))
 			if !exists || err != nil {
-				runtime.HandleError(fmt.Errorf("failed to get synctarget %s|%s: %w", workspace, workloadCusterName, err))
+				runtime.HandleError(fmt.Errorf("failed to get synctarget %s|%s: %w", workspace, syncTargetName, err))
 				return
 			}
 			syncTargetObj := syncTarget.(*workloadv1alpha1.SyncTarget)
@@ -133,16 +136,17 @@ func BuildVirtualWorkspace(
 				cluster.Wildcard = true
 			}
 
+			syncTargetKey := workloadv1alpha1.ToSyncTargetKey(workspace, syncTargetName)
 			completedContext = genericapirequest.WithCluster(requestContext, cluster)
-			completedContext = syncercontext.WithSyncTargetName(completedContext, workloadCusterName)
+			completedContext = syncercontext.WithSyncTargetKey(completedContext, syncTargetKey)
 			completedContext = dynamiccontext.WithAPIDomainKey(completedContext, apiDomainKey)
 			prefixToStrip = strings.TrimSuffix(urlPath, realPath)
 			accepted = true
 			return
 		}),
 		Authorizer: authorizer.AuthorizerFunc(func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
-			syncTargetKey := dynamiccontext.APIDomainKeyFrom(ctx)
-			negotiationWorkspaceName, syncTargetName := client.SplitClusterAwareKey(string(syncTargetKey))
+			apiDomainKey := dynamiccontext.APIDomainKeyFrom(ctx)
+			negotiationWorkspaceName, syncTargetName := client.SplitClusterAwareKey(string(apiDomainKey))
 
 			authz, err := delegated.NewDelegatedAuthorizer(negotiationWorkspaceName, kubeClusterClient)
 			if err != nil {
@@ -184,7 +188,13 @@ func BuildVirtualWorkspace(
 					storageWrapper := forwardingregistry.WithStaticLabelSelector(requirements)
 
 					ctx, cancelFn := context.WithCancel(context.Background())
-					storageBuilder := NewStorageBuilder(ctx, dynamicClusterClient, apiExportIdentityHash, storageWrapper)
+
+					transformer := &transformations.SyncerResourceTransformer{
+						TransformationProvider:   &transformations.SpecDiffTransformation{},
+						SummarizingRulesProvider: &transformations.DefaultSummarizingRules{},
+					}
+
+					storageBuilder := NewStorageBuilder(ctx, transforming.WithResourceTransformer(dynamicClusterClient, transformer), apiExportIdentityHash, storageWrapper)
 					def, err := apiserver.CreateServingInfoFor(mainConfig, apiResourceSchema, version, storageBuilder)
 					if err != nil {
 						cancelFn()
