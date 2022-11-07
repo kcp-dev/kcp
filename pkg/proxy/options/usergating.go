@@ -17,8 +17,6 @@ limitations under the License.
 package options
 
 import (
-	"errors"
-
 	"github.com/spf13/pflag"
 )
 
@@ -40,8 +38,5 @@ func (o *UserGating) AddFlags(fs *pflag.FlagSet) {
 }
 
 func (c *UserGating) Validate() []error {
-	if c.Enabled && c.DefaultRulesFile == "" {
-		return []error{errors.New("user gating requires a default rules file")}
-	}
 	return nil
 }
