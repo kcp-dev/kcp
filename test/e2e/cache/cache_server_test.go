@@ -384,6 +384,9 @@ func toUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
 }
 
 func TestCacheServerAllScenarios(t *testing.T) {
+	t.Parallel()
+	framework.Suite(t, "control-plane")
+
 	_, dataDir, err := framework.ScratchDirs(t)
 	require.NoError(t, err)
 	ctx, cancelFunc := context.WithCancel(context.Background())
