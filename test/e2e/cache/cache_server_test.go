@@ -20,8 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"path"
-	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -35,20 +33,17 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	apimachineryerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	genericrequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/dynamic"
 	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
-	cacheserver "github.com/kcp-dev/kcp/pkg/cache/server"
-	cacheopitons "github.com/kcp-dev/kcp/pkg/cache/server/options"
-	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
+	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
+	cache2e "github.com/kcp-dev/kcp/test/e2e/reconciler/cache"
 )
 
 type testScenario struct {
@@ -113,7 +108,7 @@ func testSchemaIsNotEnforced(ctx context.Context, t *testing.T, cacheClientRT *r
 	t.Logf("Create abmer|%s/earth (shard|cluster/name) on the cache server without type information", cluster)
 	earthRaw, err := toUnstructured(&earth)
 	require.NoError(t, err)
-	_, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(ctx, earthRaw, metav1.CreateOptions{})
+	_, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(cacheclient.WithShardInContext(cacheclient.WithShardInContext(ctx, shard.New("amber")), shard.New("amber")), earthRaw, metav1.CreateOptions{})
 	if err == nil {
 		t.Fatalf("expected to receive an error when storing an object without providing TypeMeta")
 	}
@@ -123,7 +118,7 @@ func testSchemaIsNotEnforced(ctx context.Context, t *testing.T, cacheClientRT *r
 	t.Logf("Create abmer/%s/earth on the cache server without providing a name", cluster)
 	earthRaw, err = toUnstructured(&earth)
 	require.NoError(t, err)
-	_, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(ctx, earthRaw, metav1.CreateOptions{})
+	_, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(cacheclient.WithShardInContext(cacheclient.WithShardInContext(ctx, shard.New("amber")), shard.New("amber")), earthRaw, metav1.CreateOptions{})
 	if err == nil {
 		t.Fatalf("expected to receive an error when storing an object without a name")
 	}
@@ -132,13 +127,13 @@ func testSchemaIsNotEnforced(ctx context.Context, t *testing.T, cacheClientRT *r
 	t.Logf("Create abmer|%s/%s (shard|cluster/name) on the cache server", cluster, earth.Name)
 	earthRaw, err = toUnstructured(&earth)
 	require.NoError(t, err)
-	cachedEarthRaw, err := cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(ctx, earthRaw, metav1.CreateOptions{})
+	cachedEarthRaw, err := cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(cacheclient.WithShardInContext(cacheclient.WithShardInContext(ctx, shard.New("amber")), shard.New("amber")), earthRaw, metav1.CreateOptions{})
 	require.NoError(t, err)
 	validateFn(earth, cachedEarthRaw)
 
 	// do additional sanity check with GET
 	t.Logf("Get abmer|%s/%s (shard|cluster/name) from the cache server", cluster, earth.Name)
-	cachedEarthRaw, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Get(ctx, earth.Name, metav1.GetOptions{})
+	cachedEarthRaw, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Get(cacheclient.WithShardInContext(cacheclient.WithShardInContext(ctx, shard.New("amber")), shard.New("amber")), earth.Name, metav1.GetOptions{})
 	require.NoError(t, err)
 	validateFn(earth, cachedEarthRaw)
 }
@@ -165,13 +160,13 @@ func testShardClusterNamesAssigned(ctx context.Context, t *testing.T, cacheClien
 	t.Logf("Create abmer|%s/%s (shard|cluster/name) on the cache server", cluster, initialComicDB.Name)
 	comicDBRaw, err := toUnstructured(&initialComicDB)
 	require.NoError(t, err)
-	cachedComicDBRaw, err := cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(ctx, comicDBRaw, metav1.CreateOptions{})
+	cachedComicDBRaw, err := cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(cacheclient.WithShardInContext(ctx, shard.New("amber")), comicDBRaw, metav1.CreateOptions{})
 	require.NoError(t, err)
 	validateFn(cachedComicDBRaw)
 
 	// do additional sanity check with GET
 	t.Logf("Get abmer|%s/%s (shard|cluster/name) from the cache server", cluster, initialComicDB.Name)
-	cachedComicDBRaw, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Get(ctx, initialComicDB.Name, metav1.GetOptions{})
+	cachedComicDBRaw, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Get(cacheclient.WithShardInContext(ctx, shard.New("amber")), initialComicDB.Name, metav1.GetOptions{})
 	require.NoError(t, err)
 	validateFn(cachedComicDBRaw)
 }
@@ -201,13 +196,13 @@ func testUIDGenerationCreationTime(ctx context.Context, t *testing.T, cacheClien
 	t.Logf("Create abmer|%s/%s (shard|cluster/name) on the cache server", cluster, initialMangoDB.Name)
 	mangoDBRaw, err := toUnstructured(&initialMangoDB)
 	require.NoError(t, err)
-	cachedMangoDBRaw, err := cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(ctx, mangoDBRaw, metav1.CreateOptions{})
+	cachedMangoDBRaw, err := cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(cacheclient.WithShardInContext(ctx, shard.New("amber")), mangoDBRaw, metav1.CreateOptions{})
 	require.NoError(t, err)
 	validateFn(initialMangoDB, cachedMangoDBRaw)
 
 	// do additional sanity check with GET
 	t.Logf("Get abmer|%s/%s (shard|cluster/name) from the cache server", cluster, initialMangoDB.Name)
-	cachedMangoDBRaw, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Get(ctx, initialMangoDB.Name, metav1.GetOptions{})
+	cachedMangoDBRaw, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Get(cacheclient.WithShardInContext(ctx, shard.New("amber")), initialMangoDB.Name, metav1.GetOptions{})
 	require.NoError(t, err)
 	validateFn(initialMangoDB, cachedMangoDBRaw)
 }
@@ -250,13 +245,13 @@ func testUIDGenerationCreationTimeNegative(ctx context.Context, t *testing.T, ca
 	}
 
 	t.Logf("Create abmer|%s/%s (shard|cluster/name) on the cache server", cluster, initialMangoDB.Name)
-	cachedMangoDBRaw, err := cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(ctx, mangoDBRaw, metav1.CreateOptions{})
+	cachedMangoDBRaw, err := cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(cacheclient.WithShardInContext(ctx, shard.New("amber")), mangoDBRaw, metav1.CreateOptions{})
 	require.NoError(t, err)
 	validateFn(initialMangoDB, cachedMangoDBRaw)
 
 	// do additional sanity check with GET
 	t.Logf("Get abmer|%s/%s (shard|cluster/name) from the cache server", cluster, initialMangoDB.Name)
-	cachedMangoDBRaw, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Get(ctx, initialMangoDB.Name, metav1.GetOptions{})
+	cachedMangoDBRaw, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Get(cacheclient.WithShardInContext(ctx, shard.New("amber")), initialMangoDB.Name, metav1.GetOptions{})
 	require.NoError(t, err)
 	validateFn(initialMangoDB, cachedMangoDBRaw)
 }
@@ -270,7 +265,7 @@ func testGenerationOnSpecChanges(ctx context.Context, t *testing.T, cacheClientR
 	t.Logf("Create abmer|%s/%s (shard|cluster/name) on the cache server", cluster, initialCinnamonDB.Name)
 	cinnamonDBRaw, err := toUnstructured(&initialCinnamonDB)
 	require.NoError(t, err)
-	cachedCinnamonDBRaw, err := cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(ctx, cinnamonDBRaw, metav1.CreateOptions{})
+	cachedCinnamonDBRaw, err := cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(cacheclient.WithShardInContext(ctx, shard.New("amber")), cinnamonDBRaw, metav1.CreateOptions{})
 	require.NoError(t, err)
 	cachedCinnamonDBJson, err := cachedCinnamonDBRaw.MarshalJSON()
 	require.NoError(t, err)
@@ -282,7 +277,7 @@ func testGenerationOnSpecChanges(ctx context.Context, t *testing.T, cacheClientR
 	cachedCinnamonDB.Spec.Size = 5
 	cachedCinnamonDBRaw, err = toUnstructured(cachedCinnamonDB)
 	require.NoError(t, err)
-	cachedCinnamonDBRaw, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Update(ctx, cachedCinnamonDBRaw, metav1.UpdateOptions{})
+	cachedCinnamonDBRaw, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Update(cacheclient.WithShardInContext(ctx, shard.New("amber")), cachedCinnamonDBRaw, metav1.UpdateOptions{})
 	require.NoError(t, err)
 	cachedCinnamonDBJson, err = cachedCinnamonDBRaw.MarshalJSON()
 	require.NoError(t, err)
@@ -294,7 +289,7 @@ func testGenerationOnSpecChanges(ctx context.Context, t *testing.T, cacheClientR
 
 	// do additional sanity check with GET
 	t.Logf("Get abmer|%s/%s (shard|cluster/name) from the cache server", cluster, initialCinnamonDB.Name)
-	cachedCinnamonDBRaw, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Get(ctx, initialCinnamonDB.Name, metav1.GetOptions{})
+	cachedCinnamonDBRaw, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Get(cacheclient.WithShardInContext(ctx, shard.New("amber")), initialCinnamonDB.Name, metav1.GetOptions{})
 	require.NoError(t, err)
 	cachedCinnamonDBJson, err = cachedCinnamonDBRaw.MarshalJSON()
 	require.NoError(t, err)
@@ -315,15 +310,15 @@ func testDeletionWithFinalizers(ctx context.Context, t *testing.T, cacheClientRT
 	t.Logf("Create abmer|%s/%s (shard|cluster/name) on the cache server", cluster, initialGhostDB.Name)
 	ghostDBRaw, err := toUnstructured(&initialGhostDB)
 	require.NoError(t, err)
-	_, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(ctx, ghostDBRaw, metav1.CreateOptions{})
+	_, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(cacheclient.WithShardInContext(ctx, shard.New("amber")), ghostDBRaw, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	t.Logf("Remove amber|%s/%s (shard|cluster/name) from the cache server", cluster, initialGhostDB.Name)
-	err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Delete(ctx, initialGhostDB.Name, metav1.DeleteOptions{})
+	err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Delete(cacheclient.WithShardInContext(ctx, shard.New("amber")), initialGhostDB.Name, metav1.DeleteOptions{})
 	require.NoError(t, err)
 
 	t.Logf("Get abmer/%s/%s from the cache server", cluster, initialGhostDB.Name)
-	_, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Get(ctx, initialGhostDB.Name, metav1.GetOptions{})
+	_, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Get(cacheclient.WithShardInContext(ctx, shard.New("amber")), initialGhostDB.Name, metav1.GetOptions{})
 	if !apierrors.IsNotFound(err) {
 		t.Fatalf("expected to get a NotFound error, got %v", err)
 	}
@@ -338,7 +333,7 @@ func testSpecStatusSimultaneously(ctx context.Context, t *testing.T, cacheClient
 	t.Logf("Create abmer|%s/%s (shard|cluster/name) on the cache server", cluster, initialCucumberDB.Name)
 	cucumberDBRaw, err := toUnstructured(&initialCucumberDB)
 	require.NoError(t, err)
-	cachedCucumberDBRaw, err := cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(ctx, cucumberDBRaw, metav1.CreateOptions{})
+	cachedCucumberDBRaw, err := cacheDynamicClient.Cluster(cluster).Resource(gvr).Create(cacheclient.WithShardInContext(ctx, shard.New("amber")), cucumberDBRaw, metav1.CreateOptions{})
 	require.NoError(t, err)
 	cachedCucumberDBJson, err := cachedCucumberDBRaw.MarshalJSON()
 	require.NoError(t, err)
@@ -350,7 +345,7 @@ func testSpecStatusSimultaneously(ctx context.Context, t *testing.T, cacheClient
 	cachedCucumberDB.Spec.Size = 1111
 	cachedCucumberDBRaw, err = toUnstructured(cachedCucumberDB)
 	require.NoError(t, err)
-	cachedCucumberDBRaw, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Update(ctx, cachedCucumberDBRaw, metav1.UpdateOptions{})
+	cachedCucumberDBRaw, err = cacheDynamicClient.Cluster(cluster).Resource(gvr).Update(cacheclient.WithShardInContext(ctx, shard.New("amber")), cachedCucumberDBRaw, metav1.UpdateOptions{})
 	require.NoError(t, err)
 	cachedCucumberDBJson, err = cachedCucumberDBRaw.MarshalJSON()
 	require.NoError(t, err)
@@ -388,81 +383,29 @@ func toUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
 	return unstructured, nil
 }
 
-// TODO: refactor with TestAllScenariosAgainstStandaloneCacheServer
 func TestCacheServerAllScenarios(t *testing.T) {
 	_, dataDir, err := framework.ScratchDirs(t)
 	require.NoError(t, err)
-
-	cacheServerPortStr, err := framework.GetFreePort(t)
-	require.NoError(t, err)
-	cacheServerPort, err := strconv.Atoi(cacheServerPortStr)
-	require.NoError(t, err)
-	cacheServerOptions := cacheopitons.NewOptions(path.Join(dataDir, "cache"))
-	cacheServerOptions.SecureServing.BindPort = cacheServerPort
-	cacheServerEmbeddedEtcdClientPort, err := framework.GetFreePort(t)
-	require.NoError(t, err)
-	cacheServerEmbeddedEtcdPeerPort, err := framework.GetFreePort(t)
-	require.NoError(t, err)
-	cacheServerOptions.EmbeddedEtcd.ClientPort = cacheServerEmbeddedEtcdClientPort
-	cacheServerOptions.EmbeddedEtcd.PeerPort = cacheServerEmbeddedEtcdPeerPort
-	cacheServerCompletedOptions, err := cacheServerOptions.Complete()
-	require.NoError(t, err)
-	if errs := cacheServerCompletedOptions.Validate(); len(errs) > 0 {
-		require.NoError(t, apimachineryerrors.NewAggregate(errs))
-	}
-	cacheServerConfig, err := cacheserver.NewConfig(cacheServerCompletedOptions, nil)
-	require.NoError(t, err)
-	cacheServerCompletedConfig, err := cacheServerConfig.Complete()
-	require.NoError(t, err)
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
-	if cacheServerCompletedConfig.EmbeddedEtcd.Config != nil {
-		t.Logf("Starting embedded etcd for the cache server")
-		require.NoError(t, embeddedetcd.NewServer(cacheServerCompletedConfig.EmbeddedEtcd).Run(ctx))
-	}
-	cacheServer, err := cacheserver.NewServer(cacheServerCompletedConfig)
-	require.NoError(t, err)
-	preparedCachedServer, err := cacheServer.PrepareRun(ctx)
-	require.NoError(t, err)
-	t.Logf("Starting the cache server")
-	go func() {
-		require.NoError(t, preparedCachedServer.Run(ctx))
-	}()
-	cacheServerKubeConfig := clientcmdapi.Config{
-		Clusters: map[string]*clientcmdapi.Cluster{
-			"cache": {
-				Server:               fmt.Sprintf("https://localhost:%s", cacheServerPortStr),
-				CertificateAuthority: path.Join(dataDir, "cache", "apiserver.crt"),
-			},
-		},
-		Contexts: map[string]*clientcmdapi.Context{
-			"cache": {
-				Cluster: "cache",
-			},
-		},
-		CurrentContext: "cache",
-	}
 
-	cacheClientConfig := clientcmd.NewNonInteractiveClientConfig(cacheServerKubeConfig, "cache", nil, nil)
+	cacheKubeconfigPath := cache2e.StartStandaloneCacheServer(ctx, t, dataDir)
+	cacheServerKubeConfig, err := clientcmd.LoadFromFile(cacheKubeconfigPath)
+	require.NoError(t, err)
+	cacheClientConfig := clientcmd.NewNonInteractiveClientConfig(*cacheServerKubeConfig, "cache", nil, nil)
 	cacheClientRestConfig, err := cacheClientConfig.ClientConfig()
 	require.NoError(t, err)
+
+	// TODO: p0lyn0mial: move to StartStandaloneCacheServer
 	t.Logf("waiting for the cache server at %v to become ready", cacheClientRestConfig.Host)
 	waitUntilCacheServerIsReady(ctx, t, cacheClientRestConfig)
-	cacheClientRT := cacheClientRoundTrippersFor(cacheClientRestConfig)
 
+	cacheClientRT := cache2e.CacheClientRoundTrippersFor(cacheClientRestConfig)
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(tt *testing.T) {
 			scenario.work(ctx, tt, cacheClientRT, logicalcluster.New("acme"), schema.GroupVersionResource{Group: "apis.kcp.dev", Version: "v1alpha1", Resource: "apiexports"})
 		})
 	}
-}
-
-// TODO: refactor with TestAllScenariosAgainstStandaloneCacheServer
-func cacheClientRoundTrippersFor(cfg *rest.Config) *rest.Config {
-	cacheClientRT := cacheclient.WithCacheServiceRoundTripper(rest.CopyConfig(cfg))
-	cacheClientRT = cacheclient.WithShardNameFromContextRoundTripper(cacheClientRT)
-	cacheClientRT = cacheclient.WithDefaultShardRoundTripper(cacheClientRT, "amber")
-	return cacheClientRT
 }
 
 func waitUntilCacheServerIsReady(ctx context.Context, t *testing.T, cacheClientRT *rest.Config) {
