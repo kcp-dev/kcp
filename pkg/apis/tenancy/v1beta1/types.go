@@ -37,8 +37,8 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster,categories=kcp,shortName=ws
-// +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`,description="The current phase (e.g. Scheduling, Initializing, Ready)"
 // +kubebuilder:printcolumn:name="Type",type=string,JSONPath=`.spec.type.name`,description="Type of the workspace"
+// +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`,description="The current phase (e.g. Scheduling, Initializing, Ready)"
 // +kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.URL`,description="URL to access the workspace"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 type Workspace struct {
@@ -74,23 +74,20 @@ type WorkspaceStatus struct {
 	// can be found. This URL can be used to access the workspace with standard Kubernetes
 	// client libraries and command line tools.
 	//
-	// +required
 	// +kubebuilder:format:uri
-	URL string `json:"URL"`
+	URL string `json:"URL,omitempty"`
 
-	// Phase of the workspace (Initializing / Active / Terminating). This field is ALPHA.
+	// Phase of the workspace (Scheduling, Initializing, Ready).
+	//
+	// +kubebuilder:default=Scheduling
 	Phase v1alpha1.ClusterWorkspacePhaseType `json:"phase,omitempty"`
 
 	// Current processing state of the ClusterWorkspace.
 	// +optional
 	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 
-	// initializers are set on creation by the system and must be cleared
-	// by a controller before the workspace can be used. The workspace will
-	// stay in the phase "Initializing" state until all initializers are cleared.
-	//
-	// A cluster workspace in "Initializing" state are gated via the RBAC
-	// clusterworkspaces/initialize resource permission.
+	// initializers must be cleared by a controller before the workspace is ready
+	// and can be used.
 	//
 	// +optional
 	Initializers []v1alpha1.ClusterWorkspaceInitializer `json:"initializers,omitempty"`

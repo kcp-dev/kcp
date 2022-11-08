@@ -4,28 +4,26 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
-  name: workspaces.tenancy.kcp.dev
+  name: thisworkspaces.tenancy.kcp.dev
 spec:
   group: tenancy.kcp.dev
   names:
     categories:
     - kcp
-    kind: Workspace
-    listKind: WorkspaceList
-    plural: workspaces
-    shortNames:
-    - ws
-    singular: workspace
+    kind: ThisWorkspace
+    listKind: ThisWorkspaceList
+    plural: thisworkspaces
+    singular: thisworkspace
   scope: Cluster
   versions:
   - additionalPrinterColumns:
-    - description: The current phase (e.g. Scheduling, Initializing, Ready)
-      jsonPath: .status.phase
-      name: Phase
-      type: string
     - description: Type of the workspace
       jsonPath: .spec.type.name
       name: Type
+      type: string
+    - description: The current phase (e.g. Scheduling, Initializing, Ready)
+      jsonPath: .status.phase
+      name: Phase
       type: string
     - description: URL to access the workspace
       jsonPath: .status.URL
@@ -34,15 +32,10 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
-    name: v1beta1
+    name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: "Workspace defines a generic Kubernetes-cluster-like endpoint,
-          with standard Kubernetes discovery APIs, OpenAPI and resource API endpoints.
-          \n A workspace can be backed by different concrete types of workspace implementation,
-          depending on access pattern. All workspace implementations share the characteristic
-          that the URL that serves a given workspace can be used with standard Kubernetes
-          API machinery and client libraries and command line tools."
+        description: ThisWorkspace describes the current workspace.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -57,19 +50,52 @@ spec:
           metadata:
             properties:
               name:
-                maxLength: 63
-                minLength: 1
-                not:
-                  enum:
-                  - root
-                  - system
-                pattern: ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$
+                enum:
+                - this
                 type: string
             type: object
           spec:
             default: {}
-            description: WorkspaceSpec holds the desired state of the ClusterWorkspace.
+            description: ThisWorkspaceSpec is the specification of the ThisWorkspace
+              resource.
             properties:
+              owner:
+                description: "owner is a reference to a resource controlling the life-cycle
+                  of this workspace. On deletion of the ThisWorkspace, the finalizer
+                  tenancy.kcp.dev/thisworkspace is removed from the owner. \n When
+                  this object is deleted, but the owner is not deleted, the owner
+                  is deleted too."
+                properties:
+                  apiVersion:
+                    description: apiVersion is the group and API version of the owner.
+                    pattern: ^([^/]+/)?[^/]+$
+                    type: string
+                  cluster:
+                    description: cluster is the logical cluster in which the owner
+                      is located.
+                    minLength: 1
+                    type: string
+                  name:
+                    description: name is the name of the owner.
+                    minLength: 1
+                    type: string
+                  namespace:
+                    description: namespace is the optional namespace of the owner.
+                    type: string
+                  resource:
+                    description: resource is API resource to access the owner.
+                    minLength: 1
+                    type: string
+                  uid:
+                    description: UID is the UID of the owner.
+                    type: string
+                required:
+                - apiVersion
+                - cluster
+                - name
+                - resource
+                - uid
+                type: object
               type:
                 description: "type defines properties of the workspace both on creation
                   (e.g. initial resources and initially installed APIs) and during
@@ -95,7 +121,8 @@ spec:
                 type: object
             type: object
           status:
-            description: WorkspaceStatus communicates the observed state of the Workspace.
+            description: ThisWorkspaceStatus communicates the observed state of the
+              Workspace.
             properties:
               URL:
                 description: url is the address under which the Kubernetes-cluster-like
@@ -103,7 +130,7 @@ spec:
                   with standard Kubernetes client libraries and command line tools.
                 type: string
               conditions:
-                description: Current processing state of the ClusterWorkspace.
+                description: Current processing state of the ThisWorkspace.
                 items:
                   description: Condition defines an observation of a object operational
                     state.
@@ -148,12 +175,10 @@ spec:
                   type: object
                 type: array
               initializers:
-                description: "initializers are set on creation by the system and must
+                description: initializers are set on creation by the system and must
                   be cleared by a controller before the workspace can be used. The
-                  workspace will stay in the phase \"Initializing\" state until all
-                  initializers are cleared. \n A cluster workspace in \"Initializing\"
-                  state are gated via the RBAC clusterworkspaces/initialize resource
-                  permission."
+                  ThisWorkspace will stay in the phase "Initializing" state until
+                  all initializers are cleared.
                 items:
                   description: ClusterWorkspaceInitializer is a unique string corresponding
                     to a cluster workspace initialization controller for the given
@@ -165,8 +190,6 @@ spec:
                 description: Phase of the workspace (Scheduling, Initializing, Ready).
                 type: string
             type: object
-        required:
-        - spec
         type: object
     served: true
     storage: true
