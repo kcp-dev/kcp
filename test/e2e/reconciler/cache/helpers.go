@@ -19,15 +19,21 @@ package cache
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"path"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"testing"
+	"time"
 
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	"github.com/stretchr/testify/require"
 
 	apimachineryerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/wait"
+	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -75,15 +81,25 @@ func StartStandaloneCacheServer(ctx context.Context, t *testing.T, dataDir strin
 	require.NoError(t, err)
 	t.Logf("Starting the cache server")
 	go func() {
-		// TODO (p0lyn0mial): check readiness of the cache server
 		require.NoError(t, preparedCachedServer.Run(ctx))
 	}()
+
+	cacheServerCertificatePath := path.Join(dataDir, "cache", "apiserver.crt")
+	framework.Eventually(t, func() (bool, string) {
+		if _, err = os.Stat(cacheServerCertificatePath); os.IsNotExist(err) {
+			return false, "Failed to read the cache server's certificate, the file hasn't been created"
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "Waiting for the cache server's certificate file at %s", cacheServerCertificatePath)
+
 	t.Logf("Creating kubeconfig for the cache server at %s", dataDir)
+	cacheServerCert, err := ioutil.ReadFile(cacheServerCertificatePath)
+	require.NoError(t, err)
 	cacheServerKubeConfig := clientcmdapi.Config{
 		Clusters: map[string]*clientcmdapi.Cluster{
 			"cache": {
-				Server:               fmt.Sprintf("https://localhost:%s", cacheServerPortStr),
-				CertificateAuthority: path.Join(dataDir, "cache", "apiserver.crt"),
+				Server:                   fmt.Sprintf("https://localhost:%s", cacheServerPortStr),
+				CertificateAuthorityData: cacheServerCert,
 			},
 		},
 		Contexts: map[string]*clientcmdapi.Context{
@@ -96,6 +112,13 @@ func StartStandaloneCacheServer(ctx context.Context, t *testing.T, dataDir strin
 	cacheKubeconfigPath := filepath.Join(dataDir, "cache", "cache.kubeconfig")
 	err = clientcmd.WriteToFile(cacheServerKubeConfig, cacheKubeconfigPath)
 	require.NoError(t, err)
+
+	cacheClientConfig := clientcmd.NewNonInteractiveClientConfig(cacheServerKubeConfig, "cache", nil, nil)
+	cacheClientRestConfig, err := cacheClientConfig.ClientConfig()
+	require.NoError(t, err)
+	t.Logf("Waiting for the cache server at %v to become ready", cacheClientRestConfig.Host)
+	waitUntilCacheServerIsReady(ctx, t, cacheClientRestConfig)
+
 	return cacheKubeconfigPath
 }
 
@@ -105,4 +128,42 @@ func CacheClientRoundTrippersFor(cfg *rest.Config) *rest.Config {
 	cacheClientRT = cacheclient.WithDefaultShardRoundTripper(cacheClientRT, shard.Wildcard)
 	kcpclienthelper.SetMultiClusterRoundTripper(cacheClientRT)
 	return cacheClientRT
+}
+
+func waitUntilCacheServerIsReady(ctx context.Context, t *testing.T, cacheClientRT *rest.Config) {
+	cacheClientRT = rest.CopyConfig(cacheClientRT)
+	if cacheClientRT.NegotiatedSerializer == nil {
+		cacheClientRT.NegotiatedSerializer = kubernetesscheme.Codecs.WithoutConversion()
+	}
+	client, err := rest.UnversionedRESTClientFor(cacheClientRT)
+	if err != nil {
+		t.Fatalf("failed to create unversioned client: %v", err)
+	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+	for _, endpoint := range []string{"/livez", "/readyz"} {
+		go func(endpoint string) {
+			defer wg.Done()
+			waitForEndpoint(ctx, t, client, endpoint)
+		}(endpoint)
+	}
+	wg.Wait()
+}
+
+func waitForEndpoint(ctx context.Context, t *testing.T, client *rest.RESTClient, endpoint string) {
+	var lastError error
+	if err := wait.PollImmediateWithContext(ctx, 100*time.Millisecond, time.Minute, func(ctx context.Context) (bool, error) {
+		req := rest.NewRequest(client).RequestURI(endpoint)
+		_, err := req.Do(ctx).Raw()
+		if err != nil {
+			lastError = fmt.Errorf("error contacting %s: failed components: %w", req.URL(), err)
+			return false, nil
+		}
+
+		t.Logf("success contacting %s", req.URL())
+		return true, nil
+	}); err != nil && lastError != nil {
+		t.Error(lastError)
+	}
 }
