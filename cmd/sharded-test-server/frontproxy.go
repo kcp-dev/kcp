@@ -100,20 +100,6 @@ func startFrontProxy(
 		return fmt.Errorf("failed to create front-proxy mapping.yaml: %w", err)
 	}
 
-	// write root shard kubeconfig
-	configLoader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: filepath.Join(workDirPath, ".kcp-0/admin.kubeconfig")}, nil)
-	raw, err := configLoader.RawConfig()
-	if err != nil {
-		return err
-	}
-	raw.CurrentContext = "system:admin"
-	if err := clientcmdapi.MinifyConfig(&raw); err != nil {
-		return err
-	}
-	if err := clientcmd.WriteToFile(raw, filepath.Join(workDirPath, ".kcp/root.kubeconfig")); err != nil {
-		return err
-	}
-
 	// create serving cert
 	hostnames := sets.NewString("localhost", hostIP)
 	logger.Info("creating kcp-front-proxy serving cert with hostnames", "hostnames", hostnames)
@@ -129,7 +115,8 @@ func startFrontProxy(
 	commandLine := append(framework.DirectOrGoRunCommand("kcp-front-proxy"),
 		fmt.Sprintf("--mapping-file=%s", filepath.Join(workDirPath, ".kcp-front-proxy/mapping.yaml")),
 		fmt.Sprintf("--root-directory=%s", filepath.Join(workDirPath, ".kcp-front-proxy")),
-		fmt.Sprintf("--root-kubeconfig=%s", filepath.Join(workDirPath, ".kcp/root.kubeconfig")),
+		// it is not really a root kubeconfig it holds crypto valid for all shards
+		fmt.Sprintf("--root-kubeconfig=%s", filepath.Join(workDirPath, ".kcp/shard.kubeconfig")),
 		fmt.Sprintf("--client-ca-file=%s", filepath.Join(workDirPath, ".kcp/client-ca.crt")),
 		fmt.Sprintf("--tls-cert-file=%s", filepath.Join(workDirPath, ".kcp-front-proxy/apiserver.crt")),
 		fmt.Sprintf("--tls-private-key-file=%s", filepath.Join(workDirPath, ".kcp-front-proxy/apiserver.key")),
@@ -193,7 +180,7 @@ func startFrontProxy(
 
 		// intentionally load again every iteration because it can change
 		configLoader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: filepath.Join(workDirPath, ".kcp/admin.kubeconfig")},
-			&clientcmd.ConfigOverrides{CurrentContext: "system:admin"},
+			&clientcmd.ConfigOverrides{CurrentContext: "base"},
 		)
 		config, err := configLoader.ClientConfig()
 		if err != nil {
@@ -260,4 +247,38 @@ func writeAdminKubeConfig(hostIP string, workDirPath string) error {
 	}
 
 	return clientcmd.WriteToFile(kubeConfig, filepath.Join(workDirPath, ".kcp/admin.kubeconfig"))
+}
+
+func writeShardKubeConfig(hostIP string, workDirPath string) error {
+	// the root shard always has 6444 port assigned
+	baseHost := fmt.Sprintf("https://%s:6444", hostIP)
+
+	var kubeConfig clientcmdapi.Config
+	kubeConfig.AuthInfos = map[string]*clientcmdapi.AuthInfo{
+		"shard-admin": {
+			ClientKey:         filepath.Join(workDirPath, ".kcp/shard-system-masters.key"),
+			ClientCertificate: filepath.Join(workDirPath, ".kcp/shard-system-masters.crt"),
+		},
+	}
+	kubeConfig.Clusters = map[string]*clientcmdapi.Cluster{
+		"root": {
+			Server:               baseHost + "/clusters/root",
+			CertificateAuthority: filepath.Join(workDirPath, ".kcp/serving-ca.crt"),
+		},
+		"base": {
+			Server:               baseHost,
+			CertificateAuthority: filepath.Join(workDirPath, ".kcp/serving-ca.crt"),
+		},
+	}
+	kubeConfig.Contexts = map[string]*clientcmdapi.Context{
+		"root": {Cluster: "root", AuthInfo: "shard-admin"},
+		"base": {Cluster: "base", AuthInfo: "shard-admin"},
+	}
+	kubeConfig.CurrentContext = "base"
+
+	if err := clientcmdapi.FlattenConfig(&kubeConfig); err != nil {
+		return err
+	}
+
+	return clientcmd.WriteToFile(kubeConfig, filepath.Join(workDirPath, ".kcp/shard.kubeconfig"))
 }

@@ -112,6 +112,24 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		os.Exit(1)
 	}
 
+	// TODO:(p0lyn0mial): in the future we need a separate group valid only for the proxy
+	// so that it can make wildcard requests against shards
+	// for now we will use the privileged system:masters group to bypass the authz stack
+	// create system:masters client cert to connect to shards
+	_, err = clientCA.MakeClientCertificate(
+		filepath.Join(workDirPath, ".kcp/shard-system-masters.crt"),
+		filepath.Join(workDirPath, ".kcp/shard-system-masters.key"),
+		&user.DefaultInfo{
+			Name:   "shard-admin",
+			Groups: []string{"system:masters"},
+		},
+		365,
+	)
+	if err != nil {
+		fmt.Printf("failed to create shards-system-master client cert: %v\n", err)
+		os.Exit(1)
+	}
+
 	// create server CA to be used to sign shard serving certs
 	servingCA, err := crypto.MakeSelfSignedCA(
 		filepath.Join(workDirPath, ".kcp/serving-ca.crt"),
@@ -178,6 +196,10 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 
 	// write kcp-admin kubeconfig talking to the front-proxy with a client-cert
 	if err := writeAdminKubeConfig(hostIP.String(), workDirPath); err != nil {
+		return err
+	}
+	// this is system-master kubeconfig used by the front-proxy to talk to shards
+	if err := writeShardKubeConfig(hostIP.String(), workDirPath); err != nil {
 		return err
 	}
 
