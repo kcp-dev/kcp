@@ -41,6 +41,10 @@ func (c *FakeTenancyV1alpha1) ClusterWorkspaceTypes() v1alpha1.ClusterWorkspaceT
 	return &FakeClusterWorkspaceTypes{c}
 }
 
+func (c *FakeTenancyV1alpha1) ThisWorkspaces() v1alpha1.ThisWorkspaceInterface {
+	return &FakeThisWorkspaces{c}
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeTenancyV1alpha1) RESTClient() rest.Interface {

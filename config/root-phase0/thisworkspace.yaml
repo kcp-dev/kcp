@@ -1,0 +1,7 @@
+apiVersion: tenancy.kcp.dev/v1alpha1
+kind: ThisWorkspace
+metadata:
+  name: this
+  annotations:
+    internal.tenancy.kcp.dev/type: root:root
+spec: {}

@@ -144,6 +144,8 @@ func (r ClusterWorkspaceTypeReference) Equal(other ClusterWorkspaceTypeReference
 // ClusterWorkspaceStatus communicates the observed state of the ClusterWorkspace.
 type ClusterWorkspaceStatus struct {
 	// Phase of the workspace  (Scheduling / Initializing / Ready)
+	//
+	// +kubebuilder:default=Scheduling
 	Phase ClusterWorkspacePhaseType `json:"phase,omitempty"`
 
 	// Current processing state of the ClusterWorkspace.
@@ -175,6 +177,8 @@ type ClusterWorkspaceStatus struct {
 }
 
 // ClusterWorkspacePhaseType is the type of the current phase of the workspace
+//
+// +kubebuilder:validation:Enum=Scheduling;Initializing;Ready
 type ClusterWorkspacePhaseType string
 
 const (
