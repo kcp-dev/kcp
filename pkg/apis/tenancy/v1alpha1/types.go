@@ -629,3 +629,52 @@ var (
 		},
 	}
 )
+
+// ThisWorkspace
+//
+// +crd
+// +genclient
+// +genclient:nonNamespaced
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:scope=Cluster,categories=kcp
+// +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`,description="The current phase (e.g. Scheduling, Initializing, Ready)"
+type ThisWorkspace struct {
+	metav1.TypeMeta `json:",inline"`
+	// +optional
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	// +optional
+	Spec ThisWorkspaceSpec `json:"spec, omitempty"`
+	// +optional
+	Status ThisWorkspaceStatus `json:"status,omitempty"`
+}
+
+type ThisWorkspaceSpec struct {
+}
+
+// ThisWorkspaceStatus communicates the observed state of the Workspace.
+type ThisWorkspaceStatus struct {
+	// Phase of the workspace (Initializing / Active / Terminating). This field is ALPHA.
+	Phase ClusterWorkspacePhaseType `json:"phase,omitempty"`
+
+	// Current processing state of the ThisWorkspace.
+	// +optional
+	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
+
+	// initializers are set on creation by the system and must be cleared
+	// by a controller before the workspace can be used. The ThisWorkspace will
+	// stay in the phase "Initializing" state until all initializers are cleared.
+	//
+	// +optional
+	Initializers []ClusterWorkspaceInitializer `json:"initializers,omitempty"`
+}
+
+// ThisWorkspaceList is a list of ThisWorkspaces
+//
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type ThisWorkspaceList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	Items []ThisWorkspace `json:"items"`
+}
