@@ -36,6 +36,7 @@ import (
 )
 
 // Labeler calculates labels to apply to all instances of a cluster-group-resource based on permission claims.
+// TODO(nrb): Add functions that allow labeling of named/namespaced objects. listAPIBindingsAcceptingClaimedResources?
 type Labeler struct {
 	listAPIBindingsAcceptingClaimedGroupResource func(clusterName logicalcluster.Name, groupResource schema.GroupResource) ([]*apisv1alpha1.APIBinding, error)
 	getAPIBinding                                func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error)
@@ -53,6 +54,7 @@ func NewLabeler(
 
 	return &Labeler{
 		listAPIBindingsAcceptingClaimedGroupResource: func(clusterName logicalcluster.Name, groupResource schema.GroupResource) ([]*apisv1alpha1.APIBinding, error) {
+			// TODO(nrb): do we need an indexer for name/ns? May get big
 			indexKey := indexers.ClusterAndGroupResourceValue(clusterName, groupResource)
 			return indexers.ByIndex[*apisv1alpha1.APIBinding](apiBindingInformer.Informer().GetIndexer(), indexers.APIBindingByClusterAndAcceptedClaimedGroupResources, indexKey)
 		},
@@ -76,6 +78,7 @@ func NewLabeler(
 func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, groupResource schema.GroupResource, resourceName string) (map[string]string, error) {
 	labels := map[string]string{}
 
+	// TODO(nrb): Only do this for `all` only? How?
 	bindings, err := l.listAPIBindingsAcceptingClaimedGroupResource(cluster, groupResource)
 	if err != nil {
 		return nil, fmt.Errorf("error listing APIBindings in %q accepting claimed group resource %q: %w", cluster, groupResource, err)

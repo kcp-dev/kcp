@@ -58,6 +58,7 @@ func NewResourceController(
 	if err := apiBindingInformer.Informer().GetIndexer().AddIndexers(
 		cache.Indexers{
 			indexers.APIBindingByClusterAndAcceptedClaimedGroupResources: indexers.IndexAPIBindingByClusterAndAcceptedClaimedGroupResources,
+			// TODO(nrb): Add an index for gr and ns/name here to APIBinding here?
 		},
 	); err != nil {
 		return nil, err
