@@ -145,10 +145,10 @@ func TestReconcile(t *testing.T) {
 				},
 			}
 			target := &controller{
-				createConfigMap:               calls.createConfigMap.call,
-				updateConfigMap:               calls.updateConfigMap.call,
-				getConfigMap:                  calls.getConfigMap.call,
-				listAPIExportsFromRemoteShard: calls.listAPIExportsFromRemoteShard.call,
+				createConfigMap:         calls.createConfigMap.call,
+				updateConfigMap:         calls.updateConfigMap.call,
+				getConfigMap:            calls.getConfigMap.call,
+				listAPIExportsFromCache: calls.listAPIExportsFromRemoteShard.call,
 			}
 			if err := target.reconcile(context.TODO()); err != nil {
 				t.Error(err)
