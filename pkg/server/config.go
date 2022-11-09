@@ -101,6 +101,9 @@ type ExtraConfig struct {
 	BootstrapKcpClusterClient           kcpclientset.ClusterInterface
 	CacheDynamicClient                  kcpdynamic.ClusterInterface
 
+	// config from which client can be configured
+	LogicalClusterAdminConfig *rest.Config
+
 	// misc
 	preHandlerChainMux   *handlerChainMuxes
 	quotaAdmissionStopCh chan struct{}
@@ -263,6 +266,14 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 	c.DeepSARClient, err = kcpkubernetesclientset.NewForConfig(authorization.WithDeepSARConfig(rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)))
 	if err != nil {
 		return nil, err
+	}
+
+	c.LogicalClusterAdminConfig = rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
+	if len(c.Options.Extra.LogicalClusterAdminKubeconfig) > 0 {
+		c.LogicalClusterAdminConfig, err = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: c.Options.Extra.LogicalClusterAdminKubeconfig}, nil).ClientConfig()
+		if err != nil {
+			return nil, fmt.Errorf("failed to load the kubeconfig from: %s, for a logical cluster client, err: %w", c.Options.Extra.LogicalClusterAdminKubeconfig, err)
+		}
 	}
 
 	// Setup apiextensions * informers

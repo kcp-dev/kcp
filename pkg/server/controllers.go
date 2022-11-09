@@ -366,7 +366,7 @@ func (s *Server) installWorkloadResourceScheduler(ctx context.Context, config *r
 	})
 }
 
-func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Config) error {
+func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Config, logicalClusterAdminConfig *rest.Config) error {
 	// NOTE: keep `config` unaltered so there isn't cross-use between controllers installed here.
 	clusterWorkspaceConfig := rest.CopyConfig(config)
 	clusterWorkspaceConfig = rest.AddUserAgent(clusterWorkspaceConfig, clusterworkspace.ControllerName)
@@ -377,6 +377,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 
 	workspaceController, err := clusterworkspace.NewController(
 		kcpClusterClient,
+		logicalClusterAdminConfig,
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
