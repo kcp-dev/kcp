@@ -139,6 +139,16 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 		return authorizer.DecisionNoOpinion, WorkspaceAccessNotPermittedReason, nil
 	}
 
+	// always let logical-cluster-admins through
+	if isUser && sets.NewString(attr.GetUser().GetGroups()...).Has(bootstrap.SystemLogicalClusterAdmin) {
+		kaudit.AddAuditAnnotations(
+			ctx,
+			WorkspaceContentAuditDecision, DecisionAllowed,
+			WorkspaceContentAuditReason, "subject is a logical cluster admin",
+		)
+		return a.delegate.Authorize(ctx, attr)
+	}
+
 	// non-root workspaces must have a parent
 	parentClusterName, hasParent := cluster.Name.Parent()
 	if !hasParent {
