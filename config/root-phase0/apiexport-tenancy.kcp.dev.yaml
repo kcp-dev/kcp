@@ -8,7 +8,6 @@ spec:
   - v220915-b4cf5d4e.workspaces.tenancy.kcp.dev
   - v220923-596b9074.clusterworkspacetypes.tenancy.kcp.dev
   - v221006-eaaf199d.clusterworkspaces.tenancy.kcp.dev
-  - v221109-0bad79f0.thisworkspaces.tenancy.kcp.dev
   maximalPermissionPolicy:
     local: {}
 status: {}
