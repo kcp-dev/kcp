@@ -37,6 +37,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/client"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
+	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 )
 
 const (
@@ -130,6 +131,16 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 			TopLevelContentAuditReason, "root workspace access by non-root service account not permitted",
 		)
 		return authorizer.DecisionNoOpinion, WorkspaceAccessNotPermittedReason, nil
+	}
+
+	// always let logical-cluster-admins through
+	if isUser && sets.NewString(attr.GetUser().GetGroups()...).Has(bootstrap.SystemLogicalClusterAdmin) {
+		kaudit.AddAuditAnnotations(
+			ctx,
+			WorkspaceContentAuditDecision, DecisionAllowed,
+			WorkspaceContentAuditReason, "subject is a logical cluster admin",
+		)
+		return a.delegate.Authorize(ctx, attr)
 	}
 
 	// get org in the root
