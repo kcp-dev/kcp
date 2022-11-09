@@ -54,6 +54,10 @@ func (i *filteredInterface) ClusterWorkspaceShards() tenancyinformers.ClusterWor
 	return FilterWorkspaceShardInformer(i.clusterName, i.informers.ClusterWorkspaceShards())
 }
 
+func (i *filteredInterface) ThisWorkspaces() tenancyinformers.ThisWorkspaceInformer {
+	panic("ThisWorkspaces method not yet implemented!")
+}
+
 func FilterClusterWorkspaceTypeInformer(clusterName logicalcluster.Name, informer tenancyinformers.ClusterWorkspaceTypeInformer) tenancyinformers.ClusterWorkspaceTypeInformer {
 	return &filteredClusterWorkspaceTypeInformer{
 		clusterName: clusterName,
