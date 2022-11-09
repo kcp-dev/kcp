@@ -194,6 +194,12 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			wantReason:         "not permitted, clusterworkspace is in initializing phase",
 		},
 		{
+			testName: "system:kcp:logical-cluster-admin can always pass",
+
+			requestedWorkspace: "root:non-existent",
+			requestingUser:     newUser("lcluster-admin", "system:kcp:logical-cluster-admin"),
+		},
+		{
 			testName: "permitted access user is denied on initializing workspace",
 
 			requestedWorkspace: "root:initializing",
