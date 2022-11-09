@@ -79,9 +79,17 @@ func start(shardFlags []string) error {
 	defer cancelFn()
 
 	logFilePath := flag.Lookup("log-file-path").Value.String()
-	errCh, err := shard.Start(ctx, "kcp", ".kcp", logFilePath,
+	shard := shard.NewShard(
+		"kcp",
+		".kcp",
+		logFilePath,
 		append(shardFlags, "--audit-log-path", filepath.Join(filepath.Dir(logFilePath), "audit.log")),
 	)
+	if err := shard.Start(ctx); err != nil {
+		return err
+	}
+
+	errCh, err := shard.WaitForReady(ctx)
 	if err != nil {
 		return err
 	}

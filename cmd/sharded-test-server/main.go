@@ -31,6 +31,7 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 
 	"github.com/kcp-dev/kcp/cmd/sharded-test-server/third_party/library-go/crypto"
+	shard "github.com/kcp-dev/kcp/cmd/test-server/kcp"
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 )
 
@@ -163,17 +164,16 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	}
 
 	// start shards
-	shardsErrCh := make(chan indexErrTuple)
+	var shards []*shard.Shard
 	for i := 0; i < numberOfShards; i++ {
-		shardErrCh, err := startShard(ctx, i, shardFlags, servingCA, hostIP.String(), logDirPath, workDirPath, cacheServerConfigPath)
+		shard, err := newShard(ctx, i, shardFlags, servingCA, hostIP.String(), logDirPath, workDirPath, cacheServerConfigPath)
 		if err != nil {
 			return err
 		}
-		go func(shardIndex int, shardErrCh <-chan error) {
-			err := <-shardErrCh
-			shardsErrCh <- indexErrTuple{shardIndex, err}
-
-		}(i, shardErrCh)
+		if err := shard.Start(ctx); err != nil {
+			return err
+		}
+		shards = append(shards, shard)
 	}
 
 	// write kcp-admin kubeconfig talking to the front-proxy with a client-cert
@@ -202,6 +202,19 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	// start front-proxy
 	if err := startFrontProxy(ctx, proxyFlags, servingCA, hostIP.String(), logDirPath, workDirPath, vwPort); err != nil {
 		return err
+	}
+
+	// Wait for shards to be ready
+	shardsErrCh := make(chan indexErrTuple)
+	for i, shard := range shards {
+		terminatedCh, err := shard.WaitForReady(ctx)
+		if err != nil {
+			return err
+		}
+		go func(i int, terminatedCh <-chan error) {
+			err := <-terminatedCh
+			shardsErrCh <- indexErrTuple{i, err}
+		}(i, terminatedCh)
 	}
 
 	select {
