@@ -23,6 +23,7 @@ import (
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	rbacv1listers "github.com/kcp-dev/client-go/listers/rbac/v1"
 
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -54,6 +55,8 @@ func (a *LocalAuthorizer) RulesFor(ctx context.Context, user user.Info, namespac
 	// TODO: wire context in RulesFor interface
 	panic("implement me")
 }
+
+var readOnlyVerbs = sets.NewString("get", "list", "watch")
 
 func (a *LocalAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
 	cluster := genericapirequest.ClusterFrom(ctx)
