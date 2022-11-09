@@ -449,7 +449,7 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	if s.Options.Controllers.EnableAll || enabled.Has("workspace-scheduler") {
-		if err := s.installWorkspaceScheduler(ctx, controllerConfig); err != nil {
+		if err := s.installWorkspaceScheduler(ctx, controllerConfig, s.LogicalClusterAdminConfig); err != nil {
 			return err
 		}
 		if err := s.installWorkspaceDeletionController(ctx, controllerConfig); err != nil {
