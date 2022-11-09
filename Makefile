@@ -159,9 +159,13 @@ $(YAML_PATCH):
 $(GOTESTSUM):
 	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) gotest.tools/gotestsum $(GOTESTSUM_BIN) $(GOTESTSUM_VER)
 
-codegen: $(CONTROLLER_GEN) $(YAML_PATCH) ## Run the codegenerators
+crds: $(CONTROLLER_GEN) $(YAML_PATCH) ## Run the codegenerators
+	./hack/update-codegen-crds.sh
+.PHONY: crds
+
+codegen: crds
 	go mod download
-	./hack/update-codegen.sh
+	./hack/update-codegen-clients.sh
 	$(MAKE) imports
 .PHONY: codegen
 
