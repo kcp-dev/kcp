@@ -23,3 +23,5 @@ type ClusterWorkspaceExpansion interface{}
 type ClusterWorkspaceShardExpansion interface{}
 
 type ClusterWorkspaceTypeExpansion interface{}
+
+type ThisWorkspaceExpansion interface{}

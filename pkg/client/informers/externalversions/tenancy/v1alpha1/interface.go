@@ -30,6 +30,8 @@ type Interface interface {
 	ClusterWorkspaceShards() ClusterWorkspaceShardInformer
 	// ClusterWorkspaceTypes returns a ClusterWorkspaceTypeInformer.
 	ClusterWorkspaceTypes() ClusterWorkspaceTypeInformer
+	// ThisWorkspaces returns a ThisWorkspaceInformer.
+	ThisWorkspaces() ThisWorkspaceInformer
 }
 
 type version struct {
@@ -56,4 +58,9 @@ func (v *version) ClusterWorkspaceShards() ClusterWorkspaceShardInformer {
 // ClusterWorkspaceTypes returns a ClusterWorkspaceTypeInformer.
 func (v *version) ClusterWorkspaceTypes() ClusterWorkspaceTypeInformer {
 	return &clusterWorkspaceTypeInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// ThisWorkspaces returns a ThisWorkspaceInformer.
+func (v *version) ThisWorkspaces() ThisWorkspaceInformer {
+	return &thisWorkspaceInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }

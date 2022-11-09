@@ -98,6 +98,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeSpec":                 schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeSpec(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeStatus":               schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeStatus(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ShardConstraints":                         schema_pkg_apis_tenancy_v1alpha1_ShardConstraints(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ThisWorkspace":                            schema_pkg_apis_tenancy_v1alpha1_ThisWorkspace(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ThisWorkspaceList":                        schema_pkg_apis_tenancy_v1alpha1_ThisWorkspaceList(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ThisWorkspaceSpec":                        schema_pkg_apis_tenancy_v1alpha1_ThisWorkspaceSpec(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ThisWorkspaceStatus":                      schema_pkg_apis_tenancy_v1alpha1_ThisWorkspaceStatus(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.VirtualWorkspace":                         schema_pkg_apis_tenancy_v1alpha1_VirtualWorkspace(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.Workspace":                                 schema_pkg_apis_tenancy_v1beta1_Workspace(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.WorkspaceList":                             schema_pkg_apis_tenancy_v1beta1_WorkspaceList(ref),
@@ -3370,6 +3374,163 @@ func schema_pkg_apis_tenancy_v1alpha1_ShardConstraints(ref common.ReferenceCallb
 		},
 		Dependencies: []string{
 			"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
+	}
+}
+
+func schema_pkg_apis_tenancy_v1alpha1_ThisWorkspace(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ThisWorkspace",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ThisWorkspaceSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ThisWorkspaceStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ThisWorkspaceSpec", "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ThisWorkspaceStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_pkg_apis_tenancy_v1alpha1_ThisWorkspaceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ThisWorkspaceList is a list of ThisWorkspaces",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ThisWorkspace"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"metadata", "items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ThisWorkspace", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_pkg_apis_tenancy_v1alpha1_ThisWorkspaceSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_tenancy_v1alpha1_ThisWorkspaceStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ThisWorkspaceStatus communicates the observed state of the Workspace.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"phase": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Phase of the workspace (Initializing / Active / Terminating). This field is ALPHA.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Current processing state of the ThisWorkspace.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+									},
+								},
+							},
+						},
+					},
+					"initializers": {
+						SchemaProps: spec.SchemaProps{
+							Description: "initializers are set on creation by the system and must be cleared by a controller before the workspace can be used. The ThisWorkspace will stay in the phase \"Initializing\" state until all initializers are cleared.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
 	}
 }
 

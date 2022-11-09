@@ -29,3 +29,7 @@ type ClusterWorkspaceShardListerExpansion interface{}
 // ClusterWorkspaceTypeListerExpansion allows custom methods to be added to
 // ClusterWorkspaceTypeLister.
 type ClusterWorkspaceTypeListerExpansion interface{}
+
+// ThisWorkspaceListerExpansion allows custom methods to be added to
+// ThisWorkspaceLister.
+type ThisWorkspaceListerExpansion interface{}
