@@ -29,9 +29,11 @@ import (
 const (
 	// SystemKcpClusterWorkspaceAccessGroup is a group that gives a user basic access to a workspace.
 	// It does not give them any permissions in the workspace.
+	// Deprecated: SystemKcpWorkspaceAccessGroup inside of a workspace will replace this.
 	SystemKcpClusterWorkspaceAccessGroup = "system:kcp:clusterworkspace:access"
 	// SystemKcpClusterWorkspaceAdminGroup is an admin group per cluster workspace. Members of this group have all permissions
 	// in the referenced cluster workspace (capped by maximal permission policy).
+	// Deprecated: cluster-admin inside of a workspace will replace this.
 	SystemKcpClusterWorkspaceAdminGroup = "system:kcp:clusterworkspace:admin"
 	// SystemKcpAdminGroup is global admin group. Members of this group have all permissions across all cluster workspaces.
 	SystemKcpAdminGroup = "system:kcp:admin"
@@ -44,6 +46,8 @@ const (
 	// This group allows it to skip the entire authorization stack except the bootstrap policy authorizer.
 	// Otherwise, access to a top level org or a parent workspace would be required.
 	SystemLogicalClusterAdmin = "system:kcp:logical-cluster-admin"
+	// SystemKcpWorkspaceAccessGroup is a group that gives a user system:authenticated access to a workspace.
+	SystemKcpWorkspaceAccessGroup = "system:kcp:workspace:access"
 )
 
 // ClusterRoleBindings return default rolebindings to the default roles
@@ -61,8 +65,9 @@ func clusterRoles() []rbacv1.ClusterRole {
 		{
 			ObjectMeta: metav1.ObjectMeta{Name: "system:kcp:tenancy:reader"},
 			Rules: []rbacv1.PolicyRule{
-				rbacv1helpers.NewRule("list", "watch").Groups(tenancy.GroupName).Resources("workspaces").RuleOrDie(), // "get" is by workspace name through workspace VW
+				rbacv1helpers.NewRule("list", "watch").Groups(tenancy.GroupName).Resources("workspaces").RuleOrDie(),
 				rbacv1helpers.NewRule(bootstrappolicy.Read...).Groups(tenancy.GroupName).Resources("clusterworkspacetypes").RuleOrDie(),
+				rbacv1helpers.NewRule("get", "list", "watch").Groups(tenancy.GroupName).Resources("thisworkspaces").RuleOrDie(),
 			},
 		},
 		{
@@ -75,7 +80,13 @@ func clusterRoles() []rbacv1.ClusterRole {
 		{
 			ObjectMeta: metav1.ObjectMeta{Name: SystemLogicalClusterAdmin},
 			Rules: []rbacv1.PolicyRule{
-				rbacv1helpers.NewRule("create, update").Groups(tenancy.GroupName).Resources("thisworkspaces").RuleOrDie(),
+				rbacv1helpers.NewRule("*").Groups(tenancy.GroupName).Resources("thisworkspaces").RuleOrDie(),
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: SystemKcpWorkspaceAccessGroup},
+			Rules: []rbacv1.PolicyRule{
+				rbacv1helpers.NewRule("access").URLs("/").RuleOrDie(),
 			},
 		},
 	}

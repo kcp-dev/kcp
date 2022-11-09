@@ -630,7 +630,12 @@ var (
 	}
 )
 
-// ThisWorkspace
+const (
+	// ThisWorkspaceName is the name of the ThisWorkspace singleton.
+	ThisWorksapceName = "this"
+)
+
+// ThisWorkspace describes the current workspace.
 //
 // +crd
 // +genclient
