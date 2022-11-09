@@ -303,6 +303,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        reconcilerapiexport.TemporaryComputeServiceExportName,
 			Annotations: map[string]string{logicalcluster.AnnotationKey: clusterName.String()},
+			Labels:      map[string]string{apisv1alpha1.LabelAPIBindingKindKey: workloadv1alpha1.LabelKindAPIBindingValue},
 		},
 		Spec: apisv1alpha1.APIBindingSpec{
 			Reference: apisv1alpha1.ExportReference{

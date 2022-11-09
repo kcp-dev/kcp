@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	conditionsapi "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
@@ -43,6 +44,7 @@ func TestSchedulingReconcile(t *testing.T) {
 		placement   *schedulingv1alpha1.Placement
 		location    *schedulingv1alpha1.Location
 		syncTargets []*workloadv1alpha1.SyncTarget
+		apiBindings []*apisv1alpha1.APIBinding
 
 		wantPatch           bool
 		expectedAnnotations map[string]string
@@ -93,6 +95,22 @@ func TestSchedulingReconcile(t *testing.T) {
 				workloadv1alpha1.InternalSyncTargetPlacementAnnotationKey: "aPkhvUbGK0xoZIjMnM2pA0AuV1g7i4tBwxu5m4",
 			},
 		},
+		{
+			name:      "schedule to synctarget with compatible APIs",
+			placement: newPlacement("test", "test-location", ""),
+			location:  newLocation("test-location"),
+			syncTargets: []*workloadv1alpha1.SyncTarget{
+				newSyncTarget("c1", true, workloadv1alpha1.ResourceToSync{GroupResource: apisv1alpha1.GroupResource{Resource: "services"}, State: workloadv1alpha1.ResourceSchemaIncompatibleState}),
+				newSyncTarget("c2", true, workloadv1alpha1.ResourceToSync{GroupResource: apisv1alpha1.GroupResource{Resource: "services"}, State: workloadv1alpha1.ResourceSchemaAcceptedState}),
+			},
+			apiBindings: []*apisv1alpha1.APIBinding{
+				newAPIBinding("kubernetes", apisv1alpha1.BoundAPIResource{Resource: "services"}),
+			},
+			wantPatch: true,
+			expectedAnnotations: map[string]string{
+				workloadv1alpha1.InternalSyncTargetPlacementAnnotationKey: "aPkhvUbGK0xoZIjMnM2pA0AuV1g7i4tBwxu5m4",
+			},
+		},
 	}
 
 	for _, testCase := range testCases {
@@ -122,10 +140,14 @@ func TestSchedulingReconcile(t *testing.T) {
 				}
 				return &patchedPlacement, err
 			}
+			listWorkloadAPIBindings := func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
+				return testCase.apiBindings, nil
+			}
 			reconciler := &placementSchedulingReconciler{
-				listSyncTarget: listSyncTarget,
-				getLocation:    getLocation,
-				patchPlacement: patchPlacement,
+				listSyncTarget:          listSyncTarget,
+				getLocation:             getLocation,
+				patchPlacement:          patchPlacement,
+				listWorkloadAPIBindings: listWorkloadAPIBindings,
 			}
 
 			_, updated, err := reconciler.reconcile(context.TODO(), testCase.placement)
@@ -171,10 +193,13 @@ func newLocation(name string) *schedulingv1alpha1.Location {
 	}
 }
 
-func newSyncTarget(name string, ready bool) *workloadv1alpha1.SyncTarget {
+func newSyncTarget(name string, ready bool, resources ...workloadv1alpha1.ResourceToSync) *workloadv1alpha1.SyncTarget {
 	syncTarget := &workloadv1alpha1.SyncTarget{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
+		},
+		Status: workloadv1alpha1.SyncTargetStatus{
+			SyncedResources: resources,
 		},
 	}
 
@@ -183,4 +208,15 @@ func newSyncTarget(name string, ready bool) *workloadv1alpha1.SyncTarget {
 	}
 
 	return syncTarget
+}
+
+func newAPIBinding(name string, resources ...apisv1alpha1.BoundAPIResource) *apisv1alpha1.APIBinding {
+	return &apisv1alpha1.APIBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Status: apisv1alpha1.APIBindingStatus{
+			BoundResources: resources,
+		},
+	}
 }

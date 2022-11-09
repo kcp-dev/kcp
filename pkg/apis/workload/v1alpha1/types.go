@@ -155,4 +155,7 @@ const (
 	// InternalSyncTargetKeyLabel is an internal label set on a SyncTarget resource that contains the full hash of the SyncTargetKey, generated with the ToSyncTargetKey(..)
 	// helper func, this label is used for reverse lookups of a syncTargetKey to SyncTarget.
 	InternalSyncTargetKeyLabel = "internal.workload.kcp.dev/key"
+
+	// LabelKindAPIBindingValue is the value of label key "apis.kcp.dev/kind" for compute kind apibinding
+	LabelKindAPIBindingValue = "compute"
 )

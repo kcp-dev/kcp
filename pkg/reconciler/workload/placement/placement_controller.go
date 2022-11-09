@@ -32,13 +32,13 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
-	schedulingv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
-	workloadv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
-	schedulingv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
-	workloadv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
+	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
+	schedulinginformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
+	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -50,9 +50,10 @@ const (
 // NewController returns a new controller starting the process of selecting synctarget for a placement
 func NewController(
 	kcpClusterClient kcpclientset.ClusterInterface,
-	locationInformer schedulingv1alpha1informers.LocationClusterInformer,
-	syncTargetInformer workloadv1alpha1informers.SyncTargetClusterInformer,
-	placementInformer schedulingv1alpha1informers.PlacementClusterInformer,
+	locationInformer schedulinginformers.LocationInformer,
+	syncTargetInformer workloadinformers.SyncTargetInformer,
+	placementInformer schedulinginformers.PlacementInformer,
+	apiBindingInformer apisinformers.APIBindingInformer,
 ) (*controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
@@ -67,10 +68,18 @@ func NewController(
 
 		placementLister:  placementInformer.Lister(),
 		placementIndexer: placementInformer.Informer().GetIndexer(),
+
+		apiBindingIndexer: apiBindingInformer.Informer().GetIndexer(),
 	}
 
 	if err := placementInformer.Informer().AddIndexers(cache.Indexers{
 		byLocationWorkspace: indexByLocationWorkspace,
+	}); err != nil {
+		return nil, err
+	}
+
+	if err := apiBindingInformer.Informer().AddIndexers(cache.Indexers{
+		byWorkspace: indexByWorkspace,
 	}); err != nil {
 		return nil, err
 	}
@@ -125,6 +134,12 @@ func NewController(
 		DeleteFunc: func(obj interface{}) { c.enqueuePlacement(obj, logger, "") },
 	})
 
+	apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.enqueueAPIBinding,
+		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIBinding(obj) },
+		DeleteFunc: c.enqueueAPIBinding,
+	})
+
 	return c, nil
 }
 
@@ -140,6 +155,8 @@ type controller struct {
 
 	placementLister  schedulingv1alpha1listers.PlacementClusterLister
 	placementIndexer cache.Indexer
+
+	apiBindingIndexer cache.Indexer
 }
 
 // enqueueLocation finds placement ref to this location at first, and then namespaces bound to this placement.
@@ -176,6 +193,30 @@ func (c *controller) enqueuePlacement(obj interface{}, logger logr.Logger, logSu
 
 	logging.WithQueueKey(logger, key).V(2).Info(fmt.Sprintf("queueing Placement%s", logSuffix))
 	c.queue.Add(key)
+}
+
+func (c *controller) enqueueAPIBinding(obj interface{}) {
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+	clusterName, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+
+	placements, err := c.placementIndexer.ByIndex(byWorkspace, clusterName.String())
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+
+	logger := logging.WithObject(logging.WithReconciler(klog.Background(), ControllerName), obj.(*apisv1alpha1.APIBinding))
+	for _, placement := range placements {
+		c.enqueuePlacement(placement, logger, " because of APIBinding")
+	}
 }
 
 func (c *controller) enqueueSyncTarget(obj interface{}) {

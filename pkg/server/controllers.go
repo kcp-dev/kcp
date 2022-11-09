@@ -928,6 +928,7 @@ func (s *Server) installWorkloadPlacementScheduler(ctx context.Context, config *
 		s.KcpSharedInformerFactory.Scheduling().V1alpha1().Locations(),
 		s.KcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
 		s.KcpSharedInformerFactory.Scheduling().V1alpha1().Placements(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
 	)
 	if err != nil {
 		return err

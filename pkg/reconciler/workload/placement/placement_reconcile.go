@@ -27,6 +27,7 @@ import (
 	utilserrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog/v2"
 
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
@@ -45,9 +46,10 @@ type reconciler interface {
 func (c *controller) reconcile(ctx context.Context, placement *schedulingv1alpha1.Placement) error {
 	reconcilers := []reconciler{
 		&placementSchedulingReconciler{
-			listSyncTarget: c.listSyncTarget,
-			getLocation:    c.getLocation,
-			patchPlacement: c.patchPlacement,
+			listSyncTarget:          c.listSyncTarget,
+			getLocation:             c.getLocation,
+			patchPlacement:          c.patchPlacement,
+			listWorkloadAPIBindings: c.listWorkloadAPIBindings,
 		},
 	}
 
@@ -80,4 +82,24 @@ func (c *controller) patchPlacement(ctx context.Context, clusterName logicalclus
 	logger := klog.FromContext(ctx)
 	logger.WithValues("patch", string(data)).V(2).Info("patching Placement")
 	return c.kcpClusterClient.Cluster(clusterName).SchedulingV1alpha1().Placements().Patch(ctx, name, pt, data, opts, subresources...)
+}
+
+// listWorkloadAPIBindings list all apibindings in bound phase and the kind is compute
+func (c *controller) listWorkloadAPIBindings(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
+	items, err := c.apiBindingIndexer.ByIndex(byWorkspace, clusterName.String())
+	if err != nil {
+		return nil, err
+	}
+	ret := make([]*apisv1alpha1.APIBinding, 0, len(items))
+	for _, item := range items {
+		binding := item.(*apisv1alpha1.APIBinding)
+		if binding.Status.Phase != apisv1alpha1.APIBindingPhaseBound {
+			continue
+		}
+		if len(binding.Labels) == 0 || binding.Labels[apisv1alpha1.LabelAPIBindingKindKey] != workloadv1alpha1.LabelKindAPIBindingValue {
+			continue
+		}
+		ret = append(ret, binding)
+	}
+	return ret, nil
 }

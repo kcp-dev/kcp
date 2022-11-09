@@ -40,6 +40,7 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/pkg/cliplugins/base"
@@ -249,7 +250,8 @@ func (o *BindComputeOptions) applyAPIBinding(ctx context.Context, client kcpclie
 		clusterName, name := logicalcluster.New(export).Split()
 		apiBinding := &apisv1alpha1.APIBinding{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: apiBindingName(clusterName, name),
+				Name:   apiBindingName(clusterName, name),
+				Labels: map[string]string{apisv1alpha1.LabelAPIBindingKindKey: workloadv1alpha1.LabelKindAPIBindingValue},
 			},
 			Spec: apisv1alpha1.APIBindingSpec{
 				Reference: apisv1alpha1.ExportReference{

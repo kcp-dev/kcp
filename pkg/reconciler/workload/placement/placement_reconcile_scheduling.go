@@ -19,6 +19,7 @@ package placement
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math/rand"
 
 	"github.com/kcp-dev/logicalcluster/v2"
@@ -29,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	locationreconciler "github.com/kcp-dev/kcp/pkg/reconciler/scheduling/location"
@@ -38,9 +40,10 @@ import (
 // It considers only valid SyncTargets and updates the internal.workload.kcp.dev/synctarget
 // annotation with the selected one on the placement object.
 type placementSchedulingReconciler struct {
-	listSyncTarget func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error)
-	getLocation    func(clusterName logicalcluster.Name, name string) (*schedulingv1alpha1.Location, error)
-	patchPlacement func(ctx context.Context, clusterName logicalcluster.Name, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*schedulingv1alpha1.Placement, error)
+	listSyncTarget          func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error)
+	listWorkloadAPIBindings func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
+	getLocation             func(clusterName logicalcluster.Name, name string) (*schedulingv1alpha1.Location, error)
+	patchPlacement          func(ctx context.Context, clusterName logicalcluster.Name, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*schedulingv1alpha1.Placement, error)
 }
 
 func (r *placementSchedulingReconciler) reconcile(ctx context.Context, placement *schedulingv1alpha1.Placement) (reconcileStatus, *schedulingv1alpha1.Placement, error) {
@@ -51,7 +54,7 @@ func (r *placementSchedulingReconciler) reconcile(ctx context.Context, placement
 	currentScheduled, foundScheduled := placement.Annotations[workloadv1alpha1.InternalSyncTargetPlacementAnnotationKey]
 
 	// 2. pick all valid synctargets in this placements
-	syncTargetClusterName, syncTargets, err := r.getAllValidSyncTargetsForPlacement(clusterName, placement)
+	syncTargetClusterName, syncTargets, err := r.getAllValidSyncTargetsForPlacement(ctx, clusterName, placement)
 	if err != nil {
 		return reconcileStatusStop, placement, err
 	}
@@ -88,7 +91,7 @@ func (r *placementSchedulingReconciler) reconcile(ctx context.Context, placement
 	return reconcileStatusContinue, placement, nil
 }
 
-func (r *placementSchedulingReconciler) getAllValidSyncTargetsForPlacement(clusterName logicalcluster.Name, placement *schedulingv1alpha1.Placement) (logicalcluster.Name, []*workloadv1alpha1.SyncTarget, error) {
+func (r *placementSchedulingReconciler) getAllValidSyncTargetsForPlacement(ctx context.Context, clusterName logicalcluster.Name, placement *schedulingv1alpha1.Placement) (logicalcluster.Name, []*workloadv1alpha1.SyncTarget, error) {
 	if placement.Status.Phase == schedulingv1alpha1.PlacementPending || placement.Status.SelectedLocation == nil {
 		return logicalcluster.Name{}, nil, nil
 	}
@@ -116,10 +119,66 @@ func (r *placementSchedulingReconciler) getAllValidSyncTargetsForPlacement(clust
 		return locationWorkspace, nil, err
 	}
 
+	locationClusters, err = r.filterAPICompatible(ctx, clusterName, locationClusters)
+	if err != nil {
+		return locationWorkspace, nil, err
+	}
+
 	// find all the valid sync targets.
 	validClusters := locationreconciler.FilterNonEvicting(locationreconciler.FilterReady(locationClusters))
 
 	return locationWorkspace, validClusters, nil
+}
+
+func (r *placementSchedulingReconciler) filterAPICompatible(ctx context.Context, clusterName logicalcluster.Name, syncTargets []*workloadv1alpha1.SyncTarget) ([]*workloadv1alpha1.SyncTarget, error) {
+	logger := klog.FromContext(ctx)
+	var filteredSyncTarget []*workloadv1alpha1.SyncTarget
+
+	apiBindings, err := r.listWorkloadAPIBindings(clusterName)
+	if err != nil {
+		return nil, err
+	}
+
+	var desiredSupportedAPIs []apisv1alpha1.BoundAPIResource
+	for _, binding := range apiBindings {
+		desiredSupportedAPIs = append(desiredSupportedAPIs, binding.Status.BoundResources...)
+	}
+
+	logger.Info(fmt.Sprintf("desired resource for synctarget: %v", desiredSupportedAPIs))
+
+	for _, syncTargert := range syncTargets {
+		supportedAPIMap := map[apisv1alpha1.GroupResource]workloadv1alpha1.ResourceToSync{}
+		for _, resource := range syncTargert.Status.SyncedResources {
+			if resource.State == workloadv1alpha1.ResourceSchemaAcceptedState {
+				supportedAPIMap[resource.GroupResource] = resource
+			}
+		}
+
+		logger.Info(fmt.Sprintf("supported resource for synctarget %s: %v", syncTargert.Name, supportedAPIMap))
+
+		supported := true
+		for _, desiredAPI := range desiredSupportedAPIs {
+			supportedAPI, ok := supportedAPIMap[apisv1alpha1.GroupResource{
+				Group:    desiredAPI.Group,
+				Resource: desiredAPI.Resource,
+			}]
+			if !ok {
+				supported = false
+				break
+			}
+
+			if supportedAPI.IdentityHash != desiredAPI.Schema.IdentityHash {
+				supported = false
+				break
+			}
+		}
+
+		if supported {
+			filteredSyncTarget = append(filteredSyncTarget, syncTargert)
+		}
+	}
+
+	return filteredSyncTarget, nil
 }
 
 func (r *placementSchedulingReconciler) patchPlacementAnnotation(ctx context.Context, clusterName logicalcluster.Name, placement *schedulingv1alpha1.Placement, annotations map[string]interface{}) (*schedulingv1alpha1.Placement, error) {
