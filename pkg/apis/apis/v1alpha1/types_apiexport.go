@@ -187,15 +187,14 @@ const (
 // Its purpose is to determine the added permissions that a service provider may
 // request and that a consumer may accept and allow the service provider access to.
 //
-// +kubebuilder:validation:XValidation:rule="self.all != has(self.resourceSelector)",message="either \"all\" or \"resourceSelector\" must be set"
+// +kubebuilder:validation:XValidation:rule="(has(self.all) && self.all) != (has(self.resourceSelector) && size(self.resourceSelector) > 0)",message="either \"all\" or \"resourceSelector\" must be set"
 type PermissionClaim struct {
 	GroupResource `json:","`
 
 	// all claims all resources for the given group/resource.
 	// This is mutually exclusive with resourceSelector.
-	// +required
-	// +kubebuilder:default=false
-	All bool `json:"all"`
+	// +optional
+	All bool `json:"all,omitempty"`
 
 	// resourceSelector is a list of claimed resource selectors.
 	//
@@ -210,20 +209,28 @@ type PermissionClaim struct {
 	IdentityHash string `json:"identityHash,omitempty"`
 }
 
+// +kubebuilder:validation:XValidation:rule="has(self.__namespace__) || has(self.name)",message="at least one field must be set"
 type ResourceSelector struct {
 	// name of an object within a claimed group/resource.
 	// It matches the metadata.name field of the underlying object.
+	// If namespace is unset, all objects matching that name will be claimed.
 	//
 	// +optional
 	// +kubebuilder:validation:Pattern="^([a-z0-9][-a-z0-9_.]*)?[a-z0-9]$"
 	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name,omitempty"`
 
 	// namespace containing the named object. Matches metadata.namespace field.
 	// If "name" is unset, all objects from the namespace are being claimed.
 	//
-	// +required
-	Namespace string `json:"namespace"`
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	Namespace string `json:"namespace,omitempty"`
+
+	//
+	// WARNING: If adding new fields, add them to the XValidation check!
+	//
 }
 
 func (p PermissionClaim) String() string {

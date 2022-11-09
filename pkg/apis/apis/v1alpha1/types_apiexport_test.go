@@ -31,22 +31,34 @@ func TestAPIExportPermissionClaimCELValidation(t *testing.T) {
 		wantErrs     []string
 	}{
 		{
-			name: "resourceSelector is set",
-			current: map[string]interface{}{
-				"all": false,
-				"resourceSelector": []interface{}{
-					map[string]interface{}{"namespace": "foo"},
-				},
+			name:    "nothing is set",
+			current: map[string]interface{}{},
+			wantErrs: []string{
+				"openAPIV3Schema.properties.spec.properties.permissionClaims.items: Invalid value: \"object\": either \"all\" or \"resourceSelector\" must be set",
 			},
 		},
 		{
-			name: "all is set",
+			name: "all is true",
 			current: map[string]interface{}{
 				"all": true,
 			},
 		},
 		{
-			name: "all and resourceSelector is set",
+			name: "all is true, resourceSelector is nil",
+			current: map[string]interface{}{
+				"all":              true,
+				"resourceSelector": nil,
+			},
+		},
+		{
+			name: "all is true, resourceSelector is empty",
+			current: map[string]interface{}{
+				"all":              true,
+				"resourceSelector": []interface{}{},
+			},
+		},
+		{
+			name: "all is true and resourceSelector is set",
 			current: map[string]interface{}{
 				"all": true,
 				"resourceSelector": []interface{}{
@@ -58,9 +70,46 @@ func TestAPIExportPermissionClaimCELValidation(t *testing.T) {
 			},
 		},
 		{
-			name: "none is set",
+			name: "all is unset and resourceSelector is nil",
 			current: map[string]interface{}{
-				"all": false,
+				"resourceSelector": nil,
+			},
+			wantErrs: []string{
+				"openAPIV3Schema.properties.spec.properties.permissionClaims.items: Invalid value: \"object\": either \"all\" or \"resourceSelector\" must be set",
+			},
+		},
+		{
+			name: "all is unset and resourceSelector is empty",
+			current: map[string]interface{}{
+				"resourceSelector": []interface{}{},
+			},
+			wantErrs: []string{
+				"openAPIV3Schema.properties.spec.properties.permissionClaims.items: Invalid value: \"object\": either \"all\" or \"resourceSelector\" must be set",
+			},
+		},
+		{
+			name: "resourceSelector is set",
+			current: map[string]interface{}{
+				"resourceSelector": []interface{}{
+					map[string]interface{}{"namespace": "foo"},
+				},
+			},
+		},
+		{
+			name: "all is false and resourceSelector is nil",
+			current: map[string]interface{}{
+				"all":              false,
+				"resourceSelector": nil,
+			},
+			wantErrs: []string{
+				"openAPIV3Schema.properties.spec.properties.permissionClaims.items: Invalid value: \"object\": either \"all\" or \"resourceSelector\" must be set",
+			},
+		},
+		{
+			name: "empty resource selector",
+			current: map[string]interface{}{
+				"all":              false,
+				"resourceSelector": []interface{}{},
 			},
 			wantErrs: []string{
 				"openAPIV3Schema.properties.spec.properties.permissionClaims.items: Invalid value: \"object\": either \"all\" or \"resourceSelector\" must be set",
@@ -72,6 +121,71 @@ func TestAPIExportPermissionClaimCELValidation(t *testing.T) {
 
 	for _, tc := range testCases {
 		pth := "openAPIV3Schema.properties.spec.properties.permissionClaims.items"
+		validator, found := validators["v1alpha1"][pth]
+		require.True(t, found, "failed to find validator for %s", pth)
+
+		t.Run(tc.name, func(t *testing.T) {
+			errs := validator(tc.current, tc.old)
+			t.Log(errs)
+
+			if got := len(errs); got != len(tc.wantErrs) {
+				t.Errorf("expected errors %v, got %v", len(tc.wantErrs), len(errs))
+				return
+			}
+
+			for i := range tc.wantErrs {
+				got := errs[i].Error()
+				if got != tc.wantErrs[i] {
+					t.Errorf("want error %q, got %q", tc.wantErrs[i], got)
+				}
+			}
+		})
+	}
+}
+
+func TestResourceSelectorCELValidation(t *testing.T) {
+	testCases := []struct {
+		name         string
+		current, old map[string]interface{}
+		wantErrs     []string
+	}{
+		{
+			name: "none is set",
+			current: map[string]interface{}{
+				"name":      nil,
+				"namespace": nil,
+			},
+			wantErrs: []string{
+				"openAPIV3Schema.properties.spec.properties.permissionClaims.items.properties.resourceSelector.items: Invalid value: \"object\": at least one field must be set",
+			},
+		},
+		{
+			name: "namespace is set",
+			current: map[string]interface{}{
+				"name":      nil,
+				"namespace": "foo",
+			},
+		},
+		{
+			name: "name is set",
+			current: map[string]interface{}{
+				"name":      "foo",
+				"namespace": nil,
+			},
+		},
+		{
+			name: "both name and namespace are set",
+			current: map[string]interface{}{
+				"name":      "foo",
+				"namespace": "bar",
+			},
+		},
+	}
+
+	validators := apitest.ValidatorsFromFile(t, "../../../../config/crds/apis.kcp.dev_apiexports.yaml")
+
+	for _, tc := range testCases {
+		pth := "openAPIV3Schema.properties.spec.properties.permissionClaims.items.properties.resourceSelector.items"
 		validator, found := validators["v1alpha1"][pth]
 		require.True(t, found, "failed to find validator for %s", pth)
 
