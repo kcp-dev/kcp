@@ -40,6 +40,10 @@ const (
 	// We need a separate group (not system:masters) for this because system-owned workspaces (e.g. root:users) need
 	// a workspace owner annotation set, and the owner annotation is skipped/not set for system:masters.
 	SystemKcpWorkspaceBootstrapper = "system:kcp:tenancy:workspace-bootstrapper"
+	// SystemLogicalClusterAdmin is a group used by the scheduler to create ThisWorkspaces resources.
+	// This group allows it to skip the entire authorization stack except the bootstrap policy authorizer.
+	// Otherwise, access to a top level org or a parent workspace would be required.
+	SystemLogicalClusterAdmin = "system:kcp:logical-cluster-admin"
 )
 
 // ClusterRoleBindings return default rolebindings to the default roles
@@ -48,6 +52,7 @@ func clusterRoleBindings() []rbacv1.ClusterRoleBinding {
 		clusterRoleBindingCustomName(rbacv1helpers.NewClusterBinding("cluster-admin").Groups(SystemKcpClusterWorkspaceAdminGroup, SystemKcpAdminGroup).BindingOrDie(), SystemKcpClusterWorkspaceAdminGroup),
 		clusterRoleBindingCustomName(rbacv1helpers.NewClusterBinding("system:kcp:tenancy:reader").Groups(SystemKcpClusterWorkspaceAccessGroup).BindingOrDie(), SystemKcpClusterWorkspaceAccessGroup),
 		clusterRoleBindingCustomName(rbacv1helpers.NewClusterBinding(SystemKcpWorkspaceBootstrapper).Groups(SystemKcpWorkspaceBootstrapper, "apis.kcp.dev:binding:system:kcp:tenancy:workspace-bootstrapper").BindingOrDie(), SystemKcpWorkspaceBootstrapper),
+		clusterRoleBindingCustomName(rbacv1helpers.NewClusterBinding(SystemLogicalClusterAdmin).Groups(SystemLogicalClusterAdmin).BindingOrDie(), SystemLogicalClusterAdmin),
 	}
 }
 
@@ -65,6 +70,12 @@ func clusterRoles() []rbacv1.ClusterRole {
 			Rules: []rbacv1.PolicyRule{
 				rbacv1helpers.NewRule("*").Groups("*").Resources("*").RuleOrDie(),
 				rbacv1helpers.NewRule("*").URLs("*").RuleOrDie(),
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: SystemLogicalClusterAdmin},
+			Rules: []rbacv1.PolicyRule{
+				rbacv1helpers.NewRule("create, update").Groups(tenancy.GroupName).Resources("thisworkspaces").RuleOrDie(),
 			},
 		},
 	}
