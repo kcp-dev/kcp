@@ -35,6 +35,7 @@ import (
 	configcrds "github.com/kcp-dev/kcp/config/crds"
 	confighelpers "github.com/kcp-dev/kcp/config/helpers"
 	"github.com/kcp-dev/kcp/pkg/apis/apis"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 )
 
 //go:embed *.yaml
@@ -54,6 +55,7 @@ func Bootstrap(ctx context.Context, crdClient apiextensionsclient.Interface, dis
 		{Group: apis.GroupName, Resource: "apiexports"},
 		{Group: apis.GroupName, Resource: "apibindings"},
 		{Group: apis.GroupName, Resource: "apiresourceschemas"},
+		{Group: tenancy.GroupName, Resource: "thisworkspaces"},
 	}
 
 	if err := wait.PollImmediateInfiniteWithContext(ctx, time.Second, func(ctx context.Context) (bool, error) {
