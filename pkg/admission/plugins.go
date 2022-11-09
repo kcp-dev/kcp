@@ -58,6 +58,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/admission/reservedcrdgroups"
 	"github.com/kcp-dev/kcp/pkg/admission/reservedmetadata"
 	"github.com/kcp-dev/kcp/pkg/admission/reservednames"
+	"github.com/kcp-dev/kcp/pkg/admission/thisworkspace"
 	kcpvalidatingwebhook "github.com/kcp-dev/kcp/pkg/admission/validatingwebhook"
 )
 
@@ -70,6 +71,7 @@ var AllOrderedPlugins = beforeWebhooks(kubeapiserveroptions.AllOrderedPlugins,
 	clusterworkspaceshard.PluginName,
 	clusterworkspacetype.PluginName,
 	clusterworkspacetypeexists.PluginName,
+	thisworkspace.PluginName,
 	apiexport.PluginName,
 	apibinding.PluginName,
 	apibindingfinalizer.PluginName,
@@ -105,6 +107,7 @@ func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 	clusterworkspaceshard.Register(plugins)
 	clusterworkspacetype.Register(plugins)
 	clusterworkspacetypeexists.Register(plugins)
+	thisworkspace.Register(plugins)
 	apiresourceschema.Register(plugins)
 	apiexport.Register(plugins)
 	apibinding.Register(plugins)
@@ -135,6 +138,7 @@ var defaultOnPluginsInKcp = sets.NewString(
 	clusterworkspaceshard.PluginName,
 	clusterworkspacetype.PluginName,
 	clusterworkspacetypeexists.PluginName,
+	thisworkspace.PluginName,
 	apiresourceschema.PluginName,
 	apiexport.PluginName,
 	apibinding.PluginName,
