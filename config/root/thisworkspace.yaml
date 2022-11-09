@@ -1,0 +1,8 @@
+apiVersion: tenancy.kcp.dev/v1alpha1
+kind: ThisWorkspace
+metadata:
+  name: this
+spec:
+  type: root
+status:
+  phase: Ready
