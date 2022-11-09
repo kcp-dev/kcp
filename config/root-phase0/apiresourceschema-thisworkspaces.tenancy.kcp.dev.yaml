@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v221109-bf9a1240.thisworkspaces.tenancy.kcp.dev
+  name: v221109-0bad79f0.thisworkspaces.tenancy.kcp.dev
 spec:
   group: tenancy.kcp.dev
   names:
@@ -19,9 +19,20 @@ spec:
       jsonPath: .status.phase
       name: Phase
       type: string
+    - description: Type of the workspace
+      jsonPath: .spec.type.name
+      name: Type
+      type: string
+    - description: URL to access the workspace
+      jsonPath: .status.URL
+      name: URL
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
     name: v1alpha1
     schema:
-      description: ThisWorkspace
+      description: ThisWorkspace describes the current workspace.
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -34,8 +45,14 @@ spec:
             submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
           type: string
         metadata:
+          properties:
+            name:
+              enum:
+              - this
+              type: string
           type: object
         spec:
+          default: {}
           type: object
         status:
           description: ThisWorkspaceStatus communicates the observed state of the
