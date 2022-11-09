@@ -260,8 +260,15 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	informerConfig := rest.CopyConfig(c.identityConfig)
+	informerConfig.UserAgent = "kcp-informers"
+	informerKcpClient, err := kcpclient.NewClusterForConfig(informerConfig)
+	if err != nil {
+		return nil, err
+	}
 	c.KcpSharedInformerFactory = kcpinformers.NewSharedInformerFactoryWithOptions(
-		c.KcpClusterClient.Cluster(logicalcluster.Wildcard),
+		informerKcpClient.Cluster(logicalcluster.Wildcard),
 		resyncPeriod,
 		kcpinformers.WithExtraClusterScopedIndexers(indexers.ClusterScoped()),
 		kcpinformers.WithExtraNamespaceScopedIndexers(indexers.NamespaceScoped()),
