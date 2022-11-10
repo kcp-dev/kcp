@@ -34,15 +34,20 @@ import (
 
 	"k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
 	"github.com/kcp-dev/kcp/pkg/projection"
 )
@@ -50,7 +55,7 @@ import (
 const (
 	resyncPeriod = 10 * time.Hour
 
-	byGroupFirstFoundVersionResourceIndex = "byGroup-firstFoundVersion-resource"
+	byGroupVersionResourceIndex = "byGroupVersionResource"
 )
 
 // DynamicDiscoverySharedInformerFactory is a SharedInformerFactory that
@@ -74,7 +79,8 @@ type DynamicDiscoverySharedInformerFactory struct {
 	informers        map[schema.GroupVersionResource]kcpkubernetesinformers.GenericClusterInformer
 	startedInformers map[schema.GroupVersionResource]bool
 	informerStops    map[schema.GroupVersionResource]chan struct{}
-	discoveryData    []*metav1.APIResourceList
+	discoveryData    discoveryData
+	restMapper       restMapper
 
 	// Support subscribers (e.g. quota) that want to know when informers/discovery have changed.
 	subscribersLock sync.Mutex
@@ -114,38 +120,15 @@ func NewDynamicDiscoverySharedInformerFactory(
 		subscribers: make(map[string]chan<- struct{}),
 	}
 
+	f.restMapper = newRESTMapper(func() (meta.RESTMapper, error) {
+		return restmapper.NewDiscoveryRESTMapper(f.discoveryData.apiGroupResources), nil
+	})
+
 	f.handlers.Store([]GVREventHandler{})
 
-	// Add an index function that indexes a CRD by its group/firstServedVersion/resource. We only need the first
-	// served version because this shared informer factory is expected to be using a wildcard client for partial
-	// metadata only. In this instance, version does not matter, because a wildcard partial metadata list request
-	// for CRs always serves all CRs for the group-resource, regardless of storage version.
+	// Add an index function that indexes a CRD by its group/version/resource.
 	if err := crdInformer.Informer().AddIndexers(cache.Indexers{
-		byGroupFirstFoundVersionResourceIndex: func(obj interface{}) ([]string, error) {
-			crd, ok := obj.(*apiextensionsv1.CustomResourceDefinition)
-			if !ok {
-				return nil, fmt.Errorf("%T is not a CustomResourceDefinition", obj)
-			}
-
-			firstServedVersion := ""
-			for _, version := range crd.Spec.Versions {
-				if !version.Served {
-					continue
-				}
-				firstServedVersion = version.Name
-				break
-			}
-
-			if firstServedVersion == "" {
-				return []string{}, nil
-			}
-
-			group := crd.Spec.Group
-			resource := crd.Spec.Names.Plural
-
-			indexValue := fmt.Sprintf("%s/%s/%s", group, firstServedVersion, resource)
-			return []string{indexValue}, nil
-		},
+		byGroupVersionResourceIndex: byGroupVersionResourceIndexFunc,
 	}); err != nil {
 		return nil, err
 	}
@@ -190,6 +173,28 @@ func NewDynamicDiscoverySharedInformerFactory(
 	})
 
 	return f, nil
+}
+
+func byGroupVersionResourceKeyFunc(group, version, resource string) string {
+	return fmt.Sprintf("%s/%s/%s", group, version, resource)
+}
+
+func byGroupVersionResourceIndexFunc(obj interface{}) ([]string, error) {
+	crd, ok := obj.(*apiextensionsv1.CustomResourceDefinition)
+	if !ok {
+		return nil, fmt.Errorf("%T is not a CustomResourceDefinition", obj)
+	}
+
+	var ret []string
+
+	for _, v := range crd.Spec.Versions {
+		if !v.Served {
+			continue
+		}
+		ret = append(ret, byGroupVersionResourceKeyFunc(crd.Spec.Group, v.Name, crd.Spec.Names.Plural))
+	}
+
+	return ret, nil
 }
 
 func (d *DynamicDiscoverySharedInformerFactory) Cluster(cluster logicalcluster.Name) kcpkubernetesinformers.ScopedDynamicSharedInformerFactory {
@@ -410,29 +415,42 @@ func gvrFor(group, version, resource string) schema.GroupVersionResource {
 	}
 }
 
-func builtInInformableTypes() map[schema.GroupVersionResource]struct{} {
-	// Hard-code built in types that support list+watch
-	latest := map[schema.GroupVersionResource]struct{}{
-		gvrFor("", "v1", "configmaps"):                                                  {},
-		gvrFor("", "v1", "events"):                                                      {},
-		gvrFor("", "v1", "limitranges"):                                                 {},
-		gvrFor("", "v1", "namespaces"):                                                  {},
-		gvrFor("", "v1", "resourcequotas"):                                              {},
-		gvrFor("", "v1", "secrets"):                                                     {},
-		gvrFor("", "v1", "serviceaccounts"):                                             {},
-		gvrFor("certificates.k8s.io", "v1", "certificatesigningrequests"):               {},
-		gvrFor("coordination.k8s.io", "v1", "leases"):                                   {},
-		gvrFor("rbac.authorization.k8s.io", "v1", "clusterroles"):                       {},
-		gvrFor("rbac.authorization.k8s.io", "v1", "clusterrolebindings"):                {},
-		gvrFor("rbac.authorization.k8s.io", "v1", "roles"):                              {},
-		gvrFor("rbac.authorization.k8s.io", "v1", "rolebindings"):                       {},
-		gvrFor("events.k8s.io", "v1", "events"):                                         {},
-		gvrFor("admissionregistration.k8s.io", "v1", "mutatingwebhookconfigurations"):   {},
-		gvrFor("admissionregistration.k8s.io", "v1", "validatingwebhookconfigurations"): {},
-		gvrFor("apiextensions.k8s.io", "v1", "customresourcedefinitions"):               {},
+func withGVRPartialMetadata(scope apiextensionsv1.ResourceScope, kind, singular string) gvrPartialMetadata {
+	return gvrPartialMetadata{
+		Scope: scope,
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Kind:     kind,
+			Singular: singular,
+		},
 	}
+}
 
-	return latest
+type gvrPartialMetadata struct {
+	Names apiextensionsv1.CustomResourceDefinitionNames
+	Scope apiextensionsv1.ResourceScope
+}
+
+func builtInInformableTypes() map[schema.GroupVersionResource]gvrPartialMetadata {
+	// Hard-code built in types that support list+watch
+	return map[schema.GroupVersionResource]gvrPartialMetadata{
+		gvrFor("", "v1", "configmaps"):                                                  withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "ConfigMap", "configmap"),
+		gvrFor("", "v1", "events"):                                                      withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "Event", "event"),
+		gvrFor("", "v1", "limitranges"):                                                 withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "LimitRange", "limitrange"),
+		gvrFor("", "v1", "namespaces"):                                                  withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "Namespace", "namespace"),
+		gvrFor("", "v1", "resourcequotas"):                                              withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "ResourceQuota", "resourcequota"),
+		gvrFor("", "v1", "secrets"):                                                     withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "Secret", "secret"),
+		gvrFor("", "v1", "serviceaccounts"):                                             withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "ServiceAccount", "serviceaccount"),
+		gvrFor("certificates.k8s.io", "v1", "certificatesigningrequests"):               withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "CertificateSigningRequest", "certificatesigningrequest"),
+		gvrFor("coordination.k8s.io", "v1", "leases"):                                   withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "Lease", "lease"),
+		gvrFor("rbac.authorization.k8s.io", "v1", "clusterroles"):                       withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "ClusterRole", "clusterrole"),
+		gvrFor("rbac.authorization.k8s.io", "v1", "clusterrolebindings"):                withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "ClusterRoleBinding", "clusterrolebinding"),
+		gvrFor("rbac.authorization.k8s.io", "v1", "roles"):                              withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "Role", "role"),
+		gvrFor("rbac.authorization.k8s.io", "v1", "rolebindings"):                       withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "RoleBinding", "rolebinding"),
+		gvrFor("events.k8s.io", "v1", "events"):                                         withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "Event", "event"),
+		gvrFor("admissionregistration.k8s.io", "v1", "mutatingwebhookconfigurations"):   withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "MutatingWebhookConfiguration", "mutatingwebhookconfiguration"),
+		gvrFor("admissionregistration.k8s.io", "v1", "validatingwebhookconfigurations"): withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "ValidatingWebhookConfiguration", "validatingwebhookconfiguration"),
+		gvrFor("apiextensions.k8s.io", "v1", "customresourcedefinitions"):               withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "CustomResourceDefinition", "customresourcedefinition"),
+	}
 }
 
 func (d *DynamicDiscoverySharedInformerFactory) updateInformers() {
@@ -442,7 +460,7 @@ func (d *DynamicDiscoverySharedInformerFactory) updateInformers() {
 
 	// Get the unique set of Group(Version)Resources (version doesn't matter because we're expecting a wildcard
 	// partial metadata client, but we need a version in the request, so we need it here) and add them to latest.
-	crdGVRs := d.crdIndexer.ListIndexFuncValues(byGroupFirstFoundVersionResourceIndex)
+	crdGVRs := d.crdIndexer.ListIndexFuncValues(byGroupVersionResourceIndex)
 	for _, s := range crdGVRs {
 		parts := strings.Split(s, "/")
 		group := parts[0]
@@ -458,7 +476,24 @@ func (d *DynamicDiscoverySharedInformerFactory) updateInformers() {
 			continue
 		}
 
-		latest[gvr] = struct{}{}
+		obj, err := indexers.ByIndex[*apiextensionsv1.CustomResourceDefinition](d.crdIndexer, byGroupVersionResourceIndex, byGroupVersionResourceKeyFunc(gvr.Group, gvr.Version, gvr.Resource))
+		if err != nil {
+			utilruntime.HandleError(err)
+			continue
+		}
+		if len(obj) == 0 {
+			utilruntime.HandleError(fmt.Errorf("unable to retrieve CRD for GVR: %s", gvr))
+			continue
+		}
+		// We assume CRDs partial metadata for the same GVR are constant
+		crd := obj[0]
+		latest[gvr] = gvrPartialMetadata{
+			Scope: crd.Spec.Scope,
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
+				Kind:     crd.Spec.Names.Kind,
+				Singular: crd.Spec.Names.Singular,
+			},
+		}
 	}
 
 	// Grab a read lock to compare against d.informers to see if we need to start or stop any informers
@@ -517,6 +552,9 @@ func (d *DynamicDiscoverySharedInformerFactory) updateInformers() {
 	}
 
 	d.discoveryData = gvrsToDiscoveryData(latest)
+	d.restMapper = newRESTMapper(func() (meta.RESTMapper, error) {
+		return restmapper.NewDiscoveryRESTMapper(d.discoveryData.apiGroupResources), nil
+	})
 
 	d.subscribersLock.Lock()
 	defer d.subscribersLock.Unlock()
@@ -530,56 +568,79 @@ func (d *DynamicDiscoverySharedInformerFactory) updateInformers() {
 			klog.V(4).InfoS("Unable to notify discovery subscriber - channel full", "id", id)
 		}
 	}
-
 }
 
-// gvrsToDiscoveryData returns "fake"/simulated discovery data for all the resources covered by the factory. It only
-// includes enough data in each APIResource to support what kcp currently needs (scheduling, placement, quota).
-func gvrsToDiscoveryData(gvrs map[schema.GroupVersionResource]struct{}) []*metav1.APIResourceList {
-	var discoveryData []*metav1.APIResourceList
-	gvResources := make(map[schema.GroupVersion][]metav1.APIResource)
+// gvrsToDiscoveryData returns discovery data for all the resources covered by the factory. It only
+// includes enough data in each APIResource to support what kcp currently needs (scheduling, placement, quota, GC).
+func gvrsToDiscoveryData(gvrs map[schema.GroupVersionResource]gvrPartialMetadata) discoveryData {
+	ret := discoveryData{
+		apiGroupResources: make([]*restmapper.APIGroupResources, 0),
+		apiResourceList:   make([]*metav1.APIResourceList, 0),
+	}
 
-	for gvr := range gvrs {
-		gv := gvr.GroupVersion()
+	gvResources := make(map[string]map[string][]metav1.APIResource)
 
-		gvResources[gv] = append(gvResources[gv], metav1.APIResource{
-			Name:    gvr.Resource,
-			Group:   gvr.Group,
-			Version: gvr.Version,
+	for gvr, metadata := range gvrs {
+		apiResource := metav1.APIResource{
+			Name:         gvr.Resource,
+			Group:        gvr.Group,
+			Version:      gvr.Version,
+			Kind:         metadata.Names.Kind,
+			SingularName: metadata.Names.Singular,
+			Namespaced:   metadata.Scope == apiextensionsv1.NamespaceScoped,
 			// Everything we're informing on supports these
 			Verbs: []string{"create", "list", "watch", "delete"},
+		}
+		if gvResources[gvr.Group] == nil {
+			gvResources[gvr.Group] = make(map[string][]metav1.APIResource)
+		}
+		gvResources[gvr.Group][gvr.Version] = append(gvResources[gvr.Group][gvr.Version], apiResource)
+	}
+
+	for group, resources := range gvResources {
+		var versions []metav1.GroupVersionForDiscovery
+		versionedResources := make(map[string][]metav1.APIResource)
+
+		for version, apiResource := range resources {
+			versions = append(versions, metav1.GroupVersionForDiscovery{GroupVersion: group, Version: version})
+
+			sort.Slice(apiResource, func(i, j int) bool {
+				return apiResource[i].Name < apiResource[j].Name
+			})
+
+			versionedResources[version] = apiResource
+
+			apiResourceList := &metav1.APIResourceList{
+				GroupVersion: metav1.GroupVersion{Group: group, Version: version}.String(),
+				APIResources: apiResource,
+			}
+
+			ret.apiResourceList = append(ret.apiResourceList, apiResourceList)
+		}
+		apiGroup := metav1.APIGroup{
+			Name:     group,
+			Versions: versions,
+			// We may want to fill the PreferredVersion based on the storage version,
+			// though it's not currently required by the kcp controllers that rely on
+			// the discovery data provided by the dynamic shared informer factory, e.g.,
+			// the quota and garbage collector controllers.
+		}
+
+		ret.apiGroupResources = append(ret.apiGroupResources, &restmapper.APIGroupResources{
+			Group:              apiGroup,
+			VersionedResources: versionedResources,
 		})
 	}
 
-	for gv, resources := range gvResources {
-		sort.Slice(resources, func(i, j int) bool {
-			return resources[i].Name < resources[j].Name
-		})
-
-		discoveryData = append(discoveryData, &metav1.APIResourceList{
-			GroupVersion: gv.String(),
-			APIResources: resources,
-		})
-	}
-
-	sort.Slice(discoveryData, func(i, j int) bool {
-		return discoveryData[i].GroupVersion < discoveryData[j].GroupVersion
+	sort.Slice(ret.apiGroupResources, func(i, j int) bool {
+		return ret.apiGroupResources[i].Group.Name < ret.apiGroupResources[j].Group.Name
 	})
 
-	return discoveryData
-}
+	sort.Slice(ret.apiResourceList, func(i, j int) bool {
+		return ret.apiResourceList[i].GroupVersion < ret.apiResourceList[j].GroupVersion
+	})
 
-// DiscoveryData implements resourcequota.NamespacedResourcesFunc and is intended to be used by the quota subsystem.
-func (d *DynamicDiscoverySharedInformerFactory) DiscoveryData() ([]*metav1.APIResourceList, error) {
-	d.informersLock.RLock()
-	defer d.informersLock.RUnlock()
-
-	ret := make([]*metav1.APIResourceList, len(d.discoveryData))
-	for i, apiResourceList := range d.discoveryData {
-		ret[i] = apiResourceList.DeepCopy()
-	}
-
-	return ret, nil
+	return ret
 }
 
 // Start starts any informers that have been created but not yet started. The passed in stop channel is ignored;
@@ -602,7 +663,7 @@ func (d *DynamicDiscoverySharedInformerFactory) Start(_ <-chan struct{}) {
 	}
 }
 
-func (d *DynamicDiscoverySharedInformerFactory) calculateInformersLockHeld(latest map[schema.GroupVersionResource]struct{}) (toAdd, toRemove []schema.GroupVersionResource) {
+func (d *DynamicDiscoverySharedInformerFactory) calculateInformersLockHeld(latest map[schema.GroupVersionResource]gvrPartialMetadata) (toAdd, toRemove []schema.GroupVersionResource) {
 	for gvr := range latest {
 		if _, found := d.informers[gvr]; !found {
 			toAdd = append(toAdd, gvr)
@@ -643,3 +704,97 @@ func (d *DynamicDiscoverySharedInformerFactory) Unsubscribe(id string) {
 
 	delete(d.subscribers, id)
 }
+
+type discoveryData struct {
+	apiGroupResources []*restmapper.APIGroupResources
+	apiResourceList   []*metav1.APIResourceList
+}
+
+var _ discovery.ServerResourcesInterface = &DynamicDiscoverySharedInformerFactory{}
+
+func (d *DynamicDiscoverySharedInformerFactory) ServerResourcesForGroupVersion(groupVersion string) (*metav1.APIResourceList, error) {
+	d.informersLock.RLock()
+	defer d.informersLock.RUnlock()
+
+	for _, apiResourceList := range d.discoveryData.apiResourceList {
+		if apiResourceList.GroupVersion == groupVersion {
+			return apiResourceList.DeepCopy(), nil
+		}
+	}
+
+	// ignore 403 or 404 error to be compatible with a v1.0 server.
+	if groupVersion == "v1" {
+		return &metav1.APIResourceList{GroupVersion: groupVersion}, nil
+	}
+
+	return nil, errors.NewNotFound(schema.GroupResource{Group: groupVersion}, "")
+}
+
+func (d *DynamicDiscoverySharedInformerFactory) ServerGroupsAndResources() ([]*metav1.APIGroup, []*metav1.APIResourceList, error) {
+	d.informersLock.RLock()
+	defer d.informersLock.RUnlock()
+
+	retGroups := make([]*metav1.APIGroup, len(d.discoveryData.apiGroupResources))
+	for i, apiGroupResources := range d.discoveryData.apiGroupResources {
+		retGroups[i] = apiGroupResources.Group.DeepCopy()
+	}
+
+	retResourceList := make([]*metav1.APIResourceList, len(d.discoveryData.apiResourceList))
+	for i, apiResourceList := range d.discoveryData.apiResourceList {
+		retResourceList[i] = apiResourceList.DeepCopy()
+	}
+
+	return retGroups, retResourceList, nil
+}
+
+func (d *DynamicDiscoverySharedInformerFactory) ServerPreferredResources() ([]*metav1.APIResourceList, error) {
+	d.informersLock.RLock()
+	defer d.informersLock.RUnlock()
+
+	ret := make([]*metav1.APIResourceList, len(d.discoveryData.apiResourceList))
+	for i, apiResourceList := range d.discoveryData.apiResourceList {
+		ret[i] = apiResourceList.DeepCopy()
+	}
+
+	return ret, nil
+}
+
+func (d *DynamicDiscoverySharedInformerFactory) ServerPreferredNamespacedResources() ([]*metav1.APIResourceList, error) {
+	d.informersLock.RLock()
+	defer d.informersLock.RUnlock()
+
+	ret := make([]*metav1.APIResourceList, len(d.discoveryData.apiResourceList))
+	for i, apiResourceList := range d.discoveryData.apiResourceList {
+		namespacedResources := &metav1.APIResourceList{GroupVersion: apiResourceList.GroupVersion}
+		for _, resource := range apiResourceList.APIResources {
+			if resource.Namespaced {
+				namespacedResources.APIResources = append(namespacedResources.APIResources, resource)
+			}
+		}
+		ret[i] = namespacedResources
+	}
+
+	return ret, nil
+}
+
+func (d *DynamicDiscoverySharedInformerFactory) RESTMapper() meta.ResettableRESTMapper {
+	return &d.restMapper
+}
+
+func newRESTMapper(fn func() (meta.RESTMapper, error)) restMapper {
+	return restMapper{
+		meta.NewLazyRESTMapperLoader(fn),
+	}
+}
+
+type restMapper struct {
+	meta.RESTMapper
+}
+
+func (r *restMapper) Reset() {
+	// NOOP: this is called by the Kubernetes garbage collector controller, that assumes discovery
+	// is refreshed periodically. As this shared informer factory pushes events whenever discovery
+	// changes, there is no need to reset the REST mapper during the periodic re-sync of the GC monitors.
+}
+
+var _ meta.ResettableRESTMapper = &restMapper{}

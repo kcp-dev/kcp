@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package kubequota
+package garbagecollector
 
 import (
 	"context"
@@ -23,49 +23,40 @@ import (
 	"time"
 
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
-	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
-	kcpcorev1informers "github.com/kcp-dev/client-go/informers/core/v1"
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+	kcpmetadata "github.com/kcp-dev/client-go/metadata"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/apiserver/pkg/quota/v1/generic"
+	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/component-base/metrics/prometheus/ratelimiter"
 	"k8s.io/klog/v2"
-	"k8s.io/kubernetes/pkg/controller"
-	"k8s.io/kubernetes/pkg/controller/resourcequota"
-	"k8s.io/kubernetes/pkg/quota/v1/install"
+	"k8s.io/kubernetes/pkg/controller/garbagecollector"
 
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/projection"
 )
 
 const (
-	ControllerName = "kcp-kube-quota"
+	ControllerName = "kcp-garbage-collector"
 )
 
-type scopeableInformerFactory interface {
-	Cluster(logicalcluster.Name) kcpkubernetesinformers.ScopedDynamicSharedInformerFactory
-}
-
-// Controller manages per-workspace resource quota controllers.
+// Controller manages per-workspace garbage collector controllers.
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
 	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory
-	kubeClusterClient                     kcpkubernetesclientset.ClusterInterface
+	kubeClusterClient                     kubernetesclient.ClusterInterface
+	metadataClient                        kcpmetadata.ClusterInterface
+	clusterWorkspaceLister                v1alpha1.ClusterWorkspaceLister
 	informersStarted                      <-chan struct{}
-
-	// quotaRecalculationPeriod controls how often a full quota recalculation is performed
-	quotaRecalculationPeriod time.Duration
-	// fullResyncPeriod controls how often the dynamic informers do a full resync
-	fullResyncPeriod time.Duration
 
 	workersPerLogicalCluster int
 
@@ -73,21 +64,15 @@ type Controller struct {
 	lock        sync.RWMutex
 	cancelFuncs map[logicalcluster.Name]func()
 
-	resourceQuotaClusterInformer        kcpcorev1informers.ResourceQuotaClusterInformer
-	scopingGenericSharedInformerFactory scopeableInformerFactory
-
-	// For better testability
-	getClusterWorkspace func(key string) (*tenancyv1alpha1.ClusterWorkspace, error)
+	ignoredResources map[schema.GroupResource]struct{}
 }
 
 // NewController creates a new Controller.
 func NewController(
-	clusterWorkspacesInformer tenancyinformers.ClusterWorkspaceInformer,
-	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
-	kubeInformerFactory kcpkubernetesinformers.SharedInformerFactory,
+	clusterWorkspaceInformer tenancyinformers.ClusterWorkspaceInformer,
+	kubeClusterClient kubernetesclient.ClusterInterface,
+	metadataClient kcpmetadata.ClusterInterface,
 	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory,
-	quotaRecalculationPeriod time.Duration,
-	fullResyncPeriod time.Duration,
 	workersPerLogicalCluster int,
 	informersStarted <-chan struct{},
 ) (*Controller, error) {
@@ -96,24 +81,18 @@ func NewController(
 
 		dynamicDiscoverySharedInformerFactory: dynamicDiscoverySharedInformerFactory,
 		kubeClusterClient:                     kubeClusterClient,
+		metadataClient:                        metadataClient,
+		clusterWorkspaceLister:                clusterWorkspaceInformer.Lister(),
 		informersStarted:                      informersStarted,
-
-		quotaRecalculationPeriod: quotaRecalculationPeriod,
-		fullResyncPeriod:         fullResyncPeriod,
 
 		workersPerLogicalCluster: workersPerLogicalCluster,
 
 		cancelFuncs: map[logicalcluster.Name]func(){},
 
-		scopingGenericSharedInformerFactory: dynamicDiscoverySharedInformerFactory,
-		resourceQuotaClusterInformer:        kubeInformerFactory.Core().V1().ResourceQuotas(),
-
-		getClusterWorkspace: func(key string) (*tenancyv1alpha1.ClusterWorkspace, error) {
-			return clusterWorkspacesInformer.Lister().Get(key)
-		},
+		ignoredResources: defaultIgnoredResources(),
 	}
 
-	clusterWorkspacesInformer.Informer().AddEventHandler(
+	clusterWorkspaceInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: c.enqueue,
 			UpdateFunc: func(oldObj, newObj interface{}) {
@@ -124,6 +103,19 @@ func NewController(
 	)
 
 	return c, nil
+}
+
+func defaultIgnoredResources() (ret map[schema.GroupResource]struct{}) {
+	ret = make(map[schema.GroupResource]struct{})
+	// Add default ignored resources
+	for gr := range garbagecollector.DefaultIgnoredResources() {
+		ret[gr] = struct{}{}
+	}
+	// Add projected API resources
+	for gvr := range projection.ProjectedAPIs() {
+		ret[gvr.GroupResource()] = struct{}{}
+	}
+	return ret
 }
 
 // enqueue adds the key for a ClusterWorkspace to the queue.
@@ -203,10 +195,10 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	clusterName := parent.Join(name)
 	logger = logger.WithValues("logicalCluster", clusterName.String())
 
-	ws, err := c.getClusterWorkspace(key)
+	ws, err := c.clusterWorkspaceLister.Get(key)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
-			logger.V(2).Info("ClusterWorkspace not found - stopping quota controller for it (if needed)")
+			logger.V(2).Info("ClusterWorkspace not found - stopping garbage collector controller for it (if needed)")
 
 			c.lock.Lock()
 			cancel, ok := c.cancelFuncs[clusterName]
@@ -216,7 +208,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 			}
 			c.lock.Unlock()
 
-			c.dynamicDiscoverySharedInformerFactory.Unsubscribe("quota-" + clusterName.String())
+			c.dynamicDiscoverySharedInformerFactory.Unsubscribe("gc-" + clusterName.String())
 
 			return nil
 		}
@@ -230,73 +222,63 @@ func (c *Controller) process(ctx context.Context, key string) error {
 
 	_, found := c.cancelFuncs[clusterName]
 	if found {
-		logger.V(4).Info("quota controller already exists")
+		logger.V(4).Info("garbage collector controller already exists")
 		return nil
 	}
 
-	logger.V(2).Info("starting quota controller")
+	logger.V(2).Info("starting garbage collector controller")
 
 	ctx, cancel := context.WithCancel(ctx)
 	ctx = klog.NewContext(ctx, logger)
 	c.cancelFuncs[clusterName] = cancel
 
-	if err := c.startQuotaForClusterWorkspace(ctx, clusterName); err != nil {
+	if err := c.startGarbageCollectorForClusterWorkspace(ctx, clusterName); err != nil {
 		cancel()
-		return fmt.Errorf("error starting quota controller for cluster %q: %w", clusterName, err)
+		return fmt.Errorf("error starting garbage collector controller for cluster %q: %w", clusterName, err)
 	}
 
 	return nil
 }
 
-func (c *Controller) startQuotaForClusterWorkspace(ctx context.Context, clusterName logicalcluster.Name) error {
+func (c *Controller) startGarbageCollectorForClusterWorkspace(ctx context.Context, clusterName logicalcluster.Name) error {
 	logger := klog.FromContext(ctx)
-	resourceQuotaControllerClient := c.kubeClusterClient.Cluster(clusterName)
 
-	// TODO(ncdc): find a way to support the default configuration. For now, don't use it, because it is difficult
-	// to get support for the special evaluators for pods/services/pvcs.
-	// listerFuncForResource := generic.ListerFuncForResourceFunc(scopedInformerFactory.ForResource)
-	// quotaConfiguration := install.NewQuotaConfigurationForControllers(listerFuncForResource)
-	quotaConfiguration := generic.NewConfiguration(nil, install.DefaultIgnoredResources())
+	kubeClient := c.kubeClusterClient.Cluster(clusterName)
 
-	resourceQuotaControllerOptions := &resourcequota.ControllerOptions{
-		QuotaClient:           resourceQuotaControllerClient.CoreV1(),
-		ResourceQuotaInformer: c.resourceQuotaClusterInformer.Cluster(clusterName),
-		ResyncPeriod:          controller.StaticResyncPeriodFunc(c.quotaRecalculationPeriod),
-		InformerFactory:       c.scopingGenericSharedInformerFactory.Cluster(clusterName),
-		ReplenishmentResyncPeriod: func() time.Duration {
-			return c.fullResyncPeriod
-		},
-		DiscoveryFunc:        c.dynamicDiscoverySharedInformerFactory.ServerPreferredResources,
-		IgnoredResourcesFunc: quotaConfiguration.IgnoredResources,
-		InformersStarted:     c.informersStarted,
-		Registry:             generic.NewRegistry(quotaConfiguration.Evaluators()),
-		ClusterName:          clusterName,
+	garbageCollector, err := garbagecollector.NewClusterAwareGarbageCollector(
+		kubeClient,
+		c.metadataClient.Cluster(clusterName),
+		c.dynamicDiscoverySharedInformerFactory.RESTMapper(),
+		c.ignoredResources,
+		c.dynamicDiscoverySharedInformerFactory.Cluster(clusterName),
+		c.informersStarted,
+		clusterName,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create the garbage collector: %w", err)
 	}
-	if resourceQuotaControllerClient.CoreV1().RESTClient().GetRateLimiter() != nil {
-		if err := ratelimiter.RegisterMetricAndTrackRateLimiterUsage(clusterName.String()+"-resource_quota_controller", resourceQuotaControllerClient.CoreV1().RESTClient().GetRateLimiter()); err != nil {
+
+	if kubeClient.CoreV1().RESTClient().GetRateLimiter() != nil {
+		if err := ratelimiter.RegisterMetricAndTrackRateLimiterUsage(clusterName.String()+"-garbage_collector_controller", kubeClient.CoreV1().RESTClient().GetRateLimiter()); err != nil {
 			return err
 		}
 	}
 
-	resourceQuotaController, err := resourcequota.NewController(resourceQuotaControllerOptions)
-	if err != nil {
-		return err
-	}
-
 	// Here we diverge from what upstream does. Upstream starts a goroutine that retrieves discovery every 30 seconds,
 	// starting/stopping dynamic informers as needed based on the updated discovery data. We know that kcp contains
-	// the combination of built-in types plus CRDs. We use that information to drive what quota evaluates.
+	// the combination of built-in types plus CRDs. We use that information to drive what garbage collector evaluates.
+	// TODO: support scoped shared dynamic discovery to avoid emitting global discovery events.
 
-	quotaController := quotaController{
+	garbageCollectorController := garbageCollectorController{
 		clusterName: clusterName,
 		queue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "quota-"+clusterName.String()),
 		work: func(ctx context.Context) {
-			resourceQuotaController.UpdateMonitors(ctx, c.dynamicDiscoverySharedInformerFactory.ServerPreferredResources)
+			garbageCollector.ResyncMonitors(ctx, c.dynamicDiscoverySharedInformerFactory)
 		},
 	}
-	go quotaController.Start(ctx)
+	go garbageCollectorController.Start(ctx)
 
-	apisChanged := c.dynamicDiscoverySharedInformerFactory.Subscribe("quota-" + clusterName.String())
+	apisChanged := c.dynamicDiscoverySharedInformerFactory.Subscribe("gc-" + clusterName.String())
 
 	go func() {
 		for {
@@ -305,20 +287,20 @@ func (c *Controller) startQuotaForClusterWorkspace(ctx context.Context, clusterN
 				return
 			case <-apisChanged:
 				logger.V(4).Info("got API change notification")
-				quotaController.queue.Add("resync") // this queue only ever has one key in it, as long as it's constant we are OK
+				garbageCollectorController.queue.Add("resync") // this queue only ever has one key in it, as long as it's constant we are OK
 			}
 		}
 	}()
 
-	// Make sure the monitors are synced at least once
-	resourceQuotaController.UpdateMonitors(ctx, c.dynamicDiscoverySharedInformerFactory.ServerPreferredResources)
+	// Make sure the GC monitors are synced at least once
+	garbageCollector.ResyncMonitors(ctx, c.dynamicDiscoverySharedInformerFactory)
 
-	go resourceQuotaController.Run(ctx, c.workersPerLogicalCluster)
+	go garbageCollector.Run(ctx, c.workersPerLogicalCluster)
 
 	return nil
 }
 
-type quotaController struct {
+type garbageCollectorController struct {
 	clusterName    logicalcluster.Name
 	queue          workqueue.RateLimitingInterface
 	work           func(context.Context)
@@ -326,7 +308,7 @@ type quotaController struct {
 }
 
 // Start starts the controller, which stops when ctx.Done() is closed.
-func (c *quotaController) Start(ctx context.Context) {
+func (c *garbageCollectorController) Start(ctx context.Context) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
@@ -342,12 +324,12 @@ func (c *quotaController) Start(ctx context.Context) {
 	}
 }
 
-func (c *quotaController) startWorker(ctx context.Context) {
+func (c *garbageCollectorController) startWorker(ctx context.Context) {
 	for c.processNextWorkItem(ctx) {
 	}
 }
 
-func (c *quotaController) processNextWorkItem(ctx context.Context) bool {
+func (c *garbageCollectorController) processNextWorkItem(ctx context.Context) bool {
 	key, quit := c.queue.Get()
 	if quit {
 		return false

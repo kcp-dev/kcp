@@ -408,7 +408,7 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	if s.Options.Controllers.EnableAll || enabled.Has("cluster") {
-		// bootstrap root compute worspace
+		// bootstrap root compute workspace
 		computeBoostraphookName := "rootComputeBoostrap"
 		if err := s.AddPostStartHook(computeBoostraphookName, func(hookContext genericapiserver.PostStartHookContext) error {
 			logger := logger.WithValues("postStartHook", computeBoostraphookName)
@@ -506,6 +506,12 @@ func (s *Server) Run(ctx context.Context) error {
 
 	if s.Options.Controllers.EnableAll || enabled.Has("quota") {
 		if err := s.installKubeQuotaController(ctx, controllerConfig, delegationChainHead); err != nil {
+			return err
+		}
+	}
+
+	if s.Options.Controllers.EnableAll || enabled.Has("garbagecollector") {
+		if err := s.installGarbageCollectorController(ctx, controllerConfig, delegationChainHead); err != nil {
 			return err
 		}
 	}
