@@ -47,22 +47,6 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 	workspaceClusterName := logicalcluster.From(workspace)
 	switch workspace.Status.Phase {
 	case tenancyv1alpha1.ClusterWorkspacePhaseScheduling:
-		// possibly de-schedule while still in scheduling phase
-		if current := workspace.Status.Location.Current; current != "" {
-			// make sure current shard still exists
-			if shard, err := r.getShard(current); apierrors.IsNotFound(err) {
-				logger.Info("de-scheduling workspace from nonexistent shard", "ClusterWorkspaceShard", current)
-				workspace.Status.Location.Current = ""
-				workspace.Status.BaseURL = ""
-			} else if err != nil {
-				return reconcileStatusStopAndRequeue, err
-			} else if valid, _, _ := isValidShard(shard); !valid {
-				logger.Info("de-scheduling workspace from invalid shard", "ClusterWorkspaceShard", current)
-				workspace.Status.Location.Current = ""
-				workspace.Status.BaseURL = ""
-			}
-		}
-
 		if workspace.Status.Location.Current == "" {
 			selector := labels.Everything()
 			var shards []*tenancyv1alpha1.ClusterWorkspaceShard
