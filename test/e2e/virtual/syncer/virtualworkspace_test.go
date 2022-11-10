@@ -1526,7 +1526,7 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 							"state.workload.kcp.dev/" + syncTargetKey: "Upsync",
 						},
 						Annotations: map[string]string{
-							"diff.upsync.workload.kcp.dev/" + syncTargetKey: "[{\"op\":\"replace\",\"path\":\"/spec/capacity/storage\",\"value\":\"2Gi\"}]",
+							"internal.workload.kcp.dev/upsyncdiff" + syncTargetKey: "[{\"op\":\"replace\",\"path\":\"/spec/capacity/storage\",\"value\":\"2Gi\"}]",
 						},
 					},
 					Spec: corev1.PersistentVolumeSpec{
