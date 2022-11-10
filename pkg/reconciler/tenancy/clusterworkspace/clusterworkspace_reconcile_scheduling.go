@@ -38,8 +38,9 @@ import (
 )
 
 type schedulingReconciler struct {
-	getShard   func(name string) (*tenancyv1alpha1.ClusterWorkspaceShard, error)
-	listShards func(selector labels.Selector) ([]*tenancyv1alpha1.ClusterWorkspaceShard, error)
+	getShard                  func(name string) (*tenancyv1alpha1.ClusterWorkspaceShard, error)
+	listShards                func(selector labels.Selector) ([]*tenancyv1alpha1.ClusterWorkspaceShard, error)
+	logicalClusterAdminConfig *restclient.Config
 }
 
 func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancyv1alpha1.ClusterWorkspace) (reconcileStatus, error) {

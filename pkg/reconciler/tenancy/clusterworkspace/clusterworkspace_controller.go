@@ -34,6 +34,7 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
@@ -54,6 +55,7 @@ const (
 
 func NewController(
 	kcpClusterClient kcpclientset.ClusterInterface,
+	logicalClusterAdminConfig *rest.Config,
 	workspaceInformer tenancyv1alpha1informers.ClusterWorkspaceClusterInformer,
 	clusterWorkspaceShardInformer tenancyv1alpha1informers.ClusterWorkspaceShardClusterInformer,
 	apiBindingsInformer apisv1alpha1informers.APIBindingClusterInformer,
@@ -62,6 +64,7 @@ func NewController(
 
 	c := &Controller{
 		queue:                        queue,
+		logicalClusterAdminConfig:    logicalClusterAdminConfig,
 		kcpClusterClient:             kcpClusterClient,
 		workspaceIndexer:             workspaceInformer.Informer().GetIndexer(),
 		workspaceLister:              workspaceInformer.Lister(),
@@ -103,7 +106,10 @@ func NewController(
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
+	logicalClusterAdminConfig *rest.Config
+
 	kcpClusterClient kcpclientset.ClusterInterface
+
 	workspaceIndexer cache.Indexer
 	workspaceLister  tenancyv1alpha1listers.ClusterWorkspaceClusterLister
 
