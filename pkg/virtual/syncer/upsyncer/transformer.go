@@ -19,6 +19,8 @@ package upsyncer
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
 
@@ -48,6 +50,20 @@ func (rt *UpsyncerResourceTransformer) BeforeWrite(client dynamic.ResourceInterf
 	if diffPatch == "" {
 		return syncerViewResource, nil
 	}
+
+	// TODO(jmprusi): hacky way to validate the patch, we should rethink this. Also we should allow some
+	// modifications to annotations and labels, but not *all* labels.
+	lowerPatch := strings.ToLower(diffPatch)
+	if strings.Contains(lowerPatch, "/metadata") || strings.Contains(lowerPatch, "/apiversion") || strings.Contains(lowerPatch, "/kind") {
+		return nil, fmt.Errorf("metadata, apiversion or kind cannot be modified by a transformation")
+	}
+
+	// TODO(jmprusi): Surface those errors to the user.
+	patch, err := jsonpatch.DecodePatch([]byte(diffPatch))
+	if err != nil {
+		return nil, err
+	}
+
 	upstreamResource := syncerViewResource.DeepCopy()
 	if err != nil {
 		return nil, err
@@ -57,11 +73,6 @@ func (rt *UpsyncerResourceTransformer) BeforeWrite(client dynamic.ResourceInterf
 		return nil, err
 	}
 
-	// TODO(jmprusi): Surface those errors to the user.
-	patch, err := jsonpatch.DecodePatch([]byte(diffPatch))
-	if err != nil {
-		return nil, err
-	}
 	// Apply the patch to the copy of the upstream resource.
 	patchedUpstreamResourceJSON, err := patch.Apply(upstreamResourceJSON)
 	if err != nil {
