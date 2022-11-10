@@ -238,7 +238,7 @@ spec:
                 type: string
               virtualWorkspaces:
                 description: virtualWorkspaces contains all APIExport virtual workspace
-                  URLs.
+                  URLs. This field will get deprecated in favor of APIExportEndpointSlice.
                 items:
                   properties:
                     url:

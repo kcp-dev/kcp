@@ -41,6 +41,8 @@ import (
 	faketenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/tenancy/v1alpha1/fake"
 	kcptenancyv1beta1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/tenancy/v1beta1"
 	faketenancyv1beta1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/tenancy/v1beta1/fake"
+	kcptopologyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/topology/v1alpha1"
+	faketopologyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/topology/v1alpha1/fake"
 	kcpworkloadv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/workload/v1alpha1"
 	fakeworkloadv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/workload/v1alpha1/fake"
 	clientscheme "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/scheme"
@@ -49,6 +51,7 @@ import (
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/scheduling/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1beta1"
+	topologyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/topology/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/workload/v1alpha1"
 )
 
@@ -111,6 +114,11 @@ func (c *ClusterClientset) TenancyV1beta1() kcptenancyv1beta1.TenancyV1beta1Clus
 	return &faketenancyv1beta1.TenancyV1beta1ClusterClient{Fake: c.Fake}
 }
 
+// TopologyV1alpha1 retrieves the TopologyV1alpha1ClusterClient.
+func (c *ClusterClientset) TopologyV1alpha1() kcptopologyv1alpha1.TopologyV1alpha1ClusterInterface {
+	return &faketopologyv1alpha1.TopologyV1alpha1ClusterClient{Fake: c.Fake}
+}
+
 // WorkloadV1alpha1 retrieves the WorkloadV1alpha1ClusterClient.
 func (c *ClusterClientset) WorkloadV1alpha1() kcpworkloadv1alpha1.WorkloadV1alpha1ClusterInterface {
 	return &fakeworkloadv1alpha1.WorkloadV1alpha1ClusterClient{Fake: c.Fake}
@@ -171,6 +179,11 @@ func (c *Clientset) TenancyV1alpha1() tenancyv1alpha1.TenancyV1alpha1Interface {
 // TenancyV1beta1 retrieves the TenancyV1beta1Client.
 func (c *Clientset) TenancyV1beta1() tenancyv1beta1.TenancyV1beta1Interface {
 	return &faketenancyv1beta1.TenancyV1beta1Client{Fake: c.Fake, Cluster: c.cluster}
+}
+
+// TopologyV1alpha1 retrieves the TopologyV1alpha1Client.
+func (c *Clientset) TopologyV1alpha1() topologyv1alpha1.TopologyV1alpha1Interface {
+	return &faketopologyv1alpha1.TopologyV1alpha1Client{Fake: c.Fake, Cluster: c.cluster}
 }
 
 // WorkloadV1alpha1 retrieves the WorkloadV1alpha1Client.

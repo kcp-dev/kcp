@@ -282,6 +282,8 @@ type APIExportStatus struct {
 	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 
 	// virtualWorkspaces contains all APIExport virtual workspace URLs.
+	// This field will get deprecated in favor of APIExportEndpointSlice.
+	//
 	// +optional
 	VirtualWorkspaces []VirtualWorkspace `json:"virtualWorkspaces,omitempty"`
 }

@@ -35,6 +35,7 @@ import (
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
+	topologyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/topology/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
 
@@ -101,6 +102,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Apis().V1alpha1().APIBindings().Informer()}, nil
 	case apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"):
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Apis().V1alpha1().APIExports().Informer()}, nil
+	case apisv1alpha1.SchemeGroupVersion.WithResource("apiexportendpointslices"):
+		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Apis().V1alpha1().APIExportEndpointSlices().Informer()}, nil
 	case apisv1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas"):
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Apis().V1alpha1().APIResourceSchemas().Informer()}, nil
 	// Group=scheduling.kcp.dev, Version=V1alpha1
@@ -118,6 +121,11 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 	// Group=tenancy.kcp.dev, Version=V1beta1
 	case tenancyv1beta1.SchemeGroupVersion.WithResource("workspaces"):
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Tenancy().V1beta1().Workspaces().Informer()}, nil
+	// Group=topology.kcp.dev, Version=V1alpha1
+	case topologyv1alpha1.SchemeGroupVersion.WithResource("partitions"):
+		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Topology().V1alpha1().Partitions().Informer()}, nil
+	case topologyv1alpha1.SchemeGroupVersion.WithResource("partitionsets"):
+		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Topology().V1alpha1().PartitionSets().Informer()}, nil
 	// Group=workload.kcp.dev, Version=V1alpha1
 	case workloadv1alpha1.SchemeGroupVersion.WithResource("synctargets"):
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Workload().V1alpha1().SyncTargets().Informer()}, nil
@@ -144,6 +152,9 @@ func (f *sharedScopedInformerFactory) ForResource(resource schema.GroupVersionRe
 	case apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"):
 		informer := f.Apis().V1alpha1().APIExports().Informer()
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
+	case apisv1alpha1.SchemeGroupVersion.WithResource("apiexportendpointslices"):
+		informer := f.Apis().V1alpha1().APIExportEndpointSlices().Informer()
+		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
 	case apisv1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas"):
 		informer := f.Apis().V1alpha1().APIResourceSchemas().Informer()
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
@@ -167,6 +178,13 @@ func (f *sharedScopedInformerFactory) ForResource(resource schema.GroupVersionRe
 	// Group=tenancy.kcp.dev, Version=V1beta1
 	case tenancyv1beta1.SchemeGroupVersion.WithResource("workspaces"):
 		informer := f.Tenancy().V1beta1().Workspaces().Informer()
+		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
+	// Group=topology.kcp.dev, Version=V1alpha1
+	case topologyv1alpha1.SchemeGroupVersion.WithResource("partitions"):
+		informer := f.Topology().V1alpha1().Partitions().Informer()
+		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
+	case topologyv1alpha1.SchemeGroupVersion.WithResource("partitionsets"):
+		informer := f.Topology().V1alpha1().PartitionSets().Informer()
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
 	// Group=workload.kcp.dev, Version=V1alpha1
 	case workloadv1alpha1.SchemeGroupVersion.WithResource("synctargets"):

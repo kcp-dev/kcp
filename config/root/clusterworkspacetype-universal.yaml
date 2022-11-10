@@ -13,6 +13,8 @@ spec:
     exportName: workload.kcp.dev
   - path: root
     exportName: apiresource.kcp.dev
+  - path: root
+    exportName: topology.kcp.dev
   defaultChildren:
     types:
     - name: universal
