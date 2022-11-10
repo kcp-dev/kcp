@@ -351,12 +351,11 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		apiHandler = genericapiserver.DefaultBuildHandlerChainFromAuthz(apiHandler, genericConfig)
 
 		if opts.HomeWorkspaces.Enabled {
-			apiHandler = WithHomeWorkspaces(
+			apiHandler, err = WithHomeWorkspaces(
 				apiHandler,
 				genericConfig.Authorization.Authorizer,
 				c.KubeClusterClient,
 				c.KcpClusterClient,
-				c.BootstrapKcpClusterClient,
 				c.KubeSharedInformerFactory,
 				c.KcpSharedInformerFactory,
 				c.GenericConfig.ExternalAddress,
@@ -365,6 +364,9 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 				opts.HomeWorkspaces.BucketLevels,
 				opts.HomeWorkspaces.BucketSize,
 			)
+			if err != nil {
+				panic(err) // shouldn't happen due to flag validation
+			}
 		}
 
 		apiHandler = genericapiserver.DefaultBuildHandlerChainBeforeAuthz(apiHandler, genericConfig)

@@ -33,7 +33,7 @@ var fs embed.FS
 // Bootstrap creates resources in this package by continuously retrying the list.
 // This is blocking, i.e. it only returns (with error) when the context is closed or with nil when
 // the bootstrapping is successfully completed.
-func Bootstrap(ctx context.Context, rootDiscoveryClient discovery.DiscoveryInterface, rootDynamicClient dynamic.Interface, homePrefix string, homeWorkspaceCreatorGroups []string, batteriesIncluded sets.String) error {
+func Bootstrap(ctx context.Context, rootDiscoveryClient discovery.DiscoveryInterface, rootDynamicClient dynamic.Interface, homeWorkspaceCreatorGroups []string, batteriesIncluded sets.String) error {
 	homeWorkspaceCreatorGroupReplacement := ""
 	for _, group := range homeWorkspaceCreatorGroups {
 		homeWorkspaceCreatorGroupReplacement += `
@@ -47,6 +47,5 @@ func Bootstrap(ctx context.Context, rootDiscoveryClient discovery.DiscoveryInter
 
 	return confighelpers.Bootstrap(ctx, rootDiscoveryClient, rootDynamicClient, batteriesIncluded, fs, confighelpers.ReplaceOption(
 		"HOME_CREATOR_GROUPS", homeWorkspaceCreatorGroupReplacement,
-		"HOMEPREFIX", homePrefix,
 	))
 }
