@@ -95,6 +95,7 @@ spec:
                 type: object
             type: object
           status:
+            default: {}
             description: WorkspaceStatus communicates the observed state of the Workspace.
             properties:
               URL:
@@ -162,7 +163,12 @@ spec:
                   type: string
                 type: array
               phase:
+                default: Scheduling
                 description: Phase of the workspace (Scheduling, Initializing, Ready).
+                enum:
+                - Scheduling
+                - Initializing
+                - Ready
                 type: string
             type: object
         required:

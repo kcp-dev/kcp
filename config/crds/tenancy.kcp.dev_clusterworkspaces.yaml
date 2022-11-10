@@ -157,6 +157,7 @@ spec:
                 type: object
             type: object
           status:
+            default: {}
             description: ClusterWorkspaceStatus communicates the observed state of
               the ClusterWorkspace.
             properties:
@@ -238,8 +239,13 @@ spec:
                     type: string
                 type: object
               phase:
+                default: Scheduling
                 description: Phase of the workspace  (Scheduling / Initializing /
                   Ready)
+                enum:
+                - Scheduling
+                - Initializing
+                - Ready
                 type: string
             type: object
         type: object

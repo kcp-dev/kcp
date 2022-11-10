@@ -56,6 +56,12 @@ func (hw *HomeWorkspaces) AddFlags(fs *pflag.FlagSet) {
 	fs.IntVar(&hw.BucketLevels, "home-workspaces-bucket-size", hw.BucketSize, "Number of characters of bucket workspace names used when bucketing home workspaces")
 	fs.StringSliceVar(&hw.HomeCreatorGroups, "home-workspaces-home-creator-groups", hw.HomeCreatorGroups, "Groups of users who can have their home workspace created automatically create when first accessing it.")
 	fs.StringVar(&hw.HomeRootPrefix, "home-workspaces-root-prefix", hw.HomeRootPrefix, "Logical cluster name of the workspace that will contains home workspaces for all workspaces.")
+
+	fs.MarkDeprecated("home-workspaces-home-creator-groups", "This flag is deprecated and will be removed in a future release.")    //nolint:errcheck
+	fs.MarkDeprecated("home-workspaces-root-prefix", "This flag is deprecated and will be removed in a future release.")            //nolint:errcheck
+	fs.MarkDeprecated("home-workspaces-creation-delay-seconds", "This flag is deprecated and will be removed in a future release.") //nolint:errcheck
+	fs.MarkDeprecated("home-workspaces-bucket-levels", "This flag is deprecated and will be removed in a future release.")          //nolint:errcheck
+	fs.MarkDeprecated("home-workspaces-bucket-size", "This flag is deprecated and will be removed in a future release.")            //nolint:errcheck
 }
 
 func (e *HomeWorkspaces) Validate() []error {
