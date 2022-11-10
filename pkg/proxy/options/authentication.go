@@ -51,6 +51,7 @@ func NewAuthentication() *Authentication {
 	auth := &Authentication{
 		BuiltInOptions: kubeoptions.NewBuiltInAuthenticationOptions().
 			WithClientCert().
+			WithOIDC().
 			WithServiceAccounts().
 			WithTokenFile(),
 		// when adding new auth methods, also update AdditionalAuthEnabled below
@@ -62,7 +63,11 @@ func NewAuthentication() *Authentication {
 
 // When configured to enable auth other than ClientCert, this returns true
 func (c *Authentication) AdditionalAuthEnabled() bool {
-	return c.tokenAuthEnabled() || c.serviceAccountAuthEnabled()
+	return c.tokenAuthEnabled() || c.serviceAccountAuthEnabled() || c.oidcAuthEnabled()
+}
+
+func (c *Authentication) oidcAuthEnabled() bool {
+	return c.BuiltInOptions.OIDC != nil && c.BuiltInOptions.OIDC.IssuerURL != ""
 }
 
 func (c *Authentication) tokenAuthEnabled() bool {
