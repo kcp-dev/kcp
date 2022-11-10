@@ -54,6 +54,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/syncer/resourcesync"
 	"github.com/kcp-dev/kcp/pkg/syncer/spec"
 	"github.com/kcp-dev/kcp/pkg/syncer/status"
+	"github.com/kcp-dev/kcp/pkg/syncer/storage"
 	"github.com/kcp-dev/kcp/pkg/syncer/upsync"
 	. "github.com/kcp-dev/kcp/tmc/pkg/logging"
 )
@@ -237,9 +238,10 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		&filteredGVRSource{
 			GVRSource: syncTargetGVRSource,
 			keepGVR: func(gvr schema.GroupVersionResource) bool {
-				return gvr.Group == corev1.GroupName && (gvr.Resource == "persistentvolumes" ||
-					gvr.Resource == "pods" ||
-					gvr.Resource == "endpoints")
+				return gvr.Group == corev1.GroupName &&
+					(gvr.Resource == "persistentvolumes" ||
+						gvr.Resource == "pods" ||
+						gvr.Resource == "endpoints")
 			},
 		},
 		cache.Indexers{})
@@ -288,9 +290,6 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	logger.Info("Creating status syncer")
 	statusSyncer, err := status.NewStatusSyncer(logger, logicalcluster.From(syncTarget), cfg.SyncTargetName, syncTargetKey, advancedSchedulingEnabled,
 		upstreamSyncerClusterClient, downstreamDynamicClient, ddsifForUpstreamSyncer, ddsifForDownstream, syncTarget.GetUID())
-	if err != nil {
-		return err
-	}
 
 	logger.Info("Creating resource upsyncer")
 	upSyncer, err := upsync.NewUpSyncer(logger, logicalcluster.From(syncTarget), cfg.SyncTargetName, syncTargetKey, upstreamUpsyncerClusterClient, downstreamDynamicClient, ddsifForUpstreamUpsyncer, ddsifForDownstream, syncTarget.GetUID())
@@ -354,6 +353,24 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	)
 	go upstreamSyncerControllerManager.Start(ctx)
 
+	upstreamUpSyncerManagedControllers := map[string]controllermanager.ManagedController{}
+	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.SyncerStorage) {
+		upstreamUpSyncerManagedControllers[storage.PersistentVolumeControllerName] = controllermanager.ManagedController{
+			RequiredGVRs: []schema.GroupVersionResource{
+				corev1.SchemeGroupVersion.WithResource("persistentvolumes"),
+			},
+			Create: func(ctx context.Context) (controllermanager.StartControllerFunc, error) {
+				persistentVolumeController, err := storage.NewPersistentVolumeController(logger, logicalcluster.From(syncTarget), cfg.SyncTargetName, syncTargetKey,
+					downstreamKubeClient, ddsifForUpstreamUpsyncer, ddsifForDownstream, syncTarget.GetUID())
+				if err != nil {
+					return nil, err
+				}
+				return func(ctx context.Context) {
+					persistentVolumeController.Start(ctx, 2)
+				}, nil
+			},
+		}
+	}
 	upstreamUpsyncerControllerManager := controllermanager.NewControllerManager(ctx,
 		"upstream-upsyncer",
 		controllermanager.InformerSource{
@@ -367,10 +384,45 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 				return informers, notSynced
 			},
 		},
-		map[string]controllermanager.ManagedController{},
+		upstreamUpSyncerManagedControllers,
 	)
 	go upstreamUpsyncerControllerManager.Start(ctx)
 
+	downstreamSyncerManagedControllers := map[string]controllermanager.ManagedController{
+		endpoints.ControllerName: {
+			RequiredGVRs: []schema.GroupVersionResource{
+				corev1.SchemeGroupVersion.WithResource("services"),
+				corev1.SchemeGroupVersion.WithResource("endpoints"),
+			},
+			Create: func(ctx context.Context) (controllermanager.StartControllerFunc, error) {
+				endpointController, err := endpoints.NewEndpointController(downstreamDynamicClient, ddsifForDownstream)
+				if err != nil {
+					return nil, err
+				}
+				return func(ctx context.Context) {
+					endpointController.Start(ctx, 2)
+				}, nil
+			},
+		},
+	}
+	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.SyncerStorage) {
+		downstreamSyncerManagedControllers[storage.PersistentVolumeClaimControllerName] = controllermanager.ManagedController{
+			RequiredGVRs: []schema.GroupVersionResource{
+				corev1.SchemeGroupVersion.WithResource("persistentvolumeclaims"),
+				corev1.SchemeGroupVersion.WithResource("persistentvolumes"),
+			},
+			Create: func(ctx context.Context) (controllermanager.StartControllerFunc, error) {
+				persistentVolumeClaimController, err := storage.NewPersistentVolumeClaimController(logger, logicalcluster.From(syncTarget), cfg.SyncTargetName, syncTargetKey,
+					downstreamKubeClient, ddsifForUpstreamSyncer, ddsifForDownstream, syncTarget.GetUID())
+				if err != nil {
+					return nil, err
+				}
+				return func(ctx context.Context) {
+					persistentVolumeClaimController.Start(ctx, 2)
+				}, nil
+			},
+		}
+	}
 	downstreamSyncerControllerManager := controllermanager.NewControllerManager(ctx,
 		"downstream-syncer",
 		controllermanager.InformerSource{
@@ -384,23 +436,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 				return informers, notSynced
 			},
 		},
-		map[string]controllermanager.ManagedController{
-			endpoints.ControllerName: {
-				RequiredGVRs: []schema.GroupVersionResource{
-					corev1.SchemeGroupVersion.WithResource("services"),
-					corev1.SchemeGroupVersion.WithResource("endpoints"),
-				},
-				Create: func(ctx context.Context) (controllermanager.StartControllerFunc, error) {
-					endpointController, err := endpoints.NewEndpointController(downstreamDynamicClient, ddsifForDownstream)
-					if err != nil {
-						return nil, err
-					}
-					return func(ctx context.Context) {
-						endpointController.Start(ctx, 2)
-					}, nil
-				},
-			},
-		},
+		downstreamSyncerManagedControllers,
 	)
 	go downstreamSyncerControllerManager.Start(ctx)
 

@@ -137,7 +137,7 @@ func NewStatusSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalclus
 				if newUnstrob.GetLabels()[workloadv1alpha1.ClusterResourceStateLabelPrefix+syncTargetKey] == string(workloadv1alpha1.ResourceStateUpsync) {
 					return
 				}
-				if !deepEqualFinalizersAndStatus(oldUnstrob, newUnstrob) {
+				if !notDeepEqualFinalizersAndStatusOrDelayStatusSyncingAnnotationChanged(oldUnstrob, newUnstrob) {
 					c.AddToQueue(gvr, newUnstrob, logger)
 				}
 			},

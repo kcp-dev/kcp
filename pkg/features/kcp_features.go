@@ -48,6 +48,12 @@ const (
 	//
 	// Enable reverse tunnels to the downstream clusters through the syncers.
 	SyncerTunnel featuregate.Feature = "KCPSyncerTunnel"
+
+	// owner: @leseb
+	// alpha: v0.11
+	//
+	// Enable PersistentVolume and PersistentVolumeClaim storage controllers in the Syncer.
+	SyncerStorage featuregate.Feature = "KCPSyncerStorage"
 )
 
 // DefaultFeatureGate exposes the upstream feature gate, but with our gate setting applied.
@@ -96,8 +102,9 @@ func (f *kcpFeatureGate) Type() string {
 // in the generic control plane code. To add a new feature, define a key for it above and add it
 // here. The features will be available throughout Kubernetes binaries.
 var defaultGenericControlPlaneFeatureGates = map[featuregate.Feature]featuregate.FeatureSpec{
-	LocationAPI:  {Default: true, PreRelease: featuregate.Alpha},
-	SyncerTunnel: {Default: false, PreRelease: featuregate.Alpha},
+	LocationAPI:   {Default: true, PreRelease: featuregate.Alpha},
+	SyncerTunnel:  {Default: false, PreRelease: featuregate.Alpha},
+	SyncerStorage: {Default: false, PreRelease: featuregate.Alpha},
 
 	// inherited features from generic apiserver, relisted here to get a conflict if it is changed
 	// unintentionally on either side:

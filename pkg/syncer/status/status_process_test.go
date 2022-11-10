@@ -48,6 +48,7 @@ import (
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	ddsif "github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/syncer/indexers"
+	"github.com/kcp-dev/kcp/pkg/syncer/storage"
 )
 
 var scheme *runtime.Scheme
@@ -811,4 +812,87 @@ func updateDeploymentAction(namespace string, object runtime.Object, subresource
 		ActionImpl: deploymentAction("update", namespace, subresources...),
 		Object:     object,
 	}
+}
+
+func Test_hasDelayStatusSyncingAnnotation(t *testing.T) {
+	type args struct {
+		unstrob *unstructured.Unstructured
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{"no annotation", args{unstrob: &unstructured.Unstructured{}}, false},
+		{"annotation but incorrect content", args{unstrob: &unstructured.Unstructured{Object: map[string]interface{}{"metadata": map[string]interface{}{"annotations": map[string]interface{}{storage.DelayStatusSyncing: "foo"}}}}}, false},
+		{"annotation", args{unstrob: &unstructured.Unstructured{Object: map[string]interface{}{"metadata": map[string]interface{}{"annotations": map[string]interface{}{storage.DelayStatusSyncing: "true"}}}}}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := hasDelayStatusSyncingAnnotation(tt.args.unstrob); got != tt.want {
+				t.Errorf("hasDelayStatusSyncingAnnotation() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_hasDelayStatusSyncingAnnotationChanged(t *testing.T) {
+	type args struct {
+		oldUnstrob *unstructured.Unstructured
+		newUnstrob *unstructured.Unstructured
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{"no annotation", args{oldUnstrob: &unstructured.Unstructured{}, newUnstrob: &unstructured.Unstructured{}}, false},
+		{"annotation but incorrect content", args{oldUnstrob: &unstructured.Unstructured{Object: map[string]interface{}{"metadata": map[string]interface{}{"annotations": map[string]interface{}{storage.DelayStatusSyncing: "foo"}}}}, newUnstrob: &unstructured.Unstructured{Object: map[string]interface{}{"metadata": map[string]interface{}{"annotations": map[string]interface{}{storage.DelayStatusSyncing: "foo"}}}}}, false},
+		{"annotation is still there and hasn't changed", args{oldUnstrob: &unstructured.Unstructured{Object: map[string]interface{}{"metadata": map[string]interface{}{"annotations": map[string]interface{}{storage.DelayStatusSyncing: "true"}}}}, newUnstrob: &unstructured.Unstructured{Object: map[string]interface{}{"metadata": map[string]interface{}{"annotations": map[string]interface{}{storage.DelayStatusSyncing: "true"}}}}}, true},
+		{"annotation was removed", args{oldUnstrob: &unstructured.Unstructured{Object: map[string]interface{}{"metadata": map[string]interface{}{"annotations": map[string]interface{}{storage.DelayStatusSyncing: "true"}}}}, newUnstrob: &unstructured.Unstructured{Object: map[string]interface{}{"metadata": map[string]interface{}{"annotations": map[string]interface{}{"foo": "true"}}}}}, false},
+		{"annotation was added", args{oldUnstrob: &unstructured.Unstructured{Object: map[string]interface{}{"metadata": map[string]interface{}{"annotations": map[string]interface{}{"foo": "true"}}}}, newUnstrob: &unstructured.Unstructured{Object: map[string]interface{}{"metadata": map[string]interface{}{"annotations": map[string]interface{}{storage.DelayStatusSyncing: "true"}}}}}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := hasDelayStatusSyncingAnnotationChanged(tt.args.oldUnstrob, tt.args.newUnstrob); got != tt.want {
+				t.Errorf("hasDelayStatusSyncingAnnotationChanged() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// Both called functions have good unit tests already so this is only testing the OR case.
+func Test_notDeepEqualFinalizersAndStatusOrDelayStatusSyncingAnnotationChanged(t *testing.T) {
+	t.Run("deepEqualFinalizersAndStatusFunc is true / hasDelayStatusSyncingAnnotationChangedFunc istrue", func(t *testing.T) {
+		deepEqualFinalizersAndStatusFunc = func(oldObj, newObj *unstructured.Unstructured) bool { return true }
+		hasDelayStatusSyncingAnnotationChangedFunc = func(oldObj, newObj *unstructured.Unstructured) bool { return true }
+		want := true
+		if got := notDeepEqualFinalizersAndStatusOrDelayStatusSyncingAnnotationChanged(nil, nil); got != want {
+			t.Errorf("notDeepEqualFinalizersAndStatusOrDelayStatusSyncingAnnotationChanged() = %v, want %v", got, want)
+		}
+	})
+	t.Run("deepEqualFinalizersAndStatusFunc is false / hasDelayStatusSyncingAnnotationChangedFunc is false", func(t *testing.T) {
+		deepEqualFinalizersAndStatusFunc = func(oldObj, newObj *unstructured.Unstructured) bool { return true }
+		hasDelayStatusSyncingAnnotationChangedFunc = func(oldObj, newObj *unstructured.Unstructured) bool { return false }
+		want := false
+		if got := notDeepEqualFinalizersAndStatusOrDelayStatusSyncingAnnotationChanged(nil, nil); got != want {
+			t.Errorf("notDeepEqualFinalizersAndStatusOrDelayStatusSyncingAnnotationChanged() = %v, want %v", got, want)
+		}
+	})
+	t.Run("deepEqualFinalizersAndStatusFunc is false / hasDelayStatusSyncingAnnotationChangedFunc is true", func(t *testing.T) {
+		deepEqualFinalizersAndStatusFunc = func(oldObj, newObj *unstructured.Unstructured) bool { return false }
+		hasDelayStatusSyncingAnnotationChangedFunc = func(oldObj, newObj *unstructured.Unstructured) bool { return true }
+		want := true
+		if got := notDeepEqualFinalizersAndStatusOrDelayStatusSyncingAnnotationChanged(nil, nil); got != want {
+			t.Errorf("notDeepEqualFinalizersAndStatusOrDelayStatusSyncingAnnotationChanged() = %v, want %v", got, want)
+		}
+	})
+	t.Run("deepEqualFinalizersAndStatusFunc is true / hasDelayStatusSyncingAnnotationChangedFunc is true", func(t *testing.T) {
+		deepEqualFinalizersAndStatusFunc = func(oldObj, newObj *unstructured.Unstructured) bool { return true }
+		hasDelayStatusSyncingAnnotationChangedFunc = func(oldObj, newObj *unstructured.Unstructured) bool { return true }
+		want := true
+		if got := notDeepEqualFinalizersAndStatusOrDelayStatusSyncingAnnotationChanged(nil, nil); got != want {
+			t.Errorf("notDeepEqualFinalizersAndStatusOrDelayStatusSyncingAnnotationChanged() = %v, want %v", got, want)
+		}
+	})
 }

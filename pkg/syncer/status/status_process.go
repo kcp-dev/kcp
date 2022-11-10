@@ -38,8 +38,12 @@ import (
 	workloadcliplugin "github.com/kcp-dev/kcp/pkg/cliplugins/workload/plugin"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
+	"github.com/kcp-dev/kcp/pkg/syncer/storage"
 	. "github.com/kcp-dev/kcp/tmc/pkg/logging"
 )
+
+var deepEqualFinalizersAndStatusFunc = deepEqualFinalizersAndStatus
+var hasDelayStatusSyncingAnnotationChangedFunc = hasDelayStatusSyncingAnnotationChanged
 
 func deepEqualFinalizersAndStatus(oldUnstrob, newUnstrob *unstructured.Unstructured) bool {
 	newFinalizers := newUnstrob.GetFinalizers()
@@ -49,6 +53,31 @@ func deepEqualFinalizersAndStatus(oldUnstrob, newUnstrob *unstructured.Unstructu
 	oldStatus := oldUnstrob.UnstructuredContent()["status"]
 
 	return equality.Semantic.DeepEqual(oldFinalizers, newFinalizers) && equality.Semantic.DeepEqual(oldStatus, newStatus)
+}
+
+func hasDelayStatusSyncingAnnotationChanged(oldUnstrob, newUnstrob *unstructured.Unstructured) bool {
+	// If the annotation was added
+	if !hasDelayStatusSyncingAnnotation(oldUnstrob) && hasDelayStatusSyncingAnnotation(newUnstrob) {
+		return true
+	}
+
+	// Annotation was removed
+	if hasDelayStatusSyncingAnnotation(oldUnstrob) && !hasDelayStatusSyncingAnnotation(newUnstrob) {
+		return false
+	}
+
+	// Both object have the annotation, nothing changed
+	return hasDelayStatusSyncingAnnotation(oldUnstrob) && hasDelayStatusSyncingAnnotation(newUnstrob)
+}
+
+func notDeepEqualFinalizersAndStatusOrDelayStatusSyncingAnnotationChanged(oldUnstrob, newUnstrob *unstructured.Unstructured) bool {
+	return !deepEqualFinalizersAndStatusFunc(oldUnstrob, newUnstrob) || hasDelayStatusSyncingAnnotationChangedFunc(oldUnstrob, newUnstrob)
+}
+
+func hasDelayStatusSyncingAnnotation(unstrob *unstructured.Unstructured) bool {
+	annotations := unstrob.GetAnnotations()
+	delayStatusSyncing, ok := annotations[storage.DelayStatusSyncing]
+	return ok && delayStatusSyncing == "true"
 }
 
 func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResource, key string) error {

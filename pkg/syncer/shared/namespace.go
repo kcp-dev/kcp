@@ -38,7 +38,7 @@ const (
 type NamespaceLocator struct {
 	SyncTarget  SyncTargetLocator   `json:"syncTarget"`
 	ClusterName logicalcluster.Name `json:"cluster,omitempty"`
-	Namespace   string              `json:"namespace"`
+	Namespace   string              `json:"namespace,omitempty"`
 }
 
 type SyncTargetLocator struct {

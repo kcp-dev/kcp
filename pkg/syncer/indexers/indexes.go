@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	ByNamespaceLocatorIndexName = "syncer-spec-ByNamespaceLocator"
+	ByNamespaceLocatorIndexName = "syncer-ByNamespaceLocator"
 )
 
 // indexByNamespaceLocator is a cache.IndexFunc that indexes namespaces by the namespaceLocator annotation.

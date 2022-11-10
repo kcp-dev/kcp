@@ -44,7 +44,6 @@ import (
 	"k8s.io/kube-openapi/pkg/util/proto"
 	"k8s.io/kube-openapi/pkg/util/sets"
 	"k8s.io/kubernetes/pkg/api/genericcontrolplanescheme"
-	_ "k8s.io/kubernetes/pkg/genericcontrolplane/apis/install"
 )
 
 type schemaPuller struct {
