@@ -19,9 +19,6 @@ package clusterworkspace
 import (
 	"context"
 	"fmt"
-	"net/url"
-	"path"
-
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -34,7 +31,6 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
-	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 type schedulingReconciler struct {
@@ -120,17 +116,17 @@ func (r *schedulingReconciler) chooseShardAndMarkCondition(logger klog.Logger, w
 			selector, err = metav1.LabelSelectorAsSelector(workspace.Spec.Shard.Selector)
 			if err != nil {
 				conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonUnschedulable, conditionsv1alpha1.ConditionSeverityError, "spec.location.selector is invalid: %v", err)
-				return reconcileStatusContinue, nil // don't retry, cannot do anything useful
+				return "", nil // don't retry, cannot do anything useful
 			}
 		}
 		if shardName := workspace.Spec.Shard.Name; shardName != "" {
 			shard, err := r.getShard(workspace.Spec.Shard.Name)
 			if err != nil && !apierrors.IsNotFound(err) {
-				return reconcileStatusStopAndRequeue, err
+				return "", err
 			}
 			if apierrors.IsNotFound(err) {
 				conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonUnschedulable, conditionsv1alpha1.ConditionSeverityError, "shard %q specified in spec.location.name does not exist: %v", shardName, err)
-				return reconcileStatusContinue, nil // retry is automatic when new shards show up
+				return "", nil // retry is automatic when new shards show up
 			}
 			shards = []*tenancyv1alpha1.ClusterWorkspaceShard{shard}
 		}
@@ -140,7 +136,7 @@ func (r *schedulingReconciler) chooseShardAndMarkCondition(logger klog.Logger, w
 		var err error
 		shards, err = r.listShards(selector)
 		if err != nil {
-			return reconcileStatusStopAndRequeue, err
+			return "", err
 		}
 
 		// if no specific shard was required,
@@ -162,7 +158,7 @@ func (r *schedulingReconciler) chooseShardAndMarkCondition(logger klog.Logger, w
 				for _, shard := range shards {
 					names = append(names, shard.Name)
 				}
-				return reconcileStatusStopAndRequeue, fmt.Errorf("since no specific shard was requested we default to schedule onto the root shard, but the root shard wasn't found, found shards: %v", names)
+				return "", fmt.Errorf("since no specific shard was requested we default to schedule onto the root shard, but the root shard wasn't found, found shards: %v", names)
 			}
 		}
 	}
@@ -184,30 +180,17 @@ func (r *schedulingReconciler) chooseShardAndMarkCondition(logger klog.Logger, w
 		}
 	}
 
-	if len(validShards) > 0 {
-		targetShard := validShards[rand.Intn(len(validShards))]
-
-		u, err := url.Parse(targetShard.Spec.ExternalURL)
-		if err != nil {
-			// shouldn't happen since we just checked in isValidShard
-			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonReasonUnknown, conditionsv1alpha1.ConditionSeverityError, "Invalid connection information on target ClusterWorkspaceShard: %v.", err)
-			return reconcileStatusStopAndRequeue, err // requeue
-		}
-		u.Path = path.Join(u.Path, workspaceClusterName.Join(workspace.Name).Path())
-
-		workspace.Status.BaseURL = u.String()
-		workspace.Status.Location.Current = targetShard.Name
-
-		conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceScheduled)
-		logging.WithObject(logger, targetShard).Info("scheduled workspace to shard")
-	} else {
+	if len(validShards) == 0 {
 		conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonUnschedulable, conditionsv1alpha1.ConditionSeverityError, "No available shards to schedule the workspace.")
 		failures := make([]error, 0, len(invalidShards))
 		for name, x := range invalidShards {
 			failures = append(failures, fmt.Errorf("  %s: reason %q, message %q", name, x.reason, x.message))
 		}
 		logger.Error(utilerrors.NewAggregate(failures), "no valid shards found for workspace, skipping")
+		return "", nil // retry is automatic when new shards show up
 	}
+	targetShard := validShards[rand.Intn(len(validShards))]
+	return targetShard.Name, nil
 }
 
 func isValidShard(shard *tenancyv1alpha1.ClusterWorkspaceShard) (valid bool, reason, message string) {
