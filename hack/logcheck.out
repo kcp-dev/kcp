@@ -153,7 +153,7 @@
 /pkg/virtual/initializingworkspaces/builder/build.go:203:7: function "Errorf" should not be used, convert to contextual logging
 /pkg/virtual/initializingworkspaces/builder/build.go:400:4: function "Info" should not be used, convert to contextual logging
 /pkg/virtual/initializingworkspaces/builder/build.go:400:4: function "V" should not be used, convert to contextual logging
-/pkg/virtual/syncer/builder/build.go:222:7: function "Errorf" should not be used, convert to contextual logging
+/pkg/virtual/syncer/builder/template.go:239:5: function "Errorf" should not be used, convert to contextual logging
 /pkg/virtual/syncer/transformations/transformer.go:130:11: Additional arguments to WithValues should always be Key Value pairs. Please check if there is any key or value missing.
 /pkg/virtual/syncer/transformations/transformer.go:389:11: Additional arguments to WithValues should always be Key Value pairs. Please check if there is any key or value missing.
 /pkg/virtual/syncer/transformations/transformer.go:396:11: Key positional arguments are expected to be inlined constant strings. Please replace SyncTargetKey provided with string value.
