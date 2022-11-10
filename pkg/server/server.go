@@ -311,7 +311,6 @@ func (s *Server) Run(ctx context.Context) error {
 			if err := configroot.Bootstrap(goContext(hookContext),
 				s.BootstrapApiExtensionsClusterClient.Cluster(tenancyv1alpha1.RootCluster).Discovery(),
 				s.BootstrapDynamicClusterClient.Cluster(tenancyv1alpha1.RootCluster),
-				logicalcluster.New(s.Options.HomeWorkspaces.HomeRootPrefix).Base(),
 				s.Options.HomeWorkspaces.HomeCreatorGroups,
 				sets.NewString(s.Options.Extra.BatteriesIncluded...),
 			); err != nil {
