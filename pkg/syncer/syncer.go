@@ -245,7 +245,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	}
 
 	specSyncer, err := spec.NewSpecSyncer(logger, cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, upstreamURL, advancedSchedulingEnabled,
-		upstreamDynamicClusterClient, downstreamDynamicClient, upstreamInformers, downstreamInformers, syncerInformers, syncTarget.GetUID(), dnsIP)
+		upstreamDynamicClusterClient, downstreamDynamicClient, upstreamInformers, downstreamInformers, downstreamNamespaceController, syncerInformers, syncTarget.GetUID(), dnsIP)
 	if err != nil {
 		return err
 	}

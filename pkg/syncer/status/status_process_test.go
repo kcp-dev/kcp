@@ -747,9 +747,7 @@ func (f *fakeSyncerInformers) InformerForResource(gvr schema.GroupVersionResourc
 		DownstreamInformer: f.downStreamInformer,
 	}, true
 }
-func (f *fakeSyncerInformers) SyncableGVRs() (map[schema.GroupVersionResource]bool, error) {
-	gvrs := make(map[schema.GroupVersionResource]bool)
-	gvrs[schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}] = true
-	return gvrs, nil
+func (f *fakeSyncerInformers) SyncableGVRs() ([]schema.GroupVersionResource, error) {
+	return []schema.GroupVersionResource{{Group: "apps", Version: "v1", Resource: "deployments"}}, nil
 }
 func (f *fakeSyncerInformers) Start(ctx context.Context, numThreads int) {}

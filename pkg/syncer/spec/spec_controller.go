@@ -62,11 +62,11 @@ type Controller struct {
 
 	mutators mutatorGvrMap
 
-	upstreamClient       kcpdynamic.ClusterInterface
-	downstreamClient     dynamic.Interface
-	syncerInformers      resourcesync.SyncerInformerFactory
-	downstreamNSInformer informers.GenericInformer
-
+	upstreamClient            kcpdynamic.ClusterInterface
+	downstreamClient          dynamic.Interface
+	syncerInformers           resourcesync.SyncerInformerFactory
+	downstreamNSInformer      informers.GenericInformer
+	downstreamNSCleaner       shared.Cleaner
 	syncTargetName            string
 	syncTargetWorkspace       logicalcluster.Name
 	syncTargetUID             types.UID
@@ -75,14 +75,16 @@ type Controller struct {
 }
 
 func NewSpecSyncer(syncerLogger logr.Logger, syncTargetWorkspace logicalcluster.Name, syncTargetName, syncTargetKey string, upstreamURL *url.URL, advancedSchedulingEnabled bool,
-	upstreamClient kcpdynamic.ClusterInterface, downstreamClient dynamic.Interface, upstreamInformers kcpdynamicinformer.DynamicSharedInformerFactory, downstreamInformers dynamicinformer.DynamicSharedInformerFactory, syncerInformers resourcesync.SyncerInformerFactory, syncTargetUID types.UID,
-	dnsIP string) (*Controller, error) {
+	upstreamClient kcpdynamic.ClusterInterface, downstreamClient dynamic.Interface, upstreamInformers kcpdynamicinformer.DynamicSharedInformerFactory,
+	downstreamInformers dynamicinformer.DynamicSharedInformerFactory, downstreamNSCleaner shared.Cleaner,
+	syncerInformers resourcesync.SyncerInformerFactory, syncTargetUID types.UID, dnsIP string) (*Controller, error) {
 
 	c := Controller{
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
 
-		upstreamClient:   upstreamClient,
-		downstreamClient: downstreamClient,
+		upstreamClient:      upstreamClient,
+		downstreamClient:    downstreamClient,
+		downstreamNSCleaner: downstreamNSCleaner,
 
 		syncerInformers:           syncerInformers,
 		syncTargetName:            syncTargetName,
