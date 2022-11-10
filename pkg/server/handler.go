@@ -50,6 +50,7 @@ import (
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
+	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspace"
 )
 
 var (
@@ -126,13 +127,22 @@ func WithWorkspaceProjection(apiHandler http.Handler) http.HandlerFunc {
 			return
 		}
 
-		if strings.HasPrefix(req.URL.Path, toRedirectPath) {
-			newPath := path.Join("/services/workspaces", cluster.Name.String(), req.URL.Path)
-			logger = logger.WithValues("from", path.Join(cluster.Name.Path(), req.URL.Path), "to", newPath)
-			logger.V(4).Info("rewriting path")
-			req.URL.Path = newPath
+		if !strings.HasPrefix(req.URL.Path, toRedirectPath) {
+			apiHandler.ServeHTTP(w, req)
+			return
 		}
 
+		// This is here temporarily while we transition to a real workspace resource.
+		comps := strings.SplitN(req.UserAgent(), "/", 2)
+		if strings.HasSuffix(req.UserAgent(), clusterworkspace.ControllerName) || comps[0] == "kcp-informers" {
+			apiHandler.ServeHTTP(w, req)
+			return
+		}
+
+		newPath := path.Join("/services/workspaces", cluster.Name.String(), req.URL.Path)
+		logger = logger.WithValues("from", path.Join(cluster.Name.Path(), req.URL.Path), "to", newPath)
+		logger.V(4).Info("rewriting path")
+		req.URL.Path = newPath
 		apiHandler.ServeHTTP(w, req)
 	}
 }

@@ -374,13 +374,22 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 	if err != nil {
 		return err
 	}
+	kubeClusterClient, err := kcpclientset.NewForConfig(clusterWorkspaceConfig)
+	if err != nil {
+		return err
+	}
 
 	workspaceController, err := clusterworkspace.NewController(
 		kcpClusterClient,
+		kubeClusterClient,
 		logicalClusterAdminConfig,
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
+		s.KcpSharedInformerFactory.Tenancy().V1beta1().Workspaces(),
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
+		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ThisWorkspaces(),
+		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
+		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
 	)
 	if err != nil {
 		return err

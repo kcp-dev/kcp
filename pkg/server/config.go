@@ -259,8 +259,15 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		}
 		c.RootShardKcpClusterClient = c.KcpClusterClient
 	}
+
+	informerConfig := rest.CopyConfig(c.identityConfig)
+	informerConfig.UserAgent = "kcp-informers"
+	informerKcpClient, err := kcpclientset.NewForConfig(informerConfig)
+	if err != nil {
+		return nil, err
+	}
 	c.KcpSharedInformerFactory = kcpinformers.NewSharedInformerFactoryWithOptions(
-		c.KcpClusterClient,
+		informerKcpClient,
 		resyncPeriod,
 	)
 	c.DeepSARClient, err = kcpkubernetesclientset.NewForConfig(authorization.WithDeepSARConfig(rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)))
