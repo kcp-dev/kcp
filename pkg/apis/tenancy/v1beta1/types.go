@@ -82,6 +82,8 @@ type WorkspaceStatus struct {
 	URL string `json:"URL,omitempty"`
 
 	// Phase of the workspace (Scheduling, Initializing, Ready).
+	//
+	// +kubebuilder:default=Scheduling
 	Phase v1alpha1.ClusterWorkspacePhaseType `json:"phase,omitempty"`
 
 	// Current processing state of the ClusterWorkspace.

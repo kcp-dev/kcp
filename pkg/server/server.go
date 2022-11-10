@@ -333,7 +333,6 @@ func (s *Server) Run(ctx context.Context) error {
 					},
 					CurrentContext: "shard",
 				},
-				logicalcluster.New(s.Options.HomeWorkspaces.HomeRootPrefix).Base(),
 				s.Options.HomeWorkspaces.HomeCreatorGroups,
 				sets.NewString(s.Options.Extra.BatteriesIncluded...),
 			); err != nil {
