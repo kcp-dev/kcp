@@ -46,12 +46,14 @@ const (
 	// deletion of ThisWorkspace resources
 	thisWorkspaceFinalizer = "tenancy.kcp.dev/thisworkspace"
 
-	// clusterWorkspaceShardAnnotationKey keeps track on which shard ThisWorkspace must be scheduled
-	clusterWorkspaceShardAnnotationKey = "tenancy.kcp.dev/shard"
+	// clusterWorkspaceShardAnnotationKey keeps track on which shard ThisWorkspace must be scheduled. The value
+	// is a base36(sha224) hash of the ClusterWorkspaceShard name.
+	clusterWorkspaceShardAnnotationKey = "internal.tenancy.kcp.dev/shard"
 )
 
 type schedulingReconciler struct {
 	getShard                  func(name string) (*tenancyv1alpha1.ClusterWorkspaceShard, error)
+	getShardByHash            func(hash string) (*tenancyv1alpha1.ClusterWorkspaceShard, error)
 	listShards                func(selector labels.Selector) ([]*tenancyv1alpha1.ClusterWorkspaceShard, error)
 	logicalClusterAdminConfig *restclient.Config
 }
@@ -60,12 +62,11 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 	logger := klog.FromContext(ctx)
 	switch workspace.Status.Phase {
 	case tenancyv1alpha1.ClusterWorkspacePhaseScheduling:
-		// TODO (p0lyn0mial): we could store a hash over a shard name and then use an index to find a real value
-		shardName, hasShardName := workspace.Annotations[clusterWorkspaceShardAnnotationKey]
-		if !hasShardName {
+		shardNameHash, hasShard := workspace.Annotations[clusterWorkspaceShardAnnotationKey]
+		if !hasShard {
 			// note that the annotation can be only removed by a system:masters, so we should be fine here.
 			var err error
-			shardName, err = r.chooseShardAndMarkCondition(logger, workspace)
+			shardName, err := r.chooseShardAndMarkCondition(logger, workspace)
 			if err != nil {
 				return reconcileStatusStopAndRequeue, err
 			}
@@ -78,16 +79,16 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 			return reconcileStatusContinue, nil
 		}
 
-		shard, err := r.getShard(shardName)
+		shard, err := r.getShardByHash(shardNameHash)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonUnschedulable, conditionsv1alpha1.ConditionSeverityError, "chosen shard %q does not exist anymore: %v", shardName, err)
+				conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonUnschedulable, conditionsv1alpha1.ConditionSeverityError, "chosen shard hash %q does not exist anymore: %v", shardNameHash, err)
 				return reconcileStatusContinue, nil
 			}
 			return reconcileStatusStopAndRequeue, err
 		}
 		if valid, reason, message := isValidShard(shard); !valid {
-			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonUnschedulable, conditionsv1alpha1.ConditionSeverityError, "chosen shards %q is no longer valid, reason %q, message %q", shardName, message, reason)
+			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonUnschedulable, conditionsv1alpha1.ConditionSeverityError, "chosen shard hash %q is no longer valid, reason %q, message %q", shardNameHash, message, reason)
 			return reconcileStatusStopAndRequeue, nil
 		}
 
@@ -350,5 +351,5 @@ func addShardAnnotation(workspace *tenancyv1alpha1.ClusterWorkspace, shardName s
 	if workspace.Annotations == nil {
 		workspace.Annotations = map[string]string{}
 	}
-	workspace.Annotations[clusterWorkspaceShardAnnotationKey] = shardName
+	workspace.Annotations[clusterWorkspaceShardAnnotationKey] = ByBase36Sha224NameValue(shardName)
 }

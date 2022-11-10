@@ -50,6 +50,16 @@ func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1alpha1.ClusterW
 			getShard: func(name string) (*tenancyv1alpha1.ClusterWorkspaceShard, error) {
 				return c.clusterWorkspaceShardLister.Get(client.ToClusterAwareKey(tenancyv1alpha1.RootCluster, name))
 			},
+			getShardByHash: func(hash string) (*tenancyv1alpha1.ClusterWorkspaceShard, error) {
+				shards, err := c.clusterWorkspaceShardIndexer.ByIndex(byBase36Sha224Name, hash)
+				if err != nil {
+					return nil, err
+				}
+				if len(shards) == 0 {
+					return nil, nil
+				}
+				return shards[0].(*tenancyv1alpha1.ClusterWorkspaceShard), nil
+			},
 			listShards:                c.clusterWorkspaceShardLister.List,
 			logicalClusterAdminConfig: c.logicalClusterAdminConfig,
 		},

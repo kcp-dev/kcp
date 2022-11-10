@@ -17,13 +17,19 @@ limitations under the License.
 package clusterworkspace
 
 import (
+	"crypto/sha256"
+	"strings"
+
+	"github.com/martinlindhe/base36"
+
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 )
 
 const (
-	byCurrentShard = "byCurrentShard"
-	unschedulable  = "unschedulable"
+	byCurrentShard     = "byCurrentShard"
+	byBase36Sha224Name = "byBase36Sha224Name"
+	unschedulable      = "unschedulable"
 )
 
 func indexByCurrentShard(obj interface{}) ([]string, error) {
@@ -37,4 +43,16 @@ func indexUnschedulable(obj interface{}) ([]string, error) {
 		return []string{"true"}, nil
 	}
 	return []string{}, nil
+}
+
+func indexByBase36Sha224Name(obj interface{}) ([]string, error) {
+	ws := obj.(*tenancyv1alpha1.ClusterWorkspace)
+	return []string{ByBase36Sha224NameValue(ws.Name)}, nil
+}
+
+func ByBase36Sha224NameValue(name string) string {
+	hash := sha256.Sum224([]byte(name))
+	base36hash := strings.ToLower(base36.EncodeBytes(hash[:]))
+
+	return base36hash[:8]
 }

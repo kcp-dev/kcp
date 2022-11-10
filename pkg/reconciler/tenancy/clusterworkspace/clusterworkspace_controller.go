@@ -106,6 +106,9 @@ func NewController(
 	indexers.AddIfNotPresentOrDie(clusterWorkspaceInformer.Informer().GetIndexer(), cache.Indexers{
 		unschedulable: indexUnschedulable,
 	})
+	indexers.AddIfNotPresentOrDie(clusterWorkspaceShardInformer.Informer().GetIndexer(), cache.Indexers{
+		byBase36Sha224Name: indexByBase36Sha224Name,
+	})
 
 	clusterWorkspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
