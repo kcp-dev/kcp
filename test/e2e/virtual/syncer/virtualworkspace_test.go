@@ -207,11 +207,13 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 
 	var testCases = []struct {
 		name string
-		work func(t *testing.T, kubelikeSyncerVWConfig, wildwestSyncerVWConfig *rest.Config, kubelikeClusterName, wildwestClusterName logicalcluster.Name, wildwestSyncTargetName string)
+		work func(t *testing.T, kubelikeSyncerVWConfig, wildwestSyncerVWConfig *rest.Config, kubelikeClusterName, wildwestClusterName logicalcluster.Name, wildwestSyncTargetName string,
+			wildwestSyncer *framework.StartedSyncerFixture)
 	}{
 		{
 			name: "isolated API domains per syncer",
-			work: func(t *testing.T, kubelikeSyncerVWConfig, wildwestSyncerVWConfig *rest.Config, kubelikeClusterName, wildwestClusterName logicalcluster.Name, wildwestSyncTargetName string) {
+			work: func(t *testing.T, kubelikeSyncerVWConfig, wildwestSyncerVWConfig *rest.Config, kubelikeClusterName, wildwestClusterName logicalcluster.Name, wildwestSyncTargetName string,
+				wildwestSyncer *framework.StartedSyncerFixture) {
 				kubelikeVWDiscoverClusterClient, err := clientgodiscovery.NewDiscoveryClientForConfig(kubelikeSyncerVWConfig)
 				require.NoError(t, err)
 
@@ -266,7 +268,8 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "access is authorized",
-			work: func(t *testing.T, kubelikeSyncerVWConfig, wildwestSyncerVWConfig *rest.Config, kubelikeClusterName, wildwestClusterName logicalcluster.Name, wildwestSyncTargetName string) {
+			work: func(t *testing.T, kubelikeSyncerVWConfig, wildwestSyncerVWConfig *rest.Config, kubelikeClusterName, wildwestClusterName logicalcluster.Name, wildwestSyncTargetName string,
+				wildwestSyncer *framework.StartedSyncerFixture) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
@@ -364,7 +367,8 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "access kcp resources through syncer virtual workspace",
-			work: func(t *testing.T, kubelikeSyncerVWConfig, wildwestSyncerVWConfig *rest.Config, kubelikeClusterName, wildwestClusterName logicalcluster.Name, wildwestSyncTargetName string) {
+			work: func(t *testing.T, kubelikeSyncerVWConfig, wildwestSyncerVWConfig *rest.Config, kubelikeClusterName, wildwestClusterName logicalcluster.Name, wildwestSyncTargetName string,
+				wildwestSyncer *framework.StartedSyncerFixture) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
@@ -477,7 +481,8 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "access kcp resources through syncer virtual workspace, from a other workspace to the wildwest resources through an APIBinding",
-			work: func(t *testing.T, kubelikeSyncerVWConfig, wildwestSyncerVWConfig *rest.Config, kubelikeClusterName, wildwestClusterName logicalcluster.Name, wildwestSyncTargetName string) {
+			work: func(t *testing.T, kubelikeSyncerVWConfig, wildwestSyncerVWConfig *rest.Config, kubelikeClusterName, wildwestClusterName logicalcluster.Name, wildwestSyncTargetName string,
+				wildwestSyncer *framework.StartedSyncerFixture) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
@@ -488,6 +493,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					framework.WithAPIExportsWorkloadBindOption(wildwestClusterName.String()+":kubernetes"),
 					framework.WithLocationWorkspaceWorkloadBindOption(wildwestClusterName),
 				).Bind(t)
+				wildwestSyncer.BoundWorkspace(t, ctx, otherWorkspace)
 
 				wildwestClusterClient, err := wildwestclientset.NewForConfig(server.BaseConfig(t))
 				require.NoError(t, err)
@@ -582,7 +588,8 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "Never promote overridden syncer view status to upstream when scheduled on 2 synctargets",
-			work: func(t *testing.T, kubelikeSyncerVWConfig, wildwestSyncerVWConfig *rest.Config, kubelikeClusterName, wildwestClusterName logicalcluster.Name, wildwestSyncTargetName string) {
+			work: func(t *testing.T, kubelikeSyncerVWConfig, wildwestSyncerVWConfig *rest.Config, kubelikeClusterName, wildwestClusterName logicalcluster.Name, wildwestSyncTargetName string,
+				wildwestSyncer *framework.StartedSyncerFixture) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
@@ -682,6 +689,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						},
 					}),
 				).Bind(t)
+				wildwestSyncer.BoundWorkspace(t, ctx, otherWorkspace)
 
 				framework.NewBindCompute(t, otherWorkspace, server,
 					framework.WithPlacementNameBindOption("secondplacement"),
@@ -693,6 +701,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						},
 					}),
 				).Bind(t)
+				wildwestSecondSyncer.BoundWorkspace(t, ctx, otherWorkspace)
 
 				wildwestClusterClient, err := wildwestclientset.NewForConfig(server.BaseConfig(t))
 				require.NoError(t, err)
@@ -806,7 +815,8 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "Correctly manage status, with promote and unpromote, when moving a cowboy from one synctarget to the other",
-			work: func(t *testing.T, kubelikeSyncerVWConfig, wildwestSyncerVWConfig *rest.Config, kubelikeClusterName, wildwestClusterName logicalcluster.Name, wildwestSyncTargetName string) {
+			work: func(t *testing.T, kubelikeSyncerVWConfig, wildwestSyncerVWConfig *rest.Config, kubelikeClusterName, wildwestClusterName logicalcluster.Name, wildwestSyncTargetName string,
+				wildwestSyncer *framework.StartedSyncerFixture) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
@@ -815,6 +825,8 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 
 				_, err = kcpClusterClient.WorkloadV1alpha1().SyncTargets().Patch(logicalcluster.WithCluster(ctx, wildwestClusterName), wildwestSyncTargetName, types.JSONPatchType, []byte(`[{"op":"add","path":"/metadata/labels/name","value":"`+wildwestSyncTargetName+`"}]`), metav1.PatchOptions{})
 				require.NoError(t, err)
+
+				otherWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
 
 				t.Logf("Deploying second syncer into workspace %s", wildwestClusterName)
 				wildwestSecondSyncTargetName := wildwestSyncTargetName + "second"
@@ -899,7 +911,6 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				}, metav1.CreateOptions{})
 				require.NoError(t, err)
 
-				otherWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
 				t.Logf("Using User workspace: %s", otherWorkspace.String())
 
 				logWithTimestamp := func(format string, args ...interface{}) {
@@ -917,6 +928,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						},
 					}),
 				).Bind(t)
+				wildwestSyncer.BoundWorkspace(t, ctx, otherWorkspace)
 
 				logWithTimestamp("Wait for being able to list cowboys in the other workspace (kubelike) through the virtual workspace")
 				require.Eventually(t, func() bool {
@@ -1021,6 +1033,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						},
 					}),
 				).Bind(t)
+				wildwestSecondSyncer.BoundWorkspace(t, ctx, otherWorkspace)
 
 				logWithTimestamp("Wait for resource controller to schedule cowboy on the 2 synctargets, and for both syncers to own it")
 				require.Eventually(t, func() bool {
@@ -1118,7 +1131,8 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "Transform spec through spec-diff annotation",
-			work: func(t *testing.T, kubelikeSyncerVWConfig, wildwestSyncerVWConfig *rest.Config, kubelikeClusterName, wildwestClusterName logicalcluster.Name, wildwestSyncTargetName string) {
+			work: func(t *testing.T, kubelikeSyncerVWConfig, wildwestSyncerVWConfig *rest.Config, kubelikeClusterName, wildwestClusterName logicalcluster.Name, wildwestSyncTargetName string,
+				wildwestSyncer *framework.StartedSyncerFixture) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
@@ -1181,7 +1195,8 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "Override summarizing rules to disable status promotion",
-			work: func(t *testing.T, kubelikeSyncerVWConfig, wildwestSyncerVWConfig *rest.Config, kubelikeClusterName, wildwestClusterName logicalcluster.Name, wildwestSyncTargetName string) {
+			work: func(t *testing.T, kubelikeSyncerVWConfig, wildwestSyncerVWConfig *rest.Config, kubelikeClusterName, wildwestClusterName logicalcluster.Name, wildwestSyncTargetName string,
+				wildwestSyncer *framework.StartedSyncerFixture) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
@@ -1353,7 +1368,6 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 			}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 			t.Log("Setting up an unrelated workspace with cowboys...")
-
 			unrelatedWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
 
 			sourceCrdClient, err := kcpapiextensionsclientset.NewForConfig(server.BaseConfig(t))
@@ -1382,10 +1396,11 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 			}, metav1.CreateOptions{})
 			require.NoError(t, err)
 
-			wildwestWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
 			wildwestSyncTargetName := fmt.Sprintf("wildwest-%d", +rand.Intn(1000000))
 
+			wildwestWorkspace := framework.NewWorkspaceFixture(t, server, orgClusterName)
 			t.Logf("Deploying syncer into workspace %s", wildwestWorkspace)
+
 			wildwestSyncer := framework.NewSyncerFixture(t, server, wildwestWorkspace,
 				framework.WithExtraResources("cowboys.wildwest.dev", "roles.rbac.authorization.k8s.io", "rolebindings.rbac.authorization.k8s.io"),
 				// empty APIExports so we do not add global kubernetes APIExport.
@@ -1442,7 +1457,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 			require.NoError(t, err)
 
 			t.Log("Starting test...")
-			testCase.work(t, kubelikeVWConfig, wildwestVWConfig, kubelikeWorkspace, wildwestWorkspace, wildwestSyncTargetName)
+			testCase.work(t, kubelikeVWConfig, wildwestVWConfig, kubelikeWorkspace, wildwestWorkspace, wildwestSyncTargetName, wildwestSyncer)
 		})
 	}
 }
@@ -1781,7 +1796,7 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 			t.Logf("Deploying syncer into workspace %s", kubelikeWorkspace)
 			kubelikeSyncer := framework.NewSyncerFixture(t, server, kubelikeWorkspace,
 				framework.WithSyncTarget(kubelikeWorkspace, "kubelike"),
-				framework.WithExtraResources("persistentvolumes"),
+				framework.WithExtraResources("persistentvolumes", "roles.rbac.authorization.k8s.io", "rolebindings.rbac.authorization.k8s.io"),
 				framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 					if !isFakePCluster {
 						// Only need to install services,ingresses and persistentvolumes in a logical cluster
@@ -1793,6 +1808,7 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 					kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
 						metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
 						metav1.GroupResource{Group: "core.k8s.io", Resource: "persistentvolumes"},
+						metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
 					)
 					require.NoError(t, err)
 				}),

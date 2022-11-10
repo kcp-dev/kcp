@@ -37,6 +37,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
@@ -351,6 +352,11 @@ func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 				return []net.IP{net.ParseIP("8.8.8.8")}, nil
 			}
 		})
+
+		// Manually create the DNS Endpoints for the main workspace
+		dnsID := shared.GetDNSID(sf.workspaceClusterName, types.UID(syncerConfig.SyncTargetUID), sf.syncTargetName)
+		_, err = downstreamKubeClient.CoreV1().Endpoints(syncerID).Create(ctx, endpoints(dnsID, syncerID), metav1.CreateOptions{})
+		require.NoError(t, err)
 	}
 
 	startedSyncer := &StartedSyncerFixture{
@@ -358,6 +364,7 @@ func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 		SyncerID:             syncerID,
 		DownstreamConfig:     downstreamConfig,
 		DownstreamKubeClient: downstreamKubeClient,
+		useDeployedSyncer:    useDeployedSyncer,
 	}
 
 	// The sync target becoming ready indicates the syncer is healthy and has
@@ -376,6 +383,7 @@ type StartedSyncerFixture struct {
 	// SyncerConfig will be less privileged.
 	DownstreamConfig     *rest.Config
 	DownstreamKubeClient kubernetesclient.Interface
+	useDeployedSyncer    bool
 }
 
 // WaitForClusterReady waits for the cluster to be ready with the given reason.
@@ -388,6 +396,15 @@ func (sf *StartedSyncerFixture) WaitForClusterReady(t *testing.T, ctx context.Co
 		return kcpClusterClient.WorkloadV1alpha1().SyncTargets().Get(logicalcluster.WithCluster(ctx, cfg.SyncTargetWorkspace), cfg.SyncTargetName, metav1.GetOptions{})
 	}, "Waiting for cluster %q condition %q", cfg.SyncTargetName, conditionsv1alpha1.ReadyCondition)
 	t.Logf("Cluster %q is %s", cfg.SyncTargetName, conditionsv1alpha1.ReadyCondition)
+}
+
+// BoundWorkspace is called when a new workspace is bound to this workload workspace
+func (sf *StartedSyncerFixture) BoundWorkspace(t *testing.T, ctx context.Context, workspace logicalcluster.Name) {
+	if !sf.useDeployedSyncer {
+		dnsID := shared.GetDNSID(workspace, types.UID(sf.SyncerConfig.SyncTargetUID), sf.SyncerConfig.SyncTargetName)
+		_, err := sf.DownstreamKubeClient.CoreV1().Endpoints(sf.SyncerID).Create(ctx, endpoints(dnsID, sf.SyncerID), metav1.CreateOptions{})
+		require.NoError(t, err)
+	}
 }
 
 // syncerConfigFromCluster reads the configuration needed to start an in-process
@@ -483,4 +500,19 @@ func syncerArgsToMap(args []string) (map[string][]string, error) {
 		}
 	}
 	return argMap, nil
+}
+
+func endpoints(name, namespace string) *corev1.Endpoints {
+	return &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Subsets: []corev1.EndpointSubset{
+			{Addresses: []corev1.EndpointAddress{
+				{
+					IP: "8.8.8.8",
+				}}},
+		},
+	}
 }

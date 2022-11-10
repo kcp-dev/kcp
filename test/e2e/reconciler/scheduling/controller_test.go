@@ -167,6 +167,7 @@ func TestScheduling(t *testing.T) {
 	framework.NewBindCompute(t, userClusterName, source,
 		framework.WithLocationWorkspaceWorkloadBindOption(negotiationClusterName),
 	).Bind(t)
+	syncerFixture.BoundWorkspace(t, ctx, userClusterName)
 
 	t.Logf("Wait for being able to list Services in the user workspace")
 	require.Eventually(t, func() bool {
@@ -184,6 +185,7 @@ func TestScheduling(t *testing.T) {
 	framework.NewBindCompute(t, secondUserClusterName, source,
 		framework.WithLocationWorkspaceWorkloadBindOption(negotiationClusterName),
 	).Bind(t)
+	syncerFixture.BoundWorkspace(t, ctx, secondUserClusterName)
 
 	t.Logf("Wait for being able to list Services in the user workspace")
 	require.Eventually(t, func() bool {

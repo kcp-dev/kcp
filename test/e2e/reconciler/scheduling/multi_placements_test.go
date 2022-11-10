@@ -158,12 +158,14 @@ func TestMultiPlacement(t *testing.T) {
 		framework.WithLocationWorkspaceWorkloadBindOption(locationClusterName),
 		framework.WithLocationSelectorWorkloadBindOption(metav1.LabelSelector{MatchLabels: map[string]string{"loc": "loc1"}}),
 	).Bind(t)
+	firstSyncerFixture.BoundWorkspace(t, ctx, userClusterName)
 
 	t.Logf("Bind user workspace to location workspace with loc 2")
 	framework.NewBindCompute(t, userClusterName, source,
 		framework.WithLocationWorkspaceWorkloadBindOption(locationClusterName),
 		framework.WithLocationSelectorWorkloadBindOption(metav1.LabelSelector{MatchLabels: map[string]string{"loc": "loc2"}}),
 	).Bind(t)
+	secondSyncerFixture.BoundWorkspace(t, ctx, userClusterName)
 
 	t.Logf("Wait for being able to list Services in the user workspace")
 	require.Eventually(t, func() bool {

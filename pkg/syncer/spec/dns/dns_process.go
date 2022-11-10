@@ -18,9 +18,11 @@ package dns
 
 import (
 	"context"
+	"errors"
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -104,15 +106,15 @@ func (d *DNSProcessor) Process(ctx context.Context, workspace logicalcluster.Nam
 		return err
 	}
 
-	// TODO: check endpoints. It's disabled until we figure out how to update e2e tests.
-	//endpoints, err := d.endpointLister.Endpoints(d.dnsNamespace).Get(dnsID)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//if hasAtLeastOneReadyAddress(endpoints) {
-	//	return nil
-	//}
+	// Check at least one endpoint is ready.
+	endpoints, err := d.endpointLister.Endpoints(d.dnsNamespace).Get(dnsID)
+	if err != nil {
+		return err
+	}
+
+	if !hasAtLeastOneReadyAddress(endpoints) {
+		return errors.New("no DNS endpoints available yet (retrying)")
+	}
 
 	return nil
 }
@@ -232,12 +234,11 @@ func (d *DNSProcessor) processService(ctx context.Context, name string) error {
 	return nil
 }
 
-//
-//func hasAtLeastOneReadyAddress(endpoints *corev1.Endpoints) bool {
-//	for _, s := range endpoints.Subsets {
-//		if len(s.Addresses) > 0 {
-//			return true
-//		}
-//	}
-//	return false
-//}
+func hasAtLeastOneReadyAddress(endpoints *corev1.Endpoints) bool {
+	for _, s := range endpoints.Subsets {
+		if len(s.Addresses) > 0 && s.Addresses[0].IP != "" {
+			return true
+		}
+	}
+	return false
+}

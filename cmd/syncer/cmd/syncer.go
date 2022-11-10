@@ -108,24 +108,14 @@ func Run(ctx context.Context, options *synceroptions.Options) error {
 	if err := syncer.StartSyncer(
 		ctx,
 		&syncer.SyncerConfig{
-<<<<<<< HEAD
 			UpstreamConfig:                upstreamConfig,
 			DownstreamConfig:              downstreamConfig,
 			ResourcesToSync:               sets.NewString(options.SyncedResourceTypes...),
 			SyncTargetWorkspace:           logicalcluster.New(options.FromClusterName),
 			SyncTargetName:                options.SyncTargetName,
 			SyncTargetUID:                 options.SyncTargetUID,
-			DNSServer:                     options.DNSServer,
+			DNSImage:                      options.DNSImage,
 			DownstreamNamespaceCleanDelay: options.DownstreamNamespaceCleanDelay,
-=======
-			UpstreamConfig:      upstreamConfig,
-			DownstreamConfig:    downstreamConfig,
-			ResourcesToSync:     sets.NewString(options.SyncedResourceTypes...),
-			SyncTargetWorkspace: logicalcluster.New(options.FromClusterName),
-			SyncTargetName:      options.SyncTargetName,
-			SyncTargetUID:       options.SyncTargetUID,
-			DNSImage:            options.DNSImage,
->>>>>>> ef48ca9b (Create one DNS nameserver per workspace)
 		},
 		numThreads,
 		options.APIImportPollInterval,
