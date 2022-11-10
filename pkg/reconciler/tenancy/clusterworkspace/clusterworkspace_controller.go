@@ -25,6 +25,9 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/google/go-cmp/cmp"
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	rbacinformers "github.com/kcp-dev/client-go/informers/rbac/v1"
+	"github.com/kcp-dev/client-go/kubernetes"
+	rbaclisters "github.com/kcp-dev/client-go/listers/rbac/v1"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -44,9 +47,13 @@ import (
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	tenancyv1beta1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1beta1"
 	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	tenancyv1beta1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1beta1"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 const (
@@ -55,33 +62,57 @@ const (
 
 func NewController(
 	kcpClusterClient kcpclientset.ClusterInterface,
+	kubeClusterClient kubernetes.ClusterInterface,
 	logicalClusterAdminConfig *rest.Config,
-	workspaceInformer tenancyv1alpha1informers.ClusterWorkspaceClusterInformer,
+	clusterWorkspaceInformer tenancyv1alpha1informers.ClusterWorkspaceClusterInformer,
+	workspaceInformer tenancyv1beta1informers.WorkspaceClusterInformer,
 	clusterWorkspaceShardInformer tenancyv1alpha1informers.ClusterWorkspaceShardClusterInformer,
 	apiBindingsInformer apisv1alpha1informers.APIBindingClusterInformer,
+	thisWorkspaceInformer tenancyv1alpha1informers.ThisWorkspaceClusterInformer,
+	clusterRoleBindingInformer rbacinformers.ClusterRoleBindingClusterInformer,
+	clusterRoleInformer rbacinformers.ClusterRoleClusterInformer,
 ) (*Controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
 	c := &Controller{
-		queue:                        queue,
-		logicalClusterAdminConfig:    logicalClusterAdminConfig,
-		kcpClusterClient:             kcpClusterClient,
-		workspaceIndexer:             workspaceInformer.Informer().GetIndexer(),
-		workspaceLister:              workspaceInformer.Lister(),
+		queue:                     queue,
+		logicalClusterAdminConfig: logicalClusterAdminConfig,
+		kcpClusterClient:          kcpClusterClient,
+		kubeClusterClient:         kubeClusterClient,
+
+		clusterWorkspaceIndexer: clusterWorkspaceInformer.Informer().GetIndexer(),
+		clusterWorkspaceLister:  clusterWorkspaceInformer.Lister(),
+
+		workspaceIndexer: workspaceInformer.Informer().GetIndexer(),
+		workspaceLister:  workspaceInformer.Lister(),
+
 		clusterWorkspaceShardIndexer: clusterWorkspaceShardInformer.Informer().GetIndexer(),
 		clusterWorkspaceShardLister:  clusterWorkspaceShardInformer.Lister(),
-		apiBindingLister:             apiBindingsInformer.Lister(),
+
+		apiBindingIndexer: apiBindingsInformer.Informer().GetIndexer(),
+		apiBindingLister:  apiBindingsInformer.Lister(),
+
+		thisWorkspaceIndexer: thisWorkspaceInformer.Informer().GetIndexer(),
+		thisWorkspaceLister:  thisWorkspaceInformer.Lister(),
+
+		clusterRoleBindingIndexer: clusterRoleBindingInformer.Informer().GetIndexer(),
+		clusterRoleBindingLister:  clusterRoleBindingInformer.Lister(),
+
+		clusterRoleIndexer: clusterRoleInformer.Informer().GetIndexer(),
+		clusterRoleLister:  clusterRoleInformer.Lister(),
 	}
 
-	if err := c.workspaceIndexer.AddIndexers(map[string]cache.IndexFunc{
+	indexers.AddIfNotPresentOrDie(clusterWorkspaceInformer.Informer().GetIndexer(), cache.Indexers{
 		byCurrentShard: indexByCurrentShard,
-		unschedulable:  indexUnschedulable,
-		byPhase:        indexByPhase,
-	}); err != nil {
-		return nil, fmt.Errorf("failed to add indexer for ClusterWorkspace: %w", err)
-	}
+	})
+	indexers.AddIfNotPresentOrDie(clusterWorkspaceInformer.Informer().GetIndexer(), cache.Indexers{
+		unschedulable: indexUnschedulable,
+	})
+	indexers.AddIfNotPresentOrDie(clusterWorkspaceShardInformer.Informer().GetIndexer(), cache.Indexers{
+		byBase36Sha224Name: indexByBase36Sha224Name,
+	})
 
-	workspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	clusterWorkspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
 	})
@@ -98,6 +129,24 @@ func NewController(
 		DeleteFunc: func(obj interface{}) { c.enqueueBinding(obj) },
 	})
 
+	thisWorkspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    func(obj interface{}) { c.enqueueThisWorkspace(obj) },
+		UpdateFunc: func(obj, _ interface{}) { c.enqueueThisWorkspace(obj) },
+		DeleteFunc: func(obj interface{}) { c.enqueueThisWorkspace(obj) },
+	})
+
+	clusterRoleBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    func(obj interface{}) { c.enqueueClusterRoleBinding(obj) },
+		UpdateFunc: func(obj, _ interface{}) { c.enqueueClusterRoleBinding(obj) },
+		DeleteFunc: func(obj interface{}) { c.enqueueClusterRoleBinding(obj) },
+	})
+
+	clusterRoleInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    func(obj interface{}) { c.enqueueClusterRole(obj) },
+		UpdateFunc: func(obj, _ interface{}) { c.enqueueClusterRole(obj) },
+		DeleteFunc: func(obj interface{}) { c.enqueueClusterRole(obj) },
+	})
+
 	return c, nil
 }
 
@@ -108,15 +157,29 @@ type Controller struct {
 
 	logicalClusterAdminConfig *rest.Config
 
-	kcpClusterClient kcpclientset.ClusterInterface
+	kcpClusterClient  kcpclientset.ClusterInterface
+	kubeClusterClient kubernetes.ClusterInterface
+
+	clusterWorkspaceIndexer cache.Indexer
+	clusterWorkspaceLister  tenancyv1alpha1listers.ClusterWorkspaceClusterLister
 
 	workspaceIndexer cache.Indexer
-	workspaceLister  tenancyv1alpha1listers.ClusterWorkspaceClusterLister
+	workspaceLister  tenancyv1beta1listers.WorkspaceClusterLister
 
 	clusterWorkspaceShardIndexer cache.Indexer
 	clusterWorkspaceShardLister  tenancyv1alpha1listers.ClusterWorkspaceShardClusterLister
 
-	apiBindingLister apisv1alpha1listers.APIBindingClusterLister
+	apiBindingIndexer cache.Indexer
+	apiBindingLister  apisv1alpha1listers.APIBindingClusterLister
+
+	thisWorkspaceIndexer cache.Indexer
+	thisWorkspaceLister  tenancyv1alpha1listers.ThisWorkspaceClusterLister
+
+	clusterRoleBindingIndexer cache.Indexer
+	clusterRoleBindingLister  rbaclisters.ClusterRoleBindingClusterLister
+
+	clusterRoleIndexer cache.Indexer
+	clusterRoleLister  rbaclisters.ClusterRoleClusterLister
 }
 
 func (c *Controller) enqueue(obj interface{}) {
@@ -145,7 +208,7 @@ func (c *Controller) enqueueShard(obj interface{}) {
 
 	shard, err := c.clusterWorkspaceShardLister.Cluster(clusterName).Get(name)
 	if err == nil {
-		workspaces, err := c.workspaceIndexer.ByIndex(unschedulable, "true")
+		workspaces, err := c.clusterWorkspaceIndexer.ByIndex(unschedulable, "true")
 		if err != nil {
 			runtime.HandleError(err)
 			return
@@ -197,6 +260,82 @@ func (c *Controller) enqueueBinding(obj interface{}) {
 	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), queueKey)
 	logger.V(2).Info("queueing initializing ClusterWorkspace because APIBinding changed", "APIBinding", key)
 	c.queue.Add(queueKey)
+}
+
+func (c *Controller) enqueueThisWorkspace(obj interface{}) {
+	twKey, err := kcpcache.MetaClusterNamespaceKeyFunc(obj)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+	clusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(twKey)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+
+	key := kcpcache.ToClusterAwareKey(clusterName.String(), "", name)
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
+	logger.V(2).Info("queueing ClusterWorkspace", "reason", "ThisWorkspace changed", "reasonKey", twKey)
+	c.queue.Add(key)
+}
+
+func (c *Controller) enqueueClusterRoleBinding(obj interface{}) {
+	crbKey, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+	clusterName, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(crbKey)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+
+	cws, err := c.clusterWorkspaceLister.Cluster(clusterName).List(labels.Everything())
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+	for _, cw := range cws {
+		key, err := kcpcache.MetaClusterNamespaceKeyFunc(cw)
+		if err != nil {
+			runtime.HandleError(err)
+			return
+		}
+		logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
+		logging.WithQueueKey(logger, key).V(2).Info("queueing ClusterWorkspace", "reason", "ClusterRoleBinding changed", "reasonKey", crbKey)
+		c.queue.Add(key)
+	}
+}
+
+func (c *Controller) enqueueClusterRole(obj interface{}) {
+	crKey, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+	clusterName, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(crKey)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+
+	cws, err := c.clusterWorkspaceLister.Cluster(clusterName).List(labels.Everything())
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+	for _, cw := range cws {
+		key, err := kcpcache.MetaClusterNamespaceKeyFunc(cw)
+		if err != nil {
+			runtime.HandleError(err)
+			return
+		}
+		logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
+		logging.WithQueueKey(logger, key).V(2).Info("queueing ClusterWorkspace", "reason", "ClusterRole changed", "reasonKey", crKey)
+		c.queue.Add(key)
+	}
 }
 
 func (c *Controller) Start(ctx context.Context, numThreads int) {
@@ -321,7 +460,7 @@ func (c *Controller) process(ctx context.Context, key string) (bool, error) {
 		runtime.HandleError(err)
 		return false, nil
 	}
-	obj, err := c.workspaceLister.Cluster(parent).Get(name)
+	obj, err := c.clusterWorkspaceLister.Cluster(parent).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return false, nil // object deleted before we handled it
