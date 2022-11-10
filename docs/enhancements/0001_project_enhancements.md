@@ -50,7 +50,7 @@ This proposal suggests that kcp adopt an enhancement process that follows practi
 community via the [KEP process](https://github.com/kubernetes/enhancements/blob/adae507daeb490cfeb7f4d520d3d711362090c45/keps/NNNN-kep-template/README.md) 
 by tailoring aspects of that process to fit the kcp project's needs. This would include:
 
-1. Definition of an enhancment proposal template
+1. Definition of an enhancement proposal template
 2. Creation of an enhancement proposal repository and removal of this proposal from the main repo to that repository.
 3. Establishing the approval criteria for said process and the expectations for review and feedback in a way that can
 be adopted by sub-projects identified later in this proposal.
