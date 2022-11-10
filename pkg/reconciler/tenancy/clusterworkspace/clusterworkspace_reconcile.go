@@ -47,7 +47,8 @@ func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1alpha1.ClusterW
 			getShard: func(name string) (*tenancyv1alpha1.ClusterWorkspaceShard, error) {
 				return c.clusterWorkspaceShardLister.Cluster(tenancyv1alpha1.RootCluster).Get(name)
 			},
-			listShards: c.clusterWorkspaceShardLister.List,
+			listShards:                c.clusterWorkspaceShardLister.List,
+			logicalClusterAdminConfig: c.logicalClusterAdminConfig,
 		},
 		&phaseReconciler{
 			getShardWithQuorum: func(ctx context.Context, name string, options metav1.GetOptions) (*tenancyv1alpha1.ClusterWorkspaceShard, error) {
