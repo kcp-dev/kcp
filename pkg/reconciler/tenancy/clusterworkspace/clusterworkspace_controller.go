@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"k8s.io/client-go/rest"
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -54,6 +55,7 @@ const (
 
 func NewController(
 	kcpClusterClient kcpclient.Interface,
+	logicalClusterAdminConfig *rest.Config,
 	workspaceInformer tenancyinformers.ClusterWorkspaceInformer,
 	clusterWorkspaceShardInformer tenancyinformers.ClusterWorkspaceShardInformer,
 	apiBindingsInformer apisinformers.APIBindingInformer,
@@ -62,6 +64,7 @@ func NewController(
 
 	c := &Controller{
 		queue:                        queue,
+		logicalClusterAdminConfig:    logicalClusterAdminConfig,
 		kcpClusterClient:             kcpClusterClient,
 		workspaceIndexer:             workspaceInformer.Informer().GetIndexer(),
 		workspaceLister:              workspaceInformer.Lister(),
@@ -109,6 +112,8 @@ func NewController(
 // is scheduled to a valid ClusterWorkspaceShard.
 type Controller struct {
 	queue workqueue.RateLimitingInterface
+
+	logicalClusterAdminConfig *rest.Config
 
 	kcpClusterClient kcpclient.Interface
 	workspaceIndexer cache.Indexer
