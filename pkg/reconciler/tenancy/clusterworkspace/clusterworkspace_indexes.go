@@ -17,16 +17,19 @@ limitations under the License.
 package clusterworkspace
 
 import (
-	"fmt"
+	"crypto/sha256"
+	"strings"
+
+	"github.com/martinlindhe/base36"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 )
 
 const (
-	byCurrentShard = "byCurrentShard"
-	unschedulable  = "unschedulable"
-	byPhase        = "byPhase"
+	byCurrentShard     = "byCurrentShard"
+	byBase36Sha224Name = "byBase36Sha224Name"
+	unschedulable      = "unschedulable"
 )
 
 func indexByCurrentShard(obj interface{}) ([]string, error) {
@@ -42,11 +45,14 @@ func indexUnschedulable(obj interface{}) ([]string, error) {
 	return []string{}, nil
 }
 
-func indexByPhase(obj interface{}) ([]string, error) {
-	workspace, ok := obj.(*tenancyv1alpha1.ClusterWorkspace)
-	if !ok {
-		return []string{}, fmt.Errorf("obj is supposed to be a tenancyv1alpha1.ClusterWorkspace, but is %T", obj)
-	}
+func indexByBase36Sha224Name(obj interface{}) ([]string, error) {
+	s := obj.(*tenancyv1alpha1.ClusterWorkspaceShard)
+	return []string{ByBase36Sha224NameValue(s.Name)}, nil
+}
 
-	return []string{string(workspace.Status.Phase)}, nil
+func ByBase36Sha224NameValue(name string) string {
+	hash := sha256.Sum224([]byte(name))
+	base36hash := strings.ToLower(base36.EncodeBytes(hash[:]))
+
+	return base36hash[:8]
 }
