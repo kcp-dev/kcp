@@ -162,11 +162,8 @@ spec:
                   type: string
                 type: array
               phase:
-                description: Phase of the workspace (Initializing / Active / Terminating).
-                  This field is ALPHA.
+                description: Phase of the workspace (Scheduling, Initializing, Ready).
                 type: string
-            required:
-            - URL
             type: object
         required:
         - spec

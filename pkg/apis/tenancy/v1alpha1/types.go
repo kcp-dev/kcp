@@ -632,7 +632,7 @@ var (
 
 const (
 	// ThisWorkspaceName is the name of the ThisWorkspace singleton.
-	ThisWorksapceName = "this"
+	ThisWorkspaceName = "this"
 )
 
 // ThisWorkspace describes the current workspace.
@@ -658,11 +658,30 @@ type ThisWorkspace struct {
 }
 
 type ThisWorkspaceSpec struct {
+	// type defines properties of the workspace both on creation (e.g. initial
+	// resources and initially installed APIs) and during runtime (e.g. permissions).
+	// If no type is provided, the default type for the workspace in which this workspace
+	// is nesting will be used.
+	//
+	// The type is a reference to a ClusterWorkspaceType in the listed workspace, but
+	// lower-cased. The ClusterWorkspaceType existence is validated at admission during
+	// creation. The type is immutable after creation. The use of a type is gated via
+	// the RBAC clusterworkspacetypes/use resource permission.
+	//
+	// +optional
+	Type ClusterWorkspaceTypeReference `json:"type,omitempty"`
 }
 
 // ThisWorkspaceStatus communicates the observed state of the Workspace.
 type ThisWorkspaceStatus struct {
-	// Phase of the workspace (Initializing / Active / Terminating). This field is ALPHA.
+	// url is the address under which the Kubernetes-cluster-like endpoint
+	// can be found. This URL can be used to access the workspace with standard Kubernetes
+	// client libraries and command line tools.
+	//
+	// +kubebuilder:format:uri
+	URL string `json:"URL,omitempty"`
+
+	// Phase of the workspace (Scheduling, Initializing, Ready).
 	Phase ClusterWorkspacePhaseType `json:"phase,omitempty"`
 
 	// Current processing state of the ThisWorkspace.

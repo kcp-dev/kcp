@@ -78,11 +78,10 @@ type WorkspaceStatus struct {
 	// can be found. This URL can be used to access the workspace with standard Kubernetes
 	// client libraries and command line tools.
 	//
-	// +required
 	// +kubebuilder:format:uri
-	URL string `json:"URL"`
+	URL string `json:"URL,omitempty"`
 
-	// Phase of the workspace (Initializing / Active / Terminating). This field is ALPHA.
+	// Phase of the workspace (Scheduling, Initializing, Ready).
 	Phase v1alpha1.ClusterWorkspacePhaseType `json:"phase,omitempty"`
 
 	// Current processing state of the ClusterWorkspace.

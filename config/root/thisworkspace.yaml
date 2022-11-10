@@ -3,6 +3,8 @@ kind: ThisWorkspace
 metadata:
   name: this
 spec:
-  type: root
+  type:
+    name: root
+    path: root
 status:
   phase: Ready
