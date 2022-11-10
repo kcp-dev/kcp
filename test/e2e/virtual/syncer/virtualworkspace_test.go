@@ -1453,19 +1453,45 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 
 	var testCases = []struct {
 		name string
-		work func(t *testing.T, kubelikeSyncerVWConfig *rest.Config, kubelikeClusterName logicalcluster.Name, syncTargetKey string)
+		work func(t *testing.T, kubelikeSyncerVWConfig *rest.Config, kubelikeWorkspaceName logicalcluster.Name, syncTargetKey string)
 	}{
 		{
 			name: "list kcp resources through upsyncer virtual workspace",
-			work: func(t *testing.T, kubelikeSyncerVWConfig *rest.Config, kubelikeClusterName logicalcluster.Name, syncTargetKey string) {
+			work: func(t *testing.T, kubelikeSyncerVWConfig *rest.Config, kubelikeWorkspaceName logicalcluster.Name, syncTargetKey string) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
 				kubelikeSyncerVWClient, err := kcpkubernetesclientset.NewForConfig(kubelikeSyncerVWConfig)
 				require.NoError(t, err)
 
+				t.Log("Creating a persistentvolume in the kubelike source cluster...")
+				pv := &corev1.PersistentVolume{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-pv",
+						Labels: map[string]string{
+							"state.workload.kcp.dev/" + syncTargetKey: "Upsync",
+						},
+					},
+					Spec: corev1.PersistentVolumeSpec{
+						AccessModes: []corev1.PersistentVolumeAccessMode{
+							corev1.ReadWriteOnce,
+						},
+						Capacity: corev1.ResourceList{
+							corev1.ResourceStorage: resource.MustParse("1Gi"),
+						},
+						PersistentVolumeSource: corev1.PersistentVolumeSource{
+							HostPath: &corev1.HostPathVolumeSource{
+								Path: "/tmp/data",
+							},
+						},
+					},
+				}
+				t.Logf("Creating PV %s through direct kube client ...", pv.Name)
+				_, err = kubeClusterClient.CoreV1().PersistentVolumes().Cluster(kubelikeWorkspaceName).Create(ctx, pv, metav1.CreateOptions{})
+				require.NoError(t, err)
+
 				t.Log("Listing PVs through upsyncer virtual workspace...")
-				pvs, err := kubelikeSyncerVWClient.CoreV1().PersistentVolumes().Cluster(kubelikeClusterName).List(ctx, metav1.ListOptions{})
+				pvs, err := kubelikeSyncerVWClient.CoreV1().PersistentVolumes().Cluster(kubelikeWorkspaceName).List(ctx, metav1.ListOptions{})
 				require.NoError(t, err)
 
 				t.Log("Checking if we can find the PV we created in the source cluster: test-pv")
@@ -1474,7 +1500,7 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "create a persistentvolume in kcp through upsyncer virtual workspace",
-			work: func(t *testing.T, kubelikeSyncerVWConfig *rest.Config, kubelikeClusterName logicalcluster.Name, syncTargetKey string) {
+			work: func(t *testing.T, kubelikeSyncerVWConfig *rest.Config, kubelikeWorkspaceName logicalcluster.Name, syncTargetKey string) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
@@ -1483,7 +1509,7 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 
 				pv := &corev1.PersistentVolume{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "test-pv2",
+						Name: "test-pv",
 						Labels: map[string]string{
 							"state.workload.kcp.dev/" + syncTargetKey: "Upsync",
 						},
@@ -1501,18 +1527,18 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 					},
 				}
 
-				t.Log("Creating PV test-pv2 through upsyncer virtual workspace...")
-				_, err = kubelikeSyncerVWClient.CoreV1().PersistentVolumes().Cluster(kubelikeClusterName).Create(ctx, pv, metav1.CreateOptions{})
+				t.Log("Creating PV test-pv through upsyncer virtual workspace...")
+				_, err = kubelikeSyncerVWClient.CoreV1().PersistentVolumes().Cluster(kubelikeWorkspaceName).Create(ctx, pv, metav1.CreateOptions{})
 				require.NoError(t, err)
 
-				t.Log("Checking if the PV test-pv2 was created in the source cluster...")
-				_, err = kubeClusterClient.CoreV1().PersistentVolumes().Cluster(kubelikeClusterName).Get(ctx, "test-pv2", metav1.GetOptions{})
+				t.Log("Checking if the PV test-pv was created in the source cluster...")
+				_, err = kubeClusterClient.CoreV1().PersistentVolumes().Cluster(kubelikeWorkspaceName).Get(ctx, "test-pv", metav1.GetOptions{})
 				require.NoError(t, err)
 			},
 		},
 		{
 			name: "create a persistentvolume in kcp through upsyncer virtual workspace with a resource transformation",
-			work: func(t *testing.T, kubelikeSyncerVWConfig *rest.Config, kubelikeClusterName logicalcluster.Name, syncTargetKey string) {
+			work: func(t *testing.T, kubelikeSyncerVWConfig *rest.Config, kubelikeWorkspaceName logicalcluster.Name, syncTargetKey string) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
@@ -1521,7 +1547,7 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 
 				pv := &corev1.PersistentVolume{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "test-pv4",
+						Name: "test-pv",
 						Labels: map[string]string{
 							"state.workload.kcp.dev/" + syncTargetKey: "Upsync",
 						},
@@ -1542,21 +1568,21 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 					},
 				}
 
-				t.Log("Creating PV test-pv4 through upsyncer virtual workspace...")
-				_, err = kubelikeSyncerVWClient.CoreV1().PersistentVolumes().Cluster(kubelikeClusterName).Create(ctx, pv, metav1.CreateOptions{})
+				t.Log("Creating PV test-pv through upsyncer virtual workspace...")
+				_, err = kubelikeSyncerVWClient.CoreV1().PersistentVolumes().Cluster(kubelikeWorkspaceName).Create(ctx, pv, metav1.CreateOptions{})
 				require.NoError(t, err)
 
 				t.Log("Checking if the PV test-pv4 was created in the source cluster...")
-				pv4, err := kubeClusterClient.CoreV1().PersistentVolumes().Cluster(kubelikeClusterName).Get(ctx, "test-pv4", metav1.GetOptions{})
+				pvCreated, err := kubeClusterClient.CoreV1().PersistentVolumes().Cluster(kubelikeWorkspaceName).Get(ctx, "test-pv", metav1.GetOptions{})
 				require.NoError(t, err)
 
-				t.Log("Checking if the PV test-pv4 was created with the correct values after transformation...")
-				require.Equal(t, resource.MustParse("2Gi"), pv4.Spec.Capacity[corev1.ResourceStorage])
+				t.Log("Checking if the PV test-pv was created with the correct values after transformation...")
+				require.Equal(t, resource.MustParse("2Gi"), pvCreated.Spec.Capacity[corev1.ResourceStorage])
 			},
 		},
 		{
 			name: "try to create a persistentvolume in kcp through upsyncer virtual workspace, without the statelabel set to Upsync, should fail",
-			work: func(t *testing.T, kubelikeSyncerVWConfig *rest.Config, kubelikeClusterName logicalcluster.Name, syncTargetKey string) {
+			work: func(t *testing.T, kubelikeSyncerVWConfig *rest.Config, kubelikeWorkspaceName logicalcluster.Name, syncTargetKey string) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
@@ -1565,7 +1591,7 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 
 				pv := &corev1.PersistentVolume{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "test-pv2",
+						Name: "test-pv",
 						Labels: map[string]string{
 							"state.workload.kcp.dev/" + syncTargetKey: "notupsync",
 						},
@@ -1583,83 +1609,32 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 					},
 				}
 
-				t.Log("Creating PV test-pv2 through upsyncer virtual workspace...")
-				_, err = kubelikeSyncerVWClient.CoreV1().PersistentVolumes().Cluster(kubelikeClusterName).Create(ctx, pv, metav1.CreateOptions{})
+				t.Log("Creating PV test-pv through upsyncer virtual workspace...")
+				_, err = kubelikeSyncerVWClient.CoreV1().PersistentVolumes().Cluster(kubelikeWorkspaceName).Create(ctx, pv, metav1.CreateOptions{})
 				require.Error(t, err)
 			},
 		},
 		{
 			name: "update a persistentvolume in kcp through upsyncer virtual workspace",
-			work: func(t *testing.T, kubelikeSyncerVWConfig *rest.Config, kubelikeClusterName logicalcluster.Name, syncTargetKey string) {
+			work: func(t *testing.T, kubelikeSyncerVWConfig *rest.Config, kubelikeWorkspaceName logicalcluster.Name, syncTargetKey string) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
 				kubelikeSyncerVWClient, err := kcpkubernetesclientset.NewForConfig(kubelikeSyncerVWConfig)
 				require.NoError(t, err)
 
-				t.Log("Getting PV test-pv through upsyncer virtual workspace...")
-				pv, err := kubelikeSyncerVWClient.CoreV1().PersistentVolumes().Cluster(kubelikeClusterName).Get(ctx, "test-pv", metav1.GetOptions{})
-				require.NoError(t, err)
-
-				pv.Spec.PersistentVolumeSource.HostPath.Path = "/tmp/data2"
-
-				t.Log("Updating PV test-pv through upsyncer virtual workspace...")
-				_, err = kubelikeSyncerVWClient.CoreV1().PersistentVolumes().Cluster(kubelikeClusterName).Update(ctx, pv, metav1.UpdateOptions{})
-				require.NoError(t, err)
-
-				t.Log("Checking if the PV test-pv was updated in the source cluster...")
-				pv, err = kubeClusterClient.CoreV1().PersistentVolumes().Cluster(kubelikeClusterName).Get(ctx, "test-pv", metav1.GetOptions{})
-				require.NoError(t, err)
-				require.Equal(t, pv.Spec.PersistentVolumeSource.HostPath.Path, "/tmp/data2")
-			},
-		},
-		{
-			name: "update a persistentvolume in kcp through upsyncer virtual workspace, try to remove the upsync state label, expect error.",
-			work: func(t *testing.T, kubelikeSyncerVWConfig *rest.Config, kubelikeClusterName logicalcluster.Name, syncTargetKey string) {
-				ctx, cancelFunc := context.WithCancel(context.Background())
-				t.Cleanup(cancelFunc)
-
-				kubelikeSyncerVWClient, err := kcpkubernetesclientset.NewForConfig(kubelikeSyncerVWConfig)
-				require.NoError(t, err)
-
-				t.Log("Getting PV test-pv through upsyncer virtual workspace...")
-				pv, err := kubelikeSyncerVWClient.CoreV1().PersistentVolumes().Cluster(kubelikeClusterName).Get(ctx, "test-pv", metav1.GetOptions{})
-				require.NoError(t, err)
-
-				// Changing the label to something else, should fail.
-				pv.Labels["state.workload.kcp.dev/"+syncTargetKey] = "notupsync"
-				pv.Spec.PersistentVolumeSource.HostPath.Path = "/tmp/data/changed"
-
-				t.Log("Updating PV test-pv through upsyncer virtual workspace...")
-				_, err = kubelikeSyncerVWClient.CoreV1().PersistentVolumes().Cluster(kubelikeClusterName).Update(ctx, pv, metav1.UpdateOptions{})
-				require.Error(t, err)
-
-				t.Log("Ensure PV test-pv is not changed...")
-				pv, err = kubelikeSyncerVWClient.CoreV1().PersistentVolumes().Cluster(kubelikeClusterName).Get(ctx, "test-pv", metav1.GetOptions{})
-				require.NoError(t, err)
-
-				require.Equal(t, pv.Spec.PersistentVolumeSource.HostPath.Path, "/tmp/data")
-			},
-		},
-		{
-			name: "Delete a persistentvolume in kcp through upsyncer virtual workspace",
-			work: func(t *testing.T, kubelikeSyncerVWConfig *rest.Config, kubelikeClusterName logicalcluster.Name, syncTargetKey string) {
-				ctx, cancelFunc := context.WithCancel(context.Background())
-				t.Cleanup(cancelFunc)
-
-				kubelikeSyncerVWClient, err := kcpkubernetesclientset.NewForConfig(kubelikeSyncerVWConfig)
-				require.NoError(t, err)
-
-				t.Log("Creating PV test-pv3 through upsyncer virtual workspace...")
+				t.Log("Creating a persistentvolume in the kubelike source cluster...")
 				pv := &corev1.PersistentVolume{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "test-pv3",
+						Name: "test-pv",
 						Labels: map[string]string{
 							"state.workload.kcp.dev/" + syncTargetKey: "Upsync",
 						},
 					},
 					Spec: corev1.PersistentVolumeSpec{
-						AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+						AccessModes: []corev1.PersistentVolumeAccessMode{
+							corev1.ReadWriteOnce,
+						},
 						Capacity: corev1.ResourceList{
 							corev1.ResourceStorage: resource.MustParse("1Gi"),
 						},
@@ -1670,11 +1645,117 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 						},
 					},
 				}
-				_, err = kubelikeSyncerVWClient.CoreV1().PersistentVolumes().Cluster(kubelikeClusterName).Create(ctx, pv, metav1.CreateOptions{})
+				t.Logf("Creating PV %s through direct kube client ...", pv.Name)
+				_, err = kubeClusterClient.CoreV1().PersistentVolumes().Cluster(kubelikeWorkspaceName).Create(ctx, pv, metav1.CreateOptions{})
+				require.NoError(t, err)
+
+				t.Log("Getting PV test-pv through upsyncer virtual workspace...")
+				pv, err = kubelikeSyncerVWClient.CoreV1().PersistentVolumes().Cluster(kubelikeWorkspaceName).Get(ctx, "test-pv", metav1.GetOptions{})
+				require.NoError(t, err)
+
+				pv.Spec.PersistentVolumeSource.HostPath.Path = "/tmp/data2"
+
+				t.Log("Updating PV test-pv through upsyncer virtual workspace...")
+				_, err = kubelikeSyncerVWClient.CoreV1().PersistentVolumes().Cluster(kubelikeWorkspaceName).Update(ctx, pv, metav1.UpdateOptions{})
+				require.NoError(t, err)
+
+				t.Log("Checking if the PV test-pv was updated in the source cluster...")
+				pv, err = kubeClusterClient.CoreV1().PersistentVolumes().Cluster(kubelikeWorkspaceName).Get(ctx, "test-pv", metav1.GetOptions{})
+				require.NoError(t, err)
+				require.Equal(t, pv.Spec.PersistentVolumeSource.HostPath.Path, "/tmp/data2")
+			},
+		},
+		{
+			name: "update a persistentvolume in kcp through upsyncer virtual workspace, try to remove the upsync state label, expect error.",
+			work: func(t *testing.T, kubelikeSyncerVWConfig *rest.Config, kubelikeWorkspaceName logicalcluster.Name, syncTargetKey string) {
+				ctx, cancelFunc := context.WithCancel(context.Background())
+				t.Cleanup(cancelFunc)
+
+				kubelikeSyncerVWClient, err := kcpkubernetesclientset.NewForConfig(kubelikeSyncerVWConfig)
+				require.NoError(t, err)
+
+				t.Log("Creating a persistentvolume in the kubelike source cluster...")
+				pv := &corev1.PersistentVolume{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-pv",
+						Labels: map[string]string{
+							"state.workload.kcp.dev/" + syncTargetKey: "Upsync",
+						},
+					},
+					Spec: corev1.PersistentVolumeSpec{
+						AccessModes: []corev1.PersistentVolumeAccessMode{
+							corev1.ReadWriteOnce,
+						},
+						Capacity: corev1.ResourceList{
+							corev1.ResourceStorage: resource.MustParse("1Gi"),
+						},
+						PersistentVolumeSource: corev1.PersistentVolumeSource{
+							HostPath: &corev1.HostPathVolumeSource{
+								Path: "/tmp/data",
+							},
+						},
+					},
+				}
+				t.Logf("Creating PV %s through direct kube client ...", pv.Name)
+				_, err = kubeClusterClient.CoreV1().PersistentVolumes().Cluster(kubelikeWorkspaceName).Create(ctx, pv, metav1.CreateOptions{})
+				require.NoError(t, err)
+
+				t.Log("Getting PV test-pv through upsyncer virtual workspace...")
+				pv, err = kubelikeSyncerVWClient.CoreV1().PersistentVolumes().Cluster(kubelikeWorkspaceName).Get(ctx, "test-pv", metav1.GetOptions{})
+				require.NoError(t, err)
+
+				// Changing the label to something else, should fail.
+				pv.Labels["state.workload.kcp.dev/"+syncTargetKey] = "notupsync"
+				pv.Spec.PersistentVolumeSource.HostPath.Path = "/tmp/data/changed"
+
+				t.Log("Updating PV test-pv through upsyncer virtual workspace...")
+				_, err = kubelikeSyncerVWClient.CoreV1().PersistentVolumes().Cluster(kubelikeWorkspaceName).Update(ctx, pv, metav1.UpdateOptions{})
+				require.Error(t, err)
+
+				t.Log("Ensure PV test-pv is not changed...")
+				pv, err = kubelikeSyncerVWClient.CoreV1().PersistentVolumes().Cluster(kubelikeWorkspaceName).Get(ctx, "test-pv", metav1.GetOptions{})
+				require.NoError(t, err)
+
+				require.Equal(t, pv.Spec.PersistentVolumeSource.HostPath.Path, "/tmp/data")
+			},
+		},
+		{
+			name: "Delete a persistentvolume in kcp through upsyncer virtual workspace",
+			work: func(t *testing.T, kubelikeSyncerVWConfig *rest.Config, kubelikeWorkspaceName logicalcluster.Name, syncTargetKey string) {
+				ctx, cancelFunc := context.WithCancel(context.Background())
+				t.Cleanup(cancelFunc)
+
+				kubelikeSyncerVWClient, err := kcpkubernetesclientset.NewForConfig(kubelikeSyncerVWConfig)
+				require.NoError(t, err)
+
+				t.Log("Creating a persistentvolume in the kubelike source cluster...")
+				pv := &corev1.PersistentVolume{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-pv",
+						Labels: map[string]string{
+							"state.workload.kcp.dev/" + syncTargetKey: "Upsync",
+						},
+					},
+					Spec: corev1.PersistentVolumeSpec{
+						AccessModes: []corev1.PersistentVolumeAccessMode{
+							corev1.ReadWriteOnce,
+						},
+						Capacity: corev1.ResourceList{
+							corev1.ResourceStorage: resource.MustParse("1Gi"),
+						},
+						PersistentVolumeSource: corev1.PersistentVolumeSource{
+							HostPath: &corev1.HostPathVolumeSource{
+								Path: "/tmp/data",
+							},
+						},
+					},
+				}
+				t.Logf("Creating PV %s through direct kube client ...", pv.Name)
+				_, err = kubeClusterClient.CoreV1().PersistentVolumes().Cluster(kubelikeWorkspaceName).Create(ctx, pv, metav1.CreateOptions{})
 				require.NoError(t, err)
 
 				t.Log("Deleting PV test-pv3 through upsyncer virtual workspace...")
-				err = kubelikeSyncerVWClient.CoreV1().PersistentVolumes().Cluster(kubelikeClusterName).Delete(ctx, "test-pv3", metav1.DeleteOptions{})
+				err = kubelikeSyncerVWClient.CoreV1().PersistentVolumes().Cluster(kubelikeWorkspaceName).Delete(ctx, "test-pv", metav1.DeleteOptions{})
 				require.NoError(t, err)
 			},
 		},
@@ -1737,32 +1818,6 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 			}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 			syncTargetKey := workloadv1alpha1.ToSyncTargetKey(kubelikeSyncer.SyncerConfig.SyncTargetWorkspace, kubelikeSyncer.SyncerConfig.SyncTargetName)
-
-			t.Log("Creating a persistentvolume in the kubelike source cluster...")
-			pv := &corev1.PersistentVolume{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test-pv",
-					Labels: map[string]string{
-						"state.workload.kcp.dev/" + syncTargetKey: "Upsync",
-					},
-				},
-				Spec: corev1.PersistentVolumeSpec{
-					AccessModes: []corev1.PersistentVolumeAccessMode{
-						corev1.ReadWriteOnce,
-					},
-					Capacity: corev1.ResourceList{
-						corev1.ResourceStorage: resource.MustParse("1Gi"),
-					},
-					PersistentVolumeSource: corev1.PersistentVolumeSource{
-						HostPath: &corev1.HostPathVolumeSource{
-							Path: "/tmp/data",
-						},
-					},
-				},
-			}
-			t.Logf("Creating PV %s through upsyncer virtual workspace...", pv.Name)
-			_, err = kubeClusterClient.CoreV1().PersistentVolumes().Cluster(kubelikeWorkspace).Create(ctx, pv, metav1.CreateOptions{})
-			require.NoError(t, err)
 
 			// create virtual workspace rest configs
 			rawConfig, err := server.RawConfig()
