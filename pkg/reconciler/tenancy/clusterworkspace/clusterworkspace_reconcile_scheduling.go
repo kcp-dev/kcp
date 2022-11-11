@@ -375,6 +375,7 @@ func isValidShard(_ *tenancyv1alpha1.ClusterWorkspaceShard) (valid bool, reason,
 	return true, "", ""
 }
 
+//nolint:unused
 func randomClusterName() logicalcluster.Name {
 	token := make([]byte, 32)
 	rand.Read(token)
