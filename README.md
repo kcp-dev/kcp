@@ -164,7 +164,7 @@ documentation:
 ## Contributing
 
 We ❤️ our contributors! If you're interested in helping us out, please head over to our [Contributing](CONTRIBUTING.md)
-and [Developer](docs/developers) guides.
+and [Developer](docs/content/en/main/concepts/developers) guides.
 
 ## Getting in touch
 
