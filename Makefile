@@ -186,7 +186,7 @@ $(OPENSHIFT_GOIMPORTS):
 	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) github.com/openshift-eng/openshift-goimports $(OPENSHIFT_GOIMPORTS_BIN) $(OPENSHIFT_GOIMPORTS_VER)
 
 .PHONY: imports
-imports: $(OPENSHIFT_GOIMPORTS)
+imports: $(OPENSHIFT_GOIMPORTS) verify-go-versions
 	$(OPENSHIFT_GOIMPORTS) -m github.com/kcp-dev/kcp
 
 $(TOOLS_DIR)/verify_boilerplate.py:
