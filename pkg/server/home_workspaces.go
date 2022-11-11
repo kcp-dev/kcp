@@ -55,7 +55,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/softimpersonation"
-	indexrewriters "github.com/kcp-dev/kcp/pkg/index/rewriters"
 )
 
 var (
