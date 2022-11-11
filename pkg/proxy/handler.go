@@ -57,7 +57,7 @@ func shardHandler(index index.Index, proxy http.Handler) http.HandlerFunc {
 			return
 		}
 
-		shardURLString, found := index.Lookup(clusterName)
+		shardURLString, found := index.LookupURL(clusterName)
 		if !found {
 			logger.WithValues("clusterName", clusterName).V(4).Info("Unknown cluster")
 			responsewriters.Forbidden(req.Context(), attributes, w, req, kcpauthorization.WorkspaceAccessNotPermittedReason, kubernetesscheme.Codecs)
