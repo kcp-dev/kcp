@@ -36,24 +36,24 @@ import (
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/index"
+	indexrewriters "github.com/kcp-dev/kcp/pkg/index/rewriters"
 )
 
 const (
 	controllerName = "kcp-clusterworkspace-index"
 
-	clusterWorkspaceResyncPeriod = 2 * time.Hour
+	resyncPeriod = 2 * time.Hour
 )
 
-// Index implements a mapping from logical cluster to (shard) URL.
 type Index interface {
-	Lookup(logicalCluster logicalcluster.Name) (string, bool)
+	LookupURL(path logicalcluster.Name) (string, bool)
 }
 
 type ClusterWorkspaceClientGetter func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpclient.Interface, error)
 
 func NewController(
 	ctx context.Context,
-	rootHost string,
 	clusterWorkspaceShardInformer tenancyinformers.ClusterWorkspaceShardInformer,
 	clientGetter ClusterWorkspaceClientGetter,
 ) *Controller {
@@ -62,7 +62,6 @@ func NewController(
 	c := &Controller{
 		queue: queue,
 
-		rootHost:     rootHost,
 		clientGetter: clientGetter,
 
 		clusterWorkspaceShardIndexer: clusterWorkspaceShardInformer.Informer().GetIndexer(),
@@ -71,76 +70,25 @@ func NewController(
 		shardClusterWorkspaceInformers: map[string]cache.SharedIndexInformer{},
 		shardClusterWorkspaceStopCh:    map[string]chan struct{}{},
 
-		workspaceShardNames: map[logicalcluster.Name]string{},
-		shardBaseURLs:       map[string]string{},
-	}
-
-	c.clusterWorkspaceHandler = cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			ws := obj.(*tenancyv1alpha1.ClusterWorkspace)
-			c.lock.RLock()
-			got := c.workspaceShardNames[logicalcluster.From(ws).Join(ws.Name)]
-			c.lock.RUnlock()
-
-			if expected := ws.Status.Location.Current; got != expected {
-				c.lock.Lock()
-				defer c.lock.Unlock()
-				c.workspaceShardNames[logicalcluster.From(ws).Join(ws.Name)] = expected
-			}
-		},
-		UpdateFunc: func(old, obj interface{}) {
-			ws := obj.(*tenancyv1alpha1.ClusterWorkspace)
-
-			c.lock.RLock()
-			got := c.workspaceShardNames[logicalcluster.From(ws).Join(ws.Name)]
-			c.lock.RUnlock()
-
-			if expected := ws.Status.Location.Current; got != expected {
-				c.lock.Lock()
-				defer c.lock.Unlock()
-				c.workspaceShardNames[logicalcluster.From(ws).Join(ws.Name)] = expected
-			}
-		},
-		DeleteFunc: func(obj interface{}) {
-			if final, ok := obj.(cache.DeletedFinalStateUnknown); ok {
-				obj = final.Obj
-			}
-			ws := obj.(*tenancyv1alpha1.ClusterWorkspace)
-
-			c.lock.Lock()
-			defer c.lock.Unlock()
-			delete(c.workspaceShardNames, logicalcluster.From(ws).Join(ws.Name))
-		},
+		state: *index.New([]index.PathRewriter{
+			indexrewriters.UserRewriter,
+		}),
 	}
 
 	clusterWorkspaceShardInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			shard := obj.(*tenancyv1alpha1.ClusterWorkspaceShard)
-			c.lock.RLock()
-			got := c.shardBaseURLs[shard.Name]
-			c.lock.RUnlock()
-
-			if expected := shard.Spec.BaseURL; got != expected {
-				c.lock.Lock()
-				defer c.lock.Unlock()
-				c.shardBaseURLs[shard.Name] = expected
-			}
-
+			c.state.UpsertShard(shard.Name, shard.Spec.BaseURL)
 			c.enqueueShard(ctx, shard)
 		},
 		UpdateFunc: func(old, obj interface{}) {
 			shard := obj.(*tenancyv1alpha1.ClusterWorkspaceShard)
-			c.lock.RLock()
-			got := c.shardBaseURLs[shard.Name]
-			c.lock.RUnlock()
-
-			if expected := shard.Spec.BaseURL; got != expected {
-				c.lock.Lock()
-				defer c.lock.Unlock()
-				c.shardBaseURLs[shard.Name] = expected
+			oldShard := obj.(*tenancyv1alpha1.ClusterWorkspaceShard)
+			if oldShard.Spec.BaseURL == shard.Spec.BaseURL {
+				return
 			}
-
-			// don't updates. Not of interest.
+			c.stopShard(oldShard)
+			c.enqueueShard(ctx, shard)
 		},
 		DeleteFunc: func(obj interface{}) {
 			if final, ok := obj.(cache.DeletedFinalStateUnknown); ok {
@@ -148,11 +96,7 @@ func NewController(
 			}
 			shard := obj.(*tenancyv1alpha1.ClusterWorkspaceShard)
 
-			c.lock.Lock()
-			defer c.lock.Unlock()
-			delete(c.shardBaseURLs, shard.Name)
-
-			c.enqueueShard(ctx, shard)
+			c.stopShard(shard)
 		},
 	})
 
@@ -165,21 +109,17 @@ func NewController(
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	rootHost     string
 	clientGetter ClusterWorkspaceClientGetter
 
 	clusterWorkspaceShardIndexer cache.Indexer
 	clusterWorkspaceShardLister  tenancylisters.ClusterWorkspaceShardLister
 
-	clusterWorkspaceHandler cache.ResourceEventHandler
-
-	shardInformersLock             sync.RWMutex
+	lock                           sync.RWMutex
 	shardClusterWorkspaceInformers map[string]cache.SharedIndexInformer
+	shardThisWorkspaceInformers    map[string]cache.SharedIndexInformer
 	shardClusterWorkspaceStopCh    map[string]chan struct{}
 
-	lock                sync.RWMutex
-	workspaceShardNames map[logicalcluster.Name]string
-	shardBaseURLs       map[string]string
+	state index.State
 }
 
 // Start the controller. It does not really do anything, but to keep the shape of a normal
@@ -187,8 +127,8 @@ type Controller struct {
 func (c *Controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer func() {
-		c.shardInformersLock.Lock()
-		defer c.shardInformersLock.Unlock()
+		c.lock.Lock()
+		defer c.lock.Unlock()
 		for _, stopCh := range c.shardClusterWorkspaceStopCh {
 			close(stopCh)
 		}
@@ -248,33 +188,65 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	shard, err := c.clusterWorkspaceShardLister.Get(key) // TODO: clients need a way to scope down the lister per-cluster
 	if err != nil {
 		if errors.IsNotFound(err) {
-			c.shardInformersLock.Lock()
-			defer c.shardInformersLock.Unlock()
-
-			delete(c.shardClusterWorkspaceInformers, shard.Name)
-			delete(c.shardClusterWorkspaceStopCh, shard.Name)
-
+			c.stopShard(shard)
 			return nil
 		}
 		return err
 	}
 
-	c.shardInformersLock.Lock()
-	defer c.shardInformersLock.Unlock()
+	c.lock.Lock()
+	defer c.lock.Unlock()
 
 	if _, found := c.shardClusterWorkspaceInformers[shard.Name]; !found {
 		client, err := c.clientGetter(shard)
 		if err != nil {
 			return err
 		}
-		informer := tenancyinformers.NewClusterWorkspaceInformer(client, clusterWorkspaceResyncPeriod, nil)
-		informer.AddEventHandler(c.clusterWorkspaceHandler)
+
+		cwInformer := tenancyinformers.NewClusterWorkspaceInformer(client, resyncPeriod, nil)
+		cwInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				ws := obj.(*tenancyv1alpha1.ClusterWorkspace)
+				c.state.UpsertClusterWorkspace(shard.Name, ws)
+			},
+			UpdateFunc: func(old, obj interface{}) {
+				ws := obj.(*tenancyv1alpha1.ClusterWorkspace)
+				c.state.UpsertClusterWorkspace(shard.Name, ws)
+			},
+			DeleteFunc: func(obj interface{}) {
+				if final, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+					obj = final.Obj
+				}
+				ws := obj.(*tenancyv1alpha1.ClusterWorkspace)
+				c.state.DeleteClusterWorkspace(shard.Name, ws)
+			},
+		})
+
+		twInformer := tenancyinformers.NewThisWorkspaceInformer(client, resyncPeriod, nil)
+		twInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				this := obj.(*tenancyv1alpha1.ThisWorkspace)
+				c.state.UpsertThisWorkspace(shard.Name, this)
+			},
+			UpdateFunc: func(old, obj interface{}) {
+				this := obj.(*tenancyv1alpha1.ThisWorkspace)
+				c.state.UpsertThisWorkspace(shard.Name, this)
+			},
+			DeleteFunc: func(obj interface{}) {
+				if final, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+					obj = final.Obj
+				}
+				this := obj.(*tenancyv1alpha1.ThisWorkspace)
+				c.state.DeleteThisWorkspace(shard.Name, this)
+			},
+		})
 
 		stopCh := make(chan struct{})
-		c.shardClusterWorkspaceInformers[shard.Name] = informer
+		c.shardClusterWorkspaceInformers[shard.Name] = cwInformer
+		c.shardThisWorkspaceInformers[shard.Name] = twInformer
 		c.shardClusterWorkspaceStopCh[shard.Name] = stopCh
 
-		go informer.Run(stopCh)
+		go cwInformer.Run(stopCh)
 
 		// no need to wait. We only care about events and they arrive when they arrive.
 	}
@@ -282,18 +254,20 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	return nil
 }
 
-func (c *Controller) Lookup(logicalCluster logicalcluster.Name) (string, bool) {
-	if logicalCluster == tenancyv1alpha1.RootCluster {
-		return c.rootHost, true
-	}
+func (c *Controller) stopShard(shard *tenancyv1alpha1.ClusterWorkspaceShard) {
+	c.state.DeleteShard(shard.Name)
 
-	c.lock.RLock()
-	defer c.lock.RUnlock()
+	c.lock.Lock()
+	defer c.lock.Unlock()
 
-	shardName, found := c.workspaceShardNames[logicalCluster]
-	if !found {
-		return "", false
+	if stopCh, found := c.shardClusterWorkspaceStopCh[shard.Name]; found {
+		close(stopCh)
 	}
-	url, found := c.shardBaseURLs[shardName]
-	return url, found
+	delete(c.shardClusterWorkspaceStopCh, shard.Name)
+	delete(c.shardClusterWorkspaceInformers, shard.Name)
+	delete(c.shardThisWorkspaceInformers, shard.Name)
+}
+
+func (c *Controller) LookupURL(path logicalcluster.Name) (string, bool) {
+	return c.state.LookupURL(path)
 }
