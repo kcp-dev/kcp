@@ -57,7 +57,6 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	s.KcpSharedInformerFactory = kcpinformers.NewSharedScopedInformerFactoryWithOptions(rootShardConfigInformerClient.Cluster(tenancyv1alpha1.RootCluster), 30*time.Minute)
 	s.IndexController = index.NewController(
 		ctx,
-		s.CompletedConfig.RootShardConfig.Host,
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
 		func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpclientset.ClusterInterface, error) {
 			shardConfig := restclient.CopyConfig(s.CompletedConfig.ShardsConfig)

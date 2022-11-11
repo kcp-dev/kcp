@@ -18,7 +18,6 @@ package server
 
 import (
 	"crypto/sha1"
-	"crypto/sha256"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -31,7 +30,6 @@ import (
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	rbaclisters "github.com/kcp-dev/client-go/listers/rbac/v1"
 	"github.com/kcp-dev/logicalcluster/v2"
-	"github.com/martinlindhe/base36"
 
 	rbacv1 "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -54,6 +52,7 @@ import (
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	indexrewriters "github.com/kcp-dev/kcp/pkg/index/rewriters"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/softimpersonation"
 )
@@ -243,12 +242,13 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 
 	// here we have not found a legacy home workspace. We have to check whether a new-style workspace exists.
 
-	homeClusterName := homeClusterName(effectiveUser.GetName())
+	homeClusterName := indexrewriters.HomeClusterName(effectiveUser.GetName())
 	this, err = h.thisWorkspaceLister.Cluster(homeClusterName).Get(tenancyv1alpha1.ThisWorkspaceName)
-	if err != nil && !kerrors.IsNotFound(err) {
-		responsewriters.InternalError(rw, req, err)
-		return
-	} else if kerrors.IsNotFound(err) {
+	if err != nil {
+		if !kerrors.IsNotFound(err) {
+			responsewriters.InternalError(rw, req, err)
+			return
+		}
 		// check permissions first
 		attr := authorizer.AttributesRecord{
 			User:            effectiveUser,
@@ -398,11 +398,6 @@ func (h *homeWorkspaceHandler) legacyHomeLogicalClusterName(userName string) (lo
 	})
 
 	return result, userName
-}
-
-func homeClusterName(userName string) logicalcluster.Name {
-	hash := sha256.Sum224([]byte(userName))
-	return logicalcluster.New(strings.ToLower(base36.EncodeBytes(hash[:])))
 }
 
 func isGetHomeWorkspaceRequest(clusterName logicalcluster.Name, requestInfo *request.RequestInfo) bool {
