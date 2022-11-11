@@ -79,7 +79,6 @@ import (
 	synctargetcontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/synctarget"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/synctargetexports"
 	initializingworkspacesbuilder "github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces/builder"
-	"k8s.io/client-go/dynamic"
 )
 
 func postStartHookName(controllerName string) string {
@@ -386,7 +385,6 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 	logicalClusterAdminConfig = rest.AddUserAgent(logicalClusterAdminConfig, clusterworkspaceshard.ControllerName)
 
 	workspaceController, err := clusterworkspace.NewController(
-		s.CompletedConfig.ShardExternalURL,
 		kcpClusterClient,
 		kubeClusterClient,
 		logicalClusterAdminConfig,
@@ -744,7 +742,7 @@ func (s *Server) installAPIBinderController(ctx context.Context, config *rest.Co
 	config = rest.CopyConfig(config)
 	config = rest.AddUserAgent(config, initialization.ControllerName)
 	// TODO(ncdc): support standalone vw server when --shard-virtual-workspace-url is set
-	config.Host += initializingworkspacesbuilder.URLFor(tenancyv1alpha1.ClusterWorkspaceAPIBindingsInitializer)
+	config.Host += initializingworkspacesbuilder.URLFor(tenancyv1alpha1.WorkspaceAPIBindingsInitializer)
 	initializingWorkspacesKcpClusterClient, err := kcpclientset.NewForConfig(config)
 	if err != nil {
 		return err

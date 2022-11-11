@@ -65,11 +65,11 @@ type clusterWorkspace struct {
 var _ admission.MutationInterface = &clusterWorkspace{}
 var _ admission.ValidationInterface = &clusterWorkspace{}
 
-var phaseOrdinal = map[tenancyv1alpha1.ClusterWorkspacePhaseType]int{
-	tenancyv1alpha1.ClusterWorkspacePhaseType(""):     1,
-	tenancyv1alpha1.ClusterWorkspacePhaseScheduling:   2,
-	tenancyv1alpha1.ClusterWorkspacePhaseInitializing: 3,
-	tenancyv1alpha1.ClusterWorkspacePhaseReady:        4,
+var phaseOrdinal = map[tenancyv1alpha1.WorkspacePhaseType]int{
+	tenancyv1alpha1.WorkspacePhaseType(""):     1,
+	tenancyv1alpha1.WorkspacePhaseScheduling:   2,
+	tenancyv1alpha1.WorkspacePhaseInitializing: 3,
+	tenancyv1alpha1.WorkspacePhaseReady:        4,
 }
 
 // Admit ensures that
@@ -97,7 +97,7 @@ func (o *clusterWorkspace) Admit(ctx context.Context, a admission.Attributes, _ 
 			if cw.Annotations == nil {
 				cw.Annotations = map[string]string{}
 			}
-			cw.Annotations[tenancyv1alpha1.ExperimentalClusterWorkspaceOwnerAnnotationKey] = userInfo
+			cw.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey] = userInfo
 		}
 	}
 
@@ -162,17 +162,17 @@ func (o *clusterWorkspace) Validate(ctx context.Context, a admission.Attributes,
 			if cw.Annotations == nil {
 				cw.Annotations = map[string]string{}
 			}
-			if got := cw.Annotations[tenancyv1alpha1.ExperimentalClusterWorkspaceOwnerAnnotationKey]; got != userInfo {
-				return admission.NewForbidden(a, fmt.Errorf("expected user annotation %s=%s", tenancyv1alpha1.ExperimentalClusterWorkspaceOwnerAnnotationKey, userInfo))
+			if got := cw.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey]; got != userInfo {
+				return admission.NewForbidden(a, fmt.Errorf("expected user annotation %s=%s", tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey, userInfo))
 			}
 		}
 	}
 
-	if phaseOrdinal[cw.Status.Phase] > phaseOrdinal[tenancyv1alpha1.ClusterWorkspacePhaseInitializing] && len(cw.Status.Initializers) > 0 {
+	if phaseOrdinal[cw.Status.Phase] > phaseOrdinal[tenancyv1alpha1.WorkspacePhaseInitializing] && len(cw.Status.Initializers) > 0 {
 		return admission.NewForbidden(a, fmt.Errorf("spec.initializers must be empty for phase %s", cw.Status.Phase))
 	}
 
-	if phaseOrdinal[cw.Status.Phase] > phaseOrdinal[tenancyv1alpha1.ClusterWorkspacePhaseScheduling] {
+	if phaseOrdinal[cw.Status.Phase] > phaseOrdinal[tenancyv1alpha1.WorkspacePhaseScheduling] {
 		if cw.Status.Location.Current == "" {
 			return admission.NewForbidden(a, fmt.Errorf("status.location.current must be set for phase %s", cw.Status.Phase))
 		}

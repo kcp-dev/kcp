@@ -73,7 +73,7 @@ func TestUserHomeWorkspaces(t *testing.T) {
 				createdHome, err := kcpUser1Client.Cluster(tenancyv1alpha1.RootCluster).TenancyV1beta1().Workspaces().Get(ctx, "~", metav1.GetOptions{})
 				require.NoError(t, err, "user-1 should be able to get ~ workspace")
 				require.NotEqual(t, metav1.Time{}, createdHome.CreationTimestamp, "should have a creation timestamp, i.e. is not virtual")
-				require.Equal(t, tenancyv1alpha1.ClusterWorkspacePhaseReady, createdHome.Status.Phase, "created home workspace should be ready")
+				require.Equal(t, tenancyv1alpha1.WorkspacePhaseReady, createdHome.Status.Phase, "created home workspace should be ready")
 
 				t.Logf("Get ~ Home workspace URL for user-2")
 
@@ -101,7 +101,7 @@ func TestUserHomeWorkspaces(t *testing.T) {
 				t.Logf("Get ~ workspace of user-1")
 				existingHomeWorkspace, err := kcpUser1Client.Cluster(tenancyv1alpha1.RootCluster).TenancyV1beta1().Workspaces().Get(ctx, "~", metav1.GetOptions{})
 				require.NoError(t, err, "user-1 should get his home workspace through ~")
-				require.Equal(t, tenancyv1alpha1.ClusterWorkspacePhaseReady, existingHomeWorkspace.Status.Phase, "created home workspace should be ready")
+				require.Equal(t, tenancyv1alpha1.WorkspacePhaseReady, existingHomeWorkspace.Status.Phase, "created home workspace should be ready")
 
 				t.Logf("Workspace will show up in list of workspaces of user-1")
 				require.Eventually(t, func() bool {
