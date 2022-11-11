@@ -59,6 +59,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibindingdeletion"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiexport"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiresource"
+	"github.com/kcp-dev/kcp/pkg/reconciler/apis/crdcleanup"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/identitycache"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/permissionclaimlabel"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/replication"
@@ -786,6 +787,37 @@ func (s *Server) installAPIBinderController(ctx context.Context, config *rest.Co
 		initializingWorkspacesKcpInformers.WaitForCacheSync(hookContext.StopCh)
 
 		go c.Start(goContext(hookContext), 2)
+		return nil
+	})
+}
+
+func (s *Server) installCRDCleanupController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
+	config = rest.CopyConfig(config)
+	config = rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(config), crdcleanup.ControllerName)
+
+	crdClusterClient, err := kcpapiextensionsclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	c, err := crdcleanup.NewController(
+		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
+		crdClusterClient,
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
+	)
+	if err != nil {
+		return err
+	}
+
+	return server.AddPostStartHook(postStartHookName(crdcleanup.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
+		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(crdcleanup.ControllerName))
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			logger.Error(err, "failed to finish post-start-hook")
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		go c.Start(goContext(hookContext), 2)
+
 		return nil
 	})
 }

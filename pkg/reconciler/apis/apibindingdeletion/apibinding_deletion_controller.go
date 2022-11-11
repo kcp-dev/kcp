@@ -260,7 +260,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		if apibindingCopy.Finalizers[i] == APIBindingFinalizer {
 			continue
 		}
-		filtered = append(filtered, APIBindingFinalizer)
+		filtered = append(filtered, apibindingCopy.Finalizers[i])
 	}
 	if len(apibindingCopy.Finalizers) == len(filtered) {
 		return nil
