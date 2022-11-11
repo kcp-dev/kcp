@@ -280,7 +280,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			if ws.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseReady {
+			if ws.Status.Phase != tenancyv1alpha1.WorkspacePhaseReady {
 				return fmt.Errorf("workspace %q is not ready", o.Name)
 			}
 
@@ -551,7 +551,7 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 		if ws.Spec.Type.Name != "" && ws.Spec.Type.Name != structuredWorkspaceType.Name || ws.Spec.Type.Path != structuredWorkspaceType.Path {
 			return fmt.Errorf("workspace %q cannot be created with type %s, it already exists with different type %s", o.Name, structuredWorkspaceType.String(), ws.Spec.Type.String())
 		}
-		if ws.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseReady && o.ReadyWaitTimeout > 0 {
+		if ws.Status.Phase != tenancyv1alpha1.WorkspacePhaseReady && o.ReadyWaitTimeout > 0 {
 			if _, err := fmt.Fprintf(o.Out, "%s already exists. Waiting for it to be ready...\n", workspaceReference); err != nil {
 				return err
 			}
@@ -560,11 +560,11 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 				return err
 			}
 		}
-	} else if ws.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseReady && o.ReadyWaitTimeout > 0 {
+	} else if ws.Status.Phase != tenancyv1alpha1.WorkspacePhaseReady && o.ReadyWaitTimeout > 0 {
 		if _, err := fmt.Fprintf(o.Out, "%s created. Waiting for it to be ready...\n", workspaceReference); err != nil {
 			return err
 		}
-	} else if ws.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseReady {
+	} else if ws.Status.Phase != tenancyv1alpha1.WorkspacePhaseReady {
 		return fmt.Errorf("%s created but is not ready to use", workspaceReference)
 	}
 
@@ -582,13 +582,13 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 	}
 
 	// wait for being ready
-	if ws.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseReady {
+	if ws.Status.Phase != tenancyv1alpha1.WorkspacePhaseReady {
 		if err := wait.PollImmediate(time.Millisecond*500, o.ReadyWaitTimeout, func() (bool, error) {
 			ws, err = o.kcpClusterClient.Cluster(currentClusterName).TenancyV1beta1().Workspaces().Get(ctx, ws.Name, metav1.GetOptions{})
 			if err != nil {
 				return false, err
 			}
-			if ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady {
+			if ws.Status.Phase == tenancyv1alpha1.WorkspacePhaseReady {
 				return true, nil
 			}
 			return false, nil

@@ -30,7 +30,7 @@ import (
 
 func (c *controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.ClusterWorkspace) error {
 	logger := klog.FromContext(ctx)
-	if workspace.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseInitializing {
+	if workspace.Status.Phase != tenancyv1alpha1.WorkspacePhaseInitializing {
 		return nil
 	}
 

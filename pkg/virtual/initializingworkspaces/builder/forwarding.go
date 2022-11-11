@@ -38,13 +38,14 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
 	registry "github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
 )
 
-func initializingWorkspaceRequirements(initializer tenancyv1alpha1.ClusterWorkspaceInitializer) (labels.Requirements, error) {
+func initializingWorkspaceRequirements(initializer tenancyv1alpha1.WorkspaceInitializer) (labels.Requirements, error) {
 	labelSelector := map[string]string{
-		tenancyv1alpha1.ClusterWorkspacePhaseLabel: string(tenancyv1alpha1.ClusterWorkspacePhaseInitializing),
+		tenancyv1alpha1.WorkspacePhaseLabel: string(tenancyv1alpha1.WorkspacePhaseInitializing),
 	}
 
 	key, value := initialization.InitializerToLabel(initializer)
@@ -61,9 +62,9 @@ func initializingWorkspaceRequirements(initializer tenancyv1alpha1.ClusterWorksp
 func provideFilteredClusterWorkspacesReadOnlyRestStorage(getTenancyIdentity func() (string, error)) func(
 	ctx context.Context,
 	clusterClient kcpdynamic.ClusterInterface,
-	initializer tenancyv1alpha1.ClusterWorkspaceInitializer,
+	initializer tenancyv1alpha1.WorkspaceInitializer,
 ) (apiserver.RestProviderFunc, error) {
-	return func(ctx context.Context, clusterClient kcpdynamic.ClusterInterface, initializer tenancyv1alpha1.ClusterWorkspaceInitializer) (apiserver.RestProviderFunc, error) {
+	return func(ctx context.Context, clusterClient kcpdynamic.ClusterInterface, initializer tenancyv1alpha1.WorkspaceInitializer) (apiserver.RestProviderFunc, error) {
 		requirements, err := initializingWorkspaceRequirements(initializer)
 		if err != nil {
 			return nil, err
@@ -207,7 +208,7 @@ func provideDelegatingClusterWorkspacesRestStorage(getTenancyIdentity func() (st
 
 // withUpdateValidation adds further validation to ensure that a user of this virtual workspace can only
 // remove their own initializer from the list
-func withUpdateValidation(initializer tenancyv1alpha1.ClusterWorkspaceInitializer) registry.StorageWrapper {
+func withUpdateValidation(initializer tenancyv1alpha1.WorkspaceInitializer) registry.StorageWrapper {
 	return registry.StorageWrapperFunc(func(resource schema.GroupResource, storage *registry.StoreFuncs) {
 		delegateUpdater := storage.UpdaterFunc
 		storage.UpdaterFunc = func(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
@@ -223,7 +224,7 @@ func withUpdateValidation(initializer tenancyv1alpha1.ClusterWorkspaceInitialize
 					return errors.NewInternalError(fmt.Errorf("error accessing initializers from old object: %w", err))
 				}
 				invalidUpdateErr := errors.NewInvalid(
-					tenancyv1alpha1.Kind("ClusterWorkspace"),
+					tenancyv1beta1.Kind("Workspace"),
 					name,
 					field.ErrorList{field.Invalid(
 						field.NewPath("status", "initializers"),

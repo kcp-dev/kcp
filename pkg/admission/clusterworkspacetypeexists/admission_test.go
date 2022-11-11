@@ -94,18 +94,18 @@ func TestAdmit(t *testing.T) {
 			clusterName: logicalcluster.New("root:org:ws"),
 			a: updateAttr(
 				newWorkspace("root:org:ws:test").withType("root:org:foo").withStatus(tenancyv1alpha1.ClusterWorkspaceStatus{
-					Phase:    tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
+					Phase:    tenancyv1alpha1.WorkspacePhaseInitializing,
 					Location: tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
 					BaseURL:  "https://kcp.bigcorp.com/clusters/org:test",
 				}).ClusterWorkspace,
 				newWorkspace("root:org:ws:test").withType("root:org:foo").withStatus(tenancyv1alpha1.ClusterWorkspaceStatus{
-					Phase:        tenancyv1alpha1.ClusterWorkspacePhaseScheduling,
-					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{},
+					Phase:        tenancyv1alpha1.WorkspacePhaseScheduling,
+					Initializers: []tenancyv1alpha1.WorkspaceInitializer{},
 				}).ClusterWorkspace,
 			),
 			expectedObj: newWorkspace("root:org:ws:test").withType("root:org:foo").withStatus(tenancyv1alpha1.ClusterWorkspaceStatus{
-				Phase:        tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
-				Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{"root:org:other", "root:org:foo"},
+				Phase:        tenancyv1alpha1.WorkspacePhaseInitializing,
+				Initializers: []tenancyv1alpha1.WorkspaceInitializer{"root:org:other", "root:org:foo"},
 				Location:     tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
 				BaseURL:      "https://kcp.bigcorp.com/clusters/org:test",
 			}).ClusterWorkspace,
@@ -118,17 +118,17 @@ func TestAdmit(t *testing.T) {
 			clusterName: logicalcluster.New("root:org:ws"),
 			a: updateAttr(
 				newWorkspace("root:org:ws:test").withType("root:org:foo").withStatus(tenancyv1alpha1.ClusterWorkspaceStatus{
-					Phase:    tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
+					Phase:    tenancyv1alpha1.WorkspacePhaseInitializing,
 					Location: tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
 					BaseURL:  "https://kcp.bigcorp.com/clusters/org:test",
 				}).ClusterWorkspace,
 				newWorkspace("root:org:ws:test").withType("root:org:foo").withStatus(tenancyv1alpha1.ClusterWorkspaceStatus{
-					Phase:        tenancyv1alpha1.ClusterWorkspacePhaseScheduling,
-					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{},
+					Phase:        tenancyv1alpha1.WorkspacePhaseScheduling,
+					Initializers: []tenancyv1alpha1.WorkspaceInitializer{},
 				}).ClusterWorkspace,
 			),
 			expectedObj: newWorkspace("root:org:ws:test").withType("root:org:foo").withStatus(tenancyv1alpha1.ClusterWorkspaceStatus{
-				Phase:    tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
+				Phase:    tenancyv1alpha1.WorkspacePhaseInitializing,
 				Location: tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
 				BaseURL:  "https://kcp.bigcorp.com/clusters/org:test",
 			}).ClusterWorkspace,
@@ -141,18 +141,18 @@ func TestAdmit(t *testing.T) {
 			clusterName: logicalcluster.New("root:org:ws"),
 			a: updateAttr(
 				newWorkspace("root:org:ws:test").withType("root:org:foo").withStatus(tenancyv1alpha1.ClusterWorkspaceStatus{
-					Phase:        tenancyv1alpha1.ClusterWorkspacePhaseReady,
-					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{},
+					Phase:        tenancyv1alpha1.WorkspacePhaseReady,
+					Initializers: []tenancyv1alpha1.WorkspaceInitializer{},
 					Location:     tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
 					BaseURL:      "https://kcp.bigcorp.com/clusters/org:test",
 				}).ClusterWorkspace,
 				newWorkspace("root:org:ws:test").withType("root:org:foo").withStatus(tenancyv1alpha1.ClusterWorkspaceStatus{
-					Phase:        tenancyv1alpha1.ClusterWorkspacePhaseScheduling,
-					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{},
+					Phase:        tenancyv1alpha1.WorkspacePhaseScheduling,
+					Initializers: []tenancyv1alpha1.WorkspaceInitializer{},
 				}).ClusterWorkspace,
 			),
 			expectedObj: newWorkspace("root:org:ws:test").withType("root:org:foo").withStatus(tenancyv1alpha1.ClusterWorkspaceStatus{
-				Phase:    tenancyv1alpha1.ClusterWorkspacePhaseReady,
+				Phase:    tenancyv1alpha1.WorkspacePhaseReady,
 				Location: tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
 				BaseURL:  "https://kcp.bigcorp.com/clusters/org:test",
 			}).ClusterWorkspace,
@@ -165,19 +165,19 @@ func TestAdmit(t *testing.T) {
 			clusterName: logicalcluster.New("root:org:ws"),
 			a: updateAttr(
 				newWorkspace("root:org:ws:test").withType("root:org:foo").withStatus(tenancyv1alpha1.ClusterWorkspaceStatus{
-					Phase:    tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
+					Phase:    tenancyv1alpha1.WorkspacePhaseInitializing,
 					Location: tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
 					BaseURL:  "https://kcp.bigcorp.com/clusters/org:test",
 				}).ClusterWorkspace,
 				newWorkspace("root:org:ws:test").withType("root:org:foo").withStatus(tenancyv1alpha1.ClusterWorkspaceStatus{
-					Phase:        tenancyv1alpha1.ClusterWorkspacePhaseScheduling,
-					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{},
+					Phase:        tenancyv1alpha1.WorkspacePhaseScheduling,
+					Initializers: []tenancyv1alpha1.WorkspaceInitializer{},
 				}).ClusterWorkspace,
 			),
 			expectedObj: newWorkspace("root:org:ws:test").withType("root:org:foo").withStatus(tenancyv1alpha1.ClusterWorkspaceStatus{
-				Phase:        tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
+				Phase:        tenancyv1alpha1.WorkspacePhaseInitializing,
 				Location:     tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
-				Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{tenancyv1alpha1.ClusterWorkspaceAPIBindingsInitializer},
+				Initializers: []tenancyv1alpha1.WorkspaceInitializer{tenancyv1alpha1.WorkspaceAPIBindingsInitializer},
 				BaseURL:      "https://kcp.bigcorp.com/clusters/org:test",
 			}).ClusterWorkspace,
 		},
@@ -538,11 +538,11 @@ func TestValidate(t *testing.T) {
 			},
 			attr: updateAttr(
 				newWorkspace("root:org:ws:test").withType("root:org:foo").withStatus(tenancyv1alpha1.ClusterWorkspaceStatus{
-					Phase:        tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
-					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{}, // root:org:foo missing
+					Phase:        tenancyv1alpha1.WorkspacePhaseInitializing,
+					Initializers: []tenancyv1alpha1.WorkspaceInitializer{}, // root:org:foo missing
 				}).ClusterWorkspace,
 				newWorkspace("root:org:ws:test").withType("root:org:foo").withStatus(tenancyv1alpha1.ClusterWorkspaceStatus{
-					Phase: tenancyv1alpha1.ClusterWorkspacePhaseScheduling,
+					Phase: tenancyv1alpha1.WorkspacePhaseScheduling,
 				}).ClusterWorkspace,
 			),
 			wantErr: true,
@@ -559,13 +559,13 @@ func TestValidate(t *testing.T) {
 			},
 			attr: updateAttr(
 				newWorkspace("root:org:ws:test").withType("root:org:foo").withStatus(tenancyv1alpha1.ClusterWorkspaceStatus{
-					Phase:        tenancyv1alpha1.ClusterWorkspacePhaseInitializing,
-					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{"root:org:foo", "unrelated"},
+					Phase:        tenancyv1alpha1.WorkspacePhaseInitializing,
+					Initializers: []tenancyv1alpha1.WorkspaceInitializer{"root:org:foo", "unrelated"},
 					Location:     tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
 					BaseURL:      "https://kcp.bigcorp.com/clusters/org:test",
 				}).ClusterWorkspace,
 				newWorkspace("root:org:ws:test").withType("root:org:foo").withStatus(tenancyv1alpha1.ClusterWorkspaceStatus{
-					Phase: tenancyv1alpha1.ClusterWorkspacePhaseScheduling,
+					Phase: tenancyv1alpha1.WorkspacePhaseScheduling,
 				}).ClusterWorkspace,
 			),
 		},

@@ -37,8 +37,8 @@ type phaseReconciler struct {
 func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alpha1.ClusterWorkspace) (reconcileStatus, error) {
 	switch workspace.Status.Phase {
 	case "":
-		workspace.Status.Phase = tenancyv1alpha1.ClusterWorkspacePhaseScheduling
-	case tenancyv1alpha1.ClusterWorkspacePhaseScheduling:
+		workspace.Status.Phase = tenancyv1alpha1.WorkspacePhaseScheduling
+	case tenancyv1alpha1.WorkspacePhaseScheduling:
 		// TODO(sttts): in the future this step is done by a workspace shard itself. I.e. moving to initializing is a step
 		//              of acceptance of the workspace on that shard.
 		if workspace.Status.Location.Current != "" && workspace.Status.BaseURL != "" {
@@ -51,15 +51,15 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alp
 				return reconcileStatusContinue, nil //nolint:nilerr
 			}
 
-			workspace.Status.Phase = tenancyv1alpha1.ClusterWorkspacePhaseInitializing
+			workspace.Status.Phase = tenancyv1alpha1.WorkspacePhaseInitializing
 		}
-	case tenancyv1alpha1.ClusterWorkspacePhaseInitializing:
+	case tenancyv1alpha1.WorkspacePhaseInitializing:
 		if len(workspace.Status.Initializers) > 0 {
 			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceInitialized, tenancyv1alpha1.WorkspaceInitializedInitializerExists, conditionsv1alpha1.ConditionSeverityInfo, "Initializers still exist: %v", workspace.Status.Initializers)
 			return reconcileStatusContinue, nil
 		}
 
-		workspace.Status.Phase = tenancyv1alpha1.ClusterWorkspacePhaseReady
+		workspace.Status.Phase = tenancyv1alpha1.WorkspacePhaseReady
 		conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceInitialized)
 	}
 

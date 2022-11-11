@@ -23,7 +23,6 @@ import (
 
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	rbacv1listers "github.com/kcp-dev/client-go/listers/rbac/v1"
-	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -152,7 +151,7 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 		return authorizer.DecisionNoOpinion, "error getting clusterworkspace", err
 	}
 
-	if ws.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseInitializing && ws.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseReady {
+	if ws.Status.Phase != tenancyv1alpha1.WorkspacePhaseInitializing && ws.Status.Phase != tenancyv1alpha1.WorkspacePhaseReady {
 		return authorizer.DecisionNoOpinion, fmt.Sprintf("not permitted due to phase %q", ws.Status.Phase), nil
 	}
 
@@ -201,7 +200,7 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 	}
 
 	// non-admin subjects don't have access to initializing workspaces.
-	if ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseInitializing && !extraGroups.Has(bootstrap.SystemKcpClusterWorkspaceAdminGroup) {
+	if ws.Status.Phase == tenancyv1alpha1.WorkspacePhaseInitializing && !extraGroups.Has(bootstrap.SystemKcpClusterWorkspaceAdminGroup) {
 		return authorizer.DecisionNoOpinion, "not permitted, clusterworkspace is in initializing phase", nil
 	}
 

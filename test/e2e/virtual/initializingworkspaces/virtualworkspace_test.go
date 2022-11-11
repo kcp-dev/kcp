@@ -490,7 +490,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 
 		t.Log("Attempt to do something more than just removing our initializer, get denied")
 		patchBytes := patchBytesFor(ws, func(workspace *tenancyv1alpha1.ClusterWorkspace) {
-			workspace.Status.Initializers = []tenancyv1alpha1.ClusterWorkspaceInitializer{"wrong"}
+			workspace.Status.Initializers = []tenancyv1alpha1.WorkspaceInitializer{"wrong"}
 		})
 		_, err = clusterClient.Cluster(logicalcluster.From(ws)).Patch(ctx, ws.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 		if !errors.IsInvalid(err) {
@@ -568,8 +568,8 @@ func workspaceForType(workspaceType *tenancyv1alpha1.ClusterWorkspaceType, testL
 
 func workspacesStuckInInitializing(t *testing.T, workspaces ...tenancyv1alpha1.ClusterWorkspace) bool {
 	for _, workspace := range workspaces {
-		if workspace.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseInitializing {
-			t.Logf("workspace %s is in %s, not %s", workspace.Name, workspace.Status.Phase, tenancyv1alpha1.ClusterWorkspacePhaseInitializing)
+		if workspace.Status.Phase != tenancyv1alpha1.WorkspacePhaseInitializing {
+			t.Logf("workspace %s is in %s, not %s", workspace.Name, workspace.Status.Phase, tenancyv1alpha1.WorkspacePhaseInitializing)
 			return false
 		}
 		if len(workspace.Status.Initializers) == 0 {
@@ -586,7 +586,7 @@ func workspacesStuckInInitializing(t *testing.T, workspaces ...tenancyv1alpha1.C
 // this is really an implementation detail of the virtual workspace, but since we have a couple of moving pieces
 // we do ultimately need to wait for labels to propagate before checking anything else, or the VW will not work
 func workspaceLabelsUpToDate(t *testing.T, workspace tenancyv1alpha1.ClusterWorkspace) bool {
-	if workspace.ObjectMeta.Labels[tenancyv1alpha1.ClusterWorkspacePhaseLabel] != string(tenancyv1alpha1.ClusterWorkspacePhaseInitializing) {
+	if workspace.ObjectMeta.Labels[tenancyv1alpha1.WorkspacePhaseLabel] != string(tenancyv1alpha1.WorkspacePhaseInitializing) {
 		t.Logf("workspace %s phase label is not updated yet", workspace.Name)
 		return false
 	}
