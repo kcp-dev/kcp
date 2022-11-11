@@ -759,7 +759,7 @@ func (s *Server) installAPIBinderController(ctx context.Context, config *rest.Co
 	kcpclienthelper.SetMultiClusterRoundTripper(config)
 	config = rest.AddUserAgent(config, initialization.ControllerName)
 	// TODO(ncdc): support standalone vw server when --shard-virtual-workspace-url is set
-	config.Host += initializingworkspacesbuilder.URLFor(tenancyv1alpha1.ClusterWorkspaceAPIBindingsInitializer)
+	config.Host += initializingworkspacesbuilder.URLFor(tenancyv1alpha1.WorkspaceAPIBindingsInitializer)
 	initializingWorkspacesKcpClusterClient, err := kcpclient.NewForConfig(config)
 	if err != nil {
 		return err

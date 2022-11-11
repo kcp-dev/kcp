@@ -333,7 +333,7 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 		clusterWorkspace.Annotations = make(map[string]string)
 	}
 
-	clusterWorkspace.Annotations[tenancyv1alpha1.ExperimentalClusterWorkspaceOwnerAnnotationKey] = ownerRaw
+	clusterWorkspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey] = ownerRaw
 
 	createdClusterWorkspace, err := s.kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, clusterWorkspace, metav1.CreateOptions{})
 	if kerrors.IsAlreadyExists(err) {

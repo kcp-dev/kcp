@@ -215,7 +215,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 	} else if len(legacyHomeWorkspace) == 1 {
 		this := legacyHomeWorkspace[0].(*tenancyv1alpha1.ThisWorkspace)
 
-		if this.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseReady {
+		if this.Status.Phase != tenancyv1alpha1.WorkspacePhaseReady {
 			if time.Since(this.CreationTimestamp.Time) > h.creationTimeout {
 				responsewriters.InternalError(rw, req, fmt.Errorf("home workspace creation timeout"))
 				return
@@ -304,7 +304,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 	// here we have a ThisWorkspace. Create ClusterRoleBinding. Again: if this is pre-existing
 	// and it is not belonging to the current user, the user will get a 403 through normal authorization.
 
-	if this.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseScheduling {
+	if this.Status.Phase == tenancyv1alpha1.WorkspacePhaseScheduling {
 		logger.Info("Creating home ClusterRoleBinding", "cluster", homeClusterName.String(), "user", effectiveUser.GetName(), "name", "workspace-admin")
 		_, err := h.kubeClusterClient.Cluster(homeClusterName).RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
 			ObjectMeta: metav1.ObjectMeta{
@@ -330,7 +330,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 
 		// move to Initializing state
 		this = this.DeepCopy()
-		this.Status.Phase = tenancyv1alpha1.ClusterWorkspacePhaseInitializing
+		this.Status.Phase = tenancyv1alpha1.WorkspacePhaseInitializing
 		this, err = h.kcpClusterClient.Cluster(homeClusterName).TenancyV1alpha1().ThisWorkspaces().UpdateStatus(ctx, this, metav1.UpdateOptions{})
 		if err != nil {
 			responsewriters.InternalError(rw, req, err)
@@ -338,7 +338,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		}
 	}
 
-	if this.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseInitializing {
+	if this.Status.Phase == tenancyv1alpha1.WorkspacePhaseInitializing {
 		if time.Since(this.CreationTimestamp.Time) > h.creationTimeout {
 			responsewriters.InternalError(rw, req, fmt.Errorf("home workspace creation timeout"))
 			return

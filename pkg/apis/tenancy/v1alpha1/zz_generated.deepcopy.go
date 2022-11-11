@@ -264,7 +264,7 @@ func (in *ClusterWorkspaceStatus) DeepCopyInto(out *ClusterWorkspaceStatus) {
 	out.Location = in.Location
 	if in.Initializers != nil {
 		in, out := &in.Initializers, &out.Initializers
-		*out = make([]ClusterWorkspaceInitializer, len(*in))
+		*out = make([]WorkspaceInitializer, len(*in))
 		copy(*out, *in)
 	}
 	return
@@ -603,7 +603,7 @@ func (in *ThisWorkspaceStatus) DeepCopyInto(out *ThisWorkspaceStatus) {
 	}
 	if in.Initializers != nil {
 		in, out := &in.Initializers, &out.Initializers
-		*out = make([]ClusterWorkspaceInitializer, len(*in))
+		*out = make([]WorkspaceInitializer, len(*in))
 		copy(*out, *in)
 	}
 	return

@@ -118,7 +118,7 @@ func (in *WorkspaceStatus) DeepCopyInto(out *WorkspaceStatus) {
 	}
 	if in.Initializers != nil {
 		in, out := &in.Initializers, &out.Initializers
-		*out = make([]tenancyv1alpha1.ClusterWorkspaceInitializer, len(*in))
+		*out = make([]tenancyv1alpha1.WorkspaceInitializer, len(*in))
 		copy(*out, *in)
 	}
 	return
