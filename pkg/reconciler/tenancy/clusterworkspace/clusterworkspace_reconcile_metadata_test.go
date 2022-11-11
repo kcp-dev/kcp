@@ -39,8 +39,8 @@ func TestReconcileMetadata(t *testing.T) {
 			name: "adds entirely missing labels",
 			input: &tenancyv1alpha1.ClusterWorkspace{
 				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
-					Phase: tenancyv1alpha1.ClusterWorkspacePhaseReady,
-					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{
+					Phase: tenancyv1alpha1.WorkspacePhaseReady,
+					Initializers: []tenancyv1alpha1.WorkspaceInitializer{
 						"pluto", "venus", "apollo",
 					},
 				},
@@ -66,8 +66,8 @@ func TestReconcileMetadata(t *testing.T) {
 					},
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
-					Phase: tenancyv1alpha1.ClusterWorkspacePhaseReady,
-					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{
+					Phase: tenancyv1alpha1.WorkspacePhaseReady,
+					Initializers: []tenancyv1alpha1.WorkspaceInitializer{
 						"pluto", "venus", "apollo",
 					},
 				},
@@ -93,8 +93,8 @@ func TestReconcileMetadata(t *testing.T) {
 					},
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
-					Phase: tenancyv1alpha1.ClusterWorkspacePhaseReady,
-					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{
+					Phase: tenancyv1alpha1.WorkspacePhaseReady,
+					Initializers: []tenancyv1alpha1.WorkspaceInitializer{
 						"pluto",
 					},
 				},
@@ -119,8 +119,8 @@ func TestReconcileMetadata(t *testing.T) {
 					},
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
-					Phase: tenancyv1alpha1.ClusterWorkspacePhaseReady,
-					Initializers: []tenancyv1alpha1.ClusterWorkspaceInitializer{
+					Phase: tenancyv1alpha1.WorkspacePhaseReady,
+					Initializers: []tenancyv1alpha1.WorkspaceInitializer{
 						"pluto", "venus", "apollo",
 					},
 				},
@@ -148,7 +148,7 @@ func TestReconcileMetadata(t *testing.T) {
 					},
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
-					Phase: tenancyv1alpha1.ClusterWorkspacePhaseReady,
+					Phase: tenancyv1alpha1.WorkspacePhaseReady,
 				},
 			},
 			expected: metav1.ObjectMeta{
@@ -175,7 +175,7 @@ func TestReconcileMetadata(t *testing.T) {
 					},
 				},
 				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
-					Phase: tenancyv1alpha1.ClusterWorkspacePhaseReady,
+					Phase: tenancyv1alpha1.WorkspacePhaseReady,
 				},
 			},
 			expected: metav1.ObjectMeta{

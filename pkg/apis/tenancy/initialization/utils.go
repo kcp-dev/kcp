@@ -28,7 +28,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
 
-func InitializerPresent(initializer tenancyv1alpha1.ClusterWorkspaceInitializer, initializers []tenancyv1alpha1.ClusterWorkspaceInitializer) bool {
+func InitializerPresent(initializer tenancyv1alpha1.WorkspaceInitializer, initializers []tenancyv1alpha1.WorkspaceInitializer) bool {
 	for i := range initializers {
 		if initializers[i] == initializer {
 			return true
@@ -37,7 +37,7 @@ func InitializerPresent(initializer tenancyv1alpha1.ClusterWorkspaceInitializer,
 	return false
 }
 
-func EnsureInitializerPresent(initializer tenancyv1alpha1.ClusterWorkspaceInitializer, initializers []tenancyv1alpha1.ClusterWorkspaceInitializer) []tenancyv1alpha1.ClusterWorkspaceInitializer {
+func EnsureInitializerPresent(initializer tenancyv1alpha1.WorkspaceInitializer, initializers []tenancyv1alpha1.WorkspaceInitializer) []tenancyv1alpha1.WorkspaceInitializer {
 	for i := range initializers {
 		if initializers[i] == initializer {
 			return initializers // already present
@@ -47,7 +47,7 @@ func EnsureInitializerPresent(initializer tenancyv1alpha1.ClusterWorkspaceInitia
 	return initializers
 }
 
-func EnsureInitializerAbsent(initializer tenancyv1alpha1.ClusterWorkspaceInitializer, initializers []tenancyv1alpha1.ClusterWorkspaceInitializer) []tenancyv1alpha1.ClusterWorkspaceInitializer {
+func EnsureInitializerAbsent(initializer tenancyv1alpha1.WorkspaceInitializer, initializers []tenancyv1alpha1.WorkspaceInitializer) []tenancyv1alpha1.WorkspaceInitializer {
 	removeAt := -1
 	for i := range initializers {
 		if initializers[i] == initializer {
@@ -62,18 +62,18 @@ func EnsureInitializerAbsent(initializer tenancyv1alpha1.ClusterWorkspaceInitial
 }
 
 // InitializerForType determines the identifier for the implicit initializer associated with the ClusterWorkspaceType.
-func InitializerForType(cwt *tenancyv1alpha1.ClusterWorkspaceType) tenancyv1alpha1.ClusterWorkspaceInitializer {
+func InitializerForType(cwt *tenancyv1alpha1.ClusterWorkspaceType) tenancyv1alpha1.WorkspaceInitializer {
 	return InitializerForReference(tenancyv1alpha1.ReferenceFor(cwt))
 }
 
 // InitializerForReference determines the identifier for the implicit initializer associated with the
 // ClusterWorkspaceType referred to with the reference.
-func InitializerForReference(cwtr tenancyv1alpha1.ClusterWorkspaceTypeReference) tenancyv1alpha1.ClusterWorkspaceInitializer {
-	return tenancyv1alpha1.ClusterWorkspaceInitializer(cwtr.Path + ":" + string(cwtr.Name))
+func InitializerForReference(cwtr tenancyv1alpha1.ClusterWorkspaceTypeReference) tenancyv1alpha1.WorkspaceInitializer {
+	return tenancyv1alpha1.WorkspaceInitializer(cwtr.Path + ":" + string(cwtr.Name))
 }
 
 // TypeFrom determines the ClusterWorkspaceType workspace and name from an initializer name.
-func TypeFrom(initializer tenancyv1alpha1.ClusterWorkspaceInitializer) (logicalcluster.Name, string, error) {
+func TypeFrom(initializer tenancyv1alpha1.WorkspaceInitializer) (logicalcluster.Name, string, error) {
 	separatorIndex := strings.LastIndex(string(initializer), ":")
 	switch separatorIndex {
 	case -1:
@@ -86,8 +86,8 @@ func TypeFrom(initializer tenancyv1alpha1.ClusterWorkspaceInitializer) (logicalc
 // InitializerToLabel transforms an initializer into a key-value pair to add to a label set. We use a hash
 // to create a unique identifier from this information, prefixing the hash in order to create a value which
 // is unlikely to collide, and adding the full hash as a value in order to make it difficult to forge the pair.
-func InitializerToLabel(initializer tenancyv1alpha1.ClusterWorkspaceInitializer) (string, string) {
+func InitializerToLabel(initializer tenancyv1alpha1.WorkspaceInitializer) (string, string) {
 	hash := fmt.Sprintf("%x", sha256.Sum224([]byte(initializer)))
-	labelKeyHashLength := validation.LabelValueMaxLength - len(tenancyv1alpha1.ClusterWorkspaceInitializerLabelPrefix)
-	return tenancyv1alpha1.ClusterWorkspaceInitializerLabelPrefix + hash[0:labelKeyHashLength], hash
+	labelKeyHashLength := validation.LabelValueMaxLength - len(tenancyv1alpha1.WorkspaceInitializerLabelPrefix)
+	return tenancyv1alpha1.WorkspaceInitializerLabelPrefix + hash[0:labelKeyHashLength], hash
 }

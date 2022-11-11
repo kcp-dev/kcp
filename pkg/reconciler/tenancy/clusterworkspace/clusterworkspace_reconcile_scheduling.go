@@ -67,7 +67,7 @@ type schedulingReconciler struct {
 func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancyv1alpha1.ClusterWorkspace) (reconcileStatus, error) {
 	logger := klog.FromContext(ctx)
 	switch workspace.Status.Phase {
-	case tenancyv1alpha1.ClusterWorkspacePhaseScheduling:
+	case tenancyv1alpha1.WorkspacePhaseScheduling:
 		shardNameHash, hasShard := workspace.Annotations[clusterWorkspaceShardAnnotationKey]
 		clusterNameString, hasCluster := workspace.Annotations[clusterWorkspaceClusterAnnotationKey]
 		clusterName := logicalcluster.New(clusterNameString)
@@ -134,7 +134,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 		conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceScheduled)
 		logging.WithObject(logger, shard).Info("scheduled workspace to shard")
 
-	case tenancyv1alpha1.ClusterWorkspacePhaseInitializing, tenancyv1alpha1.ClusterWorkspacePhaseReady:
+	case tenancyv1alpha1.WorkspacePhaseInitializing, tenancyv1alpha1.WorkspacePhaseReady:
 		// movement can only happen after scheduling
 		if workspace.Status.Location.Target == "" {
 			break
@@ -310,15 +310,15 @@ func (r *schedulingReconciler) createThisWorkspace(ctx context.Context, shard *t
 }
 
 func (r *schedulingReconciler) createClusterRoleBindingForThisWorkspace(ctx context.Context, shard *tenancyv1alpha1.ClusterWorkspaceShard, cluster logicalcluster.Name, workspace *tenancyv1alpha1.ClusterWorkspace) error {
-	ownerAnnotation, found := workspace.Annotations[tenancyv1alpha1.ExperimentalClusterWorkspaceOwnerAnnotationKey]
+	ownerAnnotation, found := workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey]
 	if !found {
-		return fmt.Errorf("unable to find required %q owner annotation on %q workspace", tenancyv1alpha1.ExperimentalClusterWorkspaceOwnerAnnotationKey, workspace.Name)
+		return fmt.Errorf("unable to find required %q owner annotation on %q workspace", tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey, workspace.Name)
 	}
 
 	var userInfo authenticationv1.UserInfo
 	err := json.Unmarshal([]byte(ownerAnnotation), &userInfo)
 	if err != nil {
-		return fmt.Errorf("failed to unmarshal %q owner annotation with value %s on %q workspace", tenancyv1alpha1.ExperimentalClusterWorkspaceOwnerAnnotationKey, ownerAnnotation, workspace.Name)
+		return fmt.Errorf("failed to unmarshal %q owner annotation with value %s on %q workspace", tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey, ownerAnnotation, workspace.Name)
 	}
 	newBinding := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{

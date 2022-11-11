@@ -160,8 +160,8 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 
 	// we only admit at state transition to initializing
 	transitioningToInitializing :=
-		old.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseInitializing &&
-			cw.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseInitializing
+		old.Status.Phase != tenancyv1alpha1.WorkspacePhaseInitializing &&
+			cw.Status.Phase == tenancyv1alpha1.WorkspacePhaseInitializing
 	if !transitioningToInitializing {
 		return nil
 	}
@@ -180,7 +180,7 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 			cw.Status.Initializers = initialization.EnsureInitializerPresent(initialization.InitializerForType(alias), cw.Status.Initializers)
 		}
 		if len(alias.Spec.DefaultAPIBindings) > 0 {
-			cw.Status.Initializers = initialization.EnsureInitializerPresent(tenancyv1alpha1.ClusterWorkspaceAPIBindingsInitializer, cw.Status.Initializers)
+			cw.Status.Initializers = initialization.EnsureInitializerPresent(tenancyv1alpha1.WorkspaceAPIBindingsInitializer, cw.Status.Initializers)
 		}
 	}
 
@@ -278,8 +278,8 @@ func (o *clusterWorkspaceTypeExists) Validate(ctx context.Context, a admission.A
 			return fmt.Errorf("failed to convert unstructured to ClusterWorkspace: %w", err)
 		}
 
-		transitioningToInitializing = old.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseInitializing &&
-			cw.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseInitializing
+		transitioningToInitializing = old.Status.Phase != tenancyv1alpha1.WorkspacePhaseInitializing &&
+			cw.Status.Phase == tenancyv1alpha1.WorkspacePhaseInitializing
 	}
 
 	if !o.WaitForReady() {

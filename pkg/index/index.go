@@ -58,7 +58,7 @@ type State struct {
 }
 
 func (c *State) UpsertClusterWorkspace(shard string, ws *tenancyv1alpha1.ClusterWorkspace) {
-	if ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseScheduling {
+	if ws.Status.Phase == tenancyv1alpha1.WorkspacePhaseScheduling {
 		return
 	}
 	clusterName := logicalcluster.From(ws)
@@ -86,7 +86,7 @@ func (c *State) UpsertClusterWorkspace(shard string, ws *tenancyv1alpha1.Cluster
 }
 
 func (c *State) DeleteClusterWorkspace(shard string, ws *tenancyv1alpha1.ClusterWorkspace) {
-	if ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseScheduling {
+	if ws.Status.Phase == tenancyv1alpha1.WorkspacePhaseScheduling {
 		return
 	}
 	clusterName := logicalcluster.From(ws)

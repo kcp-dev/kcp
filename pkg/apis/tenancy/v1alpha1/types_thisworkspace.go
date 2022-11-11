@@ -28,7 +28,7 @@ const (
 	// ThisWorkspaceName is the name of the ThisWorkspace singleton.
 	ThisWorkspaceName = "this"
 
-	// ThisWorkspaceFinalizer attached to new ClusterWorkspace (in phase ClusterWorkspacePhaseScheduling) resources so that we can control
+	// ThisWorkspaceFinalizer attached to new ClusterWorkspace (in phase WorkspacePhaseScheduling) resources so that we can control
 	// deletion of ThisWorkspace resources
 	ThisWorkspaceFinalizer = "tenancy.kcp.dev/thisworkspace"
 
@@ -138,7 +138,7 @@ type ThisWorkspaceStatus struct {
 	// Phase of the workspace (Initializing, Ready).
 	//
 	// +kubebuilder:default=Scheduling
-	Phase ClusterWorkspacePhaseType `json:"phase,omitempty"`
+	Phase WorkspacePhaseType `json:"phase,omitempty"`
 
 	// Current processing state of the ThisWorkspace.
 	// +optional
