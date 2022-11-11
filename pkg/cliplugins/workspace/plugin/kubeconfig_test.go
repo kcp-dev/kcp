@@ -205,7 +205,7 @@ func TestCreate(t *testing.T) {
 						},
 					},
 					Status: tenancyv1beta1.WorkspaceStatus{
-						Phase: tenancyv1alpha1.ClusterWorkspacePhaseReady,
+						Phase: tenancyv1alpha1.WorkspacePhaseReady,
 						URL:   fmt.Sprintf("https://test%s", currentClusterName.Join(name).Path()),
 					},
 				})
@@ -224,7 +224,7 @@ func TestCreate(t *testing.T) {
 			if tt.markReady {
 				client.PrependReactor("create", "workspaces", func(action kcptesting.Action) (handled bool, ret runtime.Object, err error) {
 					obj := action.(kcptesting.CreateAction).GetObject().(*tenancyv1beta1.Workspace)
-					obj.Status.Phase = tenancyv1alpha1.ClusterWorkspacePhaseReady
+					obj.Status.Phase = tenancyv1alpha1.WorkspacePhaseReady
 					u := parseURLOrDie(u.String())
 					u.Path = currentClusterName.Join(obj.Name).Path()
 					obj.Status.URL = u.String()
@@ -1202,7 +1202,7 @@ func TestUse(t *testing.T) {
 						},
 					}
 					if !tt.unready[lcluster][name] {
-						obj.Status.Phase = tenancyv1alpha1.ClusterWorkspacePhaseReady
+						obj.Status.Phase = tenancyv1alpha1.WorkspacePhaseReady
 						obj.Status.URL = fmt.Sprintf("https://test%s", lcluster.Join(name).Path())
 					}
 					objs = append(objs, obj)

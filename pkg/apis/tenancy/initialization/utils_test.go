@@ -26,7 +26,7 @@ import (
 )
 
 func TestInitializerToLabel(t *testing.T) {
-	for _, testCase := range []tenancyv1alpha1.ClusterWorkspaceInitializer{
+	for _, testCase := range []tenancyv1alpha1.WorkspaceInitializer{
 		"simple:root:org:ws:whatever",
 		"QualifiedName:root:org:ws:whatever",
 		"qualified.Name:root:org:ws:whatever",

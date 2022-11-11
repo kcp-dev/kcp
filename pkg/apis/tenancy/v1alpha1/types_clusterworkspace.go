@@ -148,7 +148,7 @@ type ClusterWorkspaceStatus struct {
 	// Phase of the workspace  (Scheduling / Initializing / Ready)
 	//
 	// +kubebuilder:default=Scheduling
-	Phase ClusterWorkspacePhaseType `json:"phase,omitempty"`
+	Phase WorkspacePhaseType `json:"phase,omitempty"`
 
 	// Current processing state of the ClusterWorkspace.
 	// +optional
@@ -184,18 +184,18 @@ type ClusterWorkspaceStatus struct {
 	Initializers []ClusterWorkspaceInitializer `json:"initializers,omitempty"`
 }
 
-// ClusterWorkspacePhaseType is the type of the current phase of the workspace
+// WorkspacePhaseType is the type of the current phase of the workspace
 //
 // +kubebuilder:validation:Enum=Scheduling;Initializing;Ready
-type ClusterWorkspacePhaseType string
+type WorkspacePhaseType string
 
 const (
-	ClusterWorkspacePhaseScheduling   ClusterWorkspacePhaseType = "Scheduling"
-	ClusterWorkspacePhaseInitializing ClusterWorkspacePhaseType = "Initializing"
-	ClusterWorkspacePhaseReady        ClusterWorkspacePhaseType = "Ready"
+	WorkspacePhaseScheduling   WorkspacePhaseType = "Scheduling"
+	WorkspacePhaseInitializing WorkspacePhaseType = "Initializing"
+	WorkspacePhaseReady        WorkspacePhaseType = "Ready"
 )
 
-const ExperimentalClusterWorkspaceOwnerAnnotationKey string = "experimental.tenancy.kcp.dev/owner"
+const ExperimentalWorkspaceOwnerAnnotationKey string = "experimental.tenancy.kcp.dev/owner"
 
 // ClusterWorkspaceLocation specifies workspace placement information, including current, desired (target), and
 // historical information.

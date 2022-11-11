@@ -35,11 +35,11 @@ type metaDataReconciler struct {
 func (r *metaDataReconciler) reconcile(ctx context.Context, workspace *tenancyv1alpha1.ClusterWorkspace) (reconcileStatus, error) {
 	logger := klog.FromContext(ctx)
 	changed := false
-	if got, expected := workspace.Labels[tenancyv1alpha1.ClusterWorkspacePhaseLabel], string(workspace.Status.Phase); got != expected {
+	if got, expected := workspace.Labels[tenancyv1alpha1.WorkspacePhaseLabel], string(workspace.Status.Phase); got != expected {
 		if workspace.Labels == nil {
 			workspace.Labels = map[string]string{}
 		}
-		workspace.Labels[tenancyv1alpha1.ClusterWorkspacePhaseLabel] = expected
+		workspace.Labels[tenancyv1alpha1.WorkspacePhaseLabel] = expected
 		changed = true
 	}
 
@@ -54,7 +54,7 @@ func (r *metaDataReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 	}
 
 	for key := range workspace.Labels {
-		if strings.HasPrefix(key, tenancyv1alpha1.ClusterWorkspaceInitializerLabelPrefix) {
+		if strings.HasPrefix(key, tenancyv1alpha1.WorkspaceInitializerLabelPrefix) {
 			if !initializerKeys.Has(key) {
 				delete(workspace.Labels, key)
 				changed = true
@@ -62,21 +62,21 @@ func (r *metaDataReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 		}
 	}
 
-	if workspace.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseReady {
-		if value, found := workspace.Annotations[tenancyv1alpha1.ExperimentalClusterWorkspaceOwnerAnnotationKey]; found {
+	if workspace.Status.Phase == tenancyv1alpha1.WorkspacePhaseReady {
+		if value, found := workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey]; found {
 			var info authenticationv1.UserInfo
 			err := json.Unmarshal([]byte(value), &info)
 			if err != nil {
-				logger.Error(err, "failed to unmarshal workspace owner annotation", tenancyv1alpha1.ExperimentalClusterWorkspaceOwnerAnnotationKey, value)
-				delete(workspace.Annotations, tenancyv1alpha1.ExperimentalClusterWorkspaceOwnerAnnotationKey)
+				logger.Error(err, "failed to unmarshal workspace owner annotation", tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey, value)
+				delete(workspace.Annotations, tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey)
 				changed = true
 			} else if userOnlyValue, err := json.Marshal(authenticationv1.UserInfo{Username: info.Username}); err != nil {
 				// should never happen
 				logger.Error(err, "failed to marshal user info")
-				delete(workspace.Annotations, tenancyv1alpha1.ExperimentalClusterWorkspaceOwnerAnnotationKey)
+				delete(workspace.Annotations, tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey)
 				changed = true
 			} else if value != string(userOnlyValue) {
-				workspace.Annotations[tenancyv1alpha1.ExperimentalClusterWorkspaceOwnerAnnotationKey] = string(userOnlyValue)
+				workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey] = string(userOnlyValue)
 				changed = true
 			}
 		}
