@@ -48,7 +48,9 @@ An enhancement process has many benefits for a project, including:
 
 This proposal suggests that kcp adopt an enhancement process that follows practices familiar to many in the 
 community via the [KEP process](https://github.com/kubernetes/enhancements/blob/adae507daeb490cfeb7f4d520d3d711362090c45/keps/NNNN-kep-template/README.md) 
-by tailoring aspects of that process to fit the kcp project's needs. This would include:
+by tailoring aspects of that process to fit the kcp project's needs.
+
+#### Suggested action items
 
 1. Definition of an enhancement proposal template
 2. Creation of an enhancement proposal repository and removal of this proposal from the main repo to that repository.
@@ -58,38 +60,77 @@ be adopted by sub-projects identified later in this proposal.
 This definition for enhancements should help establish the definition of done for an enhancement that includes any
 documentation and testing requirements, helping establish clear expectations for authors as well as helping the 
 community (as consumers of kcp) approach new features uniformly. 
-   
-### Split the workloads project from the control plane
 
-Within kcp there exists the following components that can be thought of as individual investment areas. 
+#### Suggested timeline
 
-1. kcp - the generic control plane
-2. kcp tenancy - the workspaces and API pub/sub components
-3. kcp workloads - the transparent multi-cluster components
-4. [kcp edge workloads](https://github.com/kcp-dev/edge-mc) - the transparent multi-cluster components focused on edge use cases
-5. kcp controllers dev - the components focused on tooling and development of kcp aware controllers
-6. kcp catalog - discover component for published APIs
+Completed in: Q1 2023
 
-This proposal suggests that each of these have a clear split. Right now the components that stand out as unnecessarily
-coupled are the generic control plane, tenancy, and workloads pieces. It is proposed that:
-
-1. new repos be created for each identified component
-2. source code be moved as approporate
-3. special interest groups be established to own the processes and discussion around the areas independently, but following
-the overall project's process model
-   
-It is also proposed that this scoping of responsibility enables a more clear engagement model of where some of these components need to 
-collaborate with other upstream projects who are also interested in the same spaces.
+Of the items in this proposal this process is likely to have the highest impact on our ability to collaborate 
+on new items going forward.
 
 ### Create enhancements for existing APIs to document graduation criteria
 
 As part of this proposal it is suggested that the project would benefit from a bit of "back porting" of documentation
 to cover existing APIs. As a minimum bar it is proposed that we:
 
+#### Suggested Action Items
 1. Create an enhancement for each existing API in the main repository
 2. Identify the current level of the API and the known development path
-3. Identify the graduation criteria of the API 
+3. Identify the graduation criteria of the API
 4. Link any existing work to the enhancement for the API
+5. As an optional follow on, update the [kcp.io](https://kcp.io) site to include links to proposals as part of
+   the documentation similar to [thanos](https://thanos.io/v0.29/proposals-done/202003-thanos-rules-federation.md/)
+6. Present enhancements during community meetings
+
+#### Suggested timeline
+
+Completed by: end of Q3 2023
+
+Existing APIs can adopt change via the enhancement proposal as they go. Our understanding of how we may move through 
+alpha, beta, and v1 becomes more clear based on the rate of feedback. If nothing else, by that time documentation
+should exist that minimizes the need to further document historical decisions.
+   
+### Split the workloads project from the control plane
+
+Within kcp there exists the following components that can be thought of as individual investment areas. 
+
+1. [kcp](https://github.com/kcp-dev/kcp) - the generic control plane with workspaces and API Import and API Export components
+1. [kcp workloads](https://github.com/kcp-dev/kcp) - the transparent multi-cluster components
+1. [kcp edge workloads](https://github.com/kcp-dev/edge-mc) - the transparent multi-cluster components focused on edge use cases
+1. [kcp controllers dev](https://github.com/kcp-dev/controller-runtime) - the components focused on tooling and development of kcp aware controllers
+1. [kcp catalog](https://github.com/kcp-dev/catalog) - discover component for published APIs
+
+Right now the components that stand out as unnecessarily coupled are the generic control plane and workloads pieces.
+This proposal suggests that each of these have a clear split. This scoping of responsibility enables a more clear
+engagement model of where some of these components need to collaborate with other upstream projects who are also
+interested in the same spaces.
+
+#### Out of scope
+
+Separation of the generic control plan from tenancy out of scope for now. It is possible 
+that it is revisited in the future. 
+
+#### Known dependencies
+* kcp workloads will depend on kcp (same repo currently)
+* kcp edge workloads may depend on kcp worklaods
+* kcp catalog will [depend on kcp](https://github.com/kcp-dev/catalog/blob/4bb12851b66857b035b15e6d790b27af621d8693/go.mod#L6)
+
+#### Suggested action items
+
+1. new repo be created for kcp workloads
+2. source code be moved as approporate
+3. optionally, special interest groups may be established to own the processes and discussion around the areas 
+   independently, but following the overall project's process model
+
+#### Suggested timeline
+
+Level of effort analysis completed in: Q1 2023
+
+Target completion by: end of Q2 2023
+
+Transparent multi-cluster features are under heavy development. An initial level of effort evaluation should be 
+conducted in order to know the scope of this change in order to plan it in a way that is not overly disruptive to 
+continuing on the critical path of any MVP development.
 
 ## Drawbacks
 
@@ -100,4 +141,4 @@ to cover existing APIs. As a minimum bar it is proposed that we:
 
 As an alternative, the project could do nothing and hope that a shared understanding of how contribution happens 
 establishes itself based on a lead-by-example method or by inheriting the established patterns of other communities. This
-proposal suggests that it is more beneficial to codify these items rather than rely on hope as a strategy.
+proposal suggests that it is more beneficial to codify these items rather than rely on hope as a strategy. 
