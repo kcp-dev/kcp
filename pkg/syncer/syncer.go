@@ -30,6 +30,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -130,7 +131,12 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		return err
 	}
 
-	kcpInformerFactory := kcpinformers.NewSharedInformerFactoryWithOptions(kcpClient, resyncPeriod)
+	// kcpInformerFactory to watch a certain syncerTarget
+	kcpInformerFactory := kcpinformers.NewSharedInformerFactoryWithOptions(kcpClient, resyncPeriod, kcpinformers.WithTweakListOptions(
+		func(listOptions *metav1.ListOptions) {
+			listOptions.FieldSelector = fields.OneTermEqualSelector("metadata.name", cfg.SyncTargetName).String()
+		},
+	))
 
 	// Resources are accepted as a set to ensure the provision of a
 	// unique set of resources, but all subsequent consumption is via
@@ -140,10 +146,21 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	// Start api import first because spec and status syncers are blocked by
 	// gvr discovery finding all the configured resource types in the kcp
 	// workspace.
-	apiImporter, err := NewAPIImporter(cfg.UpstreamConfig, cfg.DownstreamConfig, kcpInformerFactory, resources, cfg.SyncTargetWorkspace, cfg.SyncTargetName)
+
+	// kcpImporterInformerFactory only used for apiimport to watch APIResourceImport
+	// TODO(qiujian16) make starting apiimporter optional after we check compatibility of supported APIExports
+	// of synctarget in syncer rather than in server.
+	kcpImporterInformerFactory := kcpinformers.NewSharedInformerFactoryWithOptions(kcpClient, resyncPeriod)
+	apiImporter, err := NewAPIImporter(
+		cfg.UpstreamConfig, cfg.DownstreamConfig,
+		kcpInformerFactory.Workload().V1alpha1().SyncTargets(),
+		kcpImporterInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
+		resources,
+		cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTarget.GetUID())
 	if err != nil {
 		return err
 	}
+	kcpImporterInformerFactory.Start(ctx.Done())
 
 	upstreamConfig := rest.CopyConfig(cfg.UpstreamConfig)
 	upstreamConfig.Host = syncerVirtualWorkspaceURL
@@ -180,7 +197,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		upstreamDynamicClusterClient,
 		downstreamDynamicClient,
 		downstreamKubeClient,
-		kcpClusterClient,
+		kcpClient,
 		kcpInformerFactory.Workload().V1alpha1().SyncTargets(),
 		cfg.SyncTargetName,
 		cfg.SyncTargetWorkspace,
@@ -267,7 +284,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		// poll error can be safely ignored.
 		_ = wait.PollImmediateInfiniteWithContext(ctx, 1*time.Second, func(ctx context.Context) (bool, error) {
 			patchBytes := []byte(fmt.Sprintf(`[{"op":"test","path":"/metadata/uid","value":%q},{"op":"replace","path":"/status/lastSyncerHeartbeatTime","value":%q}]`, cfg.SyncTargetUID, time.Now().Format(time.RFC3339)))
-			syncTarget, err = kcpClusterClient.Cluster(cfg.SyncTargetWorkspace).WorkloadV1alpha1().SyncTargets().Patch(ctx, cfg.SyncTargetName, types.JSONPatchType, patchBytes, metav1.PatchOptions{}, "status")
+			syncTarget, err = kcpClient.WorkloadV1alpha1().SyncTargets().Patch(ctx, cfg.SyncTargetName, types.JSONPatchType, patchBytes, metav1.PatchOptions{}, "status")
 			if err != nil {
 				logger.Error(err, "failed to set status.lastSyncerHeartbeatTime")
 				return false, nil //nolint:nilerr

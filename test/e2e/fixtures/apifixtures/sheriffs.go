@@ -77,6 +77,42 @@ func NewSheriffsCRDWithSchemaDescription(group, description string) *apiextensio
 	return crd
 }
 
+func NewSheriffsCRDWithVersions(group string, versions ...string) *apiextensionsv1.CustomResourceDefinition {
+	crdName := fmt.Sprintf("sheriffs.%s", group)
+
+	crd := &apiextensionsv1.CustomResourceDefinition{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: crdName,
+		},
+		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
+			Group: group,
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
+				Plural:   "sheriffs",
+				Singular: "sheriff",
+				Kind:     "Sheriff",
+				ListKind: "SheriffList",
+			},
+			Scope: "Namespaced",
+		},
+	}
+
+	for i, version := range versions {
+		crd.Spec.Versions = append(crd.Spec.Versions, apiextensionsv1.CustomResourceDefinitionVersion{
+			Name:    version,
+			Served:  true,
+			Storage: i == len(versions)-1,
+			Schema: &apiextensionsv1.CustomResourceValidation{
+				OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
+					Type:        "object",
+					Description: "sheriff " + version,
+				},
+			},
+		})
+	}
+
+	return crd
+}
+
 // CreateSheriffsSchemaAndExport creates a sheriffs apisv1alpha1.APIResourceSchema and then creates a apisv1alpha1.APIExport to export it.
 func CreateSheriffsSchemaAndExport(
 	ctx context.Context,

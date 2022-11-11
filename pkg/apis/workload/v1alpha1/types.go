@@ -85,6 +85,17 @@ const (
 	// the label is removed. They then set the placement state to "Unbound".
 	ClusterResourceStateLabelPrefix = "state.workload.kcp.dev/"
 
+	// InternalSyncerViewAnnotationPrefix is the prefix of the annotation
+	//
+	//   diff.syncer.internal.kcp.dev/<sync-target-key>
+	//
+	// on upstream resources storing the value of fields as they have been reported by the Syncer for the given SyncTarget,
+	// so possibly different from the field value in the upstream resource itself, and overriding it for the given SyncTarget.
+	//
+	// The format is a Json object, whose keys are fields identifiers (for example "status" or "spec.clusterIP"),
+	// and values are overriding field values.
+	InternalSyncerViewAnnotationPrefix = "diff.syncer.internal.kcp.dev/"
+
 	// InternalClusterStatusAnnotationPrefix is the prefix of the annotation
 	//
 	//   experimental.status.workload.kcp.dev/<sync-target-name>
@@ -109,6 +120,25 @@ const (
 	//
 	// The format for the value of this annotation is: JSON Patch (https://tools.ietf.org/html/rfc6902).
 	ClusterSpecDiffAnnotationPrefix = "experimental.spec-diff.workload.kcp.dev/"
+
+	// ExperimentalSummarizingRulesAnnotation
+	//
+	//   experimental.summarizing.workload.kcp.dev
+	//
+	// on upstream resources storing the JSON-encoded summarizing rules for this instance of the resource.
+	// The drives what fields should be overridden in the syncer view, and available for summarizing,
+	// and how they should be managed.
+	//
+	// To express that only the "status" field should be summarized, and promoted to the upstream
+	// resource when scheduled on only 1 SyncTarget, the annotation would be:
+	//
+	//    [{"fieldPath": "status", "promoteToUpstream": true}]
+	//
+	// The format for the value of this annotation is a JSON Array of objects with 2 fields:
+	//   - fieldPath: defines that path (dot-separated) of a field that should be summarized
+	//   - promoteToUpstream: defines whether this field should be promoted to upstream when the
+	//     resource is scheduled to only one SyncTarget.
+	ExperimentalSummarizingRulesAnnotation = "experimental.summarizing.workload.kcp.dev"
 
 	// InternalDownstreamClusterLabel is a label with the upstream cluster name applied on the downstream cluster
 	// instead of state.workload.kcp.dev/<sync-target-name> which is used upstream.

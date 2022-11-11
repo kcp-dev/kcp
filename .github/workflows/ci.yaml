@@ -51,7 +51,7 @@ jobs:
           LOG_DIR=/tmp/e2e/shared-server/artifacts ARTIFACT_DIR=/tmp/e2e COUNT=2 SUITES=transparent-multi-cluster:requires-kind \
           make test-e2e-shared
 
-      - uses: cytopia/upload-artifact-retry-action@v0.1.2
+      - uses: cytopia/upload-artifact-retry-action@v0.1.6
         if: ${{ always() }}
         with:
           name: e2e-shared-server
@@ -81,7 +81,7 @@ jobs:
         LOG_DIR=/tmp/e2e/sharded/artifacts ARTIFACT_DIR=/tmp/e2e COUNT=2 SUITES=transparent-multi-cluster:requires-kind \
         make test-e2e-sharded
 
-    - uses: cytopia/upload-artifact-retry-action@v0.1.2
+    - uses: cytopia/upload-artifact-retry-action@v0.1.6
       if: ${{ always() }}
       with:
         name: e2e-sharded

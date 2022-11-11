@@ -53,7 +53,6 @@ spec:
                     records if the user accepts or rejects it.
                   properties:
                     all:
-                      default: false
                       description: all claims all resources for the given group/resource.
                         This is mutually exclusive with resourceSelector.
                       type: boolean
@@ -83,18 +82,22 @@ spec:
                           name:
                             description: name of an object within a claimed group/resource.
                               It matches the metadata.name field of the underlying
-                              object.
+                              object. If namespace is unset, all objects matching
+                              that name will be claimed.
                             maxLength: 253
+                            minLength: 1
                             pattern: ^([a-z0-9][-a-z0-9_.]*)?[a-z0-9]$
                             type: string
                           namespace:
                             description: namespace containing the named object. Matches
                               metadata.namespace field. If "name" is unset, all objects
                               from the namespace are being claimed.
+                            minLength: 1
                             type: string
-                        required:
-                        - namespace
                         type: object
+                        x-kubernetes-validations:
+                        - message: at least one field must be set
+                          rule: has(self.__namespace__) || has(self.name)
                       type: array
                     state:
                       enum:
@@ -102,13 +105,13 @@ spec:
                       - Rejected
                       type: string
                   required:
-                  - all
                   - resource
                   - state
                   type: object
                   x-kubernetes-validations:
                   - message: either "all" or "resourceSelector" must be set
-                    rule: self.all != has(self.resourceSelector)
+                    rule: (has(self.all) && self.all) != (has(self.resourceSelector)
+                      && size(self.resourceSelector) > 0)
                 type: array
               reference:
                 description: reference uniquely identifies an API to bind to.
@@ -158,7 +161,6 @@ spec:
                     allow the service provider access to.
                   properties:
                     all:
-                      default: false
                       description: all claims all resources for the given group/resource.
                         This is mutually exclusive with resourceSelector.
                       type: boolean
@@ -188,26 +190,30 @@ spec:
                           name:
                             description: name of an object within a claimed group/resource.
                               It matches the metadata.name field of the underlying
-                              object.
+                              object. If namespace is unset, all objects matching
+                              that name will be claimed.
                             maxLength: 253
+                            minLength: 1
                             pattern: ^([a-z0-9][-a-z0-9_.]*)?[a-z0-9]$
                             type: string
                           namespace:
                             description: namespace containing the named object. Matches
                               metadata.namespace field. If "name" is unset, all objects
                               from the namespace are being claimed.
+                            minLength: 1
                             type: string
-                        required:
-                        - namespace
                         type: object
+                        x-kubernetes-validations:
+                        - message: at least one field must be set
+                          rule: has(self.__namespace__) || has(self.name)
                       type: array
                   required:
-                  - all
                   - resource
                   type: object
                   x-kubernetes-validations:
                   - message: either "all" or "resourceSelector" must be set
-                    rule: self.all != has(self.resourceSelector)
+                    rule: (has(self.all) && self.all) != (has(self.resourceSelector)
+                      && size(self.resourceSelector) > 0)
                 type: array
               boundResources:
                 description: boundResources records the state of bound APIs.
@@ -329,7 +335,6 @@ spec:
                     allow the service provider access to.
                   properties:
                     all:
-                      default: false
                       description: all claims all resources for the given group/resource.
                         This is mutually exclusive with resourceSelector.
                       type: boolean
@@ -359,26 +364,30 @@ spec:
                           name:
                             description: name of an object within a claimed group/resource.
                               It matches the metadata.name field of the underlying
-                              object.
+                              object. If namespace is unset, all objects matching
+                              that name will be claimed.
                             maxLength: 253
+                            minLength: 1
                             pattern: ^([a-z0-9][-a-z0-9_.]*)?[a-z0-9]$
                             type: string
                           namespace:
                             description: namespace containing the named object. Matches
                               metadata.namespace field. If "name" is unset, all objects
                               from the namespace are being claimed.
+                            minLength: 1
                             type: string
-                        required:
-                        - namespace
                         type: object
+                        x-kubernetes-validations:
+                        - message: at least one field must be set
+                          rule: has(self.__namespace__) || has(self.name)
                       type: array
                   required:
-                  - all
                   - resource
                   type: object
                   x-kubernetes-validations:
                   - message: either "all" or "resourceSelector" must be set
-                    rule: self.all != has(self.resourceSelector)
+                    rule: (has(self.all) && self.all) != (has(self.resourceSelector)
+                      && size(self.resourceSelector) > 0)
                 type: array
               phase:
                 description: 'phase is the current phase of the APIBinding: - "":

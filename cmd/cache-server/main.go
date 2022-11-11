@@ -17,7 +17,9 @@ limitations under the License.
 package main
 
 import (
+	"flag"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -32,7 +34,20 @@ import (
 )
 
 func main() {
-	serverOptions := options.NewOptions(".kcp-cache")
+	rootDir := flag.String("root-directory", ".kcp-cache", "Path to the root directory where all files required by this server will be stored")
+
+	var cacheServerFlags, remainingFlags []string
+	for _, arg := range os.Args[1:] {
+		if strings.HasPrefix(arg, "--root-directory") {
+			cacheServerFlags = append(cacheServerFlags, arg)
+			continue
+		}
+		remainingFlags = append(remainingFlags, arg)
+	}
+	flag.CommandLine.Parse(cacheServerFlags) //nolint:errcheck
+	os.Args = append([]string{os.Args[0]}, remainingFlags...)
+
+	serverOptions := options.NewOptions(*rootDir)
 	cmd := &cobra.Command{
 		Use:   "cache-server",
 		Short: "Runs the cache server for KCP",

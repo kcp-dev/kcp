@@ -26,12 +26,18 @@ import (
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/stretchr/testify/require"
 
+	appsv1 "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	discocache "k8s.io/client-go/discovery/cached"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/restmapper"
+	"k8s.io/client-go/scale"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -96,6 +102,10 @@ func TestRootComputeWorkspace(t *testing.T) {
 			syncTarget.Status.SyncedResources[1].State != workloadv1alpha1.ResourceSchemaAcceptedState {
 			return false
 		}
+		if syncTarget.Status.SyncedResources[2].Resource != "deployments" ||
+			syncTarget.Status.SyncedResources[2].State != workloadv1alpha1.ResourceSchemaAcceptedState {
+			return false
+		}
 
 		return true
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
@@ -153,4 +163,77 @@ func TestRootComputeWorkspace(t *testing.T) {
 		}
 		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	t.Logf("Wait for being able to list Deployments in the user workspace")
+	framework.Eventually(t, func() (bool, string) {
+		_, err := kubeClusterClient.Cluster(consumerWorkspace).AppsV1().Deployments("default").List(ctx, metav1.ListOptions{})
+		if err != nil {
+			t.Logf("deployment err %v", err)
+			return false, err.Error()
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	var replicas int32 = 1
+	t.Logf("Create a deployment in the user workspace")
+	_, err = kubeClusterClient.Cluster(consumerWorkspace).AppsV1().Deployments("default").Create(ctx, &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "first",
+			Labels: map[string]string{
+				"test.workload.kcp.dev": syncTargetName,
+			},
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: &replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"app": "myapp"},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"app": "myapp"},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "name",
+							Image: "image",
+						},
+					},
+				},
+			},
+		},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	t.Logf("Wait for the deployment to be synced to the downstream cluster")
+	framework.Eventually(t, func() (bool, string) {
+		downstreamDeployments, err := syncerFixture.DownstreamKubeClient.AppsV1().Deployments("").List(ctx, metav1.ListOptions{
+			LabelSelector: "test.workload.kcp.dev=" + syncTargetName,
+		})
+
+		if err != nil {
+			return false, fmt.Sprintf("Failed to list deployment: %v", err)
+		}
+
+		if len(downstreamDeployments.Items) < 1 {
+			return false, "deployment is not synced"
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	t.Logf("Scale the deployment in the upstream consumer workspace")
+	discoverClient := kubeClusterClient.Cluster(consumerWorkspace).Discovery()
+	cachedDiscovery := discocache.NewMemCacheClient(discoverClient)
+	restMapper := restmapper.NewDeferredDiscoveryRESTMapper(cachedDiscovery)
+	scaleKindResolver := scale.NewDiscoveryScaleKindResolver(discoverClient)
+	scaleClient := scale.New(kubeClusterClient.Cluster(consumerWorkspace).AppsV1().RESTClient(), restMapper, dynamic.LegacyAPIPathResolverFunc, scaleKindResolver)
+	_, err = scaleClient.Scales("default").Update(ctx, appsv1.SchemeGroupVersion.WithResource("deployments").GroupResource(), &v1.Scale{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "first",
+		},
+		Spec: v1.ScaleSpec{
+			Replicas: 2,
+		},
+	}, metav1.UpdateOptions{})
+	require.NoError(t, err, "deployment should support the scale subresource")
 }

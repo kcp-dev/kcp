@@ -107,15 +107,18 @@ func TestKubeQuotaCoreV1TypesFromBinding(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
+	source := framework.SharedKcpServer(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
 	// Test multiple workspaces in parallel
 	for i := 0; i < 5; i++ {
 		t.Run(fmt.Sprintf("tc%d", i), func(t *testing.T) {
 			t.Parallel()
 
-			ctx, cancelFunc := context.WithCancel(context.Background())
+			ctx, cancelFunc := context.WithCancel(ctx)
 			t.Cleanup(cancelFunc)
-
-			source := framework.SharedKcpServer(t)
 
 			orgClusterName := framework.NewOrganizationFixture(t, source)
 			apiProviderClustername := framework.NewWorkspaceFixture(t, source, orgClusterName)

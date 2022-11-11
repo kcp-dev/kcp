@@ -22,16 +22,13 @@ import (
 	"sync"
 	"time"
 
-	kcpapiextensionsv1informers "github.com/kcp-dev/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1"
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	kcpcorev1informers "github.com/kcp-dev/client-go/informers/core/v1"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v2"
 
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/quota/v1/generic"
@@ -81,7 +78,6 @@ type Controller struct {
 
 	// For better testability
 	getClusterWorkspace func(key string) (*tenancyv1alpha1.ClusterWorkspace, error)
-	listCRDs            func() ([]*apiextensionsv1.CustomResourceDefinition, error)
 }
 
 // NewController creates a new Controller.
@@ -90,7 +86,6 @@ func NewController(
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	kubeInformerFactory kcpkubernetesinformers.SharedInformerFactory,
 	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory,
-	crdInformer kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer,
 	quotaRecalculationPeriod time.Duration,
 	fullResyncPeriod time.Duration,
 	workersPerLogicalCluster int,
@@ -115,10 +110,6 @@ func NewController(
 
 		getClusterWorkspace: func(key string) (*tenancyv1alpha1.ClusterWorkspace, error) {
 			return clusterWorkspacesInformer.Lister().Get(key)
-		},
-
-		listCRDs: func() ([]*apiextensionsv1.CustomResourceDefinition, error) {
-			return crdInformer.Lister().List(labels.Everything())
 		},
 	}
 
@@ -275,7 +266,7 @@ func (c *Controller) startQuotaForClusterWorkspace(ctx context.Context, clusterN
 		ReplenishmentResyncPeriod: func() time.Duration {
 			return c.fullResyncPeriod
 		},
-		DiscoveryFunc:        c.dynamicDiscoverySharedInformerFactory.DiscoveryData,
+		DiscoveryFunc:        c.dynamicDiscoverySharedInformerFactory.ServerPreferredResources,
 		IgnoredResourcesFunc: quotaConfiguration.IgnoredResources,
 		InformersStarted:     c.informersStarted,
 		Registry:             generic.NewRegistry(quotaConfiguration.Evaluators()),
@@ -300,7 +291,7 @@ func (c *Controller) startQuotaForClusterWorkspace(ctx context.Context, clusterN
 		clusterName: clusterName,
 		queue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "quota-"+clusterName.String()),
 		work: func(ctx context.Context) {
-			resourceQuotaController.UpdateMonitors(ctx, c.dynamicDiscoverySharedInformerFactory.DiscoveryData)
+			resourceQuotaController.UpdateMonitors(ctx, c.dynamicDiscoverySharedInformerFactory.ServerPreferredResources)
 		},
 	}
 	go quotaController.Start(ctx)
@@ -318,6 +309,9 @@ func (c *Controller) startQuotaForClusterWorkspace(ctx context.Context, clusterN
 			}
 		}
 	}()
+
+	// Make sure the monitors are synced at least once
+	resourceQuotaController.UpdateMonitors(ctx, c.dynamicDiscoverySharedInformerFactory.ServerPreferredResources)
 
 	go resourceQuotaController.Run(ctx, c.workersPerLogicalCluster)
 

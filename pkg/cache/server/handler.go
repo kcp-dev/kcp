@@ -47,7 +47,7 @@ func init() {
 
 // WithShardScope reads a shard name from the URL path and puts it into the context.
 // It also trims "/shards/" prefix from the URL.
-// If the path doesn't contain the shard name then a default "system:cache:server" name is assigned.
+// If the path doesn't contain the shard name then a 404 error is returned.
 //
 // For example:
 //
@@ -58,8 +58,16 @@ func init() {
 // /shards/sapphire/clusters/system:sapphire/apis/apis.kcp.dev/v1alpha1/apiexports
 //
 // /shards/amber/clusters/system:amber/apis/apis.kcp.dev/v1alpha1/apiexports
+//
+// Note:
+// not all paths require to have a valid shard name,
+// as of today the following paths pass through: "/livez", "/readyz", "/healthz"
 func WithShardScope(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if path := req.URL.Path; path == "/livez" || path == "/readyz" || path == "/healthz" {
+			handler.ServeHTTP(w, req)
+			return
+		}
 		var shardName string
 		if path := req.URL.Path; strings.HasPrefix(path, "/shards/") {
 			path = strings.TrimPrefix(path, "/shards/")

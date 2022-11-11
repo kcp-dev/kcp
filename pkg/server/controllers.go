@@ -62,6 +62,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/identitycache"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/permissionclaimlabel"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/replication"
+	"github.com/kcp-dev/kcp/pkg/reconciler/garbagecollector"
 	"github.com/kcp-dev/kcp/pkg/reconciler/kubequota"
 	schedulinglocationstatus "github.com/kcp-dev/kcp/pkg/reconciler/scheduling/location"
 	schedulingplacement "github.com/kcp-dev/kcp/pkg/reconciler/scheduling/placement"
@@ -1115,7 +1116,6 @@ func (s *Server) installKubeQuotaController(
 		kubeClusterClient,
 		s.KubeSharedInformerFactory,
 		s.DynamicDiscoverySharedInformerFactory,
-		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
 		quotaResyncPeriod,
 		replenishmentPeriod,
 		workersPerLogicalCluster,
@@ -1202,6 +1202,51 @@ func (s *Server) installReplicationController(ctx context.Context, config *rest.
 		}
 
 		go controller.Start(goContext(hookContext), 2)
+		return nil
+	})
+}
+
+func (s *Server) installGarbageCollectorController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
+	config = rest.CopyConfig(config)
+	config = rest.AddUserAgent(config, garbagecollector.ControllerName)
+
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	metadataClient, err := kcpmetadata.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	// TODO: make it configurable
+	const (
+		workersPerLogicalCluster = 1
+	)
+
+	c, err := garbagecollector.NewController(
+		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
+		kubeClusterClient,
+		metadataClient,
+		s.DynamicDiscoverySharedInformerFactory,
+		workersPerLogicalCluster,
+		s.syncedCh,
+	)
+	if err != nil {
+		return err
+	}
+
+	return server.AddPostStartHook(postStartHookName(garbagecollector.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
+		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(garbagecollector.ControllerName))
+
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			logger.Error(err, "failed to finish post-start-hook")
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		go c.Start(goContext(hookContext), 2)
+
 		return nil
 	})
 }

@@ -248,6 +248,10 @@ func computePlacement(expectedSyncTargetKeys sets.String, expectedDeletedSynctar
 			if _, ok := currentSynctargetKeysDeleting[loc]; !ok {
 				annotationPatch[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+loc] = expectedTimestamp
 			}
+		} else {
+			if _, ok := currentSynctargetKeysDeleting[loc]; ok {
+				annotationPatch[workloadv1alpha1.InternalClusterDeletionTimestampAnnotationPrefix+loc] = nil
+			}
 		}
 	}
 

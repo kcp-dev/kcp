@@ -28,7 +28,7 @@ import (
 )
 
 // indexAPIExportsByAPIResourceSchemasFunc is an index function that maps an APIExport to its spec.latestResourceSchemas.
-func indexAPIExportsByAPIResourceSchemas(obj interface{}) ([]string, error) {
+func IndexAPIExportsByAPIResourceSchemas(obj interface{}) ([]string, error) {
 	apiExport, ok := obj.(*apisv1alpha1.APIExport)
 	if !ok {
 		return []string{}, fmt.Errorf("obj is supposed to be an APIExport, but is %T", obj)
@@ -42,7 +42,7 @@ func indexAPIExportsByAPIResourceSchemas(obj interface{}) ([]string, error) {
 	return ret, nil
 }
 
-func indexSyncTargetsByExports(obj interface{}) ([]string, error) {
+func IndexSyncTargetsByExports(obj interface{}) ([]string, error) {
 	synctarget, ok := obj.(*workloadv1alpha1.SyncTarget)
 	if !ok {
 		return []string{}, fmt.Errorf("obj is supposed to be a SyncTarget, but is %T", obj)

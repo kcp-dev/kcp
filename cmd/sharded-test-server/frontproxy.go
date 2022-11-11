@@ -77,17 +77,17 @@ func startFrontProxy(
 			Path: "/services/",
 			// TODO: support multiple virtual workspace backend servers
 			Backend:         fmt.Sprintf("https://localhost:%s", vwPort),
-			BackendServerCA: ".kcp/serving-ca.crt",
-			ProxyClientCert: ".kcp-front-proxy/requestheader.crt",
-			ProxyClientKey:  ".kcp-front-proxy/requestheader.key",
+			BackendServerCA: filepath.Join(workDirPath, ".kcp/serving-ca.crt"),
+			ProxyClientCert: filepath.Join(workDirPath, ".kcp-front-proxy/requestheader.crt"),
+			ProxyClientKey:  filepath.Join(workDirPath, ".kcp-front-proxy/requestheader.key"),
 		},
 		{
 			Path: "/clusters/",
 			// TODO: support multiple shard backend servers
 			Backend:         "https://localhost:6444",
-			BackendServerCA: ".kcp/serving-ca.crt",
-			ProxyClientCert: ".kcp-front-proxy/requestheader.crt",
-			ProxyClientKey:  ".kcp-front-proxy/requestheader.key",
+			BackendServerCA: filepath.Join(workDirPath, ".kcp/serving-ca.crt"),
+			ProxyClientCert: filepath.Join(workDirPath, ".kcp-front-proxy/requestheader.crt"),
+			ProxyClientKey:  filepath.Join(workDirPath, ".kcp-front-proxy/requestheader.key"),
 		},
 	}
 
@@ -110,7 +110,7 @@ func startFrontProxy(
 	if err := clientcmdapi.MinifyConfig(&raw); err != nil {
 		return err
 	}
-	if err := clientcmd.WriteToFile(raw, ".kcp/root.kubeconfig"); err != nil {
+	if err := clientcmd.WriteToFile(raw, filepath.Join(workDirPath, ".kcp/root.kubeconfig")); err != nil {
 		return err
 	}
 
@@ -193,7 +193,7 @@ func startFrontProxy(
 
 		// intentionally load again every iteration because it can change
 		configLoader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: filepath.Join(workDirPath, ".kcp/admin.kubeconfig")},
-			&clientcmd.ConfigOverrides{CurrentContext: "system:admin"},
+			&clientcmd.ConfigOverrides{CurrentContext: "base"},
 		)
 		config, err := configLoader.ClientConfig()
 		if err != nil {

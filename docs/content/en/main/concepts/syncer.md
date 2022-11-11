@@ -46,7 +46,7 @@ This step sets current context to the new kind cluster. Make sure to use a KCP k
 1. Enable the syncer for a p-cluster:
 
     ```sh
-    kubectl kcp workload sync <mycluster> --syncer-image <image name> -o syncer.yaml
+    kubectl kcp workload sync <synctarget name> --syncer-image <image name> -o syncer.yaml
     ```
 
     Where `<image name>` [one of the syncer images](https://github.com/kcp-dev/kcp/pkgs/container/kcp%2Fsyncer) for your corresponding KCP release (e.g. `ghcr.io/kcp-dev/kcp/syncer:v0.7.5`).
@@ -96,13 +96,39 @@ You can then create foo.bar in this workspace, or create an APIBinding in anothe
 To sync resource from another existing APIExport in the KCP server, run
 
 ```sh
-kubectl kcp workload sync <mycluster> --syncer-image <image name> --apiexports another-workspace|another-apiexport -o syncer.yaml
+kubectl kcp workload sync <mycluster> --syncer-image <image name> --apiexports another-workspace:another-apiexport -o syncer.yaml
 ```
 
-Syncer will start syncing the resources in this APIExport as long as the physical clusters has the compatible API schemas.
+Syncer will start syncing the resources in this `APIExport` as long as the `SyncTarget` has compatible API schemas.
 
 To see if a certain resource is supported to be synced by the syncer, you can check the state of the `syncedResources` in `SyncTarget`
 status.
+
+### Bind workspaces to the Location Workspace
+
+After the `SyncTarget` is ready, switch to any workspace containing some workloads that you want to sync to this `SyncTarget`, and run
+
+```sh
+kubectl kcp bind compute <workspace of synctarget>
+```
+
+This command will create a `Placement` in the workspace. By default, it will also create `APIBinding`s for global kubernetes `APIExport` and
+kubernetes `APIExport` in workspace of `SyncTarget`, if any of these `APIExport`s are supported by the `SyncTarget`.
+
+Alternatively, if you would like to bind other `APIExport`s which are supported by the `SyncerTarget`, run:
+
+```
+kubectl kcp bind compute <workspace of synctarget> --apiexport <apiexport workspace>:<apiexport name>
+```
+
+In addition, you can specify the certain location or namespace to create placement. e.g.
+
+```
+kubectl kcp bind compute <workspace of synctarget> --location-selectors=env=test --namespace-selector=purpose=workload
+```
+
+this command will create a `Placement` selecting a `Location` with label `env=test` and bind the selected `Location` to namespaces with
+label `purpose=workload`. See more details of placement and location [here](locations-and-scheduling.md)
 
 ### Running a workload
 

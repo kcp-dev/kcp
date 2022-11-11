@@ -188,6 +188,9 @@ func TestComputePlacement(t *testing.T) {
 			}, map[string]string{
 				"state.workload.kcp.dev/cluster-3": "Sync",
 			}, nil, nil, "ns"),
+			wantAnnotationPatch: map[string]interface{}{
+				"deletion.internal.workload.kcp.dev/cluster-3": nil,
+			},
 		},
 		{name: "multiple locations, added and removed on namespace and object",
 			ns: namespace(map[string]string{

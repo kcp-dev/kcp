@@ -28,7 +28,7 @@ import (
 	shard "github.com/kcp-dev/kcp/cmd/test-server/kcp"
 )
 
-func startShard(ctx context.Context, n int, args []string, servingCA *crypto.CA, hostIP string, logDirPath, workDirPath string) (<-chan error, error) {
+func newShard(ctx context.Context, n int, args []string, servingCA *crypto.CA, hostIP string, logDirPath, workDirPath, cacheServerConfigPath string) (*shard.Shard, error) {
 	// create serving cert
 	hostnames := sets.NewString("localhost", hostIP)
 	klog.Infof("Creating shard server %d serving cert with hostnames %v", n, hostnames)
@@ -36,7 +36,7 @@ func startShard(ctx context.Context, n int, args []string, servingCA *crypto.CA,
 	if err != nil {
 		return nil, fmt.Errorf("failed to create server cert: %w", err)
 	}
-	if err := cert.WriteCertConfigFile(fmt.Sprintf(".kcp-%d/apiserver.crt", n), filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d/apiserver.key", n))); err != nil {
+	if err := cert.WriteCertConfigFile(filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d/apiserver.crt", n)), filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d/apiserver.key", n))); err != nil {
 		return nil, fmt.Errorf("failed to write server cert: %w", err)
 	}
 
@@ -61,7 +61,7 @@ func startShard(ctx context.Context, n int, args []string, servingCA *crypto.CA,
 
 	if n > 0 {
 		args = append(args, fmt.Sprintf("--shard-name=shard-%d", n))
-		args = append(args, "--root-shard-kubeconfig-file=.kcp-0/admin.kubeconfig")
+		args = append(args, fmt.Sprintf("--root-shard-kubeconfig-file=%s", filepath.Join(workDirPath, ".kcp-0/admin.kubeconfig")))
 		args = append(args, fmt.Sprintf("--embedded-etcd-client-port=%d", 2379+n+1))
 		args = append(args, fmt.Sprintf("--embedded-etcd-peer-port=%d", (2379+n+1)+1)) // prev value +1
 	}
@@ -82,10 +82,14 @@ func startShard(ctx context.Context, n int, args []string, servingCA *crypto.CA,
 		fmt.Sprintf("--secure-port=%d", 6444+n),
 		"--virtual-workspaces-workspaces.authorization-cache.resync-period=1s",
 	)
+	if len(cacheServerConfigPath) > 0 {
+		args = append(args, fmt.Sprintf("--cache-server-kubeconfig-file=%s", cacheServerConfigPath))
+	}
 
-	return shard.Start(ctx,
+	return shard.NewShard(
 		fmt.Sprintf("kcp-%d", n),                              // name
 		filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d", n)), // runtime directory, etcd data etc.
 		logFilePath,
-		args)
+		args,
+	), nil
 }

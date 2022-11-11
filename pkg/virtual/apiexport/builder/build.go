@@ -212,7 +212,7 @@ func digestUrl(urlPath, rootPathPrefix string) (
 }
 
 func newAuthorizer(kubeClusterClient, deepSARClient kcpkubernetesclientset.ClusterInterface, kcpinformers kcpinformers.SharedInformerFactory) authorizer.Authorizer {
-	maximalPermissionAuth := virtualapiexportauth.NewMaximalPermissionAuthorizer(deepSARClient, kcpinformers.Apis().V1alpha1().APIExports(), kcpinformers.Apis().V1alpha1().APIBindings())
+	maximalPermissionAuth := virtualapiexportauth.NewMaximalPermissionAuthorizer(deepSARClient, kcpinformers.Apis().V1alpha1().APIExports())
 	return virtualapiexportauth.NewAPIExportsContentAuthorizer(maximalPermissionAuth, kubeClusterClient)
 }
 
