@@ -51,7 +51,7 @@ func (r *workspaceReconciler) reconcile(ctx context.Context, cw *tenancyv1alpha1
 	logger := klog.FromContext(ctx).WithValues("reconciler", "workspace")
 
 	// not about new workspaces
-	if cw.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseScheduling {
+	if cw.Status.Phase == tenancyv1alpha1.WorkspacePhaseScheduling {
 		return reconcileStatusContinue, nil
 	}
 

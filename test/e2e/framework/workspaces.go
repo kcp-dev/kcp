@@ -116,7 +116,7 @@ func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logi
 			t.Logf("failed to get workspace %s: %v", ws.Name, err)
 			return false, err.Error()
 		}
-		if actual, expected := ws.Status.Phase, tenancyv1alpha1.ClusterWorkspacePhaseReady; actual != expected {
+		if actual, expected := ws.Status.Phase, tenancyv1alpha1.WorkspacePhaseReady; actual != expected {
 			return false, fmt.Sprintf("workspace phase is %s, not %s", actual, expected)
 		}
 		return true, ""
@@ -186,7 +186,7 @@ func NewOrganizationFixture(t *testing.T, server RunningServer, options ...Clust
 			t.Logf("failed to get workspace %s: %v", org.Name, err)
 			return false, ""
 		}
-		if actual, expected := ws.Status.Phase, tenancyv1alpha1.ClusterWorkspacePhaseReady; actual != expected {
+		if actual, expected := ws.Status.Phase, tenancyv1alpha1.WorkspacePhaseReady; actual != expected {
 			return false, fmt.Sprintf("workspace phase is %s, not %s", actual, expected)
 		}
 		return true, ""

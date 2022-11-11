@@ -92,7 +92,7 @@ type WorkspaceStatus struct {
 	// Phase of the workspace (Scheduling, Initializing, Ready).
 	//
 	// +kubebuilder:default=Scheduling
-	Phase v1alpha1.ClusterWorkspacePhaseType `json:"phase,omitempty"`
+	Phase v1alpha1.WorkspacePhaseType `json:"phase,omitempty"`
 
 	// Current processing state of the ClusterWorkspace.
 	// +optional
@@ -106,7 +106,7 @@ type WorkspaceStatus struct {
 	// clusterworkspaces/initialize resource permission.
 	//
 	// +optional
-	Initializers []v1alpha1.ClusterWorkspaceInitializer `json:"initializers,omitempty"`
+	Initializers []v1alpha1.WorkspaceInitializer `json:"initializers,omitempty"`
 }
 
 // WorkspaceList is a list of Workspaces
