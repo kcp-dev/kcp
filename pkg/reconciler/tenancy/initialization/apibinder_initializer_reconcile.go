@@ -235,7 +235,7 @@ func (b *APIBinder) reconcile(ctx context.Context, clusterWorkspace *tenancyv1al
 		return nil
 	}
 
-	clusterWorkspace.Status.Initializers = initialization.EnsureInitializerAbsent(tenancyv1alpha1.ClusterWorkspaceAPIBindingsInitializer, clusterWorkspace.Status.Initializers)
+	clusterWorkspace.Status.Initializers = initialization.EnsureInitializerAbsent(tenancyv1alpha1.WorkspaceAPIBindingsInitializer, clusterWorkspace.Status.Initializers)
 
 	return nil
 }

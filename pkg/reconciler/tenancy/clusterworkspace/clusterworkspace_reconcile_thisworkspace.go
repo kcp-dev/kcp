@@ -69,7 +69,7 @@ func (r *thisWorkspaceReconciler) reconcile(ctx context.Context, workspace *tena
 	}
 
 	// not about new workspaces
-	if workspace.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseScheduling {
+	if workspace.Status.Phase == tenancyv1alpha1.WorkspacePhaseScheduling {
 		return reconcileStatusContinue, nil
 	}
 
