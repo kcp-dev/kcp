@@ -86,8 +86,16 @@ func TestWorkspaceController(t *testing.T) {
 			name:        "add a shard after a workspace is unschedulable, expect it to be scheduled",
 			destructive: true,
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
+				var previouslyValidShard tenancyv1alpha1.ClusterWorkspaceShard
+				t.Logf("Get a list of current shards so that we can schedule onto a valid shard later")
+				shards, err := server.rootKcpClient.TenancyV1alpha1().ClusterWorkspaceShards().List(ctx, metav1.ListOptions{})
+				require.NoError(t, err)
+				if len(shards.Items) == 0 {
+					t.Fatalf("expected to get some shards but got none")
+				}
+				previouslyValidShard = shards.Items[0]
 				t.Logf("Delete all pre-configured shards, we have to control the creation of the workspace shards in this test")
-				err := server.rootKcpClient.TenancyV1alpha1().ClusterWorkspaceShards().DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{})
+				err = server.rootKcpClient.TenancyV1alpha1().ClusterWorkspaceShards().DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{})
 				require.NoError(t, err)
 
 				t.Logf("Create a workspace without shards")
@@ -101,17 +109,17 @@ func TestWorkspaceController(t *testing.T) {
 				err = server.orgExpect(workspace, unschedulable)
 				require.NoError(t, err, "did not see workspace marked unschedulable")
 
-				t.Logf("Add a shard with custom external address")
-				bostonShard, err := server.rootKcpClient.TenancyV1alpha1().ClusterWorkspaceShards().Create(ctx, &tenancyv1alpha1.ClusterWorkspaceShard{
-					ObjectMeta: metav1.ObjectMeta{Name: "boston"},
+				t.Logf("Add previously removed shard %q", previouslyValidShard.Name)
+				newShard, err := server.rootKcpClient.TenancyV1alpha1().ClusterWorkspaceShards().Create(ctx, &tenancyv1alpha1.ClusterWorkspaceShard{
+					ObjectMeta: metav1.ObjectMeta{Name: previouslyValidShard.Name},
 					Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{
-						BaseURL:     "https://boston.kcp.dev",
-						ExternalURL: "https://kcp.dev",
+						BaseURL:     previouslyValidShard.Spec.BaseURL,
+						ExternalURL: previouslyValidShard.Spec.ExternalURL,
 					},
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace shard")
 				server.Artifact(t, func() (runtime.Object, error) {
-					return server.rootKcpClient.TenancyV1alpha1().ClusterWorkspaceShards().Get(ctx, bostonShard.Name, metav1.GetOptions{})
+					return server.rootKcpClient.TenancyV1alpha1().ClusterWorkspaceShards().Get(ctx, newShard.Name, metav1.GetOptions{})
 				})
 
 				t.Logf("Expect workspace to be scheduled to the shard and show the external URL")
@@ -124,13 +132,13 @@ func TestWorkspaceController(t *testing.T) {
 					if isUnschedulable(workspace) {
 						return false, fmt.Sprintf("unschedulable:\n%s", toYAML(t, workspace))
 					}
-					if workspace.Status.Location.Current != bostonShard.Name {
-						return false, fmt.Sprintf("current location is not %q:\n%s", bostonShard.Name, toYAML(t, workspace))
+					if workspace.Status.Location.Current != newShard.Name {
+						return false, fmt.Sprintf("current location is not %q:\n%s", newShard.Name, toYAML(t, workspace))
 					}
 					if !utilconditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceShardValid) {
 						return false, fmt.Sprintf("shard is not valid:\n%s", toYAML(t, workspace))
 					}
-					if expected := "https://kcp.dev" + workspaceClusterName.Path(); workspace.Status.BaseURL != expected {
+					if expected := previouslyValidShard.Spec.BaseURL + workspaceClusterName.Path(); workspace.Status.BaseURL != expected {
 						return false, fmt.Sprintf("baseURL is not %q:\n%s", expected, toYAML(t, workspace))
 					}
 					return true, ""
