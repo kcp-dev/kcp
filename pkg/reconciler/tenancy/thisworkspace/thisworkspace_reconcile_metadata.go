@@ -32,7 +32,7 @@ import (
 type metaDataReconciler struct {
 }
 
-func (r *metaDataReconciler) reconcile(ctx context.Context, workspace *tenancyv1alpha1.ClusterWorkspace) (reconcileStatus, error) {
+func (r *metaDataReconciler) reconcile(ctx context.Context, workspace *tenancyv1alpha1.ThisWorkspace) (reconcileStatus, error) {
 	logger := klog.FromContext(ctx)
 	changed := false
 	if got, expected := workspace.Labels[tenancyv1alpha1.ClusterWorkspacePhaseLabel], string(workspace.Status.Phase); got != expected {
@@ -63,6 +63,7 @@ func (r *metaDataReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 	}
 
 	if workspace.Status.Phase == tenancyv1alpha1.WorkspacePhaseReady {
+		// remove owner reference
 		if value, found := workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey]; found {
 			var info authenticationv1.UserInfo
 			err := json.Unmarshal([]byte(value), &info)

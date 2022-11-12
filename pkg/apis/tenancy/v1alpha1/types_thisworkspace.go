@@ -139,9 +139,9 @@ type ThisWorkspaceStatus struct {
 	// +kubebuilder:format:uri
 	URL string `json:"URL,omitempty"`
 
-	// Phase of the workspace (Scheduling, Initializing, Ready).
+	// Phase of the workspace (Initializing, Ready).
 	//
-	// +kubebuilder:default=Scheduling
+	// +kubebuilder:default=Initializing
 	Phase WorkspacePhaseType `json:"phase,omitempty"`
 
 	// Current processing state of the ThisWorkspace.

@@ -454,6 +454,9 @@ func (s *Server) Run(ctx context.Context) error {
 		if err := s.installWorkspaceDeletionController(ctx, controllerConfig, s.LogicalClusterAdminConfig, s.CompletedConfig.ShardExternalURL); err != nil {
 			return err
 		}
+		if err := s.installThisWorkspace(ctx, controllerConfig); err != nil {
+			return err
+		}
 	}
 
 	if s.Options.Controllers.EnableAll || enabled.Has("resource-scheduler") {
