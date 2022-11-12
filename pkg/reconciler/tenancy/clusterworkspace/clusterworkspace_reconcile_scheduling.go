@@ -18,12 +18,14 @@ package clusterworkspace
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"path"
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
+	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -74,6 +76,9 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 				return reconcileStatusContinue, nil // retry is automatic when new shards show up
 			}
 			addShardAnnotation(workspace, shardName)
+			if !hasThisWorkspaceFinalizer(workspace) {
+				addThisWorkspaceFinalizer(workspace)
+			}
 			// this is the first part of our two-phase commit
 			// the first phase is to pick up a shard
 			return reconcileStatusContinue, nil
@@ -89,20 +94,23 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 		}
 		if valid, reason, message := isValidShard(shard); !valid {
 			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonUnschedulable, conditionsv1alpha1.ConditionSeverityError, "chosen shard hash %q is no longer valid, reason %q, message %q", shardNameHash, message, reason)
-			return reconcileStatusStopAndRequeue, nil
+			return reconcileStatusContinue, nil
 		}
 
 		if !hasThisWorkspaceFinalizer(workspace) {
-			workspace.Finalizers = append(workspace.Finalizers, thisWorkspaceFinalizer)
+			// should not happen, the finalizer
+			// is added during the first phase
+			addThisWorkspaceFinalizer(workspace)
+			return reconcileStatusContinue, nil
 		}
-		if err := r.createThisWorkspace(ctx, logicalcluster.From(workspace).Join(workspace.Name), shard, workspace); err != nil {
+		if err := r.createThisWorkspace(ctx, logicalcluster.From(workspace).Join(workspace.Name), shard, workspace); err != nil && !apierrors.IsAlreadyExists(err) {
 			return reconcileStatusStopAndRequeue, err
 		}
-		if err := r.createClusterRoleBindingForThisWorkspace(ctx, logicalcluster.From(workspace).Join(workspace.Name), shard, workspace); err != nil {
+		if err := r.createClusterRoleBindingForThisWorkspace(ctx, logicalcluster.From(workspace).Join(workspace.Name), shard, workspace); err != nil && !apierrors.IsAlreadyExists(err) {
 			return reconcileStatusStopAndRequeue, err
 		}
 
-		// now complete the second part of our two-phase commit
+		// now complete the second part of our two-phase commit: set location in workspace
 		u, err := url.Parse(shard.Spec.ExternalURL)
 		if err != nil {
 			// shouldn't happen since we just checked in isValidShard
@@ -267,22 +275,30 @@ func (r *schedulingReconciler) chooseShardAndMarkCondition(logger klog.Logger, w
 func (r *schedulingReconciler) createThisWorkspace(ctx context.Context, cluster logicalcluster.Name, shard *tenancyv1alpha1.ClusterWorkspaceShard, workspace *tenancyv1alpha1.ClusterWorkspace) error {
 	this := &tenancyv1alpha1.ThisWorkspace{
 		// TODO(p0lyn0mial): in the future we could set an UID based back-reference to ClusterWorkspace as annotation
-		ObjectMeta: metav1.ObjectMeta{Name: "this"},
-		// TODO: set Type on the spec ?!
-		Spec: tenancyv1alpha1.ThisWorkspaceSpec{},
+		ObjectMeta: metav1.ObjectMeta{Name: tenancyv1alpha1.ThisWorkspaceName},
+		Spec: tenancyv1alpha1.ThisWorkspaceSpec{
+			Type: workspace.Spec.Type,
+		},
 	}
 	logicalClusterAdminClient, err := r.kcpLogicalClusterAdminClientFor(shard)
 	if err != nil {
 		return err
 	}
 	_, err = logicalClusterAdminClient.Cluster(cluster).TenancyV1alpha1().ThisWorkspaces().Create(ctx, this, metav1.CreateOptions{})
-	if err != nil && !apierrors.IsAlreadyExists(err) {
-		return err
-	}
-	return nil // no err or AlreadyExists
+	return err
 }
 
 func (r *schedulingReconciler) createClusterRoleBindingForThisWorkspace(ctx context.Context, cluster logicalcluster.Name, shard *tenancyv1alpha1.ClusterWorkspaceShard, workspace *tenancyv1alpha1.ClusterWorkspace) error {
+	ownerAnnotation, found := workspace.Annotations[tenancyv1alpha1.ExperimentalClusterWorkspaceOwnerAnnotationKey]
+	if !found {
+		return fmt.Errorf("unable to find required %q owner annotation on %q workspace", tenancyv1alpha1.ExperimentalClusterWorkspaceOwnerAnnotationKey, workspace.Name)
+	}
+
+	var userInfo authenticationv1.UserInfo
+	err := json.Unmarshal([]byte(ownerAnnotation), &userInfo)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal %q owner annotation with value %s on %q workspace", tenancyv1alpha1.ExperimentalClusterWorkspaceOwnerAnnotationKey, ownerAnnotation, workspace.Name)
+	}
 	newBinding := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "workspace-admin",
@@ -291,8 +307,7 @@ func (r *schedulingReconciler) createClusterRoleBindingForThisWorkspace(ctx cont
 			{
 				Kind:     "User",
 				APIGroup: "rbac.authorization.k8s.io",
-				// TODO: assign name
-				Name: "TODO: name",
+				Name:     userInfo.Username,
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -306,12 +321,11 @@ func (r *schedulingReconciler) createClusterRoleBindingForThisWorkspace(ctx cont
 		return err
 	}
 	_, err = logicalClusterAdminClient.Cluster(cluster).RbacV1().ClusterRoleBindings().Create(ctx, newBinding, metav1.CreateOptions{})
-	if err != nil && !apierrors.IsAlreadyExists(err) {
-		return err
-	}
-	return nil // no err or AlreadyExists
+	return err
 }
 
+// kcpLogicalClusterAdminClientFor returns a kcp client (i.e. a client that implements kcpclient.ClusterInterface) for the given shard.
+// the returned client establishes a direct connection with the shard with credentials stored in r.logicalClusterAdminConfig.
 // TODO:(p0lyn0mial): make it more efficient, maybe we need a per shard client pool or we could use an HTTPRoundTripper
 func (r *schedulingReconciler) kcpLogicalClusterAdminClientFor(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpclient.ClusterInterface, error) {
 	shardConfig := restclient.CopyConfig(r.logicalClusterAdminConfig)
@@ -323,6 +337,8 @@ func (r *schedulingReconciler) kcpLogicalClusterAdminClientFor(shard *tenancyv1a
 	return shardClient, nil
 }
 
+// kubeLogicalClusterAdminClientFor returns a kube client (i.e. a client that implements kubernetes.ClusterInterface) for the given shard.
+// the returned client establishes a direct connection with the shard with credentials stored in r.logicalClusterAdminConfig.
 // TODO:(p0lyn0mial): make it more efficient, maybe we need a per shard client pool or we could use an HTTPRoundTripper
 func (r *schedulingReconciler) kubeLogicalClusterAdminClientFor(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kubernetes.ClusterInterface, error) {
 	shardConfig := restclient.CopyConfig(r.logicalClusterAdminConfig)
@@ -345,6 +361,10 @@ func hasThisWorkspaceFinalizer(workspace *tenancyv1alpha1.ClusterWorkspace) bool
 		}
 	}
 	return false
+}
+
+func addThisWorkspaceFinalizer(workspace *tenancyv1alpha1.ClusterWorkspace) {
+	workspace.Finalizers = append(workspace.Finalizers, thisWorkspaceFinalizer)
 }
 
 func addShardAnnotation(workspace *tenancyv1alpha1.ClusterWorkspace, shardName string) {
