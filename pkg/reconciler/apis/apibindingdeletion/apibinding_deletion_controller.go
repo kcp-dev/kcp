@@ -44,7 +44,7 @@ import (
 	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
-	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspacedeletion/deletion"
+	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspacedeletion/deletion"
 )
 
 const (
