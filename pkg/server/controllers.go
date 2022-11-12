@@ -82,7 +82,6 @@ import (
 	synctargetcontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/synctarget"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/synctargetexports"
 	initializingworkspacesbuilder "github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces/builder"
-	"k8s.io/client-go/dynamic"
 )
 
 func postStartHookName(controllerName string) string {
@@ -784,7 +783,7 @@ func (s *Server) installAPIBinderController(ctx context.Context, config *rest.Co
 
 	c, err := initialization.NewAPIBinder(
 		initializingWorkspacesKcpClusterClient,
-		initializingWorkspacesKcpInformers.Tenancy().V1alpha1().ClusterWorkspaces(),
+		initializingWorkspacesKcpInformers.Tenancy().V1alpha1().ThisWorkspaces(),
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceTypes(),
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
