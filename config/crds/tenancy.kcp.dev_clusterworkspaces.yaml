@@ -247,8 +247,7 @@ spec:
                 type: object
               phase:
                 default: Scheduling
-                description: Phase of the workspace  (Scheduling / Initializing /
-                  Ready)
+                description: Phase of the workspace (Scheduling / Initializing / Ready)
                 enum:
                 - Scheduling
                 - Initializing

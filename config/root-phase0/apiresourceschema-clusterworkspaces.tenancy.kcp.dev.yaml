@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v221112-05936e27.clusterworkspaces.tenancy.kcp.dev
+  name: v221112-d875eb39.clusterworkspaces.tenancy.kcp.dev
 spec:
   group: tenancy.kcp.dev
   names:
@@ -242,7 +242,7 @@ spec:
               type: object
             phase:
               default: Scheduling
-              description: Phase of the workspace  (Scheduling / Initializing / Ready)
+              description: Phase of the workspace (Scheduling / Initializing / Ready)
               enum:
               - Scheduling
               - Initializing
