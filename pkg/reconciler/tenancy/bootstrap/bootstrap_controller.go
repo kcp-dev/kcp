@@ -26,6 +26,7 @@ import (
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 
+	kcpapiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/kcp/clientset/versioned"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -53,8 +54,9 @@ const (
 
 func NewController(
 	dynamicClusterClient kcpdynamic.ClusterInterface,
+	crdClusterClient kcpapiextensionsclientset.ClusterInterface,
 	kcpClusterClient kcpclientset.ClusterInterface,
-	workspaceInformer tenancyv1alpha1informers.ClusterWorkspaceClusterInformer,
+	thisWorkspaceInformer tenancyv1alpha1informers.ThisWorkspaceClusterInformer,
 	workspaceType tenancyv1alpha1.ClusterWorkspaceTypeReference,
 	bootstrap func(context.Context, discovery.DiscoveryInterface, dynamic.Interface, clientset.Interface, sets.String) error,
 	batteriesIncluded sets.String,
@@ -67,13 +69,13 @@ func NewController(
 		queue:                queue,
 		dynamicClusterClient: dynamicClusterClient,
 		kcpClusterClient:     kcpClusterClient,
-		workspaceLister:      workspaceInformer.Lister(),
+		thisWorkspaceLister:  thisWorkspaceInformer.Lister(),
 		workspaceType:        workspaceType,
 		bootstrap:            bootstrap,
 		batteriesIncluded:    batteriesIncluded,
 	}
 
-	workspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	thisWorkspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
 	})
@@ -90,7 +92,7 @@ type controller struct {
 	dynamicClusterClient kcpdynamic.ClusterInterface
 	kcpClusterClient     kcpclientset.ClusterInterface
 
-	workspaceLister tenancyv1alpha1listers.ClusterWorkspaceClusterLister
+	thisWorkspaceLister tenancyv1alpha1listers.ThisWorkspaceClusterLister
 
 	workspaceType     tenancyv1alpha1.ClusterWorkspaceTypeReference
 	bootstrap         func(context.Context, discovery.DiscoveryInterface, dynamic.Interface, clientset.Interface, sets.String) error
@@ -104,7 +106,7 @@ func (c *controller) enqueue(obj interface{}) {
 		return
 	}
 	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), c.controllerName), key)
-	logger.V(2).Info("queueing ClusterWorkspace")
+	logger.V(2).Info("queueing ThisWorkspace")
 	c.queue.Add(key)
 }
 
@@ -163,7 +165,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		return nil
 	}
 
-	obj, err := c.workspaceLister.Cluster(clusterName).Get(name)
+	obj, err := c.thisWorkspaceLister.Cluster(clusterName).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil // object deleted before we handled it
@@ -182,14 +184,14 @@ func (c *controller) process(ctx context.Context, key string) error {
 
 	// If the object being reconciled changed as a result, update it.
 	if !equality.Semantic.DeepEqual(old.Status, obj.Status) {
-		oldData, err := json.Marshal(tenancyv1alpha1.ClusterWorkspace{
+		oldData, err := json.Marshal(tenancyv1alpha1.ThisWorkspace{
 			Status: old.Status,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to Marshal old data for workspace %s|%s/%s: %w", clusterName, namespace, name, err)
 		}
 
-		newData, err := json.Marshal(tenancyv1alpha1.ClusterWorkspace{
+		newData, err := json.Marshal(tenancyv1alpha1.ThisWorkspace{
 			ObjectMeta: metav1.ObjectMeta{
 				UID:             old.UID,
 				ResourceVersion: old.ResourceVersion,
@@ -204,10 +206,10 @@ func (c *controller) process(ctx context.Context, key string) error {
 		if err != nil {
 			return fmt.Errorf("failed to create patch for workspace %s|%s/%s: %w", clusterName, namespace, name, err)
 		}
-		_, uerr := c.kcpClusterClient.Cluster(clusterName).TenancyV1alpha1().ClusterWorkspaces().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+		_, uerr := c.kcpClusterClient.TenancyV1alpha1().ThisWorkspaces().Cluster(clusterName).Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 		return uerr
 	}
 
-	logger.V(6).Info("processed ClusterWorkspace")
+	logger.V(6).Info("processed ThisWorkspace")
 	return nil
 }
