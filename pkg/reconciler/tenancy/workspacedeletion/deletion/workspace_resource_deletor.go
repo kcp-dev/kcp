@@ -41,6 +41,7 @@ import (
 	kcpmetadata "github.com/kcp-dev/client-go/metadata"
 	"github.com/kcp-dev/logicalcluster/v2"
 
+	rbac "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -49,6 +50,7 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
@@ -65,7 +67,7 @@ const (
 // - remove opCache
 // - update deleteCollection to delete resources from all namespaces
 type WorkspaceResourcesDeleterInterface interface {
-	Delete(ctx context.Context, ws *tenancyv1alpha1.ClusterWorkspace) error
+	Delete(ctx context.Context, ws *tenancyv1alpha1.ThisWorkspace) error
 }
 
 // NewWorkspacedResourcesDeleter returns a new NamespacedResourcesDeleter.
@@ -95,20 +97,15 @@ type workspacedResourcesDeleter struct {
 // Returns ResourcesRemainingError if it deleted some resources but needs
 // to wait for them to go away.
 // Caller is expected to keep calling this until it succeeds.
-func (d *workspacedResourcesDeleter) Delete(ctx context.Context, workspace *tenancyv1alpha1.ClusterWorkspace) error {
+func (d *workspacedResourcesDeleter) Delete(ctx context.Context, workspace *tenancyv1alpha1.ThisWorkspace) error {
 	logger := klog.FromContext(ctx)
-	var err error
-	// if the workspace was deleted already, don't do anything
-	if workspace.DeletionTimestamp == nil {
-		return nil
-	}
-
-	logger.V(5).Info("deleting workspace")
 
 	// the latest view of the workspace asserts that workspace is no longer deleting..
 	if workspace.DeletionTimestamp.IsZero() {
 		return nil
 	}
+
+	logger.V(5).Info("deleting workspace")
 
 	// return if it is already finalized.
 	if len(workspace.Finalizers) == 0 {
@@ -337,21 +334,20 @@ type allGVRDeletionMetadata struct {
 // deleteAllContent will use the dynamic client to delete each resource identified in groupVersionResources.
 // It returns an estimate of the time remaining before the remaining resources are deleted.
 // If estimate > 0, not all resources are guaranteed to be gone.
-func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *tenancyv1alpha1.ClusterWorkspace) (int64, string, error) {
+func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *tenancyv1alpha1.ThisWorkspace) (int64, string, error) {
 	logger := klog.FromContext(ctx).WithValues("operation", "deleteAllContent")
 	logger.V(5).Info("running operation")
+
 	workspaceDeletedAt := *ws.DeletionTimestamp
 	var errs []error
 	estimate := int64(0)
-
-	wsClusterName := logicalcluster.From(ws).Join(ws.Name)
 
 	// disocer resources at first
 	var (
 		deletionContentSuccessReason  string
 		deletionContentSuccessMessage string
 	)
-	resources, err := d.discoverResourcesFn(wsClusterName)
+	resources, err := d.discoverResourcesFn(logicalcluster.From(ws))
 	if err != nil {
 		// discovery errors are not fatal.  We often have some set of resources we can operate against even if we don't have a complete list
 		errs = append(errs, err)
@@ -362,6 +358,14 @@ func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *t
 
 	deletableResources := discovery.FilteredBy(and{
 		discovery.SupportsAllVerbs{Verbs: []string{"delete"}},
+
+		// ThisWorkspace is the trigger for the whole deletion. Don't block on it.
+		isNotGroupResource{group: tenancy.GroupName, resource: "thisworkspaces"},
+
+		// Keep the workspace accessible for users in case they have to debug.
+		isNotGroupResource{group: rbac.GroupName, resource: "clusterroles"},
+		isNotGroupResource{group: rbac.GroupName, resource: "clusterrolebindings"},
+
 		// Don't try to delete projected resources such as tenancy.kcp.dev v1beta1 Workspaces - these are virtual
 		// projections and we shouldn't try to delete them. The projections will disappear when the real underlying
 		// data (e.g. ClusterWorkspaces) are deleted.
@@ -385,7 +389,7 @@ func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *t
 	}
 	deleteContentErrs := []error{}
 	for gvr, verbs := range groupVersionResources {
-		gvrDeletionMetadata, err := d.deleteAllContentForGroupVersionResource(ctx, wsClusterName, gvr, verbs, workspaceDeletedAt)
+		gvrDeletionMetadata, err := d.deleteAllContentForGroupVersionResource(ctx, logicalcluster.From(ws), gvr, verbs, workspaceDeletedAt)
 		if err != nil {
 			// If there is an error, hold on to it but proceed with all the remaining
 			// groupVersionResources.
@@ -491,6 +495,20 @@ func groupVersionResources(rls []*metav1.APIResourceList) (map[schema.GroupVersi
 		}
 	}
 	return gvrs, nil
+}
+
+type isNotGroupResource struct {
+	group    string
+	resource string
+}
+
+func (ngr isNotGroupResource) Match(groupVersion string, r *metav1.APIResource) bool {
+	comps := strings.SplitN(groupVersion, "/", 2)
+	group := comps[0]
+	if len(comps) == 1 {
+		group = ""
+	}
+	return !(group == ngr.group && r.Name == ngr.resource)
 }
 
 type isNotVirtualResource struct{}
