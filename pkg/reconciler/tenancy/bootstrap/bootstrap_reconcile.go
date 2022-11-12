@@ -31,7 +31,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
 
-func (c *controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.ClusterWorkspace) error {
+func (c *controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.ThisWorkspace) error {
 	logger := klog.FromContext(ctx)
 	if workspace.Status.Phase != tenancyv1alpha1.WorkspacePhaseInitializing {
 		return nil
@@ -44,17 +44,17 @@ func (c *controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 	}
 
 	// bootstrap resources
-	wsClusterName := logicalcluster.From(workspace).Join(workspace.Name)
-	logger.Info("bootstrapping resources for org workspace", "logicalCluster", wsClusterName)
+	clusterName := logicalcluster.From(workspace)
+	logger.Info("bootstrapping resources for workspace", "cluster", clusterName)
 	bootstrapCtx, cancel := context.WithDeadline(ctx, time.Now().Add(time.Second*30)) // to not block the controller
 	defer cancel()
 
-	clusterWsConfig := kcpclienthelper.SetCluster(rest.CopyConfig(c.baseConfig), wsClusterName)
+	clusterWsConfig := kcpclienthelper.SetCluster(rest.CopyConfig(c.baseConfig), clusterName)
 	crdWsClient, err := kcpapiextensionsclientset.NewForConfig(clusterWsConfig)
 	if err != nil {
 		return err
 	}
-	if err := c.bootstrap(logicalcluster.WithCluster(bootstrapCtx, wsClusterName), crdWsClient.Discovery(), c.dynamicClusterClient.Cluster(wsClusterName), c.kcpClusterClient, c.batteriesIncluded); err != nil {
+	if err := c.bootstrap(logicalcluster.WithCluster(bootstrapCtx, clusterName), crdWsClient.Discovery(), c.dynamicClusterClient.Cluster(clusterName), c.kcpClusterClient, c.batteriesIncluded); err != nil {
 		return err // requeue
 	}
 
