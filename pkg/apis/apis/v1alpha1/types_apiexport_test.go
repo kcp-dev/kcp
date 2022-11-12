@@ -115,6 +115,38 @@ func TestAPIExportPermissionClaimCELValidation(t *testing.T) {
 				"openAPIV3Schema.properties.spec.properties.permissionClaims.items: Invalid value: \"object\": either \"all\" or \"resourceSelector\" must be set",
 			},
 		},
+		{
+			name: "thisworkspaces invalid",
+			current: map[string]interface{}{
+				"group":    "tenancy.kcp.dev",
+				"resource": "thisworkspaces",
+				"all":      true,
+			},
+			wantErrs: []string{
+				"openAPIV3Schema.properties.spec.properties.permissionClaims.items: Invalid value: \"object\": thisworkspaces cannot be claimed",
+			},
+		},
+		{
+			name: "thisworkspaces invalid with empty identityHash",
+			current: map[string]interface{}{
+				"group":        "tenancy.kcp.dev",
+				"resource":     "thisworkspaces",
+				"identityHash": "",
+				"all":          true,
+			},
+			wantErrs: []string{
+				"openAPIV3Schema.properties.spec.properties.permissionClaims.items: Invalid value: \"object\": thisworkspaces cannot be claimed",
+			},
+		},
+		{
+			name: "thisworkspaces invalid with identityHash",
+			current: map[string]interface{}{
+				"group":        "tenancy.kcp.dev",
+				"resource":     "thisworkspaces",
+				"identityHash": "abc",
+				"all":          true,
+			},
+		},
 	}
 
 	validators := apitest.ValidatorsFromFile(t, "../../../../config/crds/apis.kcp.dev_apiexports.yaml")
