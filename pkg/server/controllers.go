@@ -762,7 +762,7 @@ func (s *Server) installAPIBinderController(ctx context.Context, config *rest.Co
 
 	c, err := initialization.NewAPIBinder(
 		initializingWorkspacesKcpClusterClient,
-		initializingWorkspacesKcpInformers.Tenancy().V1alpha1().ClusterWorkspaces(),
+		initializingWorkspacesKcpInformers.Tenancy().V1alpha1().ThisWorkspaces(),
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceTypes(),
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
