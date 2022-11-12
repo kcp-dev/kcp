@@ -230,6 +230,10 @@ func (o *CompletedOptions) Validate() []error {
 		}
 	}
 
+	if o.Extra.LogicalClusterAdminKubeconfig != "" && o.Extra.ShardExternalURL == "" {
+		errs = append(errs, fmt.Errorf("--shard-external-url is required if --logical-cluster-admin-kubeconfig is set"))
+	}
+
 	return errs
 }
 
