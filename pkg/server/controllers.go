@@ -67,10 +67,10 @@ import (
 	schedulingplacement "github.com/kcp-dev/kcp/pkg/reconciler/scheduling/placement"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/bootstrap"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspace"
-	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspacedeletion"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspaceshard"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspacetype"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/initialization"
+	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspacedeletion"
 	workloadsapiexport "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexport"
 	workloadsapiexportcreate "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexportcreate"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/heartbeat"
@@ -293,7 +293,7 @@ func readCA(file string) ([]byte, error) {
 
 func (s *Server) installWorkspaceDeletionController(ctx context.Context, config *rest.Config) error {
 	config = rest.CopyConfig(config)
-	config = rest.AddUserAgent(config, clusterworkspacedeletion.ControllerName)
+	config = rest.AddUserAgent(config, workspacedeletion.ControllerName)
 	kcpClusterClient, err := kcpclientset.NewForConfig(config)
 	if err != nil {
 		return err
@@ -315,7 +315,7 @@ func (s *Server) installWorkspaceDeletionController(ctx context.Context, config 
 	if err != nil {
 		return err
 	}
-	workspaceDeletionController := clusterworkspacedeletion.NewController(
+	workspaceDeletionController := workspacedeletion.NewController(
 		kubeClusterClient,
 		kcpClusterClient,
 		metadataClusterClient,
@@ -323,8 +323,8 @@ func (s *Server) installWorkspaceDeletionController(ctx context.Context, config 
 		discoverResourcesFn,
 	)
 
-	return s.AddPostStartHook(postStartHookName(clusterworkspacedeletion.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(clusterworkspacedeletion.ControllerName))
+	return s.AddPostStartHook(postStartHookName(workspacedeletion.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
+		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(workspacedeletion.ControllerName))
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			logger.Error(err, "failed to finish post-start-hook")
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
