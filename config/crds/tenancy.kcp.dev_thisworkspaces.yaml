@@ -193,8 +193,8 @@ spec:
                   type: string
                 type: array
               phase:
-                default: Scheduling
-                description: Phase of the workspace (Scheduling, Initializing, Ready).
+                default: Initializing
+                description: Phase of the workspace (Initializing, Ready).
                 enum:
                 - Scheduling
                 - Initializing
