@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package clusterworkspacefinalizer
+package thisworkspacefinalizer
 
 import (
 	"io"
@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	PluginName = "tenancy.kcp.dev/ClusterWorkspaceDeletionFinalizer"
+	PluginName = "tenancy.kcp.dev/ThisWorkspaceDeletionFinalizer"
 )
 
 func Register(plugins *admission.Plugins) {
@@ -36,7 +36,7 @@ func Register(plugins *admission.Plugins) {
 			return &finalizer.FinalizerPlugin{
 				Handler:       admission.NewHandler(admission.Create, admission.Update),
 				FinalizerName: deletion.WorkspaceFinalizer,
-				Resource:      tenancyv1alpha1.Resource("clusterworkspaces"),
+				Resource:      tenancyv1alpha1.Resource("thisworkspaces"),
 			}, nil
 		})
 }
