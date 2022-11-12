@@ -81,6 +81,7 @@ func clusterRoles() []rbacv1.ClusterRole {
 			ObjectMeta: metav1.ObjectMeta{Name: SystemLogicalClusterAdmin},
 			Rules: []rbacv1.PolicyRule{
 				rbacv1helpers.NewRule("*").Groups(tenancy.GroupName).Resources("thisworkspaces").RuleOrDie(),
+				rbacv1helpers.NewRule("delete", "update", "get").Groups(tenancy.GroupName).Resources("clusterworkspaces", "workspaces").RuleOrDie(),
 			},
 		},
 		{

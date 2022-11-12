@@ -82,6 +82,7 @@ import (
 	synctargetcontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/synctarget"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/synctargetexports"
 	initializingworkspacesbuilder "github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces/builder"
+	"k8s.io/client-go/dynamic"
 )
 
 func postStartHookName(controllerName string) string {
@@ -293,7 +294,7 @@ func readCA(file string) ([]byte, error) {
 	return rootCA, err
 }
 
-func (s *Server) installWorkspaceDeletionController(ctx context.Context, config *rest.Config) error {
+func (s *Server) installWorkspaceDeletionController(ctx context.Context, config *rest.Config, logicalClusterAdminConfig *rest.Config, shardExternalURL func() string) error {
 	config = rest.CopyConfig(config)
 	config = rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(config), workspacedeletion.ControllerName)
 	kcpClusterClient, err := kcpclient.NewForConfig(config)
@@ -317,11 +318,14 @@ func (s *Server) installWorkspaceDeletionController(ctx context.Context, config 
 	if err != nil {
 		return err
 	}
+
 	workspaceDeletionController := workspacedeletion.NewController(
 		kubeClusterClient,
 		kcpClusterClient,
+		logicalClusterAdminConfig,
+		shardExternalURL,
 		metadataClusterClient,
-		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
+		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ThisWorkspaces(),
 		discoverResourcesFn,
 	)
 
@@ -381,7 +385,11 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		return err
 	}
 
+	logicalClusterAdminConfig = rest.CopyConfig(logicalClusterAdminConfig)
+	logicalClusterAdminConfig = rest.AddUserAgent(logicalClusterAdminConfig, clusterworkspaceshard.ControllerName)
+
 	workspaceController, err := clusterworkspace.NewController(
+		s.CompletedConfig.ShardExternalURL,
 		kcpClusterClient,
 		kubeClusterClient,
 		logicalClusterAdminConfig,

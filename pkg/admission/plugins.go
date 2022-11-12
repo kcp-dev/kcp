@@ -44,7 +44,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/admission/apiexport"
 	"github.com/kcp-dev/kcp/pkg/admission/apiresourceschema"
 	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspace"
-	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspacefinalizer"
+	"github.com/kcp-dev/kcp/pkg/admission/thisworkspacefinalizer"
 	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspaceshard"
 	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspacetype"
 	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspacetypeexists"
@@ -67,7 +67,7 @@ var AllOrderedPlugins = beforeWebhooks(kubeapiserveroptions.AllOrderedPlugins,
 	workspacenamespacelifecycle.PluginName,
 	apiresourceschema.PluginName,
 	clusterworkspace.PluginName,
-	clusterworkspacefinalizer.PluginName,
+	thisworkspacefinalizer.PluginName,
 	clusterworkspaceshard.PluginName,
 	clusterworkspacetype.PluginName,
 	clusterworkspacetypeexists.PluginName,
@@ -103,7 +103,7 @@ func beforeWebhooks(recommended []string, plugins ...string) []string {
 func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 	kubeapiserveroptions.RegisterAllAdmissionPlugins(plugins)
 	clusterworkspace.Register(plugins)
-	clusterworkspacefinalizer.Register(plugins)
+	thisworkspacefinalizer.Register(plugins)
 	clusterworkspaceshard.Register(plugins)
 	clusterworkspacetype.Register(plugins)
 	clusterworkspacetypeexists.Register(plugins)
@@ -134,7 +134,7 @@ var defaultOnPluginsInKcp = sets.NewString(
 
 	// KCP
 	clusterworkspace.PluginName,
-	clusterworkspacefinalizer.PluginName,
+	thisworkspacefinalizer.PluginName,
 	clusterworkspaceshard.PluginName,
 	clusterworkspacetype.PluginName,
 	clusterworkspacetypeexists.PluginName,
