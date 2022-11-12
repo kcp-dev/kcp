@@ -40,28 +40,36 @@ import (
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
-func (b *APIBinder) reconcile(ctx context.Context, clusterWorkspace *tenancyv1alpha1.ClusterWorkspace) error {
+func (b *APIBinder) reconcile(ctx context.Context, this *tenancyv1alpha1.ThisWorkspace) error {
+	annotationValue, found := this.Annotations[tenancyv1alpha1.ThisWorkspaceTypeAnnotationKey]
+	if !found {
+		return nil
+	}
+	cwtCluster, cwtName := logicalcluster.New(annotationValue).Split()
+	if cwtCluster.Empty() {
+		return nil
+	}
 	logger := klog.FromContext(ctx).WithValues(
-		"clusterWorkspaceType.path", clusterWorkspace.Spec.Type.Path,
-		"clusterWorkspaceType.name", clusterWorkspace.Spec.Type.Name,
+		"clusterWorkspaceType.path", cwtCluster.String(),
+		"clusterWorkspaceType.name", cwtName,
 	)
 
 	var errors []error
-	clusterName := logicalcluster.From(clusterWorkspace).Join(clusterWorkspace.Name)
+	clusterName := logicalcluster.From(this)
 	logger.V(2).Info("initializing APIBindings for workspace")
 
 	// Start with the ClusterWorkspaceType specified by the ClusterWorkspace
-	leafCWT, err := b.getClusterWorkspaceType(logicalcluster.New(clusterWorkspace.Spec.Type.Path), string(clusterWorkspace.Spec.Type.Name))
+	leafCWT, err := b.getClusterWorkspaceType(cwtCluster, cwtName)
 	if err != nil {
 		logger.Error(err, "error getting ClusterWorkspaceType")
 
 		conditions.MarkFalse(
-			clusterWorkspace,
+			this,
 			tenancyv1alpha1.WorkspaceAPIBindingsInitialized,
 			tenancyv1alpha1.WorkspaceInitializedClusterWorkspaceTypeInvalid,
 			conditionsv1alpha1.ConditionSeverityError,
 			"error getting ClusterWorkspaceType %s|%s: %v",
-			clusterWorkspace.Spec.Type.Path, clusterWorkspace.Spec.Type.Name,
+			cwtCluster.String(), cwtName,
 			err,
 		)
 
@@ -74,7 +82,7 @@ func (b *APIBinder) reconcile(ctx context.Context, clusterWorkspace *tenancyv1al
 		logger.Error(err, "error resolving transitive types")
 
 		conditions.MarkFalse(
-			clusterWorkspace,
+			this,
 			tenancyv1alpha1.WorkspaceAPIBindingsInitialized,
 			tenancyv1alpha1.WorkspaceInitializedClusterWorkspaceTypeInvalid,
 			conditionsv1alpha1.ConditionSeverityError,
@@ -184,7 +192,7 @@ func (b *APIBinder) reconcile(ctx context.Context, clusterWorkspace *tenancyv1al
 		logger.Error(utilerrors.NewAggregate(errors), "error initializing APIBindings")
 
 		conditions.MarkFalse(
-			clusterWorkspace,
+			this,
 			tenancyv1alpha1.WorkspaceAPIBindingsInitialized,
 			tenancyv1alpha1.WorkspaceInitializedAPIBindingErrors,
 			conditionsv1alpha1.ConditionSeverityError,
@@ -225,7 +233,7 @@ func (b *APIBinder) reconcile(ctx context.Context, clusterWorkspace *tenancyv1al
 		sort.Strings(incomplete)
 
 		conditions.MarkFalse(
-			clusterWorkspace,
+			this,
 			tenancyv1alpha1.WorkspaceAPIBindingsInitialized,
 			tenancyv1alpha1.WorkspaceInitializedWaitingOnAPIBindings,
 			conditionsv1alpha1.ConditionSeverityInfo,
@@ -235,7 +243,7 @@ func (b *APIBinder) reconcile(ctx context.Context, clusterWorkspace *tenancyv1al
 		return nil
 	}
 
-	clusterWorkspace.Status.Initializers = initialization.EnsureInitializerAbsent(tenancyv1alpha1.WorkspaceAPIBindingsInitializer, clusterWorkspace.Status.Initializers)
+	this.Status.Initializers = initialization.EnsureInitializerAbsent(tenancyv1alpha1.WorkspaceAPIBindingsInitializer, this.Status.Initializers)
 
 	return nil
 }
