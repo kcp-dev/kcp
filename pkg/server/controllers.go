@@ -28,7 +28,6 @@ import (
 	kcpapiextensionsclientset "github.com/kcp-dev/apiextensions-apiserver/pkg/client/clientset/versioned"
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	kubeclient "github.com/kcp-dev/client-go/kubernetes"
 	kcpmetadata "github.com/kcp-dev/client-go/metadata"
 	"github.com/kcp-dev/logicalcluster/v2"
@@ -92,7 +91,7 @@ func postStartHookName(controllerName string) string {
 func (s *Server) installClusterRoleAggregationController(ctx context.Context, config *rest.Config) error {
 	controllerName := "kube-cluster-role-aggregation-controller"
 	config = rest.AddUserAgent(rest.CopyConfig(config), controllerName)
-	kubeClient, err := kcpkubernetesclientset.NewForConfig(config)
+	kubeClient, err := kubeclient.NewForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -109,7 +108,7 @@ func (s *Server) installClusterRoleAggregationController(ctx context.Context, co
 func (s *Server) installKubeNamespaceController(ctx context.Context, config *rest.Config) error {
 	controllerName := "kube-namespace-controller"
 	config = rest.AddUserAgent(rest.CopyConfig(config), controllerName)
-	kubeClient, err := kcpkubernetesclientset.NewForConfig(config)
+	kubeClient, err := kubeclient.NewForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -156,7 +155,7 @@ func (s *Server) installKubeNamespaceController(ctx context.Context, config *res
 func (s *Server) installKubeServiceAccountController(ctx context.Context, config *rest.Config) error {
 	controllerName := "kube-service-account-controller"
 	config = rest.AddUserAgent(rest.CopyConfig(config), controllerName)
-	kubeClient, err := kcpkubernetesclientset.NewForConfig(config)
+	kubeClient, err := kubeclient.NewForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -186,7 +185,7 @@ func (s *Server) installKubeServiceAccountController(ctx context.Context, config
 func (s *Server) installKubeServiceAccountTokenController(ctx context.Context, config *rest.Config) error {
 	controllerName := "kube-service-account-token-controller"
 	config = rest.AddUserAgent(rest.CopyConfig(config), controllerName)
-	kubeClient, err := kcpkubernetesclientset.NewForConfig(config)
+	kubeClient, err := kubeclient.NewForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -244,7 +243,7 @@ func (s *Server) installKubeServiceAccountTokenController(ctx context.Context, c
 func (s *Server) installRootCAConfigMapController(ctx context.Context, config *rest.Config) error {
 	controllerName := "kube-root-ca-configmap-controller"
 	config = rest.AddUserAgent(rest.CopyConfig(config), controllerName)
-	kubeClient, err := kcpkubernetesclientset.NewForConfig(config)
+	kubeClient, err := kubeclient.NewForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -314,7 +313,7 @@ func (s *Server) installWorkspaceDeletionController(ctx context.Context, config 
 		}
 		return discoveryClient.ServerPreferredResources()
 	}
-	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(config)
+	kubeClusterClient, err := kubeclient.NewForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -842,7 +841,7 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 		return err
 	}
 
-	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(config)
+	kubeClusterClient, err := kubeclient.NewForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -916,7 +915,7 @@ func (s *Server) installSchedulingLocationStatusController(ctx context.Context, 
 func (s *Server) installWorkloadNamespaceScheduler(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
 	config = rest.CopyConfig(config)
 	config = rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(config), workloadnamespace.ControllerName)
-	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(config)
+	kubeClusterClient, err := kubeclient.NewForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -1142,7 +1141,7 @@ func (s *Server) installKubeQuotaController(
 	config = rest.CopyConfig(config)
 	// TODO(ncdc): figure out if we need kcpclienthelper.SetMultiClusterRoundTripper(config)
 	config = rest.AddUserAgent(config, kubequota.ControllerName)
-	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(config)
+	kubeClusterClient, err := kubeclient.NewForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -1198,7 +1197,7 @@ func (s *Server) installApiExportIdentityController(ctx context.Context, config 
 	}
 	config = rest.CopyConfig(config)
 	config = rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(config), identitycache.ControllerName)
-	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(config)
+	kubeClusterClient, err := kubeclient.NewForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -1253,7 +1252,7 @@ func (s *Server) installGarbageCollectorController(ctx context.Context, config *
 	config = rest.CopyConfig(config)
 	config = rest.AddUserAgent(config, garbagecollector.ControllerName)
 
-	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(config)
+	kubeClusterClient, err := kubeclient.NewForConfig(config)
 	if err != nil {
 		return err
 	}
