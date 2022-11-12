@@ -18,6 +18,7 @@ package clusterworkspace
 
 import (
 	"context"
+	"reflect"
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
@@ -29,7 +30,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/projection"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
-	"reflect"
 )
 
 const (
