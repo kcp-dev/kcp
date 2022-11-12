@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package clusterworkspacedeletion
+package workspacedeletion
 
 import (
 	"context"
@@ -45,7 +45,7 @@ import (
 	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
-	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspacedeletion/deletion"
+	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspacedeletion/deletion"
 )
 
 const (
