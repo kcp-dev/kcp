@@ -197,6 +197,7 @@ const (
 // request and that a consumer may accept and allow the service provider access to.
 //
 // +kubebuilder:validation:XValidation:rule="(has(self.all) && self.all) != (has(self.resourceSelector) && size(self.resourceSelector) > 0)",message="either \"all\" or \"resourceSelector\" must be set"
+// +kubebuilder:validation:XValidation:rule="!has(self.group) || self.group != \"tenancy.kcp.dev\" || self.resource != \"thisworkspaces\" || (has(self.identityHash) && self.identityHash != \"\")",message="thisworkspaces cannot be claimed"
 type PermissionClaim struct {
 	GroupResource `json:","`
 
