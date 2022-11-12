@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v221111-110cc6d6.workspaces.tenancy.kcp.dev
+  name: v221112-05936e27.workspaces.tenancy.kcp.dev
 spec:
   group: tenancy.kcp.dev
   names:
@@ -158,7 +158,7 @@ spec:
                 are cleared. \n A cluster workspace in \"Initializing\" state are
                 gated via the RBAC clusterworkspaces/initialize resource permission."
               items:
-                description: ClusterWorkspaceInitializer is a unique string corresponding
+                description: WorkspaceInitializer is a unique string corresponding
                   to a cluster workspace initialization controller for the given type
                   of workspaces.
                 pattern: ^(root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$

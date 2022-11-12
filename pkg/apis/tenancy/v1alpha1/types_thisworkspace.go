@@ -70,6 +70,13 @@ type ThisWorkspaceSpec struct {
 	// +optional
 	Type ClusterWorkspaceTypeReference `json:"type,omitempty"`
 
+	// DirectlyDeletable indicates that this workspace can be directly deleted by the user
+	// from within the workspace.
+	//
+	// +optional
+	// +kubebuilder:default=false
+	DirectlyDeletable bool `json:"directlyDeletable,omitempty"`
+
 	// owner is a reference to a resource controlling the life-cycle of this workspace.
 	// On deletion of the ThisWorkspace, the finalizer tenancy.kcp.dev/thisworkspace is
 	// removed from the owner.
@@ -146,7 +153,7 @@ type ThisWorkspaceStatus struct {
 	// stay in the phase "Initializing" state until all initializers are cleared.
 	//
 	// +optional
-	Initializers []ClusterWorkspaceInitializer `json:"initializers,omitempty"`
+	Initializers []WorkspaceInitializer `json:"initializers,omitempty"`
 }
 
 func (in *ThisWorkspace) SetConditions(c conditionsv1alpha1.Conditions) {
