@@ -69,7 +69,7 @@ func TestSchedulingReconciler(t *testing.T) {
 				},
 			),
 			wantStatus: reconcileStatusContinue,
-		},*/
+		}
 		{
 			name: "no shards, already initializing",
 			workspace: phase(tenancyv1alpha1.WorkspacePhaseInitializing,
@@ -121,10 +121,6 @@ func TestSchedulingReconciler(t *testing.T) {
 					Type:   tenancyv1alpha1.WorkspaceScheduled,
 					Status: corev1.ConditionTrue,
 				},
-				conditionsapi.Condition{
-					Type:   tenancyv1alpha1.WorkspaceShardValid,
-					Status: corev1.ConditionTrue,
-				},
 			),
 			wantStatus: reconcileStatusContinue,
 		},
@@ -139,10 +135,6 @@ func TestSchedulingReconciler(t *testing.T) {
 				scheduled("root", "https://front-proxy/clusters/workspace", workspace())),
 				conditionsapi.Condition{
 					Type:   tenancyv1alpha1.WorkspaceScheduled,
-					Status: corev1.ConditionTrue,
-				},
-				conditionsapi.Condition{
-					Type:   tenancyv1alpha1.WorkspaceShardValid,
 					Status: corev1.ConditionTrue,
 				},
 			),
@@ -161,10 +153,6 @@ func TestSchedulingReconciler(t *testing.T) {
 					constrained(tenancyv1alpha1.ShardConstraints{Name: "foo"}, workspace()))),
 				conditionsapi.Condition{
 					Type:   tenancyv1alpha1.WorkspaceScheduled,
-					Status: corev1.ConditionTrue,
-				},
-				conditionsapi.Condition{
-					Type:   tenancyv1alpha1.WorkspaceShardValid,
 					Status: corev1.ConditionTrue,
 				},
 			),
@@ -205,10 +193,6 @@ func TestSchedulingReconciler(t *testing.T) {
 					}, workspace()))),
 				conditionsapi.Condition{
 					Type:   tenancyv1alpha1.WorkspaceScheduled,
-					Status: corev1.ConditionTrue,
-				},
-				conditionsapi.Condition{
-					Type:   tenancyv1alpha1.WorkspaceShardValid,
 					Status: corev1.ConditionTrue,
 				},
 			),

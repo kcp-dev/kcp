@@ -70,6 +70,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspaceshard"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspacetype"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/initialization"
+	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/thisworkspace"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspacedeletion"
 	workloadsapiexport "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexport"
 	workloadsapiexportcreate "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexportcreate"
@@ -392,10 +393,6 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
 		s.KcpSharedInformerFactory.Tenancy().V1beta1().Workspaces(),
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
-		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
-		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ThisWorkspaces(),
-		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
-		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
 	)
 	if err != nil {
 		return err
@@ -509,6 +506,38 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		go universalController.Start(ctx, 2)
 		return nil
 	})
+}
+
+func (s *Server) installThisWorkspace(ctx context.Context, config *rest.Config) error {
+	clusterWorkspaceConfig := rest.CopyConfig(config)
+	clusterWorkspaceConfigWithRoundtripper := rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(clusterWorkspaceConfig), thisworkspace.ControllerName)
+	kcpClusterClient, err := kcpclient.NewForConfig(clusterWorkspaceConfigWithRoundtripper)
+	if err != nil {
+		return err
+	}
+
+	thisWorkspaceController, err := thisworkspace.NewController(
+		s.CompletedConfig.ShardExternalURL,
+		kcpClusterClient,
+		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ThisWorkspaces(),
+	)
+	if err != nil {
+		return err
+	}
+
+	if err := s.AddPostStartHook(postStartHookName(thisworkspace.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
+		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(thisworkspace.ControllerName))
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			logger.Error(err, "failed to finish post-start-hook")
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+		go thisWorkspaceController.Start(ctx, 2)
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *Server) installApiResourceController(ctx context.Context, config *rest.Config) error {

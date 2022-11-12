@@ -37,7 +37,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
-	restclient "k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -58,14 +57,17 @@ const (
 )
 
 type schedulingReconciler struct {
-	getShard                  func(name string) (*tenancyv1alpha1.ClusterWorkspaceShard, error)
-	getShardByHash            func(hash string) (*tenancyv1alpha1.ClusterWorkspaceShard, error)
-	listShards                func(selector labels.Selector) ([]*tenancyv1alpha1.ClusterWorkspaceShard, error)
-	logicalClusterAdminConfig *restclient.Config
+	getShard       func(name string) (*tenancyv1alpha1.ClusterWorkspaceShard, error)
+	getShardByHash func(hash string) (*tenancyv1alpha1.ClusterWorkspaceShard, error)
+	listShards     func(selector labels.Selector) ([]*tenancyv1alpha1.ClusterWorkspaceShard, error)
+
+	kcpLogicalClusterAdminClientFor  func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpclientset.ClusterInterface, error)
+	kubeLogicalClusterAdminClientFor func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kubernetes.ClusterInterface, error)
 }
 
 func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancyv1alpha1.ClusterWorkspace) (reconcileStatus, error) {
-	logger := klog.FromContext(ctx)
+	logger := klog.FromContext(ctx).WithValues("reconciler", "scheduling")
+
 	switch workspace.Status.Phase {
 	case tenancyv1alpha1.WorkspacePhaseScheduling:
 		shardNameHash, hasShard := workspace.Annotations[clusterWorkspaceShardAnnotationKey]
@@ -127,72 +129,15 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonReasonUnknown, conditionsv1alpha1.ConditionSeverityError, "Invalid connection information on target ClusterWorkspaceShard: %v.", err)
 			return reconcileStatusStopAndRequeue, err // requeue
 		}
+
+		conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceScheduled)
+
 		u.Path = path.Join(u.Path, logicalcluster.From(workspace).Join(workspace.Name).Path())
 		workspace.Status.BaseURL = u.String()
 		workspace.Status.Cluster = clusterName.String()
 		workspace.Status.Location.Current = shard.Name
 		conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceScheduled)
 		logging.WithObject(logger, shard).Info("scheduled workspace to shard")
-
-	case tenancyv1alpha1.WorkspacePhaseInitializing, tenancyv1alpha1.WorkspacePhaseReady:
-		// movement can only happen after scheduling
-		if workspace.Status.Location.Target == "" {
-			break
-		}
-
-		current, target := workspace.Status.Location.Current, workspace.Status.Location.Target
-		if current == target {
-			workspace.Status.Location.Target = ""
-			break
-		}
-
-		_, err := r.getShard(target)
-		if apierrors.IsNotFound(err) {
-			logger.Info("cannot move to nonexistent shard", "ClusterWorkspaceShard", target)
-		} else if err != nil {
-			return reconcileStatusStopAndRequeue, err
-		}
-
-		logger.Info("moving workspace to shard", "ClusterWorkspaceShard", workspace.Status.Location.Target)
-		workspace.Status.Location.Current = workspace.Status.Location.Target
-		workspace.Status.Location.Target = ""
-	}
-
-	// check scheduled shard. This has no influence on the workspace baseURL or shard assignment. This might be a trigger for
-	// a movement controller in the future (or a human intervention) to move workspaces off a shard.
-	if workspace.Status.Location.Current != "" {
-		shard, err := r.getShard(workspace.Status.Location.Current)
-		if apierrors.IsNotFound(err) {
-			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceShardValid, tenancyv1alpha1.WorkspaceShardValidReasonShardNotFound, conditionsv1alpha1.ConditionSeverityError, "ClusterWorkspaceShard %q got deleted.", workspace.Status.Location.Current)
-		} else if err != nil {
-			return reconcileStatusStopAndRequeue, err
-		} else if valid, reason, message := isValidShard(shard); !valid {
-			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceShardValid, reason, conditionsv1alpha1.ConditionSeverityError, message)
-		} else {
-			conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceShardValid)
-		}
-
-		if workspace.Spec.Shard != nil && shard != nil {
-			needsRescheduling := false
-			if workspace.Spec.Shard.Selector != nil {
-				var err error
-				selector, err := metav1.LabelSelectorAsSelector(workspace.Spec.Shard.Selector)
-				if err != nil {
-					conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonUnschedulable, conditionsv1alpha1.ConditionSeverityError, "spec.location.shardSelector is invalid: %v", err)
-					return reconcileStatusContinue, nil // don't retry, cannot do anything useful
-				}
-				needsRescheduling = !selector.Matches(labels.Set(shard.Labels))
-			} else if shardName := workspace.Spec.Shard.Name; shardName != "" && shardName != workspace.Status.Location.Current {
-				needsRescheduling = true
-			}
-			if needsRescheduling {
-				conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonUnreschedulable, conditionsv1alpha1.ConditionSeverityError, "Needs rescheduling, but movement is not supported yet")
-			} else {
-				conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceScheduled)
-			}
-		} else {
-			conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceScheduled)
-		}
 	}
 
 	return reconcileStatusContinue, nil
@@ -290,6 +235,9 @@ func (r *schedulingReconciler) createThisWorkspace(ctx context.Context, shard *t
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       tenancyv1alpha1.ThisWorkspaceName,
 			Finalizers: []string{deletion.WorkspaceFinalizer},
+			Annotations: map[string]string{
+				tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey: workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey],
+			},
 		},
 		Spec: tenancyv1alpha1.ThisWorkspaceSpec{
 			Owner: &tenancyv1alpha1.ThisWorkspaceOwner{
@@ -343,32 +291,6 @@ func (r *schedulingReconciler) createClusterRoleBindingForThisWorkspace(ctx cont
 	}
 	_, err = logicalClusterAdminClient.Cluster(cluster).RbacV1().ClusterRoleBindings().Create(ctx, newBinding, metav1.CreateOptions{})
 	return err
-}
-
-// kcpLogicalClusterAdminClientFor returns a kcp client (i.e. a client that implements kcpclient.ClusterInterface) for the given shard.
-// the returned client establishes a direct connection with the shard with credentials stored in r.logicalClusterAdminConfig.
-// TODO:(p0lyn0mial): make it more efficient, maybe we need a per shard client pool or we could use an HTTPRoundTripper
-func (r *schedulingReconciler) kcpLogicalClusterAdminClientFor(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpclientset.ClusterInterface, error) {
-	shardConfig := restclient.CopyConfig(r.logicalClusterAdminConfig)
-	shardConfig.Host = shard.Spec.BaseURL
-	shardClient, err := kcpclientset.NewForConfig(shardConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create shard %q kube client: %w", shard.Name, err)
-	}
-	return shardClient, nil
-}
-
-// kubeLogicalClusterAdminClientFor returns a kube client (i.e. a client that implements kubernetes.ClusterInterface) for the given shard.
-// the returned client establishes a direct connection with the shard with credentials stored in r.logicalClusterAdminConfig.
-// TODO:(p0lyn0mial): make it more efficient, maybe we need a per shard client pool or we could use an HTTPRoundTripper
-func (r *schedulingReconciler) kubeLogicalClusterAdminClientFor(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kubernetes.ClusterInterface, error) {
-	shardConfig := restclient.CopyConfig(r.logicalClusterAdminConfig)
-	shardConfig.Host = shard.Spec.BaseURL
-	shardClient, err := kubernetes.NewForConfig(shardConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create shard %q kube client: %w", shard.Name, err)
-	}
-	return shardClient, nil
 }
 
 func isValidShard(_ *tenancyv1alpha1.ClusterWorkspaceShard) (valid bool, reason, message string) {

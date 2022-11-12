@@ -18,17 +18,20 @@ package clusterworkspace
 
 import (
 	"context"
+	"fmt"
+	"time"
 
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	"github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v2"
 
-	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	utilserrors "k8s.io/apimachinery/pkg/util/errors"
+	restclient "k8s.io/client-go/rest"
 
-	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 )
 
 type reconcileStatus int
@@ -43,67 +46,68 @@ type reconciler interface {
 }
 
 func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1alpha1.ClusterWorkspace) (bool, error) {
+	getShardByName := func(hash string) (*tenancyv1alpha1.ClusterWorkspaceShard, error) {
+		shards, err := c.clusterWorkspaceShardIndexer.ByIndex(byBase36Sha224Name, hash)
+		if err != nil {
+			return nil, err
+		}
+		if len(shards) == 0 {
+			return nil, nil
+		}
+		return shards[0].(*tenancyv1alpha1.ClusterWorkspaceShard), nil
+	}
+
+	// kcpLogicalClusterAdminClientFor returns a kcp client (i.e. a client that implements kcpclient.ClusterInterface) for the given shard.
+	// the returned client establishes a direct connection with the shard with credentials stored in r.logicalClusterAdminConfig.
+	// TODO:(p0lyn0mial): make it more efficient, maybe we need a per shard client pool or we could use an HTTPRoundTripper
+	kcpDirectClientFor := func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpclientset.ClusterInterface, error) {
+		shardConfig := restclient.CopyConfig(c.logicalClusterAdminConfig)
+		shardConfig.Host = shard.Spec.BaseURL
+		shardClient, err := kcpclientset.NewForConfig(shardConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create shard %q kube client: %w", shard.Name, err)
+		}
+		return shardClient, nil
+	}
+
+	// kubeLogicalClusterAdminClientFor returns a kube client (i.e. a client that implements kubernetes.ClusterInterface) for the given shard.
+	// the returned client establishes a direct connection with the shard with credentials stored in r.logicalClusterAdminConfig.
+	// TODO:(p0lyn0mial): make it more efficient, maybe we need a per shard client pool or we could use an HTTPRoundTripper
+	kubeDirectClientFor := func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kubernetes.ClusterInterface, error) {
+		shardConfig := restclient.CopyConfig(c.logicalClusterAdminConfig)
+		shardConfig.Host = shard.Spec.BaseURL
+		shardClient, err := kubernetes.NewForConfig(shardConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create shard %q kube client: %w", shard.Name, err)
+		}
+		return shardClient, nil
+	}
+
 	reconcilers := []reconciler{
 		&metaDataReconciler{},
-		&preThisWorkspaceReconciler{},
+		&deletionReconciler{
+			getThisWorkspace: func(ctx context.Context, cluster logicalcluster.Name) (*tenancyv1alpha1.ThisWorkspace, error) {
+				return c.kcpExternalClient.Cluster(cluster).TenancyV1alpha1().ThisWorkspaces().Get(ctx, tenancyv1alpha1.ThisWorkspaceName, metav1.GetOptions{})
+			},
+			deleteThisWorkspace: func(ctx context.Context, cluster logicalcluster.Name) error {
+				return c.kcpExternalClient.Cluster(cluster).TenancyV1alpha1().ThisWorkspaces().Delete(ctx, tenancyv1alpha1.ThisWorkspaceName, metav1.DeleteOptions{})
+			},
+		},
 		&schedulingReconciler{
 			getShard: func(name string) (*tenancyv1alpha1.ClusterWorkspaceShard, error) {
 				return c.clusterWorkspaceShardLister.Cluster(tenancyv1alpha1.RootCluster).Get(name)
 			},
-			getShardByHash: func(hash string) (*tenancyv1alpha1.ClusterWorkspaceShard, error) {
-				shards, err := c.clusterWorkspaceShardIndexer.ByIndex(byBase36Sha224Name, hash)
-				if err != nil {
-					return nil, err
-				}
-				if len(shards) == 0 {
-					return nil, nil
-				}
-				return shards[0].(*tenancyv1alpha1.ClusterWorkspaceShard), nil
-			},
-			listShards:                c.clusterWorkspaceShardLister.List,
-			logicalClusterAdminConfig: c.logicalClusterAdminConfig,
+			getShardByHash:                   getShardByName,
+			listShards:                       c.clusterWorkspaceShardLister.List,
+			kcpLogicalClusterAdminClientFor:  kcpDirectClientFor,
+			kubeLogicalClusterAdminClientFor: kubeDirectClientFor,
 		},
 		&phaseReconciler{
-			getShardWithQuorum: func(ctx context.Context, name string, options metav1.GetOptions) (*tenancyv1alpha1.ClusterWorkspaceShard, error) {
-				return c.kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaceShards().Get(ctx, name, options)
+			getThisWorkspace: func(ctx context.Context, cluster logicalcluster.Name) (*tenancyv1alpha1.ThisWorkspace, error) {
+				return c.kcpExternalClient.Cluster(cluster).TenancyV1alpha1().ThisWorkspaces().Get(ctx, tenancyv1alpha1.ThisWorkspaceName, metav1.GetOptions{})
 			},
-			getAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
-				return c.apiBindingLister.Cluster(clusterName).List(labels.Everything())
-			},
-		},
-		&thisWorkspaceReconciler{
-			getThisWorkspace: func(clusterName logicalcluster.Name) (*tenancyv1alpha1.ThisWorkspace, error) {
-				return c.thisWorkspaceLister.Cluster(clusterName).Get(tenancyv1alpha1.ThisWorkspaceName)
-			},
-			createThisWorkspace: func(ctx context.Context, clusterName logicalcluster.Name, this *tenancyv1alpha1.ThisWorkspace) (*tenancyv1alpha1.ThisWorkspace, error) {
-				return c.kcpClusterClient.TenancyV1alpha1().ThisWorkspaces().Cluster(clusterName).Create(ctx, this, metav1.CreateOptions{})
-			},
-			deleteThisWorkspace: func(ctx context.Context, clusterName logicalcluster.Name) error {
-				return c.kcpClusterClient.TenancyV1alpha1().ThisWorkspaces().Cluster(clusterName).Delete(ctx, tenancyv1alpha1.ThisWorkspaceName, metav1.DeleteOptions{})
-			},
-			updateThisWorkspace: func(ctx context.Context, clusterName logicalcluster.Name, this *tenancyv1alpha1.ThisWorkspace) (*tenancyv1alpha1.ThisWorkspace, error) {
-				return c.kcpClusterClient.TenancyV1alpha1().ThisWorkspaces().Update(logicalcluster.WithCluster(ctx, clusterName), this, metav1.UpdateOptions{})
-			},
-			updateThisWorkspaceStatus: func(ctx context.Context, clusterName logicalcluster.Name, this *tenancyv1alpha1.ThisWorkspace) (*tenancyv1alpha1.ThisWorkspace, error) {
-				return c.kcpClusterClient.TenancyV1alpha1().ThisWorkspaces().Cluster(clusterName).UpdateStatus(ctx, this, metav1.UpdateOptions{})
-			},
-			getClusterRoleBinding: func(clusterName logicalcluster.Name, name string) (*rbacv1.ClusterRoleBinding, error) {
-				return c.clusterRoleBindingLister.Cluster(clusterName).Get(name)
-			},
-			createClusterRoleBinding: func(ctx context.Context, clusterName logicalcluster.Name, binding *rbacv1.ClusterRoleBinding) (*rbacv1.ClusterRoleBinding, error) {
-				return c.kubeClusterClient.RbacV1().ClusterRoleBindings().Cluster(clusterName).Create(ctx, binding, metav1.CreateOptions{})
-			},
-			updateClusterRoleBinding: func(ctx context.Context, clusterName logicalcluster.Name, binding *rbacv1.ClusterRoleBinding) (*rbacv1.ClusterRoleBinding, error) {
-				return c.kubeClusterClient.RbacV1().ClusterRoleBindings().Cluster(clusterName).Update(ctx, binding, metav1.UpdateOptions{})
-			},
-			listClusterRoleBindings: func(clusterName logicalcluster.Name) ([]*rbacv1.ClusterRoleBinding, error) {
-				return c.clusterRoleBindingLister.Cluster(clusterName).List(labels.Everything())
-			},
-			deleteClusterRoleBinding: func(ctx context.Context, clusterName logicalcluster.Name, name string) error {
-				return c.kubeClusterClient.RbacV1().ClusterRoleBindings().Cluster(clusterName).Delete(ctx, name, metav1.DeleteOptions{})
-			},
-			getClusterRole: func(clusterName logicalcluster.Name, name string) (*rbacv1.ClusterRole, error) {
-				return c.clusterRoleLister.Cluster(clusterName).Get(name)
+			requeueAfter: func(workspace *tenancyv1alpha1.ClusterWorkspace, after time.Duration) {
+				c.queue.AddAfter(kcpcache.ToClusterAwareKey(logicalcluster.From(workspace).String(), "", workspace.Name), after)
 			},
 		},
 		&workspaceReconciler{

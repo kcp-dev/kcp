@@ -182,6 +182,7 @@ func (s *Server) Run(ctx context.Context) error {
 
 		if s.Options.Extra.ShardName == tenancyv1alpha1.RootShard {
 			logger.Info("bootstrapping root workspace phase 0")
+			s.RootShardKcpClusterClient = s.KcpClusterClient
 
 			// bootstrap root workspace phase 0 only if we are on the root shard, no APIBinding resources yet
 			if err := configrootphase0.Bootstrap(goContext(hookContext),
@@ -430,6 +431,9 @@ func (s *Server) Run(ctx context.Context) error {
 			return err
 		}
 		if err := s.installWorkspaceDeletionController(ctx, controllerConfig, s.LogicalClusterAdminConfig, s.CompletedConfig.ShardExternalURL); err != nil {
+			return err
+		}
+		if err := s.installThisWorkspace(ctx, controllerConfig); err != nil {
 			return err
 		}
 	}
