@@ -5,9 +5,9 @@ metadata:
   name: tenancy.kcp.dev
 spec:
   latestResourceSchemas:
-  - v220923-596b9074.clusterworkspacetypes.tenancy.kcp.dev
-  - v221111-110cc6d6.workspaces.tenancy.kcp.dev
-  - v221111-aab0f288.clusterworkspaces.tenancy.kcp.dev
+  - v221112-05936e27.clusterworkspaces.tenancy.kcp.dev
+  - v221112-05936e27.clusterworkspacetypes.tenancy.kcp.dev
+  - v221112-05936e27.workspaces.tenancy.kcp.dev
   maximalPermissionPolicy:
     local: {}
 status: {}
