@@ -19,21 +19,21 @@ package clusterworkspace
 import (
 	"context"
 	"encoding/json"
-	"strings"
 
 	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspacedeletion/deletion"
 )
 
 type metaDataReconciler struct {
 }
 
 func (r *metaDataReconciler) reconcile(ctx context.Context, workspace *tenancyv1alpha1.ClusterWorkspace) (reconcileStatus, error) {
-	logger := klog.FromContext(ctx)
+	logger := klog.FromContext(ctx).WithValues("reconciler", "metadata")
+
 	changed := false
 	if got, expected := workspace.Labels[tenancyv1alpha1.WorkspacePhaseLabel], string(workspace.Status.Phase); got != expected {
 		if workspace.Labels == nil {
@@ -43,22 +43,12 @@ func (r *metaDataReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 		changed = true
 	}
 
-	initializerKeys := sets.NewString()
-	for _, initializer := range workspace.Status.Initializers {
-		key, value := initialization.InitializerToLabel(initializer)
-		initializerKeys.Insert(key)
-		if got, expected := workspace.Labels[key], value; got != expected {
-			workspace.Labels[key] = value
+	// remote deletion finalizer as this moved to the ThisWorkspace
+	if workspace.DeletionTimestamp.IsZero() {
+		finalizers := sets.NewString(workspace.Finalizers...)
+		if finalizers.Has(deletion.WorkspaceFinalizer) {
+			workspace.Finalizers = finalizers.Delete(deletion.WorkspaceFinalizer).List()
 			changed = true
-		}
-	}
-
-	for key := range workspace.Labels {
-		if strings.HasPrefix(key, tenancyv1alpha1.WorkspaceInitializerLabelPrefix) {
-			if !initializerKeys.Has(key) {
-				delete(workspace.Labels, key)
-				changed = true
-			}
 		}
 	}
 
