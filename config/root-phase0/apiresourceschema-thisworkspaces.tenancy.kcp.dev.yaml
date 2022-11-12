@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v221114-62447d49.thisworkspaces.tenancy.kcp.dev
+  name: v221114-80b8f840.thisworkspaces.tenancy.kcp.dev
 spec:
   group: tenancy.kcp.dev
   names:
@@ -70,6 +70,7 @@ spec:
                 cluster:
                   description: cluster is the logical cluster in which the owner is
                     located.
+                  minLength: 1
                   type: string
                 name:
                   description: name is the name of the owner.

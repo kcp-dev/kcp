@@ -73,6 +73,7 @@ spec:
                   cluster:
                     description: cluster is the logical cluster in which the owner
                       is located.
+                    minLength: 1
                     type: string
                   name:
                     description: name is the name of the owner.
