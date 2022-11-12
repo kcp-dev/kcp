@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v221112-a80b8e98.thisworkspaces.tenancy.kcp.dev
+  name: v221114-62447d49.thisworkspaces.tenancy.kcp.dev
 spec:
   group: tenancy.kcp.dev
   names:
@@ -15,13 +15,13 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
-    - description: The current phase (e.g. Scheduling, Initializing, Ready)
-      jsonPath: .status.phase
-      name: Phase
-      type: string
     - description: Type of the workspace
       jsonPath: .spec.type.name
       name: Type
+      type: string
+    - description: The current phase (e.g. Scheduling, Initializing, Ready)
+      jsonPath: .status.phase
+      name: Phase
       type: string
     - description: URL to access the workspace
       jsonPath: .status.URL
@@ -53,7 +53,45 @@ spec:
           type: object
         spec:
           default: {}
+          description: ThisWorkspaceSpec is the specification of the ThisWorkspace
+            resource.
           properties:
+            owner:
+              description: "owner is a reference to a resource controlling the life-cycle
+                of this workspace. On deletion of the ThisWorkspace, the finalizer
+                tenancy.kcp.dev/thisworkspace is removed from the owner. \n When this
+                object is deleted, but the owner is not deleted, the owner is deleted
+                too."
+              properties:
+                apiVersion:
+                  description: apiVersion is the group and API version of the owner.
+                  pattern: ^([^/]+/)?[^/]+$
+                  type: string
+                cluster:
+                  description: cluster is the logical cluster in which the owner is
+                    located.
+                  type: string
+                name:
+                  description: name is the name of the owner.
+                  minLength: 1
+                  type: string
+                namespace:
+                  description: namespace is the optional namespace of the owner.
+                  type: string
+                resource:
+                  description: resource is API resource to access the owner.
+                  minLength: 1
+                  type: string
+                uid:
+                  description: UID is the UID of the owner.
+                  type: string
+              required:
+              - apiVersion
+              - cluster
+              - name
+              - resource
+              - uid
+              type: object
             type:
               description: "type defines properties of the workspace both on creation
                 (e.g. initial resources and initially installed APIs) and during runtime

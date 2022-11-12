@@ -23,6 +23,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
@@ -633,6 +634,10 @@ var (
 const (
 	// ThisWorkspaceName is the name of the ThisWorkspace singleton.
 	ThisWorkspaceName = "this"
+
+	// ThisWorkspaceFinalizer attached to new ClusterWorkspace (in phase ClusterWorkspacePhaseScheduling) resources so that we can control
+	// deletion of ThisWorkspace resources
+	ThisWorkspaceFinalizer = "tenancy.kcp.dev/thisworkspace"
 )
 
 // ThisWorkspace describes the current workspace.
@@ -643,8 +648,8 @@ const (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster,categories=kcp
-// +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`,description="The current phase (e.g. Scheduling, Initializing, Ready)"
 // +kubebuilder:printcolumn:name="Type",type=string,JSONPath=`.spec.type.name`,description="Type of the workspace"
+// +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`,description="The current phase (e.g. Scheduling, Initializing, Ready)"
 // +kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.URL`,description="URL to access the workspace"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 type ThisWorkspace struct {
@@ -657,6 +662,7 @@ type ThisWorkspace struct {
 	Status ThisWorkspaceStatus `json:"status,omitempty"`
 }
 
+// ThisWorkspaceSpec is the specification of the ThisWorkspace resource.
 type ThisWorkspaceSpec struct {
 	// type defines properties of the workspace both on creation (e.g. initial
 	// resources and initially installed APIs) and during runtime (e.g. permissions).
@@ -670,6 +676,58 @@ type ThisWorkspaceSpec struct {
 	//
 	// +optional
 	Type ClusterWorkspaceTypeReference `json:"type,omitempty"`
+
+	// owner is a reference to a resource controlling the life-cycle of this workspace.
+	// On deletion of the ThisWorkspace, the finalizer tenancy.kcp.dev/thisworkspace is
+	// removed from the owner.
+	//
+	// When this object is deleted, but the owner is not deleted, the owner is deleted
+	// too.
+	//
+	// +optional
+	Owner *ThisWorkspaceOwner `json:"owner,omitempty"`
+}
+
+// ThisWorkspaceOwner is a reference to a resource controlling the life-cycle of a ThisWorkspace.
+type ThisWorkspaceOwner struct {
+	// apiVersion is the group and API version of the owner.
+	//
+	// +required
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Pattern=`^([^/]+/)?[^/]+$`
+	APIVersion string `json:"apiVersion"`
+
+	// resource is API resource to access the owner.
+	//
+	// +required
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Resource string `json:"resource"`
+
+	// name is the name of the owner.
+	//
+	// +required
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// namespace is the optional namespace of the owner.
+	//
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
+
+	// cluster is the logical cluster in which the owner is located.
+	//
+	// +required
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Patter=`^[a-z0-9]+$`
+	Cluster string `json:"cluster"`
+
+	// UID is the UID of the owner.
+	//
+	// +required
+	// +kubebuilder:validation:Required
+	UID types.UID `json:"uid"`
 }
 
 // ThisWorkspaceStatus communicates the observed state of the Workspace.
@@ -695,6 +753,17 @@ type ThisWorkspaceStatus struct {
 	// +optional
 	Initializers []ClusterWorkspaceInitializer `json:"initializers,omitempty"`
 }
+
+func (in *ThisWorkspace) SetConditions(c conditionsv1alpha1.Conditions) {
+	in.Status.Conditions = c
+}
+
+func (in *ThisWorkspace) GetConditions() conditionsv1alpha1.Conditions {
+	return in.Status.Conditions
+}
+
+var _ conditions.Getter = &ThisWorkspace{}
+var _ conditions.Setter = &ThisWorkspace{}
 
 // ThisWorkspaceList is a list of ThisWorkspaces
 //

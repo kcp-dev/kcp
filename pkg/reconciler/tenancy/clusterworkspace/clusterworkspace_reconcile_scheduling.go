@@ -37,6 +37,7 @@ import (
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -44,10 +45,6 @@ import (
 )
 
 const (
-	// thisWorkspaceFinalizer attached to new ClusterWorkspace (in phase ClusterWorkspacePhaseScheduling) resources so that we can control
-	// deletion of ThisWorkspace resources
-	thisWorkspaceFinalizer = "tenancy.kcp.dev/thisworkspace"
-
 	// clusterWorkspaceShardAnnotationKey keeps track on which shard ThisWorkspace must be scheduled. The value
 	// is a base36(sha224) hash of the ClusterWorkspaceShard name.
 	clusterWorkspaceShardAnnotationKey = "internal.tenancy.kcp.dev/shard"
@@ -278,6 +275,13 @@ func (r *schedulingReconciler) createThisWorkspace(ctx context.Context, cluster 
 		ObjectMeta: metav1.ObjectMeta{Name: tenancyv1alpha1.ThisWorkspaceName},
 		Spec: tenancyv1alpha1.ThisWorkspaceSpec{
 			Type: workspace.Spec.Type,
+			Owner: &tenancyv1alpha1.ThisWorkspaceOwner{
+				APIVersion: tenancyv1beta1.SchemeGroupVersion.String(),
+				Resource:   "workspaces",
+				Name:       workspace.Name,
+				Cluster:    logicalcluster.From(workspace).String(),
+				UID:        workspace.UID,
+			},
 		},
 	}
 	logicalClusterAdminClient, err := r.kcpLogicalClusterAdminClientFor(shard)
@@ -356,7 +360,7 @@ func isValidShard(_ *tenancyv1alpha1.ClusterWorkspaceShard) (valid bool, reason,
 
 func hasThisWorkspaceFinalizer(workspace *tenancyv1alpha1.ClusterWorkspace) bool {
 	for _, finalizer := range workspace.Finalizers {
-		if finalizer == thisWorkspaceFinalizer {
+		if finalizer == tenancyv1alpha1.ThisWorkspaceFinalizer {
 			return true
 		}
 	}
@@ -364,7 +368,7 @@ func hasThisWorkspaceFinalizer(workspace *tenancyv1alpha1.ClusterWorkspace) bool
 }
 
 func addThisWorkspaceFinalizer(workspace *tenancyv1alpha1.ClusterWorkspace) {
-	workspace.Finalizers = append(workspace.Finalizers, thisWorkspaceFinalizer)
+	workspace.Finalizers = append(workspace.Finalizers, tenancyv1alpha1.ThisWorkspaceFinalizer)
 }
 
 func addShardAnnotation(workspace *tenancyv1alpha1.ClusterWorkspace, shardName string) {
