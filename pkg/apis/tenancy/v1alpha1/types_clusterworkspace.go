@@ -145,7 +145,7 @@ func (r ClusterWorkspaceTypeReference) Equal(other ClusterWorkspaceTypeReference
 //
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.cluster) || has(self.cluster)",message="status.cluster is immutable"
 type ClusterWorkspaceStatus struct {
-	// Phase of the workspace  (Scheduling / Initializing / Ready)
+	// Phase of the workspace (Scheduling / Initializing / Ready)
 	//
 	// +kubebuilder:default=Scheduling
 	Phase WorkspacePhaseType `json:"phase,omitempty"`
@@ -233,16 +233,9 @@ const (
 	// WorkspaceReasonReasonUnknown reason in WorkspaceScheduled means that scheduler has failed for
 	// some unexpected reason.
 	WorkspaceReasonReasonUnknown = "Unknown"
-	// WorkspaceReasonUnreschedulable reason in WorkspaceScheduled WorkspaceCondition means that the scheduler
-	// can't reschedule the workspace right now, for example because it not in Scheduling phase anymore and
-	// movement is not possible.
-	WorkspaceReasonUnreschedulable = "Unreschedulable"
 
 	// WorkspaceShardValid represents status of the connection process for this cluster workspace.
 	WorkspaceShardValid conditionsv1alpha1.ConditionType = "WorkspaceShardValid"
-	// WorkspaceShardValidReasonShardNotFound reason in WorkspaceShardValid condition means that the
-	// referenced ClusterWorkspaceShard object got deleted.
-	WorkspaceShardValidReasonShardNotFound = "ShardNotFound"
 
 	// WorkspaceDeletionContentSuccess represents the status that all resources in the workspace is deleting
 	WorkspaceDeletionContentSuccess conditionsv1alpha1.ConditionType = "WorkspaceDeletionContentSuccess"
@@ -255,6 +248,9 @@ const (
 	// WorkspaceInitializedInitializerExists reason in WorkspaceInitialized condition means that there is at least
 	// one initializer still left.
 	WorkspaceInitializedInitializerExists = "InitializerExists"
+	// WorkspaceInitializedWorkspaceDisappeared reason in WorkspaceInitialized condition means that the ThisWorkspace
+	// object has disappeared.
+	WorkspaceInitializedWorkspaceDisappeared = "WorkspaceDisappeared"
 
 	// WorkspaceAPIBindingsInitialized represents the status of the initial APIBindings for the workspace.
 	WorkspaceAPIBindingsInitialized conditionsv1alpha1.ConditionType = "APIBindingsInitialized"
