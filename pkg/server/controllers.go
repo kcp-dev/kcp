@@ -492,7 +492,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 	universalController, err := bootstrap.NewController(
 		dynamicClusterClient,
 		bootstrapKcpClusterClient,
-		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
+		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ThisWorkspaces(),
 		tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: "root", Name: "universal"},
 		configuniversal.Bootstrap,
 		sets.NewString(s.Options.Extra.BatteriesIncluded...),
