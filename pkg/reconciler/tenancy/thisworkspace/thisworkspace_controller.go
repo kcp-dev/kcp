@@ -51,7 +51,7 @@ const (
 )
 
 func NewController(
-	shardExternalURL string,
+	shardExternalURL func() string,
 	kcpClusterClient kcpclient.Interface,
 	thisWorkspaceInformer tenancyinformers.ThisWorkspaceInformer,
 ) (*Controller, error) {
@@ -81,7 +81,7 @@ type thisWorkspaceResource = committer.Resource[*tenancyv1alpha1.ThisWorkspaceSp
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	shardExternalURL string
+	shardExternalURL func() string
 
 	kcpClusterClient kcpclient.Interface
 

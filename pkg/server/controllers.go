@@ -531,7 +531,7 @@ func (s *Server) installThisWorkspace(ctx context.Context, config *rest.Config) 
 	}
 
 	thisWorkspaceController, err := thisworkspace.NewController(
-		s.Options.Extra.ShardExternalURL,
+		s.CompletedConfig.ShardExternalURL,
 		kcpClusterClient,
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ThisWorkspaces(),
 	)
