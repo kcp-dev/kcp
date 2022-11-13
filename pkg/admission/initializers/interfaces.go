@@ -48,24 +48,6 @@ type WantsDeepSARClient interface {
 	SetDeepSARClient(kcpkubernetesclientset.ClusterInterface)
 }
 
-// WantsExternalAddressProvider interface should be implemented by admission plugins
-// that want to have an external address provider injected.
-type WantsExternalAddressProvider interface {
-	SetExternalAddressProvider(externalAddressProvider func() string)
-}
-
-// WantsShardBaseURL interface should be implemented by admission plugins
-// that want to have the default shard base url injected.
-type WantsShardBaseURL interface {
-	SetShardBaseURL(string)
-}
-
-// WantsShardExternalURL interface should be implemented by admission plugins
-// that want to have the shard external url injected.
-type WantsShardExternalURL interface {
-	SetShardExternalURL(string)
-}
-
 // WantsServerShutdownChannel interface should be implemented by admission plugins that want to perform cleanup
 // activities when the main server context/channel is done.
 type WantsServerShutdownChannel interface {

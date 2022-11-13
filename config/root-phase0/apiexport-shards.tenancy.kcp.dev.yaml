@@ -5,7 +5,7 @@ metadata:
   name: shards.tenancy.kcp.dev
 spec:
   latestResourceSchemas:
-  - v220803-e095b93c.clusterworkspaceshards.tenancy.kcp.dev
+  - v221113-fe47bd04.clusterworkspaceshards.tenancy.kcp.dev
   maximalPermissionPolicy:
     local: {}
 status: {}

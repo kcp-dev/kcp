@@ -18,17 +18,18 @@ package thisworkspace
 
 import (
 	"context"
+	"strings"
+
+	"github.com/kcp-dev/logicalcluster/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	"strings"
-	"github.com/kcp-dev/logicalcluster/v2"
 )
 
 type urlReconciler struct {
-	shardExternalURL string
+	shardExternalURL func() string
 }
 
 func (r *urlReconciler) reconcile(ctx context.Context, this *tenancyv1alpha1.ThisWorkspace) (reconcileStatus, error) {
-	this.Status.URL = strings.TrimSuffix(r.shardExternalURL, "/") + logicalcluster.From(this).Path()
+	this.Status.URL = strings.TrimSuffix(r.shardExternalURL(), "/") + logicalcluster.From(this).Path()
 	return reconcileStatusContinue, nil
 }

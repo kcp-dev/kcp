@@ -18,7 +18,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	_ "net/http/pprof"
 	"time"
@@ -32,7 +31,6 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 
@@ -46,7 +44,6 @@ import (
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
-	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 const resyncPeriod = 10 * time.Hour
@@ -186,6 +183,9 @@ func (s *Server) Run(ctx context.Context) error {
 
 		if s.Options.Extra.ShardName == tenancyv1alpha1.RootShard {
 			logger.Info("bootstrapping root workspace phase 0")
+
+			s.RootShardKcpClusterClient = s.KcpClusterClient
+
 			// bootstrap root workspace phase 0 only if we are on the root shard, no APIBinding resources yet
 			if err := configrootphase0.Bootstrap(goContext(hookContext),
 				s.KcpClusterClient.Cluster(tenancyv1alpha1.RootCluster),
@@ -249,53 +249,50 @@ func (s *Server) Run(ctx context.Context) error {
 			default:
 			}
 			logger.Info("finished starting kcp informers for the root shard")
-
-			shard := &tenancyv1alpha1.ClusterWorkspaceShard{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        s.Options.Extra.ShardName,
-					Annotations: map[string]string{logicalcluster.AnnotationKey: tenancyv1alpha1.RootCluster.String()},
-				},
-				Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{
-					BaseURL:             fmt.Sprintf("https://%v", s.GenericConfig.ExternalAddress),
-					ExternalURL:         fmt.Sprintf("https://%v", s.Options.Extra.ShardExternalURL),
-					VirtualWorkspaceURL: s.Options.Extra.ShardVirtualWorkspaceURL,
-				},
-			}
-			logger := logging.WithObject(logger, shard)
-
-			if err := wait.PollInfiniteWithContext(goContext(hookContext), time.Second, func(ctx context.Context) (bool, error) {
-				logger.Info("getting ClusterWorkspaceShard from the root shard")
-				existingShard, err := s.RootShardKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaceShards().Get(ctx, shard.Name, metav1.GetOptions{})
-				if err != nil && !errors.IsNotFound(err) {
-					logger.Error(err, "failed getting ClusterWorkspaceShard from the root workspace")
-					return false, nil
-				}
-				if errors.IsNotFound(err) {
-					logger.Info("creating ClusterWorkspaceShard resource in the root workspace because it doesn't exist")
-					if _, err := s.RootShardKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaceShards().Create(ctx, shard, metav1.CreateOptions{}); err != nil {
-						logger.Error(err, "failed creating ClusterWorkspaceShard in the root workspace")
-						return false, nil
-					}
-					logger.Info("finished creating ClusterWorkspaceShard resource in the root workspace")
-					return true, nil
-				}
-				existingShard.Spec.BaseURL = shard.Spec.BaseURL
-				existingShard.Spec.ExternalURL = shard.Spec.ExternalURL
-				existingShard.Spec.VirtualWorkspaceURL = shard.Spec.VirtualWorkspaceURL
-				if _, err := s.RootShardKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaceShards().Update(ctx, existingShard, metav1.UpdateOptions{}); err != nil {
-					logger.Error(err, "failed updating ClusterWorkspaceShard in the root workspace")
-					return false, nil
-				}
-				logger.Info("updated ClusterWorkspaceShard resource in the root workspace")
-				return true, nil
-			}); err != nil {
-				logger.Error(err, "failed reconciling ClusterWorkspaceShard resource in the root workspace")
-				return nil // don't klog.Fatal. This only happens when context is cancelled.
-			}
 		}
 
 		s.KcpSharedInformerFactory.Start(hookContext.StopCh)
 		s.KcpSharedInformerFactory.WaitForCacheSync(hookContext.StopCh)
+
+		// create or update shard
+		shard := &tenancyv1alpha1.ClusterWorkspaceShard{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        s.Options.Extra.ShardName,
+				Annotations: map[string]string{logicalcluster.AnnotationKey: tenancyv1alpha1.RootCluster.String()},
+			},
+			Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{
+				BaseURL:             s.CompletedConfig.ShardBaseURL(),
+				ExternalURL:         s.CompletedConfig.ShardExternalURL(),
+				VirtualWorkspaceURL: s.CompletedConfig.ShardVirtualWorkspaceURL(),
+			},
+		}
+		logger.Info("Creating or updating ClusterWorkspaceShard", "shard", s.Options.Extra.ShardName)
+		if err := wait.PollInfiniteWithContext(goContext(hookContext), time.Second, func(ctx context.Context) (bool, error) {
+			existingShard, err := s.RootShardKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaceShards().Get(ctx, shard.Name, metav1.GetOptions{})
+			if err != nil && !errors.IsNotFound(err) {
+				logger.Error(err, "failed getting ClusterWorkspaceShard from the root workspace")
+				return false, nil
+			} else if errors.IsNotFound(err) {
+				if _, err := s.RootShardKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaceShards().Create(ctx, shard, metav1.CreateOptions{}); err != nil {
+					logger.Error(err, "failed creating ClusterWorkspaceShard in the root workspace")
+					return false, nil
+				}
+				logger.Info("Created ClusterWorkspaceShard", "shard", s.Options.Extra.ShardName)
+				return true, nil
+			}
+			existingShard.Spec.BaseURL = shard.Spec.BaseURL
+			existingShard.Spec.ExternalURL = shard.Spec.ExternalURL
+			existingShard.Spec.VirtualWorkspaceURL = shard.Spec.VirtualWorkspaceURL
+			if _, err := s.RootShardKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaceShards().Update(ctx, existingShard, metav1.UpdateOptions{}); err != nil {
+				logger.Error(err, "failed updating ClusterWorkspaceShard in the root workspace")
+				return false, nil
+			}
+			logger.Info("Updated ClusterWorkspaceShard", "shard", s.Options.Extra.ShardName)
+			return true, nil
+		}); err != nil {
+			logger.Error(err, "failed reconciling ClusterWorkspaceShard resource in the root workspace")
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
 
 		select {
 		case <-hookContext.StopCh:
@@ -314,25 +311,9 @@ func (s *Server) Run(ctx context.Context) error {
 		if s.Options.Extra.ShardName == tenancyv1alpha1.RootShard {
 			// the root ws is only present on the root shard
 			logger.Info("starting bootstrapping root workspace phase 1")
-			servingCert, _ := delegationChainHead.SecureServingInfo.Cert.CurrentCertKeyContent()
 			if err := configroot.Bootstrap(goContext(hookContext),
 				s.BootstrapApiExtensionsClusterClient.Cluster(tenancyv1alpha1.RootCluster).Discovery(),
 				s.BootstrapDynamicClusterClient.Cluster(tenancyv1alpha1.RootCluster),
-				s.Options.Extra.ShardName,
-				s.Options.Extra.ShardVirtualWorkspaceURL,
-				clientcmdapi.Config{
-					Clusters: map[string]*clientcmdapi.Cluster{
-						// cross-cluster is the virtual cluster running by default
-						"shard": {
-							Server:                   "https://" + delegationChainHead.ExternalAddress,
-							CertificateAuthorityData: servingCert, // TODO(sttts): wire controller updating this when it changes, or use CA
-						},
-					},
-					Contexts: map[string]*clientcmdapi.Context{
-						"shard": {Cluster: "shard"},
-					},
-					CurrentContext: "shard",
-				},
 				s.Options.HomeWorkspaces.HomeCreatorGroups,
 				sets.NewString(s.Options.Extra.BatteriesIncluded...),
 			); err != nil {
