@@ -68,11 +68,11 @@ import (
 	schedulinglocationstatus "github.com/kcp-dev/kcp/pkg/reconciler/scheduling/location"
 	schedulingplacement "github.com/kcp-dev/kcp/pkg/reconciler/scheduling/placement"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/bootstrap"
-	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspace"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspaceshard"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspacetype"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/initialization"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/thisworkspace"
+	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspace"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspacedeletion"
 	workloadsapiexport "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexport"
 	workloadsapiexportcreate "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexportcreate"
@@ -388,7 +388,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 	logicalClusterAdminConfig = rest.CopyConfig(logicalClusterAdminConfig)
 	logicalClusterAdminConfig = rest.AddUserAgent(logicalClusterAdminConfig, clusterworkspaceshard.ControllerName)
 
-	workspaceController, err := clusterworkspace.NewController(
+	workspaceController, err := workspace.NewController(
 		s.CompletedConfig.ShardExternalURL,
 		kcpClusterClient,
 		kubeClusterClient,
@@ -401,8 +401,8 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		return err
 	}
 
-	if err := s.AddPostStartHook(postStartHookName(clusterworkspace.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(clusterworkspace.ControllerName))
+	if err := s.AddPostStartHook(postStartHookName(workspace.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
+		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(workspace.ControllerName))
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			logger.Error(err, "failed to finish post-start-hook")
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
