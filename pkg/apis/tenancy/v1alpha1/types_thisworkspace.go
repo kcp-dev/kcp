@@ -50,7 +50,7 @@ type ThisWorkspace struct {
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	// +optional
-	Spec ThisWorkspaceSpec `json:"spec, omitempty"`
+	Spec ThisWorkspaceSpec `json:"spec,omitempty"`
 	// +optional
 	Status ThisWorkspaceStatus `json:"status,omitempty"`
 }
