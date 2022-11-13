@@ -26,7 +26,6 @@ import (
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 
-	kcpapiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/kcp/clientset/versioned"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -54,7 +53,6 @@ const (
 
 func NewController(
 	dynamicClusterClient kcpdynamic.ClusterInterface,
-	crdClusterClient kcpapiextensionsclientset.ClusterInterface,
 	kcpClusterClient kcpclientset.ClusterInterface,
 	thisWorkspaceInformer tenancyv1alpha1informers.ThisWorkspaceClusterInformer,
 	workspaceType tenancyv1alpha1.ClusterWorkspaceTypeReference,
