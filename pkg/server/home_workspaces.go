@@ -325,6 +325,15 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		responsewriters.InternalError(rw, req, errors.New("no request Info"))
 		return
 	}
+	// TODO:(p0lyn0mial): the following checks are temporary only to get the phase A merged
+	if requestInfo.IsResourceRequest && requestInfo.APIGroup == tenancyv1alpha1.SchemeGroupVersion.Group && requestInfo.Resource == "thisworkspaces" {
+		h.apiHandler.ServeHTTP(rw, req)
+		return
+	}
+	if requestInfo.IsResourceRequest && requestInfo.APIGroup == rbacv1.SchemeGroupVersion.Group && requestInfo.Resource == "clusterrolebindings" {
+		h.apiHandler.ServeHTTP(rw, req)
+		return
+	}
 
 	var workspaceType tenancyv1alpha1.ClusterWorkspaceTypeName
 	if isGetHomeWorkspaceRequest(lcluster.Name, requestInfo) {
@@ -398,6 +407,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 			return
 		}
 		if foundLocally {
+
 			logger.V(4).Info("found home workspace", "retryAfter", retryAfterSeconds)
 			if retryAfterSeconds > 0 {
 				// Return a 429 status asking the client to try again after the creationDelay
