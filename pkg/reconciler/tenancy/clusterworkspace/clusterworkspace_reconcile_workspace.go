@@ -79,8 +79,8 @@ func (r *workspaceReconciler) reconcile(ctx context.Context, cw *tenancyv1alpha1
 	if err != nil && !errors.IsNotFound(err) {
 		return reconcileStatusStopAndRequeue, nil
 	} else if errors.IsNotFound(err) {
-		var ws tenancyv1beta1.Workspace
-		projection.ProjectClusterWorkspaceToWorkspace(cw, &ws)
+		ws = &tenancyv1beta1.Workspace{}
+		projection.ProjectClusterWorkspaceToWorkspace(cw, ws)
 		ws.ObjectMeta = metav1.ObjectMeta{
 			Name:        cw.Name,
 			Annotations: ws.Annotations,
@@ -88,7 +88,7 @@ func (r *workspaceReconciler) reconcile(ctx context.Context, cw *tenancyv1alpha1
 			Finalizers:  expectedFinalizers.List(),
 		}
 		logger.Info("Creating Workspace from ClusterWorkspace")
-		if _, err = r.createWorkspaceWithoutProjection(ctx, logicalcluster.From(cw), &ws); err != nil && !errors.IsAlreadyExists(err) {
+		if ws, err = r.createWorkspaceWithoutProjection(ctx, logicalcluster.From(cw), ws); err != nil && !errors.IsAlreadyExists(err) {
 			return reconcileStatusStopAndRequeue, err
 		} else if errors.IsAlreadyExists(err) {
 			ws, err = r.getWorkspace(logicalcluster.From(cw), cw.Name)
@@ -102,7 +102,7 @@ func (r *workspaceReconciler) reconcile(ctx context.Context, cw *tenancyv1alpha1
 	if !reflect.DeepEqual(ws.Annotations, cw.Annotations) ||
 		!reflect.DeepEqual(ws.Labels, cw.Labels) ||
 		!sets.NewString(ws.Finalizers...).Equal(expectedFinalizers) {
-		ws := ws.DeepCopy()
+		ws = ws.DeepCopy()
 		ws.Annotations = cw.Annotations
 		ws.Labels = cw.Labels
 		ws.Finalizers = expectedFinalizers.List()
@@ -116,7 +116,7 @@ func (r *workspaceReconciler) reconcile(ctx context.Context, cw *tenancyv1alpha1
 	var updated tenancyv1beta1.Workspace
 	projection.ProjectClusterWorkspaceToWorkspace(cw, &updated)
 	if !reflect.DeepEqual(ws.Status, updated.Status) {
-		ws := ws.DeepCopy()
+		ws = ws.DeepCopy()
 		ws.Status = updated.Status
 		logger.Info("Updating Workspace from ClusterWorkspace", "reason", "status")
 		if _, err = r.updateWorkspaceStatusWithoutProjection(ctx, logicalcluster.From(cw), ws); err != nil {
