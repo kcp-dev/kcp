@@ -67,13 +67,14 @@ const (
 // vary across syncer deployments. Capturing these details in a struct
 // simplifies defining these details in test fixture.
 type SyncerConfig struct {
-	UpstreamConfig      *rest.Config
-	DownstreamConfig    *rest.Config
-	ResourcesToSync     sets.String
-	SyncTargetWorkspace logicalcluster.Name
-	SyncTargetName      string
-	SyncTargetUID       string
-	DNSServer           string
+	UpstreamConfig                *rest.Config
+	DownstreamConfig              *rest.Config
+	ResourcesToSync               sets.String
+	SyncTargetWorkspace           logicalcluster.Name
+	SyncTargetName                string
+	SyncTargetUID                 string
+	DNSServer                     string
+	DownstreamNamespaceCleanDelay time.Duration
 }
 
 func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, importPollInterval time.Duration) error {
@@ -233,8 +234,19 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	if err != nil {
 		return err
 	}
+
+	downstreamNamespaceController, err := namespace.NewDownstreamController(logger, cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, syncTarget.GetUID(), syncerInformers, downstreamConfig, downstreamDynamicClient, upstreamInformers, downstreamInformers, dnsNamespace, cfg.DownstreamNamespaceCleanDelay)
+	if err != nil {
+		return err
+	}
+
+	upstreamNamespaceController, err := namespace.NewUpstreamController(logger, cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, syncTarget.GetUID(), syncerInformers, downstreamDynamicClient, upstreamInformers, downstreamInformers, downstreamNamespaceController)
+	if err != nil {
+		return err
+	}
+
 	specSyncer, err := spec.NewSpecSyncer(logger, cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, upstreamURL, advancedSchedulingEnabled,
-		upstreamDynamicClusterClient, downstreamDynamicClient, upstreamInformers, downstreamInformers, syncerInformers, syncTarget.GetUID(), dnsIP)
+		upstreamDynamicClusterClient, downstreamDynamicClient, upstreamInformers, downstreamInformers, downstreamNamespaceController, syncerInformers, syncTarget.GetUID(), dnsIP)
 	if err != nil {
 		return err
 	}
@@ -242,16 +254,6 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	logger.Info("Creating status syncer")
 	statusSyncer, err := status.NewStatusSyncer(logger, cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, advancedSchedulingEnabled,
 		upstreamDynamicClusterClient, downstreamDynamicClient, downstreamInformers, syncerInformers, syncTarget.GetUID())
-	if err != nil {
-		return err
-	}
-
-	downstreamNamespaceController, err := namespace.NewDownstreamController(logger, cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, syncTarget.GetUID(), downstreamConfig, downstreamDynamicClient, upstreamInformers, downstreamInformers, dnsNamespace)
-	if err != nil {
-		return err
-	}
-
-	upstreamNamespaceController, err := namespace.NewUpstreamController(logger, cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, syncTarget.GetUID(), downstreamDynamicClient, upstreamInformers, downstreamInformers)
 	if err != nil {
 		return err
 	}

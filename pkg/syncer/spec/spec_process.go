@@ -252,6 +252,9 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 		return err
 	}
 
+	// If the namespace was marked for deletion, let's cancel it, as we expect to use it.
+	c.downstreamNSCleaner.CancelCleaning(newNamespace.GetName())
+
 	// The namespace exists, so check if it has the correct namespace locator.
 	unstrNamespace := namespace.(*unstructured.Unstructured)
 	nsLocator, exists, err := shared.LocatorFromAnnotations(unstrNamespace.GetAnnotations())

@@ -19,6 +19,7 @@ package namespace
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -26,7 +27,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -43,21 +44,29 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/syncer/resourcesync"
 	"github.com/kcp-dev/kcp/third_party/keyfunctions"
 )
 
 const (
 	controllerNameRoot       = "kcp-workload-syncer-namespace"
 	downstreamControllerName = controllerNameRoot + "-downstream"
+	namespaceCleanretryAfter = 5 * time.Second
 )
 
 type DownstreamController struct {
-	queue workqueue.RateLimitingInterface
+	queue        workqueue.RateLimitingInterface
+	delayedQueue workqueue.DelayingInterface
+
+	lock                sync.Mutex
+	toDeleteMap         map[string]time.Time
+	namespaceCleanDelay time.Duration
 
 	deleteDownstreamNamespace func(ctx context.Context, namespace string) error
 	upstreamNamespaceExists   func(clusterName logicalcluster.Name, upstreamNamespaceName string) (bool, error)
 	getDownstreamNamespace    func(name string) (runtime.Object, error)
 	listDownstreamNamespaces  func() ([]runtime.Object, error)
+	isDowntreamNamespaceEmpty func(ctx context.Context, namespace string) (bool, error)
 	createConfigMap           func(ctx context.Context, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
 	updateConfigMap           func(ctx context.Context, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
 
@@ -73,34 +82,58 @@ func NewDownstreamController(
 	syncTargetWorkspace logicalcluster.Name,
 	syncTargetName, syncTargetKey string,
 	syncTargetUID types.UID,
+	syncerInformers resourcesync.SyncerInformerFactory,
 	downstreamConfig *rest.Config,
 	downstreamClient dynamic.Interface,
 	upstreamInformers kcpdynamicinformer.DynamicSharedInformerFactory,
 	downstreamInformers dynamicinformer.DynamicSharedInformerFactory,
 	dnsNamespace string,
+	namespaceCleanDelay time.Duration,
 ) (*DownstreamController, error) {
 	namespaceGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
 	logger := logging.WithReconciler(syncerLogger, downstreamControllerName)
 	kubeClient := kubernetes.NewForConfigOrDie(downstreamConfig)
 
 	c := DownstreamController{
-		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), downstreamControllerName),
-
+		queue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), downstreamControllerName),
+		delayedQueue: workqueue.NewNamedDelayingQueue(downstreamControllerName),
+		toDeleteMap:  make(map[string]time.Time),
 		deleteDownstreamNamespace: func(ctx context.Context, namespace string) error {
 			return downstreamClient.Resource(namespaceGVR).Delete(ctx, namespace, metav1.DeleteOptions{})
 		},
 		upstreamNamespaceExists: func(clusterName logicalcluster.Name, upstreamNamespaceName string) (bool, error) {
 			_, err := upstreamInformers.ForResource(namespaceGVR).Lister().ByCluster(clusterName).Get(upstreamNamespaceName)
-			if errors.IsNotFound(err) {
+			if apierrors.IsNotFound(err) {
 				return false, nil
 			}
-			return !errors.IsNotFound(err), err
+			return !apierrors.IsNotFound(err), err
 		},
 		getDownstreamNamespace: func(downstreamNamespaceName string) (runtime.Object, error) {
 			return downstreamInformers.ForResource(namespaceGVR).Lister().Get(downstreamNamespaceName)
 		},
 		listDownstreamNamespaces: func() ([]runtime.Object, error) {
 			return downstreamInformers.ForResource(namespaceGVR).Lister().List(labels.Everything())
+		},
+		isDowntreamNamespaceEmpty: func(ctx context.Context, namespace string) (bool, error) {
+			gvrs, err := syncerInformers.SyncableGVRs()
+			if err != nil {
+				return false, err
+			}
+			for _, k := range gvrs {
+				// Skip namespaces.
+				if k.Group == "" && k.Version == "v1" && k.Resource == "namespaces" {
+					continue
+				}
+				gvr := schema.GroupVersionResource{Group: k.Group, Version: k.Version, Resource: k.Resource}
+				list, err := downstreamInformers.ForResource(gvr).Lister().ByNamespace(namespace).List(labels.Everything())
+				if err != nil {
+					return false, err
+				}
+				if len(list) > 0 {
+					return false, nil
+				}
+			}
+			return true, nil
 		},
 		createConfigMap: func(ctx context.Context, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
 			return kubeClient.CoreV1().ConfigMaps(configMap.Namespace).Create(ctx, configMap, metav1.CreateOptions{})
@@ -114,6 +147,8 @@ func NewDownstreamController(
 		syncTargetUID:       syncTargetUID,
 		syncTargetKey:       syncTargetKey,
 		dnsNamespace:        dnsNamespace,
+
+		namespaceCleanDelay: namespaceCleanDelay,
 	}
 
 	logger.V(2).Info("Set up downstream namespace informer")
@@ -158,6 +193,7 @@ func (c *DownstreamController) Start(ctx context.Context, numThreads int) {
 
 	for i := 0; i < numThreads; i++ {
 		go wait.UntilWithContext(ctx, c.startWorker, time.Second)
+		go wait.UntilWithContext(ctx, c.startDelayedWorker, time.Second)
 	}
 
 	<-ctx.Done()
@@ -194,4 +230,86 @@ func (c *DownstreamController) processNextWorkItem(ctx context.Context) bool {
 	c.queue.Forget(key)
 
 	return true
+}
+
+func (c *DownstreamController) IsPlannedForCleaning(key string) bool {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	_, ok := c.toDeleteMap[key]
+	return ok
+}
+
+func (c *DownstreamController) CancelCleaning(key string) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	delete(c.toDeleteMap, key)
+}
+
+func (c *DownstreamController) PlanCleaning(key string) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	if _, ok := c.toDeleteMap[key]; !ok {
+		c.toDeleteMap[key] = time.Now()
+		c.delayedQueue.AddAfter(key, c.namespaceCleanDelay)
+	}
+}
+
+func (c *DownstreamController) startDelayedWorker(ctx context.Context) {
+	for c.processNextDelayedWorkItem(ctx) {
+	}
+}
+
+func (c *DownstreamController) processNextDelayedWorkItem(ctx context.Context) bool {
+	// Wait until there is a new item in the working queue
+	key, quit := c.delayedQueue.Get()
+	if quit {
+		return false
+	}
+	namespaceKey := key.(string)
+
+	logger := logging.WithQueueKey(klog.FromContext(ctx), namespaceKey)
+	ctx = klog.NewContext(ctx, logger)
+	logger.V(1).Info("processing key")
+
+	// No matter what, tell the queue we're done with this key, to unblock
+	// other workers.
+	defer c.delayedQueue.Done(key)
+
+	if err := c.processDelayed(ctx, namespaceKey); err != nil {
+		utilruntime.HandleError(fmt.Errorf("%s failed to sync %q, err: %w", downstreamControllerName, key, err))
+		c.delayedQueue.AddAfter(key, namespaceCleanretryAfter)
+	}
+	return true
+}
+
+func (c *DownstreamController) processDelayed(ctx context.Context, key string) error {
+	logger := klog.FromContext(ctx)
+	logger.V(1).Info("processing delayed namespace deletion")
+	if !c.IsPlannedForCleaning(key) {
+		logger.V(2).Info("Namespace is not marked for deletion anymore, skipping")
+		c.CancelCleaning(key)
+		return nil
+	}
+
+	empty, err := c.isDowntreamNamespaceEmpty(ctx, key)
+	if err != nil {
+		return err
+	}
+	if !empty {
+		logger.V(2).Info("Namespace is not empty, reenqueueing to retry later")
+		// return error to requeue
+		return fmt.Errorf("namespace is not empty")
+	}
+
+	err = c.deleteDownstreamNamespace(ctx, key)
+	if apierrors.IsNotFound(err) {
+		logger.V(2).Info("Namespace is not found, perhaps it was already deleted, skipping")
+		c.CancelCleaning(key)
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	c.CancelCleaning(key)
+	return nil
 }

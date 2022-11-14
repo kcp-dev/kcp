@@ -747,4 +747,7 @@ func (f *fakeSyncerInformers) InformerForResource(gvr schema.GroupVersionResourc
 		DownstreamInformer: f.downStreamInformer,
 	}, true
 }
+func (f *fakeSyncerInformers) SyncableGVRs() ([]schema.GroupVersionResource, error) {
+	return []schema.GroupVersionResource{{Group: "apps", Version: "v1", Resource: "deployments"}}, nil
+}
 func (f *fakeSyncerInformers) Start(ctx context.Context, numThreads int) {}

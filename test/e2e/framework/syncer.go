@@ -443,13 +443,14 @@ func syncerConfigFromCluster(t *testing.T, downstreamConfig *rest.Config, namesp
 	// Compose a new downstream config that uses the token
 	downstreamConfigWithToken := ConfigWithToken(string(token), rest.CopyConfig(downstreamConfig))
 	return &syncer.SyncerConfig{
-		UpstreamConfig:      upstreamConfig,
-		DownstreamConfig:    downstreamConfigWithToken,
-		ResourcesToSync:     sets.NewString(resourcesToSync...),
-		SyncTargetWorkspace: kcpClusterName,
-		SyncTargetName:      syncTargetName,
-		SyncTargetUID:       syncTargetUID,
-		DNSServer:           dns,
+		UpstreamConfig:                upstreamConfig,
+		DownstreamConfig:              downstreamConfigWithToken,
+		ResourcesToSync:               sets.NewString(resourcesToSync...),
+		SyncTargetWorkspace:           kcpClusterName,
+		SyncTargetName:                syncTargetName,
+		SyncTargetUID:                 syncTargetUID,
+		DNSServer:                     dns,
+		DownstreamNamespaceCleanDelay: 2 * time.Second,
 	}
 }
 

@@ -50,6 +50,7 @@ import (
 	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	namespacecontroller "github.com/kcp-dev/kcp/pkg/syncer/namespace"
 	"github.com/kcp-dev/kcp/pkg/syncer/resourcesync"
 	"github.com/kcp-dev/kcp/third_party/keyfunctions"
 )
@@ -994,7 +995,9 @@ func TestSyncerProcess(t *testing.T) {
 
 			upstreamURL, err := url.Parse("https://kcp.dev:6443")
 			require.NoError(t, err)
-			controller, err := NewSpecSyncer(logger, kcpLogicalCluster, tc.syncTargetName, syncTargetKey, upstreamURL, tc.advancedSchedulingEnabled, fromClusterClient, toClient, fromInformers, toInformers, fakeInformers, syncTargetUID, "8.8.8.8")
+
+			downstreamNSController := namespacecontroller.DownstreamController{}
+			controller, err := NewSpecSyncer(logger, kcpLogicalCluster, tc.syncTargetName, syncTargetKey, upstreamURL, tc.advancedSchedulingEnabled, fromClusterClient, toClient, fromInformers, toInformers, &downstreamNSController, fakeInformers, syncTargetUID, "8.8.8.8")
 			require.NoError(t, err)
 
 			fromInformers.Start(ctx.Done())
@@ -1290,5 +1293,8 @@ func (f *fakeSyncerInformers) InformerForResource(gvr schema.GroupVersionResourc
 		UpstreamInformer:   f.upstreamInformer,
 		DownstreamInformer: f.downStreamInformer,
 	}, true
+}
+func (f *fakeSyncerInformers) SyncableGVRs() ([]schema.GroupVersionResource, error) {
+	return []schema.GroupVersionResource{{Group: "apps", Version: "v1", Resource: "deployments"}}, nil
 }
 func (f *fakeSyncerInformers) Start(ctx context.Context, numThreads int) {}

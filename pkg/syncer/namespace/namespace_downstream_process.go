@@ -19,6 +19,7 @@ package namespace
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -87,9 +88,18 @@ func (c *DownstreamController) process(ctx context.Context, key string) error {
 		return nil
 	}
 	if !exists {
-		logger.Info("deleting downstream namespace because the upstream namespace doesn't exist")
-		return c.deleteDownstreamNamespace(ctx, namespaceName)
+		// Check if the namespace is empty before trying to delete it
+		if empty, err := c.isDowntreamNamespaceEmpty(ctx, downstreamNamespace.GetName()); err != nil {
+			return fmt.Errorf("failed to check if downstream namespace is empty %w", err)
+		} else if !empty {
+			return fmt.Errorf("downstream namespace is not empty, refusing to delete")
+		}
+		logger.Info("Adding namespace to the delayed delete queue")
+		c.PlanCleaning(key)
+		return nil
 	}
+	// The namespace exists upstream, so we can remove it from the delayed delete queue
+	c.CancelCleaning(key)
 	// The upstream namespace still exists, nothing to do.
 	return nil
 }
