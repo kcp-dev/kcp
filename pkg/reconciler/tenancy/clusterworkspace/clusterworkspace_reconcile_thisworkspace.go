@@ -218,7 +218,7 @@ func (r *thisWorkspaceReconciler) reconcile(ctx context.Context, workspace *tena
 					Name:     role.roleName,
 				},
 			}
-			for _, user := range role.users {
+			for _, user := range role.users.List() {
 				newBinding.Subjects = append(newBinding.Subjects, rbacv1.Subject{
 					APIGroup: rbacv1.GroupName,
 					Kind:     "User",
