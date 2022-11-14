@@ -573,6 +573,7 @@ func TestSyncWorkload(t *testing.T) {
 		syncTargetName,
 		"--syncer-image",
 		"ghcr.io/kcp-dev/kcp/syncer-c2e3073d5026a8f7f2c47a50c16bdbec:41ca72b",
+		"--update",
 		"--output-file", "-",
 	}
 

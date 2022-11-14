@@ -100,6 +100,8 @@ type SyncOptions struct {
 	APIImportPollInterval time.Duration
 	// FeatureGates is used to configure which feature gates are enabled.
 	FeatureGates string
+	// Update if set to true, will allow to update the synctarget resource.
+	Update bool
 }
 
 // NewSyncOptions returns a new SyncOptions.
@@ -113,6 +115,7 @@ func NewSyncOptions(streams genericclioptions.IOStreams) *SyncOptions {
 		Burst:                 30,
 		APIImportPollInterval: 1 * time.Minute,
 		APIExports:            []string{"root:compute:kubernetes"},
+		Update:                false,
 	}
 }
 
@@ -135,6 +138,7 @@ func (o *SyncOptions) BindFlags(cmd *cobra.Command) {
 		"A set of key=value pairs that describe feature gates for alpha/experimental features. "+
 			"Options are:\n"+strings.Join(kcpfeatures.KnownFeatures(), "\n")) // hide kube-only gates
 	cmd.Flags().DurationVar(&o.APIImportPollInterval, "api-import-poll-interval", o.APIImportPollInterval, "Polling interval for API import.")
+	cmd.Flags().BoolVar(&o.Update, "update", o.Update, "Update the synctarget if it already exists.")
 }
 
 // Complete ensures all dynamically populated fields are initialized.
@@ -192,6 +196,11 @@ func (o *SyncOptions) Run(ctx context.Context) error {
 		return err
 	}
 
+	token, syncerID, syncTargetUID, err := o.enableSyncerForWorkspace(ctx, config, o.SyncTargetName, o.KCPNamespace, o.Update)
+	if err != nil {
+		return err
+	}
+
 	var outputFile *os.File
 	if o.OutputFile == "-" {
 		outputFile = os.Stdout
@@ -201,11 +210,6 @@ func (o *SyncOptions) Run(ctx context.Context) error {
 			return err
 		}
 		defer outputFile.Close()
-	}
-
-	token, syncerID, syncTargetUID, err := o.enableSyncerForWorkspace(ctx, config, o.SyncTargetName, o.KCPNamespace)
-	if err != nil {
-		return err
 	}
 
 	expectedResourcesForPermission, err := o.getResourcesForPermission(ctx, config, o.SyncTargetName)
@@ -283,7 +287,7 @@ func getSyncerID(syncTarget *workloadv1alpha1.SyncTarget) string {
 	return fmt.Sprintf("kcp-syncer-%s-%s", syncTarget.Name, base36hash[:8])
 }
 
-func (o *SyncOptions) applySyncTarget(ctx context.Context, kcpClient kcpclient.Interface, syncTargetName string) (*workloadv1alpha1.SyncTarget, error) {
+func (o *SyncOptions) applySyncTarget(ctx context.Context, kcpClient kcpclient.Interface, syncTargetName string, update bool) (*workloadv1alpha1.SyncTarget, error) {
 	supportedAPIExports := make([]apisv1alpha1.ExportReference, len(o.APIExports))
 	for _, export := range o.APIExports {
 		lclusterName, name := logicalcluster.New(export).Split()
@@ -326,7 +330,13 @@ func (o *SyncOptions) applySyncTarget(ctx context.Context, kcpClient kcpclient.I
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			return nil, fmt.Errorf("failed to create synctarget %q: %w", syncTargetName, err)
 		}
+	case err == nil:
+		if !update {
+			return nil, fmt.Errorf("synctarget %q already exists, use \"--update\" if you want to override it", syncTargetName)
+		}
 	case err != nil:
+		fmt.Printf("Synctarget adasdas already exists")
+
 		return nil, err
 	}
 
@@ -415,13 +425,13 @@ func (o *SyncOptions) getResourcesForPermission(ctx context.Context, config *res
 // enableSyncerForWorkspace creates a sync target with the given name and creates a service
 // account for the syncer in the given namespace. The expectation is that the provided config is
 // for a logical cluster (workspace). Returns the token the syncer will use to connect to kcp.
-func (o *SyncOptions) enableSyncerForWorkspace(ctx context.Context, config *rest.Config, syncTargetName, namespace string) (saToken string, syncerID string, syncTargetUID string, err error) {
+func (o *SyncOptions) enableSyncerForWorkspace(ctx context.Context, config *rest.Config, syncTargetName, namespace string, update bool) (saToken string, syncerID string, syncTargetUID string, err error) {
 	kcpClient, err := kcpclient.NewForConfig(config)
 	if err != nil {
 		return "", "", "", fmt.Errorf("failed to create kcp client: %w", err)
 	}
 
-	syncTarget, err := o.applySyncTarget(ctx, kcpClient, syncTargetName)
+	syncTarget, err := o.applySyncTarget(ctx, kcpClient, syncTargetName, update)
 	if err != nil {
 		return "", "", "", fmt.Errorf("failed to apply synctarget %q: %w", syncTargetName, err)
 	}
