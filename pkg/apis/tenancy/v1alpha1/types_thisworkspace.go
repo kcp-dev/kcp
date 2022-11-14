@@ -113,7 +113,7 @@ type ThisWorkspaceOwner struct {
 	//
 	// +required
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Patter=`^[a-z0-9]+$`
+	// +kubebuilder:validation:MinLength=1
 	Cluster string `json:"cluster"`
 
 	// UID is the UID of the owner.
