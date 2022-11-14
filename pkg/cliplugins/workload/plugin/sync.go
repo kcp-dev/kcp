@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"sort"
 	"strings"
@@ -213,6 +214,21 @@ func (o *SyncOptions) Run(ctx context.Context) error {
 	configURL, currentClusterName, err := helpers.ParseClusterURL(config.Host)
 	if err != nil {
 		return fmt.Errorf("current URL %q does not point to cluster workspace", config.Host)
+	}
+
+	// Make sure the generated URL has the port specified correctly.
+	if _, _, err = net.SplitHostPort(configURL.Host); err != nil {
+		var addrErr *net.AddrError
+		const missingPort = "missing port in address"
+		if errors.As(err, &addrErr) && addrErr.Err == missingPort {
+			if configURL.Scheme == "https" {
+				configURL.Host = net.JoinHostPort(configURL.Host, "443")
+			} else {
+				configURL.Host = net.JoinHostPort(configURL.Host, "80")
+			}
+		} else {
+			return fmt.Errorf("failed to parse host %q: %w", configURL.Host, err)
+		}
 	}
 
 	if o.DownstreamNamespace == "" {
