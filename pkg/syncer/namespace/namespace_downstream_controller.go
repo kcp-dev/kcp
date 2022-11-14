@@ -51,16 +51,16 @@ import (
 const (
 	controllerNameRoot       = "kcp-workload-syncer-namespace"
 	downstreamControllerName = controllerNameRoot + "-downstream"
-	gracePeriod              = 30 * time.Second
-	retryAfter               = 5 * time.Second
+	namespaceCleanretryAfter = 5 * time.Second
 )
 
 type DownstreamController struct {
 	queue        workqueue.RateLimitingInterface
 	delayedQueue workqueue.DelayingInterface
 
-	lock        sync.Mutex
-	toDeleteMap map[string]time.Time
+	lock                sync.Mutex
+	toDeleteMap         map[string]time.Time
+	namespaceCleanDelay time.Duration
 
 	deleteDownstreamNamespace func(ctx context.Context, namespace string) error
 	upstreamNamespaceExists   func(clusterName logicalcluster.Name, upstreamNamespaceName string) (bool, error)
@@ -88,6 +88,7 @@ func NewDownstreamController(
 	upstreamInformers kcpdynamicinformer.DynamicSharedInformerFactory,
 	downstreamInformers dynamicinformer.DynamicSharedInformerFactory,
 	dnsNamespace string,
+	namespaceCleanDelay time.Duration,
 ) (*DownstreamController, error) {
 	namespaceGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
 	logger := logging.WithReconciler(syncerLogger, downstreamControllerName)
@@ -146,6 +147,8 @@ func NewDownstreamController(
 		syncTargetUID:       syncTargetUID,
 		syncTargetKey:       syncTargetKey,
 		dnsNamespace:        dnsNamespace,
+
+		namespaceCleanDelay: namespaceCleanDelay,
 	}
 
 	logger.V(2).Info("Set up downstream namespace informer")
@@ -247,7 +250,7 @@ func (c *DownstreamController) PlanCleaning(key string) {
 	defer c.lock.Unlock()
 	if _, ok := c.toDeleteMap[key]; !ok {
 		c.toDeleteMap[key] = time.Now()
-		c.delayedQueue.AddAfter(key, gracePeriod)
+		c.delayedQueue.AddAfter(key, c.namespaceCleanDelay)
 	}
 }
 
@@ -274,7 +277,7 @@ func (c *DownstreamController) processNextDelayedWorkItem(ctx context.Context) b
 
 	if err := c.processDelayed(ctx, namespaceKey); err != nil {
 		utilruntime.HandleError(fmt.Errorf("%s failed to sync %q, err: %w", downstreamControllerName, key, err))
-		c.delayedQueue.AddAfter(key, retryAfter)
+		c.delayedQueue.AddAfter(key, namespaceCleanretryAfter)
 	}
 	return true
 }

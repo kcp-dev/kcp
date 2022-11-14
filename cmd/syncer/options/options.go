@@ -32,18 +32,19 @@ import (
 )
 
 type Options struct {
-	QPS                 float32
-	Burst               int
-	FromKubeconfig      string
-	FromContext         string
-	FromClusterName     string
-	ToKubeconfig        string
-	ToContext           string
-	SyncTargetName      string
-	SyncTargetUID       string
-	Logs                *logs.Options
-	SyncedResourceTypes []string
-	DNSServer           string
+	QPS                           float32
+	Burst                         int
+	FromKubeconfig                string
+	FromContext                   string
+	FromClusterName               string
+	ToKubeconfig                  string
+	ToContext                     string
+	SyncTargetName                string
+	SyncTargetUID                 string
+	Logs                          *logs.Options
+	SyncedResourceTypes           []string
+	DNSServer                     string
+	DownstreamNamespaceCleanDelay time.Duration
 
 	APIImportPollInterval time.Duration
 }
@@ -54,11 +55,12 @@ func NewOptions() *Options {
 	logs.Config.Verbosity = config.VerbosityLevel(2)
 
 	return &Options{
-		QPS:                   30,
-		Burst:                 20,
-		SyncedResourceTypes:   []string{},
-		Logs:                  logs,
-		APIImportPollInterval: 1 * time.Minute,
+		QPS:                           30,
+		Burst:                         20,
+		SyncedResourceTypes:           []string{},
+		Logs:                          logs,
+		APIImportPollInterval:         1 * time.Minute,
+		DownstreamNamespaceCleanDelay: 30 * time.Second,
 	}
 }
 
@@ -79,7 +81,7 @@ func (options *Options) AddFlags(fs *pflag.FlagSet) {
 		"A set of key=value pairs that describe feature gates for alpha/experimental features. "+
 		"Options are:\n"+strings.Join(kcpfeatures.KnownFeatures(), "\n")) // hide kube-only gates
 	fs.StringVar(&options.DNSServer, "dns", options.DNSServer, "kcp DNS server name.")
-
+	fs.DurationVar(&options.DownstreamNamespaceCleanDelay, "downstream-namespace-clean-delay", options.DownstreamNamespaceCleanDelay, "Time to wait before deleting of a downstream namespace.")
 	options.Logs.AddFlags(fs)
 }
 

@@ -67,13 +67,14 @@ const (
 // vary across syncer deployments. Capturing these details in a struct
 // simplifies defining these details in test fixture.
 type SyncerConfig struct {
-	UpstreamConfig      *rest.Config
-	DownstreamConfig    *rest.Config
-	ResourcesToSync     sets.String
-	SyncTargetWorkspace logicalcluster.Name
-	SyncTargetName      string
-	SyncTargetUID       string
-	DNSServer           string
+	UpstreamConfig                *rest.Config
+	DownstreamConfig              *rest.Config
+	ResourcesToSync               sets.String
+	SyncTargetWorkspace           logicalcluster.Name
+	SyncTargetName                string
+	SyncTargetUID                 string
+	DNSServer                     string
+	DownstreamNamespaceCleanDelay time.Duration
 }
 
 func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, importPollInterval time.Duration) error {
@@ -234,7 +235,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		return err
 	}
 
-	downstreamNamespaceController, err := namespace.NewDownstreamController(logger, cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, syncTarget.GetUID(), syncerInformers, downstreamConfig, downstreamDynamicClient, upstreamInformers, downstreamInformers, dnsNamespace)
+	downstreamNamespaceController, err := namespace.NewDownstreamController(logger, cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, syncTarget.GetUID(), syncerInformers, downstreamConfig, downstreamDynamicClient, upstreamInformers, downstreamInformers, dnsNamespace, cfg.DownstreamNamespaceCleanDelay)
 	if err != nil {
 		return err
 	}
