@@ -46,6 +46,7 @@ type reconciler interface {
 func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1alpha1.ClusterWorkspace) (bool, error) {
 	reconcilers := []reconciler{
 		&metaDataReconciler{},
+		&preThisWorkspaceReconciler{},
 		&schedulingReconciler{
 			getShard: func(name string) (*tenancyv1alpha1.ClusterWorkspaceShard, error) {
 				return c.clusterWorkspaceShardLister.Get(client.ToClusterAwareKey(tenancyv1alpha1.RootCluster, name))
