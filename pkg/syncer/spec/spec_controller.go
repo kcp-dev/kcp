@@ -40,6 +40,10 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
+	listersappsv1 "k8s.io/client-go/listers/apps/v1"
+	listerscorev1 "k8s.io/client-go/listers/core/v1"
+	listersrbacv1 "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
@@ -47,6 +51,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/syncer/resourcesync"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
+	"github.com/kcp-dev/kcp/pkg/syncer/spec/dns"
 	specmutators "github.com/kcp-dev/kcp/pkg/syncer/spec/mutators"
 	"github.com/kcp-dev/kcp/third_party/keyfunctions"
 	. "github.com/kcp-dev/kcp/tmc/pkg/logging"
@@ -60,7 +65,8 @@ const (
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	mutators mutatorGvrMap
+	mutators     mutatorGvrMap
+	dnsProcessor *dns.DNSProcessor
 
 	upstreamClient            kcpdynamic.ClusterInterface
 	downstreamClient          dynamic.Interface
@@ -74,10 +80,20 @@ type Controller struct {
 	advancedSchedulingEnabled bool
 }
 
-func NewSpecSyncer(syncerLogger logr.Logger, syncTargetWorkspace logicalcluster.Name, syncTargetName, syncTargetKey string, upstreamURL *url.URL, advancedSchedulingEnabled bool,
-	upstreamClient kcpdynamic.ClusterInterface, downstreamClient dynamic.Interface, upstreamInformers kcpdynamicinformer.DynamicSharedInformerFactory,
-	downstreamInformers dynamicinformer.DynamicSharedInformerFactory, downstreamNSCleaner shared.Cleaner,
-	syncerInformers resourcesync.SyncerInformerFactory, syncTargetUID types.UID, dnsIP string) (*Controller, error) {
+func NewSpecSyncer(syncerLogger logr.Logger, syncTargetWorkspace logicalcluster.Name, syncTargetName, syncTargetKey string,
+	upstreamURL *url.URL, advancedSchedulingEnabled bool,
+	upstreamClient kcpdynamic.ClusterInterface, downstreamClient dynamic.Interface, downstreamKubeClient kubernetes.Interface,
+	upstreamInformers kcpdynamicinformer.DynamicSharedInformerFactory, downstreamInformers dynamicinformer.DynamicSharedInformerFactory, downstreamNSCleaner shared.Cleaner,
+	syncerInformers resourcesync.SyncerInformerFactory,
+	syncTargetUID types.UID,
+	serviceAccountLister listerscorev1.ServiceAccountLister,
+	roleLister listersrbacv1.RoleLister,
+	roleBindingLister listersrbacv1.RoleBindingLister,
+	deploymentLister listersappsv1.DeploymentLister,
+	serviceLister listerscorev1.ServiceLister,
+	endpointLister listerscorev1.EndpointsLister,
+	dnsNamespace string,
+	dnsImage string) (*Controller, error) {
 
 	c := Controller{
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
@@ -202,12 +218,15 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetWorkspace logicalcluster.
 	_ = upstreamInformers.ForResource(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}).Informer()
 	deploymentMutator := specmutators.NewDeploymentMutator(upstreamURL, func(clusterName logicalcluster.Name, namespace string) ([]runtime.Object, error) {
 		return upstreamInformers.ForResource(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}).Lister().ByCluster(clusterName).ByNamespace(namespace).List(labels.Everything())
-	}, syncTargetWorkspace, dnsIP)
+	}, syncTargetWorkspace, syncTargetUID, syncTargetName, dnsNamespace)
 
 	c.mutators = mutatorGvrMap{
 		deploymentMutator.GVR(): deploymentMutator.Mutate,
 		secretMutator.GVR():     secretMutator.Mutate,
 	}
+
+	c.dnsProcessor = dns.NewDNSProcessor(downstreamKubeClient, serviceAccountLister, roleLister, roleBindingLister, deploymentLister,
+		serviceLister, endpointLister, syncTargetName, syncTargetUID, dnsNamespace, dnsImage)
 
 	return &c, nil
 }

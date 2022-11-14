@@ -105,6 +105,7 @@ func TestNamespaceScheduler(t *testing.T) {
 						require.NoError(t, err, "failed to construct apiextensions client for server")
 						kubefixtures.Create(t, crdClusterClient.ApiextensionsV1().CustomResourceDefinitions(),
 							metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
+							metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
 						)
 					})).Start(t)
 				syncTargetName := syncerFixture.SyncerConfig.SyncTargetName

@@ -114,7 +114,7 @@ func Run(ctx context.Context, options *synceroptions.Options) error {
 			SyncTargetWorkspace:           logicalcluster.New(options.FromClusterName),
 			SyncTargetName:                options.SyncTargetName,
 			SyncTargetUID:                 options.SyncTargetUID,
-			DNSServer:                     options.DNSServer,
+			DNSImage:                      options.DNSImage,
 			DownstreamNamespaceCleanDelay: options.DownstreamNamespaceCleanDelay,
 		},
 		numThreads,

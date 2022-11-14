@@ -18,6 +18,7 @@ package mutators
 
 import (
 	"fmt"
+	"net"
 	"net/url"
 	"sort"
 
@@ -28,7 +29,16 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	utilspointer "k8s.io/utils/pointer"
+
+	"github.com/kcp-dev/kcp/pkg/syncer/shared"
+)
+
+var (
+	// DefaultLookupIPFn is the IP lookup function used by the deployment mutator.
+	// Override for testing only
+	DefaultLookupIPFn = net.LookupIP
 )
 
 type ListSecretFunc func(clusterName logicalcluster.Name, namespace string) ([]runtime.Object, error)
@@ -37,7 +47,10 @@ type DeploymentMutator struct {
 	upstreamURL                  *url.URL
 	listSecrets                  ListSecretFunc
 	syncTargetLogicalClusterName logicalcluster.Name
-	dnsIP                        string
+	syncTargetUID                types.UID
+	syncTargetName               string
+	dnsNamespace                 string
+	dnsIPs                       map[string]string
 }
 
 func (dm *DeploymentMutator) GVR() schema.GroupVersionResource {
@@ -48,12 +61,18 @@ func (dm *DeploymentMutator) GVR() schema.GroupVersionResource {
 	}
 }
 
-func NewDeploymentMutator(upstreamURL *url.URL, secretLister ListSecretFunc, syncTargetLogicalClusterName logicalcluster.Name, dnsIP string) *DeploymentMutator {
+func NewDeploymentMutator(upstreamURL *url.URL, secretLister ListSecretFunc, syncTargetLogicalClusterName logicalcluster.Name,
+	syncTargetUID types.UID, syncTargetName, dnsNamespace string) *DeploymentMutator {
+
 	return &DeploymentMutator{
 		upstreamURL:                  upstreamURL,
 		listSecrets:                  secretLister,
 		syncTargetLogicalClusterName: syncTargetLogicalClusterName,
-		dnsIP:                        dnsIP,
+		syncTargetUID:                syncTargetUID,
+		syncTargetName:               syncTargetName,
+
+		dnsNamespace: dnsNamespace,
+		dnsIPs:       map[string]string{}, // map workspace ID to DNS IP
 	}
 }
 
@@ -216,24 +235,27 @@ func (dm *DeploymentMutator) Mutate(obj *unstructured.Unstructured) error {
 		templateSpec.Volumes = append(templateSpec.Volumes, serviceAccountVolume)
 	}
 
-	// TODO: multiple worskpaces support. See https://github.com/kcp-dev/kcp/issues/1987
-	if dm.syncTargetLogicalClusterName == upstreamLogicalName {
-		// Overrides DNS to point to the workspace DNS
-		deployment.Spec.Template.Spec.DNSPolicy = corev1.DNSNone
-		deployment.Spec.Template.Spec.DNSConfig = &corev1.PodDNSConfig{
-			Nameservers: []string{dm.dnsIP},
-			Searches: []string{ // TODO(LV): from /etc/resolv.conf
-				obj.GetNamespace() + ".svc.cluster.local",
-				"svc.cluster.local",
-				"cluster.local",
+	// Overrides DNS to point to the workspace DNS
+	dnsIP, err := dm.getDNSIPForWorkspace(upstreamLogicalName)
+	if err != nil {
+		// the DNS nameserver is not ready yet or other transient failure
+		return err // retry
+	}
+
+	deployment.Spec.Template.Spec.DNSPolicy = corev1.DNSNone
+	deployment.Spec.Template.Spec.DNSConfig = &corev1.PodDNSConfig{
+		Nameservers: []string{dnsIP},
+		Searches: []string{ // TODO(LV): from /etc/resolv.conf
+			obj.GetNamespace() + ".svc.cluster.local",
+			"svc.cluster.local",
+			"cluster.local",
+		},
+		Options: []corev1.PodDNSConfigOption{
+			{
+				Name:  "ndots",
+				Value: utilspointer.String("5"),
 			},
-			Options: []corev1.PodDNSConfigOption{
-				{
-					Name:  "ndots",
-					Value: utilspointer.String("5"),
-				},
-			},
-		}
+		},
 	}
 
 	unstructured, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&deployment)
@@ -245,6 +267,27 @@ func (dm *DeploymentMutator) Mutate(obj *unstructured.Unstructured) error {
 	obj.SetUnstructuredContent(unstructured)
 
 	return nil
+}
+
+func (dm *DeploymentMutator) getDNSIPForWorkspace(workspace logicalcluster.Name) (string, error) {
+	// Retrieve the DNS IP associated to the workspace
+	dnsServiceName := shared.GetDNSID(workspace, dm.syncTargetUID, dm.syncTargetName)
+
+	// cached?
+	if ip, ok := dm.dnsIPs[dnsServiceName]; ok {
+		return ip, nil
+	}
+
+	// Not cached: do actual lookup
+	qname := fmt.Sprintf("%s.%s.svc.cluster.local", dnsServiceName, dm.dnsNamespace)
+
+	ips, err := DefaultLookupIPFn(qname)
+	if len(ips) == 0 || err != nil {
+		// not available (yet)
+		return "", fmt.Errorf("failed to get DNS nameserver IP address: %w", err)
+	}
+
+	return ips[0].String(), nil
 }
 
 // resolveDownwardAPIFieldRefEnv replaces the downwardAPI FieldRef EnvVars with the value from the deployment, right now it only replaces the metadata.namespace

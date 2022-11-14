@@ -68,7 +68,7 @@ func TestMultiPlacement(t *testing.T) {
 	t.Logf("Creating a SyncTarget and syncer in %s", locationClusterName)
 	firstSyncerFixture := framework.NewSyncerFixture(t, source, locationClusterName,
 		framework.WithSyncTarget(locationClusterName, firstSyncTargetName),
-		framework.WithExtraResources("services"),
+		framework.WithExtraResources("services", "roles.rbac.authorization.k8s.io", "rolebindings.rbac.authorization.k8s.io"),
 		framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 			if !isFakePCluster {
 				// Only need to install services and ingresses in a logical cluster
@@ -79,6 +79,7 @@ func TestMultiPlacement(t *testing.T) {
 			t.Logf("Installing test CRDs into sink cluster...")
 			kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
 				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
+				metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
 			)
 			require.NoError(t, err)
 		}),
@@ -87,7 +88,7 @@ func TestMultiPlacement(t *testing.T) {
 	secondSyncTargetName := fmt.Sprintf("synctarget-%d", +rand.Intn(1000000))
 	t.Logf("Creating a SyncTarget and syncer in %s", locationClusterName)
 	secondSyncerFixture := framework.NewSyncerFixture(t, source, locationClusterName,
-		framework.WithExtraResources("services"),
+		framework.WithExtraResources("services", "roles.rbac.authorization.k8s.io", "rolebindings.rbac.authorization.k8s.io"),
 		framework.WithSyncTarget(locationClusterName, secondSyncTargetName),
 		framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 			if !isFakePCluster {
@@ -99,6 +100,7 @@ func TestMultiPlacement(t *testing.T) {
 			t.Logf("Installing test CRDs into sink cluster...")
 			kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
 				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
+				metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
 			)
 			require.NoError(t, err)
 		}),
@@ -156,12 +158,14 @@ func TestMultiPlacement(t *testing.T) {
 		framework.WithLocationWorkspaceWorkloadBindOption(locationClusterName),
 		framework.WithLocationSelectorWorkloadBindOption(metav1.LabelSelector{MatchLabels: map[string]string{"loc": "loc1"}}),
 	).Bind(t)
+	firstSyncerFixture.BoundWorkspace(t, ctx, userClusterName)
 
 	t.Logf("Bind user workspace to location workspace with loc 2")
 	framework.NewBindCompute(t, userClusterName, source,
 		framework.WithLocationWorkspaceWorkloadBindOption(locationClusterName),
 		framework.WithLocationSelectorWorkloadBindOption(metav1.LabelSelector{MatchLabels: map[string]string{"loc": "loc2"}}),
 	).Bind(t)
+	secondSyncerFixture.BoundWorkspace(t, ctx, userClusterName)
 
 	t.Logf("Wait for being able to list Services in the user workspace")
 	require.Eventually(t, func() bool {
