@@ -36,6 +36,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspacedeletion/deletion"
 )
 
 // thisWorkspaceReconciler is a temporary reconciler that creates the following
@@ -47,6 +48,7 @@ type thisWorkspaceReconciler struct {
 	getThisWorkspace          func(clusterName logicalcluster.Name) (*tenancyv1alpha1.ThisWorkspace, error)
 	createThisWorkspace       func(ctx context.Context, clusterName logicalcluster.Name, this *tenancyv1alpha1.ThisWorkspace) (*tenancyv1alpha1.ThisWorkspace, error)
 	deleteThisWorkspace       func(ctx context.Context, clusterName logicalcluster.Name) error
+	updateThisWorkspace       func(ctx context.Context, clusterName logicalcluster.Name, this *tenancyv1alpha1.ThisWorkspace) (*tenancyv1alpha1.ThisWorkspace, error)
 	updateThisWorkspaceStatus func(ctx context.Context, clusterName logicalcluster.Name, this *tenancyv1alpha1.ThisWorkspace) (*tenancyv1alpha1.ThisWorkspace, error)
 
 	getClusterRoleBinding    func(clusterName logicalcluster.Name, name string) (*rbacv1.ClusterRoleBinding, error)
@@ -73,9 +75,23 @@ func (r *thisWorkspaceReconciler) reconcile(ctx context.Context, workspace *tena
 
 	// do not compete with deletion
 	if !workspace.DeletionTimestamp.IsZero() {
-		logger.Info("Deleting ThisWorkspace")
-		if err := r.deleteThisWorkspace(ctx, logicalcluster.From(workspace).Join(workspace.Name)); err != nil && !errors.IsNotFound(err) {
+		if this, err := r.getThisWorkspace(logicalcluster.From(workspace).Join(workspace.Name)); err != nil && !errors.IsNotFound(err) {
 			return reconcileStatusStopAndRequeue, err
+		} else if err == nil {
+			finalizers := sets.NewString(this.Finalizers...)
+			if finalizers.Has(deletion.WorkspaceFinalizer) {
+				logger.Info("Removing finalizer from ThisWorkspace", "finalizer", deletion.WorkspaceFinalizer)
+				this = this.DeepCopy()
+				this.Finalizers = finalizers.Delete(deletion.WorkspaceFinalizer).List()
+				if _, err := r.updateThisWorkspace(ctx, logicalcluster.From(workspace).Join(workspace.Name), this); err != nil {
+					return reconcileStatusStopAndRequeue, err
+				}
+			}
+
+			logger.Info("Deleting ThisWorkspace")
+			if err := r.deleteThisWorkspace(ctx, logicalcluster.From(workspace).Join(workspace.Name)); err != nil && !errors.IsNotFound(err) {
+				return reconcileStatusStopAndRequeue, err
+			}
 		}
 		return reconcileStatusContinue, nil
 	}

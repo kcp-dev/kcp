@@ -91,6 +91,9 @@ func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1alpha1.ClusterW
 			deleteThisWorkspace: func(ctx context.Context, clusterName logicalcluster.Name) error {
 				return c.kcpClusterClient.TenancyV1alpha1().ThisWorkspaces().Delete(logicalcluster.WithCluster(ctx, clusterName), tenancyv1alpha1.ThisWorkspaceName, metav1.DeleteOptions{})
 			},
+			updateThisWorkspace: func(ctx context.Context, clusterName logicalcluster.Name, this *tenancyv1alpha1.ThisWorkspace) (*tenancyv1alpha1.ThisWorkspace, error) {
+				return c.kcpClusterClient.TenancyV1alpha1().ThisWorkspaces().Update(logicalcluster.WithCluster(ctx, clusterName), this, metav1.UpdateOptions{})
+			},
 			updateThisWorkspaceStatus: func(ctx context.Context, clusterName logicalcluster.Name, this *tenancyv1alpha1.ThisWorkspace) (*tenancyv1alpha1.ThisWorkspace, error) {
 				return c.kcpClusterClient.TenancyV1alpha1().ThisWorkspaces().UpdateStatus(logicalcluster.WithCluster(ctx, clusterName), this, metav1.UpdateOptions{})
 			},
