@@ -96,7 +96,7 @@ func (c *controller) listWorkloadAPIBindings(clusterName logicalcluster.Name) ([
 		if binding.Status.Phase != apisv1alpha1.APIBindingPhaseBound {
 			continue
 		}
-		if len(binding.Labels) == 0 || binding.Labels[apisv1alpha1.LabelAPIBindingKindKey] != workloadv1alpha1.LabelKindAPIBindingValue {
+		if len(binding.Labels) == 0 || binding.Labels[apisv1alpha1.LabelAPIBindingKindKey] != workloadv1alpha1.LabelKindAPIBindingCompute {
 			continue
 		}
 		ret = append(ret, binding)

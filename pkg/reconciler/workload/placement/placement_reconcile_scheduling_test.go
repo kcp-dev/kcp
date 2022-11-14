@@ -96,7 +96,7 @@ func TestSchedulingReconcile(t *testing.T) {
 			},
 		},
 		{
-			name:      "schedule to synctarget with compatible APIs",
+			name:      "schedule to syncTarget with compatible APIs",
 			placement: newPlacement("test", "test-location", ""),
 			location:  newLocation("test-location"),
 			syncTargets: []*workloadv1alpha1.SyncTarget{
@@ -110,6 +110,19 @@ func TestSchedulingReconcile(t *testing.T) {
 			expectedAnnotations: map[string]string{
 				workloadv1alpha1.InternalSyncTargetPlacementAnnotationKey: "aPkhvUbGK0xoZIjMnM2pA0AuV1g7i4tBwxu5m4",
 			},
+		},
+		{
+			name:      "no syncTarget has compatible APIs",
+			placement: newPlacement("test", "test-location", ""),
+			location:  newLocation("test-location"),
+			syncTargets: []*workloadv1alpha1.SyncTarget{
+				newSyncTarget("c1", true, workloadv1alpha1.ResourceToSync{GroupResource: apisv1alpha1.GroupResource{Resource: "services"}, State: workloadv1alpha1.ResourceSchemaIncompatibleState}),
+				newSyncTarget("c2", true),
+			},
+			apiBindings: []*apisv1alpha1.APIBinding{
+				newAPIBinding("kubernetes", apisv1alpha1.BoundAPIResource{Resource: "services"}),
+			},
+			wantPatch: false,
 		},
 	}
 

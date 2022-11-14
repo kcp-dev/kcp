@@ -19,7 +19,6 @@ package placement
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"math/rand"
 
 	"github.com/kcp-dev/logicalcluster/v2"
@@ -144,8 +143,6 @@ func (r *placementSchedulingReconciler) filterAPICompatible(ctx context.Context,
 		desiredSupportedAPIs = append(desiredSupportedAPIs, binding.Status.BoundResources...)
 	}
 
-	logger.Info(fmt.Sprintf("desired resource for synctarget: %v", desiredSupportedAPIs))
-
 	for _, syncTargert := range syncTargets {
 		supportedAPIMap := map[apisv1alpha1.GroupResource]workloadv1alpha1.ResourceToSync{}
 		for _, resource := range syncTargert.Status.SyncedResources {
@@ -153,8 +150,6 @@ func (r *placementSchedulingReconciler) filterAPICompatible(ctx context.Context,
 				supportedAPIMap[resource.GroupResource] = resource
 			}
 		}
-
-		logger.Info(fmt.Sprintf("supported resource for synctarget %s: %v", syncTargert.Name, supportedAPIMap))
 
 		supported := true
 		for _, desiredAPI := range desiredSupportedAPIs {
@@ -175,6 +170,8 @@ func (r *placementSchedulingReconciler) filterAPICompatible(ctx context.Context,
 
 		if supported {
 			filteredSyncTarget = append(filteredSyncTarget, syncTargert)
+		} else {
+			logger.V(4).Info("Does not support APIBindings", "workspace", clusterName, "syncTarget", syncTargert.Name)
 		}
 	}
 

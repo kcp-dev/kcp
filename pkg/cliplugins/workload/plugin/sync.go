@@ -330,6 +330,9 @@ func (o *SyncOptions) applySyncTarget(ctx context.Context, kcpClient kcpclient.I
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			return nil, fmt.Errorf("failed to create synctarget %q: %w", syncTargetName, err)
 		}
+		if err == nil {
+			return syncTarget, nil
+		}
 	case err != nil:
 		return nil, err
 	}

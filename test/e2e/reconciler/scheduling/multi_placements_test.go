@@ -173,18 +173,6 @@ func TestMultiPlacement(t *testing.T) {
 			return false, fmt.Sprintf("Failed to get service: %v", err)
 		}
 
-		bindings, _ := kcpClusterClient.ApisV1alpha1().APIBindings().List(logicalcluster.WithCluster(ctx, userClusterName), metav1.ListOptions{
-			LabelSelector: "apis.kcp.dev/kind=compute",
-		})
-		for _, binding := range bindings.Items {
-			t.Logf("bindings %s are: %v", binding.Name, binding.Status.BoundResources)
-		}
-
-		syncTargets, _ := kcpClusterClient.WorkloadV1alpha1().SyncTargets().List(logicalcluster.WithCluster(ctx, locationClusterName), metav1.ListOptions{})
-		for _, syncTarget := range syncTargets.Items {
-			t.Logf("synctargets %s are: %v", syncTarget.Name, syncTarget.Status.SyncedResources)
-		}
-
 		if svc.Labels[workloadv1alpha1.ClusterResourceStateLabelPrefix+workloadv1alpha1.ToSyncTargetKey(firstSyncerFixture.SyncerConfig.SyncTargetWorkspace, firstSyncTargetName)] != string(workloadv1alpha1.ResourceStateSync) {
 			return false, fmt.Sprintf("%s is not added to ns annotation", firstSyncTargetName)
 		}

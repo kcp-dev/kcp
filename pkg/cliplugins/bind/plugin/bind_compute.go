@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
@@ -236,22 +237,43 @@ func (o *BindComputeOptions) applyAPIBinding(ctx context.Context, client kcpclie
 	}
 
 	existingAPIExports := sets.NewString()
+	var bindingNamesToPatch []string
 	for _, binding := range apiBindings.Items {
 		if binding.Spec.Reference.Workspace == nil {
 			continue
 		}
-		existingAPIExports.Insert(fmt.Sprintf("%s:%s", binding.Spec.Reference.Workspace.Path, binding.Spec.Reference.Workspace.ExportName))
+		apiExportKey := fmt.Sprintf("%s:%s", binding.Spec.Reference.Workspace.Path, binding.Spec.Reference.Workspace.ExportName)
+		existingAPIExports.Insert(apiExportKey)
+		if desiredAPIExports.Has(apiExportKey) {
+			if len(binding.Labels) == 0 || len(binding.Labels[apisv1alpha1.LabelAPIBindingKindKey]) == 0 {
+				bindingNamesToPatch = append(bindingNamesToPatch, binding.Name)
+			}
+		}
+	}
+
+	var errs []error
+	// patch apibindings with LabelAPIBindingKindKey
+	patchBytes := fmt.Sprintf(`{"metadata":{"labels":{%q:%q}}}`, apisv1alpha1.LabelAPIBindingKindKey, workloadv1alpha1.LabelKindAPIBindingCompute)
+	for _, bindingName := range bindingNamesToPatch {
+		_, err = client.ApisV1alpha1().APIBindings().Patch(ctx, bindingName, types.MergePatchType, []byte(patchBytes), metav1.PatchOptions{})
+		if err != nil {
+			errs = append(errs, err)
+		}
+
+		_, err = fmt.Fprintf(o.Out, "apibinding %s patched to set label %s=%s.\n", bindingName, apisv1alpha1.LabelAPIBindingKindKey, workloadv1alpha1.LabelKindAPIBindingCompute)
+		if err != nil {
+			errs = append(errs, err)
+		}
 	}
 
 	diff := desiredAPIExports.Difference(existingAPIExports)
-	var errs []error
 	var bindings []*apisv1alpha1.APIBinding
 	for export := range diff {
 		clusterName, name := logicalcluster.New(export).Split()
 		apiBinding := &apisv1alpha1.APIBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   apiBindingName(clusterName, name),
-				Labels: map[string]string{apisv1alpha1.LabelAPIBindingKindKey: workloadv1alpha1.LabelKindAPIBindingValue},
+				Labels: map[string]string{apisv1alpha1.LabelAPIBindingKindKey: workloadv1alpha1.LabelKindAPIBindingCompute},
 			},
 			Spec: apisv1alpha1.APIBindingSpec{
 				Reference: apisv1alpha1.ExportReference{
