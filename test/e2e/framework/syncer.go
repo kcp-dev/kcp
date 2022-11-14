@@ -45,6 +45,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/retry"
+	"k8s.io/component-base/version"
 	"sigs.k8s.io/yaml"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
@@ -595,6 +596,7 @@ func syncerConfigFromCluster(t *testing.T, downstreamConfig *rest.Config, namesp
 		SyncTargetUID:                 syncTargetUID,
 		DNSImage:                      dnsImage,
 		DownstreamNamespaceCleanDelay: 2 * time.Second,
+		ExpectedKCPVersion:            version.Get().GitVersion,
 	}
 }
 

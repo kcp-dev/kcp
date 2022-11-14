@@ -192,6 +192,9 @@ spec:
         - --feature-gates={{ .FeatureGatesString }}
 {{- end}}
         - --dns-image={{.Image}}
+{{- if .ExpectedKCPVersion }}
+        - --expectedKCPVersion={{.ExpectedKCPVersion}}
+{{- end}}
         env:
         - name: NAMESPACE
           valueFrom:

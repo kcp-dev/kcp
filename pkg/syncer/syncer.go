@@ -39,6 +39,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
+	conditionsapi "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclusterclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
@@ -71,6 +73,7 @@ type SyncerConfig struct {
 	SyncTargetUID                 string
 	DownstreamNamespaceCleanDelay time.Duration
 	DNSImage                      string
+	ExpectedKCPVersion            string
 }
 
 func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, importPollInterval time.Duration, syncerNamespace string) error {
@@ -78,15 +81,26 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	logger = logger.WithValues(SyncTargetWorkspace, cfg.SyncTargetWorkspace, SyncTargetName, cfg.SyncTargetName)
 	logger.V(2).Info("starting syncer")
 
-	kcpVersion := version.Get().GitVersion
+	syncerVersion := version.Get().GitVersion
 
 	bootstrapConfig := rest.CopyConfig(cfg.UpstreamConfig)
-	rest.AddUserAgent(bootstrapConfig, "kcp#syncer/"+kcpVersion)
+	rest.AddUserAgent(bootstrapConfig, "kcp#syncer/"+syncerVersion)
 	kcpBootstrapClusterClient, err := kcpclusterclientset.NewForConfig(bootstrapConfig)
 	if err != nil {
 		return err
 	}
 	kcpBootstrapClient := kcpBootstrapClusterClient.Cluster(cfg.SyncTargetWorkspace)
+
+	if cfg.ExpectedKCPVersion != "" && syncerVersion != cfg.ExpectedKCPVersion {
+		syncTarget, err := kcpBootstrapClient.WorkloadV1alpha1().SyncTargets().Get(ctx, cfg.SyncTargetName, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		conditions.MarkFalse(syncTarget, workloadv1alpha1.SyncerReady, workloadv1alpha1.VersionMismatchReason, conditionsapi.ConditionSeverityError, "compiled version of the syncer (%s) does not match with the expected version set in the syncer deployment (%s)", syncerVersion, cfg.ExpectedKCPVersion)
+		if _, err := kcpBootstrapClient.WorkloadV1alpha1().SyncTargets().Update(ctx, syncTarget, metav1.UpdateOptions{}); err != nil {
+			return err
+		}
+	}
 
 	// kcpInformerFactory to watch a certain syncTarget
 	kcpInformerFactory := kcpinformers.NewSharedScopedInformerFactoryWithOptions(kcpBootstrapClient, resyncPeriod, kcpinformers.WithTweakListOptions(
@@ -134,7 +148,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 
 	upstreamConfig := rest.CopyConfig(cfg.UpstreamConfig)
 	upstreamConfig.Host = syncerVirtualWorkspaceURL
-	rest.AddUserAgent(upstreamConfig, "kcp#spec-syncer/"+kcpVersion)
+	rest.AddUserAgent(upstreamConfig, "kcp#spec-syncer/"+syncerVersion)
 
 	upstreamDynamicClusterClient, err := kcpdynamic.NewForConfig(upstreamConfig)
 	if err != nil {
@@ -166,7 +180,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	kcpImporterInformerFactory.Start(ctx.Done())
 
 	downstreamConfig := rest.CopyConfig(cfg.DownstreamConfig)
-	rest.AddUserAgent(downstreamConfig, "kcp#status-syncer/"+kcpVersion)
+	rest.AddUserAgent(downstreamConfig, "kcp#status-syncer/"+syncerVersion)
 	downstreamDynamicClient, err := dynamic.NewForConfig(downstreamConfig)
 	if err != nil {
 		return err

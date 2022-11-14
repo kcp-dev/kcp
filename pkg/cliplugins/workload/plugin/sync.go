@@ -48,6 +48,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/pkg/version"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	"k8s.io/kube-openapi/pkg/util/sets"
@@ -102,6 +103,8 @@ type SyncOptions struct {
 	FeatureGates string
 	// DownstreamNamespaceCleanDelay is the time to wait before deleting of a downstream namespace.
 	DownstreamNamespaceCleanDelay time.Duration
+	// DisableSyncerVersionCheck is used to disable the version check in the deployed syncer.
+	DisableSyncerVersionCheck bool
 }
 
 // NewSyncOptions returns a new SyncOptions.
@@ -139,6 +142,7 @@ func (o *SyncOptions) BindFlags(cmd *cobra.Command) {
 			"Options are:\n"+strings.Join(kcpfeatures.KnownFeatures(), "\n")) // hide kube-only gates
 	cmd.Flags().DurationVar(&o.APIImportPollInterval, "api-import-poll-interval", o.APIImportPollInterval, "Polling interval for API import.")
 	cmd.Flags().DurationVar(&o.DownstreamNamespaceCleanDelay, "downstream-namespace-clean-delay", o.DownstreamNamespaceCleanDelay, "Time to wait before deleting a downstream namespaces.")
+	cmd.Flags().BoolVar(&o.DisableSyncerVersionCheck, "disable-syncer-version-check", o.DisableSyncerVersionCheck, "Option to disable the version check in the deployed syncer.")
 }
 
 // Complete ensures all dynamically populated fields are initialized.
@@ -264,6 +268,10 @@ func (o *SyncOptions) Run(ctx context.Context) error {
 		FeatureGatesString:                  o.FeatureGates,
 		APIImportPollIntervalString:         o.APIImportPollInterval.String(),
 		DownstreamNamespaceCleanDelayString: o.DownstreamNamespaceCleanDelay.String(),
+	}
+
+	if !o.DisableSyncerVersionCheck {
+		input.ExpectedKCPVersion = version.Get().GitVersion
 	}
 
 	resources, err := renderSyncerResources(input, syncerID, expectedResourcesForPermission.List())
@@ -702,6 +710,8 @@ type templateInput struct {
 	APIImportPollIntervalString string
 	// DownstreamNamespaceCleanDelay is the time to delay before cleaning the downstream namespace as a string.
 	DownstreamNamespaceCleanDelayString string
+	// ExpectedKCPVersion is the expected version of KCP for the syncer image
+	ExpectedKCPVersion string
 }
 
 // templateArgs represents the full set of arguments required to render the resources

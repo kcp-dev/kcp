@@ -45,6 +45,7 @@ type Options struct {
 	SyncedResourceTypes           []string
 	DNSImage                      string
 	DownstreamNamespaceCleanDelay time.Duration
+	ExpectedKCPVersion            string
 
 	APIImportPollInterval time.Duration
 }
@@ -82,6 +83,7 @@ func (options *Options) AddFlags(fs *pflag.FlagSet) {
 		"Options are:\n"+strings.Join(kcpfeatures.KnownFeatures(), "\n")) // hide kube-only gates
 	fs.StringVar(&options.DNSImage, "dns-image", options.DNSImage, "kcp DNS server image.")
 	fs.DurationVar(&options.DownstreamNamespaceCleanDelay, "downstream-namespace-clean-delay", options.DownstreamNamespaceCleanDelay, "Time to wait before deleting a downstream namespace, defaults to 30s.")
+	fs.StringVar(&options.ExpectedKCPVersion, "expectedKCPVersion", options.ExpectedKCPVersion, "The expected compiled KCP version of the syncer")
 
 	options.Logs.AddFlags(fs)
 }

@@ -123,6 +123,7 @@ func Run(ctx context.Context, options *synceroptions.Options) error {
 			SyncTargetUID:                 options.SyncTargetUID,
 			DNSImage:                      options.DNSImage,
 			DownstreamNamespaceCleanDelay: options.DownstreamNamespaceCleanDelay,
+			ExpectedKCPVersion:            options.ExpectedKCPVersion,
 		},
 		numThreads,
 		options.APIImportPollInterval,

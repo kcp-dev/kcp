@@ -183,6 +183,10 @@ const (
 
 	// ErrorHeartbeatMissedReason indicates that a heartbeat update was not received within the configured threshold.
 	ErrorHeartbeatMissedReason = "ErrorHeartbeat"
+
+	// VersionMismatchReason indicates that the compiled version of the Syncer is not the same as the expected version
+	// (set by the `kcp workload sync` CLI command).
+	VersionMismatchReason = "ErrorVersionMismatch"
 )
 
 func (in *SyncTarget) SetConditions(conditions conditionsv1alpha1.Conditions) {
