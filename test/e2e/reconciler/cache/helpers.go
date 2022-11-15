@@ -79,6 +79,7 @@ func StartStandaloneCacheServer(ctx context.Context, t *testing.T, dataDir strin
 	require.NoError(t, err)
 	preparedCachedServer, err := cacheServer.PrepareRun(ctx)
 	require.NoError(t, err)
+	start := time.Now()
 	t.Logf("Starting the cache server")
 	go func() {
 		require.NoError(t, preparedCachedServer.Run(ctx))
@@ -118,6 +119,12 @@ func StartStandaloneCacheServer(ctx context.Context, t *testing.T, dataDir strin
 	require.NoError(t, err)
 	t.Logf("Waiting for the cache server at %v to become ready", cacheClientRestConfig.Host)
 	waitUntilCacheServerIsReady(ctx, t, cacheClientRestConfig)
+
+	if t.Failed() {
+		t.Fatal("Fixture setup failed: cache server did not become ready")
+	}
+
+	t.Logf("Started cache server after %s", time.Since(start))
 
 	return cacheKubeconfigPath
 }
