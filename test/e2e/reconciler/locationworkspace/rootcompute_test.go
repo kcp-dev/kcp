@@ -117,7 +117,7 @@ func TestRootComputeWorkspace(t *testing.T) {
 		framework.WithAPIExportsWorkloadBindOption("root:compute:kubernetes"),
 		framework.WithLocationWorkspaceWorkloadBindOption(computeClusterName),
 	).Bind(t)
-	syncerFixture.BoundWorkspace(t, ctx, consumerWorkspace)
+	syncerFixture.WorkspaceBound(t, ctx, consumerWorkspace)
 
 	t.Logf("Wait for being able to list Services in the user workspace")
 	require.Eventually(t, func() bool {

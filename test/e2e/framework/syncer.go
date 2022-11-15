@@ -19,11 +19,9 @@ package framework
 import (
 	"context"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -33,6 +31,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -44,6 +43,7 @@ import (
 	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/yaml"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
@@ -53,12 +53,9 @@ import (
 	workloadcliplugin "github.com/kcp-dev/kcp/pkg/cliplugins/workload/plugin"
 	"github.com/kcp-dev/kcp/pkg/syncer"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
-	"github.com/kcp-dev/kcp/pkg/syncer/spec/mutators"
 )
 
 type SyncerOption func(t *testing.T, fs *syncerFixture)
-
-var dnsLookupIPOnce sync.Once
 
 func NewSyncerFixture(t *testing.T, server RunningServer, clusterName logicalcluster.Name, opts ...SyncerOption) *syncerFixture {
 	if !sets.NewString(TestConfig.Suites()...).HasAny("transparent-multi-cluster", "transparent-multi-cluster:requires-kind") {
@@ -345,17 +342,10 @@ func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 		err := syncer.StartSyncer(ctx, syncerConfig, 2, 5*time.Second)
 		require.NoError(t, err, "syncer failed to start")
 
-		dnsLookupIPOnce.Do(func() {
-			// DNS IP lookup always resolves
-			mutators.DefaultLookupIPFn = func(host string) ([]net.IP, error) {
-				return []net.IP{net.ParseIP("8.8.8.8")}, nil
-			}
-		})
-
-		// Manually create the DNS Endpoints for the main workspace
-		dnsID := shared.GetDNSID(sf.workspaceClusterName, types.UID(syncerConfig.SyncTargetUID), sf.syncTargetName)
-		_, err = downstreamKubeClient.CoreV1().Endpoints(syncerID).Create(ctx, endpoints(dnsID, syncerID), metav1.CreateOptions{})
-		require.NoError(t, err)
+		//// Manually create the DNS Endpoints for the main workspace
+		//dnsID := shared.GetDNSID(sf.workspaceClusterName, types.UID(syncerConfig.SyncTargetUID), sf.syncTargetName)
+		//_, err = downstreamKubeClient.CoreV1().Endpoints(syncerID).Create(ctx, endpoints(dnsID, syncerID), metav1.CreateOptions{})
+		//require.NoError(t, err)
 	}
 
 	startedSyncer := &StartedSyncerFixture{
@@ -397,11 +387,28 @@ func (sf *StartedSyncerFixture) WaitForClusterReady(t *testing.T, ctx context.Co
 	t.Logf("Cluster %q is %s", cfg.SyncTargetName, conditionsv1alpha1.ReadyCondition)
 }
 
-// BoundWorkspace is called when a new workspace is bound to this workload workspace
-func (sf *StartedSyncerFixture) BoundWorkspace(t *testing.T, ctx context.Context, workspace logicalcluster.Name) {
+// WorkspaceBound is called when a new workspace has been bound to this workload workspace
+func (sf *StartedSyncerFixture) WorkspaceBound(t *testing.T, ctx context.Context, workspace logicalcluster.Name) {
 	if !sf.useDeployedSyncer {
 		dnsID := shared.GetDNSID(workspace, types.UID(sf.SyncerConfig.SyncTargetUID), sf.SyncerConfig.SyncTargetName)
 		_, err := sf.DownstreamKubeClient.CoreV1().Endpoints(sf.SyncerID).Create(ctx, endpoints(dnsID, sf.SyncerID), metav1.CreateOptions{})
+		require.NoError(t, err)
+
+		// The DNS service may or may not have been created by the spec controller. In any cases, we want to make sure
+		// the service ClusterIP is set
+		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			svc, err := sf.DownstreamKubeClient.CoreV1().Services(sf.SyncerID).Get(ctx, dnsID, metav1.GetOptions{})
+			if err != nil {
+				if apierrors.IsNotFound(err) {
+					_, err = sf.DownstreamKubeClient.CoreV1().Services(sf.SyncerID).Create(ctx, service(dnsID, sf.SyncerID), metav1.CreateOptions{})
+				}
+				return err
+			}
+
+			svc.Spec.ClusterIP = "8.8.8.8"
+			_, err = sf.DownstreamKubeClient.CoreV1().Services(sf.SyncerID).Update(ctx, svc, metav1.UpdateOptions{})
+			return err
+		})
 		require.NoError(t, err)
 	}
 }
@@ -512,6 +519,18 @@ func endpoints(name, namespace string) *corev1.Endpoints {
 				{
 					IP: "8.8.8.8",
 				}}},
+		},
+	}
+}
+
+func service(name, namespace string) *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: corev1.ServiceSpec{
+			ClusterIP: "8.8.8.8",
 		},
 	}
 }

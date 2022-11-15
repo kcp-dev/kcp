@@ -495,7 +495,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					framework.WithAPIExportsWorkloadBindOption(wildwestClusterName.String()+":kubernetes"),
 					framework.WithLocationWorkspaceWorkloadBindOption(wildwestClusterName),
 				).Bind(t)
-				wildwestSyncer.BoundWorkspace(t, ctx, otherWorkspace)
+				wildwestSyncer.WorkspaceBound(t, ctx, otherWorkspace)
 
 				wildwestClusterClient, err := wildwestclientset.NewForConfig(server.BaseConfig(t))
 				require.NoError(t, err)
@@ -691,7 +691,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						},
 					}),
 				).Bind(t)
-				wildwestSyncer.BoundWorkspace(t, ctx, otherWorkspace)
+				wildwestSyncer.WorkspaceBound(t, ctx, otherWorkspace)
 
 				framework.NewBindCompute(t, otherWorkspace, server,
 					framework.WithPlacementNameBindOption("secondplacement"),
@@ -703,7 +703,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						},
 					}),
 				).Bind(t)
-				wildwestSecondSyncer.BoundWorkspace(t, ctx, otherWorkspace)
+				wildwestSecondSyncer.WorkspaceBound(t, ctx, otherWorkspace)
 
 				wildwestClusterClient, err := wildwestclientset.NewForConfig(server.BaseConfig(t))
 				require.NoError(t, err)
@@ -930,7 +930,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						},
 					}),
 				).Bind(t)
-				wildwestSyncer.BoundWorkspace(t, ctx, otherWorkspace)
+				wildwestSyncer.WorkspaceBound(t, ctx, otherWorkspace)
 
 				logWithTimestamp("Wait for being able to list cowboys in the other workspace (kubelike) through the virtual workspace")
 				require.Eventually(t, func() bool {
@@ -1035,7 +1035,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						},
 					}),
 				).Bind(t)
-				wildwestSecondSyncer.BoundWorkspace(t, ctx, otherWorkspace)
+				wildwestSecondSyncer.WorkspaceBound(t, ctx, otherWorkspace)
 
 				logWithTimestamp("Wait for resource controller to schedule cowboy on the 2 synctargets, and for both syncers to own it")
 				require.Eventually(t, func() bool {
