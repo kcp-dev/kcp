@@ -21,14 +21,11 @@ import (
 	"path"
 	"time"
 
-	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/spf13/pflag"
 
 	"k8s.io/client-go/rest"
 
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
-	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/builder"
 )
@@ -97,20 +94,14 @@ func (o *AuthorizationCache) Validate(flagPrefix string) []error {
 func (o *Workspaces) NewVirtualWorkspaces(
 	rootPathPrefix string,
 	config *rest.Config,
-	wildcardKubeInformers kcpkubernetesinformers.SharedInformerFactory,
-	wildcardKcpInformers kcpinformers.SharedInformerFactory,
 ) (workspaces []rootapiserver.NamedVirtualWorkspace, err error) {
 	config = rest.AddUserAgent(rest.CopyConfig(config), "workspaces-virtual-workspace")
 	kcpClusterClient, err := kcpclientset.NewForConfig(config)
 	if err != nil {
 		return nil, err
 	}
-	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
 
 	return []rootapiserver.NamedVirtualWorkspace{
-		{Name: "workspaces", VirtualWorkspace: builder.BuildVirtualWorkspace(config, path.Join(rootPathPrefix, "workspaces"), wildcardKcpInformers.Tenancy().V1alpha1().ClusterWorkspaces(), wildcardKubeInformers.Rbac().V1(), kubeClusterClient, kcpClusterClient, o.AuthorizationCache.Period, o.AuthorizationCache.JitterFactor, o.AuthorizationCache.Sliding)},
+		{Name: "workspaces", VirtualWorkspace: builder.BuildVirtualWorkspace(config, path.Join(rootPathPrefix, "workspaces"), kcpClusterClient)},
 	}, nil
 }
