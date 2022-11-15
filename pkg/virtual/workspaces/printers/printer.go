@@ -23,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	kprinters "k8s.io/kubernetes/pkg/printers"
 
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
 
 func AddWorkspacePrintHandlers(h kprinters.PrintHandler) {
@@ -63,7 +63,7 @@ func AddWorkspacePrintHandlers(h kprinters.PrintHandler) {
 	}
 }
 
-func printWorkspace(workspace *tenancyv1beta1.Workspace, options kprinters.GenerateOptions) ([]metav1.TableRow, error) {
+func printWorkspace(workspace *tenancyv1alpha1.ClusterWorkspace, options kprinters.GenerateOptions) ([]metav1.TableRow, error) {
 	row := metav1.TableRow{
 		Object: runtime.RawExtension{Object: workspace},
 	}
@@ -72,12 +72,12 @@ func printWorkspace(workspace *tenancyv1beta1.Workspace, options kprinters.Gener
 	if workspace.DeletionTimestamp != nil {
 		phase = "Deleting"
 	}
-	row.Cells = append(row.Cells, workspace.Name, workspace.Spec.Type.Name, phase, workspace.Status.URL)
+	row.Cells = append(row.Cells, workspace.Name, workspace.Spec.Type.Name, phase, workspace.Status.BaseURL)
 
 	return []metav1.TableRow{row}, nil
 }
 
-func printWorkspaceList(list *tenancyv1beta1.WorkspaceList, options kprinters.GenerateOptions) ([]metav1.TableRow, error) {
+func printWorkspaceList(list *tenancyv1alpha1.ClusterWorkspaceList, options kprinters.GenerateOptions) ([]metav1.TableRow, error) {
 	sort.Sort(SortableWorkspaces(list.Items))
 	rows := make([]metav1.TableRow, 0, len(list.Items))
 	for i := range list.Items {
@@ -91,7 +91,7 @@ func printWorkspaceList(list *tenancyv1beta1.WorkspaceList, options kprinters.Ge
 }
 
 // SortableWorkspaces is a list of workspaces that can be sorted
-type SortableWorkspaces []tenancyv1beta1.Workspace
+type SortableWorkspaces []tenancyv1alpha1.ClusterWorkspace
 
 func (list SortableWorkspaces) Len() int {
 	return len(list)

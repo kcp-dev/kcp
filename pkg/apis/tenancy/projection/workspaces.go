@@ -49,3 +49,13 @@ func ProjectClusterWorkspaceToWorkspace(from *tenancyv1alpha1.ClusterWorkspace, 
 		}
 	}
 }
+
+func ProjectWorkspaceToClusterWorkspace(from *tenancyv1beta1.Workspace, to *tenancyv1alpha1.ClusterWorkspace) {
+	to.ObjectMeta = from.ObjectMeta
+	to.Spec.Type = from.Spec.Type
+	to.Status.BaseURL = from.Status.URL
+	to.Status.Phase = from.Status.Phase
+	to.Status.Initializers = from.Status.Initializers
+	to.Status.Cluster = from.Status.Cluster
+	to.Status.Conditions = from.Status.Conditions
+}
