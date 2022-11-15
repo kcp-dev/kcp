@@ -21,31 +21,17 @@ import (
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 )
 
-func ProjectClusterWorkspaceToWorkspace(from *tenancyv1alpha1.ClusterWorkspace, to *tenancyv1beta1.Workspace) {
+func ProjectWorkspaceToClusterWorkspace(from *tenancyv1beta1.Workspace, to *tenancyv1alpha1.ClusterWorkspace) {
 	to.ObjectMeta = from.ObjectMeta
 	to.Spec.Type = from.Spec.Type
-	to.Status.URL = from.Status.BaseURL
+	if from.Spec.Location != nil {
+		to.Spec.Shard = &tenancyv1alpha1.ShardConstraints{
+			Selector: from.Spec.Location.Selector,
+		}
+	}
+	to.Status.BaseURL = from.Status.URL
 	to.Status.Phase = from.Status.Phase
 	to.Status.Initializers = from.Status.Initializers
 	to.Status.Cluster = from.Status.Cluster
-
-	to.Annotations = make(map[string]string, len(from.Annotations))
-	for k, v := range from.Annotations {
-		if k == tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey {
-			// do not leak user information
-			continue
-		}
-		to.Annotations[k] = v
-	}
-
-	for i := range from.Status.Conditions {
-		c := &from.Status.Conditions[i]
-		switch c.Type {
-		case tenancyv1alpha1.WorkspaceContentDeleted,
-			tenancyv1alpha1.WorkspaceDeletionContentSuccess,
-			tenancyv1alpha1.WorkspaceInitialized,
-			tenancyv1alpha1.WorkspaceAPIBindingsInitialized:
-			to.Status.Conditions = append(to.Status.Conditions, *c)
-		}
-	}
+	to.Status.Conditions = from.Status.Conditions
 }
