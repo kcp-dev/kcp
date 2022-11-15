@@ -49,11 +49,11 @@ import (
 )
 
 const (
-	// clusterWorkspaceShardAnnotationKey keeps track on which shard ThisWorkspace must be scheduled. The value
+	// workspaceShardAnnotationKey keeps track on which shard ThisWorkspace must be scheduled. The value
 	// is a base36(sha224) hash of the ClusterWorkspaceShard name.
-	clusterWorkspaceShardAnnotationKey = "internal.tenancy.kcp.dev/shard"
-	// clusterWorkspaceClusterAnnotationKey keeps track of the logical cluster on the shard.
-	clusterWorkspaceClusterAnnotationKey = "internal.tenancy.kcp.dev/cluster"
+	workspaceShardAnnotationKey = "internal.tenancy.kcp.dev/shard"
+	// workspaceClusterAnnotationKey keeps track of the logical cluster on the shard.
+	workspaceClusterAnnotationKey = "internal.tenancy.kcp.dev/cluster"
 )
 
 type schedulingReconciler struct {
@@ -65,13 +65,13 @@ type schedulingReconciler struct {
 	kubeLogicalClusterAdminClientFor func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kubernetes.ClusterInterface, error)
 }
 
-func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancyv1alpha1.ClusterWorkspace) (reconcileStatus, error) {
+func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancyv1beta1.Workspace) (reconcileStatus, error) {
 	logger := klog.FromContext(ctx).WithValues("reconciler", "scheduling")
 
 	switch workspace.Status.Phase {
 	case tenancyv1alpha1.WorkspacePhaseScheduling:
-		shardNameHash, hasShard := workspace.Annotations[clusterWorkspaceShardAnnotationKey]
-		clusterNameString, hasCluster := workspace.Annotations[clusterWorkspaceClusterAnnotationKey]
+		shardNameHash, hasShard := workspace.Annotations[workspaceShardAnnotationKey]
+		clusterNameString, hasCluster := workspace.Annotations[workspaceClusterAnnotationKey]
 		clusterName := logicalcluster.New(clusterNameString)
 		hasFinalizer := sets.NewString(workspace.Finalizers...).Has(tenancyv1alpha1.ThisWorkspaceFinalizer)
 
@@ -80,7 +80,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 		}
 		if !hasCluster {
 			clusterName = logicalcluster.From(workspace).Join(workspace.Name) // TODO: replace with randomClusterName()
-			workspace.Annotations[clusterWorkspaceClusterAnnotationKey] = clusterName.String()
+			workspace.Annotations[workspaceClusterAnnotationKey] = clusterName.String()
 		}
 		if !hasShard {
 			shardName, err := r.chooseShardAndMarkCondition(logger, workspace)
@@ -91,7 +91,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 				return reconcileStatusContinue, nil // retry is automatic when new shards show up
 			}
 			shardNameHash = ByBase36Sha224NameValue(shardName)
-			workspace.Annotations[clusterWorkspaceShardAnnotationKey] = shardNameHash
+			workspace.Annotations[workspaceShardAnnotationKey] = shardNameHash
 		}
 		if !hasFinalizer {
 			workspace.Finalizers = append(workspace.Finalizers, tenancyv1alpha1.ThisWorkspaceFinalizer)
@@ -133,9 +133,8 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 		conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceScheduled)
 
 		u.Path = path.Join(u.Path, logicalcluster.From(workspace).Join(workspace.Name).Path())
-		workspace.Status.BaseURL = u.String()
+		workspace.Status.URL = u.String()
 		workspace.Status.Cluster = clusterName.String()
-		workspace.Status.Location.Current = shard.Name
 		conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceScheduled)
 		logging.WithObject(logger, shard).Info("scheduled workspace to shard")
 	}
@@ -143,28 +142,17 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 	return reconcileStatusContinue, nil
 }
 
-func (r *schedulingReconciler) chooseShardAndMarkCondition(logger klog.Logger, workspace *tenancyv1alpha1.ClusterWorkspace) (string, error) {
+func (r *schedulingReconciler) chooseShardAndMarkCondition(logger klog.Logger, workspace *tenancyv1beta1.Workspace) (string, error) {
 	selector := labels.Everything()
 	var shards []*tenancyv1alpha1.ClusterWorkspaceShard
-	if workspace.Spec.Shard != nil {
-		if workspace.Spec.Shard.Selector != nil {
+	if workspace.Spec.Location != nil {
+		if workspace.Spec.Location.Selector != nil {
 			var err error
-			selector, err = metav1.LabelSelectorAsSelector(workspace.Spec.Shard.Selector)
+			selector, err = metav1.LabelSelectorAsSelector(workspace.Spec.Location.Selector)
 			if err != nil {
 				conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonUnschedulable, conditionsv1alpha1.ConditionSeverityError, "spec.location.selector is invalid: %v", err)
 				return "", nil // don't retry, cannot do anything useful
 			}
-		}
-		if shardName := workspace.Spec.Shard.Name; shardName != "" {
-			shard, err := r.getShard(workspace.Spec.Shard.Name)
-			if err != nil && !apierrors.IsNotFound(err) {
-				return "", err
-			}
-			if apierrors.IsNotFound(err) {
-				conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonUnschedulable, conditionsv1alpha1.ConditionSeverityError, "shard %q specified in spec.location.name does not exist: %v", shardName, err)
-				return "", nil // retry is automatic when new shards show up
-			}
-			shards = []*tenancyv1alpha1.ClusterWorkspaceShard{shard}
 		}
 	}
 
@@ -181,7 +169,7 @@ func (r *schedulingReconciler) chooseShardAndMarkCondition(logger klog.Logger, w
 		// until then we need to assign ws to the root shard otherwise all e2e test will break
 		//
 		// note if there are no shards just let it run, at the end, we set a proper condition.
-		if len(shards) > 0 && (workspace.Spec.Shard == nil || workspace.Spec.Shard.Selector == nil) {
+		if len(shards) > 0 && (workspace.Spec.Location == nil || workspace.Spec.Location.Selector == nil) {
 			// trim the list to contain only the "root" shard so that we always schedule onto it
 			for _, shard := range shards {
 				if shard.Name == "root" {
@@ -229,7 +217,7 @@ func (r *schedulingReconciler) chooseShardAndMarkCondition(logger klog.Logger, w
 	return targetShard.Name, nil
 }
 
-func (r *schedulingReconciler) createThisWorkspace(ctx context.Context, shard *tenancyv1alpha1.ClusterWorkspaceShard, cluster logicalcluster.Name, workspace *tenancyv1alpha1.ClusterWorkspace) error {
+func (r *schedulingReconciler) createThisWorkspace(ctx context.Context, shard *tenancyv1alpha1.ClusterWorkspaceShard, cluster logicalcluster.Name, workspace *tenancyv1beta1.Workspace) error {
 	this := &tenancyv1alpha1.ThisWorkspace{
 		// TODO(p0lyn0mial): in the future we could set an UID based back-reference to ClusterWorkspace as annotation
 		ObjectMeta: metav1.ObjectMeta{
@@ -257,7 +245,7 @@ func (r *schedulingReconciler) createThisWorkspace(ctx context.Context, shard *t
 	return err
 }
 
-func (r *schedulingReconciler) createClusterRoleBindingForThisWorkspace(ctx context.Context, shard *tenancyv1alpha1.ClusterWorkspaceShard, cluster logicalcluster.Name, workspace *tenancyv1alpha1.ClusterWorkspace) error {
+func (r *schedulingReconciler) createClusterRoleBindingForThisWorkspace(ctx context.Context, shard *tenancyv1alpha1.ClusterWorkspaceShard, cluster logicalcluster.Name, workspace *tenancyv1beta1.Workspace) error {
 	ownerAnnotation, found := workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey]
 	if !found {
 		return fmt.Errorf("unable to find required %q owner annotation on %q workspace", tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey, workspace.Name)
