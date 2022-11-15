@@ -16,7 +16,6 @@ require (
 	github.com/go-logr/logr v1.2.3
 	github.com/google/go-cmp v0.5.8
 	github.com/google/uuid v1.3.0
-	github.com/kcp-dev/apiextensions-apiserver v0.0.0-20221103170940-09388f5d3e8d
 	github.com/kcp-dev/apimachinery v0.0.0-20221102195355-d65878bc16be
 	github.com/kcp-dev/client-go v0.0.0-20221025140308-a18ccea074a6
 	github.com/kcp-dev/kcp/pkg/apis v0.0.0-00010101000000-000000000000
