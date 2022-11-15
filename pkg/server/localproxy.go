@@ -35,48 +35,48 @@ import (
 // mainly interesting for standalone mode, without a real front-proxy in-front.
 func WithLocalProxy(
 	handler http.Handler,
-	shardName, shardBaseURL string,
+	targetShardName, targetShardBaseURL string,
 	clusterWorkspaceInformer tenancyinformers.ClusterWorkspaceInformer,
 	thisWorkspaceInformer tenancyinformers.ThisWorkspaceInformer,
 ) http.Handler {
 	state := index.New([]index.PathRewriter{
 		indexrewriters.UserRewriter,
 	})
-	state.UpsertShard(shardName, shardBaseURL)
+	state.UpsertShard(targetShardName, targetShardBaseURL)
 
 	clusterWorkspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			ws := obj.(*tenancyv1alpha1.ClusterWorkspace)
-			state.UpsertClusterWorkspace(shardName, ws)
+			state.UpsertClusterWorkspace(targetShardName, ws)
 		},
 		UpdateFunc: func(old, obj interface{}) {
 			ws := obj.(*tenancyv1alpha1.ClusterWorkspace)
-			state.UpsertClusterWorkspace(shardName, ws)
+			state.UpsertClusterWorkspace(targetShardName, ws)
 		},
 		DeleteFunc: func(obj interface{}) {
 			if final, ok := obj.(cache.DeletedFinalStateUnknown); ok {
 				obj = final.Obj
 			}
 			ws := obj.(*tenancyv1alpha1.ClusterWorkspace)
-			state.DeleteClusterWorkspace(shardName, ws)
+			state.DeleteClusterWorkspace(targetShardName, ws)
 		},
 	})
 
 	thisWorkspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			this := obj.(*tenancyv1alpha1.ThisWorkspace)
-			state.UpsertThisWorkspace(shardName, this)
+			state.UpsertThisWorkspace(targetShardName, this)
 		},
 		UpdateFunc: func(old, obj interface{}) {
 			this := obj.(*tenancyv1alpha1.ThisWorkspace)
-			state.UpsertThisWorkspace(shardName, this)
+			state.UpsertThisWorkspace(targetShardName, this)
 		},
 		DeleteFunc: func(obj interface{}) {
 			if final, ok := obj.(cache.DeletedFinalStateUnknown); ok {
 				obj = final.Obj
 			}
 			this := obj.(*tenancyv1alpha1.ThisWorkspace)
-			state.DeleteThisWorkspace(shardName, this)
+			state.DeleteThisWorkspace(targetShardName, this)
 		},
 	})
 
@@ -97,7 +97,7 @@ func WithLocalProxy(
 			return
 		}
 
-		if shardName != shardName {
+		if shardName != targetShardName {
 			w.Header().Set("Retry-After", fmt.Sprintf("%d", 1))
 			http.Error(w, "Not found on this shard", http.StatusTooManyRequests)
 			return
