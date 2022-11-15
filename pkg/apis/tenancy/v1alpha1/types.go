@@ -145,7 +145,7 @@ type ClusterWorkspaceTypeReference struct {
 
 // ClusterWorkspaceTypeName is a name of a ClusterWorkspaceType
 //
-// +kubebuilder:validation:Pattern=`^[a-z]([a-z0-9-]{0,61}[a-z0-9])?`
+// +kubebuilder:validation:Pattern=`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?`
 type ClusterWorkspaceTypeName string
 
 func (r ClusterWorkspaceTypeReference) String() string {
@@ -368,7 +368,7 @@ type ClusterWorkspaceTypeList struct {
 // ClusterWorkspaceInitializer is a unique string corresponding to a cluster workspace
 // initialization controller for the given type of workspaces.
 //
-// +kubebuilder:validation:Pattern:="^(root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$"
+// +kubebuilder:validation:Pattern:="^(root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$"
 type ClusterWorkspaceInitializer string
 
 // ClusterWorkspaceAPIBindingsInitializer is a special-case initializer that waits for APIBindings defined
