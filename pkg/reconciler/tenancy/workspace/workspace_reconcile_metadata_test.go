@@ -26,18 +26,19 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 )
 
 func TestReconcileMetadata(t *testing.T) {
 	for _, testCase := range []struct {
 		name       string
-		input      *tenancyv1alpha1.ClusterWorkspace
+		input      *tenancyv1beta1.Workspace
 		expected   metav1.ObjectMeta
 		wantStatus reconcileStatus
 	}{
 		{
 			name: "removes everything but owner username when ready",
-			input: &tenancyv1alpha1.ClusterWorkspace{
+			input: &tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						"internal.kcp.dev/phase": "Ready",
@@ -47,7 +48,7 @@ func TestReconcileMetadata(t *testing.T) {
 						"experimental.tenancy.kcp.dev/owner": `{"username":"user-1","groups":["a","b"],"uid":"123","extra":{"c":["d"]}}`,
 					},
 				},
-				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
+				Status: tenancyv1beta1.WorkspaceStatus{
 					Phase: tenancyv1alpha1.WorkspacePhaseReady,
 				},
 			},
@@ -64,7 +65,7 @@ func TestReconcileMetadata(t *testing.T) {
 		},
 		{
 			name: "delete invalid owner annotation when ready",
-			input: &tenancyv1alpha1.ClusterWorkspace{
+			input: &tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						"internal.kcp.dev/phase": "Ready",
@@ -74,7 +75,7 @@ func TestReconcileMetadata(t *testing.T) {
 						"experimental.tenancy.kcp.dev/owner": `{"username":}`,
 					},
 				},
-				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
+				Status: tenancyv1beta1.WorkspaceStatus{
 					Phase: tenancyv1alpha1.WorkspacePhaseReady,
 				},
 			},

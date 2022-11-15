@@ -375,7 +375,7 @@ func (s *Server) installWorkloadResourceScheduler(ctx context.Context, config *r
 func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Config, logicalClusterAdminConfig *rest.Config) error {
 	// NOTE: keep `config` unaltered so there isn't cross-use between controllers installed here.
 	clusterWorkspaceConfig := rest.CopyConfig(config)
-	clusterWorkspaceConfigWithRoundtripper := rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(clusterWorkspaceConfig), clusterworkspace.ControllerName)
+	clusterWorkspaceConfigWithRoundtripper := rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(clusterWorkspaceConfig), workspace.ControllerName)
 	kcpClusterClient, err := kcpclient.NewForConfig(clusterWorkspaceConfigWithRoundtripper)
 	if err != nil {
 		return err
@@ -393,8 +393,8 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		kcpClusterClient,
 		kubeClusterClient,
 		logicalClusterAdminConfig,
-		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
 		s.KcpSharedInformerFactory.Tenancy().V1beta1().Workspaces(),
+		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
 	)
 	if err != nil {
