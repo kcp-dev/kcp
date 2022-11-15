@@ -1,9 +1,0 @@
-apiVersion: tenancy.kcp.dev/v1alpha1
-kind: ClusterWorkspaceShard
-metadata:
-  name: SHARD_NAME
-spec:
-  virtualWorkspaceURL: SHARD_VIRTUAL_WORKSPACE_URL
-  credentials:
-    namespace: default
-    name: shard-root-kubeconfig

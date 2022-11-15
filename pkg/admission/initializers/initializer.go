@@ -107,62 +107,6 @@ func (i *clientConfigInitializer) Initialize(plugin admission.Interface) {
 	}
 }
 
-// NewExternalAddressInitializer returns an admission plugin initializer that injects
-// an external address provider into the admission plugin.
-func NewExternalAddressInitializer(
-	externalAddressProvider func() string,
-) *externalAddressInitializer {
-	return &externalAddressInitializer{
-		externalAddressProvider: externalAddressProvider,
-	}
-}
-
-type externalAddressInitializer struct {
-	externalAddressProvider func() string
-}
-
-func (i *externalAddressInitializer) Initialize(plugin admission.Interface) {
-	if wants, ok := plugin.(WantsExternalAddressProvider); ok {
-		wants.SetExternalAddressProvider(i.externalAddressProvider)
-	}
-}
-
-// NewShardBaseURLInitializer returns an admission plugin initializer that injects
-// the default shard base URL provider into the admission plugin.
-func NewShardBaseURLInitializer(shardBaseURL string) *shardBaseURLInitializer {
-	return &shardBaseURLInitializer{
-		shardBaseURL: shardBaseURL,
-	}
-}
-
-type shardBaseURLInitializer struct {
-	shardBaseURL string
-}
-
-func (i *shardBaseURLInitializer) Initialize(plugin admission.Interface) {
-	if wants, ok := plugin.(WantsShardBaseURL); ok {
-		wants.SetShardBaseURL(i.shardBaseURL)
-	}
-}
-
-// NewShardExternalURLInitializer returns an admission plugin initializer that injects
-// the default shard external URL provider into the admission plugin.
-func NewShardExternalURLInitializer(shardExternalURL string) *shardExternalURLInitializer {
-	return &shardExternalURLInitializer{
-		shardExternalURL: shardExternalURL,
-	}
-}
-
-type shardExternalURLInitializer struct {
-	shardExternalURL string
-}
-
-func (i *shardExternalURLInitializer) Initialize(plugin admission.Interface) {
-	if wants, ok := plugin.(WantsShardExternalURL); ok {
-		wants.SetShardExternalURL(i.shardExternalURL)
-	}
-}
-
 // NewKubeQuotaConfigurationInitializer returns an admission plugin initializer that injects quota.Configuration
 // into admission plugins.
 func NewKubeQuotaConfigurationInitializer(quotaConfiguration quota.Configuration) *kubeQuotaConfigurationInitializer {

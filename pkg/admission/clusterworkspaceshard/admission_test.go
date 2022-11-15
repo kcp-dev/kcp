@@ -34,9 +34,9 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
 
-func createAttr(shard *shardBuilder) admission.Attributes {
+func createAttr(shard *tenancyv1alpha1.ClusterWorkspaceShard) admission.Attributes {
 	return admission.NewAttributesRecord(
-		helpers.ToUnstructuredOrDie(shard.ClusterWorkspaceShard),
+		helpers.ToUnstructuredOrDie(shard),
 		nil,
 		tenancyv1alpha1.Kind("ClusterWorkspaceShard").WithVersion("v1alpha1"),
 		"",
@@ -50,10 +50,10 @@ func createAttr(shard *shardBuilder) admission.Attributes {
 	)
 }
 
-func updateAttr(shard, old *shardBuilder) admission.Attributes {
+func updateAttr(shard, old *tenancyv1alpha1.ClusterWorkspaceShard) admission.Attributes {
 	return admission.NewAttributesRecord(
-		helpers.ToUnstructuredOrDie(shard.ClusterWorkspaceShard),
-		helpers.ToUnstructuredOrDie(old.ClusterWorkspaceShard),
+		helpers.ToUnstructuredOrDie(shard),
+		helpers.ToUnstructuredOrDie(old),
 		tenancyv1alpha1.Kind("ClusterWorkspace").WithVersion("v1alpha1"),
 		"",
 		shard.Name,
@@ -70,7 +70,7 @@ type shardBuilder struct {
 	*tenancyv1alpha1.ClusterWorkspaceShard
 }
 
-func newTestShard() *shardBuilder {
+func newShard() *shardBuilder {
 	return &shardBuilder{
 		ClusterWorkspaceShard: &tenancyv1alpha1.ClusterWorkspaceShard{
 			ObjectMeta: metav1.ObjectMeta{
@@ -121,92 +121,43 @@ func TestAdmitIgnoresOtherResources(t *testing.T) {
 	require.Equal(t, &unstructured.Unstructured{}, a.GetObject())
 }
 
-func TestNoOp(t *testing.T) {
-	shard := newTestShard().baseURL("https://boston2.kcp.dev").externalURL("https://kcp2.dev").virtualWorkspaceURL("https://boston2.kcp.dev")
-	attrs := map[string]admission.Attributes{
-		"create": createAttr(shard),
-		"update": updateAttr(shard, shard),
-	}
-
-	unstructuredShard := helpers.ToUnstructuredOrDie(shard.ClusterWorkspaceShard)
-
-	for aType, a := range attrs {
-		t.Run(aType, func(t *testing.T) {
-			o := &clusterWorkspaceShard{
-				Handler: admission.NewHandler(admission.Create, admission.Update),
-			}
-
-			ctx := request.WithCluster(context.Background(), request.Cluster{Name: logicalcluster.New("root:org")})
-
-			err := o.Admit(ctx, a, nil)
-			require.NoError(t, err)
-			require.Empty(t, cmp.Diff(unstructuredShard, a.GetObject()))
-
-			err = o.Validate(ctx, a, nil)
-			require.NoError(t, err)
-			require.Empty(t, cmp.Diff(unstructuredShard, a.GetObject()))
-		})
-	}
-}
-
 func TestAdmit(t *testing.T) {
 	tests := []struct {
-		name                      string
-		emptyExternalAddress      bool
-		noExternalAddressProvider bool
-		emptyShardExternalURL     bool
-		emptyShardBaseURL         bool
-		expectedObj               *shardBuilder
+		name     string
+		shard    *tenancyv1alpha1.ClusterWorkspaceShard
+		expected *tenancyv1alpha1.ClusterWorkspaceShard
 	}{
 		{
-			name:        "default baseURL to shardBaseURL when both shardBaseURL and externalAddress are set",
-			expectedObj: newTestShard().baseURL("https://shard.base").externalURL("https://shard.external").virtualWorkspaceURL("https://shard.base"),
+			name:     "nothing set",
+			shard:    newShard().ClusterWorkspaceShard,
+			expected: newShard().ClusterWorkspaceShard,
 		},
 		{
-			name:              "default baseURL to externalAddress when only externalAddress is set",
-			emptyShardBaseURL: true,
-			expectedObj:       newTestShard().baseURL("https://external.kcp.dev").externalURL("https://shard.external").virtualWorkspaceURL("https://external.kcp.dev"),
+			name:     "all set",
+			shard:    newShard().baseURL("https://base").externalURL("https://external").virtualWorkspaceURL("https://virtual").ClusterWorkspaceShard,
+			expected: newShard().baseURL("https://base").externalURL("https://external").virtualWorkspaceURL("https://virtual").ClusterWorkspaceShard,
 		},
 		{
-			name:        "default externalURL to shardExternalURL when both shardExternalURL and externalAddress are set",
-			expectedObj: newTestShard().baseURL("https://shard.base").externalURL("https://shard.external").virtualWorkspaceURL("https://shard.base"),
+			name:     "defaulting external URL",
+			shard:    newShard().baseURL("https://base").virtualWorkspaceURL("https://virtual").ClusterWorkspaceShard,
+			expected: newShard().baseURL("https://base").externalURL("https://base").virtualWorkspaceURL("https://virtual").ClusterWorkspaceShard,
 		},
 		{
-			name:                  "default externalURL to externalAddress when only externalAddress is set",
-			emptyShardExternalURL: true,
-			expectedObj:           newTestShard().baseURL("https://shard.base").externalURL("https://external.kcp.dev").virtualWorkspaceURL("https://shard.base"),
+			name:     "defaulting virtual workspace URL",
+			shard:    newShard().baseURL("https://base").externalURL("https://external").ClusterWorkspaceShard,
+			expected: newShard().baseURL("https://base").externalURL("https://external").virtualWorkspaceURL("https://base").ClusterWorkspaceShard,
 		},
 	}
 	for _, tt := range tests {
-		shard := newTestShard()
 		attrs := map[string]admission.Attributes{
-			"create": createAttr(shard),
-			"update": updateAttr(shard, shard),
+			"create": createAttr(tt.shard),
+			"update": updateAttr(tt.shard, tt.shard),
 		}
 
 		for aType, a := range attrs {
-			t.Run(tt.name+" - "+aType, func(t *testing.T) {
+			t.Run(tt.name+" "+aType, func(t *testing.T) {
 				o := &clusterWorkspaceShard{
-					Handler:                 admission.NewHandler(admission.Create, admission.Update),
-					externalAddressProvider: func() string { return "external.kcp.dev" },
-					shardExternalURL:        "https://shard.external",
-					shardBaseURL:            "https://shard.base",
-				}
-
-				if tt.noExternalAddressProvider {
-					o.externalAddressProvider = nil
-				} else if tt.emptyExternalAddress {
-					o.externalAddressProvider = func() string {
-						return ""
-					}
-				}
-
-				if tt.emptyShardExternalURL {
-					o.shardExternalURL = ""
-				}
-
-				if tt.emptyShardBaseURL {
-					o.shardBaseURL = ""
+					Handler: admission.NewHandler(admission.Create, admission.Update),
 				}
 
 				ctx := request.WithCluster(context.Background(), request.Cluster{Name: logicalcluster.New("root:org")})
@@ -216,243 +167,9 @@ func TestAdmit(t *testing.T) {
 				got, ok := a.GetObject().(*unstructured.Unstructured)
 				require.True(t, ok, "expected unstructured, got %T", a.GetObject())
 
-				expected := helpers.ToUnstructuredOrDie(tt.expectedObj.ClusterWorkspaceShard)
+				expected := helpers.ToUnstructuredOrDie(tt.expected)
 				require.Empty(t, cmp.Diff(expected, got))
 			})
 		}
-	}
-}
-
-func TestValidate(t *testing.T) {
-	tests := []struct {
-		name    string
-		a       admission.Attributes
-		wantErr bool
-	}{
-		{
-			name: "accept non-empty baseURL and externalURL on update",
-			a: updateAttr(
-				newTestShard().baseURL("https://updatedBase").externalURL("https://updatedExternal"),
-				newTestShard().baseURL("https://base").externalURL("https://external"),
-			),
-		},
-		{
-			name: "accept non-empty baseURL and externalURL on create",
-			a:    createAttr(newTestShard().baseURL("https://base").externalURL("https://external")),
-		},
-		{
-			name: "reject empty baseURL on update",
-			a: updateAttr(
-				newTestShard().baseURL("").externalURL("https://updatedExternal"),
-				newTestShard().baseURL("https://base").externalURL("https://external"),
-			),
-			wantErr: true,
-		},
-		{
-			name:    "reject empty baseURL on create",
-			a:       createAttr(newTestShard().externalURL("https://external")),
-			wantErr: true,
-		},
-		{
-			name: "reject empty externalURL on update",
-			a: updateAttr(
-				newTestShard().baseURL("https://base").externalURL(""),
-				newTestShard().baseURL("https://base").externalURL("https://external"),
-			),
-			wantErr: true,
-		},
-		{
-			name:    "reject empty externalURL on create",
-			a:       createAttr(newTestShard().baseURL("https://base").externalURL("")),
-			wantErr: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			o := &clusterWorkspaceShard{
-				Handler: admission.NewHandler(admission.Create, admission.Update),
-			}
-			ctx := request.WithCluster(context.Background(), request.Cluster{Name: logicalcluster.New("root")})
-			if err := o.Validate(ctx, tt.a, nil); (err != nil) != tt.wantErr {
-				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestRegister(t *testing.T) {
-	type args struct {
-		plugins *admission.Plugins
-	}
-	tests := []struct {
-		name string
-		args args
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			Register(tt.args.plugins)
-		})
-	}
-}
-
-func Test_clusterWorkspaceShard_Admit(t *testing.T) {
-	type fields struct {
-		Handler                 *admission.Handler
-		shardBaseURL            string
-		shardExternalURL        string
-		externalAddressProvider func() string
-	}
-	type args struct {
-		in0 context.Context
-		a   admission.Attributes
-		in2 admission.ObjectInterfaces
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			o := &clusterWorkspaceShard{
-				Handler:                 tt.fields.Handler,
-				shardBaseURL:            tt.fields.shardBaseURL,
-				shardExternalURL:        tt.fields.shardExternalURL,
-				externalAddressProvider: tt.fields.externalAddressProvider,
-			}
-			if err := o.Admit(tt.args.in0, tt.args.a, tt.args.in2); (err != nil) != tt.wantErr {
-				t.Errorf("Admit() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func Test_clusterWorkspaceShard_SetExternalAddressProvider(t *testing.T) {
-	type fields struct {
-		Handler                 *admission.Handler
-		shardBaseURL            string
-		shardExternalURL        string
-		externalAddressProvider func() string
-	}
-	type args struct {
-		externalAddressProvider func() string
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		args   args
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			o := &clusterWorkspaceShard{
-				Handler:                 tt.fields.Handler,
-				shardBaseURL:            tt.fields.shardBaseURL,
-				shardExternalURL:        tt.fields.shardExternalURL,
-				externalAddressProvider: tt.fields.externalAddressProvider,
-			}
-			o.SetExternalAddressProvider(tt.args.externalAddressProvider)
-		})
-	}
-}
-
-func Test_clusterWorkspaceShard_SetShardBaseURL(t *testing.T) {
-	type fields struct {
-		Handler                 *admission.Handler
-		shardBaseURL            string
-		shardExternalURL        string
-		externalAddressProvider func() string
-	}
-	type args struct {
-		shardBaseURL string
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		args   args
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			o := &clusterWorkspaceShard{
-				Handler:                 tt.fields.Handler,
-				shardBaseURL:            tt.fields.shardBaseURL,
-				shardExternalURL:        tt.fields.shardExternalURL,
-				externalAddressProvider: tt.fields.externalAddressProvider,
-			}
-			o.SetShardBaseURL(tt.args.shardBaseURL)
-		})
-	}
-}
-
-func Test_clusterWorkspaceShard_SetShardExternalURL(t *testing.T) {
-	type fields struct {
-		Handler                 *admission.Handler
-		shardBaseURL            string
-		shardExternalURL        string
-		externalAddressProvider func() string
-	}
-	type args struct {
-		shardExternalURL string
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		args   args
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			o := &clusterWorkspaceShard{
-				Handler:                 tt.fields.Handler,
-				shardBaseURL:            tt.fields.shardBaseURL,
-				shardExternalURL:        tt.fields.shardExternalURL,
-				externalAddressProvider: tt.fields.externalAddressProvider,
-			}
-			o.SetShardExternalURL(tt.args.shardExternalURL)
-		})
-	}
-}
-
-func Test_clusterWorkspaceShard_Validate(t *testing.T) {
-	type fields struct {
-		Handler                 *admission.Handler
-		shardBaseURL            string
-		shardExternalURL        string
-		externalAddressProvider func() string
-	}
-	type args struct {
-		in0 context.Context
-		a   admission.Attributes
-		in2 admission.ObjectInterfaces
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			o := &clusterWorkspaceShard{
-				Handler:                 tt.fields.Handler,
-				shardBaseURL:            tt.fields.shardBaseURL,
-				shardExternalURL:        tt.fields.shardExternalURL,
-				externalAddressProvider: tt.fields.externalAddressProvider,
-			}
-			if err := o.Validate(tt.args.in0, tt.args.a, tt.args.in2); (err != nil) != tt.wantErr {
-				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
 	}
 }
