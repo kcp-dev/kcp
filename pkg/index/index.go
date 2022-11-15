@@ -161,8 +161,8 @@ func (c *State) DeleteShard(shardName string) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	for lc, shardName := range c.logicalClusterShards {
-		if shardName == shardName {
+	for lc, gotShardName := range c.logicalClusterShards {
+		if shardName == gotShardName {
 			delete(c.logicalClusterShards, lc)
 		}
 	}
