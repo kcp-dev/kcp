@@ -95,13 +95,13 @@ func (o *Workspaces) NewVirtualWorkspaces(
 	rootPathPrefix string,
 	config *rest.Config,
 ) (workspaces []rootapiserver.NamedVirtualWorkspace, err error) {
-	config = rest.AddUserAgent(rest.CopyConfig(config), "workspaces-virtual-workspace")
+	config = rest.AddUserAgent(rest.CopyConfig(config), "clusterworkspaces-virtual-workspace")
 	kcpClusterClient, err := kcpclientset.NewForConfig(config)
 	if err != nil {
 		return nil, err
 	}
 
 	return []rootapiserver.NamedVirtualWorkspace{
-		{Name: "workspaces", VirtualWorkspace: builder.BuildVirtualWorkspace(config, path.Join(rootPathPrefix, "workspaces"), kcpClusterClient)},
+		{Name: "clusterworkspaces", VirtualWorkspace: builder.BuildVirtualWorkspace(config, path.Join(rootPathPrefix, "clusterworkspaces"), kcpClusterClient)},
 	}, nil
 }
