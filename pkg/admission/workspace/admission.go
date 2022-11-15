@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package clusterworkspace
+package workspace
 
 import (
 	"context"
@@ -33,6 +33,7 @@ import (
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 )
 
 // Validate ClusterWorkspace creation and updates for
@@ -45,25 +46,25 @@ import (
 // - consistency of phase and initializers with labels
 
 const (
-	PluginName = "tenancy.kcp.dev/ClusterWorkspace"
+	PluginName = "tenancy.kcp.dev/Workspace"
 )
 
 func Register(plugins *admission.Plugins) {
 	plugins.Register(PluginName,
 		func(_ io.Reader) (admission.Interface, error) {
-			return &clusterWorkspace{
+			return &workspace{
 				Handler: admission.NewHandler(admission.Create, admission.Update),
 			}, nil
 		})
 }
 
-type clusterWorkspace struct {
+type workspace struct {
 	*admission.Handler
 }
 
 // Ensure that the required admission interfaces are implemented.
-var _ admission.MutationInterface = &clusterWorkspace{}
-var _ admission.ValidationInterface = &clusterWorkspace{}
+var _ admission.MutationInterface = &workspace{}
+var _ admission.ValidationInterface = &workspace{}
 
 var phaseOrdinal = map[tenancyv1alpha1.WorkspacePhaseType]int{
 	tenancyv1alpha1.WorkspacePhaseType(""):     1,
@@ -74,8 +75,8 @@ var phaseOrdinal = map[tenancyv1alpha1.WorkspacePhaseType]int{
 
 // Admit ensures that
 // - the user is recorded in annotations on create
-func (o *clusterWorkspace) Admit(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) error {
-	if a.GetResource().GroupResource() != tenancyv1alpha1.Resource("clusterworkspaces") {
+func (o *workspace) Admit(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) error {
+	if a.GetResource().GroupResource() != tenancyv1beta1.Resource("workspaces") {
 		return nil
 	}
 
@@ -83,14 +84,14 @@ func (o *clusterWorkspace) Admit(ctx context.Context, a admission.Attributes, _ 
 	if !ok {
 		return fmt.Errorf("unexpected type %T", a.GetObject())
 	}
-	cw := &tenancyv1alpha1.ClusterWorkspace{}
+	cw := &tenancyv1beta1.Workspace{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, cw); err != nil {
 		return fmt.Errorf("failed to convert unstructured to ClusterWorkspace: %w", err)
 	}
 
 	if a.GetOperation() == admission.Create {
 		if isSystemMaster := sets.NewString(a.GetUserInfo().GetGroups()...).Has(kuser.SystemPrivilegedGroup); !isSystemMaster {
-			userInfo, err := ClusterWorkspaceOwnerAnnotationValue(a.GetUserInfo())
+			userInfo, err := WorkspaceOwnerAnnotationValue(a.GetUserInfo())
 			if err != nil {
 				return admission.NewForbidden(a, err)
 			}
@@ -109,8 +110,8 @@ func (o *clusterWorkspace) Admit(ctx context.Context, a admission.Attributes, _ 
 // - has a valid type
 // - has valid initializers when transitioning to initializing
 // - the user is recorded in annotations on create
-func (o *clusterWorkspace) Validate(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
-	if a.GetResource().GroupResource() != tenancyv1alpha1.Resource("clusterworkspaces") {
+func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
+	if a.GetResource().GroupResource() != tenancyv1beta1.Resource("workspaces") {
 		return nil
 	}
 
@@ -118,7 +119,7 @@ func (o *clusterWorkspace) Validate(ctx context.Context, a admission.Attributes,
 	if !ok {
 		return fmt.Errorf("unexpected type %T", a.GetObject())
 	}
-	cw := &tenancyv1alpha1.ClusterWorkspace{}
+	cw := &tenancyv1beta1.Workspace{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, cw); err != nil {
 		return fmt.Errorf("failed to convert unstructured to ClusterWorkspace: %w", err)
 	}
@@ -128,7 +129,7 @@ func (o *clusterWorkspace) Validate(ctx context.Context, a admission.Attributes,
 		if !ok {
 			return fmt.Errorf("unexpected type %T", a.GetOldObject())
 		}
-		old := &tenancyv1alpha1.ClusterWorkspace{}
+		old := &tenancyv1beta1.Workspace{}
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, old); err != nil {
 			return fmt.Errorf("failed to convert unstructured to ClusterWorkspace: %w", err)
 		}
@@ -140,12 +141,8 @@ func (o *clusterWorkspace) Validate(ctx context.Context, a admission.Attributes,
 			return admission.NewForbidden(a, errors.New("spec.type is immutable"))
 		}
 
-		if old.Status.Location.Current != "" && cw.Status.Location.Current == "" {
-			return admission.NewForbidden(a, errors.New("status.location.current cannot be unset"))
-		}
-
-		if old.Status.BaseURL != "" && cw.Status.BaseURL == "" {
-			return admission.NewForbidden(a, errors.New("status.baseURL cannot be unset"))
+		if old.Status.Cluster != "" && cw.Status.Cluster == "" {
+			return admission.NewForbidden(a, errors.New("status.cluster cannot be unset"))
 		}
 
 		if phaseOrdinal[old.Status.Phase] > phaseOrdinal[cw.Status.Phase] {
@@ -155,7 +152,7 @@ func (o *clusterWorkspace) Validate(ctx context.Context, a admission.Attributes,
 
 	if a.GetOperation() == admission.Create {
 		if isSystemMaster := sets.NewString(a.GetUserInfo().GetGroups()...).Has(kuser.SystemPrivilegedGroup); !isSystemMaster {
-			userInfo, err := ClusterWorkspaceOwnerAnnotationValue(a.GetUserInfo())
+			userInfo, err := WorkspaceOwnerAnnotationValue(a.GetUserInfo())
 			if err != nil {
 				return admission.NewForbidden(a, err)
 			}
@@ -173,11 +170,11 @@ func (o *clusterWorkspace) Validate(ctx context.Context, a admission.Attributes,
 	}
 
 	if phaseOrdinal[cw.Status.Phase] > phaseOrdinal[tenancyv1alpha1.WorkspacePhaseScheduling] {
-		if cw.Status.Location.Current == "" {
-			return admission.NewForbidden(a, fmt.Errorf("status.location.current must be set for phase %s", cw.Status.Phase))
+		if cw.Status.Cluster == "" {
+			return admission.NewForbidden(a, fmt.Errorf("status.cluster must be set for phase %s", cw.Status.Phase))
 		}
-		if cw.Status.BaseURL == "" {
-			return admission.NewForbidden(a, fmt.Errorf("status.baseURL must be set for phase %s", cw.Status.Phase))
+		if cw.Status.URL == "" {
+			return admission.NewForbidden(a, fmt.Errorf("status.URL must be set for phase %s", cw.Status.Phase))
 		}
 	}
 
@@ -185,7 +182,7 @@ func (o *clusterWorkspace) Validate(ctx context.Context, a admission.Attributes,
 }
 
 // updateUnstructured updates the given unstructured object to match the given cluster workspace.
-func updateUnstructured(u *unstructured.Unstructured, cw *tenancyv1alpha1.ClusterWorkspace) error {
+func updateUnstructured(u *unstructured.Unstructured, cw *tenancyv1beta1.Workspace) error {
 	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(cw)
 	if err != nil {
 		return err
@@ -194,8 +191,8 @@ func updateUnstructured(u *unstructured.Unstructured, cw *tenancyv1alpha1.Cluste
 	return nil
 }
 
-// ClusterWorkspaceOwnerAnnotationValue returns the value of the ExperimentalClusterWorkspaceOwnerAnnotationKey annotation.
-func ClusterWorkspaceOwnerAnnotationValue(user kuser.Info) (string, error) {
+// WorkspaceOwnerAnnotationValue returns the value of the ExperimentalClusterWorkspaceOwnerAnnotationKey annotation.
+func WorkspaceOwnerAnnotationValue(user kuser.Info) (string, error) {
 	info := &authenticationv1.UserInfo{
 		Username: user.GetName(),
 		UID:      user.GetUID(),
