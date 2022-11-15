@@ -28,7 +28,6 @@ import (
 	"testing"
 	"time"
 
-	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	"github.com/stretchr/testify/require"
 
 	apimachineryerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -133,7 +132,7 @@ func CacheClientRoundTrippersFor(cfg *rest.Config) *rest.Config {
 	cacheClientRT := cacheclient.WithCacheServiceRoundTripper(rest.CopyConfig(cfg))
 	cacheClientRT = cacheclient.WithShardNameFromContextRoundTripper(cacheClientRT)
 	cacheClientRT = cacheclient.WithDefaultShardRoundTripper(cacheClientRT, shard.Wildcard)
-	kcpclienthelper.SetMultiClusterRoundTripper(cacheClientRT)
+	rt.ContentConfig.ContentType = "application/json"
 	return cacheClientRT
 }
 

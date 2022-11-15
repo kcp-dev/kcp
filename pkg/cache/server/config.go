@@ -23,8 +23,6 @@ import (
 	"net/url"
 	"time"
 
-	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
-
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
@@ -39,7 +37,6 @@ import (
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/apiserver/pkg/util/webhook"
 	"k8s.io/client-go/rest"
-	"k8s.io/kubernetes/pkg/genericcontrolplane/clientutils"
 
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
@@ -189,9 +186,7 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 			return requestInfo.Resource, requestInfo.Verb, nil
 		},
 		"customresourcedefinitions")
-
-	kcpclienthelper.SetMultiClusterRoundTripper(rt)
-	clientutils.EnableMultiCluster(rt, &serverConfig.Config, "namespaces", "apiservices", "customresourcedefinitions", "clusterroles", "clusterrolebindings", "roles", "rolebindings", "serviceaccounts", "secrets")
+	rt.ContentConfig.ContentType = "application/json"
 
 	var err error
 	c.ApiExtensionsClusterClient, err = kcpapiextensionsclientset.NewForConfig(rt)
