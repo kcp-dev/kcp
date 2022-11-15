@@ -309,7 +309,7 @@ func (c *Controller) finalizeWorkspace(ctx context.Context, ws *tenancyv1alpha1.
 				} else {
 					gvr.Version = comps[0]
 				}
-				uid := types.UID(ws.Spec.Owner.UID)
+				uid := ws.Spec.Owner.UID
 				logger = logger.WithValues("owner.gvr", gvr, "owner.uid", uid, "owner.name", ws.Spec.Owner.Name, "owner.namespace", ws.Spec.Owner.Namespace, "owner.cluster", ws.Spec.Owner.Cluster)
 
 				// remove finalizer from owner
