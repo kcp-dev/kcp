@@ -257,6 +257,9 @@ func (s *Server) Run(ctx context.Context) error {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        s.Options.Extra.ShardName,
 				Annotations: map[string]string{logicalcluster.AnnotationKey: tenancyv1alpha1.RootCluster.String()},
+				Labels: map[string]string{
+					"name": s.Options.Extra.ShardName,
+				},
 			},
 			Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{
 				BaseURL:             s.CompletedConfig.ShardBaseURL(),

@@ -25,13 +25,14 @@ import (
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspacedeletion/deletion"
 )
 
 type metaDataReconciler struct {
 }
 
-func (r *metaDataReconciler) reconcile(ctx context.Context, workspace *tenancyv1alpha1.ClusterWorkspace) (reconcileStatus, error) {
+func (r *metaDataReconciler) reconcile(ctx context.Context, workspace *tenancyv1beta1.Workspace) (reconcileStatus, error) {
 	logger := klog.FromContext(ctx).WithValues("reconciler", "metadata")
 
 	changed := false
