@@ -209,6 +209,8 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 			ServiceResolver:       &unimplementedServiceResolver{},
 			MasterCount:           1,
 			AuthResolverWrapper:   webhook.NewDefaultAuthenticationInfoResolverWrapper(nil, nil, rt, nil),
+			Client:                c.ApiExtensionsClusterClient,
+			Informers:             c.ApiExtensionsSharedInformerFactory,
 			ClusterAwareCRDLister: &crdClusterLister{lister: c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Lister()},
 		},
 	}

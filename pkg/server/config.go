@@ -475,6 +475,8 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 			return c.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Lister().Get(key)
 		},
 	}
+	c.ApiExtensions.ExtraConfig.Client = c.ApiExtensionsClusterClient
+	c.ApiExtensions.ExtraConfig.Informers = c.ApiExtensionsSharedInformerFactory
 	c.ApiExtensions.ExtraConfig.TableConverterProvider = NewTableConverterProvider()
 
 	c.MiniAggregator = &aggregator.MiniAggregatorConfig{
