@@ -19,14 +19,14 @@ package projection
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
 
 var projectedAPIs map[schema.GroupVersionResource]struct{}
 
 func init() {
 	projectedAPIs = map[schema.GroupVersionResource]struct{}{
-		tenancyv1beta1.SchemeGroupVersion.WithResource("workspaces"): {},
+		tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaces"): {},
 	}
 }
 
