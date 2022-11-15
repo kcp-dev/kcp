@@ -18,20 +18,13 @@ package workspace
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
-	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/google/go-cmp/cmp"
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v2"
 
-	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -40,7 +33,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
@@ -48,6 +40,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	tenancyv1beta1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1beta1"
+	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
+	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 )
 
 const (
@@ -59,8 +53,8 @@ func NewController(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	kubeClusterClient kubernetes.ClusterInterface,
 	logicalClusterAdminConfig *rest.Config,
-	clusterWorkspaceInformer tenancyv1alpha1informers.ClusterWorkspaceClusterInformer,
 	workspaceInformer tenancyv1beta1informers.WorkspaceClusterInformer,
+	clusterWorkspaceInformer tenancyv1alpha1informers.ClusterWorkspaceClusterInformer,
 	clusterWorkspaceShardInformer tenancyv1alpha1informers.ClusterWorkspaceShardClusterInformer,
 ) (*Controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
@@ -75,27 +69,24 @@ func NewController(
 		kcpClusterClient:  kcpClusterClient,
 		kubeClusterClient: kubeClusterClient,
 
-		clusterWorkspaceIndexer: clusterWorkspaceInformer.Informer().GetIndexer(),
-		clusterWorkspaceLister:  clusterWorkspaceInformer.Lister(),
-
 		workspaceIndexer: workspaceInformer.Informer().GetIndexer(),
 		workspaceLister:  workspaceInformer.Lister(),
+
+		clusterWorkspaceIndexer: clusterWorkspaceInformer.Informer().GetIndexer(),
+		clusterWorkspaceLister:  clusterWorkspaceInformer.Lister(),
 
 		clusterWorkspaceShardIndexer: clusterWorkspaceShardInformer.Informer().GetIndexer(),
 		clusterWorkspaceShardLister:  clusterWorkspaceShardInformer.Lister(),
 	}
 
-	indexers.AddIfNotPresentOrDie(clusterWorkspaceInformer.Informer().GetIndexer(), cache.Indexers{
-		byCurrentShard: indexByCurrentShard,
-	})
-	indexers.AddIfNotPresentOrDie(clusterWorkspaceInformer.Informer().GetIndexer(), cache.Indexers{
+	indexers.AddIfNotPresentOrDie(workspaceInformer.Informer().GetIndexer(), cache.Indexers{
 		unschedulable: indexUnschedulable,
 	})
 	indexers.AddIfNotPresentOrDie(clusterWorkspaceShardInformer.Informer().GetIndexer(), cache.Indexers{
 		byBase36Sha224Name: indexByBase36Sha224Name,
 	})
 
-	clusterWorkspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	workspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
 	})
@@ -109,7 +100,9 @@ func NewController(
 	return c, nil
 }
 
-// Controller watches Workspaces and WorkspaceShards in order to make sure every ClusterWorkspace
+type workspaceResource = committer.Resource[*tenancyv1beta1.WorkspaceSpec, *tenancyv1beta1.WorkspaceStatus]
+
+// Controller watches Workspaces and WorkspaceShards in order to make sure every Workspace
 // is scheduled to a valid ClusterWorkspaceShard.
 type Controller struct {
 	queue workqueue.RateLimitingInterface
@@ -129,6 +122,9 @@ type Controller struct {
 
 	clusterWorkspaceShardIndexer cache.Indexer
 	clusterWorkspaceShardLister  tenancyv1alpha1listers.ClusterWorkspaceShardClusterLister
+
+	// commit creates a patch and submits it, if needed.
+	commit func(ctx context.Context, new, old *workspaceResource) error
 }
 
 func (c *Controller) enqueue(obj interface{}) {
@@ -138,7 +134,7 @@ func (c *Controller) enqueue(obj interface{}) {
 		return
 	}
 	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
-	logger.V(2).Info("queueing ClusterWorkspace")
+	logger.V(2).Info("queueing Workspace")
 	c.queue.Add(key)
 }
 
@@ -168,24 +164,9 @@ func (c *Controller) enqueueShard(obj interface{}) {
 				runtime.HandleError(err)
 				return
 			}
-			logging.WithQueueKey(logger, key).V(2).Info("queueing unschedulable ClusterWorkspace because of shard update", "clusterWorkspaceShard", shard)
+			logging.WithQueueKey(logger, key).V(2).Info("queueing unschedulable Workspace because of shard update", "clusterWorkspaceShard", shard)
 			c.queue.Add(key)
 		}
-	}
-
-	workspaces, err := c.workspaceIndexer.ByIndex(byCurrentShard, name)
-	if err != nil {
-		runtime.HandleError(err)
-		return
-	}
-	for _, workspace := range workspaces {
-		key, err := kcpcache.MetaClusterNamespaceKeyFunc(workspace)
-		if err != nil {
-			runtime.HandleError(err)
-			return
-		}
-		logging.WithQueueKey(logger, key).V(2).Info("queueing ClusterWorkspace on shard", "clusterWorkspaceShard", name)
-		c.queue.Add(key)
 	}
 }
 
@@ -248,80 +229,13 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	return true
 }
 
-func (c *Controller) patchIfNeeded(ctx context.Context, old, obj *tenancyv1alpha1.ClusterWorkspace) error {
-	logger := klog.FromContext(ctx)
-	specOrObjectMetaChanged := !equality.Semantic.DeepEqual(old.Spec, obj.Spec) || !equality.Semantic.DeepEqual(old.ObjectMeta, obj.ObjectMeta)
-	statusChanged := !equality.Semantic.DeepEqual(old.Status, obj.Status)
-
-	if !specOrObjectMetaChanged && !statusChanged {
-		return nil
-	}
-
-	forPatch := func(apiExport *tenancyv1alpha1.ClusterWorkspace) tenancyv1alpha1.ClusterWorkspace {
-		var ret tenancyv1alpha1.ClusterWorkspace
-		if specOrObjectMetaChanged {
-			ret.ObjectMeta = apiExport.ObjectMeta
-			ret.Spec = apiExport.Spec
-		} else {
-			ret.Status = apiExport.Status
-		}
-		return ret
-	}
-
-	clusterName := logicalcluster.From(old)
-	name := old.Name
-
-	oldForPatch := forPatch(old)
-	// to ensure they appear in the patch as preconditions
-	oldForPatch.UID = ""
-	oldForPatch.ResourceVersion = ""
-
-	oldData, err := json.Marshal(oldForPatch)
-	if err != nil {
-		return fmt.Errorf("failed to Marshal old data for ClusterWorkspace %s|%s: %w", clusterName, name, err)
-	}
-
-	newForPatch := forPatch(obj)
-	// to ensure they appear in the patch as preconditions
-	newForPatch.UID = old.UID
-	newForPatch.ResourceVersion = old.ResourceVersion
-
-	newData, err := json.Marshal(newForPatch)
-	if err != nil {
-		return fmt.Errorf("failed to Marshal new data for ClusterWorkspace %s|%s: %w", clusterName, name, err)
-	}
-
-	patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
-	if err != nil {
-		return fmt.Errorf("failed to create patch for ClusterWorkspace %s|%s: %w", clusterName, name, err)
-	}
-
-	var subresources []string
-	if statusChanged {
-		subresources = []string{"status"}
-	}
-
-	logger.WithValues("patch", string(patchBytes)).V(2).Info("patching ClusterWorkspace")
-	_, err = c.kcpClusterClient.Cluster(clusterName).TenancyV1alpha1().ClusterWorkspaces().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, subresources...)
-	if err != nil {
-		return fmt.Errorf("failed to patch ClusterWorkspace %s|%s: %w", clusterName, name, err)
-	}
-
-	if specOrObjectMetaChanged && statusChanged {
-		// enqueue again to take care of the spec change, assuming the patch did nothing
-		return fmt.Errorf("programmer error: spec and status changed in same reconcile iteration:\n%s", cmp.Diff(old, obj))
-	}
-
-	return nil
-}
-
 func (c *Controller) process(ctx context.Context, key string) (bool, error) {
 	parent, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(err)
 		return false, nil
 	}
-	obj, err := c.clusterWorkspaceLister.Cluster(parent).Get(name)
+	workspace, err := c.workspaceLister.Cluster(parent).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return false, nil // object deleted before we handled it
@@ -329,23 +243,22 @@ func (c *Controller) process(ctx context.Context, key string) (bool, error) {
 		return false, err
 	}
 
-	old := obj
-	obj = obj.DeepCopy()
+	old := workspace
+	workspace = workspace.DeepCopy()
 
-	logger := logging.WithObject(klog.FromContext(ctx), obj)
+	logger := logging.WithObject(klog.FromContext(ctx), workspace)
 	ctx = klog.NewContext(ctx, logger)
 
 	var errs []error
-	requeue, err := c.reconcile(ctx, obj)
+	requeue, err := c.reconcile(ctx, workspace)
 	if err != nil {
 		errs = append(errs, err)
 	}
 
-	// Regardless of whether reconcile returned an error or not, always try to patch status if needed. Return the
-	// reconciliation error at the end.
-
 	// If the object being reconciled changed as a result, update it.
-	if err := c.patchIfNeeded(ctx, old, obj); err != nil {
+	oldResource := &workspaceResource{ObjectMeta: old.ObjectMeta, Spec: &old.Spec, Status: &old.Status}
+	newResource := &workspaceResource{ObjectMeta: workspace.ObjectMeta, Spec: &workspace.Spec, Status: &workspace.Status}
+	if err := c.commit(ctx, oldResource, newResource); err != nil {
 		errs = append(errs, err)
 	}
 

@@ -24,7 +24,6 @@ import (
 	"os"
 	"time"
 
-	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	kcpmetadata "github.com/kcp-dev/client-go/metadata"
@@ -81,6 +80,7 @@ import (
 	workloadresource "github.com/kcp-dev/kcp/pkg/reconciler/workload/resource"
 	synctargetcontroller "github.com/kcp-dev/kcp/pkg/reconciler/workload/synctarget"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/synctargetexports"
+	initializingworkspacesbuilder "github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces/builder"
 )
 
 func postStartHookName(controllerName string) string {
@@ -391,8 +391,8 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		kcpClusterClient,
 		kubeClusterClient,
 		logicalClusterAdminConfig,
-		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
 		s.KcpSharedInformerFactory.Tenancy().V1beta1().Workspaces(),
+		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
 	)
 	if err != nil {
@@ -510,9 +510,9 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 }
 
 func (s *Server) installThisWorkspace(ctx context.Context, config *rest.Config) error {
-	clusterWorkspaceConfig := rest.CopyConfig(config)
-	clusterWorkspaceConfig = rest.AddUserAgent(clusterWorkspaceConfig, thisworkspace.ControllerName)
-	kcpClusterClient, err := kcpclientset.NewForConfig(clusterWorkspaceConfig)
+	thisWorkspaceConfig := rest.CopyConfig(config)
+	thisWorkspaceConfig = rest.AddUserAgent(thisWorkspaceConfig, thisworkspace.ControllerName)
+	kcpClusterClient, err := kcpclientset.NewForConfig(thisWorkspaceConfig)
 	if err != nil {
 		return err
 	}

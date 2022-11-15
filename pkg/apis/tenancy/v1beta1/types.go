@@ -66,6 +66,21 @@ type WorkspaceSpec struct {
 	//
 	// +optional
 	Type v1alpha1.ClusterWorkspaceTypeReference `json:"type,omitempty"`
+
+	// location constraints where this workspace can be scheduled to.
+	//
+	// If the no location is specified, an arbitrary location is chosen.
+	//
+	// +optional
+	Location *WorkspaceLocation `json:"shard,omitempty"`
+}
+
+type WorkspaceLocation struct {
+
+	// selector is a label selector that filters workspace scheduling targets.
+	//
+	// +optional
+	Selector *metav1.LabelSelector `json:"selector,omitempty"`
 }
 
 // WorkspaceStatus communicates the observed state of the Workspace.
@@ -99,6 +114,14 @@ type WorkspaceStatus struct {
 	//
 	// +optional
 	Initializers []v1alpha1.WorkspaceInitializer `json:"initializers,omitempty"`
+}
+
+func (in *Workspace) SetConditions(c conditionsv1alpha1.Conditions) {
+	in.Status.Conditions = c
+}
+
+func (in *Workspace) GetConditions() conditionsv1alpha1.Conditions {
+	return in.Status.Conditions
 }
 
 // WorkspaceList is a list of Workspaces
