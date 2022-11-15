@@ -120,8 +120,8 @@ func (o *SyncOptions) BindFlags(cmd *cobra.Command) {
 
 	cmd.Flags().StringSliceVar(&o.ResourcesToSync, "resources", o.ResourcesToSync, "Resources to synchronize with kcp.")
 	cmd.Flags().StringSliceVar(&o.APIExports, "apiexports", o.APIExports,
-		"APIExport to be supported by the syncer, each APIExoport should be in the format of <absolute_ref_to_workspace>:<apiexport>, "+
-			"e.g. root:compute|kubernetes is the kubernetes APIExport in root:compute workspace")
+		"APIExport to be supported by the syncer, each APIExport should be in the format of <absolute_ref_to_workspace>:<apiexport>, "+
+			"e.g. root:compute:kubernetes is the kubernetes APIExport in root:compute workspace")
 	cmd.Flags().StringVar(&o.SyncerImage, "syncer-image", o.SyncerImage, "The syncer image to use in the syncer's deployment YAML. Images are published at https://github.com/kcp-dev/kcp/pkgs/container/kcp%2Fsyncer.")
 	cmd.Flags().IntVar(&o.Replicas, "replicas", o.Replicas, "Number of replicas of the syncer deployment.")
 	cmd.Flags().StringVar(&o.KCPNamespace, "kcp-namespace", o.KCPNamespace, "The name of the kcp namespace to create a service account in.")
