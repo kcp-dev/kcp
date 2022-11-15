@@ -100,13 +100,11 @@ func (s *REST) NamespaceScoped() bool {
 func (s *REST) List(ctx context.Context, options *metainternal.ListOptions) (runtime.Object, error) {
 	clusterName := ctx.Value(ClusterKey).(logicalcluster.Name)
 
-	ws := &tenancyv1beta1.WorkspaceList{}
 	v1Opts := metav1.ListOptions{}
 	if err := metainternal.Convert_internalversion_ListOptions_To_v1_ListOptions(options, &v1Opts, nil); err != nil {
 		return nil, err
 	}
-	var err error
-	ws, err = s.kcpClusterClient.Cluster(clusterName).TenancyV1beta1().Workspaces().List(ctx, v1Opts)
+	ws, err := s.kcpClusterClient.Cluster(clusterName).TenancyV1beta1().Workspaces().List(ctx, v1Opts)
 	if err != nil {
 		return nil, err
 	}
