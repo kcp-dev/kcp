@@ -18,16 +18,13 @@ package workspace
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"math/rand"
 	"net/url"
 	"path"
-	"strings"
 
 	"github.com/kcp-dev/logicalcluster/v2"
-	"github.com/martinlindhe/base36"
 
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -281,12 +278,4 @@ func (r *schedulingReconciler) createClusterRoleBindingForThisWorkspace(ctx cont
 
 func isValidShard(_ *tenancyv1alpha1.ClusterWorkspaceShard) (valid bool, reason, message string) {
 	return true, "", ""
-}
-
-func randomClusterName() logicalcluster.Name {
-	token := make([]byte, 32)
-	rand.Read(token)
-	hash := sha256.Sum224(token)
-	base36hash := strings.ToLower(base36.EncodeBytes(hash[:]))
-	return logicalcluster.New(base36hash[:8])
 }
