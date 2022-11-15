@@ -23,22 +23,17 @@ import (
 	"github.com/martinlindhe/base36"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 )
 
 const (
-	byCurrentShard     = "byCurrentShard"
 	byBase36Sha224Name = "byBase36Sha224Name"
 	unschedulable      = "unschedulable"
 )
 
-func indexByCurrentShard(obj interface{}) ([]string, error) {
-	ws := obj.(*tenancyv1alpha1.ClusterWorkspace)
-	return []string{ws.Status.Location.Current}, nil
-}
-
 func indexUnschedulable(obj interface{}) ([]string, error) {
-	workspace := obj.(*tenancyv1alpha1.ClusterWorkspace)
+	workspace := obj.(*tenancyv1beta1.Workspace)
 	if conditions.IsFalse(workspace, tenancyv1alpha1.WorkspaceScheduled) && conditions.GetReason(workspace, tenancyv1alpha1.WorkspaceScheduled) == tenancyv1alpha1.WorkspaceReasonUnschedulable {
 		return []string{"true"}, nil
 	}

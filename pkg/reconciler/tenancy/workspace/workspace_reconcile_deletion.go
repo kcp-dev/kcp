@@ -18,6 +18,7 @@ package workspace
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
@@ -26,7 +27,7 @@ import (
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	"fmt"
+	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 )
 
 type deletionReconciler struct {
@@ -34,7 +35,7 @@ type deletionReconciler struct {
 	deleteThisWorkspace func(ctx context.Context, cluster logicalcluster.Name) error
 }
 
-func (r *deletionReconciler) reconcile(ctx context.Context, workspace *tenancyv1alpha1.ClusterWorkspace) (reconcileStatus, error) {
+func (r *deletionReconciler) reconcile(ctx context.Context, workspace *tenancyv1beta1.Workspace) (reconcileStatus, error) {
 	logger := klog.FromContext(ctx).WithValues("reconciler", "deletion")
 	logger = logger.WithValues("cluster", workspace.Status.Cluster)
 
@@ -59,7 +60,7 @@ func (r *deletionReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 		return reconcileStatusStopAndRequeue, err
 	}
 
-	// here we are waiting for the other shard to remove the finalizer of the ClusterWorkspace
+	// here we are waiting for the other shard to remove the finalizer of the Workspace
 
 	return reconcileStatusContinue, nil
 }
