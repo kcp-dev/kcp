@@ -80,7 +80,7 @@ func TestAPIBindingPermissionClaimCELValidation(t *testing.T) {
 		},
 	}
 
-	validators := apitest.ValidatorsFromFile(t, "../../../../config/crds/apis.kcp.dev_apibindings.yaml")
+	validators := apitest.FieldValidatorsFromFile(t, "../../../../config/crds/apis.kcp.dev_apibindings.yaml")
 
 	for _, tc := range testCases {
 		pth := "openAPIV3Schema.properties.spec.properties.reference"
