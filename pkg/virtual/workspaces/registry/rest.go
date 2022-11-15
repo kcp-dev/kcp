@@ -34,7 +34,7 @@ import (
 	"k8s.io/kubernetes/pkg/printers"
 	printerstorage "k8s.io/kubernetes/pkg/printers/storage"
 
-	clusterworkspaceadmission "github.com/kcp-dev/kcp/pkg/admission/clusterworkspace"
+	clusterworkspaceadmission "github.com/kcp-dev/kcp/pkg/admission/workspace"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/projection"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
@@ -174,7 +174,7 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 		},
 	}
 
-	ownerRaw, err := clusterworkspaceadmission.ClusterWorkspaceOwnerAnnotationValue(userInfo)
+	ownerRaw, err := clusterworkspaceadmission.WorkspaceOwnerAnnotationValue(userInfo)
 	if err != nil {
 		return nil, fmt.Errorf("error constructing workspace owner annotation from user info: %w", err)
 	}

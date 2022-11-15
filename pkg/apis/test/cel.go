@@ -18,6 +18,7 @@ package test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 
@@ -31,9 +32,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
-// ValidatorsFromFile extracts the CEL validators by version and JSONPath from a CRD file and returns
+// FieldValidatorsFromFile extracts the CEL validators by version and JSONPath from a CRD file and returns
 // a validator func for testing against samples.
-func ValidatorsFromFile(t *testing.T, crdFilePath string) (validatorsByVersionByJSONPath map[string]map[string]CELValidateFunc) {
+func FieldValidatorsFromFile(t *testing.T, crdFilePath string) (validatorsByVersionByJSONPath map[string]map[string]CELValidateFunc) {
 	data, err := os.ReadFile(crdFilePath)
 	require.NoError(t, err)
 
@@ -57,6 +58,42 @@ func ValidatorsFromFile(t *testing.T, crdFilePath string) (validatorsByVersionBy
 	return ret
 }
 
+// VersionValidatorsFromFile extracts the CEL validators by version from a CRD file and returns
+// a validator func for testing against samples.
+func VersionValidatorsFromFile(t *testing.T, crdFilePath string) map[string]CELValidateFunc {
+	data, err := os.ReadFile(crdFilePath)
+	require.NoError(t, err)
+
+	var crd apiextensionsv1.CustomResourceDefinition
+	err = yaml.Unmarshal(data, &crd)
+	require.NoError(t, err)
+
+	ret := map[string]CELValidateFunc{}
+	for _, v := range crd.Spec.Versions {
+		var internalSchema apiextensions.JSONSchemaProps
+		err := apiextensionsv1.Convert_v1_JSONSchemaProps_To_apiextensions_JSONSchemaProps(v.Schema.OpenAPIV3Schema, &internalSchema, nil)
+		require.NoError(t, err, "failed to convert JSONSchemaProps for version %s: %v", v.Name, err)
+		structuralSchema, err := schema.NewStructural(&internalSchema)
+		require.NoError(t, err, "failed to create StructuralSchema for version %s: %v", v.Name, err)
+		ret[v.Name] = func(obj, old interface{}) field.ErrorList {
+			errs, _ := cel.NewValidator(structuralSchema, cel.RuntimeCELCostBudget).Validate(context.TODO(), nil, structuralSchema, obj, old, cel.PerCallLimit)
+			return errs
+		}
+	}
+
+	return ret
+}
+
+// VersionValidatorFromFile extracts the CEL validators for a given version from a CRD file and returns
+// a validator func for testing against samples.
+func VersionValidatorFromFile(t *testing.T, crdFilePath string, version string) (CELValidateFunc, error) {
+	vals := VersionValidatorsFromFile(t, crdFilePath)
+	if val, ok := vals[version]; ok {
+		return val, nil
+	}
+	return nil, fmt.Errorf("version %s not found", version)
+}
+
 // CELValidateFunc tests a sample object against a CEL validator.
 type CELValidateFunc func(obj, old interface{}) field.ErrorList
 
@@ -67,7 +104,7 @@ func findCEL(t *testing.T, s *schema.Structural, pth *field.Path) (map[string]CE
 		s := *s
 		pth := *pth
 		ret[pth.String()] = func(obj, old interface{}) field.ErrorList {
-			errs, _ := cel.NewValidator(&s, 10000000).Validate(context.TODO(), &pth, &s, obj, old, 10000000)
+			errs, _ := cel.NewValidator(&s, cel.RuntimeCELCostBudget).Validate(context.TODO(), &pth, &s, obj, old, cel.PerCallLimit)
 			return errs
 		}
 	}

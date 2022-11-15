@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v221112-05936e27.workspaces.tenancy.kcp.dev
+  name: v221115-da4942f6.workspaces.tenancy.kcp.dev
 spec:
   group: tenancy.kcp.dev
   names:
@@ -67,6 +67,57 @@ spec:
           default: {}
           description: WorkspaceSpec holds the desired state of the ClusterWorkspace.
           properties:
+            shard:
+              description: "location constraints where this workspace can be scheduled
+                to. \n If the no location is specified, an arbitrary location is chosen."
+              properties:
+                selector:
+                  description: selector is a label selector that filters workspace
+                    scheduling targets.
+                  properties:
+                    matchExpressions:
+                      description: matchExpressions is a list of label selector requirements.
+                        The requirements are ANDed.
+                      items:
+                        description: A label selector requirement is a selector that
+                          contains values, a key, and an operator that relates the
+                          key and values.
+                        properties:
+                          key:
+                            description: key is the label key that the selector applies
+                              to.
+                            type: string
+                          operator:
+                            description: operator represents a key's relationship
+                              to a set of values. Valid operators are In, NotIn, Exists
+                              and DoesNotExist.
+                            type: string
+                          values:
+                            description: values is an array of string values. If the
+                              operator is In or NotIn, the values array must be non-empty.
+                              If the operator is Exists or DoesNotExist, the values
+                              array must be empty. This array is replaced during a
+                              strategic merge patch.
+                            items:
+                              type: string
+                            type: array
+                        required:
+                        - key
+                        - operator
+                        type: object
+                      type: array
+                    matchLabels:
+                      additionalProperties:
+                        type: string
+                      description: matchLabels is a map of {key,value} pairs. A single
+                        {key,value} in the matchLabels map is equivalent to an element
+                        of matchExpressions, whose key field is "key", the operator
+                        is "In", and the values array contains only "value". The requirements
+                        are ANDed.
+                      type: object
+                  type: object
+                  x-kubernetes-map-type: atomic
+              type: object
             type:
               description: "type defines properties of the workspace both on creation
                 (e.g. initial resources and initially installed APIs) and during runtime
@@ -99,6 +150,7 @@ spec:
               description: url is the address under which the Kubernetes-cluster-like
                 endpoint can be found. This URL can be used to access the workspace
                 with standard Kubernetes client libraries and command line tools.
+              minLength: 1
               type: string
             cluster:
               description: cluster is the name of the logical cluster this workspace
@@ -174,8 +226,10 @@ spec:
               type: string
           type: object
           x-kubernetes-validations:
-          - message: status.cluster is immutable
+          - message: cluster is immutable
             rule: '!has(oldSelf.cluster) || has(self.cluster)'
+          - message: URL cannot be unset
+            rule: '!has(oldSelf.URL) || has(self.URL)'
       required:
       - spec
       type: object

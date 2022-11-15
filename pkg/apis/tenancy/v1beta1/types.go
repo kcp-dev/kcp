@@ -89,13 +89,15 @@ type WorkspaceLocation struct {
 
 // WorkspaceStatus communicates the observed state of the Workspace.
 //
-// +kubebuilder:validation:XValidation:rule="!has(oldSelf.cluster) || has(self.cluster)",message="status.cluster is immutable"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.cluster) || has(self.cluster)",message="cluster is immutable"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.URL) || has(self.URL)",message="URL cannot be unset"
 type WorkspaceStatus struct {
 	// url is the address under which the Kubernetes-cluster-like endpoint
 	// can be found. This URL can be used to access the workspace with standard Kubernetes
 	// client libraries and command line tools.
 	//
 	// +kubebuilder:format:uri
+	// +kubebuilder:validation:MinLength=1
 	URL string `json:"URL,omitempty"`
 
 	// cluster is the name of the logical cluster this workspace is stored under.
