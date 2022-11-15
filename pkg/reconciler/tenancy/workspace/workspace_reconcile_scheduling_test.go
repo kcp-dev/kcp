@@ -28,15 +28,16 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	conditionsapi "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
 func TestSchedulingReconciler(t *testing.T) {
 	tests := []struct {
 		name       string
-		workspace  *tenancyv1alpha1.ClusterWorkspace
+		workspace  *tenancyv1beta1.Workspace
 		shards     []*tenancyv1alpha1.ClusterWorkspaceShard
-		want       *tenancyv1alpha1.ClusterWorkspace
+		want       *tenancyv1beta1.Workspace
 		wantStatus reconcileStatus
 		wantErr    bool
 	}{
@@ -268,31 +269,36 @@ func TestSchedulingReconciler(t *testing.T) {
 	}
 }
 
-func workspace() *tenancyv1alpha1.ClusterWorkspace {
-	return &tenancyv1alpha1.ClusterWorkspace{
+func workspace() *tenancyv1beta1.Workspace {
+	return &tenancyv1beta1.Workspace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "workspace",
 		},
 	}
 }
 
-func phase(phase tenancyv1alpha1.WorkspacePhaseType, shard *tenancyv1alpha1.ClusterWorkspace) *tenancyv1alpha1.ClusterWorkspace {
+func phase(phase tenancyv1alpha1.WorkspacePhaseType, shard *tenancyv1beta1.Workspace) *tenancyv1beta1.Workspace {
 	shard.Status.Phase = phase
 	return shard
 }
 
-func scheduled(shard string, baseURL string, ws *tenancyv1alpha1.ClusterWorkspace) *tenancyv1alpha1.ClusterWorkspace {
+/*
+func scheduled(shard string, url string, ws *tenancyv1beta1.Workspace) *tenancyv1beta1.Workspace {
 	ws.Status.Location.Current = shard
-	ws.Status.BaseURL = baseURL
+	ws.Status.URL = url
+	return ws
+}
+*/
+
+func constrained(constraints tenancyv1alpha1.ShardConstraints, ws *tenancyv1beta1.Workspace) *tenancyv1beta1.Workspace {
+	if ws.Spec.Location == nil {
+		ws.Spec.Location = &tenancyv1beta1.WorkspaceLocation{}
+	}
+	ws.Spec.Location.Selector = constraints.Selector
 	return ws
 }
 
-func constrained(constraints tenancyv1alpha1.ShardConstraints, ws *tenancyv1alpha1.ClusterWorkspace) *tenancyv1alpha1.ClusterWorkspace {
-	ws.Spec.Shard = &constraints
-	return ws
-}
-
-func withConditions(ws *tenancyv1alpha1.ClusterWorkspace, conditions ...conditionsapi.Condition) *tenancyv1alpha1.ClusterWorkspace {
+func withConditions(ws *tenancyv1beta1.Workspace, conditions ...conditionsapi.Condition) *tenancyv1beta1.Workspace {
 	ws.Status.Conditions = append(ws.Status.Conditions, conditions...)
 	return ws
 }
