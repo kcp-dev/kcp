@@ -29,6 +29,7 @@ import (
 	genericapifilters "k8s.io/apiserver/pkg/endpoints/filters"
 	genericfilters "k8s.io/apiserver/pkg/server/filters"
 	restclient "k8s.io/client-go/rest"
+	_ "k8s.io/component-base/metrics/prometheus/workqueue"
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -36,6 +37,7 @@ import (
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	frontproxyfilters "github.com/kcp-dev/kcp/pkg/proxy/filters"
 	"github.com/kcp-dev/kcp/pkg/proxy/index"
+	"github.com/kcp-dev/kcp/pkg/proxy/metrics"
 	"github.com/kcp-dev/kcp/pkg/server"
 	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
 )
@@ -73,6 +75,7 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	)
 
 	s.Handler, err = NewHandler(ctx, s.CompletedConfig.Options, s.IndexController)
+
 	if err != nil {
 		return s, err
 	}
@@ -120,6 +123,7 @@ func (s preparedServer) Run(ctx context.Context) error {
 	s.Handler = server.WithInClusterServiceAccountRequestRewrite(s.Handler)
 	s.Handler = genericapifilters.WithRequestInfo(s.Handler, requestInfoFactory)
 	s.Handler = genericfilters.WithHTTPLogging(s.Handler)
+	s.Handler = metrics.WithLatencyTracking(s.Handler)
 	s.Handler = genericfilters.WithPanicRecovery(s.Handler, requestInfoFactory)
 	doneCh, _, err := s.CompletedConfig.ServingInfo.Serve(s.Handler, time.Second*60, ctx.Done())
 	if err != nil {
