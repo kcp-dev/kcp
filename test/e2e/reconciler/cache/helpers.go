@@ -19,7 +19,6 @@ package cache
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -94,7 +93,7 @@ func StartStandaloneCacheServer(ctx context.Context, t *testing.T, dataDir strin
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "Waiting for the cache server's certificate file at %s", cacheServerCertificatePath)
 
 	t.Logf("Creating kubeconfig for the cache server at %s", dataDir)
-	cacheServerCert, err := ioutil.ReadFile(cacheServerCertificatePath)
+	cacheServerCert, err := os.ReadFile(cacheServerCertificatePath)
 	require.NoError(t, err)
 	cacheServerKubeConfig := clientcmdapi.Config{
 		Clusters: map[string]*clientcmdapi.Cluster{
@@ -133,7 +132,7 @@ func CacheClientRoundTrippersFor(cfg *rest.Config) *rest.Config {
 	cacheClientRT := cacheclient.WithCacheServiceRoundTripper(rest.CopyConfig(cfg))
 	cacheClientRT = cacheclient.WithShardNameFromContextRoundTripper(cacheClientRT)
 	cacheClientRT = cacheclient.WithDefaultShardRoundTripper(cacheClientRT, shard.Wildcard)
-	rt.ContentConfig.ContentType = "application/json"
+	cacheClientRT.ContentConfig.ContentType = "application/json"
 	return cacheClientRT
 }
 
