@@ -149,7 +149,7 @@ func TestAPIExportPermissionClaimCELValidation(t *testing.T) {
 		},
 	}
 
-	validators := apitest.ValidatorsFromFile(t, "../../../../config/crds/apis.kcp.dev_apiexports.yaml")
+	validators := apitest.FieldValidatorsFromFile(t, "../../../../config/crds/apis.kcp.dev_apiexports.yaml")
 
 	for _, tc := range testCases {
 		pth := "openAPIV3Schema.properties.spec.properties.permissionClaims.items"
@@ -214,7 +214,7 @@ func TestResourceSelectorCELValidation(t *testing.T) {
 		},
 	}
 
-	validators := apitest.ValidatorsFromFile(t, "../../../../config/crds/apis.kcp.dev_apiexports.yaml")
+	validators := apitest.FieldValidatorsFromFile(t, "../../../../config/crds/apis.kcp.dev_apiexports.yaml")
 
 	for _, tc := range testCases {
 		pth := "openAPIV3Schema.properties.spec.properties.permissionClaims.items.properties.resourceSelector.items"
