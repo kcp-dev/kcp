@@ -106,6 +106,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.VirtualWorkspace":                         schema_pkg_apis_tenancy_v1alpha1_VirtualWorkspace(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.Workspace":                                 schema_pkg_apis_tenancy_v1beta1_Workspace(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.WorkspaceList":                             schema_pkg_apis_tenancy_v1beta1_WorkspaceList(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.WorkspaceLocation":                         schema_pkg_apis_tenancy_v1beta1_WorkspaceLocation(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.WorkspaceSpec":                             schema_pkg_apis_tenancy_v1beta1_WorkspaceSpec(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.WorkspaceStatus":                           schema_pkg_apis_tenancy_v1beta1_WorkspaceStatus(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition": schema_conditions_apis_conditions_v1alpha1_Condition(ref),
@@ -2862,7 +2863,8 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceShardSpec(ref common.Refer
 				Properties: map[string]spec.Schema{
 					"baseURL": {
 						SchemaProps: spec.SchemaProps{
-							Description: "baseURL is the address of the KCP shard for direct connections, e.g. by some front-proxy doing the fan-out to the shards.\n\nThis will be defaulted to the shard's external address if not specified. Note that this is only sensible in single-shards setups.",
+							Description: "baseURL is the address of the KCP shard for direct connections, e.g. by some front-proxy doing the fan-out to the shards.",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -2870,20 +2872,19 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceShardSpec(ref common.Refer
 					"externalURL": {
 						SchemaProps: spec.SchemaProps{
 							Description: "externalURL is the externally visible address presented to users in Workspace URLs. Changing this will break all existing workspaces on that shard, i.e. existing kubeconfigs of clients will be invalid. Hence, when changing this value, the old URL used by clients must keep working.\n\nThe external address will not be unique if a front-proxy does a fan-out to shards, but all workspace client will talk to the front-proxy. In that case, put the address of the front-proxy here.\n\nNote that movement of shards is only possible (in the future) between shards that share a common external URL.\n\nThis will be defaulted to the value of the baseURL.",
-							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"virtualWorkspaceURL": {
 						SchemaProps: spec.SchemaProps{
-							Description: "virtualWorkspaceURL is the address of the virtual workspace server associated with this shard. It can be a direct address, an address of a front-proxy or even an address of an LB. As of today this address is assigned to APIExports.\n\nThis will be defaulted to the shard's base address if not specified.",
+							Description: "virtualWorkspaceURL is the address of the virtual workspace server associated with this shard. It can be a direct address, an address of a front-proxy or even an address of an LB. As of today this address is assigned to APIExports.\n\nThis will be defaulted to the value of the baseURL.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 				},
-				Required: []string{"externalURL"},
+				Required: []string{"baseURL"},
 			},
 		},
 	}
@@ -2976,7 +2977,7 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceStatus(ref common.Referenc
 				Properties: map[string]spec.Schema{
 					"phase": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Phase of the workspace  (Scheduling / Initializing / Ready)",
+							Description: "Phase of the workspace (Scheduling / Initializing / Ready)",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -2998,6 +2999,13 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceStatus(ref common.Referenc
 					"baseURL": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Base URL where this ClusterWorkspace can be targeted. This will generally be of the form: https://<workspace shard server>/cluster/<workspace name>. But a workspace could also be targetable by a unique hostname in the future.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"cluster": {
+						SchemaProps: spec.SchemaProps{
+							Description: "cluster is the name of the logical cluster this workspace is stored under.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3549,6 +3557,13 @@ func schema_pkg_apis_tenancy_v1alpha1_ThisWorkspaceSpec(ref common.ReferenceCall
 							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference"),
 						},
 					},
+					"directlyDeletable": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DirectlyDeletable indicates that this workspace can be directly deleted by the user from within the workspace.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"owner": {
 						SchemaProps: spec.SchemaProps{
 							Description: "owner is a reference to a resource controlling the life-cycle of this workspace. On deletion of the ThisWorkspace, the finalizer tenancy.kcp.dev/thisworkspace is removed from the owner.\n\nWhen this object is deleted, but the owner is not deleted, the owner is deleted too.",
@@ -3579,7 +3594,7 @@ func schema_pkg_apis_tenancy_v1alpha1_ThisWorkspaceStatus(ref common.ReferenceCa
 					},
 					"phase": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Phase of the workspace (Scheduling, Initializing, Ready).",
+							Description: "Phase of the workspace (Initializing, Ready).",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3739,6 +3754,26 @@ func schema_pkg_apis_tenancy_v1beta1_WorkspaceList(ref common.ReferenceCallback)
 	}
 }
 
+func schema_pkg_apis_tenancy_v1beta1_WorkspaceLocation(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"selector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "selector is a label selector that filters workspace scheduling targets.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
+	}
+}
+
 func schema_pkg_apis_tenancy_v1beta1_WorkspaceSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -3753,11 +3788,17 @@ func schema_pkg_apis_tenancy_v1beta1_WorkspaceSpec(ref common.ReferenceCallback)
 							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference"),
 						},
 					},
+					"shard": {
+						SchemaProps: spec.SchemaProps{
+							Description: "location constraints where this workspace can be scheduled to.\n\nIf the no location is specified, an arbitrary location is chosen.",
+							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.WorkspaceLocation"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference"},
+			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference", "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.WorkspaceLocation"},
 	}
 }
 
@@ -3771,6 +3812,13 @@ func schema_pkg_apis_tenancy_v1beta1_WorkspaceStatus(ref common.ReferenceCallbac
 					"URL": {
 						SchemaProps: spec.SchemaProps{
 							Description: "url is the address under which the Kubernetes-cluster-like endpoint can be found. This URL can be used to access the workspace with standard Kubernetes client libraries and command line tools.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"cluster": {
+						SchemaProps: spec.SchemaProps{
+							Description: "cluster is the name of the logical cluster this workspace is stored under.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

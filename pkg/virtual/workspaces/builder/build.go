@@ -18,7 +18,6 @@ package builder
 
 import (
 	"context"
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"strings"
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
@@ -34,6 +33,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpopenapi "github.com/kcp-dev/kcp/pkg/openapi"

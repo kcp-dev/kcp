@@ -43,8 +43,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/admission/apibindingfinalizer"
 	"github.com/kcp-dev/kcp/pkg/admission/apiexport"
 	"github.com/kcp-dev/kcp/pkg/admission/apiresourceschema"
-	"github.com/kcp-dev/kcp/pkg/admission/workspace"
-	"github.com/kcp-dev/kcp/pkg/admission/thisworkspacefinalizer"
 	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspaceshard"
 	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspacetype"
 	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspacetypeexists"
@@ -59,7 +57,9 @@ import (
 	"github.com/kcp-dev/kcp/pkg/admission/reservedmetadata"
 	"github.com/kcp-dev/kcp/pkg/admission/reservednames"
 	"github.com/kcp-dev/kcp/pkg/admission/thisworkspace"
+	"github.com/kcp-dev/kcp/pkg/admission/thisworkspacefinalizer"
 	kcpvalidatingwebhook "github.com/kcp-dev/kcp/pkg/admission/validatingwebhook"
+	"github.com/kcp-dev/kcp/pkg/admission/workspace"
 )
 
 // AllOrderedPlugins is the list of all the plugins in order.
