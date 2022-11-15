@@ -42,10 +42,10 @@ const (
 )
 
 type reconciler interface {
-	reconcile(ctx context.Context, workspace *tenancyv1alpha1.ClusterWorkspace) (reconcileStatus, error)
+	reconcile(ctx context.Context, workspace *tenancyv1beta1.Workspace) (reconcileStatus, error)
 }
 
-func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1alpha1.ClusterWorkspace) (bool, error) {
+func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1beta1.Workspace) (bool, error) {
 	getShardByName := func(hash string) (*tenancyv1alpha1.ClusterWorkspaceShard, error) {
 		shards, err := c.clusterWorkspaceShardIndexer.ByIndex(byBase36Sha224Name, hash)
 		if err != nil {
@@ -106,25 +106,8 @@ func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1alpha1.ClusterW
 			getThisWorkspace: func(ctx context.Context, cluster logicalcluster.Name) (*tenancyv1alpha1.ThisWorkspace, error) {
 				return c.kcpExternalClient.Cluster(cluster).TenancyV1alpha1().ThisWorkspaces().Get(ctx, tenancyv1alpha1.ThisWorkspaceName, metav1.GetOptions{})
 			},
-			requeueAfter: func(workspace *tenancyv1alpha1.ClusterWorkspace, after time.Duration) {
+			requeueAfter: func(workspace *tenancyv1beta1.Workspace, after time.Duration) {
 				c.queue.AddAfter(client.ToClusterAwareKey(logicalcluster.From(workspace), workspace.Name), after)
-			},
-		},
-		&workspaceReconciler{
-			getWorkspace: func(clusterName logicalcluster.Name, name string) (*tenancyv1beta1.Workspace, error) {
-				return c.workspaceLister.Get(client.ToClusterAwareKey(clusterName, name))
-			},
-			deleteWorkspaceWithoutProjection: func(ctx context.Context, clusterName logicalcluster.Name, name string) error {
-				return c.kcpClusterClient.TenancyV1beta1().Workspaces().Delete(logicalcluster.WithCluster(ctx, clusterName), name, metav1.DeleteOptions{})
-			},
-			createWorkspaceWithoutProjection: func(ctx context.Context, clusterName logicalcluster.Name, workspace *tenancyv1beta1.Workspace) (*tenancyv1beta1.Workspace, error) {
-				return c.kcpClusterClient.TenancyV1beta1().Workspaces().Create(logicalcluster.WithCluster(ctx, clusterName), workspace, metav1.CreateOptions{})
-			},
-			updateWorkspaceWithoutProjection: func(ctx context.Context, clusterName logicalcluster.Name, workspace *tenancyv1beta1.Workspace) (*tenancyv1beta1.Workspace, error) {
-				return c.kcpClusterClient.TenancyV1beta1().Workspaces().Update(logicalcluster.WithCluster(ctx, clusterName), workspace, metav1.UpdateOptions{})
-			},
-			updateWorkspaceStatusWithoutProjection: func(ctx context.Context, clusterName logicalcluster.Name, this *tenancyv1beta1.Workspace) (*tenancyv1beta1.Workspace, error) {
-				return c.kcpClusterClient.TenancyV1beta1().Workspaces().UpdateStatus(logicalcluster.WithCluster(ctx, clusterName), this, metav1.UpdateOptions{})
 			},
 		},
 	}
