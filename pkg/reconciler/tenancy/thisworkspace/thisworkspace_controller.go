@@ -18,19 +18,12 @@ package thisworkspace
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
-	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/google/go-cmp/cmp"
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
-	"github.com/kcp-dev/logicalcluster/v2"
 
-	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -150,73 +143,6 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	}
 	c.queue.Forget(key)
 	return true
-}
-
-func (c *Controller) patchIfNeeded(ctx context.Context, old, obj *tenancyv1alpha1.ClusterWorkspace) error {
-	logger := klog.FromContext(ctx)
-	specOrObjectMetaChanged := !equality.Semantic.DeepEqual(old.Spec, obj.Spec) || !equality.Semantic.DeepEqual(old.ObjectMeta, obj.ObjectMeta)
-	statusChanged := !equality.Semantic.DeepEqual(old.Status, obj.Status)
-
-	if !specOrObjectMetaChanged && !statusChanged {
-		return nil
-	}
-
-	forPatch := func(apiExport *tenancyv1alpha1.ClusterWorkspace) tenancyv1alpha1.ClusterWorkspace {
-		var ret tenancyv1alpha1.ClusterWorkspace
-		if specOrObjectMetaChanged {
-			ret.ObjectMeta = apiExport.ObjectMeta
-			ret.Spec = apiExport.Spec
-		} else {
-			ret.Status = apiExport.Status
-		}
-		return ret
-	}
-
-	clusterName := logicalcluster.From(old)
-	name := old.Name
-
-	oldForPatch := forPatch(old)
-	// to ensure they appear in the patch as preconditions
-	oldForPatch.UID = ""
-	oldForPatch.ResourceVersion = ""
-
-	oldData, err := json.Marshal(oldForPatch)
-	if err != nil {
-		return fmt.Errorf("failed to Marshal old data for ClusterWorkspace %s|%s: %w", clusterName, name, err)
-	}
-
-	newForPatch := forPatch(obj)
-	// to ensure they appear in the patch as preconditions
-	newForPatch.UID = old.UID
-	newForPatch.ResourceVersion = old.ResourceVersion
-
-	newData, err := json.Marshal(newForPatch)
-	if err != nil {
-		return fmt.Errorf("failed to Marshal new data for ClusterWorkspace %s|%s: %w", clusterName, name, err)
-	}
-
-	patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
-	if err != nil {
-		return fmt.Errorf("failed to create patch for ClusterWorkspace %s|%s: %w", clusterName, name, err)
-	}
-
-	var subresources []string
-	if statusChanged {
-		subresources = []string{"status"}
-	}
-
-	logger.WithValues("patch", string(patchBytes)).V(2).Info("patching ClusterWorkspace")
-	_, err = c.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Patch(logicalcluster.WithCluster(ctx, clusterName), obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, subresources...)
-	if err != nil {
-		return fmt.Errorf("failed to patch ClusterWorkspace %s|%s: %w", clusterName, name, err)
-	}
-
-	if specOrObjectMetaChanged && statusChanged {
-		// enqueue again to take care of the spec change, assuming the patch did nothing
-		return fmt.Errorf("programmer error: spec and status changed in same reconcile iteration:\n%s", cmp.Diff(old, obj))
-	}
-
-	return nil
 }
 
 func (c *Controller) process(ctx context.Context, key string) (bool, error) {
