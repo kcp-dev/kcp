@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package clusterworkspace
+package workspace
 
 import (
 	"context"
@@ -33,20 +33,21 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/admission/helpers"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 )
 
-func createAttr(ws *tenancyv1alpha1.ClusterWorkspace) admission.Attributes {
+func createAttr(ws *tenancyv1beta1.Workspace) admission.Attributes {
 	return createAttrWithUser(ws, &user.DefaultInfo{})
 }
 
-func createAttrWithUser(ws *tenancyv1alpha1.ClusterWorkspace, info user.Info) admission.Attributes {
+func createAttrWithUser(ws *tenancyv1beta1.Workspace, info user.Info) admission.Attributes {
 	return admission.NewAttributesRecord(
 		helpers.ToUnstructuredOrDie(ws),
 		nil,
-		tenancyv1alpha1.Kind("ClusterWorkspace").WithVersion("v1alpha1"),
+		tenancyv1beta1.Kind("Workspace").WithVersion("v1beta1"),
 		"",
 		ws.Name,
-		tenancyv1alpha1.Resource("clusterworkspaces").WithVersion("v1alpha1"),
+		tenancyv1beta1.Resource("workspaces").WithVersion("v1beta1"),
 		"",
 		admission.Create,
 		&metav1.CreateOptions{},
@@ -55,14 +56,14 @@ func createAttrWithUser(ws *tenancyv1alpha1.ClusterWorkspace, info user.Info) ad
 	)
 }
 
-func updateAttr(ws, old *tenancyv1alpha1.ClusterWorkspace) admission.Attributes {
+func updateAttr(ws, old *tenancyv1beta1.Workspace) admission.Attributes {
 	return admission.NewAttributesRecord(
 		helpers.ToUnstructuredOrDie(ws),
 		helpers.ToUnstructuredOrDie(old),
-		tenancyv1alpha1.Kind("ClusterWorkspace").WithVersion("v1alpha1"),
+		tenancyv1beta1.Kind("Workspace").WithVersion("v1beta1"),
 		"",
 		ws.Name,
-		tenancyv1alpha1.Resource("clusterworkspaces").WithVersion("v1alpha1"),
+		tenancyv1beta1.Resource("workspaces").WithVersion("v1beta1"),
 		"",
 		admission.Update,
 		&metav1.CreateOptions{},
@@ -75,7 +76,6 @@ func TestAdmit(t *testing.T) {
 	tests := []struct {
 		name        string
 		types       []*tenancyv1alpha1.ClusterWorkspaceType
-		workspaces  []*tenancyv1alpha1.ClusterWorkspace
 		clusterName logicalcluster.Name
 		a           admission.Attributes
 		expectedObj runtime.Object
@@ -87,11 +87,11 @@ func TestAdmit(t *testing.T) {
 				newType("root:org:foo").ClusterWorkspaceType,
 			},
 			clusterName: logicalcluster.New("root:org:ws"),
-			a: createAttrWithUser(&tenancyv1alpha1.ClusterWorkspace{
+			a: createAttrWithUser(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 				},
-				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+				Spec: tenancyv1beta1.WorkspaceSpec{
 					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 						Name: "foo",
 						Path: "root:org",
@@ -105,14 +105,14 @@ func TestAdmit(t *testing.T) {
 					"one": {"1", "01"},
 				},
 			}),
-			expectedObj: &tenancyv1alpha1.ClusterWorkspace{
+			expectedObj: &tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					Annotations: map[string]string{
 						"experimental.tenancy.kcp.dev/owner": `{"username":"someone","uid":"id","groups":["a","b"],"extra":{"one":["1","01"]}}`,
 					},
 				},
-				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+				Spec: tenancyv1beta1.WorkspaceSpec{
 					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 						Name: "foo",
 						Path: "root:org",
@@ -122,14 +122,14 @@ func TestAdmit(t *testing.T) {
 		},
 		{
 			name: "keep user information on create when system:masters",
-			a: createAttrWithUser(&tenancyv1alpha1.ClusterWorkspace{
+			a: createAttrWithUser(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					Annotations: map[string]string{
 						"experimental.tenancy.kcp.dev/owner": `{"username":"someoneelse","uid":"otherid","groups":["c","d"],"extra":{"two":["2","02"]}}`,
 					},
 				},
-				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+				Spec: tenancyv1beta1.WorkspaceSpec{
 					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 						Name: "Foo",
 						Path: "root:org",
@@ -143,14 +143,14 @@ func TestAdmit(t *testing.T) {
 					"one": {"1", "01"},
 				},
 			}),
-			expectedObj: &tenancyv1alpha1.ClusterWorkspace{
+			expectedObj: &tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					Annotations: map[string]string{
 						"experimental.tenancy.kcp.dev/owner": `{"username":"someoneelse","uid":"otherid","groups":["c","d"],"extra":{"two":["2","02"]}}`,
 					},
 				},
-				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+				Spec: tenancyv1beta1.WorkspaceSpec{
 					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 						Name: "Foo",
 						Path: "root:org",
@@ -160,14 +160,14 @@ func TestAdmit(t *testing.T) {
 		},
 		{
 			name: "override user information on create when not system:masters",
-			a: createAttrWithUser(&tenancyv1alpha1.ClusterWorkspace{
+			a: createAttrWithUser(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					Annotations: map[string]string{
 						"experimental.tenancy.kcp.dev/owner": `{"username":"someoneelse","uid":"otherid","groups":["c","d"],"extra":{"two":["2","02"]}}`,
 					},
 				},
-				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+				Spec: tenancyv1beta1.WorkspaceSpec{
 					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 						Name: "Foo",
 						Path: "root:org",
@@ -181,14 +181,14 @@ func TestAdmit(t *testing.T) {
 					"one": {"1", "01"},
 				},
 			}),
-			expectedObj: &tenancyv1alpha1.ClusterWorkspace{
+			expectedObj: &tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					Annotations: map[string]string{
 						"experimental.tenancy.kcp.dev/owner": `{"username":"someone","uid":"id","groups":["a","b"],"extra":{"one":["1","01"]}}`,
 					},
 				},
-				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+				Spec: tenancyv1beta1.WorkspaceSpec{
 					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 						Name: "Foo",
 						Path: "root:org",
@@ -199,7 +199,7 @@ func TestAdmit(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			o := &clusterWorkspace{
+			o := &workspace{
 				Handler: admission.NewHandler(admission.Create, admission.Update),
 			}
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: tt.clusterName})
@@ -225,24 +225,24 @@ func TestValidate(t *testing.T) {
 	}{
 		{
 			name: "rejects type mutations",
-			a: updateAttr(&tenancyv1alpha1.ClusterWorkspace{
+			a: updateAttr(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "test",
 					Annotations: map[string]string{"experimental.tenancy.kcp.dev/owner": "{}"},
 				},
-				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+				Spec: tenancyv1beta1.WorkspaceSpec{
 					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 						Name: "foo",
 						Path: "root:org",
 					},
 				},
 			},
-				&tenancyv1alpha1.ClusterWorkspace{
+				&tenancyv1beta1.Workspace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "test",
 						Annotations: map[string]string{"experimental.tenancy.kcp.dev/owner": "{}"},
 					},
-					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+					Spec: tenancyv1beta1.WorkspaceSpec{
 						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 							Name: "universal",
 							Path: "root:org",
@@ -252,106 +252,68 @@ func TestValidate(t *testing.T) {
 			expectedErrors: []string{"field is immutable"},
 		},
 		{
-			name: "rejects unsetting location",
-			a: updateAttr(&tenancyv1alpha1.ClusterWorkspace{
+			name: "rejects unsetting cluster",
+			a: updateAttr(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "test",
 					Annotations: map[string]string{"experimental.tenancy.kcp.dev/owner": "{}"},
 				},
-				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+				Spec: tenancyv1beta1.WorkspaceSpec{
 					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 						Name: "foo",
 						Path: "root:org",
 					},
 				},
-				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
-					Location: tenancyv1alpha1.ClusterWorkspaceLocation{
-						Current: "",
-					},
-				}},
-				&tenancyv1alpha1.ClusterWorkspace{
+				Status: tenancyv1beta1.WorkspaceStatus{}},
+				&tenancyv1beta1.Workspace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "test",
 						Annotations: map[string]string{"experimental.tenancy.kcp.dev/owner": "{}"},
 					},
-					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+					Spec: tenancyv1beta1.WorkspaceSpec{
 						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 							Name: "foo",
 							Path: "root:org",
 						},
 					},
-					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
-						Location: tenancyv1alpha1.ClusterWorkspaceLocation{
-							Current: "cluster",
-						},
+					Status: tenancyv1beta1.WorkspaceStatus{
+						Cluster: "somewhere",
 					},
 				}),
-			expectedErrors: []string{"status.location.current cannot be unset"},
-		},
-		{
-			name: "rejects unsetting baseURL",
-			a: updateAttr(&tenancyv1alpha1.ClusterWorkspace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test",
-					Annotations: map[string]string{"experimental.tenancy.kcp.dev/owner": "{}"},
-				},
-				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-						Name: "foo",
-						Path: "root:org",
-					},
-				},
-				Status: tenancyv1alpha1.ClusterWorkspaceStatus{},
-			},
-				&tenancyv1alpha1.ClusterWorkspace{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:        "test",
-						Annotations: map[string]string{"experimental.tenancy.kcp.dev/owner": "{}"},
-					},
-					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							Name: "foo",
-							Path: "root:org",
-						},
-					},
-					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
-						BaseURL: "https://cluster/clsuters/test",
-					},
-				}),
-			expectedErrors: []string{"status.baseURL cannot be unset"},
+			expectedErrors: []string{"status.cluster cannot be unset"},
 		},
 		{
 			name: "rejects transition from Initializing with non-empty initializers",
-			a: updateAttr(&tenancyv1alpha1.ClusterWorkspace{
+			a: updateAttr(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "test",
 					Annotations: map[string]string{"experimental.tenancy.kcp.dev/owner": "{}"},
 				},
-				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+				Spec: tenancyv1beta1.WorkspaceSpec{
 					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 						Name: "foo",
 						Path: "root:org",
 					},
 				},
-				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
+				Status: tenancyv1beta1.WorkspaceStatus{
 					Phase:        tenancyv1alpha1.WorkspacePhaseReady,
 					Initializers: []tenancyv1alpha1.WorkspaceInitializer{"a"},
-					Location:     tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
-					BaseURL:      "https://kcp.bigcorp.com/clusters/org:test",
+					Cluster:      "somewhere",
+					URL:          "https://kcp.bigcorp.com/clusters/org:test",
 				},
 			},
-				&tenancyv1alpha1.ClusterWorkspace{
+				&tenancyv1beta1.Workspace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "test",
 						Annotations: map[string]string{"experimental.tenancy.kcp.dev/owner": "{}"},
 					},
-					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+					Spec: tenancyv1beta1.WorkspaceSpec{
 						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 							Name: "foo",
 							Path: "root:org",
 						},
 					},
-					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
+					Status: tenancyv1beta1.WorkspaceStatus{
 						Phase:        tenancyv1alpha1.WorkspacePhaseInitializing,
 						Initializers: []tenancyv1alpha1.WorkspaceInitializer{"a"},
 					},
@@ -360,75 +322,75 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "allows transition from Initializing with empty initializers",
-			a: updateAttr(&tenancyv1alpha1.ClusterWorkspace{
+			a: updateAttr(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "test",
 					Annotations: map[string]string{"experimental.tenancy.kcp.dev/owner": "{}"},
 				},
-				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+				Spec: tenancyv1beta1.WorkspaceSpec{
 					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 						Name: "foo",
 						Path: "root:org",
 					},
 				},
-				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
+				Status: tenancyv1beta1.WorkspaceStatus{
 					Phase:        tenancyv1alpha1.WorkspacePhaseReady,
 					Initializers: []tenancyv1alpha1.WorkspaceInitializer{},
-					Location:     tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
-					BaseURL:      "https://kcp.bigcorp.com/clusters/org:test",
+					Cluster:      "somewhere",
+					URL:          "https://kcp.bigcorp.com/clusters/org:test",
 				},
 			},
-				&tenancyv1alpha1.ClusterWorkspace{
+				&tenancyv1beta1.Workspace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "test",
 						Annotations: map[string]string{"experimental.tenancy.kcp.dev/owner": "{}"},
 					},
-					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+					Spec: tenancyv1beta1.WorkspaceSpec{
 						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 							Name: "foo",
 							Path: "root:org",
 						},
 					},
-					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
+					Status: tenancyv1beta1.WorkspaceStatus{
 						Phase:        tenancyv1alpha1.WorkspacePhaseInitializing,
 						Initializers: []tenancyv1alpha1.WorkspaceInitializer{"a"},
-						Location:     tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
-						BaseURL:      "https://kcp.bigcorp.com/clusters/org:test",
+						Cluster:      "somewhere",
+						URL:          "https://kcp.bigcorp.com/clusters/org:test",
 					},
 				}),
 		},
 		{
 			name: "allows transition to ready directly when valid",
-			a: updateAttr(&tenancyv1alpha1.ClusterWorkspace{
+			a: updateAttr(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "test",
 					Annotations: map[string]string{"experimental.tenancy.kcp.dev/owner": "{}"},
 				},
-				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+				Spec: tenancyv1beta1.WorkspaceSpec{
 					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 						Name: "foo",
 						Path: "root:org",
 					},
 				},
-				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
+				Status: tenancyv1beta1.WorkspaceStatus{
 					Phase:        tenancyv1alpha1.WorkspacePhaseReady,
 					Initializers: []tenancyv1alpha1.WorkspaceInitializer{},
-					Location:     tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
-					BaseURL:      "https://kcp.bigcorp.com/clusters/org:test",
+					Cluster:      "somewhere",
+					URL:          "https://kcp.bigcorp.com/clusters/org:test",
 				},
 			},
-				&tenancyv1alpha1.ClusterWorkspace{
+				&tenancyv1beta1.Workspace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "test",
 						Annotations: map[string]string{"experimental.tenancy.kcp.dev/owner": "{}"},
 					},
-					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+					Spec: tenancyv1beta1.WorkspaceSpec{
 						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 							Name: "foo",
 							Path: "root:org",
 						},
 					},
-					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
+					Status: tenancyv1beta1.WorkspaceStatus{
 						Phase:        tenancyv1alpha1.WorkspacePhaseScheduling,
 						Initializers: []tenancyv1alpha1.WorkspaceInitializer{"a"},
 					},
@@ -436,98 +398,98 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "allows creation to ready directly when valid",
-			a: createAttr(&tenancyv1alpha1.ClusterWorkspace{
+			a: createAttr(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "test",
 					Annotations: map[string]string{"experimental.tenancy.kcp.dev/owner": "{}"},
 				},
-				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+				Spec: tenancyv1beta1.WorkspaceSpec{
 					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 						Name: "foo",
 						Path: "root:org",
 					},
 				},
-				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
+				Status: tenancyv1beta1.WorkspaceStatus{
 					Phase:        tenancyv1alpha1.WorkspacePhaseReady,
 					Initializers: []tenancyv1alpha1.WorkspaceInitializer{},
-					Location:     tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
-					BaseURL:      "https://kcp.bigcorp.com/clusters/org:test",
+					Cluster:      "somewhere",
+					URL:          "https://kcp.bigcorp.com/clusters/org:test",
 				},
 			}),
 		},
 		{
 			name: "rejects transition to ready directly when invalid",
-			a: updateAttr(&tenancyv1alpha1.ClusterWorkspace{
+			a: updateAttr(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "test",
 					Annotations: map[string]string{"experimental.tenancy.kcp.dev/owner": "{}"},
 				},
-				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+				Spec: tenancyv1beta1.WorkspaceSpec{
 					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 						Name: "foo",
 						Path: "root:org",
 					},
 				},
-				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
+				Status: tenancyv1beta1.WorkspaceStatus{
 					Phase:        tenancyv1alpha1.WorkspacePhaseReady,
 					Initializers: []tenancyv1alpha1.WorkspaceInitializer{},
-					Location:     tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
+					Cluster:      "somewhere",
 				},
 			},
-				&tenancyv1alpha1.ClusterWorkspace{
+				&tenancyv1beta1.Workspace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "test",
 						Annotations: map[string]string{"experimental.tenancy.kcp.dev/owner": "{}"},
 					},
-					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+					Spec: tenancyv1beta1.WorkspaceSpec{
 						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 							Name: "foo",
 							Path: "root:org",
 						},
 					},
-					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
+					Status: tenancyv1beta1.WorkspaceStatus{
 						Phase:        tenancyv1alpha1.WorkspacePhaseScheduling,
 						Initializers: []tenancyv1alpha1.WorkspaceInitializer{"a"},
 					},
 				}),
-			expectedErrors: []string{"status.baseURL must be set for phase Ready"},
+			expectedErrors: []string{"status.URL must be set for phase Ready"},
 		},
 		{
 			name: "rejects transition to previous phase",
-			a: updateAttr(&tenancyv1alpha1.ClusterWorkspace{
+			a: updateAttr(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "test",
 					Annotations: map[string]string{"experimental.tenancy.kcp.dev/owner": "{}"},
 				},
-				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+				Spec: tenancyv1beta1.WorkspaceSpec{
 					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 						Name: "foo",
 						Path: "root:org",
 					},
 				},
-				Status: tenancyv1alpha1.ClusterWorkspaceStatus{
+				Status: tenancyv1beta1.WorkspaceStatus{
 					Phase:        tenancyv1alpha1.WorkspacePhaseInitializing,
 					Initializers: []tenancyv1alpha1.WorkspaceInitializer{},
-					Location:     tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
-					BaseURL:      "https://kcp.bigcorp.com/clusters/org:test",
+					Cluster:      "somewhere",
+					URL:          "https://kcp.bigcorp.com/clusters/org:test",
 				},
 			},
-				&tenancyv1alpha1.ClusterWorkspace{
+				&tenancyv1beta1.Workspace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "test",
 						Annotations: map[string]string{"experimental.tenancy.kcp.dev/owner": "{}"},
 					},
-					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+					Spec: tenancyv1beta1.WorkspaceSpec{
 						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 							Name: "foo",
 							Path: "root:org",
 						},
 					},
-					Status: tenancyv1alpha1.ClusterWorkspaceStatus{
+					Status: tenancyv1beta1.WorkspaceStatus{
 						Phase:        tenancyv1alpha1.WorkspacePhaseReady,
 						Initializers: []tenancyv1alpha1.WorkspaceInitializer{},
-						Location:     tenancyv1alpha1.ClusterWorkspaceLocation{Current: "somewhere"},
-						BaseURL:      "https://kcp.bigcorp.com/clusters/org:test",
+						Cluster:      "somewhere",
+						URL:          "https://kcp.bigcorp.com/clusters/org:test",
 					},
 				}),
 			expectedErrors: []string{"cannot transition from \"Ready\" to \"Initializing\""},
@@ -555,12 +517,12 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "checks user information on create",
-			a: createAttrWithUser(&tenancyv1alpha1.ClusterWorkspace{
+			a: createAttrWithUser(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "test",
 					Annotations: map[string]string{"experimental.tenancy.kcp.dev/owner": "{}"},
 				},
-				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+				Spec: tenancyv1beta1.WorkspaceSpec{
 					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 						Name: "foo",
 						Path: "root:org",
@@ -578,14 +540,14 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "accept user information on create when system:masters",
-			a: createAttrWithUser(&tenancyv1alpha1.ClusterWorkspace{
+			a: createAttrWithUser(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					Annotations: map[string]string{
 						"experimental.tenancy.kcp.dev/owner": `{"username":"someoneelse","uid":"otherid","groups":["c","d"],"extra":{"two":["2","02"]}}`,
 					},
 				},
-				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+				Spec: tenancyv1beta1.WorkspaceSpec{
 					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 						Name: "Foo",
 						Path: "root:org",
@@ -602,14 +564,14 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "reject wrong user information on create when not system:masters",
-			a: createAttrWithUser(&tenancyv1alpha1.ClusterWorkspace{
+			a: createAttrWithUser(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					Annotations: map[string]string{
 						"experimental.tenancy.kcp.dev/owner": `{"username":"someoneelse","uid":"otherid","groups":["c","d"],"extra":{"two":["2","02"]}}`,
 					},
 				},
-				Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+				Spec: tenancyv1beta1.WorkspaceSpec{
 					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 						Name: "Foo",
 						Path: "root:org",
@@ -628,7 +590,7 @@ func TestValidate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			o := &clusterWorkspace{
+			o := &workspace{
 				Handler: admission.NewHandler(admission.Create, admission.Update),
 			}
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: logicalcluster.New("root:org")})

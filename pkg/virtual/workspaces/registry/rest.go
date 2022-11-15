@@ -34,7 +34,7 @@ import (
 	"k8s.io/kubernetes/pkg/printers"
 	printerstorage "k8s.io/kubernetes/pkg/printers/storage"
 
-	clusterworkspaceadmission "github.com/kcp-dev/kcp/pkg/admission/clusterworkspace"
+	clusterworkspaceadmission "github.com/kcp-dev/kcp/pkg/admission/workspace"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/projection"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
@@ -100,13 +100,11 @@ func (s *REST) NamespaceScoped() bool {
 func (s *REST) List(ctx context.Context, options *metainternal.ListOptions) (runtime.Object, error) {
 	clusterName := ctx.Value(ClusterKey).(logicalcluster.Name)
 
-	ws := &tenancyv1beta1.WorkspaceList{}
 	v1Opts := metav1.ListOptions{}
 	if err := metainternal.Convert_internalversion_ListOptions_To_v1_ListOptions(options, &v1Opts, nil); err != nil {
 		return nil, err
 	}
-	var err error
-	ws, err = s.kcpClusterClient.Cluster(clusterName).TenancyV1beta1().Workspaces().List(ctx, v1Opts)
+	ws, err := s.kcpClusterClient.Cluster(clusterName).TenancyV1beta1().Workspaces().List(ctx, v1Opts)
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +172,7 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 		},
 	}
 
-	ownerRaw, err := clusterworkspaceadmission.ClusterWorkspaceOwnerAnnotationValue(userInfo)
+	ownerRaw, err := clusterworkspaceadmission.WorkspaceOwnerAnnotationValue(userInfo)
 	if err != nil {
 		return nil, fmt.Errorf("error constructing workspace owner annotation from user info: %w", err)
 	}
