@@ -293,7 +293,7 @@ func scheduled(shard string, url string, ws *tenancyv1beta1.Workspace) *tenancyv
 */
 
 func constrained(constraints tenancyv1alpha1.ShardConstraints, ws *tenancyv1beta1.Workspace) *tenancyv1beta1.Workspace {
-	ws.Spec.Shard = &constraints
+	ws.Spec.Location.Selector = constraints.Selector
 	return ws
 }
 
