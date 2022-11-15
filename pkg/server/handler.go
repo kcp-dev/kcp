@@ -50,7 +50,6 @@ import (
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
-	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspace"
 )
 
 var (
@@ -104,11 +103,9 @@ func WithAuditAnnotation(handler http.Handler) http.HandlerFunc {
 	})
 }
 
-// WithWorkspaceProjection maps the personal virtual workspace "workspaces" resource into the cluster
-// workspace URL space. This means you can do `kubectl get workspaces` from an org workspace.
-func WithWorkspaceProjection(apiHandler http.Handler) http.HandlerFunc {
-	toRedirectPath := path.Join("/apis", tenancyv1beta1.SchemeGroupVersion.Group, tenancyv1beta1.SchemeGroupVersion.Version, "workspaces/")
-	getHomeWorkspaceRequestPath := path.Join(toRedirectPath, "~")
+// WithClusterWorkspaceProjection workspaces to clusterworkspaces
+func WithClusterWorkspaceProjection(apiHandler http.Handler) http.HandlerFunc {
+	toRedirectPath := path.Join("/apis", tenancyv1beta1.SchemeGroupVersion.Group, tenancyv1alpha1.SchemeGroupVersion.Version, "clusterworkspaces/")
 
 	return func(w http.ResponseWriter, req *http.Request) {
 		logger := klog.FromContext(req.Context())
@@ -118,28 +115,12 @@ func WithWorkspaceProjection(apiHandler http.Handler) http.HandlerFunc {
 			return
 		}
 
-		if cluster.Name == tenancyv1alpha1.RootCluster && req.URL.Path == getHomeWorkspaceRequestPath {
-			// Do not rewrite URL to point to the `workspaces` virtual workspace if we are in the special case
-			// of a `kubectl get workspace ~` request which returns the Home workspace definition of the
-			// current user.
-			// This special request is managed later in the handler chain by the home workspace handler.
-			apiHandler.ServeHTTP(w, req)
-			return
-		}
-
 		if !strings.HasPrefix(req.URL.Path, toRedirectPath) {
 			apiHandler.ServeHTTP(w, req)
 			return
 		}
 
-		// This is here temporarily while we transition to a real workspace resource.
-		comps := strings.SplitN(req.UserAgent(), "/", 2)
-		if strings.HasSuffix(req.UserAgent(), clusterworkspace.ControllerName) || comps[0] == "kcp-informers" {
-			apiHandler.ServeHTTP(w, req)
-			return
-		}
-
-		newPath := path.Join("/services/workspaces", cluster.Name.String(), req.URL.Path)
+		newPath := path.Join("/services/clusterworkspaces", cluster.Name.String(), req.URL.Path)
 		logger = logger.WithValues("from", path.Join(cluster.Name.Path(), req.URL.Path), "to", newPath)
 		logger.V(4).Info("rewriting path")
 		req.URL.Path = newPath

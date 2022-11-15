@@ -62,8 +62,8 @@ var _ rest.Scoper = &REST{}
 var _ rest.Creater = &REST{}
 var _ rest.GracefulDeleter = &REST{}
 
-// NewREST returns a RESTStorage object that will work against ClusterWorkspace resources in
-// org workspaces, projecting them to the Workspace type.
+// NewREST returns a RESTStorage object that will work against Workspace resources,
+// projecting them to the Workspace type.
 func NewREST(
 	kcpClusterClient kcpclientset.ClusterInterface,
 ) *REST {
@@ -98,39 +98,39 @@ func (s *REST) NamespaceScoped() bool {
 
 // List retrieves a list of Workspaces that match label.
 func (s *REST) List(ctx context.Context, options *metainternal.ListOptions) (runtime.Object, error) {
-	orgClusterName := ctx.Value(ClusterKey).(logicalcluster.Name)
+	clusterName := ctx.Value(ClusterKey).(logicalcluster.Name)
 
-	clusterWorkspaceList := &tenancyv1alpha1.ClusterWorkspaceList{}
+	ws := &tenancyv1beta1.WorkspaceList{}
 	v1Opts := metav1.ListOptions{}
 	if err := metainternal.Convert_internalversion_ListOptions_To_v1_ListOptions(options, &v1Opts, nil); err != nil {
 		return nil, err
 	}
 	var err error
-	clusterWorkspaceList, err = s.kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().List(ctx, v1Opts)
+	ws, err = s.kcpClusterClient.Cluster(clusterName).TenancyV1beta1().Workspaces().List(ctx, v1Opts)
 	if err != nil {
 		return nil, err
 	}
 
-	workspaceList := &tenancyv1beta1.WorkspaceList{
-		ListMeta: clusterWorkspaceList.ListMeta,
-		Items:    make([]tenancyv1beta1.Workspace, len(clusterWorkspaceList.Items)),
+	cws := &tenancyv1alpha1.ClusterWorkspaceList{
+		ListMeta: ws.ListMeta,
+		Items:    make([]tenancyv1alpha1.ClusterWorkspace, len(ws.Items)),
 	}
 
-	for i, cws := range clusterWorkspaceList.Items {
-		projection.ProjectClusterWorkspaceToWorkspace(&cws, &workspaceList.Items[i])
+	for i, w := range ws.Items {
+		projection.ProjectWorkspaceToClusterWorkspace(&w, &cws.Items[i])
 	}
 
-	return workspaceList, nil
+	return cws, nil
 }
 
 func (s *REST) Watch(ctx context.Context, options *metainternal.ListOptions) (watch.Interface, error) {
-	orgClusterName := ctx.Value(ClusterKey).(logicalcluster.Name)
+	clusterName := ctx.Value(ClusterKey).(logicalcluster.Name)
 
 	v1Opts := metav1.ListOptions{}
 	if err := metainternal.Convert_internalversion_ListOptions_To_v1_ListOptions(options, &v1Opts, nil); err != nil {
 		return nil, err
 	}
-	w, err := s.kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Watch(ctx, v1Opts)
+	w, err := s.kcpClusterClient.Cluster(clusterName).TenancyV1beta1().Workspaces().Watch(ctx, v1Opts)
 	if err != nil {
 		return nil, err
 	}
@@ -143,37 +143,34 @@ func (s *REST) Get(ctx context.Context, name string, options *metav1.GetOptions)
 	if options != nil {
 		opts = *options
 	}
-	orgClusterName := ctx.Value(ClusterKey).(logicalcluster.Name)
-	cws, err := s.kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, name, opts)
+	clusterName := ctx.Value(ClusterKey).(logicalcluster.Name)
+	ws, err := s.kcpClusterClient.Cluster(clusterName).TenancyV1beta1().Workspaces().Get(ctx, name, opts)
 	if err != nil {
 		return nil, err
 	}
 
-	var ws tenancyv1beta1.Workspace
-	projection.ProjectClusterWorkspaceToWorkspace(cws, &ws)
-	return &ws, nil
+	var cws tenancyv1alpha1.ClusterWorkspace
+	projection.ProjectWorkspaceToClusterWorkspace(ws, &cws)
+	return &cws, nil
 }
 
 // Create creates a new workspace.
-// The corresponding ClusterWorkspace resource is created in the underlying KCP server.
 func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation rest.ValidateObjectFunc, options *metav1.CreateOptions) (runtime.Object, error) {
-	workspace, isWorkspace := obj.(*tenancyv1beta1.Workspace)
+	cws, isWorkspace := obj.(*tenancyv1alpha1.ClusterWorkspace)
 	if !isWorkspace {
-		return nil, kerrors.NewInvalid(tenancyv1beta1.SchemeGroupVersion.WithKind("Workspace").GroupKind(), obj.GetObjectKind().GroupVersionKind().String(), []*field.Error{})
+		return nil, kerrors.NewInvalid(tenancyv1alpha1.SchemeGroupVersion.WithKind("ClusterWorkspace").GroupKind(), obj.GetObjectKind().GroupVersionKind().String(), []*field.Error{})
 	}
 
 	userInfo, ok := apirequest.UserFrom(ctx)
 	if !ok {
-		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("unable to create a workspace without a user on the context"))
+		return nil, kerrors.NewForbidden(tenancyv1alpha1.Resource("clusterworkspaces"), "", fmt.Errorf("unable to create a clustersworkspace without a user on the context"))
 	}
 
-	orgClusterName := ctx.Value(ClusterKey).(logicalcluster.Name)
-
-	// Create the workspace object itself
-	clusterWorkspace := &tenancyv1alpha1.ClusterWorkspace{
-		ObjectMeta: workspace.ObjectMeta,
-		Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-			Type: workspace.Spec.Type,
+	clusterName := ctx.Value(ClusterKey).(logicalcluster.Name)
+	ws := &tenancyv1beta1.Workspace{
+		ObjectMeta: cws.ObjectMeta,
+		Spec: tenancyv1beta1.WorkspaceSpec{
+			Type: cws.Spec.Type,
 		},
 	}
 
@@ -182,35 +179,47 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 		return nil, fmt.Errorf("error constructing workspace owner annotation from user info: %w", err)
 	}
 
-	if clusterWorkspace.Annotations == nil {
-		clusterWorkspace.Annotations = make(map[string]string)
+	if ws.Annotations == nil {
+		ws.Annotations = make(map[string]string)
+	}
+	ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey] = ownerRaw
+
+	if cws.Spec.Shard != nil {
+		ws.Spec.Location = &tenancyv1beta1.WorkspaceLocation{
+			Selector: cws.Spec.Shard.Selector,
+		}
+		if cws.Spec.Shard.Name != "" {
+			if ws.Spec.Location.Selector == nil {
+				ws.Spec.Location.Selector = &metav1.LabelSelector{}
+			}
+			if ws.Spec.Location.Selector.MatchLabels == nil {
+				ws.Spec.Location.Selector.MatchLabels = make(map[string]string)
+			}
+			ws.Spec.Location.Selector.MatchLabels["name"] = cws.Spec.Shard.Name
+		}
 	}
 
-	clusterWorkspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey] = ownerRaw
-
-	createdClusterWorkspace, err := s.kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, clusterWorkspace, metav1.CreateOptions{})
+	createdWS, err := s.kcpClusterClient.Cluster(clusterName).TenancyV1beta1().Workspaces().Create(ctx, ws, metav1.CreateOptions{})
 	if kerrors.IsAlreadyExists(err) {
-		return nil, kerrors.NewAlreadyExists(tenancyv1beta1.Resource("workspaces"), workspace.Name)
+		return nil, kerrors.NewAlreadyExists(tenancyv1alpha1.Resource("clusterworkspaces"), cws.Name)
 	}
 	if err != nil {
 		return nil, err
 	}
-	var createdWorkspace tenancyv1beta1.Workspace
-	projection.ProjectClusterWorkspaceToWorkspace(createdClusterWorkspace, &createdWorkspace)
+	var createdCWS tenancyv1alpha1.ClusterWorkspace
+	projection.ProjectWorkspaceToClusterWorkspace(createdWS, &createdCWS)
 
-	return &createdWorkspace, nil
+	return &createdCWS, nil
 }
 
-var _ = rest.GracefulDeleter(&REST{})
-
 func (s *REST) Delete(ctx context.Context, name string, deleteValidation rest.ValidateObjectFunc, options *metav1.DeleteOptions) (runtime.Object, bool, error) {
-	orgClusterName := ctx.Value(ClusterKey).(logicalcluster.Name)
-	logger := klog.FromContext(ctx).WithValues("parent", orgClusterName, "name", name)
+	clusterName := ctx.Value(ClusterKey).(logicalcluster.Name)
+	logger := klog.FromContext(ctx).WithValues("cluster", clusterName, "name", name)
 	ctx = klog.NewContext(ctx, logger)
 
-	err := s.kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, name, *options)
+	err := s.kcpClusterClient.Cluster(clusterName).TenancyV1beta1().Workspaces().Delete(ctx, name, *options)
 	if kerrors.IsNotFound(err) {
-		err = kerrors.NewNotFound(tenancyv1beta1.Resource("workspaces"), name)
+		err = kerrors.NewNotFound(tenancyv1beta1.Resource("clusterworkspaces"), name)
 	}
 
 	return nil, false, err
@@ -231,10 +240,10 @@ func (w withProjection) ResultChan() <-chan watch.Event {
 				w.ch <- ev
 				continue
 			}
-			if cws, ok := ev.Object.(*tenancyv1alpha1.ClusterWorkspace); ok {
-				ws := &tenancyv1beta1.Workspace{}
-				projection.ProjectClusterWorkspaceToWorkspace(cws, ws)
-				ev.Object = ws
+			if ws, ok := ev.Object.(*tenancyv1beta1.Workspace); ok {
+				cws := &tenancyv1alpha1.ClusterWorkspace{}
+				projection.ProjectWorkspaceToClusterWorkspace(ws, cws)
+				ev.Object = cws
 			}
 			w.ch <- ev
 		}
