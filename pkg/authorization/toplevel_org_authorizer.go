@@ -35,7 +35,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
-	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	tenancyv1beta1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1beta1"
 	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
 )
 
@@ -49,7 +49,7 @@ const (
 // clusterworkspaces/content of the top-level workspace the request workspace is nested in. If one of
 // these verbs are admitted, the delegate authorizer is called. Otherwise, NoOpionion is returned if
 // the top-level workspace exists, and Deny otherwise.
-func NewTopLevelOrganizationAccessAuthorizer(versionedInformers kcpkubernetesinformers.SharedInformerFactory, clusterWorkspaceLister tenancyv1alpha1listers.ClusterWorkspaceClusterLister, delegate authorizer.Authorizer) authorizer.Authorizer {
+func NewTopLevelOrganizationAccessAuthorizer(versionedInformers kcpkubernetesinformers.SharedInformerFactory, workspaceLister tenancyv1beta1listers.WorkspaceClusterLister, delegate authorizer.Authorizer) authorizer.Authorizer {
 	return &topLevelOrgAccessAuthorizer{
 		rootAuthorizer: rbac.New(
 			&rbac.RoleGetter{Lister: rbacwrapper.NewMergedRoleLister(
@@ -66,15 +66,15 @@ func NewTopLevelOrganizationAccessAuthorizer(versionedInformers kcpkubernetesinf
 				versionedInformers.Rbac().V1().ClusterRoleBindings().Lister().Cluster(genericcontrolplane.LocalAdminCluster),
 			)},
 		),
-		clusterWorkspaceLister: clusterWorkspaceLister,
-		delegate:               delegate,
+		workspaceLister: workspaceLister,
+		delegate:        delegate,
 	}
 }
 
 type topLevelOrgAccessAuthorizer struct {
-	rootAuthorizer         *rbac.RBACAuthorizer
-	clusterWorkspaceLister tenancyv1alpha1listers.ClusterWorkspaceClusterLister
-	delegate               authorizer.Authorizer
+	rootAuthorizer  *rbac.RBACAuthorizer
+	workspaceLister tenancyv1beta1listers.WorkspaceClusterLister
+	delegate        authorizer.Authorizer
 }
 
 func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
@@ -154,7 +154,7 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 	}
 
 	// check the org workspace exists in the root workspace
-	if _, err := a.clusterWorkspaceLister.Cluster(tenancyv1alpha1.RootCluster).Get(requestTopLevelOrgName); err != nil {
+	if _, err := a.workspaceLister.Cluster(tenancyv1alpha1.RootCluster).Get(requestTopLevelOrgName); err != nil {
 		if errors.IsNotFound(err) {
 			kaudit.AddAuditAnnotations(
 				ctx,

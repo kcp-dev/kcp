@@ -25,7 +25,9 @@ import (
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
+	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	tenancyv1beta1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/index"
 	indexrewriters "github.com/kcp-dev/kcp/pkg/index/rewriters"
 )
@@ -36,29 +38,29 @@ import (
 func WithLocalProxy(
 	handler http.Handler,
 	shardName, shardBaseURL string,
-	clusterWorkspaceInformer tenancyinformers.ClusterWorkspaceInformer,
-	thisWorkspaceInformer tenancyinformers.ThisWorkspaceInformer,
+	workspaceInformer tenancyv1beta1informers.WorkspaceClusterInformer,
+	thisWorkspaceInformer tenancyv1alpha1informers.ThisWorkspaceClusterInformer,
 ) http.Handler {
 	state := index.New([]index.PathRewriter{
 		indexrewriters.UserRewriter,
 	})
 	state.UpsertShard(shardName, shardBaseURL)
 
-	clusterWorkspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	workspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			ws := obj.(*tenancyv1alpha1.ClusterWorkspace)
-			state.UpsertClusterWorkspace(shardName, ws)
+			ws := obj.(*tenancyv1beta1.Workspace)
+			state.UpsertWorkspace(shardName, ws)
 		},
 		UpdateFunc: func(old, obj interface{}) {
-			ws := obj.(*tenancyv1alpha1.ClusterWorkspace)
-			state.UpsertClusterWorkspace(shardName, ws)
+			ws := obj.(*tenancyv1beta1.Workspace)
+			state.UpsertWorkspace(shardName, ws)
 		},
 		DeleteFunc: func(obj interface{}) {
 			if final, ok := obj.(cache.DeletedFinalStateUnknown); ok {
 				obj = final.Obj
 			}
-			ws := obj.(*tenancyv1alpha1.ClusterWorkspace)
-			state.DeleteClusterWorkspace(shardName, ws)
+			ws := obj.(*tenancyv1beta1.Workspace)
+			state.DeleteWorkspace(shardName, ws)
 		},
 	})
 

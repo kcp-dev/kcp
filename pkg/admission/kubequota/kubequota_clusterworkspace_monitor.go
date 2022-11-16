@@ -29,7 +29,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	tenancyv1beta1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1beta1"
 )
 
 const clusterWorkspaceDeletionMonitorControllerName = "kcp-kubequota-cluster-workspace-deletion-monitor"
@@ -42,7 +42,7 @@ type clusterWorkspaceDeletionMonitor struct {
 }
 
 func newClusterWorkspaceDeletionMonitor(
-	clusterWorkspaceInformer tenancyv1alpha1informers.ClusterWorkspaceClusterInformer,
+	workspaceInformer tenancyv1beta1informers.WorkspaceClusterInformer,
 	stopFunc func(logicalcluster.Name),
 ) *clusterWorkspaceDeletionMonitor {
 	m := &clusterWorkspaceDeletionMonitor{
@@ -50,7 +50,7 @@ func newClusterWorkspaceDeletionMonitor(
 		stopFunc: stopFunc,
 	}
 
-	clusterWorkspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	workspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		DeleteFunc: func(obj interface{}) {
 			m.enqueue(obj)
 		},

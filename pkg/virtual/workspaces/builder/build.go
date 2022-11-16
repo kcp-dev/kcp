@@ -33,7 +33,6 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpopenapi "github.com/kcp-dev/kcp/pkg/openapi"
@@ -71,8 +70,8 @@ func BuildVirtualWorkspace(cfg *clientrest.Config, rootPathPrefix string, kcpClu
 			{
 				// since we are projecting clusterworkspaces to v1beta1.Workspaces
 				// we need Scheme for v1beta1
-				GroupVersion:       tenancyv1beta1.SchemeGroupVersion,
-				AddToScheme:        tenancyv1beta1.AddToScheme,
+				GroupVersion:       tenancyv1alpha1.SchemeGroupVersion,
+				AddToScheme:        tenancyv1alpha1.AddToScheme,
 				OpenAPIDefinitions: kcpopenapi.GetOpenAPIDefinitions,
 				BootstrapRestResources: func(mainConfig genericapiserver.CompletedConfig) (map[string]fixedgvs.RestStorageBuilder, error) {
 					workspacesRest := registry.NewREST(kcpClusterClient)
