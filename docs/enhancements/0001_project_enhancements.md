@@ -107,7 +107,7 @@ interested in the same spaces.
 
 #### Out of scope
 
-Separation of the generic control plan from tenancy out of scope for now. It is possible 
+Separation of the generic control plane from tenancy out of scope for now. It is possible 
 that it is revisited in the future. 
 
 #### Known dependencies
