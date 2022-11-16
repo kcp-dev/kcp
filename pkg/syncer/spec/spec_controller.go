@@ -291,9 +291,12 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	// other workers.
 	defer c.queue.Done(key)
 
-	if err := c.process(ctx, qk.gvr, qk.key); err != nil {
+	if retryAfter, err := c.process(ctx, qk.gvr, qk.key); err != nil {
 		utilruntime.HandleError(fmt.Errorf("%s failed to sync %q, err: %w", controllerName, key, err))
 		c.queue.AddRateLimited(key)
+		return true
+	} else if retryAfter != nil {
+		c.queue.AddAfter(key, *retryAfter)
 		return true
 	}
 
