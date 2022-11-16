@@ -75,10 +75,9 @@ func NewLabeler(
 // LabelsFor returns all the applicable labels for the cluster-group-resource relating to permission claims. This is
 // the intersection of (1) all APIBindings in the cluster that have accepted claims for the group-resource with (2)
 // associated APIExports that are claiming group-resource.
-func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, groupResource schema.GroupResource, resourceName string) (map[string]string, error) {
+func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, groupResource schema.GroupResource, resourceName, resourceNamespace string) (map[string]string, error) {
 	labels := map[string]string{}
 
-	// TODO(nrb): Only do this for `all` only? How?
 	bindings, err := l.listAPIBindingsAcceptingClaimedGroupResource(cluster, groupResource)
 	if err != nil {
 		return nil, fmt.Errorf("error listing APIBindings in %q accepting claimed group resource %q: %w", cluster, groupResource, err)
@@ -103,14 +102,16 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 				continue
 			}
 
-			k, v, err := permissionclaims.ToLabelKeyAndValue(logicalcluster.From(export), export.Name, claim.PermissionClaim)
-			if err != nil {
-				// extremely unlikely to get an error here - it means the json marshaling failed
-				logger.Error(err, "error calculating permission claim label key and value",
-					"claim", claim.String())
-				continue
+			if isSelected(claim.PermissionClaim, resourceName, resourceNamespace) {
+				k, v, err := permissionclaims.ToLabelKeyAndValue(logicalcluster.From(export), export.Name, claim.PermissionClaim)
+				if err != nil {
+					// extremely unlikely to get an error here - it means the json marshaling failed
+					logger.Error(err, "error calculating permission claim label key and value",
+						"claim", claim.String())
+					continue
+				}
+				labels[k] = v
 			}
-			labels[k] = v
 		}
 	}
 
@@ -138,4 +139,30 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 	}
 
 	return labels, nil
+}
+
+func isSelected(claim apisv1alpha1.PermissionClaim, name, namespace string) bool {
+	// All and ResourceSelector are mutually exclusive. Validation should catch this, but don't leak info if it doesn't somehow.
+	if claim.All && len(claim.ResourceSelector) > 0 {
+		return false
+	}
+
+	// ResourceSelector nil check to be compatible with objects created prior to the addition of the All field
+	if claim.All || len(claim.ResourceSelector) == 0 {
+		return true
+	}
+
+	for _, selector := range claim.ResourceSelector {
+		// Selecting a specific object, might be cluster-scoped.
+		if selector.Name == name && (selector.Namespace == namespace || selector.Namespace == "") {
+			return true
+		}
+
+		// Selecting all objects in the namespace
+		if selector.Namespace == namespace && selector.Name == "" {
+			return true
+		}
+	}
+
+	return false
 }
