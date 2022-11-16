@@ -38,6 +38,7 @@ import (
 	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/index"
 	indexrewriters "github.com/kcp-dev/kcp/pkg/index/rewriters"
+	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 )
 
 const (
@@ -211,19 +212,19 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		cwInformer := tenancyv1alpha1informers.NewClusterWorkspaceClusterInformer(client, resyncPeriod, nil)
 		cwInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				ws := obj.(*tenancyv1alpha1.ClusterWorkspace)
-				c.state.UpsertClusterWorkspace(shard.Name, ws)
+				ws := obj.(*tenancyv1beta1.Workspace)
+				c.state.UpsertWorkspace(shard.Name, ws)
 			},
 			UpdateFunc: func(old, obj interface{}) {
-				ws := obj.(*tenancyv1alpha1.ClusterWorkspace)
-				c.state.UpsertClusterWorkspace(shard.Name, ws)
+				ws := obj.(*tenancyv1beta1.Workspace)
+				c.state.UpsertWorkspace(shard.Name, ws)
 			},
 			DeleteFunc: func(obj interface{}) {
 				if final, ok := obj.(cache.DeletedFinalStateUnknown); ok {
 					obj = final.Obj
 				}
-				ws := obj.(*tenancyv1alpha1.ClusterWorkspace)
-				c.state.DeleteClusterWorkspace(shard.Name, ws)
+				ws := obj.(*tenancyv1beta1.Workspace)
+				c.state.DeleteWorkspace(shard.Name, ws)
 			},
 		})
 
