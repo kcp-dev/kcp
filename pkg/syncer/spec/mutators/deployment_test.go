@@ -31,6 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	listerscorev1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	utilspointer "k8s.io/utils/pointer"
@@ -839,9 +840,14 @@ func TestDeploymentMutate(t *testing.T) {
 
 				workspace := logicalcluster.New("root:default:testing")
 
-				dm := NewDeploymentMutator(upstreamURL, secretLister, workspace, "syncTargetUID", "syncTargetName", "dnsNamespace")
+				serviceIndexer := cache.NewIndexer(cache.LegacyMetaNamespaceKeyFunc, cache.Indexers{})
 
-				dm.dnsIPs[shared.GetDNSID(workspace, "syncTargetUID", "syncTargetName")] = "8.8.8.8"
+				dnsServiceName := shared.GetDNSID(workspace, "syncTargetUID", "syncTargetName")
+				err = serviceIndexer.Add(service(dnsServiceName, "dnsNamespace"))
+				require.NoError(t, err, "Service Add() = %v", err)
+				svcLister := listerscorev1.NewServiceLister(serviceIndexer)
+
+				dm := NewDeploymentMutator(upstreamURL, secretLister, svcLister, workspace, "syncTargetUID", "syncTargetName", "dnsNamespace")
 
 				unstrOriginalDeployment, err := toUnstructured(c.originalDeployment)
 				require.NoError(t, err, "toUnstructured() = %v", err)
@@ -882,4 +888,16 @@ func toDeployment(obj *unstructured.Unstructured) (*appsv1.Deployment, error) {
 		return nil, fmt.Errorf("Unmarshal() = %w", err)
 	}
 	return d, nil
+}
+
+func service(name, namespace string) *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: corev1.ServiceSpec{
+			ClusterIP: "8.8.8.8",
+		},
+	}
 }

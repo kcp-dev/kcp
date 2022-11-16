@@ -93,6 +93,7 @@ func TestSyncerLifecycle(t *testing.T) {
 
 	t.Logf("Bind location workspace")
 	framework.NewBindCompute(t, wsClusterName, upstreamServer).Bind(t)
+	syncerFixture.WorkspaceBound(t, ctx, wsClusterName)
 
 	upstreamConfig := upstreamServer.BaseConfig(t)
 	upstreamKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(upstreamConfig)

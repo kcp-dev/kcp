@@ -18,7 +18,6 @@ package mutators
 
 import (
 	"fmt"
-	"net"
 	"net/url"
 	"sort"
 
@@ -30,15 +29,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	listerscorev1 "k8s.io/client-go/listers/core/v1"
 	utilspointer "k8s.io/utils/pointer"
 
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
-)
-
-var (
-	// DefaultLookupIPFn is the IP lookup function used by the deployment mutator.
-	// Override for testing only
-	DefaultLookupIPFn = net.LookupIP
 )
 
 type ListSecretFunc func(clusterName logicalcluster.Name, namespace string) ([]runtime.Object, error)
@@ -46,11 +40,11 @@ type ListSecretFunc func(clusterName logicalcluster.Name, namespace string) ([]r
 type DeploymentMutator struct {
 	upstreamURL                  *url.URL
 	listSecrets                  ListSecretFunc
+	serviceLister                listerscorev1.ServiceLister
 	syncTargetLogicalClusterName logicalcluster.Name
 	syncTargetUID                types.UID
 	syncTargetName               string
 	dnsNamespace                 string
-	dnsIPs                       map[string]string
 }
 
 func (dm *DeploymentMutator) GVR() schema.GroupVersionResource {
@@ -61,18 +55,18 @@ func (dm *DeploymentMutator) GVR() schema.GroupVersionResource {
 	}
 }
 
-func NewDeploymentMutator(upstreamURL *url.URL, secretLister ListSecretFunc, syncTargetLogicalClusterName logicalcluster.Name,
+func NewDeploymentMutator(upstreamURL *url.URL, secretLister ListSecretFunc, serviceLister listerscorev1.ServiceLister,
+	syncTargetLogicalClusterName logicalcluster.Name,
 	syncTargetUID types.UID, syncTargetName, dnsNamespace string) *DeploymentMutator {
 
 	return &DeploymentMutator{
 		upstreamURL:                  upstreamURL,
 		listSecrets:                  secretLister,
+		serviceLister:                serviceLister,
 		syncTargetLogicalClusterName: syncTargetLogicalClusterName,
 		syncTargetUID:                syncTargetUID,
 		syncTargetName:               syncTargetName,
-
-		dnsNamespace: dnsNamespace,
-		dnsIPs:       map[string]string{}, // map workspace ID to DNS IP
+		dnsNamespace:                 dnsNamespace,
 	}
 }
 
@@ -273,21 +267,18 @@ func (dm *DeploymentMutator) getDNSIPForWorkspace(workspace logicalcluster.Name)
 	// Retrieve the DNS IP associated to the workspace
 	dnsServiceName := shared.GetDNSID(workspace, dm.syncTargetUID, dm.syncTargetName)
 
-	// cached?
-	if ip, ok := dm.dnsIPs[dnsServiceName]; ok {
-		return ip, nil
+	svc, err := dm.serviceLister.Services(dm.dnsNamespace).Get(dnsServiceName)
+	if err != nil {
+		return "", fmt.Errorf("failed to get DNS service: %w", err)
 	}
 
-	// Not cached: do actual lookup
-	qname := fmt.Sprintf("%s.%s.svc.cluster.local", dnsServiceName, dm.dnsNamespace)
-
-	ips, err := DefaultLookupIPFn(qname)
-	if len(ips) == 0 || err != nil {
+	ip := svc.Spec.ClusterIP
+	if ip == "" {
 		// not available (yet)
-		return "", fmt.Errorf("failed to get DNS nameserver IP address: %w", err)
+		return "", fmt.Errorf("DNS service IP address not found")
 	}
 
-	return ips[0].String(), nil
+	return ip, nil
 }
 
 // resolveDownwardAPIFieldRefEnv replaces the downwardAPI FieldRef EnvVars with the value from the deployment, right now it only replaces the metadata.namespace

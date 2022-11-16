@@ -99,7 +99,7 @@ func TestPlacementUpdate(t *testing.T) {
 		framework.WithLocationWorkspaceWorkloadBindOption(locationClusterName),
 		framework.WithPlacementNameBindOption(placementName),
 	).Bind(t)
-	syncerFixture.BoundWorkspace(t, ctx, userClusterName)
+	syncerFixture.WorkspaceBound(t, ctx, userClusterName)
 
 	t.Logf("Wait for being able to list Services in the user workspace")
 	require.Eventually(t, func() bool {

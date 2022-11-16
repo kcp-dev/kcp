@@ -218,7 +218,7 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetWorkspace logicalcluster.
 	_ = upstreamInformers.ForResource(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}).Informer()
 	deploymentMutator := specmutators.NewDeploymentMutator(upstreamURL, func(clusterName logicalcluster.Name, namespace string) ([]runtime.Object, error) {
 		return upstreamInformers.ForResource(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}).Lister().ByCluster(clusterName).ByNamespace(namespace).List(labels.Everything())
-	}, syncTargetWorkspace, syncTargetUID, syncTargetName, dnsNamespace)
+	}, serviceLister, syncTargetWorkspace, syncTargetUID, syncTargetName, dnsNamespace)
 
 	c.mutators = mutatorGvrMap{
 		deploymentMutator.GVR(): deploymentMutator.Mutate,
