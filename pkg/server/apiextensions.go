@@ -179,6 +179,13 @@ func (c *apiBindingAwareCRDLister) Refresh(crd *apiextensionsv1.CustomResourceDe
 	// If crd has the identity annotation, make sure it's added to refreshed
 	if identity := crd.Annotations[apisv1alpha1.AnnotationAPIIdentityKey]; identity != "" {
 		refreshed.Annotations[apisv1alpha1.AnnotationAPIIdentityKey] = identity
+	} else if _, ok := crd.Annotations[apisv1alpha1.AnnotationBoundCRDKey]; ok {
+		// HACK: Need to set a placeholder value for the identity annotation when a bound CRD is being deleted.
+		// When the CRD finalizer tries to delete all the instances of this CRD, it will use this identity as part of the etcd lookup prefix.
+		// If the identity annotation is not found, it will actually panic, crashing the kcp process.
+		// Note that all instances of this CRD should already cleaned up when the APIBindings were deleted.
+		// See https://github.com/kcp-dev/kcp/issues/2304
+		refreshed.Annotations[apisv1alpha1.AnnotationAPIIdentityKey] = "placeholder"
 	}
 
 	// If crd was only partial metadata, make sure refreshed is too
