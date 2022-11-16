@@ -62,6 +62,6 @@ func (a *BootstrapPolicyAuthorizer) Authorize(ctx context.Context, attr authoriz
 	return dec, reason, err
 }
 
-func (a *BootstrapPolicyAuthorizer) RulesFor(user user.Info, namespace string) ([]authorizer.ResourceRuleInfo, []authorizer.NonResourceRuleInfo, bool, error) {
-	return a.delegate.RulesFor(user, namespace)
+func (a *BootstrapPolicyAuthorizer) RulesFor(ctx context.Context, user user.Info, namespace string) ([]authorizer.ResourceRuleInfo, []authorizer.NonResourceRuleInfo, bool, error) {
+	return a.delegate.RulesFor(ctx, user, namespace)
 }
