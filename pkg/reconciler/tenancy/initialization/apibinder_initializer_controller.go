@@ -64,8 +64,7 @@ func NewAPIBinder(
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
 
 		getThisWorkspace: func(clusterName logicalcluster.Name) (*tenancyv1alpha1.ThisWorkspace, error) {
-			parent, workspace := clusterName.Split()
-			return thisWorkspaceInformer.Lister().Get(client.ToClusterAwareKey(parent, workspace))
+			return thisWorkspaceInformer.Lister().Get(client.ToClusterAwareKey(clusterName, tenancyv1alpha1.ThisWorkspaceName))
 		},
 		getClusterWorkspaceType: func(clusterName logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
 			return clusterWorkspaceTypeInformer.Lister().Get(client.ToClusterAwareKey(clusterName, name))
@@ -160,7 +159,7 @@ func (b *APIBinder) enqueueThisWorkspace(obj interface{}, logger logr.Logger) {
 		return
 	}
 
-	logging.WithQueueKey(logger, key).V(2).Info("queueing ClusterWorkspace")
+	logging.WithQueueKey(logger, key).V(2).Info("queueing ThisWorkspace")
 	b.queue.Add(key)
 }
 
@@ -174,24 +173,24 @@ func (b *APIBinder) enqueueAPIBinding(obj interface{}, logger logr.Logger) {
 	logger = logging.WithObject(logger, apiBinding)
 
 	clusterName := logicalcluster.From(apiBinding)
-	clusterWorkspace, err := b.getThisWorkspace(clusterName)
+	this, err := b.getThisWorkspace(clusterName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// The workspace was deleted or is no longer initializing, so we can safely ignore this event.
 			return
 		}
-
-		parent, workspace := clusterName.Split()
-		logger.Error(err, "failed to get ClusterWorkspace from lister", "parent", parent, "workspace", workspace)
+		logger.Error(err, "failed to get ThisWorkspace from lister", "cluster", clusterName)
 		return // nothing we can do here
 	}
 
-	b.enqueueThisWorkspace(clusterWorkspace, logger)
+	b.enqueueThisWorkspace(this, logger)
 }
 
 // enqueueClusterWorkspaceType enqueues all clusterworkspaces (which are only those that are initializing, because of
 // how the informer is supposed to be configured) whenever a clusterworkspacetype changes. If a clusterworkspacetype
 // had a typo in the default set of apibindings, there is a chance the requeuing here would pick up a fix.
+//
+// TODO(sttts): this cannot work in a sharded environment
 func (b *APIBinder) enqueueClusterWorkspaceType(obj interface{}, logger logr.Logger) {
 	cwt, ok := obj.(*tenancyv1alpha1.ClusterWorkspaceType)
 	if !ok {
