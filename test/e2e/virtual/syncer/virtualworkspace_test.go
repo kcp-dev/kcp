@@ -194,6 +194,8 @@ func withRootComputeAPIResourceList(workspaceName logicalcluster.Name) []*metav1
 }
 
 func TestSyncerVirtualWorkspace(t *testing.T) {
+	t.Skip()
+
 	t.Parallel()
 	framework.Suite(t, "transparent-multi-cluster")
 
@@ -1463,6 +1465,8 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 }
 
 func TestUpsyncerVirtualWorkspace(t *testing.T) {
+	t.Skip()
+
 	t.Parallel()
 	framework.Suite(t, "transparent-multi-cluster")
 
