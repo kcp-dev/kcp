@@ -80,7 +80,7 @@ kubectl cluster-info --context kind
 Not sure what to do next? 😅  Check out https://kind.sigs.k8s.io/docs/user/quick-start/
 ```
 
-You need to create a `locations` workspace for your sync targets, these are the clusters where you will be syncing your workloads. 
+You need to create a workspace that will contain your `SyncTarget`s. `SyncTarget`s are resources, inside KCP, that describe the physical clusters where you want your workloads to be placed and synced. Let's call this workspace `mylocations`.
 
 You can do that by running: 
 
