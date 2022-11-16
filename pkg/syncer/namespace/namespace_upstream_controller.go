@@ -110,10 +110,7 @@ func NewUpstreamController(
 			return namespaces[0].(*unstructured.Unstructured), nil
 		},
 		isDowntreamNamespaceEmpty: func(ctx context.Context, namespace string) (bool, error) {
-			gvrs, err := syncerInformers.SyncableGVRs()
-			if err != nil {
-				return false, err
-			}
+			gvrs := syncerInformers.SyncableGVRs()
 			for _, k := range gvrs {
 				// Skip namespaces.
 				if k.Group == "" && k.Version == "v1" && k.Resource == "namespaces" {

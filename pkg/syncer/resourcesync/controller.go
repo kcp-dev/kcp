@@ -74,7 +74,7 @@ type SyncerInformerFactory interface {
 	AddUpstreamEventHandler(handler ResourceEventHandlerPerGVR)
 	AddDownstreamEventHandler(handler ResourceEventHandlerPerGVR)
 	InformerForResource(gvr schema.GroupVersionResource) (*SyncerInformer, bool)
-	SyncableGVRs() ([]schema.GroupVersionResource, error)
+	SyncableGVRs() []schema.GroupVersionResource
 	Start(ctx context.Context, numThreads int)
 }
 
@@ -200,14 +200,14 @@ func (c *Controller) InformerForResource(gvr schema.GroupVersionResource) (*Sync
 	return nil, false
 }
 
-func (c *Controller) SyncableGVRs() ([]schema.GroupVersionResource, error) {
+func (c *Controller) SyncableGVRs() []schema.GroupVersionResource {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 	gvrs := []schema.GroupVersionResource{}
 	for gvr := range c.syncerInformerMap {
 		gvrs = append(gvrs, gvr)
 	}
-	return gvrs, nil
+	return gvrs
 }
 
 func (c *Controller) startWorker(ctx context.Context) {
