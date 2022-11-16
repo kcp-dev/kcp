@@ -49,7 +49,6 @@ import (
 	"k8s.io/kubernetes/pkg/genericcontrolplane/aggregator"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 )
 
 var (
@@ -105,7 +104,7 @@ func WithAuditAnnotation(handler http.Handler) http.HandlerFunc {
 
 // WithClusterWorkspaceProjection workspaces to clusterworkspaces
 func WithClusterWorkspaceProjection(apiHandler http.Handler) http.HandlerFunc {
-	toRedirectPath := path.Join("/apis", tenancyv1beta1.SchemeGroupVersion.Group, tenancyv1alpha1.SchemeGroupVersion.Version, "clusterworkspaces/")
+	toRedirectPath := path.Join("/apis", tenancyv1alpha1.SchemeGroupVersion.Group, tenancyv1alpha1.SchemeGroupVersion.Version, "clusterworkspaces")
 
 	return func(w http.ResponseWriter, req *http.Request) {
 		logger := klog.FromContext(req.Context())
@@ -115,7 +114,7 @@ func WithClusterWorkspaceProjection(apiHandler http.Handler) http.HandlerFunc {
 			return
 		}
 
-		if !strings.HasPrefix(req.URL.Path, toRedirectPath) {
+		if !strings.HasPrefix(req.URL.Path, toRedirectPath+"/") && req.URL.Path != toRedirectPath {
 			apiHandler.ServeHTTP(w, req)
 			return
 		}

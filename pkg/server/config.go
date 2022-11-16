@@ -98,8 +98,8 @@ type ExtraConfig struct {
 	RootShardKcpClusterClient           kcpclientset.ClusterInterface
 	BootstrapDynamicClusterClient       kcpdynamic.ClusterInterface
 	BootstrapApiExtensionsClusterClient kcpapiextensionsclientset.ClusterInterface
-	BootstrapKcpClusterClient           kcpclientset.ClusterInterface
-	CacheDynamicClient                  kcpdynamic.ClusterInterface
+
+	CacheDynamicClient kcpdynamic.ClusterInterface
 
 	// config from which client can be configured
 	LogicalClusterAdminConfig *rest.Config
@@ -311,15 +311,6 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		c.userToken = userToken
 	}
 
-	bootstrapKcpConfig := rest.CopyConfig(c.identityConfig)
-	bootstrapKcpConfig.Impersonate.UserName = kcpBootstrapperUserName
-	bootstrapKcpConfig.Impersonate.Groups = []string{bootstrappolicy.SystemKcpWorkspaceBootstrapper}
-	bootstrapKcpConfig = rest.AddUserAgent(bootstrapKcpConfig, "kcp-bootstrapper")
-	c.BootstrapKcpClusterClient, err = kcpclientset.NewForConfig(bootstrapKcpConfig)
-	if err != nil {
-		return nil, err
-	}
-
 	bootstrapConfig := rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
 	bootstrapConfig.Impersonate.UserName = kcpBootstrapperUserName
 	bootstrapConfig.Impersonate.Groups = []string{bootstrappolicy.SystemKcpWorkspaceBootstrapper}
@@ -390,7 +381,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		apiHandler = WithClusterWorkspaceProjection(apiHandler)
 		apiHandler = kcpfilters.WithAuditEventClusterAnnotation(apiHandler)
 		apiHandler = WithAuditAnnotation(apiHandler) // Must run before any audit annotation is made
-		apiHandler = WithLocalProxy(apiHandler, opts.Extra.ShardName, opts.Extra.ShardBaseURL, c.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(), c.KcpSharedInformerFactory.Tenancy().V1alpha1().ThisWorkspaces())
+		apiHandler = WithLocalProxy(apiHandler, opts.Extra.ShardName, opts.Extra.ShardBaseURL, c.KcpSharedInformerFactory.Tenancy().V1beta1().Workspaces(), c.KcpSharedInformerFactory.Tenancy().V1alpha1().ThisWorkspaces())
 		apiHandler = kcpfilters.WithClusterScope(apiHandler)
 		apiHandler = WithInClusterServiceAccountRequestRewrite(apiHandler)
 		apiHandler = kcpfilters.WithAcceptHeader(apiHandler)
@@ -472,7 +463,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		kcpClusterClient:  c.KcpClusterClient,
 		crdLister:         c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Lister(),
 		crdIndexer:        c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().GetIndexer(),
-		workspaceLister:   c.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces().Lister(),
+		workspaceLister:   c.KcpSharedInformerFactory.Tenancy().V1beta1().Workspaces().Lister(),
 		apiBindingLister:  c.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Lister(),
 		apiBindingIndexer: c.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer(),
 		apiExportIndexer:  c.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().GetIndexer(),
