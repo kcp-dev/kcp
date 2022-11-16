@@ -128,19 +128,17 @@ secret/kcp-syncer-kind-25coemaz created
 deployment.apps/kcp-syncer-kind-25coemaz created
 ```
 
-Now you need to use `kubectl kcp bind compute` to let `kcp` know about this new `kind` cluster that is providing compute resources. You do that by running: 
+Now you would create a new workspace for deploying your applications. Let's call it `myapps`:
 
-```
-kubectl kcp bind compute "root:users:zu:yc:kcp-admin:locations"
-```
+    kubectl kcp workspace ..
+    kubectl kcp workspace create "myapps" --enter
 
-Notice that we are pointing to our `locations` workspace that we created before. 
+We are now in the `myapps` wporkspace.
+To let `kcp` know that we want the workloads in `myapps` to be synced to the new `kind` cluster, we have to **bind** the `myapps` workspace to the `mylocations` workspace defined above which contains the `kind` `SyncTarget`:
 
-Once you created the binding you can create a new workspace for deploying your applications. First you move to your home workspace and then you can create a `myapps` workspace by running:
+    kubectl kcp bind compute "root:mylocations"
 
-```
-kubectl kcp workspace
-kubectl kcp workspace create "myapps" --enter
+Once you created the binding you can start deploying your applications.
 ```
 
 
