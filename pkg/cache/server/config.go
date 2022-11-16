@@ -21,15 +21,14 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
-
-	kcpapiextensionsclientset "github.com/kcp-dev/apiextensions-apiserver/pkg/client/clientset/versioned"
-	kcpapiextensionsinformers "github.com/kcp-dev/apiextensions-apiserver/pkg/client/informers/externalversions"
-	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
+	kcpapiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/kcp/clientset/versioned"
+	kcpapiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/kcp/informers/externalversions"
 	apiextensionsoptions "k8s.io/apiextensions-apiserver/pkg/cmd/server/options"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -39,7 +38,6 @@ import (
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/apiserver/pkg/util/webhook"
 	"k8s.io/client-go/rest"
-	"k8s.io/kubernetes/pkg/genericcontrolplane/clientutils"
 
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
@@ -182,16 +180,29 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 			if serverConfig.Config.RequestInfoResolver == nil {
 				return "", "", fmt.Errorf("RequestInfoResolver wasn't provided")
 			}
-			requestInfo, err := serverConfig.Config.RequestInfoResolver.NewRequestInfo(rq)
+			// the k8s request info resolver expects a cluster-less path, but the client we're using knows how to
+			// add the cluster we are targeting to the path before this round-tripper fires, so we need to strip it
+			// to use the k8s library
+			parts := strings.Split(rq.URL.Path, "/")
+			if len(parts) < 4 {
+				return "", "", fmt.Errorf("RequestInfoResolver: got invalid path: %v", rq.URL.Path)
+			}
+			if parts[1] != "clusters" {
+				return "", "", fmt.Errorf("RequestInfoResolver: got path without cluster prefix: %v", rq.URL.Path)
+			}
+			// we clone the request here to safely mutate the URL path, but this cloned request is never realized
+			// into anything on the network, just inspected by the k8s request info libraries
+			clone := rq.Clone(rq.Context())
+			clone.URL.Path = strings.Join(parts[3:], "/")
+			requestInfo, err := serverConfig.Config.RequestInfoResolver.NewRequestInfo(clone)
 			if err != nil {
 				return "", "", err
 			}
 			return requestInfo.Resource, requestInfo.Verb, nil
 		},
 		"customresourcedefinitions")
-
-	kcpclienthelper.SetMultiClusterRoundTripper(rt)
-	clientutils.EnableMultiCluster(rt, &serverConfig.Config, "namespaces", "apiservices", "customresourcedefinitions", "clusterroles", "clusterrolebindings", "roles", "rolebindings", "serviceaccounts", "secrets")
+	rt = rest.AddUserAgent(rt, "kcp-cache-server")
+	rt.ContentConfig.ContentType = "application/json"
 
 	var err error
 	c.ApiExtensionsClusterClient, err = kcpapiextensionsclientset.NewForConfig(rt)
@@ -214,6 +225,8 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 			ServiceResolver:       &unimplementedServiceResolver{},
 			MasterCount:           1,
 			AuthResolverWrapper:   webhook.NewDefaultAuthenticationInfoResolverWrapper(nil, nil, rt, nil),
+			Client:                c.ApiExtensionsClusterClient,
+			Informers:             c.ApiExtensionsSharedInformerFactory,
 			ClusterAwareCRDLister: &crdClusterLister{lister: c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Lister()},
 		},
 	}

@@ -19,7 +19,6 @@ package main
 import (
 	"context"
 	"errors"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
@@ -70,7 +69,7 @@ func main() {
 }
 
 func DetectNamespace() (string, error) {
-	if namespaceData, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace"); err == nil {
+	if namespaceData, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace"); err == nil {
 		if namespace := strings.TrimSpace(string(namespaceData)); len(namespace) > 0 {
 			return namespace, nil
 		}
