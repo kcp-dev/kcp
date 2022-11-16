@@ -38,8 +38,8 @@ import (
 	kubernetesclient "k8s.io/client-go/kubernetes"
 
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 )
 
 const (
@@ -67,7 +67,7 @@ type workspaceNamespaceLifecycle struct {
 	// namespaceLifecycle is used only when workspace is deleting
 	namespaceLifecycle *lifecycle.Lifecycle
 
-	getClusterWorkspace func(clusterName logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspace, error)
+	getClusterWorkspace func(clusterName logicalcluster.Name, name string) (*tenancyv1beta1.Workspace, error)
 }
 
 func newWorkspaceNamespaceLifecycle() (*workspaceNamespaceLifecycle, error) {
@@ -145,10 +145,10 @@ func (l *workspaceNamespaceLifecycle) SetExternalKubeClientSet(client kubernetes
 }
 
 func (l *workspaceNamespaceLifecycle) SetKcpInformers(informers kcpinformers.SharedInformerFactory) {
-	l.SetReadyFunc(informers.Tenancy().V1alpha1().ClusterWorkspaces().Informer().HasSynced)
+	l.SetReadyFunc(informers.Tenancy().V1beta1().Workspaces().Informer().HasSynced)
 
-	l.getClusterWorkspace = func(clusterName logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspace, error) {
-		return informers.Tenancy().V1alpha1().ClusterWorkspaces().Lister().Get(kcpcache.ToClusterAwareKey(clusterName.String(), "", name))
+	l.getClusterWorkspace = func(clusterName logicalcluster.Name, name string) (*tenancyv1beta1.Workspace, error) {
+		return informers.Tenancy().V1beta1().Workspaces().Lister().Get(kcpcache.ToClusterAwareKey(clusterName.String(), "", name))
 	}
 }
 

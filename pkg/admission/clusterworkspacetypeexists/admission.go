@@ -41,7 +41,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	"github.com/kcp-dev/kcp/pkg/client"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	tenancyv1beta1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1beta1"
 )
 
 const (
@@ -71,8 +72,8 @@ func Register(plugins *admission.Plugins) {
 //     transitions to the Initializing state.
 type clusterWorkspaceTypeExists struct {
 	*admission.Handler
-	typeLister             tenancylisters.ClusterWorkspaceTypeLister
-	workspaceLister        tenancylisters.ClusterWorkspaceLister
+	typeLister             tenancyv1alpha1listers.ClusterWorkspaceTypeLister
+	workspaceLister        tenancyv1beta1listers.WorkspaceLister
 	deepSARClient          kcpkubernetesclientset.ClusterInterface
 	transitiveTypeResolver *transitiveTypeResolver
 
@@ -388,12 +389,12 @@ func (o *clusterWorkspaceTypeExists) ValidateInitialization() error {
 
 func (o *clusterWorkspaceTypeExists) SetKcpInformers(informers kcpinformers.SharedInformerFactory) {
 	typesReady := informers.Tenancy().V1alpha1().ClusterWorkspaceTypes().Informer().HasSynced
-	workspacesReady := informers.Tenancy().V1alpha1().ClusterWorkspaces().Informer().HasSynced
+	workspacesReady := informers.Tenancy().V1beta1().Workspaces().Informer().HasSynced
 	o.SetReadyFunc(func() bool {
 		return typesReady() && workspacesReady()
 	})
 	o.typeLister = informers.Tenancy().V1alpha1().ClusterWorkspaceTypes().Lister()
-	o.workspaceLister = informers.Tenancy().V1alpha1().ClusterWorkspaces().Lister()
+	o.workspaceLister = informers.Tenancy().V1beta1().Workspaces().Lister()
 }
 
 func (o *clusterWorkspaceTypeExists) SetDeepSARClient(client kcpkubernetesclientset.ClusterInterface) {

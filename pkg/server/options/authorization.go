@@ -84,7 +84,7 @@ func (s *Authorization) AddFlags(fs *pflag.FlagSet) {
 func (s *Authorization) ApplyTo(config *genericapiserver.Config, informer kcpkubernetesinformers.SharedInformerFactory, kcpinformer kcpinformers.SharedInformerFactory) error {
 	var authorizers []authorizer.Authorizer
 
-	workspaceLister := kcpinformer.Tenancy().V1alpha1().ClusterWorkspaces().Lister()
+	workspaceLister := kcpinformer.Tenancy().V1beta1().Workspaces().Lister()
 
 	// group authorizer
 	if len(s.AlwaysAllowGroups) > 0 {

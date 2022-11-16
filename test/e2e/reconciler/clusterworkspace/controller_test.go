@@ -46,7 +46,7 @@ func TestWorkspaceController(t *testing.T) {
 	type runningServer struct {
 		framework.RunningServer
 		rootKcpClient, orgKcpClient kcpclientset.Interface
-		orgExpect                   framework.RegisterClusterWorkspaceExpectation
+		orgExpect                   framework.RegisterWorkspaceExpectation
 		rootExpectShard             framework.RegisterWorkspaceShardExpectation
 	}
 	var testCases = []struct {
@@ -211,7 +211,7 @@ func TestWorkspaceController(t *testing.T) {
 			rootClusterKcpClient, err := kcpclientset.NewForConfig(rootClusterCfg)
 			require.NoError(t, err)
 
-			orgExpect, err := framework.ExpectClusterWorkspaces(ctx, t, orgClusterKcpClient)
+			orgExpect, err := framework.ExpectWorkspaces(ctx, t, orgClusterKcpClient)
 			require.NoError(t, err, "failed to start expecter")
 
 			rootExpectShard, err := framework.ExpectWorkspaceShards(ctx, t, rootClusterKcpClient)
