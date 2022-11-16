@@ -36,7 +36,7 @@ import (
 	"k8s.io/kubernetes/pkg/controller"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1beta1"
 )
 
 func newUser(name string, groups ...string) *user.DefaultInfo {
@@ -401,7 +401,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "initializing", Annotations: map[string]string{logicalcluster.AnnotationKey: "root"}},
 				Status:     tenancyv1alpha1.ClusterWorkspaceStatus{Phase: tenancyv1alpha1.WorkspacePhaseInitializing},
 			}))
-			lister := v1alpha1.NewClusterWorkspaceLister(indexer)
+			lister := v1beta1.NewWorkspaceLister(indexer)
 
 			recordingAuthorizer := &recordingAuthorizer{}
 			w := NewWorkspaceContentAuthorizer(kubeShareInformerFactory, lister, recordingAuthorizer)

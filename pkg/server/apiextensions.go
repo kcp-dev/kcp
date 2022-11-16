@@ -40,10 +40,10 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
-	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 	"github.com/kcp-dev/kcp/pkg/server/filters"
+	tenancyv1beta1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1beta1"
 )
 
 // SystemCRDLogicalCluster is the logical cluster we install system CRDs into for now. These are needed
@@ -54,7 +54,7 @@ type apiBindingAwareCRDClusterLister struct {
 	kcpClusterClient     kcpclient.ClusterInterface
 	crdLister            kcpapiextensionsv1listers.CustomResourceDefinitionClusterLister
 	crdIndexer           cache.Indexer
-	workspaceLister      tenancylisters.ClusterWorkspaceLister
+	workspaceLister      tenancyv1beta1listers.WorkspaceLister
 	apiBindingLister     apislisters.APIBindingLister
 	apiBindingIndexer    cache.Indexer
 	apiExportIndexer     cache.Indexer
