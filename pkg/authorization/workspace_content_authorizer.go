@@ -39,7 +39,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
-	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	tenancyv1beta1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1beta1"
 	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
 )
 
@@ -51,13 +51,13 @@ const (
 	WorkspaceContentAuditReason   = WorkspaceContentAuditPrefix + "reason"
 )
 
-func NewWorkspaceContentAuthorizer(versionedInformers kcpkubernetesinformers.SharedInformerFactory, clusterWorkspaceLister tenancyv1alpha1listers.ClusterWorkspaceClusterLister, delegate authorizer.Authorizer) authorizer.Authorizer {
+func NewWorkspaceContentAuthorizer(versionedInformers kcpkubernetesinformers.SharedInformerFactory, workspaceLister tenancyv1beta1listers.WorkspaceClusterLister, delegate authorizer.Authorizer) authorizer.Authorizer {
 	return &workspaceContentAuthorizer{
 		roleLister:               versionedInformers.Rbac().V1().Roles().Lister(),
 		roleBindingLister:        versionedInformers.Rbac().V1().RoleBindings().Lister(),
 		clusterRoleLister:        versionedInformers.Rbac().V1().ClusterRoles().Lister(),
 		clusterRoleBindingLister: versionedInformers.Rbac().V1().ClusterRoleBindings().Lister(),
-		clusterWorkspaceLister:   clusterWorkspaceLister,
+		workspaceLister:          workspaceLister,
 
 		delegate: delegate,
 	}
@@ -68,7 +68,7 @@ type workspaceContentAuthorizer struct {
 	roleBindingLister        rbacv1listers.RoleBindingClusterLister
 	clusterRoleBindingLister rbacv1listers.ClusterRoleBindingClusterLister
 	clusterRoleLister        rbacv1listers.ClusterRoleClusterLister
-	clusterWorkspaceLister   tenancyv1alpha1listers.ClusterWorkspaceClusterLister
+	workspaceLister          tenancyv1beta1listers.WorkspaceClusterLister // TODO(salaboy): switch to ThisWorkspace
 
 	// union of local and bootstrap authorizer
 	delegate authorizer.Authorizer
@@ -179,7 +179,7 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 	extraGroups := sets.NewString()
 
 	// check the workspace even exists
-	ws, err := a.clusterWorkspaceLister.Cluster(parentClusterName).Get(cluster.Name.Base())
+	ws, err := a.workspaceLister.Cluster(parentClusterName).Get(cluster.Name.Base())
 	if err != nil {
 		if errors.IsNotFound(err) {
 			kaudit.AddAuditAnnotations(

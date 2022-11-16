@@ -28,7 +28,7 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/endpoints/request"
 
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 )
 
 func TestAdmit(t *testing.T) {
@@ -36,14 +36,14 @@ func TestAdmit(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		workspace *tenancyv1alpha1.ClusterWorkspace
+		workspace *tenancyv1beta1.Workspace
 		namespace string
 		wantErr   bool
 	}{
 		{
 			name:      "delete immortal namespace in workspace",
 			namespace: "default",
-			workspace: &tenancyv1alpha1.ClusterWorkspace{
+			workspace: &tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "root:org|test",
 				},
@@ -53,7 +53,7 @@ func TestAdmit(t *testing.T) {
 		{
 			name:      "delete regular namespace in workspace",
 			namespace: "test",
-			workspace: &tenancyv1alpha1.ClusterWorkspace{
+			workspace: &tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "root:org|test",
 				},
@@ -63,7 +63,7 @@ func TestAdmit(t *testing.T) {
 		{
 			name:      "delete immortal namespace in deleting workspace",
 			namespace: "default",
-			workspace: &tenancyv1alpha1.ClusterWorkspace{
+			workspace: &tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "root:org|test",
 					DeletionTimestamp: &now,
@@ -77,7 +77,7 @@ func TestAdmit(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			handler, err := newWorkspaceNamespaceLifecycle()
 			require.NoError(t, err, "error creating admission plugin")
-			handler.getClusterWorkspace = func(clusterName logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspace, error) {
+			handler.getWorkspace = func(clusterName logicalcluster.Name, name string) (*tenancyv1beta1.Workspace, error) {
 				return tt.workspace, nil
 			}
 

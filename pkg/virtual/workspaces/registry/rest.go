@@ -79,7 +79,7 @@ func NewREST(
 
 // New returns a new ClusterWorkspace
 func (s *REST) New() runtime.Object {
-	return &tenancyv1beta1.Workspace{}
+	return &tenancyv1alpha1.ClusterWorkspace{}
 }
 
 // Destroy implements rest.Storage
@@ -89,7 +89,7 @@ func (s *REST) Destroy() {
 
 // NewList returns a new ClusterWorkspaceList
 func (*REST) NewList() runtime.Object {
-	return &tenancyv1beta1.WorkspaceList{}
+	return &tenancyv1alpha1.ClusterWorkspaceList{}
 }
 
 func (s *REST) NamespaceScoped() bool {

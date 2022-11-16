@@ -40,7 +40,7 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
-	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	tenancyv1beta1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 	"github.com/kcp-dev/kcp/pkg/server/filters"
@@ -51,13 +51,18 @@ import (
 var SystemCRDLogicalCluster = logicalcluster.New("system:system-crds")
 
 type apiBindingAwareCRDClusterLister struct {
-	kcpClusterClient     kcpclientset.ClusterInterface
-	crdLister            kcpapiextensionsv1listers.CustomResourceDefinitionClusterLister
-	crdIndexer           cache.Indexer
-	workspaceLister      tenancyv1alpha1listers.ClusterWorkspaceClusterLister
-	apiBindingLister     apisv1alpha1listers.APIBindingClusterLister
-	apiBindingIndexer    cache.Indexer
-	apiExportIndexer     cache.Indexer
+	kcpClusterClient kcpclientset.ClusterInterface
+
+	crdLister  kcpapiextensionsv1listers.CustomResourceDefinitionClusterLister
+	crdIndexer cache.Indexer
+
+	workspaceLister tenancyv1beta1listers.WorkspaceClusterLister
+
+	apiBindingIndexer cache.Indexer
+	apiBindingLister  apisv1alpha1listers.APIBindingClusterLister
+
+	apiExportIndexer cache.Indexer
+
 	getAPIResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
 }
 
