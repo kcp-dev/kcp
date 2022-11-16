@@ -394,7 +394,6 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		kubeClusterClient,
 		logicalClusterAdminConfig,
 		s.KcpSharedInformerFactory.Tenancy().V1beta1().Workspaces(),
-		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
 	)
 	if err != nil {
@@ -1190,7 +1189,7 @@ func (s *Server) installKubeQuotaController(
 	)
 
 	c, err := kubequota.NewController(
-		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
+		s.KcpSharedInformerFactory.Tenancy().V1beta1().Workspaces(),
 		kubeClusterClient,
 		s.KubeSharedInformerFactory,
 		s.DynamicDiscoverySharedInformerFactory,
@@ -1304,7 +1303,7 @@ func (s *Server) installGarbageCollectorController(ctx context.Context, config *
 	)
 
 	c, err := garbagecollector.NewController(
-		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces(),
+		s.KcpSharedInformerFactory.Tenancy().V1beta1().Workspaces(),
 		kubeClusterClient,
 		metadataClient,
 		s.DynamicDiscoverySharedInformerFactory,

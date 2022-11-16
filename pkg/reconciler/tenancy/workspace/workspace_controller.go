@@ -54,7 +54,6 @@ func NewController(
 	kubeClusterClient kubernetes.ClusterInterface,
 	logicalClusterAdminConfig *rest.Config,
 	workspaceInformer tenancyv1beta1informers.WorkspaceInformer,
-	clusterWorkspaceInformer tenancyinformers.ClusterWorkspaceInformer,
 	clusterWorkspaceShardInformer tenancyinformers.ClusterWorkspaceShardInformer,
 ) (*Controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
@@ -67,10 +66,10 @@ func NewController(
 		kubeClusterClient:            kubeClusterClient,
 		workspaceIndexer:             workspaceInformer.Informer().GetIndexer(),
 		workspaceLister:              workspaceInformer.Lister(),
-		clusterWorkspaceIndexer:      clusterWorkspaceInformer.Informer().GetIndexer(),
-		clusterWorkspaceLister:       clusterWorkspaceInformer.Lister(),
 		clusterWorkspaceShardIndexer: clusterWorkspaceShardInformer.Informer().GetIndexer(),
 		clusterWorkspaceShardLister:  clusterWorkspaceShardInformer.Lister(),
+
+		commit: committer.NewCommitter[*tenancyv1beta1.Workspace, *tenancyv1beta1.WorkspaceSpec, *tenancyv1beta1.WorkspaceStatus](kcpClusterClient.TenancyV1beta1().Workspaces()),
 	}
 
 	indexers.AddIfNotPresentOrDie(workspaceInformer.Informer().GetIndexer(), cache.Indexers{
@@ -108,9 +107,6 @@ type Controller struct {
 	kubeClusterClient kubernetes.ClusterInterface
 	kcpExternalClient kcpclient.ClusterInterface
 
-	clusterWorkspaceIndexer cache.Indexer
-	clusterWorkspaceLister  tenancylisters.ClusterWorkspaceLister
-
 	workspaceIndexer cache.Indexer
 	workspaceLister  tenancyv1beta1listers.WorkspaceLister
 
@@ -142,7 +138,7 @@ func (c *Controller) enqueueShard(obj interface{}) {
 
 	shard, err := c.clusterWorkspaceShardLister.Get(key)
 	if err == nil {
-		workspaces, err := c.clusterWorkspaceIndexer.ByIndex(unschedulable, "true")
+		workspaces, err := c.workspaceIndexer.ByIndex(unschedulable, "true")
 		if err != nil {
 			runtime.HandleError(err)
 			return

@@ -23,6 +23,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 )
 
 // Index implements a mapping from logical cluster to (shard) URL.
@@ -57,7 +58,7 @@ type State struct {
 	shardBaseURLs        map[string]string                                                 // shard name -> base URL
 }
 
-func (c *State) UpsertClusterWorkspace(shard string, ws *tenancyv1alpha1.ClusterWorkspace) {
+func (c *State) UpsertWorkspace(shard string, ws *tenancyv1beta1.Workspace) {
 	if ws.Status.Phase == tenancyv1alpha1.WorkspacePhaseScheduling {
 		return
 	}
@@ -85,7 +86,7 @@ func (c *State) UpsertClusterWorkspace(shard string, ws *tenancyv1alpha1.Cluster
 	}
 }
 
-func (c *State) DeleteClusterWorkspace(shard string, ws *tenancyv1alpha1.ClusterWorkspace) {
+func (c *State) DeleteWorkspace(shard string, ws *tenancyv1beta1.Workspace) {
 	if ws.Status.Phase == tenancyv1alpha1.WorkspacePhaseScheduling {
 		return
 	}
