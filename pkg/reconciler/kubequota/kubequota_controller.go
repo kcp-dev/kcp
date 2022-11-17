@@ -28,7 +28,6 @@ import (
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v2"
 
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -79,7 +78,6 @@ type Controller struct {
 
 	// For better testability
 	getClusterWorkspace func(cluster logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspace, error)
-	listCRDs            func() ([]*apiextensionsv1.CustomResourceDefinition, error)
 }
 
 // NewController creates a new Controller.

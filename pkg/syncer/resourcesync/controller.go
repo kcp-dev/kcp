@@ -398,9 +398,9 @@ func (c *Controller) startSyncerInformer(ctx context.Context, gvr schema.GroupVe
 		kcpcache.ClusterIndexName:             kcpcache.ClusterIndexFunc,
 		kcpcache.ClusterAndNamespaceIndexName: kcpcache.ClusterAndNamespaceIndexFunc}, func(o *metav1.ListOptions) {},
 	)
-	downstreamInformer := dynamicinformer.NewFilteredDynamicInformerWithOptions(c.downstreamDynamicClient, gvr, metav1.NamespaceAll, func(o *metav1.ListOptions) {
+	downstreamInformer := dynamicinformer.NewFilteredDynamicInformer(c.downstreamDynamicClient, gvr, metav1.NamespaceAll, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, func(o *metav1.ListOptions) {
 		o.LabelSelector = workloadv1alpha1.InternalDownstreamClusterLabel + "=" + syncTargetKey
-	}, cache.WithResyncPeriod(resyncPeriod), cache.WithIndexers(map[string]cache.IndexFunc{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}))
+	})
 
 	for _, handler := range c.upstreamEventHandlers {
 		upstreamInformer.Informer().AddEventHandler(handler(gvr))

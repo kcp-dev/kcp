@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	listerscorev1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	utilspointer "k8s.io/utils/pointer"
 
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
@@ -820,7 +821,7 @@ func TestDeploymentMutate(t *testing.T) {
 
 				workspace := logicalcluster.New("root:default:testing")
 
-				serviceIndexer := cache.NewIndexer(cache.LegacyMetaNamespaceKeyFunc, cache.Indexers{})
+				serviceIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 
 				dnsServiceName := shared.GetDNSID(workspace, "syncTargetUID", "syncTargetName")
 				err = serviceIndexer.Add(service(dnsServiceName, "dnsNamespace"))

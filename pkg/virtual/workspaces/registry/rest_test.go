@@ -48,7 +48,6 @@ import (
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpfakeclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/fake"
 	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/authorization"
 )
@@ -1173,12 +1172,6 @@ func (c clusterWorkspaces) RemoveWatcher(watcher workspaceauth.CacheWatcher) {
 }
 
 func (c clusterWorkspaces) AddWatcher(watcher workspaceauth.CacheWatcher) {
-}
-
-type mockKcpClusterClient func(cluster logicalcluster.Name) kcpclientset.ClusterInterface
-
-func (m mockKcpClusterClient) Cluster(cluster logicalcluster.Name) kcpclientset.ClusterInterface {
-	return m(cluster)
 }
 
 type mockSubjectLocator struct {

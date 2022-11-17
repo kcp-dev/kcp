@@ -53,6 +53,9 @@ type ClusterWorkspaceCache struct {
 func (c *ClusterWorkspaceCache) Get(clusterName logicalcluster.Name, workspaceName string) (*tenancyv1alpha1.ClusterWorkspace, error) {
 	// check for cluster workspace in the cache
 	clusterWorkspace, err := c.lister.Cluster(clusterName).Get(workspaceName)
+	if err == nil {
+		return clusterWorkspace, nil
+	}
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, err
 	}
@@ -64,8 +67,9 @@ func (c *ClusterWorkspaceCache) Get(clusterName logicalcluster.Name, workspaceNa
 		if err != nil && !errors.IsNotFound(err) {
 			return nil, err
 		}
-		if errors.IsNotFound(err) {
+		if err == nil {
 			klog.V(4).Infof("found %s in cache after waiting", workspaceName)
+			return clusterWorkspace, nil
 		}
 	}
 

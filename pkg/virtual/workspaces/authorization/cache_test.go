@@ -147,9 +147,9 @@ func TestSyncWorkspace(t *testing.T) {
 
 	subjectLocator := &mockSubjectLocator{
 		subjects: map[string][]rbacv1.Subject{
-			"root|foo": append(rbacUsers(alice.GetName(), bob.GetName()), rbacGroups(eve.GetGroups()...)...),
-			"root|bar": append(rbacUsers(frank.GetName(), eve.GetName()), rbacGroups("random")...),
-			"root|car": {},
+			"foo": append(rbacUsers(alice.GetName(), bob.GetName()), rbacGroups(eve.GetGroups()...)...),
+			"bar": append(rbacUsers(frank.GetName(), eve.GetName()), rbacGroups("random")...),
+			"car": {},
 		},
 	}
 
@@ -178,9 +178,9 @@ func TestSyncWorkspace(t *testing.T) {
 	validateList(t, authorizationCache, frank, sets.NewString("bar"))
 
 	// modify access rules
-	subjectLocator.subjects["root|foo"] = []rbacv1.Subject{rbacUser(bob.GetName()), rbacGroup("random")}
-	subjectLocator.subjects["root|bar"] = []rbacv1.Subject{rbacUser(alice.GetName()), rbacUser(eve.GetName()), rbacGroup("employee")}
-	subjectLocator.subjects["root|car"] = []rbacv1.Subject{rbacUser(bob.GetName()), rbacUser(eve.GetName()), rbacGroup("employee")}
+	subjectLocator.subjects["foo"] = []rbacv1.Subject{rbacUser(bob.GetName()), rbacGroup("random")}
+	subjectLocator.subjects["bar"] = []rbacv1.Subject{rbacUser(alice.GetName()), rbacUser(eve.GetName()), rbacGroup("employee")}
+	subjectLocator.subjects["car"] = []rbacv1.Subject{rbacUser(bob.GetName()), rbacUser(eve.GetName()), rbacGroup("employee")}
 
 	// modify resource version on each namespace to simulate a change had occurred to force cache refresh
 	for i := range workspaceList.Items {
