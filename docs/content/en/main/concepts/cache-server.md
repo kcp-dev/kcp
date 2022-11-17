@@ -61,7 +61,7 @@ import (
 )
 
 // adds shards awareness to a client with a default `shard.Wildcard` name.
-NewClusterForConfig(cacheclient.WithShardRoundTripper(cacheclient.WithDefaultShardRoundTripper(serverConfig.LoopbackClientConfig, shard.Wildcard)))
+NewForConfig(cacheclient.WithShardRoundTripper(cacheclient.WithDefaultShardRoundTripper(serverConfig.LoopbackClientConfig, shard.Wildcard)))
 
 // and then change the context when you need to access a specific shard and pass is when making a HTTP request
 ctx = cacheclient.WithShardInContext(ctx, shard.New("cache"))
