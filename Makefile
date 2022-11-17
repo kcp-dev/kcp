@@ -23,6 +23,8 @@ GOBIN_DIR=$(abspath ./bin )
 PATH := $(GOBIN_DIR):$(TOOLS_GOBIN_DIR):$(PATH)
 TMPDIR := $(shell mktemp -d)
 
+DOCKER_REPO ?= quay.io/kcp-dev
+
 # Detect the path used for the install target
 ifeq (,$(shell go env GOBIN))
 INSTALL_GOBIN=$(shell go env GOPATH)/bin
@@ -111,6 +113,12 @@ build-kind-images-ko: require-ko
 build-kind-images: build-kind-images-ko
 	test -n "$(SYNCER_IMAGE)" || (echo Failed to create syncer image; exit 1)
 	test -n "$(TEST_IMAGE)" || (echo Failed to create test image; exit 1)
+
+IMAGE_BUILD_CMD ?= *
+
+# Don't build sbom as quay doesn't support it yet
+build-images-ko: require-ko
+	KO_DOCKER_REPO=${DOCKER_REPO} ko build --sbom=none -B --platform=linux/$(ARCH) -t latest ./cmd/$(IMAGE_BUILD_CMD)
 
 install: WHAT ?= ./cmd/...
 install:
