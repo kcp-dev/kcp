@@ -49,7 +49,7 @@ import (
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
-	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned"
+	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -230,8 +230,8 @@ func TestAPIBinding(t *testing.T) {
 		t.Logf("Make sure we can perform CRUD operations against consumer workspace %q for the bound API", consumerWorkspace)
 
 		t.Logf("Make sure list shows nothing to start")
-		cowboyClient := wildwestClusterClient.WildwestV1alpha1().Cowboys("default")
-		cowboys, err := cowboyClient.List(logicalcluster.WithCluster(ctx, consumerWorkspace), metav1.ListOptions{})
+		cowboyClient := wildwestClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default")
+		cowboys, err := cowboyClient.List(ctx, metav1.ListOptions{})
 		require.NoError(t, err, "error listing cowboys inside %q", consumerWorkspace)
 		require.Zero(t, len(cowboys.Items), "expected 0 cowboys inside %q", consumerWorkspace)
 
@@ -243,11 +243,11 @@ func TestAPIBinding(t *testing.T) {
 				Namespace: "default",
 			},
 		}
-		_, err = cowboyClient.Create(logicalcluster.WithCluster(ctx, consumerWorkspace), cowboy, metav1.CreateOptions{})
+		_, err = cowboyClient.Create(ctx, cowboy, metav1.CreateOptions{})
 		require.NoError(t, err, "error creating cowboy in %q", consumerWorkspace)
 
 		t.Logf("Make sure there is 1 cowboy in consumer workspace %q", consumerWorkspace)
-		cowboys, err = cowboyClient.List(logicalcluster.WithCluster(ctx, consumerWorkspace), metav1.ListOptions{})
+		cowboys, err = cowboyClient.List(ctx, metav1.ListOptions{})
 		require.NoError(t, err, "error listing cowboys in %q", consumerWorkspace)
 		require.Equal(t, 1, len(cowboys.Items), "expected 1 cowboy in %q", consumerWorkspace)
 		require.Equal(t, cowboyName, cowboys.Items[0].Name, "unexpected name for cowboy in %q", consumerWorkspace)

@@ -51,7 +51,7 @@ import (
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
-	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned"
+	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -195,8 +195,8 @@ func TestGarbageCollectorTypesFromBinding(t *testing.T) {
 
 			t.Logf("Wait for being able to list cowboys in the user workspace")
 			framework.Eventually(t, func() (bool, string) {
-				_, err := wildwestClusterClient.WildwestV1alpha1().Cowboys("").
-					List(logicalcluster.WithCluster(c, userClusterName), metav1.ListOptions{})
+				_, err := wildwestClusterClient.Cluster(userClusterName).WildwestV1alpha1().Cowboys("").
+					List(c, metav1.ListOptions{})
 				if err != nil {
 					return false, fmt.Sprintf("Failed to list cowboys: %v", err)
 				}
@@ -204,8 +204,8 @@ func TestGarbageCollectorTypesFromBinding(t *testing.T) {
 			}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 			t.Logf("Creating owner cowboy")
-			owner, err := wildwestClusterClient.WildwestV1alpha1().Cowboys("default").
-				Create(logicalcluster.WithCluster(ctx, userClusterName),
+			owner, err := wildwestClusterClient.Cluster(userClusterName).WildwestV1alpha1().Cowboys("default").
+				Create(ctx,
 					&wildwestv1alpha1.Cowboy{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "owner",
@@ -226,8 +226,8 @@ func TestGarbageCollectorTypesFromBinding(t *testing.T) {
 			require.NoError(t, err, "Error applying owned configmap %s|default/owned", userClusterName)
 
 			t.Logf("Creating owned cowboy")
-			ownedCowboy, err := wildwestClusterClient.WildwestV1alpha1().Cowboys("default").
-				Create(logicalcluster.WithCluster(ctx, userClusterName),
+			ownedCowboy, err := wildwestClusterClient.Cluster(userClusterName).WildwestV1alpha1().Cowboys("default").
+				Create(ctx,
 					&wildwestv1alpha1.Cowboy{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "owned",
@@ -245,8 +245,8 @@ func TestGarbageCollectorTypesFromBinding(t *testing.T) {
 			require.NoError(t, err, "Error creating owned cowboy %s|default/owner", userClusterName)
 
 			t.Logf("Deleting owner cowboy")
-			err = wildwestClusterClient.WildwestV1alpha1().Cowboys("default").
-				Delete(logicalcluster.WithCluster(ctx, userClusterName), owner.Name, metav1.DeleteOptions{})
+			err = wildwestClusterClient.Cluster(userClusterName).WildwestV1alpha1().Cowboys("default").
+				Delete(ctx, owner.Name, metav1.DeleteOptions{})
 
 			t.Logf("Waiting for the owned configmap to be garbage collected")
 			framework.Eventually(t, func() (bool, string) {
@@ -257,8 +257,8 @@ func TestGarbageCollectorTypesFromBinding(t *testing.T) {
 
 			t.Logf("Waiting for the owned cowboy to be garbage collected")
 			framework.Eventually(t, func() (bool, string) {
-				_, err = wildwestClusterClient.WildwestV1alpha1().Cowboys("default").
-					Get(logicalcluster.WithCluster(ctx, userClusterName), ownedCowboy.Name, metav1.GetOptions{})
+				_, err = wildwestClusterClient.Cluster(userClusterName).WildwestV1alpha1().Cowboys("default").
+					Get(ctx, ownedCowboy.Name, metav1.GetOptions{})
 				return apierrors.IsNotFound(err), fmt.Sprintf("cowboy not garbage collected: %s", ownedConfigMap.Name)
 			}, wait.ForeverTestTimeout, 100*time.Millisecond, "error waiting for owned cowboy to be garbage collected")
 		})

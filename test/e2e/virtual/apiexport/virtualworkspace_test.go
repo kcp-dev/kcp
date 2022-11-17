@@ -63,7 +63,7 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
-	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned"
+	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -162,7 +162,7 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	user1VWCfg := framework.UserConfig("user-1", apiExportVWCfg)
 	wwUser1VC, err := wildwestclientset.NewForConfig(user1VWCfg)
 	require.NoError(t, err)
-	_, err = wwUser1VC.WildwestV1alpha1().Cowboys("").List(logicalcluster.WithCluster(ctx, logicalcluster.Wildcard), metav1.ListOptions{})
+	_, err = wwUser1VC.WildwestV1alpha1().Cowboys().List(ctx, metav1.ListOptions{})
 	require.True(t, apierrors.IsForbidden(err))
 
 	// Create clusterRoleBindings for content access.
@@ -176,7 +176,7 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	// Get cowboys from the virtual workspace with user-1.
 	t.Logf("Get Cowboys with user-1")
 	require.Eventually(t, func() bool {
-		cbs, err := wwUser1VC.WildwestV1alpha1().Cowboys("").List(logicalcluster.WithCluster(ctx, logicalcluster.Wildcard), metav1.ListOptions{})
+		cbs, err := wwUser1VC.WildwestV1alpha1().Cowboys().List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return false
 		}
@@ -185,7 +185,7 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 		// Attempt to update it should fail
 		cb := cbs.Items[0]
 		cb.Status.Result = "updated"
-		_, err = wwUser1VC.WildwestV1alpha1().Cowboys(cb.Namespace).UpdateStatus(logicalcluster.WithCluster(ctx, logicalcluster.From(&cb)), &cb, metav1.UpdateOptions{})
+		_, err = wwUser1VC.Cluster(logicalcluster.From(&cb)).WildwestV1alpha1().Cowboys(cb.Namespace).UpdateStatus(ctx, &cb, metav1.UpdateOptions{})
 		require.Error(t, err)
 		require.True(t, apierrors.IsForbidden(err))
 
@@ -201,12 +201,12 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	require.NoError(t, err)
 
 	user2VWCfg := framework.UserConfig("user-2", apiExportVWCfg)
-	wwUser2VC, err := wildwestclientset.NewClusterForConfig(user2VWCfg)
+	wwUser2VC, err := wildwestclientset.NewForConfig(user2VWCfg)
 	require.NoError(t, err)
 	t.Logf("Get Cowboy and update status with user-2")
 	var testCowboy wildwestv1alpha1.Cowboy
 	require.Eventually(t, func() bool {
-		cbs, err := wwUser2VC.Cluster(logicalcluster.Wildcard).WildwestV1alpha1().Cowboys("").List(ctx, metav1.ListOptions{})
+		cbs, err := wwUser2VC.WildwestV1alpha1().Cowboys().List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return false
 		}
@@ -236,14 +236,14 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 		t.Logf("create a cowboy with user-1 via APIExport virtual workspace server")
 		cowboy = newCowboy("default", "cowboy-via-vw")
 		var err error
-		cowboy, err = wwUser1VC.WildwestV1alpha1().Cowboys("default").Create(logicalcluster.WithCluster(ctx, consumerWorkspace), cowboy, metav1.CreateOptions{})
+		cowboy, err = wwUser1VC.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Create(ctx, cowboy, metav1.CreateOptions{})
 		require.NoError(t, err)
 		return true
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "expected user-1 to create a cowboy via virtual workspace")
 
 	t.Logf("update a cowboy with user-1 via APIExport virtual workspace server")
 	cowboy.Spec.Intent = "1"
-	cowboy, err = wwUser1VC.WildwestV1alpha1().Cowboys("default").Update(logicalcluster.WithCluster(ctx, consumerWorkspace), cowboy, metav1.UpdateOptions{})
+	cowboy, err = wwUser1VC.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Update(ctx, cowboy, metav1.UpdateOptions{})
 	require.NoError(t, err)
 	t.Logf("make sure the updated cowboy has its generation incremented")
 	require.Equal(t, cowboy.Generation, int64(2))
@@ -251,11 +251,11 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	t.Logf("update a cowboy status with user-1 via APIExport virtual workspace server")
 	cowboy.Spec.Intent = "2"
 	cowboy.Status.Result = "test"
-	_, err = wwUser1VC.WildwestV1alpha1().Cowboys("default").UpdateStatus(logicalcluster.WithCluster(ctx, consumerWorkspace), cowboy, metav1.UpdateOptions{})
+	_, err = wwUser1VC.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").UpdateStatus(ctx, cowboy, metav1.UpdateOptions{})
 	require.NoError(t, err)
 
 	t.Logf("make sure the cowboy status update hasn't incremented the generation nor updated the spec")
-	cowboy, err = wwUser1VC.WildwestV1alpha1().Cowboys("default").Get(logicalcluster.WithCluster(ctx, consumerWorkspace), "cowboy-via-vw", metav1.GetOptions{})
+	cowboy, err = wwUser1VC.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Get(ctx, "cowboy-via-vw", metav1.GetOptions{})
 	require.NoError(t, err)
 	require.Equal(t, cowboy.Generation, int64(2))
 	require.Equal(t, cowboy.Spec.Intent, "1")
@@ -268,16 +268,16 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	target := encodeJSON(t, patchedCowboy)
 	mergePatch, err := jsonpatch.CreateMergePatch(source, target)
 	require.NoError(t, err)
-	cowboy, err = wwUser1VC.WildwestV1alpha1().Cowboys("default").
-		Patch(logicalcluster.WithCluster(ctx, consumerWorkspace), "cowboy-via-vw", types.MergePatchType, mergePatch, metav1.PatchOptions{})
+	cowboy, err = wwUser1VC.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").
+		Patch(ctx, "cowboy-via-vw", types.MergePatchType, mergePatch, metav1.PatchOptions{})
 	require.NoError(t, err)
 
 	t.Logf("patch (application/apply-patch+yaml) a cowboy with user-1 via APIExport virtual workspace server")
 	applyCowboy := newCowboy("default", "cowboy-via-vw")
 	applyCowboy.Spec.Intent = "4"
 	applyPatch := encodeJSON(t, applyCowboy)
-	cowboy, err = wwUser1VC.WildwestV1alpha1().Cowboys("default").
-		Patch(logicalcluster.WithCluster(ctx, consumerWorkspace), "cowboy-via-vw", types.ApplyPatchType, applyPatch, metav1.PatchOptions{FieldManager: "e2e-test-runner", Force: pointer.Bool(true)})
+	cowboy, err = wwUser1VC.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").
+		Patch(ctx, "cowboy-via-vw", types.ApplyPatchType, applyPatch, metav1.PatchOptions{FieldManager: "e2e-test-runner", Force: pointer.Bool(true)})
 	require.NoError(t, err)
 
 	t.Logf("patching a non-existent cowboy with user-1 via APIExport virtual workspace server should fail")
@@ -287,24 +287,24 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	target = encodeJSON(t, patchedCowboy)
 	mergePatch, err = jsonpatch.CreateMergePatch(source, target)
 	require.NoError(t, err)
-	cowboy, err = wwUser1VC.WildwestV1alpha1().Cowboys("default").
-		Patch(logicalcluster.WithCluster(ctx, consumerWorkspace), "cowboy-via-vw-merge-patch", types.MergePatchType, mergePatch, metav1.PatchOptions{})
+	cowboy, err = wwUser1VC.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").
+		Patch(ctx, "cowboy-via-vw-merge-patch", types.MergePatchType, mergePatch, metav1.PatchOptions{})
 	require.EqualError(t, err, "cowboys.wildwest.dev \"cowboy-via-vw-merge-patch\" not found")
 
 	t.Logf("create a cowboy with user-1 via APIExport virtual workspace server using Server-Side Apply")
 	cowboySSA := newCowboy("default", "cowboy-via-vw-ssa")
 	cowboySSA.Spec.Intent = "1"
 	applyPatch = encodeJSON(t, cowboySSA)
-	cowboy, err = wwUser1VC.WildwestV1alpha1().Cowboys("default").
-		Patch(logicalcluster.WithCluster(ctx, consumerWorkspace), "cowboy-via-vw-ssa", types.ApplyPatchType, applyPatch, metav1.PatchOptions{FieldManager: "e2e-test-runner"})
+	cowboy, err = wwUser1VC.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").
+		Patch(ctx, "cowboy-via-vw-ssa", types.ApplyPatchType, applyPatch, metav1.PatchOptions{FieldManager: "e2e-test-runner"})
 	require.NoError(t, err)
 
 	t.Logf("delete a cowboy with user-1 via APIExport virtual workspace server")
-	err = wwUser1VC.WildwestV1alpha1().Cowboys("default").Delete(logicalcluster.WithCluster(ctx, consumerWorkspace), "cowboy-via-vw", metav1.DeleteOptions{})
+	err = wwUser1VC.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Delete(ctx, "cowboy-via-vw", metav1.DeleteOptions{})
 	require.NoError(t, err)
 
 	t.Logf("make sure the cowboy deleted with user-1 via APIExport virtual workspace server is gone")
-	cowboys, err := wwUser1VC.WildwestV1alpha1().Cowboys("").List(logicalcluster.WithCluster(ctx, logicalcluster.Wildcard), metav1.ListOptions{})
+	cowboys, err := wwUser1VC.WildwestV1alpha1().Cowboys().List(ctx, metav1.ListOptions{})
 	require.NoError(t, err)
 	require.Equal(t, 2, len(cowboys.Items))
 	var names []string
@@ -314,11 +314,11 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	require.ElementsMatch(t, []string{testCowboy.Name, "cowboy-via-vw-ssa"}, names)
 
 	t.Logf("delete all cowboys with user-1 via APIExport virtual workspace server")
-	err = wwUser1VC.WildwestV1alpha1().Cowboys("default").DeleteCollection(logicalcluster.WithCluster(ctx, consumerWorkspace), metav1.DeleteOptions{}, metav1.ListOptions{})
+	err = wwUser1VC.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{})
 	require.NoError(t, err)
 
 	t.Logf("make sure all cowboys have been deleted")
-	cowboys, err = wwUser1VC.WildwestV1alpha1().Cowboys("").List(logicalcluster.WithCluster(ctx, logicalcluster.Wildcard), metav1.ListOptions{})
+	cowboys, err = wwUser1VC.WildwestV1alpha1().Cowboys().List(ctx, metav1.ListOptions{})
 	require.NoError(t, err)
 	require.Equal(t, 0, len(cowboys.Items))
 }
@@ -690,7 +690,7 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("verify that the exported resource is retrievable")
-	cowboysProjected, err := wildwestVCClients.WildwestV1alpha1().Cowboys("").List(logicalcluster.WithCluster(ctx, logicalcluster.Wildcard), metav1.ListOptions{})
+	cowboysProjected, err := wildwestVCClients.WildwestV1alpha1().Cowboys().List(ctx, metav1.ListOptions{})
 	require.NoError(t, err)
 	require.Equal(t, 1, len(cowboysProjected.Items))
 
@@ -1056,17 +1056,17 @@ func bindConsumerToProvider(ctx context.Context, consumerWorkspace, providerWork
 	require.True(t, resourceExists(resources, "cowboys"), "consumer workspace %q discovery is missing cowboys resource", consumerWorkspace)
 }
 
-func createCowboyInConsumer(ctx context.Context, t *testing.T, consumer1Workspace logicalcluster.Name, wildwestClusterClient wildwestclientset.Interface) {
+func createCowboyInConsumer(ctx context.Context, t *testing.T, consumer1Workspace logicalcluster.Name, wildwestClusterClient wildwestclientset.ClusterInterface) {
 	t.Logf("Make sure we can perform CRUD operations against consumer workspace %q for the bound API", consumer1Workspace)
 
 	t.Logf("Make sure list shows nothing to start")
-	cowboyClusterClient := wildwestClusterClient.WildwestV1alpha1().Cowboys("default")
+	cowboyClusterClient := wildwestClusterClient.Cluster(consumer1Workspace).WildwestV1alpha1().Cowboys("default")
 	var cowboys *wildwestv1alpha1.CowboyList
 	// Adding a poll here to wait for the user's to get access via RBAC informer updates.
 
 	require.Eventually(t, func() bool {
 		var err error
-		cowboys, err = cowboyClusterClient.List(logicalcluster.WithCluster(ctx, consumer1Workspace), metav1.ListOptions{})
+		cowboys, err = cowboyClusterClient.List(ctx, metav1.ListOptions{})
 		return err == nil
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected to be able to list ")
 	require.Zero(t, len(cowboys.Items), "expected 0 cowboys inside consumer workspace %q", consumer1Workspace)
@@ -1074,7 +1074,7 @@ func createCowboyInConsumer(ctx context.Context, t *testing.T, consumer1Workspac
 	t.Logf("Create a cowboy CR in consumer workspace %q", consumer1Workspace)
 	cowboyName := fmt.Sprintf("cowboy-%s", consumer1Workspace.Base())
 	cowboy := newCowboy("default", cowboyName)
-	_, err := cowboyClusterClient.Create(logicalcluster.WithCluster(ctx, consumer1Workspace), cowboy, metav1.CreateOptions{})
+	_, err := cowboyClusterClient.Create(ctx, cowboy, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating cowboy in consumer workspace %q", consumer1Workspace)
 }
 

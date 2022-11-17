@@ -42,7 +42,7 @@ import (
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
-	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned"
+	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -228,18 +228,18 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 		t.Logf("Set up user-1 and user-3 as admin for the consumer workspace %q", consumer)
 		framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, consumer, []string{"user-1", "user-3"}, nil, []string{"admin"})
 		bindConsumerToProvider(consumer, serviceProvider)
-		cowboyClusterClient := wildwestClusterClient.WildwestV1alpha1().Cowboys("default")
 		wildwestClusterClient, err := wildwestclientset.NewForConfig(framework.UserConfig("user-1", rest.CopyConfig(cfg)))
+		cowboyclient := wildwestClusterClient.WildwestV1alpha1().Cluster(consumer).Cowboys("default")
 		require.NoError(t, err)
 		testCRUDOperations(ctx, t, consumer, wildwestClusterClient)
 		t.Logf("Make sure there is 1 cowboy in consumer workspace %q", consumer)
-		cowboys, err := cowboyClusterClient.List(logicalcluster.WithCluster(ctx, consumer), metav1.ListOptions{})
+		cowboys, err := cowboyclient.List(ctx, metav1.ListOptions{})
 		require.NoError(t, err, "error listing cowboys in consumer workspace %q", consumer)
 		require.Equal(t, 1, len(cowboys.Items), "expected 1 cowboy in consumer workspace %q", consumer)
 		if serviceProvider == rbacServiceProviderWorkspace {
 			t.Logf("Make sure that the status of cowboy can not be updated in workspace %q", consumer)
 			framework.Eventually(t, func() (bool, string) {
-				_, err = cowboyClusterClient.UpdateStatus(logicalcluster.WithCluster(ctx, consumer), &cowboys.Items[0], metav1.UpdateOptions{})
+				_, err = cowboyclient.UpdateStatus(ctx, &cowboys.Items[0], metav1.UpdateOptions{})
 				if err == nil {
 					return false, "error"
 				}
@@ -262,7 +262,7 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 
 			// This is needed to make sure the RBAC is updated in the informers
 			require.Eventually(t, func() bool {
-				_, err := user2Client.WildwestV1alpha1().Cowboys("default").List(logicalcluster.WithCluster(ctx, consumer), metav1.ListOptions{})
+				_, err := user2Client.Cluster(consumer).WildwestV1alpha1().Cowboys("default").List(ctx, metav1.ListOptions{})
 				return err == nil
 			}, wait.ForeverTestTimeout, time.Millisecond*100, "expected user-2 to list cowboys")
 
@@ -273,11 +273,11 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 				},
 			}
 			t.Logf("Make sure user 2 can not create cowboy resources in consumer workspace %q", consumer)
-			_, err = user2Client.WildwestV1alpha1().Cowboys("default").Create(logicalcluster.WithCluster(ctx, consumer), cowboy2, metav1.CreateOptions{})
+			_, err = user2Client.Cluster(consumer).WildwestV1alpha1().Cowboys("default").Create(ctx, cowboy2, metav1.CreateOptions{})
 			require.Error(t, err)
 		} else {
 			t.Logf("Make sure that the status of cowboy can be updated in workspace %q", consumer)
-			_, err = cowboyClusterClient.Update(logicalcluster.WithCluster(ctx, consumer), &cowboys.Items[0], metav1.UpdateOptions{})
+			_, err = cowboyclient.Update(ctx, &cowboys.Items[0], metav1.UpdateOptions{})
 			require.NoError(t, err, "expected error updating status of cowboys")
 		}
 	}
@@ -376,17 +376,17 @@ func setUpServiceProvider(ctx context.Context, dynamicClusterClient kcpdynamic.C
 	require.NoError(t, err)
 }
 
-func testCRUDOperations(ctx context.Context, t *testing.T, consumer1Workspace logicalcluster.Name, wildwestClusterClient wildwestclientset.Interface) {
+func testCRUDOperations(ctx context.Context, t *testing.T, consumer1Workspace logicalcluster.Name, wildwestClusterClient wildwestclientset.ClusterInterface) {
 	t.Logf("Make sure we can perform CRUD operations against consumer workspace %q for the bound API", consumer1Workspace)
 
 	t.Logf("Make sure list shows nothing to start")
-	cowboyClient := wildwestClusterClient.WildwestV1alpha1().Cowboys("default")
+	cowboyClient := wildwestClusterClient.Cluster(consumer1Workspace).WildwestV1alpha1().Cowboys("default")
 	var cowboys *wildwestv1alpha1.CowboyList
 	// Adding a poll here to wait for the user's to get access via RBAC informer updates.
 
 	require.Eventually(t, func() bool {
 		var err error
-		cowboys, err = cowboyClient.List(logicalcluster.WithCluster(ctx, consumer1Workspace), metav1.ListOptions{})
+		cowboys, err = cowboyClient.List(ctx, metav1.ListOptions{})
 		return err == nil
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected to be able to list ")
 	require.Zero(t, len(cowboys.Items), "expected 0 cowboys inside consumer workspace %q", consumer1Workspace)
@@ -399,7 +399,7 @@ func testCRUDOperations(ctx context.Context, t *testing.T, consumer1Workspace lo
 			Namespace: "default",
 		},
 	}
-	_, err := cowboyClient.Create(logicalcluster.WithCluster(ctx, consumer1Workspace), cowboy, metav1.CreateOptions{})
+	_, err := cowboyClient.Create(ctx, cowboy, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating cowboy in consumer workspace %q", consumer1Workspace)
 
 }

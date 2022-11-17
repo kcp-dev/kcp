@@ -44,6 +44,7 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
 	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned"
+	wildwestclusterclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/cluster"
 	wildwestv1alpha1client "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/typed/wildwest/v1alpha1"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -182,7 +183,7 @@ func TestClusterController(t *testing.T) {
 			sourceKubeClient, err := kcpkubernetesclientset.NewForConfig(sourceConfig)
 			require.NoError(t, err)
 
-			sourceWildwestClient, err := wildwestclientset.NewForConfig(sourceWsClusterConfig)
+			sourceWildwestClusterClient, err := wildwestclusterclientset.NewForConfig(sourceConfig)
 			require.NoError(t, err)
 
 			syncerFixture := framework.NewSyncerFixture(t, source, wsClusterName,
@@ -218,7 +219,7 @@ func TestClusterController(t *testing.T) {
 
 			runningServers := map[string]runningServer{
 				sourceClusterName: {
-					client:     sourceWildwestClient.WildwestV1alpha1(),
+					client:     sourceWildwestClusterClient.Cluster(wsClusterName).WildwestV1alpha1(),
 					coreClient: sourceKubeClient.Cluster(wsClusterName).CoreV1(),
 				},
 				sinkClusterName: {

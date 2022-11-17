@@ -61,7 +61,7 @@ var scenarios = []testScenario{
 
 // replicateAPIResourceSchemaScenario tests if an APIResourceSchema is propagated to the cache server.
 // The test exercises creation, modification and removal of the APIExport object.
-func replicateAPIResourceSchemaScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterClient clientset.ClusterInterface, cacheKcpClusterClient clientset.ClusterInterface) {
+func replicateAPIResourceSchemaScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterClient kcpclientset.ClusterInterface, cacheKcpClusterClient kcpclientset.ClusterInterface) {
 	org := framework.NewOrganizationFixture(t, server)
 	cluster := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
 	resourceName := "today.sheriffs.wild.wild.west"
@@ -69,7 +69,7 @@ func replicateAPIResourceSchemaScenario(ctx context.Context, t *testing.T, serve
 
 	t.Logf("Create source APIResourceSchema %s/%s on the root shard for replication", cluster, resourceName)
 	scenario.CreateSourceResource(t, func() error {
-		apifixtures.CreateSheriffsSchemaAndExport(ctx, t, cluster, kcpShardClusterClient.Cluster(cluster), "wild.wild.west", "testing replication to the cache server")
+		apifixtures.CreateSheriffsSchemaAndExport(ctx, t, cluster, kcpShardClusterClient, "wild.wild.west", "testing replication to the cache server")
 		return nil
 	})
 	t.Logf("Verify that the source APIResourceSchema %s/%s was replicated to the cache server", cluster, resourceName)
@@ -95,7 +95,7 @@ func replicateAPIResourceSchemaScenario(ctx context.Context, t *testing.T, serve
 }
 
 // replicateAPIResourceSchemaNegativeScenario checks if modified or even deleted cached APIResourceSchema will be reconciled to match the original object
-func replicateAPIResourceSchemaNegativeScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterClient clientset.ClusterInterface, cacheKcpClusterClient clientset.ClusterInterface) {
+func replicateAPIResourceSchemaNegativeScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterClient kcpclientset.ClusterInterface, cacheKcpClusterClient kcpclientset.ClusterInterface) {
 	org := framework.NewOrganizationFixture(t, server)
 	cluster := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
 	resourceName := "juicy.mangodbs.db.io"
@@ -213,14 +213,19 @@ func replicateAPIExportScenario(ctx context.Context, t *testing.T, server framew
 	scenario.DeleteSourceResourceAndVerify(ctx, t, cluster)
 }
 
-func verifyAPIExportUpdate(ctx context.Context, t *testing.T, cluster logicalcluster.Name, kcpRootShardClient kcpclientset.ClusterInterface, cacheKcpClusterClient kcpclientset.ClusterInterface, changeApiExportFn func(*apisv1alpha1.APIExport)) {
-	var wildAPIExport *apisv1alpha1.APIExport
-	var updatedWildAPIExport *apisv1alpha1.APIExport
-	var err error
-	framework.Eventually(t, func() (bool, string) {
-		wildAPIExport, err = kcpRootShardClient.Cluster(cluster).ApisV1alpha1().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
-		if err != nil {
-			return false, err.Error()
+// replicateAPIExportNegativeScenario checks if modified or even deleted cached APIExport will be reconciled to match the original object
+func replicateAPIExportNegativeScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterClient kcpclientset.ClusterInterface, cacheKcpClusterClient kcpclientset.ClusterInterface) {
+	org := framework.NewOrganizationFixture(t, server)
+	cluster := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
+	resourceName := "mangodb"
+	scenario := &replicateResourceScenario{resourceName: resourceName, resourceKind: "APIExport", server: server, kcpShardClusterClient: kcpShardClusterClient, cacheKcpClusterClient: cacheKcpClusterClient}
+
+	t.Logf("Create source APIExport %s/%s on the root shard for replication", cluster, resourceName)
+	scenario.CreateSourceResource(t, func() error {
+		export := &apisv1alpha1.APIExport{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: resourceName,
+			},
 		}
 		_, err := kcpShardClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Create(ctx, export, metav1.CreateOptions{})
 		return err

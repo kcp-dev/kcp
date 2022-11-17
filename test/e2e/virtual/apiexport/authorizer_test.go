@@ -26,7 +26,6 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
 	"k8s.io/apiextensions-apiserver/pkg/apihelpers"
@@ -47,7 +46,7 @@ import (
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest"
-	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned"
+	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -270,11 +269,11 @@ func TestAPIExportAuthorizers(t *testing.T) {
 	cowboy := newCowboy("default", "cowboy1")
 
 	t.Logf("Creating a cowboy resource available via API binding in consumer workspace %q", tenantWorkspace)
-	_, err = user3wildwestClusterClient.WildwestV1alpha1().Cowboys("default").Create(logicalcluster.WithCluster(ctx, tenantWorkspace), cowboy, metav1.CreateOptions{})
+	_, err = user3wildwestClusterClient.Cluster(tenantWorkspace).WildwestV1alpha1().Cowboys("default").Create(ctx, cowboy, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating cowboy in tenant workspace %q", tenantWorkspace)
 
 	t.Logf("Creating a cowboy resource available via CRD in consumer workspace %q", tenantShadowCRDWorkspace)
-	_, err = user3wildwestClusterClient.WildwestV1alpha1().Cowboys("default").Create(logicalcluster.WithCluster(ctx, tenantShadowCRDWorkspace), cowboy, metav1.CreateOptions{})
+	_, err = user3wildwestClusterClient.Cluster(tenantShadowCRDWorkspace).WildwestV1alpha1().Cowboys("default").Create(ctx, cowboy, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating cowboy in shadowing CRD tenant workspace %q", tenantShadowCRDWorkspace)
 
 	t.Logf("get virtual workspace client for \"today-cowboys\" APIExport in workspace %q", serviceProvider2Workspace)
