@@ -174,6 +174,10 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 		if err != nil && !apierrors.IsNotFound(err) {
 			return nil, err
 		}
+		// If the resource is namespaced, let's plan the cleanup of it's namespace.
+		if downstreamNamespace != "" {
+			c.downstreamNSCleaner.PlanCleaning(downstreamNamespace)
+		}
 		return nil, nil
 	}
 
@@ -397,6 +401,9 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 			}
 			logger.Error(err, "Error deleting upstream resource from downstream")
 			return err
+		}
+		if downstreamNamespace != "" {
+			c.downstreamNSCleaner.PlanCleaning(downstreamNamespace)
 		}
 		logger.V(2).Info("Deleted upstream resource from downstream")
 		return nil

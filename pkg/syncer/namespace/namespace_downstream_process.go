@@ -19,7 +19,6 @@ package namespace
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
@@ -82,7 +81,6 @@ func (c *DownstreamController) process(ctx context.Context, key string) error {
 		return err
 	}
 
-	//
 	if !downstreamNamespace.GetDeletionTimestamp().IsZero() {
 		logger.V(4).Info("downstream namespace is being deleted, ignoring key")
 		return nil
@@ -95,13 +93,7 @@ func (c *DownstreamController) process(ctx context.Context, key string) error {
 		return nil
 	}
 	if !exists {
-		// Check if the namespace is empty before trying to delete it
-		if empty, err := c.isDowntreamNamespaceEmpty(ctx, downstreamNamespace.GetName()); err != nil {
-			return fmt.Errorf("failed to check if downstream namespace is empty %w", err)
-		} else if !empty {
-			return fmt.Errorf("downstream namespace is not empty, refusing to delete")
-		}
-		logger.Info("Adding namespace to the delayed delete queue")
+		logger.Info("adding the downstream namespace to the delayed deletion queue because the upstream namespace doesn't exist")
 		c.PlanCleaning(key)
 		return nil
 	}
@@ -166,16 +158,14 @@ func (c *DownstreamController) updateDNSConfigMap(ctx context.Context, workspace
 	// TODO(LV): consider comparing the new ConfigMap with the cached one to avoid a rest api call.
 
 	_, err = c.updateConfigMap(ctx, cm)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			_, err = c.createConfigMap(ctx, cm)
-			if err != nil {
-				logger.Error(err, "failed to create ConfigMap (retrying)", "name", configMapName, "namespace", c.dnsNamespace)
-				return err // retry
-			}
+	if apierrors.IsNotFound(err) {
+		_, err = c.createConfigMap(ctx, cm)
+		if err == nil {
+			return nil
 		}
-
-		logger.Error(err, "failed to update ConfigMap (retrying)", "name", configMapName, "namespace", c.dnsNamespace)
+	}
+	if err != nil {
+		logger.Error(err, "failed to create or update ConfigMap (retrying)", "name", configMapName, "namespace", c.dnsNamespace)
 		return err // retry
 	}
 	return nil

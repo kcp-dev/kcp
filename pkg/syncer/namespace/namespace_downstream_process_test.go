@@ -103,7 +103,7 @@ func TestSyncerNamespaceProcess(t *testing.T) {
 			}
 			nsController := DownstreamController{
 				toDeleteMap:  make(map[string]time.Time),
-				delayedQueue: workqueue.NewNamedDelayingQueue(downstreamControllerName),
+				delayedQueue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), downstreamControllerName),
 				deleteDownstreamNamespace: func(ctx context.Context, downstreamNamespaceName string) error {
 					return nil
 				},
@@ -148,7 +148,7 @@ func TestSyncerNamespaceProcess(t *testing.T) {
 			require.NoError(t, err)
 
 			if tc.deletedNamespace != "" {
-				require.True(t, nsController.IsPlannedForCleaning(tc.deletedNamespace))
+				require.True(t, nsController.isPlannedForCleaning(tc.deletedNamespace))
 				require.Equal(t, len(nsController.toDeleteMap), 1)
 			} else {
 				require.Empty(t, len(nsController.toDeleteMap))

@@ -100,6 +100,8 @@ type SyncOptions struct {
 	APIImportPollInterval time.Duration
 	// FeatureGates is used to configure which feature gates are enabled.
 	FeatureGates string
+	// DownstreamNamespaceCleanDelay is the time to wait before deleting of a downstream namespace.
+	DownstreamNamespaceCleanDelay time.Duration
 }
 
 // NewSyncOptions returns a new SyncOptions.
@@ -107,12 +109,13 @@ func NewSyncOptions(streams genericclioptions.IOStreams) *SyncOptions {
 	return &SyncOptions{
 		Options: base.NewOptions(streams),
 
-		Replicas:              1,
-		KCPNamespace:          "default",
-		QPS:                   20,
-		Burst:                 30,
-		APIImportPollInterval: 1 * time.Minute,
-		APIExports:            []string{"root:compute:kubernetes"},
+		Replicas:                      1,
+		KCPNamespace:                  "default",
+		QPS:                           20,
+		Burst:                         30,
+		APIImportPollInterval:         1 * time.Minute,
+		APIExports:                    []string{"root:compute:kubernetes"},
+		DownstreamNamespaceCleanDelay: 30 * time.Second,
 	}
 }
 
@@ -135,6 +138,7 @@ func (o *SyncOptions) BindFlags(cmd *cobra.Command) {
 		"A set of key=value pairs that describe feature gates for alpha/experimental features. "+
 			"Options are:\n"+strings.Join(kcpfeatures.KnownFeatures(), "\n")) // hide kube-only gates
 	cmd.Flags().DurationVar(&o.APIImportPollInterval, "api-import-poll-interval", o.APIImportPollInterval, "Polling interval for API import.")
+	cmd.Flags().DurationVar(&o.DownstreamNamespaceCleanDelay, "downstream-namespace-clean-delay", o.DownstreamNamespaceCleanDelay, "Time to wait before deleting a downstream namespaces.")
 }
 
 // Complete ensures all dynamically populated fields are initialized.
@@ -243,23 +247,23 @@ func (o *SyncOptions) Run(ctx context.Context) error {
 	// TODO(marun) It's probably preferable that the syncer and importer are provided a
 	// cluster configuration since they only operate against a single workspace.
 	serverURL := configURL.Scheme + "://" + configURL.Host
-
 	input := templateInput{
-		ServerURL:                   serverURL,
-		CAData:                      base64.StdEncoding.EncodeToString(config.CAData),
-		Token:                       token,
-		KCPNamespace:                o.KCPNamespace,
-		Namespace:                   o.DownstreamNamespace,
-		LogicalCluster:              currentClusterName.String(),
-		SyncTarget:                  o.SyncTargetName,
-		SyncTargetUID:               syncTargetUID,
-		Image:                       o.SyncerImage,
-		Replicas:                    o.Replicas,
-		ResourcesToSync:             o.ResourcesToSync,
-		QPS:                         o.QPS,
-		Burst:                       o.Burst,
-		FeatureGatesString:          o.FeatureGates,
-		APIImportPollIntervalString: o.APIImportPollInterval.String(),
+		ServerURL:                           serverURL,
+		CAData:                              base64.StdEncoding.EncodeToString(config.CAData),
+		Token:                               token,
+		KCPNamespace:                        o.KCPNamespace,
+		Namespace:                           o.DownstreamNamespace,
+		LogicalCluster:                      currentClusterName.String(),
+		SyncTarget:                          o.SyncTargetName,
+		SyncTargetUID:                       syncTargetUID,
+		Image:                               o.SyncerImage,
+		Replicas:                            o.Replicas,
+		ResourcesToSync:                     o.ResourcesToSync,
+		QPS:                                 o.QPS,
+		Burst:                               o.Burst,
+		FeatureGatesString:                  o.FeatureGates,
+		APIImportPollIntervalString:         o.APIImportPollInterval.String(),
+		DownstreamNamespaceCleanDelayString: o.DownstreamNamespaceCleanDelay.String(),
 	}
 
 	resources, err := renderSyncerResources(input, syncerID, expectedResourcesForPermission.List())
@@ -696,6 +700,8 @@ type templateInput struct {
 	FeatureGatesString string
 	// APIImportPollIntervalString is the string of interval to poll APIImport.
 	APIImportPollIntervalString string
+	// DownstreamNamespaceCleanDelay is the time to delay before cleaning the downstream namespace as a string.
+	DownstreamNamespaceCleanDelayString string
 }
 
 // templateArgs represents the full set of arguments required to render the resources

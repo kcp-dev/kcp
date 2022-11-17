@@ -237,11 +237,6 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		return err
 	}
 
-	upstreamNamespaceController, err := namespace.NewUpstreamController(logger, cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, syncTarget.GetUID(), syncerInformers, downstreamDynamicClient, upstreamInformers, downstreamInformers, downstreamNamespaceController)
-	if err != nil {
-		return err
-	}
-
 	specSyncer, err := spec.NewSpecSyncer(logger, cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, upstreamURL, advancedSchedulingEnabled,
 		upstreamDynamicClusterClient, downstreamDynamicClient, downstreamKubeClient, upstreamInformers, downstreamInformers, downstreamNamespaceController, syncerInformers, syncTarget.GetUID(),
 		serviceAccountLister, roleLister, roleBindingLister, deploymentLister, serviceLister, endpointLister, dnsNamespace, cfg.DNSImage)
@@ -271,7 +266,6 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	go specSyncer.Start(ctx, numSyncerThreads)
 	go statusSyncer.Start(ctx, numSyncerThreads)
 	go downstreamNamespaceController.Start(ctx, numSyncerThreads)
-	go upstreamNamespaceController.Start(ctx, numSyncerThreads)
 
 	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.SyncerTunnel) {
 		go startSyncerTunnel(ctx, upstreamConfig, downstreamConfig, cfg.SyncTargetWorkspace, cfg.SyncTargetName)

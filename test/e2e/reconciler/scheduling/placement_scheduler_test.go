@@ -216,7 +216,7 @@ func TestPlacementUpdate(t *testing.T) {
 
 	t.Logf("Remove the soft finalizer on the service")
 	_, err = kubeClusterClient.Cluster(userClusterName).CoreV1().Services("default").Patch(ctx, "first", types.MergePatchType,
-		[]byte("{\"metadata\":{\"annotations\":{\"deletion.internal.workload.kcp.dev/"+firstSyncTargetKey+"\":\"\"}}}"), metav1.PatchOptions{})
+		[]byte("{\"metadata\":{\"annotations\":{\"finalizers.workload.kcp.dev/"+firstSyncTargetKey+"\":\"\"}}}"), metav1.PatchOptions{})
 	require.NoError(t, err)
 
 	t.Logf("Wait for the service to be removed in the downstream cluster")
