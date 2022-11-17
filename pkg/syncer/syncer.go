@@ -35,14 +35,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
-	"k8s.io/client-go/informers"
+	kubernetesinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/version"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclusterclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/syncer/namespace"
@@ -90,6 +90,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	}
 	kcpBootstrapClient := kcpBootstrapClusterClient.Cluster(cfg.SyncTargetWorkspace)
 
+	// kcpInformerFactory to watch a certain syncTarget
 	kcpInformerFactory := kcpinformers.NewSharedScopedInformerFactoryWithOptions(kcpBootstrapClient, resyncPeriod, kcpinformers.WithTweakListOptions(
 		func(listOptions *metav1.ListOptions) {
 			listOptions.FieldSelector = fields.OneTermEqualSelector("metadata.name", cfg.SyncTargetName).String()
@@ -159,7 +160,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	// kcpImporterInformerFactory only used for apiimport to watch APIResourceImport
 	// TODO(qiujian16) make starting apiimporter optional after we check compatibility of supported APIExports
 	// of synctarget in syncer rather than in server.
-	kcpImporterInformerFactory := kcpinformers.NewSharedInformerFactoryWithOptions(kcpBootstrapClient, resyncPeriod)
+	kcpImporterInformerFactory := kcpinformers.NewSharedScopedInformerFactoryWithOptions(kcpBootstrapClient, resyncPeriod)
 	apiImporter, err := NewAPIImporter(
 		cfg.UpstreamConfig, cfg.DownstreamConfig,
 		kcpInformerFactory.Workload().V1alpha1().SyncTargets(),

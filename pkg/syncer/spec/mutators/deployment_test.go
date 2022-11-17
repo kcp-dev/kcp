@@ -33,7 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	listerscorev1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/cache"
 	utilspointer "k8s.io/utils/pointer"
 
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
@@ -818,25 +817,6 @@ func TestDeploymentMutate(t *testing.T) {
 					}
 					return unstructuredObjects, nil
 				}
-
-				indexer := cache.NewIndexer(cache.LegacyMetaNamespaceKeyFunc, cache.Indexers{})
-
-				ns := &corev1.Namespace{
-					TypeMeta: metav1.TypeMeta{
-						Kind:       "Namespace",
-						APIVersion: "v1",
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "namespace",
-						Annotations: map[string]string{
-							shared.NamespaceLocatorAnnotation: `{"workspace": "root:default:testing"}`,
-						},
-					},
-				}
-				uns, err := toUnstructured(ns)
-				require.NoError(t, err, "toUnstructured() = %v", err)
-				err = indexer.Add(uns)
-				require.NoError(t, err, "Add() = %v", err)
 
 				workspace := logicalcluster.New("root:default:testing")
 

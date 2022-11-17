@@ -22,8 +22,6 @@ import (
 	"reflect"
 	"time"
 
-	apiresourceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
-	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -43,6 +41,8 @@ import (
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	apiresourceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
+	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
 	workloadv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/crdpuller"
 	"github.com/kcp-dev/kcp/pkg/logging"
@@ -188,7 +188,7 @@ func (i *APIImporter) Stop(ctx context.Context) {
 
 	objs, err := i.apiresourceImportIndexer.ByIndex(
 		LocationIndexName,
-		GetLocationIndexKey(i.location),
+		GetLocationIndexKey(i.syncTargetName),
 	)
 	if err != nil {
 		logger.Error(err, "error trying to list APIResourceImport objects")
@@ -206,7 +206,7 @@ func (i *APIImporter) Stop(ctx context.Context) {
 func (i *APIImporter) ImportAPIs(ctx context.Context) {
 	logger := klog.FromContext(ctx)
 
-	syncTarget, err := i.syncTargetLister.Get(i.location)
+	syncTarget, err := i.syncTargetLister.Get(i.syncTargetName)
 
 	if err != nil {
 		logger.Error(err, "error getting syncTarget")
@@ -248,7 +248,7 @@ func (i *APIImporter) ImportAPIs(ctx context.Context) {
 
 		objs, err := i.apiresourceImportIndexer.ByIndex(
 			GVRForLocationIndexName,
-			GetGVRForLocationIndexKey(i.location, gvr),
+			GetGVRForLocationIndexKey(i.syncTargetName, gvr),
 		)
 		if err != nil {
 			logger.Error(err, "error pulling CRDs")
@@ -329,7 +329,7 @@ func (i *APIImporter) ImportAPIs(ctx context.Context) {
 		gvr := i.SyncedGVRs[gvrToRemove]
 		objs, err := i.apiresourceImportIndexer.ByIndex(
 			GVRForLocationIndexName,
-			GetGVRForLocationIndexKey(i.location, gvr),
+			GetGVRForLocationIndexKey(i.syncTargetName, gvr),
 		)
 		logger := logger.WithValues(
 			"group", gvr.Group,
