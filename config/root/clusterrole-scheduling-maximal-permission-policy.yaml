@@ -8,7 +8,7 @@ rules:
   resources:
   - locations
   - placements
-- apiGroups: ["apiresource.kcp.dev"]
+- apiGroups: ["scheduling.kcp.dev"]
   verbs: ["get","list","watch"]
   resources:
   - locations/status
