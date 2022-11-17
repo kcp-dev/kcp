@@ -22,6 +22,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	utilserrors "k8s.io/apimachinery/pkg/util/errors"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
@@ -53,15 +54,7 @@ func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1alpha1.ClusterW
 				return c.kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaceShards().Get(ctx, name, options)
 			},
 			getAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
-				objs, err := c.apiBindingIndexer.ByIndex(byWorkspace, clusterName.String())
-				if err != nil {
-					return nil, err
-				}
-				bindings := make([]*apisv1alpha1.APIBinding, len(objs))
-				for i, obj := range objs {
-					bindings[i] = obj.(*apisv1alpha1.APIBinding)
-				}
-				return bindings, nil
+				return c.apiBindingLister.Cluster(clusterName).List(labels.Everything())
 			},
 		},
 	}

@@ -95,22 +95,20 @@ func (c *apiBindingAwareCRDLister) List(ctx context.Context, selector labels.Sel
 	var ret []*apiextensionsv1.CustomResourceDefinition
 
 	// Priority 1: add system CRDs. These take priority over CRDs from APIBindings and CRDs from the local workspace.
-	systemCRDObjs, err := c.crdIndexer.ByIndex(byWorkspace, SystemCRDLogicalCluster.String())
+	systemCRDObjs, err := c.crdLister.Cluster(SystemCRDLogicalCluster).List(labels.Everything())
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving kcp system CRDs: %w", err)
 	}
-	for i := range systemCRDObjs {
-		crd := systemCRDObjs[i].(*apiextensionsv1.CustomResourceDefinition)
+	for _, crd := range systemCRDObjs {
 		ret = append(ret, crd)
 		seen.Insert(crdName(crd))
 	}
 
-	objs, err := c.apiBindingIndexer.ByIndex(byWorkspace, clusterName.String())
+	apiBindings, err := c.apiBindingLister.Cluster(clusterName).List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
-	for _, obj := range objs {
-		apiBinding := obj.(*apisv1alpha1.APIBinding)
+	for _, apiBinding := range apiBindings {
 
 		for _, boundResource := range apiBinding.Status.BoundResources {
 			logger := logging.WithObject(logger, &apiextensionsv1.CustomResourceDefinition{
@@ -147,27 +145,27 @@ func (c *apiBindingAwareCRDLister) List(ctx context.Context, selector labels.Sel
 		}
 	}
 
-	// TODO use scoping lister when available
-	objs, err = c.crdIndexer.ByIndex(byWorkspace, clusterName.String())
-	if err != nil {
-		return nil, err
-	}
-	for _, obj := range objs {
-		crd := obj.(*apiextensionsv1.CustomResourceDefinition)
-		logger := logging.WithObject(logger, crd)
-
-		if !selector.Matches(labels.Set(crd.Labels)) {
-			continue
+	if clusterName != SystemCRDLogicalCluster {
+		crds, err := c.crdLister.Cluster(clusterName).List(labels.Everything())
+		if err != nil {
+			return nil, err
 		}
+		for _, crd := range crds {
+			logger := logging.WithObject(logger, crd)
 
-		// system CRDs and local APIBindings take priority over CRDs from the local workspace.
-		if seen.Has(crdName(crd)) {
-			logger.Info("skipping local CRD because it came in via APIBindings or system CRDs")
-			continue
+			if !selector.Matches(labels.Set(crd.Labels)) {
+				continue
+			}
+
+			// system CRDs and local APIBindings take priority over CRDs from the local workspace.
+			if seen.Has(crdName(crd)) {
+				logger.Info("skipping local CRD because it came in via APIBindings or system CRDs")
+				continue
+			}
+
+			// Priority 3: add local workspace CRDs that weren't already coming from APIBindings or kcp system.
+			ret = append(ret, crd)
 		}
-
-		// Priority 3: add local workspace CRDs that weren't already coming from APIBindings or kcp system.
-		ret = append(ret, crd)
 	}
 
 	return ret, nil
@@ -315,7 +313,7 @@ func makePartialMetadataCRD(crd *apiextensionsv1.CustomResourceDefinition) {
 
 // getForIdentityWildcard handles finding the right CRD for an incoming wildcard request with identity, such as
 //
-//   /clusters/*/apis/$group/$version/$resource:$identity.
+//	/clusters/*/apis/$group/$version/$resource:$identity.
 func (c *apiBindingAwareCRDLister) getForIdentityWildcard(name, identity string) (*apiextensionsv1.CustomResourceDefinition, error) {
 	group, resource := crdNameToGroupResource(name)
 
@@ -384,12 +382,11 @@ func (c *apiBindingAwareCRDLister) get(clusterName logicalcluster.Name, name, id
 	// Priority 1: see if it comes from any APIBindings
 	group, resource := crdNameToGroupResource(name)
 
-	objs, err := c.apiBindingIndexer.ByIndex(byWorkspace, clusterName.String())
+	apiBindings, err := c.apiBindingLister.Cluster(clusterName).List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
-	for _, obj := range objs {
-		apiBinding := obj.(*apisv1alpha1.APIBinding)
+	for _, apiBinding := range apiBindings {
 
 		for _, boundResource := range apiBinding.Status.BoundResources {
 			// identity is empty string if the request is coming from a regular workspace client.

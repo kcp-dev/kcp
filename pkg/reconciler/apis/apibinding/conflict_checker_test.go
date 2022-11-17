@@ -25,9 +25,7 @@ import (
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/tools/cache"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 )
@@ -242,7 +240,7 @@ func TestNamesConflict(t *testing.T) {
 func TestGVRConflict(t *testing.T) {
 	scenarios := []struct {
 		name        string
-		initialCRDs []runtime.Object
+		initialCRDs []*apiextensionsv1.CustomResourceDefinition
 		schema      *apisv1alpha1.APIResourceSchema
 		binding     *apisv1alpha1.APIBinding
 		wantErr     bool
@@ -254,7 +252,7 @@ func TestGVRConflict(t *testing.T) {
 		},
 		{
 			name: "no conflict when non-overlapping initial CRDs exist",
-			initialCRDs: []runtime.Object{
+			initialCRDs: []*apiextensionsv1.CustomResourceDefinition{
 				createCRD("root:example", "crd1", "acmeGR", "acmeRS"),
 			},
 			binding: new(bindingBuilder).WithClusterName("root:acme").WithName("newBinding").Build(),
@@ -262,7 +260,7 @@ func TestGVRConflict(t *testing.T) {
 		},
 		{
 			name: "creating conflicting CRD fails",
-			initialCRDs: []runtime.Object{
+			initialCRDs: []*apiextensionsv1.CustomResourceDefinition{
 				createCRD("root:acme", "crd1", "acmeGR", "acmeRS"),
 			},
 			binding: new(bindingBuilder).WithClusterName("root:acme").WithName("newBinding").Build(),
@@ -272,16 +270,15 @@ func TestGVRConflict(t *testing.T) {
 	}
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
-			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
-			if err := indexer.AddIndexers(cache.Indexers{indexByWorkspace: indexByWorkspaceFunc}); err != nil {
-				t.Fatal(err)
-			}
-			for _, obj := range scenario.initialCRDs {
-				if err := indexer.Add(obj); err != nil {
-					t.Error(err)
+			c := &conflictChecker{listCRDs: func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error) {
+				var crds []*apiextensionsv1.CustomResourceDefinition
+				for _, crd := range scenario.initialCRDs {
+					if logicalcluster.From(crd) == clusterName {
+						crds = append(crds, crd)
+					}
 				}
-			}
-			c := &conflictChecker{crdIndexer: indexer}
+				return crds, nil
+			}}
 			if err := c.gvrConflict(scenario.schema, scenario.binding); err != nil != scenario.wantErr {
 				t.Fatalf("error = %v, wantErr %v", err, scenario.wantErr)
 			}

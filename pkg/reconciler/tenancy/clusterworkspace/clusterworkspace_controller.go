@@ -67,7 +67,6 @@ func NewController(
 		workspaceLister:              workspaceInformer.Lister(),
 		clusterWorkspaceShardIndexer: clusterWorkspaceShardInformer.Informer().GetIndexer(),
 		clusterWorkspaceShardLister:  clusterWorkspaceShardInformer.Lister(),
-		apiBindingIndexer:            apiBindingsInformer.Informer().GetIndexer(),
 		apiBindingLister:             apiBindingsInformer.Lister(),
 	}
 
@@ -77,12 +76,6 @@ func NewController(
 		byPhase:        indexByPhase,
 	}); err != nil {
 		return nil, fmt.Errorf("failed to add indexer for ClusterWorkspace: %w", err)
-	}
-
-	if err := c.apiBindingIndexer.AddIndexers(map[string]cache.IndexFunc{
-		byWorkspace: indexByWorkspace,
-	}); err != nil {
-		return nil, fmt.Errorf("failed to add indexer for APIBinding: %w", err)
 	}
 
 	workspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -117,8 +110,7 @@ type Controller struct {
 	clusterWorkspaceShardIndexer cache.Indexer
 	clusterWorkspaceShardLister  tenancyv1alpha1listers.ClusterWorkspaceShardClusterLister
 
-	apiBindingIndexer cache.Indexer
-	apiBindingLister  apisv1alpha1listers.APIBindingClusterLister
+	apiBindingLister apisv1alpha1listers.APIBindingClusterLister
 }
 
 func (c *Controller) enqueue(obj interface{}) {

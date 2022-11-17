@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -51,7 +52,6 @@ import (
 
 const (
 	ControllerName      = "kcp-scheduling-placement"
-	byWorkspace         = ControllerName + "-byWorkspace" // will go away with scoping
 	byLocationWorkspace = ControllerName + "-byLocationWorkspace"
 )
 
@@ -73,31 +73,16 @@ func NewController(
 		},
 		kcpClusterClient: kcpClusterClient,
 
-		namespaceLister:  namespaceInformer.Lister(),
-		namespaceIndexer: namespaceInformer.Informer().GetIndexer(),
+		namespaceLister: namespaceInformer.Lister(),
 
-		locationLister:  locationInformer.Lister(),
-		locationIndexer: locationInformer.Informer().GetIndexer(),
+		locationLister: locationInformer.Lister(),
 
 		placementLister:  placementInformer.Lister(),
 		placementIndexer: placementInformer.Informer().GetIndexer(),
 	}
 
-	if err := locationInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorkspace,
-	}); err != nil {
-		return nil, err
-	}
-
 	if err := placementInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace:         indexByWorkspace,
 		byLocationWorkspace: indexByLocationWorkspace,
-	}); err != nil {
-		return nil, err
-	}
-
-	if err := namespaceInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorkspace,
 	}); err != nil {
 		return nil, err
 	}
@@ -159,11 +144,9 @@ type controller struct {
 
 	kcpClusterClient kcpclientset.ClusterInterface
 
-	namespaceLister  corev1listers.NamespaceClusterLister
-	namespaceIndexer cache.Indexer
+	namespaceLister corev1listers.NamespaceClusterLister
 
-	locationLister  schedulingv1alpha1listers.LocationClusterLister
-	locationIndexer cache.Indexer
+	locationLister schedulingv1alpha1listers.LocationClusterLister
 
 	placementLister  schedulingv1alpha1listers.PlacementClusterLister
 	placementIndexer cache.Indexer
@@ -195,14 +178,13 @@ func (c *controller) enqueueNamespace(obj interface{}) {
 		return
 	}
 
-	placements, err := c.placementIndexer.ByIndex(byWorkspace, clusterName.String())
+	placements, err := c.placementLister.Cluster(clusterName).List(labels.Everything())
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
-	for _, obj := range placements {
-		placement := obj.(*schedulingv1alpha1.Placement)
+	for _, placement := range placements {
 		namespaceKey := key
 		key := client.ToClusterAwareKey(logicalcluster.From(placement), placement.Name)
 		logging.WithQueueKey(logger, key).V(2).Info("queueing Placement because Namespace changed", "Namespace", namespaceKey)

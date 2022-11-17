@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
@@ -268,40 +269,15 @@ func (c *controller) reconcile(ctx context.Context, export *apisv1alpha1.APIExpo
 }
 
 func (c *controller) listNegotiatedAPIResources(clusterName logicalcluster.Name) ([]*apiresourcev1alpha1.NegotiatedAPIResource, error) {
-	objs, err := c.negotiatedAPIResourceIndexer.ByIndex(byWorkspace, clusterName.String())
-	if err != nil {
-		return nil, err
-	}
-	ret := make([]*apiresourcev1alpha1.NegotiatedAPIResource, 0, len(objs))
-	for _, obj := range objs {
-		ret = append(ret, obj.(*apiresourcev1alpha1.NegotiatedAPIResource))
-	}
-	return ret, nil
+	return c.negotiatedAPIResourceLister.Cluster(clusterName).List(labels.Everything())
 }
 
 func (c *controller) listAPIResourceSchemas(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIResourceSchema, error) {
-	objs, err := c.apiResourceSchemaIndexer.ByIndex(byWorkspace, clusterName.String())
-	if err != nil {
-		return nil, err
-	}
-	ret := make([]*apisv1alpha1.APIResourceSchema, 0, len(objs))
-	for _, obj := range objs {
-		ret = append(ret, obj.(*apisv1alpha1.APIResourceSchema))
-	}
-	return ret, nil
+	return c.apiResourceSchemaLister.Cluster(clusterName).List(labels.Everything())
 }
 
 func (c *controller) listSyncTarget(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error) {
-	objs, err := c.syncTargetIndexer.ByIndex(byWorkspace, clusterName.String())
-	if err != nil {
-		return nil, err
-	}
-
-	ret := make([]*workloadv1alpha1.SyncTarget, 0, len(objs))
-	for _, obj := range objs {
-		ret = append(ret, obj.(*workloadv1alpha1.SyncTarget))
-	}
-	return ret, nil
+	return c.syncTargetClusterLister.Cluster(clusterName).List(labels.Everything())
 }
 
 func (c *controller) getAPIResourceSchema(ctx context.Context, clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {

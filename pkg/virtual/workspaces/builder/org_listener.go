@@ -42,8 +42,7 @@ type Stoppable interface {
 // parents for those. This means that workspaces without any ClusterWorkspace (like universal
 // workspaces) will not be started.
 type orgListener struct {
-	lister   tenancyv1alpha1listers.ClusterWorkspaceClusterLister
-	informer cache.SharedIndexInformer
+	lister tenancyv1alpha1listers.ClusterWorkspaceClusterLister
 
 	newClusterWorkspaces func(orgClusterName logicalcluster.Name, initialWatchers []authorization.CacheWatcher) registry.FilteredClusterWorkspaces
 
@@ -54,17 +53,11 @@ type orgListener struct {
 
 func NewOrgListener(informer tenancyv1alpha1informers.ClusterWorkspaceClusterInformer, newClusterWorkspaces func(orgClusterName logicalcluster.Name, initialWatchers []authorization.CacheWatcher) registry.FilteredClusterWorkspaces) *orgListener {
 	l := &orgListener{
-		lister:   informer.Lister(),
-		informer: informer.Informer(),
+		lister: informer.Lister(),
 
 		newClusterWorkspaces:        newClusterWorkspaces,
 		clusterWorkspacesPerCluster: map[logicalcluster.Name]*preCreationClusterWorkspaces{},
 	}
-
-	//nolint:errcheck
-	informer.Informer().AddIndexers(cache.Indexers{
-		"parent": indexByLogicalCluster,
-	})
 
 	informer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
@@ -174,7 +167,7 @@ func (l *orgListener) deleteClusterWorkspace(obj interface{}) {
 	}
 
 	// any other ClusterWorkspace in this logical cluster?
-	others, err := l.informer.GetIndexer().ByIndex("parent", parent.String())
+	others, err := l.lister.Cluster(parent).List(labels.Everything())
 	if err != nil {
 		klog.Errorf("Failed to get ClusterWorkspace parent index %v: %v", parent, err)
 		return

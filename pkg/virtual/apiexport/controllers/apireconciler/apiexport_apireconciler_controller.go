@@ -46,7 +46,6 @@ import (
 
 const (
 	ControllerName = "kcp-virtual-apiexport-api-reconciler"
-	byWorkspace    = ControllerName + "-byWorkspace" // will go away with scoping
 )
 
 type CreateAPIDefinitionFunc func(apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identityHash string, additionalLabelRequirements labels.Requirements) (apidefinition.APIDefinition, error)
@@ -82,7 +81,6 @@ func NewAPIReconciler(
 	indexers.AddIfNotPresentOrDie(
 		apiExportInformer.Informer().GetIndexer(),
 		cache.Indexers{
-			byWorkspace:                  indexByWorkspace,
 			indexers.APIExportByIdentity: indexers.IndexAPIExportByIdentity,
 		},
 	)
@@ -145,7 +143,7 @@ func (c *APIReconciler) enqueueAPIResourceSchema(obj interface{}, logger logr.Lo
 		runtime.HandleError(err)
 		return
 	}
-	exports, err := c.apiExportIndexer.ByIndex(byWorkspace, clusterName.String())
+	exports, err := c.apiExportLister.Cluster(clusterName).List(labels.Everything())
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -156,8 +154,7 @@ func (c *APIReconciler) enqueueAPIResourceSchema(obj interface{}, logger logr.Lo
 		return
 	}
 
-	for _, obj := range exports {
-		export := obj.(*apisv1alpha1.APIExport)
+	for _, export := range exports {
 		klog.V(2).Infof("Queueing APIExport %s|%s for APIResourceSchema %s", clusterName, export.Name, name)
 		c.enqueueAPIExport(obj, logger.WithValues("reason", "APIResourceSchema change", "apiResourceSchema", name))
 	}

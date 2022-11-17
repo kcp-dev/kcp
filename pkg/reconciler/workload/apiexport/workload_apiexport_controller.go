@@ -41,12 +41,12 @@ import (
 	workloadv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
 	apiresourcev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apiresource/v1alpha1"
 	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
+	workloadv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 const (
 	ControllerName = "kcp-workload-apiexport"
-	byWorkspace    = ControllerName + "-byWorkspace" // will go away with scoping
 
 	// TemporaryComputeServiceExportName is a temporary singleton name of compute service exports.
 	TemporaryComputeServiceExportName = "kubernetes"
@@ -68,38 +68,11 @@ func NewController(
 			key := client.ToClusterAwareKey(logicalcluster.From(export), export.Name)
 			queue.AddAfter(key, duration)
 		},
-		kcpClusterClient:             kcpClusterClient,
-		apiExportsLister:             apiExportInformer.Lister(),
-		apiExportsIndexer:            apiExportInformer.Informer().GetIndexer(),
-		apiResourceSchemaLister:      apiResourceSchemaInformer.Lister(),
-		apiResourceSchemaIndexer:     apiResourceSchemaInformer.Informer().GetIndexer(),
-		negotiatedAPIResourceLister:  negotiatedAPIResourceInformer.Lister(),
-		negotiatedAPIResourceIndexer: negotiatedAPIResourceInformer.Informer().GetIndexer(),
-		syncTargetIndexer:            syncTargetInformer.Informer().GetIndexer(),
-	}
-
-	if err := c.apiResourceSchemaIndexer.AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorkspace,
-	}); err != nil {
-		return nil, err
-	}
-
-	if err := negotiatedAPIResourceInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorkspace,
-	}); err != nil {
-		return nil, err
-	}
-
-	if err := syncTargetInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorkspace,
-	}); err != nil {
-		return nil, err
-	}
-
-	if err := apiExportInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorkspace,
-	}); err != nil {
-		return nil, err
+		kcpClusterClient:            kcpClusterClient,
+		apiExportsLister:            apiExportInformer.Lister(),
+		apiResourceSchemaLister:     apiResourceSchemaInformer.Lister(),
+		negotiatedAPIResourceLister: negotiatedAPIResourceInformer.Lister(),
+		syncTargetClusterLister:     syncTargetInformer.Lister(),
 	}
 
 	apiExportInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
@@ -144,13 +117,10 @@ type controller struct {
 
 	kcpClusterClient kcpclientset.ClusterInterface
 
-	apiExportsLister             apisv1alpha1listers.APIExportClusterLister
-	apiExportsIndexer            cache.Indexer
-	apiResourceSchemaLister      apisv1alpha1listers.APIResourceSchemaClusterLister
-	apiResourceSchemaIndexer     cache.Indexer
-	negotiatedAPIResourceLister  apiresourcev1alpha1listers.NegotiatedAPIResourceClusterLister
-	negotiatedAPIResourceIndexer cache.Indexer
-	syncTargetIndexer            cache.Indexer
+	apiExportsLister            apisv1alpha1listers.APIExportClusterLister
+	apiResourceSchemaLister     apisv1alpha1listers.APIResourceSchemaClusterLister
+	negotiatedAPIResourceLister apiresourcev1alpha1listers.NegotiatedAPIResourceClusterLister
+	syncTargetClusterLister     workloadv1alpha1listers.SyncTargetClusterLister
 }
 
 func (c *controller) enqueueNegotiatedAPIResource(obj interface{}) {

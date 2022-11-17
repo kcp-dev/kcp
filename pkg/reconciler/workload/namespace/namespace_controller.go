@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -50,7 +51,6 @@ import (
 
 const (
 	ControllerName      = "kcp-namespace-scheduling-placement"
-	byWorkspace         = ControllerName + "-byWorkspace" // will go away with scoping
 	byLocationWorkspace = ControllerName + "-byLocationWorkspace"
 )
 
@@ -72,21 +72,13 @@ func NewController(
 
 		kubeClusterClient: kubeClusterClient,
 
-		namespaceLister:  namespaceInformer.Lister(),
-		namespaceIndexer: namespaceInformer.Informer().GetIndexer(),
+		namespaceLister: namespaceInformer.Lister(),
 
-		placmentLister:   placementInformer.Lister(),
+		placementLister:  placementInformer.Lister(),
 		placementIndexer: placementInformer.Informer().GetIndexer(),
 	}
 
-	if err := namespaceInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorksapce,
-	}); err != nil {
-		return nil, err
-	}
-
 	if err := placementInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace:         indexByWorksapce,
 		byLocationWorkspace: indexByLocationWorkspace,
 	}); err != nil {
 		return nil, err
@@ -128,10 +120,9 @@ type controller struct {
 
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface
 
-	namespaceLister  corev1listers.NamespaceClusterLister
-	namespaceIndexer cache.Indexer
+	namespaceLister corev1listers.NamespaceClusterLister
 
-	placmentLister   schedulingv1alpha1listers.PlacementClusterLister
+	placementLister  schedulingv1alpha1listers.PlacementClusterLister
 	placementIndexer cache.Indexer
 }
 
@@ -159,15 +150,14 @@ func (c *controller) enqueuePlacement(obj interface{}) {
 		return
 	}
 
-	nss, err := c.namespaceIndexer.ByIndex(byWorkspace, clusterName.String())
+	nss, err := c.namespaceLister.Cluster(clusterName).List(labels.Everything())
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
 	logger := logging.WithObject(logging.WithReconciler(klog.Background(), ControllerName), obj.(*schedulingv1alpha1.Placement))
-	for _, o := range nss {
-		ns := o.(*corev1.Namespace)
+	for _, ns := range nss {
 		logger = logging.WithObject(logger, ns)
 		nskey := client.ToClusterAwareKey(logicalcluster.From(ns), ns.Name)
 		logging.WithQueueKey(logger, nskey).V(2).Info("queueing Namespace because of Placement")

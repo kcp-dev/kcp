@@ -126,7 +126,9 @@ func NewController(
 		getCRD: func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 			return crdInformer.Lister().Cluster(clusterName).Get(name)
 		},
-		crdIndexer:        crdInformer.Informer().GetIndexer(),
+		listCRDs: func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error) {
+			return crdInformer.Lister().Cluster(clusterName).List(labels.Everything())
+		},
 		deletedCRDTracker: newLockedStringSet(),
 		commit:            committer.NewCommitter[*APIBinding, Patcher, *APIBindingSpec, *APIBindingStatus](kcpClusterClient.ApisV1alpha1().APIBindings()),
 	}
@@ -172,12 +174,6 @@ func NewController(
 			},
 		},
 	})
-
-	if err := crdInformer.Informer().AddIndexers(cache.Indexers{
-		indexByWorkspace: indexByWorkspaceFunc,
-	}); err != nil {
-		return nil, err
-	}
 
 	apiResourceSchemaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueAPIResourceSchema(obj, logger, "") },
@@ -243,9 +239,9 @@ type controller struct {
 
 	getAPIResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
 
-	createCRD  func(ctx context.Context, clusterName logicalcluster.Name, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error)
-	getCRD     func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error)
-	crdIndexer cache.Indexer
+	createCRD func(ctx context.Context, clusterName logicalcluster.Name, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error)
+	getCRD    func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error)
+	listCRDs  func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error)
 
 	deletedCRDTracker *lockedStringSet
 	commit            CommitFunc

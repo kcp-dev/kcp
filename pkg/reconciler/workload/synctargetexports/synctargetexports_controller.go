@@ -28,6 +28,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -54,7 +55,6 @@ const (
 
 	indexSyncTargetsByExport           = ControllerName + "ByExport"
 	indexAPIExportsByAPIResourceSchema = ControllerName + "ByAPIResourceSchema"
-	indexByWorkspace                   = ControllerName + "ByWorkspace" // will go away with scoping
 )
 
 // NewController returns a controller which update syncedResource in status based on supportedExports in spec
@@ -75,7 +75,6 @@ func NewController(
 		apiExportsIndexer:    apiExportInformer.Informer().GetIndexer(),
 		apiExportLister:      apiExportInformer.Lister(),
 		resourceSchemaLister: apiResourceSchemaInformer.Lister(),
-		apiImportIndexer:     apiResourceImportInformer.Informer().GetIndexer(),
 		apiImportLister:      apiResourceImportInformer.Lister(),
 	}
 
@@ -87,12 +86,6 @@ func NewController(
 
 	if err := apiExportInformer.Informer().AddIndexers(cache.Indexers{
 		indexAPIExportsByAPIResourceSchema: indexAPIExportsByAPIResourceSchemas,
-	}); err != nil {
-		return nil, err
-	}
-
-	if err := apiResourceImportInformer.Informer().AddIndexers(cache.Indexers{
-		indexByWorkspace: indexByWorksapce,
 	}); err != nil {
 		return nil, err
 	}
@@ -151,7 +144,6 @@ type Controller struct {
 	apiExportsIndexer    cache.Indexer
 	apiExportLister      apisv1alpha1listers.APIExportClusterLister
 	resourceSchemaLister apisv1alpha1listers.APIResourceSchemaClusterLister
-	apiImportIndexer     cache.Indexer
 	apiImportLister      apiresourcev1alpha1listers.APIResourceImportClusterLister
 }
 
@@ -351,13 +343,5 @@ func (c *Controller) getResourceSchema(clusterName logicalcluster.Name, name str
 }
 
 func (c *Controller) listAPIResourceImports(clusterName logicalcluster.Name) ([]*apiresourcev1alpha1.APIResourceImport, error) {
-	items, err := c.apiImportIndexer.ByIndex(indexByWorkspace, clusterName.String())
-	if err != nil {
-		return nil, err
-	}
-	ret := make([]*apiresourcev1alpha1.APIResourceImport, 0, len(items))
-	for _, item := range items {
-		ret = append(ret, item.(*apiresourcev1alpha1.APIResourceImport))
-	}
-	return ret, nil
+	return c.apiImportLister.Cluster(clusterName).List(labels.Everything())
 }

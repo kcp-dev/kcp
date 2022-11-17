@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	kcpfakedynamic "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/dynamic/fake"
@@ -299,14 +300,14 @@ func TestReconcileAPIExports(t *testing.T) {
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(tt *testing.T) {
 			target := &controller{shardName: "amber"}
-			localApiExportIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+			localApiExportIndexer := cache.NewIndexer(kcpcache.MetaClusterNamespaceKeyFunc, cache.Indexers{})
 			for _, obj := range scenario.initialLocalApiExports {
 				if err := localApiExportIndexer.Add(obj); err != nil {
 					tt.Error(err)
 				}
 			}
 			target.localApiExportLister = apisv1alpha1listers.NewAPIExportClusterLister(localApiExportIndexer)
-			target.cacheApiExportsIndexer = cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{ByShardAndLogicalClusterAndNamespaceAndName: IndexByShardAndLogicalClusterAndNamespace})
+			target.cacheApiExportsIndexer = cache.NewIndexer(kcpcache.MetaClusterNamespaceKeyFunc, cache.Indexers{ByShardAndLogicalClusterAndNamespaceAndName: IndexByShardAndLogicalClusterAndNamespace})
 			for _, obj := range scenario.initialCacheApiExports {
 				if err := target.cacheApiExportsIndexer.Add(obj); err != nil {
 					tt.Error(err)

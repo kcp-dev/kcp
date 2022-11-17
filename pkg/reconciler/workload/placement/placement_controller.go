@@ -44,7 +44,6 @@ import (
 
 const (
 	ControllerName      = "kcp-workload-placement"
-	byWorkspace         = ControllerName + "-byWorkspace" // will go away with scoping
 	byLocationWorkspace = ControllerName + "-byLocationWorkspace"
 )
 
@@ -62,30 +61,15 @@ func NewController(
 
 		kcpClusterClient: kcpClusterClient,
 
-		locationLister:  locationInformer.Lister(),
-		locationIndexer: locationInformer.Informer().GetIndexer(),
+		locationLister: locationInformer.Lister(),
 
-		syncTargetLister:  syncTargetInformer.Lister(),
-		syncTargetIndexer: syncTargetInformer.Informer().GetIndexer(),
+		syncTargetLister: syncTargetInformer.Lister(),
 
 		placementLister:  placementInformer.Lister(),
 		placementIndexer: placementInformer.Informer().GetIndexer(),
 	}
 
-	if err := locationInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorkspace,
-	}); err != nil {
-		return nil, err
-	}
-
-	if err := syncTargetInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorkspace,
-	}); err != nil {
-		return nil, err
-	}
-
 	if err := placementInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace:         indexByWorkspace,
 		byLocationWorkspace: indexByLocationWorkspace,
 	}); err != nil {
 		return nil, err
@@ -150,11 +134,9 @@ type controller struct {
 
 	kcpClusterClient kcpclientset.ClusterInterface
 
-	locationLister  schedulingv1alpha1listers.LocationClusterLister
-	locationIndexer cache.Indexer
+	locationLister schedulingv1alpha1listers.LocationClusterLister
 
-	syncTargetLister  workloadv1alpha1listers.SyncTargetClusterLister
-	syncTargetIndexer cache.Indexer
+	syncTargetLister workloadv1alpha1listers.SyncTargetClusterLister
 
 	placementLister  schedulingv1alpha1listers.PlacementClusterLister
 	placementIndexer cache.Indexer

@@ -32,7 +32,6 @@ import (
 	"k8s.io/apiserver/pkg/admission/plugin/webhook"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/client-go/tools/cache"
 
 	"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	kcpfakeclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/fake"
@@ -254,21 +253,13 @@ func TestDispatch(t *testing.T) {
 
 			fakeClient := kcpfakeclient.NewSimpleClientset(toObjects(tc.apiBindings)...)
 			fakeInformerFactory := kcpinformers.NewSharedInformerFactory(fakeClient, time.Hour)
-			err := fakeInformerFactory.Apis().V1alpha1().APIBindings().Informer().AddIndexers(cache.Indexers{
-				byWorkspaceIndex: func(obj interface{}) ([]string, error) {
-					return []string{logicalcluster.From(obj.(metav1.Object)).String()}, nil
-				},
-			})
-			if err != nil {
-				t.Errorf("unable to add indexer to fake informer-%v", err)
-			}
 
 			o := &WebhookDispatcher{
-				Handler:              admission.NewHandler(admission.Connect, admission.Create, admission.Delete, admission.Update),
-				dispatcher:           &validatingDispatcher{hooks: tc.expectedHooks},
-				hookSource:           &fakeHookSource{hooks: tc.hooksInSource, hasSynced: !tc.hookSourceNotSynced},
-				apiBindingsIndexer:   fakeInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer(),
-				apiBindingsHasSynced: tc.apiBindingsSynced,
+				Handler:                 admission.NewHandler(admission.Connect, admission.Create, admission.Delete, admission.Update),
+				dispatcher:              &validatingDispatcher{hooks: tc.expectedHooks},
+				hookSource:              &fakeHookSource{hooks: tc.hooksInSource, hasSynced: !tc.hookSourceNotSynced},
+				apiBindingClusterLister: fakeInformerFactory.Apis().V1alpha1().APIBindings().Lister(),
+				apiBindingsHasSynced:    tc.apiBindingsSynced,
 			}
 
 			fakeInformerFactory.Start(ctx.Done())

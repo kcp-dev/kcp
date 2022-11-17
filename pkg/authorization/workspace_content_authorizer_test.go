@@ -21,6 +21,7 @@ import (
 	"reflect"
 	"testing"
 
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	kcpfakeclient "github.com/kcp-dev/client-go/kubernetes/fake"
 	"github.com/kcp-dev/logicalcluster/v2"
@@ -382,7 +383,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			}
 			cache.WaitForCacheSync(ctx.Done(), syncs...)
 
-			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+			indexer := cache.NewIndexer(kcpcache.MetaClusterNamespaceKeyFunc, cache.Indexers{})
 			require.NoError(t, indexer.Add(&tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{Name: "ready", Annotations: map[string]string{logicalcluster.AnnotationKey: "root"}},
 				Status:     tenancyv1alpha1.ClusterWorkspaceStatus{Phase: tenancyv1alpha1.ClusterWorkspacePhaseReady},
@@ -433,8 +434,12 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 				return
 			}
 
-			if got := recordingAuthorizer.recordedAttributes.GetUser(); !reflect.DeepEqual(got, tt.wantUser) {
-				t.Errorf("want user %+v, got %+v", tt.wantUser, got)
+			if recordingAuthorizer.recordedAttributes == nil {
+				t.Errorf("want user %+v, got %+v", tt.wantUser, nil)
+			} else {
+				if got := recordingAuthorizer.recordedAttributes.GetUser(); !reflect.DeepEqual(got, tt.wantUser) {
+					t.Errorf("want user %+v, got %+v", tt.wantUser, got)
+				}
 			}
 		})
 	}

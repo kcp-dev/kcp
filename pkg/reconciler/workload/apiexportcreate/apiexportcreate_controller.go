@@ -28,6 +28,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -53,8 +54,6 @@ import (
 const (
 	ControllerName = "kcp-workload-apiexport-create"
 
-	byWorkspace = ControllerName + "-byWorkspace" // will go away with scoping
-
 	DefaultLocationName = "default"
 )
 
@@ -77,28 +76,13 @@ func NewController(
 
 		kcpClusterClient: kcpClusterClient,
 
-		apiExportsLister:  apiExportInformer.Lister(),
-		apiExportsIndexer: apiExportInformer.Informer().GetIndexer(),
+		apiExportsLister: apiExportInformer.Lister(),
 
-		apiBindingLister:  apiBindingInformer.Lister(),
-		apiBindingIndexer: apiBindingInformer.Informer().GetIndexer(),
+		apiBindingLister: apiBindingInformer.Lister(),
 
-		syncTargetLister:  syncTargetInformer.Lister(),
-		syncTargetIndexer: syncTargetInformer.Informer().GetIndexer(),
+		syncTargetLister: syncTargetInformer.Lister(),
 
 		locationLister: locationInformer.Lister(),
-	}
-
-	if err := syncTargetInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorkspace,
-	}); err != nil {
-		return nil, err
-	}
-
-	if err := apiBindingInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorkspace,
-	}); err != nil {
-		return nil, err
 	}
 
 	apiExportInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
@@ -149,14 +133,11 @@ type controller struct {
 
 	kcpClusterClient kcpclientset.ClusterInterface
 
-	syncTargetLister  workloadv1alpha1listers.SyncTargetClusterLister
-	syncTargetIndexer cache.Indexer
+	syncTargetLister workloadv1alpha1listers.SyncTargetClusterLister
 
-	apiExportsLister  apisv1alpha1listers.APIExportClusterLister
-	apiExportsIndexer cache.Indexer
+	apiExportsLister apisv1alpha1listers.APIExportClusterLister
 
-	apiBindingLister  apisv1alpha1listers.APIBindingClusterLister
-	apiBindingIndexer cache.Indexer
+	apiBindingLister apisv1alpha1listers.APIBindingClusterLister
 
 	locationLister schedulingv1alpha1listers.LocationClusterLister
 }
@@ -234,7 +215,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
 	clusterName := logicalcluster.New(key)
 
-	syncTargets, err := c.syncTargetIndexer.ByIndex(byWorkspace, clusterName.String())
+	syncTargets, err := c.syncTargetLister.Cluster(clusterName).List(labels.Everything())
 	if err != nil {
 		logger.Error(err, "failed to list clusters for workspace")
 		return err
@@ -298,13 +279,12 @@ func (c *controller) process(ctx context.Context, key string) error {
 	}
 
 	// check that binding exists, and create it if not
-	bindings, err := c.apiBindingIndexer.ByIndex(byWorkspace, clusterName.String())
+	bindings, err := c.apiBindingLister.Cluster(clusterName).List(labels.Everything())
 	if err != nil {
 		logger.Error(err, "failed to list APIBindings")
 		return err
 	}
-	for _, obj := range bindings {
-		binding := obj.(*apisv1alpha1.APIBinding)
+	for _, binding := range bindings {
 		if binding.Spec.Reference.Workspace == nil {
 			continue
 		}
