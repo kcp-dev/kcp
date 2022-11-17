@@ -24,6 +24,7 @@ import (
 	"time"
 
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
+	kcpdiscovery "github.com/kcp-dev/client-go/discovery"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v2"
@@ -48,7 +49,7 @@ import (
 	"github.com/kcp-dev/kcp/config/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
 	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned"
@@ -115,18 +116,19 @@ func TestGarbageCollectorTypesFromBinding(t *testing.T) {
 
 	cfg := server.BaseConfig(t)
 
-	kcpClusterClient, err := kcpclient.NewForConfig(cfg)
+	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating kcp cluster client")
 
 	clusterCfg := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), apiProviderClusterName)
 	apiProviderClient, err := kcpclient.NewForConfig(clusterCfg)
+	discoveryClusterClient, err := kcpdiscovery.NewForConfig(rest.CopyConfig(cfg))
 	require.NoError(t, err)
 
 	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
 	t.Logf("Create the cowboy APIResourceSchema")
-	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(apiProviderClient.Discovery()))
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(discoveryClusterClient.Cluster(apiProviderClusterName)))
 	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(apiProviderClusterName), mapper, nil, "apiresourceschema_cowboys.yaml", testFiles)
 	require.NoError(t, err)
 
@@ -139,7 +141,7 @@ func TestGarbageCollectorTypesFromBinding(t *testing.T) {
 			LatestResourceSchemas: []string{"today.cowboys.wildwest.dev"},
 		},
 	}
-	_, err = kcpClusterClient.ApisV1alpha1().APIExports().Create(logicalcluster.WithCluster(ctx, apiProviderClusterName), cowboysAPIExport, metav1.CreateOptions{})
+	_, err = kcpClusterClient.Cluster(apiProviderClusterName).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	// Test multiple workspaces in parallel
@@ -171,15 +173,15 @@ func TestGarbageCollectorTypesFromBinding(t *testing.T) {
 			kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 			require.NoError(t, err, "error creating kube cluster client")
 
-			kcpClusterClient, err := kcpclient.NewForConfig(cfg)
+			kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 			require.NoError(t, err, "error creating kcp cluster client")
 
-			_, err = kcpClusterClient.ApisV1alpha1().APIBindings().Create(logicalcluster.WithCluster(c, userClusterName), binding, metav1.CreateOptions{})
+			_, err = kcpClusterClient.Cluster(userClusterName).ApisV1alpha1().APIBindings().Create(c, binding, metav1.CreateOptions{})
 			require.NoError(t, err)
 
 			t.Logf("Wait for the binding to be ready")
 			framework.Eventually(t, func() (bool, string) {
-				binding, err := kcpClusterClient.ApisV1alpha1().APIBindings().Get(logicalcluster.WithCluster(c, userClusterName), binding.Name, metav1.GetOptions{})
+				binding, err := kcpClusterClient.Cluster(userClusterName).ApisV1alpha1().APIBindings().Get(c, binding.Name, metav1.GetOptions{})
 				require.NoError(t, err, "error getting binding %s", binding.Name)
 				condition := conditions.Get(binding, apisv1alpha1.InitialBindingCompleted)
 				if condition == nil {

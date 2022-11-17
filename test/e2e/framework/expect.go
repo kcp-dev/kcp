@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/kcp-dev/logicalcluster/v2"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -33,7 +32,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 )
 
@@ -204,8 +203,8 @@ type RegisterClusterWorkspaceExpectation func(seed *tenancyv1alpha1.ClusterWorks
 type ClusterWorkspaceExpectation func(*tenancyv1alpha1.ClusterWorkspace) error
 
 // ExpectClusterWorkspaces sets up an Expecter in order to allow registering expectations in tests with minimal setup.
-func ExpectClusterWorkspaces(ctx context.Context, t *testing.T, client kcpclientset.ClusterInterface) (RegisterClusterWorkspaceExpectation, error) {
-	kcpSharedInformerFactory := kcpinformers.NewSharedInformerFactoryWithOptions(client, 0)
+func ExpectClusterWorkspaces(ctx context.Context, t *testing.T, client clientset.Interface) (RegisterClusterWorkspaceExpectation, error) {
+	kcpSharedInformerFactory := kcpinformers.NewSharedScopedInformerFactoryWithOptions(client, 0)
 	clusterWorkspaceInformer := kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaces()
 	expecter := NewExpecter(clusterWorkspaceInformer.Informer())
 	kcpSharedInformerFactory.Start(ctx.Done())
@@ -216,7 +215,7 @@ func ExpectClusterWorkspaces(ctx context.Context, t *testing.T, client kcpclient
 	}
 	return func(seed *tenancyv1alpha1.ClusterWorkspace, expectation ClusterWorkspaceExpectation) error {
 		return expecter.ExpectBefore(ctx, func(ctx context.Context) (done bool, err error) {
-			current, err := clusterWorkspaceInformer.Lister().Cluster(logicalcluster.From(seed)).Get(seed.Name)
+			current, err := clusterWorkspaceInformer.Lister().Get(seed.Name)
 			if err != nil {
 				return !apierrors.IsNotFound(err), err
 			}
@@ -233,8 +232,8 @@ type RegisterWorkspaceShardExpectation func(seed *tenancyv1alpha1.ClusterWorkspa
 type WorkspaceShardExpectation func(*tenancyv1alpha1.ClusterWorkspaceShard) error
 
 // ExpectWorkspaceShards sets up an Expecter in order to allow registering expectations in tests with minimal setup.
-func ExpectWorkspaceShards(ctx context.Context, t *testing.T, client kcpclientset.ClusterInterface) (RegisterWorkspaceShardExpectation, error) {
-	kcpSharedInformerFactory := kcpinformers.NewSharedInformerFactoryWithOptions(client, 0)
+func ExpectWorkspaceShards(ctx context.Context, t *testing.T, client clientset.Interface) (RegisterWorkspaceShardExpectation, error) {
+	kcpSharedInformerFactory := kcpinformers.NewSharedScopedInformerFactoryWithOptions(client, 0)
 	workspaceShardInformer := kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards()
 	expecter := NewExpecter(workspaceShardInformer.Informer())
 	kcpSharedInformerFactory.Start(ctx.Done())
@@ -245,7 +244,7 @@ func ExpectWorkspaceShards(ctx context.Context, t *testing.T, client kcpclientse
 	}
 	return func(seed *tenancyv1alpha1.ClusterWorkspaceShard, expectation WorkspaceShardExpectation) error {
 		return expecter.ExpectBefore(ctx, func(ctx context.Context) (done bool, err error) {
-			current, err := workspaceShardInformer.Lister().Cluster(logicalcluster.From(seed)).Get(seed.Name)
+			current, err := workspaceShardInformer.Lister().Get(seed.Name)
 			if err != nil {
 				return !apierrors.IsNotFound(err), err
 			}

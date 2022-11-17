@@ -28,6 +28,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	kcpdiscovery "github.com/kcp-dev/client-go/discovery"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
@@ -42,7 +43,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/endpoints/discovery"
-	clientgodiscovery "k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
 
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
@@ -60,9 +60,9 @@ func TestInitializingWorkspacesVirtualWorkspaceDiscovery(t *testing.T) {
 	rootShardCfg := source.RootShardSystemMasterBaseConfig(t)
 	rootShardCfg.Host += "/services/initializingworkspaces/whatever"
 
-	virtualWorkspaceDiscoveryClient, err := clientgodiscovery.NewDiscoveryClientForConfig(rootShardCfg)
+	virtualWorkspaceDiscoveryClient, err := kcpdiscovery.NewForConfig(rootShardCfg)
 	require.NoError(t, err)
-	_, apiResourceLists, err := virtualWorkspaceDiscoveryClient.WithCluster(logicalcluster.Wildcard).ServerGroupsAndResources()
+	_, apiResourceLists, err := virtualWorkspaceDiscoveryClient.ServerGroupsAndResources()
 	require.NoError(t, err)
 	require.Empty(t, cmp.Diff([]*metav1.APIResourceList{{
 		GroupVersion: "v1", // TODO: we should figure out why discovery shows this empty group

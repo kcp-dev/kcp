@@ -146,12 +146,14 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 
 	wildwestVCClusterClient, err := wildwestclientset.NewForConfig(apiExportVWCfg)
 	require.NoError(t, err)
-	cowboysProjected, err := wildwestVCClusterClient.WildwestV1alpha1().Cowboys("").List(logicalcluster.WithCluster(ctx, logicalcluster.Wildcard), metav1.ListOptions{})
+	discoveryVCClusterClient, err := kcpdiscovery.NewForConfig(apiExportVWCfg)
+	require.NoError(t, err)
+	cowboysProjected, err := wildwestVCClusterClient.WildwestV1alpha1().Cowboys().List(ctx, metav1.ListOptions{})
 	require.NoError(t, err)
 	require.Equal(t, 1, len(cowboysProjected.Items))
 
 	t.Logf("test that the virtual workspace includes APIBindings")
-	resources, err := wildwestVCClusterClient.WithCluster(logicalcluster.Wildcard).ServerResourcesForGroupVersion(apisv1alpha1.SchemeGroupVersion.String())
+	resources, err := discoveryVCClusterClient.ServerResourcesForGroupVersion(apisv1alpha1.SchemeGroupVersion.String())
 	require.NoError(t, err, "error retrieving APIExport discovery")
 	require.True(t, resourceExists(resources, "apibindings"), "missing apibindings")
 
@@ -339,6 +341,8 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 
 	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
+	discoveryClusterClient, err := kcpdiscovery.NewForConfig(cfg)
+	require.NoError(t, err, "failed to construct discovery cluster client for server")
 
 	mappers := make(map[logicalcluster.Name]meta.RESTMapper)
 	mappers[workspace1] = restmapper.NewDeferredDiscoveryRESTMapper(
@@ -403,7 +407,7 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 		t.Helper()
 
 		t.Logf("Verifying APIExport %s|%s discovery has apis.kcp.dev", clusterName, exportName)
-		discoveryClient := kcpClusterClient.WithCluster(clusterName)
+		discoveryClient := discoveryClusterClient.Cluster(clusterName)
 		framework.Eventually(t, func() (bool, string) {
 			groups, err := discoveryClient.ServerGroups()
 			require.NoError(t, err, "error getting discovery server groups for %s|%s", clusterName, exportName)

@@ -77,7 +77,7 @@ func TestWorkspaceShardController(t *testing.T) {
 			expecterClient, err := kcpclientset.NewForConfig(server.RootShardSystemMasterBaseConfig(t))
 			require.NoError(t, err)
 
-			expect, err := framework.ExpectWorkspaceShards(ctx, t, expecterClient)
+			expect, err := framework.ExpectWorkspaceShards(ctx, t, expecterClient.Cluster(orgClusterName))
 			require.NoError(t, err, "failed to start expecter")
 
 			kubeClient, err := kcpkubernetesclientset.NewForConfig(cfg)

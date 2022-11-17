@@ -33,8 +33,8 @@ import (
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	utilconditions "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
-	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclusterclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -44,7 +44,7 @@ func TestWorkspaceController(t *testing.T) {
 
 	type runningServer struct {
 		framework.RunningServer
-		rootKcpClient, orgKcpClient clientset.Interface
+		rootKcpClient, orgKcpClient kcpclientset.Interface
 		orgExpect                   framework.RegisterClusterWorkspaceExpectation
 		rootExpectShard             framework.RegisterWorkspaceShardExpectation
 	}
@@ -194,16 +194,16 @@ func TestWorkspaceController(t *testing.T) {
 			orgClusterName := framework.NewOrganizationFixture(t, server)
 
 			// create clients
-			kcpClient, err := kcpclientset.NewForConfig(cfg)
+			kcpClient, err := kcpclusterclientset.NewForConfig(cfg)
 			require.NoError(t, err)
 
-			expecterClient, err := kcpclientset.NewForConfig(server.RootShardSystemMasterBaseConfig(t))
+			expecterClient, err := kcpclusterclientset.NewForConfig(server.RootShardSystemMasterBaseConfig(t))
 			require.NoError(t, err)
 
-			orgExpect, err := framework.ExpectClusterWorkspaces(ctx, t, expecterClient)
+			orgExpect, err := framework.ExpectClusterWorkspaces(ctx, t, expecterClient.Cluster(orgClusterName))
 			require.NoError(t, err, "failed to start expecter")
 
-			rootExpectShard, err := framework.ExpectWorkspaceShards(ctx, t, expecterClient)
+			rootExpectShard, err := framework.ExpectWorkspaceShards(ctx, t, expecterClient.Cluster(tenancyv1alpha1.RootCluster))
 			require.NoError(t, err, "failed to start expecter")
 
 			testCase.work(ctx, t, runningServer{

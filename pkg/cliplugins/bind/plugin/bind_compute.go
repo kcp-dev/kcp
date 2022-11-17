@@ -41,6 +41,7 @@ import (
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/pkg/cliplugins/base"
 	"github.com/kcp-dev/kcp/pkg/cliplugins/helpers"
 )
@@ -154,7 +155,7 @@ func (o *BindComputeOptions) Run(ctx context.Context) error {
 	}
 
 	kcpConfig.Host = url.String()
-	kcpClient, err := kcpclient.NewClusterForConfig(kcpConfig)
+	kcpClient, err := kcpclientset.NewForConfig(kcpConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create kcp client: %w", err)
 	}

@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	kcpdiscovery "github.com/kcp-dev/client-go/discovery"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
@@ -35,7 +36,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/endpoints/discovery"
-	clientgodiscovery "k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
@@ -148,11 +148,11 @@ func TestSyncTargetExport(t *testing.T) {
 	require.NoError(t, err)
 	virtualWorkspaceConfig = rest.AddUserAgent(rest.CopyConfig(virtualWorkspaceConfig), t.Name())
 
-	virtualWorkspaceiscoverClusterClient, err := clientgodiscovery.NewDiscoveryClientForConfig(virtualWorkspaceConfig)
+	virtualWorkspaceiscoverClusterClient, err := kcpdiscovery.NewForConfig(virtualWorkspaceConfig)
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {
-		_, existingAPIResourceLists, err := virtualWorkspaceiscoverClusterClient.WithCluster(logicalcluster.Wildcard).ServerGroupsAndResources()
+		_, existingAPIResourceLists, err := virtualWorkspaceiscoverClusterClient.ServerGroupsAndResources()
 		if err != nil {
 			return false
 		}

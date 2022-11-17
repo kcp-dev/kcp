@@ -23,14 +23,14 @@ import (
 	"time"
 
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
-	kcpmetadata "github.com/kcp-dev/client-go/metadata"
+	kcpkubernetesclient "github.com/kcp-dev/client-go/kubernetes"
+	kcpmetadataclient "github.com/kcp-dev/client-go/metadata"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/component-base/metrics/prometheus/ratelimiter"
@@ -53,8 +53,8 @@ type Controller struct {
 	queue workqueue.RateLimitingInterface
 
 	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory
-	kubeClusterClient                     kubernetesclient.ClusterInterface
-	metadataClient                        kcpmetadata.ClusterInterface
+	kubeClusterClient                     kcpkubernetesclient.ClusterInterface
+	metadataClient                        kcpmetadataclient.ClusterInterface
 	clusterWorkspaceLister                tenancyv1alpha1listers.ClusterWorkspaceClusterLister
 	informersStarted                      <-chan struct{}
 
@@ -70,8 +70,8 @@ type Controller struct {
 // NewController creates a new Controller.
 func NewController(
 	clusterWorkspaceInformer tenancyv1alpha1informers.ClusterWorkspaceClusterInformer,
-	kubeClusterClient kubernetesclient.ClusterInterface,
-	metadataClient kcpmetadata.ClusterInterface,
+	kubeClusterClient kcpkubernetesclient.ClusterInterface,
+	metadataClient kcpmetadataclient.ClusterInterface,
 	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory,
 	workersPerLogicalCluster int,
 	informersStarted <-chan struct{},

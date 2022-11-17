@@ -33,8 +33,8 @@ import (
 	virtualoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
-	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclusterclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -49,8 +49,8 @@ func TestUserHomeWorkspaces(t *testing.T) {
 	type runningServer struct {
 		framework.RunningServer
 		kubeClusterClient             kcpkubernetesclientset.ClusterInterface
-		rootShardKcpClusterClient     kcpclientset.ClusterInterface
-		kcpUserClusterClients         []kcpclientset.ClusterInterface
+		rootShardKcpClusterClient     kcpclusterclientset.ClusterInterface
+		kcpUserClusterClients         []kcpclusterclientset.ClusterInterface
 		virtualPersonalClusterClients []VirtualClusterClient
 	}
 
@@ -161,16 +161,16 @@ func TestUserHomeWorkspaces(t *testing.T) {
 			rootShardCfg := server.RootShardSystemMasterBaseConfig(t)
 			kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(kcpConfig)
 			require.NoError(t, err, "failed to construct client for server")
-			rootShardKcpClusterClient, err := kcpclientset.NewForConfig(rootShardCfg)
+			rootShardKcpClusterClient, err := kcpclusterclientset.NewForConfig(rootShardCfg)
 			require.NoError(t, err, "failed to construct client for server")
 
 			// create kcp client and virtual clients for all users requested
-			var kcpUserClusterClients []kcpclientset.ClusterInterface
+			var kcpUserClusterClients []kcpclusterclientset.ClusterInterface
 			var virtualPersonalClusterClients []VirtualClusterClient
 			for _, ci := range []clientInfo{{Token: "user-1-token"}, {Token: "user-2-token"}} {
 				userConfig := framework.ConfigWithToken(ci.Token, rest.CopyConfig(kcpConfig))
 				virtualPersonalClusterClients = append(virtualPersonalClusterClients, &virtualClusterClient{config: userConfig})
-				kcpUserClusterClient, err := kcpclientset.NewForConfig(userConfig)
+				kcpUserClusterClient, err := kcpclusterclientset.NewForConfig(userConfig)
 				require.NoError(t, err)
 				kcpUserClusterClients = append(kcpUserClusterClients, kcpUserClusterClient)
 			}
@@ -187,15 +187,15 @@ func TestUserHomeWorkspaces(t *testing.T) {
 }
 
 type VirtualClusterClient interface {
-	Cluster(cluster logicalcluster.Name) clientset.Interface
+	Cluster(cluster logicalcluster.Name) kcpclientset.Interface
 }
 
 type virtualClusterClient struct {
 	config *rest.Config
 }
 
-func (c *virtualClusterClient) Cluster(cluster logicalcluster.Name) clientset.Interface {
+func (c *virtualClusterClient) Cluster(cluster logicalcluster.Name) kcpclientset.Interface {
 	config := rest.CopyConfig(c.config)
 	config.Host += path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", cluster.String())
-	return clientset.NewForConfigOrDie(config)
+	return kcpclientset.NewForConfigOrDie(config)
 }

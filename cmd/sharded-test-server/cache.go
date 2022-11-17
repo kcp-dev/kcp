@@ -35,7 +35,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/cmd/test-server/helpers"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -145,7 +145,7 @@ func startCacheServer(ctx context.Context, logDirPath, workingDir string) (<-cha
 		if err != nil {
 			return nil, "", err
 		}
-		cacheClient, err := kcpclient.NewClusterForConfig(cacheClientRestConfig)
+		cacheClient, err := kcpclientset.NewForConfig(cacheClientRestConfig)
 		if err != nil {
 			return nil, "", err
 		}

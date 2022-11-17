@@ -33,7 +33,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	apiv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/pkg/cliplugins/base"
 	pluginhelpers "github.com/kcp-dev/kcp/pkg/cliplugins/helpers"
 )
@@ -132,7 +132,7 @@ func (g *GetAPIBindingOptions) Run(ctx context.Context) error {
 	return utilerrors.NewAggregate(allErrors)
 }
 
-func newKCPClusterClient(clientConfig clientcmd.ClientConfig) (kcpclient.ClusterInterface, error) {
+func newKCPClusterClient(clientConfig clientcmd.ClientConfig) (kcpclientset.ClusterInterface, error) {
 	config, err := clientConfig.ClientConfig()
 	if err != nil {
 		return nil, err
@@ -145,7 +145,7 @@ func newKCPClusterClient(clientConfig clientcmd.ClientConfig) (kcpclient.Cluster
 	u.Path = ""
 	clusterConfig.Host = u.String()
 	clusterConfig.UserAgent = rest.DefaultKubernetesUserAgent()
-	return kcpclient.NewClusterForConfig(clusterConfig)
+	return kcpclientset.NewForConfig(clusterConfig)
 }
 
 func printHeaders(out io.Writer) error {
