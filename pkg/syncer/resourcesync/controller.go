@@ -56,7 +56,6 @@ import (
 	workloadv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
 	workloadv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
-	"github.com/kcp-dev/kcp/third_party/keyfunctions"
 )
 
 const (
@@ -133,15 +132,15 @@ func NewController(
 
 	syncTargetInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
-			key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
+			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 			if err != nil {
 				return false
 			}
-			clusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+			_, name, err := cache.SplitMetaNamespaceKey(key)
 			if err != nil {
 				return false
 			}
-			return name == syncTargetName && clusterName == syncTargetWorkspace
+			return name == syncTargetName
 		},
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    func(obj interface{}) { c.enqueueSyncTarget(obj, logger) },
@@ -154,7 +153,7 @@ func NewController(
 }
 
 func (c *Controller) enqueueSyncTarget(obj interface{}, logger logr.Logger) {
-	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -401,7 +400,7 @@ func (c *Controller) startSyncerInformer(ctx context.Context, gvr schema.GroupVe
 	)
 	downstreamInformer := dynamicinformer.NewFilteredDynamicInformerWithOptions(c.downstreamDynamicClient, gvr, metav1.NamespaceAll, func(o *metav1.ListOptions) {
 		o.LabelSelector = workloadv1alpha1.InternalDownstreamClusterLabel + "=" + syncTargetKey
-	}, cache.WithResyncPeriod(resyncPeriod), cache.WithKeyFunction(keyfunctions.DeletionHandlingMetaNamespaceKeyFunc), cache.WithIndexers(map[string]cache.IndexFunc{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}))
+	}, cache.WithResyncPeriod(resyncPeriod), cache.WithIndexers(map[string]cache.IndexFunc{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}))
 
 	for _, handler := range c.upstreamEventHandlers {
 		upstreamInformer.Informer().AddEventHandler(handler(gvr))

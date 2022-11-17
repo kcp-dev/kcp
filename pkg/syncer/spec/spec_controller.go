@@ -53,7 +53,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	"github.com/kcp-dev/kcp/pkg/syncer/spec/dns"
 	specmutators "github.com/kcp-dev/kcp/pkg/syncer/spec/mutators"
-	"github.com/kcp-dev/kcp/third_party/keyfunctions"
 	. "github.com/kcp-dev/kcp/tmc/pkg/logging"
 )
 
@@ -151,7 +150,7 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetWorkspace logicalcluster.
 			logger.V(2).Info("Set up downstream informer", "gvr", gvr.String())
 			return cache.ResourceEventHandlerFuncs{
 				DeleteFunc: func(obj interface{}) {
-					key, err := keyfunctions.DeletionHandlingMetaNamespaceKeyFunc(obj)
+					key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 					if err != nil {
 						utilruntime.HandleError(fmt.Errorf("error getting key for type %T: %w", obj, err))
 						return
