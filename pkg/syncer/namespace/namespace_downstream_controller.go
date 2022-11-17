@@ -51,12 +51,11 @@ import (
 const (
 	controllerNameRoot       = "kcp-workload-syncer-namespace"
 	downstreamControllerName = controllerNameRoot + "-downstream"
-	namespaceCleanretryAfter = 5 * time.Second
 )
 
 type DownstreamController struct {
 	queue        workqueue.RateLimitingInterface
-	delayedQueue workqueue.DelayingInterface
+	delayedQueue workqueue.RateLimitingInterface
 
 	lock                sync.Mutex
 	toDeleteMap         map[string]time.Time
@@ -96,7 +95,7 @@ func NewDownstreamController(
 
 	c := DownstreamController{
 		queue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), downstreamControllerName),
-		delayedQueue: workqueue.NewNamedDelayingQueue(downstreamControllerName),
+		delayedQueue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), downstreamControllerName),
 		toDeleteMap:  make(map[string]time.Time),
 		deleteDownstreamNamespace: func(ctx context.Context, namespace string) error {
 			return downstreamClient.Resource(namespaceGVR).Delete(ctx, namespace, metav1.DeleteOptions{})
@@ -115,14 +114,16 @@ func NewDownstreamController(
 			return downstreamInformers.ForResource(namespaceGVR).Lister().List(labels.Everything())
 		},
 		isDowntreamNamespaceEmpty: func(ctx context.Context, namespace string) (bool, error) {
-			gvrs := syncerInformers.SyncableGVRs()
-			for _, k := range gvrs {
+			gvrs, err := syncerInformers.SyncableGVRs()
+			if err != nil {
+				return false, err
+			}
+			for k, v := range gvrs {
 				// Skip namespaces.
 				if k.Group == "" && k.Version == "v1" && k.Resource == "namespaces" {
 					continue
 				}
-				gvr := schema.GroupVersionResource{Group: k.Group, Version: k.Version, Resource: k.Resource}
-				list, err := downstreamInformers.ForResource(gvr).Lister().ByNamespace(namespace).List(labels.Everything())
+				list, err := v.DownstreamInformer.Lister().ByNamespace(namespace).List(labels.Everything())
 				if err != nil {
 					return false, err
 				}
@@ -156,9 +157,6 @@ func NewDownstreamController(
 		AddFunc: func(obj interface{}) {
 			c.AddToQueue(obj, logger)
 		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
-			c.AddToQueue(newObj, logger)
-		},
 		DeleteFunc: func(obj interface{}) {
 			c.AddToQueue(obj, logger)
 		},
@@ -182,6 +180,7 @@ func (c *DownstreamController) AddToQueue(obj interface{}, logger logr.Logger) {
 func (c *DownstreamController) Start(ctx context.Context, numThreads int) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
+	defer c.delayedQueue.ShutDown()
 
 	logger := logging.WithReconciler(klog.FromContext(ctx), downstreamControllerName)
 	ctx = klog.NewContext(ctx, logger)
@@ -229,7 +228,7 @@ func (c *DownstreamController) processNextWorkItem(ctx context.Context) bool {
 	return true
 }
 
-func (c *DownstreamController) IsPlannedForCleaning(key string) bool {
+func (c *DownstreamController) isPlannedForCleaning(key string) bool {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	_, ok := c.toDeleteMap[key]
@@ -252,6 +251,8 @@ func (c *DownstreamController) PlanCleaning(key string) {
 }
 
 func (c *DownstreamController) startDelayedWorker(ctx context.Context) {
+	logger := klog.FromContext(ctx).WithValues("queue", "delayed")
+	ctx = klog.NewContext(ctx, logger)
 	for c.processNextDelayedWorkItem(ctx) {
 	}
 }
@@ -274,23 +275,22 @@ func (c *DownstreamController) processNextDelayedWorkItem(ctx context.Context) b
 
 	if err := c.processDelayed(ctx, namespaceKey); err != nil {
 		utilruntime.HandleError(fmt.Errorf("%s failed to sync %q, err: %w", downstreamControllerName, key, err))
-		c.delayedQueue.AddAfter(key, namespaceCleanretryAfter)
+		c.delayedQueue.AddRateLimited(key)
 	}
+	c.delayedQueue.Forget(key)
 	return true
 }
 
 func (c *DownstreamController) processDelayed(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
-	logger.V(1).Info("processing delayed namespace deletion")
-	if !c.IsPlannedForCleaning(key) {
+	if !c.isPlannedForCleaning(key) {
 		logger.V(2).Info("Namespace is not marked for deletion anymore, skipping")
-		c.CancelCleaning(key)
 		return nil
 	}
 
 	empty, err := c.isDowntreamNamespaceEmpty(ctx, key)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to check if downstream namespace is empty: %w", err)
 	}
 	if !empty {
 		logger.V(2).Info("Namespace is not empty, reenqueueing to retry later")

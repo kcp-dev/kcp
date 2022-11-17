@@ -41,6 +41,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
@@ -51,7 +52,6 @@ import (
 	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	namespacecontroller "github.com/kcp-dev/kcp/pkg/syncer/namespace"
 	"github.com/kcp-dev/kcp/pkg/syncer/resourcesync"
 	"github.com/kcp-dev/kcp/pkg/syncer/spec/dns"
 	"github.com/kcp-dev/kcp/third_party/keyfunctions"
@@ -63,6 +63,20 @@ func init() {
 	scheme = runtime.NewScheme()
 	_ = corev1.AddToScheme(scheme)
 	_ = appsv1.AddToScheme(scheme)
+}
+
+type mockedCleaner struct {
+	toClean sets.String
+}
+
+func (c *mockedCleaner) PlanCleaning(key string) {
+	c.toClean.Insert(key)
+}
+
+// CancelCleaning removes the key from the list of keys to be cleaned up.
+// If it wasn't planned for deletion, it does nothing.
+func (c *mockedCleaner) CancelCleaning(key string) {
+	c.toClean.Delete(key)
 }
 
 func TestDeepEqualApartFromStatus(t *testing.T) {
@@ -1059,9 +1073,11 @@ func TestSyncerProcess(t *testing.T) {
 			upstreamURL, err := url.Parse("https://kcp.dev:6443")
 			require.NoError(t, err)
 
-			downstreamNSController := namespacecontroller.DownstreamController{}
+			mockedCleaner := &mockedCleaner{
+				toClean: sets.String{},
+			}
 			controller, err := NewSpecSyncer(logger, kcpLogicalCluster, tc.syncTargetName, syncTargetKey, upstreamURL, tc.advancedSchedulingEnabled,
-				fromClusterClient, toClient, toKubeClient, fromInformers, toInformers, &downstreamNSController, fakeInformers, syncTargetUID,
+				fromClusterClient, toClient, toKubeClient, fromInformers, toInformers, mockedCleaner, fakeInformers, syncTargetUID,
 				serviceAccountLister, roleLister, roleBindingLister, deploymentLister, serviceLister, endpointLister, "kcp-01c0zzvlqsi7n", "dnsimage")
 			require.NoError(t, err)
 
@@ -1382,7 +1398,7 @@ func (f *fakeSyncerInformers) InformerForResource(gvr schema.GroupVersionResourc
 		DownstreamInformer: f.downStreamInformer,
 	}, true
 }
-func (f *fakeSyncerInformers) SyncableGVRs() []schema.GroupVersionResource {
-	return []schema.GroupVersionResource{{Group: "apps", Version: "v1", Resource: "deployments"}}
+func (f *fakeSyncerInformers) SyncableGVRs() (map[schema.GroupVersionResource]*resourcesync.SyncerInformer, error) {
+	return map[schema.GroupVersionResource]*resourcesync.SyncerInformer{{Group: "apps", Version: "v1", Resource: "deployments"}: nil}, nil
 }
 func (f *fakeSyncerInformers) Start(ctx context.Context, numThreads int) {}

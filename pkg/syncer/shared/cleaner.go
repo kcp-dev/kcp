@@ -24,6 +24,4 @@ type Cleaner interface {
 	// CancelCleaning removes the key from the list of keys to be cleaned up.
 	// If it wasn't planned for deletion, it does nothing.
 	CancelCleaning(key string)
-	// IsPlannedForCleaning returns true if the key is in the list of keys to be cleaned up.
-	IsPlannedForCleaning(key string) bool
 }
