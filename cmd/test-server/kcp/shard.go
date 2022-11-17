@@ -32,6 +32,7 @@ import (
 	"github.com/abiosoft/lineprefix"
 	"github.com/fatih/color"
 
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
@@ -175,8 +176,9 @@ func (s *Shard) WaitForReady(ctx context.Context) (<-chan error, error) {
 	// wait for readiness
 	logger := klog.FromContext(ctx)
 	logger.Info("Waiting for shard /readyz to succeed")
+	lastSeenUnready := sets.NewString()
 	for {
-		time.Sleep(time.Second)
+		time.Sleep(100 * time.Millisecond)
 
 		select {
 		case <-ctx.Done():
@@ -208,19 +210,17 @@ func (s *Shard) WaitForReady(ctx context.Context) (<-chan error, error) {
 		}
 
 		res := kcpClient.RESTClient().Get().AbsPath("/readyz").Do(ctx)
-		if err := res.Error(); err != nil {
-			logger.V(3).Info("kcp shard not ready", "error", err)
-		} else {
-			var rc int
-			res.StatusCode(&rc)
-			if rc == http.StatusOK {
-				break
+		if _, err := res.Raw(); err != nil {
+			unreadyComponents := unreadyComponentsFromError(err)
+			if !lastSeenUnready.Equal(unreadyComponents) {
+				logger.V(3).Info("kcp shard not ready", "unreadyComponents", unreadyComponents.List())
+				lastSeenUnready = unreadyComponents
 			}
-			if bs, err := res.Raw(); err != nil {
-				logger.V(3).Info("kcp shard not ready", "error", err)
-			} else {
-				logger.V(3).Info("kcp shard not ready", "responseCode", rc, "response", string(bs))
-			}
+		}
+		var rc int
+		res.StatusCode(&rc)
+		if rc == http.StatusOK {
+			break
 		}
 	}
 	if !logger.V(3).Enabled() {
@@ -236,4 +236,20 @@ func (s *Shard) WaitForReady(ctx context.Context) (<-chan error, error) {
 
 	fmt.Fprintf(successOut, "Shard is ready\n")
 	return s.terminatedCh, nil
+}
+
+// there doesn't seem to be any simple way to get a metav1.Status from the Go client, so we get
+// the content in a string-formatted error, unfortunately.
+func unreadyComponentsFromError(err error) sets.String {
+	innerErr := strings.TrimPrefix(strings.TrimSuffix(err.Error(), `") has prevented the request from succeeding`), `an error on the server ("`)
+	unreadyComponents := sets.NewString()
+	for _, line := range strings.Split(innerErr, `\n`) {
+		if name := strings.TrimPrefix(strings.TrimSuffix(line, ` failed: reason withheld`), `[-]`); name != line {
+			// NB: sometimes the error we get is truncated (server-side?) to something like: `\n[-]poststar") has prevented the request from succeeding`
+			// In those cases, the `name` here is also truncated, but nothing we can do about that. For that reason, the list of components returned is
+			// not durable and should not be parsed.
+			unreadyComponents.Insert(name)
+		}
+	}
+	return unreadyComponents
 }
