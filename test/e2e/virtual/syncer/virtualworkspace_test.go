@@ -27,6 +27,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
+	kcpdiscovery "github.com/kcp-dev/client-go/discovery"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
@@ -42,7 +43,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/endpoints/discovery"
-	clientgodiscovery "k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -212,12 +212,12 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 			name: "isolated API domains per syncer",
 			work: func(t *testing.T, kubelikeSyncerVWConfig, wildwestSyncerVWConfig *rest.Config, kubelikeClusterName, wildwestClusterName logicalcluster.Name, wildwestSyncTargetName string,
 				wildwestSyncer *framework.StartedSyncerFixture) {
-				kubelikeVWDiscoverClusterClient, err := clientgodiscovery.NewDiscoveryClientForConfig(kubelikeSyncerVWConfig)
+				kubelikeVWDiscoverClusterClient, err := kcpdiscovery.NewForConfig(kubelikeSyncerVWConfig)
 				require.NoError(t, err)
 
 				t.Logf("Check discovery in kubelike virtual workspace")
 				require.Eventually(t, func() bool {
-					_, kubelikeAPIResourceLists, err := kubelikeVWDiscoverClusterClient.WithCluster(logicalcluster.Wildcard).ServerGroupsAndResources()
+					_, kubelikeAPIResourceLists, err := kubelikeVWDiscoverClusterClient.ServerGroupsAndResources()
 					if err != nil {
 						return false
 					}
@@ -227,10 +227,10 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				t.Logf("Check discovery in wildwest virtual workspace")
-				wildwestVWDiscoverClusterClient, err := clientgodiscovery.NewDiscoveryClientForConfig(wildwestSyncerVWConfig)
+				wildwestVWDiscoverClusterClient, err := kcpdiscovery.NewForConfig(wildwestSyncerVWConfig)
 				require.NoError(t, err)
 				require.Eventually(t, func() bool {
-					_, wildwestAPIResourceLists, err := wildwestVWDiscoverClusterClient.WithCluster(logicalcluster.Wildcard).ServerGroupsAndResources()
+					_, wildwestAPIResourceLists, err := wildwestVWDiscoverClusterClient.ServerGroupsAndResources()
 					if err != nil {
 						return false
 					}
