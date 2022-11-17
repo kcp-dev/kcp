@@ -21,8 +21,6 @@ package v1alpha1
 import (
 	"net/http"
 
-	v2 "github.com/kcp-dev/logicalcluster/v2"
-
 	rest "k8s.io/client-go/rest"
 
 	v1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
@@ -38,7 +36,6 @@ type SchedulingV1alpha1Interface interface {
 // SchedulingV1alpha1Client is used to interact with features provided by the scheduling.kcp.dev group.
 type SchedulingV1alpha1Client struct {
 	restClient rest.Interface
-	cluster    v2.Name
 }
 
 func (c *SchedulingV1alpha1Client) Locations() LocationInterface {
@@ -75,7 +72,7 @@ func NewForConfigAndClient(c *rest.Config, h *http.Client) (*SchedulingV1alpha1C
 	if err != nil {
 		return nil, err
 	}
-	return &SchedulingV1alpha1Client{restClient: client}, nil
+	return &SchedulingV1alpha1Client{client}, nil
 }
 
 // NewForConfigOrDie creates a new SchedulingV1alpha1Client for the given config and
@@ -90,12 +87,7 @@ func NewForConfigOrDie(c *rest.Config) *SchedulingV1alpha1Client {
 
 // New creates a new SchedulingV1alpha1Client for the given RESTClient.
 func New(c rest.Interface) *SchedulingV1alpha1Client {
-	return &SchedulingV1alpha1Client{restClient: c}
-}
-
-// NewWithCluster creates a new SchedulingV1alpha1Client for the given RESTClient and cluster.
-func NewWithCluster(c rest.Interface, cluster v2.Name) *SchedulingV1alpha1Client {
-	return &SchedulingV1alpha1Client{restClient: c, cluster: cluster}
+	return &SchedulingV1alpha1Client{c}
 }
 
 func setConfigDefaults(config *rest.Config) error {

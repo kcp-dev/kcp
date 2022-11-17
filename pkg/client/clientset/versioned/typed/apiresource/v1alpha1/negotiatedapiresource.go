@@ -22,8 +22,6 @@ import (
 	"context"
 	"time"
 
-	v2 "github.com/kcp-dev/logicalcluster/v2"
-
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -55,15 +53,13 @@ type NegotiatedAPIResourceInterface interface {
 
 // negotiatedAPIResources implements NegotiatedAPIResourceInterface
 type negotiatedAPIResources struct {
-	client  rest.Interface
-	cluster v2.Name
+	client rest.Interface
 }
 
 // newNegotiatedAPIResources returns a NegotiatedAPIResources
 func newNegotiatedAPIResources(c *ApiresourceV1alpha1Client) *negotiatedAPIResources {
 	return &negotiatedAPIResources{
-		client:  c.RESTClient(),
-		cluster: c.cluster,
+		client: c.RESTClient(),
 	}
 }
 
@@ -71,7 +67,6 @@ func newNegotiatedAPIResources(c *ApiresourceV1alpha1Client) *negotiatedAPIResou
 func (c *negotiatedAPIResources) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.NegotiatedAPIResource, err error) {
 	result = &v1alpha1.NegotiatedAPIResource{}
 	err = c.client.Get().
-		Cluster(c.cluster).
 		Resource("negotiatedapiresources").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
@@ -88,7 +83,6 @@ func (c *negotiatedAPIResources) List(ctx context.Context, opts v1.ListOptions) 
 	}
 	result = &v1alpha1.NegotiatedAPIResourceList{}
 	err = c.client.Get().
-		Cluster(c.cluster).
 		Resource("negotiatedapiresources").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -105,7 +99,6 @@ func (c *negotiatedAPIResources) Watch(ctx context.Context, opts v1.ListOptions)
 	}
 	opts.Watch = true
 	return c.client.Get().
-		Cluster(c.cluster).
 		Resource("negotiatedapiresources").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -116,7 +109,6 @@ func (c *negotiatedAPIResources) Watch(ctx context.Context, opts v1.ListOptions)
 func (c *negotiatedAPIResources) Create(ctx context.Context, negotiatedAPIResource *v1alpha1.NegotiatedAPIResource, opts v1.CreateOptions) (result *v1alpha1.NegotiatedAPIResource, err error) {
 	result = &v1alpha1.NegotiatedAPIResource{}
 	err = c.client.Post().
-		Cluster(c.cluster).
 		Resource("negotiatedapiresources").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(negotiatedAPIResource).
@@ -129,7 +121,6 @@ func (c *negotiatedAPIResources) Create(ctx context.Context, negotiatedAPIResour
 func (c *negotiatedAPIResources) Update(ctx context.Context, negotiatedAPIResource *v1alpha1.NegotiatedAPIResource, opts v1.UpdateOptions) (result *v1alpha1.NegotiatedAPIResource, err error) {
 	result = &v1alpha1.NegotiatedAPIResource{}
 	err = c.client.Put().
-		Cluster(c.cluster).
 		Resource("negotiatedapiresources").
 		Name(negotiatedAPIResource.Name).
 		VersionedParams(&opts, scheme.ParameterCodec).
@@ -144,7 +135,6 @@ func (c *negotiatedAPIResources) Update(ctx context.Context, negotiatedAPIResour
 func (c *negotiatedAPIResources) UpdateStatus(ctx context.Context, negotiatedAPIResource *v1alpha1.NegotiatedAPIResource, opts v1.UpdateOptions) (result *v1alpha1.NegotiatedAPIResource, err error) {
 	result = &v1alpha1.NegotiatedAPIResource{}
 	err = c.client.Put().
-		Cluster(c.cluster).
 		Resource("negotiatedapiresources").
 		Name(negotiatedAPIResource.Name).
 		SubResource("status").
@@ -158,7 +148,6 @@ func (c *negotiatedAPIResources) UpdateStatus(ctx context.Context, negotiatedAPI
 // Delete takes name of the negotiatedAPIResource and deletes it. Returns an error if one occurs.
 func (c *negotiatedAPIResources) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	return c.client.Delete().
-		Cluster(c.cluster).
 		Resource("negotiatedapiresources").
 		Name(name).
 		Body(&opts).
@@ -173,7 +162,6 @@ func (c *negotiatedAPIResources) DeleteCollection(ctx context.Context, opts v1.D
 		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
 	}
 	return c.client.Delete().
-		Cluster(c.cluster).
 		Resource("negotiatedapiresources").
 		VersionedParams(&listOpts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -186,7 +174,6 @@ func (c *negotiatedAPIResources) DeleteCollection(ctx context.Context, opts v1.D
 func (c *negotiatedAPIResources) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.NegotiatedAPIResource, err error) {
 	result = &v1alpha1.NegotiatedAPIResource{}
 	err = c.client.Patch(pt).
-		Cluster(c.cluster).
 		Resource("negotiatedapiresources").
 		Name(name).
 		SubResource(subresources...).

@@ -22,8 +22,6 @@ import (
 	"context"
 	"time"
 
-	v2 "github.com/kcp-dev/logicalcluster/v2"
-
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -55,15 +53,13 @@ type APIBindingInterface interface {
 
 // aPIBindings implements APIBindingInterface
 type aPIBindings struct {
-	client  rest.Interface
-	cluster v2.Name
+	client rest.Interface
 }
 
 // newAPIBindings returns a APIBindings
 func newAPIBindings(c *ApisV1alpha1Client) *aPIBindings {
 	return &aPIBindings{
-		client:  c.RESTClient(),
-		cluster: c.cluster,
+		client: c.RESTClient(),
 	}
 }
 
@@ -71,7 +67,6 @@ func newAPIBindings(c *ApisV1alpha1Client) *aPIBindings {
 func (c *aPIBindings) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.APIBinding, err error) {
 	result = &v1alpha1.APIBinding{}
 	err = c.client.Get().
-		Cluster(c.cluster).
 		Resource("apibindings").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
@@ -88,7 +83,6 @@ func (c *aPIBindings) List(ctx context.Context, opts v1.ListOptions) (result *v1
 	}
 	result = &v1alpha1.APIBindingList{}
 	err = c.client.Get().
-		Cluster(c.cluster).
 		Resource("apibindings").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -105,7 +99,6 @@ func (c *aPIBindings) Watch(ctx context.Context, opts v1.ListOptions) (watch.Int
 	}
 	opts.Watch = true
 	return c.client.Get().
-		Cluster(c.cluster).
 		Resource("apibindings").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -116,7 +109,6 @@ func (c *aPIBindings) Watch(ctx context.Context, opts v1.ListOptions) (watch.Int
 func (c *aPIBindings) Create(ctx context.Context, aPIBinding *v1alpha1.APIBinding, opts v1.CreateOptions) (result *v1alpha1.APIBinding, err error) {
 	result = &v1alpha1.APIBinding{}
 	err = c.client.Post().
-		Cluster(c.cluster).
 		Resource("apibindings").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(aPIBinding).
@@ -129,7 +121,6 @@ func (c *aPIBindings) Create(ctx context.Context, aPIBinding *v1alpha1.APIBindin
 func (c *aPIBindings) Update(ctx context.Context, aPIBinding *v1alpha1.APIBinding, opts v1.UpdateOptions) (result *v1alpha1.APIBinding, err error) {
 	result = &v1alpha1.APIBinding{}
 	err = c.client.Put().
-		Cluster(c.cluster).
 		Resource("apibindings").
 		Name(aPIBinding.Name).
 		VersionedParams(&opts, scheme.ParameterCodec).
@@ -144,7 +135,6 @@ func (c *aPIBindings) Update(ctx context.Context, aPIBinding *v1alpha1.APIBindin
 func (c *aPIBindings) UpdateStatus(ctx context.Context, aPIBinding *v1alpha1.APIBinding, opts v1.UpdateOptions) (result *v1alpha1.APIBinding, err error) {
 	result = &v1alpha1.APIBinding{}
 	err = c.client.Put().
-		Cluster(c.cluster).
 		Resource("apibindings").
 		Name(aPIBinding.Name).
 		SubResource("status").
@@ -158,7 +148,6 @@ func (c *aPIBindings) UpdateStatus(ctx context.Context, aPIBinding *v1alpha1.API
 // Delete takes name of the aPIBinding and deletes it. Returns an error if one occurs.
 func (c *aPIBindings) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	return c.client.Delete().
-		Cluster(c.cluster).
 		Resource("apibindings").
 		Name(name).
 		Body(&opts).
@@ -173,7 +162,6 @@ func (c *aPIBindings) DeleteCollection(ctx context.Context, opts v1.DeleteOption
 		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
 	}
 	return c.client.Delete().
-		Cluster(c.cluster).
 		Resource("apibindings").
 		VersionedParams(&listOpts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -186,7 +174,6 @@ func (c *aPIBindings) DeleteCollection(ctx context.Context, opts v1.DeleteOption
 func (c *aPIBindings) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.APIBinding, err error) {
 	result = &v1alpha1.APIBinding{}
 	err = c.client.Patch(pt).
-		Cluster(c.cluster).
 		Resource("apibindings").
 		Name(name).
 		SubResource(subresources...).

@@ -22,8 +22,6 @@ import (
 	"context"
 	"time"
 
-	v2 "github.com/kcp-dev/logicalcluster/v2"
-
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -55,15 +53,13 @@ type PlacementInterface interface {
 
 // placements implements PlacementInterface
 type placements struct {
-	client  rest.Interface
-	cluster v2.Name
+	client rest.Interface
 }
 
 // newPlacements returns a Placements
 func newPlacements(c *SchedulingV1alpha1Client) *placements {
 	return &placements{
-		client:  c.RESTClient(),
-		cluster: c.cluster,
+		client: c.RESTClient(),
 	}
 }
 
@@ -71,7 +67,6 @@ func newPlacements(c *SchedulingV1alpha1Client) *placements {
 func (c *placements) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.Placement, err error) {
 	result = &v1alpha1.Placement{}
 	err = c.client.Get().
-		Cluster(c.cluster).
 		Resource("placements").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
@@ -88,7 +83,6 @@ func (c *placements) List(ctx context.Context, opts v1.ListOptions) (result *v1a
 	}
 	result = &v1alpha1.PlacementList{}
 	err = c.client.Get().
-		Cluster(c.cluster).
 		Resource("placements").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -105,7 +99,6 @@ func (c *placements) Watch(ctx context.Context, opts v1.ListOptions) (watch.Inte
 	}
 	opts.Watch = true
 	return c.client.Get().
-		Cluster(c.cluster).
 		Resource("placements").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -116,7 +109,6 @@ func (c *placements) Watch(ctx context.Context, opts v1.ListOptions) (watch.Inte
 func (c *placements) Create(ctx context.Context, placement *v1alpha1.Placement, opts v1.CreateOptions) (result *v1alpha1.Placement, err error) {
 	result = &v1alpha1.Placement{}
 	err = c.client.Post().
-		Cluster(c.cluster).
 		Resource("placements").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(placement).
@@ -129,7 +121,6 @@ func (c *placements) Create(ctx context.Context, placement *v1alpha1.Placement, 
 func (c *placements) Update(ctx context.Context, placement *v1alpha1.Placement, opts v1.UpdateOptions) (result *v1alpha1.Placement, err error) {
 	result = &v1alpha1.Placement{}
 	err = c.client.Put().
-		Cluster(c.cluster).
 		Resource("placements").
 		Name(placement.Name).
 		VersionedParams(&opts, scheme.ParameterCodec).
@@ -144,7 +135,6 @@ func (c *placements) Update(ctx context.Context, placement *v1alpha1.Placement, 
 func (c *placements) UpdateStatus(ctx context.Context, placement *v1alpha1.Placement, opts v1.UpdateOptions) (result *v1alpha1.Placement, err error) {
 	result = &v1alpha1.Placement{}
 	err = c.client.Put().
-		Cluster(c.cluster).
 		Resource("placements").
 		Name(placement.Name).
 		SubResource("status").
@@ -158,7 +148,6 @@ func (c *placements) UpdateStatus(ctx context.Context, placement *v1alpha1.Place
 // Delete takes name of the placement and deletes it. Returns an error if one occurs.
 func (c *placements) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	return c.client.Delete().
-		Cluster(c.cluster).
 		Resource("placements").
 		Name(name).
 		Body(&opts).
@@ -173,7 +162,6 @@ func (c *placements) DeleteCollection(ctx context.Context, opts v1.DeleteOptions
 		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
 	}
 	return c.client.Delete().
-		Cluster(c.cluster).
 		Resource("placements").
 		VersionedParams(&listOpts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -186,7 +174,6 @@ func (c *placements) DeleteCollection(ctx context.Context, opts v1.DeleteOptions
 func (c *placements) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Placement, err error) {
 	result = &v1alpha1.Placement{}
 	err = c.client.Patch(pt).
-		Cluster(c.cluster).
 		Resource("placements").
 		Name(name).
 		SubResource(subresources...).

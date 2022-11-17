@@ -22,8 +22,6 @@ import (
 	"context"
 	"time"
 
-	v2 "github.com/kcp-dev/logicalcluster/v2"
-
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -55,15 +53,13 @@ type ClusterWorkspaceShardInterface interface {
 
 // clusterWorkspaceShards implements ClusterWorkspaceShardInterface
 type clusterWorkspaceShards struct {
-	client  rest.Interface
-	cluster v2.Name
+	client rest.Interface
 }
 
 // newClusterWorkspaceShards returns a ClusterWorkspaceShards
 func newClusterWorkspaceShards(c *TenancyV1alpha1Client) *clusterWorkspaceShards {
 	return &clusterWorkspaceShards{
-		client:  c.RESTClient(),
-		cluster: c.cluster,
+		client: c.RESTClient(),
 	}
 }
 
@@ -71,7 +67,6 @@ func newClusterWorkspaceShards(c *TenancyV1alpha1Client) *clusterWorkspaceShards
 func (c *clusterWorkspaceShards) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.ClusterWorkspaceShard, err error) {
 	result = &v1alpha1.ClusterWorkspaceShard{}
 	err = c.client.Get().
-		Cluster(c.cluster).
 		Resource("clusterworkspaceshards").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
@@ -88,7 +83,6 @@ func (c *clusterWorkspaceShards) List(ctx context.Context, opts v1.ListOptions) 
 	}
 	result = &v1alpha1.ClusterWorkspaceShardList{}
 	err = c.client.Get().
-		Cluster(c.cluster).
 		Resource("clusterworkspaceshards").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -105,7 +99,6 @@ func (c *clusterWorkspaceShards) Watch(ctx context.Context, opts v1.ListOptions)
 	}
 	opts.Watch = true
 	return c.client.Get().
-		Cluster(c.cluster).
 		Resource("clusterworkspaceshards").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -116,7 +109,6 @@ func (c *clusterWorkspaceShards) Watch(ctx context.Context, opts v1.ListOptions)
 func (c *clusterWorkspaceShards) Create(ctx context.Context, clusterWorkspaceShard *v1alpha1.ClusterWorkspaceShard, opts v1.CreateOptions) (result *v1alpha1.ClusterWorkspaceShard, err error) {
 	result = &v1alpha1.ClusterWorkspaceShard{}
 	err = c.client.Post().
-		Cluster(c.cluster).
 		Resource("clusterworkspaceshards").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(clusterWorkspaceShard).
@@ -129,7 +121,6 @@ func (c *clusterWorkspaceShards) Create(ctx context.Context, clusterWorkspaceSha
 func (c *clusterWorkspaceShards) Update(ctx context.Context, clusterWorkspaceShard *v1alpha1.ClusterWorkspaceShard, opts v1.UpdateOptions) (result *v1alpha1.ClusterWorkspaceShard, err error) {
 	result = &v1alpha1.ClusterWorkspaceShard{}
 	err = c.client.Put().
-		Cluster(c.cluster).
 		Resource("clusterworkspaceshards").
 		Name(clusterWorkspaceShard.Name).
 		VersionedParams(&opts, scheme.ParameterCodec).
@@ -144,7 +135,6 @@ func (c *clusterWorkspaceShards) Update(ctx context.Context, clusterWorkspaceSha
 func (c *clusterWorkspaceShards) UpdateStatus(ctx context.Context, clusterWorkspaceShard *v1alpha1.ClusterWorkspaceShard, opts v1.UpdateOptions) (result *v1alpha1.ClusterWorkspaceShard, err error) {
 	result = &v1alpha1.ClusterWorkspaceShard{}
 	err = c.client.Put().
-		Cluster(c.cluster).
 		Resource("clusterworkspaceshards").
 		Name(clusterWorkspaceShard.Name).
 		SubResource("status").
@@ -158,7 +148,6 @@ func (c *clusterWorkspaceShards) UpdateStatus(ctx context.Context, clusterWorksp
 // Delete takes name of the clusterWorkspaceShard and deletes it. Returns an error if one occurs.
 func (c *clusterWorkspaceShards) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	return c.client.Delete().
-		Cluster(c.cluster).
 		Resource("clusterworkspaceshards").
 		Name(name).
 		Body(&opts).
@@ -173,7 +162,6 @@ func (c *clusterWorkspaceShards) DeleteCollection(ctx context.Context, opts v1.D
 		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
 	}
 	return c.client.Delete().
-		Cluster(c.cluster).
 		Resource("clusterworkspaceshards").
 		VersionedParams(&listOpts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -186,7 +174,6 @@ func (c *clusterWorkspaceShards) DeleteCollection(ctx context.Context, opts v1.D
 func (c *clusterWorkspaceShards) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.ClusterWorkspaceShard, err error) {
 	result = &v1alpha1.ClusterWorkspaceShard{}
 	err = c.client.Patch(pt).
-		Cluster(c.cluster).
 		Resource("clusterworkspaceshards").
 		Name(name).
 		SubResource(subresources...).

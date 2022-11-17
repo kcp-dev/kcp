@@ -21,8 +21,6 @@ package v1beta1
 import (
 	"net/http"
 
-	v2 "github.com/kcp-dev/logicalcluster/v2"
-
 	rest "k8s.io/client-go/rest"
 
 	v1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
@@ -37,7 +35,6 @@ type TenancyV1beta1Interface interface {
 // TenancyV1beta1Client is used to interact with features provided by the tenancy.kcp.dev group.
 type TenancyV1beta1Client struct {
 	restClient rest.Interface
-	cluster    v2.Name
 }
 
 func (c *TenancyV1beta1Client) Workspaces() WorkspaceInterface {
@@ -70,7 +67,7 @@ func NewForConfigAndClient(c *rest.Config, h *http.Client) (*TenancyV1beta1Clien
 	if err != nil {
 		return nil, err
 	}
-	return &TenancyV1beta1Client{restClient: client}, nil
+	return &TenancyV1beta1Client{client}, nil
 }
 
 // NewForConfigOrDie creates a new TenancyV1beta1Client for the given config and
@@ -85,12 +82,7 @@ func NewForConfigOrDie(c *rest.Config) *TenancyV1beta1Client {
 
 // New creates a new TenancyV1beta1Client for the given RESTClient.
 func New(c rest.Interface) *TenancyV1beta1Client {
-	return &TenancyV1beta1Client{restClient: c}
-}
-
-// NewWithCluster creates a new TenancyV1beta1Client for the given RESTClient and cluster.
-func NewWithCluster(c rest.Interface, cluster v2.Name) *TenancyV1beta1Client {
-	return &TenancyV1beta1Client{restClient: c, cluster: cluster}
+	return &TenancyV1beta1Client{c}
 }
 
 func setConfigDefaults(config *rest.Config) error {
