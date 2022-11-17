@@ -113,18 +113,18 @@ func (r *placementSchedulingReconciler) getAllValidSyncTargetsForPlacement(ctx c
 	}
 
 	// filter the sync targets by location
-	locationClusters, err := locationreconciler.LocationSyncTargets(syncTargets, location)
+	locationSyncTargets, err := locationreconciler.LocationSyncTargets(syncTargets, location)
 	if err != nil {
 		return locationWorkspace, nil, err
 	}
 
-	locationClusters, err = r.filterAPICompatible(ctx, clusterName, locationClusters)
+	locationSyncTargets, err = r.filterAPICompatible(ctx, clusterName, locationSyncTargets)
 	if err != nil {
 		return locationWorkspace, nil, err
 	}
 
 	// find all the valid sync targets.
-	validClusters := locationreconciler.FilterNonEvicting(locationreconciler.FilterReady(locationClusters))
+	validClusters := locationreconciler.FilterNonEvicting(locationreconciler.FilterReady(locationSyncTargets))
 
 	return locationWorkspace, validClusters, nil
 }

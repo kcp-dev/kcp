@@ -482,6 +482,9 @@ func (s *Server) Run(ctx context.Context) error {
 			if err := s.installWorkloadsAPIExportCreateController(ctx, controllerConfig, delegationChainHead); err != nil {
 				return err
 			}
+			if err := s.installWorkloadAPIBindingLabelSyncController(ctx, controllerConfig, delegationChainHead); err != nil {
+				return err
+			}
 		}
 	}
 

@@ -156,6 +156,7 @@ const (
 	// helper func, this label is used for reverse lookups of a syncTargetKey to SyncTarget.
 	InternalSyncTargetKeyLabel = "internal.workload.kcp.dev/key"
 
-	// LabelKindAPIBindingCompute is the value of label key "apis.kcp.dev/kind" for compute kind apibinding
-	LabelKindAPIBindingCompute = "compute"
+	// ComputeAPIBindingLabel is label set on an APIExport to identify that it is for compute.
+	// It is automatically copied from an APIExport to the APIBindings bound to it.
+	ComputeAPIBindingLabel = "internal.workload.kcp.dev/compute"
 )

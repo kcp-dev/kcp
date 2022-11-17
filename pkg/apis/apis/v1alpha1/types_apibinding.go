@@ -237,9 +237,6 @@ const (
 	AnnotationAPIIdentityKey = "apis.kcp.dev/identity"
 )
 
-// LabelAPIBindingKindKey is a label to identify the kind of APIBinding.
-const LabelAPIBindingKindKey = "apis.kcp.dev/kind"
-
 // BoundAPIResource describes a bound GroupVersionResource through an APIResourceSchema of an APIExport..
 type BoundAPIResource struct {
 	// group is the group of the bound API. Empty string for the core API group.

@@ -23,17 +23,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
-	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/rest"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -49,48 +45,22 @@ func TestSchedulingOnSupportedAPI(t *testing.T) {
 	locationClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
 	userClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
 
-	kcpClusterClient, err := kcpclient.NewForConfig(source.BaseConfig(t))
+	kcpClusterClient, err := kcpclientset.NewForConfig(source.BaseConfig(t))
 	require.NoError(t, err)
 
 	firstSyncTargetName := fmt.Sprintf("firstsynctarget-%d", +rand.Intn(1000000))
 	t.Logf("Creating a SyncTarget with no support APIExports and syncer in %s", locationClusterName)
 	_ = framework.NewSyncerFixture(t, source, locationClusterName,
-		framework.WithExtraResources("roles.rbac.authorization.k8s.io", "rolebindings.rbac.authorization.k8s.io"),
-		framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
-			if !isFakePCluster {
-				// Only need to install services and ingresses in a logical cluster
-				return
-			}
-			sinkCrdClient, err := apiextensionsclientset.NewForConfig(config)
-			require.NoError(t, err, "failed to create apiextensions client")
-			t.Logf("Installing test CRDs into sink cluster...")
-			kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
-				metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
-			)
-			require.NoError(t, err)
-		}),
+		framework.WithSyncTargetName(firstSyncTargetName),
+		framework.WithSyncedUserWorkspaces(userClusterName),
 		framework.WithAPIExports(""),
-		framework.WithSyncTarget(locationClusterName, firstSyncTargetName),
 	).Start(t)
 
 	secondSyncTargetName := fmt.Sprintf("secondsynctarget-%d", +rand.Intn(1000000))
 	t.Logf("Creating a SyncTarget with global kubernetes APIExports and syncer in %s", locationClusterName)
 	secondSyncerFixture := framework.NewSyncerFixture(t, source, locationClusterName,
-		framework.WithExtraResources("roles.rbac.authorization.k8s.io", "rolebindings.rbac.authorization.k8s.io"),
-		framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
-			if !isFakePCluster {
-				// Only need to install services and ingresses in a logical cluster
-				return
-			}
-			sinkCrdClient, err := apiextensionsclientset.NewForConfig(config)
-			require.NoError(t, err, "failed to create apiextensions client")
-			t.Logf("Installing test CRDs into sink cluster...")
-			kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
-				metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
-			)
-			require.NoError(t, err)
-		}),
-		framework.WithSyncTarget(locationClusterName, secondSyncTargetName),
+		framework.WithSyncTargetName(secondSyncTargetName),
+		framework.WithSyncedUserWorkspaces(userClusterName),
 	).Start(t)
 
 	placementName := "placement-test-supportedapi"
@@ -103,7 +73,7 @@ func TestSchedulingOnSupportedAPI(t *testing.T) {
 	scheduledSyncTargetKey := workloadv1alpha1.ToSyncTargetKey(secondSyncerFixture.SyncerConfig.SyncTargetWorkspace, secondSyncTargetName)
 	t.Logf("check placement should be scheduled to synctarget with supported API")
 	framework.Eventually(t, func() (bool, string) {
-		placement, err := kcpClusterClient.SchedulingV1alpha1().Placements().Get(logicalcluster.WithCluster(ctx, userClusterName), placementName, metav1.GetOptions{})
+		placement, err := kcpClusterClient.Cluster(userClusterName).SchedulingV1alpha1().Placements().Get(ctx, placementName, metav1.GetOptions{})
 		if err != nil {
 			return false, fmt.Sprintf("Failed to get placement: %v", err)
 		}

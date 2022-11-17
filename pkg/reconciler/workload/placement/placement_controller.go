@@ -26,6 +26,7 @@ import (
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -39,6 +40,9 @@ import (
 	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	schedulinginformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
 	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
+	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
+	schedulingv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
+	workloadv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -50,10 +54,10 @@ const (
 // NewController returns a new controller starting the process of selecting synctarget for a placement
 func NewController(
 	kcpClusterClient kcpclientset.ClusterInterface,
-	locationInformer schedulinginformers.LocationInformer,
-	syncTargetInformer workloadinformers.SyncTargetInformer,
-	placementInformer schedulinginformers.PlacementInformer,
-	apiBindingInformer apisinformers.APIBindingInformer,
+	locationInformer schedulinginformers.LocationClusterInformer,
+	syncTargetInformer workloadinformers.SyncTargetClusterInformer,
+	placementInformer schedulinginformers.PlacementClusterInformer,
+	apiBindingInformer apisinformers.APIBindingClusterInformer,
 ) (*controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
@@ -69,17 +73,11 @@ func NewController(
 		placementLister:  placementInformer.Lister(),
 		placementIndexer: placementInformer.Informer().GetIndexer(),
 
-		apiBindingIndexer: apiBindingInformer.Informer().GetIndexer(),
+		apiBindingLister: apiBindingInformer.Lister(),
 	}
 
 	if err := placementInformer.Informer().AddIndexers(cache.Indexers{
 		byLocationWorkspace: indexByLocationWorkspace,
-	}); err != nil {
-		return nil, err
-	}
-
-	if err := apiBindingInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorkspace,
 	}); err != nil {
 		return nil, err
 	}
@@ -156,7 +154,7 @@ type controller struct {
 	placementLister  schedulingv1alpha1listers.PlacementClusterLister
 	placementIndexer cache.Indexer
 
-	apiBindingIndexer cache.Indexer
+	apiBindingLister apislisters.APIBindingClusterLister
 }
 
 // enqueueLocation finds placement ref to this location at first, and then namespaces bound to this placement.
@@ -207,7 +205,7 @@ func (c *controller) enqueueAPIBinding(obj interface{}) {
 		return
 	}
 
-	placements, err := c.placementIndexer.ByIndex(byWorkspace, clusterName.String())
+	placements, err := c.placementLister.Cluster(clusterName).List(labels.Everything())
 	if err != nil {
 		runtime.HandleError(err)
 		return

@@ -86,20 +86,10 @@ func (c *controller) patchPlacement(ctx context.Context, clusterName logicalclus
 
 // listWorkloadAPIBindings list all apibindings in bound phase and the kind is compute
 func (c *controller) listWorkloadAPIBindings(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
-	items, err := c.apiBindingIndexer.ByIndex(byWorkspace, clusterName.String())
+	// filter based on the existence of the key
+	selector, err := labels.Parse(workloadv1alpha1.ComputeAPIBindingLabel)
 	if err != nil {
 		return nil, err
 	}
-	ret := make([]*apisv1alpha1.APIBinding, 0, len(items))
-	for _, item := range items {
-		binding := item.(*apisv1alpha1.APIBinding)
-		if binding.Status.Phase != apisv1alpha1.APIBindingPhaseBound {
-			continue
-		}
-		if len(binding.Labels) == 0 || binding.Labels[apisv1alpha1.LabelAPIBindingKindKey] != workloadv1alpha1.LabelKindAPIBindingCompute {
-			continue
-		}
-		ret = append(ret, binding)
-	}
-	return ret, nil
+	return c.apiBindingLister.Cluster(clusterName).List(selector)
 }

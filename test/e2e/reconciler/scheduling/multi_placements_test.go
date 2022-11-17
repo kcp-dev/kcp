@@ -19,7 +19,6 @@ package cluster
 import (
 	"context"
 	"fmt"
-	"github.com/kcp-dev/logicalcluster/v2"
 	"testing"
 	"time"
 
