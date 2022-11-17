@@ -60,7 +60,7 @@ func TestReconcileAPIExports(t *testing.T) {
 			reconcileKey:           fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
 			validateFunc: func(ts *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
 				if len(localClientActions) != 0 {
-					ts.Fatal("unexpected REST calls were made to the localDynamicClient")
+					ts.Fatalf("unexpected REST calls were made to the localDynamicClient: %#v", localClientActions)
 				}
 				wasCacheApiExportValidated := false
 				for _, action := range cacheClientActions {
@@ -104,7 +104,7 @@ func TestReconcileAPIExports(t *testing.T) {
 			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
 			validateFunc: func(ts *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
 				if len(localClientActions) != 0 {
-					ts.Fatal("unexpected REST calls were made to the localDynamicClient")
+					ts.Fatalf("unexpected REST calls were made to the localDynamicClient: %#v", localClientActions)
 				}
 				wasCacheApiExportValidated := false
 				for _, action := range cacheClientActions {
@@ -181,7 +181,7 @@ func TestReconcileAPIExports(t *testing.T) {
 			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
 			validateFunc: func(ts *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
 				if len(localClientActions) != 0 {
-					ts.Fatal("unexpected REST calls were made to the localDynamicClient")
+					ts.Fatalf("unexpected REST calls were made to the localDynamicClient: %#v", localClientActions)
 				}
 				wasCacheApiExportValidated := false
 				for _, action := range cacheClientActions {
@@ -224,7 +224,7 @@ func TestReconcileAPIExports(t *testing.T) {
 			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
 			validateFunc: func(ts *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
 				if len(localClientActions) != 0 {
-					ts.Fatal("unexpected REST calls were made to the localDynamicClient")
+					ts.Fatalf("unexpected REST calls were made to the localDynamicClient: %#v", localClientActions)
 				}
 				wasCacheApiExportValidated := false
 				for _, action := range cacheClientActions {
@@ -267,7 +267,7 @@ func TestReconcileAPIExports(t *testing.T) {
 			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
 			validateFunc: func(ts *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
 				if len(localClientActions) != 0 {
-					ts.Fatal("unexpected REST calls were made to the localDynamicClient")
+					ts.Fatalf("unexpected REST calls were made to the localDynamicClient: %#v", localClientActions)
 				}
 				wasCacheApiExportValidated := false
 				for _, action := range cacheClientActions {
