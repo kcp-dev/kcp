@@ -46,6 +46,7 @@ type ExtraConfig struct {
 	// the clients can wildcard-list/watch most kcp resources.
 	ResolveIdentities func(ctx context.Context) error
 	RootShardConfig   *rest.Config
+	ShardsConfig      *rest.Config
 
 	AuthenticationInfo    genericapiserver.AuthenticationInfo
 	ServingInfo           *genericapiserver.SecureServingInfo
@@ -85,6 +86,11 @@ func NewConfig(opts *proxyoptions.Options) (*Config, error) {
 	}
 	if err := c.Options.Authentication.ApplyTo(&c.AuthenticationInfo, c.ServingInfo, c.RootShardConfig); err != nil {
 		return nil, err
+	}
+
+	c.ShardsConfig, err = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: c.Options.ShardsKubeconfig}, nil).ClientConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load shard kubeconfig: %w", err)
 	}
 
 	c.AdditionalAuthEnabled = c.Options.Authentication.AdditionalAuthEnabled()

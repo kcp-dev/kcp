@@ -60,7 +60,7 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 		s.CompletedConfig.RootShardConfig.Host,
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
 		func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpclientset.ClusterInterface, error) {
-			shardConfig := restclient.CopyConfig(s.CompletedConfig.RootShardConfig)
+			shardConfig := restclient.CopyConfig(s.CompletedConfig.ShardsConfig)
 			shardConfig.Host = shard.Spec.BaseURL
 			shardClient, err := kcpclientset.NewForConfig(shardConfig)
 			if err != nil {
