@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
@@ -183,7 +182,6 @@ func TestClusterController(t *testing.T) {
 			sourceKubeClient, err := kcpkubernetesclientset.NewForConfig(sourceConfig)
 			require.NoError(t, err)
 
-			sourceWsClusterConfig := kcpclienthelper.SetCluster(rest.CopyConfig(sourceConfig), wsClusterName)
 			sourceWildwestClient, err := wildwestclientset.NewForConfig(sourceWsClusterConfig)
 			require.NoError(t, err)
 

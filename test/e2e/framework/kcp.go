@@ -36,7 +36,6 @@ import (
 	"time"
 
 	"github.com/egymgmbh/go-prefix-writer/prefixer"
-	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
@@ -613,7 +612,6 @@ func (c *kcpServer) BaseConfig(t *testing.T) *rest.Config {
 	cfg, err := c.config("base")
 	require.NoError(t, err)
 	cfg = rest.CopyConfig(cfg)
-	cfg = kcpclienthelper.SetMultiClusterRoundTripper(cfg)
 	return rest.AddUserAgent(cfg, t.Name())
 }
 
@@ -622,7 +620,6 @@ func (c *kcpServer) RootShardSystemMasterBaseConfig(t *testing.T) *rest.Config {
 	cfg, err := c.config("system:admin")
 	require.NoError(t, err)
 	cfg = rest.CopyConfig(cfg)
-	cfg = kcpclienthelper.SetMultiClusterRoundTripper(cfg)
 	return rest.AddUserAgent(cfg, t.Name())
 }
 
@@ -830,8 +827,8 @@ func newPersistentKCPServer(name, kubeconfigPath, rootShardKubeconfigPath string
 
 // NewFakeWorkloadServer creates a workspace in the provided server and org
 // and creates a server fixture for the logical cluster that results.
-func NewFakeWorkloadServer(t *testing.T, server RunningServer, org logicalcluster.Name) RunningServer {
-	logicalClusterName := NewWorkspaceFixture(t, server, org, WithName("sink"))
+func NewFakeWorkloadServer(t *testing.T, server RunningServer, org logicalcluster.Name, syncTargetName string) RunningServer {
+	logicalClusterName := NewWorkspaceFixture(t, server, org, WithName(syncTargetName+"-sink"))
 	rawConfig, err := server.RawConfig()
 	require.NoError(t, err, "failed to read config for server")
 	logicalConfig, kubeconfigPath := WriteLogicalClusterConfig(t, rawConfig, "base", logicalClusterName)
@@ -889,7 +886,7 @@ func (s *unmanagedKCPServer) BaseConfig(t *testing.T) *rest.Config {
 	defaultConfig, err := config.ClientConfig()
 	require.NoError(t, err)
 
-	wrappedCfg := kcpclienthelper.SetMultiClusterRoundTripper(rest.CopyConfig(defaultConfig))
+	wrappedCfg := rest.CopyConfig(defaultConfig)
 	wrappedCfg.QPS = -1
 
 	return wrappedCfg
@@ -905,7 +902,7 @@ func (s *unmanagedKCPServer) RootShardSystemMasterBaseConfig(t *testing.T) *rest
 	defaultConfig, err := config.ClientConfig()
 	require.NoError(t, err)
 
-	wrappedCfg := kcpclienthelper.SetMultiClusterRoundTripper(rest.CopyConfig(defaultConfig))
+	wrappedCfg := rest.CopyConfig(defaultConfig)
 	wrappedCfg.QPS = -1
 
 	return wrappedCfg

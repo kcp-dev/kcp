@@ -23,7 +23,6 @@ import (
 	"testing"
 	"time"
 
-	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	kcpdiscovery "github.com/kcp-dev/client-go/discovery"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
@@ -119,8 +118,6 @@ func TestGarbageCollectorTypesFromBinding(t *testing.T) {
 	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating kcp cluster client")
 
-	clusterCfg := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), apiProviderClusterName)
-	apiProviderClient, err := kcpclient.NewForConfig(clusterCfg)
 	discoveryClusterClient, err := kcpdiscovery.NewForConfig(rest.CopyConfig(cfg))
 	require.NoError(t, err)
 

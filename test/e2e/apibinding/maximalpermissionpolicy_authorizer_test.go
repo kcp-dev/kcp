@@ -22,7 +22,6 @@ import (
 	"testing"
 	"time"
 
-	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v2"
@@ -229,8 +228,8 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 		t.Logf("Set up user-1 and user-3 as admin for the consumer workspace %q", consumer)
 		framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, consumer, []string{"user-1", "user-3"}, nil, []string{"admin"})
 		bindConsumerToProvider(consumer, serviceProvider)
-		wildwestClusterClient, err := wildwestclientset.NewForConfig(framework.UserConfig("user-1", kcpclienthelper.SetMultiClusterRoundTripper(rest.CopyConfig(cfg))))
 		cowboyClusterClient := wildwestClusterClient.WildwestV1alpha1().Cowboys("default")
+		wildwestClusterClient, err := wildwestclientset.NewForConfig(framework.UserConfig("user-1", rest.CopyConfig(cfg)))
 		require.NoError(t, err)
 		testCRUDOperations(ctx, t, consumer, wildwestClusterClient)
 		t.Logf("Make sure there is 1 cowboy in consumer workspace %q", consumer)
@@ -256,7 +255,7 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 			require.NoError(t, err)
 
 			framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, consumer, []string{"user-2"}, nil, []string{"access"})
-			user2Client, err := wildwestclientset.NewForConfig(framework.UserConfig("user-2", kcpclienthelper.SetMultiClusterRoundTripper(rest.CopyConfig(cfg))))
+			user2Client, err := wildwestclientset.NewForConfig(framework.UserConfig("user-2", rest.CopyConfig(cfg)))
 			require.NoError(t, err)
 
 			t.Logf("Make sure user 2 can list cowboys in consumer workspace %q", consumer)

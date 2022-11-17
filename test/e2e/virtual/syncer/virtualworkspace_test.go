@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	kcpdiscovery "github.com/kcp-dev/client-go/discovery"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v2"
@@ -624,7 +623,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				wildwestSecondRawConfig.Clusters["base"].Server = rawConfig.Clusters["base"].Server + "/services/syncer/" + wildwestClusterName.String() + "/" + wildwestSecondSyncTargetName + "/" + wildwestSecondSyncer.SyncerConfig.SyncTargetUID
 				wildwestSecondSyncerVWConfig, err := clientcmd.NewNonInteractiveClientConfig(*wildwestSecondRawConfig, "base", nil, nil).ClientConfig()
 				require.NoError(t, err)
-				wildwestSecondSyncerVWConfig = kcpclienthelper.SetMultiClusterRoundTripper(rest.AddUserAgent(rest.CopyConfig(wildwestSecondSyncerVWConfig), t.Name()))
+				wildwestSecondSyncerVWConfig = rest.AddUserAgent(rest.CopyConfig(wildwestSecondSyncerVWConfig), t.Name())
 
 				_, err = kcpClusterClient.WorkloadV1alpha1().SyncTargets().Patch(logicalcluster.WithCluster(ctx, wildwestClusterName), wildwestSecondSyncTargetName, types.JSONPatchType, []byte(`[{"op":"add","path":"/metadata/labels/name","value":"`+wildwestSecondSyncTargetName+`"}]`), metav1.PatchOptions{})
 				require.NoError(t, err)
@@ -855,7 +854,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				wildwestSecondRawConfig.Clusters["base"].Server = rawConfig.Clusters["base"].Server + "/services/syncer/" + wildwestClusterName.String() + "/" + wildwestSecondSyncTargetName + "/" + wildwestSecondSyncer.SyncerConfig.SyncTargetUID
 				wildwestSecondSyncerVWConfig, err := clientcmd.NewNonInteractiveClientConfig(*wildwestSecondRawConfig, "base", nil, nil).ClientConfig()
 				require.NoError(t, err)
-				wildwestSecondSyncerVWConfig = kcpclienthelper.SetMultiClusterRoundTripper(rest.AddUserAgent(rest.CopyConfig(wildwestSecondSyncerVWConfig), t.Name()))
+				wildwestSecondSyncerVWConfig = rest.AddUserAgent(rest.CopyConfig(wildwestSecondSyncerVWConfig), t.Name())
 
 				_, err = kcpClusterClient.WorkloadV1alpha1().SyncTargets().Patch(logicalcluster.WithCluster(ctx, wildwestClusterName), wildwestSecondSyncTargetName, types.JSONPatchType, []byte(`[{"op":"add","path":"/metadata/labels/name","value":"`+wildwestSecondSyncTargetName+`"}]`), metav1.PatchOptions{})
 				require.NoError(t, err)
@@ -1451,7 +1450,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 			kubelikeVWConfig = rest.AddUserAgent(rest.CopyConfig(kubelikeVWConfig), t.Name())
 			require.NoError(t, err)
 			wildwestVWConfig, err := clientcmd.NewNonInteractiveClientConfig(*virtualWorkspaceRawConfig, "wildwest", nil, nil).ClientConfig()
-			wildwestVWConfig = kcpclienthelper.SetMultiClusterRoundTripper(rest.AddUserAgent(rest.CopyConfig(wildwestVWConfig), t.Name()))
+			wildwestVWConfig = rest.AddUserAgent(rest.CopyConfig(wildwestVWConfig), t.Name())
 			require.NoError(t, err)
 
 			t.Log("Starting test...")
@@ -1848,7 +1847,7 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 			virtualWorkspaceRawConfig.Contexts["kubelike"] = rawConfig.Contexts["base"].DeepCopy()
 			virtualWorkspaceRawConfig.Contexts["kubelike"].Cluster = "kubelike"
 			kubelikeVWConfig, err := clientcmd.NewNonInteractiveClientConfig(*virtualWorkspaceRawConfig, "kubelike", nil, nil).ClientConfig()
-			kubelikeVWConfig = kcpclienthelper.SetMultiClusterRoundTripper(rest.AddUserAgent(rest.CopyConfig(kubelikeVWConfig), t.Name()))
+			kubelikeVWConfig = rest.AddUserAgent(rest.CopyConfig(kubelikeVWConfig), t.Name())
 			require.NoError(t, err)
 
 			t.Log("Starting test...")

@@ -28,7 +28,6 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/google/go-cmp/cmp"
-	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
@@ -225,7 +224,7 @@ func TestAPIBinding(t *testing.T) {
 		require.NoError(t, err, "error retrieving %q API discovery", consumerWorkspace)
 		require.True(t, resourceExists(resources, "cowboys"), "%q discovery is missing cowboys resource", consumerWorkspace)
 
-		wildwestClusterClient, err := wildwestclientset.NewForConfig(kcpclienthelper.SetMultiClusterRoundTripper(rest.CopyConfig(cfg)))
+		wildwestClusterClient, err := wildwestclientset.NewForConfig(rest.CopyConfig(cfg))
 		require.NoError(t, err)
 
 		t.Logf("Make sure we can perform CRUD operations against consumer workspace %q for the bound API", consumerWorkspace)

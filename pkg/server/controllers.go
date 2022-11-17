@@ -24,7 +24,6 @@ import (
 	"os"
 	"time"
 
-	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	kcpmetadata "github.com/kcp-dev/client-go/metadata"
@@ -773,7 +772,7 @@ func (s *Server) installAPIBinderController(ctx context.Context, config *rest.Co
 
 func (s *Server) installCRDCleanupController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
 	config = rest.CopyConfig(config)
-	config = rest.AddUserAgent(kcpclienthelper.SetMultiClusterRoundTripper(config), crdcleanup.ControllerName)
+	config = rest.AddUserAgent(config, crdcleanup.ControllerName)
 
 	crdClusterClient, err := kcpapiextensionsclientset.NewForConfig(config)
 	if err != nil {

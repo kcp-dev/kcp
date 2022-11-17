@@ -24,7 +24,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/kcp-dev/apimachinery/pkg/client"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpdynamicinformer "github.com/kcp-dev/client-go/dynamic/dynamicinformer"
 	"github.com/kcp-dev/logicalcluster/v2"
@@ -84,12 +83,12 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	kcpVersion := version.Get().GitVersion
 
 	bootstrapConfig := rest.CopyConfig(cfg.UpstreamConfig)
-	client.SetCluster(bootstrapConfig, cfg.SyncTargetWorkspace)
 	rest.AddUserAgent(bootstrapConfig, "kcp#syncer/"+kcpVersion)
-	kcpBootstrapClient, err := kcpclientset.NewForConfig(bootstrapConfig)
+	kcpBootstrapClusterClient, err := kcpclusterclientset.NewForConfig(bootstrapConfig)
 	if err != nil {
 		return err
 	}
+	kcpBootstrapClient := kcpBootstrapClusterClient.Cluster(cfg.SyncTargetWorkspace)
 
 	kcpInformerFactory := kcpinformers.NewSharedScopedInformerFactoryWithOptions(kcpBootstrapClient, resyncPeriod, kcpinformers.WithTweakListOptions(
 		func(listOptions *metav1.ListOptions) {
