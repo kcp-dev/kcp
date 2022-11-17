@@ -81,7 +81,7 @@ func (options *Options) AddFlags(fs *pflag.FlagSet) {
 		"A set of key=value pairs that describe feature gates for alpha/experimental features. "+
 		"Options are:\n"+strings.Join(kcpfeatures.KnownFeatures(), "\n")) // hide kube-only gates
 	fs.StringVar(&options.DNSImage, "dns-image", options.DNSImage, "kcp DNS server image.")
-	fs.DurationVar(&options.DownstreamNamespaceCleanDelay, "downstream-namespace-clean-delay", options.DownstreamNamespaceCleanDelay, "Time to wait before deleting of a downstream namespace.")
+	fs.DurationVar(&options.DownstreamNamespaceCleanDelay, "downstream-namespace-clean-delay", options.DownstreamNamespaceCleanDelay, "Time to wait before deleting a downstream namespace, defaults to 30s.")
 
 	options.Logs.AddFlags(fs)
 }

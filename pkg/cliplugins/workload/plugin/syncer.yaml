@@ -182,6 +182,7 @@ spec:
         - --sync-target-uid={{.SyncTargetUID}}
         - --from-cluster={{.LogicalCluster}}
         - --api-import-poll-interval={{ .APIImportPollIntervalString }}
+        - --downstream-namespace-clean-delay={{ .DownstreamNamespaceCleanDelayString }}
 {{- range $resourceToSync := .ResourcesToSync}}
         - --resources={{$resourceToSync}}
 {{- end}}
