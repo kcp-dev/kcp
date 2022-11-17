@@ -121,8 +121,8 @@ func TestKubeQuotaCoreV1TypesFromBinding(t *testing.T) {
 			t.Cleanup(cancelFunc)
 
 			orgClusterName := framework.NewOrganizationFixture(t, source)
-			apiProviderClustername := framework.NewWorkspaceFixture(t, source, orgClusterName)
-			userClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
+			apiProviderClustername := framework.NewWorkspaceFixture(t, source, orgClusterName, framework.WithName("api-provider"))
+			userClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName, framework.WithName("user"))
 
 			kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(source.BaseConfig(t))
 			require.NoError(t, err)
@@ -262,8 +262,8 @@ func TestKubeQuotaNormalCRDs(t *testing.T) {
 	sheriffCRD1 := apifixtures.NewSheriffsCRDWithSchemaDescription(group, "one")
 	sheriffCRD2 := apifixtures.NewSheriffsCRDWithSchemaDescription(group, "two")
 
-	ws1 := framework.NewWorkspaceFixture(t, server, orgClusterName)
-	ws2 := framework.NewWorkspaceFixture(t, server, orgClusterName)
+	ws1 := framework.NewWorkspaceFixture(t, server, orgClusterName, framework.WithName("one"))
+	ws2 := framework.NewWorkspaceFixture(t, server, orgClusterName, framework.WithName("two"))
 
 	t.Logf("Install a normal sheriffs CRD into workspace 1 %q", ws1)
 	bootstrapCRD(t, ws1, crdClusterClient.ApiextensionsV1().CustomResourceDefinitions(), sheriffCRD1)

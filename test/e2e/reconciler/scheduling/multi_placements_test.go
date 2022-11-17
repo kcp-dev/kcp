@@ -19,7 +19,6 @@ package cluster
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"testing"
 	"time"
 
@@ -51,8 +50,8 @@ func TestMultiPlacement(t *testing.T) {
 	source := framework.SharedKcpServer(t)
 
 	orgClusterName := framework.NewOrganizationFixture(t, source)
-	locationClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
-	userClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
+	locationClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName, framework.WithName("location"))
+	userClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName, framework.WithName("user"))
 
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(source.BaseConfig(t))
 	require.NoError(t, err)
@@ -63,7 +62,7 @@ func TestMultiPlacement(t *testing.T) {
 	_, err = kubeClusterClient.Cluster(userClusterName).CoreV1().Services("").List(ctx, metav1.ListOptions{})
 	require.Error(t, err)
 
-	firstSyncTargetName := fmt.Sprintf("synctarget-%d", +rand.Intn(1000000))
+	firstSyncTargetName := "first-synctarget"
 	t.Logf("Creating a SyncTarget and syncer in %s", locationClusterName)
 	firstSyncerFixture := framework.NewSyncerFixture(t, source, locationClusterName,
 		framework.WithSyncTarget(locationClusterName, firstSyncTargetName),
@@ -84,7 +83,7 @@ func TestMultiPlacement(t *testing.T) {
 		}),
 	).Start(t)
 
-	secondSyncTargetName := fmt.Sprintf("synctarget-%d", +rand.Intn(1000000))
+	secondSyncTargetName := "second-synctarget"
 	t.Logf("Creating a SyncTarget and syncer in %s", locationClusterName)
 	secondSyncerFixture := framework.NewSyncerFixture(t, source, locationClusterName,
 		framework.WithExtraResources("services", "roles.rbac.authorization.k8s.io", "rolebindings.rbac.authorization.k8s.io"),

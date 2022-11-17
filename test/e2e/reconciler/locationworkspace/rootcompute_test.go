@@ -19,7 +19,6 @@ package locationworkspace
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"testing"
 	"time"
 
@@ -63,7 +62,7 @@ func TestRootComputeWorkspace(t *testing.T) {
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(source.BaseConfig(t))
 	require.NoError(t, err)
 
-	syncTargetName := fmt.Sprintf("synctarget-%d", +rand.Intn(1000000))
+	syncTargetName := "synctarget"
 	t.Logf("Creating a SyncTarget and syncer in %s", computeClusterName)
 	syncerFixture := framework.NewSyncerFixture(t, source, computeClusterName,
 		framework.WithExtraResources("roles.rbac.authorization.k8s.io", "rolebindings.rbac.authorization.k8s.io"),

@@ -19,14 +19,12 @@ package locationworkspace
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
 	kcpdiscovery "github.com/kcp-dev/client-go/discovery"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -103,7 +101,7 @@ func TestMultipleExports(t *testing.T) {
 	_, err = kcpClients.Cluster(ingressSchemaClusterName).ApisV1alpha1().APIExports().Create(ctx, ingressAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err)
 
-	syncTargetName := fmt.Sprintf("synctarget-%d", +rand.Intn(1000000))
+	syncTargetName := "synctarget"
 	t.Logf("Creating a SyncTarget and syncer in %s", computeClusterName)
 	syncTarget := framework.NewSyncerFixture(t, source, computeClusterName,
 		framework.WithAPIExports(fmt.Sprintf("%s:%s", serviceSchemaClusterName.String(), serviceAPIExport.Name)),
@@ -145,13 +143,22 @@ func TestMultipleExports(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Synctarget should be authorized to access downstream clusters")
-	require.Eventually(t, func() bool {
+	framework.Eventually(t, func() (bool, string) {
 		syncTarget, err := kcpClients.Cluster(computeClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
 		if err != nil {
-			return false
+			return false, err.Error()
 		}
-
-		return conditions.IsTrue(syncTarget, workloadv1alpha1.SyncerAuthorized)
+		done := conditions.IsTrue(syncTarget, workloadv1alpha1.SyncerAuthorized)
+		var reason string
+		if !done {
+			condition := conditions.Get(syncTarget, workloadv1alpha1.SyncerAuthorized)
+			if condition != nil {
+				reason = fmt.Sprintf("Not done waiting for SyncTarget to be authorized: %s: %s", condition.Reason, condition.Message)
+			} else {
+				reason = "Not done waiting for SyncTarget to be authorized: no condition present"
+			}
+		}
+		return done, reason
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Patch synctarget with new export")
@@ -212,13 +219,22 @@ func TestMultipleExports(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Synctarget should be authorized to access downstream clusters")
-	require.Eventually(t, func() bool {
+	framework.Eventually(t, func() (bool, string) {
 		syncTarget, err := kcpClients.Cluster(computeClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
 		if err != nil {
-			return false
+			return false, err.Error()
 		}
-
-		return conditions.IsTrue(syncTarget, workloadv1alpha1.SyncerAuthorized)
+		done := conditions.IsTrue(syncTarget, workloadv1alpha1.SyncerAuthorized)
+		var reason string
+		if !done {
+			condition := conditions.Get(syncTarget, workloadv1alpha1.SyncerAuthorized)
+			if condition != nil {
+				reason = fmt.Sprintf("Not done waiting for SyncTarget to be authorized: %s: %s", condition.Reason, condition.Message)
+			} else {
+				reason = "Not done waiting for SyncTarget to be authorized: no condition present"
+			}
+		}
+		return done, reason
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	// create virtual workspace rest configs

@@ -20,7 +20,6 @@ import (
 	"context"
 	"embed"
 	"fmt"
-	"math/rand"
 	"sort"
 	"testing"
 	"time"
@@ -92,7 +91,7 @@ func TestSyncTargetExport(t *testing.T) {
 	_, err = kcpClients.Cluster(schemaClusterName).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err)
 
-	syncTargetName := fmt.Sprintf("synctarget-%d", +rand.Intn(1000000))
+	syncTargetName := "synctarget"
 	t.Logf("Creating a SyncTarget and syncer in %s", computeClusterName)
 	syncTarget := framework.NewSyncerFixture(t, source, computeClusterName,
 		framework.WithAPIExports(fmt.Sprintf("%s:%s", schemaClusterName.String(), cowboysAPIExport.Name)),
@@ -163,13 +162,22 @@ func TestSyncTargetExport(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Synctarget should be authorized to access downstream clusters")
-	require.Eventually(t, func() bool {
+	framework.Eventually(t, func() (bool, string) {
 		syncTarget, err := kcpClients.Cluster(computeClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
 		if err != nil {
-			return false
+			return false, err.Error()
 		}
-
-		return conditions.IsTrue(syncTarget, workloadv1alpha1.SyncerAuthorized)
+		done := conditions.IsTrue(syncTarget, workloadv1alpha1.SyncerAuthorized)
+		var reason string
+		if !done {
+			condition := conditions.Get(syncTarget, workloadv1alpha1.SyncerAuthorized)
+			if condition != nil {
+				reason = fmt.Sprintf("Not done waiting for SyncTarget to be authorized: %s: %s", condition.Reason, condition.Message)
+			} else {
+				reason = "Not done waiting for SyncTarget to be authorized: no condition present"
+			}
+		}
+		return done, reason
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 }
 

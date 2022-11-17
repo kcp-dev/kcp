@@ -19,7 +19,6 @@ package cluster
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"testing"
 	"time"
 
@@ -70,7 +69,7 @@ func TestScheduling(t *testing.T) {
 	_, err = kubeClusterClient.Cluster(secondUserClusterName).CoreV1().Services("").List(ctx, metav1.ListOptions{})
 	require.Error(t, err)
 
-	syncTargetName := fmt.Sprintf("synctarget-%d", +rand.Intn(1000000))
+	syncTargetName := "synctarget"
 	t.Logf("Creating a SyncTarget and syncer in %s", negotiationClusterName)
 	syncerFixture := framework.NewSyncerFixture(t, source, negotiationClusterName,
 		framework.WithExtraResources("services", "roles.rbac.authorization.k8s.io", "rolebindings.rbac.authorization.k8s.io"),

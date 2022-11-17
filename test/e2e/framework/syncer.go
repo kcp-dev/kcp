@@ -166,12 +166,10 @@ func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 		downstreamConfig, err = config.ClientConfig()
 		require.NoError(t, err)
 	} else {
-		// The syncer will target a logical cluster that is a peer to the current workspace. A
+		// The syncer will target a logical cluster that is a child of the current workspace. A
 		// logical server provides as a lightweight approximation of a pcluster for tests that
 		// don't need to validate running workloads or interaction with kube controllers.
-		parentClusterName, ok := sf.workspaceClusterName.Parent()
-		require.True(t, ok, "%s does not have a parent", sf.workspaceClusterName)
-		downstreamServer := NewFakeWorkloadServer(t, sf.upstreamServer, parentClusterName)
+		downstreamServer := NewFakeWorkloadServer(t, sf.upstreamServer, sf.workspaceClusterName, sf.syncTargetName)
 		downstreamConfig = downstreamServer.BaseConfig(t)
 		downstreamKubeconfigPath = downstreamServer.KubeconfigPath()
 	}
@@ -431,7 +429,6 @@ func syncerConfigFromCluster(t *testing.T, downstreamConfig *rest.Config, namesp
 	require.NoError(t, err)
 	upstreamConfigBytes := secret.Data[workloadcliplugin.SyncerSecretConfigKey]
 	require.NotEmpty(t, upstreamConfigBytes, "upstream config is required")
-	fmt.Println(string(upstreamConfigBytes))
 	upstreamConfig, err := clientcmd.RESTConfigFromKubeConfig(upstreamConfigBytes)
 	require.NoError(t, err, "failed to load upstream config")
 
