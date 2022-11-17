@@ -40,7 +40,7 @@ import (
 
 func init() {
 	klog.InitFlags(flag.CommandLine)
-	if err := flag.Lookup("v").Value.Set("6"); err != nil {
+	if err := flag.Lookup("v").Value.Set("4"); err != nil {
 		panic(err)
 	}
 }
