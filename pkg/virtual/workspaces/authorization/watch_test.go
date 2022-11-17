@@ -97,7 +97,7 @@ func TestFullIncoming(t *testing.T) {
 	watcher.cacheIncoming <- watch.Event{Type: watch.Added}
 
 	// this call should not block and we should see a failure
-	watcher.GroupMembershipChanged("ws-01", sets.NewString("bob"), sets.String{})
+	watcher.GroupMembershipChanged("root|ws-01", sets.NewString("bob"), sets.String{})
 	if len(fakeAuthCache.removed) != 1 {
 		t.Errorf("should have removed self")
 	}
@@ -141,7 +141,7 @@ func TestAddModifyDeleteEventsByUser(t *testing.T) {
 	watcher, _ := newTestWatcher("bob", nil, matchAllPredicate(), newClusterWorkspaces("root:ws-01")...)
 	go watcher.Watch()
 
-	watcher.GroupMembershipChanged("ws-01", sets.NewString("bob"), sets.String{})
+	watcher.GroupMembershipChanged("root|ws-01", sets.NewString("bob"), sets.String{})
 	select {
 	case event := <-watcher.ResultChan():
 		if event.Type != watch.Added {
@@ -158,14 +158,14 @@ func TestAddModifyDeleteEventsByUser(t *testing.T) {
 	}
 
 	// the object didn't change, we shouldn't observe it
-	watcher.GroupMembershipChanged("ws-01", sets.NewString("bob"), sets.String{})
+	watcher.GroupMembershipChanged("root|ws-01", sets.NewString("bob"), sets.String{})
 	select {
 	case event := <-watcher.ResultChan():
 		t.Fatalf("unexpected event %v", event)
 	case <-time.After(100 * time.Millisecond):
 	}
 
-	watcher.GroupMembershipChanged("ws-01", sets.NewString("alice"), sets.String{})
+	watcher.GroupMembershipChanged("root|ws-01", sets.NewString("alice"), sets.String{})
 	select {
 	case event := <-watcher.ResultChan():
 		if event.Type != watch.Deleted {
@@ -195,14 +195,14 @@ func TestWorkspaceSelectionPredicate(t *testing.T) {
 	go watcher.Watch()
 
 	// a workspace we did not select changed, we shouldn't observe it
-	watcher.GroupMembershipChanged("ws-01", sets.NewString("bob"), sets.String{})
+	watcher.GroupMembershipChanged("root|ws-01", sets.NewString("bob"), sets.String{})
 	select {
 	case event := <-watcher.ResultChan():
 		t.Fatalf("unexpected event %v", event)
 	case <-time.After(100 * time.Millisecond):
 	}
 
-	watcher.GroupMembershipChanged("ws-03", sets.NewString("bob"), sets.String{})
+	watcher.GroupMembershipChanged("root|ws-03", sets.NewString("bob"), sets.String{})
 	select {
 	case event := <-watcher.ResultChan():
 		if event.Type != watch.Added {
@@ -219,7 +219,7 @@ func TestWorkspaceSelectionPredicate(t *testing.T) {
 	}
 
 	// the object didn't change, we shouldn't observe it
-	watcher.GroupMembershipChanged("ws-03", sets.NewString("bob"), sets.String{})
+	watcher.GroupMembershipChanged("root|ws-03", sets.NewString("bob"), sets.String{})
 	select {
 	case event := <-watcher.ResultChan():
 		t.Fatalf("unexpected event %v", event)
@@ -227,7 +227,7 @@ func TestWorkspaceSelectionPredicate(t *testing.T) {
 	}
 
 	// deletion occurred in a separate workspace, we should not observe it
-	watcher.GroupMembershipChanged("ws-01", sets.NewString("alice"), sets.String{})
+	watcher.GroupMembershipChanged("root|ws-01", sets.NewString("alice"), sets.String{})
 	select {
 	case event := <-watcher.ResultChan():
 		t.Fatalf("unexpected event %v", event)
@@ -235,7 +235,7 @@ func TestWorkspaceSelectionPredicate(t *testing.T) {
 	}
 
 	// deletion occurred in selected workspace, we should observe it
-	watcher.GroupMembershipChanged("ws-03", sets.NewString("alice"), sets.String{})
+	watcher.GroupMembershipChanged("root|ws-03", sets.NewString("alice"), sets.String{})
 	select {
 	case event := <-watcher.ResultChan():
 		if event.Type != watch.Deleted {
@@ -256,7 +256,7 @@ func TestAddModifyDeleteEventsByGroup(t *testing.T) {
 	watcher, _ := newTestWatcher("bob", []string{"group-one"}, matchAllPredicate(), newClusterWorkspaces("root:ws-01")...)
 	go watcher.Watch()
 
-	watcher.GroupMembershipChanged("ws-01", sets.String{}, sets.NewString("group-one"))
+	watcher.GroupMembershipChanged("root|ws-01", sets.String{}, sets.NewString("group-one"))
 	select {
 	case event := <-watcher.ResultChan():
 		if event.Type != watch.Added {
@@ -273,14 +273,14 @@ func TestAddModifyDeleteEventsByGroup(t *testing.T) {
 	}
 
 	// the object didn't change, we shouldn't observe it
-	watcher.GroupMembershipChanged("ws-01", sets.String{}, sets.NewString("group-one"))
+	watcher.GroupMembershipChanged("root|ws-01", sets.String{}, sets.NewString("group-one"))
 	select {
 	case event := <-watcher.ResultChan():
 		t.Fatalf("unexpected event %v", event)
 	case <-time.After(100 * time.Millisecond):
 	}
 
-	watcher.GroupMembershipChanged("ws-01", sets.String{}, sets.NewString("group-two"))
+	watcher.GroupMembershipChanged("root|ws-01", sets.String{}, sets.NewString("group-two"))
 	select {
 	case event := <-watcher.ResultChan():
 		if event.Type != watch.Deleted {

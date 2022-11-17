@@ -40,7 +40,6 @@ import (
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/client"
 	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/authorization/metrics"
 	workspaceutil "github.com/kcp-dev/kcp/pkg/virtual/workspaces/util"
@@ -54,12 +53,14 @@ type Lister interface {
 
 // subjectRecord is a cache record for the set of workspaces a subject can access
 type subjectRecord struct {
-	subject    string
+	subject string
+	// workspaces is a set of kcpcache.MetaClusterNamespaceKeyFunc-encoded keys
 	workspaces sets.String
 }
 
 // reviewRequest is the resource we want to review
 type reviewRequest struct {
+	// workspace is the kcpcache.MetaClusterNamespaceKeyFunc-encoded key for the workspace object
 	workspace string
 	// the resource version of the workspace that was observed to make this request
 	workspaceResourceVersion string
@@ -111,7 +112,7 @@ func (u unionLastSyncResourceVersioner) LastSyncResourceVersion() string {
 	for _, versioner := range u {
 		resourceVersions = append(resourceVersions, versioner.LastSyncResourceVersion())
 	}
-	return strings.Join(resourceVersions, "")
+	return strings.Join(resourceVersions, ",")
 }
 
 type statelessSkipSynchronizer struct{}
@@ -296,7 +297,8 @@ func (ac *AuthorizationCache) synchronizeWorkspaces(userSubjectRecordStore cache
 		workspace := workspaces[i]
 		workspaceKey, err := kcpcache.MetaClusterNamespaceKeyFunc(workspace)
 		if err != nil {
-			klog.Warning(err)
+			// should never happen
+			panic(err)
 		}
 		workspaceSet.Insert(workspaceKey)
 		reviewRequest := &reviewRequest{
@@ -433,9 +435,13 @@ func (ac *AuthorizationCache) syncRequest(request *reviewRequest, userSubjectRec
 	// Create a copy of reviewTemplate
 	reviewAttributes := ac.reviewTemplate
 
-	// And set the resource name on it
-	_, workspaceName := client.SplitClusterAwareKey(workspace)
-	reviewAttributes.Name = workspaceName
+	// And set the resource name on it - this needs to literally be the workspace's name,
+	// as a role will have only the name in the resourceName field, as the role is cluster-scoped
+	_, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(workspace)
+	if err != nil {
+		return err
+	}
+	reviewAttributes.Name = name
 
 	review := ac.reviewer.Review(reviewAttributes)
 
@@ -476,7 +482,10 @@ func (ac *AuthorizationCache) ListAllWorkspaces(selector labels.Selector) (*tena
 
 	workspaceList := &tenancyv1alpha1.ClusterWorkspaceList{}
 	for _, key := range keys.List() {
-		clusterName, name := client.SplitClusterAwareKey(key)
+		clusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+		if err != nil {
+			return nil, err
+		}
 		workspace, err := ac.workspaceLister.Cluster(clusterName).Get(name)
 		if apierrors.IsNotFound(err) {
 			continue
@@ -518,7 +527,10 @@ func (ac *AuthorizationCache) List(userInfo user.Info, labelSelector labels.Sele
 
 	workspaceList := &tenancyv1alpha1.ClusterWorkspaceList{}
 	for _, key := range keys.List() {
-		clusterName, name := client.SplitClusterAwareKey(key)
+		clusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+		if err != nil {
+			return nil, err
+		}
 		workspace, err := ac.workspaceLister.Cluster(clusterName).Get(name)
 		if apierrors.IsNotFound(err) {
 			continue
@@ -617,11 +629,10 @@ func addSubjectsToWorkspace(subjectRecordStore cache.Store, subjects []string, w
 }
 
 func (ac *AuthorizationCache) notifyWatchers(workspaceKey string, exists *reviewRecord, users, groups sets.String) {
-	_, workspaceName := client.SplitClusterAwareKey(workspaceKey)
 	ac.watcherLock.Lock()
 	defer ac.watcherLock.Unlock()
 	for _, watcher := range ac.watchers {
-		watcher.GroupMembershipChanged(workspaceName, users, groups)
+		watcher.GroupMembershipChanged(workspaceKey, users, groups)
 	}
 }
 
