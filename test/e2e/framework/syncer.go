@@ -402,6 +402,9 @@ func (sf *StartedSyncerFixture) WorkspaceBound(t *testing.T, ctx context.Context
 			if err != nil {
 				if apierrors.IsNotFound(err) {
 					_, err = sf.DownstreamKubeClient.CoreV1().Services(sf.SyncerID).Create(ctx, service(dnsID, sf.SyncerID), metav1.CreateOptions{})
+					if apierrors.IsAlreadyExists(err) {
+						return nil
+					}
 				}
 				return err
 			}
