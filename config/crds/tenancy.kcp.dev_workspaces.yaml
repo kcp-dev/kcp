@@ -133,6 +133,14 @@ spec:
                   after creation. The use of a type is gated via the RBAC clusterworkspacetypes/use
                   resource permission."
                 properties:
+                  cluster:
+                    description: cluster is the logical cluster of the ClusterWorkspaceType.
+                      This is defaulted by resolving the workspace path.
+                    pattern: ^[a-z0-9]([-:a-z0-9]*[a-z0-9])?$
+                    type: string
+                    x-kubernetes-validations:
+                    - message: name is immutable
+                      rule: self == oldSelf
                   name:
                     description: name is the name of the ClusterWorkspaceType
                     pattern: ^[a-z]([a-z0-9-]{0,61}[a-z0-9])?
@@ -145,6 +153,15 @@ spec:
                 required:
                 - name
                 type: object
+                x-kubernetes-validations:
+                - message: name is immutable
+                  rule: self.name == oldSelf.name
+                - message: path is immutable
+                  rule: has(oldSelf.path) == has(self.path)
+                - message: path is immutable
+                  rule: '!has(oldSelf.path) || !has(self.path) || self.path == oldSelf.path'
+                - message: cluster is immutable
+                  rule: has(oldSelf.cluster) == has(self.cluster)
             type: object
           status:
             default: {}

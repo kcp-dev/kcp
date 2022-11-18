@@ -285,7 +285,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 			}
 
 			newServerHost = ws.Status.URL
-			workspaceType = &ws.Spec.Type
+			workspaceType = &ws.Spec.Type.ClusterWorkspaceTypeReference
 		}
 	}
 
@@ -524,7 +524,7 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 			Name: o.Name,
 		},
 		Spec: tenancyv1beta1.WorkspaceSpec{
-			Type: structuredWorkspaceType,
+			Type: tenancyv1alpha1.ResolvedWorkspaceTypeReference{ClusterWorkspaceTypeReference: structuredWorkspaceType},
 		},
 	}, metav1.CreateOptions{})
 	if apierrors.IsNotFound(err) {
