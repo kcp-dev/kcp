@@ -66,13 +66,6 @@ type workspace struct {
 var _ admission.MutationInterface = &workspace{}
 var _ admission.ValidationInterface = &workspace{}
 
-var phaseOrdinal = map[tenancyv1alpha1.WorkspacePhaseType]int{
-	tenancyv1alpha1.WorkspacePhaseType(""):     1,
-	tenancyv1alpha1.WorkspacePhaseScheduling:   2,
-	tenancyv1alpha1.WorkspacePhaseInitializing: 3,
-	tenancyv1alpha1.WorkspacePhaseReady:        4,
-}
-
 // Admit ensures that
 // - the user is recorded in annotations on create
 func (o *workspace) Admit(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) error {
@@ -124,7 +117,8 @@ func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admi
 		return fmt.Errorf("failed to convert unstructured to ClusterWorkspace: %w", err)
 	}
 
-	if a.GetOperation() == admission.Update {
+	switch a.GetOperation() {
+	case admission.Update:
 		u, ok = a.GetOldObject().(*unstructured.Unstructured)
 		if !ok {
 			return fmt.Errorf("unexpected type %T", a.GetOldObject())
@@ -145,12 +139,15 @@ func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admi
 			return admission.NewForbidden(a, errors.New("status.cluster cannot be unset"))
 		}
 
-		if phaseOrdinal[old.Status.Phase] > phaseOrdinal[cw.Status.Phase] {
-			return admission.NewForbidden(a, fmt.Errorf("cannot transition from %q to %q", old.Status.Phase, cw.Status.Phase))
+		if cw.Status.Phase != tenancyv1alpha1.WorkspacePhaseScheduling {
+			if cw.Status.Cluster == "" {
+				return admission.NewForbidden(a, fmt.Errorf("status.cluster must be set for phase %s", cw.Status.Phase))
+			}
+			if cw.Status.URL == "" {
+				return admission.NewForbidden(a, fmt.Errorf("status.URL must be set for phase %s", cw.Status.Phase))
+			}
 		}
-	}
-
-	if a.GetOperation() == admission.Create {
+	case admission.Create:
 		if isSystemMaster := sets.NewString(a.GetUserInfo().GetGroups()...).Has(kuser.SystemPrivilegedGroup); !isSystemMaster {
 			userInfo, err := WorkspaceOwnerAnnotationValue(a.GetUserInfo())
 			if err != nil {
@@ -162,19 +159,6 @@ func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admi
 			if got := cw.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey]; got != userInfo {
 				return admission.NewForbidden(a, fmt.Errorf("expected user annotation %s=%s", tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey, userInfo))
 			}
-		}
-	}
-
-	if phaseOrdinal[cw.Status.Phase] > phaseOrdinal[tenancyv1alpha1.WorkspacePhaseInitializing] && len(cw.Status.Initializers) > 0 {
-		return admission.NewForbidden(a, fmt.Errorf("spec.initializers must be empty for phase %s", cw.Status.Phase))
-	}
-
-	if phaseOrdinal[cw.Status.Phase] > phaseOrdinal[tenancyv1alpha1.WorkspacePhaseScheduling] {
-		if cw.Status.Cluster == "" {
-			return admission.NewForbidden(a, fmt.Errorf("status.cluster must be set for phase %s", cw.Status.Phase))
-		}
-		if cw.Status.URL == "" {
-			return admission.NewForbidden(a, fmt.Errorf("status.URL must be set for phase %s", cw.Status.Phase))
 		}
 	}
 
