@@ -38,7 +38,6 @@ import (
 	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/index"
 	indexrewriters "github.com/kcp-dev/kcp/pkg/index/rewriters"
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 )
 
 const (
@@ -48,7 +47,7 @@ const (
 )
 
 type Index interface {
-	LookupURL(path logicalcluster.Name) (string, bool)
+	LookupURL(path logicalcluster.Name) (url string, canonicalPath logicalcluster.Name, found bool)
 }
 
 type ClusterWorkspaceClientGetter func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpclientset.ClusterInterface, error)
@@ -274,6 +273,6 @@ func (c *Controller) stopShard(shard *tenancyv1alpha1.ClusterWorkspaceShard) {
 	delete(c.shardThisWorkspaceInformers, shard.Name)
 }
 
-func (c *Controller) LookupURL(path logicalcluster.Name) (string, bool) {
+func (c *Controller) LookupURL(path logicalcluster.Name) (url string, canonicalPath logicalcluster.Name, found bool) {
 	return c.state.LookupURL(path)
 }

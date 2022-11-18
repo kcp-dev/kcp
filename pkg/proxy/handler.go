@@ -58,7 +58,7 @@ func shardHandler(index index.Index, proxy http.Handler) http.HandlerFunc {
 			return
 		}
 
-		shardURLString, found := index.LookupURL(clusterName)
+		shardURLString, canonicalPath, found := index.LookupURL(clusterName)
 		if !found {
 			logger.WithValues("clusterName", clusterName).V(4).Info("Unknown cluster")
 			responsewriters.Forbidden(req.Context(), attributes, w, req, kcpauthorization.WorkspaceAccessNotPermittedReason, kubernetesscheme.Codecs)
@@ -72,7 +72,7 @@ func shardHandler(index index.Index, proxy http.Handler) http.HandlerFunc {
 
 		logger.WithValues("from", req.URL.Path, "to", shardURL).V(4).Info("Redirecting")
 
-		ctx = WithShardURL(ctx, shardURL)
+		ctx = tenancy.WithCanonicalPath(WithShardURL(ctx, shardURL), canonicalPath)
 		req = req.WithContext(ctx)
 		proxy.ServeHTTP(w, req)
 	}
