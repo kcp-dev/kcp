@@ -29,6 +29,7 @@ import (
 	utilserrors "k8s.io/apimachinery/pkg/util/errors"
 	restclient "k8s.io/client-go/rest"
 
+	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspacetypeexists"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
@@ -97,8 +98,14 @@ func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1beta1.Workspace
 			getShard: func(name string) (*tenancyv1alpha1.ClusterWorkspaceShard, error) {
 				return c.clusterWorkspaceShardLister.Cluster(tenancyv1alpha1.RootCluster).Get(name)
 			},
-			getShardByHash:                   getShardByName,
-			listShards:                       c.clusterWorkspaceShardLister.List,
+			getShardByHash: getShardByName,
+			listShards:     c.clusterWorkspaceShardLister.List,
+			getClusterWorkspaceType: func(clusterName logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
+				return c.clusterWorkspaceTypeLister.Cluster(clusterName).Get(name)
+			},
+			transitiveTypeResolver: clusterworkspacetypeexists.NewTransitiveTypeResolver(func(clusterName logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
+				return c.clusterWorkspaceTypeLister.Cluster(clusterName).Get(name)
+			}),
 			kcpLogicalClusterAdminClientFor:  kcpDirectClientFor,
 			kubeLogicalClusterAdminClientFor: kubeDirectClientFor,
 		},

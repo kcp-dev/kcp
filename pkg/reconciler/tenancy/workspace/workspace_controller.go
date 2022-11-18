@@ -56,6 +56,7 @@ func NewController(
 	logicalClusterAdminConfig *rest.Config,
 	workspaceInformer tenancyv1beta1informers.WorkspaceClusterInformer,
 	clusterWorkspaceShardInformer tenancyv1alpha1informers.ClusterWorkspaceShardClusterInformer,
+	clusterWorkspaceTypeInformer tenancyv1alpha1informers.ClusterWorkspaceTypeClusterInformer,
 ) (*Controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
@@ -74,6 +75,9 @@ func NewController(
 
 		clusterWorkspaceShardIndexer: clusterWorkspaceShardInformer.Informer().GetIndexer(),
 		clusterWorkspaceShardLister:  clusterWorkspaceShardInformer.Lister(),
+		
+		clusterWorkspaceTypeIndexer: clusterWorkspaceTypeInformer.Informer().GetIndexer(),
+		clusterWorkspaceTypeLister:  clusterWorkspaceTypeInformer.Lister(),
 
 		commit: committer.NewCommitter[*tenancyv1beta1.Workspace, v1beta1.WorkspaceInterface, *tenancyv1beta1.WorkspaceSpec, *tenancyv1beta1.WorkspaceStatus](kcpClusterClient.TenancyV1beta1().Workspaces()),
 	}
@@ -118,6 +122,9 @@ type Controller struct {
 
 	clusterWorkspaceShardIndexer cache.Indexer
 	clusterWorkspaceShardLister  tenancyv1alpha1listers.ClusterWorkspaceShardClusterLister
+
+	clusterWorkspaceTypeIndexer cache.Indexer
+	clusterWorkspaceTypeLister  tenancyv1alpha1listers.ClusterWorkspaceTypeClusterLister
 
 	// commit creates a patch and submits it, if needed.
 	commit func(ctx context.Context, new, old *workspaceResource) error
