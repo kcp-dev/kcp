@@ -65,7 +65,7 @@ type WorkspaceSpec struct {
 	// the RBAC clusterworkspacetypes/use resource permission.
 	//
 	// +optional
-	Type v1alpha1.ClusterWorkspaceTypeReference `json:"type,omitempty"`
+	Type v1alpha1.ResolvedWorkspaceTypeReference `json:"type,omitempty"`
 
 	// location constraints where this workspace can be scheduled to.
 	//
