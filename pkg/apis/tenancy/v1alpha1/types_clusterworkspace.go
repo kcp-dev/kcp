@@ -23,6 +23,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 )
@@ -85,7 +86,7 @@ type ClusterWorkspaceSpec struct {
 	// the RBAC clusterworkspacetypes/use resource permission.
 	//
 	// +optional
-	Type ClusterWorkspaceTypeReference `json:"type,omitempty"`
+	Type ResolvedWorkspaceTypeReference `json:"type,omitempty"`
 
 	// shard constraints onto which shards this cluster workspace can be scheduled to.
 	// if the constraint is not fulfilled by the current location stored in the status,
@@ -125,7 +126,25 @@ type ClusterWorkspaceTypeReference struct {
 	//
 	// +optional
 	// +kubebuilder:validation:Pattern:="^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
-	Path string `json:"path"`
+	Path string `json:"path,omitempty"`
+}
+
+// ResolvedWorkspaceTypeReference is a globally unique, fully qualified reference to a
+// cluster workspace type that is resolved to an actual logical cluster. It is immutable.
+//
+// +kubebuilder:validation:XValidation:rule="self.name == oldSelf.name",message="name is immutable"
+// +kubebuilder:validation:XValidation:rule="has(oldSelf.path) == has(self.path)",message="path is immutable"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.path) || !has(self.path) || self.path == oldSelf.path",message="path is immutable"
+// +kubebuilder:validation:XValidation:rule="has(oldSelf.cluster) == has(self.cluster)",message="cluster is immutable"
+type ResolvedWorkspaceTypeReference struct {
+	ClusterWorkspaceTypeReference `json:",inline"`
+
+	// cluster is the logical cluster of the ClusterWorkspaceType. This is defaulted
+	// by resolving the workspace path.
+	//
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="name is immutable"
+	Cluster tenancy.Cluster `json:"cluster,omitempty"`
 }
 
 // ClusterWorkspaceTypeName is a name of a ClusterWorkspaceType
@@ -135,10 +154,6 @@ type ClusterWorkspaceTypeName string
 
 func (r ClusterWorkspaceTypeReference) String() string {
 	return fmt.Sprintf("%s:%s", r.Path, r.Name)
-}
-
-func (r ClusterWorkspaceTypeReference) Equal(other ClusterWorkspaceTypeReference) bool {
-	return r.Name == other.Name && r.Path == other.Path
 }
 
 // ClusterWorkspaceStatus communicates the observed state of the ClusterWorkspace.

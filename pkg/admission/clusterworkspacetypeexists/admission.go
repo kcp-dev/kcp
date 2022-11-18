@@ -117,7 +117,7 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 
 	if a.GetOperation() == admission.Create {
 		// if the user has not provided any type, use the default from the parent workspace
-		empty := tenancyv1alpha1.ClusterWorkspaceTypeReference{}
+		empty := tenancyv1alpha1.ResolvedWorkspaceTypeReference{}
 		if cw.Spec.Type == empty {
 			parentTypeRef, err := o.resolveParentType(clusterName)
 			if err != nil {
@@ -130,9 +130,11 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 			if parentCwt == nil || parentCwt.Spec.DefaultChildWorkspaceType == nil {
 				return admission.NewForbidden(a, errors.New("spec.type must be set"))
 			}
-			cw.Spec.Type = *parentCwt.Spec.DefaultChildWorkspaceType
+			cw.Spec.Type = tenancyv1alpha1.ResolvedWorkspaceTypeReference{
+				ClusterWorkspaceTypeReference: *parentCwt.Spec.DefaultChildWorkspaceType,
+			}
 		}
-		cwt, err := o.resolveTypeRef(clusterName, cw.Spec.Type)
+		cwt, err := o.resolveTypeRef(clusterName, cw.Spec.Type.ClusterWorkspaceTypeReference)
 		if err != nil {
 			return admission.NewForbidden(a, err)
 		}
@@ -168,7 +170,7 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 	}
 
 	// add initializers from type and aliases to workspace
-	cwt, err := o.resolveTypeRef(clusterName, cw.Spec.Type)
+	cwt, err := o.resolveTypeRef(clusterName, cw.Spec.Type.ClusterWorkspaceTypeReference)
 	if err != nil {
 		return admission.NewForbidden(a, err)
 	}
@@ -234,7 +236,7 @@ func (o *clusterWorkspaceTypeExists) resolveParentType(parentClusterName logical
 		return tenancyv1alpha1.ClusterWorkspaceTypeReference{}, fmt.Errorf("could not resolve parent cluster workspace %q: %w", parentClusterName.String(), err)
 	}
 
-	return parentCluster.Spec.Type, nil
+	return parentCluster.Spec.Type.ClusterWorkspaceTypeReference, nil
 }
 
 // Validate ensures that
@@ -300,7 +302,7 @@ func (o *clusterWorkspaceTypeExists) Validate(ctx context.Context, a admission.A
 	//              show it failing.
 	var cwtAliases []*tenancyv1alpha1.ClusterWorkspaceType
 	if (a.GetOperation() == admission.Update && transitioningToInitializing) || a.GetOperation() == admission.Create {
-		cwt, err := o.resolveTypeRef(clusterName, cw.Spec.Type)
+		cwt, err := o.resolveTypeRef(clusterName, cw.Spec.Type.ClusterWorkspaceTypeReference)
 		if err != nil {
 			return admission.NewForbidden(a, err)
 		}

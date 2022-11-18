@@ -199,9 +199,11 @@ func TestCreate(t *testing.T) {
 						Name: name,
 					},
 					Spec: tenancyv1beta1.WorkspaceSpec{
-						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							Name: "universal",
-							Path: "root",
+						Type: tenancyv1alpha1.ResolvedWorkspaceTypeReference{
+							ClusterWorkspaceTypeReference: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+								Name: "universal",
+								Path: "root",
+							},
 						},
 					},
 					Status: tenancyv1beta1.WorkspaceStatus{
@@ -228,7 +230,7 @@ func TestCreate(t *testing.T) {
 					u := parseURLOrDie(u.String())
 					u.Path = currentClusterName.Join(obj.Name).Path()
 					obj.Status.URL = u.String()
-					obj.Spec.Type = workspaceType
+					obj.Spec.Type.ClusterWorkspaceTypeReference = workspaceType
 					if err := client.Tracker().Cluster(currentClusterName).Create(tenancyv1beta1.SchemeGroupVersion.WithResource("workspaces"), obj, ""); err != nil {
 						return false, nil, err
 					}
@@ -1195,9 +1197,11 @@ func TestUse(t *testing.T) {
 							Annotations: map[string]string{logicalcluster.AnnotationKey: lcluster.String()},
 						},
 						Spec: tenancyv1beta1.WorkspaceSpec{
-							Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-								Name: "universal",
-								Path: "root",
+							Type: tenancyv1alpha1.ResolvedWorkspaceTypeReference{
+								ClusterWorkspaceTypeReference: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+									Name: "universal",
+									Path: "root",
+								},
 							},
 						},
 					}
@@ -1220,9 +1224,11 @@ func TestUse(t *testing.T) {
 							Name: "user-name",
 						},
 						Spec: tenancyv1beta1.WorkspaceSpec{
-							Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-								Name: "home",
-								Path: "root",
+							Type: tenancyv1alpha1.ResolvedWorkspaceTypeReference{
+								ClusterWorkspaceTypeReference: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+									Name: "home",
+									Path: "root",
+								},
 							},
 						},
 						Status: tenancyv1beta1.WorkspaceStatus{

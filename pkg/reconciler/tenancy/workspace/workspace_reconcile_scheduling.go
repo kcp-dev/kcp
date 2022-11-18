@@ -75,15 +75,8 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 		clusterName := logicalcluster.New(clusterNameString)
 		hasFinalizer := sets.NewString(workspace.Finalizers...).Has(tenancyv1alpha1.ThisWorkspaceFinalizer)
 
-		if workspace.Annotations == nil {
-			workspace.Annotations = map[string]string{}
-		}
-		if !hasCluster {
-			clusterName = logicalcluster.From(workspace).Join(workspace.Name) // TODO: replace with randomClusterName()
-			workspace.Annotations[workspaceClusterAnnotationKey] = clusterName.String()
-		}
 		if !hasShard {
-			shardName, err := r.chooseShardAndMarkCondition(logger, workspace)
+			shardName, err := r.chooseShardAndMarkCondition(logger, workspace) // call first with status side-effect, before any annotation aka spec change
 			if err != nil {
 				return reconcileStatusStopAndRequeue, err
 			}
@@ -91,7 +84,17 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 				return reconcileStatusContinue, nil // retry is automatic when new shards show up
 			}
 			shardNameHash = ByBase36Sha224NameValue(shardName)
+			if workspace.Annotations == nil {
+				workspace.Annotations = map[string]string{}
+			}
 			workspace.Annotations[workspaceShardAnnotationKey] = shardNameHash
+		}
+		if !hasCluster {
+			clusterName = logicalcluster.From(workspace).Join(workspace.Name) // TODO: replace with randomClusterName()
+			if workspace.Annotations == nil {
+				workspace.Annotations = map[string]string{}
+			}
+			workspace.Annotations[workspaceClusterAnnotationKey] = clusterName.String()
 		}
 		if !hasFinalizer {
 			workspace.Finalizers = append(workspace.Finalizers, tenancyv1alpha1.ThisWorkspaceFinalizer)
@@ -99,7 +102,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 		if !hasShard || !hasCluster || !hasFinalizer {
 			// this is the first part of our two-phase commit
 			// the first phase is to pick up a shard
-			return reconcileStatusContinue, nil
+			return reconcileStatusStopAndRequeue, nil
 		}
 
 		shard, err := r.getShardByHash(shardNameHash)
@@ -225,6 +228,7 @@ func (r *schedulingReconciler) createThisWorkspace(ctx context.Context, shard *t
 			Finalizers: []string{deletion.WorkspaceFinalizer},
 			Annotations: map[string]string{
 				tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey: workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey],
+				tenancyv1alpha1.ThisWorkspaceTypeAnnotationKey:          workspace.Spec.Type.Cluster.LogicalCluster().Join(string(workspace.Spec.Type.Name)).String(),
 			},
 		},
 		Spec: tenancyv1alpha1.ThisWorkspaceSpec{

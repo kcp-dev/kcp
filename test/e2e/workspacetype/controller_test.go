@@ -93,10 +93,12 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 				t.Logf("Create a workspace with explicit non-existing type")
 				workspace, err := server.kcpClusterClient.Cluster(universal).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{
 					ObjectMeta: metav1.ObjectMeta{Name: "myapp"},
-					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-						Name: "foo",
-						Path: "root",
-					}},
+					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+						Type: tenancyv1alpha1.ResolvedWorkspaceTypeReference{ClusterWorkspaceTypeReference: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							Name: "foo",
+							Path: "root",
+						}},
+					},
 				}, metav1.CreateOptions{})
 				require.Error(t, err, "failed to create workspace")
 
@@ -119,7 +121,7 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 					// note: admission is informer based and hence would race with this create call
 					workspace, err = server.kcpClusterClient.Cluster(universal).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{
 						ObjectMeta: metav1.ObjectMeta{Name: "myapp"},
-						Spec:       tenancyv1alpha1.ClusterWorkspaceSpec{Type: tenancyv1alpha1.ReferenceFor(cwt)},
+						Spec:       tenancyv1alpha1.ClusterWorkspaceSpec{Type: referenceFor(cwt)},
 					}, metav1.CreateOptions{})
 					if err != nil {
 						t.Logf("error creating workspace: %v", err)
@@ -222,7 +224,7 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 					// note: admission is informer based and hence would race with this create call
 					workspace, err = user1KcpClient.Cluster(universal).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{
 						ObjectMeta: metav1.ObjectMeta{Name: "myapp"},
-						Spec:       tenancyv1alpha1.ClusterWorkspaceSpec{Type: tenancyv1alpha1.ReferenceFor(cwt)},
+						Spec:       tenancyv1alpha1.ClusterWorkspaceSpec{Type: referenceFor(cwt)},
 					}, metav1.CreateOptions{})
 					if err != nil {
 						t.Logf("error creating workspace: %v", err)
@@ -274,10 +276,12 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 					// note: admission is informer based and hence would race with this create call
 					workspace, err = server.kcpClusterClient.Cluster(universal).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{
 						ObjectMeta: metav1.ObjectMeta{Name: "myapp"},
-						Spec: tenancyv1alpha1.ClusterWorkspaceSpec{Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-							Name: "foo",
-							Path: logicalcluster.From(cwt).String(),
-						}},
+						Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
+							Type: tenancyv1alpha1.ResolvedWorkspaceTypeReference{ClusterWorkspaceTypeReference: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+								Name: "foo",
+								Path: logicalcluster.From(cwt).String(),
+							}},
+						},
 					}, metav1.CreateOptions{})
 					if err != nil {
 						t.Logf("error creating workspace: %v", err)
@@ -393,4 +397,11 @@ func createClusterRoleAndBindings(name, subjectName, subjectKind, apiGroup, reso
 		},
 	}
 	return clusterRole, clusterRoleBinding
+}
+
+func referenceFor(cwt *tenancyv1alpha1.ClusterWorkspaceType) tenancyv1alpha1.ResolvedWorkspaceTypeReference {
+	return tenancyv1alpha1.ResolvedWorkspaceTypeReference{ClusterWorkspaceTypeReference: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+		Name: tenancyv1alpha1.TypeName(cwt.Name),
+		Path: logicalcluster.From(cwt).String(),
+	}}
 }

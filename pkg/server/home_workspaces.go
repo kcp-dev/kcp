@@ -219,7 +219,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 			return
 		}
 
-		// nothing to check permission-wise. If there is a very improbable hash conflict, the will get a 403
+		// nothing to check permission-wise. If there is a very improbable hash conflict, the user will get a 403
 		// through normal authorization. We don't give access to legacy home workspaces to new users here.
 
 		homeWorkspace := &tenancyv1beta1.Workspace{
@@ -228,7 +228,13 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 				CreationTimestamp: this.CreationTimestamp,
 			},
 			Spec: tenancyv1beta1.WorkspaceSpec{
-				Type: this.Spec.Type,
+				Type: tenancyv1alpha1.ResolvedWorkspaceTypeReference{
+					ClusterWorkspaceTypeReference: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Name: "home",
+						Path: "root",
+					},
+					Cluster: "root",
+				},
 			},
 			Status: tenancyv1beta1.WorkspaceStatus{
 				URL:          this.Status.URL,
@@ -354,7 +360,13 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 			CreationTimestamp: this.CreationTimestamp,
 		},
 		Spec: tenancyv1beta1.WorkspaceSpec{
-			Type: this.Spec.Type,
+			Type: tenancyv1alpha1.ResolvedWorkspaceTypeReference{
+				ClusterWorkspaceTypeReference: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+					Name: "home",
+					Path: "root",
+				},
+				Cluster: "root",
+			},
 		},
 		Status: tenancyv1beta1.WorkspaceStatus{
 			URL:          this.Status.URL,
