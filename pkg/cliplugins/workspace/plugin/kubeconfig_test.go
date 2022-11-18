@@ -56,7 +56,7 @@ func TestCreate(t *testing.T) {
 		markReady          bool
 
 		newWorkspaceName                 string
-		newWorkspaceType                 tenancyv1alpha1.ClusterWorkspaceTypeReference
+		newWorkspaceType                 tenancyv1beta1.WorkspaceTypeReference
 		useAfterCreation, ignoreExisting bool
 
 		expected *clientcmdapi.Config
@@ -151,7 +151,7 @@ func TestCreate(t *testing.T) {
 			},
 			existingWorkspaces: []string{"bar"},
 			newWorkspaceName:   "bar",
-			newWorkspaceType:   tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: "root", Name: "universal"},
+			newWorkspaceType:   tenancyv1beta1.WorkspaceTypeReference{Path: "root", Name: "universal"},
 			useAfterCreation:   true,
 			markReady:          true,
 			ignoreExisting:     true,
@@ -177,7 +177,7 @@ func TestCreate(t *testing.T) {
 			},
 			newWorkspaceName: "bar",
 			ignoreExisting:   true,
-			newWorkspaceType: tenancyv1alpha1.ClusterWorkspaceTypeReference{Name: "universal"},
+			newWorkspaceType: tenancyv1beta1.WorkspaceTypeReference{Name: "universal"},
 			wantErr:          true,
 		},
 	}
@@ -199,7 +199,7 @@ func TestCreate(t *testing.T) {
 						Name: name,
 					},
 					Spec: tenancyv1beta1.WorkspaceSpec{
-						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Type: tenancyv1beta1.WorkspaceTypeReference{
 							Name: "universal",
 							Path: "root",
 						},
@@ -213,9 +213,9 @@ func TestCreate(t *testing.T) {
 			client := kcpfakeclient.NewSimpleClientset(objects...)
 
 			workspaceType := tt.newWorkspaceType
-			empty := tenancyv1alpha1.ClusterWorkspaceTypeReference{}
+			empty := tenancyv1beta1.WorkspaceTypeReference{}
 			if workspaceType == empty {
-				workspaceType = tenancyv1alpha1.ClusterWorkspaceTypeReference{
+				workspaceType = tenancyv1beta1.WorkspaceTypeReference{
 					Name: "universal",
 					Path: "root",
 				}
@@ -1195,7 +1195,7 @@ func TestUse(t *testing.T) {
 							Annotations: map[string]string{logicalcluster.AnnotationKey: lcluster.String()},
 						},
 						Spec: tenancyv1beta1.WorkspaceSpec{
-							Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							Type: tenancyv1beta1.WorkspaceTypeReference{
 								Name: "universal",
 								Path: "root",
 							},
@@ -1220,7 +1220,7 @@ func TestUse(t *testing.T) {
 							Name: "user-name",
 						},
 						Spec: tenancyv1beta1.WorkspaceSpec{
-							Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+							Type: tenancyv1beta1.WorkspaceTypeReference{
 								Name: "home",
 								Path: "root",
 							},

@@ -39,6 +39,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspacetypeexists"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
@@ -60,6 +62,10 @@ type schedulingReconciler struct {
 	getShard       func(name string) (*tenancyv1alpha1.ClusterWorkspaceShard, error)
 	getShardByHash func(hash string) (*tenancyv1alpha1.ClusterWorkspaceShard, error)
 	listShards     func(selector labels.Selector) ([]*tenancyv1alpha1.ClusterWorkspaceShard, error)
+
+	getClusterWorkspaceType func(clusterName logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error)
+
+	transitiveTypeResolver clusterworkspacetypeexists.TransitiveTypeResolver
 
 	kcpLogicalClusterAdminClientFor  func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpclientset.ClusterInterface, error)
 	kubeLogicalClusterAdminClientFor func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kubernetes.ClusterInterface, error)
@@ -122,6 +128,9 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 			return reconcileStatusStopAndRequeue, err
 		}
 		if err := r.createClusterRoleBindingForThisWorkspace(ctx, shard, clusterName, workspace); err != nil && !apierrors.IsAlreadyExists(err) {
+			return reconcileStatusStopAndRequeue, err
+		}
+		if err := r.updateThisWorkspacePhase(ctx, shard, clusterName, tenancyv1alpha1.WorkspacePhaseInitializing); err != nil {
 			return reconcileStatusStopAndRequeue, err
 		}
 
@@ -228,7 +237,7 @@ func (r *schedulingReconciler) createThisWorkspace(ctx context.Context, shard *t
 			Finalizers: []string{deletion.WorkspaceFinalizer},
 			Annotations: map[string]string{
 				tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey: workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey],
-				tenancyv1alpha1.ThisWorkspaceTypeAnnotationKey:          workspace.Spec.Type.Cluster.LogicalCluster().Join(string(workspace.Spec.Type.Name)).String(),
+				tenancyv1alpha1.ThisWorkspaceTypeAnnotationKey:          logicalcluster.New(workspace.Spec.Type.Path).Join(string(workspace.Spec.Type.Name)).String(),
 			},
 		},
 		Spec: tenancyv1alpha1.ThisWorkspaceSpec{
@@ -241,11 +250,46 @@ func (r *schedulingReconciler) createThisWorkspace(ctx context.Context, shard *t
 			},
 		},
 	}
+
+	// add initializers
+	cwt, err := r.getClusterWorkspaceType(logicalcluster.New(workspace.Spec.Type.Path), string(workspace.Spec.Type.Name))
+	if err != nil {
+		return err
+	}
+	cwtAliases, err := r.transitiveTypeResolver.Resolve(cwt)
+	if err != nil {
+		return err
+	}
+	bindings := false
+	for _, alias := range cwtAliases {
+		if alias.Spec.Initializer {
+			this.Spec.Initializers = append(this.Spec.Initializers, initialization.InitializerForType(alias))
+		}
+		bindings = bindings || len(alias.Spec.DefaultAPIBindings) > 0
+	}
+	if bindings {
+		this.Spec.Initializers = append(this.Spec.Initializers, tenancyv1alpha1.WorkspaceAPIBindingsInitializer)
+	}
+
 	logicalClusterAdminClient, err := r.kcpLogicalClusterAdminClientFor(shard)
 	if err != nil {
 		return err
 	}
 	_, err = logicalClusterAdminClient.Cluster(cluster).TenancyV1alpha1().ThisWorkspaces().Create(ctx, this, metav1.CreateOptions{})
+	return err
+}
+
+func (r *schedulingReconciler) updateThisWorkspacePhase(ctx context.Context, shard *tenancyv1alpha1.ClusterWorkspaceShard, cluster logicalcluster.Name, phase tenancyv1alpha1.WorkspacePhaseType) error {
+	logicalClusterAdminClient, err := r.kcpLogicalClusterAdminClientFor(shard)
+	if err != nil {
+		return err
+	}
+	this, err := logicalClusterAdminClient.Cluster(cluster).TenancyV1alpha1().ThisWorkspaces().Get(ctx, tenancyv1alpha1.ThisWorkspaceName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	this.Status.Phase = phase
+	_, err = logicalClusterAdminClient.Cluster(cluster).TenancyV1alpha1().ThisWorkspaces().UpdateStatus(ctx, this, metav1.UpdateOptions{})
 	return err
 }
 

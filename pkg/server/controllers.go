@@ -393,6 +393,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		logicalClusterAdminConfig,
 		s.KcpSharedInformerFactory.Tenancy().V1beta1().Workspaces(),
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
+		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceTypes(),
 	)
 	if err != nil {
 		return err
