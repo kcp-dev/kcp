@@ -14,25 +14,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package indexers
+package location
 
 import (
 	"fmt"
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
-	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	SyncTargetsBySyncTargetKey = "SyncTargetsBySyncTargetKey"
-)
-
-func IndexSyncTargetsBySyncTargetKey(obj interface{}) ([]string, error) {
-	syncTarget, ok := obj.(*workloadv1alpha1.SyncTarget)
+func indexByWorkspace(obj interface{}) ([]string, error) {
+	metaObj, ok := obj.(metav1.Object)
 	if !ok {
-		return []string{}, fmt.Errorf("obj is supposed to be a workloadv1alpha1.SyncTarget, but is %T", obj)
+		return []string{}, fmt.Errorf("obj is supposed to be a metav1.Object, but is %T", obj)
 	}
 
-	return []string{workloadv1alpha1.ToSyncTargetKey(logicalcluster.From(syncTarget), syncTarget.Name)}, nil
+	lcluster := logicalcluster.From(metaObj)
+	return []string{lcluster.String()}, nil
 }

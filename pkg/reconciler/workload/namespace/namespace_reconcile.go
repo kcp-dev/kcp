@@ -26,7 +26,6 @@ import (
 	utilserrors "k8s.io/apimachinery/pkg/util/errors"
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/indexers"
 )
 
 type reconcileStatus int
@@ -75,5 +74,13 @@ func (c *controller) reconcile(ctx context.Context, ns *corev1.Namespace) error 
 }
 
 func (c *controller) listPlacement(clusterName logicalcluster.Name) ([]*schedulingv1alpha1.Placement, error) {
-	return indexers.ByIndex[*schedulingv1alpha1.Placement](c.placementIndexer, indexers.ByLogicalCluster, clusterName.String())
+	items, err := c.placementIndexer.ByIndex(byWorkspace, clusterName.String())
+	if err != nil {
+		return nil, err
+	}
+	ret := make([]*schedulingv1alpha1.Placement, 0, len(items))
+	for _, item := range items {
+		ret = append(ret, item.(*schedulingv1alpha1.Placement))
+	}
+	return ret, nil
 }

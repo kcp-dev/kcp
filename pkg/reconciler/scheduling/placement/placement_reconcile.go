@@ -25,7 +25,6 @@ import (
 	utilserrors "k8s.io/apimachinery/pkg/util/errors"
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/indexers"
 )
 
 type reconcileStatus int
@@ -67,16 +66,25 @@ func (c *controller) reconcile(ctx context.Context, placement *schedulingv1alpha
 }
 
 func (c *controller) listLocations(clusterName logicalcluster.Name) ([]*schedulingv1alpha1.Location, error) {
-	return indexers.ByIndex[*schedulingv1alpha1.Location](c.locationIndexer, indexers.ByLogicalCluster, clusterName.String())
-}
-
-func (c *controller) listNamespacesWithAnnotation(clusterName logicalcluster.Name) ([]*corev1.Namespace, error) {
-	nss, err := indexers.ByIndex[*corev1.Namespace](c.namespaceIndexer, indexers.ByLogicalCluster, clusterName.String())
+	items, err := c.locationIndexer.ByIndex(byWorkspace, clusterName.String())
 	if err != nil {
 		return nil, err
 	}
-	ret := make([]*corev1.Namespace, 0, len(nss))
-	for _, ns := range nss {
+	ret := make([]*schedulingv1alpha1.Location, 0, len(items))
+	for _, item := range items {
+		ret = append(ret, item.(*schedulingv1alpha1.Location))
+	}
+	return ret, nil
+}
+
+func (c *controller) listNamespacesWithAnnotation(clusterName logicalcluster.Name) ([]*corev1.Namespace, error) {
+	items, err := c.namespaceIndexer.ByIndex(byWorkspace, clusterName.String())
+	if err != nil {
+		return nil, err
+	}
+	ret := make([]*corev1.Namespace, 0, len(items))
+	for _, item := range items {
+		ns := item.(*corev1.Namespace)
 		_, foundPlacement := ns.Annotations[schedulingv1alpha1.PlacementAnnotationKey]
 		if foundPlacement {
 			ret = append(ret, ns)

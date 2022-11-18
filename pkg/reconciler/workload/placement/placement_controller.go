@@ -39,12 +39,13 @@ import (
 	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
 	schedulinglisters "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
 	workloadlisters "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 const (
-	ControllerName = "kcp-workload-placement"
+	ControllerName      = "kcp-workload-placement"
+	byWorkspace         = ControllerName + "-byWorkspace" // will go away with scoping
+	byLocationWorkspace = ControllerName + "-byLocationWorkspace"
 )
 
 // NewController returns a new controller starting the process of selecting synctarget for a placement
@@ -61,7 +62,8 @@ func NewController(
 
 		kcpClusterClient: kcpClusterClient,
 
-		locationLister: locationInformer.Lister(),
+		locationLister:  locationInformer.Lister(),
+		locationIndexer: locationInformer.Informer().GetIndexer(),
 
 		syncTargetLister:  syncTargetInformer.Lister(),
 		syncTargetIndexer: syncTargetInformer.Informer().GetIndexer(),
@@ -70,12 +72,24 @@ func NewController(
 		placementIndexer: placementInformer.Informer().GetIndexer(),
 	}
 
-	indexers.AddIfNotPresentOrDie(
-		c.placementIndexer,
-		cache.Indexers{
-			indexers.PlacementByLocationWorkspace: indexers.IndexPlacementByLocationWorkspace,
-		},
-	)
+	if err := locationInformer.Informer().AddIndexers(cache.Indexers{
+		byWorkspace: indexByWorkspace,
+	}); err != nil {
+		return nil, err
+	}
+
+	if err := syncTargetInformer.Informer().AddIndexers(cache.Indexers{
+		byWorkspace: indexByWorkspace,
+	}); err != nil {
+		return nil, err
+	}
+
+	if err := placementInformer.Informer().AddIndexers(cache.Indexers{
+		byWorkspace:         indexByWorkspace,
+		byLocationWorkspace: indexByLocationWorkspace,
+	}); err != nil {
+		return nil, err
+	}
 
 	locationInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
@@ -136,7 +150,8 @@ type controller struct {
 
 	kcpClusterClient kcpclient.Interface
 
-	locationLister schedulinglisters.LocationLister
+	locationLister  schedulinglisters.LocationLister
+	locationIndexer cache.Indexer
 
 	syncTargetLister  workloadlisters.SyncTargetLister
 	syncTargetIndexer cache.Indexer
@@ -158,7 +173,7 @@ func (c *controller) enqueueLocation(obj interface{}) {
 		return
 	}
 
-	placements, err := indexers.ByIndex[*schedulingv1alpha1.Placement](c.placementIndexer, indexers.PlacementByLocationWorkspace, clusterName.String())
+	placements, err := c.placementIndexer.ByIndex(byLocationWorkspace, clusterName.String())
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -193,7 +208,7 @@ func (c *controller) enqueueSyncTarget(obj interface{}) {
 		return
 	}
 
-	placements, err := indexers.ByIndex[*schedulingv1alpha1.Placement](c.placementIndexer, indexers.PlacementByLocationWorkspace, clusterName.String())
+	placements, err := c.placementIndexer.ByIndex(byLocationWorkspace, clusterName.String())
 	if err != nil {
 		runtime.HandleError(err)
 		return
