@@ -203,14 +203,6 @@ func (in *ClusterWorkspaceType) SetConditions(conditions conditionsv1alpha1.Cond
 	in.Status.Conditions = conditions
 }
 
-// ReferenceFor returns a reference to the type.
-func ReferenceFor(cwt *ClusterWorkspaceType) ClusterWorkspaceTypeReference {
-	return ClusterWorkspaceTypeReference{
-		Name: TypeName(cwt.Name),
-		Path: logicalcluster.From(cwt).String(),
-	}
-}
-
 // ClusterWorkspaceTypeList is a list of cluster workspace types
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

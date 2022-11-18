@@ -43,10 +43,10 @@ func WithShardConstraints(c tenancyv1alpha1.ShardConstraints) ClusterWorkspaceOp
 
 func WithType(path logicalcluster.Name, name tenancyv1alpha1.ClusterWorkspaceTypeName) ClusterWorkspaceOption {
 	return func(ws *tenancyv1alpha1.ClusterWorkspace) {
-		ws.Spec.Type = tenancyv1alpha1.ClusterWorkspaceTypeReference{
+		ws.Spec.Type = tenancyv1alpha1.ResolvedWorkspaceTypeReference{ClusterWorkspaceTypeReference: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 			Name: name,
 			Path: path.String(),
-		}
+		}}
 	}
 }
 
@@ -70,10 +70,10 @@ func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logi
 			GenerateName: "e2e-workspace-",
 		},
 		Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-			Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+			Type: tenancyv1alpha1.ResolvedWorkspaceTypeReference{ClusterWorkspaceTypeReference: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 				Name: tenancyv1alpha1.ClusterWorkspaceTypeName("universal"),
 				Path: "root",
-			},
+			}},
 		},
 	}
 	for _, opt := range options {
@@ -140,10 +140,10 @@ func NewOrganizationFixture(t *testing.T, server RunningServer, options ...Clust
 			GenerateName: "e2e-org-",
 		},
 		Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-			Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+			Type: tenancyv1alpha1.ResolvedWorkspaceTypeReference{ClusterWorkspaceTypeReference: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 				Name: "organization",
 				Path: "root",
-			},
+			}},
 		},
 	}
 	for _, opt := range options {

@@ -97,6 +97,11 @@ spec:
                         have access to the APIExport with the verb `bind` in order
                         to bind to it.
                       properties:
+                        cluster:
+                          description: cluster is the logical cluster of the ClusterWorkspaceType.
+                            This is defaulted by resolving the workspace path.
+                          pattern: ^[a-z0-9]([-:a-z0-9]*[a-z0-9])?$
+                          type: string
                         exportName:
                           description: Name of the APIExport that describes the API.
                           type: string

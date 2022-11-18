@@ -42,7 +42,7 @@ import (
 
 func (b *APIBinder) reconcile(ctx context.Context, this *tenancyv1alpha1.ThisWorkspace) error {
 	logger := klog.FromContext(ctx).WithValues(
-		"clusterWorkspaceType.path", this.Spec.Type.Path,
+		"clusterWorkspaceType.path", this.Spec.Type.Cluster.LogicalCluster().String(),
 		"clusterWorkspaceType.name", this.Spec.Type.Name,
 	)
 
@@ -51,7 +51,7 @@ func (b *APIBinder) reconcile(ctx context.Context, this *tenancyv1alpha1.ThisWor
 	logger.V(2).Info("initializing APIBindings for workspace")
 
 	// Start with the ClusterWorkspaceType specified by the ClusterWorkspace
-	leafCWT, err := b.getClusterWorkspaceType(logicalcluster.New(this.Spec.Type.Path), string(this.Spec.Type.Name))
+	leafCWT, err := b.getClusterWorkspaceType(this.Spec.Type.Cluster.LogicalCluster(), string(this.Spec.Type.Name))
 	if err != nil {
 		logger.Error(err, "error getting ClusterWorkspaceType")
 
@@ -61,7 +61,7 @@ func (b *APIBinder) reconcile(ctx context.Context, this *tenancyv1alpha1.ThisWor
 			tenancyv1alpha1.WorkspaceInitializedClusterWorkspaceTypeInvalid,
 			conditionsv1alpha1.ConditionSeverityError,
 			"error getting ClusterWorkspaceType %s|%s: %v",
-			this.Spec.Type.Path, this.Spec.Type.Name,
+			this.Spec.Type.Cluster, this.Spec.Type.Name,
 			err,
 		)
 

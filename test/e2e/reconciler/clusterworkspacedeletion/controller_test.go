@@ -61,10 +61,10 @@ func TestWorkspaceDeletionController(t *testing.T) {
 				workspace, err := server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Create(logicalcluster.WithCluster(ctx, orgClusterName), &tenancyv1alpha1.ClusterWorkspace{
 					ObjectMeta: metav1.ObjectMeta{Name: "ws-cleanup"},
 					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Type: tenancyv1alpha1.ResolvedWorkspaceTypeReference{ClusterWorkspaceTypeReference: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 							Name: "universal",
 							Path: "root",
-						},
+						}},
 						Shard: &tenancyv1alpha1.ShardConstraints{
 							Name: "root",
 						},

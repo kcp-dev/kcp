@@ -20,6 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 )
@@ -68,7 +69,7 @@ type ThisWorkspaceSpec struct {
 	// the RBAC clusterworkspacetypes/use resource permission.
 	//
 	// +optional
-	Type ClusterWorkspaceTypeReference `json:"type,omitempty"`
+	Type ThisWorkspaceTypeReference `json:"type,omitempty"`
 
 	// DirectlyDeletable indicates that this workspace can be directly deleted by the user
 	// from within the workspace.
@@ -86,6 +87,23 @@ type ThisWorkspaceSpec struct {
 	//
 	// +optional
 	Owner *ThisWorkspaceOwner `json:"owner,omitempty"`
+}
+
+// ThisWorkspaceTypeReference is a fully qualified reference to a ClusterWorkspaceType.
+type ThisWorkspaceTypeReference struct {
+	// name is the name of the ClusterWorkspaceType
+	//
+	// +required
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="name is immutable"
+	Name ClusterWorkspaceTypeName `json:"name"`
+
+	// cluster is the logical cluster of the ClusterWorkspaceType.
+	//
+	// +required
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="cluster is immutable"
+	Cluster tenancy.Cluster `json:"cluster"`
 }
 
 // ThisWorkspaceOwner is a reference to a resource controlling the life-cycle of a ThisWorkspace.

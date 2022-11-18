@@ -228,7 +228,10 @@ func (r *schedulingReconciler) createThisWorkspace(ctx context.Context, shard *t
 			},
 		},
 		Spec: tenancyv1alpha1.ThisWorkspaceSpec{
-			Type: workspace.Spec.Type,
+			Type: tenancyv1alpha1.ThisWorkspaceTypeReference{
+				Name:    workspace.Spec.Type.Name,
+				Cluster: workspace.Spec.Type.Cluster,
+			},
 			Owner: &tenancyv1alpha1.ThisWorkspaceOwner{
 				APIVersion: tenancyv1beta1.SchemeGroupVersion.String(),
 				Resource:   "workspaces",

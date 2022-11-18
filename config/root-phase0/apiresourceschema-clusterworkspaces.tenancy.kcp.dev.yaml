@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v221112-d875eb39.clusterworkspaces.tenancy.kcp.dev
+  name: v221118-df0cb30d.clusterworkspaces.tenancy.kcp.dev
 spec:
   group: tenancy.kcp.dev
   names:
@@ -140,6 +140,14 @@ spec:
                 use of a type is gated via the RBAC clusterworkspacetypes/use resource
                 permission."
               properties:
+                cluster:
+                  description: cluster is the logical cluster of the ClusterWorkspaceType.
+                    This is defaulted by resolving the workspace path.
+                  pattern: ^[a-z0-9]([-:a-z0-9]*[a-z0-9])?$
+                  type: string
+                  x-kubernetes-validations:
+                  - message: name is immutable
+                    rule: self == oldSelf
                 name:
                   description: name is the name of the ClusterWorkspaceType
                   pattern: ^[a-z]([a-z0-9-]{0,61}[a-z0-9])?
@@ -152,6 +160,15 @@ spec:
               required:
               - name
               type: object
+              x-kubernetes-validations:
+              - message: name is immutable
+                rule: self.name == oldSelf.name
+              - message: path is immutable
+                rule: has(oldSelf.path) == has(self.path)
+              - message: path is immutable
+                rule: '!has(oldSelf.path) || !has(self.path) || self.path == oldSelf.path'
+              - message: cluster is immutable
+                rule: has(oldSelf.cluster) == has(self.cluster)
           type: object
         status:
           default: {}
