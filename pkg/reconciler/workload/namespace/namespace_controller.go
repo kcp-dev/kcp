@@ -44,14 +44,12 @@ import (
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/client"
 	schedulinginformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
-	schedulinglisters "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 const (
-	ControllerName      = "kcp-namespace-scheduling-placement"
-	byWorkspace         = ControllerName + "-byWorkspace" // will go away with scoping
-	byLocationWorkspace = ControllerName + "-byLocationWorkspace"
+	ControllerName = "kcp-namespace-scheduling-placement"
 )
 
 // NewController returns a new controller starting the process of placing namespaces onto locations by creating
@@ -75,22 +73,15 @@ func NewController(
 		namespaceLister:  namespaceInformer.Lister(),
 		namespaceIndexer: namespaceInformer.Informer().GetIndexer(),
 
-		placmentLister:   placementInformer.Lister(),
 		placementIndexer: placementInformer.Informer().GetIndexer(),
 	}
 
-	if err := namespaceInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorksapce,
-	}); err != nil {
-		return nil, err
-	}
-
-	if err := placementInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace:         indexByWorksapce,
-		byLocationWorkspace: indexByLocationWorkspace,
-	}); err != nil {
-		return nil, err
-	}
+	indexers.AddIfNotPresentOrDie(
+		c.namespaceIndexer,
+		cache.Indexers{
+			indexers.ByLogicalCluster: indexers.IndexByLogicalCluster,
+		},
+	)
 
 	// namespaceBlocklist holds a set of namespaces that should never be synced from kcp to physical clusters.
 	var namespaceBlocklist = sets.NewString("kube-system", "kube-public", "kube-node-lease")
@@ -131,7 +122,6 @@ type controller struct {
 	namespaceLister  corev1listers.NamespaceClusterLister
 	namespaceIndexer cache.Indexer
 
-	placmentLister   schedulinglisters.PlacementLister
 	placementIndexer cache.Indexer
 }
 
@@ -159,15 +149,14 @@ func (c *controller) enqueuePlacement(obj interface{}) {
 		return
 	}
 
-	nss, err := c.namespaceIndexer.ByIndex(byWorkspace, clusterName.String())
+	nss, err := indexers.ByIndex[*corev1.Namespace](c.namespaceIndexer, indexers.ByLogicalCluster, clusterName.String())
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
 	logger := logging.WithObject(logging.WithReconciler(klog.Background(), ControllerName), obj.(*schedulingv1alpha1.Placement))
-	for _, o := range nss {
-		ns := o.(*corev1.Namespace)
+	for _, ns := range nss {
 		logger = logging.WithObject(logger, ns)
 		nskey := client.ToClusterAwareKey(logicalcluster.From(ns), ns.Name)
 		logging.WithQueueKey(logger, nskey).V(2).Info("queueing Namespace because of Placement")

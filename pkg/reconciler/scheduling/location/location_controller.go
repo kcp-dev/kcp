@@ -44,12 +44,12 @@ import (
 	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
 	schedulinglisters "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
 	workloadlisters "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 const (
 	controllerName = "kcp-scheduling-location-status"
-	byWorkspace    = controllerName + "-byWorkspace" // will go away with scoping
 )
 
 // NewController returns a new controller reconciling location status.
@@ -71,18 +71,6 @@ func NewController(
 		locationIndexer:   locationInformer.Informer().GetIndexer(),
 		syncTargetLister:  syncTargetInformer.Lister(),
 		syncTargetIndexer: syncTargetInformer.Informer().GetIndexer(),
-	}
-
-	if err := syncTargetInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorkspace,
-	}); err != nil {
-		return nil, err
-	}
-
-	if err := locationInformer.Informer().AddIndexers(cache.Indexers{
-		byWorkspace: indexByWorkspace,
-	}); err != nil {
-		return nil, err
 	}
 
 	locationInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -156,7 +144,7 @@ func (c *controller) enqueueSyncTarget(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	domains, err := c.locationIndexer.ByIndex(byWorkspace, lcluster.String())
+	domains, err := indexers.ByIndex[*schedulingv1alpha1.Location](c.locationIndexer, indexers.ByLogicalCluster, lcluster.String())
 	if err != nil {
 		runtime.HandleError(err)
 		return

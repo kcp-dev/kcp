@@ -29,6 +29,7 @@ import (
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 )
 
 type reconcileStatus int
@@ -122,15 +123,7 @@ func (c *controller) reconcile(ctx context.Context, location *schedulingv1alpha1
 }
 
 func (c *controller) listSyncTarget(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error) {
-	items, err := c.syncTargetIndexer.ByIndex(byWorkspace, clusterName.String())
-	if err != nil {
-		return nil, err
-	}
-	ret := make([]*workloadv1alpha1.SyncTarget, 0, len(items))
-	for _, item := range items {
-		ret = append(ret, item.(*workloadv1alpha1.SyncTarget))
-	}
-	return ret, nil
+	return indexers.ByIndex[*workloadv1alpha1.SyncTarget](c.syncTargetIndexer, indexers.ByLogicalCluster, clusterName.String())
 }
 
 func (c *controller) updateLocation(ctx context.Context, clusterName logicalcluster.Name, location *schedulingv1alpha1.Location) (*schedulingv1alpha1.Location, error) {
