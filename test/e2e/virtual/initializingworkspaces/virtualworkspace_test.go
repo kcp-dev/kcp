@@ -548,7 +548,11 @@ func workspaceForType(workspaceType *tenancyv1alpha1.ClusterWorkspaceType, testL
 			Labels:       testLabelSelector,
 		},
 		Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-			Type: tenancyv1alpha1.ReferenceFor(workspaceType),
+			Type: tenancyv1alpha1.ResolvedWorkspaceTypeReference{
+				ClusterWorkspaceTypeReference: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+					Name: tenancyv1alpha1.ClusterWorkspaceTypeName(workspaceType.Name),
+					Path: logicalcluster.From(workspaceType).String(),
+				}},
 		},
 	}
 }

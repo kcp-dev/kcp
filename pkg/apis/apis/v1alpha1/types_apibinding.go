@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
@@ -126,6 +127,12 @@ type WorkspaceExportReference struct {
 	// +kubebuilder:validation:Required
 	// +kube:validation:MinLength=1
 	ExportName string `json:"exportName"`
+
+	// cluster is the logical cluster of the ClusterWorkspaceType. This is defaulted
+	// by resolving the workspace path.
+	//
+	// +optional
+	Cluster tenancy.Cluster `json:"cluster,omitempty"`
 }
 
 // APIBindingPhaseType is the type of the current phase of an APIBinding.
