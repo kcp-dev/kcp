@@ -203,10 +203,10 @@ You can run the syncer in a kind cluster for development.
 1. Create a location workspace and immediately enter it:
 
     ```sh
-    $ kubectl kcp workspace create location --enter
-    Workspace "location" (type root:organization) created. Waiting for it to be ready...
-    Workspace "location" (type root:organization) is ready to use.
-    Current workspace is "root:location" (type "root:organization").
+    $ kubectl kcp workspace create my-locations --enter
+    Workspace "my-locations" (type root:organization) created. Waiting for it to be ready...
+    Workspace "my-locations" (type root:organization) is ready to use.
+    Current workspace is "root:my-locations" (type "root:organization").
     ```
 
 1. To create the synctarget and use the image pushed to the local registry, supply `<image name>` to the
@@ -216,20 +216,20 @@ You can run the syncer in a kind cluster for development.
     kubectl kcp workload sync kind --syncer-image <image name> -o syncer.yaml
     ```
     
-1. Create an organisation and immediately enter it:
+1. Create a second workspace for your workloads and immediately enter it:
 
     ```sh
     $ kubectl kcp workspace ..
-    $ kubectl kcp workspace create my-org --enter
-    Workspace "my-org" (type root:organization) created. Waiting for it to be ready...
-    Workspace "my-org" (type root:organization) is ready to use.
-    Current workspace is "root:my-org" (type "root:organization").
+    $ kubectl kcp workspace create my-workloads --enter
+    Workspace "my-workloads" (type root:organization) created. Waiting for it to be ready...
+    Workspace "my-workloads" (type root:organization) is ready to use.
+    Current workspace is "root:my-workloads" (type "root:organization").
     ```
     
-1. Bind it to the `location` workspace with the synctarget:
+1. Bind it to the `my-locations` workspace with the synctarget:
 
     ```bash
-    kubectl kcp bind compute "root:location"
+    kubectl kcp bind compute "root:my-locations"
     ```
 
 1. Apply the manifest to the p-cluster:
@@ -259,7 +259,7 @@ You can run the syncer in a kind cluster for development.
     kubectl wait --for=condition=Ready synctarget/<mycluster>
     ```
     
-1. Add a deployment to the my-org workspace and check the p-cluster to see if the workload has been created there:
+1. Add a deployment to the my-workloads workspace and check the p-cluster to see if the workload has been created there:
 
     ```bash
     kubectl create deployment --image=gcr.io/kuar-demo/kuard-amd64:blue --port=8080 kuard
