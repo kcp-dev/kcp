@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
@@ -32,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/workqueue"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/client"
@@ -95,14 +97,14 @@ func TestSyncerNamespaceProcess(t *testing.T) {
 			syncTargetWorkspace := logicalcluster.New("root:org:ws")
 			syncTargetName := "us-west1"
 			syncTargetKey := workloadv1alpha1.ToSyncTargetKey(syncTargetWorkspace, syncTargetName)
-			deletedNamespace := ""
 			syncTargetUID := types.UID("syncTargetUID")
 			if tc.syncTargetUID != "" {
 				syncTargetUID = tc.syncTargetUID
 			}
 			nsController := DownstreamController{
+				toDeleteMap:  make(map[string]time.Time),
+				delayedQueue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), downstreamControllerName),
 				deleteDownstreamNamespace: func(ctx context.Context, downstreamNamespaceName string) error {
-					deletedNamespace = downstreamNamespaceName
 					return nil
 				},
 				upstreamNamespaceExists: func(clusterName logicalcluster.Name, upstreamNamespaceName string) (bool, error) {
@@ -123,10 +125,14 @@ func TestSyncerNamespaceProcess(t *testing.T) {
 				updateConfigMap: func(ctx context.Context, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
 					return nil, nil
 				},
+				isDowntreamNamespaceEmpty: func(ctx context.Context, namespaceName string) (bool, error) {
+					return true, nil
+				},
 				syncTargetName:      syncTargetName,
 				syncTargetWorkspace: syncTargetWorkspace,
 				syncTargetUID:       syncTargetUID,
 				syncTargetKey:       syncTargetKey,
+				dnsNamespace:        "kcp-hcbsa8z6c2er",
 			}
 
 			var key string
@@ -140,7 +146,13 @@ func TestSyncerNamespaceProcess(t *testing.T) {
 
 			err := nsController.process(ctx, key)
 			require.NoError(t, err)
-			require.Equal(t, tc.deletedNamespace, deletedNamespace)
+
+			if tc.deletedNamespace != "" {
+				require.True(t, nsController.isPlannedForCleaning(tc.deletedNamespace))
+				require.Equal(t, len(nsController.toDeleteMap), 1)
+			} else {
+				require.Empty(t, len(nsController.toDeleteMap))
+			}
 		})
 	}
 }

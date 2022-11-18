@@ -18,7 +18,7 @@ package tunneler
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
@@ -86,7 +86,7 @@ func Test_integration(t *testing.T) {
 	defer resp.Body.Close()
 	defer stop()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatalf("Reading body failed: %s", err)
 	}
@@ -111,7 +111,7 @@ func Test_integration_multiple_connections(t *testing.T) {
 			}
 			defer resp.Body.Close()
 
-			body, err := ioutil.ReadAll(resp.Body)
+			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				t.Errorf("Reading body failed: %s", err)
 			}
@@ -176,7 +176,7 @@ func Test_integration_listener_reconnect(t *testing.T) {
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatalf("Reading body failed: %s", err)
 	}
@@ -208,7 +208,7 @@ func Test_integration_listener_reconnect(t *testing.T) {
 	}
 	defer resp.Body.Close()
 
-	body, err = ioutil.ReadAll(resp.Body)
+	body, err = io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatalf("Reading body failed: %s", err)
 	}

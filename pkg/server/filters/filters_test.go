@@ -18,7 +18,7 @@ package filters
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -54,7 +54,7 @@ func Test_isPartialMetadataHeader(t *testing.T) {
 
 func TestClusterWorkspaceNamePattern(t *testing.T) {
 	_, fileName, _, _ := runtime.Caller(0)
-	bs, err := ioutil.ReadFile(filepath.Join(filepath.Dir(fileName), "..", "..", "../config/crds/tenancy.kcp.dev_clusterworkspaces.yaml"))
+	bs, err := os.ReadFile(filepath.Join(filepath.Dir(fileName), "..", "..", "../config/crds/tenancy.kcp.dev_clusterworkspaces.yaml"))
 	require.NoError(t, err)
 	var crd apiextensionsv1.CustomResourceDefinition
 	err = yaml.Unmarshal(bs, &crd)
@@ -87,8 +87,10 @@ func TestReCluster(t *testing.T) {
 		{"f", true},
 		{"foo", true},
 		{"foo:b", true},
+		{"foo:0", true},
 		{"foo:bar", true},
 		{"foo:bar0", true},
+		{"foo:0bar", true},
 		{"foo:bar-bar", true},
 		{"foo:b123456789012345678901234567891", true},
 		{"foo:b1234567890123456789012345678912", true},
@@ -99,8 +101,7 @@ func TestReCluster(t *testing.T) {
 		{"root::foo", false},
 		{"root:föö:bär", false},
 		{"foo:bar_bar", false},
-		{"foo:0", false},
-		{"foo:0bar", false},
+
 		{"foo/bar", false},
 		{"foo:bar-", false},
 		{"foo:-bar", false},

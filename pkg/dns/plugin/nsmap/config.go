@@ -30,7 +30,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-const (
+var (
 	// ConfigMapName is the name of the configmap containing logical to physical namespace mappings
 	ConfigMapName = "config-nsmap"
 )

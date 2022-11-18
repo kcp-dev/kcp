@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
@@ -114,7 +113,7 @@ func startCacheServer(ctx context.Context, logDirPath, workingDir string) (<-cha
 		}
 
 		if _, err := os.Stat(cacheKubeconfigPath); os.IsNotExist(err) {
-			cacheServerCert, err := ioutil.ReadFile(filepath.Join(cacheWorkingDir, "apiserver.crt"))
+			cacheServerCert, err := os.ReadFile(filepath.Join(cacheWorkingDir, "apiserver.crt"))
 			if err != nil {
 				return nil, "", err
 			}

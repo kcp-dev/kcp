@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"net/url"
 	"os"
 	"time"
@@ -36,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/version"
 	"k8s.io/client-go/rest"
@@ -67,13 +67,14 @@ const (
 // vary across syncer deployments. Capturing these details in a struct
 // simplifies defining these details in test fixture.
 type SyncerConfig struct {
-	UpstreamConfig      *rest.Config
-	DownstreamConfig    *rest.Config
-	ResourcesToSync     sets.String
-	SyncTargetWorkspace logicalcluster.Name
-	SyncTargetName      string
-	SyncTargetUID       string
-	DNSServer           string
+	UpstreamConfig                *rest.Config
+	DownstreamConfig              *rest.Config
+	ResourcesToSync               sets.String
+	SyncTargetWorkspace           logicalcluster.Name
+	SyncTargetName                string
+	SyncTargetUID                 string
+	DownstreamNamespaceCleanDelay time.Duration
+	DNSImage                      string
 }
 
 func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, importPollInterval time.Duration) error {
@@ -192,6 +193,17 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		o.LabelSelector = workloadv1alpha1.InternalDownstreamClusterLabel + "=" + syncTargetKey
 	}, cache.WithResyncPeriod(resyncPeriod), cache.WithKeyFunction(keyfunctions.DeletionHandlingMetaNamespaceKeyFunc))
 
+	// downstreamInformerFactory to watch some DNS-related resources in the dns namespace
+	downstreamInformerFactory := informers.NewSharedInformerFactoryWithOptions(downstreamKubeClient, resyncPeriod,
+		informers.WithNamespace(dnsNamespace),
+		informers.WithKeyFunction(keyfunctions.DeletionHandlingMetaNamespaceKeyFunc))
+	serviceAccountLister := downstreamInformerFactory.Core().V1().ServiceAccounts().Lister()
+	roleLister := downstreamInformerFactory.Rbac().V1().Roles().Lister()
+	roleBindingLister := downstreamInformerFactory.Rbac().V1().RoleBindings().Lister()
+	deploymentLister := downstreamInformerFactory.Apps().V1().Deployments().Lister()
+	serviceLister := downstreamInformerFactory.Core().V1().Services().Lister()
+	endpointLister := downstreamInformerFactory.Core().V1().Endpoints().Lister()
+
 	syncerInformers, err := resourcesync.NewController(
 		logger,
 		upstreamDynamicClusterClient,
@@ -214,27 +226,20 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		advancedSchedulingEnabled = true
 	}
 
-	dnsIP := ""
-	// Get the DNS IP. The DNS service cannot be recreated as existing dnsConfig won't be updated.
-	err = wait.PollImmediate(2*time.Second, time.Minute, func() (bool, error) {
-		ips, err := net.LookupIP(cfg.DNSServer)
-		if len(ips) == 0 || err != nil {
-			return false, nil //nolint:nilerr
-		}
-		dnsIP = ips[0].String()
-		return true, nil
-	})
-	if err != nil {
-		return err
-	}
-
 	logger.Info("Creating spec syncer")
 	upstreamURL, err := url.Parse(cfg.UpstreamConfig.Host)
 	if err != nil {
 		return err
 	}
+
+	downstreamNamespaceController, err := namespace.NewDownstreamController(logger, cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, syncTarget.GetUID(), syncerInformers, downstreamConfig, downstreamDynamicClient, upstreamInformers, downstreamInformers, dnsNamespace, cfg.DownstreamNamespaceCleanDelay)
+	if err != nil {
+		return err
+	}
+
 	specSyncer, err := spec.NewSpecSyncer(logger, cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, upstreamURL, advancedSchedulingEnabled,
-		upstreamDynamicClusterClient, downstreamDynamicClient, upstreamInformers, downstreamInformers, syncerInformers, syncTarget.GetUID(), dnsIP)
+		upstreamDynamicClusterClient, downstreamDynamicClient, downstreamKubeClient, upstreamInformers, downstreamInformers, downstreamNamespaceController, syncerInformers, syncTarget.GetUID(),
+		serviceAccountLister, roleLister, roleBindingLister, deploymentLister, serviceLister, endpointLister, dnsNamespace, cfg.DNSImage)
 	if err != nil {
 		return err
 	}
@@ -246,30 +251,21 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		return err
 	}
 
-	downstreamNamespaceController, err := namespace.NewDownstreamController(logger, cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, syncTarget.GetUID(), downstreamConfig, downstreamDynamicClient, upstreamInformers, downstreamInformers, dnsNamespace)
-	if err != nil {
-		return err
-	}
-
-	upstreamNamespaceController, err := namespace.NewUpstreamController(logger, cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, syncTarget.GetUID(), downstreamDynamicClient, upstreamInformers, downstreamInformers)
-	if err != nil {
-		return err
-	}
-
 	upstreamInformers.Start(ctx.Done())
 	downstreamInformers.Start(ctx.Done())
 	kcpInformerFactory.Start(ctx.Done())
+	downstreamInformerFactory.Start(ctx.Done())
 
 	upstreamInformers.WaitForCacheSync(ctx.Done())
 	downstreamInformers.WaitForCacheSync(ctx.Done())
 	kcpInformerFactory.WaitForCacheSync(ctx.Done())
+	downstreamInformerFactory.WaitForCacheSync(ctx.Done())
 
 	go apiImporter.Start(klog.NewContext(ctx, logger.WithValues("resources", resources)), importPollInterval)
 	go syncerInformers.Start(ctx, 1)
 	go specSyncer.Start(ctx, numSyncerThreads)
 	go statusSyncer.Start(ctx, numSyncerThreads)
 	go downstreamNamespaceController.Start(ctx, numSyncerThreads)
-	go upstreamNamespaceController.Start(ctx, numSyncerThreads)
 
 	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.SyncerTunnel) {
 		go startSyncerTunnel(ctx, upstreamConfig, downstreamConfig, cfg.SyncTargetWorkspace, cfg.SyncTargetName)

@@ -20,6 +20,8 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/kcp-dev/logicalcluster/v2"
+
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,7 +29,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/kcp/pkg/dns/plugin/nsmap"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	. "github.com/kcp-dev/kcp/tmc/pkg/logging"
@@ -42,12 +43,6 @@ func (c *DownstreamController) process(ctx context.Context, key string) error {
 	}
 
 	logger = logger.WithValues(DownstreamNamespace, namespaceName)
-
-	// Always refresh the DNS ConfigMap
-	err = c.updateDNSConfigMap(ctx)
-	if err != nil {
-		return err
-	}
 
 	downstreamNamespaceObj, err := c.getDownstreamNamespace(namespaceName)
 	if apierrors.IsNotFound(err) {
@@ -80,6 +75,17 @@ func (c *DownstreamController) process(ctx context.Context, key string) error {
 		return nil
 	}
 
+	// Always refresh the DNS ConfigMap (even when the namespace has been deleted or is being deleted)
+	err = c.updateDNSConfigMap(ctx, nsLocator.Workspace)
+	if err != nil {
+		return err
+	}
+
+	if !downstreamNamespace.GetDeletionTimestamp().IsZero() {
+		logger.V(4).Info("downstream namespace is being deleted, ignoring key")
+		return nil
+	}
+
 	logger = logger.WithValues(logging.WorkspaceKey, nsLocator.Workspace, logging.NamespaceKey, nsLocator.Namespace)
 	exists, err := c.upstreamNamespaceExists(nsLocator.Workspace, nsLocator.Namespace)
 	if err != nil {
@@ -87,20 +93,23 @@ func (c *DownstreamController) process(ctx context.Context, key string) error {
 		return nil
 	}
 	if !exists {
-		logger.Info("deleting downstream namespace because the upstream namespace doesn't exist")
-		return c.deleteDownstreamNamespace(ctx, namespaceName)
+		logger.Info("adding the downstream namespace to the delayed deletion queue because the upstream namespace doesn't exist")
+		c.PlanCleaning(key)
+		return nil
 	}
+	// The namespace exists upstream, so we can remove it from the delayed delete queue
+	c.CancelCleaning(key)
 	// The upstream namespace still exists, nothing to do.
 	return nil
 }
 
-func (c *DownstreamController) updateDNSConfigMap(ctx context.Context) error {
+func (c *DownstreamController) updateDNSConfigMap(ctx context.Context, workspace logicalcluster.Name) error {
 	logger := klog.FromContext(ctx)
 	logger.WithName("dns")
 	logger.Info("refreshing logical to physical namespace mapping table")
 
 	// Reconstruct ConfigMap from scratch because:
-	// - it's safer compare to incremental updates
+	// - it's a sound approach
 	// - it's low overhead considering operations on namespaces are relatively rare.
 
 	namespaces, err := c.listDownstreamNamespaces()
@@ -129,13 +138,18 @@ func (c *DownstreamController) updateDNSConfigMap(ctx context.Context) error {
 			continue
 		}
 
-		data[locator.Namespace] = namespace.GetName()
+		// Only include namespaces in the same workspace
+		if locator.Workspace == workspace {
+			data[locator.Namespace] = namespace.GetName()
+		}
 	}
+
+	configMapName := shared.GetDNSID(workspace, c.syncTargetUID, c.syncTargetName)
 
 	cm := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      nsmap.ConfigMapName,
+			Name:      configMapName,
 			Namespace: c.dnsNamespace,
 		},
 		Data: data,
@@ -144,16 +158,14 @@ func (c *DownstreamController) updateDNSConfigMap(ctx context.Context) error {
 	// TODO(LV): consider comparing the new ConfigMap with the cached one to avoid a rest api call.
 
 	_, err = c.updateConfigMap(ctx, cm)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			_, err = c.createConfigMap(ctx, cm)
-			if err != nil {
-				logger.Error(err, "failed to create ConfigMap (retrying)", "name", nsmap.ConfigMapName, "namespace", c.dnsNamespace)
-				return err // retry
-			}
+	if apierrors.IsNotFound(err) {
+		_, err = c.createConfigMap(ctx, cm)
+		if err == nil {
+			return nil
 		}
-
-		logger.Error(err, "failed to update ConfigMap (retrying)", "name", nsmap.ConfigMapName, "namespace", c.dnsNamespace)
+	}
+	if err != nil {
+		logger.Error(err, "failed to create or update ConfigMap (retrying)", "name", configMapName, "namespace", c.dnsNamespace)
 		return err // retry
 	}
 	return nil

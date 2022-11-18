@@ -19,11 +19,12 @@ package proxy
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 
+	"k8s.io/component-base/metrics/legacyregistry"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
 
@@ -46,7 +47,7 @@ type PathMapping struct {
 }
 
 func NewHandler(ctx context.Context, o *proxyoptions.Options, index index.Index) (http.Handler, error) {
-	mappingData, err := ioutil.ReadFile(o.MappingFile)
+	mappingData, err := os.ReadFile(o.MappingFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read mapping file %q: %w", o.MappingFile, err)
 	}
@@ -70,6 +71,8 @@ func NewHandler(ctx context.Context, o *proxyoptions.Options, index index.Index)
 		w.WriteHeader(http.StatusOK)
 	}))
 
+	mux.Handle("/metrics", legacyregistry.Handler())
+
 	logger := klog.FromContext(ctx)
 	for _, m := range mapping {
 		logger.WithValues("mapping", m).V(2).Info("adding mapping")
@@ -84,7 +87,7 @@ func NewHandler(ctx context.Context, o *proxyoptions.Options, index index.Index)
 			return nil, fmt.Errorf("failed to create path mapping for path %q: %w", m.Path, err)
 		}
 
-		var handler http.HandlerFunc
+		var handler http.Handler
 		if m.Path == "/clusters/" {
 			clusterProxy := newShardReverseProxy()
 			clusterProxy.Transport = transport
@@ -93,7 +96,7 @@ func NewHandler(ctx context.Context, o *proxyoptions.Options, index index.Index)
 			// TODO: handle virtual workspace apiservers per shard
 			proxy := httputil.NewSingleHostReverseProxy(u)
 			proxy.Transport = transport
-			handler = proxy.ServeHTTP
+			handler = proxy
 		}
 
 		userHeader := "X-Remote-User"

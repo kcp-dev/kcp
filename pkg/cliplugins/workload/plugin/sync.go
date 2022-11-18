@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"sort"
 	"strings"
@@ -66,6 +67,7 @@ var embeddedResources embed.FS
 const (
 	SyncerSecretConfigKey   = "kubeconfig"
 	SyncerIDPrefix          = "kcp-syncer-"
+	DNSIDPrefix             = "kcp-dns-"
 	MaxSyncTargetNameLength = validation.DNS1123SubdomainMaxLength - (9 + len(SyncerIDPrefix))
 )
 
@@ -98,6 +100,8 @@ type SyncOptions struct {
 	APIImportPollInterval time.Duration
 	// FeatureGates is used to configure which feature gates are enabled.
 	FeatureGates string
+	// DownstreamNamespaceCleanDelay is the time to wait before deleting of a downstream namespace.
+	DownstreamNamespaceCleanDelay time.Duration
 }
 
 // NewSyncOptions returns a new SyncOptions.
@@ -105,12 +109,13 @@ func NewSyncOptions(streams genericclioptions.IOStreams) *SyncOptions {
 	return &SyncOptions{
 		Options: base.NewOptions(streams),
 
-		Replicas:              1,
-		KCPNamespace:          "default",
-		QPS:                   20,
-		Burst:                 30,
-		APIImportPollInterval: 1 * time.Minute,
-		APIExports:            []string{"root:compute:kubernetes"},
+		Replicas:                      1,
+		KCPNamespace:                  "default",
+		QPS:                           20,
+		Burst:                         30,
+		APIImportPollInterval:         1 * time.Minute,
+		APIExports:                    []string{"root:compute:kubernetes"},
+		DownstreamNamespaceCleanDelay: 30 * time.Second,
 	}
 }
 
@@ -120,8 +125,8 @@ func (o *SyncOptions) BindFlags(cmd *cobra.Command) {
 
 	cmd.Flags().StringSliceVar(&o.ResourcesToSync, "resources", o.ResourcesToSync, "Resources to synchronize with kcp.")
 	cmd.Flags().StringSliceVar(&o.APIExports, "apiexports", o.APIExports,
-		"APIExport to be supported by the syncer, each APIExoport should be in the format of <absolute_ref_to_workspace>:<apiexport>, "+
-			"e.g. root:compute|kubernetes is the kubernetes APIExport in root:compute workspace")
+		"APIExport to be supported by the syncer, each APIExport should be in the format of <absolute_ref_to_workspace>:<apiexport>, "+
+			"e.g. root:compute:kubernetes is the kubernetes APIExport in root:compute workspace")
 	cmd.Flags().StringVar(&o.SyncerImage, "syncer-image", o.SyncerImage, "The syncer image to use in the syncer's deployment YAML. Images are published at https://github.com/kcp-dev/kcp/pkgs/container/kcp%2Fsyncer.")
 	cmd.Flags().IntVar(&o.Replicas, "replicas", o.Replicas, "Number of replicas of the syncer deployment.")
 	cmd.Flags().StringVar(&o.KCPNamespace, "kcp-namespace", o.KCPNamespace, "The name of the kcp namespace to create a service account in.")
@@ -133,6 +138,7 @@ func (o *SyncOptions) BindFlags(cmd *cobra.Command) {
 		"A set of key=value pairs that describe feature gates for alpha/experimental features. "+
 			"Options are:\n"+strings.Join(kcpfeatures.KnownFeatures(), "\n")) // hide kube-only gates
 	cmd.Flags().DurationVar(&o.APIImportPollInterval, "api-import-poll-interval", o.APIImportPollInterval, "Polling interval for API import.")
+	cmd.Flags().DurationVar(&o.DownstreamNamespaceCleanDelay, "downstream-namespace-clean-delay", o.DownstreamNamespaceCleanDelay, "Time to wait before deleting a downstream namespaces.")
 }
 
 // Complete ensures all dynamically populated fields are initialized.
@@ -174,7 +180,8 @@ func (o *SyncOptions) Validate() error {
 		errs = append(errs, errors.New("--output-file is required"))
 	}
 
-	if len(o.SyncTargetName)+len(SyncerIDPrefix)+8 > 254 {
+	// see pkg/syncer/shared/GetDNSID
+	if len(o.SyncTargetName)+len(DNSIDPrefix)+8+8+2 > 254 {
 		errs = append(errs, fmt.Errorf("the maximum length of the sync-target-name is %d", MaxSyncTargetNameLength))
 	}
 
@@ -215,6 +222,21 @@ func (o *SyncOptions) Run(ctx context.Context) error {
 		return fmt.Errorf("current URL %q does not point to cluster workspace", config.Host)
 	}
 
+	// Make sure the generated URL has the port specified correctly.
+	if _, _, err = net.SplitHostPort(configURL.Host); err != nil {
+		var addrErr *net.AddrError
+		const missingPort = "missing port in address"
+		if errors.As(err, &addrErr) && addrErr.Err == missingPort {
+			if configURL.Scheme == "https" {
+				configURL.Host = net.JoinHostPort(configURL.Host, "443")
+			} else {
+				configURL.Host = net.JoinHostPort(configURL.Host, "80")
+			}
+		} else {
+			return fmt.Errorf("failed to parse host %q: %w", configURL.Host, err)
+		}
+	}
+
 	if o.DownstreamNamespace == "" {
 		o.DownstreamNamespace = syncerID
 	}
@@ -225,23 +247,23 @@ func (o *SyncOptions) Run(ctx context.Context) error {
 	// TODO(marun) It's probably preferable that the syncer and importer are provided a
 	// cluster configuration since they only operate against a single workspace.
 	serverURL := configURL.Scheme + "://" + configURL.Host
-
 	input := templateInput{
-		ServerURL:                   serverURL,
-		CAData:                      base64.StdEncoding.EncodeToString(config.CAData),
-		Token:                       token,
-		KCPNamespace:                o.KCPNamespace,
-		Namespace:                   o.DownstreamNamespace,
-		LogicalCluster:              currentClusterName.String(),
-		SyncTarget:                  o.SyncTargetName,
-		SyncTargetUID:               syncTargetUID,
-		Image:                       o.SyncerImage,
-		Replicas:                    o.Replicas,
-		ResourcesToSync:             o.ResourcesToSync,
-		QPS:                         o.QPS,
-		Burst:                       o.Burst,
-		FeatureGatesString:          o.FeatureGates,
-		APIImportPollIntervalString: o.APIImportPollInterval.String(),
+		ServerURL:                           serverURL,
+		CAData:                              base64.StdEncoding.EncodeToString(config.CAData),
+		Token:                               token,
+		KCPNamespace:                        o.KCPNamespace,
+		Namespace:                           o.DownstreamNamespace,
+		LogicalCluster:                      currentClusterName.String(),
+		SyncTarget:                          o.SyncTargetName,
+		SyncTargetUID:                       syncTargetUID,
+		Image:                               o.SyncerImage,
+		Replicas:                            o.Replicas,
+		ResourcesToSync:                     o.ResourcesToSync,
+		QPS:                                 o.QPS,
+		Burst:                               o.Burst,
+		FeatureGatesString:                  o.FeatureGates,
+		APIImportPollIntervalString:         o.APIImportPollInterval.String(),
+		DownstreamNamespaceCleanDelayString: o.DownstreamNamespaceCleanDelay.String(),
 	}
 
 	resources, err := renderSyncerResources(input, syncerID, expectedResourcesForPermission.List())
@@ -678,6 +700,8 @@ type templateInput struct {
 	FeatureGatesString string
 	// APIImportPollIntervalString is the string of interval to poll APIImport.
 	APIImportPollIntervalString string
+	// DownstreamNamespaceCleanDelay is the time to delay before cleaning the downstream namespace as a string.
+	DownstreamNamespaceCleanDelayString string
 }
 
 // templateArgs represents the full set of arguments required to render the resources
@@ -687,21 +711,17 @@ type templateArgs struct {
 	// ServiceAccount is the name of the service account to create in the syncer
 	// namespace on the pcluster.
 	ServiceAccount string
-	// DNSServiceAccount is the name of the DNS service account to create in the syncer
-	// namespace on the pcluster.
-	DNSServiceAccount string
 	// ClusterRole is the name of the cluster role to create for the syncer on the
 	// pcluster.
 	ClusterRole string
-	// ClusterRoleBinding is the name of the DNS cluster role binding to create for the
-	// syncer on the pcluster.
-	DNSClusterRole string
 	// ClusterRoleBinding is the name of the cluster role binding to create for the
 	// syncer on the pcluster.
 	ClusterRoleBinding string
-	// ClusterRoleBinding is the name of the DNS cluster role binding to create for the
+	// DnsRole is the name of the DNS role to create for the syncer on the pcluster.
+	DNSRole string
+	// DNSRoleBinding is the name of the DNS role binding to create for the
 	// syncer on the pcluster.
-	DNSClusterRoleBinding string
+	DNSRoleBinding string
 	// GroupMappings is the mapping of api group to resources that will be used to
 	// define the cluster role rules for the syncer in the pcluster. The syncer will be
 	// granted full permissions for the resources it will synchronize.
@@ -718,8 +738,6 @@ type templateArgs struct {
 	// DeploymentApp is the label value that the syncer's deployment will select its
 	// pods with.
 	DeploymentApp string
-	// DNSAppName is the name of the deployment that will run the kcp dns resolver
-	DNSAppName string
 }
 
 // renderSyncerResources renders the resources required to deploy a syncer to a pcluster.
@@ -731,19 +749,17 @@ func renderSyncerResources(input templateInput, syncerID string, resourceForPerm
 	dnsSyncerID := strings.Replace(syncerID, "syncer", "dns", 1)
 
 	tmplArgs := templateArgs{
-		templateInput:         input,
-		ServiceAccount:        syncerID,
-		DNSServiceAccount:     dnsSyncerID,
-		ClusterRole:           syncerID,
-		DNSClusterRole:        dnsSyncerID,
-		ClusterRoleBinding:    syncerID,
-		DNSClusterRoleBinding: dnsSyncerID,
-		GroupMappings:         getGroupMappings(resourceForPermission),
-		Secret:                syncerID,
-		SecretConfigKey:       SyncerSecretConfigKey,
-		Deployment:            syncerID,
-		DeploymentApp:         syncerID,
-		DNSAppName:            dnsSyncerID,
+		templateInput:      input,
+		ServiceAccount:     syncerID,
+		ClusterRole:        syncerID,
+		ClusterRoleBinding: syncerID,
+		DNSRole:            dnsSyncerID,
+		DNSRoleBinding:     dnsSyncerID,
+		GroupMappings:      getGroupMappings(resourceForPermission),
+		Secret:             syncerID,
+		SecretConfigKey:    SyncerSecretConfigKey,
+		Deployment:         syncerID,
+		DeploymentApp:      syncerID,
 	}
 
 	syncerTemplate, err := embeddedResources.ReadFile("syncer.yaml")

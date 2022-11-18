@@ -21,7 +21,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
@@ -127,7 +126,7 @@ func waitForEndpoint(ctx context.Context, t *testing.T, port, endpoint string) {
 			return false, nil
 		}
 		defer resp.Body.Close()
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			lastError = fmt.Errorf("error reading response from %s: %w", url, err)
 			return false, nil

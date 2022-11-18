@@ -19,16 +19,15 @@ package cache
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
-	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	"github.com/stretchr/testify/require"
 
 	apimachineryerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -79,6 +78,7 @@ func StartStandaloneCacheServer(ctx context.Context, t *testing.T, dataDir strin
 	require.NoError(t, err)
 	preparedCachedServer, err := cacheServer.PrepareRun(ctx)
 	require.NoError(t, err)
+	start := time.Now()
 	t.Logf("Starting the cache server")
 	go func() {
 		require.NoError(t, preparedCachedServer.Run(ctx))
@@ -93,7 +93,7 @@ func StartStandaloneCacheServer(ctx context.Context, t *testing.T, dataDir strin
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "Waiting for the cache server's certificate file at %s", cacheServerCertificatePath)
 
 	t.Logf("Creating kubeconfig for the cache server at %s", dataDir)
-	cacheServerCert, err := ioutil.ReadFile(cacheServerCertificatePath)
+	cacheServerCert, err := os.ReadFile(cacheServerCertificatePath)
 	require.NoError(t, err)
 	cacheServerKubeConfig := clientcmdapi.Config{
 		Clusters: map[string]*clientcmdapi.Cluster{
@@ -119,6 +119,12 @@ func StartStandaloneCacheServer(ctx context.Context, t *testing.T, dataDir strin
 	t.Logf("Waiting for the cache server at %v to become ready", cacheClientRestConfig.Host)
 	waitUntilCacheServerIsReady(ctx, t, cacheClientRestConfig)
 
+	if t.Failed() {
+		t.Fatal("Fixture setup failed: cache server did not become ready")
+	}
+
+	t.Logf("Started cache server after %s", time.Since(start))
+
 	return cacheKubeconfigPath
 }
 
@@ -126,7 +132,7 @@ func CacheClientRoundTrippersFor(cfg *rest.Config) *rest.Config {
 	cacheClientRT := cacheclient.WithCacheServiceRoundTripper(rest.CopyConfig(cfg))
 	cacheClientRT = cacheclient.WithShardNameFromContextRoundTripper(cacheClientRT)
 	cacheClientRT = cacheclient.WithDefaultShardRoundTripper(cacheClientRT, shard.Wildcard)
-	kcpclienthelper.SetMultiClusterRoundTripper(cacheClientRT)
+	cacheClientRT.ContentConfig.ContentType = "application/json"
 	return cacheClientRT
 }
 
@@ -157,7 +163,7 @@ func waitForEndpoint(ctx context.Context, t *testing.T, client *rest.RESTClient,
 		req := rest.NewRequest(client).RequestURI(endpoint)
 		_, err := req.Do(ctx).Raw()
 		if err != nil {
-			lastError = fmt.Errorf("error contacting %s: failed components: %w", req.URL(), err)
+			lastError = fmt.Errorf("error contacting %s: failed components: %v", req.URL(), unreadyComponentsFromError(err))
 			return false, nil
 		}
 
@@ -166,4 +172,20 @@ func waitForEndpoint(ctx context.Context, t *testing.T, client *rest.RESTClient,
 	}); err != nil && lastError != nil {
 		t.Error(lastError)
 	}
+}
+
+// there doesn't seem to be any simple way to get a metav1.Status from the Go client, so we get
+// the content in a string-formatted error, unfortunately.
+func unreadyComponentsFromError(err error) string {
+	innerErr := strings.TrimPrefix(strings.TrimSuffix(err.Error(), `") has prevented the request from succeeding`), `an error on the server ("`)
+	var unreadyComponents []string
+	for _, line := range strings.Split(innerErr, `\n`) {
+		if name := strings.TrimPrefix(strings.TrimSuffix(line, ` failed: reason withheld`), `[-]`); name != line {
+			// NB: sometimes the error we get is truncated (server-side?) to something like: `\n[-]poststar") has prevented the request from succeeding`
+			// In those cases, the `name` here is also truncated, but nothing we can do about that. For that reason, we don't expose a list of components
+			// from this function or else we'd need to handle more edge cases.
+			unreadyComponents = append(unreadyComponents, name)
+		}
+	}
+	return strings.Join(unreadyComponents, ", ")
 }

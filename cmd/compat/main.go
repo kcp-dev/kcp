@@ -21,7 +21,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 
@@ -83,7 +82,7 @@ Flags:
 }
 
 func parse(fn string) (*apiextensionsv1.CustomResourceDefinition, error) {
-	b, err := ioutil.ReadFile(fn)
+	b, err := os.ReadFile(fn)
 	if err != nil {
 		log.Fatal(err)
 	}

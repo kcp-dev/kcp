@@ -145,7 +145,7 @@ type ClusterWorkspaceTypeReference struct {
 
 // ClusterWorkspaceTypeName is a name of a ClusterWorkspaceType
 //
-// +kubebuilder:validation:Pattern=`^[a-z]([a-z0-9-]{0,61}[a-z0-9])?`
+// +kubebuilder:validation:Pattern=`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?`
 type ClusterWorkspaceTypeName string
 
 func (r ClusterWorkspaceTypeReference) String() string {
@@ -368,7 +368,7 @@ type ClusterWorkspaceTypeList struct {
 // ClusterWorkspaceInitializer is a unique string corresponding to a cluster workspace
 // initialization controller for the given type of workspaces.
 //
-// +kubebuilder:validation:Pattern:="^(root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$"
+// +kubebuilder:validation:Pattern:="^(root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$"
 type ClusterWorkspaceInitializer string
 
 // ClusterWorkspaceAPIBindingsInitializer is a special-case initializer that waits for APIBindings defined
@@ -531,13 +531,11 @@ type ClusterWorkspaceShardSpec struct {
 	// baseURL is the address of the KCP shard for direct connections, e.g. by some
 	// front-proxy doing the fan-out to the shards.
 	//
-	// This will be defaulted to the shard's external address if not specified. Note that this
-	// is only sensible in single-shards setups.
-	//
+	// +required
+	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Format=uri
 	// +kubebuilder:validation:MinLength=1
-	// +optional
-	BaseURL string `json:"baseURL,omitempty"`
+	BaseURL string `json:"baseURL"`
 
 	// externalURL is the externally visible address presented to users in Workspace URLs.
 	// Changing this will break all existing workspaces on that shard, i.e. existing
@@ -553,21 +551,20 @@ type ClusterWorkspaceShardSpec struct {
 	//
 	// This will be defaulted to the value of the baseURL.
 	//
+	// +optional
 	// +kubebuilder:validation:Format=uri
 	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:Required
-	// +required
-	ExternalURL string `json:"externalURL"`
+	ExternalURL string `json:"externalURL,omitempty"`
 
 	// virtualWorkspaceURL is the address of the virtual workspace server associated with this shard.
 	// It can be a direct address, an address of a front-proxy or even an address of an LB.
 	// As of today this address is assigned to APIExports.
 	//
-	// This will be defaulted to the shard's base address if not specified.
+	// This will be defaulted to the value of the baseURL.
 	//
+	// +optional
 	// +kubebuilder:validation:Format=uri
 	// +kubebuilder:validation:MinLength=1
-	// +optional
 	VirtualWorkspaceURL string `json:"virtualWorkspaceURL,omitempty"`
 }
 

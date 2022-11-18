@@ -71,7 +71,7 @@ func TestSyncerLifecycle(t *testing.T) {
 	// heartbeating and the heartbeat controller setting the sync target ready in
 	// response.
 	syncerFixture := framework.NewSyncerFixture(t, upstreamServer, wsClusterName,
-		framework.WithExtraResources("persistentvolumes"),
+		framework.WithExtraResources("persistentvolumes", "roles.rbac.authorization.k8s.io", "rolebindings.rbac.authorization.k8s.io"),
 		framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 			if !isFakePCluster {
 				// Only need to install services and ingresses in a logical cluster
@@ -83,6 +83,7 @@ func TestSyncerLifecycle(t *testing.T) {
 			kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
 				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
 				metav1.GroupResource{Group: "core.k8s.io", Resource: "persistentvolumes"},
+				metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
 			)
 			require.NoError(t, err)
 		})).Start(t)
@@ -92,6 +93,7 @@ func TestSyncerLifecycle(t *testing.T) {
 
 	t.Logf("Bind location workspace")
 	framework.NewBindCompute(t, wsClusterName, upstreamServer).Bind(t)
+	syncerFixture.WorkspaceBound(t, ctx, wsClusterName)
 
 	upstreamConfig := upstreamServer.BaseConfig(t)
 	upstreamKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(upstreamConfig)
@@ -349,6 +351,30 @@ func TestSyncerLifecycle(t *testing.T) {
 	require.False(t, apierrors.IsNotFound(err))
 	require.NoError(t, err)
 
+	t.Logf("Deleting upstream namespace %s", upstreamNamespace.Name)
+	err = upstreamKubeClusterClient.Cluster(wsClusterName).CoreV1().Namespaces().Delete(ctx, upstreamNamespace.Name, metav1.DeleteOptions{})
+	require.NoError(t, err)
+
+	t.Logf("Checking if upstream namespace %s deletion timestamp is set", upstreamNamespace.Name)
+	framework.Eventually(t, func() (bool, string) {
+		namespace, err := upstreamKubeClusterClient.Cluster(wsClusterName).CoreV1().Namespaces().Get(ctx, upstreamNamespace.Name, metav1.GetOptions{})
+		require.NoError(t, err)
+		if namespace.DeletionTimestamp == nil {
+			return false, "namespace deletion timestamp is not set"
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "upstream Namespace %s was not deleted", upstreamNamespace.Name)
+
+	t.Logf("Checking if downstream namespace %s is marked for deletion or deleted, shouldn't as there's a deployment with a virtual finalizer", downstreamNamespaceName)
+	require.Neverf(t, func() bool {
+		namespace, err := downstreamKubeClient.CoreV1().Namespaces().Get(ctx, downstreamNamespaceName, metav1.GetOptions{})
+		if apierrors.IsNotFound(err) {
+			return true
+		}
+		require.NoError(t, err)
+		return namespace.DeletionTimestamp != nil
+	}, 5*time.Second, time.Millisecond*100, "downstream Namespace %s was marked for deletion or deleted", downstreamNamespaceName)
+
 	// deleting a virtual Finalizer on the deployment and updating it.
 	t.Logf("Removing the virtual finalizer on the upstream deployment %s/%s, the deployment deletion should go through after this", upstreamNamespace.Name, upstreamDeployment.Name)
 	deploymentPatch = []byte(`{"metadata":{"annotations":{"finalizers.workload.kcp.dev/` + syncTargetKey + `": null}}}`)
@@ -364,20 +390,6 @@ func TestSyncerLifecycle(t *testing.T) {
 		require.NoError(t, err)
 		return false
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "upstream Deployment %s/%s was not deleted", upstreamNamespace.Name, upstreamDeployment.Name)
-
-	t.Logf("Deleting upstream namespace %s", upstreamNamespace.Name)
-	err = upstreamKubeClusterClient.Cluster(wsClusterName).CoreV1().Namespaces().Delete(ctx, upstreamNamespace.Name, metav1.DeleteOptions{})
-	require.NoError(t, err)
-
-	t.Logf("Checking if upstream namespace %s to be deleted", upstreamNamespace.Name)
-	framework.Eventually(t, func() (bool, string) {
-		_, err := upstreamKubeClusterClient.Cluster(wsClusterName).CoreV1().Namespaces().Get(ctx, upstreamNamespace.Name, metav1.GetOptions{})
-		if apierrors.IsNotFound(err) {
-			return true, ""
-		}
-		require.NoError(t, err)
-		return false, ""
-	}, wait.ForeverTestTimeout, time.Millisecond*100, "upstream Namespace %s was not deleted", upstreamNamespace.Name)
 
 	t.Logf("Waiting for downstream namespace %s to be marked for deletion or deleted", downstreamNamespaceName)
 	framework.Eventually(t, func() (bool, string) {
@@ -618,6 +630,7 @@ func TestCordonUncordonDrain(t *testing.T) {
 			require.NoError(t, err, "failed to construct apiextensions client for server")
 			kubefixtures.Create(t, crdClusterClient.ApiextensionsV1().CustomResourceDefinitions(),
 				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
+				metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
 			)
 		})).Start(t)
 	syncTargetName := syncerFixture.SyncerConfig.SyncTargetName

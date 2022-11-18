@@ -22,8 +22,6 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 
-	kcpapiextensionsclientset "github.com/kcp-dev/apiextensions-apiserver/pkg/client/clientset/versioned"
-	kcpapiextensionsinformers "github.com/kcp-dev/apiextensions-apiserver/pkg/client/informers/externalversions"
 	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
@@ -31,6 +29,8 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
+	kcpapiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/kcp/clientset/versioned"
+	kcpapiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/kcp/informers/externalversions"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/endpoints/filters"
@@ -107,6 +107,11 @@ type ExtraConfig struct {
 	// misc
 	preHandlerChainMux   *handlerChainMuxes
 	quotaAdmissionStopCh chan struct{}
+
+	// URL getters depending on genericspiserver.ExternalAddress which is initialized on server run
+	ShardBaseURL             func() string
+	ShardExternalURL         func() string
+	ShardVirtualWorkspaceURL func() string
 
 	// informers
 	KcpSharedInformerFactory              kcpinformers.SharedInformerFactory
@@ -244,6 +249,10 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 
 		c.identityConfig = rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
 		c.identityConfig.Wrap(kcpShardIdentityRoundTripper)
+		c.KcpClusterClient, err = kcpclient.NewClusterForConfig(c.identityConfig) // this is now generic to be used for all kcp API groups
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		// create an empty non-functional factory so that code that uses it but doesn't need it, doesn't have to check against the nil value
 		c.TemporaryRootShardKcpSharedInformerFactory = kcpinformers.NewSharedInformerFactory(nil, resyncPeriod)
@@ -251,11 +260,11 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		// The informers here are not used before the informers are actually started (i.e. no race).
 
 		c.identityConfig, c.resolveIdentities = bootstrap.NewConfigWithWildcardIdentities(c.GenericConfig.LoopbackClientConfig, bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, nil)
-	}
-
-	c.KcpClusterClient, err = kcpclient.NewClusterForConfig(c.identityConfig) // this is now generic to be used for all kcp API groups
-	if err != nil {
-		return nil, err
+		c.KcpClusterClient, err = kcpclient.NewClusterForConfig(c.identityConfig) // this is now generic to be used for all kcp API groups
+		if err != nil {
+			return nil, err
+		}
+		c.RootShardKcpClusterClient = c.KcpClusterClient
 	}
 	c.KcpSharedInformerFactory = kcpinformers.NewSharedInformerFactoryWithOptions(
 		c.KcpClusterClient.Cluster(logicalcluster.Wildcard),
@@ -393,13 +402,29 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		kcpadmissioninitializers.NewKubeClusterClientInitializer(c.KubeClusterClient),
 		kcpadmissioninitializers.NewKcpClusterClientInitializer(c.KcpClusterClient),
 		kcpadmissioninitializers.NewDeepSARClientInitializer(c.DeepSARClient),
-		kcpadmissioninitializers.NewShardBaseURLInitializer(opts.Extra.ShardBaseURL),
-		kcpadmissioninitializers.NewShardExternalURLInitializer(opts.Extra.ShardExternalURL),
 		// The external address is provided as a function, as its value may be updated
 		// with the default secure port, when the config is later completed.
-		kcpadmissioninitializers.NewExternalAddressInitializer(func() string { return c.GenericConfig.ExternalAddress }),
 		kcpadmissioninitializers.NewKubeQuotaConfigurationInitializer(quotaConfiguration),
 		kcpadmissioninitializers.NewServerShutdownInitializer(c.quotaAdmissionStopCh),
+	}
+
+	c.ShardBaseURL = func() string {
+		if opts.Extra.ShardBaseURL != "" {
+			return opts.Extra.ShardBaseURL
+		}
+		return "https://" + c.GenericConfig.ExternalAddress
+	}
+	c.ShardExternalURL = func() string {
+		if opts.Extra.ShardExternalURL != "" {
+			return opts.Extra.ShardExternalURL
+		}
+		return "https://" + c.GenericConfig.ExternalAddress
+	}
+	c.ShardVirtualWorkspaceURL = func() string {
+		if opts.Extra.ShardVirtualWorkspaceURL != "" {
+			return opts.Extra.ShardVirtualWorkspaceURL
+		}
+		return "https://" + c.GenericConfig.ExternalAddress
 	}
 
 	c.Apis, err = genericcontrolplane.CreateKubeAPIServerConfig(c.GenericConfig, opts.GenericControlPlane, c.KubeSharedInformerFactory, admissionPluginInitializers, storageFactory)
@@ -450,6 +475,8 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 			return c.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Lister().Get(key)
 		},
 	}
+	c.ApiExtensions.ExtraConfig.Client = c.ApiExtensionsClusterClient
+	c.ApiExtensions.ExtraConfig.Informers = c.ApiExtensionsSharedInformerFactory
 	c.ApiExtensions.ExtraConfig.TableConverterProvider = NewTableConverterProvider()
 
 	c.MiniAggregator = &aggregator.MiniAggregatorConfig{

@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
@@ -105,21 +106,21 @@ func deepEqualApartFromStatus(logger logr.Logger, oldUnstrob, newUnstrob *unstru
 	return true
 }
 
-func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResource, key string) error {
+func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResource, key string) (retryAfter *time.Duration, err error) {
 	logger := klog.FromContext(ctx)
 
 	// from upstream
 	clusterName, upstreamNamespace, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		logger.Error(err, "Invalid key")
-		return nil
+		return nil, nil
 	}
 	logger = logger.WithValues(logging.WorkspaceKey, clusterName, logging.NamespaceKey, upstreamNamespace, logging.NameKey, name)
 
 	desiredNSLocator := shared.NewNamespaceLocator(clusterName, c.syncTargetWorkspace, c.syncTargetUID, c.syncTargetName, upstreamNamespace)
 	jsonNSLocator, err := json.Marshal(desiredNSLocator)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	var downstreamNamespace string
@@ -127,7 +128,7 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	if upstreamNamespace != "" {
 		downstreamNamespaces, err := c.downstreamNSInformer.Informer().GetIndexer().ByIndex(byNamespaceLocatorIndexName, string(jsonNSLocator))
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		if len(downstreamNamespaces) == 1 {
@@ -140,13 +141,13 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 			for _, namespace := range downstreamNamespaces {
 				namespacesCollisions = append(namespacesCollisions, namespace.(*unstructured.Unstructured).GetName())
 			}
-			return fmt.Errorf("(namespace collision) found multiple downstream namespaces: %s for upstream namespace %s|%s", strings.Join(namespacesCollisions, ","), clusterName, upstreamNamespace)
+			return nil, fmt.Errorf("(namespace collision) found multiple downstream namespaces: %s for upstream namespace %s|%s", strings.Join(namespacesCollisions, ","), clusterName, upstreamNamespace)
 		} else {
 			logger.V(4).Info("No downstream namespaces found")
 			downstreamNamespace, err = shared.PhysicalClusterNamespaceName(desiredNSLocator)
 			if err != nil {
 				logger.Error(err, "Error hashing namespace")
-				return nil
+				return nil, nil
 			}
 		}
 	}
@@ -155,12 +156,12 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	// get the upstream object
 	syncerInformer, ok := c.syncerInformers.InformerForResource(gvr)
 	if !ok {
-		return nil
+		return nil, nil
 	}
 
 	obj, exists, err := syncerInformer.UpstreamInformer.Informer().GetIndexer().GetByKey(kcpcache.ToClusterAwareKey(clusterName.String(), upstreamNamespace, name))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if !exists {
 		// deleted upstream => delete downstream
@@ -171,37 +172,57 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 			err = c.downstreamClient.Resource(gvr).Delete(ctx, name, metav1.DeleteOptions{})
 		}
 		if err != nil && !apierrors.IsNotFound(err) {
-			return err
+			return nil, err
 		}
-		return nil
+		// If the resource is namespaced, let's plan the cleanup of it's namespace.
+		if downstreamNamespace != "" {
+			c.downstreamNSCleaner.PlanCleaning(downstreamNamespace)
+		}
+		return nil, nil
 	}
 
 	// upsert downstream
 	upstreamObj, ok := obj.(*unstructured.Unstructured)
 	if !ok {
-		return fmt.Errorf("object to synchronize is expected to be Unstructured, but is %T", obj)
+		return nil, fmt.Errorf("object to synchronize is expected to be Unstructured, but is %T", obj)
 	}
 
 	if downstreamNamespace != "" {
 		if err := c.ensureDownstreamNamespaceExists(ctx, downstreamNamespace, upstreamObj); err != nil {
-			return err
+			return nil, err
 		}
 	} else {
 		// In cluser-wide resources we also need to check for possible collisions, as the resource could exist in the pcluster but now owned by this workspace.
 		// TODO(jmprusi): We should indicate the collision somehow (condition/annotation?) to avoid retrying the resource over and over.
 		if err := c.clusterWideCollisionCheck(ctx, gvr, upstreamObj); err != nil {
-			return err
+			return nil, err
 		}
+	}
+
+	deploymentGVR := schema.GroupVersionResource{
+		Group:    "apps",
+		Version:  "v1",
+		Resource: "deployments",
+	}
+
+	// Make sure the DNS nameserver for the current workspace is up and running
+	if dnsUpAndReady, err := c.dnsProcessor.EnsureDNSUpAndReady(ctx, clusterName); err != nil {
+		logger.Error(err, "failed to check DNS nameserver is up and running (retrying)")
+		return nil, err
+	} else if !dnsUpAndReady && gvr == deploymentGVR {
+		logger.Info("DNS Server is not ready for the deployment resource to sync: requeue the deployment in 500ms")
+		retryDelay := 500 * time.Millisecond
+		return &retryDelay, nil
 	}
 
 	if added, err := c.ensureSyncerFinalizer(ctx, gvr, upstreamObj); added {
 		// The successful update of the upstream resource finalizer will trigger a new reconcile
-		return nil
+		return nil, nil
 	} else if err != nil {
-		return err
+		return nil, err
 	}
 
-	return c.applyToDownstream(ctx, gvr, downstreamNamespace, upstreamObj)
+	return nil, c.applyToDownstream(ctx, gvr, downstreamNamespace, upstreamObj)
 }
 
 // TODO: This function is there as a quick and dirty implementation of namespace creation.
@@ -251,6 +272,9 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 	} else if err != nil {
 		return err
 	}
+
+	// If the namespace was marked for deletion, let's cancel it, as we expect to use it.
+	c.downstreamNSCleaner.CancelCleaning(newNamespace.GetName())
 
 	// The namespace exists, so check if it has the correct namespace locator.
 	unstrNamespace := namespace.(*unstructured.Unstructured)
@@ -377,6 +401,9 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 			}
 			logger.Error(err, "Error deleting upstream resource from downstream")
 			return err
+		}
+		if downstreamNamespace != "" {
+			c.downstreamNSCleaner.PlanCleaning(downstreamNamespace)
 		}
 		logger.V(2).Info("Deleted upstream resource from downstream")
 		return nil

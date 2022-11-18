@@ -14,7 +14,17 @@ if err != nil {
     panic(err)
 }
 
-srv, err := server.NewServer(options)
+cfg, err := server.NewConfig(options)
+if err != nil {
+    panic(err)
+}
+
+completedCfg, err := cfg.Complete()
+if err != nil {
+    panic(err)
+}
+
+srv, err := server.NewServer(completedCfg)
 if err != nil {
     panic(err)
 }
@@ -34,7 +44,17 @@ if err != nil {
     panic(err)
 }
 
-srv, err := server.NewServer(options)
+cfg, err := server.NewConfig(options)
+if err != nil {
+    panic(err)
+}
+
+completedCfg, err := cfg.Complete()
+if err != nil {
+    panic(err)
+}
+
+srv, err := server.NewServer(completedCfg)
 if err != nil {
     panic(err)
 }

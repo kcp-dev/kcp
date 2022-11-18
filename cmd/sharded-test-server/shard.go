@@ -62,8 +62,8 @@ func newShard(ctx context.Context, n int, args []string, servingCA *crypto.CA, h
 	if n > 0 {
 		args = append(args, fmt.Sprintf("--shard-name=shard-%d", n))
 		args = append(args, fmt.Sprintf("--root-shard-kubeconfig-file=%s", filepath.Join(workDirPath, ".kcp-0/admin.kubeconfig")))
-		args = append(args, fmt.Sprintf("--embedded-etcd-client-port=%d", 2379+n+1))
-		args = append(args, fmt.Sprintf("--embedded-etcd-peer-port=%d", (2379+n+1)+1)) // prev value +1
+		args = append(args, fmt.Sprintf("--embedded-etcd-client-port=%d", embeddedEtcdClientPort(n)))
+		args = append(args, fmt.Sprintf("--embedded-etcd-peer-port=%d", embeddedEtcdPeerPort(n)))
 	}
 	args = append(args,
 		/*fmt.Sprintf("--cluster-workspace-shard-name=kcp-%d", n),*/
@@ -92,4 +92,12 @@ func newShard(ctx context.Context, n int, args []string, servingCA *crypto.CA, h
 		logFilePath,
 		args,
 	), nil
+}
+
+func embeddedEtcdClientPort(n int) int {
+	return 2380 + (n * 2) - 1
+}
+
+func embeddedEtcdPeerPort(n int) int {
+	return 2380 + (n * 2)
 }

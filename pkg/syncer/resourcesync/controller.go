@@ -74,6 +74,7 @@ type SyncerInformerFactory interface {
 	AddUpstreamEventHandler(handler ResourceEventHandlerPerGVR)
 	AddDownstreamEventHandler(handler ResourceEventHandlerPerGVR)
 	InformerForResource(gvr schema.GroupVersionResource) (*SyncerInformer, bool)
+	SyncableGVRs() (map[schema.GroupVersionResource]*SyncerInformer, error)
 	Start(ctx context.Context, numThreads int)
 }
 
@@ -197,6 +198,12 @@ func (c *Controller) InformerForResource(gvr schema.GroupVersionResource) (*Sync
 	}
 
 	return nil, false
+}
+
+func (c *Controller) SyncableGVRs() (map[schema.GroupVersionResource]*SyncerInformer, error) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	return c.syncerInformerMap, nil
 }
 
 func (c *Controller) startWorker(ctx context.Context) {
@@ -401,7 +408,7 @@ func (c *Controller) startSyncerInformer(ctx context.Context, gvr schema.GroupVe
 	)
 	downstreamInformer := dynamicinformer.NewFilteredDynamicInformerWithOptions(c.downstreamDynamicClient, gvr, metav1.NamespaceAll, func(o *metav1.ListOptions) {
 		o.LabelSelector = workloadv1alpha1.InternalDownstreamClusterLabel + "=" + syncTargetKey
-	}, cache.WithResyncPeriod(resyncPeriod), cache.WithKeyFunction(keyfunctions.DeletionHandlingMetaNamespaceKeyFunc))
+	}, cache.WithResyncPeriod(resyncPeriod), cache.WithKeyFunction(keyfunctions.DeletionHandlingMetaNamespaceKeyFunc), cache.WithIndexers(map[string]cache.IndexFunc{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}))
 
 	for _, handler := range c.upstreamEventHandlers {
 		upstreamInformer.Informer().AddEventHandler(handler(gvr))

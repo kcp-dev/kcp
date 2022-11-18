@@ -41,16 +41,19 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/informers"
+	kubefake "k8s.io/client-go/kubernetes/fake"
 	clienttesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/syncer/resourcesync"
+	"github.com/kcp-dev/kcp/pkg/syncer/spec/dns"
 	"github.com/kcp-dev/kcp/third_party/keyfunctions"
 )
 
@@ -60,6 +63,20 @@ func init() {
 	scheme = runtime.NewScheme()
 	_ = corev1.AddToScheme(scheme)
 	_ = appsv1.AddToScheme(scheme)
+}
+
+type mockedCleaner struct {
+	toClean sets.String
+}
+
+func (c *mockedCleaner) PlanCleaning(key string) {
+	c.toClean.Insert(key)
+}
+
+// CancelCleaning removes the key from the list of keys to be cleaned up.
+// If it wasn't planned for deletion, it does nothing.
+func (c *mockedCleaner) CancelCleaning(key string) {
+	c.toClean.Delete(key)
 }
 
 func TestDeepEqualApartFromStatus(t *testing.T) {
@@ -496,6 +513,14 @@ func TestSyncerProcess(t *testing.T) {
 					"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync",
 				}, nil, nil),
 			},
+			toResources: []runtime.Object{
+				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeRole("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeRoleBinding("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeDeployment("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "dnsimage"),
+				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				endpoints("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
 			resourceToProcessName:               "theDeployment",
 			syncTargetName:                      "us-west1",
@@ -541,6 +566,14 @@ func TestSyncerProcess(t *testing.T) {
 				deployment("theDeployment", "test", "root:org:ws", map[string]string{
 					"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync",
 				}, nil, []string{"workload.kcp.dev/syncer-2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5"}),
+			},
+			toResources: []runtime.Object{
+				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeRole("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeRoleBinding("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeDeployment("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "dnsimage"),
+				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				endpoints("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
 			resourceToProcessName:               "theDeployment",
@@ -621,6 +654,12 @@ func TestSyncerProcess(t *testing.T) {
 				deployment("theDeployment", "kcp-hcbsa8z6c2er", "root:org:ws", map[string]string{
 					"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
 				}, nil, []string{"workload.kcp.dev/syncer-2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5"}),
+				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeRole("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeRoleBinding("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeDeployment("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "dnsimage"),
+				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				endpoints("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
 			},
 			fromResources: []runtime.Object{
 				secret("default-token-abc", "test", "root:org:ws",
@@ -660,6 +699,12 @@ func TestSyncerProcess(t *testing.T) {
 					map[string]string{
 						"kcp.dev/namespace-locator": `{"syncTarget":{"workspace":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
 					}),
+				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeRole("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeRoleBinding("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeDeployment("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "dnsimage"),
+				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				endpoints("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
 			},
 			fromResources: []runtime.Object{
 				secret("default-token-abc", "test", "root:org:ws",
@@ -716,6 +761,12 @@ func TestSyncerProcess(t *testing.T) {
 				deployment("theDeployment", "kcp-hcbsa8z6c2er", "", map[string]string{
 					"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
 				}, nil, nil),
+				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeRole("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeRoleBinding("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeDeployment("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "dnsimage"),
+				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				endpoints("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
 			},
 			fromResources: []runtime.Object{
 				secret("default-token-abc", "test", "root:org:ws",
@@ -790,6 +841,14 @@ func TestSyncerProcess(t *testing.T) {
 					},
 					map[string]string{"experimental.spec-diff.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "[{\"op\":\"replace\",\"path\":\"/replicas\",\"value\":3}]"},
 					[]string{"workload.kcp.dev/syncer-2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5"}),
+			},
+			toResources: []runtime.Object{
+				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeRole("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeRoleBinding("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeDeployment("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "dnsimage"),
+				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				endpoints("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
 			resourceToProcessName:               "theDeployment",
@@ -925,6 +984,12 @@ func TestSyncerProcess(t *testing.T) {
 					map[string][]byte{
 						"a": []byte("b"),
 					}),
+				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeRole("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeRoleBinding("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeDeployment("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "dnsimage"),
+				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				endpoints("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
 			},
 			fromResources: []runtime.Object{
 				secretWithFinalizers("foo", "test", "root:org:ws",
@@ -980,6 +1045,8 @@ func TestSyncerProcess(t *testing.T) {
 			syncTargetKey := workloadv1alpha1.ToSyncTargetKey(tc.syncTargetWorkspace, tc.syncTargetName)
 
 			toClient := dynamicfake.NewSimpleDynamicClient(scheme, tc.toResources...)
+			toKubeClient := kubefake.NewSimpleClientset(tc.toResources...)
+
 			fromInformers := kcpdynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClusterClient, time.Hour, func(o *metav1.ListOptions) {
 				o.LabelSelector = workloadv1alpha1.ClusterResourceStateLabelPrefix + syncTargetKey + "=" + string(workloadv1alpha1.ResourceStateSync)
 			})
@@ -992,16 +1059,35 @@ func TestSyncerProcess(t *testing.T) {
 
 			fakeInformers := newFakeSyncerInformers(tc.gvr, fromInformers, toInformers)
 
+			// toInformerFactory to watch some DNS-related resources in the dns namespace
+			toInformerFactory := informers.NewSharedInformerFactoryWithOptions(toKubeClient, time.Hour,
+				informers.WithNamespace("kcp-01c0zzvlqsi7n"),
+				informers.WithKeyFunction(keyfunctions.DeletionHandlingMetaNamespaceKeyFunc))
+			serviceAccountLister := toInformerFactory.Core().V1().ServiceAccounts().Lister()
+			roleLister := toInformerFactory.Rbac().V1().Roles().Lister()
+			roleBindingLister := toInformerFactory.Rbac().V1().RoleBindings().Lister()
+			deploymentLister := toInformerFactory.Apps().V1().Deployments().Lister()
+			serviceLister := toInformerFactory.Core().V1().Services().Lister()
+			endpointLister := toInformerFactory.Core().V1().Endpoints().Lister()
+
 			upstreamURL, err := url.Parse("https://kcp.dev:6443")
 			require.NoError(t, err)
-			controller, err := NewSpecSyncer(logger, kcpLogicalCluster, tc.syncTargetName, syncTargetKey, upstreamURL, tc.advancedSchedulingEnabled, fromClusterClient, toClient, fromInformers, toInformers, fakeInformers, syncTargetUID, "8.8.8.8")
+
+			mockedCleaner := &mockedCleaner{
+				toClean: sets.String{},
+			}
+			controller, err := NewSpecSyncer(logger, kcpLogicalCluster, tc.syncTargetName, syncTargetKey, upstreamURL, tc.advancedSchedulingEnabled,
+				fromClusterClient, toClient, toKubeClient, fromInformers, toInformers, mockedCleaner, fakeInformers, syncTargetUID,
+				serviceAccountLister, roleLister, roleBindingLister, deploymentLister, serviceLister, endpointLister, "kcp-01c0zzvlqsi7n", "dnsimage")
 			require.NoError(t, err)
 
 			fromInformers.Start(ctx.Done())
 			toInformers.Start(ctx.Done())
+			toInformerFactory.Start(ctx.Done())
 
 			fromInformers.WaitForCacheSync(ctx.Done())
 			toInformers.WaitForCacheSync(ctx.Done())
+			toInformerFactory.WaitForCacheSync(ctx.Done())
 
 			<-resourceWatcherStarted
 
@@ -1009,7 +1095,7 @@ func TestSyncerProcess(t *testing.T) {
 			toClient.ClearActions()
 
 			key := kcpcache.ToClusterAwareKey(tc.resourceToProcessLogicalClusterName, tc.fromNamespace.Name, tc.resourceToProcessName)
-			err = controller.process(context.Background(),
+			_, err = controller.process(context.Background(),
 				tc.gvr,
 				key,
 			)
@@ -1088,6 +1174,27 @@ func deployment(name, namespace, clusterName string, labels, annotations map[str
 			Finalizers:  finalizers,
 		},
 	}
+}
+
+func endpoints(name, namespace string) *corev1.Endpoints {
+	return &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Subsets: []corev1.EndpointSubset{
+			{Addresses: []corev1.EndpointAddress{
+				{
+					IP: "8.8.8.8",
+				}}},
+		},
+	}
+}
+
+func service(name, namespace string) *corev1.Service {
+	svc := dns.MakeService(name, namespace)
+	svc.Spec.ClusterIP = "8.8.8.8"
+	return svc
 }
 
 func secret(name, namespace, clusterName string, labels, annotations map[string]string, data map[string][]byte) *corev1.Secret {
@@ -1290,5 +1397,8 @@ func (f *fakeSyncerInformers) InformerForResource(gvr schema.GroupVersionResourc
 		UpstreamInformer:   f.upstreamInformer,
 		DownstreamInformer: f.downStreamInformer,
 	}, true
+}
+func (f *fakeSyncerInformers) SyncableGVRs() (map[schema.GroupVersionResource]*resourcesync.SyncerInformer, error) {
+	return map[schema.GroupVersionResource]*resourcesync.SyncerInformer{{Group: "apps", Version: "v1", Resource: "deployments"}: nil}, nil
 }
 func (f *fakeSyncerInformers) Start(ctx context.Context, numThreads int) {}
