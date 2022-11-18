@@ -24,6 +24,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
@@ -92,12 +93,21 @@ func WithLocalProxy(
 			return
 		}
 
-		requestShardName, rewrittenClusterName, found := state.LookupShardAndCluster(clusterInfo.Name)
+		canonicalPath, foundCanonicalPath := tenancy.CanonicalPathFromHeader(req.Header)
+		requestShardName, rewrittenClusterName, computedCanonicalPath, found := state.Lookup(clusterInfo.Name)
 		if !found {
 			// No rewrite, depend on the handler chain to do the right thing, like 403 or 404.
 			handler.ServeHTTP(w, req)
 			return
 		}
+
+		if foundCanonicalPath {
+			// note: the client can of course fake this header, but it's not a security issue
+			// because it can equally just put the same value in the API objects. The canonical
+			// path must only be used for defaulting, not for something security-critical.
+			canonicalPath = computedCanonicalPath
+		}
+		req = req.WithContext(tenancy.WithCanonicalPath(ctx, canonicalPath))
 
 		if requestShardName != shardName {
 			w.Header().Set("Retry-After", fmt.Sprintf("%d", 1))
