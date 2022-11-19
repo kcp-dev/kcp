@@ -45,6 +45,7 @@ import (
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
+	"github.com/kcp-dev/kcp/pkg/authorization"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspacedeletion/deletion"
@@ -231,7 +232,6 @@ func (r *schedulingReconciler) chooseShardAndMarkCondition(logger klog.Logger, w
 
 func (r *schedulingReconciler) createThisWorkspace(ctx context.Context, shard *tenancyv1alpha1.ClusterWorkspaceShard, cluster logicalcluster.Name, workspace *tenancyv1beta1.Workspace) error {
 	this := &tenancyv1alpha1.ThisWorkspace{
-		// TODO(p0lyn0mial): in the future we could set an UID based back-reference to ClusterWorkspace as annotation
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       tenancyv1alpha1.ThisWorkspaceName,
 			Finalizers: []string{deletion.WorkspaceFinalizer},
@@ -249,6 +249,12 @@ func (r *schedulingReconciler) createThisWorkspace(ctx context.Context, shard *t
 				UID:        workspace.UID,
 			},
 		},
+	}
+	if owner, found := workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey]; found {
+		this.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey] = owner
+	}
+	if groups, found := workspace.Annotations[authorization.RequiredGroupsAnnotationKey]; found {
+		this.Annotations[authorization.RequiredGroupsAnnotationKey] = groups
 	}
 
 	// add initializers
