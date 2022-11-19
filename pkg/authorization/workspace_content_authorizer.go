@@ -19,14 +19,12 @@ package authorization
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	rbacv1listers "github.com/kcp-dev/client-go/listers/rbac/v1"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	kaudit "k8s.io/apiserver/pkg/audit"
 	authserviceaccount "k8s.io/apiserver/pkg/authentication/serviceaccount"
@@ -37,9 +35,8 @@ import (
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
-	tenancyv1beta1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1beta1"
+	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
 )
 
@@ -51,13 +48,19 @@ const (
 	WorkspaceContentAuditReason   = WorkspaceContentAuditPrefix + "reason"
 )
 
-func NewWorkspaceContentAuthorizer(versionedInformers kcpkubernetesinformers.SharedInformerFactory, workspaceLister tenancyv1beta1listers.WorkspaceClusterLister, delegate authorizer.Authorizer) authorizer.Authorizer {
+var decisionStrings = map[authorizer.Decision]string{
+	authorizer.DecisionNoOpinion: "no opinion",
+	authorizer.DecisionAllow:     "allow",
+	authorizer.DecisionDeny:      "deny",
+}
+
+func NewWorkspaceContentAuthorizer(versionedInformers kcpkubernetesinformers.SharedInformerFactory, thisWorkspaceLister tenancyv1alpha1listers.ThisWorkspaceClusterLister, delegate authorizer.Authorizer) authorizer.Authorizer {
 	return &workspaceContentAuthorizer{
 		roleLister:               versionedInformers.Rbac().V1().Roles().Lister(),
 		roleBindingLister:        versionedInformers.Rbac().V1().RoleBindings().Lister(),
 		clusterRoleLister:        versionedInformers.Rbac().V1().ClusterRoles().Lister(),
 		clusterRoleBindingLister: versionedInformers.Rbac().V1().ClusterRoleBindings().Lister(),
-		workspaceLister:          workspaceLister,
+		thisWorkspaceLister:      thisWorkspaceLister,
 
 		delegate: delegate,
 	}
@@ -68,7 +71,7 @@ type workspaceContentAuthorizer struct {
 	roleBindingLister        rbacv1listers.RoleBindingClusterLister
 	clusterRoleBindingLister rbacv1listers.ClusterRoleBindingClusterLister
 	clusterRoleLister        rbacv1listers.ClusterRoleClusterLister
-	workspaceLister          tenancyv1beta1listers.WorkspaceClusterLister // TODO(salaboy): switch to ThisWorkspace
+	thisWorkspaceLister      tenancyv1alpha1listers.ThisWorkspaceClusterLister
 
 	// union of local and bootstrap authorizer
 	delegate authorizer.Authorizer
@@ -93,7 +96,6 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 
 	isAuthenticated := sets.NewString(attr.GetUser().GetGroups()...).Has("system:authenticated")
 	isUser := len(subjectClusters) == 0
-	isServiceAccountFromRootCluster := subjectClusters[tenancyv1alpha1.RootCluster]
 	isServiceAccountFromCluster := subjectClusters[cluster.Name]
 
 	if IsDeepSubjectAccessReviewFrom(ctx, attr) {
@@ -116,29 +118,6 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 		return a.delegate.Authorize(ctx, attr)
 	}
 
-	// Every authenticated user has access to the root workspace but not every service account.
-	// For root, only service accounts declared in root have access.
-	if cluster.Name == tenancyv1alpha1.RootCluster {
-		if isAuthenticated && (isUser || isServiceAccountFromRootCluster) {
-			withGroups := deepCopyAttributes(attr)
-			withGroups.User.(*user.DefaultInfo).Groups = append(attr.GetUser().GetGroups(), bootstrap.SystemKcpClusterWorkspaceAccessGroup)
-
-			kaudit.AddAuditAnnotations(
-				ctx,
-				WorkspaceContentAuditDecision, DecisionAllowed,
-				WorkspaceContentAuditReason, "subject is either an authenticated user or a serviceaccount in root",
-			)
-
-			return a.delegate.Authorize(ctx, withGroups)
-		}
-		kaudit.AddAuditAnnotations(
-			ctx,
-			WorkspaceContentAuditDecision, DecisionNoOpinion,
-			WorkspaceContentAuditReason, "root workspace access by non-root service account not permitted",
-		)
-		return authorizer.DecisionNoOpinion, WorkspaceAccessNotPermittedReason, nil
-	}
-
 	// always let logical-cluster-admins through
 	if isUser && sets.NewString(attr.GetUser().GetGroups()...).Has(bootstrap.SystemLogicalClusterAdmin) {
 		kaudit.AddAuditAnnotations(
@@ -149,43 +128,14 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 		return a.delegate.Authorize(ctx, attr)
 	}
 
-	// non-root workspaces must have a parent
-	parentClusterName, hasParent := cluster.Name.Parent()
-	if !hasParent {
-		kaudit.AddAuditAnnotations(
-			ctx,
-			WorkspaceContentAuditDecision, DecisionNoOpinion,
-			WorkspaceContentAuditReason, "non-root workspace that does not have a parent",
-		)
-		return authorizer.DecisionNoOpinion, WorkspaceAccessNotPermittedReason, nil
-	}
-
-	parentAuthorizer := rbac.New(
-		&rbac.RoleGetter{Lister: rbacwrapper.NewMergedRoleLister(
-			a.roleLister.Cluster(parentClusterName),
-			a.roleLister.Cluster(genericcontrolplane.LocalAdminCluster),
-		)},
-		&rbac.RoleBindingLister{Lister: a.roleBindingLister.Cluster(parentClusterName)},
-		&rbac.ClusterRoleGetter{Lister: rbacwrapper.NewMergedClusterRoleLister(
-			a.clusterRoleLister.Cluster(parentClusterName),
-			a.clusterRoleLister.Cluster(genericcontrolplane.LocalAdminCluster),
-		)},
-		&rbac.ClusterRoleBindingLister{Lister: rbacwrapper.NewMergedClusterRoleBindingLister(
-			a.clusterRoleBindingLister.Cluster(parentClusterName),
-			a.clusterRoleBindingLister.Cluster(genericcontrolplane.LocalAdminCluster),
-		)},
-	)
-
-	extraGroups := sets.NewString()
-
 	// check the workspace even exists
-	ws, err := a.workspaceLister.Cluster(parentClusterName).Get(cluster.Name.Base())
+	this, err := a.thisWorkspaceLister.Cluster(cluster.Name).Get(tenancyv1alpha1.ThisWorkspaceName)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			kaudit.AddAuditAnnotations(
 				ctx,
 				WorkspaceContentAuditDecision, DecisionDenied,
-				WorkspaceContentAuditReason, "clusterworkspace not found",
+				WorkspaceContentAuditReason, "thisworkspace not found",
 			)
 			return authorizer.DecisionDeny, WorkspaceAccessNotPermittedReason, nil
 		}
@@ -198,111 +148,76 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 		return authorizer.DecisionNoOpinion, "", err
 	}
 
-	if ws.Status.Phase != tenancyv1alpha1.WorkspacePhaseInitializing && ws.Status.Phase != tenancyv1alpha1.WorkspacePhaseReady {
+	if this.Status.Phase != tenancyv1alpha1.WorkspacePhaseInitializing && this.Status.Phase != tenancyv1alpha1.WorkspacePhaseReady {
 		kaudit.AddAuditAnnotations(
 			ctx,
 			WorkspaceContentAuditDecision, DecisionNoOpinion,
-			WorkspaceContentAuditReason, fmt.Sprintf("not permitted due to phase %q", ws.Status.Phase),
+			WorkspaceContentAuditReason, fmt.Sprintf("not permitted due to phase %q", this.Status.Phase),
 		)
 		return authorizer.DecisionNoOpinion, WorkspaceAccessNotPermittedReason, nil
 	}
 
 	switch {
+	case !isUser && !isServiceAccountFromCluster:
+		// service accounts from other workspaces cannot access
+		kaudit.AddAuditAnnotations(
+			ctx,
+			WorkspaceContentAuditDecision, DecisionDenied,
+			WorkspaceContentAuditReason, fmt.Sprintf("service account from other workspace: %v", subjectClusters),
+		)
+		return authorizer.DecisionDeny, WorkspaceAccessNotPermittedReason, nil
+
 	case isServiceAccountFromCluster:
 		// A service account declared in the requested workspace is authorized inside that workspace.
-		// Referencing such a service account in the parent workspace is not possible,
-		// hence authorization against "admin" or "access" verbs in the parent is not possible either.
-		extraGroups.Insert(bootstrap.SystemKcpClusterWorkspaceAccessGroup)
 
 	case isUser:
-		verbToGroupMembership := map[string][]string{
-			"admin":  {bootstrap.SystemKcpClusterWorkspaceAccessGroup, bootstrap.SystemKcpClusterWorkspaceAdminGroup},
-			"access": {bootstrap.SystemKcpClusterWorkspaceAccessGroup},
-		}
-
-		var (
-			errList    []error
-			reasonList []string
+		authz := rbac.New(
+			&rbac.RoleGetter{Lister: rbacwrapper.NewMergedRoleLister(
+				a.roleLister.Cluster(cluster.Name),
+				a.roleLister.Cluster(genericcontrolplane.LocalAdminCluster),
+			)},
+			&rbac.RoleBindingLister{Lister: a.roleBindingLister.Cluster(cluster.Name)},
+			&rbac.ClusterRoleGetter{Lister: rbacwrapper.NewMergedClusterRoleLister(
+				a.clusterRoleLister.Cluster(cluster.Name),
+				a.clusterRoleLister.Cluster(genericcontrolplane.LocalAdminCluster),
+			)},
+			&rbac.ClusterRoleBindingLister{Lister: rbacwrapper.NewMergedClusterRoleBindingLister(
+				a.clusterRoleBindingLister.Cluster(cluster.Name),
+				a.clusterRoleBindingLister.Cluster(genericcontrolplane.LocalAdminCluster),
+			)},
 		)
-		for verb, groups := range verbToGroupMembership {
-			workspaceAttr := authorizer.AttributesRecord{
-				User:            attr.GetUser(),
-				Verb:            verb,
-				APIGroup:        tenancyv1beta1.SchemeGroupVersion.Group,
-				APIVersion:      tenancyv1beta1.SchemeGroupVersion.Version,
-				Resource:        "workspaces",
-				Subresource:     "content",
-				Name:            cluster.Name.Base(),
-				ResourceRequest: true,
-			}
 
-			dec, reason, err := parentAuthorizer.Authorize(ctx, workspaceAttr)
-			if err != nil {
-				errList = append(errList, err)
-				reasonList = append(reasonList, reason)
-				continue
-			}
-			if dec == authorizer.DecisionAllow {
-				extraGroups.Insert(groups...)
-			}
+		workspaceAttr := authorizer.AttributesRecord{
+			User:            attr.GetUser(),
+			Verb:            "access",
+			Path:            "/",
+			ResourceRequest: false,
 		}
-		if len(errList) > 0 {
+
+		dec, reason, err := authz.Authorize(ctx, workspaceAttr)
+		if err != nil {
 			kaudit.AddAuditAnnotations(
 				ctx,
 				WorkspaceContentAuditDecision, DecisionNoOpinion,
-				WorkspaceContentAuditReason, fmt.Sprintf("errors from parent authorizer: %v", utilerrors.NewAggregate(errList)),
+				WorkspaceContentAuditReason, fmt.Sprintf("errors from workspace content authorizer: %v", err),
 			)
-			return authorizer.DecisionNoOpinion, strings.Join(reasonList, "\n"), utilerrors.NewAggregate(errList)
+			return authorizer.DecisionNoOpinion, WorkspaceAccessNotPermittedReason, err
+		}
+		if dec != authorizer.DecisionAllow {
+			kaudit.AddAuditAnnotations(
+				ctx,
+				WorkspaceContentAuditDecision, decisionStrings[dec],
+				WorkspaceContentAuditReason, reason,
+			)
+			return dec, WorkspaceAccessNotPermittedReason, nil
 		}
 	}
-
-	// non-admin subjects don't have access to initializing workspaces.
-	if ws.Status.Phase == tenancyv1alpha1.WorkspacePhaseInitializing && !extraGroups.Has(bootstrap.SystemKcpClusterWorkspaceAdminGroup) {
-		kaudit.AddAuditAnnotations(
-			ctx,
-			WorkspaceContentAuditDecision, DecisionNoOpinion,
-			WorkspaceContentAuditReason, "not permitted, clusterworkspace is in initializing phase",
-		)
-		return authorizer.DecisionNoOpinion, WorkspaceAccessNotPermittedReason, nil
-	}
-
-	if len(extraGroups) == 0 {
-		kaudit.AddAuditAnnotations(
-			ctx,
-			WorkspaceContentAuditDecision, DecisionNoOpinion,
-			WorkspaceContentAuditReason, "not permitted, subject has not been granted any groups",
-		)
-		return authorizer.DecisionNoOpinion, WorkspaceAccessNotPermittedReason, nil
-	}
-
-	withGroups := deepCopyAttributes(attr)
-	withGroups.User.(*user.DefaultInfo).Groups = append(attr.GetUser().GetGroups(), extraGroups.List()...)
 
 	kaudit.AddAuditAnnotations(
 		ctx,
 		WorkspaceContentAuditDecision, DecisionAllowed,
-		WorkspaceContentAuditReason, fmt.Sprintf("allowed with additional groups: %v", extraGroups),
+		WorkspaceContentAuditReason, "allowed by workspace content authorizer",
 	)
 
-	return a.delegate.Authorize(ctx, withGroups)
-}
-
-func deepCopyAttributes(attr authorizer.Attributes) authorizer.AttributesRecord {
-	return authorizer.AttributesRecord{
-		User: &user.DefaultInfo{
-			Name:   attr.GetUser().GetName(),
-			UID:    attr.GetUser().GetUID(),
-			Groups: attr.GetUser().GetGroups(),
-			Extra:  attr.GetUser().GetExtra(),
-		},
-		Verb:            attr.GetVerb(),
-		Namespace:       attr.GetNamespace(),
-		APIGroup:        attr.GetAPIGroup(),
-		APIVersion:      attr.GetAPIVersion(),
-		Resource:        attr.GetResource(),
-		Subresource:     attr.GetSubresource(),
-		Name:            attr.GetName(),
-		ResourceRequest: attr.IsResourceRequest(),
-		Path:            attr.GetPath(),
-	}
+	return a.delegate.Authorize(ctx, attr)
 }
