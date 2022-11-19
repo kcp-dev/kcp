@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v221118-df0cb30d.workspaces.tenancy.kcp.dev
+  name: v221119-b110ca85.workspaces.tenancy.kcp.dev
 spec:
   group: tenancy.kcp.dev
   names:
@@ -221,11 +221,8 @@ spec:
                 type: object
               type: array
             initializers:
-              description: "initializers are set on creation by the system and must
-                be cleared by a controller before the workspace can be used. The workspace
-                will stay in the phase \"Initializing\" state until all initializers
-                are cleared. \n A cluster workspace in \"Initializing\" state are
-                gated via the RBAC clusterworkspaces/initialize resource permission."
+              description: initializers must be cleared by a controller before the
+                workspace is ready and can be used.
               items:
                 description: WorkspaceInitializer is a unique string corresponding
                   to a cluster workspace initialization controller for the given type

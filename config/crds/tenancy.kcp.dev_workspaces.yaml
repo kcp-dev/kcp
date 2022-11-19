@@ -226,12 +226,8 @@ spec:
                   type: object
                 type: array
               initializers:
-                description: "initializers are set on creation by the system and must
-                  be cleared by a controller before the workspace can be used. The
-                  workspace will stay in the phase \"Initializing\" state until all
-                  initializers are cleared. \n A cluster workspace in \"Initializing\"
-                  state are gated via the RBAC clusterworkspaces/initialize resource
-                  permission."
+                description: initializers must be cleared by a controller before the
+                  workspace is ready and can be used.
                 items:
                   description: WorkspaceInitializer is a unique string corresponding
                     to a cluster workspace initialization controller for the given

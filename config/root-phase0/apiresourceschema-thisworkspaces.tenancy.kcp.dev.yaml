@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v221117-df0cb30d.thisworkspaces.tenancy.kcp.dev
+  name: v221119-5169b04d.thisworkspaces.tenancy.kcp.dev
 spec:
   group: tenancy.kcp.dev
   names:
@@ -61,6 +61,16 @@ spec:
               description: DirectlyDeletable indicates that this workspace can be
                 directly deleted by the user from within the workspace.
               type: boolean
+            initializers:
+              description: initializers are set on creation by the system and copied
+                to status when initialization starts.
+              items:
+                description: WorkspaceInitializer is a unique string corresponding
+                  to a cluster workspace initialization controller for the given type
+                  of workspaces.
+                pattern: ^(root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$
+                type: string
+              type: array
             owner:
               description: "owner is a reference to a resource controlling the life-cycle
                 of this workspace. On deletion of the ThisWorkspace, the finalizer
@@ -195,7 +205,7 @@ spec:
                 type: string
               type: array
             phase:
-              default: Initializing
+              default: Scheduling
               description: Phase of the workspace (Initializing, Ready).
               enum:
               - Scheduling
