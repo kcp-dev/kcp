@@ -226,7 +226,7 @@ const WorkspaceAPIBindingsInitializer WorkspaceInitializer = "system:apibindings
 const (
 	// WorkspacePhaseLabel holds the ClusterWorkspace.Status.Phase value, and is enforced to match
 	// by a mutating admission webhook.
-	WorkspacePhaseLabel = "internal.kcp.dev/phase"
+	WorkspacePhaseLabel = "tenancy.kcp.dev/phase"
 	// WorkspaceInitializerLabelPrefix is the prefix for labels which match ClusterWorkspace.Status.Initializers,
 	// and the set of labels with this prefix is enforced to match the set of initializers by a mutating admission
 	// webhook.

@@ -19,6 +19,7 @@ package thisworkspace
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
@@ -29,6 +30,9 @@ import (
 )
 
 func TestReconcileMetadata(t *testing.T) {
+	date, err := time.Parse(time.RFC3339, "2006-01-02T15:04:05Z")
+	require.NoError(t, err)
+
 	for _, testCase := range []struct {
 		name       string
 		input      *tenancyv1alpha1.ThisWorkspace
@@ -36,7 +40,7 @@ func TestReconcileMetadata(t *testing.T) {
 		wantStatus reconcileStatus
 	}{
 		{
-			name: "adds entirely missing labels",
+			name: "adds entirely missing labels and annotations",
 			input: &tenancyv1alpha1.ThisWorkspace{
 				Status: tenancyv1alpha1.ThisWorkspaceStatus{
 					Phase: tenancyv1alpha1.WorkspacePhaseReady,
@@ -47,10 +51,28 @@ func TestReconcileMetadata(t *testing.T) {
 			},
 			expected: metav1.ObjectMeta{
 				Labels: map[string]string{
-					"internal.kcp.dev/phase": "Ready",
+					"tenancy.kcp.dev/phase": "Ready",
 					"initializer.internal.kcp.dev/2eadcbf778956517ec99fd1c1c32a9b13c": "2eadcbf778956517ec99fd1c1c32a9b13cbae759770fc37c341c7fe8",
 					"initializer.internal.kcp.dev/aceeb26461953562d30366db65b200f642": "aceeb26461953562d30366db65b200f64241f9e5fe888892d52eea5c",
 					"initializer.internal.kcp.dev/ccf53a4988ae8515ee77131ef507cabaf1": "ccf53a4988ae8515ee77131ef507cabaf18822766c2a4cff33b24eb8",
+				},
+			},
+			wantStatus: reconcileStatusStopAndRequeue,
+		},
+		{
+			name: "shows phase Deleting when deletion timestamp is set",
+			input: &tenancyv1alpha1.ThisWorkspace{
+				ObjectMeta: metav1.ObjectMeta{
+					DeletionTimestamp: &metav1.Time{Time: date},
+				},
+				Status: tenancyv1alpha1.ThisWorkspaceStatus{
+					Phase: tenancyv1alpha1.WorkspacePhaseReady,
+				},
+			},
+			expected: metav1.ObjectMeta{
+				DeletionTimestamp: &metav1.Time{Time: date},
+				Labels: map[string]string{
+					"tenancy.kcp.dev/phase": "Deleting",
 				},
 			},
 			wantStatus: reconcileStatusStopAndRequeue,
@@ -60,7 +82,7 @@ func TestReconcileMetadata(t *testing.T) {
 			input: &tenancyv1alpha1.ThisWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"internal.kcp.dev/phase": "Ready",
+						"tenancy.kcp.dev/phase": "Ready",
 						"initializer.internal.kcp.dev/2eadcbf778956517ec99fd1c1c32a9b13c": "2eadcbf778956517ec99fd1c1c32a9b13cbae759770fc37c341c7fe8",
 						"initializer.internal.kcp.dev/aceeb26461953562d30366db65b200f642": "aceeb26461953562d30366db65b200f64241f9e5fe888892d52eea5c",
 					},
@@ -74,7 +96,7 @@ func TestReconcileMetadata(t *testing.T) {
 			},
 			expected: metav1.ObjectMeta{
 				Labels: map[string]string{
-					"internal.kcp.dev/phase": "Ready",
+					"tenancy.kcp.dev/phase": "Ready",
 					"initializer.internal.kcp.dev/2eadcbf778956517ec99fd1c1c32a9b13c": "2eadcbf778956517ec99fd1c1c32a9b13cbae759770fc37c341c7fe8",
 					"initializer.internal.kcp.dev/aceeb26461953562d30366db65b200f642": "aceeb26461953562d30366db65b200f64241f9e5fe888892d52eea5c",
 					"initializer.internal.kcp.dev/ccf53a4988ae8515ee77131ef507cabaf1": "ccf53a4988ae8515ee77131ef507cabaf18822766c2a4cff33b24eb8",
@@ -87,7 +109,7 @@ func TestReconcileMetadata(t *testing.T) {
 			input: &tenancyv1alpha1.ThisWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"internal.kcp.dev/phase": "Ready",
+						"tenancy.kcp.dev/phase": "Ready",
 						"initializer.internal.kcp.dev/2eadcbf778956517ec99fd1c1c32a9b13c": "2eadcbf778956517ec99fd1c1c32a9b13cbae759770fc37c341c7fe8",
 						"initializer.internal.kcp.dev/aceeb26461953562d30366db65b200f642": "aceeb26461953562d30366db65b200f64241f9e5fe888892d52eea5c",
 					},
@@ -101,7 +123,7 @@ func TestReconcileMetadata(t *testing.T) {
 			},
 			expected: metav1.ObjectMeta{
 				Labels: map[string]string{
-					"internal.kcp.dev/phase": "Ready",
+					"tenancy.kcp.dev/phase": "Ready",
 					"initializer.internal.kcp.dev/2eadcbf778956517ec99fd1c1c32a9b13c": "2eadcbf778956517ec99fd1c1c32a9b13cbae759770fc37c341c7fe8",
 				},
 			},
@@ -112,7 +134,7 @@ func TestReconcileMetadata(t *testing.T) {
 			input: &tenancyv1alpha1.ThisWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"internal.kcp.dev/phase": "Ready",
+						"tenancy.kcp.dev/phase": "Ready",
 						"initializer.internal.kcp.dev/2eadcbf778956517ec99fd1c1c32a9b13c": "2eadcbf778956517ec99fd1c1c32a9b13cbae759770fc37c341c7fe8",
 						"initializer.internal.kcp.dev/aceeb26461953562d30366db65b200f642": "aceeb26461953562d30366db65b200f64241f9e5fe888892d52eea5c",
 						"initializer.internal.kcp.dev/ccf53a4988ae8515ee77131ef507cabaf1": "ccf53a4988ae8515ee77131ef507cabaf18822766c2a4cff33b24eb8",
@@ -127,7 +149,7 @@ func TestReconcileMetadata(t *testing.T) {
 			},
 			expected: metav1.ObjectMeta{
 				Labels: map[string]string{
-					"internal.kcp.dev/phase": "Ready",
+					"tenancy.kcp.dev/phase": "Ready",
 					"initializer.internal.kcp.dev/2eadcbf778956517ec99fd1c1c32a9b13c": "2eadcbf778956517ec99fd1c1c32a9b13cbae759770fc37c341c7fe8",
 					"initializer.internal.kcp.dev/aceeb26461953562d30366db65b200f642": "aceeb26461953562d30366db65b200f64241f9e5fe888892d52eea5c",
 					"initializer.internal.kcp.dev/ccf53a4988ae8515ee77131ef507cabaf1": "ccf53a4988ae8515ee77131ef507cabaf18822766c2a4cff33b24eb8",
@@ -140,7 +162,7 @@ func TestReconcileMetadata(t *testing.T) {
 			input: &tenancyv1alpha1.ThisWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"internal.kcp.dev/phase": "Ready",
+						"tenancy.kcp.dev/phase": "Ready",
 					},
 					Annotations: map[string]string{
 						"a":                                  "b",
@@ -153,7 +175,7 @@ func TestReconcileMetadata(t *testing.T) {
 			},
 			expected: metav1.ObjectMeta{
 				Labels: map[string]string{
-					"internal.kcp.dev/phase": "Ready",
+					"tenancy.kcp.dev/phase": "Ready",
 				},
 				Annotations: map[string]string{
 					"a":                                  "b",
@@ -167,7 +189,7 @@ func TestReconcileMetadata(t *testing.T) {
 			input: &tenancyv1alpha1.ThisWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"internal.kcp.dev/phase": "Ready",
+						"tenancy.kcp.dev/phase": "Ready",
 					},
 					Annotations: map[string]string{
 						"a":                                  "b",
@@ -180,7 +202,7 @@ func TestReconcileMetadata(t *testing.T) {
 			},
 			expected: metav1.ObjectMeta{
 				Labels: map[string]string{
-					"internal.kcp.dev/phase": "Ready",
+					"tenancy.kcp.dev/phase": "Ready",
 				},
 				Annotations: map[string]string{
 					"a": "b",

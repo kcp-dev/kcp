@@ -23,8 +23,8 @@ spec:
       jsonPath: .spec.type.name
       name: Type
       type: string
-    - description: The current phase (e.g. Scheduling, Initializing, Ready)
-      jsonPath: .status.phase
+    - description: The current phase (e.g. Scheduling, Initializing, Ready, Deleting)
+      jsonPath: .metadata.labels['tenancy\.kcp\.dev/phase']
       name: Phase
       type: string
     - description: URL to access the workspace

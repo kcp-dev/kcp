@@ -46,7 +46,7 @@ const (
 func clusterRoleBindings() []rbacv1.ClusterRoleBinding {
 	return []rbacv1.ClusterRoleBinding{
 		clusterRoleBindingCustomName(rbacv1helpers.NewClusterBinding("cluster-admin").Groups(SystemKcpAdminGroup).BindingOrDie(), "system:kcp:admin:cluster-admin"),
-		clusterRoleBindingCustomName(rbacv1helpers.NewClusterBinding(SystemKcpWorkspaceBootstrapper).Groups(SystemKcpWorkspaceBootstrapper, "apis.kcp.dev:binding:system:kcp:tenancy:workspace-bootstrapper").BindingOrDie(), SystemKcpWorkspaceBootstrapper),
+		clusterRoleBindingCustomName(rbacv1helpers.NewClusterBinding(SystemKcpWorkspaceBootstrapper).Groups(SystemKcpWorkspaceBootstrapper, "apis.kcp.dev:binding:"+SystemKcpWorkspaceBootstrapper).BindingOrDie(), SystemKcpWorkspaceBootstrapper),
 		clusterRoleBindingCustomName(rbacv1helpers.NewClusterBinding(SystemLogicalClusterAdmin).Groups(SystemLogicalClusterAdmin).BindingOrDie(), SystemLogicalClusterAdmin),
 	}
 }

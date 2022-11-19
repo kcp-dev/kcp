@@ -36,7 +36,11 @@ func (r *metaDataReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 	logger := klog.FromContext(ctx).WithValues("reconciler", "metadata")
 
 	changed := false
-	if got, expected := workspace.Labels[tenancyv1alpha1.WorkspacePhaseLabel], string(workspace.Status.Phase); got != expected {
+	expected := string(workspace.Status.Phase)
+	if !workspace.DeletionTimestamp.IsZero() {
+		expected = "Deleting"
+	}
+	if got := workspace.Labels[tenancyv1alpha1.WorkspacePhaseLabel]; got != expected {
 		if workspace.Labels == nil {
 			workspace.Labels = map[string]string{}
 		}
