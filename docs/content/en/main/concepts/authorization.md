@@ -43,127 +43,78 @@ They are related in the following way:
 4. one of the local authorizer or bootstrap policy authorizer must allow.
 
 ```
-                                                                                          ┌──────────────┐
-                                                                                          │              │
-           ┌─────────────────┐     ┌───────────────┐        ┌───────────────────┐   ┌────►│ Local Policy ├──┐
-           │ Top-level       │     │               │        │                   │   │     │ authorizer   │  │
- request   │ Organization    │     │ Workspace ┌───┴───┐    │ Max. Permission   │   │     │              │  │
-──────────►│ authorizer      ├────►│ Content   │+groups├───►│ Policy authorizer ├───┤     └──────────────┘  │
-           │                 │     │ authorizer└───┬───┘    │                   │   │                       ▼
-           │                 │     │               │        └───────────────────┘   │                       OR───►
-           └─────────────────┘     └───────────────┘                                │     ┌──────────────┐  ▲
-                                                                                    │     │  Bootstrap   │  │
-                                                                                    └────►│  Policy      ├──┘
-                                                                                          │  authorizer  │
-                                                                                          │              │
-                                                                                          └──────────────┘
-
+                                                                                 ┌──────────────┐
+                                                                                 │              │
+                                                                           ┌────►│ Local Policy ├──┐
+          ┌──────────────┐     ┌──────────────┐    ┌───────────────────┐   │     │ authorizer   │  │
+ request  │  Workspace   │     │  Required    │    │ Max. Permission   │   │     │              │  │
+─────────►│  Content     ├────►│  Groups      ├────┤ Policy authorizer ├───┤     └──────────────┘  │
+          │  Authorizer  │     │  Authorizer  │    │                   │   │                       ▼
+          └──────────────┘     └──────────────┘    └───────────────────┘   │                       OR───►
+                                                                           │     ┌──────────────┐  ▲
+                                                                           │     │  Bootstrap   │  │
+                                                                           └────►│  Policy      ├──┘
+                                                                                 │  authorizer  │
+                                                                                 │              │
+                                                                                 └──────────────┘
 ```
 
-[ASCIIFlow document](https://asciiflow.com/#/share/eJy1VUFLwzAU%2FislV6egB6G96Y4qKyJ4ySWUMItdU9NM2o2BePbQQxk97OjRk3iS%2FZr9Ets125omxWaQEmj68vLe974vL52DEE0wcMDN0LWupuyJUH%2BGKRiAAKXl2wFzCBIIHNs%2BH0CQlrML%2B7KcMZyw8gMCy9izyT82%2BVvvkUEYmgTzLhnEhJpwD7iP3J3pJV53jEwRYflblXtLPBRYLgl8Ly1dVh1EV64PJDoN8CsOWmxJrDUt8uLB2gyA9sdyt8C5p%2FhlimPGrSM6RqE%2FQ8wnYRvDI6HPcYQ83Cr1p81n5XyHkjPLxXTix3EdS8YkQ64x%2FaNCTaxQ0Hb%2FSuE1JCHDIa%2FuZEzJNIoFz9qN69OIKYb75ClynbNVKM%2B3LJdaJjHZlxi3n%2B6K9eVaD496pR8XXc3CS%2BhGObpv6tMGrKWBSNoRu4sOjAq29C7aSoxvQ7etoOA1ISxmFEWW0GRm8or01s216y7usu%2Brwvy%2FpnlJmCu7kbBlMJxQ7zqCYAEWf%2BVCNyA%3D))
+[ASCIIFlow document](https://asciiflow.com/#/share/eJyrVspLzE1VslLydg5QcCwtycgvyqxKLVLSUcpJrATSVkrVMUoVMUpWhgYGBjoxSpVAppGlGZBVklpRAuTEKClQGzya0vNoSgPRaEJMTB4N3NCEIUBde9B9OW0XyE6f%2FOTEHIWA%2FJzM5EqgkjnYPfloyh6SENmaSNWDaQQsIEF0Ijx9wSSgoVqUWliaWlwCtk9BITy%2FKLu4IDE5VQEqAKODgMoyi1JTFBASIMo3sUJPISC1KDezuDgzPw8uiWw1ZuRCrMbnflCMAM1xzs8rSc0rwRqGUCXuRfmlBcW44gYWnUjeB0vAI38JVOMUUpL9DMw0CXaLI1Igo4QeFgmYPJbgwQw1hPy0PUM9NWIC%2FyDkrEjtrA5LiKQVbKCg3kQrpwBpp%2Fz8kuKSosQCBZQ8QVXrUNM0pJCDZQioEnghN4NmJXkiStqnsieR7EEToI09pBUTMUq1SrUA%2FWv8Mg%3D%3D))
 
-### Top-Level Organization authorizer
-
-A top-level organization is a workspace directly under root. When a user accesses a top-level organization or
-a sub-workspace like `root:org:ws:ws`, this authorizer will check in `root` whether the user has permission
-to the top-level org workspace represented by the `ClusterWorkspace` named `org` in `root` with the following verbs:
-
-| Verb     | Resource                   | Semantics                                                  |
-|----------|----------------------------|------------------------------------------------------------|
-| `access` | `clusterworkspace/content` | the user can access the organization `root:org`            |
-
-E.g. the user is bound via a `ClusterRoleBinding` in `root` to a `ClusterRole` of the following shape:
-
-```yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  clusterName: root
-rules:
-- apiGroups:
-  - tenancy.kcp.dev
-  resources:
-  - workspaces/content
-  resourceNames:
-  - org
-  verbs:
-  - access
-```
 
 ### Workspace Content authorizer
 
-The workspace content authorizer checks whether the user is granted `admin` or `access` verbs in
-the parent workspace against the `workspaces/content` resource with the `resourceNames` of
-the workspace being accessed.
+The workspace content authorizer checks whether the user is granted access to the workspace. 
+Access is granted access through `verb=access` non-resource permission to `/` inside of the workspace.
 
-If any of the verbs is granted, the associated group is added to the user's attributes
-and will be evaluated in the subsequent authorizer chain.
+The ClusterRole `system:kcp:workspace:access` is pre-defined which makes it easy
+to give a user access through a ClusterRoleBinding inside of the workspace.
 
-| Verb     | Groups                                                         | Bootstrap cluster rolebinding       |
-| -------- |----------------------------------------------------------------|-------------------------------------|
-| `admin`  | `system:kcp:workspace:admin` and `system:kcp:workspace:access` | `system:kcp:clusterworkspace:admin` |
-| `access` | `system:kcp:workspace:access`                                  | N/A                                 |
-
-kcp's bootstrap policy provides default bindings:
+For example, to give a user `user1` access, create the following ClusterRoleBinding:
 
 ```yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  clusterName: system:kcp:clusterworkspace:admin
+  name: example-access
 subjects:
-- kind: Group
-  name: system:kcp:clusterworkspace:admin
+- kind: User
+  name: user1
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:kcp:workspace:access
+```
+
+To give a user `user1` admin access, create the following ClusterRoleBinding:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: example-admin
+subjects:
+- kind: User
+  name: user1
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: cluster-admin
 ```
 
-The access verb will not grant any cluster role but only associates with the `system:kcp:clusterworkspace:access` group
-and executes the subsequent authorizer chain.
+A service-account defined in a workspace implicitly is granted access to it.
 
-Example:
+A service-account defined in a differant workspace is NOT given access to it.
 
-Given the user accesses `root:org:ws:ws`, the verbs `admin` and `access` are asserted
-against the `workspaces/content` resource for the `resourceNames: ["ws"]` in the workspace `root:org:ws`.
+### Required Groups Authorizer
 
-To give a user called "adam" admin access to a workspace `root:org:ws:ws`, beyond having org access using the previous top-level organization authorizer,
-a `ClusterRole` must be created in `root:org:ws` with the following shape:
+A `authorization.kcp.dev/required-groups` annotation can be added to a ThisWorkspace 
+to specify additional groups that are required to access a workspace for a user to be member of. 
+The syntax is a disjunction (separator `,`) of conjunctions (separator `;`).
 
-```yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: workspace-admin
-  clusterName: root:org:ws
-rules:
-- apiGroups:
-  - tenancy.kcp.dev
-  resources:
-  - workspaces/content
-  resourceNames:
-  - ws
-  verbs:
-  - admin
-```
+For example, `<group1>;<group2>,<group3>` means that a user must be member of `<group1>` AND `<group2>`, OR of `<group3>`.
 
-and the user must be bound to it via a `ClusterRoleBinding` in `root:org:ws` like the following:
-
-```yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: adam-admin
-  clusterName: root:org:ws
-subjects:
-- kind: User
-  name: adam
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: workspace-admin
-```
+The annotation is copied onto sub-workspaces during scheduling.
 
 #### Initializing Workspaces
 
