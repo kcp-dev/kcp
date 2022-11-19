@@ -7,7 +7,7 @@ spec:
   latestResourceSchemas:
   - v221118-df0cb30d.clusterworkspacetypes.tenancy.kcp.dev
   - v221119-3101a492.clusterworkspaces.tenancy.kcp.dev
-  - v221119-b110ca85.workspaces.tenancy.kcp.dev
+  - v221120-e824b9b1.workspaces.tenancy.kcp.dev
   maximalPermissionPolicy:
     local: {}
 status: {}
