@@ -87,8 +87,8 @@ func BuildVirtualWorkspace(
 		v.Schema.Raw = bs // wipe schemas. We don't want validation here.
 	}
 
-	wildcardWorkspacesName := initializingworkspaces.VirtualWorkspaceName + "-wildcard-workspaces"
-	wildcardWorkspaces := &virtualworkspacesdynamic.DynamicVirtualWorkspace{
+	wildcardThisWorkspacesName := initializingworkspaces.VirtualWorkspaceName + "-wildcard-thisworkspaces"
+	wildcardThisWorkspaces := &virtualworkspacesdynamic.DynamicVirtualWorkspace{
 		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
 			cluster, apiDomain, prefixToStrip, ok := digestUrl(urlPath, rootPathPrefix)
 			if !ok {
@@ -115,6 +115,43 @@ func BuildVirtualWorkspace(
 				exposeSubresources:   false,
 				resource:             &thisWorkspaceResource,
 				storageProvider:      provideFilteredReadOnlyRestStorage,
+			}, nil
+		},
+	}
+
+	thisWorkspacesName := initializingworkspaces.VirtualWorkspaceName + "-thisworkspaces"
+	thisWorkspaces := &virtualworkspacesdynamic.DynamicVirtualWorkspace{
+		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, ctx context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
+			cluster, apiDomain, prefixToStrip, ok := digestUrl(urlPath, rootPathPrefix)
+			if !ok {
+				return false, "", ctx
+			}
+
+			if cluster.Wildcard {
+				// this virtual workspace requires that a specific cluster be provided
+				return false, "", ctx
+			}
+
+			// this delegating server only works for clusterworkspaces.tenancy.kcp.dev
+			if resourceURL := strings.TrimPrefix(urlPath, prefixToStrip); !isThisWorkspaceRequest(resourceURL) {
+				return false, "", ctx
+			}
+
+			completedContext = genericapirequest.WithCluster(ctx, cluster)
+			completedContext = dynamiccontext.WithAPIDomainKey(completedContext, apiDomain)
+			return true, prefixToStrip, completedContext
+		}),
+		Authorizer: newAuthorizer(kubeClusterClient),
+		ReadyChecker: framework.ReadyFunc(func() error {
+			return nil
+		}),
+		BootstrapAPISetManagement: func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
+			return &apiSetRetriever{
+				config:               mainConfig,
+				dynamicClusterClient: dynamicClusterClient,
+				exposeSubresources:   true,
+				resource:             &thisWorkspaceResource,
+				storageProvider:      provideDelegatingRestStorage,
 			}, nil
 		},
 	}
@@ -199,7 +236,7 @@ func BuildVirtualWorkspace(
 
 				rawInfo, ok := thisWorkspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey]
 				if !ok {
-					http.Error(writer, fmt.Sprintf("workspace %s|%s had no user recorded", cluster, tenancyv1alpha1.ThisWorkspaceName), http.StatusInternalServerError)
+					http.Error(writer, fmt.Sprintf("thisworkspace %s|%s had no user recorded", cluster, tenancyv1alpha1.ThisWorkspaceName), http.StatusInternalServerError)
 					return
 				}
 				var info authenticationv1.UserInfo
@@ -250,7 +287,8 @@ func BuildVirtualWorkspace(
 	}
 
 	return []rootapiserver.NamedVirtualWorkspace{
-		{Name: wildcardWorkspacesName, VirtualWorkspace: wildcardWorkspaces},
+		{Name: wildcardThisWorkspacesName, VirtualWorkspace: wildcardThisWorkspaces},
+		{Name: thisWorkspacesName, VirtualWorkspace: thisWorkspaces},
 		{Name: workspaceContentName, VirtualWorkspace: workspaceContent},
 	}, nil
 }

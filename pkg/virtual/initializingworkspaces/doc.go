@@ -17,15 +17,15 @@ limitations under the License.
 // Package initializingworkspaces and its sub-packages provide the Initializing Workspace Virtual Workspace.
 //
 // It allows for one basic functions:
-// - cross-cluster LIST + WATCH of Workspaces which:
+// - cross-cluster LIST + WATCH of ThisWorkspaces which:
 //   - are in the Initializing phase
 //   - request initialization by a specific controller
 //
 // That is, a request for
-// GET /services/initializingworkspaces/<initializer>/clusters/*/apis/tenancy.kcp.io/v1alpha1/clusterworkspaces
-// will return a list of ClusterWorkspace objects which are Initializing and for which spec.initializers contains the
+// GET /services/initializingworkspaces/<initializer>/clusters/*/apis/tenancy.kcp.io/v1alpha1/thisworkspaces
+// will return a list of ThisWorkspace objects which are Initializing and for which status.initializers contains the
 // <initializer-name>.
-// WATCH semantics are similar to (and implemented by) label selectors - a ClusterWorkspace that stops
+// WATCH semantics are similar to (and implemented by) label selectors - a ThisWorkspace that stops
 // matching the requirements to be served (not being in Initializing phase, not requesting initialization by
 // the controller) will be removed from the stream with a synthetic Deleted event.
 package initializingworkspaces
