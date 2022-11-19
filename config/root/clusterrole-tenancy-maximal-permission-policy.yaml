@@ -7,7 +7,6 @@ rules:
   verbs: ["*"]
   resources:
   - workspaces
-  - workspaces/content
   - clusterworkspacetypes
 - apiGroups: ["tenancy.kcp.dev"]
   verbs: ["list","watch","get"]

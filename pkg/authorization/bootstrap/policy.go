@@ -27,14 +27,6 @@ import (
 )
 
 const (
-	// SystemKcpClusterWorkspaceAccessGroup is a group that gives a user basic access to a workspace.
-	// It does not give them any permissions in the workspace.
-	// Deprecated: SystemKcpWorkspaceAccessGroup inside of a workspace will replace this.
-	SystemKcpClusterWorkspaceAccessGroup = "system:kcp:clusterworkspace:access"
-	// SystemKcpClusterWorkspaceAdminGroup is an admin group per cluster workspace. Members of this group have all permissions
-	// in the referenced cluster workspace (capped by maximal permission policy).
-	// Deprecated: cluster-admin inside of a workspace will replace this.
-	SystemKcpClusterWorkspaceAdminGroup = "system:kcp:clusterworkspace:admin"
 	// SystemKcpAdminGroup is global admin group. Members of this group have all permissions across all cluster workspaces.
 	SystemKcpAdminGroup = "system:kcp:admin"
 	// SystemKcpWorkspaceBootstrapper is the group used to bootstrap resources, both during the root setup, as well
@@ -53,8 +45,7 @@ const (
 // ClusterRoleBindings return default rolebindings to the default roles
 func clusterRoleBindings() []rbacv1.ClusterRoleBinding {
 	return []rbacv1.ClusterRoleBinding{
-		clusterRoleBindingCustomName(rbacv1helpers.NewClusterBinding("cluster-admin").Groups(SystemKcpClusterWorkspaceAdminGroup, SystemKcpAdminGroup).BindingOrDie(), SystemKcpClusterWorkspaceAdminGroup),
-		clusterRoleBindingCustomName(rbacv1helpers.NewClusterBinding("system:kcp:tenancy:reader").Groups(SystemKcpClusterWorkspaceAccessGroup).BindingOrDie(), SystemKcpClusterWorkspaceAccessGroup),
+		clusterRoleBindingCustomName(rbacv1helpers.NewClusterBinding("cluster-admin").Groups(SystemKcpAdminGroup).BindingOrDie(), "system:kcp:admin:cluster-admin"),
 		clusterRoleBindingCustomName(rbacv1helpers.NewClusterBinding(SystemKcpWorkspaceBootstrapper).Groups(SystemKcpWorkspaceBootstrapper, "apis.kcp.dev:binding:system:kcp:tenancy:workspace-bootstrapper").BindingOrDie(), SystemKcpWorkspaceBootstrapper),
 		clusterRoleBindingCustomName(rbacv1helpers.NewClusterBinding(SystemLogicalClusterAdmin).Groups(SystemLogicalClusterAdmin).BindingOrDie(), SystemLogicalClusterAdmin),
 	}

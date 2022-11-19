@@ -104,7 +104,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		filepath.Join(workDirPath, ".kcp/kcp-admin.key"),
 		&user.DefaultInfo{
 			Name:   "kcp-admin",
-			Groups: []string{bootstrap.SystemKcpClusterWorkspaceAdminGroup, bootstrap.SystemKcpAdminGroup},
+			Groups: []string{bootstrap.SystemKcpAdminGroup},
 		},
 		365,
 	)
