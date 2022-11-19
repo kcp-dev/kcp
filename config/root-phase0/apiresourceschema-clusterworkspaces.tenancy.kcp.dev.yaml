@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v221118-df0cb30d.clusterworkspaces.tenancy.kcp.dev
+  name: v221119-3101a492.clusterworkspaces.tenancy.kcp.dev
 spec:
   group: tenancy.kcp.dev
   names:
@@ -49,19 +49,8 @@ spec:
             submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
           type: string
         metadata:
-          properties:
-            name:
-              maxLength: 63
-              minLength: 1
-              not:
-                enum:
-                - root
-                - system
-              pattern: ^[a-z]([a-z0-9-]{0,61}[a-z0-9])?$
-              type: string
           type: object
         spec:
-          default: {}
           description: ClusterWorkspaceSpec holds the desired state of the ClusterWorkspace.
           properties:
             readOnly:
@@ -72,11 +61,6 @@ spec:
                 location stored in the status, movement will be attempted. \n Either
                 shard name or shard selector must be specified. \n If the no shard
                 constraints are specified, an arbitrary shard is chosen."
-              oneOf:
-              - required:
-                - name
-              - required:
-                - selector
               properties:
                 name:
                   description: name is the name of ClusterWorkspaceShard.
@@ -171,7 +155,6 @@ spec:
                 rule: has(oldSelf.cluster) == has(self.cluster)
           type: object
         status:
-          default: {}
           description: ClusterWorkspaceStatus communicates the observed state of the
             ClusterWorkspace.
           properties:

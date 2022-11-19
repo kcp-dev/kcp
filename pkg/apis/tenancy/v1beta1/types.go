@@ -115,12 +115,8 @@ type WorkspaceStatus struct {
 	// +optional
 	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 
-	// initializers are set on creation by the system and must be cleared
-	// by a controller before the workspace can be used. The workspace will
-	// stay in the phase "Initializing" state until all initializers are cleared.
-	//
-	// A cluster workspace in "Initializing" state are gated via the RBAC
-	// clusterworkspaces/initialize resource permission.
+	// initializers must be cleared by a controller before the workspace is ready
+	// and can be used.
 	//
 	// +optional
 	Initializers []v1alpha1.WorkspaceInitializer `json:"initializers,omitempty"`

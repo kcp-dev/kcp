@@ -87,6 +87,12 @@ type ThisWorkspaceSpec struct {
 	//
 	// +optional
 	Owner *ThisWorkspaceOwner `json:"owner,omitempty"`
+
+	// initializers are set on creation by the system and copied to status when
+	// initialization starts.
+	//
+	// +optional
+	Initializers []WorkspaceInitializer `json:"initializers,omitempty"`
 }
 
 // ThisWorkspaceTypeReference is a fully qualified reference to a ClusterWorkspaceType.
@@ -159,7 +165,7 @@ type ThisWorkspaceStatus struct {
 
 	// Phase of the workspace (Initializing, Ready).
 	//
-	// +kubebuilder:default=Initializing
+	// +kubebuilder:default=Scheduling
 	Phase WorkspacePhaseType `json:"phase,omitempty"`
 
 	// Current processing state of the ThisWorkspace.
