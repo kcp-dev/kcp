@@ -19,6 +19,7 @@ package workspace
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
@@ -30,6 +31,9 @@ import (
 )
 
 func TestReconcileMetadata(t *testing.T) {
+	date, err := time.Parse(time.RFC3339, "2006-01-02T15:04:05Z")
+	require.NoError(t, err)
+
 	for _, testCase := range []struct {
 		name       string
 		input      *tenancyv1beta1.Workspace
@@ -41,7 +45,7 @@ func TestReconcileMetadata(t *testing.T) {
 			input: &tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"internal.kcp.dev/phase": "Ready",
+						"tenancy.kcp.dev/phase": "Ready",
 					},
 					Annotations: map[string]string{
 						"a":                                  "b",
@@ -54,7 +58,7 @@ func TestReconcileMetadata(t *testing.T) {
 			},
 			expected: metav1.ObjectMeta{
 				Labels: map[string]string{
-					"internal.kcp.dev/phase": "Ready",
+					"tenancy.kcp.dev/phase": "Ready",
 				},
 				Annotations: map[string]string{
 					"a":                                  "b",
@@ -64,11 +68,29 @@ func TestReconcileMetadata(t *testing.T) {
 			wantStatus: reconcileStatusStopAndRequeue,
 		},
 		{
+			name: "shows phase Deleting when deletion timestamp is set",
+			input: &tenancyv1beta1.Workspace{
+				ObjectMeta: metav1.ObjectMeta{
+					DeletionTimestamp: &metav1.Time{Time: date},
+				},
+				Status: tenancyv1beta1.WorkspaceStatus{
+					Phase: tenancyv1alpha1.WorkspacePhaseReady,
+				},
+			},
+			expected: metav1.ObjectMeta{
+				DeletionTimestamp: &metav1.Time{Time: date},
+				Labels: map[string]string{
+					"tenancy.kcp.dev/phase": "Deleting",
+				},
+			},
+			wantStatus: reconcileStatusStopAndRequeue,
+		},
+		{
 			name: "delete invalid owner annotation when ready",
 			input: &tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"internal.kcp.dev/phase": "Ready",
+						"tenancy.kcp.dev/phase": "Ready",
 					},
 					Annotations: map[string]string{
 						"a":                                  "b",
@@ -81,7 +103,7 @@ func TestReconcileMetadata(t *testing.T) {
 			},
 			expected: metav1.ObjectMeta{
 				Labels: map[string]string{
-					"internal.kcp.dev/phase": "Ready",
+					"tenancy.kcp.dev/phase": "Ready",
 				},
 				Annotations: map[string]string{
 					"a": "b",
