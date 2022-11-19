@@ -111,7 +111,7 @@ func (s *Authorization) ApplyTo(config *genericapiserver.Config, informer kcpkub
 	}
 
 	authorizers = append(authorizers,
-		authorization.NewTopLevelOrganizationAccessAuthorizer(informer, workspaceLister,
+		authorization.NewRequiredGroupsAuthorizer(workspaceLister,
 			authorization.NewWorkspaceContentAuthorizer(informer, workspaceLister,
 				authorization.NewSystemCRDAuthorizer(
 					apiBindingAuth,
