@@ -177,3 +177,23 @@ func getAPIExportByReference(apiExportClusterLister apisv1alpha1listers.APIExpor
 	}
 	return nil, false, err
 }
+
+func deepCopyAttributes(attr authorizer.Attributes) authorizer.AttributesRecord {
+	return authorizer.AttributesRecord{
+		User: &user.DefaultInfo{
+			Name:   attr.GetUser().GetName(),
+			UID:    attr.GetUser().GetUID(),
+			Groups: attr.GetUser().GetGroups(),
+			Extra:  attr.GetUser().GetExtra(),
+		},
+		Verb:            attr.GetVerb(),
+		Namespace:       attr.GetNamespace(),
+		APIGroup:        attr.GetAPIGroup(),
+		APIVersion:      attr.GetAPIVersion(),
+		Resource:        attr.GetResource(),
+		Subresource:     attr.GetSubresource(),
+		Name:            attr.GetName(),
+		ResourceRequest: attr.IsResourceRequest(),
+		Path:            attr.GetPath(),
+	}
+}

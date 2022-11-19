@@ -18,7 +18,6 @@ package authorization
 
 import (
 	"context"
-	"reflect"
 	"testing"
 
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
@@ -35,9 +34,10 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/kubernetes/pkg/controller"
+	"k8s.io/kubernetes/pkg/genericcontrolplane"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyv1beta1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1beta1"
+	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 )
 
 func newUser(name string, groups ...string) *user.DefaultInfo {
@@ -55,13 +55,6 @@ func newServiceAccountWithCluster(name string, cluster string, groups ...string)
 	return &user.DefaultInfo{
 		Name:   name,
 		Extra:  extra,
-		Groups: groups,
-	}
-}
-
-func newServiceAccount(name string, groups ...string) *user.DefaultInfo {
-	return &user.DefaultInfo{
-		Name:   name,
 		Groups: groups,
 	}
 }
@@ -86,133 +79,102 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 		requestingUser        *user.DefaultInfo
 		wantReason, wantError string
 		wantDecision          authorizer.Decision
-		wantUser              *user.DefaultInfo
 		deepSARHeader         bool
 	}{
-		{
-			testName: "requested cluster is not root",
-
-			requestedWorkspace: "unknown",
-			requestingUser:     newUser("user-1"),
-			wantDecision:       authorizer.DecisionNoOpinion,
-			wantReason:         "empty or non root workspace",
-		},
 		{
 			testName: "unknown requested workspace",
 
 			requestedWorkspace: "root:unknown",
-			requestingUser:     newUser("user-1"),
+			requestingUser:     newUser("user-access"),
 			wantDecision:       authorizer.DecisionDeny,
-			wantReason:         "clusterworkspace not found",
+			wantReason:         "thisworkspace not found",
 		},
 		{
 			testName: "workspace without parent",
 
 			requestedWorkspace: "rootwithoutparent",
-			requestingUser:     newUser("user-1"),
-			wantDecision:       authorizer.DecisionNoOpinion,
-			wantReason:         "non-root workspace that does not have a parent",
+			requestingUser:     newUser("user-access"),
+			wantDecision:       authorizer.DecisionAllow,
 		},
 		{
-			testName: "non-permitted user is denied",
+			testName: "non-permitted user is not allowed",
 
 			requestedWorkspace: "root:ready",
 			requestingUser:     newUser("user-unknown"),
 			wantDecision:       authorizer.DecisionNoOpinion,
-			wantReason:         "not permitted, subject has not been granted any groups",
+			wantReason:         "no verb=access permission on /",
 		},
 		{
-			testName: "permitted admin user is granted admin",
+			testName: "permitted user is granted access",
 
 			requestedWorkspace: "root:ready",
-			requestingUser:     newUser("user-admin"),
-			wantUser:           newUser("user-admin", "system:kcp:clusterworkspace:access", "system:kcp:clusterworkspace:admin"),
+			requestingUser:     newUser("user-access", "system:authenticated"),
 			wantDecision:       authorizer.DecisionAllow,
 		},
 		{
-			testName: "permitted access user is granted access",
-
-			requestedWorkspace: "root:ready",
-			requestingUser:     newUser("user-access"),
-			wantUser:           newUser("user-access", "system:kcp:clusterworkspace:access"),
-			wantDecision:       authorizer.DecisionAllow,
-		},
-		{
-			testName: "non-permitted service account is denied",
+			testName: "service account from other cluster is denied",
 
 			requestedWorkspace: "root:ready",
 			requestingUser:     newServiceAccountWithCluster("sa", "anotherws"),
-			wantDecision:       authorizer.DecisionNoOpinion,
-			wantReason:         "not permitted, subject has not been granted any groups",
+			wantDecision:       authorizer.DecisionDeny,
+			wantReason:         "service account from different workspace",
 		},
 		{
-			testName: "permitted service account is granted access",
+			testName: "service account from same cluster is granted access",
 
 			requestedWorkspace: "root:ready",
 			requestingUser:     newServiceAccountWithCluster("sa", "root:ready"),
-			wantUser:           newServiceAccountWithCluster("sa", "root:ready", "system:kcp:clusterworkspace:access"),
 			wantDecision:       authorizer.DecisionAllow,
 		},
 		{
-			testName: "authenticated user is granted access on root",
+			testName: "user is granted access on root",
 
 			requestedWorkspace: "root",
 			requestingUser:     newUser("somebody", "system:authenticated"),
-			wantUser:           newUser("somebody", "system:authenticated", "system:kcp:clusterworkspace:access"),
 			wantDecision:       authorizer.DecisionAllow,
 		},
 		{
-			testName: "authenticated non-permitted service account is denied on root",
+			testName: "service account from other cluster is denied on root",
 
 			requestedWorkspace: "root",
 			requestingUser:     newServiceAccountWithCluster("somebody", "someworkspace", "system:authenticated"),
-			wantDecision:       authorizer.DecisionNoOpinion,
-			wantReason:         "root workspace access by non-root service account not permitted",
+			wantDecision:       authorizer.DecisionDeny,
+			wantReason:         "service account from different workspace",
 		},
 		{
-			testName: "authenticated permitted root service account is granted access on root",
+			testName: "service account from root cluster is granted access on root",
 
 			requestedWorkspace: "root",
 			requestingUser:     newServiceAccountWithCluster("somebody", "root", "system:authenticated"),
-			wantUser:           newServiceAccountWithCluster("somebody", "root", "system:authenticated", "system:kcp:clusterworkspace:access"),
 			wantDecision:       authorizer.DecisionAllow,
 		},
 		{
-			testName: "authenticated service account is denied on scheduling workspace",
+			testName: "service account of same workspace is not allowed access to scheduling workspace",
 
 			requestedWorkspace: "root:scheduling",
-			requestingUser:     newServiceAccountWithCluster("somebody", "root", "system:authenticated"),
+			requestingUser:     newServiceAccountWithCluster("somebody", "root:scheduling", "system:authenticated"),
 			wantDecision:       authorizer.DecisionNoOpinion,
 			wantReason:         "not permitted due to phase \"Scheduling\"",
 		},
 		{
-			testName: "permitted service account is denied on initializing workspace",
+			testName: "service account of same workspace is denied on initializing workspace",
 
 			requestedWorkspace: "root:initializing",
-			requestingUser:     newServiceAccountWithCluster("somebody", "initializing", "system:authenticated"),
-			wantDecision:       authorizer.DecisionNoOpinion,
-			wantReason:         "not permitted, clusterworkspace is in initializing phase",
+			requestingUser:     newServiceAccountWithCluster("somebody", "root:initializing", "system:authenticated"),
+			wantDecision:       authorizer.DecisionAllow,
 		},
 		{
 			testName: "system:kcp:logical-cluster-admin can always pass",
 
 			requestedWorkspace: "root:non-existent",
 			requestingUser:     newUser("lcluster-admin", "system:kcp:logical-cluster-admin"),
+			wantDecision:       authorizer.DecisionAllow,
 		},
 		{
-			testName: "permitted access user is denied on initializing workspace",
+			testName: "permitted user is granted access to initializing workspace",
 
 			requestedWorkspace: "root:initializing",
-			requestingUser:     newUser("user-access"),
-			wantDecision:       authorizer.DecisionNoOpinion,
-			wantReason:         "not permitted, clusterworkspace is in initializing phase",
-		},
-		{
-			testName: "permitted admin user is granted admin on initializing workspace",
-
-			requestedWorkspace: "root:initializing",
-			requestingUser:     newUser("user-admin"),
-			wantUser:           newUser("user-admin", "system:kcp:clusterworkspace:access", "system:kcp:clusterworkspace:admin"),
+			requestingUser:     newUser("user-access", "system:authenticated"),
 			wantDecision:       authorizer.DecisionAllow,
 		},
 		{
@@ -220,16 +182,14 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 
 			requestedWorkspace: "root:ready",
 			requestingUser:     newUser("user-unknown"),
-			wantUser:           newUser("user-unknown"),
 			deepSARHeader:      true,
 			wantDecision:       authorizer.DecisionAllow,
 		},
 		{
-			testName: "any service account passed for deep SAR as anyonmous",
+			testName: "any service account passed for deep SAR",
 
 			requestedWorkspace: "root:ready",
 			requestingUser:     newServiceAccountWithCluster("somebody", "root", "system:authenticated"),
-			wantUser:           newServiceAccount("system:anonymous", "system:authenticated"),
 			deepSARHeader:      true,
 			wantDecision:       authorizer.DecisionAllow,
 		},
@@ -241,64 +201,14 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 				&v1.ClusterRole{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root",
+							logicalcluster.AnnotationKey: genericcontrolplane.LocalAdminCluster.String(),
 						},
-						Name: "ready-admin",
+						Name: "access",
 					},
 					Rules: []v1.PolicyRule{
 						{
-							Verbs:         []string{"admin"},
-							Resources:     []string{"workspaces/content"},
-							ResourceNames: []string{"ready"},
-							APIGroups:     []string{"tenancy.kcp.dev"},
-						},
-					},
-				},
-				&v1.ClusterRole{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root",
-						},
-						Name: "initializing-admin",
-					},
-					Rules: []v1.PolicyRule{
-						{
-							Verbs:         []string{"admin"},
-							Resources:     []string{"workspaces/content"},
-							ResourceNames: []string{"initializing"},
-							APIGroups:     []string{"tenancy.kcp.dev"},
-						},
-					},
-				},
-				&v1.ClusterRole{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root",
-						},
-						Name: "initializing-access",
-					},
-					Rules: []v1.PolicyRule{
-						{
-							Verbs:         []string{"access"},
-							Resources:     []string{"workspaces/content"},
-							ResourceNames: []string{"initializing"},
-							APIGroups:     []string{"tenancy.kcp.dev"},
-						},
-					},
-				},
-				&v1.ClusterRole{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root",
-						},
-						Name: "ready-access",
-					},
-					Rules: []v1.PolicyRule{
-						{
-							Verbs:         []string{"access"},
-							Resources:     []string{"workspaces/content"},
-							ResourceNames: []string{"ready"},
-							APIGroups:     []string{"tenancy.kcp.dev"},
+							Verbs:           []string{"access"},
+							NonResourceURLs: []string{"/"},
 						},
 					},
 				},
@@ -307,45 +217,25 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 						Annotations: map[string]string{
 							logicalcluster.AnnotationKey: "root",
 						},
-						Name: "user-admin-ready-admin",
+						Name: "system:authenticated:access",
 					},
 					Subjects: []v1.Subject{
 						{
-							Kind:     "User",
+							Kind:     "Group",
 							APIGroup: "rbac.authorization.k8s.io",
-							Name:     "user-admin",
+							Name:     "system:authenticated",
 						},
 					},
 					RoleRef: v1.RoleRef{
 						APIGroup: "rbac.authorization.k8s.io",
 						Kind:     "ClusterRole",
-						Name:     "ready-admin",
+						Name:     "access",
 					},
 				},
 				&v1.ClusterRoleBinding{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root",
-						},
-						Name: "user-admin-initializing-admin",
-					},
-					Subjects: []v1.Subject{
-						{
-							Kind:     "User",
-							APIGroup: "rbac.authorization.k8s.io",
-							Name:     "user-admin",
-						},
-					},
-					RoleRef: v1.RoleRef{
-						APIGroup: "rbac.authorization.k8s.io",
-						Kind:     "ClusterRole",
-						Name:     "initializing-admin",
-					},
-				},
-				&v1.ClusterRoleBinding{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root",
+							logicalcluster.AnnotationKey: "root:ready",
 						},
 						Name: "user-access-ready-access",
 					},
@@ -359,13 +249,13 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 					RoleRef: v1.RoleRef{
 						APIGroup: "rbac.authorization.k8s.io",
 						Kind:     "ClusterRole",
-						Name:     "ready-access",
+						Name:     "access",
 					},
 				},
 				&v1.ClusterRoleBinding{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root",
+							logicalcluster.AnnotationKey: "root:initializing",
 						},
 						Name: "user-access-initializing-access",
 					},
@@ -379,7 +269,27 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 					RoleRef: v1.RoleRef{
 						APIGroup: "rbac.authorization.k8s.io",
 						Kind:     "ClusterRole",
-						Name:     "initializing-access",
+						Name:     "access",
+					},
+				},
+				&v1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "rootwithoutparent",
+						},
+						Name: "system:authenticated:access",
+					},
+					Subjects: []v1.Subject{
+						{
+							Kind:     "User",
+							APIGroup: "rbac.authorization.k8s.io",
+							Name:     "user-access",
+						},
+					},
+					RoleRef: v1.RoleRef{
+						APIGroup: "rbac.authorization.k8s.io",
+						Kind:     "ClusterRole",
+						Name:     "access",
 					},
 				},
 			)
@@ -398,19 +308,27 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			cache.WaitForCacheSync(ctx.Done(), syncs...)
 
 			indexer := cache.NewIndexer(kcpcache.MetaClusterNamespaceKeyFunc, cache.Indexers{})
-			require.NoError(t, indexer.Add(&tenancyv1alpha1.ClusterWorkspace{
-				ObjectMeta: metav1.ObjectMeta{Name: "ready", Annotations: map[string]string{logicalcluster.AnnotationKey: "root"}},
-				Status:     tenancyv1alpha1.ClusterWorkspaceStatus{Phase: tenancyv1alpha1.WorkspacePhaseReady},
+			require.NoError(t, indexer.Add(&tenancyv1alpha1.ThisWorkspace{
+				ObjectMeta: metav1.ObjectMeta{Name: tenancyv1alpha1.ThisWorkspaceName, Annotations: map[string]string{logicalcluster.AnnotationKey: "root"}},
+				Status:     tenancyv1alpha1.ThisWorkspaceStatus{Phase: tenancyv1alpha1.WorkspacePhaseReady},
 			}))
-			require.NoError(t, indexer.Add(&tenancyv1alpha1.ClusterWorkspace{
-				ObjectMeta: metav1.ObjectMeta{Name: "scheduling", Annotations: map[string]string{logicalcluster.AnnotationKey: "root"}},
-				Status:     tenancyv1alpha1.ClusterWorkspaceStatus{Phase: tenancyv1alpha1.WorkspacePhaseScheduling},
+			require.NoError(t, indexer.Add(&tenancyv1alpha1.ThisWorkspace{
+				ObjectMeta: metav1.ObjectMeta{Name: tenancyv1alpha1.ThisWorkspaceName, Annotations: map[string]string{logicalcluster.AnnotationKey: "root:ready"}},
+				Status:     tenancyv1alpha1.ThisWorkspaceStatus{Phase: tenancyv1alpha1.WorkspacePhaseReady},
 			}))
-			require.NoError(t, indexer.Add(&tenancyv1alpha1.ClusterWorkspace{
-				ObjectMeta: metav1.ObjectMeta{Name: "initializing", Annotations: map[string]string{logicalcluster.AnnotationKey: "root"}},
-				Status:     tenancyv1alpha1.ClusterWorkspaceStatus{Phase: tenancyv1alpha1.WorkspacePhaseInitializing},
+			require.NoError(t, indexer.Add(&tenancyv1alpha1.ThisWorkspace{
+				ObjectMeta: metav1.ObjectMeta{Name: tenancyv1alpha1.ThisWorkspaceName, Annotations: map[string]string{logicalcluster.AnnotationKey: "root:scheduling"}},
+				Status:     tenancyv1alpha1.ThisWorkspaceStatus{Phase: tenancyv1alpha1.WorkspacePhaseScheduling},
 			}))
-			lister := tenancyv1beta1listers.NewWorkspaceClusterLister(indexer)
+			require.NoError(t, indexer.Add(&tenancyv1alpha1.ThisWorkspace{
+				ObjectMeta: metav1.ObjectMeta{Name: tenancyv1alpha1.ThisWorkspaceName, Annotations: map[string]string{logicalcluster.AnnotationKey: "root:initializing"}},
+				Status:     tenancyv1alpha1.ThisWorkspaceStatus{Phase: tenancyv1alpha1.WorkspacePhaseInitializing},
+			}))
+			require.NoError(t, indexer.Add(&tenancyv1alpha1.ThisWorkspace{
+				ObjectMeta: metav1.ObjectMeta{Name: tenancyv1alpha1.ThisWorkspaceName, Annotations: map[string]string{logicalcluster.AnnotationKey: "rootwithoutparent"}},
+				Status:     tenancyv1alpha1.ThisWorkspaceStatus{Phase: tenancyv1alpha1.WorkspacePhaseReady},
+			}))
+			lister := tenancyv1alpha1listers.NewThisWorkspaceClusterLister(indexer)
 
 			recordingAuthorizer := &recordingAuthorizer{decision: authorizer.DecisionAllow}
 			w := NewWorkspaceContentAuthorizer(kubeShareInformerFactory, lister, recordingAuthorizer)
@@ -442,16 +360,6 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 
 			if gotDecision != tt.wantDecision {
 				t.Errorf("want decision %v, got %v", tt.wantDecision, gotDecision)
-			}
-
-			if tt.wantUser == nil {
-				return
-			}
-
-			if recordingAuthorizer.recordedAttributes == nil {
-				t.Errorf("want user %+v, got %+v", tt.wantUser, nil)
-			} else if got := recordingAuthorizer.recordedAttributes.GetUser(); !reflect.DeepEqual(got, tt.wantUser) {
-				t.Errorf("want user %+v, got %+v", tt.wantUser, got)
 			}
 		})
 	}

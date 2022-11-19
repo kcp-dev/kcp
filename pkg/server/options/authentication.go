@@ -118,8 +118,6 @@ func (s *AdminAuthentication) ApplyTo(config *genericapiserver.Config) (volatile
 		UID:  uuid.New().String(),
 		Groups: []string{
 			bootstrap.SystemKcpAdminGroup,
-			bootstrap.SystemKcpClusterWorkspaceAdminGroup,
-			bootstrap.SystemKcpClusterWorkspaceAccessGroup,
 		},
 	}
 
