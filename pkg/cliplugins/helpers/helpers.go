@@ -51,3 +51,11 @@ func ParseClusterURL(host string) (*url.URL, logicalcluster.Name, error) {
 
 	return &ret, clusterName, nil
 }
+
+func GetCurrentClusterName(host string) (logicalcluster.Name, error) {
+	_, currentClusterName, err := ParseClusterURL(host)
+	if err != nil {
+		return logicalcluster.Name{}, fmt.Errorf("current URL %q does not point to cluster workspace", host)
+	}
+	return currentClusterName, nil
+}

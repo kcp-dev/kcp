@@ -492,9 +492,9 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	_, currentClusterName, err := pluginhelpers.ParseClusterURL(config.Host)
+	currentClusterName, err := pluginhelpers.GetCurrentClusterName(config.Host)
 	if err != nil {
-		return fmt.Errorf("current URL %q does not point to cluster workspace", config.Host)
+		return err
 	}
 
 	if o.IgnoreExisting && o.Type != "" && !logicalcluster.New(o.Type).HasPrefix(tenancyv1alpha1.RootCluster) {
@@ -690,9 +690,9 @@ func (o *CreateContextOptions) Run(ctx context.Context) error {
 	if !ok {
 		return fmt.Errorf("current cluster %q is not found in kubeconfig", currentContext.Cluster)
 	}
-	_, currentClusterName, err := pluginhelpers.ParseClusterURL(currentCluster.Server)
+	currentClusterName, err := pluginhelpers.GetCurrentClusterName(currentCluster.Server)
 	if err != nil {
-		return fmt.Errorf("current URL %q does not point to cluster workspace", currentCluster.Server)
+		return err
 	}
 
 	if o.Name == "" {
@@ -788,9 +788,10 @@ func (o *TreeOptions) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	_, currentClusterName, err := pluginhelpers.ParseClusterURL(config.Host)
+
+	currentClusterName, err := pluginhelpers.GetCurrentClusterName(config.Host)
 	if err != nil {
-		return fmt.Errorf("current config context URL %q does not point to workspace", config.Host)
+		return err
 	}
 
 	tree := treeprint.New()
@@ -820,9 +821,9 @@ func (o *TreeOptions) populateBranch(ctx context.Context, tree treeprint.Tree, n
 	}
 
 	for _, workspace := range results.Items {
-		_, currentClusterName, err := pluginhelpers.ParseClusterURL(workspace.Status.URL)
+		currentClusterName, err := pluginhelpers.GetCurrentClusterName(workspace.Status.URL)
 		if err != nil {
-			return fmt.Errorf("current config context URL %q does not point to workspace", workspace.Status.URL)
+			return err
 		}
 		err = o.populateBranch(ctx, b, currentClusterName)
 		if err != nil {
