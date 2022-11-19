@@ -223,6 +223,9 @@ func (r *schedulingReconciler) createThisWorkspace(ctx context.Context, shard *t
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       tenancyv1alpha1.ThisWorkspaceName,
 			Finalizers: []string{deletion.WorkspaceFinalizer},
+			Annotations: map[string]string{
+				tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey: workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey],
+			},
 		},
 		Spec: tenancyv1alpha1.ThisWorkspaceSpec{
 			Type: workspace.Spec.Type,
