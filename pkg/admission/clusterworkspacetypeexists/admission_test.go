@@ -141,19 +141,6 @@ func TestAdmit(t *testing.T) {
 			expectedObj: newWorkspace("root:org:ws:test").withType("root:org:foo").resolved("root:org").Workspace,
 		},
 		{
-			name: "adds default workspace type if missing in root",
-			types: []*tenancyv1alpha1.ClusterWorkspaceType{
-				newType("root:root").withDefault("root:organization").ClusterWorkspaceType,
-				newType("root:organization").ClusterWorkspaceType,
-			},
-			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
-				newThisWorkspace("root").withType("root", "root").ThisWorkspace,
-			},
-			clusterName: logicalcluster.New("root"),
-			a:           createAttr(newWorkspace("root:test").Workspace),
-			expectedObj: newWorkspace("root:test").withType("root:organization").resolved("root").Workspace,
-		},
-		{
 			name: "resolves path of incomplete type reference in local workspace",
 			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
 				newThisWorkspace("root:org:ws").withType("root:org", "parent").ThisWorkspace,
@@ -312,19 +299,6 @@ func TestValidate(t *testing.T) {
 				newType("root:org:foo").allowingParent("root:org:parentalias").ClusterWorkspaceType,
 			},
 			attr:          createAttr(newWorkspace("root:org:ws:test").withType("root:org:foo").resolved("root:org").Workspace),
-			authzDecision: authorizer.DecisionAllow,
-		},
-		{
-			name: "passes create if parent type missing but parent workspace is root",
-			path: logicalcluster.New("root"),
-			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
-				newThisWorkspace("root").withType("root", "root").ThisWorkspace,
-			},
-			types: []*tenancyv1alpha1.ClusterWorkspaceType{
-				newType("root:universal").ClusterWorkspaceType,
-				newType("root:foo").ClusterWorkspaceType,
-			},
-			attr:          createAttr(newWorkspace("root:test").withType("root:foo").resolved("root").Workspace),
 			authzDecision: authorizer.DecisionAllow,
 		},
 		{
@@ -884,10 +858,10 @@ func newThisWorkspace(clusterName string) thisWsBuilder {
 }
 
 func (b thisWsBuilder) withType(cluster tenancy.Cluster, name string) thisWsBuilder {
-	b.Spec.Type = tenancyv1alpha1.ThisWorkspaceTypeReference{
-		Cluster: cluster,
-		Name:    tenancyv1alpha1.ClusterWorkspaceTypeName(name),
+	if b.Annotations == nil {
+		b.Annotations = map[string]string{}
 	}
+	b.Annotations[tenancyv1beta1.WorkspaceTypeThisWorkspaceAnnotationKey] = cluster.LogicalCluster().Join(name).String()
 	return b
 }
 

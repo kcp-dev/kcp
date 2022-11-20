@@ -124,12 +124,20 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 			if err != nil {
 				return admission.NewForbidden(a, fmt.Errorf("workspace type canot be resolved: %w", err))
 			}
-			parentCwt, err := o.typeLister.Get(client.ToClusterAwareKey(logicalcluster.New(string(this.Spec.Type.Cluster)), string(this.Spec.Type.Name)))
+			typeAnnotation, found := this.Annotations[tenancyv1beta1.WorkspaceTypeThisWorkspaceAnnotationKey]
+			if !found {
+				return admission.NewForbidden(a, fmt.Errorf("annotation %s on ThisWorkspace must be set", tenancyv1beta1.WorkspaceTypeThisWorkspaceAnnotationKey))
+			}
+			cwtCluster, cwtName := logicalcluster.New(typeAnnotation).Split()
+			if cwtCluster.Empty() {
+				return admission.NewForbidden(a, fmt.Errorf("annotation %s on ThisWorkspace must be in the form of cluster:name", tenancyv1beta1.WorkspaceTypeThisWorkspaceAnnotationKey))
+			}
+			parentCwt, err := o.typeLister.Get(client.ToClusterAwareKey(cwtCluster, cwtName))
 			if err != nil {
 				return admission.NewForbidden(a, fmt.Errorf("parent type canot be resolved: %w", err))
 			}
-			if parentCwt == nil || parentCwt.Spec.DefaultChildWorkspaceType == nil {
-				return admission.NewForbidden(a, errors.New("spec.type must be set"))
+			if parentCwt.Spec.DefaultChildWorkspaceType == nil {
+				return admission.NewForbidden(a, errors.New("spec.defaultChildWorkspaceType of workspace type %s:%s must be set"))
 			}
 			ws.Spec.Type = tenancyv1alpha1.ResolvedWorkspaceTypeReference{ClusterWorkspaceTypeReference: *parentCwt.Spec.DefaultChildWorkspaceType}
 		}
@@ -302,10 +310,16 @@ func (o *clusterWorkspaceTypeExists) Validate(ctx context.Context, a admission.A
 		if err != nil {
 			return admission.NewForbidden(a, fmt.Errorf("workspace type canot be resolved: %w", err))
 		}
-		parentCwt, err := o.typeLister.Get(client.ToClusterAwareKey(logicalcluster.New(string(this.Spec.Type.Cluster)), string(this.Spec.Type.Name)))
-		if apierrors.IsNotFound(err) && this.Spec.Type.Name == "root" && this.Spec.Type.Cluster == tenancy.Cluster(tenancyv1alpha1.RootCluster.String()) {
-			parentCwt = &tenancyv1alpha1.ClusterWorkspaceType{}
-		} else if err != nil {
+		typeAnnotation, found := this.Annotations[tenancyv1beta1.WorkspaceTypeThisWorkspaceAnnotationKey]
+		if !found {
+			return admission.NewForbidden(a, fmt.Errorf("annotation %s on ThisWorkspace must be set", tenancyv1beta1.WorkspaceTypeThisWorkspaceAnnotationKey))
+		}
+		cwtCluster, cwtName := logicalcluster.New(typeAnnotation).Split()
+		if cwtCluster.Empty() {
+			return admission.NewForbidden(a, fmt.Errorf("annotation %s on ThisWorkspace must be in the form of cluster:name", tenancyv1beta1.WorkspaceTypeThisWorkspaceAnnotationKey))
+		}
+		parentCwt, err := o.typeLister.Get(client.ToClusterAwareKey(cwtCluster, cwtName))
+		if err != nil {
 			return admission.NewForbidden(a, fmt.Errorf("workspace type canot be resolved: %w", err))
 		}
 		parentAliases, err := o.transitiveTypeResolver.Resolve(parentCwt)
@@ -313,7 +327,7 @@ func (o *clusterWorkspaceTypeExists) Validate(ctx context.Context, a admission.A
 			return admission.NewForbidden(a, err)
 		}
 
-		thisTypePath := this.Spec.Type.Cluster.TemporaryCanonicalPath().Join(string(this.Spec.Type.Name))
+		thisTypePath := tenancy.TemporaryCanonicalPath(tenancy.Cluster(cwtCluster.String())).Join(cwtName)
 		if err := validateAllowedParents(parentAliases, cwtAliases, thisTypePath.String(), cw.Spec.Type.String()); err != nil {
 			return admission.NewForbidden(a, err)
 		}

@@ -23,6 +23,10 @@ import (
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
+// WorkspaceTypeThisWorkspaceAnnotationKey is the annotation key used to indicate
+// the type of the workspace on the ThisWorkspace object. Its format is "root:ws:name".
+const WorkspaceTypeThisWorkspaceAnnotationKey = "internal.tenancy.kcp.dev/type"
+
 // Workspace defines a generic Kubernetes-cluster-like endpoint, with standard Kubernetes
 // discovery APIs, OpenAPI and resource API endpoints.
 //

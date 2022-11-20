@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v221120-e824b9b1.thisworkspaces.tenancy.kcp.dev
+  name: v221120-8519e840.thisworkspaces.tenancy.kcp.dev
 spec:
   group: tenancy.kcp.dev
   names:
@@ -15,10 +15,6 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
-    - description: Type of the workspace
-      jsonPath: .spec.type.name
-      name: Type
-      type: string
     - description: The current phase (e.g. Scheduling, Initializing, Ready, Deleting)
       jsonPath: .metadata.labels['tenancy\.kcp\.dev/phase']
       name: Phase
@@ -107,35 +103,6 @@ spec:
               - name
               - resource
               - uid
-              type: object
-            type:
-              description: "type defines properties of the workspace both on creation
-                (e.g. initial resources and initially installed APIs) and during runtime
-                (e.g. permissions). If no type is provided, the default type for the
-                workspace in which this workspace is nesting will be used. \n The
-                type is a reference to a ClusterWorkspaceType in the listed workspace,
-                but lower-cased. The ClusterWorkspaceType existence is validated at
-                admission during creation. The type is immutable after creation. The
-                use of a type is gated via the RBAC clusterworkspacetypes/use resource
-                permission."
-              properties:
-                cluster:
-                  description: cluster is the logical cluster of the ClusterWorkspaceType.
-                  pattern: ^[a-z0-9]([-:a-z0-9]*[a-z0-9])?$
-                  type: string
-                  x-kubernetes-validations:
-                  - message: cluster is immutable
-                    rule: self == oldSelf
-                name:
-                  description: name is the name of the ClusterWorkspaceType
-                  pattern: ^[a-z]([a-z0-9-]{0,61}[a-z0-9])?
-                  type: string
-                  x-kubernetes-validations:
-                  - message: name is immutable
-                    rule: self == oldSelf
-              required:
-              - cluster
-              - name
               type: object
           type: object
         status:

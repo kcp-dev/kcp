@@ -34,7 +34,7 @@ func (c Cluster) LogicalCluster() logicalcluster.Name {
 // TemporaryCanonicalPath maps a cluster name to the canonical workspace path
 // for that cluster. This is temporary, and it will be replaced by some cached
 // mapping backed by the workspace index, probably of the front-proxy.
-func (c Cluster) TemporaryCanonicalPath() logicalcluster.Name {
+func TemporaryCanonicalPath(c Cluster) logicalcluster.Name {
 	logger := klog.Background()
 	logger.V(1).Info("TemporaryCanonicalPath", "cluster", c) // intentionally noisy output
 	return logicalcluster.New(string(c))

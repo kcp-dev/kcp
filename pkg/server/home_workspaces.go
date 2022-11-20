@@ -232,16 +232,11 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		homeWorkspace := &tenancyv1beta1.Workspace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: this.Name,
-			},
-			Spec: tenancyv1beta1.WorkspaceSpec{
-				Type: tenancyv1alpha1.ResolvedWorkspaceTypeReference{
-					ClusterWorkspaceTypeReference: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-						Name: this.Spec.Type.Name,
-						Path: "",
-					},
-					Cluster: this.Spec.Type.Cluster,
+				Annotations: map[string]string{
+					tenancyv1beta1.WorkspaceTypeThisWorkspaceAnnotationKey: "root:home",
 				},
 			},
+			Spec: tenancyv1beta1.WorkspaceSpec{},
 			Status: tenancyv1beta1.WorkspaceStatus{
 				URL:          this.Status.URL,
 				Cluster:      logicalcluster.From(this).String(),
@@ -291,13 +286,11 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		this, err = h.kcpClusterClient.Cluster(homeClusterName).TenancyV1alpha1().ThisWorkspaces().Create(ctx, &tenancyv1alpha1.ThisWorkspace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: tenancyv1alpha1.ThisWorkspaceName,
-			},
-			Spec: tenancyv1alpha1.ThisWorkspaceSpec{
-				Type: tenancyv1alpha1.ThisWorkspaceTypeReference{
-					Name:    "home",
-					Cluster: "root",
+				Annotations: map[string]string{
+					tenancyv1beta1.WorkspaceTypeThisWorkspaceAnnotationKey: "root:home",
 				},
 			},
+			Spec: tenancyv1alpha1.ThisWorkspaceSpec{},
 		}, metav1.CreateOptions{})
 		if err != nil && !kerrors.IsAlreadyExists(err) {
 			responsewriters.InternalError(rw, req, err)
@@ -360,16 +353,11 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 	homeWorkspace := &tenancyv1beta1.Workspace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: this.Name,
-		},
-		Spec: tenancyv1beta1.WorkspaceSpec{
-			Type: tenancyv1alpha1.ResolvedWorkspaceTypeReference{
-				ClusterWorkspaceTypeReference: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-					Name: this.Spec.Type.Name,
-					Path: "",
-				},
-				Cluster: this.Spec.Type.Cluster,
+			Annotations: map[string]string{
+				tenancyv1beta1.WorkspaceTypeThisWorkspaceAnnotationKey: "root:home",
 			},
 		},
+		Spec: tenancyv1beta1.WorkspaceSpec{},
 		Status: tenancyv1beta1.WorkspaceStatus{
 			URL:          this.Status.URL,
 			Cluster:      logicalcluster.From(this).String(),

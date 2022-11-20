@@ -233,15 +233,13 @@ func (r *schedulingReconciler) chooseShardAndMarkCondition(logger klog.Logger, w
 func (r *schedulingReconciler) createThisWorkspace(ctx context.Context, shard *tenancyv1alpha1.ClusterWorkspaceShard, cluster logicalcluster.Name, workspace *tenancyv1beta1.Workspace) error {
 	this := &tenancyv1alpha1.ThisWorkspace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        tenancyv1alpha1.ThisWorkspaceName,
-			Finalizers:  []string{deletion.WorkspaceFinalizer},
-			Annotations: map[string]string{},
+			Name:       tenancyv1alpha1.ThisWorkspaceName,
+			Finalizers: []string{deletion.WorkspaceFinalizer},
+			Annotations: map[string]string{
+				tenancyv1beta1.WorkspaceTypeThisWorkspaceAnnotationKey: workspace.Spec.Type.Cluster.LogicalCluster().Join(string(workspace.Spec.Type.Name)).String(),
+			},
 		},
 		Spec: tenancyv1alpha1.ThisWorkspaceSpec{
-			Type: tenancyv1alpha1.ThisWorkspaceTypeReference{
-				Name:    workspace.Spec.Type.Name,
-				Cluster: workspace.Spec.Type.Cluster,
-			},
 			Owner: &tenancyv1alpha1.ThisWorkspaceOwner{
 				APIVersion: tenancyv1beta1.SchemeGroupVersion.String(),
 				Resource:   "workspaces",

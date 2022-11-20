@@ -42,7 +42,6 @@ const (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster,categories=kcp
-// +kubebuilder:printcolumn:name="Type",type=string,JSONPath=`.spec.type.name`,description="Type of the workspace"
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.metadata.labels['tenancy\.kcp\.dev/phase']`,description="The current phase (e.g. Scheduling, Initializing, Ready, Deleting)"
 // +kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.URL`,description="URL to access the workspace"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
@@ -58,19 +57,6 @@ type ThisWorkspace struct {
 
 // ThisWorkspaceSpec is the specification of the ThisWorkspace resource.
 type ThisWorkspaceSpec struct {
-	// type defines properties of the workspace both on creation (e.g. initial
-	// resources and initially installed APIs) and during runtime (e.g. permissions).
-	// If no type is provided, the default type for the workspace in which this workspace
-	// is nesting will be used.
-	//
-	// The type is a reference to a ClusterWorkspaceType in the listed workspace, but
-	// lower-cased. The ClusterWorkspaceType existence is validated at admission during
-	// creation. The type is immutable after creation. The use of a type is gated via
-	// the RBAC clusterworkspacetypes/use resource permission.
-	//
-	// +optional
-	Type ThisWorkspaceTypeReference `json:"type,omitempty"`
-
 	// DirectlyDeletable indicates that this workspace can be directly deleted by the user
 	// from within the workspace.
 	//
