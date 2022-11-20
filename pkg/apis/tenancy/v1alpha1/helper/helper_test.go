@@ -95,19 +95,3 @@ func TestQualifiedObjectName(t *testing.T) {
 		})
 	}
 }
-
-func TestWorkspaceLabelSelector(t *testing.T) {
-	tests := []struct {
-		ws       string
-		selector string
-	}{
-		{"cool-ws", "workspaces.kcp.dev/name=cool-ws"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.ws, func(t *testing.T) {
-			if got := WorkspaceLabelSelector(tt.ws); got != tt.selector {
-				t.Errorf("WorkspaceLabelSelector(%s) = %s, want %s", tt.ws, got, tt.selector)
-			}
-		})
-	}
-}
