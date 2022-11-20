@@ -362,10 +362,10 @@ var testCases = []struct {
 				workspace1, err = vwUser1Client.Cluster(parentCluster).TenancyV1beta1().Workspaces().Create(ctx, &tenancyv1beta1.Workspace{
 					ObjectMeta: metav1.ObjectMeta{Name: testData.workspace1.Name},
 					Spec: tenancyv1beta1.WorkspaceSpec{
-						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Type: tenancyv1alpha1.ResolvedWorkspaceTypeReference{ClusterWorkspaceTypeReference: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 							Name: "custom",
 							Path: logicalcluster.From(cwt).String(),
-						},
+						}},
 					},
 				}, metav1.CreateOptions{})
 				if err != nil {
@@ -391,10 +391,10 @@ var testCases = []struct {
 			_, err = vwUser2Client.Cluster(parentCluster).TenancyV1beta1().Workspaces().Create(ctx, &tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{Name: testData.workspace2.Name},
 				Spec: tenancyv1beta1.WorkspaceSpec{
-					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+					Type: tenancyv1alpha1.ResolvedWorkspaceTypeReference{ClusterWorkspaceTypeReference: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 						Name: "custom",
 						Path: logicalcluster.From(cwt).String(),
-					},
+					}},
 				},
 			}, metav1.CreateOptions{})
 			require.Errorf(t, err, "expected to fail to create workspace2 as user2")
@@ -403,10 +403,10 @@ var testCases = []struct {
 			_, err = vwUser1Client.Cluster(parentCluster).TenancyV1beta1().Workspaces().Create(ctx, &tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{Name: testData.workspace2.Name},
 				Spec: tenancyv1beta1.WorkspaceSpec{
-					Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+					Type: tenancyv1alpha1.ResolvedWorkspaceTypeReference{ClusterWorkspaceTypeReference: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 						Name: "custom2",
 						Path: logicalcluster.From(cwt).String(),
-					},
+					}},
 				},
 			}, metav1.CreateOptions{})
 			require.Errorf(t, err, "expected to fail to create workspace2 as user1")
@@ -462,10 +462,10 @@ var testCases = []struct {
 				workspace1, err = vwUser1Client.Cluster(parentCluster).TenancyV1beta1().Workspaces().Create(ctx, &tenancyv1beta1.Workspace{
 					ObjectMeta: metav1.ObjectMeta{Name: testData.workspace1.Name},
 					Spec: tenancyv1beta1.WorkspaceSpec{
-						Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+						Type: tenancyv1alpha1.ResolvedWorkspaceTypeReference{ClusterWorkspaceTypeReference: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 							Name: "universal",
 							Path: "root",
-						},
+						}},
 					},
 				}, metav1.CreateOptions{})
 				if err != nil {
