@@ -28,10 +28,10 @@ import (
 	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	tenancyhelper "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	kcpauthorization "github.com/kcp-dev/kcp/pkg/authorization"
 	"github.com/kcp-dev/kcp/pkg/proxy/index"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 )
 
 func shardHandler(index index.Index, proxy http.Handler) http.HandlerFunc {

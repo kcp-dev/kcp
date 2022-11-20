@@ -35,6 +35,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/admission/helpers"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 )
 
 func updateAttr(obj, old *tenancyv1alpha1.ThisWorkspace) admission.Attributes {
@@ -396,10 +397,10 @@ func newThisWorkspace(clusterName string) thisWsBuilder {
 }
 
 func (b thisWsBuilder) withType(cluster tenancy.Cluster, name string) thisWsBuilder {
-	b.Spec.Type = tenancyv1alpha1.ThisWorkspaceTypeReference{
-		Cluster: cluster,
-		Name:    tenancyv1alpha1.ClusterWorkspaceTypeName(name),
+	if b.Annotations == nil {
+		b.Annotations = map[string]string{}
 	}
+	b.Annotations[tenancyv1beta1.WorkspaceTypeThisWorkspaceAnnotationKey] = cluster.LogicalCluster().Join(name).String()
 	return b
 }
 

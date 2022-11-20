@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	userinfo "k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/endpoints/request"
+
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 )
 

@@ -35,15 +35,24 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 func (b *APIBinder) reconcile(ctx context.Context, this *tenancyv1alpha1.ThisWorkspace) error {
+	annotationValue, found := this.Annotations[tenancyv1beta1.WorkspaceTypeThisWorkspaceAnnotationKey]
+	if !found {
+		return nil
+	}
+	cwtCluster, cwtName := logicalcluster.New(annotationValue).Split()
+	if cwtCluster.Empty() {
+		return nil
+	}
 	logger := klog.FromContext(ctx).WithValues(
-		"clusterWorkspaceType.path", this.Spec.Type.Cluster.LogicalCluster().String(),
-		"clusterWorkspaceType.name", this.Spec.Type.Name,
+		"clusterWorkspaceType.path", cwtCluster.String(),
+		"clusterWorkspaceType.name", cwtName,
 	)
 
 	var errors []error
@@ -51,7 +60,7 @@ func (b *APIBinder) reconcile(ctx context.Context, this *tenancyv1alpha1.ThisWor
 	logger.V(2).Info("initializing APIBindings for workspace")
 
 	// Start with the ClusterWorkspaceType specified by the ClusterWorkspace
-	leafCWT, err := b.getClusterWorkspaceType(this.Spec.Type.Cluster.LogicalCluster(), string(this.Spec.Type.Name))
+	leafCWT, err := b.getClusterWorkspaceType(cwtCluster, cwtName)
 	if err != nil {
 		logger.Error(err, "error getting ClusterWorkspaceType")
 
@@ -61,7 +70,7 @@ func (b *APIBinder) reconcile(ctx context.Context, this *tenancyv1alpha1.ThisWor
 			tenancyv1alpha1.WorkspaceInitializedClusterWorkspaceTypeInvalid,
 			conditionsv1alpha1.ConditionSeverityError,
 			"error getting ClusterWorkspaceType %s|%s: %v",
-			this.Spec.Type.Cluster, this.Spec.Type.Name,
+			cwtCluster.String(), cwtName,
 			err,
 		)
 
