@@ -230,13 +230,7 @@ const (
 	// some unexpected reason.
 	WorkspaceReasonReasonUnknown = "Unknown"
 
-	// WorkspaceShardValid represents status of the connection process for this cluster workspace.
-	WorkspaceShardValid conditionsv1alpha1.ConditionType = "WorkspaceShardValid"
-
-	// WorkspaceDeletionContentSuccess represents the status that all resources in the workspace is deleting
-	WorkspaceDeletionContentSuccess conditionsv1alpha1.ConditionType = "WorkspaceDeletionContentSuccess"
-
-	// WorkspaceContentDeleted represents the status that all resources in the workspace is deleted.
+	// WorkspaceContentDeleted represents the status that all resources in the workspace are deleted.
 	WorkspaceContentDeleted conditionsv1alpha1.ConditionType = "WorkspaceContentDeleted"
 
 	// WorkspaceInitialized represents the status that initialization has finished.
