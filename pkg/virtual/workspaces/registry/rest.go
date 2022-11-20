@@ -180,8 +180,22 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 	if ws.Annotations == nil {
 		ws.Annotations = make(map[string]string)
 	}
-
 	ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey] = ownerRaw
+
+	if cws.Spec.Shard != nil {
+		ws.Spec.Location = &tenancyv1beta1.WorkspaceLocation{
+			Selector: cws.Spec.Shard.Selector,
+		}
+		if cws.Spec.Shard.Name != "" {
+			if ws.Spec.Location.Selector == nil {
+				ws.Spec.Location.Selector = &metav1.LabelSelector{}
+			}
+			if ws.Spec.Location.Selector.MatchLabels == nil {
+				ws.Spec.Location.Selector.MatchLabels = make(map[string]string)
+			}
+			ws.Spec.Location.Selector.MatchLabels["name"] = cws.Spec.Shard.Name
+		}
+	}
 
 	createdWS, err := s.kcpClusterClient.Cluster(clusterName).TenancyV1beta1().Workspaces().Create(ctx, ws, metav1.CreateOptions{})
 	if kerrors.IsAlreadyExists(err) {
