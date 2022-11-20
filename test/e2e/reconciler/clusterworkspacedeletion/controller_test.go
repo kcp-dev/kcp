@@ -30,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
+	"sigs.k8s.io/yaml"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
@@ -72,17 +73,15 @@ func TestWorkspaceDeletionController(t *testing.T) {
 				require.NoError(t, err, "failed to create workspace")
 
 				t.Logf("Should have finalizer added in workspace")
-				require.Eventually(t, func() bool {
+				framework.Eventually(t, func() (bool, string) {
 					workspace, err := server.kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
-					if err != nil {
-						return false
-					}
+					require.NoError(t, err, "failed to get workspace")
 
 					if len(workspace.Finalizers) == 0 {
-						return false
+						return false, toYAML(t, workspace)
 					}
 
-					return conditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceScheduled)
+					return conditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceScheduled), toYAML(t, workspace)
 				}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 				workspaceCluster := orgClusterName.Join(workspace.Name)
@@ -127,13 +126,10 @@ func TestWorkspaceDeletionController(t *testing.T) {
 				require.NoError(t, err, "failed to delete workspace %s", workspace.Name)
 
 				t.Logf("The workspace condition should be updated since there is resource in the workspace pending finalization.")
-				require.Eventually(t, func() bool {
-					workspace, err := server.kcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
-					if err != nil {
-						return false
-					}
-
-					return conditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceDeletionContentSuccess) && conditions.IsFalse(workspace, tenancyv1alpha1.WorkspaceContentDeleted)
+				framework.Eventually(t, func() (bool, string) {
+					workspace, err := server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Cluster(orgClusterName).Get(ctx, workspace.Name, metav1.GetOptions{})
+					require.NoError(t, err)
+					return conditions.IsFalse(workspace, tenancyv1alpha1.WorkspaceContentDeleted), toYAML(t, workspace)
 				}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 				t.Logf("Clean finalizer to remove the configmap")
@@ -192,10 +188,10 @@ func TestWorkspaceDeletionController(t *testing.T) {
 					return len(workspace.Finalizers) > 0
 				}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
-				t.Logf("Create namespace in both the workspace and org workspace")
+				t.Logf("Create namespace %q in both the workspace and org workspace", "deletion-test")
 				ns := &corev1.Namespace{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "test",
+						Name: "deletion-test",
 					},
 				}
 
@@ -203,7 +199,7 @@ func TestWorkspaceDeletionController(t *testing.T) {
 				require.NoError(t, err, "failed to create ns in workspace %s", workspaceClusterName)
 
 				_, err = server.kubeClusterClient.Cluster(orgClusterName).CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
-				require.NoError(t, err, "failed to create ns in workspace %s", orgClusterName)
+				require.NoError(t, err, "failed to create ns %q in workspace %s", ns.Name, orgClusterName)
 
 				// get clients for the right shards. We have to access the shards directly to see object (Namespace and ClusterWorkspace) deletion
 				// without being stopped at the (front-proxy) gate because the parent workspace is already gone.
@@ -216,34 +212,28 @@ func TestWorkspaceDeletionController(t *testing.T) {
 				err = server.kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, orgWorkspaceName, metav1.DeleteOptions{})
 				require.NoError(t, err, "failed to delete workspace %s", orgWorkspaceName)
 
-				t.Logf("Ensure namespace in the workspace is deleted")
-				require.Eventually(t, func() bool {
+				t.Logf("Ensure namespace %q in the workspace is deleted", ns.Name)
+				framework.Eventually(t, func() (bool, string) {
 					nslist, err := rootShardKubeClusterClient.Cluster(workspaceClusterName).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
-					if err != nil {
-						return false
-					}
+					require.NoError(t, err)
 
-					return len(nslist.Items) == 0
+					return len(nslist.Items) == 0, toYAML(t, nslist)
 				}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
-				t.Logf("Ensure namespace in the org workspace is deleted")
-				require.Eventually(t, func() bool {
+				t.Logf("Ensure namespace %q in the org workspace is deleted", ns.Name)
+				framework.Eventually(t, func() (bool, string) {
 					nslist, err := rootShardKubeClusterClient.Cluster(orgClusterName).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
-					if err != nil {
-						return false
-					}
-					return len(nslist.Items) == 0
+					require.NoError(t, err)
+
+					return len(nslist.Items) == 0, toYAML(t, nslist)
 				}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 				t.Logf("Ensure workspace in the org workspace is deleted")
-				require.Eventually(t, func() bool {
-					wslist, err := rootShardKcpClusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().List(ctx, metav1.ListOptions{})
-					// 404 could be returned if the org workspace is deleted.
-					if apierrors.IsNotFound(err) {
-						return true
-					}
-					require.NoError(t, err, "failed to list workspaces in org workspace")
-					return len(wslist.Items) == 0
+				framework.Eventually(t, func() (bool, string) {
+					wslist, err := rootShardKcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Cluster(orgClusterName).List(ctx, metav1.ListOptions{})
+					require.NoError(t, err)
+
+					return len(wslist.Items) == 0, toYAML(t, wslist)
 				}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 				t.Logf("Ensure the org workspace is deleted")
@@ -282,4 +272,10 @@ func TestWorkspaceDeletionController(t *testing.T) {
 			})
 		})
 	}
+}
+
+func toYAML(t *testing.T, obj interface{}) string {
+	bs, err := yaml.Marshal(obj)
+	require.NoError(t, err, "failed to marshal object")
+	return string(bs)
 }
