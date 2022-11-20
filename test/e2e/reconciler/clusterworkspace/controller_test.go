@@ -73,7 +73,7 @@ func TestWorkspaceController(t *testing.T) {
 				workspace, err := server.orgKcpClient.TenancyV1beta1().Workspaces().Create(ctx, &tenancyv1beta1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace")
 				server.Artifact(t, func() (runtime.Object, error) {
-					return server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
+					return server.orgKcpClient.TenancyV1beta1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 				})
 
 				err = server.orgExpect(workspace, func(current *tenancyv1beta1.Workspace) error {
@@ -112,7 +112,10 @@ func TestWorkspaceController(t *testing.T) {
 
 				t.Logf("Add previously removed shard %q", previouslyValidShard.Name)
 				newShard, err := server.rootKcpClient.TenancyV1alpha1().ClusterWorkspaceShards().Create(ctx, &tenancyv1alpha1.ClusterWorkspaceShard{
-					ObjectMeta: metav1.ObjectMeta{Name: previouslyValidShard.Name},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:   previouslyValidShard.Name,
+						Labels: previouslyValidShard.Labels,
+					},
 					Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{
 						BaseURL:     previouslyValidShard.Spec.BaseURL,
 						ExternalURL: previouslyValidShard.Spec.ExternalURL,
@@ -133,47 +136,15 @@ func TestWorkspaceController(t *testing.T) {
 					if isUnschedulable(workspace) {
 						return false, fmt.Sprintf("unschedulable:\n%s", toYAML(t, workspace))
 					}
-					if !utilconditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceShardValid) {
-						return false, fmt.Sprintf("shard is not valid:\n%s", toYAML(t, workspace))
+					if workspace.Status.Cluster == "" {
+						return false, fmt.Sprintf("status.cluster is empty\n%s", toYAML(t, workspace))
 					}
 					if expected := previouslyValidShard.Spec.BaseURL + workspaceClusterName.Path(); workspace.Status.URL != expected {
-						return false, fmt.Sprintf("baseURL is not %q:\n%s", expected, toYAML(t, workspace))
+						return false, fmt.Sprintf("URL is not %q:\n%s", expected, toYAML(t, workspace))
 					}
 					return true, ""
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 				require.NoError(t, err, "did not see workspace updated")
-			},
-		},
-		{
-			name:        "delete a shard that a workspace is scheduled to, expect WorkspaceShardValid condition to turn false",
-			destructive: true,
-			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				t.Logf("Create a workspace")
-				workspace, err := server.orgKcpClient.TenancyV1beta1().Workspaces().Create(ctx, &tenancyv1beta1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
-				require.NoError(t, err, "failed to create workspace")
-				server.Artifact(t, func() (runtime.Object, error) {
-					return server.orgKcpClient.TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
-				})
-
-				t.Logf("Expect workspace to be scheduled to some shard")
-				var currentShard string
-				err = server.orgExpect(workspace, func(current *tenancyv1beta1.Workspace) error {
-					expectationErr := scheduledAnywhere(current)
-					if expectationErr == nil {
-						// TODO(sttts): rewrite these tests. This is wrong.
-						currentShard = current.Status.Cluster
-					}
-					return expectationErr
-				})
-				require.NoError(t, err, "did not see workspace scheduled")
-
-				t.Logf("Delete the current shard")
-				err = server.rootKcpClient.TenancyV1alpha1().ClusterWorkspaceShards().Delete(ctx, currentShard, metav1.DeleteOptions{})
-				require.NoError(t, err, "failed to delete workspace shard")
-
-				t.Logf("Expect WorkspaceShardValid condition to turn false")
-				err = server.orgExpect(workspace, invalidShard)
-				require.NoError(t, err, "did not see WorkspaceShardValid condition to turn false")
 			},
 		},
 	}
@@ -237,13 +208,6 @@ func isUnschedulable(workspace *tenancyv1beta1.Workspace) bool {
 func unschedulable(object *tenancyv1beta1.Workspace) error {
 	if !isUnschedulable(object) {
 		return fmt.Errorf("expected an unschedulable workspace, got status.conditions: %#v", object.Status.Conditions)
-	}
-	return nil
-}
-
-func invalidShard(workspace *tenancyv1beta1.Workspace) error {
-	if !utilconditions.IsFalse(workspace, tenancyv1alpha1.WorkspaceShardValid) {
-		return fmt.Errorf("expected invalid shard, got status.conditions: %#v", workspace.Status.Conditions)
 	}
 	return nil
 }

@@ -75,7 +75,7 @@ func NewController(
 
 		clusterWorkspaceShardIndexer: clusterWorkspaceShardInformer.Informer().GetIndexer(),
 		clusterWorkspaceShardLister:  clusterWorkspaceShardInformer.Lister(),
-		
+
 		clusterWorkspaceTypeIndexer: clusterWorkspaceTypeInformer.Informer().GetIndexer(),
 		clusterWorkspaceTypeLister:  clusterWorkspaceTypeInformer.Lister(),
 
