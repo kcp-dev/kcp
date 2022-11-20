@@ -62,8 +62,8 @@ var _ rest.Scoper = &REST{}
 var _ rest.Creater = &REST{}
 var _ rest.GracefulDeleter = &REST{}
 
-// NewREST returns a RESTStorage object that will work against ClusterWorkspace resources in
-// org workspaces, projecting them to the Workspace type.
+// NewREST returns a RESTStorage object that will work against Workspace resources,
+// projecting them to the Workspace type.
 func NewREST(
 	kcpClusterClient kcpclient.ClusterInterface,
 ) *REST {
@@ -161,7 +161,7 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 
 	userInfo, ok := apirequest.UserFrom(ctx)
 	if !ok {
-		return nil, kerrors.NewForbidden(tenancyv1beta1.Resource("workspaces"), "", fmt.Errorf("unable to create a clustersworkspace without a user on the context"))
+		return nil, kerrors.NewForbidden(tenancyv1alpha1.Resource("clusterworkspaces"), "", fmt.Errorf("unable to create a clustersworkspace without a user on the context"))
 	}
 
 	clusterName := ctx.Value(ClusterKey).(logicalcluster.Name)
