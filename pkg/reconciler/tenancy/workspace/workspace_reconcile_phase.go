@@ -61,6 +61,9 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1bet
 
 		if initializers := workspace.Status.Initializers; len(initializers) > 0 {
 			after := time.Since(this.CreationTimestamp.Time) / 5
+			if max := time.Minute * 10; after > max {
+				after = max
+			}
 			logger.V(3).Info("ThisWorkspace still has initializers, requeueing", "initializers", initializers, "after", after)
 			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceInitialized, tenancyv1alpha1.WorkspaceInitializedInitializerExists, conditionsv1alpha1.ConditionSeverityInfo, "Initializers still exist: %v", workspace.Status.Initializers)
 			r.requeueAfter(workspace, after)
@@ -70,6 +73,39 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1bet
 		logger.V(3).Info("ThisWorkspace is ready")
 		workspace.Status.Phase = tenancyv1alpha1.WorkspacePhaseReady
 		conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceInitialized)
+
+	case tenancyv1alpha1.WorkspacePhaseReady:
+		if !workspace.DeletionTimestamp.IsZero() {
+			logger = logger.WithValues("cluster", workspace.Status.Cluster)
+
+			this, err := r.getThisWorkspace(ctx, logicalcluster.New(workspace.Status.Cluster))
+			if err != nil && !apierrors.IsNotFound(err) {
+				return reconcileStatusStopAndRequeue, err
+			} else if apierrors.IsNotFound(err) {
+				logger.Info("ThisWorkspace disappeared")
+				conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceContentDeleted)
+				return reconcileStatusContinue, nil
+			}
+
+			if !conditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceContentDeleted) {
+				after := time.Since(this.CreationTimestamp.Time) / 5
+				if max := time.Minute * 10; after > max {
+					after = max
+				}
+				cond := conditions.Get(this, tenancyv1alpha1.WorkspaceContentDeleted)
+				if cond != nil {
+					conditions.Set(workspace, cond)
+					logger.V(3).Info("ThisWorkspace is still deleting, requeueing", "reason", cond.Reason, "message", cond.Message, "after", after)
+				} else {
+					logger.V(3).Info("ThisWorkspace is still deleting, requeueing", "after", after)
+				}
+				r.requeueAfter(workspace, after)
+				return reconcileStatusContinue, nil
+			}
+
+			logger.Info("workspace content is deleted")
+			return reconcileStatusContinue, nil
+		}
 	}
 
 	return reconcileStatusContinue, nil

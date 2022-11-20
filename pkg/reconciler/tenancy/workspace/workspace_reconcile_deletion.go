@@ -43,6 +43,10 @@ func (r *deletionReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 		return reconcileStatusContinue, nil
 	}
 
+	if sets.NewString(workspace.Finalizers...).Delete(tenancyv1alpha1.ThisWorkspaceFinalizer).Len() > 0 {
+		return reconcileStatusContinue, nil
+	}
+
 	if _, err := r.getThisWorkspace(ctx, logicalcluster.New(workspace.Status.Cluster)); err != nil && !apierrors.IsNotFound(err) {
 		return reconcileStatusStopAndRequeue, err
 	} else if apierrors.IsNotFound(err) {

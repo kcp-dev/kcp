@@ -343,17 +343,12 @@ func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *t
 	estimate := int64(0)
 
 	// disocer resources at first
-	var (
-		deletionContentSuccessReason  string
-		deletionContentSuccessMessage string
-	)
+	var deletionContentSuccessReason string
 	resources, err := d.discoverResourcesFn(logicalcluster.From(ws))
 	if err != nil {
 		// discovery errors are not fatal.  We often have some set of resources we can operate against even if we don't have a complete list
 		errs = append(errs, err)
-
 		deletionContentSuccessReason = "DiscoveryFailed"
-		deletionContentSuccessMessage = err.Error()
 	}
 
 	deletableResources := discovery.FilteredBy(and{
@@ -378,9 +373,7 @@ func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *t
 	if err != nil {
 		// discovery errors are not fatal.  We often have some set of resources we can operate against even if we don't have a complete list
 		errs = append(errs, err)
-
 		deletionContentSuccessReason = "GroupVersionParsingFailed"
-		deletionContentSuccessMessage = err.Error()
 	}
 
 	numRemainingTotals := allGVRDeletionMetadata{
@@ -411,24 +404,10 @@ func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *t
 
 	if len(deleteContentErrs) > 0 {
 		errs = append(errs, deleteContentErrs...)
-
 		deletionContentSuccessReason = "ContentDeletionFailed"
-		deletionContentSuccessMessage = utilerrors.NewAggregate(deleteContentErrs).Error()
 	}
 
-	if deletionContentSuccessReason == "" {
-		conditions.MarkTrue(ws, tenancyv1alpha1.WorkspaceDeletionContentSuccess)
-	} else {
-		conditions.MarkFalse(
-			ws,
-			tenancyv1alpha1.WorkspaceDeletionContentSuccess,
-			deletionContentSuccessReason,
-			conditionsv1alpha1.ConditionSeverityError,
-			deletionContentSuccessMessage,
-		)
-	}
-
-	var contentDeletedMessages []string
+	var contentRemainingMessages []string
 	if len(numRemainingTotals.gvrToNumRemaining) != 0 {
 		remainingResources := []string{}
 		for gvr, numRemaining := range numRemainingTotals.gvrToNumRemaining {
@@ -439,9 +418,8 @@ func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *t
 		}
 		// sort for stable updates
 		sort.Strings(remainingResources)
-		contentDeletedMessages = append(contentDeletedMessages, fmt.Sprintf("Some resources are remaining: %s", strings.Join(remainingResources, ", ")))
+		contentRemainingMessages = append(contentRemainingMessages, fmt.Sprintf("Some resources are remaining: %s", strings.Join(remainingResources, ", ")))
 	}
-
 	if len(numRemainingTotals.finalizersToNumRemaining) != 0 {
 		remainingByFinalizer := []string{}
 		for finalizer, numRemaining := range numRemainingTotals.finalizersToNumRemaining {
@@ -452,25 +430,35 @@ func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *t
 		}
 		// sort for stable updates
 		sort.Strings(remainingByFinalizer)
-		contentDeletedMessages = append(contentDeletedMessages, fmt.Sprintf("Some content in the workspace has finalizers remaining: %s", strings.Join(remainingByFinalizer, ", ")))
+		contentRemainingMessages = append(contentRemainingMessages, fmt.Sprintf("Some content in the workspace has finalizers remaining: %s", strings.Join(remainingByFinalizer, ", ")))
 	}
-
-	message := ""
-	if len(contentDeletedMessages) > 0 {
-		message = strings.Join(contentDeletedMessages, "; ")
+	if len(contentRemainingMessages) > 0 {
+		message := strings.Join(contentRemainingMessages, "; ")
 		conditions.MarkFalse(
 			ws,
 			tenancyv1alpha1.WorkspaceContentDeleted,
 			"SomeResourcesRemain",
-			conditionsv1alpha1.ConditionSeverityError,
+			conditionsv1alpha1.ConditionSeverityInfo,
 			message,
 		)
-	} else {
-		conditions.MarkTrue(ws, tenancyv1alpha1.WorkspaceContentDeleted)
+		logger.V(4).Error(utilerrors.NewAggregate(errs), "resource remaining")
+		return estimate, message, utilerrors.NewAggregate(errs)
 	}
 
-	logger.V(4).Error(utilerrors.NewAggregate(errs), "operation failed")
-	return estimate, message, utilerrors.NewAggregate(errs)
+	if len(errs) > 0 {
+		conditions.MarkFalse(
+			ws,
+			tenancyv1alpha1.WorkspaceContentDeleted,
+			deletionContentSuccessReason,
+			conditionsv1alpha1.ConditionSeverityError,
+			utilerrors.NewAggregate(errs).Error(),
+		)
+		logger.Error(utilerrors.NewAggregate(errs), "content deletion failed", "message", deletionContentSuccessReason)
+		return estimate, deletionContentSuccessReason, utilerrors.NewAggregate(errs)
+	}
+
+	conditions.MarkTrue(ws, tenancyv1alpha1.WorkspaceContentDeleted)
+	return estimate, "", nil
 }
 
 // estimateGracefulTermination will estimate the graceful termination required for the specific entity in the workspace
