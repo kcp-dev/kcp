@@ -22,7 +22,6 @@ import (
 	"sync"
 	"time"
 
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -54,7 +53,7 @@ type ClusterWorkspaceClientGetter func(shard *tenancyv1alpha1.ClusterWorkspaceSh
 func NewController(
 	ctx context.Context,
 	rootHost string,
-	clusterWorkspaceShardInformer tenancyv1alpha1informers.ClusterWorkspaceShardClusterInformer,
+	clusterWorkspaceShardInformer tenancyv1alpha1informers.ClusterWorkspaceShardInformer,
 	clientGetter ClusterWorkspaceClientGetter,
 ) *Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
@@ -169,7 +168,7 @@ type Controller struct {
 	clientGetter ClusterWorkspaceClientGetter
 
 	clusterWorkspaceShardIndexer cache.Indexer
-	clusterWorkspaceShardLister  tenancyv1alpha1listers.ClusterWorkspaceShardClusterLister
+	clusterWorkspaceShardLister  tenancyv1alpha1listers.ClusterWorkspaceShardLister
 
 	clusterWorkspaceHandler cache.ResourceEventHandler
 
@@ -206,7 +205,7 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 }
 
 func (c *Controller) enqueueShard(ctx context.Context, obj interface{}) {
-	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -245,12 +244,12 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *Controller) process(ctx context.Context, key string) error {
-	cluster, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+	_, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(err)
 		return nil
 	}
-	shard, err := c.clusterWorkspaceShardLister.Cluster(cluster).Get(name)
+	shard, err := c.clusterWorkspaceShardLister.Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			c.shardInformersLock.Lock()

@@ -43,7 +43,7 @@ type Server struct {
 	CompletedConfig
 	Handler                  http.Handler
 	IndexController          *index.Controller
-	KcpSharedInformerFactory kcpinformers.SharedInformerFactory
+	KcpSharedInformerFactory kcpinformers.SharedScopedInformerFactory
 }
 
 func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
@@ -54,7 +54,7 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	if err != nil {
 		return s, fmt.Errorf("failed to create client for informers: %w", err)
 	}
-	s.KcpSharedInformerFactory = kcpinformers.NewSharedInformerFactoryWithOptions(rootShardConfigInformerClient, 30*time.Minute)
+	s.KcpSharedInformerFactory = kcpinformers.NewSharedScopedInformerFactoryWithOptions(rootShardConfigInformerClient.Cluster(tenancyv1alpha1.RootCluster), 30*time.Minute)
 	s.IndexController = index.NewController(
 		ctx,
 		s.CompletedConfig.RootShardConfig.Host,
