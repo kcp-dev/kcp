@@ -55,11 +55,11 @@ func NewReviewer(subjectLocator rbac.SubjectLocator) *Reviewer {
 }
 
 // Review returns a Review for attributes.
-func (r *Reviewer) Review(attributes kauthorizer.Attributes) Review {
+func (r *Reviewer) Review(ctx context.Context, attributes kauthorizer.Attributes) Review {
 	if r.subjectLocater == nil {
 		return Review{}
 	}
-	subjects, err := r.subjectLocater.AllowedSubjects(attributes)
+	subjects, err := r.subjectLocater.AllowedSubjects(ctx, attributes)
 	review := Review{
 		EvaluationError: err,
 	}
@@ -68,7 +68,7 @@ func (r *Reviewer) Review(attributes kauthorizer.Attributes) Review {
 }
 
 func (r *Reviewer) Authorize(ctx context.Context, attributes kauthorizer.Attributes) (authorized kauthorizer.Decision, reason string, err error) {
-	review := r.Review(attributes)
+	review := r.Review(ctx, attributes)
 	if review.Allows(attributes.GetUser()) {
 		return kauthorizer.DecisionAllow, "", nil
 	}

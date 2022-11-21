@@ -1187,7 +1187,7 @@ func attrKey(attributes authorizer.Attributes) string {
 	return key
 }
 
-func (m *mockSubjectLocator) AllowedSubjects(attributes authorizer.Attributes) ([]rbacv1.Subject, error) {
+func (m *mockSubjectLocator) AllowedSubjects(ctx context.Context, attributes authorizer.Attributes) ([]rbacv1.Subject, error) {
 	if subjects, ok := m.subjects[attrKey(attributes)]; ok {
 		if subject, ok := subjects[""]; ok {
 			return subject, nil
