@@ -436,10 +436,8 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 
 			if recordingAuthorizer.recordedAttributes == nil {
 				t.Errorf("want user %+v, got %+v", tt.wantUser, nil)
-			} else {
-				if got := recordingAuthorizer.recordedAttributes.GetUser(); !reflect.DeepEqual(got, tt.wantUser) {
-					t.Errorf("want user %+v, got %+v", tt.wantUser, got)
-				}
+			} else if got := recordingAuthorizer.recordedAttributes.GetUser(); !reflect.DeepEqual(got, tt.wantUser) {
+				t.Errorf("want user %+v, got %+v", tt.wantUser, got)
 			}
 		})
 	}
