@@ -182,7 +182,7 @@ verify-codegen:
 		ln -s ${GITHUB_WORKSPACE} $$(go env GOPATH)/src/github.com/kcp-dev/kcp; \
 	fi
 
-	$(MAKE) codegen
+	$(MAKE) codegen imports
 
 	if ! git diff --quiet HEAD; then \
 		git diff; \
