@@ -159,15 +159,6 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 	opts.Etcd.StorageConfig.EncodeVersioner = runtime.NewMultiGroupVersioner(apiextensionsv1beta1.SchemeGroupVersion, schema.GroupKind{Group: apiextensionsv1beta1.GroupName})
 	serverConfig.RESTOptionsGetter = &genericoptions.SimpleRestOptionsFactory{Options: *opts.Etcd}
 
-	// use protobufs for self-communication.
-	// Since not every generic apiserver has to support protobufs, we
-	// cannot default to it in generic apiserver and need to explicitly
-	// set it in kube-apiserver.
-	serverConfig.LoopbackClientConfig.ContentConfig.ContentType = "application/vnd.kubernetes.protobuf"
-	// disable compression for self-communication, since we are going to be
-	// on a fast local network
-	serverConfig.LoopbackClientConfig.DisableCompression = true
-
 	// an ordered list of HTTP round trippers that add
 	// shard and cluster awareness to all clients that use
 	// the loopback config.
@@ -202,7 +193,6 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 		},
 		"customresourcedefinitions")
 	rt = rest.AddUserAgent(rt, "kcp-cache-server")
-	rt.ContentConfig.ContentType = "application/json"
 
 	var err error
 	c.ApiExtensionsClusterClient, err = kcpapiextensionsclientset.NewForConfig(rt)
