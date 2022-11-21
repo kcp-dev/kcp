@@ -93,3 +93,56 @@ func AdmitWorkspaceAccess(t *testing.T, ctx context.Context, kubeClusterClient k
 	_, err = kubeClusterClient.Cluster(parent).RbacV1().ClusterRoleBindings().Create(ctx, binding, metav1.CreateOptions{})
 	require.NoError(t, err)
 }
+
+// AdmitExistingWorkspaceAccess create RBAC rules that allow the given users and/or groups to access the given workspace.
+func AdmitExistingWorkspaceAccess(t *testing.T, ctx context.Context, kubeClusterClient kcpkubernetesclientset.ClusterInterface, orgClusterName logicalcluster.Name, users []string, groups []string, verbs []string) {
+	if len(groups) > 0 {
+		t.Logf("Giving groups %v member access to workspace %q in %q", groups, orgClusterName.Base(), orgClusterName)
+	}
+	if len(users) > 0 {
+		t.Logf("Giving users %v member access to workspace %q in %q", users, orgClusterName.Base(), orgClusterName)
+	}
+
+	roleName := orgClusterName.Base() + "-" + strings.Join(verbs, "-")
+	_, err := kubeClusterClient.Cluster(orgClusterName).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: roleName,
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				Verbs:           verbs,
+				NonResourceURLs: []string{"/"},
+			},
+		},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	binding := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: roleName,
+		},
+		RoleRef: rbacv1.RoleRef{
+			Kind:     "ClusterRole",
+			APIGroup: "rbac.authorization.k8s.io",
+			Name:     roleName,
+		},
+	}
+
+	for _, group := range groups {
+		binding.Subjects = append(binding.Subjects, rbacv1.Subject{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "Group",
+			Name:     group,
+		})
+	}
+	for _, user := range users {
+		binding.Subjects = append(binding.Subjects, rbacv1.Subject{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "User",
+			Name:     user,
+		})
+	}
+
+	_, err = kubeClusterClient.Cluster(orgClusterName).RbacV1().ClusterRoleBindings().Create(ctx, binding, metav1.CreateOptions{})
+	require.NoError(t, err)
+}
