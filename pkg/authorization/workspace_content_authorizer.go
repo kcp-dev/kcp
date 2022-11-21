@@ -39,8 +39,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
-	"github.com/kcp-dev/kcp/pkg/client"
-	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
 )
 
@@ -52,7 +51,7 @@ const (
 	WorkspaceContentAuditReason   = WorkspaceContentAuditPrefix + "reason"
 )
 
-func NewWorkspaceContentAuthorizer(versionedInformers kcpkubernetesinformers.SharedInformerFactory, clusterWorkspaceLister tenancylisters.ClusterWorkspaceLister, delegate authorizer.Authorizer) authorizer.Authorizer {
+func NewWorkspaceContentAuthorizer(versionedInformers kcpkubernetesinformers.SharedInformerFactory, clusterWorkspaceLister tenancyv1alpha1listers.ClusterWorkspaceClusterLister, delegate authorizer.Authorizer) authorizer.Authorizer {
 	return &workspaceContentAuthorizer{
 		roleLister:               versionedInformers.Rbac().V1().Roles().Lister(),
 		roleBindingLister:        versionedInformers.Rbac().V1().RoleBindings().Lister(),
@@ -69,7 +68,7 @@ type workspaceContentAuthorizer struct {
 	roleBindingLister        rbacv1listers.RoleBindingClusterLister
 	clusterRoleBindingLister rbacv1listers.ClusterRoleBindingClusterLister
 	clusterRoleLister        rbacv1listers.ClusterRoleClusterLister
-	clusterWorkspaceLister   tenancylisters.ClusterWorkspaceLister
+	clusterWorkspaceLister   tenancyv1alpha1listers.ClusterWorkspaceClusterLister
 
 	// union of local and bootstrap authorizer
 	delegate authorizer.Authorizer
@@ -170,7 +169,7 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 	extraGroups := sets.NewString()
 
 	// check the workspace even exists
-	ws, err := a.clusterWorkspaceLister.Get(client.ToClusterAwareKey(parentClusterName, cluster.Name.Base()))
+	ws, err := a.clusterWorkspaceLister.Cluster(parentClusterName).Get(cluster.Name.Base())
 	if err != nil {
 		if errors.IsNotFound(err) {
 			kaudit.AddAuditAnnotations(

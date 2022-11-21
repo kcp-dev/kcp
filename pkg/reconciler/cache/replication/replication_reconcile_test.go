@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	kcpfakedynamic "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/dynamic/fake"
@@ -34,7 +35,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
+	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 )
 
 var scheme *runtime.Scheme
@@ -59,7 +60,7 @@ func TestReconcileAPIExports(t *testing.T) {
 			reconcileKey:           fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
 			validateFunc: func(ts *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
 				if len(localClientActions) != 0 {
-					ts.Fatal("unexpected REST calls were made to the localDynamicClient")
+					ts.Fatalf("unexpected REST calls were made to the localDynamicClient: %#v", localClientActions)
 				}
 				wasCacheApiExportValidated := false
 				for _, action := range cacheClientActions {
@@ -103,7 +104,7 @@ func TestReconcileAPIExports(t *testing.T) {
 			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
 			validateFunc: func(ts *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
 				if len(localClientActions) != 0 {
-					ts.Fatal("unexpected REST calls were made to the localDynamicClient")
+					ts.Fatalf("unexpected REST calls were made to the localDynamicClient: %#v", localClientActions)
 				}
 				wasCacheApiExportValidated := false
 				for _, action := range cacheClientActions {
@@ -180,7 +181,7 @@ func TestReconcileAPIExports(t *testing.T) {
 			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
 			validateFunc: func(ts *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
 				if len(localClientActions) != 0 {
-					ts.Fatal("unexpected REST calls were made to the localDynamicClient")
+					ts.Fatalf("unexpected REST calls were made to the localDynamicClient: %#v", localClientActions)
 				}
 				wasCacheApiExportValidated := false
 				for _, action := range cacheClientActions {
@@ -223,7 +224,7 @@ func TestReconcileAPIExports(t *testing.T) {
 			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
 			validateFunc: func(ts *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
 				if len(localClientActions) != 0 {
-					ts.Fatal("unexpected REST calls were made to the localDynamicClient")
+					ts.Fatalf("unexpected REST calls were made to the localDynamicClient: %#v", localClientActions)
 				}
 				wasCacheApiExportValidated := false
 				for _, action := range cacheClientActions {
@@ -266,7 +267,7 @@ func TestReconcileAPIExports(t *testing.T) {
 			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
 			validateFunc: func(ts *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
 				if len(localClientActions) != 0 {
-					ts.Fatal("unexpected REST calls were made to the localDynamicClient")
+					ts.Fatalf("unexpected REST calls were made to the localDynamicClient: %#v", localClientActions)
 				}
 				wasCacheApiExportValidated := false
 				for _, action := range cacheClientActions {
@@ -299,14 +300,14 @@ func TestReconcileAPIExports(t *testing.T) {
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(tt *testing.T) {
 			target := &controller{shardName: "amber"}
-			localApiExportIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+			localApiExportIndexer := cache.NewIndexer(kcpcache.MetaClusterNamespaceKeyFunc, cache.Indexers{})
 			for _, obj := range scenario.initialLocalApiExports {
 				if err := localApiExportIndexer.Add(obj); err != nil {
 					tt.Error(err)
 				}
 			}
-			target.localApiExportLister = apislisters.NewAPIExportLister(localApiExportIndexer)
-			target.cacheApiExportsIndexer = cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{ByShardAndLogicalClusterAndNamespaceAndName: IndexByShardAndLogicalClusterAndNamespace})
+			target.localApiExportLister = apisv1alpha1listers.NewAPIExportClusterLister(localApiExportIndexer)
+			target.cacheApiExportsIndexer = cache.NewIndexer(kcpcache.MetaClusterNamespaceKeyFunc, cache.Indexers{ByShardAndLogicalClusterAndNamespaceAndName: IndexByShardAndLogicalClusterAndNamespace})
 			for _, obj := range scenario.initialCacheApiExports {
 				if err := target.cacheApiExportsIndexer.Add(obj); err != nil {
 					tt.Error(err)

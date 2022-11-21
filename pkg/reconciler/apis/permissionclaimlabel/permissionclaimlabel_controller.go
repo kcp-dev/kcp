@@ -40,10 +40,9 @@ import (
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/client"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
-	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
+	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
@@ -55,11 +54,11 @@ const (
 // NewController returns a new controller for handling permission claims for an APIBinding.
 // it will own the AppliedPermissionClaims and will own the accepted permission claim condition.
 func NewController(
-	kcpClusterClient kcpclient.Interface,
+	kcpClusterClient kcpclientset.ClusterInterface,
 	dynamicClusterClient kcpdynamic.ClusterInterface,
 	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory,
-	apiBindingInformer apisinformers.APIBindingInformer,
-	apiExportInformer apisinformers.APIExportInformer,
+	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
+	apiExportInformer apisv1alpha1informers.APIExportClusterInformer,
 ) (*controller, error) {
 	logger := logging.WithReconciler(klog.Background(), ControllerName)
 
@@ -75,8 +74,7 @@ func NewController(
 		apiBindingsIndexer: apiBindingInformer.Informer().GetIndexer(),
 
 		getAPIExport: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
-			key := client.ToClusterAwareKey(clusterName, name)
-			return apiExportInformer.Lister().Get(key)
+			return apiExportInformer.Lister().Cluster(clusterName).Get(name)
 		},
 	}
 
@@ -98,12 +96,12 @@ func NewController(
 type controller struct {
 	queue workqueue.RateLimitingInterface
 
-	kcpClusterClient     kcpclient.Interface
+	kcpClusterClient     kcpclientset.ClusterInterface
 	apiBindingsIndexer   cache.Indexer
 	dynamicClusterClient kcpdynamic.ClusterInterface
 	ddsif                *informer.DynamicDiscoverySharedInformerFactory
 
-	apiBindingsLister apislisters.APIBindingLister
+	apiBindingsLister apisv1alpha1listers.APIBindingClusterLister
 	getAPIExport      func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error)
 }
 
@@ -174,7 +172,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		return nil
 	}
 
-	obj, err := c.apiBindingsLister.Get(key)
+	obj, err := c.apiBindingsLister.Cluster(clusterName).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil // object deleted before we handled it
@@ -219,7 +217,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		}
 
 		logger.V(2).Info("patching APIBinding", "patch", string(patchBytes))
-		if _, err := c.kcpClusterClient.ApisV1alpha1().APIBindings().Patch(logicalcluster.WithCluster(ctx, clusterName), obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status"); err != nil {
+		if _, err := c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIBindings().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status"); err != nil {
 			errs = append(errs, err)
 
 		}

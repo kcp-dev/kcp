@@ -20,6 +20,7 @@ import (
 	"context"
 	"testing"
 
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -32,6 +33,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 )
 
 func TestValidate(t *testing.T) {
@@ -84,17 +86,14 @@ func TestValidate(t *testing.T) {
 	}
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
-			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
-			if err := indexer.AddIndexers(cache.Indexers{byWorkspace: indexByWorkspace}); err != nil {
-				t.Fatal(err)
-			}
+			indexer := cache.NewIndexer(kcpcache.MetaClusterNamespaceKeyFunc, cache.Indexers{kcpcache.ClusterIndexName: kcpcache.ClusterIndexFunc})
 			for _, obj := range scenario.initialObjects {
 				if err := indexer.Add(obj); err != nil {
 					t.Error(err)
 				}
 			}
 
-			a := &crdNoOverlappingGVRAdmission{Handler: admission.NewHandler(admission.Create, admission.Update), apiBindingIndexer: indexer}
+			a := &crdNoOverlappingGVRAdmission{Handler: admission.NewHandler(admission.Create, admission.Update), apiBindingClusterLister: apisv1alpha1listers.NewAPIBindingClusterLister(indexer)}
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: logicalcluster.New(scenario.clusterName)})
 			if err := a.Validate(ctx, scenario.attr, nil); (err != nil) != scenario.wantErr {
 				t.Fatalf("Validate() error = %v, wantErr %v", err, scenario.wantErr)

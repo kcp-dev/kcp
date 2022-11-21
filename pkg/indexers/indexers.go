@@ -20,23 +20,15 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kcp-dev/logicalcluster/v2"
-
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/client"
 	syncershared "github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
 const (
-	// ByLogicalCluster is the name for the index that indexes by an object's logical cluster.
-	ByLogicalCluster = "kcp-global-byLogicalCluster"
-	// ByLogicalClusterAndNamespace is the name for the index that indexes by an object's logical cluster and namespace.
-	ByLogicalClusterAndNamespace = "kcp-global-byLogicalClusterAndNamespace"
 	// BySyncerFinalizerKey is the name for the index that indexes by syncer finalizer label keys.
 	BySyncerFinalizerKey = "bySyncerFinalizerKey"
 	// APIBindingByClusterAndAcceptedClaimedGroupResources is the name for the index that indexes an APIBinding by its
@@ -45,41 +37,6 @@ const (
 	// ByClusterResourceStateLabelKey indexes resources based on the cluster state label key.
 	ByClusterResourceStateLabelKey = "ByClusterResourceStateLabelKey"
 )
-
-// ClusterScoped returns cache.Indexers appropriate for cluster-scoped resources.
-func ClusterScoped() cache.Indexers {
-	return cache.Indexers{
-		ByLogicalCluster: IndexByLogicalCluster,
-	}
-}
-
-// NamespaceScoped returns cache.Indexers appropriate for namespace-scoped resources.
-func NamespaceScoped() cache.Indexers {
-	return cache.Indexers{
-		ByLogicalCluster:             IndexByLogicalCluster,
-		ByLogicalClusterAndNamespace: IndexByLogicalClusterAndNamespace,
-	}
-}
-
-// IndexByLogicalCluster is an index function that indexes by an object's logical cluster.
-func IndexByLogicalCluster(obj interface{}) ([]string, error) {
-	a, err := meta.Accessor(obj)
-	if err != nil {
-		return nil, err
-	}
-
-	return []string{logicalcluster.From(a).String()}, nil
-}
-
-// IndexByLogicalClusterAndNamespace is an index function that indexes by an object's logical cluster and namespace.
-func IndexByLogicalClusterAndNamespace(obj interface{}) ([]string, error) {
-	a, err := meta.Accessor(obj)
-	if err != nil {
-		return nil, err
-	}
-
-	return []string{client.ToClusterAwareKey(logicalcluster.From(a), a.GetNamespace())}, nil
-}
 
 // IndexBySyncerFinalizerKey indexes by syncer finalizer label keys.
 func IndexBySyncerFinalizerKey(obj interface{}) ([]string, error) {

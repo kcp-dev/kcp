@@ -35,12 +35,12 @@ import (
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 )
 
 func init() {
 	klog.InitFlags(flag.CommandLine)
-	if err := flag.Lookup("v").Value.Set("2"); err != nil {
+	if err := flag.Lookup("v").Value.Set("4"); err != nil {
 		panic(err)
 	}
 }
@@ -124,11 +124,11 @@ func WriteLogicalClusterConfig(t *testing.T, rawConfig clientcmdapi.Config, cont
 }
 
 // ShardConfig returns a rest config that talk directly to the given shard.
-func ShardConfig(t *testing.T, kcpClusterClient kcpclient.Interface, shardName string, cfg *rest.Config) *rest.Config {
+func ShardConfig(t *testing.T, kcpClusterClient kcpclientset.ClusterInterface, shardName string, cfg *rest.Config) *rest.Config {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
-	shard, err := kcpClusterClient.TenancyV1alpha1().ClusterWorkspaceShards().Get(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), shardName, metav1.GetOptions{})
+	shard, err := kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaceShards().Get(ctx, shardName, metav1.GetOptions{})
 	require.NoError(t, err)
 
 	shardCfg := rest.CopyConfig(cfg)

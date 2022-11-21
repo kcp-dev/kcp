@@ -41,14 +41,14 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
-	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
 type testScenario struct {
 	name string
-	work func(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterClient clientset.ClusterInterface, cacheKcpClusterClient clientset.ClusterInterface)
+	work func(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterClient kcpclientset.ClusterInterface, cacheKcpClusterClient kcpclientset.ClusterInterface)
 }
 
 // scenarios all test scenarios that will be run against in-process and standalone cache server
@@ -61,7 +61,7 @@ var scenarios = []testScenario{
 
 // replicateAPIResourceSchemaScenario tests if an APIResourceSchema is propagated to the cache server.
 // The test exercises creation, modification and removal of the APIExport object.
-func replicateAPIResourceSchemaScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterClient clientset.ClusterInterface, cacheKcpClusterClient clientset.ClusterInterface) {
+func replicateAPIResourceSchemaScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterClient kcpclientset.ClusterInterface, cacheKcpClusterClient kcpclientset.ClusterInterface) {
 	org := framework.NewOrganizationFixture(t, server)
 	cluster := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
 	resourceName := "today.sheriffs.wild.wild.west"
@@ -69,7 +69,7 @@ func replicateAPIResourceSchemaScenario(ctx context.Context, t *testing.T, serve
 
 	t.Logf("Create source APIResourceSchema %s/%s on the root shard for replication", cluster, resourceName)
 	scenario.CreateSourceResource(t, func() error {
-		apifixtures.CreateSheriffsSchemaAndExport(ctx, t, cluster, kcpShardClusterClient.Cluster(cluster), "wild.wild.west", "testing replication to the cache server")
+		apifixtures.CreateSheriffsSchemaAndExport(ctx, t, cluster, kcpShardClusterClient, "wild.wild.west", "testing replication to the cache server")
 		return nil
 	})
 	t.Logf("Verify that the source APIResourceSchema %s/%s was replicated to the cache server", cluster, resourceName)
@@ -95,7 +95,7 @@ func replicateAPIResourceSchemaScenario(ctx context.Context, t *testing.T, serve
 }
 
 // replicateAPIResourceSchemaNegativeScenario checks if modified or even deleted cached APIResourceSchema will be reconciled to match the original object
-func replicateAPIResourceSchemaNegativeScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterClient clientset.ClusterInterface, cacheKcpClusterClient clientset.ClusterInterface) {
+func replicateAPIResourceSchemaNegativeScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterClient kcpclientset.ClusterInterface, cacheKcpClusterClient kcpclientset.ClusterInterface) {
 	org := framework.NewOrganizationFixture(t, server)
 	cluster := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
 	resourceName := "juicy.mangodbs.db.io"
@@ -169,7 +169,7 @@ func replicateAPIResourceSchemaNegativeScenario(ctx context.Context, t *testing.
 
 // replicateAPIExportScenario tests if an APIExport is propagated to the cache server.
 // The test exercises creation, modification and removal of the APIExport object.
-func replicateAPIExportScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterClient clientset.ClusterInterface, cacheKcpClusterClient clientset.ClusterInterface) {
+func replicateAPIExportScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterClient kcpclientset.ClusterInterface, cacheKcpClusterClient kcpclientset.ClusterInterface) {
 	org := framework.NewOrganizationFixture(t, server)
 	cluster := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
 	resourceName := "wild.wild.west"
@@ -177,7 +177,7 @@ func replicateAPIExportScenario(ctx context.Context, t *testing.T, server framew
 
 	t.Logf("Create source APIExport %s/%s on the root shard for replication", cluster, resourceName)
 	scenario.CreateSourceResource(t, func() error {
-		apifixtures.CreateSheriffsSchemaAndExport(ctx, t, cluster, kcpShardClusterClient.Cluster(cluster), "wild.wild.west", "testing replication to the cache server")
+		apifixtures.CreateSheriffsSchemaAndExport(ctx, t, cluster, kcpShardClusterClient, "wild.wild.west", "testing replication to the cache server")
 		return nil
 	})
 	t.Logf("Verify that the source APIExport %s/%s was replicated to the cache server", cluster, resourceName)
@@ -214,7 +214,7 @@ func replicateAPIExportScenario(ctx context.Context, t *testing.T, server framew
 }
 
 // replicateAPIExportNegativeScenario checks if modified or even deleted cached APIExport will be reconciled to match the original object
-func replicateAPIExportNegativeScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterClient clientset.ClusterInterface, cacheKcpClusterClient clientset.ClusterInterface) {
+func replicateAPIExportNegativeScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterClient kcpclientset.ClusterInterface, cacheKcpClusterClient kcpclientset.ClusterInterface) {
 	org := framework.NewOrganizationFixture(t, server)
 	cluster := framework.NewWorkspaceFixture(t, server, org, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
 	resourceName := "mangodb"
@@ -267,10 +267,10 @@ func TestCacheServerInProcess(t *testing.T) {
 	t.Cleanup(cancel)
 
 	kcpRootShardConfig := server.RootShardSystemMasterBaseConfig(t)
-	kcpRootShardClient, err := clientset.NewClusterForConfig(kcpRootShardConfig)
+	kcpRootShardClient, err := kcpclientset.NewForConfig(kcpRootShardConfig)
 	require.NoError(t, err)
 	cacheClientRT := CacheClientRoundTrippersFor(kcpRootShardConfig)
-	cacheKcpClusterClient, err := clientset.NewClusterForConfig(cacheClientRT)
+	cacheKcpClusterClient, err := kcpclientset.NewForConfig(cacheClientRT)
 	require.NoError(t, err)
 
 	for _, scenario := range scenarios {
@@ -301,7 +301,7 @@ func TestCacheServerStandalone(t *testing.T) {
 		framework.WithScratchDirectories(artifactDir, dataDir),
 	)
 	kcpRootShardConfig := server.RootShardSystemMasterBaseConfig(t)
-	kcpRootShardClient, err := clientset.NewClusterForConfig(kcpRootShardConfig)
+	kcpRootShardClient, err := kcpclientset.NewForConfig(kcpRootShardConfig)
 	require.NoError(t, err)
 
 	cacheServerKubeConfig, err := clientcmd.LoadFromFile(cacheKubeconfigPath)
@@ -310,7 +310,7 @@ func TestCacheServerStandalone(t *testing.T) {
 	cacheClientRestConfig, err := cacheClientConfig.ClientConfig()
 	require.NoError(t, err)
 	cacheClientRT := CacheClientRoundTrippersFor(cacheClientRestConfig)
-	cacheKcpClusterClient, err := clientset.NewClusterForConfig(cacheClientRT)
+	cacheKcpClusterClient, err := kcpclientset.NewForConfig(cacheClientRT)
 	require.NoError(t, err)
 
 	for _, scenario := range scenarios {
@@ -328,8 +328,8 @@ type replicateResourceScenario struct {
 	resourceKind string
 
 	server                framework.RunningServer
-	kcpShardClusterClient clientset.ClusterInterface
-	cacheKcpClusterClient clientset.ClusterInterface
+	kcpShardClusterClient kcpclientset.ClusterInterface
+	cacheKcpClusterClient kcpclientset.ClusterInterface
 }
 
 func (b *replicateResourceScenario) CreateSourceResource(t *testing.T, createSourceResource func() error) {

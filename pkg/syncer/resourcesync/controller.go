@@ -52,11 +52,10 @@ import (
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
-	workloadlisters "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
+	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	workloadv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
+	workloadv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
-	"github.com/kcp-dev/kcp/third_party/keyfunctions"
 )
 
 const (
@@ -96,8 +95,8 @@ type Controller struct {
 	syncTargetName      string
 	syncTargetWorkspace logicalcluster.Name
 	syncTargetUID       types.UID
-	syncTargetLister    workloadlisters.SyncTargetLister
-	kcpClient           kcpclient.Interface
+	syncTargetLister    workloadv1alpha1listers.SyncTargetLister
+	kcpClient           clientset.Interface
 
 	syncerInformerMap map[schema.GroupVersionResource]*SyncerInformer
 	mutex             sync.RWMutex
@@ -108,8 +107,8 @@ func NewController(
 	upstreamDynamicClusterClient kcpdynamic.ClusterInterface,
 	downstreamDynamicClient dynamic.Interface,
 	downstreamKubeClient kubernetes.Interface,
-	kcpClient kcpclient.Interface,
-	syncTargetInformer workloadinformers.SyncTargetInformer,
+	kcpClient clientset.Interface,
+	syncTargetInformer workloadv1alpha1informers.SyncTargetInformer,
 	syncTargetName string,
 	syncTargetWorkspace logicalcluster.Name,
 	syncTargetUID types.UID,
@@ -133,15 +132,15 @@ func NewController(
 
 	syncTargetInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
-			key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
+			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 			if err != nil {
 				return false
 			}
-			clusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+			_, name, err := cache.SplitMetaNamespaceKey(key)
 			if err != nil {
 				return false
 			}
-			return name == syncTargetName && clusterName == syncTargetWorkspace
+			return name == syncTargetName
 		},
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    func(obj interface{}) { c.enqueueSyncTarget(obj, logger) },
@@ -154,7 +153,7 @@ func NewController(
 }
 
 func (c *Controller) enqueueSyncTarget(obj interface{}, logger logr.Logger) {
-	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -240,20 +239,13 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 func (c *Controller) process(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
 
-	lclusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+	_, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		logger.Error(err, "failed to split key, dropping")
 		return nil
 	}
-	// TODO(skuznets): can we figure out how to not leak this detail up to this code?
-	// I guess once the indexer is using kcpcache.MetaClusterNamespaceKeyFunc, we can just use that formatter ...
-	var indexKey string
-	if !lclusterName.Empty() {
-		indexKey += lclusterName.String() + "|"
-	}
-	indexKey += name
 
-	syncTarget, err := c.syncTargetLister.Get(indexKey)
+	syncTarget, err := c.syncTargetLister.Get(name)
 	if apierrors.IsNotFound(err) {
 		c.stopUnusedSyncerInformers(ctx, map[schema.GroupVersionResource]bool{})
 		return nil
@@ -309,14 +301,14 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		conditions.MarkTrue(newSyncTarget, workloadv1alpha1.SyncerAuthorized)
 	}
 
-	if err := c.patchSyncTargetCondition(ctx, lclusterName, newSyncTarget, syncTarget); err != nil {
+	if err := c.patchSyncTargetCondition(ctx, newSyncTarget, syncTarget); err != nil {
 		errs = append(errs, err)
 	}
 
 	return errors.NewAggregate(errs)
 }
 
-func (c *Controller) patchSyncTargetCondition(ctx context.Context, cluster logicalcluster.Name, new, old *workloadv1alpha1.SyncTarget) error {
+func (c *Controller) patchSyncTargetCondition(ctx context.Context, new, old *workloadv1alpha1.SyncTarget) error {
 	logger := klog.FromContext(ctx)
 	// If the object being reconciled changed as a result, update it.
 	if equality.Semantic.DeepEqual(old.Status.Conditions, new.Status.Conditions) {
@@ -328,7 +320,7 @@ func (c *Controller) patchSyncTargetCondition(ctx context.Context, cluster logic
 		},
 	})
 	if err != nil {
-		return fmt.Errorf("failed to Marshal old data for syncTarget %s|%s: %w", cluster, old.Name, err)
+		return fmt.Errorf("failed to Marshal old data for syncTarget %s: %w", old.Name, err)
 	}
 
 	newData, err := json.Marshal(workloadv1alpha1.SyncTarget{
@@ -341,12 +333,12 @@ func (c *Controller) patchSyncTargetCondition(ctx context.Context, cluster logic
 		},
 	})
 	if err != nil {
-		return fmt.Errorf("failed to Marshal new data for syncTarget %s|%s: %w", cluster, new.Name, err)
+		return fmt.Errorf("failed to Marshal new data for syncTarget %s: %w", new.Name, err)
 	}
 
 	patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
 	if err != nil {
-		return fmt.Errorf("failed to create patch for syncTarget %s|%s: %w", cluster, new.Name, err)
+		return fmt.Errorf("failed to create patch for syncTarget %s: %w", new.Name, err)
 	}
 	logger.V(2).Info("patching syncTarget", "patch", string(patchBytes))
 	_, uerr := c.kcpClient.WorkloadV1alpha1().SyncTargets().Patch(ctx, new.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
@@ -406,9 +398,9 @@ func (c *Controller) startSyncerInformer(ctx context.Context, gvr schema.GroupVe
 		kcpcache.ClusterIndexName:             kcpcache.ClusterIndexFunc,
 		kcpcache.ClusterAndNamespaceIndexName: kcpcache.ClusterAndNamespaceIndexFunc}, func(o *metav1.ListOptions) {},
 	)
-	downstreamInformer := dynamicinformer.NewFilteredDynamicInformerWithOptions(c.downstreamDynamicClient, gvr, metav1.NamespaceAll, func(o *metav1.ListOptions) {
+	downstreamInformer := dynamicinformer.NewFilteredDynamicInformer(c.downstreamDynamicClient, gvr, metav1.NamespaceAll, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, func(o *metav1.ListOptions) {
 		o.LabelSelector = workloadv1alpha1.InternalDownstreamClusterLabel + "=" + syncTargetKey
-	}, cache.WithResyncPeriod(resyncPeriod), cache.WithKeyFunction(keyfunctions.DeletionHandlingMetaNamespaceKeyFunc), cache.WithIndexers(map[string]cache.IndexFunc{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}))
+	})
 
 	for _, handler := range c.upstreamEventHandlers {
 		upstreamInformer.Informer().AddEventHandler(handler(gvr))

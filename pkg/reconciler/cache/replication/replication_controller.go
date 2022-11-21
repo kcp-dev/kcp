@@ -35,7 +35,7 @@ import (
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
+	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -170,8 +170,8 @@ type controller struct {
 	dynamicCacheClient kcpdynamic.ClusterInterface
 	dynamicLocalClient kcpdynamic.ClusterInterface
 
-	localApiExportLister         apislisters.APIExportLister
-	localApiResourceSchemaLister apislisters.APIResourceSchemaLister
+	localApiExportLister         apisv1alpha1listers.APIExportClusterLister
+	localApiResourceSchemaLister apisv1alpha1listers.APIResourceSchemaClusterLister
 
 	cacheApiExportsIndexer        cache.Indexer
 	cacheApiResourceSchemaIndexer cache.Indexer

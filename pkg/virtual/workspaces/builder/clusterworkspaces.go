@@ -27,7 +27,7 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	frameworkrbac "github.com/kcp-dev/kcp/pkg/virtual/framework/rbac"
 	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/authorization"
 	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/registry"
@@ -51,7 +51,7 @@ type authCacheClusterWorkspaces struct {
 func CreateAndStartOrg(
 	org logicalcluster.Name,
 	rbacInformers kcprbacv1informers.ClusterInterface,
-	clusterWorkspaceInformer tenancyinformers.ClusterWorkspaceInformer,
+	clusterWorkspaceInformer tenancyv1alpha1informers.ClusterWorkspaceClusterInformer,
 	initialWatchers []workspaceauth.CacheWatcher,
 	period time.Duration, jitterFactor float64, sliding bool,
 ) *authCacheClusterWorkspaces {

@@ -28,6 +28,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -37,8 +38,7 @@ import (
 	configshard "github.com/kcp-dev/kcp/config/shard"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/indexers"
+	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -58,7 +58,7 @@ const (
 // for the given GRs when making requests to the server.
 func NewApiExportIdentityProviderController(
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
-	remoteShardApiExportInformer apisinformers.APIExportInformer,
+	remoteShardApiExportInformer apisv1alpha1informers.APIExportClusterInformer,
 	configMapInformer kcpcorev1informers.ConfigMapClusterInformer,
 ) (*controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
@@ -75,7 +75,7 @@ func NewApiExportIdentityProviderController(
 			return kubeClusterClient.Cluster(cluster).CoreV1().ConfigMaps(namespace).Update(ctx, configMap, metav1.UpdateOptions{})
 		},
 		listAPIExportsFromRemoteShard: func(cluster logicalcluster.Name) ([]*apisv1alpha1.APIExport, error) {
-			return indexers.ByIndex[*apisv1alpha1.APIExport](remoteShardApiExportInformer.Informer().GetIndexer(), indexers.ByLogicalCluster, cluster.String())
+			return remoteShardApiExportInformer.Lister().Cluster(cluster).List(labels.Everything())
 		},
 	}
 

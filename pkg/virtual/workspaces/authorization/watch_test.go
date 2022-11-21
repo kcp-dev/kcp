@@ -17,6 +17,7 @@ limitations under the License.
 package authorization
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -33,44 +34,42 @@ import (
 	"k8s.io/apiserver/pkg/storage"
 	"k8s.io/kubernetes/pkg/controller"
 
-	workspaceapi "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	workspaceapiv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	tenancyfake "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/fake"
-	tenancyInformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	kcpfakeclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/fake"
+	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	workspacecache "github.com/kcp-dev/kcp/pkg/virtual/workspaces/cache"
 	workspaceutil "github.com/kcp-dev/kcp/pkg/virtual/workspaces/util"
 )
 
-type mockClusterClient struct {
-	mockClient kcpclient.Interface
-}
-
-func (m *mockClusterClient) Cluster(name logicalcluster.Name) kcpclient.Interface {
-	return m.mockClient
-}
-
-var _ kcpclient.ClusterInterface = (*mockClusterClient)(nil)
-
-func newTestWatcher(username string, groups []string, predicate storage.SelectionPredicate, workspaces ...*workspaceapi.ClusterWorkspace) (*userWorkspaceWatcher, *fakeAuthCache) {
+func newTestWatcher(username string, groups []string, predicate storage.SelectionPredicate, workspaces ...*tenancyv1alpha1.ClusterWorkspace) (*userWorkspaceWatcher, *fakeAuthCache) {
 	objects := []runtime.Object{}
 	for i := range workspaces {
 		objects = append(objects, workspaces[i])
 	}
-	mockClient := tenancyfake.NewSimpleClientset(objects...)
+	mockClient := kcpfakeclient.NewSimpleClientset(objects...)
 
-	informers := tenancyInformers.NewSharedInformerFactory(mockClient, controller.NoResyncPeriodFunc())
+	informers := kcpinformers.NewSharedInformerFactory(mockClient, controller.NoResyncPeriodFunc())
 	workspaceCache := workspacecache.NewClusterWorkspaceCache(
-		informers.Tenancy().V1alpha1().ClusterWorkspaces().Informer(),
-		&mockClusterClient{mockClient: mockClient},
+		informers.Tenancy().V1alpha1().ClusterWorkspaces(),
+		mockClient,
 	)
 	fakeAuthCache := &fakeAuthCache{}
+	go informers.Start(context.Background().Done())
+	informers.WaitForCacheSync(context.Background().Done())
 
-	return NewUserWorkspaceWatcher(&user.DefaultInfo{Name: username, Groups: groups}, logicalcluster.New("lclusterName"), workspaceCache, fakeAuthCache, false, predicate), fakeAuthCache
+	return NewUserWorkspaceWatcher(
+			&user.DefaultInfo{Name: username, Groups: groups},
+			logicalcluster.New("root"),
+			workspaceCache,
+			fakeAuthCache,
+			false,
+			predicate),
+		fakeAuthCache
 }
 
 type fakeAuthCache struct {
-	clusterWorkspaces []*workspaceapi.ClusterWorkspace
+	clusterWorkspaces []*tenancyv1alpha1.ClusterWorkspace
 
 	removed []CacheWatcher
 }
@@ -79,8 +78,8 @@ func (w *fakeAuthCache) RemoveWatcher(watcher CacheWatcher) {
 	w.removed = append(w.removed, watcher)
 }
 
-func (w *fakeAuthCache) List(userInfo user.Info, labelSelector labels.Selector, fieldSelector fields.Selector) (*workspaceapi.ClusterWorkspaceList, error) {
-	ret := &workspaceapi.ClusterWorkspaceList{}
+func (w *fakeAuthCache) List(userInfo user.Info, labelSelector labels.Selector, fieldSelector fields.Selector) (*tenancyv1alpha1.ClusterWorkspaceList, error) {
+	ret := &tenancyv1alpha1.ClusterWorkspaceList{}
 	if w.clusterWorkspaces != nil {
 		for i := range w.clusterWorkspaces {
 			ret.Items = append(ret.Items, *w.clusterWorkspaces[i])
@@ -91,14 +90,14 @@ func (w *fakeAuthCache) List(userInfo user.Info, labelSelector labels.Selector, 
 }
 
 func TestFullIncoming(t *testing.T) {
-	watcher, fakeAuthCache := newTestWatcher("bob", nil, matchAllPredicate(), newClusterWorkspaces("ns-01")...)
+	watcher, fakeAuthCache := newTestWatcher("bob", nil, matchAllPredicate(), newClusterWorkspaces("root:ws-01")...)
 	watcher.cacheIncoming = make(chan watch.Event)
 
 	go watcher.Watch()
 	watcher.cacheIncoming <- watch.Event{Type: watch.Added}
 
 	// this call should not block and we should see a failure
-	watcher.GroupMembershipChanged("ns-01", sets.NewString("bob"), sets.String{})
+	watcher.GroupMembershipChanged("root|ws-01", sets.NewString("bob"), sets.String{})
 	if len(fakeAuthCache.removed) != 1 {
 		t.Errorf("should have removed self")
 	}
@@ -129,7 +128,7 @@ func TestFullIncoming(t *testing.T) {
 			if event.Type != watch.Error {
 				t.Errorf("expected error, got %v", event)
 			}
-		case <-time.After(3 * time.Second):
+		case <-time.After(100 * time.Millisecond):
 			t.Fatalf("timeout")
 		}
 		if !repeat {
@@ -139,49 +138,55 @@ func TestFullIncoming(t *testing.T) {
 }
 
 func TestAddModifyDeleteEventsByUser(t *testing.T) {
-	watcher, _ := newTestWatcher("bob", nil, matchAllPredicate(), newClusterWorkspaces("ns-01")...)
+	watcher, _ := newTestWatcher("bob", nil, matchAllPredicate(), newClusterWorkspaces("root:ws-01")...)
 	go watcher.Watch()
 
-	watcher.GroupMembershipChanged("ns-01", sets.NewString("bob"), sets.String{})
+	watcher.GroupMembershipChanged("root|ws-01", sets.NewString("bob"), sets.String{})
 	select {
 	case event := <-watcher.ResultChan():
 		if event.Type != watch.Added {
 			t.Errorf("expected added, got %v", event)
 		}
-		if event.Object.(*workspaceapiv1beta1.Workspace).Name != "ns-01" {
-			t.Errorf("expected %v, got %#v", "ns-01", event.Object)
+		if logicalcluster.From(event.Object.(*workspaceapiv1beta1.Workspace)).String() != "root" {
+			t.Errorf("expected %v, got %#v", "root", event.Object)
 		}
-	case <-time.After(3 * time.Second):
+		if event.Object.(*workspaceapiv1beta1.Workspace).Name != "ws-01" {
+			t.Errorf("expected %v, got %#v", "ws-01", event.Object)
+		}
+	case <-time.After(100 * time.Millisecond):
 		t.Fatalf("timeout")
 	}
 
 	// the object didn't change, we shouldn't observe it
-	watcher.GroupMembershipChanged("ns-01", sets.NewString("bob"), sets.String{})
+	watcher.GroupMembershipChanged("root|ws-01", sets.NewString("bob"), sets.String{})
 	select {
 	case event := <-watcher.ResultChan():
 		t.Fatalf("unexpected event %v", event)
-	case <-time.After(3 * time.Second):
+	case <-time.After(100 * time.Millisecond):
 	}
 
-	watcher.GroupMembershipChanged("ns-01", sets.NewString("alice"), sets.String{})
+	watcher.GroupMembershipChanged("root|ws-01", sets.NewString("alice"), sets.String{})
 	select {
 	case event := <-watcher.ResultChan():
 		if event.Type != watch.Deleted {
 			t.Errorf("expected Deleted, got %v", event)
 		}
-		if event.Object.(*workspaceapiv1beta1.Workspace).Name != "ns-01" {
-			t.Errorf("expected %v, got %#v", "ns-01", event.Object)
+		if logicalcluster.From(event.Object.(*workspaceapiv1beta1.Workspace)).String() != "root" {
+			t.Errorf("expected %v, got %#v", "root", event.Object)
 		}
-	case <-time.After(3 * time.Second):
+		if event.Object.(*workspaceapiv1beta1.Workspace).Name != "ws-01" {
+			t.Errorf("expected %v, got %#v", "ws-01", event.Object)
+		}
+	case <-time.After(100 * time.Millisecond):
 		t.Fatalf("timeout")
 	}
 }
 
 func TestWorkspaceSelectionPredicate(t *testing.T) {
-	field := fields.ParseSelectorOrDie("metadata.name=ns-03")
+	field := fields.ParseSelectorOrDie("metadata.name=ws-03")
 	m := workspaceutil.MatchWorkspace(labels.Everything(), field)
 
-	watcher, _ := newTestWatcher("bob", nil, m, newClusterWorkspaces("ns-01", "ns-02", "ns-03")...)
+	watcher, _ := newTestWatcher("bob", nil, m, newClusterWorkspaces("root:ws-01", "root:ws-02", "root:ws-03")...)
 
 	if watcher.emit == nil {
 		t.Fatalf("unset emit function")
@@ -190,100 +195,118 @@ func TestWorkspaceSelectionPredicate(t *testing.T) {
 	go watcher.Watch()
 
 	// a workspace we did not select changed, we shouldn't observe it
-	watcher.GroupMembershipChanged("ns-01", sets.NewString("bob"), sets.String{})
+	watcher.GroupMembershipChanged("root|ws-01", sets.NewString("bob"), sets.String{})
 	select {
 	case event := <-watcher.ResultChan():
 		t.Fatalf("unexpected event %v", event)
-	case <-time.After(3 * time.Second):
+	case <-time.After(100 * time.Millisecond):
 	}
 
-	watcher.GroupMembershipChanged("ns-03", sets.NewString("bob"), sets.String{})
+	watcher.GroupMembershipChanged("root|ws-03", sets.NewString("bob"), sets.String{})
 	select {
 	case event := <-watcher.ResultChan():
 		if event.Type != watch.Added {
 			t.Errorf("expected added, got %v", event)
 		}
-		if event.Object.(*workspaceapiv1beta1.Workspace).Name != "ns-03" {
-			t.Errorf("expected %v, got %#v", "ns-03", event.Object)
+		if logicalcluster.From(event.Object.(*workspaceapiv1beta1.Workspace)).String() != "root" {
+			t.Errorf("expected %v, got %#v", "root", event.Object)
 		}
-	case <-time.After(3 * time.Second):
+		if event.Object.(*workspaceapiv1beta1.Workspace).Name != "ws-03" {
+			t.Errorf("expected %v, got %#v", "ws-03", event.Object)
+		}
+	case <-time.After(100 * time.Millisecond):
 		t.Fatalf("timeout")
 	}
 
 	// the object didn't change, we shouldn't observe it
-	watcher.GroupMembershipChanged("ns-03", sets.NewString("bob"), sets.String{})
+	watcher.GroupMembershipChanged("root|ws-03", sets.NewString("bob"), sets.String{})
 	select {
 	case event := <-watcher.ResultChan():
 		t.Fatalf("unexpected event %v", event)
-	case <-time.After(3 * time.Second):
+	case <-time.After(100 * time.Millisecond):
 	}
 
 	// deletion occurred in a separate workspace, we should not observe it
-	watcher.GroupMembershipChanged("ns-01", sets.NewString("alice"), sets.String{})
+	watcher.GroupMembershipChanged("root|ws-01", sets.NewString("alice"), sets.String{})
 	select {
 	case event := <-watcher.ResultChan():
 		t.Fatalf("unexpected event %v", event)
-	case <-time.After(3 * time.Second):
+	case <-time.After(100 * time.Millisecond):
 	}
 
 	// deletion occurred in selected workspace, we should observe it
-	watcher.GroupMembershipChanged("ns-03", sets.NewString("alice"), sets.String{})
+	watcher.GroupMembershipChanged("root|ws-03", sets.NewString("alice"), sets.String{})
 	select {
 	case event := <-watcher.ResultChan():
 		if event.Type != watch.Deleted {
 			t.Errorf("expected Deleted, got %v", event)
 		}
-		if event.Object.(*workspaceapiv1beta1.Workspace).Name != "ns-03" {
-			t.Errorf("expected %v, got %#v", "ns-03", event.Object)
+		if logicalcluster.From(event.Object.(*workspaceapiv1beta1.Workspace)).String() != "root" {
+			t.Errorf("expected %v, got %#v", "root", event.Object)
 		}
-	case <-time.After(3 * time.Second):
+		if event.Object.(*workspaceapiv1beta1.Workspace).Name != "ws-03" {
+			t.Errorf("expected %v, got %#v", "ws-03", event.Object)
+		}
+	case <-time.After(100 * time.Millisecond):
 		t.Fatalf("timeout")
 	}
 }
 
 func TestAddModifyDeleteEventsByGroup(t *testing.T) {
-	watcher, _ := newTestWatcher("bob", []string{"group-one"}, matchAllPredicate(), newClusterWorkspaces("ns-01")...)
+	watcher, _ := newTestWatcher("bob", []string{"group-one"}, matchAllPredicate(), newClusterWorkspaces("root:ws-01")...)
 	go watcher.Watch()
 
-	watcher.GroupMembershipChanged("ns-01", sets.String{}, sets.NewString("group-one"))
+	watcher.GroupMembershipChanged("root|ws-01", sets.String{}, sets.NewString("group-one"))
 	select {
 	case event := <-watcher.ResultChan():
 		if event.Type != watch.Added {
 			t.Errorf("expected added, got %v", event)
 		}
-		if event.Object.(*workspaceapiv1beta1.Workspace).Name != "ns-01" {
-			t.Errorf("expected %v, got %#v", "ns-01", event.Object)
+		if logicalcluster.From(event.Object.(*workspaceapiv1beta1.Workspace)).String() != "root" {
+			t.Errorf("expected %v, got %#v", "root", event.Object)
 		}
-	case <-time.After(3 * time.Second):
+		if event.Object.(*workspaceapiv1beta1.Workspace).Name != "ws-01" {
+			t.Errorf("expected %v, got %#v", "ws-01", event.Object)
+		}
+	case <-time.After(100 * time.Millisecond):
 		t.Fatalf("timeout")
 	}
 
 	// the object didn't change, we shouldn't observe it
-	watcher.GroupMembershipChanged("ns-01", sets.String{}, sets.NewString("group-one"))
+	watcher.GroupMembershipChanged("root|ws-01", sets.String{}, sets.NewString("group-one"))
 	select {
 	case event := <-watcher.ResultChan():
 		t.Fatalf("unexpected event %v", event)
-	case <-time.After(3 * time.Second):
+	case <-time.After(100 * time.Millisecond):
 	}
 
-	watcher.GroupMembershipChanged("ns-01", sets.String{}, sets.NewString("group-two"))
+	watcher.GroupMembershipChanged("root|ws-01", sets.String{}, sets.NewString("group-two"))
 	select {
 	case event := <-watcher.ResultChan():
 		if event.Type != watch.Deleted {
 			t.Errorf("expected Deleted, got %v", event)
 		}
-		if event.Object.(*workspaceapiv1beta1.Workspace).Name != "ns-01" {
-			t.Errorf("expected %v, got %#v", "ns-01", event.Object)
+		if logicalcluster.From(event.Object.(*workspaceapiv1beta1.Workspace)).String() != "root" {
+			t.Errorf("expected %v, got %#v", "root", event.Object)
 		}
-	case <-time.After(3 * time.Second):
+		if event.Object.(*workspaceapiv1beta1.Workspace).Name != "ws-01" {
+			t.Errorf("expected %v, got %#v", "ws-01", event.Object)
+		}
+	case <-time.After(100 * time.Millisecond):
 		t.Fatalf("timeout")
 	}
 }
 
-func newClusterWorkspaces(names ...string) []*workspaceapi.ClusterWorkspace {
-	ret := []*workspaceapi.ClusterWorkspace{}
+func newClusterWorkspaces(names ...string) []*tenancyv1alpha1.ClusterWorkspace {
+	ret := []*tenancyv1alpha1.ClusterWorkspace{}
 	for _, name := range names {
-		ret = append(ret, &workspaceapi.ClusterWorkspace{ObjectMeta: metav1.ObjectMeta{Name: name}})
+		parent, workspaceName := logicalcluster.New(name).Split()
+		ret = append(ret, &tenancyv1alpha1.ClusterWorkspace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        workspaceName,
+				Annotations: map[string]string{logicalcluster.AnnotationKey: parent.String()},
+			},
+		})
 	}
 
 	return ret

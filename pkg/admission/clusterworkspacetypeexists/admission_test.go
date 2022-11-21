@@ -40,7 +40,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/admission/helpers"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/client"
+	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 )
 
 func createAttr(obj *tenancyv1alpha1.ClusterWorkspace) admission.Attributes {
@@ -289,13 +289,30 @@ func TestAdmit(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			typeLister := fakeClusterWorkspaceTypeLister(tt.types)
+			allTypes := map[logicalcluster.Name][]*tenancyv1alpha1.ClusterWorkspaceType{}
+			for _, t := range tt.types {
+				cluster := logicalcluster.From(t)
+				if _, ok := allTypes[cluster]; !ok {
+					allTypes[cluster] = []*tenancyv1alpha1.ClusterWorkspaceType{}
+				}
+				allTypes[cluster] = append(allTypes[cluster], t)
+			}
+			typeLister := fakeClusterWorkspaceTypeClusterLister(allTypes)
+
+			allWorkspaces := map[logicalcluster.Name][]*tenancyv1alpha1.ClusterWorkspace{}
+			for _, t := range tt.workspaces {
+				cluster := logicalcluster.From(t)
+				if _, ok := allWorkspaces[cluster]; !ok {
+					allWorkspaces[cluster] = []*tenancyv1alpha1.ClusterWorkspace{}
+				}
+				allWorkspaces[cluster] = append(allWorkspaces[cluster], t)
+			}
 			o := &clusterWorkspaceTypeExists{
 				Handler:         admission.NewHandler(admission.Create, admission.Update),
 				typeLister:      typeLister,
-				workspaceLister: fakeClusterWorkspaceLister(tt.workspaces),
+				workspaceLister: fakeClusterWorkspaceClusterLister(allWorkspaces),
 				transitiveTypeResolver: NewTransitiveTypeResolver(func(cluster logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
-					return typeLister.Get(client.ToClusterAwareKey(cluster, name))
+					return typeLister.Cluster(cluster).Get(name)
 				}),
 			}
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: tt.clusterName})
@@ -577,11 +594,28 @@ func TestValidate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			typeLister := fakeClusterWorkspaceTypeLister(tt.types)
+			allTypes := map[logicalcluster.Name][]*tenancyv1alpha1.ClusterWorkspaceType{}
+			for _, t := range tt.types {
+				cluster := logicalcluster.From(t)
+				if _, ok := allTypes[cluster]; !ok {
+					allTypes[cluster] = []*tenancyv1alpha1.ClusterWorkspaceType{}
+				}
+				allTypes[cluster] = append(allTypes[cluster], t)
+			}
+			typeLister := fakeClusterWorkspaceTypeClusterLister(allTypes)
+
+			allWorkspaces := map[logicalcluster.Name][]*tenancyv1alpha1.ClusterWorkspace{}
+			for _, t := range tt.workspaces {
+				cluster := logicalcluster.From(t)
+				if _, ok := allWorkspaces[cluster]; !ok {
+					allWorkspaces[cluster] = []*tenancyv1alpha1.ClusterWorkspace{}
+				}
+				allWorkspaces[cluster] = append(allWorkspaces[cluster], t)
+			}
 			o := &clusterWorkspaceTypeExists{
 				Handler:         admission.NewHandler(admission.Create, admission.Update),
 				typeLister:      typeLister,
-				workspaceLister: fakeClusterWorkspaceLister(tt.workspaces),
+				workspaceLister: fakeClusterWorkspaceClusterLister(allWorkspaces),
 				createAuthorizer: func(clusterName logicalcluster.Name, client kcpkubernetesclientset.ClusterInterface) (authorizer.Authorizer, error) {
 					return &fakeAuthorizer{
 						tt.authzDecision,
@@ -589,7 +623,7 @@ func TestValidate(t *testing.T) {
 					}, nil
 				},
 				transitiveTypeResolver: NewTransitiveTypeResolver(func(cluster logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
-					return typeLister.Get(client.ToClusterAwareKey(cluster, name))
+					return typeLister.Cluster(cluster).Get(name)
 				}),
 			}
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: tt.path})
@@ -600,46 +634,58 @@ func TestValidate(t *testing.T) {
 	}
 }
 
+type fakeClusterWorkspaceTypeClusterLister map[logicalcluster.Name][]*tenancyv1alpha1.ClusterWorkspaceType
+
+func (l fakeClusterWorkspaceTypeClusterLister) List(selector labels.Selector) (ret []*tenancyv1alpha1.ClusterWorkspaceType, err error) {
+	var all []*tenancyv1alpha1.ClusterWorkspaceType
+	for _, items := range l {
+		all = append(all, items...)
+	}
+	return all, nil
+}
+
+func (l fakeClusterWorkspaceTypeClusterLister) Cluster(cluster logicalcluster.Name) tenancyv1alpha1listers.ClusterWorkspaceTypeLister {
+	return fakeClusterWorkspaceTypeLister(l[cluster])
+}
+
 type fakeClusterWorkspaceTypeLister []*tenancyv1alpha1.ClusterWorkspaceType
 
 func (l fakeClusterWorkspaceTypeLister) List(selector labels.Selector) (ret []*tenancyv1alpha1.ClusterWorkspaceType, err error) {
-	return l.ListWithContext(context.Background(), selector)
-}
-
-func (l fakeClusterWorkspaceTypeLister) ListWithContext(ctx context.Context, selector labels.Selector) (ret []*tenancyv1alpha1.ClusterWorkspaceType, err error) {
 	return l, nil
 }
 
 func (l fakeClusterWorkspaceTypeLister) Get(name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
-	return l.GetWithContext(context.Background(), name)
-}
-
-func (l fakeClusterWorkspaceTypeLister) GetWithContext(ctx context.Context, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
 	for _, t := range l {
-		if client.ToClusterAwareKey(logicalcluster.From(t), t.Name) == name {
+		if t.Name == name {
 			return t, nil
 		}
 	}
 	return nil, apierrors.NewNotFound(tenancyv1alpha1.Resource("clusterworkspacetype"), name)
 }
 
+type fakeClusterWorkspaceClusterLister map[logicalcluster.Name][]*tenancyv1alpha1.ClusterWorkspace
+
+func (l fakeClusterWorkspaceClusterLister) List(selector labels.Selector) (ret []*tenancyv1alpha1.ClusterWorkspace, err error) {
+	var all []*tenancyv1alpha1.ClusterWorkspace
+	for _, items := range l {
+		all = append(all, items...)
+	}
+	return all, nil
+}
+
+func (l fakeClusterWorkspaceClusterLister) Cluster(cluster logicalcluster.Name) tenancyv1alpha1listers.ClusterWorkspaceLister {
+	return fakeClusterWorkspaceLister(l[cluster])
+}
+
 type fakeClusterWorkspaceLister []*tenancyv1alpha1.ClusterWorkspace
 
 func (l fakeClusterWorkspaceLister) List(selector labels.Selector) (ret []*tenancyv1alpha1.ClusterWorkspace, err error) {
-	return l.ListWithContext(context.Background(), selector)
-}
-
-func (l fakeClusterWorkspaceLister) ListWithContext(ctx context.Context, selector labels.Selector) (ret []*tenancyv1alpha1.ClusterWorkspace, err error) {
 	return l, nil
 }
 
 func (l fakeClusterWorkspaceLister) Get(name string) (*tenancyv1alpha1.ClusterWorkspace, error) {
-	return l.GetWithContext(context.Background(), name)
-}
-
-func (l fakeClusterWorkspaceLister) GetWithContext(ctx context.Context, name string) (*tenancyv1alpha1.ClusterWorkspace, error) {
 	for _, t := range l {
-		if client.ToClusterAwareKey(logicalcluster.From(t), t.Name) == name {
+		if t.Name == name {
 			return t, nil
 		}
 	}

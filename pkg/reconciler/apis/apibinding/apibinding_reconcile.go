@@ -183,7 +183,7 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 			getAPIExport:         c.getAPIExport,
 			getAPIResourceSchema: c.getAPIResourceSchema,
 			getCRD:               c.getCRD,
-			crdIndexer:           c.crdIndexer,
+			listCRDs:             c.listCRDs,
 		}
 
 		if err := checker.checkForConflicts(schema, apiBinding); err != nil {

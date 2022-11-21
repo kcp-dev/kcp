@@ -49,7 +49,7 @@ import (
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	workloadcliplugin "github.com/kcp-dev/kcp/pkg/cliplugins/workload/plugin"
 	"github.com/kcp-dev/kcp/pkg/syncer"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
@@ -166,12 +166,10 @@ func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 		downstreamConfig, err = config.ClientConfig()
 		require.NoError(t, err)
 	} else {
-		// The syncer will target a logical cluster that is a peer to the current workspace. A
+		// The syncer will target a logical cluster that is a child of the current workspace. A
 		// logical server provides as a lightweight approximation of a pcluster for tests that
 		// don't need to validate running workloads or interaction with kube controllers.
-		parentClusterName, ok := sf.workspaceClusterName.Parent()
-		require.True(t, ok, "%s does not have a parent", sf.workspaceClusterName)
-		downstreamServer := NewFakeWorkloadServer(t, sf.upstreamServer, parentClusterName)
+		downstreamServer := NewFakeWorkloadServer(t, sf.upstreamServer, sf.workspaceClusterName, sf.syncTargetName)
 		downstreamConfig = downstreamServer.BaseConfig(t)
 		downstreamKubeconfigPath = downstreamServer.KubeconfigPath()
 	}
@@ -380,10 +378,10 @@ type StartedSyncerFixture struct {
 func (sf *StartedSyncerFixture) WaitForClusterReady(t *testing.T, ctx context.Context) {
 	cfg := sf.SyncerConfig
 
-	kcpClusterClient, err := kcpclient.NewForConfig(cfg.UpstreamConfig)
+	kcpClusterClient, err := kcpclientset.NewForConfig(cfg.UpstreamConfig)
 	require.NoError(t, err)
 	EventuallyReady(t, func() (conditions.Getter, error) {
-		return kcpClusterClient.WorkloadV1alpha1().SyncTargets().Get(logicalcluster.WithCluster(ctx, cfg.SyncTargetWorkspace), cfg.SyncTargetName, metav1.GetOptions{})
+		return kcpClusterClient.Cluster(cfg.SyncTargetWorkspace).WorkloadV1alpha1().SyncTargets().Get(ctx, cfg.SyncTargetName, metav1.GetOptions{})
 	}, "Waiting for cluster %q condition %q", cfg.SyncTargetName, conditionsv1alpha1.ReadyCondition)
 	t.Logf("Cluster %q is %s", cfg.SyncTargetName, conditionsv1alpha1.ReadyCondition)
 }

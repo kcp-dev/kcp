@@ -39,7 +39,7 @@ import (
 	webhookserver "github.com/kcp-dev/kcp/test/e2e/fixtures/webhook"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
-	client "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned"
+	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -91,7 +91,7 @@ func TestMutatingWebhookInWorkspace(t *testing.T) {
 
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct client for server")
-	cowbyClusterClient, err := client.NewForConfig(cfg)
+	cowbyClusterClient, err := wildwestclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct cowboy client for server")
 	apiExtensionsClients, err := kcpapiextensionsclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct apiextensions client for server")
@@ -141,7 +141,7 @@ func TestMutatingWebhookInWorkspace(t *testing.T) {
 
 	t.Logf("Creating cowboy resource in first logical cluster")
 	require.Eventually(t, func() bool {
-		_, err = cowbyClusterClient.WildwestV1alpha1().Cowboys("default").Create(logicalcluster.WithCluster(ctx, logicalClusters[0]), &cowboy, metav1.CreateOptions{})
+		_, err = cowbyClusterClient.Cluster(logicalClusters[0]).WildwestV1alpha1().Cowboys("default").Create(ctx, &cowboy, metav1.CreateOptions{})
 		if err != nil && !errors.IsAlreadyExists(err) {
 			return false
 		}
@@ -152,7 +152,7 @@ func TestMutatingWebhookInWorkspace(t *testing.T) {
 	// Avoid race condition here by making sure that CRD is served after installing the types into logical clusters
 	t.Logf("Creating cowboy resource in second logical cluster")
 	require.Eventually(t, func() bool {
-		_, err = cowbyClusterClient.WildwestV1alpha1().Cowboys("default").Create(logicalcluster.WithCluster(ctx, logicalClusters[1]), &cowboy, metav1.CreateOptions{})
+		_, err = cowbyClusterClient.Cluster(logicalClusters[1]).WildwestV1alpha1().Cowboys("default").Create(ctx, &cowboy, metav1.CreateOptions{})
 		if err != nil && !errors.IsAlreadyExists(err) {
 			return false
 		}
@@ -211,7 +211,7 @@ func TestValidatingWebhookInWorkspace(t *testing.T) {
 
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct client for server")
-	cowbyClusterClient, err := client.NewForConfig(cfg)
+	cowbyClusterClient, err := wildwestclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct cowboy client for server")
 	apiExtensionsClients, err := kcpapiextensionsclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct apiextensions client for server")
@@ -261,7 +261,7 @@ func TestValidatingWebhookInWorkspace(t *testing.T) {
 
 	t.Logf("Creating cowboy resource in first logical cluster")
 	require.Eventually(t, func() bool {
-		_, err = cowbyClusterClient.WildwestV1alpha1().Cowboys("default").Create(logicalcluster.WithCluster(ctx, logicalClusters[0]), &cowboy, metav1.CreateOptions{})
+		_, err = cowbyClusterClient.Cluster(logicalClusters[0]).WildwestV1alpha1().Cowboys("default").Create(ctx, &cowboy, metav1.CreateOptions{})
 		if err != nil && !errors.IsAlreadyExists(err) {
 			return false
 		}
@@ -270,7 +270,7 @@ func TestValidatingWebhookInWorkspace(t *testing.T) {
 
 	// Avoid race condition here by making sure that CRD is served after installing the types into logical clusters
 	t.Logf("Creating cowboy resource in second logical cluster")
-	_, err = cowbyClusterClient.WildwestV1alpha1().Cowboys("default").Create(logicalcluster.WithCluster(ctx, logicalClusters[1]), &cowboy, metav1.CreateOptions{})
+	_, err = cowbyClusterClient.Cluster(logicalClusters[1]).WildwestV1alpha1().Cowboys("default").Create(ctx, &cowboy, metav1.CreateOptions{})
 	require.NoError(t, err, "failed to create cowboy resource in second logical cluster")
 	require.Equal(t, 1, testWebhook.Calls(), "expected that the webhook is not called for logical cluster where webhook is not installed")
 }

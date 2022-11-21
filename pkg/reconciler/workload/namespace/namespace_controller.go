@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -43,13 +44,14 @@ import (
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/client"
-	schedulinginformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/indexers"
+	schedulingv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
+	schedulingv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 const (
-	ControllerName = "kcp-namespace-scheduling-placement"
+	ControllerName      = "kcp-namespace-scheduling-placement"
+	byLocationWorkspace = ControllerName + "-byLocationWorkspace"
 )
 
 // NewController returns a new controller starting the process of placing namespaces onto locations by creating
@@ -57,7 +59,7 @@ const (
 func NewController(
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	namespaceInformer kcpcorev1informers.NamespaceClusterInformer,
-	placementInformer schedulinginformers.PlacementInformer,
+	placementInformer schedulingv1alpha1informers.PlacementClusterInformer,
 ) (*controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
@@ -70,18 +72,17 @@ func NewController(
 
 		kubeClusterClient: kubeClusterClient,
 
-		namespaceLister:  namespaceInformer.Lister(),
-		namespaceIndexer: namespaceInformer.Informer().GetIndexer(),
+		namespaceLister: namespaceInformer.Lister(),
 
+		placementLister:  placementInformer.Lister(),
 		placementIndexer: placementInformer.Informer().GetIndexer(),
 	}
 
-	indexers.AddIfNotPresentOrDie(
-		c.namespaceIndexer,
-		cache.Indexers{
-			indexers.ByLogicalCluster: indexers.IndexByLogicalCluster,
-		},
-	)
+	if err := placementInformer.Informer().AddIndexers(cache.Indexers{
+		byLocationWorkspace: indexByLocationWorkspace,
+	}); err != nil {
+		return nil, err
+	}
 
 	// namespaceBlocklist holds a set of namespaces that should never be synced from kcp to physical clusters.
 	var namespaceBlocklist = sets.NewString("kube-system", "kube-public", "kube-node-lease")
@@ -119,9 +120,9 @@ type controller struct {
 
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface
 
-	namespaceLister  corev1listers.NamespaceClusterLister
-	namespaceIndexer cache.Indexer
+	namespaceLister corev1listers.NamespaceClusterLister
 
+	placementLister  schedulingv1alpha1listers.PlacementClusterLister
 	placementIndexer cache.Indexer
 }
 
@@ -149,7 +150,7 @@ func (c *controller) enqueuePlacement(obj interface{}) {
 		return
 	}
 
-	nss, err := indexers.ByIndex[*corev1.Namespace](c.namespaceIndexer, indexers.ByLogicalCluster, clusterName.String())
+	nss, err := c.namespaceLister.Cluster(clusterName).List(labels.Everything())
 	if err != nil {
 		runtime.HandleError(err)
 		return

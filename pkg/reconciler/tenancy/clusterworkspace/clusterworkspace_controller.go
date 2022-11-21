@@ -40,11 +40,11 @@ import (
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/client"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
-	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
-	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
-	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
+	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
+	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -53,10 +53,10 @@ const (
 )
 
 func NewController(
-	kcpClusterClient kcpclient.Interface,
-	workspaceInformer tenancyinformers.ClusterWorkspaceInformer,
-	clusterWorkspaceShardInformer tenancyinformers.ClusterWorkspaceShardInformer,
-	apiBindingsInformer apisinformers.APIBindingInformer,
+	kcpClusterClient kcpclientset.ClusterInterface,
+	workspaceInformer tenancyv1alpha1informers.ClusterWorkspaceClusterInformer,
+	clusterWorkspaceShardInformer tenancyv1alpha1informers.ClusterWorkspaceShardClusterInformer,
+	apiBindingsInformer apisv1alpha1informers.APIBindingClusterInformer,
 ) (*Controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
@@ -67,7 +67,6 @@ func NewController(
 		workspaceLister:              workspaceInformer.Lister(),
 		clusterWorkspaceShardIndexer: clusterWorkspaceShardInformer.Informer().GetIndexer(),
 		clusterWorkspaceShardLister:  clusterWorkspaceShardInformer.Lister(),
-		apiBindingIndexer:            apiBindingsInformer.Informer().GetIndexer(),
 		apiBindingLister:             apiBindingsInformer.Lister(),
 	}
 
@@ -77,12 +76,6 @@ func NewController(
 		byPhase:        indexByPhase,
 	}); err != nil {
 		return nil, fmt.Errorf("failed to add indexer for ClusterWorkspace: %w", err)
-	}
-
-	if err := c.apiBindingIndexer.AddIndexers(map[string]cache.IndexFunc{
-		byWorkspace: indexByWorkspace,
-	}); err != nil {
-		return nil, fmt.Errorf("failed to add indexer for APIBinding: %w", err)
 	}
 
 	workspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -110,15 +103,14 @@ func NewController(
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	kcpClusterClient kcpclient.Interface
+	kcpClusterClient kcpclientset.ClusterInterface
 	workspaceIndexer cache.Indexer
-	workspaceLister  tenancylisters.ClusterWorkspaceLister
+	workspaceLister  tenancyv1alpha1listers.ClusterWorkspaceClusterLister
 
 	clusterWorkspaceShardIndexer cache.Indexer
-	clusterWorkspaceShardLister  tenancylisters.ClusterWorkspaceShardLister
+	clusterWorkspaceShardLister  tenancyv1alpha1listers.ClusterWorkspaceShardClusterLister
 
-	apiBindingIndexer cache.Indexer
-	apiBindingLister  apislisters.APIBindingLister
+	apiBindingLister apisv1alpha1listers.APIBindingClusterLister
 }
 
 func (c *Controller) enqueue(obj interface{}) {
@@ -139,8 +131,13 @@ func (c *Controller) enqueueShard(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
+	clusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
 
-	shard, err := c.clusterWorkspaceShardLister.Get(key)
+	shard, err := c.clusterWorkspaceShardLister.Cluster(clusterName).Get(name)
 	if err == nil {
 		workspaces, err := c.workspaceIndexer.ByIndex(unschedulable, "true")
 		if err != nil {
@@ -158,11 +155,6 @@ func (c *Controller) enqueueShard(obj interface{}) {
 		}
 	}
 
-	_, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
-	if err != nil {
-		runtime.HandleError(err)
-		return
-	}
 	workspaces, err := c.workspaceIndexer.ByIndex(byCurrentShard, name)
 	if err != nil {
 		runtime.HandleError(err)
@@ -304,7 +296,7 @@ func (c *Controller) patchIfNeeded(ctx context.Context, old, obj *tenancyv1alpha
 	}
 
 	logger.WithValues("patch", string(patchBytes)).V(2).Info("patching ClusterWorkspace")
-	_, err = c.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Patch(logicalcluster.WithCluster(ctx, clusterName), obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, subresources...)
+	_, err = c.kcpClusterClient.Cluster(clusterName).TenancyV1alpha1().ClusterWorkspaces().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, subresources...)
 	if err != nil {
 		return fmt.Errorf("failed to patch ClusterWorkspace %s|%s: %w", clusterName, name, err)
 	}
@@ -318,7 +310,12 @@ func (c *Controller) patchIfNeeded(ctx context.Context, old, obj *tenancyv1alpha
 }
 
 func (c *Controller) process(ctx context.Context, key string) (bool, error) {
-	obj, err := c.workspaceLister.Get(key)
+	parent, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+	if err != nil {
+		runtime.HandleError(err)
+		return false, nil
+	}
+	obj, err := c.workspaceLister.Cluster(parent).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return false, nil // object deleted before we handled it

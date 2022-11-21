@@ -25,11 +25,11 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	utilserrors "k8s.io/apimachinery/pkg/util/errors"
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/indexers"
 )
 
 type reconcileStatus int
@@ -123,9 +123,9 @@ func (c *controller) reconcile(ctx context.Context, location *schedulingv1alpha1
 }
 
 func (c *controller) listSyncTarget(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error) {
-	return indexers.ByIndex[*workloadv1alpha1.SyncTarget](c.syncTargetIndexer, indexers.ByLogicalCluster, clusterName.String())
+	return c.syncTargetLister.Cluster(clusterName).List(labels.Everything())
 }
 
 func (c *controller) updateLocation(ctx context.Context, clusterName logicalcluster.Name, location *schedulingv1alpha1.Location) (*schedulingv1alpha1.Location, error) {
-	return c.kcpClusterClient.SchedulingV1alpha1().Locations().Update(logicalcluster.WithCluster(ctx, clusterName), location, metav1.UpdateOptions{})
+	return c.kcpClusterClient.Cluster(clusterName).SchedulingV1alpha1().Locations().Update(ctx, location, metav1.UpdateOptions{})
 }

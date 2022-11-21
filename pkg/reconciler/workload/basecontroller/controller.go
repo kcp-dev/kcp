@@ -34,18 +34,11 @@ import (
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	apiresourceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
-	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	apiresourcev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
+	workloadv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
-	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiresource"
 )
-
-const GVRForLocationInLogicalClusterIndexName = "GVRForLocationInLogicalCluster"
-
-func GetGVRForLocationInLogicalClusterIndexKey(location string, clusterName logicalcluster.Name, gvr metav1.GroupVersionResource) string {
-	return location + "$$" + apiresource.GetClusterNameAndGVRIndexKey(clusterName, gvr)
-}
 
 const LocationInLogicalClusterIndexName = "LocationInLogicalCluster"
 
@@ -70,9 +63,9 @@ type ClusterQueue interface {
 func NewClusterReconciler(
 	name string,
 	reconciler ClusterReconcileImpl,
-	kcpClusterClient kcpclient.Interface,
-	clusterInformer workloadinformers.SyncTargetInformer,
-	apiResourceImportInformer apiresourceinformer.APIResourceImportInformer,
+	kcpClusterClient kcpclientset.ClusterInterface,
+	clusterInformer workloadv1alpha1informers.SyncTargetClusterInformer,
+	apiResourceImportInformer apiresourcev1alpha1informers.APIResourceImportClusterInformer,
 ) (*ClusterReconciler, ClusterQueue, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), name)
 
@@ -139,7 +132,7 @@ func (a queueAdapter) EnqueueAfter(cl *workloadv1alpha1.SyncTarget, dur time.Dur
 type ClusterReconciler struct {
 	name                     string
 	reconciler               ClusterReconcileImpl
-	kcpClusterClient         kcpclient.Interface
+	kcpClusterClient         kcpclientset.ClusterInterface
 	clusterIndexer           cache.Indexer
 	apiresourceImportIndexer cache.Indexer
 
@@ -253,7 +246,7 @@ func (c *ClusterReconciler) process(ctx context.Context, key string) error {
 
 	// If the object being reconciled changed as a result, update it.
 	if !equality.Semantic.DeepEqual(previous.Status, current.Status) {
-		_, uerr := c.kcpClusterClient.WorkloadV1alpha1().SyncTargets().UpdateStatus(logicalcluster.WithCluster(ctx, logicalcluster.From(current)), current, metav1.UpdateOptions{})
+		_, uerr := c.kcpClusterClient.Cluster(logicalcluster.From(current)).WorkloadV1alpha1().SyncTargets().UpdateStatus(ctx, current, metav1.UpdateOptions{})
 		return uerr
 	}
 

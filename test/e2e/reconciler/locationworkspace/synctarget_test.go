@@ -20,13 +20,12 @@ import (
 	"context"
 	"embed"
 	"fmt"
-	"math/rand"
 	"sort"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
+	kcpdiscovery "github.com/kcp-dev/client-go/discovery"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
@@ -36,7 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/endpoints/discovery"
-	clientgodiscovery "k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
@@ -47,7 +45,7 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -68,7 +66,7 @@ func TestSyncTargetExport(t *testing.T) {
 	schemaClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
 	computeClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
 
-	kcpClients, err := clientset.NewClusterForConfig(source.BaseConfig(t))
+	kcpClients, err := kcpclientset.NewForConfig(source.BaseConfig(t))
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
 
 	dynamicClients, err := kcpdynamic.NewForConfig(source.BaseConfig(t))
@@ -93,7 +91,7 @@ func TestSyncTargetExport(t *testing.T) {
 	_, err = kcpClients.Cluster(schemaClusterName).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err)
 
-	syncTargetName := fmt.Sprintf("synctarget-%d", +rand.Intn(1000000))
+	syncTargetName := "synctarget"
 	t.Logf("Creating a SyncTarget and syncer in %s", computeClusterName)
 	syncTarget := framework.NewSyncerFixture(t, source, computeClusterName,
 		framework.WithAPIExports(fmt.Sprintf("%s:%s", schemaClusterName.String(), cowboysAPIExport.Name)),
@@ -147,13 +145,13 @@ func TestSyncTargetExport(t *testing.T) {
 	virtualWorkspaceRawConfig.Contexts["syncvervw"].Cluster = "syncvervw"
 	virtualWorkspaceConfig, err := clientcmd.NewNonInteractiveClientConfig(*virtualWorkspaceRawConfig, "syncvervw", nil, nil).ClientConfig()
 	require.NoError(t, err)
-	virtualWorkspaceConfig = kcpclienthelper.SetMultiClusterRoundTripper(rest.AddUserAgent(rest.CopyConfig(virtualWorkspaceConfig), t.Name()))
+	virtualWorkspaceConfig = rest.AddUserAgent(rest.CopyConfig(virtualWorkspaceConfig), t.Name())
 
-	virtualWorkspaceiscoverClusterClient, err := clientgodiscovery.NewDiscoveryClientForConfig(virtualWorkspaceConfig)
+	virtualWorkspaceiscoverClusterClient, err := kcpdiscovery.NewForConfig(virtualWorkspaceConfig)
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {
-		_, existingAPIResourceLists, err := virtualWorkspaceiscoverClusterClient.WithCluster(logicalcluster.Wildcard).ServerGroupsAndResources()
+		_, existingAPIResourceLists, err := virtualWorkspaceiscoverClusterClient.ServerGroupsAndResources()
 		if err != nil {
 			return false
 		}
@@ -164,13 +162,22 @@ func TestSyncTargetExport(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Synctarget should be authorized to access downstream clusters")
-	require.Eventually(t, func() bool {
+	framework.Eventually(t, func() (bool, string) {
 		syncTarget, err := kcpClients.Cluster(computeClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
 		if err != nil {
-			return false
+			return false, err.Error()
 		}
-
-		return conditions.IsTrue(syncTarget, workloadv1alpha1.SyncerAuthorized)
+		done := conditions.IsTrue(syncTarget, workloadv1alpha1.SyncerAuthorized)
+		var reason string
+		if !done {
+			condition := conditions.Get(syncTarget, workloadv1alpha1.SyncerAuthorized)
+			if condition != nil {
+				reason = fmt.Sprintf("Not done waiting for SyncTarget to be authorized: %s: %s", condition.Reason, condition.Message)
+			} else {
+				reason = "Not done waiting for SyncTarget to be authorized: no condition present"
+			}
+		}
+		return done, reason
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 }
 

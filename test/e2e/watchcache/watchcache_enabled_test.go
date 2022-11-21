@@ -28,7 +28,6 @@ import (
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
 	v1 "k8s.io/api/core/v1"
@@ -39,11 +38,11 @@ import (
 	"k8s.io/client-go/rest"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
-	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned"
+	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -68,7 +67,7 @@ func TestWatchCacheEnabledForCRD(t *testing.T) {
 	wildwest.Create(t, cluster, rootShardCRDWildcardClient, cowBoysGR)
 	wildwestClusterClient, err := wildwestclientset.NewForConfig(rootShardConfig)
 	require.NoError(t, err)
-	_, err = wildwestClusterClient.WildwestV1alpha1().Cowboys("default").Create(logicalcluster.WithCluster(ctx, cluster), &wildwestv1alpha1.Cowboy{
+	_, err = wildwestClusterClient.Cluster(cluster).WildwestV1alpha1().Cowboys("default").Create(ctx, &wildwestv1alpha1.Cowboy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "efficientluke",
 		},
@@ -79,7 +78,7 @@ func TestWatchCacheEnabledForCRD(t *testing.T) {
 	require.NoError(t, err)
 	t.Logf("Waiting until the watch cache is primed for %v for cluster %v", cowBoysGR, cluster)
 	assertWatchCacheIsPrimed(t, func() error {
-		res, err := wildwestClusterClient.WildwestV1alpha1().Cowboys("default").List(logicalcluster.WithCluster(ctx, cluster), metav1.ListOptions{ResourceVersion: "0"})
+		res, err := wildwestClusterClient.Cluster(cluster).WildwestV1alpha1().Cowboys("default").List(ctx, metav1.ListOptions{ResourceVersion: "0"})
 		if err != nil {
 			return err
 		}
@@ -91,7 +90,7 @@ func TestWatchCacheEnabledForCRD(t *testing.T) {
 
 	t.Log("Getting wildwest.dev.cowboys 10 times from the watch cache")
 	for i := 0; i < 10; i++ {
-		res, err := wildwestClusterClient.WildwestV1alpha1().Cowboys("default").List(logicalcluster.WithCluster(ctx, cluster), metav1.ListOptions{ResourceVersion: "0"})
+		res, err := wildwestClusterClient.Cluster(cluster).WildwestV1alpha1().Cowboys("default").List(ctx, metav1.ListOptions{ResourceVersion: "0"})
 		require.NoError(t, err)
 		require.Equal(t, 1, len(res.Items), "expected to get exactly one cowboy")
 	}

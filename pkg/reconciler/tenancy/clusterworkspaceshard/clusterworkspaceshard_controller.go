@@ -25,7 +25,6 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
-	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -38,9 +37,9 @@ import (
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
-	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -49,8 +48,8 @@ const (
 )
 
 func NewController(
-	rootKcpClient kcpclient.Interface,
-	clusterWorkspaceShardInformer tenancyinformers.ClusterWorkspaceShardInformer,
+	rootKcpClient kcpclientset.ClusterInterface,
+	clusterWorkspaceShardInformer tenancyinformers.ClusterWorkspaceShardClusterInformer,
 ) (*Controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
@@ -74,10 +73,10 @@ func NewController(
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	kcpClient kcpclient.Interface
+	kcpClient kcpclientset.ClusterInterface
 
 	clusterWorkspaceShardIndexer cache.Indexer
-	clusterWorkspaceShardLister  tenancylisters.ClusterWorkspaceShardLister
+	clusterWorkspaceShardLister  tenancyv1alpha1listers.ClusterWorkspaceShardClusterLister
 }
 
 func (c *Controller) enqueue(obj interface{}) {
@@ -139,7 +138,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 
 func (c *Controller) process(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
+	clusterName, namespace, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		logger.Error(err, "invalid key")
 		return nil
@@ -149,7 +148,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		return nil
 	}
 
-	obj, err := c.clusterWorkspaceShardLister.Get(key)
+	obj, err := c.clusterWorkspaceShardLister.Cluster(clusterName).Get(name)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return nil // object deleted before we handled it
@@ -190,7 +189,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		if err != nil {
 			return fmt.Errorf("failed to create patch for workspace shard %s|%s/%s: %w", tenancyv1alpha1.RootCluster, namespace, name, err)
 		}
-		_, uerr := c.kcpClient.TenancyV1alpha1().ClusterWorkspaceShards().Patch(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+		_, uerr := c.kcpClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaceShards().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 		return uerr
 	}
 

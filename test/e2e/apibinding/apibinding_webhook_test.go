@@ -25,7 +25,6 @@ import (
 	"testing"
 	"time"
 
-	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v2"
@@ -40,15 +39,14 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery/cached/memory"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 
 	"github.com/kcp-dev/kcp/config/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	webhookserver "github.com/kcp-dev/kcp/test/e2e/fixtures/webhook"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
-	client "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned"
+	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -67,7 +65,7 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 
 	cfg := server.BaseConfig(t)
 
-	kcpClusterClient, err := clientset.NewForConfig(cfg)
+	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
 
 	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
@@ -76,12 +74,11 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct client for server")
 
-	sourceWorkspaceConfig := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), sourceWorkspace)
-	sourceWorkspaceClient, err := clientset.NewForConfig(sourceWorkspaceConfig)
+	sourceWorkspaceClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err)
 
 	t.Logf("Install a cowboys APIResourceSchema into workspace %q", sourceWorkspace)
-	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(sourceWorkspaceClient.Discovery()))
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(sourceWorkspaceClient.Cluster(sourceWorkspace).Discovery()))
 	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(sourceWorkspace), mapper, nil, "apiresourceschema_cowboys.yaml", testFiles)
 	require.NoError(t, err)
 
@@ -94,7 +91,7 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 			LatestResourceSchemas: []string{"today.cowboys.wildwest.dev"},
 		},
 	}
-	_, err = kcpClusterClient.ApisV1alpha1().APIExports().Create(logicalcluster.WithCluster(ctx, sourceWorkspace), cowboysAPIExport, metav1.CreateOptions{})
+	_, err = kcpClusterClient.Cluster(sourceWorkspace).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	t.Logf("Create an APIBinding in workspace %q that points to the today-cowboys export", targetWorkspace)
@@ -113,7 +110,7 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 		},
 	}
 
-	_, err = kcpClusterClient.ApisV1alpha1().APIBindings().Create(logicalcluster.WithCluster(ctx, targetWorkspace), apiBinding, metav1.CreateOptions{})
+	_, err = kcpClusterClient.Cluster(targetWorkspace).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	scheme := runtime.NewScheme()
@@ -123,7 +120,7 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 	require.NoError(t, err, "failed to add admission v1 scheme")
 	err = v1alpha1.AddToScheme(scheme)
 	require.NoError(t, err, "failed to add cowboy v1alpha1 to scheme")
-	cowbyClusterClient, err := client.NewForConfig(cfg)
+	cowbyClusterClient, err := wildwestclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to add cowboy v1alpha1 to scheme")
 	codecs := serializer.NewCodecFactory(scheme)
 	deserializer := codecs.UniversalDeserializer()
@@ -186,7 +183,7 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 	// Avoid race condition here by making sure that CRD is served after installing the types into logical clusters
 	t.Logf("Creating cowboy resource in target logical cluster")
 	require.Eventually(t, func() bool {
-		_, err = cowbyClusterClient.WildwestV1alpha1().Cowboys("default").Create(logicalcluster.WithCluster(ctx, targetWorkspace), &cowboy, metav1.CreateOptions{})
+		_, err = cowbyClusterClient.Cluster(targetWorkspace).WildwestV1alpha1().Cowboys("default").Create(ctx, &cowboy, metav1.CreateOptions{})
 		t.Log(err)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			return false
@@ -213,7 +210,7 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 
 	cfg := server.BaseConfig(t)
 
-	kcpClients, err := clientset.NewForConfig(cfg)
+	kcpClients, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
 
 	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
@@ -222,12 +219,11 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct client for server")
 
-	sourceWorkspaceConfig := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), sourceWorkspace)
-	sourceWorkspaceClient, err := clientset.NewForConfig(sourceWorkspaceConfig)
+	sourceWorkspaceClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err)
 
 	t.Logf("Install a cowboys APIResourceSchema into workspace %q", sourceWorkspace)
-	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(sourceWorkspaceClient.Discovery()))
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(sourceWorkspaceClient.Cluster(sourceWorkspace).Discovery()))
 	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(sourceWorkspace), mapper, nil, "apiresourceschema_cowboys.yaml", testFiles)
 	require.NoError(t, err)
 
@@ -240,7 +236,7 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 			LatestResourceSchemas: []string{"today.cowboys.wildwest.dev"},
 		},
 	}
-	_, err = kcpClients.ApisV1alpha1().APIExports().Create(logicalcluster.WithCluster(ctx, sourceWorkspace), cowboysAPIExport, metav1.CreateOptions{})
+	_, err = kcpClients.Cluster(sourceWorkspace).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	t.Logf("Create an APIBinding in workspace %q that points to the today-cowboys export", targetWorkspace)
@@ -259,7 +255,7 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 		},
 	}
 
-	_, err = kcpClients.ApisV1alpha1().APIBindings().Create(logicalcluster.WithCluster(ctx, targetWorkspace), apiBinding, metav1.CreateOptions{})
+	_, err = kcpClients.Cluster(targetWorkspace).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	scheme := runtime.NewScheme()
@@ -269,7 +265,7 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 	require.NoError(t, err, "failed to add admission v1 scheme")
 	err = v1alpha1.AddToScheme(scheme)
 	require.NoError(t, err, "failed to add cowboy v1alpha1 to scheme")
-	cowbyClusterClient, err := client.NewForConfig(cfg)
+	cowbyClusterClient, err := wildwestclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to add cowboy v1alpha1 to scheme")
 	codecs := serializer.NewCodecFactory(scheme)
 	deserializer := codecs.UniversalDeserializer()
@@ -337,13 +333,13 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 
 	t.Logf("Ensure cowboys are served")
 	require.Eventually(t, func() bool {
-		_, err := cowbyClusterClient.WildwestV1alpha1().Cowboys("default").List(logicalcluster.WithCluster(ctx, targetWorkspace), metav1.ListOptions{})
+		_, err := cowbyClusterClient.Cluster(targetWorkspace).WildwestV1alpha1().Cowboys("default").List(ctx, metav1.ListOptions{})
 		return err == nil
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 	t.Logf("Creating cowboy resource in target logical cluster, eventually going through admission webhook")
 	require.Eventually(t, func() bool {
-		_, err = cowbyClusterClient.WildwestV1alpha1().Cowboys("default").Create(logicalcluster.WithCluster(ctx, targetWorkspace), &cowboy, metav1.CreateOptions{})
+		_, err = cowbyClusterClient.Cluster(targetWorkspace).WildwestV1alpha1().Cowboys("default").Create(ctx, &cowboy, metav1.CreateOptions{})
 		require.NoError(t, err)
 		return testWebhooks[sourceWorkspace].Calls() >= 1
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)

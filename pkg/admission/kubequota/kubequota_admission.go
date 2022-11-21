@@ -39,8 +39,8 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/admission/initializers"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
-	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 )
 
 // PluginName is the name of this admission plugin.
@@ -82,8 +82,8 @@ type KubeResourceQuota struct {
 	*admission.Handler
 
 	// Injected/set via initializers
-	clusterWorkspaceInformer     tenancyinformers.ClusterWorkspaceInformer
-	clusterWorkspaceLister       tenancylisters.ClusterWorkspaceLister
+	clusterWorkspaceInformer     tenancyv1alpha1informers.ClusterWorkspaceClusterInformer
+	clusterWorkspaceLister       tenancyv1alpha1listers.ClusterWorkspaceClusterLister
 	kubeClusterClient            kcpkubernetesclientset.ClusterInterface
 	scopingResourceQuotaInformer kcpcorev1informers.ResourceQuotaClusterInformer
 	quotaConfiguration           quota.Configuration

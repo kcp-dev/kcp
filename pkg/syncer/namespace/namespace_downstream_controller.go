@@ -45,7 +45,6 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/syncer/resourcesync"
-	"github.com/kcp-dev/kcp/third_party/keyfunctions"
 )
 
 const (
@@ -166,7 +165,7 @@ func NewDownstreamController(
 }
 
 func (c *DownstreamController) AddToQueue(obj interface{}, logger logr.Logger) {
-	key, err := keyfunctions.DeletionHandlingMetaNamespaceKeyFunc(obj) // note: this is *not* a cluster-aware key
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj) // note: this is *not* a cluster-aware key
 	if err != nil {
 		utilruntime.HandleError(err)
 		return

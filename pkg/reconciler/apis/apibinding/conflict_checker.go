@@ -24,7 +24,6 @@ import (
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/tools/cache"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 )
@@ -41,10 +40,10 @@ type conflictChecker struct {
 	getAPIExport         func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error)
 	getAPIResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
 	getCRD               func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error)
+	listCRDs             func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error)
 
 	boundCRDs    []*apiextensionsv1.CustomResourceDefinition
 	crdToBinding map[string]*apisv1alpha1.APIBinding
-	crdIndexer   cache.Indexer
 }
 
 func (ncc *conflictChecker) getBoundCRDs(apiBindingToExclude *apisv1alpha1.APIBinding) error {
@@ -118,12 +117,11 @@ func (ncc *conflictChecker) checkForConflicts(schema *apisv1alpha1.APIResourceSc
 
 func (ncc *conflictChecker) gvrConflict(schema *apisv1alpha1.APIResourceSchema, apiBinding *apisv1alpha1.APIBinding) error {
 	bindingClusterName := logicalcluster.From(apiBinding)
-	rawBindingClusterCRDs, err := ncc.crdIndexer.ByIndex(indexByWorkspace, bindingClusterName.String())
+	bindingClusterCRDs, err := ncc.listCRDs(bindingClusterName)
 	if err != nil {
 		return err
 	}
-	for _, rawBindClusterCRD := range rawBindingClusterCRDs {
-		bindingClusterCRD := rawBindClusterCRD.(*apiextensionsv1.CustomResourceDefinition)
+	for _, bindingClusterCRD := range bindingClusterCRDs {
 		if bindingClusterCRD.Spec.Group == schema.Spec.Group && bindingClusterCRD.Spec.Names.Plural == schema.Spec.Names.Plural {
 			return fmt.Errorf("cannot create CustomResourceDefinition with %q group and %q resource because it overlaps with %q CustomResourceDefinition in %q logical cluster",
 				schema.Spec.Group, schema.Spec.Names.Plural, bindingClusterCRD.Name, bindingClusterName)

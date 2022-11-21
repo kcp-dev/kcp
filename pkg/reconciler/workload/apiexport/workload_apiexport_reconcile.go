@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
@@ -36,7 +37,6 @@ import (
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/client"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -269,58 +269,33 @@ func (c *controller) reconcile(ctx context.Context, export *apisv1alpha1.APIExpo
 }
 
 func (c *controller) listNegotiatedAPIResources(clusterName logicalcluster.Name) ([]*apiresourcev1alpha1.NegotiatedAPIResource, error) {
-	objs, err := c.negotiatedAPIResourceIndexer.ByIndex(byWorkspace, clusterName.String())
-	if err != nil {
-		return nil, err
-	}
-	ret := make([]*apiresourcev1alpha1.NegotiatedAPIResource, 0, len(objs))
-	for _, obj := range objs {
-		ret = append(ret, obj.(*apiresourcev1alpha1.NegotiatedAPIResource))
-	}
-	return ret, nil
+	return c.negotiatedAPIResourceLister.Cluster(clusterName).List(labels.Everything())
 }
 
 func (c *controller) listAPIResourceSchemas(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIResourceSchema, error) {
-	objs, err := c.apiResourceSchemaIndexer.ByIndex(byWorkspace, clusterName.String())
-	if err != nil {
-		return nil, err
-	}
-	ret := make([]*apisv1alpha1.APIResourceSchema, 0, len(objs))
-	for _, obj := range objs {
-		ret = append(ret, obj.(*apisv1alpha1.APIResourceSchema))
-	}
-	return ret, nil
+	return c.apiResourceSchemaLister.Cluster(clusterName).List(labels.Everything())
 }
 
 func (c *controller) listSyncTarget(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error) {
-	objs, err := c.syncTargetIndexer.ByIndex(byWorkspace, clusterName.String())
-	if err != nil {
-		return nil, err
-	}
-
-	ret := make([]*workloadv1alpha1.SyncTarget, 0, len(objs))
-	for _, obj := range objs {
-		ret = append(ret, obj.(*workloadv1alpha1.SyncTarget))
-	}
-	return ret, nil
+	return c.syncTargetClusterLister.Cluster(clusterName).List(labels.Everything())
 }
 
 func (c *controller) getAPIResourceSchema(ctx context.Context, clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
-	schema, err := c.apiResourceSchemaLister.Get(client.ToClusterAwareKey(clusterName, name))
+	schema, err := c.apiResourceSchemaLister.Cluster(clusterName).Get(name)
 	if apierrors.IsNotFound(err) {
-		return c.kcpClusterClient.ApisV1alpha1().APIResourceSchemas().Get(logicalcluster.WithCluster(ctx, clusterName), name, metav1.GetOptions{})
+		return c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIResourceSchemas().Get(ctx, name, metav1.GetOptions{})
 	}
 	return schema, err
 }
 
 func (c *controller) createAPIResourceSchema(ctx context.Context, clusterName logicalcluster.Name, schema *apisv1alpha1.APIResourceSchema) (*apisv1alpha1.APIResourceSchema, error) {
-	return c.kcpClusterClient.ApisV1alpha1().APIResourceSchemas().Create(logicalcluster.WithCluster(ctx, clusterName), schema, metav1.CreateOptions{})
+	return c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIResourceSchemas().Create(ctx, schema, metav1.CreateOptions{})
 }
 
 func (c *controller) updateAPIExport(ctx context.Context, clusterName logicalcluster.Name, export *apisv1alpha1.APIExport) (*apisv1alpha1.APIExport, error) {
-	return c.kcpClusterClient.ApisV1alpha1().APIExports().Update(logicalcluster.WithCluster(ctx, clusterName), export, metav1.UpdateOptions{})
+	return c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIExports().Update(ctx, export, metav1.UpdateOptions{})
 }
 
 func (c *controller) deleteAPIResourceSchema(ctx context.Context, clusterName logicalcluster.Name, name string) error {
-	return c.kcpClusterClient.ApisV1alpha1().APIResourceSchemas().Delete(logicalcluster.WithCluster(ctx, clusterName), name, metav1.DeleteOptions{})
+	return c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIResourceSchemas().Delete(ctx, name, metav1.DeleteOptions{})
 }

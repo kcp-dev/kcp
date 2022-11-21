@@ -35,8 +35,8 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
@@ -49,10 +49,10 @@ const (
 
 // NewController returns a new controller for labeling resources for accepted permission claims.
 func NewResourceController(
-	kcpClusterClient kcpclient.Interface,
+	kcpClusterClient kcpclientset.ClusterInterface,
 	dynamicClusterClient kcpdynamic.ClusterInterface,
 	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory,
-	apiBindingInformer apisinformers.APIBindingInformer,
+	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
 ) (*resourceController, error) {
 	if err := apiBindingInformer.Informer().GetIndexer().AddIndexers(
 		cache.Indexers{
@@ -85,7 +85,7 @@ func NewResourceController(
 // its permission claim labels updated.
 type resourceController struct {
 	queue                  workqueue.RateLimitingInterface
-	kcpClusterClient       kcpclient.Interface
+	kcpClusterClient       kcpclientset.ClusterInterface
 	dynamicClusterClient   kcpdynamic.ClusterInterface
 	ddsif                  *informer.DynamicDiscoverySharedInformerFactory
 	permissionClaimLabeler *permissionclaim.Labeler

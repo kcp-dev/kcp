@@ -22,8 +22,6 @@ import (
 	"context"
 	"time"
 
-	v2 "github.com/kcp-dev/logicalcluster/v2"
-
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -55,15 +53,13 @@ type APIResourceImportInterface interface {
 
 // aPIResourceImports implements APIResourceImportInterface
 type aPIResourceImports struct {
-	client  rest.Interface
-	cluster v2.Name
+	client rest.Interface
 }
 
 // newAPIResourceImports returns a APIResourceImports
 func newAPIResourceImports(c *ApiresourceV1alpha1Client) *aPIResourceImports {
 	return &aPIResourceImports{
-		client:  c.RESTClient(),
-		cluster: c.cluster,
+		client: c.RESTClient(),
 	}
 }
 
@@ -71,7 +67,6 @@ func newAPIResourceImports(c *ApiresourceV1alpha1Client) *aPIResourceImports {
 func (c *aPIResourceImports) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.APIResourceImport, err error) {
 	result = &v1alpha1.APIResourceImport{}
 	err = c.client.Get().
-		Cluster(c.cluster).
 		Resource("apiresourceimports").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
@@ -88,7 +83,6 @@ func (c *aPIResourceImports) List(ctx context.Context, opts v1.ListOptions) (res
 	}
 	result = &v1alpha1.APIResourceImportList{}
 	err = c.client.Get().
-		Cluster(c.cluster).
 		Resource("apiresourceimports").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -105,7 +99,6 @@ func (c *aPIResourceImports) Watch(ctx context.Context, opts v1.ListOptions) (wa
 	}
 	opts.Watch = true
 	return c.client.Get().
-		Cluster(c.cluster).
 		Resource("apiresourceimports").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -116,7 +109,6 @@ func (c *aPIResourceImports) Watch(ctx context.Context, opts v1.ListOptions) (wa
 func (c *aPIResourceImports) Create(ctx context.Context, aPIResourceImport *v1alpha1.APIResourceImport, opts v1.CreateOptions) (result *v1alpha1.APIResourceImport, err error) {
 	result = &v1alpha1.APIResourceImport{}
 	err = c.client.Post().
-		Cluster(c.cluster).
 		Resource("apiresourceimports").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(aPIResourceImport).
@@ -129,7 +121,6 @@ func (c *aPIResourceImports) Create(ctx context.Context, aPIResourceImport *v1al
 func (c *aPIResourceImports) Update(ctx context.Context, aPIResourceImport *v1alpha1.APIResourceImport, opts v1.UpdateOptions) (result *v1alpha1.APIResourceImport, err error) {
 	result = &v1alpha1.APIResourceImport{}
 	err = c.client.Put().
-		Cluster(c.cluster).
 		Resource("apiresourceimports").
 		Name(aPIResourceImport.Name).
 		VersionedParams(&opts, scheme.ParameterCodec).
@@ -144,7 +135,6 @@ func (c *aPIResourceImports) Update(ctx context.Context, aPIResourceImport *v1al
 func (c *aPIResourceImports) UpdateStatus(ctx context.Context, aPIResourceImport *v1alpha1.APIResourceImport, opts v1.UpdateOptions) (result *v1alpha1.APIResourceImport, err error) {
 	result = &v1alpha1.APIResourceImport{}
 	err = c.client.Put().
-		Cluster(c.cluster).
 		Resource("apiresourceimports").
 		Name(aPIResourceImport.Name).
 		SubResource("status").
@@ -158,7 +148,6 @@ func (c *aPIResourceImports) UpdateStatus(ctx context.Context, aPIResourceImport
 // Delete takes name of the aPIResourceImport and deletes it. Returns an error if one occurs.
 func (c *aPIResourceImports) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	return c.client.Delete().
-		Cluster(c.cluster).
 		Resource("apiresourceimports").
 		Name(name).
 		Body(&opts).
@@ -173,7 +162,6 @@ func (c *aPIResourceImports) DeleteCollection(ctx context.Context, opts v1.Delet
 		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
 	}
 	return c.client.Delete().
-		Cluster(c.cluster).
 		Resource("apiresourceimports").
 		VersionedParams(&listOpts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -186,7 +174,6 @@ func (c *aPIResourceImports) DeleteCollection(ctx context.Context, opts v1.Delet
 func (c *aPIResourceImports) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.APIResourceImport, err error) {
 	result = &v1alpha1.APIResourceImport{}
 	err = c.client.Patch(pt).
-		Cluster(c.cluster).
 		Resource("apiresourceimports").
 		Name(name).
 		SubResource(subresources...).

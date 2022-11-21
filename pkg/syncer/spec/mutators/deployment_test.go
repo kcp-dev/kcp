@@ -819,28 +819,9 @@ func TestDeploymentMutate(t *testing.T) {
 					return unstructuredObjects, nil
 				}
 
-				indexer := cache.NewIndexer(cache.LegacyMetaNamespaceKeyFunc, cache.Indexers{})
-
-				ns := &corev1.Namespace{
-					TypeMeta: metav1.TypeMeta{
-						Kind:       "Namespace",
-						APIVersion: "v1",
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "namespace",
-						Annotations: map[string]string{
-							shared.NamespaceLocatorAnnotation: `{"workspace": "root:default:testing"}`,
-						},
-					},
-				}
-				uns, err := toUnstructured(ns)
-				require.NoError(t, err, "toUnstructured() = %v", err)
-				err = indexer.Add(uns)
-				require.NoError(t, err, "Add() = %v", err)
-
 				workspace := logicalcluster.New("root:default:testing")
 
-				serviceIndexer := cache.NewIndexer(cache.LegacyMetaNamespaceKeyFunc, cache.Indexers{})
+				serviceIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 
 				dnsServiceName := shared.GetDNSID(workspace, "syncTargetUID", "syncTargetName")
 				err = serviceIndexer.Add(service(dnsServiceName, "dnsNamespace"))

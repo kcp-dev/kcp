@@ -50,6 +50,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	workloadnamespace "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
 	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -280,7 +281,7 @@ func TestNamespaceScheduler(t *testing.T) {
 			kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 			require.NoError(t, err)
 
-			kcpClusterClient, err := clientset.NewClusterForConfig(cfg)
+			kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 			require.NoError(t, err)
 
 			expecterClient, err := kcpkubernetesclientset.NewForConfig(server.RootShardSystemMasterBaseConfig(t))

@@ -42,9 +42,10 @@ import (
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/client"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
-	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	apisv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apis/v1alpha1"
+	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
+	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
@@ -61,14 +62,14 @@ var (
 // NewController returns a new controller for APIBindings.
 func NewController(
 	crdClusterClient kcpapiextensionsclientset.ClusterInterface,
-	kcpClusterClient kcpclient.Interface,
+	kcpClusterClient kcpclientset.ClusterInterface,
 	dynamicClusterClient kcpdynamic.ClusterInterface,
 	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory,
-	apiBindingInformer apisinformers.APIBindingInformer,
-	apiExportInformer apisinformers.APIExportInformer,
-	apiResourceSchemaInformer apisinformers.APIResourceSchemaInformer,
-	temporaryRemoteShardApiExportInformer apisinformers.APIExportInformer, /*TODO(p0lyn0mial): replace with multi-shard informers*/
-	temporaryRemoteShardApiResourceSchemaInformer apisinformers.APIResourceSchemaInformer, /*TODO(p0lyn0mial): replace with multi-shard informers*/
+	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
+	apiExportInformer apisv1alpha1informers.APIExportClusterInformer,
+	apiResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
+	temporaryRemoteShardApiExportInformer apisv1alpha1informers.APIExportClusterInformer, /*TODO(p0lyn0mial): replace with multi-shard informers*/
+	temporaryRemoteShardApiResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer, /*TODO(p0lyn0mial): replace with multi-shard informers*/
 	crdInformer kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer,
 ) (*controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
@@ -102,9 +103,9 @@ func NewController(
 		apiBindingsIndexer: apiBindingInformer.Informer().GetIndexer(),
 
 		getAPIExport: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
-			apiExport, err := apiExportInformer.Lister().Get(client.ToClusterAwareKey(clusterName, name))
+			apiExport, err := apiExportInformer.Lister().Cluster(clusterName).Get(name)
 			if errors.IsNotFound(err) {
-				return temporaryRemoteShardApiExportInformer.Lister().Get(client.ToClusterAwareKey(clusterName, name))
+				return temporaryRemoteShardApiExportInformer.Lister().Cluster(clusterName).Get(name)
 			}
 			return apiExport, err
 		},
@@ -112,9 +113,9 @@ func NewController(
 		temporaryRemoteShardApiExportsIndexer: temporaryRemoteShardApiExportInformer.Informer().GetIndexer(),
 
 		getAPIResourceSchema: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
-			apiResourceSchema, err := apiResourceSchemaInformer.Lister().Get(client.ToClusterAwareKey(clusterName, name))
+			apiResourceSchema, err := apiResourceSchemaInformer.Lister().Cluster(clusterName).Get(name)
 			if errors.IsNotFound(err) {
-				return temporaryRemoteShardApiResourceSchemaInformer.Lister().Get(client.ToClusterAwareKey(clusterName, name))
+				return temporaryRemoteShardApiResourceSchemaInformer.Lister().Cluster(clusterName).Get(name)
 			}
 			return apiResourceSchema, err
 		},
@@ -125,9 +126,11 @@ func NewController(
 		getCRD: func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 			return crdInformer.Lister().Cluster(clusterName).Get(name)
 		},
-		crdIndexer:        crdInformer.Informer().GetIndexer(),
+		listCRDs: func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error) {
+			return crdInformer.Lister().Cluster(clusterName).List(labels.Everything())
+		},
 		deletedCRDTracker: newLockedStringSet(),
-		commit:            committer.NewCommitter[*APIBinding, *APIBindingSpec, *APIBindingStatus](kcpClusterClient.ApisV1alpha1().APIBindings()),
+		commit:            committer.NewCommitter[*APIBinding, Patcher, *APIBindingSpec, *APIBindingStatus](kcpClusterClient.ApisV1alpha1().APIBindings()),
 	}
 
 	logger := logging.WithReconciler(klog.Background(), ControllerName)
@@ -172,12 +175,6 @@ func NewController(
 		},
 	})
 
-	if err := crdInformer.Informer().AddIndexers(cache.Indexers{
-		indexByWorkspace: indexByWorkspaceFunc,
-	}); err != nil {
-		return nil, err
-	}
-
 	apiResourceSchemaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueAPIResourceSchema(obj, logger, "") },
 		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIResourceSchema(obj, logger, "") },
@@ -217,6 +214,7 @@ func NewController(
 type APIBinding = apisv1alpha1.APIBinding
 type APIBindingSpec = apisv1alpha1.APIBindingSpec
 type APIBindingStatus = apisv1alpha1.APIBindingStatus
+type Patcher = apisv1alpha1client.APIBindingInterface
 type Resource = committer.Resource[*APIBindingSpec, *APIBindingStatus]
 type CommitFunc = func(context.Context, *Resource, *Resource) error
 
@@ -227,11 +225,11 @@ type controller struct {
 	queue workqueue.RateLimitingInterface
 
 	crdClusterClient     kcpapiextensionsclientset.ClusterInterface
-	kcpClusterClient     kcpclient.Interface
+	kcpClusterClient     kcpclientset.ClusterInterface
 	dynamicClusterClient kcpdynamic.ClusterInterface
 	ddsif                *informer.DynamicDiscoverySharedInformerFactory
 
-	apiBindingsLister  apislisters.APIBindingLister
+	apiBindingsLister  apisv1alpha1listers.APIBindingClusterLister
 	listAPIBindings    func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
 	apiBindingsIndexer cache.Indexer
 
@@ -241,9 +239,9 @@ type controller struct {
 
 	getAPIResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
 
-	createCRD  func(ctx context.Context, clusterName logicalcluster.Name, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error)
-	getCRD     func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error)
-	crdIndexer cache.Indexer
+	createCRD func(ctx context.Context, clusterName logicalcluster.Name, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error)
+	getCRD    func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error)
+	listCRDs  func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error)
 
 	deletedCRDTracker *lockedStringSet
 	commit            CommitFunc
@@ -386,8 +384,13 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 
 func (c *controller) process(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
+	clusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+	if err != nil {
+		runtime.HandleError(err)
+		return nil
+	}
 
-	obj, err := c.apiBindingsLister.Get(key) // TODO: clients need a way to scope down the lister per-cluster
+	obj, err := c.apiBindingsLister.Cluster(clusterName).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil // object deleted before we handled it

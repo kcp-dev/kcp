@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -39,12 +40,11 @@ import (
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/client"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	schedulinginformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
-	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
-	schedulinglisters "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
-	workloadlisters "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/indexers"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	schedulingv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
+	workloadv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
+	schedulingv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
+	workloadv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -54,9 +54,9 @@ const (
 
 // NewController returns a new controller reconciling location status.
 func NewController(
-	kcpClusterClient kcpclient.Interface,
-	locationInformer schedulinginformers.LocationInformer,
-	syncTargetInformer workloadinformers.SyncTargetInformer,
+	kcpClusterClient kcpclientset.ClusterInterface,
+	locationInformer schedulingv1alpha1informers.LocationClusterInformer,
+	syncTargetInformer workloadv1alpha1informers.SyncTargetClusterInformer,
 ) (*controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 
@@ -66,11 +66,9 @@ func NewController(
 			key := client.ToClusterAwareKey(logicalcluster.From(location), location.Name)
 			queue.AddAfter(key, duration)
 		},
-		kcpClusterClient:  kcpClusterClient,
-		locationLister:    locationInformer.Lister(),
-		locationIndexer:   locationInformer.Informer().GetIndexer(),
-		syncTargetLister:  syncTargetInformer.Lister(),
-		syncTargetIndexer: syncTargetInformer.Informer().GetIndexer(),
+		kcpClusterClient: kcpClusterClient,
+		locationLister:   locationInformer.Lister(),
+		syncTargetLister: syncTargetInformer.Lister(),
 	}
 
 	locationInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -112,12 +110,10 @@ type controller struct {
 	queue        workqueue.RateLimitingInterface
 	enqueueAfter func(*schedulingv1alpha1.Location, time.Duration)
 
-	kcpClusterClient kcpclient.Interface
+	kcpClusterClient kcpclientset.ClusterInterface
 
-	locationLister    schedulinglisters.LocationLister
-	locationIndexer   cache.Indexer
-	syncTargetLister  workloadlisters.SyncTargetLister
-	syncTargetIndexer cache.Indexer
+	locationLister   schedulingv1alpha1listers.LocationClusterLister
+	syncTargetLister workloadv1alpha1listers.SyncTargetClusterLister
 }
 
 func (c *controller) enqueueLocation(obj interface{}) {
@@ -144,7 +140,7 @@ func (c *controller) enqueueSyncTarget(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	domains, err := indexers.ByIndex[*schedulingv1alpha1.Location](c.locationIndexer, indexers.ByLogicalCluster, lcluster.String())
+	domains, err := c.locationLister.Cluster(lcluster).List(labels.Everything())
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -218,7 +214,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		return nil
 	}
 
-	obj, err := c.locationLister.Get(key)
+	obj, err := c.locationLister.Cluster(clusterName).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil // object deleted before we handled it
@@ -259,7 +255,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		if err != nil {
 			return fmt.Errorf("failed to create patch for LocationDomain %s|%s/%s: %w", clusterName, namespace, name, err)
 		}
-		_, uerr := c.kcpClusterClient.SchedulingV1alpha1().Locations().Patch(logicalcluster.WithCluster(ctx, clusterName), obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+		_, uerr := c.kcpClusterClient.Cluster(clusterName).SchedulingV1alpha1().Locations().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 		return uerr
 	}
 

@@ -14,8 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// +kcp-code-generator:skip
-
 package crds
 
 import (
@@ -169,6 +167,7 @@ func CreateSingle(ctx context.Context, client apiextensionsv1client.CustomResour
 	}
 
 	logger.Info("waiting for CRD to be established")
+	var lastMsg string
 	return wait.PollImmediateInfiniteWithContext(ctx, 100*time.Millisecond, func(ctx context.Context) (bool, error) {
 		crd, err := client.Get(ctx, rawCRD.Name, metav1.GetOptions{})
 		if err != nil {
@@ -177,7 +176,17 @@ func CreateSingle(ctx context.Context, client apiextensionsv1client.CustomResour
 			}
 			return false, fmt.Errorf("error fetching CRD %s: %w", rawCRD.Name, err)
 		}
-
+		var reason string
+		condition := crdhelpers.FindCRDCondition(crd, apiextensionsv1.Established)
+		if condition == nil {
+			reason = fmt.Sprintf("CRD has no %s condition", apiextensionsv1.Established)
+		} else {
+			reason = fmt.Sprintf("CRD is not established: %s: %s", condition.Reason, condition.Message)
+		}
+		if reason != lastMsg {
+			logger.Info(reason)
+			lastMsg = reason
+		}
 		return crdhelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established), nil
 	})
 }

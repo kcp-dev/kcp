@@ -33,7 +33,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/apis"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1/permissionclaims"
-	"github.com/kcp-dev/kcp/pkg/client"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/schemas"
 	apiexportbuiltin "github.com/kcp-dev/kcp/pkg/virtual/apiexport/schemas/builtin"
@@ -275,7 +274,7 @@ func gvrString(gvr schema.GroupVersionResource) string {
 func (c *APIReconciler) getSchemasFromAPIExport(apiExport *apisv1alpha1.APIExport) (map[schema.GroupResource]*apisv1alpha1.APIResourceSchema, error) {
 	apiResourceSchemas := map[schema.GroupResource]*apisv1alpha1.APIResourceSchema{}
 	for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
-		apiResourceSchema, err := c.apiResourceSchemaLister.Get(client.ToClusterAwareKey(logicalcluster.From(apiExport), schemaName))
+		apiResourceSchema, err := c.apiResourceSchemaLister.Cluster(logicalcluster.From(apiExport)).Get(schemaName)
 		if err != nil && !apierrors.IsNotFound(err) {
 			return nil, err
 		}

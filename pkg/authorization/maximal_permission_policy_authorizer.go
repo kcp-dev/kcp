@@ -23,17 +23,17 @@ import (
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	"github.com/kcp-dev/logicalcluster/v2"
 
+	"k8s.io/apimachinery/pkg/labels"
 	kaudit "k8s.io/apiserver/pkg/audit"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	"github.com/kcp-dev/kcp/pkg/indexers"
+	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
 )
 
@@ -48,9 +48,6 @@ const (
 // NewMaximalPermissionPolicyAuthorizer returns an authorizer that first checks if the request is for a
 // bound resource or not. If the resource is bound it checks the maximal permission policy of the underlying API export.
 func NewMaximalPermissionPolicyAuthorizer(kubeInformers kcpkubernetesinformers.SharedInformerFactory, kcpInformers kcpinformers.SharedInformerFactory, delegate authorizer.Authorizer) (authorizer.Authorizer, error) {
-	apiBindingIndexer := kcpInformers.Apis().V1alpha1().APIBindings().Informer().GetIndexer()
-	apiExportIndexer := kcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer()
-
 	// Make sure informer knows what to watch
 	kubeInformers.Rbac().V1().Roles().Lister()
 	kubeInformers.Rbac().V1().RoleBindings().Lister()
@@ -59,10 +56,10 @@ func NewMaximalPermissionPolicyAuthorizer(kubeInformers kcpkubernetesinformers.S
 
 	return &MaximalPermissionPolicyAuthorizer{
 		getAPIBindingReferenceForAttributes: func(attr authorizer.Attributes, clusterName logicalcluster.Name) (*apisv1alpha1.ExportReference, bool, error) {
-			return getAPIBindingReferenceForAttributes(apiBindingIndexer, attr, clusterName)
+			return getAPIBindingReferenceForAttributes(kcpInformers.Apis().V1alpha1().APIBindings().Lister(), attr, clusterName)
 		},
 		getAPIExportByReference: func(exportRef *apisv1alpha1.ExportReference) (*apisv1alpha1.APIExport, bool, error) {
-			return getAPIExportByReference(apiExportIndexer, exportRef)
+			return getAPIExportByReference(kcpInformers.Apis().V1alpha1().APIExports().Lister(), exportRef)
 		},
 		newAuthorizer: func(clusterName logicalcluster.Name) authorizer.Authorizer {
 			return rbac.New(
@@ -201,13 +198,12 @@ func (a *MaximalPermissionPolicyAuthorizer) Authorize(ctx context.Context, attr 
 	return authorizer.DecisionNoOpinion, reason, nil
 }
 
-func getAPIBindingReferenceForAttributes(apiBindingIndexer cache.Indexer, attr authorizer.Attributes, clusterName logicalcluster.Name) (*apisv1alpha1.ExportReference, bool, error) {
-	objs, err := apiBindingIndexer.ByIndex(indexers.ByLogicalCluster, clusterName.String())
+func getAPIBindingReferenceForAttributes(apiBindingClusterLister apisv1alpha1listers.APIBindingClusterLister, attr authorizer.Attributes, clusterName logicalcluster.Name) (*apisv1alpha1.ExportReference, bool, error) {
+	objs, err := apiBindingClusterLister.Cluster(clusterName).List(labels.Everything())
 	if err != nil {
 		return nil, false, err
 	}
-	for _, obj := range objs {
-		apiBinding := obj.(*apisv1alpha1.APIBinding)
+	for _, apiBinding := range objs {
 		for _, br := range apiBinding.Status.BoundResources {
 			if br.Group == attr.GetAPIGroup() && br.Resource == attr.GetResource() {
 				return &apiBinding.Spec.Reference, true, nil
@@ -217,13 +213,12 @@ func getAPIBindingReferenceForAttributes(apiBindingIndexer cache.Indexer, attr a
 	return nil, false, nil
 }
 
-func getAPIExportByReference(apiExportIndexer cache.Indexer, exportRef *apisv1alpha1.ExportReference) (*apisv1alpha1.APIExport, bool, error) {
-	objs, err := apiExportIndexer.ByIndex(indexers.ByLogicalCluster, exportRef.Workspace.Path)
+func getAPIExportByReference(apiExportClusterLister apisv1alpha1listers.APIExportClusterLister, exportRef *apisv1alpha1.ExportReference) (*apisv1alpha1.APIExport, bool, error) {
+	objs, err := apiExportClusterLister.Cluster(logicalcluster.New(exportRef.Workspace.Path)).List(labels.Everything())
 	if err != nil {
 		return nil, false, err
 	}
-	for _, obj := range objs {
-		apiExport := obj.(*apisv1alpha1.APIExport)
+	for _, apiExport := range objs {
 		if apiExport.Name == exportRef.Workspace.ExportName {
 			return apiExport, true, err
 		}

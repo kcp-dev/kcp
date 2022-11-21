@@ -55,8 +55,7 @@ import (
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	"github.com/kcp-dev/kcp/pkg/authorization"
-	"github.com/kcp-dev/kcp/pkg/client"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
@@ -96,8 +95,8 @@ func WithHomeWorkspaces(
 	apiHandler http.Handler,
 	a authorizer.Authorizer,
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
-	kcpClusterClient kcpclient.ClusterInterface,
-	bootstrapKcpClusterClient kcpclient.ClusterInterface,
+	kcpClusterClient kcpclientset.ClusterInterface,
+	bootstrapKcpClusterClient kcpclientset.ClusterInterface,
 	kubeSharedInformerFactory kcpkubernetesinformers.SharedInformerFactory,
 	kcpSharedInformerFactory kcpinformers.SharedInformerFactory,
 	externalHost string,
@@ -129,7 +128,7 @@ type externalKubeClientsAccess struct {
 	createClusterRoleBinding func(ctx context.Context, lcluster logicalcluster.Name, crb *rbacv1.ClusterRoleBinding) error
 }
 
-func buildExternalClientsAccess(kubeClusterClient kcpkubernetesclientset.ClusterInterface, kcpClusterClient kcpclient.ClusterInterface, bootstrapKcpClusterClient kcpclient.ClusterInterface) externalKubeClientsAccess {
+func buildExternalClientsAccess(kubeClusterClient kcpkubernetesclientset.ClusterInterface, kcpClusterClient kcpclientset.ClusterInterface, bootstrapKcpClusterClient kcpclientset.ClusterInterface) externalKubeClientsAccess {
 	return externalKubeClientsAccess{
 		createClusterRole: func(ctx context.Context, workspace logicalcluster.Name, cr *rbacv1.ClusterRole) error {
 			_, err := kubeClusterClient.Cluster(workspace).RbacV1().ClusterRoles().Create(ctx, cr, metav1.CreateOptions{})
@@ -140,7 +139,7 @@ func buildExternalClientsAccess(kubeClusterClient kcpkubernetesclientset.Cluster
 			return err
 		},
 		createClusterWorkspace: func(ctx context.Context, workspace logicalcluster.Name, cw *tenancyv1alpha1.ClusterWorkspace) error {
-			var client kcpclient.ClusterInterface
+			var client kcpclientset.ClusterInterface
 			switch cw.Spec.Type.Name {
 			case HomeClusterWorkspaceType:
 				// If we're creating an actual home workspace, the request is coming from a real user, and their info
@@ -186,7 +185,7 @@ func buildLocalInformersAccess(kubeSharedInformerFactory kcpkubernetesinformers.
 	return localInformersAccess{
 		getClusterWorkspace: func(logicalCluster logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error) {
 			parentLogicalCluster, workspaceName := logicalCluster.Split()
-			return clusterWorkspaceLister.Get(client.ToClusterAwareKey(parentLogicalCluster, workspaceName))
+			return clusterWorkspaceLister.Cluster(parentLogicalCluster).Get(workspaceName)
 		},
 		getClusterRole: func(workspace logicalcluster.Name, name string) (*rbacv1.ClusterRole, error) {
 			return crLister.Cluster(workspace).Get(name)

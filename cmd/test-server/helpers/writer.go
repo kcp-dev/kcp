@@ -19,13 +19,15 @@ package helpers
 import (
 	"io"
 	"strings"
+	"sync"
 )
 
 func NewHeadWriter(file, out io.Writer) *headWriter {
 	return &headWriter{
-		file:   file,
-		out:    out,
-		stopCh: make(chan struct{}),
+		file:     file,
+		out:      out,
+		stopCh:   make(chan struct{}),
+		stopOnce: sync.Once{},
 	}
 }
 
@@ -33,13 +35,16 @@ func NewHeadWriter(file, out io.Writer) *headWriter {
 type headWriter struct {
 	file, out io.Writer
 	stopCh    chan struct{}
+	stopOnce  sync.Once
 
 	linePending bool
 }
 
 // StopOut stops writing to out writer, but keep writing to file.
 func (h *headWriter) StopOut() {
-	close(h.stopCh)
+	h.stopOnce.Do(func() {
+		close(h.stopCh)
+	})
 }
 
 func (hw *headWriter) Write(p []byte) (n int, err error) {

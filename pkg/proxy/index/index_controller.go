@@ -22,7 +22,6 @@ import (
 	"sync"
 	"time"
 
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -33,9 +32,9 @@ import (
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
-	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 )
 
 const (
@@ -49,12 +48,12 @@ type Index interface {
 	Lookup(logicalCluster logicalcluster.Name) (string, bool)
 }
 
-type ClusterWorkspaceClientGetter func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpclient.Interface, error)
+type ClusterWorkspaceClientGetter func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpclientset.ClusterInterface, error)
 
 func NewController(
 	ctx context.Context,
 	rootHost string,
-	clusterWorkspaceShardInformer tenancyinformers.ClusterWorkspaceShardInformer,
+	clusterWorkspaceShardInformer tenancyv1alpha1informers.ClusterWorkspaceShardInformer,
 	clientGetter ClusterWorkspaceClientGetter,
 ) *Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
@@ -169,7 +168,7 @@ type Controller struct {
 	clientGetter ClusterWorkspaceClientGetter
 
 	clusterWorkspaceShardIndexer cache.Indexer
-	clusterWorkspaceShardLister  tenancylisters.ClusterWorkspaceShardLister
+	clusterWorkspaceShardLister  tenancyv1alpha1listers.ClusterWorkspaceShardLister
 
 	clusterWorkspaceHandler cache.ResourceEventHandler
 
@@ -206,7 +205,7 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 }
 
 func (c *Controller) enqueueShard(ctx context.Context, obj interface{}) {
-	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -245,7 +244,12 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *Controller) process(ctx context.Context, key string) error {
-	shard, err := c.clusterWorkspaceShardLister.Get(key) // TODO: clients need a way to scope down the lister per-cluster
+	_, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		runtime.HandleError(err)
+		return nil
+	}
+	shard, err := c.clusterWorkspaceShardLister.Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			c.shardInformersLock.Lock()
@@ -267,7 +271,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		if err != nil {
 			return err
 		}
-		informer := tenancyinformers.NewClusterWorkspaceInformer(client, clusterWorkspaceResyncPeriod, nil)
+		informer := tenancyv1alpha1informers.NewClusterWorkspaceClusterInformer(client, clusterWorkspaceResyncPeriod, nil)
 		informer.AddEventHandler(c.clusterWorkspaceHandler)
 
 		stopCh := make(chan struct{})
