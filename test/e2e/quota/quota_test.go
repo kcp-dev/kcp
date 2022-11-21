@@ -40,7 +40,7 @@ import (
 
 	configcrds "github.com/kcp-dev/kcp/config/crds"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
@@ -371,8 +371,8 @@ func TestClusterScopedQuota(t *testing.T) {
 			},
 			Spec: corev1.ResourceQuotaSpec{
 				Hard: map[corev1.ResourceName]resource.Quantity{
-					"count/configmaps":                        resource.MustParse("3"),
-					"count/clusterworkspaces.tenancy.kcp.dev": resource.MustParse("2"),
+					"count/configmaps":                 resource.MustParse("3"),
+					"count/workspaces.tenancy.kcp.dev": resource.MustParse("2"),
 				},
 			},
 		}
@@ -395,16 +395,16 @@ func TestClusterScopedQuota(t *testing.T) {
 				return false, fmt.Sprintf("waiting for %q count/configmaps %s to be 2", ws, used.String())
 			}
 
-			used, ok = quota.Status.Used["count/clusterworkspaces.tenancy.kcp.dev"]
+			used, ok = quota.Status.Used["count/workspaces.tenancy.kcp.dev"]
 			if !ok {
-				return false, fmt.Sprintf("waiting for %q count/clusterworkspaces.tenancy.kcp.dev to show up in used", ws)
+				return false, fmt.Sprintf("waiting for %q count/workspaces.tenancy.kcp.dev to show up in used", ws)
 			}
 			if !used.Equal(resource.MustParse("1")) {
-				return false, fmt.Sprintf("waiting for %q count/clusterworkspaces.tenancy.kcp.dev %s to be 1", ws, used.String())
+				return false, fmt.Sprintf("waiting for %q count/workspaces.tenancy.kcp.dev %s to be 1", ws, used.String())
 			}
 
 			return true, ""
-		}, wait.ForeverTestTimeout, 100*time.Millisecond, "error waiting for 2 used configmaps and 1 used clusterworkspace")
+		}, wait.ForeverTestTimeout, 100*time.Millisecond, "error waiting for 2 used configmaps and 1 used workspace")
 
 		t.Logf("Make sure quota is enforcing configmap limits for %q", ws)
 		framework.Eventually(t, func() (bool, string) {
@@ -414,17 +414,17 @@ func TestClusterScopedQuota(t *testing.T) {
 			return apierrors.IsForbidden(err), fmt.Sprintf("%v", err)
 		}, wait.ForeverTestTimeout, 100*time.Millisecond, "quota never rejected configmap creation in %q", ws)
 
-		t.Logf("Make sure quota is enforcing clusterworkspace limits for %q", ws)
+		t.Logf("Make sure quota is enforcing workspace limits for %q", ws)
 		framework.Eventually(t, func() (bool, string) {
-			t.Logf("Trying to create a clusterworkspace in %q", ws)
-			childWS := &tenancyv1alpha1.ClusterWorkspace{
+			t.Logf("Trying to create a workspace in %q", ws)
+			childWS := &tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: "child-",
 				},
 			}
-			_, err = kcpClusterClient.Cluster(ws).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, childWS, metav1.CreateOptions{})
+			_, err = kcpClusterClient.TenancyV1beta1().Workspaces().Cluster(ws).Create(ctx, childWS, metav1.CreateOptions{})
 			return apierrors.IsForbidden(err), fmt.Sprintf("%v", err)
-		}, wait.ForeverTestTimeout, 100*time.Millisecond, "quota never rejected clusterworkspace creation in %q", ws)
+		}, wait.ForeverTestTimeout, 100*time.Millisecond, "quota never rejected workspace creation in %q", ws)
 	}
 }
 
