@@ -31,7 +31,7 @@ jobs:
         args: release --timeout 60m
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    - uses: cytopia/upload-artifact-retry-action@v0.1.6
+    - uses: cytopia/upload-artifact-retry-action@v0.1.7
       if: ${{ always() }}
       with:
         name: binaries
