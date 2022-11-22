@@ -39,12 +39,12 @@ import (
 	workloadv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
 	schedulingv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
 	workloadv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 const (
-	ControllerName      = "kcp-workload-placement"
-	byLocationWorkspace = ControllerName + "-byLocationWorkspace"
+	ControllerName = "kcp-workload-placement"
 )
 
 // NewController returns a new controller starting the process of selecting synctarget for a placement
@@ -69,11 +69,12 @@ func NewController(
 		placementIndexer: placementInformer.Informer().GetIndexer(),
 	}
 
-	if err := placementInformer.Informer().AddIndexers(cache.Indexers{
-		byLocationWorkspace: indexByLocationWorkspace,
-	}); err != nil {
-		return nil, err
-	}
+	indexers.AddIfNotPresentOrDie(
+		c.placementIndexer,
+		cache.Indexers{
+			indexers.PlacementBySelectedLocationWorkspace: indexers.IndexPlacementBySelectedLocationWorkspace,
+		},
+	)
 
 	locationInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
@@ -155,7 +156,7 @@ func (c *controller) enqueueLocation(obj interface{}) {
 		return
 	}
 
-	placements, err := c.placementIndexer.ByIndex(byLocationWorkspace, clusterName.String())
+	placements, err := indexers.ByIndex[*schedulingv1alpha1.Placement](c.placementIndexer, indexers.PlacementBySelectedLocationWorkspace, clusterName.String())
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -190,7 +191,7 @@ func (c *controller) enqueueSyncTarget(obj interface{}) {
 		return
 	}
 
-	placements, err := c.placementIndexer.ByIndex(byLocationWorkspace, clusterName.String())
+	placements, err := indexers.ByIndex[*schedulingv1alpha1.Placement](c.placementIndexer, indexers.PlacementBySelectedLocationWorkspace, clusterName.String())
 	if err != nil {
 		runtime.HandleError(err)
 		return

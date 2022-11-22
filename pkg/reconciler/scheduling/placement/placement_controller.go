@@ -47,12 +47,12 @@ import (
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	schedulingv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
 	schedulingv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 const (
-	ControllerName      = "kcp-scheduling-placement"
-	byLocationWorkspace = ControllerName + "-byLocationWorkspace"
+	ControllerName = "kcp-scheduling-placement"
 )
 
 // NewController returns a new controller placing namespaces onto locations by create
@@ -81,11 +81,12 @@ func NewController(
 		placementIndexer: placementInformer.Informer().GetIndexer(),
 	}
 
-	if err := placementInformer.Informer().AddIndexers(cache.Indexers{
-		byLocationWorkspace: indexByLocationWorkspace,
-	}); err != nil {
-		return nil, err
-	}
+	indexers.AddIfNotPresentOrDie(
+		c.placementIndexer,
+		cache.Indexers{
+			indexers.PlacementBySpecifiedLocationWorkspace: indexers.IndexPlacementBySpecifiedLocationWorkspace,
+		},
+	)
 
 	// namespaceBlocklist holds a set of namespaces that should never be synced from kcp to physical clusters.
 	var namespaceBlocklist = sets.NewString("kube-system", "kube-public", "kube-node-lease")
@@ -205,14 +206,13 @@ func (c *controller) enqueueLocation(obj interface{}) {
 		return
 	}
 
-	placements, err := c.placementIndexer.ByIndex(byLocationWorkspace, clusterName.String())
+	placements, err := indexers.ByIndex[*schedulingv1alpha1.Placement](c.placementIndexer, indexers.PlacementBySpecifiedLocationWorkspace, clusterName.String())
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
-	for _, obj := range placements {
-		placement := obj.(*schedulingv1alpha1.Placement)
+	for _, placement := range placements {
 		locationKey := key
 		key := client.ToClusterAwareKey(logicalcluster.From(placement), placement.Name)
 		logging.WithQueueKey(logger, key).V(2).Info("queueing Placement because Location changed", "Location", locationKey)

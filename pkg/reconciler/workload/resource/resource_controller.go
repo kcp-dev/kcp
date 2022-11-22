@@ -130,9 +130,12 @@ func NewController(
 		},
 	})
 
-	indexers.AddIfNotPresentOrDie(placementInformer.Informer().GetIndexer(), cache.Indexers{
-		byLocationWorkspace: indexByLocationWorkspace,
-	})
+	indexers.AddIfNotPresentOrDie(
+		placementInformer.Informer().GetIndexer(),
+		cache.Indexers{
+			indexers.PlacementBySelectedLocationWorkspace: indexers.IndexPlacementBySelectedLocationWorkspace,
+		},
+	)
 
 	placementInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.enqueuePlacement,
@@ -529,19 +532,6 @@ func (c *Controller) enqueuePlacement(obj interface{}) {
 	}
 
 	c.enqueueSyncTargetKey(syncTargetKey)
-}
-
-func indexByLocationWorkspace(obj interface{}) ([]string, error) {
-	placement, ok := obj.(*schedulingv1alpha1.Placement)
-	if !ok {
-		return []string{}, fmt.Errorf("obj is supposed to be a Placement, but is %T", obj)
-	}
-
-	if placement.Status.SelectedLocation == nil {
-		return []string{}, nil
-	}
-
-	return []string{placement.Status.SelectedLocation.Path}, nil
 }
 
 func indexBySyncTargetKey(obj interface{}) ([]string, error) {

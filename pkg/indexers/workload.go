@@ -21,11 +21,14 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
+	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
 
 const (
-	SyncTargetsBySyncTargetKey = "SyncTargetsBySyncTargetKey"
+	SyncTargetsBySyncTargetKey            = "SyncTargetsBySyncTargetKey"
+	PlacementBySpecifiedLocationWorkspace = "PlacementBySpecifiedLocationWorkspace"
+	PlacementBySelectedLocationWorkspace  = "PlacementBySelectedLocationWorkspace"
 )
 
 func IndexSyncTargetsBySyncTargetKey(obj interface{}) ([]string, error) {
@@ -35,4 +38,30 @@ func IndexSyncTargetsBySyncTargetKey(obj interface{}) ([]string, error) {
 	}
 
 	return []string{workloadv1alpha1.ToSyncTargetKey(logicalcluster.From(syncTarget), syncTarget.Name)}, nil
+}
+
+func IndexPlacementBySpecifiedLocationWorkspace(obj interface{}) ([]string, error) {
+	placement, ok := obj.(*schedulingv1alpha1.Placement)
+	if !ok {
+		return []string{}, fmt.Errorf("obj is supposed to be a Placement, but is %T", obj)
+	}
+
+	if len(placement.Spec.LocationWorkspace) == 0 {
+		return []string{logicalcluster.From(placement).String()}, nil
+	}
+
+	return []string{placement.Spec.LocationWorkspace}, nil
+}
+
+func IndexPlacementBySelectedLocationWorkspace(obj interface{}) ([]string, error) {
+	placement, ok := obj.(*schedulingv1alpha1.Placement)
+	if !ok {
+		return []string{}, fmt.Errorf("obj is supposed to be a Placement, but is %T", obj)
+	}
+
+	if placement.Status.SelectedLocation == nil {
+		return []string{}, nil
+	}
+
+	return []string{placement.Status.SelectedLocation.Path}, nil
 }
