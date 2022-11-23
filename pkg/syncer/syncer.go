@@ -18,10 +18,8 @@ package syncer
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/url"
-	"os"
 	"time"
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
@@ -75,7 +73,7 @@ type SyncerConfig struct {
 	DNSImage                      string
 }
 
-func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, importPollInterval time.Duration) error {
+func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, importPollInterval time.Duration, syncerNamespace string) error {
 	logger := klog.FromContext(ctx)
 	logger = logger.WithValues(SyncTargetWorkspace, cfg.SyncTargetWorkspace, SyncTargetName, cfg.SyncTargetName)
 	logger.V(2).Info("starting syncer")
@@ -96,11 +94,6 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 			listOptions.FieldSelector = fields.OneTermEqualSelector("metadata.name", cfg.SyncTargetName).String()
 		},
 	))
-
-	dnsNamespace := os.Getenv("NAMESPACE")
-	if dnsNamespace == "" {
-		return errors.New("missing environment variable: NAMESPACE")
-	}
 
 	// TODO(david): Implement real support for several virtual workspace URLs that can change over time.
 	// TODO(david): For now we retrieve the syncerVirtualWorkpaceURL at start, since we temporarily stick to a single URL (sharding not supported).
@@ -195,7 +188,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	})
 
 	// downstreamInformerFactory to watch some DNS-related resources in the dns namespace
-	downstreamInformerFactory := kubernetesinformers.NewSharedInformerFactoryWithOptions(downstreamKubeClient, resyncPeriod, kubernetesinformers.WithNamespace(dnsNamespace))
+	downstreamInformerFactory := kubernetesinformers.NewSharedInformerFactoryWithOptions(downstreamKubeClient, resyncPeriod, kubernetesinformers.WithNamespace(syncerNamespace))
 	serviceAccountLister := downstreamInformerFactory.Core().V1().ServiceAccounts().Lister()
 	roleLister := downstreamInformerFactory.Rbac().V1().Roles().Lister()
 	roleBindingLister := downstreamInformerFactory.Rbac().V1().RoleBindings().Lister()
@@ -231,14 +224,14 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		return err
 	}
 
-	downstreamNamespaceController, err := namespace.NewDownstreamController(logger, cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, syncTarget.GetUID(), syncerInformers, downstreamConfig, downstreamDynamicClient, upstreamInformers, downstreamInformers, dnsNamespace, cfg.DownstreamNamespaceCleanDelay)
+	downstreamNamespaceController, err := namespace.NewDownstreamController(logger, cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, syncTarget.GetUID(), syncerInformers, downstreamConfig, downstreamDynamicClient, upstreamInformers, downstreamInformers, syncerNamespace, cfg.DownstreamNamespaceCleanDelay)
 	if err != nil {
 		return err
 	}
 
 	specSyncer, err := spec.NewSpecSyncer(logger, cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, upstreamURL, advancedSchedulingEnabled,
 		upstreamDynamicClusterClient, downstreamDynamicClient, downstreamKubeClient, upstreamInformers, downstreamInformers, downstreamNamespaceController, syncerInformers, syncTarget.GetUID(),
-		serviceAccountLister, roleLister, roleBindingLister, deploymentLister, serviceLister, endpointLister, dnsNamespace, cfg.DNSImage)
+		serviceAccountLister, roleLister, roleBindingLister, deploymentLister, serviceLister, endpointLister, syncerNamespace, cfg.DNSImage)
 	if err != nil {
 		return err
 	}
