@@ -84,6 +84,16 @@ func TestWorkspaceDeletionController(t *testing.T) {
 					return conditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceScheduled), toYAML(t, workspace)
 				}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
+				t.Logf("Wait until the %q workspace is ready", workspace.Name)
+				framework.Eventually(t, func() (bool, string) {
+					workspace, err := server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, orgClusterName), workspace.Name, metav1.GetOptions{})
+					require.NoError(t, err, "failed to get workspace")
+					if actual, expected := workspace.Status.Phase, tenancyv1alpha1.WorkspacePhaseReady; actual != expected {
+						return false, fmt.Sprintf("workspace phase is %s, not %s", actual, expected)
+					}
+					return workspace.Status.Phase == tenancyv1alpha1.WorkspacePhaseReady, fmt.Sprintf("workspace phase is %s", workspace.Status.Phase)
+				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for workspace %s to become ready", orgClusterName.Join(workspace.Name))
+
 				workspaceCluster := orgClusterName.Join(workspace.Name)
 
 				t.Logf("Wait for default namespace to be created")
