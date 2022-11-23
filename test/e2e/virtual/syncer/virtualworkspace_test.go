@@ -1619,12 +1619,19 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 				}
 
 				logWithTimestamp(t, "Creating PV test-pv through upsyncer virtual workspace...")
-				_, err = kubelikeSyncerVWClient.CoreV1().PersistentVolumes().Cluster(workspaceName).Create(ctx, pv, metav1.CreateOptions{})
+				pv, err = kubelikeSyncerVWClient.CoreV1().PersistentVolumes().Cluster(workspaceName).Create(ctx, pv, metav1.CreateOptions{})
+				require.NoError(t, err)
+				require.Empty(t, pv.Status)
+
+				logWithTimestamp(t, "Updating status of the PV test-pv through upsyncer virtual workspace...")
+				pv.Status.Phase = corev1.VolumeAvailable
+				_, err = kubelikeSyncerVWClient.CoreV1().PersistentVolumes().Cluster(workspaceName).UpdateStatus(ctx, pv, metav1.UpdateOptions{})
 				require.NoError(t, err)
 
 				logWithTimestamp(t, "Checking if the PV test-pv was created in the source cluster...")
-				_, err = kubeClusterClient.CoreV1().PersistentVolumes().Cluster(workspaceName).Get(ctx, "test-pv", metav1.GetOptions{})
+				pv, err = kubeClusterClient.CoreV1().PersistentVolumes().Cluster(workspaceName).Get(ctx, "test-pv", metav1.GetOptions{})
 				require.NoError(t, err)
+				require.Equal(t, corev1.VolumeAvailable, pv.Status.Phase)
 			},
 		},
 		{

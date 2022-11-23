@@ -136,18 +136,25 @@ func NewSyncerRestProvider(ctx context.Context, clusterClient kcpdynamic.Cluster
 // NewUpSyncerRestProvider returns a forwarding storage build function, with an optional storage wrapper e.g. to add label based filtering.
 func NewUpSyncerRestProvider(ctx context.Context, clusterClient kcpdynamic.ClusterInterface, apiExportIdentityHash string, wrapper registry.StorageWrapper) apiserver.RestProviderFunc {
 	return func(resource schema.GroupVersionResource, kind schema.GroupVersionKind, listKind schema.GroupVersionKind, typer runtime.ObjectTyper, tableConvertor rest.TableConvertor, namespaceScoped bool, schemaValidator *validate.SchemaValidator, subresourcesSchemaValidator map[string]*validate.SchemaValidator, structuralSchema *structuralschema.Structural) (mainStorage rest.Storage, subresourceStorages map[string]rest.Storage) {
+		statusSchemaValidate, statusEnabled := subresourcesSchemaValidator["status"]
+
+		var statusSpec *apiextensions.CustomResourceSubresourceStatus
+		if statusEnabled {
+			statusSpec = &apiextensions.CustomResourceSubresourceStatus{}
+		}
+
 		strategy := customresource.NewStrategy(
 			typer,
 			namespaceScoped,
 			kind,
 			schemaValidator,
-			nil,
+			statusSchemaValidate,
 			map[string]*structuralschema.Structural{resource.Version: structuralSchema},
-			nil,
+			statusSpec,
 			nil,
 		)
 
-		storage, _ := registry.NewStorage(
+		storage, statusStorage := registry.NewStorage(
 			ctx,
 			resource,
 			apiExportIdentityHash,
@@ -161,6 +168,33 @@ func NewUpSyncerRestProvider(ctx context.Context, clusterClient kcpdynamic.Clust
 			nil,
 			wrapper,
 		)
+
+		// we want to expose some but not all the allowed endpoints, so filter by exposing just the funcs we need
+		subresourceStorages = make(map[string]rest.Storage)
+		if statusEnabled {
+			subresourceStorages["status"] = &struct {
+				registry.FactoryFunc
+				registry.DestroyerFunc
+
+				registry.GetterFunc
+				registry.UpdaterFunc
+				// patch is implicit as we have get + update
+
+				registry.TableConvertorFunc
+				registry.CategoriesProviderFunc
+				registry.ResetFieldsStrategyFunc
+			}{
+				FactoryFunc:   statusStorage.FactoryFunc,
+				DestroyerFunc: statusStorage.DestroyerFunc,
+
+				GetterFunc:  statusStorage.GetterFunc,
+				UpdaterFunc: statusStorage.UpdaterFunc,
+
+				TableConvertorFunc:      statusStorage.TableConvertorFunc,
+				CategoriesProviderFunc:  statusStorage.CategoriesProviderFunc,
+				ResetFieldsStrategyFunc: statusStorage.ResetFieldsStrategyFunc,
+			}
+		}
 
 		return &struct {
 			registry.FactoryFunc
