@@ -38,6 +38,7 @@ import (
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -56,44 +57,48 @@ func NewController(
 	dynamicCacheClient kcpdynamic.ClusterInterface,
 	dynamicLocalClient kcpdynamic.ClusterInterface,
 	localKcpInformers kcpinformers.SharedInformerFactory,
-	cacheKcpInformers kcpinformers.SharedInformerFactory,
+	globalKcpInformers kcpinformers.SharedInformerFactory,
 ) (*controller, error) {
 	c := &controller{
-		shardName:                         shardName,
-		queue:                             workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
-		dynamicCacheClient:                dynamicCacheClient,
-		dynamicLocalClient:                dynamicLocalClient,
-		localAPIExportLister:              localKcpInformers.Apis().V1alpha1().APIExports().Lister(),
-		localAPIResourceSchemaLister:      localKcpInformers.Apis().V1alpha1().APIResourceSchemas().Lister(),
-		localClusterWorkspaceShardLister:  localKcpInformers.Tenancy().V1alpha1().ClusterWorkspaceShards().Lister(),
-		cacheAPIExportsIndexer:            cacheKcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer(),
-		cacheAPIResourceSchemaIndexer:     cacheKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer().GetIndexer(),
-		cacheClusterWorkspaceShardIndexer: cacheKcpInformers.Tenancy().V1alpha1().ClusterWorkspaceShards().Informer().GetIndexer(),
+		shardName:                          shardName,
+		queue:                              workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
+		dynamicCacheClient:                 dynamicCacheClient,
+		dynamicLocalClient:                 dynamicLocalClient,
+		localAPIExportLister:               localKcpInformers.Apis().V1alpha1().APIExports().Lister(),
+		localAPIResourceSchemaLister:       localKcpInformers.Apis().V1alpha1().APIResourceSchemas().Lister(),
+		localClusterWorkspaceShardLister:   localKcpInformers.Tenancy().V1alpha1().ClusterWorkspaceShards().Lister(),
+		globalAPIExportIndexer:             globalKcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer(),
+		globalAPIResourceSchemaIndexer:     globalKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer().GetIndexer(),
+		globalClusterWorkspaceShardIndexer: globalKcpInformers.Tenancy().V1alpha1().ClusterWorkspaceShards().Informer().GetIndexer(),
 	}
 
-	if err := cacheKcpInformers.Apis().V1alpha1().APIExports().Informer().AddIndexers(cache.Indexers{
-		ByShardAndLogicalClusterAndNamespaceAndName: IndexByShardAndLogicalClusterAndNamespace,
-	}); err != nil {
-		return nil, err
-	}
-	if err := cacheKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer().AddIndexers(cache.Indexers{
-		ByShardAndLogicalClusterAndNamespaceAndName: IndexByShardAndLogicalClusterAndNamespace,
-	}); err != nil {
-		return nil, err
-	}
+	indexers.AddIfNotPresentOrDie(
+		globalKcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer(),
+		cache.Indexers{
+			ByShardAndLogicalClusterAndNamespaceAndName: IndexByShardAndLogicalClusterAndNamespace,
+		},
+	)
 
-	if err := cacheKcpInformers.Tenancy().V1alpha1().ClusterWorkspaceShards().Informer().AddIndexers(cache.Indexers{
-		ByShardAndLogicalClusterAndNamespaceAndName: IndexByShardAndLogicalClusterAndNamespace,
-	}); err != nil {
-		return nil, err
-	}
+	indexers.AddIfNotPresentOrDie(
+		globalKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer().GetIndexer(),
+		cache.Indexers{
+			ByShardAndLogicalClusterAndNamespaceAndName: IndexByShardAndLogicalClusterAndNamespace,
+		},
+	)
+
+	indexers.AddIfNotPresentOrDie(
+		globalKcpInformers.Tenancy().V1alpha1().ClusterWorkspaceShards().Informer().GetIndexer(),
+		cache.Indexers{
+			ByShardAndLogicalClusterAndNamespaceAndName: IndexByShardAndLogicalClusterAndNamespace,
+		},
+	)
 
 	localKcpInformers.Apis().V1alpha1().APIExports().Informer().AddEventHandler(c.apiExportInformerEventHandler())
 	localKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer().AddEventHandler(c.apiResourceSchemaInformerEventHandler())
 	localKcpInformers.Tenancy().V1alpha1().ClusterWorkspaceShards().Informer().AddEventHandler(c.clusterWorkspaceShardInformerEventHandler())
-	cacheKcpInformers.Apis().V1alpha1().APIExports().Informer().AddEventHandler(c.apiExportInformerEventHandler())
-	cacheKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer().AddEventHandler(c.apiResourceSchemaInformerEventHandler())
-	cacheKcpInformers.Tenancy().V1alpha1().ClusterWorkspaceShards().Informer().AddEventHandler(c.clusterWorkspaceShardInformerEventHandler())
+	globalKcpInformers.Apis().V1alpha1().APIExports().Informer().AddEventHandler(c.apiExportInformerEventHandler())
+	globalKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer().AddEventHandler(c.apiResourceSchemaInformerEventHandler())
+	globalKcpInformers.Tenancy().V1alpha1().ClusterWorkspaceShards().Informer().AddEventHandler(c.clusterWorkspaceShardInformerEventHandler())
 
 	return c, nil
 }
@@ -193,7 +198,7 @@ type controller struct {
 	localAPIResourceSchemaLister     apisv1alpha1listers.APIResourceSchemaClusterLister
 	localClusterWorkspaceShardLister tenancyv1alpha1listers.ClusterWorkspaceShardClusterLister
 
-	cacheAPIExportsIndexer            cache.Indexer
-	cacheAPIResourceSchemaIndexer     cache.Indexer
-	cacheClusterWorkspaceShardIndexer cache.Indexer
+	globalAPIExportIndexer             cache.Indexer
+	globalAPIResourceSchemaIndexer     cache.Indexer
+	globalClusterWorkspaceShardIndexer cache.Indexer
 }

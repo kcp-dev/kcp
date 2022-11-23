@@ -48,7 +48,7 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 			apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"),
 			apisv1alpha1.SchemeGroupVersion.WithKind("APIExport"),
 			func(gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (interface{}, error) {
-				return retrieveCacheObject(&gvr, c.cacheAPIExportsIndexer, c.shardName, cluster, namespace, name)
+				return retrieveCacheObject(&gvr, c.globalAPIExportIndexer, c.shardName, cluster, namespace, name)
 			},
 			func(cluster logicalcluster.Name, _, name string) (interface{}, error) {
 				return c.localAPIExportLister.Cluster(cluster).Get(name)
@@ -59,7 +59,7 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 			apisv1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas"),
 			apisv1alpha1.SchemeGroupVersion.WithKind("APIResourceSchema"),
 			func(gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (interface{}, error) {
-				return retrieveCacheObject(&gvr, c.cacheAPIResourceSchemaIndexer, c.shardName, cluster, namespace, name)
+				return retrieveCacheObject(&gvr, c.globalAPIResourceSchemaIndexer, c.shardName, cluster, namespace, name)
 			},
 			func(cluster logicalcluster.Name, _, name string) (interface{}, error) {
 				return c.localAPIResourceSchemaLister.Cluster(cluster).Get(name)
@@ -70,7 +70,7 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 			tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaceshards"),
 			tenancyv1alpha1.SchemeGroupVersion.WithKind("ClusterWorkspaceShard"),
 			func(gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (interface{}, error) {
-				return retrieveCacheObject(&gvr, c.cacheClusterWorkspaceShardIndexer, c.shardName, cluster, namespace, name)
+				return retrieveCacheObject(&gvr, c.globalClusterWorkspaceShardIndexer, c.shardName, cluster, namespace, name)
 			},
 			func(cluster logicalcluster.Name, _, name string) (interface{}, error) {
 				return c.localClusterWorkspaceShardLister.Cluster(cluster).Get(name)
