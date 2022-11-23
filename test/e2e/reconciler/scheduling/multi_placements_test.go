@@ -26,17 +26,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
-	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/rest"
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
-	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -65,43 +62,17 @@ func TestMultiPlacement(t *testing.T) {
 	firstSyncTargetName := "first-synctarget"
 	t.Logf("Creating a SyncTarget and syncer in %s", locationClusterName)
 	firstSyncerFixture := framework.NewSyncerFixture(t, source, locationClusterName,
-		framework.WithSyncTarget(locationClusterName, firstSyncTargetName),
-		framework.WithExtraResources("services", "roles.rbac.authorization.k8s.io", "rolebindings.rbac.authorization.k8s.io"),
-		framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
-			if !isFakePCluster {
-				// Only need to install services and ingresses in a logical cluster
-				return
-			}
-			sinkCrdClient, err := apiextensionsclientset.NewForConfig(config)
-			require.NoError(t, err, "failed to create apiextensions client")
-			t.Logf("Installing test CRDs into sink cluster...")
-			kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
-				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
-				metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
-			)
-			require.NoError(t, err)
-		}),
+		framework.WithSyncTargetName(firstSyncTargetName),
+		framework.WithExtraResources("services"),
+		framework.WithSyncedUserWorkspaces(userClusterName),
 	).Start(t)
 
 	secondSyncTargetName := "second-synctarget"
 	t.Logf("Creating a SyncTarget and syncer in %s", locationClusterName)
 	secondSyncerFixture := framework.NewSyncerFixture(t, source, locationClusterName,
-		framework.WithExtraResources("services", "roles.rbac.authorization.k8s.io", "rolebindings.rbac.authorization.k8s.io"),
-		framework.WithSyncTarget(locationClusterName, secondSyncTargetName),
-		framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
-			if !isFakePCluster {
-				// Only need to install services and ingresses in a logical cluster
-				return
-			}
-			sinkCrdClient, err := apiextensionsclientset.NewForConfig(config)
-			require.NoError(t, err, "failed to create apiextensions client")
-			t.Logf("Installing test CRDs into sink cluster...")
-			kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
-				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
-				metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
-			)
-			require.NoError(t, err)
-		}),
+		framework.WithExtraResources("services"),
+		framework.WithSyncTargetName(secondSyncTargetName),
+		framework.WithSyncedUserWorkspaces(userClusterName),
 	).Start(t)
 
 	t.Log("Label synctarget")
@@ -156,14 +127,12 @@ func TestMultiPlacement(t *testing.T) {
 		framework.WithLocationWorkspaceWorkloadBindOption(locationClusterName),
 		framework.WithLocationSelectorWorkloadBindOption(metav1.LabelSelector{MatchLabels: map[string]string{"loc": "loc1"}}),
 	).Bind(t)
-	firstSyncerFixture.WorkspaceBound(t, ctx, userClusterName)
 
 	t.Logf("Bind user workspace to location workspace with loc 2")
 	framework.NewBindCompute(t, userClusterName, source,
 		framework.WithLocationWorkspaceWorkloadBindOption(locationClusterName),
 		framework.WithLocationSelectorWorkloadBindOption(metav1.LabelSelector{MatchLabels: map[string]string{"loc": "loc2"}}),
 	).Bind(t)
-	secondSyncerFixture.WorkspaceBound(t, ctx, userClusterName)
 
 	t.Logf("Wait for being able to list Services in the user workspace")
 	require.Eventually(t, func() bool {

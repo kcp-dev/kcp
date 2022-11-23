@@ -26,19 +26,16 @@ import (
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
-	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/rest"
 	"sigs.k8s.io/yaml"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
-	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -72,22 +69,9 @@ func TestScheduling(t *testing.T) {
 	syncTargetName := "synctarget"
 	t.Logf("Creating a SyncTarget and syncer in %s", negotiationClusterName)
 	syncerFixture := framework.NewSyncerFixture(t, source, negotiationClusterName,
-		framework.WithExtraResources("services", "roles.rbac.authorization.k8s.io", "rolebindings.rbac.authorization.k8s.io"),
-		framework.WithSyncTarget(negotiationClusterName, syncTargetName),
-		framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
-			if !isFakePCluster {
-				// Only need to install services and ingresses in a logical cluster
-				return
-			}
-			sinkCrdClient, err := apiextensionsclientset.NewForConfig(config)
-			require.NoError(t, err, "failed to create apiextensions client")
-			t.Logf("Installing test CRDs into sink cluster...")
-			kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
-				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
-				metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
-			)
-			require.NoError(t, err)
-		}),
+		framework.WithExtraResources("services"),
+		framework.WithSyncTargetName(syncTargetName),
+		framework.WithSyncedUserWorkspaces(userClusterName, secondUserClusterName),
 	).Start(t)
 
 	t.Logf("Wait for APIResourceImports to show up in the negotiation workspace")
@@ -165,7 +149,6 @@ func TestScheduling(t *testing.T) {
 	framework.NewBindCompute(t, userClusterName, source,
 		framework.WithLocationWorkspaceWorkloadBindOption(negotiationClusterName),
 	).Bind(t)
-	syncerFixture.WorkspaceBound(t, ctx, userClusterName)
 
 	t.Logf("Wait for being able to list Services in the user workspace")
 	require.Eventually(t, func() bool {
@@ -183,7 +166,6 @@ func TestScheduling(t *testing.T) {
 	framework.NewBindCompute(t, secondUserClusterName, source,
 		framework.WithLocationWorkspaceWorkloadBindOption(negotiationClusterName),
 	).Bind(t)
-	syncerFixture.WorkspaceBound(t, ctx, secondUserClusterName)
 
 	t.Logf("Wait for being able to list Services in the user workspace")
 	require.Eventually(t, func() bool {

@@ -39,7 +39,6 @@ import (
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
-	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
 	fixturewildwest "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
@@ -187,7 +186,7 @@ func TestClusterController(t *testing.T) {
 			require.NoError(t, err)
 
 			syncerFixture := framework.NewSyncerFixture(t, source, wsClusterName,
-				framework.WithExtraResources("cowboys.wildwest.dev", "services", "roles.rbac.authorization.k8s.io", "rolebindings.rbac.authorization.k8s.io"),
+				framework.WithExtraResources("cowboys.wildwest.dev", "services"),
 				framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 					// Always install the crd regardless of whether the target is
 					// logical or not since cowboys is not a native type.
@@ -195,14 +194,6 @@ func TestClusterController(t *testing.T) {
 					require.NoError(t, err)
 					t.Log("Installing test CRDs into sink cluster...")
 					fixturewildwest.FakePClusterCreate(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
-
-					if isFakePCluster {
-						// Only need to install services in a non-logical cluster
-						kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
-							metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
-							metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
-						)
-					}
 				})).Start(t)
 
 			t.Logf("Bind second user workspace to location workspace")

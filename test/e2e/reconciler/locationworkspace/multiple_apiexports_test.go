@@ -105,7 +105,7 @@ func TestMultipleExports(t *testing.T) {
 	t.Logf("Creating a SyncTarget and syncer in %s", computeClusterName)
 	syncTarget := framework.NewSyncerFixture(t, source, computeClusterName,
 		framework.WithAPIExports(fmt.Sprintf("%s:%s", serviceSchemaClusterName.String(), serviceAPIExport.Name)),
-		framework.WithSyncTarget(computeClusterName, syncTargetName),
+		framework.WithSyncTargetName(syncTargetName),
 		framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 			if !isFakePCluster {
 				// Only need to install services
@@ -115,9 +115,7 @@ func TestMultipleExports(t *testing.T) {
 			require.NoError(t, err, "failed to create apiextensions client")
 			t.Logf("Installing test CRDs into sink cluster...")
 			kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
-				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
 				metav1.GroupResource{Group: "networking.k8s.io", Resource: "ingresses"},
-				metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
 			)
 			require.NoError(t, err)
 		}),

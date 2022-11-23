@@ -32,7 +32,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kcpapiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/kcp/clientset/versioned"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -41,7 +40,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/retry"
 
@@ -52,7 +50,6 @@ import (
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	workloadnamespace "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
-	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -96,19 +93,7 @@ func TestNamespaceScheduler(t *testing.T) {
 				// controller just needs ready clusters which can be accomplished without a syncer by having the
 				// heartbeater update the sync target so the heartbeat controller can set the cluster ready.
 				syncerFixture := framework.NewSyncerFixture(t, server, server.clusterName,
-					framework.WithExtraResources("services"),
-					framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
-						if !isFakePCluster {
-							// Only need to install services in a logical cluster
-							return
-						}
-						crdClusterClient, err := apiextensionsclient.NewForConfig(config)
-						require.NoError(t, err, "failed to construct apiextensions client for server")
-						kubefixtures.Create(t, crdClusterClient.ApiextensionsV1().CustomResourceDefinitions(),
-							metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
-							metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
-						)
-					})).Start(t)
+					framework.WithExtraResources("services")).Start(t)
 				syncTargetName := syncerFixture.SyncerConfig.SyncTargetName
 
 				t.Logf("Bind to location workspace")
