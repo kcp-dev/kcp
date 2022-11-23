@@ -90,21 +90,20 @@ func TestCrossLogicalClusterList(t *testing.T) {
 		})
 	}
 
-	t.Logf("Listing ClusterWorkspace CRs across logical clusters with identity")
-	tenancyExport, err := kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).ApisV1alpha1().APIExports().Get(ctx, "tenancy.kcp.dev", metav1.GetOptions{})
+	t.Logf("Listing Workspace CRs across logical clusters with identity")
+	tenancyExport, err := kcpClusterClient.ApisV1alpha1().APIExports().Cluster(tenancyv1alpha1.RootCluster).Get(ctx, "tenancy.kcp.dev", metav1.GetOptions{})
 	require.NoError(t, err, "error getting tenancy API export")
 	require.NotEmptyf(t, tenancyExport.Status.IdentityHash, "tenancy API export has no identity hash")
 	dynamicClusterClient, err := kcpdynamic.NewForConfig(rootShardCfg)
 	require.NoError(t, err, "failed to construct kcp client for server")
-	client := dynamicClusterClient.Resource(tenancyv1alpha1.SchemeGroupVersion.WithResource(fmt.Sprintf("clusterworkspaces:%s", tenancyExport.Status.IdentityHash)))
+	client := dynamicClusterClient.Resource(tenancyv1alpha1.SchemeGroupVersion.WithResource(fmt.Sprintf("workspaces:%s", tenancyExport.Status.IdentityHash)))
 	workspaces, err := client.List(ctx, metav1.ListOptions{})
 	require.NoError(t, err, "error listing workspaces")
-
 	got := sets.NewString()
 	for _, ws := range workspaces.Items {
 		got.Insert(logicalcluster.From(&ws).Join(ws.GetName()).String())
 	}
-	require.True(t, got.IsSuperset(expectedWorkspaces), "unexpected workspaces detected")
+	require.True(t, got.IsSuperset(expectedWorkspaces), "unexpected workspaces detected, got: %v, expected: %v", got.List(), expectedWorkspaces.List())
 }
 
 func bootstrapCRD(
