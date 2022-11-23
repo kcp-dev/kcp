@@ -18,6 +18,8 @@ package cmd
 
 import (
 	"context"
+	"errors"
+	"os"
 
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/spf13/cobra"
@@ -105,6 +107,11 @@ func Run(ctx context.Context, options *synceroptions.Options) error {
 	downstreamConfig.QPS = options.QPS
 	downstreamConfig.Burst = options.Burst
 
+	namespace := os.Getenv("NAMESPACE")
+	if namespace == "" {
+		return errors.New("missing environment variable: NAMESPACE")
+	}
+
 	if err := syncer.StartSyncer(
 		ctx,
 		&syncer.SyncerConfig{
@@ -119,6 +126,7 @@ func Run(ctx context.Context, options *synceroptions.Options) error {
 		},
 		numThreads,
 		options.APIImportPollInterval,
+		namespace,
 	); err != nil {
 		return err
 	}

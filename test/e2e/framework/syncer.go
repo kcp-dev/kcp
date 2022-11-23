@@ -367,8 +367,7 @@ func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 	} else {
 		// Start an in-process syncer
 		syncerConfig.DNSImage = "TODO"
-		os.Setenv("NAMESPACE", syncerID)
-		err := syncer.StartSyncer(ctx, syncerConfig, 2, 5*time.Second)
+		err := syncer.StartSyncer(ctx, syncerConfig, 2, 5*time.Second, syncerID)
 		require.NoError(t, err, "syncer failed to start")
 
 		_, err = downstreamKubeClient.RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
