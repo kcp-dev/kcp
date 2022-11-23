@@ -840,14 +840,16 @@ func NewFakeWorkloadServer(t *testing.T, server RunningServer, org logicalcluste
 
 	downstreamConfig := fakeServer.BaseConfig(t)
 
-	// Install the deployment crd in the fake cluster to allow creation of the syncer deployment.
+	// Install the required crds in the fake cluster to allow creation of the syncer deployment.
 	crdClient, err := apiextensionsclient.NewForConfig(downstreamConfig)
 	require.NoError(t, err)
 	kubefixtures.Create(t, crdClient.ApiextensionsV1().CustomResourceDefinitions(),
 		metav1.GroupResource{Group: "apps.k8s.io", Resource: "deployments"},
+		metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
+		metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
 	)
 
-	// Wait for the deployment crd to become ready
+	// Wait for the required crds to become ready
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 	kubeClient, err := kubernetes.NewForConfig(downstreamConfig)
@@ -856,6 +858,16 @@ func NewFakeWorkloadServer(t *testing.T, server RunningServer, org logicalcluste
 		_, err := kubeClient.AppsV1().Deployments("").List(ctx, metav1.ListOptions{})
 		if err != nil {
 			t.Logf("error seen waiting for deployment crd to become active: %v", err)
+			return false
+		}
+		_, err = kubeClient.CoreV1().Services("").List(ctx, metav1.ListOptions{})
+		if err != nil {
+			t.Logf("error seen waiting for service crd to become active: %v", err)
+			return false
+		}
+		_, err = kubeClient.CoreV1().Endpoints("").List(ctx, metav1.ListOptions{})
+		if err != nil {
+			t.Logf("error seen waiting for endpoint crd to become active: %v", err)
 			return false
 		}
 		return true

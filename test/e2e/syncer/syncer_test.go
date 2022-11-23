@@ -71,7 +71,8 @@ func TestSyncerLifecycle(t *testing.T) {
 	// heartbeating and the heartbeat controller setting the sync target ready in
 	// response.
 	syncerFixture := framework.NewSyncerFixture(t, upstreamServer, wsClusterName,
-		framework.WithExtraResources("persistentvolumes", "roles.rbac.authorization.k8s.io", "rolebindings.rbac.authorization.k8s.io"),
+		framework.WithExtraResources("persistentvolumes"),
+		framework.WithSyncedUserWorkspaces(wsClusterName),
 		framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 			if !isFakePCluster {
 				// Only need to install services and ingresses in a logical cluster
@@ -81,9 +82,7 @@ func TestSyncerLifecycle(t *testing.T) {
 			require.NoError(t, err, "failed to create apiextensions client")
 			t.Logf("Installing test CRDs into sink cluster...")
 			kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
-				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
 				metav1.GroupResource{Group: "core.k8s.io", Resource: "persistentvolumes"},
-				metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
 			)
 			require.NoError(t, err)
 		})).Start(t)
@@ -93,7 +92,6 @@ func TestSyncerLifecycle(t *testing.T) {
 
 	t.Logf("Bind location workspace")
 	framework.NewBindCompute(t, wsClusterName, upstreamServer).Bind(t)
-	syncerFixture.WorkspaceBound(t, ctx, wsClusterName)
 
 	upstreamConfig := upstreamServer.BaseConfig(t)
 	upstreamKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(upstreamConfig)
@@ -620,19 +618,7 @@ func TestCordonUncordonDrain(t *testing.T) {
 	// heartbeating and the heartbeat controller setting the sync target ready in
 	// response.
 	syncerFixture := framework.NewSyncerFixture(t, upstreamServer, wsClusterName,
-		framework.WithExtraResources("services"),
-		framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
-			if !isFakePCluster {
-				// Only need to install services in a logical cluster
-				return
-			}
-			crdClusterClient, err := apiextensionsclientset.NewForConfig(config)
-			require.NoError(t, err, "failed to construct apiextensions client for server")
-			kubefixtures.Create(t, crdClusterClient.ApiextensionsV1().CustomResourceDefinitions(),
-				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
-				metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
-			)
-		})).Start(t)
+		framework.WithExtraResources("services")).Start(t)
 	syncTargetName := syncerFixture.SyncerConfig.SyncTargetName
 
 	ctx, cancelFunc := context.WithCancel(context.Background())

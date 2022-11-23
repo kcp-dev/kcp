@@ -65,8 +65,8 @@ func TestRootComputeWorkspace(t *testing.T) {
 	syncTargetName := "synctarget"
 	t.Logf("Creating a SyncTarget and syncer in %s", computeClusterName)
 	syncerFixture := framework.NewSyncerFixture(t, source, computeClusterName,
-		framework.WithExtraResources("roles.rbac.authorization.k8s.io", "rolebindings.rbac.authorization.k8s.io"),
-		framework.WithSyncTarget(computeClusterName, syncTargetName),
+		framework.WithSyncTargetName(syncTargetName),
+		framework.WithSyncedUserWorkspaces(consumerWorkspace),
 		framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 			if !isFakePCluster {
 				// Only need to install services
@@ -76,10 +76,7 @@ func TestRootComputeWorkspace(t *testing.T) {
 			require.NoError(t, err, "failed to create apiextensions client")
 			t.Logf("Installing test CRDs into sink cluster...")
 			kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
-				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
-				metav1.GroupResource{Group: "apps.k8s.io", Resource: "deployments"},
 				metav1.GroupResource{Group: "networking.k8s.io", Resource: "ingresses"},
-				metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
 			)
 			require.NoError(t, err)
 		}),
@@ -116,7 +113,6 @@ func TestRootComputeWorkspace(t *testing.T) {
 		framework.WithAPIExportsWorkloadBindOption("root:compute:kubernetes"),
 		framework.WithLocationWorkspaceWorkloadBindOption(computeClusterName),
 	).Bind(t)
-	syncerFixture.WorkspaceBound(t, ctx, consumerWorkspace)
 
 	t.Logf("Wait for being able to list Services in the user workspace")
 	require.Eventually(t, func() bool {

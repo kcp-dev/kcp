@@ -50,6 +50,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiexport"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
@@ -365,7 +366,7 @@ func (c *Controller) processGVR(ctx context.Context, gvrstr string) error {
 }
 
 // namespaceBlocklist holds a set of namespaces that should never be synced from kcp to physical clusters.
-var namespaceBlocklist = sets.NewString("kube-system", "kube-public", "kube-node-lease")
+var namespaceBlocklist = sets.NewString("kube-system", "kube-public", "kube-node-lease", apiexport.DefaultIdentitySecretNamespace)
 
 // enqueueResourcesForNamespace adds the resources contained by the given
 // namespace to the queue if there scheduling label differs from the namespace's.

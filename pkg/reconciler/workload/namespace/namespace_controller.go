@@ -47,6 +47,7 @@ import (
 	schedulingv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
 	schedulingv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiexport"
 )
 
 const (
@@ -85,7 +86,7 @@ func NewController(
 	}
 
 	// namespaceBlocklist holds a set of namespaces that should never be synced from kcp to physical clusters.
-	var namespaceBlocklist = sets.NewString("kube-system", "kube-public", "kube-node-lease")
+	var namespaceBlocklist = sets.NewString("kube-system", "kube-public", "kube-node-lease", apiexport.DefaultIdentitySecretNamespace)
 	namespaceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
 			switch ns := obj.(type) {

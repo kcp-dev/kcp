@@ -67,8 +67,9 @@ func TestPlacementUpdate(t *testing.T) {
 	firstSyncTargetName := fmt.Sprintf("synctarget-%d", +rand.Intn(1000000))
 	t.Logf("Creating a SyncTarget and syncer in %s", locationClusterName)
 	syncerFixture := framework.NewSyncerFixture(t, source, locationClusterName,
-		framework.WithSyncTarget(locationClusterName, firstSyncTargetName),
-		framework.WithExtraResources("services", "roles.rbac.authorization.k8s.io", "rolebindings.rbac.authorization.k8s.io"),
+		framework.WithSyncTargetName(firstSyncTargetName),
+		framework.WithSyncedUserWorkspaces(userClusterName),
+		framework.WithExtraResources("services"),
 		framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 			if !isFakePCluster {
 				// Only need to install services and ingresses in a logical cluster
@@ -78,9 +79,7 @@ func TestPlacementUpdate(t *testing.T) {
 			require.NoError(t, err, "failed to create apiextensions client")
 			t.Logf("Installing test CRDs into sink cluster...")
 			kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
-				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
 				metav1.GroupResource{Group: "networking.k8s.io", Resource: "ingresses"},
-				metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
 			)
 			require.NoError(t, err)
 		}),
@@ -98,7 +97,6 @@ func TestPlacementUpdate(t *testing.T) {
 		framework.WithLocationWorkspaceWorkloadBindOption(locationClusterName),
 		framework.WithPlacementNameBindOption(placementName),
 	).Bind(t)
-	syncerFixture.WorkspaceBound(t, ctx, userClusterName)
 
 	t.Logf("Wait for being able to list Services in the user workspace")
 	require.Eventually(t, func() bool {
