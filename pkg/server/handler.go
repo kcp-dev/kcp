@@ -20,7 +20,9 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/http/httputil"
 	_ "net/http/pprof"
+	"net/url"
 	"path"
 	"sort"
 	"strings"
@@ -43,6 +45,7 @@ import (
 	apiserverdiscovery "k8s.io/apiserver/pkg/endpoints/discovery"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
+	clientgotransport "k8s.io/client-go/transport"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/genericcontrolplane/aggregator"
 )
@@ -96,6 +99,49 @@ func WithAuditAnnotation(handler http.Handler) http.HandlerFunc {
 			kaudit.WithAuditAnnotations(req.Context()),
 		))
 	})
+}
+
+// WithVirtualWorkspacesProxy proxies internal requests to virtual workspaces (i.e., requests that did
+// not go through the front proxy) to the external virtual workspaces server. Proxying is required to avoid
+// certificate verification errors because these requests typically come from the kcp loopback client, and it is
+// impossible to use that client against any server other than kcp.
+func WithVirtualWorkspacesProxy(apiHandler http.Handler, shardVirtualWorkspaceURL *url.URL, transport http.RoundTripper, proxy *httputil.ReverseProxy) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		logger := klog.FromContext(req.Context())
+
+		if !strings.HasPrefix(req.URL.Path, "/services/") {
+			apiHandler.ServeHTTP(w, req)
+			return
+		}
+
+		if shardVirtualWorkspaceURL == nil || transport == nil {
+			// This handler func is only installed when these are both set. If this happens, it means we've regressed
+			// in the installation of this handler func, and a panic is appropriate.
+			panic("both shardVirtualWorkspaceURL and transport are required")
+		}
+
+		user, ok := request.UserFrom(req.Context())
+		if !ok {
+			responsewriters.ErrorNegotiated(
+				apierrors.NewInternalError(fmt.Errorf("no user in context")),
+				errorCodecs, schema.GroupVersion{}, w, req,
+			)
+			return
+		}
+
+		proxy.Transport = clientgotransport.NewImpersonatingRoundTripper(
+			clientgotransport.ImpersonationConfig{
+				UserName: user.GetName(),
+				UID:      user.GetUID(),
+				Groups:   user.GetGroups(),
+				Extra:    user.GetExtra(),
+			},
+			transport,
+		)
+
+		logger.V(4).Info("proxying virtual workspace", "target", req.URL.String())
+		proxy.ServeHTTP(w, req)
+	}
 }
 
 func WithWildcardListWatchGuard(apiHandler http.Handler) http.HandlerFunc {
