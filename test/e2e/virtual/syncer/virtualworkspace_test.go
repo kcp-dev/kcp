@@ -196,6 +196,7 @@ func logWithTimestamp(t *testing.T, format string, args ...interface{}) {
 func TestSyncerVirtualWorkspace(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "transparent-multi-cluster")
+	framework.Suite(t, "transparent-multi-cluster:requires-kind")
 
 	server := framework.SharedKcpServer(t)
 
