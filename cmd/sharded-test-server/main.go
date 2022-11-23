@@ -171,9 +171,6 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	}
 
 	standaloneVW := sets.NewString(shardFlags...).Has("--run-virtual-workspaces=false")
-	if standaloneVW {
-		shardFlags = append(shardFlags, fmt.Sprintf("--shard-virtual-workspace-url=https://%s:7444", hostIP))
-	}
 
 	cacheServerErrCh := make(chan indexErrTuple)
 	cacheServerConfigPath := ""
@@ -194,7 +191,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	// start shards
 	var shards []*shard.Shard
 	for i := 0; i < numberOfShards; i++ {
-		shard, err := newShard(ctx, i, shardFlags, servingCA, hostIP.String(), logDirPath, workDirPath, cacheServerConfigPath)
+		shard, err := newShard(ctx, i, shardFlags, standaloneVW, servingCA, hostIP.String(), logDirPath, workDirPath, cacheServerConfigPath, clientCA)
 		if err != nil {
 			return err
 		}
@@ -211,7 +208,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		vwPort = "7444"
 
 		for i := 0; i < numberOfShards; i++ {
-			virtualWorkspaceErrCh, err := startVirtual(ctx, i, logDirPath, workDirPath)
+			virtualWorkspaceErrCh, err := startVirtual(ctx, i, servingCA, hostIP.String(), logDirPath, workDirPath, clientCA)
 			if err != nil {
 				return fmt.Errorf("error starting virtual workspaces server %d: %w", i, err)
 			}
