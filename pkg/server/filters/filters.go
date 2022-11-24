@@ -49,7 +49,7 @@ const (
 )
 
 var (
-	reClusterName = regexp.MustCompile(`^([a-z]([a-z0-9-]{0,61}[a-z0-9])?:)*[a-z]([a-z0-9-]{0,61}[a-z0-9])?$`)
+	reClusterName = regexp.MustCompile(`^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?:)*[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
 
 	errorScheme = runtime.NewScheme()
 	errorCodecs = serializer.NewCodecFactory(errorScheme)
