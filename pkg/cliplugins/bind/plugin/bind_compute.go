@@ -176,7 +176,7 @@ func (o *BindComputeOptions) Run(ctx context.Context) error {
 	}
 
 	// wait for bind to be ready
-	if !bindReady(bindings, placement) {
+	if ready, message := bindReady(bindings, placement); !ready {
 		if err := wait.PollImmediate(time.Millisecond*500, o.BindWaitTimeout, func() (done bool, err error) {
 			currentPlacement, err := userWorkspaceKcpClient.SchedulingV1alpha1().Placements().Get(ctx, placement.Name, metav1.GetOptions{})
 			if err != nil {
@@ -191,8 +191,12 @@ func (o *BindComputeOptions) Run(ctx context.Context) error {
 				currentBindings = append(currentBindings, currentBinding)
 			}
 
-			return bindReady(currentBindings, currentPlacement), nil
+			ready, message = bindReady(currentBindings, currentPlacement)
+			return ready, nil
 		}); err != nil {
+			if err.Error() == wait.ErrWaitTimeout.Error() {
+				return fmt.Errorf("bind compute is not ready %s: %s", placement.Name, message)
+			}
 			return fmt.Errorf("bind compute is not ready %s: %w", placement.Name, err)
 		}
 	}
@@ -200,18 +204,24 @@ func (o *BindComputeOptions) Run(ctx context.Context) error {
 	return nil
 }
 
-func bindReady(bindings []*apisv1alpha1.APIBinding, placement *schedulingv1alpha1.Placement) bool {
+func bindReady(bindings []*apisv1alpha1.APIBinding, placement *schedulingv1alpha1.Placement) (bool, string) {
 	if !conditions.IsTrue(placement, schedulingv1alpha1.PlacementReady) {
-		return false
+		return false, fmt.Sprintf("placement is not ready: %s", conditions.GetMessage(placement, schedulingv1alpha1.PlacementReady))
 	}
 
 	for _, binding := range bindings {
 		if binding.Status.Phase != apisv1alpha1.APIBindingPhaseBound {
-			return false
+			conditionMessage := "unknown reason"
+			if conditions.IsFalse(binding, apisv1alpha1.InitialBindingCompleted) {
+				conditionMessage = conditions.GetMessage(binding, apisv1alpha1.InitialBindingCompleted)
+			} else if conditions.IsFalse(binding, apisv1alpha1.APIExportValid) {
+				conditionMessage = conditions.GetMessage(binding, apisv1alpha1.APIExportValid)
+			}
+			return false, fmt.Sprintf("not bound to apiexport '%s:%s': %s", binding.Spec.Reference.Workspace.Path, binding.Spec.Reference.Workspace.Path, conditionMessage)
 		}
 	}
 
-	return true
+	return true, ""
 }
 
 const maxBindingNamePrefixLength = validation.DNS1123SubdomainMaxLength - 1 - 8
