@@ -32,7 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -41,6 +40,7 @@ import (
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclusterclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	apiresourceinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
 	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
 	workloadv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
@@ -85,10 +85,12 @@ func NewAPIImporter(
 	upstreamConfig = rest.AddUserAgent(rest.CopyConfig(upstreamConfig), agent)
 	downstreamConfig = rest.AddUserAgent(rest.CopyConfig(downstreamConfig), agent)
 
-	kcpClient, err := kcpclientset.NewForConfig(upstreamConfig)
+	kcpClusterClient, err := kcpclusterclientset.NewForConfig(upstreamConfig)
 	if err != nil {
 		return nil, err
 	}
+
+	kcpClient := kcpClusterClient.Cluster(logicalClusterName)
 
 	importIndexer := apiImportInformer.Informer().GetIndexer()
 
@@ -137,10 +139,9 @@ func NewAPIImporter(
 		apiresourceImportIndexer: importIndexer,
 		syncTargetLister:         synctargetInformer.Lister(),
 
-		syncTargetName:     syncTargetName,
-		syncTargetUID:      syncTargetUID,
-		logicalClusterName: logicalClusterName,
-		schemaPuller:       schemaPuller,
+		syncTargetName: syncTargetName,
+		syncTargetUID:  syncTargetUID,
+		schemaPuller:   schemaPuller,
 	}, nil
 }
 
@@ -150,11 +151,10 @@ type APIImporter struct {
 	apiresourceImportIndexer cache.Indexer
 	syncTargetLister         workloadv1alpha1listers.SyncTargetLister
 
-	syncTargetName     string
-	syncTargetUID      types.UID
-	logicalClusterName logicalcluster.Name
-	schemaPuller       schemaPuller
-	SyncedGVRs         map[string]metav1.GroupVersionResource
+	syncTargetName string
+	syncTargetUID  types.UID
+	schemaPuller   schemaPuller
+	SyncedGVRs     map[string]metav1.GroupVersionResource
 }
 
 // schemaPuller allows pulling the API resources as CRDs
@@ -173,8 +173,7 @@ func (i *APIImporter) Start(ctx context.Context, pollInterval time.Duration) {
 
 	logger.Info("Starting API Importer")
 
-	clusterContext := request.WithCluster(ctx, request.Cluster{Name: i.logicalClusterName})
-	go wait.UntilWithContext(clusterContext, func(innerCtx context.Context) {
+	go wait.UntilWithContext(ctx, func(innerCtx context.Context) {
 		i.ImportAPIs(innerCtx)
 	}, pollInterval)
 
@@ -288,7 +287,6 @@ func (i *APIImporter) ImportAPIs(ctx context.Context) {
 						clusterAsOwnerReference(syncTarget, true),
 					},
 					Annotations: map[string]string{
-						logicalcluster.AnnotationKey:             i.logicalClusterName.String(),
 						apiresourcev1alpha1.APIVersionAnnotation: groupVersion.APIVersion(),
 					},
 				},
