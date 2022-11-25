@@ -96,6 +96,22 @@ func (rp *tunnelPool) deleteDialer(clusterName logicalcluster.Name, syncTargetNa
 	delete(rp.pool, id)
 }
 
+// SyncerTunnelProxyPath builds the path for the proxy handler as expected by the Dialer
+func SyncerTunnelProxyPath(syncTargetWorkspaceName logicalcluster.Name, syncTargetName, downstreamNamespaceName, podName, subresource, arguments string) (url.URL, error) {
+	if syncTargetWorkspaceName.String() == "" || syncTargetName == "" || downstreamNamespaceName == "" || podName == "" || subresource == "" {
+		return url.URL{}, fmt.Errorf("invalid tunnel path: workspaceName=%q, syncTargetName=%q, downstreamNamespaceName=%q, podName=%q, subresource=%q", syncTargetWorkspaceName.String(), syncTargetName, downstreamNamespaceName, podName, subresource)
+	}
+	proxyPath := defaultTunnelPathPrefix + fmt.Sprintf("/%s/apis/%s/synctargets/%s/%s/api/v1/namespaces/%s/pods/%s/%s", syncTargetWorkspaceName.String(), workloadv1alpha1.SchemeGroupVersion.String(), syncTargetName, cmdTunnelProxy, downstreamNamespaceName, podName, subresource)
+	if arguments != "" {
+		proxyPath += "?" + arguments
+	}
+	parse, err := url.Parse(proxyPath)
+	if err != nil {
+		return url.URL{}, err
+	}
+	return *parse, nil
+}
+
 // SyncerTunnelURL builds the destination url with the Dialer expected format of the URL.
 func SyncerTunnelURL(host, ws, target string) (string, error) {
 	if target == "" || ws == "" {
