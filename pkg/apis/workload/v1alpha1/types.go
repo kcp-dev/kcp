@@ -156,7 +156,8 @@ const (
 	// helper func, this label is used for reverse lookups of a syncTargetKey to SyncTarget.
 	InternalSyncTargetKeyLabel = "internal.workload.kcp.dev/key"
 
-	// ComputeAPIBindingLabel is label set on an APIExport to identify that it is for compute.
-	// It is automatically copied from an APIExport to the APIBindings bound to it.
-	ComputeAPIBindingLabel = "internal.workload.kcp.dev/compute"
+	// AnnotationAPIExportWorkload is an annotation set on an APIExport for workload. The
+	// annotation will be synced to the all the APIBindings bound to this APIExport. The workload scheduler will check
+	// all the APIBindings with this annotation for scheduling purpose.
+	AnnotationAPIExportWorkload = "extra.apis.kcp.dev/compute.workload.kcp.dev"
 )

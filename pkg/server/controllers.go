@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/kcp-dev/kcp/pkg/reconciler/apis/extraannotationsync"
 	_ "net/http/pprof"
 	"os"
 	"time"
@@ -70,7 +71,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspaceshard"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspacetype"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/initialization"
-	workloadapibindinglabel "github.com/kcp-dev/kcp/pkg/reconciler/workload/apibindinglabel"
 	workloadsapiexport "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexport"
 	workloadsapiexportcreate "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexportcreate"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/heartbeat"
@@ -1011,15 +1011,15 @@ func (s *Server) installWorkloadsAPIExportController(ctx context.Context, config
 	})
 }
 
-func (s *Server) installWorkloadAPIBindingLabelSyncController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
+func (s *Server) installExtraAnnotationSyncController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
 	config = rest.CopyConfig(config)
-	config = rest.AddUserAgent(config, workloadapibindinglabel.ControllerName)
+	config = rest.AddUserAgent(config, extraannotationsync.ControllerName)
 	kcpClusterClient, err := kcpclientset.NewForConfig(config)
 	if err != nil {
 		return err
 	}
 
-	c, err := workloadapibindinglabel.NewController(kcpClusterClient,
+	c, err := extraannotationsync.NewController(kcpClusterClient,
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
 	)
@@ -1027,7 +1027,7 @@ func (s *Server) installWorkloadAPIBindingLabelSyncController(ctx context.Contex
 		return err
 	}
 
-	return server.AddPostStartHook(postStartHookName(workloadapibindinglabel.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
+	return server.AddPostStartHook(postStartHookName(extraannotationsync.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
 		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(workloadsapiexport.ControllerName))
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			logger.Error(err, "failed to finish post-start-hook")

@@ -235,6 +235,9 @@ const (
 	// for the request. This data is synthetic; it is not stored in etcd and instead is only applied when retrieving
 	// CRs for the CRD.
 	AnnotationAPIIdentityKey = "apis.kcp.dev/identity"
+	// AnnotationAPIExportExtraKeyPrefix is the prefix of an annotation set on an APIExport to provide extra info. The
+	// annotation with the prefix will be synced to the all the APIBindings bound to this APIExport.
+	AnnotationAPIExportExtraKeyPrefix = "extra.apis.kcp.dev/"
 )
 
 // BoundAPIResource describes a bound GroupVersionResource through an APIResourceSchema of an APIExport..

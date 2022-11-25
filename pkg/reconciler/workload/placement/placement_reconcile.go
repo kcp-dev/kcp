@@ -84,12 +84,18 @@ func (c *controller) patchPlacement(ctx context.Context, clusterName logicalclus
 	return c.kcpClusterClient.Cluster(clusterName).SchedulingV1alpha1().Placements().Patch(ctx, name, pt, data, opts, subresources...)
 }
 
-// listWorkloadAPIBindings list all apibindings in bound phase and the kind is compute
+// listWorkloadAPIBindings list all compute apibindings
 func (c *controller) listWorkloadAPIBindings(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
-	// filter based on the existence of the key
-	selector, err := labels.Parse(workloadv1alpha1.ComputeAPIBindingLabel)
+	apiBindings, err := c.apiBindingLister.Cluster(clusterName).List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
-	return c.apiBindingLister.Cluster(clusterName).List(selector)
+
+	var filteredAPIBinding []*apisv1alpha1.APIBinding
+	for _, apiBinding := range apiBindings {
+		if _, ok := apiBinding.Annotations[workloadv1alpha1.AnnotationAPIExportWorkload]; ok {
+			filteredAPIBinding = append(filteredAPIBinding, apiBinding)
+		}
+	}
+	return filteredAPIBinding, nil
 }

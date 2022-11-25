@@ -73,6 +73,26 @@ func TestSchedulingOnSupportedAPI(t *testing.T) {
 	scheduledSyncTargetKey := workloadv1alpha1.ToSyncTargetKey(secondSyncerFixture.SyncerConfig.SyncTargetWorkspace, secondSyncTargetName)
 	t.Logf("check placement should be scheduled to synctarget with supported API")
 	framework.Eventually(t, func() (bool, string) {
+		syncTargets, err := kcpClusterClient.Cluster(locationClusterName).WorkloadV1alpha1().SyncTargets().List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return false, fmt.Sprintf("failed to get synctargets: %v", err)
+		}
+
+		for _, s := range syncTargets.Items {
+			t.Logf("synctarget apiexports %s: %v", s.Name, s.Spec.SupportedAPIExports[0].Workspace)
+			t.Logf("synctarget %s: %v", s.Name, s.Status.SyncedResources)
+		}
+
+		apiBindings, err := kcpClusterClient.Cluster(userClusterName).ApisV1alpha1().APIBindings().List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return false, fmt.Sprintf("failed to get apibindings: %v", err)
+		}
+		for _, s := range apiBindings.Items {
+			if _, ok := s.Annotations[workloadv1alpha1.AnnotationAPIExportWorkload]; ok {
+				t.Logf("apibinding %s: %v", s.Name, s.Status.BoundResources)
+			}
+		}
+
 		placement, err := kcpClusterClient.Cluster(userClusterName).SchedulingV1alpha1().Placements().Get(ctx, placementName, metav1.GetOptions{})
 		if err != nil {
 			return false, fmt.Sprintf("Failed to get placement: %v", err)

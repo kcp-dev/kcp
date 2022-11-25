@@ -14,12 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package apibindinglabel
+package extraannotationsync
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -37,17 +38,15 @@ import (
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
-	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 )
 
 const (
-	ControllerName = "kcp-workload-apibinding-labelsync"
+	ControllerName = "kcp-api-export-extra-annotation-sync"
 )
 
 // NewController returns a new controller instance.
@@ -86,9 +85,6 @@ func NewController(
 
 	return c, nil
 }
-
-type Resource = committer.Resource[*apisv1alpha1.APIBindingSpec, *apisv1alpha1.APIBindingStatus]
-type CommitFunc = func(context.Context, *Resource, *Resource) error
 
 // controller reconciles sync workload.kcp.dev/compute label from APIExports to APIBindings
 type controller struct {
@@ -209,35 +205,49 @@ func (c *controller) process(ctx context.Context, key string) error {
 		return err
 	}
 
-	labels := map[string]interface{}{} // nil means to remove the key
-	var apiExportHasLabel, apiBindingHasLabel bool
-	if _, ok := apiExport.Labels[workloadv1alpha1.ComputeAPIBindingLabel]; ok {
-		apiExportHasLabel = true
-	}
-	if _, ok := apiBinding.Labels[workloadv1alpha1.ComputeAPIBindingLabel]; ok {
-		apiBindingHasLabel = true
-	}
-
-	if apiExportHasLabel && !apiBindingHasLabel {
-		labels[workloadv1alpha1.ComputeAPIBindingLabel] = ""
-	} else if !apiExportHasLabel && apiBindingHasLabel {
-		labels[workloadv1alpha1.ComputeAPIBindingLabel] = nil
-	}
-
-	if len(labels) == 0 {
-		return nil
-	}
-
-	patch := map[string]interface{}{}
-	if err := unstructured.SetNestedField(patch, labels, "metadata", "labels"); err != nil {
-		return err
-	}
-
-	patchBytes, err := json.Marshal(patch)
+	patchBytes, err := syncExtraAnnotationPatch(apiExport.Annotations, apiBinding.Annotations)
 	if err != nil {
 		return err
 	}
+	if len(patchBytes) == 0 {
+		return nil
+	}
 
-	_, err = c.kcpClusterClient.Cluster(clusterName).SchedulingV1alpha1().Placements().Patch(ctx, name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
+	_, err = c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIBindings().Patch(ctx, name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
 	return err
 }
+
+func syncExtraAnnotationPatch(a1, a2 map[string]string) ([]byte, error) {
+	annotationToPatch := map[string]interface{}{} // nil means to remove the key
+	// Override annotations from a1 to a2
+	for k, v := range a1 {
+		if !strings.HasPrefix(k, apisv1alpha1.AnnotationAPIExportExtraKeyPrefix) {
+			continue
+		}
+		if value, ok := a2[k]; !ok || v != value {
+			annotationToPatch[k] = v
+		}
+	}
+
+	// remove annotation on a2 if it does not exist on a1
+	for k := range a2 {
+		if !strings.HasPrefix(k, apisv1alpha1.AnnotationAPIExportExtraKeyPrefix) {
+			continue
+		}
+		if _, ok := a1[k]; !ok {
+			annotationToPatch[k] = nil
+		}
+	}
+
+	if len(annotationToPatch) == 0 {
+		return nil, nil
+	}
+
+	patch := map[string]interface{}{}
+	if err := unstructured.SetNestedField(patch, annotationToPatch, "metadata", "annotations"); err != nil {
+		return nil, err
+	}
+
+	return json.Marshal(patch)
+}
+

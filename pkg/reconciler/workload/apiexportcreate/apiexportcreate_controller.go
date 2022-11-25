@@ -234,10 +234,8 @@ func (c *controller) process(ctx context.Context, key string) error {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: reconcilerapiexport.TemporaryComputeServiceExportName,
 				Annotations: map[string]string{
-					logicalcluster.AnnotationKey: clusterName.String(),
-				},
-				Labels: map[string]string{
-					workloadv1alpha1.ComputeAPIBindingLabel: "",
+					logicalcluster.AnnotationKey:                 clusterName.String(),
+					workloadv1alpha1.AnnotationAPIExportWorkload: "",
 				},
 			},
 			Spec: apisv1alpha1.APIExportSpec{},
@@ -308,10 +306,8 @@ func (c *controller) process(ctx context.Context, key string) error {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: reconcilerapiexport.TemporaryComputeServiceExportName,
 			Annotations: map[string]string{
-				logicalcluster.AnnotationKey: clusterName.String(),
-			},
-			Labels: map[string]string{
-				workloadv1alpha1.ComputeAPIBindingLabel: "",
+				logicalcluster.AnnotationKey:                 clusterName.String(),
+				workloadv1alpha1.AnnotationAPIExportWorkload: "",
 			},
 		},
 		Spec: apisv1alpha1.APIBindingSpec{

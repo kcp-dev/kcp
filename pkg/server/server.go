@@ -448,6 +448,9 @@ func (s *Server) Run(ctx context.Context) error {
 		if err := s.installCRDCleanupController(ctx, controllerConfig, delegationChainHead); err != nil {
 			return err
 		}
+		if err := s.installExtraAnnotationSyncController(ctx, controllerConfig, delegationChainHead); err != nil {
+			return err
+		}
 	}
 
 	if s.Options.Controllers.EnableAll || enabled.Has("apiexport") {
@@ -480,9 +483,6 @@ func (s *Server) Run(ctx context.Context) error {
 				return err
 			}
 			if err := s.installWorkloadsAPIExportCreateController(ctx, controllerConfig, delegationChainHead); err != nil {
-				return err
-			}
-			if err := s.installWorkloadAPIBindingLabelSyncController(ctx, controllerConfig, delegationChainHead); err != nil {
 				return err
 			}
 		}
