@@ -98,8 +98,8 @@ func BuildVirtualWorkspace(
 				filteredResourceState: workloadv1alpha1.ResourceStateUpsync,
 				restProviderBuilder:   NewUpSyncerRestProvider,
 				allowedAPIFilter: func(apiGroupResource schema.GroupResource) bool {
-					// Only allow persistentvolumes to be Upsynced.
-					return apiGroupResource.Group == "" && apiGroupResource.Resource == "persistentvolumes"
+					// Only allow persistentvolumes and Pods to be Upsynced.
+					return apiGroupResource.Group == "" && apiGroupResource.Resource == "persistentvolumes" || apiGroupResource.Group == "" && apiGroupResource.Resource == "pods"
 				},
 				transformer:           &upsyncer.UpsyncerResourceTransformer{},
 				storageWrapperBuilder: upsyncer.WithStaticLabelSelectorAndInWriteCallsCheck,
