@@ -221,15 +221,15 @@ type ClusterWorkspaceTypeList struct {
 	Items []ClusterWorkspaceType `json:"items"`
 }
 
-// ClusterWorkspaceInitializer is a unique string corresponding to a cluster workspace
+// WorkspaceInitializer is a unique string corresponding to a cluster workspace
 // initialization controller for the given type of workspaces.
 //
 // +kubebuilder:validation:Pattern:="^(root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$"
-type ClusterWorkspaceInitializer string
+type WorkspaceInitializer string
 
 // WorkspaceAPIBindingsInitializer is a special-case initializer that waits for APIBindings defined
 // on a ClusterWorkspaceType to be created.
-const WorkspaceAPIBindingsInitializer ClusterWorkspaceInitializer = "system:apibindings"
+const WorkspaceAPIBindingsInitializer WorkspaceInitializer = "system:apibindings"
 
 const (
 	// WorkspacePhaseLabel holds the ClusterWorkspace.Status.Phase value, and is enforced to match
