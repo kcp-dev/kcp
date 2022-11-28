@@ -1,3 +1,4 @@
+---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -52,19 +53,8 @@ spec:
               submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
-            properties:
-              name:
-                maxLength: 63
-                minLength: 1
-                not:
-                  enum:
-                  - root
-                  - system
-                pattern: ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$
-                type: string
             type: object
           spec:
-            default: {}
             description: ClusterWorkspaceSpec holds the desired state of the ClusterWorkspace.
             properties:
               readOnly:
@@ -75,11 +65,6 @@ spec:
                   location stored in the status, movement will be attempted. \n Either
                   shard name or shard selector must be specified. \n If the no shard
                   constraints are specified, an arbitrary shard is chosen."
-                oneOf:
-                - required:
-                  - name
-                - required:
-                  - selector
                 properties:
                   name:
                     description: name is the name of ClusterWorkspaceShard.
@@ -157,7 +142,6 @@ spec:
                 type: object
             type: object
           status:
-            default: {}
             description: ClusterWorkspaceStatus communicates the observed state of
               the ClusterWorkspace.
             properties:
@@ -227,7 +211,7 @@ spec:
                   state are gated via the RBAC clusterworkspaces/initialize resource
                   permission."
                 items:
-                  description: ClusterWorkspaceInitializer is a unique string corresponding
+                  description: WorkspaceInitializer is a unique string corresponding
                     to a cluster workspace initialization controller for the given
                     type of workspaces.
                   pattern: ^(root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$
@@ -247,8 +231,7 @@ spec:
                 type: object
               phase:
                 default: Scheduling
-                description: Phase of the workspace  (Scheduling / Initializing /
-                  Ready)
+                description: Phase of the workspace (Scheduling / Initializing / Ready)
                 enum:
                 - Scheduling
                 - Initializing

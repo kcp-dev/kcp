@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v221128-7b12d56ad.thisworkspaces.tenancy.kcp.dev
+  name: v221204-5bf97087f.thisworkspaces.tenancy.kcp.dev
 spec:
   group: tenancy.kcp.dev
   names:
@@ -15,12 +15,8 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
-    - description: Type of the workspace
-      jsonPath: .spec.type.name
-      name: Type
-      type: string
-    - description: The current phase (e.g. Scheduling, Initializing, Ready)
-      jsonPath: .status.phase
+    - description: The current phase (e.g. Scheduling, Initializing, Ready, Deleting)
+      jsonPath: .metadata.labels['tenancy\.kcp\.dev/phase']
       name: Phase
       type: string
     - description: URL to access the workspace
@@ -61,6 +57,16 @@ spec:
               description: DirectlyDeletable indicates that this workspace can be
                 directly deleted by the user from within the workspace.
               type: boolean
+            initializers:
+              description: initializers are set on creation by the system and copied
+                to status when initialization starts.
+              items:
+                description: WorkspaceInitializer is a unique string corresponding
+                  to a cluster workspace initialization controller for the given type
+                  of workspaces.
+                pattern: ^(root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$
+                type: string
+              type: array
             owner:
               description: "owner is a reference to a resource controlling the life-cycle
                 of this workspace. On deletion of the ThisWorkspace, the finalizer
@@ -97,29 +103,6 @@ spec:
               - name
               - resource
               - uid
-              type: object
-            type:
-              description: "type defines properties of the workspace both on creation
-                (e.g. initial resources and initially installed APIs) and during runtime
-                (e.g. permissions). If no type is provided, the default type for the
-                workspace in which this workspace is nesting will be used. \n The
-                type is a reference to a ClusterWorkspaceType in the listed workspace,
-                but lower-cased. The ClusterWorkspaceType existence is validated at
-                admission during creation. The type is immutable after creation. The
-                use of a type is gated via the RBAC clusterworkspacetypes/use resource
-                permission."
-              properties:
-                name:
-                  description: name is the name of the ClusterWorkspaceType
-                  pattern: ^[a-z]([a-z0-9-]{0,61}[a-z0-9])?
-                  type: string
-                path:
-                  description: path is an absolute reference to the workspace that
-                    owns this type, e.g. root:org:ws.
-                  pattern: ^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
-                  type: string
-              required:
-              - name
               type: object
           type: object
         status:
@@ -182,7 +165,7 @@ spec:
                 will stay in the phase "Initializing" state until all initializers
                 are cleared.
               items:
-                description: ClusterWorkspaceInitializer is a unique string corresponding
+                description: WorkspaceInitializer is a unique string corresponding
                   to a cluster workspace initialization controller for the given type
                   of workspaces.
                 pattern: ^(root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$
@@ -190,7 +173,7 @@ spec:
               type: array
             phase:
               default: Scheduling
-              description: Phase of the workspace (Scheduling, Initializing, Ready).
+              description: Phase of the workspace (Initializing, Ready).
               enum:
               - Scheduling
               - Initializing
