@@ -69,6 +69,8 @@ type WorkspaceSpec struct {
 }
 
 // WorkspaceStatus communicates the observed state of the Workspace.
+//
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.cluster) || has(self.cluster)",message="status.cluster is immutable"
 type WorkspaceStatus struct {
 	// url is the address under which the Kubernetes-cluster-like endpoint
 	// can be found. This URL can be used to access the workspace with standard Kubernetes
@@ -76,6 +78,12 @@ type WorkspaceStatus struct {
 	//
 	// +kubebuilder:format:uri
 	URL string `json:"URL,omitempty"`
+
+	// cluster is the name of the logical cluster this workspace is stored under.
+	//
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="cluster is immutable"
+	Cluster string `json:"cluster,omitempty"`
 
 	// Phase of the workspace (Scheduling, Initializing, Ready).
 	//
