@@ -1,3 +1,4 @@
+---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -52,19 +53,8 @@ spec:
               submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
-            properties:
-              name:
-                maxLength: 63
-                minLength: 1
-                not:
-                  enum:
-                  - root
-                  - system
-                pattern: ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$
-                type: string
             type: object
           spec:
-            default: {}
             description: ClusterWorkspaceSpec holds the desired state of the ClusterWorkspace.
             properties:
               readOnly:
@@ -75,11 +65,6 @@ spec:
                   location stored in the status, movement will be attempted. \n Either
                   shard name or shard selector must be specified. \n If the no shard
                   constraints are specified, an arbitrary shard is chosen."
-                oneOf:
-                - required:
-                  - name
-                - required:
-                  - selector
                 properties:
                   name:
                     description: name is the name of ClusterWorkspaceShard.
@@ -143,6 +128,14 @@ spec:
                   after creation. The use of a type is gated via the RBAC clusterworkspacetypes/use
                   resource permission."
                 properties:
+                  cluster:
+                    description: cluster is the logical cluster of the ClusterWorkspaceType.
+                      This is defaulted by resolving the workspace path.
+                    pattern: ^[a-z0-9]([-:a-z0-9]*[a-z0-9])?$
+                    type: string
+                    x-kubernetes-validations:
+                    - message: name is immutable
+                      rule: self == oldSelf
                   name:
                     description: name is the name of the ClusterWorkspaceType
                     pattern: ^[a-z]([a-z0-9-]{0,61}[a-z0-9])?
@@ -155,9 +148,17 @@ spec:
                 required:
                 - name
                 type: object
+                x-kubernetes-validations:
+                - message: name is immutable
+                  rule: self.name == oldSelf.name
+                - message: path is immutable
+                  rule: has(oldSelf.path) == has(self.path)
+                - message: path is immutable
+                  rule: '!has(oldSelf.path) || !has(self.path) || self.path == oldSelf.path'
+                - message: cluster is immutable
+                  rule: has(oldSelf.cluster) == has(self.cluster)
             type: object
           status:
-            default: {}
             description: ClusterWorkspaceStatus communicates the observed state of
               the ClusterWorkspace.
             properties:
@@ -247,8 +248,7 @@ spec:
                 type: object
               phase:
                 default: Scheduling
-                description: Phase of the workspace  (Scheduling / Initializing /
-                  Ready)
+                description: Phase of the workspace (Scheduling / Initializing / Ready)
                 enum:
                 - Scheduling
                 - Initializing

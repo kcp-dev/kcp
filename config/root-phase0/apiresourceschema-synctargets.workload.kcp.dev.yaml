@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v221007-015e731e.synctargets.workload.kcp.dev
+  name: v221116-df0cb30d.synctargets.workload.kcp.dev
 spec:
   group: workload.kcp.dev
   names:
@@ -93,6 +93,11 @@ spec:
                       organization. The creator of the APIBinding needs to have access
                       to the APIExport with the verb `bind` in order to bind to it.
                     properties:
+                      cluster:
+                        description: cluster is the logical cluster of the ClusterWorkspaceType.
+                          This is defaulted by resolving the workspace path.
+                        pattern: ^[a-z0-9]([-:a-z0-9]*[a-z0-9])?$
+                        type: string
                       exportName:
                         description: Name of the APIExport that describes the API.
                         type: string
