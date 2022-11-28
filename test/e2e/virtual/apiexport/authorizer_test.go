@@ -31,6 +31,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -84,11 +85,35 @@ func TestAPIExportAuthorizers(t *testing.T) {
 	kubeClient, err := kcpkubernetesclientset.NewForConfig(rest.CopyConfig(cfg))
 	require.NoError(t, err)
 
-	framework.AdmitWorkspaceAccess(t, ctx, kubeClient, org, []string{"user-1", "user-2", "user-3"}, nil, []string{"access"})
-	framework.AdmitWorkspaceAccess(t, ctx, kubeClient, serviceProvider1Workspace, []string{"user-1"}, nil, []string{"admin", "access"})
-	framework.AdmitWorkspaceAccess(t, ctx, kubeClient, serviceProvider2Workspace, []string{"user-2"}, nil, []string{"admin", "access"})
-	framework.AdmitWorkspaceAccess(t, ctx, kubeClient, tenantWorkspace, []string{"user-3"}, nil, []string{"admin", "access"})
-	framework.AdmitWorkspaceAccess(t, ctx, kubeClient, tenantShadowCRDWorkspace, []string{"user-3"}, nil, []string{"admin", "access"})
+	framework.AdmitExistingWorkspaceAccess(t, ctx, kubeClient, serviceProvider1Workspace, []string{"user-1"}, nil, []string{"access"})
+	framework.AdmitExistingWorkspaceAccess(t, ctx, kubeClient, serviceProvider2Workspace, []string{"user-2"}, nil, []string{"access"})
+	framework.AdmitExistingWorkspaceAccess(t, ctx, kubeClient, tenantWorkspace, []string{"user-3"}, nil, []string{"access"})
+	framework.AdmitExistingWorkspaceAccess(t, ctx, kubeClient, tenantShadowCRDWorkspace, []string{"user-3"}, nil, []string{"access"})
+
+	for workspace, adminUser := range map[logicalcluster.Name]string{
+		serviceProvider1Workspace: "user-1",
+		serviceProvider2Workspace: "user-2",
+		tenantWorkspace:           "user-3",
+		tenantShadowCRDWorkspace:  "user-3",
+	} {
+		_, err = kubeClient.Cluster(workspace).RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: adminUser + "-cluster-admin",
+			},
+			Subjects: []rbacv1.Subject{
+				{
+					Kind: "User",
+					Name: adminUser,
+				},
+			},
+			RoleRef: rbacv1.RoleRef{
+				APIGroup: rbacv1.SchemeGroupVersion.Group,
+				Kind:     "ClusterRole",
+				Name:     "cluster-admin",
+			},
+		}, metav1.CreateOptions{})
+		require.NoError(t, err)
+	}
 
 	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, serviceProvider1Workspace, user1KcpClient, "wild.wild.west", "")
 
