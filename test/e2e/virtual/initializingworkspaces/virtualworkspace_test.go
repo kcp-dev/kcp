@@ -74,16 +74,16 @@ func TestInitializingWorkspacesVirtualWorkspaceDiscovery(t *testing.T) {
 		GroupVersion: "tenancy.kcp.dev/v1alpha1",
 		APIResources: []metav1.APIResource{
 			{
-				Kind:               "ClusterWorkspace",
-				Name:               "clusterworkspaces",
-				SingularName:       "clusterworkspace",
+				Kind:               "ThisWorkspace",
+				Name:               "thisworkspaces",
+				SingularName:       "thisworkspace",
 				Categories:         []string{"kcp"},
 				Verbs:              metav1.Verbs{"get", "list", "watch"},
-				StorageVersionHash: discovery.StorageVersionHash(logicalcluster.New(""), "tenancy.kcp.dev", "v1alpha1", "ClusterWorkspace"),
+				StorageVersionHash: discovery.StorageVersionHash(logicalcluster.New(""), "tenancy.kcp.dev", "v1alpha1", "ThisWorkspace"),
 			},
 			{
-				Kind: "ClusterWorkspace",
-				Name: "clusterworkspaces/status",
+				Kind: "ThisWorkspace",
+				Name: "thisworkspaces/status",
 			},
 		},
 	}}, apiResourceLists))
