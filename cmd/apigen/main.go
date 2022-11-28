@@ -319,7 +319,9 @@ func compareSchemas() cmp.Option {
 func generateExports(outputDir string, allSchemas map[metav1.GroupResource]*apisv1alpha1.APIResourceSchema) ([]*apisv1alpha1.APIExport, error) {
 	byExport := map[string][]string{}
 	for gr, apiResourceSchema := range allSchemas {
-		if gr.Group == tenancy.GroupName && gr.Resource == "clusterworkspaceshards" {
+		if gr.Group == tenancy.GroupName && gr.Resource == "thisworkspaces" {
+			continue
+		} else if gr.Group == tenancy.GroupName && gr.Resource == "clusterworkspaceshards" {
 			// we export shards by themselves, not with the rest of the tenancy group
 			byExport["shards."+tenancy.GroupName] = []string{apiResourceSchema.Name}
 		} else {
