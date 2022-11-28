@@ -68,9 +68,9 @@ func init() {
 
 // WithHomeWorkspaces implements an HTTP handler, in the KCP server, which:
 //
-// - supports a special 'kubectl get workspace ~' request which returns either
-//   the old bucket-style workspace if it exists (= a ThisWorkspace can be found)
-//   or a new parent-less home workspace. It will create the latter on the fly.
+//   - supports a special 'kubectl get workspace ~' request which returns either
+//     the old bucket-style workspace if it exists (= a ThisWorkspace can be found)
+//     or a new parent-less home workspace. It will create the latter on the fly.
 //
 // When the Home workspace is still not Ready, the handler returns a Retry-After
 // response with a delay in seconds that is configurable (creationDelaySeconds),
@@ -231,7 +231,8 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 
 		homeWorkspace := &tenancyv1beta1.Workspace{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: this.Name,
+				Name:              this.Name,
+				CreationTimestamp: this.CreationTimestamp,
 				Annotations: map[string]string{
 					tenancyv1beta1.WorkspaceTypeThisWorkspaceAnnotationKey: "root:home",
 				},
@@ -332,6 +333,11 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		this.Status.Phase = tenancyv1alpha1.WorkspacePhaseInitializing
 		this, err = h.kcpClusterClient.Cluster(homeClusterName).TenancyV1alpha1().ThisWorkspaces().UpdateStatus(ctx, this, metav1.UpdateOptions{})
 		if err != nil {
+			if kerrors.IsConflict(err) {
+				rw.Header().Set("Retry-After", fmt.Sprintf("%d", h.creationDelaySeconds))
+				http.Error(rw, "Creating the home workspace", http.StatusTooManyRequests)
+				return
+			}
 			responsewriters.InternalError(rw, req, err)
 			return
 		}
@@ -352,7 +358,8 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 
 	homeWorkspace := &tenancyv1beta1.Workspace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: this.Name,
+			Name:              this.Name,
+			CreationTimestamp: this.CreationTimestamp,
 			Annotations: map[string]string{
 				tenancyv1beta1.WorkspaceTypeThisWorkspaceAnnotationKey: "root:home",
 			},
