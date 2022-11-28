@@ -250,4 +250,3 @@ func syncExtraAnnotationPatch(a1, a2 map[string]string) ([]byte, error) {
 
 	return json.Marshal(patch)
 }
-

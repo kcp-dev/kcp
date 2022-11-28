@@ -93,7 +93,7 @@ func (c *controller) listWorkloadAPIBindings(clusterName logicalcluster.Name) ([
 
 	var filteredAPIBinding []*apisv1alpha1.APIBinding
 	for _, apiBinding := range apiBindings {
-		if _, ok := apiBinding.Annotations[workloadv1alpha1.AnnotationAPIExportWorkload]; ok {
+		if _, ok := apiBinding.Annotations[workloadv1alpha1.ComputeAPIExportAnnotation]; ok {
 			filteredAPIBinding = append(filteredAPIBinding, apiBinding)
 		}
 	}

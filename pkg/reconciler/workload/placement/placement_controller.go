@@ -37,6 +37,7 @@ import (
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	schedulingv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/scheduling/v1alpha1"
 	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	schedulinginformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
 	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
@@ -44,6 +45,7 @@ import (
 	schedulingv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
 	workloadv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 )
 
 const (
@@ -74,6 +76,8 @@ func NewController(
 		placementIndexer: placementInformer.Informer().GetIndexer(),
 
 		apiBindingLister: apiBindingInformer.Lister(),
+
+		commit: committer.NewCommitter[*Placement, Patcher, *PlacementSpec, *PlacementStatus](kcpClusterClient.SchedulingV1alpha1().Placements()),
 	}
 
 	if err := placementInformer.Informer().AddIndexers(cache.Indexers{
@@ -141,6 +145,13 @@ func NewController(
 	return c, nil
 }
 
+type Placement = schedulingv1alpha1.Placement
+type PlacementSpec = schedulingv1alpha1.PlacementSpec
+type PlacementStatus = schedulingv1alpha1.PlacementStatus
+type Patcher = schedulingv1alpha1client.PlacementInterface
+type Resource = committer.Resource[*PlacementSpec, *PlacementStatus]
+type CommitFunc = func(context.Context, *Resource, *Resource) error
+
 // controller
 type controller struct {
 	queue workqueue.RateLimitingInterface
@@ -155,6 +166,7 @@ type controller struct {
 	placementIndexer cache.Indexer
 
 	apiBindingLister apislisters.APIBindingClusterLister
+	commit           CommitFunc
 }
 
 // enqueueLocation finds placement ref to this location at first, and then namespaces bound to this placement.
@@ -301,12 +313,18 @@ func (c *controller) process(ctx context.Context, key string) error {
 		}
 		return err
 	}
+	oldResource := &Resource{ObjectMeta: obj.ObjectMeta, Spec: &obj.Spec, Status: &obj.Status}
 	obj = obj.DeepCopy()
 
 	logger := logging.WithObject(klog.FromContext(ctx), obj)
 	ctx = klog.NewContext(ctx, logger)
 
 	reconcileErr := c.reconcile(ctx, obj)
+	newResource := &Resource{ObjectMeta: obj.ObjectMeta, Spec: &obj.Spec, Status: &obj.Status}
+
+	if err := c.commit(ctx, oldResource, newResource); err != nil {
+		return err
+	}
 
 	return reconcileErr
 }

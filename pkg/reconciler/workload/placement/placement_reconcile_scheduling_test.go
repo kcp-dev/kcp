@@ -25,6 +25,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -47,16 +48,25 @@ func TestSchedulingReconcile(t *testing.T) {
 		apiBindings []*apisv1alpha1.APIBinding
 
 		wantPatch           bool
+		wantStatus          corev1.ConditionStatus
+		wantStausReason     string
+		wantMessage         string
 		expectedAnnotations map[string]string
 	}{
 		{
-			name:      "no location",
-			placement: newPlacement("test", "test-location", ""),
+			name:            "no location",
+			placement:       newPlacement("test", "test-location", ""),
+			wantStatus:      corev1.ConditionFalse,
+			wantStausReason: schedulingv1alpha1.ScheduleNoValidTargetReason,
+			wantMessage:     "No valid target with reason: Selected Location does not exist",
 		},
 		{
-			name:      "no synctarget",
-			placement: newPlacement("test", "test-location", ""),
-			location:  newLocation("test-location"),
+			name:            "no synctarget",
+			placement:       newPlacement("test", "test-location", ""),
+			location:        newLocation("test-location"),
+			wantStatus:      corev1.ConditionFalse,
+			wantStausReason: schedulingv1alpha1.ScheduleNoValidTargetReason,
+			wantMessage:     "No valid target with reason: No SyncTarget in the selected Location",
 		},
 		{
 			name:        "schedule one synctarget",
@@ -67,6 +77,7 @@ func TestSchedulingReconcile(t *testing.T) {
 			expectedAnnotations: map[string]string{
 				workloadv1alpha1.InternalSyncTargetPlacementAnnotationKey: "aQtdeEWVcqU7h7AKnYMm3KRQ96U4oU2W04yeOa",
 			},
+			wantStatus: corev1.ConditionTrue,
 		},
 		{
 			name:        "synctarget scheduled",
@@ -76,6 +87,7 @@ func TestSchedulingReconcile(t *testing.T) {
 			expectedAnnotations: map[string]string{
 				workloadv1alpha1.InternalSyncTargetPlacementAnnotationKey: "aQtdeEWVcqU7h7AKnYMm3KRQ96U4oU2W04yeOa",
 			},
+			wantStatus: corev1.ConditionTrue,
 		},
 		{
 			name:                "unschedule synctarget",
@@ -84,6 +96,9 @@ func TestSchedulingReconcile(t *testing.T) {
 			syncTargets:         []*workloadv1alpha1.SyncTarget{newSyncTarget("c1", false)},
 			wantPatch:           true,
 			expectedAnnotations: map[string]string{},
+			wantStatus:          corev1.ConditionFalse,
+			wantStausReason:     schedulingv1alpha1.ScheduleNoValidTargetReason,
+			wantMessage:         "No valid target with reason: No SyncTarget is ready or non evicting",
 		},
 		{
 			name:        "reschedule synctarget",
@@ -94,6 +109,7 @@ func TestSchedulingReconcile(t *testing.T) {
 			expectedAnnotations: map[string]string{
 				workloadv1alpha1.InternalSyncTargetPlacementAnnotationKey: "aPkhvUbGK0xoZIjMnM2pA0AuV1g7i4tBwxu5m4",
 			},
+			wantStatus: corev1.ConditionTrue,
 		},
 		{
 			name:      "schedule to syncTarget with compatible APIs",
@@ -110,6 +126,7 @@ func TestSchedulingReconcile(t *testing.T) {
 			expectedAnnotations: map[string]string{
 				workloadv1alpha1.InternalSyncTargetPlacementAnnotationKey: "aPkhvUbGK0xoZIjMnM2pA0AuV1g7i4tBwxu5m4",
 			},
+			wantStatus: corev1.ConditionTrue,
 		},
 		{
 			name:      "no syncTarget has compatible APIs",
@@ -122,7 +139,10 @@ func TestSchedulingReconcile(t *testing.T) {
 			apiBindings: []*apisv1alpha1.APIBinding{
 				newAPIBinding("kubernetes", apisv1alpha1.BoundAPIResource{Resource: "services"}),
 			},
-			wantPatch: false,
+			wantPatch:       false,
+			wantStatus:      corev1.ConditionFalse,
+			wantStausReason: schedulingv1alpha1.ScheduleNoValidTargetReason,
+			wantMessage:     "No valid target with reason: SyncTarget c1 does not support APIBinding kubernetes, SyncTarget c2 does not support APIBinding kubernetes",
 		},
 	}
 
@@ -167,6 +187,11 @@ func TestSchedulingReconcile(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, testCase.wantPatch, patched)
 			require.Equal(t, testCase.expectedAnnotations, updated.Annotations)
+			c := conditions.Get(updated, schedulingv1alpha1.PlacementScheduled)
+			require.NotNil(t, c)
+			require.Equal(t, testCase.wantStatus, c.Status)
+			require.Equal(t, testCase.wantStausReason, c.Reason)
+			require.Equal(t, testCase.wantMessage, c.Message)
 		})
 	}
 }

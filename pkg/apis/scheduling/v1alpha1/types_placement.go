@@ -150,6 +150,18 @@ const (
 	// LocationNotMatchReason is a reason for PlacementReady condition that no matched location for
 	// this placement can be found.
 	LocationNotMatchReason = "LocationNoMatch"
+
+	// PlacementScheduled is a condition type for placement representing that a scheduling decision is
+	// made. The placement is NOT Scheduled when no valid schedule decision is available or an error
+	// occurs.
+	PlacementScheduled = "Scheduled"
+
+	// ScheduleErrorReason is a reason for PlacementScheduled condition that an error happens during scheduling.
+	ScheduleErrorReason = "ScheduleError"
+
+	// ScheduleNoValidTargetReason is a reason for PlacementScheduled condition that no valid target is scheduled
+	// for this placement.
+	ScheduleNoValidTargetReason = "NoValidTarget"
 )
 
 // PlacementList is a list of locations.
