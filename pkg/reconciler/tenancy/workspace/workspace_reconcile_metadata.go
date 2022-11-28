@@ -19,11 +19,13 @@ package workspace
 import (
 	"context"
 	"encoding/json"
+	"strings"
 
 	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspacedeletion/deletion"
@@ -46,6 +48,23 @@ func (r *metaDataReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 		}
 		workspace.Labels[tenancyv1alpha1.WorkspacePhaseLabel] = expected
 		changed = true
+	}
+	initializerKeys := sets.NewString()
+	for _, initializer := range workspace.Status.Initializers {
+		key, value := initialization.InitializerToLabel(initializer)
+		initializerKeys.Insert(key)
+		if got, expected := workspace.Labels[key], value; got != expected {
+			workspace.Labels[key] = value
+			changed = true
+		}
+	}
+	for key := range workspace.Labels {
+		if strings.HasPrefix(key, tenancyv1alpha1.WorkspaceInitializerLabelPrefix) {
+			if !initializerKeys.Has(key) {
+				delete(workspace.Labels, key)
+				changed = true
+			}
+		}
 	}
 
 	// remote deletion finalizer as this moved to the ThisWorkspace
