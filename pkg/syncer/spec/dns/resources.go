@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"embed"
 	"fmt"
-	"log"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -81,17 +80,17 @@ func MakeRoleBinding(name, namespace string) *rbacv1.RoleBinding {
 }
 
 func MakeDeployment(name, namespace, image string) *appsv1.Deployment {
-	deploymentTemplate := deploymentTemplate.DeepCopy()
+	deployment := deploymentTemplate.DeepCopy()
 
-	deploymentTemplate.Name = name
-	deploymentTemplate.Namespace = namespace
-	deploymentTemplate.Spec.Selector.MatchLabels["app"] = name
-	deploymentTemplate.Spec.Template.Labels["app"] = name
-	deploymentTemplate.Spec.Template.Spec.Containers[0].Image = image
-	deploymentTemplate.Spec.Template.Spec.Containers[0].Args[3] = name
-	deploymentTemplate.Spec.Template.Spec.ServiceAccountName = name
+	deployment.Name = name
+	deployment.Namespace = namespace
+	deployment.Spec.Selector.MatchLabels["app"] = name
+	deployment.Spec.Template.Labels["app"] = name
+	deployment.Spec.Template.Spec.Containers[0].Image = image
+	deployment.Spec.Template.Spec.Containers[0].Args[3] = name
+	deployment.Spec.Template.Spec.ServiceAccountName = name
 
-	return deploymentTemplate
+	return deployment
 }
 
 func MakeService(name, namespace string) *corev1.Service {
@@ -116,7 +115,7 @@ func loadTemplateOrDie(filename string, obj interface{}) {
 	var u unstructured.Unstructured
 	err = decoder.Decode(&u)
 	if err != nil {
-		log.Fatalf("failed to decode file: %v", err)
+		panic(fmt.Sprintf("failed to decode file: %v", err))
 	}
 
 	err = runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, obj)
