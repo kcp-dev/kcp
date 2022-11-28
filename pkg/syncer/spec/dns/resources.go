@@ -23,10 +23,13 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/yaml"
+
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
 
 //go:embed *.yaml
@@ -38,6 +41,7 @@ var (
 	roleBindingTemplate    rbacv1.RoleBinding
 	deploymentTemplate     appsv1.Deployment
 	serviceTemplate        corev1.Service
+	networkPolicyTemplate  networkingv1.NetworkPolicy
 )
 
 func init() {
@@ -46,6 +50,7 @@ func init() {
 	loadTemplateOrDie("rolebinding_dns.yaml", &roleBindingTemplate)
 	loadTemplateOrDie("deployment_dns.yaml", &deploymentTemplate)
 	loadTemplateOrDie("service_dns.yaml", &serviceTemplate)
+	loadTemplateOrDie("networkpolicy_dns.yaml", &networkPolicyTemplate)
 }
 
 func MakeServiceAccount(name, namespace string) *corev1.ServiceAccount {
@@ -102,6 +107,17 @@ func MakeService(name, namespace string) *corev1.Service {
 	service.Spec.Selector["app"] = name
 
 	return service
+}
+
+func MakeNetworkPolicy(name, namespace, cluster string) *networkingv1.NetworkPolicy {
+	np := networkPolicyTemplate.DeepCopy()
+
+	np.Name = name
+	np.Namespace = namespace
+	np.Spec.PodSelector.MatchLabels["app"] = name
+	np.Spec.Ingress[0].From[0].NamespaceSelector.MatchLabels[workloadv1alpha1.InternalDownstreamClusterLabel] = cluster
+
+	return np
 }
 
 // load a YAML resource into a typed kubernetes object.

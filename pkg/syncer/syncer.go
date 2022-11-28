@@ -199,7 +199,11 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	// syncerNamespaceInformerFactory to watch some DNS-related resources in the dns namespace
 	syncerNamespaceInformerFactory := kubernetesinformers.NewSharedInformerFactoryWithOptions(downstreamKubeClient, resyncPeriod, kubernetesinformers.WithNamespace(syncerNamespace))
 
+	// downstreamInformerFactory to watch some DNS-related resources in the dns namespace
+	downstreamInformerFactory := kubernetesinformers.NewSharedInformerFactoryWithOptions(downstreamKubeClient, resyncPeriod, kubernetesinformers.WithNamespace(syncerNamespace))
+
 	downstreamSyncerDiscoveryClient := discovery.NewDiscoveryClient(downstreamKubeClient.RESTClient())
+
 	syncTargetGVRSource, err := resourcesync.NewSyncTargetGVRSource(
 		logger,
 		downstreamSyncerDiscoveryClient,
@@ -279,7 +283,8 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 
 	specSyncer, err := spec.NewSpecSyncer(logger, logicalcluster.From(syncTarget), cfg.SyncTargetName, syncTargetKey, upstreamURL, advancedSchedulingEnabled,
 		upstreamSyncerClusterClient, downstreamDynamicClient, downstreamKubeClient, ddsifForUpstreamSyncer, ddsifForDownstream, downstreamNamespaceController, syncTarget.GetUID(),
-		syncerNamespace, syncerNamespaceInformerFactory, cfg.DNSImage)
+		syncerNamespace, downstreamInformerFactory, cfg.DNSImage)
+
 	if err != nil {
 		return err
 	}

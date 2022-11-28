@@ -21,7 +21,6 @@ import (
 	"sync"
 
 	"github.com/kcp-dev/logicalcluster/v3"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -30,6 +29,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	listersappsv1 "k8s.io/client-go/listers/apps/v1"
 	listerscorev1 "k8s.io/client-go/listers/core/v1"
+	listersnetworkingv1 "k8s.io/client-go/listers/networking/v1"
 	listersrbacv1 "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/klog/v2"
 
@@ -45,9 +45,11 @@ type DNSProcessor struct {
 	deploymentLister     listersappsv1.DeploymentLister
 	serviceLister        listerscorev1.ServiceLister
 	endpointLister       listerscorev1.EndpointsLister
+	networkPolicyLister  listersnetworkingv1.NetworkPolicyLister
 
-	syncTargetName string
 	syncTargetUID  types.UID
+	syncTargetName string
+	syncTargetKey  string
 	dnsNamespace   string // namespace containing all DNS objects
 	dnsImage       string
 
@@ -63,8 +65,10 @@ func NewDNSProcessor(
 	deploymentLister listersappsv1.DeploymentLister,
 	serviceLister listerscorev1.ServiceLister,
 	endpointLister listerscorev1.EndpointsLister,
-	syncTargetName string,
+	networkPolicyLister listersnetworkingv1.NetworkPolicyLister,
 	syncTargetUID types.UID,
+	syncTargetName string,
+	syncTargetKey string,
 	dnsNamespace string,
 	dnsImage string) *DNSProcessor {
 	return &DNSProcessor{
@@ -75,8 +79,10 @@ func NewDNSProcessor(
 		deploymentLister:     deploymentLister,
 		serviceLister:        serviceLister,
 		endpointLister:       endpointLister,
-		syncTargetName:       syncTargetName,
+		networkPolicyLister:  networkPolicyLister,
 		syncTargetUID:        syncTargetUID,
+		syncTargetName:       syncTargetName,
+		syncTargetKey:        syncTargetKey,
 		dnsNamespace:         dnsNamespace,
 		dnsImage:             dnsImage,
 	}
@@ -89,18 +95,19 @@ func NewDNSProcessor(
 // during the check or creation of the DNS-related resources.
 func (d *DNSProcessor) EnsureDNSUpAndReady(ctx context.Context, workspace logicalcluster.Name) (bool, error) {
 	logger := klog.FromContext(ctx)
-	logger.WithName("dns")
+	logger = logger.WithName("dns")
 
 	dnsID := shared.GetDNSID(workspace, d.syncTargetUID, d.syncTargetName)
-	logger.WithValues("name", dnsID, "namespace", d.dnsNamespace)
+	logger = logger.WithValues("name", dnsID, "namespace", d.dnsNamespace)
 
-	logger.V(4).Info("checking if all dns objects exist and are up-to-date")
+	logger.Info("checking if all dns objects exist and are up-to-date")
 	ctx = klog.NewContext(ctx, logger)
 
 	// Try updating resources if not done already
 	if initialized, ok := d.initialized.Load(dnsID); !ok || !initialized.(bool) {
 		updated, err := d.lockMayUpdate(ctx, dnsID)
 		if updated {
+			logger.Info("dns updated")
 			return false, err
 		}
 	}
@@ -113,11 +120,16 @@ func (d *DNSProcessor) EnsureDNSUpAndReady(ctx context.Context, workspace logica
 	}
 
 	if !apierrors.IsNotFound(err) {
+
 		return false, err
 	}
 
 	// No Endpoints resource was found: try to create all the DNS-related resources
+	if err := d.processNetworkPolicy(ctx, dnsID); err != nil {
+		return false, err
+	}
 	if err := d.processServiceAccount(ctx, dnsID); err != nil {
+		logger.Info("sa not ready", "dnsID", dnsID)
 		return false, err
 	}
 	if err := d.processRole(ctx, dnsID); err != nil {
@@ -132,6 +144,7 @@ func (d *DNSProcessor) EnsureDNSUpAndReady(ctx context.Context, workspace logica
 	if err := d.processService(ctx, dnsID); err != nil {
 		return false, err
 	}
+
 	// Since the Endpoints resource was not found, the DNS is not yet ready,
 	// even though all the required resources have been created
 	// (deployment still needs to start).
@@ -227,6 +240,25 @@ func (d *DNSProcessor) processService(ctx context.Context, name string) error {
 	}
 	if err != nil && !apierrors.IsAlreadyExists(err) {
 		logger.Error(err, "failed to get Service (retrying)")
+		return err
+	}
+
+	return nil
+}
+
+func (d *DNSProcessor) processNetworkPolicy(ctx context.Context, name string) error {
+	logger := klog.FromContext(ctx)
+
+	_, err := d.networkPolicyLister.NetworkPolicies(d.dnsNamespace).Get(name)
+	if apierrors.IsNotFound(err) {
+		expected := MakeNetworkPolicy(name, d.dnsNamespace, d.syncTargetKey)
+		_, err = d.downstreamKubeClient.NetworkingV1().NetworkPolicies(d.dnsNamespace).Create(ctx, expected, metav1.CreateOptions{})
+		if err == nil {
+			logger.Info("NetworkPolicy created")
+		}
+	}
+	if err != nil && !apierrors.IsAlreadyExists(err) {
+		logger.Error(err, "failed to get NetworkPolicy (retrying)")
 		return err
 	}
 

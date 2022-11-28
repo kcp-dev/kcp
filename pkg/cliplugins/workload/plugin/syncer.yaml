@@ -42,6 +42,14 @@ rules:
   - "get"
   - "watch"
   - "list"
+- apiGroups:
+  - "networking.k8s.io"
+  resources:
+  - networkpolicies
+  verbs:
+  - "create"
+  - "list"
+  - "watch"
 {{- range $groupMapping := .GroupMappings}}
 - apiGroups:
   - "{{$groupMapping.APIGroup}}"
