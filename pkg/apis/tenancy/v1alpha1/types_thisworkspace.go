@@ -81,7 +81,7 @@ type ThisWorkspaceSpec struct {
 	// initialization starts.
 	//
 	// +optional
-	Initializers []ClusterWorkspaceInitializer `json:"initializers,omitempty"`
+	Initializers []WorkspaceInitializer `json:"initializers,omitempty"`
 }
 
 // ThisWorkspaceOwner is a reference to a resource controlling the life-cycle of a ThisWorkspace.
@@ -149,7 +149,7 @@ type ThisWorkspaceStatus struct {
 	// stay in the phase "Initializing" state until all initializers are cleared.
 	//
 	// +optional
-	Initializers []ClusterWorkspaceInitializer `json:"initializers,omitempty"`
+	Initializers []WorkspaceInitializer `json:"initializers,omitempty"`
 }
 
 func (in *ThisWorkspace) SetConditions(c conditionsv1alpha1.Conditions) {
