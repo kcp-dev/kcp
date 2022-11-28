@@ -59,6 +59,11 @@ spec:
             description: ThisWorkspaceSpec is the specification of the ThisWorkspace
               resource.
             properties:
+              directlyDeletable:
+                default: false
+                description: DirectlyDeletable indicates that this workspace can be
+                  directly deleted by the user from within the workspace.
+                type: boolean
               owner:
                 description: "owner is a reference to a resource controlling the life-cycle
                   of this workspace. On deletion of the ThisWorkspace, the finalizer
@@ -121,6 +126,7 @@ spec:
                 type: object
             type: object
           status:
+            default: {}
             description: ThisWorkspaceStatus communicates the observed state of the
               Workspace.
             properties:
@@ -187,7 +193,12 @@ spec:
                   type: string
                 type: array
               phase:
+                default: Scheduling
                 description: Phase of the workspace (Scheduling, Initializing, Ready).
+                enum:
+                - Scheduling
+                - Initializing
+                - Ready
                 type: string
             type: object
         type: object

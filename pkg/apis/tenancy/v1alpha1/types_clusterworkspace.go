@@ -142,6 +142,8 @@ func (r ClusterWorkspaceTypeReference) Equal(other ClusterWorkspaceTypeReference
 }
 
 // ClusterWorkspaceStatus communicates the observed state of the ClusterWorkspace.
+//
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.cluster) || has(self.cluster)",message="status.cluster is immutable"
 type ClusterWorkspaceStatus struct {
 	// Phase of the workspace  (Scheduling / Initializing / Ready)
 	//
@@ -159,6 +161,12 @@ type ClusterWorkspaceStatus struct {
 	// +kubebuilder:validation:Pattern:https://[^/].*
 	// +optional
 	BaseURL string `json:"baseURL,omitempty"`
+
+	// cluster is the name of the logical cluster this workspace is stored under.
+	//
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="cluster is immutable"
+	Cluster string `json:"cluster,omitempty"`
 
 	// Contains workspace placement information.
 	//

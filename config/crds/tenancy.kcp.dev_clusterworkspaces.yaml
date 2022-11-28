@@ -157,6 +157,7 @@ spec:
                 type: object
             type: object
           status:
+            default: {}
             description: ClusterWorkspaceStatus communicates the observed state of
               the ClusterWorkspace.
             properties:
@@ -166,6 +167,13 @@ spec:
                   name>. But a workspace could also be targetable by a unique hostname
                   in the future.'
                 type: string
+              cluster:
+                description: cluster is the name of the logical cluster this workspace
+                  is stored under.
+                type: string
+                x-kubernetes-validations:
+                - message: cluster is immutable
+                  rule: self == oldSelf
               conditions:
                 description: Current processing state of the ClusterWorkspace.
                 items:
@@ -238,10 +246,18 @@ spec:
                     type: string
                 type: object
               phase:
+                default: Scheduling
                 description: Phase of the workspace  (Scheduling / Initializing /
                   Ready)
+                enum:
+                - Scheduling
+                - Initializing
+                - Ready
                 type: string
             type: object
+            x-kubernetes-validations:
+            - message: status.cluster is immutable
+              rule: '!has(oldSelf.cluster) || has(self.cluster)'
         type: object
     served: true
     storage: true
