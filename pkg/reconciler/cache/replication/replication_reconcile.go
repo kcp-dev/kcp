@@ -33,6 +33,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
 
 func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
@@ -47,10 +48,10 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 			apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"),
 			apisv1alpha1.SchemeGroupVersion.WithKind("APIExport"),
 			func(gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (interface{}, error) {
-				return retrieveCacheObject(&gvr, c.cacheApiExportsIndexer, c.shardName, cluster, namespace, name)
+				return retrieveCacheObject(&gvr, c.globalAPIExportIndexer, c.shardName, cluster, namespace, name)
 			},
 			func(cluster logicalcluster.Name, _, name string) (interface{}, error) {
-				return c.localApiExportLister.Cluster(cluster).Get(name)
+				return c.localAPIExportLister.Cluster(cluster).Get(name)
 			})
 	case apisv1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas").String():
 		return c.reconcileObject(ctx,
@@ -58,10 +59,21 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 			apisv1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas"),
 			apisv1alpha1.SchemeGroupVersion.WithKind("APIResourceSchema"),
 			func(gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (interface{}, error) {
-				return retrieveCacheObject(&gvr, c.cacheApiResourceSchemaIndexer, c.shardName, cluster, namespace, name)
+				return retrieveCacheObject(&gvr, c.globalAPIResourceSchemaIndexer, c.shardName, cluster, namespace, name)
 			},
 			func(cluster logicalcluster.Name, _, name string) (interface{}, error) {
-				return c.localApiResourceSchemaLister.Cluster(cluster).Get(name)
+				return c.localAPIResourceSchemaLister.Cluster(cluster).Get(name)
+			})
+	case tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaceshards").String():
+		return c.reconcileObject(ctx,
+			keyParts[1],
+			tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaceshards"),
+			tenancyv1alpha1.SchemeGroupVersion.WithKind("ClusterWorkspaceShard"),
+			func(gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (interface{}, error) {
+				return retrieveCacheObject(&gvr, c.globalClusterWorkspaceShardIndexer, c.shardName, cluster, namespace, name)
+			},
+			func(cluster logicalcluster.Name, _, name string) (interface{}, error) {
+				return c.localClusterWorkspaceShardLister.Cluster(cluster).Get(name)
 			})
 	default:
 		return fmt.Errorf("unsupported resource %v", keyParts[0])
