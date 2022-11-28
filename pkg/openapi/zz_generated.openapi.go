@@ -97,6 +97,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeSelector":             schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeSelector(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeSpec":                 schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeSpec(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeStatus":               schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeStatus(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ResolvedWorkspaceTypeReference":           schema_pkg_apis_tenancy_v1alpha1_ResolvedWorkspaceTypeReference(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ShardConstraints":                         schema_pkg_apis_tenancy_v1alpha1_ShardConstraints(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ThisWorkspace":                            schema_pkg_apis_tenancy_v1alpha1_ThisWorkspace(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ThisWorkspaceList":                        schema_pkg_apis_tenancy_v1alpha1_ThisWorkspaceList(ref),
@@ -106,6 +107,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.VirtualWorkspace":                         schema_pkg_apis_tenancy_v1alpha1_VirtualWorkspace(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.Workspace":                                 schema_pkg_apis_tenancy_v1beta1_Workspace(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.WorkspaceList":                             schema_pkg_apis_tenancy_v1beta1_WorkspaceList(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.WorkspaceLocation":                         schema_pkg_apis_tenancy_v1beta1_WorkspaceLocation(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.WorkspaceSpec":                             schema_pkg_apis_tenancy_v1beta1_WorkspaceSpec(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.WorkspaceStatus":                           schema_pkg_apis_tenancy_v1beta1_WorkspaceStatus(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition": schema_conditions_apis_conditions_v1alpha1_Condition(ref),
@@ -2114,6 +2116,13 @@ func schema_pkg_apis_apis_v1alpha1_WorkspaceExportReference(ref common.Reference
 							Format:      "",
 						},
 					},
+					"cluster": {
+						SchemaProps: spec.SchemaProps{
+							Description: "cluster is the logical cluster of the ClusterWorkspaceType. This is defaulted by resolving the workspace path.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"exportName"},
 			},
@@ -2950,7 +2959,7 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceSpec(ref common.ReferenceC
 						SchemaProps: spec.SchemaProps{
 							Description: "type defines properties of the workspace both on creation (e.g. initial resources and initially installed APIs) and during runtime (e.g. permissions). If no type is provided, the default type for the workspace in which this workspace is nesting will be used.\n\nThe type is a reference to a ClusterWorkspaceType in the listed workspace, but lower-cased. The ClusterWorkspaceType existence is validated at admission during creation. The type is immutable after creation. The use of a type is gated via the RBAC clusterworkspacetypes/use resource permission.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference"),
+							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ResolvedWorkspaceTypeReference"),
 						},
 					},
 					"shard": {
@@ -2963,7 +2972,7 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceSpec(ref common.ReferenceC
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference", "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ShardConstraints"},
+			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ResolvedWorkspaceTypeReference", "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ShardConstraints"},
 	}
 }
 
@@ -2976,7 +2985,7 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceStatus(ref common.Referenc
 				Properties: map[string]spec.Schema{
 					"phase": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Phase of the workspace  (Scheduling / Initializing / Ready)",
+							Description: "Phase of the workspace (Scheduling / Initializing / Ready)",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -2998,6 +3007,13 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceStatus(ref common.Referenc
 					"baseURL": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Base URL where this ClusterWorkspace can be targeted. This will generally be of the form: https://<workspace shard server>/cluster/<workspace name>. But a workspace could also be targetable by a unique hostname in the future.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"cluster": {
+						SchemaProps: spec.SchemaProps{
+							Description: "cluster is the name of the logical cluster this workspace is stored under.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3175,7 +3191,6 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeReference(ref common.R
 					"path": {
 						SchemaProps: spec.SchemaProps{
 							Description: "path is an absolute reference to the workspace that owns this type, e.g. root:org:ws.",
-							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3348,6 +3363,42 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeStatus(ref common.Refe
 		},
 		Dependencies: []string{
 			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.VirtualWorkspace", "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
+	}
+}
+
+func schema_pkg_apis_tenancy_v1alpha1_ResolvedWorkspaceTypeReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ResolvedWorkspaceTypeReference is a globally unique, fully qualified reference to a cluster workspace type that is resolved to an actual logical cluster. It is immutable.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "name is the name of the ClusterWorkspaceType",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"path": {
+						SchemaProps: spec.SchemaProps{
+							Description: "path is an absolute reference to the workspace that owns this type, e.g. root:org:ws.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"cluster": {
+						SchemaProps: spec.SchemaProps{
+							Description: "cluster is the logical cluster of the ClusterWorkspaceType. This is defaulted by resolving the workspace path.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"name"},
+			},
+		},
 	}
 }
 
@@ -3542,11 +3593,11 @@ func schema_pkg_apis_tenancy_v1alpha1_ThisWorkspaceSpec(ref common.ReferenceCall
 				Description: "ThisWorkspaceSpec is the specification of the ThisWorkspace resource.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"type": {
+					"directlyDeletable": {
 						SchemaProps: spec.SchemaProps{
-							Description: "type defines properties of the workspace both on creation (e.g. initial resources and initially installed APIs) and during runtime (e.g. permissions). If no type is provided, the default type for the workspace in which this workspace is nesting will be used.\n\nThe type is a reference to a ClusterWorkspaceType in the listed workspace, but lower-cased. The ClusterWorkspaceType existence is validated at admission during creation. The type is immutable after creation. The use of a type is gated via the RBAC clusterworkspacetypes/use resource permission.",
-							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference"),
+							Description: "DirectlyDeletable indicates that this workspace can be directly deleted by the user from within the workspace.",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 					"owner": {
@@ -3555,11 +3606,26 @@ func schema_pkg_apis_tenancy_v1alpha1_ThisWorkspaceSpec(ref common.ReferenceCall
 							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ThisWorkspaceOwner"),
 						},
 					},
+					"initializers": {
+						SchemaProps: spec.SchemaProps{
+							Description: "initializers are set on creation by the system and copied to status when initialization starts.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference", "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ThisWorkspaceOwner"},
+			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ThisWorkspaceOwner"},
 	}
 }
 
@@ -3579,7 +3645,7 @@ func schema_pkg_apis_tenancy_v1alpha1_ThisWorkspaceStatus(ref common.ReferenceCa
 					},
 					"phase": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Phase of the workspace (Scheduling, Initializing, Ready).",
+							Description: "Phase of the workspace (Initializing, Ready).",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3739,6 +3805,26 @@ func schema_pkg_apis_tenancy_v1beta1_WorkspaceList(ref common.ReferenceCallback)
 	}
 }
 
+func schema_pkg_apis_tenancy_v1beta1_WorkspaceLocation(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"selector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "selector is a label selector that filters workspace scheduling targets.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
+	}
+}
+
 func schema_pkg_apis_tenancy_v1beta1_WorkspaceSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -3750,14 +3836,20 @@ func schema_pkg_apis_tenancy_v1beta1_WorkspaceSpec(ref common.ReferenceCallback)
 						SchemaProps: spec.SchemaProps{
 							Description: "type defines properties of the workspace both on creation (e.g. initial resources and initially installed APIs) and during runtime (e.g. permissions). If no type is provided, the default type for the workspace in which this workspace is nesting will be used.\n\nThe type is a reference to a ClusterWorkspaceType in the listed workspace, but lower-cased. The ClusterWorkspaceType existence is validated at admission during creation. The type is immutable after creation. The use of a type is gated via the RBAC clusterworkspacetypes/use resource permission.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference"),
+							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ResolvedWorkspaceTypeReference"),
+						},
+					},
+					"shard": {
+						SchemaProps: spec.SchemaProps{
+							Description: "location constraints where this workspace can be scheduled to.\n\nIf the no location is specified, an arbitrary location is chosen.",
+							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.WorkspaceLocation"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference"},
+			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ResolvedWorkspaceTypeReference", "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.WorkspaceLocation"},
 	}
 }
 
@@ -3771,6 +3863,13 @@ func schema_pkg_apis_tenancy_v1beta1_WorkspaceStatus(ref common.ReferenceCallbac
 					"URL": {
 						SchemaProps: spec.SchemaProps{
 							Description: "url is the address under which the Kubernetes-cluster-like endpoint can be found. This URL can be used to access the workspace with standard Kubernetes client libraries and command line tools.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"cluster": {
+						SchemaProps: spec.SchemaProps{
+							Description: "cluster is the name of the logical cluster this workspace is stored under.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3798,7 +3897,7 @@ func schema_pkg_apis_tenancy_v1beta1_WorkspaceStatus(ref common.ReferenceCallbac
 					},
 					"initializers": {
 						SchemaProps: spec.SchemaProps{
-							Description: "initializers are set on creation by the system and must be cleared by a controller before the workspace can be used. The workspace will stay in the phase \"Initializing\" state until all initializers are cleared.\n\nA cluster workspace in \"Initializing\" state are gated via the RBAC clusterworkspaces/initialize resource permission.",
+							Description: "initializers must be cleared by a controller before the workspace is ready and can be used.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
