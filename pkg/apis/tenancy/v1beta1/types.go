@@ -98,7 +98,7 @@ type WorkspaceStatus struct {
 	// and can be used.
 	//
 	// +optional
-	Initializers []v1alpha1.ClusterWorkspaceInitializer `json:"initializers,omitempty"`
+	Initializers []v1alpha1.WorkspaceInitializer `json:"initializers,omitempty"`
 }
 
 // WorkspaceList is a list of Workspaces
