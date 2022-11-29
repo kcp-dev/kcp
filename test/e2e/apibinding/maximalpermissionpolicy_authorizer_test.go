@@ -70,7 +70,7 @@ func TestMaximalPermissionPolicyAuthorizerSystemGroupProtection(t *testing.T) {
 	}))
 
 	t.Logf("Giving user-1 admin access")
-	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, orgClusterName, []string{"user-1"}, nil, []string{"admin", "access"})
+	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, orgClusterName, []string{"user-1"}, nil, true)
 
 	type Test struct {
 		name string
@@ -173,7 +173,7 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
 	serviceProviderWorkspaces := []logicalcluster.Name{rbacServiceProviderWorkspace, serviceProvider2Workspace}
-	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, orgClusterName, []string{"user-1", "user-2", "user-3"}, nil, []string{"access"})
+	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, orgClusterName, []string{"user-1", "user-2", "user-3"}, nil, false)
 
 	// Set up service provider workspace.
 	for _, serviceProviderWorkspace := range serviceProviderWorkspaces {
@@ -226,7 +226,7 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 	}
 	for serviceProvider, consumer := range m {
 		t.Logf("Set up user-1 and user-3 as admin for the consumer workspace %q", consumer)
-		framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, consumer, []string{"user-1", "user-3"}, nil, []string{"admin"})
+		framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, consumer, []string{"user-1", "user-3"}, nil, true)
 		bindConsumerToProvider(consumer, serviceProvider)
 		wildwestClusterClient, err := wildwestclientset.NewForConfig(framework.UserConfig("user-1", rest.CopyConfig(cfg)))
 		cowboyclient := wildwestClusterClient.WildwestV1alpha1().Cluster(consumer).Cowboys("default")
@@ -254,7 +254,7 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 			_, err = kubeClusterClient.Cluster(consumer).RbacV1().ClusterRoleBindings().Create(ctx, clusterRoleBinding, metav1.CreateOptions{})
 			require.NoError(t, err)
 
-			framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, consumer, []string{"user-2"}, nil, []string{"access"})
+			framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, consumer, []string{"user-2"}, nil, false)
 			user2Client, err := wildwestclientset.NewForConfig(framework.UserConfig("user-2", rest.CopyConfig(cfg)))
 			require.NoError(t, err)
 
