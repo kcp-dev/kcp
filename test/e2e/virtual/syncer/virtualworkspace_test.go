@@ -452,7 +452,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				wildwestClusterClient, err := wildwestclientset.NewForConfig(server.BaseConfig(t))
 				require.NoError(t, err)
 
-				syncTargetKey := workloadv1alpha1.ToSyncTargetKey(wildwestLocationWorkspace, "wildwest")
+				syncTargetKey := wildwestSyncer.ToSyncTargetKey()
 
 				logWithTimestamp(t, "Wait for being able to list cowboys in the consumer workspace via direct access")
 				require.Eventually(t, func() bool {
@@ -616,7 +616,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					return true
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
-				syncTargetKey := workloadv1alpha1.ToSyncTargetKey(wildwestLocationWorkspace, "wildwest")
+				syncTargetKey := wildwestSyncer.ToSyncTargetKey()
 
 				logWithTimestamp(t, "Create cowboy luckyluke")
 				_, err = wildwestClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Create(ctx, &wildwestv1alpha1.Cowboy{
@@ -983,7 +983,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				_, err = kcpClusterClient.Cluster(wildwestLocationWorkspace).WorkloadV1alpha1().SyncTargets().Patch(ctx, "wildwest-north", types.JSONPatchType, []byte(`[{"op":"add","path":"/metadata/labels/region","value":"north"}]`), metav1.PatchOptions{})
 				require.NoError(t, err)
 
-				northSyncTargetKey := workloadv1alpha1.ToSyncTargetKey(wildwestLocationWorkspace, "wildwest-north")
+				northSyncTargetKey := wildwestNorthSyncer.ToSyncTargetKey()
 
 				logWithTimestamp(t, "Deploying south syncer into workspace %s", wildwestLocationWorkspace)
 				wildwestSouthSyncer := framework.NewSyncerFixture(t, server, wildwestLocationWorkspace,
@@ -1004,7 +1004,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				_, err = kcpClusterClient.Cluster(wildwestLocationWorkspace).WorkloadV1alpha1().SyncTargets().Patch(ctx, "wildwest-south", types.JSONPatchType, []byte(`[{"op":"add","path":"/metadata/labels/region","value":"south"}]`), metav1.PatchOptions{})
 				require.NoError(t, err)
 
-				southSyncTargetKey := workloadv1alpha1.ToSyncTargetKey(wildwestLocationWorkspace, "wildwest-south")
+				southSyncTargetKey := wildwestSouthSyncer.ToSyncTargetKey()
 
 				logWithTimestamp(t, "Delete default location")
 				err = kcpClusterClient.Cluster(wildwestLocationWorkspace).SchedulingV1alpha1().Locations().Delete(ctx, "default", metav1.DeleteOptions{})
@@ -1312,7 +1312,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					return true
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
-				syncTargetKey := workloadv1alpha1.ToSyncTargetKey(wildwestLocationWorkspace, "wildwest")
+				syncTargetKey := wildwestSyncer.ToSyncTargetKey()
 
 				logWithTimestamp(t, "Create cowboy luckyluke")
 				_, err = wildwestClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default").Create(ctx, &wildwestv1alpha1.Cowboy{
@@ -1402,7 +1402,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 					framework.WithLocationWorkspaceWorkloadBindOption(wildwestLocationWorkspace),
 				).Bind(t)
 
-				syncTargetKey := workloadv1alpha1.ToSyncTargetKey(wildwestLocationWorkspace, "wildwest")
+				syncTargetKey := wildwestSyncer.ToSyncTargetKey()
 
 				logWithTimestamp(t, "Wait for being able to list cowboys in the consumer workspace via direct access")
 				require.Eventually(t, func() bool {
@@ -1907,7 +1907,7 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 				return true
 			}, wait.ForeverTestTimeout, time.Millisecond*100)
 
-			syncTargetKey := workloadv1alpha1.ToSyncTargetKey(upsyncer.SyncerConfig.SyncTargetWorkspace, upsyncer.SyncerConfig.SyncTargetName)
+			syncTargetKey := upsyncer.ToSyncTargetKey()
 
 			logWithTimestamp(t, "Starting test...")
 			testCase.work(t, upsyncer, upsyncerWorkspace, syncTargetKey)
