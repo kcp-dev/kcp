@@ -82,22 +82,22 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 
 // reconcileObject makes sure that the object under the given key from the local shard is replicated to the cache server.
 // the replication function handles the following cases:
-//  1. creation of the object in the cache server when the cached object is not found by retriveLocalObject
-//  2. deletion of the object from the cache server when the original/local object was removed OR was not found by retriveLocalObject
+//  1. creation of the object in the cache server when the cached object is not found by retrieveLocalObject
+//  2. deletion of the object from the cache server when the original/local object was removed OR was not found by retrieveLocalObject
 //  3. modification of the cached object to match the original one when meta.annotations, meta.labels, spec or status are different
 func (c *controller) reconcileObject(ctx context.Context,
 	key string, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind,
-	retriveCacheObject func(gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (interface{}, error),
-	retriveLocalObject func(cluster logicalcluster.Name, namespace, name string) (interface{}, error)) error {
+	retrieveCacheObject func(gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (interface{}, error),
+	retrieveLocalObject func(cluster logicalcluster.Name, namespace, name string) (interface{}, error)) error {
 	cluster, namespace, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		return err
 	}
-	cacheObject, err := retriveCacheObject(gvr, cluster, namespace, name)
+	cacheObject, err := retrieveCacheObject(gvr, cluster, namespace, name)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
-	localObject, err := retriveLocalObject(cluster, namespace, name)
+	localObject, err := retrieveLocalObject(cluster, namespace, name)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
