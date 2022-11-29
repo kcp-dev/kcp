@@ -80,7 +80,7 @@ func TestAuthorizer(t *testing.T) {
 	createResources(t, ctx, dynamicClusterClient, kubeDiscoveryClient, org1.Join("workspace1"), "workspace1-resources.yaml")
 	createResources(t, ctx, dynamicClusterClient, kubeDiscoveryClient, org2.Join("workspace1"), "workspace1-resources.yaml")
 
-	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, org1, []string{"user-1", "user-2", "user-3"}, nil, []string{"access"})
+	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, org1, []string{"user-1", "user-2", "user-3"}, nil, false)
 
 	user1KubeClusterClient, err := kcpkubernetesclientset.NewForConfig(framework.UserConfig("user-1", cfg))
 	require.NoError(t, err)
