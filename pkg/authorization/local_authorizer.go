@@ -56,7 +56,7 @@ func NewLocalAuthorizer(versionedInformers kcpkubernetesinformers.SharedInformer
 	return a, a
 }
 
-func (a *LocalAuthorizer) RulesFor(user user.Info, namespace string) ([]authorizer.ResourceRuleInfo, []authorizer.NonResourceRuleInfo, bool, error) {
+func (a *LocalAuthorizer) RulesFor(ctx context.Context, user user.Info, namespace string) ([]authorizer.ResourceRuleInfo, []authorizer.NonResourceRuleInfo, bool, error) {
 	// TODO: wire context in RulesFor interface
 	panic("implement me")
 }

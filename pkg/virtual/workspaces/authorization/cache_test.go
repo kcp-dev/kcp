@@ -88,7 +88,7 @@ type mockSubjectLocator struct {
 	subjects map[string][]rbacv1.Subject
 }
 
-func (m *mockSubjectLocator) AllowedSubjects(attributes authorizer.Attributes) ([]rbacv1.Subject, error) {
+func (m *mockSubjectLocator) AllowedSubjects(ctx context.Context, attributes authorizer.Attributes) ([]rbacv1.Subject, error) {
 	return m.subjects[attributes.GetName()], nil
 }
 

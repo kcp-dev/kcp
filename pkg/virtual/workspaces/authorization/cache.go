@@ -35,6 +35,7 @@ import (
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
+	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
@@ -443,7 +444,7 @@ func (ac *AuthorizationCache) syncRequest(request *reviewRequest, userSubjectRec
 	}
 	reviewAttributes.Name = name
 
-	review := ac.reviewer.Review(reviewAttributes)
+	review := ac.reviewer.Review(genericapirequest.NewContext(), reviewAttributes)
 
 	usersToRemove := sets.NewString()
 	groupsToRemove := sets.NewString()
