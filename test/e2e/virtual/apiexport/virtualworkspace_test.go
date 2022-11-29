@@ -95,9 +95,9 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	wildwestClusterClient, err := wildwestclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct wildwest cluster client for server")
 
-	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, orgClusterName, []string{"user-1", "user-2", "user-3"}, nil, []string{"access"})
-	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, serviceProviderWorkspace, []string{"user-1", "user-2"}, nil, []string{"access"})
-	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, consumerWorkspace, []string{"user-3"}, nil, []string{"admin"})
+	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, orgClusterName, []string{"user-1", "user-2", "user-3"}, nil, false)
+	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, serviceProviderWorkspace, []string{"user-1", "user-2"}, nil, false)
+	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, consumerWorkspace, []string{"user-3"}, nil, true)
 
 	cr, crb := createClusterRoleAndBindings("user-3-binding", "user-3", "User", []string{"bind"}, apisv1alpha1.SchemeGroupVersion.Group, "apiexports", "today-cowboys")
 	_, err = kubeClusterClient.Cluster(serviceProviderWorkspace).RbacV1().ClusterRoles().Create(ctx, cr, metav1.CreateOptions{})

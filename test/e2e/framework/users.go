@@ -18,7 +18,7 @@ package framework
 
 import (
 	"context"
-	"strings"
+	"fmt"
 	"testing"
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
@@ -27,46 +27,28 @@ import (
 
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 )
 
-// AdmitWorkspaceAccess create RBAC rules that allow the given users and/or groups to access the given, fully-qualified workspace, i.e.
-// the RBAC objects are create in its parent.
-func AdmitWorkspaceAccess(t *testing.T, ctx context.Context, kubeClusterClient kcpkubernetesclientset.ClusterInterface, orgClusterName logicalcluster.Name, users []string, groups []string, verbs []string) {
-	parent, hasParent := orgClusterName.Parent()
-	require.True(t, hasParent, "org cluster %s should have a parent", orgClusterName)
-
+// AdmitWorkspaceAccess create RBAC rules that allow the given users and/or groups to access the given workspace, optionally as admin.
+func AdmitWorkspaceAccess(t *testing.T, ctx context.Context, kubeClusterClient kcpkubernetesclientset.ClusterInterface, clusterName logicalcluster.Name, users []string, groups []string, admin bool) {
 	if len(groups) > 0 {
-		t.Logf("Giving groups %v member access to workspace %q in %q", groups, orgClusterName.Base(), parent)
+		t.Logf("Giving groups %v member access to workspace %q", groups, clusterName)
 	}
 	if len(users) > 0 {
-		t.Logf("Giving users %v member access to workspace %q in %q", users, orgClusterName.Base(), parent)
+		t.Logf("Giving users %v member access to workspace %q", users, clusterName)
 	}
 
-	roleName := orgClusterName.Base() + "-" + strings.Join(verbs, "-")
-	_, err := kubeClusterClient.Cluster(parent).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: roleName,
-		},
-		Rules: []rbacv1.PolicyRule{
-			{
-				Verbs:         verbs,
-				Resources:     []string{"workspaces/content"},
-				ResourceNames: []string{orgClusterName.Base()},
-				APIGroups:     []string{"tenancy.kcp.dev"},
-			},
-			{
-				Verbs:         []string{"get"},
-				Resources:     []string{"workspaces"},
-				ResourceNames: []string{orgClusterName.Base()},
-				APIGroups:     []string{"tenancy.kcp.dev"},
-			},
-		},
-	}, metav1.CreateOptions{})
-	require.NoError(t, err)
-
+	nameSuffix := "access"
+	roleName := bootstrap.SystemKcpWorkspaceAccessGroup
+	if admin {
+		nameSuffix = "admin"
+		roleName = "cluster-admin"
+	}
 	binding := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: roleName,
+			GenerateName: fmt.Sprintf("workspace-%s-", nameSuffix),
 		},
 		RoleRef: rbacv1.RoleRef{
 			Kind:     "ClusterRole",
@@ -90,6 +72,6 @@ func AdmitWorkspaceAccess(t *testing.T, ctx context.Context, kubeClusterClient k
 		})
 	}
 
-	_, err = kubeClusterClient.Cluster(parent).RbacV1().ClusterRoleBindings().Create(ctx, binding, metav1.CreateOptions{})
+	_, err := kubeClusterClient.Cluster(clusterName).RbacV1().ClusterRoleBindings().Create(ctx, binding, metav1.CreateOptions{})
 	require.NoError(t, err)
 }

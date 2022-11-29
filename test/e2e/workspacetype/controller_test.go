@@ -154,7 +154,7 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 				kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 				require.NoError(t, err, "failed to construct kube cluster client for server")
 
-				framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, universal, []string{"user-1"}, nil, []string{"access"})
+				framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, universal, []string{"user-1"}, nil, false)
 				cr, crb := createClusterRoleAndBindings(
 					"create-clusterworkspace-user-1",
 					"user-1", "User",

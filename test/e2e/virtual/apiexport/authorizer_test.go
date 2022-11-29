@@ -89,11 +89,11 @@ func TestAPIExportAuthorizers(t *testing.T) {
 	kubeClient, err := kcpkubernetesclientset.NewForConfig(rest.CopyConfig(cfg))
 	require.NoError(t, err)
 
-	framework.AdmitWorkspaceAccess(t, ctx, kubeClient, org, []string{"user-1", "user-2", "user-3"}, nil, []string{"access"})
-	framework.AdmitWorkspaceAccess(t, ctx, kubeClient, serviceProvider1Workspace, []string{"user-1"}, nil, []string{"admin", "access"})
-	framework.AdmitWorkspaceAccess(t, ctx, kubeClient, serviceProvider2Workspace, []string{"user-2"}, nil, []string{"admin", "access"})
-	framework.AdmitWorkspaceAccess(t, ctx, kubeClient, tenantWorkspace, []string{"user-3"}, nil, []string{"admin", "access"})
-	framework.AdmitWorkspaceAccess(t, ctx, kubeClient, tenantShadowCRDWorkspace, []string{"user-3"}, nil, []string{"admin", "access"})
+	framework.AdmitWorkspaceAccess(t, ctx, kubeClient, org, []string{"user-1", "user-2", "user-3"}, nil, false)
+	framework.AdmitWorkspaceAccess(t, ctx, kubeClient, serviceProvider1Workspace, []string{"user-1"}, nil, true)
+	framework.AdmitWorkspaceAccess(t, ctx, kubeClient, serviceProvider2Workspace, []string{"user-2"}, nil, true)
+	framework.AdmitWorkspaceAccess(t, ctx, kubeClient, tenantWorkspace, []string{"user-3"}, nil, true)
+	framework.AdmitWorkspaceAccess(t, ctx, kubeClient, tenantShadowCRDWorkspace, []string{"user-3"}, nil, true)
 
 	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, serviceProvider1Workspace, user1KcpClient, "wild.wild.west", "")
 
