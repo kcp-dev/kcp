@@ -253,9 +253,10 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 	homeClusterName := indexrewriters.HomeClusterName(effectiveUser.GetName())
 	this, err = h.thisWorkspaceLister.Cluster(homeClusterName).Get(tenancyv1alpha1.ThisWorkspaceName)
 	if err != nil {
-		responsewriters.InternalError(rw, req, err)
-		return
-	} else if kerrors.IsNotFound(err) {
+		if !kerrors.IsNotFound(err) {
+			responsewriters.InternalError(rw, req, err)
+			return
+		}
 		// check permissions first
 		attr := authorizer.AttributesRecord{
 			User:            effectiveUser,
