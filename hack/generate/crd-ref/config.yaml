@@ -49,6 +49,11 @@ source_repositories:
           - https://github.com/kcp-dev/kcp
         topics:
           - apis
+      apiexportendpointslices.apis.kcp.dev:
+        owner:
+          - https://github.com/kcp-dev/kcp
+        topics:
+          - apis
       locations.scheduling.kcp.dev:
         owner:
           - https://github.com/kcp-dev/kcp
@@ -93,3 +98,13 @@ source_repositories:
         topics:
           - workload
           - synctargets
+      partitions.apis.kcp.dev:
+        owner:
+          - https://github.com/kcp-dev/kcp
+        topics:
+          - topology
+      partitionsets.apis.kcp.dev:
+        owner:
+          - https://github.com/kcp-dev/kcp
+        topics:
+          - topology

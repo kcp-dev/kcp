@@ -30,6 +30,8 @@ type ClusterInterface interface {
 	APIBindings() APIBindingClusterInformer
 	// APIExports returns a APIExportClusterInformer
 	APIExports() APIExportClusterInformer
+	// APIExportEndpointSlices returns a APIExportEndpointSliceClusterInformer
+	APIExportEndpointSlices() APIExportEndpointSliceClusterInformer
 	// APIResourceSchemas returns a APIResourceSchemaClusterInformer
 	APIResourceSchemas() APIResourceSchemaClusterInformer
 }
@@ -54,6 +56,11 @@ func (v *version) APIExports() APIExportClusterInformer {
 	return &aPIExportClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
+// APIExportEndpointSlices returns a APIExportEndpointSliceClusterInformer
+func (v *version) APIExportEndpointSlices() APIExportEndpointSliceClusterInformer {
+	return &aPIExportEndpointSliceClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
 // APIResourceSchemas returns a APIResourceSchemaClusterInformer
 func (v *version) APIResourceSchemas() APIResourceSchemaClusterInformer {
 	return &aPIResourceSchemaClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
@@ -64,6 +71,8 @@ type Interface interface {
 	APIBindings() APIBindingInformer
 	// APIExports returns a APIExportInformer
 	APIExports() APIExportInformer
+	// APIExportEndpointSlices returns a APIExportEndpointSliceInformer
+	APIExportEndpointSlices() APIExportEndpointSliceInformer
 	// APIResourceSchemas returns a APIResourceSchemaInformer
 	APIResourceSchemas() APIResourceSchemaInformer
 }
@@ -87,6 +96,11 @@ func (v *scopedVersion) APIBindings() APIBindingInformer {
 // APIExports returns a APIExportInformer
 func (v *scopedVersion) APIExports() APIExportInformer {
 	return &aPIExportScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// APIExportEndpointSlices returns a APIExportEndpointSliceInformer
+func (v *scopedVersion) APIExportEndpointSlices() APIExportEndpointSliceInformer {
+	return &aPIExportEndpointSliceScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // APIResourceSchemas returns a APIResourceSchemaInformer

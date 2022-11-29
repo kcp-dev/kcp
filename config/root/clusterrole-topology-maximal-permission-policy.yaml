@@ -1,0 +1,10 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: system:kcp:apiexport:topology:maximal-permission-policy
+rules:
+- apiGroups: ["topology.kcp.dev"]
+  verbs: ["*"]
+  resources:
+  - partitions
+  - partitionsets

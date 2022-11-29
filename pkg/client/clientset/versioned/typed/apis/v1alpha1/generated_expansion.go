@@ -22,4 +22,6 @@ type APIBindingExpansion interface{}
 
 type APIExportExpansion interface{}
 
+type APIExportEndpointSliceExpansion interface{}
+
 type APIResourceSchemaExpansion interface{}

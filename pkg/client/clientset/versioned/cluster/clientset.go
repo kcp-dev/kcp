@@ -38,6 +38,7 @@ import (
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/scheduling/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/tenancy/v1beta1"
+	topologyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/topology/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/workload/v1alpha1"
 )
 
@@ -49,6 +50,7 @@ type ClusterInterface interface {
 	SchedulingV1alpha1() schedulingv1alpha1.SchedulingV1alpha1ClusterInterface
 	TenancyV1alpha1() tenancyv1alpha1.TenancyV1alpha1ClusterInterface
 	TenancyV1beta1() tenancyv1beta1.TenancyV1beta1ClusterInterface
+	TopologyV1alpha1() topologyv1alpha1.TopologyV1alpha1ClusterInterface
 	WorkloadV1alpha1() workloadv1alpha1.WorkloadV1alpha1ClusterInterface
 }
 
@@ -61,6 +63,7 @@ type ClusterClientset struct {
 	schedulingV1alpha1  *schedulingv1alpha1.SchedulingV1alpha1ClusterClient
 	tenancyV1alpha1     *tenancyv1alpha1.TenancyV1alpha1ClusterClient
 	tenancyV1beta1      *tenancyv1beta1.TenancyV1beta1ClusterClient
+	topologyV1alpha1    *topologyv1alpha1.TopologyV1alpha1ClusterClient
 	workloadV1alpha1    *workloadv1alpha1.WorkloadV1alpha1ClusterClient
 }
 
@@ -95,6 +98,11 @@ func (c *ClusterClientset) TenancyV1alpha1() tenancyv1alpha1.TenancyV1alpha1Clus
 // TenancyV1beta1 retrieves the TenancyV1beta1ClusterClient.
 func (c *ClusterClientset) TenancyV1beta1() tenancyv1beta1.TenancyV1beta1ClusterInterface {
 	return c.tenancyV1beta1
+}
+
+// TopologyV1alpha1 retrieves the TopologyV1alpha1ClusterClient.
+func (c *ClusterClientset) TopologyV1alpha1() topologyv1alpha1.TopologyV1alpha1ClusterInterface {
+	return c.topologyV1alpha1
 }
 
 // WorkloadV1alpha1 retrieves the WorkloadV1alpha1ClusterClient.
@@ -171,6 +179,10 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*ClusterCli
 		return nil, err
 	}
 	cs.tenancyV1beta1, err = tenancyv1beta1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	if err != nil {
+		return nil, err
+	}
+	cs.topologyV1alpha1, err = topologyv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
 	}

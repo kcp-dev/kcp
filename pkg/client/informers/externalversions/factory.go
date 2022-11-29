@@ -41,6 +41,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions/internalinterfaces"
 	schedulinginformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling"
 	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy"
+	topologyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/topology"
 	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload"
 )
 
@@ -190,6 +191,7 @@ type SharedInformerFactory interface {
 	Apis() apisinformers.ClusterInterface
 	Scheduling() schedulinginformers.ClusterInterface
 	Tenancy() tenancyinformers.ClusterInterface
+	Topology() topologyinformers.ClusterInterface
 	Workload() workloadinformers.ClusterInterface
 }
 
@@ -207,6 +209,10 @@ func (f *sharedInformerFactory) Scheduling() schedulinginformers.ClusterInterfac
 
 func (f *sharedInformerFactory) Tenancy() tenancyinformers.ClusterInterface {
 	return tenancyinformers.New(f, f.tweakListOptions)
+}
+
+func (f *sharedInformerFactory) Topology() topologyinformers.ClusterInterface {
+	return topologyinformers.New(f, f.tweakListOptions)
 }
 
 func (f *sharedInformerFactory) Workload() workloadinformers.ClusterInterface {
@@ -360,6 +366,7 @@ type SharedScopedInformerFactory interface {
 	Apis() apisinformers.Interface
 	Scheduling() schedulinginformers.Interface
 	Tenancy() tenancyinformers.Interface
+	Topology() topologyinformers.Interface
 	Workload() workloadinformers.Interface
 }
 
@@ -377,6 +384,10 @@ func (f *sharedScopedInformerFactory) Scheduling() schedulinginformers.Interface
 
 func (f *sharedScopedInformerFactory) Tenancy() tenancyinformers.Interface {
 	return tenancyinformers.NewScoped(f, f.namespace, f.tweakListOptions)
+}
+
+func (f *sharedScopedInformerFactory) Topology() topologyinformers.Interface {
+	return topologyinformers.NewScoped(f, f.namespace, f.tweakListOptions)
 }
 
 func (f *sharedScopedInformerFactory) Workload() workloadinformers.Interface {
