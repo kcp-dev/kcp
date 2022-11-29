@@ -69,6 +69,8 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
+	github.com/cockroachdb/apd v1.1.0 // indirect
+	github.com/cockroachdb/cockroach-go/v2 v2.2.8 // indirect
 	github.com/coreos/go-oidc v2.1.0+incompatible // indirect
 	github.com/coreos/go-semver v0.3.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.3.2 // indirect
@@ -104,9 +106,20 @@ require (
 	github.com/grpc-ecosystem/grpc-opentracing v0.0.0-20180507213350-8e809c8a8645 // indirect
 	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
+	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
+	github.com/jackc/pgconn v1.11.0 // indirect
+	github.com/jackc/pgerrcode v0.0.0-20201024163028-a0d42d470451 // indirect
+	github.com/jackc/pgio v1.0.0 // indirect
+	github.com/jackc/pgpassfile v1.0.0 // indirect
+	github.com/jackc/pgproto3/v2 v2.2.0 // indirect
+	github.com/jackc/pgservicefile v0.0.0-20200714003250-2b9c44734f2b // indirect
+	github.com/jackc/pgtype v1.10.0 // indirect
+	github.com/jackc/pgx/v4 v4.15.0 // indirect
+	github.com/jackc/puddle v1.2.1 // indirect
 	github.com/jonboulle/clockwork v0.2.2 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
+	github.com/lib/pq v1.10.2 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.8 // indirect
@@ -189,30 +202,30 @@ require (
 
 replace (
 	github.com/kcp-dev/kcp/pkg/apis => ./pkg/apis
-	k8s.io/api => github.com/kcp-dev/kubernetes/staging/src/k8s.io/api v0.0.0-20221122152309-4dfa5d423451
-	k8s.io/apiextensions-apiserver => github.com/kcp-dev/kubernetes/staging/src/k8s.io/apiextensions-apiserver v0.0.0-20221122152309-4dfa5d423451
-	k8s.io/apimachinery => github.com/kcp-dev/kubernetes/staging/src/k8s.io/apimachinery v0.0.0-20221122152309-4dfa5d423451
-	k8s.io/apiserver => github.com/kcp-dev/kubernetes/staging/src/k8s.io/apiserver v0.0.0-20221122152309-4dfa5d423451
-	k8s.io/cli-runtime => github.com/kcp-dev/kubernetes/staging/src/k8s.io/cli-runtime v0.0.0-20221122152309-4dfa5d423451
-	k8s.io/client-go => github.com/kcp-dev/kubernetes/staging/src/k8s.io/client-go v0.0.0-20221122152309-4dfa5d423451
-	k8s.io/cloud-provider => github.com/kcp-dev/kubernetes/staging/src/k8s.io/cloud-provider v0.0.0-20221122152309-4dfa5d423451
-	k8s.io/cluster-bootstrap => github.com/kcp-dev/kubernetes/staging/src/k8s.io/cluster-bootstrap v0.0.0-20221122152309-4dfa5d423451
-	k8s.io/code-generator => github.com/kcp-dev/kubernetes/staging/src/k8s.io/code-generator v0.0.0-20221122152309-4dfa5d423451
-	k8s.io/component-base => github.com/kcp-dev/kubernetes/staging/src/k8s.io/component-base v0.0.0-20221122152309-4dfa5d423451
-	k8s.io/component-helpers => github.com/kcp-dev/kubernetes/staging/src/k8s.io/component-helpers v0.0.0-20221122152309-4dfa5d423451
-	k8s.io/controller-manager => github.com/kcp-dev/kubernetes/staging/src/k8s.io/controller-manager v0.0.0-20221122152309-4dfa5d423451
-	k8s.io/cri-api => github.com/kcp-dev/kubernetes/staging/src/k8s.io/cri-api v0.0.0-20221122152309-4dfa5d423451
-	k8s.io/csi-translation-lib => github.com/kcp-dev/kubernetes/staging/src/k8s.io/csi-translation-lib v0.0.0-20221122152309-4dfa5d423451
-	k8s.io/kube-aggregator => github.com/kcp-dev/kubernetes/staging/src/k8s.io/kube-aggregator v0.0.0-20221122152309-4dfa5d423451
-	k8s.io/kube-controller-manager => github.com/kcp-dev/kubernetes/staging/src/k8s.io/kube-controller-manager v0.0.0-20221122152309-4dfa5d423451
-	k8s.io/kube-proxy => github.com/kcp-dev/kubernetes/staging/src/k8s.io/kube-proxy v0.0.0-20221122152309-4dfa5d423451
-	k8s.io/kube-scheduler => github.com/kcp-dev/kubernetes/staging/src/k8s.io/kube-scheduler v0.0.0-20221122152309-4dfa5d423451
-	k8s.io/kubectl => github.com/kcp-dev/kubernetes/staging/src/k8s.io/kubectl v0.0.0-20221122152309-4dfa5d423451
-	k8s.io/kubelet => github.com/kcp-dev/kubernetes/staging/src/k8s.io/kubelet v0.0.0-20221122152309-4dfa5d423451
-	k8s.io/kubernetes => github.com/kcp-dev/kubernetes v0.0.0-20221122152309-4dfa5d423451
-	k8s.io/legacy-cloud-providers => github.com/kcp-dev/kubernetes/staging/src/k8s.io/legacy-cloud-providers v0.0.0-20221122152309-4dfa5d423451
-	k8s.io/metrics => github.com/kcp-dev/kubernetes/staging/src/k8s.io/metrics v0.0.0-20221122152309-4dfa5d423451
-	k8s.io/mount-utils => github.com/kcp-dev/kubernetes/staging/src/k8s.io/mount-utils v0.0.0-20221122152309-4dfa5d423451
-	k8s.io/pod-security-admission => github.com/kcp-dev/kubernetes/staging/src/k8s.io/pod-security-admission v0.0.0-20221122152309-4dfa5d423451
-	k8s.io/sample-apiserver => github.com/kcp-dev/kubernetes/staging/src/k8s.io/sample-apiserver v0.0.0-20221122152309-4dfa5d423451
+	k8s.io/api => github.com/ezrasilvera/kubernetes/staging/src/k8s.io/api v0.0.0-20221129121106-634619c17d07
+	k8s.io/apiextensions-apiserver => github.com/ezrasilvera/kubernetes/staging/src/k8s.io/apiextensions-apiserver v0.0.0-20221129121106-634619c17d07
+	k8s.io/apimachinery => github.com/ezrasilvera/kubernetes/staging/src/k8s.io/apimachinery v0.0.0-20221129121106-634619c17d07
+	k8s.io/apiserver => github.com/ezrasilvera/kubernetes/staging/src/k8s.io/apiserver v0.0.0-20221129121106-634619c17d07
+	k8s.io/cli-runtime => github.com/ezrasilvera/kubernetes/staging/src/k8s.io/cli-runtime v0.0.0-20221129121106-634619c17d07
+	k8s.io/client-go => github.com/ezrasilvera/kubernetes/staging/src/k8s.io/client-go v0.0.0-20221129121106-634619c17d07
+	k8s.io/cloud-provider => github.com/ezrasilvera/kubernetes/staging/src/k8s.io/cloud-provider v0.0.0-20221129121106-634619c17d07
+	k8s.io/cluster-bootstrap => github.com/ezrasilvera/kubernetes/staging/src/k8s.io/cluster-bootstrap v0.0.0-20221129121106-634619c17d07
+	k8s.io/code-generator => github.com/ezrasilvera/kubernetes/staging/src/k8s.io/code-generator v0.0.0-20221129121106-634619c17d07
+	k8s.io/component-base => github.com/ezrasilvera/kubernetes/staging/src/k8s.io/component-base v0.0.0-20221129121106-634619c17d07
+	k8s.io/component-helpers => github.com/ezrasilvera/kubernetes/staging/src/k8s.io/component-helpers v0.0.0-20221129121106-634619c17d07
+	k8s.io/controller-manager => github.com/ezrasilvera/kubernetes/staging/src/k8s.io/controller-manager v0.0.0-20221129121106-634619c17d07
+	k8s.io/cri-api => github.com/ezrasilvera/kubernetes/staging/src/k8s.io/cri-api v0.0.0-20221129121106-634619c17d07
+	k8s.io/csi-translation-lib => github.com/ezrasilvera/kubernetes/staging/src/k8s.io/csi-translation-lib v0.0.0-20221129121106-634619c17d07
+	k8s.io/kube-aggregator => github.com/ezrasilvera/kubernetes/staging/src/k8s.io/kube-aggregator v0.0.0-20221129121106-634619c17d07
+	k8s.io/kube-controller-manager => github.com/ezrasilvera/kubernetes/staging/src/k8s.io/kube-controller-manager v0.0.0-20221129121106-634619c17d07
+	k8s.io/kube-proxy => github.com/ezrasilvera/kubernetes/staging/src/k8s.io/kube-proxy v0.0.0-20221129121106-634619c17d07
+	k8s.io/kube-scheduler => github.com/ezrasilvera/kubernetes/staging/src/k8s.io/kube-scheduler v0.0.0-20221129121106-634619c17d07
+	k8s.io/kubectl => github.com/ezrasilvera/kubernetes/staging/src/k8s.io/kubectl v0.0.0-20221129121106-634619c17d07
+	k8s.io/kubelet => github.com/ezrasilvera/kubernetes/staging/src/k8s.io/kubelet v0.0.0-20221129121106-634619c17d07
+	k8s.io/kubernetes => github.com/ezrasilvera/kubernetes v1.25.0-alpha.0.0.20221129121106-634619c17d07
+	k8s.io/legacy-cloud-providers => github.com/ezrasilvera/kubernetes/staging/src/k8s.io/legacy-cloud-providers v0.0.0-20221129121106-634619c17d07
+	k8s.io/metrics => github.com/ezrasilvera/kubernetes/staging/src/k8s.io/metrics v0.0.0-20221129121106-634619c17d07
+	k8s.io/mount-utils => github.com/ezrasilvera/kubernetes/staging/src/k8s.io/mount-utils v0.0.0-20221129121106-634619c17d07
+	k8s.io/pod-security-admission => github.com/ezrasilvera/kubernetes/staging/src/k8s.io/pod-security-admission v0.0.0-20221129121106-634619c17d07
+	k8s.io/sample-apiserver => github.com/ezrasilvera/kubernetes/staging/src/k8s.io/sample-apiserver v0.0.0-20221129121106-634619c17d07
 )
