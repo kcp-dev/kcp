@@ -53,6 +53,7 @@ var rootComputeResourceSchema = sets.NewString(
 	"deployments.apps",
 	"services.core",
 	"ingresses.networking.k8s.io",
+	"pods.core",
 )
 
 type reconciler interface {

@@ -33,6 +33,8 @@ var KubeComputeFS embed.FS
 // Bootstrap creates resources in this package by continuously retrying the list.
 // This is blocking, i.e. it only returns (with error) when the context is closed or with nil when
 // the bootstrapping is successfully completed.
+// Note: Any change to the list of resources in the kubernetes apiexport has to be kept consistent with:
+//   - pkg/reconciler/workload/apiexport/workload_apiexport_reconcile.go
 func Bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface, batteriesIncluded sets.String) error {
 	return confighelpers.Bootstrap(ctx, discoveryClient, dynamicClient, batteriesIncluded, KubeComputeFS)
 }
