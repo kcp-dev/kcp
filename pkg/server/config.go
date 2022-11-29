@@ -367,6 +367,15 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		apiHandler = WithRequestIdentity(apiHandler)
 		apiHandler = authorization.WithDeepSubjectAccessReview(apiHandler)
 
+		if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.SyncerTunnel) {
+			apiHandler = tunneler.WithSyncerTunnel(apiHandler)
+			apiHandler = WithPodSubresourceProxying(
+				apiHandler,
+				c.DynamicClusterClient,
+				c.KcpSharedInformerFactory,
+			)
+		}
+
 		// The following ensures that only the default main api handler chain executes authorizers which log audit messages.
 		// All other invocations of the same authorizer chain still work but do not produce audit log entries.
 		// This compromises audit log size and information overflow vs. having audit reasons for the main api handler only.
@@ -424,10 +433,6 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		mux.Handle("/", apiHandler)
 		*c.preHandlerChainMux = append(*c.preHandlerChainMux, mux)
 		apiHandler = mux
-
-		if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.SyncerTunnel) {
-			apiHandler = tunneler.WithSyncerTunnel(apiHandler)
-		}
 
 		apiHandler = kcpfilters.WithAuditEventClusterAnnotation(apiHandler)
 		apiHandler = WithAuditAnnotation(apiHandler) // Must run before any audit annotation is made
