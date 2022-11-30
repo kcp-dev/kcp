@@ -25,17 +25,19 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/kcp-dev/kcp/pkg/admission/helpers"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
+	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 )
 
 func updateAttr(obj, old *tenancyv1alpha1.ThisWorkspace) admission.Attributes {
@@ -368,7 +370,8 @@ func TestValidate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			o := &thisWorkspace{
-				Handler: admission.NewHandler(admission.Create, admission.Update, admission.Delete),
+				Handler:             admission.NewHandler(admission.Create, admission.Update, admission.Delete),
+				thisWorkspaceLister: tenancyv1alpha1listers.NewThisWorkspaceClusterLister(cache.NewIndexer(kcpcache.MetaClusterNamespaceKeyFunc, cache.Indexers{})),
 			}
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: tt.path})
 			ctx = tenancy.WithCanonicalPath(ctx, tt.path)
@@ -400,7 +403,7 @@ func (b thisWsBuilder) withType(cluster tenancy.Cluster, name string) thisWsBuil
 	if b.Annotations == nil {
 		b.Annotations = map[string]string{}
 	}
-	b.Annotations[tenancyv1beta1.WorkspaceTypeThisWorkspaceAnnotationKey] = cluster.LogicalCluster().Join(name).String()
+	b.Annotations[tenancyv1alpha1.ThisWorkspaceTypeAnnotationKey] = cluster.LogicalCluster().Join(name).String()
 	return b
 }
 
