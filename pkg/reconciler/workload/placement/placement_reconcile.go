@@ -35,7 +35,7 @@ import (
 type reconcileStatus int
 
 const (
-	reconcileStatusStop reconcileStatus = iota
+	reconcileStatusStopAndRequeue reconcileStatus = iota
 	reconcileStatusContinue
 )
 
@@ -43,7 +43,7 @@ type reconciler interface {
 	reconcile(ctx context.Context, placement *schedulingv1alpha1.Placement) (reconcileStatus, *schedulingv1alpha1.Placement, error)
 }
 
-func (c *controller) reconcile(ctx context.Context, placement *schedulingv1alpha1.Placement) error {
+func (c *controller) reconcile(ctx context.Context, placement *schedulingv1alpha1.Placement) (bool, error) {
 	reconcilers := []reconciler{
 		&placementSchedulingReconciler{
 			listSyncTarget:          c.listSyncTarget,
@@ -55,6 +55,7 @@ func (c *controller) reconcile(ctx context.Context, placement *schedulingv1alpha
 
 	var errs []error
 
+	requeue := false
 	for _, r := range reconcilers {
 		var err error
 		var status reconcileStatus
@@ -62,12 +63,13 @@ func (c *controller) reconcile(ctx context.Context, placement *schedulingv1alpha
 		if err != nil {
 			errs = append(errs, err)
 		}
-		if status == reconcileStatusStop {
+		if status == reconcileStatusStopAndRequeue {
+			requeue = true
 			break
 		}
 	}
 
-	return utilserrors.NewAggregate(errs)
+	return requeue, utilserrors.NewAggregate(errs)
 }
 
 func (c *controller) listSyncTarget(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error) {

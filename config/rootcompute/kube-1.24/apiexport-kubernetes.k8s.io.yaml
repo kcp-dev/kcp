@@ -4,7 +4,7 @@ metadata:
   annotations:
     bootstrap.kcp.dev/create-only: "true"
     bootstrap.kcp.dev/battery: root-compute-workspace
-    extra.apis.kcp.dev/compute.workload.kcp.dev: ""
+    extra.apis.kcp.dev/compute.workload.kcp.dev: "true"
   name: kubernetes
 spec:
   latestResourceSchemas:

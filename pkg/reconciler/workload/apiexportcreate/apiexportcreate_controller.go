@@ -235,7 +235,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 				Name: reconcilerapiexport.TemporaryComputeServiceExportName,
 				Annotations: map[string]string{
 					logicalcluster.AnnotationKey:                   clusterName.String(),
-					workloadv1alpha1.ComputeAPIExportAnnotationKey: "",
+					workloadv1alpha1.ComputeAPIExportAnnotationKey: "true",
 				},
 			},
 			Spec: apisv1alpha1.APIExportSpec{},
@@ -307,7 +307,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 			Name: reconcilerapiexport.TemporaryComputeServiceExportName,
 			Annotations: map[string]string{
 				logicalcluster.AnnotationKey:                   clusterName.String(),
-				workloadv1alpha1.ComputeAPIExportAnnotationKey: "",
+				workloadv1alpha1.ComputeAPIExportAnnotationKey: "true",
 			},
 		},
 		Spec: apisv1alpha1.APIBindingSpec{

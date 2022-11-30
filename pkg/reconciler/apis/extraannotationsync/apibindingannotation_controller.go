@@ -86,7 +86,10 @@ func NewController(
 	return c, nil
 }
 
-// controller reconciles sync workload.kcp.dev/compute label from APIExports to APIBindings
+// controller continuously sync annotations with the prefix extra.api.kcp.dev from an APIExport to
+// all APIBindings that bind to the APIExport. If the annotation is added to the APIExport, the controller ensures
+// the existence of the annotation on all related APIBindings. If the annotaion is removed from the APIExport, the
+// controller ensures the annotation is removed from all related APIBindings.
 type controller struct {
 	queue workqueue.RateLimitingInterface
 

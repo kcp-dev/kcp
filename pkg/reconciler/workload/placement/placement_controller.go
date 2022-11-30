@@ -292,27 +292,31 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	// other workers.
 	defer c.queue.Done(key)
 
-	if err := c.process(ctx, key); err != nil {
+	if requeue, err := c.process(ctx, key); err != nil {
 		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", ControllerName, key, err))
 		c.queue.AddRateLimited(key)
+		return true
+	} else if requeue {
+		// only requeue if we didn't error, but we still want to requeue
+		c.queue.Add(key)
 		return true
 	}
 	c.queue.Forget(key)
 	return true
 }
 
-func (c *controller) process(ctx context.Context, key string) error {
+func (c *controller) process(ctx context.Context, key string) (bool, error) {
 	clusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(err)
-		return nil
+		return false, nil
 	}
 	obj, err := c.placementLister.Cluster(clusterName).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return nil // object deleted before we handled it
+			return false, nil // object deleted before we handled it
 		}
-		return err
+		return false, err
 	}
 	old := obj
 	obj = obj.DeepCopy()
@@ -321,7 +325,8 @@ func (c *controller) process(ctx context.Context, key string) error {
 	ctx = klog.NewContext(ctx, logger)
 
 	var errs []error
-	if err := c.reconcile(ctx, obj); err != nil {
+	requeue, err := c.reconcile(ctx, obj)
+	if err != nil {
 		errs = append(errs, err)
 	}
 
@@ -331,5 +336,5 @@ func (c *controller) process(ctx context.Context, key string) error {
 		errs = append(errs, err)
 	}
 
-	return utilerrors.NewAggregate(errs)
+	return requeue, utilerrors.NewAggregate(errs)
 }
