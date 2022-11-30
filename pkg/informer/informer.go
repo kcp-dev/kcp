@@ -76,6 +76,7 @@ type DynamicDiscoverySharedInformerFactory struct {
 	updateCh chan struct{}
 
 	informersLock    sync.RWMutex
+	factory          kcpdynamicinformer.DynamicSharedInformerFactory
 	informers        map[schema.GroupVersionResource]kcpkubernetesinformers.GenericClusterInformer
 	startedInformers map[schema.GroupVersionResource]bool
 	informerStops    map[schema.GroupVersionResource]chan struct{}
@@ -113,6 +114,7 @@ func NewDynamicDiscoverySharedInformerFactory(
 		// Use a buffered channel of size 1 to allow enqueuing 1 update notification
 		updateCh: make(chan struct{}, 1),
 
+		factory:          kcpdynamicinformer.NewDynamicSharedInformerFactory(metadataClusterClient, resyncPeriod),
 		informers:        make(map[schema.GroupVersionResource]kcpkubernetesinformers.GenericClusterInformer),
 		startedInformers: make(map[schema.GroupVersionResource]bool),
 		informerStops:    make(map[schema.GroupVersionResource]chan struct{}),
@@ -250,10 +252,7 @@ func (d *DynamicDiscoverySharedInformerFactory) informerForResourceLockHeld(gvr 
 
 	klog.V(2).Infof("Adding dynamic informer for %q", gvr)
 
-	indexers := cache.Indexers{
-		kcpcache.ClusterIndexName:             kcpcache.ClusterIndexFunc,
-		kcpcache.ClusterAndNamespaceIndexName: kcpcache.ClusterAndNamespaceIndexFunc,
-	}
+	indexersToAdd := cache.Indexers{}
 
 	for k, v := range d.indexers {
 		if k == cache.NamespaceIndex {
@@ -261,17 +260,12 @@ func (d *DynamicDiscoverySharedInformerFactory) informerForResourceLockHeld(gvr 
 			continue
 		}
 
-		indexers[k] = v
+		indexersToAdd[k] = v
 	}
 
 	// Definitely need to create it
-	inf = kcpdynamicinformer.NewFilteredDynamicInformer(
-		d.dynamicClient,
-		gvr,
-		resyncPeriod,
-		indexers,
-		nil,
-	)
+	inf = d.factory.ForResource(gvr)
+	indexers.AddIfNotPresentOrDie(inf.Informer().GetIndexer(), indexersToAdd)
 
 	inf.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: d.filterFunc,

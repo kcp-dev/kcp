@@ -88,12 +88,10 @@ func NewServer(c CompletedConfig) (*Server, error) {
 		s.MiniAggregator.GenericAPIServer.LoopbackClientConfig,
 		func(obj interface{}) bool { return true },
 		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
-		indexers.AppendOrDie(
-			cache.Indexers{
-				indexers.BySyncerFinalizerKey:           indexers.IndexBySyncerFinalizerKey,
-				indexers.ByClusterResourceStateLabelKey: indexers.IndexByClusterResourceStateLabelKey,
-			},
-		),
+		cache.Indexers{
+			indexers.BySyncerFinalizerKey:           indexers.IndexBySyncerFinalizerKey,
+			indexers.ByClusterResourceStateLabelKey: indexers.IndexByClusterResourceStateLabelKey,
+		},
 	)
 	if err != nil {
 		return nil, err
