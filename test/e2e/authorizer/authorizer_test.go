@@ -67,7 +67,7 @@ func TestAuthorizer(t *testing.T) {
 	require.NoError(t, err)
 
 	org1 := framework.NewOrganizationFixture(t, server)
-	org2 := framework.NewOrganizationFixture(t, server, framework.WithRequiredGroups("empty-group", "system:kcp:admin"))
+	org2 := framework.NewOrganizationFixture(t, server, framework.WithRequiredGroups("empty-group"))
 
 	framework.NewWorkspaceFixture(t, server, org1, framework.WithName("workspace1"))
 	framework.NewWorkspaceFixture(t, server, org1, framework.WithName("workspace2"))
