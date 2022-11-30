@@ -83,7 +83,9 @@ func TestSchedulingOnSupportedAPI(t *testing.T) {
 		}
 
 		if len(placement.Annotations) == 0 || placement.Annotations[workloadv1alpha1.InternalSyncTargetPlacementAnnotationKey] != scheduledSyncTargetKey {
-			return false, fmt.Sprintf("Internal synctarget annotation for placement is not correct: %v", placement.Annotations)
+			return false, fmt.Sprintf(
+				"Internal synctarget annotation for placement should be %s since it is the only SyncTarget with compatible API, but got %v",
+				scheduledSyncTargetKey, placement.Annotations)
 		}
 
 		condition := conditions.Get(placement, schedulingv1alpha1.PlacementScheduled)

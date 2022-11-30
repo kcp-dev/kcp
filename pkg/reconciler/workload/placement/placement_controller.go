@@ -27,6 +27,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -313,18 +314,22 @@ func (c *controller) process(ctx context.Context, key string) error {
 		}
 		return err
 	}
-	oldResource := &Resource{ObjectMeta: obj.ObjectMeta, Spec: &obj.Spec, Status: &obj.Status}
+	old := obj
 	obj = obj.DeepCopy()
 
 	logger := logging.WithObject(klog.FromContext(ctx), obj)
 	ctx = klog.NewContext(ctx, logger)
 
-	reconcileErr := c.reconcile(ctx, obj)
-	newResource := &Resource{ObjectMeta: obj.ObjectMeta, Spec: &obj.Spec, Status: &obj.Status}
-
-	if err := c.commit(ctx, oldResource, newResource); err != nil {
-		return err
+	var errs []error
+	if err := c.reconcile(ctx, obj); err != nil {
+		errs = append(errs, err)
 	}
 
-	return reconcileErr
+	oldResource := &Resource{ObjectMeta: old.ObjectMeta, Spec: &old.Spec, Status: &old.Status}
+	newResource := &Resource{ObjectMeta: obj.ObjectMeta, Spec: &obj.Spec, Status: &obj.Status}
+	if err := c.commit(ctx, oldResource, newResource); err != nil {
+		errs = append(errs, err)
+	}
+
+	return utilerrors.NewAggregate(errs)
 }

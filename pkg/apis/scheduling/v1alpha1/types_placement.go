@@ -154,10 +154,10 @@ const (
 	// PlacementScheduled is a condition type for placement representing that a scheduling decision is
 	// made. The placement is NOT Scheduled when no valid schedule decision is available or an error
 	// occurs.
-	PlacementScheduled = "Scheduled"
+	PlacementScheduled conditionsv1alpha1.ConditionType = "Scheduled"
 
-	// ScheduleErrorReason is a reason for PlacementScheduled condition that an error happens during scheduling.
-	ScheduleErrorReason = "ScheduleError"
+	// ScheduleLocationNotFound is a reason for PlacementScheduled condition that location is not available for scheduling.
+	ScheduleLocationNotFound = "ScheduleLocationNotFound"
 
 	// ScheduleNoValidTargetReason is a reason for PlacementScheduled condition that no valid target is scheduled
 	// for this placement.

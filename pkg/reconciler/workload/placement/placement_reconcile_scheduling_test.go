@@ -57,8 +57,8 @@ func TestSchedulingReconcile(t *testing.T) {
 			name:            "no location",
 			placement:       newPlacement("test", "test-location", ""),
 			wantStatus:      corev1.ConditionFalse,
-			wantStausReason: schedulingv1alpha1.ScheduleNoValidTargetReason,
-			wantMessage:     "No valid target with reason: Selected Location does not exist",
+			wantStausReason: schedulingv1alpha1.ScheduleLocationNotFound,
+			wantMessage:     "Selected location is not found",
 		},
 		{
 			name:            "no synctarget",
@@ -66,7 +66,7 @@ func TestSchedulingReconcile(t *testing.T) {
 			location:        newLocation("test-location"),
 			wantStatus:      corev1.ConditionFalse,
 			wantStausReason: schedulingv1alpha1.ScheduleNoValidTargetReason,
-			wantMessage:     "No valid target with reason: No SyncTarget in the selected Location",
+			wantMessage:     "No SyncTarget in the selected Location",
 		},
 		{
 			name:        "schedule one synctarget",
@@ -98,7 +98,7 @@ func TestSchedulingReconcile(t *testing.T) {
 			expectedAnnotations: map[string]string{},
 			wantStatus:          corev1.ConditionFalse,
 			wantStausReason:     schedulingv1alpha1.ScheduleNoValidTargetReason,
-			wantMessage:         "No valid target with reason: No SyncTarget is ready or non evicting",
+			wantMessage:         "No SyncTarget is ready or non evicting",
 		},
 		{
 			name:        "reschedule synctarget",
@@ -142,7 +142,7 @@ func TestSchedulingReconcile(t *testing.T) {
 			wantPatch:       false,
 			wantStatus:      corev1.ConditionFalse,
 			wantStausReason: schedulingv1alpha1.ScheduleNoValidTargetReason,
-			wantMessage:     "No valid target with reason: SyncTarget c1 does not support APIBinding kubernetes, SyncTarget c2 does not support APIBinding kubernetes",
+			wantMessage:     "SyncTarget c1 does not support APIBinding kubernetes, SyncTarget c2 does not support APIBinding kubernetes",
 		},
 	}
 
