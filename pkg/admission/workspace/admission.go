@@ -24,6 +24,7 @@ import (
 	"io"
 
 	authenticationv1 "k8s.io/api/authentication/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/validation"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -31,9 +32,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/admission"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
+	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 
+	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
+	"github.com/kcp-dev/kcp/pkg/authorization"
+	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 )
 
 // Validate ClusterWorkspace creation and updates for
@@ -60,15 +66,24 @@ func Register(plugins *admission.Plugins) {
 
 type workspace struct {
 	*admission.Handler
+
+	thisWorkspaceLister tenancyv1alpha1listers.ThisWorkspaceClusterLister
 }
 
 // Ensure that the required admission interfaces are implemented.
 var _ admission.MutationInterface = &workspace{}
 var _ admission.ValidationInterface = &workspace{}
+var _ = admission.InitializationValidator(&workspace{})
+var _ = kcpinitializers.WantsKcpInformers(&workspace{})
 
 // Admit ensures that
 // - the user is recorded in annotations on create
 func (o *workspace) Admit(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) error {
+	clusterName, err := genericapirequest.ClusterNameFrom(ctx)
+	if err != nil {
+		return apierrors.NewInternalError(err)
+	}
+
 	if a.GetResource().GroupResource() != tenancyv1beta1.Resource("workspaces") {
 		return nil
 	}
@@ -83,7 +98,10 @@ func (o *workspace) Admit(ctx context.Context, a admission.Attributes, _ admissi
 	}
 
 	if a.GetOperation() == admission.Create {
-		if isSystemMaster := sets.NewString(a.GetUserInfo().GetGroups()...).Has(kuser.SystemPrivilegedGroup); !isSystemMaster {
+		isSystemMaster := sets.NewString(a.GetUserInfo().GetGroups()...).Has(kuser.SystemPrivilegedGroup)
+
+		// create owner anntoation
+		if !isSystemMaster {
 			userInfo, err := WorkspaceOwnerAnnotationValue(a.GetUserInfo())
 			if err != nil {
 				return admission.NewForbidden(a, err)
@@ -92,6 +110,22 @@ func (o *workspace) Admit(ctx context.Context, a admission.Attributes, _ admissi
 				cw.Annotations = map[string]string{}
 			}
 			cw.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey] = userInfo
+		}
+
+		// copy required groups from ThisWorkspace to new child-Worksapce
+		if _, found := cw.Annotations[authorization.RequiredGroupsAnnotationKey]; !found || !isSystemMaster {
+			this, err := o.thisWorkspaceLister.Cluster(clusterName).Get(tenancyv1alpha1.ThisWorkspaceName)
+			if err != nil {
+				return admission.NewForbidden(a, err)
+			}
+			if thisValue, found := this.Annotations[authorization.RequiredGroupsAnnotationKey]; found {
+				if cw.Annotations == nil {
+					cw.Annotations = map[string]string{}
+				}
+				cw.Annotations[authorization.RequiredGroupsAnnotationKey] = thisValue
+			} else {
+				delete(cw.Annotations, authorization.RequiredGroupsAnnotationKey)
+			}
 		}
 	}
 
@@ -104,6 +138,11 @@ func (o *workspace) Admit(ctx context.Context, a admission.Attributes, _ admissi
 // - has valid initializers when transitioning to initializing
 // - the user is recorded in annotations on create
 func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
+	clusterName, err := genericapirequest.ClusterNameFrom(ctx)
+	if err != nil {
+		return apierrors.NewInternalError(err)
+	}
+
 	if a.GetResource().GroupResource() != tenancyv1beta1.Resource("workspaces") {
 		return nil
 	}
@@ -148,7 +187,9 @@ func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admi
 			}
 		}
 	case admission.Create:
-		if isSystemMaster := sets.NewString(a.GetUserInfo().GetGroups()...).Has(kuser.SystemPrivilegedGroup); !isSystemMaster {
+		isSystemMaster := sets.NewString(a.GetUserInfo().GetGroups()...).Has(kuser.SystemPrivilegedGroup)
+
+		if !isSystemMaster {
 			userInfo, err := WorkspaceOwnerAnnotationValue(a.GetUserInfo())
 			if err != nil {
 				return admission.NewForbidden(a, err)
@@ -160,9 +201,36 @@ func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admi
 				return admission.NewForbidden(a, fmt.Errorf("expected user annotation %s=%s", tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey, userInfo))
 			}
 		}
+
+		// check that required groups match with ThisWorkspace
+		if !isSystemMaster {
+			this, err := o.thisWorkspaceLister.Cluster(clusterName).Get(tenancyv1alpha1.ThisWorkspaceName)
+			if err != nil {
+				return admission.NewForbidden(a, err)
+			}
+			expected := this.Annotations[authorization.RequiredGroupsAnnotationKey]
+			if cw.Annotations[authorization.RequiredGroupsAnnotationKey] != expected {
+				return admission.NewForbidden(a, fmt.Errorf("missing required groups annotation %s=%s", authorization.RequiredGroupsAnnotationKey, expected))
+			}
+		}
 	}
 
 	return nil
+}
+
+func (o *workspace) ValidateInitialization() error {
+	if o.thisWorkspaceLister == nil {
+		return fmt.Errorf(PluginName + " plugin needs an ThisWorkspace lister")
+	}
+	return nil
+}
+
+func (o *workspace) SetKcpInformers(informers kcpinformers.SharedInformerFactory) {
+	thisWorkspacesReady := informers.Tenancy().V1alpha1().ThisWorkspaces().Informer().HasSynced
+	o.SetReadyFunc(func() bool {
+		return thisWorkspacesReady()
+	})
+	o.thisWorkspaceLister = informers.Tenancy().V1alpha1().ThisWorkspaces().Lister()
 }
 
 // updateUnstructured updates the given unstructured object to match the given cluster workspace.
