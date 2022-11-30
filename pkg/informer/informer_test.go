@@ -113,7 +113,7 @@ func TestBuiltInInformableTypes(t *testing.T) {
 	}
 
 	builtInTypes := map[schema.GroupVersionResource]struct{}{}
-	for gvr := range builtInInformableTypes() {
+	for gvr := range builtInInformableTypes {
 		builtInTypes[gvr] = struct{}{}
 	}
 
@@ -121,7 +121,7 @@ func TestBuiltInInformableTypes(t *testing.T) {
 }
 
 func TestGVRsToDiscoveryData(t *testing.T) {
-	input := map[schema.GroupVersionResource]gvrPartialMetadata{
+	input := map[schema.GroupVersionResource]GVRPartialMetadata{
 		{Group: "g1", Version: "v1", Resource: "g1-v1-r1"}: {
 			Scope: apiextensionsv1.ClusterScoped,
 			Names: apiextensionsv1.CustomResourceDefinitionNames{

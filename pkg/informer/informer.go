@@ -28,6 +28,7 @@ import (
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpdynamicinformer "github.com/kcp-dev/client-go/dynamic/dynamicinformer"
+	kcpinformers "github.com/kcp-dev/client-go/informers"
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	"github.com/kcp-dev/logicalcluster/v3"
 
@@ -37,17 +38,21 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/kcp/pkg/indexers"
+	indexerspkg "github.com/kcp-dev/kcp/pkg/indexers"
 	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
 	"github.com/kcp-dev/kcp/pkg/projection"
 )
@@ -58,14 +63,26 @@ const (
 	byGroupVersionResourceIndex = "byGroupVersionResource"
 )
 
-// DynamicDiscoverySharedInformerFactory is a SharedInformerFactory that
+// GVRSource is a source fo information about available GVRs,
+// and provides a way to register for changes in the available GVRs (addition of removal)
+// so that the list of informers can be updated.
+type GVRSource interface {
+	ListGVRs() []schema.GroupVersionResource
+	GetGVRPartialMetadata(gvr schema.GroupVersionResource) (*GVRPartialMetadata, error)
+	Synced() bool
+	Register(notifyUpdateNeeded func())
+	FilterBuiltinGVRs(gvr schema.GroupVersionResource) bool
+}
+
+// genericDynamicDiscoverySharedInformerFactory is a SharedInformerFactory that
 // dynamically discovers new types and begins informing on them.
-type DynamicDiscoverySharedInformerFactory struct {
-	dynamicClient     kcpdynamic.ClusterInterface
-	filterFunc        func(interface{}) bool
-	indexers          cache.Indexers
-	crdIndexer        cache.Indexer
-	crdInformerSynced cache.InformerSynced
+// It is a generic implementation for both logical-cluster-aware and
+// logical-cluster-unaware (== single cluster, standard kube) informers.
+type genericDynamicDiscoverySharedInformerFactory[InformerType sharedIndexInformerBase, ListerType genericListerBase, GenericInformerType genericInformerBase[InformerType, ListerType]] struct {
+	filterFunc  func(interface{}) bool
+	indexers    cache.Indexers
+	gvrSource   GVRSource
+	newInformer func(gvr schema.GroupVersionResource, resyncPeriod time.Duration, indexers cache.Indexers) GenericInformerType
 
 	// handlersLock protects multiple writers racing to update handlers.
 	handlersLock sync.Mutex
@@ -76,7 +93,7 @@ type DynamicDiscoverySharedInformerFactory struct {
 	updateCh chan struct{}
 
 	informersLock    sync.RWMutex
-	informers        map[schema.GroupVersionResource]kcpkubernetesinformers.GenericClusterInformer
+	informers        map[schema.GroupVersionResource]GenericInformerType
 	startedInformers map[schema.GroupVersionResource]bool
 	informerStops    map[schema.GroupVersionResource]chan struct{}
 	discoveryData    discoveryData
@@ -87,44 +104,17 @@ type DynamicDiscoverySharedInformerFactory struct {
 	subscribers     map[string]chan<- struct{}
 }
 
-// NewDynamicDiscoverySharedInformerFactory returns a factory for shared
-// informers that discovers new types and informs on updates to resources of
+// NewDynamicDiscoverySharedInformerFactory returns a factory for cluster-aware
+// shared informers that discovers new types and informs on updates to resources of
 // those types.
+// It retrieves GVR-related information from CRD informers.
 func NewDynamicDiscoverySharedInformerFactory(
 	cfg *rest.Config,
 	filterFunc func(obj interface{}) bool,
 	crdInformer kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer,
 	indexers cache.Indexers,
 ) (*DynamicDiscoverySharedInformerFactory, error) {
-	cfg = rest.AddUserAgent(rest.CopyConfig(cfg), "kcp-partial-metadata-informers")
-
-	metadataClusterClient, err := metadataclient.NewDynamicMetadataClusterClientForConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	f := &DynamicDiscoverySharedInformerFactory{
-		dynamicClient:     metadataClusterClient,
-		filterFunc:        filterFunc,
-		indexers:          indexers,
-		crdIndexer:        crdInformer.Informer().GetIndexer(),
-		crdInformerSynced: crdInformer.Informer().HasSynced,
-
-		// Use a buffered channel of size 1 to allow enqueuing 1 update notification
-		updateCh: make(chan struct{}, 1),
-
-		informers:        make(map[schema.GroupVersionResource]kcpkubernetesinformers.GenericClusterInformer),
-		startedInformers: make(map[schema.GroupVersionResource]bool),
-		informerStops:    make(map[schema.GroupVersionResource]chan struct{}),
-
-		subscribers: make(map[string]chan<- struct{}),
-	}
-
-	f.restMapper = newRESTMapper(func() (meta.RESTMapper, error) {
-		return restmapper.NewDiscoveryRESTMapper(f.discoveryData.apiGroupResources), nil
-	})
-
-	f.handlers.Store([]GVREventHandler{})
+	crdIndexer := crdInformer.Informer().GetIndexer()
 
 	// Add an index function that indexes a CRD by its group/version/resource.
 	if err := crdInformer.Informer().AddIndexers(cache.Indexers{
@@ -132,6 +122,69 @@ func NewDynamicDiscoverySharedInformerFactory(
 	}); err != nil {
 		return nil, err
 	}
+
+	cfg = rest.AddUserAgent(rest.CopyConfig(cfg), "kcp-partial-metadata-informers")
+	metadataClusterClient, err := metadataclient.NewDynamicMetadataClusterClientForConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewDelegatingDynamicDiscoverySharedInformerFactory(metadataClusterClient, filterFunc, indexers, &crdGVRSource{
+		crdInformer: crdInformer,
+		crdIndexer:  crdIndexer,
+	}, nil)
+}
+
+// NewDelegatingDynamicDiscoverySharedInformerFactory returns a factory for cluster-aware
+// shared informers that discovers new types and informs on updates to resources of
+// those types.
+// It receives the GVR-related information by delegating to a GVRSource.
+func NewDelegatingDynamicDiscoverySharedInformerFactory(
+	dynamicClusterClient kcpdynamic.ClusterInterface,
+	filterFunc func(obj interface{}) bool,
+	indexers cache.Indexers,
+	gvrSource GVRSource,
+	tweakListOptions dynamicinformer.TweakListOptionsFunc,
+) (*DynamicDiscoverySharedInformerFactory, error) {
+
+	if filterFunc == nil {
+		filterFunc = func(obj interface{}) bool { return true }
+	}
+
+	f := &DynamicDiscoverySharedInformerFactory{
+		genericDynamicDiscoverySharedInformerFactory: genericDynamicDiscoverySharedInformerFactory[kcpcache.ScopeableSharedIndexInformer, kcpcache.GenericClusterLister, kcpinformers.GenericClusterInformer]{
+			filterFunc: filterFunc,
+			indexers:   indexers,
+			gvrSource:  gvrSource,
+
+			newInformer: func(gvr schema.GroupVersionResource, resyncPeriod time.Duration, indexers cache.Indexers) kcpinformers.GenericClusterInformer {
+				indexers[kcpcache.ClusterIndexName] = kcpcache.ClusterIndexFunc
+				indexers[kcpcache.ClusterAndNamespaceIndexName] = kcpcache.ClusterAndNamespaceIndexFunc
+				return kcpdynamicinformer.NewFilteredDynamicInformer(
+					dynamicClusterClient,
+					gvr,
+					resyncPeriod,
+					indexers,
+					tweakListOptions,
+				)
+			},
+
+			// Use a buffered channel of size 1 to allow enqueuing 1 update notification
+			updateCh: make(chan struct{}, 1),
+
+			informers:        make(map[schema.GroupVersionResource]kcpinformers.GenericClusterInformer),
+			startedInformers: make(map[schema.GroupVersionResource]bool),
+			informerStops:    make(map[schema.GroupVersionResource]chan struct{}),
+
+			subscribers: make(map[string]chan<- struct{}),
+		},
+	}
+
+	f.restMapper = newRESTMapper(func() (meta.RESTMapper, error) {
+		return restmapper.NewDiscoveryRESTMapper(f.discoveryData.apiGroupResources), nil
+	})
+
+	f.handlers.Store([]GVREventHandler{})
 
 	// Any time a CRD event comes in, let StartWorker() know about it
 	notifyUpdateNeeded := func() {
@@ -143,34 +196,7 @@ func NewDynamicDiscoverySharedInformerFactory(
 		}
 	}
 
-	crdIsEstablished := func(obj interface{}) bool {
-		crd, ok := obj.(*apiextensionsv1.CustomResourceDefinition)
-		if !ok {
-			utilruntime.HandleError(fmt.Errorf("unable to determine if CRD is established - got type %T instead", obj))
-			return false
-		}
-
-		return apihelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established)
-	}
-
-	// When CRDs change, send a notification that we might need to add/remove informers.
-	crdInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			if crdIsEstablished(obj) {
-				notifyUpdateNeeded()
-			}
-		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
-			oldEstablished := crdIsEstablished(oldObj)
-			newEstablished := crdIsEstablished(newObj)
-			if newEstablished || oldEstablished != newEstablished {
-				notifyUpdateNeeded()
-			}
-		},
-		DeleteFunc: func(obj interface{}) {
-			notifyUpdateNeeded()
-		},
-	})
+	gvrSource.Register(notifyUpdateNeeded)
 
 	return f, nil
 }
@@ -197,6 +223,13 @@ func byGroupVersionResourceIndexFunc(obj interface{}) ([]string, error) {
 	return ret, nil
 }
 
+// DynamicDiscoverySharedInformerFactory is a factory for cluster-aware
+// shared informers that discovers new types and informs on updates to resources of
+// those types.
+type DynamicDiscoverySharedInformerFactory struct {
+	genericDynamicDiscoverySharedInformerFactory[kcpcache.ScopeableSharedIndexInformer, kcpcache.GenericClusterLister, kcpinformers.GenericClusterInformer]
+}
+
 func (d *DynamicDiscoverySharedInformerFactory) Cluster(cluster logicalcluster.Name) kcpkubernetesinformers.ScopedDynamicSharedInformerFactory {
 	return &scopedDynamicDiscoverySharedInformerFactory{
 		DynamicDiscoverySharedInformerFactory: d,
@@ -219,15 +252,118 @@ func (d *scopedDynamicDiscoverySharedInformerFactory) ForResource(gvr schema.Gro
 	return clusterInformer.Cluster(d.cluster), nil
 }
 
+// NewSingleClusterDynamicDiscoverySharedInformerFactory returns a factory for
+// cluster-unaware (standard Kube) shared informers that discovers new types
+// and informs on updates to resources of those types.
+// It retrieves GVR-related information from CRD informers.
+func NewSingleClusterDynamicDiscoverySharedInformerFactory(
+	cfg *rest.Config,
+	filterFunc func(obj interface{}) bool,
+	crdInformer kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer,
+	indexers cache.Indexers,
+) (*SingleClusterDynamicDiscoverySharedInformerFactory, error) {
+	crdIndexer := crdInformer.Informer().GetIndexer()
+
+	// Add an index function that indexes a CRD by its group/version/resource.
+	if err := crdInformer.Informer().AddIndexers(cache.Indexers{
+		byGroupVersionResourceIndex: byGroupVersionResourceIndexFunc,
+	}); err != nil {
+		return nil, err
+	}
+
+	cfg = rest.AddUserAgent(rest.CopyConfig(cfg), "kcp-partial-metadata-informers")
+
+	metadataClient, err := metadataclient.NewDynamicMetadataClientForConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewSingleClusterDelegatingDynamicDiscoverySharedInformerFactory(metadataClient, filterFunc, indexers, &crdGVRSource{
+		crdInformer: crdInformer,
+		crdIndexer:  crdIndexer,
+	}, nil)
+}
+
+// NewSingleClusterDynamicDiscoverySharedInformerFactory returns a factory for
+// cluster-unaware (standard Kube) shared informers that discovers new types
+// and informs on updates to resources of those types.
+// It receives the GVR-related information by delegating to a GVRSource.
+func NewSingleClusterDelegatingDynamicDiscoverySharedInformerFactory(
+	dynamicClient dynamic.Interface,
+	filterFunc func(obj interface{}) bool,
+	indexers cache.Indexers,
+	gvrSource GVRSource,
+	tweakListOptions dynamicinformer.TweakListOptionsFunc,
+) (*SingleClusterDynamicDiscoverySharedInformerFactory, error) {
+	if filterFunc == nil {
+		filterFunc = func(obj interface{}) bool { return true }
+	}
+
+	f := &SingleClusterDynamicDiscoverySharedInformerFactory{
+		genericDynamicDiscoverySharedInformerFactory: genericDynamicDiscoverySharedInformerFactory[cache.SharedIndexInformer, cache.GenericLister, informers.GenericInformer]{
+			filterFunc: filterFunc,
+			indexers:   indexers,
+			gvrSource:  gvrSource,
+
+			newInformer: func(gvr schema.GroupVersionResource, resyncPeriod time.Duration, indexers cache.Indexers) informers.GenericInformer {
+				return dynamicinformer.NewFilteredDynamicInformer(
+					dynamicClient,
+					gvr,
+					"",
+					resyncPeriod,
+					indexers,
+					tweakListOptions,
+				)
+			},
+
+			// Use a buffered channel of size 1 to allow enqueuing 1 update notification
+			updateCh: make(chan struct{}, 1),
+
+			informers:        make(map[schema.GroupVersionResource]informers.GenericInformer),
+			startedInformers: make(map[schema.GroupVersionResource]bool),
+			informerStops:    make(map[schema.GroupVersionResource]chan struct{}),
+
+			subscribers: make(map[string]chan<- struct{}),
+		},
+	}
+
+	f.restMapper = newRESTMapper(func() (meta.RESTMapper, error) {
+		return restmapper.NewDiscoveryRESTMapper(f.discoveryData.apiGroupResources), nil
+	})
+
+	f.handlers.Store([]GVREventHandler{})
+
+	// Any time a CRD event comes in, let StartWorker() know about it
+	notifyUpdateNeeded := func() {
+		select {
+		case f.updateCh <- struct{}{}:
+			klog.V(4).InfoS("Enqueued update notification for dynamic informer recalculation")
+		default:
+			klog.V(5).InfoS("Dropping update notification for dynamic informer recalculation because a notification is already pending")
+		}
+	}
+
+	gvrSource.Register(notifyUpdateNeeded)
+
+	return f, nil
+}
+
+// SingleClusterDynamicDiscoverySharedInformerFactory is a factory for
+// cluster-unaware (standard Kube) shared informers that discovers new types
+// and informs on updates to resources of those types.
+type SingleClusterDynamicDiscoverySharedInformerFactory struct {
+	genericDynamicDiscoverySharedInformerFactory[cache.SharedIndexInformer, cache.GenericLister, informers.GenericInformer]
+}
+
 // ForResource returns the GenericInformer for gvr, creating it if needed. The GenericInformer must be started
 // by calling Start on the DynamicDiscoverySharedInformerFactory before the GenericInformer can be used.
-func (d *DynamicDiscoverySharedInformerFactory) ForResource(gvr schema.GroupVersionResource) (kcpkubernetesinformers.GenericClusterInformer, error) {
+func (d *genericDynamicDiscoverySharedInformerFactory[InformerType, ListerType, GenericInformerType]) ForResource(gvr schema.GroupVersionResource) (GenericInformerType, error) {
 	// See if we already have it
 	d.informersLock.RLock()
 	inf := d.informers[gvr]
 	d.informersLock.RUnlock()
 
-	if inf != nil {
+	if (genericInformerBase[InformerType, ListerType])(inf) != nil {
 		return inf, nil
 	}
 
@@ -240,21 +376,17 @@ func (d *DynamicDiscoverySharedInformerFactory) ForResource(gvr schema.GroupVers
 
 // informerForResourceLockHeld returns the GenericInformer for gvr, creating it if needed. The caller must have the write
 // lock before calling this method.
-func (d *DynamicDiscoverySharedInformerFactory) informerForResourceLockHeld(gvr schema.GroupVersionResource) kcpkubernetesinformers.GenericClusterInformer {
+func (d *genericDynamicDiscoverySharedInformerFactory[InformerType, ListerType, GenericInformerType]) informerForResourceLockHeld(gvr schema.GroupVersionResource) GenericInformerType {
 	// In case it was created in between the initial check while the rlock was held and when the write lock was
 	// acquired, return it instead of creating a 2nd copy and overwriting.
 	inf := d.informers[gvr]
-	if inf != nil {
+	if (genericInformerBase[InformerType, ListerType])(inf) != nil {
 		return inf
 	}
 
 	klog.V(2).Infof("Adding dynamic informer for %q", gvr)
 
-	indexers := cache.Indexers{
-		kcpcache.ClusterIndexName:             kcpcache.ClusterIndexFunc,
-		kcpcache.ClusterAndNamespaceIndexName: kcpcache.ClusterAndNamespaceIndexFunc,
-	}
-
+	indexers := cache.Indexers{}
 	for k, v := range d.indexers {
 		if k == cache.NamespaceIndex {
 			// Don't allow overriding NamespaceIndex
@@ -265,13 +397,7 @@ func (d *DynamicDiscoverySharedInformerFactory) informerForResourceLockHeld(gvr 
 	}
 
 	// Definitely need to create it
-	inf = kcpdynamicinformer.NewFilteredDynamicInformer(
-		d.dynamicClient,
-		gvr,
-		resyncPeriod,
-		indexers,
-		nil,
-	)
+	inf = d.newInformer(gvr, resyncPeriod, indexers)
 
 	inf.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: d.filterFunc,
@@ -305,8 +431,8 @@ func (d *DynamicDiscoverySharedInformerFactory) informerForResourceLockHeld(gvr 
 //
 // If any informers aren't synced, their GVRs are returned so that they can be
 // checked and processed later.
-func (d *DynamicDiscoverySharedInformerFactory) Listers() (listers map[schema.GroupVersionResource]kcpcache.GenericClusterLister, notSynced []schema.GroupVersionResource) {
-	listers = map[schema.GroupVersionResource]kcpcache.GenericClusterLister{}
+func (d *genericDynamicDiscoverySharedInformerFactory[InformerType, ListerType, GenericInformerType]) Listers() (listers map[schema.GroupVersionResource]ListerType, notSynced []schema.GroupVersionResource) {
+	listers = map[schema.GroupVersionResource]ListerType{}
 
 	d.informersLock.RLock()
 	defer d.informersLock.RUnlock()
@@ -355,7 +481,7 @@ func (g GVREventHandlerFuncs) OnDelete(gvr schema.GroupVersionResource, obj inte
 	}
 }
 
-func (d *DynamicDiscoverySharedInformerFactory) AddEventHandler(handler GVREventHandler) {
+func (d *genericDynamicDiscoverySharedInformerFactory[InformerType, ListerType, GenericInformerType]) AddEventHandler(handler GVREventHandler) {
 	d.handlersLock.Lock()
 
 	handlers := d.handlers.Load().([]GVREventHandler)
@@ -372,7 +498,7 @@ func (d *DynamicDiscoverySharedInformerFactory) AddEventHandler(handler GVREvent
 
 // StartWorker starts the worker that waits for notifications that informer updates are needed. This call is blocking,
 // stopping when ctx.Done() is closed.
-func (d *DynamicDiscoverySharedInformerFactory) StartWorker(ctx context.Context) {
+func (d *genericDynamicDiscoverySharedInformerFactory[InformerType, ListerType, GenericInformerType]) StartWorker(ctx context.Context) {
 	defer func() {
 		d.informersLock.Lock()
 
@@ -383,7 +509,7 @@ func (d *DynamicDiscoverySharedInformerFactory) StartWorker(ctx context.Context)
 		d.informersLock.Unlock()
 	}()
 
-	if !cache.WaitForNamedCacheSync("kcp-ddsif-crd", ctx.Done(), d.crdInformerSynced) {
+	if !cache.WaitForNamedCacheSync("kcp-ddsif-crd", ctx.Done(), d.gvrSource.Synced) {
 		klog.Errorf("CRD informer never synced")
 		return
 	}
@@ -415,8 +541,8 @@ func gvrFor(group, version, resource string) schema.GroupVersionResource {
 	}
 }
 
-func withGVRPartialMetadata(scope apiextensionsv1.ResourceScope, kind, singular string) gvrPartialMetadata {
-	return gvrPartialMetadata{
+func withGVRPartialMetadata(scope apiextensionsv1.ResourceScope, kind, singular string) GVRPartialMetadata {
+	return GVRPartialMetadata{
 		Scope: scope,
 		Names: apiextensionsv1.CustomResourceDefinitionNames{
 			Kind:     kind,
@@ -425,49 +551,46 @@ func withGVRPartialMetadata(scope apiextensionsv1.ResourceScope, kind, singular 
 	}
 }
 
-type gvrPartialMetadata struct {
+type GVRPartialMetadata struct {
 	Names apiextensionsv1.CustomResourceDefinitionNames
 	Scope apiextensionsv1.ResourceScope
 }
 
-func builtInInformableTypes() map[schema.GroupVersionResource]gvrPartialMetadata {
-	// Hard-code built in types that support list+watch
-	return map[schema.GroupVersionResource]gvrPartialMetadata{
-		gvrFor("", "v1", "configmaps"):                                                  withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "ConfigMap", "configmap"),
-		gvrFor("", "v1", "events"):                                                      withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "Event", "event"),
-		gvrFor("", "v1", "limitranges"):                                                 withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "LimitRange", "limitrange"),
-		gvrFor("", "v1", "namespaces"):                                                  withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "Namespace", "namespace"),
-		gvrFor("", "v1", "resourcequotas"):                                              withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "ResourceQuota", "resourcequota"),
-		gvrFor("", "v1", "secrets"):                                                     withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "Secret", "secret"),
-		gvrFor("", "v1", "serviceaccounts"):                                             withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "ServiceAccount", "serviceaccount"),
-		gvrFor("certificates.k8s.io", "v1", "certificatesigningrequests"):               withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "CertificateSigningRequest", "certificatesigningrequest"),
-		gvrFor("coordination.k8s.io", "v1", "leases"):                                   withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "Lease", "lease"),
-		gvrFor("rbac.authorization.k8s.io", "v1", "clusterroles"):                       withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "ClusterRole", "clusterrole"),
-		gvrFor("rbac.authorization.k8s.io", "v1", "clusterrolebindings"):                withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "ClusterRoleBinding", "clusterrolebinding"),
-		gvrFor("rbac.authorization.k8s.io", "v1", "roles"):                              withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "Role", "role"),
-		gvrFor("rbac.authorization.k8s.io", "v1", "rolebindings"):                       withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "RoleBinding", "rolebinding"),
-		gvrFor("events.k8s.io", "v1", "events"):                                         withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "Event", "event"),
-		gvrFor("admissionregistration.k8s.io", "v1", "mutatingwebhookconfigurations"):   withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "MutatingWebhookConfiguration", "mutatingwebhookconfiguration"),
-		gvrFor("admissionregistration.k8s.io", "v1", "validatingwebhookconfigurations"): withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "ValidatingWebhookConfiguration", "validatingwebhookconfiguration"),
-		gvrFor("apiextensions.k8s.io", "v1", "customresourcedefinitions"):               withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "CustomResourceDefinition", "customresourcedefinition"),
-	}
+// Hard-code built in types that support list+watch
+var builtInInformableTypes map[schema.GroupVersionResource]GVRPartialMetadata = map[schema.GroupVersionResource]GVRPartialMetadata{
+	gvrFor("", "v1", "configmaps"):                                                  withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "ConfigMap", "configmap"),
+	gvrFor("", "v1", "events"):                                                      withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "Event", "event"),
+	gvrFor("", "v1", "limitranges"):                                                 withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "LimitRange", "limitrange"),
+	gvrFor("", "v1", "namespaces"):                                                  withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "Namespace", "namespace"),
+	gvrFor("", "v1", "resourcequotas"):                                              withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "ResourceQuota", "resourcequota"),
+	gvrFor("", "v1", "secrets"):                                                     withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "Secret", "secret"),
+	gvrFor("", "v1", "serviceaccounts"):                                             withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "ServiceAccount", "serviceaccount"),
+	gvrFor("certificates.k8s.io", "v1", "certificatesigningrequests"):               withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "CertificateSigningRequest", "certificatesigningrequest"),
+	gvrFor("coordination.k8s.io", "v1", "leases"):                                   withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "Lease", "lease"),
+	gvrFor("rbac.authorization.k8s.io", "v1", "clusterroles"):                       withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "ClusterRole", "clusterrole"),
+	gvrFor("rbac.authorization.k8s.io", "v1", "clusterrolebindings"):                withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "ClusterRoleBinding", "clusterrolebinding"),
+	gvrFor("rbac.authorization.k8s.io", "v1", "roles"):                              withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "Role", "role"),
+	gvrFor("rbac.authorization.k8s.io", "v1", "rolebindings"):                       withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "RoleBinding", "rolebinding"),
+	gvrFor("events.k8s.io", "v1", "events"):                                         withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "Event", "event"),
+	gvrFor("admissionregistration.k8s.io", "v1", "mutatingwebhookconfigurations"):   withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "MutatingWebhookConfiguration", "mutatingwebhookconfiguration"),
+	gvrFor("admissionregistration.k8s.io", "v1", "validatingwebhookconfigurations"): withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "ValidatingWebhookConfiguration", "validatingwebhookconfiguration"),
+	gvrFor("apiextensions.k8s.io", "v1", "customresourcedefinitions"):               withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "CustomResourceDefinition", "customresourcedefinition"),
 }
 
-func (d *DynamicDiscoverySharedInformerFactory) updateInformers() {
+func (d *genericDynamicDiscoverySharedInformerFactory[InformerType, ListerType, GenericInformerType]) updateInformers() {
 	klog.V(5).InfoS("Determining dynamic informer additions and removals")
 
-	latest := builtInInformableTypes()
+	latest := make(map[schema.GroupVersionResource]GVRPartialMetadata, len(builtInInformableTypes))
+	for gvr, metadata := range builtInInformableTypes {
+		if d.gvrSource.FilterBuiltinGVRs(gvr) {
+			latest[gvr] = metadata
+		}
+	}
 
 	// Get the unique set of Group(Version)Resources (version doesn't matter because we're expecting a wildcard
 	// partial metadata client, but we need a version in the request, so we need it here) and add them to latest.
-	crdGVRs := d.crdIndexer.ListIndexFuncValues(byGroupVersionResourceIndex)
-	for _, s := range crdGVRs {
-		parts := strings.Split(s, "/")
-		group := parts[0]
-		version := parts[1]
-		resource := parts[2]
-		gvr := gvrFor(group, version, resource)
-
+	crdGVRs := d.gvrSource.ListGVRs()
+	for _, gvr := range crdGVRs {
 		// Don't start a dynamic informer for projected resources such as tenancy.kcp.io/v1beta1 Workspaces
 		// (these are a virtual projection of data from tenancy.kcp.io/v1alpha1 ClusterWorkspaces).
 		// Starting an informer for them causes problems when the virtual-workspaces server is deployed
@@ -476,24 +599,13 @@ func (d *DynamicDiscoverySharedInformerFactory) updateInformers() {
 			continue
 		}
 
-		obj, err := indexers.ByIndex[*apiextensionsv1.CustomResourceDefinition](d.crdIndexer, byGroupVersionResourceIndex, byGroupVersionResourceKeyFunc(gvr.Group, gvr.Version, gvr.Resource))
+		gvrMetadata, err := d.gvrSource.GetGVRPartialMetadata(gvr)
 		if err != nil {
 			utilruntime.HandleError(err)
 			continue
 		}
-		if len(obj) == 0 {
-			utilruntime.HandleError(fmt.Errorf("unable to retrieve CRD for GVR: %s", gvr))
-			continue
-		}
-		// We assume CRDs partial metadata for the same GVR are constant
-		crd := obj[0]
-		latest[gvr] = gvrPartialMetadata{
-			Scope: crd.Spec.Scope,
-			Names: apiextensionsv1.CustomResourceDefinitionNames{
-				Kind:     crd.Spec.Names.Kind,
-				Singular: crd.Spec.Names.Singular,
-			},
-		}
+
+		latest[gvr] = *gvrMetadata
 	}
 
 	// Grab a read lock to compare against d.informers to see if we need to start or stop any informers
@@ -572,7 +684,7 @@ func (d *DynamicDiscoverySharedInformerFactory) updateInformers() {
 
 // gvrsToDiscoveryData returns discovery data for all the resources covered by the factory. It only
 // includes enough data in each APIResource to support what kcp currently needs (scheduling, placement, quota, GC).
-func gvrsToDiscoveryData(gvrs map[schema.GroupVersionResource]gvrPartialMetadata) discoveryData {
+func gvrsToDiscoveryData(gvrs map[schema.GroupVersionResource]GVRPartialMetadata) discoveryData {
 	ret := discoveryData{
 		apiGroupResources: make([]*restmapper.APIGroupResources, 0),
 		apiResourceList:   make([]*metav1.APIResourceList, 0),
@@ -646,7 +758,7 @@ func gvrsToDiscoveryData(gvrs map[schema.GroupVersionResource]gvrPartialMetadata
 // Start starts any informers that have been created but not yet started. The passed in stop channel is ignored;
 // instead, a new stop channel is created, so the factory can properly stop the informer if/when the API is removed.
 // Like other shared informer factories, this call is non-blocking.
-func (d *DynamicDiscoverySharedInformerFactory) Start(_ <-chan struct{}) {
+func (d *genericDynamicDiscoverySharedInformerFactory[InformerType, ListerType, GenericInformerType]) Start(_ <-chan struct{}) {
 	d.informersLock.Lock()
 	defer d.informersLock.Unlock()
 
@@ -663,7 +775,7 @@ func (d *DynamicDiscoverySharedInformerFactory) Start(_ <-chan struct{}) {
 	}
 }
 
-func (d *DynamicDiscoverySharedInformerFactory) calculateInformersLockHeld(latest map[schema.GroupVersionResource]gvrPartialMetadata) (toAdd, toRemove []schema.GroupVersionResource) {
+func (d *genericDynamicDiscoverySharedInformerFactory[InformerType, ListerType, GenericInformerType]) calculateInformersLockHeld(latest map[schema.GroupVersionResource]GVRPartialMetadata) (toAdd, toRemove []schema.GroupVersionResource) {
 	for gvr := range latest {
 		if _, found := d.informers[gvr]; !found {
 			toAdd = append(toAdd, gvr)
@@ -681,7 +793,7 @@ func (d *DynamicDiscoverySharedInformerFactory) calculateInformersLockHeld(lates
 
 // Subscribe registers for informer/discovery change notifications, returning a channel to which change notifications
 // are sent.
-func (d *DynamicDiscoverySharedInformerFactory) Subscribe(id string) <-chan struct{} {
+func (d *genericDynamicDiscoverySharedInformerFactory[InformerType, ListerType, GenericInformerType]) Subscribe(id string) <-chan struct{} {
 	d.subscribersLock.Lock()
 	defer d.subscribersLock.Unlock()
 
@@ -693,7 +805,7 @@ func (d *DynamicDiscoverySharedInformerFactory) Subscribe(id string) <-chan stru
 }
 
 // Unsubscribe removes the channel associated with id from future informer/discovery change notifications.
-func (d *DynamicDiscoverySharedInformerFactory) Unsubscribe(id string) {
+func (d *genericDynamicDiscoverySharedInformerFactory[InformerType, ListerType, GenericInformerType]) Unsubscribe(id string) {
 	d.subscribersLock.Lock()
 	defer d.subscribersLock.Unlock()
 
@@ -710,9 +822,9 @@ type discoveryData struct {
 	apiResourceList   []*metav1.APIResourceList
 }
 
-var _ discovery.ServerResourcesInterface = &DynamicDiscoverySharedInformerFactory{}
+var _ discovery.ServerResourcesInterface = &genericDynamicDiscoverySharedInformerFactory[sharedIndexInformerBase, genericListerBase, genericInformerBase[sharedIndexInformerBase, genericListerBase]]{}
 
-func (d *DynamicDiscoverySharedInformerFactory) ServerResourcesForGroupVersion(groupVersion string) (*metav1.APIResourceList, error) {
+func (d *genericDynamicDiscoverySharedInformerFactory[InformerType, ListerType, GenericInformerType]) ServerResourcesForGroupVersion(groupVersion string) (*metav1.APIResourceList, error) {
 	d.informersLock.RLock()
 	defer d.informersLock.RUnlock()
 
@@ -730,7 +842,7 @@ func (d *DynamicDiscoverySharedInformerFactory) ServerResourcesForGroupVersion(g
 	return nil, errors.NewNotFound(schema.GroupResource{Group: groupVersion}, "")
 }
 
-func (d *DynamicDiscoverySharedInformerFactory) ServerGroupsAndResources() ([]*metav1.APIGroup, []*metav1.APIResourceList, error) {
+func (d *genericDynamicDiscoverySharedInformerFactory[InformerType, ListerType, GenericInformerType]) ServerGroupsAndResources() ([]*metav1.APIGroup, []*metav1.APIResourceList, error) {
 	d.informersLock.RLock()
 	defer d.informersLock.RUnlock()
 
@@ -747,7 +859,7 @@ func (d *DynamicDiscoverySharedInformerFactory) ServerGroupsAndResources() ([]*m
 	return retGroups, retResourceList, nil
 }
 
-func (d *DynamicDiscoverySharedInformerFactory) ServerPreferredResources() ([]*metav1.APIResourceList, error) {
+func (d *genericDynamicDiscoverySharedInformerFactory[InformerType, ListerType, GenericInformerType]) ServerPreferredResources() ([]*metav1.APIResourceList, error) {
 	d.informersLock.RLock()
 	defer d.informersLock.RUnlock()
 
@@ -759,7 +871,7 @@ func (d *DynamicDiscoverySharedInformerFactory) ServerPreferredResources() ([]*m
 	return ret, nil
 }
 
-func (d *DynamicDiscoverySharedInformerFactory) ServerPreferredNamespacedResources() ([]*metav1.APIResourceList, error) {
+func (d *genericDynamicDiscoverySharedInformerFactory[InformerType, ListerType, GenericInformerType]) ServerPreferredNamespacedResources() ([]*metav1.APIResourceList, error) {
 	d.informersLock.RLock()
 	defer d.informersLock.RUnlock()
 
@@ -777,7 +889,7 @@ func (d *DynamicDiscoverySharedInformerFactory) ServerPreferredNamespacedResourc
 	return ret, nil
 }
 
-func (d *DynamicDiscoverySharedInformerFactory) RESTMapper() meta.ResettableRESTMapper {
+func (d *genericDynamicDiscoverySharedInformerFactory[InformerType, ListerType, GenericInformerType]) RESTMapper() meta.ResettableRESTMapper {
 	return &d.restMapper
 }
 
@@ -785,6 +897,100 @@ func newRESTMapper(fn func() (meta.RESTMapper, error)) restMapper {
 	return restMapper{
 		meta.NewLazyRESTMapperLoader(fn),
 	}
+}
+
+type genericInformerBase[InformerType sharedIndexInformerBase, ListerType genericListerBase] interface {
+	Informer() InformerType
+	Lister() ListerType
+}
+
+type sharedIndexInformerBase interface {
+	AddEventHandler(handler cache.ResourceEventHandler)
+	Run(stopCh <-chan struct{})
+	HasSynced() bool
+}
+
+type genericListerBase interface {
+	List(selector labels.Selector) (ret []runtime.Object, err error)
+}
+
+var _ genericInformerBase[kcpcache.ScopeableSharedIndexInformer, kcpcache.GenericClusterLister] = (kcpinformers.GenericClusterInformer)(nil)
+var _ genericInformerBase[cache.SharedIndexInformer, cache.GenericLister] = (informers.GenericInformer)(nil)
+
+type crdGVRSource struct {
+	crdInformer kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer
+	crdIndexer  cache.Indexer
+}
+
+func (s *crdGVRSource) ListGVRs() []schema.GroupVersionResource {
+	var result []schema.GroupVersionResource
+	crdGVRs := s.crdIndexer.ListIndexFuncValues(byGroupVersionResourceIndex)
+	for _, s := range crdGVRs {
+		parts := strings.Split(s, "/")
+		group := parts[0]
+		version := parts[1]
+		resource := parts[2]
+		result = append(result, gvrFor(group, version, resource))
+	}
+	return result
+}
+
+func (s *crdGVRSource) GetGVRPartialMetadata(gvr schema.GroupVersionResource) (*GVRPartialMetadata, error) {
+	obj, err := indexerspkg.ByIndex[*apiextensionsv1.CustomResourceDefinition](s.crdIndexer, byGroupVersionResourceIndex, byGroupVersionResourceKeyFunc(gvr.Group, gvr.Version, gvr.Resource))
+	if err != nil {
+		return nil, err
+	}
+	if len(obj) == 0 {
+		return nil, fmt.Errorf("unable to retrieve CRD for GVR: %s", gvr)
+	}
+	// We assume CRDs partial metadata for the same GVR are constant
+	crd := obj[0]
+	return &GVRPartialMetadata{
+		Scope: crd.Spec.Scope,
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Kind:     crd.Spec.Names.Kind,
+			Singular: crd.Spec.Names.Singular,
+		},
+	}, nil
+}
+
+func (s *crdGVRSource) Synced() bool {
+	return s.crdInformer.Informer().HasSynced()
+}
+
+func (s *crdGVRSource) crdIsEstablished(obj interface{}) bool {
+	crd, ok := obj.(*apiextensionsv1.CustomResourceDefinition)
+	if !ok {
+		utilruntime.HandleError(fmt.Errorf("unable to determine if CRD is established - got type %T instead", obj))
+		return false
+	}
+
+	return apihelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established)
+}
+
+func (s *crdGVRSource) Register(notifyUpdateNeeded func()) {
+	// When CRDs change, send a notification that we might need to add/remove informers.
+	s.crdInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			if s.crdIsEstablished(obj) {
+				notifyUpdateNeeded()
+			}
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			oldEstablished := s.crdIsEstablished(oldObj)
+			newEstablished := s.crdIsEstablished(newObj)
+			if newEstablished || oldEstablished != newEstablished {
+				notifyUpdateNeeded()
+			}
+		},
+		DeleteFunc: func(obj interface{}) {
+			notifyUpdateNeeded()
+		},
+	})
+}
+
+func (s *crdGVRSource) FilterBuiltinGVRs(gvr schema.GroupVersionResource) bool {
+	return true
 }
 
 type restMapper struct {
