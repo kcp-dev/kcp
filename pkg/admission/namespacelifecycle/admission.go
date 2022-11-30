@@ -66,7 +66,7 @@ type workspaceNamespaceLifecycle struct {
 	// namespaceLifecycle is used only when workspace is deleting
 	namespaceLifecycle *lifecycle.Lifecycle
 
-	getClusterWorkspace func(clusterName logicalcluster.Name, name string) (*tenancyv1beta1.Workspace, error)
+	getWorkspace func(clusterName logicalcluster.Name, name string) (*tenancyv1beta1.Workspace, error)
 }
 
 func newWorkspaceNamespaceLifecycle() (*workspaceNamespaceLifecycle, error) {
@@ -117,7 +117,7 @@ func (l *workspaceNamespaceLifecycle) Admit(ctx context.Context, a admission.Att
 		return admissionErr
 	}
 
-	workspace, err := l.getClusterWorkspace(org, clusterName.Base())
+	workspace, err := l.getWorkspace(org, clusterName.Base())
 	// The shard hosting the workspace could be down,
 	// just return error from legacy namespace lifecycle admission in this case
 	if err != nil && !apierrors.IsNotFound(err) {
@@ -146,7 +146,7 @@ func (l *workspaceNamespaceLifecycle) SetExternalKubeClientSet(client kubernetes
 func (l *workspaceNamespaceLifecycle) SetKcpInformers(informers kcpinformers.SharedInformerFactory) {
 	l.SetReadyFunc(informers.Tenancy().V1beta1().Workspaces().Informer().HasSynced)
 
-	l.getClusterWorkspace = func(clusterName logicalcluster.Name, name string) (*tenancyv1beta1.Workspace, error) {
+	l.getWorkspace = func(clusterName logicalcluster.Name, name string) (*tenancyv1beta1.Workspace, error) {
 		return informers.Tenancy().V1beta1().Workspaces().Lister().Cluster(clusterName).Get(name)
 	}
 }
@@ -161,8 +161,8 @@ func (l *workspaceNamespaceLifecycle) ValidateInitialization() error {
 		return err
 	}
 
-	if l.getClusterWorkspace == nil {
-		return fmt.Errorf("missing getClusterWorkspace")
+	if l.getWorkspace == nil {
+		return fmt.Errorf("missing getWorkspace")
 	}
 	return nil
 }
