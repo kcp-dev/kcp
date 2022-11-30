@@ -133,10 +133,10 @@ func (a *requiredGroupsAuthorizer) Authorize(ctx context.Context, attr authorize
 			)
 			return a.delegate.Authorize(ctx, attr)
 		}
-		disjunctiveClauses := strings.Split(value, ",")
+		disjunctiveClauses := append(strings.Split(value, ","), bootstrap.SystemKcpAdminGroup, bootstrap.SystemKcpWorkspaceBootstrapper)
 		for _, set := range disjunctiveClauses {
 			groups := strings.Split(set, ";")
-			if sets.NewString(groups...).HasAll(attr.GetUser().GetGroups()...) {
+			if sets.NewString(attr.GetUser().GetGroups()...).HasAll(groups...) {
 				kaudit.AddAuditAnnotations(
 					ctx,
 					RequiredGroupsAuditDecision, DecisionAllowed,
