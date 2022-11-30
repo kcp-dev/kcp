@@ -1506,6 +1506,20 @@ func schema_pkg_apis_apis_v1alpha1_APIExportEndpointSliceStatus(ref common.Refer
 				Description: "APIExportEndpointSliceStatus defines the observed state of APIExportEndpointSlice.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "conditions is a list of conditions that apply to the APIExportEndpointSlice.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+									},
+								},
+							},
+						},
+					},
 					"endpoints": {
 						SchemaProps: spec.SchemaProps{
 							Description: "endpoints contains all the URLs of the APIExport service.",
@@ -1524,7 +1538,7 @@ func schema_pkg_apis_apis_v1alpha1_APIExportEndpointSliceStatus(ref common.Refer
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportEndpoint"},
+			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIExportEndpoint", "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
 	}
 }
 
