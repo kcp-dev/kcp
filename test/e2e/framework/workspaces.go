@@ -19,6 +19,7 @@ package framework
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -30,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/authorization"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 )
 
@@ -38,6 +40,15 @@ type ClusterWorkspaceOption func(ws *tenancyv1alpha1.ClusterWorkspace)
 func WithShardConstraints(c tenancyv1alpha1.ShardConstraints) ClusterWorkspaceOption {
 	return func(ws *tenancyv1alpha1.ClusterWorkspace) {
 		ws.Spec.Shard = &c
+	}
+}
+
+func WithRequiredGroups(groups ...string) ClusterWorkspaceOption {
+	return func(ws *tenancyv1alpha1.ClusterWorkspace) {
+		if ws.Annotations == nil {
+			ws.Annotations = map[string]string{}
+		}
+		ws.Annotations[authorization.RequiredGroupsAnnotationKey] = strings.Join(groups, ",")
 	}
 }
 
@@ -112,10 +123,7 @@ func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logi
 	Eventually(t, func() (bool, string) {
 		ws, err := clusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, ws.Name, metav1.GetOptions{})
 		require.Falsef(t, apierrors.IsNotFound(err), "workspace %s was deleted", ws.Name)
-		if err != nil {
-			t.Logf("failed to get workspace %s: %v", ws.Name, err)
-			return false, err.Error()
-		}
+		require.NoError(t, err, "failed to get workspace %s", ws.Name)
 		if actual, expected := ws.Status.Phase, tenancyv1alpha1.WorkspacePhaseReady; actual != expected {
 			return false, fmt.Sprintf("workspace phase is %s, not %s", actual, expected)
 		}
@@ -182,10 +190,7 @@ func NewOrganizationFixture(t *testing.T, server RunningServer, options ...Clust
 	Eventually(t, func() (bool, string) {
 		ws, err := clusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, org.Name, metav1.GetOptions{})
 		require.Falsef(t, apierrors.IsNotFound(err), "workspace %s was deleted", org.Name)
-		if err != nil {
-			t.Logf("failed to get workspace %s: %v", org.Name, err)
-			return false, ""
-		}
+		require.NoError(t, err, "failed to get workspace %s", org.Name)
 		if actual, expected := ws.Status.Phase, tenancyv1alpha1.WorkspacePhaseReady; actual != expected {
 			return false, fmt.Sprintf("workspace phase is %s, not %s", actual, expected)
 		}

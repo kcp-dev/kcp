@@ -67,10 +67,7 @@ func TestAuthorizer(t *testing.T) {
 	require.NoError(t, err)
 
 	org1 := framework.NewOrganizationFixture(t, server)
-	org2 := framework.NewOrganizationFixture(t, server)
-
-	createResources(t, ctx, dynamicClusterClient, kubeDiscoveryClient, org1, "org-resources.yaml")
-	createResources(t, ctx, dynamicClusterClient, kubeDiscoveryClient, org2, "org-resources.yaml")
+	org2 := framework.NewOrganizationFixture(t, server, framework.WithRequiredGroups("empty-group", "system:kcp:admin"))
 
 	framework.NewWorkspaceFixture(t, server, org1, framework.WithName("workspace1"))
 	framework.NewWorkspaceFixture(t, server, org1, framework.WithName("workspace2"))
@@ -81,6 +78,16 @@ func TestAuthorizer(t *testing.T) {
 	createResources(t, ctx, dynamicClusterClient, kubeDiscoveryClient, org2.Join("workspace1"), "workspace1-resources.yaml")
 
 	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, org1, []string{"user-1", "user-2", "user-3"}, nil, false)
+
+	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, org1.Join("workspace1"), []string{"user-1"}, nil, true)
+	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, org1.Join("workspace1"), []string{"user-2"}, nil, false)
+	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, org1.Join("workspace2"), []string{"user-3"}, nil, false)
+	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, org1.Join("workspace2"), []string{"user-2"}, nil, true)
+
+	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, org2.Join("workspace1"), []string{"user-1"}, nil, true)
+	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, org2.Join("workspace1"), []string{"user-2"}, nil, false)
+	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, org2.Join("workspace2"), []string{"user-3"}, nil, false)
+	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, org2.Join("workspace2"), []string{"user-2"}, nil, true)
 
 	user1KubeClusterClient, err := kcpkubernetesclientset.NewForConfig(framework.UserConfig("user-1", cfg))
 	require.NoError(t, err)
