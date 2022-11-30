@@ -158,7 +158,6 @@ func TestSchedulingReconciler(t *testing.T) {
 				},
 			),
 			wantStatus: reconcileStatusContinue,
-		},*/
 		{
 			name: "invalid spec shard name",
 			workspace: phase(tenancyv1alpha1.WorkspacePhaseScheduling,
@@ -178,7 +177,6 @@ func TestSchedulingReconciler(t *testing.T) {
 			),
 			wantStatus: reconcileStatusContinue,
 		},
-		// TODO:(p0lyn0mial): fix me
 		/*{
 			name: "spec shard selector",
 			workspace: phase(tenancyv1alpha1.WorkspacePhaseScheduling,
