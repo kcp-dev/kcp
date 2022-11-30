@@ -91,9 +91,9 @@ func provideFilteredClusterWorkspacesReadOnlyRestStorage(getTenancyIdentity func
 func provideDelegatingClusterWorkspacesRestStorage(getTenancyIdentity func() (string, error)) func(
 	ctx context.Context,
 	clusterClient kcpdynamic.ClusterInterface,
-	initializer tenancyv1alpha1.ClusterWorkspaceInitializer,
+	initializer tenancyv1alpha1.WorkspaceInitializer,
 ) (apiserver.RestProviderFunc, error) {
-	return func(ctx context.Context, clusterClient kcpdynamic.ClusterInterface, initializer tenancyv1alpha1.ClusterWorkspaceInitializer) (apiserver.RestProviderFunc, error) {
+	return func(ctx context.Context, clusterClient kcpdynamic.ClusterInterface, initializer tenancyv1alpha1.WorkspaceInitializer) (apiserver.RestProviderFunc, error) {
 		identity, err := getTenancyIdentity()
 		if err != nil {
 			return nil, err
