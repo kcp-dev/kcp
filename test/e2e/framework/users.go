@@ -40,21 +40,36 @@ func AdmitWorkspaceAccess(t *testing.T, ctx context.Context, kubeClusterClient k
 		t.Logf("Giving users %v member access to workspace %q in %q", users, clusterName.Base(), clusterName)
 	}
 
-	verb := "access"
+	nameSuffix := "access"
 	roleName := bootstrap.SystemKcpWorkspaceAccessGroup
 	if admin {
-		verb = "admin"
-		verb = "cluster-admin"
+		nameSuffix = "admin"
+		roleName = "cluster-admin"
 	}
 	binding := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: fmt.Sprintf("workspace-%s-", verb),
+			GenerateName: fmt.Sprintf("workspace-%s-", nameSuffix),
 		},
 		RoleRef: rbacv1.RoleRef{
 			Kind:     "ClusterRole",
 			APIGroup: "rbac.authorization.k8s.io",
 			Name:     roleName,
 		},
+	}
+
+	for _, group := range groups {
+		binding.Subjects = append(binding.Subjects, rbacv1.Subject{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "Group",
+			Name:     group,
+		})
+	}
+	for _, user := range users {
+		binding.Subjects = append(binding.Subjects, rbacv1.Subject{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "User",
+			Name:     user,
+		})
 	}
 
 	_, err := kubeClusterClient.Cluster(clusterName).RbacV1().ClusterRoleBindings().Create(ctx, binding, metav1.CreateOptions{})
