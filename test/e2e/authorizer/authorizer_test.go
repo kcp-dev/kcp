@@ -80,7 +80,11 @@ func TestAuthorizer(t *testing.T) {
 	createResources(t, ctx, dynamicClusterClient, kubeDiscoveryClient, org1.Join("workspace1"), "workspace1-resources.yaml")
 	createResources(t, ctx, dynamicClusterClient, kubeDiscoveryClient, org2.Join("workspace1"), "workspace1-resources.yaml")
 
-	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, org1, []string{"user-1", "user-2", "user-3"}, nil, false)
+	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, org1.Join("workspace1"), []string{"user-1"}, nil, true)
+	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, org1.Join("workspace1"), []string{"user-2"}, nil, false)
+	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, org1.Join("workspace2"), []string{"user-2"}, nil, true)
+	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, org1.Join("workspace2"), []string{"user-3"}, nil, false) //
+	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, org2.Join("workspace1"), []string{"user-2", "user-3"}, nil, false)
 
 	user1KubeClusterClient, err := kcpkubernetesclientset.NewForConfig(framework.UserConfig("user-1", cfg))
 	require.NoError(t, err)
@@ -98,7 +102,7 @@ func TestAuthorizer(t *testing.T) {
 	}, 2*wait.ForeverTestTimeout, 100*time.Millisecond)
 
 	tests := map[string]func(t *testing.T){
-		"as org member, workspace admin user-1 can access everything": func(t *testing.T) {
+		"workspace admin user-1 can access everything": func(t *testing.T) {
 			_, err := user1KubeClusterClient.Cluster(org1.Join("workspace1")).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
 			require.NoError(t, err)
 			_, err = user1KubeClusterClient.Cluster(org1.Join("workspace1")).CoreV1().Namespaces().Create(ctx, &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "test"}}, metav1.CreateOptions{})
@@ -106,25 +110,25 @@ func TestAuthorizer(t *testing.T) {
 			_, err = user1KubeClusterClient.Cluster(org1.Join("workspace1")).CoreV1().ConfigMaps("test").Create(ctx, &v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "test"}}, metav1.CreateOptions{})
 			require.NoError(t, err)
 		},
-		"with org access, workspace1 non-admin user-2 can access according to local policy": func(t *testing.T) {
+		"workspace1 non-admin user-2 can only access the workspace": func(t *testing.T) {
 			_, err := user2KubeClusterClient.Cluster(org1.Join("workspace1")).CoreV1().Namespaces().Create(ctx, &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "test"}}, metav1.CreateOptions{})
 			require.Error(t, err, "user-2 should not be able to create namespace in workspace1")
 			_, err = user2KubeClusterClient.Cluster(org1.Join("workspace1")).CoreV1().Secrets("default").List(ctx, metav1.ListOptions{})
 			require.NoError(t, err, "user-2 should be able to list secrets in workspace1 as defined in the local policy")
 		},
-		"without org access, org1 workspace1 admin user-1 cannot access org2, not even discovery": func(t *testing.T) {
+		"org1 workspace1 admin user-1 cannot access org2, not even discovery": func(t *testing.T) {
 			_, err := user1KubeClusterClient.Cluster(org2.Join("workspace1")).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
 			require.Error(t, err, "user-1 should not be able to list configmaps in a different org")
 			_, err = user1KubeDiscoveryClient.Cluster(org2.Join("workspace1")).ServerResourcesForGroupVersion("rbac.authorization.k8s.io/v1") // can't be core because that always returns nil
 			require.Error(t, err, "user-1 should not be able to list server resources in a different org")
 		},
-		"as org member, workspace1 admin user-1 cannot access workspace2, not even discovery": func(t *testing.T) {
+		"workspace1 admin user-1 cannot access workspace2, not even discovery": func(t *testing.T) {
 			_, err := user1KubeClusterClient.Cluster(org1.Join("workspace2")).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
 			require.Error(t, err, "user-1 should not be able to list configmaps in a different workspace")
 			_, err = user1KubeDiscoveryClient.Cluster(org2.Join("workspace1")).ServerResourcesForGroupVersion("rbac.authorization.k8s.io/v1") // can't be core because that always returns nil
 			require.Error(t, err, "user-1 should not be able to list server resources in a different workspace")
 		},
-		"with org access, workspace2 admin user-2 can access workspace2": func(t *testing.T) {
+		"workspace2 admin user-2 can access workspace2": func(t *testing.T) {
 			_, err := user2KubeClusterClient.Cluster(org1.Join("workspace2")).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
 			require.NoError(t, err, "user-2 should be able to list configmaps in workspace2")
 		},
