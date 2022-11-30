@@ -87,7 +87,7 @@ jobs:
     - uses: container-tools/kind-action@v2
       name: Kubernetes KinD Cluster w/local registry
       with:
-        version: v0.14.0
+        version: v0.17.0
         config: test/e2e/kind/config-calico.yaml
 
     # Install Calico
