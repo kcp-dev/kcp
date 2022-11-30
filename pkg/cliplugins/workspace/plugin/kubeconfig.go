@@ -173,11 +173,11 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 		bindings, err := o.getAPIBindings(ctx, o.kcpClusterClient, newServerHost)
 		if err != nil {
 			// display the error, but don't stop the current workspace from being reported.
-			fmt.Fprintf(o.ErrOut, "error checking APIBindings: %v", err)
+			fmt.Fprintf(o.ErrOut, "error checking APIBindings: %v\n", err)
 		}
 		if err = findUnresolvedPermissionClaims(o.Out, bindings); err != nil {
 			// display the error, but don't stop the current workspace from being reported.
-			fmt.Fprintf(o.ErrOut, "error checking APIBindings: %v", err)
+			fmt.Fprintf(o.ErrOut, "error checking APIBindings: %v\n", err)
 		}
 
 		return currentWorkspace(o.Out, newServerHost, shortWorkspaceOutput(o.ShortWorkspaceOutput), nil)
@@ -319,17 +319,17 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 	bindings, err := o.getAPIBindings(ctx, o.kcpClusterClient, newServerHost)
 	if err != nil {
 		// display the error, but don't stop the current workspace from being reported.
-		fmt.Fprintf(o.ErrOut, "error checking APIBindings: %v", err)
+		fmt.Fprintf(o.ErrOut, "error checking APIBindings: %v\n", err)
 	}
 	if err := findUnresolvedPermissionClaims(o.Out, bindings); err != nil {
 		// display the error, but don't stop the current workspace from being reported.
-		fmt.Fprintf(o.ErrOut, "error checking APIBindings: %v", err)
+		fmt.Fprintf(o.ErrOut, "error checking APIBindings: %v\n", err)
 	}
 
 	return currentWorkspace(o.Out, newServerHost, shortWorkspaceOutput(o.ShortWorkspaceOutput), workspaceType)
 }
 
-// getAPIBindings retrieves APIBindings within the workspace
+// getAPIBindings retrieves APIBindings within the workspace.
 func getAPIBindings(ctx context.Context, kcpClusterClient kcpclientset.ClusterInterface, host string) ([]apisv1alpha1.APIBinding, error) {
 	_, clusterName, err := pluginhelpers.ParseClusterURL(host)
 	if err != nil {
@@ -337,6 +337,10 @@ func getAPIBindings(ctx context.Context, kcpClusterClient kcpclientset.ClusterIn
 	}
 
 	apiBindings, err := kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIBindings().List(ctx, metav1.ListOptions{})
+	// If the user is not allowed to view APIBindings in the workspace, there's nothing to show.
+	if apierrors.IsForbidden(err) {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
 	}
