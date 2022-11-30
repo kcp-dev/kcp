@@ -19,7 +19,7 @@ require (
 	github.com/kcp-dev/apimachinery v0.0.0-20221102195355-d65878bc16be
 	github.com/kcp-dev/client-go v0.0.0-20221116175613-517d8c8ead79
 	github.com/kcp-dev/kcp/pkg/apis v0.0.0-00010101000000-000000000000
-	github.com/kcp-dev/logicalcluster/v2 v2.0.0-alpha.3
+	github.com/kcp-dev/logicalcluster/v2 v2.0.0-alpha.4
 	github.com/martinlindhe/base36 v1.1.1
 	github.com/miekg/dns v1.1.50
 	github.com/muesli/reflow v0.1.0
