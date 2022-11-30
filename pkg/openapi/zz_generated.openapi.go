@@ -1691,7 +1691,7 @@ func schema_pkg_apis_apis_v1alpha1_APIExportStatus(ref common.ReferenceCallback)
 					},
 					"virtualWorkspaces": {
 						SchemaProps: spec.SchemaProps{
-							Description: "virtualWorkspaces contains all APIExport virtual workspace URLs. This field will get deprecated in favor of APIExportEndpointSlice.",
+							Description: "virtualWorkspaces contains all APIExport virtual workspace URLs.\n\nDeprecated: use APIExportEndpointSlice.status.endpoints instead",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{

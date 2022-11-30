@@ -56,6 +56,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibindingdeletion"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiexport"
+	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiexportendpointslice"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiresource"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/crdcleanup"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/extraannotationsync"
@@ -915,6 +916,43 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 			bindingsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced()
 			return crdsSynced && exportsSynced && bindingsSynced, nil
 		}); err != nil {
+			logger.Error(err, "failed to finish post-start-hook")
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		go c.Start(goContext(hookContext), 2)
+
+		return nil
+	})
+}
+
+func (s *Server) installAPIExportEndpointSliceController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
+	config = rest.CopyConfig(config)
+	config = rest.AddUserAgent(config, apiexportendpointslice.ControllerName)
+
+	kcpClusterClient, err := kcpclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	c, err := apiexportendpointslice.NewController(
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExportEndpointSlices(),
+		// Shards and APIExports get retrieved from cache server
+		s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+		kcpClusterClient,
+	)
+	if err != nil {
+		return err
+	}
+
+	return s.AddPostStartHook(postStartHookName(apiexportendpointslice.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
+		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(apiexportendpointslice.ControllerName))
+		if err := s.waitForSync(hookContext.StopCh); err != nil {
+			logger.Error(err, "failed to finish post-start-hook")
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+		if err := s.waitForOptionalSync(hookContext.StopCh); err != nil {
 			logger.Error(err, "failed to finish post-start-hook")
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}

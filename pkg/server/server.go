@@ -472,6 +472,12 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
+	if s.Options.Cache.Enabled && (s.Options.Controllers.EnableAll || enabled.Has("apiexportendpointslice")) {
+		if err := s.installAPIExportEndpointSliceController(ctx, controllerConfig, delegationChainHead); err != nil {
+			return err
+		}
+	}
+
 	if s.Options.Controllers.EnableAll || enabled.Has("apibinder") {
 		if err := s.installAPIBinderController(ctx, controllerConfig, delegationChainHead); err != nil {
 			return err

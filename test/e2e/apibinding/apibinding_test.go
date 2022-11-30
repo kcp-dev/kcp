@@ -323,6 +323,7 @@ func TestAPIBinding(t *testing.T) {
 			}
 
 			var actualURLs []string
+			//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
 			for _, u := range e.Status.VirtualWorkspaces {
 				actualURLs = append(actualURLs, u.URL)
 			}

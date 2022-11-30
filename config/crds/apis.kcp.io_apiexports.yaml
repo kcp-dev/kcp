@@ -241,8 +241,9 @@ spec:
                   APIExport. This value is immutable as soon as it is set.
                 type: string
               virtualWorkspaces:
-                description: virtualWorkspaces contains all APIExport virtual workspace
-                  URLs. This field will get deprecated in favor of APIExportEndpointSlice.
+                description: "virtualWorkspaces contains all APIExport virtual workspace
+                  URLs. \n Deprecated: use APIExportEndpointSlice.status.endpoints
+                  instead"
                 items:
                   properties:
                     url:

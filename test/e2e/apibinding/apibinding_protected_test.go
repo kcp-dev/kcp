@@ -141,6 +141,7 @@ func TestProtectedAPIFromServiceExports(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Construct VirtualWorkspace client")
+	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
 	vwURL := workloadsRoot.Status.VirtualWorkspaces[0].URL
 	cfgVW := server.RootShardSystemMasterBaseConfig(t)
 	cfgVW.Host = vwURL
