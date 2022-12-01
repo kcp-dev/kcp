@@ -384,7 +384,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 	}
 
 	logicalClusterAdminConfig = rest.CopyConfig(logicalClusterAdminConfig)
-	logicalClusterAdminConfig = rest.AddUserAgent(logicalClusterAdminConfig, clusterworkspaceshard.ControllerName)
+	logicalClusterAdminConfig = rest.AddUserAgent(logicalClusterAdminConfig, workspace.ControllerName)
 
 	workspaceController, err := workspace.NewController(
 		s.CompletedConfig.ShardExternalURL,
