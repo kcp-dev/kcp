@@ -805,23 +805,8 @@ func (b builder) disallowingChildren() builder {
 	return b
 }
 
-func (b builder) withInitializer() builder {
-	b.ClusterWorkspaceType.Spec.Initializer = true
-	return b
-}
-
 func (b builder) withAdditionalLabel(labels map[string]string) builder {
 	b.ClusterWorkspaceType.Spec.AdditionalWorkspaceLabels = labels
-	return b
-}
-
-func (b builder) withAPIBindings() builder {
-	b.ClusterWorkspaceType.Spec.DefaultAPIBindings = []tenancyv1alpha1.APIExportReference{
-		{
-			Path:       "root",
-			ExportName: "bar",
-		},
-	}
 	return b
 }
 
@@ -857,11 +842,6 @@ func (b wsBuilder) resolved(cluster tenancy.Cluster) wsBuilder {
 	return b
 }
 
-func (b wsBuilder) withStatus(status tenancyv1beta1.WorkspaceStatus) wsBuilder {
-	b.Status = status
-	return b
-}
-
 func (b wsBuilder) withLabels(labels map[string]string) wsBuilder {
 	b.Labels = labels
 	return b
@@ -887,15 +867,5 @@ func (b thisWsBuilder) withType(cluster tenancy.Cluster, name string) thisWsBuil
 		b.Annotations = map[string]string{}
 	}
 	b.Annotations[tenancyv1alpha1.ThisWorkspaceTypeAnnotationKey] = cluster.LogicalCluster().Join(name).String()
-	return b
-}
-
-func (b thisWsBuilder) withStatus(status tenancyv1alpha1.ThisWorkspaceStatus) thisWsBuilder {
-	b.Status = status
-	return b
-}
-
-func (b thisWsBuilder) withLabels(labels map[string]string) thisWsBuilder {
-	b.Labels = labels
 	return b
 }
