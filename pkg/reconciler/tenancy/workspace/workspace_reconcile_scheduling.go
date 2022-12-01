@@ -40,6 +40,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspacetypeexists"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
@@ -79,7 +80,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 	case tenancyv1alpha1.WorkspacePhaseScheduling:
 		shardNameHash, hasShard := workspace.Annotations[workspaceShardAnnotationKey]
 		clusterNameString, hasCluster := workspace.Annotations[workspaceClusterAnnotationKey]
-		clusterName := logicalcluster.New(clusterNameString)
+		clusterName := tenancy.Cluster(clusterNameString)
 		hasFinalizer := sets.NewString(workspace.Finalizers...).Has(tenancyv1alpha1.ThisWorkspaceFinalizer)
 
 		if !hasShard {
@@ -97,11 +98,11 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 			workspace.Annotations[workspaceShardAnnotationKey] = shardNameHash
 		}
 		if !hasCluster {
-			clusterName = logicalcluster.From(workspace).Join(workspace.Name) // TODO: replace with randomClusterName()
+			cluster := tenancy.TemporaryClusterFrom(logicalcluster.From(workspace).Join(workspace.Name)) // TODO: replace with randomClusterName()
 			if workspace.Annotations == nil {
 				workspace.Annotations = map[string]string{}
 			}
-			workspace.Annotations[workspaceClusterAnnotationKey] = clusterName.String()
+			workspace.Annotations[workspaceClusterAnnotationKey] = cluster.String()
 		}
 		if !hasFinalizer {
 			workspace.Finalizers = append(workspace.Finalizers, tenancyv1alpha1.ThisWorkspaceFinalizer)
@@ -125,13 +126,13 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 			return reconcileStatusContinue, nil
 		}
 
-		if err := r.createThisWorkspace(ctx, shard, clusterName, workspace); err != nil && !apierrors.IsAlreadyExists(err) {
+		if err := r.createThisWorkspace(ctx, shard, clusterName.Path(), workspace); err != nil && !apierrors.IsAlreadyExists(err) {
 			return reconcileStatusStopAndRequeue, err
 		}
-		if err := r.createClusterRoleBindingForThisWorkspace(ctx, shard, clusterName, workspace); err != nil && !apierrors.IsAlreadyExists(err) {
+		if err := r.createClusterRoleBindingForThisWorkspace(ctx, shard, clusterName.Path(), workspace); err != nil && !apierrors.IsAlreadyExists(err) {
 			return reconcileStatusStopAndRequeue, err
 		}
-		if err := r.updateThisWorkspacePhase(ctx, shard, clusterName, tenancyv1alpha1.WorkspacePhaseInitializing); err != nil {
+		if err := r.updateThisWorkspacePhase(ctx, shard, clusterName.Path(), tenancyv1alpha1.WorkspacePhaseInitializing); err != nil {
 			return reconcileStatusStopAndRequeue, err
 		}
 
@@ -143,9 +144,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 			return reconcileStatusStopAndRequeue, err // requeue
 		}
 
-		conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceScheduled)
-
-		u.Path = path.Join(u.Path, logicalcluster.From(workspace).Join(workspace.Name).Path())
+		u.Path = path.Join(u.Path, clusterName.Path().Path())
 		workspace.Status.URL = u.String()
 		workspace.Status.Cluster = clusterName.String()
 		conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceScheduled)
