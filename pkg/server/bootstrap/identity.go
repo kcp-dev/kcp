@@ -275,12 +275,31 @@ func decorateWildcardPathsWithResourceIdentities(urlPath string, ids *identities
 		return urlPath, nil
 	}
 
-	gr := schema.GroupResource{Group: comps[3], Resource: comps[5]}
+	// It's possible the outgoing request already has an identity specified. Make sure we exclude that when
+	// determining the resource in question.
+	parts := strings.SplitN(comps[5], ":", 2)
+	if len(parts) == 0 {
+		return "", fmt.Errorf("invalid resource %q", comps[5])
+	}
+
+	resource := parts[0]
+
+	gr := schema.GroupResource{Group: comps[3], Resource: resource}
 	if id, found := ids.grIdentity(gr); found {
 		if len(id) == 0 {
 			return "", fmt.Errorf("identity for %s is unknown", gr)
 		}
-		comps[5] += ":" + id
+
+		passedInIdentity := ""
+		if len(parts) > 1 {
+			passedInIdentity = parts[1]
+		}
+
+		if passedInIdentity != "" && passedInIdentity != id {
+			return "", fmt.Errorf("invalid identity %q for resource %q", passedInIdentity, resource)
+		}
+
+		comps[5] = resource + ":" + id
 
 		return "/" + path.Join(comps...), nil
 	}

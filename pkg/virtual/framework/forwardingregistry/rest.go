@@ -38,16 +38,44 @@ import (
 
 // StorageWrapper allows consumers to wrap the delegating Store in order to add custom behavior around it.
 // For example, a consumer might want to filter the results from the delegated Store, or add impersonation to it.
-type StorageWrapper func(schema.GroupResource, *StoreFuncs) *StoreFuncs
+type StorageWrapper interface {
+	Decorate(groupResource schema.GroupResource, storage *StoreFuncs)
+}
+
+type StorageWrapperFunc func(groupResource schema.GroupResource, storage *StoreFuncs)
+
+func (f StorageWrapperFunc) Decorate(groupResource schema.GroupResource, storage *StoreFuncs) {
+	f(groupResource, storage)
+}
+
+type StorageWrappers []StorageWrapper
+
+func (sw *StorageWrappers) Decorate(groupResource schema.GroupResource, storage *StoreFuncs) {
+	if sw == nil {
+		return
+	}
+
+	for _, w := range *sw {
+		w.Decorate(groupResource, storage)
+	}
+}
 
 // NewStorage returns a REST storage that forwards calls to a dynamic client
-func NewStorage(ctx context.Context, resource schema.GroupVersionResource, apiExportIdentityHash string, kind, listKind schema.GroupVersionKind, strategy customresource.CustomResourceStrategy, categories []string, tableConvertor rest.TableConvertor, replicasPathMapping fieldmanager.ResourcePathMappings,
-	dynamicClusterClient kcpdynamic.ClusterInterface, patchConflictRetryBackoff *wait.Backoff, wrapper StorageWrapper) (mainStorage, statusStorage *StoreFuncs) {
+func NewStorage(
+	ctx context.Context,
+	resource schema.GroupVersionResource,
+	apiExportIdentityHash string,
+	kind, listKind schema.GroupVersionKind,
+	strategy customresource.CustomResourceStrategy,
+	categories []string,
+	tableConvertor rest.TableConvertor,
+	replicasPathMapping fieldmanager.ResourcePathMappings,
+	dynamicClusterClient kcpdynamic.ClusterInterface,
+	patchConflictRetryBackoff *wait.Backoff,
+	wrapper StorageWrapper,
+) (mainStorage, statusStorage *StoreFuncs) {
 	if patchConflictRetryBackoff == nil {
 		patchConflictRetryBackoff = &retry.DefaultRetry
-	}
-	if wrapper == nil {
-		wrapper = func(_ schema.GroupResource, funcs *StoreFuncs) *StoreFuncs { return funcs }
 	}
 
 	factory := func() runtime.Object {
@@ -66,35 +94,49 @@ func NewStorage(ctx context.Context, resource schema.GroupVersionResource, apiEx
 		// TODO: what do we do on Destroy()?
 	}
 
-	delegate := DefaultDynamicDelegatedStoreFuncs(
+	store := DefaultDynamicDelegatedStoreFuncs(
 		factory, listFactory, destroyer,
 		strategy, tableConvertor,
 		resource, apiExportIdentityHash, categories,
 		dynamicClusterClient, []string{}, *patchConflictRetryBackoff, ctx.Done(),
 	)
-	store := wrapper(resource.GroupResource(), delegate)
+	if wrapper != nil {
+		wrapper.Decorate(resource.GroupResource(), store)
+	}
 
 	statusStrategy := customresource.NewStatusStrategy(strategy)
-	statusDelegate := DefaultDynamicDelegatedStoreFuncs(
+	statusStore := DefaultDynamicDelegatedStoreFuncs(
 		factory, listFactory, destroyer,
 		statusStrategy, tableConvertor,
 		resource, apiExportIdentityHash, categories,
 		dynamicClusterClient, []string{"status"}, *patchConflictRetryBackoff, ctx.Done(),
 	)
-	delegateUpdate := statusDelegate.UpdaterFunc
-	statusDelegate.UpdaterFunc = func(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
+	delegateUpdate := statusStore.UpdaterFunc
+	statusStore.UpdaterFunc = func(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
 		// We are explicitly setting forceAllowCreate to false in the call to the underlying storage because
 		// subresources should never allow create on update.
 		return delegateUpdate(ctx, name, objInfo, createValidation, updateValidation, false, options)
 	}
-	statusStore := wrapper(resource.GroupResource(), statusDelegate)
+	if wrapper != nil {
+		wrapper.Decorate(resource.GroupResource(), statusStore)
+	}
 	return store, statusStore
 }
 
 // ProvideReadOnlyRestStorage returns a commonly used REST storage that forwards calls to a dynamic client,
 // but only for read-only requests.
-func ProvideReadOnlyRestStorage(ctx context.Context, clusterClient kcpdynamic.ClusterInterface, wrapper StorageWrapper) (apiserver.RestProviderFunc, error) {
-	return func(resource schema.GroupVersionResource, kind schema.GroupVersionKind, listKind schema.GroupVersionKind, typer runtime.ObjectTyper, tableConvertor rest.TableConvertor, namespaceScoped bool, schemaValidator *validate.SchemaValidator, subresourcesSchemaValidator map[string]*validate.SchemaValidator, structuralSchema *structuralschema.Structural) (mainStorage rest.Storage, subresourceStorages map[string]rest.Storage) {
+func ProvideReadOnlyRestStorage(ctx context.Context, clusterClient kcpdynamic.ClusterInterface, wrapper StorageWrapper, identities map[schema.GroupResource]string) (apiserver.RestProviderFunc, error) {
+	return func(
+		resource schema.GroupVersionResource,
+		kind schema.GroupVersionKind,
+		listKind schema.GroupVersionKind,
+		typer runtime.ObjectTyper,
+		tableConvertor rest.TableConvertor,
+		namespaceScoped bool,
+		schemaValidator *validate.SchemaValidator,
+		subresourcesSchemaValidator map[string]*validate.SchemaValidator,
+		structuralSchema *structuralschema.Structural,
+	) (mainStorage rest.Storage, subresourceStorages map[string]rest.Storage) {
 		statusSchemaValidate := subresourcesSchemaValidator["status"]
 
 		strategy := customresource.NewStrategy(
@@ -111,7 +153,7 @@ func ProvideReadOnlyRestStorage(ctx context.Context, clusterClient kcpdynamic.Cl
 		storage, _ := NewStorage(
 			ctx,
 			resource,
-			"",
+			identities[resource.GroupResource()],
 			kind,
 			listKind,
 			strategy,

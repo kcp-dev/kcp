@@ -42,112 +42,173 @@ import (
 	registry "github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
 )
 
-func provideFilteredReadOnlyRestStorage(ctx context.Context, clusterClient kcpdynamic.ClusterInterface, initializer tenancyv1alpha1.ClusterWorkspaceInitializer) (apiserver.RestProviderFunc, error) {
+func initializingWorkspaceRequirements(initializer tenancyv1alpha1.ClusterWorkspaceInitializer) (labels.Requirements, error) {
 	labelSelector := map[string]string{
 		tenancyv1alpha1.ClusterWorkspacePhaseLabel: string(tenancyv1alpha1.ClusterWorkspacePhaseInitializing),
 	}
+
 	key, value := initialization.InitializerToLabel(initializer)
 	labelSelector[key] = value
+
 	requirements, selectable := labels.SelectorFromSet(labelSelector).Requirements()
 	if !selectable {
 		return nil, fmt.Errorf("unable to create a selector from the provided labels")
 	}
-	return registry.ProvideReadOnlyRestStorage(ctx, clusterClient, registry.WithStaticLabelSelector(requirements))
+
+	return requirements, nil
 }
 
-func provideDelegatingRestStorage(ctx context.Context, clusterClient kcpdynamic.ClusterInterface, initializer tenancyv1alpha1.ClusterWorkspaceInitializer) (apiserver.RestProviderFunc, error) {
-	return func(resource schema.GroupVersionResource, kind schema.GroupVersionKind, listKind schema.GroupVersionKind, typer runtime.ObjectTyper, tableConvertor rest.TableConvertor, namespaceScoped bool, schemaValidator *validate.SchemaValidator, subresourcesSchemaValidator map[string]*validate.SchemaValidator, structuralSchema *structuralschema.Structural) (mainStorage rest.Storage, subresourceStorages map[string]rest.Storage) {
-		statusSchemaValidate, statusEnabled := subresourcesSchemaValidator["status"]
-
-		var statusSpec *apiextensions.CustomResourceSubresourceStatus
-		if statusEnabled {
-			statusSpec = &apiextensions.CustomResourceSubresourceStatus{}
+func provideFilteredClusterWorkspacesReadOnlyRestStorage(getTenancyIdentity func() (string, error)) func(
+	ctx context.Context,
+	clusterClient kcpdynamic.ClusterInterface,
+	initializer tenancyv1alpha1.ClusterWorkspaceInitializer,
+) (apiserver.RestProviderFunc, error) {
+	return func(ctx context.Context, clusterClient kcpdynamic.ClusterInterface, initializer tenancyv1alpha1.ClusterWorkspaceInitializer) (apiserver.RestProviderFunc, error) {
+		requirements, err := initializingWorkspaceRequirements(initializer)
+		if err != nil {
+			return nil, err
 		}
 
-		var scaleSpec *apiextensions.CustomResourceSubresourceScale
+		identity, err := getTenancyIdentity()
+		if err != nil {
+			return nil, err
+		}
 
-		strategy := customresource.NewStrategy(
-			typer,
-			namespaceScoped,
-			kind,
-			schemaValidator,
-			statusSchemaValidate,
-			map[string]*structuralschema.Structural{resource.Version: structuralSchema},
-			statusSpec,
-			scaleSpec,
-		)
+		identities := map[schema.GroupResource]string{
+			{Group: "tenancy.kcp.dev", Resource: "clusterworkspaces"}: identity,
+		}
 
-		storage, statusStorage := registry.NewStorage(
+		return registry.ProvideReadOnlyRestStorage(
 			ctx,
-			resource,
-			"", // ClusterWorkspaces have no identity
-			kind,
-			listKind,
-			strategy,
-			nil,
-			tableConvertor,
-			nil,
 			clusterClient,
-			nil,
-			withUpdateValidation(initializer),
+			registry.WithStaticLabelSelector(requirements),
+			identities,
 		)
+	}
+}
 
-		// we want to expose some but not all the allowed endpoints, so filter by exposing just the funcs we need
-		subresourceStorages = make(map[string]rest.Storage)
-		if statusEnabled {
-			subresourceStorages["status"] = &struct {
+func provideDelegatingClusterWorkspacesRestStorage(getTenancyIdentity func() (string, error)) func(
+	ctx context.Context,
+	clusterClient kcpdynamic.ClusterInterface,
+	initializer tenancyv1alpha1.ClusterWorkspaceInitializer,
+) (apiserver.RestProviderFunc, error) {
+	return func(ctx context.Context, clusterClient kcpdynamic.ClusterInterface, initializer tenancyv1alpha1.ClusterWorkspaceInitializer) (apiserver.RestProviderFunc, error) {
+		identity, err := getTenancyIdentity()
+		if err != nil {
+			return nil, err
+		}
+
+		requirements, err := initializingWorkspaceRequirements(initializer)
+		if err != nil {
+			return nil, err
+		}
+
+		return func(
+			resource schema.GroupVersionResource,
+			kind schema.GroupVersionKind,
+			listKind schema.GroupVersionKind,
+			typer runtime.ObjectTyper,
+			tableConvertor rest.TableConvertor,
+			namespaceScoped bool,
+			schemaValidator *validate.SchemaValidator,
+			subresourcesSchemaValidator map[string]*validate.SchemaValidator,
+			structuralSchema *structuralschema.Structural,
+		) (mainStorage rest.Storage, subresourceStorages map[string]rest.Storage) {
+			statusSchemaValidate, statusEnabled := subresourcesSchemaValidator["status"]
+
+			var statusSpec *apiextensions.CustomResourceSubresourceStatus
+			if statusEnabled {
+				statusSpec = &apiextensions.CustomResourceSubresourceStatus{}
+			}
+
+			var scaleSpec *apiextensions.CustomResourceSubresourceScale
+
+			strategy := customresource.NewStrategy(
+				typer,
+				namespaceScoped,
+				kind,
+				schemaValidator,
+				statusSchemaValidate,
+				map[string]*structuralschema.Structural{resource.Version: structuralSchema},
+				statusSpec,
+				scaleSpec,
+			)
+
+			storage, statusStorage := registry.NewStorage(
+				ctx,
+				resource,
+				identity,
+				kind,
+				listKind,
+				strategy,
+				nil,
+				tableConvertor,
+				nil,
+				clusterClient,
+				nil,
+				&registry.StorageWrappers{
+					registry.WithStaticLabelSelector(requirements),
+					withUpdateValidation(initializer),
+				},
+			)
+
+			// we want to expose some but not all the allowed endpoints, so filter by exposing just the funcs we need
+			subresourceStorages = make(map[string]rest.Storage)
+			if statusEnabled {
+				subresourceStorages["status"] = &struct {
+					registry.FactoryFunc
+					registry.DestroyerFunc
+
+					registry.GetterFunc
+					registry.UpdaterFunc
+					// patch is implicit as we have get + update
+
+					registry.TableConvertorFunc
+					registry.CategoriesProviderFunc
+					registry.ResetFieldsStrategyFunc
+				}{
+					FactoryFunc:   statusStorage.FactoryFunc,
+					DestroyerFunc: statusStorage.DestroyerFunc,
+
+					GetterFunc:  statusStorage.GetterFunc,
+					UpdaterFunc: statusStorage.UpdaterFunc,
+
+					TableConvertorFunc:      statusStorage.TableConvertorFunc,
+					CategoriesProviderFunc:  statusStorage.CategoriesProviderFunc,
+					ResetFieldsStrategyFunc: statusStorage.ResetFieldsStrategyFunc,
+				}
+			}
+
+			// only expose GET
+			return &struct {
 				registry.FactoryFunc
+				registry.ListFactoryFunc
 				registry.DestroyerFunc
 
 				registry.GetterFunc
-				registry.UpdaterFunc
-				// patch is implicit as we have get + update
 
 				registry.TableConvertorFunc
 				registry.CategoriesProviderFunc
 				registry.ResetFieldsStrategyFunc
 			}{
-				FactoryFunc:   statusStorage.FactoryFunc,
-				DestroyerFunc: statusStorage.DestroyerFunc,
+				FactoryFunc:     storage.FactoryFunc,
+				ListFactoryFunc: storage.ListFactoryFunc,
+				DestroyerFunc:   storage.DestroyerFunc,
 
-				GetterFunc:  statusStorage.GetterFunc,
-				UpdaterFunc: statusStorage.UpdaterFunc,
+				GetterFunc: storage.GetterFunc,
 
-				TableConvertorFunc:      statusStorage.TableConvertorFunc,
-				CategoriesProviderFunc:  statusStorage.CategoriesProviderFunc,
-				ResetFieldsStrategyFunc: statusStorage.ResetFieldsStrategyFunc,
-			}
-		}
-
-		// only expose GET
-		return &struct {
-			registry.FactoryFunc
-			registry.ListFactoryFunc
-			registry.DestroyerFunc
-
-			registry.GetterFunc
-
-			registry.TableConvertorFunc
-			registry.CategoriesProviderFunc
-			registry.ResetFieldsStrategyFunc
-		}{
-			FactoryFunc:     storage.FactoryFunc,
-			ListFactoryFunc: storage.ListFactoryFunc,
-			DestroyerFunc:   storage.DestroyerFunc,
-
-			GetterFunc: storage.GetterFunc,
-
-			TableConvertorFunc:      storage.TableConvertorFunc,
-			CategoriesProviderFunc:  storage.CategoriesProviderFunc,
-			ResetFieldsStrategyFunc: storage.ResetFieldsStrategyFunc,
-		}, subresourceStorages
-	}, nil
+				TableConvertorFunc:      storage.TableConvertorFunc,
+				CategoriesProviderFunc:  storage.CategoriesProviderFunc,
+				ResetFieldsStrategyFunc: storage.ResetFieldsStrategyFunc,
+			}, subresourceStorages
+		}, nil
+	}
 }
 
 // withUpdateValidation adds further validation to ensure that a user of this virtual workspace can only
 // remove their own initializer from the list
 func withUpdateValidation(initializer tenancyv1alpha1.ClusterWorkspaceInitializer) registry.StorageWrapper {
-	return func(resource schema.GroupResource, storage *registry.StoreFuncs) *registry.StoreFuncs {
+	return registry.StorageWrapperFunc(func(resource schema.GroupResource, storage *registry.StoreFuncs) {
 		delegateUpdater := storage.UpdaterFunc
 		storage.UpdaterFunc = func(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
 			validation := rest.ValidateObjectUpdateFunc(func(ctx context.Context, obj, old runtime.Object) error {
@@ -182,7 +243,5 @@ func withUpdateValidation(initializer tenancyv1alpha1.ClusterWorkspaceInitialize
 			})
 			return delegateUpdater.Update(ctx, name, objInfo, createValidation, validation, forceAllowCreate, options)
 		}
-
-		return storage
-	}
+	})
 }

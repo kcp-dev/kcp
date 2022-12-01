@@ -36,7 +36,7 @@ func WithStaticLabelSelector(labelSelector labels.Requirements) StorageWrapper {
 }
 
 func WithLabelSelector(labelSelectorFrom func(ctx context.Context) labels.Requirements) StorageWrapper {
-	return func(resource schema.GroupResource, storage *StoreFuncs) *StoreFuncs {
+	return StorageWrapperFunc(func(resource schema.GroupResource, storage *StoreFuncs) {
 		delegateLister := storage.ListerFunc
 		storage.ListerFunc = func(ctx context.Context, options *internalversion.ListOptions) (runtime.Object, error) {
 			selector := options.LabelSelector
@@ -74,7 +74,5 @@ func WithLabelSelector(labelSelectorFrom func(ctx context.Context) labels.Requir
 			options.LabelSelector = selector.Add(labelSelectorFrom(ctx)...)
 			return delegateWatcher.Watch(ctx, options)
 		}
-
-		return storage
-	}
+	})
 }

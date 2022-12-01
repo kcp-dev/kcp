@@ -47,7 +47,7 @@ func provideAPIExportFilteredRestStorage(ctx context.Context, clusterClient kcpd
 		return nil, fmt.Errorf("unable to create a selector from the provided labels")
 	}
 
-	return registry.ProvideReadOnlyRestStorage(ctx, clusterClient, registry.WithStaticLabelSelector(requirements))
+	return registry.ProvideReadOnlyRestStorage(ctx, clusterClient, registry.WithStaticLabelSelector(requirements), nil)
 }
 
 // provideDelegatingRestStorage returns a forwarding storage build function, with an optional storage wrapper e.g. to add label based filtering.
