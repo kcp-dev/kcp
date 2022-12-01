@@ -847,6 +847,7 @@ func NewFakeWorkloadServer(t *testing.T, server RunningServer, org logicalcluste
 		metav1.GroupResource{Group: "apps.k8s.io", Resource: "deployments"},
 		metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
 		metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
+		metav1.GroupResource{Group: "networking.k8s.io", Resource: "ingresses"},
 	)
 
 	// Wait for the required crds to become ready

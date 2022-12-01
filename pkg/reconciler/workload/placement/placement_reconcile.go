@@ -27,6 +27,7 @@ import (
 	utilserrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog/v2"
 
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
@@ -34,7 +35,7 @@ import (
 type reconcileStatus int
 
 const (
-	reconcileStatusStop reconcileStatus = iota
+	reconcileStatusStopAndRequeue reconcileStatus = iota
 	reconcileStatusContinue
 )
 
@@ -42,17 +43,19 @@ type reconciler interface {
 	reconcile(ctx context.Context, placement *schedulingv1alpha1.Placement) (reconcileStatus, *schedulingv1alpha1.Placement, error)
 }
 
-func (c *controller) reconcile(ctx context.Context, placement *schedulingv1alpha1.Placement) error {
+func (c *controller) reconcile(ctx context.Context, placement *schedulingv1alpha1.Placement) (bool, error) {
 	reconcilers := []reconciler{
 		&placementSchedulingReconciler{
-			listSyncTarget: c.listSyncTarget,
-			getLocation:    c.getLocation,
-			patchPlacement: c.patchPlacement,
+			listSyncTarget:          c.listSyncTarget,
+			getLocation:             c.getLocation,
+			patchPlacement:          c.patchPlacement,
+			listWorkloadAPIBindings: c.listWorkloadAPIBindings,
 		},
 	}
 
 	var errs []error
 
+	requeue := false
 	for _, r := range reconcilers {
 		var err error
 		var status reconcileStatus
@@ -60,12 +63,13 @@ func (c *controller) reconcile(ctx context.Context, placement *schedulingv1alpha
 		if err != nil {
 			errs = append(errs, err)
 		}
-		if status == reconcileStatusStop {
+		if status == reconcileStatusStopAndRequeue {
+			requeue = true
 			break
 		}
 	}
 
-	return utilserrors.NewAggregate(errs)
+	return requeue, utilserrors.NewAggregate(errs)
 }
 
 func (c *controller) listSyncTarget(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error) {
@@ -80,4 +84,20 @@ func (c *controller) patchPlacement(ctx context.Context, clusterName logicalclus
 	logger := klog.FromContext(ctx)
 	logger.WithValues("patch", string(data)).V(2).Info("patching Placement")
 	return c.kcpClusterClient.Cluster(clusterName).SchedulingV1alpha1().Placements().Patch(ctx, name, pt, data, opts, subresources...)
+}
+
+// listWorkloadAPIBindings list all compute apibindings
+func (c *controller) listWorkloadAPIBindings(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
+	apiBindings, err := c.apiBindingLister.Cluster(clusterName).List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	var filteredAPIBinding []*apisv1alpha1.APIBinding
+	for _, apiBinding := range apiBindings {
+		if _, ok := apiBinding.Annotations[workloadv1alpha1.ComputeAPIExportAnnotationKey]; ok {
+			filteredAPIBinding = append(filteredAPIBinding, apiBinding)
+		}
+	}
+	return filteredAPIBinding, nil
 }

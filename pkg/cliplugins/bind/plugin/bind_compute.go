@@ -252,8 +252,8 @@ func (o *BindComputeOptions) applyAPIBinding(ctx context.Context, client kcpclie
 		existingAPIExports.Insert(fmt.Sprintf("%s:%s", binding.Spec.Reference.Workspace.Path, binding.Spec.Reference.Workspace.ExportName))
 	}
 
-	diff := desiredAPIExports.Difference(existingAPIExports)
 	var errs []error
+	diff := desiredAPIExports.Difference(existingAPIExports)
 	var bindings []*apisv1alpha1.APIBinding
 	for export := range diff {
 		clusterName, name := logicalcluster.New(export).Split()

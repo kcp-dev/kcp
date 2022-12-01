@@ -155,4 +155,10 @@ const (
 	// InternalSyncTargetKeyLabel is an internal label set on a SyncTarget resource that contains the full hash of the SyncTargetKey, generated with the ToSyncTargetKey(..)
 	// helper func, this label is used for reverse lookups of a syncTargetKey to SyncTarget.
 	InternalSyncTargetKeyLabel = "internal.workload.kcp.dev/key"
+
+	// ComputeAPIExportAnnotationKey is an annotation key set on an APIExport when it will be used for compute,
+	// and its APIs are expected to be synced to a SyncTarget by the Syncer. The annotation will be continuously
+	// synced from the APIExport to all the APIBindings bound to this APIExport. The workload scheduler will
+	// check all the APIBindings with this annotation for scheduling purpose.
+	ComputeAPIExportAnnotationKey = "extra.apis.kcp.dev/compute.workload.kcp.dev"
 )

@@ -27,18 +27,15 @@ import (
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
-	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/rest"
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
-	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -70,19 +67,6 @@ func TestPlacementUpdate(t *testing.T) {
 		framework.WithSyncTargetName(firstSyncTargetName),
 		framework.WithSyncedUserWorkspaces(userClusterName),
 		framework.WithExtraResources("services"),
-		framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
-			if !isFakePCluster {
-				// Only need to install services and ingresses in a logical cluster
-				return
-			}
-			sinkCrdClient, err := apiextensionsclientset.NewForConfig(config)
-			require.NoError(t, err, "failed to create apiextensions client")
-			t.Logf("Installing test CRDs into sink cluster...")
-			kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
-				metav1.GroupResource{Group: "networking.k8s.io", Resource: "ingresses"},
-			)
-			require.NoError(t, err)
-		}),
 	).Start(t)
 
 	t.Log("Wait for \"default\" location")

@@ -222,9 +222,13 @@ func (i *APIImporter) ImportAPIs(ctx context.Context) {
 	for _, rs := range syncTarget.Status.SyncedResources {
 		resourceToSyncSet.Insert(fmt.Sprintf("%s.%s", rs.Resource, rs.Group))
 	}
+	// return if no resources to import
 	resourcesToSync := resourceToSyncSet.List()
-
 	logger.V(2).Info("Importing APIs", "resourcesToImport", resourcesToSync)
+	if resourceToSyncSet.Len() == 0 {
+		return
+	}
+
 	crds, err := i.schemaPuller.PullCRDs(ctx, resourcesToSync...)
 	if err != nil {
 		logger.Error(err, "error pulling CRDs")

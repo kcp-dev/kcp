@@ -232,8 +232,11 @@ func (c *controller) process(ctx context.Context, key string) error {
 	} else if apierrors.IsNotFound(err) {
 		export = &apisv1alpha1.APIExport{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        reconcilerapiexport.TemporaryComputeServiceExportName,
-				Annotations: map[string]string{logicalcluster.AnnotationKey: clusterName.String()},
+				Name: reconcilerapiexport.TemporaryComputeServiceExportName,
+				Annotations: map[string]string{
+					logicalcluster.AnnotationKey:                   clusterName.String(),
+					workloadv1alpha1.ComputeAPIExportAnnotationKey: "true",
+				},
 			},
 			Spec: apisv1alpha1.APIExportSpec{},
 		}
@@ -301,8 +304,11 @@ func (c *controller) process(ctx context.Context, key string) error {
 	// bind to local export
 	binding := &apisv1alpha1.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        reconcilerapiexport.TemporaryComputeServiceExportName,
-			Annotations: map[string]string{logicalcluster.AnnotationKey: clusterName.String()},
+			Name: reconcilerapiexport.TemporaryComputeServiceExportName,
+			Annotations: map[string]string{
+				logicalcluster.AnnotationKey:                   clusterName.String(),
+				workloadv1alpha1.ComputeAPIExportAnnotationKey: "true",
+			},
 		},
 		Spec: apisv1alpha1.APIBindingSpec{
 			Reference: apisv1alpha1.ExportReference{
