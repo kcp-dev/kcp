@@ -27,7 +27,7 @@ import (
 	"k8s.io/apiserver/pkg/authorization/union"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 
-	"github.com/kcp-dev/kcp/pkg/authorization"
+	authz "github.com/kcp-dev/kcp/pkg/authorization"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 )
 
@@ -101,24 +101,25 @@ func (s *Authorization) ApplyTo(config *genericapiserver.Config, informer kcpkub
 	}
 
 	// kcp authorizers
-	bootstrapAuth, bootstrapRules := authorization.NewBootstrapPolicyAuthorizer(informer)
-	localAuth, localResolver := authorization.NewLocalAuthorizer(informer)
-	apiBindingAuth, err := authorization.NewMaximalPermissionPolicyAuthorizer(informer, kcpinformer,
-		union.New(bootstrapAuth, localAuth),
-	)
-	if err != nil {
-		return err
-	}
+	bootstrapAuth, bootstrapRules := authz.NewBootstrapPolicyAuthorizer(informer)
+	bootstrapAuth = authz.NewDecorator(bootstrapAuth, "bootstrap.authorization.kcp.dev").AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
-	authorizers = append(authorizers,
-		authorization.NewTopLevelOrganizationAccessAuthorizer(informer, workspaceLister,
-			authorization.NewWorkspaceContentAuthorizer(informer, workspaceLister,
-				authorization.NewSystemCRDAuthorizer(
-					apiBindingAuth,
-				),
-			),
-		),
-	)
+	localAuth, localResolver := authz.NewLocalAuthorizer(informer)
+	localAuth = authz.NewDecorator(localAuth, "local.authorization.kcp.dev").AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+
+	maxPermissionPolicyAuth := authz.NewMaximalPermissionPolicyAuthorizer(informer, kcpinformer, union.New(bootstrapAuth, localAuth))
+	maxPermissionPolicyAuth = authz.NewDecorator(maxPermissionPolicyAuth, "maxpermissionpolicy.authorization.kcp.dev").AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+
+	systemCRDAuth := authz.NewSystemCRDAuthorizer(maxPermissionPolicyAuth)
+	systemCRDAuth = authz.NewDecorator(systemCRDAuth, "systemcrd.authorization.kcp.dev").AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+
+	contentAuth := authz.NewWorkspaceContentAuthorizer(informer, workspaceLister, systemCRDAuth)
+	contentAuth = authz.NewDecorator(contentAuth, "content.authorization.kcp.dev").AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+
+	topLevelAuth := authz.NewTopLevelOrganizationAccessAuthorizer(informer, workspaceLister, contentAuth)
+	topLevelAuth = authz.NewDecorator(topLevelAuth, "toplevel.authorization.kcp.dev").AddAuditLogging().AddAnonymization()
+
+	authorizers = append(authorizers, topLevelAuth)
 
 	config.RuleResolver = union.NewRuleResolvers(bootstrapRules, localResolver)
 	config.Authorization.Authorizer = union.New(authorizers...)

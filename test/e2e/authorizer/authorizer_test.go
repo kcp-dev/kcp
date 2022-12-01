@@ -210,7 +210,7 @@ func TestAuthorizer(t *testing.T) {
 			t.Logf("ask with normal SAR that user-1 cannot access %q because it has no access", org2.Join("workspace1"))
 			resp, err := kubeClusterClient.Cluster(org2.Join("workspace1")).AuthorizationV1().SubjectAccessReviews().Create(ctx, sar, metav1.CreateOptions{})
 			require.NoError(t, err)
-			require.Equalf(t, "workspace access not permitted", resp.Status.Reason, "SAR should answer that user-1 has no workspace access in %q", org2.Join("workspace1"))
+			require.Equalf(t, "access denied", resp.Status.Reason, "SAR should answer that user-1 has no workspace access in %q", org2.Join("workspace1"))
 			require.Falsef(t, resp.Status.Allowed, "SAR should correctly answer that user-1 CANNOT list configmaps in %q because it has no access to it", org2.Join("workspace1"))
 
 			t.Logf("ask with normal SAR that user-1 can access %q because it has access", org1.Join("workspace1"))

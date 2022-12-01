@@ -25,7 +25,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
-	kaudit "k8s.io/apiserver/pkg/audit"
 	authserviceaccount "k8s.io/apiserver/pkg/authentication/serviceaccount"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -36,12 +35,6 @@ import (
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
-)
-
-const (
-	TopLevelContentAuditPrefix   = "toplevel.authorization.kcp.dev/"
-	TopLevelContentAuditDecision = TopLevelContentAuditPrefix + "decision"
-	TopLevelContentAuditReason   = TopLevelContentAuditPrefix + "reason"
 )
 
 // NewTopLevelOrganizationAccessAuthorizer returns an authorizer that checks for access+member verb in
@@ -78,33 +71,18 @@ type topLevelOrgAccessAuthorizer struct {
 
 func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
 	if IsDeepSubjectAccessReviewFrom(ctx, attr) {
-		kaudit.AddAuditAnnotations(
-			ctx,
-			TopLevelContentAuditDecision, DecisionAllowed,
-			TopLevelContentAuditReason, "deep SAR request",
-		)
 		// this is a deep SAR request, we have to skip the checks here and delegate to the subsequent authorizer.
 		return a.delegate.Authorize(ctx, attr)
 	}
 
 	cluster := genericapirequest.ClusterFrom(ctx)
 	if cluster == nil || cluster.Name.Empty() {
-		kaudit.AddAuditAnnotations(
-			ctx,
-			TopLevelContentAuditDecision, DecisionNoOpinion,
-			TopLevelContentAuditReason, "empty cluster name",
-		)
-		return authorizer.DecisionNoOpinion, WorkspaceAccessNotPermittedReason, nil
+		return authorizer.DecisionNoOpinion, "empty cluster name", nil
 	}
 
 	if !cluster.Name.HasPrefix(tenancyv1alpha1.RootCluster) {
 		// nobody other than system:masters (excluded from authz) has access to workspaces not based in root
-		kaudit.AddAuditAnnotations(
-			ctx,
-			TopLevelContentAuditDecision, DecisionNoOpinion,
-			TopLevelContentAuditReason, "non-root prefixed workspace access not permitted",
-		)
-		return authorizer.DecisionNoOpinion, WorkspaceAccessNotPermittedReason, nil
+		return authorizer.DecisionNoOpinion, "non-root prefixed workspace access not permitted", nil
 	}
 
 	subjectClusters := map[logicalcluster.Name]bool{}
@@ -123,44 +101,24 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 		if isAuthenticated && (isUser || isServiceAccountFromRootCluster) {
 			return a.delegate.Authorize(ctx, attr)
 		}
-		kaudit.AddAuditAnnotations(
-			ctx,
-			TopLevelContentAuditDecision, DecisionNoOpinion,
-			TopLevelContentAuditReason, "root workspace access by non-root service account not permitted",
-		)
-		return authorizer.DecisionNoOpinion, WorkspaceAccessNotPermittedReason, nil
+		return authorizer.DecisionNoOpinion, "root workspace access by non-root service account not permitted", nil
 	}
 
 	// get org in the root
 	requestTopLevelOrgName, ok := topLevelOrg(cluster.Name)
 	if !ok {
-		kaudit.AddAuditAnnotations(
-			ctx,
-			TopLevelContentAuditDecision, DecisionNoOpinion,
-			TopLevelContentAuditReason, "not part of root workspace hierarchy",
-		)
-		return authorizer.DecisionNoOpinion, WorkspaceAccessNotPermittedReason, nil
+		return authorizer.DecisionNoOpinion, "not part of root workspace hierarchy", nil
 	}
 
 	// check the org workspace exists in the root workspace
 	if _, err := a.clusterWorkspaceLister.Cluster(tenancyv1alpha1.RootCluster).Get(requestTopLevelOrgName); err != nil {
 		if errors.IsNotFound(err) {
-			kaudit.AddAuditAnnotations(
-				ctx,
-				TopLevelContentAuditDecision, DecisionDenied,
-				TopLevelContentAuditReason, fmt.Sprintf("clusterworkspace %s|%s not found", tenancyv1alpha1.RootCluster, requestTopLevelOrgName),
-			)
-			return authorizer.DecisionDeny, WorkspaceAccessNotPermittedReason, nil
+			return authorizer.DecisionDeny, fmt.Sprintf("clusterworkspace %s|%s not found", tenancyv1alpha1.RootCluster, requestTopLevelOrgName), nil
 		}
-
-		kaudit.AddAuditAnnotations(
-			ctx,
-			TopLevelContentAuditDecision, DecisionNoOpinion,
-			TopLevelContentAuditReason, fmt.Sprintf("error getting clusterworkspace %s|%s: %v", tenancyv1alpha1.RootCluster, requestTopLevelOrgName, err),
-		)
-		return authorizer.DecisionNoOpinion, WorkspaceAccessNotPermittedReason, err
+		return authorizer.DecisionNoOpinion, fmt.Sprintf("error getting clusterworkspace %s|%s", tenancyv1alpha1.RootCluster, requestTopLevelOrgName), fmt.Errorf("error getting top level org cluster %q: %w", requestTopLevelOrgName, err)
 	}
 
+	var noOpinionReason string
 	switch {
 	case isServiceAccount:
 		// service account will automatically get access to its top-level org
@@ -170,21 +128,11 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 				continue
 			}
 			if subjectTopLevelOrg == requestTopLevelOrgName {
-				kaudit.AddAuditAnnotations(
-					ctx,
-					TopLevelContentAuditDecision, DecisionAllowed,
-					TopLevelContentAuditReason, "serviceaccount belongs to this top level workspace hierarchy",
-				)
 				return a.delegate.Authorize(ctx, attr)
 			}
 		}
 
-		kaudit.AddAuditAnnotations(
-			ctx,
-			TopLevelContentAuditDecision, DecisionNoOpinion,
-			TopLevelContentAuditReason, "serviceaccount does not belong to this top level workspace hierarchy",
-		)
-		return authorizer.DecisionNoOpinion, WorkspaceAccessNotPermittedReason, nil
+		noOpinionReason = "serviceaccount does not belong to this top level workspace hierarchy"
 	case isUser:
 		workspaceAttr := authorizer.AttributesRecord{
 			User:            attr.GetUser(),
@@ -199,29 +147,17 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 
 		dec, reason, err := a.rootAuthorizer.Authorize(ctx, workspaceAttr)
 		if err != nil {
-			kaudit.AddAuditAnnotations(
-				ctx,
-				TopLevelContentAuditDecision, DecisionNoOpinion,
-				TopLevelContentAuditReason, fmt.Sprintf(`error in root workspace RBAC, verb="access" resource="workspaces/content", name=%q, reason=%q, error=%v`, requestTopLevelOrgName, reason, err))
-			return authorizer.DecisionNoOpinion, reason, err
+			return authorizer.DecisionNoOpinion, reason, fmt.Errorf(`error in root workspace RBAC, verb="access" resource="workspaces/content", name=%q: %w`, requestTopLevelOrgName, err)
 		}
+
 		if dec == authorizer.DecisionAllow {
-			kaudit.AddAuditAnnotations(
-				ctx,
-				TopLevelContentAuditDecision, DecisionAllowed,
-				TopLevelContentAuditReason, fmt.Sprintf(`allowed by root workspace RBAC, verb="access" resource="workspaces/content", name=%q, reason=%q`, requestTopLevelOrgName, reason),
-			)
 			return a.delegate.Authorize(ctx, attr)
 		}
 
-		kaudit.AddAuditAnnotations(
-			ctx,
-			TopLevelContentAuditDecision, DecisionString(dec),
-			TopLevelContentAuditReason, fmt.Sprintf(`forbidden by root workspace RBAC, verb="access" resource="workspaces/content", name=%q, reason=%q`, requestTopLevelOrgName, reason),
-		)
+		noOpinionReason = fmt.Sprintf(`forbidden by root workspace RBAC, verb="access" resource="workspaces/content", name=%q, reason=%q`, requestTopLevelOrgName, reason)
 	}
 
-	return authorizer.DecisionNoOpinion, WorkspaceAccessNotPermittedReason, nil
+	return authorizer.DecisionNoOpinion, noOpinionReason, nil
 }
 
 func topLevelOrg(clusterName logicalcluster.Name) (string, bool) {
