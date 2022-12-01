@@ -120,11 +120,11 @@ func TestWorkspaces(t *testing.T) {
 				require.NoError(t, err)
 
 				t.Logf("User2 cannot access workspace1")
-				list, err = user2Client.Cluster(server.orgClusterName.Join("workspace1")).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
+				_, err = user2Client.Cluster(server.orgClusterName.Join("workspace1")).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
 				require.Error(t, err)
 
 				t.Logf("User3 cannot access workspace1")
-				list, err = user3Client.Cluster(server.orgClusterName.Join("workspace1")).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
+				_, err = user3Client.Cluster(server.orgClusterName.Join("workspace1")).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
 				require.Error(t, err)
 
 				t.Logf("User2 can be given access to workspace1")
