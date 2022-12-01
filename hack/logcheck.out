@@ -101,7 +101,6 @@
 /pkg/reconciler/workload/synctargetexports/synctargetexports_controller.go:328:2: function "V" should not be used, convert to contextual logging
 /pkg/reconciler/workload/synctargetexports/synctargetexports_controller.go:330:3: function "Errorf" should not be used, convert to contextual logging
 /pkg/reconciler/workload/synctargetexports/synctargetexports_reconcile.go:58:5: function "Warningf" should not be used, convert to contextual logging
-/pkg/server/controllers.go:1096:4: function "Errorf" should not be used, convert to contextual logging
 /pkg/server/home_workspaces.go:351:5: Additional arguments to WithValues should always be Key Value pairs. Please check if there is any key or value missing.
 /pkg/server/home_workspaces.go:637:6: Additional arguments to WithValues should always be Key Value pairs. Please check if there is any key or value missing.
 /pkg/server/options/controllers.go:54:3: function "Fatal" should not be used, convert to contextual logging

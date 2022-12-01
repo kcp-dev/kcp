@@ -1092,8 +1092,9 @@ func (s *Server) installWorkloadsSyncTargetExportController(ctx context.Context,
 	}
 
 	return server.AddPostStartHook(synctargetexports.ControllerName, func(hookContext genericapiserver.PostStartHookContext) error {
+		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(workloadsapiexportcreate.ControllerName))
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
-			klog.Errorf("failed to finish post-start-hook %s: %v", synctargetexports.ControllerName, err)
+			logger.Error(err, "failed to finish post-start-hook")
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
