@@ -199,7 +199,7 @@ func TestSyncerTunnel(t *testing.T) {
 	proxiedConfig := rest.CopyConfig(syncerFixture.SyncerConfig.UpstreamConfig)
 	u, err := tunneler.SyncerTunnelURL(syncerFixture.SyncerConfig.UpstreamConfig.Host, wsClusterName.String(), syncerFixture.SyncerConfig.SyncTargetName)
 	require.NoError(t, err, "failed to parse upstream Host for syncer")
-	// The base URL is the one obtained SyncerTunnelURL + the command, in this case cmdTunnelProxy = "proxy"
+	// The base URL is the one obtained SyncerTunnelURL + the command, in this case CmdTunnelProxy = "proxy"
 	// That will send all the kubectl requests directly through the tunnel
 	proxiedConfig.Host = u + "/proxy"
 	proxiedKcpClient, err := kubernetesclientset.NewForConfig(proxiedConfig)

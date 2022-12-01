@@ -36,9 +36,10 @@ import (
 )
 
 const (
-	defaultTunnelPathPrefix = "/services/syncer-tunnels/clusters"
-	cmdTunnelConnect        = "connect"
-	cmdTunnelProxy          = "proxy"
+	// DefaultTunnelPathPrefix is the default path prefix for the tunnel service
+	DefaultTunnelPathPrefix = "/services/syncer-tunnels/clusters"
+	CmdTunnelConnect        = "connect"
+	CmdTunnelProxy          = "proxy"
 )
 
 type controlMsg struct {
@@ -96,12 +97,12 @@ func (rp *tunnelPool) deleteDialer(clusterName logicalcluster.Name, syncTargetNa
 	delete(rp.pool, id)
 }
 
-// SyncerTunnelProxyPath builds the path for the proxy handler as expected by the Dialer
+// SyncerTunnelProxyPath builds the path for the proxy handler as expected by the Dialer.
 func SyncerTunnelProxyPath(syncTargetWorkspaceName logicalcluster.Name, syncTargetName, downstreamNamespaceName, podName, subresource, arguments string) (url.URL, error) {
 	if syncTargetWorkspaceName.String() == "" || syncTargetName == "" || downstreamNamespaceName == "" || podName == "" || subresource == "" {
 		return url.URL{}, fmt.Errorf("invalid tunnel path: workspaceName=%q, syncTargetName=%q, downstreamNamespaceName=%q, podName=%q, subresource=%q", syncTargetWorkspaceName.String(), syncTargetName, downstreamNamespaceName, podName, subresource)
 	}
-	proxyPath := defaultTunnelPathPrefix + fmt.Sprintf("/%s/apis/%s/synctargets/%s/%s/api/v1/namespaces/%s/pods/%s/%s", syncTargetWorkspaceName.String(), workloadv1alpha1.SchemeGroupVersion.String(), syncTargetName, cmdTunnelProxy, downstreamNamespaceName, podName, subresource)
+	proxyPath := DefaultTunnelPathPrefix + fmt.Sprintf("/%s/apis/%s/synctargets/%s/%s/api/v1/namespaces/%s/pods/%s/%s", syncTargetWorkspaceName.String(), workloadv1alpha1.SchemeGroupVersion.String(), syncTargetName, CmdTunnelProxy, downstreamNamespaceName, podName, subresource)
 	if arguments != "" {
 		proxyPath += "?" + arguments
 	}
@@ -122,7 +123,7 @@ func SyncerTunnelURL(host, ws, target string) (string, error) {
 		return "", fmt.Errorf("wrong url format, expected https://host<:port>/<path>: %w", err)
 	}
 	host = strings.Trim(host, "/")
-	return host + defaultTunnelPathPrefix + "/" + ws + "/apis/" + workloadv1alpha1.SchemeGroupVersion.String() + "/synctargets/" + target, nil
+	return host + DefaultTunnelPathPrefix + "/" + ws + "/apis/" + workloadv1alpha1.SchemeGroupVersion.String() + "/synctargets/" + target, nil
 }
 
 // WithSyncerTunnel adds an HTTP Handler that handles reverse connections and reverse proxy requests using 2 different paths:
@@ -133,13 +134,13 @@ func WithSyncerTunnel(apiHandler http.Handler) http.HandlerFunc {
 	pool := newTunnelPool()
 	return func(w http.ResponseWriter, r *http.Request) {
 		// fall through, syncer tunnels URL start by /services/tunnels
-		if !strings.HasPrefix(r.URL.Path, defaultTunnelPathPrefix) {
+		if !strings.HasPrefix(r.URL.Path, DefaultTunnelPathPrefix) {
 			apiHandler.ServeHTTP(w, r)
 			return
 		}
 
 		// route the request
-		p := strings.TrimPrefix(r.URL.Path, defaultTunnelPathPrefix)
+		p := strings.TrimPrefix(r.URL.Path, DefaultTunnelPathPrefix)
 		path := strings.Split(strings.Trim(p, "/"), "/")
 		if len(path) < 7 {
 			http.Error(w, "invalid path", http.StatusInternalServerError)
@@ -163,7 +164,7 @@ func WithSyncerTunnel(apiHandler http.Handler) http.HandlerFunc {
 		logger := klog.FromContext(ctx)
 		logger.V(5).Info("tunneler connection received", "command", command, "clusterName", clusterName, "syncerName", syncerName)
 		switch command {
-		case cmdTunnelConnect:
+		case CmdTunnelConnect:
 			if len(path) != 7 {
 				http.Error(w, "syncer tunnels: invalid path for connect command", http.StatusInternalServerError)
 				return
@@ -212,7 +213,7 @@ func WithSyncerTunnel(apiHandler http.Handler) http.HandlerFunc {
 			}
 			klog.Background().V(5).WithValues("address", r.RemoteAddr).Info("connection done")
 
-		case cmdTunnelProxy:
+		case CmdTunnelProxy:
 			target, err := url.Parse("http://" + syncerName)
 			if err != nil {
 				http.Error(w, "wrong url", http.StatusInternalServerError)

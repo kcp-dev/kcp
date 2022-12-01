@@ -45,11 +45,11 @@ func setup(t *testing.T) (*http.Client, string, func()) {
 	publicServer.StartTLS()
 
 	// private server
-	dstUrl, err := SyncerTunnelURL(publicServer.URL, "ws", "d001")
+	dstURL, err := SyncerTunnelURL(publicServer.URL, "ws", "d001")
 	if err != nil {
 		t.Fatal(err)
 	}
-	l, err := NewListener(publicServer.Client(), dstUrl)
+	l, err := NewListener(publicServer.Client(), dstURL)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +74,7 @@ func setup(t *testing.T) (*http.Client, string, func()) {
 		publicServer.Close()
 		backend.Close()
 	}
-	return publicServer.Client(), dstUrl + "/" + cmdTunnelProxy + "/", stop
+	return publicServer.Client(), dstURL + "/" + CmdTunnelProxy + "/", stop
 }
 
 func Test_integration(t *testing.T) {
@@ -169,7 +169,7 @@ func Test_integration_listener_reconnect(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	client := publicServer.Client()
-	uri := dstURL + "/" + cmdTunnelProxy + "/"
+	uri := dstURL + "/" + CmdTunnelProxy + "/"
 
 	resp, err := client.Get(uri) //nolint:noctx
 	if err != nil {
