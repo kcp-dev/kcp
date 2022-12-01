@@ -67,7 +67,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 	c.mutex.RUnlock()
 
 	// Get schemas and identities for base api export.
-	apiResourceSchemas, err := c.getSchemasFromAPIExport(apiExport, ctx)
+	apiResourceSchemas, err := c.getSchemasFromAPIExport(ctx, apiExport)
 	if err != nil {
 		return err
 	}
@@ -148,7 +148,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 
 		for _, obj := range exports {
 			export := obj.(*apisv1alpha1.APIExport)
-			candidates, err := c.getSchemasFromAPIExport(export, ctx)
+			candidates, err := c.getSchemasFromAPIExport(ctx, export)
 			if err != nil {
 				return err
 			}
@@ -272,7 +272,7 @@ func gvrString(gvr schema.GroupVersionResource) string {
 	return fmt.Sprintf("%s.%s.%s", gvr.Resource, gvr.Version, group)
 }
 
-func (c *APIReconciler) getSchemasFromAPIExport(apiExport *apisv1alpha1.APIExport, ctx context.Context) (map[schema.GroupResource]*apisv1alpha1.APIResourceSchema, error) {
+func (c *APIReconciler) getSchemasFromAPIExport(ctx context.Context, apiExport *apisv1alpha1.APIExport) (map[schema.GroupResource]*apisv1alpha1.APIResourceSchema, error) {
 	logger := klog.FromContext(ctx)
 	apiResourceSchemas := map[schema.GroupResource]*apisv1alpha1.APIResourceSchema{}
 	for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
