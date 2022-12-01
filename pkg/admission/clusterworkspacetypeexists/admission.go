@@ -151,7 +151,9 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 		if err != nil {
 			return admission.NewForbidden(a, err)
 		}
-		ws.Spec.Type.Path = logicalcluster.From(cwt).String()
+		if ws.Spec.Type.Path == "" {
+			ws.Spec.Type.Path = logicalcluster.From(cwt).String()
+		}
 
 		addAdditionalWorkspaceLabels(cwt, ws)
 
