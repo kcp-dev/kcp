@@ -149,13 +149,15 @@ func (c *APIReconciler) enqueueAPIResourceSchema(obj interface{}, logger logr.Lo
 		return
 	}
 
+	logger = logger.WithValues("cluster", clusterName, "name", name)
+
 	if len(exports) == 0 {
-		klog.V(2).Infof("No kubernetes APIExport found for APIResourceSchema %s|%s", clusterName, name)
+		logger.V(2).Info("No kubernetes APIExport found for APIResourceSchema")
 		return
 	}
 
 	for _, export := range exports {
-		klog.V(2).Infof("Queueing APIExport %s|%s for APIResourceSchema %s", clusterName, export.Name, name)
+		logger.WithValues("apiexport", export.Name).V(2).Info("Queueing APIExport for APIResourceSchema")
 		c.enqueueAPIExport(obj, logger.WithValues("reason", "APIResourceSchema change", "apiResourceSchema", name))
 	}
 }
