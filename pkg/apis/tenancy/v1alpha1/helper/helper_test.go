@@ -24,50 +24,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestIsValidCluster(t *testing.T) {
-	tests := []struct {
-		workspace string
-		valid     bool
-	}{
-		{"", false},
-
-		{"root", true},
-		{"root:a", true},
-		{"root:a:b", true},
-		{"root:foo", true},
-		{"root:foo:bar", true},
-
-		{"system", true},
-		{"system:foo", true},
-		{"system:foo:bar", true},
-
-		// the plugin does not decide about segment length, the server does
-		{"root:b1234567890123456789012345678912", true},
-		{"root:test-8827a131-f796-4473-8904-a0fa527696eb:b1234567890123456789012345678912", true},
-		{"root:test-too-long-org-0020-4473-0030-a0fa-0040-5276-0050-sdg2-0060:b1234567890123456789012345678912", true},
-
-		{"foo", false},
-		{"foo:bar", false},
-		{"root:", false},
-		{":root", false},
-		{"root::foo", false},
-		{"root:föö:bär", false},
-		{"root:bar_bar", false},
-		{"root:0a", false},
-		{"root:0bar", false},
-		{"root/bar", false},
-		{"root:bar-", false},
-		{"root:-bar", false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.workspace, func(t *testing.T) {
-			if got := IsValidCluster(logicalcluster.New(tt.workspace)); got != tt.valid {
-				t.Errorf("IsValidCluster(%q) = %v, want %v", tt.workspace, got, tt.valid)
-			}
-		})
-	}
-}
-
 func TestQualifiedObjectName(t *testing.T) {
 	tests := []struct {
 		obj  metav1.Object

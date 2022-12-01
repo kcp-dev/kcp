@@ -225,11 +225,9 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 
 	default:
 		cluster := logicalcluster.New(o.Name)
-		if strings.Contains(o.Name, ":") && !cluster.HasPrefix(logicalcluster.New("system")) &&
-			!cluster.HasPrefix(tenancyv1alpha1.RootCluster) {
+		if !cluster.IsValid() {
 			return fmt.Errorf("invalid workspace name format: %s", o.Name)
 		}
-
 		config, err := o.ClientConfig.ClientConfig()
 		if err != nil {
 			return err
@@ -239,7 +237,11 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 			return fmt.Errorf("current URL %q does not point to cluster workspace", config.Host)
 		}
 
-		if strings.Contains(o.Name, ":") && cluster.HasPrefix(tenancyv1alpha1.RootCluster) {
+		if strings.Contains(o.Name, ":") && cluster.HasPrefix(logicalcluster.New("system")) {
+			// e.g. system:something
+			u.Path = path.Join(u.Path, cluster.Path())
+			newServerHost = u.String()
+		} else if strings.Contains(o.Name, ":") {
 			// e.g. root:something:something
 
 			// first try to get Workspace from parent to potentially get a 404. A 403 in the parent though is
@@ -266,10 +268,6 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 
 			u.Path = path.Join(u.Path, cluster.Path())
 			newServerHost = u.String()
-		} else if strings.Contains(o.Name, ":") {
-			// e.g. system:something
-			u.Path = path.Join(u.Path, cluster.Path())
-			newServerHost = u.String()
 		} else if o.Name == tenancyv1alpha1.RootCluster.String() {
 			// root workspace
 			u.Path = path.Join(u.Path, cluster.Path())
@@ -284,7 +282,17 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 				return fmt.Errorf("workspace %q is not ready", o.Name)
 			}
 
-			newServerHost = ws.Status.URL
+			config, err := o.ClientConfig.ClientConfig()
+			if err != nil {
+				return err
+			}
+			u, currentClusterName, err := pluginhelpers.ParseClusterURL(config.Host)
+			if err != nil {
+				return fmt.Errorf("current URL %q does not point to cluster workspace", config.Host)
+			}
+
+			u.Path = path.Join(u.Path, currentClusterName.Join(ws.Name).Path())
+			newServerHost = u.String()
 			workspaceType = &ws.Spec.Type
 		}
 	}

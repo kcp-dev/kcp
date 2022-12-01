@@ -29,7 +29,6 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
-	tenancyhelper "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
 	kcpauthorization "github.com/kcp-dev/kcp/pkg/authorization"
 	"github.com/kcp-dev/kcp/pkg/proxy/index"
 )
@@ -51,7 +50,7 @@ func shardHandler(index index.Index, proxy http.Handler) http.HandlerFunc {
 		}
 
 		clusterName := logicalcluster.New(cs[1])
-		if !tenancyhelper.IsValidCluster(clusterName) {
+		if !clusterName.IsValid() {
 			// this includes wildcards
 			logger.WithValues("path", req.URL.Path).V(4).Info("Invalid cluster name")
 			responsewriters.Forbidden(req.Context(), attributes, w, req, kcpauthorization.WorkspaceAccessNotPermittedReason, kubernetesscheme.Codecs)

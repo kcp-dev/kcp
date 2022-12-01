@@ -22,20 +22,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
-
-// IsValidCluster indicates whether a cluster is valid based on whether it
-// adheres to logical cluster naming requirements and is rooted at root or
-// system.
-func IsValidCluster(cluster logicalcluster.Name) bool {
-	if !cluster.IsValid() {
-		return false
-	}
-
-	return cluster.HasPrefix(v1alpha1.RootCluster) || cluster.HasPrefix(logicalcluster.New("system"))
-}
 
 // QualifiedObjectName builds a fully qualified identifier for an object
 // consisting of its logical cluster, namespace if applicable, and object

@@ -474,9 +474,9 @@ func TestUse(t *testing.T) {
 			existingObjects: map[logicalcluster.Name][]string{
 				logicalcluster.New("root:foo"): {"bar"},
 			},
-			param:      "ju:nk",
+			param:      "ju:nk§",
 			wantErr:    true,
-			wantErrors: []string{"invalid workspace name format: ju:nk"},
+			wantErrors: []string{"invalid workspace name format: ju:nk§"},
 		},
 		{
 			name: "absolute name, no cluster URL",
