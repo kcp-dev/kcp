@@ -19,10 +19,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/abiosoft/lineprefix"
 	"github.com/fatih/color"
@@ -36,6 +38,7 @@ import (
 	"github.com/kcp-dev/kcp/cmd/sharded-test-server/third_party/library-go/crypto"
 	"github.com/kcp-dev/kcp/cmd/test-server/helpers"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 )
 
 func startVirtual(ctx context.Context, index int, servingCA *crypto.CA, hostIP string, logDirPath, workDirPath string, clientCA *crypto.CA) (<-chan error, error) {
@@ -163,6 +166,59 @@ func startVirtual(ctx context.Context, index int, servingCA *crypto.CA, hostIP s
 	go func() {
 		terminatedCh <- cmd.Wait()
 	}()
+
+	// wait for readiness
+	logger.WithValues("virtual-workspaces", index).Info("Waiting for virtual-workspaces /readyz to succeed")
+	for {
+		time.Sleep(100 * time.Millisecond)
+
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("context canceled")
+		case rc := <-terminatedCh:
+			return nil, fmt.Errorf("virtual-workspaces terminated with exit code %d", rc)
+		default:
+		}
+
+		vwHost := fmt.Sprintf("https://localhost:%d", 7444+index)
+		vwConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfigPath},
+		// We override the Server here because virtualworkspace.kubeconfig is
+		// for VW->shard but we want to poll the VW endpoint readyz
+		&clientcmd.ConfigOverrides{ClusterInfo: clientcmdapi.Cluster{Server: vwHost}}).ClientConfig()
+		if err != nil {
+			logger.Error(err, "failed to create vw config")
+			continue
+		}
+
+		vwClient, err := kcpclientset.NewForConfig(vwConfig)
+		if err != nil {
+			logger.Error(err, "failed to create vw client")
+			continue
+		}
+
+		res := vwClient.RESTClient().Get().AbsPath("/readyz").Do(ctx)
+		if err := res.Error(); err != nil {
+			logger.V(3).Info("virtual-workspaces not ready", "err", err)
+		} else {
+			var rc int
+			res.StatusCode(&rc)
+			if rc == http.StatusOK {
+				break
+			}
+			if bs, err := res.Raw(); err != nil {
+				logger.V(3).Info("virtual-workspaces not ready", "err", err)
+			} else {
+				logger.V(3).WithValues("rc", rc, "raw", string(bs)).Info("virtual-workspaces not ready: http")
+			}
+		}
+	}
+
+	logger.WithValues("virtual-workspaces", index).Info("virtual-workspaces ready")
+
+	if !logger.V(3).Enabled() {
+		writer.StopOut()
+	}
 
 	return terminatedCh, nil
 }
