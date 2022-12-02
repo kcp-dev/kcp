@@ -149,7 +149,9 @@ func (c *APIReconciler) enqueueAPIResourceSchema(obj interface{}, logger logr.Lo
 		return
 	}
 
-	logger = logger.WithValues("cluster", clusterName, "name", name)
+	if logObj, ok := obj.(logging.Object); ok {
+		logger = logging.WithObject(logger, logObj)
+	}
 
 	if len(exports) == 0 {
 		logger.V(2).Info("No kubernetes APIExport found for APIResourceSchema")
