@@ -217,7 +217,7 @@ func bindReady(bindings []*apisv1alpha1.APIBinding, placement *schedulingv1alpha
 			} else if conditions.IsFalse(binding, apisv1alpha1.APIExportValid) {
 				conditionMessage = conditions.GetMessage(binding, apisv1alpha1.APIExportValid)
 			}
-			return false, fmt.Sprintf("not bound to apiexport '%s:%s': %s", binding.Spec.Reference.Workspace.Path, binding.Spec.Reference.Workspace.Path, conditionMessage)
+			return false, fmt.Sprintf("not bound to apiexport '%s:%s': %s", binding.Spec.Reference.Workspace.Path, binding.Spec.Reference.Workspace.ExportName, conditionMessage)
 		}
 	}
 
