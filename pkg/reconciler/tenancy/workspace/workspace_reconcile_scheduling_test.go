@@ -18,218 +18,231 @@ package workspace
 
 import (
 	"context"
+	"crypto/sha256"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+	kcpfakekubeclient "github.com/kcp-dev/client-go/kubernetes/fake"
+	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/martinlindhe/base36"
 
+	kcpclientgotesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/cache"
 
+	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspacetypeexists"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	conditionsapi "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	kcpfakeclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/fake"
+	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspacedeletion/deletion"
 )
 
-func TestSchedulingReconciler(t *testing.T) {
-	tests := []struct {
-		name       string
-		workspace  *tenancyv1beta1.Workspace
-		shards     []*tenancyv1alpha1.ClusterWorkspaceShard
-		want       *tenancyv1beta1.Workspace
-		wantStatus reconcileStatus
-		wantErr    bool
+func TestReconcileScheduling(t *testing.T) {
+	scenarios := []struct {
+		name                         string
+		initialShards                []*tenancyv1alpha1.ClusterWorkspaceShard
+		initialClusterWorkspaceTypes []*tenancyv1alpha1.ClusterWorkspaceType
+		initialKubeClientObjects     []runtime.Object
+		initialKcpClientObjects      []runtime.Object
+		targetWorkspace              *tenancyv1beta1.Workspace
+		validateWorkspace            func(t *testing.T, initialWS, ws *tenancyv1beta1.Workspace)
+		validateKubeClientActions    func(t *testing.T, a []kcpclientgotesting.Action)
+		validateKcpClientActions     func(t *testing.T, a []kcpclientgotesting.Action)
+		expectedKubeClientActions    []string
+		expectedKcpClientActions     []string
+		expectedStatus               reconcileStatus
 	}{
-		// TODO(sttts): add test coverage for all old cases
-
 		{
-			name:      "no shards, not scheduled",
-			workspace: phase(tenancyv1alpha1.WorkspacePhaseScheduling, workspace()),
-			want: withConditions(phase(tenancyv1alpha1.WorkspacePhaseScheduling, workspace()),
-				conditionsapi.Condition{
+			name:            "two-phase commit, part one: a new workspace gets a shard assigned",
+			initialShards:   []*tenancyv1alpha1.ClusterWorkspaceShard{shard("root")},
+			targetWorkspace: workspace("foo"),
+			validateWorkspace: func(t *testing.T, initialWS, ws *tenancyv1beta1.Workspace) {
+				initialWS.Annotations["internal.tenancy.kcp.dev/cluster"] = "root:foo"
+				initialWS.Annotations["internal.tenancy.kcp.dev/shard"] = "1pfxsevk"
+				initialWS.Finalizers = append(initialWS.Finalizers, "tenancy.kcp.dev/thisworkspace")
+				if !equality.Semantic.DeepEqual(ws, initialWS) {
+					t.Fatal(fmt.Errorf("unexpected Workspace:\n%s", cmp.Diff(ws, initialWS)))
+				}
+			},
+			expectedStatus: reconcileStatusStopAndRequeue,
+		},
+		{
+			name:                         "two-phase commit, part two: location is set",
+			initialShards:                []*tenancyv1alpha1.ClusterWorkspaceShard{shard("root")},
+			initialClusterWorkspaceTypes: wellKnownClusterWorkspaceTypes(),
+			targetWorkspace:              wellKnownFooWSForPhaseTwo(),
+			validateWorkspace: func(t *testing.T, initialWS, wsAfterReconciliation *tenancyv1beta1.Workspace) {
+				clearLastTransitionTimeOnWsConditions(wsAfterReconciliation)
+				initialWS.CreationTimestamp = wsAfterReconciliation.CreationTimestamp
+				initialWS.Status.URL = `https://root/clusters/root:foo`
+				initialWS.Status.Cluster = "root:foo"
+				initialWS.Status.Conditions = append(initialWS.Status.Conditions, conditionsapi.Condition{
+					Type:   tenancyv1alpha1.WorkspaceScheduled,
+					Status: corev1.ConditionTrue,
+				})
+				if !equality.Semantic.DeepEqual(wsAfterReconciliation, initialWS) {
+					t.Fatal(fmt.Errorf("unexpected Workspace:\n%s", cmp.Diff(wsAfterReconciliation, initialWS)))
+				}
+			},
+			validateKubeClientActions: func(t *testing.T, actions []kcpclientgotesting.Action) {
+				validateWellKnownCRBCreationAction(t, actions)
+			},
+			validateKcpClientActions: func(t *testing.T, actions []kcpclientgotesting.Action) {
+				validateWellKnownThisWSActions(t, actions)
+			},
+			expectedStatus:            reconcileStatusContinue,
+			expectedKubeClientActions: []string{"create:clusterrolebindings"},
+			expectedKcpClientActions:  []string{"create:thisworkspaces", "get:thisworkspaces", "update:thisworkspaces"},
+		},
+		{
+			name:                         "two-phase commit, part two failure: ThisWS already exists",
+			initialShards:                []*tenancyv1alpha1.ClusterWorkspaceShard{shard("root")},
+			initialClusterWorkspaceTypes: wellKnownClusterWorkspaceTypes(),
+			initialKcpClientObjects: []runtime.Object{func() runtime.Object {
+				thisWS := wellKnownThisWSForFooWS()
+				thisWS.Annotations["kcp.dev/cluster"] = "root:foo"
+				return thisWS
+			}()},
+			targetWorkspace: wellKnownFooWSForPhaseTwo(),
+			validateWorkspace: func(t *testing.T, initialWS, wsAfterReconciliation *tenancyv1beta1.Workspace) {
+				clearLastTransitionTimeOnWsConditions(wsAfterReconciliation)
+				initialWS.CreationTimestamp = wsAfterReconciliation.CreationTimestamp
+				initialWS.Status.URL = `https://root/clusters/root:foo`
+				initialWS.Status.Cluster = "root:foo"
+				initialWS.Status.Conditions = append(initialWS.Status.Conditions, conditionsapi.Condition{
+					Type:   tenancyv1alpha1.WorkspaceScheduled,
+					Status: corev1.ConditionTrue,
+				})
+				if !equality.Semantic.DeepEqual(wsAfterReconciliation, initialWS) {
+					t.Fatal(fmt.Errorf("unexpected Workspace:\n%s", cmp.Diff(wsAfterReconciliation, initialWS)))
+				}
+			},
+			validateKubeClientActions: func(t *testing.T, actions []kcpclientgotesting.Action) {
+				validateWellKnownCRBCreationAction(t, actions)
+			},
+			validateKcpClientActions: func(t *testing.T, actions []kcpclientgotesting.Action) {
+				validateWellKnownThisWSActions(t, actions)
+			},
+			expectedStatus:            reconcileStatusContinue,
+			expectedKubeClientActions: []string{"create:clusterrolebindings"},
+			expectedKcpClientActions:  []string{"create:thisworkspaces", "get:thisworkspaces", "update:thisworkspaces"},
+		},
+		{
+			name:                         "two-phase commit, part two failure: CRB, ThisWS already exists",
+			initialShards:                []*tenancyv1alpha1.ClusterWorkspaceShard{shard("root")},
+			initialClusterWorkspaceTypes: wellKnownClusterWorkspaceTypes(),
+			initialKubeClientObjects: []runtime.Object{func() runtime.Object {
+				crb := wellKnownCRBForThisWS()
+				crb.Annotations["kcp.dev/cluster"] = "root:foo"
+				return crb
+			}()},
+			initialKcpClientObjects: []runtime.Object{func() runtime.Object {
+				thisWS := wellKnownThisWSForFooWS()
+				thisWS.Annotations["kcp.dev/cluster"] = "root:foo"
+				return thisWS
+			}()},
+			targetWorkspace: wellKnownFooWSForPhaseTwo(),
+			validateWorkspace: func(t *testing.T, initialWS, wsAfterReconciliation *tenancyv1beta1.Workspace) {
+				clearLastTransitionTimeOnWsConditions(wsAfterReconciliation)
+				initialWS.CreationTimestamp = wsAfterReconciliation.CreationTimestamp
+				initialWS.Status.URL = `https://root/clusters/root:foo`
+				initialWS.Status.Cluster = "root:foo"
+				initialWS.Status.Conditions = append(initialWS.Status.Conditions, conditionsapi.Condition{
+					Type:   tenancyv1alpha1.WorkspaceScheduled,
+					Status: corev1.ConditionTrue,
+				})
+				if !equality.Semantic.DeepEqual(wsAfterReconciliation, initialWS) {
+					t.Fatal(fmt.Errorf("unexpected Workspace:\n%s", cmp.Diff(wsAfterReconciliation, initialWS)))
+				}
+			},
+			validateKubeClientActions: func(t *testing.T, actions []kcpclientgotesting.Action) {
+				validateWellKnownCRBCreationAction(t, actions)
+			},
+			validateKcpClientActions: func(t *testing.T, actions []kcpclientgotesting.Action) {
+				validateWellKnownThisWSActions(t, actions)
+			},
+			expectedStatus:            reconcileStatusContinue,
+			expectedKubeClientActions: []string{"create:clusterrolebindings"},
+			expectedKcpClientActions:  []string{"create:thisworkspaces", "get:thisworkspaces", "update:thisworkspaces"},
+		},
+		{
+			name:            "no shards available, the ws is unscheduled",
+			targetWorkspace: workspace("foo"),
+			validateWorkspace: func(t *testing.T, initialWS, wsAfterReconciliation *tenancyv1beta1.Workspace) {
+				clearLastTransitionTimeOnWsConditions(wsAfterReconciliation)
+				initialWS.Status.Conditions = append(initialWS.Status.Conditions, conditionsapi.Condition{
 					Type:     tenancyv1alpha1.WorkspaceScheduled,
 					Severity: conditionsapi.ConditionSeverityError,
 					Status:   corev1.ConditionFalse,
 					Reason:   tenancyv1alpha1.WorkspaceReasonUnschedulable,
-				},
-			),
-			wantStatus: reconcileStatusContinue,
-		},
-		// TODO:(p0lyn0mial): fix me
-		/*{
-			name: "no shards, to be unscheduled",
-			workspace: phase(tenancyv1alpha1.WorkspacePhaseScheduling,
-				scheduled("root", "https://front-proxy/clusters/workspace", workspace())),
-			want: withConditions(phase(tenancyv1alpha1.WorkspacePhaseScheduling, workspace()),
-				conditionsapi.Condition{
-					Type:     tenancyv1alpha1.WorkspaceScheduled,
-					Severity: conditionsapi.ConditionSeverityError,
-					Status:   corev1.ConditionFalse,
-					Reason:   tenancyv1alpha1.WorkspaceReasonUnschedulable,
-				},
-			),
-			wantStatus: reconcileStatusContinue,
-		}
-		{
-			name: "no shards, already initializing",
-			workspace: phase(tenancyv1alpha1.WorkspacePhaseInitializing,
-				scheduled("root", "https://front-proxy/clusters/workspace", workspace())),
-			want: withConditions(phase(tenancyv1alpha1.WorkspacePhaseInitializing,
-				scheduled("root", "https://front-proxy/clusters/workspace", workspace())),
-				conditionsapi.Condition{
-					Type:   tenancyv1alpha1.WorkspaceScheduled,
-					Status: corev1.ConditionTrue,
-				},
-				conditionsapi.Condition{
-					Type:     tenancyv1alpha1.WorkspaceShardValid,
-					Severity: conditionsapi.ConditionSeverityError,
-					Status:   corev1.ConditionFalse,
-					Reason:   tenancyv1alpha1.WorkspaceShardValidReasonShardNotFound,
-				},
-			),
-			wantStatus: reconcileStatusContinue,
+					Message:  "No available shards to schedule the workspace.",
+				})
+				if !equality.Semantic.DeepEqual(wsAfterReconciliation, initialWS) {
+					t.Fatal(fmt.Errorf("unexpected Workspace:\n%s", cmp.Diff(wsAfterReconciliation, initialWS)))
+				}
+			},
+			expectedStatus: reconcileStatusContinue,
 		},
 		{
-			name: "no shards, already ready",
-			workspace: phase(tenancyv1alpha1.WorkspacePhaseReady,
-				scheduled("root", "https://front-proxy/clusters/workspace", workspace())),
-			want: withConditions(phase(tenancyv1alpha1.WorkspacePhaseReady,
-				scheduled("root", "https://front-proxy/clusters/workspace", workspace())),
-				conditionsapi.Condition{
-					Type:   tenancyv1alpha1.WorkspaceScheduled,
-					Status: corev1.ConditionTrue,
-				},
-				conditionsapi.Condition{
-					Type:     tenancyv1alpha1.WorkspaceShardValid,
-					Severity: conditionsapi.ConditionSeverityError,
-					Status:   corev1.ConditionFalse,
-					Reason:   tenancyv1alpha1.WorkspaceShardValidReasonShardNotFound,
-				},
-			),
-			wantStatus: reconcileStatusContinue,
-		},
-		// TODO:(p0lyn0mial): fix me
-		/*{
-			name:      "happy case scheduling",
-			workspace: phase(tenancyv1alpha1.WorkspacePhaseScheduling, workspace()),
-			shards: []*tenancyv1alpha1.ClusterWorkspaceShard{
-				withURLs("https://root", "https://front-proxy", shard("root")),
+			name: "the ws is scheduled onto requested shard (shard name in spec)",
+			targetWorkspace: func() *tenancyv1beta1.Workspace {
+				ws := workspace("foo")
+				selector := &metav1.LabelSelector{MatchLabels: map[string]string{"awesome.shard": "amber"}}
+				ws.Spec.Location.Selector = selector
+				return ws
+			}(),
+			initialShards: []*tenancyv1alpha1.ClusterWorkspaceShard{shard("root"), func() *tenancyv1alpha1.ClusterWorkspaceShard {
+				s := shard("amber")
+				s.Labels["awesome.shard"] = "amber"
+				return s
+			}()},
+			validateWorkspace: func(t *testing.T, initialWS, wsAfterReconciliation *tenancyv1beta1.Workspace) {
+				initialWS.Annotations["internal.tenancy.kcp.dev/cluster"] = "root:foo"
+				initialWS.Annotations["internal.tenancy.kcp.dev/shard"] = "29hdqnv7"
+				initialWS.Finalizers = append(initialWS.Finalizers, "tenancy.kcp.dev/thisworkspace")
+				if !equality.Semantic.DeepEqual(wsAfterReconciliation, initialWS) {
+					t.Fatal(fmt.Errorf("unexpected Workspace:\n%s", cmp.Diff(wsAfterReconciliation, initialWS)))
+				}
 			},
-			want: withConditions(phase(tenancyv1alpha1.WorkspacePhaseScheduling,
-				scheduled("root", "https://front-proxy/clusters/workspace", workspace())),
-				conditionsapi.Condition{
-					Type:   tenancyv1alpha1.WorkspaceScheduled,
-					Status: corev1.ConditionTrue,
-				},
-			),
-			wantStatus: reconcileStatusContinue,
-		},
-		{
-			name: "happy case rescheduling",
-			workspace: phase(tenancyv1alpha1.WorkspacePhaseScheduling,
-				scheduled("foo", "https://foo", workspace())),
-			shards: []*tenancyv1alpha1.ClusterWorkspaceShard{
-				withURLs("https://root", "https://front-proxy", shard("root")),
-			},
-			want: withConditions(phase(tenancyv1alpha1.WorkspacePhaseScheduling,
-				scheduled("root", "https://front-proxy/clusters/workspace", workspace())),
-				conditionsapi.Condition{
-					Type:   tenancyv1alpha1.WorkspaceScheduled,
-					Status: corev1.ConditionTrue,
-				},
-			),
-			wantStatus: reconcileStatusContinue,
-		},
-		{
-			name: "spec shard name",
-			workspace: phase(tenancyv1alpha1.WorkspacePhaseScheduling,
-				constrained(tenancyv1alpha1.ShardConstraints{Name: "foo"}, workspace())),
-			shards: []*tenancyv1alpha1.ClusterWorkspaceShard{
-				withLabels(map[string]string{"b": "2"}, withURLs("https://root", "https://front-proxy", shard("root"))),
-				withLabels(map[string]string{"a": "1"}, withURLs("https://foo", "https://front-proxy", shard("foo"))),
-			},
-			want: withConditions(phase(tenancyv1alpha1.WorkspacePhaseScheduling,
-				scheduled("foo", "https://front-proxy/clusters/workspace",
-					constrained(tenancyv1alpha1.ShardConstraints{Name: "foo"}, workspace()))),
-				conditionsapi.Condition{
-					Type:   tenancyv1alpha1.WorkspaceScheduled,
-					Status: corev1.ConditionTrue,
-				},
-			),
-			wantStatus: reconcileStatusContinue,
-		{
-			name: "invalid spec shard name",
-			workspace: phase(tenancyv1alpha1.WorkspacePhaseScheduling,
-				constrained(tenancyv1alpha1.ShardConstraints{Name: "bar"}, workspace())),
-			shards: []*tenancyv1alpha1.ClusterWorkspaceShard{
-				withLabels(map[string]string{"b": "2"}, withURLs("https://root", "https://front-proxy", shard("root"))),
-				withLabels(map[string]string{"a": "1"}, withURLs("https://foo", "https://front-proxy", shard("foo"))),
-			},
-			want: withConditions(phase(tenancyv1alpha1.WorkspacePhaseScheduling,
-				constrained(tenancyv1alpha1.ShardConstraints{Name: "bar"}, workspace())),
-				conditionsapi.Condition{
-					Type:     tenancyv1alpha1.WorkspaceScheduled,
-					Severity: conditionsapi.ConditionSeverityError,
-					Status:   corev1.ConditionFalse,
-					Reason:   tenancyv1alpha1.WorkspaceReasonUnschedulable,
-				},
-			),
-			wantStatus: reconcileStatusContinue,
-		},
-		/*{
-			name: "spec shard selector",
-			workspace: phase(tenancyv1alpha1.WorkspacePhaseScheduling,
-				constrained(tenancyv1alpha1.ShardConstraints{Selector: &metav1.LabelSelector{
-					MatchLabels: map[string]string{"a": "1"}},
-				}, workspace())),
-			shards: []*tenancyv1alpha1.ClusterWorkspaceShard{
-				withLabels(map[string]string{"b": "2"}, withURLs("https://root", "https://front-proxy", shard("root"))),
-				withLabels(map[string]string{"a": "1"}, withURLs("https://foo", "https://front-proxy", shard("foo"))),
-			},
-			want: withConditions(phase(tenancyv1alpha1.WorkspacePhaseScheduling,
-				scheduled("foo", "https://front-proxy/clusters/workspace",
-					constrained(tenancyv1alpha1.ShardConstraints{Selector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{"a": "1"}},
-					}, workspace()))),
-				conditionsapi.Condition{
-					Type:   tenancyv1alpha1.WorkspaceScheduled,
-					Status: corev1.ConditionTrue,
-				},
-			),
-			wantStatus: reconcileStatusContinue,
-		},*/
-		{
-			name: "invalid spec shard selector",
-			workspace: phase(tenancyv1alpha1.WorkspacePhaseScheduling,
-				constrained(tenancyv1alpha1.ShardConstraints{Selector: &metav1.LabelSelector{
-					MatchLabels: map[string]string{"c": "1"}},
-				}, workspace())),
-			shards: []*tenancyv1alpha1.ClusterWorkspaceShard{
-				withLabels(map[string]string{"b": "2"}, withURLs("https://root", "https://front-proxy", shard("root"))),
-				withLabels(map[string]string{"a": "1"}, withURLs("https://foo", "https://front-proxy", shard("foo"))),
-			},
-			want: withConditions(phase(tenancyv1alpha1.WorkspacePhaseScheduling,
-				constrained(tenancyv1alpha1.ShardConstraints{Selector: &metav1.LabelSelector{
-					MatchLabels: map[string]string{"c": "1"}},
-				}, workspace())),
-				conditionsapi.Condition{
-					Type:     tenancyv1alpha1.WorkspaceScheduled,
-					Severity: conditionsapi.ConditionSeverityError,
-					Status:   corev1.ConditionFalse,
-					Reason:   tenancyv1alpha1.WorkspaceReasonUnschedulable,
-				},
-			),
-			wantStatus: reconcileStatusContinue,
+			expectedStatus: reconcileStatusStopAndRequeue,
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// TODO(p0lyn0mial): write new tests for scheduling phase
-			//t.Skip()
-			r := &schedulingReconciler{
+	for _, scenario := range scenarios {
+		t.Run(scenario.name, func(t *testing.T) {
+			fakeKubeClient := kcpfakekubeclient.NewSimpleClientset(scenario.initialKubeClientObjects...)
+			fakeKcpClient := kcpfakeclient.NewSimpleClientset(scenario.initialKcpClientObjects...)
+
+			clusterWorkspaceTypeIndexer := cache.NewIndexer(kcpcache.MetaClusterNamespaceKeyFunc, cache.Indexers{})
+			for _, obj := range scenario.initialClusterWorkspaceTypes {
+				if err := clusterWorkspaceTypeIndexer.Add(obj); err != nil {
+					t.Error(err)
+				}
+			}
+			clusterWorkspaceTypeClusterLister := tenancyv1alpha1listers.NewClusterWorkspaceTypeClusterLister(clusterWorkspaceTypeIndexer)
+
+			target := schedulingReconciler{
+				kubeLogicalClusterAdminClientFor: func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpkubernetesclientset.ClusterInterface, error) {
+					return fakeKubeClient, nil
+				},
+				kcpLogicalClusterAdminClientFor: func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpclientset.ClusterInterface, error) {
+					return fakeKcpClient, nil
+				},
 				getShard: func(name string) (*tenancyv1alpha1.ClusterWorkspaceShard, error) {
-					for _, shard := range tt.shards {
+					for _, shard := range scenario.initialShards {
 						if shard.Name == name {
 							return shard, nil
 						}
@@ -238,86 +251,284 @@ func TestSchedulingReconciler(t *testing.T) {
 				},
 				listShards: func(selector labels.Selector) ([]*tenancyv1alpha1.ClusterWorkspaceShard, error) {
 					var shards []*tenancyv1alpha1.ClusterWorkspaceShard
-					for _, shard := range tt.shards {
+					for _, shard := range scenario.initialShards {
 						if selector.Matches(labels.Set(shard.Labels)) {
 							shards = append(shards, shard)
 						}
 					}
 					return shards, nil
 				},
+				getShardByHash: func(hash string) (*tenancyv1alpha1.ClusterWorkspaceShard, error) {
+					for _, shard := range scenario.initialShards {
+						if shardNameToBase36Sha224(shard.Name) == hash {
+							return shard, nil
+						}
+					}
+					return nil, kerrors.NewNotFound(tenancyv1alpha1.SchemeGroupVersion.WithResource("ClusterWorkspaceShard").GroupResource(), hash)
+				},
+				getClusterWorkspaceType: func(clusterName logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
+					return clusterWorkspaceTypeClusterLister.Cluster(clusterName).Get(name)
+				},
+				transitiveTypeResolver: clusterworkspacetypeexists.NewTransitiveTypeResolver(func(clusterName logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
+					return clusterWorkspaceTypeClusterLister.Cluster(clusterName).Get(name)
+				}),
 			}
-			ws := tt.workspace.DeepCopy()
-			status, err := r.reconcile(context.Background(), ws)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("unexpected error: error = %v, wantErr %v", err, tt.wantErr)
-				return
+			targetWorkspaceCopy := scenario.targetWorkspace.DeepCopy()
+			status, err := target.reconcile(context.TODO(), scenario.targetWorkspace)
+			if err != nil {
+				t.Fatal(err)
 			}
-			if status != tt.wantStatus {
-				t.Errorf("unexpected status: got = %v, want %v", status, tt.want)
+			if status != scenario.expectedStatus {
+				t.Fatalf("unexpected reconcilation status:%v, expected:%v", status, scenario.expectedStatus)
 			}
-
-			// prune conditions for easier comparison
-			for i := range ws.Status.Conditions {
-				ws.Status.Conditions[i].LastTransitionTime = metav1.Time{}
-				ws.Status.Conditions[i].Message = ""
+			if err := validateActionsVerbs(fakeKubeClient.Actions(), scenario.expectedKubeClientActions); err != nil {
+				t.Fatalf("incorrect action(s) for kube client: %v", err)
 			}
-
-			if diff := cmp.Diff(tt.want, ws); diff != "" {
-				t.Errorf("unexpected workspace (-want +got):\n%s", diff)
+			if err := validateActionsVerbs(fakeKcpClient.Actions(), scenario.expectedKcpClientActions); err != nil {
+				t.Fatalf("incorrect action(s) for kcp client: %v", err)
+			}
+			if scenario.validateWorkspace != nil {
+				scenario.validateWorkspace(t, targetWorkspaceCopy, scenario.targetWorkspace)
+			}
+			if scenario.validateKubeClientActions != nil {
+				scenario.validateKubeClientActions(t, fakeKubeClient.Actions())
+			}
+			if scenario.validateKcpClientActions != nil {
+				scenario.validateKcpClientActions(t, fakeKcpClient.Actions())
 			}
 		})
 	}
 }
 
-func workspace() *tenancyv1beta1.Workspace {
+func workspace(name string) *tenancyv1beta1.Workspace {
 	return &tenancyv1beta1.Workspace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "workspace",
+			Name:        name,
+			Annotations: map[string]string{"kcp.dev/cluster": "root"},
+		},
+		Spec: tenancyv1beta1.WorkspaceSpec{
+			Location: &tenancyv1beta1.WorkspaceLocation{},
+		},
+		Status: tenancyv1beta1.WorkspaceStatus{
+			Phase: tenancyv1alpha1.WorkspacePhaseScheduling,
 		},
 	}
 }
 
-func phase(phase tenancyv1alpha1.WorkspacePhaseType, shard *tenancyv1beta1.Workspace) *tenancyv1beta1.Workspace {
-	shard.Status.Phase = phase
-	return shard
-}
-
-/*
-func scheduled(shard string, url string, ws *tenancyv1beta1.Workspace) *tenancyv1beta1.Workspace {
-	ws.Status.Location.Current = shard
-	ws.Status.URL = url
-	return ws
-}
-*/
-
-func constrained(constraints tenancyv1alpha1.ShardConstraints, ws *tenancyv1beta1.Workspace) *tenancyv1beta1.Workspace {
-	if ws.Spec.Location == nil {
-		ws.Spec.Location = &tenancyv1beta1.WorkspaceLocation{}
+func wellKnownFooWSForPhaseTwo() *tenancyv1beta1.Workspace {
+	ws := workspace("foo")
+	// since this is part two we can assume the following fields are assigned
+	ws.Annotations["internal.tenancy.kcp.dev/cluster"] = "root:foo"
+	ws.Annotations["internal.tenancy.kcp.dev/shard"] = "1pfxsevk"
+	ws.Annotations["experimental.tenancy.kcp.dev/owner"] = `{"username":"kcp-admin"}`
+	ws.Finalizers = append(ws.Finalizers, "tenancy.kcp.dev/thisworkspace")
+	// type info is assigned by an admission plugin
+	ws.Spec.Type = tenancyv1alpha1.ResolvedWorkspaceTypeReference{
+		ClusterWorkspaceTypeReference: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+			Name: "universal",
+			Path: "root",
+		},
+		Cluster: "root",
 	}
-	ws.Spec.Location.Selector = constraints.Selector
 	return ws
 }
 
-func withConditions(ws *tenancyv1beta1.Workspace, conditions ...conditionsapi.Condition) *tenancyv1beta1.Workspace {
-	ws.Status.Conditions = append(ws.Status.Conditions, conditions...)
-	return ws
+func wellKnownThisWSForFooWS() *tenancyv1alpha1.ThisWorkspace {
+	return &tenancyv1alpha1.ThisWorkspace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       tenancyv1alpha1.ThisWorkspaceName,
+			Finalizers: []string{deletion.WorkspaceFinalizer},
+			Annotations: map[string]string{
+				tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey: `{"username":"kcp-admin"}`,
+				tenancyv1alpha1.ThisWorkspaceTypeAnnotationKey:          "root:universal",
+			},
+		},
+		Spec: tenancyv1alpha1.ThisWorkspaceSpec{
+			Owner: &tenancyv1alpha1.ThisWorkspaceOwner{
+				APIVersion: tenancyv1beta1.SchemeGroupVersion.String(),
+				Resource:   "workspaces",
+				Name:       "foo",
+				Cluster:    "root",
+			},
+			Initializers: []tenancyv1alpha1.WorkspaceInitializer{"root:organization", "system:apibindings"},
+		},
+	}
+}
+
+func wellKnownCRBForThisWS() *rbacv1.ClusterRoleBinding {
+	return &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "workspace-admin",
+			Annotations: map[string]string{},
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:     "User",
+				APIGroup: "rbac.authorization.k8s.io",
+				Name:     "kcp-admin",
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: rbacv1.GroupName,
+			Kind:     "ClusterRole",
+			Name:     "cluster-admin",
+		},
+	}
+}
+
+func validateWellKnownCRBCreationAction(t *testing.T, actions []kcpclientgotesting.Action) {
+	wasCRBCreated := false
+	for _, action := range actions {
+		if action.Matches("create", "clusterrolebindings") {
+			createAction := action.(kcpclientgotesting.CreateAction)
+			actualObj := createAction.GetObject().(*rbacv1.ClusterRoleBinding)
+			expectedObj := wellKnownCRBForThisWS()
+			if !equality.Semantic.DeepEqual(actualObj, expectedObj) {
+				t.Errorf(cmp.Diff(actualObj, expectedObj))
+			}
+			wasCRBCreated = true
+			break
+		}
+	}
+	if !wasCRBCreated {
+		t.Errorf("the ClusterRoleBinding wasn't created and validated")
+	}
+}
+
+func validateWellKnownThisWSActions(t *testing.T, actions []kcpclientgotesting.Action) {
+	wasThisWSCreated := false
+	wasThisWSUpdated := false
+	expectedObj := wellKnownThisWSForFooWS()
+	for _, action := range actions {
+		if action.Matches("create", "thisworkspaces") {
+			createAction := action.(kcpclientgotesting.CreateAction)
+			actualObj := createAction.GetObject().(*tenancyv1alpha1.ThisWorkspace)
+
+			if !equality.Semantic.DeepEqual(actualObj, expectedObj) {
+				t.Errorf(cmp.Diff(actualObj, expectedObj))
+			}
+			wasThisWSCreated = true
+		}
+		if action.Matches("update", "thisworkspaces") {
+			updateAction := action.(kcpclientgotesting.UpdateAction)
+			expectedObjCopy := expectedObj.DeepCopy()
+			expectedObjCopy.Status.Phase = "Initializing"
+			actualObj := updateAction.GetObject().(*tenancyv1alpha1.ThisWorkspace)
+			if _, ok := actualObj.Annotations["kcp.dev/cluster"]; ok {
+				// this is a limitation of the fake client
+				// to get an AlreadyExists error we need to assign
+				// the shard annotation, which is still present on an update
+				// in real world we wouldn't be seeing this annotation
+				// since it is assigned by the kcp server
+				delete(actualObj.Annotations, "kcp.dev/cluster")
+			}
+			if !equality.Semantic.DeepEqual(actualObj, expectedObjCopy) {
+				t.Errorf(cmp.Diff(actualObj, expectedObjCopy))
+			}
+			wasThisWSUpdated = true
+		}
+	}
+	if !wasThisWSCreated {
+		t.Errorf("ThisWorkspace wasn't created and validated")
+	}
+	if !wasThisWSUpdated {
+		t.Errorf("ThisWorkspace wasn't updated and validated")
+	}
 }
 
 func shard(name string) *tenancyv1alpha1.ClusterWorkspaceShard {
 	return &tenancyv1alpha1.ClusterWorkspaceShard{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
+			Name:        name,
+			Annotations: map[string]string{},
+			Labels:      map[string]string{},
+		},
+		Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{
+			BaseURL:     fmt.Sprintf("https://%s", name),
+			ExternalURL: fmt.Sprintf("https://%s", name),
 		},
 	}
 }
 
-func withURLs(baseURL, externalURL string, shard *tenancyv1alpha1.ClusterWorkspaceShard) *tenancyv1alpha1.ClusterWorkspaceShard {
-	shard.Spec.BaseURL = baseURL
-	shard.Spec.ExternalURL = externalURL
-	return shard
+func workspaceType(name string) *tenancyv1alpha1.ClusterWorkspaceType {
+	return &tenancyv1alpha1.ClusterWorkspaceType{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        name,
+			Annotations: map[string]string{"kcp.dev/cluster": "root"},
+		},
+	}
 }
 
-func withLabels(labels map[string]string, shard *tenancyv1alpha1.ClusterWorkspaceShard) *tenancyv1alpha1.ClusterWorkspaceShard {
-	shard.Labels = labels
-	return shard
+func wellKnownClusterWorkspaceTypes() []*tenancyv1alpha1.ClusterWorkspaceType {
+	type0 := workspaceType("root")
+	type0.Spec.DefaultChildWorkspaceType = &tenancyv1alpha1.ClusterWorkspaceTypeReference{
+		Name: "organization",
+		Path: "root",
+	}
+	type1 := workspaceType("organization")
+	type1.Spec.DefaultChildWorkspaceType = &tenancyv1alpha1.ClusterWorkspaceTypeReference{
+		Name: "universal",
+		Path: "root",
+	}
+	type1.Spec.Initializer = true
+	type2 := workspaceType("universal")
+	type2.Spec.DefaultChildWorkspaceType = &tenancyv1alpha1.ClusterWorkspaceTypeReference{
+		Name: "universal",
+		Path: "root",
+	}
+	type2.Spec.DefaultAPIBindings = []tenancyv1alpha1.APIExportReference{
+		{
+			"tenancy.kcp.dev",
+			"root",
+		},
+	}
+	type2.Spec.Extend.With = []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+		{
+			Name: "organization",
+			Path: "root",
+		},
+	}
+	return []*tenancyv1alpha1.ClusterWorkspaceType{type0, type1, type2}
+}
+
+func clearLastTransitionTimeOnWsConditions(ws *tenancyv1beta1.Workspace) {
+	newConditions := make([]conditionsapi.Condition, 0, len(ws.Status.Conditions))
+	for _, cond := range ws.Status.Conditions {
+		cond.LastTransitionTime = metav1.Time{}
+		newConditions = append(newConditions, cond)
+	}
+	ws.Status.Conditions = newConditions
+}
+
+func validateActionsVerbs(actualActions []kcpclientgotesting.Action, expectedActions []string) error {
+	if len(actualActions) != len(expectedActions) {
+		return fmt.Errorf("expected to get %d actions but got %d\nexpected=%v \n got=%v", len(expectedActions), len(actualActions), expectedActions, actionStrings(actualActions))
+	}
+	for i, a := range actualActions {
+		if got, expected := actionString(a), expectedActions[i]; got != expected {
+			return fmt.Errorf("at %d got %s, expected %s", i, got, expected)
+		}
+	}
+	return nil
+}
+
+func actionString(a kcpclientgotesting.Action) string {
+	if len(a.GetNamespace()) == 0 {
+		return a.GetVerb() + ":" + a.GetResource().Resource
+	}
+	return a.GetVerb() + ":" + a.GetResource().Resource + ":" + a.GetNamespace()
+}
+
+func actionStrings(actions []kcpclientgotesting.Action) []string {
+	res := make([]string, 0, len(actions))
+	for _, a := range actions {
+		res = append(res, actionString(a))
+	}
+	return res
+}
+
+func shardNameToBase36Sha224(name string) string {
+	hash := sha256.Sum224([]byte(name))
+	base36hash := strings.ToLower(base36.EncodeBytes(hash[:]))
+	return base36hash[:8]
 }
