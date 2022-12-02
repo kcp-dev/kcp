@@ -173,11 +173,6 @@ func TestNamespaceScheduler(t *testing.T) {
 				require.NoError(t, err, "failed to create cluster")
 				syncTargetKey := workloadv1alpha1.ToSyncTargetKey(logicalcluster.From(cluster), cluster.Name)
 
-				t.Logf("Bind to location workspace")
-				framework.NewBindCompute(t, server.clusterName, server,
-					framework.WithAPIExportsWorkloadBindOption(server.clusterName.String()+":kubernetes"),
-				).Bind(t)
-
 				go wait.UntilWithContext(ctx, func(ctx context.Context) {
 					patchBytes := []byte(fmt.Sprintf(`[{"op":"replace","path":"/status/lastSyncerHeartbeatTime","value":%q}]`, time.Now().Format(time.RFC3339)))
 					_, err := server.kcpClient.WorkloadV1alpha1().SyncTargets().Patch(ctx, cluster.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{}, "status")
@@ -188,6 +183,11 @@ func TestNamespaceScheduler(t *testing.T) {
 						return
 					}
 				}, 100*time.Millisecond)
+
+				t.Logf("Bind to location workspace")
+				framework.NewBindCompute(t, server.clusterName, server,
+					framework.WithAPIExportsWorkloadBindOption(server.clusterName.String()+":kubernetes"),
+				).Bind(t)
 
 				t.Log("Create a new unique sheriff CRD")
 				group := framework.UniqueGroup(".io")

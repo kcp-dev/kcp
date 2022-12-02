@@ -35,15 +35,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
-	"k8s.io/client-go/rest"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/pkg/cliplugins/base"
-	"github.com/kcp-dev/kcp/pkg/cliplugins/helpers"
 )
 
 type BindComputeOptions struct {
@@ -76,6 +73,9 @@ func NewBindComputeOptions(streams genericclioptions.IOStreams) *BindComputeOpti
 		NamespaceSelectorString: labels.Everything().String(),
 		LocationSelectorsStrings: []string{
 			labels.Everything().String(),
+		},
+		APIExports: []string{
+			"root:compute:kubernetes",
 		},
 	}
 }
@@ -147,25 +147,7 @@ func (o *BindComputeOptions) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to create kcp client: %w", err)
 	}
 
-	// build config to connect to location workspace
-	kcpConfig := rest.CopyConfig(config)
-	url, _, err := helpers.ParseClusterURL(config.Host)
-	if err != nil {
-		return err
-	}
-
-	kcpConfig.Host = url.String()
-	kcpClient, err := kcpclientset.NewForConfig(kcpConfig)
-	if err != nil {
-		return fmt.Errorf("failed to create kcp client: %w", err)
-	}
-
-	supportedExports, err := o.supportedAPIExports(ctx, kcpClient.Cluster(o.LocationWorkspace))
-	if err != nil {
-		return err
-	}
-
-	bindings, err := o.applyAPIBinding(ctx, userWorkspaceKcpClient, supportedExports)
+	bindings, err := o.applyAPIBinding(ctx, userWorkspaceKcpClient, sets.NewString(o.APIExports...))
 	if err != nil {
 		return err
 	}
@@ -208,6 +190,9 @@ func bindReady(bindings []*apisv1alpha1.APIBinding, placement *schedulingv1alpha
 	if !conditions.IsTrue(placement, schedulingv1alpha1.PlacementReady) {
 		return false, fmt.Sprintf("placement is not ready: %s", conditions.GetMessage(placement, schedulingv1alpha1.PlacementReady))
 	}
+	if !conditions.IsTrue(placement, schedulingv1alpha1.PlacementScheduled) {
+		return false, fmt.Sprintf("placement is not scheduled: %s", conditions.GetMessage(placement, schedulingv1alpha1.PlacementScheduled))
+	}
 
 	for _, binding := range bindings {
 		if binding.Status.Phase != apisv1alpha1.APIBindingPhaseBound {
@@ -217,7 +202,7 @@ func bindReady(bindings []*apisv1alpha1.APIBinding, placement *schedulingv1alpha
 			} else if conditions.IsFalse(binding, apisv1alpha1.APIExportValid) {
 				conditionMessage = conditions.GetMessage(binding, apisv1alpha1.APIExportValid)
 			}
-			return false, fmt.Sprintf("not bound to apiexport '%s:%s': %s", binding.Spec.Reference.Workspace.Path, binding.Spec.Reference.Workspace.Path, conditionMessage)
+			return false, fmt.Sprintf("not bound to apiexport '%s:%s': %s", binding.Spec.Reference.Workspace.Path, binding.Spec.Reference.Workspace.ExportName, conditionMessage)
 		}
 	}
 
@@ -310,49 +295,4 @@ func (o *BindComputeOptions) applyPlacement(ctx context.Context, client kcpclien
 
 	_, err = fmt.Fprintf(o.Out, "placement %s created.\n", placement.Name)
 	return placement, err
-}
-
-func (o *BindComputeOptions) supportedAPIExports(ctx context.Context, client kcpclient.Interface) (sets.String, error) {
-	currentExports := sets.NewString(o.APIExports...)
-
-	syncTargets, err := client.WorkloadV1alpha1().SyncTargets().List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return currentExports, err
-	}
-
-	supportedExports := sets.NewString()
-	for _, syncTarget := range syncTargets.Items {
-		for _, apiExport := range syncTarget.Spec.SupportedAPIExports {
-			if apiExport.Workspace == nil {
-				continue
-			}
-
-			path := apiExport.Workspace.Path
-			// if path is not set, the apiexport is in the location workspace
-			if len(path) == 0 {
-				path = o.LocationWorkspace.String()
-			}
-			supportedExports.Insert(fmt.Sprintf("%s:%s", path, apiExport.Workspace.ExportName))
-		}
-	}
-
-	// if apiexports is not specified, check if synctargets support global/local kubernetes APIExport and add them.
-	if currentExports.Len() == 0 {
-		defaultAPIExports := []string{
-			"root:compute:kubernetes",
-			o.LocationWorkspace.String() + ":kubernetes",
-		}
-		for _, export := range defaultAPIExports {
-			if supportedExports.Has(export) {
-				currentExports.Insert(export)
-			}
-		}
-	} else {
-		diff := currentExports.Difference(supportedExports)
-		if diff.Len() > 0 {
-			return currentExports, fmt.Errorf("the following APIExports are not supported by the synctargets in workspace %s: %s", o.LocationWorkspace, strings.Join(diff.List(), ","))
-		}
-	}
-
-	return currentExports, nil
 }
