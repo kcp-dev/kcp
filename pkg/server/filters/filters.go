@@ -80,7 +80,6 @@ func WithAuditEventClusterAnnotation(handler http.Handler) http.HandlerFunc {
 
 // WithClusterScope reads a cluster name from the URL path and puts it into the context.
 // It also trims "/clusters/" prefix from the URL.
-// If the path doesn't contain the cluster name then a default "system:admin" name is assigned.
 func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		var clusterName logicalcluster.Name
@@ -106,8 +105,6 @@ func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 				return
 			}
 			req.URL = newURL
-		} else {
-			clusterName = logicalcluster.New(req.Header.Get(logicalcluster.ClusterHeader))
 		}
 
 		var cluster request.Cluster

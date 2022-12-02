@@ -28,7 +28,6 @@ import (
 	"strings"
 
 	"github.com/emicklei/go-restful"
-	"github.com/kcp-dev/logicalcluster/v2"
 	jwt2 "gopkg.in/square/go-jose.v2/jwt"
 
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
@@ -174,11 +173,10 @@ func WithWildcardListWatchGuard(apiHandler http.Handler) http.HandlerFunc {
 // from an InCluster service account requests (InCluster clients don't support prefixes).
 func WithInClusterServiceAccountRequestRewrite(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		// some headers we set to set logical clusters, those are not the requests from InCluster clients
-		clusterHeader := req.Header.Get(logicalcluster.ClusterHeader)
+		// some header we set for sharding, those are not the requests from InCluster clients
 		shardedHeader := req.Header.Get("X-Kubernetes-Sharded-Request")
 
-		if clusterHeader != "" || shardedHeader != "" {
+		if shardedHeader != "" {
 			handler.ServeHTTP(w, req)
 			return
 		}
