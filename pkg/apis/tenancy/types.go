@@ -26,6 +26,14 @@ import (
 	"k8s.io/klog/v2"
 )
 
+const (
+	// LogicalClusterPathAnnotationKey is the annotation key for the logical cluster path
+	// put on objects that are referenced by path by other objects.
+	//
+	// If this annotation exists, the system will maintain the annotation value.
+	LogicalClusterPathAnnotationKey = "tenancy.kcp.dev/path"
+)
+
 // Object is a local interface representation of the Kubernetes metav1.Object, to avoid dependencies on
 // k8s.io/apimachinery.
 type Object interface {
