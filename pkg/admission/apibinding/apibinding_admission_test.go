@@ -180,21 +180,21 @@ func TestValidate(t *testing.T) {
 			attr: createAttr(
 				newAPIBinding().withName("test").APIBinding,
 			),
-			expectedErrors: []string{".spec.reference.workspace is required"},
+			expectedErrors: []string{".spec.reference.export is required"},
 		},
 		{
 			name: "Create: missing workspace reference fails",
 			attr: createAttr(
 				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("", "export").APIBinding,
 			),
-			expectedErrors: []string{"spec.reference.workspace.path: Required value"},
+			expectedErrors: []string{"spec.reference.export.path: Required value"},
 		},
 		{
 			name: "Create: missing workspace reference exportName fails",
 			attr: createAttr(
 				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:org:workspaceName", "").APIBinding,
 			),
-			expectedErrors: []string{"spec.reference.workspace.exportName: Required value"},
+			expectedErrors: []string{"spec.reference.export.name: Required value"},
 		},
 		{
 			name: "Create: complete workspaceName reference passes when authorized",
@@ -285,7 +285,7 @@ func TestValidate(t *testing.T) {
 				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("", "export").APIBinding,
 				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:org:workspace", "export").APIBinding,
 			),
-			expectedErrors: []string{"spec.reference.workspace.path: Required value"},
+			expectedErrors: []string{"spec.reference.export.path: Required value"},
 		},
 		{
 			name: "Update: missing workspace reference exportName fails",
@@ -293,7 +293,7 @@ func TestValidate(t *testing.T) {
 				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:org:workspaceName", "").APIBinding,
 				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:org:workspaceName", "export").APIBinding,
 			),
-			expectedErrors: []string{"spec.reference.workspace.exportName: Required value"},
+			expectedErrors: []string{"spec.reference.export.name: Required value"},
 		},
 		{
 			name: "Update: complete workspace reference passes when authorized",
@@ -493,9 +493,9 @@ func (b *bindingBuilder) withName(name string) *bindingBuilder {
 }
 
 func (b *bindingBuilder) withAbsoluteWorkspaceReference(path string, exportName string) *bindingBuilder {
-	b.Spec.Reference.Workspace = &apisv1alpha1.WorkspaceExportReference{
-		Path:       path,
-		ExportName: exportName,
+	b.Spec.Reference.Export = &apisv1alpha1.ExportBindingReference{
+		Path: path,
+		Name: exportName,
 	}
 	return b
 }

@@ -23,7 +23,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/martinlindhe/base36"
 	"github.com/spf13/cobra"
 
@@ -202,7 +201,7 @@ func bindReady(bindings []*apisv1alpha1.APIBinding, placement *schedulingv1alpha
 			} else if conditions.IsFalse(binding, apisv1alpha1.APIExportValid) {
 				conditionMessage = conditions.GetMessage(binding, apisv1alpha1.APIExportValid)
 			}
-			return false, fmt.Sprintf("not bound to apiexport '%s:%s': %s", binding.Spec.Reference.Workspace.Path, binding.Spec.Reference.Workspace.ExportName, conditionMessage)
+			return false, fmt.Sprintf("not bound to apiexport '%s:%s': %s", binding.Spec.Reference.Export.Path, binding.Spec.Reference.Export.Path, conditionMessage)
 		}
 	}
 
@@ -231,10 +230,10 @@ func (o *BindComputeOptions) applyAPIBinding(ctx context.Context, client kcpclie
 
 	existingAPIExports := sets.NewString()
 	for _, binding := range apiBindings.Items {
-		if binding.Spec.Reference.Workspace == nil {
+		if binding.Spec.Reference.Export == nil {
 			continue
 		}
-		existingAPIExports.Insert(fmt.Sprintf("%s:%s", binding.Spec.Reference.Workspace.Path, binding.Spec.Reference.Workspace.ExportName))
+		existingAPIExports.Insert(fmt.Sprintf("%s:%s", binding.Spec.Reference.Export.Path, binding.Spec.Reference.Export.Name))
 	}
 
 	var errs []error
@@ -247,10 +246,10 @@ func (o *BindComputeOptions) applyAPIBinding(ctx context.Context, client kcpclie
 				Name: apiBindingName(clusterName, name),
 			},
 			Spec: apisv1alpha1.APIBindingSpec{
-				Reference: apisv1alpha1.ExportReference{
-					Workspace: &apisv1alpha1.WorkspaceExportReference{
-						Path:       clusterName.String(),
-						ExportName: name,
+				Reference: apisv1alpha1.BindingReference{
+					Export: &apisv1alpha1.ExportBindingReference{
+						Path: clusterName.String(),
+						Name: name,
 					},
 				},
 			},

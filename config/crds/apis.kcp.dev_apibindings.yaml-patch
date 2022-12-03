@@ -1,8 +1,8 @@
 - op: add
   path: /spec/versions/name=v1alpha1/schema/openAPIV3Schema/properties/spec/properties/reference/oneOf
   value:
-  - required: ["workspace"]
+  - required: ["export"]
 - op: add
-  path: /spec/versions/name=v1alpha1/schema/openAPIV3Schema/properties/spec/properties/reference/properties/workspace/oneOf
+  path: /spec/versions/name=v1alpha1/schema/openAPIV3Schema/properties/spec/properties/reference/properties/cluster/oneOf
   value:
   - required: ["path"]

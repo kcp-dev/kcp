@@ -100,5 +100,5 @@ func IndexAPIBindingByAPIExport(obj interface{}) ([]string, error) {
 		return []string{}, fmt.Errorf("obj %T is not an APIBinding", obj)
 	}
 
-	return []string{ClusterPathAndAPIExportName(apiBinding.Spec.Reference.Workspace.Path, apiBinding.Spec.Reference.Workspace.ExportName)}, nil
+	return []string{ClusterPathAndAPIExportName(apiBinding.Spec.Reference.Export.Path, apiBinding.Spec.Reference.Export.Name)}, nil
 }

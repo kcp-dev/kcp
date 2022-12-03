@@ -219,10 +219,10 @@ func (r *schemaReconciler) shouldSkipComputeAPIs(clusterName logicalcluster.Name
 
 	for _, syncTarget := range syncTargets {
 		for _, export := range syncTarget.Spec.SupportedAPIExports {
-			if export.Workspace == nil {
+			if export.Cluster == nil {
 				continue
 			}
-			if export.Workspace.ExportName == TemporaryComputeServiceExportName && export.Workspace.Path == rootcompute.RootComputeWorkspace.String() {
+			if export.Cluster.ExportName == TemporaryComputeServiceExportName && export.Cluster.Path == rootcompute.RootComputeWorkspace.String() {
 				return true, nil
 			}
 		}

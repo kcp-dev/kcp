@@ -70,7 +70,7 @@ type APIBindingSpec struct {
 	// +required
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="APIExport reference must not be changed"
-	Reference ExportReference `json:"reference"`
+	Reference BindingReference `json:"reference"`
 
 	// permissionClaims records decisions about permission claims requested by the API service provider.
 	// Individual claims can be accepted or rejected. If accepted, the API service provider gets the
@@ -100,32 +100,32 @@ const (
 	ClaimRejected AcceptablePermissionClaimState = "Rejected"
 )
 
-// ExportReference describes a reference to an APIExport. Exactly one of the
+// BindingReference describes a reference to an APIExport. Exactly one of the
 // fields must be set.
-type ExportReference struct {
-	// workspace is a reference to an APIExport in the same organization. The creator
-	// of the APIBinding needs to have access to the APIExport with the verb `bind`
-	// in order to bind to it.
+type BindingReference struct {
+	// export is a reference to an APIExport by cluster name and export name.
+	// The creator of the APIBinding needs to have access to the APIExport with the
+	// verb `bind` in order to bind to it.
 	//
 	// +optional
-	Workspace *WorkspaceExportReference `json:"workspace,omitempty"`
+	Export *ExportBindingReference `json:"export,omitempty"`
 }
 
-// WorkspaceExportReference describes an API and backing implementation that are provided by an actor in the
-// specified Workspace.
-type WorkspaceExportReference struct {
-	// path is an absolute reference to a workspace, e.g. root:org:ws.
-	// If it is unset, the path of the APIBinding is used.
+// ExportBindingReference is a reference to an APIExport by cluster and name.
+type ExportBindingReference struct {
+	// path is an absolute logical cluster path where the APIExport is defined.
+	// If identifier and path are unset, the cluster of the APIBinding is used.
+	//
 	// +optional
 	// +kubebuilder:validation:Pattern:="^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
 	Path string `json:"path,omitempty"`
 
-	// Name of the APIExport that describes the API.
+	// name is the name of the APIExport that describes the API.
 	//
 	// +required
 	// +kubebuilder:validation:Required
 	// +kube:validation:MinLength=1
-	ExportName string `json:"exportName"`
+	Name string `json:"name"`
 }
 
 // APIBindingPhaseType is the type of the current phase of an APIBinding.

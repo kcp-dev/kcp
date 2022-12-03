@@ -122,7 +122,7 @@ func (in *SyncTargetSpec) DeepCopyInto(out *SyncTargetSpec) {
 	}
 	if in.SupportedAPIExports != nil {
 		in, out := &in.SupportedAPIExports, &out.SupportedAPIExports
-		*out = make([]apisv1alpha1.ExportReference, len(*in))
+		*out = make([]apisv1alpha1.BindingReference, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}

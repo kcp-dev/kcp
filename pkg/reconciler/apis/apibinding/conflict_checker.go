@@ -66,7 +66,7 @@ func (ncc *conflictChecker) getBoundCRDs(apiBindingToExclude *apisv1alpha1.APIBi
 			return err
 		}
 
-		apiExport, err := ncc.getAPIExport(apiExportClusterName, apiBinding.Spec.Reference.Workspace.ExportName)
+		apiExport, err := ncc.getAPIExport(apiExportClusterName, apiBinding.Spec.Reference.Export.Name)
 		if err != nil {
 			return err
 		}

@@ -159,11 +159,11 @@ func TestNamespaceScheduler(t *testing.T) {
 				cluster := &workloadv1alpha1.SyncTarget{
 					ObjectMeta: metav1.ObjectMeta{Name: "cluster7"},
 					Spec: workloadv1alpha1.SyncTargetSpec{
-						SupportedAPIExports: []apisv1alpha1.ExportReference{
+						SupportedAPIExports: []apisv1alpha1.BindingReference{
 							{
-								Workspace: &apisv1alpha1.WorkspaceExportReference{
-									ExportName: "kubernetes",
-									Path:       server.clusterName.String(),
+								Export: &apisv1alpha1.ExportBindingReference{
+									Name: "kubernetes",
+									Path: server.clusterName.String(),
 								},
 							},
 						},

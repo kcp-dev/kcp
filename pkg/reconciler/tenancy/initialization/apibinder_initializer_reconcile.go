@@ -100,17 +100,17 @@ func (b *APIBinder) reconcile(ctx context.Context, this *tenancyv1alpha1.ThisWor
 	}
 
 	// This keeps track of which APIBindings have been created for which APIExports
-	exportToBinding := map[apisv1alpha1.WorkspaceExportReference]*apisv1alpha1.APIBinding{}
+	exportToBinding := map[apisv1alpha1.ExportBindingReference]*apisv1alpha1.APIBinding{}
 
 	for i := range bindings {
 		binding := bindings[i]
 
-		if binding.Spec.Reference.Workspace == nil {
+		if binding.Spec.Reference.Export == nil {
 			continue
 		}
 
 		// Track what we have ("actual")
-		exportToBinding[*binding.Spec.Reference.Workspace] = binding
+		exportToBinding[*binding.Spec.Reference.Export] = binding
 	}
 
 	requiredExportRefs := map[tenancyv1alpha1.APIExportReference]struct{}{}
@@ -142,10 +142,10 @@ func (b *APIBinder) reconcile(ctx context.Context, this *tenancyv1alpha1.ThisWor
 					Name: apiBindingName,
 				},
 				Spec: apisv1alpha1.APIBindingSpec{
-					Reference: apisv1alpha1.ExportReference{
-						Workspace: &apisv1alpha1.WorkspaceExportReference{
-							Path:       exportRef.Path,
-							ExportName: exportRef.ExportName,
+					Reference: apisv1alpha1.BindingReference{
+						Export: &apisv1alpha1.ExportBindingReference{
+							Path: exportRef.Path,
+							Name: exportRef.ExportName,
 						},
 					},
 				},
@@ -213,9 +213,9 @@ func (b *APIBinder) reconcile(ctx context.Context, this *tenancyv1alpha1.ThisWor
 	var incomplete []string
 
 	for exportRef := range requiredExportRefs {
-		workspaceExportRef := apisv1alpha1.WorkspaceExportReference{
-			Path:       exportRef.Path,
-			ExportName: exportRef.ExportName,
+		workspaceExportRef := apisv1alpha1.ExportBindingReference{
+			Path: exportRef.Path,
+			Name: exportRef.ExportName,
 		}
 
 		binding, exists := exportToBinding[workspaceExportRef]

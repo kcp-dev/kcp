@@ -115,10 +115,10 @@ func (b *BindOptions) Run(ctx context.Context) error {
 			Name: apiBindingName,
 		},
 		Spec: apisv1alpha1.APIBindingSpec{
-			Reference: apisv1alpha1.ExportReference{
-				Workspace: &apisv1alpha1.WorkspaceExportReference{
-					Path:       workspacePath.String(),
-					ExportName: apiExportName,
+			Reference: apisv1alpha1.BindingReference{
+				Export: &apisv1alpha1.ExportBindingReference{
+					Path: workspacePath.String(),
+					Name: apiExportName,
 				},
 			},
 		},

@@ -51,10 +51,10 @@ func BindToExport(
 			Name: strings.ReplaceAll(exportClusterName.String(), ":", "-"),
 		},
 		Spec: apisv1alpha1.APIBindingSpec{
-			Reference: apisv1alpha1.ExportReference{
-				Workspace: &apisv1alpha1.WorkspaceExportReference{
-					Path:       exportClusterName.String(),
-					ExportName: apiExportName,
+			Reference: apisv1alpha1.BindingReference{
+				Export: &apisv1alpha1.ExportBindingReference{
+					Path: exportClusterName.String(),
+					Name: apiExportName,
 				},
 			},
 		},

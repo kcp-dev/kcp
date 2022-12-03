@@ -288,13 +288,13 @@ func (c *controller) process(ctx context.Context, key string) error {
 		return err
 	}
 	for _, binding := range bindings {
-		if binding.Spec.Reference.Workspace == nil {
+		if binding.Spec.Reference.Export == nil {
 			continue
 		}
-		if binding.Spec.Reference.Workspace.Path != clusterName.String() {
+		if binding.Spec.Reference.Export.Path != clusterName.String() {
 			continue
 		}
-		if binding.Spec.Reference.Workspace.ExportName != reconcilerapiexport.TemporaryComputeServiceExportName {
+		if binding.Spec.Reference.Export.Name != reconcilerapiexport.TemporaryComputeServiceExportName {
 			continue
 		}
 		logging.WithObject(logger, binding).V(3).Info("APIBinding found pointing to APIExport")
@@ -311,9 +311,9 @@ func (c *controller) process(ctx context.Context, key string) error {
 			},
 		},
 		Spec: apisv1alpha1.APIBindingSpec{
-			Reference: apisv1alpha1.ExportReference{
-				Workspace: &apisv1alpha1.WorkspaceExportReference{
-					ExportName: reconcilerapiexport.TemporaryComputeServiceExportName,
+			Reference: apisv1alpha1.BindingReference{
+				Export: &apisv1alpha1.ExportBindingReference{
+					Name: reconcilerapiexport.TemporaryComputeServiceExportName,
 				},
 			},
 		},

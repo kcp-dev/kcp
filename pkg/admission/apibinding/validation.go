@@ -51,19 +51,19 @@ func ValidateAPIBindingUpdate(oldBinding, newBinding *apisv1alpha1.APIBinding) f
 	return allErrs
 }
 
-// ValidateAPIBindingReference validates an APIBinding's ExportReference.
-func ValidateAPIBindingReference(reference apisv1alpha1.ExportReference, path *field.Path) field.ErrorList {
+// ValidateAPIBindingReference validates an APIBinding's BindingReference.
+func ValidateAPIBindingReference(reference apisv1alpha1.BindingReference, path *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
-	// For now, workspace is required via OpenAPI. But just in case...
-	if workspace := reference.Workspace; workspace != nil {
+	// For now, field "export" is required via OpenAPI. But just in case...
+	if reference.Export != nil {
 		// These are required by OpenAPI, but just in case...
-		if workspace.Path == "" {
-			allErrs = append(allErrs, field.Required(path.Child("workspace").Child("path"), ""))
+		if reference.Export.Path == "" {
+			allErrs = append(allErrs, field.Required(path.Child("export").Child("path"), ""))
 		}
 
-		if workspace.ExportName == "" {
-			allErrs = append(allErrs, field.Required(path.Child("workspace").Child("exportName"), ""))
+		if reference.Export.Name == "" {
+			allErrs = append(allErrs, field.Required(path.Child("export").Child("name"), ""))
 		}
 	}
 

@@ -89,10 +89,10 @@ func TestAPIBindingAPIExportReferenceImmutability(t *testing.T) {
 			Name: "cowboys",
 		},
 		Spec: apisv1alpha1.APIBindingSpec{
-			Reference: apisv1alpha1.ExportReference{
-				Workspace: &apisv1alpha1.WorkspaceExportReference{
-					Path:       serviceProviderWorkspace.String(),
-					ExportName: "today-cowboys",
+			Reference: apisv1alpha1.BindingReference{
+				Export: &apisv1alpha1.ExportBindingReference{
+					Path: serviceProviderWorkspace.String(),
+					Name: "today-cowboys",
 				},
 			},
 		},
@@ -105,7 +105,7 @@ func TestAPIBindingAPIExportReferenceImmutability(t *testing.T) {
 	require.NoError(t, err)
 
 	patchedBinding := apiBinding.DeepCopy()
-	patchedBinding.Spec.Reference.Workspace.ExportName = "other-export"
+	patchedBinding.Spec.Reference.Export.Name = "other-export"
 	mergePatch, err := jsonpatch.CreateMergePatch(encodeJSON(t, apiBinding), encodeJSON(t, patchedBinding))
 	require.NoError(t, err)
 	_, err = kcpClusterClient.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Patch(ctx, apiBinding.Name, types.MergePatchType, mergePatch, metav1.PatchOptions{})
@@ -185,10 +185,10 @@ func TestAPIBinding(t *testing.T) {
 				Name: "cowboys",
 			},
 			Spec: apisv1alpha1.APIBindingSpec{
-				Reference: apisv1alpha1.ExportReference{
-					Workspace: &apisv1alpha1.WorkspaceExportReference{
-						Path:       providerWorkspace.String(),
-						ExportName: "today-cowboys",
+				Reference: apisv1alpha1.BindingReference{
+					Export: &apisv1alpha1.ExportBindingReference{
+						Path: providerWorkspace.String(),
+						Name: "today-cowboys",
 					},
 				},
 			},
@@ -258,10 +258,10 @@ func TestAPIBinding(t *testing.T) {
 				Name: "cowboys2",
 			},
 			Spec: apisv1alpha1.APIBindingSpec{
-				Reference: apisv1alpha1.ExportReference{
-					Workspace: &apisv1alpha1.WorkspaceExportReference{
-						Path:       serviceProvider2Workspace.String(),
-						ExportName: "today-cowboys",
+				Reference: apisv1alpha1.BindingReference{
+					Export: &apisv1alpha1.ExportBindingReference{
+						Path: serviceProvider2Workspace.String(),
+						Name: "today-cowboys",
 					},
 				},
 			},

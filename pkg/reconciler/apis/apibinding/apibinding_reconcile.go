@@ -75,7 +75,7 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 	logger := klog.FromContext(ctx)
 
 	// Check for valid reference
-	workspaceRef := apiBinding.Spec.Reference.Workspace
+	workspaceRef := apiBinding.Spec.Reference.Export
 	if workspaceRef == nil {
 		// this should not happen because of OpenAPI
 		conditions.MarkFalse(
@@ -103,7 +103,7 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 	}
 
 	// Get APIExport
-	apiExport, err := c.getAPIExport(apiExportClusterName, workspaceRef.ExportName)
+	apiExport, err := c.getAPIExport(apiExportClusterName, workspaceRef.Name)
 	if apierrors.IsNotFound(err) {
 		conditions.MarkFalse(
 			apiBinding,
@@ -112,7 +112,7 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 			conditionsv1alpha1.ConditionSeverityError,
 			"APIExport %s|%s not found",
 			apiExportClusterName,
-			workspaceRef.ExportName,
+			workspaceRef.Name,
 		)
 		return nil
 	}
@@ -124,7 +124,7 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 			conditionsv1alpha1.ConditionSeverityError,
 			"Error getting APIExport %s|%s: %v",
 			apiExportClusterName,
-			workspaceRef.ExportName,
+			workspaceRef.Name,
 			err,
 		)
 		return err
@@ -144,7 +144,7 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 			conditionsv1alpha1.ConditionSeverityWarning,
 			"APIExport %s|%s is missing status.identityHash",
 			apiExportClusterName,
-			workspaceRef.ExportName,
+			workspaceRef.Name,
 		)
 		return nil
 	}
@@ -455,10 +455,10 @@ func generateCRD(schema *apisv1alpha1.APIResourceSchema) (*apiextensionsv1.Custo
 }
 
 func getAPIExportClusterName(apiBinding *apisv1alpha1.APIBinding) (logicalcluster.Name, error) {
-	if apiBinding.Spec.Reference.Workspace == nil {
+	if apiBinding.Spec.Reference.Export == nil {
 		// cannot happen due to APIBinding validation
 		return logicalcluster.Name{}, fmt.Errorf("APIBinding does not specify an APIExport")
 	}
 
-	return logicalcluster.New(apiBinding.Spec.Reference.Workspace.Path), nil
+	return logicalcluster.New(apiBinding.Spec.Reference.Export.Path), nil
 }

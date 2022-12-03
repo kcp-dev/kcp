@@ -25,7 +25,6 @@ import (
 
 	"github.com/go-logr/logr"
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
-	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -195,12 +194,11 @@ func (c *controller) process(ctx context.Context, key string) error {
 		return err
 	}
 
-	if apiBinding.Spec.Reference.Workspace == nil {
+	if apiBinding.Spec.Reference.Export == nil {
 		return nil
 	}
 
-	apiExportClusterName := logicalcluster.New(apiBinding.Spec.Reference.Workspace.Path)
-	apiExport, err := c.apiExportsLister.Cluster(apiExportClusterName).Get(apiBinding.Spec.Reference.Workspace.ExportName)
+	apiExport, err := c.apiExportsLister.Cluster(apiBinding.Spec.Reference.Export.Cluster).Get(apiBinding.Spec.Reference.Export.Name)
 	if errors.IsNotFound(err) {
 		return nil
 	}

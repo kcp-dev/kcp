@@ -101,10 +101,10 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 			Name: "cowboys",
 		},
 		Spec: apisv1alpha1.APIBindingSpec{
-			Reference: apisv1alpha1.ExportReference{
-				Workspace: &apisv1alpha1.WorkspaceExportReference{
-					Path:       sourceWorkspace.String(),
-					ExportName: cowboysAPIExport.Name,
+			Reference: apisv1alpha1.BindingReference{
+				Export: &apisv1alpha1.ExportBindingReference{
+					Path: sourceWorkspace.String(),
+					Name: cowboysAPIExport.Name,
 				},
 			},
 		},
@@ -246,10 +246,10 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 			Name: "cowboys",
 		},
 		Spec: apisv1alpha1.APIBindingSpec{
-			Reference: apisv1alpha1.ExportReference{
-				Workspace: &apisv1alpha1.WorkspaceExportReference{
-					Path:       sourceWorkspace.String(),
-					ExportName: cowboysAPIExport.Name,
+			Reference: apisv1alpha1.BindingReference{
+				Export: &apisv1alpha1.ExportBindingReference{
+					Path: sourceWorkspace.String(),
+					Name: cowboysAPIExport.Name,
 				},
 			},
 		},

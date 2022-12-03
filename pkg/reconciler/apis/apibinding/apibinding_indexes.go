@@ -35,13 +35,13 @@ func indexAPIBindingsByWorkspaceExportFunc(obj interface{}) ([]string, error) {
 		return []string{}, fmt.Errorf("obj is supposed to be an APIBinding, but is %T", obj)
 	}
 
-	if apiBinding.Spec.Reference.Workspace != nil {
-		apiExportClusterName := logicalcluster.New(apiBinding.Spec.Reference.Workspace.Path)
+	if apiBinding.Spec.Reference.Export != nil {
+		apiExportClusterName := logicalcluster.New(apiBinding.Spec.Reference.Export.Path)
 		if !ok {
 			// this will never happen due to validation
 			return []string{}, fmt.Errorf("invalid export reference")
 		}
-		key := client.ToClusterAwareKey(apiExportClusterName, apiBinding.Spec.Reference.Workspace.ExportName)
+		key := client.ToClusterAwareKey(apiExportClusterName, apiBinding.Spec.Reference.Export.Name)
 		return []string{key}, nil
 	}
 

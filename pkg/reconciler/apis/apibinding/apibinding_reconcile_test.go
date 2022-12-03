@@ -72,7 +72,7 @@ var (
 	binding = unbound.DeepCopy().WithPhase(apisv1alpha1.APIBindingPhaseBinding)
 
 	rebinding = binding.DeepCopy().
-			WithBoundResources(
+		WithBoundResources(
 			new(boundAPIResourceBuilder).
 				WithGroupResource("kcp.dev", "widgets").
 				WithSchema("today.widgets.kcp.dev", "todaywidgetsuid").
@@ -96,10 +96,10 @@ var (
 		)
 
 	conflicting = unbound.DeepCopy().
-			WithName("conflicting").
-			WithPhase(apisv1alpha1.APIBindingPhaseBound).
-			WithWorkspaceReference("org:some-workspace", "conflict").
-			WithBoundResources(
+		WithName("conflicting").
+		WithPhase(apisv1alpha1.APIBindingPhaseBound).
+		WithWorkspaceReference("org:some-workspace", "conflict").
+		WithBoundResources(
 			new(boundAPIResourceBuilder).
 				WithGroupResource("kcp.dev", "widgets").
 				WithSchema("another.widgets.kcp.dev", "anotherwidgetsuid").
@@ -868,14 +868,14 @@ func (b *bindingBuilder) WithName(name string) *bindingBuilder {
 }
 
 func (b *bindingBuilder) WithoutWorkspaceReference() *bindingBuilder {
-	b.Spec.Reference.Workspace = nil
+	b.Spec.Reference.Export = nil
 	return b
 }
 
 func (b *bindingBuilder) WithWorkspaceReference(path, exportName string) *bindingBuilder {
-	b.Spec.Reference.Workspace = &apisv1alpha1.WorkspaceExportReference{
-		Path:       path,
-		ExportName: exportName,
+	b.Spec.Reference.Export = &apisv1alpha1.ExportBindingReference{
+		Path: path,
+		Name: exportName,
 	}
 	return b
 }

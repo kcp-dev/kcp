@@ -69,18 +69,18 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 	for _, binding := range bindings {
 		logger := logging.WithObject(logger, binding)
 
-		if binding.Spec.Reference.Workspace == nil {
+		if binding.Spec.Reference.Export == nil {
 			logger.V(4).Info("skipping APIBinding because it has no workspace set")
 			continue
 		}
-		boundAPIExportWorkspace := binding.Spec.Reference.Workspace
+		boundAPIExportWorkspace := binding.Spec.Reference.Export
 
 		for _, claim := range binding.Spec.PermissionClaims {
 			if claim.State != apisv1alpha1.ClaimAccepted || claim.Group != groupResource.Group || claim.Resource != groupResource.Resource {
 				continue
 			}
 
-			k, v, err := permissionclaims.ToLabelKeyAndValue(logicalcluster.New(boundAPIExportWorkspace.Path), boundAPIExportWorkspace.ExportName, claim.PermissionClaim)
+			k, v, err := permissionclaims.ToLabelKeyAndValue(logicalcluster.New(boundAPIExportWorkspace.Path), boundAPIExportWorkspace.Name, claim.PermissionClaim)
 			if err != nil {
 				// extremely unlikely to get an error here - it means the json marshaling failed
 				logger.Error(err, "error calculating permission claim label key and value",
@@ -101,8 +101,8 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 			return labels, nil // can only be a NotFound
 		}
 
-		if exportRef := binding.Spec.Reference; exportRef.Workspace != nil {
-			k, v := permissionclaims.ToReflexiveAPIBindingLabelKeyAndValue(logicalcluster.New(exportRef.Workspace.Path), exportRef.Workspace.ExportName)
+		if exportRef := binding.Spec.Reference; exportRef.Export != nil {
+			k, v := permissionclaims.ToReflexiveAPIBindingLabelKeyAndValue(logicalcluster.New(exportRef.Export.Path), exportRef.Export.Name)
 			if _, found := labels[k]; !found {
 				labels[k] = v
 			}
