@@ -137,10 +137,6 @@ func (r ClusterWorkspaceTypeReference) String() string {
 	return fmt.Sprintf("%s:%s", r.Path, r.Name)
 }
 
-func (r ClusterWorkspaceTypeReference) Equal(other ClusterWorkspaceTypeReference) bool {
-	return r.Name == other.Name && r.Path == other.Path
-}
-
 // ClusterWorkspaceStatus communicates the observed state of the ClusterWorkspace.
 //
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.cluster) || has(self.cluster)",message="status.cluster is immutable"

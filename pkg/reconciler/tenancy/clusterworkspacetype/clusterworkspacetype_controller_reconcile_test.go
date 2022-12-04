@@ -221,7 +221,7 @@ func TestReconcile(t *testing.T) {
 						return nil, testCase.getErr
 					}
 					for _, cwt := range testCase.cwts {
-						if tenancyv1alpha1.ReferenceFor(cwt).Equal(reference) {
+						if logicalcluster.From(cwt).String() == reference.Path && cwt.Name == string(reference.Name) {
 							return cwt, nil
 						}
 					}

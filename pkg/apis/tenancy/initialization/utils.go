@@ -63,7 +63,7 @@ func EnsureInitializerAbsent(initializer tenancyv1alpha1.WorkspaceInitializer, i
 
 // InitializerForType determines the identifier for the implicit initializer associated with the ClusterWorkspaceType.
 func InitializerForType(cwt *tenancyv1alpha1.ClusterWorkspaceType) tenancyv1alpha1.WorkspaceInitializer {
-	return InitializerForReference(tenancyv1alpha1.ReferenceFor(cwt))
+	return tenancyv1alpha1.WorkspaceInitializer(logicalcluster.From(cwt).Join(cwt.Name).String())
 }
 
 // InitializerForReference determines the identifier for the implicit initializer associated with the
