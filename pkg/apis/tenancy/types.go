@@ -18,6 +18,8 @@ package tenancy
 
 import (
 	"github.com/kcp-dev/logicalcluster/v2"
+
+	"k8s.io/klog/v2"
 )
 
 // Object is a local interface representation of the Kubernetes metav1.Object, to avoid dependencies on
@@ -41,4 +43,22 @@ func (c Cluster) String() string {
 
 func From(obj Object) Cluster {
 	return Cluster(logicalcluster.From(obj).String())
+}
+
+// TemporaryCanonicalPath maps a cluster name to the canonical workspace path
+// for that cluster. This is temporary, and it will be replaced by some cached
+// mapping backed by the workspace index, probably of the front-proxy.
+func TemporaryCanonicalPath(c Cluster) logicalcluster.Name {
+	logger := klog.Background()
+	logger.V(1).Info("TemporaryCanonicalPath", "cluster", c) // intentionally noisy output
+	return logicalcluster.New(string(c))
+}
+
+// TemporaryClusterFrom returns the cluster name for a given workspace path.
+// This is temporary, and it will be replaced by some cached mapping backed
+// by the workspace index, probably of the front-proxy.
+func TemporaryClusterFrom(path logicalcluster.Name) Cluster {
+	logger := klog.Background()
+	logger.V(1).Info("TemporaryClusterFrom", "path", path) // intentionally noisy output
+	return Cluster(path.String())
 }
