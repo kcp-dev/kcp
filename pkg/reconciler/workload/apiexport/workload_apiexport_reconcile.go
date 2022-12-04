@@ -222,6 +222,7 @@ func (r *schemaReconciler) shouldSkipComputeAPIs(clusterName logicalcluster.Name
 			if export.Cluster == nil {
 				continue
 			}
+			// TODO: this does not work. We must not handle root:compute special in any way.
 			if export.Cluster.ExportName == TemporaryComputeServiceExportName && export.Cluster.Path == rootcompute.RootComputeWorkspace.String() {
 				return true, nil
 			}
