@@ -125,7 +125,7 @@ type ClusterWorkspaceTypeReference struct {
 	//
 	// +optional
 	// +kubebuilder:validation:Pattern:="^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
-	Path string `json:"path"`
+	Path string `json:"path,omitempty"`
 }
 
 // ClusterWorkspaceTypeName is a name of a ClusterWorkspaceType
