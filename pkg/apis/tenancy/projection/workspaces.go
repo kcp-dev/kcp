@@ -23,7 +23,10 @@ import (
 
 func ProjectWorkspaceToClusterWorkspace(from *tenancyv1beta1.Workspace, to *tenancyv1alpha1.ClusterWorkspace) {
 	to.ObjectMeta = from.ObjectMeta
-	to.Spec.Type = from.Spec.Type
+	to.Spec.Type = tenancyv1alpha1.ClusterWorkspaceTypeReference{
+		Path: from.Spec.Type.Path,
+		Name: from.Spec.Type.Name,
+	}
 	if from.Spec.Location != nil {
 		to.Spec.Shard = &tenancyv1alpha1.ShardConstraints{
 			Selector: from.Spec.Location.Selector,

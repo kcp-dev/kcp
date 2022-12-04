@@ -132,7 +132,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 	}
 
 	var newServerHost string
-	var workspaceType *tenancyv1alpha1.ClusterWorkspaceTypeReference
+	var workspaceType *tenancyv1beta1.WorkspaceTypeReference
 	switch o.Name {
 	case "-":
 		prev, exists := o.startingConfig.Contexts[kcpPreviousWorkspaceContextKey]
@@ -405,7 +405,7 @@ func (o *CurrentWorkspaceOptions) Run(ctx context.Context) error {
 
 type shortWorkspaceOutput bool
 
-func currentWorkspace(out io.Writer, host string, shortWorkspaceOutput shortWorkspaceOutput, workspaceType *tenancyv1alpha1.ClusterWorkspaceTypeReference) error {
+func currentWorkspace(out io.Writer, host string, shortWorkspaceOutput shortWorkspaceOutput, workspaceType *tenancyv1beta1.WorkspaceTypeReference) error {
 	_, clusterName, err := pluginhelpers.ParseClusterURL(host)
 	if err != nil {
 		if shortWorkspaceOutput {
@@ -422,7 +422,7 @@ func currentWorkspace(out io.Writer, host string, shortWorkspaceOutput shortWork
 
 	message := fmt.Sprintf("Current workspace is %q", clusterName)
 	if workspaceType != nil {
-		message += fmt.Sprintf(" (type %q)", workspaceType.String())
+		message += fmt.Sprintf(" (type %s)", logicalcluster.New(workspaceType.Path).Join(string(workspaceType.Name)).String())
 	}
 	_, err = fmt.Fprintln(out, message+".")
 	return err
@@ -505,17 +505,17 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 		return fmt.Errorf("--ignore-existing must not be used with non-absolute type path")
 	}
 
-	var structuredWorkspaceType tenancyv1alpha1.ClusterWorkspaceTypeReference
+	var structuredWorkspaceType tenancyv1beta1.WorkspaceTypeReference
 	if o.Type != "" {
 		separatorIndex := strings.LastIndex(o.Type, ":")
 		switch separatorIndex {
 		case -1:
-			structuredWorkspaceType = tenancyv1alpha1.ClusterWorkspaceTypeReference{
+			structuredWorkspaceType = tenancyv1beta1.WorkspaceTypeReference{
 				Name: tenancyv1alpha1.ClusterWorkspaceTypeName(strings.ToLower(o.Type)),
 				// path is defaulted through admission
 			}
 		default:
-			structuredWorkspaceType = tenancyv1alpha1.ClusterWorkspaceTypeReference{
+			structuredWorkspaceType = tenancyv1beta1.WorkspaceTypeReference{
 				Name: tenancyv1alpha1.ClusterWorkspaceTypeName(strings.ToLower(o.Type[separatorIndex+1:])),
 				Path: o.Type[:separatorIndex],
 			}
@@ -549,7 +549,9 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 	workspaceReference := fmt.Sprintf("Workspace %q (type %s)", o.Name, ws.Spec.Type)
 	if preExisting {
 		if ws.Spec.Type.Name != "" && ws.Spec.Type.Name != structuredWorkspaceType.Name || ws.Spec.Type.Path != structuredWorkspaceType.Path {
-			return fmt.Errorf("workspace %q cannot be created with type %s, it already exists with different type %s", o.Name, structuredWorkspaceType.String(), ws.Spec.Type.String())
+			wsTypeString := logicalcluster.New(ws.Spec.Type.Path).Join(string(ws.Spec.Type.Name)).String()
+			structuredWorkspaceTypeString := logicalcluster.New(structuredWorkspaceType.Path).Join(string(structuredWorkspaceType.Name)).String()
+			return fmt.Errorf("workspace %q cannot be created with type %s, it already exists with different type %s", o.Name, structuredWorkspaceTypeString, wsTypeString)
 		}
 		if ws.Status.Phase != tenancyv1alpha1.WorkspacePhaseReady && o.ReadyWaitTimeout > 0 {
 			if _, err := fmt.Fprintf(o.Out, "%s already exists. Waiting for it to be ready...\n", workspaceReference); err != nil {

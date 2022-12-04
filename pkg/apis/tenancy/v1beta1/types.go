@@ -65,7 +65,10 @@ type WorkspaceSpec struct {
 	// the RBAC clusterworkspacetypes/use resource permission.
 	//
 	// +optional
-	Type v1alpha1.ClusterWorkspaceTypeReference `json:"type,omitempty"`
+	// +kubebuilder:validation:XValidation:rule="self.name == oldSelf.name",message="name is immutable"
+	// +kubebuilder:validation:XValidation:rule="has(oldSelf.path) == has(self.path)",message="path is immutable"
+	// +kubebuilder:validation:XValidation:rule="!has(oldSelf.path) || !has(self.path) || self.path == oldSelf.path",message="path is immutable"
+	Type WorkspaceTypeReference `json:"type,omitempty"`
 
 	// location constraints where this workspace can be scheduled to.
 	//
@@ -73,6 +76,21 @@ type WorkspaceSpec struct {
 	//
 	// +optional
 	Location *WorkspaceLocation `json:"shard,omitempty"`
+}
+
+// WorkspaceTypeReference is a reference to a workspace type.
+type WorkspaceTypeReference struct {
+	// name is the name of the ClusterWorkspaceType
+	//
+	// +required
+	// +kubebuilder:validation:Required
+	Name v1alpha1.ClusterWorkspaceTypeName `json:"name"`
+
+	// path is an absolute reference to the workspace that owns this type, e.g. root:org:ws.
+	//
+	// +optional
+	// +kubebuilder:validation:Pattern:="^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+	Path string `json:"path,omitempty"`
 }
 
 type WorkspaceLocation struct {

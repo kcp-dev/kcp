@@ -168,7 +168,10 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 	ws := &tenancyv1beta1.Workspace{
 		ObjectMeta: cws.ObjectMeta,
 		Spec: tenancyv1beta1.WorkspaceSpec{
-			Type: cws.Spec.Type,
+			Type: tenancyv1beta1.WorkspaceTypeReference{
+				Path: cws.Spec.Type.Path,
+				Name: cws.Spec.Type.Name,
+			},
 		},
 	}
 
