@@ -23,6 +23,7 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
 
 // SyncTarget describes a member cluster capable of running workloads.
@@ -74,7 +75,7 @@ type SyncTargetSpec struct {
 	// with the resource schema included in the exports.
 	// If it is not set, the kubernetes export in the same workspace will be used by default.
 	// +kubebuilder:default={{workspace: {exportName: kubernetes}}}
-	SupportedAPIExports []apisv1alpha1.ExportReference `json:"supportedAPIExports,omitempty"`
+	SupportedAPIExports []tenancyv1alpha1.APIExportReference `json:"supportedAPIExports,omitempty"`
 
 	// Cells is a set of labels to identify the cells the SyncTarget belongs to. SyncTargets with the same cells run as
 	// they are in the same physical cluster. Each key/value pair in the cells should be added and updated by service providers

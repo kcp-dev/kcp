@@ -27,7 +27,7 @@ import (
 	reconcilerapiexport "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexport"
 )
 
-// indexAPIExportsByAPIResourceSchemasFunc is an index function that maps an APIExport to its spec.latestResourceSchemas.
+// IndexAPIExportsByAPIResourceSchemas is an index function that maps an APIExport to its spec.latestResourceSchemas.
 func IndexAPIExportsByAPIResourceSchemas(obj interface{}) ([]string, error) {
 	apiExport, ok := obj.(*apisv1alpha1.APIExport)
 	if !ok {
@@ -48,26 +48,19 @@ func IndexSyncTargetsByExports(obj interface{}) ([]string, error) {
 		return []string{}, fmt.Errorf("obj is supposed to be a SyncTarget, but is %T", obj)
 	}
 
-	return getExportKeys(synctarget), nil
-}
-
-func getExportKeys(synctarget *workloadv1alpha1.SyncTarget) []string {
-	lcluster := logicalcluster.From(synctarget)
+	clusterName := logicalcluster.From(synctarget)
 	if len(synctarget.Spec.SupportedAPIExports) == 0 {
-		return []string{client.ToClusterAwareKey(lcluster, reconcilerapiexport.TemporaryComputeServiceExportName)}
+		return []string{client.ToClusterAwareKey(clusterName, reconcilerapiexport.TemporaryComputeServiceExportName)}, nil
 	}
 
 	var keys []string
 	for _, export := range synctarget.Spec.SupportedAPIExports {
-		if export.Workspace == nil {
+		if len(export.ExportName) == 0 {
+			keys = append(keys, client.ToClusterAwareKey(clusterName, export.ExportName))
 			continue
 		}
-		if len(export.Workspace.Path) == 0 {
-			keys = append(keys, client.ToClusterAwareKey(lcluster, export.Workspace.ExportName))
-			continue
-		}
-		keys = append(keys, client.ToClusterAwareKey(logicalcluster.New(export.Workspace.Path), export.Workspace.ExportName))
+		keys = append(keys, client.ToClusterAwareKey(logicalcluster.New(export.Path), export.ExportName))
 	}
 
-	return keys
+	return keys, nil
 }

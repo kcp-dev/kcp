@@ -31,6 +31,7 @@ import (
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
 
@@ -47,10 +48,11 @@ func TestSyncTargetCompatibleReconcile(t *testing.T) {
 	}{
 		{
 			name: "pending when missing APIResourceSchema",
-			syncTarget: newSyncTarget([]apisv1alpha1.ExportReference{
+			syncTarget: newSyncTarget([]tenancyv1alpha1.APIExportReference{
 				{
-					Workspace: &apisv1alpha1.WorkspaceExportReference{ExportName: "kubernetes"},
-				}},
+					ExportName: "kubernetes",
+				},
+			},
 				[]workloadv1alpha1.ResourceToSync{
 					{GroupResource: apisv1alpha1.GroupResource{Group: "apps", Resource: "deployments"}, Versions: []string{"v1"}, State: workloadv1alpha1.ResourceSchemaAcceptedState},
 				},
@@ -62,10 +64,11 @@ func TestSyncTargetCompatibleReconcile(t *testing.T) {
 		},
 		{
 			name: "incompatible when missing APIResourceImport",
-			syncTarget: newSyncTarget([]apisv1alpha1.ExportReference{
+			syncTarget: newSyncTarget([]tenancyv1alpha1.APIExportReference{
 				{
-					Workspace: &apisv1alpha1.WorkspaceExportReference{ExportName: "kubernetes"},
-				}},
+					ExportName: "kubernetes",
+				},
+			},
 				[]workloadv1alpha1.ResourceToSync{
 					{GroupResource: apisv1alpha1.GroupResource{Group: "apps", Resource: "deployments"}, Versions: []string{"v1"}, State: workloadv1alpha1.ResourceSchemaAcceptedState},
 				},
@@ -86,10 +89,11 @@ func TestSyncTargetCompatibleReconcile(t *testing.T) {
 		},
 		{
 			name: "APIResourceImport compatible with APIResourceSchema",
-			syncTarget: newSyncTarget([]apisv1alpha1.ExportReference{
+			syncTarget: newSyncTarget([]tenancyv1alpha1.APIExportReference{
 				{
-					Workspace: &apisv1alpha1.WorkspaceExportReference{ExportName: "kubernetes"},
-				}},
+					ExportName: "kubernetes",
+				},
+			},
 				[]workloadv1alpha1.ResourceToSync{
 					{GroupResource: apisv1alpha1.GroupResource{Group: "apps", Resource: "deployments"}, Versions: []string{"v1"}, State: workloadv1alpha1.ResourceSchemaPendingState},
 				},
@@ -113,10 +117,11 @@ func TestSyncTargetCompatibleReconcile(t *testing.T) {
 		},
 		{
 			name: "APIResourceImport incompatible with APIResourceSchema",
-			syncTarget: newSyncTarget([]apisv1alpha1.ExportReference{
+			syncTarget: newSyncTarget([]tenancyv1alpha1.APIExportReference{
 				{
-					Workspace: &apisv1alpha1.WorkspaceExportReference{ExportName: "kubernetes"},
-				}},
+					ExportName: "kubernetes",
+				},
+			},
 				[]workloadv1alpha1.ResourceToSync{
 					{GroupResource: apisv1alpha1.GroupResource{Group: "apps", Resource: "deployments"}, Versions: []string{"v1"}, State: workloadv1alpha1.ResourceSchemaAcceptedState},
 				},
@@ -140,10 +145,11 @@ func TestSyncTargetCompatibleReconcile(t *testing.T) {
 		},
 		{
 			name: "only take care latest version",
-			syncTarget: newSyncTarget([]apisv1alpha1.ExportReference{
+			syncTarget: newSyncTarget([]tenancyv1alpha1.APIExportReference{
 				{
-					Workspace: &apisv1alpha1.WorkspaceExportReference{ExportName: "kubernetes"},
-				}},
+					ExportName: "kubernetes",
+				},
+			},
 				[]workloadv1alpha1.ResourceToSync{
 					{GroupResource: apisv1alpha1.GroupResource{Group: "apps", Resource: "deployments"}, Versions: []string{"v1", "v1beta1"}, State: workloadv1alpha1.ResourceSchemaPendingState},
 				},

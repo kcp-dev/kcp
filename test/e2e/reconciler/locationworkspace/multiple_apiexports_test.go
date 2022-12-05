@@ -161,7 +161,7 @@ func TestMultipleExports(t *testing.T) {
 
 	t.Logf("Patch synctarget with new export")
 	patchData := fmt.Sprintf(
-		`{"spec":{"supportedAPIExports":[{"workspace":{"path":%q,"exportName":"services"}},{"workspace":{"path":%q,"exportName":"ingresses"}}]}}`, serviceSchemaClusterName.String(), ingressSchemaClusterName.String())
+		`{"spec":{"supportedAPIExports":[{"path":%q,"exportName":"services"},{"path":%q,"exportName":"ingresses"}]}}`, serviceSchemaClusterName.String(), ingressSchemaClusterName.String())
 	_, err = kcpClients.Cluster(computeClusterName).WorkloadV1alpha1().SyncTargets().Patch(ctx, syncTargetName, types.MergePatchType, []byte(patchData), metav1.PatchOptions{})
 	require.NoError(t, err)
 

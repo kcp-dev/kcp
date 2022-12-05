@@ -53,7 +53,7 @@ import (
 	"k8s.io/kube-openapi/pkg/util/sets"
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
-	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/pkg/cliplugins/base"
@@ -288,23 +288,19 @@ func getSyncerID(syncTarget *workloadv1alpha1.SyncTarget) string {
 }
 
 func (o *SyncOptions) applySyncTarget(ctx context.Context, kcpClient kcpclient.Interface, syncTargetName string) (*workloadv1alpha1.SyncTarget, error) {
-	var supportedAPIExports []apisv1alpha1.ExportReference
+	var supportedAPIExports []tenancyv1alpha1.APIExportReference
 	for _, export := range o.APIExports {
 		lclusterName, name := logicalcluster.New(export).Split()
-		supportedAPIExports = append(supportedAPIExports, apisv1alpha1.ExportReference{
-			Workspace: &apisv1alpha1.WorkspaceExportReference{
-				ExportName: name,
-				Path:       lclusterName.String(),
-			},
+		supportedAPIExports = append(supportedAPIExports, tenancyv1alpha1.APIExportReference{
+			ExportName: name,
+			Path:       lclusterName.String(),
 		})
 	}
 
 	// if ResourcesToSync is not empty, add export in synctarget workspace.
 	if len(o.ResourcesToSync) > 0 && !sets.NewString(o.APIExports...).Has("kubernetes") {
-		supportedAPIExports = append(supportedAPIExports, apisv1alpha1.ExportReference{
-			Workspace: &apisv1alpha1.WorkspaceExportReference{
-				ExportName: "kubernetes",
-			},
+		supportedAPIExports = append(supportedAPIExports, tenancyv1alpha1.APIExportReference{
+			ExportName: "kubernetes",
 		})
 	}
 
@@ -398,9 +394,9 @@ func (o *SyncOptions) getResourcesForPermission(ctx context.Context, config *res
 		clusterName := logicalcluster.From(syncTarget)
 
 		if len(syncTarget.Spec.SupportedAPIExports) == 1 &&
-			syncTarget.Spec.SupportedAPIExports[0].Workspace.ExportName == "kubernetes" &&
-			(len(syncTarget.Spec.SupportedAPIExports[0].Workspace.Path) == 0 ||
-				syncTarget.Spec.SupportedAPIExports[0].Workspace.Path == clusterName.String()) {
+			syncTarget.Spec.SupportedAPIExports[0].ExportName == "kubernetes" &&
+			(len(syncTarget.Spec.SupportedAPIExports[0].Path) == 0 ||
+				syncTarget.Spec.SupportedAPIExports[0].Path == clusterName.String()) {
 			return true, nil
 		}
 

@@ -37,6 +37,7 @@ import (
 	"github.com/kcp-dev/kcp/config/rootcompute"
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
 
@@ -575,18 +576,16 @@ func negotiatedAPIResource(clusterName logicalcluster.Name, group string, versio
 	}
 }
 
-func syncTarget(syncTargetName string, exportWorkspace logicalcluster.Name, exportName string) *workloadv1alpha1.SyncTarget {
+func syncTarget(syncTargetName string, computeWorkspace logicalcluster.Name, exportName string) *workloadv1alpha1.SyncTarget {
 	return &workloadv1alpha1.SyncTarget{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: syncTargetName,
 		},
 		Spec: workloadv1alpha1.SyncTargetSpec{
-			SupportedAPIExports: []apisv1alpha1.ExportReference{
+			SupportedAPIExports: []tenancyv1alpha1.APIExportReference{
 				{
-					Workspace: &apisv1alpha1.WorkspaceExportReference{
-						Path:       exportWorkspace.String(),
-						ExportName: exportName,
-					},
+					Path:       computeWorkspace.String(),
+					ExportName: exportName,
 				},
 			},
 		},
