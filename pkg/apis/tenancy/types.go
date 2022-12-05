@@ -20,7 +20,7 @@ import (
 	"crypto/sha256"
 	"strings"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/martinlindhe/base36"
 
 	"k8s.io/klog/v2"
@@ -77,7 +77,7 @@ func TemporaryCanonicalPath(c Cluster) logicalcluster.Name {
 func TemporaryClusterFrom(path logicalcluster.Name) Cluster {
 	parent, name := path.Split()
 	name = strings.ReplaceAll(strings.ReplaceAll(name, "-", "--"), ":", "-")
-	cluster := logicalcluster.Name(strings.ReplaceAll(parent.Join(name).String(), ":", "-"))
+	cluster := Cluster(strings.ReplaceAll(parent.Join(name).String(), ":", "-"))
 
 	if len(cluster) > 61 {
 		// stay in maximal length

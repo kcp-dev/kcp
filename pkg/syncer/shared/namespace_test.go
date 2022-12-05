@@ -21,7 +21,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 func TestLocatorFromAnnotations(t *testing.T) {

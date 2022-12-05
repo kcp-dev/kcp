@@ -20,7 +20,7 @@ import (
 	"crypto/sha256"
 	"strings"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/martinlindhe/base36"
 )
 

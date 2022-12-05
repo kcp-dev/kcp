@@ -20,7 +20,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	genericapiserver "k8s.io/apiserver/pkg/server"
 

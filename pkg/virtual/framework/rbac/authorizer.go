@@ -18,7 +18,7 @@ package rbac
 
 import (
 	kcprbacinformers "github.com/kcp-dev/client-go/informers/rbac/v1"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	rbacauthorizer "k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 )

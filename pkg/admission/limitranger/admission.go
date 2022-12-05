@@ -24,7 +24,7 @@ import (
 
 	kcpkubernetesclient "github.com/kcp-dev/client-go/kubernetes"
 	kcpcorev1listers "github.com/kcp-dev/client-go/listers/core/v1"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apiserver/pkg/admission"

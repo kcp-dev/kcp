@@ -39,7 +39,7 @@ import (
 	"strings"
 
 	kcpmetadata "github.com/kcp-dev/client-go/metadata"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	rbac "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"

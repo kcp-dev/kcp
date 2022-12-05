@@ -20,7 +20,7 @@ import (
 	"crypto/sha256"
 	"math/big"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // ToSyncTargetKey hashes the SyncTarget workspace and the SyncTarget name to a string that is used to identify

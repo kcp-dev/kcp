@@ -27,7 +27,7 @@ import (
 	"strings"
 
 	kubernetes "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/martinlindhe/base36"
 
 	authenticationv1 "k8s.io/api/authentication/v1"

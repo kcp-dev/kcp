@@ -19,7 +19,7 @@ package options
 import (
 	"fmt"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/spf13/pflag"
 
 	"k8s.io/apiserver/pkg/authentication/user"

@@ -21,7 +21,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 func ParseClusterURL(host string) (*url.URL, logicalcluster.Name, error) {

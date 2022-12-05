@@ -25,7 +25,7 @@ import (
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	kcpkubernetesclient "github.com/kcp-dev/client-go/kubernetes"
 	kcpmetadataclient "github.com/kcp-dev/client-go/metadata"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"

@@ -20,7 +20,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 const (

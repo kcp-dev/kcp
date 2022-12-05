@@ -31,7 +31,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/martinlindhe/base36"
 	"github.com/stretchr/testify/require"
 
