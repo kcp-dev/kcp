@@ -18,54 +18,27 @@ package deployment
 
 import (
 	"context"
-	"embed"
 	"fmt"
 	"sort"
 	"strings"
 	"testing"
 	"time"
 
-	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
-	kcpapiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/kcp/clientset/versioned"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/restmapper"
 
-	"github.com/kcp-dev/kcp/config/helpers"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 	"github.com/kcp-dev/kcp/test/e2e/reconciler/deployment/locations"
 	"github.com/kcp-dev/kcp/test/e2e/reconciler/deployment/workloads"
 )
-
-func createResources(t *testing.T, ctx context.Context, fs embed.FS, upstreamConfig *rest.Config, path logicalcluster.Path, transformers ...helpers.TransformFileFunc) error {
-	t.Helper()
-
-	dynamicClusterClient, err := kcpdynamic.NewForConfig(upstreamConfig)
-	require.NoError(t, err)
-
-	client := dynamicClusterClient.Cluster(path)
-
-	apiextensionsClusterClient, err := kcpapiextensionsclientset.NewForConfig(upstreamConfig)
-	require.NoError(t, err)
-
-	discoveryClient := apiextensionsClusterClient.Cluster(path).Discovery()
-
-	cache := memory.NewMemCacheClient(discoveryClient)
-	mapper := restmapper.NewDeferredDiscoveryRESTMapper(cache)
-
-	return helpers.CreateResourcesFromFS(ctx, client, mapper, sets.NewString(), fs, transformers...)
-}
 
 func TestDeploymentCoordinator(t *testing.T) {
 	t.Parallel()
@@ -114,7 +87,7 @@ func TestDeploymentCoordinator(t *testing.T) {
 	westSyncer.WaitForClusterReady(ctx, t)
 
 	t.Logf("Create 2 locations, one for each SyncTargets")
-	err = createResources(t, ctx, locations.FS, upstreamConfig, locationWorkspace.Path())
+	err = framework.CreateResources(t, ctx, locations.FS, upstreamConfig, locationWorkspace.Path())
 	require.NoError(t, err)
 
 	t.Logf("Bind workload workspace 1 to location workspace for the east location")
@@ -230,7 +203,7 @@ func TestDeploymentCoordinator(t *testing.T) {
 
 		t.Logf("Create workload in workload workspace %q, with replicas set to %d", workspace.clusterName, workspace.requestedReplicas)
 		framework.Eventually(t, func() (bool, string) {
-			if err := createResources(t, ctx, workloads.FS, upstreamConfig, workspace.clusterName.Path(), func(bs []byte) ([]byte, error) {
+			if err := framework.CreateResources(t, ctx, workloads.FS, upstreamConfig, workspace.clusterName.Path(), func(bs []byte) ([]byte, error) {
 				yaml := string(bs)
 				yaml = strings.Replace(yaml, "replicas: 1", fmt.Sprintf("replicas: %d", workspace.requestedReplicas), 1)
 				return []byte(yaml), nil

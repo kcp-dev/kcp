@@ -18,18 +18,26 @@ package framework
 
 import (
 	"context"
+	"embed"
 	"fmt"
 	"strings"
 	"testing"
 	"time"
 
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
+	kcpapiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/kcp/clientset/versioned"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/discovery/cached/memory"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/restmapper"
 
+	"github.com/kcp-dev/kcp/config/helpers"
 	"github.com/kcp-dev/kcp/pkg/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -160,4 +168,22 @@ func NewOrganizationFixture(t *testing.T, server RunningServer, options ...Clust
 	t.Helper()
 	org := NewOrganizationFixtureObject(t, server, options...)
 	return logicalcluster.Name(org.Status.Cluster)
+}
+
+// CreateResources creates all resources from a filesystem in the given workspace identified by upstreamConfig
+func CreateResources(t *testing.T, ctx context.Context, fs embed.FS, upstreamConfig *rest.Config, clusterName logicalcluster.Path, transformers ...helpers.TransformFileFunc) error {
+	dynamicClusterClient, err := kcpdynamic.NewForConfig(upstreamConfig)
+	require.NoError(t, err)
+
+	client := dynamicClusterClient.Cluster(clusterName)
+
+	apiextensionsClusterClient, err := kcpapiextensionsclientset.NewForConfig(upstreamConfig)
+	require.NoError(t, err)
+
+	discoveryClient := apiextensionsClusterClient.Cluster(clusterName).Discovery()
+
+	cache := memory.NewMemCacheClient(discoveryClient)
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(cache)
+
+	return helpers.CreateResourcesFromFS(ctx, client, mapper, sets.NewString(), fs, transformers...)
 }
