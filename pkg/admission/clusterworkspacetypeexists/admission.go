@@ -34,6 +34,7 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/client-go/tools/cache"
 
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
@@ -42,6 +43,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 )
 
 const (
@@ -55,11 +57,20 @@ func Register(plugins *admission.Plugins) {
 				Handler:          admission.NewHandler(admission.Create, admission.Update),
 				createAuthorizer: delegated.NewDelegatedAuthorizer,
 			}
-			plugin.transitiveTypeResolver = NewTransitiveTypeResolver(
-				func(cluster logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
-					return plugin.typeLister.Cluster(cluster).Get(name)
-				},
-			)
+			plugin.getType = func(path logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
+				objs, err := plugin.typeIndexer.ByIndex(indexers.ByLogicalClusterPath, path.Join(name).String())
+				if err != nil {
+					return nil, err
+				}
+				if len(objs) == 0 {
+					return nil, apierrors.NewNotFound(tenancyv1alpha1.Resource("clusterworkspacetypes"), path.Join(name).String())
+				}
+				if len(objs) > 1 {
+					return nil, fmt.Errorf("multiple ClusterWorkspaceTypes found for %s", path.Join(name).String())
+				}
+				return objs[0].(*tenancyv1alpha1.ClusterWorkspaceType), nil
+			}
+			plugin.transitiveTypeResolver = NewTransitiveTypeResolver(plugin.getType)
 
 			return plugin, nil
 		})
@@ -71,6 +82,10 @@ func Register(plugins *admission.Plugins) {
 //     transitions to the Initializing state.
 type clusterWorkspaceTypeExists struct {
 	*admission.Handler
+
+	getType func(path logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error)
+
+	typeIndexer            cache.Indexer
 	typeLister             tenancyv1alpha1listers.ClusterWorkspaceTypeClusterLister
 	thisWorkspaceLister    tenancyv1alpha1listers.ThisWorkspaceClusterLister
 	deepSARClient          kcpkubernetesclientset.ClusterInterface
@@ -127,11 +142,11 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 			if !found {
 				return admission.NewForbidden(a, fmt.Errorf("annotation %s on ThisWorkspace must be set", tenancyv1alpha1.ThisWorkspaceTypeAnnotationKey))
 			}
-			cwtCluster, cwtName := logicalcluster.New(typeAnnotation).Split()
-			if cwtCluster.Empty() {
+			cwtWorkspace, cwtName := logicalcluster.New(typeAnnotation).Split()
+			if cwtWorkspace.Empty() {
 				return admission.NewForbidden(a, fmt.Errorf("annotation %s on ThisWorkspace must be in the form of cluster:name", tenancyv1alpha1.ThisWorkspaceTypeAnnotationKey))
 			}
-			parentCwt, err := o.typeLister.Cluster(cwtCluster).Get(cwtName)
+			parentCwt, err := o.getType(cwtWorkspace, cwtName)
 			if err != nil {
 				return admission.NewForbidden(a, fmt.Errorf("parent type canot be resolved: %w", err))
 			}
@@ -189,8 +204,7 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 
 func (o *clusterWorkspaceTypeExists) resolveTypeRef(workspacePath logicalcluster.Name, ref tenancyv1alpha1.ClusterWorkspaceTypeReference) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
 	if ref.Path != "" {
-		cluster := tenancy.TemporaryClusterFrom(logicalcluster.New(ref.Path))
-		cwt, err := o.typeLister.Cluster(cluster.Path()).Get(tenancyv1alpha1.ObjectName(ref.Name))
+		cwt, err := o.getType(logicalcluster.New(ref.Path), string(ref.Name))
 		if err != nil {
 			return nil, apierrors.NewInternalError(err)
 		}
@@ -199,8 +213,7 @@ func (o *clusterWorkspaceTypeExists) resolveTypeRef(workspacePath logicalcluster
 	}
 
 	for {
-		cluster := tenancy.TemporaryClusterFrom(workspacePath)
-		cwt, err := o.typeLister.Cluster(cluster.Path()).Get(tenancyv1alpha1.ObjectName(ref.Name))
+		cwt, err := o.getType(logicalcluster.New(ref.Path), string(ref.Name))
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				var hasParent bool
@@ -310,11 +323,11 @@ func (o *clusterWorkspaceTypeExists) Validate(ctx context.Context, a admission.A
 		if !found {
 			return admission.NewForbidden(a, fmt.Errorf("annotation %s on ThisWorkspace must be set", tenancyv1alpha1.ThisWorkspaceTypeAnnotationKey))
 		}
-		cwtCluster, cwtName := logicalcluster.New(typeAnnotation).Split()
-		if cwtCluster.Empty() {
+		cwtWorkspace, cwtName := logicalcluster.New(typeAnnotation).Split()
+		if cwtWorkspace.Empty() {
 			return admission.NewForbidden(a, fmt.Errorf("annotation %s on ThisWorkspace must be in the form of cluster:name", tenancyv1alpha1.ThisWorkspaceTypeAnnotationKey))
 		}
-		parentCwt, err := o.typeLister.Cluster(cwtCluster).Get(cwtName)
+		parentCwt, err := o.getType(cwtWorkspace, cwtName)
 		if err != nil {
 			return admission.NewForbidden(a, fmt.Errorf("workspace type canot be resolved: %w", err))
 		}
@@ -323,7 +336,7 @@ func (o *clusterWorkspaceTypeExists) Validate(ctx context.Context, a admission.A
 			return admission.NewForbidden(a, err)
 		}
 
-		thisTypePath := cwtCluster.Join(cwtName)
+		thisTypePath := cwtWorkspace.Join(cwtName)
 		cwTypeString := logicalcluster.New(cw.Spec.Type.Path).Join(string(cw.Spec.Type.Name))
 		if err := validateAllowedParents(parentAliases, cwtAliases, thisTypePath, cwTypeString); err != nil {
 			return admission.NewForbidden(a, err)
@@ -353,6 +366,7 @@ func (o *clusterWorkspaceTypeExists) SetKcpInformers(informers kcpinformers.Shar
 		return typesReady() && thisWorkspacesReady()
 	})
 	o.typeLister = informers.Tenancy().V1alpha1().ClusterWorkspaceTypes().Lister()
+	o.typeIndexer = informers.Tenancy().V1alpha1().ClusterWorkspaceTypes().Informer().GetIndexer()
 	o.thisWorkspaceLister = informers.Tenancy().V1alpha1().ThisWorkspaces().Lister()
 
 	indexers.AddIfNotPresentOrDie(informers.Tenancy().V1alpha1().ClusterWorkspaceTypes().Informer().GetIndexer(), cache.Indexers{

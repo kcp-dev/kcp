@@ -147,6 +147,7 @@ func TestAdmit(t *testing.T) {
 
 			o := &clusterWorkspaceTypeExists{
 				Handler:             admission.NewHandler(admission.Create, admission.Update),
+				getType:             getType(tt.types),
 				typeLister:          typeLister,
 				thisWorkspaceLister: fakeThisWorkspaceClusterLister(tt.thisWorkspaces),
 				transitiveTypeResolver: NewTransitiveTypeResolver(func(cluster logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
@@ -393,6 +394,7 @@ func TestValidate(t *testing.T) {
 			typeLister := fakeClusterWorkspaceTypeClusterLister(tt.types)
 			o := &clusterWorkspaceTypeExists{
 				Handler:             admission.NewHandler(admission.Create, admission.Update),
+				getType:             getType(tt.types),
 				typeLister:          typeLister,
 				thisWorkspaceLister: fakeThisWorkspaceClusterLister(tt.thisWorkspaces),
 				createAuthorizer: func(clusterName logicalcluster.Name, client kcpkubernetesclientset.ClusterInterface) (authorizer.Authorizer, error) {
@@ -865,4 +867,15 @@ func (b thisWsBuilder) withStatus(status tenancyv1alpha1.ThisWorkspaceStatus) th
 func (b thisWsBuilder) withLabels(labels map[string]string) thisWsBuilder {
 	b.Labels = labels
 	return b
+}
+
+func getType(types []*tenancyv1alpha1.ClusterWorkspaceType) func(path logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
+	return func(path logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
+		for _, t := range types {
+			if logicalcluster.From(t) == path && t.Name == name {
+				return t, nil
+			}
+		}
+		return nil, apierrors.NewNotFound(tenancyv1alpha1.Resource("clusterworkspacetypes"), name)
+	}
 }
