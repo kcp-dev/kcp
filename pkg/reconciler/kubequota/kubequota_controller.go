@@ -40,8 +40,8 @@ import (
 	"k8s.io/kubernetes/pkg/controller/resourcequota"
 	"k8s.io/kubernetes/pkg/quota/v1/install"
 
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
-	tenancyv1beta1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1beta1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
@@ -77,12 +77,12 @@ type Controller struct {
 	scopingGenericSharedInformerFactory scopeableInformerFactory
 
 	// For better testability
-	getWorkspace func(cluster logicalcluster.Name, name string) (*tenancyv1beta1.Workspace, error)
+	getThisWorkspace func(clusterName logicalcluster.Name) (*tenancyv1alpha1.ThisWorkspace, error)
 }
 
 // NewController creates a new Controller.
 func NewController(
-	workspacesInformer tenancyv1beta1informers.WorkspaceClusterInformer,
+	thisWorkspacesInformer tenancyv1alpha1informers.ThisWorkspaceClusterInformer,
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	kubeInformerFactory kcpkubernetesinformers.SharedInformerFactory,
 	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory,
@@ -108,12 +108,12 @@ func NewController(
 		scopingGenericSharedInformerFactory: dynamicDiscoverySharedInformerFactory,
 		resourceQuotaClusterInformer:        kubeInformerFactory.Core().V1().ResourceQuotas(),
 
-		getWorkspace: func(cluster logicalcluster.Name, name string) (*tenancyv1beta1.Workspace, error) {
-			return workspacesInformer.Lister().Cluster(cluster).Get(name)
+		getThisWorkspace: func(clusterName logicalcluster.Name) (*tenancyv1alpha1.ThisWorkspace, error) {
+			return thisWorkspacesInformer.Lister().Cluster(clusterName).Get(tenancyv1alpha1.ThisWorkspaceName)
 		},
 	}
 
-	workspacesInformer.Informer().AddEventHandler(
+	thisWorkspacesInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: c.enqueue,
 			UpdateFunc: func(oldObj, newObj interface{}) {
@@ -193,17 +193,15 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 // process processes a single key from the queue.
 func (c *Controller) process(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
-	parent, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+	clusterName, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		utilruntime.HandleError(err)
 		return nil
 	}
 
-	// turn it into root:org:ws
-	clusterName := parent.Join(name)
 	logger = logger.WithValues("logicalCluster", clusterName.String())
 
-	ws, err := c.getWorkspace(parent, name)
+	ws, err := c.getThisWorkspace(clusterName)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			logger.V(2).Info("ClusterWorkspace not found - stopping quota controller for it (if needed)")
