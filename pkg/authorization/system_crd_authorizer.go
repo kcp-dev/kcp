@@ -19,17 +19,10 @@ package authorization
 import (
 	"context"
 
-	kaudit "k8s.io/apiserver/pkg/audit"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-)
-
-const (
-	SystemCRDAuditPrefix   = "systemcrd.authorization.kcp.dev/"
-	SystemCRDAuditDecision = SystemCRDAuditPrefix + "decision"
-	SystemCRDAuditReason   = SystemCRDAuditPrefix + "reason"
 )
 
 // SystemCRDAuthorizer protects the system CRDs from users who are admins in their workspaces.
@@ -38,39 +31,22 @@ type SystemCRDAuthorizer struct {
 }
 
 func NewSystemCRDAuthorizer(delegate authorizer.Authorizer) authorizer.Authorizer {
-	return &SystemCRDAuthorizer{
-		delegate: delegate,
-	}
+	return &SystemCRDAuthorizer{delegate: delegate}
 }
 
 func (a *SystemCRDAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
 	cluster := genericapirequest.ClusterFrom(ctx)
 	if cluster == nil || cluster.Name.Empty() {
-		kaudit.AddAuditAnnotations(
-			ctx,
-			SystemCRDAuditDecision, DecisionNoOpinion,
-			SystemCRDAuditReason, "empty cluster name",
-		)
-		return authorizer.DecisionNoOpinion, "", nil
+		return authorizer.DecisionNoOpinion, "empty cluster name", nil
 	}
 
 	switch {
 	case attr.GetAPIGroup() == apisv1alpha1.SchemeGroupVersion.Group:
 		switch {
 		case attr.GetResource() == "apibindings" && attr.GetSubresource() == "status":
-			kaudit.AddAuditAnnotations(
-				ctx,
-				SystemCRDAuditDecision, DecisionDenied,
-				SystemCRDAuditReason, "apibinding status updates not permitted",
-			)
-			return authorizer.DecisionDeny, "status update not permitted", nil
+			return authorizer.DecisionDeny, "apibinding status updates not permitted", nil
 		case attr.GetResource() == "apiexports" && attr.GetSubresource() == "status":
-			kaudit.AddAuditAnnotations(
-				ctx,
-				SystemCRDAuditDecision, DecisionDenied,
-				SystemCRDAuditReason, "apiexport status updates not permitted",
-			)
-			return authorizer.DecisionDeny, "status update not permitted", nil
+			return authorizer.DecisionDeny, "apiexport status updates not permitted", nil
 		}
 	}
 

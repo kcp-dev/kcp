@@ -34,6 +34,7 @@ import (
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/authorization"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	virtualapiexportauth "github.com/kcp-dev/kcp/pkg/virtual/apiexport/authorizer"
@@ -213,7 +214,12 @@ func digestUrl(urlPath, rootPathPrefix string) (
 
 func newAuthorizer(kubeClusterClient, deepSARClient kcpkubernetesclientset.ClusterInterface, kcpinformers kcpinformers.SharedInformerFactory) authorizer.Authorizer {
 	maximalPermissionAuth := virtualapiexportauth.NewMaximalPermissionAuthorizer(deepSARClient, kcpinformers.Apis().V1alpha1().APIExports())
-	return virtualapiexportauth.NewAPIExportsContentAuthorizer(maximalPermissionAuth, kubeClusterClient)
+	maximalPermissionAuth = authorization.NewDecorator(maximalPermissionAuth, "virtual.apiexport.maxpermissionpolicy.authorization.kcp.dev").AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+
+	apiExportsContentAuth := virtualapiexportauth.NewAPIExportsContentAuthorizer(maximalPermissionAuth, kubeClusterClient)
+	apiExportsContentAuth = authorization.NewDecorator(apiExportsContentAuth, "virtual.apiexport.content.authorization.kcp.dev").AddAuditLogging().AddAnonymization()
+
+	return apiExportsContentAuth
 }
 
 // apiDefinitionWithCancel calls the cancelFn on tear-down.

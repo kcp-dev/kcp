@@ -23,7 +23,6 @@ import (
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	rbacv1listers "github.com/kcp-dev/client-go/listers/rbac/v1"
 
-	kaudit "k8s.io/apiserver/pkg/audit"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -31,12 +30,6 @@ import (
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
 	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
-)
-
-const (
-	LocalAuditPrefix   = "local.authorization.kcp.dev/"
-	LocalAuditDecision = LocalAuditPrefix + "decision"
-	LocalAuditReason   = LocalAuditPrefix + "reason"
 )
 
 type LocalAuthorizer struct {
@@ -53,6 +46,7 @@ func NewLocalAuthorizer(versionedInformers kcpkubernetesinformers.SharedInformer
 		clusterRoleLister:        versionedInformers.Rbac().V1().ClusterRoles().Lister(),
 		clusterRoleBindingLister: versionedInformers.Rbac().V1().ClusterRoleBindings().Lister(),
 	}
+
 	return a, a
 }
 
@@ -64,12 +58,7 @@ func (a *LocalAuthorizer) RulesFor(ctx context.Context, user user.Info, namespac
 func (a *LocalAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
 	cluster := genericapirequest.ClusterFrom(ctx)
 	if cluster == nil || cluster.Name.Empty() {
-		kaudit.AddAuditAnnotations(
-			ctx,
-			LocalAuditDecision, DecisionNoOpinion,
-			LocalAuditReason, "empty cluster name",
-		)
-		return authorizer.DecisionNoOpinion, "", nil
+		return authorizer.DecisionNoOpinion, "empty cluster name", nil
 	}
 
 	scopedAuth := rbac.New(
@@ -86,12 +75,8 @@ func (a *LocalAuthorizer) Authorize(ctx context.Context, attr authorizer.Attribu
 	)
 
 	dec, reason, err := scopedAuth.Authorize(ctx, attr)
-
-	kaudit.AddAuditAnnotations(
-		ctx,
-		LocalAuditDecision, DecisionString(dec),
-		LocalAuditReason, fmt.Sprintf("cluster %q or bootstrap policy reason: %v", cluster.Name, reason),
-	)
-
-	return dec, reason, err
+	if err != nil {
+		err = fmt.Errorf("error authorizing local policy for cluster %q: %w", cluster.Name, err)
+	}
+	return dec, fmt.Sprintf("local policy for cluster %q reason: %v", cluster.Name, reason), err
 }
