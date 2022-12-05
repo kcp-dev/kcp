@@ -121,27 +121,25 @@ spec:
                 description: reference uniquely identifies an API to bind to.
                 oneOf:
                 - required:
-                  - workspace
+                  - export
                 properties:
-                  workspace:
-                    description: workspace is a reference to an APIExport in the same
-                      organization. The creator of the APIBinding needs to have access
-                      to the APIExport with the verb `bind` in order to bind to it.
-                    oneOf:
-                    - required:
-                      - path
+                  export:
+                    description: export is a reference to an APIExport by cluster
+                      name and export name. The creator of the APIBinding needs to
+                      have access to the APIExport with the verb `bind` in order to
+                      bind to it.
                     properties:
-                      exportName:
-                        description: Name of the APIExport that describes the API.
+                      cluster:
+                        description: path is a logical cluster path where the APIExport
+                          is defined. If the path is unset, the logical cluster of
+                          the APIBinding is used.
                         type: string
-                      path:
-                        description: path is an absolute reference to a workspace,
-                          e.g. root:org:ws. If it is unset, the path of the APIBinding
-                          is used.
-                        pattern: ^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                      name:
+                        description: name is the name of the APIExport that describes
+                          the API.
                         type: string
                     required:
-                    - exportName
+                    - name
                     type: object
                 type: object
                 x-kubernetes-validations:

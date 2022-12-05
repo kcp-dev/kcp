@@ -24,7 +24,7 @@ package v1alpha1
 import (
 	"context"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,12 +46,12 @@ type clusterWorkspaceShardsClusterClient struct {
 }
 
 // Cluster scopes the client down to a particular cluster.
-func (c *clusterWorkspaceShardsClusterClient) Cluster(cluster logicalcluster.Name) tenancyv1alpha1client.ClusterWorkspaceShardInterface {
-	if cluster == logicalcluster.Wildcard {
+func (c *clusterWorkspaceShardsClusterClient) Cluster(clusterPath logicalcluster.Path) tenancyv1alpha1client.ClusterWorkspaceShardInterface {
+	if clusterPath == logicalcluster.Wildcard {
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 
-	return &clusterWorkspaceShardsClient{Fake: c.Fake, Cluster: cluster}
+	return &clusterWorkspaceShardsClient{Fake: c.Fake, ClusterPath: clusterPath}
 }
 
 // List takes label and field selectors, and returns the list of ClusterWorkspaceShards that match those selectors across all clusters.
@@ -81,11 +81,11 @@ func (c *clusterWorkspaceShardsClusterClient) Watch(ctx context.Context, opts me
 
 type clusterWorkspaceShardsClient struct {
 	*kcptesting.Fake
-	Cluster logicalcluster.Name
+	ClusterPath logicalcluster.Path
 }
 
 func (c *clusterWorkspaceShardsClient) Create(ctx context.Context, clusterWorkspaceShard *tenancyv1alpha1.ClusterWorkspaceShard, opts metav1.CreateOptions) (*tenancyv1alpha1.ClusterWorkspaceShard, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootCreateAction(clusterWorkspaceShardsResource, c.Cluster, clusterWorkspaceShard), &tenancyv1alpha1.ClusterWorkspaceShard{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootCreateAction(clusterWorkspaceShardsResource, c.ClusterPath, clusterWorkspaceShard), &tenancyv1alpha1.ClusterWorkspaceShard{})
 	if obj == nil {
 		return nil, err
 	}
@@ -93,7 +93,7 @@ func (c *clusterWorkspaceShardsClient) Create(ctx context.Context, clusterWorksp
 }
 
 func (c *clusterWorkspaceShardsClient) Update(ctx context.Context, clusterWorkspaceShard *tenancyv1alpha1.ClusterWorkspaceShard, opts metav1.UpdateOptions) (*tenancyv1alpha1.ClusterWorkspaceShard, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateAction(clusterWorkspaceShardsResource, c.Cluster, clusterWorkspaceShard), &tenancyv1alpha1.ClusterWorkspaceShard{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateAction(clusterWorkspaceShardsResource, c.ClusterPath, clusterWorkspaceShard), &tenancyv1alpha1.ClusterWorkspaceShard{})
 	if obj == nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func (c *clusterWorkspaceShardsClient) Update(ctx context.Context, clusterWorksp
 }
 
 func (c *clusterWorkspaceShardsClient) UpdateStatus(ctx context.Context, clusterWorkspaceShard *tenancyv1alpha1.ClusterWorkspaceShard, opts metav1.UpdateOptions) (*tenancyv1alpha1.ClusterWorkspaceShard, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateSubresourceAction(clusterWorkspaceShardsResource, c.Cluster, "status", clusterWorkspaceShard), &tenancyv1alpha1.ClusterWorkspaceShard{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateSubresourceAction(clusterWorkspaceShardsResource, c.ClusterPath, "status", clusterWorkspaceShard), &tenancyv1alpha1.ClusterWorkspaceShard{})
 	if obj == nil {
 		return nil, err
 	}
@@ -109,19 +109,19 @@ func (c *clusterWorkspaceShardsClient) UpdateStatus(ctx context.Context, cluster
 }
 
 func (c *clusterWorkspaceShardsClient) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	_, err := c.Fake.Invokes(kcptesting.NewRootDeleteActionWithOptions(clusterWorkspaceShardsResource, c.Cluster, name, opts), &tenancyv1alpha1.ClusterWorkspaceShard{})
+	_, err := c.Fake.Invokes(kcptesting.NewRootDeleteActionWithOptions(clusterWorkspaceShardsResource, c.ClusterPath, name, opts), &tenancyv1alpha1.ClusterWorkspaceShard{})
 	return err
 }
 
 func (c *clusterWorkspaceShardsClient) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	action := kcptesting.NewRootDeleteCollectionAction(clusterWorkspaceShardsResource, c.Cluster, listOpts)
+	action := kcptesting.NewRootDeleteCollectionAction(clusterWorkspaceShardsResource, c.ClusterPath, listOpts)
 
 	_, err := c.Fake.Invokes(action, &tenancyv1alpha1.ClusterWorkspaceShardList{})
 	return err
 }
 
 func (c *clusterWorkspaceShardsClient) Get(ctx context.Context, name string, options metav1.GetOptions) (*tenancyv1alpha1.ClusterWorkspaceShard, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootGetAction(clusterWorkspaceShardsResource, c.Cluster, name), &tenancyv1alpha1.ClusterWorkspaceShard{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootGetAction(clusterWorkspaceShardsResource, c.ClusterPath, name), &tenancyv1alpha1.ClusterWorkspaceShard{})
 	if obj == nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func (c *clusterWorkspaceShardsClient) Get(ctx context.Context, name string, opt
 
 // List takes label and field selectors, and returns the list of ClusterWorkspaceShards that match those selectors.
 func (c *clusterWorkspaceShardsClient) List(ctx context.Context, opts metav1.ListOptions) (*tenancyv1alpha1.ClusterWorkspaceShardList, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootListAction(clusterWorkspaceShardsResource, clusterWorkspaceShardsKind, c.Cluster, opts), &tenancyv1alpha1.ClusterWorkspaceShardList{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootListAction(clusterWorkspaceShardsResource, clusterWorkspaceShardsKind, c.ClusterPath, opts), &tenancyv1alpha1.ClusterWorkspaceShardList{})
 	if obj == nil {
 		return nil, err
 	}
@@ -149,11 +149,11 @@ func (c *clusterWorkspaceShardsClient) List(ctx context.Context, opts metav1.Lis
 }
 
 func (c *clusterWorkspaceShardsClient) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	return c.Fake.InvokesWatch(kcptesting.NewRootWatchAction(clusterWorkspaceShardsResource, c.Cluster, opts))
+	return c.Fake.InvokesWatch(kcptesting.NewRootWatchAction(clusterWorkspaceShardsResource, c.ClusterPath, opts))
 }
 
 func (c *clusterWorkspaceShardsClient) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*tenancyv1alpha1.ClusterWorkspaceShard, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(clusterWorkspaceShardsResource, c.Cluster, name, pt, data, subresources...), &tenancyv1alpha1.ClusterWorkspaceShard{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(clusterWorkspaceShardsResource, c.ClusterPath, name, pt, data, subresources...), &tenancyv1alpha1.ClusterWorkspaceShard{})
 	if obj == nil {
 		return nil, err
 	}

@@ -24,8 +24,8 @@ package v1alpha1
 import (
 	"context"
 
-	kcpclient "github.com/kcp-dev/apimachinery/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v2"
+	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
@@ -43,7 +43,7 @@ type PartitionSetsClusterGetter interface {
 // PartitionSetClusterInterface can operate on PartitionSets across all clusters,
 // or scope down to one cluster and return a topologyv1alpha1client.PartitionSetInterface.
 type PartitionSetClusterInterface interface {
-	Cluster(logicalcluster.Name) topologyv1alpha1client.PartitionSetInterface
+	Cluster(logicalcluster.Path) topologyv1alpha1client.PartitionSetInterface
 	List(ctx context.Context, opts metav1.ListOptions) (*topologyv1alpha1.PartitionSetList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
 }
@@ -53,12 +53,12 @@ type partitionSetsClusterInterface struct {
 }
 
 // Cluster scopes the client down to a particular cluster.
-func (c *partitionSetsClusterInterface) Cluster(name logicalcluster.Name) topologyv1alpha1client.PartitionSetInterface {
-	if name == logicalcluster.Wildcard {
+func (c *partitionSetsClusterInterface) Cluster(clusterPath logicalcluster.Path) topologyv1alpha1client.PartitionSetInterface {
+	if clusterPath == logicalcluster.Wildcard {
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 
-	return c.clientCache.ClusterOrDie(name).PartitionSets()
+	return c.clientCache.ClusterOrDie(clusterPath).PartitionSets()
 }
 
 // List returns the entire collection of all PartitionSets across all clusters.

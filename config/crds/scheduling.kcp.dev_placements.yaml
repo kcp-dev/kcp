@@ -131,7 +131,7 @@ spec:
                 description: locationWorkspace is an absolute reference to a workspace
                   for the location. If it is not set, the workspace of APIBinding
                   will be used.
-                pattern: ^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                 type: string
               namespaceSelector:
                 description: namespaceSelector is a label selector to select ns. It
@@ -249,7 +249,7 @@ spec:
                     description: path is an absolute reference to a workspace, e.g.
                       root:org:ws. The workspace must be some ancestor or a child
                       of some ancestor.
-                    pattern: ^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                     type: string
                 required:
                 - locationName

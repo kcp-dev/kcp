@@ -22,8 +22,8 @@ limitations under the License.
 package v1alpha1
 
 import (
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
-	"github.com/kcp-dev/logicalcluster/v2"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -39,7 +39,7 @@ type ClusterWorkspaceShardClusterLister interface {
 	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*tenancyv1alpha1.ClusterWorkspaceShard, err error)
 	// Cluster returns a lister that can list and get ClusterWorkspaceShards in one workspace.
-	Cluster(cluster logicalcluster.Name) ClusterWorkspaceShardLister
+	Cluster(clusterName logicalcluster.Name) ClusterWorkspaceShardLister
 	ClusterWorkspaceShardClusterListerExpansion
 }
 
@@ -65,8 +65,8 @@ func (s *clusterWorkspaceShardClusterLister) List(selector labels.Selector) (ret
 }
 
 // Cluster scopes the lister to one workspace, allowing users to list and get ClusterWorkspaceShards.
-func (s *clusterWorkspaceShardClusterLister) Cluster(cluster logicalcluster.Name) ClusterWorkspaceShardLister {
-	return &clusterWorkspaceShardLister{indexer: s.indexer, cluster: cluster}
+func (s *clusterWorkspaceShardClusterLister) Cluster(clusterName logicalcluster.Name) ClusterWorkspaceShardLister {
+	return &clusterWorkspaceShardLister{indexer: s.indexer, clusterName: clusterName}
 }
 
 // ClusterWorkspaceShardLister can list all ClusterWorkspaceShards, or get one in particular.
@@ -83,13 +83,13 @@ type ClusterWorkspaceShardLister interface {
 
 // clusterWorkspaceShardLister can list all ClusterWorkspaceShards inside a workspace.
 type clusterWorkspaceShardLister struct {
-	indexer cache.Indexer
-	cluster logicalcluster.Name
+	indexer     cache.Indexer
+	clusterName logicalcluster.Name
 }
 
 // List lists all ClusterWorkspaceShards in the indexer for a workspace.
 func (s *clusterWorkspaceShardLister) List(selector labels.Selector) (ret []*tenancyv1alpha1.ClusterWorkspaceShard, err error) {
-	err = kcpcache.ListAllByCluster(s.indexer, s.cluster, selector, func(i interface{}) {
+	err = kcpcache.ListAllByCluster(s.indexer, s.clusterName, selector, func(i interface{}) {
 		ret = append(ret, i.(*tenancyv1alpha1.ClusterWorkspaceShard))
 	})
 	return ret, err
@@ -97,7 +97,7 @@ func (s *clusterWorkspaceShardLister) List(selector labels.Selector) (ret []*ten
 
 // Get retrieves the ClusterWorkspaceShard from the indexer for a given workspace and name.
 func (s *clusterWorkspaceShardLister) Get(name string) (*tenancyv1alpha1.ClusterWorkspaceShard, error) {
-	key := kcpcache.ToClusterAwareKey(s.cluster.String(), "", name)
+	key := kcpcache.ToClusterAwareKey(s.clusterName.String(), "", name)
 	obj, exists, err := s.indexer.GetByKey(key)
 	if err != nil {
 		return nil, err

@@ -60,23 +60,19 @@ spec:
                   description: APIExportReference provides the fields necessary to
                     resolve an APIExport.
                   properties:
-                    exportName:
-                      description: exportName is the name of the APIExport.
+                    export:
+                      description: export is the name of the APIExport.
                       type: string
                     path:
                       description: path is the fully-qualified path to the workspace
-                        containing the APIExport.
-                      pattern: ^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                        containing the APIExport. If it is empty, the current workspace
+                        is assumed.
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                       type: string
                   required:
-                  - exportName
-                  - path
+                  - export
                   type: object
                 type: array
-                x-kubernetes-list-map-keys:
-                - path
-                - exportName
-                x-kubernetes-list-type: map
               defaultChildWorkspaceType:
                 default:
                   name: universal
@@ -94,7 +90,7 @@ spec:
                   path:
                     description: path is an absolute reference to the workspace that
                       owns this type, e.g. root:org:ws.
-                    pattern: ^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                     type: string
                 required:
                 - name
@@ -126,7 +122,7 @@ spec:
                         path:
                           description: path is an absolute reference to the workspace
                             that owns this type, e.g. root:org:ws.
-                          pattern: ^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                           type: string
                       required:
                       - name
@@ -174,7 +170,7 @@ spec:
                         path:
                           description: path is an absolute reference to the workspace
                             that owns this type, e.g. root:org:ws.
-                          pattern: ^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                           type: string
                       required:
                       - name
@@ -206,7 +202,7 @@ spec:
                         path:
                           description: path is an absolute reference to the workspace
                             that owns this type, e.g. root:org:ws.
-                          pattern: ^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                           type: string
                       required:
                       - name

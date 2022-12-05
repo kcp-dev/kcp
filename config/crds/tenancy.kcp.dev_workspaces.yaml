@@ -140,7 +140,7 @@ spec:
                   path:
                     description: path is an absolute reference to the workspace that
                       owns this type, e.g. root:org:ws.
-                    pattern: ^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                     type: string
                 required:
                 - name
@@ -221,7 +221,7 @@ spec:
                   description: WorkspaceInitializer is a unique string corresponding
                     to a cluster workspace initialization controller for the given
                     type of workspaces.
-                  pattern: ^(root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$
+                  pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$
                   type: string
                 type: array
               phase:

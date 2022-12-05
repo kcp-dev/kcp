@@ -24,7 +24,7 @@ package v1alpha1
 import (
 	"context"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,12 +46,12 @@ type aPIExportEndpointSlicesClusterClient struct {
 }
 
 // Cluster scopes the client down to a particular cluster.
-func (c *aPIExportEndpointSlicesClusterClient) Cluster(cluster logicalcluster.Name) apisv1alpha1client.APIExportEndpointSliceInterface {
-	if cluster == logicalcluster.Wildcard {
+func (c *aPIExportEndpointSlicesClusterClient) Cluster(clusterPath logicalcluster.Path) apisv1alpha1client.APIExportEndpointSliceInterface {
+	if clusterPath == logicalcluster.Wildcard {
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 
-	return &aPIExportEndpointSlicesClient{Fake: c.Fake, Cluster: cluster}
+	return &aPIExportEndpointSlicesClient{Fake: c.Fake, ClusterPath: clusterPath}
 }
 
 // List takes label and field selectors, and returns the list of APIExportEndpointSlices that match those selectors across all clusters.
@@ -81,11 +81,11 @@ func (c *aPIExportEndpointSlicesClusterClient) Watch(ctx context.Context, opts m
 
 type aPIExportEndpointSlicesClient struct {
 	*kcptesting.Fake
-	Cluster logicalcluster.Name
+	ClusterPath logicalcluster.Path
 }
 
 func (c *aPIExportEndpointSlicesClient) Create(ctx context.Context, aPIExportEndpointSlice *apisv1alpha1.APIExportEndpointSlice, opts metav1.CreateOptions) (*apisv1alpha1.APIExportEndpointSlice, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootCreateAction(aPIExportEndpointSlicesResource, c.Cluster, aPIExportEndpointSlice), &apisv1alpha1.APIExportEndpointSlice{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootCreateAction(aPIExportEndpointSlicesResource, c.ClusterPath, aPIExportEndpointSlice), &apisv1alpha1.APIExportEndpointSlice{})
 	if obj == nil {
 		return nil, err
 	}
@@ -93,7 +93,7 @@ func (c *aPIExportEndpointSlicesClient) Create(ctx context.Context, aPIExportEnd
 }
 
 func (c *aPIExportEndpointSlicesClient) Update(ctx context.Context, aPIExportEndpointSlice *apisv1alpha1.APIExportEndpointSlice, opts metav1.UpdateOptions) (*apisv1alpha1.APIExportEndpointSlice, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateAction(aPIExportEndpointSlicesResource, c.Cluster, aPIExportEndpointSlice), &apisv1alpha1.APIExportEndpointSlice{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateAction(aPIExportEndpointSlicesResource, c.ClusterPath, aPIExportEndpointSlice), &apisv1alpha1.APIExportEndpointSlice{})
 	if obj == nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func (c *aPIExportEndpointSlicesClient) Update(ctx context.Context, aPIExportEnd
 }
 
 func (c *aPIExportEndpointSlicesClient) UpdateStatus(ctx context.Context, aPIExportEndpointSlice *apisv1alpha1.APIExportEndpointSlice, opts metav1.UpdateOptions) (*apisv1alpha1.APIExportEndpointSlice, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateSubresourceAction(aPIExportEndpointSlicesResource, c.Cluster, "status", aPIExportEndpointSlice), &apisv1alpha1.APIExportEndpointSlice{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateSubresourceAction(aPIExportEndpointSlicesResource, c.ClusterPath, "status", aPIExportEndpointSlice), &apisv1alpha1.APIExportEndpointSlice{})
 	if obj == nil {
 		return nil, err
 	}
@@ -109,19 +109,19 @@ func (c *aPIExportEndpointSlicesClient) UpdateStatus(ctx context.Context, aPIExp
 }
 
 func (c *aPIExportEndpointSlicesClient) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	_, err := c.Fake.Invokes(kcptesting.NewRootDeleteActionWithOptions(aPIExportEndpointSlicesResource, c.Cluster, name, opts), &apisv1alpha1.APIExportEndpointSlice{})
+	_, err := c.Fake.Invokes(kcptesting.NewRootDeleteActionWithOptions(aPIExportEndpointSlicesResource, c.ClusterPath, name, opts), &apisv1alpha1.APIExportEndpointSlice{})
 	return err
 }
 
 func (c *aPIExportEndpointSlicesClient) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	action := kcptesting.NewRootDeleteCollectionAction(aPIExportEndpointSlicesResource, c.Cluster, listOpts)
+	action := kcptesting.NewRootDeleteCollectionAction(aPIExportEndpointSlicesResource, c.ClusterPath, listOpts)
 
 	_, err := c.Fake.Invokes(action, &apisv1alpha1.APIExportEndpointSliceList{})
 	return err
 }
 
 func (c *aPIExportEndpointSlicesClient) Get(ctx context.Context, name string, options metav1.GetOptions) (*apisv1alpha1.APIExportEndpointSlice, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootGetAction(aPIExportEndpointSlicesResource, c.Cluster, name), &apisv1alpha1.APIExportEndpointSlice{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootGetAction(aPIExportEndpointSlicesResource, c.ClusterPath, name), &apisv1alpha1.APIExportEndpointSlice{})
 	if obj == nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func (c *aPIExportEndpointSlicesClient) Get(ctx context.Context, name string, op
 
 // List takes label and field selectors, and returns the list of APIExportEndpointSlices that match those selectors.
 func (c *aPIExportEndpointSlicesClient) List(ctx context.Context, opts metav1.ListOptions) (*apisv1alpha1.APIExportEndpointSliceList, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootListAction(aPIExportEndpointSlicesResource, aPIExportEndpointSlicesKind, c.Cluster, opts), &apisv1alpha1.APIExportEndpointSliceList{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootListAction(aPIExportEndpointSlicesResource, aPIExportEndpointSlicesKind, c.ClusterPath, opts), &apisv1alpha1.APIExportEndpointSliceList{})
 	if obj == nil {
 		return nil, err
 	}
@@ -149,11 +149,11 @@ func (c *aPIExportEndpointSlicesClient) List(ctx context.Context, opts metav1.Li
 }
 
 func (c *aPIExportEndpointSlicesClient) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	return c.Fake.InvokesWatch(kcptesting.NewRootWatchAction(aPIExportEndpointSlicesResource, c.Cluster, opts))
+	return c.Fake.InvokesWatch(kcptesting.NewRootWatchAction(aPIExportEndpointSlicesResource, c.ClusterPath, opts))
 }
 
 func (c *aPIExportEndpointSlicesClient) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*apisv1alpha1.APIExportEndpointSlice, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(aPIExportEndpointSlicesResource, c.Cluster, name, pt, data, subresources...), &apisv1alpha1.APIExportEndpointSlice{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(aPIExportEndpointSlicesResource, c.ClusterPath, name, pt, data, subresources...), &apisv1alpha1.APIExportEndpointSlice{})
 	if obj == nil {
 		return nil, err
 	}

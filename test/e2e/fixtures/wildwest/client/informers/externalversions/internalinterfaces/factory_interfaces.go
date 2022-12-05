@@ -24,7 +24,7 @@ package internalinterfaces
 import (
 	time "time"
 
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"

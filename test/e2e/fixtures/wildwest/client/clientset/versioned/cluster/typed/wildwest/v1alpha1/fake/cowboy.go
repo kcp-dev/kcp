@@ -24,7 +24,7 @@ package v1alpha1
 import (
 	"context"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,12 +47,12 @@ type cowboysClusterClient struct {
 }
 
 // Cluster scopes the client down to a particular cluster.
-func (c *cowboysClusterClient) Cluster(cluster logicalcluster.Name) kcpwildwestv1alpha1.CowboysNamespacer {
-	if cluster == logicalcluster.Wildcard {
+func (c *cowboysClusterClient) Cluster(clusterPath logicalcluster.Path) kcpwildwestv1alpha1.CowboysNamespacer {
+	if clusterPath == logicalcluster.Wildcard {
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 
-	return &cowboysNamespacer{Fake: c.Fake, Cluster: cluster}
+	return &cowboysNamespacer{Fake: c.Fake, ClusterPath: clusterPath}
 }
 
 // List takes label and field selectors, and returns the list of Cowboys that match those selectors across all clusters.
@@ -82,21 +82,21 @@ func (c *cowboysClusterClient) Watch(ctx context.Context, opts metav1.ListOption
 
 type cowboysNamespacer struct {
 	*kcptesting.Fake
-	Cluster logicalcluster.Name
+	ClusterPath logicalcluster.Path
 }
 
 func (n *cowboysNamespacer) Namespace(namespace string) wildwestv1alpha1client.CowboyInterface {
-	return &cowboysClient{Fake: n.Fake, Cluster: n.Cluster, Namespace: namespace}
+	return &cowboysClient{Fake: n.Fake, ClusterPath: n.ClusterPath, Namespace: namespace}
 }
 
 type cowboysClient struct {
 	*kcptesting.Fake
-	Cluster   logicalcluster.Name
-	Namespace string
+	ClusterPath logicalcluster.Path
+	Namespace   string
 }
 
 func (c *cowboysClient) Create(ctx context.Context, cowboy *wildwestv1alpha1.Cowboy, opts metav1.CreateOptions) (*wildwestv1alpha1.Cowboy, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewCreateAction(cowboysResource, c.Cluster, c.Namespace, cowboy), &wildwestv1alpha1.Cowboy{})
+	obj, err := c.Fake.Invokes(kcptesting.NewCreateAction(cowboysResource, c.ClusterPath, c.Namespace, cowboy), &wildwestv1alpha1.Cowboy{})
 	if obj == nil {
 		return nil, err
 	}
@@ -104,7 +104,7 @@ func (c *cowboysClient) Create(ctx context.Context, cowboy *wildwestv1alpha1.Cow
 }
 
 func (c *cowboysClient) Update(ctx context.Context, cowboy *wildwestv1alpha1.Cowboy, opts metav1.UpdateOptions) (*wildwestv1alpha1.Cowboy, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewUpdateAction(cowboysResource, c.Cluster, c.Namespace, cowboy), &wildwestv1alpha1.Cowboy{})
+	obj, err := c.Fake.Invokes(kcptesting.NewUpdateAction(cowboysResource, c.ClusterPath, c.Namespace, cowboy), &wildwestv1alpha1.Cowboy{})
 	if obj == nil {
 		return nil, err
 	}
@@ -112,7 +112,7 @@ func (c *cowboysClient) Update(ctx context.Context, cowboy *wildwestv1alpha1.Cow
 }
 
 func (c *cowboysClient) UpdateStatus(ctx context.Context, cowboy *wildwestv1alpha1.Cowboy, opts metav1.UpdateOptions) (*wildwestv1alpha1.Cowboy, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewUpdateSubresourceAction(cowboysResource, c.Cluster, "status", c.Namespace, cowboy), &wildwestv1alpha1.Cowboy{})
+	obj, err := c.Fake.Invokes(kcptesting.NewUpdateSubresourceAction(cowboysResource, c.ClusterPath, "status", c.Namespace, cowboy), &wildwestv1alpha1.Cowboy{})
 	if obj == nil {
 		return nil, err
 	}
@@ -120,19 +120,19 @@ func (c *cowboysClient) UpdateStatus(ctx context.Context, cowboy *wildwestv1alph
 }
 
 func (c *cowboysClient) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	_, err := c.Fake.Invokes(kcptesting.NewDeleteActionWithOptions(cowboysResource, c.Cluster, c.Namespace, name, opts), &wildwestv1alpha1.Cowboy{})
+	_, err := c.Fake.Invokes(kcptesting.NewDeleteActionWithOptions(cowboysResource, c.ClusterPath, c.Namespace, name, opts), &wildwestv1alpha1.Cowboy{})
 	return err
 }
 
 func (c *cowboysClient) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	action := kcptesting.NewDeleteCollectionAction(cowboysResource, c.Cluster, c.Namespace, listOpts)
+	action := kcptesting.NewDeleteCollectionAction(cowboysResource, c.ClusterPath, c.Namespace, listOpts)
 
 	_, err := c.Fake.Invokes(action, &wildwestv1alpha1.CowboyList{})
 	return err
 }
 
 func (c *cowboysClient) Get(ctx context.Context, name string, options metav1.GetOptions) (*wildwestv1alpha1.Cowboy, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewGetAction(cowboysResource, c.Cluster, c.Namespace, name), &wildwestv1alpha1.Cowboy{})
+	obj, err := c.Fake.Invokes(kcptesting.NewGetAction(cowboysResource, c.ClusterPath, c.Namespace, name), &wildwestv1alpha1.Cowboy{})
 	if obj == nil {
 		return nil, err
 	}
@@ -141,7 +141,7 @@ func (c *cowboysClient) Get(ctx context.Context, name string, options metav1.Get
 
 // List takes label and field selectors, and returns the list of Cowboys that match those selectors.
 func (c *cowboysClient) List(ctx context.Context, opts metav1.ListOptions) (*wildwestv1alpha1.CowboyList, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewListAction(cowboysResource, cowboysKind, c.Cluster, c.Namespace, opts), &wildwestv1alpha1.CowboyList{})
+	obj, err := c.Fake.Invokes(kcptesting.NewListAction(cowboysResource, cowboysKind, c.ClusterPath, c.Namespace, opts), &wildwestv1alpha1.CowboyList{})
 	if obj == nil {
 		return nil, err
 	}
@@ -160,11 +160,11 @@ func (c *cowboysClient) List(ctx context.Context, opts metav1.ListOptions) (*wil
 }
 
 func (c *cowboysClient) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	return c.Fake.InvokesWatch(kcptesting.NewWatchAction(cowboysResource, c.Cluster, c.Namespace, opts))
+	return c.Fake.InvokesWatch(kcptesting.NewWatchAction(cowboysResource, c.ClusterPath, c.Namespace, opts))
 }
 
 func (c *cowboysClient) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*wildwestv1alpha1.Cowboy, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewPatchSubresourceAction(cowboysResource, c.Cluster, c.Namespace, name, pt, data, subresources...), &wildwestv1alpha1.Cowboy{})
+	obj, err := c.Fake.Invokes(kcptesting.NewPatchSubresourceAction(cowboysResource, c.ClusterPath, c.Namespace, name, pt, data, subresources...), &wildwestv1alpha1.Cowboy{})
 	if obj == nil {
 		return nil, err
 	}

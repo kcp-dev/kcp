@@ -22,8 +22,8 @@ limitations under the License.
 package v1alpha1
 
 import (
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
-	"github.com/kcp-dev/logicalcluster/v2"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -39,7 +39,7 @@ type NegotiatedAPIResourceClusterLister interface {
 	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*apiresourcev1alpha1.NegotiatedAPIResource, err error)
 	// Cluster returns a lister that can list and get NegotiatedAPIResources in one workspace.
-	Cluster(cluster logicalcluster.Name) NegotiatedAPIResourceLister
+	Cluster(clusterName logicalcluster.Name) NegotiatedAPIResourceLister
 	NegotiatedAPIResourceClusterListerExpansion
 }
 
@@ -65,8 +65,8 @@ func (s *negotiatedAPIResourceClusterLister) List(selector labels.Selector) (ret
 }
 
 // Cluster scopes the lister to one workspace, allowing users to list and get NegotiatedAPIResources.
-func (s *negotiatedAPIResourceClusterLister) Cluster(cluster logicalcluster.Name) NegotiatedAPIResourceLister {
-	return &negotiatedAPIResourceLister{indexer: s.indexer, cluster: cluster}
+func (s *negotiatedAPIResourceClusterLister) Cluster(clusterName logicalcluster.Name) NegotiatedAPIResourceLister {
+	return &negotiatedAPIResourceLister{indexer: s.indexer, clusterName: clusterName}
 }
 
 // NegotiatedAPIResourceLister can list all NegotiatedAPIResources, or get one in particular.
@@ -83,13 +83,13 @@ type NegotiatedAPIResourceLister interface {
 
 // negotiatedAPIResourceLister can list all NegotiatedAPIResources inside a workspace.
 type negotiatedAPIResourceLister struct {
-	indexer cache.Indexer
-	cluster logicalcluster.Name
+	indexer     cache.Indexer
+	clusterName logicalcluster.Name
 }
 
 // List lists all NegotiatedAPIResources in the indexer for a workspace.
 func (s *negotiatedAPIResourceLister) List(selector labels.Selector) (ret []*apiresourcev1alpha1.NegotiatedAPIResource, err error) {
-	err = kcpcache.ListAllByCluster(s.indexer, s.cluster, selector, func(i interface{}) {
+	err = kcpcache.ListAllByCluster(s.indexer, s.clusterName, selector, func(i interface{}) {
 		ret = append(ret, i.(*apiresourcev1alpha1.NegotiatedAPIResource))
 	})
 	return ret, err
@@ -97,7 +97,7 @@ func (s *negotiatedAPIResourceLister) List(selector labels.Selector) (ret []*api
 
 // Get retrieves the NegotiatedAPIResource from the indexer for a given workspace and name.
 func (s *negotiatedAPIResourceLister) Get(name string) (*apiresourcev1alpha1.NegotiatedAPIResource, error) {
-	key := kcpcache.ToClusterAwareKey(s.cluster.String(), "", name)
+	key := kcpcache.ToClusterAwareKey(s.clusterName.String(), "", name)
 	obj, exists, err := s.indexer.GetByKey(key)
 	if err != nil {
 		return nil, err

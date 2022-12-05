@@ -24,7 +24,7 @@ package v1alpha1
 import (
 	"context"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,12 +46,12 @@ type thisWorkspacesClusterClient struct {
 }
 
 // Cluster scopes the client down to a particular cluster.
-func (c *thisWorkspacesClusterClient) Cluster(cluster logicalcluster.Name) tenancyv1alpha1client.ThisWorkspaceInterface {
-	if cluster == logicalcluster.Wildcard {
+func (c *thisWorkspacesClusterClient) Cluster(clusterPath logicalcluster.Path) tenancyv1alpha1client.ThisWorkspaceInterface {
+	if clusterPath == logicalcluster.Wildcard {
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 
-	return &thisWorkspacesClient{Fake: c.Fake, Cluster: cluster}
+	return &thisWorkspacesClient{Fake: c.Fake, ClusterPath: clusterPath}
 }
 
 // List takes label and field selectors, and returns the list of ThisWorkspaces that match those selectors across all clusters.
@@ -81,11 +81,11 @@ func (c *thisWorkspacesClusterClient) Watch(ctx context.Context, opts metav1.Lis
 
 type thisWorkspacesClient struct {
 	*kcptesting.Fake
-	Cluster logicalcluster.Name
+	ClusterPath logicalcluster.Path
 }
 
 func (c *thisWorkspacesClient) Create(ctx context.Context, thisWorkspace *tenancyv1alpha1.ThisWorkspace, opts metav1.CreateOptions) (*tenancyv1alpha1.ThisWorkspace, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootCreateAction(thisWorkspacesResource, c.Cluster, thisWorkspace), &tenancyv1alpha1.ThisWorkspace{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootCreateAction(thisWorkspacesResource, c.ClusterPath, thisWorkspace), &tenancyv1alpha1.ThisWorkspace{})
 	if obj == nil {
 		return nil, err
 	}
@@ -93,7 +93,7 @@ func (c *thisWorkspacesClient) Create(ctx context.Context, thisWorkspace *tenanc
 }
 
 func (c *thisWorkspacesClient) Update(ctx context.Context, thisWorkspace *tenancyv1alpha1.ThisWorkspace, opts metav1.UpdateOptions) (*tenancyv1alpha1.ThisWorkspace, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateAction(thisWorkspacesResource, c.Cluster, thisWorkspace), &tenancyv1alpha1.ThisWorkspace{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateAction(thisWorkspacesResource, c.ClusterPath, thisWorkspace), &tenancyv1alpha1.ThisWorkspace{})
 	if obj == nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func (c *thisWorkspacesClient) Update(ctx context.Context, thisWorkspace *tenanc
 }
 
 func (c *thisWorkspacesClient) UpdateStatus(ctx context.Context, thisWorkspace *tenancyv1alpha1.ThisWorkspace, opts metav1.UpdateOptions) (*tenancyv1alpha1.ThisWorkspace, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateSubresourceAction(thisWorkspacesResource, c.Cluster, "status", thisWorkspace), &tenancyv1alpha1.ThisWorkspace{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateSubresourceAction(thisWorkspacesResource, c.ClusterPath, "status", thisWorkspace), &tenancyv1alpha1.ThisWorkspace{})
 	if obj == nil {
 		return nil, err
 	}
@@ -109,19 +109,19 @@ func (c *thisWorkspacesClient) UpdateStatus(ctx context.Context, thisWorkspace *
 }
 
 func (c *thisWorkspacesClient) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	_, err := c.Fake.Invokes(kcptesting.NewRootDeleteActionWithOptions(thisWorkspacesResource, c.Cluster, name, opts), &tenancyv1alpha1.ThisWorkspace{})
+	_, err := c.Fake.Invokes(kcptesting.NewRootDeleteActionWithOptions(thisWorkspacesResource, c.ClusterPath, name, opts), &tenancyv1alpha1.ThisWorkspace{})
 	return err
 }
 
 func (c *thisWorkspacesClient) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	action := kcptesting.NewRootDeleteCollectionAction(thisWorkspacesResource, c.Cluster, listOpts)
+	action := kcptesting.NewRootDeleteCollectionAction(thisWorkspacesResource, c.ClusterPath, listOpts)
 
 	_, err := c.Fake.Invokes(action, &tenancyv1alpha1.ThisWorkspaceList{})
 	return err
 }
 
 func (c *thisWorkspacesClient) Get(ctx context.Context, name string, options metav1.GetOptions) (*tenancyv1alpha1.ThisWorkspace, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootGetAction(thisWorkspacesResource, c.Cluster, name), &tenancyv1alpha1.ThisWorkspace{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootGetAction(thisWorkspacesResource, c.ClusterPath, name), &tenancyv1alpha1.ThisWorkspace{})
 	if obj == nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func (c *thisWorkspacesClient) Get(ctx context.Context, name string, options met
 
 // List takes label and field selectors, and returns the list of ThisWorkspaces that match those selectors.
 func (c *thisWorkspacesClient) List(ctx context.Context, opts metav1.ListOptions) (*tenancyv1alpha1.ThisWorkspaceList, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootListAction(thisWorkspacesResource, thisWorkspacesKind, c.Cluster, opts), &tenancyv1alpha1.ThisWorkspaceList{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootListAction(thisWorkspacesResource, thisWorkspacesKind, c.ClusterPath, opts), &tenancyv1alpha1.ThisWorkspaceList{})
 	if obj == nil {
 		return nil, err
 	}
@@ -149,11 +149,11 @@ func (c *thisWorkspacesClient) List(ctx context.Context, opts metav1.ListOptions
 }
 
 func (c *thisWorkspacesClient) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	return c.Fake.InvokesWatch(kcptesting.NewRootWatchAction(thisWorkspacesResource, c.Cluster, opts))
+	return c.Fake.InvokesWatch(kcptesting.NewRootWatchAction(thisWorkspacesResource, c.ClusterPath, opts))
 }
 
 func (c *thisWorkspacesClient) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*tenancyv1alpha1.ThisWorkspace, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(thisWorkspacesResource, c.Cluster, name, pt, data, subresources...), &tenancyv1alpha1.ThisWorkspace{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(thisWorkspacesResource, c.ClusterPath, name, pt, data, subresources...), &tenancyv1alpha1.ThisWorkspace{})
 	if obj == nil {
 		return nil, err
 	}

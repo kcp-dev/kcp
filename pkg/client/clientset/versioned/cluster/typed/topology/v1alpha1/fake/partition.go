@@ -24,7 +24,7 @@ package v1alpha1
 import (
 	"context"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,12 +46,12 @@ type partitionsClusterClient struct {
 }
 
 // Cluster scopes the client down to a particular cluster.
-func (c *partitionsClusterClient) Cluster(cluster logicalcluster.Name) topologyv1alpha1client.PartitionInterface {
-	if cluster == logicalcluster.Wildcard {
+func (c *partitionsClusterClient) Cluster(clusterPath logicalcluster.Path) topologyv1alpha1client.PartitionInterface {
+	if clusterPath == logicalcluster.Wildcard {
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 
-	return &partitionsClient{Fake: c.Fake, Cluster: cluster}
+	return &partitionsClient{Fake: c.Fake, ClusterPath: clusterPath}
 }
 
 // List takes label and field selectors, and returns the list of Partitions that match those selectors across all clusters.
@@ -81,11 +81,11 @@ func (c *partitionsClusterClient) Watch(ctx context.Context, opts metav1.ListOpt
 
 type partitionsClient struct {
 	*kcptesting.Fake
-	Cluster logicalcluster.Name
+	ClusterPath logicalcluster.Path
 }
 
 func (c *partitionsClient) Create(ctx context.Context, partition *topologyv1alpha1.Partition, opts metav1.CreateOptions) (*topologyv1alpha1.Partition, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootCreateAction(partitionsResource, c.Cluster, partition), &topologyv1alpha1.Partition{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootCreateAction(partitionsResource, c.ClusterPath, partition), &topologyv1alpha1.Partition{})
 	if obj == nil {
 		return nil, err
 	}
@@ -93,7 +93,7 @@ func (c *partitionsClient) Create(ctx context.Context, partition *topologyv1alph
 }
 
 func (c *partitionsClient) Update(ctx context.Context, partition *topologyv1alpha1.Partition, opts metav1.UpdateOptions) (*topologyv1alpha1.Partition, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateAction(partitionsResource, c.Cluster, partition), &topologyv1alpha1.Partition{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateAction(partitionsResource, c.ClusterPath, partition), &topologyv1alpha1.Partition{})
 	if obj == nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func (c *partitionsClient) Update(ctx context.Context, partition *topologyv1alph
 }
 
 func (c *partitionsClient) UpdateStatus(ctx context.Context, partition *topologyv1alpha1.Partition, opts metav1.UpdateOptions) (*topologyv1alpha1.Partition, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateSubresourceAction(partitionsResource, c.Cluster, "status", partition), &topologyv1alpha1.Partition{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateSubresourceAction(partitionsResource, c.ClusterPath, "status", partition), &topologyv1alpha1.Partition{})
 	if obj == nil {
 		return nil, err
 	}
@@ -109,19 +109,19 @@ func (c *partitionsClient) UpdateStatus(ctx context.Context, partition *topology
 }
 
 func (c *partitionsClient) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	_, err := c.Fake.Invokes(kcptesting.NewRootDeleteActionWithOptions(partitionsResource, c.Cluster, name, opts), &topologyv1alpha1.Partition{})
+	_, err := c.Fake.Invokes(kcptesting.NewRootDeleteActionWithOptions(partitionsResource, c.ClusterPath, name, opts), &topologyv1alpha1.Partition{})
 	return err
 }
 
 func (c *partitionsClient) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	action := kcptesting.NewRootDeleteCollectionAction(partitionsResource, c.Cluster, listOpts)
+	action := kcptesting.NewRootDeleteCollectionAction(partitionsResource, c.ClusterPath, listOpts)
 
 	_, err := c.Fake.Invokes(action, &topologyv1alpha1.PartitionList{})
 	return err
 }
 
 func (c *partitionsClient) Get(ctx context.Context, name string, options metav1.GetOptions) (*topologyv1alpha1.Partition, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootGetAction(partitionsResource, c.Cluster, name), &topologyv1alpha1.Partition{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootGetAction(partitionsResource, c.ClusterPath, name), &topologyv1alpha1.Partition{})
 	if obj == nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func (c *partitionsClient) Get(ctx context.Context, name string, options metav1.
 
 // List takes label and field selectors, and returns the list of Partitions that match those selectors.
 func (c *partitionsClient) List(ctx context.Context, opts metav1.ListOptions) (*topologyv1alpha1.PartitionList, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootListAction(partitionsResource, partitionsKind, c.Cluster, opts), &topologyv1alpha1.PartitionList{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootListAction(partitionsResource, partitionsKind, c.ClusterPath, opts), &topologyv1alpha1.PartitionList{})
 	if obj == nil {
 		return nil, err
 	}
@@ -149,11 +149,11 @@ func (c *partitionsClient) List(ctx context.Context, opts metav1.ListOptions) (*
 }
 
 func (c *partitionsClient) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	return c.Fake.InvokesWatch(kcptesting.NewRootWatchAction(partitionsResource, c.Cluster, opts))
+	return c.Fake.InvokesWatch(kcptesting.NewRootWatchAction(partitionsResource, c.ClusterPath, opts))
 }
 
 func (c *partitionsClient) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*topologyv1alpha1.Partition, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(partitionsResource, c.Cluster, name, pt, data, subresources...), &topologyv1alpha1.Partition{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(partitionsResource, c.ClusterPath, name, pt, data, subresources...), &topologyv1alpha1.Partition{})
 	if obj == nil {
 		return nil, err
 	}

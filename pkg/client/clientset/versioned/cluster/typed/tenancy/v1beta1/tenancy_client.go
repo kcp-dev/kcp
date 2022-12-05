@@ -24,8 +24,8 @@ package v1beta1
 import (
 	"net/http"
 
-	kcpclient "github.com/kcp-dev/apimachinery/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v2"
+	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/client-go/rest"
 
@@ -38,18 +38,18 @@ type TenancyV1beta1ClusterInterface interface {
 }
 
 type TenancyV1beta1ClusterScoper interface {
-	Cluster(logicalcluster.Name) tenancyv1beta1.TenancyV1beta1Interface
+	Cluster(logicalcluster.Path) tenancyv1beta1.TenancyV1beta1Interface
 }
 
 type TenancyV1beta1ClusterClient struct {
 	clientCache kcpclient.Cache[*tenancyv1beta1.TenancyV1beta1Client]
 }
 
-func (c *TenancyV1beta1ClusterClient) Cluster(name logicalcluster.Name) tenancyv1beta1.TenancyV1beta1Interface {
-	if name == logicalcluster.Wildcard {
+func (c *TenancyV1beta1ClusterClient) Cluster(clusterPath logicalcluster.Path) tenancyv1beta1.TenancyV1beta1Interface {
+	if clusterPath == logicalcluster.Wildcard {
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
-	return c.clientCache.ClusterOrDie(name)
+	return c.clientCache.ClusterOrDie(clusterPath)
 }
 
 func (c *TenancyV1beta1ClusterClient) Workspaces() WorkspaceClusterInterface {
@@ -73,7 +73,7 @@ func NewForConfigAndClient(c *rest.Config, h *http.Client) (*TenancyV1beta1Clust
 	cache := kcpclient.NewCache(c, h, &kcpclient.Constructor[*tenancyv1beta1.TenancyV1beta1Client]{
 		NewForConfigAndClient: tenancyv1beta1.NewForConfigAndClient,
 	})
-	if _, err := cache.Cluster(logicalcluster.NewPath("root")); err != nil {
+	if _, err := cache.Cluster(logicalcluster.Name("root").Path()); err != nil {
 		return nil, err
 	}
 	return &TenancyV1beta1ClusterClient{clientCache: cache}, nil

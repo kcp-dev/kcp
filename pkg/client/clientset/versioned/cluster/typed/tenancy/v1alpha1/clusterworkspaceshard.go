@@ -24,8 +24,8 @@ package v1alpha1
 import (
 	"context"
 
-	kcpclient "github.com/kcp-dev/apimachinery/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v2"
+	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
@@ -43,7 +43,7 @@ type ClusterWorkspaceShardsClusterGetter interface {
 // ClusterWorkspaceShardClusterInterface can operate on ClusterWorkspaceShards across all clusters,
 // or scope down to one cluster and return a tenancyv1alpha1client.ClusterWorkspaceShardInterface.
 type ClusterWorkspaceShardClusterInterface interface {
-	Cluster(logicalcluster.Name) tenancyv1alpha1client.ClusterWorkspaceShardInterface
+	Cluster(logicalcluster.Path) tenancyv1alpha1client.ClusterWorkspaceShardInterface
 	List(ctx context.Context, opts metav1.ListOptions) (*tenancyv1alpha1.ClusterWorkspaceShardList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
 }
@@ -53,12 +53,12 @@ type clusterWorkspaceShardsClusterInterface struct {
 }
 
 // Cluster scopes the client down to a particular cluster.
-func (c *clusterWorkspaceShardsClusterInterface) Cluster(name logicalcluster.Name) tenancyv1alpha1client.ClusterWorkspaceShardInterface {
-	if name == logicalcluster.Wildcard {
+func (c *clusterWorkspaceShardsClusterInterface) Cluster(clusterPath logicalcluster.Path) tenancyv1alpha1client.ClusterWorkspaceShardInterface {
+	if clusterPath == logicalcluster.Wildcard {
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 
-	return c.clientCache.ClusterOrDie(name).ClusterWorkspaceShards()
+	return c.clientCache.ClusterOrDie(clusterPath).ClusterWorkspaceShards()
 }
 
 // List returns the entire collection of all ClusterWorkspaceShards across all clusters.

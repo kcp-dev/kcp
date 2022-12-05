@@ -24,8 +24,8 @@ package v1alpha1
 import (
 	"context"
 
-	kcpclient "github.com/kcp-dev/apimachinery/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v2"
+	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
@@ -43,7 +43,7 @@ type NegotiatedAPIResourcesClusterGetter interface {
 // NegotiatedAPIResourceClusterInterface can operate on NegotiatedAPIResources across all clusters,
 // or scope down to one cluster and return a apiresourcev1alpha1client.NegotiatedAPIResourceInterface.
 type NegotiatedAPIResourceClusterInterface interface {
-	Cluster(logicalcluster.Name) apiresourcev1alpha1client.NegotiatedAPIResourceInterface
+	Cluster(logicalcluster.Path) apiresourcev1alpha1client.NegotiatedAPIResourceInterface
 	List(ctx context.Context, opts metav1.ListOptions) (*apiresourcev1alpha1.NegotiatedAPIResourceList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
 }
@@ -53,12 +53,12 @@ type negotiatedAPIResourcesClusterInterface struct {
 }
 
 // Cluster scopes the client down to a particular cluster.
-func (c *negotiatedAPIResourcesClusterInterface) Cluster(name logicalcluster.Name) apiresourcev1alpha1client.NegotiatedAPIResourceInterface {
-	if name == logicalcluster.Wildcard {
+func (c *negotiatedAPIResourcesClusterInterface) Cluster(clusterPath logicalcluster.Path) apiresourcev1alpha1client.NegotiatedAPIResourceInterface {
+	if clusterPath == logicalcluster.Wildcard {
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 
-	return c.clientCache.ClusterOrDie(name).NegotiatedAPIResources()
+	return c.clientCache.ClusterOrDie(clusterPath).NegotiatedAPIResources()
 }
 
 // List returns the entire collection of all NegotiatedAPIResources across all clusters.

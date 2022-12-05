@@ -24,7 +24,7 @@ package v1alpha1
 import (
 	"context"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,12 +46,12 @@ type syncTargetsClusterClient struct {
 }
 
 // Cluster scopes the client down to a particular cluster.
-func (c *syncTargetsClusterClient) Cluster(cluster logicalcluster.Name) workloadv1alpha1client.SyncTargetInterface {
-	if cluster == logicalcluster.Wildcard {
+func (c *syncTargetsClusterClient) Cluster(clusterPath logicalcluster.Path) workloadv1alpha1client.SyncTargetInterface {
+	if clusterPath == logicalcluster.Wildcard {
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 
-	return &syncTargetsClient{Fake: c.Fake, Cluster: cluster}
+	return &syncTargetsClient{Fake: c.Fake, ClusterPath: clusterPath}
 }
 
 // List takes label and field selectors, and returns the list of SyncTargets that match those selectors across all clusters.
@@ -81,11 +81,11 @@ func (c *syncTargetsClusterClient) Watch(ctx context.Context, opts metav1.ListOp
 
 type syncTargetsClient struct {
 	*kcptesting.Fake
-	Cluster logicalcluster.Name
+	ClusterPath logicalcluster.Path
 }
 
 func (c *syncTargetsClient) Create(ctx context.Context, syncTarget *workloadv1alpha1.SyncTarget, opts metav1.CreateOptions) (*workloadv1alpha1.SyncTarget, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootCreateAction(syncTargetsResource, c.Cluster, syncTarget), &workloadv1alpha1.SyncTarget{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootCreateAction(syncTargetsResource, c.ClusterPath, syncTarget), &workloadv1alpha1.SyncTarget{})
 	if obj == nil {
 		return nil, err
 	}
@@ -93,7 +93,7 @@ func (c *syncTargetsClient) Create(ctx context.Context, syncTarget *workloadv1al
 }
 
 func (c *syncTargetsClient) Update(ctx context.Context, syncTarget *workloadv1alpha1.SyncTarget, opts metav1.UpdateOptions) (*workloadv1alpha1.SyncTarget, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateAction(syncTargetsResource, c.Cluster, syncTarget), &workloadv1alpha1.SyncTarget{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateAction(syncTargetsResource, c.ClusterPath, syncTarget), &workloadv1alpha1.SyncTarget{})
 	if obj == nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func (c *syncTargetsClient) Update(ctx context.Context, syncTarget *workloadv1al
 }
 
 func (c *syncTargetsClient) UpdateStatus(ctx context.Context, syncTarget *workloadv1alpha1.SyncTarget, opts metav1.UpdateOptions) (*workloadv1alpha1.SyncTarget, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateSubresourceAction(syncTargetsResource, c.Cluster, "status", syncTarget), &workloadv1alpha1.SyncTarget{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootUpdateSubresourceAction(syncTargetsResource, c.ClusterPath, "status", syncTarget), &workloadv1alpha1.SyncTarget{})
 	if obj == nil {
 		return nil, err
 	}
@@ -109,19 +109,19 @@ func (c *syncTargetsClient) UpdateStatus(ctx context.Context, syncTarget *worklo
 }
 
 func (c *syncTargetsClient) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	_, err := c.Fake.Invokes(kcptesting.NewRootDeleteActionWithOptions(syncTargetsResource, c.Cluster, name, opts), &workloadv1alpha1.SyncTarget{})
+	_, err := c.Fake.Invokes(kcptesting.NewRootDeleteActionWithOptions(syncTargetsResource, c.ClusterPath, name, opts), &workloadv1alpha1.SyncTarget{})
 	return err
 }
 
 func (c *syncTargetsClient) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	action := kcptesting.NewRootDeleteCollectionAction(syncTargetsResource, c.Cluster, listOpts)
+	action := kcptesting.NewRootDeleteCollectionAction(syncTargetsResource, c.ClusterPath, listOpts)
 
 	_, err := c.Fake.Invokes(action, &workloadv1alpha1.SyncTargetList{})
 	return err
 }
 
 func (c *syncTargetsClient) Get(ctx context.Context, name string, options metav1.GetOptions) (*workloadv1alpha1.SyncTarget, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootGetAction(syncTargetsResource, c.Cluster, name), &workloadv1alpha1.SyncTarget{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootGetAction(syncTargetsResource, c.ClusterPath, name), &workloadv1alpha1.SyncTarget{})
 	if obj == nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func (c *syncTargetsClient) Get(ctx context.Context, name string, options metav1
 
 // List takes label and field selectors, and returns the list of SyncTargets that match those selectors.
 func (c *syncTargetsClient) List(ctx context.Context, opts metav1.ListOptions) (*workloadv1alpha1.SyncTargetList, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootListAction(syncTargetsResource, syncTargetsKind, c.Cluster, opts), &workloadv1alpha1.SyncTargetList{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootListAction(syncTargetsResource, syncTargetsKind, c.ClusterPath, opts), &workloadv1alpha1.SyncTargetList{})
 	if obj == nil {
 		return nil, err
 	}
@@ -149,11 +149,11 @@ func (c *syncTargetsClient) List(ctx context.Context, opts metav1.ListOptions) (
 }
 
 func (c *syncTargetsClient) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	return c.Fake.InvokesWatch(kcptesting.NewRootWatchAction(syncTargetsResource, c.Cluster, opts))
+	return c.Fake.InvokesWatch(kcptesting.NewRootWatchAction(syncTargetsResource, c.ClusterPath, opts))
 }
 
 func (c *syncTargetsClient) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*workloadv1alpha1.SyncTarget, error) {
-	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(syncTargetsResource, c.Cluster, name, pt, data, subresources...), &workloadv1alpha1.SyncTarget{})
+	obj, err := c.Fake.Invokes(kcptesting.NewRootPatchSubresourceAction(syncTargetsResource, c.ClusterPath, name, pt, data, subresources...), &workloadv1alpha1.SyncTarget{})
 	if obj == nil {
 		return nil, err
 	}

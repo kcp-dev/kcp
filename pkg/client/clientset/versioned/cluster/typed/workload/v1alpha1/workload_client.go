@@ -24,8 +24,8 @@ package v1alpha1
 import (
 	"net/http"
 
-	kcpclient "github.com/kcp-dev/apimachinery/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v2"
+	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/client-go/rest"
 
@@ -38,18 +38,18 @@ type WorkloadV1alpha1ClusterInterface interface {
 }
 
 type WorkloadV1alpha1ClusterScoper interface {
-	Cluster(logicalcluster.Name) workloadv1alpha1.WorkloadV1alpha1Interface
+	Cluster(logicalcluster.Path) workloadv1alpha1.WorkloadV1alpha1Interface
 }
 
 type WorkloadV1alpha1ClusterClient struct {
 	clientCache kcpclient.Cache[*workloadv1alpha1.WorkloadV1alpha1Client]
 }
 
-func (c *WorkloadV1alpha1ClusterClient) Cluster(name logicalcluster.Name) workloadv1alpha1.WorkloadV1alpha1Interface {
-	if name == logicalcluster.Wildcard {
+func (c *WorkloadV1alpha1ClusterClient) Cluster(clusterPath logicalcluster.Path) workloadv1alpha1.WorkloadV1alpha1Interface {
+	if clusterPath == logicalcluster.Wildcard {
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
-	return c.clientCache.ClusterOrDie(name)
+	return c.clientCache.ClusterOrDie(clusterPath)
 }
 
 func (c *WorkloadV1alpha1ClusterClient) SyncTargets() SyncTargetClusterInterface {
@@ -73,7 +73,7 @@ func NewForConfigAndClient(c *rest.Config, h *http.Client) (*WorkloadV1alpha1Clu
 	cache := kcpclient.NewCache(c, h, &kcpclient.Constructor[*workloadv1alpha1.WorkloadV1alpha1Client]{
 		NewForConfigAndClient: workloadv1alpha1.NewForConfigAndClient,
 	})
-	if _, err := cache.Cluster(logicalcluster.NewPath("root")); err != nil {
+	if _, err := cache.Cluster(logicalcluster.Name("root").Path()); err != nil {
 		return nil, err
 	}
 	return &WorkloadV1alpha1ClusterClient{clientCache: cache}, nil

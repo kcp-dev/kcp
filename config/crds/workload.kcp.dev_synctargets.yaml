@@ -79,8 +79,8 @@ spec:
                 type: string
               supportedAPIExports:
                 default:
-                - workspace:
-                    exportName: kubernetes
+                - export: kubernetes
+                  path: root:compute
                 description: SupportedAPIExports defines a set of APIExports supposed
                   to be supported by this SyncTarget. The SyncTarget will be selected
                   to deploy the workload only when the resource schema on the SyncTarget
@@ -88,27 +88,20 @@ spec:
                   If it is not set, the kubernetes export in the same workspace will
                   be used by default.
                 items:
-                  description: ExportReference describes a reference to an APIExport.
-                    Exactly one of the fields must be set.
+                  description: APIExportReference provides the fields necessary to
+                    resolve an APIExport.
                   properties:
-                    workspace:
-                      description: workspace is a reference to an APIExport in the
-                        same organization. The creator of the APIBinding needs to
-                        have access to the APIExport with the verb `bind` in order
-                        to bind to it.
-                      properties:
-                        exportName:
-                          description: Name of the APIExport that describes the API.
-                          type: string
-                        path:
-                          description: path is an absolute reference to a workspace,
-                            e.g. root:org:ws. If it is unset, the path of the APIBinding
-                            is used.
-                          pattern: ^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
-                          type: string
-                      required:
-                      - exportName
-                      type: object
+                    export:
+                      description: export is the name of the APIExport.
+                      type: string
+                    path:
+                      description: path is the fully-qualified path to the workspace
+                        containing the APIExport. If it is empty, the current workspace
+                        is assumed.
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                      type: string
+                  required:
+                  - export
                   type: object
                 type: array
               unschedulable:

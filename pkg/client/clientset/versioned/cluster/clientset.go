@@ -25,8 +25,8 @@ import (
 	"fmt"
 	"net/http"
 
-	kcpclient "github.com/kcp-dev/apimachinery/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v2"
+	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
@@ -43,7 +43,7 @@ import (
 )
 
 type ClusterInterface interface {
-	Cluster(logicalcluster.Name) client.Interface
+	Cluster(logicalcluster.Path) client.Interface
 	Discovery() discovery.DiscoveryInterface
 	ApiresourceV1alpha1() apiresourcev1alpha1.ApiresourceV1alpha1ClusterInterface
 	ApisV1alpha1() apisv1alpha1.ApisV1alpha1ClusterInterface
@@ -111,11 +111,11 @@ func (c *ClusterClientset) WorkloadV1alpha1() workloadv1alpha1.WorkloadV1alpha1C
 }
 
 // Cluster scopes this clientset to one cluster.
-func (c *ClusterClientset) Cluster(name logicalcluster.Name) client.Interface {
-	if name == logicalcluster.Wildcard {
+func (c *ClusterClientset) Cluster(clusterPath logicalcluster.Path) client.Interface {
+	if clusterPath == logicalcluster.Wildcard {
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
-	return c.clientCache.ClusterOrDie(name)
+	return c.clientCache.ClusterOrDie(clusterPath)
 }
 
 // NewForConfig creates a new ClusterClientset for the given config.
@@ -155,7 +155,7 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*ClusterCli
 	cache := kcpclient.NewCache(c, httpClient, &kcpclient.Constructor[*client.Clientset]{
 		NewForConfigAndClient: client.NewForConfigAndClient,
 	})
-	if _, err := cache.Cluster(logicalcluster.NewPath("root")); err != nil {
+	if _, err := cache.Cluster(logicalcluster.Name("root").Path()); err != nil {
 		return nil, err
 	}
 

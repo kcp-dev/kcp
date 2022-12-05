@@ -63,9 +63,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIResourceSchemaSpec":                       schema_pkg_apis_apis_v1alpha1_APIResourceSchemaSpec(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.APIResourceVersion":                          schema_pkg_apis_apis_v1alpha1_APIResourceVersion(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.AcceptablePermissionClaim":                   schema_pkg_apis_apis_v1alpha1_AcceptablePermissionClaim(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.BindingReference":                            schema_pkg_apis_apis_v1alpha1_BindingReference(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.BoundAPIResource":                            schema_pkg_apis_apis_v1alpha1_BoundAPIResource(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.BoundAPIResourceSchema":                      schema_pkg_apis_apis_v1alpha1_BoundAPIResourceSchema(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportReference":                             schema_pkg_apis_apis_v1alpha1_ExportReference(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportBindingReference":                      schema_pkg_apis_apis_v1alpha1_ExportBindingReference(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.GroupResource":                               schema_pkg_apis_apis_v1alpha1_GroupResource(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.Identity":                                    schema_pkg_apis_apis_v1alpha1_Identity(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.LocalAPIExportPolicy":                        schema_pkg_apis_apis_v1alpha1_LocalAPIExportPolicy(ref),
@@ -73,7 +74,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.PermissionClaim":                             schema_pkg_apis_apis_v1alpha1_PermissionClaim(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ResourceSelector":                            schema_pkg_apis_apis_v1alpha1_ResourceSelector(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.VirtualWorkspace":                            schema_pkg_apis_apis_v1alpha1_VirtualWorkspace(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.WorkspaceExportReference":                    schema_pkg_apis_apis_v1alpha1_WorkspaceExportReference(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.AvailableSelectorLabel":                schema_pkg_apis_scheduling_v1alpha1_AvailableSelectorLabel(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.GroupVersionResource":                  schema_pkg_apis_scheduling_v1alpha1_GroupVersionResource(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1.Location":                              schema_pkg_apis_scheduling_v1alpha1_Location(ref),
@@ -1187,7 +1187,7 @@ func schema_pkg_apis_apis_v1alpha1_APIBindingSpec(ref common.ReferenceCallback) 
 						SchemaProps: spec.SchemaProps{
 							Description: "reference uniquely identifies an API to bind to.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportReference"),
+							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.BindingReference"),
 						},
 					},
 					"permissionClaims": {
@@ -1209,7 +1209,7 @@ func schema_pkg_apis_apis_v1alpha1_APIBindingSpec(ref common.ReferenceCallback) 
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.AcceptablePermissionClaim", "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportReference"},
+			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.AcceptablePermissionClaim", "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.BindingReference"},
 	}
 }
 
@@ -1476,11 +1476,11 @@ func schema_pkg_apis_apis_v1alpha1_APIExportEndpointSliceSpec(ref common.Referen
 				Description: "APIExportEndpointSliceSpec defines the desired state of the APIExportEndpointSlice.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"apiExport": {
+					"export": {
 						SchemaProps: spec.SchemaProps{
-							Description: "apiExport points to the service export.",
+							Description: "export points to the API export.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportReference"),
+							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportBindingReference"),
 						},
 					},
 					"partition": {
@@ -1491,11 +1491,11 @@ func schema_pkg_apis_apis_v1alpha1_APIExportEndpointSliceSpec(ref common.Referen
 						},
 					},
 				},
-				Required: []string{"apiExport"},
+				Required: []string{"export"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportReference"},
+			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportBindingReference"},
 	}
 }
 
@@ -1995,6 +1995,27 @@ func schema_pkg_apis_apis_v1alpha1_AcceptablePermissionClaim(ref common.Referenc
 	}
 }
 
+func schema_pkg_apis_apis_v1alpha1_BindingReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "BindingReference describes a reference to an APIExport. Exactly one of the fields must be set.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"export": {
+						SchemaProps: spec.SchemaProps{
+							Description: "export is a reference to an APIExport by cluster name and export name. The creator of the APIBinding needs to have access to the APIExport with the verb `bind` in order to bind to it.",
+							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportBindingReference"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportBindingReference"},
+	}
+}
+
 func schema_pkg_apis_apis_v1alpha1_BoundAPIResource(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -2092,24 +2113,32 @@ func schema_pkg_apis_apis_v1alpha1_BoundAPIResourceSchema(ref common.ReferenceCa
 	}
 }
 
-func schema_pkg_apis_apis_v1alpha1_ExportReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_apis_v1alpha1_ExportBindingReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "ExportReference describes a reference to an APIExport. Exactly one of the fields must be set.",
+				Description: "ExportBindingReference is a reference to an APIExport by cluster and name.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"workspace": {
+					"cluster": {
 						SchemaProps: spec.SchemaProps{
-							Description: "workspace is a reference to an APIExport in the same organization. The creator of the APIBinding needs to have access to the APIExport with the verb `bind` in order to bind to it.",
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.WorkspaceExportReference"),
+							Description: "path is a logical cluster path where the APIExport is defined. If the path is unset, the logical cluster of the APIBinding is used.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "name is the name of the APIExport that describes the API.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
+				Required: []string{"name"},
 			},
 		},
-		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.WorkspaceExportReference"},
 	}
 }
 
@@ -2280,35 +2309,6 @@ func schema_pkg_apis_apis_v1alpha1_VirtualWorkspace(ref common.ReferenceCallback
 					},
 				},
 				Required: []string{"url"},
-			},
-		},
-	}
-}
-
-func schema_pkg_apis_apis_v1alpha1_WorkspaceExportReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "WorkspaceExportReference describes an API and backing implementation that are provided by an actor in the specified Workspace.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"path": {
-						SchemaProps: spec.SchemaProps{
-							Description: "path is an absolute reference to a workspace, e.g. root:org:ws. If it is unset, the path of the APIBinding is used.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"exportName": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Name of the APIExport that describes the API.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-				Required: []string{"exportName"},
 			},
 		},
 	}
@@ -2806,22 +2806,21 @@ func schema_pkg_apis_tenancy_v1alpha1_APIExportReference(ref common.ReferenceCal
 				Properties: map[string]spec.Schema{
 					"path": {
 						SchemaProps: spec.SchemaProps{
-							Description: "path is the fully-qualified path to the workspace containing the APIExport.",
-							Default:     "",
+							Description: "path is the fully-qualified path to the workspace containing the APIExport. If it is empty, the current workspace is assumed.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
-					"exportName": {
+					"export": {
 						SchemaProps: spec.SchemaProps{
-							Description: "exportName is the name of the APIExport.",
+							Description: "export is the name of the APIExport.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 				},
-				Required: []string{"path", "exportName"},
+				Required: []string{"export"},
 			},
 		},
 	}
@@ -3477,15 +3476,6 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeSpec(ref common.Refere
 						},
 					},
 					"defaultAPIBindings": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-map-keys": []interface{}{
-									"path",
-									"exportName",
-								},
-								"x-kubernetes-list-type": "map",
-							},
-						},
 						SchemaProps: spec.SchemaProps{
 							Description: "defaultAPIBindings are the APIs to bind during initialization of workspaces created from this type. The APIBinding names will be generated dynamically.",
 							Type:        []string{"array"},
@@ -4591,7 +4581,7 @@ func schema_pkg_apis_workload_v1alpha1_SyncTargetSpec(ref common.ReferenceCallba
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportReference"),
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.APIExportReference"),
 									},
 								},
 							},
@@ -4617,7 +4607,7 @@ func schema_pkg_apis_workload_v1alpha1_SyncTargetSpec(ref common.ReferenceCallba
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1.ExportReference", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.APIExportReference", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 
