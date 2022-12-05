@@ -42,6 +42,7 @@ import (
 
 func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.APIExport, apiDomainKey dynamiccontext.APIDomainKey) error {
 	logger := klog.FromContext(ctx)
+	ctx = klog.NewContext(ctx, logger)
 
 	if apiExport == nil || apiExport.Status.IdentityHash == "" {
 		c.mutex.RLock()
@@ -66,7 +67,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 	c.mutex.RUnlock()
 
 	// Get schemas and identities for base api export.
-	apiResourceSchemas, err := c.getSchemasFromAPIExport(apiExport)
+	apiResourceSchemas, err := c.getSchemasFromAPIExport(ctx, apiExport)
 	if err != nil {
 		return err
 	}
@@ -147,7 +148,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 
 		for _, obj := range exports {
 			export := obj.(*apisv1alpha1.APIExport)
-			candidates, err := c.getSchemasFromAPIExport(export)
+			candidates, err := c.getSchemasFromAPIExport(ctx, export)
 			if err != nil {
 				return err
 			}
@@ -271,7 +272,8 @@ func gvrString(gvr schema.GroupVersionResource) string {
 	return fmt.Sprintf("%s.%s.%s", gvr.Resource, gvr.Version, group)
 }
 
-func (c *APIReconciler) getSchemasFromAPIExport(apiExport *apisv1alpha1.APIExport) (map[schema.GroupResource]*apisv1alpha1.APIResourceSchema, error) {
+func (c *APIReconciler) getSchemasFromAPIExport(ctx context.Context, apiExport *apisv1alpha1.APIExport) (map[schema.GroupResource]*apisv1alpha1.APIResourceSchema, error) {
+	logger := klog.FromContext(ctx)
 	apiResourceSchemas := map[schema.GroupResource]*apisv1alpha1.APIResourceSchema{}
 	for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
 		apiResourceSchema, err := c.apiResourceSchemaLister.Cluster(logicalcluster.From(apiExport)).Get(schemaName)
@@ -279,7 +281,11 @@ func (c *APIReconciler) getSchemasFromAPIExport(apiExport *apisv1alpha1.APIExpor
 			return nil, err
 		}
 		if apierrors.IsNotFound(err) {
-			klog.V(3).Infof("APIResourceSchema %s in APIExport %s|% not found", schemaName, apiExport.Namespace, apiExport.Name)
+			logger.WithValues(
+				"schema", schemaName,
+				"exportNamespace", apiExport.Namespace,
+				"export", apiExport.Name,
+			).V(3).Info("APIResourceSchema for APIExport not found")
 			continue
 		}
 		apiResourceSchemas[schema.GroupResource{Group: apiResourceSchema.Spec.Group, Resource: apiResourceSchema.Spec.Names.Plural}] = apiResourceSchema
