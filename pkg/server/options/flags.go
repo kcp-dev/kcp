@@ -180,8 +180,7 @@ var (
 		"sync-target-heartbeat-threshold",        // Amount of time to wait for a successful heartbeat before marking the cluster as not ready.
 
 		// KCP Cache Server flags
-		"cache-server-kubeconfig-file", // Kubeconfig for the cache server this instance connects to (defaults to loop back configuration).
-		"run-cache-server",             // If set to true it runs the cache server with this instance (default false).
+		"cache-server-kubeconfig-file", // Kubeconfig for the cache server this instance connects to (defaults to loopback configuration).
 
 		// KCP Virtual Workspaces flags
 		"virtual-workspaces-workspaces.authorization-cache.jitter-factor", // Jitter factor for cache re-sync. Leave unset to use a default factor.

@@ -1332,9 +1332,6 @@ func (s *Server) installApiExportIdentityController(ctx context.Context, config 
 }
 
 func (s *Server) installReplicationController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
-	if !s.Options.Cache.Enabled {
-		return nil
-	}
 
 	config = rest.CopyConfig(config)
 	config = rest.AddUserAgent(config, replication.ControllerName)

@@ -185,17 +185,15 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 
 	cacheServerErrCh := make(chan indexErrTuple)
 	cacheServerConfigPath := ""
-	if sets.NewString(shardFlags...).Has("--run-cache-server=true") {
-		cacheServerCh, configPath, err := startCacheServer(ctx, logDirPath, workDirPath)
-		if err != nil {
-			return fmt.Errorf("error starting the cache server: %w", err)
-		}
-		cacheServerConfigPath = configPath
-		go func() {
-			err := <-cacheServerCh
-			cacheServerErrCh <- indexErrTuple{0, err}
-		}()
+	cacheServerCh, configPath, err := startCacheServer(ctx, logDirPath, workDirPath)
+	if err != nil {
+		return fmt.Errorf("error starting the cache server: %w", err)
 	}
+	cacheServerConfigPath = configPath
+	go func() {
+		err := <-cacheServerCh
+		cacheServerErrCh <- indexErrTuple{0, err}
+	}()
 
 	if err := writeLogicalClusterAdminKubeConfig(hostIP.String(), workDirPath); err != nil {
 		return err
