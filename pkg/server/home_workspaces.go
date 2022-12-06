@@ -201,49 +201,8 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	// first check whether there is a legacy workspace.
-	legacyHomeParent, legacyHomeName := h.legacyHomeLogicalClusterName(effectiveUser.GetName())
-	this, err := h.thisWorkspaceLister.Cluster(legacyHomeParent.Join(legacyHomeName)).Get(tenancyv1alpha1.ThisWorkspaceName)
-	if err != nil && !kerrors.IsNotFound(err) {
-		responsewriters.InternalError(rw, req, err)
-		return
-	} else if err == nil {
-		if this.Status.Phase != tenancyv1alpha1.WorkspacePhaseReady {
-			if time.Since(this.CreationTimestamp.Time) > h.creationTimeout {
-				responsewriters.InternalError(rw, req, fmt.Errorf("home workspace creation timeout"))
-				return
-			}
-
-			rw.Header().Set("Retry-After", fmt.Sprintf("%d", h.creationDelaySeconds))
-			http.Error(rw, "Creating the home workspace", http.StatusTooManyRequests)
-			return
-		}
-
-		// nothing to check permission-wise. If there is a very improbable hash conflict, the user will get a 403
-		// through normal authorization. We don't give access to legacy home workspaces to new users here.
-
-		homeWorkspace := &tenancyv1beta1.Workspace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:              this.Name,
-				CreationTimestamp: this.CreationTimestamp,
-			},
-			Spec: tenancyv1beta1.WorkspaceSpec{},
-			Status: tenancyv1beta1.WorkspaceStatus{
-				URL:          this.Status.URL,
-				Cluster:      logicalcluster.From(this).String(),
-				Phase:        this.Status.Phase,
-				Conditions:   this.Status.Conditions,
-				Initializers: this.Status.Initializers,
-			},
-		}
-		responsewriters.WriteObjectNegotiated(homeWorkspaceCodecs, negotiation.DefaultEndpointRestrictions, tenancyv1beta1.SchemeGroupVersion, rw, req, http.StatusOK, homeWorkspace)
-		return
-	}
-
-	// here we have not found a legacy home workspace. We have to check whether a new-style workspace exists.
-
 	homeClusterName := indexrewriters.HomeClusterName(effectiveUser.GetName())
-	this, err = h.thisWorkspaceLister.Cluster(homeClusterName).Get(tenancyv1alpha1.ThisWorkspaceName)
+	this, err := h.thisWorkspaceLister.Cluster(homeClusterName).Get(tenancyv1alpha1.ThisWorkspaceName)
 	if err != nil {
 		if !kerrors.IsNotFound(err) {
 			responsewriters.InternalError(rw, req, err)
