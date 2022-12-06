@@ -169,11 +169,11 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetWorkspace logicalcluster.
 					if namespace != "" {
 						// Use namespace lister
 						nsObj, err := namespaceLister.Get(namespace)
-						if err != nil && !errors.IsNotFound(err) {
-							utilruntime.HandleError(err)
+						if errors.IsNotFound(err) {
 							return
 						}
-						if errors.IsNotFound(err) {
+						if err != nil {
+							utilruntime.HandleError(err)
 							return
 						}
 						c.downstreamNSCleaner.PlanCleaning(namespace)
