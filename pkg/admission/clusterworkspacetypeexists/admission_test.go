@@ -599,20 +599,20 @@ func TestValidateAllowedParents(t *testing.T) {
 		name          string
 		parentAliases []*tenancyv1alpha1.ClusterWorkspaceType
 		childAliases  []*tenancyv1alpha1.ClusterWorkspaceType
-		parentType    string
-		childType     string
+		parentType    logicalcluster.Name
+		childType     logicalcluster.Name
 		wantErr       string
 	}{
 		{
 			name:       "no child",
-			childType:  "",
-			parentType: "",
+			childType:  logicalcluster.Name{},
+			parentType: logicalcluster.Name{},
 			wantErr:    "",
 		},
 		{
 			name:       "no parents",
-			childType:  "root:a",
-			parentType: "root:c",
+			childType:  logicalcluster.New("root:a"),
+			parentType: logicalcluster.New("root:c"),
 			childAliases: []*tenancyv1alpha1.ClusterWorkspaceType{
 				newType("root:a").allowingParent("root:b").ClusterWorkspaceType,
 			},
@@ -620,16 +620,16 @@ func TestValidateAllowedParents(t *testing.T) {
 		},
 		{
 			name:       "no parents, any allowed parent",
-			childType:  "root:a",
-			parentType: "root:b",
+			childType:  logicalcluster.New("root:a"),
+			parentType: logicalcluster.New("root:b"),
 			childAliases: []*tenancyv1alpha1.ClusterWorkspaceType{
 				newType("root:a").ClusterWorkspaceType,
 			},
 		},
 		{
 			name:       "all parents allowed",
-			childType:  "root:a",
-			parentType: "root:a",
+			childType:  logicalcluster.New("root:a"),
+			parentType: logicalcluster.New("root:a"),
 			parentAliases: []*tenancyv1alpha1.ClusterWorkspaceType{
 				newType("root:a").ClusterWorkspaceType,
 				newType("root:b").ClusterWorkspaceType,
@@ -643,8 +643,8 @@ func TestValidateAllowedParents(t *testing.T) {
 		},
 		{
 			name:       "missing parent alias",
-			childType:  "root:a",
-			parentType: "root:a",
+			childType:  logicalcluster.New("root:a"),
+			parentType: logicalcluster.New("root:a"),
 			parentAliases: []*tenancyv1alpha1.ClusterWorkspaceType{
 				newType("root:a").ClusterWorkspaceType,
 			},
@@ -692,14 +692,14 @@ func TestValidateAllowedChildren(t *testing.T) {
 		name          string
 		parentAliases []*tenancyv1alpha1.ClusterWorkspaceType
 		childAliases  []*tenancyv1alpha1.ClusterWorkspaceType
-		parentType    string
-		childType     string
+		parentType    logicalcluster.Name
+		childType     logicalcluster.Name
 		wantErr       string
 	}{
 		{
 			name:       "some type disallows children",
-			childType:  "root:a",
-			parentType: "root:a",
+			childType:  logicalcluster.New("root:a"),
+			parentType: logicalcluster.New("root:a"),
 			parentAliases: []*tenancyv1alpha1.ClusterWorkspaceType{
 				newType("root:a").ClusterWorkspaceType,
 				newType("root:b").disallowingChildren().ClusterWorkspaceType,
@@ -853,7 +853,7 @@ func (b thisWsBuilder) withType(cluster tenancy.Cluster, name string) thisWsBuil
 	if b.Annotations == nil {
 		b.Annotations = map[string]string{}
 	}
-	b.Annotations[tenancyv1alpha1.ThisWorkspaceTypeAnnotationKey] = cluster.LogicalCluster().Join(name).String()
+	b.Annotations[tenancyv1alpha1.ThisWorkspaceTypeAnnotationKey] = cluster.Path().Join(name).String()
 	return b
 }
 

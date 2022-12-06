@@ -322,11 +322,11 @@ func (o *clusterWorkspaceTypeExists) Validate(ctx context.Context, a admission.A
 		}
 
 		thisTypePath := cwtCluster.Join(cwtName)
-		cwTypeString := logicalcluster.New(cw.Spec.Type.Path).Join(string(cw.Spec.Type.Name)).String()
-		if err := validateAllowedParents(parentAliases, cwtAliases, thisTypePath.String(), cwTypeString); err != nil {
+		cwTypeString := logicalcluster.New(cw.Spec.Type.Path).Join(string(cw.Spec.Type.Name))
+		if err := validateAllowedParents(parentAliases, cwtAliases, thisTypePath, cwTypeString); err != nil {
 			return admission.NewForbidden(a, err)
 		}
-		if err := validateAllowedChildren(parentAliases, cwtAliases, thisTypePath.String(), cwTypeString); err != nil {
+		if err := validateAllowedChildren(parentAliases, cwtAliases, thisTypePath, cwTypeString); err != nil {
 			return admission.NewForbidden(a, err)
 		}
 	}
@@ -453,14 +453,14 @@ func (r *transitiveTypeResolver) resolve(cwt *tenancyv1alpha1.ClusterWorkspaceTy
 	return ret, nil
 }
 
-func validateAllowedParents(parentAliases, childAliases []*tenancyv1alpha1.ClusterWorkspaceType, parentType, childType string) error {
+func validateAllowedParents(parentAliases, childAliases []*tenancyv1alpha1.ClusterWorkspaceType, parentType, childType logicalcluster.Name) error {
 	var errs []error
 	for _, childAlias := range childAliases {
 		if childAlias.Spec.LimitAllowedParents == nil || len(childAlias.Spec.LimitAllowedParents.Types) == 0 {
 			continue
 		}
 
-		qualifiedChild := logicalcluster.From(childAlias).Join(string(tenancyv1alpha1.TypeName(childAlias.Name))).String()
+		qualifiedChild := logicalcluster.From(childAlias).Join(string(tenancyv1alpha1.TypeName(childAlias.Name)))
 
 		if !allOfTheFormerExistInTheLater(parentAliases, childAlias.Spec.LimitAllowedParents.Types) {
 			allowedSet := sets.NewString()
@@ -487,7 +487,7 @@ func validateAllowedParents(parentAliases, childAliases []*tenancyv1alpha1.Clust
 	return utilerrors.NewAggregate(errs)
 }
 
-func validateAllowedChildren(parentAliases, childAliases []*tenancyv1alpha1.ClusterWorkspaceType, parentType, childType string) error {
+func validateAllowedChildren(parentAliases, childAliases []*tenancyv1alpha1.ClusterWorkspaceType, parentType, childType logicalcluster.Name) error {
 	var errs []error
 	for _, parentAlias := range parentAliases {
 		if parentAlias.Spec.LimitAllowedChildren == nil || len(parentAlias.Spec.LimitAllowedChildren.Types) == 0 {
@@ -497,7 +497,7 @@ func validateAllowedChildren(parentAliases, childAliases []*tenancyv1alpha1.Clus
 			return fmt.Errorf("workspace type %s cannot have any children", parentType)
 		}
 
-		qualifiedParent := logicalcluster.From(parentAlias).Join(string(tenancyv1alpha1.TypeName(parentAlias.Name))).String()
+		qualifiedParent := logicalcluster.From(parentAlias).Join(string(tenancyv1alpha1.TypeName(parentAlias.Name)))
 
 		if !allOfTheFormerExistInTheLater(childAliases, parentAlias.Spec.LimitAllowedChildren.Types) {
 			allowedSet := sets.NewString()
