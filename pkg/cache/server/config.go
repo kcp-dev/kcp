@@ -112,9 +112,11 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 
 	// disable SSA since the cache server should not change objects in any way
 	// note, that this will break when (if) the feature is locked, until then we should be fine
-	if err := utilfeature.DefaultMutableFeatureGate.Set(fmt.Sprintf("%s=false", features.ServerSideApply)); err != nil {
+	// TODO (fgiloux) best path forward to be confirmed.
+	// SSA cannot be deactivated when the cache server is embedded within kcp
+	/* if err := utilfeature.DefaultMutableFeatureGate.Set(fmt.Sprintf("%s=false", features.ServerSideApply)); err != nil {
 		return nil, err
-	}
+	}*/
 	if err := opts.ServerRunOptions.ApplyTo(&serverConfig.Config); err != nil {
 		return nil, err
 	}

@@ -362,7 +362,7 @@ func TestCacheServerInProcess(t *testing.T) {
 	// TODO(p0lyn0mial): switch to framework.SharedKcpServer when caching is turned on by default
 	tokenAuthFile := framework.WriteTokenAuthFile(t)
 	server := framework.PrivateKcpServer(t,
-		framework.WithCustomArguments(append(framework.TestServerArgsWithTokenAuthFile(tokenAuthFile))...))
+		framework.WithCustomArguments(framework.TestServerArgsWithTokenAuthFile(tokenAuthFile)...))
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
