@@ -96,11 +96,11 @@ func TestDNSProcess(t *testing.T) {
 		},
 		"endpoint exist, DNS objects exists, updating with no changes": {
 			resources: []runtime.Object{
-				MakeServiceAccount(dnsID, dnsns),
-				MakeRole(dnsID, dnsns),
-				MakeRoleBinding(dnsID, dnsns),
-				MakeService(dnsID, dnsns),
-				MakeDeployment(dnsID, dnsns, "dnsimage"),
+				MakeServiceAccount(dnsID, dnsns, tenantID),
+				MakeRole(dnsID, dnsns, tenantID),
+				MakeRoleBinding(dnsID, dnsns, tenantID),
+				MakeService(dnsID, dnsns, tenantID),
+				MakeDeployment(dnsID, dnsns, tenantID, "dnsimage"),
 				endpoints(dnsID, dnsns, "8.8.8.8"),
 				MakeNetworkPolicy(dnsID, dnsns, tenantID, &corev1.EndpointSubset{}),
 			},
@@ -111,17 +111,17 @@ func TestDNSProcess(t *testing.T) {
 		},
 		"endpoint exist, DNS objects exists, updating with changes": {
 			resources: []runtime.Object{
-				MakeServiceAccount(dnsID, dnsns),
-				MakeRole(dnsID, dnsns),
-				MakeRoleBinding(dnsID, dnsns),
-				MakeService(dnsID, dnsns),
-				MakeDeployment(dnsID, dnsns, "dnsimage"),
+				MakeServiceAccount(dnsID, dnsns, tenantID),
+				MakeRole(dnsID, dnsns, tenantID),
+				MakeRoleBinding(dnsID, dnsns, tenantID),
+				MakeService(dnsID, dnsns, tenantID),
+				MakeDeployment(dnsID, dnsns, tenantID, "dnsimage"),
 				endpoints(dnsID, dnsns, "8.8.8.8"),
 				MakeNetworkPolicy(dnsID, dnsns, tenantID, &corev1.EndpointSubset{}),
 			},
 			expectReady: false,
 			expectActions: []clienttesting.Action{
-				clienttesting.NewUpdateAction(deploymentGVR, dnsns, MakeDeployment(dnsID, dnsns, "newdnsimage")),
+				clienttesting.NewUpdateAction(deploymentGVR, dnsns, MakeDeployment(dnsID, dnsns, tenantID, "newdnsimage")),
 			},
 			initialized: false,
 			dnsImage:    "newdnsimage",
@@ -132,11 +132,11 @@ func TestDNSProcess(t *testing.T) {
 			},
 			expectReady: false,
 			expectActions: []clienttesting.Action{
-				clienttesting.NewCreateAction(serviceAccountGVR, dnsns, MakeServiceAccount(dnsID, dnsns)),
-				clienttesting.NewCreateAction(roleGVR, dnsns, MakeRole(dnsID, dnsns)),
-				clienttesting.NewCreateAction(roleBindingGVR, dnsns, MakeRoleBinding(dnsID, dnsns)),
-				clienttesting.NewCreateAction(deploymentGVR, dnsns, MakeDeployment(dnsID, dnsns, "dnsimage")),
-				clienttesting.NewCreateAction(serviceGVR, dnsns, MakeService(dnsID, dnsns)),
+				clienttesting.NewCreateAction(serviceAccountGVR, dnsns, MakeServiceAccount(dnsID, dnsns, tenantID)),
+				clienttesting.NewCreateAction(roleGVR, dnsns, MakeRole(dnsID, dnsns, tenantID)),
+				clienttesting.NewCreateAction(roleBindingGVR, dnsns, MakeRoleBinding(dnsID, dnsns, tenantID)),
+				clienttesting.NewCreateAction(deploymentGVR, dnsns, MakeDeployment(dnsID, dnsns, tenantID, "dnsimage")),
+				clienttesting.NewCreateAction(serviceGVR, dnsns, MakeService(dnsID, dnsns, tenantID)),
 				clienttesting.NewGetAction(endpointGVR, "default", "kubernetes"),
 				clienttesting.NewCreateAction(networkPolicyGVR, dnsns, MakeNetworkPolicy(dnsID, dnsns, tenantID, &corev1.EndpointSubset{
 					Addresses: []corev1.EndpointAddress{{IP: "10.0.0.0"}},
@@ -147,11 +147,11 @@ func TestDNSProcess(t *testing.T) {
 		},
 		"endpoint does not exist, DNS objects exists, no updates": {
 			resources: []runtime.Object{
-				MakeServiceAccount(dnsID, dnsns),
-				MakeRole(dnsID, dnsns),
-				MakeRoleBinding(dnsID, dnsns),
-				MakeService(dnsID, dnsns),
-				MakeDeployment(dnsID, dnsns, "dnsimage"),
+				MakeServiceAccount(dnsID, dnsns, tenantID),
+				MakeRole(dnsID, dnsns, tenantID),
+				MakeRoleBinding(dnsID, dnsns, tenantID),
+				MakeService(dnsID, dnsns, tenantID),
+				MakeDeployment(dnsID, dnsns, tenantID, "dnsimage"),
 				MakeNetworkPolicy(dnsID, dnsns, tenantID, &corev1.EndpointSubset{}),
 			},
 			expectReady:   false,
@@ -161,11 +161,11 @@ func TestDNSProcess(t *testing.T) {
 		},
 		"endpoint does not exist, DNS objects exists, updating with no changes": {
 			resources: []runtime.Object{
-				MakeServiceAccount(dnsID, dnsns),
-				MakeRole(dnsID, dnsns),
-				MakeRoleBinding(dnsID, dnsns),
-				MakeService(dnsID, dnsns),
-				MakeDeployment(dnsID, dnsns, "dnsimage"),
+				MakeServiceAccount(dnsID, dnsns, tenantID),
+				MakeRole(dnsID, dnsns, tenantID),
+				MakeRoleBinding(dnsID, dnsns, tenantID),
+				MakeService(dnsID, dnsns, tenantID),
+				MakeDeployment(dnsID, dnsns, tenantID, "dnsimage"),
 				MakeNetworkPolicy(dnsID, dnsns, tenantID, &corev1.EndpointSubset{}),
 			},
 			expectReady:   false,
@@ -175,16 +175,16 @@ func TestDNSProcess(t *testing.T) {
 		},
 		"endpoint does not exist, DNS objects exists, updating with changes": {
 			resources: []runtime.Object{
-				MakeServiceAccount(dnsID, dnsns),
-				MakeRole(dnsID, dnsns),
-				MakeRoleBinding(dnsID, dnsns),
-				MakeService(dnsID, dnsns),
-				MakeDeployment(dnsID, dnsns, "dnsimage"),
+				MakeServiceAccount(dnsID, dnsns, tenantID),
+				MakeRole(dnsID, dnsns, tenantID),
+				MakeRoleBinding(dnsID, dnsns, tenantID),
+				MakeService(dnsID, dnsns, tenantID),
+				MakeDeployment(dnsID, dnsns, tenantID, "dnsimage"),
 				MakeNetworkPolicy(dnsID, dnsns, tenantID, &corev1.EndpointSubset{}),
 			},
 			expectReady: false,
 			expectActions: []clienttesting.Action{
-				clienttesting.NewUpdateAction(deploymentGVR, dnsns, MakeDeployment(dnsID, dnsns, "newdnsimage")),
+				clienttesting.NewUpdateAction(deploymentGVR, dnsns, MakeDeployment(dnsID, dnsns, tenantID, "newdnsimage")),
 			},
 			initialized: false,
 			dnsImage:    "newdnsimage",
@@ -210,7 +210,7 @@ func TestDNSProcess(t *testing.T) {
 
 			kubeClient.ClearActions()
 
-			ready, err := controller.EnsureDNSUpAndReady(ctx, locator)
+			ready, err := controller.EnsureDNSUpAndReady(ctx, tenantID, clusterName)
 			assert.NoError(t, err)
 
 			assert.Empty(t, cmp.Diff(tc.expectReady, ready))
@@ -231,6 +231,9 @@ func TestMultipleDNSInitialization(t *testing.T) {
 	locator1 := shared.NewNamespaceLocator(clusterName1, syncTargetClusterName, syncTargetUID, syncTargetName, "")
 	locator2 := shared.NewNamespaceLocator(clusterName2, syncTargetClusterName, syncTargetUID, syncTargetName, "")
 
+	tenantID1, _ := shared.GetTenantID(locator1)
+	tenantID2, _ := shared.GetTenantID(locator2)
+
 	dnsID1 := shared.GetDNSID(clusterName1, syncTargetUID, syncTargetName)
 	dnsID2 := shared.GetDNSID(clusterName2, syncTargetUID, syncTargetName)
 
@@ -250,7 +253,7 @@ func TestMultipleDNSInitialization(t *testing.T) {
 	informerFactory.Start(ctx.Done())
 	informerFactory.WaitForCacheSync(ctx.Done())
 
-	ready, err := controller.EnsureDNSUpAndReady(ctx, locator1)
+	ready, err := controller.EnsureDNSUpAndReady(ctx, tenantID1, clusterName1)
 	assert.NoError(t, err)
 	assert.True(t, ready)
 	init1, _ := controller.initialized.Load(dnsID1)
@@ -258,7 +261,7 @@ func TestMultipleDNSInitialization(t *testing.T) {
 	init2, _ := controller.initialized.Load(dnsID2)
 	assert.Nil(t, init2)
 
-	ready, err = controller.EnsureDNSUpAndReady(ctx, locator2)
+	ready, err = controller.EnsureDNSUpAndReady(ctx, tenantID2, clusterName2)
 	assert.NoError(t, err)
 	assert.True(t, ready)
 	init1, _ = controller.initialized.Load(dnsID1)

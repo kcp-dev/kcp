@@ -19,7 +19,10 @@ package dns
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -89,11 +92,11 @@ func (d *DNSProcessor) ServiceLister() listerscorev1.ServiceLister {
 // are effectively reachable through the Service.
 // It returns true if the DNS is setup and reachable, and returns an error if there was an error
 // during the check or creation of the DNS-related resources.
-func (d *DNSProcessor) EnsureDNSUpAndReady(ctx context.Context, namespaceLocator shared.NamespaceLocator) (bool, error) {
+func (d *DNSProcessor) EnsureDNSUpAndReady(ctx context.Context, tenantID string, clusterName logicalcluster.Name) (bool, error) {
 	logger := klog.FromContext(ctx)
 	logger = logger.WithName("dns")
 
-	dnsID := shared.GetDNSID(namespaceLocator.ClusterName, d.syncTargetUID, d.syncTargetName)
+	dnsID := shared.GetDNSID(clusterName, d.syncTargetUID, d.syncTargetName)
 	logger = logger.WithValues("name", dnsID, "namespace", d.dnsNamespace)
 
 	logger.V(4).Info("checking if all dns objects exist and are up-to-date")
@@ -101,7 +104,7 @@ func (d *DNSProcessor) EnsureDNSUpAndReady(ctx context.Context, namespaceLocator
 
 	// Try updating resources if not done already
 	if initialized, ok := d.initialized.Load(dnsID); !ok || !initialized.(bool) {
-		updated, err := d.lockMayUpdate(ctx, dnsID)
+		updated, err := d.lockMayUpdate(ctx, dnsID, tenantID)
 		if updated {
 			return false, err
 		}
@@ -119,22 +122,22 @@ func (d *DNSProcessor) EnsureDNSUpAndReady(ctx context.Context, namespaceLocator
 	}
 
 	// No Endpoints resource was found: try to create all the DNS-related resources
-	if err := d.processServiceAccount(ctx, dnsID); err != nil {
+	if err := d.processServiceAccount(ctx, dnsID, tenantID); err != nil {
 		return false, err
 	}
-	if err := d.processRole(ctx, dnsID); err != nil {
+	if err := d.processRole(ctx, dnsID, tenantID); err != nil {
 		return false, err
 	}
-	if err := d.processRoleBinding(ctx, dnsID); err != nil {
+	if err := d.processRoleBinding(ctx, dnsID, tenantID); err != nil {
 		return false, err
 	}
-	if err := d.processDeployment(ctx, dnsID); err != nil {
+	if err := d.processDeployment(ctx, dnsID, tenantID); err != nil {
 		return false, err
 	}
-	if err := d.processService(ctx, dnsID); err != nil {
+	if err := d.processService(ctx, dnsID, tenantID); err != nil {
 		return false, err
 	}
-	if err := d.processNetworkPolicy(ctx, dnsID, namespaceLocator); err != nil {
+	if err := d.processNetworkPolicy(ctx, dnsID, tenantID); err != nil {
 		return false, err
 	}
 
@@ -144,12 +147,12 @@ func (d *DNSProcessor) EnsureDNSUpAndReady(ctx context.Context, namespaceLocator
 	return false, nil
 }
 
-func (d *DNSProcessor) processServiceAccount(ctx context.Context, name string) error {
+func (d *DNSProcessor) processServiceAccount(ctx context.Context, name, tenantID string) error {
 	logger := klog.FromContext(ctx)
 
 	_, err := d.serviceAccountLister.ServiceAccounts(d.dnsNamespace).Get(name)
 	if apierrors.IsNotFound(err) {
-		expected := MakeServiceAccount(name, d.dnsNamespace)
+		expected := MakeServiceAccount(name, d.dnsNamespace, tenantID)
 		_, err = d.downstreamKubeClient.CoreV1().ServiceAccounts(d.dnsNamespace).Create(ctx, expected, metav1.CreateOptions{})
 		if err == nil {
 			logger.Info("ServiceAccount created")
@@ -163,12 +166,12 @@ func (d *DNSProcessor) processServiceAccount(ctx context.Context, name string) e
 	return nil
 }
 
-func (d *DNSProcessor) processRole(ctx context.Context, name string) error {
+func (d *DNSProcessor) processRole(ctx context.Context, name, tenantID string) error {
 	logger := klog.FromContext(ctx)
 
 	_, err := d.roleLister.Roles(d.dnsNamespace).Get(name)
 	if apierrors.IsNotFound(err) {
-		expected := MakeRole(name, d.dnsNamespace)
+		expected := MakeRole(name, d.dnsNamespace, tenantID)
 		_, err = d.downstreamKubeClient.RbacV1().Roles(d.dnsNamespace).Create(ctx, expected, metav1.CreateOptions{})
 		if err == nil {
 			logger.Info("Role created")
@@ -182,12 +185,12 @@ func (d *DNSProcessor) processRole(ctx context.Context, name string) error {
 	return nil
 }
 
-func (d *DNSProcessor) processRoleBinding(ctx context.Context, name string) error {
+func (d *DNSProcessor) processRoleBinding(ctx context.Context, name, tenantID string) error {
 	logger := klog.FromContext(ctx)
 
 	_, err := d.roleBindingLister.RoleBindings(d.dnsNamespace).Get(name)
 	if apierrors.IsNotFound(err) {
-		expected := MakeRoleBinding(name, d.dnsNamespace)
+		expected := MakeRoleBinding(name, d.dnsNamespace, tenantID)
 		_, err = d.downstreamKubeClient.RbacV1().RoleBindings(d.dnsNamespace).Create(ctx, expected, metav1.CreateOptions{})
 		if err == nil {
 			logger.Info("RoleBinding created")
@@ -201,12 +204,12 @@ func (d *DNSProcessor) processRoleBinding(ctx context.Context, name string) erro
 	return nil
 }
 
-func (d *DNSProcessor) processDeployment(ctx context.Context, name string) error {
+func (d *DNSProcessor) processDeployment(ctx context.Context, name, tenantID string) error {
 	logger := klog.FromContext(ctx)
 
 	_, err := d.deploymentLister.Deployments(d.dnsNamespace).Get(name)
 	if apierrors.IsNotFound(err) {
-		expected := MakeDeployment(name, d.dnsNamespace, d.dnsImage)
+		expected := MakeDeployment(name, d.dnsNamespace, tenantID, d.dnsImage)
 		_, err = d.downstreamKubeClient.AppsV1().Deployments(d.dnsNamespace).Create(ctx, expected, metav1.CreateOptions{})
 		if err == nil {
 			logger.Info("Deployment created")
@@ -220,12 +223,12 @@ func (d *DNSProcessor) processDeployment(ctx context.Context, name string) error
 	return nil
 }
 
-func (d *DNSProcessor) processService(ctx context.Context, name string) error {
+func (d *DNSProcessor) processService(ctx context.Context, name, tenantID string) error {
 	logger := klog.FromContext(ctx)
 
 	_, err := d.serviceLister.Services(d.dnsNamespace).Get(name)
 	if apierrors.IsNotFound(err) {
-		expected := MakeService(name, d.dnsNamespace)
+		expected := MakeService(name, d.dnsNamespace, tenantID)
 		_, err = d.downstreamKubeClient.CoreV1().Services(d.dnsNamespace).Create(ctx, expected, metav1.CreateOptions{})
 		if err == nil {
 			logger.Info("Service created")
@@ -239,7 +242,7 @@ func (d *DNSProcessor) processService(ctx context.Context, name string) error {
 	return nil
 }
 
-func (d *DNSProcessor) processNetworkPolicy(ctx context.Context, name string, namespaceLocator shared.NamespaceLocator) error {
+func (d *DNSProcessor) processNetworkPolicy(ctx context.Context, name, tenantID string) error {
 	logger := klog.FromContext(ctx)
 
 	var kubeEndpoints *corev1.Endpoints
@@ -251,11 +254,6 @@ func (d *DNSProcessor) processNetworkPolicy(ctx context.Context, name string, na
 		}
 		if len(kubeEndpoints.Subsets) == 0 || len(kubeEndpoints.Subsets[0].Addresses) == 0 {
 			return errors.New("missing kubernetes API endpoints")
-		}
-
-		tenantID, err := shared.GetTenantID(namespaceLocator)
-		if err != nil {
-			return err
 		}
 
 		expected := MakeNetworkPolicy(name, d.dnsNamespace, tenantID, &kubeEndpoints.Subsets[0])
@@ -283,13 +281,13 @@ func hasAtLeastOneReadyAddress(endpoints *corev1.Endpoints) bool {
 
 // lockMayUpdate guarantees mayUpdate is run in a critical section.
 // It returns true when the DNS deployment has been updated.
-func (d *DNSProcessor) lockMayUpdate(ctx context.Context, dnsID string) (bool, error) {
+func (d *DNSProcessor) lockMayUpdate(ctx context.Context, dnsID, tenantID string) (bool, error) {
 	d.initializationMu.Lock()
 	defer d.initializationMu.Unlock()
 
 	// initialized may have been modified outside the critical section so checking again here
 	if initialized, ok := d.initialized.Load(dnsID); !ok || !initialized.(bool) {
-		updated, err := d.mayUpdate(ctx, dnsID)
+		updated, err := d.mayUpdate(ctx, dnsID, tenantID)
 
 		if err != nil {
 			return true, err
@@ -307,7 +305,7 @@ func (d *DNSProcessor) lockMayUpdate(ctx context.Context, dnsID string) (bool, e
 	return false, nil
 }
 
-func (d *DNSProcessor) mayUpdate(ctx context.Context, name string) (bool, error) {
+func (d *DNSProcessor) mayUpdate(ctx context.Context, name, tenantID string) (bool, error) {
 	deployment, err := d.deploymentLister.Deployments(d.dnsNamespace).Get(name)
 	if apierrors.IsNotFound(err) {
 		return false, nil
@@ -318,7 +316,7 @@ func (d *DNSProcessor) mayUpdate(ctx context.Context, name string) (bool, error)
 
 	if c == nil {
 		// corrupted deployment. Trying to recover
-		expected := MakeDeployment(name, d.dnsNamespace, d.dnsImage)
+		expected := MakeDeployment(name, d.dnsNamespace, tenantID, d.dnsImage)
 		deployment.Spec = expected.Spec
 		needsUpdate = true
 	} else if c.Image != d.dnsImage {
@@ -351,4 +349,41 @@ func findContainer(deployment *appsv1.Deployment, name string) *corev1.Container
 		}
 	}
 	return nil
+}
+
+func (d *DNSProcessor) CleanupTenant(ctx context.Context, tenantID string) error {
+	logger := klog.FromContext(ctx)
+	logger.WithName("dns")
+	logger.WithValues("tenantID", tenantID)
+
+	logger.V(2).Info("Cleaning DNS-related resources for KCP tenant")
+	if services, err := d.downstreamKubeClient.CoreV1().Services(d.dnsNamespace).List(ctx, metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s", shared.TenantIDLabel, tenantID),
+	}); err != nil {
+		return err
+	} else {
+		for _, service := range services.Items {
+			if err := d.downstreamKubeClient.CoreV1().Services(d.dnsNamespace).Delete(ctx, service.Name, metav1.DeleteOptions{}); err != nil {
+				return err
+			}
+		}
+	}
+	if err := d.downstreamKubeClient.AppsV1().Deployments(d.dnsNamespace).DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s", shared.TenantIDLabel, tenantID),
+	}); err != nil {
+		return err
+	}
+	if err := d.downstreamKubeClient.CoreV1().ServiceAccounts(d.dnsNamespace).DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s", shared.TenantIDLabel, tenantID),
+	}); err != nil {
+		return err
+	}
+	if err := d.downstreamKubeClient.RbacV1().Roles(d.dnsNamespace).DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s", shared.TenantIDLabel, tenantID),
+	}); err != nil {
+		return err
+	}
+	return d.downstreamKubeClient.RbacV1().RoleBindings(d.dnsNamespace).DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s", shared.TenantIDLabel, tenantID),
+	})
 }

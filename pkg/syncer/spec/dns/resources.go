@@ -54,30 +54,39 @@ func init() {
 	loadTemplateOrDie("networkpolicy_dns.yaml", &networkPolicyTemplate)
 }
 
-func MakeServiceAccount(name, namespace string) *corev1.ServiceAccount {
+func MakeServiceAccount(name, namespace, tenantID string) *corev1.ServiceAccount {
 	sa := serviceAccountTemplate.DeepCopy()
 
 	sa.Name = name
 	sa.Namespace = namespace
+	sa.Labels = map[string]string{
+		shared.TenantIDLabel: tenantID,
+	}
 
 	return sa
 }
 
-func MakeRole(name, namespace string) *rbacv1.Role {
+func MakeRole(name, namespace, tenantID string) *rbacv1.Role {
 	role := roleTemplate.DeepCopy()
 
 	role.Name = name
 	role.Namespace = namespace
+	role.Labels = map[string]string{
+		shared.TenantIDLabel: tenantID,
+	}
 	role.Rules[0].ResourceNames[0] = name
 
 	return role
 }
 
-func MakeRoleBinding(name, namespace string) *rbacv1.RoleBinding {
+func MakeRoleBinding(name, namespace, tenantID string) *rbacv1.RoleBinding {
 	roleBinding := roleBindingTemplate.DeepCopy()
 
 	roleBinding.Name = name
 	roleBinding.Namespace = namespace
+	roleBinding.Labels = map[string]string{
+		shared.TenantIDLabel: tenantID,
+	}
 	roleBinding.RoleRef.Name = name
 	roleBinding.Subjects[0].Name = name
 	roleBinding.Subjects[0].Namespace = namespace
@@ -85,7 +94,7 @@ func MakeRoleBinding(name, namespace string) *rbacv1.RoleBinding {
 	return roleBinding
 }
 
-func MakeDeployment(name, namespace, image string) *appsv1.Deployment {
+func MakeDeployment(name, namespace, tenantID, image string) *appsv1.Deployment {
 	deployment := deploymentTemplate.DeepCopy()
 
 	deployment.Name = name
@@ -95,17 +104,23 @@ func MakeDeployment(name, namespace, image string) *appsv1.Deployment {
 	deployment.Spec.Template.Spec.Containers[0].Image = image
 	deployment.Spec.Template.Spec.Containers[0].Args[3] = name
 	deployment.Spec.Template.Spec.ServiceAccountName = name
+	deployment.Labels = map[string]string{
+		shared.TenantIDLabel: tenantID,
+	}
 
 	return deployment
 }
 
-func MakeService(name, namespace string) *corev1.Service {
+func MakeService(name, namespace, tenantID string) *corev1.Service {
 	service := serviceTemplate.DeepCopy()
 
 	service.Name = name
 	service.Namespace = namespace
 	service.Labels["app"] = name
 	service.Spec.Selector["app"] = name
+	service.Labels = map[string]string{
+		shared.TenantIDLabel: tenantID,
+	}
 
 	return service
 }

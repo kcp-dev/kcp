@@ -27,6 +27,7 @@ import (
 
 const (
 	ByNamespaceLocatorIndexName = "syncer-spec-ByNamespaceLocator"
+	ByTenantIDIndexName         = "syncer-workspace-cleaner-ByTenantID"
 )
 
 // indexByNamespaceLocator is a cache.IndexFunc that indexes namespaces by the namespaceLocator annotation.
@@ -45,5 +46,25 @@ func IndexByNamespaceLocator(obj interface{}) ([]string, error) {
 			return []string{}, fmt.Errorf("failed to marshal locator %#v: %w", loc, err)
 		}
 		return []string{string(bs)}, nil
+	}
+}
+
+// IndexByTenantID is a cache.IndexFunc that indexes namespaces by the tenant ID
+// ( == originating KCP workspace ID).
+func IndexByTenantID(obj interface{}) ([]string, error) {
+	metaObj, ok := obj.(metav1.Object)
+	if !ok {
+		return []string{}, fmt.Errorf("obj is supposed to be a metav1.Object, but is %T", obj)
+	}
+	if loc, found, err := shared.LocatorFromAnnotations(metaObj.GetAnnotations()); err != nil {
+		return []string{}, fmt.Errorf("failed to get locator from annotations: %w", err)
+	} else if !found {
+		return []string{}, nil
+	} else {
+		tenantID, err := shared.GetTenantID(*loc)
+		if err != nil {
+			return []string{}, fmt.Errorf("failed to get tenant ID from locator %#v: %w", loc, err)
+		}
+		return []string{tenantID}, nil
 	}
 }

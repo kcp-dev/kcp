@@ -578,11 +578,11 @@ func TestSpecSyncerProcess(t *testing.T) {
 				}, nil),
 			},
 			toResources: []runtime.Object{
-				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
-				dns.MakeRole("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
-				dns.MakeRoleBinding("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
-				dns.MakeDeployment("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "dnsimage"),
-				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID"),
+				dns.MakeRole("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID"),
+				dns.MakeRoleBinding("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID"),
+				dns.MakeDeployment("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID", "dnsimage"),
+				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID"),
 				endpoints("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
@@ -637,11 +637,11 @@ func TestSpecSyncerProcess(t *testing.T) {
 				}, []string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
 			},
 			toResources: []runtime.Object{
-				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
-				dns.MakeRole("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
-				dns.MakeRoleBinding("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
-				dns.MakeDeployment("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "dnsimage"),
-				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID"),
+				dns.MakeRole("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID"),
+				dns.MakeRoleBinding("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID"),
+				dns.MakeDeployment("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID", "dnsimage"),
+				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID"),
 				endpoints("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
@@ -709,11 +709,11 @@ func TestSpecSyncerProcess(t *testing.T) {
 				}, map[string]string{
 					"internal.workload.kcp.io/workspace-url": "https://kcp.io/clusters/clusterName",
 				}, []string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
-				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
-				dns.MakeRole("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
-				dns.MakeRoleBinding("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
-				dns.MakeDeployment("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "dnsimage"),
-				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID"),
+				dns.MakeRole("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID"),
+				dns.MakeRoleBinding("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID"),
+				dns.MakeDeployment("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID", "dnsimage"),
+				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID"),
 				endpoints("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
@@ -746,11 +746,11 @@ func TestSpecSyncerProcess(t *testing.T) {
 				deployment("theDeployment", "kcp-33jbiactwhg0", "root:org:ws", map[string]string{
 					"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 				}, nil, []string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
-				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
-				dns.MakeRole("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
-				dns.MakeRoleBinding("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
-				dns.MakeDeployment("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "dnsimage"),
-				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID"),
+				dns.MakeRole("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID"),
+				dns.MakeRoleBinding("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID"),
+				dns.MakeDeployment("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID", "dnsimage"),
+				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID"),
 				endpoints("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
 			},
 			fromResources: []runtime.Object{
@@ -796,11 +796,11 @@ func TestSpecSyncerProcess(t *testing.T) {
 					map[string]string{
 						"kcp.io/namespace-locator": `{"syncTarget":{"cluster":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
 					}),
-				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
-				dns.MakeRole("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
-				dns.MakeRoleBinding("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
-				dns.MakeDeployment("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "dnsimage"),
-				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID"),
+				dns.MakeRole("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID"),
+				dns.MakeRoleBinding("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID"),
+				dns.MakeDeployment("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID", "dnsimage"),
+				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID"),
 				endpoints("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
 			},
 			fromResources: []runtime.Object{
@@ -864,11 +864,11 @@ func TestSpecSyncerProcess(t *testing.T) {
 				deployment("theDeployment", "kcp-33jbiactwhg0", "", map[string]string{
 					"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 				}, nil, nil),
-				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
-				dns.MakeRole("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
-				dns.MakeRoleBinding("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
-				dns.MakeDeployment("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "dnsimage"),
-				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID"),
+				dns.MakeRole("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID"),
+				dns.MakeRoleBinding("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID"),
+				dns.MakeDeployment("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID", "dnsimage"),
+				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID"),
 				endpoints("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
 			},
 			fromResources: []runtime.Object{
@@ -951,11 +951,11 @@ func TestSpecSyncerProcess(t *testing.T) {
 					[]string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
 			},
 			toResources: []runtime.Object{
-				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
-				dns.MakeRole("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
-				dns.MakeRoleBinding("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
-				dns.MakeDeployment("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "dnsimage"),
-				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID"),
+				dns.MakeRole("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID"),
+				dns.MakeRoleBinding("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID"),
+				dns.MakeDeployment("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID", "dnsimage"),
+				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID"),
 				endpoints("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
@@ -1112,11 +1112,11 @@ func TestSpecSyncerProcess(t *testing.T) {
 					map[string][]byte{
 						"a": []byte("b"),
 					}),
-				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
-				dns.MakeRole("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
-				dns.MakeRoleBinding("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
-				dns.MakeDeployment("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "dnsimage"),
-				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID"),
+				dns.MakeRole("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID"),
+				dns.MakeRoleBinding("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID"),
+				dns.MakeDeployment("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID", "dnsimage"),
+				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID"),
 				endpoints("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
@@ -1159,11 +1159,11 @@ func TestSpecSyncerProcess(t *testing.T) {
 					map[string]string{
 						"kcp.io/namespace-locator": `{"syncTarget":{"path":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
 					}),
-				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
-				dns.MakeRole("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
-				dns.MakeRoleBinding("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
-				dns.MakeDeployment("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "dnsimage"),
-				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
+				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID"),
+				dns.MakeRole("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID"),
+				dns.MakeRoleBinding("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID"),
+				dns.MakeDeployment("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID", "dnsimage"),
+				service("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n", "tenantID"),
 				endpoints("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
@@ -1245,26 +1245,32 @@ func TestSpecSyncerProcess(t *testing.T) {
 			setupServersideApplyPatchReactor(toClient)
 			resourceWatcherStarted := setupWatchReactor(tc.gvr.Resource, fromClusterClient)
 
+			dnsNamespace := "kcp-01c0zzvlqsi7n"
+
 			// toInformerFactory to watch some DNS-related resources in the dns namespace
 			toInformerFactory := informers.NewSharedInformerFactoryWithOptions(toKubeClient, time.Hour,
-				informers.WithNamespace("kcp-01c0zzvlqsi7n"))
+				informers.WithNamespace(dnsNamespace))
 
 			require.NoError(t, err)
 
-			mockedCleaner := &mockedCleaner{
+			namespaceMockedCleaner := &mockedCleaner{
 				toClean: sets.String{},
 			}
 
 			secretMutator := mutators.NewSecretMutator()
+
 			podspecableMutator := mutators.NewPodspecableMutator(
 				func(clusterName logicalcluster.Name) (*ddsif.DiscoveringDynamicSharedInformerFactory, error) {
 					return ddsifForUpstreamSyncer, nil
-				}, toInformerFactory.Core().V1().Services().Lister(), tc.syncTargetClusterName, tc.syncTargetName, syncTargetUID, "kcp-01c0zzvlqsi7n", false)
+				}, toInformerFactory.Core().V1().Services().Lister(), tc.syncTargetClusterName, tc.syncTargetName, syncTargetUID, dnsNamespace, false)
 
-			dnsProcessor := dns.NewDNSProcessor(toKubeClient, toInformerFactory, tc.syncTargetName, syncTargetUID, "kcp-01c0zzvlqsi7n", "dnsimage")
+			workspaceMockedCleaner := &mockedCleaner{
+				toClean: sets.String{},
+			}
+			dnsProcessor := dns.NewDNSProcessor(toKubeClient, toInformerFactory, tc.syncTargetName, syncTargetUID, dnsNamespace, "dnsimage")
 			controller, err := NewSpecSyncer(logger, kcpLogicalCluster, tc.syncTargetName, syncTargetKey, tc.advancedSchedulingEnabled,
-				fromClusterClient, toClient, toKubeClient, ddsifForUpstreamSyncer, ddsifForDownstream, mockedCleaner, syncTargetUID,
-				"kcp-01c0zzvlqsi7n", dnsProcessor, "dnsimage", secretMutator, podspecableMutator)
+				fromClusterClient, toClient, toKubeClient, ddsifForUpstreamSyncer, ddsifForDownstream, namespaceMockedCleaner, workspaceMockedCleaner, syncTargetUID,
+				dnsNamespace, dnsProcessor, "dnsimage", secretMutator, podspecableMutator)
 			require.NoError(t, err)
 
 			toInformerFactory.Start(ctx.Done())
@@ -1319,12 +1325,12 @@ func TestSpecSyncerProcess(t *testing.T) {
 			}
 			assert.Empty(t, cmp.Diff(tc.expectActionsOnFrom, fromClusterClient.Actions(), cmp.AllowUnexported(logicalcluster.Path{})))
 			assert.Empty(t, cmp.Diff(tc.expectActionsOnTo, toClient.Actions()))
-			mockedCleaner.lock.Lock()
-			defer mockedCleaner.lock.Unlock()
+			namespaceMockedCleaner.lock.Lock()
+			defer namespaceMockedCleaner.lock.Unlock()
 			if tc.expectNSCleaningPlanned != nil {
-				assert.Equal(t, tc.expectNSCleaningPlanned, mockedCleaner.toClean.List())
+				assert.Equal(t, tc.expectNSCleaningPlanned, namespaceMockedCleaner.toClean.List())
 			} else {
-				assert.Equal(t, []string{}, mockedCleaner.toClean.List())
+				assert.Equal(t, []string{}, namespaceMockedCleaner.toClean.List())
 			}
 		})
 	}
@@ -1411,8 +1417,8 @@ func endpoints(name, namespace string) *corev1.Endpoints {
 	}
 }
 
-func service(name, namespace string) *corev1.Service {
-	svc := dns.MakeService(name, namespace)
+func service(name, namespace, tenantID string) *corev1.Service {
+	svc := dns.MakeService(name, namespace, tenantID)
 	svc.Spec.ClusterIP = "8.8.8.8"
 	return svc
 }

@@ -52,6 +52,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/syncer/status"
 	"github.com/kcp-dev/kcp/pkg/syncer/synctarget"
 	"github.com/kcp-dev/kcp/pkg/syncer/upsync"
+	"github.com/kcp-dev/kcp/pkg/syncer/workspacecleaner"
 	kcpcorev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned"
@@ -192,6 +193,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		},
 		cache.Indexers{
 			indexers.ByNamespaceLocatorIndexName: indexers.IndexByNamespaceLocator,
+			indexers.ByTenantIDIndexName:         indexers.IndexByTenantID,
 		},
 	)
 	if err != nil {
@@ -210,6 +212,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	}
 
 	namespaceCleaner := &delegatingCleaner{}
+	workspaceCleaner := &delegatingCleaner{}
 	shardManager := synctarget.NewShardManager(
 		func(ctx context.Context, shardURLs workloadv1alpha1.VirtualWorkspace) (*synctarget.ShardAccess, func() error, error) {
 			upstreamConfig := rest.CopyConfig(cfg.UpstreamConfig)
@@ -268,7 +271,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 			logger.Info("Creating spec syncer")
 			specSyncer, err := spec.NewSpecSyncer(logger, logicalcluster.From(syncTarget), cfg.SyncTargetName, syncTargetKey, advancedSchedulingEnabled,
 				upstreamSyncerClusterClient, downstreamDynamicClient, downstreamKubeClient, ddsifForUpstreamSyncer, ddsifForDownstream,
-				namespaceCleaner, syncTarget.GetUID(),
+				namespaceCleaner, workspaceCleaner, syncTarget.GetUID(),
 				syncerNamespace, dnsProcessor, cfg.DNSImage, secretMutator, podspecableMutator)
 			if err != nil {
 				return nil, nil, err
@@ -369,11 +372,16 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		return err
 	}
 
-	downstreamNamespaceController, err := namespace.NewDownstreamController(logger, logicalcluster.From(syncTarget), cfg.SyncTargetName, syncTargetKey, syncTarget.GetUID(), downstreamConfig, downstreamDynamicClient, ddsifForDownstream, shardManager.ShardAccessForCluster, syncerNamespace, cfg.DownstreamNamespaceCleanDelay)
+	downstreamNamespaceController, err := namespace.NewDownstreamController(logger, logicalcluster.From(syncTarget), cfg.SyncTargetName, syncTargetKey, syncTarget.GetUID(), downstreamConfig, downstreamDynamicClient, ddsifForDownstream, shardManager.ShardAccessForCluster, syncerNamespace, cfg.DownstreamNamespaceCleanDelay, workspaceCleaner)
 	if err != nil {
 		return err
 	}
 	namespaceCleaner.delegate = downstreamNamespaceController
+	workspaceCleanerController, err := workspacecleaner.NewWorkspaceCleaner(logger, ddsifForDownstream, cfg.DownstreamNamespaceCleanDelay, dnsProcessor.CleanupTenant)
+	if err != nil {
+		return err
+	}
+	workspaceCleaner.delegate = workspaceCleanerController
 
 	secretMutator := mutators.NewSecretMutator()
 	podspecableMutator := mutators.NewPodspecableMutator(
@@ -391,7 +399,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	logger.Info("Creating spec syncer")
 	specSyncerForDownstream, err := spec.NewSpecSyncerForDownstream(logger, logicalcluster.From(syncTarget), cfg.SyncTargetName, syncTargetKey, advancedSchedulingEnabled,
 		shardManager.ShardAccessForCluster, downstreamDynamicClient, downstreamKubeClient, ddsifForDownstream,
-		namespaceCleaner, syncTarget.GetUID(),
+		namespaceCleaner, workspaceCleaner, syncTarget.GetUID(),
 		syncerNamespace, dnsProcessor, cfg.DNSImage, secretMutator, podspecableMutator)
 	if err != nil {
 		return err
@@ -436,6 +444,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	go statusSyncer.Start(ctx, numSyncerThreads)
 	go upSyncer.Start(ctx, numSyncerThreads)
 	go downstreamNamespaceController.Start(ctx, numSyncerThreads)
+	go workspaceCleanerController.Start(ctx, numSyncerThreads)
 
 	downstreamSyncerControllerManager := controllermanager.NewControllerManager(ctx,
 		"downstream-syncer",

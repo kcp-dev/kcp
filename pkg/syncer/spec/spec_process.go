@@ -198,8 +198,13 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 		logger.V(4).Info("using actual API version from annotation", "actual", actualVersion)
 	}
 
+	tenantID, err := shared.GetTenantID(desiredNSLocator)
+	if err != nil {
+		return nil, err
+	}
+
 	if downstreamNamespace != "" {
-		if err := c.ensureDownstreamNamespaceExists(ctx, downstreamNamespace, upstreamObj); err != nil {
+		if err := c.ensureDownstreamNamespaceExists(ctx, downstreamNamespace, tenantID, desiredNSLocator); err != nil {
 			return nil, err
 		}
 	} else {
@@ -217,7 +222,7 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	}
 
 	// Make sure the DNS nameserver for the current workspace is up and running
-	if dnsUpAndReady, err := c.dnsProcessor.EnsureDNSUpAndReady(ctx, desiredNSLocator); err != nil {
+	if dnsUpAndReady, err := c.dnsProcessor.EnsureDNSUpAndReady(ctx, tenantID, clusterName); err != nil {
 		logger.Error(err, "failed to check DNS nameserver is up and running (retrying)")
 		return nil, err
 	} else if !dnsUpAndReady && gvr == deploymentGVR {
@@ -239,11 +244,12 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 // TODO: This function is there as a quick and dirty implementation of namespace creation.
 //
 //	In fact We should also be getting notifications about namespaces created upstream and be creating downstream equivalents.
-func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downstreamNamespace string, upstreamObj *unstructured.Unstructured) error {
+func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downstreamNamespace string, tenantID string, desiredNSLocator shared.NamespaceLocator) error {
 	logger := klog.FromContext(ctx)
 
 	// If the namespace was marked for deletion, let's cancel it, as we expect to use it.
 	c.downstreamNSCleaner.CancelCleaning(downstreamNamespace)
+	c.workspaceCleaner.CancelCleaning(tenantID)
 
 	namespaces := c.downstreamClient.Resource(schema.GroupVersionResource{
 		Group:    "",
@@ -256,10 +262,6 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 	newNamespace.SetKind("Namespace")
 	newNamespace.SetName(downstreamNamespace)
 
-	// TODO: if the downstream namespace loses these annotations/labels after creation,
-	// we don't have anything in place currently that will put them back.
-	upstreamLogicalCluster := logicalcluster.From(upstreamObj)
-	desiredNSLocator := shared.NewNamespaceLocator(upstreamLogicalCluster, c.syncTargetClusterName, c.syncTargetUID, c.syncTargetName, upstreamObj.GetNamespace())
 	b, err := json.Marshal(desiredNSLocator)
 	if err != nil {
 		return err
@@ -302,15 +304,15 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 
 	// The namespace exists, so check if it has the correct namespace locator.
 	unstrNamespace := namespace.(*unstructured.Unstructured)
-	nsLocator, exists, err := shared.LocatorFromAnnotations(unstrNamespace.GetAnnotations())
+	existingLocator, exists, err := shared.LocatorFromAnnotations(unstrNamespace.GetAnnotations())
 	if err != nil {
 		return fmt.Errorf("(possible namespace collision) namespace %s already exists, but found an error when trying to decode the annotation: %w", newNamespace.GetName(), err)
 	}
 	if !exists {
 		return fmt.Errorf("(namespace collision) namespace %s has no namespace locator", unstrNamespace.GetName())
 	}
-	if !reflect.DeepEqual(desiredNSLocator, *nsLocator) {
-		return fmt.Errorf("(namespace collision) namespace %s already exists, but has a different namespace locator annotation: %+v vs %+v", newNamespace.GetName(), nsLocator, desiredNSLocator)
+	if !reflect.DeepEqual(desiredNSLocator, *existingLocator) {
+		return fmt.Errorf("(namespace collision) namespace %s already exists, but has a different namespace locator annotation: %+v vs %+v", newNamespace.GetName(), existingLocator, desiredNSLocator)
 	}
 
 	// Handle kcp upgrades by checking the tenant ID is set and correct

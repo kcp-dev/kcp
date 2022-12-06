@@ -18,6 +18,7 @@ package namespace
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -28,6 +29,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -44,6 +46,7 @@ import (
 
 	ddsif "github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	"github.com/kcp-dev/kcp/pkg/syncer/synctarget"
 )
 
@@ -59,6 +62,8 @@ type DownstreamController struct {
 	lock                sync.Mutex
 	toDeleteMap         map[string]time.Time
 	namespaceCleanDelay time.Duration
+
+	workspaceCleaner shared.Cleaner
 
 	deleteDownstreamNamespace func(ctx context.Context, namespace string) error
 	upstreamNamespaceExists   func(clusterName logicalcluster.Name, upstreamNamespaceName string) (bool, error)
@@ -86,6 +91,7 @@ func NewDownstreamController(
 	getShardAccess synctarget.GetShardAccessFunc,
 	dnsNamespace string,
 	namespaceCleanDelay time.Duration,
+	workspaceCleaner shared.Cleaner,
 ) (*DownstreamController, error) {
 	namespaceGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
 	logger := logging.WithReconciler(syncerLogger, downstreamControllerName)
@@ -170,6 +176,8 @@ func NewDownstreamController(
 		dnsNamespace:          dnsNamespace,
 
 		namespaceCleanDelay: namespaceCleanDelay,
+
+		workspaceCleaner: workspaceCleaner,
 	}
 
 	logger.V(2).Info("Set up downstream namespace informer")
@@ -312,16 +320,28 @@ func (c *DownstreamController) processNextDelayedWorkItem(ctx context.Context) b
 func (c *DownstreamController) processDelayed(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
 	if !c.isPlannedForCleaning(key) {
-		logger.V(2).Info("Namespace is not marked for deletion check anymore, skipping")
+		logger.V(2).Info("namespace is not marked for deletion check anymore, skipping")
 		return nil
 	}
+
+	downstreamNamespaceObj, err := c.getDownstreamNamespace(key)
+	if apierrors.IsNotFound(err) {
+		logger.V(4).Info("Namespace not found, ignoring key")
+		c.CancelCleaning(key)
+		return nil
+	}
+	if err != nil {
+		logger.Error(err, "failed to get downstream namespace")
+		return nil
+	}
+	downstreamNamespace := downstreamNamespaceObj.(*unstructured.Unstructured)
 
 	empty, err := c.isDowntreamNamespaceEmpty(ctx, key)
 	if err != nil {
 		return fmt.Errorf("failed to check if downstream namespace is empty: %w", err)
 	}
 	if !empty {
-		logger.V(2).Info("Namespace is not empty, skip cleaning now but keep it as a candidate for future cleaning")
+		logger.V(2).Info("namespace is not empty, skip cleaning now but keep it as a candidate for future cleaning")
 		return nil
 	}
 
@@ -334,5 +354,17 @@ func (c *DownstreamController) processDelayed(ctx context.Context, key string) e
 		logger.V(2).Info("Namespace is not found, perhaps it was already deleted")
 	}
 	c.CancelCleaning(key)
+
+	if nsLocator, ok, err := shared.LocatorFromAnnotations(downstreamNamespace.GetAnnotations()); err != nil {
+		utilruntime.HandleError(err)
+	} else if !ok {
+		utilruntime.HandleError(errors.New("namespace doesn't hold a locator annotation"))
+	} else {
+		tenantID, err := shared.GetTenantID(*nsLocator)
+		if err != nil {
+			utilruntime.HandleError(err)
+		}
+		c.workspaceCleaner.PlanCleaning(tenantID)
+	}
 	return nil
 }

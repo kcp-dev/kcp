@@ -77,7 +77,9 @@ type Controller struct {
 	getDownstreamLister               func(gvr schema.GroupVersionResource) (cache.GenericLister, error)
 	listDownstreamNamespacesByLocator func(jsonLocator string) ([]*unstructured.Unstructured, error)
 
-	downstreamNSCleaner       shared.Cleaner
+	downstreamNSCleaner shared.Cleaner
+	workspaceCleaner    shared.Cleaner
+
 	syncTargetName            string
 	syncTargetClusterName     logicalcluster.Name
 	syncTargetUID             types.UID
@@ -91,6 +93,7 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluste
 	ddsifForUpstreamSyncer *ddsif.DiscoveringDynamicSharedInformerFactory,
 	ddsifForDownstream *ddsif.GenericDiscoveringDynamicSharedInformerFactory[cache.SharedIndexInformer, cache.GenericLister, informers.GenericInformer],
 	downstreamNSCleaner shared.Cleaner,
+	workspaceCleaner shared.Cleaner,
 	syncTargetUID types.UID,
 	dnsNamespace string,
 	dnsProcessor *dns.DNSProcessor,
@@ -104,6 +107,7 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluste
 		},
 		downstreamClient:    downstreamClient,
 		downstreamNSCleaner: downstreamNSCleaner,
+		workspaceCleaner:    workspaceCleaner,
 
 		getDownstreamLister: func(gvr schema.GroupVersionResource) (cache.GenericLister, error) {
 			informers, notSynced := ddsifForDownstream.Informers()
@@ -192,6 +196,7 @@ func NewSpecSyncerForDownstream(syncerLogger logr.Logger, syncTargetClusterName 
 	downstreamClient dynamic.Interface, downstreamKubeClient kubernetes.Interface,
 	ddsifForDownstream *ddsif.GenericDiscoveringDynamicSharedInformerFactory[cache.SharedIndexInformer, cache.GenericLister, informers.GenericInformer],
 	downstreamNSCleaner shared.Cleaner,
+	workspaceCleaner shared.Cleaner,
 	syncTargetUID types.UID,
 	dnsNamespace string,
 	dnsProcessor *dns.DNSProcessor,
@@ -212,6 +217,7 @@ func NewSpecSyncerForDownstream(syncerLogger logr.Logger, syncTargetClusterName 
 		},
 		downstreamClient:    downstreamClient,
 		downstreamNSCleaner: downstreamNSCleaner,
+		workspaceCleaner:    workspaceCleaner,
 
 		getDownstreamLister: func(gvr schema.GroupVersionResource) (cache.GenericLister, error) {
 			informers, notSynced := ddsifForDownstream.Informers()
