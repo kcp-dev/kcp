@@ -460,5 +460,5 @@ func getAPIExportClusterName(apiBinding *apisv1alpha1.APIBinding) (logicalcluste
 		return logicalcluster.Name{}, fmt.Errorf("APIBinding does not specify an APIExport")
 	}
 
-	return logicalcluster.New(apiBinding.Spec.Reference.Export.Path), nil
+	return logicalcluster.New(apiBinding.Spec.Reference.Export.Cluster), nil
 }

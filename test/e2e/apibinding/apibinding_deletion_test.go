@@ -96,8 +96,8 @@ func TestAPIBindingDeletion(t *testing.T) {
 		Spec: apisv1alpha1.APIBindingSpec{
 			Reference: apisv1alpha1.BindingReference{
 				Export: &apisv1alpha1.ExportBindingReference{
-					Path: serviceProviderWorkspace.String(),
-					Name: "today-cowboys",
+					Cluster: serviceProviderWorkspace.String(),
+					Name:    "today-cowboys",
 				},
 			},
 		},

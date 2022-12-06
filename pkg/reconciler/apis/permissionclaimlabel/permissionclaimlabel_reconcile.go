@@ -54,7 +54,7 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 		return nil
 	}
 
-	exportClusterName := apiBinding.Spec.Reference.Export.Path
+	exportClusterName := apiBinding.Spec.Reference.Export.Cluster
 	exportName := apiBinding.Spec.Reference.Export.Name
 	apiExport, err := c.getAPIExport(logicalcluster.New(exportClusterName), exportName)
 	if err != nil {

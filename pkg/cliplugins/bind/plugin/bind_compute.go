@@ -201,7 +201,7 @@ func bindReady(bindings []*apisv1alpha1.APIBinding, placement *schedulingv1alpha
 			} else if conditions.IsFalse(binding, apisv1alpha1.APIExportValid) {
 				conditionMessage = conditions.GetMessage(binding, apisv1alpha1.APIExportValid)
 			}
-			return false, fmt.Sprintf("not bound to apiexport '%s:%s': %s", binding.Spec.Reference.Export.Path, binding.Spec.Reference.Export.Path, conditionMessage)
+			return false, fmt.Sprintf("not bound to apiexport '%s:%s': %s", binding.Spec.Reference.Export.Cluster, binding.Spec.Reference.Export.Cluster, conditionMessage)
 		}
 	}
 
@@ -233,7 +233,7 @@ func (o *BindComputeOptions) applyAPIBinding(ctx context.Context, client kcpclie
 		if binding.Spec.Reference.Export == nil {
 			continue
 		}
-		existingAPIExports.Insert(fmt.Sprintf("%s:%s", binding.Spec.Reference.Export.Path, binding.Spec.Reference.Export.Name))
+		existingAPIExports.Insert(fmt.Sprintf("%s:%s", binding.Spec.Reference.Export.Cluster, binding.Spec.Reference.Export.Name))
 	}
 
 	var errs []error
@@ -248,8 +248,8 @@ func (o *BindComputeOptions) applyAPIBinding(ctx context.Context, client kcpclie
 			Spec: apisv1alpha1.APIBindingSpec{
 				Reference: apisv1alpha1.BindingReference{
 					Export: &apisv1alpha1.ExportBindingReference{
-						Path: clusterName.String(),
-						Name: name,
+						Cluster: clusterName.String(),
+						Name:    name,
 					},
 				},
 			},

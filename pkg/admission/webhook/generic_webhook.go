@@ -140,7 +140,7 @@ func (p *WebhookDispatcher) getAPIBindingWorkspace(attr admission.Attributes, cl
 				continue
 			}
 			if br.Group == attr.GetResource().Group && br.Resource == attr.GetResource().Resource {
-				return logicalcluster.New(apiBinding.Spec.Reference.Export.Path), true, nil
+				return logicalcluster.New(apiBinding.Spec.Reference.Export.Cluster), true, nil
 			}
 		}
 	}

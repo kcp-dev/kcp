@@ -133,7 +133,7 @@ func TestDispatch(t *testing.T) {
 					Spec: v1alpha1.APIBindingSpec{
 						Reference: v1alpha1.BindingReference{
 							Export: &v1alpha1.ExportBindingReference{
-								Path: "root:org:source-cluster",
+								Cluster: "root:org:source-cluster",
 							},
 						},
 					},

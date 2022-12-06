@@ -58,8 +58,8 @@ func ValidateAPIBindingReference(reference apisv1alpha1.BindingReference, path *
 	// For now, field "export" is required via OpenAPI. But just in case...
 	if reference.Export != nil {
 		// These are required by OpenAPI, but just in case...
-		if reference.Export.Path == "" {
-			allErrs = append(allErrs, field.Required(path.Child("export").Child("path"), ""))
+		if reference.Export.Cluster == "" {
+			allErrs = append(allErrs, field.Required(path.Child("export").Child("identifier"), ""))
 		}
 
 		if reference.Export.Name == "" {

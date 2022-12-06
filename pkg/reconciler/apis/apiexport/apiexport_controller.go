@@ -277,7 +277,7 @@ func (c *controller) enqueueFromAPIBinding(obj interface{}) {
 		return
 	}
 
-	key := kcpcache.ToClusterAwareKey(binding.Spec.Reference.Export.Path, "", binding.Spec.Reference.Export.Name)
+	key := kcpcache.ToClusterAwareKey(binding.Spec.Reference.Export.Cluster, "", binding.Spec.Reference.Export.Name)
 	logging.WithQueueKey(logger, key).V(2).Info("queueing APIExport via APIBinding")
 	c.queue.Add(key)
 }

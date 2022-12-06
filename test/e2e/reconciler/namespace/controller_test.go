@@ -162,8 +162,8 @@ func TestNamespaceScheduler(t *testing.T) {
 						SupportedAPIExports: []apisv1alpha1.BindingReference{
 							{
 								Export: &apisv1alpha1.ExportBindingReference{
-									Name: "kubernetes",
-									Path: server.clusterName.String(),
+									Name:    "kubernetes",
+									Cluster: server.clusterName.String(),
 								},
 							},
 						},

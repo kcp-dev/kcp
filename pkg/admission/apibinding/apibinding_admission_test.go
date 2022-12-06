@@ -494,8 +494,8 @@ func (b *bindingBuilder) withName(name string) *bindingBuilder {
 
 func (b *bindingBuilder) withAbsoluteWorkspaceReference(path string, exportName string) *bindingBuilder {
 	b.Spec.Reference.Export = &apisv1alpha1.ExportBindingReference{
-		Path: path,
-		Name: exportName,
+		Cluster: path,
+		Name:    exportName,
 	}
 	return b
 }

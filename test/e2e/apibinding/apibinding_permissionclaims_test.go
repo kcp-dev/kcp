@@ -258,8 +258,8 @@ func bindConsumerToProvider(ctx context.Context, consumerWorkspace, providerWork
 		Spec: apisv1alpha1.APIBindingSpec{
 			Reference: apisv1alpha1.BindingReference{
 				Export: &apisv1alpha1.ExportBindingReference{
-					Path: providerWorkspace.String(),
-					Name: "today-cowboys",
+					Cluster: providerWorkspace.String(),
+					Name:    "today-cowboys",
 				},
 			},
 			PermissionClaims: getAcceptedPermissionClaims(identityHash),

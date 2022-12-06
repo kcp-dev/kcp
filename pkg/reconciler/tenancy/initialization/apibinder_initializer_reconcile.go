@@ -214,8 +214,8 @@ func (b *APIBinder) reconcile(ctx context.Context, this *tenancyv1alpha1.ThisWor
 
 	for exportRef := range requiredExportRefs {
 		workspaceExportRef := apisv1alpha1.ExportBindingReference{
-			Path: exportRef.Path,
-			Name: exportRef.ExportName,
+			Cluster: exportRef.Path,
+			Name:    exportRef.ExportName,
 		}
 
 		binding, exists := exportToBinding[workspaceExportRef]

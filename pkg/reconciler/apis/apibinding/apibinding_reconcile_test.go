@@ -874,8 +874,8 @@ func (b *bindingBuilder) WithoutWorkspaceReference() *bindingBuilder {
 
 func (b *bindingBuilder) WithWorkspaceReference(path, exportName string) *bindingBuilder {
 	b.Spec.Reference.Export = &apisv1alpha1.ExportBindingReference{
-		Path: path,
-		Name: exportName,
+		Cluster: path,
+		Name:    exportName,
 	}
 	return b
 }
