@@ -62,7 +62,6 @@ import (
 	kcpfilters "github.com/kcp-dev/kcp/pkg/server/filters"
 	kcpserveroptions "github.com/kcp-dev/kcp/pkg/server/options"
 	"github.com/kcp-dev/kcp/pkg/server/options/batteries"
-	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
 	"github.com/kcp-dev/kcp/pkg/tunneler"
 )
 
@@ -185,8 +184,6 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	c.GenericConfig.RequestInfoResolver = requestinfo.NewFactory() // must be set here early to avoid a crash in the EnableMultiCluster roundtrip wrapper
 
 	if c.Options.Cache.Enabled {
 		var cacheClientConfig *rest.Config
