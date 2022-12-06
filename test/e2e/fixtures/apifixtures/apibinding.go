@@ -19,7 +19,6 @@ package apifixtures
 import (
 	"context"
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
@@ -31,6 +30,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -41,19 +41,19 @@ import (
 func BindToExport(
 	ctx context.Context,
 	t *testing.T,
-	exportClusterName logicalcluster.Name,
+	exportClusterName tenancy.Cluster,
 	apiExportName string,
 	bindingClusterName logicalcluster.Name,
 	clusterClient kcpclientset.ClusterInterface,
 ) {
 	binding := &apisv1alpha1.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: strings.ReplaceAll(exportClusterName.String(), ":", "-"),
+			Name: exportClusterName.String(),
 		},
 		Spec: apisv1alpha1.APIBindingSpec{
 			Reference: apisv1alpha1.BindingReference{
 				Export: &apisv1alpha1.ExportBindingReference{
-					Cluster: exportClusterName.String(),
+					Cluster: exportClusterName,
 					Name:    apiExportName,
 				},
 			},

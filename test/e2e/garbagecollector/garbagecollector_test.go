@@ -47,6 +47,7 @@ import (
 	configcrds "github.com/kcp-dev/kcp/config/crds"
 	"github.com/kcp-dev/kcp/config/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
@@ -71,16 +72,16 @@ func TestGarbageCollectorBuiltInCoreV1Types(t *testing.T) {
 
 	orgClusterName := framework.NewOrganizationFixture(t, server)
 
-	ws := framework.NewWorkspaceFixture(t, server, orgClusterName, framework.WithName("gc-builtins"))
+	ws := framework.NewWorkspaceFixture(t, server, orgClusterName.Path(), framework.WithName("gc-builtins"))
 
 	t.Logf("Creating owner configmap")
-	owner, err := kubeClusterClient.Cluster(ws).CoreV1().ConfigMaps("default").Apply(ctx,
+	owner, err := kubeClusterClient.Cluster(ws.Path()).CoreV1().ConfigMaps("default").Apply(ctx,
 		corev1ac.ConfigMap("owner", "default"),
 		metav1.ApplyOptions{FieldManager: "e2e-test-runner"})
 	require.NoError(t, err, "Error applying owner configmap %s|default/owner", ws)
 
 	t.Logf("Creating owned configmap")
-	owned, err := kubeClusterClient.Cluster(ws).CoreV1().ConfigMaps("default").Apply(ctx,
+	owned, err := kubeClusterClient.Cluster(ws.Path()).CoreV1().ConfigMaps("default").Apply(ctx,
 		corev1ac.ConfigMap("owned", "default").
 			WithOwnerReferences(metav1ac.OwnerReference().
 				WithAPIVersion("v1").
@@ -91,11 +92,11 @@ func TestGarbageCollectorBuiltInCoreV1Types(t *testing.T) {
 	require.NoError(t, err, "Error applying owned configmap %s|default/owned", ws)
 
 	t.Logf("Deleting owner configmap")
-	err = kubeClusterClient.Cluster(ws).CoreV1().ConfigMaps("default").Delete(ctx, owner.Name, metav1.DeleteOptions{})
+	err = kubeClusterClient.Cluster(ws.Path()).CoreV1().ConfigMaps("default").Delete(ctx, owner.Name, metav1.DeleteOptions{})
 
 	t.Logf("Waiting for the owned configmap to be garbage collected")
 	framework.Eventually(t, func() (bool, string) {
-		_, err = kubeClusterClient.Cluster(ws).CoreV1().ConfigMaps("default").Get(ctx, owned.Name, metav1.GetOptions{})
+		_, err = kubeClusterClient.Cluster(ws.Path()).CoreV1().ConfigMaps("default").Get(ctx, owned.Name, metav1.GetOptions{})
 		return apierrors.IsNotFound(err), fmt.Sprintf("configmap not garbage collected: %s", owned.Name)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "error waiting for owned configmap to be garbage collected")
 }
@@ -111,7 +112,7 @@ func TestGarbageCollectorTypesFromBinding(t *testing.T) {
 
 	orgClusterName := framework.NewOrganizationFixture(t, server)
 
-	apiProviderClusterName := framework.NewWorkspaceFixture(t, server, orgClusterName, framework.WithName("gc-api-export"))
+	apiProviderClusterName := framework.NewWorkspaceFixture(t, server, orgClusterName.Path(), framework.WithName("gc-api-export"))
 
 	cfg := server.BaseConfig(t)
 
@@ -125,8 +126,8 @@ func TestGarbageCollectorTypesFromBinding(t *testing.T) {
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
 	t.Logf("Create the cowboy APIResourceSchema")
-	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(discoveryClusterClient.Cluster(apiProviderClusterName)))
-	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(apiProviderClusterName), mapper, nil, "apiresourceschema_cowboys.yaml", testFiles)
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(discoveryClusterClient.Cluster(apiProviderClusterName.Path())))
+	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(apiProviderClusterName.Path()), mapper, nil, "apiresourceschema_cowboys.yaml", testFiles)
 	require.NoError(t, err)
 
 	t.Logf("Create an APIExport for it")
@@ -138,7 +139,7 @@ func TestGarbageCollectorTypesFromBinding(t *testing.T) {
 			LatestResourceSchemas: []string{"today.cowboys.wildwest.dev"},
 		},
 	}
-	_, err = kcpClusterClient.Cluster(apiProviderClusterName).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
+	_, err = kcpClusterClient.Cluster(apiProviderClusterName.Path()).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	// Test multiple workspaces in parallel
@@ -150,7 +151,7 @@ func TestGarbageCollectorTypesFromBinding(t *testing.T) {
 			c, cancelFunc := context.WithCancel(ctx)
 			t.Cleanup(cancelFunc)
 
-			userClusterName := framework.NewWorkspaceFixture(t, server, orgClusterName, framework.WithName("gc-api-binding-%d", i))
+			userClusterName := framework.NewWorkspaceFixture(t, server, orgClusterName.Path(), framework.WithName("gc-api-binding-%d", i))
 
 			t.Logf("Create a binding in the user workspace")
 			binding := &apisv1alpha1.APIBinding{
@@ -160,7 +161,7 @@ func TestGarbageCollectorTypesFromBinding(t *testing.T) {
 				Spec: apisv1alpha1.APIBindingSpec{
 					Reference: apisv1alpha1.BindingReference{
 						Export: &apisv1alpha1.ExportBindingReference{
-							Cluster: apiProviderClusterName.String(),
+							Cluster: apiProviderClusterName,
 							Name:    cowboysAPIExport.Name,
 						},
 					},
@@ -173,12 +174,12 @@ func TestGarbageCollectorTypesFromBinding(t *testing.T) {
 			kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 			require.NoError(t, err, "error creating kcp cluster client")
 
-			_, err = kcpClusterClient.Cluster(userClusterName).ApisV1alpha1().APIBindings().Create(c, binding, metav1.CreateOptions{})
+			_, err = kcpClusterClient.Cluster(userClusterName.Path()).ApisV1alpha1().APIBindings().Create(c, binding, metav1.CreateOptions{})
 			require.NoError(t, err)
 
 			t.Logf("Wait for the binding to be ready")
 			framework.Eventually(t, func() (bool, string) {
-				binding, err := kcpClusterClient.Cluster(userClusterName).ApisV1alpha1().APIBindings().Get(c, binding.Name, metav1.GetOptions{})
+				binding, err := kcpClusterClient.Cluster(userClusterName.Path()).ApisV1alpha1().APIBindings().Get(c, binding.Name, metav1.GetOptions{})
 				require.NoError(t, err, "error getting binding %s", binding.Name)
 				condition := conditions.Get(binding, apisv1alpha1.InitialBindingCompleted)
 				if condition == nil {
@@ -195,7 +196,7 @@ func TestGarbageCollectorTypesFromBinding(t *testing.T) {
 
 			t.Logf("Wait for being able to list cowboys in the user workspace")
 			framework.Eventually(t, func() (bool, string) {
-				_, err := wildwestClusterClient.Cluster(userClusterName).WildwestV1alpha1().Cowboys("").
+				_, err := wildwestClusterClient.Cluster(userClusterName.Path()).WildwestV1alpha1().Cowboys("").
 					List(c, metav1.ListOptions{})
 				if err != nil {
 					return false, fmt.Sprintf("Failed to list cowboys: %v", err)
@@ -204,7 +205,7 @@ func TestGarbageCollectorTypesFromBinding(t *testing.T) {
 			}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 			t.Logf("Creating owner cowboy")
-			owner, err := wildwestClusterClient.Cluster(userClusterName).WildwestV1alpha1().Cowboys("default").
+			owner, err := wildwestClusterClient.Cluster(userClusterName.Path()).WildwestV1alpha1().Cowboys("default").
 				Create(ctx,
 					&wildwestv1alpha1.Cowboy{
 						ObjectMeta: metav1.ObjectMeta{
@@ -215,7 +216,7 @@ func TestGarbageCollectorTypesFromBinding(t *testing.T) {
 			require.NoError(t, err, "Error creating owner cowboy %s|default/owner", userClusterName)
 
 			t.Logf("Creating owned configmap")
-			ownedConfigMap, err := kubeClusterClient.Cluster(userClusterName).CoreV1().ConfigMaps("default").Apply(ctx,
+			ownedConfigMap, err := kubeClusterClient.Cluster(userClusterName.Path()).CoreV1().ConfigMaps("default").Apply(ctx,
 				corev1ac.ConfigMap("owned", "default").
 					WithOwnerReferences(metav1ac.OwnerReference().
 						WithAPIVersion(wildwestv1alpha1.SchemeGroupVersion.String()).
@@ -226,7 +227,7 @@ func TestGarbageCollectorTypesFromBinding(t *testing.T) {
 			require.NoError(t, err, "Error applying owned configmap %s|default/owned", userClusterName)
 
 			t.Logf("Creating owned cowboy")
-			ownedCowboy, err := wildwestClusterClient.Cluster(userClusterName).WildwestV1alpha1().Cowboys("default").
+			ownedCowboy, err := wildwestClusterClient.Cluster(userClusterName.Path()).WildwestV1alpha1().Cowboys("default").
 				Create(ctx,
 					&wildwestv1alpha1.Cowboy{
 						ObjectMeta: metav1.ObjectMeta{
@@ -245,19 +246,19 @@ func TestGarbageCollectorTypesFromBinding(t *testing.T) {
 			require.NoError(t, err, "Error creating owned cowboy %s|default/owner", userClusterName)
 
 			t.Logf("Deleting owner cowboy")
-			err = wildwestClusterClient.Cluster(userClusterName).WildwestV1alpha1().Cowboys("default").
+			err = wildwestClusterClient.Cluster(userClusterName.Path()).WildwestV1alpha1().Cowboys("default").
 				Delete(ctx, owner.Name, metav1.DeleteOptions{})
 
 			t.Logf("Waiting for the owned configmap to be garbage collected")
 			framework.Eventually(t, func() (bool, string) {
-				_, err = kubeClusterClient.Cluster(userClusterName).CoreV1().ConfigMaps("default").
+				_, err = kubeClusterClient.Cluster(userClusterName.Path()).CoreV1().ConfigMaps("default").
 					Get(ctx, ownedConfigMap.Name, metav1.GetOptions{})
 				return apierrors.IsNotFound(err), fmt.Sprintf("configmap not garbage collected: %s", ownedConfigMap.Name)
 			}, wait.ForeverTestTimeout, 100*time.Millisecond, "error waiting for owned configmap to be garbage collected")
 
 			t.Logf("Waiting for the owned cowboy to be garbage collected")
 			framework.Eventually(t, func() (bool, string) {
-				_, err = wildwestClusterClient.Cluster(userClusterName).WildwestV1alpha1().Cowboys("default").
+				_, err = wildwestClusterClient.Cluster(userClusterName.Path()).WildwestV1alpha1().Cowboys("default").
 					Get(ctx, ownedCowboy.Name, metav1.GetOptions{})
 				return apierrors.IsNotFound(err), fmt.Sprintf("cowboy not garbage collected: %s", ownedConfigMap.Name)
 			}, wait.ForeverTestTimeout, 100*time.Millisecond, "error waiting for owned cowboy to be garbage collected")
@@ -292,22 +293,22 @@ func TestGarbageCollectorNormalCRDs(t *testing.T) {
 	sheriffCRD1 := apifixtures.NewSheriffsCRDWithSchemaDescription(group, "one")
 	sheriffCRD2 := apifixtures.NewSheriffsCRDWithSchemaDescription(group, "two")
 
-	ws1 := framework.NewWorkspaceFixture(t, server, orgClusterName, framework.WithName("gc-crd-1"))
-	ws2 := framework.NewWorkspaceFixture(t, server, orgClusterName, framework.WithName("gc-crd-2"))
+	ws1 := framework.NewWorkspaceFixture(t, server, orgClusterName.Path(), framework.WithName("gc-crd-1"))
+	ws2 := framework.NewWorkspaceFixture(t, server, orgClusterName.Path(), framework.WithName("gc-crd-2"))
 
 	t.Logf("Install a normal sheriffs CRD into workspace 1 %q", ws1)
-	bootstrapCRD(t, ws1, crdClusterClient.ApiextensionsV1().CustomResourceDefinitions(), sheriffCRD1)
+	bootstrapCRD(t, ws1.Path(), crdClusterClient.ApiextensionsV1().CustomResourceDefinitions(), sheriffCRD1)
 
 	t.Logf("Install another normal sheriffs CRD with a different schema into workspace 2 %q", ws2)
-	bootstrapCRD(t, ws2, crdClusterClient.ApiextensionsV1().CustomResourceDefinitions(), sheriffCRD2)
+	bootstrapCRD(t, ws2.Path(), crdClusterClient.ApiextensionsV1().CustomResourceDefinitions(), sheriffCRD2)
 
 	sheriffsGVR := schema.GroupVersionResource{Group: group, Resource: "sheriffs", Version: "v1"}
 
 	// Test with 2 workspaces to make sure GC works for both
-	workspaces := []logicalcluster.Name{ws1, ws2}
+	workspaces := []tenancy.Cluster{ws1, ws2}
 	for _, ws := range workspaces {
 		t.Logf("Creating owner sheriff")
-		owner, err := dynamicClusterClient.Cluster(ws).Resource(sheriffsGVR).Namespace("default").
+		owner, err := dynamicClusterClient.Cluster(ws.Path()).Resource(sheriffsGVR).Namespace("default").
 			Create(ctx, &unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"apiVersion": sheriffsGVR.GroupVersion().String(),
@@ -320,7 +321,7 @@ func TestGarbageCollectorNormalCRDs(t *testing.T) {
 		require.NoError(t, err, "Error creating owner sheriff %s|default/owner", ws)
 
 		t.Logf("Creating owned configmap")
-		_, err = kubeClusterClient.Cluster(ws).CoreV1().ConfigMaps("default").
+		_, err = kubeClusterClient.Cluster(ws.Path()).CoreV1().ConfigMaps("default").
 			Apply(ctx, corev1ac.ConfigMap("owned", "default").
 				WithOwnerReferences(metav1ac.OwnerReference().
 					WithAPIVersion(sheriffsGVR.GroupVersion().String()).
@@ -333,15 +334,15 @@ func TestGarbageCollectorNormalCRDs(t *testing.T) {
 
 	t.Logf("Deleting all sheriffs")
 	for _, ws := range workspaces {
-		err = dynamicClusterClient.Cluster(ws).Resource(sheriffsGVR).Namespace("default").
+		err = dynamicClusterClient.Cluster(ws.Path()).Resource(sheriffsGVR).Namespace("default").
 			DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{})
 		require.NoError(t, err, "Error deleting all sheriffs in %s", ws)
 	}
 
 	t.Logf("Waiting for the owned configmaps to be garbage collected")
 	framework.Eventually(t, func() (bool, string) {
-		_, err1 := kubeClusterClient.Cluster(ws1).CoreV1().ConfigMaps("default").Get(ctx, "owned", metav1.GetOptions{})
-		_, err2 := kubeClusterClient.Cluster(ws2).CoreV1().ConfigMaps("default").Get(ctx, "owned", metav1.GetOptions{})
+		_, err1 := kubeClusterClient.Cluster(ws1.Path()).CoreV1().ConfigMaps("default").Get(ctx, "owned", metav1.GetOptions{})
+		_, err2 := kubeClusterClient.Cluster(ws2.Path()).CoreV1().ConfigMaps("default").Get(ctx, "owned", metav1.GetOptions{})
 		return apierrors.IsNotFound(err1) && apierrors.IsNotFound(err2), "configmaps not garbage collected"
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "error waiting for owned configmaps to be garbage collected")
 }
@@ -369,16 +370,16 @@ func TestGarbageCollectorVersionedCRDs(t *testing.T) {
 
 	sheriffCRD := apifixtures.NewSheriffsCRDWithVersions(group, "v1", "v2")
 
-	ws := framework.NewWorkspaceFixture(t, server, orgClusterName, framework.WithName("gc-crd-versions"))
+	ws := framework.NewWorkspaceFixture(t, server, orgClusterName.Path(), framework.WithName("gc-crd-versions"))
 
 	t.Logf("Install a versioned sheriffs CRD into workspace %q", ws)
-	bootstrapCRD(t, ws, crdClusterClient.ApiextensionsV1().CustomResourceDefinitions(), sheriffCRD)
+	bootstrapCRD(t, ws.Path(), crdClusterClient.ApiextensionsV1().CustomResourceDefinitions(), sheriffCRD)
 
 	sheriffsGVRv1 := schema.GroupVersionResource{Group: group, Resource: "sheriffs", Version: "v1"}
 	sheriffsGVRv2 := schema.GroupVersionResource{Group: group, Resource: "sheriffs", Version: "v2"}
 
 	t.Logf("Creating owner v1 sheriff")
-	ownerv1, err := dynamicClusterClient.Cluster(ws).Resource(sheriffsGVRv1).Namespace("default").
+	ownerv1, err := dynamicClusterClient.Cluster(ws.Path()).Resource(sheriffsGVRv1).Namespace("default").
 		Create(ctx, &unstructured.Unstructured{
 			Object: map[string]interface{}{
 				"apiVersion": sheriffsGVRv1.GroupVersion().String(),
@@ -391,7 +392,7 @@ func TestGarbageCollectorVersionedCRDs(t *testing.T) {
 	require.NoError(t, err, "Error creating owner sheriff %s|default/owner-v1", ws)
 
 	t.Logf("Creating owned v1 sheriff")
-	_, err = dynamicClusterClient.Cluster(ws).Resource(sheriffsGVRv1).Namespace("default").
+	_, err = dynamicClusterClient.Cluster(ws.Path()).Resource(sheriffsGVRv1).Namespace("default").
 		Create(ctx, &unstructured.Unstructured{
 			Object: map[string]interface{}{
 				"apiVersion": sheriffsGVRv1.GroupVersion().String(),
@@ -412,7 +413,7 @@ func TestGarbageCollectorVersionedCRDs(t *testing.T) {
 	require.NoError(t, err, "Error creating owned sheriff %s|default/owned-v1", ws)
 
 	t.Logf("Creating owned v2 sheriff")
-	_, err = dynamicClusterClient.Cluster(ws).Resource(sheriffsGVRv2).Namespace("default").
+	_, err = dynamicClusterClient.Cluster(ws.Path()).Resource(sheriffsGVRv2).Namespace("default").
 		Create(ctx, &unstructured.Unstructured{
 			Object: map[string]interface{}{
 				"apiVersion": sheriffsGVRv2.GroupVersion().String(),
@@ -433,19 +434,19 @@ func TestGarbageCollectorVersionedCRDs(t *testing.T) {
 	require.NoError(t, err, "Error creating owned sheriff %s|default/owned-v2", ws)
 
 	t.Logf("Deleting owner v1 sheriff")
-	err = dynamicClusterClient.Cluster(ws).Resource(sheriffsGVRv1).Namespace("default").
+	err = dynamicClusterClient.Cluster(ws.Path()).Resource(sheriffsGVRv1).Namespace("default").
 		Delete(ctx, ownerv1.GetName(), metav1.DeleteOptions{})
 	require.NoError(t, err, "Error deleting sheriff %s in %s", ownerv1.GetName(), ws)
 
 	t.Logf("Waiting for the owned sheriffs to be garbage collected")
 	framework.Eventually(t, func() (bool, string) {
-		_, err1 := dynamicClusterClient.Cluster(ws).Resource(sheriffsGVRv1).Namespace("default").Get(ctx, "owned-v1", metav1.GetOptions{})
-		_, err2 := dynamicClusterClient.Cluster(ws).Resource(sheriffsGVRv2).Namespace("default").Get(ctx, "owned-v2", metav1.GetOptions{})
+		_, err1 := dynamicClusterClient.Cluster(ws.Path()).Resource(sheriffsGVRv1).Namespace("default").Get(ctx, "owned-v1", metav1.GetOptions{})
+		_, err2 := dynamicClusterClient.Cluster(ws.Path()).Resource(sheriffsGVRv2).Namespace("default").Get(ctx, "owned-v2", metav1.GetOptions{})
 		return apierrors.IsNotFound(err1) && apierrors.IsNotFound(err2), "sheriffs not garbage collected"
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "error waiting for owned sheriffs to be garbage collected")
 
 	t.Logf("Creating owner v2 sheriff")
-	ownerv2, err := dynamicClusterClient.Cluster(ws).Resource(sheriffsGVRv2).Namespace("default").
+	ownerv2, err := dynamicClusterClient.Cluster(ws.Path()).Resource(sheriffsGVRv2).Namespace("default").
 		Create(ctx, &unstructured.Unstructured{
 			Object: map[string]interface{}{
 				"apiVersion": sheriffsGVRv2.GroupVersion().String(),
@@ -458,7 +459,7 @@ func TestGarbageCollectorVersionedCRDs(t *testing.T) {
 	require.NoError(t, err, "Error creating owner sheriff %s|default/owner-v2", ws)
 
 	t.Logf("Creating owned v1 sheriff")
-	_, err = dynamicClusterClient.Cluster(ws).Resource(sheriffsGVRv1).Namespace("default").
+	_, err = dynamicClusterClient.Cluster(ws.Path()).Resource(sheriffsGVRv1).Namespace("default").
 		Create(ctx, &unstructured.Unstructured{
 			Object: map[string]interface{}{
 				"apiVersion": sheriffsGVRv1.GroupVersion().String(),
@@ -479,7 +480,7 @@ func TestGarbageCollectorVersionedCRDs(t *testing.T) {
 	require.NoError(t, err, "Error creating owned sheriff %s|default/owned-v1", ws)
 
 	t.Logf("Creating owned v2 sheriff")
-	_, err = dynamicClusterClient.Cluster(ws).Resource(sheriffsGVRv2).Namespace("default").
+	_, err = dynamicClusterClient.Cluster(ws.Path()).Resource(sheriffsGVRv2).Namespace("default").
 		Create(ctx, &unstructured.Unstructured{
 			Object: map[string]interface{}{
 				"apiVersion": sheriffsGVRv2.GroupVersion().String(),
@@ -500,14 +501,14 @@ func TestGarbageCollectorVersionedCRDs(t *testing.T) {
 	require.NoError(t, err, "Error creating owned sheriff %s|default/owned-v2", ws)
 
 	t.Logf("Deleting owner v2 sheriff")
-	err = dynamicClusterClient.Cluster(ws).Resource(sheriffsGVRv2).Namespace("default").
+	err = dynamicClusterClient.Cluster(ws.Path()).Resource(sheriffsGVRv2).Namespace("default").
 		Delete(ctx, ownerv2.GetName(), metav1.DeleteOptions{})
 	require.NoError(t, err, "Error deleting sheriff %s in %s", ownerv2.GetName(), ws)
 
 	t.Logf("Waiting for the owned sheriffs to be garbage collected")
 	framework.Eventually(t, func() (bool, string) {
-		_, err1 := dynamicClusterClient.Cluster(ws).Resource(sheriffsGVRv1).Namespace("default").Get(ctx, "owned-v1", metav1.GetOptions{})
-		_, err2 := dynamicClusterClient.Cluster(ws).Resource(sheriffsGVRv2).Namespace("default").Get(ctx, "owned-v2", metav1.GetOptions{})
+		_, err1 := dynamicClusterClient.Cluster(ws.Path()).Resource(sheriffsGVRv1).Namespace("default").Get(ctx, "owned-v1", metav1.GetOptions{})
+		_, err2 := dynamicClusterClient.Cluster(ws.Path()).Resource(sheriffsGVRv2).Namespace("default").Get(ctx, "owned-v2", metav1.GetOptions{})
 		return apierrors.IsNotFound(err1) && apierrors.IsNotFound(err2), "sheriffs not garbage collected"
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "error waiting for owned sheriffs to be garbage collected")
 }
@@ -535,15 +536,15 @@ func TestGarbageCollectorClusterScopedCRD(t *testing.T) {
 
 	crd := NewClusterScopedCRD(group, "clustered")
 
-	ws := framework.NewWorkspaceFixture(t, server, orgClusterName, framework.WithName("gc-crd-cluster-scope"))
+	ws := framework.NewWorkspaceFixture(t, server, orgClusterName.Path(), framework.WithName("gc-crd-cluster-scope"))
 
 	t.Logf("Install cluster-scoped CRD into workspace %q", ws)
-	bootstrapCRD(t, ws, crdClusterClient.ApiextensionsV1().CustomResourceDefinitions(), crd)
+	bootstrapCRD(t, ws.Path(), crdClusterClient.ApiextensionsV1().CustomResourceDefinitions(), crd)
 
 	gvr := schema.GroupVersionResource{Group: group, Resource: crd.Spec.Names.Plural, Version: "v1"}
 
 	t.Logf("Creating owner clustered")
-	owner, err := dynamicClusterClient.Cluster(ws).Resource(gvr).
+	owner, err := dynamicClusterClient.Cluster(ws.Path()).Resource(gvr).
 		Create(ctx, &unstructured.Unstructured{
 			Object: map[string]interface{}{
 				"apiVersion": gvr.GroupVersion().String(),
@@ -573,18 +574,18 @@ func TestGarbageCollectorClusterScopedCRD(t *testing.T) {
 			UID:        owner.GetUID(),
 		},
 	})
-	_, err = dynamicClusterClient.Cluster(ws).Resource(gvr).
+	_, err = dynamicClusterClient.Cluster(ws.Path()).Resource(gvr).
 		Create(ctx, owned, metav1.CreateOptions{})
 	require.NoError(t, err, "Error creating owned clustered %s|default/owned", ws)
 
 	t.Logf("Deleting owner clustered")
-	err = dynamicClusterClient.Cluster(ws).Resource(gvr).
+	err = dynamicClusterClient.Cluster(ws.Path()).Resource(gvr).
 		Delete(ctx, "owner", metav1.DeleteOptions{})
 	require.NoError(t, err, "Error deleting owner clustered in %s", ws)
 
 	t.Logf("Waiting for the owned clustered to be garbage collected")
 	framework.Eventually(t, func() (bool, string) {
-		_, err := dynamicClusterClient.Cluster(ws).Resource(gvr).
+		_, err := dynamicClusterClient.Cluster(ws.Path()).Resource(gvr).
 			Get(ctx, "owner", metav1.GetOptions{})
 		return apierrors.IsNotFound(err), "owned clustered not garbage collected"
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "error waiting for owned clustered to be garbage collected")
