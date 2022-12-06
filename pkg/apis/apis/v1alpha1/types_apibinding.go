@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
@@ -113,12 +114,11 @@ type BindingReference struct {
 
 // ExportBindingReference is a reference to an APIExport by cluster and name.
 type ExportBindingReference struct {
-	// path is an absolute logical cluster path where the APIExport is defined.
+	// cluster is a logical cluster name where the APIExport is defined.
 	// If identifier and path are unset, the cluster of the APIBinding is used.
 	//
 	// +optional
-	// +kubebuilder:validation:Pattern:="^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
-	Path string `json:"path,omitempty"`
+	Cluster tenancy.Cluster `json:"cluster,omitempty"`
 
 	// name is the name of the APIExport that describes the API.
 	//
