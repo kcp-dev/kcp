@@ -60,13 +60,13 @@ type reconciler interface {
 }
 
 type schemaReconciler struct {
-	listNegotiatedAPIResources func(clusterName logicalcluster.Name) ([]*apiresourcev1alpha1.NegotiatedAPIResource, error)
-	listAPIResourceSchemas     func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIResourceSchema, error)
-	listSyncTargets            func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error)
-	getAPIResourceSchema       func(ctx context.Context, clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
-	createAPIResourceSchema    func(ctx context.Context, clusterName logicalcluster.Name, schema *apisv1alpha1.APIResourceSchema) (*apisv1alpha1.APIResourceSchema, error)
-	deleteAPIResourceSchema    func(ctx context.Context, clusterName logicalcluster.Name, name string) error
-	updateAPIExport            func(ctx context.Context, clusterName logicalcluster.Name, export *apisv1alpha1.APIExport) (*apisv1alpha1.APIExport, error)
+	listNegotiatedAPIResources func(clusterName logicalcluster.Path) ([]*apiresourcev1alpha1.NegotiatedAPIResource, error)
+	listAPIResourceSchemas     func(clusterName logicalcluster.Path) ([]*apisv1alpha1.APIResourceSchema, error)
+	listSyncTargets            func(clusterName logicalcluster.Path) ([]*workloadv1alpha1.SyncTarget, error)
+	getAPIResourceSchema       func(ctx context.Context, clusterName logicalcluster.Path, name string) (*apisv1alpha1.APIResourceSchema, error)
+	createAPIResourceSchema    func(ctx context.Context, clusterName logicalcluster.Path, schema *apisv1alpha1.APIResourceSchema) (*apisv1alpha1.APIResourceSchema, error)
+	deleteAPIResourceSchema    func(ctx context.Context, clusterName logicalcluster.Path, name string) error
+	updateAPIExport            func(ctx context.Context, clusterName logicalcluster.Path, export *apisv1alpha1.APIExport) (*apisv1alpha1.APIExport, error)
 
 	enqueueAfter func(*apisv1alpha1.APIExport, time.Duration)
 }
@@ -211,7 +211,7 @@ func (r *schemaReconciler) reconcile(ctx context.Context, export *apisv1alpha1.A
 	return reconcileStatusContinue, nil
 }
 
-func (r *schemaReconciler) shouldSkipComputeAPIs(clusterName logicalcluster.Name) (bool, error) {
+func (r *schemaReconciler) shouldSkipComputeAPIs(clusterName logicalcluster.Path) (bool, error) {
 	syncTargets, err := r.listSyncTargets(clusterName)
 	if err != nil {
 		return false, err
@@ -266,19 +266,19 @@ func (c *controller) reconcile(ctx context.Context, export *apisv1alpha1.APIExpo
 	return errors.NewAggregate(errs)
 }
 
-func (c *controller) listNegotiatedAPIResources(clusterName logicalcluster.Name) ([]*apiresourcev1alpha1.NegotiatedAPIResource, error) {
+func (c *controller) listNegotiatedAPIResources(clusterName logicalcluster.Path) ([]*apiresourcev1alpha1.NegotiatedAPIResource, error) {
 	return c.negotiatedAPIResourceLister.Cluster(clusterName).List(labels.Everything())
 }
 
-func (c *controller) listAPIResourceSchemas(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIResourceSchema, error) {
+func (c *controller) listAPIResourceSchemas(clusterName logicalcluster.Path) ([]*apisv1alpha1.APIResourceSchema, error) {
 	return c.apiResourceSchemaLister.Cluster(clusterName).List(labels.Everything())
 }
 
-func (c *controller) listSyncTarget(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error) {
+func (c *controller) listSyncTarget(clusterName logicalcluster.Path) ([]*workloadv1alpha1.SyncTarget, error) {
 	return c.syncTargetClusterLister.Cluster(clusterName).List(labels.Everything())
 }
 
-func (c *controller) getAPIResourceSchema(ctx context.Context, clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
+func (c *controller) getAPIResourceSchema(ctx context.Context, clusterName logicalcluster.Path, name string) (*apisv1alpha1.APIResourceSchema, error) {
 	schema, err := c.apiResourceSchemaLister.Cluster(clusterName).Get(name)
 	if apierrors.IsNotFound(err) {
 		return c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIResourceSchemas().Get(ctx, name, metav1.GetOptions{})
@@ -286,14 +286,14 @@ func (c *controller) getAPIResourceSchema(ctx context.Context, clusterName logic
 	return schema, err
 }
 
-func (c *controller) createAPIResourceSchema(ctx context.Context, clusterName logicalcluster.Name, schema *apisv1alpha1.APIResourceSchema) (*apisv1alpha1.APIResourceSchema, error) {
+func (c *controller) createAPIResourceSchema(ctx context.Context, clusterName logicalcluster.Path, schema *apisv1alpha1.APIResourceSchema) (*apisv1alpha1.APIResourceSchema, error) {
 	return c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIResourceSchemas().Create(ctx, schema, metav1.CreateOptions{})
 }
 
-func (c *controller) updateAPIExport(ctx context.Context, clusterName logicalcluster.Name, export *apisv1alpha1.APIExport) (*apisv1alpha1.APIExport, error) {
+func (c *controller) updateAPIExport(ctx context.Context, clusterName logicalcluster.Path, export *apisv1alpha1.APIExport) (*apisv1alpha1.APIExport, error) {
 	return c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIExports().Update(ctx, export, metav1.UpdateOptions{})
 }
 
-func (c *controller) deleteAPIResourceSchema(ctx context.Context, clusterName logicalcluster.Name, name string) error {
+func (c *controller) deleteAPIResourceSchema(ctx context.Context, clusterName logicalcluster.Path, name string) error {
 	return c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIResourceSchemas().Delete(ctx, name, metav1.DeleteOptions{})
 }

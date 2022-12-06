@@ -55,7 +55,6 @@ import (
 	"github.com/kcp-dev/kcp/config/helpers"
 	"github.com/kcp-dev/kcp/pkg/apis/apis"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
@@ -345,7 +344,7 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 	discoveryClusterClient, err := kcpdiscovery.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct discovery cluster client for server")
 
-	mappers := make(map[logicalcluster.Name]meta.RESTMapper)
+	mappers := make(map[logicalcluster.Path]meta.RESTMapper)
 	mappers[clusterName1.Path()] = restmapper.NewDeferredDiscoveryRESTMapper(
 		memory.NewMemCacheClient(kcpClusterClient.Cluster(clusterName1.Path()).Discovery()),
 	)
@@ -356,7 +355,7 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
 	require.NoError(t, err, "error creating dynamic cluster client")
 
-	create := func(clusterName logicalcluster.Name, msg, file string, transforms ...helpers.TransformFileFunc) {
+	create := func(clusterName logicalcluster.Path, msg, file string, transforms ...helpers.TransformFileFunc) {
 		t.Helper()
 		t.Logf("%s: creating %s", clusterName, msg)
 		err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(clusterName), mappers[clusterName], nil, file, testFiles, transforms...)
@@ -384,7 +383,7 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 	create(clusterName2.Path(), "APIBinding referencing APIExport 3", "apibindings_access_binding3.yaml")
 
 	exportURLs := make(map[string]string)
-	getExportURL := func(clusterName logicalcluster.Name, exportName string) string {
+	getExportURL := func(clusterName logicalcluster.Path, exportName string) string {
 		var url string
 		framework.Eventually(t, func() (bool, string) {
 			apiExport, err := kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIExports().Get(ctx, exportName, metav1.GetOptions{})
@@ -404,7 +403,7 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 	exportURLs["export2"] = getExportURL(clusterName1.Path(), "export2")
 	exportURLs["export3"] = getExportURL(clusterName2.Path(), "export3")
 
-	verifyDiscovery := func(clusterName logicalcluster.Name, exportName string) {
+	verifyDiscovery := func(clusterName logicalcluster.Path, exportName string) {
 		t.Helper()
 
 		t.Logf("Verifying APIExport %s|%s discovery has apis.kcp.dev", clusterName, exportName)
@@ -429,7 +428,7 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 	verifyDiscovery(clusterName1.Path(), "export2")
 	verifyDiscovery(clusterName2.Path(), "export3")
 
-	verifyBindings := func(clusterName logicalcluster.Name, exportName string, isValid func(bindings []apisv1alpha1.APIBinding) error) {
+	verifyBindings := func(clusterName logicalcluster.Path, exportName string, isValid func(bindings []apisv1alpha1.APIBinding) error) {
 		t.Helper()
 
 		apiExportCfg := rest.CopyConfig(cfg)
@@ -453,7 +452,7 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 	t.Logf("Verifying APIExport 1 only serves APIBinding 1|1 and 2|1")
 	verifyBindings(clusterName1.Path(), "export1", func(bindings []apisv1alpha1.APIBinding) error {
 		for _, b := range bindings {
-			clusterName := tenancy.From(&b)
+			clusterName := logicalcluster.From(&b)
 			if clusterName == clusterName1 && b.Name == "binding1" {
 				continue
 			}
@@ -470,7 +469,7 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 	t.Logf("Verifying APIExport 2 only serves APIBinding 2")
 	verifyBindings(clusterName1.Path(), "export2", func(bindings []apisv1alpha1.APIBinding) error {
 		for _, b := range bindings {
-			clusterName := tenancy.From(&b)
+			clusterName := logicalcluster.From(&b)
 			if clusterName == clusterName1 && b.Name == "binding2" {
 				continue
 			}
@@ -527,7 +526,7 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 		actualWorkspace1 := sets.NewString()
 
 		for _, b := range bindings {
-			clusterName := tenancy.From(&b)
+			clusterName := logicalcluster.From(&b)
 			if clusterName != clusterName1 {
 				if clusterName == clusterName2 && b.Name == "binding1" {
 					continue
@@ -550,7 +549,7 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 	t.Logf("Verifying APIExport 2 still only serves APIBinding 2")
 	verifyBindings(clusterName1.Path(), "export2", func(bindings []apisv1alpha1.APIBinding) error {
 		for _, b := range bindings {
-			clusterName := tenancy.From(&b)
+			clusterName := logicalcluster.From(&b)
 			if clusterName == clusterName1 && b.Name == "binding2" {
 				continue
 			}
@@ -581,7 +580,7 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 	t.Logf("Verifying APIExport 1 back to only serving its own bindings")
 	verifyBindings(clusterName1.Path(), "export1", func(bindings []apisv1alpha1.APIBinding) error {
 		for _, b := range bindings {
-			clusterName := tenancy.From(&b)
+			clusterName := logicalcluster.From(&b)
 			if clusterName == clusterName1 && b.Name == "binding1" {
 				continue
 			}
@@ -958,7 +957,7 @@ func gatherInternalAPIs(discoveryClient discovery.DiscoveryInterface, t *testing
 	return internalAPIs, nil
 }
 
-func setUpServiceProviderWithPermissionClaims(ctx context.Context, dynamicClusterClient kcpdynamic.ClusterInterface, kcpClients kcpclientset.ClusterInterface, serviceProviderWorkspace logicalcluster.Name, cfg *rest.Config, identityHash string, t *testing.T) {
+func setUpServiceProviderWithPermissionClaims(ctx context.Context, dynamicClusterClient kcpdynamic.ClusterInterface, kcpClients kcpclientset.ClusterInterface, serviceProviderWorkspace logicalcluster.Path, cfg *rest.Config, identityHash string, t *testing.T) {
 	claims := []apisv1alpha1.PermissionClaim{
 		{
 			GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "configmaps"},
@@ -993,7 +992,7 @@ func setUpServiceProviderWithPermissionClaims(ctx context.Context, dynamicCluste
 	setUpServiceProvider(ctx, dynamicClusterClient, kcpClients, serviceProviderWorkspace, cfg, t, claims...)
 }
 
-func setUpServiceProvider(ctx context.Context, dynamicClusterClient kcpdynamic.ClusterInterface, kcpClients kcpclientset.ClusterInterface, serviceProviderWorkspace logicalcluster.Name, cfg *rest.Config, t *testing.T, claims ...apisv1alpha1.PermissionClaim) {
+func setUpServiceProvider(ctx context.Context, dynamicClusterClient kcpdynamic.ClusterInterface, kcpClients kcpclientset.ClusterInterface, serviceProviderWorkspace logicalcluster.Path, cfg *rest.Config, t *testing.T, claims ...apisv1alpha1.PermissionClaim) {
 	t.Logf("Install today cowboys APIResourceSchema into service provider workspace %q", serviceProviderWorkspace)
 
 	serviceProviderClient, err := kcpclientset.NewForConfig(cfg)
@@ -1017,7 +1016,7 @@ func setUpServiceProvider(ctx context.Context, dynamicClusterClient kcpdynamic.C
 	require.NoError(t, err)
 }
 
-func bindConsumerToProvider(ctx context.Context, consumerWorkspace logicalcluster.Name, providerClusterName tenancy.Cluster, t *testing.T, kcpClients kcpclientset.ClusterInterface, cfg *rest.Config, claims ...apisv1alpha1.AcceptablePermissionClaim) {
+func bindConsumerToProvider(ctx context.Context, consumerWorkspace logicalcluster.Path, providerClusterName logicalcluster.Name, t *testing.T, kcpClients kcpclientset.ClusterInterface, cfg *rest.Config, claims ...apisv1alpha1.AcceptablePermissionClaim) {
 	t.Logf("Create an APIBinding in consumer workspace %q that points to the today-cowboys export from %q", consumerWorkspace, providerClusterName)
 	apiBinding := &apisv1alpha1.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1057,7 +1056,7 @@ func bindConsumerToProvider(ctx context.Context, consumerWorkspace logicalcluste
 	require.True(t, resourceExists(resources, "cowboys"), "consumer workspace %q discovery is missing cowboys resource", consumerWorkspace)
 }
 
-func createCowboyInConsumer(ctx context.Context, t *testing.T, consumer1Workspace logicalcluster.Name, wildwestClusterClient wildwestclientset.ClusterInterface) {
+func createCowboyInConsumer(ctx context.Context, t *testing.T, consumer1Workspace logicalcluster.Path, wildwestClusterClient wildwestclientset.ClusterInterface) {
 	t.Logf("Make sure we can perform CRUD operations against consumer workspace %q for the bound API", consumer1Workspace)
 
 	t.Logf("Make sure list shows nothing to start")

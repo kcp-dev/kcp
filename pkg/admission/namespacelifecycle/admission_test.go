@@ -77,7 +77,7 @@ func TestAdmit(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			handler, err := newWorkspaceNamespaceLifecycle()
 			require.NoError(t, err, "error creating admission plugin")
-			handler.getWorkspace = func(clusterName logicalcluster.Name, name string) (*tenancyv1beta1.Workspace, error) {
+			handler.getWorkspace = func(clusterName logicalcluster.Path, name string) (*tenancyv1beta1.Workspace, error) {
 				return tt.workspace, nil
 			}
 

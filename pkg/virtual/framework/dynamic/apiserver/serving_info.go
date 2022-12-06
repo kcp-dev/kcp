@@ -306,7 +306,7 @@ func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, apiRes
 
 // servingInfo stores enough information to serve the storage for the apiResourceSchema
 type servingInfo struct {
-	logicalClusterName logicalcluster.Name
+	logicalClusterName logicalcluster.Path
 	apiResourceSchema  *apisv1alpha1.APIResourceSchema
 
 	storage       rest.Storage
@@ -321,7 +321,7 @@ type servingInfo struct {
 func (apiDef *servingInfo) GetAPIResourceSchema() *apisv1alpha1.APIResourceSchema {
 	return apiDef.apiResourceSchema
 }
-func (apiDef *servingInfo) GetClusterName() logicalcluster.Name {
+func (apiDef *servingInfo) GetClusterName() logicalcluster.Path {
 	return apiDef.logicalClusterName
 }
 func (apiDef *servingInfo) GetStorage() rest.Storage {

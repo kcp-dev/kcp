@@ -33,7 +33,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/apis"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1/permissionclaims"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/schemas"
 	apiexportbuiltin "github.com/kcp-dev/kcp/pkg/virtual/apiexport/schemas/builtin"
@@ -77,7 +76,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 		identities[gr] = apiExport.Status.IdentityHash
 	}
 
-	clusterName := tenancy.From(apiExport)
+	clusterName := logicalcluster.From(apiExport)
 
 	// Find schemas for claimed resources
 	claims := map[schema.GroupResource]apisv1alpha1.PermissionClaim{}
@@ -199,7 +198,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 				}
 				claimLabels := []string{label}
 				if gvr.GroupResource() == apisv1alpha1.Resource("apibindings") {
-					_, fallbackLabel := permissionclaims.ToReflexiveAPIBindingLabelKeyAndValue(tenancy.From(apiExport), apiExport.Name)
+					_, fallbackLabel := permissionclaims.ToReflexiveAPIBindingLabelKeyAndValue(logicalcluster.From(apiExport), apiExport.Name)
 					claimLabels = append(claimLabels, fallbackLabel)
 				}
 				req, err := labels.NewRequirement(key, selection.In, claimLabels)

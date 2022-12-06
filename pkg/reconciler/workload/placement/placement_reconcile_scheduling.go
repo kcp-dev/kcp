@@ -23,8 +23,6 @@ import (
 	"math/rand"
 	"strings"
 
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -43,10 +41,10 @@ import (
 // It considers only valid SyncTargets and updates the internal.workload.kcp.dev/synctarget
 // annotation with the selected one on the placement object.
 type placementSchedulingReconciler struct {
-	listSyncTarget          func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error)
-	listWorkloadAPIBindings func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
-	getLocation             func(clusterName logicalcluster.Name, name string) (*schedulingv1alpha1.Location, error)
-	patchPlacement          func(ctx context.Context, clusterName logicalcluster.Name, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*schedulingv1alpha1.Placement, error)
+	listSyncTarget          func(clusterName logicalcluster.Path) ([]*workloadv1alpha1.SyncTarget, error)
+	listWorkloadAPIBindings func(clusterName logicalcluster.Path) ([]*apisv1alpha1.APIBinding, error)
+	getLocation             func(clusterName logicalcluster.Path, name string) (*schedulingv1alpha1.Location, error)
+	patchPlacement          func(ctx context.Context, clusterName logicalcluster.Path, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*schedulingv1alpha1.Placement, error)
 }
 
 func (r *placementSchedulingReconciler) reconcile(ctx context.Context, placement *schedulingv1alpha1.Placement) (reconcileStatus, *schedulingv1alpha1.Placement, error) {
@@ -180,7 +178,7 @@ func (r *placementSchedulingReconciler) filterAPICompatible(ctx context.Context,
 	return filteredSyncTargets, strings.Join(messages, ", "), nil
 }
 
-func (r *placementSchedulingReconciler) patchPlacementAnnotation(ctx context.Context, clusterName logicalcluster.Name, placement *schedulingv1alpha1.Placement, annotations map[string]interface{}) (*schedulingv1alpha1.Placement, error) {
+func (r *placementSchedulingReconciler) patchPlacementAnnotation(ctx context.Context, clusterName logicalcluster.Path, placement *schedulingv1alpha1.Placement, annotations map[string]interface{}) (*schedulingv1alpha1.Placement, error) {
 	logger := klog.FromContext(ctx)
 	patch := map[string]interface{}{}
 	if len(annotations) > 0 {

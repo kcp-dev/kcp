@@ -36,7 +36,7 @@ type crdClusterLister struct {
 	lister kcpapiextensionsv1listers.CustomResourceDefinitionClusterLister
 }
 
-func (c *crdClusterLister) Cluster(name logicalcluster.Name) kcp.ClusterAwareCRDLister {
+func (c *crdClusterLister) Cluster(name logicalcluster.Path) kcp.ClusterAwareCRDLister {
 	if name != bootstrap.SystemCRDLogicalCluster {
 		klog.Background().Error(fmt.Errorf("cluster-unaware crd lister got asked for %v cluster", name), "programmer error")
 	}
@@ -51,7 +51,7 @@ var _ kcp.ClusterAwareCRDClusterLister = &crdClusterLister{}
 // crdLister is a CRD lister
 type crdLister struct {
 	*crdClusterLister
-	cluster logicalcluster.Name
+	cluster logicalcluster.Path
 }
 
 var _ kcp.ClusterAwareCRDLister = &crdLister{}

@@ -103,7 +103,7 @@ func (c *DownstreamController) process(ctx context.Context, key string) error {
 	return nil
 }
 
-func (c *DownstreamController) updateDNSConfigMap(ctx context.Context, workspace logicalcluster.Name) error {
+func (c *DownstreamController) updateDNSConfigMap(ctx context.Context, workspace logicalcluster.Path) error {
 	logger := klog.FromContext(ctx)
 	logger.WithName("dns")
 	logger.Info("refreshing logical to physical namespace mapping table")

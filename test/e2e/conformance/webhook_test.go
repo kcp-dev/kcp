@@ -84,7 +84,7 @@ func TestMutatingWebhookInWorkspace(t *testing.T) {
 	testWebhook.StartTLS(t, filepath.Join(dirPath, "apiserver.crt"), filepath.Join(dirPath, "apiserver.key"), port)
 
 	organization := framework.NewOrganizationFixture(t, server)
-	logicalClusters := []logicalcluster.Name{
+	logicalClusters := []logicalcluster.Path{
 		framework.NewWorkspaceFixture(t, server, organization),
 		framework.NewWorkspaceFixture(t, server, organization),
 	}
@@ -204,7 +204,7 @@ func TestValidatingWebhookInWorkspace(t *testing.T) {
 	testWebhook.StartTLS(t, filepath.Join(dirPath, "apiserver.crt"), filepath.Join(dirPath, "apiserver.key"), port)
 
 	organization := framework.NewOrganizationFixture(t, server)
-	logicalClusters := []logicalcluster.Name{
+	logicalClusters := []logicalcluster.Path{
 		framework.NewWorkspaceFixture(t, server, organization),
 		framework.NewWorkspaceFixture(t, server, organization),
 	}

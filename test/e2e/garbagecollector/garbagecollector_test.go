@@ -47,7 +47,6 @@ import (
 	configcrds "github.com/kcp-dev/kcp/config/crds"
 	"github.com/kcp-dev/kcp/config/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
@@ -305,7 +304,7 @@ func TestGarbageCollectorNormalCRDs(t *testing.T) {
 	sheriffsGVR := schema.GroupVersionResource{Group: group, Resource: "sheriffs", Version: "v1"}
 
 	// Test with 2 workspaces to make sure GC works for both
-	workspaces := []tenancy.Cluster{ws1, ws2}
+	workspaces := []logicalcluster.Name{ws1, ws2}
 	for _, ws := range workspaces {
 		t.Logf("Creating owner sheriff")
 		owner, err := dynamicClusterClient.Cluster(ws.Path()).Resource(sheriffsGVR).Namespace("default").
@@ -634,7 +633,7 @@ func pluralize(name string) string {
 
 func bootstrapCRD(
 	t *testing.T,
-	clusterName logicalcluster.Name,
+	clusterName logicalcluster.Path,
 	client kcpapiextensionsv1client.CustomResourceDefinitionClusterInterface,
 	crd *apiextensionsv1.CustomResourceDefinition,
 ) {

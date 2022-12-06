@@ -88,7 +88,7 @@ func NewDNSProcessor(
 // are effectively reachable through the Service.
 // It returns true if the DNS is setup and reachable, and returns an error if there was an error
 // during the check or creation of the DNS-related resources.
-func (d *DNSProcessor) EnsureDNSUpAndReady(ctx context.Context, workspace logicalcluster.Name) (bool, error) {
+func (d *DNSProcessor) EnsureDNSUpAndReady(ctx context.Context, workspace logicalcluster.Path) (bool, error) {
 	logger := klog.FromContext(ctx)
 	logger.WithName("dns")
 

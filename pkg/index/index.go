@@ -28,8 +28,8 @@ import (
 
 // Index implements a mapping from logical cluster to (shard) URL.
 type Index interface {
-	Lookup(path logicalcluster.Name) (shard string, cluster, canonicalPath logicalcluster.Name, found bool)
-	LookupURL(logicalCluster logicalcluster.Name) (url string, canonicalPath logicalcluster.Name, found bool)
+	Lookup(path logicalcluster.Path) (shard string, cluster, canonicalPath logicalcluster.Path, found bool)
+	LookupURL(logicalCluster logicalcluster.Path) (url string, canonicalPath logicalcluster.Path, found bool)
 }
 
 // PathRewriter can rewrite a logical cluster path before the actual mapping through
@@ -40,10 +40,10 @@ func New(rewriters []PathRewriter) *State {
 	return &State{
 		rewriters: rewriters,
 
-		clusterShards:             map[logicalcluster.Name]string{},
-		shardWorkspaceNameCluster: map[string]map[logicalcluster.Name]map[string]logicalcluster.Name{},
-		shardClusterWorkspaceName: map[string]map[logicalcluster.Name]string{},
-		shardClusterParentCluster: map[string]map[logicalcluster.Name]logicalcluster.Name{},
+		clusterShards:             map[logicalcluster.Path]string{},
+		shardWorkspaceNameCluster: map[string]map[logicalcluster.Path]map[string]logicalcluster.Path{},
+		shardClusterWorkspaceName: map[string]map[logicalcluster.Path]string{},
+		shardClusterParentCluster: map[string]map[logicalcluster.Path]logicalcluster.Path{},
 		shardBaseURLs:             map[string]string{},
 	}
 }
@@ -55,10 +55,10 @@ type State struct {
 	rewriters []PathRewriter
 
 	lock                      sync.RWMutex
-	clusterShards             map[logicalcluster.Name]string                                    // logical cluster -> shard name
-	shardWorkspaceNameCluster map[string]map[logicalcluster.Name]map[string]logicalcluster.Name // (shard name, logical cluster, workspace name) -> logical cluster
-	shardClusterWorkspaceName map[string]map[logicalcluster.Name]string                         // (shard name, logical cluster) -> workspace name
-	shardClusterParentCluster map[string]map[logicalcluster.Name]logicalcluster.Name            // (shard name, logical cluster) -> parent logical cluster
+	clusterShards             map[logicalcluster.Path]string                                    // logical cluster -> shard name
+	shardWorkspaceNameCluster map[string]map[logicalcluster.Path]map[string]logicalcluster.Path // (shard name, logical cluster, workspace name) -> logical cluster
+	shardClusterWorkspaceName map[string]map[logicalcluster.Path]string                         // (shard name, logical cluster) -> workspace name
+	shardClusterParentCluster map[string]map[logicalcluster.Path]logicalcluster.Path            // (shard name, logical cluster) -> parent logical cluster
 	shardBaseURLs             map[string]string                                                 // shard name -> base URL
 }
 
@@ -81,12 +81,12 @@ func (c *State) UpsertWorkspace(shard string, ws *tenancyv1beta1.Workspace) {
 
 	if got := c.shardWorkspaceNameCluster[shard][clusterName][ws.Name]; got.String() != ws.Status.Cluster {
 		if c.shardWorkspaceNameCluster[shard] == nil {
-			c.shardWorkspaceNameCluster[shard] = map[logicalcluster.Name]map[string]logicalcluster.Name{}
-			c.shardClusterWorkspaceName[shard] = map[logicalcluster.Name]string{}
-			c.shardClusterParentCluster[shard] = map[logicalcluster.Name]logicalcluster.Name{}
+			c.shardWorkspaceNameCluster[shard] = map[logicalcluster.Path]map[string]logicalcluster.Path{}
+			c.shardClusterWorkspaceName[shard] = map[logicalcluster.Path]string{}
+			c.shardClusterParentCluster[shard] = map[logicalcluster.Path]logicalcluster.Path{}
 		}
 		if c.shardWorkspaceNameCluster[shard][clusterName] == nil {
-			c.shardWorkspaceNameCluster[shard][clusterName] = map[string]logicalcluster.Name{}
+			c.shardWorkspaceNameCluster[shard][clusterName] = map[string]logicalcluster.Path{}
 		}
 		c.shardWorkspaceNameCluster[shard][clusterName][ws.Name] = logicalcluster.New(ws.Status.Cluster)
 		c.shardClusterWorkspaceName[shard][logicalcluster.New(ws.Status.Cluster)] = ws.Name
@@ -191,7 +191,7 @@ func (c *State) DeleteShard(shardName string) {
 	delete(c.shardClusterParentCluster, shardName)
 }
 
-func (c *State) Lookup(path logicalcluster.Name) (shard string, cluster, canonicalPath logicalcluster.Name, found bool) {
+func (c *State) Lookup(path logicalcluster.Path) (shard string, cluster, canonicalPath logicalcluster.Path, found bool) {
 	segments := strings.Split(path.String(), ":")
 
 	for _, rewriter := range c.rewriters {
@@ -207,7 +207,7 @@ func (c *State) Lookup(path logicalcluster.Name) (shard string, cluster, canonic
 			var found bool
 			shard, found = c.clusterShards[logicalcluster.New(s)]
 			if !found {
-				return "", logicalcluster.Name{}, logicalcluster.Name{}, false
+				return "", logicalcluster.Path{}, logicalcluster.Path{}, false
 			}
 			cluster = logicalcluster.New(s)
 			continue
@@ -216,11 +216,11 @@ func (c *State) Lookup(path logicalcluster.Name) (shard string, cluster, canonic
 		var found bool
 		cluster, found = c.shardWorkspaceNameCluster[shard][cluster][s]
 		if !found {
-			return "", logicalcluster.Name{}, logicalcluster.Name{}, false
+			return "", logicalcluster.Path{}, logicalcluster.Path{}, false
 		}
 		shard, found = c.clusterShards[cluster]
 		if !found {
-			return "", logicalcluster.Name{}, logicalcluster.Name{}, false
+			return "", logicalcluster.Path{}, logicalcluster.Path{}, false
 		}
 	}
 
@@ -230,7 +230,7 @@ func (c *State) Lookup(path logicalcluster.Name) (shard string, cluster, canonic
 	for {
 		shard, found = c.clusterShards[ancestor]
 		if !found {
-			return "", logicalcluster.Name{}, logicalcluster.Name{}, false
+			return "", logicalcluster.Path{}, logicalcluster.Path{}, false
 		}
 		if name, found := c.shardClusterWorkspaceName[shard][ancestor]; !found {
 			inversePath = append(inversePath, ancestor.String())
@@ -247,16 +247,16 @@ func (c *State) Lookup(path logicalcluster.Name) (shard string, cluster, canonic
 	return shard, cluster, canonicalPath, true
 }
 
-func (c *State) LookupURL(path logicalcluster.Name) (url string, canonicalPath logicalcluster.Name, found bool) {
+func (c *State) LookupURL(path logicalcluster.Path) (url string, canonicalPath logicalcluster.Path, found bool) {
 	shard, cluster, canonicalPath, found := c.Lookup(path)
 	if !found {
-		return "", logicalcluster.Name{}, false
+		return "", logicalcluster.Path{}, false
 	}
 
 	baseURL, found := c.shardBaseURLs[shard]
 	if !found {
-		return "", logicalcluster.Name{}, false
+		return "", logicalcluster.Path{}, false
 	}
 
-	return strings.TrimSuffix(baseURL, "/") + cluster.Path(), canonicalPath, true
+	return strings.TrimSuffix(baseURL, "/") + cluster.RequestPath(), canonicalPath, true
 }

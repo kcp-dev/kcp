@@ -32,7 +32,6 @@ import (
 
 	virtualworkspacesoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	"github.com/kcp-dev/kcp/pkg/logging"
@@ -45,7 +44,7 @@ func (c *controller) reconcile(ctx context.Context, apiExport *apisv1alpha1.APIE
 		identity = &apisv1alpha1.Identity{}
 	}
 
-	clusterName := tenancy.From(apiExport)
+	clusterName := logicalcluster.From(apiExport)
 
 	if identity.SecretRef == nil {
 		c.ensureSecretNamespaceExists(ctx, clusterName)
@@ -120,7 +119,7 @@ func (c *controller) reconcile(ctx context.Context, apiExport *apisv1alpha1.APIE
 	return nil
 }
 
-func (c *controller) ensureSecretNamespaceExists(ctx context.Context, clusterName tenancy.Cluster) {
+func (c *controller) ensureSecretNamespaceExists(ctx context.Context, clusterName logicalcluster.Name) {
 	logger := klog.FromContext(ctx)
 	ctx = klog.NewContext(ctx, logger)
 	if _, err := c.getNamespace(clusterName, c.secretNamespace); errors.IsNotFound(err) {
@@ -138,7 +137,7 @@ func (c *controller) ensureSecretNamespaceExists(ctx context.Context, clusterNam
 	}
 }
 
-func (c *controller) createIdentitySecret(ctx context.Context, clusterName logicalcluster.Name, apiExportName string) error {
+func (c *controller) createIdentitySecret(ctx context.Context, clusterName logicalcluster.Path, apiExportName string) error {
 	secret, err := GenerateIdentitySecret(ctx, c.secretNamespace, apiExportName)
 	if err != nil {
 		return err
@@ -155,7 +154,7 @@ func (c *controller) createIdentitySecret(ctx context.Context, clusterName logic
 	return nil
 }
 
-func (c *controller) updateOrVerifyIdentitySecretHash(ctx context.Context, clusterName tenancy.Cluster, apiExport *apisv1alpha1.APIExport) error {
+func (c *controller) updateOrVerifyIdentitySecretHash(ctx context.Context, clusterName logicalcluster.Name, apiExport *apisv1alpha1.APIExport) error {
 	secret, err := c.getSecret(ctx, clusterName, apiExport.Spec.Identity.SecretRef.Namespace, apiExport.Spec.Identity.SecretRef.Name)
 	if err != nil {
 		return err

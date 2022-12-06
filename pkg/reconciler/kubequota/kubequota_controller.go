@@ -40,7 +40,6 @@ import (
 	"k8s.io/kubernetes/pkg/controller/resourcequota"
 	"k8s.io/kubernetes/pkg/quota/v1/install"
 
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/informer"
@@ -52,7 +51,7 @@ const (
 )
 
 type scopeableInformerFactory interface {
-	Cluster(logicalcluster.Name) kcpkubernetesinformers.ScopedDynamicSharedInformerFactory
+	Cluster(logicalcluster.Path) kcpkubernetesinformers.ScopedDynamicSharedInformerFactory
 }
 
 // Controller manages per-workspace resource quota controllers.
@@ -72,13 +71,13 @@ type Controller struct {
 
 	// lock guards the fields in this group
 	lock        sync.RWMutex
-	cancelFuncs map[tenancy.Cluster]func()
+	cancelFuncs map[logicalcluster.Name]func()
 
 	resourceQuotaClusterInformer        kcpcorev1informers.ResourceQuotaClusterInformer
 	scopingGenericSharedInformerFactory scopeableInformerFactory
 
 	// For better testability
-	getThisWorkspace func(clusterName tenancy.Cluster) (*tenancyv1alpha1.ThisWorkspace, error)
+	getThisWorkspace func(clusterName logicalcluster.Name) (*tenancyv1alpha1.ThisWorkspace, error)
 }
 
 // NewController creates a new Controller.
@@ -104,12 +103,12 @@ func NewController(
 
 		workersPerLogicalCluster: workersPerLogicalCluster,
 
-		cancelFuncs: map[tenancy.Cluster]func(){},
+		cancelFuncs: map[logicalcluster.Name]func(){},
 
 		scopingGenericSharedInformerFactory: dynamicDiscoverySharedInformerFactory,
 		resourceQuotaClusterInformer:        kubeInformerFactory.Core().V1().ResourceQuotas(),
 
-		getThisWorkspace: func(clusterName tenancy.Cluster) (*tenancyv1alpha1.ThisWorkspace, error) {
+		getThisWorkspace: func(clusterName logicalcluster.Name) (*tenancyv1alpha1.ThisWorkspace, error) {
 			return thisWorkspacesInformer.Lister().Cluster(clusterName.Path()).Get(tenancyv1alpha1.ThisWorkspaceName)
 		},
 	}
@@ -199,7 +198,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		utilruntime.HandleError(err)
 		return nil
 	}
-	clusterName := tenancy.Cluster(cluster.String()) // TODO: remove when SplitMetaClusterNamespaceKey returns tenancy.Cluster
+	clusterName := logicalcluster.Name(cluster.String()) // TODO: remove when SplitMetaClusterNamespaceKey returns tenancy.Name
 
 	logger = logger.WithValues("logicalCluster", clusterName.String())
 
@@ -248,7 +247,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	return nil
 }
 
-func (c *Controller) startQuotaForClusterWorkspace(ctx context.Context, clusterName tenancy.Cluster) error {
+func (c *Controller) startQuotaForClusterWorkspace(ctx context.Context, clusterName logicalcluster.Name) error {
 	logger := klog.FromContext(ctx)
 	resourceQuotaControllerClient := c.kubeClusterClient.Cluster(clusterName.Path())
 
@@ -319,7 +318,7 @@ func (c *Controller) startQuotaForClusterWorkspace(ctx context.Context, clusterN
 }
 
 type quotaController struct {
-	clusterName    tenancy.Cluster
+	clusterName    logicalcluster.Name
 	queue          workqueue.RateLimitingInterface
 	work           func(context.Context)
 	previousCancel func()

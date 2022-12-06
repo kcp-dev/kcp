@@ -74,13 +74,13 @@ type Controller struct {
 	downstreamNSInformer      informers.GenericInformer
 	downstreamNSCleaner       shared.Cleaner
 	syncTargetName            string
-	syncTargetWorkspace       logicalcluster.Name
+	syncTargetWorkspace       logicalcluster.Path
 	syncTargetUID             types.UID
 	syncTargetKey             string
 	advancedSchedulingEnabled bool
 }
 
-func NewSpecSyncer(syncerLogger logr.Logger, syncTargetWorkspace logicalcluster.Name, syncTargetName, syncTargetKey string,
+func NewSpecSyncer(syncerLogger logr.Logger, syncTargetWorkspace logicalcluster.Path, syncTargetName, syncTargetKey string,
 	upstreamURL *url.URL, advancedSchedulingEnabled bool,
 	upstreamClient kcpdynamic.ClusterInterface, downstreamClient dynamic.Interface, downstreamKubeClient kubernetes.Interface,
 	upstreamInformers kcpdynamicinformer.DynamicSharedInformerFactory, downstreamInformers dynamicinformer.DynamicSharedInformerFactory, downstreamNSCleaner shared.Cleaner,
@@ -220,7 +220,7 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetWorkspace logicalcluster.
 
 	// make sure the secrets informer gets started
 	_ = upstreamInformers.ForResource(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}).Informer()
-	deploymentMutator := specmutators.NewDeploymentMutator(upstreamURL, func(clusterName logicalcluster.Name, namespace string) ([]runtime.Object, error) {
+	deploymentMutator := specmutators.NewDeploymentMutator(upstreamURL, func(clusterName logicalcluster.Path, namespace string) ([]runtime.Object, error) {
 		return upstreamInformers.ForResource(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}).Lister().ByCluster(clusterName).ByNamespace(namespace).List(labels.Everything())
 	}, serviceLister, syncTargetWorkspace, syncTargetUID, syncTargetName, dnsNamespace)
 

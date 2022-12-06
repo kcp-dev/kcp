@@ -29,7 +29,6 @@ import (
 	utilserrors "k8s.io/apimachinery/pkg/util/errors"
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
 
@@ -46,13 +45,13 @@ type reconciler interface {
 
 // statusReconciler reconciles Location objects' status.
 type statusReconciler struct {
-	listSyncTargets func(clusterName tenancy.Cluster) ([]*workloadv1alpha1.SyncTarget, error)
-	updateLocation  func(ctx context.Context, clusterName logicalcluster.Name, location *schedulingv1alpha1.Location) (*schedulingv1alpha1.Location, error)
+	listSyncTargets func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error)
+	updateLocation  func(ctx context.Context, clusterName logicalcluster.Path, location *schedulingv1alpha1.Location) (*schedulingv1alpha1.Location, error)
 	enqueueAfter    func(*schedulingv1alpha1.Location, time.Duration)
 }
 
 func (r *statusReconciler) reconcile(ctx context.Context, location *schedulingv1alpha1.Location) (reconcileStatus, error) {
-	clusterName := tenancy.From(location)
+	clusterName := logicalcluster.From(location)
 	syncTargets, err := r.listSyncTargets(clusterName)
 	if err != nil {
 		return reconcileStatusStop, err
@@ -123,10 +122,10 @@ func (c *controller) reconcile(ctx context.Context, location *schedulingv1alpha1
 	return utilserrors.NewAggregate(errs)
 }
 
-func (c *controller) listSyncTarget(clusterName tenancy.Cluster) ([]*workloadv1alpha1.SyncTarget, error) {
+func (c *controller) listSyncTarget(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error) {
 	return c.syncTargetLister.Cluster(clusterName.Path()).List(labels.Everything())
 }
 
-func (c *controller) updateLocation(ctx context.Context, clusterName logicalcluster.Name, location *schedulingv1alpha1.Location) (*schedulingv1alpha1.Location, error) {
+func (c *controller) updateLocation(ctx context.Context, clusterName logicalcluster.Path, location *schedulingv1alpha1.Location) (*schedulingv1alpha1.Location, error) {
 	return c.kcpClusterClient.Cluster(clusterName).SchedulingV1alpha1().Locations().Update(ctx, location, metav1.UpdateOptions{})
 }

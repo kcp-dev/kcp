@@ -34,7 +34,7 @@ import (
 )
 
 // startSyncerTunnel blocks until the context is cancelled trying to establish a tunnel against the specified target
-func startSyncerTunnel(ctx context.Context, upstream, downstream *rest.Config, syncTargetWorkspace logicalcluster.Name, syncTargetName string) {
+func startSyncerTunnel(ctx context.Context, upstream, downstream *rest.Config, syncTargetWorkspace logicalcluster.Path, syncTargetName string) {
 	// connect to create the reverse tunnels
 	var (
 		initBackoff   = 5 * time.Second
@@ -58,7 +58,7 @@ func startSyncerTunnel(ctx context.Context, upstream, downstream *rest.Config, s
 	}, backoffMgr, sliding, ctx.Done())
 }
 
-func startTunneler(ctx context.Context, upstream, downstream *rest.Config, syncTargetWorkspace logicalcluster.Name, syncTargetName string) error {
+func startTunneler(ctx context.Context, upstream, downstream *rest.Config, syncTargetWorkspace logicalcluster.Path, syncTargetName string) error {
 	logger := klog.FromContext(ctx)
 
 	// syncer --> kcp

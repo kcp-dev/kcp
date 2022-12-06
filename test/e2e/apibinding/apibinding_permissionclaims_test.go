@@ -37,7 +37,6 @@ import (
 
 	"github.com/kcp-dev/kcp/config/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
@@ -193,7 +192,7 @@ func makePermissionClaims(identityHash string) []apisv1alpha1.PermissionClaim {
 	}
 }
 
-func setUpServiceProviderWithPermissionClaims(ctx context.Context, dynamicClusterClient kcpdynamic.ClusterInterface, kcpClusterClients kcpclientset.ClusterInterface, serviceProviderWorkspace tenancy.Cluster, cfg *rest.Config, t *testing.T, identityHash string) {
+func setUpServiceProviderWithPermissionClaims(ctx context.Context, dynamicClusterClient kcpdynamic.ClusterInterface, kcpClusterClients kcpclientset.ClusterInterface, serviceProviderWorkspace logicalcluster.Name, cfg *rest.Config, t *testing.T, identityHash string) {
 	t.Logf("Install today cowboys APIResourceSchema into service provider workspace %q", serviceProviderWorkspace)
 	serviceProviderClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err)
@@ -250,7 +249,7 @@ func getAcceptedPermissionClaims(identityHash string) []apisv1alpha1.AcceptableP
 	}
 }
 
-func bindConsumerToProvider(ctx context.Context, consumerWorkspace logicalcluster.Name, providerClusterName tenancy.Cluster, t *testing.T, kcpClusterClients kcpclientset.ClusterInterface, cfg *rest.Config, identityHash string) {
+func bindConsumerToProvider(ctx context.Context, consumerWorkspace logicalcluster.Path, providerClusterName logicalcluster.Name, t *testing.T, kcpClusterClients kcpclientset.ClusterInterface, cfg *rest.Config, identityHash string) {
 	t.Logf("Create an APIBinding in consumer workspace %q that points to the today-cowboys export from %q", consumerWorkspace, providerClusterName)
 	apiBinding := &apisv1alpha1.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{

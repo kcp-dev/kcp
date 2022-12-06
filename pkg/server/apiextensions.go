@@ -63,10 +63,10 @@ type apiBindingAwareCRDClusterLister struct {
 
 	apiExportIndexer cache.Indexer
 
-	getAPIResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
+	getAPIResourceSchema func(clusterName logicalcluster.Path, name string) (*apisv1alpha1.APIResourceSchema, error)
 }
 
-func (a *apiBindingAwareCRDClusterLister) Cluster(name logicalcluster.Name) kcp.ClusterAwareCRDLister {
+func (a *apiBindingAwareCRDClusterLister) Cluster(name logicalcluster.Path) kcp.ClusterAwareCRDLister {
 	return &apiBindingAwareCRDLister{
 		apiBindingAwareCRDClusterLister: a,
 		cluster:                         name,
@@ -78,7 +78,7 @@ var _ kcp.ClusterAwareCRDClusterLister = &apiBindingAwareCRDClusterLister{}
 // apiBindingAwareCRDLister is a CRD lister combines APIs coming from APIBindings with CRDs in a workspace.
 type apiBindingAwareCRDLister struct {
 	*apiBindingAwareCRDClusterLister
-	cluster logicalcluster.Name
+	cluster logicalcluster.Path
 }
 
 var _ kcp.ClusterAwareCRDLister = &apiBindingAwareCRDLister{}
@@ -365,11 +365,11 @@ func (c *apiBindingAwareCRDLister) getForWildcardPartialMetadata(name string) (*
 	return objs[0].(*apiextensionsv1.CustomResourceDefinition), nil
 }
 
-func (c *apiBindingAwareCRDLister) getSystemCRD(_ logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
+func (c *apiBindingAwareCRDLister) getSystemCRD(_ logicalcluster.Path, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 	return c.crdLister.Cluster(SystemCRDLogicalCluster).Get(name)
 }
 
-func (c *apiBindingAwareCRDLister) get(clusterName logicalcluster.Name, name, identity string) (*apiextensionsv1.CustomResourceDefinition, error) {
+func (c *apiBindingAwareCRDLister) get(clusterName logicalcluster.Path, name, identity string) (*apiextensionsv1.CustomResourceDefinition, error) {
 	var crd *apiextensionsv1.CustomResourceDefinition
 
 	// Priority 1: see if it comes from any APIBindings

@@ -30,6 +30,6 @@ type urlReconciler struct {
 }
 
 func (r *urlReconciler) reconcile(ctx context.Context, this *tenancyv1alpha1.ThisWorkspace) (reconcileStatus, error) {
-	this.Status.URL = strings.TrimSuffix(r.shardExternalURL(), "/") + logicalcluster.From(this).Path()
+	this.Status.URL = strings.TrimSuffix(r.shardExternalURL(), "/") + logicalcluster.From(this).RequestPath()
 	return reconcileStatusContinue, nil
 }

@@ -76,7 +76,7 @@ func NewKubeResourceQuota(config *resourcequotaapi.Configuration) *KubeResourceQ
 
 		userSuppliedConfiguration: config,
 
-		delegates: map[logicalcluster.Name]*stoppableQuotaAdmission{},
+		delegates: map[logicalcluster.Path]*stoppableQuotaAdmission{},
 	}
 }
 
@@ -96,7 +96,7 @@ type KubeResourceQuota struct {
 	userSuppliedConfiguration *resourcequotaapi.Configuration
 
 	lock      sync.RWMutex
-	delegates map[logicalcluster.Name]*stoppableQuotaAdmission
+	delegates map[logicalcluster.Path]*stoppableQuotaAdmission
 
 	clusterWorkspaceDeletionMonitorStarter sync.Once
 }
@@ -162,7 +162,7 @@ func (k *KubeResourceQuota) Validate(ctx context.Context, a admission.Attributes
 }
 
 // getOrCreateDelegate creates a resourcequota.QuotaAdmission plugin for clusterName.
-func (k *KubeResourceQuota) getOrCreateDelegate(clusterName logicalcluster.Name) (*stoppableQuotaAdmission, error) {
+func (k *KubeResourceQuota) getOrCreateDelegate(clusterName logicalcluster.Path) (*stoppableQuotaAdmission, error) {
 	k.lock.RLock()
 	delegate := k.delegates[clusterName]
 	k.lock.RUnlock()
@@ -221,7 +221,7 @@ type stoppableQuotaAdmission struct {
 	stop func()
 }
 
-func (k *KubeResourceQuota) stopQuotaAdmissionForCluster(clusterName logicalcluster.Name) {
+func (k *KubeResourceQuota) stopQuotaAdmissionForCluster(clusterName logicalcluster.Path) {
 	k.lock.Lock()
 	defer k.lock.Unlock()
 

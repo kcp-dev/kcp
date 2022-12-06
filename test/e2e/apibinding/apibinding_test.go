@@ -44,7 +44,6 @@ import (
 
 	"github.com/kcp-dev/kcp/config/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
@@ -156,7 +155,7 @@ func TestAPIBinding(t *testing.T) {
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected all ClusterWorkspaceShards to have a VirtualWorkspaceURL assigned")
 
 	exportName := "today-cowboys"
-	serviceProviderWorkspaces := []logicalcluster.Name{serviceProvider1ClusterName.Path(), serviceProvider2ClusterName.Path()}
+	serviceProviderWorkspaces := []logicalcluster.Path{serviceProvider1ClusterName.Path(), serviceProvider2ClusterName.Path()}
 	for _, serviceProviderWorkspace := range serviceProviderWorkspaces {
 		t.Logf("Install today cowboys APIResourceSchema into %q", serviceProviderWorkspace)
 
@@ -179,7 +178,7 @@ func TestAPIBinding(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	bindConsumerToProvider := func(consumerWorkspace logicalcluster.Name, providerClusterName tenancy.Cluster) {
+	bindConsumerToProvider := func(consumerWorkspace logicalcluster.Path, providerClusterName logicalcluster.Name) {
 		t.Logf("Create an APIBinding in %q that points to the today-cowboys export from %q", consumerWorkspace, providerClusterName)
 		apiBinding := &apisv1alpha1.APIBinding{
 			ObjectMeta: metav1.ObjectMeta{
@@ -279,7 +278,7 @@ func TestAPIBinding(t *testing.T) {
 		}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected naming conflict")
 	}
 
-	verifyVirtualWorkspaceURLs := func(serviceProviderWorkspace logicalcluster.Name) {
+	verifyVirtualWorkspaceURLs := func(serviceProviderWorkspace logicalcluster.Path) {
 		var expectedURLs []string
 		for _, urlString := range clusterWorkspaceShardVirtualWorkspaceURLs.List() {
 			u, err := url.Parse(urlString)
@@ -309,7 +308,7 @@ func TestAPIBinding(t *testing.T) {
 			serviceProviderWorkspace, exportName)
 	}
 
-	consumersOfServiceProvider1 := []logicalcluster.Name{consumer1Workspace.Path(), consumer2Workspace.Path()}
+	consumersOfServiceProvider1 := []logicalcluster.Path{consumer1Workspace.Path(), consumer2Workspace.Path()}
 	for _, consumerWorkspace := range consumersOfServiceProvider1 {
 		bindConsumerToProvider(consumerWorkspace, serviceProvider1ClusterName)
 	}
@@ -321,7 +320,7 @@ func TestAPIBinding(t *testing.T) {
 
 	t.Logf("=== Testing identity wildcards")
 
-	verifyWildcardList := func(consumerWorkspace logicalcluster.Name, expectedItems int) {
+	verifyWildcardList := func(consumerWorkspace logicalcluster.Path, expectedItems int) {
 		t.Logf("Get %s workspace shard and create a shard client that is able to do wildcard requests", consumerWorkspace)
 		shardDynamicClusterClients, err := kcpdynamic.NewForConfig(rootShardCfg)
 		require.NoError(t, err)
@@ -374,7 +373,7 @@ func TestAPIBinding(t *testing.T) {
 	require.Equal(t, 1, len(list.Items), "unexpected # of cowboys through virtual workspace with wildcard")
 }
 
-func apiexportVWConfig(t *testing.T, kubeconfig clientcmdapi.Config, clusterName logicalcluster.Name, apiexportName string) *rest.Config {
+func apiexportVWConfig(t *testing.T, kubeconfig clientcmdapi.Config, clusterName logicalcluster.Path, apiexportName string) *rest.Config {
 	virtualWorkspaceRawConfig := kubeconfig.DeepCopy()
 	virtualWorkspaceRawConfig.Clusters["apiexport"] = kubeconfig.Clusters["base"].DeepCopy()
 	virtualWorkspaceRawConfig.Clusters["apiexport"].Server = fmt.Sprintf("%s/services/apiexport/%s/%s/", kubeconfig.Clusters["base"].Server, clusterName.String(), apiexportName)

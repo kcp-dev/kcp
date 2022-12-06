@@ -30,7 +30,6 @@ import (
 	"sigs.k8s.io/yaml"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -41,9 +40,9 @@ import (
 func BindToExport(
 	ctx context.Context,
 	t *testing.T,
-	exportClusterName tenancy.Cluster,
+	exportClusterName logicalcluster.Name,
 	apiExportName string,
-	bindingClusterName logicalcluster.Name,
+	bindingClusterName logicalcluster.Path,
 	clusterClient kcpclientset.ClusterInterface,
 ) {
 	binding := &apisv1alpha1.APIBinding{

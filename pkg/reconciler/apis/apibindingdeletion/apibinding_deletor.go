@@ -92,7 +92,7 @@ func (c *Controller) deleteAllCRs(ctx context.Context, apibinding *apisv1alpha1.
 	return totalResourceRemaining, nil
 }
 
-func (c *Controller) deleteAllCR(ctx context.Context, clusterName logicalcluster.Name, gvr schema.GroupVersionResource) (gvrDeletionMetadata, error) {
+func (c *Controller) deleteAllCR(ctx context.Context, clusterName logicalcluster.Path, gvr schema.GroupVersionResource) (gvrDeletionMetadata, error) {
 	logger := klog.FromContext(ctx)
 	partialList, err := c.listResources(ctx, clusterName, gvr)
 	if err != nil {

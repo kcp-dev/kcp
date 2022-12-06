@@ -28,7 +28,6 @@ import (
 	"sigs.k8s.io/yaml"
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
@@ -99,7 +98,7 @@ func TestLocationStatusReconciler(t *testing.T) {
 
 	tests := map[string]struct {
 		location    *schedulingv1alpha1.Location
-		syncTargets map[logicalcluster.Name][]*workloadv1alpha1.SyncTarget
+		syncTargets map[logicalcluster.Path][]*workloadv1alpha1.SyncTarget
 
 		listSyncTargetError error
 		updateLocationError error
@@ -125,7 +124,7 @@ func TestLocationStatusReconciler(t *testing.T) {
 		},
 		"with sync targets, across two regions": {
 			location: usEast1,
-			syncTargets: map[logicalcluster.Name][]*workloadv1alpha1.SyncTarget{
+			syncTargets: map[logicalcluster.Path][]*workloadv1alpha1.SyncTarget{
 				logicalcluster.New("root:org:negotiation-workspace"): {
 					withLabels(cluster("us-east1-1"), map[string]string{"region": "us-east1"}),
 					withLabels(withConditions(cluster("us-east1-2"), conditionsv1alpha1.Condition{Type: "Ready", Status: "False"}), map[string]string{"region": "us-east1"}),
@@ -150,13 +149,13 @@ func TestLocationStatusReconciler(t *testing.T) {
 			var requeuedAfter time.Duration
 			updates := map[string]*schedulingv1alpha1.Location{}
 			r := &statusReconciler{
-				listSyncTargets: func(clusterName tenancy.Cluster) ([]*workloadv1alpha1.SyncTarget, error) {
+				listSyncTargets: func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error) {
 					if tc.listSyncTargetError != nil {
 						return nil, tc.listSyncTargetError
 					}
 					return tc.syncTargets[clusterName.Path()], nil
 				},
-				updateLocation: func(ctx context.Context, clusterName logicalcluster.Name, location *schedulingv1alpha1.Location) (*schedulingv1alpha1.Location, error) {
+				updateLocation: func(ctx context.Context, clusterName logicalcluster.Path, location *schedulingv1alpha1.Location) (*schedulingv1alpha1.Location, error) {
 					if tc.updateLocationError != nil {
 						return nil, tc.updateLocationError
 					}

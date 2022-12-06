@@ -131,7 +131,7 @@ func TestBindPlacement(t *testing.T) {
 					testPlacement, schedulingv1alpha1.PlacementReady, "TestNotReady", conditionsv1alpha1.ConditionSeverityError, "")
 			}
 
-			listPlacement := func(clusterName logicalcluster.Name) ([]*schedulingv1alpha1.Placement, error) {
+			listPlacement := func(clusterName logicalcluster.Path) ([]*schedulingv1alpha1.Placement, error) {
 				return []*schedulingv1alpha1.Placement{testPlacement}, nil
 			}
 
@@ -149,8 +149,8 @@ func TestBindPlacement(t *testing.T) {
 	}
 }
 
-func patchNamespaceFunc(patched *bool, ns *corev1.Namespace) func(ctx context.Context, clusterName logicalcluster.Name, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*corev1.Namespace, error) {
-	return func(ctx context.Context, clusterName logicalcluster.Name, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*corev1.Namespace, error) {
+func patchNamespaceFunc(patched *bool, ns *corev1.Namespace) func(ctx context.Context, clusterName logicalcluster.Path, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*corev1.Namespace, error) {
+	return func(ctx context.Context, clusterName logicalcluster.Path, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*corev1.Namespace, error) {
 		*patched = true
 
 		nsData, _ := json.Marshal(ns)

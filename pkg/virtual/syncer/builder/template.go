@@ -196,7 +196,7 @@ func (t *template) bootstrapManagement(mainConfig genericapiserver.CompletedConf
 		t.wildcardKcpInformers.Workload().V1alpha1().SyncTargets(),
 		t.wildcardKcpInformers.Apis().V1alpha1().APIResourceSchemas(),
 		t.wildcardKcpInformers.Apis().V1alpha1().APIExports(),
-		func(syncTargetWorkspace logicalcluster.Name, syncTargetName string, apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, apiExportIdentityHash string) (apidefinition.APIDefinition, error) {
+		func(syncTargetWorkspace logicalcluster.Path, syncTargetName string, apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, apiExportIdentityHash string) (apidefinition.APIDefinition, error) {
 			syncTargetKey := workloadv1alpha1.ToSyncTargetKey(syncTargetWorkspace, syncTargetName)
 			requirements, selectable := labels.SelectorFromSet(map[string]string{
 				workloadv1alpha1.ClusterResourceStateLabelPrefix + syncTargetKey: string(t.filteredResourceState),

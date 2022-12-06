@@ -139,7 +139,7 @@ func TestWorkspaceController(t *testing.T) {
 					if workspace.Status.Cluster == "" {
 						return false, fmt.Sprintf("status.cluster is empty\n%s", toYAML(t, workspace))
 					}
-					if expected := previouslyValidShard.Spec.BaseURL + workspaceClusterName.Path(); workspace.Status.URL != expected {
+					if expected := previouslyValidShard.Spec.BaseURL + workspaceClusterName.RequestPath(); workspace.Status.URL != expected {
 						return false, fmt.Sprintf("URL is not %q:\n%s", expected, toYAML(t, workspace))
 					}
 					return true, ""

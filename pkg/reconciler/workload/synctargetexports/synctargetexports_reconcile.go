@@ -27,14 +27,13 @@ import (
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
 
 // exportReconciler updates syncedResource in SyncTarget status based on supportedAPIExports.
 type exportReconciler struct {
-	getAPIExport      func(path logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error)
-	getResourceSchema func(clusterName tenancy.Cluster, name string) (*apisv1alpha1.APIResourceSchema, error)
+	getAPIExport      func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
+	getResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
 }
 
 func (e *exportReconciler) reconcile(ctx context.Context, syncTarget *workloadv1alpha1.SyncTarget) (*workloadv1alpha1.SyncTarget, error) {
@@ -50,7 +49,7 @@ func (e *exportReconciler) reconcile(ctx context.Context, syncTarget *workloadv1
 		}
 
 		for _, schema := range export.Spec.LatestResourceSchemas {
-			syncedResource, err := e.convertSchemaToSyncedResource(tenancy.From(export), schema, export.Status.IdentityHash)
+			syncedResource, err := e.convertSchemaToSyncedResource(logicalcluster.From(export), schema, export.Status.IdentityHash)
 			if err != nil {
 				klog.Warningf("cannot get schema: %v", err)
 				continue
@@ -85,7 +84,7 @@ func (e *exportReconciler) reconcile(ctx context.Context, syncTarget *workloadv1
 	return syncTarget, errors.NewAggregate(errs)
 }
 
-func (e *exportReconciler) convertSchemaToSyncedResource(clusterName tenancy.Cluster, schemaName, identityHash string) (workloadv1alpha1.ResourceToSync, error) {
+func (e *exportReconciler) convertSchemaToSyncedResource(clusterName logicalcluster.Name, schemaName, identityHash string) (workloadv1alpha1.ResourceToSync, error) {
 	schema, err := e.getResourceSchema(clusterName, schemaName)
 	if err != nil {
 		return workloadv1alpha1.ResourceToSync{}, err

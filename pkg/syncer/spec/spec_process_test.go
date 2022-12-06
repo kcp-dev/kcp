@@ -485,7 +485,7 @@ func TestSyncerProcess(t *testing.T) {
 		upstreamURL               string
 		upstreamLogicalCluster    string
 		syncTargetName            string
-		syncTargetWorkspace       logicalcluster.Name
+		syncTargetWorkspace       logicalcluster.Path
 		syncTargetUID             types.UID
 		advancedSchedulingEnabled bool
 
@@ -1101,7 +1101,7 @@ func TestSyncerProcess(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
-			assert.Empty(t, cmp.Diff(tc.expectActionsOnFrom, fromClusterClient.Actions(), cmp.AllowUnexported(logicalcluster.Name{})))
+			assert.Empty(t, cmp.Diff(tc.expectActionsOnFrom, fromClusterClient.Actions(), cmp.AllowUnexported(logicalcluster.Path{})))
 			assert.Empty(t, cmp.Diff(tc.expectActionsOnTo, toClient.Actions()))
 		})
 	}

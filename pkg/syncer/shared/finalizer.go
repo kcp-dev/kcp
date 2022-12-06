@@ -39,7 +39,7 @@ const (
 	SyncerFinalizerNamePrefix = "workload.kcp.dev/syncer-"
 )
 
-func EnsureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersionResource, upstreamInformer kcpkubernetesinformers.GenericClusterInformer, upstreamClient kcpdynamic.ClusterInterface, upstreamNamespace, syncTargetKey string, logicalClusterName logicalcluster.Name, resourceName string) error {
+func EnsureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersionResource, upstreamInformer kcpkubernetesinformers.GenericClusterInformer, upstreamClient kcpdynamic.ClusterInterface, upstreamNamespace, syncTargetKey string, logicalClusterName logicalcluster.Path, resourceName string) error {
 	logger := klog.FromContext(ctx)
 	upstreamObjFromLister, err := upstreamInformer.Lister().ByCluster(logicalClusterName).ByNamespace(upstreamNamespace).Get(resourceName)
 	if err != nil && !apierrors.IsNotFound(err) {

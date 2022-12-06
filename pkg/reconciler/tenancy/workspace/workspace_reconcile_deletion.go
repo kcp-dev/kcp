@@ -31,8 +31,8 @@ import (
 )
 
 type deletionReconciler struct {
-	getThisWorkspace    func(ctx context.Context, cluster logicalcluster.Name) (*tenancyv1alpha1.ThisWorkspace, error)
-	deleteThisWorkspace func(ctx context.Context, cluster logicalcluster.Name) error
+	getThisWorkspace    func(ctx context.Context, cluster logicalcluster.Path) (*tenancyv1alpha1.ThisWorkspace, error)
+	deleteThisWorkspace func(ctx context.Context, cluster logicalcluster.Path) error
 }
 
 func (r *deletionReconciler) reconcile(ctx context.Context, workspace *tenancyv1beta1.Workspace) (reconcileStatus, error) {

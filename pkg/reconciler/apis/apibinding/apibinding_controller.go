@@ -41,7 +41,6 @@ import (
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	"github.com/kcp-dev/kcp/pkg/client"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	apisv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apis/v1alpha1"
@@ -57,7 +56,7 @@ const (
 )
 
 var (
-	ShadowWorkspaceName = tenancy.Cluster("system:bound-crds")
+	ShadowWorkspaceName = logicalcluster.Name("system:bound-crds")
 )
 
 // NewController returns a new controller for APIBindings.
@@ -69,7 +68,7 @@ func NewController(
 	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
 	apiExportInformer apisv1alpha1informers.APIExportClusterInformer,
 	apiResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
-	temporaryRemoteShardApiExportInformer apisv1alpha1informers.APIExportClusterInformer, /*TODO(p0lyn0mial): replace with multi-shard informers*/
+	temporaryRemoteShardApiExportInformer apisv1alpha1informers.APIExportClusterInformer,                 /*TODO(p0lyn0mial): replace with multi-shard informers*/
 	temporaryRemoteShardApiResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer, /*TODO(p0lyn0mial): replace with multi-shard informers*/
 	crdInformer kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer,
 ) (*controller, error) {
@@ -83,7 +82,7 @@ func NewController(
 		ddsif:                dynamicDiscoverySharedInformerFactory,
 
 		apiBindingsLister: apiBindingInformer.Lister(),
-		listAPIBindings: func(clusterName tenancy.Cluster) ([]*apisv1alpha1.APIBinding, error) {
+		listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
 			list, err := apiBindingInformer.Lister().List(labels.Everything())
 			if err != nil {
 				return nil, err
@@ -92,7 +91,7 @@ func NewController(
 			var ret []*apisv1alpha1.APIBinding
 
 			for i := range list {
-				if tenancy.From(list[i]) != clusterName {
+				if logicalcluster.From(list[i]) != clusterName {
 					continue
 				}
 
@@ -103,7 +102,7 @@ func NewController(
 		},
 		apiBindingsIndexer: apiBindingInformer.Informer().GetIndexer(),
 
-		getAPIExport: func(clusterName tenancy.Cluster, name string) (*apisv1alpha1.APIExport, error) {
+		getAPIExport: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
 			apiExport, err := apiExportInformer.Lister().Cluster(clusterName.Path()).Get(name)
 			if errors.IsNotFound(err) {
 				return temporaryRemoteShardApiExportInformer.Lister().Cluster(clusterName.Path()).Get(name)
@@ -113,7 +112,7 @@ func NewController(
 		apiExportsIndexer:                     apiExportInformer.Informer().GetIndexer(),
 		temporaryRemoteShardApiExportsIndexer: temporaryRemoteShardApiExportInformer.Informer().GetIndexer(),
 
-		getAPIResourceSchema: func(clusterName tenancy.Cluster, name string) (*apisv1alpha1.APIResourceSchema, error) {
+		getAPIResourceSchema: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
 			apiResourceSchema, err := apiResourceSchemaInformer.Lister().Cluster(clusterName.Path()).Get(name)
 			if errors.IsNotFound(err) {
 				return temporaryRemoteShardApiResourceSchemaInformer.Lister().Cluster(clusterName.Path()).Get(name)
@@ -121,13 +120,13 @@ func NewController(
 			return apiResourceSchema, err
 		},
 
-		createCRD: func(ctx context.Context, clusterName logicalcluster.Name, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error) {
+		createCRD: func(ctx context.Context, clusterName logicalcluster.Path, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error) {
 			return crdClusterClient.Cluster(clusterName).ApiextensionsV1().CustomResourceDefinitions().Create(ctx, crd, metav1.CreateOptions{})
 		},
-		getCRD: func(clusterName tenancy.Cluster, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
+		getCRD: func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 			return crdInformer.Lister().Cluster(clusterName.Path()).Get(name)
 		},
-		listCRDs: func(clusterName tenancy.Cluster) ([]*apiextensionsv1.CustomResourceDefinition, error) {
+		listCRDs: func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error) {
 			return crdInformer.Lister().Cluster(clusterName.Path()).List(labels.Everything())
 		},
 		deletedCRDTracker: newLockedStringSet(),
@@ -154,7 +153,7 @@ func NewController(
 				return false
 			}
 
-			return tenancy.From(crd) == ShadowWorkspaceName
+			return logicalcluster.From(crd) == ShadowWorkspaceName
 		},
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    func(obj interface{}) { c.enqueueCRD(obj, logger) },
@@ -231,18 +230,18 @@ type controller struct {
 	ddsif                *informer.DynamicDiscoverySharedInformerFactory
 
 	apiBindingsLister  apisv1alpha1listers.APIBindingClusterLister
-	listAPIBindings    func(clusterName tenancy.Cluster) ([]*apisv1alpha1.APIBinding, error)
+	listAPIBindings    func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
 	apiBindingsIndexer cache.Indexer
 
-	getAPIExport                          func(clusterName tenancy.Cluster, name string) (*apisv1alpha1.APIExport, error)
+	getAPIExport                          func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error)
 	apiExportsIndexer                     cache.Indexer
 	temporaryRemoteShardApiExportsIndexer cache.Indexer
 
-	getAPIResourceSchema func(clusterName tenancy.Cluster, name string) (*apisv1alpha1.APIResourceSchema, error)
+	getAPIResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
 
-	createCRD func(ctx context.Context, clusterName logicalcluster.Name, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error)
-	getCRD    func(clusterName tenancy.Cluster, name string) (*apiextensionsv1.CustomResourceDefinition, error)
-	listCRDs  func(clusterName tenancy.Cluster) ([]*apiextensionsv1.CustomResourceDefinition, error)
+	createCRD func(ctx context.Context, clusterName logicalcluster.Path, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error)
+	getCRD    func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error)
+	listCRDs  func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error)
 
 	deletedCRDTracker *lockedStringSet
 	commit            CommitFunc
@@ -296,7 +295,7 @@ func (c *controller) enqueueCRD(obj interface{}, logger logr.Logger) {
 		return
 	}
 
-	clusterName := tenancy.Cluster(crd.Annotations[apisv1alpha1.AnnotationSchemaClusterKey])
+	clusterName := logicalcluster.Name(crd.Annotations[apisv1alpha1.AnnotationSchemaClusterKey])
 	apiResourceSchema, err := c.getAPIResourceSchema(clusterName, crd.Annotations[apisv1alpha1.AnnotationSchemaNameKey])
 	if err != nil {
 		runtime.HandleError(err)

@@ -36,7 +36,6 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/admission/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 )
 
 func createAttr(apiBinding *apisv1alpha1.APIBinding) admission.Attributes {
@@ -141,7 +140,7 @@ func TestAdmit(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			o := &apiBindingAdmission{
 				Handler: admission.NewHandler(admission.Create, admission.Update),
-				createAuthorizer: func(clusterName logicalcluster.Name, client kcpkubernetesclientset.ClusterInterface) (authorizer.Authorizer, error) {
+				createAuthorizer: func(clusterName logicalcluster.Path, client kcpkubernetesclientset.ClusterInterface) (authorizer.Authorizer, error) {
 					return &fakeAuthorizer{
 						tc.authzDecision,
 						tc.authzError,
@@ -438,7 +437,7 @@ func TestValidate(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			o := &apiBindingAdmission{
 				Handler: admission.NewHandler(admission.Create, admission.Update),
-				createAuthorizer: func(clusterName logicalcluster.Name, client kcpkubernetesclientset.ClusterInterface) (authorizer.Authorizer, error) {
+				createAuthorizer: func(clusterName logicalcluster.Path, client kcpkubernetesclientset.ClusterInterface) (authorizer.Authorizer, error) {
 					return &fakeAuthorizer{
 						tc.authzDecision,
 						tc.authzError,
@@ -493,7 +492,7 @@ func (b *bindingBuilder) withName(name string) *bindingBuilder {
 	return b
 }
 
-func (b *bindingBuilder) withAbsoluteWorkspaceReference(cluster tenancy.Cluster, exportName string) *bindingBuilder {
+func (b *bindingBuilder) withAbsoluteWorkspaceReference(cluster logicalcluster.Name, exportName string) *bindingBuilder {
 	b.Spec.Reference.Export = &apisv1alpha1.ExportBindingReference{
 		Cluster: cluster,
 		Name:    exportName,

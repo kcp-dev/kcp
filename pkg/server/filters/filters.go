@@ -82,7 +82,7 @@ func WithAuditEventClusterAnnotation(handler http.Handler) http.HandlerFunc {
 // It also trims "/clusters/" prefix from the URL.
 func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		var clusterName logicalcluster.Name
+		var clusterName logicalcluster.Path
 		if path := req.URL.Path; strings.HasPrefix(path, "/clusters/") {
 			path = strings.TrimPrefix(path, "/clusters/")
 

@@ -42,7 +42,7 @@ import (
 
 const LocationInLogicalClusterIndexName = "LocationInLogicalCluster"
 
-func GetLocationInLogicalClusterIndexKey(location string, clusterName logicalcluster.Name) string {
+func GetLocationInLogicalClusterIndexKey(location string, clusterName logicalcluster.Path) string {
 	return location + "/" + clusterName.String()
 }
 

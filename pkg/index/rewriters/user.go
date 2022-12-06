@@ -33,7 +33,7 @@ func UserRewriter(segments []string) []string {
 	return segments
 }
 
-func HomeClusterName(userName string) logicalcluster.Name {
+func HomeClusterName(userName string) logicalcluster.Path {
 	hash := sha256.Sum224([]byte(userName))
 	return logicalcluster.New(strings.ToLower(base36.EncodeBytes(hash[:8])))
 }

@@ -34,12 +34,12 @@ import (
 // placementReconciler watches namespaces within a cluster workspace and assigns those to location from
 // the location domain of the cluster workspace.
 type placementReconciler struct {
-	listLocationsByPath func(path logicalcluster.Name) ([]*schedulingv1alpha1.Location, error)
+	listLocationsByPath func(path logicalcluster.Path) ([]*schedulingv1alpha1.Location, error)
 }
 
 func (r *placementReconciler) reconcile(ctx context.Context, placement *schedulingv1alpha1.Placement) (reconcileStatus, *schedulingv1alpha1.Placement, error) {
 	// get location workspace at first
-	var locationWorkspace logicalcluster.Name
+	var locationWorkspace logicalcluster.Path
 	if len(placement.Spec.LocationWorkspace) > 0 {
 		locationWorkspace = logicalcluster.New(placement.Spec.LocationWorkspace)
 	} else {
@@ -108,7 +108,7 @@ func (r *placementReconciler) reconcile(ctx context.Context, placement *scheduli
 	return reconcileStatusContinue, placement, nil
 }
 
-func (r *placementReconciler) validLocationNames(placement *schedulingv1alpha1.Placement, locationWorkspace logicalcluster.Name) (sets.String, error) {
+func (r *placementReconciler) validLocationNames(placement *schedulingv1alpha1.Placement, locationWorkspace logicalcluster.Path) (sets.String, error) {
 	selectedLocations := sets.NewString()
 
 	locations, err := r.listLocationsByPath(locationWorkspace)
@@ -137,7 +137,7 @@ func (r *placementReconciler) validLocationNames(placement *schedulingv1alpha1.P
 	return selectedLocations, nil
 }
 
-func isValidLocationSelected(placement *schedulingv1alpha1.Placement, cluster logicalcluster.Name, validLocationNames sets.String) bool {
+func isValidLocationSelected(placement *schedulingv1alpha1.Placement, cluster logicalcluster.Path, validLocationNames sets.String) bool {
 	if placement.Status.SelectedLocation == nil {
 		return false
 	}

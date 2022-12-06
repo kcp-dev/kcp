@@ -24,21 +24,21 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 )
 
-func ParseClusterURL(host string) (*url.URL, logicalcluster.Name, error) {
+func ParseClusterURL(host string) (*url.URL, logicalcluster.Path, error) {
 	u, err := url.Parse(host)
 	if err != nil {
-		return nil, logicalcluster.Name{}, err
+		return nil, logicalcluster.Path{}, err
 	}
 	ret := *u
 	prefix := "/clusters/"
 	if clusterIndex := strings.Index(u.Path, prefix); clusterIndex >= 0 {
 		clusterName := logicalcluster.New(strings.SplitN(ret.Path[clusterIndex+len(prefix):], "/", 2)[0])
 		if !clusterName.IsValid() {
-			return nil, logicalcluster.Name{}, fmt.Errorf("invalid cluster name: %q", clusterName)
+			return nil, logicalcluster.Path{}, fmt.Errorf("invalid cluster name: %q", clusterName)
 		}
 		ret.Path = ret.Path[:clusterIndex]
 		return &ret, clusterName, nil
 	}
 
-	return nil, logicalcluster.Name{}, fmt.Errorf("current cluster URL %s is not pointing to a cluster workspace", u)
+	return nil, logicalcluster.Path{}, fmt.Errorf("current cluster URL %s is not pointing to a cluster workspace", u)
 }

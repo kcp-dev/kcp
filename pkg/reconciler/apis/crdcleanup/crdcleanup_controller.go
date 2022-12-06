@@ -36,11 +36,11 @@ import (
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 const (
@@ -59,7 +59,7 @@ func NewController(
 
 	c := &controller{
 		queue: queue,
-		getCRD: func(clusterName tenancy.Cluster, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
+		getCRD: func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 			return crdInformer.Lister().Cluster(clusterName.Path()).Get(name)
 		},
 		getAPIBindingsByBoundResourceUID: func(name string) ([]*apisv1alpha1.APIBinding, error) {
@@ -84,7 +84,7 @@ func NewController(
 				return false
 			}
 
-			return tenancy.From(crd) == apibinding.ShadowWorkspaceName
+			return logicalcluster.From(crd) == apibinding.ShadowWorkspaceName
 		},
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
@@ -117,7 +117,7 @@ func NewController(
 type controller struct {
 	queue workqueue.RateLimitingInterface
 
-	getCRD                           func(clusterName tenancy.Cluster, name string) (*apiextensionsv1.CustomResourceDefinition, error)
+	getCRD                           func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error)
 	getAPIBindingsByBoundResourceUID func(name string) ([]*apisv1alpha1.APIBinding, error)
 	deleteCRD                        func(ctx context.Context, name string) error
 }
@@ -223,7 +223,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 	if err != nil {
 		return err
 	}
-	clusterName := tenancy.Cluster(cluster.String()) // TODO: remove this when SplitMetaClusterNamespaceKey returns a tenancy.Cluster
+	clusterName := logicalcluster.Name(cluster.String()) // TODO: remove this when SplitMetaClusterNamespaceKey returns a tenancy.Name
 
 	obj, err := c.getCRD(clusterName, name)
 	if err != nil {

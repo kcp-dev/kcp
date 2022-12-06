@@ -38,19 +38,19 @@ import (
 )
 
 type ClusterAwareSource interface {
-	Webhooks(cluster logicalcluster.Name) []webhook.WebhookAccessor
+	Webhooks(cluster logicalcluster.Path) []webhook.WebhookAccessor
 	HasSynced() bool
 }
 
 type clusterAwareSource struct {
-	factory   func(cluster logicalcluster.Name) generic.Source
+	factory   func(cluster logicalcluster.Path) generic.Source
 	hasSynced func() bool
 
 	lock    sync.RWMutex
-	sources map[logicalcluster.Name]generic.Source
+	sources map[logicalcluster.Path]generic.Source
 }
 
-func (c *clusterAwareSource) Webhooks(cluster logicalcluster.Name) []webhook.WebhookAccessor {
+func (c *clusterAwareSource) Webhooks(cluster logicalcluster.Path) []webhook.WebhookAccessor {
 	var source generic.Source
 	var found bool
 	c.lock.RLock()
@@ -126,7 +126,7 @@ func (p *WebhookDispatcher) Dispatch(ctx context.Context, attr admission.Attribu
 	return p.dispatcher.Dispatch(ctx, attr, o, whAccessor)
 }
 
-func (p *WebhookDispatcher) getAPIExportCluster(attr admission.Attributes, clusterName logicalcluster.Name) (logicalcluster.Name, bool, error) {
+func (p *WebhookDispatcher) getAPIExportCluster(attr admission.Attributes, clusterName logicalcluster.Path) (logicalcluster.Path, bool, error) {
 	objs, err := p.apiBindingClusterLister.Cluster(clusterName).List(labels.Everything())
 	if err != nil {
 		return logicalcluster.New(""), false, err
@@ -147,13 +147,13 @@ func (p *WebhookDispatcher) getAPIExportCluster(attr admission.Attributes, clust
 	return logicalcluster.New(""), false, nil
 }
 
-func (p *WebhookDispatcher) SetHookSource(factory func(cluster logicalcluster.Name) generic.Source, hasSynced func() bool) {
+func (p *WebhookDispatcher) SetHookSource(factory func(cluster logicalcluster.Path) generic.Source, hasSynced func() bool) {
 	p.hookSource = &clusterAwareSource{
 		hasSynced: hasSynced,
 		factory:   factory,
 
 		lock:    sync.RWMutex{},
-		sources: map[logicalcluster.Name]generic.Source{},
+		sources: map[logicalcluster.Path]generic.Source{},
 	}
 }
 

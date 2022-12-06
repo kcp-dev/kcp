@@ -38,7 +38,6 @@ import (
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/client"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
@@ -214,7 +213,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 
 func (c *controller) process(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
-	clusterName := tenancy.Cluster(key)
+	clusterName := logicalcluster.Name(key)
 
 	syncTargets, err := c.syncTargetLister.Cluster(clusterName.Path()).List(labels.Everything())
 	if err != nil {

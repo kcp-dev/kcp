@@ -37,9 +37,9 @@ const (
 //
 // WARNING: only ever use this header for defaulting of values the client could
 // easily specify themselves directly in the API objects.
-func CanonicalPathFromHeader(headers http.Header) (logicalcluster.Name, bool) {
+func CanonicalPathFromHeader(headers http.Header) (logicalcluster.Path, bool) {
 	if values, ok := headers[XKcpCanonicalPathHeader]; !ok {
-		return logicalcluster.Name{}, false
+		return logicalcluster.Path{}, false
 	} else {
 		return logicalcluster.New(values[0]), true
 	}
@@ -50,7 +50,7 @@ type canonicalPathKey int
 const canonicalPathContextKey canonicalPathKey = iota
 
 // WithCanonicalPath returns a context with the canonical workspace path.
-func WithCanonicalPath(parent context.Context, canonicalPath logicalcluster.Name) context.Context {
+func WithCanonicalPath(parent context.Context, canonicalPath logicalcluster.Path) context.Context {
 	return context.WithValue(parent, canonicalPathContextKey, canonicalPath)
 }
 
@@ -58,10 +58,10 @@ func WithCanonicalPath(parent context.Context, canonicalPath logicalcluster.Name
 //
 // WARNING: only ever use this header for defaulting of values the client could
 // easily specify themselves directly in the API objects.
-func CanonicalPathFrom(ctx context.Context) logicalcluster.Name {
-	canonicalPath, ok := ctx.Value(canonicalPathContextKey).(logicalcluster.Name)
+func CanonicalPathFrom(ctx context.Context) logicalcluster.Path {
+	canonicalPath, ok := ctx.Value(canonicalPathContextKey).(logicalcluster.Path)
 	if !ok {
-		return logicalcluster.Name{}
+		return logicalcluster.Path{}
 	}
 	return canonicalPath
 }

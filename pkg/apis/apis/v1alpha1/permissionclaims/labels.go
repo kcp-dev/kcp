@@ -22,12 +22,12 @@ import (
 	"math/big"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // ToLabelKeyAndValue creates a safe key and value for labeling a resource to grant access
 // based on the permissionClaim.
-func ToLabelKeyAndValue(exportClusterName tenancy.Cluster, exportName string, permissionClaim apisv1alpha1.PermissionClaim) (string, string, error) {
+func ToLabelKeyAndValue(exportClusterName logicalcluster.Name, exportName string, permissionClaim apisv1alpha1.PermissionClaim) (string, string, error) {
 	bytes, err := json.Marshal(permissionClaim)
 	if err != nil {
 		return "", "", err
@@ -40,7 +40,7 @@ func ToLabelKeyAndValue(exportClusterName tenancy.Cluster, exportName string, pe
 
 // ToReflexiveAPIBindingLabelKeyAndValue returns label key and value that is set (as fallback for filtering)
 // on APIBindings that point to the given APIExport and the binding has not accepted a claim to it.
-func ToReflexiveAPIBindingLabelKeyAndValue(exportClusterName tenancy.Cluster, exportName string) (string, string) {
+func ToReflexiveAPIBindingLabelKeyAndValue(exportClusterName logicalcluster.Name, exportName string) (string, string) {
 	claimHash := toBase62([28]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7})
 	exportHash := toBase62(sha256.Sum224([]byte(exportClusterName.Path().Join(exportName).String())))
 	return apisv1alpha1.APIExportPermissionClaimLabelPrefix + exportHash, claimHash
@@ -48,7 +48,7 @@ func ToReflexiveAPIBindingLabelKeyAndValue(exportClusterName tenancy.Cluster, ex
 
 // ToAPIBindingExportLabelValue returns the label value for the internal.apis.kcp.dev/export label
 // on APIBindings to filter them by export.
-func ToAPIBindingExportLabelValue(clusterName tenancy.Cluster, exportName string) string {
+func ToAPIBindingExportLabelValue(clusterName logicalcluster.Name, exportName string) string {
 	return toBase62(sha256.Sum224([]byte(clusterName.Path().Join(exportName).String())))
 }
 

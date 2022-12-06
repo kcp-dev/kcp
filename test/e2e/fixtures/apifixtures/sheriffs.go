@@ -117,7 +117,7 @@ func NewSheriffsCRDWithVersions(group string, versions ...string) *apiextensions
 func CreateSheriffsSchemaAndExport(
 	ctx context.Context,
 	t *testing.T,
-	clusterName logicalcluster.Name,
+	clusterName logicalcluster.Path,
 	clusterClient kcpclientset.ClusterInterface,
 	group string,
 	description string,
@@ -178,7 +178,7 @@ func CreateSheriff(
 	ctx context.Context,
 	t *testing.T,
 	dynamicClusterClient kcpdynamic.ClusterInterface,
-	clusterName logicalcluster.Name,
+	clusterName logicalcluster.Path,
 	group, name string,
 ) {
 	name = strings.ReplaceAll(name, ":", "-")

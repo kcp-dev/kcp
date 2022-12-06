@@ -32,7 +32,7 @@ import (
 )
 
 type phaseReconciler struct {
-	getThisWorkspace func(ctx context.Context, cluster logicalcluster.Name) (*tenancyv1alpha1.ThisWorkspace, error)
+	getThisWorkspace func(ctx context.Context, cluster logicalcluster.Path) (*tenancyv1alpha1.ThisWorkspace, error)
 
 	requeueAfter func(workspace *tenancyv1beta1.Workspace, after time.Duration)
 }

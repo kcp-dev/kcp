@@ -93,7 +93,7 @@ type Controller struct {
 	downstreamEventHandlers []ResourceEventHandlerPerGVR
 
 	syncTargetName      string
-	syncTargetWorkspace logicalcluster.Name
+	syncTargetWorkspace logicalcluster.Path
 	syncTargetUID       types.UID
 	syncTargetLister    workloadv1alpha1listers.SyncTargetLister
 	kcpClient           clientset.Interface
@@ -110,7 +110,7 @@ func NewController(
 	kcpClient clientset.Interface,
 	syncTargetInformer workloadv1alpha1informers.SyncTargetInformer,
 	syncTargetName string,
-	syncTargetWorkspace logicalcluster.Name,
+	syncTargetWorkspace logicalcluster.Path,
 	syncTargetUID types.UID,
 ) (SyncerInformerFactory, error) {
 	c := &Controller{

@@ -40,7 +40,6 @@ import (
 
 	configcrds "github.com/kcp-dev/kcp/config/crds"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
@@ -275,7 +274,7 @@ func TestKubeQuotaNormalCRDs(t *testing.T) {
 	sheriffsObjectCountName := corev1.ResourceName("count/sheriffs." + group)
 
 	// Test with 2 workspaces to make sure quota is independent per workspace
-	workspaces := []tenancy.Cluster{ws1, ws2}
+	workspaces := []logicalcluster.Name{ws1, ws2}
 	for i, ws := range workspaces {
 		wsIndex := i + 1
 		quotaName := group
@@ -431,7 +430,7 @@ func TestClusterScopedQuota(t *testing.T) {
 
 func bootstrapCRD(
 	t *testing.T,
-	clusterName logicalcluster.Name,
+	clusterName logicalcluster.Path,
 	client kcpapiextensionsv1client.CustomResourceDefinitionClusterInterface,
 	crd *apiextensionsv1.CustomResourceDefinition,
 ) {

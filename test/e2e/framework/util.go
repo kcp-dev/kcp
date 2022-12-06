@@ -260,14 +260,14 @@ type ArtifactFunc func(*testing.T, func() (runtime.Object, error))
 type SyncTargetOption func(cluster *workloadv1alpha1.SyncTarget)
 
 // LogicalClusterRawConfig returns the raw cluster config of the given config.
-func LogicalClusterRawConfig(rawConfig clientcmdapi.Config, logicalClusterName logicalcluster.Name, contextName string) clientcmdapi.Config {
+func LogicalClusterRawConfig(rawConfig clientcmdapi.Config, logicalClusterName logicalcluster.Path, contextName string) clientcmdapi.Config {
 	var (
 		contextClusterName  = rawConfig.Contexts[contextName].Cluster
 		contextAuthInfoName = rawConfig.Contexts[contextName].AuthInfo
 		configCluster       = *rawConfig.Clusters[contextClusterName] // shallow copy
 	)
 
-	configCluster.Server += logicalClusterName.Path()
+	configCluster.Server += logicalClusterName.RequestPath()
 
 	return clientcmdapi.Config{
 		Clusters: map[string]*clientcmdapi.Cluster{

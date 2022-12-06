@@ -30,7 +30,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
@@ -53,7 +52,7 @@ func WithRequiredGroups(groups ...string) ClusterWorkspaceOption {
 	}
 }
 
-func WithType(path logicalcluster.Name, name tenancyv1alpha1.ClusterWorkspaceTypeName) ClusterWorkspaceOption {
+func WithType(path logicalcluster.Path, name tenancyv1alpha1.ClusterWorkspaceTypeName) ClusterWorkspaceOption {
 	return func(ws *tenancyv1alpha1.ClusterWorkspace) {
 		ws.Spec.Type = tenancyv1alpha1.ClusterWorkspaceTypeReference{
 			Name: name,
@@ -69,7 +68,7 @@ func WithName(s string, formatArgs ...interface{}) ClusterWorkspaceOption {
 	}
 }
 
-func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logicalcluster.Name, options ...ClusterWorkspaceOption) (clusterName tenancy.Cluster) {
+func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logicalcluster.Path, options ...ClusterWorkspaceOption) (clusterName logicalcluster.Name) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
@@ -132,10 +131,10 @@ func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logi
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for workspace %s to become ready", orgClusterName.Join(ws.Name))
 
 	t.Logf("Created %s workspace %s", ws.Spec.Type, orgClusterName.Join(ws.Name))
-	return tenancy.Cluster(ws.Status.Cluster)
+	return logicalcluster.Name(ws.Status.Cluster)
 }
 
-func NewOrganizationFixture(t *testing.T, server RunningServer, options ...ClusterWorkspaceOption) (orgClusterName tenancy.Cluster) {
+func NewOrganizationFixture(t *testing.T, server RunningServer, options ...ClusterWorkspaceOption) (orgClusterName logicalcluster.Name) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
@@ -198,5 +197,5 @@ func NewOrganizationFixture(t *testing.T, server RunningServer, options ...Clust
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for organization workspace %s to become ready", org.Name)
 
 	t.Logf("Created organization workspace %s", tenancyv1alpha1.RootCluster.Path().Join(org.Name))
-	return tenancy.Cluster(org.Status.Cluster)
+	return logicalcluster.Name(org.Status.Cluster)
 }

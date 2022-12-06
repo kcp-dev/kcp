@@ -47,7 +47,7 @@ func Register(plugins *admission.Plugins) {
 		return &workspaceLimitRanger{
 			Handler:   admission.NewHandler(admission.Create, admission.Update),
 			lock:      sync.RWMutex{},
-			delegates: map[logicalcluster.Name]*limitranger.LimitRanger{},
+			delegates: map[logicalcluster.Path]*limitranger.LimitRanger{},
 		}, nil
 	})
 }
@@ -59,7 +59,7 @@ type workspaceLimitRanger struct {
 	lister kcpcorev1listers.LimitRangeClusterLister
 
 	lock      sync.RWMutex
-	delegates map[logicalcluster.Name]*limitranger.LimitRanger
+	delegates map[logicalcluster.Path]*limitranger.LimitRanger
 }
 
 // SetExternalKubeInformerFactory implements the WantsExternalKubeInformerFactory interface.
@@ -110,7 +110,7 @@ func (l *workspaceLimitRanger) Validate(ctx context.Context, a admission.Attribu
 	return delegate.Validate(ctx, a, o)
 }
 
-func (l *workspaceLimitRanger) delegateFor(cluster logicalcluster.Name) (*limitranger.LimitRanger, error) {
+func (l *workspaceLimitRanger) delegateFor(cluster logicalcluster.Path) (*limitranger.LimitRanger, error) {
 	var delegate *limitranger.LimitRanger
 	l.lock.RLock()
 	var found bool

@@ -69,7 +69,7 @@ func (a *requiredGroupsAuthorizer) Authorize(ctx context.Context, attr authorize
 		return authorizer.DecisionNoOpinion, "empty cluster name", nil
 	}
 
-	subjectClusters := map[logicalcluster.Name]bool{}
+	subjectClusters := map[logicalcluster.Path]bool{}
 	for _, sc := range attr.GetUser().GetExtra()[authserviceaccount.ClusterNameKey] {
 		subjectClusters[logicalcluster.New(sc)] = true
 	}

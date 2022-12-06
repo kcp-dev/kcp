@@ -66,7 +66,7 @@ type SyncerConfig struct {
 	UpstreamConfig                *rest.Config
 	DownstreamConfig              *rest.Config
 	ResourcesToSync               sets.String
-	SyncTargetWorkspace           logicalcluster.Name
+	SyncTargetWorkspace           logicalcluster.Path
 	SyncTargetName                string
 	SyncTargetUID                 string
 	DownstreamNamespaceCleanDelay time.Duration

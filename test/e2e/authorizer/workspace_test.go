@@ -45,7 +45,7 @@ func TestWorkspaces(t *testing.T) {
 
 	type runningServer struct {
 		framework.RunningServer
-		orgClusterName    logicalcluster.Name
+		orgClusterName    logicalcluster.Path
 		kubeClusterClient kcpkubernetesclientset.ClusterInterface
 		kcpClusterClient  kcpclientset.ClusterInterface
 		UserKcpClients    []kcpclientset.ClusterInterface
@@ -174,7 +174,7 @@ func TestWorkspaces(t *testing.T) {
 	}
 }
 
-func permitAccessToWorkspace(t *testing.T, ctx context.Context, kubeClusterClient kcpkubernetesclientset.ClusterInterface, clusterName logicalcluster.Name, admin bool, bindingName string, groupNames ...string) {
+func permitAccessToWorkspace(t *testing.T, ctx context.Context, kubeClusterClient kcpkubernetesclientset.ClusterInterface, clusterName logicalcluster.Path, admin bool, bindingName string, groupNames ...string) {
 	t.Logf("Giving groups %v member access to workspace %q", groupNames, clusterName)
 
 	binding := &rbacv1.ClusterRoleBinding{

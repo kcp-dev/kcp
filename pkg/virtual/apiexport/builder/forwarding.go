@@ -33,12 +33,12 @@ import (
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1/permissionclaims"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
 	registry "github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
-func provideAPIExportFilteredRestStorage(ctx context.Context, clusterClient kcpdynamic.ClusterInterface, clusterName tenancy.Cluster, exportName string) (apiserver.RestProviderFunc, error) {
+func provideAPIExportFilteredRestStorage(ctx context.Context, clusterClient kcpdynamic.ClusterInterface, clusterName logicalcluster.Name, exportName string) (apiserver.RestProviderFunc, error) {
 	labelSelector := map[string]string{
 		apisv1alpha1.InternalAPIBindingExportLabelKey: permissionclaims.ToAPIBindingExportLabelValue(clusterName, exportName),
 	}

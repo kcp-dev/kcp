@@ -77,7 +77,7 @@ func NewAPIImporter(
 	synctargetInformer workloadinformers.SyncTargetInformer,
 	apiImportInformer apiresourceinformer.APIResourceImportInformer,
 	resourcesToSync []string,
-	logicalClusterName logicalcluster.Name,
+	logicalClusterName logicalcluster.Path,
 	syncTargetName string,
 	syncTargetUID types.UID,
 ) (*APIImporter, error) {

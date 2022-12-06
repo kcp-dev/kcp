@@ -46,7 +46,7 @@ import (
 const clusterNameAndGVRIndexName = "clusterNameAndGVR"
 const ControllerName = "kcp-apiresource"
 
-func GetClusterNameAndGVRIndexKey(clusterName logicalcluster.Name, gvr metav1.GroupVersionResource) string {
+func GetClusterNameAndGVRIndexKey(clusterName logicalcluster.Path, gvr metav1.GroupVersionResource) string {
 	return clusterName.String() + "$" + gvr.String()
 }
 
@@ -175,7 +175,7 @@ type queueElement struct {
 	theType       queueElementType
 	theKey        string
 	gvr           metav1.GroupVersionResource
-	clusterName   logicalcluster.Name
+	clusterName   logicalcluster.Path
 	deletedObject interface{}
 }
 

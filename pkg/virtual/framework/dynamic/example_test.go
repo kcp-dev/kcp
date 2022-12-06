@@ -75,7 +75,7 @@ func Example() {
 
 			// Setup some controller that will add APIDefinitions on demand
 
-			someController := setupController(func(logicalClusterName logicalcluster.Name, apiResourceSchema *apisv1alpha1.APIResourceSchema, version string) (apidefinition.APIDefinition, error) {
+			someController := setupController(func(logicalClusterName logicalcluster.Path, apiResourceSchema *apisv1alpha1.APIResourceSchema, version string) (apidefinition.APIDefinition, error) {
 				// apiserver.CreateServingInfoFor() creates and initializes all the required information to serve an API
 				return apiserver.CreateServingInfoFor(mainConfig, apiResourceSchema, version, someRestProviderFunc)
 			})
@@ -107,7 +107,7 @@ type someController interface {
 
 // CreateAPIDefinitionFunc is the type of a function which allows creating an APIDefinition
 // (with REST storage and handler Request scopes) based on the API specification logical cluster name and OpenAPI v3 schema.
-type CreateAPIDefinitionFunc func(logicalClusterName logicalcluster.Name, apiResourceSchema *apisv1alpha1.APIResourceSchema, version string) (apidefinition.APIDefinition, error)
+type CreateAPIDefinitionFunc func(logicalClusterName logicalcluster.Path, apiResourceSchema *apisv1alpha1.APIResourceSchema, version string) (apidefinition.APIDefinition, error)
 
 func setupController(createAPIDefinition CreateAPIDefinitionFunc) someController {
 	return nil

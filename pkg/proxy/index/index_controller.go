@@ -47,7 +47,7 @@ const (
 )
 
 type Index interface {
-	LookupURL(path logicalcluster.Name) (url string, canonicalPath logicalcluster.Name, found bool)
+	LookupURL(path logicalcluster.Path) (url string, canonicalPath logicalcluster.Path, found bool)
 }
 
 type ClusterWorkspaceClientGetter func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpclientset.ClusterInterface, error)
@@ -273,6 +273,6 @@ func (c *Controller) stopShard(shard *tenancyv1alpha1.ClusterWorkspaceShard) {
 	delete(c.shardThisWorkspaceInformers, shard.Name)
 }
 
-func (c *Controller) LookupURL(path logicalcluster.Name) (url string, canonicalPath logicalcluster.Name, found bool) {
+func (c *Controller) LookupURL(path logicalcluster.Path) (url string, canonicalPath logicalcluster.Path, found bool) {
 	return c.state.LookupURL(path)
 }

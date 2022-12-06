@@ -38,7 +38,6 @@ import (
 
 	"github.com/kcp-dev/kcp/config/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest"
@@ -173,7 +172,7 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 	user3KcpClient, err := kcpclientset.NewForConfig(framework.UserConfig("user-3", rest.CopyConfig(cfg)))
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
-	serviceProviderClusterNames := []tenancy.Cluster{rbacServiceProviderClusterName, serviceProvider2Workspace}
+	serviceProviderClusterNames := []logicalcluster.Name{rbacServiceProviderClusterName, serviceProvider2Workspace}
 	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, orgClusterName.Path(), []string{"user-1", "user-2", "user-3"}, nil, false)
 
 	// Set up service provider workspace.
@@ -181,7 +180,7 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 		setUpServiceProvider(ctx, dynamicClients, kcpClusterClient, kubeClusterClient, serviceProviderClusterName.Path(), rbacServiceProviderClusterName.Path(), cfg, t)
 	}
 
-	bindConsumerToProvider := func(consumerWorkspace logicalcluster.Name, providerClusterName tenancy.Cluster) {
+	bindConsumerToProvider := func(consumerWorkspace logicalcluster.Path, providerClusterName logicalcluster.Name) {
 		t.Logf("Create an APIBinding in consumer workspace %q that points to the today-cowboys export from %q", consumer1ClusterName, rbacServiceProviderClusterName)
 		apiBinding := &apisv1alpha1.APIBinding{
 			ObjectMeta: metav1.ObjectMeta{
@@ -221,7 +220,7 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 		require.True(t, resourceExists(resources, "cowboys"), "consumer workspace %q discovery is missing cowboys resource", consumerWorkspace)
 	}
 
-	m := map[tenancy.Cluster]tenancy.Cluster{
+	m := map[logicalcluster.Name]logicalcluster.Name{
 		rbacServiceProviderClusterName: consumer1ClusterName,
 		serviceProvider2Workspace:      consumer2ClusterName,
 	}
@@ -337,7 +336,7 @@ func createClusterRoleAndBindings(name, subjectName, subjectKind string, apiGrou
 	return clusterRole, clusterRoleBinding
 }
 
-func setUpServiceProvider(ctx context.Context, dynamicClusterClient kcpdynamic.ClusterInterface, kcpClients kcpclientset.ClusterInterface, kubeClusterClient kcpkubernetesclientset.ClusterInterface, serviceProviderWorkspace, rbacServiceProvider logicalcluster.Name, cfg *rest.Config, t *testing.T) {
+func setUpServiceProvider(ctx context.Context, dynamicClusterClient kcpdynamic.ClusterInterface, kcpClients kcpclientset.ClusterInterface, kubeClusterClient kcpkubernetesclientset.ClusterInterface, serviceProviderWorkspace, rbacServiceProvider logicalcluster.Path, cfg *rest.Config, t *testing.T) {
 	t.Logf("Install today cowboys APIResourceSchema into service provider workspace %q", serviceProviderWorkspace)
 
 	serviceProviderClient, err := kcpclientset.NewForConfig(cfg)
@@ -377,7 +376,7 @@ func setUpServiceProvider(ctx context.Context, dynamicClusterClient kcpdynamic.C
 	require.NoError(t, err)
 }
 
-func testCRUDOperations(ctx context.Context, t *testing.T, consumer1Workspace logicalcluster.Name, wildwestClusterClient wildwestclientset.ClusterInterface) {
+func testCRUDOperations(ctx context.Context, t *testing.T, consumer1Workspace logicalcluster.Path, wildwestClusterClient wildwestclientset.ClusterInterface) {
 	t.Logf("Make sure we can perform CRUD operations against consumer workspace %q for the bound API", consumer1Workspace)
 
 	t.Logf("Make sure list shows nothing to start")

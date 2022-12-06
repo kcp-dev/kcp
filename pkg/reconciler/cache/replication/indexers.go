@@ -48,7 +48,7 @@ func IndexByShardAndLogicalClusterAndNamespace(obj interface{}) ([]string, error
 
 // ShardAndLogicalClusterAndNamespaceKey creates an index key from the given parameters.
 // As of today this function is used by IndexByShardAndLogicalClusterAndNamespace indexer.
-func ShardAndLogicalClusterAndNamespaceKey(shard string, cluster logicalcluster.Name, namespace, name string) string {
+func ShardAndLogicalClusterAndNamespaceKey(shard string, cluster logicalcluster.Path, namespace, name string) string {
 	var key string
 	if len(shard) > 0 {
 		key += shard + "|"

@@ -39,7 +39,6 @@ import (
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/client"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
@@ -337,7 +336,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	return nil
 }
 
-func (c *Controller) getAPIExport(path logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
+func (c *Controller) getAPIExport(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
 	objs, err := c.apiExportsIndexer.ByIndex(indexers.ByLogicalClusterPath, path.String())
 	if err != nil {
 		return nil, err
@@ -348,10 +347,10 @@ func (c *Controller) getAPIExport(path logicalcluster.Name, name string) (*apisv
 	return objs[0].(*apisv1alpha1.APIExport), nil
 }
 
-func (c *Controller) getResourceSchema(clusterName tenancy.Cluster, name string) (*apisv1alpha1.APIResourceSchema, error) {
+func (c *Controller) getResourceSchema(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
 	return c.resourceSchemaLister.Cluster(clusterName.Path()).Get(name)
 }
 
-func (c *Controller) listAPIResourceImports(clusterName tenancy.Cluster) ([]*apiresourcev1alpha1.APIResourceImport, error) {
+func (c *Controller) listAPIResourceImports(clusterName logicalcluster.Name) ([]*apiresourcev1alpha1.APIResourceImport, error) {
 	return c.apiImportLister.Cluster(clusterName.Path()).List(labels.Everything())
 }

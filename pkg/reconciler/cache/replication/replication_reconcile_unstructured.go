@@ -44,7 +44,7 @@ import (
 //     - the localObject's metadata doesn't match the cacheObject
 //     - the localObject's spec doesn't match the cacheObject
 //     - the localObject's status doesn't match the cacheObject
-func (c *controller) reconcileUnstructuredObjects(ctx context.Context, cluster logicalcluster.Name, gvr *schema.GroupVersionResource, cacheObject *unstructured.Unstructured, localObject *unstructured.Unstructured) error {
+func (c *controller) reconcileUnstructuredObjects(ctx context.Context, cluster logicalcluster.Path, gvr *schema.GroupVersionResource, cacheObject *unstructured.Unstructured, localObject *unstructured.Unstructured) error {
 	if localObject == nil {
 		return c.handleObjectDeletion(ctx, cluster, gvr, cacheObject)
 	}
@@ -85,7 +85,7 @@ func (c *controller) reconcileUnstructuredObjects(ctx context.Context, cluster l
 	return nil
 }
 
-func (c *controller) handleObjectDeletion(ctx context.Context, cluster logicalcluster.Name, gvr *schema.GroupVersionResource, cacheObject *unstructured.Unstructured) error {
+func (c *controller) handleObjectDeletion(ctx context.Context, cluster logicalcluster.Path, gvr *schema.GroupVersionResource, cacheObject *unstructured.Unstructured) error {
 	if cacheObject == nil {
 		return nil // the cached object already removed
 	}

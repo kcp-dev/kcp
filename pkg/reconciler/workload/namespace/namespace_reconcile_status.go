@@ -53,7 +53,7 @@ const (
 
 // statusReconciler updates conditions on the namespace.
 type statusConditionReconciler struct {
-	patchNamespace func(ctx context.Context, clusterName logicalcluster.Name, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*corev1.Namespace, error)
+	patchNamespace func(ctx context.Context, clusterName logicalcluster.Path, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*corev1.Namespace, error)
 }
 
 // ensureScheduledStatus ensures the status of the given namespace reflects the

@@ -26,7 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 func TestPlacementPhase(t *testing.T) {
@@ -105,7 +105,7 @@ func TestPlacementPhase(t *testing.T) {
 					SelectedLocation: testCase.selectedLocation,
 				},
 			}
-			listNamespacesWithAnnotation := func(clusterName tenancy.Cluster) ([]*corev1.Namespace, error) {
+			listNamespacesWithAnnotation := func(clusterName logicalcluster.Name) ([]*corev1.Namespace, error) {
 				if testCase.ns == nil {
 					return []*corev1.Namespace{}, nil
 				}

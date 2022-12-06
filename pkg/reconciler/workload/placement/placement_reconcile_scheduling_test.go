@@ -129,17 +129,17 @@ func TestSchedulingReconcile(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			listSyncTarget := func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error) {
+			listSyncTarget := func(clusterName logicalcluster.Path) ([]*workloadv1alpha1.SyncTarget, error) {
 				return testCase.syncTargets, nil
 			}
-			getLocation := func(clusterName logicalcluster.Name, name string) (*schedulingv1alpha1.Location, error) {
+			getLocation := func(clusterName logicalcluster.Path, name string) (*schedulingv1alpha1.Location, error) {
 				if testCase.location == nil {
 					return nil, errors.NewNotFound(schema.GroupResource{}, name)
 				}
 				return testCase.location, nil
 			}
 			var patched bool
-			patchPlacement := func(ctx context.Context, clusterName logicalcluster.Name, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*schedulingv1alpha1.Placement, error) {
+			patchPlacement := func(ctx context.Context, clusterName logicalcluster.Path, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*schedulingv1alpha1.Placement, error) {
 				patched = true
 				nsData, _ := json.Marshal(testCase.placement)
 				updatedData, err := jsonpatch.MergePatch(nsData, data)

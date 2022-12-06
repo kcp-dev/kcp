@@ -42,7 +42,7 @@ import (
 )
 
 // testSchemaIsNotEnforced checks if an object of any schema can be stored as "apis.kcp.dev.v1alpha1.apiexports"
-func testSchemaIsNotEnforced(ctx context.Context, t *testing.T, cacheClientRT *rest.Config, cluster logicalcluster.Name, gvr schema.GroupVersionResource) {
+func testSchemaIsNotEnforced(ctx context.Context, t *testing.T, cacheClientRT *rest.Config, cluster logicalcluster.Path, gvr schema.GroupVersionResource) {
 	cacheDynamicClient, err := kcpdynamic.NewForConfig(cacheClientRT)
 	require.NoError(t, err)
 	type planet struct {
@@ -104,7 +104,7 @@ func testSchemaIsNotEnforced(ctx context.Context, t *testing.T, cacheClientRT *r
 
 // testShardNamesAssigned checks if a shard name is provided in the "kcp.dev/shard" annotation and
 // if a cluster name is stored at "kcp.dev/cluster" annotation
-func testShardClusterNamesAssigned(ctx context.Context, t *testing.T, cacheClientRT *rest.Config, cluster logicalcluster.Name, gvr schema.GroupVersionResource) {
+func testShardClusterNamesAssigned(ctx context.Context, t *testing.T, cacheClientRT *rest.Config, cluster logicalcluster.Path, gvr schema.GroupVersionResource) {
 	cacheDynamicClient, err := kcpdynamic.NewForConfig(cacheClientRT)
 	require.NoError(t, err)
 	initialComicDB := newFakeAPIExport("comicdb")
@@ -136,7 +136,7 @@ func testShardClusterNamesAssigned(ctx context.Context, t *testing.T, cacheClien
 }
 
 // testUIDGenerationCreationTime checks if overwriting UID, Generation, CreationTime when the shard annotation is set works
-func testUIDGenerationCreationTime(ctx context.Context, t *testing.T, cacheClientRT *rest.Config, cluster logicalcluster.Name, gvr schema.GroupVersionResource) {
+func testUIDGenerationCreationTime(ctx context.Context, t *testing.T, cacheClientRT *rest.Config, cluster logicalcluster.Path, gvr schema.GroupVersionResource) {
 	cacheDynamicClient, err := kcpdynamic.NewForConfig(cacheClientRT)
 	require.NoError(t, err)
 	initialMangoDB := newFakeAPIExport("mangodb")
@@ -172,7 +172,7 @@ func testUIDGenerationCreationTime(ctx context.Context, t *testing.T, cacheClien
 }
 
 // testUIDGenerationCreationTimeNegative checks if UID, Generation, CreationTime are set when the shard annotation is NOT set
-func testUIDGenerationCreationTimeNegative(ctx context.Context, t *testing.T, cacheClientRT *rest.Config, cluster logicalcluster.Name, gvr schema.GroupVersionResource) {
+func testUIDGenerationCreationTimeNegative(ctx context.Context, t *testing.T, cacheClientRT *rest.Config, cluster logicalcluster.Path, gvr schema.GroupVersionResource) {
 	cacheDynamicClient, err := kcpdynamic.NewForConfig(cacheClientRT)
 	require.NoError(t, err)
 	initialMangoDB := newFakeAPIExport("mangodbnegative")
@@ -221,7 +221,7 @@ func testUIDGenerationCreationTimeNegative(ctx context.Context, t *testing.T, ca
 }
 
 // testGenerationOnSpecChanges checks if Generation is not increased when the spec is changed
-func testGenerationOnSpecChanges(ctx context.Context, t *testing.T, cacheClientRT *rest.Config, cluster logicalcluster.Name, gvr schema.GroupVersionResource) {
+func testGenerationOnSpecChanges(ctx context.Context, t *testing.T, cacheClientRT *rest.Config, cluster logicalcluster.Path, gvr schema.GroupVersionResource) {
 	cacheDynamicClient, err := kcpdynamic.NewForConfig(cacheClientRT)
 	require.NoError(t, err)
 	initialCinnamonDB := newFakeAPIExport("cinnamondb")
@@ -265,7 +265,7 @@ func testGenerationOnSpecChanges(ctx context.Context, t *testing.T, cacheClientR
 }
 
 // testDeletionWithFinalizers checks if deleting an object with finalizers immediately removes it
-func testDeletionWithFinalizers(ctx context.Context, t *testing.T, cacheClientRT *rest.Config, cluster logicalcluster.Name, gvr schema.GroupVersionResource) {
+func testDeletionWithFinalizers(ctx context.Context, t *testing.T, cacheClientRT *rest.Config, cluster logicalcluster.Path, gvr schema.GroupVersionResource) {
 	cacheDynamicClient, err := kcpdynamic.NewForConfig(cacheClientRT)
 	require.NoError(t, err)
 	initialGhostDB := newFakeAPIExport("ghostdb")
@@ -289,7 +289,7 @@ func testDeletionWithFinalizers(ctx context.Context, t *testing.T, cacheClientRT
 }
 
 // testSpecStatusSimultaneously checks if updating spec and status at the same time works
-func testSpecStatusSimultaneously(ctx context.Context, t *testing.T, cacheClientRT *rest.Config, cluster logicalcluster.Name, gvr schema.GroupVersionResource) {
+func testSpecStatusSimultaneously(ctx context.Context, t *testing.T, cacheClientRT *rest.Config, cluster logicalcluster.Path, gvr schema.GroupVersionResource) {
 	cacheDynamicClient, err := kcpdynamic.NewForConfig(cacheClientRT)
 	require.NoError(t, err)
 	initialCucumberDB := newFakeAPIExport("cucumberdb")
@@ -390,7 +390,7 @@ func TestCacheServerAllScenarios(t *testing.T) {
 
 type testScenario struct {
 	name string
-	work func(ctx context.Context, t *testing.T, cacheClientRT *rest.Config, cluster logicalcluster.Name, gvr schema.GroupVersionResource)
+	work func(ctx context.Context, t *testing.T, cacheClientRT *rest.Config, cluster logicalcluster.Path, gvr schema.GroupVersionResource)
 }
 
 // scenarios holds all test scenarios

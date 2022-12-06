@@ -69,7 +69,7 @@ func NewController(
 	shardExternalURL func() string,
 	metadataClusterClient kcpmetadata.ClusterInterface,
 	thisWorkspaceInformer tenancyv1alpha1informers.ThisWorkspaceClusterInformer,
-	discoverResourcesFn func(clusterName logicalcluster.Name) ([]*metav1.APIResourceList, error),
+	discoverResourcesFn func(clusterName logicalcluster.Path) ([]*metav1.APIResourceList, error),
 ) *Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 

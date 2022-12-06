@@ -33,7 +33,6 @@ import (
 	"k8s.io/client-go/rest"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/pkg/cliplugins/base"
 	pluginhelpers "github.com/kcp-dev/kcp/pkg/cliplugins/helpers"
@@ -119,7 +118,7 @@ func (b *BindOptions) Run(ctx context.Context) error {
 			Reference: apisv1alpha1.BindingReference{
 				Export: &apisv1alpha1.ExportBindingReference{
 					// TODO(sttts): this will break for real paths. We probably only support this when the user has read access to the export workspace.
-					Cluster: tenancy.Cluster(workspacePath.String()),
+					Cluster: logicalcluster.Name(workspacePath.String()),
 					Name:    apiExportName,
 				},
 			},

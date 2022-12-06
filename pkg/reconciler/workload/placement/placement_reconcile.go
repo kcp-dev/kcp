@@ -72,15 +72,15 @@ func (c *controller) reconcile(ctx context.Context, placement *schedulingv1alpha
 	return requeue, utilserrors.NewAggregate(errs)
 }
 
-func (c *controller) listSyncTarget(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error) {
+func (c *controller) listSyncTarget(clusterName logicalcluster.Path) ([]*workloadv1alpha1.SyncTarget, error) {
 	return c.syncTargetLister.Cluster(clusterName).List(labels.Everything())
 }
 
-func (c *controller) getLocation(clusterName logicalcluster.Name, name string) (*schedulingv1alpha1.Location, error) {
+func (c *controller) getLocation(clusterName logicalcluster.Path, name string) (*schedulingv1alpha1.Location, error) {
 	return c.locationLister.Cluster(clusterName).Get(name)
 }
 
-func (c *controller) patchPlacement(ctx context.Context, clusterName logicalcluster.Name, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*schedulingv1alpha1.Placement, error) {
+func (c *controller) patchPlacement(ctx context.Context, clusterName logicalcluster.Path, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*schedulingv1alpha1.Placement, error) {
 	logger := klog.FromContext(ctx)
 	logger.WithValues("patch", string(data)).V(2).Info("patching Placement")
 	return c.kcpClusterClient.Cluster(clusterName).SchedulingV1alpha1().Placements().Patch(ctx, name, pt, data, opts, subresources...)

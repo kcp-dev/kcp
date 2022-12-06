@@ -35,7 +35,7 @@ import (
 //go:embed *.yaml
 var rawCustomResourceDefinitions embed.FS
 
-func Create(t *testing.T, clustername logicalcluster.Name, client kcpapiextensionsv1client.CustomResourceDefinitionClusterInterface, grs ...metav1.GroupResource) {
+func Create(t *testing.T, clustername logicalcluster.Path, client kcpapiextensionsv1client.CustomResourceDefinitionClusterInterface, grs ...metav1.GroupResource) {
 	ctx, cancelFunc := context.WithTimeout(context.Background(), wait.ForeverTestTimeout)
 	t.Cleanup(cancelFunc)
 

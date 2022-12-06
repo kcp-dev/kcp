@@ -201,7 +201,7 @@ func TestPlacementScheduling(t *testing.T) {
 				},
 			}
 
-			listLocation := func(clusterName logicalcluster.Name) ([]*schedulingv1alpha1.Location, error) {
+			listLocation := func(clusterName logicalcluster.Path) ([]*schedulingv1alpha1.Location, error) {
 				return testCase.locations, testCase.listLocationsError
 			}
 

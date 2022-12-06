@@ -54,7 +54,7 @@ const (
 	IndexAPIExportsByAPIResourceSchema = ControllerName + "ByAPIResourceSchema"
 )
 
-type CreateAPIDefinitionFunc func(syncTargetWorkspace logicalcluster.Name, syncTargetName string, apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identityHash string) (apidefinition.APIDefinition, error)
+type CreateAPIDefinitionFunc func(syncTargetWorkspace logicalcluster.Path, syncTargetName string, apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identityHash string) (apidefinition.APIDefinition, error)
 type AllowedAPIfilterFunc func(apiGroupResource schema.GroupResource) bool
 
 func NewAPIReconciler(

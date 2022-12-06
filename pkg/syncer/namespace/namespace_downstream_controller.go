@@ -61,7 +61,7 @@ type DownstreamController struct {
 	namespaceCleanDelay time.Duration
 
 	deleteDownstreamNamespace func(ctx context.Context, namespace string) error
-	upstreamNamespaceExists   func(clusterName logicalcluster.Name, upstreamNamespaceName string) (bool, error)
+	upstreamNamespaceExists   func(clusterName logicalcluster.Path, upstreamNamespaceName string) (bool, error)
 	getDownstreamNamespace    func(name string) (runtime.Object, error)
 	listDownstreamNamespaces  func() ([]runtime.Object, error)
 	isDowntreamNamespaceEmpty func(ctx context.Context, namespace string) (bool, error)
@@ -69,7 +69,7 @@ type DownstreamController struct {
 	updateConfigMap           func(ctx context.Context, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
 
 	syncTargetName      string
-	syncTargetWorkspace logicalcluster.Name
+	syncTargetWorkspace logicalcluster.Path
 	syncTargetUID       types.UID
 	syncTargetKey       string
 	dnsNamespace        string
@@ -77,7 +77,7 @@ type DownstreamController struct {
 
 func NewDownstreamController(
 	syncerLogger logr.Logger,
-	syncTargetWorkspace logicalcluster.Name,
+	syncTargetWorkspace logicalcluster.Path,
 	syncTargetName, syncTargetKey string,
 	syncTargetUID types.UID,
 	syncerInformers resourcesync.SyncerInformerFactory,
@@ -99,7 +99,7 @@ func NewDownstreamController(
 		deleteDownstreamNamespace: func(ctx context.Context, namespace string) error {
 			return downstreamClient.Resource(namespaceGVR).Delete(ctx, namespace, metav1.DeleteOptions{})
 		},
-		upstreamNamespaceExists: func(clusterName logicalcluster.Name, upstreamNamespaceName string) (bool, error) {
+		upstreamNamespaceExists: func(clusterName logicalcluster.Path, upstreamNamespaceName string) (bool, error) {
 			_, err := upstreamInformers.ForResource(namespaceGVR).Lister().ByCluster(clusterName).Get(upstreamNamespaceName)
 			if apierrors.IsNotFound(err) {
 				return false, nil

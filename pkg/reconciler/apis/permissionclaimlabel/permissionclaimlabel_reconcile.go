@@ -255,7 +255,7 @@ func (c *controller) getInformerForGroupResource(group, resource string) (kcpkub
 	return nil, schema.GroupVersionResource{}, fmt.Errorf("unable to find informer for %s.%s", group, resource)
 }
 
-func (c *controller) patchGenericObject(ctx context.Context, obj metav1.Object, gvr schema.GroupVersionResource, lc logicalcluster.Name) error {
+func (c *controller) patchGenericObject(ctx context.Context, obj metav1.Object, gvr schema.GroupVersionResource, lc logicalcluster.Path) error {
 	_, err := c.dynamicClusterClient.
 		Cluster(lc).
 		Resource(gvr).

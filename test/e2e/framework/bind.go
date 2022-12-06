@@ -32,12 +32,12 @@ type bindCompute struct {
 	apiExports        []string
 	nsSelector        string
 	locationSelectors []string
-	locationWorkspace logicalcluster.Name
+	locationWorkspace logicalcluster.Path
 	kubeconfigPath    string
 	placementName     string
 }
 
-func NewBindCompute(t *testing.T, clusterName logicalcluster.Name, server RunningServer, opts ...BindComputeOption) *bindCompute {
+func NewBindCompute(t *testing.T, clusterName logicalcluster.Path, server RunningServer, opts ...BindComputeOption) *bindCompute {
 	upstreamRawConfig, err := server.RawConfig()
 	require.NoError(t, err)
 
@@ -88,7 +88,7 @@ func WithPlacementNameBindOption(placementName string) BindComputeOption {
 	}
 }
 
-func WithLocationWorkspaceWorkloadBindOption(clusterName logicalcluster.Name) BindComputeOption {
+func WithLocationWorkspaceWorkloadBindOption(clusterName logicalcluster.Path) BindComputeOption {
 	return func(t *testing.T, w *bindCompute) {
 		w.locationWorkspace = clusterName
 	}

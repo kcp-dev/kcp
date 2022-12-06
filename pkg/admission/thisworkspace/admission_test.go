@@ -75,7 +75,7 @@ func deleteAttr(obj *tenancyv1alpha1.ThisWorkspace, userInfo *user.DefaultInfo) 
 func TestAdmit(t *testing.T) {
 	tests := []struct {
 		name        string
-		clusterName logicalcluster.Name
+		clusterName logicalcluster.Path
 		a           admission.Attributes
 		expectedObj runtime.Object
 		wantErr     string
@@ -201,7 +201,7 @@ func TestValidate(t *testing.T) {
 		name           string
 		thisWorkspaces []*tenancyv1alpha1.ThisWorkspace
 		attr           admission.Attributes
-		path           logicalcluster.Name
+		path           logicalcluster.Path
 
 		wantErr string
 	}{
@@ -402,7 +402,7 @@ func newThisWorkspace(clusterName string) thisWsBuilder {
 	}}
 }
 
-func (b thisWsBuilder) withType(cluster tenancy.Cluster, name string) thisWsBuilder {
+func (b thisWsBuilder) withType(cluster logicalcluster.Name, name string) thisWsBuilder {
 	if b.Annotations == nil {
 		b.Annotations = map[string]string{}
 	}
@@ -436,7 +436,7 @@ func (l fakeThisWorkspaceClusterLister) List(selector labels.Selector) (ret []*t
 	return l, nil
 }
 
-func (l fakeThisWorkspaceClusterLister) Cluster(cluster logicalcluster.Name) tenancyv1alpha1listers.ThisWorkspaceLister {
+func (l fakeThisWorkspaceClusterLister) Cluster(cluster logicalcluster.Path) tenancyv1alpha1listers.ThisWorkspaceLister {
 	var perCluster []*tenancyv1alpha1.ThisWorkspace
 	for _, this := range l {
 		if logicalcluster.From(this) == cluster {

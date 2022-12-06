@@ -181,7 +181,7 @@ func TestScheduling(t *testing.T) {
 				},
 			}
 
-			listPlacement := func(clusterName logicalcluster.Name) ([]*schedulingv1alpha1.Placement, error) {
+			listPlacement := func(clusterName logicalcluster.Path) ([]*schedulingv1alpha1.Placement, error) {
 				if testCase.noPlacements {
 					return []*schedulingv1alpha1.Placement{}, nil
 				}
@@ -318,7 +318,7 @@ func TestMultiplePlacements(t *testing.T) {
 				},
 			}
 
-			listPlacement := func(clusterName logicalcluster.Name) ([]*schedulingv1alpha1.Placement, error) {
+			listPlacement := func(clusterName logicalcluster.Path) ([]*schedulingv1alpha1.Placement, error) {
 				return testCase.placements, nil
 			}
 

@@ -198,7 +198,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 			}
 			return fmt.Errorf("current workspace %q has no parent", currentClusterName)
 		}
-		u.Path = path.Join(u.Path, parentClusterName.Path())
+		u.Path = path.Join(u.Path, parentClusterName.RequestPath())
 		newServerHost = u.String()
 
 	case "":
@@ -239,7 +239,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 
 		if strings.Contains(o.Name, ":") && cluster.HasPrefix(logicalcluster.New("system")) {
 			// e.g. system:something
-			u.Path = path.Join(u.Path, cluster.Path())
+			u.Path = path.Join(u.Path, cluster.RequestPath())
 			newServerHost = u.String()
 		} else if strings.Contains(o.Name, ":") {
 			// e.g. root:something:something
@@ -266,11 +266,11 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 			//              URL does not match the workspace's shard, and then add redirect support here to
 			//              use the right front-proxy URL in the kubeconfig.
 
-			u.Path = path.Join(u.Path, cluster.Path())
+			u.Path = path.Join(u.Path, cluster.RequestPath())
 			newServerHost = u.String()
 		} else if o.Name == tenancyv1alpha1.RootCluster.String() {
 			// root workspace
-			u.Path = path.Join(u.Path, cluster.Path())
+			u.Path = path.Join(u.Path, cluster.RequestPath())
 			newServerHost = u.String()
 		} else {
 			// relative logical cluster, get URL from workspace object in current context
@@ -291,7 +291,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 				return fmt.Errorf("current URL %q does not point to cluster workspace", config.Host)
 			}
 
-			u.Path = path.Join(u.Path, currentClusterName.Join(ws.Name).Path())
+			u.Path = path.Join(u.Path, currentClusterName.Join(ws.Name).RequestPath())
 			newServerHost = u.String()
 			workspaceType = &ws.Spec.Type
 		}
@@ -817,7 +817,7 @@ func (o *TreeOptions) Run(ctx context.Context) error {
 	return nil
 }
 
-func (o *TreeOptions) populateBranch(ctx context.Context, tree treeprint.Tree, name logicalcluster.Name) error {
+func (o *TreeOptions) populateBranch(ctx context.Context, tree treeprint.Tree, name logicalcluster.Path) error {
 	var b treeprint.Tree
 	if o.Full {
 		b = tree.AddBranch(name.String())

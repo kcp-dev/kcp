@@ -73,11 +73,11 @@ func InitializerForReference(cwtr tenancyv1alpha1.ClusterWorkspaceTypeReference)
 }
 
 // TypeFrom determines the ClusterWorkspaceType workspace and name from an initializer name.
-func TypeFrom(initializer tenancyv1alpha1.WorkspaceInitializer) (logicalcluster.Name, string, error) {
+func TypeFrom(initializer tenancyv1alpha1.WorkspaceInitializer) (logicalcluster.Path, string, error) {
 	separatorIndex := strings.LastIndex(string(initializer), ":")
 	switch separatorIndex {
 	case -1:
-		return logicalcluster.Name{}, "", fmt.Errorf("expected cluster workspace initializer in form workspace:name, not %q", initializer)
+		return logicalcluster.Path{}, "", fmt.Errorf("expected cluster workspace initializer in form workspace:name, not %q", initializer)
 	default:
 		return logicalcluster.New(string(initializer[:separatorIndex])), tenancyv1alpha1.ObjectName(tenancyv1alpha1.ClusterWorkspaceTypeName(initializer[separatorIndex+1:])), nil
 	}

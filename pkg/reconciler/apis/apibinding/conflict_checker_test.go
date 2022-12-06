@@ -28,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 )
 
 func TestNameConflictCheckerGetBoundCRDs(t *testing.T) {
@@ -90,20 +89,20 @@ func TestNameConflictCheckerGetBoundCRDs(t *testing.T) {
 	}
 
 	ncc := &conflictChecker{
-		listAPIBindings: func(clusterName tenancy.Cluster) ([]*apisv1alpha1.APIBinding, error) {
+		listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
 			return []*apisv1alpha1.APIBinding{
 				newAPIBinding,
 				existingBinding1,
 				existingBinding2,
 			}, nil
 		},
-		getAPIExport: func(clusterName tenancy.Cluster, name string) (*apisv1alpha1.APIExport, error) {
+		getAPIExport: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
 			return apiExports[name], nil
 		},
-		getAPIResourceSchema: func(clusterName tenancy.Cluster, name string) (*apisv1alpha1.APIResourceSchema, error) {
+		getAPIResourceSchema: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
 			return apiResourceSchemas[name], nil
 		},
-		getCRD: func(clusterName tenancy.Cluster, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
+		getCRD: func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 			return &apiextensionsv1.CustomResourceDefinition{ObjectMeta: metav1.ObjectMeta{Name: name}}, nil
 		},
 	}
@@ -271,10 +270,10 @@ func TestGVRConflict(t *testing.T) {
 	}
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
-			c := &conflictChecker{listCRDs: func(clusterName tenancy.Cluster) ([]*apiextensionsv1.CustomResourceDefinition, error) {
+			c := &conflictChecker{listCRDs: func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error) {
 				var crds []*apiextensionsv1.CustomResourceDefinition
 				for _, crd := range scenario.initialCRDs {
-					if tenancy.From(crd) == clusterName {
+					if logicalcluster.From(crd) == clusterName {
 						crds = append(crds, crd)
 					}
 				}

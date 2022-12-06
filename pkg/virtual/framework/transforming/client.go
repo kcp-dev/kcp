@@ -42,7 +42,7 @@ type transformingDynamicClusterClient struct {
 	delegate    kcpdynamic.ClusterInterface
 }
 
-func (c *transformingDynamicClusterClient) Cluster(name logicalcluster.Name) dynamic.Interface {
+func (c *transformingDynamicClusterClient) Cluster(name logicalcluster.Path) dynamic.Interface {
 	return &transformingDynamicClient{
 		transformer: c.transformer,
 		delegate:    c.delegate.Cluster(name),
@@ -74,7 +74,7 @@ type transformingResourceClusterClient struct {
 	delegate kcpdynamic.ResourceClusterInterface
 }
 
-func (trc *transformingResourceClusterClient) Cluster(workspace logicalcluster.Name) dynamic.NamespaceableResourceInterface {
+func (trc *transformingResourceClusterClient) Cluster(workspace logicalcluster.Path) dynamic.NamespaceableResourceInterface {
 	delegate := trc.delegate.Cluster(workspace)
 	return &transformingNamespaceableResourceClient{
 		transformer:                    trc.transformer,

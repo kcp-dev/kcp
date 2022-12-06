@@ -27,8 +27,8 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 func TestBoundCRDDeletion(t *testing.T) {
@@ -101,7 +101,7 @@ func TestBoundCRDDeletion(t *testing.T) {
 
 			controller := &controller{
 				queue: workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-				getCRD: func(clusterName tenancy.Cluster, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
+				getCRD: func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 					return tt.crd, nil
 				},
 				getAPIBindingsByBoundResourceUID: func(name string) ([]*apisv1alpha1.APIBinding, error) {

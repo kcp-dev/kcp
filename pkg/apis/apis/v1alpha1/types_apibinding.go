@@ -19,8 +19,8 @@ package v1alpha1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 const (
@@ -118,7 +118,7 @@ type ExportBindingReference struct {
 	// If identifier and path are unset, the cluster of the APIBinding is used.
 	//
 	// +optional
-	Cluster tenancy.Cluster `json:"cluster,omitempty"`
+	Cluster logicalcluster.Name `json:"cluster,omitempty"`
 
 	// name is the name of the APIExport that describes the API.
 	//

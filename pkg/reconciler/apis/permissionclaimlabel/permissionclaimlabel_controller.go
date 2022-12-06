@@ -39,12 +39,12 @@ import (
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 const (
@@ -73,7 +73,7 @@ func NewController(
 		apiBindingsLister:  apiBindingInformer.Lister(),
 		apiBindingsIndexer: apiBindingInformer.Informer().GetIndexer(),
 
-		getAPIExport: func(clusterName tenancy.Cluster, name string) (*apisv1alpha1.APIExport, error) {
+		getAPIExport: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
 			return apiExportInformer.Lister().Cluster(clusterName.Path()).Get(name)
 		},
 	}
@@ -102,7 +102,7 @@ type controller struct {
 	ddsif                *informer.DynamicDiscoverySharedInformerFactory
 
 	apiBindingsLister apisv1alpha1listers.APIBindingClusterLister
-	getAPIExport      func(clusterName tenancy.Cluster, name string) (*apisv1alpha1.APIExport, error)
+	getAPIExport      func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error)
 }
 
 // enqueueAPIBinding enqueues an APIBinding.

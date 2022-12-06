@@ -55,7 +55,7 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
-func deploymentsAPIResourceList(workspaceName logicalcluster.Name) *metav1.APIResourceList {
+func deploymentsAPIResourceList(workspaceName logicalcluster.Path) *metav1.APIResourceList {
 	return &metav1.APIResourceList{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "APIResourceList",
@@ -84,7 +84,7 @@ func deploymentsAPIResourceList(workspaceName logicalcluster.Name) *metav1.APIRe
 	}
 }
 
-func requiredCoreAPIResourceList(workspaceName logicalcluster.Name) *metav1.APIResourceList {
+func requiredCoreAPIResourceList(workspaceName logicalcluster.Path) *metav1.APIResourceList {
 	return &metav1.APIResourceList{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "APIResourceList",
@@ -135,7 +135,7 @@ func requiredCoreAPIResourceList(workspaceName logicalcluster.Name) *metav1.APIR
 	}
 }
 
-func withRootComputeAPIResourceList(workspaceName logicalcluster.Name) []*metav1.APIResourceList {
+func withRootComputeAPIResourceList(workspaceName logicalcluster.Path) []*metav1.APIResourceList {
 	coreResourceList := requiredCoreAPIResourceList(workspaceName)
 	coreResourceList.APIResources = append(coreResourceList.APIResources,
 		metav1.APIResource{
@@ -206,11 +206,11 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 
 	var testCases = []struct {
 		name string
-		work func(t *testing.T, testCaseWorkspace logicalcluster.Name)
+		work func(t *testing.T, testCaseWorkspace logicalcluster.Path)
 	}{
 		{
 			name: "isolated API domains per syncer",
-			work: func(t *testing.T, testCaseWorkspace logicalcluster.Name) {
+			work: func(t *testing.T, testCaseWorkspace logicalcluster.Path) {
 
 				kubelikeLocationWorkspace := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("kubelike-locations"))
 
@@ -305,7 +305,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "access is authorized",
-			work: func(t *testing.T, testCaseWorkspace logicalcluster.Name) {
+			work: func(t *testing.T, testCaseWorkspace logicalcluster.Path) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
@@ -421,7 +421,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "access kcp resources in location workspace through syncer virtual workspace ",
-			work: func(t *testing.T, testCaseWorkspace logicalcluster.Name) {
+			work: func(t *testing.T, testCaseWorkspace logicalcluster.Path) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
@@ -570,7 +570,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "access kcp resources through syncer virtual workspace, from a other workspace to the wildwest resources through an APIBinding",
-			work: func(t *testing.T, testCaseWorkspace logicalcluster.Name) {
+			work: func(t *testing.T, testCaseWorkspace logicalcluster.Path) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
@@ -722,7 +722,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "Never promote overridden syncer view status to upstream when scheduled on 2 synctargets",
-			work: func(t *testing.T, testCaseWorkspace logicalcluster.Name) {
+			work: func(t *testing.T, testCaseWorkspace logicalcluster.Path) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
@@ -952,7 +952,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "Correctly manage status, with promote and unpromote, when moving a cowboy from one synctarget to the other",
-			work: func(t *testing.T, testCaseWorkspace logicalcluster.Name) {
+			work: func(t *testing.T, testCaseWorkspace logicalcluster.Path) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
@@ -1266,7 +1266,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "Transform spec through spec-diff annotation",
-			work: func(t *testing.T, testCaseWorkspace logicalcluster.Name) {
+			work: func(t *testing.T, testCaseWorkspace logicalcluster.Path) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
@@ -1368,7 +1368,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "Override summarizing rules to disable status promotion",
-			work: func(t *testing.T, testCaseWorkspace logicalcluster.Name) {
+			work: func(t *testing.T, testCaseWorkspace logicalcluster.Path) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
@@ -1545,11 +1545,11 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 
 	var testCases = []struct {
 		name string
-		work func(t *testing.T, syncer *framework.StartedSyncerFixture, workspaceName logicalcluster.Name, syncTargetKey string)
+		work func(t *testing.T, syncer *framework.StartedSyncerFixture, workspaceName logicalcluster.Path, syncTargetKey string)
 	}{
 		{
 			name: "list kcp resources through upsyncer virtual workspace",
-			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, workspaceName logicalcluster.Name, syncTargetKey string) {
+			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, workspaceName logicalcluster.Path, syncTargetKey string) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
@@ -1591,7 +1591,7 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "create a persistentvolume in kcp through upsyncer virtual workspace",
-			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, workspaceName logicalcluster.Name, syncTargetKey string) {
+			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, workspaceName logicalcluster.Path, syncTargetKey string) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
@@ -1636,7 +1636,7 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "create a persistentvolume in kcp through upsyncer virtual workspace with a resource transformation",
-			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, workspaceName logicalcluster.Name, syncTargetKey string) {
+			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, workspaceName logicalcluster.Path, syncTargetKey string) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
@@ -1680,7 +1680,7 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "try to create a persistentvolume in kcp through upsyncer virtual workspace, without the statelabel set to Upsync, should fail",
-			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, workspaceName logicalcluster.Name, syncTargetKey string) {
+			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, workspaceName logicalcluster.Path, syncTargetKey string) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
@@ -1714,7 +1714,7 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "update a persistentvolume in kcp through upsyncer virtual workspace",
-			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, workspaceName logicalcluster.Name, syncTargetKey string) {
+			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, workspaceName logicalcluster.Path, syncTargetKey string) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
@@ -1765,7 +1765,7 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "update a persistentvolume in kcp through upsyncer virtual workspace, try to remove the upsync state label, expect error.",
-			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, workspaceName logicalcluster.Name, syncTargetKey string) {
+			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, workspaceName logicalcluster.Path, syncTargetKey string) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 
@@ -1819,7 +1819,7 @@ func TestUpsyncerVirtualWorkspace(t *testing.T) {
 		},
 		{
 			name: "Delete a persistentvolume in kcp through upsyncer virtual workspace",
-			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, workspaceName logicalcluster.Name, syncTargetKey string) {
+			work: func(t *testing.T, syncer *framework.StartedSyncerFixture, workspaceName logicalcluster.Path, syncTargetKey string) {
 				ctx, cancelFunc := context.WithCancel(context.Background())
 				t.Cleanup(cancelFunc)
 

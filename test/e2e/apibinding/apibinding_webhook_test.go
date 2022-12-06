@@ -126,8 +126,8 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 	deserializer := codecs.UniversalDeserializer()
 
 	t.Logf("Create test server and create mutating webhook for cowboys in both source and target cluster")
-	testWebhooks := map[logicalcluster.Name]*webhookserver.AdmissionWebhookServer{}
-	for _, cluster := range []logicalcluster.Name{sourceClusterName.Path(), targetClusterName.Path()} {
+	testWebhooks := map[logicalcluster.Path]*webhookserver.AdmissionWebhookServer{}
+	for _, cluster := range []logicalcluster.Path{sourceClusterName.Path(), targetClusterName.Path()} {
 		testWebhooks[cluster] = &webhookserver.AdmissionWebhookServer{
 			Response: v1.AdmissionResponse{
 				Allowed: true,
@@ -271,8 +271,8 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 	deserializer := codecs.UniversalDeserializer()
 
 	t.Logf("Create test server and create validating webhook for cowboys in both source and target cluster")
-	testWebhooks := map[logicalcluster.Name]*webhookserver.AdmissionWebhookServer{}
-	for _, cluster := range []logicalcluster.Name{sourceClusterName.Path(), targetClusterName.Path()} {
+	testWebhooks := map[logicalcluster.Path]*webhookserver.AdmissionWebhookServer{}
+	for _, cluster := range []logicalcluster.Path{sourceClusterName.Path(), targetClusterName.Path()} {
 		testWebhooks[cluster] = &webhookserver.AdmissionWebhookServer{
 			Response: v1.AdmissionResponse{
 				Allowed: true,

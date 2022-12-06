@@ -62,27 +62,27 @@ func NewAPIBinder(
 	c := &APIBinder{
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
 
-		getThisWorkspace: func(clusterName logicalcluster.Name) (*tenancyv1alpha1.ThisWorkspace, error) {
+		getThisWorkspace: func(clusterName logicalcluster.Path) (*tenancyv1alpha1.ThisWorkspace, error) {
 			return thisWorkspaceInformer.Lister().Cluster(clusterName).Get(tenancyv1alpha1.ThisWorkspaceName)
 		},
-		getClusterWorkspaceType: func(clusterName logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
+		getClusterWorkspaceType: func(clusterName logicalcluster.Path, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
 			return clusterWorkspaceTypeInformer.Lister().Cluster(clusterName).Get(name)
 		},
 		listThisWorkspaces: func() ([]*tenancyv1alpha1.ThisWorkspace, error) {
 			return thisWorkspaceInformer.Lister().List(labels.Everything())
 		},
 
-		listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
+		listAPIBindings: func(clusterName logicalcluster.Path) ([]*apisv1alpha1.APIBinding, error) {
 			return apiBindingsInformer.Lister().Cluster(clusterName).List(labels.Everything())
 		},
-		getAPIBinding: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error) {
+		getAPIBinding: func(clusterName logicalcluster.Path, name string) (*apisv1alpha1.APIBinding, error) {
 			return apiBindingsInformer.Lister().Cluster(clusterName).Get(name)
 		},
-		createAPIBinding: func(ctx context.Context, clusterName logicalcluster.Name, binding *apisv1alpha1.APIBinding) (*apisv1alpha1.APIBinding, error) {
+		createAPIBinding: func(ctx context.Context, clusterName logicalcluster.Path, binding *apisv1alpha1.APIBinding) (*apisv1alpha1.APIBinding, error) {
 			return kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
 		},
 
-		getAPIExport: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
+		getAPIExport: func(clusterName logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
 			return apiExportsInformer.Lister().Cluster(clusterName).Get(name)
 		},
 
@@ -131,15 +131,15 @@ type thisWorkspaceResource = committer.Resource[*tenancyv1alpha1.ThisWorkspaceSp
 type APIBinder struct {
 	queue workqueue.RateLimitingInterface
 
-	getThisWorkspace        func(clusterName logicalcluster.Name) (*tenancyv1alpha1.ThisWorkspace, error)
-	getClusterWorkspaceType func(clusterName logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error)
+	getThisWorkspace        func(clusterName logicalcluster.Path) (*tenancyv1alpha1.ThisWorkspace, error)
+	getClusterWorkspaceType func(clusterName logicalcluster.Path, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error)
 	listThisWorkspaces      func() ([]*tenancyv1alpha1.ThisWorkspace, error)
 
-	listAPIBindings  func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
-	getAPIBinding    func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error)
-	createAPIBinding func(ctx context.Context, clusterName logicalcluster.Name, binding *apisv1alpha1.APIBinding) (*apisv1alpha1.APIBinding, error)
+	listAPIBindings  func(clusterName logicalcluster.Path) ([]*apisv1alpha1.APIBinding, error)
+	getAPIBinding    func(clusterName logicalcluster.Path, name string) (*apisv1alpha1.APIBinding, error)
+	createAPIBinding func(ctx context.Context, clusterName logicalcluster.Path, binding *apisv1alpha1.APIBinding) (*apisv1alpha1.APIBinding, error)
 
-	getAPIExport func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error)
+	getAPIExport func(clusterName logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
 
 	transitiveTypeResolver transitiveTypeResolver
 

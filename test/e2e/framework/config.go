@@ -111,7 +111,7 @@ func registerFlags(c *testConfig) {
 // WriteLogicalClusterConfig creates a logical cluster config for the given config and
 // cluster name and writes it to the test's artifact path. Useful for configuring the
 // workspace plugin with --kubeconfig.
-func WriteLogicalClusterConfig(t *testing.T, rawConfig clientcmdapi.Config, contextName string, clusterName logicalcluster.Name) (clientcmd.ClientConfig, string) {
+func WriteLogicalClusterConfig(t *testing.T, rawConfig clientcmdapi.Config, contextName string, clusterName logicalcluster.Path) (clientcmd.ClientConfig, string) {
 	logicalRawConfig := LogicalClusterRawConfig(rawConfig, clusterName, contextName)
 	artifactDir, _, err := ScratchDirs(t)
 	require.NoError(t, err)

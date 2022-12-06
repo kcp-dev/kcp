@@ -63,7 +63,7 @@ func GetUpstreamResourceName(downstreamResourceGVR schema.GroupVersionResource, 
 
 // GetDNSID returns a unique ID for DNS object derived from the sync target name, its UID and workspace. It's
 // a valid DNS segment and can be used as namespace or object names.
-func GetDNSID(workspace logicalcluster.Name, syncTargetUID types.UID, syncTargetName string) string {
+func GetDNSID(workspace logicalcluster.Path, syncTargetUID types.UID, syncTargetName string) string {
 	syncerHash := sha256.Sum224([]byte(syncTargetUID))
 	uid36hash := strings.ToLower(base36.EncodeBytes(syncerHash[:]))
 	workspaceHash := sha256.Sum224([]byte(workspace.String()))

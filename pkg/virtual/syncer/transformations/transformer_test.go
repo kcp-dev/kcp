@@ -63,7 +63,7 @@ func (c *mockedClusterClient) Resource(resource schema.GroupVersionResource) kcp
 	}
 }
 
-func (c *mockedClusterClient) Cluster(cluster logicalcluster.Name) dynamic.Interface {
+func (c *mockedClusterClient) Cluster(cluster logicalcluster.Path) dynamic.Interface {
 	return &dynamicClient{
 		client:           c.client,
 		lcluster:         cluster,
@@ -75,7 +75,7 @@ type mockedResourceClusterClient struct {
 	resourceClient
 }
 
-func (c *mockedResourceClusterClient) Cluster(lcluster logicalcluster.Name) dynamic.NamespaceableResourceInterface {
+func (c *mockedResourceClusterClient) Cluster(lcluster logicalcluster.Path) dynamic.NamespaceableResourceInterface {
 	return &namespaceableResourceClient{
 		resourceClient: resourceClient{
 			resourceInterface: c.client.Resource(c.resource),
@@ -97,7 +97,7 @@ func (c *mockedResourceClusterClient) Watch(ctx context.Context, opts metav1.Lis
 
 type dynamicClient struct {
 	client           *fake.FakeDynamicClient
-	lcluster         logicalcluster.Name
+	lcluster         logicalcluster.Path
 	lclusterRecorder func(lcluster string)
 }
 
@@ -135,7 +135,7 @@ func (c *namespaceableResourceClient) Namespace(namespace string) dynamic.Resour
 type resourceClient struct {
 	resourceInterface dynamic.ResourceInterface
 	client            *fake.FakeDynamicClient
-	lcluster          logicalcluster.Name
+	lcluster          logicalcluster.Path
 	resource          schema.GroupVersionResource
 	namespace         string
 	lclusterRecorder  func(lcluster string)

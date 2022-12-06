@@ -109,7 +109,7 @@ func (a *Plugin) Validate(ctx context.Context, attr admission.Attributes, o admi
 // SetExternalKubeInformerFactory implements the WantsExternalKubeInformerFactory interface.
 func (p *Plugin) SetExternalKubeInformerFactory(f kubernetesinformers.SharedInformerFactory) {
 	clusterAwareFactory := informerfactoryhack.Unwrap(f)
-	p.WebhookDispatcher.SetHookSource(func(cluster logicalcluster.Name) generic.Source {
+	p.WebhookDispatcher.SetHookSource(func(cluster logicalcluster.Path) generic.Source {
 		informer := clusterAwareFactory.Admissionregistration().V1().ValidatingWebhookConfigurations().Cluster(cluster)
 		return configuration.NewValidatingWebhookConfigurationManagerForInformer(informer)
 	}, clusterAwareFactory.Admissionregistration().V1().ValidatingWebhookConfigurations().Informer().HasSynced)

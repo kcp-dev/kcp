@@ -82,7 +82,7 @@ func TestAdmit(t *testing.T) {
 		name           string
 		types          []*tenancyv1alpha1.ClusterWorkspaceType
 		thisWorkspaces []*tenancyv1alpha1.ThisWorkspace
-		clusterName    logicalcluster.Name
+		clusterName    logicalcluster.Path
 		a              admission.Attributes
 		expectedObj    runtime.Object
 		wantErr        bool
@@ -686,7 +686,7 @@ type thisBuilder struct {
 	*tenancyv1alpha1.ThisWorkspace
 }
 
-func newThisWorkspace(clusterName logicalcluster.Name) thisBuilder {
+func newThisWorkspace(clusterName logicalcluster.Path) thisBuilder {
 	return thisBuilder{ThisWorkspace: &tenancyv1alpha1.ThisWorkspace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: tenancyv1alpha1.ThisWorkspaceName,
@@ -710,7 +710,7 @@ func (l fakeThisWorkspaceClusterLister) List(selector labels.Selector) (ret []*t
 	return l, nil
 }
 
-func (l fakeThisWorkspaceClusterLister) Cluster(cluster logicalcluster.Name) tenancyv1alpha1listers.ThisWorkspaceLister {
+func (l fakeThisWorkspaceClusterLister) Cluster(cluster logicalcluster.Path) tenancyv1alpha1listers.ThisWorkspaceLister {
 	var perCluster []*tenancyv1alpha1.ThisWorkspace
 	for _, this := range l {
 		if logicalcluster.From(this) == cluster {

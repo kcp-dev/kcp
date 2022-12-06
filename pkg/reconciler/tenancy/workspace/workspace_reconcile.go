@@ -87,10 +87,10 @@ func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1beta1.Workspace
 	reconcilers := []reconciler{
 		&metaDataReconciler{},
 		&deletionReconciler{
-			getThisWorkspace: func(ctx context.Context, cluster logicalcluster.Name) (*tenancyv1alpha1.ThisWorkspace, error) {
+			getThisWorkspace: func(ctx context.Context, cluster logicalcluster.Path) (*tenancyv1alpha1.ThisWorkspace, error) {
 				return c.kcpExternalClient.Cluster(cluster).TenancyV1alpha1().ThisWorkspaces().Get(ctx, tenancyv1alpha1.ThisWorkspaceName, metav1.GetOptions{})
 			},
-			deleteThisWorkspace: func(ctx context.Context, cluster logicalcluster.Name) error {
+			deleteThisWorkspace: func(ctx context.Context, cluster logicalcluster.Path) error {
 				return c.kcpExternalClient.Cluster(cluster).TenancyV1alpha1().ThisWorkspaces().Delete(ctx, tenancyv1alpha1.ThisWorkspaceName, metav1.DeleteOptions{})
 			},
 		},
@@ -100,17 +100,17 @@ func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1beta1.Workspace
 			},
 			getShardByHash: getShardByName,
 			listShards:     c.clusterWorkspaceShardLister.List,
-			getClusterWorkspaceType: func(clusterName logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
+			getClusterWorkspaceType: func(clusterName logicalcluster.Path, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
 				return c.clusterWorkspaceTypeLister.Cluster(clusterName).Get(name)
 			},
-			transitiveTypeResolver: clusterworkspacetypeexists.NewTransitiveTypeResolver(func(clusterName logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
+			transitiveTypeResolver: clusterworkspacetypeexists.NewTransitiveTypeResolver(func(clusterName logicalcluster.Path, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
 				return c.clusterWorkspaceTypeLister.Cluster(clusterName).Get(name)
 			}),
 			kcpLogicalClusterAdminClientFor:  kcpDirectClientFor,
 			kubeLogicalClusterAdminClientFor: kubeDirectClientFor,
 		},
 		&phaseReconciler{
-			getThisWorkspace: func(ctx context.Context, cluster logicalcluster.Name) (*tenancyv1alpha1.ThisWorkspace, error) {
+			getThisWorkspace: func(ctx context.Context, cluster logicalcluster.Path) (*tenancyv1alpha1.ThisWorkspace, error) {
 				return c.kcpExternalClient.Cluster(cluster).TenancyV1alpha1().ThisWorkspaces().Get(ctx, tenancyv1alpha1.ThisWorkspaceName, metav1.GetOptions{})
 			},
 			requeueAfter: func(workspace *tenancyv1beta1.Workspace, after time.Duration) {

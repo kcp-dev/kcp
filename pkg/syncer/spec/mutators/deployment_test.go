@@ -809,7 +809,7 @@ func TestDeploymentMutate(t *testing.T) {
 				upstreamURL, err := url.Parse(c.config.Host)
 				require.NoError(t, err)
 
-				secretLister := func(upstreamLogicalCluster logicalcluster.Name, namespace string) ([]runtime.Object, error) {
+				secretLister := func(upstreamLogicalCluster logicalcluster.Path, namespace string) ([]runtime.Object, error) {
 					unstructuredObjects := make([]runtime.Object, 0, len(c.upstreamSecrets))
 					for _, obj := range c.upstreamSecrets {
 						unstObj, err := toUnstructured(obj)

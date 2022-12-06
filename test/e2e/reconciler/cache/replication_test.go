@@ -437,15 +437,15 @@ func (b *replicateResourceScenario) CreateSourceResource(t *testing.T, createSou
 	require.NoError(t, createSourceResource())
 }
 
-func (b *replicateResourceScenario) UpdateSourceResource(ctx context.Context, t *testing.T, cluster logicalcluster.Name, updater func(runtime.Object) error) {
+func (b *replicateResourceScenario) UpdateSourceResource(ctx context.Context, t *testing.T, cluster logicalcluster.Path, updater func(runtime.Object) error) {
 	b.resourceUpdateHelper(ctx, t, cluster, b.getSourceResourceHelper, updater)
 }
 
-func (b *replicateResourceScenario) UpdateCachedResource(ctx context.Context, t *testing.T, cluster logicalcluster.Name, updater func(runtime.Object) error) {
+func (b *replicateResourceScenario) UpdateCachedResource(ctx context.Context, t *testing.T, cluster logicalcluster.Path, updater func(runtime.Object) error) {
 	b.resourceUpdateHelper(ctx, t, cluster, b.getCachedResourceHelper, updater)
 }
 
-func (b *replicateResourceScenario) DeleteSourceResourceAndVerify(ctx context.Context, t *testing.T, cluster logicalcluster.Name) {
+func (b *replicateResourceScenario) DeleteSourceResourceAndVerify(ctx context.Context, t *testing.T, cluster logicalcluster.Path) {
 	require.NoError(t, b.deleteSourceResourceHelper(ctx, cluster))
 	framework.Eventually(t, func() (bool, string) {
 		_, err := b.getCachedResourceHelper(ctx, cluster)
@@ -459,12 +459,12 @@ func (b *replicateResourceScenario) DeleteSourceResourceAndVerify(ctx context.Co
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 }
 
-func (b *replicateResourceScenario) DeleteCachedResource(ctx context.Context, t *testing.T, cluster logicalcluster.Name) {
+func (b *replicateResourceScenario) DeleteCachedResource(ctx context.Context, t *testing.T, cluster logicalcluster.Path) {
 	err := b.deleteCachedResource(ctx, cluster)
 	require.NoError(t, err)
 }
 
-func (b *replicateResourceScenario) VerifyReplication(ctx context.Context, t *testing.T, cluster logicalcluster.Name) {
+func (b *replicateResourceScenario) VerifyReplication(ctx context.Context, t *testing.T, cluster logicalcluster.Path) {
 	b.verifyResourceReplicationHelper(ctx, t, cluster)
 }
 
@@ -482,7 +482,7 @@ func (b *replicateResourceScenario) ChangeMetadataFor(originalResource runtime.O
 	return nil
 }
 
-func (b *replicateResourceScenario) resourceUpdateHelper(ctx context.Context, t *testing.T, cluster logicalcluster.Name, resourceGetter func(ctx context.Context, cluster logicalcluster.Name) (runtime.Object, error), resourceUpdater func(runtime.Object) error) {
+func (b *replicateResourceScenario) resourceUpdateHelper(ctx context.Context, t *testing.T, cluster logicalcluster.Path, resourceGetter func(ctx context.Context, cluster logicalcluster.Path) (runtime.Object, error), resourceUpdater func(runtime.Object) error) {
 	framework.Eventually(t, func() (bool, string) {
 		resource, err := resourceGetter(ctx, cluster)
 		if err != nil {
@@ -499,7 +499,7 @@ func (b *replicateResourceScenario) resourceUpdateHelper(ctx context.Context, t 
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 }
 
-func (b *replicateResourceScenario) verifyResourceReplicationHelper(ctx context.Context, t *testing.T, cluster logicalcluster.Name) {
+func (b *replicateResourceScenario) verifyResourceReplicationHelper(ctx context.Context, t *testing.T, cluster logicalcluster.Path) {
 	t.Helper()
 	t.Logf("Get %s %s/%s from the root shard and the cache server for comparison", b.resourceKind, cluster, b.resourceName)
 	framework.Eventually(t, func() (bool, string) {
@@ -530,7 +530,7 @@ func (b *replicateResourceScenario) verifyResourceReplicationHelper(ctx context.
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 }
 
-func (b *replicateResourceScenario) getSourceResourceHelper(ctx context.Context, cluster logicalcluster.Name) (runtime.Object, error) {
+func (b *replicateResourceScenario) getSourceResourceHelper(ctx context.Context, cluster logicalcluster.Path) (runtime.Object, error) {
 	switch b.resourceKind {
 	case "APIExport":
 		return b.kcpShardClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Get(ctx, b.resourceName, metav1.GetOptions{})
@@ -542,7 +542,7 @@ func (b *replicateResourceScenario) getSourceResourceHelper(ctx context.Context,
 	return nil, fmt.Errorf("unable to get a REST client for an unknown %s Kind", b.resourceKind)
 }
 
-func (b *replicateResourceScenario) getCachedResourceHelper(ctx context.Context, cluster logicalcluster.Name) (runtime.Object, error) {
+func (b *replicateResourceScenario) getCachedResourceHelper(ctx context.Context, cluster logicalcluster.Path) (runtime.Object, error) {
 	switch b.resourceKind {
 	case "APIExport":
 		return b.cacheKcpClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Get(cacheclient.WithShardInContext(ctx, shard.New("root")), b.resourceName, metav1.GetOptions{})
@@ -554,7 +554,7 @@ func (b *replicateResourceScenario) getCachedResourceHelper(ctx context.Context,
 	return nil, fmt.Errorf("unable to get a REST client for an unknown %s Kind", b.resourceKind)
 }
 
-func (b *replicateResourceScenario) deleteSourceResourceHelper(ctx context.Context, cluster logicalcluster.Name) error {
+func (b *replicateResourceScenario) deleteSourceResourceHelper(ctx context.Context, cluster logicalcluster.Path) error {
 	switch b.resourceKind {
 	case "APIExport":
 		return b.kcpShardClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Delete(ctx, b.resourceName, metav1.DeleteOptions{})
@@ -566,7 +566,7 @@ func (b *replicateResourceScenario) deleteSourceResourceHelper(ctx context.Conte
 	return fmt.Errorf("unable to get a REST client for an unknown %s Kind", b.resourceKind)
 }
 
-func (b *replicateResourceScenario) deleteCachedResource(ctx context.Context, cluster logicalcluster.Name) error {
+func (b *replicateResourceScenario) deleteCachedResource(ctx context.Context, cluster logicalcluster.Path) error {
 	switch b.resourceKind {
 	case "APIExport":
 		return b.cacheKcpClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Delete(cacheclient.WithShardInContext(ctx, shard.New("root")), b.resourceName, metav1.DeleteOptions{})

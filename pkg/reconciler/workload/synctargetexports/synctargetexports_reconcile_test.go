@@ -29,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
@@ -123,13 +122,13 @@ func TestSyncTargetExportReconcile(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			getAPIExport := func(path logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
+			getAPIExport := func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
 				if tc.export == nil {
 					return nil, errors.NewNotFound(schema.GroupResource{}, name)
 				}
 				return tc.export, nil
 			}
-			getResourceSchema := func(clusterName tenancy.Cluster, name string) (*apisv1alpha1.APIResourceSchema, error) {
+			getResourceSchema := func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
 				for _, schema := range tc.schemas {
 					if schema.Name == name {
 						return schema, nil

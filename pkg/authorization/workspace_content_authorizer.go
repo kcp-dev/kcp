@@ -80,7 +80,7 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 		return authorizer.DecisionNoOpinion, "empty or system workspace", nil
 	}
 
-	subjectClusters := map[logicalcluster.Name]bool{}
+	subjectClusters := map[logicalcluster.Path]bool{}
 	for _, sc := range attr.GetUser().GetExtra()[authserviceaccount.ClusterNameKey] {
 		subjectClusters[logicalcluster.New(sc)] = true
 	}

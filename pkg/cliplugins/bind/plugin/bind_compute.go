@@ -38,7 +38,6 @@ import (
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	"github.com/kcp-dev/kcp/pkg/cliplugins/base"
@@ -62,7 +61,7 @@ type BindComputeOptions struct {
 	LocationSelectorsStrings []string
 
 	// LocationWorkspace is the workspace for synctarget
-	LocationWorkspace logicalcluster.Name
+	LocationWorkspace logicalcluster.Path
 
 	// BindWaitTimeout is how long to wait for the placement to be created and successful.
 	BindWaitTimeout time.Duration
@@ -212,14 +211,14 @@ func bindReady(bindings []*apisv1alpha1.APIBinding, placement *schedulingv1alpha
 
 const maxBindingNamePrefixLength = validation.DNS1123SubdomainMaxLength - 1 - 8
 
-func apiBindingName(clusterName logicalcluster.Name, apiExportName string) string {
+func apiBindingName(clusterName logicalcluster.Path, apiExportName string) string {
 	maxLen := len(apiExportName)
 	if maxLen > maxBindingNamePrefixLength {
 		maxLen = maxBindingNamePrefixLength
 	}
 	bindingNamePrefix := apiExportName[:maxLen]
 
-	hash := sha256.Sum224([]byte(clusterName.Path()))
+	hash := sha256.Sum224([]byte(clusterName.RequestPath()))
 	base36hash := strings.ToLower(base36.EncodeBytes(hash[:]))
 	return fmt.Sprintf("%s-%s", bindingNamePrefix, base36hash[:8])
 }
@@ -251,7 +250,7 @@ func (o *BindComputeOptions) applyAPIBinding(ctx context.Context, client kcpclie
 				Reference: apisv1alpha1.BindingReference{
 					Export: &apisv1alpha1.ExportBindingReference{
 						// TODO(sttts): this will break for real paths. We probably only support this when the user has read access to the export workspace.
-						Cluster: tenancy.Cluster(clusterName.String()),
+						Cluster: logicalcluster.Name(clusterName.String()),
 						Name:    name,
 					},
 				},

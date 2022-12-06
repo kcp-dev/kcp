@@ -66,7 +66,7 @@ func TestCrossLogicalClusterList(t *testing.T) {
 	require.NoError(t, err, "failed to construct kcp client for server")
 
 	// Note: we put all consumer workspaces onto root shard in order to enforce conflicts.
-	logicalClusters := []logicalcluster.Name{
+	logicalClusters := []logicalcluster.Path{
 		framework.NewOrganizationFixture(t, server, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"})),
 		framework.NewOrganizationFixture(t, server, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"})),
 	}
@@ -109,7 +109,7 @@ func TestCrossLogicalClusterList(t *testing.T) {
 
 func bootstrapCRD(
 	t *testing.T,
-	clusterName logicalcluster.Name,
+	clusterName logicalcluster.Path,
 	clusterClient kcpapiextensionsv1client.CustomResourceDefinitionClusterInterface,
 	crd *apiextensionsv1.CustomResourceDefinition,
 ) {

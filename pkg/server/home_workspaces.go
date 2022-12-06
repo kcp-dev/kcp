@@ -91,7 +91,7 @@ func WithHomeWorkspaces(
 	kcpSharedInformerFactory kcpinformers.SharedInformerFactory,
 	externalHost string,
 	creationDelaySeconds int,
-	homePrefix logicalcluster.Name,
+	homePrefix logicalcluster.Path,
 	bucketLevels,
 	bucketSize int,
 ) (http.Handler, error) {
@@ -128,7 +128,7 @@ type homeWorkspaceHandler struct {
 
 	authz authorizer.Authorizer
 
-	homePrefix               logicalcluster.Name
+	homePrefix               logicalcluster.Path
 	bucketLevels, bucketSize int
 	creationDelaySeconds     int
 	creationTimeout          time.Duration
@@ -330,7 +330,7 @@ var reHomeWorkspaceNameDisallowedChars = regexp.MustCompile("[^a-z0-9-]")
 
 // legacyHomeLogicalClusterName returns the logical cluster name of the legacy home workspace for a given user
 // contained in some bucket hierarchy.
-func (h *homeWorkspaceHandler) legacyHomeLogicalClusterName(userName string) (logicalcluster.Name, string) {
+func (h *homeWorkspaceHandler) legacyHomeLogicalClusterName(userName string) (logicalcluster.Path, string) {
 	// bucketLevels <= 5
 	// bucketSize <= 4
 	bytes := sha1.Sum([]byte(userName))
@@ -359,7 +359,7 @@ func (h *homeWorkspaceHandler) legacyHomeLogicalClusterName(userName string) (lo
 	return result, userName
 }
 
-func isGetHomeWorkspaceRequest(clusterName logicalcluster.Name, requestInfo *request.RequestInfo) bool {
+func isGetHomeWorkspaceRequest(clusterName logicalcluster.Path, requestInfo *request.RequestInfo) bool {
 	return clusterName == tenancyv1alpha1.RootCluster.Path() &&
 		requestInfo.IsResourceRequest &&
 		requestInfo.Verb == "get" &&

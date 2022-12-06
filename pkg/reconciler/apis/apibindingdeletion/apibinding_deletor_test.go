@@ -200,7 +200,7 @@ func TestAPIBindingTerminating(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			controller := &Controller{
-				listResources: func(ctx context.Context, cluster logicalcluster.Name, gvr schema.GroupVersionResource) (*metav1.PartialObjectMetadataList, error) {
+				listResources: func(ctx context.Context, cluster logicalcluster.Path, gvr schema.GroupVersionResource) (*metav1.PartialObjectMetadataList, error) {
 					if tt.existingObjects == nil {
 						return &metav1.PartialObjectMetadataList{Items: []metav1.PartialObjectMetadata{}}, nil
 					}
@@ -209,7 +209,7 @@ func TestAPIBindingTerminating(t *testing.T) {
 					}
 					return &metav1.PartialObjectMetadataList{Items: []metav1.PartialObjectMetadata{}}, nil
 				},
-				deleteResources: func(ctx context.Context, cluster logicalcluster.Name, gvr schema.GroupVersionResource, namespace string) error {
+				deleteResources: func(ctx context.Context, cluster logicalcluster.Path, gvr schema.GroupVersionResource, namespace string) error {
 					return nil
 				},
 			}

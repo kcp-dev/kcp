@@ -41,7 +41,7 @@ type Resource[Sp any, St any] struct {
 
 // ClusterPatcher is just the cluster-aware Patch API with a generic to keep use sites type safe
 type ClusterPatcher[R runtime.Object, P Patcher[R]] interface {
-	Cluster(cluster logicalcluster.Name) P
+	Cluster(cluster logicalcluster.Path) P
 }
 
 // Patcher is just the Patch API with a generic to keep use sites type safe

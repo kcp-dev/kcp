@@ -28,7 +28,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/client"
 )
 
-func FilterInformers(clusterName logicalcluster.Name, informers rbacinformers.Interface) rbacinformers.Interface {
+func FilterInformers(clusterName logicalcluster.Path, informers rbacinformers.Interface) rbacinformers.Interface {
 	return &filteredInterface{
 		clusterName: clusterName,
 		informers:   informers,
@@ -38,7 +38,7 @@ func FilterInformers(clusterName logicalcluster.Name, informers rbacinformers.In
 var _ rbacinformers.Interface = (*filteredInterface)(nil)
 
 type filteredInterface struct {
-	clusterName logicalcluster.Name
+	clusterName logicalcluster.Path
 	informers   rbacinformers.Interface
 }
 
@@ -58,7 +58,7 @@ func (i *filteredInterface) Roles() rbacinformers.RoleInformer {
 	return FilterRoleInformer(i.clusterName, i.informers.Roles())
 }
 
-func FilterClusterRoleBindingInformer(clusterName logicalcluster.Name, informer rbacinformers.ClusterRoleBindingInformer) rbacinformers.ClusterRoleBindingInformer {
+func FilterClusterRoleBindingInformer(clusterName logicalcluster.Path, informer rbacinformers.ClusterRoleBindingInformer) rbacinformers.ClusterRoleBindingInformer {
 	return &filteredClusterRoleBindingInformer{
 		clusterName: clusterName,
 		informer:    informer,
@@ -69,12 +69,12 @@ var _ rbacinformers.ClusterRoleBindingInformer = (*filteredClusterRoleBindingInf
 var _ rbaclisters.ClusterRoleBindingLister = (*filteredClusterRoleBindingLister)(nil)
 
 type filteredClusterRoleBindingInformer struct {
-	clusterName logicalcluster.Name
+	clusterName logicalcluster.Path
 	informer    rbacinformers.ClusterRoleBindingInformer
 }
 
 type filteredClusterRoleBindingLister struct {
-	clusterName logicalcluster.Name
+	clusterName logicalcluster.Path
 	lister      rbaclisters.ClusterRoleBindingLister
 }
 
@@ -109,7 +109,7 @@ func (l *filteredClusterRoleBindingLister) Get(name string) (*rbacv1.ClusterRole
 	return l.lister.Get(name)
 }
 
-func FilterClusterRoleInformer(clusterName logicalcluster.Name, informer rbacinformers.ClusterRoleInformer) rbacinformers.ClusterRoleInformer {
+func FilterClusterRoleInformer(clusterName logicalcluster.Path, informer rbacinformers.ClusterRoleInformer) rbacinformers.ClusterRoleInformer {
 	return &filteredClusterRoleInformer{
 		clusterName: clusterName,
 		informer:    informer,
@@ -120,12 +120,12 @@ var _ rbacinformers.ClusterRoleInformer = (*filteredClusterRoleInformer)(nil)
 var _ rbaclisters.ClusterRoleLister = (*filteredClusterRoleLister)(nil)
 
 type filteredClusterRoleInformer struct {
-	clusterName logicalcluster.Name
+	clusterName logicalcluster.Path
 	informer    rbacinformers.ClusterRoleInformer
 }
 
 type filteredClusterRoleLister struct {
-	clusterName logicalcluster.Name
+	clusterName logicalcluster.Path
 	lister      rbaclisters.ClusterRoleLister
 }
 
@@ -160,7 +160,7 @@ func (l *filteredClusterRoleLister) Get(name string) (*rbacv1.ClusterRole, error
 	return l.lister.Get(name)
 }
 
-func FilterRoleBindingInformer(clusterName logicalcluster.Name, informer rbacinformers.RoleBindingInformer) rbacinformers.RoleBindingInformer {
+func FilterRoleBindingInformer(clusterName logicalcluster.Path, informer rbacinformers.RoleBindingInformer) rbacinformers.RoleBindingInformer {
 	return &filteredRoleBindingInformer{
 		clusterName: clusterName,
 		informer:    informer,
@@ -172,17 +172,17 @@ var _ rbaclisters.RoleBindingLister = (*filteredRoleBindingLister)(nil)
 var _ rbaclisters.RoleBindingNamespaceLister = (*filteredRoleBindingNamespaceLister)(nil)
 
 type filteredRoleBindingInformer struct {
-	clusterName logicalcluster.Name
+	clusterName logicalcluster.Path
 	informer    rbacinformers.RoleBindingInformer
 }
 
 type filteredRoleBindingLister struct {
-	clusterName logicalcluster.Name
+	clusterName logicalcluster.Path
 	lister      rbaclisters.RoleBindingLister
 }
 
 type filteredRoleBindingNamespaceLister struct {
-	clusterName logicalcluster.Name
+	clusterName logicalcluster.Path
 	lister      rbaclisters.RoleBindingNamespaceLister
 }
 
@@ -237,7 +237,7 @@ func (l *filteredRoleBindingNamespaceLister) Get(name string) (*rbacv1.RoleBindi
 	return l.lister.Get(name)
 }
 
-func FilterRoleInformer(clusterName logicalcluster.Name, informer rbacinformers.RoleInformer) rbacinformers.RoleInformer {
+func FilterRoleInformer(clusterName logicalcluster.Path, informer rbacinformers.RoleInformer) rbacinformers.RoleInformer {
 	return &filteredRoleInformer{
 		clusterName: clusterName,
 		informer:    informer,
@@ -249,17 +249,17 @@ var _ rbaclisters.RoleLister = (*filteredRoleLister)(nil)
 var _ rbaclisters.RoleNamespaceLister = (*filteredRoleNamespaceLister)(nil)
 
 type filteredRoleInformer struct {
-	clusterName logicalcluster.Name
+	clusterName logicalcluster.Path
 	informer    rbacinformers.RoleInformer
 }
 
 type filteredRoleLister struct {
-	clusterName logicalcluster.Name
+	clusterName logicalcluster.Path
 	lister      rbaclisters.RoleLister
 }
 
 type filteredRoleNamespaceLister struct {
-	clusterName logicalcluster.Name
+	clusterName logicalcluster.Path
 	lister      rbaclisters.RoleNamespaceLister
 }
 

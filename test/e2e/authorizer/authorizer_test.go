@@ -244,7 +244,7 @@ func TestAuthorizer(t *testing.T) {
 	}
 }
 
-func createResources(t *testing.T, ctx context.Context, dynamicClusterClient kcpdynamic.ClusterInterface, discoveryClusterClient kcpdiscovery.DiscoveryClusterInterface, clusterName logicalcluster.Name, fileName string) {
+func createResources(t *testing.T, ctx context.Context, dynamicClusterClient kcpdynamic.ClusterInterface, discoveryClusterClient kcpdiscovery.DiscoveryClusterInterface, clusterName logicalcluster.Path, fileName string) {
 	t.Logf("Create resources in %s", clusterName)
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(discoveryClusterClient.Cluster(clusterName)))
 	require.Eventually(t, func() bool {

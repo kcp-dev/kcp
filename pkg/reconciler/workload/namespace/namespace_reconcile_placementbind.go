@@ -38,9 +38,9 @@ import (
 // if there is no matched placement.
 // TODO this should be reconsidered when we want lazy binding.
 type bindNamespaceReconciler struct {
-	listPlacement func(clusterName logicalcluster.Name) ([]*schedulingv1alpha1.Placement, error)
+	listPlacement func(clusterName logicalcluster.Path) ([]*schedulingv1alpha1.Placement, error)
 
-	patchNamespace func(ctx context.Context, clusterName logicalcluster.Name, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*corev1.Namespace, error)
+	patchNamespace func(ctx context.Context, clusterName logicalcluster.Path, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*corev1.Namespace, error)
 }
 
 func (r *bindNamespaceReconciler) reconcile(ctx context.Context, ns *corev1.Namespace) (reconcileStatus, *corev1.Namespace, error) {
@@ -83,7 +83,7 @@ func (r *bindNamespaceReconciler) reconcile(ctx context.Context, ns *corev1.Name
 	return reconcileStatusContinue, updated, nil
 }
 
-func (r *bindNamespaceReconciler) validPlacements(clusterName logicalcluster.Name, ns *corev1.Namespace) ([]*schedulingv1alpha1.Placement, error) {
+func (r *bindNamespaceReconciler) validPlacements(clusterName logicalcluster.Path, ns *corev1.Namespace) ([]*schedulingv1alpha1.Placement, error) {
 	placements, err := r.listPlacement(clusterName)
 
 	if err != nil {

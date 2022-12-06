@@ -38,12 +38,12 @@ const clusterWorkspaceDeletionMonitorControllerName = "kcp-kubequota-cluster-wor
 // when its corresponding ClusterWorkspace is deleted.
 type clusterWorkspaceDeletionMonitor struct {
 	queue    workqueue.RateLimitingInterface
-	stopFunc func(name logicalcluster.Name)
+	stopFunc func(name logicalcluster.Path)
 }
 
 func newClusterWorkspaceDeletionMonitor(
 	workspaceInformer tenancyv1beta1informers.WorkspaceClusterInformer,
-	stopFunc func(logicalcluster.Name),
+	stopFunc func(logicalcluster.Path),
 ) *clusterWorkspaceDeletionMonitor {
 	m := &clusterWorkspaceDeletionMonitor{
 		queue:    workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), clusterWorkspaceDeletionMonitorControllerName),

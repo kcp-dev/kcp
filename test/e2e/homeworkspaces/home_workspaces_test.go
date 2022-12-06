@@ -120,14 +120,14 @@ func TestUserHomeWorkspaces(t *testing.T) {
 }
 
 type VirtualClusterClient interface {
-	Cluster(cluster logicalcluster.Name) kcpclientset.Interface
+	Cluster(cluster logicalcluster.Path) kcpclientset.Interface
 }
 
 type virtualClusterClient struct {
 	config *rest.Config
 }
 
-func (c *virtualClusterClient) Cluster(cluster logicalcluster.Name) kcpclientset.Interface {
+func (c *virtualClusterClient) Cluster(cluster logicalcluster.Path) kcpclientset.Interface {
 	config := rest.CopyConfig(c.config)
 	config.Host += path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", cluster.String())
 	return kcpclientset.NewForConfigOrDie(config)

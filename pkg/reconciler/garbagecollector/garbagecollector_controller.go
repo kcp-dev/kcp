@@ -62,7 +62,7 @@ type Controller struct {
 
 	// lock guards the fields in this group
 	lock        sync.RWMutex
-	cancelFuncs map[logicalcluster.Name]func()
+	cancelFuncs map[logicalcluster.Path]func()
 
 	ignoredResources map[schema.GroupResource]struct{}
 }
@@ -87,7 +87,7 @@ func NewController(
 
 		workersPerLogicalCluster: workersPerLogicalCluster,
 
-		cancelFuncs: map[logicalcluster.Name]func(){},
+		cancelFuncs: map[logicalcluster.Path]func(){},
 
 		ignoredResources: defaultIgnoredResources(),
 	}
@@ -240,7 +240,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	return nil
 }
 
-func (c *Controller) startGarbageCollectorForClusterWorkspace(ctx context.Context, clusterName logicalcluster.Name) error {
+func (c *Controller) startGarbageCollectorForClusterWorkspace(ctx context.Context, clusterName logicalcluster.Path) error {
 	logger := klog.FromContext(ctx)
 
 	kubeClient := c.kubeClusterClient.Cluster(clusterName)
@@ -301,7 +301,7 @@ func (c *Controller) startGarbageCollectorForClusterWorkspace(ctx context.Contex
 }
 
 type garbageCollectorController struct {
-	clusterName    logicalcluster.Name
+	clusterName    logicalcluster.Path
 	queue          workqueue.RateLimitingInterface
 	work           func(context.Context)
 	previousCancel func()

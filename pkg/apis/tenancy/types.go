@@ -62,8 +62,8 @@ func From(obj Object) Cluster {
 // mapping backed by the workspace index, probably of the front-proxy.
 //
 // Deprecated: don't depend on this mapping.
-func TemporaryCanonicalPath(c Cluster) logicalcluster.Name {
-	path := logicalcluster.New(strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(string(c), "-", "§"), "-", ":"), "§", "-"))
+func TemporaryCanonicalPath(c logicalcluster.Name) logicalcluster.Path {
+	path := logicalcluster.NewPath(strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(string(c), "-", "§"), "-", ":"), "§", "-"))
 
 	logger := klog.Background()
 	logger.V(1).Info("TemporaryCanonicalPath", "cluster", c, "path", path) // intentionally noisy output
@@ -74,16 +74,16 @@ func TemporaryCanonicalPath(c Cluster) logicalcluster.Name {
 // TemporaryClusterFrom returns the cluster name for a given workspace path.
 // This is temporary, and it will be replaced by some cached mapping backed
 // by the workspace index, probably of the front-proxy.
-func TemporaryClusterFrom(path logicalcluster.Name) Cluster {
+func TemporaryClusterFrom(path logicalcluster.Path) logicalcluster.Name {
 	parent, name := path.Split()
 	name = strings.ReplaceAll(strings.ReplaceAll(name, "-", "--"), ":", "-")
-	cluster := Cluster(strings.ReplaceAll(parent.Join(name).String(), ":", "-"))
+	cluster := logicalcluster.Name(strings.ReplaceAll(parent.Join(name).String(), ":", "-"))
 
 	if len(cluster) > 61 {
 		// stay in maximal length
 		hash := sha256.Sum224([]byte(cluster))
 		base36hash := strings.ToLower(base36.EncodeBytes(hash[:]))
-		cluster = Cluster(base36hash[:8] + "-" + string(cluster)[len(cluster)-52:])
+		cluster = logicalcluster.Name(base36hash[:8] + "-" + string(cluster)[len(cluster)-52:])
 	}
 
 	logger := klog.Background()

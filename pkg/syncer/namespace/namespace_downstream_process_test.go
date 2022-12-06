@@ -107,7 +107,7 @@ func TestSyncerNamespaceProcess(t *testing.T) {
 				deleteDownstreamNamespace: func(ctx context.Context, downstreamNamespaceName string) error {
 					return nil
 				},
-				upstreamNamespaceExists: func(clusterName logicalcluster.Name, upstreamNamespaceName string) (bool, error) {
+				upstreamNamespaceExists: func(clusterName logicalcluster.Path, upstreamNamespaceName string) (bool, error) {
 					return tc.upstreamNamespaceExists, tc.upstreamNamespaceExistsError
 				},
 				getDownstreamNamespace: func(name string) (runtime.Object, error) {
@@ -157,7 +157,7 @@ func TestSyncerNamespaceProcess(t *testing.T) {
 	}
 }
 
-func namespace(clusterName logicalcluster.Name, name string, labels, annotations map[string]string) *corev1.Namespace {
+func namespace(clusterName logicalcluster.Path, name string, labels, annotations map[string]string) *corev1.Namespace {
 	if !clusterName.Empty() {
 		if annotations == nil {
 			annotations = make(map[string]string)

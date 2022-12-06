@@ -72,7 +72,7 @@ func TestInProcessWorkspacesVirtualWorkspaces(t *testing.T) {
 
 type runningServer struct {
 	framework.RunningServer
-	orgClusterName       logicalcluster.Name
+	orgClusterName       logicalcluster.Path
 	kcpClusterClient     kcpclientset.ClusterInterface
 	virtualClusterClient kcpclientset.ClusterInterface
 }

@@ -36,7 +36,7 @@ const (
 // as the source for the mapped namespace name in a physical cluster.
 type NamespaceLocator struct {
 	SyncTarget SyncTargetLocator   `json:"syncTarget"`
-	Workspace  logicalcluster.Name `json:"workspace,omitempty"`
+	Workspace  logicalcluster.Path `json:"workspace,omitempty"`
 	Namespace  string              `json:"namespace"`
 }
 
@@ -47,7 +47,7 @@ type SyncTargetLocator struct {
 	UID            types.UID `json:"uid"`
 }
 
-func NewNamespaceLocator(workspace, syncTargetWorkspace logicalcluster.Name, syncTargetUID types.UID, syncTargetName, upstreamNamespace string) NamespaceLocator {
+func NewNamespaceLocator(workspace, syncTargetWorkspace logicalcluster.Path, syncTargetUID types.UID, syncTargetName, upstreamNamespace string) NamespaceLocator {
 	return NamespaceLocator{
 		SyncTarget: SyncTargetLocator{
 			Workspace: syncTargetWorkspace.String(),
@@ -59,7 +59,7 @@ func NewNamespaceLocator(workspace, syncTargetWorkspace logicalcluster.Name, syn
 	}
 }
 
-func NewNamespaceLocatorV060(workspace, syncTargetWorkspace logicalcluster.Name, syncTargetUID types.UID, syncTargetName, upstreamNamespace string) NamespaceLocator {
+func NewNamespaceLocatorV060(workspace, syncTargetWorkspace logicalcluster.Path, syncTargetUID types.UID, syncTargetName, upstreamNamespace string) NamespaceLocator {
 	return NamespaceLocator{
 		SyncTarget: SyncTargetLocator{
 			DeprecatedPath: syncTargetWorkspace.String(),

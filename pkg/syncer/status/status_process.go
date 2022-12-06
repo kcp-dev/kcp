@@ -150,7 +150,7 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	return c.updateStatusInUpstream(ctx, gvr, upstreamNamespace, upstreamName, upstreamWorkspace, u)
 }
 
-func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.GroupVersionResource, upstreamNamespace, upstreamName string, upstreamLogicalCluster logicalcluster.Name, downstreamObj *unstructured.Unstructured) error {
+func (c *Controller) updateStatusInUpstream(ctx context.Context, gvr schema.GroupVersionResource, upstreamNamespace, upstreamName string, upstreamLogicalCluster logicalcluster.Path, downstreamObj *unstructured.Unstructured) error {
 	logger := klog.FromContext(ctx)
 
 	downstreamStatus, statusExists, err := unstructured.NestedFieldCopy(downstreamObj.UnstructuredContent(), "status")

@@ -66,7 +66,7 @@ func TestAdmit(t *testing.T) {
 		name           string
 		types          []*tenancyv1alpha1.ClusterWorkspaceType
 		thisWorkspaces []*tenancyv1alpha1.ThisWorkspace
-		clusterName    logicalcluster.Name
+		clusterName    logicalcluster.Path
 		a              admission.Attributes
 		expectedObj    runtime.Object
 		wantErr        bool
@@ -150,7 +150,7 @@ func TestAdmit(t *testing.T) {
 				getType:             getType(tt.types),
 				typeLister:          typeLister,
 				thisWorkspaceLister: fakeThisWorkspaceClusterLister(tt.thisWorkspaces),
-				transitiveTypeResolver: NewTransitiveTypeResolver(func(cluster logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
+				transitiveTypeResolver: NewTransitiveTypeResolver(func(cluster logicalcluster.Path, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
 					return typeLister.Cluster(cluster).Get(name)
 				}),
 			}
@@ -176,7 +176,7 @@ func TestValidate(t *testing.T) {
 		types          []*tenancyv1alpha1.ClusterWorkspaceType
 		thisWorkspaces []*tenancyv1alpha1.ThisWorkspace
 		attr           admission.Attributes
-		path           logicalcluster.Name
+		path           logicalcluster.Path
 
 		authzDecision authorizer.Decision
 		authzError    error
@@ -397,13 +397,13 @@ func TestValidate(t *testing.T) {
 				getType:             getType(tt.types),
 				typeLister:          typeLister,
 				thisWorkspaceLister: fakeThisWorkspaceClusterLister(tt.thisWorkspaces),
-				createAuthorizer: func(clusterName logicalcluster.Name, client kcpkubernetesclientset.ClusterInterface) (authorizer.Authorizer, error) {
+				createAuthorizer: func(clusterName logicalcluster.Path, client kcpkubernetesclientset.ClusterInterface) (authorizer.Authorizer, error) {
 					return &fakeAuthorizer{
 						tt.authzDecision,
 						tt.authzError,
 					}, nil
 				},
-				transitiveTypeResolver: NewTransitiveTypeResolver(func(cluster logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
+				transitiveTypeResolver: NewTransitiveTypeResolver(func(cluster logicalcluster.Path, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
 					return typeLister.Cluster(cluster).Get(name)
 				}),
 			}
@@ -422,7 +422,7 @@ func (l fakeClusterWorkspaceTypeClusterLister) List(selector labels.Selector) (r
 	return l, nil
 }
 
-func (l fakeClusterWorkspaceTypeClusterLister) Cluster(cluster logicalcluster.Name) tenancyv1alpha1listers.ClusterWorkspaceTypeLister {
+func (l fakeClusterWorkspaceTypeClusterLister) Cluster(cluster logicalcluster.Path) tenancyv1alpha1listers.ClusterWorkspaceTypeLister {
 	var perCluster []*tenancyv1alpha1.ClusterWorkspaceType
 	for _, this := range l {
 		if logicalcluster.From(this) == cluster {
@@ -453,7 +453,7 @@ func (l fakeThisWorkspaceClusterLister) List(selector labels.Selector) (ret []*t
 	return l, nil
 }
 
-func (l fakeThisWorkspaceClusterLister) Cluster(cluster logicalcluster.Name) tenancyv1alpha1listers.ThisWorkspaceLister {
+func (l fakeThisWorkspaceClusterLister) Cluster(cluster logicalcluster.Path) tenancyv1alpha1listers.ThisWorkspaceLister {
 	var perCluster []*tenancyv1alpha1.ThisWorkspace
 	for _, this := range l {
 		if logicalcluster.From(this) == cluster {
@@ -571,7 +571,7 @@ func TestTransitiveTypeResolverResolve(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := &transitiveTypeResolver{
-				getter: func(cluster logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
+				getter: func(cluster logicalcluster.Path, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
 					if t, found := tt.types[cluster.Join(name).String()]; found {
 						return t, nil
 					}
@@ -601,14 +601,14 @@ func TestValidateAllowedParents(t *testing.T) {
 		name          string
 		parentAliases []*tenancyv1alpha1.ClusterWorkspaceType
 		childAliases  []*tenancyv1alpha1.ClusterWorkspaceType
-		parentType    logicalcluster.Name
-		childType     logicalcluster.Name
+		parentType    logicalcluster.Path
+		childType     logicalcluster.Path
 		wantErr       string
 	}{
 		{
 			name:       "no child",
-			childType:  logicalcluster.Name{},
-			parentType: logicalcluster.Name{},
+			childType:  logicalcluster.Path{},
+			parentType: logicalcluster.Path{},
 			wantErr:    "",
 		},
 		{
@@ -694,8 +694,8 @@ func TestValidateAllowedChildren(t *testing.T) {
 		name          string
 		parentAliases []*tenancyv1alpha1.ClusterWorkspaceType
 		childAliases  []*tenancyv1alpha1.ClusterWorkspaceType
-		parentType    logicalcluster.Name
-		childType     logicalcluster.Name
+		parentType    logicalcluster.Path
+		childType     logicalcluster.Path
 		wantErr       string
 	}{
 		{
@@ -851,7 +851,7 @@ func newThisWorkspace(clusterName string) thisWsBuilder {
 	}}
 }
 
-func (b thisWsBuilder) withType(cluster tenancy.Cluster, name string) thisWsBuilder {
+func (b thisWsBuilder) withType(cluster logicalcluster.Name, name string) thisWsBuilder {
 	if b.Annotations == nil {
 		b.Annotations = map[string]string{}
 	}
@@ -869,8 +869,8 @@ func (b thisWsBuilder) withLabels(labels map[string]string) thisWsBuilder {
 	return b
 }
 
-func getType(types []*tenancyv1alpha1.ClusterWorkspaceType) func(path logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
-	return func(path logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
+func getType(types []*tenancyv1alpha1.ClusterWorkspaceType) func(path logicalcluster.Path, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
+	return func(path logicalcluster.Path, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
 		for _, t := range types {
 			if logicalcluster.From(t) == path && t.Name == name {
 				return t, nil

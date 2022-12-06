@@ -33,7 +33,6 @@ import (
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
@@ -114,7 +113,7 @@ func (b *APIBinder) reconcile(ctx context.Context, this *tenancyv1alpha1.ThisWor
 		exportToBinding[*binding.Spec.Reference.Export] = binding
 	}
 
-	requiredExportRefs := map[tenancyv1alpha1.APIExportReference]tenancy.Cluster{}
+	requiredExportRefs := map[tenancyv1alpha1.APIExportReference]logicalcluster.Name{}
 	someExportsMissing := false
 
 	for _, cwt := range cwts {
@@ -134,7 +133,7 @@ func (b *APIBinder) reconcile(ctx context.Context, this *tenancyv1alpha1.ThisWor
 			}
 
 			// Keep track of unique set of expected exports across all CWTs
-			requiredExportRefs[exportRef] = tenancy.From(apiExport)
+			requiredExportRefs[exportRef] = logicalcluster.From(apiExport)
 
 			logger := logger.WithValues("apiExport.path", exportRef.Path, "apiExport.name", exportRef.Export)
 			ctx := klog.NewContext(ctx, logger)
@@ -154,7 +153,7 @@ func (b *APIBinder) reconcile(ctx context.Context, this *tenancyv1alpha1.ThisWor
 				Spec: apisv1alpha1.APIBindingSpec{
 					Reference: apisv1alpha1.BindingReference{
 						Export: &apisv1alpha1.ExportBindingReference{
-							Cluster: tenancy.From(apiExport),
+							Cluster: logicalcluster.From(apiExport),
 							Name:    apiExport.Name,
 						},
 					},
@@ -252,7 +251,7 @@ func (b *APIBinder) reconcile(ctx context.Context, this *tenancyv1alpha1.ThisWor
 // hash length.
 const maxExportNamePrefixLength = validation.DNS1123SubdomainMaxLength - 1 - 5
 
-func generateAPIBindingName(clusterName logicalcluster.Name, exportPath, exportName string) string {
+func generateAPIBindingName(clusterName logicalcluster.Path, exportPath, exportName string) string {
 	maxLen := len(exportName)
 	if maxLen > maxExportNamePrefixLength {
 		maxLen = maxExportNamePrefixLength

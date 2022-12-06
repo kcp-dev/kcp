@@ -34,7 +34,6 @@ import (
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
@@ -42,6 +41,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 const (
@@ -57,7 +57,7 @@ func NewAPIReconciler(
 	apiResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
 	apiExportInformer apisv1alpha1informers.APIExportClusterInformer,
 	createAPIDefinition CreateAPIDefinitionFunc,
-	createAPIBindingAPIDefinition func(ctx context.Context, clusterName tenancy.Cluster, apiExportName string) (apidefinition.APIDefinition, error),
+	createAPIBindingAPIDefinition func(ctx context.Context, clusterName logicalcluster.Name, apiExportName string) (apidefinition.APIDefinition, error),
 ) (*APIReconciler, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
@@ -125,7 +125,7 @@ type APIReconciler struct {
 	queue workqueue.RateLimitingInterface
 
 	createAPIDefinition           CreateAPIDefinitionFunc
-	createAPIBindingAPIDefinition func(ctx context.Context, clusterName tenancy.Cluster, apiExportName string) (apidefinition.APIDefinition, error)
+	createAPIBindingAPIDefinition func(ctx context.Context, clusterName logicalcluster.Name, apiExportName string) (apidefinition.APIDefinition, error)
 
 	mutex   sync.RWMutex // protects the map, not the values!
 	apiSets map[dynamiccontext.APIDomainKey]apidefinition.APIDefinitionSet

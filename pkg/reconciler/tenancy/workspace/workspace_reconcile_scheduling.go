@@ -65,7 +65,7 @@ type schedulingReconciler struct {
 	getShardByHash func(hash string) (*tenancyv1alpha1.ClusterWorkspaceShard, error)
 	listShards     func(selector labels.Selector) ([]*tenancyv1alpha1.ClusterWorkspaceShard, error)
 
-	getClusterWorkspaceType func(clusterName logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error)
+	getClusterWorkspaceType func(clusterName logicalcluster.Path, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error)
 
 	transitiveTypeResolver clusterworkspacetypeexists.TransitiveTypeResolver
 
@@ -80,7 +80,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 	case tenancyv1alpha1.WorkspacePhaseScheduling:
 		shardNameHash, hasShard := workspace.Annotations[workspaceShardAnnotationKey]
 		clusterNameString, hasCluster := workspace.Annotations[workspaceClusterAnnotationKey]
-		clusterName := tenancy.Cluster(clusterNameString)
+		clusterName := logicalcluster.Name(clusterNameString)
 		hasFinalizer := sets.NewString(workspace.Finalizers...).Has(tenancyv1alpha1.ThisWorkspaceFinalizer)
 
 		if !hasShard {
@@ -144,7 +144,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 			return reconcileStatusStopAndRequeue, err // requeue
 		}
 
-		u.Path = path.Join(u.Path, clusterName.Path().Path())
+		u.Path = path.Join(u.Path, clusterName.Path().RequestPath())
 		workspace.Status.URL = u.String()
 		workspace.Status.Cluster = clusterName.String()
 		conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceScheduled)
@@ -229,7 +229,7 @@ func (r *schedulingReconciler) chooseShardAndMarkCondition(logger klog.Logger, w
 	return targetShard.Name, nil
 }
 
-func (r *schedulingReconciler) createThisWorkspace(ctx context.Context, shard *tenancyv1alpha1.ClusterWorkspaceShard, cluster logicalcluster.Name, workspace *tenancyv1beta1.Workspace) error {
+func (r *schedulingReconciler) createThisWorkspace(ctx context.Context, shard *tenancyv1alpha1.ClusterWorkspaceShard, cluster logicalcluster.Path, workspace *tenancyv1beta1.Workspace) error {
 	this := &tenancyv1alpha1.ThisWorkspace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       tenancyv1alpha1.ThisWorkspaceName,
@@ -284,7 +284,7 @@ func (r *schedulingReconciler) createThisWorkspace(ctx context.Context, shard *t
 	return err
 }
 
-func (r *schedulingReconciler) updateThisWorkspacePhase(ctx context.Context, shard *tenancyv1alpha1.ClusterWorkspaceShard, cluster logicalcluster.Name, phase tenancyv1alpha1.WorkspacePhaseType) error {
+func (r *schedulingReconciler) updateThisWorkspacePhase(ctx context.Context, shard *tenancyv1alpha1.ClusterWorkspaceShard, cluster logicalcluster.Path, phase tenancyv1alpha1.WorkspacePhaseType) error {
 	logicalClusterAdminClient, err := r.kcpLogicalClusterAdminClientFor(shard)
 	if err != nil {
 		return err
@@ -298,7 +298,7 @@ func (r *schedulingReconciler) updateThisWorkspacePhase(ctx context.Context, sha
 	return err
 }
 
-func (r *schedulingReconciler) createClusterRoleBindingForThisWorkspace(ctx context.Context, shard *tenancyv1alpha1.ClusterWorkspaceShard, cluster logicalcluster.Name, workspace *tenancyv1beta1.Workspace) error {
+func (r *schedulingReconciler) createClusterRoleBindingForThisWorkspace(ctx context.Context, shard *tenancyv1alpha1.ClusterWorkspaceShard, cluster logicalcluster.Path, workspace *tenancyv1beta1.Workspace) error {
 	ownerAnnotation, found := workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey]
 	if !found {
 		return fmt.Errorf("unable to find required %q owner annotation on %q workspace", tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey, workspace.Name)
@@ -339,7 +339,7 @@ func isValidShard(_ *tenancyv1alpha1.ClusterWorkspaceShard) (valid bool, reason,
 }
 
 //nolint:unused
-func randomClusterName() logicalcluster.Name {
+func randomClusterName() logicalcluster.Path {
 	token := make([]byte, 32)
 	rand.Read(token)
 	hash := sha256.Sum224(token)

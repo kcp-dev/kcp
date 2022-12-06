@@ -66,7 +66,7 @@ type workspaceNamespaceLifecycle struct {
 	// namespaceLifecycle is used only when workspace is deleting
 	namespaceLifecycle *lifecycle.Lifecycle
 
-	getWorkspace func(clusterName logicalcluster.Name, name string) (*tenancyv1beta1.Workspace, error)
+	getWorkspace func(clusterName logicalcluster.Path, name string) (*tenancyv1beta1.Workspace, error)
 }
 
 func newWorkspaceNamespaceLifecycle() (*workspaceNamespaceLifecycle, error) {
@@ -146,7 +146,7 @@ func (l *workspaceNamespaceLifecycle) SetExternalKubeClientSet(client kubernetes
 func (l *workspaceNamespaceLifecycle) SetKcpInformers(informers kcpinformers.SharedInformerFactory) {
 	l.SetReadyFunc(informers.Tenancy().V1beta1().Workspaces().Informer().HasSynced)
 
-	l.getWorkspace = func(clusterName logicalcluster.Name, name string) (*tenancyv1beta1.Workspace, error) {
+	l.getWorkspace = func(clusterName logicalcluster.Path, name string) (*tenancyv1beta1.Workspace, error) {
 		return informers.Tenancy().V1beta1().Workspaces().Lister().Cluster(clusterName).Get(name)
 	}
 }

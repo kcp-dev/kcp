@@ -31,7 +31,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
@@ -149,14 +148,14 @@ func TestReconcile(t *testing.T) {
 			someOtherKey := "def"
 
 			c := &controller{
-				getNamespace: func(clusterName tenancy.Cluster, name string) (*corev1.Namespace, error) {
+				getNamespace: func(clusterName logicalcluster.Name, name string) (*corev1.Namespace, error) {
 					return &corev1.Namespace{}, nil
 				},
-				createNamespace: func(ctx context.Context, clusterName logicalcluster.Name, ns *corev1.Namespace) error {
+				createNamespace: func(ctx context.Context, clusterName logicalcluster.Path, ns *corev1.Namespace) error {
 					return nil
 				},
 				secretNamespace: "default-ns",
-				getSecret: func(ctx context.Context, clusterName tenancy.Cluster, ns, name string) (*corev1.Secret, error) {
+				getSecret: func(ctx context.Context, clusterName logicalcluster.Name, ns, name string) (*corev1.Secret, error) {
 					if tc.secretExists {
 						secret := &corev1.Secret{
 							Data: map[string][]byte{},
@@ -173,11 +172,11 @@ func TestReconcile(t *testing.T) {
 
 					return nil, apierrors.NewNotFound(corev1.Resource("secrets"), name)
 				},
-				createSecret: func(ctx context.Context, clusterName logicalcluster.Name, secret *corev1.Secret) error {
+				createSecret: func(ctx context.Context, clusterName logicalcluster.Path, secret *corev1.Secret) error {
 					createSecretCalled = true
 					return tc.createSecretError
 				},
-				getAPIBindingsForAPIExport: func(_ tenancy.Cluster, _ string) ([]interface{}, error) {
+				getAPIBindingsForAPIExport: func(_ logicalcluster.Name, _ string) ([]interface{}, error) {
 					if len(tc.apiBindings) > 0 {
 						return tc.apiBindings, nil
 					}
