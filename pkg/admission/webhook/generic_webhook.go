@@ -111,7 +111,7 @@ func (p *WebhookDispatcher) Dispatch(ctx context.Context, attr admission.Attribu
 	var whAccessor []webhook.WebhookAccessor
 
 	// Determine the type of request, is it api binding or not.
-	if workspace, isAPIBinding, err := p.getAPIBindingWorkspace(attr, lcluster); err != nil {
+	if workspace, isAPIBinding, err := p.getAPIExportCluster(attr, lcluster); err != nil {
 		return err
 	} else if isAPIBinding {
 		whAccessor = p.hookSource.Webhooks(workspace)
@@ -126,7 +126,7 @@ func (p *WebhookDispatcher) Dispatch(ctx context.Context, attr admission.Attribu
 	return p.dispatcher.Dispatch(ctx, attr, o, whAccessor)
 }
 
-func (p *WebhookDispatcher) getAPIBindingWorkspace(attr admission.Attributes, clusterName logicalcluster.Name) (logicalcluster.Name, bool, error) {
+func (p *WebhookDispatcher) getAPIExportCluster(attr admission.Attributes, clusterName logicalcluster.Name) (logicalcluster.Name, bool, error) {
 	objs, err := p.apiBindingClusterLister.Cluster(clusterName).List(labels.Everything())
 	if err != nil {
 		return logicalcluster.New(""), false, err
@@ -140,7 +140,7 @@ func (p *WebhookDispatcher) getAPIBindingWorkspace(attr admission.Attributes, cl
 				continue
 			}
 			if br.Group == attr.GetResource().Group && br.Resource == attr.GetResource().Resource {
-				return logicalcluster.New(apiBinding.Spec.Reference.Export.Cluster), true, nil
+				return apiBinding.Spec.Reference.Export.Cluster.Path(), true, nil
 			}
 		}
 	}

@@ -79,9 +79,9 @@ func (e *HomeWorkspaces) Validate() []error {
 		}
 		if homePrefix := logicalcluster.New(e.HomeRootPrefix); !homePrefix.IsValid() ||
 			homePrefix == logicalcluster.Wildcard ||
-			!homePrefix.HasPrefix(tenancyv1alpha1.RootCluster) {
+			!homePrefix.HasPrefix(tenancyv1alpha1.RootCluster.Path()) {
 			errs = append(errs, fmt.Errorf("--home-workspaces-root-prefix should be a valid logical cluster name"))
-		} else if parent, ok := homePrefix.Parent(); !ok || parent != tenancyv1alpha1.RootCluster {
+		} else if parent, ok := homePrefix.Parent(); !ok || parent != tenancyv1alpha1.RootCluster.Path() {
 			errs = append(errs, fmt.Errorf("--home-workspaces-root-prefix should be a direct child of the root logical cluster"))
 		}
 	}

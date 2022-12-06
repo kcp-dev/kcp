@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 )
 
 // byUID implements sort.Interface based on the UID field of CustomResourceDefinition
@@ -36,18 +37,18 @@ func (u byUID) Less(i, j int) bool { return u[i].UID < u[j].UID }
 func (u byUID) Swap(i, j int)      { u[i], u[j] = u[j], u[i] }
 
 type conflictChecker struct {
-	listAPIBindings      func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
-	getAPIExport         func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error)
-	getAPIResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
-	getCRD               func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error)
-	listCRDs             func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error)
+	listAPIBindings      func(clusterName tenancy.Cluster) ([]*apisv1alpha1.APIBinding, error)
+	getAPIExport         func(clusterName tenancy.Cluster, name string) (*apisv1alpha1.APIExport, error)
+	getAPIResourceSchema func(clusterName tenancy.Cluster, name string) (*apisv1alpha1.APIResourceSchema, error)
+	getCRD               func(clusterName tenancy.Cluster, name string) (*apiextensionsv1.CustomResourceDefinition, error)
+	listCRDs             func(clusterName tenancy.Cluster) ([]*apiextensionsv1.CustomResourceDefinition, error)
 
 	boundCRDs    []*apiextensionsv1.CustomResourceDefinition
 	crdToBinding map[string]*apisv1alpha1.APIBinding
 }
 
 func (ncc *conflictChecker) getBoundCRDs(apiBindingToExclude *apisv1alpha1.APIBinding) error {
-	clusterName := logicalcluster.From(apiBindingToExclude)
+	clusterName := tenancy.From(apiBindingToExclude)
 
 	apiBindings, err := ncc.listAPIBindings(clusterName)
 	if err != nil {
@@ -61,10 +62,11 @@ func (ncc *conflictChecker) getBoundCRDs(apiBindingToExclude *apisv1alpha1.APIBi
 			continue
 		}
 
-		apiExportClusterName, err := getAPIExportClusterName(apiBinding)
-		if err != nil {
-			return err
+		if apiBinding.Spec.Reference.Export == nil {
+			// this should not happen because of OpenAPI
+			return fmt.Errorf("APIBinding %s|%s has no cluster reference", logicalcluster.From(apiBinding), apiBinding.Name)
 		}
+		apiExportClusterName := apiBinding.Spec.Reference.Export.Cluster
 
 		apiExport, err := ncc.getAPIExport(apiExportClusterName, apiBinding.Spec.Reference.Export.Name)
 		if err != nil {
@@ -116,7 +118,7 @@ func (ncc *conflictChecker) checkForConflicts(schema *apisv1alpha1.APIResourceSc
 }
 
 func (ncc *conflictChecker) gvrConflict(schema *apisv1alpha1.APIResourceSchema, apiBinding *apisv1alpha1.APIBinding) error {
-	bindingClusterName := logicalcluster.From(apiBinding)
+	bindingClusterName := tenancy.From(apiBinding)
 	bindingClusterCRDs, err := ncc.listCRDs(bindingClusterName)
 	if err != nil {
 		return err

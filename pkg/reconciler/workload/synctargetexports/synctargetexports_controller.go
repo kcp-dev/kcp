@@ -39,6 +39,7 @@ import (
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/client"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
@@ -48,6 +49,7 @@ import (
 	apiresourcev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apiresource/v1alpha1"
 	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	workloadv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 )
 
 const (
@@ -86,6 +88,7 @@ func NewController(
 
 	if err := apiExportInformer.Informer().AddIndexers(cache.Indexers{
 		indexAPIExportsByAPIResourceSchema: indexAPIExportsByAPIResourceSchemas,
+		indexers.ByLogicalClusterPath:      indexers.IndexByLogicalClusterPath,
 	}); err != nil {
 		return nil, err
 	}
@@ -334,14 +337,21 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	return nil
 }
 
-func (c *Controller) getAPIExport(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
-	return c.apiExportLister.Cluster(clusterName).Get(name)
+func (c *Controller) getAPIExport(path logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
+	objs, err := c.apiExportsIndexer.ByIndex(indexers.ByLogicalClusterPath, path.String())
+	if err != nil {
+		return nil, err
+	}
+	if len(objs) != 1 {
+		return nil, fmt.Errorf("expected 1 APIExport for cluster %q, got %d", path, len(objs))
+	}
+	return objs[0].(*apisv1alpha1.APIExport), nil
 }
 
-func (c *Controller) getResourceSchema(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
-	return c.resourceSchemaLister.Cluster(clusterName).Get(name)
+func (c *Controller) getResourceSchema(clusterName tenancy.Cluster, name string) (*apisv1alpha1.APIResourceSchema, error) {
+	return c.resourceSchemaLister.Cluster(clusterName.Path()).Get(name)
 }
 
-func (c *Controller) listAPIResourceImports(clusterName logicalcluster.Name) ([]*apiresourcev1alpha1.APIResourceImport, error) {
-	return c.apiImportLister.Cluster(clusterName).List(labels.Everything())
+func (c *Controller) listAPIResourceImports(clusterName tenancy.Cluster) ([]*apiresourcev1alpha1.APIResourceImport, error) {
+	return c.apiImportLister.Cluster(clusterName.Path()).List(labels.Everything())
 }

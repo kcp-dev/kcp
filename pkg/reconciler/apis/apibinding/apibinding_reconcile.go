@@ -89,18 +89,18 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 	}
 
 	// Get APIExport clusterName
-	apiExportClusterName, err := getAPIExportClusterName(apiBinding)
-	if err != nil {
+	if apiBinding.Spec.Reference.Export == nil {
 		// this should not happen because of OpenAPI
 		conditions.MarkFalse(
 			apiBinding,
 			apisv1alpha1.APIExportValid,
 			apisv1alpha1.APIExportInvalidReferenceReason,
 			conditionsv1alpha1.ConditionSeverityError,
-			err.Error(),
+			"APIBinding does not specify an APIExport",
 		)
 		return nil
 	}
+	apiExportClusterName := apiBinding.Spec.Reference.Export.Cluster
 
 	// Get APIExport
 	apiExport, err := c.getAPIExport(apiExportClusterName, workspaceRef.Name)
@@ -271,7 +271,7 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 
 			// Create bound CRD
 			logger.V(2).Info("creating CRD")
-			if _, err := c.createCRD(ctx, ShadowWorkspaceName, crd); err != nil {
+			if _, err := c.createCRD(ctx, ShadowWorkspaceName.Path(), crd); err != nil {
 				schemaClusterName := logicalcluster.From(schema)
 				if apierrors.IsInvalid(err) {
 					status := apierrors.APIStatus(nil)
@@ -452,13 +452,4 @@ func generateCRD(schema *apisv1alpha1.APIResourceSchema) (*apiextensionsv1.Custo
 	}
 
 	return crd, nil
-}
-
-func getAPIExportClusterName(apiBinding *apisv1alpha1.APIBinding) (logicalcluster.Name, error) {
-	if apiBinding.Spec.Reference.Export == nil {
-		// cannot happen due to APIBinding validation
-		return logicalcluster.Name{}, fmt.Errorf("APIBinding does not specify an APIExport")
-	}
-
-	return logicalcluster.New(apiBinding.Spec.Reference.Export.Cluster), nil
 }

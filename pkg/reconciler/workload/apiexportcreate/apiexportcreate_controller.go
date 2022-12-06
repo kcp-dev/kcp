@@ -38,6 +38,7 @@ import (
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/client"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
@@ -213,9 +214,9 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 
 func (c *controller) process(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
-	clusterName := logicalcluster.New(key)
+	clusterName := tenancy.Cluster(key)
 
-	syncTargets, err := c.syncTargetLister.Cluster(clusterName).List(labels.Everything())
+	syncTargets, err := c.syncTargetLister.Cluster(clusterName.Path()).List(labels.Everything())
 	if err != nil {
 		logger.Error(err, "failed to list clusters for workspace")
 		return err
@@ -226,7 +227,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 	}
 
 	// check that export exists, and create it if not
-	export, err := c.apiExportsLister.Cluster(clusterName).Get(reconcilerapiexport.TemporaryComputeServiceExportName)
+	export, err := c.apiExportsLister.Cluster(clusterName.Path()).Get(reconcilerapiexport.TemporaryComputeServiceExportName)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	} else if apierrors.IsNotFound(err) {
@@ -242,7 +243,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		}
 		logger = logging.WithObject(logger, export)
 		logger.Info("creating APIExport")
-		export, err = c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIExports().Create(ctx, export, metav1.CreateOptions{})
+		export, err = c.kcpClusterClient.Cluster(clusterName.Path()).ApisV1alpha1().APIExports().Create(ctx, export, metav1.CreateOptions{})
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			logger.Error(err, "failed to create APIExport")
 			return err
@@ -254,7 +255,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 	}
 
 	// check that location exists, and create it if not
-	_, err = c.locationLister.Cluster(clusterName).Get(DefaultLocationName)
+	_, err = c.locationLister.Cluster(clusterName.Path()).Get(DefaultLocationName)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	} else if apierrors.IsNotFound(err) {
@@ -274,7 +275,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		}
 		logger = logging.WithObject(logger, location)
 		logger.Info("creating Location")
-		_, err = c.kcpClusterClient.Cluster(clusterName).SchedulingV1alpha1().Locations().Create(ctx, location, metav1.CreateOptions{})
+		_, err = c.kcpClusterClient.Cluster(clusterName.Path()).SchedulingV1alpha1().Locations().Create(ctx, location, metav1.CreateOptions{})
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			logger.Error(err, "failed to create Location")
 			return err
@@ -282,7 +283,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 	}
 
 	// check that binding exists, and create it if not
-	bindings, err := c.apiBindingLister.Cluster(clusterName).List(labels.Everything())
+	bindings, err := c.apiBindingLister.Cluster(clusterName.Path()).List(labels.Everything())
 	if err != nil {
 		logger.Error(err, "failed to list APIBindings")
 		return err
@@ -291,7 +292,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		if binding.Spec.Reference.Export == nil {
 			continue
 		}
-		if binding.Spec.Reference.Export.Cluster != clusterName.String() {
+		if binding.Spec.Reference.Export.Cluster != clusterName {
 			continue
 		}
 		if binding.Spec.Reference.Export.Name != reconcilerapiexport.TemporaryComputeServiceExportName {
@@ -320,7 +321,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 	}
 	logger = logging.WithObject(logger, binding)
 	logger.V(2).Info("creating APIBinding")
-	_, err = c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
+	_, err = c.kcpClusterClient.Cluster(clusterName.Path()).ApisV1alpha1().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
 
 	if err != nil && !apierrors.IsAlreadyExists(err) {
 		logger.Error(err, "failed to create APIBinding")
@@ -341,6 +342,6 @@ func (c *controller) process(ctx context.Context, key string) error {
 	}
 
 	logger.WithValues("patch", string(patchData)).V(2).Info("patching APIExport")
-	_, err = c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIExports().Patch(ctx, export.Name, types.MergePatchType, patchData, metav1.PatchOptions{})
+	_, err = c.kcpClusterClient.Cluster(clusterName.Path()).ApisV1alpha1().APIExports().Patch(ctx, export.Name, types.MergePatchType, patchData, metav1.PatchOptions{})
 	return err
 }

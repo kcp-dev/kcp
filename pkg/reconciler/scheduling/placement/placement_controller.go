@@ -47,6 +47,7 @@ import (
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	schedulingv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
 	schedulingv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -75,7 +76,8 @@ func NewController(
 
 		namespaceLister: namespaceInformer.Lister(),
 
-		locationLister: locationInformer.Lister(),
+		locationLister:  locationInformer.Lister(),
+		locationIndexer: locationInformer.Informer().GetIndexer(),
 
 		placementLister:  placementInformer.Lister(),
 		placementIndexer: placementInformer.Informer().GetIndexer(),
@@ -86,6 +88,10 @@ func NewController(
 	}); err != nil {
 		return nil, err
 	}
+
+	indexers.AddIfNotPresentOrDie(locationInformer.Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPath: indexers.IndexByLogicalClusterPath,
+	})
 
 	// namespaceBlocklist holds a set of namespaces that should never be synced from kcp to physical clusters.
 	var namespaceBlocklist = sets.NewString("kube-system", "kube-public", "kube-node-lease")
@@ -146,7 +152,8 @@ type controller struct {
 
 	namespaceLister corev1listers.NamespaceClusterLister
 
-	locationLister schedulingv1alpha1listers.LocationClusterLister
+	locationLister  schedulingv1alpha1listers.LocationClusterLister
+	locationIndexer cache.Indexer
 
 	placementLister  schedulingv1alpha1listers.PlacementClusterLister
 	placementIndexer cache.Indexer

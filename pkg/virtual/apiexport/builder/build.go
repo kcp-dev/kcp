@@ -24,7 +24,6 @@ import (
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
@@ -34,6 +33,7 @@ import (
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
@@ -111,7 +111,7 @@ func BuildVirtualWorkspace(
 						cancelFn:      cancelFn,
 					}, nil
 				},
-				func(ctx context.Context, clusterName logicalcluster.Name, apiExportName string) (apidefinition.APIDefinition, error) {
+				func(ctx context.Context, clusterName tenancy.Cluster, apiExportName string) (apidefinition.APIDefinition, error) {
 					restProvider, err := provideAPIExportFilteredRestStorage(ctx, dynamicClusterClient, clusterName, apiExportName)
 					if err != nil {
 						return nil, err

@@ -193,7 +193,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 		}
 		parentClusterName, hasParent := currentClusterName.Parent()
 		if !hasParent {
-			if currentClusterName == tenancyv1alpha1.RootCluster {
+			if currentClusterName == tenancyv1alpha1.RootCluster.Path() {
 				return fmt.Errorf("current workspace is %q", currentClusterName)
 			}
 			return fmt.Errorf("current workspace %q has no parent", currentClusterName)
@@ -210,7 +210,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 		fallthrough
 
 	case "~":
-		homeWorkspace, err := o.kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1beta1().Workspaces().Get(ctx, "~", metav1.GetOptions{})
+		homeWorkspace, err := o.kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster.Path()).TenancyV1beta1().Workspaces().Get(ctx, "~", metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
@@ -509,7 +509,7 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 		return fmt.Errorf("current URL %q does not point to cluster workspace", config.Host)
 	}
 
-	if o.IgnoreExisting && o.Type != "" && !logicalcluster.New(o.Type).HasPrefix(tenancyv1alpha1.RootCluster) {
+	if o.IgnoreExisting && o.Type != "" && !logicalcluster.New(o.Type).HasPrefix(tenancyv1alpha1.RootCluster.Path()) {
 		return fmt.Errorf("--ignore-existing must not be used with non-absolute type path")
 	}
 

@@ -28,6 +28,7 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 )
 
@@ -66,10 +67,11 @@ func (o *reservedCRDAnnotations) Validate(ctx context.Context, a admission.Attri
 		return fmt.Errorf("unexpected type %T", a.GetObject())
 	}
 
-	clusterName, err := request.ClusterNameFrom(ctx)
+	cluster, err := request.ClusterNameFrom(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve cluster from context: %w", err)
 	}
+	clusterName := tenancy.Cluster(cluster.String()) // TODO(sttts): remove when ClusterFromfrom returns a tenancy.Cluster
 	if clusterName == apibinding.ShadowWorkspaceName {
 		return nil
 	}

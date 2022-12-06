@@ -72,7 +72,7 @@ func (o *clusterWorkspaceType) Validate(ctx context.Context, a admission.Attribu
 		return fmt.Errorf("failed to convert unstructured to ClusterWorkspaceType: %w", err)
 	}
 
-	if cwt.Name == "root" && clusterName != tenancyv1alpha1.RootCluster {
+	if cwt.Name == "root" && clusterName != tenancyv1alpha1.RootCluster.Path() {
 		return admission.NewForbidden(a, fmt.Errorf("root workspace type can only be created in root cluster"))
 	}
 

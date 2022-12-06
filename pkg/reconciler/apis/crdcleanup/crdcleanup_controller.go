@@ -22,7 +22,6 @@ import (
 	"time"
 
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
-	"github.com/kcp-dev/logicalcluster/v2"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	kcpapiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/kcp/clientset/versioned"
@@ -37,6 +36,7 @@ import (
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
@@ -59,14 +59,14 @@ func NewController(
 
 	c := &controller{
 		queue: queue,
-		getCRD: func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
-			return crdInformer.Lister().Cluster(clusterName).Get(name)
+		getCRD: func(clusterName tenancy.Cluster, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
+			return crdInformer.Lister().Cluster(clusterName.Path()).Get(name)
 		},
 		getAPIBindingsByBoundResourceUID: func(name string) ([]*apisv1alpha1.APIBinding, error) {
 			return indexers.ByIndex[*apisv1alpha1.APIBinding](apiBindingInformer.Informer().GetIndexer(), indexers.APIBindingByBoundResourceUID, name)
 		},
 		deleteCRD: func(ctx context.Context, name string) error {
-			return crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Cluster(apibinding.ShadowWorkspaceName).Delete(ctx, name, metav1.DeleteOptions{})
+			return crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Cluster(apibinding.ShadowWorkspaceName.Path()).Delete(ctx, name, metav1.DeleteOptions{})
 		},
 	}
 
@@ -84,7 +84,7 @@ func NewController(
 				return false
 			}
 
-			return logicalcluster.From(crd) == apibinding.ShadowWorkspaceName
+			return tenancy.From(crd) == apibinding.ShadowWorkspaceName
 		},
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
@@ -117,7 +117,7 @@ func NewController(
 type controller struct {
 	queue workqueue.RateLimitingInterface
 
-	getCRD                           func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error)
+	getCRD                           func(clusterName tenancy.Cluster, name string) (*apiextensionsv1.CustomResourceDefinition, error)
 	getAPIBindingsByBoundResourceUID func(name string) ([]*apisv1alpha1.APIBinding, error)
 	deleteCRD                        func(ctx context.Context, name string) error
 }
@@ -219,10 +219,11 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *controller) process(ctx context.Context, key string) error {
-	clusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+	cluster, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		return err
 	}
+	clusterName := tenancy.Cluster(cluster.String()) // TODO: remove this when SplitMetaClusterNamespaceKey returns a tenancy.Cluster
 
 	obj, err := c.getCRD(clusterName, name)
 	if err != nil {

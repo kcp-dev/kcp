@@ -34,7 +34,7 @@ import (
 // placementReconciler watches namespaces within a cluster workspace and assigns those to location from
 // the location domain of the cluster workspace.
 type placementReconciler struct {
-	listLocations func(clusterName logicalcluster.Name) ([]*schedulingv1alpha1.Location, error)
+	listLocationsByPath func(path logicalcluster.Name) ([]*schedulingv1alpha1.Location, error)
 }
 
 func (r *placementReconciler) reconcile(ctx context.Context, placement *schedulingv1alpha1.Placement) (reconcileStatus, *schedulingv1alpha1.Placement, error) {
@@ -111,7 +111,7 @@ func (r *placementReconciler) reconcile(ctx context.Context, placement *scheduli
 func (r *placementReconciler) validLocationNames(placement *schedulingv1alpha1.Placement, locationWorkspace logicalcluster.Name) (sets.String, error) {
 	selectedLocations := sets.NewString()
 
-	locations, err := r.listLocations(locationWorkspace)
+	locations, err := r.listLocationsByPath(locationWorkspace)
 	if err != nil {
 		return selectedLocations, err
 	}

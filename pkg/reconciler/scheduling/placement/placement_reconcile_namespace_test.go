@@ -20,13 +20,13 @@ import (
 	"context"
 	"testing"
 
-	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 )
 
 func TestPlacementPhase(t *testing.T) {
@@ -105,7 +105,7 @@ func TestPlacementPhase(t *testing.T) {
 					SelectedLocation: testCase.selectedLocation,
 				},
 			}
-			listNamespacesWithAnnotation := func(clusterName logicalcluster.Name) ([]*corev1.Namespace, error) {
+			listNamespacesWithAnnotation := func(clusterName tenancy.Cluster) ([]*corev1.Namespace, error) {
 				if testCase.ns == nil {
 					return []*corev1.Namespace{}, nil
 				}

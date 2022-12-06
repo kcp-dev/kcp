@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
@@ -149,11 +150,11 @@ func TestLocationStatusReconciler(t *testing.T) {
 			var requeuedAfter time.Duration
 			updates := map[string]*schedulingv1alpha1.Location{}
 			r := &statusReconciler{
-				listSyncTargets: func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error) {
+				listSyncTargets: func(clusterName tenancy.Cluster) ([]*workloadv1alpha1.SyncTarget, error) {
 					if tc.listSyncTargetError != nil {
 						return nil, tc.listSyncTargetError
 					}
-					return tc.syncTargets[clusterName], nil
+					return tc.syncTargets[clusterName.Path()], nil
 				},
 				updateLocation: func(ctx context.Context, clusterName logicalcluster.Name, location *schedulingv1alpha1.Location) (*schedulingv1alpha1.Location, error) {
 					if tc.updateLocationError != nil {

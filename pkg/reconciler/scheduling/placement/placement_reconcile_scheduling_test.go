@@ -205,7 +205,7 @@ func TestPlacementScheduling(t *testing.T) {
 				return testCase.locations, testCase.listLocationsError
 			}
 
-			reconciler := &placementReconciler{listLocations: listLocation}
+			reconciler := &placementReconciler{listLocationsByPath: listLocation}
 			_, updated, err := reconciler.reconcile(context.TODO(), testPlacement)
 
 			if testCase.wantError {

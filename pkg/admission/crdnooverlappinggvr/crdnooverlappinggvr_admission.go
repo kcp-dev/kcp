@@ -21,14 +21,13 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/kcp-dev/logicalcluster/v2"
-
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/endpoints/request"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
@@ -77,12 +76,13 @@ func (p *crdNoOverlappingGVRAdmission) Validate(ctx context.Context, a admission
 	if a.GetKind().GroupKind() != apiextensions.Kind("CustomResourceDefinition") {
 		return nil
 	}
-	clusterName, err := request.ClusterNameFrom(ctx)
+	cluster, err := request.ClusterNameFrom(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve cluster from context: %w", err)
 	}
+	clusterName := tenancy.Cluster(cluster.String()) // TODO(sttts): remove this cast once ClusterNameFrom returns a tenancy.Cluster
 	// ignore CRDs targeting system and non-root workspaces
-	if clusterName == apibinding.ShadowWorkspaceName || clusterName == logicalcluster.New("system:admin") {
+	if clusterName == apibinding.ShadowWorkspaceName || clusterName == "system:admin" {
 		return nil
 	}
 
@@ -105,6 +105,6 @@ func (p *crdNoOverlappingGVRAdmission) Validate(ctx context.Context, a admission
 	return nil
 }
 
-func (p *crdNoOverlappingGVRAdmission) listAPIBindingsFor(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
-	return p.apiBindingClusterLister.Cluster(clusterName).List(labels.Everything())
+func (p *crdNoOverlappingGVRAdmission) listAPIBindingsFor(clusterName tenancy.Cluster) ([]*apisv1alpha1.APIBinding, error) {
+	return p.apiBindingClusterLister.Cluster(clusterName.Path()).List(labels.Everything())
 }

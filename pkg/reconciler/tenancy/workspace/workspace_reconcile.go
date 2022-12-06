@@ -96,7 +96,7 @@ func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1beta1.Workspace
 		},
 		&schedulingReconciler{
 			getShard: func(name string) (*tenancyv1alpha1.ClusterWorkspaceShard, error) {
-				return c.clusterWorkspaceShardLister.Cluster(tenancyv1alpha1.RootCluster).Get(name)
+				return c.clusterWorkspaceShardLister.Cluster(tenancyv1alpha1.RootCluster.Path()).Get(name)
 			},
 			getShardByHash: getShardByName,
 			listShards:     c.clusterWorkspaceShardLister.List,

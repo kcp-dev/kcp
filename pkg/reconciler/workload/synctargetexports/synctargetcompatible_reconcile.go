@@ -29,29 +29,26 @@ import (
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/client"
 	"github.com/kcp-dev/kcp/pkg/schemacompat"
 )
 
 // apiCompatibleReconciler sets state for each synced resource based on resource schema and apiimports.
 // TODO(qiujian06) this should be done in syncer when resource schema(or crd) is exposed by syncer virtual workspace.
 type apiCompatibleReconciler struct {
-	getAPIExport           func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error)
-	getResourceSchema      func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
-	listAPIResourceImports func(clusterName logicalcluster.Name) ([]*apiresourcev1alpha1.APIResourceImport, error)
+	getAPIExport           func(path logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error)
+	getResourceSchema      func(clusterName tenancy.Cluster, name string) (*apisv1alpha1.APIResourceSchema, error)
+	listAPIResourceImports func(clusterName tenancy.Cluster) ([]*apiresourcev1alpha1.APIResourceImport, error)
 }
 
 func (e *apiCompatibleReconciler) reconcile(ctx context.Context, syncTarget *workloadv1alpha1.SyncTarget) (*workloadv1alpha1.SyncTarget, error) {
-	exportKeys := getExportKeys(syncTarget)
-
 	var errs []error
 	schemaMap := map[schema.GroupVersionResource]*apiextensionsv1.JSONSchemaProps{}
 
 	// Get json schema from all related resource schemas
-	for _, exportKey := range exportKeys {
-		exportCluster, name := client.SplitClusterAwareKey(exportKey)
-		export, err := e.getAPIExport(exportCluster, name)
+	for _, exportRef := range syncTarget.Spec.SupportedAPIExports {
+		export, err := e.getAPIExport(logicalcluster.New(exportRef.Path), exportRef.ExportName)
 		if apierrors.IsNotFound(err) {
 			continue
 		}
@@ -60,7 +57,7 @@ func (e *apiCompatibleReconciler) reconcile(ctx context.Context, syncTarget *wor
 		}
 
 		for _, schemaName := range export.Spec.LatestResourceSchemas {
-			resourceSchema, err := e.getResourceSchema(exportCluster, schemaName)
+			resourceSchema, err := e.getResourceSchema(tenancy.From(export), schemaName)
 			if apierrors.IsNotFound(err) {
 				continue
 			}
@@ -83,7 +80,7 @@ func (e *apiCompatibleReconciler) reconcile(ctx context.Context, syncTarget *wor
 		}
 	}
 
-	lcluster := logicalcluster.From(syncTarget)
+	lcluster := tenancy.From(syncTarget)
 	apiImportMap := map[schema.GroupVersionResource]*apiextensionsv1.JSONSchemaProps{}
 	apiImports, err := e.listAPIResourceImports(lcluster)
 	if err != nil {

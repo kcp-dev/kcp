@@ -125,7 +125,7 @@ type ExportBindingReference struct {
 	// +required
 	// +kubebuilder:validation:Required
 	// +kube:validation:MinLength=1
-	Name string `json:"Name"`
+	Name string `json:"name"`
 }
 
 // APIBindingPhaseType is the type of the current phase of an APIBinding.

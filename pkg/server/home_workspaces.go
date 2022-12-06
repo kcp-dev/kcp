@@ -360,7 +360,7 @@ func (h *homeWorkspaceHandler) legacyHomeLogicalClusterName(userName string) (lo
 }
 
 func isGetHomeWorkspaceRequest(clusterName logicalcluster.Name, requestInfo *request.RequestInfo) bool {
-	return clusterName == tenancyv1alpha1.RootCluster &&
+	return clusterName == tenancyv1alpha1.RootCluster.Path() &&
 		requestInfo.IsResourceRequest &&
 		requestInfo.Verb == "get" &&
 		requestInfo.APIGroup == tenancyv1beta1.SchemeGroupVersion.Group &&

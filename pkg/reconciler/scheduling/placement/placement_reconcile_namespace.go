@@ -19,20 +19,19 @@ package placement
 import (
 	"context"
 
-	"github.com/kcp-dev/logicalcluster/v2"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	utilserrors "k8s.io/apimachinery/pkg/util/errors"
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 )
 
 // placementNamespaceReconciler checks the namespaces bound to this placement and set the phase.
 // If there are at least one namespace bound to this placement, the placement is in bound state.
 type placementNamespaceReconciler struct {
-	listNamespacesWithAnnotation func(clusterName logicalcluster.Name) ([]*corev1.Namespace, error)
+	listNamespacesWithAnnotation func(clusterName tenancy.Cluster) ([]*corev1.Namespace, error)
 }
 
 func (r *placementNamespaceReconciler) reconcile(ctx context.Context, placement *schedulingv1alpha1.Placement) (reconcileStatus, *schedulingv1alpha1.Placement, error) {
@@ -61,7 +60,7 @@ func (r *placementNamespaceReconciler) reconcile(ctx context.Context, placement 
 }
 
 func (r *placementNamespaceReconciler) selectNamespaces(placement *schedulingv1alpha1.Placement) ([]*corev1.Namespace, error) {
-	clusterName := logicalcluster.From(placement)
+	clusterName := tenancy.From(placement)
 	nss, err := r.listNamespacesWithAnnotation(clusterName)
 
 	if err != nil {

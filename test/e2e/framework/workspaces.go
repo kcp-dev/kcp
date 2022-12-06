@@ -121,7 +121,7 @@ func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logi
 	})
 
 	Eventually(t, func() (bool, string) {
-		ws, err := clusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, ws.Name, metav1.GetOptions{})
+		ws, err = clusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, ws.Name, metav1.GetOptions{})
 		require.Falsef(t, apierrors.IsNotFound(err), "workspace %s was deleted", ws.Name)
 		require.NoError(t, err, "failed to get workspace %s", ws.Name)
 		if actual, expected := ws.Status.Phase, tenancyv1alpha1.WorkspacePhaseReady; actual != expected {
@@ -130,9 +130,8 @@ func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logi
 		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for workspace %s to become ready", orgClusterName.Join(ws.Name))
 
-	wsClusterName := orgClusterName.Join(ws.Name)
-	t.Logf("Created %s workspace %s", ws.Spec.Type, wsClusterName)
-	return wsClusterName
+	t.Logf("Created %s workspace %s", ws.Spec.Type, orgClusterName.Join(ws.Name))
+	return tenancy.Cluster(ws.Status.Cluster)
 }
 
 func NewOrganizationFixture(t *testing.T, server RunningServer, options ...ClusterWorkspaceOption) (orgClusterName logicalcluster.Name) {
@@ -165,7 +164,7 @@ func NewOrganizationFixture(t *testing.T, server RunningServer, options ...Clust
 	var org *tenancyv1alpha1.ClusterWorkspace
 	require.Eventually(t, func() bool {
 		var err error
-		org, err = clusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, tmpl, metav1.CreateOptions{})
+		org, err = clusterClient.Cluster(tenancyv1alpha1.RootCluster.Path()).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, tmpl, metav1.CreateOptions{})
 		if err != nil {
 			t.Logf("error creating org workspace under %s: %v", tenancyv1alpha1.RootCluster, err)
 		}
@@ -180,7 +179,7 @@ func NewOrganizationFixture(t *testing.T, server RunningServer, options ...Clust
 		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(time.Second*30))
 		defer cancelFn()
 
-		err := clusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, org.Name, metav1.DeleteOptions{})
+		err := clusterClient.Cluster(tenancyv1alpha1.RootCluster.Path()).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, org.Name, metav1.DeleteOptions{})
 		if apierrors.IsNotFound(err) {
 			return // ignore not found error
 		}
@@ -188,16 +187,15 @@ func NewOrganizationFixture(t *testing.T, server RunningServer, options ...Clust
 	})
 
 	Eventually(t, func() (bool, string) {
-		ws, err := clusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, org.Name, metav1.GetOptions{})
+		org, err = clusterClient.Cluster(tenancyv1alpha1.RootCluster.Path()).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, org.Name, metav1.GetOptions{})
 		require.Falsef(t, apierrors.IsNotFound(err), "workspace %s was deleted", org.Name)
 		require.NoError(t, err, "failed to get workspace %s", org.Name)
-		if actual, expected := ws.Status.Phase, tenancyv1alpha1.WorkspacePhaseReady; actual != expected {
+		if actual, expected := org.Status.Phase, tenancyv1alpha1.WorkspacePhaseReady; actual != expected {
 			return false, fmt.Sprintf("workspace phase is %s, not %s", actual, expected)
 		}
 		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for organization workspace %s to become ready", org.Name)
 
-	clusterName := tenancyv1alpha1.RootCluster.Join(org.Name)
-	t.Logf("Created organization workspace %s", clusterName)
-	return clusterName
+	t.Logf("Created organization workspace %s", tenancyv1alpha1.RootCluster.Path().Join(org.Name))
+	return tenancy.Cluster(org.Status.Cluster)
 }

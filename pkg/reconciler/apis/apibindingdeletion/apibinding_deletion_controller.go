@@ -38,6 +38,7 @@ import (
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
@@ -85,8 +86,8 @@ func NewController(
 			opts := metav1.DeleteOptions{PropagationPolicy: &background}
 			return metadataClient.Cluster(cluster).Resource(gvr).Namespace(namespace).DeleteCollection(ctx, opts, metav1.ListOptions{})
 		},
-		getAPIBinding: func(cluster logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error) {
-			return apiBindingInformer.Lister().Cluster(cluster).Get(name)
+		getAPIBinding: func(cluster tenancy.Cluster, name string) (*apisv1alpha1.APIBinding, error) {
+			return apiBindingInformer.Lister().Cluster(cluster.Path()).Get(name)
 		},
 		commit: committer.NewCommitter[*APIBinding, Patcher, *APIBindingSpec, *APIBindingStatus](kcpClusterClient.ApisV1alpha1().APIBindings()),
 	}
@@ -122,7 +123,7 @@ type Controller struct {
 	listResources   func(ctx context.Context, cluster logicalcluster.Name, gvr schema.GroupVersionResource) (*metav1.PartialObjectMetadataList, error)
 	deleteResources func(ctx context.Context, cluster logicalcluster.Name, gvr schema.GroupVersionResource, namespace string) error
 
-	getAPIBinding func(cluster logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error)
+	getAPIBinding func(cluster tenancy.Cluster, name string) (*apisv1alpha1.APIBinding, error)
 	commit        CommitFunc
 }
 
@@ -205,12 +206,13 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		runtime.HandleError(err)
 		return nil
 	}
+	clusterName := tenancy.Cluster(cluster.String()) // TODO: remove when SplitMetaClusterNamespaceKey is updated
 
 	defer func() {
 		logger.V(4).Info("finished syncing", "duration", time.Since(startTime))
 	}()
 
-	apibinding, deleteErr := c.getAPIBinding(cluster, name)
+	apibinding, deleteErr := c.getAPIBinding(clusterName, name)
 	if apierrors.IsNotFound(deleteErr) {
 		logger.V(3).Info("APIBinding has been deleted")
 		return nil

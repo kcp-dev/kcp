@@ -111,16 +111,16 @@ func (a *MaximalPermissionPolicyAuthorizer) Authorize(ctx context.Context, attr 
 		return authorizer.DecisionNoOpinion, MaximalPermissionPolicyAccessNotPermittedReason, fmt.Errorf("error getting API export: %w", err)
 	}
 
-	path := "unknown"
+	cluster := "unknown"
 	exportName := "unknown"
 	if bindingLogicalCluster.Export != nil {
 		exportName = bindingLogicalCluster.Export.Name
-		path = bindingLogicalCluster.Export.Cluster
+		cluster = string(bindingLogicalCluster.Export.Cluster)
 	}
 
 	// If we can't find the export default to close
 	if !found {
-		return authorizer.DecisionNoOpinion, fmt.Sprintf("API export %q not found, path: %q", exportName, path), nil
+		return authorizer.DecisionNoOpinion, fmt.Sprintf("API export %q not found, path: %q", exportName, cluster), err
 	}
 
 	if apiExport.Spec.MaximalPermissionPolicy == nil {
@@ -167,7 +167,7 @@ func getAPIBindingReferenceForAttributes(apiBindingClusterLister apisv1alpha1lis
 }
 
 func getAPIExportByReference(apiExportClusterLister apisv1alpha1listers.APIExportClusterLister, exportRef *apisv1alpha1.BindingReference) (*apisv1alpha1.APIExport, bool, error) {
-	objs, err := apiExportClusterLister.Cluster(logicalcluster.New(exportRef.Export.Cluster)).List(labels.Everything())
+	objs, err := apiExportClusterLister.Cluster(exportRef.Export.Cluster.Path()).List(labels.Everything())
 	if err != nil {
 		return nil, false, err
 	}

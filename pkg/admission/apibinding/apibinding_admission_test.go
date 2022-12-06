@@ -36,6 +36,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/admission/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 )
 
 func createAttr(apiBinding *apisv1alpha1.APIBinding) admission.Attributes {
@@ -187,7 +188,7 @@ func TestValidate(t *testing.T) {
 			attr: createAttr(
 				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("", "export").APIBinding,
 			),
-			expectedErrors: []string{"spec.reference.export.path: Required value"},
+			expectedErrors: []string{"spec.reference.export.cluster: Required value"},
 		},
 		{
 			name: "Create: missing workspace reference exportName fails",
@@ -285,7 +286,7 @@ func TestValidate(t *testing.T) {
 				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("", "export").APIBinding,
 				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:org:workspace", "export").APIBinding,
 			),
-			expectedErrors: []string{"spec.reference.export.path: Required value"},
+			expectedErrors: []string{"spec.reference.export.cluster: Required value"},
 		},
 		{
 			name: "Update: missing workspace reference exportName fails",
@@ -492,9 +493,9 @@ func (b *bindingBuilder) withName(name string) *bindingBuilder {
 	return b
 }
 
-func (b *bindingBuilder) withAbsoluteWorkspaceReference(path string, exportName string) *bindingBuilder {
+func (b *bindingBuilder) withAbsoluteWorkspaceReference(cluster tenancy.Cluster, exportName string) *bindingBuilder {
 	b.Spec.Reference.Export = &apisv1alpha1.ExportBindingReference{
-		Cluster: path,
+		Cluster: cluster,
 		Name:    exportName,
 	}
 	return b

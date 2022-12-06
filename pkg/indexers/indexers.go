@@ -20,10 +20,13 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/kcp-dev/logicalcluster/v2"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	syncershared "github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
@@ -36,6 +39,8 @@ const (
 	APIBindingByClusterAndAcceptedClaimedGroupResources = "byClusterAndAcceptedClaimedGroupResources"
 	// ByClusterResourceStateLabelKey indexes resources based on the cluster state label key.
 	ByClusterResourceStateLabelKey = "ByClusterResourceStateLabelKey"
+	// ByLogicalClusterPath indexes by logical cluster path, if the annotation exists.
+	ByLogicalClusterPath = "ByLogicalClusterPath"
 )
 
 // IndexBySyncerFinalizerKey indexes by syncer finalizer label keys.
@@ -69,6 +74,19 @@ func IndexByClusterResourceStateLabelKey(obj interface{}) ([]string, error) {
 		}
 	}
 	return ClusterResourceStateLabelKeys, nil
+}
+
+// IndexByLogicalClusterPath indexes by logical cluster path, if the annotation exists.
+func IndexByLogicalClusterPath(obj interface{}) ([]string, error) {
+	metaObj, ok := obj.(metav1.Object)
+	if !ok {
+		return []string{}, fmt.Errorf("obj is supposed to be a metav1.Object, but is %T", obj)
+	}
+	if path, found := metaObj.GetAnnotations()[tenancy.LogicalClusterPathAnnotationKey]; found {
+		return []string{logicalcluster.New(path).Join(metaObj.GetName()).String(), logicalcluster.From(metaObj).String()}, nil
+	}
+
+	return []string{logicalcluster.From(metaObj).String()}, nil
 }
 
 // ByIndex returns all instances of T that match indexValue in indexName in indexer.

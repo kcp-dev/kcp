@@ -49,7 +49,7 @@ func (c *controller) reconcile(ctx context.Context) error {
 
 	apiExportIdentitiesConfigMap, err := c.getConfigMap(configshard.SystemShardCluster, "default", ConfigMapName)
 	if apierrors.IsNotFound(err) {
-		_, err := c.createConfigMap(ctx, configshard.SystemShardCluster, "default", requiredApiExportIdentitiesConfigMap)
+		_, err := c.createConfigMap(ctx, configshard.SystemShardCluster.Path(), "default", requiredApiExportIdentitiesConfigMap)
 		return err
 	}
 	if err != nil {
@@ -58,7 +58,7 @@ func (c *controller) reconcile(ctx context.Context) error {
 	if !equality.Semantic.DeepEqual(apiExportIdentitiesConfigMap.Data, requiredApiExportIdentitiesConfigMap.Data) {
 		toUpdateResourceIdentitiesConfigMap := apiExportIdentitiesConfigMap.DeepCopy()
 		toUpdateResourceIdentitiesConfigMap.Data = requiredApiExportIdentitiesConfigMap.Data
-		_, err := c.updateConfigMap(ctx, configshard.SystemShardCluster, "default", toUpdateResourceIdentitiesConfigMap)
+		_, err := c.updateConfigMap(ctx, configshard.SystemShardCluster.Path(), "default", toUpdateResourceIdentitiesConfigMap)
 		return err
 	}
 	return nil

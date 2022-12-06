@@ -32,6 +32,7 @@ import (
 
 	virtualworkspacesoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	"github.com/kcp-dev/kcp/pkg/logging"
@@ -44,7 +45,7 @@ func (c *controller) reconcile(ctx context.Context, apiExport *apisv1alpha1.APIE
 		identity = &apisv1alpha1.Identity{}
 	}
 
-	clusterName := logicalcluster.From(apiExport)
+	clusterName := tenancy.From(apiExport)
 
 	if identity.SecretRef == nil {
 		c.ensureSecretNamespaceExists(ctx, clusterName)
@@ -59,7 +60,7 @@ func (c *controller) reconcile(ctx context.Context, apiExport *apisv1alpha1.APIE
 			)
 		}
 		if errors.IsNotFound(err) {
-			if err := c.createIdentitySecret(ctx, clusterName, apiExport.Name); err != nil {
+			if err := c.createIdentitySecret(ctx, clusterName.Path(), apiExport.Name); err != nil {
 				conditions.MarkFalse(
 					apiExport,
 					apisv1alpha1.APIExportIdentityValid,
@@ -119,7 +120,7 @@ func (c *controller) reconcile(ctx context.Context, apiExport *apisv1alpha1.APIE
 	return nil
 }
 
-func (c *controller) ensureSecretNamespaceExists(ctx context.Context, clusterName logicalcluster.Name) {
+func (c *controller) ensureSecretNamespaceExists(ctx context.Context, clusterName tenancy.Cluster) {
 	logger := klog.FromContext(ctx)
 	ctx = klog.NewContext(ctx, logger)
 	if _, err := c.getNamespace(clusterName, c.secretNamespace); errors.IsNotFound(err) {
@@ -130,7 +131,7 @@ func (c *controller) ensureSecretNamespaceExists(ctx context.Context, clusterNam
 			},
 		}
 		logger = logging.WithObject(logger, ns)
-		if err := c.createNamespace(ctx, clusterName, ns); err != nil && !errors.IsAlreadyExists(err) {
+		if err := c.createNamespace(ctx, clusterName.Path(), ns); err != nil && !errors.IsAlreadyExists(err) {
 			logger.Error(err, "error creating namespace for APIExport secret identities")
 			// Keep going - maybe things will work. If the secret creation fails, we'll make sure to set a condition.
 		}
@@ -154,7 +155,7 @@ func (c *controller) createIdentitySecret(ctx context.Context, clusterName logic
 	return nil
 }
 
-func (c *controller) updateOrVerifyIdentitySecretHash(ctx context.Context, clusterName logicalcluster.Name, apiExport *apisv1alpha1.APIExport) error {
+func (c *controller) updateOrVerifyIdentitySecretHash(ctx context.Context, clusterName tenancy.Cluster, apiExport *apisv1alpha1.APIExport) error {
 	secret, err := c.getSecret(ctx, clusterName, apiExport.Spec.Identity.SecretRef.Namespace, apiExport.Spec.Identity.SecretRef.Name)
 	if err != nil {
 		return err

@@ -406,7 +406,7 @@ func (b thisWsBuilder) withType(cluster tenancy.Cluster, name string) thisWsBuil
 	if b.Annotations == nil {
 		b.Annotations = map[string]string{}
 	}
-	b.Annotations[tenancyv1alpha1.ThisWorkspaceTypeAnnotationKey] = cluster.LogicalCluster().Join(name).String()
+	b.Annotations[tenancyv1alpha1.ThisWorkspaceTypeAnnotationKey] = cluster.Path().Join(name).String()
 	return b
 }
 

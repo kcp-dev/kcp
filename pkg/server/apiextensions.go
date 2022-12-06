@@ -122,7 +122,7 @@ func (c *apiBindingAwareCRDLister) List(ctx context.Context, selector labels.Sel
 					Annotations: map[string]string{logicalcluster.AnnotationKey: apibinding.ShadowWorkspaceName.String()},
 				},
 			})
-			crd, err := c.crdLister.Cluster(apibinding.ShadowWorkspaceName).Get(boundResource.Schema.UID)
+			crd, err := c.crdLister.Cluster(apibinding.ShadowWorkspaceName.Path()).Get(boundResource.Schema.UID)
 			if err != nil {
 				logger.Error(err, "error getting bound CRD")
 				continue
@@ -338,7 +338,7 @@ func (c *apiBindingAwareCRDLister) getForIdentityWildcard(name, identity string)
 		return nil, apierrors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
 	}
 
-	crd, err := c.crdLister.Cluster(apibinding.ShadowWorkspaceName).Get(boundCRDName)
+	crd, err := c.crdLister.Cluster(apibinding.ShadowWorkspaceName.Path()).Get(boundCRDName)
 	if err != nil {
 		return nil, err
 	}
@@ -387,7 +387,7 @@ func (c *apiBindingAwareCRDLister) get(clusterName logicalcluster.Name, name, id
 			matchingIdentity := identity == "" || boundResource.Schema.IdentityHash == identity
 
 			if boundResource.Group == group && boundResource.Resource == resource && matchingIdentity {
-				crd, err = c.crdLister.Cluster(apibinding.ShadowWorkspaceName).Get(boundResource.Schema.UID)
+				crd, err = c.crdLister.Cluster(apibinding.ShadowWorkspaceName.Path()).Get(boundResource.Schema.UID)
 				if err != nil && apierrors.IsNotFound(err) {
 					// If we got here, it means there is supposed to be a CRD coming from an APIBinding, but
 					// the CRD doesn't exist for some reason.

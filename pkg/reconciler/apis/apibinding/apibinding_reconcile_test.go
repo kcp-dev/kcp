@@ -35,6 +35,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 )
@@ -67,7 +68,7 @@ var (
 	unbound = newBindingBuilder().
 		WithClusterName("org:ws").
 		WithName("my-binding").
-		WithWorkspaceReference("org:some-workspace", "some-export")
+		WithExportReference("org:some-workspace", "some-export")
 
 	binding = unbound.DeepCopy().WithPhase(apisv1alpha1.APIBindingPhaseBinding)
 
@@ -80,7 +81,7 @@ var (
 				BoundAPIResource,
 		)
 
-	invalidSchema = binding.DeepCopy().WithWorkspaceReference("org:some-workspace", "invalid-schema")
+	invalidSchema = binding.DeepCopy().WithExportReference("org:some-workspace", "invalid-schema")
 
 	bound = unbound.DeepCopy().
 		WithPhase(apisv1alpha1.APIBindingPhaseBound).
@@ -98,7 +99,7 @@ var (
 	conflicting = unbound.DeepCopy().
 		WithName("conflicting").
 		WithPhase(apisv1alpha1.APIBindingPhaseBound).
-		WithWorkspaceReference("org:some-workspace", "conflict").
+		WithExportReference("org:some-workspace", "conflict").
 		WithBoundResources(
 			new(boundAPIResourceBuilder).
 				WithGroupResource("kcp.dev", "widgets").
@@ -234,7 +235,7 @@ func TestReconcileBinding(t *testing.T) {
 		},
 		"APIExport doesn't have identity hash yet": {
 			apiBinding: binding.DeepCopy().
-				WithWorkspaceReference("org:some-workspace", "no-identity-hash").Build(),
+				WithExportReference("org:some-workspace", "no-identity-hash").Build(),
 			wantAPIExportValid: false,
 		},
 		"APIResourceSchema invalid": {
@@ -434,14 +435,14 @@ func TestReconcileBinding(t *testing.T) {
 			}
 
 			c := &controller{
-				listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
+				listAPIBindings: func(clusterName tenancy.Cluster) ([]*apisv1alpha1.APIBinding, error) {
 					return tc.existingAPIBindings, nil
 				},
-				getAPIExport: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
+				getAPIExport: func(clusterName tenancy.Cluster, name string) (*apisv1alpha1.APIExport, error) {
 					require.Equal(t, "org:some-workspace", clusterName.String())
 					return apiExports[name], tc.getAPIExportError
 				},
-				getAPIResourceSchema: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
+				getAPIResourceSchema: func(clusterName tenancy.Cluster, name string) (*apisv1alpha1.APIResourceSchema, error) {
 					if tc.getAPIResourceSchemaError != nil {
 						return nil, tc.getAPIResourceSchemaError
 					}
@@ -455,7 +456,7 @@ func TestReconcileBinding(t *testing.T) {
 
 					return schema, nil
 				},
-				getCRD: func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
+				getCRD: func(clusterName tenancy.Cluster, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 					require.Equal(t, ShadowWorkspaceName, clusterName)
 
 					if tc.getCRDError != nil {
@@ -492,7 +493,7 @@ func TestReconcileBinding(t *testing.T) {
 
 					return crd, nil
 				},
-				listCRDs: func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error) {
+				listCRDs: func(clusterName tenancy.Cluster) ([]*apiextensionsv1.CustomResourceDefinition, error) {
 					return nil, nil
 				},
 				createCRD: func(ctx context.Context, clusterName logicalcluster.Name, crd *apiextensionsv1.CustomResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error) {
@@ -872,9 +873,9 @@ func (b *bindingBuilder) WithoutWorkspaceReference() *bindingBuilder {
 	return b
 }
 
-func (b *bindingBuilder) WithWorkspaceReference(path, exportName string) *bindingBuilder {
+func (b *bindingBuilder) WithExportReference(cluster tenancy.Cluster, exportName string) *bindingBuilder {
 	b.Spec.Reference.Export = &apisv1alpha1.ExportBindingReference{
-		Cluster: path,
+		Cluster: cluster,
 		Name:    exportName,
 	}
 	return b

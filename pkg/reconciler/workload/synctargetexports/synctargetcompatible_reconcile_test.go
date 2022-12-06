@@ -31,6 +31,7 @@ import (
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
@@ -188,7 +189,7 @@ func TestSyncTargetCompatibleReconcile(t *testing.T) {
 				}
 				return tc.export, nil
 			}
-			getResourceSchema := func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
+			getResourceSchema := func(clusterName tenancy.Cluster, name string) (*apisv1alpha1.APIResourceSchema, error) {
 				for _, schema := range tc.schemas {
 					if schema.Name == name {
 						return schema, nil
@@ -197,7 +198,7 @@ func TestSyncTargetCompatibleReconcile(t *testing.T) {
 
 				return nil, errors.NewNotFound(schema.GroupResource{}, name)
 			}
-			listAPIResourceImports := func(clusterName logicalcluster.Name) ([]*apiresourcev1alpha1.APIResourceImport, error) {
+			listAPIResourceImports := func(clusterName tenancy.Cluster) ([]*apiresourcev1alpha1.APIResourceImport, error) {
 				return tc.apiResourceImport, nil
 			}
 

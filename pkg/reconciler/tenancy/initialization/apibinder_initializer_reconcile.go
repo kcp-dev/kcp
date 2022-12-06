@@ -33,6 +33,7 @@ import (
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
@@ -113,7 +114,7 @@ func (b *APIBinder) reconcile(ctx context.Context, this *tenancyv1alpha1.ThisWor
 		exportToBinding[*binding.Spec.Reference.Export] = binding
 	}
 
-	requiredExportRefs := map[tenancyv1alpha1.APIExportReference]struct{}{}
+	requiredExportRefs := map[tenancyv1alpha1.APIExportReference]tenancy.Cluster{}
 	someExportsMissing := false
 
 	for _, cwt := range cwts {
@@ -123,8 +124,17 @@ func (b *APIBinder) reconcile(ctx context.Context, this *tenancyv1alpha1.ThisWor
 		for i := range cwt.Spec.DefaultAPIBindings {
 			exportRef := cwt.Spec.DefaultAPIBindings[i]
 
+			apiExport, err := b.getAPIExport(logicalcluster.New(exportRef.Path), exportRef.ExportName)
+			if err != nil {
+				if !someExportsMissing {
+					errors = append(errors, fmt.Errorf("unable to complete initialization: unable to find at least 1 APIExport"))
+				}
+				someExportsMissing = true
+				continue
+			}
+
 			// Keep track of unique set of expected exports across all CWTs
-			requiredExportRefs[exportRef] = struct{}{}
+			requiredExportRefs[exportRef] = tenancy.From(apiExport)
 
 			logger := logger.WithValues("apiExport.path", exportRef.Path, "apiExport.name", exportRef.ExportName)
 			ctx := klog.NewContext(ctx, logger)
@@ -144,20 +154,11 @@ func (b *APIBinder) reconcile(ctx context.Context, this *tenancyv1alpha1.ThisWor
 				Spec: apisv1alpha1.APIBindingSpec{
 					Reference: apisv1alpha1.BindingReference{
 						Export: &apisv1alpha1.ExportBindingReference{
-							Path: exportRef.Path,
-							Name: exportRef.ExportName,
+							Cluster: tenancy.From(apiExport),
+							Name:    apiExport.Name,
 						},
 					},
 				},
-			}
-
-			apiExport, err := b.getAPIExport(logicalcluster.New(exportRef.Path), exportRef.ExportName)
-			if err != nil {
-				if !someExportsMissing {
-					errors = append(errors, fmt.Errorf("unable to complete initialization: unable to find at least 1 APIExport"))
-				}
-				someExportsMissing = true
-				continue
 			}
 
 			for i := range apiExport.Spec.PermissionClaims {
@@ -212,13 +213,11 @@ func (b *APIBinder) reconcile(ctx context.Context, this *tenancyv1alpha1.ThisWor
 	// Make sure all the expected bindings are there & ready to use
 	var incomplete []string
 
-	for exportRef := range requiredExportRefs {
-		workspaceExportRef := apisv1alpha1.ExportBindingReference{
-			Cluster: exportRef.Path,
+	for exportRef, cluster := range requiredExportRefs {
+		binding, exists := exportToBinding[apisv1alpha1.ExportBindingReference{
+			Cluster: cluster,
 			Name:    exportRef.ExportName,
-		}
-
-		binding, exists := exportToBinding[workspaceExportRef]
+		}]
 		if !exists {
 			incomplete = append(incomplete, fmt.Sprintf("for APIExport %s|%s", exportRef.Path, exportRef.ExportName))
 			continue

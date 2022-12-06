@@ -29,6 +29,7 @@ import (
 	utilserrors "k8s.io/apimachinery/pkg/util/errors"
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
 
@@ -45,13 +46,13 @@ type reconciler interface {
 
 // statusReconciler reconciles Location objects' status.
 type statusReconciler struct {
-	listSyncTargets func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error)
+	listSyncTargets func(clusterName tenancy.Cluster) ([]*workloadv1alpha1.SyncTarget, error)
 	updateLocation  func(ctx context.Context, clusterName logicalcluster.Name, location *schedulingv1alpha1.Location) (*schedulingv1alpha1.Location, error)
 	enqueueAfter    func(*schedulingv1alpha1.Location, time.Duration)
 }
 
 func (r *statusReconciler) reconcile(ctx context.Context, location *schedulingv1alpha1.Location) (reconcileStatus, error) {
-	clusterName := logicalcluster.From(location)
+	clusterName := tenancy.From(location)
 	syncTargets, err := r.listSyncTargets(clusterName)
 	if err != nil {
 		return reconcileStatusStop, err
@@ -77,7 +78,7 @@ func (r *statusReconciler) reconcile(ctx context.Context, location *schedulingv1
 			location.Annotations = make(map[string]string, 1)
 		}
 		location.Annotations[schedulingv1alpha1.LocationLabelsStringAnnotationKey] = labelString
-		if location, err = r.updateLocation(ctx, clusterName, location); err != nil {
+		if location, err = r.updateLocation(ctx, clusterName.Path(), location); err != nil {
 			return reconcileStatusStop, err
 		}
 	}
@@ -122,8 +123,8 @@ func (c *controller) reconcile(ctx context.Context, location *schedulingv1alpha1
 	return utilserrors.NewAggregate(errs)
 }
 
-func (c *controller) listSyncTarget(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error) {
-	return c.syncTargetLister.Cluster(clusterName).List(labels.Everything())
+func (c *controller) listSyncTarget(clusterName tenancy.Cluster) ([]*workloadv1alpha1.SyncTarget, error) {
+	return c.syncTargetLister.Cluster(clusterName.Path()).List(labels.Everything())
 }
 
 func (c *controller) updateLocation(ctx context.Context, clusterName logicalcluster.Name, location *schedulingv1alpha1.Location) (*schedulingv1alpha1.Location, error) {

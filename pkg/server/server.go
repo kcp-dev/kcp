@@ -152,10 +152,10 @@ func (s *Server) Run(ctx context.Context) error {
 		logger.Info("bootstrapping the shard workspace")
 		if err := wait.PollInfiniteWithContext(goContext(hookContext), time.Second, func(ctx context.Context) (bool, error) {
 			if err := configshard.Bootstrap(ctx,
-				s.ApiExtensionsClusterClient.Cluster(configshard.SystemShardCluster).Discovery(),
-				s.DynamicClusterClient.Cluster(configshard.SystemShardCluster),
+				s.ApiExtensionsClusterClient.Cluster(configshard.SystemShardCluster.Path()).Discovery(),
+				s.DynamicClusterClient.Cluster(configshard.SystemShardCluster.Path()),
 				sets.NewString(s.Options.Extra.BatteriesIncluded...),
-				s.KcpClusterClient.Cluster(configshard.SystemShardCluster)); err != nil {
+				s.KcpClusterClient.Cluster(configshard.SystemShardCluster.Path())); err != nil {
 				logger.Error(err, "failed to bootstrap the shard workspace")
 				return false, nil // keep trying
 			}
@@ -186,9 +186,9 @@ func (s *Server) Run(ctx context.Context) error {
 
 			// bootstrap root workspace phase 0 only if we are on the root shard, no APIBinding resources yet
 			if err := configrootphase0.Bootstrap(goContext(hookContext),
-				s.KcpClusterClient.Cluster(tenancyv1alpha1.RootCluster),
-				s.ApiExtensionsClusterClient.Cluster(tenancyv1alpha1.RootCluster).Discovery(),
-				s.DynamicClusterClient.Cluster(tenancyv1alpha1.RootCluster),
+				s.KcpClusterClient.Cluster(tenancyv1alpha1.RootCluster.Path()),
+				s.ApiExtensionsClusterClient.Cluster(tenancyv1alpha1.RootCluster.Path()).Discovery(),
+				s.DynamicClusterClient.Cluster(tenancyv1alpha1.RootCluster.Path()),
 				sets.NewString(s.Options.Extra.BatteriesIncluded...),
 			); err != nil {
 				logger.Error(err, "failed to bootstrap root workspace phase 0")
@@ -269,12 +269,12 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 		logger.Info("Creating or updating ClusterWorkspaceShard", "shard", s.Options.Extra.ShardName)
 		if err := wait.PollInfiniteWithContext(goContext(hookContext), time.Second, func(ctx context.Context) (bool, error) {
-			existingShard, err := s.RootShardKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaceShards().Get(ctx, shard.Name, metav1.GetOptions{})
+			existingShard, err := s.RootShardKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster.Path()).TenancyV1alpha1().ClusterWorkspaceShards().Get(ctx, shard.Name, metav1.GetOptions{})
 			if err != nil && !errors.IsNotFound(err) {
 				logger.Error(err, "failed getting ClusterWorkspaceShard from the root workspace")
 				return false, nil
 			} else if errors.IsNotFound(err) {
-				if _, err := s.RootShardKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaceShards().Create(ctx, shard, metav1.CreateOptions{}); err != nil {
+				if _, err := s.RootShardKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster.Path()).TenancyV1alpha1().ClusterWorkspaceShards().Create(ctx, shard, metav1.CreateOptions{}); err != nil {
 					logger.Error(err, "failed creating ClusterWorkspaceShard in the root workspace")
 					return false, nil
 				}
@@ -284,7 +284,7 @@ func (s *Server) Run(ctx context.Context) error {
 			existingShard.Spec.BaseURL = shard.Spec.BaseURL
 			existingShard.Spec.ExternalURL = shard.Spec.ExternalURL
 			existingShard.Spec.VirtualWorkspaceURL = shard.Spec.VirtualWorkspaceURL
-			if _, err := s.RootShardKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaceShards().Update(ctx, existingShard, metav1.UpdateOptions{}); err != nil {
+			if _, err := s.RootShardKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster.Path()).TenancyV1alpha1().ClusterWorkspaceShards().Update(ctx, existingShard, metav1.UpdateOptions{}); err != nil {
 				logger.Error(err, "failed updating ClusterWorkspaceShard in the root workspace")
 				return false, nil
 			}
@@ -313,9 +313,9 @@ func (s *Server) Run(ctx context.Context) error {
 			// the root ws is only present on the root shard
 			logger.Info("starting bootstrapping root workspace phase 1")
 			if err := configroot.Bootstrap(goContext(hookContext),
-				s.KcpClusterClient.Cluster(tenancyv1alpha1.RootCluster),
-				s.BootstrapApiExtensionsClusterClient.Cluster(tenancyv1alpha1.RootCluster).Discovery(),
-				s.BootstrapDynamicClusterClient.Cluster(tenancyv1alpha1.RootCluster),
+				s.KcpClusterClient.Cluster(tenancyv1alpha1.RootCluster.Path()),
+				s.BootstrapApiExtensionsClusterClient.Cluster(tenancyv1alpha1.RootCluster.Path()).Discovery(),
+				s.BootstrapDynamicClusterClient.Cluster(tenancyv1alpha1.RootCluster.Path()),
 				s.Options.HomeWorkspaces.HomeCreatorGroups,
 				sets.NewString(s.Options.Extra.BatteriesIncluded...),
 			); err != nil {

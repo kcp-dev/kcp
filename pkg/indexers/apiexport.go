@@ -23,6 +23,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 )
 
 const (
@@ -66,6 +67,6 @@ func IndexAPIExportBySecret(obj interface{}) ([]string, error) {
 	return []string{kcpcache.ToClusterAwareKey(logicalcluster.From(apiExport).String(), ref.Namespace, ref.Name)}, nil
 }
 
-func ClusterPathAndAPIExportName(clusterPath, exportName string) string {
-	return fmt.Sprintf("%s|%s", clusterPath, exportName)
+func ClusterAndAPIExportName(cluster tenancy.Cluster, exportName string) string {
+	return fmt.Sprintf("%s|%s", cluster, exportName)
 }

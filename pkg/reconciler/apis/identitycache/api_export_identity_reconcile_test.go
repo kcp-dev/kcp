@@ -30,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 )
 
 func TestReconcile(t *testing.T) {
@@ -123,7 +124,7 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 				getConfigMap: getConfigMapRecord{
-					defaulted: func(cluster logicalcluster.Name, namespace, name string) (*corev1.ConfigMap, error) {
+					defaulted: func(cluster tenancy.Cluster, namespace, name string) (*corev1.ConfigMap, error) {
 						if scenario.initialConfigMap == nil {
 							return nil, errors.NewNotFound(corev1.Resource("configmaps"), name)
 						}
@@ -139,7 +140,7 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 				listAPIExportsFromRemoteShard: listAPIExportsFromRemoteShardRecord{
-					defaulted: func(name logicalcluster.Name) ([]*apisv1alpha1.APIExport, error) {
+					defaulted: func(name tenancy.Cluster) ([]*apisv1alpha1.APIExport, error) {
 						return scenario.initialApiExports, nil
 					},
 				},
@@ -183,10 +184,10 @@ func (r *createConfigMapRecord) call(ctx context.Context, cluster logicalcluster
 
 type getConfigMapRecord struct {
 	called              bool
-	delegate, defaulted func(cluster logicalcluster.Name, namespace, name string) (*corev1.ConfigMap, error)
+	delegate, defaulted func(cluster tenancy.Cluster, namespace, name string) (*corev1.ConfigMap, error)
 }
 
-func (r *getConfigMapRecord) call(cluster logicalcluster.Name, namespace, name string) (*corev1.ConfigMap, error) {
+func (r *getConfigMapRecord) call(cluster tenancy.Cluster, namespace, name string) (*corev1.ConfigMap, error) {
 	r.called = true
 	delegate := r.delegate
 	if delegate == nil {
@@ -211,10 +212,10 @@ func (r *updateConfigMapRecord) call(ctx context.Context, cluster logicalcluster
 
 type listAPIExportsFromRemoteShardRecord struct {
 	called              bool
-	delegate, defaulted func(logicalcluster.Name) ([]*apisv1alpha1.APIExport, error)
+	delegate, defaulted func(cluster tenancy.Cluster) ([]*apisv1alpha1.APIExport, error)
 }
 
-func (r *listAPIExportsFromRemoteShardRecord) call(cluster logicalcluster.Name) ([]*apisv1alpha1.APIExport, error) {
+func (r *listAPIExportsFromRemoteShardRecord) call(cluster tenancy.Cluster) ([]*apisv1alpha1.APIExport, error) {
 	r.called = true
 	delegate := r.delegate
 	if delegate == nil {

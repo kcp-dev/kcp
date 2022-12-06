@@ -106,6 +106,8 @@ func WithLocalProxy(
 			// because it can equally just put the same value in the API objects. The canonical
 			// path must only be used for defaulting, not for something security-critical.
 			canonicalPath = computedCanonicalPath
+		} else if clusterInfo.Name == tenancyv1alpha1.RootCluster.Path() {
+			canonicalPath = clusterInfo.Name
 		}
 		req = req.WithContext(tenancy.WithCanonicalPath(ctx, canonicalPath))
 

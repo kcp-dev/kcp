@@ -30,7 +30,7 @@ import (
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/client"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
@@ -152,7 +152,6 @@ func gvrString(gvr schema.GroupVersionResource) string {
 // getAllAcceptedResourceSchemas return all resourceSchemas from APIExports defined in this syncTarget filtered by the status.syncedResource
 // of syncTarget such that only resources with accepted state is returned, together with their identityHash.
 func (c *APIReconciler) getAllAcceptedResourceSchemas(syncTarget *workloadv1alpha1.SyncTarget) (map[schema.GroupResource]*apisv1alpha1.APIResourceSchema, map[schema.GroupResource]string, error) {
-	apiExportKeys := getExportKeys(syncTarget)
 	apiResourceSchemas := map[schema.GroupResource]*apisv1alpha1.APIResourceSchema{}
 
 	identityHashByGroupResource := map[schema.GroupResource]string{}
@@ -168,16 +167,21 @@ func (c *APIReconciler) getAllAcceptedResourceSchemas(syncTarget *workloadv1alph
 	}
 
 	var errs []error
-	for _, apiExportKey := range apiExportKeys {
-		clusterName, apiExportName := client.SplitClusterAwareKey(apiExportKey)
-		apiExport, err := c.apiExportLister.Cluster(clusterName).Get(apiExportName)
-		if apierrors.IsNotFound(err) {
-			continue
+	for _, exportRef := range syncTarget.Spec.SupportedAPIExports {
+		path := logicalcluster.New(exportRef.Path)
+		if path.Empty() {
+			path = logicalcluster.From(syncTarget)
 		}
+
+		objs, err := c.apiExportIndexer.ByIndex(indexers.ByLogicalClusterPath, path.String())
 		if err != nil {
 			errs = append(errs, err)
 			continue
 		}
+		if len(objs) != 1 {
+			continue
+		}
+		apiExport := objs[0].(*apisv1alpha1.APIExport)
 
 		for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
 			apiResourceSchema, err := c.apiResourceSchemaLister.Cluster(logicalcluster.From(apiExport)).Get(schemaName)

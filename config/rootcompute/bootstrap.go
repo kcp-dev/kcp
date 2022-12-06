@@ -41,8 +41,8 @@ var RootComputeWorkspace = logicalcluster.New("root:compute")
 // This is blocking, i.e. it only returns (with error) when the context is closed or with nil when
 // the bootstrapping is successfully completed.
 func Bootstrap(ctx context.Context, apiExtensionClusterClient kcpapiextensionsclientset.ClusterInterface, dynamicClusterClient kcpdynamic.ClusterInterface, batteriesIncluded sets.String) error {
-	rootDiscoveryClient := apiExtensionClusterClient.Cluster(tenancyv1alpha1.RootCluster).Discovery()
-	rootDynamicClient := dynamicClusterClient.Cluster(tenancyv1alpha1.RootCluster)
+	rootDiscoveryClient := apiExtensionClusterClient.Cluster(tenancyv1alpha1.RootCluster.Path()).Discovery()
+	rootDynamicClient := dynamicClusterClient.Cluster(tenancyv1alpha1.RootCluster.Path())
 	if err := confighelpers.Bootstrap(ctx, rootDiscoveryClient, rootDynamicClient, batteriesIncluded, fs); err != nil {
 		return err
 	}

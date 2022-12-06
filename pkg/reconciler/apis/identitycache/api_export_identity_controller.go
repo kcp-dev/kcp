@@ -37,6 +37,7 @@ import (
 
 	configshard "github.com/kcp-dev/kcp/config/shard"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
@@ -68,14 +69,14 @@ func NewApiExportIdentityProviderController(
 		createConfigMap: func(ctx context.Context, cluster logicalcluster.Name, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
 			return kubeClusterClient.Cluster(cluster).CoreV1().ConfigMaps(namespace).Create(ctx, configMap, metav1.CreateOptions{})
 		},
-		getConfigMap: func(cluster logicalcluster.Name, namespace, name string) (*corev1.ConfigMap, error) {
-			return configMapInformer.Lister().Cluster(cluster).ConfigMaps(namespace).Get(name)
+		getConfigMap: func(clusterName tenancy.Cluster, namespace, name string) (*corev1.ConfigMap, error) {
+			return configMapInformer.Lister().Cluster(clusterName.Path()).ConfigMaps(namespace).Get(name)
 		},
 		updateConfigMap: func(ctx context.Context, cluster logicalcluster.Name, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
 			return kubeClusterClient.Cluster(cluster).CoreV1().ConfigMaps(namespace).Update(ctx, configMap, metav1.UpdateOptions{})
 		},
-		listAPIExportsFromRemoteShard: func(cluster logicalcluster.Name) ([]*apisv1alpha1.APIExport, error) {
-			return remoteShardApiExportInformer.Lister().Cluster(cluster).List(labels.Everything())
+		listAPIExportsFromRemoteShard: func(clusterName tenancy.Cluster) ([]*apisv1alpha1.APIExport, error) {
+			return remoteShardApiExportInformer.Lister().Cluster(clusterName.Path()).List(labels.Everything())
 		},
 	}
 
@@ -86,11 +87,12 @@ func NewApiExportIdentityProviderController(
 				runtime.HandleError(err)
 				return false
 			}
-			clusterName, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+			cluster, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 			if err != nil {
 				runtime.HandleError(err)
 				return false
 			}
+			clusterName := tenancy.Cluster(cluster.String()) // TODO: remove when SplitMetaClusterNamespaceKey returns tenancy.Cluster
 			return clusterName == tenancyv1alpha1.RootCluster
 		},
 		Handler: cache.ResourceEventHandlerFuncs{
@@ -107,11 +109,12 @@ func NewApiExportIdentityProviderController(
 				runtime.HandleError(err)
 				return false
 			}
-			clusterName, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+			cluster, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 			if err != nil {
 				runtime.HandleError(err)
 				return false
 			}
+			clusterName := tenancy.Cluster(cluster.String()) // TODO: remove when SplitMetaClusterNamespaceKey returns tenancy.Cluster
 			if clusterName != configshard.SystemShardCluster {
 				return false
 			}
@@ -172,7 +175,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 type controller struct {
 	queue                         workqueue.RateLimitingInterface
 	createConfigMap               func(ctx context.Context, cluster logicalcluster.Name, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
-	getConfigMap                  func(cluster logicalcluster.Name, namespace, name string) (*corev1.ConfigMap, error)
+	getConfigMap                  func(clusterName tenancy.Cluster, namespace, name string) (*corev1.ConfigMap, error)
 	updateConfigMap               func(ctx context.Context, cluster logicalcluster.Name, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
-	listAPIExportsFromRemoteShard func(logicalcluster.Name) ([]*apisv1alpha1.APIExport, error)
+	listAPIExportsFromRemoteShard func(clusterName tenancy.Cluster) ([]*apisv1alpha1.APIExport, error)
 }

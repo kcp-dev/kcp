@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	structuralschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
@@ -34,11 +33,12 @@ import (
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1/permissionclaims"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
 	registry "github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
 )
 
-func provideAPIExportFilteredRestStorage(ctx context.Context, clusterClient kcpdynamic.ClusterInterface, clusterName logicalcluster.Name, exportName string) (apiserver.RestProviderFunc, error) {
+func provideAPIExportFilteredRestStorage(ctx context.Context, clusterClient kcpdynamic.ClusterInterface, clusterName tenancy.Cluster, exportName string) (apiserver.RestProviderFunc, error) {
 	labelSelector := map[string]string{
 		apisv1alpha1.InternalAPIBindingExportLabelKey: permissionclaims.ToAPIBindingExportLabelValue(clusterName, exportName),
 	}
