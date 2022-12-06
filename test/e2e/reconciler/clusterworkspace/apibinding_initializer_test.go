@@ -92,12 +92,12 @@ func TestClusterWorkspaceTypeAPIBindingInitialization(t *testing.T) {
 		Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
 			DefaultAPIBindings: []tenancyv1alpha1.APIExportReference{
 				{
-					Path:       logicalcluster.From(cowboysAPIExport).String(),
-					ExportName: cowboysAPIExport.Name,
+					Path:   logicalcluster.From(cowboysAPIExport).String(),
+					Export: cowboysAPIExport.Name,
 				},
 				{
-					Path:       "root",
-					ExportName: "scheduling.kcp.dev",
+					Path:   "root",
+					Export: "scheduling.kcp.dev",
 				},
 			},
 		},
@@ -110,8 +110,8 @@ func TestClusterWorkspaceTypeAPIBindingInitialization(t *testing.T) {
 		Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
 			DefaultAPIBindings: []tenancyv1alpha1.APIExportReference{
 				{
-					Path:       "root",
-					ExportName: "workload.kcp.dev",
+					Path:   "root",
+					Export: "workload.kcp.dev",
 				},
 			},
 		},
@@ -124,8 +124,8 @@ func TestClusterWorkspaceTypeAPIBindingInitialization(t *testing.T) {
 		Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
 			DefaultAPIBindings: []tenancyv1alpha1.APIExportReference{
 				{
-					Path:       "root",
-					ExportName: "shards.tenancy.kcp.dev",
+					Path:   "root",
+					Export: "shards.tenancy.kcp.dev",
 				},
 			},
 			Extend: tenancyv1alpha1.ClusterWorkspaceTypeExtension{

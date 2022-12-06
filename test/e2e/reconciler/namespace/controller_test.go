@@ -45,6 +45,7 @@ import (
 
 	configcrds "github.com/kcp-dev/kcp/config/crds"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -159,12 +160,10 @@ func TestNamespaceScheduler(t *testing.T) {
 				cluster := &workloadv1alpha1.SyncTarget{
 					ObjectMeta: metav1.ObjectMeta{Name: "cluster7"},
 					Spec: workloadv1alpha1.SyncTargetSpec{
-						SupportedAPIExports: []apisv1alpha1.BindingReference{
+						SupportedAPIExports: []tenancyv1alpha1.APIExportReference{
 							{
-								Export: &apisv1alpha1.ExportBindingReference{
-									Name:    "kubernetes",
-									Cluster: server.clusterName.String(),
-								},
+								Export: "kubernetes",
+								Path:   server.clusterName.String(),
 							},
 						},
 					},

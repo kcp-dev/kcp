@@ -6,15 +6,15 @@ spec:
   initializer: true
   defaultAPIBindings:
   - path: root
-    exportName: tenancy.kcp.dev
+    export: tenancy.kcp.dev
   - path: root
-    exportName: scheduling.kcp.dev
+    export: scheduling.kcp.dev
   - path: root
-    exportName: workload.kcp.dev
+    export: workload.kcp.dev
   - path: root
-    exportName: apiresource.kcp.dev
+    export: apiresource.kcp.dev
   - path: root
-    exportName: topology.kcp.dev
+    export: topology.kcp.dev
   defaultChildren:
     types:
     - name: universal

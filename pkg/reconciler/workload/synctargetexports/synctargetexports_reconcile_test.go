@@ -48,7 +48,7 @@ func TestSyncTargetExportReconcile(t *testing.T) {
 			name: "export not found",
 			syncTarget: newSyncTarget([]tenancyv1alpha1.APIExportReference{
 				{
-					ExportName: "kubernetes",
+					Export: "kubernetes",
 				},
 			}, nil),
 		},
@@ -56,7 +56,7 @@ func TestSyncTargetExportReconcile(t *testing.T) {
 			name: "resource schemas not found",
 			syncTarget: newSyncTarget([]tenancyv1alpha1.APIExportReference{
 				{
-					ExportName: "kubernetes",
+					Export: "kubernetes",
 				},
 			}, nil),
 			export: newAPIExport("kubernetes", []string{"v1.service"}, ""),
@@ -65,7 +65,7 @@ func TestSyncTargetExportReconcile(t *testing.T) {
 			name: "update status correctly",
 			syncTarget: newSyncTarget([]tenancyv1alpha1.APIExportReference{
 				{
-					ExportName: "kubernetes",
+					Export: "kubernetes",
 				},
 			}, nil),
 			export: newAPIExport("kubernetes", []string{"v1.service", "apps.v1.deployment"}, ""),
@@ -82,7 +82,7 @@ func TestSyncTargetExportReconcile(t *testing.T) {
 			name: "update existing",
 			syncTarget: newSyncTarget([]tenancyv1alpha1.APIExportReference{
 				{
-					ExportName: "kubernetes",
+					Export: "kubernetes",
 				}},
 				[]workloadv1alpha1.ResourceToSync{
 					{GroupResource: apisv1alpha1.GroupResource{Group: "apps", Resource: "deployments"}, Versions: []string{"v1"}, State: workloadv1alpha1.ResourceSchemaAcceptedState},
@@ -103,7 +103,7 @@ func TestSyncTargetExportReconcile(t *testing.T) {
 			name: "multiple versions",
 			syncTarget: newSyncTarget([]tenancyv1alpha1.APIExportReference{
 				{
-					ExportName: "kubernetes",
+					Export: "kubernetes",
 				}},
 				nil,
 			),

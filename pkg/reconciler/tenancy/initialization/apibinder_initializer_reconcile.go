@@ -124,7 +124,7 @@ func (b *APIBinder) reconcile(ctx context.Context, this *tenancyv1alpha1.ThisWor
 		for i := range cwt.Spec.DefaultAPIBindings {
 			exportRef := cwt.Spec.DefaultAPIBindings[i]
 
-			apiExport, err := b.getAPIExport(logicalcluster.New(exportRef.Path), exportRef.ExportName)
+			apiExport, err := b.getAPIExport(logicalcluster.New(exportRef.Path), exportRef.Export)
 			if err != nil {
 				if !someExportsMissing {
 					errors = append(errors, fmt.Errorf("unable to complete initialization: unable to find at least 1 APIExport"))
@@ -136,10 +136,10 @@ func (b *APIBinder) reconcile(ctx context.Context, this *tenancyv1alpha1.ThisWor
 			// Keep track of unique set of expected exports across all CWTs
 			requiredExportRefs[exportRef] = tenancy.From(apiExport)
 
-			logger := logger.WithValues("apiExport.path", exportRef.Path, "apiExport.name", exportRef.ExportName)
+			logger := logger.WithValues("apiExport.path", exportRef.Path, "apiExport.name", exportRef.Export)
 			ctx := klog.NewContext(ctx, logger)
 
-			apiBindingName := generateAPIBindingName(clusterName, exportRef.Path, exportRef.ExportName)
+			apiBindingName := generateAPIBindingName(clusterName, exportRef.Path, exportRef.Export)
 			logger = logger.WithValues("apiBindingName", apiBindingName)
 
 			if _, err = b.getAPIBinding(clusterName, apiBindingName); err == nil {
@@ -216,10 +216,10 @@ func (b *APIBinder) reconcile(ctx context.Context, this *tenancyv1alpha1.ThisWor
 	for exportRef, cluster := range requiredExportRefs {
 		binding, exists := exportToBinding[apisv1alpha1.ExportBindingReference{
 			Cluster: cluster,
-			Name:    exportRef.ExportName,
+			Name:    exportRef.Export,
 		}]
 		if !exists {
-			incomplete = append(incomplete, fmt.Sprintf("for APIExport %s|%s", exportRef.Path, exportRef.ExportName))
+			incomplete = append(incomplete, fmt.Sprintf("for APIExport %s|%s", exportRef.Path, exportRef.Export))
 			continue
 		}
 

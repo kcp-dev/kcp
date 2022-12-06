@@ -792,8 +792,8 @@ func (b builder) withAdditionalLabel(labels map[string]string) builder {
 func (b builder) withAPIBindings() builder {
 	b.ClusterWorkspaceType.Spec.DefaultAPIBindings = []tenancyv1alpha1.APIExportReference{
 		{
-			Path:       "root",
-			ExportName: "bar",
+			Path:   "root",
+			Export: "bar",
 		},
 	}
 	return b

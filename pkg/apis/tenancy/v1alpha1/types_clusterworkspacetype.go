@@ -118,7 +118,7 @@ type ClusterWorkspaceTypeSpec struct {
 	// +optional
 	// +listType=map
 	// +listMapKey=path
-	// +listMapKey=exportName
+	// +listMapKey=export
 	DefaultAPIBindings []APIExportReference `json:"defaultAPIBindings,omitempty"`
 }
 
@@ -131,12 +131,12 @@ type APIExportReference struct {
 	// +kubebuilder:validation:Pattern:="^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
 	Path string `json:"path"`
 
-	// exportName is the name of the APIExport.
+	// export is the name of the APIExport.
 	//
 	// +required
 	// +kubebuilder:validation:Required
 	// +kube:validation:MinLength=1
-	ExportName string `json:"exportName"`
+	Export string `json:"export"`
 }
 
 // ClusterWorkspaceTypeSelector describes a set of types.

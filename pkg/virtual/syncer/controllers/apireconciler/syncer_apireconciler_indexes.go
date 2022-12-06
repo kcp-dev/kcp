@@ -55,11 +55,11 @@ func IndexSyncTargetsByExports(obj interface{}) ([]string, error) {
 
 	var keys []string
 	for _, export := range synctarget.Spec.SupportedAPIExports {
-		if len(export.ExportName) == 0 {
-			keys = append(keys, client.ToClusterAwareKey(clusterName, export.ExportName))
+		if len(export.Export) == 0 {
+			keys = append(keys, client.ToClusterAwareKey(clusterName, export.Export))
 			continue
 		}
-		keys = append(keys, client.ToClusterAwareKey(logicalcluster.New(export.Path), export.ExportName))
+		keys = append(keys, client.ToClusterAwareKey(logicalcluster.New(export.Path), export.Export))
 	}
 
 	return keys, nil

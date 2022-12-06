@@ -55,8 +55,8 @@ spec:
                 description: APIExportReference provides the fields necessary to resolve
                   an APIExport.
                 properties:
-                  exportName:
-                    description: exportName is the name of the APIExport.
+                  export:
+                    description: export is the name of the APIExport.
                     type: string
                   path:
                     description: path is the fully-qualified path to the workspace
@@ -64,7 +64,7 @@ spec:
                     type: string
                 required:
                 - path
-                - exportName
+                - export
                 type: object
               type: array
             unschedulable:

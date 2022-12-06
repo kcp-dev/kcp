@@ -47,7 +47,7 @@ func TestAPIBindingPermissionClaimCELValidation(t *testing.T) {
 			},
 		},
 		{
-			name: "change exportName",
+			name: "change export name",
 			current: map[string]interface{}{
 				"export": map[string]interface{}{
 					"path": "foo",

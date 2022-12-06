@@ -51,7 +51,7 @@ func TestSyncTargetCompatibleReconcile(t *testing.T) {
 			name: "pending when missing APIResourceSchema",
 			syncTarget: newSyncTarget([]tenancyv1alpha1.APIExportReference{
 				{
-					ExportName: "kubernetes",
+					Export: "kubernetes",
 				},
 			},
 				[]workloadv1alpha1.ResourceToSync{
@@ -67,7 +67,7 @@ func TestSyncTargetCompatibleReconcile(t *testing.T) {
 			name: "incompatible when missing APIResourceImport",
 			syncTarget: newSyncTarget([]tenancyv1alpha1.APIExportReference{
 				{
-					ExportName: "kubernetes",
+					Export: "kubernetes",
 				},
 			},
 				[]workloadv1alpha1.ResourceToSync{
@@ -92,7 +92,7 @@ func TestSyncTargetCompatibleReconcile(t *testing.T) {
 			name: "APIResourceImport compatible with APIResourceSchema",
 			syncTarget: newSyncTarget([]tenancyv1alpha1.APIExportReference{
 				{
-					ExportName: "kubernetes",
+					Export: "kubernetes",
 				},
 			},
 				[]workloadv1alpha1.ResourceToSync{
@@ -120,7 +120,7 @@ func TestSyncTargetCompatibleReconcile(t *testing.T) {
 			name: "APIResourceImport incompatible with APIResourceSchema",
 			syncTarget: newSyncTarget([]tenancyv1alpha1.APIExportReference{
 				{
-					ExportName: "kubernetes",
+					Export: "kubernetes",
 				},
 			},
 				[]workloadv1alpha1.ResourceToSync{
@@ -148,7 +148,7 @@ func TestSyncTargetCompatibleReconcile(t *testing.T) {
 			name: "only take care latest version",
 			syncTarget: newSyncTarget([]tenancyv1alpha1.APIExportReference{
 				{
-					ExportName: "kubernetes",
+					Export: "kubernetes",
 				},
 			},
 				[]workloadv1alpha1.ResourceToSync{
