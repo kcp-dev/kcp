@@ -55,9 +55,8 @@ import (
 )
 
 const (
-	ControllerName      = "kcp-workload-resource-scheduler"
-	byLocationWorkspace = ControllerName + "byLocationWorkspace"
-	bySyncTargetKey     = ControllerName + "bySyncTargetKey"
+	ControllerName  = "kcp-workload-resource-scheduler"
+	bySyncTargetKey = ControllerName + "bySyncTargetKey"
 )
 
 // NewController returns a new Controller which schedules resources in scheduled namespaces.
@@ -82,7 +81,7 @@ func NewController(
 		},
 
 		getValidSyncTargetKeysForWorkspace: func(clusterName logicalcluster.Name) (sets.String, error) {
-			placements, err := indexers.ByIndex[*schedulingv1alpha1.Placement](placementInformer.Informer().GetIndexer(), byLocationWorkspace, clusterName.String())
+			placements, err := placementInformer.Lister().Cluster(clusterName).List(labels.Everything())
 			if err != nil {
 				return nil, err
 			}
@@ -129,10 +128,6 @@ func NewController(
 			},
 			DeleteFunc: nil, // Nothing to do.
 		},
-	})
-
-	indexers.AddIfNotPresentOrDie(placementInformer.Informer().GetIndexer(), cache.Indexers{
-		byLocationWorkspace: indexByLocationWorkspace,
 	})
 
 	placementInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -530,19 +525,6 @@ func (c *Controller) enqueuePlacement(obj interface{}) {
 	}
 
 	c.enqueueSyncTargetKey(syncTargetKey)
-}
-
-func indexByLocationWorkspace(obj interface{}) ([]string, error) {
-	placement, ok := obj.(*schedulingv1alpha1.Placement)
-	if !ok {
-		return []string{}, fmt.Errorf("obj is supposed to be a Placement, but is %T", obj)
-	}
-
-	if placement.Status.SelectedLocation == nil {
-		return []string{}, nil
-	}
-
-	return []string{placement.Status.SelectedLocation.Path}, nil
 }
 
 func indexBySyncTargetKey(obj interface{}) ([]string, error) {
