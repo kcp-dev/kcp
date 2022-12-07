@@ -41,7 +41,6 @@ import (
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
-	"k8s.io/client-go/util/retry"
 
 	"github.com/kcp-dev/kcp/config/helpers"
 	"github.com/kcp-dev/kcp/pkg/apis/apis"
@@ -460,11 +459,13 @@ func TestRootAPIExportAuthorizers(t *testing.T) {
 			},
 		},
 	}
-	err = retry.OnError(retry.DefaultBackoff, errors.IsForbidden, func() error {
-		_, err = userKcpClient.Cluster(userWorkspace).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
-		return err
-	})
-	require.NoError(t, err)
+	framework.Eventually(t, func() (bool, string) {
+		_, err := userKcpClient.Cluster(userWorkspace).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
+		if err != nil {
+			return false, fmt.Sprintf("error creating API binding: %v", err)
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "api binding creation failed")
 
 	t.Logf("Wait for the binding to be ready")
 	framework.Eventually(t, func() (bool, string) {
