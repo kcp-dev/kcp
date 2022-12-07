@@ -28,7 +28,7 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/endpoints/request"
 
-	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
 
 func TestAdmit(t *testing.T) {
@@ -36,16 +36,16 @@ func TestAdmit(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		workspace *tenancyv1beta1.Workspace
+		workspace *tenancyv1alpha1.ThisWorkspace
 		namespace string
 		wantErr   bool
 	}{
 		{
 			name:      "delete immortal namespace in workspace",
 			namespace: "default",
-			workspace: &tenancyv1beta1.Workspace{
+			workspace: &tenancyv1alpha1.ThisWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "root:org|test",
+					Name: tenancyv1alpha1.ThisWorkspaceName,
 				},
 			},
 			wantErr: true,
@@ -53,9 +53,9 @@ func TestAdmit(t *testing.T) {
 		{
 			name:      "delete regular namespace in workspace",
 			namespace: "test",
-			workspace: &tenancyv1beta1.Workspace{
+			workspace: &tenancyv1alpha1.ThisWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "root:org|test",
+					Name: tenancyv1alpha1.ThisWorkspaceName,
 				},
 			},
 			wantErr: false,
@@ -63,9 +63,9 @@ func TestAdmit(t *testing.T) {
 		{
 			name:      "delete immortal namespace in deleting workspace",
 			namespace: "default",
-			workspace: &tenancyv1beta1.Workspace{
+			workspace: &tenancyv1alpha1.ThisWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:              "root:org|test",
+					Name:              tenancyv1alpha1.ThisWorkspaceName,
 					DeletionTimestamp: &now,
 				},
 			},
@@ -77,7 +77,7 @@ func TestAdmit(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			handler, err := newWorkspaceNamespaceLifecycle()
 			require.NoError(t, err, "error creating admission plugin")
-			handler.getWorkspace = func(clusterName logicalcluster.Path, name string) (*tenancyv1beta1.Workspace, error) {
+			handler.getThisWorkspace = func(clusterName logicalcluster.Name) (*tenancyv1alpha1.ThisWorkspace, error) {
 				return tt.workspace, nil
 			}
 
@@ -95,7 +95,7 @@ func TestAdmit(t *testing.T) {
 				nil,
 			)
 
-			ctx := request.WithCluster(context.Background(), request.Cluster{Name: logicalcluster.New("root:org:test")})
+			ctx := request.WithCluster(context.Background(), request.Cluster{Name: "root:org:test"})
 			if err := handler.Admit(ctx, a, nil); (err != nil) != tt.wantErr {
 				t.Fatalf("Validate() error = %v, wantErr %v", err, tt.wantErr)
 			}
