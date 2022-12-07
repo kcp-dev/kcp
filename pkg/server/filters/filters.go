@@ -82,17 +82,17 @@ func WithAuditEventClusterAnnotation(handler http.Handler) http.HandlerFunc {
 // It also trims "/clusters/" prefix from the URL.
 func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		var clusterName logicalcluster.Path
-		if path := req.URL.Path; strings.HasPrefix(path, "/clusters/") {
-			path = strings.TrimPrefix(path, "/clusters/")
+		var path logicalcluster.Path
+		if reqPath := req.URL.Path; strings.HasPrefix(reqPath, "/clusters/") {
+			reqPath = strings.TrimPrefix(reqPath, "/clusters/")
 
-			i := strings.Index(path, "/")
+			i := strings.Index(reqPath, "/")
 			if i == -1 {
-				path = path + "/"
-				i = len(path) - 1
+				reqPath = reqPath + "/"
+				i = len(reqPath) - 1
 			}
-			clusterName, path = logicalcluster.New(path[:i]), path[i:]
-			req.URL.Path = path
+			path, reqPath = logicalcluster.New(reqPath[:i]), reqPath[i:]
+			req.URL.Path = reqPath
 			newURL, err := url.Parse(req.URL.String())
 			if err != nil {
 				responsewriters.ErrorNegotiated(
@@ -112,20 +112,26 @@ func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 		cluster.PartialMetadataRequest = IsPartialMetadataRequest(req.Context())
 
 		switch {
-		case clusterName == logicalcluster.Wildcard:
+		case path == logicalcluster.Wildcard:
 			// HACK: just a workaround for testing
 			cluster.Wildcard = true
-			// fallthrough
-			cluster.Name = logicalcluster.Wildcard
-		case !clusterName.Empty():
-			if !reClusterName.MatchString(clusterName.String()) {
+		case !path.Empty():
+			if !path.IsValid() {
 				responsewriters.ErrorNegotiated(
-					apierrors.NewBadRequest(fmt.Sprintf("invalid cluster: %q does not match the regex", clusterName)),
+					apierrors.NewBadRequest(fmt.Sprintf("invalid cluster: %q does not match the regex", path)),
 					errorCodecs, schema.GroupVersion{},
 					w, req)
 				return
 			}
-			cluster.Name = clusterName
+			if name, ok := path.Name(); !ok {
+				responsewriters.ErrorNegotiated(
+					apierrors.NewBadRequest(fmt.Sprintf("invalid cluster: %q is not a logical cluster name", path)),
+					errorCodecs, schema.GroupVersion{},
+					w, req)
+				return
+			} else {
+				cluster.Name = name
+			}
 		}
 
 		ctx := request.WithCluster(req.Context(), cluster)

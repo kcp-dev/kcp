@@ -82,7 +82,7 @@ func TestAdmit(t *testing.T) {
 		name           string
 		types          []*tenancyv1alpha1.ClusterWorkspaceType
 		thisWorkspaces []*tenancyv1alpha1.ThisWorkspace
-		clusterName    logicalcluster.Path
+		clusterName    logicalcluster.Name
 		a              admission.Attributes
 		expectedObj    runtime.Object
 		wantErr        bool
@@ -95,7 +95,7 @@ func TestAdmit(t *testing.T) {
 			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
 				newThisWorkspace(logicalcluster.New("root:org:ws")).ThisWorkspace,
 			},
-			clusterName: logicalcluster.New("root:org:ws"),
+			clusterName: "root:org:ws",
 			a: createAttrWithUser(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
@@ -134,7 +134,7 @@ func TestAdmit(t *testing.T) {
 			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
 				newThisWorkspace(logicalcluster.New("root:org:ws")).ThisWorkspace,
 			},
-			clusterName: logicalcluster.New("root:org:ws"),
+			clusterName: "root:org:ws",
 			a: createAttrWithUser(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
@@ -176,7 +176,7 @@ func TestAdmit(t *testing.T) {
 			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
 				newThisWorkspace(logicalcluster.New("root:org:ws")).ThisWorkspace,
 			},
-			clusterName: logicalcluster.New("root:org:ws"),
+			clusterName: "root:org:ws",
 			a: createAttrWithUser(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
@@ -218,7 +218,7 @@ func TestAdmit(t *testing.T) {
 			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
 				newThisWorkspace(logicalcluster.New("root:org:ws")).WithRequiredGroups("foo", "bar").ThisWorkspace,
 			},
-			clusterName: logicalcluster.New("root:org:ws"),
+			clusterName: "root:org:ws",
 			a: createAttr(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
@@ -241,7 +241,7 @@ func TestAdmit(t *testing.T) {
 			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
 				newThisWorkspace(logicalcluster.New("root:org:ws")).WithRequiredGroups("foo", "bar").ThisWorkspace,
 			},
-			clusterName: logicalcluster.New("root:org:ws"),
+			clusterName: "root:org:ws",
 			a: createAttr(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
@@ -267,7 +267,7 @@ func TestAdmit(t *testing.T) {
 			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
 				newThisWorkspace(logicalcluster.New("root:org:ws")).WithRequiredGroups("foo", "bar").ThisWorkspace,
 			},
-			clusterName: logicalcluster.New("root:org:ws"),
+			clusterName: "root:org:ws",
 			a: createAttrWithUser(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
@@ -650,7 +650,7 @@ func TestValidate(t *testing.T) {
 				Handler:             admission.NewHandler(admission.Create, admission.Update),
 				thisWorkspaceLister: fakeThisWorkspaceClusterLister(tt.thisWorkspaces),
 			}
-			ctx := request.WithCluster(context.Background(), request.Cluster{Name: logicalcluster.New("root:org")})
+			ctx := request.WithCluster(context.Background(), request.Cluster{Name: "root:org"})
 			err := o.Validate(ctx, tt.a, nil)
 			t.Logf("%v", err)
 			wantErr := len(tt.expectedErrors) > 0
@@ -710,7 +710,7 @@ func (l fakeThisWorkspaceClusterLister) List(selector labels.Selector) (ret []*t
 	return l, nil
 }
 
-func (l fakeThisWorkspaceClusterLister) Cluster(cluster logicalcluster.Path) tenancyv1alpha1listers.ThisWorkspaceLister {
+func (l fakeThisWorkspaceClusterLister) Cluster(cluster logicalcluster.Name) tenancyv1alpha1listers.ThisWorkspaceLister {
 	var perCluster []*tenancyv1alpha1.ThisWorkspace
 	for _, this := range l {
 		if logicalcluster.From(this) == cluster {

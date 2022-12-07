@@ -37,7 +37,7 @@ import (
 
 type maximalPermissionAuthorizer struct {
 	getAPIExport            func(clusterName, apiExportName string) (*apisv1alpha1.APIExport, error)
-	newDeepSARAuthorizer    func(clusterName logicalcluster.Path) (authorizer.Authorizer, error)
+	newDeepSARAuthorizer    func(clusterName logicalcluster.Name) (authorizer.Authorizer, error)
 	getAPIExportsByIdentity func(identityHash string) ([]*apisv1alpha1.APIExport, error)
 }
 
@@ -53,12 +53,12 @@ func NewMaximalPermissionAuthorizer(deepSARClient kcpkubernetesclientset.Cluster
 
 	return &maximalPermissionAuthorizer{
 		getAPIExport: func(clusterName, apiExportName string) (*apisv1alpha1.APIExport, error) {
-			return apiExportLister.Cluster(logicalcluster.New(clusterName)).Get(apiExportName)
+			return apiExportLister.Cluster(logicalcluster.Name(clusterName)).Get(apiExportName)
 		},
 		getAPIExportsByIdentity: func(identityHash string) ([]*apisv1alpha1.APIExport, error) {
 			return indexers.ByIndex[*apisv1alpha1.APIExport](apiExportIndexer, indexers.APIExportByIdentity, identityHash)
 		},
-		newDeepSARAuthorizer: func(clusterName logicalcluster.Path) (authorizer.Authorizer, error) {
+		newDeepSARAuthorizer: func(clusterName logicalcluster.Name) (authorizer.Authorizer, error) {
 			return delegated.NewDelegatedAuthorizer(clusterName, deepSARClient)
 		},
 	}

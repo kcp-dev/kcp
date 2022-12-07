@@ -76,7 +76,7 @@ func NewController(
 		apiExportIndexer:  apiExportInformer.Informer().GetIndexer(),
 		kubeClusterClient: kubeClusterClient,
 		getNamespace: func(clusterName logicalcluster.Name, name string) (*corev1.Namespace, error) {
-			return namespaceInformer.Lister().Cluster(clusterName.Path()).Get(name)
+			return namespaceInformer.Lister().Cluster(clusterName).Get(name)
 		},
 		createNamespace: func(ctx context.Context, clusterName logicalcluster.Path, ns *corev1.Namespace) error {
 			_, err := kubeClusterClient.Cluster(clusterName).CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
@@ -369,7 +369,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 }
 
 func (c *controller) readThroughGetSecret(ctx context.Context, clusterName logicalcluster.Name, ns, name string) (*corev1.Secret, error) {
-	secret, err := c.secretLister.Cluster(clusterName.Path()).Secrets(ns).Get(name)
+	secret, err := c.secretLister.Cluster(clusterName).Secrets(ns).Get(name)
 	if err == nil {
 		return secret, nil
 	}

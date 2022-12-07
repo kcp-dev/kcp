@@ -197,7 +197,7 @@ func byGroupVersionResourceIndexFunc(obj interface{}) ([]string, error) {
 	return ret, nil
 }
 
-func (d *DynamicDiscoverySharedInformerFactory) Cluster(cluster logicalcluster.Path) kcpkubernetesinformers.ScopedDynamicSharedInformerFactory {
+func (d *DynamicDiscoverySharedInformerFactory) Cluster(cluster logicalcluster.Name) kcpkubernetesinformers.ScopedDynamicSharedInformerFactory {
 	return &scopedDynamicDiscoverySharedInformerFactory{
 		DynamicDiscoverySharedInformerFactory: d,
 		cluster:                               cluster,
@@ -206,7 +206,7 @@ func (d *DynamicDiscoverySharedInformerFactory) Cluster(cluster logicalcluster.P
 
 type scopedDynamicDiscoverySharedInformerFactory struct {
 	*DynamicDiscoverySharedInformerFactory
-	cluster logicalcluster.Path
+	cluster logicalcluster.Name
 }
 
 // ForResource returns the GenericInformer for gvr, creating it if needed. The GenericInformer must be started

@@ -46,32 +46,32 @@ func TestLocatorFromAnnotations(t *testing.T) {
 		{
 			name: "happy case",
 			annotations: map[string]string{
-				NamespaceLocatorAnnotation: `{"syncTarget":{"workspace":"test-workspace","name":"test-name","uid":"test-uid"},"workspace":"test-workspace","namespace":"test-namespace"}`,
+				NamespaceLocatorAnnotation: `{"syncTarget":{"cluster":"test-workspace","name":"test-name","uid":"test-uid"},"cluster":"test-workspace","namespace":"test-namespace"}`,
 			},
 			want: &NamespaceLocator{
 				SyncTarget: SyncTargetLocator{
-					Workspace: "test-workspace",
-					Name:      "test-name",
-					UID:       "test-uid",
+					ClusterName: "test-workspace",
+					Name:        "test-name",
+					UID:         "test-uid",
 				},
-				Workspace: logicalcluster.New("test-workspace"),
-				Namespace: "test-namespace",
+				ClusterName: logicalcluster.Name("test-workspace"),
+				Namespace:   "test-namespace",
 			},
 			wantFound: true,
 		},
 		{
 			name: "format up to v0.6.0",
 			annotations: map[string]string{
-				NamespaceLocatorAnnotation: `{"syncTarget":{"path":"test-workspace","name":"test-name","uid":"test-uid"},"workspace":"test-workspace","namespace":"test-namespace"}`,
+				NamespaceLocatorAnnotation: `{"syncTarget":{"path":"test-workspace","name":"test-name","uid":"test-uid"},"cluster":"test-workspace","namespace":"test-namespace"}`,
 			},
 			want: &NamespaceLocator{
 				SyncTarget: SyncTargetLocator{
-					Workspace: "test-workspace",
-					Name:      "test-name",
-					UID:       "test-uid",
+					ClusterName: "test-workspace",
+					Name:        "test-name",
+					UID:         "test-uid",
 				},
-				Workspace: logicalcluster.New("test-workspace"),
-				Namespace: "test-namespace",
+				ClusterName: logicalcluster.Name("test-workspace"),
+				Namespace:   "test-namespace",
 			},
 			wantFound: true,
 		},

@@ -36,7 +36,7 @@ func indexAPIExportsByAPIResourceSchemas(obj interface{}) ([]string, error) {
 
 	ret := make([]string, len(apiExport.Spec.LatestResourceSchemas))
 	for i := range apiExport.Spec.LatestResourceSchemas {
-		ret[i] = client.ToClusterAwareKey(logicalcluster.From(apiExport), apiExport.Spec.LatestResourceSchemas[i])
+		ret[i] = client.ToClusterAwareKey(logicalcluster.From(apiExport).Path(), apiExport.Spec.LatestResourceSchemas[i])
 	}
 
 	return ret, nil
@@ -50,13 +50,13 @@ func indexSyncTargetsByExports(obj interface{}) ([]string, error) {
 
 	clusterName := logicalcluster.From(synctarget)
 	if len(synctarget.Spec.SupportedAPIExports) == 0 {
-		return []string{client.ToClusterAwareKey(clusterName, reconcilerapiexport.TemporaryComputeServiceExportName)}, nil
+		return []string{client.ToClusterAwareKey(clusterName.Path(), reconcilerapiexport.TemporaryComputeServiceExportName)}, nil
 	}
 
 	var keys []string
 	for _, export := range synctarget.Spec.SupportedAPIExports {
 		if len(export.Path) == 0 {
-			keys = append(keys, client.ToClusterAwareKey(clusterName, export.Export))
+			keys = append(keys, client.ToClusterAwareKey(clusterName.Path(), export.Export))
 			continue
 		}
 		keys = append(keys, client.ToClusterAwareKey(logicalcluster.New(export.Path), export.Export))

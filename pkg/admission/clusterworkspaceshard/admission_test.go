@@ -21,7 +21,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -100,7 +99,7 @@ func TestAdmitIgnoresOtherResources(t *testing.T) {
 		Handler: admission.NewHandler(admission.Create, admission.Update),
 	}
 
-	ctx := request.WithCluster(context.Background(), request.Cluster{Name: logicalcluster.New("root:org")})
+	ctx := request.WithCluster(context.Background(), request.Cluster{Name: "root:org"})
 
 	a := admission.NewAttributesRecord(
 		&unstructured.Unstructured{},
@@ -160,7 +159,7 @@ func TestAdmit(t *testing.T) {
 					Handler: admission.NewHandler(admission.Create, admission.Update),
 				}
 
-				ctx := request.WithCluster(context.Background(), request.Cluster{Name: logicalcluster.New("root:org")})
+				ctx := request.WithCluster(context.Background(), request.Cluster{Name: "root:or"})
 				err := o.Admit(ctx, a, nil)
 				require.NoError(t, err)
 

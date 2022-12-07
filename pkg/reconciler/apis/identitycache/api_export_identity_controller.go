@@ -69,13 +69,13 @@ func NewApiExportIdentityProviderController(
 			return kubeClusterClient.Cluster(cluster).CoreV1().ConfigMaps(namespace).Create(ctx, configMap, metav1.CreateOptions{})
 		},
 		getConfigMap: func(clusterName logicalcluster.Name, namespace, name string) (*corev1.ConfigMap, error) {
-			return configMapInformer.Lister().Cluster(clusterName.Path()).ConfigMaps(namespace).Get(name)
+			return configMapInformer.Lister().Cluster(clusterName).ConfigMaps(namespace).Get(name)
 		},
 		updateConfigMap: func(ctx context.Context, cluster logicalcluster.Path, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
 			return kubeClusterClient.Cluster(cluster).CoreV1().ConfigMaps(namespace).Update(ctx, configMap, metav1.UpdateOptions{})
 		},
 		listAPIExportsFromRemoteShard: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIExport, error) {
-			return remoteShardApiExportInformer.Lister().Cluster(clusterName.Path()).List(labels.Everything())
+			return remoteShardApiExportInformer.Lister().Cluster(clusterName).List(labels.Everything())
 		},
 	}
 

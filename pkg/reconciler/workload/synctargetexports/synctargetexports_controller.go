@@ -40,7 +40,6 @@ import (
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/client"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	apiresourcev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
 	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
@@ -168,7 +167,7 @@ func (c *Controller) enqueueAPIResourceImport(obj interface{}) {
 	}
 
 	lcluster := logicalcluster.From(apiImport)
-	key := client.ToClusterAwareKey(lcluster, apiImport.Spec.Location)
+	key := kcpcache.ToClusterAwareKey(lcluster.String(), "", apiImport.Spec.Location)
 
 	klog.V(2).Infof("Queueing SyncTarget %q because of APIResourceImport %s", key, apiImport.Name)
 	c.queue.Add(key)
@@ -328,7 +327,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 
 	clusterName := logicalcluster.From(currentSyncTarget)
 	klog.V(2).Infof("Patching synctarget %s|%s with patch %s", clusterName, currentSyncTarget.Name, string(patchBytes))
-	if _, err := c.kcpClusterClient.Cluster(clusterName).WorkloadV1alpha1().SyncTargets().Patch(ctx, currentSyncTarget.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status"); err != nil {
+	if _, err := c.kcpClusterClient.Cluster(clusterName.Path()).WorkloadV1alpha1().SyncTargets().Patch(ctx, currentSyncTarget.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status"); err != nil {
 		klog.Errorf("failed to patch sync target status: %v", err)
 		return err
 	}
@@ -348,9 +347,9 @@ func (c *Controller) getAPIExport(path logicalcluster.Path, name string) (*apisv
 }
 
 func (c *Controller) getResourceSchema(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
-	return c.resourceSchemaLister.Cluster(clusterName.Path()).Get(name)
+	return c.resourceSchemaLister.Cluster(clusterName).Get(name)
 }
 
 func (c *Controller) listAPIResourceImports(clusterName logicalcluster.Name) ([]*apiresourcev1alpha1.APIResourceImport, error) {
-	return c.apiImportLister.Cluster(clusterName.Path()).List(labels.Everything())
+	return c.apiImportLister.Cluster(clusterName).List(labels.Everything())
 }

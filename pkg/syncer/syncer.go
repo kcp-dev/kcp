@@ -66,7 +66,7 @@ type SyncerConfig struct {
 	UpstreamConfig                *rest.Config
 	DownstreamConfig              *rest.Config
 	ResourcesToSync               sets.String
-	SyncTargetWorkspace           logicalcluster.Path
+	SyncTargetClusterName         logicalcluster.Name
 	SyncTargetName                string
 	SyncTargetUID                 string
 	DownstreamNamespaceCleanDelay time.Duration
@@ -75,7 +75,7 @@ type SyncerConfig struct {
 
 func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, importPollInterval time.Duration, syncerNamespace string) error {
 	logger := klog.FromContext(ctx)
-	logger = logger.WithValues(SyncTargetWorkspace, cfg.SyncTargetWorkspace, SyncTargetName, cfg.SyncTargetName)
+	logger = logger.WithValues(SyncTargetWorkspace, cfg.SyncTargetClusterName, SyncTargetName, cfg.SyncTargetName)
 	logger.V(2).Info("starting syncer")
 
 	kcpVersion := version.Get().GitVersion
@@ -86,7 +86,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	if err != nil {
 		return err
 	}
-	kcpBootstrapClient := kcpBootstrapClusterClient.Cluster(cfg.SyncTargetWorkspace)
+	kcpBootstrapClient := kcpBootstrapClusterClient.Cluster(cfg.SyncTargetClusterName.Path())
 
 	// kcpInformerFactory to watch a certain syncTarget
 	kcpInformerFactory := kcpinformers.NewSharedScopedInformerFactoryWithOptions(kcpBootstrapClient, resyncPeriod, kcpinformers.WithTweakListOptions(
@@ -159,7 +159,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		kcpInformerFactory.Workload().V1alpha1().SyncTargets(),
 		kcpImporterInformerFactory.Apiresource().V1alpha1().APIResourceImports(),
 		resources,
-		cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTarget.GetUID())
+		cfg.SyncTargetClusterName, cfg.SyncTargetName, syncTarget.GetUID())
 	if err != nil {
 		return err
 	}
@@ -176,7 +176,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		return err
 	}
 
-	syncTargetKey := workloadv1alpha1.ToSyncTargetKey(cfg.SyncTargetWorkspace, cfg.SyncTargetName)
+	syncTargetKey := workloadv1alpha1.ToSyncTargetKey(cfg.SyncTargetClusterName, cfg.SyncTargetName)
 	logger = logger.WithValues(SyncTargetKey, syncTargetKey)
 	ctx = klog.NewContext(ctx, logger)
 
@@ -204,7 +204,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		kcpBootstrapClient,
 		kcpInformerFactory.Workload().V1alpha1().SyncTargets(),
 		cfg.SyncTargetName,
-		cfg.SyncTargetWorkspace,
+		cfg.SyncTargetClusterName,
 		syncTarget.GetUID(),
 	)
 	if err != nil {
@@ -224,12 +224,12 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		return err
 	}
 
-	downstreamNamespaceController, err := namespace.NewDownstreamController(logger, cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, syncTarget.GetUID(), syncerInformers, downstreamConfig, downstreamDynamicClient, upstreamInformers, downstreamInformers, syncerNamespace, cfg.DownstreamNamespaceCleanDelay)
+	downstreamNamespaceController, err := namespace.NewDownstreamController(logger, cfg.SyncTargetClusterName, cfg.SyncTargetName, syncTargetKey, syncTarget.GetUID(), syncerInformers, downstreamConfig, downstreamDynamicClient, upstreamInformers, downstreamInformers, syncerNamespace, cfg.DownstreamNamespaceCleanDelay)
 	if err != nil {
 		return err
 	}
 
-	specSyncer, err := spec.NewSpecSyncer(logger, cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, upstreamURL, advancedSchedulingEnabled,
+	specSyncer, err := spec.NewSpecSyncer(logger, cfg.SyncTargetClusterName, cfg.SyncTargetName, syncTargetKey, upstreamURL, advancedSchedulingEnabled,
 		upstreamDynamicClusterClient, downstreamDynamicClient, downstreamKubeClient, upstreamInformers, downstreamInformers, downstreamNamespaceController, syncerInformers, syncTarget.GetUID(),
 		serviceAccountLister, roleLister, roleBindingLister, deploymentLister, serviceLister, endpointLister, syncerNamespace, cfg.DNSImage)
 	if err != nil {
@@ -237,7 +237,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	}
 
 	logger.Info("Creating status syncer")
-	statusSyncer, err := status.NewStatusSyncer(logger, cfg.SyncTargetWorkspace, cfg.SyncTargetName, syncTargetKey, advancedSchedulingEnabled,
+	statusSyncer, err := status.NewStatusSyncer(logger, cfg.SyncTargetClusterName, cfg.SyncTargetName, syncTargetKey, advancedSchedulingEnabled,
 		upstreamDynamicClusterClient, downstreamDynamicClient, downstreamInformers, syncerInformers, syncTarget.GetUID())
 	if err != nil {
 		return err
@@ -260,7 +260,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	go downstreamNamespaceController.Start(ctx, numSyncerThreads)
 
 	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.SyncerTunnel) {
-		go startSyncerTunnel(ctx, upstreamConfig, downstreamConfig, cfg.SyncTargetWorkspace, cfg.SyncTargetName)
+		go startSyncerTunnel(ctx, upstreamConfig, downstreamConfig, cfg.SyncTargetClusterName, cfg.SyncTargetName)
 	}
 
 	// Attempt to heartbeat every interval

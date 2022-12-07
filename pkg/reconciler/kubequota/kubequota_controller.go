@@ -51,7 +51,7 @@ const (
 )
 
 type scopeableInformerFactory interface {
-	Cluster(logicalcluster.Path) kcpkubernetesinformers.ScopedDynamicSharedInformerFactory
+	Cluster(logicalcluster.Name) kcpkubernetesinformers.ScopedDynamicSharedInformerFactory
 }
 
 // Controller manages per-workspace resource quota controllers.
@@ -109,7 +109,7 @@ func NewController(
 		resourceQuotaClusterInformer:        kubeInformerFactory.Core().V1().ResourceQuotas(),
 
 		getThisWorkspace: func(clusterName logicalcluster.Name) (*tenancyv1alpha1.ThisWorkspace, error) {
-			return thisWorkspacesInformer.Lister().Cluster(clusterName.Path()).Get(tenancyv1alpha1.ThisWorkspaceName)
+			return thisWorkspacesInformer.Lister().Cluster(clusterName).Get(tenancyv1alpha1.ThisWorkspaceName)
 		},
 	}
 
@@ -259,9 +259,9 @@ func (c *Controller) startQuotaForClusterWorkspace(ctx context.Context, clusterN
 
 	resourceQuotaControllerOptions := &resourcequota.ControllerOptions{
 		QuotaClient:           resourceQuotaControllerClient.CoreV1(),
-		ResourceQuotaInformer: c.resourceQuotaClusterInformer.Cluster(clusterName.Path()),
+		ResourceQuotaInformer: c.resourceQuotaClusterInformer.Cluster(clusterName),
 		ResyncPeriod:          controller.StaticResyncPeriodFunc(c.quotaRecalculationPeriod),
-		InformerFactory:       c.scopingGenericSharedInformerFactory.Cluster(clusterName.Path()),
+		InformerFactory:       c.scopingGenericSharedInformerFactory.Cluster(clusterName),
 		ReplenishmentResyncPeriod: func() time.Duration {
 			return c.fullResyncPeriod
 		},
@@ -269,7 +269,7 @@ func (c *Controller) startQuotaForClusterWorkspace(ctx context.Context, clusterN
 		IgnoredResourcesFunc: quotaConfiguration.IgnoredResources,
 		InformersStarted:     c.informersStarted,
 		Registry:             generic.NewRegistry(quotaConfiguration.Evaluators()),
-		ClusterName:          clusterName.Path(),
+		ClusterName:          clusterName,
 	}
 	if resourceQuotaControllerClient.CoreV1().RESTClient().GetRateLimiter() != nil {
 		if err := ratelimiter.RegisterMetricAndTrackRateLimiterUsage(clusterName.String()+"-resource_quota_controller", resourceQuotaControllerClient.CoreV1().RESTClient().GetRateLimiter()); err != nil {

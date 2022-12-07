@@ -123,7 +123,7 @@ func (c *controller) reconcile(ctx context.Context, location *schedulingv1alpha1
 }
 
 func (c *controller) listSyncTarget(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error) {
-	return c.syncTargetLister.Cluster(clusterName.Path()).List(labels.Everything())
+	return c.syncTargetLister.Cluster(clusterName).List(labels.Everything())
 }
 
 func (c *controller) updateLocation(ctx context.Context, clusterName logicalcluster.Path, location *schedulingv1alpha1.Location) (*schedulingv1alpha1.Location, error) {

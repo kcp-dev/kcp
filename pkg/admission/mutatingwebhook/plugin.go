@@ -111,7 +111,7 @@ func (a *Plugin) Admit(ctx context.Context, attr admission.Attributes, o admissi
 // SetExternalKubeInformerFactory implements the WantsExternalKubeInformerFactory interface.
 func (p *Plugin) SetExternalKubeInformerFactory(f informers.SharedInformerFactory) {
 	clusterAwareFactory := informerfactoryhack.Unwrap(f)
-	p.WebhookDispatcher.SetHookSource(func(cluster logicalcluster.Path) generic.Source {
+	p.WebhookDispatcher.SetHookSource(func(cluster logicalcluster.Name) generic.Source {
 		informer := clusterAwareFactory.Admissionregistration().V1().MutatingWebhookConfigurations().Cluster(cluster)
 		return configuration.NewMutatingWebhookConfigurationManagerForInformer(informer)
 	}, clusterAwareFactory.Admissionregistration().V1().MutatingWebhookConfigurations().Informer().HasSynced)

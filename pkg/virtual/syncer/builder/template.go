@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"strings"
 
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
@@ -37,7 +38,6 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
-	"github.com/kcp-dev/kcp/pkg/client"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
@@ -107,22 +107,26 @@ func (t *template) resolveRootPath(urlPath string, requestContext context.Contex
 	if len(parts) < 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
 		return
 	}
-	workspace := logicalcluster.New(parts[0])
+	path := logicalcluster.New(parts[0])
 	syncTargetName := parts[1]
 	syncTargetUID := parts[2]
 
-	apiDomainKey := dynamiccontext.APIDomainKey(client.ToClusterAwareKey(logicalcluster.New(parts[0]), syncTargetName))
+	clusterName, ok := path.Name()
+	if !ok {
+		return
+	}
+
+	apiDomainKey := dynamiccontext.APIDomainKey(kcpcache.ToClusterAwareKey(clusterName.String(), "", syncTargetName))
 
 	// In order to avoid conflicts with reusing deleted synctarget names, let's make sure that the synctarget name and synctarget UID match, if not,
 	// that likely means that a syncer is running with a stale synctarget that got deleted.
-	syncTarget, exists, err := t.wildcardKcpInformers.Workload().V1alpha1().SyncTargets().Informer().GetIndexer().GetByKey(client.ToClusterAwareKey(workspace, syncTargetName))
-	if !exists || err != nil {
-		utilruntime.HandleError(fmt.Errorf("failed to get synctarget %s|%s: %w", workspace, syncTargetName, err))
+	syncTarget, err := t.wildcardKcpInformers.Workload().V1alpha1().SyncTargets().Cluster(clusterName).Lister().Get(syncTargetName)
+	if err != nil {
+		utilruntime.HandleError(fmt.Errorf("failed to get synctarget %s|%s: %w", path, syncTargetName, err))
 		return
 	}
-	syncTargetObj := syncTarget.(*workloadv1alpha1.SyncTarget)
-	if string(syncTargetObj.UID) != syncTargetUID {
-		utilruntime.HandleError(fmt.Errorf("sync target UID mismatch: %s != %s", syncTargetObj.UID, syncTargetUID))
+	if string(syncTarget.UID) != syncTargetUID {
+		utilruntime.HandleError(fmt.Errorf("sync target UID mismatch: %s != %s", syncTarget.UID, syncTargetUID))
 		return
 	}
 
@@ -141,17 +145,23 @@ func (t *template) resolveRootPath(urlPath string, requestContext context.Contex
 
 	withoutClustersPrefix := strings.TrimPrefix(realPath, "/clusters/")
 	parts = strings.SplitN(withoutClustersPrefix, "/", 2)
-	clusterName := parts[0]
+	reqPath := logicalcluster.New(parts[0])
 	realPath = "/"
 	if len(parts) > 1 {
 		realPath += parts[1]
 	}
-	cluster := genericapirequest.Cluster{Name: logicalcluster.New(clusterName)}
-	if clusterName == "*" {
+	var cluster genericapirequest.Cluster
+	if reqPath == logicalcluster.Wildcard {
 		cluster.Wildcard = true
+	} else {
+		reqClusterName, ok := reqPath.Name()
+		if !ok {
+			return
+		}
+		cluster.Name = reqClusterName
 	}
 
-	syncTargetKey := workloadv1alpha1.ToSyncTargetKey(workspace, syncTargetName)
+	syncTargetKey := workloadv1alpha1.ToSyncTargetKey(clusterName, syncTargetName)
 	completedContext = genericapirequest.WithCluster(requestContext, cluster)
 	completedContext = syncercontext.WithSyncTargetKey(completedContext, syncTargetKey)
 	completedContext = dynamiccontext.WithAPIDomainKey(completedContext, apiDomainKey)
@@ -171,7 +181,10 @@ func (t *template) ready() error {
 
 func (t *template) authorize(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
 	syncTargetKey := dynamiccontext.APIDomainKeyFrom(ctx)
-	negotiationWorkspaceName, syncTargetName := client.SplitClusterAwareKey(string(syncTargetKey))
+	negotiationWorkspaceName, _, syncTargetName, err := kcpcache.SplitMetaClusterNamespaceKey(string(syncTargetKey))
+	if err != nil {
+		return authorizer.DecisionNoOpinion, "", err
+	}
 
 	authz, err := delegated.NewDelegatedAuthorizer(negotiationWorkspaceName, t.kubeClusterClient)
 	if err != nil {
@@ -196,8 +209,8 @@ func (t *template) bootstrapManagement(mainConfig genericapiserver.CompletedConf
 		t.wildcardKcpInformers.Workload().V1alpha1().SyncTargets(),
 		t.wildcardKcpInformers.Apis().V1alpha1().APIResourceSchemas(),
 		t.wildcardKcpInformers.Apis().V1alpha1().APIExports(),
-		func(syncTargetWorkspace logicalcluster.Path, syncTargetName string, apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, apiExportIdentityHash string) (apidefinition.APIDefinition, error) {
-			syncTargetKey := workloadv1alpha1.ToSyncTargetKey(syncTargetWorkspace, syncTargetName)
+		func(syncTargetClusterName logicalcluster.Name, syncTargetName string, apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, apiExportIdentityHash string) (apidefinition.APIDefinition, error) {
+			syncTargetKey := workloadv1alpha1.ToSyncTargetKey(syncTargetClusterName, syncTargetName)
 			requirements, selectable := labels.SelectorFromSet(map[string]string{
 				workloadv1alpha1.ClusterResourceStateLabelPrefix + syncTargetKey: string(t.filteredResourceState),
 			}).Requirements()

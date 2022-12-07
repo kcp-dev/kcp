@@ -279,7 +279,7 @@ func (c *Controller) patchCondition(ctx context.Context, old, new *tenancyv1alph
 	}
 
 	logger.V(2).Info("patching ThisWorkspace", "patch", string(patchBytes))
-	_, err = c.kcpClusterClient.Cluster(logicalcluster.From(new)).TenancyV1alpha1().ThisWorkspaces().Patch(ctx, new.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+	_, err = c.kcpClusterClient.Cluster(logicalcluster.From(new).Path()).TenancyV1alpha1().ThisWorkspaces().Patch(ctx, new.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 	return err
 }
 
@@ -295,11 +295,11 @@ func (c *Controller) finalizeWorkspace(ctx context.Context, ws *tenancyv1alpha1.
 			// should be handled by garbage collection when the controller is
 			// implemented.
 			logger.Info("deleting cluster roles")
-			if err := c.kubeClusterClient.Cluster(clusterName).RbacV1().ClusterRoles().DeleteCollection(ctx, backgroudDeletion, metav1.ListOptions{}); err != nil && !apierrors.IsNotFound(err) {
+			if err := c.kubeClusterClient.Cluster(clusterName.Path()).RbacV1().ClusterRoles().DeleteCollection(ctx, backgroudDeletion, metav1.ListOptions{}); err != nil && !apierrors.IsNotFound(err) {
 				return fmt.Errorf("could not delete clusterroles for workspace %s: %w", clusterName, err)
 			}
 			logger.Info("deleting cluster role bindings")
-			if err := c.kubeClusterClient.Cluster(clusterName).RbacV1().ClusterRoleBindings().DeleteCollection(ctx, backgroudDeletion, metav1.ListOptions{}); err != nil && !apierrors.IsNotFound(err) {
+			if err := c.kubeClusterClient.Cluster(clusterName.Path()).RbacV1().ClusterRoleBindings().DeleteCollection(ctx, backgroudDeletion, metav1.ListOptions{}); err != nil && !apierrors.IsNotFound(err) {
 				return fmt.Errorf("could not delete clusterrolebindings for workspace %s: %w", clusterName, err)
 			}
 
@@ -319,7 +319,7 @@ func (c *Controller) finalizeWorkspace(ctx context.Context, ws *tenancyv1alpha1.
 
 				// remove finalizer from owner
 				logger.Info("checking owner for finalizer")
-				ownerCtx := logicalcluster.WithCluster(ctx, logicalcluster.New(ws.Spec.Owner.Cluster))
+				ownerCtx := logicalcluster.WithCluster(ctx, logicalcluster.Name(ws.Spec.Owner.Cluster))
 				obj, err := c.dynamicFrontProxyClient.Resource(gvr).Namespace(ws.Spec.Owner.Namespace).Get(ownerCtx, ws.Spec.Owner.Name, metav1.GetOptions{})
 				if err != nil && !apierrors.IsNotFound(err) {
 					return fmt.Errorf("could not get owner %s %s/%s in cluster %s: %w", gvr, ws.Spec.Owner.Namespace, ws.Spec.Owner.Name, ws.Spec.Owner.Cluster, err)
@@ -348,7 +348,7 @@ func (c *Controller) finalizeWorkspace(ctx context.Context, ws *tenancyv1alpha1.
 			}
 
 			logger.V(2).Info("removing finalizer from ThisWorkspace")
-			_, err := c.kcpClusterClient.TenancyV1alpha1().ThisWorkspaces().Cluster(clusterName).Update(ctx, ws, metav1.UpdateOptions{})
+			_, err := c.kcpClusterClient.TenancyV1alpha1().ThisWorkspaces().Cluster(clusterName.Path()).Update(ctx, ws, metav1.UpdateOptions{})
 			return err
 		}
 	}

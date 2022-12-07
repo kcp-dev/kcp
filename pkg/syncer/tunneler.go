@@ -34,7 +34,7 @@ import (
 )
 
 // startSyncerTunnel blocks until the context is cancelled trying to establish a tunnel against the specified target
-func startSyncerTunnel(ctx context.Context, upstream, downstream *rest.Config, syncTargetWorkspace logicalcluster.Path, syncTargetName string) {
+func startSyncerTunnel(ctx context.Context, upstream, downstream *rest.Config, syncTargetClusterName logicalcluster.Name, syncTargetName string) {
 	// connect to create the reverse tunnels
 	var (
 		initBackoff   = 5 * time.Second
@@ -51,14 +51,14 @@ func startSyncerTunnel(ctx context.Context, upstream, downstream *rest.Config, s
 
 	wait.BackoffUntil(func() {
 		logger.V(5).Info("starting tunnel")
-		err := startTunneler(ctx, upstream, downstream, syncTargetWorkspace, syncTargetName)
+		err := startTunneler(ctx, upstream, downstream, syncTargetClusterName, syncTargetName)
 		if err != nil {
 			logger.Error(err, "failed to create tunnel")
 		}
 	}, backoffMgr, sliding, ctx.Done())
 }
 
-func startTunneler(ctx context.Context, upstream, downstream *rest.Config, syncTargetWorkspace logicalcluster.Path, syncTargetName string) error {
+func startTunneler(ctx context.Context, upstream, downstream *rest.Config, syncTargetClusterName logicalcluster.Name, syncTargetName string) error {
 	logger := klog.FromContext(ctx)
 
 	// syncer --> kcp
@@ -95,7 +95,7 @@ func startTunneler(ctx context.Context, upstream, downstream *rest.Config, syncT
 	}
 	// strip the path
 	u.Path = ""
-	dst, err := tunneler.SyncerTunnelURL(u.String(), syncTargetWorkspace.String(), syncTargetName)
+	dst, err := tunneler.SyncerTunnelURL(u.String(), syncTargetClusterName.String(), syncTargetName)
 	if err != nil {
 		return err
 	}

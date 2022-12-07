@@ -45,6 +45,7 @@ import (
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	schedulingv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
 	workloadv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 )
@@ -69,7 +70,8 @@ func NewController(
 
 		kcpClusterClient: kcpClusterClient,
 
-		locationLister: locationInformer.Lister(),
+		locationLister:  locationInformer.Lister(),
+		locationIndexer: locationInformer.Informer().GetIndexer(),
 
 		syncTargetLister: syncTargetInformer.Lister(),
 
@@ -86,6 +88,10 @@ func NewController(
 	}); err != nil {
 		return nil, err
 	}
+
+	indexers.AddIfNotPresentOrDie(locationInformer.Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPath: indexers.IndexByLogicalClusterPath,
+	})
 
 	locationInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
@@ -159,7 +165,8 @@ type controller struct {
 
 	kcpClusterClient kcpclientset.ClusterInterface
 
-	locationLister schedulingv1alpha1listers.LocationClusterLister
+	locationLister  schedulingv1alpha1listers.LocationClusterLister
+	locationIndexer cache.Indexer
 
 	syncTargetLister workloadv1alpha1listers.SyncTargetClusterLister
 

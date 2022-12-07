@@ -456,7 +456,7 @@ func TestReconcileBinding(t *testing.T) {
 					return schema, nil
 				},
 				getCRD: func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
-					require.Equal(t, ShadowWorkspaceName, clusterName)
+					require.Equal(t, SystemBoundCRDSClusterName, clusterName)
 
 					if tc.getCRDError != nil {
 						return nil, tc.getCRDError
@@ -716,7 +716,7 @@ func TestCRDFromAPIResourceSchema(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "my-uuid",
 					Annotations: map[string]string{
-						logicalcluster.AnnotationKey:            ShadowWorkspaceName.String(),
+						logicalcluster.AnnotationKey:            SystemBoundCRDSClusterName.String(),
 						apisv1alpha1.AnnotationBoundCRDKey:      "",
 						apisv1alpha1.AnnotationSchemaClusterKey: "my-cluster",
 						apisv1alpha1.AnnotationSchemaNameKey:    "my-name",

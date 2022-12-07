@@ -76,11 +76,11 @@ func NewController(
 
 		dynClusterClient: dynamicClusterClient,
 
-		getNamespace: func(clusterName logicalcluster.Path, namespaceName string) (*corev1.Namespace, error) {
+		getNamespace: func(clusterName logicalcluster.Name, namespaceName string) (*corev1.Namespace, error) {
 			return namespaceInformer.Lister().Cluster(clusterName).Get(namespaceName)
 		},
 
-		getValidSyncTargetKeysForWorkspace: func(clusterName logicalcluster.Path) (sets.String, error) {
+		getSyncTargetPlacementAnnotations: func(clusterName logicalcluster.Name) (sets.String, error) {
 			placements, err := placementInformer.Lister().Cluster(clusterName).List(labels.Everything())
 			if err != nil {
 				return nil, err
@@ -181,9 +181,9 @@ type Controller struct {
 
 	dynClusterClient kcpdynamic.ClusterInterface
 
-	getNamespace                       func(clusterName logicalcluster.Path, namespaceName string) (*corev1.Namespace, error)
-	getValidSyncTargetKeysForWorkspace func(clusterName logicalcluster.Path) (sets.String, error)
-	getSyncTargetFromKey               func(syncTargetKey string) (*workloadv1alpha1.SyncTarget, bool, error)
+	getNamespace                      func(clusterName logicalcluster.Name, namespaceName string) (*corev1.Namespace, error)
+	getSyncTargetPlacementAnnotations func(clusterName logicalcluster.Name) (sets.String, error)
+	getSyncTargetFromKey              func(syncTargetKey string) (*workloadv1alpha1.SyncTarget, bool, error)
 
 	ddsif *informer.DynamicDiscoverySharedInformerFactory
 }

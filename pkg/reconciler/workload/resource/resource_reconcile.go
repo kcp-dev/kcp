@@ -43,7 +43,7 @@ import (
 
 // reconcileResource is responsible for setting the cluster for a resource of
 // any type, to match the cluster where its namespace is assigned.
-func (c *Controller) reconcileResource(ctx context.Context, lclusterName logicalcluster.Path, obj *unstructured.Unstructured, gvr *schema.GroupVersionResource) error {
+func (c *Controller) reconcileResource(ctx context.Context, lclusterName logicalcluster.Name, obj *unstructured.Unstructured, gvr *schema.GroupVersionResource) error {
 	logger := logging.WithObject(logging.WithReconciler(klog.Background(), ControllerName), obj).WithValues("groupVersionResource", gvr.String(), "logicalCluster", lclusterName.String())
 	logger.V(4).Info("reconciling resource")
 
@@ -93,7 +93,7 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 		// we do this by getting the current locations of the resource and
 		// comparing against the expected locations.
 
-		expectedSyncTargetKeys, err = c.getValidSyncTargetKeysForWorkspace(logicalcluster.From(obj))
+		expectedSyncTargetKeys, err = c.getSyncTargetPlacementAnnotations(logicalcluster.From(obj))
 		if err != nil {
 			logger.Error(err, "error getting valid sync target keys for workspace")
 			return nil
@@ -178,13 +178,13 @@ func (c *Controller) reconcileResource(ctx context.Context, lclusterName logical
 
 	logger.WithValues("patch", string(patchBytes)).V(2).Info("patching resource")
 	if namespaceName != "" {
-		if _, err := c.dynClusterClient.Resource(*gvr).Cluster(lclusterName).Namespace(namespaceName).Patch(ctx, obj.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
+		if _, err := c.dynClusterClient.Resource(*gvr).Cluster(lclusterName.Path()).Namespace(namespaceName).Patch(ctx, obj.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
 			return err
 		}
 		return nil
 	}
 
-	if _, err := c.dynClusterClient.Resource(*gvr).Cluster(lclusterName).Patch(ctx, obj.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
+	if _, err := c.dynClusterClient.Resource(*gvr).Cluster(lclusterName.Path()).Patch(ctx, obj.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
 		return err
 	}
 

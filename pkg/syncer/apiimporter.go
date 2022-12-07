@@ -77,7 +77,7 @@ func NewAPIImporter(
 	synctargetInformer workloadinformers.SyncTargetInformer,
 	apiImportInformer apiresourceinformer.APIResourceImportInformer,
 	resourcesToSync []string,
-	logicalClusterName logicalcluster.Path,
+	logicalClusterName logicalcluster.Name,
 	syncTargetName string,
 	syncTargetUID types.UID,
 ) (*APIImporter, error) {
@@ -90,7 +90,7 @@ func NewAPIImporter(
 		return nil, err
 	}
 
-	kcpClient := kcpClusterClient.Cluster(logicalClusterName)
+	kcpClient := kcpClusterClient.Cluster(logicalClusterName.Path())
 
 	importIndexer := apiImportInformer.Informer().GetIndexer()
 

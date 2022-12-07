@@ -36,7 +36,7 @@ import (
 
 // SystemCRDLogicalCluster holds a logical cluster name under which we store system-related CRDs.
 // We use the same name as the KCP for symmetry.
-var SystemCRDLogicalCluster = logicalcluster.New("system:system-crds")
+var SystemCRDLogicalCluster = logicalcluster.Name("system:system-crds")
 
 // SystemCacheServerShard holds a default shard name
 const SystemCacheServerShard = "system:cache:server"
@@ -69,7 +69,7 @@ func Bootstrap(ctx context.Context, apiExtensionsClusterClient kcpapiextensionsc
 	ctx = cacheclient.WithShardInContext(ctx, SystemCacheServerShard)
 	return wait.PollInfiniteWithContext(ctx, time.Second, func(ctx context.Context) (bool, error) {
 		for _, crd := range crds {
-			err := configcrds.CreateSingle(ctx, apiExtensionsClusterClient.Cluster(SystemCRDLogicalCluster).ApiextensionsV1().CustomResourceDefinitions(), crd)
+			err := configcrds.CreateSingle(ctx, apiExtensionsClusterClient.Cluster(SystemCRDLogicalCluster.Path()).ApiextensionsV1().CustomResourceDefinitions(), crd)
 			if err != nil {
 				logging.WithObject(logger, crd).Error(err, "failed to create CustomResourceDefinition")
 				return false, nil

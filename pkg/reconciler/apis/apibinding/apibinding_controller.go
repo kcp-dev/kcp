@@ -41,7 +41,6 @@ import (
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/client"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	apisv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apis/v1alpha1"
 	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
@@ -56,7 +55,7 @@ const (
 )
 
 var (
-	ShadowWorkspaceName = logicalcluster.Name("system:bound-crds")
+	SystemBoundCRDSClusterName = logicalcluster.Name("system:bound-crds")
 )
 
 // NewController returns a new controller for APIBindings.
@@ -68,7 +67,7 @@ func NewController(
 	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
 	apiExportInformer apisv1alpha1informers.APIExportClusterInformer,
 	apiResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
-	temporaryRemoteShardApiExportInformer apisv1alpha1informers.APIExportClusterInformer,                 /*TODO(p0lyn0mial): replace with multi-shard informers*/
+	temporaryRemoteShardApiExportInformer apisv1alpha1informers.APIExportClusterInformer, /*TODO(p0lyn0mial): replace with multi-shard informers*/
 	temporaryRemoteShardApiResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer, /*TODO(p0lyn0mial): replace with multi-shard informers*/
 	crdInformer kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer,
 ) (*controller, error) {
@@ -103,9 +102,9 @@ func NewController(
 		apiBindingsIndexer: apiBindingInformer.Informer().GetIndexer(),
 
 		getAPIExport: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
-			apiExport, err := apiExportInformer.Lister().Cluster(clusterName.Path()).Get(name)
+			apiExport, err := apiExportInformer.Lister().Cluster(clusterName).Get(name)
 			if errors.IsNotFound(err) {
-				return temporaryRemoteShardApiExportInformer.Lister().Cluster(clusterName.Path()).Get(name)
+				return temporaryRemoteShardApiExportInformer.Lister().Cluster(clusterName).Get(name)
 			}
 			return apiExport, err
 		},
@@ -113,9 +112,9 @@ func NewController(
 		temporaryRemoteShardApiExportsIndexer: temporaryRemoteShardApiExportInformer.Informer().GetIndexer(),
 
 		getAPIResourceSchema: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
-			apiResourceSchema, err := apiResourceSchemaInformer.Lister().Cluster(clusterName.Path()).Get(name)
+			apiResourceSchema, err := apiResourceSchemaInformer.Lister().Cluster(clusterName).Get(name)
 			if errors.IsNotFound(err) {
-				return temporaryRemoteShardApiResourceSchemaInformer.Lister().Cluster(clusterName.Path()).Get(name)
+				return temporaryRemoteShardApiResourceSchemaInformer.Lister().Cluster(clusterName).Get(name)
 			}
 			return apiResourceSchema, err
 		},
@@ -124,10 +123,10 @@ func NewController(
 			return crdClusterClient.Cluster(clusterName).ApiextensionsV1().CustomResourceDefinitions().Create(ctx, crd, metav1.CreateOptions{})
 		},
 		getCRD: func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
-			return crdInformer.Lister().Cluster(clusterName.Path()).Get(name)
+			return crdInformer.Lister().Cluster(clusterName).Get(name)
 		},
 		listCRDs: func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error) {
-			return crdInformer.Lister().Cluster(clusterName.Path()).List(labels.Everything())
+			return crdInformer.Lister().Cluster(clusterName).List(labels.Everything())
 		},
 		deletedCRDTracker: newLockedStringSet(),
 		commit:            committer.NewCommitter[*APIBinding, Patcher, *APIBindingSpec, *APIBindingStatus](kcpClusterClient.ApisV1alpha1().APIBindings()),
@@ -153,7 +152,7 @@ func NewController(
 				return false
 			}
 
-			return logicalcluster.From(crd) == ShadowWorkspaceName
+			return logicalcluster.From(crd) == SystemBoundCRDSClusterName
 		},
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    func(obj interface{}) { c.enqueueCRD(obj, logger) },
@@ -304,7 +303,7 @@ func (c *controller) enqueueCRD(obj interface{}, logger logr.Logger) {
 
 	// this log here is kind of redundant normally. But we are seeing missing CRD update events
 	// and hence stale APIBindings. So this might help to undersand what's going on.
-	logger.V(4).Info("queueing APIResourceSchema because of CRD", "key", client.ToClusterAwareKey(clusterName.Path(), apiResourceSchema.Name))
+	logger.V(4).Info("queueing APIResourceSchema because of CRD", "key", kcpcache.ToClusterAwareKey(clusterName.String(), "", apiResourceSchema.Name))
 
 	c.enqueueAPIResourceSchema(apiResourceSchema, logger, " because of CRD")
 }

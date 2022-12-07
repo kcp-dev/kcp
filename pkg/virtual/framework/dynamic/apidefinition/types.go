@@ -35,7 +35,7 @@ type APIDefinition interface {
 	GetAPIResourceSchema() *apisv1alpha1.APIResourceSchema
 
 	// GetClusterName provides the name of the logical cluster where the resource specification comes from.
-	GetClusterName() logicalcluster.Path
+	GetClusterName() logicalcluster.Name
 
 	// GetStorage provides the REST storage used to serve the resource.
 	GetStorage() rest.Storage

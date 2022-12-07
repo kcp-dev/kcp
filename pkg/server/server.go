@@ -134,9 +134,9 @@ func (s *Server) Run(ctx context.Context) error {
 		logger.Info("bootstrapping system CRDs")
 		if err := wait.PollInfiniteWithContext(goContext(hookContext), time.Second, func(ctx context.Context) (bool, error) {
 			if err := systemcrds.Bootstrap(ctx,
-				s.ApiExtensionsClusterClient.Cluster(SystemCRDLogicalCluster),
-				s.ApiExtensionsClusterClient.Cluster(SystemCRDLogicalCluster).Discovery(),
-				s.DynamicClusterClient.Cluster(SystemCRDLogicalCluster),
+				s.ApiExtensionsClusterClient.Cluster(SystemCRDClusterName.Path()),
+				s.ApiExtensionsClusterClient.Cluster(SystemCRDClusterName.Path()).Discovery(),
+				s.DynamicClusterClient.Cluster(SystemCRDClusterName.Path()),
 				sets.NewString(s.Options.Extra.BatteriesIncluded...),
 			); err != nil {
 				logger.Error(err, "failed to bootstrap system CRDs, retrying")

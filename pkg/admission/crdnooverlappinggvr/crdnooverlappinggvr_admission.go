@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/kcp-dev/logicalcluster/v3"
+
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apiserver/pkg/admission"
@@ -30,7 +32,6 @@ import (
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
-	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 const (
@@ -82,7 +83,7 @@ func (p *crdNoOverlappingGVRAdmission) Validate(ctx context.Context, a admission
 	}
 	clusterName := logicalcluster.Name(cluster.String()) // TODO(sttts): remove this cast once ClusterNameFrom returns a tenancy.Name
 	// ignore CRDs targeting system and non-root workspaces
-	if clusterName == apibinding.ShadowWorkspaceName || clusterName == "system:admin" {
+	if clusterName == apibinding.SystemBoundCRDSClusterName || clusterName == "system:admin" {
 		return nil
 	}
 
@@ -106,5 +107,5 @@ func (p *crdNoOverlappingGVRAdmission) Validate(ctx context.Context, a admission
 }
 
 func (p *crdNoOverlappingGVRAdmission) listAPIBindingsFor(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
-	return p.apiBindingClusterLister.Cluster(clusterName.Path()).List(labels.Everything())
+	return p.apiBindingClusterLister.Cluster(clusterName).List(labels.Everything())
 }

@@ -131,7 +131,7 @@ func TestBindPlacement(t *testing.T) {
 					testPlacement, schedulingv1alpha1.PlacementReady, "TestNotReady", conditionsv1alpha1.ConditionSeverityError, "")
 			}
 
-			listPlacement := func(clusterName logicalcluster.Path) ([]*schedulingv1alpha1.Placement, error) {
+			listPlacement := func(clusterName logicalcluster.Name) ([]*schedulingv1alpha1.Placement, error) {
 				return []*schedulingv1alpha1.Placement{testPlacement}, nil
 			}
 

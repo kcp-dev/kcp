@@ -89,7 +89,7 @@ func (o *BindComputeOptions) BindFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&o.NamespaceSelectorString, "namespace-selector", o.NamespaceSelectorString, "Label select to select namespaces to create workload.")
 	cmd.Flags().StringSliceVar(&o.LocationSelectorsStrings, "location-selectors", o.LocationSelectorsStrings,
 		"A list of label selectors to select locations in the location workspace to sync workload.")
-	cmd.Flags().StringVar(&o.PlacementName, "name", o.PlacementName, "Name of the placement to be created.")
+	cmd.Flags().StringVar(&o.PlacementName, "name", o.PlacementName, "Path of the placement to be created.")
 	cmd.Flags().DurationVar(&o.BindWaitTimeout, "timeout", time.Second*30, "Duration to wait for Placement to be created and bound successfully.")
 }
 

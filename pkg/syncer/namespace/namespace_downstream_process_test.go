@@ -94,9 +94,9 @@ func TestSyncerNamespaceProcess(t *testing.T) {
 			}, map[string]string{
 				"kcp.dev/namespace-locator": `{"syncTarget":{"workspace":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
 			})
-			syncTargetWorkspace := logicalcluster.New("root:org:ws")
+			syncTargetClusterName := logicalcluster.Name("root:org:ws")
 			syncTargetName := "us-west1"
-			syncTargetKey := workloadv1alpha1.ToSyncTargetKey(syncTargetWorkspace, syncTargetName)
+			syncTargetKey := workloadv1alpha1.ToSyncTargetKey(syncTargetClusterName, syncTargetName)
 			syncTargetUID := types.UID("syncTargetUID")
 			if tc.syncTargetUID != "" {
 				syncTargetUID = tc.syncTargetUID
@@ -107,7 +107,7 @@ func TestSyncerNamespaceProcess(t *testing.T) {
 				deleteDownstreamNamespace: func(ctx context.Context, downstreamNamespaceName string) error {
 					return nil
 				},
-				upstreamNamespaceExists: func(clusterName logicalcluster.Path, upstreamNamespaceName string) (bool, error) {
+				upstreamNamespaceExists: func(clusterName logicalcluster.Name, upstreamNamespaceName string) (bool, error) {
 					return tc.upstreamNamespaceExists, tc.upstreamNamespaceExistsError
 				},
 				getDownstreamNamespace: func(name string) (runtime.Object, error) {
@@ -128,11 +128,11 @@ func TestSyncerNamespaceProcess(t *testing.T) {
 				isDowntreamNamespaceEmpty: func(ctx context.Context, namespaceName string) (bool, error) {
 					return true, nil
 				},
-				syncTargetName:      syncTargetName,
-				syncTargetWorkspace: syncTargetWorkspace,
-				syncTargetUID:       syncTargetUID,
-				syncTargetKey:       syncTargetKey,
-				dnsNamespace:        "kcp-hcbsa8z6c2er",
+				syncTargetName:        syncTargetName,
+				syncTargetClusterName: syncTargetClusterName,
+				syncTargetUID:         syncTargetUID,
+				syncTargetKey:         syncTargetKey,
+				dnsNamespace:          "kcp-hcbsa8z6c2er",
 			}
 
 			var key string

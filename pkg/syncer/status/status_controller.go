@@ -53,13 +53,13 @@ type Controller struct {
 
 	syncerInformers           resourcesync.SyncerInformerFactory
 	syncTargetName            string
-	syncTargetWorkspace       logicalcluster.Path
+	syncTargetWorkspace       logicalcluster.Name
 	syncTargetUID             types.UID
 	syncTargetKey             string
 	advancedSchedulingEnabled bool
 }
 
-func NewStatusSyncer(syncerLogger logr.Logger, syncTargetWorkspace logicalcluster.Path, syncTargetName, syncTargetKey string, advancedSchedulingEnabled bool,
+func NewStatusSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluster.Name, syncTargetName, syncTargetKey string, advancedSchedulingEnabled bool,
 	upstreamClient kcpdynamic.ClusterInterface, downstreamClient dynamic.Interface, downstreamInformers dynamicinformer.DynamicSharedInformerFactory, syncerInformers resourcesync.SyncerInformerFactory, syncTargetUID types.UID) (*Controller, error) {
 
 	c := &Controller{
@@ -71,7 +71,7 @@ func NewStatusSyncer(syncerLogger logr.Logger, syncTargetWorkspace logicalcluste
 
 		syncerInformers:           syncerInformers,
 		syncTargetName:            syncTargetName,
-		syncTargetWorkspace:       syncTargetWorkspace,
+		syncTargetWorkspace:       syncTargetClusterName,
 		syncTargetUID:             syncTargetUID,
 		syncTargetKey:             syncTargetKey,
 		advancedSchedulingEnabled: advancedSchedulingEnabled,

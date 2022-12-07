@@ -44,7 +44,7 @@ import (
 //     - the localObject's metadata doesn't match the cacheObject
 //     - the localObject's spec doesn't match the cacheObject
 //     - the localObject's status doesn't match the cacheObject
-func (c *controller) reconcileUnstructuredObjects(ctx context.Context, cluster logicalcluster.Path, gvr *schema.GroupVersionResource, cacheObject *unstructured.Unstructured, localObject *unstructured.Unstructured) error {
+func (c *controller) reconcileUnstructuredObjects(ctx context.Context, cluster logicalcluster.Name, gvr *schema.GroupVersionResource, cacheObject *unstructured.Unstructured, localObject *unstructured.Unstructured) error {
 	if localObject == nil {
 		return c.handleObjectDeletion(ctx, cluster, gvr, cacheObject)
 	}
@@ -62,7 +62,7 @@ func (c *controller) reconcileUnstructuredObjects(ctx context.Context, cluster l
 		}
 		annotations[genericrequest.AnnotationKey] = c.shardName
 		localObject.SetAnnotations(annotations)
-		_, err := c.dynamicCacheClient.Cluster(cluster).Resource(*gvr).Namespace(localObject.GetNamespace()).Create(ctx, localObject, metav1.CreateOptions{})
+		_, err := c.dynamicCacheClient.Cluster(cluster.Path()).Resource(*gvr).Namespace(localObject.GetNamespace()).Create(ctx, localObject, metav1.CreateOptions{})
 		return err
 	}
 
@@ -79,18 +79,18 @@ func (c *controller) reconcileUnstructuredObjects(ctx context.Context, cluster l
 	}
 
 	if metaChanged || remainingChanged {
-		_, err := c.dynamicCacheClient.Cluster(cluster).Resource(*gvr).Namespace(cacheObject.GetNamespace()).Update(ctx, cacheObject, metav1.UpdateOptions{})
+		_, err := c.dynamicCacheClient.Cluster(cluster.Path()).Resource(*gvr).Namespace(cacheObject.GetNamespace()).Update(ctx, cacheObject, metav1.UpdateOptions{})
 		return err
 	}
 	return nil
 }
 
-func (c *controller) handleObjectDeletion(ctx context.Context, cluster logicalcluster.Path, gvr *schema.GroupVersionResource, cacheObject *unstructured.Unstructured) error {
+func (c *controller) handleObjectDeletion(ctx context.Context, cluster logicalcluster.Name, gvr *schema.GroupVersionResource, cacheObject *unstructured.Unstructured) error {
 	if cacheObject == nil {
 		return nil // the cached object already removed
 	}
 	if cacheObject.GetDeletionTimestamp() == nil {
-		return c.dynamicCacheClient.Cluster(cluster).Resource(*gvr).Namespace(cacheObject.GetNamespace()).Delete(ctx, cacheObject.GetName(), metav1.DeleteOptions{})
+		return c.dynamicCacheClient.Cluster(cluster.Path()).Resource(*gvr).Namespace(cacheObject.GetNamespace()).Delete(ctx, cacheObject.GetName(), metav1.DeleteOptions{})
 	}
 	return nil
 }

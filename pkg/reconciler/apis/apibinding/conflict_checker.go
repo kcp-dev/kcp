@@ -87,7 +87,7 @@ func (ncc *conflictChecker) getBoundCRDs(apiBindingToExclude *apisv1alpha1.APIBi
 				continue
 			}
 
-			crd, err := ncc.getCRD(ShadowWorkspaceName, string(schema.UID))
+			crd, err := ncc.getCRD(SystemBoundCRDSClusterName, string(schema.UID))
 			if err != nil {
 				return err
 			}

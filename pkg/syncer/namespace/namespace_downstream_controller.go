@@ -61,23 +61,23 @@ type DownstreamController struct {
 	namespaceCleanDelay time.Duration
 
 	deleteDownstreamNamespace func(ctx context.Context, namespace string) error
-	upstreamNamespaceExists   func(clusterName logicalcluster.Path, upstreamNamespaceName string) (bool, error)
+	upstreamNamespaceExists   func(clusterName logicalcluster.Name, upstreamNamespaceName string) (bool, error)
 	getDownstreamNamespace    func(name string) (runtime.Object, error)
 	listDownstreamNamespaces  func() ([]runtime.Object, error)
 	isDowntreamNamespaceEmpty func(ctx context.Context, namespace string) (bool, error)
 	createConfigMap           func(ctx context.Context, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
 	updateConfigMap           func(ctx context.Context, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error)
 
-	syncTargetName      string
-	syncTargetWorkspace logicalcluster.Path
-	syncTargetUID       types.UID
-	syncTargetKey       string
-	dnsNamespace        string
+	syncTargetName        string
+	syncTargetClusterName logicalcluster.Name
+	syncTargetUID         types.UID
+	syncTargetKey         string
+	dnsNamespace          string
 }
 
 func NewDownstreamController(
 	syncerLogger logr.Logger,
-	syncTargetWorkspace logicalcluster.Path,
+	syncTargetWorkspace logicalcluster.Name,
 	syncTargetName, syncTargetKey string,
 	syncTargetUID types.UID,
 	syncerInformers resourcesync.SyncerInformerFactory,
@@ -99,7 +99,7 @@ func NewDownstreamController(
 		deleteDownstreamNamespace: func(ctx context.Context, namespace string) error {
 			return downstreamClient.Resource(namespaceGVR).Delete(ctx, namespace, metav1.DeleteOptions{})
 		},
-		upstreamNamespaceExists: func(clusterName logicalcluster.Path, upstreamNamespaceName string) (bool, error) {
+		upstreamNamespaceExists: func(clusterName logicalcluster.Name, upstreamNamespaceName string) (bool, error) {
 			_, err := upstreamInformers.ForResource(namespaceGVR).Lister().ByCluster(clusterName).Get(upstreamNamespaceName)
 			if apierrors.IsNotFound(err) {
 				return false, nil
@@ -139,11 +139,11 @@ func NewDownstreamController(
 			return kubeClient.CoreV1().ConfigMaps(configMap.Namespace).Update(ctx, configMap, metav1.UpdateOptions{})
 		},
 
-		syncTargetName:      syncTargetName,
-		syncTargetWorkspace: syncTargetWorkspace,
-		syncTargetUID:       syncTargetUID,
-		syncTargetKey:       syncTargetKey,
-		dnsNamespace:        dnsNamespace,
+		syncTargetName:        syncTargetName,
+		syncTargetClusterName: syncTargetWorkspace,
+		syncTargetUID:         syncTargetUID,
+		syncTargetKey:         syncTargetKey,
+		dnsNamespace:          dnsNamespace,
 
 		namespaceCleanDelay: namespaceCleanDelay,
 	}

@@ -74,13 +74,13 @@ type Controller struct {
 	downstreamNSInformer      informers.GenericInformer
 	downstreamNSCleaner       shared.Cleaner
 	syncTargetName            string
-	syncTargetWorkspace       logicalcluster.Path
+	syncTargetClusterName     logicalcluster.Name
 	syncTargetUID             types.UID
 	syncTargetKey             string
 	advancedSchedulingEnabled bool
 }
 
-func NewSpecSyncer(syncerLogger logr.Logger, syncTargetWorkspace logicalcluster.Path, syncTargetName, syncTargetKey string,
+func NewSpecSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluster.Name, syncTargetName, syncTargetKey string,
 	upstreamURL *url.URL, advancedSchedulingEnabled bool,
 	upstreamClient kcpdynamic.ClusterInterface, downstreamClient dynamic.Interface, downstreamKubeClient kubernetes.Interface,
 	upstreamInformers kcpdynamicinformer.DynamicSharedInformerFactory, downstreamInformers dynamicinformer.DynamicSharedInformerFactory, downstreamNSCleaner shared.Cleaner,
@@ -104,7 +104,7 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetWorkspace logicalcluster.
 
 		syncerInformers:           syncerInformers,
 		syncTargetName:            syncTargetName,
-		syncTargetWorkspace:       syncTargetWorkspace,
+		syncTargetClusterName:     syncTargetClusterName,
 		syncTargetUID:             syncTargetUID,
 		syncTargetKey:             syncTargetKey,
 		advancedSchedulingEnabled: advancedSchedulingEnabled,
@@ -206,7 +206,7 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetWorkspace logicalcluster.
 					logger.V(4).Info("found", "NamespaceLocator", nsLocator)
 					m := &metav1.ObjectMeta{
 						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: nsLocator.Workspace.String(),
+							logicalcluster.AnnotationKey: nsLocator.ClusterName.String(),
 						},
 						Namespace: nsLocator.Namespace,
 						Name:      shared.GetUpstreamResourceName(gvr, name),
@@ -220,9 +220,9 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetWorkspace logicalcluster.
 
 	// make sure the secrets informer gets started
 	_ = upstreamInformers.ForResource(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}).Informer()
-	deploymentMutator := specmutators.NewDeploymentMutator(upstreamURL, func(clusterName logicalcluster.Path, namespace string) ([]runtime.Object, error) {
+	deploymentMutator := specmutators.NewDeploymentMutator(upstreamURL, func(clusterName logicalcluster.Name, namespace string) ([]runtime.Object, error) {
 		return upstreamInformers.ForResource(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}).Lister().ByCluster(clusterName).ByNamespace(namespace).List(labels.Everything())
-	}, serviceLister, syncTargetWorkspace, syncTargetUID, syncTargetName, dnsNamespace)
+	}, serviceLister, syncTargetClusterName, syncTargetUID, syncTargetName, dnsNamespace)
 
 	c.mutators = mutatorGvrMap{
 		deploymentMutator.GVR(): deploymentMutator.Mutate,

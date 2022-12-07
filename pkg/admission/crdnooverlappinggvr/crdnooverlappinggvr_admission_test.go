@@ -40,7 +40,7 @@ func TestValidate(t *testing.T) {
 	scenarios := []struct {
 		name           string
 		attr           admission.Attributes
-		clusterName    string
+		clusterName    logicalcluster.Name
 		initialObjects []runtime.Object
 		wantErr        bool
 	}{
@@ -94,7 +94,7 @@ func TestValidate(t *testing.T) {
 			}
 
 			a := &crdNoOverlappingGVRAdmission{Handler: admission.NewHandler(admission.Create, admission.Update), apiBindingClusterLister: apisv1alpha1listers.NewAPIBindingClusterLister(indexer)}
-			ctx := request.WithCluster(context.Background(), request.Cluster{Name: logicalcluster.New(scenario.clusterName)})
+			ctx := request.WithCluster(context.Background(), request.Cluster{Name: scenario.clusterName})
 			if err := a.Validate(ctx, scenario.attr, nil); (err != nil) != scenario.wantErr {
 				t.Fatalf("Validate() error = %v, wantErr %v", err, scenario.wantErr)
 			}

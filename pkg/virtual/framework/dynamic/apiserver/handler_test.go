@@ -65,8 +65,8 @@ var _ apidefinition.APIDefinition = (*mockedAPIDefinition)(nil)
 func (apiDef *mockedAPIDefinition) GetAPIResourceSchema() *apisv1alpha1.APIResourceSchema {
 	return apiDef.apiResourceSchema
 }
-func (apiDef *mockedAPIDefinition) GetClusterName() logicalcluster.Path {
-	return logicalcluster.New("logicalClusterName")
+func (apiDef *mockedAPIDefinition) GetClusterName() logicalcluster.Name {
+	return "logicalClusterName"
 }
 func (apiDef *mockedAPIDefinition) GetStorage() rest.Storage {
 	return apiDef.store

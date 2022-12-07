@@ -98,13 +98,13 @@ func (s *REST) NamespaceScoped() bool {
 
 // List retrieves a list of Workspaces that match label.
 func (s *REST) List(ctx context.Context, options *metainternal.ListOptions) (runtime.Object, error) {
-	clusterName := ctx.Value(ClusterKey).(logicalcluster.Path)
+	clusterName := ctx.Value(ClusterKey).(logicalcluster.Name)
 
 	v1Opts := metav1.ListOptions{}
 	if err := metainternal.Convert_internalversion_ListOptions_To_v1_ListOptions(options, &v1Opts, nil); err != nil {
 		return nil, err
 	}
-	ws, err := s.kcpClusterClient.Cluster(clusterName).TenancyV1beta1().Workspaces().List(ctx, v1Opts)
+	ws, err := s.kcpClusterClient.Cluster(clusterName.Path()).TenancyV1beta1().Workspaces().List(ctx, v1Opts)
 	if err != nil {
 		return nil, err
 	}
@@ -122,13 +122,13 @@ func (s *REST) List(ctx context.Context, options *metainternal.ListOptions) (run
 }
 
 func (s *REST) Watch(ctx context.Context, options *metainternal.ListOptions) (watch.Interface, error) {
-	clusterName := ctx.Value(ClusterKey).(logicalcluster.Path)
+	clusterName := ctx.Value(ClusterKey).(logicalcluster.Name)
 
 	v1Opts := metav1.ListOptions{}
 	if err := metainternal.Convert_internalversion_ListOptions_To_v1_ListOptions(options, &v1Opts, nil); err != nil {
 		return nil, err
 	}
-	w, err := s.kcpClusterClient.Cluster(clusterName).TenancyV1beta1().Workspaces().Watch(ctx, v1Opts)
+	w, err := s.kcpClusterClient.Cluster(clusterName.Path()).TenancyV1beta1().Workspaces().Watch(ctx, v1Opts)
 	if err != nil {
 		return nil, err
 	}
@@ -141,8 +141,8 @@ func (s *REST) Get(ctx context.Context, name string, options *metav1.GetOptions)
 	if options != nil {
 		opts = *options
 	}
-	clusterName := ctx.Value(ClusterKey).(logicalcluster.Path)
-	ws, err := s.kcpClusterClient.Cluster(clusterName).TenancyV1beta1().Workspaces().Get(ctx, name, opts)
+	clusterName := ctx.Value(ClusterKey).(logicalcluster.Name)
+	ws, err := s.kcpClusterClient.Cluster(clusterName.Path()).TenancyV1beta1().Workspaces().Get(ctx, name, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +164,7 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 		return nil, kerrors.NewForbidden(tenancyv1alpha1.Resource("clusterworkspaces"), "", fmt.Errorf("unable to create a clustersworkspace without a user on the context"))
 	}
 
-	clusterName := ctx.Value(ClusterKey).(logicalcluster.Path)
+	clusterName := ctx.Value(ClusterKey).(logicalcluster.Name)
 	ws := &tenancyv1beta1.Workspace{
 		ObjectMeta: cws.ObjectMeta,
 		Spec: tenancyv1beta1.WorkspaceSpec{
@@ -200,7 +200,7 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 		}
 	}
 
-	createdWS, err := s.kcpClusterClient.Cluster(clusterName).TenancyV1beta1().Workspaces().Create(ctx, ws, metav1.CreateOptions{})
+	createdWS, err := s.kcpClusterClient.Cluster(clusterName.Path()).TenancyV1beta1().Workspaces().Create(ctx, ws, metav1.CreateOptions{})
 	if kerrors.IsAlreadyExists(err) {
 		return nil, kerrors.NewAlreadyExists(tenancyv1alpha1.Resource("clusterworkspaces"), cws.Name)
 	}
@@ -214,11 +214,11 @@ func (s *REST) Create(ctx context.Context, obj runtime.Object, createValidation 
 }
 
 func (s *REST) Delete(ctx context.Context, name string, deleteValidation rest.ValidateObjectFunc, options *metav1.DeleteOptions) (runtime.Object, bool, error) {
-	clusterName := ctx.Value(ClusterKey).(logicalcluster.Path)
+	clusterName := ctx.Value(ClusterKey).(logicalcluster.Name)
 	logger := klog.FromContext(ctx).WithValues("cluster", clusterName, "name", name)
 	ctx = klog.NewContext(ctx, logger)
 
-	err := s.kcpClusterClient.Cluster(clusterName).TenancyV1beta1().Workspaces().Delete(ctx, name, *options)
+	err := s.kcpClusterClient.Cluster(clusterName.Path()).TenancyV1beta1().Workspaces().Delete(ctx, name, *options)
 	if kerrors.IsNotFound(err) {
 		err = kerrors.NewNotFound(tenancyv1beta1.Resource("clusterworkspaces"), name)
 	}

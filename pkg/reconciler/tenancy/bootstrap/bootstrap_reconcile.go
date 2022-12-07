@@ -46,7 +46,7 @@ func (c *controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.T
 	bootstrapCtx, cancel := context.WithDeadline(ctx, time.Now().Add(time.Second*30)) // to not block the controller
 	defer cancel()
 
-	if err := c.bootstrap(bootstrapCtx, c.kcpClusterClient.Cluster(clusterName).Discovery(), c.dynamicClusterClient.Cluster(clusterName), c.kcpClusterClient.Cluster(clusterName), c.batteriesIncluded); err != nil {
+	if err := c.bootstrap(bootstrapCtx, c.kcpClusterClient.Cluster(clusterName.Path()).Discovery(), c.dynamicClusterClient.Cluster(clusterName.Path()), c.kcpClusterClient.Cluster(clusterName.Path()), c.batteriesIncluded); err != nil {
 		return err // requeue
 	}
 

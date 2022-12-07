@@ -33,6 +33,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 )
 
 type reconcileStatus int
@@ -84,6 +85,20 @@ func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1beta1.Workspace
 		return shardClient, nil
 	}
 
+	getType := func(path logicalcluster.Path, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
+		objs, err := c.clusterWorkspaceTypeIndexer.ByIndex(indexers.ByLogicalClusterPath, path.Join(name).String())
+		if err != nil {
+			return nil, err
+		}
+		if len(objs) == 0 {
+			return nil, fmt.Errorf("no ClusterWorkspaceType found for %s", path.Join(name).String())
+		}
+		if len(objs) > 1 {
+			return nil, fmt.Errorf("multiple ClusterWorkspaceTypes found for %s", path.Join(name).String())
+		}
+		return objs[0].(*tenancyv1alpha1.ClusterWorkspaceType), nil
+	}
+
 	reconcilers := []reconciler{
 		&metaDataReconciler{},
 		&deletionReconciler{
@@ -96,16 +111,12 @@ func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1beta1.Workspace
 		},
 		&schedulingReconciler{
 			getShard: func(name string) (*tenancyv1alpha1.ClusterWorkspaceShard, error) {
-				return c.clusterWorkspaceShardLister.Cluster(tenancyv1alpha1.RootCluster.Path()).Get(name)
+				return c.clusterWorkspaceShardLister.Cluster(tenancyv1alpha1.RootCluster).Get(name)
 			},
-			getShardByHash: getShardByName,
-			listShards:     c.clusterWorkspaceShardLister.List,
-			getClusterWorkspaceType: func(clusterName logicalcluster.Path, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
-				return c.clusterWorkspaceTypeLister.Cluster(clusterName).Get(name)
-			},
-			transitiveTypeResolver: clusterworkspacetypeexists.NewTransitiveTypeResolver(func(clusterName logicalcluster.Path, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
-				return c.clusterWorkspaceTypeLister.Cluster(clusterName).Get(name)
-			}),
+			getShardByHash:                   getShardByName,
+			listShards:                       c.clusterWorkspaceShardLister.List,
+			getClusterWorkspaceType:          getType,
+			transitiveTypeResolver:           clusterworkspacetypeexists.NewTransitiveTypeResolver(getType),
 			kcpLogicalClusterAdminClientFor:  kcpDirectClientFor,
 			kubeLogicalClusterAdminClientFor: kubeDirectClientFor,
 		},

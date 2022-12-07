@@ -35,16 +35,16 @@ import (
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
-type ListSecretFunc func(clusterName logicalcluster.Path, namespace string) ([]runtime.Object, error)
+type ListSecretFunc func(clusterName logicalcluster.Name, namespace string) ([]runtime.Object, error)
 
 type DeploymentMutator struct {
-	upstreamURL                  *url.URL
-	listSecrets                  ListSecretFunc
-	serviceLister                listerscorev1.ServiceLister
-	syncTargetLogicalClusterName logicalcluster.Path
-	syncTargetUID                types.UID
-	syncTargetName               string
-	dnsNamespace                 string
+	upstreamURL           *url.URL
+	listSecrets           ListSecretFunc
+	serviceLister         listerscorev1.ServiceLister
+	syncTargetClusterName logicalcluster.Name
+	syncTargetUID         types.UID
+	syncTargetName        string
+	dnsNamespace          string
 }
 
 func (dm *DeploymentMutator) GVR() schema.GroupVersionResource {
@@ -56,17 +56,17 @@ func (dm *DeploymentMutator) GVR() schema.GroupVersionResource {
 }
 
 func NewDeploymentMutator(upstreamURL *url.URL, secretLister ListSecretFunc, serviceLister listerscorev1.ServiceLister,
-	syncTargetLogicalClusterName logicalcluster.Path,
+	syncTargetClusterName logicalcluster.Name,
 	syncTargetUID types.UID, syncTargetName, dnsNamespace string) *DeploymentMutator {
 
 	return &DeploymentMutator{
-		upstreamURL:                  upstreamURL,
-		listSecrets:                  secretLister,
-		serviceLister:                serviceLister,
-		syncTargetLogicalClusterName: syncTargetLogicalClusterName,
-		syncTargetUID:                syncTargetUID,
-		syncTargetName:               syncTargetName,
-		dnsNamespace:                 dnsNamespace,
+		upstreamURL:           upstreamURL,
+		listSecrets:           secretLister,
+		serviceLister:         serviceLister,
+		syncTargetClusterName: syncTargetClusterName,
+		syncTargetUID:         syncTargetUID,
+		syncTargetName:        syncTargetName,
+		dnsNamespace:          dnsNamespace,
 	}
 }
 
@@ -263,7 +263,7 @@ func (dm *DeploymentMutator) Mutate(obj *unstructured.Unstructured) error {
 	return nil
 }
 
-func (dm *DeploymentMutator) getDNSIPForWorkspace(workspace logicalcluster.Path) (string, error) {
+func (dm *DeploymentMutator) getDNSIPForWorkspace(workspace logicalcluster.Name) (string, error) {
 	// Retrieve the DNS IP associated to the workspace
 	dnsServiceName := shared.GetDNSID(workspace, dm.syncTargetUID, dm.syncTargetName)
 

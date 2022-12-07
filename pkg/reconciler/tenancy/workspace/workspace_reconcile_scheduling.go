@@ -98,7 +98,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 			workspace.Annotations[workspaceShardAnnotationKey] = shardNameHash
 		}
 		if !hasCluster {
-			cluster := tenancy.TemporaryClusterFrom(logicalcluster.From(workspace).Join(workspace.Name)) // TODO: replace with randomClusterName()
+			cluster := tenancy.TemporaryClusterFrom(logicalcluster.From(workspace).Path().Join(workspace.Name)) // TODO: replace with randomClusterName()
 			if workspace.Annotations == nil {
 				workspace.Annotations = map[string]string{}
 			}

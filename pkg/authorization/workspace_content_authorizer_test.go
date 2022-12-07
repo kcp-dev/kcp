@@ -334,7 +334,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			w := NewWorkspaceContentAuthorizer(kubeShareInformerFactory, lister, recordingAuthorizer)
 
 			requestedCluster := request.Cluster{
-				Name: logicalcluster.New(tt.requestedWorkspace),
+				Name: logicalcluster.Name(tt.requestedWorkspace),
 			}
 			ctx = request.WithCluster(ctx, requestedCluster)
 			attr := authorizer.AttributesRecord{

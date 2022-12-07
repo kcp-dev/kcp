@@ -66,14 +66,14 @@ func TestAdmit(t *testing.T) {
 		name           string
 		types          []*tenancyv1alpha1.ClusterWorkspaceType
 		thisWorkspaces []*tenancyv1alpha1.ThisWorkspace
-		clusterName    logicalcluster.Path
+		clusterName    logicalcluster.Name
 		a              admission.Attributes
 		expectedObj    runtime.Object
 		wantErr        bool
 	}{
 		{
 			name:        "ignores different resources",
-			clusterName: logicalcluster.New("root:org:ws"),
+			clusterName: logicalcluster.Name("root:org:ws"),
 			a: admission.NewAttributesRecord(
 				&unstructured.Unstructured{Object: map[string]interface{}{
 					"apiVersion": tenancyv1alpha1.SchemeGroupVersion.String(),
@@ -116,7 +116,7 @@ func TestAdmit(t *testing.T) {
 					"existing-label": "default",
 				}).ClusterWorkspaceType,
 			},
-			clusterName: logicalcluster.New("root:org:ws"),
+			clusterName: logicalcluster.Name("root:org:ws"),
 			a: createAttr(
 				newWorkspace("root:org:ws:test").withType("root:org:foo").withLabels(map[string]string{
 					"existing-label": "non-default",
@@ -136,7 +136,7 @@ func TestAdmit(t *testing.T) {
 				newType("root:org:parent").withDefault("root:org:foo").ClusterWorkspaceType,
 				newType("root:org:foo").ClusterWorkspaceType,
 			},
-			clusterName: logicalcluster.New("root:org:ws"),
+			clusterName: logicalcluster.Name("root:org:ws"),
 			a:           createAttr(newWorkspace("root:org:ws:test").Workspace),
 			expectedObj: newWorkspace("root:org:ws:test").withType("root:org:foo").Workspace,
 		},
@@ -146,16 +146,14 @@ func TestAdmit(t *testing.T) {
 			typeLister := fakeClusterWorkspaceTypeClusterLister(tt.types)
 
 			o := &clusterWorkspaceTypeExists{
-				Handler:             admission.NewHandler(admission.Create, admission.Update),
-				getType:             getType(tt.types),
-				typeLister:          typeLister,
-				thisWorkspaceLister: fakeThisWorkspaceClusterLister(tt.thisWorkspaces),
-				transitiveTypeResolver: NewTransitiveTypeResolver(func(cluster logicalcluster.Path, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
-					return typeLister.Cluster(cluster).Get(name)
-				}),
+				Handler:                admission.NewHandler(admission.Create, admission.Update),
+				getType:                getType(tt.types),
+				typeLister:             typeLister,
+				thisWorkspaceLister:    fakeThisWorkspaceClusterLister(tt.thisWorkspaces),
+				transitiveTypeResolver: NewTransitiveTypeResolver(typeLister.GetByPath),
 			}
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: tt.clusterName})
-			ctx = tenancy.WithCanonicalPath(ctx, tt.clusterName)
+			ctx = tenancy.WithCanonicalPath(ctx, tt.clusterName.Path())
 			if err := o.Admit(ctx, tt.a, nil); (err != nil) != tt.wantErr {
 				t.Fatalf("Admit() error = %v, wantErr %v", err, tt.wantErr)
 			} else if err == nil {
@@ -176,7 +174,7 @@ func TestValidate(t *testing.T) {
 		types          []*tenancyv1alpha1.ClusterWorkspaceType
 		thisWorkspaces []*tenancyv1alpha1.ThisWorkspace
 		attr           admission.Attributes
-		path           logicalcluster.Path
+		clusterName    logicalcluster.Name
 
 		authzDecision authorizer.Decision
 		authzError    error
@@ -184,8 +182,8 @@ func TestValidate(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "passes create if type exists",
-			path: logicalcluster.New("root:org:ws"),
+			name:        "passes create if type exists",
+			clusterName: logicalcluster.Name("root:org:ws"),
 			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
 				newThisWorkspace("root:org:ws").withType("root:org", "parent").ThisWorkspace,
 			},
@@ -198,8 +196,8 @@ func TestValidate(t *testing.T) {
 			authzDecision: authorizer.DecisionAllow,
 		},
 		{
-			name: "fails create if type reference misses path",
-			path: logicalcluster.New("root:org:ws"),
+			name:        "fails create if type reference misses path",
+			clusterName: logicalcluster.Name("root:org:ws"),
 			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
 				newThisWorkspace("root:org:ws").withType("root:org", "foo").ThisWorkspace,
 			},
@@ -211,8 +209,8 @@ func TestValidate(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "fails create if type reference misses cluster",
-			path: logicalcluster.New("root:org:ws"),
+			name:        "fails create if type reference misses cluster",
+			clusterName: logicalcluster.Name("root:org:ws"),
 			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
 				newThisWorkspace("root:org:ws").withType("root:org", "foo").ThisWorkspace,
 			},
@@ -224,8 +222,8 @@ func TestValidate(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "passes create if parent type allows all children",
-			path: logicalcluster.New("root:org:ws"),
+			name:        "passes create if parent type allows all children",
+			clusterName: logicalcluster.Name("root:org:ws"),
 			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
 				newThisWorkspace("root:org:ws").withType("root:org", "parent").ThisWorkspace,
 			},
@@ -237,8 +235,8 @@ func TestValidate(t *testing.T) {
 			authzDecision: authorizer.DecisionAllow,
 		},
 		{
-			name: "passes create if child type allows all parents",
-			path: logicalcluster.New("root:org:ws"),
+			name:        "passes create if child type allows all parents",
+			clusterName: logicalcluster.Name("root:org:ws"),
 			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
 				newThisWorkspace("root:org:ws").withType("root:org", "parent").ThisWorkspace,
 			},
@@ -250,8 +248,8 @@ func TestValidate(t *testing.T) {
 			authzDecision: authorizer.DecisionAllow,
 		},
 		{
-			name: "passes create if parent type allows an alias of the child type",
-			path: logicalcluster.New("root:org:ws"),
+			name:        "passes create if parent type allows an alias of the child type",
+			clusterName: logicalcluster.Name("root:org:ws"),
 			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
 				newThisWorkspace("root:org:ws").withType("root:org", "parent").ThisWorkspace,
 			},
@@ -264,8 +262,8 @@ func TestValidate(t *testing.T) {
 			authzDecision: authorizer.DecisionAllow,
 		},
 		{
-			name: "passes create if child type allows an alias of the parent type",
-			path: logicalcluster.New("root:org:ws"),
+			name:        "passes create if child type allows an alias of the parent type",
+			clusterName: logicalcluster.Name("root:org:ws"),
 			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
 				newThisWorkspace("root:org:ws").withType("root:org", "parent").ThisWorkspace,
 			},
@@ -278,23 +276,23 @@ func TestValidate(t *testing.T) {
 			authzDecision: authorizer.DecisionAllow,
 		},
 		{
-			name:    "fails if type does not exist",
-			path:    logicalcluster.New("root:org:ws"),
-			attr:    createAttr(newWorkspace("root:org:ws:test").withType("root:org:foo").Workspace),
-			wantErr: true,
+			name:        "fails if type does not exist",
+			clusterName: logicalcluster.Name("root:org:ws"),
+			attr:        createAttr(newWorkspace("root:org:ws:test").withType("root:org:foo").Workspace),
+			wantErr:     true,
 		},
 		{
 			name: "fails if type is root:root",
 			types: []*tenancyv1alpha1.ClusterWorkspaceType{
 				tenancyv1alpha1.RootWorkspaceType,
 			},
-			path:    logicalcluster.New("root:org:ws"),
-			attr:    createAttr(newWorkspace("root:test").withType("root:root").Workspace),
-			wantErr: true,
+			clusterName: logicalcluster.Name("root:org:ws"),
+			attr:        createAttr(newWorkspace("root:test").withType("root:root").Workspace),
+			wantErr:     true,
 		},
 		{
-			name: "fails if type only exists in unrelated workspace",
-			path: logicalcluster.New("root:org:ws"),
+			name:        "fails if type only exists in unrelated workspace",
+			clusterName: logicalcluster.Name("root:org:ws"),
 			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
 				newThisWorkspace("root:org:ws").withType("root:org", "parent").ThisWorkspace,
 			},
@@ -306,8 +304,8 @@ func TestValidate(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "fails if parent type doesn't allow child workspaces",
-			path: logicalcluster.New("root:org:ws"),
+			name:        "fails if parent type doesn't allow child workspaces",
+			clusterName: logicalcluster.Name("root:org:ws"),
 			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
 				newThisWorkspace("root:org:ws").withType("root:org", "parent").ThisWorkspace,
 			},
@@ -319,8 +317,8 @@ func TestValidate(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "fails if child type doesn't allow parent workspaces",
-			path: logicalcluster.New("root:org:ws"),
+			name:        "fails if child type doesn't allow parent workspaces",
+			clusterName: logicalcluster.Name("root:org:ws"),
 			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
 				newThisWorkspace("root:org:ws").withType("root:org", "parent").ThisWorkspace,
 			},
@@ -333,14 +331,14 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name:          "fails if not allowed",
-			path:          logicalcluster.New("root:org:ws"),
+			clusterName:   logicalcluster.Name("root:org:ws"),
 			attr:          createAttr(newWorkspace("root:org:ws:test").withType("root:org:foo").Workspace),
 			authzDecision: authorizer.DecisionNoOpinion,
 			wantErr:       true,
 		},
 		{
-			name: "fails if denied",
-			path: logicalcluster.New("root:org:ws"),
+			name:        "fails if denied",
+			clusterName: logicalcluster.Name("root:org:ws"),
 			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
 				newThisWorkspace("root:org:ws").withType("root:org", "parent").ThisWorkspace,
 			},
@@ -353,8 +351,8 @@ func TestValidate(t *testing.T) {
 			wantErr:       true,
 		},
 		{
-			name: "fails if authz error",
-			path: logicalcluster.New("root:org:ws"),
+			name:        "fails if authz error",
+			clusterName: logicalcluster.Name("root:org:ws"),
 			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
 				newThisWorkspace("root:org:ws").withType("root:org", "parent").ThisWorkspace,
 			},
@@ -367,9 +365,9 @@ func TestValidate(t *testing.T) {
 			wantErr:    true,
 		},
 		{
-			name:  "ignores different resources",
-			path:  logicalcluster.New("root:org:ws"),
-			types: nil,
+			name:        "ignores different resources",
+			clusterName: logicalcluster.Name("root:org:ws"),
+			types:       nil,
 			attr: admission.NewAttributesRecord(
 				&tenancyv1alpha1.ClusterWorkspaceShard{
 					ObjectMeta: metav1.ObjectMeta{
@@ -397,18 +395,16 @@ func TestValidate(t *testing.T) {
 				getType:             getType(tt.types),
 				typeLister:          typeLister,
 				thisWorkspaceLister: fakeThisWorkspaceClusterLister(tt.thisWorkspaces),
-				createAuthorizer: func(clusterName logicalcluster.Path, client kcpkubernetesclientset.ClusterInterface) (authorizer.Authorizer, error) {
+				createAuthorizer: func(clusterName logicalcluster.Name, client kcpkubernetesclientset.ClusterInterface) (authorizer.Authorizer, error) {
 					return &fakeAuthorizer{
 						tt.authzDecision,
 						tt.authzError,
 					}, nil
 				},
-				transitiveTypeResolver: NewTransitiveTypeResolver(func(cluster logicalcluster.Path, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
-					return typeLister.Cluster(cluster).Get(name)
-				}),
+				transitiveTypeResolver: NewTransitiveTypeResolver(typeLister.GetByPath),
 			}
-			ctx := request.WithCluster(context.Background(), request.Cluster{Name: tt.path})
-			ctx = tenancy.WithCanonicalPath(ctx, tt.path)
+			ctx := request.WithCluster(context.Background(), request.Cluster{Name: tt.clusterName})
+			ctx = tenancy.WithCanonicalPath(ctx, tt.clusterName.Path())
 			if err := o.Validate(ctx, tt.attr, nil); (err != nil) != tt.wantErr {
 				t.Fatalf("Validate() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -418,11 +414,20 @@ func TestValidate(t *testing.T) {
 
 type fakeClusterWorkspaceTypeClusterLister []*tenancyv1alpha1.ClusterWorkspaceType
 
+func (f fakeClusterWorkspaceTypeClusterLister) GetByPath(path logicalcluster.Path, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
+	for _, t := range f {
+		if canonicalPathFrom(t) == path && t.Name == name {
+			return t, nil
+		}
+	}
+	return nil, apierrors.NewNotFound(tenancyv1alpha1.Resource("clusterworkspacetypes"), name)
+}
+
 func (l fakeClusterWorkspaceTypeClusterLister) List(selector labels.Selector) (ret []*tenancyv1alpha1.ClusterWorkspaceType, err error) {
 	return l, nil
 }
 
-func (l fakeClusterWorkspaceTypeClusterLister) Cluster(cluster logicalcluster.Path) tenancyv1alpha1listers.ClusterWorkspaceTypeLister {
+func (l fakeClusterWorkspaceTypeClusterLister) Cluster(cluster logicalcluster.Name) tenancyv1alpha1listers.ClusterWorkspaceTypeLister {
 	var perCluster []*tenancyv1alpha1.ClusterWorkspaceType
 	for _, this := range l {
 		if logicalcluster.From(this) == cluster {
@@ -453,7 +458,7 @@ func (l fakeThisWorkspaceClusterLister) List(selector labels.Selector) (ret []*t
 	return l, nil
 }
 
-func (l fakeThisWorkspaceClusterLister) Cluster(cluster logicalcluster.Path) tenancyv1alpha1listers.ThisWorkspaceLister {
+func (l fakeThisWorkspaceClusterLister) Cluster(cluster logicalcluster.Name) tenancyv1alpha1listers.ThisWorkspaceLister {
 	var perCluster []*tenancyv1alpha1.ThisWorkspace
 	for _, this := range l {
 		if logicalcluster.From(this) == cluster {
@@ -586,7 +591,7 @@ func TestTransitiveTypeResolverResolve(t *testing.T) {
 			if err == nil {
 				got := sets.NewString()
 				for _, t := range gotTypes {
-					got.Insert(logicalcluster.From(t).Join(t.Name).String())
+					got.Insert(canonicalPathFrom(t).Join(t.Name).String())
 				}
 				if !got.Equal(tt.want) {
 					t.Errorf("Missing: %s\nUnexpected: %s", tt.want.Difference(got).List(), got.Difference(tt.want).List())
@@ -735,7 +740,8 @@ func newType(qualifiedName string) builder {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 			Annotations: map[string]string{
-				logicalcluster.AnnotationKey: path.String(),
+				logicalcluster.AnnotationKey:            path.String(),
+				tenancy.LogicalClusterPathAnnotationKey: path.String(),
 			},
 		},
 	}}
@@ -872,7 +878,7 @@ func (b thisWsBuilder) withLabels(labels map[string]string) thisWsBuilder {
 func getType(types []*tenancyv1alpha1.ClusterWorkspaceType) func(path logicalcluster.Path, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
 	return func(path logicalcluster.Path, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
 		for _, t := range types {
-			if logicalcluster.From(t) == path && t.Name == name {
+			if canonicalPathFrom(t) == path && t.Name == name {
 				return t, nil
 			}
 		}

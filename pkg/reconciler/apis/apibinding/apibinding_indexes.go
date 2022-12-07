@@ -36,12 +36,12 @@ func indexAPIBindingsByWorkspaceExportFunc(obj interface{}) ([]string, error) {
 	}
 
 	if apiBinding.Spec.Reference.Export != nil {
-		apiExportClusterName := apiBinding.Spec.Reference.Export.Cluster.Path()
+		apiExportClusterName := apiBinding.Spec.Reference.Export.Cluster
 		if !ok {
 			// this will never happen due to validation
 			return []string{}, fmt.Errorf("invalid export reference")
 		}
-		key := client.ToClusterAwareKey(apiExportClusterName, apiBinding.Spec.Reference.Export.Name)
+		key := client.ToClusterAwareKey(apiExportClusterName.Path(), apiBinding.Spec.Reference.Export.Name)
 		return []string{key}, nil
 	}
 
@@ -59,7 +59,7 @@ func indexAPIExportsByAPIResourceSchemasFunc(obj interface{}) ([]string, error) 
 
 	ret := make([]string, len(apiExport.Spec.LatestResourceSchemas))
 	for i := range apiExport.Spec.LatestResourceSchemas {
-		ret[i] = client.ToClusterAwareKey(logicalcluster.From(apiExport), apiExport.Spec.LatestResourceSchemas[i])
+		ret[i] = client.ToClusterAwareKey(logicalcluster.From(apiExport).Path(), apiExport.Spec.LatestResourceSchemas[i])
 	}
 
 	return ret, nil

@@ -41,6 +41,7 @@ import (
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -66,7 +67,19 @@ func NewController(
 			return clusterWorkspaceShardLister.List(labels.Everything())
 		},
 		resolveClusterWorkspaceType: func(reference tenancyv1alpha1.ClusterWorkspaceTypeReference) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
-			return clusterWorkspaceTypeLister.Cluster(logicalcluster.New(reference.Path)).Get(tenancyv1alpha1.ObjectName(reference.Name))
+			path := logicalcluster.New(reference.Path)
+			name := string(reference.Name)
+			objs, err := clusterWorkspaceTypeInformer.Informer().GetIndexer().ByIndex(indexers.ByLogicalClusterPath, path.Join(name).String())
+			if err != nil {
+				return nil, err
+			}
+			if len(objs) == 0 {
+				return nil, fmt.Errorf("no ClusterWorkspaceType found for %s", path.Join(name).String())
+			}
+			if len(objs) > 1 {
+				return nil, fmt.Errorf("multiple ClusterWorkspaceTypes found for %s", path.Join(name).String())
+			}
+			return objs[0].(*tenancyv1alpha1.ClusterWorkspaceType), nil
 		},
 	}
 
@@ -272,6 +285,6 @@ func (c *controller) patchIfNeeded(ctx context.Context, old, obj *tenancyv1alpha
 		subresources = []string{"status"}
 	}
 
-	_, err = c.kcpClusterClient.Cluster(clusterName).TenancyV1alpha1().ClusterWorkspaceTypes().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, subresources...)
+	_, err = c.kcpClusterClient.Cluster(clusterName.Path()).TenancyV1alpha1().ClusterWorkspaceTypes().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, subresources...)
 	return err
 }

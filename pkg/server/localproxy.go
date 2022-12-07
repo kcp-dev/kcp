@@ -94,7 +94,7 @@ func WithLocalProxy(
 		}
 
 		canonicalPath, foundCanonicalPath := tenancy.CanonicalPathFromHeader(req.Header)
-		requestShardName, rewrittenClusterName, computedCanonicalPath, found := state.Lookup(clusterInfo.Name)
+		requestShardName, rewrittenClusterName, computedCanonicalPath, found := state.Lookup(clusterInfo.Name.Path())
 		if !found {
 			// No rewrite, depend on the handler chain to do the right thing, like 403 or 404.
 			handler.ServeHTTP(w, req)
@@ -106,8 +106,8 @@ func WithLocalProxy(
 			// because it can equally just put the same value in the API objects. The canonical
 			// path must only be used for defaulting, not for something security-critical.
 			canonicalPath = computedCanonicalPath
-		} else if clusterInfo.Name == tenancyv1alpha1.RootCluster.Path() {
-			canonicalPath = clusterInfo.Name
+		} else if clusterInfo.Name == tenancyv1alpha1.RootCluster {
+			canonicalPath = clusterInfo.Name.Path()
 		}
 		req = req.WithContext(tenancy.WithCanonicalPath(ctx, canonicalPath))
 

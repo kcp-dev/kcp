@@ -92,11 +92,11 @@ type Controller struct {
 	upstreamEventHandlers   []ResourceEventHandlerPerGVR
 	downstreamEventHandlers []ResourceEventHandlerPerGVR
 
-	syncTargetName      string
-	syncTargetWorkspace logicalcluster.Path
-	syncTargetUID       types.UID
-	syncTargetLister    workloadv1alpha1listers.SyncTargetLister
-	kcpClient           clientset.Interface
+	syncTargetName        string
+	syncTargetClusterName logicalcluster.Name
+	syncTargetUID         types.UID
+	syncTargetLister      workloadv1alpha1listers.SyncTargetLister
+	kcpClient             clientset.Interface
 
 	syncerInformerMap map[schema.GroupVersionResource]*SyncerInformer
 	mutex             sync.RWMutex
@@ -110,7 +110,7 @@ func NewController(
 	kcpClient clientset.Interface,
 	syncTargetInformer workloadv1alpha1informers.SyncTargetInformer,
 	syncTargetName string,
-	syncTargetWorkspace logicalcluster.Path,
+	syncTargetClusterName logicalcluster.Name,
 	syncTargetUID types.UID,
 ) (SyncerInformerFactory, error) {
 	c := &Controller{
@@ -123,7 +123,7 @@ func NewController(
 		downstreamEventHandlers:      []ResourceEventHandlerPerGVR{},
 		syncerInformerMap:            map[schema.GroupVersionResource]*SyncerInformer{},
 		syncTargetName:               syncTargetName,
-		syncTargetWorkspace:          syncTargetWorkspace,
+		syncTargetClusterName:        syncTargetClusterName,
 		syncTargetUID:                syncTargetUID,
 		syncTargetLister:             syncTargetInformer.Lister(),
 	}
@@ -392,7 +392,7 @@ func (c *Controller) startSyncerInformer(ctx context.Context, gvr schema.GroupVe
 		return
 	}
 
-	syncTargetKey := workloadv1alpha1.ToSyncTargetKey(c.syncTargetWorkspace, c.syncTargetName)
+	syncTargetKey := workloadv1alpha1.ToSyncTargetKey(c.syncTargetClusterName, c.syncTargetName)
 
 	upstreamInformer := kcpdynamicinformer.NewFilteredDynamicInformer(c.upstreamDynamicClusterClient, gvr, resyncPeriod, cache.Indexers{
 		kcpcache.ClusterIndexName:             kcpcache.ClusterIndexFunc,

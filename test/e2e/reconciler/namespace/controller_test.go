@@ -115,7 +115,7 @@ func TestNamespaceScheduler(t *testing.T) {
 					}
 					return binding.Status.Phase == apisv1alpha1.APIBindingPhaseBound
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
-				syncTargetKey := workloadv1alpha1.ToSyncTargetKey(syncerFixture.SyncerConfig.SyncTargetWorkspace, syncerFixture.SyncerConfig.SyncTargetName)
+				syncTargetKey := workloadv1alpha1.ToSyncTargetKey(syncerFixture.SyncerConfig.SyncTargetClusterName, syncerFixture.SyncerConfig.SyncTargetName)
 
 				t.Log("Wait until the namespace is scheduled to the workload cluster")
 				require.Eventually(t, func() bool {

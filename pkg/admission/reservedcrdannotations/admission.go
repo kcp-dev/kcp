@@ -22,6 +22,8 @@ import (
 	"io"
 	"strings"
 
+	"github.com/kcp-dev/logicalcluster/v3"
+
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apiserver/pkg/admission"
@@ -29,7 +31,6 @@ import (
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
-	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 const (
@@ -72,7 +73,7 @@ func (o *reservedCRDAnnotations) Validate(ctx context.Context, a admission.Attri
 		return fmt.Errorf("failed to retrieve cluster from context: %w", err)
 	}
 	clusterName := logicalcluster.Name(cluster.String()) // TODO(sttts): remove when ClusterFromfrom returns a tenancy.Name
-	if clusterName == apibinding.ShadowWorkspaceName {
+	if clusterName == apibinding.SystemBoundCRDSClusterName {
 		return nil
 	}
 

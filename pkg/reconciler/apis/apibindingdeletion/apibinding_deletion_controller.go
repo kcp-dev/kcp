@@ -86,7 +86,7 @@ func NewController(
 			return metadataClient.Cluster(cluster).Resource(gvr).Namespace(namespace).DeleteCollection(ctx, opts, metav1.ListOptions{})
 		},
 		getAPIBinding: func(cluster logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error) {
-			return apiBindingInformer.Lister().Cluster(cluster.Path()).Get(name)
+			return apiBindingInformer.Lister().Cluster(cluster).Get(name)
 		},
 		commit: committer.NewCommitter[*APIBinding, Patcher, *APIBindingSpec, *APIBindingStatus](kcpClusterClient.ApisV1alpha1().APIBindings()),
 	}

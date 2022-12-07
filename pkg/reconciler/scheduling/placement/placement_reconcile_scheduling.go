@@ -43,7 +43,7 @@ func (r *placementReconciler) reconcile(ctx context.Context, placement *scheduli
 	if len(placement.Spec.LocationWorkspace) > 0 {
 		locationWorkspace = logicalcluster.New(placement.Spec.LocationWorkspace)
 	} else {
-		locationWorkspace = logicalcluster.From(placement)
+		locationWorkspace = logicalcluster.From(placement).Path()
 	}
 
 	validLocationNames, err := r.validLocationNames(placement, locationWorkspace)

@@ -80,7 +80,7 @@ func (c *controller) listLocationsByPath(path logicalcluster.Path) ([]*schedulin
 }
 
 func (c *controller) listNamespacesWithAnnotation(clusterName logicalcluster.Name) ([]*corev1.Namespace, error) {
-	items, err := c.namespaceLister.Cluster(clusterName.Path()).List(labels.Everything())
+	items, err := c.namespaceLister.Cluster(clusterName).List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}

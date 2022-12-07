@@ -75,14 +75,14 @@ func deleteAttr(obj *tenancyv1alpha1.ThisWorkspace, userInfo *user.DefaultInfo) 
 func TestAdmit(t *testing.T) {
 	tests := []struct {
 		name        string
-		clusterName logicalcluster.Path
+		clusterName logicalcluster.Name
 		a           admission.Attributes
 		expectedObj runtime.Object
 		wantErr     string
 	}{
 		{
 			name:        "adds initializers during transition to initializing",
-			clusterName: logicalcluster.New("root:org:ws"),
+			clusterName: "root:org:ws",
 			a: updateAttr(
 				newThisWorkspace("root:org:ws:test").withType("root:org", "foo").withInitializers("a", "b").withStatus(tenancyv1alpha1.ThisWorkspaceStatus{
 					Phase: tenancyv1alpha1.WorkspacePhaseInitializing,
@@ -101,7 +101,7 @@ func TestAdmit(t *testing.T) {
 		},
 		{
 			name:        "does not add initializer during transition to initializing when spec has none",
-			clusterName: logicalcluster.New("root:org:ws"),
+			clusterName: "root:org:ws",
 			a: updateAttr(
 				newThisWorkspace("root:org:ws:test").withType("root:org", "foo").withStatus(tenancyv1alpha1.ThisWorkspaceStatus{
 					Phase: tenancyv1alpha1.WorkspacePhaseInitializing,
@@ -119,7 +119,7 @@ func TestAdmit(t *testing.T) {
 		},
 		{
 			name:        "does not add initializers during transition not to initializing",
-			clusterName: logicalcluster.New("root:org:ws"),
+			clusterName: "root:org:ws",
 			a: updateAttr(
 				newThisWorkspace("root:org:ws:test").withType("root:org", "foo").withInitializers("a", "b").withStatus(tenancyv1alpha1.ThisWorkspaceStatus{
 					Phase: tenancyv1alpha1.WorkspacePhaseReady,
@@ -137,7 +137,7 @@ func TestAdmit(t *testing.T) {
 		},
 		{
 			name:        "ignores different resources",
-			clusterName: logicalcluster.New("root:org:ws"),
+			clusterName: "root:org:ws",
 			a: admission.NewAttributesRecord(
 				&unstructured.Unstructured{Object: map[string]interface{}{
 					"apiVersion": tenancyv1alpha1.SchemeGroupVersion.String(),
@@ -179,7 +179,7 @@ func TestAdmit(t *testing.T) {
 				Handler: admission.NewHandler(admission.Create, admission.Update),
 			}
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: tt.clusterName})
-			ctx = tenancy.WithCanonicalPath(ctx, tt.clusterName)
+			ctx = tenancy.WithCanonicalPath(ctx, tt.clusterName.Path())
 			if err := o.Admit(ctx, tt.a, nil); (err != nil) != (tt.wantErr != "") {
 				t.Fatalf("Admit() error = %q, wantErr %q", err, tt.wantErr)
 			} else if tt.wantErr != "" && !strings.Contains(err.Error(), tt.wantErr) {
@@ -201,13 +201,13 @@ func TestValidate(t *testing.T) {
 		name           string
 		thisWorkspaces []*tenancyv1alpha1.ThisWorkspace
 		attr           admission.Attributes
-		path           logicalcluster.Path
+		clusterName    logicalcluster.Name
 
 		wantErr string
 	}{
 		{
-			name: "fails if spec.initializers is changed when ready",
-			path: logicalcluster.New("root:org:ws"),
+			name:        "fails if spec.initializers is changed when ready",
+			clusterName: "root:org:ws",
 			attr: updateAttr(
 				newThisWorkspace("root:org:ws").withInitializers("a", "b").withStatus(tenancyv1alpha1.ThisWorkspaceStatus{
 					Phase: tenancyv1alpha1.WorkspacePhaseReady,
@@ -219,8 +219,8 @@ func TestValidate(t *testing.T) {
 			wantErr: "spec.initializers is immutable",
 		},
 		{
-			name: "fails if spec.initializers is changed when intializing",
-			path: logicalcluster.New("root:org:ws"),
+			name:        "fails if spec.initializers is changed when intializing",
+			clusterName: "root:org:ws",
 			attr: updateAttr(
 				newThisWorkspace("root:org:ws").withInitializers("a", "b").withStatus(tenancyv1alpha1.ThisWorkspaceStatus{
 					Phase: tenancyv1alpha1.WorkspacePhaseInitializing,
@@ -232,8 +232,8 @@ func TestValidate(t *testing.T) {
 			wantErr: "spec.initializers is immutable",
 		},
 		{
-			name: "passed if status.initializers is shrinking when initializing",
-			path: logicalcluster.New("root:org:ws"),
+			name:        "passed if status.initializers is shrinking when initializing",
+			clusterName: "root:org:ws",
 			attr: updateAttr(
 				newThisWorkspace("root:org:ws").withStatus(tenancyv1alpha1.ThisWorkspaceStatus{
 					Phase:        tenancyv1alpha1.WorkspacePhaseInitializing,
@@ -246,8 +246,8 @@ func TestValidate(t *testing.T) {
 			),
 		},
 		{
-			name: "fails if status.initializers is growing",
-			path: logicalcluster.New("root:org:ws"),
+			name:        "fails if status.initializers is growing",
+			clusterName: "root:org:ws",
 			attr: updateAttr(
 				newThisWorkspace("root:org:ws").withStatus(tenancyv1alpha1.ThisWorkspaceStatus{
 					Phase:        tenancyv1alpha1.WorkspacePhaseInitializing,
@@ -261,8 +261,8 @@ func TestValidate(t *testing.T) {
 			wantErr: "status.initializers must not grow",
 		},
 		{
-			name: "fails if status.initializers is changing when ready",
-			path: logicalcluster.New("root:org:ws"),
+			name:        "fails if status.initializers is changing when ready",
+			clusterName: "root:org:ws",
 			attr: updateAttr(
 				newThisWorkspace("root:org:ws").withStatus(tenancyv1alpha1.ThisWorkspaceStatus{
 					Phase:        tenancyv1alpha1.WorkspacePhaseReady,
@@ -276,8 +276,8 @@ func TestValidate(t *testing.T) {
 			wantErr: "status.initializers is immutable after initilization",
 		},
 		{
-			name: "spec and status initializing must match when switching to initializing",
-			path: logicalcluster.New("root:org:ws"),
+			name:        "spec and status initializing must match when switching to initializing",
+			clusterName: "root:org:ws",
 			attr: updateAttr(
 				newThisWorkspace("root:org:ws").withInitializers("a", "b").withStatus(tenancyv1alpha1.ThisWorkspaceStatus{
 					Phase:        tenancyv1alpha1.WorkspacePhaseInitializing,
@@ -290,8 +290,8 @@ func TestValidate(t *testing.T) {
 			wantErr: "status.initializers do not equal spec.initializers",
 		},
 		{
-			name: "passes with equal spec and status when switching to initializing",
-			path: logicalcluster.New("root:org:ws"),
+			name:        "passes with equal spec and status when switching to initializing",
+			clusterName: "root:org:ws",
 			attr: updateAttr(
 				newThisWorkspace("root:org:ws").withInitializers("a", "b").withStatus(tenancyv1alpha1.ThisWorkspaceStatus{
 					Phase:        tenancyv1alpha1.WorkspacePhaseInitializing,
@@ -303,8 +303,8 @@ func TestValidate(t *testing.T) {
 			),
 		},
 		{
-			name: "fails to move phase backwards",
-			path: logicalcluster.New("root:org:ws"),
+			name:        "fails to move phase backwards",
+			clusterName: "root:org:ws",
 			attr: updateAttr(
 				newThisWorkspace("root:org:ws").withStatus(tenancyv1alpha1.ThisWorkspaceStatus{
 					Phase: tenancyv1alpha1.WorkspacePhaseScheduling,
@@ -316,30 +316,30 @@ func TestValidate(t *testing.T) {
 			wantErr: "cannot transition from",
 		},
 		{
-			name:    "fails deletion as another user",
-			path:    logicalcluster.New("root:org:ws"),
-			attr:    deleteAttr(newThisWorkspace("root:org:ws").ThisWorkspace, &user.DefaultInfo{}),
-			wantErr: "ThisWorkspace cannot be deleted",
+			name:        "fails deletion as another user",
+			clusterName: "root:org:ws",
+			attr:        deleteAttr(newThisWorkspace("root:org:ws").ThisWorkspace, &user.DefaultInfo{}),
+			wantErr:     "ThisWorkspace cannot be deleted",
 		},
 		{
-			name: "passed deletion as system:masters",
-			path: logicalcluster.New("root:org:ws"),
+			name:        "passed deletion as system:masters",
+			clusterName: "root:org:ws",
 			attr: deleteAttr(
 				newThisWorkspace("root:org:ws").ThisWorkspace,
 				&user.DefaultInfo{Groups: []string{"system:masters"}},
 			),
 		},
 		{
-			name: "passed deletion as system:kcp:logical-cluster-admin",
-			path: logicalcluster.New("root:org:ws"),
+			name:        "passed deletion as system:kcp:logical-cluster-admin",
+			clusterName: "root:org:ws",
 			attr: deleteAttr(
 				newThisWorkspace("root:org:ws").ThisWorkspace,
 				&user.DefaultInfo{Groups: []string{"system:kcp:logical-cluster-admin"}},
 			),
 		},
 		{
-			name: "passed deletion as another user if directly deletable",
-			path: logicalcluster.New("root:org:ws"),
+			name:        "passed deletion as another user if directly deletable",
+			clusterName: "root:org:ws",
 			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
 				newThisWorkspace("root:org:ws").directlyDeletable().ThisWorkspace,
 			},
@@ -349,8 +349,8 @@ func TestValidate(t *testing.T) {
 			),
 		},
 		{
-			name: "ignores different resources",
-			path: logicalcluster.New("root:org:ws"),
+			name:        "ignores different resources",
+			clusterName: "root:org:ws",
 			attr: admission.NewAttributesRecord(
 				&tenancyv1alpha1.ClusterWorkspaceShard{
 					ObjectMeta: metav1.ObjectMeta{
@@ -376,8 +376,8 @@ func TestValidate(t *testing.T) {
 				Handler:             admission.NewHandler(admission.Create, admission.Update, admission.Delete),
 				thisWorkspaceLister: fakeThisWorkspaceClusterLister(tt.thisWorkspaces),
 			}
-			ctx := request.WithCluster(context.Background(), request.Cluster{Name: tt.path})
-			ctx = tenancy.WithCanonicalPath(ctx, tt.path)
+			ctx := request.WithCluster(context.Background(), request.Cluster{Name: tt.clusterName})
+			ctx = tenancy.WithCanonicalPath(ctx, tt.clusterName.Path())
 			if err := o.Validate(ctx, tt.attr, nil); (err != nil) != (tt.wantErr != "") {
 				t.Fatalf("Validate() error = %q, wantErr %q", err, tt.wantErr)
 			} else if tt.wantErr != "" && !strings.Contains(err.Error(), tt.wantErr) {
@@ -436,7 +436,7 @@ func (l fakeThisWorkspaceClusterLister) List(selector labels.Selector) (ret []*t
 	return l, nil
 }
 
-func (l fakeThisWorkspaceClusterLister) Cluster(cluster logicalcluster.Path) tenancyv1alpha1listers.ThisWorkspaceLister {
+func (l fakeThisWorkspaceClusterLister) Cluster(cluster logicalcluster.Name) tenancyv1alpha1listers.ThisWorkspaceLister {
 	var perCluster []*tenancyv1alpha1.ThisWorkspace
 	for _, this := range l {
 		if logicalcluster.From(this) == cluster {

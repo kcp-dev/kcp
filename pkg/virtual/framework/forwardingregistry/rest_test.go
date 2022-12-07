@@ -142,7 +142,7 @@ func TestGet(t *testing.T) {
 	fakeClient := kcpfakedynamic.NewSimpleDynamicClient(runtime.NewScheme())
 	storage, _ := newStorage(t, fakeClient, "", nil)
 	ctx := request.WithNamespace(context.Background(), "default")
-	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.New("test")})
+	ctx = request.WithCluster(ctx, request.Cluster{Name: "test"})
 
 	getter := storage.(rest.Getter)
 	_, err := getter.Get(ctx, "foo", &metav1.GetOptions{})
@@ -161,7 +161,7 @@ func TestList(t *testing.T) {
 	fakeClient := kcpfakedynamic.NewSimpleDynamicClient(runtime.NewScheme(), resources...)
 	storage, _ := newStorage(t, fakeClient, "", nil)
 	ctx := request.WithNamespace(context.Background(), "default")
-	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.New("test")})
+	ctx = request.WithCluster(ctx, request.Cluster{Name: "test"})
 
 	lister := storage.(rest.Lister)
 	result, err := lister.List(ctx, &internalversion.ListOptions{})
@@ -192,7 +192,7 @@ func TestWildcardListWithAPIExportIdentity(t *testing.T) {
 
 	storage, _ := newStorage(t, fakeClient, "apiExportIdentityHash", nil)
 	ctx := request.WithNamespace(context.Background(), "")
-	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.Wildcard, Wildcard: true})
+	ctx = request.WithCluster(ctx, request.Cluster{Wildcard: true})
 
 	lister := storage.(rest.Lister)
 	result, err := lister.List(ctx, &internalversion.ListOptions{})
@@ -241,7 +241,7 @@ func TestWatch(t *testing.T) {
 	fakeClient.PrependWatchReactor("noxus", kcptesting.DefaultWatchReactor(fakeWatcher, nil))
 	storage, _ := newStorage(t, fakeClient, "", nil)
 	ctx := request.WithNamespace(context.Background(), "default")
-	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.New("test")})
+	ctx = request.WithCluster(ctx, request.Cluster{Name: "test"})
 
 	watchedError := &metav1.Status{
 		Status:  "Failure",
@@ -285,7 +285,7 @@ func TestWildcardWatchWithPIExportIdentity(t *testing.T) {
 	fakeClient.PrependWatchReactor("noxus:apiExportIdentityHash", kcptesting.DefaultWatchReactor(fakeWatcher, nil))
 	storage, _ := newStorage(t, fakeClient, "apiExportIdentityHash", nil)
 	ctx := request.WithNamespace(context.Background(), "")
-	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.Wildcard, Wildcard: true})
+	ctx = request.WithCluster(ctx, request.Cluster{Wildcard: true})
 
 	watchedError := &metav1.Status{
 		Status:  "Failure",
@@ -346,7 +346,7 @@ func TestUpdate(t *testing.T) {
 
 	storage, _ := newStorage(t, fakeClient, "", nil)
 	ctx := request.WithNamespace(context.Background(), "default")
-	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.New("test")})
+	ctx = request.WithCluster(ctx, request.Cluster{Name: "test"})
 	updated := resource.DeepCopy()
 
 	newReplicas, _, err := unstructured.NestedInt64(updated.UnstructuredContent(), "spec", "replicas")
@@ -392,7 +392,7 @@ func TestUpdateWithForceAllowCreate(t *testing.T) {
 
 	storage, _ := newStorage(t, fakeClient, "", nil)
 	ctx := request.WithNamespace(context.Background(), "default")
-	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.New("test")})
+	ctx = request.WithCluster(ctx, request.Cluster{Name: "test"})
 	updated := resource.DeepCopy()
 
 	newReplicas, _, err := unstructured.NestedInt64(updated.UnstructuredContent(), "spec", "replicas")
@@ -434,7 +434,7 @@ func TestStatusUpdate(t *testing.T) {
 
 	_, statusStorage := newStorage(t, fakeClient, "", nil)
 	ctx := request.WithNamespace(context.Background(), "default")
-	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.New("test")})
+	ctx = request.WithCluster(ctx, request.Cluster{Name: "test"})
 	statusUpdated := resource.DeepCopy()
 	if err := unstructured.SetNestedField(statusUpdated.UnstructuredContent(), int64(10), "status", "availableReplicas"); err != nil {
 		require.NoError(t, err)
@@ -464,7 +464,7 @@ func TestPatch(t *testing.T) {
 	storage, _ := newStorage(t, fakeClient, "", &backoff)
 	ctx := request.WithNamespace(context.Background(), "default")
 	ctx = request.WithRequestInfo(ctx, &request.RequestInfo{Verb: "patch"})
-	ctx = request.WithCluster(ctx, request.Cluster{Name: logicalcluster.New("test")})
+	ctx = request.WithCluster(ctx, request.Cluster{Name: "test"})
 
 	patcher := func(ctx context.Context, newObj, oldObj runtime.Object) (runtime.Object, error) {
 		if oldObj == nil {

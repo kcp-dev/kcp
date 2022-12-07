@@ -56,7 +56,7 @@ func (c *transformingDynamicClusterClient) Resource(resource schema.GroupVersion
 			delegate:    delegate,
 			transformer: c.transformer,
 			resourceClient: func(resource logicalcluster.Object) dynamic.ResourceInterface {
-				return delegate.Cluster(logicalcluster.From(resource))
+				return delegate.Cluster(logicalcluster.From(resource).Path())
 			},
 			resource: resource,
 		},

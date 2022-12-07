@@ -35,19 +35,19 @@ import (
 
 // Labeler calculates labels to apply to all instances of a cluster-group-resource based on permission claims.
 type Labeler struct {
-	listAPIBindingsAcceptingClaimedGroupResource func(clusterName logicalcluster.Path, groupResource schema.GroupResource) ([]*apisv1alpha1.APIBinding, error)
-	getAPIBinding                                func(clusterName logicalcluster.Path, name string) (*apisv1alpha1.APIBinding, error)
+	listAPIBindingsAcceptingClaimedGroupResource func(clusterName logicalcluster.Name, groupResource schema.GroupResource) ([]*apisv1alpha1.APIBinding, error)
+	getAPIBinding                                func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error)
 }
 
 // NewLabeler returns a new Labeler.
 func NewLabeler(apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer) *Labeler {
 	return &Labeler{
-		listAPIBindingsAcceptingClaimedGroupResource: func(clusterName logicalcluster.Path, groupResource schema.GroupResource) ([]*apisv1alpha1.APIBinding, error) {
+		listAPIBindingsAcceptingClaimedGroupResource: func(clusterName logicalcluster.Name, groupResource schema.GroupResource) ([]*apisv1alpha1.APIBinding, error) {
 			indexKey := indexers.ClusterAndGroupResourceValue(clusterName, groupResource)
 			return indexers.ByIndex[*apisv1alpha1.APIBinding](apiBindingInformer.Informer().GetIndexer(), indexers.APIBindingByClusterAndAcceptedClaimedGroupResources, indexKey)
 		},
 
-		getAPIBinding: func(clusterName logicalcluster.Path, name string) (*apisv1alpha1.APIBinding, error) {
+		getAPIBinding: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error) {
 			return apiBindingInformer.Lister().Cluster(clusterName).Get(name)
 		},
 	}
@@ -56,7 +56,7 @@ func NewLabeler(apiBindingInformer apisv1alpha1informers.APIBindingClusterInform
 // LabelsFor returns all the applicable labels for the cluster-group-resource relating to permission claims. This is
 // the intersection of (1) all APIBindings in the cluster that have accepted claims for the group-resource with (2)
 // associated APIExports that are claiming group-resource.
-func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Path, groupResource schema.GroupResource, resourceName string) (map[string]string, error) {
+func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, groupResource schema.GroupResource, resourceName string) (map[string]string, error) {
 	labels := map[string]string{}
 
 	bindings, err := l.listAPIBindingsAcceptingClaimedGroupResource(cluster, groupResource)

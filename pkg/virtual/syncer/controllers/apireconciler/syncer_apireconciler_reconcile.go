@@ -170,7 +170,7 @@ func (c *APIReconciler) getAllAcceptedResourceSchemas(syncTarget *workloadv1alph
 	for _, exportRef := range syncTarget.Spec.SupportedAPIExports {
 		path := logicalcluster.New(exportRef.Path)
 		if path.Empty() {
-			path = logicalcluster.From(syncTarget)
+			path = logicalcluster.From(syncTarget).Path()
 		}
 
 		objs, err := c.apiExportIndexer.ByIndex(indexers.ByLogicalClusterPath, path.String())

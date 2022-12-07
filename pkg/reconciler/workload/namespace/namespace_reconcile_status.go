@@ -71,7 +71,7 @@ func (r *statusConditionReconciler) reconcile(ctx context.Context, ns *corev1.Na
 		return reconcileStatusStop, ns, err
 	}
 	logger.WithValues("patch", string(patchBytes)).V(2).Info("updating status for namespace")
-	patchedNamespace, err := r.patchNamespace(ctx, logicalcluster.From(ns), ns.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+	patchedNamespace, err := r.patchNamespace(ctx, logicalcluster.From(ns).Path(), ns.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 	if err != nil {
 		return reconcileStatusStop, ns, fmt.Errorf("failed to patch status on namespace %s|%s: %w", logicalcluster.From(ns), ns.Name, err)
 	}

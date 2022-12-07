@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"strings"
 
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -35,7 +36,6 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/apis/workload/helpers"
 	"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client"
 	. "github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
@@ -86,7 +86,10 @@ func (srt SyncerResourceTransformer) SummarizingRulesFor(resource metav1.Object)
 // to the Syncer View annotation, possibly promoting it to te upstream resource.
 func (rt *SyncerResourceTransformer) BeforeWrite(client dynamic.ResourceInterface, ctx context.Context, gvr schema.GroupVersionResource, syncerViewResource *unstructured.Unstructured, subresources ...string) (*unstructured.Unstructured, error) {
 	apiDomainKey := dynamiccontext.APIDomainKeyFrom(ctx)
-	_, syncTargetName := kcpclient.SplitClusterAwareKey(string(apiDomainKey))
+	_, _, syncTargetName, err := kcpcache.SplitMetaClusterNamespaceKey(string(apiDomainKey))
+	if err != nil {
+		return nil, err
+	}
 	logger := klog.FromContext(ctx).WithName("syncer-transformer").V(5).
 		WithValues("step", "before", "gvr", gvr.String(), "subresources", subresources, "apiDomainKey", apiDomainKey, SyncTargetName, syncTargetName)
 	logger = logger.WithValues(FromPrefix("syncerView", syncerViewResource)...)

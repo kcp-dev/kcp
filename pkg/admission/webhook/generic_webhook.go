@@ -38,19 +38,19 @@ import (
 )
 
 type ClusterAwareSource interface {
-	Webhooks(cluster logicalcluster.Path) []webhook.WebhookAccessor
+	Webhooks(cluster logicalcluster.Name) []webhook.WebhookAccessor
 	HasSynced() bool
 }
 
 type clusterAwareSource struct {
-	factory   func(cluster logicalcluster.Path) generic.Source
+	factory   func(cluster logicalcluster.Name) generic.Source
 	hasSynced func() bool
 
 	lock    sync.RWMutex
-	sources map[logicalcluster.Path]generic.Source
+	sources map[logicalcluster.Name]generic.Source
 }
 
-func (c *clusterAwareSource) Webhooks(cluster logicalcluster.Path) []webhook.WebhookAccessor {
+func (c *clusterAwareSource) Webhooks(cluster logicalcluster.Name) []webhook.WebhookAccessor {
 	var source generic.Source
 	var found bool
 	c.lock.RLock()
@@ -126,10 +126,10 @@ func (p *WebhookDispatcher) Dispatch(ctx context.Context, attr admission.Attribu
 	return p.dispatcher.Dispatch(ctx, attr, o, whAccessor)
 }
 
-func (p *WebhookDispatcher) getAPIExportCluster(attr admission.Attributes, clusterName logicalcluster.Path) (logicalcluster.Path, bool, error) {
+func (p *WebhookDispatcher) getAPIExportCluster(attr admission.Attributes, clusterName logicalcluster.Name) (logicalcluster.Name, bool, error) {
 	objs, err := p.apiBindingClusterLister.Cluster(clusterName).List(labels.Everything())
 	if err != nil {
-		return logicalcluster.New(""), false, err
+		return "", false, err
 	}
 	for _, apiBinding := range objs {
 		for _, br := range apiBinding.Status.BoundResources {
@@ -140,20 +140,20 @@ func (p *WebhookDispatcher) getAPIExportCluster(attr admission.Attributes, clust
 				continue
 			}
 			if br.Group == attr.GetResource().Group && br.Resource == attr.GetResource().Resource {
-				return apiBinding.Spec.Reference.Export.Cluster.Path(), true, nil
+				return apiBinding.Spec.Reference.Export.Cluster, true, nil
 			}
 		}
 	}
-	return logicalcluster.New(""), false, nil
+	return "", false, nil
 }
 
-func (p *WebhookDispatcher) SetHookSource(factory func(cluster logicalcluster.Path) generic.Source, hasSynced func() bool) {
+func (p *WebhookDispatcher) SetHookSource(factory func(cluster logicalcluster.Name) generic.Source, hasSynced func() bool) {
 	p.hookSource = &clusterAwareSource{
 		hasSynced: hasSynced,
 		factory:   factory,
 
 		lock:    sync.RWMutex{},
-		sources: map[logicalcluster.Path]generic.Source{},
+		sources: map[logicalcluster.Name]generic.Source{},
 	}
 }
 

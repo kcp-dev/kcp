@@ -20,8 +20,6 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -97,7 +95,7 @@ func (c completedConfig) New(virtualWorkspaceName string, groupManager discovery
 			// which is served when the cluster name is empty.
 			if r.URL.Path != "/openapi/v2" {
 				context := r.Context()
-				context = genericapirequest.WithCluster(context, genericapirequest.Cluster{Name: logicalcluster.New("virtual")})
+				context = genericapirequest.WithCluster(context, genericapirequest.Cluster{Name: "virtual"})
 				r = r.WithContext(context)
 			}
 

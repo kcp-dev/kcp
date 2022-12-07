@@ -483,9 +483,9 @@ func TestSyncerProcess(t *testing.T) {
 		resourceToProcessLogicalClusterName string
 
 		upstreamURL               string
-		upstreamLogicalCluster    string
+		upstreamLogicalCluster    logicalcluster.Name
 		syncTargetName            string
-		syncTargetWorkspace       logicalcluster.Path
+		syncTargetClusterName     logicalcluster.Name
 		syncTargetUID             types.UID
 		advancedSchedulingEnabled bool
 
@@ -1022,14 +1022,14 @@ func TestSyncerProcess(t *testing.T) {
 			defer cancel()
 			logger := klog.FromContext(ctx)
 
-			kcpLogicalCluster := logicalcluster.New(tc.upstreamLogicalCluster)
+			kcpLogicalCluster := tc.upstreamLogicalCluster
 			syncTargetUID := tc.syncTargetUID
 			if tc.syncTargetUID == "" {
 				syncTargetUID = types.UID("syncTargetUID")
 			}
 
-			if tc.syncTargetWorkspace.Empty() {
-				tc.syncTargetWorkspace = logicalcluster.New("root:org:ws")
+			if tc.syncTargetClusterName.Empty() {
+				tc.syncTargetClusterName = "root:org:ws"
 			}
 
 			var allFromResources []runtime.Object
@@ -1040,7 +1040,7 @@ func TestSyncerProcess(t *testing.T) {
 
 			fromClusterClient := kcpfakedynamic.NewSimpleDynamicClient(scheme, allFromResources...)
 
-			syncTargetKey := workloadv1alpha1.ToSyncTargetKey(tc.syncTargetWorkspace, tc.syncTargetName)
+			syncTargetKey := workloadv1alpha1.ToSyncTargetKey(tc.syncTargetClusterName, tc.syncTargetName)
 
 			toClient := dynamicfake.NewSimpleDynamicClient(scheme, tc.toResources...)
 			toKubeClient := kubefake.NewSimpleClientset(tc.toResources...)

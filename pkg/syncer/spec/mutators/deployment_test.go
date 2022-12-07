@@ -809,7 +809,7 @@ func TestDeploymentMutate(t *testing.T) {
 				upstreamURL, err := url.Parse(c.config.Host)
 				require.NoError(t, err)
 
-				secretLister := func(upstreamLogicalCluster logicalcluster.Path, namespace string) ([]runtime.Object, error) {
+				secretLister := func(upstreamLogicalCluster logicalcluster.Name, namespace string) ([]runtime.Object, error) {
 					unstructuredObjects := make([]runtime.Object, 0, len(c.upstreamSecrets))
 					for _, obj := range c.upstreamSecrets {
 						unstObj, err := toUnstructured(obj)
@@ -819,16 +819,16 @@ func TestDeploymentMutate(t *testing.T) {
 					return unstructuredObjects, nil
 				}
 
-				workspace := logicalcluster.New("root:default:testing")
+				clusterName := logicalcluster.Name("root:default:testing")
 
 				serviceIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 
-				dnsServiceName := shared.GetDNSID(workspace, "syncTargetUID", "syncTargetName")
+				dnsServiceName := shared.GetDNSID(clusterName, "syncTargetUID", "syncTargetName")
 				err = serviceIndexer.Add(service(dnsServiceName, "dnsNamespace"))
 				require.NoError(t, err, "Service Add() = %v", err)
 				svcLister := listerscorev1.NewServiceLister(serviceIndexer)
 
-				dm := NewDeploymentMutator(upstreamURL, secretLister, svcLister, workspace, "syncTargetUID", "syncTargetName", "dnsNamespace")
+				dm := NewDeploymentMutator(upstreamURL, secretLister, svcLister, clusterName, "syncTargetUID", "syncTargetName", "dnsNamespace")
 
 				unstrOriginalDeployment, err := toUnstructured(c.originalDeployment)
 				require.NoError(t, err, "toUnstructured() = %v", err)

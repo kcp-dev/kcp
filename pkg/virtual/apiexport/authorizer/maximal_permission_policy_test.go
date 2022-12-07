@@ -38,7 +38,7 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 		apidomainKey            string
 		getAPIExport            func(clusterName, apiExportName string) (*apisv1alpha1.APIExport, error)
 		getAPIExportsByIdentity func(identityHash string) ([]*apisv1alpha1.APIExport, error)
-		newDeepSARAuthorizer    func(clusterName logicalcluster.Path) (authorizer.Authorizer, error)
+		newDeepSARAuthorizer    func(clusterName logicalcluster.Name) (authorizer.Authorizer, error)
 
 		expectedErr      string
 		expectedDecision authorizer.Decision
@@ -244,7 +244,7 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 					},
 				}, nil
 			},
-			newDeepSARAuthorizer: func(clusterName logicalcluster.Path) (authorizer.Authorizer, error) {
+			newDeepSARAuthorizer: func(clusterName logicalcluster.Name) (authorizer.Authorizer, error) {
 				return authorizer.AuthorizerFunc(func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
 					return authorizer.DecisionAllow, "", nil
 				}), nil
@@ -303,7 +303,7 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 					},
 				}, nil
 			},
-			newDeepSARAuthorizer: func(clusterName logicalcluster.Path) (authorizer.Authorizer, error) {
+			newDeepSARAuthorizer: func(clusterName logicalcluster.Name) (authorizer.Authorizer, error) {
 				return authorizer.AuthorizerFunc(func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
 					return authorizer.DecisionDeny, "access denied", nil
 				}), nil

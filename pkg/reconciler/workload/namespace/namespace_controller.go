@@ -43,7 +43,6 @@ import (
 	"k8s.io/kube-openapi/pkg/util/sets"
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/client"
 	schedulingv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
 	schedulingv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/scheduling/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
@@ -67,7 +66,11 @@ func NewController(
 	c := &controller{
 		queue: queue,
 		enqueueAfter: func(ns *corev1.Namespace, duration time.Duration) {
-			key := client.ToClusterAwareKey(logicalcluster.From(ns), ns.Name)
+			key, err := kcpcache.MetaClusterNamespaceKeyFunc(ns)
+			if err != nil {
+				runtime.HandleError(err)
+				return
+			}
 			queue.AddAfter(key, duration)
 		},
 
@@ -160,9 +163,14 @@ func (c *controller) enqueuePlacement(obj interface{}) {
 	logger := logging.WithObject(logging.WithReconciler(klog.Background(), ControllerName), obj.(*schedulingv1alpha1.Placement))
 	for _, ns := range nss {
 		logger = logging.WithObject(logger, ns)
-		nskey := client.ToClusterAwareKey(logicalcluster.From(ns), ns.Name)
-		logging.WithQueueKey(logger, nskey).V(2).Info("queueing Namespace because of Placement")
-		c.queue.Add(nskey)
+
+		nsKey, err := kcpcache.MetaClusterNamespaceKeyFunc(ns)
+		if err != nil {
+			runtime.HandleError(err)
+			continue
+		}
+		logging.WithQueueKey(logger, nsKey).V(2).Info("queueing Namespace because of Placement")
+		c.queue.Add(nsKey)
 	}
 }
 
@@ -261,7 +269,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 			return fmt.Errorf("failed to create patch for LocationDomain %s|%s: %w", clusterName, name, err)
 		}
 		logger.WithValues("patch", string(patchBytes)).V(2).Info("patching Namespace")
-		_, uerr := c.kubeClusterClient.Cluster(clusterName).CoreV1().Namespaces().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+		_, uerr := c.kubeClusterClient.Cluster(clusterName.Path()).CoreV1().Namespaces().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 		return uerr
 	}
 

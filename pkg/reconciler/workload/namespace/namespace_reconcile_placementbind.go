@@ -38,7 +38,7 @@ import (
 // if there is no matched placement.
 // TODO this should be reconsidered when we want lazy binding.
 type bindNamespaceReconciler struct {
-	listPlacement func(clusterName logicalcluster.Path) ([]*schedulingv1alpha1.Placement, error)
+	listPlacement func(clusterName logicalcluster.Name) ([]*schedulingv1alpha1.Placement, error)
 
 	patchNamespace func(ctx context.Context, clusterName logicalcluster.Path, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*corev1.Namespace, error)
 }
@@ -75,7 +75,7 @@ func (r *bindNamespaceReconciler) reconcile(ctx context.Context, ns *corev1.Name
 		return reconcileStatusStop, ns, err
 	}
 	logger.WithValues("patch", string(patchBytes)).V(3).Info("patching Namespace to update placement annotation")
-	updated, err := r.patchNamespace(ctx, clusterName, ns.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
+	updated, err := r.patchNamespace(ctx, clusterName.Path(), ns.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		return reconcileStatusStop, ns, err
 	}
@@ -83,7 +83,7 @@ func (r *bindNamespaceReconciler) reconcile(ctx context.Context, ns *corev1.Name
 	return reconcileStatusContinue, updated, nil
 }
 
-func (r *bindNamespaceReconciler) validPlacements(clusterName logicalcluster.Path, ns *corev1.Namespace) ([]*schedulingv1alpha1.Placement, error) {
+func (r *bindNamespaceReconciler) validPlacements(clusterName logicalcluster.Name, ns *corev1.Namespace) ([]*schedulingv1alpha1.Placement, error) {
 	placements, err := r.listPlacement(clusterName)
 
 	if err != nil {

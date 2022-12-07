@@ -117,7 +117,7 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	}
 	logger = logger.WithValues(logging.WorkspaceKey, clusterName, logging.NamespaceKey, upstreamNamespace, logging.NameKey, name)
 
-	desiredNSLocator := shared.NewNamespaceLocator(clusterName, c.syncTargetWorkspace, c.syncTargetUID, c.syncTargetName, upstreamNamespace)
+	desiredNSLocator := shared.NewNamespaceLocator(clusterName, c.syncTargetClusterName, c.syncTargetUID, c.syncTargetName, upstreamNamespace)
 	jsonNSLocator, err := json.Marshal(desiredNSLocator)
 	if err != nil {
 		return nil, err
@@ -248,7 +248,7 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 	// TODO: if the downstream namespace loses these annotations/labels after creation,
 	// we don't have anything in place currently that will put them back.
 	upstreamLogicalCluster := logicalcluster.From(upstreamObj)
-	desiredNSLocator := shared.NewNamespaceLocator(upstreamLogicalCluster, c.syncTargetWorkspace, c.syncTargetUID, c.syncTargetName, upstreamObj.GetNamespace())
+	desiredNSLocator := shared.NewNamespaceLocator(upstreamLogicalCluster, c.syncTargetClusterName, c.syncTargetUID, c.syncTargetName, upstreamObj.GetNamespace())
 	b, err := json.Marshal(desiredNSLocator)
 	if err != nil {
 		return err
@@ -319,7 +319,7 @@ func (c *Controller) clusterWideCollisionCheck(ctx context.Context, gvr schema.G
 	if !exists {
 		return fmt.Errorf("(cluster-wide resource collision) resource %s has no namespace locator", unstrResource.GetName())
 	}
-	if nsLocator.Workspace != c.syncTargetWorkspace {
+	if nsLocator.ClusterName != c.syncTargetClusterName {
 		return fmt.Errorf("(cluster-wide resource collision) resource %s already exists, but has a different namespace locator annotation: %+v", unstrResource.GetName(), nsLocator)
 	}
 
@@ -347,11 +347,11 @@ func (c *Controller) ensureSyncerFinalizer(ctx context.Context, gvr schema.Group
 	if !hasFinalizer && (!intendedToBeRemovedFromLocation || stillOwnedByExternalActorForLocation) {
 		upstreamObjCopy := upstreamObj.DeepCopy()
 		namespace := upstreamObjCopy.GetNamespace()
-		logicalCluster := logicalcluster.From(upstreamObjCopy)
+		clusterName := logicalcluster.From(upstreamObjCopy)
 
 		upstreamFinalizers = append(upstreamFinalizers, shared.SyncerFinalizerNamePrefix+c.syncTargetKey)
 		upstreamObjCopy.SetFinalizers(upstreamFinalizers)
-		if _, err := c.upstreamClient.Cluster(logicalCluster).Resource(gvr).Namespace(namespace).Update(ctx, upstreamObjCopy, metav1.UpdateOptions{}); err != nil {
+		if _, err := c.upstreamClient.Cluster(clusterName.Path()).Resource(gvr).Namespace(namespace).Update(ctx, upstreamObjCopy, metav1.UpdateOptions{}); err != nil {
 			logger.Error(err, "Failed adding finalizer on upstream upstreamresource")
 			return false, err
 		}
@@ -434,7 +434,7 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 	// If the resource is cluster-scoped, we need to add the namespaceLocator annotation to get be able to
 	// find out the upstream resource from the downstream resource.
 	if downstreamNamespace == "" {
-		namespaceLocator := shared.NewNamespaceLocator(upstreamObjLogicalCluster, c.syncTargetWorkspace, c.syncTargetUID, c.syncTargetName, "")
+		namespaceLocator := shared.NewNamespaceLocator(upstreamObjLogicalCluster, c.syncTargetClusterName, c.syncTargetUID, c.syncTargetName, "")
 		namespaceLocatorJSONBytes, err := json.Marshal(namespaceLocator)
 		if err != nil {
 			return err

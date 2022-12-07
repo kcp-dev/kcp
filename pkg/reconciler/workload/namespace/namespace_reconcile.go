@@ -74,6 +74,6 @@ func (c *controller) reconcile(ctx context.Context, ns *corev1.Namespace) error 
 	return utilserrors.NewAggregate(errs)
 }
 
-func (c *controller) listPlacement(clusterName logicalcluster.Path) ([]*schedulingv1alpha1.Placement, error) {
+func (c *controller) listPlacement(clusterName logicalcluster.Name) ([]*schedulingv1alpha1.Placement, error) {
 	return c.placementLister.Cluster(clusterName).List(labels.Everything())
 }

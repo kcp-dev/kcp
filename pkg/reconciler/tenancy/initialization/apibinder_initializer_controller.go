@@ -42,6 +42,7 @@ import (
 	tenancyv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
 	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 )
@@ -62,28 +63,48 @@ func NewAPIBinder(
 	c := &APIBinder{
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
 
-		getThisWorkspace: func(clusterName logicalcluster.Path) (*tenancyv1alpha1.ThisWorkspace, error) {
+		getThisWorkspace: func(clusterName logicalcluster.Name) (*tenancyv1alpha1.ThisWorkspace, error) {
 			return thisWorkspaceInformer.Lister().Cluster(clusterName).Get(tenancyv1alpha1.ThisWorkspaceName)
 		},
-		getClusterWorkspaceType: func(clusterName logicalcluster.Path, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
-			return clusterWorkspaceTypeInformer.Lister().Cluster(clusterName).Get(name)
+		getClusterWorkspaceType: func(path logicalcluster.Path, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
+			objs, err := clusterWorkspaceTypeInformer.Informer().GetIndexer().ByIndex(indexers.ByLogicalClusterPath, path.Join(name).String())
+			if err != nil {
+				return nil, err
+			}
+			if len(objs) == 0 {
+				return nil, fmt.Errorf("no ClusterWorkspaceType found for %s", path.Join(name).String())
+			}
+			if len(objs) > 1 {
+				return nil, fmt.Errorf("multiple ClusterWorkspaceTypes found for %s", path.Join(name).String())
+			}
+			return objs[0].(*tenancyv1alpha1.ClusterWorkspaceType), nil
 		},
 		listThisWorkspaces: func() ([]*tenancyv1alpha1.ThisWorkspace, error) {
 			return thisWorkspaceInformer.Lister().List(labels.Everything())
 		},
 
-		listAPIBindings: func(clusterName logicalcluster.Path) ([]*apisv1alpha1.APIBinding, error) {
+		listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
 			return apiBindingsInformer.Lister().Cluster(clusterName).List(labels.Everything())
 		},
-		getAPIBinding: func(clusterName logicalcluster.Path, name string) (*apisv1alpha1.APIBinding, error) {
+		getAPIBinding: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error) {
 			return apiBindingsInformer.Lister().Cluster(clusterName).Get(name)
 		},
 		createAPIBinding: func(ctx context.Context, clusterName logicalcluster.Path, binding *apisv1alpha1.APIBinding) (*apisv1alpha1.APIBinding, error) {
 			return kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
 		},
 
-		getAPIExport: func(clusterName logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
-			return apiExportsInformer.Lister().Cluster(clusterName).Get(name)
+		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
+			objs, err := apiExportsInformer.Informer().GetIndexer().ByIndex(indexers.ByLogicalClusterPath, path.Join(name).String())
+			if err != nil {
+				return nil, err
+			}
+			if len(objs) == 0 {
+				return nil, fmt.Errorf("no APIExport found for %s", path.Join(name).String())
+			}
+			if len(objs) > 1 {
+				return nil, fmt.Errorf("multiple APIExports found for %s", path.Join(name).String())
+			}
+			return objs[0].(*apisv1alpha1.APIExport), nil
 		},
 
 		commit: committer.NewCommitter[*tenancyv1alpha1.ThisWorkspace, tenancyv1alpha1client.ThisWorkspaceInterface, *tenancyv1alpha1.ThisWorkspaceSpec, *tenancyv1alpha1.ThisWorkspaceStatus](kcpClusterClient.TenancyV1alpha1().ThisWorkspaces()),
@@ -92,6 +113,10 @@ func NewAPIBinder(
 	c.transitiveTypeResolver = admission.NewTransitiveTypeResolver(c.getClusterWorkspaceType)
 
 	logger := logging.WithReconciler(klog.Background(), ControllerName)
+
+	indexers.AddIfNotPresentOrDie(clusterWorkspaceTypeInformer.Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPath: indexers.IndexByLogicalClusterPath,
+	})
 
 	thisWorkspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
@@ -131,12 +156,12 @@ type thisWorkspaceResource = committer.Resource[*tenancyv1alpha1.ThisWorkspaceSp
 type APIBinder struct {
 	queue workqueue.RateLimitingInterface
 
-	getThisWorkspace        func(clusterName logicalcluster.Path) (*tenancyv1alpha1.ThisWorkspace, error)
+	getThisWorkspace        func(clusterName logicalcluster.Name) (*tenancyv1alpha1.ThisWorkspace, error)
 	getClusterWorkspaceType func(clusterName logicalcluster.Path, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error)
 	listThisWorkspaces      func() ([]*tenancyv1alpha1.ThisWorkspace, error)
 
-	listAPIBindings  func(clusterName logicalcluster.Path) ([]*apisv1alpha1.APIBinding, error)
-	getAPIBinding    func(clusterName logicalcluster.Path, name string) (*apisv1alpha1.APIBinding, error)
+	listAPIBindings  func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
+	getAPIBinding    func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error)
 	createAPIBinding func(ctx context.Context, clusterName logicalcluster.Path, binding *apisv1alpha1.APIBinding) (*apisv1alpha1.APIBinding, error)
 
 	getAPIExport func(clusterName logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)

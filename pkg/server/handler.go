@@ -120,7 +120,7 @@ func WithClusterWorkspaceProjection(apiHandler http.Handler) http.HandlerFunc {
 		}
 
 		newPath := path.Join("/services/clusterworkspaces", cluster.Name.String(), req.URL.Path)
-		logger = logger.WithValues("from", path.Join(cluster.Name.Path(), req.URL.Path), "to", newPath)
+		logger = logger.WithValues("from", path.Join(cluster.Name.Path().RequestPath(), req.URL.Path), "to", newPath)
 		logger.V(4).Info("rewriting path")
 		req.URL.Path = newPath
 		apiHandler.ServeHTTP(w, req)

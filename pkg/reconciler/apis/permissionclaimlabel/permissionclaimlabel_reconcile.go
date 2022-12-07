@@ -146,7 +146,7 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 			logger.V(4).Info("patching to get claim labels updated")
 
 			// Empty patch, allowing the admission plugin to update the resource to the correct labels
-			err = c.patchGenericObject(ctx, u, gvr, clusterName)
+			err = c.patchGenericObject(ctx, u, gvr, clusterName.Path())
 			if err != nil {
 				patchErr := fmt.Errorf("error patching %q %s|%s/%s: %w", gvr, clusterName, u.GetNamespace(), u.GetName(), err)
 				claimErrs = append(claimErrs, patchErr)

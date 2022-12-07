@@ -188,7 +188,7 @@ func BuildVirtualWorkspace(
 
 			// in this case since we're proxying and not consuming this request we *do not* want to strip
 			// the cluster prefix
-			prefixToStrip = strings.TrimSuffix(prefixToStrip, cluster.Name.Path())
+			prefixToStrip = strings.TrimSuffix(prefixToStrip, cluster.Name.Path().RequestPath())
 
 			completedContext = genericapirequest.WithCluster(context, cluster)
 			completedContext = dynamiccontext.WithAPIDomainKey(completedContext, apiDomain)
@@ -351,13 +351,24 @@ func digestUrl(urlPath, rootPathPrefix string) (
 
 	withoutClustersPrefix := strings.TrimPrefix(realPath, "/clusters/")
 	parts = strings.SplitN(withoutClustersPrefix, "/", 2)
-	clusterName := logicalcluster.New(parts[0])
+	path := logicalcluster.New(parts[0])
 	realPath = "/"
 	if len(parts) > 1 {
 		realPath += parts[1]
 	}
 
-	return genericapirequest.Cluster{Name: clusterName, Wildcard: clusterName == logicalcluster.Wildcard}, dynamiccontext.APIDomainKey(initializerName), strings.TrimSuffix(urlPath, realPath), true
+	cluster = genericapirequest.Cluster{}
+	if path == logicalcluster.Wildcard {
+		cluster.Wildcard = true
+	} else {
+		var ok bool
+		cluster.Name, ok = path.Name()
+		if !ok {
+			return genericapirequest.Cluster{}, "", "", false
+		}
+	}
+
+	return cluster, dynamiccontext.APIDomainKey(initializerName), strings.TrimSuffix(urlPath, realPath), true
 }
 
 // URLFor returns the absolute path for the specified initializer.
@@ -405,13 +416,13 @@ var _ apidefinition.APIDefinitionSetGetter = &singleResourceAPIDefinitionSetProv
 
 func newAuthorizer(client kcpkubernetesclientset.ClusterInterface) authorizer.AuthorizerFunc {
 	return func(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
-		workspace, name, err := initialization.TypeFrom(tenancyv1alpha1.WorkspaceInitializer(dynamiccontext.APIDomainKeyFrom(ctx)))
+		clusterName, name, err := initialization.TypeFrom(tenancyv1alpha1.WorkspaceInitializer(dynamiccontext.APIDomainKeyFrom(ctx)))
 		if err != nil {
 			klog.V(2).Info(err)
 			return authorizer.DecisionNoOpinion, "unable to determine initializer", fmt.Errorf("access not permitted")
 		}
 
-		authz, err := delegated.NewDelegatedAuthorizer(workspace, client)
+		authz, err := delegated.NewDelegatedAuthorizer(clusterName, client)
 		if err != nil {
 			return authorizer.DecisionNoOpinion, "error", err
 		}

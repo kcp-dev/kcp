@@ -69,7 +69,7 @@ func TestClusterController(t *testing.T) {
 				kcpClient, err := kcpclientset.NewForConfig(syncerFixture.SyncerConfig.UpstreamConfig)
 				require.NoError(t, err)
 
-				syncTarget, err := kcpClient.Cluster(syncerFixture.SyncerConfig.SyncTargetWorkspace).WorkloadV1alpha1().SyncTargets().Get(ctx,
+				syncTarget, err := kcpClient.Cluster(syncerFixture.SyncerConfig.SyncTargetClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx,
 					syncerFixture.SyncerConfig.SyncTargetName,
 					metav1.GetOptions{},
 				)

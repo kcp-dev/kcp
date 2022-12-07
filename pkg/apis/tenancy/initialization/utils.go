@@ -63,7 +63,7 @@ func EnsureInitializerAbsent(initializer tenancyv1alpha1.WorkspaceInitializer, i
 
 // InitializerForType determines the identifier for the implicit initializer associated with the ClusterWorkspaceType.
 func InitializerForType(cwt *tenancyv1alpha1.ClusterWorkspaceType) tenancyv1alpha1.WorkspaceInitializer {
-	return tenancyv1alpha1.WorkspaceInitializer(logicalcluster.From(cwt).Join(cwt.Name).String())
+	return tenancyv1alpha1.WorkspaceInitializer(logicalcluster.From(cwt).Path().Join(cwt.Name).String())
 }
 
 // InitializerForReference determines the identifier for the implicit initializer associated with the
@@ -73,13 +73,13 @@ func InitializerForReference(cwtr tenancyv1alpha1.ClusterWorkspaceTypeReference)
 }
 
 // TypeFrom determines the ClusterWorkspaceType workspace and name from an initializer name.
-func TypeFrom(initializer tenancyv1alpha1.WorkspaceInitializer) (logicalcluster.Path, string, error) {
+func TypeFrom(initializer tenancyv1alpha1.WorkspaceInitializer) (logicalcluster.Name, string, error) {
 	separatorIndex := strings.LastIndex(string(initializer), ":")
 	switch separatorIndex {
 	case -1:
-		return logicalcluster.Path{}, "", fmt.Errorf("expected cluster workspace initializer in form workspace:name, not %q", initializer)
+		return "", "", fmt.Errorf("expected cluster workspace initializer in form workspace:name, not %q", initializer)
 	default:
-		return logicalcluster.New(string(initializer[:separatorIndex])), tenancyv1alpha1.ObjectName(tenancyv1alpha1.ClusterWorkspaceTypeName(initializer[separatorIndex+1:])), nil
+		return logicalcluster.Name(initializer[:separatorIndex]), tenancyv1alpha1.ObjectName(tenancyv1alpha1.ClusterWorkspaceTypeName(initializer[separatorIndex+1:])), nil
 	}
 }
 

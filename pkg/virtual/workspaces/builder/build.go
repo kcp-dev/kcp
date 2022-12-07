@@ -61,7 +61,7 @@ func BuildVirtualWorkspace(cfg *clientrest.Config, rootPathPrefix string, kcpClu
 				}
 				org := segments[0]
 
-				return true, rootPathPrefix + strings.Join(segments[:1], "/"), context.WithValue(requestContext, registry.ClusterKey, logicalcluster.New(org))
+				return true, rootPathPrefix + strings.Join(segments[:1], "/"), context.WithValue(requestContext, registry.ClusterKey, logicalcluster.Name(org))
 			}
 			return
 		}),
@@ -115,7 +115,7 @@ func newAuthorizer(cfg *clientrest.Config) func(ctx context.Context, a authorize
 		}
 
 		// check for <verb> permission on the ClusterWorkspace workspace subresource for the <resourceName>
-		clusterName := ctx.Value(registry.ClusterKey).(logicalcluster.Path)
+		clusterName := ctx.Value(registry.ClusterKey).(logicalcluster.Name)
 		authz, err := delegated.NewDelegatedAuthorizer(clusterName, softlyImpersonatedSARClusterClient)
 		if err != nil {
 			klog.Errorf("failed to get delegated authorizer for logical cluster %s", a.GetUser().GetName(), clusterName)

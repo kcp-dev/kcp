@@ -21,8 +21,9 @@ import (
 	"encoding/json"
 	"math/big"
 
-	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/logicalcluster/v3"
+
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 )
 
 // ToLabelKeyAndValue creates a safe key and value for labeling a resource to grant access

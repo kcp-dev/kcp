@@ -181,7 +181,7 @@ func TestScheduling(t *testing.T) {
 				},
 			}
 
-			listPlacement := func(clusterName logicalcluster.Path) ([]*schedulingv1alpha1.Placement, error) {
+			listPlacement := func(clusterName logicalcluster.Name) ([]*schedulingv1alpha1.Placement, error) {
 				if testCase.noPlacements {
 					return []*schedulingv1alpha1.Placement{}, nil
 				}
@@ -318,7 +318,7 @@ func TestMultiplePlacements(t *testing.T) {
 				},
 			}
 
-			listPlacement := func(clusterName logicalcluster.Path) ([]*schedulingv1alpha1.Placement, error) {
+			listPlacement := func(clusterName logicalcluster.Name) ([]*schedulingv1alpha1.Placement, error) {
 				return testCase.placements, nil
 			}
 
@@ -356,7 +356,7 @@ func newPlacement(name, location, synctarget string) *schedulingv1alpha1.Placeme
 
 	if len(synctarget) > 0 {
 		placement.Annotations = map[string]string{
-			workloadv1alpha1.InternalSyncTargetPlacementAnnotationKey: workloadv1alpha1.ToSyncTargetKey(logicalcluster.New(""), synctarget),
+			workloadv1alpha1.InternalSyncTargetPlacementAnnotationKey: workloadv1alpha1.ToSyncTargetKey("", synctarget),
 		}
 	}
 

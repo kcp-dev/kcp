@@ -34,7 +34,6 @@ import (
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/client"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	apiresourcev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
 	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
@@ -65,7 +64,11 @@ func NewController(
 	c := &controller{
 		queue: queue,
 		enqueueAfter: func(export *apisv1alpha1.APIExport, duration time.Duration) {
-			key := client.ToClusterAwareKey(logicalcluster.From(export), export.Name)
+			key, err := kcpcache.MetaClusterNamespaceKeyFunc(export)
+			if err != nil {
+				runtime.HandleError(err)
+				return
+			}
 			queue.AddAfter(key, duration)
 		},
 		kcpClusterClient:            kcpClusterClient,
@@ -130,15 +133,19 @@ func (c *controller) enqueueNegotiatedAPIResource(obj interface{}) {
 		return
 	}
 
-	clusterName := logicalcluster.From(resource)
-	key := client.ToClusterAwareKey(clusterName, TemporaryComputeServiceExportName)
-	if _, err := c.apiExportsLister.Cluster(clusterName).Get(TemporaryComputeServiceExportName); errors.IsNotFound(err) {
+	export, err := c.apiExportsLister.Cluster(logicalcluster.From(resource)).Get(TemporaryComputeServiceExportName)
+	if errors.IsNotFound(err) {
 		return // it's gone
 	} else if err != nil {
-		runtime.HandleError(fmt.Errorf("failed to get APIExport %s|%s: %w", clusterName, TemporaryComputeServiceExportName, err))
+		runtime.HandleError(fmt.Errorf("failed to get APIExport %s|%s: %w", logicalcluster.From(resource), TemporaryComputeServiceExportName, err))
 		return
 	}
 
+	key, err := kcpcache.MetaClusterNamespaceKeyFunc(export)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
 	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
 	logging.WithObject(logger, resource).V(2).Info("queueing APIExport due to NegotiatedAPIResource")
 	c.queue.Add(key)
@@ -151,15 +158,19 @@ func (c *controller) enqueueSyncTarget(obj interface{}) {
 		return
 	}
 
-	clusterName := logicalcluster.From(resource)
-	key := client.ToClusterAwareKey(clusterName, TemporaryComputeServiceExportName)
-	if _, err := c.apiExportsLister.Cluster(clusterName).Get(TemporaryComputeServiceExportName); errors.IsNotFound(err) {
+	export, err := c.apiExportsLister.Cluster(logicalcluster.From(resource)).Get(TemporaryComputeServiceExportName)
+	if errors.IsNotFound(err) {
 		return // it's gone
 	} else if err != nil {
-		runtime.HandleError(fmt.Errorf("failed to get APIExport %s|%s: %w", clusterName, TemporaryComputeServiceExportName, err))
+		runtime.HandleError(fmt.Errorf("failed to get APIExport %s|%s: %w", logicalcluster.From(resource), TemporaryComputeServiceExportName, err))
 		return
 	}
 
+	key, err := kcpcache.MetaClusterNamespaceKeyFunc(export)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
 	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
 	logging.WithObject(logger, resource).V(2).Info("queueing APIExport due to SyncTarget")
 	c.queue.Add(key)

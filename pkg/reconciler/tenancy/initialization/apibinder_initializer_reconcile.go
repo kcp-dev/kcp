@@ -174,7 +174,7 @@ func (b *APIBinder) reconcile(ctx context.Context, this *tenancyv1alpha1.ThisWor
 			logger = logging.WithObject(logger, apiBinding)
 
 			logger.V(2).Info("trying to create APIBinding")
-			if _, err := b.createAPIBinding(ctx, clusterName, apiBinding); err != nil {
+			if _, err := b.createAPIBinding(ctx, clusterName.Path(), apiBinding); err != nil {
 				if apierrors.IsAlreadyExists(err) {
 					logger.V(2).Info("APIBinding already exists")
 					continue
@@ -251,7 +251,7 @@ func (b *APIBinder) reconcile(ctx context.Context, this *tenancyv1alpha1.ThisWor
 // hash length.
 const maxExportNamePrefixLength = validation.DNS1123SubdomainMaxLength - 1 - 5
 
-func generateAPIBindingName(clusterName logicalcluster.Path, exportPath, exportName string) string {
+func generateAPIBindingName(clusterName logicalcluster.Name, exportPath, exportName string) string {
 	maxLen := len(exportName)
 	if maxLen > maxExportNamePrefixLength {
 		maxLen = maxExportNamePrefixLength

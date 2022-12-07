@@ -47,10 +47,10 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 			keyParts[1],
 			apisv1alpha1.SchemeGroupVersion.WithResource("apiexports"),
 			apisv1alpha1.SchemeGroupVersion.WithKind("APIExport"),
-			func(gvr schema.GroupVersionResource, cluster logicalcluster.Path, namespace, name string) (interface{}, error) {
+			func(gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (interface{}, error) {
 				return retrieveCacheObject(&gvr, c.globalAPIExportIndexer, c.shardName, cluster, namespace, name)
 			},
-			func(cluster logicalcluster.Path, _, name string) (interface{}, error) {
+			func(cluster logicalcluster.Name, _, name string) (interface{}, error) {
 				return c.localAPIExportLister.Cluster(cluster).Get(name)
 			})
 	case apisv1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas").String():
@@ -58,10 +58,10 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 			keyParts[1],
 			apisv1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas"),
 			apisv1alpha1.SchemeGroupVersion.WithKind("APIResourceSchema"),
-			func(gvr schema.GroupVersionResource, cluster logicalcluster.Path, namespace, name string) (interface{}, error) {
+			func(gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (interface{}, error) {
 				return retrieveCacheObject(&gvr, c.globalAPIResourceSchemaIndexer, c.shardName, cluster, namespace, name)
 			},
-			func(cluster logicalcluster.Path, _, name string) (interface{}, error) {
+			func(cluster logicalcluster.Name, _, name string) (interface{}, error) {
 				return c.localAPIResourceSchemaLister.Cluster(cluster).Get(name)
 			})
 	case tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaceshards").String():
@@ -69,10 +69,10 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 			keyParts[1],
 			tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaceshards"),
 			tenancyv1alpha1.SchemeGroupVersion.WithKind("ClusterWorkspaceShard"),
-			func(gvr schema.GroupVersionResource, cluster logicalcluster.Path, namespace, name string) (interface{}, error) {
+			func(gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (interface{}, error) {
 				return retrieveCacheObject(&gvr, c.globalClusterWorkspaceShardIndexer, c.shardName, cluster, namespace, name)
 			},
-			func(cluster logicalcluster.Path, _, name string) (interface{}, error) {
+			func(cluster logicalcluster.Name, _, name string) (interface{}, error) {
 				return c.localClusterWorkspaceShardLister.Cluster(cluster).Get(name)
 			})
 	default:
@@ -87,8 +87,8 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 //  3. modification of the cached object to match the original one when meta.annotations, meta.labels, spec or status are different
 func (c *controller) reconcileObject(ctx context.Context,
 	key string, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind,
-	retriveCacheObject func(gvr schema.GroupVersionResource, cluster logicalcluster.Path, namespace, name string) (interface{}, error),
-	retriveLocalObject func(cluster logicalcluster.Path, namespace, name string) (interface{}, error)) error {
+	retriveCacheObject func(gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (interface{}, error),
+	retriveLocalObject func(cluster logicalcluster.Name, namespace, name string) (interface{}, error)) error {
 	cluster, namespace, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		return err
@@ -103,7 +103,7 @@ func (c *controller) reconcileObject(ctx context.Context,
 	}
 	if errors.IsNotFound(err) {
 		// issue a live GET to make sure the localObject was removed
-		_, err = c.dynamicLocalClient.Cluster(cluster).Resource(gvr).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+		_, err = c.dynamicLocalClient.Cluster(cluster.Path()).Resource(gvr).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err == nil {
 			return fmt.Errorf("the informer used by this controller is stale, the following %s resource was found on the local server: %s/%s/%s but was missing from the informer", gvr, cluster, namespace, name)
 		}
@@ -141,7 +141,7 @@ func (c *controller) reconcileObject(ctx context.Context,
 	return c.reconcileUnstructuredObjects(ctx, cluster, &gvr, unstructuredCacheObject, unstructuredLocalObject)
 }
 
-func retrieveCacheObject(gvr *schema.GroupVersionResource, cacheIndex cache.Indexer, shard string, cluster logicalcluster.Path, namespace, name string) (interface{}, error) {
+func retrieveCacheObject(gvr *schema.GroupVersionResource, cacheIndex cache.Indexer, shard string, cluster logicalcluster.Name, namespace, name string) (interface{}, error) {
 	cacheObjects, err := cacheIndex.ByIndex(ByShardAndLogicalClusterAndNamespaceAndName, ShardAndLogicalClusterAndNamespaceKey(shard, cluster, namespace, name))
 	if err != nil {
 		return nil, err

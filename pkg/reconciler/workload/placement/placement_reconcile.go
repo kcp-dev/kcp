@@ -18,6 +18,7 @@ package placement
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
@@ -30,6 +31,7 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 )
 
 type reconcileStatus int
@@ -72,12 +74,22 @@ func (c *controller) reconcile(ctx context.Context, placement *schedulingv1alpha
 	return requeue, utilserrors.NewAggregate(errs)
 }
 
-func (c *controller) listSyncTarget(clusterName logicalcluster.Path) ([]*workloadv1alpha1.SyncTarget, error) {
+func (c *controller) listSyncTarget(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error) {
 	return c.syncTargetLister.Cluster(clusterName).List(labels.Everything())
 }
 
-func (c *controller) getLocation(clusterName logicalcluster.Path, name string) (*schedulingv1alpha1.Location, error) {
-	return c.locationLister.Cluster(clusterName).Get(name)
+func (c *controller) getLocation(path logicalcluster.Path, name string) (*schedulingv1alpha1.Location, error) {
+	objs, err := c.locationIndexer.ByIndex(indexers.ByLogicalClusterPath, path.Join(name).String())
+	if err != nil {
+		return nil, err
+	}
+	if len(objs) == 0 {
+		return nil, fmt.Errorf("no Location found for %s", path.Join(name).String())
+	}
+	if len(objs) > 1 {
+		return nil, fmt.Errorf("multiple Locations found for %s", path.Join(name).String())
+	}
+	return objs[0].(*schedulingv1alpha1.Location), nil
 }
 
 func (c *controller) patchPlacement(ctx context.Context, clusterName logicalcluster.Path, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*schedulingv1alpha1.Placement, error) {

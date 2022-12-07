@@ -41,7 +41,7 @@ const removingGracePeriod = 5 * time.Second
 // selected synctarget stored in the internal.workload.kcp.dev/synctarget annotation
 // on each placement.
 type placementSchedulingReconciler struct {
-	listPlacement func(clusterName logicalcluster.Path) ([]*schedulingv1alpha1.Placement, error)
+	listPlacement func(clusterName logicalcluster.Name) ([]*schedulingv1alpha1.Placement, error)
 
 	patchNamespace func(ctx context.Context, clusterName logicalcluster.Path, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*corev1.Namespace, error)
 
@@ -121,7 +121,7 @@ func (r *placementSchedulingReconciler) reconcile(ctx context.Context, ns *corev
 	}
 
 	if len(expectedLabels) > 0 || len(expectedAnnotations) > 0 {
-		ns, err := r.patchNamespaceLabelAnnotation(ctx, clusterName, ns, expectedLabels, expectedAnnotations)
+		ns, err := r.patchNamespaceLabelAnnotation(ctx, clusterName.Path(), ns, expectedLabels, expectedAnnotations)
 		return reconcileStatusContinue, ns, err
 	}
 

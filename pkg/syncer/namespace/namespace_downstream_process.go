@@ -76,7 +76,7 @@ func (c *DownstreamController) process(ctx context.Context, key string) error {
 	}
 
 	// Always refresh the DNS ConfigMap (even when the namespace has been deleted or is being deleted)
-	err = c.updateDNSConfigMap(ctx, nsLocator.Workspace)
+	err = c.updateDNSConfigMap(ctx, nsLocator.ClusterName)
 	if err != nil {
 		return err
 	}
@@ -86,8 +86,8 @@ func (c *DownstreamController) process(ctx context.Context, key string) error {
 		return nil
 	}
 
-	logger = logger.WithValues(logging.WorkspaceKey, nsLocator.Workspace, logging.NamespaceKey, nsLocator.Namespace)
-	exists, err := c.upstreamNamespaceExists(nsLocator.Workspace, nsLocator.Namespace)
+	logger = logger.WithValues(logging.WorkspaceKey, nsLocator.ClusterName, logging.NamespaceKey, nsLocator.Namespace)
+	exists, err := c.upstreamNamespaceExists(nsLocator.ClusterName, nsLocator.Namespace)
 	if err != nil {
 		logger.Error(err, "failed to check if upstream namespace exists")
 		return nil
@@ -103,7 +103,7 @@ func (c *DownstreamController) process(ctx context.Context, key string) error {
 	return nil
 }
 
-func (c *DownstreamController) updateDNSConfigMap(ctx context.Context, workspace logicalcluster.Path) error {
+func (c *DownstreamController) updateDNSConfigMap(ctx context.Context, clusterName logicalcluster.Name) error {
 	logger := klog.FromContext(ctx)
 	logger.WithName("dns")
 	logger.Info("refreshing logical to physical namespace mapping table")
@@ -139,12 +139,12 @@ func (c *DownstreamController) updateDNSConfigMap(ctx context.Context, workspace
 		}
 
 		// Only include namespaces in the same workspace
-		if locator.Workspace == workspace {
+		if locator.ClusterName == clusterName {
 			data[locator.Namespace] = namespace.GetName()
 		}
 	}
 
-	configMapName := shared.GetDNSID(workspace, c.syncTargetUID, c.syncTargetName)
+	configMapName := shared.GetDNSID(clusterName, c.syncTargetUID, c.syncTargetName)
 
 	cm := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{},

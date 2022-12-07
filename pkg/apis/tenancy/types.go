@@ -34,29 +34,6 @@ const (
 	LogicalClusterPathAnnotationKey = "tenancy.kcp.dev/path"
 )
 
-// Object is a local interface representation of the Kubernetes metav1.Object, to avoid dependencies on
-// k8s.io/apimachinery.
-type Object interface {
-	GetAnnotations() map[string]string
-}
-
-// Cluster is a logical cluster name, not a workspace path.
-//
-// +kubebuilder:validation:Pattern:="^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
-type Cluster string
-
-func (c Cluster) Path() logicalcluster.Name {
-	return logicalcluster.New(string(c))
-}
-
-func (c Cluster) String() string {
-	return string(c)
-}
-
-func From(obj Object) Cluster {
-	return Cluster(logicalcluster.From(obj).String())
-}
-
 // TemporaryCanonicalPath maps a cluster name to the canonical workspace path
 // for that cluster. This is temporary, and it will be replaced by some cached
 // mapping backed by the workspace index, probably of the front-proxy.

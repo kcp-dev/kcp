@@ -28,7 +28,7 @@ import (
 
 // ClusterAndGroupResourceValue returns the index value for use with
 // IndexAPIBindingByClusterAndAcceptedClaimedGroupResources from clusterName and groupResource.
-func ClusterAndGroupResourceValue(clusterName logicalcluster.Path, groupResource schema.GroupResource) string {
+func ClusterAndGroupResourceValue(clusterName logicalcluster.Name, groupResource schema.GroupResource) string {
 	return fmt.Sprintf("%s|%s", clusterName, groupResource)
 }
 
@@ -87,13 +87,13 @@ func IndexAPIBindingByBoundResources(obj interface{}) ([]string, error) {
 	return ret, nil
 }
 
-func APIBindingBoundResourceValue(clusterName logicalcluster.Path, group, resource string) string {
+func APIBindingBoundResourceValue(clusterName logicalcluster.Name, group, resource string) string {
 	return fmt.Sprintf("%s|%s.%s", clusterName, resource, group)
 }
 
 const APIBindingsByAPIExport = "APIBindingByAPIExport"
 
-// IndexAPIBindingByAPIExport indexes the APIBindings by their APIExport's Reference Path and Name.
+// IndexAPIBindingByAPIExport indexes the APIBindings by their APIExport's Reference Path and Path.
 func IndexAPIBindingByAPIExport(obj interface{}) ([]string, error) {
 	apiBinding, ok := obj.(*apisv1alpha1.APIBinding)
 	if !ok {

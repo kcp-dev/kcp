@@ -153,7 +153,7 @@ const (
 // it only handles cluster scoped resource.
 // it returns true if the operation was supported on the server.
 // it returns an error if the operation was supported on the server but was unable to complete.
-func (d *workspacedResourcesDeleter) deleteCollection(ctx context.Context, clusterName logicalcluster.Path, gvr schema.GroupVersionResource, verbs sets.String) (bool, error) {
+func (d *workspacedResourcesDeleter) deleteCollection(ctx context.Context, clusterName logicalcluster.Name, gvr schema.GroupVersionResource, verbs sets.String) (bool, error) {
 	logger := klog.FromContext(ctx).WithValues("operation", "deleteCollection", "gvr", gvr)
 	logger.V(5).Info("running operation")
 
@@ -164,7 +164,7 @@ func (d *workspacedResourcesDeleter) deleteCollection(ctx context.Context, clust
 
 	background := metav1.DeletePropagationBackground
 	opts := metav1.DeleteOptions{PropagationPolicy: &background}
-	if err := d.metadataClusterClient.Resource(gvr).Cluster(clusterName).DeleteCollection(
+	if err := d.metadataClusterClient.Resource(gvr).Cluster(clusterName.Path()).DeleteCollection(
 		ctx, opts, metav1.ListOptions{}); err != nil {
 		logger.V(5).Error(err, "unexpected deleteCollection error")
 		return true, err
@@ -179,7 +179,7 @@ func (d *workspacedResourcesDeleter) deleteCollection(ctx context.Context, clust
 //	the list of items in the collection (if found)
 //	a boolean if the operation is supported
 //	an error if the operation is supported but could not be completed.
-func (d *workspacedResourcesDeleter) listCollection(ctx context.Context, clusterName logicalcluster.Path, gvr schema.GroupVersionResource, verbs sets.String) (*metav1.PartialObjectMetadataList, bool, error) {
+func (d *workspacedResourcesDeleter) listCollection(ctx context.Context, clusterName logicalcluster.Name, gvr schema.GroupVersionResource, verbs sets.String) (*metav1.PartialObjectMetadataList, bool, error) {
 	logger := klog.FromContext(ctx).WithValues("operation", "listCollection", "gvr", gvr)
 	logger.V(5).Info("running operation")
 
@@ -188,7 +188,7 @@ func (d *workspacedResourcesDeleter) listCollection(ctx context.Context, cluster
 		return nil, false, nil
 	}
 
-	partialList, err := d.metadataClusterClient.Cluster(clusterName).Resource(gvr).Namespace(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
+	partialList, err := d.metadataClusterClient.Cluster(clusterName.Path()).Resource(gvr).Namespace(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
 	if err == nil {
 		return partialList, true, nil
 	}
@@ -207,7 +207,7 @@ func (d *workspacedResourcesDeleter) listCollection(ctx context.Context, cluster
 }
 
 // deleteEachItem is a helper function that will list the collection of resources and delete each item 1 by 1.
-func (d *workspacedResourcesDeleter) deleteEachItem(ctx context.Context, clusterName logicalcluster.Path, gvr schema.GroupVersionResource, verbs sets.String) error {
+func (d *workspacedResourcesDeleter) deleteEachItem(ctx context.Context, clusterName logicalcluster.Name, gvr schema.GroupVersionResource, verbs sets.String) error {
 	logger := klog.FromContext(ctx).WithValues("operation", "deleteEachItem", "gvr", gvr)
 	logger.V(5).Info("running operation")
 
@@ -222,7 +222,7 @@ func (d *workspacedResourcesDeleter) deleteEachItem(ctx context.Context, cluster
 	for _, item := range unstructuredList.Items {
 		background := metav1.DeletePropagationBackground
 		opts := metav1.DeleteOptions{PropagationPolicy: &background}
-		if err = d.metadataClusterClient.Cluster(clusterName).Resource(gvr).Namespace(item.GetNamespace()).Delete(ctx, item.GetName(), opts); err != nil && !errors.IsNotFound(err) && !errors.IsMethodNotSupported(err) {
+		if err = d.metadataClusterClient.Cluster(clusterName.Path()).Resource(gvr).Namespace(item.GetNamespace()).Delete(ctx, item.GetName(), opts); err != nil && !errors.IsNotFound(err) && !errors.IsMethodNotSupported(err) {
 			return err
 		}
 	}
@@ -244,7 +244,7 @@ type gvrDeletionMetadata struct {
 // If estimate > 0, not all resources are guaranteed to be gone.
 func (d *workspacedResourcesDeleter) deleteAllContentForGroupVersionResource(
 	ctx context.Context,
-	clusterName logicalcluster.Path,
+	clusterName logicalcluster.Name,
 	gvr schema.GroupVersionResource,
 	verbs sets.String,
 	workspaceDeletedAt metav1.Time) (gvrDeletionMetadata, error) {
@@ -344,7 +344,7 @@ func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *t
 
 	// disocer resources at first
 	var deletionContentSuccessReason string
-	resources, err := d.discoverResourcesFn(logicalcluster.From(ws))
+	resources, err := d.discoverResourcesFn(logicalcluster.From(ws).Path())
 	if err != nil {
 		// discovery errors are not fatal.  We often have some set of resources we can operate against even if we don't have a complete list
 		errs = append(errs, err)
@@ -462,7 +462,7 @@ func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *t
 }
 
 // estimateGracefulTermination will estimate the graceful termination required for the specific entity in the workspace
-func (d *workspacedResourcesDeleter) estimateGracefulTermination(ctx context.Context, gvr schema.GroupVersionResource, ws logicalcluster.Path, workspaceDeletedAt metav1.Time) (int64, error) {
+func (d *workspacedResourcesDeleter) estimateGracefulTermination(ctx context.Context, gvr schema.GroupVersionResource, ws logicalcluster.Name, workspaceDeletedAt metav1.Time) (int64, error) {
 	logger := klog.FromContext(ctx).WithValues("operation", "estimateGracefulTermination", "gvr", gvr)
 	logger.V(5).Info("running operation")
 	// TODO if we have any grace period for certain resources.

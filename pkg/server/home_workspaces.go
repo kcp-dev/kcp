@@ -235,7 +235,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		}
 
 		logger.Info("Creating home ThisWorkspace", "cluster", homeClusterName.String(), "user", effectiveUser.GetName())
-		this, err = h.kcpClusterClient.Cluster(homeClusterName).TenancyV1alpha1().ThisWorkspaces().Create(ctx, &tenancyv1alpha1.ThisWorkspace{
+		this, err = h.kcpClusterClient.Cluster(homeClusterName.Path()).TenancyV1alpha1().ThisWorkspaces().Create(ctx, &tenancyv1alpha1.ThisWorkspace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: tenancyv1alpha1.ThisWorkspaceName,
 				Annotations: map[string]string{
@@ -255,7 +255,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 
 	if this.Status.Phase == tenancyv1alpha1.WorkspacePhaseScheduling {
 		logger.Info("Creating home ClusterRoleBinding", "cluster", homeClusterName.String(), "user", effectiveUser.GetName(), "name", "workspace-admin")
-		_, err := h.kubeClusterClient.Cluster(homeClusterName).RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
+		_, err := h.kubeClusterClient.Cluster(homeClusterName.Path()).RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "workspace-admin",
 			},
@@ -280,7 +280,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		// move to Initializing state
 		this = this.DeepCopy()
 		this.Status.Phase = tenancyv1alpha1.WorkspacePhaseInitializing
-		this, err = h.kcpClusterClient.Cluster(homeClusterName).TenancyV1alpha1().ThisWorkspaces().UpdateStatus(ctx, this, metav1.UpdateOptions{})
+		this, err = h.kcpClusterClient.Cluster(homeClusterName.Path()).TenancyV1alpha1().ThisWorkspaces().UpdateStatus(ctx, this, metav1.UpdateOptions{})
 		if err != nil {
 			if kerrors.IsConflict(err) {
 				rw.Header().Set("Retry-After", fmt.Sprintf("%d", h.creationDelaySeconds))
@@ -359,8 +359,8 @@ func (h *homeWorkspaceHandler) legacyHomeLogicalClusterName(userName string) (lo
 	return result, userName
 }
 
-func isGetHomeWorkspaceRequest(clusterName logicalcluster.Path, requestInfo *request.RequestInfo) bool {
-	return clusterName == tenancyv1alpha1.RootCluster.Path() &&
+func isGetHomeWorkspaceRequest(clusterName logicalcluster.Name, requestInfo *request.RequestInfo) bool {
+	return clusterName == tenancyv1alpha1.RootCluster &&
 		requestInfo.IsResourceRequest &&
 		requestInfo.Verb == "get" &&
 		requestInfo.APIGroup == tenancyv1beta1.SchemeGroupVersion.Group &&

@@ -19,6 +19,7 @@ package internalapis
 import (
 	"embed"
 	"path"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -90,6 +91,6 @@ func TestImportInternalAPIs(t *testing.T) {
 		require.NoError(t, err)
 		actualContent, err := yaml.Marshal(schema)
 		require.NoError(t, err)
-		require.Empty(t, cmp.Diff(expectedContent, actualContent))
+		require.Empty(t, cmp.Diff(strings.Split(string(expectedContent), "\n"), strings.Split(string(actualContent), "\n")))
 	}
 }

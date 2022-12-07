@@ -118,7 +118,7 @@ func Run(ctx context.Context, options *synceroptions.Options) error {
 			UpstreamConfig:                upstreamConfig,
 			DownstreamConfig:              downstreamConfig,
 			ResourcesToSync:               sets.NewString(options.SyncedResourceTypes...),
-			SyncTargetWorkspace:           logicalcluster.New(options.FromClusterName),
+			SyncTargetClusterName:         logicalcluster.Name(options.FromClusterName),
 			SyncTargetName:                options.SyncTargetName,
 			SyncTargetUID:                 options.SyncTargetUID,
 			DNSImage:                      options.DNSImage,

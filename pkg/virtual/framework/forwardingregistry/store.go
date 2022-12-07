@@ -22,7 +22,6 @@ import (
 	"net/http"
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-	"github.com/kcp-dev/logicalcluster/v3"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
@@ -278,12 +277,12 @@ func clientGetter(dynamicClusterClient kcpdynamic.ClusterInterface, namespaceSco
 
 		if namespaceScoped {
 			if namespace, ok := genericapirequest.NamespaceFrom(ctx); ok {
-				return dynamicClusterClient.Cluster(clusterName).Resource(gvr).Namespace(namespace), nil
+				return dynamicClusterClient.Cluster(clusterName.Path()).Resource(gvr).Namespace(namespace), nil
 			} else {
 				return nil, apiErrorBadRequest(fmt.Errorf("there should be a Namespace context in a request for a namespaced resource: %s", gvr.String()))
 			}
 		} else {
-			return dynamicClusterClient.Cluster(clusterName).Resource(gvr), nil
+			return dynamicClusterClient.Cluster(clusterName.Path()).Resource(gvr), nil
 		}
 	}
 }
@@ -300,14 +299,13 @@ func listerWatcherGetter(dynamicClusterClient kcpdynamic.ClusterInterface, names
 			return nil, apiErrorBadRequest(err)
 		}
 		gvr := resource
-		clusterName := cluster.Name
 		if apiExportIdentityHash != "" {
 			gvr.Resource += ":" + apiExportIdentityHash
 		}
 		namespace, namespaceSet := genericapirequest.NamespaceFrom(ctx)
 
-		switch clusterName {
-		case logicalcluster.Wildcard:
+		switch {
+		case cluster.Wildcard:
 			if namespaceScoped && namespaceSet && namespace != metav1.NamespaceAll {
 				return nil, apiErrorBadRequest(fmt.Errorf("cross-cluster LIST and WATCH are required to be cross-namespace, not scoped to namespace %s", namespace))
 			}
@@ -317,9 +315,9 @@ func listerWatcherGetter(dynamicClusterClient kcpdynamic.ClusterInterface, names
 				if !namespaceSet {
 					return nil, apiErrorBadRequest(fmt.Errorf("there should be a Namespace context in a request for a namespaced resource: %s", gvr.String()))
 				}
-				return dynamicClusterClient.Cluster(clusterName).Resource(gvr).Namespace(namespace), nil
+				return dynamicClusterClient.Cluster(cluster.Name.Path()).Resource(gvr).Namespace(namespace), nil
 			}
-			return dynamicClusterClient.Cluster(clusterName).Resource(gvr), nil
+			return dynamicClusterClient.Cluster(cluster.Name.Path()).Resource(gvr), nil
 		}
 	}
 }

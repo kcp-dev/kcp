@@ -23,7 +23,7 @@ import (
 	rbacauthorizer "k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 )
 
-func NewSubjectLocator(cluster logicalcluster.Path, informers kcprbacinformers.ClusterInterface) rbacauthorizer.SubjectLocator {
+func NewSubjectLocator(cluster logicalcluster.Name, informers kcprbacinformers.ClusterInterface) rbacauthorizer.SubjectLocator {
 	return rbacauthorizer.NewSubjectAccessEvaluator(
 		&rbacauthorizer.RoleGetter{Lister: informers.Roles().Lister().Cluster(cluster)},
 		&rbacauthorizer.RoleBindingLister{Lister: informers.RoleBindings().Lister().Cluster(cluster)},
