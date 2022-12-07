@@ -29,21 +29,21 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	tenancyv1beta1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1beta1"
+	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 )
 
 const clusterWorkspaceDeletionMonitorControllerName = "kcp-kubequota-cluster-workspace-deletion-monitor"
 
-// clusterWorkspaceDeletionMonitor monitors ClusterWorkspaces and terminates QuotaAdmission for a logical cluster
+// clusterWorkspaceDeletionMonitor monitors ThisWorkspaces and terminates QuotaAdmission for a logical cluster
 // when its corresponding ClusterWorkspace is deleted.
 type clusterWorkspaceDeletionMonitor struct {
 	queue    workqueue.RateLimitingInterface
-	stopFunc func(name logicalcluster.Path)
+	stopFunc func(name logicalcluster.Name)
 }
 
 func newClusterWorkspaceDeletionMonitor(
-	workspaceInformer tenancyv1beta1informers.WorkspaceClusterInformer,
-	stopFunc func(logicalcluster.Path),
+	workspaceInformer tenancyv1alpha1informers.ThisWorkspaceClusterInformer,
+	stopFunc func(logicalcluster.Name),
 ) *clusterWorkspaceDeletionMonitor {
 	m := &clusterWorkspaceDeletionMonitor{
 		queue:    workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), clusterWorkspaceDeletionMonitorControllerName),
@@ -113,14 +113,11 @@ func (m *clusterWorkspaceDeletionMonitor) processNextWorkItem() bool {
 }
 
 func (m *clusterWorkspaceDeletionMonitor) process(key string) error {
-	parent, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+	clusterName, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(err)
 		return nil
 	}
-
-	// turn it into root:org:ws
-	clusterName := parent.Join(name)
 
 	m.stopFunc(clusterName)
 
