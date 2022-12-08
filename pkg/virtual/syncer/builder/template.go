@@ -107,7 +107,7 @@ func (t *template) resolveRootPath(urlPath string, requestContext context.Contex
 	if len(parts) < 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
 		return
 	}
-	path := logicalcluster.New(parts[0])
+	path := logicalcluster.NewPath(parts[0])
 	syncTargetName := parts[1]
 	syncTargetUID := parts[2]
 
@@ -145,7 +145,7 @@ func (t *template) resolveRootPath(urlPath string, requestContext context.Contex
 
 	withoutClustersPrefix := strings.TrimPrefix(realPath, "/clusters/")
 	parts = strings.SplitN(withoutClustersPrefix, "/", 2)
-	reqPath := logicalcluster.New(parts[0])
+	reqPath := logicalcluster.NewPath(parts[0])
 	realPath = "/"
 	if len(parts) > 1 {
 		realPath += parts[1]

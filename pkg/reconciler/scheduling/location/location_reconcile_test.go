@@ -125,7 +125,7 @@ func TestLocationStatusReconciler(t *testing.T) {
 		"with sync targets, across two regions": {
 			location: usEast1,
 			syncTargets: map[logicalcluster.Path][]*workloadv1alpha1.SyncTarget{
-				logicalcluster.New("root:org:negotiation-workspace"): {
+				logicalcluster.NewPath("root:org:negotiation-workspace"): {
 					withLabels(cluster("us-east1-1"), map[string]string{"region": "us-east1"}),
 					withLabels(withConditions(cluster("us-east1-2"), conditionsv1alpha1.Condition{Type: "Ready", Status: "False"}), map[string]string{"region": "us-east1"}),
 					withLabels(withConditions(cluster("us-east1-3"), conditionsv1alpha1.Condition{Type: "Ready", Status: "True"}), map[string]string{"region": "us-east1"}),
@@ -134,7 +134,7 @@ func TestLocationStatusReconciler(t *testing.T) {
 					withLabels(withConditions(cluster("us-west1-1"), conditionsv1alpha1.Condition{Type: "Ready", Status: "True"}), map[string]string{"region": "us-west1"}),
 					withLabels(withConditions(cluster("us-west1-2"), conditionsv1alpha1.Condition{Type: "Ready", Status: "True"}), map[string]string{"region": "us-west1"}),
 				},
-				logicalcluster.New("root:org:somewhere-else"): {
+				logicalcluster.NewPath("root:org:somewhere-else"): {
 					cluster("us-east1-1"),
 					cluster("us-east1-2"),
 				},

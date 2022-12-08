@@ -1277,7 +1277,7 @@ func TestResourceTransformer(t *testing.T) {
 			transformingClient := WithResourceTransformer(clusterClient, rt)
 			ctx := context.Background()
 
-			result, err := test.action(ctx, transformingClient, logicalcluster.New(test.lcluster), test.gvr)
+			result, err := test.action(ctx, transformingClient, logicalcluster.NewPath(test.lcluster), test.gvr)
 
 			if test.expectedError != "" {
 				require.EqualError(t, err, test.expectedError, "error is wrong")

@@ -290,7 +290,7 @@ func getSyncerID(syncTarget *workloadv1alpha1.SyncTarget) string {
 func (o *SyncOptions) applySyncTarget(ctx context.Context, kcpClient kcpclient.Interface, syncTargetName string) (*workloadv1alpha1.SyncTarget, error) {
 	var supportedAPIExports []tenancyv1alpha1.APIExportReference
 	for _, export := range o.APIExports {
-		lclusterName, name := logicalcluster.New(export).Split()
+		lclusterName, name := logicalcluster.NewPath(export).Split()
 		supportedAPIExports = append(supportedAPIExports, tenancyv1alpha1.APIExportReference{
 			Export: name,
 			Path:   lclusterName.String(),

@@ -73,7 +73,7 @@ func NewForConfigAndClient(c *rest.Config, h *http.Client) (*WildwestV1alpha1Clu
 	cache := kcpclient.NewCache(c, h, &kcpclient.Constructor[*wildwestv1alpha1.WildwestV1alpha1Client]{
 		NewForConfigAndClient: wildwestv1alpha1.NewForConfigAndClient,
 	})
-	if _, err := cache.Cluster(logicalcluster.New("root")); err != nil {
+	if _, err := cache.Cluster(logicalcluster.NewPath("root")); err != nil {
 		return nil, err
 	}
 	return &WildwestV1alpha1ClusterClient{clientCache: cache}, nil

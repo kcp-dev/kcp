@@ -892,8 +892,8 @@ func TestSyncerResourceTransformer(t *testing.T) {
 
 			transformingClient := transforming.WithResourceTransformer(clusterClient, rt)
 			ctx := syncercontext.WithSyncTargetKey(context.Background(), test.synctargetKey)
-			ctx = dynamiccontext.WithAPIDomainKey(ctx, dynamiccontext.APIDomainKey(client.ToClusterAwareKey(logicalcluster.New("root:negotiation"), "SyncTargetName")))
-			result, err := test.action(ctx, transformingClient.Cluster(logicalcluster.New("")).Resource(test.gvr))
+			ctx = dynamiccontext.WithAPIDomainKey(ctx, dynamiccontext.APIDomainKey(client.ToClusterAwareKey(logicalcluster.NewPath("root:negotiation"), "SyncTargetName")))
+			result, err := test.action(ctx, transformingClient.Cluster(logicalcluster.NewPath("")).Resource(test.gvr))
 
 			if test.expectedError != "" {
 				require.EqualError(t, err, test.expectedError, "error is wrong")

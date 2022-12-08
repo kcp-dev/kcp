@@ -189,7 +189,7 @@ func TestCreate(t *testing.T) {
 
 			cluster := tt.config.Clusters[tt.config.Contexts[tt.config.CurrentContext].Cluster]
 			u := parseURLOrDie(cluster.Server)
-			currentClusterName := logicalcluster.New(strings.TrimPrefix(u.Path, "/clusters/"))
+			currentClusterName := logicalcluster.NewPath(strings.TrimPrefix(u.Path, "/clusters/"))
 			u.Path = ""
 
 			objects := []runtime.Object{}
@@ -267,7 +267,7 @@ func TestCreate(t *testing.T) {
 }
 
 func TestUse(t *testing.T) {
-	homeWorkspaceLogicalCluster := logicalcluster.New("root:users:ab:cd:user-name")
+	homeWorkspaceLogicalCluster := logicalcluster.NewPath("root:users:ab:cd:user-name")
 	tests := []struct {
 		name   string
 		config clientcmdapi.Config
@@ -385,7 +385,7 @@ func TestUse(t *testing.T) {
 				logicalcluster.Name("root:foo"): {"bar"},
 			},
 			discovery: map[logicalcluster.Path][]*metav1.APIResourceList{
-				logicalcluster.New("root:foo:bar"): {&metav1.APIResourceList{
+				logicalcluster.NewPath("root:foo:bar"): {&metav1.APIResourceList{
 					GroupVersion: "tenancy.kcp.dev/v1alpha1",
 					APIResources: []metav1.APIResource{{Name: "workspaces"}},
 				}},
@@ -412,9 +412,9 @@ func TestUse(t *testing.T) {
 				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo"}},
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
-			getWorkspaceErrors: map[logicalcluster.Path]error{logicalcluster.New("root:foo"): errors.NewForbidden(schema.GroupResource{}, "bar", fmt.Errorf("not allowed"))},
+			getWorkspaceErrors: map[logicalcluster.Path]error{logicalcluster.NewPath("root:foo"): errors.NewForbidden(schema.GroupResource{}, "bar", fmt.Errorf("not allowed"))},
 			discovery: map[logicalcluster.Path][]*metav1.APIResourceList{
-				logicalcluster.New("root:foo:bar"): {&metav1.APIResourceList{
+				logicalcluster.NewPath("root:foo:bar"): {&metav1.APIResourceList{
 					GroupVersion: "tenancy.kcp.dev/v1alpha1",
 					APIResources: []metav1.APIResource{{Name: "workspaces"}},
 				}},
@@ -441,9 +441,9 @@ func TestUse(t *testing.T) {
 				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo"}},
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
-			getWorkspaceErrors: map[logicalcluster.Path]error{logicalcluster.New("root:foo"): errors.NewNotFound(schema.GroupResource{}, "bar")},
+			getWorkspaceErrors: map[logicalcluster.Path]error{logicalcluster.NewPath("root:foo"): errors.NewNotFound(schema.GroupResource{}, "bar")},
 			discoveryErrors: map[logicalcluster.Path]error{
-				logicalcluster.New("root:foo:foe"): errors.NewForbidden(schema.GroupResource{}, "", fmt.Errorf("forbidden")),
+				logicalcluster.NewPath("root:foo:foe"): errors.NewForbidden(schema.GroupResource{}, "", fmt.Errorf("forbidden")),
 			},
 			param:      "root:foo:foe",
 			wantErr:    true,
@@ -456,9 +456,9 @@ func TestUse(t *testing.T) {
 				Clusters:  map[string]*clientcmdapi.Cluster{"workspace.kcp.dev/current": {Server: "https://test/clusters/root:foo"}},
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
-			getWorkspaceErrors: map[logicalcluster.Path]error{logicalcluster.New("root:foo"): errors.NewForbidden(schema.GroupResource{}, "bar", fmt.Errorf("not allowed"))},
+			getWorkspaceErrors: map[logicalcluster.Path]error{logicalcluster.NewPath("root:foo"): errors.NewForbidden(schema.GroupResource{}, "bar", fmt.Errorf("not allowed"))},
 			discoveryErrors: map[logicalcluster.Path]error{
-				logicalcluster.New("root:foo:foe"): errors.NewForbidden(schema.GroupResource{}, "", fmt.Errorf("forbidden")),
+				logicalcluster.NewPath("root:foo:foe"): errors.NewForbidden(schema.GroupResource{}, "", fmt.Errorf("forbidden")),
 			},
 			param:      "root:foo:foe",
 			wantErr:    true,

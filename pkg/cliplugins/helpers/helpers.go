@@ -32,7 +32,7 @@ func ParseClusterURL(host string) (*url.URL, logicalcluster.Path, error) {
 	ret := *u
 	prefix := "/clusters/"
 	if clusterIndex := strings.Index(u.Path, prefix); clusterIndex >= 0 {
-		clusterName := logicalcluster.New(strings.SplitN(ret.Path[clusterIndex+len(prefix):], "/", 2)[0])
+		clusterName := logicalcluster.NewPath(strings.SplitN(ret.Path[clusterIndex+len(prefix):], "/", 2)[0])
 		if !clusterName.IsValid() {
 			return nil, logicalcluster.Path{}, fmt.Errorf("invalid cluster name: %q", clusterName)
 		}

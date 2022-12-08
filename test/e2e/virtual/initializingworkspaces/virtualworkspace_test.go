@@ -80,7 +80,7 @@ func TestInitializingWorkspacesVirtualWorkspaceDiscovery(t *testing.T) {
 				SingularName:       "thisworkspace",
 				Categories:         []string{"kcp"},
 				Verbs:              metav1.Verbs{"get", "list", "watch"},
-				StorageVersionHash: discovery.StorageVersionHash(logicalcluster.New(""), "tenancy.kcp.dev", "v1alpha1", "ThisWorkspace"),
+				StorageVersionHash: discovery.StorageVersionHash(logicalcluster.NewPath(""), "tenancy.kcp.dev", "v1alpha1", "ThisWorkspace"),
 			},
 			{
 				Kind: "ThisWorkspace",

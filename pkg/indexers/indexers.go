@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -83,7 +83,7 @@ func IndexByLogicalClusterPath(obj interface{}) ([]string, error) {
 		return []string{}, fmt.Errorf("obj is supposed to be a metav1.Object, but is %T", obj)
 	}
 	if path, found := metaObj.GetAnnotations()[tenancy.LogicalClusterPathAnnotationKey]; found {
-		return []string{logicalcluster.New(path).Join(metaObj.GetName()).String(), logicalcluster.From(metaObj).String()}, nil
+		return []string{logicalcluster.NewPath(path).Join(metaObj.GetName()).String(), logicalcluster.From(metaObj).String()}, nil
 	}
 
 	return []string{logicalcluster.From(metaObj).String()}, nil

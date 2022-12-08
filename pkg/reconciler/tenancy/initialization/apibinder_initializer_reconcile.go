@@ -45,7 +45,7 @@ func (b *APIBinder) reconcile(ctx context.Context, this *tenancyv1alpha1.ThisWor
 	if !found {
 		return nil
 	}
-	cwtCluster, cwtName := logicalcluster.New(annotationValue).Split()
+	cwtCluster, cwtName := logicalcluster.NewPath(annotationValue).Split()
 	if cwtCluster.Empty() {
 		return nil
 	}
@@ -123,7 +123,7 @@ func (b *APIBinder) reconcile(ctx context.Context, this *tenancyv1alpha1.ThisWor
 		for i := range cwt.Spec.DefaultAPIBindings {
 			exportRef := cwt.Spec.DefaultAPIBindings[i]
 
-			apiExport, err := b.getAPIExport(logicalcluster.New(exportRef.Path), exportRef.Export)
+			apiExport, err := b.getAPIExport(logicalcluster.NewPath(exportRef.Path), exportRef.Export)
 			if err != nil {
 				if !someExportsMissing {
 					errors = append(errors, fmt.Errorf("unable to complete initialization: unable to find at least 1 APIExport"))

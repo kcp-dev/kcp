@@ -77,7 +77,7 @@ func (e *HomeWorkspaces) Validate() []error {
 		if e.CreationDelaySeconds < 1 {
 			errs = append(errs, fmt.Errorf("--home-workspaces-creation-delay-seconds should be between 1"))
 		}
-		if homePrefix := logicalcluster.New(e.HomeRootPrefix); !homePrefix.IsValid() ||
+		if homePrefix := logicalcluster.NewPath(e.HomeRootPrefix); !homePrefix.IsValid() ||
 			homePrefix == logicalcluster.Wildcard ||
 			!homePrefix.HasPrefix(tenancyv1alpha1.RootCluster.Path()) {
 			errs = append(errs, fmt.Errorf("--home-workspaces-root-prefix should be a valid logical cluster name"))

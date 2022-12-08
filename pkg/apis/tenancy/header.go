@@ -41,7 +41,7 @@ func CanonicalPathFromHeader(headers http.Header) (logicalcluster.Path, bool) {
 	if values, ok := headers[XKcpCanonicalPathHeader]; !ok {
 		return logicalcluster.Path{}, false
 	} else {
-		return logicalcluster.New(values[0]), true
+		return logicalcluster.NewPath(values[0]), true
 	}
 }
 

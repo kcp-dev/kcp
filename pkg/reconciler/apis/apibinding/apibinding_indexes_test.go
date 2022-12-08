@@ -61,7 +61,7 @@ func TestIndexAPIBindingByWorkspaceExport(t *testing.T) {
 					},
 				},
 			},
-			want:    []string{client.ToClusterAwareKey(logicalcluster.New("root:workspace1"), "export1")},
+			want:    []string{client.ToClusterAwareKey(logicalcluster.NewPath("root:workspace1"), "export1")},
 			wantErr: false,
 		},
 	}
@@ -104,8 +104,8 @@ func TestIndexAPIExportByAPIResourceSchemas(t *testing.T) {
 				},
 			},
 			want: []string{
-				client.ToClusterAwareKey(logicalcluster.New("root:default"), "schema1"),
-				client.ToClusterAwareKey(logicalcluster.New("root:default"), "some-other-schema"),
+				client.ToClusterAwareKey(logicalcluster.NewPath("root:default"), "schema1"),
+				client.ToClusterAwareKey(logicalcluster.NewPath("root:default"), "some-other-schema"),
 			},
 			wantErr: false,
 		},

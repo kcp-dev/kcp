@@ -351,7 +351,7 @@ func digestUrl(urlPath, rootPathPrefix string) (
 
 	withoutClustersPrefix := strings.TrimPrefix(realPath, "/clusters/")
 	parts = strings.SplitN(withoutClustersPrefix, "/", 2)
-	path := logicalcluster.New(parts[0])
+	path := logicalcluster.NewPath(parts[0])
 	realPath = "/"
 	if len(parts) > 1 {
 		realPath += parts[1]

@@ -83,7 +83,7 @@ func (b *BindOptions) Validate() error {
 		return errors.New("`root:ws:apiexport_object` reference to bind is required as an argument")
 	}
 
-	if !strings.HasPrefix(b.APIExportRef, "root") || !logicalcluster.New(b.APIExportRef).IsValid() {
+	if !strings.HasPrefix(b.APIExportRef, "root") || !logicalcluster.NewPath(b.APIExportRef).IsValid() {
 		return fmt.Errorf("fully qualified reference to workspace where APIExport exists is required. The format is `root:<ws>:<apiexport>`")
 	}
 
@@ -97,7 +97,7 @@ func (b *BindOptions) Run(ctx context.Context) error {
 		return err
 	}
 
-	workspacePath, apiExportName := logicalcluster.New(b.APIExportRef).Split()
+	workspacePath, apiExportName := logicalcluster.NewPath(b.APIExportRef).Split()
 
 	// if apibindingName is not provided, default it to <apiExportname>.
 	apiBindingName := b.APIBindingName

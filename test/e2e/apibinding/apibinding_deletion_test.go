@@ -242,7 +242,7 @@ func TestAPIBindingDeletion(t *testing.T) {
 	crdName := apiBindingCopy.Status.BoundResources[0].Schema.UID
 	t.Logf("shadow CRD %s should be deleted", crdName)
 	require.Eventually(t, func() bool {
-		_, err := crdClusterClient.Cluster(logicalcluster.New("system:bound-crds")).ApiextensionsV1().CustomResourceDefinitions().Get(ctx, crdName, metav1.GetOptions{})
+		_, err := crdClusterClient.Cluster(logicalcluster.NewPath("system:bound-crds")).ApiextensionsV1().CustomResourceDefinitions().Get(ctx, crdName, metav1.GetOptions{})
 		return apierrors.IsNotFound(err)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 }

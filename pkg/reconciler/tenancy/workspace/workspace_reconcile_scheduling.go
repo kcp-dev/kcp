@@ -241,7 +241,7 @@ func (r *schedulingReconciler) createThisWorkspace(ctx context.Context, shard *t
 			Finalizers: []string{deletion.WorkspaceFinalizer},
 			Annotations: map[string]string{
 				tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey: workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey],
-				tenancyv1alpha1.ThisWorkspaceTypeAnnotationKey:          logicalcluster.New(workspace.Spec.Type.Path).Join(string(workspace.Spec.Type.Name)).String(),
+				tenancyv1alpha1.ThisWorkspaceTypeAnnotationKey:          logicalcluster.NewPath(workspace.Spec.Type.Path).Join(string(workspace.Spec.Type.Name)).String(),
 			},
 		},
 		Spec: tenancyv1alpha1.ThisWorkspaceSpec{
@@ -262,7 +262,7 @@ func (r *schedulingReconciler) createThisWorkspace(ctx context.Context, shard *t
 	}
 
 	// add initializers
-	cwt, err := r.getClusterWorkspaceType(logicalcluster.New(workspace.Spec.Type.Path), string(workspace.Spec.Type.Name))
+	cwt, err := r.getClusterWorkspaceType(logicalcluster.NewPath(workspace.Spec.Type.Path), string(workspace.Spec.Type.Name))
 	if err != nil {
 		return err
 	}
@@ -360,5 +360,5 @@ func randomClusterName() logicalcluster.Path {
 	rand.Read(token)
 	hash := sha256.Sum224(token)
 	base36hash := strings.ToLower(base36.EncodeBytes(hash[:]))
-	return logicalcluster.New(base36hash[:8])
+	return logicalcluster.NewPath(base36hash[:8])
 }

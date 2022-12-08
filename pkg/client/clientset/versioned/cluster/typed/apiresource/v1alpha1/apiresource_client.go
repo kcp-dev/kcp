@@ -78,7 +78,7 @@ func NewForConfigAndClient(c *rest.Config, h *http.Client) (*ApiresourceV1alpha1
 	cache := kcpclient.NewCache(c, h, &kcpclient.Constructor[*apiresourcev1alpha1.ApiresourceV1alpha1Client]{
 		NewForConfigAndClient: apiresourcev1alpha1.NewForConfigAndClient,
 	})
-	if _, err := cache.Cluster(logicalcluster.New("root")); err != nil {
+	if _, err := cache.Cluster(logicalcluster.NewPath("root")); err != nil {
 		return nil, err
 	}
 	return &ApiresourceV1alpha1ClusterClient{clientCache: cache}, nil

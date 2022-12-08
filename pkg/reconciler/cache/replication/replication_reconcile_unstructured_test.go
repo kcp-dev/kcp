@@ -473,7 +473,7 @@ func TestHandleUnstructuredObjectDeletion(t *testing.T) {
 			}()...)
 			target.dynamicCacheClient = fakeDynamicClient
 
-			err = target.handleObjectDeletion(context.TODO(), logicalcluster.New("root"), &gvr, unstructuredCacheObject)
+			err = target.handleObjectDeletion(context.TODO(), logicalcluster.NewPath("root"), &gvr, unstructuredCacheObject)
 			if err != nil {
 				tt.Fatal(err)
 			}

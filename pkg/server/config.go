@@ -351,7 +351,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 				c.KcpSharedInformerFactory,
 				c.GenericConfig.ExternalAddress,
 				opts.HomeWorkspaces.CreationDelaySeconds,
-				logicalcluster.New(opts.HomeWorkspaces.HomeRootPrefix),
+				logicalcluster.NewPath(opts.HomeWorkspaces.HomeRootPrefix),
 				opts.HomeWorkspaces.BucketLevels,
 				opts.HomeWorkspaces.BucketSize,
 			)

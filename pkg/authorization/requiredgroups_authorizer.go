@@ -71,7 +71,7 @@ func (a *requiredGroupsAuthorizer) Authorize(ctx context.Context, attr authorize
 
 	subjectClusters := map[logicalcluster.Path]bool{}
 	for _, sc := range attr.GetUser().GetExtra()[authserviceaccount.ClusterNameKey] {
-		subjectClusters[logicalcluster.New(sc)] = true
+		subjectClusters[logicalcluster.NewPath(sc)] = true
 	}
 
 	isUser := len(subjectClusters) == 0

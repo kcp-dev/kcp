@@ -89,7 +89,7 @@ func TestSyncerNamespaceProcess(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			downstreamNamespace := namespace(logicalcluster.New(""), "kcp-hcbsa8z6c2er", map[string]string{
+			downstreamNamespace := namespace(logicalcluster.NewPath(""), "kcp-hcbsa8z6c2er", map[string]string{
 				"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
 			}, map[string]string{
 				"kcp.dev/namespace-locator": `{"syncTarget":{"workspace":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
@@ -139,7 +139,7 @@ func TestSyncerNamespaceProcess(t *testing.T) {
 			if tc.eventOrigin == "downstream" {
 				key = downstreamNamespace.GetName()
 			} else if tc.eventOrigin == "upstream" {
-				key = client.ToClusterAwareKey(logicalcluster.New("root:org:ws"), "test")
+				key = client.ToClusterAwareKey(logicalcluster.NewPath("root:org:ws"), "test")
 			} else {
 				t.Fatalf("unexpected event origin: %s", tc.eventOrigin)
 			}

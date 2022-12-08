@@ -67,7 +67,7 @@ func NewController(
 			return clusterWorkspaceShardLister.List(labels.Everything())
 		},
 		resolveClusterWorkspaceType: func(reference tenancyv1alpha1.ClusterWorkspaceTypeReference) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
-			path := logicalcluster.New(reference.Path)
+			path := logicalcluster.NewPath(reference.Path)
 			name := string(reference.Name)
 			objs, err := clusterWorkspaceTypeInformer.Informer().GetIndexer().ByIndex(indexers.ByLogicalClusterPath, path.Join(name).String())
 			if err != nil {

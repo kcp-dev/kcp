@@ -88,7 +88,7 @@ func NewForConfigAndClient(c *rest.Config, h *http.Client) (*ApisV1alpha1Cluster
 	cache := kcpclient.NewCache(c, h, &kcpclient.Constructor[*apisv1alpha1.ApisV1alpha1Client]{
 		NewForConfigAndClient: apisv1alpha1.NewForConfigAndClient,
 	})
-	if _, err := cache.Cluster(logicalcluster.New("root")); err != nil {
+	if _, err := cache.Cluster(logicalcluster.NewPath("root")); err != nil {
 		return nil, err
 	}
 	return &ApisV1alpha1ClusterClient{clientCache: cache}, nil

@@ -102,7 +102,7 @@ func (o *BindComputeOptions) Complete(args []string) error {
 	if len(args) != 1 {
 		return fmt.Errorf("a location workspace should be specified")
 	}
-	clusterName, validated := logicalcluster.NewValidated(args[0])
+	clusterName, validated := logicalcluster.NewValidatedPath(args[0])
 	if !validated {
 		return fmt.Errorf("location workspace type is incorrect")
 	}
@@ -241,7 +241,7 @@ func (o *BindComputeOptions) applyAPIBinding(ctx context.Context, client kcpclie
 	diff := desiredAPIExports.Difference(existingAPIExports)
 	var bindings []*apisv1alpha1.APIBinding
 	for export := range diff {
-		clusterName, name := logicalcluster.New(export).Split()
+		clusterName, name := logicalcluster.NewPath(export).Split()
 		apiBinding := &apisv1alpha1.APIBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: apiBindingName(clusterName, name),

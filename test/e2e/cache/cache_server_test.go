@@ -383,7 +383,7 @@ func TestCacheServerAllScenarios(t *testing.T) {
 		scenario := scenario
 		t.Run(scenario.name, func(t *testing.T) {
 			t.Parallel()
-			scenario.work(ctx, t, cacheClientRT, logicalcluster.New("acme"), schema.GroupVersionResource{Group: "apis.kcp.dev", Version: "v1alpha1", Resource: "apiexports"})
+			scenario.work(ctx, t, cacheClientRT, logicalcluster.NewPath("acme"), schema.GroupVersionResource{Group: "apis.kcp.dev", Version: "v1alpha1", Resource: "apiexports"})
 		})
 	}
 }

@@ -710,7 +710,7 @@ func setNestedField(value interface{}, fields ...string) unstructuredChange {
 func deploymentAction(verb, namespace string, subresources ...string) kcptesting.ActionImpl {
 	return kcptesting.ActionImpl{
 		Namespace:   namespace,
-		Cluster:     logicalcluster.New("root:org:ws"),
+		Cluster:     logicalcluster.NewPath("root:org:ws"),
 		Verb:        verb,
 		Resource:    schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 		Subresource: strings.Join(subresources, "/"),

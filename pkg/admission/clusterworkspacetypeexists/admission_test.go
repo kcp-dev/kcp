@@ -110,6 +110,9 @@ func TestAdmit(t *testing.T) {
 		},
 		{
 			name: "adds additional workspace labels if missing",
+			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
+				newThisWorkspace("root:org:ws").withType("root:org", "parent").ThisWorkspace,
+			},
 			types: []*tenancyv1alpha1.ClusterWorkspaceType{
 				newType("root:org:foo").withAdditionalLabel(map[string]string{
 					"new-label":      "default",
@@ -153,7 +156,6 @@ func TestAdmit(t *testing.T) {
 				transitiveTypeResolver: NewTransitiveTypeResolver(typeLister.GetByPath),
 			}
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: tt.clusterName})
-			ctx = tenancy.WithCanonicalPath(ctx, tt.clusterName.Path())
 			if err := o.Admit(ctx, tt.a, nil); (err != nil) != tt.wantErr {
 				t.Fatalf("Admit() error = %v, wantErr %v", err, tt.wantErr)
 			} else if err == nil {
@@ -404,7 +406,6 @@ func TestValidate(t *testing.T) {
 				transitiveTypeResolver: NewTransitiveTypeResolver(typeLister.GetByPath),
 			}
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: tt.clusterName})
-			ctx = tenancy.WithCanonicalPath(ctx, tt.clusterName.Path())
 			if err := o.Validate(ctx, tt.attr, nil); (err != nil) != tt.wantErr {
 				t.Fatalf("Validate() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -618,8 +619,8 @@ func TestValidateAllowedParents(t *testing.T) {
 		},
 		{
 			name:       "no parents",
-			childType:  logicalcluster.New("root:a"),
-			parentType: logicalcluster.New("root:c"),
+			childType:  logicalcluster.NewPath("root:a"),
+			parentType: logicalcluster.NewPath("root:c"),
 			childAliases: []*tenancyv1alpha1.ClusterWorkspaceType{
 				newType("root:a").allowingParent("root:b").ClusterWorkspaceType,
 			},
@@ -627,16 +628,16 @@ func TestValidateAllowedParents(t *testing.T) {
 		},
 		{
 			name:       "no parents, any allowed parent",
-			childType:  logicalcluster.New("root:a"),
-			parentType: logicalcluster.New("root:b"),
+			childType:  logicalcluster.NewPath("root:a"),
+			parentType: logicalcluster.NewPath("root:b"),
 			childAliases: []*tenancyv1alpha1.ClusterWorkspaceType{
 				newType("root:a").ClusterWorkspaceType,
 			},
 		},
 		{
 			name:       "all parents allowed",
-			childType:  logicalcluster.New("root:a"),
-			parentType: logicalcluster.New("root:a"),
+			childType:  logicalcluster.NewPath("root:a"),
+			parentType: logicalcluster.NewPath("root:a"),
 			parentAliases: []*tenancyv1alpha1.ClusterWorkspaceType{
 				newType("root:a").ClusterWorkspaceType,
 				newType("root:b").ClusterWorkspaceType,
@@ -650,8 +651,8 @@ func TestValidateAllowedParents(t *testing.T) {
 		},
 		{
 			name:       "missing parent alias",
-			childType:  logicalcluster.New("root:a"),
-			parentType: logicalcluster.New("root:a"),
+			childType:  logicalcluster.NewPath("root:a"),
+			parentType: logicalcluster.NewPath("root:a"),
 			parentAliases: []*tenancyv1alpha1.ClusterWorkspaceType{
 				newType("root:a").ClusterWorkspaceType,
 			},
@@ -705,8 +706,8 @@ func TestValidateAllowedChildren(t *testing.T) {
 	}{
 		{
 			name:       "some type disallows children",
-			childType:  logicalcluster.New("root:a"),
-			parentType: logicalcluster.New("root:a"),
+			childType:  logicalcluster.NewPath("root:a"),
+			parentType: logicalcluster.NewPath("root:a"),
 			parentAliases: []*tenancyv1alpha1.ClusterWorkspaceType{
 				newType("root:a").ClusterWorkspaceType,
 				newType("root:b").disallowingChildren().ClusterWorkspaceType,
@@ -735,7 +736,7 @@ type builder struct {
 }
 
 func newType(qualifiedName string) builder {
-	path, name := logicalcluster.New(qualifiedName).Split()
+	path, name := logicalcluster.NewPath(qualifiedName).Split()
 	return builder{ClusterWorkspaceType: &tenancyv1alpha1.ClusterWorkspaceType{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -748,13 +749,13 @@ func newType(qualifiedName string) builder {
 }
 
 func (b builder) extending(qualifiedName string) builder {
-	path, name := logicalcluster.New(qualifiedName).Split()
+	path, name := logicalcluster.NewPath(qualifiedName).Split()
 	b.Spec.Extend.With = append(b.Spec.Extend.With, tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: path.String(), Name: tenancyv1alpha1.ClusterWorkspaceTypeName(name)})
 	return b
 }
 
 func (b builder) allowingParent(qualifiedName string) builder {
-	path, name := logicalcluster.New(qualifiedName).Split()
+	path, name := logicalcluster.NewPath(qualifiedName).Split()
 	if b.Spec.LimitAllowedParents == nil {
 		b.Spec.LimitAllowedParents = &tenancyv1alpha1.ClusterWorkspaceTypeSelector{}
 	}
@@ -763,7 +764,7 @@ func (b builder) allowingParent(qualifiedName string) builder {
 }
 
 func (b builder) allowingChild(qualifiedName string) builder {
-	path, name := logicalcluster.New(qualifiedName).Split()
+	path, name := logicalcluster.NewPath(qualifiedName).Split()
 	if b.Spec.LimitAllowedChildren == nil {
 		b.Spec.LimitAllowedChildren = &tenancyv1alpha1.ClusterWorkspaceTypeSelector{}
 	}
@@ -772,7 +773,7 @@ func (b builder) allowingChild(qualifiedName string) builder {
 }
 
 func (b builder) withDefault(qualifiedName string) builder {
-	path, name := logicalcluster.New(qualifiedName).Split()
+	path, name := logicalcluster.NewPath(qualifiedName).Split()
 	b.Spec.DefaultChildWorkspaceType = &tenancyv1alpha1.ClusterWorkspaceTypeReference{
 		Path: path.String(),
 		Name: tenancyv1alpha1.ClusterWorkspaceTypeName(name),
@@ -812,7 +813,7 @@ type wsBuilder struct {
 }
 
 func newWorkspace(qualifiedName string) wsBuilder {
-	path, name := logicalcluster.New(qualifiedName).Split()
+	path, name := logicalcluster.NewPath(qualifiedName).Split()
 	return wsBuilder{Workspace: &tenancyv1beta1.Workspace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -824,7 +825,7 @@ func newWorkspace(qualifiedName string) wsBuilder {
 }
 
 func (b wsBuilder) withType(qualifiedName string) wsBuilder {
-	path, name := logicalcluster.New(qualifiedName).Split()
+	path, name := logicalcluster.NewPath(qualifiedName).Split()
 	b.Spec.Type = tenancyv1beta1.WorkspaceTypeReference{
 		Path: path.String(),
 		Name: tenancyv1alpha1.ClusterWorkspaceTypeName(name),

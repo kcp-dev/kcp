@@ -100,7 +100,7 @@ func (r *placementSchedulingReconciler) getAllValidSyncTargetsForPlacement(ctx c
 		return nil, schedulingv1alpha1.ScheduleLocationNotFound, "No selected location is scheduled", nil
 	}
 
-	locationWorkspace := logicalcluster.New(placement.Status.SelectedLocation.Path)
+	locationWorkspace := logicalcluster.NewPath(placement.Status.SelectedLocation.Path)
 	location, err := r.getLocation(
 		locationWorkspace,
 		placement.Status.SelectedLocation.LocationName)

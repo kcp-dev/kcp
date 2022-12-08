@@ -140,7 +140,7 @@ func ClusterPathFromAndStrip(req *http.Request) (logicalcluster.Path, *url.URL, 
 			reqPath = reqPath + "/"
 			i = len(reqPath) - 1
 		}
-		path, reqPath := logicalcluster.New(reqPath[:i]), reqPath[i:]
+		path, reqPath := logicalcluster.NewPath(reqPath[:i]), reqPath[i:]
 		req.URL.Path = reqPath
 		newURL, err := url.Parse(req.URL.String())
 		if err != nil {

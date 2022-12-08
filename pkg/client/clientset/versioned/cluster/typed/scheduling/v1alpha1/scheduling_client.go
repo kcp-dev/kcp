@@ -78,7 +78,7 @@ func NewForConfigAndClient(c *rest.Config, h *http.Client) (*SchedulingV1alpha1C
 	cache := kcpclient.NewCache(c, h, &kcpclient.Constructor[*schedulingv1alpha1.SchedulingV1alpha1Client]{
 		NewForConfigAndClient: schedulingv1alpha1.NewForConfigAndClient,
 	})
-	if _, err := cache.Cluster(logicalcluster.New("root")); err != nil {
+	if _, err := cache.Cluster(logicalcluster.NewPath("root")); err != nil {
 		return nil, err
 	}
 	return &SchedulingV1alpha1ClusterClient{clientCache: cache}, nil

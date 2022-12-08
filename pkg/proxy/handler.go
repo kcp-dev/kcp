@@ -49,7 +49,7 @@ func shardHandler(index index.Index, proxy http.Handler) http.HandlerFunc {
 			return
 		}
 
-		clusterName := logicalcluster.New(cs[1])
+		clusterName := logicalcluster.NewPath(cs[1])
 		if !clusterName.IsValid() {
 			// this includes wildcards
 			logger.WithValues("path", req.URL.Path).V(4).Info("Invalid cluster name")

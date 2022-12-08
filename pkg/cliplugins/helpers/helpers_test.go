@@ -62,7 +62,7 @@ func TestParseClusterURL(t *testing.T) {
 			if gotURLStr != tt.url {
 				t.Errorf("url, _ := parseClusterURL(%q) got = %v, want %v", tt.host, gotURL, tt.url)
 			}
-			if gotCluster != logicalcluster.New(tt.cluster) {
+			if gotCluster != logicalcluster.NewPath(tt.cluster) {
 				t.Errorf("_, cluster := parseClusterURL(%q) got = %v, want %v", tt.host, gotCluster, tt.cluster)
 			}
 		})

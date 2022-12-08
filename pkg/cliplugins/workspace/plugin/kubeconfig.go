@@ -224,7 +224,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 		return currentWorkspace(o.Out, cfg.Host, shortWorkspaceOutput(o.ShortWorkspaceOutput), nil)
 
 	default:
-		cluster := logicalcluster.New(o.Name)
+		cluster := logicalcluster.NewPath(o.Name)
 		if !cluster.IsValid() {
 			return fmt.Errorf("invalid workspace name format: %s", o.Name)
 		}
@@ -237,7 +237,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 			return fmt.Errorf("current URL %q does not point to cluster workspace", config.Host)
 		}
 
-		if strings.Contains(o.Name, ":") && cluster.HasPrefix(logicalcluster.New("system")) {
+		if strings.Contains(o.Name, ":") && cluster.HasPrefix(logicalcluster.NewPath("system")) {
 			// e.g. system:something
 			u.Path = path.Join(u.Path, cluster.RequestPath())
 			newServerHost = u.String()
@@ -246,7 +246,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 
 			// first try to get Workspace from parent to potentially get a 404. A 403 in the parent though is
 			// not a blocker to enter the workspace. We will do discovery as a final check below
-			parentClusterName, workspaceName := logicalcluster.New(o.Name).Split()
+			parentClusterName, workspaceName := logicalcluster.NewPath(o.Name).Split()
 			if _, err := o.kcpClusterClient.Cluster(parentClusterName).TenancyV1beta1().Workspaces().Get(ctx, workspaceName, metav1.GetOptions{}); apierrors.IsNotFound(err) {
 				return fmt.Errorf("workspace %q not found", o.Name)
 			}
@@ -430,7 +430,7 @@ func currentWorkspace(out io.Writer, host string, shortWorkspaceOutput shortWork
 
 	message := fmt.Sprintf("Current workspace is %q", clusterName)
 	if workspaceType != nil {
-		message += fmt.Sprintf(" (type %s)", logicalcluster.New(workspaceType.Path).Join(string(workspaceType.Name)).String())
+		message += fmt.Sprintf(" (type %s)", logicalcluster.NewPath(workspaceType.Path).Join(string(workspaceType.Name)).String())
 	}
 	_, err = fmt.Fprintln(out, message+".")
 	return err
@@ -509,7 +509,7 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 		return fmt.Errorf("current URL %q does not point to cluster workspace", config.Host)
 	}
 
-	if o.IgnoreExisting && o.Type != "" && !logicalcluster.New(o.Type).HasPrefix(tenancyv1alpha1.RootCluster.Path()) {
+	if o.IgnoreExisting && o.Type != "" && !logicalcluster.NewPath(o.Type).HasPrefix(tenancyv1alpha1.RootCluster.Path()) {
 		return fmt.Errorf("--ignore-existing must not be used with non-absolute type path")
 	}
 
@@ -557,8 +557,8 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 	workspaceReference := fmt.Sprintf("Workspace %q (type %s)", o.Name, ws.Spec.Type)
 	if preExisting {
 		if ws.Spec.Type.Name != "" && ws.Spec.Type.Name != structuredWorkspaceType.Name || ws.Spec.Type.Path != structuredWorkspaceType.Path {
-			wsTypeString := logicalcluster.New(ws.Spec.Type.Path).Join(string(ws.Spec.Type.Name)).String()
-			structuredWorkspaceTypeString := logicalcluster.New(structuredWorkspaceType.Path).Join(string(structuredWorkspaceType.Name)).String()
+			wsTypeString := logicalcluster.NewPath(ws.Spec.Type.Path).Join(string(ws.Spec.Type.Name)).String()
+			structuredWorkspaceTypeString := logicalcluster.NewPath(structuredWorkspaceType.Path).Join(string(structuredWorkspaceType.Name)).String()
 			return fmt.Errorf("workspace %q cannot be created with type %s, it already exists with different type %s", o.Name, structuredWorkspaceTypeString, wsTypeString)
 		}
 		if ws.Status.Phase != tenancyv1alpha1.WorkspacePhaseReady && o.ReadyWaitTimeout > 0 {

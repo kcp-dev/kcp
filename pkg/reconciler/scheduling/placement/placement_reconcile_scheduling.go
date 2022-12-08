@@ -41,7 +41,7 @@ func (r *placementReconciler) reconcile(ctx context.Context, placement *scheduli
 	// get location workspace at first
 	var locationWorkspace logicalcluster.Path
 	if len(placement.Spec.LocationWorkspace) > 0 {
-		locationWorkspace = logicalcluster.New(placement.Spec.LocationWorkspace)
+		locationWorkspace = logicalcluster.NewPath(placement.Spec.LocationWorkspace)
 	} else {
 		locationWorkspace = logicalcluster.From(placement).Path()
 	}

@@ -149,7 +149,7 @@ func TestGet(t *testing.T) {
 	require.EqualError(t, err, "noxus.mygroup.example.com \"foo\" not found")
 
 	resource := createResource("default", "foo")
-	_ = fakeClient.Tracker().Cluster(logicalcluster.New("test")).Add(resource)
+	_ = fakeClient.Tracker().Cluster(logicalcluster.NewPath("test")).Add(resource)
 
 	result, err := getter.Get(ctx, "foo", &metav1.GetOptions{})
 	require.NoError(t, err)
@@ -187,7 +187,7 @@ func TestWildcardListWithAPIExportIdentity(t *testing.T) {
 			noxusGVRWithHash: "NoxuList",
 		})
 	for _, resource := range resources {
-		_ = fakeClient.Tracker().Cluster(logicalcluster.New("test")).Create(noxusGVRWithHash, resource, "default")
+		_ = fakeClient.Tracker().Cluster(logicalcluster.NewPath("test")).Create(noxusGVRWithHash, resource, "default")
 	}
 
 	storage, _ := newStorage(t, fakeClient, "apiExportIdentityHash", nil)
@@ -320,7 +320,7 @@ func updateReactor(fakeClient *kcpfakedynamic.FakeDynamicClusterClientset) kcpte
 		updateAction := action.(kcptesting.UpdateAction)
 		actionResource := updateAction.GetObject().(*unstructured.Unstructured)
 
-		existingObject, err := fakeClient.Tracker().Cluster(logicalcluster.New("test")).Get(action.GetResource(), action.GetNamespace(), actionResource.GetName())
+		existingObject, err := fakeClient.Tracker().Cluster(logicalcluster.NewPath("test")).Get(action.GetResource(), action.GetNamespace(), actionResource.GetName())
 		if err != nil {
 			return true, nil, err
 		}
@@ -329,7 +329,7 @@ func updateReactor(fakeClient *kcpfakedynamic.FakeDynamicClusterClientset) kcpte
 		if existingResource.GetResourceVersion() != actionResource.GetResourceVersion() {
 			return true, nil, errors.NewConflict(action.GetResource().GroupResource(), existingResource.GetName(), fmt.Errorf(registry.OptimisticLockErrorMsg))
 		}
-		if err := fakeClient.Tracker().Cluster(logicalcluster.New("test")).Update(action.GetResource(), actionResource, action.GetNamespace()); err != nil {
+		if err := fakeClient.Tracker().Cluster(logicalcluster.NewPath("test")).Update(action.GetResource(), actionResource, action.GetNamespace()); err != nil {
 			return true, nil, err
 		}
 
@@ -360,7 +360,7 @@ func TestUpdate(t *testing.T) {
 	_, _, err = updater.Update(ctx, updated.GetName(), rest.DefaultUpdatedObjectInfo(updated), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
 	require.EqualError(t, err, "noxus.mygroup.example.com \"foo\" not found")
 
-	_ = fakeClient.Tracker().Cluster(logicalcluster.New("test")).Add(resource)
+	_ = fakeClient.Tracker().Cluster(logicalcluster.NewPath("test")).Add(resource)
 	result, _, err := updater.Update(ctx, updated.GetName(), rest.DefaultUpdatedObjectInfo(updated), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
 	require.NoError(t, err)
 
@@ -484,7 +484,7 @@ func TestPatch(t *testing.T) {
 	_, _, err := updater.Update(ctx, resource.GetName(), rest.DefaultUpdatedObjectInfo(nil, patcher), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
 	require.EqualError(t, err, "noxus.mygroup.example.com \"foo\" not found")
 
-	_ = fakeClient.Tracker().Cluster(logicalcluster.New("test")).Add(resource)
+	_ = fakeClient.Tracker().Cluster(logicalcluster.NewPath("test")).Add(resource)
 	getCallCounts := 0
 	noMoreConflicts := 4
 	fakeClient.PrependReactor("get", "noxus", func(action kcptesting.Action) (handled bool, ret runtime.Object, err error) {

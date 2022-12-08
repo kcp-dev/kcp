@@ -47,7 +47,7 @@ func (r *deletionReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 		return reconcileStatusContinue, nil
 	}
 
-	if _, err := r.getThisWorkspace(ctx, logicalcluster.New(workspace.Status.Cluster)); err != nil && !apierrors.IsNotFound(err) {
+	if _, err := r.getThisWorkspace(ctx, logicalcluster.NewPath(workspace.Status.Cluster)); err != nil && !apierrors.IsNotFound(err) {
 		return reconcileStatusStopAndRequeue, err
 	} else if apierrors.IsNotFound(err) {
 		finalizers := sets.NewString(workspace.Finalizers...)
@@ -60,7 +60,7 @@ func (r *deletionReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 	}
 
 	logger.Info("Deleting ThisWorkspace")
-	if err := r.deleteThisWorkspace(ctx, logicalcluster.New(workspace.Status.Cluster)); err != nil {
+	if err := r.deleteThisWorkspace(ctx, logicalcluster.NewPath(workspace.Status.Cluster)); err != nil {
 		return reconcileStatusStopAndRequeue, err
 	}
 
