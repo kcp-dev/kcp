@@ -32,6 +32,7 @@ import (
 
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -126,8 +127,12 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 			return reconcileStatusContinue, nil
 		}
 
-		if err := r.createThisWorkspace(ctx, shard, clusterName.Path(), workspace); err != nil && !apierrors.IsAlreadyExists(err) {
+		if err := r.createThisWorkspace(ctx, shard, clusterName.Path(), workspace); err != nil {
 			return reconcileStatusStopAndRequeue, err
+		} else if apierrors.IsAlreadyExists(err) {
+			// we have checked in createThisWorkspace that this is a logicalcluster from another owner. Let's choose another cluster name.
+			delete(workspace.Annotations, workspaceClusterAnnotationKey)
+			return reconcileStatusStopAndRequeue, nil
 		}
 		if err := r.createClusterRoleBindingForThisWorkspace(ctx, shard, clusterName.Path(), workspace); err != nil && !apierrors.IsAlreadyExists(err) {
 			return reconcileStatusStopAndRequeue, err
@@ -281,6 +286,17 @@ func (r *schedulingReconciler) createThisWorkspace(ctx context.Context, shard *t
 		return err
 	}
 	_, err = logicalClusterAdminClient.Cluster(cluster).TenancyV1alpha1().ThisWorkspaces().Create(ctx, this, metav1.CreateOptions{})
+
+	if apierrors.IsAlreadyExists(err) {
+		existing, getErr := logicalClusterAdminClient.Cluster(cluster).TenancyV1alpha1().ThisWorkspaces().Get(ctx, tenancyv1alpha1.ThisWorkspaceName, metav1.GetOptions{})
+		if getErr != nil {
+			return getErr
+		}
+		if equality.Semantic.DeepEqual(existing.Spec.Owner, this.Spec.Owner) {
+			return nil
+		}
+	}
+
 	return err
 }
 
