@@ -62,6 +62,10 @@ func NewCommitter[R runtime.Object, P Patcher[R], Sp any, St any](patcher Cluste
 			return fmt.Errorf("failed to create patch for %s %s: %w", focusType, obj.Name, err)
 		}
 
+		if len(patchBytes) == 0 {
+			return nil
+		}
+
 		logger.V(2).Info(fmt.Sprintf("patching %s", focusType), "patch", string(patchBytes))
 		_, err = patcher.Cluster(clusterName).Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, subresources...)
 		if err != nil {
@@ -82,6 +86,10 @@ func NewCommitterScoped[R runtime.Object, P Patcher[R], Sp any, St any](patcher 
 		patchBytes, subresources, err := generatePatchAndSubResources(old, obj)
 		if err != nil {
 			return fmt.Errorf("failed to create patch for %s %s: %w", focusType, obj.Name, err)
+		}
+
+		if len(patchBytes) == 0 {
+			return nil
 		}
 
 		logger.V(2).Info(fmt.Sprintf("patching %s", focusType), "patch", string(patchBytes))
