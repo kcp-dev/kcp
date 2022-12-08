@@ -57,7 +57,7 @@ func NewCommitter[R runtime.Object, P Patcher[R], Sp any, St any](patcher Cluste
 		logger := klog.FromContext(ctx)
 		clusterName := logicalcluster.From(old)
 
-		patchBytes, subresources, err := generatePatchAndSubResources(old, obj)
+		patchBytes, subresources, err := generatePatchAndSubResources(logger, old, obj)
 		if err != nil {
 			return fmt.Errorf("failed to create patch for %s %s: %w", focusType, obj.Name, err)
 		}
@@ -79,12 +79,13 @@ func NewCommitterScoped[R runtime.Object, P Patcher[R], Sp any, St any](patcher 
 	focusType := fmt.Sprintf("%T", *new(R))
 	return func(ctx context.Context, old, obj *Resource[Sp, St]) error {
 		logger := klog.FromContext(ctx)
-		patchBytes, subresources, err := generatePatchAndSubResources(old, obj)
+		patchBytes, subresources, err := generatePatchAndSubResources(logger, old, obj)
 		if err != nil {
 			return fmt.Errorf("failed to create patch for %s %s: %w", focusType, obj.Name, err)
 		}
 
 		logger.V(2).Info(fmt.Sprintf("patching %s", focusType), "patch", string(patchBytes))
+
 		_, err = patcher.Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, subresources...)
 		if err != nil {
 			return fmt.Errorf("failed to patch %s %s: %w", focusType, old.Name, err)
@@ -94,7 +95,7 @@ func NewCommitterScoped[R runtime.Object, P Patcher[R], Sp any, St any](patcher 
 	}
 }
 
-func generatePatchAndSubResources[Sp any, St any](old, obj *Resource[Sp, St]) ([]byte, []string, error) {
+func generatePatchAndSubResources[Sp any, St any](logger klog.Logger, old, obj *Resource[Sp, St]) ([]byte, []string, error) {
 	objectMetaChanged := !equality.Semantic.DeepEqual(old.ObjectMeta, obj.ObjectMeta)
 	specChanged := !equality.Semantic.DeepEqual(old.Spec, obj.Spec)
 	statusChanged := !equality.Semantic.DeepEqual(old.Status, obj.Status)
@@ -149,6 +150,26 @@ func generatePatchAndSubResources[Sp any, St any](old, obj *Resource[Sp, St]) ([
 	patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create patch for %s|%s: %w", clusterName, name, err)
+	}
+
+	if len(patchBytes) == 0 {
+		oldMeta := fmt.Sprintf("%#v", old.ObjectMeta)
+		objMeta := fmt.Sprintf("%#v", obj.ObjectMeta)
+
+		oldSpec := fmt.Sprintf("%#v", old.Spec)
+		objSpec := fmt.Sprintf("%#v", obj.Spec)
+
+		oldStatus := fmt.Sprintf("%#v", old.Status)
+		objStatus := fmt.Sprintf("%#v", obj.Status)
+
+		logger.Info("ANDY",
+			"oldMeta", oldMeta,
+			"objMeta", objMeta,
+			"oldSpec", oldSpec,
+			"objSpec", objSpec,
+			"oldStatus", oldStatus,
+			"objStatus", objStatus,
+		)
 	}
 
 	var subresources []string
