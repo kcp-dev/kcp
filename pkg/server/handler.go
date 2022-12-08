@@ -331,7 +331,7 @@ func mergeCRDsIntoCoreGroup(crdLister kcp.ClusterAwareCRDClusterLister, crdHandl
 			// server handle it.
 			crdName := requestInfo.Resource + ".core"
 
-			clusterName, err := request.ClusterNameFrom(req.Request.Context())
+			clusterName, wildcard, err := request.ClusterNameOrWildcardFrom(req.Request.Context())
 			if err != nil {
 				responsewriters.ErrorNegotiated(
 					apierrors.NewInternalError(fmt.Errorf("no cluster found in the context")),
@@ -339,6 +339,10 @@ func mergeCRDsIntoCoreGroup(crdLister kcp.ClusterAwareCRDClusterLister, crdHandl
 					errorCodecs, schema.GroupVersion{Group: requestInfo.APIGroup, Version: requestInfo.APIVersion}, res.ResponseWriter, req.Request,
 				)
 				return
+			}
+			if wildcard {
+				// this is the only case where wildcard works for a list because this is our special CRD lister that handles it.
+				clusterName = "*"
 			}
 
 			if _, err := crdLister.Cluster(clusterName).Get(req.Request.Context(), crdName); err == nil {
@@ -355,7 +359,7 @@ func mergeCRDsIntoCoreGroup(crdLister kcp.ClusterAwareCRDClusterLister, crdHandl
 }
 
 func serveCoreV1Discovery(ctx context.Context, crdLister kcp.ClusterAwareCRDClusterLister, coreHandler func(w http.ResponseWriter, req *http.Request), res http.ResponseWriter, req *http.Request) {
-	clusterName, err := request.ClusterNameFrom(ctx)
+	clusterName, wildcard, err := request.ClusterNameOrWildcardFrom(ctx)
 	if err != nil {
 		responsewriters.ErrorNegotiated(
 			apierrors.NewInternalError(fmt.Errorf("no cluster found in the context")),
@@ -363,6 +367,11 @@ func serveCoreV1Discovery(ctx context.Context, crdLister kcp.ClusterAwareCRDClus
 		)
 		return
 	}
+	if wildcard {
+		// this is the only case where wildcard works for a list because this is our special CRD lister that handles it.
+		clusterName = "*"
+	}
+
 	// Get all the CRDs to see if any of them are in v1
 	crds, err := crdLister.Cluster(clusterName).List(ctx, labels.Everything())
 	if err != nil {
