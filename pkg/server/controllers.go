@@ -967,6 +967,7 @@ func (s *Server) installAPIExportEndpointSliceController(ctx context.Context, co
 		// Shards and APIExports get retrieved from cache server
 		s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
 		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
+		s.KcpSharedInformerFactory.Topology().V1alpha1().Partitions(),
 		kcpClusterClient,
 	)
 	if err != nil {

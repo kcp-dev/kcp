@@ -28,41 +28,61 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
+	topologyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/topology/v1alpha1"
 )
 
 func TestReconcile(t *testing.T) {
 	tests := map[string]struct {
-		keyMissing             bool
-		apiExportMissing       bool
-		apiExportHasInvalidRef bool
-		listShardsError        error
-		errorReason            string
+		keyMissing           bool
+		apiExportMissing     bool
+		partitionMissing     bool
+		apiExportInternalErr bool
+		listShardsError      error
+		errorReason          string
 
-		wantError                           bool
-		wantVerifyFailure                   bool
-		wantAPIExportEndpointSliceURLsError bool
-		wantAPIExportEndpointSliceURLsReady bool
-		wantAPIExportValid                  bool
-		wantAPIExportNotValid               bool
+		wantError                             bool
+		wantVerifyFailure                     bool
+		wantAPIExportEndpointSliceURLsError   bool
+		wantAPIExportEndpointSliceURLsReady   bool
+		wantAPIExportEndpointSliceURLsUnknown bool
+		wantAPIExportValid                    bool
+		wantPartitionValid                    bool
+		wantAPIExportNotValid                 bool
+		wantPartitionNotValid                 bool
 	}{
 		"error listing shards": {
 			listShardsError:                     errors.New("foo"),
 			wantError:                           true,
 			wantAPIExportEndpointSliceURLsError: true,
 		},
-		"APIExportValid set to false when apiExport is missing": {
+		"APIExportValid set to false when APIExport is missing": {
 			apiExportMissing:      true,
 			errorReason:           apisv1alpha1.APIExportNotFoundReason,
 			wantAPIExportNotValid: true,
 		},
+		"APIExportValid set to false if an internal error happens when fetching the APIExport": {
+			apiExportInternalErr:                  true,
+			wantError:                             true,
+			errorReason:                           apisv1alpha1.InternalErrorReason,
+			wantAPIExportNotValid:                 true,
+			wantAPIExportEndpointSliceURLsUnknown: true,
+		},
+		"PartitionValid set to false when the Partition is missing": {
+			partitionMissing:                    true,
+			errorReason:                         apisv1alpha1.PartitionInvalidReferenceReason,
+			wantPartitionNotValid:               true,
+			wantAPIExportEndpointSliceURLsError: true,
+		},
 		"APIExportEndpointSliceURLs set when no issue": {
 			wantAPIExportEndpointSliceURLsReady: true,
 			wantAPIExportValid:                  true,
+			wantPartitionValid:                  true,
 		},
 	}
 
@@ -71,7 +91,7 @@ func TestReconcile(t *testing.T) {
 
 		t.Run(name, func(t *testing.T) {
 			c := &controller{
-				listShards: func() ([]*corev1alpha1.Shard, error) {
+				listShards: func(selector labels.Selector) ([]*corev1alpha1.Shard, error) {
 					if tc.listShardsError != nil {
 						return nil, tc.listShardsError
 					}
@@ -82,10 +102,13 @@ func TestReconcile(t *testing.T) {
 								Annotations: map[string]string{
 									logicalcluster.AnnotationKey: "root:org:ws",
 								},
+								Labels: map[string]string{
+									"region": "Europe",
+								},
 								Name: "shard1",
 							},
 							Spec: corev1alpha1.ShardSpec{
-								ExternalURL: "https://server-1.kcp.dev/",
+								VirtualWorkspaceURL: "https://server-1.kcp.dev/",
 							},
 						},
 						{
@@ -93,10 +116,13 @@ func TestReconcile(t *testing.T) {
 								Annotations: map[string]string{
 									logicalcluster.AnnotationKey: "root:org:ws",
 								},
+								Labels: map[string]string{
+									"region": "Europe",
+								},
 								Name: "shard2",
 							},
 							Spec: corev1alpha1.ShardSpec{
-								ExternalURL: "https://server-2.kcp.dev/",
+								VirtualWorkspaceURL: "https://server-2.kcp.dev/",
 							},
 						},
 					}, nil
@@ -104,7 +130,7 @@ func TestReconcile(t *testing.T) {
 				getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
 					if tc.apiExportMissing {
 						return nil, apierrors.NewNotFound(apisv1alpha1.Resource("APIExport"), name)
-					} else if tc.apiExportHasInvalidRef {
+					} else if tc.apiExportInternalErr {
 						return nil, fmt.Errorf("internal error")
 					} else {
 						return &apisv1alpha1.APIExport{
@@ -113,6 +139,27 @@ func TestReconcile(t *testing.T) {
 									logicalcluster.AnnotationKey: "root:org:ws",
 								},
 								Name: "my-export",
+							},
+						}, nil
+					}
+				},
+				getPartition: func(clusterName logicalcluster.Name, name string) (*topologyv1alpha1.Partition, error) {
+					if tc.partitionMissing {
+						return nil, apierrors.NewNotFound(topologyv1alpha1.Resource("Partition"), name)
+					} else {
+						return &topologyv1alpha1.Partition{
+							ObjectMeta: metav1.ObjectMeta{
+								Annotations: map[string]string{
+									logicalcluster.AnnotationKey: "root:org:ws",
+								},
+								Name: "my-partition",
+							},
+							Spec: topologyv1alpha1.PartitionSpec{
+								Selector: &metav1.LabelSelector{
+									MatchLabels: map[string]string{
+										"region": "Europe",
+									},
+								},
 							},
 						}, nil
 					}
@@ -131,6 +178,7 @@ func TestReconcile(t *testing.T) {
 						Path: "root:org:ws",
 						Name: "my-export",
 					},
+					Partition: "my-partition",
 				},
 			}
 			err := c.reconcile(context.Background(), apiExportEndpointSlice)
@@ -153,6 +201,20 @@ func TestReconcile(t *testing.T) {
 
 			if tc.wantAPIExportEndpointSliceURLsReady {
 				requireConditionMatches(t, apiExportEndpointSlice, conditions.TrueCondition(apisv1alpha1.APIExportEndpointSliceURLsReady))
+				require.Equal(t, []apisv1alpha1.APIExportEndpoint{
+					{URL: "https://server-1.kcp.dev/services/apiexport/root:org:ws/my-export"},
+					{URL: "https://server-2.kcp.dev/services/apiexport/root:org:ws/my-export"},
+				}, apiExportEndpointSlice.Status.APIExportEndpoints)
+			}
+
+			if tc.wantAPIExportEndpointSliceURLsUnknown {
+				requireConditionMatches(t, apiExportEndpointSlice,
+					conditions.UnknownCondition(
+						apisv1alpha1.APIExportEndpointSliceURLsReady,
+						apisv1alpha1.ErrorGeneratingURLsReason,
+						"",
+					),
+				)
 			}
 
 			if tc.wantAPIExportNotValid {
@@ -166,9 +228,26 @@ func TestReconcile(t *testing.T) {
 				)
 			}
 
+			if tc.wantPartitionNotValid {
+				requireConditionMatches(t, apiExportEndpointSlice,
+					conditions.FalseCondition(
+						apisv1alpha1.PartitionValid,
+						tc.errorReason,
+						conditionsv1alpha1.ConditionSeverityError,
+						"",
+					),
+				)
+			}
+
 			if tc.wantAPIExportValid {
 				requireConditionMatches(t, apiExportEndpointSlice,
 					conditions.TrueCondition(apisv1alpha1.APIExportValid),
+				)
+			}
+
+			if tc.wantPartitionValid {
+				requireConditionMatches(t, apiExportEndpointSlice,
+					conditions.TrueCondition(apisv1alpha1.PartitionValid),
 				)
 			}
 		})
