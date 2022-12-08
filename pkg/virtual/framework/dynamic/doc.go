@@ -18,7 +18,7 @@ limitations under the License.
 // required to build virtual workspaces which can dynamically serve resources,
 // based on API definitions (including an OpenAPI v3 schema), and a Rest storage provider.
 //
-// Main idea
+// # Main idea
 //
 // APIs served by the virtual workspace are partitioned in API domains. Each API domain
 // is defined by an api domain key and will expose a set of APIs
@@ -27,7 +27,7 @@ limitations under the License.
 //
 // APIs are served by an apiserver.DynamicAPIServer which is setup in the virtual workspace Register() method.
 //
-// Typical operation
+// # Typical operation
 //
 // The RootPathResolver() method would usually interpret the URL sub-path, extract the API domain key from it,
 // and pass the request to the apiserver.DynamicAPIServer, along with the API domain key, if the API domain key contains APIs.

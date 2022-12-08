@@ -41,9 +41,9 @@ import (
 //     - the localObject was deleted
 //  3. modification of the object to match the original/local object
 //     happens when either of the following is true:
-//      - the localObject's metadata doesn't match the cacheObject
-//      - the localObject's spec doesn't match the cacheObject
-//      - the localObject's status doesn't match the cacheObject
+//     - the localObject's metadata doesn't match the cacheObject
+//     - the localObject's spec doesn't match the cacheObject
+//     - the localObject's status doesn't match the cacheObject
 func (c *controller) reconcileUnstructuredObjects(ctx context.Context, cluster logicalcluster.Name, gvr *schema.GroupVersionResource, cacheObject *unstructured.Unstructured, localObject *unstructured.Unstructured) error {
 	if localObject == nil {
 		return c.handleObjectDeletion(ctx, cluster, gvr, cacheObject)

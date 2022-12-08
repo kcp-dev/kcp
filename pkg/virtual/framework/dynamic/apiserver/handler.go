@@ -43,7 +43,7 @@ import (
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 )
 
-// resourceHandler serves the `/apis` and `/api`` endpoints.
+// resourceHandler serves the `/apis` and `/api“ endpoints.
 type resourceHandler struct {
 	apiSetRetriever         apidefinition.APIDefinitionSetGetter
 	versionDiscoveryHandler *versionDiscoveryHandler

@@ -19,7 +19,6 @@ package framework
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -260,7 +259,7 @@ func (sf *syncerFixture) Start(t *testing.T) *StartedSyncerFixture {
 					t.Logf("Collecting downstream logs for pod %s/%s: %s", syncerID, pod.Name, artifactPath)
 					logs := Kubectl(t, downstreamKubeconfigPath, "-n", syncerID, "logs", pod.Name)
 
-					err = ioutil.WriteFile(artifactPath, logs, 0644)
+					err = os.WriteFile(artifactPath, logs, 0644)
 					if err != nil {
 						t.Logf("failed to write logs for pod %s in %s to %s: %v", pod.Name, syncerID, artifactPath, err)
 						continue // not fatal

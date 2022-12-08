@@ -19,7 +19,6 @@ package main
 import (
 	"fmt"
 	"io/fs"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -185,7 +184,7 @@ func loadCustomResourceDefinitions(logger logr.Logger, baseDir string) (map[meta
 }
 
 func readCustomResourceDefinition(path string, gr metav1.GroupResource) (*apiextensionsv1.CustomResourceDefinition, error) {
-	raw, err := ioutil.ReadFile(path)
+	raw, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("could not read CRD %s: %w", gr.String(), err)
 	}
@@ -243,7 +242,7 @@ func loadAPIResourceSchemas(logger logr.Logger, baseDir string) (map[metav1.Grou
 }
 
 func readAPIResourceSchema(path string, gr metav1.GroupResource) (*apisv1alpha1.APIResourceSchema, error) {
-	raw, err := ioutil.ReadFile(path)
+	raw, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("could not read APIResourceSchema %s: %w", gr.String(), err)
 	}
@@ -368,7 +367,7 @@ func writeObjects(logger logr.Logger, outputDir string, exports []*apisv1alpha1.
 			return err
 		}
 		output := filepath.Join(outputDir, fmt.Sprintf("%s%s.yaml", apiExportNamePrefix, export.Name))
-		if err := ioutil.WriteFile(output, out, 0644); err != nil {
+		if err := os.WriteFile(output, out, 0644); err != nil {
 			return err
 		}
 		writtenExports.Insert(output)
@@ -382,7 +381,7 @@ func writeObjects(logger logr.Logger, outputDir string, exports []*apisv1alpha1.
 			return err
 		}
 		output := filepath.Join(outputDir, fmt.Sprintf("%s%s.yaml", apiResourceSchemaNamePrefix, gr.String()))
-		if err := ioutil.WriteFile(output, out, 0644); err != nil {
+		if err := os.WriteFile(output, out, 0644); err != nil {
 			return err
 		}
 		writtenSchemas.Insert(output)

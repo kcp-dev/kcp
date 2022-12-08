@@ -21,10 +21,10 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 
 	"k8s.io/apimachinery/pkg/util/runtime"
 	userinfo "k8s.io/apiserver/pkg/authentication/user"
@@ -32,7 +32,7 @@ import (
 )
 
 func newTransport(clientCert, clientKeyFile, caFile string) (*http.Transport, error) {
-	caCert, err := ioutil.ReadFile(caFile)
+	caCert, err := os.ReadFile(caFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read CA file %q: %w", caFile, err)
 	}

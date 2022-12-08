@@ -24,7 +24,6 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
-	"io/ioutil"
 	"math/big"
 	"net/url"
 	"os"
@@ -232,7 +231,7 @@ func certToFile(template *x509.Certificate, parent *x509.Certificate, publicKey 
 	if err := pem.Encode(buf, &pem.Block{Type: "CERTIFICATE", Bytes: b}); err != nil {
 		return err
 	}
-	return ioutil.WriteFile(path, buf.Bytes(), 0600)
+	return os.WriteFile(path, buf.Bytes(), 0600)
 }
 
 func ecPrivateKeyToFile(key *ecdsa.PrivateKey, path string) error {
@@ -247,5 +246,5 @@ func ecPrivateKeyToFile(key *ecdsa.PrivateKey, path string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return err
 	}
-	return ioutil.WriteFile(path, buf.Bytes(), 0600)
+	return os.WriteFile(path, buf.Bytes(), 0600)
 }

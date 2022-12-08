@@ -20,7 +20,6 @@ import (
 	"embed"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net"
 	"os"
@@ -196,7 +195,7 @@ func artifact(t *testing.T, server RunningServer, producer func() (runtime.Objec
 		bs, err := yaml.Marshal(data)
 		require.NoError(t, err, "error marshalling artifact")
 
-		err = ioutil.WriteFile(file, bs, 0644)
+		err = os.WriteFile(file, bs, 0644)
 		require.NoError(t, err, "error writing artifact")
 	})
 }

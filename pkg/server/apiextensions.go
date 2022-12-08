@@ -312,7 +312,7 @@ func makePartialMetadataCRD(crd *apiextensionsv1.CustomResourceDefinition) {
 
 // getForIdentityWildcard handles finding the right CRD for an incoming wildcard request with identity, such as
 //
-//   /clusters/*/apis/$group/$version/$resource:$identity.
+//	/clusters/*/apis/$group/$version/$resource:$identity.
 func (c *apiBindingAwareCRDLister) getForIdentityWildcard(name, identity string) (*apiextensionsv1.CustomResourceDefinition, error) {
 	group, resource := crdNameToGroupResource(name)
 

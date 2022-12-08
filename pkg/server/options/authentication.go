@@ -21,7 +21,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -95,12 +94,12 @@ func (s *AdminAuthentication) AddFlags(fs *pflag.FlagSet) {
 // If the shard admin hash file is present only the shard admin hash is returned and the returned shard admin token is empty.
 func (s *AdminAuthentication) ApplyTo(config *genericapiserver.Config) (volatileKcpAdminToken, shardAdminToken, volatileUserToken string, shardAdminTokenHash []byte, err error) {
 	// try to load existing token to reuse
-	shardAdminTokenHash, err = ioutil.ReadFile(s.ShardAdminTokenHashFilePath)
+	shardAdminTokenHash, err = os.ReadFile(s.ShardAdminTokenHashFilePath)
 	if os.IsNotExist(err) {
 		shardAdminToken = uuid.New().String()
 		sum := sha256.Sum256([]byte(shardAdminToken))
 		shardAdminTokenHash = sum[:]
-		if err := ioutil.WriteFile(s.ShardAdminTokenHashFilePath, shardAdminTokenHash, 0600); err != nil {
+		if err := os.WriteFile(s.ShardAdminTokenHashFilePath, shardAdminTokenHash, 0600); err != nil {
 			return "", "", "", nil, err
 		}
 	}
