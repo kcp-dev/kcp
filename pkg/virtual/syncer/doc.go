@@ -32,5 +32,4 @@ limitations under the License.
 //
 // The builder package is the place where all these components are combined together, especially in the
 // BuildVirtualWorkspace() function.
-//
 package syncer

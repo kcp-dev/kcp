@@ -37,7 +37,7 @@ jobs:
           path: docs
       - uses: actions/setup-go@v3
         with:
-          go-version: v1.18
+          go-version: v1.19
       - name: Setup Hugo
         uses: peaceiris/actions-hugo@v2
         with:
