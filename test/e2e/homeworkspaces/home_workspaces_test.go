@@ -67,14 +67,14 @@ func TestUserHomeWorkspaces(t *testing.T) {
 				kcpUser2Client := server.kcpUserClusterClients[1]
 
 				t.Logf("Get ~ Home workspace URL for user-1")
-				createdHome, err := kcpUser1Client.Cluster(tenancyv1alpha1.RootCluster).TenancyV1beta1().Workspaces().Get(ctx, "~", metav1.GetOptions{})
+				createdHome, err := kcpUser1Client.Cluster(tenancyv1alpha1.RootCluster.Path()).TenancyV1beta1().Workspaces().Get(ctx, "~", metav1.GetOptions{})
 				require.NoError(t, err, "user-1 should be able to get ~ workspace")
 				require.NotEqual(t, metav1.Time{}, createdHome.CreationTimestamp, "should have a creation timestamp, i.e. is not virtual")
 				require.Equal(t, tenancyv1alpha1.WorkspacePhaseReady, createdHome.Status.Phase, "created home workspace should be ready")
 
 				t.Logf("Get ~ Home workspace URL for user-2")
 
-				_, err = kcpUser2Client.Cluster(tenancyv1alpha1.RootCluster).TenancyV1beta1().Workspaces().Get(ctx, "~", metav1.GetOptions{})
+				_, err = kcpUser2Client.Cluster(tenancyv1alpha1.RootCluster.Path()).TenancyV1beta1().Workspaces().Get(ctx, "~", metav1.GetOptions{})
 				require.EqualError(t, err, `workspaces.tenancy.kcp.dev "~" is forbidden: User "user-2" cannot create resource "workspaces" in API group "tenancy.kcp.dev" at the cluster scope: workspace access not permitted`, "user-2 should not be allowed to get his home workspace even before it exists")
 			},
 		},
