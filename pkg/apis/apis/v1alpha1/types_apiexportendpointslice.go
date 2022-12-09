@@ -54,8 +54,8 @@ type APIExportEndpointSliceSpec struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="APIExport reference must not be changed"
 
-	// apiExport points to the service export.
-	APIExport ExportReference `json:"apiExport"`
+	// export points to the API export.
+	APIExport ExportBindingReference `json:"export"`
 
 	// +optional
 
