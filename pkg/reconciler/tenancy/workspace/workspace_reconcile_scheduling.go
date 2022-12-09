@@ -127,7 +127,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 			return reconcileStatusContinue, nil
 		}
 
-		if err := r.createThisWorkspace(ctx, shard, clusterName.Path(), workspace); err != nil {
+		if err := r.createThisWorkspace(ctx, shard, clusterName.Path(), workspace); err != nil && !apierrors.IsAlreadyExists(err) {
 			return reconcileStatusStopAndRequeue, err
 		} else if apierrors.IsAlreadyExists(err) {
 			// we have checked in createThisWorkspace that this is a logicalcluster from another owner. Let's choose another cluster name.
