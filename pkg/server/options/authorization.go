@@ -116,8 +116,8 @@ func (s *Authorization) ApplyTo(config *genericapiserver.Config, informer kcpkub
 	contentAuth := authz.NewWorkspaceContentAuthorizer(informer, workspaceLister, systemCRDAuth)
 	contentAuth = authz.NewDecorator(contentAuth, "content.authorization.kcp.dev").AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
-	topLevelAuth := authz.NewTopLevelOrganizationAccessAuthorizer(informer, workspaceLister, contentAuth)
-	topLevelAuth = authz.NewDecorator(topLevelAuth, "toplevel.authorization.kcp.dev").AddAuditLogging().AddAnonymization()
+	topLevelAuth := authz.NewRequiredGroupsAuthorizer(workspaceLister, contentAuth)
+	topLevelAuth = authz.NewDecorator(topLevelAuth, "requiredgroups.authorization.kcp.dev").AddAuditLogging().AddAnonymization()
 
 	authorizers = append(authorizers, topLevelAuth)
 
