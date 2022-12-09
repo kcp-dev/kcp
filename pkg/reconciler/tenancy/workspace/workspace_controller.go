@@ -89,7 +89,7 @@ func NewController(
 		byBase36Sha224Name: indexByBase36Sha224Name,
 	})
 	indexers.AddIfNotPresentOrDie(clusterWorkspaceTypeInformer.Informer().GetIndexer(), cache.Indexers{
-		indexers.ByLogicalClusterPath: indexers.IndexByLogicalClusterPath,
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
 
 	workspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{

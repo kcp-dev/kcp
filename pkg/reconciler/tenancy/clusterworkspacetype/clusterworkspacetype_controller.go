@@ -69,7 +69,7 @@ func NewController(
 		resolveClusterWorkspaceType: func(reference tenancyv1alpha1.ClusterWorkspaceTypeReference) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
 			path := logicalcluster.NewPath(reference.Path)
 			name := string(reference.Name)
-			objs, err := clusterWorkspaceTypeInformer.Informer().GetIndexer().ByIndex(indexers.ByLogicalClusterPath, path.Join(name).String())
+			objs, err := clusterWorkspaceTypeInformer.Informer().GetIndexer().ByIndex(indexers.ByLogicalClusterPathAndName, path.Join(name).String())
 			if err != nil {
 				return nil, err
 			}
@@ -82,6 +82,10 @@ func NewController(
 			return objs[0].(*tenancyv1alpha1.ClusterWorkspaceType), nil
 		},
 	}
+
+	indexers.AddIfNotPresentOrDie(clusterWorkspaceTypeInformer.Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+	})
 
 	clusterWorkspaceTypeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {

@@ -173,7 +173,7 @@ func (c *APIReconciler) getAllAcceptedResourceSchemas(syncTarget *workloadv1alph
 			path = logicalcluster.From(syncTarget).Path()
 		}
 
-		objs, err := c.apiExportIndexer.ByIndex(indexers.ByLogicalClusterPath, path.String())
+		objs, err := c.apiExportIndexer.ByIndex(indexers.ByLogicalClusterPathAndName, path.Join(exportRef.Export).String())
 		if err != nil {
 			errs = append(errs, err)
 			continue

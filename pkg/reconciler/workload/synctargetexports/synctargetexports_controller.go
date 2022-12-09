@@ -85,8 +85,8 @@ func NewController(
 	}
 
 	if err := apiExportInformer.Informer().AddIndexers(cache.Indexers{
-		indexAPIExportsByAPIResourceSchema: indexAPIExportsByAPIResourceSchemas,
-		indexers.ByLogicalClusterPath:      indexers.IndexByLogicalClusterPath,
+		indexAPIExportsByAPIResourceSchema:   indexAPIExportsByAPIResourceSchemas,
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	}); err != nil {
 		return nil, err
 	}
@@ -336,7 +336,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 }
 
 func (c *Controller) getAPIExport(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
-	objs, err := c.apiExportsIndexer.ByIndex(indexers.ByLogicalClusterPath, path.String())
+	objs, err := c.apiExportsIndexer.ByIndex(indexers.ByLogicalClusterPathAndName, path.Join(name).String())
 	if err != nil {
 		return nil, err
 	}

@@ -90,7 +90,7 @@ func NewController(
 	}
 
 	indexers.AddIfNotPresentOrDie(locationInformer.Informer().GetIndexer(), cache.Indexers{
-		indexers.ByLogicalClusterPath: indexers.IndexByLogicalClusterPath,
+		indexers.ByLogicalClusterPath: indexers.IndexByLogicalClusterPathAndName,
 	})
 
 	locationInformer.Informer().AddEventHandler(

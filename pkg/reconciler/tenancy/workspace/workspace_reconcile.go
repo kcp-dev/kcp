@@ -86,7 +86,7 @@ func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1beta1.Workspace
 	}
 
 	getType := func(path logicalcluster.Path, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
-		objs, err := c.clusterWorkspaceTypeIndexer.ByIndex(indexers.ByLogicalClusterPath, path.Join(name).String())
+		objs, err := c.clusterWorkspaceTypeIndexer.ByIndex(indexers.ByLogicalClusterPathAndName, path.Join(name).String())
 		if err != nil {
 			return nil, err
 		}

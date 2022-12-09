@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/assert"
 
 	appsv1 "k8s.io/api/apps/v1"

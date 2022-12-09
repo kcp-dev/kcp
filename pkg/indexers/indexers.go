@@ -41,6 +41,8 @@ const (
 	ByClusterResourceStateLabelKey = "ByClusterResourceStateLabelKey"
 	// ByLogicalClusterPath indexes by logical cluster path, if the annotation exists.
 	ByLogicalClusterPath = "ByLogicalClusterPath"
+	// ByLogicalClusterPathAndName indexes by logical cluster path and object name, if the annotation exists.
+	ByLogicalClusterPathAndName = "ByLogicalClusterPathAndName"
 )
 
 // IndexBySyncerFinalizerKey indexes by syncer finalizer label keys.
@@ -83,7 +85,26 @@ func IndexByLogicalClusterPath(obj interface{}) ([]string, error) {
 		return []string{}, fmt.Errorf("obj is supposed to be a metav1.Object, but is %T", obj)
 	}
 	if path, found := metaObj.GetAnnotations()[tenancy.LogicalClusterPathAnnotationKey]; found {
-		return []string{logicalcluster.NewPath(path).Join(metaObj.GetName()).String(), logicalcluster.From(metaObj).String()}, nil
+		return []string{
+			logicalcluster.NewPath(path).String(),
+			logicalcluster.From(metaObj).String(),
+		}, nil
+	}
+
+	return []string{logicalcluster.From(metaObj).String()}, nil
+}
+
+// IndexByLogicalClusterPathAndName indexes by logical cluster path and object name, if the annotation exists.
+func IndexByLogicalClusterPathAndName(obj interface{}) ([]string, error) {
+	metaObj, ok := obj.(metav1.Object)
+	if !ok {
+		return []string{}, fmt.Errorf("obj is supposed to be a metav1.Object, but is %T", obj)
+	}
+	if path, found := metaObj.GetAnnotations()[tenancy.LogicalClusterPathAnnotationKey]; found {
+		return []string{
+			logicalcluster.NewPath(path).Join(metaObj.GetName()).String(),
+			logicalcluster.From(metaObj).Path().Join(metaObj.GetName()).String(),
+		}, nil
 	}
 
 	return []string{logicalcluster.From(metaObj).String()}, nil

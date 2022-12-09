@@ -79,7 +79,7 @@ func (c *controller) listSyncTarget(clusterName logicalcluster.Name) ([]*workloa
 }
 
 func (c *controller) getLocation(path logicalcluster.Path, name string) (*schedulingv1alpha1.Location, error) {
-	objs, err := c.locationIndexer.ByIndex(indexers.ByLogicalClusterPath, path.Join(name).String())
+	objs, err := c.locationIndexer.ByIndex(indexers.ByLogicalClusterPathAndName, path.Join(name).String())
 	if err != nil {
 		return nil, err
 	}

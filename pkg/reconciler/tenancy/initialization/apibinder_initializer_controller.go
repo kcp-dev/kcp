@@ -67,7 +67,7 @@ func NewAPIBinder(
 			return thisWorkspaceInformer.Lister().Cluster(clusterName).Get(tenancyv1alpha1.ThisWorkspaceName)
 		},
 		getClusterWorkspaceType: func(path logicalcluster.Path, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
-			objs, err := clusterWorkspaceTypeInformer.Informer().GetIndexer().ByIndex(indexers.ByLogicalClusterPath, path.Join(name).String())
+			objs, err := clusterWorkspaceTypeInformer.Informer().GetIndexer().ByIndex(indexers.ByLogicalClusterPathAndName, path.Join(name).String())
 			if err != nil {
 				return nil, err
 			}
@@ -94,7 +94,7 @@ func NewAPIBinder(
 		},
 
 		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
-			objs, err := apiExportsInformer.Informer().GetIndexer().ByIndex(indexers.ByLogicalClusterPath, path.Join(name).String())
+			objs, err := apiExportsInformer.Informer().GetIndexer().ByIndex(indexers.ByLogicalClusterPathAndName, path.Join(name).String())
 			if err != nil {
 				return nil, err
 			}
@@ -115,7 +115,7 @@ func NewAPIBinder(
 	logger := logging.WithReconciler(klog.Background(), ControllerName)
 
 	indexers.AddIfNotPresentOrDie(clusterWorkspaceTypeInformer.Informer().GetIndexer(), cache.Indexers{
-		indexers.ByLogicalClusterPath: indexers.IndexByLogicalClusterPath,
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
 
 	thisWorkspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{

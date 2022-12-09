@@ -58,7 +58,7 @@ func Register(plugins *admission.Plugins) {
 				createAuthorizer: delegated.NewDelegatedAuthorizer,
 			}
 			plugin.getType = func(path logicalcluster.Path, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
-				objs, err := plugin.typeIndexer.ByIndex(indexers.ByLogicalClusterPath, path.Join(name).String())
+				objs, err := plugin.typeIndexer.ByIndex(indexers.ByLogicalClusterPathAndName, path.Join(name).String())
 				if err != nil {
 					return nil, err
 				}
@@ -370,7 +370,7 @@ func (o *clusterWorkspaceTypeExists) SetKcpInformers(informers kcpinformers.Shar
 	o.thisWorkspaceLister = informers.Tenancy().V1alpha1().ThisWorkspaces().Lister()
 
 	indexers.AddIfNotPresentOrDie(informers.Tenancy().V1alpha1().ClusterWorkspaceTypes().Informer().GetIndexer(), cache.Indexers{
-		indexers.ByLogicalClusterPath: indexers.IndexByLogicalClusterPath,
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
 }
 

@@ -92,7 +92,7 @@ func NewAPIReconciler(
 	logger := logging.WithReconciler(klog.Background(), ControllerName+virtualWorkspaceName)
 
 	indexers.AddIfNotPresentOrDie(apiExportInformer.Informer().GetIndexer(), cache.Indexers{
-		indexers.ByLogicalClusterPath: indexers.IndexByLogicalClusterPath,
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
 
 	syncTargetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
