@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/kcp-dev/logicalcluster/v3"
 
 	kcpfakedynamic "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/dynamic/fake"
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
@@ -473,7 +472,7 @@ func TestHandleUnstructuredObjectDeletion(t *testing.T) {
 			}()...)
 			target.dynamicCacheClient = fakeDynamicClient
 
-			err = target.handleObjectDeletion(context.TODO(), logicalcluster.NewPath("root"), &gvr, unstructuredCacheObject)
+			err = target.handleObjectDeletion(context.TODO(), "root", &gvr, unstructuredCacheObject)
 			if err != nil {
 				tt.Fatal(err)
 			}

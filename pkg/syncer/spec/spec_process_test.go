@@ -472,7 +472,7 @@ func TestDeepEqualApartFromStatus(t *testing.T) {
 	}
 }
 
-func TestSyncerProcess(t *testing.T) {
+func TestSpecSyncerProcess(t *testing.T) {
 	tests := map[string]struct {
 		fromNamespace *corev1.Namespace
 		gvr           schema.GroupVersionResource
@@ -535,12 +535,12 @@ func TestSyncerProcess(t *testing.T) {
 				createNamespaceSingleClusterAction(
 					"",
 					changeUnstructured(
-						toUnstructured(t, namespace("kcp-hcbsa8z6c2er", "",
+						toUnstructured(t, namespace("kcp-33jbiactwhg0", "",
 							map[string]string{
 								"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
 							},
 							map[string]string{
-								"kcp.dev/namespace-locator": `{"syncTarget":{"workspace":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
+								"kcp.dev/namespace-locator": `{"syncTarget":{"cluster":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
 							})),
 						removeNilOrEmptyFields,
 					),
@@ -582,23 +582,23 @@ func TestSyncerProcess(t *testing.T) {
 				createNamespaceSingleClusterAction(
 					"",
 					changeUnstructured(
-						toUnstructured(t, namespace("kcp-hcbsa8z6c2er", "",
+						toUnstructured(t, namespace("kcp-33jbiactwhg0", "",
 							map[string]string{
 								"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
 							},
 							map[string]string{
-								"kcp.dev/namespace-locator": `{"syncTarget":{"workspace":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
+								"kcp.dev/namespace-locator": `{"syncTarget":{"cluster":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
 							})),
 						removeNilOrEmptyFields,
 					),
 				),
 				patchDeploymentSingleClusterAction(
 					"theDeployment",
-					"kcp-hcbsa8z6c2er",
+					"kcp-33jbiactwhg0",
 					types.ApplyPatchType,
 					toJson(t,
 						changeUnstructured(
-							toUnstructured(t, deployment("theDeployment", "kcp-hcbsa8z6c2er", "", map[string]string{
+							toUnstructured(t, deployment("theDeployment", "kcp-33jbiactwhg0", "", map[string]string{
 								"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
 							}, nil, nil)),
 							setNestedField(map[string]interface{}{}, "status"),
@@ -632,7 +632,7 @@ func TestSyncerProcess(t *testing.T) {
 			expectActionsOnTo: []clienttesting.Action{
 				deleteDeploymentSingleClusterAction(
 					"theDeployment",
-					"kcp-hcbsa8z6c2er",
+					"kcp-33jbiactwhg0",
 				),
 			},
 		},
@@ -643,13 +643,13 @@ func TestSyncerProcess(t *testing.T) {
 			}, nil),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			toResources: []runtime.Object{
-				namespace("kcp-hcbsa8z6c2er", "", map[string]string{
+				namespace("kcp-33jbiactwhg0", "", map[string]string{
 					"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync",
 				},
 					map[string]string{
-						"kcp.dev/namespace-locator": `{"syncTarget":{"workspace":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
+						"kcp.dev/namespace-locator": `{"syncTarget":{"cluster":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
 					}),
-				deployment("theDeployment", "kcp-hcbsa8z6c2er", "root:org:ws", map[string]string{
+				deployment("theDeployment", "kcp-33jbiactwhg0", "root:org:ws", map[string]string{
 					"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
 				}, nil, []string{"workload.kcp.dev/syncer-2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5"}),
 				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
@@ -680,7 +680,7 @@ func TestSyncerProcess(t *testing.T) {
 			expectActionsOnTo: []clienttesting.Action{
 				deleteDeploymentSingleClusterAction(
 					"theDeployment",
-					"kcp-hcbsa8z6c2er",
+					"kcp-33jbiactwhg0",
 				),
 			},
 		},
@@ -691,11 +691,11 @@ func TestSyncerProcess(t *testing.T) {
 			}, nil),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			toResources: []runtime.Object{
-				namespace("kcp-hcbsa8z6c2er", "", map[string]string{
+				namespace("kcp-33jbiactwhg0", "", map[string]string{
 					"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync",
 				},
 					map[string]string{
-						"kcp.dev/namespace-locator": `{"syncTarget":{"workspace":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
+						"kcp.dev/namespace-locator": `{"syncTarget":{"cluster":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
 					}),
 				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
 				dns.MakeRole("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
@@ -738,7 +738,7 @@ func TestSyncerProcess(t *testing.T) {
 			expectActionsOnTo: []clienttesting.Action{
 				deleteDeploymentSingleClusterAction(
 					"theDeployment",
-					"kcp-hcbsa8z6c2er",
+					"kcp-33jbiactwhg0",
 				),
 			},
 		},
@@ -749,14 +749,14 @@ func TestSyncerProcess(t *testing.T) {
 			}, nil),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			toResources: []runtime.Object{
-				namespace("kcp-hcbsa8z6c2er", "", map[string]string{
+				namespace("kcp-33jbiactwhg0", "", map[string]string{
 					"internal.workload.kcp.dev/cluster":                             "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
 					"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync",
 				},
 					map[string]string{
-						"kcp.dev/namespace-locator": `{"syncTarget":{"workspace":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
+						"kcp.dev/namespace-locator": `{"syncTarget":{"cluster":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
 					}),
-				deployment("theDeployment", "kcp-hcbsa8z6c2er", "", map[string]string{
+				deployment("theDeployment", "kcp-33jbiactwhg0", "", map[string]string{
 					"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
 				}, nil, nil),
 				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
@@ -790,11 +790,11 @@ func TestSyncerProcess(t *testing.T) {
 			expectActionsOnTo: []clienttesting.Action{
 				patchDeploymentSingleClusterAction(
 					"theDeployment",
-					"kcp-hcbsa8z6c2er",
+					"kcp-33jbiactwhg0",
 					types.ApplyPatchType,
 					toJson(t,
 						changeUnstructured(
-							toUnstructured(t, deployment("theDeployment", "kcp-hcbsa8z6c2er", "", map[string]string{
+							toUnstructured(t, deployment("theDeployment", "kcp-33jbiactwhg0", "", map[string]string{
 								"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
 							}, map[string]string{
 								"deletion.internal.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": time.Now().Format(time.RFC3339),
@@ -858,23 +858,23 @@ func TestSyncerProcess(t *testing.T) {
 				createNamespaceSingleClusterAction(
 					"",
 					changeUnstructured(
-						toUnstructured(t, namespace("kcp-hcbsa8z6c2er", "",
+						toUnstructured(t, namespace("kcp-33jbiactwhg0", "",
 							map[string]string{
 								"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
 							},
 							map[string]string{
-								"kcp.dev/namespace-locator": `{"syncTarget":{"workspace":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
+								"kcp.dev/namespace-locator": `{"syncTarget":{"cluster":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
 							})),
 						removeNilOrEmptyFields,
 					),
 				),
 				patchDeploymentSingleClusterAction(
 					"theDeployment",
-					"kcp-hcbsa8z6c2er",
+					"kcp-33jbiactwhg0",
 					types.ApplyPatchType,
 					toJson(t,
 						changeUnstructured(
-							toUnstructured(t, deployment("theDeployment", "kcp-hcbsa8z6c2er", "", map[string]string{
+							toUnstructured(t, deployment("theDeployment", "kcp-33jbiactwhg0", "", map[string]string{
 								"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
 							}, map[string]string{"experimental.spec-diff.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "[{\"op\":\"replace\",\"path\":\"/replicas\",\"value\":3}]"}, nil)),
 							setNestedField(map[string]interface{}{
@@ -917,11 +917,11 @@ func TestSyncerProcess(t *testing.T) {
 				}, nil, []string{"workload.kcp.dev/syncer-2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5"}),
 			},
 			toResources: []runtime.Object{
-				namespace("kcp-hcbsa8z6c2er", "", map[string]string{
+				namespace("kcp-33jbiactwhg0", "", map[string]string{
 					"internal.workload.kcp.dev/cluster":                             "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
 					"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync",
 				}, map[string]string{
-					"kcp.dev/namespace-locator": `{"syncTarget":{"workspace":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"ANOTHERNAMESPACE"}`,
+					"kcp.dev/namespace-locator": `{"syncTarget":{"cluster":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"ANOTHERNAMESPACE"}`,
 				}),
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
@@ -950,7 +950,7 @@ func TestSyncerProcess(t *testing.T) {
 				}, nil, []string{"workload.kcp.dev/syncer-2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5"}),
 			},
 			toResources: []runtime.Object{
-				namespace("kcp-hcbsa8z6c2er", "", map[string]string{
+				namespace("kcp-33jbiactwhg0", "", map[string]string{
 					"internal.workload.kcp.dev/cluster":                             "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
 					"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync",
 				}, map[string]string{},
@@ -974,7 +974,7 @@ func TestSyncerProcess(t *testing.T) {
 					"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync",
 				},
 					map[string]string{
-						"kcp.dev/namespace-locator": `{"syncTarget":{"path":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
+						"kcp.dev/namespace-locator": `{"syncTarget":{"path":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
 					}),
 				secret("foo", "test", "root:org:ws",
 					map[string]string{"state.workload.kcp.dev/2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5": "Sync"},
@@ -1298,7 +1298,7 @@ func setPodSpec(fields ...string) unstructuredChange {
 func deploymentAction(verb, namespace string, subresources ...string) kcptesting.ActionImpl {
 	return kcptesting.ActionImpl{
 		Namespace:   namespace,
-		Cluster:     logicalcluster.NewPath("root:org:ws"),
+		ClusterPath: logicalcluster.NewPath("root:org:ws"),
 		Verb:        verb,
 		Resource:    schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 		Subresource: strings.Join(subresources, "/"),

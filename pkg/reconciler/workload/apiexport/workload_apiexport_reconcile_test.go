@@ -339,7 +339,7 @@ func TestSchemaReconciler(t *testing.T) {
 			},
 			syncTargets: map[logicalcluster.Name][]*workloadv1alpha1.SyncTarget{
 				"root:org:ws": {
-					syncTarget("syncTarget1", rootcompute.RootComputeWorkspace, "kubernetes"),
+					syncTarget("syncTarget1", rootcompute.RootComputeClusterName, "kubernetes"),
 				},
 			},
 			schemas: map[logicalcluster.Name][]*apisv1alpha1.APIResourceSchema{

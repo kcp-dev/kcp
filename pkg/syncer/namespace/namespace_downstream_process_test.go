@@ -53,7 +53,7 @@ func TestSyncerNamespaceProcess(t *testing.T) {
 	}{
 		"NamespaceSyncer removes downstream namespace when no matching upstream has been found, expect downstream namespace deletion": {
 			upstreamNamespaceExists: false,
-			deletedNamespace:        "kcp-hcbsa8z6c2er",
+			deletedNamespace:        "kcp-33jbiactwhg0",
 			eventOrigin:             "downstream",
 		},
 		"NamespaceSyncer doesn't remove downstream namespace when nsLocator synctarget UID is different, expect no namespace deletion": {
@@ -89,7 +89,7 @@ func TestSyncerNamespaceProcess(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			downstreamNamespace := namespace(logicalcluster.NewPath(""), "kcp-hcbsa8z6c2er", map[string]string{
+			downstreamNamespace := namespace(logicalcluster.NewPath(""), "kcp-33jbiactwhg0", map[string]string{
 				"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
 			}, map[string]string{
 				"kcp.dev/namespace-locator": `{"syncTarget":{"workspace":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
@@ -132,7 +132,7 @@ func TestSyncerNamespaceProcess(t *testing.T) {
 				syncTargetClusterName: syncTargetClusterName,
 				syncTargetUID:         syncTargetUID,
 				syncTargetKey:         syncTargetKey,
-				dnsNamespace:          "kcp-hcbsa8z6c2er",
+				dnsNamespace:          "kcp-33jbiactwhg0",
 			}
 
 			var key string

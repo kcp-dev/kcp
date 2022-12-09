@@ -124,7 +124,7 @@ func (r *placementSchedulingReconciler) getAllValidSyncTargetsForPlacement(ctx c
 	}
 
 	// filter the SyncTargets by APIs
-	validSyncTargets, message, err := r.filterAPICompatible(ctx, logicalcluster.From(placement), locationSyncTargets)
+	validSyncTargets, message, err := r.filterAPICompatible(ctx, placement, locationSyncTargets)
 	if len(validSyncTargets) == 0 || err != nil {
 		return nil, schedulingv1alpha1.ScheduleNoValidTargetReason, message, err
 	}
@@ -138,11 +138,11 @@ func (r *placementSchedulingReconciler) getAllValidSyncTargetsForPlacement(ctx c
 	return validSyncTargets, "", "", nil
 }
 
-func (r *placementSchedulingReconciler) filterAPICompatible(ctx context.Context, clusterName logicalcluster.Name, syncTargets []*workloadv1alpha1.SyncTarget) ([]*workloadv1alpha1.SyncTarget, string, error) {
+func (r *placementSchedulingReconciler) filterAPICompatible(ctx context.Context, placement *schedulingv1alpha1.Placement, syncTargets []*workloadv1alpha1.SyncTarget) ([]*workloadv1alpha1.SyncTarget, string, error) {
 	logger := klog.FromContext(ctx)
 	var filteredSyncTargets []*workloadv1alpha1.SyncTarget
 
-	apiBindings, err := r.listWorkloadAPIBindings(clusterName)
+	apiBindings, err := r.listWorkloadAPIBindings(logicalcluster.From(placement))
 	if err != nil {
 		return filteredSyncTargets, "", err
 	}
@@ -166,7 +166,7 @@ func (r *placementSchedulingReconciler) filterAPICompatible(ctx context.Context,
 				if !ok || supportedAPI.IdentityHash != desiredAPI.Schema.IdentityHash {
 					supported = false
 					messages = append(messages, fmt.Sprintf("SyncTarget %s does not support APIBinding %s", syncTargert.Name, binding.Name))
-					logger.V(4).Info("Does not support APIBindings", "workspace", clusterName, "APIBinding", binding.Name, "syncTarget", syncTargert.Name)
+					logger.V(4).Info("Does not support APIBindings", "workspace", logicalcluster.From(placement), "APIBinding", binding.Name, "syncTarget", syncTargert.Name)
 					break
 				}
 			}

@@ -45,7 +45,7 @@ func TestClusterWorkspaceTypeAPIBindingInitialization(t *testing.T) {
 	t.Cleanup(cancel)
 
 	orgClusterName := framework.NewOrganizationFixture(t, server)
-	cowboysProvider := framework.NewWorkspaceFixture(t, server, orgClusterName, framework.WithName("cowboys-provider"))
+	cowboysProvider := framework.NewWorkspaceFixture(t, server, orgClusterName.Path(), framework.WithName("cowboys-provider"))
 
 	cfg := server.BaseConfig(t)
 
@@ -59,8 +59,8 @@ func TestClusterWorkspaceTypeAPIBindingInitialization(t *testing.T) {
 	require.NoError(t, err, "error creating cowboys provider kcp client")
 
 	t.Logf("Install a cowboys APIResourceSchema into workspace %q", cowboysProvider)
-	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(cowboysProviderKCPClient.Cluster(cowboysProvider).Discovery()))
-	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(cowboysProvider), mapper, nil, "apiresourceschema_cowboys.yaml", testFiles)
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(cowboysProviderKCPClient.Cluster(cowboysProvider.Path()).Discovery()))
+	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(cowboysProvider.Path()), mapper, nil, "apiresourceschema_cowboys.yaml", testFiles)
 	require.NoError(t, err)
 
 	t.Logf("Create today-cowboys APIExport")
@@ -80,10 +80,10 @@ func TestClusterWorkspaceTypeAPIBindingInitialization(t *testing.T) {
 			},
 		},
 	}
-	cowboysAPIExport, err = kcpClusterClient.Cluster(cowboysProvider).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
+	cowboysAPIExport, err = kcpClusterClient.Cluster(cowboysProvider.Path()).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating APIExport")
 
-	universal := framework.NewWorkspaceFixture(t, server, orgClusterName, framework.WithName("universal"))
+	universal := framework.NewWorkspaceFixture(t, server, orgClusterName.Path(), framework.WithName("universal"))
 
 	cwtParent1 := &tenancyv1alpha1.ClusterWorkspaceType{
 		ObjectMeta: metav1.ObjectMeta{
@@ -144,17 +144,17 @@ func TestClusterWorkspaceTypeAPIBindingInitialization(t *testing.T) {
 	}
 
 	t.Logf("Creating ClusterWorkspaceType parent1")
-	_, err = kcpClusterClient.Cluster(universal).TenancyV1alpha1().ClusterWorkspaceTypes().Create(ctx, cwtParent1, metav1.CreateOptions{})
+	_, err = kcpClusterClient.Cluster(universal.Path()).TenancyV1alpha1().ClusterWorkspaceTypes().Create(ctx, cwtParent1, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating cwt parent1")
 
 	t.Logf("Creating ClusterWorkspaceType parent2")
-	_, err = kcpClusterClient.Cluster(universal).TenancyV1alpha1().ClusterWorkspaceTypes().Create(ctx, cwtParent2, metav1.CreateOptions{})
+	_, err = kcpClusterClient.Cluster(universal.Path()).TenancyV1alpha1().ClusterWorkspaceTypes().Create(ctx, cwtParent2, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating cwt parent2")
 
 	t.Logf("Creating ClusterWorkspaceType test")
-	_, err = kcpClusterClient.Cluster(universal).TenancyV1alpha1().ClusterWorkspaceTypes().Create(ctx, cwt, metav1.CreateOptions{})
+	_, err = kcpClusterClient.Cluster(universal.Path()).TenancyV1alpha1().ClusterWorkspaceTypes().Create(ctx, cwt, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating cwt test")
 
 	// This will create and wait for ready, which only happens if the APIBinding initialization is working correctly
-	_ = framework.NewWorkspaceFixture(t, server, universal, framework.WithType(universal, "test"), framework.WithName("init"))
+	_ = framework.NewWorkspaceFixture(t, server, universal.Path(), framework.WithType(universal.Path(), "test"), framework.WithName("init"))
 }

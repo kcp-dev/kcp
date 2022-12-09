@@ -54,8 +54,8 @@ func TestRootComputeWorkspace(t *testing.T) {
 	source := framework.SharedKcpServer(t)
 
 	orgClusterName := framework.NewOrganizationFixture(t, source)
-	computeClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
-	consumerWorkspace := framework.NewWorkspaceFixture(t, source, orgClusterName)
+	computeClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName.Path())
+	consumerWorkspace := framework.NewWorkspaceFixture(t, source, orgClusterName.Path())
 
 	kcpClients, err := kcpclientset.NewForConfig(source.BaseConfig(t))
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
@@ -83,7 +83,7 @@ func TestRootComputeWorkspace(t *testing.T) {
 	).Start(t)
 
 	require.Eventually(t, func() bool {
-		syncTarget, err := kcpClients.Cluster(computeClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
+		syncTarget, err := kcpClients.Cluster(computeClusterName.Path()).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
 		if err != nil {
 			return false
 		}
@@ -109,14 +109,14 @@ func TestRootComputeWorkspace(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Bind to location workspace")
-	framework.NewBindCompute(t, consumerWorkspace, source,
+	framework.NewBindCompute(t, consumerWorkspace.Path(), source,
 		framework.WithAPIExportsWorkloadBindOption("root:compute:kubernetes"),
-		framework.WithLocationWorkspaceWorkloadBindOption(computeClusterName),
+		framework.WithLocationWorkspaceWorkloadBindOption(computeClusterName.Path()),
 	).Bind(t)
 
 	t.Logf("Wait for being able to list Services in the user workspace")
 	require.Eventually(t, func() bool {
-		_, err := kubeClusterClient.Cluster(consumerWorkspace).CoreV1().Services("default").List(ctx, metav1.ListOptions{})
+		_, err := kubeClusterClient.Cluster(consumerWorkspace.Path()).CoreV1().Services("default").List(ctx, metav1.ListOptions{})
 		if errors.IsNotFound(err) {
 			t.Logf("service err %v", err)
 			return false
@@ -128,7 +128,7 @@ func TestRootComputeWorkspace(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Create a service in the user workspace")
-	_, err = kubeClusterClient.Cluster(consumerWorkspace).CoreV1().Services("default").Create(ctx, &corev1.Service{
+	_, err = kubeClusterClient.Cluster(consumerWorkspace.Path()).CoreV1().Services("default").Create(ctx, &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "first",
 			Labels: map[string]string{
@@ -164,7 +164,7 @@ func TestRootComputeWorkspace(t *testing.T) {
 
 	t.Logf("Wait for being able to list Deployments in the user workspace")
 	framework.Eventually(t, func() (bool, string) {
-		_, err := kubeClusterClient.Cluster(consumerWorkspace).AppsV1().Deployments("default").List(ctx, metav1.ListOptions{})
+		_, err := kubeClusterClient.Cluster(consumerWorkspace.Path()).AppsV1().Deployments("default").List(ctx, metav1.ListOptions{})
 		if err != nil {
 			t.Logf("deployment err %v", err)
 			return false, err.Error()
@@ -174,7 +174,7 @@ func TestRootComputeWorkspace(t *testing.T) {
 
 	var replicas int32 = 1
 	t.Logf("Create a deployment in the user workspace")
-	_, err = kubeClusterClient.Cluster(consumerWorkspace).AppsV1().Deployments("default").Create(ctx, &appsv1.Deployment{
+	_, err = kubeClusterClient.Cluster(consumerWorkspace.Path()).AppsV1().Deployments("default").Create(ctx, &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "first",
 			Labels: map[string]string{
@@ -220,11 +220,11 @@ func TestRootComputeWorkspace(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Scale the deployment in the upstream consumer workspace")
-	discoverClient := kubeClusterClient.Cluster(consumerWorkspace).Discovery()
+	discoverClient := kubeClusterClient.Cluster(consumerWorkspace.Path()).Discovery()
 	cachedDiscovery := discocache.NewMemCacheClient(discoverClient)
 	restMapper := restmapper.NewDeferredDiscoveryRESTMapper(cachedDiscovery)
 	scaleKindResolver := scale.NewDiscoveryScaleKindResolver(discoverClient)
-	scaleClient := scale.New(kubeClusterClient.Cluster(consumerWorkspace).AppsV1().RESTClient(), restMapper, dynamic.LegacyAPIPathResolverFunc, scaleKindResolver)
+	scaleClient := scale.New(kubeClusterClient.Cluster(consumerWorkspace.Path()).AppsV1().RESTClient(), restMapper, dynamic.LegacyAPIPathResolverFunc, scaleKindResolver)
 	_, err = scaleClient.Scales("default").Update(ctx, appsv1.SchemeGroupVersion.WithResource("deployments").GroupResource(), &v1.Scale{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "first",

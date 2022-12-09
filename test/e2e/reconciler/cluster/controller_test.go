@@ -69,7 +69,7 @@ func TestClusterController(t *testing.T) {
 				kcpClient, err := kcpclientset.NewForConfig(syncerFixture.SyncerConfig.UpstreamConfig)
 				require.NoError(t, err)
 
-				syncTarget, err := kcpClient.Cluster(syncerFixture.SyncerConfig.SyncTargetClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx,
+				syncTarget, err := kcpClient.Cluster(syncerFixture.SyncerConfig.SyncTargetClusterName.Path()).WorkloadV1alpha1().SyncTargets().Get(ctx,
 					syncerFixture.SyncerConfig.SyncTargetName,
 					metav1.GetOptions{},
 				)
@@ -174,7 +174,7 @@ func TestClusterController(t *testing.T) {
 			t.Cleanup(cancelFunc)
 
 			t.Log("Creating a workspace")
-			wsClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName, framework.WithName("source"))
+			wsClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName.Path(), framework.WithName("source"))
 
 			// clients
 			sourceConfig := source.BaseConfig(t)
@@ -197,21 +197,21 @@ func TestClusterController(t *testing.T) {
 				})).Start(t)
 
 			t.Logf("Bind second user workspace to location workspace")
-			framework.NewBindCompute(t, wsClusterName, source).Bind(t)
+			framework.NewBindCompute(t, wsClusterName.Path(), source).Bind(t)
 
 			sinkWildwestClient, err := wildwestclientset.NewForConfig(syncerFixture.DownstreamConfig)
 			require.NoError(t, err)
 
 			t.Log("Creating namespace in source cluster...")
-			_, err = sourceKubeClient.Cluster(wsClusterName).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+			_, err = sourceKubeClient.Cluster(wsClusterName.Path()).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{Name: testNamespace},
 			}, metav1.CreateOptions{})
 			require.NoError(t, err)
 
 			runningServers := map[string]runningServer{
 				sourceClusterName: {
-					client:     sourceWildwestClusterClient.Cluster(wsClusterName).WildwestV1alpha1(),
-					coreClient: sourceKubeClient.Cluster(wsClusterName).CoreV1(),
+					client:     sourceWildwestClusterClient.Cluster(wsClusterName.Path()).WildwestV1alpha1(),
+					coreClient: sourceKubeClient.Cluster(wsClusterName.Path()).CoreV1(),
 				},
 				sinkClusterName: {
 					client:     sinkWildwestClient.WildwestV1alpha1(),

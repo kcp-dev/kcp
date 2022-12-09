@@ -44,7 +44,7 @@ func TestRequeueWhenIdentitySecretAdded(t *testing.T) {
 	t.Cleanup(cancel)
 
 	orgClusterName := framework.NewOrganizationFixture(t, server)
-	workspaceClusterName := framework.NewWorkspaceFixture(t, server, orgClusterName)
+	workspaceClusterName := framework.NewWorkspaceFixture(t, server, orgClusterName.Path())
 	t.Logf("Running test in cluster %s", workspaceClusterName)
 
 	cfg := server.BaseConfig(t)
@@ -72,12 +72,12 @@ func TestRequeueWhenIdentitySecretAdded(t *testing.T) {
 	t.Logf("Creating APIExport with reference to nonexistent identity secret")
 	apiExportClient := kcpClusterClient.ApisV1alpha1().APIExports()
 
-	_, err = apiExportClient.Cluster(workspaceClusterName).Create(ctx, apiExport, metav1.CreateOptions{})
+	_, err = apiExportClient.Cluster(workspaceClusterName.Path()).Create(ctx, apiExport, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating APIExport")
 
 	t.Logf("Verifying the APIExport gets IdentityVerificationFailedReason")
 	require.Eventually(t, func() bool {
-		export, err := apiExportClient.Cluster(workspaceClusterName).Get(ctx, apiExport.Name, metav1.GetOptions{})
+		export, err := apiExportClient.Cluster(workspaceClusterName.Path()).Get(ctx, apiExport.Name, metav1.GetOptions{})
 		if err != nil {
 			return false
 		}
@@ -100,13 +100,13 @@ func TestRequeueWhenIdentitySecretAdded(t *testing.T) {
 	}
 
 	t.Logf("Creating the referenced secret")
-	_, err = kubeClusterClient.Cluster(workspaceClusterName).CoreV1().Secrets("default").Create(ctx, secret, metav1.CreateOptions{})
+	_, err = kubeClusterClient.Cluster(workspaceClusterName.Path()).CoreV1().Secrets("default").Create(ctx, secret, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating secret")
 
 	t.Logf("Verifying the APIExport verifies and the identity and gets the expected generated identity hash")
 	var gotHash string
 	require.Eventually(t, func() bool {
-		export, err := apiExportClient.Cluster(workspaceClusterName).Get(ctx, apiExport.Name, metav1.GetOptions{})
+		export, err := apiExportClient.Cluster(workspaceClusterName.Path()).Get(ctx, apiExport.Name, metav1.GetOptions{})
 		if err != nil {
 			return false
 		}

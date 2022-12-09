@@ -185,7 +185,7 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 		// Attempt to update it should fail
 		cb := cbs.Items[0]
 		cb.Status.Result = "updated"
-		_, err = wwUser1VC.Cluster(logicalcluster.From(&cb)).WildwestV1alpha1().Cowboys(cb.Namespace).UpdateStatus(ctx, &cb, metav1.UpdateOptions{})
+		_, err = wwUser1VC.Cluster(logicalcluster.From(&cb).Path()).WildwestV1alpha1().Cowboys(cb.Namespace).UpdateStatus(ctx, &cb, metav1.UpdateOptions{})
 		require.Error(t, err)
 		require.True(t, apierrors.IsForbidden(err))
 
@@ -216,7 +216,7 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 
 		cb := cbs.Items[0]
 		cb.Status.Result = "updated"
-		_, err = wwUser2VC.Cluster(logicalcluster.From(&cb)).WildwestV1alpha1().Cowboys(cb.Namespace).UpdateStatus(ctx, &cb, metav1.UpdateOptions{})
+		_, err = wwUser2VC.Cluster(logicalcluster.From(&cb).Path()).WildwestV1alpha1().Cowboys(cb.Namespace).UpdateStatus(ctx, &cb, metav1.UpdateOptions{})
 		require.NoError(t, err)
 		testCowboy = cb
 		return true

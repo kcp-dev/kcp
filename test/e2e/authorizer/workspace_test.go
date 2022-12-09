@@ -165,7 +165,7 @@ func TestWorkspaces(t *testing.T) {
 
 			testCase.work(ctx, t, runningServer{
 				RunningServer:     server,
-				orgClusterName:    orgClusterName,
+				orgClusterName:    orgClusterName.Path(),
 				kubeClusterClient: kubeClusterClient,
 				kcpClusterClient:  kcpClusterClient,
 				UserKcpClients:    userKcpClients,

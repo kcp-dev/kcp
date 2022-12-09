@@ -59,7 +59,7 @@ func TestMultipleExports(t *testing.T) {
 	source := framework.SharedKcpServer(t)
 
 	orgClusterName := framework.NewOrganizationFixture(t, source)
-	computeClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
+	computeClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName.Path())
 
 	kcpClients, err := kcpclientset.NewForConfig(source.BaseConfig(t))
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
@@ -67,10 +67,10 @@ func TestMultipleExports(t *testing.T) {
 	dynamicClients, err := kcpdynamic.NewForConfig(source.BaseConfig(t))
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
-	serviceSchemaClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
+	serviceSchemaClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName.Path())
 	t.Logf("Install service APIResourceSchema into service schema workspace %q", serviceSchemaClusterName)
-	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(kcpClients.Cluster(serviceSchemaClusterName).Discovery()))
-	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(serviceSchemaClusterName), mapper, sets.NewString("root-compute-workspace"), "apiresourceschema_services.yaml", kube124.KubeComputeFS)
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(kcpClients.Cluster(serviceSchemaClusterName.Path()).Discovery()))
+	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(serviceSchemaClusterName.Path()), mapper, sets.NewString("root-compute-workspace"), "apiresourceschema_services.yaml", kube124.KubeComputeFS)
 	require.NoError(t, err)
 	t.Logf("Create an APIExport for it")
 	serviceAPIExport := &apisv1alpha1.APIExport{
@@ -81,13 +81,13 @@ func TestMultipleExports(t *testing.T) {
 			LatestResourceSchemas: []string{"v124.services.core"},
 		},
 	}
-	_, err = kcpClients.Cluster(serviceSchemaClusterName).ApisV1alpha1().APIExports().Create(ctx, serviceAPIExport, metav1.CreateOptions{})
+	_, err = kcpClients.Cluster(serviceSchemaClusterName.Path()).ApisV1alpha1().APIExports().Create(ctx, serviceAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err)
 
-	ingressSchemaClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
+	ingressSchemaClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName.Path())
 	t.Logf("Install ingress APIResourceSchema into ingress schema workspace %q", ingressSchemaClusterName)
-	mapper = restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(kcpClients.Cluster(ingressSchemaClusterName).Discovery()))
-	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(ingressSchemaClusterName), mapper, sets.NewString("root-compute-workspace"), "apiresourceschema_ingresses.networking.k8s.io.yaml", kube124.KubeComputeFS)
+	mapper = restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(kcpClients.Cluster(ingressSchemaClusterName.Path()).Discovery()))
+	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(ingressSchemaClusterName.Path()), mapper, sets.NewString("root-compute-workspace"), "apiresourceschema_ingresses.networking.k8s.io.yaml", kube124.KubeComputeFS)
 	require.NoError(t, err)
 	t.Logf("Create an APIExport for it")
 	ingressAPIExport := &apisv1alpha1.APIExport{
@@ -98,7 +98,7 @@ func TestMultipleExports(t *testing.T) {
 			LatestResourceSchemas: []string{"v124.ingresses.networking.k8s.io"},
 		},
 	}
-	_, err = kcpClients.Cluster(ingressSchemaClusterName).ApisV1alpha1().APIExports().Create(ctx, ingressAPIExport, metav1.CreateOptions{})
+	_, err = kcpClients.Cluster(ingressSchemaClusterName.Path()).ApisV1alpha1().APIExports().Create(ctx, ingressAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	syncTargetName := "synctarget"
@@ -123,7 +123,7 @@ func TestMultipleExports(t *testing.T) {
 
 	t.Logf("syncTarget should have one resource to sync")
 	require.Eventually(t, func() bool {
-		syncTarget, err := kcpClients.Cluster(computeClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
+		syncTarget, err := kcpClients.Cluster(computeClusterName.Path()).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
 		if err != nil {
 			return false
 		}
@@ -142,7 +142,7 @@ func TestMultipleExports(t *testing.T) {
 
 	t.Logf("Synctarget should be authorized to access downstream clusters")
 	framework.Eventually(t, func() (bool, string) {
-		syncTarget, err := kcpClients.Cluster(computeClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
+		syncTarget, err := kcpClients.Cluster(computeClusterName.Path()).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
 		if err != nil {
 			return false, err.Error()
 		}
@@ -162,11 +162,11 @@ func TestMultipleExports(t *testing.T) {
 	t.Logf("Patch synctarget with new export")
 	patchData := fmt.Sprintf(
 		`{"spec":{"supportedAPIExports":[{"path":%q,"exportName":"services"},{"path":%q,"exportName":"ingresses"}]}}`, serviceSchemaClusterName.String(), ingressSchemaClusterName.String())
-	_, err = kcpClients.Cluster(computeClusterName).WorkloadV1alpha1().SyncTargets().Patch(ctx, syncTargetName, types.MergePatchType, []byte(patchData), metav1.PatchOptions{})
+	_, err = kcpClients.Cluster(computeClusterName.Path()).WorkloadV1alpha1().SyncTargets().Patch(ctx, syncTargetName, types.MergePatchType, []byte(patchData), metav1.PatchOptions{})
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {
-		syncTarget, err := kcpClients.Cluster(computeClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
+		syncTarget, err := kcpClients.Cluster(computeClusterName.Path()).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
 		if err != nil {
 			return false
 		}
@@ -190,7 +190,7 @@ func TestMultipleExports(t *testing.T) {
 
 	t.Logf("Synctarget should not be authorized to access downstream clusters")
 	require.Eventually(t, func() bool {
-		syncTarget, err := kcpClients.Cluster(computeClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
+		syncTarget, err := kcpClients.Cluster(computeClusterName.Path()).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
 		if err != nil {
 			return false
 		}
@@ -218,7 +218,7 @@ func TestMultipleExports(t *testing.T) {
 
 	t.Logf("Synctarget should be authorized to access downstream clusters")
 	framework.Eventually(t, func() (bool, string) {
-		syncTarget, err := kcpClients.Cluster(computeClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
+		syncTarget, err := kcpClients.Cluster(computeClusterName.Path()).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
 		if err != nil {
 			return false, err.Error()
 		}

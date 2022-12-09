@@ -47,8 +47,8 @@ func TestMultiPlacement(t *testing.T) {
 	source := framework.SharedKcpServer(t)
 
 	orgClusterName := framework.NewOrganizationFixture(t, source)
-	locationClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName, framework.WithName("location"))
-	userClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName, framework.WithName("user"))
+	locationClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName.Path(), framework.WithName("location"))
+	userClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName.Path(), framework.WithName("user"))
 
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(source.BaseConfig(t))
 	require.NoError(t, err)
@@ -56,7 +56,7 @@ func TestMultiPlacement(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Check that there is no services resource in the user workspace")
-	_, err = kubeClusterClient.Cluster(userClusterName).CoreV1().Services("").List(ctx, metav1.ListOptions{})
+	_, err = kubeClusterClient.Cluster(userClusterName.Path()).CoreV1().Services("").List(ctx, metav1.ListOptions{})
 	require.Error(t, err)
 
 	firstSyncTargetName := "first-synctarget"
@@ -77,10 +77,10 @@ func TestMultiPlacement(t *testing.T) {
 
 	t.Log("Label synctarget")
 	patchData1 := `{"metadata":{"labels":{"loc":"loc1"}}}`
-	_, err = kcpClusterClient.Cluster(locationClusterName).WorkloadV1alpha1().SyncTargets().Patch(ctx, firstSyncTargetName, types.MergePatchType, []byte(patchData1), metav1.PatchOptions{})
+	_, err = kcpClusterClient.Cluster(locationClusterName.Path()).WorkloadV1alpha1().SyncTargets().Patch(ctx, firstSyncTargetName, types.MergePatchType, []byte(patchData1), metav1.PatchOptions{})
 	require.NoError(t, err)
 	patchData2 := `{"metadata":{"labels":{"loc":"loc2"}}}`
-	_, err = kcpClusterClient.Cluster(locationClusterName).WorkloadV1alpha1().SyncTargets().Patch(ctx, secondSyncTargetName, types.MergePatchType, []byte(patchData2), metav1.PatchOptions{})
+	_, err = kcpClusterClient.Cluster(locationClusterName.Path()).WorkloadV1alpha1().SyncTargets().Patch(ctx, secondSyncTargetName, types.MergePatchType, []byte(patchData2), metav1.PatchOptions{})
 	require.NoError(t, err)
 
 	t.Log("Create locations")
@@ -100,7 +100,7 @@ func TestMultiPlacement(t *testing.T) {
 			},
 		},
 	}
-	_, err = kcpClusterClient.Cluster(locationClusterName).SchedulingV1alpha1().Locations().Create(ctx, loc1, metav1.CreateOptions{})
+	_, err = kcpClusterClient.Cluster(locationClusterName.Path()).SchedulingV1alpha1().Locations().Create(ctx, loc1, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	loc2 := &schedulingv1alpha1.Location{
@@ -119,24 +119,24 @@ func TestMultiPlacement(t *testing.T) {
 			},
 		},
 	}
-	_, err = kcpClusterClient.Cluster(locationClusterName).SchedulingV1alpha1().Locations().Create(ctx, loc2, metav1.CreateOptions{})
+	_, err = kcpClusterClient.Cluster(locationClusterName.Path()).SchedulingV1alpha1().Locations().Create(ctx, loc2, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	t.Logf("Bind user workspace to location workspace with loc 1")
-	framework.NewBindCompute(t, userClusterName, source,
-		framework.WithLocationWorkspaceWorkloadBindOption(locationClusterName),
+	framework.NewBindCompute(t, userClusterName.Path(), source,
+		framework.WithLocationWorkspaceWorkloadBindOption(locationClusterName.Path()),
 		framework.WithLocationSelectorWorkloadBindOption(metav1.LabelSelector{MatchLabels: map[string]string{"loc": "loc1"}}),
 	).Bind(t)
 
 	t.Logf("Bind user workspace to location workspace with loc 2")
-	framework.NewBindCompute(t, userClusterName, source,
-		framework.WithLocationWorkspaceWorkloadBindOption(locationClusterName),
+	framework.NewBindCompute(t, userClusterName.Path(), source,
+		framework.WithLocationWorkspaceWorkloadBindOption(locationClusterName.Path()),
 		framework.WithLocationSelectorWorkloadBindOption(metav1.LabelSelector{MatchLabels: map[string]string{"loc": "loc2"}}),
 	).Bind(t)
 
 	t.Logf("Wait for being able to list Services in the user workspace")
 	require.Eventually(t, func() bool {
-		_, err := kubeClusterClient.Cluster(userClusterName).CoreV1().Services("").List(ctx, metav1.ListOptions{})
+		_, err := kubeClusterClient.Cluster(userClusterName.Path()).CoreV1().Services("").List(ctx, metav1.ListOptions{})
 		if errors.IsNotFound(err) {
 			return false
 		} else if err != nil {
@@ -147,7 +147,7 @@ func TestMultiPlacement(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Create a service in the user workspace")
-	_, err = kubeClusterClient.Cluster(userClusterName).CoreV1().Services("default").Create(ctx, &corev1.Service{
+	_, err = kubeClusterClient.Cluster(userClusterName.Path()).CoreV1().Services("default").Create(ctx, &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "first",
 			Labels: map[string]string{
@@ -167,7 +167,7 @@ func TestMultiPlacement(t *testing.T) {
 
 	t.Logf("Wait for the service to have the sync label")
 	framework.Eventually(t, func() (bool, string) {
-		svc, err := kubeClusterClient.Cluster(userClusterName).CoreV1().Services("default").Get(ctx, "first", metav1.GetOptions{})
+		svc, err := kubeClusterClient.Cluster(userClusterName.Path()).CoreV1().Services("default").Get(ctx, "first", metav1.GetOptions{})
 		if err != nil {
 			return false, fmt.Sprintf("Failed to get service: %v", err)
 		}

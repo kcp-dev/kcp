@@ -45,8 +45,8 @@ func TestSchedulingOnSupportedAPI(t *testing.T) {
 
 	source := framework.SharedKcpServer(t)
 	orgClusterName := framework.NewOrganizationFixture(t, source)
-	locationClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
-	userClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
+	locationClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName.Path())
+	userClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName.Path())
 
 	kcpClusterClient, err := kcpclientset.NewForConfig(source.BaseConfig(t))
 	require.NoError(t, err)
@@ -68,24 +68,24 @@ func TestSchedulingOnSupportedAPI(t *testing.T) {
 
 	placementName := "placement-test-supportedapi"
 	t.Logf("Bind to location workspace")
-	framework.NewBindCompute(t, userClusterName, source,
-		framework.WithLocationWorkspaceWorkloadBindOption(locationClusterName),
+	framework.NewBindCompute(t, userClusterName.Path(), source,
+		framework.WithLocationWorkspaceWorkloadBindOption(locationClusterName.Path()),
 		framework.WithPlacementNameBindOption(placementName),
 		framework.WithAPIExportsWorkloadBindOption("root:compute:kubernetes"),
 	).Bind(t)
 
+	t.Logf("First sync target hash: %s", workloadv1alpha1.ToSyncTargetKey(locationClusterName, firstSyncTargetName))
 	scheduledSyncTargetKey := workloadv1alpha1.ToSyncTargetKey(locationClusterName, secondSyncTargetName)
+
 	t.Logf("check placement should be scheduled to synctarget with supported API")
 	framework.Eventually(t, func() (bool, string) {
-		placement, err := kcpClusterClient.Cluster(userClusterName).SchedulingV1alpha1().Placements().Get(ctx, placementName, metav1.GetOptions{})
-		if err != nil {
-			return false, fmt.Sprintf("Failed to get placement: %v", err)
-		}
+		placement, err := kcpClusterClient.Cluster(userClusterName.Path()).SchedulingV1alpha1().Placements().Get(ctx, placementName, metav1.GetOptions{})
+		require.NoError(t, err)
 
-		if len(placement.Annotations) == 0 || placement.Annotations[workloadv1alpha1.InternalSyncTargetPlacementAnnotationKey] != scheduledSyncTargetKey {
+		if value := placement.Annotations[workloadv1alpha1.InternalSyncTargetPlacementAnnotationKey]; value != scheduledSyncTargetKey {
 			return false, fmt.Sprintf(
-				"Internal synctarget annotation for placement should be %s since it is the only SyncTarget with compatible API, but got %v",
-				scheduledSyncTargetKey, placement.Annotations)
+				"Internal synctarget annotation for placement should be %s since it is the only SyncTarget with compatible API, but got %q",
+				scheduledSyncTargetKey, value)
 		}
 
 		condition := conditions.Get(placement, schedulingv1alpha1.PlacementScheduled)

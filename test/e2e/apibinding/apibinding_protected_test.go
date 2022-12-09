@@ -127,7 +127,7 @@ func TestProtectedAPIFromServiceExports(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	rootWorkspace := logicalcluster.New("root")
+	rootWorkspace := logicalcluster.NewPath("root")
 	cfg := server.BaseConfig(t)
 
 	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)

@@ -60,7 +60,7 @@ func TestSyncerTunnel(t *testing.T) {
 	t.Log("Creating an organization")
 	orgClusterName := framework.NewOrganizationFixture(t, upstreamServer)
 	t.Log("Creating a workspace")
-	wsClusterName := framework.NewWorkspaceFixture(t, upstreamServer, orgClusterName)
+	wsClusterName := framework.NewWorkspaceFixture(t, upstreamServer, orgClusterName.Path())
 
 	// The Start method of the fixture will initiate syncer start and then wait for
 	// its sync target to go ready. This implicitly validates the syncer
@@ -72,14 +72,14 @@ func TestSyncerTunnel(t *testing.T) {
 	t.Cleanup(cancelFunc)
 
 	t.Logf("Bind location workspace")
-	framework.NewBindCompute(t, wsClusterName, upstreamServer).Bind(t)
+	framework.NewBindCompute(t, wsClusterName.Path(), upstreamServer).Bind(t)
 
 	upstreamConfig := upstreamServer.BaseConfig(t)
 	upstreamKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(upstreamConfig)
 	require.NoError(t, err)
 
 	t.Log("Creating upstream namespace...")
-	upstreamNamespace, err := upstreamKubeClusterClient.Cluster(wsClusterName).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+	upstreamNamespace, err := upstreamKubeClusterClient.Cluster(wsClusterName.Path()).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-syncer",
 		},
@@ -92,7 +92,7 @@ func TestSyncerTunnel(t *testing.T) {
 	upstreamKcpClient, err := kcpclientset.NewForConfig(syncerFixture.SyncerConfig.UpstreamConfig)
 	require.NoError(t, err)
 
-	syncTarget, err := upstreamKcpClient.Cluster(wsClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx,
+	syncTarget, err := upstreamKcpClient.Cluster(wsClusterName.Path()).WorkloadV1alpha1().SyncTargets().Get(ctx,
 		syncerFixture.SyncerConfig.SyncTargetName,
 		metav1.GetOptions{},
 	)

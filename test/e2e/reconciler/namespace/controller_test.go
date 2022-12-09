@@ -93,7 +93,7 @@ func TestNamespaceScheduler(t *testing.T) {
 				// TODO(marun) Extract the heartbeater out of the syncer for reuse in a test fixture. The namespace
 				// controller just needs ready clusters which can be accomplished without a syncer by having the
 				// heartbeater update the sync target so the heartbeat controller can set the cluster ready.
-				syncerFixture := framework.NewSyncerFixture(t, server, server.clusterName.Path(),
+				syncerFixture := framework.NewSyncerFixture(t, server, server.clusterName,
 					framework.WithExtraResources("services")).Start(t)
 				syncTargetName := syncerFixture.SyncerConfig.SyncTargetName
 
@@ -184,7 +184,7 @@ func TestNamespaceScheduler(t *testing.T) {
 				}, 100*time.Millisecond)
 
 				t.Logf("Bind to location workspace")
-				framework.NewBindCompute(t, server.clusterName, server,
+				framework.NewBindCompute(t, server.clusterName.Path(), server,
 					framework.WithAPIExportsWorkloadBindOption(server.clusterName.String()+":kubernetes"),
 				).Bind(t)
 

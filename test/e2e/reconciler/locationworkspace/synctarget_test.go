@@ -61,8 +61,8 @@ func TestSyncTargetExport(t *testing.T) {
 	source := framework.SharedKcpServer(t)
 
 	orgClusterName := framework.NewOrganizationFixture(t, source)
-	schemaClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
-	computeClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
+	schemaClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName.Path())
+	computeClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName.Path())
 
 	kcpClients, err := kcpclientset.NewForConfig(source.BaseConfig(t))
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
@@ -71,10 +71,10 @@ func TestSyncTargetExport(t *testing.T) {
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
 	t.Logf("Install today service APIResourceSchema into schema workspace %q", schemaClusterName)
-	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(kcpClients.Cluster(schemaClusterName).Discovery()))
-	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(schemaClusterName), mapper, sets.NewString("root-compute-workspace"), "apiresourceschema_services.yaml", kube124.KubeComputeFS)
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(kcpClients.Cluster(schemaClusterName.Path()).Discovery()))
+	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(schemaClusterName.Path()), mapper, sets.NewString("root-compute-workspace"), "apiresourceschema_services.yaml", kube124.KubeComputeFS)
 	require.NoError(t, err)
-	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(schemaClusterName), mapper, nil, "apiresourceschema_cowboys.yaml", testFiles)
+	err = helpers.CreateResourceFromFS(ctx, dynamicClients.Cluster(schemaClusterName.Path()), mapper, nil, "apiresourceschema_cowboys.yaml", testFiles)
 	require.NoError(t, err)
 
 	t.Logf("Create an APIExport for it")
@@ -86,7 +86,7 @@ func TestSyncTargetExport(t *testing.T) {
 			LatestResourceSchemas: []string{"v124.services.core", "today.cowboys.wildwest.dev"},
 		},
 	}
-	_, err = kcpClients.Cluster(schemaClusterName).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
+	_, err = kcpClients.Cluster(schemaClusterName.Path()).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	syncTargetName := "synctarget"
@@ -97,7 +97,7 @@ func TestSyncTargetExport(t *testing.T) {
 	).Start(t)
 
 	require.Eventually(t, func() bool {
-		syncTarget, err := kcpClients.Cluster(computeClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
+		syncTarget, err := kcpClients.Cluster(computeClusterName.Path()).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
 		if err != nil {
 			return false
 		}
@@ -147,7 +147,7 @@ func TestSyncTargetExport(t *testing.T) {
 
 	t.Logf("Synctarget should be authorized to access downstream clusters")
 	framework.Eventually(t, func() (bool, string) {
-		syncTarget, err := kcpClients.Cluster(computeClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
+		syncTarget, err := kcpClients.Cluster(computeClusterName.Path()).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
 		if err != nil {
 			return false, err.Error()
 		}
@@ -185,7 +185,7 @@ func (a ByName) Len() int           { return len(a) }
 func (a ByName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByName) Less(i, j int) bool { return a[i].Name < a[j].Name }
 
-func requiredAPIResourceListWithService(computeClusterName, serviceClusterName logicalcluster.Path) *metav1.APIResourceList {
+func requiredAPIResourceListWithService(computeClusterName, serviceClusterName logicalcluster.Name) *metav1.APIResourceList {
 	return &metav1.APIResourceList{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "APIResourceList",

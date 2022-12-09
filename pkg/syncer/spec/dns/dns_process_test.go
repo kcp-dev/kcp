@@ -54,10 +54,10 @@ func init() {
 }
 
 func TestDNSProcess(t *testing.T) {
-	workspace := logicalcluster.New("root")
+	clusterName := logicalcluster.Name("root")
 	syncTargetUID := types.UID("targetuid")
 	syncTargetName := "targetname"
-	dnsID := shared.GetDNSID(workspace, syncTargetUID, syncTargetName)
+	dnsID := shared.GetDNSID(clusterName, syncTargetUID, syncTargetName)
 	dnsns := "dnsns"
 
 	tests := map[string]struct {
@@ -197,7 +197,7 @@ func TestDNSProcess(t *testing.T) {
 
 			kubeClient.ClearActions()
 
-			ready, err := controller.EnsureDNSUpAndReady(ctx, workspace)
+			ready, err := controller.EnsureDNSUpAndReady(ctx, clusterName)
 			assert.NoError(t, err)
 
 			assert.Empty(t, cmp.Diff(tc.expectReady, ready))
@@ -211,11 +211,11 @@ func TestMultipleDNSInitialization(t *testing.T) {
 	syncTargetName := "targetname"
 	dnsns := "dnsns"
 
-	workspace1 := logicalcluster.New("root1")
-	workspace2 := logicalcluster.New("root2")
+	clusterName1 := logicalcluster.Name("root1")
+	clusterName2 := logicalcluster.Name("root2")
 
-	dnsID1 := shared.GetDNSID(workspace1, syncTargetUID, syncTargetName)
-	dnsID2 := shared.GetDNSID(workspace2, syncTargetUID, syncTargetName)
+	dnsID1 := shared.GetDNSID(clusterName1, syncTargetUID, syncTargetName)
+	dnsID2 := shared.GetDNSID(clusterName2, syncTargetUID, syncTargetName)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -240,7 +240,7 @@ func TestMultipleDNSInitialization(t *testing.T) {
 	informerFactory.Start(ctx.Done())
 	informerFactory.WaitForCacheSync(ctx.Done())
 
-	ready, err := controller.EnsureDNSUpAndReady(ctx, workspace1)
+	ready, err := controller.EnsureDNSUpAndReady(ctx, clusterName1)
 	assert.NoError(t, err)
 	assert.True(t, ready)
 	init1, _ := controller.initialized.Load(dnsID1)
@@ -248,7 +248,7 @@ func TestMultipleDNSInitialization(t *testing.T) {
 	init2, _ := controller.initialized.Load(dnsID2)
 	assert.Nil(t, init2)
 
-	ready, err = controller.EnsureDNSUpAndReady(ctx, workspace2)
+	ready, err = controller.EnsureDNSUpAndReady(ctx, clusterName2)
 	assert.NoError(t, err)
 	assert.True(t, ready)
 	init1, _ = controller.initialized.Load(dnsID1)

@@ -214,7 +214,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		return nil
 	}
 
-	_, err = c.kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIBindings().Patch(ctx, name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
+	_, err = c.kcpClusterClient.Cluster(clusterName.Path()).ApisV1alpha1().APIBindings().Patch(ctx, name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
 	return err
 }
 

@@ -84,9 +84,9 @@ func TestMutatingWebhookInWorkspace(t *testing.T) {
 	testWebhook.StartTLS(t, filepath.Join(dirPath, "apiserver.crt"), filepath.Join(dirPath, "apiserver.key"), port)
 
 	organization := framework.NewOrganizationFixture(t, server)
-	logicalClusters := []logicalcluster.Path{
-		framework.NewWorkspaceFixture(t, server, organization),
-		framework.NewWorkspaceFixture(t, server, organization),
+	logicalClusters := []logicalcluster.Name{
+		framework.NewWorkspaceFixture(t, server, organization.Path()),
+		framework.NewWorkspaceFixture(t, server, organization.Path()),
 	}
 
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
@@ -97,10 +97,10 @@ func TestMutatingWebhookInWorkspace(t *testing.T) {
 	require.NoError(t, err, "failed to construct apiextensions client for server")
 
 	t.Logf("Install the Cowboy resources into logical clusters")
-	for _, logicalCluster := range logicalClusters {
-		t.Logf("Bootstrapping ClusterWorkspace CRDs in logical cluster %s", logicalCluster)
+	for _, clusterName := range logicalClusters {
+		t.Logf("Bootstrapping ClusterWorkspace CRDs in logical cluster %s", clusterName)
 		crdClient := apiExtensionsClients.ApiextensionsV1().CustomResourceDefinitions()
-		wildwest.Create(t, logicalCluster, crdClient, metav1.GroupResource{Group: "wildwest.dev", Resource: "cowboys"})
+		wildwest.Create(t, clusterName.Path(), crdClient, metav1.GroupResource{Group: "wildwest.dev", Resource: "cowboys"})
 	}
 
 	t.Logf("Installing webhook into the first workspace")
@@ -129,7 +129,7 @@ func TestMutatingWebhookInWorkspace(t *testing.T) {
 			AdmissionReviewVersions: []string{"v1"},
 		}},
 	}
-	_, err = kubeClusterClient.Cluster(logicalClusters[0]).AdmissionregistrationV1().MutatingWebhookConfigurations().Create(ctx, webhook, metav1.CreateOptions{})
+	_, err = kubeClusterClient.Cluster(logicalClusters[0].Path()).AdmissionregistrationV1().MutatingWebhookConfigurations().Create(ctx, webhook, metav1.CreateOptions{})
 	require.NoError(t, err, "failed to add validating webhook configurations")
 
 	cowboy := v1alpha1.Cowboy{
@@ -141,7 +141,7 @@ func TestMutatingWebhookInWorkspace(t *testing.T) {
 
 	t.Logf("Creating cowboy resource in first logical cluster")
 	require.Eventually(t, func() bool {
-		_, err = cowbyClusterClient.Cluster(logicalClusters[0]).WildwestV1alpha1().Cowboys("default").Create(ctx, &cowboy, metav1.CreateOptions{})
+		_, err = cowbyClusterClient.Cluster(logicalClusters[0].Path()).WildwestV1alpha1().Cowboys("default").Create(ctx, &cowboy, metav1.CreateOptions{})
 		if err != nil && !errors.IsAlreadyExists(err) {
 			return false
 		}
@@ -152,7 +152,7 @@ func TestMutatingWebhookInWorkspace(t *testing.T) {
 	// Avoid race condition here by making sure that CRD is served after installing the types into logical clusters
 	t.Logf("Creating cowboy resource in second logical cluster")
 	require.Eventually(t, func() bool {
-		_, err = cowbyClusterClient.Cluster(logicalClusters[1]).WildwestV1alpha1().Cowboys("default").Create(ctx, &cowboy, metav1.CreateOptions{})
+		_, err = cowbyClusterClient.Cluster(logicalClusters[1].Path()).WildwestV1alpha1().Cowboys("default").Create(ctx, &cowboy, metav1.CreateOptions{})
 		if err != nil && !errors.IsAlreadyExists(err) {
 			return false
 		}
@@ -204,9 +204,9 @@ func TestValidatingWebhookInWorkspace(t *testing.T) {
 	testWebhook.StartTLS(t, filepath.Join(dirPath, "apiserver.crt"), filepath.Join(dirPath, "apiserver.key"), port)
 
 	organization := framework.NewOrganizationFixture(t, server)
-	logicalClusters := []logicalcluster.Path{
-		framework.NewWorkspaceFixture(t, server, organization),
-		framework.NewWorkspaceFixture(t, server, organization),
+	logicalClusters := []logicalcluster.Name{
+		framework.NewWorkspaceFixture(t, server, organization.Path()),
+		framework.NewWorkspaceFixture(t, server, organization.Path()),
 	}
 
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
@@ -220,7 +220,7 @@ func TestValidatingWebhookInWorkspace(t *testing.T) {
 	for _, logicalCluster := range logicalClusters {
 		t.Logf("Bootstrapping ClusterWorkspace CRDs in logical cluster %s", logicalCluster)
 		crdClient := apiExtensionsClients.ApiextensionsV1().CustomResourceDefinitions()
-		wildwest.Create(t, logicalCluster, crdClient, metav1.GroupResource{Group: "wildwest.dev", Resource: "cowboys"})
+		wildwest.Create(t, logicalCluster.Path(), crdClient, metav1.GroupResource{Group: "wildwest.dev", Resource: "cowboys"})
 	}
 
 	t.Logf("Installing webhook into the first workspace")
@@ -249,7 +249,7 @@ func TestValidatingWebhookInWorkspace(t *testing.T) {
 			AdmissionReviewVersions: []string{"v1"},
 		}},
 	}
-	_, err = kubeClusterClient.Cluster(logicalClusters[0]).AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(ctx, webhook, metav1.CreateOptions{})
+	_, err = kubeClusterClient.Cluster(logicalClusters[0].Path()).AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(ctx, webhook, metav1.CreateOptions{})
 	require.NoError(t, err, "failed to add validating webhook configurations")
 
 	cowboy := v1alpha1.Cowboy{
@@ -261,7 +261,7 @@ func TestValidatingWebhookInWorkspace(t *testing.T) {
 
 	t.Logf("Creating cowboy resource in first logical cluster")
 	require.Eventually(t, func() bool {
-		_, err = cowbyClusterClient.Cluster(logicalClusters[0]).WildwestV1alpha1().Cowboys("default").Create(ctx, &cowboy, metav1.CreateOptions{})
+		_, err = cowbyClusterClient.Cluster(logicalClusters[0].Path()).WildwestV1alpha1().Cowboys("default").Create(ctx, &cowboy, metav1.CreateOptions{})
 		if err != nil && !errors.IsAlreadyExists(err) {
 			return false
 		}
@@ -270,7 +270,7 @@ func TestValidatingWebhookInWorkspace(t *testing.T) {
 
 	// Avoid race condition here by making sure that CRD is served after installing the types into logical clusters
 	t.Logf("Creating cowboy resource in second logical cluster")
-	_, err = cowbyClusterClient.Cluster(logicalClusters[1]).WildwestV1alpha1().Cowboys("default").Create(ctx, &cowboy, metav1.CreateOptions{})
+	_, err = cowbyClusterClient.Cluster(logicalClusters[1].Path()).WildwestV1alpha1().Cowboys("default").Create(ctx, &cowboy, metav1.CreateOptions{})
 	require.NoError(t, err, "failed to create cowboy resource in second logical cluster")
 	require.Equal(t, 1, testWebhook.Calls(), "expected that the webhook is not called for logical cluster where webhook is not installed")
 }

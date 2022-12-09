@@ -35,7 +35,6 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 
 	"github.com/kcp-dev/kcp/pkg/admission/helpers"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 )
@@ -179,7 +178,6 @@ func TestAdmit(t *testing.T) {
 				Handler: admission.NewHandler(admission.Create, admission.Update),
 			}
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: tt.clusterName})
-			ctx = tenancy.WithCanonicalPath(ctx, tt.clusterName.Path())
 			if err := o.Admit(ctx, tt.a, nil); (err != nil) != (tt.wantErr != "") {
 				t.Fatalf("Admit() error = %q, wantErr %q", err, tt.wantErr)
 			} else if tt.wantErr != "" && !strings.Contains(err.Error(), tt.wantErr) {
@@ -377,7 +375,6 @@ func TestValidate(t *testing.T) {
 				thisWorkspaceLister: fakeThisWorkspaceClusterLister(tt.thisWorkspaces),
 			}
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: tt.clusterName})
-			ctx = tenancy.WithCanonicalPath(ctx, tt.clusterName.Path())
 			if err := o.Validate(ctx, tt.attr, nil); (err != nil) != (tt.wantErr != "") {
 				t.Fatalf("Validate() error = %q, wantErr %q", err, tt.wantErr)
 			} else if tt.wantErr != "" && !strings.Contains(err.Error(), tt.wantErr) {

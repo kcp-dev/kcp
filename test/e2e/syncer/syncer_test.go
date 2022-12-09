@@ -64,7 +64,7 @@ func TestSyncerLifecycle(t *testing.T) {
 	orgClusterName := framework.NewOrganizationFixture(t, upstreamServer)
 
 	t.Log("Creating a workspace")
-	wsClusterName := framework.NewWorkspaceFixture(t, upstreamServer, orgClusterName)
+	wsClusterName := framework.NewWorkspaceFixture(t, upstreamServer, orgClusterName.Path())
 
 	// The Start method of the fixture will initiate syncer start and then wait for
 	// its sync target to go ready. This implicitly validates the syncer
@@ -91,14 +91,14 @@ func TestSyncerLifecycle(t *testing.T) {
 	t.Cleanup(cancelFunc)
 
 	t.Logf("Bind location workspace")
-	framework.NewBindCompute(t, wsClusterName, upstreamServer).Bind(t)
+	framework.NewBindCompute(t, wsClusterName.Path(), upstreamServer).Bind(t)
 
 	upstreamConfig := upstreamServer.BaseConfig(t)
 	upstreamKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(upstreamConfig)
 	require.NoError(t, err)
 
 	t.Log("Creating upstream namespace...")
-	upstreamNamespace, err := upstreamKubeClusterClient.Cluster(wsClusterName).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+	upstreamNamespace, err := upstreamKubeClusterClient.Cluster(wsClusterName.Path()).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-syncer",
 		},
@@ -111,7 +111,7 @@ func TestSyncerLifecycle(t *testing.T) {
 	upstreamKcpClient, err := kcpclientset.NewForConfig(syncerFixture.SyncerConfig.UpstreamConfig)
 	require.NoError(t, err)
 
-	syncTarget, err := upstreamKcpClient.Cluster(syncerFixture.SyncerConfig.SyncTargetClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx,
+	syncTarget, err := upstreamKcpClient.Cluster(syncerFixture.SyncerConfig.SyncTargetClusterName.Path()).WorkloadV1alpha1().SyncTargets().Get(ctx,
 		syncerFixture.SyncerConfig.SyncTargetName,
 		metav1.GetOptions{},
 	)
@@ -182,7 +182,7 @@ func TestSyncerLifecycle(t *testing.T) {
 	t.Logf("Waiting for deployment to be created in upstream")
 	var upstreamDeployment *appsv1.Deployment
 	require.Eventually(t, func() bool {
-		upstreamDeployment, err = upstreamKubeClusterClient.Cluster(wsClusterName).AppsV1().Deployments(upstreamNamespace.Name).Create(ctx, deployment, metav1.CreateOptions{})
+		upstreamDeployment, err = upstreamKubeClusterClient.Cluster(wsClusterName.Path()).AppsV1().Deployments(upstreamNamespace.Name).Create(ctx, deployment, metav1.CreateOptions{})
 		return err == nil
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "deployment not created")
 
@@ -192,7 +192,7 @@ func TestSyncerLifecycle(t *testing.T) {
 
 	t.Logf("Waiting for upstream deployment %s/%s to get the syncer finalizer", upstreamNamespace.Name, upstreamDeployment.Name)
 	require.Eventually(t, func() bool {
-		deployment, err = upstreamKubeClusterClient.Cluster(wsClusterName).AppsV1().Deployments(upstreamNamespace.Name).Get(ctx, upstreamDeployment.Name, metav1.GetOptions{})
+		deployment, err = upstreamKubeClusterClient.Cluster(wsClusterName.Path()).AppsV1().Deployments(upstreamNamespace.Name).Get(ctx, upstreamDeployment.Name, metav1.GetOptions{})
 		if apierrors.IsNotFound(err) {
 			return false
 		}
@@ -245,7 +245,7 @@ func TestSyncerLifecycle(t *testing.T) {
 		err = yaml.Unmarshal(configmapAdminRoleYAML, &configmapAdminRole)
 		require.NoError(t, err, "failed to unmarshal role")
 
-		_, err = upstreamKubeClusterClient.Cluster(wsClusterName).RbacV1().Roles(upstreamNamespace.Name).Create(ctx, configmapAdminRole, metav1.CreateOptions{})
+		_, err = upstreamKubeClusterClient.Cluster(wsClusterName.Path()).RbacV1().Roles(upstreamNamespace.Name).Create(ctx, configmapAdminRole, metav1.CreateOptions{})
 		require.NoError(t, err, "failed to create upstream role")
 
 		configmapAdminRoleBindingYAML, err := embeddedResources.ReadFile("configmap-admin-rolebinding.yaml")
@@ -255,7 +255,7 @@ func TestSyncerLifecycle(t *testing.T) {
 		err = yaml.Unmarshal(configmapAdminRoleBindingYAML, &configmapAdminRoleBinding)
 		require.NoError(t, err, "failed to unmarshal rolebinding")
 
-		_, err = upstreamKubeClusterClient.Cluster(wsClusterName).RbacV1().RoleBindings(upstreamNamespace.Name).Create(ctx, configmapAdminRoleBinding, metav1.CreateOptions{})
+		_, err = upstreamKubeClusterClient.Cluster(wsClusterName.Path()).RbacV1().RoleBindings(upstreamNamespace.Name).Create(ctx, configmapAdminRoleBinding, metav1.CreateOptions{})
 		require.NoError(t, err, "failed to create upstream rolebinding")
 
 		t.Logf("Creating upstream in-cluster configuration test deployment")
@@ -270,7 +270,7 @@ func TestSyncerLifecycle(t *testing.T) {
 		expectedConfigMapName := "expected-configmap"
 		iccDeployment.Spec.Template.Spec.Containers[0].Env[0].Value = expectedConfigMapName
 
-		iccUpstreamDeployment, err := upstreamKubeClusterClient.Cluster(wsClusterName).AppsV1().Deployments(upstreamNamespace.Name).Create(ctx, iccDeployment, metav1.CreateOptions{})
+		iccUpstreamDeployment, err := upstreamKubeClusterClient.Cluster(wsClusterName.Path()).AppsV1().Deployments(upstreamNamespace.Name).Create(ctx, iccDeployment, metav1.CreateOptions{})
 		require.NoError(t, err, "failed to create icc-test deployment")
 
 		t.Logf("Waiting for downstream in-cluster config test deployment %s/%s to be created...", downstreamNamespaceName, iccUpstreamDeployment.Name)
@@ -293,7 +293,7 @@ func TestSyncerLifecycle(t *testing.T) {
 		require.Eventually(t, func() bool {
 			logState = dumpPodLogs(t, logState, downstreamKubeClient, downstreamNamespaceName)
 
-			_, err := upstreamKubeClusterClient.Cluster(wsClusterName).CoreV1().ConfigMaps(upstreamNamespace.Name).Get(ctx, expectedConfigMapName, metav1.GetOptions{})
+			_, err := upstreamKubeClusterClient.Cluster(wsClusterName.Path()).CoreV1().ConfigMaps(upstreamNamespace.Name).Get(ctx, expectedConfigMapName, metav1.GetOptions{})
 			if apierrors.IsNotFound(err) {
 				return false
 			}
@@ -319,16 +319,16 @@ func TestSyncerLifecycle(t *testing.T) {
 	// Add a virtual Finalizer to the deployment and update it.
 	t.Logf("Adding a virtual finalizer to the upstream deployment %s/%s in order to simulate an external controller", upstreamNamespace.Name, upstreamDeployment.Name)
 	deploymentPatch := []byte(`{"metadata":{"annotations":{"finalizers.workload.kcp.dev/` + syncTargetKey + `":"external-controller-finalizer"}}}`)
-	_, err = upstreamKubeClusterClient.Cluster(wsClusterName).AppsV1().Deployments(upstreamNamespace.Name).Patch(ctx, upstreamDeployment.Name, types.MergePatchType, deploymentPatch, metav1.PatchOptions{})
+	_, err = upstreamKubeClusterClient.Cluster(wsClusterName.Path()).AppsV1().Deployments(upstreamNamespace.Name).Patch(ctx, upstreamDeployment.Name, types.MergePatchType, deploymentPatch, metav1.PatchOptions{})
 	require.NoError(t, err)
 
 	t.Logf("Deleting upstream deployment %s/%s", upstreamNamespace.Name, upstreamDeployment.Name)
-	err = upstreamKubeClusterClient.Cluster(wsClusterName).AppsV1().Deployments(upstreamNamespace.Name).Delete(ctx, upstreamDeployment.Name, metav1.DeleteOptions{GracePeriodSeconds: pointer.Int64(0)})
+	err = upstreamKubeClusterClient.Cluster(wsClusterName.Path()).AppsV1().Deployments(upstreamNamespace.Name).Delete(ctx, upstreamDeployment.Name, metav1.DeleteOptions{GracePeriodSeconds: pointer.Int64(0)})
 	require.NoError(t, err)
 
 	t.Logf("Checking if the upstream deployment %s/%s has the per-location deletion annotation set", upstreamNamespace.Name, upstreamDeployment.Name)
 	framework.Eventually(t, func() (bool, string) {
-		deployment, err := upstreamKubeClusterClient.Cluster(wsClusterName).AppsV1().Deployments(upstreamNamespace.Name).Get(ctx, upstreamDeployment.Name, metav1.GetOptions{})
+		deployment, err := upstreamKubeClusterClient.Cluster(wsClusterName.Path()).AppsV1().Deployments(upstreamNamespace.Name).Get(ctx, upstreamDeployment.Name, metav1.GetOptions{})
 		if apierrors.IsNotFound(err) {
 			return false, ""
 		}
@@ -340,7 +340,7 @@ func TestSyncerLifecycle(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "upstream Deployment %s/%s didn't get the per-location deletion annotation set or there was an error", upstreamNamespace.Name, upstreamDeployment.Name)
 
 	t.Logf("Checking if upstream deployment %s/%s is deleted, shouldn't as the syncer will not remove its finalizer due to the virtual finalizer", upstreamNamespace.Name, upstreamDeployment.Name)
-	_, err = upstreamKubeClusterClient.Cluster(wsClusterName).AppsV1().Deployments(upstreamNamespace.Name).Get(ctx, upstreamDeployment.Name, metav1.GetOptions{})
+	_, err = upstreamKubeClusterClient.Cluster(wsClusterName.Path()).AppsV1().Deployments(upstreamNamespace.Name).Get(ctx, upstreamDeployment.Name, metav1.GetOptions{})
 	require.False(t, apierrors.IsNotFound(err))
 	require.NoError(t, err)
 
@@ -350,12 +350,12 @@ func TestSyncerLifecycle(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Deleting upstream namespace %s", upstreamNamespace.Name)
-	err = upstreamKubeClusterClient.Cluster(wsClusterName).CoreV1().Namespaces().Delete(ctx, upstreamNamespace.Name, metav1.DeleteOptions{})
+	err = upstreamKubeClusterClient.Cluster(wsClusterName.Path()).CoreV1().Namespaces().Delete(ctx, upstreamNamespace.Name, metav1.DeleteOptions{})
 	require.NoError(t, err)
 
 	t.Logf("Checking if upstream namespace %s deletion timestamp is set", upstreamNamespace.Name)
 	framework.Eventually(t, func() (bool, string) {
-		namespace, err := upstreamKubeClusterClient.Cluster(wsClusterName).CoreV1().Namespaces().Get(ctx, upstreamNamespace.Name, metav1.GetOptions{})
+		namespace, err := upstreamKubeClusterClient.Cluster(wsClusterName.Path()).CoreV1().Namespaces().Get(ctx, upstreamNamespace.Name, metav1.GetOptions{})
 		require.NoError(t, err)
 		if namespace.DeletionTimestamp == nil {
 			return false, "namespace deletion timestamp is not set"
@@ -376,12 +376,12 @@ func TestSyncerLifecycle(t *testing.T) {
 	// deleting a virtual Finalizer on the deployment and updating it.
 	t.Logf("Removing the virtual finalizer on the upstream deployment %s/%s, the deployment deletion should go through after this", upstreamNamespace.Name, upstreamDeployment.Name)
 	deploymentPatch = []byte(`{"metadata":{"annotations":{"finalizers.workload.kcp.dev/` + syncTargetKey + `": null}}}`)
-	_, err = upstreamKubeClusterClient.Cluster(wsClusterName).AppsV1().Deployments(upstreamNamespace.Name).Patch(ctx, upstreamDeployment.Name, types.MergePatchType, deploymentPatch, metav1.PatchOptions{})
+	_, err = upstreamKubeClusterClient.Cluster(wsClusterName.Path()).AppsV1().Deployments(upstreamNamespace.Name).Patch(ctx, upstreamDeployment.Name, types.MergePatchType, deploymentPatch, metav1.PatchOptions{})
 	require.NoError(t, err)
 
 	t.Logf("Waiting for upstream deployment %s/%s to be deleted", upstreamNamespace.Name, upstreamDeployment.Name)
 	require.Eventually(t, func() bool {
-		_, err := upstreamKubeClusterClient.Cluster(wsClusterName).AppsV1().Deployments(upstreamNamespace.Name).Get(ctx, upstreamDeployment.Name, metav1.GetOptions{})
+		_, err := upstreamKubeClusterClient.Cluster(wsClusterName.Path()).AppsV1().Deployments(upstreamNamespace.Name).Get(ctx, upstreamDeployment.Name, metav1.GetOptions{})
 		if apierrors.IsNotFound(err) {
 			return true
 		}
@@ -410,12 +410,12 @@ func TestSyncerLifecycle(t *testing.T) {
 	err = yaml.Unmarshal(pvYAML, &persistentVolume)
 	require.NoError(t, err, "failed to unmarshal persistentvolume")
 
-	upstreamPersistentVolume, err := upstreamKubeClusterClient.Cluster(wsClusterName).CoreV1().PersistentVolumes().Create(ctx, persistentVolume, metav1.CreateOptions{})
+	upstreamPersistentVolume, err := upstreamKubeClusterClient.Cluster(wsClusterName.Path()).CoreV1().PersistentVolumes().Create(ctx, persistentVolume, metav1.CreateOptions{})
 	require.NoError(t, err, "failed to create persistentVolume")
 
 	t.Logf("Waiting for the Persistent Volume to be scheduled upstream")
 	framework.Eventually(t, func() (bool, string) {
-		pv, err := upstreamKubeClusterClient.Cluster(wsClusterName).CoreV1().PersistentVolumes().Get(ctx, upstreamPersistentVolume.Name, metav1.GetOptions{})
+		pv, err := upstreamKubeClusterClient.Cluster(wsClusterName.Path()).CoreV1().PersistentVolumes().Get(ctx, upstreamPersistentVolume.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, err.Error()
 		}
@@ -430,7 +430,7 @@ func TestSyncerLifecycle(t *testing.T) {
 
 	t.Logf("Updating the PV to be force it to be scheduled downstream")
 	pvPatch := []byte(`{"metadata":{"labels":{"state.workload.kcp.dev/` + syncTargetKey + `": "Sync"}}}`)
-	_, err = upstreamKubeClusterClient.Cluster(wsClusterName).CoreV1().PersistentVolumes().Patch(ctx, upstreamPersistentVolume.Name, types.MergePatchType, pvPatch, metav1.PatchOptions{})
+	_, err = upstreamKubeClusterClient.Cluster(wsClusterName.Path()).CoreV1().PersistentVolumes().Patch(ctx, upstreamPersistentVolume.Name, types.MergePatchType, pvPatch, metav1.PatchOptions{})
 	require.NoError(t, err, "failed to patch persistentVolume")
 
 	t.Logf("Waiting for the Persistent Volume to be synced downstream and validate its NamespceLocator")
@@ -451,12 +451,12 @@ func TestSyncerLifecycle(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "Persistent Volume %s was not synced downstream", upstreamPersistentVolume.Name)
 
 	t.Logf("Deleting the Persistent Volume upstream")
-	err = upstreamKubeClusterClient.Cluster(wsClusterName).CoreV1().PersistentVolumes().Delete(ctx, upstreamPersistentVolume.Name, metav1.DeleteOptions{})
+	err = upstreamKubeClusterClient.Cluster(wsClusterName.Path()).CoreV1().PersistentVolumes().Delete(ctx, upstreamPersistentVolume.Name, metav1.DeleteOptions{})
 	require.NoError(t, err, "failed to delete persistentVolume upstream")
 
 	t.Logf("Waiting for the Persistent Volume to be deleted upstream")
 	framework.Eventually(t, func() (bool, string) {
-		_, err := upstreamKubeClusterClient.Cluster(wsClusterName).CoreV1().PersistentVolumes().Get(ctx, upstreamPersistentVolume.Name, metav1.GetOptions{})
+		_, err := upstreamKubeClusterClient.Cluster(wsClusterName.Path()).CoreV1().PersistentVolumes().Get(ctx, upstreamPersistentVolume.Name, metav1.GetOptions{})
 		if apierrors.IsNotFound(err) {
 			return true, ""
 		}
@@ -569,12 +569,12 @@ func TestSyncWorkload(t *testing.T) {
 	orgClusterName := framework.NewOrganizationFixture(t, upstreamServer)
 
 	t.Log("Creating a workspace")
-	wsClusterName := framework.NewWorkspaceFixture(t, upstreamServer, orgClusterName)
+	wsClusterName := framework.NewWorkspaceFixture(t, upstreamServer, orgClusterName.Path())
 
 	// Write the upstream logical cluster config to disk for the workspace plugin
 	upstreamRawConfig, err := upstreamServer.RawConfig()
 	require.NoError(t, err)
-	_, kubeconfigPath := framework.WriteLogicalClusterConfig(t, upstreamRawConfig, "base", wsClusterName)
+	_, kubeconfigPath := framework.WriteLogicalClusterConfig(t, upstreamRawConfig, "base", wsClusterName.Path())
 
 	subCommand := []string{
 		"workload",
@@ -603,12 +603,12 @@ func TestCordonUncordonDrain(t *testing.T) {
 	upstreamCfg := upstreamServer.BaseConfig(t)
 
 	t.Log("Creating a workspace")
-	wsClusterName := framework.NewWorkspaceFixture(t, upstreamServer, orgClusterName)
+	wsClusterName := framework.NewWorkspaceFixture(t, upstreamServer, orgClusterName.Path())
 
 	// Write the upstream logical cluster config to disk for the workspace plugin
 	upstreamRawConfig, err := upstreamServer.RawConfig()
 	require.NoError(t, err)
-	_, kubeconfigPath := framework.WriteLogicalClusterConfig(t, upstreamRawConfig, "base", wsClusterName)
+	_, kubeconfigPath := framework.WriteLogicalClusterConfig(t, upstreamRawConfig, "base", wsClusterName.Path())
 
 	kcpClusterClient, err := kcpclientset.NewForConfig(upstreamCfg)
 	require.NoError(t, err, "failed to construct client for server")
@@ -625,7 +625,7 @@ func TestCordonUncordonDrain(t *testing.T) {
 	t.Cleanup(cancelFunc)
 
 	t.Log("Check initial workload")
-	cluster, err := kcpClusterClient.Cluster(wsClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
+	cluster, err := kcpClusterClient.Cluster(wsClusterName.Path()).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
 	require.NoError(t, err, "failed to get sync target", syncTargetName)
 	require.False(t, cluster.Spec.Unschedulable)
 	require.Nil(t, cluster.Spec.EvictAfter)
@@ -639,7 +639,7 @@ func TestCordonUncordonDrain(t *testing.T) {
 	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandCordon)
 
 	t.Log("Check workload after cordon")
-	cluster, err = kcpClusterClient.Cluster(wsClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
+	cluster, err = kcpClusterClient.Cluster(wsClusterName.Path()).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
 	require.NoError(t, err, "failed to get sync target", syncTargetName)
 	require.True(t, cluster.Spec.Unschedulable)
 	require.Nil(t, cluster.Spec.EvictAfter)
@@ -655,7 +655,7 @@ func TestCordonUncordonDrain(t *testing.T) {
 	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandUncordon)
 
 	t.Log("Check workload after uncordon")
-	cluster, err = kcpClusterClient.Cluster(wsClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
+	cluster, err = kcpClusterClient.Cluster(wsClusterName.Path()).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
 	require.NoError(t, err, "failed to get sync target", syncTargetName)
 	require.False(t, cluster.Spec.Unschedulable)
 	require.Nil(t, cluster.Spec.EvictAfter)
@@ -671,7 +671,7 @@ func TestCordonUncordonDrain(t *testing.T) {
 	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandDrain)
 
 	t.Log("Check workload after drain started")
-	cluster, err = kcpClusterClient.Cluster(wsClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
+	cluster, err = kcpClusterClient.Cluster(wsClusterName.Path()).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
 	require.NoError(t, err, "failed to get sync target", syncTargetName)
 	require.True(t, cluster.Spec.Unschedulable)
 	require.NotNil(t, cluster.Spec.EvictAfter)
@@ -688,7 +688,7 @@ func TestCordonUncordonDrain(t *testing.T) {
 	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandUncordon)
 
 	t.Log("Check workload after uncordon")
-	cluster, err = kcpClusterClient.Cluster(wsClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
+	cluster, err = kcpClusterClient.Cluster(wsClusterName.Path()).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
 	require.NoError(t, err, "failed to get sync target", syncTargetName)
 	require.False(t, cluster.Spec.Unschedulable)
 	require.Nil(t, cluster.Spec.EvictAfter)

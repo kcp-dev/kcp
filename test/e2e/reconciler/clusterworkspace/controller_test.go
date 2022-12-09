@@ -128,7 +128,7 @@ func TestWorkspaceController(t *testing.T) {
 
 				t.Logf("Expect workspace to be scheduled to the shard and show the external URL")
 				parentName := logicalcluster.From(workspace)
-				workspaceClusterName := parentName.Join(workspace.Name)
+				workspaceClusterName := parentName.Path().Join(workspace.Name)
 				framework.Eventually(t, func() (bool, string) {
 					workspace, err := server.orgKcpClient.TenancyV1beta1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 					require.NoError(t, err)
@@ -178,16 +178,16 @@ func TestWorkspaceController(t *testing.T) {
 			expecterClient, err := kcpclusterclientset.NewForConfig(server.RootShardSystemMasterBaseConfig(t))
 			require.NoError(t, err)
 
-			orgExpect, err := framework.ExpectWorkspaces(ctx, t, expecterClient.Cluster(orgClusterName))
+			orgExpect, err := framework.ExpectWorkspaces(ctx, t, expecterClient.Cluster(orgClusterName.Path()))
 			require.NoError(t, err, "failed to start expecter")
 
-			rootExpectShard, err := framework.ExpectWorkspaceShards(ctx, t, expecterClient.Cluster(tenancyv1alpha1.RootCluster))
+			rootExpectShard, err := framework.ExpectWorkspaceShards(ctx, t, expecterClient.Cluster(tenancyv1alpha1.RootCluster.Path()))
 			require.NoError(t, err, "failed to start expecter")
 
 			testCase.work(ctx, t, runningServer{
 				RunningServer:   server,
-				rootKcpClient:   kcpClient.Cluster(tenancyv1alpha1.RootCluster),
-				orgKcpClient:    kcpClient.Cluster(orgClusterName),
+				rootKcpClient:   kcpClient.Cluster(tenancyv1alpha1.RootCluster.Path()),
+				orgKcpClient:    kcpClient.Cluster(orgClusterName.Path()),
 				orgExpect:       orgExpect,
 				rootExpectShard: rootExpectShard,
 			})

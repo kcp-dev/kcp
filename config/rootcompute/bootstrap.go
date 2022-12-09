@@ -35,7 +35,7 @@ import (
 var fs embed.FS
 
 // RootComuteWorkspace is the workspace to host common kubernetes APIs
-var RootComputeWorkspace = logicalcluster.NewPath("root:compute")
+var RootComputeClusterName = logicalcluster.NewPath("root:compute")
 
 // Bootstrap creates resources in this package by continuously retrying the list.
 // This is blocking, i.e. it only returns (with error) when the context is closed or with nil when
@@ -47,8 +47,8 @@ func Bootstrap(ctx context.Context, apiExtensionClusterClient kcpapiextensionscl
 		return err
 	}
 
-	computeDiscoveryClient := apiExtensionClusterClient.Cluster(RootComputeWorkspace).Discovery()
-	computeDynamicClient := dynamicClusterClient.Cluster(RootComputeWorkspace)
+	computeDiscoveryClient := apiExtensionClusterClient.Cluster(RootComputeClusterName).Discovery()
+	computeDynamicClient := dynamicClusterClient.Cluster(RootComputeClusterName)
 
 	return kube124.Bootstrap(ctx, computeDiscoveryClient, computeDynamicClient, batteriesIncluded)
 }

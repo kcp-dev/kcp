@@ -220,7 +220,7 @@ func (r *schemaReconciler) shouldSkipComputeAPIs(clusterName logicalcluster.Name
 	for _, syncTarget := range syncTargets {
 		for _, export := range syncTarget.Spec.SupportedAPIExports {
 			// TODO: this does not work. We must not handle root:compute special in any way.
-			if export.Export == TemporaryComputeServiceExportName && export.Path == rootcompute.RootComputeWorkspace.String() {
+			if export.Export == TemporaryComputeServiceExportName && export.Path == rootcompute.RootComputeClusterName.String() {
 				return true, nil
 			}
 		}

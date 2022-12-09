@@ -295,7 +295,7 @@ func TestDeepEqualFinalizersAndStatus(t *testing.T) {
 	}
 }
 
-func TestSyncerProcess(t *testing.T) {
+func TestStatusSyncerProcess(t *testing.T) {
 	tests := map[string]struct {
 		fromNamespace *corev1.Namespace
 		gvr           schema.GroupVersionResource
@@ -322,7 +322,7 @@ func TestSyncerProcess(t *testing.T) {
 					"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
 				},
 				map[string]string{
-					"kcp.dev/namespace-locator": `{"syncTarget":{"workspace":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
+					"kcp.dev/namespace-locator": `{"syncTarget":{"cluster":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
 				}),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResource: changeDeployment(
@@ -360,7 +360,7 @@ func TestSyncerProcess(t *testing.T) {
 					"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
 				},
 				map[string]string{
-					"kcp.dev/namespace-locator": `{"syncTarget":{"workspace":"root:org:ws","name":"us-west1","uid":"ANOTHERSYNCTARGETUID"},"workspace":"root:org:ws","namespace":"test"}`,
+					"kcp.dev/namespace-locator": `{"syncTarget":{"cluster":"root:org:ws","name":"us-west1","uid":"ANOTHERSYNCTARGETUID"},"cluster":"root:org:ws","namespace":"test"}`,
 				}),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResource: changeDeployment(
@@ -388,7 +388,7 @@ func TestSyncerProcess(t *testing.T) {
 					"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
 				},
 				map[string]string{
-					"kcp.dev/namespace-locator": `{"syncTarget":{"workspace":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
+					"kcp.dev/namespace-locator": `{"syncTarget":{"cluster":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
 				}),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResource: changeDeployment(
@@ -414,7 +414,7 @@ func TestSyncerProcess(t *testing.T) {
 					"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
 				},
 				map[string]string{
-					"kcp.dev/namespace-locator": `{"syncTarget":{"workspace":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
+					"kcp.dev/namespace-locator": `{"syncTarget":{"cluster":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
 				}),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResource: changeDeployment(
@@ -451,7 +451,7 @@ func TestSyncerProcess(t *testing.T) {
 					"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
 				},
 				map[string]string{
-					"kcp.dev/namespace-locator": `{"syncTarget":{"workspace":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
+					"kcp.dev/namespace-locator": `{"syncTarget":{"cluster":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
 				}),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResource: changeDeployment(
@@ -483,7 +483,7 @@ func TestSyncerProcess(t *testing.T) {
 					"internal.workload.kcp.dev/cluster": "2gzO8uuQmIoZ2FE95zoOPKtrtGGXzzjAvtl6q5",
 				},
 				map[string]string{
-					"kcp.dev/namespace-locator": `{"syncTarget":{"workspace":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"workspace":"root:org:ws","namespace":"test"}`,
+					"kcp.dev/namespace-locator": `{"syncTarget":{"cluster":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
 				}),
 			gvr:          schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResource: nil,
@@ -710,7 +710,7 @@ func setNestedField(value interface{}, fields ...string) unstructuredChange {
 func deploymentAction(verb, namespace string, subresources ...string) kcptesting.ActionImpl {
 	return kcptesting.ActionImpl{
 		Namespace:   namespace,
-		Cluster:     logicalcluster.NewPath("root:org:ws"),
+		ClusterPath: logicalcluster.NewPath("root:org:ws"),
 		Verb:        verb,
 		Resource:    schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 		Subresource: strings.Join(subresources, "/"),

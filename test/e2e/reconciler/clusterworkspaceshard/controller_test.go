@@ -77,7 +77,7 @@ func TestWorkspaceShardController(t *testing.T) {
 			expecterClient, err := kcpclientset.NewForConfig(server.RootShardSystemMasterBaseConfig(t))
 			require.NoError(t, err)
 
-			expect, err := framework.ExpectWorkspaceShards(ctx, t, expecterClient.Cluster(orgClusterName))
+			expect, err := framework.ExpectWorkspaceShards(ctx, t, expecterClient.Cluster(orgClusterName.Path()))
 			require.NoError(t, err, "failed to start expecter")
 
 			kubeClient, err := kcpkubernetesclientset.NewForConfig(cfg)
@@ -85,9 +85,9 @@ func TestWorkspaceShardController(t *testing.T) {
 
 			testCase.work(ctx, t, runningServer{
 				RunningServer:   server,
-				rootShardClient: kcpClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaceShards(),
-				rootKubeClient:  kubeClient.Cluster(tenancyv1alpha1.RootCluster),
-				orgKubeClient:   kubeClient.Cluster(orgClusterName),
+				rootShardClient: kcpClient.Cluster(tenancyv1alpha1.RootCluster.Path()).TenancyV1alpha1().ClusterWorkspaceShards(),
+				rootKubeClient:  kubeClient.Cluster(tenancyv1alpha1.RootCluster.Path()),
+				orgKubeClient:   kubeClient.Cluster(orgClusterName.Path()),
 				expect:          expect,
 			})
 		})
