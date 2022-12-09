@@ -28,7 +28,6 @@ import (
 type Options struct {
 	Kubeconfig string
 	Context    string
-	Workspace  string
 	Server     string
 	Logs       *logs.Options
 }
@@ -46,7 +45,6 @@ func NewOptions() *Options {
 func (options *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&options.Kubeconfig, "kubeconfig", options.Kubeconfig, "Kubeconfig file.")
 	fs.StringVar(&options.Context, "context", options.Context, "Context to use in the Kubeconfig file, instead of the current context.")
-	fs.StringVar(&options.Workspace, "workspace", options.Workspace, "Name of a single workspace in which the deployments should be monitored. If omitted, deployments are monitored in all the accessible workspaces.")
 	fs.StringVar(&options.Server, "server", options.Server, "APIServer URL to use in the Kubeconfig file, instead of the one in the current context.")
 	options.Logs.AddFlags(fs)
 }

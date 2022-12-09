@@ -25,18 +25,18 @@ import (
 
 	"github.com/go-logr/logr"
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	v1 "github.com/kcp-dev/client-go/informers/apps/v1"
 	kubernetesclient "github.com/kcp-dev/client-go/kubernetes"
-	appsv1listers "github.com/kcp-dev/client-go/listers/apps/v1"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	appsv1client "k8s.io/client-go/kubernetes/typed/apps/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
@@ -44,6 +44,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/workload/helpers"
 	"github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 	"github.com/kcp-dev/kcp/tmc/pkg/coordination"
 )
 
@@ -51,27 +52,33 @@ const (
 	controllerName = "kcp-deployment-coordination"
 )
 
+type Deployment = appsv1.Deployment
+type DeploymentSpec = appsv1.DeploymentSpec
+type DeploymentStatus = appsv1.DeploymentStatus
+type Patcher = appsv1client.DeploymentInterface
+type Resource = committer.Resource[*DeploymentSpec, *DeploymentStatus]
+type CommitFunc = func(context.Context, *Resource, *Resource) error
+
 // NewController returns a new controller instance.
 func NewController(
 	ctx context.Context,
 	kubeClusterClient kubernetesclient.ClusterInterface,
-	informer cache.SharedIndexInformer,
-	deploymentLister appsv1listers.DeploymentClusterLister,
+	deploymentClusterInformer v1.DeploymentClusterInformer,
 ) (*controller, error) {
+	lister := deploymentClusterInformer.Lister()
+	informer := deploymentClusterInformer.Informer()
+
 	c := &controller{
 		upstreamViewQueue:   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName+"upstream-view"),
 		syncerViewQueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName+"syncer-view"),
 		syncerViewRetriever: coordination.NewDefaultSyncerViewManager[*appsv1.Deployment](),
 		gvr:                 appsv1.SchemeGroupVersion.WithResource("deployments"),
 
-		getDeployment: func(lclusterName logicalcluster.Name, namespace, name string) (*appsv1.Deployment, error) {
-			return deploymentLister.Cluster(lclusterName).Deployments(namespace).Get(name)
+		getDeployment: func(clusterName logicalcluster.Name, namespace, name string) (*appsv1.Deployment, error) {
+			return lister.Cluster(clusterName).Deployments(namespace).Get(name)
 		},
-		updateDeployment: func(ctx context.Context, lclusterName logicalcluster.Name, namespace string, deployment *appsv1.Deployment) (*appsv1.Deployment, error) {
-			return kubeClusterClient.Cluster(lclusterName).AppsV1().Deployments(namespace).Update(ctx, deployment, metav1.UpdateOptions{})
-		},
-		updateDeploymentStatus: func(ctx context.Context, lclusterName logicalcluster.Name, namespace string, deployment *appsv1.Deployment) (*appsv1.Deployment, error) {
-			return kubeClusterClient.Cluster(lclusterName).AppsV1().Deployments(namespace).UpdateStatus(ctx, deployment, metav1.UpdateOptions{})
+		patcher: func(clusterName logicalcluster.Name, namespace string) committer.Patcher[*appsv1.Deployment] {
+			return kubeClusterClient.AppsV1().Deployments().Cluster(clusterName).Namespace(namespace)
 		},
 	}
 
@@ -83,19 +90,23 @@ func NewController(
 			enqueue(obj, c.syncerViewQueue, logger.WithValues("view", "syncer"))
 		},
 		UpdateFunc: func(old, new interface{}) {
-			if oldObj, oldIsObject := old.(coordination.Object); oldIsObject {
-				if newObj, newIsObject := new.(coordination.Object); newIsObject {
-					if coordination.AnySyncerViewChanged(oldObj, newObj) {
-						enqueue(new, c.syncerViewQueue, logger.WithValues("view", "syncer"))
-					}
-					if coordination.UpstreamViewChanged(oldObj, newObj, deploymentContentsEqual) {
-						enqueue(new, c.upstreamViewQueue, logger.WithValues("view", "upstream"))
-					}
-					return
-				}
+			oldObj, ok := old.(coordination.Object)
+			if !ok {
+				utilruntime.HandleError(fmt.Errorf("resource should be a coordination.Object, but was %T", oldObj))
+				return
 			}
-			logger.Info("Error: wrong type")
-			// TODO : manage the error here
+			newObj, ok := new.(coordination.Object)
+			if !ok {
+				utilruntime.HandleError(fmt.Errorf("resource should be a coordination.Object, but was %T", newObj))
+				return
+			}
+
+			if coordination.AnySyncerViewChanged(oldObj, newObj) {
+				enqueue(new, c.syncerViewQueue, logger.WithValues("view", "syncer"))
+			}
+			if coordination.UpstreamViewChanged(oldObj, newObj, deploymentContentsEqual) {
+				enqueue(new, c.upstreamViewQueue, logger.WithValues("view", "upstream"))
+			}
 		},
 	})
 
@@ -107,12 +118,15 @@ type controller struct {
 	upstreamViewQueue workqueue.RateLimitingInterface
 	syncerViewQueue   workqueue.RateLimitingInterface
 
-	getDeployment          func(lclusterName logicalcluster.Name, namespace, name string) (*appsv1.Deployment, error)
-	updateDeployment       func(ctx context.Context, clusterName logicalcluster.Name, namespace string, deployment *appsv1.Deployment) (*appsv1.Deployment, error)
-	updateDeploymentStatus func(ctx context.Context, clusterName logicalcluster.Name, namespace string, deployment *appsv1.Deployment) (*appsv1.Deployment, error)
+	getDeployment func(clusterName logicalcluster.Name, namespace, name string) (*appsv1.Deployment, error)
+	patcher       func(clusterName logicalcluster.Name, namespace string) committer.Patcher[*appsv1.Deployment]
 
 	syncerViewRetriever coordination.SyncerViewRetriever[*appsv1.Deployment]
 	gvr                 schema.GroupVersionResource
+}
+
+func (c *controller) committer(clusterName logicalcluster.Name, namespace string) CommitFunc {
+	return committer.NewCommitterScoped[*Deployment, Patcher, *DeploymentSpec, *DeploymentStatus](c.patcher(clusterName, namespace))
 }
 
 func filter[K comparable, V interface{}](aMap map[K]V, keep func(key K) bool) map[K]V {
@@ -126,21 +140,24 @@ func filter[K comparable, V interface{}](aMap map[K]V, keep func(key K) bool) ma
 }
 
 func deploymentContentsEqual(old, new interface{}) bool {
-	if oldDeployment, oldIsDeployment := old.(*appsv1.Deployment); oldIsDeployment {
-		if newDeployment, newIsDeployment := new.(*appsv1.Deployment); newIsDeployment {
-			oldAnnotations := filter(oldDeployment.Annotations, func(key string) bool {
-				return !strings.HasPrefix(key, v1alpha1.ClusterSpecDiffAnnotationPrefix)
-			})
-			newAnnotations := filter(newDeployment.Annotations, func(key string) bool {
-				return !strings.HasPrefix(key, v1alpha1.ClusterSpecDiffAnnotationPrefix)
-			})
-
-			return equality.Semantic.DeepEqual(oldDeployment.Labels, newDeployment.Labels) &&
-				equality.Semantic.DeepEqual(oldAnnotations, newAnnotations) &&
-				oldDeployment.Spec.Replicas == newDeployment.Spec.Replicas
-		}
+	oldDeployment, ok := old.(*appsv1.Deployment)
+	if !ok {
+		return false
 	}
-	return false
+	newDeployment, ok := new.(*appsv1.Deployment)
+	if !ok {
+		return false
+	}
+	oldAnnotations := filter(oldDeployment.Annotations, func(key string) bool {
+		return !strings.HasPrefix(key, v1alpha1.ClusterSpecDiffAnnotationPrefix)
+	})
+	newAnnotations := filter(newDeployment.Annotations, func(key string) bool {
+		return !strings.HasPrefix(key, v1alpha1.ClusterSpecDiffAnnotationPrefix)
+	})
+
+	return equality.Semantic.DeepEqual(oldDeployment.Labels, newDeployment.Labels) &&
+		equality.Semantic.DeepEqual(oldAnnotations, newAnnotations) &&
+		oldDeployment.Spec.Replicas == newDeployment.Spec.Replicas
 }
 
 // enqueue adds the logical cluster to the queue.
@@ -216,17 +233,18 @@ func processNextWorkItem(ctx context.Context, queue workqueue.RateLimitingInterf
 func (c *controller) processUpstreamView(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
 
-	lclusterName, namespace, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+	clusterName, namespace, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		logger.Error(err, "failed to split key, dropping")
 		return nil
 	}
 
-	deployment, err := c.getDeployment(lclusterName, namespace, name)
+	deployment, err := c.getDeployment(clusterName, namespace, name)
 	if err != nil {
 		return err
 	}
 	logger = logging.WithObject(logger, deployment)
+	ctx = klog.NewContext(ctx, logger)
 
 	syncIntents, err := helpers.GetSyncIntents(deployment)
 	if err != nil {
@@ -269,33 +287,34 @@ func (c *controller) processUpstreamView(ctx context.Context, key string) error 
 		updated.Annotations[key] = value
 	}
 
-	if !equality.Semantic.DeepEqual(deployment.Annotations, updated.Annotations) {
-		logger.Info("Updating deployment with SpecDiffs to spread replicas across SyncTargets", "syncTargetNumber", len(syncerViews))
-		_, err = c.updateDeployment(ctx, lclusterName, namespace, updated)
-	}
-
-	return err
+	return c.committer(clusterName, namespace)(ctx,
+		&committer.Resource[*appsv1.DeploymentSpec, *appsv1.DeploymentStatus]{
+			ObjectMeta: deployment.ObjectMeta,
+		},
+		&committer.Resource[*appsv1.DeploymentSpec, *appsv1.DeploymentStatus]{
+			ObjectMeta: updated.ObjectMeta,
+		})
 }
 
 func (c *controller) processSyncerView(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
 
-	lclusterName, namespace, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+	clusterName, namespace, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		logger.Error(err, "failed to split key, dropping")
 		return nil
 	}
 
-	deployment, err := c.getDeployment(lclusterName, namespace, name)
+	deployment, err := c.getDeployment(clusterName, namespace, name)
 	if err != nil {
 		return err
 	}
 	logger = logging.WithObject(logger, deployment)
+	ctx = klog.NewContext(ctx, logger)
 
-	summarized := deployment.DeepCopy()
 	summarizedStatus := appsv1.DeploymentStatus{}
 
-	syncerViews, err := c.syncerViewRetriever.GetAllSyncerViews(ctx, c.gvr, summarized)
+	syncerViews, err := c.syncerViewRetriever.GetAllSyncerViews(ctx, c.gvr, deployment)
 	if err != nil {
 		return err
 	}
@@ -304,7 +323,6 @@ func (c *controller) processSyncerView(ctx context.Context, key string) error {
 	consolidatedConditions := make(map[appsv1.DeploymentConditionType]appsv1.DeploymentCondition)
 
 	for _, syncerView := range syncerViews {
-
 		if reflect.DeepEqual(syncerView.Status, emptyStatus) {
 			continue
 		}
@@ -340,10 +358,13 @@ func (c *controller) processSyncerView(ctx context.Context, key string) error {
 		summarizedStatus.Conditions = append(summarizedStatus.Conditions, consolidatedConditions[appsv1.DeploymentConditionType(condition)])
 	}
 
-	summarized.Status = summarizedStatus
-	if !equality.Semantic.DeepEqual(deployment.Status, summarized.Status) {
-		logger.Info("Updating deployment with summarized status")
-		_, err = c.updateDeploymentStatus(ctx, lclusterName, namespace, summarized)
-	}
-	return err
+	return c.committer(clusterName, namespace)(ctx,
+		&committer.Resource[*appsv1.DeploymentSpec, *appsv1.DeploymentStatus]{
+			ObjectMeta: deployment.ObjectMeta,
+			Status:     &deployment.Status,
+		},
+		&committer.Resource[*appsv1.DeploymentSpec, *appsv1.DeploymentStatus]{
+			ObjectMeta: deployment.ObjectMeta,
+			Status:     &summarizedStatus,
+		})
 }

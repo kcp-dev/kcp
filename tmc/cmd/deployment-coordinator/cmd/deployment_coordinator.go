@@ -20,22 +20,19 @@ import (
 	"context"
 	"time"
 
-	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	kubernetesinformers "github.com/kcp-dev/client-go/informers"
 	kubernetesclient "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/spf13/cobra"
 
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	api "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/component-base/version"
 
-	options "github.com/kcp-dev/kcp/cmd/deployment-coordinator/options"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/reconciler/coordination/deployment"
+	options "github.com/kcp-dev/kcp/tmc/cmd/deployment-coordinator/options"
 )
 
 const numThreads = 2
@@ -98,21 +95,14 @@ func Run(ctx context.Context, options *options.Options) error {
 
 	kcpVersion := version.Get().GitVersion
 
-	kcpCluterClient, err := kubernetesclient.NewForConfig(kcpclienthelper.SetMultiClusterRoundTripper(rest.AddUserAgent(rest.CopyConfig(r), "kcp#deployment-coordinator/"+kcpVersion)))
+	kcpCluterClient, err := kubernetesclient.NewForConfig(rest.AddUserAgent(rest.CopyConfig(r), "kcp#deployment-coordinator/"+kcpVersion))
 	if err != nil {
 		return err
 	}
 
 	kubeInformerFactory := kubernetesinformers.NewSharedInformerFactoryWithOptions(kcpCluterClient, resyncPeriod)
 
-	var informer cache.SharedIndexInformer
-	if options.Workspace == "" {
-		informer = kubeInformerFactory.Apps().V1().Deployments().Informer()
-	} else {
-		informer = kubeInformerFactory.Apps().V1().Deployments().Cluster(logicalcluster.New(options.Workspace)).Informer()
-	}
-
-	controller, err := deployment.NewController(ctx, kcpCluterClient, informer, kubeInformerFactory.Apps().V1().Deployments().Lister())
+	controller, err := deployment.NewController(ctx, kcpCluterClient, kubeInformerFactory.Apps().V1().Deployments())
 	if err != nil {
 		return err
 	}

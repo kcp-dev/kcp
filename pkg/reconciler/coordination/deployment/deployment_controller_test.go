@@ -24,9 +24,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 	"github.com/kcp-dev/kcp/tmc/pkg/coordination"
 )
 
@@ -35,15 +36,29 @@ func intPtr(i int32) *int32 {
 	return &res
 }
 
+type mockedPatcher struct {
+	clusterName  logicalcluster.Name
+	namespace    string
+	appliedPatch string
+}
+
+func (p *mockedPatcher) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*Deployment, error) {
+	p.appliedPatch = string(data)
+	return nil, nil
+}
+
 func TestUpstreamViewReconciler(t *testing.T) {
 	tests := map[string]struct {
-		input, output *appsv1.Deployment
-		wantError     bool
+		input        *appsv1.Deployment
+		appliedPatch string
+		wantError    bool
 	}{
 		"spread requested replicas": {
 			input: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
+					Name:            "test",
+					UID:             types.UID("uid"),
+					ResourceVersion: "resourceVersion",
 					Labels: map[string]string{
 						"state.workload.kcp.dev/syncTarget1": "Sync",
 						"state.workload.kcp.dev/syncTarget2": "Sync",
@@ -53,27 +68,14 @@ func TestUpstreamViewReconciler(t *testing.T) {
 					Replicas: intPtr(7),
 				},
 			},
-			output: &appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					Annotations: map[string]string{
-						"experimental.spec-diff.workload.kcp.dev/syncTarget1": `[{ "op": "replace", "path": "/replicas", "value": 4 }]`,
-						"experimental.spec-diff.workload.kcp.dev/syncTarget2": `[{ "op": "replace", "path": "/replicas", "value": 3 }]`,
-					},
-					Labels: map[string]string{
-						"state.workload.kcp.dev/syncTarget1": "Sync",
-						"state.workload.kcp.dev/syncTarget2": "Sync",
-					},
-				},
-				Spec: appsv1.DeploymentSpec{
-					Replicas: intPtr(7),
-				},
-			},
+			appliedPatch: `{"metadata":{"annotations":{"experimental.spec-diff.workload.kcp.dev/syncTarget1":"[{ \"op\": \"replace\", \"path\": \"/replicas\", \"value\": 4 }]","experimental.spec-diff.workload.kcp.dev/syncTarget2":"[{ \"op\": \"replace\", \"path\": \"/replicas\", \"value\": 3 }]"},"resourceVersion":"resourceVersion","uid":"uid"}}`,
 		},
 		"don't take empty labels into account": {
 			input: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
+					Name:            "test",
+					UID:             types.UID("uid"),
+					ResourceVersion: "resourceVersion",
 					Labels: map[string]string{
 						"state.workload.kcp.dev/syncTarget1": "Sync",
 						"state.workload.kcp.dev/syncTarget2": "",
@@ -83,39 +85,24 @@ func TestUpstreamViewReconciler(t *testing.T) {
 					Replicas: intPtr(7),
 				},
 			},
-			output: &appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					Annotations: map[string]string{
-						"experimental.spec-diff.workload.kcp.dev/syncTarget1": `[{ "op": "replace", "path": "/replicas", "value": 7 }]`,
-					},
-					Labels: map[string]string{
-						"state.workload.kcp.dev/syncTarget1": "Sync",
-						"state.workload.kcp.dev/syncTarget2": "",
-					},
-				},
-				Spec: appsv1.DeploymentSpec{
-					Replicas: intPtr(7),
-				},
-			},
+			appliedPatch: `{"metadata":{"annotations":{"experimental.spec-diff.workload.kcp.dev/syncTarget1":"[{ \"op\": \"replace\", \"path\": \"/replicas\", \"value\": 7 }]"},"resourceVersion":"resourceVersion","uid":"uid"}}`,
 		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 
-			var output *appsv1.Deployment
+			var patcher *mockedPatcher
 			controller := controller{
 				getDeployment: func(lclusterName logicalcluster.Name, namespace, name string) (*appsv1.Deployment, error) {
 					return tc.input, nil
 				},
-				updateDeployment: func(ctx context.Context, clusterName logicalcluster.Name, namespace string, deployment *appsv1.Deployment) (*appsv1.Deployment, error) {
-					output = deployment
-					return deployment, nil
-				},
-				updateDeploymentStatus: func(ctx context.Context, clusterName logicalcluster.Name, namespace string, deployment *appsv1.Deployment) (*appsv1.Deployment, error) {
-					output = deployment
-					return deployment, nil
+				patcher: func(clusterName logicalcluster.Name, namespace string) committer.Patcher[*appsv1.Deployment] {
+					patcher = &mockedPatcher{
+						clusterName: clusterName,
+						namespace:   namespace,
+					}
+					return patcher
 				},
 				syncerViewRetriever: coordination.NewDefaultSyncerViewManager[*appsv1.Deployment](),
 			}
@@ -127,20 +114,23 @@ func TestUpstreamViewReconciler(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			require.Equal(t, tc.output, output)
+			require.Equal(t, tc.appliedPatch, patcher.appliedPatch)
 		})
 	}
 }
 
 func TestSyncerViewReconciler(t *testing.T) {
 	tests := map[string]struct {
-		input, output *appsv1.Deployment
-		wantError     bool
+		input        *appsv1.Deployment
+		appliedPatch string
+		wantError    bool
 	}{
 		"summarize available replicas": {
 			input: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
+					Name:            "test",
+					UID:             types.UID("uid"),
+					ResourceVersion: "resourceVersion",
 					Annotations: map[string]string{
 						"diff.syncer.internal.kcp.dev/syncTarget1": `{ "status": { "availableReplicas": 4 }}`,
 						"diff.syncer.internal.kcp.dev/syncTarget2": `{ "status": { "availableReplicas": 3 }}`,
@@ -154,30 +144,14 @@ func TestSyncerViewReconciler(t *testing.T) {
 					Replicas: intPtr(7),
 				},
 			},
-			output: &appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					Annotations: map[string]string{
-						"diff.syncer.internal.kcp.dev/syncTarget1": `{ "status": { "availableReplicas": 4 }}`,
-						"diff.syncer.internal.kcp.dev/syncTarget2": `{ "status": { "availableReplicas": 3 }}`,
-					},
-					Labels: map[string]string{
-						"state.workload.kcp.dev/syncTarget1": "Sync",
-						"state.workload.kcp.dev/syncTarget2": "Sync",
-					},
-				},
-				Spec: appsv1.DeploymentSpec{
-					Replicas: intPtr(7),
-				},
-				Status: appsv1.DeploymentStatus{
-					AvailableReplicas: 7,
-				},
-			},
+			appliedPatch: `{"metadata":{"resourceVersion":"resourceVersion","uid":"uid"},"status":{"availableReplicas":7}}`,
 		},
 		"summarize conditions": {
 			input: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
+					Name:            "test",
+					UID:             types.UID("uid"),
+					ResourceVersion: "resourceVersion",
 					Annotations: map[string]string{
 						"diff.syncer.internal.kcp.dev/syncTarget1": `{ "status": { "conditions": [ { "type": "Available", "status": "True" }, {"type": "ReplicaFailure", "status": "Unknown" }, { "type": "Progressing", "status": "False" } ] } }`,
 						"diff.syncer.internal.kcp.dev/syncTarget2": `{ "status": { "conditions": [ { "type": "ReplicaFailure", "status": "False" }, { "type": "Progressing", "status": "True" } ] } }`,
@@ -191,57 +165,24 @@ func TestSyncerViewReconciler(t *testing.T) {
 					Replicas: intPtr(7),
 				},
 			},
-			output: &appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					Annotations: map[string]string{
-						"diff.syncer.internal.kcp.dev/syncTarget1": `{ "status": { "conditions": [ { "type": "Available", "status": "True" }, {"type": "ReplicaFailure", "status": "Unknown" }, { "type": "Progressing", "status": "False" } ] } }`,
-						"diff.syncer.internal.kcp.dev/syncTarget2": `{ "status": { "conditions": [ { "type": "ReplicaFailure", "status": "False" }, { "type": "Progressing", "status": "True" } ] } }`,
-					},
-					Labels: map[string]string{
-						"state.workload.kcp.dev/syncTarget1": "Sync",
-						"state.workload.kcp.dev/syncTarget2": "Sync",
-					},
-				},
-				Spec: appsv1.DeploymentSpec{
-					Replicas: intPtr(7),
-				},
-				Status: appsv1.DeploymentStatus{
-					Conditions: []appsv1.DeploymentCondition{
-						{
-							Type:   appsv1.DeploymentAvailable,
-							Status: corev1.ConditionTrue,
-						},
-						{
-							Type:   appsv1.DeploymentProgressing,
-							Status: corev1.ConditionTrue,
-						},
-						{
-							Type:   appsv1.DeploymentReplicaFailure,
-							Status: corev1.ConditionFalse,
-						},
-					},
-				},
-			},
+			appliedPatch: `{"metadata":{"resourceVersion":"resourceVersion","uid":"uid"},"status":{"conditions":[{"lastTransitionTime":null,"lastUpdateTime":null,"status":"True","type":"Available"},{"lastTransitionTime":null,"lastUpdateTime":null,"status":"True","type":"Progressing"},{"lastTransitionTime":null,"lastUpdateTime":null,"status":"False","type":"ReplicaFailure"}]}}`,
 		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 
-			var updateStatusOutput *appsv1.Deployment
-			var updateOutput *appsv1.Deployment
+			var patcher *mockedPatcher
 			controller := controller{
 				getDeployment: func(lclusterName logicalcluster.Name, namespace, name string) (*appsv1.Deployment, error) {
 					return tc.input, nil
 				},
-				updateDeployment: func(ctx context.Context, clusterName logicalcluster.Name, namespace string, deployment *appsv1.Deployment) (*appsv1.Deployment, error) {
-					updateOutput = deployment.DeepCopy()
-					return deployment, nil
-				},
-				updateDeploymentStatus: func(ctx context.Context, clusterName logicalcluster.Name, namespace string, deployment *appsv1.Deployment) (*appsv1.Deployment, error) {
-					updateStatusOutput = deployment.DeepCopy()
-					return deployment, nil
+				patcher: func(clusterName logicalcluster.Name, namespace string) committer.Patcher[*appsv1.Deployment] {
+					patcher = &mockedPatcher{
+						clusterName: clusterName,
+						namespace:   namespace,
+					}
+					return patcher
 				},
 				syncerViewRetriever: coordination.NewDefaultSyncerViewManager[*appsv1.Deployment](),
 			}
@@ -253,8 +194,7 @@ func TestSyncerViewReconciler(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			require.Equal(t, tc.output, updateStatusOutput)
-			require.Nil(t, updateOutput)
+			require.Equal(t, tc.appliedPatch, patcher.appliedPatch)
 		})
 	}
 }

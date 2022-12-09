@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KCP Authors.
+Copyright 2022 The KCP Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import (
 	"k8s.io/component-base/cli"
 	_ "k8s.io/component-base/logs/json/register"
 
-	"github.com/kcp-dev/kcp/cmd/deployment-coordinator/cmd"
+	"github.com/kcp-dev/kcp/tmc/cmd/deployment-coordinator/cmd"
 )
 
 func main() {
