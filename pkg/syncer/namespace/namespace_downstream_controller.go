@@ -243,8 +243,9 @@ func (c *DownstreamController) CancelCleaning(key string) {
 func (c *DownstreamController) PlanCleaning(key string) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	if _, ok := c.toDeleteMap[key]; !ok {
-		c.toDeleteMap[key] = time.Now()
+	now := time.Now()
+	if plannedFor, planned := c.toDeleteMap[key]; !planned || now.After(plannedFor) {
+		c.toDeleteMap[key] = now.Add(c.namespaceCleanDelay)
 		c.delayedQueue.AddAfter(key, c.namespaceCleanDelay)
 	}
 }
@@ -275,6 +276,7 @@ func (c *DownstreamController) processNextDelayedWorkItem(ctx context.Context) b
 	if err := c.processDelayed(ctx, namespaceKey); err != nil {
 		utilruntime.HandleError(fmt.Errorf("%s failed to sync %q, err: %w", downstreamControllerName, key, err))
 		c.delayedQueue.AddRateLimited(key)
+		return true
 	}
 	c.delayedQueue.Forget(key)
 	return true
@@ -283,7 +285,7 @@ func (c *DownstreamController) processNextDelayedWorkItem(ctx context.Context) b
 func (c *DownstreamController) processDelayed(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
 	if !c.isPlannedForCleaning(key) {
-		logger.V(2).Info("Namespace is not marked for deletion anymore, skipping")
+		logger.V(2).Info("Namespace is not marked for deletion check anymore, skipping")
 		return nil
 	}
 
@@ -292,20 +294,18 @@ func (c *DownstreamController) processDelayed(ctx context.Context, key string) e
 		return fmt.Errorf("failed to check if downstream namespace is empty: %w", err)
 	}
 	if !empty {
-		logger.V(2).Info("Namespace is not empty, reenqueueing to retry later")
-		// return error to requeue
-		return fmt.Errorf("namespace is not empty")
+		logger.V(2).Info("Namespace is not empty, skip cleaning now but keep it as a candidate for future cleaning")
+		return nil
 	}
 
 	err = c.deleteDownstreamNamespace(ctx, key)
-	if apierrors.IsNotFound(err) {
-		logger.V(2).Info("Namespace is not found, perhaps it was already deleted, skipping")
-		c.CancelCleaning(key)
-		return nil
-	} else if err != nil {
+	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
 
+	if apierrors.IsNotFound(err) {
+		logger.V(2).Info("Namespace is not found, perhaps it was already deleted")
+	}
 	c.CancelCleaning(key)
 	return nil
 }

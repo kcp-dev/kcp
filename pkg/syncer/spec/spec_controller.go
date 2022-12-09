@@ -29,6 +29,7 @@ import (
 	kcpdynamicinformer "github.com/kcp-dev/client-go/dynamic/dynamicinformer"
 	"github.com/kcp-dev/logicalcluster/v2"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -168,10 +169,14 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetWorkspace logicalcluster.
 					if namespace != "" {
 						// Use namespace lister
 						nsObj, err := namespaceLister.Get(namespace)
+						if errors.IsNotFound(err) {
+							return
+						}
 						if err != nil {
 							utilruntime.HandleError(err)
 							return
 						}
+						c.downstreamNSCleaner.PlanCleaning(namespace)
 						nsLocatorHolder, ok = nsObj.(*unstructured.Unstructured)
 						if !ok {
 							utilruntime.HandleError(fmt.Errorf("unexpected object type: %T", nsObj))
