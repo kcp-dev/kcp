@@ -38,7 +38,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -48,7 +48,7 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 
 	type runningServer struct {
 		framework.RunningServer
-		kcpClusterClient kcpclientset.Interface
+		kcpClusterClient kcpclientset.ClusterInterface
 		orgClusterName   logicalcluster.Name
 	}
 	var testCases = []struct {
@@ -59,17 +59,17 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 			name: "create a workspace without an explicit type, get default type",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				t.Logf("Create a workspace without explicit type")
-				workspace, err := server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Create(logicalcluster.WithCluster(ctx, server.orgClusterName), &tenancyv1alpha1.ClusterWorkspace{ObjectMeta: metav1.ObjectMeta{Name: "myapp"}}, metav1.CreateOptions{})
+				workspace, err := server.kcpClusterClient.Cluster(server.orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{ObjectMeta: metav1.ObjectMeta{Name: "myapp"}}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace")
 				server.Artifact(t, func() (runtime.Object, error) {
-					return server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, server.orgClusterName), workspace.Name, metav1.GetOptions{})
+					return server.kcpClusterClient.Cluster(server.orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 				})
 				server.Artifact(t, func() (runtime.Object, error) {
-					return server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, server.orgClusterName), workspace.Name, metav1.GetOptions{})
+					return server.kcpClusterClient.Cluster(server.orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 				})
 
 				require.Eventually(t, func() bool {
-					workspace, err = server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, server.orgClusterName), workspace.Name, metav1.GetOptions{})
+					workspace, err = server.kcpClusterClient.Cluster(server.orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 					if err != nil {
 						t.Logf("error getting workspace: %v", err)
 					}
@@ -77,7 +77,7 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 				}, wait.ForeverTestTimeout, 100*time.Millisecond, "workspace should be ready")
 
 				t.Logf("Expect workspace to be of universal type, and no initializers")
-				workspace, err = server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, server.orgClusterName), workspace.Name, metav1.GetOptions{})
+				workspace, err = server.kcpClusterClient.Cluster(server.orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 				require.NoError(t, err, "failed to get workspace")
 				require.Equalf(t, workspace.Spec.Type, tenancyv1alpha1.ClusterWorkspaceTypeReference{
 					Name: "universal",
@@ -91,7 +91,7 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				universal := framework.NewWorkspaceFixture(t, server, tenancyv1alpha1.RootCluster)
 				t.Logf("Create a workspace with explicit non-existing type")
-				workspace, err := server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Create(logicalcluster.WithCluster(ctx, universal), &tenancyv1alpha1.ClusterWorkspace{
+				workspace, err := server.kcpClusterClient.Cluster(universal).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{
 					ObjectMeta: metav1.ObjectMeta{Name: "myapp"},
 					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 						Name: "foo",
@@ -101,23 +101,23 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 				require.Error(t, err, "failed to create workspace")
 
 				t.Logf("Create type Foo")
-				cwt, err := server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaceTypes().Create(logicalcluster.WithCluster(ctx, universal), &tenancyv1alpha1.ClusterWorkspaceType{
+				cwt, err := server.kcpClusterClient.Cluster(universal).TenancyV1alpha1().ClusterWorkspaceTypes().Create(ctx, &tenancyv1alpha1.ClusterWorkspaceType{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace type")
 				server.Artifact(t, func() (runtime.Object, error) {
-					return server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaceTypes().Get(logicalcluster.WithCluster(ctx, universal), "foo", metav1.GetOptions{})
+					return server.kcpClusterClient.Cluster(universal).TenancyV1alpha1().ClusterWorkspaceTypes().Get(ctx, "foo", metav1.GetOptions{})
 				})
 				t.Logf("Wait for type Foo to be usable")
 				cwtName := cwt.Name
 				framework.EventuallyReady(t, func() (conditions.Getter, error) {
-					return server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaceTypes().Get(logicalcluster.WithCluster(ctx, universal), cwtName, metav1.GetOptions{})
+					return server.kcpClusterClient.Cluster(universal).TenancyV1alpha1().ClusterWorkspaceTypes().Get(ctx, cwtName, metav1.GetOptions{})
 				}, "could not wait for readiness on ClusterWorkspaceType %s|%s", universal.String(), cwtName)
 
 				t.Logf("Create workspace with explicit type Foo again")
 				require.Eventually(t, func() bool {
 					// note: admission is informer based and hence would race with this create call
-					workspace, err = server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Create(logicalcluster.WithCluster(ctx, universal), &tenancyv1alpha1.ClusterWorkspace{
+					workspace, err = server.kcpClusterClient.Cluster(universal).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{
 						ObjectMeta: metav1.ObjectMeta{Name: "myapp"},
 						Spec:       tenancyv1alpha1.ClusterWorkspaceSpec{Type: tenancyv1alpha1.ReferenceFor(cwt)},
 					}, metav1.CreateOptions{})
@@ -127,7 +127,7 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 					return err == nil
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create workspace even with type")
 				server.Artifact(t, func() (runtime.Object, error) {
-					return server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, universal), "myapp", metav1.GetOptions{})
+					return server.kcpClusterClient.Cluster(universal).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, "myapp", metav1.GetOptions{})
 				})
 				require.Equal(t, workspace.Spec.Type, tenancyv1alpha1.ClusterWorkspaceTypeReference{
 					Name: "foo",
@@ -136,7 +136,7 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 
 				t.Logf("Expect workspace to become ready because there are no initializers")
 				require.Eventually(t, func() bool {
-					workspace, err = server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, universal), workspace.Name, metav1.GetOptions{})
+					workspace, err = server.kcpClusterClient.Cluster(universal).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 					if err != nil {
 						t.Logf("error getting workspace: %v", err)
 					}
@@ -198,18 +198,18 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 				require.NoError(t, err)
 
 				t.Logf("Create type Bar in typesource workspace %q", typesource)
-				cwt, err := server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaceTypes().Create(logicalcluster.WithCluster(ctx, typesource), &tenancyv1alpha1.ClusterWorkspaceType{
+				cwt, err := server.kcpClusterClient.Cluster(typesource).TenancyV1alpha1().ClusterWorkspaceTypes().Create(ctx, &tenancyv1alpha1.ClusterWorkspaceType{
 					ObjectMeta: metav1.ObjectMeta{Name: "bar"},
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace type")
 
 				server.Artifact(t, func() (runtime.Object, error) {
-					return server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaceTypes().Get(logicalcluster.WithCluster(ctx, typesource), "bar", metav1.GetOptions{})
+					return server.kcpClusterClient.Cluster(typesource).TenancyV1alpha1().ClusterWorkspaceTypes().Get(ctx, "bar", metav1.GetOptions{})
 				})
 				t.Logf("Wait for type Bar to be usable in typesource workspace %q", typesource)
 				cwtName := cwt.Name
 				framework.EventuallyReady(t, func() (conditions.Getter, error) {
-					return server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaceTypes().Get(logicalcluster.WithCluster(ctx, typesource), cwtName, metav1.GetOptions{})
+					return server.kcpClusterClient.Cluster(typesource).TenancyV1alpha1().ClusterWorkspaceTypes().Get(ctx, cwtName, metav1.GetOptions{})
 				}, "could not wait for readiness on ClusterWorkspaceType %s|%s", universal.String(), cwtName)
 
 				user1KcpClient, err := kcpclientset.NewForConfig(framework.UserConfig("user-1", rest.CopyConfig(cfg)))
@@ -220,7 +220,7 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 				var workspace *tenancyv1alpha1.ClusterWorkspace
 				require.Eventually(t, func() bool {
 					// note: admission is informer based and hence would race with this create call
-					workspace, err = user1KcpClient.TenancyV1alpha1().ClusterWorkspaces().Create(logicalcluster.WithCluster(ctx, universal), &tenancyv1alpha1.ClusterWorkspace{
+					workspace, err = user1KcpClient.Cluster(universal).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{
 						ObjectMeta: metav1.ObjectMeta{Name: "myapp"},
 						Spec:       tenancyv1alpha1.ClusterWorkspaceSpec{Type: tenancyv1alpha1.ReferenceFor(cwt)},
 					}, metav1.CreateOptions{})
@@ -230,7 +230,7 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 					return err == nil
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create workspace even with type")
 				server.Artifact(t, func() (runtime.Object, error) {
-					return server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, universal), "myapp", metav1.GetOptions{})
+					return server.kcpClusterClient.Cluster(universal).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, "myapp", metav1.GetOptions{})
 				})
 				require.Equal(t, workspace.Spec.Type, tenancyv1alpha1.ClusterWorkspaceTypeReference{
 					Name: "bar",
@@ -239,7 +239,7 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 
 				t.Logf("Expect workspace %q of type \"foo\" to become ready because there are no initializers", workspace.Name)
 				require.Eventually(t, func() bool {
-					workspace, err = server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, universal), workspace.Name, metav1.GetOptions{})
+					workspace, err = server.kcpClusterClient.Cluster(universal).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 					if err != nil {
 						t.Logf("error getting workspace: %v", err)
 					}
@@ -252,7 +252,7 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				universal := framework.NewWorkspaceFixture(t, server, tenancyv1alpha1.RootCluster)
 				t.Logf("Create type Foo with an initializer")
-				cwt, err := server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaceTypes().Create(logicalcluster.WithCluster(ctx, universal), &tenancyv1alpha1.ClusterWorkspaceType{
+				cwt, err := server.kcpClusterClient.Cluster(universal).TenancyV1alpha1().ClusterWorkspaceTypes().Create(ctx, &tenancyv1alpha1.ClusterWorkspaceType{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
 					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
 						Initializer: true,
@@ -260,19 +260,19 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace type")
 				server.Artifact(t, func() (runtime.Object, error) {
-					return server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaceTypes().Get(logicalcluster.WithCluster(ctx, universal), "foo", metav1.GetOptions{})
+					return server.kcpClusterClient.Cluster(universal).TenancyV1alpha1().ClusterWorkspaceTypes().Get(ctx, "foo", metav1.GetOptions{})
 				})
 				t.Logf("Wait for type Foo to be usable")
 				cwtName := cwt.Name
 				framework.EventuallyReady(t, func() (conditions.Getter, error) {
-					return server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaceTypes().Get(logicalcluster.WithCluster(ctx, universal), cwtName, metav1.GetOptions{})
+					return server.kcpClusterClient.Cluster(universal).TenancyV1alpha1().ClusterWorkspaceTypes().Get(ctx, cwtName, metav1.GetOptions{})
 				}, "could not wait for readiness on ClusterWorkspaceType %s|%s", universal.String(), cwtName)
 
 				t.Logf("Create workspace with explicit type Foo")
 				var workspace *tenancyv1alpha1.ClusterWorkspace
 				require.Eventually(t, func() bool {
 					// note: admission is informer based and hence would race with this create call
-					workspace, err = server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Create(logicalcluster.WithCluster(ctx, universal), &tenancyv1alpha1.ClusterWorkspace{
+					workspace, err = server.kcpClusterClient.Cluster(universal).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{
 						ObjectMeta: metav1.ObjectMeta{Name: "myapp"},
 						Spec: tenancyv1alpha1.ClusterWorkspaceSpec{Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
 							Name: "foo",
@@ -285,12 +285,12 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 					return err == nil
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create workspace even with type")
 				server.Artifact(t, func() (runtime.Object, error) {
-					return server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, universal), "myapp", metav1.GetOptions{})
+					return server.kcpClusterClient.Cluster(universal).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, "myapp", metav1.GetOptions{})
 				})
 
 				t.Logf("Expect workspace to be stuck in initializing phase")
 				framework.Eventually(t, func() (success bool, reason string) {
-					workspace, err = server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, universal), workspace.Name, metav1.GetOptions{})
+					workspace, err = server.kcpClusterClient.Cluster(universal).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 					if err != nil {
 						return false, err.Error()
 					}
@@ -302,17 +302,17 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 
 				t.Logf("Remove initializer")
 				err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-					workspace, err = server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, universal), workspace.Name, metav1.GetOptions{})
+					workspace, err = server.kcpClusterClient.Cluster(universal).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 					require.NoError(t, err)
 					workspace.Status.Initializers = initialization.EnsureInitializerAbsent(initialization.InitializerForType(cwt), workspace.Status.Initializers)
-					_, err = server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().UpdateStatus(logicalcluster.WithCluster(ctx, universal), workspace, metav1.UpdateOptions{})
+					_, err = server.kcpClusterClient.Cluster(universal).TenancyV1alpha1().ClusterWorkspaces().UpdateStatus(ctx, workspace, metav1.UpdateOptions{})
 					return err
 				})
 				require.NoError(t, err)
 
 				t.Logf("Expect workspace to become ready after initializers are done")
 				require.Eventually(t, func() bool {
-					workspace, err = server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, universal), workspace.Name, metav1.GetOptions{})
+					workspace, err = server.kcpClusterClient.Cluster(universal).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 					if err != nil {
 						t.Logf("error getting workspace: %v", err)
 					}

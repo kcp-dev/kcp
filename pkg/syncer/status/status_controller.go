@@ -38,7 +38,6 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/syncer/resourcesync"
-	"github.com/kcp-dev/kcp/third_party/keyfunctions"
 )
 
 const (
@@ -110,7 +109,7 @@ type queueKey struct {
 }
 
 func (c *Controller) AddToQueue(gvr schema.GroupVersionResource, obj interface{}, logger logr.Logger) {
-	key, err := keyfunctions.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return

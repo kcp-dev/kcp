@@ -22,8 +22,6 @@ import (
 	"context"
 	"time"
 
-	v2 "github.com/kcp-dev/logicalcluster/v2"
-
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -55,15 +53,13 @@ type ClusterWorkspaceInterface interface {
 
 // clusterWorkspaces implements ClusterWorkspaceInterface
 type clusterWorkspaces struct {
-	client  rest.Interface
-	cluster v2.Name
+	client rest.Interface
 }
 
 // newClusterWorkspaces returns a ClusterWorkspaces
 func newClusterWorkspaces(c *TenancyV1alpha1Client) *clusterWorkspaces {
 	return &clusterWorkspaces{
-		client:  c.RESTClient(),
-		cluster: c.cluster,
+		client: c.RESTClient(),
 	}
 }
 
@@ -71,7 +67,6 @@ func newClusterWorkspaces(c *TenancyV1alpha1Client) *clusterWorkspaces {
 func (c *clusterWorkspaces) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.ClusterWorkspace, err error) {
 	result = &v1alpha1.ClusterWorkspace{}
 	err = c.client.Get().
-		Cluster(c.cluster).
 		Resource("clusterworkspaces").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
@@ -88,7 +83,6 @@ func (c *clusterWorkspaces) List(ctx context.Context, opts v1.ListOptions) (resu
 	}
 	result = &v1alpha1.ClusterWorkspaceList{}
 	err = c.client.Get().
-		Cluster(c.cluster).
 		Resource("clusterworkspaces").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -105,7 +99,6 @@ func (c *clusterWorkspaces) Watch(ctx context.Context, opts v1.ListOptions) (wat
 	}
 	opts.Watch = true
 	return c.client.Get().
-		Cluster(c.cluster).
 		Resource("clusterworkspaces").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -116,7 +109,6 @@ func (c *clusterWorkspaces) Watch(ctx context.Context, opts v1.ListOptions) (wat
 func (c *clusterWorkspaces) Create(ctx context.Context, clusterWorkspace *v1alpha1.ClusterWorkspace, opts v1.CreateOptions) (result *v1alpha1.ClusterWorkspace, err error) {
 	result = &v1alpha1.ClusterWorkspace{}
 	err = c.client.Post().
-		Cluster(c.cluster).
 		Resource("clusterworkspaces").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(clusterWorkspace).
@@ -129,7 +121,6 @@ func (c *clusterWorkspaces) Create(ctx context.Context, clusterWorkspace *v1alph
 func (c *clusterWorkspaces) Update(ctx context.Context, clusterWorkspace *v1alpha1.ClusterWorkspace, opts v1.UpdateOptions) (result *v1alpha1.ClusterWorkspace, err error) {
 	result = &v1alpha1.ClusterWorkspace{}
 	err = c.client.Put().
-		Cluster(c.cluster).
 		Resource("clusterworkspaces").
 		Name(clusterWorkspace.Name).
 		VersionedParams(&opts, scheme.ParameterCodec).
@@ -144,7 +135,6 @@ func (c *clusterWorkspaces) Update(ctx context.Context, clusterWorkspace *v1alph
 func (c *clusterWorkspaces) UpdateStatus(ctx context.Context, clusterWorkspace *v1alpha1.ClusterWorkspace, opts v1.UpdateOptions) (result *v1alpha1.ClusterWorkspace, err error) {
 	result = &v1alpha1.ClusterWorkspace{}
 	err = c.client.Put().
-		Cluster(c.cluster).
 		Resource("clusterworkspaces").
 		Name(clusterWorkspace.Name).
 		SubResource("status").
@@ -158,7 +148,6 @@ func (c *clusterWorkspaces) UpdateStatus(ctx context.Context, clusterWorkspace *
 // Delete takes name of the clusterWorkspace and deletes it. Returns an error if one occurs.
 func (c *clusterWorkspaces) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	return c.client.Delete().
-		Cluster(c.cluster).
 		Resource("clusterworkspaces").
 		Name(name).
 		Body(&opts).
@@ -173,7 +162,6 @@ func (c *clusterWorkspaces) DeleteCollection(ctx context.Context, opts v1.Delete
 		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
 	}
 	return c.client.Delete().
-		Cluster(c.cluster).
 		Resource("clusterworkspaces").
 		VersionedParams(&listOpts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -186,7 +174,6 @@ func (c *clusterWorkspaces) DeleteCollection(ctx context.Context, opts v1.Delete
 func (c *clusterWorkspaces) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.ClusterWorkspace, err error) {
 	result = &v1alpha1.ClusterWorkspace{}
 	err = c.client.Patch(pt).
-		Cluster(c.cluster).
 		Resource("clusterworkspaces").
 		Name(name).
 		SubResource(subresources...).

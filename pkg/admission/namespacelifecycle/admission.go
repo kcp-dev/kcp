@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io"
 
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	corev1 "k8s.io/api/core/v1"
@@ -148,7 +147,7 @@ func (l *workspaceNamespaceLifecycle) SetKcpInformers(informers kcpinformers.Sha
 	l.SetReadyFunc(informers.Tenancy().V1alpha1().ClusterWorkspaces().Informer().HasSynced)
 
 	l.getClusterWorkspace = func(clusterName logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspace, error) {
-		return informers.Tenancy().V1alpha1().ClusterWorkspaces().Lister().Get(kcpcache.ToClusterAwareKey(clusterName.String(), "", name))
+		return informers.Tenancy().V1alpha1().ClusterWorkspaces().Lister().Cluster(clusterName).Get(name)
 	}
 }
 

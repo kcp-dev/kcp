@@ -20,14 +20,13 @@ import (
 	"context"
 	"testing"
 
-	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/stretchr/testify/require"
 
-	"k8s.io/client-go/rest"
+	"k8s.io/client-go/kubernetes"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	tenancyv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -39,7 +38,7 @@ func TestWorkspaceShardController(t *testing.T) {
 	type runningServer struct {
 		framework.RunningServer
 		rootShardClient               tenancyv1alpha1client.ClusterWorkspaceShardInterface
-		rootKubeClient, orgKubeClient kcpkubernetesclientset.ClusterInterface
+		rootKubeClient, orgKubeClient kubernetes.Interface
 		expect                        framework.RegisterWorkspaceShardExpectation
 	}
 	var testCases = []struct {
@@ -72,25 +71,23 @@ func TestWorkspaceShardController(t *testing.T) {
 
 			orgClusterName := framework.NewOrganizationFixture(t, server)
 
-			orgClusterCfg := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), orgClusterName)
-			orgClusterKcpClient, err := kcpkubernetesclientset.NewForConfig(orgClusterCfg)
+			kcpClient, err := kcpclientset.NewForConfig(cfg)
 			require.NoError(t, err)
 
-			rootClusterCfg := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), tenancyv1alpha1.RootCluster)
-			rootClusterKcpClient, err := kcpclientset.NewForConfig(rootClusterCfg)
+			expecterClient, err := kcpclientset.NewForConfig(server.RootShardSystemMasterBaseConfig(t))
 			require.NoError(t, err)
 
-			expect, err := framework.ExpectWorkspaceShards(ctx, t, rootClusterKcpClient)
+			expect, err := framework.ExpectWorkspaceShards(ctx, t, expecterClient.Cluster(orgClusterName))
 			require.NoError(t, err, "failed to start expecter")
 
-			rootKubeClient, err := kcpkubernetesclientset.NewForConfig(rootClusterCfg)
+			kubeClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 			require.NoError(t, err, "failed to construct kube rootShardClient for server")
 
 			testCase.work(ctx, t, runningServer{
 				RunningServer:   server,
-				rootShardClient: rootClusterKcpClient.TenancyV1alpha1().ClusterWorkspaceShards(),
-				rootKubeClient:  rootKubeClient,
-				orgKubeClient:   orgClusterKcpClient,
+				rootShardClient: kcpClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaceShards(),
+				rootKubeClient:  kubeClient.Cluster(tenancyv1alpha1.RootCluster),
+				orgKubeClient:   kubeClient.Cluster(orgClusterName),
 				expect:          expect,
 			})
 		})

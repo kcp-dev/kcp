@@ -61,7 +61,7 @@ import (
 )
 
 // adds shards awareness to a client with a default `shard.Wildcard` name.
-NewClusterForConfig(cacheclient.WithShardRoundTripper(cacheclient.WithDefaultShardRoundTripper(serverConfig.LoopbackClientConfig, shard.Wildcard)))
+NewForConfig(cacheclient.WithShardRoundTripper(cacheclient.WithDefaultShardRoundTripper(serverConfig.LoopbackClientConfig, shard.Wildcard)))
 
 // and then change the context when you need to access a specific shard and pass is when making a HTTP request
 ctx = cacheclient.WithShardInContext(ctx, shard.New("cache"))
@@ -77,6 +77,7 @@ Out of the box, the server supports the following resources:
 
 - `apiresourceschemas`
 - `apiexports`
+- `clusterworkspaceshards`
 
 All those resources are represented as CustomResourceDefinitions and
 stored in `system:cache:server` shard under `system:system-crds` cluster.

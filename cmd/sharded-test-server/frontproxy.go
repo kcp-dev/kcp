@@ -38,7 +38,7 @@ import (
 
 	"github.com/kcp-dev/kcp/cmd/sharded-test-server/third_party/library-go/crypto"
 	"github.com/kcp-dev/kcp/cmd/test-server/helpers"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -129,6 +129,7 @@ func startFrontProxy(
 		fmt.Sprintf("--mapping-file=%s", filepath.Join(workDirPath, ".kcp-front-proxy/mapping.yaml")),
 		fmt.Sprintf("--root-directory=%s", filepath.Join(workDirPath, ".kcp-front-proxy")),
 		fmt.Sprintf("--root-kubeconfig=%s", filepath.Join(workDirPath, ".kcp/root.kubeconfig")),
+		fmt.Sprintf("--shards-kubeconfig=%s", filepath.Join(workDirPath, ".kcp-front-proxy/shards.kubeconfig")),
 		fmt.Sprintf("--client-ca-file=%s", filepath.Join(workDirPath, ".kcp/client-ca.crt")),
 		fmt.Sprintf("--tls-cert-file=%s", filepath.Join(workDirPath, ".kcp-front-proxy/apiserver.crt")),
 		fmt.Sprintf("--tls-private-key-file=%s", filepath.Join(workDirPath, ".kcp-front-proxy/apiserver.key")),
@@ -198,7 +199,7 @@ func startFrontProxy(
 		if err != nil {
 			continue
 		}
-		kcpClient, err := kcpclient.NewClusterForConfig(config)
+		kcpClient, err := kcpclientset.NewForConfig(config)
 		if err != nil {
 			logger.Error(err, "failed to create kcp client")
 			continue
@@ -259,4 +260,29 @@ func writeAdminKubeConfig(hostIP string, workDirPath string) error {
 	}
 
 	return clientcmd.WriteToFile(kubeConfig, filepath.Join(workDirPath, ".kcp/admin.kubeconfig"))
+}
+
+func writeShardKubeConfig(workDirPath string) error {
+	var kubeConfig clientcmdapi.Config
+	kubeConfig.AuthInfos = map[string]*clientcmdapi.AuthInfo{
+		"shard-admin": {
+			ClientKey:         filepath.Join(workDirPath, ".kcp-front-proxy/shard-admin.key"),
+			ClientCertificate: filepath.Join(workDirPath, ".kcp-front-proxy/shard-admin.crt"),
+		},
+	}
+	kubeConfig.Clusters = map[string]*clientcmdapi.Cluster{
+		"base": {
+			CertificateAuthority: filepath.Join(workDirPath, ".kcp/serving-ca.crt"),
+		},
+	}
+	kubeConfig.Contexts = map[string]*clientcmdapi.Context{
+		"base": {Cluster: "base", AuthInfo: "shard-admin"},
+	}
+	kubeConfig.CurrentContext = "base"
+
+	if err := clientcmdapi.FlattenConfig(&kubeConfig); err != nil {
+		return err
+	}
+
+	return clientcmd.WriteToFile(kubeConfig, filepath.Join(workDirPath, ".kcp-front-proxy/shards.kubeconfig"))
 }

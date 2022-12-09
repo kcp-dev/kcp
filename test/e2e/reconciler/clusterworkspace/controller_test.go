@@ -23,19 +23,18 @@ import (
 	"testing"
 	"time"
 
-	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/rest"
 	"sigs.k8s.io/yaml"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	utilconditions "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclusterclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -195,24 +194,22 @@ func TestWorkspaceController(t *testing.T) {
 			orgClusterName := framework.NewOrganizationFixture(t, server)
 
 			// create clients
-			orgClusterCfg := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), orgClusterName)
-			orgClusterKcpClient, err := kcpclientset.NewForConfig(orgClusterCfg)
+			kcpClient, err := kcpclusterclientset.NewForConfig(cfg)
 			require.NoError(t, err)
 
-			rootClusterCfg := kcpclienthelper.SetCluster(rest.CopyConfig(cfg), tenancyv1alpha1.RootCluster)
-			rootClusterKcpClient, err := kcpclientset.NewForConfig(rootClusterCfg)
+			expecterClient, err := kcpclusterclientset.NewForConfig(server.RootShardSystemMasterBaseConfig(t))
 			require.NoError(t, err)
 
-			orgExpect, err := framework.ExpectClusterWorkspaces(ctx, t, orgClusterKcpClient)
+			orgExpect, err := framework.ExpectClusterWorkspaces(ctx, t, expecterClient.Cluster(orgClusterName))
 			require.NoError(t, err, "failed to start expecter")
 
-			rootExpectShard, err := framework.ExpectWorkspaceShards(ctx, t, rootClusterKcpClient)
+			rootExpectShard, err := framework.ExpectWorkspaceShards(ctx, t, expecterClient.Cluster(tenancyv1alpha1.RootCluster))
 			require.NoError(t, err, "failed to start expecter")
 
 			testCase.work(ctx, t, runningServer{
 				RunningServer:   server,
-				rootKcpClient:   rootClusterKcpClient,
-				orgKcpClient:    orgClusterKcpClient,
+				rootKcpClient:   kcpClient.Cluster(tenancyv1alpha1.RootCluster),
+				orgKcpClient:    kcpClient.Cluster(orgClusterName),
 				orgExpect:       orgExpect,
 				rootExpectShard: rootExpectShard,
 			})

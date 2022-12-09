@@ -23,22 +23,22 @@ import (
 	"time"
 
 	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
-	kcpmetadata "github.com/kcp-dev/client-go/metadata"
+	kcpkubernetesclient "github.com/kcp-dev/client-go/kubernetes"
+	kcpmetadataclient "github.com/kcp-dev/client-go/metadata"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	kubernetesclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/component-base/metrics/prometheus/ratelimiter"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/controller/garbagecollector"
 
-	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/projection"
@@ -53,9 +53,9 @@ type Controller struct {
 	queue workqueue.RateLimitingInterface
 
 	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory
-	kubeClusterClient                     kubernetesclient.ClusterInterface
-	metadataClient                        kcpmetadata.ClusterInterface
-	clusterWorkspaceLister                v1alpha1.ClusterWorkspaceLister
+	kubeClusterClient                     kcpkubernetesclient.ClusterInterface
+	metadataClient                        kcpmetadataclient.ClusterInterface
+	clusterWorkspaceLister                tenancyv1alpha1listers.ClusterWorkspaceClusterLister
 	informersStarted                      <-chan struct{}
 
 	workersPerLogicalCluster int
@@ -69,9 +69,9 @@ type Controller struct {
 
 // NewController creates a new Controller.
 func NewController(
-	clusterWorkspaceInformer tenancyinformers.ClusterWorkspaceInformer,
-	kubeClusterClient kubernetesclient.ClusterInterface,
-	metadataClient kcpmetadata.ClusterInterface,
+	clusterWorkspaceInformer tenancyv1alpha1informers.ClusterWorkspaceClusterInformer,
+	kubeClusterClient kcpkubernetesclient.ClusterInterface,
+	metadataClient kcpmetadataclient.ClusterInterface,
 	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory,
 	workersPerLogicalCluster int,
 	informersStarted <-chan struct{},
@@ -195,7 +195,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	clusterName := parent.Join(name)
 	logger = logger.WithValues("logicalCluster", clusterName.String())
 
-	ws, err := c.clusterWorkspaceLister.Get(key)
+	ws, err := c.clusterWorkspaceLister.Cluster(parent).Get(name)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			logger.V(2).Info("ClusterWorkspace not found - stopping garbage collector controller for it (if needed)")

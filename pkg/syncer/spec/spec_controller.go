@@ -29,6 +29,7 @@ import (
 	kcpdynamicinformer "github.com/kcp-dev/client-go/dynamic/dynamicinformer"
 	"github.com/kcp-dev/logicalcluster/v2"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -53,7 +54,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	"github.com/kcp-dev/kcp/pkg/syncer/spec/dns"
 	specmutators "github.com/kcp-dev/kcp/pkg/syncer/spec/mutators"
-	"github.com/kcp-dev/kcp/third_party/keyfunctions"
 	. "github.com/kcp-dev/kcp/tmc/pkg/logging"
 )
 
@@ -151,7 +151,7 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetWorkspace logicalcluster.
 			logger.V(2).Info("Set up downstream informer", "gvr", gvr.String())
 			return cache.ResourceEventHandlerFuncs{
 				DeleteFunc: func(obj interface{}) {
-					key, err := keyfunctions.DeletionHandlingMetaNamespaceKeyFunc(obj)
+					key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 					if err != nil {
 						utilruntime.HandleError(fmt.Errorf("error getting key for type %T: %w", obj, err))
 						return
@@ -169,10 +169,14 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetWorkspace logicalcluster.
 					if namespace != "" {
 						// Use namespace lister
 						nsObj, err := namespaceLister.Get(namespace)
+						if errors.IsNotFound(err) {
+							return
+						}
 						if err != nil {
 							utilruntime.HandleError(err)
 							return
 						}
+						c.downstreamNSCleaner.PlanCleaning(namespace)
 						nsLocatorHolder, ok = nsObj.(*unstructured.Unstructured)
 						if !ok {
 							utilruntime.HandleError(fmt.Errorf("unexpected object type: %T", nsObj))

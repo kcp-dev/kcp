@@ -22,7 +22,6 @@ import (
 	"time"
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -31,7 +30,7 @@ import (
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
-	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -50,7 +49,7 @@ func TestRequeueWhenIdentitySecretAdded(t *testing.T) {
 
 	cfg := server.BaseConfig(t)
 
-	kcpClusterClient, err := clientset.NewForConfig(cfg)
+	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating kcp cluster client")
 
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
@@ -73,12 +72,12 @@ func TestRequeueWhenIdentitySecretAdded(t *testing.T) {
 	t.Logf("Creating APIExport with reference to nonexistent identity secret")
 	apiExportClient := kcpClusterClient.ApisV1alpha1().APIExports()
 
-	_, err = apiExportClient.Create(logicalcluster.WithCluster(ctx, workspaceClusterName), apiExport, metav1.CreateOptions{})
+	_, err = apiExportClient.Cluster(workspaceClusterName).Create(ctx, apiExport, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating APIExport")
 
 	t.Logf("Verifying the APIExport gets IdentityVerificationFailedReason")
 	require.Eventually(t, func() bool {
-		export, err := apiExportClient.Get(logicalcluster.WithCluster(ctx, workspaceClusterName), apiExport.Name, metav1.GetOptions{})
+		export, err := apiExportClient.Cluster(workspaceClusterName).Get(ctx, apiExport.Name, metav1.GetOptions{})
 		if err != nil {
 			return false
 		}
@@ -107,7 +106,7 @@ func TestRequeueWhenIdentitySecretAdded(t *testing.T) {
 	t.Logf("Verifying the APIExport verifies and the identity and gets the expected generated identity hash")
 	var gotHash string
 	require.Eventually(t, func() bool {
-		export, err := apiExportClient.Get(logicalcluster.WithCluster(ctx, workspaceClusterName), apiExport.Name, metav1.GetOptions{})
+		export, err := apiExportClient.Cluster(workspaceClusterName).Get(ctx, apiExport.Name, metav1.GetOptions{})
 		if err != nil {
 			return false
 		}

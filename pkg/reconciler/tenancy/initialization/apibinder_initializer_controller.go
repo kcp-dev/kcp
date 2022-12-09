@@ -38,11 +38,10 @@ import (
 	admission "github.com/kcp-dev/kcp/pkg/admission/clusterworkspacetypeexists"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/client"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	apisinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
-	tenancyinformer "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/indexers"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	tenancyv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
+	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
+	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 )
@@ -54,41 +53,41 @@ const (
 // NewAPIBinder returns a new controller which instantiates APIBindings and waits for them to be fully bound
 // in new ClusterWorkspaces.
 func NewAPIBinder(
-	kcpClusterClient kcpclient.Interface,
-	clusterWorkspaceInformer tenancyinformer.ClusterWorkspaceInformer,
-	clusterWorkspaceTypeInformer tenancyinformer.ClusterWorkspaceTypeInformer,
-	apiBindingsInformer apisinformer.APIBindingInformer,
-	apiExportsInformer apisinformer.APIExportInformer,
+	kcpClusterClient kcpclientset.ClusterInterface,
+	clusterWorkspaceInformer tenancyv1alpha1informers.ClusterWorkspaceClusterInformer,
+	clusterWorkspaceTypeInformer tenancyv1alpha1informers.ClusterWorkspaceTypeClusterInformer,
+	apiBindingsInformer apisv1alpha1informers.APIBindingClusterInformer,
+	apiExportsInformer apisv1alpha1informers.APIExportClusterInformer,
 ) (*APIBinder, error) {
 	c := &APIBinder{
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
 
 		getClusterWorkspace: func(clusterName logicalcluster.Name) (*tenancyv1alpha1.ClusterWorkspace, error) {
 			parent, workspace := clusterName.Split()
-			return clusterWorkspaceInformer.Lister().Get(client.ToClusterAwareKey(parent, workspace))
+			return clusterWorkspaceInformer.Lister().Cluster(parent).Get(workspace)
 		},
 		getClusterWorkspaceType: func(clusterName logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
-			return clusterWorkspaceTypeInformer.Lister().Get(client.ToClusterAwareKey(clusterName, name))
+			return clusterWorkspaceTypeInformer.Lister().Cluster(clusterName).Get(name)
 		},
 		listClusterWorkspaces: func() ([]*tenancyv1alpha1.ClusterWorkspace, error) {
 			return clusterWorkspaceInformer.Lister().List(labels.Everything())
 		},
 
 		listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
-			return indexers.ByIndex[*apisv1alpha1.APIBinding](apiBindingsInformer.Informer().GetIndexer(), indexers.ByLogicalCluster, clusterName.String())
+			return apiBindingsInformer.Lister().Cluster(clusterName).List(labels.Everything())
 		},
 		getAPIBinding: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error) {
-			return apiBindingsInformer.Lister().Get(client.ToClusterAwareKey(clusterName, name))
+			return apiBindingsInformer.Lister().Cluster(clusterName).Get(name)
 		},
 		createAPIBinding: func(ctx context.Context, clusterName logicalcluster.Name, binding *apisv1alpha1.APIBinding) (*apisv1alpha1.APIBinding, error) {
-			return kcpClusterClient.ApisV1alpha1().APIBindings().Create(logicalcluster.WithCluster(ctx, clusterName), binding, metav1.CreateOptions{})
+			return kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
 		},
 
 		getAPIExport: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
-			return apiExportsInformer.Lister().Get(client.ToClusterAwareKey(clusterName, name))
+			return apiExportsInformer.Lister().Cluster(clusterName).Get(name)
 		},
 
-		commit: committer.NewCommitter[*tenancyv1alpha1.ClusterWorkspace, *tenancyv1alpha1.ClusterWorkspaceSpec, *tenancyv1alpha1.ClusterWorkspaceStatus](kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces()),
+		commit: committer.NewCommitter[*tenancyv1alpha1.ClusterWorkspace, tenancyv1alpha1client.ClusterWorkspaceInterface, *tenancyv1alpha1.ClusterWorkspaceSpec, *tenancyv1alpha1.ClusterWorkspaceStatus](kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces()),
 	}
 
 	c.transitiveTypeResolver = admission.NewTransitiveTypeResolver(c.getClusterWorkspaceType)

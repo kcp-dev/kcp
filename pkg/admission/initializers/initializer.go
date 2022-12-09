@@ -23,7 +23,7 @@ import (
 	"k8s.io/apiserver/pkg/admission/initializer"
 	quota "k8s.io/apiserver/pkg/quota/v1"
 
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 )
 
@@ -70,7 +70,7 @@ func (i *kubeClusterClientInitializer) Initialize(plugin admission.Interface) {
 // NewKcpClusterClientInitializer returns an admission plugin initializer that injects
 // a kcp cluster client into admission plugins.
 func NewKcpClusterClientInitializer(
-	kcpClusterClient kcpclient.ClusterInterface,
+	kcpClusterClient kcpclientset.ClusterInterface,
 ) *kcpClusterClientInitializer {
 	return &kcpClusterClientInitializer{
 		kcpClusterClient: kcpClusterClient,
@@ -78,7 +78,7 @@ func NewKcpClusterClientInitializer(
 }
 
 type kcpClusterClientInitializer struct {
-	kcpClusterClient kcpclient.ClusterInterface
+	kcpClusterClient kcpclientset.ClusterInterface
 }
 
 func (i *kcpClusterClientInitializer) Initialize(plugin admission.Interface) {

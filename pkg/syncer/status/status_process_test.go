@@ -48,7 +48,6 @@ import (
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/syncer/resourcesync"
-	"github.com/kcp-dev/kcp/third_party/keyfunctions"
 )
 
 var scheme *runtime.Scheme
@@ -540,9 +539,9 @@ func TestSyncerProcess(t *testing.T) {
 			toClusterClient := kcpfakedynamic.NewSimpleDynamicClient(scheme, tc.toResources...)
 
 			syncTargetKey := workloadv1alpha1.ToSyncTargetKey(tc.syncTargetWorkspace, tc.syncTargetName)
-			fromInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactoryWithOptions(fromClient, metav1.NamespaceAll, func(o *metav1.ListOptions) {
+			fromInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClient, time.Hour, metav1.NamespaceAll, func(o *metav1.ListOptions) {
 				o.LabelSelector = workloadv1alpha1.InternalDownstreamClusterLabel + "=" + syncTargetKey
-			}, cache.WithResyncPeriod(time.Hour), cache.WithKeyFunction(keyfunctions.DeletionHandlingMetaNamespaceKeyFunc))
+			})
 			toInformers := kcpdynamicinformer.NewFilteredDynamicSharedInformerFactory(toClusterClient, time.Hour, func(o *metav1.ListOptions) {
 				o.LabelSelector = workloadv1alpha1.ClusterResourceStateLabelPrefix + syncTargetKey + "=" + string(workloadv1alpha1.ResourceStateSync)
 			})

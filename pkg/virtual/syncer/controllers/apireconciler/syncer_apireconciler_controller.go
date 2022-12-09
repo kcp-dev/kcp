@@ -37,11 +37,11 @@ import (
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
-	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
-	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
-	workloadlisters "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
+	workloadv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
+	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
+	workloadv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
@@ -58,10 +58,10 @@ type AllowedAPIfilterFunc func(apiGroupResource schema.GroupResource) bool
 
 func NewAPIReconciler(
 	virtualWorkspaceName string,
-	kcpClusterClient kcpclient.ClusterInterface,
-	syncTargetInformer workloadinformers.SyncTargetInformer,
-	apiResourceSchemaInformer apisinformers.APIResourceSchemaInformer,
-	apiExportInformer apisinformers.APIExportInformer,
+	kcpClusterClient kcpclientset.ClusterInterface,
+	syncTargetInformer workloadv1alpha1informers.SyncTargetClusterInformer,
+	apiResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
+	apiExportInformer apisv1alpha1informers.APIExportClusterInformer,
 	createAPIDefinition CreateAPIDefinitionFunc,
 	allowedAPIfilter AllowedAPIfilterFunc,
 ) (*APIReconciler, error) {
@@ -123,14 +123,14 @@ func NewAPIReconciler(
 type APIReconciler struct {
 	virtualWorkspaceName string
 
-	kcpClusterClient kcpclient.ClusterInterface
+	kcpClusterClient kcpclientset.ClusterInterface
 
-	syncTargetLister  workloadlisters.SyncTargetLister
+	syncTargetLister  workloadv1alpha1listers.SyncTargetClusterLister
 	syncTargetIndexer cache.Indexer
 
-	apiResourceSchemaLister apislisters.APIResourceSchemaLister
+	apiResourceSchemaLister apisv1alpha1listers.APIResourceSchemaClusterLister
 
-	apiExportLister  apislisters.APIExportLister
+	apiExportLister  apisv1alpha1listers.APIExportClusterLister
 	apiExportIndexer cache.Indexer
 
 	queue workqueue.RateLimitingInterface
@@ -254,7 +254,12 @@ func (c *APIReconciler) process(ctx context.Context, key string) error {
 	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
 	ctx = klog.NewContext(ctx, logger)
 
-	syncTarget, err := c.syncTargetLister.Get(key)
+	clusterName, _, syncTargetName, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+	if err != nil {
+		runtime.HandleError(err)
+		return nil
+	}
+	syncTarget, err := c.syncTargetLister.Cluster(clusterName).Get(syncTargetName)
 	if apierrors.IsNotFound(err) {
 		c.removeAPIDefinitionSet(apiDomainKey)
 		return nil

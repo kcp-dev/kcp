@@ -23,7 +23,7 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/generic"
@@ -33,11 +33,9 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/admission/initializers"
-	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 )
-
-const byWorkspaceIndex = "webhookDispatcher-byWorkspace"
 
 type ClusterAwareSource interface {
 	Webhooks(cluster logicalcluster.Name) []webhook.WebhookAccessor
@@ -81,10 +79,10 @@ func (c *clusterAwareSource) HasSynced() bool {
 var _ initializers.WantsKcpInformers = &WebhookDispatcher{}
 
 type WebhookDispatcher struct {
-	dispatcher           generic.Dispatcher
-	hookSource           ClusterAwareSource
-	apiBindingsIndexer   cache.Indexer
-	apiBindingsHasSynced cache.InformerSynced
+	dispatcher              generic.Dispatcher
+	hookSource              ClusterAwareSource
+	apiBindingClusterLister apisv1alpha1listers.APIBindingClusterLister
+	apiBindingsHasSynced    cache.InformerSynced
 	*admission.Handler
 }
 
@@ -129,12 +127,11 @@ func (p *WebhookDispatcher) Dispatch(ctx context.Context, attr admission.Attribu
 }
 
 func (p *WebhookDispatcher) getAPIBindingWorkspace(attr admission.Attributes, clusterName logicalcluster.Name) (logicalcluster.Name, bool, error) {
-	objs, err := p.apiBindingsIndexer.ByIndex(byWorkspaceIndex, clusterName.String())
+	objs, err := p.apiBindingClusterLister.Cluster(clusterName).List(labels.Everything())
 	if err != nil {
 		return logicalcluster.New(""), false, err
 	}
-	for _, obj := range objs {
-		apiBinding := obj.(*apisv1alpha1.APIBinding)
+	for _, apiBinding := range objs {
 		for _, br := range apiBinding.Status.BoundResources {
 			// this can never happen by OpenAPI validation
 			if apiBinding.Spec.Reference.Workspace == nil {
@@ -162,16 +159,6 @@ func (p *WebhookDispatcher) SetHookSource(factory func(cluster logicalcluster.Na
 
 // SetKcpInformers implements the WantsExternalKcpInformerFactory interface.
 func (p *WebhookDispatcher) SetKcpInformers(f kcpinformers.SharedInformerFactory) {
-	if _, found := f.Apis().V1alpha1().APIBindings().Informer().GetIndexer().GetIndexers()[byWorkspaceIndex]; !found {
-		if err := f.Apis().V1alpha1().APIBindings().Informer().AddIndexers(cache.Indexers{
-			byWorkspaceIndex: func(obj interface{}) ([]string, error) {
-				return []string{logicalcluster.From(obj.(metav1.Object)).String()}, nil
-			},
-		}); err != nil {
-			// nothing we can do here. But this should also never happen. We check for existence before.
-			klog.Errorf("failed to add indexer for APIBindings: %v", err)
-		}
-	}
-	p.apiBindingsIndexer = f.Apis().V1alpha1().APIBindings().Informer().GetIndexer()
+	p.apiBindingClusterLister = f.Apis().V1alpha1().APIBindings().Lister()
 	p.apiBindingsHasSynced = f.Apis().V1alpha1().APIBindings().Informer().HasSynced
 }

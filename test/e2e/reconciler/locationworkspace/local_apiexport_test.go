@@ -19,29 +19,24 @@ package locationworkspace
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
+	kcpdiscovery "github.com/kcp-dev/client-go/discovery"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
-	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	clientgodiscovery "k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -58,33 +53,20 @@ func TestSyncTargetLocalExport(t *testing.T) {
 	source := framework.SharedKcpServer(t)
 
 	orgClusterName := framework.NewOrganizationFixture(t, source)
-	computeClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
+	computeClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName, framework.WithName("compute"))
 
-	kcpClients, err := clientset.NewClusterForConfig(source.BaseConfig(t))
+	kcpClients, err := kcpclientset.NewForConfig(source.BaseConfig(t))
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(source.BaseConfig(t))
 	require.NoError(t, err)
 
-	syncTargetName := fmt.Sprintf("synctarget-%d", +rand.Intn(1000000))
+	syncTargetName := "synctarget"
 	t.Logf("Creating a SyncTarget and syncer in %s", computeClusterName)
 	syncTarget := framework.NewSyncerFixture(t, source, computeClusterName,
 		framework.WithAPIExports(""),
-		framework.WithExtraResources("services", "roles.rbac.authorization.k8s.io", "rolebindings.rbac.authorization.k8s.io"),
-		framework.WithSyncTarget(computeClusterName, syncTargetName),
-		framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
-			if !isFakePCluster {
-				// Only need to install services
-				return
-			}
-			sinkCrdClient, err := apiextensionsclientset.NewForConfig(config)
-			require.NoError(t, err, "failed to create apiextensions client")
-			t.Logf("Installing test CRDs into sink cluster...")
-			kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
-				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
-				metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
-			)
-			require.NoError(t, err)
-		}),
+		framework.WithExtraResources("services"),
+		framework.WithSyncTargetName(syncTargetName),
+		framework.WithSyncedUserWorkspaces(computeClusterName),
 	).Start(t)
 
 	require.Eventually(t, func() bool {
@@ -115,14 +97,14 @@ func TestSyncTargetLocalExport(t *testing.T) {
 	virtualWorkspaceRawConfig.Contexts["syncvervw"].Cluster = "syncvervw"
 	virtualWorkspaceConfig, err := clientcmd.NewNonInteractiveClientConfig(*virtualWorkspaceRawConfig, "syncvervw", nil, nil).ClientConfig()
 	require.NoError(t, err)
-	virtualWorkspaceConfig = kcpclienthelper.SetMultiClusterRoundTripper(rest.AddUserAgent(rest.CopyConfig(virtualWorkspaceConfig), t.Name()))
+	virtualWorkspaceConfig = rest.AddUserAgent(rest.CopyConfig(virtualWorkspaceConfig), t.Name())
 
-	virtualWorkspaceiscoverClusterClient, err := clientgodiscovery.NewDiscoveryClientForConfig(virtualWorkspaceConfig)
+	virtualWorkspaceiscoverClusterClient, err := kcpdiscovery.NewForConfig(virtualWorkspaceConfig)
 	require.NoError(t, err)
 
 	t.Logf("Wait for service API from synctarget workspace to be served in synctarget virtual workspace.")
 	require.Eventually(t, func() bool {
-		_, existingAPIResourceLists, err := virtualWorkspaceiscoverClusterClient.WithCluster(logicalcluster.Wildcard).ServerGroupsAndResources()
+		_, existingAPIResourceLists, err := virtualWorkspaceiscoverClusterClient.ServerGroupsAndResources()
 		if err != nil {
 			return false
 		}
@@ -132,13 +114,22 @@ func TestSyncTargetLocalExport(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Synctarget should be authorized to access downstream clusters")
-	require.Eventually(t, func() bool {
+	framework.Eventually(t, func() (bool, string) {
 		syncTarget, err := kcpClients.Cluster(computeClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
 		if err != nil {
-			return false
+			return false, err.Error()
 		}
-
-		return conditions.IsTrue(syncTarget, workloadv1alpha1.SyncerAuthorized)
+		done := conditions.IsTrue(syncTarget, workloadv1alpha1.SyncerAuthorized)
+		var reason string
+		if !done {
+			condition := conditions.Get(syncTarget, workloadv1alpha1.SyncerAuthorized)
+			if condition != nil {
+				reason = fmt.Sprintf("Not done waiting for SyncTarget to be authorized: %s: %s", condition.Reason, condition.Message)
+			} else {
+				reason = "Not done waiting for SyncTarget to be authorized: no condition present"
+			}
+		}
+		return done, reason
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Bind to location workspace")

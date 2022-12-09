@@ -62,6 +62,11 @@ LOGCHECK_BIN := logcheck
 LOGCHECK := $(TOOLS_GOBIN_DIR)/$(LOGCHECK_BIN)-$(LOGCHECK_VER)
 export LOGCHECK # so hack scripts can use it
 
+CODE_GENERATOR_VER := 2dc1248118a7f2337c6374ff5778c0880e1a4226
+CODE_GENERATOR_BIN := code-generator
+CODE_GENERATOR := $(TOOLS_GOBIN_DIR)/$(CODE_GENERATOR_BIN)-$(CODE_GENERATOR_VER)
+export CODE_GENERATOR # so hack scripts can use it
+
 ARCH := $(shell go env GOARCH)
 OS := $(shell go env GOOS)
 
@@ -128,6 +133,9 @@ $(STATICCHECK):
 $(LOGCHECK):
 	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) sigs.k8s.io/logtools/logcheck $(LOGCHECK_BIN) $(LOGCHECK_VER)
 
+$(CODE_GENERATOR):
+	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) github.com/kcp-dev/code-generator $(CODE_GENERATOR_BIN) $(CODE_GENERATOR_VER)
+
 lint: $(GOLANGCI_LINT) $(STATICCHECK) $(LOGCHECK)
 	$(GOLANGCI_LINT) run --timeout=10m ./...
 	$(STATICCHECK) -checks ST1019,ST1005 ./...
@@ -147,7 +155,7 @@ vendor: ## Vendor the dependencies
 	go mod vendor
 .PHONY: vendor
 
-tools: $(GOLANGCI_LINT) $(CONTROLLER_GEN) $(YAML_PATCH) $(GOTESTSUM) $(OPENSHIFT_GOIMPORTS)
+tools: $(GOLANGCI_LINT) $(CONTROLLER_GEN) $(YAML_PATCH) $(GOTESTSUM) $(OPENSHIFT_GOIMPORTS) $(CODE_GENERATOR)
 .PHONY: tools
 
 $(CONTROLLER_GEN):
@@ -159,7 +167,7 @@ $(YAML_PATCH):
 $(GOTESTSUM):
 	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) gotest.tools/gotestsum $(GOTESTSUM_BIN) $(GOTESTSUM_VER)
 
-codegen: $(CONTROLLER_GEN) $(YAML_PATCH) ## Run the codegenerators
+codegen: $(CONTROLLER_GEN) $(YAML_PATCH) $(CODE_GENERATOR) ## Run the codegenerators
 	go mod download
 	./hack/update-codegen.sh
 	$(MAKE) imports

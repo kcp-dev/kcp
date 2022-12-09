@@ -45,7 +45,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -71,7 +71,8 @@ func TestSyncerLifecycle(t *testing.T) {
 	// heartbeating and the heartbeat controller setting the sync target ready in
 	// response.
 	syncerFixture := framework.NewSyncerFixture(t, upstreamServer, wsClusterName,
-		framework.WithExtraResources("persistentvolumes", "roles.rbac.authorization.k8s.io", "rolebindings.rbac.authorization.k8s.io"),
+		framework.WithExtraResources("persistentvolumes"),
+		framework.WithSyncedUserWorkspaces(wsClusterName),
 		framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 			if !isFakePCluster {
 				// Only need to install services and ingresses in a logical cluster
@@ -81,9 +82,7 @@ func TestSyncerLifecycle(t *testing.T) {
 			require.NoError(t, err, "failed to create apiextensions client")
 			t.Logf("Installing test CRDs into sink cluster...")
 			kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
-				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
 				metav1.GroupResource{Group: "core.k8s.io", Resource: "persistentvolumes"},
-				metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
 			)
 			require.NoError(t, err)
 		})).Start(t)
@@ -93,7 +92,6 @@ func TestSyncerLifecycle(t *testing.T) {
 
 	t.Logf("Bind location workspace")
 	framework.NewBindCompute(t, wsClusterName, upstreamServer).Bind(t)
-	syncerFixture.WorkspaceBound(t, ctx, wsClusterName)
 
 	upstreamConfig := upstreamServer.BaseConfig(t)
 	upstreamKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(upstreamConfig)
@@ -113,7 +111,7 @@ func TestSyncerLifecycle(t *testing.T) {
 	upstreamKcpClient, err := kcpclientset.NewForConfig(syncerFixture.SyncerConfig.UpstreamConfig)
 	require.NoError(t, err)
 
-	syncTarget, err := upstreamKcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx,
+	syncTarget, err := upstreamKcpClient.Cluster(syncerFixture.SyncerConfig.SyncTargetWorkspace).WorkloadV1alpha1().SyncTargets().Get(ctx,
 		syncerFixture.SyncerConfig.SyncTargetName,
 		metav1.GetOptions{},
 	)
@@ -620,26 +618,14 @@ func TestCordonUncordonDrain(t *testing.T) {
 	// heartbeating and the heartbeat controller setting the sync target ready in
 	// response.
 	syncerFixture := framework.NewSyncerFixture(t, upstreamServer, wsClusterName,
-		framework.WithExtraResources("services"),
-		framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
-			if !isFakePCluster {
-				// Only need to install services in a logical cluster
-				return
-			}
-			crdClusterClient, err := apiextensionsclientset.NewForConfig(config)
-			require.NoError(t, err, "failed to construct apiextensions client for server")
-			kubefixtures.Create(t, crdClusterClient.ApiextensionsV1().CustomResourceDefinitions(),
-				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
-				metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
-			)
-		})).Start(t)
+		framework.WithExtraResources("services")).Start(t)
 	syncTargetName := syncerFixture.SyncerConfig.SyncTargetName
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
 	t.Log("Check initial workload")
-	cluster, err := kcpClusterClient.WorkloadV1alpha1().SyncTargets().Get(logicalcluster.WithCluster(ctx, wsClusterName), syncTargetName, metav1.GetOptions{})
+	cluster, err := kcpClusterClient.Cluster(wsClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
 	require.NoError(t, err, "failed to get sync target", syncTargetName)
 	require.False(t, cluster.Spec.Unschedulable)
 	require.Nil(t, cluster.Spec.EvictAfter)
@@ -653,7 +639,7 @@ func TestCordonUncordonDrain(t *testing.T) {
 	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandCordon)
 
 	t.Log("Check workload after cordon")
-	cluster, err = kcpClusterClient.WorkloadV1alpha1().SyncTargets().Get(logicalcluster.WithCluster(ctx, wsClusterName), syncTargetName, metav1.GetOptions{})
+	cluster, err = kcpClusterClient.Cluster(wsClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
 	require.NoError(t, err, "failed to get sync target", syncTargetName)
 	require.True(t, cluster.Spec.Unschedulable)
 	require.Nil(t, cluster.Spec.EvictAfter)
@@ -669,7 +655,7 @@ func TestCordonUncordonDrain(t *testing.T) {
 	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandUncordon)
 
 	t.Log("Check workload after uncordon")
-	cluster, err = kcpClusterClient.WorkloadV1alpha1().SyncTargets().Get(logicalcluster.WithCluster(ctx, wsClusterName), syncTargetName, metav1.GetOptions{})
+	cluster, err = kcpClusterClient.Cluster(wsClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
 	require.NoError(t, err, "failed to get sync target", syncTargetName)
 	require.False(t, cluster.Spec.Unschedulable)
 	require.Nil(t, cluster.Spec.EvictAfter)
@@ -685,7 +671,7 @@ func TestCordonUncordonDrain(t *testing.T) {
 	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandDrain)
 
 	t.Log("Check workload after drain started")
-	cluster, err = kcpClusterClient.WorkloadV1alpha1().SyncTargets().Get(logicalcluster.WithCluster(ctx, wsClusterName), syncTargetName, metav1.GetOptions{})
+	cluster, err = kcpClusterClient.Cluster(wsClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
 	require.NoError(t, err, "failed to get sync target", syncTargetName)
 	require.True(t, cluster.Spec.Unschedulable)
 	require.NotNil(t, cluster.Spec.EvictAfter)
@@ -702,7 +688,7 @@ func TestCordonUncordonDrain(t *testing.T) {
 	framework.RunKcpCliPlugin(t, kubeconfigPath, subCommandUncordon)
 
 	t.Log("Check workload after uncordon")
-	cluster, err = kcpClusterClient.WorkloadV1alpha1().SyncTargets().Get(logicalcluster.WithCluster(ctx, wsClusterName), syncTargetName, metav1.GetOptions{})
+	cluster, err = kcpClusterClient.Cluster(wsClusterName).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
 	require.NoError(t, err, "failed to get sync target", syncTargetName)
 	require.False(t, cluster.Spec.Unschedulable)
 	require.Nil(t, cluster.Spec.EvictAfter)

@@ -14,8 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// +kcp-code-generator:skip
-
 package crdpuller
 
 // We import the generic control plane scheme to provide access to the KCP control plane scheme,

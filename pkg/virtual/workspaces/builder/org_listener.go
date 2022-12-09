@@ -28,8 +28,8 @@ import (
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
-	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/authorization"
 	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/registry"
 )
@@ -42,8 +42,7 @@ type Stoppable interface {
 // parents for those. This means that workspaces without any ClusterWorkspace (like universal
 // workspaces) will not be started.
 type orgListener struct {
-	lister   tenancylisters.ClusterWorkspaceLister
-	informer cache.SharedIndexInformer
+	lister tenancyv1alpha1listers.ClusterWorkspaceClusterLister
 
 	newClusterWorkspaces func(orgClusterName logicalcluster.Name, initialWatchers []authorization.CacheWatcher) registry.FilteredClusterWorkspaces
 
@@ -52,19 +51,13 @@ type orgListener struct {
 	clusterWorkspacesPerCluster map[logicalcluster.Name]*preCreationClusterWorkspaces
 }
 
-func NewOrgListener(informer tenancyinformers.ClusterWorkspaceInformer, newClusterWorkspaces func(orgClusterName logicalcluster.Name, initialWatchers []authorization.CacheWatcher) registry.FilteredClusterWorkspaces) *orgListener {
+func NewOrgListener(informer tenancyv1alpha1informers.ClusterWorkspaceClusterInformer, newClusterWorkspaces func(orgClusterName logicalcluster.Name, initialWatchers []authorization.CacheWatcher) registry.FilteredClusterWorkspaces) *orgListener {
 	l := &orgListener{
-		lister:   informer.Lister(),
-		informer: informer.Informer(),
+		lister: informer.Lister(),
 
 		newClusterWorkspaces:        newClusterWorkspaces,
 		clusterWorkspacesPerCluster: map[logicalcluster.Name]*preCreationClusterWorkspaces{},
 	}
-
-	//nolint:errcheck
-	informer.Informer().AddIndexers(cache.Indexers{
-		"parent": indexByLogicalCluster,
-	})
 
 	informer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
@@ -174,7 +167,7 @@ func (l *orgListener) deleteClusterWorkspace(obj interface{}) {
 	}
 
 	// any other ClusterWorkspace in this logical cluster?
-	others, err := l.informer.GetIndexer().ByIndex("parent", parent.String())
+	others, err := l.lister.Cluster(parent).List(labels.Everything())
 	if err != nil {
 		klog.Errorf("Failed to get ClusterWorkspace parent index %v: %v", parent, err)
 		return

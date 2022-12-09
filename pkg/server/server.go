@@ -89,7 +89,6 @@ func NewServer(c CompletedConfig) (*Server, error) {
 		func(obj interface{}) bool { return true },
 		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
 		indexers.AppendOrDie(
-			indexers.NamespaceScoped(),
 			cache.Indexers{
 				indexers.BySyncerFinalizerKey:           indexers.IndexBySyncerFinalizerKey,
 				indexers.ByClusterResourceStateLabelKey: indexers.IndexByClusterResourceStateLabelKey,
@@ -449,6 +448,9 @@ func (s *Server) Run(ctx context.Context) error {
 		if err := s.installCRDCleanupController(ctx, controllerConfig, delegationChainHead); err != nil {
 			return err
 		}
+		if err := s.installExtraAnnotationSyncController(ctx, controllerConfig, delegationChainHead); err != nil {
+			return err
+		}
 	}
 
 	if s.Options.Controllers.EnableAll || enabled.Has("apiexport") {
@@ -499,7 +501,9 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	if s.Options.Virtual.Enabled {
-		if err := s.installVirtualWorkspaces(ctx, controllerConfig, delegationChainHead, s.GenericConfig.Authentication, s.GenericConfig.ExternalAddress, s.GenericConfig.AuditPolicyRuleEvaluator, s.preHandlerChainMux); err != nil {
+		virtualWorkspacesConfig := rest.CopyConfig(s.GenericConfig.LoopbackClientConfig)
+		virtualWorkspacesConfig = rest.AddUserAgent(virtualWorkspacesConfig, "virtual-workspaces")
+		if err := s.installVirtualWorkspaces(ctx, virtualWorkspacesConfig, delegationChainHead, s.GenericConfig.Authentication, s.GenericConfig.ExternalAddress, s.GenericConfig.AuditPolicyRuleEvaluator, s.preHandlerChainMux); err != nil {
 			return err
 		}
 	}

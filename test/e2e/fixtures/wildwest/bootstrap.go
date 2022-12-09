@@ -36,7 +36,7 @@ import (
 var rawCustomResourceDefinitions embed.FS
 
 func Create(t *testing.T, clustername logicalcluster.Name, client kcpapiextensionsv1client.CustomResourceDefinitionClusterInterface, grs ...metav1.GroupResource) {
-	ctx, cancelFunc := context.WithTimeout(logicalcluster.WithCluster(context.Background(), clustername), wait.ForeverTestTimeout)
+	ctx, cancelFunc := context.WithTimeout(context.Background(), wait.ForeverTestTimeout)
 	t.Cleanup(cancelFunc)
 
 	err := configcrds.CreateFromFS(ctx, client.Cluster(clustername), rawCustomResourceDefinitions, grs...)

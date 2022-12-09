@@ -34,6 +34,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclusterclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -48,9 +49,9 @@ func TestUserHomeWorkspaces(t *testing.T) {
 	type runningServer struct {
 		framework.RunningServer
 		kubeClusterClient             kcpkubernetesclientset.ClusterInterface
-		rootShardKcpClusterClient     kcpclientset.ClusterInterface
-		kcpUserClusterClients         []kcpclientset.ClusterInterface
-		virtualPersonalClusterClients []kcpclientset.ClusterInterface
+		rootShardKcpClusterClient     kcpclusterclientset.ClusterInterface
+		kcpUserClusterClients         []kcpclusterclientset.ClusterInterface
+		virtualPersonalClusterClients []VirtualClusterClient
 	}
 
 	var testCases = []struct {
@@ -77,7 +78,7 @@ func TestUserHomeWorkspaces(t *testing.T) {
 				t.Logf("Get ~ Home workspace URL for user-2")
 
 				_, err = kcpUser2Client.Cluster(tenancyv1alpha1.RootCluster).TenancyV1beta1().Workspaces().Get(ctx, "~", metav1.GetOptions{})
-				require.EqualError(t, err, `workspaces.tenancy.kcp.dev "~" is forbidden: User "user-2" cannot create resource "workspaces" in API group "tenancy.kcp.dev" at the cluster scope`, "user-2 should not be allowed to get his home workspace even before it exists")
+				require.EqualError(t, err, `workspaces.tenancy.kcp.dev "~" is forbidden: User "user-2" cannot create resource "workspaces" in API group "tenancy.kcp.dev" at the cluster scope: access denied`, "user-2 should not be allowed to get his home workspace even before it exists")
 			},
 		},
 		{
@@ -113,7 +114,7 @@ func TestUserHomeWorkspaces(t *testing.T) {
 
 				t.Logf("user-2 doesn't have the right to access user-1 home workspace")
 				_, err = vwUser2Client.Cluster(homeWorkspaceName).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
-				require.EqualError(t, err, `workspaces.tenancy.kcp.dev is forbidden: User "user-2" cannot list resource "workspaces" in API group "tenancy.kcp.dev" at the cluster scope: workspace access not permitted`, "user-1 should be able to create a workspace inside his home workspace even though it doesn't exist")
+				require.EqualError(t, err, `workspaces.tenancy.kcp.dev is forbidden: User "user-2" cannot list resource "workspaces" in API group "tenancy.kcp.dev" at the cluster scope: access denied`, "user-1 should be able to create a workspace inside his home workspace even though it doesn't exist")
 			},
 		},
 		{
@@ -160,16 +161,16 @@ func TestUserHomeWorkspaces(t *testing.T) {
 			rootShardCfg := server.RootShardSystemMasterBaseConfig(t)
 			kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(kcpConfig)
 			require.NoError(t, err, "failed to construct client for server")
-			rootShardKcpClusterClient, err := kcpclientset.NewClusterForConfig(rootShardCfg)
+			rootShardKcpClusterClient, err := kcpclusterclientset.NewForConfig(rootShardCfg)
 			require.NoError(t, err, "failed to construct client for server")
 
 			// create kcp client and virtual clients for all users requested
-			var kcpUserClusterClients []kcpclientset.ClusterInterface
-			var virtualPersonalClusterClients []kcpclientset.ClusterInterface
+			var kcpUserClusterClients []kcpclusterclientset.ClusterInterface
+			var virtualPersonalClusterClients []VirtualClusterClient
 			for _, ci := range []clientInfo{{Token: "user-1-token"}, {Token: "user-2-token"}} {
 				userConfig := framework.ConfigWithToken(ci.Token, rest.CopyConfig(kcpConfig))
 				virtualPersonalClusterClients = append(virtualPersonalClusterClients, &virtualClusterClient{config: userConfig})
-				kcpUserClusterClient, err := kcpclientset.NewClusterForConfig(userConfig)
+				kcpUserClusterClient, err := kcpclusterclientset.NewForConfig(userConfig)
 				require.NoError(t, err)
 				kcpUserClusterClients = append(kcpUserClusterClients, kcpUserClusterClient)
 			}
@@ -183,6 +184,10 @@ func TestUserHomeWorkspaces(t *testing.T) {
 			})
 		})
 	}
+}
+
+type VirtualClusterClient interface {
+	Cluster(cluster logicalcluster.Name) kcpclientset.Interface
 }
 
 type virtualClusterClient struct {

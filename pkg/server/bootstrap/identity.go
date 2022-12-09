@@ -26,7 +26,6 @@ import (
 	"strings"
 	"sync"
 
-	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v2"
 
@@ -39,7 +38,7 @@ import (
 	configshard "github.com/kcp-dev/kcp/config/shard"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/identitycache"
 )
@@ -202,8 +201,7 @@ func wildcardIdentitiesResolver(ids *identities,
 
 func apiExportIdentityProvider(config *rest.Config, localShardKubeClusterClient kcpkubernetesclientset.ClusterInterface) func(ctx context.Context, apiExportName string) (string, error) {
 	return func(ctx context.Context, apiExportName string) (string, error) {
-		rootShardConfig := kcpclienthelper.SetCluster(rest.CopyConfig(config), tenancyv1alpha1.RootCluster)
-		rootShardKcpClient, err := kcpclient.NewForConfig(rootShardConfig)
+		rootShardKcpClient, err := kcpclientset.NewForConfig(config)
 		if err != nil {
 			return "", err
 		}
@@ -221,7 +219,7 @@ func apiExportIdentityProvider(config *rest.Config, localShardKubeClusterClient 
 			// - the cm wasn't found
 			// - an entry in the cm wasn't found
 		}
-		apiExport, err := rootShardKcpClient.ApisV1alpha1().APIExports().Get(ctx, apiExportName, metav1.GetOptions{})
+		apiExport, err := rootShardKcpClient.Cluster(tenancyv1alpha1.RootCluster).ApisV1alpha1().APIExports().Get(ctx, apiExportName, metav1.GetOptions{})
 		if err != nil {
 			return "", err
 		}
@@ -277,12 +275,31 @@ func decorateWildcardPathsWithResourceIdentities(urlPath string, ids *identities
 		return urlPath, nil
 	}
 
-	gr := schema.GroupResource{Group: comps[3], Resource: comps[5]}
+	// It's possible the outgoing request already has an identity specified. Make sure we exclude that when
+	// determining the resource in question.
+	parts := strings.SplitN(comps[5], ":", 2)
+	if len(parts) == 0 {
+		return "", fmt.Errorf("invalid resource %q", comps[5])
+	}
+
+	resource := parts[0]
+
+	gr := schema.GroupResource{Group: comps[3], Resource: resource}
 	if id, found := ids.grIdentity(gr); found {
 		if len(id) == 0 {
 			return "", fmt.Errorf("identity for %s is unknown", gr)
 		}
-		comps[5] += ":" + id
+
+		passedInIdentity := ""
+		if len(parts) > 1 {
+			passedInIdentity = parts[1]
+		}
+
+		if passedInIdentity != "" && passedInIdentity != id {
+			return "", fmt.Errorf("invalid identity %q for resource %q", passedInIdentity, resource)
+		}
+
+		comps[5] = resource + ":" + id
 
 		return "/" + path.Join(comps...), nil
 	}

@@ -41,9 +41,9 @@ import (
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1/helper"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
-	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspacedeletion/deletion"
 )
@@ -59,9 +59,9 @@ var (
 
 func NewController(
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
-	kcpClusterClient kcpclient.Interface,
+	kcpClusterClient kcpclientset.ClusterInterface,
 	metadataClusterClient kcpmetadata.ClusterInterface,
-	workspaceInformer tenancyinformers.ClusterWorkspaceInformer,
+	workspaceInformer tenancyv1alpha1informers.ClusterWorkspaceClusterInformer,
 	discoverResourcesFn func(clusterName logicalcluster.Name) ([]*metav1.APIResourceList, error),
 ) *Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
@@ -97,10 +97,10 @@ type Controller struct {
 	queue workqueue.RateLimitingInterface
 
 	kubeClusterClient     kcpkubernetesclientset.ClusterInterface
-	kcpClusterClient      kcpclient.Interface
+	kcpClusterClient      kcpclientset.ClusterInterface
 	metadataClusterClient kcpmetadata.ClusterInterface
 
-	workspaceLister tenancylisters.ClusterWorkspaceLister
+	workspaceLister tenancyv1alpha1listers.ClusterWorkspaceClusterLister
 	deleter         deletion.WorkspaceResourcesDeleterInterface
 }
 
@@ -179,7 +179,12 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 
 func (c *Controller) process(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
-	workspace, deleteErr := c.workspaceLister.Get(key)
+	parent, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+	if err != nil {
+		runtime.HandleError(err)
+		return nil
+	}
+	workspace, deleteErr := c.workspaceLister.Cluster(parent).Get(name)
 	if apierrors.IsNotFound(deleteErr) {
 		logger.V(2).Info("ClusterWorkspace has been deleted")
 		return nil
@@ -247,7 +252,7 @@ func (c *Controller) patchCondition(ctx context.Context, old, new *tenancyv1alph
 	}
 
 	logger.V(2).Info("patching ClusterWorkspace", "patch", string(patchBytes))
-	_, err = c.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Patch(logicalcluster.WithCluster(ctx, logicalcluster.From(new)), new.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+	_, err = c.kcpClusterClient.Cluster(logicalcluster.From(new)).TenancyV1alpha1().ClusterWorkspaces().Patch(ctx, new.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 	return err
 }
 
@@ -273,8 +278,7 @@ func (c *Controller) finalizeWorkspace(ctx context.Context, workspace *tenancyv1
 				return fmt.Errorf("could not delete clusterrolebindings for workspace %s: %w", clusterName, err)
 			}
 			logger.V(2).Info("removing finalizer from ClusterWorkspace")
-			_, err := c.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Update(
-				logicalcluster.WithCluster(ctx, clusterName), workspace, metav1.UpdateOptions{})
+			_, err := c.kcpClusterClient.Cluster(clusterName).TenancyV1alpha1().ClusterWorkspaces().Update(ctx, workspace, metav1.UpdateOptions{})
 			return err
 		}
 	}

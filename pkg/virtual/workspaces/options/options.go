@@ -27,7 +27,7 @@ import (
 
 	"k8s.io/client-go/rest"
 
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/builder"
@@ -101,7 +101,7 @@ func (o *Workspaces) NewVirtualWorkspaces(
 	wildcardKcpInformers kcpinformers.SharedInformerFactory,
 ) (workspaces []rootapiserver.NamedVirtualWorkspace, err error) {
 	config = rest.AddUserAgent(rest.CopyConfig(config), "workspaces-virtual-workspace")
-	kcpClusterClient, err := kcpclient.NewClusterForConfig(config)
+	kcpClusterClient, err := kcpclientset.NewForConfig(config)
 	if err != nil {
 		return nil, err
 	}

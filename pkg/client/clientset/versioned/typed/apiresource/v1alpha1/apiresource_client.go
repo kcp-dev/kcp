@@ -21,8 +21,6 @@ package v1alpha1
 import (
 	"net/http"
 
-	v2 "github.com/kcp-dev/logicalcluster/v2"
-
 	rest "k8s.io/client-go/rest"
 
 	v1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
@@ -38,7 +36,6 @@ type ApiresourceV1alpha1Interface interface {
 // ApiresourceV1alpha1Client is used to interact with features provided by the apiresource.kcp.dev group.
 type ApiresourceV1alpha1Client struct {
 	restClient rest.Interface
-	cluster    v2.Name
 }
 
 func (c *ApiresourceV1alpha1Client) APIResourceImports() APIResourceImportInterface {
@@ -75,7 +72,7 @@ func NewForConfigAndClient(c *rest.Config, h *http.Client) (*ApiresourceV1alpha1
 	if err != nil {
 		return nil, err
 	}
-	return &ApiresourceV1alpha1Client{restClient: client}, nil
+	return &ApiresourceV1alpha1Client{client}, nil
 }
 
 // NewForConfigOrDie creates a new ApiresourceV1alpha1Client for the given config and
@@ -90,12 +87,7 @@ func NewForConfigOrDie(c *rest.Config) *ApiresourceV1alpha1Client {
 
 // New creates a new ApiresourceV1alpha1Client for the given RESTClient.
 func New(c rest.Interface) *ApiresourceV1alpha1Client {
-	return &ApiresourceV1alpha1Client{restClient: c}
-}
-
-// NewWithCluster creates a new ApiresourceV1alpha1Client for the given RESTClient and cluster.
-func NewWithCluster(c rest.Interface, cluster v2.Name) *ApiresourceV1alpha1Client {
-	return &ApiresourceV1alpha1Client{restClient: c, cluster: cluster}
+	return &ApiresourceV1alpha1Client{c}
 }
 
 func setConfigDefaults(config *rest.Config) error {

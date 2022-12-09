@@ -22,8 +22,6 @@ import (
 	"context"
 	"time"
 
-	v2 "github.com/kcp-dev/logicalcluster/v2"
-
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -55,17 +53,15 @@ type CowboyInterface interface {
 
 // cowboys implements CowboyInterface
 type cowboys struct {
-	client  rest.Interface
-	cluster v2.Name
-	ns      string
+	client rest.Interface
+	ns     string
 }
 
 // newCowboys returns a Cowboys
 func newCowboys(c *WildwestV1alpha1Client, namespace string) *cowboys {
 	return &cowboys{
-		client:  c.RESTClient(),
-		cluster: c.cluster,
-		ns:      namespace,
+		client: c.RESTClient(),
+		ns:     namespace,
 	}
 }
 
@@ -73,7 +69,6 @@ func newCowboys(c *WildwestV1alpha1Client, namespace string) *cowboys {
 func (c *cowboys) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.Cowboy, err error) {
 	result = &v1alpha1.Cowboy{}
 	err = c.client.Get().
-		Cluster(c.cluster).
 		Namespace(c.ns).
 		Resource("cowboys").
 		Name(name).
@@ -91,7 +86,6 @@ func (c *cowboys) List(ctx context.Context, opts v1.ListOptions) (result *v1alph
 	}
 	result = &v1alpha1.CowboyList{}
 	err = c.client.Get().
-		Cluster(c.cluster).
 		Namespace(c.ns).
 		Resource("cowboys").
 		VersionedParams(&opts, scheme.ParameterCodec).
@@ -109,7 +103,6 @@ func (c *cowboys) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interfa
 	}
 	opts.Watch = true
 	return c.client.Get().
-		Cluster(c.cluster).
 		Namespace(c.ns).
 		Resource("cowboys").
 		VersionedParams(&opts, scheme.ParameterCodec).
@@ -121,7 +114,6 @@ func (c *cowboys) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interfa
 func (c *cowboys) Create(ctx context.Context, cowboy *v1alpha1.Cowboy, opts v1.CreateOptions) (result *v1alpha1.Cowboy, err error) {
 	result = &v1alpha1.Cowboy{}
 	err = c.client.Post().
-		Cluster(c.cluster).
 		Namespace(c.ns).
 		Resource("cowboys").
 		VersionedParams(&opts, scheme.ParameterCodec).
@@ -135,7 +127,6 @@ func (c *cowboys) Create(ctx context.Context, cowboy *v1alpha1.Cowboy, opts v1.C
 func (c *cowboys) Update(ctx context.Context, cowboy *v1alpha1.Cowboy, opts v1.UpdateOptions) (result *v1alpha1.Cowboy, err error) {
 	result = &v1alpha1.Cowboy{}
 	err = c.client.Put().
-		Cluster(c.cluster).
 		Namespace(c.ns).
 		Resource("cowboys").
 		Name(cowboy.Name).
@@ -151,7 +142,6 @@ func (c *cowboys) Update(ctx context.Context, cowboy *v1alpha1.Cowboy, opts v1.U
 func (c *cowboys) UpdateStatus(ctx context.Context, cowboy *v1alpha1.Cowboy, opts v1.UpdateOptions) (result *v1alpha1.Cowboy, err error) {
 	result = &v1alpha1.Cowboy{}
 	err = c.client.Put().
-		Cluster(c.cluster).
 		Namespace(c.ns).
 		Resource("cowboys").
 		Name(cowboy.Name).
@@ -166,7 +156,6 @@ func (c *cowboys) UpdateStatus(ctx context.Context, cowboy *v1alpha1.Cowboy, opt
 // Delete takes name of the cowboy and deletes it. Returns an error if one occurs.
 func (c *cowboys) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	return c.client.Delete().
-		Cluster(c.cluster).
 		Namespace(c.ns).
 		Resource("cowboys").
 		Name(name).
@@ -182,7 +171,6 @@ func (c *cowboys) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, l
 		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
 	}
 	return c.client.Delete().
-		Cluster(c.cluster).
 		Namespace(c.ns).
 		Resource("cowboys").
 		VersionedParams(&listOpts, scheme.ParameterCodec).
@@ -196,7 +184,6 @@ func (c *cowboys) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, l
 func (c *cowboys) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Cowboy, err error) {
 	result = &v1alpha1.Cowboy{}
 	err = c.client.Patch(pt).
-		Cluster(c.cluster).
 		Namespace(c.ns).
 		Resource("cowboys").
 		Name(name).

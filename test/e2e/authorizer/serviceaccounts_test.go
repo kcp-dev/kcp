@@ -149,7 +149,8 @@ func TestServiceAccounts(t *testing.T) {
 			return boundToken.Status.Token
 		}},
 	}
-	for _, ttc := range testCases {
+	for i, ttc := range testCases {
+		i := i
 		t.Run(ttc.name, func(t *testing.T) {
 			t.Parallel()
 			saRestConfig := framework.ConfigWithToken(ttc.token(t), server.BaseConfig(t))
@@ -198,6 +199,126 @@ func TestServiceAccounts(t *testing.T) {
 				obj, err := saKubeClusterClient.Cluster(otherClusterName).CoreV1().ConfigMaps(namespace.Name).List(ctx, metav1.ListOptions{})
 				require.Error(t, err, fmt.Sprintf("expected error accessing workspace with the service account, got: %v", obj))
 			})
+
+			t.Run("A service account is allowed to escalate permissions implicitly", func(t *testing.T) {
+				t.Log("Creating cluster role that allows service account to get secrets and create cluster roles")
+				_, err = kubeClusterClient.Cluster(clusterName).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: fmt.Sprintf("implicit-escalation-%d", i),
+					},
+					Rules: []rbacv1.PolicyRule{
+						{
+							APIGroups: []string{""},
+							Resources: []string{"secrets"},
+							Verbs:     []string{"get"},
+						},
+						{
+							APIGroups: []string{"rbac.authorization.k8s.io"},
+							Resources: []string{"clusterroles", "clusterrolebindings"},
+							Verbs:     []string{"create", "get", "watch", "list", "update", "delete"},
+						},
+					},
+				}, metav1.CreateOptions{})
+				require.NoError(t, err, "failed to create role")
+
+				t.Log("Creating cluster role binding")
+				_, err = kubeClusterClient.Cluster(clusterName).RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: fmt.Sprintf("implicit-escalation-%d", i),
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind:      "ServiceAccount",
+							Name:      "default",
+							Namespace: namespace.Name,
+						},
+					},
+					RoleRef: rbacv1.RoleRef{
+						Kind:     "ClusterRole",
+						Name:     fmt.Sprintf("implicit-escalation-%d", i),
+						APIGroup: rbacv1.GroupName,
+					},
+				}, metav1.CreateOptions{})
+				require.NoError(t, err, "failed to create role")
+
+				t.Log("Verifying if service account is allowed to escalate")
+				framework.Eventually(t, func() (bool, string) { // authz makes this eventually succeed
+					_, err = saKubeClusterClient.Cluster(clusterName).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: fmt.Sprintf("implicit-escalating-clusterrole-%d", i),
+						},
+						Rules: []rbacv1.PolicyRule{
+							{
+								APIGroups: []string{""},
+								Resources: []string{"secrets"},
+								Verbs:     []string{"get"},
+							},
+						},
+					}, metav1.CreateOptions{})
+					if err != nil {
+						return false, err.Error()
+					}
+					return true, ""
+				}, wait.ForeverTestTimeout, time.Millisecond*100)
+			})
+
+			t.Run("A service account is allowed to escalate permissions explicitly", func(t *testing.T) {
+				t.Log("Creating cluster role that allows service account to get secrets and create cluster roles")
+				_, err = kubeClusterClient.Cluster(clusterName).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: fmt.Sprintf("explicit-clusterrole-%d", i),
+					},
+					Rules: []rbacv1.PolicyRule{
+						{
+							APIGroups: []string{"rbac.authorization.k8s.io"},
+							Resources: []string{"clusterroles", "clusterrolebindings"},
+							Verbs:     []string{"create", "get", "watch", "list", "update", "delete", "escalate"},
+						},
+					},
+				}, metav1.CreateOptions{})
+				require.NoError(t, err, "failed to create role")
+
+				t.Log("Creating cluster role binding")
+				_, err = kubeClusterClient.Cluster(clusterName).RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: fmt.Sprintf("explicit-clusterrole-%d", i),
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind:      "ServiceAccount",
+							Name:      "default",
+							Namespace: namespace.Name,
+						},
+					},
+					RoleRef: rbacv1.RoleRef{
+						Kind:     "ClusterRole",
+						Name:     fmt.Sprintf("explicit-clusterrole-%d", i),
+						APIGroup: rbacv1.GroupName,
+					},
+				}, metav1.CreateOptions{})
+				require.NoError(t, err, "failed to create role")
+
+				t.Log("Verifying if service account is allowed to escalate")
+				framework.Eventually(t, func() (bool, string) { // authz makes this eventually succeed
+					_, err = saKubeClusterClient.Cluster(clusterName).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: fmt.Sprintf("explicit-escalating-clusterrole-%d", i),
+						},
+						Rules: []rbacv1.PolicyRule{
+							{
+								APIGroups: []string{""},
+								Resources: []string{"secrets"},
+								Verbs:     []string{"get"},
+							},
+						},
+					}, metav1.CreateOptions{})
+					if err != nil {
+						return false, err.Error()
+					}
+					return true, ""
+				}, wait.ForeverTestTimeout, time.Millisecond*100)
+			})
+
 		})
 	}
 }

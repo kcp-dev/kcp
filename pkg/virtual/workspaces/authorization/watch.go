@@ -20,6 +20,7 @@ import (
 	"errors"
 	"sync"
 
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,7 +42,7 @@ import (
 type CacheWatcher interface {
 	// GroupMembershipChanged is called serially for all changes for all watchers.  This method MUST NOT BLOCK.
 	// The serial nature makes reasoning about the code easy, but if you block in this method you will doom all watchers.
-	GroupMembershipChanged(workspaceName string, users, groups sets.String)
+	GroupMembershipChanged(workspaceKey string, users, groups sets.String)
 }
 
 type WatchableCache interface {
@@ -136,10 +137,19 @@ func NewUserWorkspaceWatcher(user user.Info, lclusterName logicalcluster.Name, c
 	return w
 }
 
-func (w *userWorkspaceWatcher) GroupMembershipChanged(workspaceName string, users, groups sets.String) {
+func (w *userWorkspaceWatcher) GroupMembershipChanged(workspaceKey string, users, groups sets.String) {
 	hasAccess := users.Has(w.user.GetName()) || groups.HasAny(w.user.GetGroups()...)
-	_, known := w.knownWorkspaces[workspaceName]
 
+	lclusterName, _, workspaceName, err := kcpcache.SplitMetaClusterNamespaceKey(workspaceKey)
+	if err != nil {
+		// should not happen
+		panic(err)
+	}
+	if lclusterName != w.lclusterName {
+		// should not happen
+		panic(err)
+	}
+	_, known := w.knownWorkspaces[workspaceName]
 	var workspace tenancyv1beta1.Workspace
 	projection.ProjectClusterWorkspaceToWorkspace(&tenancyv1alpha1.ClusterWorkspace{
 		ObjectMeta: metav1.ObjectMeta{

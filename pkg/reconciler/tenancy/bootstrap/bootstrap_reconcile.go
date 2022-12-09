@@ -20,11 +20,8 @@ import (
 	"context"
 	"time"
 
-	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	"github.com/kcp-dev/logicalcluster/v2"
 
-	kcpapiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/kcp/clientset/versioned"
-	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
@@ -49,12 +46,7 @@ func (c *controller) reconcile(ctx context.Context, workspace *tenancyv1alpha1.C
 	bootstrapCtx, cancel := context.WithDeadline(ctx, time.Now().Add(time.Second*30)) // to not block the controller
 	defer cancel()
 
-	clusterWsConfig := kcpclienthelper.SetCluster(rest.CopyConfig(c.baseConfig), wsClusterName)
-	crdWsClient, err := kcpapiextensionsclientset.NewForConfig(clusterWsConfig)
-	if err != nil {
-		return err
-	}
-	if err := c.bootstrap(logicalcluster.WithCluster(bootstrapCtx, wsClusterName), crdWsClient.Discovery(), c.dynamicClusterClient.Cluster(wsClusterName), c.kcpClusterClient, c.batteriesIncluded); err != nil {
+	if err := c.bootstrap(bootstrapCtx, c.kcpClusterClient.Cluster(wsClusterName).Discovery(), c.dynamicClusterClient.Cluster(wsClusterName), c.kcpClusterClient.Cluster(wsClusterName), c.batteriesIncluded); err != nil {
 		return err // requeue
 	}
 

@@ -39,21 +39,20 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	kcpopenapi "github.com/kcp-dev/kcp/pkg/openapi"
 	"github.com/kcp-dev/kcp/pkg/softimpersonation"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/fixedgvs"
 	frameworkrbac "github.com/kcp-dev/kcp/pkg/virtual/framework/rbac"
-	tenancywrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/tenancy"
 	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/authorization"
 	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/authorization/metrics"
 	workspacecache "github.com/kcp-dev/kcp/pkg/virtual/workspaces/cache"
 	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/registry"
 )
 
-func BuildVirtualWorkspace(cfg *clientrest.Config, rootPathPrefix string, wildcardsClusterWorkspaces tenancyinformers.ClusterWorkspaceInformer, wildcardsRbacInformers kcprbacv1informers.ClusterInterface, kubeClusterClient kcpkubernetesclientset.ClusterInterface, kcpClusterClient kcpclient.ClusterInterface, authorizationCacheResyncPeriod time.Duration, authorizationCacheResyncJitterFactor float64, authorizationCacheResyncSliding bool) framework.VirtualWorkspace {
+func BuildVirtualWorkspace(cfg *clientrest.Config, rootPathPrefix string, wildcardsClusterWorkspaces tenancyv1alpha1informers.ClusterWorkspaceClusterInformer, wildcardsRbacInformers kcprbacv1informers.ClusterInterface, kubeClusterClient kcpkubernetesclientset.ClusterInterface, kcpClusterClient kcpclientset.ClusterInterface, authorizationCacheResyncPeriod time.Duration, authorizationCacheResyncJitterFactor float64, authorizationCacheResyncSliding bool) framework.VirtualWorkspace {
 	metrics.Register()
 	crbInformer := wildcardsRbacInformers.ClusterRoleBindings()
 
@@ -102,14 +101,13 @@ func BuildVirtualWorkspace(cfg *clientrest.Config, rootPathPrefix string, wildca
 				BootstrapRestResources: func(mainConfig genericapiserver.CompletedConfig) (map[string]fixedgvs.RestStorageBuilder, error) {
 					rootSubjectLocator := frameworkrbac.NewSubjectLocator(tenancyv1alpha1.RootCluster, wildcardsRbacInformers)
 					rootReviewer := workspaceauth.NewReviewer(rootSubjectLocator)
-					rootClusterWorkspaceInformer := tenancywrapper.FilterClusterWorkspaceInformer(tenancyv1alpha1.RootCluster, wildcardsClusterWorkspaces)
 
-					globalClusterWorkspaceCache = workspacecache.NewClusterWorkspaceCache(wildcardsClusterWorkspaces.Informer(), kcpClusterClient)
+					globalClusterWorkspaceCache = workspacecache.NewClusterWorkspaceCache(wildcardsClusterWorkspaces, kcpClusterClient)
 
 					rootWorkspaceAuthorizationCache = workspaceauth.NewAuthorizationCache(
 						workspaceauth.CacheTypeRoot,
-						rootClusterWorkspaceInformer.Lister(),
-						rootClusterWorkspaceInformer.Informer(),
+						wildcardsClusterWorkspaces.Lister(),
+						wildcardsClusterWorkspaces.Informer(),
 						rootReviewer,
 						*workspaceauth.NewAttributesBuilder().
 							Verb("access").
@@ -123,7 +121,7 @@ func BuildVirtualWorkspace(cfg *clientrest.Config, rootPathPrefix string, wildca
 						return CreateAndStartOrg(
 							orgClusterName,
 							wildcardsRbacInformers,
-							tenancywrapper.FilterClusterWorkspaceInformer(orgClusterName, wildcardsClusterWorkspaces),
+							wildcardsClusterWorkspaces,
 							initialWatchers, authorizationCacheResyncPeriod, authorizationCacheResyncJitterFactor, authorizationCacheResyncSliding)
 					})
 

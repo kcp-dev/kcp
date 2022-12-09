@@ -98,6 +98,6 @@ func EnsureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersion
 		logger.Error(err, "Failed updating upstream resource after removing the syncer finalizer")
 		return err
 	}
-	logger.V(2).Info("Updated upstream resource to removing the syncer finalizer")
+	logger.V(2).Info("Updated upstream resource to remove the syncer finalizer")
 	return nil
 }

@@ -14,8 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// +kcp-code-generator:skip
-
 package shard
 
 import (
@@ -42,7 +40,7 @@ var SystemShardCluster = logicalcluster.New("system:shard")
 // As of today creating API bindings for the root APIs and the default ns is enough.
 func Bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface, batteriesIncluded sets.String, kcpClient kcpclient.Interface) error {
 	// note: shards are not really needed. But to avoid breaking the kcp shared informer factory, we also add them.
-	if err := confighelpers.BindRootAPIs(ctx, kcpClient, "shards.tenancy.kcp.dev", "tenancy.kcp.dev", "scheduling.kcp.dev", "workload.kcp.dev", "apiresource.kcp.dev"); err != nil {
+	if err := confighelpers.BindRootAPIs(ctx, kcpClient, "shards.tenancy.kcp.dev", "tenancy.kcp.dev", "scheduling.kcp.dev", "workload.kcp.dev", "apiresource.kcp.dev", "topology.kcp.dev"); err != nil {
 		return err
 	}
 	return confighelpers.Bootstrap(ctx, discoveryClient, dynamicClient, batteriesIncluded, fs)

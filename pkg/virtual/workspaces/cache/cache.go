@@ -23,69 +23,65 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 )
 
 // NewClusterWorkspaceCache returns a wrapper around an informer. It serves from the informer, and on cache-miss
 // it looks up through the given client.
-func NewClusterWorkspaceCache(workspaces cache.SharedIndexInformer, kcpClusterClient kcpclient.ClusterInterface) *ClusterWorkspaceCache {
+func NewClusterWorkspaceCache(workspaces tenancyv1alpha1informers.ClusterWorkspaceClusterInformer, kcpClusterClient kcpclientset.ClusterInterface) *ClusterWorkspaceCache {
 	return &ClusterWorkspaceCache{
 		kcpClusterClient: kcpClusterClient,
-		Store:            workspaces.GetIndexer(),
-		HasSynced:        workspaces.GetController().HasSynced,
+		lister:           workspaces.Lister(),
+		HasSynced:        workspaces.Informer().HasSynced,
 	}
 }
 
 type ClusterWorkspaceCache struct {
-	kcpClusterClient kcpclient.ClusterInterface
-	Store            cache.Indexer
+	kcpClusterClient kcpclientset.ClusterInterface
+	lister           tenancyv1alpha1listers.ClusterWorkspaceClusterLister
 	HasSynced        cache.InformerSynced
 }
 
 func (c *ClusterWorkspaceCache) Get(clusterName logicalcluster.Name, workspaceName string) (*tenancyv1alpha1.ClusterWorkspace, error) {
-	key := &tenancyv1alpha1.ClusterWorkspace{
-		ObjectMeta: metav1.ObjectMeta{
-			Annotations: map[string]string{
-				logicalcluster.AnnotationKey: clusterName.String(),
-			},
-			Name: workspaceName,
-		},
-	}
-
 	// check for cluster workspace in the cache
-	clusterWorkspaceObj, exists, err := c.Store.Get(key)
-	if err != nil {
+	clusterWorkspace, err := c.lister.Cluster(clusterName).Get(workspaceName)
+	if err == nil {
+		return clusterWorkspace, nil
+	}
+	if err != nil && !errors.IsNotFound(err) {
 		return nil, err
 	}
 
-	if !exists {
+	if errors.IsNotFound(err) {
 		// give the cache time to observe a recent workspace creation
 		time.Sleep(50 * time.Millisecond)
-		clusterWorkspaceObj, exists, err = c.Store.Get(key)
-		if err != nil {
+		clusterWorkspace, err = c.lister.Cluster(clusterName).Get(workspaceName)
+		if err != nil && !errors.IsNotFound(err) {
 			return nil, err
 		}
-		if exists {
+		if err == nil {
 			klog.V(4).Infof("found %s in cache after waiting", workspaceName)
+			return clusterWorkspace, nil
 		}
 	}
 
-	var clusterWorkspace *tenancyv1alpha1.ClusterWorkspace
-	if exists {
-		clusterWorkspace = clusterWorkspaceObj.(*tenancyv1alpha1.ClusterWorkspace)
-	} else {
-		// Our watch maybe latent, so we make a best effort to get the object, and only fail if not found
-		clusterWorkspace, err = c.kcpClusterClient.Cluster(clusterName).TenancyV1alpha1().ClusterWorkspaces().Get(context.TODO(), workspaceName, metav1.GetOptions{})
-		// the workspace does not exist, so prevent create and update in that workspace
-		if err != nil {
-			return nil, fmt.Errorf("workspace %s does not exist", workspaceName)
-		}
-		klog.V(4).Infof("found %s via storage lookup", workspaceName)
+	// Our watch maybe latent, so we make a best effort to get the object, and only fail if not found
+	clusterWorkspace, err = c.kcpClusterClient.Cluster(clusterName).TenancyV1alpha1().ClusterWorkspaces().Get(context.TODO(), workspaceName, metav1.GetOptions{})
+	// the workspace does not exist, so prevent create and update in that workspace
+	if errors.IsNotFound(err) {
+		return nil, fmt.Errorf("workspace %s does not exist", workspaceName)
 	}
+	if err != nil {
+		return nil, err
+	}
+	klog.V(4).Infof("found %s via storage lookup", workspaceName)
 	return clusterWorkspace, nil
 }

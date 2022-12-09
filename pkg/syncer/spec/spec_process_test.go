@@ -48,13 +48,11 @@ import (
 	"k8s.io/client-go/informers"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 	clienttesting "k8s.io/client-go/testing"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/syncer/resourcesync"
 	"github.com/kcp-dev/kcp/pkg/syncer/spec/dns"
-	"github.com/kcp-dev/kcp/third_party/keyfunctions"
 )
 
 var scheme *runtime.Scheme
@@ -1050,9 +1048,9 @@ func TestSyncerProcess(t *testing.T) {
 			fromInformers := kcpdynamicinformer.NewFilteredDynamicSharedInformerFactory(fromClusterClient, time.Hour, func(o *metav1.ListOptions) {
 				o.LabelSelector = workloadv1alpha1.ClusterResourceStateLabelPrefix + syncTargetKey + "=" + string(workloadv1alpha1.ResourceStateSync)
 			})
-			toInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactoryWithOptions(toClient, metav1.NamespaceAll, func(o *metav1.ListOptions) {
+			toInformers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(toClient, time.Hour, metav1.NamespaceAll, func(o *metav1.ListOptions) {
 				o.LabelSelector = workloadv1alpha1.ClusterResourceStateLabelPrefix + syncTargetKey + "=" + string(workloadv1alpha1.ResourceStateSync)
-			}, cache.WithResyncPeriod(time.Hour), cache.WithKeyFunction(keyfunctions.DeletionHandlingMetaNamespaceKeyFunc))
+			})
 
 			setupServersideApplyPatchReactor(toClient)
 			resourceWatcherStarted := setupWatchReactor(tc.gvr.Resource, fromClusterClient)
@@ -1061,8 +1059,7 @@ func TestSyncerProcess(t *testing.T) {
 
 			// toInformerFactory to watch some DNS-related resources in the dns namespace
 			toInformerFactory := informers.NewSharedInformerFactoryWithOptions(toKubeClient, time.Hour,
-				informers.WithNamespace("kcp-01c0zzvlqsi7n"),
-				informers.WithKeyFunction(keyfunctions.DeletionHandlingMetaNamespaceKeyFunc))
+				informers.WithNamespace("kcp-01c0zzvlqsi7n"))
 			serviceAccountLister := toInformerFactory.Core().V1().ServiceAccounts().Lister()
 			roleLister := toInformerFactory.Rbac().V1().Roles().Lister()
 			roleBindingLister := toInformerFactory.Rbac().V1().RoleBindings().Lister()

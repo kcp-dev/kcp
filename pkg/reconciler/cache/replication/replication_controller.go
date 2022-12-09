@@ -32,10 +32,13 @@ import (
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
+	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
+	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -46,8 +49,6 @@ const (
 
 // NewController returns a new replication controller.
 //
-// The replication controller copies objects of defined resources that have the "internal.sharding.kcp.dev/replicate" annotation to the cache server.
-//
 // The replicated object will be placed under the same cluster as the original object.
 // In addition to that, all replicated objects will be placed under the shard taken from the shardName argument.
 // For example: shards/{shardName}/clusters/{clusterName}/apis/apis.kcp.dev/v1alpha1/apiexports
@@ -56,34 +57,49 @@ func NewController(
 	dynamicCacheClient kcpdynamic.ClusterInterface,
 	dynamicLocalClient kcpdynamic.ClusterInterface,
 	localKcpInformers kcpinformers.SharedInformerFactory,
-	cacheKcpInformers kcpinformers.SharedInformerFactory,
+	globalKcpInformers kcpinformers.SharedInformerFactory,
 ) (*controller, error) {
 	c := &controller{
-		shardName:                     shardName,
-		queue:                         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
-		dynamicCacheClient:            dynamicCacheClient,
-		dynamicLocalClient:            dynamicLocalClient,
-		localApiExportLister:          localKcpInformers.Apis().V1alpha1().APIExports().Lister(),
-		localApiResourceSchemaLister:  localKcpInformers.Apis().V1alpha1().APIResourceSchemas().Lister(),
-		cacheApiExportsIndexer:        cacheKcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer(),
-		cacheApiResourceSchemaIndexer: cacheKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer().GetIndexer(),
+		shardName:                          shardName,
+		queue:                              workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
+		dynamicCacheClient:                 dynamicCacheClient,
+		dynamicLocalClient:                 dynamicLocalClient,
+		localAPIExportLister:               localKcpInformers.Apis().V1alpha1().APIExports().Lister(),
+		localAPIResourceSchemaLister:       localKcpInformers.Apis().V1alpha1().APIResourceSchemas().Lister(),
+		localClusterWorkspaceShardLister:   localKcpInformers.Tenancy().V1alpha1().ClusterWorkspaceShards().Lister(),
+		globalAPIExportIndexer:             globalKcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer(),
+		globalAPIResourceSchemaIndexer:     globalKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer().GetIndexer(),
+		globalClusterWorkspaceShardIndexer: globalKcpInformers.Tenancy().V1alpha1().ClusterWorkspaceShards().Informer().GetIndexer(),
 	}
 
-	if err := cacheKcpInformers.Apis().V1alpha1().APIExports().Informer().AddIndexers(cache.Indexers{
-		ByShardAndLogicalClusterAndNamespaceAndName: IndexByShardAndLogicalClusterAndNamespace,
-	}); err != nil {
-		return nil, err
-	}
-	if err := cacheKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer().AddIndexers(cache.Indexers{
-		ByShardAndLogicalClusterAndNamespaceAndName: IndexByShardAndLogicalClusterAndNamespace,
-	}); err != nil {
-		return nil, err
-	}
+	indexers.AddIfNotPresentOrDie(
+		globalKcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer(),
+		cache.Indexers{
+			ByShardAndLogicalClusterAndNamespaceAndName: IndexByShardAndLogicalClusterAndNamespace,
+		},
+	)
+
+	indexers.AddIfNotPresentOrDie(
+		globalKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer().GetIndexer(),
+		cache.Indexers{
+			ByShardAndLogicalClusterAndNamespaceAndName: IndexByShardAndLogicalClusterAndNamespace,
+		},
+	)
+
+	indexers.AddIfNotPresentOrDie(
+		globalKcpInformers.Tenancy().V1alpha1().ClusterWorkspaceShards().Informer().GetIndexer(),
+		cache.Indexers{
+			ByShardAndLogicalClusterAndNamespaceAndName: IndexByShardAndLogicalClusterAndNamespace,
+		},
+	)
 
 	localKcpInformers.Apis().V1alpha1().APIExports().Informer().AddEventHandler(c.apiExportInformerEventHandler())
 	localKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer().AddEventHandler(c.apiResourceSchemaInformerEventHandler())
-	cacheKcpInformers.Apis().V1alpha1().APIExports().Informer().AddEventHandler(c.apiExportInformerEventHandler())
-	cacheKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer().AddEventHandler(c.apiResourceSchemaInformerEventHandler())
+	localKcpInformers.Tenancy().V1alpha1().ClusterWorkspaceShards().Informer().AddEventHandler(c.clusterWorkspaceShardInformerEventHandler())
+	globalKcpInformers.Apis().V1alpha1().APIExports().Informer().AddEventHandler(c.apiExportInformerEventHandler())
+	globalKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer().AddEventHandler(c.apiResourceSchemaInformerEventHandler())
+	globalKcpInformers.Tenancy().V1alpha1().ClusterWorkspaceShards().Informer().AddEventHandler(c.clusterWorkspaceShardInformerEventHandler())
+
 	return c, nil
 }
 
@@ -93,6 +109,10 @@ func (c *controller) enqueueAPIExport(obj interface{}) {
 
 func (c *controller) enqueueAPIResourceSchema(obj interface{}) {
 	c.enqueueObject(obj, apisv1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas"))
+}
+
+func (c *controller) enqueueClusterWorkspaceShard(obj interface{}) {
+	c.enqueueObject(obj, tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaceshards"))
 }
 
 func (c *controller) enqueueObject(obj interface{}, gvr schema.GroupVersionResource) {
@@ -155,6 +175,10 @@ func (c *controller) apiResourceSchemaInformerEventHandler() cache.ResourceEvent
 	return objectInformerEventHandler(c.enqueueAPIResourceSchema)
 }
 
+func (c *controller) clusterWorkspaceShardInformerEventHandler() cache.ResourceEventHandler {
+	return objectInformerEventHandler(c.enqueueClusterWorkspaceShard)
+}
+
 func objectInformerEventHandler(enqueueObject func(obj interface{})) cache.ResourceEventHandler {
 	return cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { enqueueObject(obj) },
@@ -170,9 +194,11 @@ type controller struct {
 	dynamicCacheClient kcpdynamic.ClusterInterface
 	dynamicLocalClient kcpdynamic.ClusterInterface
 
-	localApiExportLister         apislisters.APIExportLister
-	localApiResourceSchemaLister apislisters.APIResourceSchemaLister
+	localAPIExportLister             apisv1alpha1listers.APIExportClusterLister
+	localAPIResourceSchemaLister     apisv1alpha1listers.APIResourceSchemaClusterLister
+	localClusterWorkspaceShardLister tenancyv1alpha1listers.ClusterWorkspaceShardClusterLister
 
-	cacheApiExportsIndexer        cache.Indexer
-	cacheApiResourceSchemaIndexer cache.Indexer
+	globalAPIExportIndexer             cache.Indexer
+	globalAPIResourceSchemaIndexer     cache.Indexer
+	globalClusterWorkspaceShardIndexer cache.Indexer
 }

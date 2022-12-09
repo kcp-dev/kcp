@@ -45,27 +45,27 @@ import (
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	schedulinginformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
-	workloadinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
+	schedulingv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling/v1alpha1"
+	workloadv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiexport"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
 
 const (
-	ControllerName      = "kcp-workload-resource-scheduler"
-	byLocationWorkspace = ControllerName + "byLocationWorkspace"
-	bySyncTargetKey     = ControllerName + "bySyncTargetKey"
+	ControllerName  = "kcp-workload-resource-scheduler"
+	bySyncTargetKey = ControllerName + "bySyncTargetKey"
 )
 
 // NewController returns a new Controller which schedules resources in scheduled namespaces.
 func NewController(
 	dynamicClusterClient kcpdynamic.ClusterInterface,
 	ddsif *informer.DynamicDiscoverySharedInformerFactory,
-	syncTargetInformer workloadinformers.SyncTargetInformer,
+	syncTargetInformer workloadv1alpha1informers.SyncTargetClusterInformer,
 	namespaceInformer kcpcorev1informers.NamespaceClusterInformer,
-	placementInformer schedulinginformers.PlacementInformer,
+	placementInformer schedulingv1alpha1informers.PlacementClusterInformer,
 ) (*Controller, error) {
 	resourceQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-namespace-resource")
 	gvrQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kcp-namespace-gvr")
@@ -81,7 +81,7 @@ func NewController(
 		},
 
 		getValidSyncTargetKeysForWorkspace: func(clusterName logicalcluster.Name) (sets.String, error) {
-			placements, err := indexers.ByIndex[*schedulingv1alpha1.Placement](placementInformer.Informer().GetIndexer(), byLocationWorkspace, clusterName.String())
+			placements, err := placementInformer.Lister().Cluster(clusterName).List(labels.Everything())
 			if err != nil {
 				return nil, err
 			}
@@ -128,10 +128,6 @@ func NewController(
 			},
 			DeleteFunc: nil, // Nothing to do.
 		},
-	})
-
-	indexers.AddIfNotPresentOrDie(placementInformer.Informer().GetIndexer(), cache.Indexers{
-		byLocationWorkspace: indexByLocationWorkspace,
 	})
 
 	placementInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -365,7 +361,7 @@ func (c *Controller) processGVR(ctx context.Context, gvrstr string) error {
 }
 
 // namespaceBlocklist holds a set of namespaces that should never be synced from kcp to physical clusters.
-var namespaceBlocklist = sets.NewString("kube-system", "kube-public", "kube-node-lease")
+var namespaceBlocklist = sets.NewString("kube-system", "kube-public", "kube-node-lease", apiexport.DefaultIdentitySecretNamespace)
 
 // enqueueResourcesForNamespace adds the resources contained by the given
 // namespace to the queue if there scheduling label differs from the namespace's.
@@ -529,19 +525,6 @@ func (c *Controller) enqueuePlacement(obj interface{}) {
 	}
 
 	c.enqueueSyncTargetKey(syncTargetKey)
-}
-
-func indexByLocationWorkspace(obj interface{}) ([]string, error) {
-	placement, ok := obj.(*schedulingv1alpha1.Placement)
-	if !ok {
-		return []string{}, fmt.Errorf("obj is supposed to be a Placement, but is %T", obj)
-	}
-
-	if placement.Status.SelectedLocation == nil {
-		return []string{}, nil
-	}
-
-	return []string{placement.Status.SelectedLocation.Path}, nil
 }
 
 func indexBySyncTargetKey(obj interface{}) ([]string, error) {

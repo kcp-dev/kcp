@@ -46,7 +46,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	workspaceauth "github.com/kcp-dev/kcp/pkg/virtual/workspaces/authorization"
 	workspacecache "github.com/kcp-dev/kcp/pkg/virtual/workspaces/cache"
 	workspaceprinters "github.com/kcp-dev/kcp/pkg/virtual/workspaces/printers"
@@ -76,7 +76,7 @@ type REST struct {
 	crbInformer kcprbacv1informers.ClusterRoleBindingClusterInformer
 
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface
-	kcpClusterClient  kcpclient.ClusterInterface
+	kcpClusterClient  kcpclientset.ClusterInterface
 
 	// clusterWorkspaceCache is a global cache of cluster workspaces (for all orgs) used by the watcher.
 	clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache
@@ -99,7 +99,7 @@ var _ rest.GracefulDeleter = &REST{}
 // org workspaces, projecting them to the Workspace type.
 func NewREST(
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
-	kcpClusterClient kcpclient.ClusterInterface,
+	kcpClusterClient kcpclientset.ClusterInterface,
 	clusterWorkspaceCache *workspacecache.ClusterWorkspaceCache,
 	wildcardsCRBInformer kcprbacv1informers.ClusterRoleBindingClusterInformer,
 	getFilteredClusterWorkspaces func(orgClusterName logicalcluster.Name) FilteredClusterWorkspaces,

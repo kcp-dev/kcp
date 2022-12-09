@@ -38,10 +38,9 @@ import (
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/client"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
-	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -51,9 +50,9 @@ const (
 
 // NewController returns a new controller for APIExports.
 func NewController(
-	kcpClusterClient kcpclient.Interface,
-	clusterWorkspaceTypeInformer tenancyinformers.ClusterWorkspaceTypeInformer,
-	clusterWorkspaceShardInformer tenancyinformers.ClusterWorkspaceShardInformer,
+	kcpClusterClient kcpclientset.ClusterInterface,
+	clusterWorkspaceTypeInformer tenancyinformers.ClusterWorkspaceTypeClusterInformer,
+	clusterWorkspaceShardInformer tenancyinformers.ClusterWorkspaceShardClusterInformer,
 ) (*controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
@@ -67,7 +66,7 @@ func NewController(
 			return clusterWorkspaceShardLister.List(labels.Everything())
 		},
 		resolveClusterWorkspaceType: func(reference tenancyv1alpha1.ClusterWorkspaceTypeReference) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
-			return clusterWorkspaceTypeLister.Get(keyFor(reference))
+			return clusterWorkspaceTypeLister.Cluster(logicalcluster.New(reference.Path)).Get(tenancyv1alpha1.ObjectName(reference.Name))
 		},
 	}
 
@@ -100,16 +99,12 @@ func NewController(
 	return c, nil
 }
 
-func keyFor(reference tenancyv1alpha1.ClusterWorkspaceTypeReference) string {
-	return client.ToClusterAwareKey(logicalcluster.New(reference.Path), tenancyv1alpha1.ObjectName(reference.Name))
-}
-
 // controller reconciles APIExports. It ensures an export's identity secret exists and is valid.
 type controller struct {
 	queue workqueue.RateLimitingInterface
 
-	kcpClusterClient            kcpclient.Interface
-	clusterWorkspaceTypeLister  tenancylisters.ClusterWorkspaceTypeLister
+	kcpClusterClient            kcpclientset.ClusterInterface
+	clusterWorkspaceTypeLister  tenancyv1alpha1listers.ClusterWorkspaceTypeClusterLister
 	listClusterWorkspaceShards  func() ([]*tenancyv1alpha1.ClusterWorkspaceShard, error)
 	resolveClusterWorkspaceType func(reference tenancyv1alpha1.ClusterWorkspaceTypeReference) (*tenancyv1alpha1.ClusterWorkspaceType, error)
 }
@@ -196,7 +191,12 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *controller) process(ctx context.Context, key string) error {
-	obj, err := c.clusterWorkspaceTypeLister.Get(key)
+	clusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+	if err != nil {
+		runtime.HandleError(err)
+		return nil
+	}
+	obj, err := c.clusterWorkspaceTypeLister.Cluster(clusterName).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil // object deleted before we handled it
@@ -272,6 +272,6 @@ func (c *controller) patchIfNeeded(ctx context.Context, old, obj *tenancyv1alpha
 		subresources = []string{"status"}
 	}
 
-	_, err = c.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaceTypes().Patch(logicalcluster.WithCluster(ctx, clusterName), obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, subresources...)
+	_, err = c.kcpClusterClient.Cluster(clusterName).TenancyV1alpha1().ClusterWorkspaceTypes().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, subresources...)
 	return err
 }

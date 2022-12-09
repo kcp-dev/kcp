@@ -19,26 +19,21 @@ package cluster
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"testing"
 	"time"
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
-	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/rest"
 
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -52,66 +47,40 @@ func TestMultiPlacement(t *testing.T) {
 	source := framework.SharedKcpServer(t)
 
 	orgClusterName := framework.NewOrganizationFixture(t, source)
-	locationClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
-	userClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
+	locationClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName, framework.WithName("location"))
+	userClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName, framework.WithName("user"))
 
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(source.BaseConfig(t))
 	require.NoError(t, err)
-	kcpClusterClient, err := kcpclient.NewForConfig(source.BaseConfig(t))
+	kcpClusterClient, err := kcpclientset.NewForConfig(source.BaseConfig(t))
 	require.NoError(t, err)
 
 	t.Logf("Check that there is no services resource in the user workspace")
 	_, err = kubeClusterClient.Cluster(userClusterName).CoreV1().Services("").List(ctx, metav1.ListOptions{})
 	require.Error(t, err)
 
-	firstSyncTargetName := fmt.Sprintf("synctarget-%d", +rand.Intn(1000000))
+	firstSyncTargetName := "first-synctarget"
 	t.Logf("Creating a SyncTarget and syncer in %s", locationClusterName)
 	firstSyncerFixture := framework.NewSyncerFixture(t, source, locationClusterName,
-		framework.WithSyncTarget(locationClusterName, firstSyncTargetName),
-		framework.WithExtraResources("services", "roles.rbac.authorization.k8s.io", "rolebindings.rbac.authorization.k8s.io"),
-		framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
-			if !isFakePCluster {
-				// Only need to install services and ingresses in a logical cluster
-				return
-			}
-			sinkCrdClient, err := apiextensionsclientset.NewForConfig(config)
-			require.NoError(t, err, "failed to create apiextensions client")
-			t.Logf("Installing test CRDs into sink cluster...")
-			kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
-				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
-				metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
-			)
-			require.NoError(t, err)
-		}),
+		framework.WithSyncTargetName(firstSyncTargetName),
+		framework.WithExtraResources("services"),
+		framework.WithSyncedUserWorkspaces(userClusterName),
 	).Start(t)
 
-	secondSyncTargetName := fmt.Sprintf("synctarget-%d", +rand.Intn(1000000))
+	secondSyncTargetName := "second-synctarget"
 	t.Logf("Creating a SyncTarget and syncer in %s", locationClusterName)
 	secondSyncerFixture := framework.NewSyncerFixture(t, source, locationClusterName,
-		framework.WithExtraResources("services", "roles.rbac.authorization.k8s.io", "rolebindings.rbac.authorization.k8s.io"),
-		framework.WithSyncTarget(locationClusterName, secondSyncTargetName),
-		framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
-			if !isFakePCluster {
-				// Only need to install services and ingresses in a logical cluster
-				return
-			}
-			sinkCrdClient, err := apiextensionsclientset.NewForConfig(config)
-			require.NoError(t, err, "failed to create apiextensions client")
-			t.Logf("Installing test CRDs into sink cluster...")
-			kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
-				metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
-				metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
-			)
-			require.NoError(t, err)
-		}),
+		framework.WithExtraResources("services"),
+		framework.WithSyncTargetName(secondSyncTargetName),
+		framework.WithSyncedUserWorkspaces(userClusterName),
 	).Start(t)
 
 	t.Log("Label synctarget")
 	patchData1 := `{"metadata":{"labels":{"loc":"loc1"}}}`
-	_, err = kcpClusterClient.WorkloadV1alpha1().SyncTargets().Patch(logicalcluster.WithCluster(ctx, locationClusterName), firstSyncTargetName, types.MergePatchType, []byte(patchData1), metav1.PatchOptions{})
+	_, err = kcpClusterClient.Cluster(locationClusterName).WorkloadV1alpha1().SyncTargets().Patch(ctx, firstSyncTargetName, types.MergePatchType, []byte(patchData1), metav1.PatchOptions{})
 	require.NoError(t, err)
 	patchData2 := `{"metadata":{"labels":{"loc":"loc2"}}}`
-	_, err = kcpClusterClient.WorkloadV1alpha1().SyncTargets().Patch(logicalcluster.WithCluster(ctx, locationClusterName), secondSyncTargetName, types.MergePatchType, []byte(patchData2), metav1.PatchOptions{})
+	_, err = kcpClusterClient.Cluster(locationClusterName).WorkloadV1alpha1().SyncTargets().Patch(ctx, secondSyncTargetName, types.MergePatchType, []byte(patchData2), metav1.PatchOptions{})
 	require.NoError(t, err)
 
 	t.Log("Create locations")
@@ -131,7 +100,7 @@ func TestMultiPlacement(t *testing.T) {
 			},
 		},
 	}
-	_, err = kcpClusterClient.SchedulingV1alpha1().Locations().Create(logicalcluster.WithCluster(ctx, locationClusterName), loc1, metav1.CreateOptions{})
+	_, err = kcpClusterClient.Cluster(locationClusterName).SchedulingV1alpha1().Locations().Create(ctx, loc1, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	loc2 := &schedulingv1alpha1.Location{
@@ -150,7 +119,7 @@ func TestMultiPlacement(t *testing.T) {
 			},
 		},
 	}
-	_, err = kcpClusterClient.SchedulingV1alpha1().Locations().Create(logicalcluster.WithCluster(ctx, locationClusterName), loc2, metav1.CreateOptions{})
+	_, err = kcpClusterClient.Cluster(locationClusterName).SchedulingV1alpha1().Locations().Create(ctx, loc2, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	t.Logf("Bind user workspace to location workspace with loc 1")
@@ -158,14 +127,12 @@ func TestMultiPlacement(t *testing.T) {
 		framework.WithLocationWorkspaceWorkloadBindOption(locationClusterName),
 		framework.WithLocationSelectorWorkloadBindOption(metav1.LabelSelector{MatchLabels: map[string]string{"loc": "loc1"}}),
 	).Bind(t)
-	firstSyncerFixture.WorkspaceBound(t, ctx, userClusterName)
 
 	t.Logf("Bind user workspace to location workspace with loc 2")
 	framework.NewBindCompute(t, userClusterName, source,
 		framework.WithLocationWorkspaceWorkloadBindOption(locationClusterName),
 		framework.WithLocationSelectorWorkloadBindOption(metav1.LabelSelector{MatchLabels: map[string]string{"loc": "loc2"}}),
 	).Bind(t)
-	secondSyncerFixture.WorkspaceBound(t, ctx, userClusterName)
 
 	t.Logf("Wait for being able to list Services in the user workspace")
 	require.Eventually(t, func() bool {

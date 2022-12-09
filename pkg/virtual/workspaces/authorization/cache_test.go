@@ -17,11 +17,12 @@ limitations under the License.
 package authorization
 
 import (
-	"strconv"
+	"context"
 	"testing"
+	"time"
 
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
-	kcpfakeclient "github.com/kcp-dev/client-go/kubernetes/fake"
+	kcpfakekubernetesclient "github.com/kcp-dev/client-go/kubernetes/fake"
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -35,9 +36,8 @@ import (
 	"k8s.io/kubernetes/pkg/controller"
 
 	workspaceapi "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyv1fake "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/fake"
-	tenancyInformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	workspacelisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	kcpfakeclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/fake"
+	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 )
 
 // common test users
@@ -65,10 +65,12 @@ var (
 )
 
 func validateList(t *testing.T, lister Lister, user user.Info, expectedSet sets.String) {
+	t.Helper()
 	validateListWithSelectors(t, lister, user, labels.Everything(), fields.Everything(), expectedSet)
 }
 
 func validateListWithSelectors(t *testing.T, lister Lister, user user.Info, labelSelector labels.Selector, fieldSelector fields.Selector, expectedSet sets.String) {
+	t.Helper()
 	workspaceList, err := lister.List(user, labelSelector, fieldSelector)
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
@@ -86,7 +88,7 @@ type mockSubjectLocator struct {
 	subjects map[string][]rbacv1.Subject
 }
 
-func (m *mockSubjectLocator) AllowedSubjects(attributes authorizer.Attributes) ([]rbacv1.Subject, error) {
+func (m *mockSubjectLocator) AllowedSubjects(ctx context.Context, attributes authorizer.Attributes) ([]rbacv1.Subject, error) {
 	return m.subjects[attributes.GetName()], nil
 }
 
@@ -140,8 +142,8 @@ func TestSyncWorkspace(t *testing.T) {
 			},
 		},
 	}
-	mockKCPClient := tenancyv1fake.NewSimpleClientset(&workspaceList)
-	mockKubeClient := kcpfakeclient.NewSimpleClientset()
+	mockKCPClient := kcpfakeclient.NewSimpleClientset(&workspaceList)
+	mockKubeClient := kcpfakekubernetesclient.NewSimpleClientset()
 
 	subjectLocator := &mockSubjectLocator{
 		subjects: map[string][]rbacv1.Subject{
@@ -152,23 +154,20 @@ func TestSyncWorkspace(t *testing.T) {
 	}
 
 	kubeInformers := kcpkubernetesinformers.NewSharedInformerFactory(mockKubeClient, controller.NoResyncPeriodFunc())
-	kcpInformers := tenancyInformers.NewSharedInformerFactory(mockKCPClient, controller.NoResyncPeriodFunc())
-	wsIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
-	wsLister := workspacelisters.NewClusterWorkspaceLister(wsIndexer)
+	kcpInformers := kcpinformers.NewSharedInformerFactory(mockKCPClient, controller.NoResyncPeriodFunc())
+	workspaceInformer := kcpInformers.Tenancy().V1alpha1().ClusterWorkspaces()
+	go kcpInformers.Start(context.Background().Done())
+	cache.WaitForCacheSync(context.Background().Done(), workspaceInformer.Informer().HasSynced)
 
 	authorizationCache := NewAuthorizationCache(
 		"",
-		wsLister,
-		kcpInformers.Tenancy().V1alpha1().ClusterWorkspaces().Informer(),
+		workspaceInformer.Lister(),
+		workspaceInformer.Informer(),
 		NewReviewer(subjectLocator),
 		authorizer.AttributesRecord{},
-		logicalcluster.New("test"),
+		logicalcluster.New("test"), // this is used to scope RBAC informers, which are ignored in this test
 		kubeInformers.Rbac().V1(),
 	)
-	// we prime the data we need here since we are not running reflectors
-	for i := range workspaceList.Items {
-		_ = wsIndexer.Add(&workspaceList.Items[i])
-	}
 
 	// synchronize the cache
 	authorizationCache.synchronize()
@@ -185,14 +184,33 @@ func TestSyncWorkspace(t *testing.T) {
 
 	// modify resource version on each namespace to simulate a change had occurred to force cache refresh
 	for i := range workspaceList.Items {
-		workspace := workspaceList.Items[i]
-		oldVersion, err := strconv.Atoi(workspace.ResourceVersion)
-		if err != nil {
-			t.Errorf("Bad test setup, resource versions should be numbered, %v", err)
+		workspace := workspaceList.Items[i].DeepCopy()
+		workspace.ResourceVersion += "fake" // like a good library, we only compare resourceVersion for equality
+		if workspace.Labels == nil {
+			workspace.Labels = map[string]string{}
 		}
-		newVersion := strconv.Itoa(oldVersion + 1)
-		workspace.ResourceVersion = newVersion
-		_ = wsIndexer.Add(&workspace)
+		workspace.Labels["updated"] = "true"
+		_, err := mockKCPClient.Cluster(logicalcluster.From(workspace)).TenancyV1alpha1().ClusterWorkspaces().Update(context.Background(), workspace, metav1.UpdateOptions{})
+		if err != nil {
+			t.Errorf("failed to update: %v", err)
+		}
+	}
+
+	// wait for the listers to catch up
+	var synced bool
+	for i := 0; i < 20; i++ {
+		workspaces, err := workspaceInformer.Lister().List(labels.Set{"updated": "true"}.AsSelector())
+		if err != nil {
+			t.Errorf("failed to list workspaces: %v", err)
+		}
+		synced = len(workspaces) == len(workspaceList.Items)
+		if synced {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if !synced {
+		t.Fatal("never synced")
 	}
 
 	// now refresh the cache (which is resource version aware)

@@ -22,8 +22,6 @@ import (
 	"context"
 	"time"
 
-	v2 "github.com/kcp-dev/logicalcluster/v2"
-
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -55,15 +53,13 @@ type SyncTargetInterface interface {
 
 // syncTargets implements SyncTargetInterface
 type syncTargets struct {
-	client  rest.Interface
-	cluster v2.Name
+	client rest.Interface
 }
 
 // newSyncTargets returns a SyncTargets
 func newSyncTargets(c *WorkloadV1alpha1Client) *syncTargets {
 	return &syncTargets{
-		client:  c.RESTClient(),
-		cluster: c.cluster,
+		client: c.RESTClient(),
 	}
 }
 
@@ -71,7 +67,6 @@ func newSyncTargets(c *WorkloadV1alpha1Client) *syncTargets {
 func (c *syncTargets) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.SyncTarget, err error) {
 	result = &v1alpha1.SyncTarget{}
 	err = c.client.Get().
-		Cluster(c.cluster).
 		Resource("synctargets").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
@@ -88,7 +83,6 @@ func (c *syncTargets) List(ctx context.Context, opts v1.ListOptions) (result *v1
 	}
 	result = &v1alpha1.SyncTargetList{}
 	err = c.client.Get().
-		Cluster(c.cluster).
 		Resource("synctargets").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -105,7 +99,6 @@ func (c *syncTargets) Watch(ctx context.Context, opts v1.ListOptions) (watch.Int
 	}
 	opts.Watch = true
 	return c.client.Get().
-		Cluster(c.cluster).
 		Resource("synctargets").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -116,7 +109,6 @@ func (c *syncTargets) Watch(ctx context.Context, opts v1.ListOptions) (watch.Int
 func (c *syncTargets) Create(ctx context.Context, syncTarget *v1alpha1.SyncTarget, opts v1.CreateOptions) (result *v1alpha1.SyncTarget, err error) {
 	result = &v1alpha1.SyncTarget{}
 	err = c.client.Post().
-		Cluster(c.cluster).
 		Resource("synctargets").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(syncTarget).
@@ -129,7 +121,6 @@ func (c *syncTargets) Create(ctx context.Context, syncTarget *v1alpha1.SyncTarge
 func (c *syncTargets) Update(ctx context.Context, syncTarget *v1alpha1.SyncTarget, opts v1.UpdateOptions) (result *v1alpha1.SyncTarget, err error) {
 	result = &v1alpha1.SyncTarget{}
 	err = c.client.Put().
-		Cluster(c.cluster).
 		Resource("synctargets").
 		Name(syncTarget.Name).
 		VersionedParams(&opts, scheme.ParameterCodec).
@@ -144,7 +135,6 @@ func (c *syncTargets) Update(ctx context.Context, syncTarget *v1alpha1.SyncTarge
 func (c *syncTargets) UpdateStatus(ctx context.Context, syncTarget *v1alpha1.SyncTarget, opts v1.UpdateOptions) (result *v1alpha1.SyncTarget, err error) {
 	result = &v1alpha1.SyncTarget{}
 	err = c.client.Put().
-		Cluster(c.cluster).
 		Resource("synctargets").
 		Name(syncTarget.Name).
 		SubResource("status").
@@ -158,7 +148,6 @@ func (c *syncTargets) UpdateStatus(ctx context.Context, syncTarget *v1alpha1.Syn
 // Delete takes name of the syncTarget and deletes it. Returns an error if one occurs.
 func (c *syncTargets) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	return c.client.Delete().
-		Cluster(c.cluster).
 		Resource("synctargets").
 		Name(name).
 		Body(&opts).
@@ -173,7 +162,6 @@ func (c *syncTargets) DeleteCollection(ctx context.Context, opts v1.DeleteOption
 		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
 	}
 	return c.client.Delete().
-		Cluster(c.cluster).
 		Resource("synctargets").
 		VersionedParams(&listOpts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -186,7 +174,6 @@ func (c *syncTargets) DeleteCollection(ctx context.Context, opts v1.DeleteOption
 func (c *syncTargets) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.SyncTarget, err error) {
 	result = &v1alpha1.SyncTarget{}
 	err = c.client.Patch(pt).
-		Cluster(c.cluster).
 		Resource("synctargets").
 		Name(name).
 		SubResource(subresources...).

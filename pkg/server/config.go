@@ -22,7 +22,6 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 
-	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
@@ -53,8 +52,7 @@ import (
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
-	"github.com/kcp-dev/kcp/pkg/client"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/embeddedetcd"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
@@ -64,7 +62,6 @@ import (
 	kcpfilters "github.com/kcp-dev/kcp/pkg/server/filters"
 	kcpserveroptions "github.com/kcp-dev/kcp/pkg/server/options"
 	"github.com/kcp-dev/kcp/pkg/server/options/batteries"
-	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
 	"github.com/kcp-dev/kcp/pkg/tunneler"
 )
 
@@ -97,11 +94,11 @@ type ExtraConfig struct {
 	KubeClusterClient                   kcpkubernetesclientset.ClusterInterface
 	DeepSARClient                       kcpkubernetesclientset.ClusterInterface
 	ApiExtensionsClusterClient          kcpapiextensionsclientset.ClusterInterface
-	KcpClusterClient                    kcpclient.ClusterInterface
-	RootShardKcpClusterClient           kcpclient.ClusterInterface
+	KcpClusterClient                    kcpclientset.ClusterInterface
+	RootShardKcpClusterClient           kcpclientset.ClusterInterface
 	BootstrapDynamicClusterClient       kcpdynamic.ClusterInterface
 	BootstrapApiExtensionsClusterClient kcpapiextensionsclientset.ClusterInterface
-	BootstrapKcpClusterClient           kcpclient.ClusterInterface
+	BootstrapKcpClusterClient           kcpclientset.ClusterInterface
 	CacheDynamicClient                  kcpdynamic.ClusterInterface
 
 	// misc
@@ -188,8 +185,6 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		return nil, err
 	}
 
-	c.GenericConfig.RequestInfoResolver = requestinfo.NewFactory() // must be set here early to avoid a crash in the EnableMultiCluster roundtrip wrapper
-
 	if c.Options.Cache.Enabled {
 		var cacheClientConfig *rest.Config
 		if len(c.Options.Cache.KubeconfigFile) > 0 {
@@ -203,17 +198,14 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		rt := cacheclient.WithCacheServiceRoundTripper(cacheClientConfig)
 		rt = cacheclient.WithShardNameFromContextRoundTripper(rt)
 		rt = cacheclient.WithDefaultShardRoundTripper(rt, shard.Wildcard)
-		kcpclienthelper.SetMultiClusterRoundTripper(rt)
 
-		cacheKcpClusterClient, err := kcpclient.NewClusterForConfig(rt)
+		cacheKcpClusterClient, err := kcpclientset.NewForConfig(rt)
 		if err != nil {
 			return nil, err
 		}
 		c.CacheKcpSharedInformerFactory = kcpinformers.NewSharedInformerFactoryWithOptions(
-			cacheKcpClusterClient.Cluster(logicalcluster.Wildcard),
+			cacheKcpClusterClient,
 			resyncPeriod,
-			kcpinformers.WithExtraClusterScopedIndexers(indexers.ClusterScoped()),
-			kcpinformers.WithExtraNamespaceScopedIndexers(indexers.NamespaceScoped()),
 		)
 		c.CacheDynamicClient, err = kcpdynamic.NewForConfig(rt)
 		if err != nil {
@@ -236,20 +228,18 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		kcpShardIdentityRoundTripper, c.resolveIdentities = bootstrap.NewWildcardIdentitiesWrappingRoundTripper(bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, nonIdentityRootKcpShardSystemAdminConfig, c.KubeClusterClient)
 		rootKcpShardIdentityConfig := rest.CopyConfig(nonIdentityRootKcpShardSystemAdminConfig)
 		rootKcpShardIdentityConfig.Wrap(kcpShardIdentityRoundTripper)
-		c.RootShardKcpClusterClient, err = kcpclient.NewClusterForConfig(rootKcpShardIdentityConfig)
+		c.RootShardKcpClusterClient, err = kcpclientset.NewForConfig(rootKcpShardIdentityConfig)
 		if err != nil {
 			return nil, err
 		}
 		c.TemporaryRootShardKcpSharedInformerFactory = kcpinformers.NewSharedInformerFactoryWithOptions(
-			c.RootShardKcpClusterClient.Cluster(logicalcluster.Wildcard),
+			c.RootShardKcpClusterClient,
 			resyncPeriod,
-			kcpinformers.WithExtraClusterScopedIndexers(indexers.ClusterScoped()),
-			kcpinformers.WithExtraNamespaceScopedIndexers(indexers.NamespaceScoped()),
 		)
 
 		c.identityConfig = rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
 		c.identityConfig.Wrap(kcpShardIdentityRoundTripper)
-		c.KcpClusterClient, err = kcpclient.NewClusterForConfig(c.identityConfig) // this is now generic to be used for all kcp API groups
+		c.KcpClusterClient, err = kcpclientset.NewForConfig(c.identityConfig) // this is now generic to be used for all kcp API groups
 		if err != nil {
 			return nil, err
 		}
@@ -260,17 +250,15 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		// The informers here are not used before the informers are actually started (i.e. no race).
 
 		c.identityConfig, c.resolveIdentities = bootstrap.NewConfigWithWildcardIdentities(c.GenericConfig.LoopbackClientConfig, bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, nil)
-		c.KcpClusterClient, err = kcpclient.NewClusterForConfig(c.identityConfig) // this is now generic to be used for all kcp API groups
+		c.KcpClusterClient, err = kcpclientset.NewForConfig(c.identityConfig) // this is now generic to be used for all kcp API groups
 		if err != nil {
 			return nil, err
 		}
 		c.RootShardKcpClusterClient = c.KcpClusterClient
 	}
 	c.KcpSharedInformerFactory = kcpinformers.NewSharedInformerFactoryWithOptions(
-		c.KcpClusterClient.Cluster(logicalcluster.Wildcard),
+		c.KcpClusterClient,
 		resyncPeriod,
-		kcpinformers.WithExtraClusterScopedIndexers(indexers.ClusterScoped()),
-		kcpinformers.WithExtraNamespaceScopedIndexers(indexers.NamespaceScoped()),
 	)
 	c.DeepSARClient, err = kcpkubernetesclientset.NewForConfig(authorization.WithDeepSARConfig(rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)))
 	if err != nil {
@@ -309,7 +297,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 	bootstrapKcpConfig.Impersonate.UserName = kcpBootstrapperUserName
 	bootstrapKcpConfig.Impersonate.Groups = []string{bootstrappolicy.SystemKcpWorkspaceBootstrapper}
 	bootstrapKcpConfig = rest.AddUserAgent(bootstrapKcpConfig, "kcp-bootstrapper")
-	c.BootstrapKcpClusterClient, err = kcpclient.NewClusterForConfig(bootstrapKcpConfig)
+	c.BootstrapKcpClusterClient, err = kcpclientset.NewForConfig(bootstrapKcpConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -455,10 +443,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		return nil, fmt.Errorf("configure api extensions: %w", err)
 	}
 
-	c.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer().AddIndexers(cache.Indexers{byWorkspace: indexByWorkspace})                                                     //nolint:errcheck
-	c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().GetIndexer().AddIndexers(cache.Indexers{byWorkspace: indexByWorkspace})                          //nolint:errcheck
 	c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().GetIndexer().AddIndexers(cache.Indexers{byGroupResourceName: indexCRDByGroupResourceName})       //nolint:errcheck
-	c.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer().AddIndexers(cache.Indexers{byWorkspace: indexByWorkspace})                                                     //nolint:errcheck
 	c.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer().AddIndexers(cache.Indexers{byIdentityGroupResource: indexAPIBindingByIdentityGroupResource})                   //nolint:errcheck
 	c.KcpSharedInformerFactory.Workload().V1alpha1().SyncTargets().Informer().GetIndexer().AddIndexers(cache.Indexers{indexers.SyncTargetsBySyncTargetKey: indexers.IndexSyncTargetsBySyncTargetKey}) //nolint:errcheck
 
@@ -471,8 +456,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		apiBindingIndexer: c.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().GetIndexer(),
 		apiExportIndexer:  c.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().GetIndexer(),
 		getAPIResourceSchema: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
-			key := client.ToClusterAwareKey(clusterName, name)
-			return c.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Lister().Get(key)
+			return c.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Lister().Cluster(clusterName).Get(name)
 		},
 	}
 	c.ApiExtensions.ExtraConfig.Client = c.ApiExtensionsClusterClient

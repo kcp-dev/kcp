@@ -41,7 +41,7 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/pkg/cliplugins/base"
 	pluginhelpers "github.com/kcp-dev/kcp/pkg/cliplugins/helpers"
 )
@@ -60,12 +60,12 @@ type UseWorkspaceOptions struct {
 	// ShortWorkspaceOutput indicates only the workspace name should be printed.
 	ShortWorkspaceOutput bool
 
-	kcpClusterClient kcpclient.ClusterInterface
+	kcpClusterClient kcpclientset.ClusterInterface
 	startingConfig   *clientcmdapi.Config
 
 	// for testing
 	modifyConfig   func(configAccess clientcmd.ConfigAccess, newConfig *clientcmdapi.Config) error
-	getAPIBindings func(ctx context.Context, kcpClusterClient kcpclient.ClusterInterface, host string) ([]apisv1alpha1.APIBinding, error)
+	getAPIBindings func(ctx context.Context, kcpClusterClient kcpclientset.ClusterInterface, host string) ([]apisv1alpha1.APIBinding, error)
 }
 
 // NewUseWorkspaceOptions returns a new UseWorkspaceOptions.
@@ -76,7 +76,7 @@ func NewUseWorkspaceOptions(streams genericclioptions.IOStreams) *UseWorkspaceOp
 		modifyConfig: func(configAccess clientcmd.ConfigAccess, newConfig *clientcmdapi.Config) error {
 			return clientcmd.ModifyConfig(configAccess, *newConfig, true)
 		},
-		getAPIBindings: func(ctx context.Context, kcpClusterClient kcpclient.ClusterInterface, host string) ([]apisv1alpha1.APIBinding, error) {
+		getAPIBindings: func(ctx context.Context, kcpClusterClient kcpclientset.ClusterInterface, host string) ([]apisv1alpha1.APIBinding, error) {
 			return getAPIBindings(ctx, kcpClusterClient, host)
 		},
 	}
@@ -173,11 +173,11 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 		bindings, err := o.getAPIBindings(ctx, o.kcpClusterClient, newServerHost)
 		if err != nil {
 			// display the error, but don't stop the current workspace from being reported.
-			fmt.Fprintf(o.ErrOut, "error checking APIBindings: %v", err)
+			fmt.Fprintf(o.ErrOut, "error checking APIBindings: %v\n", err)
 		}
 		if err = findUnresolvedPermissionClaims(o.Out, bindings); err != nil {
 			// display the error, but don't stop the current workspace from being reported.
-			fmt.Fprintf(o.ErrOut, "error checking APIBindings: %v", err)
+			fmt.Fprintf(o.ErrOut, "error checking APIBindings: %v\n", err)
 		}
 
 		return currentWorkspace(o.Out, newServerHost, shortWorkspaceOutput(o.ShortWorkspaceOutput), nil)
@@ -319,24 +319,28 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 	bindings, err := o.getAPIBindings(ctx, o.kcpClusterClient, newServerHost)
 	if err != nil {
 		// display the error, but don't stop the current workspace from being reported.
-		fmt.Fprintf(o.ErrOut, "error checking APIBindings: %v", err)
+		fmt.Fprintf(o.ErrOut, "error checking APIBindings: %v\n", err)
 	}
 	if err := findUnresolvedPermissionClaims(o.Out, bindings); err != nil {
 		// display the error, but don't stop the current workspace from being reported.
-		fmt.Fprintf(o.ErrOut, "error checking APIBindings: %v", err)
+		fmt.Fprintf(o.ErrOut, "error checking APIBindings: %v\n", err)
 	}
 
 	return currentWorkspace(o.Out, newServerHost, shortWorkspaceOutput(o.ShortWorkspaceOutput), workspaceType)
 }
 
-// getAPIBindings retrieves APIBindings within the workspace
-func getAPIBindings(ctx context.Context, kcpClusterClient kcpclient.ClusterInterface, host string) ([]apisv1alpha1.APIBinding, error) {
+// getAPIBindings retrieves APIBindings within the workspace.
+func getAPIBindings(ctx context.Context, kcpClusterClient kcpclientset.ClusterInterface, host string) ([]apisv1alpha1.APIBinding, error) {
 	_, clusterName, err := pluginhelpers.ParseClusterURL(host)
 	if err != nil {
 		return nil, err
 	}
 
 	apiBindings, err := kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIBindings().List(ctx, metav1.ListOptions{})
+	// If the user is not allowed to view APIBindings in the workspace, there's nothing to show.
+	if apierrors.IsForbidden(err) {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -439,7 +443,7 @@ type CreateWorkspaceOptions struct {
 	// ReadyWaitTimeout is how long to wait for the workspace to be ready before returning control to the user.
 	ReadyWaitTimeout time.Duration
 
-	kcpClusterClient kcpclient.ClusterInterface
+	kcpClusterClient kcpclientset.ClusterInterface
 
 	// for testing - passed to UseWorkspaceOptions
 	modifyConfig func(configAccess clientcmd.ConfigAccess, newConfig *clientcmdapi.Config) error
@@ -729,7 +733,7 @@ func (o *CreateContextOptions) Run(ctx context.Context) error {
 	return err
 }
 
-func newKCPClusterClient(clientConfig clientcmd.ClientConfig) (kcpclient.ClusterInterface, error) {
+func newKCPClusterClient(clientConfig clientcmd.ClientConfig) (kcpclientset.ClusterInterface, error) {
 	config, err := clientConfig.ClientConfig()
 	if err != nil {
 		return nil, err
@@ -742,7 +746,7 @@ func newKCPClusterClient(clientConfig clientcmd.ClientConfig) (kcpclient.Cluster
 	u.Path = ""
 	clusterConfig.Host = u.String()
 	clusterConfig.UserAgent = rest.DefaultKubernetesUserAgent()
-	return kcpclient.NewClusterForConfig(clusterConfig)
+	return kcpclientset.NewForConfig(clusterConfig)
 }
 
 // TreeOptions contains options for displaying the workspace tree
@@ -751,7 +755,7 @@ type TreeOptions struct {
 
 	Full bool
 
-	kcpClusterClient kcpclient.ClusterInterface
+	kcpClusterClient kcpclientset.ClusterInterface
 }
 
 // NewShowWorkspaceTreeOptions returns a new ShowWorkspaceTreeOptions.

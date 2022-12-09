@@ -42,7 +42,7 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
 	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -121,12 +121,12 @@ func TestKubeQuotaCoreV1TypesFromBinding(t *testing.T) {
 			t.Cleanup(cancelFunc)
 
 			orgClusterName := framework.NewOrganizationFixture(t, source)
-			apiProviderClustername := framework.NewWorkspaceFixture(t, source, orgClusterName)
-			userClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
+			apiProviderClustername := framework.NewWorkspaceFixture(t, source, orgClusterName, framework.WithName("api-provider"))
+			userClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName, framework.WithName("user"))
 
 			kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(source.BaseConfig(t))
 			require.NoError(t, err)
-			kcpClusterClient, err := kcpclient.NewForConfig(source.BaseConfig(t))
+			kcpClusterClient, err := kcpclientset.NewForConfig(source.BaseConfig(t))
 			require.NoError(t, err)
 
 			t.Logf("Check that there is no services resource in the user workspace")
@@ -141,7 +141,7 @@ func TestKubeQuotaCoreV1TypesFromBinding(t *testing.T) {
 			require.NoError(t, err, "error converting CRD to APIResourceSchema")
 
 			t.Logf("Creating APIResourceSchema")
-			_, err = kcpClusterClient.ApisV1alpha1().APIResourceSchemas().Create(logicalcluster.WithCluster(ctx, apiProviderClustername), servicesAPIResourceSchema, metav1.CreateOptions{})
+			_, err = kcpClusterClient.Cluster(apiProviderClustername).ApisV1alpha1().APIResourceSchemas().Create(ctx, servicesAPIResourceSchema, metav1.CreateOptions{})
 			require.NoError(t, err, "error creating APIResourceSchema")
 
 			t.Logf("Creating APIExport")
@@ -156,7 +156,7 @@ func TestKubeQuotaCoreV1TypesFromBinding(t *testing.T) {
 				},
 			}
 
-			_, err = kcpClusterClient.ApisV1alpha1().APIExports().Create(logicalcluster.WithCluster(ctx, apiProviderClustername), servicesAPIExport, metav1.CreateOptions{})
+			_, err = kcpClusterClient.Cluster(apiProviderClustername).ApisV1alpha1().APIExports().Create(ctx, servicesAPIExport, metav1.CreateOptions{})
 			require.NoError(t, err, "error creating APIExport")
 
 			t.Logf("Create a binding in the user workspace")
@@ -174,12 +174,12 @@ func TestKubeQuotaCoreV1TypesFromBinding(t *testing.T) {
 				},
 			}
 
-			_, err = kcpClusterClient.ApisV1alpha1().APIBindings().Create(logicalcluster.WithCluster(ctx, userClusterName), binding, metav1.CreateOptions{})
+			_, err = kcpClusterClient.Cluster(userClusterName).ApisV1alpha1().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
 			require.NoError(t, err)
 
 			t.Logf("Wait for binding to be ready")
 			framework.Eventually(t, func() (bool, string) {
-				binding, err := kcpClusterClient.ApisV1alpha1().APIBindings().Get(logicalcluster.WithCluster(ctx, userClusterName), binding.Name, metav1.GetOptions{})
+				binding, err := kcpClusterClient.Cluster(userClusterName).ApisV1alpha1().APIBindings().Get(ctx, binding.Name, metav1.GetOptions{})
 				require.NoError(t, err, "error getting binding %s", binding.Name)
 				condition := conditions.Get(binding, apisv1alpha1.InitialBindingCompleted)
 				if condition == nil {
@@ -262,8 +262,8 @@ func TestKubeQuotaNormalCRDs(t *testing.T) {
 	sheriffCRD1 := apifixtures.NewSheriffsCRDWithSchemaDescription(group, "one")
 	sheriffCRD2 := apifixtures.NewSheriffsCRDWithSchemaDescription(group, "two")
 
-	ws1 := framework.NewWorkspaceFixture(t, server, orgClusterName)
-	ws2 := framework.NewWorkspaceFixture(t, server, orgClusterName)
+	ws1 := framework.NewWorkspaceFixture(t, server, orgClusterName, framework.WithName("one"))
+	ws2 := framework.NewWorkspaceFixture(t, server, orgClusterName, framework.WithName("two"))
 
 	t.Logf("Install a normal sheriffs CRD into workspace 1 %q", ws1)
 	bootstrapCRD(t, ws1, crdClusterClient.ApiextensionsV1().CustomResourceDefinitions(), sheriffCRD1)
@@ -335,7 +335,7 @@ func TestClusterScopedQuota(t *testing.T) {
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating kube cluster client")
 
-	kcpClusterClient, err := kcpclient.NewForConfig(cfg)
+	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating kcp cluster client")
 
 	orgClusterName := framework.NewOrganizationFixture(t, server)
@@ -422,7 +422,7 @@ func TestClusterScopedQuota(t *testing.T) {
 					GenerateName: "child-",
 				},
 			}
-			_, err = kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Create(logicalcluster.WithCluster(ctx, ws), childWS, metav1.CreateOptions{})
+			_, err = kcpClusterClient.Cluster(ws).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, childWS, metav1.CreateOptions{})
 			return apierrors.IsForbidden(err), fmt.Sprintf("%v", err)
 		}, wait.ForeverTestTimeout, 100*time.Millisecond, "quota never rejected clusterworkspace creation in %q", ws)
 	}

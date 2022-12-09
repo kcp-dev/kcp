@@ -69,6 +69,15 @@ type APIExport struct {
 	Status APIExportStatus `json:"status,omitempty"`
 }
 
+const (
+	// AnnotationAPIExportExtraKeyPrefix is the prefix of an annotation set on an APIExport to
+	// provide extra info that will be made available to all APIBindings bound to this APIExport.
+	// Any annotation with this prefix will be continuously synced to all the APIBindings bound to
+	// this APIExport. If the annotation is removed from the APIExport, it will also be removed from
+	// all APIBindings bound to this APIExport.
+	AnnotationAPIExportExtraKeyPrefix = "extra.apis.kcp.dev/"
+)
+
 func (in *APIExport) GetConditions() conditionsv1alpha1.Conditions {
 	return in.Status.Conditions
 }
@@ -282,6 +291,8 @@ type APIExportStatus struct {
 	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 
 	// virtualWorkspaces contains all APIExport virtual workspace URLs.
+	// This field will get deprecated in favor of APIExportEndpointSlice.
+	//
 	// +optional
 	VirtualWorkspaces []VirtualWorkspace `json:"virtualWorkspaces,omitempty"`
 }

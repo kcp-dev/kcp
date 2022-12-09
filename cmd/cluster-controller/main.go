@@ -22,16 +22,14 @@ import (
 	"os"
 	"time"
 
-	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	"github.com/spf13/pflag"
 
 	kcpapiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/kcp/clientset/versioned"
 	kcpapiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/kcp/informers/externalversions"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiresource"
 )
@@ -85,21 +83,20 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	clusterConfig := kcpclienthelper.SetMultiClusterRoundTripper(rest.CopyConfig(config))
 
-	crdClusterClient, err := kcpapiextensionsclientset.NewForConfig(clusterConfig)
+	crdClusterClient, err := kcpapiextensionsclientset.NewForConfig(config)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	kcpClusterClient, err := kcpclient.NewForConfig(clusterConfig)
+	kcpClusterClient, err := kcpclientset.NewForConfig(config)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
-	kcpSharedInformerFactory := kcpinformers.NewSharedInformerFactoryWithOptions(kcpclient.NewForConfigOrDie(config), resyncPeriod)
-	crdSharedInformerFactory := kcpapiextensionsinformers.NewSharedInformerFactoryWithOptions(kcpapiextensionsclientset.NewForConfigOrDie(config), resyncPeriod)
+	kcpSharedInformerFactory := kcpinformers.NewSharedInformerFactoryWithOptions(kcpClusterClient, resyncPeriod)
+	crdSharedInformerFactory := kcpapiextensionsinformers.NewSharedInformerFactoryWithOptions(crdClusterClient, resyncPeriod)
 
 	apiResource, err := apiresource.NewController(
 		crdClusterClient,

@@ -29,13 +29,13 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
 
+	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/discovery"
-	clientgotesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
@@ -43,7 +43,8 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
-	fakeclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/fake"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	kcpfakeclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/fake"
 )
 
 func TestCreate(t *testing.T) {
@@ -209,7 +210,7 @@ func TestCreate(t *testing.T) {
 					},
 				})
 			}
-			client := fakeclient.NewSimpleClientset(objects...)
+			client := kcpfakeclient.NewSimpleClientset(objects...)
 
 			workspaceType := tt.newWorkspaceType
 			empty := tenancyv1alpha1.ClusterWorkspaceTypeReference{}
@@ -221,14 +222,14 @@ func TestCreate(t *testing.T) {
 			}
 
 			if tt.markReady {
-				client.PrependReactor("create", "workspaces", func(action clientgotesting.Action) (handled bool, ret runtime.Object, err error) {
-					obj := action.(clientgotesting.CreateAction).GetObject().(*tenancyv1beta1.Workspace)
+				client.PrependReactor("create", "workspaces", func(action kcptesting.Action) (handled bool, ret runtime.Object, err error) {
+					obj := action.(kcptesting.CreateAction).GetObject().(*tenancyv1beta1.Workspace)
 					obj.Status.Phase = tenancyv1alpha1.ClusterWorkspacePhaseReady
 					u := parseURLOrDie(u.String())
 					u.Path = currentClusterName.Join(obj.Name).Path()
 					obj.Status.URL = u.String()
 					obj.Spec.Type = workspaceType
-					if err := client.Tracker().Create(tenancyv1beta1.SchemeGroupVersion.WithResource("workspaces"), obj, ""); err != nil {
+					if err := client.Tracker().Cluster(currentClusterName).Create(tenancyv1beta1.SchemeGroupVersion.WithResource("workspaces"), obj, ""); err != nil {
 						return false, nil, err
 					}
 					return true, obj, nil
@@ -245,12 +246,7 @@ func TestCreate(t *testing.T) {
 				got = config
 				return nil
 			}
-			opts.kcpClusterClient = fakeTenancyClient{
-				t: t,
-				clients: map[logicalcluster.Name]*fakeclient.Clientset{
-					currentClusterName: client,
-				},
-			}
+			opts.kcpClusterClient = client
 			opts.ClientConfig = clientcmd.NewDefaultClientConfig(*tt.config.DeepCopy(), nil)
 			err := opts.Run(context.Background())
 			if tt.wantErr {
@@ -1190,13 +1186,13 @@ func TestUse(t *testing.T) {
 			u := parseURLOrDie(cluster.Server)
 			u.Path = ""
 
-			clients := map[logicalcluster.Name]*fakeclient.Clientset{}
+			objs := []runtime.Object{}
 			for lcluster, names := range tt.existingObjects {
-				objs := []runtime.Object{}
 				for _, name := range names {
 					obj := &tenancyv1beta1.Workspace{
 						ObjectMeta: metav1.ObjectMeta{
-							Name: name,
+							Name:        name,
+							Annotations: map[string]string{logicalcluster.AnnotationKey: lcluster.String()},
 						},
 						Spec: tenancyv1beta1.WorkspaceSpec{
 							Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
@@ -1211,73 +1207,56 @@ func TestUse(t *testing.T) {
 					}
 					objs = append(objs, obj)
 				}
-
-				clients[lcluster] = fakeclient.NewSimpleClientset(objs...)
-
-				if lcluster == tenancyv1alpha1.RootCluster {
-					clients[lcluster].PrependReactor("get", "workspaces", func(action clientgotesting.Action) (handled bool, ret runtime.Object, err error) {
-						getAction := action.(clientgotesting.GetAction)
-						if getAction.GetName() == "~" {
-							return true, &tenancyv1beta1.Workspace{
-								ObjectMeta: metav1.ObjectMeta{
-									Name: "user-name",
-								},
-								Spec: tenancyv1beta1.WorkspaceSpec{
-									Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-										Name: "home",
-										Path: "root",
-									},
-								},
-								Status: tenancyv1beta1.WorkspaceStatus{
-									URL: fmt.Sprintf("https://test%s", homeWorkspaceLogicalCluster.Path()),
-								},
-							}, nil
-						}
-						return false, nil, nil
-					})
-				}
 			}
+			client := kcpfakeclient.NewSimpleClientset(objs...)
+			client.PrependReactor("get", "workspaces", func(action kcptesting.Action) (handled bool, ret runtime.Object, err error) {
+				getAction := action.(kcptesting.GetAction)
+				if getAction.GetCluster() != tenancyv1alpha1.RootCluster {
+					return false, nil, nil
+				}
+				if getAction.GetName() == "~" {
+					return true, &tenancyv1beta1.Workspace{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "user-name",
+						},
+						Spec: tenancyv1beta1.WorkspaceSpec{
+							Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+								Name: "home",
+								Path: "root",
+							},
+						},
+						Status: tenancyv1beta1.WorkspaceStatus{
+							URL: fmt.Sprintf("https://test%s", homeWorkspaceLogicalCluster.Path()),
+						},
+					}, nil
+				}
+				return false, nil, nil
+			})
 
 			// return nothing in the default case.
-			getAPIBindings := func(ctx context.Context, kcpClusterClient kcpclient.ClusterInterface, host string) ([]apisv1alpha1.APIBinding, error) {
+			getAPIBindings := func(ctx context.Context, kcpClusterClient kcpclientset.ClusterInterface, host string) ([]apisv1alpha1.APIBinding, error) {
 				return nil, nil
 			}
 
 			if tt.destination != "" {
-				destCluster := logicalcluster.New(tt.destination)
-				// Only make a new clientset if it doesn't already exist
-				if _, ok := clients[destCluster]; !ok {
-					clients[destCluster] = fakeclient.NewSimpleClientset()
-				}
-
 				// Add APIBindings to our Clientset if we have them
 				if len(tt.apiBindings) > 0 {
-					getAPIBindings = func(ctx context.Context, kcpClusterClient kcpclient.ClusterInterface, host string) ([]apisv1alpha1.APIBinding, error) {
+					getAPIBindings = func(ctx context.Context, kcpClusterClient kcpclientset.ClusterInterface, host string) ([]apisv1alpha1.APIBinding, error) {
 						return tt.apiBindings, nil
 					}
 				}
 			}
 
-			for lcluster, err := range tt.getWorkspaceErrors {
-				if _, ok := clients[lcluster]; !ok {
-					clients[lcluster] = fakeclient.NewSimpleClientset()
-				}
-				clients[lcluster].PrependReactor("get", "workspaces", func(action clientgotesting.Action) (bool, runtime.Object, error) {
-					return true, nil, err
-				})
-			}
+			client.PrependReactor("get", "workspaces", func(action kcptesting.Action) (bool, runtime.Object, error) {
+				err, recorded := tt.getWorkspaceErrors[action.GetCluster()]
+				return recorded, nil, err
+			})
 
 			for lcluster, d := range tt.discovery {
-				if _, ok := clients[lcluster]; !ok {
-					clients[lcluster] = fakeclient.NewSimpleClientset()
+				if client.Resources == nil {
+					client.Resources = map[logicalcluster.Name][]*metav1.APIResourceList{}
 				}
-				clients[lcluster].Resources = d
-			}
-
-			for lcluster := range tt.discoveryErrors {
-				if _, ok := clients[lcluster]; !ok {
-					clients[lcluster] = fakeclient.NewSimpleClientset()
-				}
+				client.Resources[lcluster] = d
 			}
 
 			streams, _, stdout, stderr := genericclioptions.NewTestIOStreams()
@@ -1289,10 +1268,9 @@ func TestUse(t *testing.T) {
 				return nil
 			}
 			opts.getAPIBindings = getAPIBindings
-			opts.kcpClusterClient = fakeTenancyClient{
-				t:             t,
-				clients:       clients,
-				discoveryErrs: tt.discoveryErrors,
+			opts.kcpClusterClient = fakeClusterClientWithDiscoveryErrors{
+				ClusterClientset: client,
+				discoveryErrs:    tt.discoveryErrors,
 			}
 			opts.ClientConfig = clientcmd.NewDefaultClientConfig(*tt.config.DeepCopy(), nil)
 			opts.startingConfig = &tt.config
@@ -1551,25 +1529,22 @@ func parseURLOrDie(host string) *url.URL {
 	return u
 }
 
-type fakeTenancyClient struct {
-	t             *testing.T
-	clients       map[logicalcluster.Name]*fakeclient.Clientset
+type fakeClusterClientWithDiscoveryErrors struct {
+	*kcpfakeclient.ClusterClientset
 	discoveryErrs map[logicalcluster.Name]error
 }
 
-func (f fakeTenancyClient) Cluster(cluster logicalcluster.Name) kcpclient.Interface {
-	client, ok := f.clients[cluster]
-	require.True(f.t, ok, "no client for cluster %s", cluster)
-	return withErrorDiscovery{client, f.discoveryErrs[cluster]}
+func (f fakeClusterClientWithDiscoveryErrors) Cluster(cluster logicalcluster.Name) kcpclient.Interface {
+	return fakeClientWithDiscoveryErrors{f.ClusterClientset.Cluster(cluster), f.discoveryErrs[cluster]}
 }
 
-type withErrorDiscovery struct {
+type fakeClientWithDiscoveryErrors struct {
 	kcpclient.Interface
 
 	err error
 }
 
-func (c withErrorDiscovery) Discovery() discovery.DiscoveryInterface {
+func (c fakeClientWithDiscoveryErrors) Discovery() discovery.DiscoveryInterface {
 	d := c.Interface.Discovery()
 	return errorDiscoveryClient{d, c.err}
 }

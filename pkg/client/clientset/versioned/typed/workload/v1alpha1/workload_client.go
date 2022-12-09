@@ -21,8 +21,6 @@ package v1alpha1
 import (
 	"net/http"
 
-	v2 "github.com/kcp-dev/logicalcluster/v2"
-
 	rest "k8s.io/client-go/rest"
 
 	v1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
@@ -37,7 +35,6 @@ type WorkloadV1alpha1Interface interface {
 // WorkloadV1alpha1Client is used to interact with features provided by the workload.kcp.dev group.
 type WorkloadV1alpha1Client struct {
 	restClient rest.Interface
-	cluster    v2.Name
 }
 
 func (c *WorkloadV1alpha1Client) SyncTargets() SyncTargetInterface {
@@ -70,7 +67,7 @@ func NewForConfigAndClient(c *rest.Config, h *http.Client) (*WorkloadV1alpha1Cli
 	if err != nil {
 		return nil, err
 	}
-	return &WorkloadV1alpha1Client{restClient: client}, nil
+	return &WorkloadV1alpha1Client{client}, nil
 }
 
 // NewForConfigOrDie creates a new WorkloadV1alpha1Client for the given config and
@@ -85,12 +82,7 @@ func NewForConfigOrDie(c *rest.Config) *WorkloadV1alpha1Client {
 
 // New creates a new WorkloadV1alpha1Client for the given RESTClient.
 func New(c rest.Interface) *WorkloadV1alpha1Client {
-	return &WorkloadV1alpha1Client{restClient: c}
-}
-
-// NewWithCluster creates a new WorkloadV1alpha1Client for the given RESTClient and cluster.
-func NewWithCluster(c rest.Interface, cluster v2.Name) *WorkloadV1alpha1Client {
-	return &WorkloadV1alpha1Client{restClient: c, cluster: cluster}
+	return &WorkloadV1alpha1Client{c}
 }
 
 func setConfigDefaults(config *rest.Config) error {

@@ -19,6 +19,7 @@ package builder
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
@@ -47,7 +48,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
-	"github.com/kcp-dev/kcp/pkg/client"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
@@ -87,6 +87,17 @@ func BuildVirtualWorkspace(
 		v.Schema.Raw = bs // wipe schemas. We don't want validation here.
 	}
 
+	getTenancyIdentity := func() (string, error) {
+		export, err := wildcardKcpInformers.Apis().V1alpha1().APIExports().Lister().Cluster(tenancyv1alpha1.RootCluster).Get("tenancy.kcp.dev")
+		if err != nil {
+			return "", err
+		}
+		if export.Status.IdentityHash == "" {
+			return "", errors.New("identity hash is empty")
+		}
+		return export.Status.IdentityHash, nil
+	}
+
 	wildcardWorkspacesName := initializingworkspaces.VirtualWorkspaceName + "-wildcard-workspaces"
 	wildcardWorkspaces := &virtualworkspacesdynamic.DynamicVirtualWorkspace{
 		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
@@ -109,12 +120,12 @@ func BuildVirtualWorkspace(
 			return nil
 		}),
 		BootstrapAPISetManagement: func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
-			return &apiSetRetriever{
+			return &singleResourceAPIDefinitionSetProvider{
 				config:               mainConfig,
 				dynamicClusterClient: dynamicClusterClient,
 				exposeSubresources:   false,
 				resource:             &clusterWorkspaceResource,
-				storageProvider:      provideFilteredReadOnlyRestStorage,
+				storageProvider:      provideFilteredClusterWorkspacesReadOnlyRestStorage(getTenancyIdentity),
 			}, nil
 		},
 	}
@@ -146,12 +157,12 @@ func BuildVirtualWorkspace(
 			return nil
 		}),
 		BootstrapAPISetManagement: func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
-			return &apiSetRetriever{
+			return &singleResourceAPIDefinitionSetProvider{
 				config:               mainConfig,
 				dynamicClusterClient: dynamicClusterClient,
 				exposeSubresources:   true,
 				resource:             &clusterWorkspaceResource,
-				storageProvider:      provideDelegatingRestStorage,
+				storageProvider:      provideDelegatingClusterWorkspacesRestStorage(getTenancyIdentity),
 			}, nil
 		},
 	}
@@ -223,7 +234,7 @@ func BuildVirtualWorkspace(
 					return
 				}
 				parent, name := cluster.Split()
-				clusterWorkspace, err := lister.Get(client.ToClusterAwareKey(parent, name))
+				clusterWorkspace, err := lister.Cluster(parent).Get(name)
 				if err != nil {
 					http.Error(writer, fmt.Sprintf("error getting clusterworkspace %s|%s: %v", parent, name, err), http.StatusInternalServerError)
 					return
@@ -231,7 +242,7 @@ func BuildVirtualWorkspace(
 
 				initializer := tenancyv1alpha1.ClusterWorkspaceInitializer(dynamiccontext.APIDomainKeyFrom(request.Context()))
 				if clusterWorkspace.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseInitializing || !initialization.InitializerPresent(initializer, clusterWorkspace.Status.Initializers) {
-					http.Error(writer, fmt.Sprintf("initializer %q cannot access this workspace %v %v", initializer, clusterWorkspace.Status.Phase, clusterWorkspace.Status.Initializers), http.StatusForbidden)
+					http.Error(writer, fmt.Sprintf("initializer %q cannot access this workspace", initializer), http.StatusForbidden)
 					return
 				}
 
@@ -356,7 +367,7 @@ func URLFor(initializerName tenancyv1alpha1.ClusterWorkspaceInitializer) string 
 	return path.Join("/services", initializingworkspaces.VirtualWorkspaceName, string(initializerName))
 }
 
-type apiSetRetriever struct {
+type singleResourceAPIDefinitionSetProvider struct {
 	config               genericapiserver.CompletedConfig
 	dynamicClusterClient kcpdynamic.ClusterInterface
 	resource             *apisv1alpha1.APIResourceSchema
@@ -364,7 +375,7 @@ type apiSetRetriever struct {
 	storageProvider      func(ctx context.Context, clusterClient kcpdynamic.ClusterInterface, initializer tenancyv1alpha1.ClusterWorkspaceInitializer) (apiserver.RestProviderFunc, error)
 }
 
-func (a *apiSetRetriever) GetAPIDefinitionSet(ctx context.Context, key dynamiccontext.APIDomainKey) (apis apidefinition.APIDefinitionSet, apisExist bool, err error) {
+func (a *singleResourceAPIDefinitionSetProvider) GetAPIDefinitionSet(ctx context.Context, key dynamiccontext.APIDomainKey) (apis apidefinition.APIDefinitionSet, apisExist bool, err error) {
 	restProvider, err := a.storageProvider(ctx, a.dynamicClusterClient, tenancyv1alpha1.ClusterWorkspaceInitializer(key))
 	if err != nil {
 		return nil, false, err
@@ -391,7 +402,7 @@ func (a *apiSetRetriever) GetAPIDefinitionSet(ctx context.Context, key dynamicco
 	return apis, len(apis) > 0, nil
 }
 
-var _ apidefinition.APIDefinitionSetGetter = &apiSetRetriever{}
+var _ apidefinition.APIDefinitionSetGetter = &singleResourceAPIDefinitionSetProvider{}
 
 func newAuthorizer(client kcpkubernetesclientset.ClusterInterface) authorizer.AuthorizerFunc {
 	return func(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {

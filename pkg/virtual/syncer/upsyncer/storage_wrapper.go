@@ -34,38 +34,38 @@ import (
 // (Get, List and Watch), but also checks that write calls (Create or Update) are refused with an error if the resource
 // would not not matched by the given label selector
 func WithStaticLabelSelectorAndInWriteCallsCheck(labelSelector labels.Requirements) forwardingregistry.StorageWrapper {
-	return func(resource schema.GroupResource, storage *forwardingregistry.StoreFuncs) *forwardingregistry.StoreFuncs {
-
-		delegateCreater := storage.CreaterFunc
-		storage.CreaterFunc = func(ctx context.Context, obj runtime.Object, createValidation rest.ValidateObjectFunc, options *metav1.CreateOptions) (runtime.Object, error) {
-			if meta, ok := obj.(metav1.Object); ok {
-				if !labels.Everything().Add(labelSelector...).Matches(labels.Set(meta.GetLabels())) {
-					return nil, apierrors.NewBadRequest(fmt.Sprintf("label selector %q does not match labels %v", labelSelector, meta.GetLabels()))
+	return forwardingregistry.StorageWrapperFunc(
+		func(resource schema.GroupResource, storage *forwardingregistry.StoreFuncs) {
+			delegateCreater := storage.CreaterFunc
+			storage.CreaterFunc = func(ctx context.Context, obj runtime.Object, createValidation rest.ValidateObjectFunc, options *metav1.CreateOptions) (runtime.Object, error) {
+				if meta, ok := obj.(metav1.Object); ok {
+					if !labels.Everything().Add(labelSelector...).Matches(labels.Set(meta.GetLabels())) {
+						return nil, apierrors.NewBadRequest(fmt.Sprintf("label selector %q does not match labels %v", labelSelector, meta.GetLabels()))
+					}
 				}
+				return delegateCreater.Create(ctx, obj, createValidation, options)
 			}
-			return delegateCreater.Create(ctx, obj, createValidation, options)
-		}
 
-		delegateUpdater := storage.UpdaterFunc
-		storage.UpdaterFunc = func(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
-			obj, err := objInfo.UpdatedObject(ctx, nil)
-			if apierrors.IsNotFound(err) {
+			delegateUpdater := storage.UpdaterFunc
+			storage.UpdaterFunc = func(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
+				obj, err := objInfo.UpdatedObject(ctx, nil)
+				if apierrors.IsNotFound(err) {
+					return delegateUpdater.Update(ctx, name, objInfo, createValidation, updateValidation, forceAllowCreate, options)
+				}
+				if err != nil {
+					return nil, false, err
+				}
+
+				if meta, ok := obj.(metav1.Object); ok {
+					if !labels.Everything().Add(labelSelector...).Matches(labels.Set(meta.GetLabels())) {
+						return nil, false, apierrors.NewBadRequest(fmt.Sprintf("label selector %q does not match labels %v", labelSelector, meta.GetLabels()))
+					}
+				}
 				return delegateUpdater.Update(ctx, name, objInfo, createValidation, updateValidation, forceAllowCreate, options)
 			}
-			if err != nil {
-				return nil, false, err
-			}
 
-			if meta, ok := obj.(metav1.Object); ok {
-				if !labels.Everything().Add(labelSelector...).Matches(labels.Set(meta.GetLabels())) {
-					return nil, false, apierrors.NewBadRequest(fmt.Sprintf("label selector %q does not match labels %v", labelSelector, meta.GetLabels()))
-				}
-			}
-			return delegateUpdater.Update(ctx, name, objInfo, createValidation, updateValidation, forceAllowCreate, options)
-		}
-
-		staticStorage := forwardingregistry.WithStaticLabelSelector(labelSelector)
-
-		return staticStorage(resource, storage)
-	}
+			staticStorage := forwardingregistry.WithStaticLabelSelector(labelSelector)
+			staticStorage.Decorate(resource, storage)
+		},
+	)
 }

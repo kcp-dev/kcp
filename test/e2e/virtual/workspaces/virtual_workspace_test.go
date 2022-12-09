@@ -48,7 +48,8 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/pkg/softimpersonation"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -181,8 +182,8 @@ type runningServer struct {
 	framework.RunningServer
 	orgClusterName        logicalcluster.Name
 	kubeClusterClient     kcpkubernetesclientset.ClusterInterface
-	kcpClusterClient      kcpclientset.Interface
-	virtualUserKcpClients []kcpclientset.ClusterInterface
+	kcpClusterClient      kcpclientset.ClusterInterface
+	virtualUserKcpClients []VirtualClusterClient
 	UserKcpClients        []kcpclientset.ClusterInterface
 }
 
@@ -221,10 +222,10 @@ var testCases = []struct {
 			}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create workspace1")
 
 			t.Logf("Verify that the Workspace results in a ClusterWorkspace of the same name in the org workspace")
-			_, err := server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, server.orgClusterName), workspace1.Name, metav1.GetOptions{})
+			_, err := server.kcpClusterClient.Cluster(server.orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
 			require.NoError(t, err, "expected to see workspace1 as ClusterWorkspace")
 			server.Artifact(t, func() (runtime.Object, error) {
-				return server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, server.orgClusterName), testData.workspace1.Name, metav1.GetOptions{})
+				return server.kcpClusterClient.Cluster(server.orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
 			})
 
 			t.Logf("Workspace will show up in list of user1")
@@ -330,17 +331,17 @@ var testCases = []struct {
 			}, "team-1")
 
 			t.Logf("Create custom ClusterWorkspaceType 'custom'")
-			cwt, err := server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaceTypes().Create(logicalcluster.WithCluster(ctx, parentCluster), &tenancyv1alpha1.ClusterWorkspaceType{
+			cwt, err := server.kcpClusterClient.Cluster(parentCluster).TenancyV1alpha1().ClusterWorkspaceTypes().Create(ctx, &tenancyv1alpha1.ClusterWorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{Name: "custom"},
 			}, metav1.CreateOptions{})
 			require.NoError(t, err, "failed to create custom ClusterWorkspaceType 'custom'")
 			server.Artifact(t, func() (runtime.Object, error) {
-				return server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaceTypes().Get(logicalcluster.WithCluster(ctx, parentCluster), "custom", metav1.GetOptions{})
+				return server.kcpClusterClient.Cluster(parentCluster).TenancyV1alpha1().ClusterWorkspaceTypes().Get(ctx, "custom", metav1.GetOptions{})
 			})
 			t.Logf("Wait for type custom to be usable")
 			cwtName := cwt.Name
 			framework.EventuallyReady(t, func() (conditions.Getter, error) {
-				return server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaceTypes().Get(logicalcluster.WithCluster(ctx, parentCluster), cwtName, metav1.GetOptions{})
+				return server.kcpClusterClient.Cluster(parentCluster).TenancyV1alpha1().ClusterWorkspaceTypes().Get(ctx, cwtName, metav1.GetOptions{})
 			}, "could not wait for readiness on ClusterWorkspaceType %s|%s", parentCluster.String(), cwtName)
 
 			t.Logf("Give user1 access to the custom type")
@@ -374,10 +375,10 @@ var testCases = []struct {
 			}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create workspace1 as user1")
 
 			t.Logf("Verify that the Workspace results in a ClusterWorkspace of the same name in the org workspace")
-			_, err = server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, parentCluster), workspace1.Name, metav1.GetOptions{})
+			_, err = server.kcpClusterClient.Cluster(parentCluster).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
 			require.NoError(t, err, "expected to see workspace1 as ClusterWorkspace")
 			server.Artifact(t, func() (runtime.Object, error) {
-				return server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, parentCluster), testData.workspace1.Name, metav1.GetOptions{})
+				return server.kcpClusterClient.Cluster(parentCluster).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
 			})
 			require.Equal(t, tenancyv1alpha1.ClusterWorkspaceTypeReference{
 				Name: "custom",
@@ -474,10 +475,10 @@ var testCases = []struct {
 			}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create workspace1 as user1")
 
 			t.Logf("Verify that the Workspace results in a ClusterWorkspace of the same name in the org workspace")
-			_, err := server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, parentCluster), workspace1.Name, metav1.GetOptions{})
+			_, err := server.kcpClusterClient.Cluster(parentCluster).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
 			require.NoError(t, err, "expected to see workspace1 as ClusterWorkspace")
 			server.Artifact(t, func() (runtime.Object, error) {
-				return server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, parentCluster), testData.workspace1.Name, metav1.GetOptions{})
+				return server.kcpClusterClient.Cluster(parentCluster).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
 			})
 
 			// Check that user1 can list and watch workspaces inside the parent workspace (part of system:kcp:tenancy:reader role every user with access has)
@@ -556,10 +557,10 @@ var testCases = []struct {
 			}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create workspace1")
 
 			t.Logf("Verify that the Workspace results in a ClusterWorkspace of the same name in the org workspace")
-			_, err := server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, server.orgClusterName), workspace1.Name, metav1.GetOptions{})
+			_, err := server.kcpClusterClient.Cluster(server.orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace1.Name, metav1.GetOptions{})
 			require.NoError(t, err, "expected to see workspace1 as ClusterWorkspace")
 			server.Artifact(t, func() (runtime.Object, error) {
-				return server.kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Get(logicalcluster.WithCluster(ctx, server.orgClusterName), testData.workspace1.Name, metav1.GetOptions{})
+				return server.kcpClusterClient.Cluster(server.orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, testData.workspace1.Name, metav1.GetOptions{})
 			})
 
 			t.Logf("Create workspace2 in org2")
@@ -697,10 +698,10 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 			vwConfig.Host = virtualWorkspaceServerHost
 
 			// create virtual clients for all paths and users requested
-			var virtualUserlKcpClients []kcpclientset.ClusterInterface
+			var virtualUserlKcpClients []VirtualClusterClient
 			var userKcpClients []kcpclientset.ClusterInterface
 			for _, token := range testCase.userTokens {
-				userKcpClient, err := kcpclientset.NewClusterForConfig(framework.ConfigWithToken(token, rest.CopyConfig(kcpConfig)))
+				userKcpClient, err := kcpclientset.NewForConfig(framework.ConfigWithToken(token, rest.CopyConfig(kcpConfig)))
 				require.NoError(t, err, "failed to construct client for server")
 				userKcpClients = append(userKcpClients, userKcpClient)
 				virtualUserlKcpClients = append(virtualUserlKcpClients, &virtualClusterClient{
@@ -742,11 +743,11 @@ func TestRootWorkspaces(t *testing.T) {
 
 	tests := map[string]func(t *testing.T){
 		"a user can list workspaces at the root": func(t *testing.T) {
-			_, err := user1KcpClusterClient.TenancyV1beta1().Workspaces().List(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), metav1.ListOptions{})
+			_, err := user1KcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
 			require.NoError(t, err)
 		},
 		"a user cannot create workspaces at the root": func(t *testing.T) {
-			_, err := user1KcpClusterClient.TenancyV1beta1().Workspaces().Create(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), &tenancyv1beta1.Workspace{
+			_, err := user1KcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1beta1().Workspaces().Create(ctx, &tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: "test-workspace",
 				},
@@ -767,7 +768,7 @@ func TestRootWorkspaces(t *testing.T) {
 			require.NoError(t, err)
 
 			t.Logf("Create workspace for user-1")
-			ws1, err := impersonatedUser1ClusterClient.TenancyV1alpha1().ClusterWorkspaces().Create(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), &tenancyv1alpha1.ClusterWorkspace{
+			ws1, err := impersonatedUser1ClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: "user1-workspace-",
 				},
@@ -775,7 +776,7 @@ func TestRootWorkspaces(t *testing.T) {
 			require.NoError(t, err)
 
 			t.Logf("Create workspace for user-2")
-			ws2, err := impersonatedUser2ClusterClient.TenancyV1alpha1().ClusterWorkspaces().Create(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), &tenancyv1alpha1.ClusterWorkspace{
+			ws2, err := impersonatedUser2ClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: "user2-workspace-",
 				},
@@ -783,8 +784,8 @@ func TestRootWorkspaces(t *testing.T) {
 			require.NoError(t, err)
 
 			t.Cleanup(func() {
-				kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Delete(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), ws1.Name, metav1.DeleteOptions{}) //nolint:errcheck
-				kcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Delete(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), ws2.Name, metav1.DeleteOptions{}) //nolint:errcheck
+				kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, ws1.Name, metav1.DeleteOptions{}) //nolint:errcheck
+				kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, ws2.Name, metav1.DeleteOptions{}) //nolint:errcheck
 			})
 
 			framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, tenancyv1alpha1.RootCluster.Join(ws1.Name), []string{"user-1"}, nil, []string{"access"})
@@ -792,7 +793,7 @@ func TestRootWorkspaces(t *testing.T) {
 
 			t.Logf("Wait until user-1 sees its workspace")
 			framework.Eventually(t, func() (bool, string) {
-				wss, err := user1KcpClusterClient.TenancyV1beta1().Workspaces().List(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), metav1.ListOptions{})
+				wss, err := user1KcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
 				require.NoError(t, err)
 				found := false
 				for _, ws := range wss.Items {
@@ -806,7 +807,7 @@ func TestRootWorkspaces(t *testing.T) {
 
 			t.Logf("Wait until user-2 sees its workspace")
 			framework.Eventually(t, func() (bool, string) {
-				wss, err := user2KcpClusterClient.TenancyV1beta1().Workspaces().List(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), metav1.ListOptions{})
+				wss, err := user2KcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
 				require.NoError(t, err)
 				found := false
 				for _, ws := range wss.Items {
@@ -819,7 +820,7 @@ func TestRootWorkspaces(t *testing.T) {
 			}, wait.ForeverTestTimeout, time.Millisecond*100, "user-2 should see only one workspace")
 
 			t.Logf("Doublecheck that user-1 still sees only its own workspace")
-			wss, err := user1KcpClusterClient.TenancyV1beta1().Workspaces().List(logicalcluster.WithCluster(ctx, tenancyv1alpha1.RootCluster), metav1.ListOptions{})
+			wss, err := user1KcpClusterClient.Cluster(tenancyv1alpha1.RootCluster).TenancyV1beta1().Workspaces().List(ctx, metav1.ListOptions{})
 			require.NoError(t, err)
 			for _, ws := range wss.Items {
 				require.NotEqual(t, ws.Name, ws2.Name)
@@ -837,12 +838,16 @@ func TestRootWorkspaces(t *testing.T) {
 	}
 }
 
+type VirtualClusterClient interface {
+	Cluster(cluster logicalcluster.Name) clientset.Interface
+}
+
 type virtualClusterClient struct {
 	config *rest.Config
 }
 
-func (c *virtualClusterClient) Cluster(cluster logicalcluster.Name) kcpclientset.Interface {
+func (c *virtualClusterClient) Cluster(cluster logicalcluster.Name) clientset.Interface {
 	config := rest.CopyConfig(c.config)
 	config.Host += path.Join(virtualoptions.DefaultRootPathPrefix, "workspaces", cluster.String())
-	return kcpclientset.NewForConfigOrDie(config)
+	return clientset.NewForConfigOrDie(config)
 }

@@ -22,41 +22,12 @@ import (
 	"fmt"
 	"net/http"
 
-	v2 "github.com/kcp-dev/logicalcluster/v2"
-
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
 
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/typed/wildwest/v1alpha1"
 )
-
-type ClusterInterface interface {
-	Cluster(name v2.Name) Interface
-}
-
-type Cluster struct {
-	*scopedClientset
-}
-
-// Cluster sets the cluster for a Clientset.
-func (c *Cluster) Cluster(name v2.Name) Interface {
-	return &Clientset{
-		scopedClientset: c.scopedClientset,
-		cluster:         name,
-	}
-}
-
-// NewClusterForConfig creates a new Cluster for the given config.
-// If config's RateLimiter is not set and QPS and Burst are acceptable,
-// NewClusterForConfig will generate a rate-limiter in configShallowCopy.
-func NewClusterForConfig(c *rest.Config) (*Cluster, error) {
-	cs, err := NewForConfig(c)
-	if err != nil {
-		return nil, err
-	}
-	return &Cluster{scopedClientset: cs.scopedClientset}, nil
-}
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
@@ -66,20 +37,13 @@ type Interface interface {
 // Clientset contains the clients for groups. Each group has exactly one
 // version included in a Clientset.
 type Clientset struct {
-	*scopedClientset
-	cluster v2.Name
-}
-
-// scopedClientset contains the clients for groups. Each group has exactly one
-// version included in a Clientset.
-type scopedClientset struct {
 	*discovery.DiscoveryClient
 	wildwestV1alpha1 *wildwestv1alpha1.WildwestV1alpha1Client
 }
 
 // WildwestV1alpha1 retrieves the WildwestV1alpha1Client
 func (c *Clientset) WildwestV1alpha1() wildwestv1alpha1.WildwestV1alpha1Interface {
-	return wildwestv1alpha1.NewWithCluster(c.wildwestV1alpha1.RESTClient(), c.cluster)
+	return c.wildwestV1alpha1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -87,7 +51,7 @@ func (c *Clientset) Discovery() discovery.DiscoveryInterface {
 	if c == nil {
 		return nil
 	}
-	return c.DiscoveryClient.WithCluster(c.cluster)
+	return c.DiscoveryClient
 }
 
 // NewForConfig creates a new Clientset for the given config.
@@ -124,7 +88,7 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 		configShallowCopy.RateLimiter = flowcontrol.NewTokenBucketRateLimiter(configShallowCopy.QPS, configShallowCopy.Burst)
 	}
 
-	var cs scopedClientset
+	var cs Clientset
 	var err error
 	cs.wildwestV1alpha1, err = wildwestv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
@@ -135,7 +99,7 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 	if err != nil {
 		return nil, err
 	}
-	return &Clientset{scopedClientset: &cs}, nil
+	return &cs, nil
 }
 
 // NewForConfigOrDie creates a new Clientset for the given config and
@@ -150,9 +114,9 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
-	var cs scopedClientset
+	var cs Clientset
 	cs.wildwestV1alpha1 = wildwestv1alpha1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
-	return &Clientset{scopedClientset: &cs}
+	return &cs
 }

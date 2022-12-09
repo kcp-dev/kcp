@@ -22,8 +22,6 @@ import (
 	"context"
 	"time"
 
-	v2 "github.com/kcp-dev/logicalcluster/v2"
-
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -55,15 +53,13 @@ type APIExportInterface interface {
 
 // aPIExports implements APIExportInterface
 type aPIExports struct {
-	client  rest.Interface
-	cluster v2.Name
+	client rest.Interface
 }
 
 // newAPIExports returns a APIExports
 func newAPIExports(c *ApisV1alpha1Client) *aPIExports {
 	return &aPIExports{
-		client:  c.RESTClient(),
-		cluster: c.cluster,
+		client: c.RESTClient(),
 	}
 }
 
@@ -71,7 +67,6 @@ func newAPIExports(c *ApisV1alpha1Client) *aPIExports {
 func (c *aPIExports) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.APIExport, err error) {
 	result = &v1alpha1.APIExport{}
 	err = c.client.Get().
-		Cluster(c.cluster).
 		Resource("apiexports").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
@@ -88,7 +83,6 @@ func (c *aPIExports) List(ctx context.Context, opts v1.ListOptions) (result *v1a
 	}
 	result = &v1alpha1.APIExportList{}
 	err = c.client.Get().
-		Cluster(c.cluster).
 		Resource("apiexports").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -105,7 +99,6 @@ func (c *aPIExports) Watch(ctx context.Context, opts v1.ListOptions) (watch.Inte
 	}
 	opts.Watch = true
 	return c.client.Get().
-		Cluster(c.cluster).
 		Resource("apiexports").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -116,7 +109,6 @@ func (c *aPIExports) Watch(ctx context.Context, opts v1.ListOptions) (watch.Inte
 func (c *aPIExports) Create(ctx context.Context, aPIExport *v1alpha1.APIExport, opts v1.CreateOptions) (result *v1alpha1.APIExport, err error) {
 	result = &v1alpha1.APIExport{}
 	err = c.client.Post().
-		Cluster(c.cluster).
 		Resource("apiexports").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(aPIExport).
@@ -129,7 +121,6 @@ func (c *aPIExports) Create(ctx context.Context, aPIExport *v1alpha1.APIExport, 
 func (c *aPIExports) Update(ctx context.Context, aPIExport *v1alpha1.APIExport, opts v1.UpdateOptions) (result *v1alpha1.APIExport, err error) {
 	result = &v1alpha1.APIExport{}
 	err = c.client.Put().
-		Cluster(c.cluster).
 		Resource("apiexports").
 		Name(aPIExport.Name).
 		VersionedParams(&opts, scheme.ParameterCodec).
@@ -144,7 +135,6 @@ func (c *aPIExports) Update(ctx context.Context, aPIExport *v1alpha1.APIExport, 
 func (c *aPIExports) UpdateStatus(ctx context.Context, aPIExport *v1alpha1.APIExport, opts v1.UpdateOptions) (result *v1alpha1.APIExport, err error) {
 	result = &v1alpha1.APIExport{}
 	err = c.client.Put().
-		Cluster(c.cluster).
 		Resource("apiexports").
 		Name(aPIExport.Name).
 		SubResource("status").
@@ -158,7 +148,6 @@ func (c *aPIExports) UpdateStatus(ctx context.Context, aPIExport *v1alpha1.APIEx
 // Delete takes name of the aPIExport and deletes it. Returns an error if one occurs.
 func (c *aPIExports) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	return c.client.Delete().
-		Cluster(c.cluster).
 		Resource("apiexports").
 		Name(name).
 		Body(&opts).
@@ -173,7 +162,6 @@ func (c *aPIExports) DeleteCollection(ctx context.Context, opts v1.DeleteOptions
 		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
 	}
 	return c.client.Delete().
-		Cluster(c.cluster).
 		Resource("apiexports").
 		VersionedParams(&listOpts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -186,7 +174,6 @@ func (c *aPIExports) DeleteCollection(ctx context.Context, opts v1.DeleteOptions
 func (c *aPIExports) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.APIExport, err error) {
 	result = &v1alpha1.APIExport{}
 	err = c.client.Patch(pt).
-		Cluster(c.cluster).
 		Resource("apiexports").
 		Name(name).
 		SubResource(subresources...).

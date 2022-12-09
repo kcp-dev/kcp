@@ -153,6 +153,37 @@ an Apple M1 based virtual machine.
 
 ## For syncer development
 
+### Building components
+
+The syncer, kcp and kubectl plugins should come from the same build, so they are compatible with each other.
+
+To build, make the root kcp folder your current working directory and run:
+
+```bash
+make build-all install build-kind-images
+```
+
+If your go version is not 1.18, which is the expected version, you need to run
+
+```bash
+IGNORE_GO_VERSION=1 make build-all install build-kind-images
+```
+
+Make a note of the syncer image that is produced by this build, which is in the output near the end. It should be something like `kind.local/syncer-c2e3073d5026a8f7f2c47a50c16bdbec:8287441974cf604dd93da5e6d010a78d38ae49733ea3a5031048a516101dd8a2`. This will be used by the `kubectl kcp workload sync ...` command, below.
+
+The kubectl kcp plugin binaries should be first in your path so kubectl picks them up.
+
+```bash
+which kubectl-kcp
+```
+should point to the kubectl-kcp you have just built in your `$GOPATH/bin`, and not any other installed version.
+
+### Start kcp on another terminal
+
+```bash
+kcp start
+```
+
 ### Running in a kind cluster with a local registry
 
 You can run the syncer in a kind cluster for development.
@@ -164,36 +195,41 @@ You can run the syncer in a kind cluster for development.
    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/kubernetes-sigs/kind/main/site/static/examples/kind-with-registry.sh)"
    ```
 
-1. Install `ko`:
-
-    ```sh
-    go install github.com/google/ko@latest
+1. From the kcp root directory:
+    ```bash
+    export KUBECONFIG=.kcp/admin.kubeconfig
     ```
 
-1. Build image and push to the local registry integrated with `kind`:
+1. Create a location workspace and immediately enter it:
 
     ```sh
-    KO_DOCKER_REPO=localhost:5001 ko publish ./cmd/syncer -t <image tag>
+    $ kubectl kcp workspace create my-locations --enter
+    Workspace "my-locations" (type root:organization) created. Waiting for it to be ready...
+    Workspace "my-locations" (type root:organization) is ready to use.
+    Current workspace is "root:my-locations" (type "root:organization").
     ```
 
-    By default `ko` will build for `amd64`. To build for `arm64`
-    (e.g. apple silicon), specify `--platform=linux/arm64`.
-
-1. Create an organisation and immediately enter it:
+1. To create the synctarget and use the image pushed to the local registry, supply `<image name>` to the
+   `kcp workload sync` plugin command, where `<image name>` was captured in the build steps, above.
 
     ```sh
-    $ kubectl kcp workspace create my-org --enter
-    Workspace "my-org" (type root:organization) created. Waiting for it to be ready...
-    Workspace "my-org" (type root:organization) is ready to use.
-    Current workspace is "root:my-org" (type "root:organization").
+    kubectl kcp workload sync kind --syncer-image <image name> -o syncer.yaml
     ```
-
-1. To use the image pushed to the local registry, supply `<image name>` to the
-   `kcp workload sync` plugin command, where `<image name>` is
-   from the output of `ko publish`:
+    
+1. Create a second workspace for your workloads and immediately enter it:
 
     ```sh
-    kubectl kcp workload sync <mycluster> --syncer-image <image name> -o syncer.yaml
+    $ kubectl kcp workspace ..
+    $ kubectl kcp workspace create my-workloads --enter
+    Workspace "my-workloads" (type root:organization) created. Waiting for it to be ready...
+    Workspace "my-workloads" (type root:organization) is ready to use.
+    Current workspace is "root:my-workloads" (type "root:organization").
+    ```
+    
+1. Bind it to the `my-locations` workspace with the synctarget:
+
+    ```bash
+    kubectl kcp bind compute "root:my-locations"
     ```
 
 1. Apply the manifest to the p-cluster:
@@ -221,6 +257,12 @@ You can run the syncer in a kind cluster for development.
 
     ```bash
     kubectl wait --for=condition=Ready synctarget/<mycluster>
+    ```
+    
+1. Add a deployment to the my-workloads workspace and check the p-cluster to see if the workload has been created there:
+
+    ```bash
+    kubectl create deployment --image=gcr.io/kuar-demo/kuard-amd64:blue --port=8080 kuard
     ```
 
 ### Running locally

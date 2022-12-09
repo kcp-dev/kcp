@@ -21,8 +21,6 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/client"
 )
@@ -65,16 +63,4 @@ func indexAPIExportsByAPIResourceSchemasFunc(obj interface{}) ([]string, error) 
 	}
 
 	return ret, nil
-}
-
-const indexByWorkspace = "apiBindingsByWorkspace"
-
-func indexByWorkspaceFunc(obj interface{}) ([]string, error) {
-	metaObj, ok := obj.(metav1.Object)
-	if !ok {
-		return []string{}, fmt.Errorf("obj is supposed to be a metav1.Object, but is %T", obj)
-	}
-
-	lcluster := logicalcluster.From(metaObj)
-	return []string{lcluster.String()}, nil
 }

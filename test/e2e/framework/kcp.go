@@ -14,8 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// +kcp-code-generator:skip
-
 package framework
 
 import (
@@ -38,7 +36,6 @@ import (
 	"time"
 
 	"github.com/egymgmbh/go-prefix-writer/prefixer"
-	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
@@ -615,7 +612,6 @@ func (c *kcpServer) BaseConfig(t *testing.T) *rest.Config {
 	cfg, err := c.config("base")
 	require.NoError(t, err)
 	cfg = rest.CopyConfig(cfg)
-	cfg = kcpclienthelper.SetMultiClusterRoundTripper(cfg)
 	return rest.AddUserAgent(cfg, t.Name())
 }
 
@@ -624,7 +620,6 @@ func (c *kcpServer) RootShardSystemMasterBaseConfig(t *testing.T) *rest.Config {
 	cfg, err := c.config("system:admin")
 	require.NoError(t, err)
 	cfg = rest.CopyConfig(cfg)
-	cfg = kcpclienthelper.SetMultiClusterRoundTripper(cfg)
 	return rest.AddUserAgent(cfg, t.Name())
 }
 
@@ -832,8 +827,8 @@ func newPersistentKCPServer(name, kubeconfigPath, rootShardKubeconfigPath string
 
 // NewFakeWorkloadServer creates a workspace in the provided server and org
 // and creates a server fixture for the logical cluster that results.
-func NewFakeWorkloadServer(t *testing.T, server RunningServer, org logicalcluster.Name) RunningServer {
-	logicalClusterName := NewWorkspaceFixture(t, server, org)
+func NewFakeWorkloadServer(t *testing.T, server RunningServer, org logicalcluster.Name, syncTargetName string) RunningServer {
+	logicalClusterName := NewWorkspaceFixture(t, server, org, WithName(syncTargetName+"-sink"))
 	rawConfig, err := server.RawConfig()
 	require.NoError(t, err, "failed to read config for server")
 	logicalConfig, kubeconfigPath := WriteLogicalClusterConfig(t, rawConfig, "base", logicalClusterName)
@@ -845,14 +840,17 @@ func NewFakeWorkloadServer(t *testing.T, server RunningServer, org logicalcluste
 
 	downstreamConfig := fakeServer.BaseConfig(t)
 
-	// Install the deployment crd in the fake cluster to allow creation of the syncer deployment.
+	// Install the required crds in the fake cluster to allow creation of the syncer deployment.
 	crdClient, err := apiextensionsclient.NewForConfig(downstreamConfig)
 	require.NoError(t, err)
 	kubefixtures.Create(t, crdClient.ApiextensionsV1().CustomResourceDefinitions(),
 		metav1.GroupResource{Group: "apps.k8s.io", Resource: "deployments"},
+		metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
+		metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
+		metav1.GroupResource{Group: "networking.k8s.io", Resource: "ingresses"},
 	)
 
-	// Wait for the deployment crd to become ready
+	// Wait for the required crds to become ready
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 	kubeClient, err := kubernetes.NewForConfig(downstreamConfig)
@@ -861,6 +859,16 @@ func NewFakeWorkloadServer(t *testing.T, server RunningServer, org logicalcluste
 		_, err := kubeClient.AppsV1().Deployments("").List(ctx, metav1.ListOptions{})
 		if err != nil {
 			t.Logf("error seen waiting for deployment crd to become active: %v", err)
+			return false
+		}
+		_, err = kubeClient.CoreV1().Services("").List(ctx, metav1.ListOptions{})
+		if err != nil {
+			t.Logf("error seen waiting for service crd to become active: %v", err)
+			return false
+		}
+		_, err = kubeClient.CoreV1().Endpoints("").List(ctx, metav1.ListOptions{})
+		if err != nil {
+			t.Logf("error seen waiting for endpoint crd to become active: %v", err)
 			return false
 		}
 		return true
@@ -891,7 +899,7 @@ func (s *unmanagedKCPServer) BaseConfig(t *testing.T) *rest.Config {
 	defaultConfig, err := config.ClientConfig()
 	require.NoError(t, err)
 
-	wrappedCfg := kcpclienthelper.SetMultiClusterRoundTripper(rest.CopyConfig(defaultConfig))
+	wrappedCfg := rest.CopyConfig(defaultConfig)
 	wrappedCfg.QPS = -1
 
 	return wrappedCfg
@@ -907,7 +915,7 @@ func (s *unmanagedKCPServer) RootShardSystemMasterBaseConfig(t *testing.T) *rest
 	defaultConfig, err := config.ClientConfig()
 	require.NoError(t, err)
 
-	wrappedCfg := kcpclienthelper.SetMultiClusterRoundTripper(rest.CopyConfig(defaultConfig))
+	wrappedCfg := rest.CopyConfig(defaultConfig)
 	wrappedCfg.QPS = -1
 
 	return wrappedCfg

@@ -231,6 +231,9 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downstreamNamespace string, upstreamObj *unstructured.Unstructured) error {
 	logger := klog.FromContext(ctx)
 
+	// If the namespace was marked for deletion, let's cancel it, as we expect to use it.
+	c.downstreamNSCleaner.CancelCleaning(downstreamNamespace)
+
 	namespaces := c.downstreamClient.Resource(schema.GroupVersionResource{
 		Group:    "",
 		Version:  "v1",
@@ -263,18 +266,19 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 
 	// Check if the namespace already exists, if not create it.
 	namespace, err := c.downstreamNSInformer.Lister().Get(newNamespace.GetName())
-	if err != nil && apierrors.IsNotFound(err) {
-		if _, err := namespaces.Create(ctx, newNamespace, metav1.CreateOptions{}); err != nil {
-			return err
+	if apierrors.IsNotFound(err) {
+		_, err = namespaces.Create(ctx, newNamespace, metav1.CreateOptions{})
+		if err == nil {
+			logger.Info("Created downstream namespace for upstream namespace")
+			return nil
 		}
-		logger.Info("Created downstream namespace for upstream namespace")
-		return nil
-	} else if err != nil {
+	}
+	if apierrors.IsAlreadyExists(err) {
+		namespace, err = namespaces.Get(ctx, newNamespace.GetName(), metav1.GetOptions{})
+	}
+	if err != nil {
 		return err
 	}
-
-	// If the namespace was marked for deletion, let's cancel it, as we expect to use it.
-	c.downstreamNSCleaner.CancelCleaning(newNamespace.GetName())
 
 	// The namespace exists, so check if it has the correct namespace locator.
 	unstrNamespace := namespace.(*unstructured.Unstructured)

@@ -22,17 +22,10 @@ import (
 
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 
-	kaudit "k8s.io/apiserver/pkg/audit"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
-)
-
-const (
-	BootstrapPolicyAuditPrefix   = "bootstrap.authorization.kcp.dev/"
-	BootstrapPolicyAuditDecision = BootstrapPolicyAuditPrefix + "decision"
-	BootstrapPolicyAuditReason   = BootstrapPolicyAuditPrefix + "reason"
 )
 
 type BootstrapPolicyAuthorizer struct {
@@ -52,16 +45,12 @@ func NewBootstrapPolicyAuthorizer(informers kcpkubernetesinformers.SharedInforme
 
 func (a *BootstrapPolicyAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
 	dec, reason, err := a.delegate.Authorize(ctx, attr)
-
-	kaudit.AddAuditAnnotations(
-		ctx,
-		BootstrapPolicyAuditDecision, DecisionString(dec),
-		BootstrapPolicyAuditReason, fmt.Sprintf("bootstrap policy reason: %v", reason),
-	)
-
-	return dec, reason, err
+	if err != nil {
+		err = fmt.Errorf("error authorizing bootstrap policy: %w", err)
+	}
+	return dec, fmt.Sprintf("bootstrap policy reason: %v", reason), err
 }
 
-func (a *BootstrapPolicyAuthorizer) RulesFor(user user.Info, namespace string) ([]authorizer.ResourceRuleInfo, []authorizer.NonResourceRuleInfo, bool, error) {
-	return a.delegate.RulesFor(user, namespace)
+func (a *BootstrapPolicyAuthorizer) RulesFor(ctx context.Context, user user.Info, namespace string) ([]authorizer.ResourceRuleInfo, []authorizer.NonResourceRuleInfo, bool, error) {
+	return a.delegate.RulesFor(ctx, user, namespace)
 }

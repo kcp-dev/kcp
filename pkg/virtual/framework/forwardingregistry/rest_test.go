@@ -110,9 +110,8 @@ func newStorage(t *testing.T, clusterClient kcpdynamic.ClusterInterface, apiExpo
 		nil,
 		clusterClient,
 		patchConflictRetryBackoff,
-		func(_ schema.GroupResource, store *forwardingregistry.StoreFuncs) *forwardingregistry.StoreFuncs {
-			return store
-		})
+		forwardingregistry.StorageWrapperFunc(func(_ schema.GroupResource, store *forwardingregistry.StoreFuncs) {
+		}))
 }
 
 func createResource(namespace, name string) *unstructured.Unstructured {

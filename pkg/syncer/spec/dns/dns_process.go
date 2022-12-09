@@ -18,9 +18,11 @@ package dns
 
 import (
 	"context"
+	"sync"
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,6 +50,9 @@ type DNSProcessor struct {
 	syncTargetUID  types.UID
 	dnsNamespace   string // namespace containing all DNS objects
 	dnsImage       string
+
+	initialized      sync.Map
+	initializationMu sync.RWMutex
 }
 
 func NewDNSProcessor(
@@ -92,6 +97,14 @@ func (d *DNSProcessor) EnsureDNSUpAndReady(ctx context.Context, workspace logica
 
 	logger.V(4).Info("checking if all dns objects exist and are up-to-date")
 	ctx = klog.NewContext(ctx, logger)
+
+	// Try updating resources if not done already
+	if initialized, ok := d.initialized.Load(dnsID); !ok || !initialized.(bool) {
+		updated, err := d.lockMayUpdate(ctx, dnsID)
+		if updated {
+			return false, err
+		}
+	}
 
 	// Get the expected Endpoints resource
 	endpoints, err := d.endpointLister.Endpoints(d.dnsNamespace).Get(dnsID)
@@ -142,8 +155,6 @@ func (d *DNSProcessor) processServiceAccount(ctx context.Context, name string) e
 		return err
 	}
 
-	// TODO: check object has the expected content (eg. after an upgrade)
-
 	return nil
 }
 
@@ -162,8 +173,6 @@ func (d *DNSProcessor) processRole(ctx context.Context, name string) error {
 		logger.Error(err, "failed to get Role (retrying)")
 		return err
 	}
-
-	// TODO: check object has the expected content (eg. after an upgrade)
 
 	return nil
 }
@@ -184,8 +193,6 @@ func (d *DNSProcessor) processRoleBinding(ctx context.Context, name string) erro
 		return err
 	}
 
-	// TODO: check object has the expected content (eg. after an upgrade)
-
 	return nil
 }
 
@@ -204,8 +211,6 @@ func (d *DNSProcessor) processDeployment(ctx context.Context, name string) error
 		logger.Error(err, "failed to get Deployment (retrying)")
 		return err
 	}
-
-	// TODO: check object has the expected content (eg. after an upgrade)
 
 	return nil
 }
@@ -226,8 +231,6 @@ func (d *DNSProcessor) processService(ctx context.Context, name string) error {
 		return err
 	}
 
-	// TODO: check object has the expected content (eg. after an upgrade)
-
 	return nil
 }
 
@@ -238,4 +241,76 @@ func hasAtLeastOneReadyAddress(endpoints *corev1.Endpoints) bool {
 		}
 	}
 	return false
+}
+
+// lockMayUpdate guarantees mayUpdate is run in a critical section.
+// It returns true when the DNS deployment has been updated.
+func (d *DNSProcessor) lockMayUpdate(ctx context.Context, dnsID string) (bool, error) {
+	d.initializationMu.Lock()
+	defer d.initializationMu.Unlock()
+
+	// initialized may have been modified outside the critical section so checking again here
+	if initialized, ok := d.initialized.Load(dnsID); !ok || !initialized.(bool) {
+		updated, err := d.mayUpdate(ctx, dnsID)
+
+		if err != nil {
+			return true, err
+		}
+
+		d.initialized.Store(dnsID, true)
+
+		if updated {
+			// The endpoint might temporarily be without ready addresses, depending on the
+			// deployment strategy. Anyhow, gives some time for the system to stabilize
+
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (d *DNSProcessor) mayUpdate(ctx context.Context, name string) (bool, error) {
+	deployment, err := d.deploymentLister.Deployments(d.dnsNamespace).Get(name)
+	if apierrors.IsNotFound(err) {
+		return false, nil
+	}
+	deployment = deployment.DeepCopy()
+	needsUpdate := false
+	c := findContainer(deployment, "kcp-dns")
+
+	if c == nil {
+		// corrupted deployment. Trying to recover
+		expected := MakeDeployment(name, d.dnsNamespace, d.dnsImage)
+		deployment.Spec = expected.Spec
+		needsUpdate = true
+	} else if c.Image != d.dnsImage {
+		c.Image = d.dnsImage
+		needsUpdate = true
+	}
+
+	if !needsUpdate {
+		return false, nil
+	}
+
+	logger := klog.FromContext(ctx)
+
+	_, err = d.downstreamKubeClient.AppsV1().Deployments(d.dnsNamespace).Update(ctx, deployment, metav1.UpdateOptions{})
+	if err != nil {
+		logger.Error(err, "failed to update Deployment (retrying)")
+		return false, err
+	}
+
+	logger.Info("Deployment updated")
+	return true, nil
+}
+
+func findContainer(deployment *appsv1.Deployment, name string) *corev1.Container {
+	containers := deployment.Spec.Template.Spec.Containers
+
+	for i := 0; i < len(containers); i++ {
+		if containers[i].Name == name {
+			return &containers[i]
+		}
+	}
+	return nil
 }

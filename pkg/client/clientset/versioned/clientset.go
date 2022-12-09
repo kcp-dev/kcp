@@ -22,8 +22,6 @@ import (
 	"fmt"
 	"net/http"
 
-	v2 "github.com/kcp-dev/logicalcluster/v2"
-
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
@@ -33,35 +31,9 @@ import (
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/scheduling/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1beta1"
+	topologyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/topology/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/workload/v1alpha1"
 )
-
-type ClusterInterface interface {
-	Cluster(name v2.Name) Interface
-}
-
-type Cluster struct {
-	*scopedClientset
-}
-
-// Cluster sets the cluster for a Clientset.
-func (c *Cluster) Cluster(name v2.Name) Interface {
-	return &Clientset{
-		scopedClientset: c.scopedClientset,
-		cluster:         name,
-	}
-}
-
-// NewClusterForConfig creates a new Cluster for the given config.
-// If config's RateLimiter is not set and QPS and Burst are acceptable,
-// NewClusterForConfig will generate a rate-limiter in configShallowCopy.
-func NewClusterForConfig(c *rest.Config) (*Cluster, error) {
-	cs, err := NewForConfig(c)
-	if err != nil {
-		return nil, err
-	}
-	return &Cluster{scopedClientset: cs.scopedClientset}, nil
-}
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
@@ -70,56 +42,56 @@ type Interface interface {
 	SchedulingV1alpha1() schedulingv1alpha1.SchedulingV1alpha1Interface
 	TenancyV1alpha1() tenancyv1alpha1.TenancyV1alpha1Interface
 	TenancyV1beta1() tenancyv1beta1.TenancyV1beta1Interface
+	TopologyV1alpha1() topologyv1alpha1.TopologyV1alpha1Interface
 	WorkloadV1alpha1() workloadv1alpha1.WorkloadV1alpha1Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
 // version included in a Clientset.
 type Clientset struct {
-	*scopedClientset
-	cluster v2.Name
-}
-
-// scopedClientset contains the clients for groups. Each group has exactly one
-// version included in a Clientset.
-type scopedClientset struct {
 	*discovery.DiscoveryClient
 	apiresourceV1alpha1 *apiresourcev1alpha1.ApiresourceV1alpha1Client
 	apisV1alpha1        *apisv1alpha1.ApisV1alpha1Client
 	schedulingV1alpha1  *schedulingv1alpha1.SchedulingV1alpha1Client
 	tenancyV1alpha1     *tenancyv1alpha1.TenancyV1alpha1Client
 	tenancyV1beta1      *tenancyv1beta1.TenancyV1beta1Client
+	topologyV1alpha1    *topologyv1alpha1.TopologyV1alpha1Client
 	workloadV1alpha1    *workloadv1alpha1.WorkloadV1alpha1Client
 }
 
 // ApiresourceV1alpha1 retrieves the ApiresourceV1alpha1Client
 func (c *Clientset) ApiresourceV1alpha1() apiresourcev1alpha1.ApiresourceV1alpha1Interface {
-	return apiresourcev1alpha1.NewWithCluster(c.apiresourceV1alpha1.RESTClient(), c.cluster)
+	return c.apiresourceV1alpha1
 }
 
 // ApisV1alpha1 retrieves the ApisV1alpha1Client
 func (c *Clientset) ApisV1alpha1() apisv1alpha1.ApisV1alpha1Interface {
-	return apisv1alpha1.NewWithCluster(c.apisV1alpha1.RESTClient(), c.cluster)
+	return c.apisV1alpha1
 }
 
 // SchedulingV1alpha1 retrieves the SchedulingV1alpha1Client
 func (c *Clientset) SchedulingV1alpha1() schedulingv1alpha1.SchedulingV1alpha1Interface {
-	return schedulingv1alpha1.NewWithCluster(c.schedulingV1alpha1.RESTClient(), c.cluster)
+	return c.schedulingV1alpha1
 }
 
 // TenancyV1alpha1 retrieves the TenancyV1alpha1Client
 func (c *Clientset) TenancyV1alpha1() tenancyv1alpha1.TenancyV1alpha1Interface {
-	return tenancyv1alpha1.NewWithCluster(c.tenancyV1alpha1.RESTClient(), c.cluster)
+	return c.tenancyV1alpha1
 }
 
 // TenancyV1beta1 retrieves the TenancyV1beta1Client
 func (c *Clientset) TenancyV1beta1() tenancyv1beta1.TenancyV1beta1Interface {
-	return tenancyv1beta1.NewWithCluster(c.tenancyV1beta1.RESTClient(), c.cluster)
+	return c.tenancyV1beta1
+}
+
+// TopologyV1alpha1 retrieves the TopologyV1alpha1Client
+func (c *Clientset) TopologyV1alpha1() topologyv1alpha1.TopologyV1alpha1Interface {
+	return c.topologyV1alpha1
 }
 
 // WorkloadV1alpha1 retrieves the WorkloadV1alpha1Client
 func (c *Clientset) WorkloadV1alpha1() workloadv1alpha1.WorkloadV1alpha1Interface {
-	return workloadv1alpha1.NewWithCluster(c.workloadV1alpha1.RESTClient(), c.cluster)
+	return c.workloadV1alpha1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -127,7 +99,7 @@ func (c *Clientset) Discovery() discovery.DiscoveryInterface {
 	if c == nil {
 		return nil
 	}
-	return c.DiscoveryClient.WithCluster(c.cluster)
+	return c.DiscoveryClient
 }
 
 // NewForConfig creates a new Clientset for the given config.
@@ -164,7 +136,7 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 		configShallowCopy.RateLimiter = flowcontrol.NewTokenBucketRateLimiter(configShallowCopy.QPS, configShallowCopy.Burst)
 	}
 
-	var cs scopedClientset
+	var cs Clientset
 	var err error
 	cs.apiresourceV1alpha1, err = apiresourcev1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
@@ -186,6 +158,10 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 	if err != nil {
 		return nil, err
 	}
+	cs.topologyV1alpha1, err = topologyv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	if err != nil {
+		return nil, err
+	}
 	cs.workloadV1alpha1, err = workloadv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
@@ -195,7 +171,7 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 	if err != nil {
 		return nil, err
 	}
-	return &Clientset{scopedClientset: &cs}, nil
+	return &cs, nil
 }
 
 // NewForConfigOrDie creates a new Clientset for the given config and
@@ -210,14 +186,15 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
-	var cs scopedClientset
+	var cs Clientset
 	cs.apiresourceV1alpha1 = apiresourcev1alpha1.New(c)
 	cs.apisV1alpha1 = apisv1alpha1.New(c)
 	cs.schedulingV1alpha1 = schedulingv1alpha1.New(c)
 	cs.tenancyV1alpha1 = tenancyv1alpha1.New(c)
 	cs.tenancyV1beta1 = tenancyv1beta1.New(c)
+	cs.topologyV1alpha1 = topologyv1alpha1.New(c)
 	cs.workloadV1alpha1 = workloadv1alpha1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
-	return &Clientset{scopedClientset: &cs}
+	return &cs
 }

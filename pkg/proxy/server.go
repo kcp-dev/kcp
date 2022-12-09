@@ -22,9 +22,6 @@ import (
 	"net/http"
 	"time"
 
-	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v2"
-
 	"k8s.io/apimachinery/pkg/util/wait"
 	genericapifilters "k8s.io/apiserver/pkg/endpoints/filters"
 	genericfilters "k8s.io/apiserver/pkg/server/filters"
@@ -33,7 +30,7 @@ import (
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	frontproxyfilters "github.com/kcp-dev/kcp/pkg/proxy/filters"
 	"github.com/kcp-dev/kcp/pkg/proxy/index"
@@ -46,27 +43,26 @@ type Server struct {
 	CompletedConfig
 	Handler                  http.Handler
 	IndexController          *index.Controller
-	KcpSharedInformerFactory kcpinformers.SharedInformerFactory
+	KcpSharedInformerFactory kcpinformers.SharedScopedInformerFactory
 }
 
 func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	s := &Server{
 		CompletedConfig: c,
 	}
-	rootShardConfigInformerConfig := kcpclienthelper.SetCluster(restclient.CopyConfig(s.CompletedConfig.RootShardConfig), tenancyv1alpha1.RootCluster)
-	rootShardConfigInformerClient, err := kcpclient.NewForConfig(rootShardConfigInformerConfig)
+	rootShardConfigInformerClient, err := kcpclientset.NewForConfig(s.CompletedConfig.RootShardConfig)
 	if err != nil {
 		return s, fmt.Errorf("failed to create client for informers: %w", err)
 	}
-	s.KcpSharedInformerFactory = kcpinformers.NewSharedInformerFactoryWithOptions(rootShardConfigInformerClient, 30*time.Minute)
+	s.KcpSharedInformerFactory = kcpinformers.NewSharedScopedInformerFactoryWithOptions(rootShardConfigInformerClient.Cluster(tenancyv1alpha1.RootCluster), 30*time.Minute)
 	s.IndexController = index.NewController(
 		ctx,
 		s.CompletedConfig.RootShardConfig.Host,
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
-		func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpclient.Interface, error) {
-			shardConfig := restclient.CopyConfig(s.CompletedConfig.RootShardConfig)
+		func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpclientset.ClusterInterface, error) {
+			shardConfig := restclient.CopyConfig(s.CompletedConfig.ShardsConfig)
 			shardConfig.Host = shard.Spec.BaseURL
-			shardClient, err := kcpclient.NewForConfig(kcpclienthelper.SetCluster(restclient.CopyConfig(shardConfig), logicalcluster.Wildcard))
+			shardClient, err := kcpclientset.NewForConfig(shardConfig)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create shard %q client: %w", shard.Name, err)
 			}

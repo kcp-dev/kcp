@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	kcpdiscovery "github.com/kcp-dev/client-go/discovery"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v2"
@@ -33,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
@@ -61,26 +61,30 @@ func TestAuthorizer(t *testing.T) {
 
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err)
+	kubeDiscoveryClient, err := kcpdiscovery.NewForConfig(cfg)
+	require.NoError(t, err)
 	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
 	require.NoError(t, err)
 
 	org1 := framework.NewOrganizationFixture(t, server)
 	org2 := framework.NewOrganizationFixture(t, server)
 
-	createResources(t, ctx, dynamicClusterClient, kubeClusterClient.DiscoveryClient, org1, "org-resources.yaml")
-	createResources(t, ctx, dynamicClusterClient, kubeClusterClient.DiscoveryClient, org2, "org-resources.yaml")
+	createResources(t, ctx, dynamicClusterClient, kubeDiscoveryClient, org1, "org-resources.yaml")
+	createResources(t, ctx, dynamicClusterClient, kubeDiscoveryClient, org2, "org-resources.yaml")
 
 	framework.NewWorkspaceFixture(t, server, org1, framework.WithName("workspace1"))
 	framework.NewWorkspaceFixture(t, server, org1, framework.WithName("workspace2"))
 	framework.NewWorkspaceFixture(t, server, org2, framework.WithName("workspace1"), framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: tenancyv1alpha1.RootShard})) // on root for deep SAR test
 	framework.NewWorkspaceFixture(t, server, org2, framework.WithName("workspace2"))
 
-	createResources(t, ctx, dynamicClusterClient, kubeClusterClient.DiscoveryClient, org1.Join("workspace1"), "workspace1-resources.yaml")
-	createResources(t, ctx, dynamicClusterClient, kubeClusterClient.DiscoveryClient, org2.Join("workspace1"), "workspace1-resources.yaml")
+	createResources(t, ctx, dynamicClusterClient, kubeDiscoveryClient, org1.Join("workspace1"), "workspace1-resources.yaml")
+	createResources(t, ctx, dynamicClusterClient, kubeDiscoveryClient, org2.Join("workspace1"), "workspace1-resources.yaml")
 
 	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, org1, []string{"user-1", "user-2", "user-3"}, nil, []string{"access"})
 
 	user1KubeClusterClient, err := kcpkubernetesclientset.NewForConfig(framework.UserConfig("user-1", cfg))
+	require.NoError(t, err)
+	user1KubeDiscoveryClient, err := kcpdiscovery.NewForConfig(framework.UserConfig("user-1", cfg))
 	require.NoError(t, err)
 	user2KubeClusterClient, err := kcpkubernetesclientset.NewForConfig(framework.UserConfig("user-2", cfg))
 	require.NoError(t, err)
@@ -111,13 +115,13 @@ func TestAuthorizer(t *testing.T) {
 		"without org access, org1 workspace1 admin user-1 cannot access org2, not even discovery": func(t *testing.T) {
 			_, err := user1KubeClusterClient.Cluster(org2.Join("workspace1")).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
 			require.Error(t, err, "user-1 should not be able to list configmaps in a different org")
-			_, err = user1KubeClusterClient.DiscoveryClient.WithCluster(org2.Join("workspace1")).ServerResourcesForGroupVersion("rbac.authorization.k8s.io/v1") // can't be core because that always returns nil
+			_, err = user1KubeDiscoveryClient.Cluster(org2.Join("workspace1")).ServerResourcesForGroupVersion("rbac.authorization.k8s.io/v1") // can't be core because that always returns nil
 			require.Error(t, err, "user-1 should not be able to list server resources in a different org")
 		},
 		"as org member, workspace1 admin user-1 cannot access workspace2, not even discovery": func(t *testing.T) {
 			_, err := user1KubeClusterClient.Cluster(org1.Join("workspace2")).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
 			require.Error(t, err, "user-1 should not be able to list configmaps in a different workspace")
-			_, err = user1KubeClusterClient.DiscoveryClient.WithCluster(org2.Join("workspace1")).ServerResourcesForGroupVersion("rbac.authorization.k8s.io/v1") // can't be core because that always returns nil
+			_, err = user1KubeDiscoveryClient.Cluster(org2.Join("workspace1")).ServerResourcesForGroupVersion("rbac.authorization.k8s.io/v1") // can't be core because that always returns nil
 			require.Error(t, err, "user-1 should not be able to list server resources in a different workspace")
 		},
 		"with org access, workspace2 admin user-2 can access workspace2": func(t *testing.T) {
@@ -206,7 +210,7 @@ func TestAuthorizer(t *testing.T) {
 			t.Logf("ask with normal SAR that user-1 cannot access %q because it has no access", org2.Join("workspace1"))
 			resp, err := kubeClusterClient.Cluster(org2.Join("workspace1")).AuthorizationV1().SubjectAccessReviews().Create(ctx, sar, metav1.CreateOptions{})
 			require.NoError(t, err)
-			require.Equalf(t, "workspace access not permitted", resp.Status.Reason, "SAR should answer that user-1 has no workspace access in %q", org2.Join("workspace1"))
+			require.Equalf(t, "access denied", resp.Status.Reason, "SAR should answer that user-1 has no workspace access in %q", org2.Join("workspace1"))
 			require.Falsef(t, resp.Status.Allowed, "SAR should correctly answer that user-1 CANNOT list configmaps in %q because it has no access to it", org2.Join("workspace1"))
 
 			t.Logf("ask with normal SAR that user-1 can access %q because it has access", org1.Join("workspace1"))
@@ -233,9 +237,9 @@ func TestAuthorizer(t *testing.T) {
 	}
 }
 
-func createResources(t *testing.T, ctx context.Context, dynamicClusterClient kcpdynamic.ClusterInterface, discoveryClusterClient *discovery.DiscoveryClient, clusterName logicalcluster.Name, fileName string) {
+func createResources(t *testing.T, ctx context.Context, dynamicClusterClient kcpdynamic.ClusterInterface, discoveryClusterClient kcpdiscovery.DiscoveryClusterInterface, clusterName logicalcluster.Name, fileName string) {
 	t.Logf("Create resources in %s", clusterName)
-	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(discoveryClusterClient.WithCluster(clusterName)))
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(discoveryClusterClient.Cluster(clusterName)))
 	require.Eventually(t, func() bool {
 		if err := confighelpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(clusterName), mapper, nil, fileName, embeddedResources); err != nil {
 			t.Logf("failed to create resources: %v", err)

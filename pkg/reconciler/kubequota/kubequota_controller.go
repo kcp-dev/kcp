@@ -41,7 +41,7 @@ import (
 	"k8s.io/kubernetes/pkg/quota/v1/install"
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
@@ -77,12 +77,12 @@ type Controller struct {
 	scopingGenericSharedInformerFactory scopeableInformerFactory
 
 	// For better testability
-	getClusterWorkspace func(key string) (*tenancyv1alpha1.ClusterWorkspace, error)
+	getClusterWorkspace func(cluster logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspace, error)
 }
 
 // NewController creates a new Controller.
 func NewController(
-	clusterWorkspacesInformer tenancyinformers.ClusterWorkspaceInformer,
+	clusterWorkspacesInformer tenancyv1alpha1informers.ClusterWorkspaceClusterInformer,
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	kubeInformerFactory kcpkubernetesinformers.SharedInformerFactory,
 	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory,
@@ -108,8 +108,8 @@ func NewController(
 		scopingGenericSharedInformerFactory: dynamicDiscoverySharedInformerFactory,
 		resourceQuotaClusterInformer:        kubeInformerFactory.Core().V1().ResourceQuotas(),
 
-		getClusterWorkspace: func(key string) (*tenancyv1alpha1.ClusterWorkspace, error) {
-			return clusterWorkspacesInformer.Lister().Get(key)
+		getClusterWorkspace: func(cluster logicalcluster.Name, name string) (*tenancyv1alpha1.ClusterWorkspace, error) {
+			return clusterWorkspacesInformer.Lister().Cluster(cluster).Get(name)
 		},
 	}
 
@@ -203,7 +203,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	clusterName := parent.Join(name)
 	logger = logger.WithValues("logicalCluster", clusterName.String())
 
-	ws, err := c.getClusterWorkspace(key)
+	ws, err := c.getClusterWorkspace(parent, name)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			logger.V(2).Info("ClusterWorkspace not found - stopping quota controller for it (if needed)")

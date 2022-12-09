@@ -32,7 +32,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kcpapiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/kcp/clientset/versioned"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -41,7 +40,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/retry"
 
@@ -50,8 +48,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	workloadnamespace "github.com/kcp-dev/kcp/pkg/reconciler/workload/namespace"
-	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -95,19 +93,7 @@ func TestNamespaceScheduler(t *testing.T) {
 				// controller just needs ready clusters which can be accomplished without a syncer by having the
 				// heartbeater update the sync target so the heartbeat controller can set the cluster ready.
 				syncerFixture := framework.NewSyncerFixture(t, server, server.clusterName,
-					framework.WithExtraResources("services"),
-					framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
-						if !isFakePCluster {
-							// Only need to install services in a logical cluster
-							return
-						}
-						crdClusterClient, err := apiextensionsclient.NewForConfig(config)
-						require.NoError(t, err, "failed to construct apiextensions client for server")
-						kubefixtures.Create(t, crdClusterClient.ApiextensionsV1().CustomResourceDefinitions(),
-							metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
-							metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
-						)
-					})).Start(t)
+					framework.WithExtraResources("services")).Start(t)
 				syncTargetName := syncerFixture.SyncerConfig.SyncTargetName
 
 				t.Logf("Bind to location workspace")
@@ -187,11 +173,6 @@ func TestNamespaceScheduler(t *testing.T) {
 				require.NoError(t, err, "failed to create cluster")
 				syncTargetKey := workloadv1alpha1.ToSyncTargetKey(logicalcluster.From(cluster), cluster.Name)
 
-				t.Logf("Bind to location workspace")
-				framework.NewBindCompute(t, server.clusterName, server,
-					framework.WithAPIExportsWorkloadBindOption(server.clusterName.String()+":kubernetes"),
-				).Bind(t)
-
 				go wait.UntilWithContext(ctx, func(ctx context.Context) {
 					patchBytes := []byte(fmt.Sprintf(`[{"op":"replace","path":"/status/lastSyncerHeartbeatTime","value":%q}]`, time.Now().Format(time.RFC3339)))
 					_, err := server.kcpClient.WorkloadV1alpha1().SyncTargets().Patch(ctx, cluster.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{}, "status")
@@ -202,6 +183,11 @@ func TestNamespaceScheduler(t *testing.T) {
 						return
 					}
 				}, 100*time.Millisecond)
+
+				t.Logf("Bind to location workspace")
+				framework.NewBindCompute(t, server.clusterName, server,
+					framework.WithAPIExportsWorkloadBindOption(server.clusterName.String()+":kubernetes"),
+				).Bind(t)
 
 				t.Log("Create a new unique sheriff CRD")
 				group := framework.UniqueGroup(".io")
@@ -280,7 +266,7 @@ func TestNamespaceScheduler(t *testing.T) {
 			kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 			require.NoError(t, err)
 
-			kcpClusterClient, err := clientset.NewClusterForConfig(cfg)
+			kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 			require.NoError(t, err)
 
 			expecterClient, err := kcpkubernetesclientset.NewForConfig(server.RootShardSystemMasterBaseConfig(t))

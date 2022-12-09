@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/require"
@@ -38,13 +37,13 @@ import (
 	"k8s.io/client-go/rest"
 
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
-	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/pkg/syncer/shared"
-	kubefixtures "github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
 	fixturewildwest "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
 	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned"
+	wildwestclusterclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/cluster"
 	wildwestv1alpha1client "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/typed/wildwest/v1alpha1"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -70,7 +69,7 @@ func TestClusterController(t *testing.T) {
 				kcpClient, err := kcpclientset.NewForConfig(syncerFixture.SyncerConfig.UpstreamConfig)
 				require.NoError(t, err)
 
-				syncTarget, err := kcpClient.WorkloadV1alpha1().SyncTargets().Get(ctx,
+				syncTarget, err := kcpClient.Cluster(syncerFixture.SyncerConfig.SyncTargetWorkspace).WorkloadV1alpha1().SyncTargets().Get(ctx,
 					syncerFixture.SyncerConfig.SyncTargetName,
 					metav1.GetOptions{},
 				)
@@ -90,6 +89,9 @@ func TestClusterController(t *testing.T) {
 						},
 						Spec: wildwestv1alpha1.CowboySpec{Intent: "yeehaw"},
 					}, metav1.CreateOptions{})
+					if err != nil {
+						t.Logf("err: %v", err)
+					}
 
 					return err == nil
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "expected cowboy resource to be created")
@@ -172,19 +174,19 @@ func TestClusterController(t *testing.T) {
 			t.Cleanup(cancelFunc)
 
 			t.Log("Creating a workspace")
-			wsClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName)
+			wsClusterName := framework.NewWorkspaceFixture(t, source, orgClusterName, framework.WithName("source"))
 
 			// clients
 			sourceConfig := source.BaseConfig(t)
-			sourceWsClusterConfig := kcpclienthelper.SetCluster(rest.CopyConfig(sourceConfig), wsClusterName)
 
 			sourceKubeClient, err := kcpkubernetesclientset.NewForConfig(sourceConfig)
 			require.NoError(t, err)
-			sourceWildwestClient, err := wildwestclientset.NewForConfig(sourceWsClusterConfig)
+
+			sourceWildwestClusterClient, err := wildwestclusterclientset.NewForConfig(sourceConfig)
 			require.NoError(t, err)
 
 			syncerFixture := framework.NewSyncerFixture(t, source, wsClusterName,
-				framework.WithExtraResources("cowboys.wildwest.dev", "services", "roles.rbac.authorization.k8s.io", "rolebindings.rbac.authorization.k8s.io"),
+				framework.WithExtraResources("cowboys.wildwest.dev", "services"),
 				framework.WithDownstreamPreparation(func(config *rest.Config, isFakePCluster bool) {
 					// Always install the crd regardless of whether the target is
 					// logical or not since cowboys is not a native type.
@@ -192,14 +194,6 @@ func TestClusterController(t *testing.T) {
 					require.NoError(t, err)
 					t.Log("Installing test CRDs into sink cluster...")
 					fixturewildwest.FakePClusterCreate(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(), metav1.GroupResource{Group: wildwest.GroupName, Resource: "cowboys"})
-
-					if isFakePCluster {
-						// Only need to install services in a non-logical cluster
-						kubefixtures.Create(t, sinkCrdClient.ApiextensionsV1().CustomResourceDefinitions(),
-							metav1.GroupResource{Group: "core.k8s.io", Resource: "services"},
-							metav1.GroupResource{Group: "core.k8s.io", Resource: "endpoints"},
-						)
-					}
 				})).Start(t)
 
 			t.Logf("Bind second user workspace to location workspace")
@@ -216,7 +210,7 @@ func TestClusterController(t *testing.T) {
 
 			runningServers := map[string]runningServer{
 				sourceClusterName: {
-					client:     sourceWildwestClient.WildwestV1alpha1(),
+					client:     sourceWildwestClusterClient.Cluster(wsClusterName).WildwestV1alpha1(),
 					coreClient: sourceKubeClient.Cluster(wsClusterName).CoreV1(),
 				},
 				sinkClusterName: {

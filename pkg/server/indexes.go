@@ -19,29 +19,15 @@ package server
 import (
 	"fmt"
 
-	"github.com/kcp-dev/logicalcluster/v2"
-
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 )
 
 const (
-	byWorkspace             = "byWorkspace"
 	byGroupResourceName     = "byGroupResourceName" // <plural>.<group>, core group uses "core"
 	byIdentityGroupResource = "byIdentityGroupResource"
 )
-
-func indexByWorkspace(obj interface{}) ([]string, error) {
-	metaObj, ok := obj.(metav1.Object)
-	if !ok {
-		return []string{}, fmt.Errorf("obj is supposed to be a metav1.Object, but is %T", obj)
-	}
-
-	lcluster := logicalcluster.From(metaObj)
-	return []string{lcluster.String()}, nil
-}
 
 func indexCRDByGroupResourceName(obj interface{}) ([]string, error) {
 	crd, ok := obj.(*apiextensionsv1.CustomResourceDefinition)

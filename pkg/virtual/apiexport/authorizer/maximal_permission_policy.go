@@ -29,10 +29,8 @@ import (
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/authorization"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
-	"github.com/kcp-dev/kcp/pkg/client"
-	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
+	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 )
@@ -49,13 +47,13 @@ type maximalPermissionAuthorizer struct {
 //
 // If the request is a cluster request the authorizer skips authorization if the request is not for a bound resource.
 // If the request is a wildcard request this check is skipped because no unique API binding can be determined.
-func NewMaximalPermissionAuthorizer(deepSARClient kcpkubernetesclientset.ClusterInterface, apiExportInformer apisinformers.APIExportInformer) authorizer.Authorizer {
+func NewMaximalPermissionAuthorizer(deepSARClient kcpkubernetesclientset.ClusterInterface, apiExportInformer apisv1alpha1informers.APIExportClusterInformer) authorizer.Authorizer {
 	apiExportLister := apiExportInformer.Lister()
 	apiExportIndexer := apiExportInformer.Informer().GetIndexer()
 
-	auth := &maximalPermissionAuthorizer{
+	return &maximalPermissionAuthorizer{
 		getAPIExport: func(clusterName, apiExportName string) (*apisv1alpha1.APIExport, error) {
-			return apiExportLister.Get(client.ToClusterAwareKey(logicalcluster.New(clusterName), apiExportName))
+			return apiExportLister.Cluster(logicalcluster.New(clusterName)).Get(apiExportName)
 		},
 		getAPIExportsByIdentity: func(identityHash string) ([]*apisv1alpha1.APIExport, error) {
 			return indexers.ByIndex[*apisv1alpha1.APIExport](apiExportIndexer, indexers.APIExportByIdentity, identityHash)
@@ -64,9 +62,6 @@ func NewMaximalPermissionAuthorizer(deepSARClient kcpkubernetesclientset.Cluster
 			return delegated.NewDelegatedAuthorizer(clusterName, deepSARClient)
 		},
 	}
-
-	return authorization.NewAnonymizer("virtual apiexport maximum permission policy authorizer",
-		authorization.NewAuditLogger("virtual.apiexport.maxpermissionpolicy.authorization.kcp.dev", auth))
 }
 
 func (a *maximalPermissionAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {

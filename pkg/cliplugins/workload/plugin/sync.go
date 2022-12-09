@@ -288,7 +288,7 @@ func getSyncerID(syncTarget *workloadv1alpha1.SyncTarget) string {
 }
 
 func (o *SyncOptions) applySyncTarget(ctx context.Context, kcpClient kcpclient.Interface, syncTargetName string) (*workloadv1alpha1.SyncTarget, error) {
-	supportedAPIExports := make([]apisv1alpha1.ExportReference, len(o.APIExports))
+	var supportedAPIExports []apisv1alpha1.ExportReference
 	for _, export := range o.APIExports {
 		lclusterName, name := logicalcluster.New(export).Split()
 		supportedAPIExports = append(supportedAPIExports, apisv1alpha1.ExportReference{
@@ -300,7 +300,7 @@ func (o *SyncOptions) applySyncTarget(ctx context.Context, kcpClient kcpclient.I
 	}
 
 	// if ResourcesToSync is not empty, add export in synctarget workspace.
-	if len(o.ResourcesToSync) > 0 {
+	if len(o.ResourcesToSync) > 0 && !sets.NewString(o.APIExports...).Has("kubernetes") {
 		supportedAPIExports = append(supportedAPIExports, apisv1alpha1.ExportReference{
 			Workspace: &apisv1alpha1.WorkspaceExportReference{
 				ExportName: "kubernetes",
@@ -329,6 +329,9 @@ func (o *SyncOptions) applySyncTarget(ctx context.Context, kcpClient kcpclient.I
 		)
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			return nil, fmt.Errorf("failed to create synctarget %q: %w", syncTargetName, err)
+		}
+		if err == nil {
+			return syncTarget, nil
 		}
 	case err != nil:
 		return nil, err

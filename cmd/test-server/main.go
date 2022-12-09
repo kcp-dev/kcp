@@ -48,7 +48,7 @@ import (
 func main() {
 	flag.String("log-file-path", ".kcp/kcp.log", "Path to the log file")
 
-	// split flags into --shard-* and everything elese (generic). The former are
+	// split flags into --shard-* and everything else (generic). The former are
 	// passed to the respective components. Everything after "--" is considered a shard flag.
 	var shardFlags, genericFlags []string
 	for i, arg := range os.Args[1:] {

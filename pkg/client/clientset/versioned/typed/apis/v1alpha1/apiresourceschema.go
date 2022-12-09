@@ -22,8 +22,6 @@ import (
 	"context"
 	"time"
 
-	v2 "github.com/kcp-dev/logicalcluster/v2"
-
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -54,15 +52,13 @@ type APIResourceSchemaInterface interface {
 
 // aPIResourceSchemas implements APIResourceSchemaInterface
 type aPIResourceSchemas struct {
-	client  rest.Interface
-	cluster v2.Name
+	client rest.Interface
 }
 
 // newAPIResourceSchemas returns a APIResourceSchemas
 func newAPIResourceSchemas(c *ApisV1alpha1Client) *aPIResourceSchemas {
 	return &aPIResourceSchemas{
-		client:  c.RESTClient(),
-		cluster: c.cluster,
+		client: c.RESTClient(),
 	}
 }
 
@@ -70,7 +66,6 @@ func newAPIResourceSchemas(c *ApisV1alpha1Client) *aPIResourceSchemas {
 func (c *aPIResourceSchemas) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.APIResourceSchema, err error) {
 	result = &v1alpha1.APIResourceSchema{}
 	err = c.client.Get().
-		Cluster(c.cluster).
 		Resource("apiresourceschemas").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
@@ -87,7 +82,6 @@ func (c *aPIResourceSchemas) List(ctx context.Context, opts v1.ListOptions) (res
 	}
 	result = &v1alpha1.APIResourceSchemaList{}
 	err = c.client.Get().
-		Cluster(c.cluster).
 		Resource("apiresourceschemas").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -104,7 +98,6 @@ func (c *aPIResourceSchemas) Watch(ctx context.Context, opts v1.ListOptions) (wa
 	}
 	opts.Watch = true
 	return c.client.Get().
-		Cluster(c.cluster).
 		Resource("apiresourceschemas").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -115,7 +108,6 @@ func (c *aPIResourceSchemas) Watch(ctx context.Context, opts v1.ListOptions) (wa
 func (c *aPIResourceSchemas) Create(ctx context.Context, aPIResourceSchema *v1alpha1.APIResourceSchema, opts v1.CreateOptions) (result *v1alpha1.APIResourceSchema, err error) {
 	result = &v1alpha1.APIResourceSchema{}
 	err = c.client.Post().
-		Cluster(c.cluster).
 		Resource("apiresourceschemas").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(aPIResourceSchema).
@@ -128,7 +120,6 @@ func (c *aPIResourceSchemas) Create(ctx context.Context, aPIResourceSchema *v1al
 func (c *aPIResourceSchemas) Update(ctx context.Context, aPIResourceSchema *v1alpha1.APIResourceSchema, opts v1.UpdateOptions) (result *v1alpha1.APIResourceSchema, err error) {
 	result = &v1alpha1.APIResourceSchema{}
 	err = c.client.Put().
-		Cluster(c.cluster).
 		Resource("apiresourceschemas").
 		Name(aPIResourceSchema.Name).
 		VersionedParams(&opts, scheme.ParameterCodec).
@@ -141,7 +132,6 @@ func (c *aPIResourceSchemas) Update(ctx context.Context, aPIResourceSchema *v1al
 // Delete takes name of the aPIResourceSchema and deletes it. Returns an error if one occurs.
 func (c *aPIResourceSchemas) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	return c.client.Delete().
-		Cluster(c.cluster).
 		Resource("apiresourceschemas").
 		Name(name).
 		Body(&opts).
@@ -156,7 +146,6 @@ func (c *aPIResourceSchemas) DeleteCollection(ctx context.Context, opts v1.Delet
 		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
 	}
 	return c.client.Delete().
-		Cluster(c.cluster).
 		Resource("apiresourceschemas").
 		VersionedParams(&listOpts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -169,7 +158,6 @@ func (c *aPIResourceSchemas) DeleteCollection(ctx context.Context, opts v1.Delet
 func (c *aPIResourceSchemas) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.APIResourceSchema, err error) {
 	result = &v1alpha1.APIResourceSchema{}
 	err = c.client.Patch(pt).
-		Cluster(c.cluster).
 		Resource("apiresourceschemas").
 		Name(name).
 		SubResource(subresources...).

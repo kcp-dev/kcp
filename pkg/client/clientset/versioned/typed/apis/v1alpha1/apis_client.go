@@ -21,8 +21,6 @@ package v1alpha1
 import (
 	"net/http"
 
-	v2 "github.com/kcp-dev/logicalcluster/v2"
-
 	rest "k8s.io/client-go/rest"
 
 	v1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
@@ -33,13 +31,13 @@ type ApisV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	APIBindingsGetter
 	APIExportsGetter
+	APIExportEndpointSlicesGetter
 	APIResourceSchemasGetter
 }
 
 // ApisV1alpha1Client is used to interact with features provided by the apis.kcp.dev group.
 type ApisV1alpha1Client struct {
 	restClient rest.Interface
-	cluster    v2.Name
 }
 
 func (c *ApisV1alpha1Client) APIBindings() APIBindingInterface {
@@ -48,6 +46,10 @@ func (c *ApisV1alpha1Client) APIBindings() APIBindingInterface {
 
 func (c *ApisV1alpha1Client) APIExports() APIExportInterface {
 	return newAPIExports(c)
+}
+
+func (c *ApisV1alpha1Client) APIExportEndpointSlices() APIExportEndpointSliceInterface {
+	return newAPIExportEndpointSlices(c)
 }
 
 func (c *ApisV1alpha1Client) APIResourceSchemas() APIResourceSchemaInterface {
@@ -80,7 +82,7 @@ func NewForConfigAndClient(c *rest.Config, h *http.Client) (*ApisV1alpha1Client,
 	if err != nil {
 		return nil, err
 	}
-	return &ApisV1alpha1Client{restClient: client}, nil
+	return &ApisV1alpha1Client{client}, nil
 }
 
 // NewForConfigOrDie creates a new ApisV1alpha1Client for the given config and
@@ -95,12 +97,7 @@ func NewForConfigOrDie(c *rest.Config) *ApisV1alpha1Client {
 
 // New creates a new ApisV1alpha1Client for the given RESTClient.
 func New(c rest.Interface) *ApisV1alpha1Client {
-	return &ApisV1alpha1Client{restClient: c}
-}
-
-// NewWithCluster creates a new ApisV1alpha1Client for the given RESTClient and cluster.
-func NewWithCluster(c rest.Interface, cluster v2.Name) *ApisV1alpha1Client {
-	return &ApisV1alpha1Client{restClient: c, cluster: cluster}
+	return &ApisV1alpha1Client{c}
 }
 
 func setConfigDefaults(config *rest.Config) error {

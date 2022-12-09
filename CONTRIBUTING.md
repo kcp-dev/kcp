@@ -105,7 +105,7 @@ If you find yourself working on something that is unplanned and/or untracked (i.
     - `pclusterClient`
     - `rootKcpClient`
     - `orgKubeClient`
-- Configs intended for `NewClusterForConfig` (i.e. today often called "admin workspace config") should uniformly be called `clusterConfig`
+- Configs intended for `NewForConfig` (i.e. today often called "admin workspace config") should uniformly be called `clusterConfig`
     - Note: with org workspaces, `kcp` will no longer default clients to the "root" ("admin") logical cluster
     - Note 2: sometimes we use clients for same purpose, but this can be harder to read
 - Cluster-aware clients should follow similar naming conventions:
