@@ -28,7 +28,6 @@ import (
 	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	kcpauthorization "github.com/kcp-dev/kcp/pkg/authorization"
 	"github.com/kcp-dev/kcp/pkg/proxy/index"
 )
@@ -57,7 +56,7 @@ func shardHandler(index index.Index, proxy http.Handler) http.HandlerFunc {
 			return
 		}
 
-		shardURLString, canonicalPath, found := index.LookupURL(clusterName)
+		shardURLString, found := index.LookupURL(clusterName)
 		if !found {
 			logger.WithValues("clusterName", clusterName).V(4).Info("Unknown cluster")
 			responsewriters.Forbidden(req.Context(), attributes, w, req, kcpauthorization.WorkspaceAccessNotPermittedReason, kubernetesscheme.Codecs)
@@ -71,7 +70,6 @@ func shardHandler(index index.Index, proxy http.Handler) http.HandlerFunc {
 
 		logger.WithValues("from", req.URL.Path, "to", shardURL).V(4).Info("Redirecting")
 
-		ctx = tenancy.WithCanonicalPath(WithShardURL(ctx, shardURL), canonicalPath)
 		req = req.WithContext(ctx)
 		proxy.ServeHTTP(w, req)
 	}

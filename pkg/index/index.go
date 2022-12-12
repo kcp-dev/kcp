@@ -191,7 +191,7 @@ func (c *State) DeleteShard(shardName string) {
 	delete(c.shardClusterParentCluster, shardName)
 }
 
-func (c *State) Lookup(path logicalcluster.Path) (shard string, cluster logicalcluster.Name, canonicalPath logicalcluster.Path, found bool) {
+func (c *State) Lookup(path logicalcluster.Path) (shard string, cluster logicalcluster.Name, found bool) {
 	segments := strings.Split(path.String(), ":")
 
 	for _, rewriter := range c.rewriters {
@@ -207,7 +207,7 @@ func (c *State) Lookup(path logicalcluster.Path) (shard string, cluster logicalc
 			var found bool
 			shard, found = c.clusterShards[logicalcluster.Name(s)]
 			if !found {
-				return "", "", logicalcluster.Path{}, false
+				return "", "", false
 			}
 			cluster = logicalcluster.Name(s)
 			continue
@@ -216,11 +216,11 @@ func (c *State) Lookup(path logicalcluster.Path) (shard string, cluster logicalc
 		var found bool
 		cluster, found = c.shardWorkspaceNameCluster[shard][cluster][s]
 		if !found {
-			return "", "", logicalcluster.Path{}, false
+			return "", "", false
 		}
 		shard, found = c.clusterShards[cluster]
 		if !found {
-			return "", "", logicalcluster.Path{}, false
+			return "", "", false
 		}
 	}
 
@@ -230,7 +230,7 @@ func (c *State) Lookup(path logicalcluster.Path) (shard string, cluster logicalc
 	for {
 		shard, found = c.clusterShards[ancestor]
 		if !found {
-			return "", "", logicalcluster.Path{}, false
+			return "", "", false
 		}
 		if name, found := c.shardClusterWorkspaceName[shard][ancestor]; !found {
 			inversePath = append(inversePath, ancestor.String())
@@ -240,23 +240,20 @@ func (c *State) Lookup(path logicalcluster.Path) (shard string, cluster logicalc
 			ancestor = c.shardClusterParentCluster[shard][ancestor]
 		}
 	}
-	for i := len(inversePath) - 1; i >= 0; i-- {
-		canonicalPath = canonicalPath.Join(inversePath[i])
-	}
 
-	return shard, cluster, canonicalPath, true
+	return shard, cluster, true
 }
 
-func (c *State) LookupURL(path logicalcluster.Path) (url string, canonicalPath logicalcluster.Path, found bool) {
-	shard, cluster, canonicalPath, found := c.Lookup(path)
+func (c *State) LookupURL(path logicalcluster.Path) (url string, found bool) {
+	shard, cluster, found := c.Lookup(path)
 	if !found {
-		return "", logicalcluster.Path{}, false
+		return "", false
 	}
 
 	baseURL, found := c.shardBaseURLs[shard]
 	if !found {
-		return "", logicalcluster.Path{}, false
+		return "", false
 	}
 
-	return strings.TrimSuffix(baseURL, "/") + cluster.Path().RequestPath(), canonicalPath, true
+	return strings.TrimSuffix(baseURL, "/") + cluster.Path().RequestPath(), true
 }

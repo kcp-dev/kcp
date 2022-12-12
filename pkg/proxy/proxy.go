@@ -29,8 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	userinfo "k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/endpoints/request"
-
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 )
 
 func newTransport(clientCert, clientKeyFile, caFile string) (*http.Transport, error) {
@@ -96,9 +94,6 @@ func newShardReverseProxy() *httputil.ReverseProxy {
 			return
 		}
 
-		canonicalPath := tenancy.CanonicalPathFrom(req.Context())
-
-		req.Header.Set(tenancy.XKcpCanonicalPathHeader, canonicalPath.String())
 		req.URL.Scheme = shardURL.Scheme
 		req.URL.Host = shardURL.Host
 	}

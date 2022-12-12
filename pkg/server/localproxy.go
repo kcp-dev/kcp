@@ -29,7 +29,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
@@ -133,7 +132,7 @@ func WithLocalProxy(
 		}
 
 		// lookup in our local, potentially partial index
-		requestShardName, rewrittenClusterName, computedCanonicalPath, foundInIndex := indexState.Lookup(path)
+		requestShardName, rewrittenClusterName, foundInIndex := indexState.Lookup(path)
 		if foundInIndex && requestShardName != shardName {
 			klog.Infof("Cluster %q is not on this shard, but on %q", cluster.Name, requestShardName)
 
@@ -151,20 +150,6 @@ func WithLocalProxy(
 			klog.Infof("Cluster %q not found", cluster.Name)
 			handler.ServeHTTP(w, req.WithContext(request.WithCluster(ctx, cluster)))
 			return
-		}
-
-		// Keep canonical path from header as it might be more complete, or if there is
-		// no header, use the computed canonical path.
-		//
-		// Note: the client can of course fake this header, but it's not a security issue
-		// because it can equally just put the same value in the API objects. The canonical
-		// path must only be used for defaulting, not for something security-critical.
-		if value, found := tenancy.CanonicalPathFromHeader(req.Header); found {
-			ctx = tenancy.WithCanonicalPath(ctx, value)
-		} else if foundInIndex {
-			ctx = tenancy.WithCanonicalPath(ctx, computedCanonicalPath)
-		} else if clusterName == tenancyv1alpha1.RootCluster {
-			ctx = tenancy.WithCanonicalPath(ctx, tenancyv1alpha1.RootCluster.Path())
 		}
 
 		if foundInIndex {
