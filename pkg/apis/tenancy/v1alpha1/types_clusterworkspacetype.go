@@ -116,20 +116,18 @@ type ClusterWorkspaceTypeSpec struct {
 	// The APIBinding names will be generated dynamically.
 	//
 	// +optional
-	// +listType=map
-	// +listMapKey=path
-	// +listMapKey=export
 	DefaultAPIBindings []APIExportReference `json:"defaultAPIBindings,omitempty"`
 }
 
 // APIExportReference provides the fields necessary to resolve an APIExport.
 type APIExportReference struct {
-	// path is the fully-qualified path to the workspace containing the APIExport.
+	// path is the fully-qualified path to the workspace containing the APIExport. If it is
+	// empty, the current workspace is assumed.
 	//
-	// +required
-	// +kubebuilder:validation:Required
+	// +optional
+	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Pattern:="^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
-	Path string `json:"path"`
+	Path string `json:"path,omitempty"`
 
 	// export is the name of the APIExport.
 	//

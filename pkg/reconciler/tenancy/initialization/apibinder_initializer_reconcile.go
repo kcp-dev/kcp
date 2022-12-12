@@ -122,7 +122,9 @@ func (b *APIBinder) reconcile(ctx context.Context, this *tenancyv1alpha1.ThisWor
 
 		for i := range cwt.Spec.DefaultAPIBindings {
 			exportRef := cwt.Spec.DefaultAPIBindings[i]
-
+			if exportRef.Path == "" {
+				exportRef.Path = logicalcluster.From(cwt).String()
+			}
 			apiExport, err := b.getAPIExport(logicalcluster.NewPath(exportRef.Path), exportRef.Export)
 			if err != nil {
 				if !someExportsMissing {

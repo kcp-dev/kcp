@@ -60,10 +60,10 @@ spec:
                     type: string
                   path:
                     description: path is the fully-qualified path to the workspace
-                      containing the APIExport.
+                      containing the APIExport. If it is empty, the current workspace
+                      is assumed.
                     type: string
                 required:
-                - path
                 - export
                 type: object
               type: array

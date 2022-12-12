@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -39,6 +40,7 @@ import (
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	apiresourcev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
@@ -174,19 +176,35 @@ func (c *Controller) enqueueAPIResourceImport(obj interface{}) {
 }
 
 func (c *Controller) enqueueAPIExport(obj interface{}, logSuffix string) {
-	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
+	if d, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+		obj = d.Obj
+	}
+
+	export, ok := obj.(*apisv1alpha1.APIExport)
+	if !ok {
+		runtime.HandleError(fmt.Errorf("obj is supposed to be a APIExport, but is %T", obj))
+		return
+	}
+
+	// synctarget keys by full path
+	keys := sets.NewString()
+	if path := export.Annotations[tenancy.LogicalClusterPathAnnotationKey]; path != "" {
+		pathKeys, err := c.syncTargetIndexer.IndexKeys(indexSyncTargetsByExport, logicalcluster.NewPath(path).Join(export.Name).String())
+		if err != nil {
+			runtime.HandleError(err)
+			return
+		}
+		keys.Insert(pathKeys...)
+	}
+
+	clusterKeys, err := c.syncTargetIndexer.IndexKeys(indexSyncTargetsByExport, logicalcluster.From(export).Path().Join(export.Name).String())
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
+	keys.Insert(clusterKeys...)
 
-	synctargets, err := c.syncTargetIndexer.ByIndex(indexSyncTargetsByExport, key)
-	if err != nil {
-		runtime.HandleError(err)
-		return
-	}
-
-	for _, obj := range synctargets {
+	for _, key := range keys.List() {
 		c.enqueueSyncTarget(obj, fmt.Sprintf(" because of APIExport %s%s", key, logSuffix))
 	}
 }

@@ -192,6 +192,7 @@ func withRootComputeAPIResourceList(workspaceName logicalcluster.Name) []*metav1
 }
 
 func logWithTimestamp(t *testing.T, format string, args ...interface{}) {
+	t.Helper()
 	t.Logf("[%s] %s", time.Now().Format("15:04:05.000000"), fmt.Sprintf(format, args...))
 }
 

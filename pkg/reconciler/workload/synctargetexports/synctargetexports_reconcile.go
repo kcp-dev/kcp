@@ -40,6 +40,9 @@ func (e *exportReconciler) reconcile(ctx context.Context, syncTarget *workloadv1
 	var errs []error
 	var syncedResources []workloadv1alpha1.ResourceToSync
 	for _, exportRef := range syncTarget.Spec.SupportedAPIExports {
+		if exportRef.Path == "" {
+			exportRef.Path = logicalcluster.From(syncTarget).String()
+		}
 		export, err := e.getAPIExport(logicalcluster.NewPath(exportRef.Path), exportRef.Export)
 		if apierrors.IsNotFound(err) {
 			continue
