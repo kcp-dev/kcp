@@ -200,6 +200,10 @@ func TestDeploymentCoordinator(t *testing.T) {
 			name:              workloadWorkspace1,
 			requestedReplicas: 4,
 		},
+		{
+			name:              workloadWorkspace2,
+			requestedReplicas: 8,
+		},
 	} {
 		wkspDownstreamInfo := downstreamInfo{
 			namespaceOnEast: eastSyncer.DownstreamNamespaceFor(t, workspace.name, "default"),
@@ -252,7 +256,7 @@ func TestDeploymentCoordinator(t *testing.T) {
 				return false, fmt.Sprintf("Deployment %s/%s had %d available replicas, not %d", workspace.name, "test", actual, expected)
 			}
 			return true, ""
-		}, wait.ForeverTestTimeout, time.Millisecond*100, "deployment %s/%s was not synced", workspace.name, "test")
+		}, wait.ForeverTestTimeout, time.Millisecond*500, "deployment %s/%s was not synced", workspace.name, "test")
 
 		t.Logf("Check that each deployment on each SyncTarget has half the number of replicas")
 		downstreamDeploymentOnEastForWorkspace1, err := downstreamKubeClient.AppsV1().Deployments(wkspDownstreamInfo.namespaceOnEast).Get(ctx, "test", metav1.GetOptions{})
