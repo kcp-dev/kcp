@@ -128,7 +128,7 @@ type APIExportReference struct {
 	//
 	// +required
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Pattern:="^root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+	// +kubebuilder:validation:Pattern:="^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
 	Path string `json:"path"`
 
 	// export is the name of the APIExport.
@@ -216,7 +216,7 @@ type ClusterWorkspaceTypeList struct {
 // WorkspaceInitializer is a unique string corresponding to a cluster workspace
 // initialization controller for the given type of workspaces.
 //
-// +kubebuilder:validation:Pattern:="^(root(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$"
+// +kubebuilder:validation:Pattern:="^([a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$"
 type WorkspaceInitializer string
 
 // WorkspaceAPIBindingsInitializer is a special-case initializer that waits for APIBindings defined
