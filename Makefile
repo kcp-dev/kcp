@@ -45,7 +45,7 @@ OPENSHIFT_GOIMPORTS_BIN := openshift-goimports
 OPENSHIFT_GOIMPORTS := $(TOOLS_DIR)/$(OPENSHIFT_GOIMPORTS_BIN)-$(OPENSHIFT_GOIMPORTS_VER)
 export OPENSHIFT_GOIMPORTS # so hack scripts can use it
 
-GOLANGCI_LINT_VER := v1.49.0
+GOLANGCI_LINT_VER := v1.50.1
 GOLANGCI_LINT_BIN := golangci-lint
 GOLANGCI_LINT := $(TOOLS_GOBIN_DIR)/$(GOLANGCI_LINT_BIN)-$(GOLANGCI_LINT_VER)
 
@@ -140,7 +140,7 @@ $(CODE_GENERATOR):
 	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) github.com/kcp-dev/code-generator/v2 $(CODE_GENERATOR_BIN) $(CODE_GENERATOR_VER)
 
 lint: $(GOLANGCI_LINT) $(STATICCHECK) $(LOGCHECK)
-	$(GOLANGCI_LINT) run --timeout=10m ./...
+	$(GOLANGCI_LINT) run ./...
 	$(STATICCHECK) -checks ST1019,ST1005 ./...
 	./hack/verify-contextual-logging.sh
 .PHONY: lint
