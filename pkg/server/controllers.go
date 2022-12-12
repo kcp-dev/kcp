@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	_ "net/http/pprof"
 	"os"
 	"time"
@@ -281,7 +280,7 @@ func (s *Server) installRootCAConfigMapController(ctx context.Context, config *r
 }
 
 func readCA(file string) ([]byte, error) {
-	rootCA, err := ioutil.ReadFile(file)
+	rootCA, err := os.ReadFile(file)
 	if err != nil {
 		return nil, err
 	}

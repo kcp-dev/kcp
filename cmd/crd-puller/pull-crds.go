@@ -19,7 +19,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -62,7 +61,7 @@ func main() {
 				if err != nil {
 					return err
 				}
-				if err := ioutil.WriteFile(name.String()+".yaml", yamlBytes, os.ModePerm); err != nil {
+				if err := os.WriteFile(name.String()+".yaml", yamlBytes, os.ModePerm); err != nil {
 					return err
 				}
 			}

@@ -19,10 +19,10 @@ package proxy
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
@@ -45,7 +45,7 @@ type PathMapping struct {
 }
 
 func NewHandler(ctx context.Context, o *proxyoptions.Options, index index.Index) (http.Handler, error) {
-	mappingData, err := ioutil.ReadFile(o.MappingFile)
+	mappingData, err := os.ReadFile(o.MappingFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read mapping file %q: %w", o.MappingFile, err)
 	}

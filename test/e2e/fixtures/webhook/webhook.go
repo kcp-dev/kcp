@@ -20,7 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"sync"
 	"testing"
@@ -76,7 +76,7 @@ func (s *AdmissionWebhookServer) ServeHTTP(resp http.ResponseWriter, req *http.R
 		http.Error(resp, msg, http.StatusBadRequest)
 	}
 
-	data, err := ioutil.ReadAll(req.Body)
+	data, err := io.ReadAll(req.Body)
 	if err != nil {
 		msg := fmt.Sprintf("Request could not be decoded: %v", err)
 		s.t.Logf("%v", msg)

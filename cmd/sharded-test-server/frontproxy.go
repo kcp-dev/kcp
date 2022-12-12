@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
@@ -96,7 +95,7 @@ func startFrontProxy(
 		return fmt.Errorf("error marshaling mappings yaml: %w", err)
 	}
 
-	if err := ioutil.WriteFile(filepath.Join(workDirPath, ".kcp-front-proxy/mapping.yaml"), mappingsYAML, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(workDirPath, ".kcp-front-proxy/mapping.yaml"), mappingsYAML, 0644); err != nil {
 		return fmt.Errorf("failed to create front-proxy mapping.yaml: %w", err)
 	}
 

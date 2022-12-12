@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # Build the binary
-FROM golang:1.18 AS builder
+FROM golang:1.19 AS builder
 
 WORKDIR /workspace
 # Copy the Go Modules manifests

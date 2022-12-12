@@ -17,29 +17,29 @@ limitations under the License.
 // sharded-test-server starts the kcp-front-proxy and one or more (in the future) kcp shard.
 // It also sets up the required certificates and keys for the front-proxy to connect to the shards:
 //
-//       ┌────────────────┐ ┌────────────────┐ ┌────────────────┐
-//       │                │ │                │ │                │ All accept .kcp/client-ca.crt client certs.
-//       │ Root shard     │ │ Shard 1        │ │ Shard 2        │ All accept .kcp/requestheader.crt requests with user/group headers.
-//       │                │ │                │ │                │ All use .kcp/serving-ca.crt compatible serving certs.
-//       │ .kcp-0/kcp.log │ │ .kcp-1/kcp.log │ │ .kcp-2/kcp.log │
-//       │                │ │                │ │                │
-//       └────────────────┘ └────────────────┘ └────────────────┘
-//              ▲ ▲                   ▲               ▲
-//      Watches │ │ Redirects traffic │  ┌────────────┘
-//      shards  │ │ to correct shard  │  │
-//              │ └─────────┐         │  │
-//              │           │.kcp-front-proxy/requestheader.crt/key
-//              │        ┌──┴──────────────┐
-//              └────────┤                 │
-//  .kcp/root.kubeconfig │                 │
-//                       │ kcp-front-proxy │
-//                       │                 │
-//                       │                 │
-//                       └─────────────────┘
-//                                ▲
-//          .kcp/admin.kubeconfig │
-//                                │
-//                       e2e test or kubectl
+//	     ┌────────────────┐ ┌────────────────┐ ┌────────────────┐
+//	     │                │ │                │ │                │ All accept .kcp/client-ca.crt client certs.
+//	     │ Root shard     │ │ Shard 1        │ │ Shard 2        │ All accept .kcp/requestheader.crt requests with user/group headers.
+//	     │                │ │                │ │                │ All use .kcp/serving-ca.crt compatible serving certs.
+//	     │ .kcp-0/kcp.log │ │ .kcp-1/kcp.log │ │ .kcp-2/kcp.log │
+//	     │                │ │                │ │                │
+//	     └────────────────┘ └────────────────┘ └────────────────┘
+//	            ▲ ▲                   ▲               ▲
+//	    Watches │ │ Redirects traffic │  ┌────────────┘
+//	    shards  │ │ to correct shard  │  │
+//	            │ └─────────┐         │  │
+//	            │           │.kcp-front-proxy/requestheader.crt/key
+//	            │        ┌──┴──────────────┐
+//	            └────────┤                 │
+//	.kcp/root.kubeconfig │                 │
+//	                     │ kcp-front-proxy │
+//	                     │                 │
+//	                     │                 │
+//	                     └─────────────────┘
+//	                              ▲
+//	        .kcp/admin.kubeconfig │
+//	                              │
+//	                     e2e test or kubectl
 //
 // Invocation: cmd/sharded-test-server --v=3 --proxy-v=4 --shard-v=5
 //
