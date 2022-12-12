@@ -185,10 +185,10 @@ func TestDeploymentCoordinator(t *testing.T) {
 	}
 
 	dumpEventsAndPods := func(di downstreamInfo) downstreamInfo {
-		di.lastEventsOnEast = dumpPodEvents(t, di.lastEventsOnEast, downstreamKubeClient, di.namespaceOnEast)
-		di.lastEventsOnWest = dumpPodEvents(t, di.lastEventsOnWest, downstreamKubeClient, di.namespaceOnWest)
-		di.logStateOnEast = dumpPodLogs(t, di.logStateOnEast, downstreamKubeClient, di.namespaceOnEast)
-		di.logStateOnWest = dumpPodLogs(t, di.logStateOnWest, downstreamKubeClient, di.namespaceOnWest)
+		di.lastEventsOnEast = dumpPodEvents(ctx, t, di.lastEventsOnEast, downstreamKubeClient, di.namespaceOnEast)
+		di.lastEventsOnWest = dumpPodEvents(ctx, t, di.lastEventsOnWest, downstreamKubeClient, di.namespaceOnWest)
+		di.logStateOnEast = dumpPodLogs(ctx, t, di.logStateOnEast, downstreamKubeClient, di.namespaceOnEast)
+		di.logStateOnWest = dumpPodLogs(ctx, t, di.logStateOnWest, downstreamKubeClient, di.namespaceOnWest)
 		return di
 	}
 
@@ -224,39 +224,41 @@ func TestDeploymentCoordinator(t *testing.T) {
 		}, wait.ForeverTestTimeout, time.Millisecond*100, "should create the deployment after the deployments resource is available in workspace %q", workspace.name)
 
 		t.Logf("Wait for the workload in workspace %q to be started and available with 4 replicas", workspace.name)
-		framework.Eventually(t, func() (success bool, reason string) {
-			deployment, err := upstreamKubeClusterClient.Cluster(workspace.name).AppsV1().Deployments("default").Get(ctx, "test", metav1.GetOptions{})
-			require.NoError(t, err)
+		func() {
+			defer dumpEventsAndPods(wkspDownstreamInfo)
 
-			// TODO(davidfestal): the 2 checks below are necessary here to avoid the test to be flaky since for now the coordination
-			// controller doesn't delay the syncing before setting the transformation annotations.
-			// So it could be synced with 8 replicas on each Synctarget at start, for a very small amount of time, which might
-			// seem like deployment replicas would have been spread, though in fact it is not.
-			if _, exists := deployment.GetAnnotations()["experimental.spec-diff.workload.kcp.dev/"+eastSyncer.ToSyncTargetKey()]; !exists {
-				return false, fmt.Sprintf("Deployment %s/%s should have been prepared for transformation by the coordinator for the east syncTarget", workspace.name, "test")
-			}
-			if _, exists := deployment.GetAnnotations()["experimental.spec-diff.workload.kcp.dev/"+westSyncer.ToSyncTargetKey()]; !exists {
-				return false, fmt.Sprintf("Deployment %s/%s should have been prepared for transformation by the coordinator for the west syncTarget", workspace.name, "test")
-			}
+			framework.Eventually(t, func() (success bool, reason string) {
+				deployment, err := upstreamKubeClusterClient.Cluster(workspace.name).AppsV1().Deployments("default").Get(ctx, "test", metav1.GetOptions{})
+				require.NoError(t, err)
 
-			// TODO(davidfestal): the 2 checks below are necessary here to avoid the test to be flaky since for now the coordination
-			// controller doesn't delay the syncing before setting the transformation annotations.
-			// So it could be synced with 8 replicas on each Synctarget at start, for a very small amount of time, which might
-			// seem like deployment replicas would have been spread, though in fact it is not.
-			if _, exists := deployment.GetAnnotations()["diff.syncer.internal.kcp.dev/"+eastSyncer.ToSyncTargetKey()]; !exists {
-				return false, fmt.Sprintf("Status of deployment %s/%s  should have been updated by the east syncer", workspace.name, "test")
-			}
-			if _, exists := deployment.GetAnnotations()["experimental.spec-diff.workload.kcp.dev/"+westSyncer.ToSyncTargetKey()]; !exists {
-				return false, fmt.Sprintf("Status of deployment %s/%s  should have been updated by the west syncer", workspace.name, "test")
-			}
+				// TODO(davidfestal): the 2 checks below are necessary here to avoid the test to be flaky since for now the coordination
+				// controller doesn't delay the syncing before setting the transformation annotations.
+				// So it could be synced with 8 replicas on each Synctarget at start, for a very small amount of time, which might
+				// seem like deployment replicas would have been spread, though in fact it is not.
+				if _, exists := deployment.GetAnnotations()["experimental.spec-diff.workload.kcp.dev/"+eastSyncer.ToSyncTargetKey()]; !exists {
+					return false, fmt.Sprintf("Deployment %s/%s should have been prepared for transformation by the coordinator for the east syncTarget", workspace.name, "test")
+				}
+				if _, exists := deployment.GetAnnotations()["experimental.spec-diff.workload.kcp.dev/"+westSyncer.ToSyncTargetKey()]; !exists {
+					return false, fmt.Sprintf("Deployment %s/%s should have been prepared for transformation by the coordinator for the west syncTarget", workspace.name, "test")
+				}
 
-			dumpEventsAndPods(wkspDownstreamInfo)
+				// TODO(davidfestal): the 2 checks below are necessary here to avoid the test to be flaky since for now the coordination
+				// controller doesn't delay the syncing before setting the transformation annotations.
+				// So it could be synced with 8 replicas on each Synctarget at start, for a very small amount of time, which might
+				// seem like deployment replicas would have been spread, though in fact it is not.
+				if _, exists := deployment.GetAnnotations()["diff.syncer.internal.kcp.dev/"+eastSyncer.ToSyncTargetKey()]; !exists {
+					return false, fmt.Sprintf("Status of deployment %s/%s  should have been updated by the east syncer", workspace.name, "test")
+				}
+				if _, exists := deployment.GetAnnotations()["experimental.spec-diff.workload.kcp.dev/"+westSyncer.ToSyncTargetKey()]; !exists {
+					return false, fmt.Sprintf("Status of deployment %s/%s  should have been updated by the west syncer", workspace.name, "test")
+				}
 
-			if actual, expected := deployment.Status.AvailableReplicas, workspace.requestedReplicas; actual != expected {
-				return false, fmt.Sprintf("Deployment %s/%s had %d available replicas, not %d", workspace.name, "test", actual, expected)
-			}
-			return true, ""
-		}, wait.ForeverTestTimeout, time.Millisecond*500, "deployment %s/%s was not synced", workspace.name, "test")
+				if actual, expected := deployment.Status.AvailableReplicas, workspace.requestedReplicas; actual != expected {
+					return false, fmt.Sprintf("Deployment %s/%s had %d available replicas, not %d", workspace.name, "test", actual, expected)
+				}
+				return true, ""
+			}, wait.ForeverTestTimeout, time.Millisecond*500, "deployment %s/%s was not synced", workspace.name, "test")
+		}()
 
 		t.Logf("Check that each deployment on each SyncTarget has half the number of replicas")
 		downstreamDeploymentOnEastForWorkspace1, err := downstreamKubeClient.AppsV1().Deployments(wkspDownstreamInfo.namespaceOnEast).Get(ctx, "test", metav1.GetOptions{})
@@ -269,10 +271,7 @@ func TestDeploymentCoordinator(t *testing.T) {
 	}
 }
 
-func dumpPodEvents(t *testing.T, startAfter time.Time, downstreamKubeClient kubernetes.Interface, downstreamNamespaceName string) time.Time {
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	t.Cleanup(cancelFunc)
-
+func dumpPodEvents(ctx context.Context, t *testing.T, startAfter time.Time, downstreamKubeClient kubernetes.Interface, downstreamNamespaceName string) time.Time {
 	eventList, err := downstreamKubeClient.CoreV1().Events(downstreamNamespaceName).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		t.Logf("Error getting events: %v", err)
@@ -313,10 +312,7 @@ func dumpPodEvents(t *testing.T, startAfter time.Time, downstreamKubeClient kube
 	return last
 }
 
-func dumpPodLogs(t *testing.T, startAfter map[string]*metav1.Time, downstreamKubeClient kubernetes.Interface, downstreamNamespaceName string) map[string]*metav1.Time {
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	t.Cleanup(cancelFunc)
-
+func dumpPodLogs(ctx context.Context, t *testing.T, startAfter map[string]*metav1.Time, downstreamKubeClient kubernetes.Interface, downstreamNamespaceName string) map[string]*metav1.Time {
 	if startAfter == nil {
 		startAfter = make(map[string]*metav1.Time)
 	}

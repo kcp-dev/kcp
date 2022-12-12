@@ -79,10 +79,10 @@ func NewDeploymentCoordinatorCommand() *cobra.Command {
 }
 
 func Run(ctx context.Context, options *options.Options) error {
+	defaultLoadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	defaultLoadingRules.ExplicitPath = options.Kubeconfig
 	r, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		&clientcmd.ClientConfigLoadingRules{
-			ExplicitPath: options.Kubeconfig,
-		},
+		defaultLoadingRules,
 		&clientcmd.ConfigOverrides{
 			CurrentContext: options.Context,
 			ClusterInfo: api.Cluster{

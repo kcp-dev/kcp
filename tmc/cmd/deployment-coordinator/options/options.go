@@ -17,8 +17,6 @@ limitations under the License.
 package options
 
 import (
-	"errors"
-
 	"github.com/spf13/pflag"
 
 	"k8s.io/component-base/config"
@@ -54,8 +52,5 @@ func (options *Options) Complete() error {
 }
 
 func (options *Options) Validate() error {
-	if options.Kubeconfig == "" {
-		return errors.New("--kubeconfig is required")
-	}
 	return nil
 }

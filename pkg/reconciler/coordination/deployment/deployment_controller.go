@@ -148,16 +148,29 @@ func deploymentContentsEqual(old, new interface{}) bool {
 	if !ok {
 		return false
 	}
+
+	if !equality.Semantic.DeepEqual(oldDeployment.Labels, newDeployment.Labels) {
+		return false
+	}
+
 	oldAnnotations := filter(oldDeployment.Annotations, func(key string) bool {
 		return !strings.HasPrefix(key, v1alpha1.ClusterSpecDiffAnnotationPrefix)
 	})
 	newAnnotations := filter(newDeployment.Annotations, func(key string) bool {
 		return !strings.HasPrefix(key, v1alpha1.ClusterSpecDiffAnnotationPrefix)
 	})
+	if !equality.Semantic.DeepEqual(oldAnnotations, newAnnotations) {
+		return false
+	}
 
-	return equality.Semantic.DeepEqual(oldDeployment.Labels, newDeployment.Labels) &&
-		equality.Semantic.DeepEqual(oldAnnotations, newAnnotations) &&
-		oldDeployment.Spec.Replicas == newDeployment.Spec.Replicas
+	oldReplicas := oldDeployment.Spec.Replicas
+	newReplicas := newDeployment.Spec.Replicas
+
+	if oldReplicas == nil && newReplicas == nil {
+		return true
+	}
+
+	return oldReplicas != nil && newReplicas != nil && *oldReplicas == *newReplicas
 }
 
 // enqueue adds the logical cluster to the queue.
