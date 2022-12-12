@@ -23,7 +23,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -127,8 +126,6 @@ func TestWorkspaceController(t *testing.T) {
 				})
 
 				t.Logf("Expect workspace to be scheduled to the shard and show the external URL")
-				parentName := logicalcluster.From(workspace)
-				workspaceClusterName := parentName.Path().Join(workspace.Name)
 				framework.Eventually(t, func() (bool, string) {
 					workspace, err := server.orgKcpClient.TenancyV1beta1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 					require.NoError(t, err)
@@ -139,7 +136,7 @@ func TestWorkspaceController(t *testing.T) {
 					if workspace.Status.Cluster == "" {
 						return false, fmt.Sprintf("status.cluster is empty\n%s", toYAML(t, workspace))
 					}
-					if expected := previouslyValidShard.Spec.BaseURL + workspaceClusterName.RequestPath(); workspace.Status.URL != expected {
+					if expected := previouslyValidShard.Spec.BaseURL + "/clusters/" + workspace.Status.Cluster; workspace.Status.URL != expected {
 						return false, fmt.Sprintf("URL is not %q:\n%s", expected, toYAML(t, workspace))
 					}
 					return true, ""
