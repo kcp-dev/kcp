@@ -23,6 +23,7 @@ import (
 	"time"
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -177,24 +178,24 @@ func TestWorkspaceDeletionController(t *testing.T) {
 		{
 			name: "nested worksapce cleanup when an org workspace is deleted",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				orgClusterName := framework.NewOrganizationFixture(t, server, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
+				org := framework.NewOrganizationFixtureObject(t, server, framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
+				orgClusterName := logicalcluster.Name(org.Status.Cluster)
 
 				t.Logf("Should have finalizer in org workspace")
-				orgWorkspaceName := orgClusterName.Path().Base()
 				require.Eventually(t, func() bool {
-					orgWorkspace, err := server.kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster.Path()).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, orgWorkspaceName, metav1.GetOptions{})
-					require.NoError(t, err, "failed to get org workspace %s", orgWorkspaceName)
+					orgWorkspace, err := server.kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster.Path()).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, org.Name, metav1.GetOptions{})
+					require.NoError(t, err, "failed to get org workspace %s", org.Name)
 					return len(orgWorkspace.Finalizers) > 0
 				}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 				t.Logf("Create a workspace with in the org workspace")
-				workspaceClusterName := framework.NewWorkspaceFixture(t, server.RunningServer, orgClusterName.Path(), framework.WithName("org-ws-cleanup"), framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
-				workspaceName := workspaceClusterName.Path().Base()
+				ws := framework.NewWorkspaceFixtureObject(t, server.RunningServer, orgClusterName.Path(), framework.WithName("org-ws-cleanup"), framework.WithShardConstraints(tenancyv1alpha1.ShardConstraints{Name: "root"}))
+				wsClusterName := logicalcluster.Name(ws.Status.Cluster)
 
 				t.Logf("Should have finalizer added in workspace")
 				require.Eventually(t, func() bool {
-					workspace, err := server.kcpClusterClient.Cluster(orgClusterName.Path()).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspaceName, metav1.GetOptions{})
-					require.NoError(t, err, "failed to get workspace %s", workspaceName)
+					workspace, err := server.kcpClusterClient.Cluster(orgClusterName.Path()).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, ws.Name, metav1.GetOptions{})
+					require.NoError(t, err, "failed to get workspace %s", ws.Name)
 					return len(workspace.Finalizers) > 0
 				}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
@@ -205,11 +206,11 @@ func TestWorkspaceDeletionController(t *testing.T) {
 					},
 				}
 
-				_, err := server.kubeClusterClient.Cluster(workspaceClusterName.Path()).CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
-				require.NoError(t, err, "failed to create ns in workspace %s", workspaceClusterName)
+				_, err := server.kubeClusterClient.Cluster(wsClusterName.Path()).CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
+				require.NoError(t, err, "failed to create ns in workspace root:%s", ws)
 
 				_, err = server.kubeClusterClient.Cluster(orgClusterName.Path()).CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
-				require.NoError(t, err, "failed to create ns %q in workspace %s", ns.Name, orgClusterName)
+				require.NoError(t, err, "failed to create ns %q in workspace root:%s", ns.Name, org.Name)
 
 				// get clients for the right shards. We have to access the shards directly to see object (Namespace and ClusterWorkspace) deletion
 				// without being stopped at the (front-proxy) gate because the parent workspace is already gone.
@@ -219,12 +220,12 @@ func TestWorkspaceDeletionController(t *testing.T) {
 				require.NoError(t, err, "failed to create kube client for root shard")
 
 				t.Logf("Delete org workspace")
-				err = server.kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster.Path()).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, orgWorkspaceName, metav1.DeleteOptions{})
-				require.NoError(t, err, "failed to delete workspace %s", orgWorkspaceName)
+				err = server.kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster.Path()).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, org.Name, metav1.DeleteOptions{})
+				require.NoError(t, err, "failed to delete workspace %s", org.Name)
 
 				t.Logf("Ensure namespace %q in the workspace is deleted", ns.Name)
 				framework.Eventually(t, func() (bool, string) {
-					nslist, err := rootShardKubeClusterClient.Cluster(workspaceClusterName.Path()).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+					nslist, err := rootShardKubeClusterClient.Cluster(wsClusterName.Path()).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 					require.NoError(t, err)
 
 					return len(nslist.Items) == 0, toYAML(t, nslist)
@@ -248,7 +249,7 @@ func TestWorkspaceDeletionController(t *testing.T) {
 
 				t.Logf("Ensure the org workspace is deleted")
 				require.Eventually(t, func() bool {
-					_, err := rootShardKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster.Path()).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, orgWorkspaceName, metav1.GetOptions{})
+					_, err := rootShardKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster.Path()).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, org.Name, metav1.GetOptions{})
 					return apierrors.IsNotFound(err)
 				}, wait.ForeverTestTimeout, 100*time.Millisecond)
 			},

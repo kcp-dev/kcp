@@ -68,7 +68,7 @@ func WithName(s string, formatArgs ...interface{}) ClusterWorkspaceOption {
 	}
 }
 
-func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logicalcluster.Path, options ...ClusterWorkspaceOption) (clusterName logicalcluster.Name) {
+func NewWorkspaceFixtureObject(t *testing.T, server RunningServer, orgClusterName logicalcluster.Path, options ...ClusterWorkspaceOption) *tenancyv1alpha1.ClusterWorkspace {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
@@ -131,10 +131,15 @@ func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logi
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for workspace %s to become ready", orgClusterName.Join(ws.Name))
 
 	t.Logf("Created %s workspace %s", ws.Spec.Type, orgClusterName.Join(ws.Name))
+	return ws
+}
+
+func NewWorkspaceFixture(t *testing.T, server RunningServer, orgClusterName logicalcluster.Path, options ...ClusterWorkspaceOption) (clusterName logicalcluster.Name) {
+	ws := NewWorkspaceFixtureObject(t, server, orgClusterName, options...)
 	return logicalcluster.Name(ws.Status.Cluster)
 }
 
-func NewOrganizationFixture(t *testing.T, server RunningServer, options ...ClusterWorkspaceOption) (orgClusterName logicalcluster.Name) {
+func NewOrganizationFixtureObject(t *testing.T, server RunningServer, options ...ClusterWorkspaceOption) *tenancyv1alpha1.ClusterWorkspace {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
@@ -197,5 +202,10 @@ func NewOrganizationFixture(t *testing.T, server RunningServer, options ...Clust
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for organization workspace %s to become ready", org.Name)
 
 	t.Logf("Created organization workspace %s", tenancyv1alpha1.RootCluster.Path().Join(org.Name))
+	return org
+}
+
+func NewOrganizationFixture(t *testing.T, server RunningServer, options ...ClusterWorkspaceOption) (orgClusterName logicalcluster.Name) {
+	org := NewOrganizationFixtureObject(t, server, options...)
 	return logicalcluster.Name(org.Status.Cluster)
 }
