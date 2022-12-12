@@ -360,7 +360,6 @@ func lcdForObject(fldPath *field.Path, existing, new *schema.Structural, lcd *sc
 			for _, removedProperty := range existingProperties.Difference(lcdProperties).UnsortedList() {
 				delete(lcd.Properties, removedProperty)
 			}
-
 		} else if new.AdditionalProperties != nil && new.AdditionalProperties.Structural != nil {
 			for _, key := range sets.StringKeySet(existing.Properties).List() {
 				existingPropertySchema := existing.Properties[key]

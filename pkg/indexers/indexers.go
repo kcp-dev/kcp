@@ -128,7 +128,7 @@ func ByIndex[T runtime.Object](indexer cache.Indexer, indexName, indexValue stri
 }
 
 // ByPathAndName returns the instance of T from the indexer with the matching path and name. Path may be a canonical path
-// or a cluster name. Note: this depends on the presence of the optional "kcp.dev/path" annotation.
+// or a cluster name. Note: this depends on the presence of the optional "kcp.io/path" annotation.
 func ByPathAndName[T runtime.Object](groupResource schema.GroupResource, indexer cache.Indexer, path logicalcluster.Path, name string) (ret T, err error) {
 	objs, err := indexer.ByIndex(ByLogicalClusterPathAndName, path.Join(name).String())
 	if err != nil {

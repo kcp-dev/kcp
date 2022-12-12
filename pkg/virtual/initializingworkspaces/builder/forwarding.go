@@ -208,8 +208,8 @@ func provideDelegatingClusterWorkspacesRestStorage(getTenancyIdentity func() (st
 }
 
 // withUpdateValidation adds further validation to ensure that a user of this virtual workspace can only
-// remove their own initializer from the list
-func withUpdateValidation(initializer corev1alpha1.LogicalClusterInitializer) registry.StorageWrapper {
+// remove their own initializer from the list.
+func withUpdateValidation(initializer tenancyv1alpha1.ClusterWorkspaceInitializer) registry.StorageWrapper {
 	return registry.StorageWrapperFunc(func(resource schema.GroupResource, storage *registry.StoreFuncs) {
 		delegateUpdater := storage.UpdaterFunc
 		storage.UpdaterFunc = func(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {

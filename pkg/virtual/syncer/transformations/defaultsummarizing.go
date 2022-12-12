@@ -31,7 +31,7 @@ var _ SummarizingRules = (*DefaultSummarizingRules)(nil)
 var _ SummarizingRulesProvider = (*DefaultSummarizingRules)(nil)
 
 // DefaultSummarizingRules provides a default minimal implementation of [SummarizingRules].
-// It only adds a status field, which for now is always promoted (see comments below in the code)
+// It only adds a status field, which for now is always promoted (see comments below in the code).
 type DefaultSummarizingRules struct{}
 
 type field struct {
@@ -41,37 +41,37 @@ type field struct {
 
 var _ FieldToSummarize = field{}
 
-// Path implements [Field.Path]
+// Path implements [Field.Path].
 func (f field) Path() string {
 	return f.FieldPath
 }
 
-// Path implements [Field.Path]
+// Path implements [Field.Path].
 func (f field) pathElements() []string {
 	return strings.Split(f.FieldPath, ".")
 }
 
-// Set implements [Field.Set]
+// Set implements [Field.Set].
 func (f field) Set(resource *unstructured.Unstructured, value interface{}) error {
 	return unstructured.SetNestedField(resource.UnstructuredContent(), value, f.pathElements()...)
 }
 
-// Get implements [Field.Get]
+// Get implements [Field.Get].
 func (f field) Get(resource *unstructured.Unstructured) (interface{}, bool, error) {
 	return unstructured.NestedFieldNoCopy(resource.UnstructuredContent(), f.pathElements()...)
 }
 
-// Delete implements [Field.Delete]
+// Delete implements [Field.Delete].
 func (f field) Delete(resource *unstructured.Unstructured) {
 	unstructured.RemoveNestedField(resource.UnstructuredContent(), f.pathElements()...)
 }
 
-// CanPromoteToUpstream implements [Field.CanPromoteToUpstream]
+// CanPromoteToUpstream implements [Field.CanPromoteToUpstream].
 func (f field) CanPromoteToUpstream() bool {
 	return f.PromoteToUpstream
 }
 
-// IsStatus implements [Field.IsStatus]
+// IsStatus implements [Field.IsStatus].
 func (f field) IsStatus() bool {
 	elements := f.pathElements()
 	return len(elements) == 1 && elements[0] == "status"
@@ -123,7 +123,6 @@ func (s *DefaultSummarizingRules) FieldsToSummarize(gvr schema.GroupVersionResou
 
 func (s *DefaultSummarizingRules) canPromoteStatusToUpstream(gvr schema.GroupVersionResource) bool {
 	switch gvr {
-
 	// TODO(davidfestal): In the future, ingresses and services would have default coordination controllers,
 	// we would never promote their status to the upstream resource, since it is inherently related to
 	// SyncTarget infrastructure details.

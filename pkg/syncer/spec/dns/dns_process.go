@@ -67,7 +67,6 @@ func NewDNSProcessor(
 	syncTargetUID types.UID,
 	dnsNamespace string,
 	dnsImage string) *DNSProcessor {
-
 	return &DNSProcessor{
 		downstreamKubeClient: downstreamKubeClient,
 		serviceAccountLister: serviceAccountLister,

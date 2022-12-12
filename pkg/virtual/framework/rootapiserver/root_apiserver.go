@@ -64,7 +64,7 @@ type NamedVirtualWorkspace struct {
 	framework.VirtualWorkspace
 }
 
-// Validate helps ensure that we build this config correctly, because there are lots of bits to remember for now
+// Validate helps ensure that we build this config correctly, because there are lots of bits to remember for now.
 func (c *RootAPIExtraConfig) Validate() error {
 	ret := []error{}
 

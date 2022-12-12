@@ -38,7 +38,7 @@ import (
 // We use the same name as the KCP for symmetry.
 var SystemCRDLogicalCluster = logicalcluster.Name("system:system-crds")
 
-// SystemCacheServerShard holds a default shard name
+// SystemCacheServerShard holds a default shard name.
 const SystemCacheServerShard = "system:cache:server"
 
 func Bootstrap(ctx context.Context, apiExtensionsClusterClient kcpapiextensionsclientset.ClusterInterface) error {

@@ -196,7 +196,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 		}()
 
 		// wait for readiness
-		client := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}}
+		client := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}} //nolint:noctx
 		baseClusterServerURL, err := url.Parse(baseCluster.Server)
 		require.NoError(t, err)
 		virtualWorkspaceServerHost = fmt.Sprintf("https://%s:%s", baseClusterServerURL.Hostname(), portStr)

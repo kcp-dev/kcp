@@ -39,7 +39,7 @@ type Transformation interface {
 	ToSyncerView(SyncTargetKey string, gvr schema.GroupVersionResource, upstreamResource *unstructured.Unstructured, overridenSyncerViewFields map[string]interface{}, requestedSyncing map[string]helpers.SyncIntent) (newSyncerViewResource *unstructured.Unstructured, err error)
 }
 
-// TransformationProvider provides an appropriate Transformation based on the content of a resource
+// TransformationProvider provides an appropriate Transformation based on the content of a resource.
 type TransformationProvider interface {
 	TransformationFor(resource metav1.Object) (Transformation, error)
 }
@@ -53,7 +53,7 @@ type SummarizingRules interface {
 	FieldsToSummarize(gvr schema.GroupVersionResource) []FieldToSummarize
 }
 
-// SummarizingRulesProvider provides appropriate SummarizingRules based on the content of a resource
+// SummarizingRulesProvider provides appropriate SummarizingRules based on the content of a resource.
 type SummarizingRulesProvider interface {
 	SummarizingRulesFor(resource metav1.Object) (SummarizingRules, error)
 }

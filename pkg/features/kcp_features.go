@@ -35,7 +35,7 @@ const (
 	//
 	// // owner: @username
 	// // alpha: v1.4
-	// MyFeature() bool
+	// MyFeature() bool.
 
 	// owner: @sttts
 	// alpha: v0.4

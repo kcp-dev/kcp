@@ -94,7 +94,6 @@ func NewSpecSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalcluste
 	endpointLister listerscorev1.EndpointsLister,
 	dnsNamespace string,
 	dnsImage string) (*Controller, error) {
-
 	c := Controller{
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
 

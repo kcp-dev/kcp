@@ -27,7 +27,7 @@ import (
 
 type BindComputeOption func(t *testing.T, w *bindCompute)
 
-// bindCompute construct and run a kcp compute bind command
+// bindCompute construct and run a kcp compute bind command.
 type bindCompute struct {
 	apiExports        []string
 	nsSelector        string

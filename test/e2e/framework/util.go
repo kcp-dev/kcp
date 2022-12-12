@@ -310,7 +310,7 @@ func Eventually(t *testing.T, condition func() (success bool, reason string), wa
 	}, waitFor, tick, msgAndArgs...)
 }
 
-// EventuallyReady asserts that the object returned by getter() eventually has a ready condition
+// EventuallyReady asserts that the object returned by getter() eventually has a ready condition.
 func EventuallyReady(t *testing.T, getter func() (conditions.Getter, error), msgAndArgs ...interface{}) {
 	t.Helper()
 	Eventually(t, func() (bool, string) {

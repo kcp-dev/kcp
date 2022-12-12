@@ -124,7 +124,7 @@ func TestAPIBindingPermissionClaimsConditions(t *testing.T) {
 		require.NoError(t, err)
 		binding.Spec.PermissionClaims = getAcceptedPermissionClaims(identityHash)
 		_, err = kcpClusterClient.Cluster(consumerWorkspace.Path()).ApisV1alpha1().APIBindings().Update(ctx, binding, metav1.UpdateOptions{})
-		return err == nil, fmt.Sprintf("%v", err)
+		return err == nil, err.Error()
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "error updating to correct hash")
 
 	t.Logf("Validate that the permission claims are valid")
@@ -268,7 +268,7 @@ func bindConsumerToProvider(ctx context.Context, consumerWorkspace logicalcluste
 
 	framework.Eventually(t, func() (bool, string) {
 		_, err := kcpClusterClients.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
-		return err == nil, fmt.Sprintf("%v", err)
+		return err == nil, err.Error()
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	consumerWorkspaceClient, err := kcpclientset.NewForConfig(cfg)

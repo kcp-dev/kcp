@@ -365,7 +365,7 @@ func (c *Controller) checkSSAR(ctx context.Context, gvr schema.GroupVersionResou
 	return sar.Status.Allowed, nil
 }
 
-// stopUnusedSyncerInformers stop syncers for gvrs not in requiredGVRs
+// stopUnusedSyncerInformers stop syncers for gvrs not in requiredGVRs.
 func (c *Controller) stopUnusedSyncerInformers(ctx context.Context, requiredGVRs map[schema.GroupVersionResource]bool) {
 	logger := klog.FromContext(ctx)
 

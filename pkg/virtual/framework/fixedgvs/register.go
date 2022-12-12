@@ -100,7 +100,6 @@ func (vw *FixedGroupVersionsVirtualWorkspace) Register(vwName string, rootAPISer
 			// a given virtual workspace, then grab its DiscoveryGroupManager
 			// to reuse it in the next GroupVersionAPIServers for the virtual workspace.
 			vwGroupManager = server.GenericAPIServer.DiscoveryGroupManager
-
 		}
 		if firstAPIServer == nil {
 			// If this GroupVersionAPIServer is the first one for

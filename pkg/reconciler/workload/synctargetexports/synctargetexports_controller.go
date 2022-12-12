@@ -68,7 +68,6 @@ func NewController(
 	apiResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
 	apiResourceImportInformer apiresourcev1alpha1informers.APIResourceImportClusterInformer,
 ) (*Controller, error) {
-
 	c := &Controller{
 		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
 		kcpClusterClient:     kcpClusterClient,

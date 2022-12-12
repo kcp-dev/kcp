@@ -304,7 +304,7 @@ func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, apiRes
 	return ret, nil
 }
 
-// servingInfo stores enough information to serve the storage for the apiResourceSchema
+// servingInfo stores enough information to serve the storage for the apiResourceSchema.
 type servingInfo struct {
 	logicalClusterName logicalcluster.Name
 	apiResourceSchema  *apisv1alpha1.APIResourceSchema
@@ -368,7 +368,7 @@ func (u nopConverter) ConvertFieldLabel(gvk schema.GroupVersionKind, label, valu
 	return label, value, nil
 }
 
-// buildOpenAPIV2 builds OpenAPI v2 for the given apiResourceSpec
+// buildOpenAPIV2 builds OpenAPI v2 for the given apiResourceSpec.
 func buildOpenAPIV2(apiResourceSchema *apisv1alpha1.APIResourceSchema, apiResourceVersion *apisv1alpha1.APIResourceVersion, opts builder.Options) (*spec.Swagger, error) {
 	openapiSchema, err := apiResourceVersion.GetSchema()
 	if err != nil {

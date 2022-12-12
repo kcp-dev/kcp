@@ -79,7 +79,6 @@ func NewResourceController(
 	})
 
 	return c, nil
-
 }
 
 // resourceController reconciles resources from the ddsif, and will determine if it needs

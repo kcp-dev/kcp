@@ -35,7 +35,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/crdpuller"
 )
 
-// InternalAPI describes an API to be imported from some schemes and generated OpenAPI V2 definitions
+// InternalAPI describes an API to be imported from some schemes and generated OpenAPI V2 definitions.
 type InternalAPI struct {
 	Names         apiextensionsv1.CustomResourceDefinitionNames
 	GroupVersion  schema.GroupVersion

@@ -102,7 +102,7 @@ func WithAuditAnnotation(handler http.Handler) http.HandlerFunc {
 	})
 }
 
-// WithClusterWorkspaceProjection workspaces to clusterworkspaces
+// WithClusterWorkspaceProjection workspaces to clusterworkspaces.
 func WithClusterWorkspaceProjection(apiHandler http.Handler) http.HandlerFunc {
 	toRedirectPath := path.Join("/apis", tenancyv1alpha1.SchemeGroupVersion.Group, tenancyv1alpha1.SchemeGroupVersion.Version, "clusterworkspaces")
 

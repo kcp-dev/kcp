@@ -33,8 +33,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/tunneler"
 )
 
-// startSyncerTunnel blocks until the context is cancelled trying to establish a tunnel against the specified target
-func startSyncerTunnel(ctx context.Context, upstream, downstream *rest.Config, syncTargetClusterName logicalcluster.Name, syncTargetName string) {
+// startSyncerTunnel blocks until the context is cancelled trying to establish a tunnel against the specified target.
+func startSyncerTunnel(ctx context.Context, upstream, downstream *rest.Config, syncTargetWorkspace logicalcluster.Name, syncTargetName string) {
 	// connect to create the reverse tunnels
 	var (
 		initBackoff   = 5 * time.Second

@@ -69,7 +69,7 @@ func (p *crdNoOverlappingGVRAdmission) ValidateInitialization() error {
 	return nil
 }
 
-// Validate checks if the given CRD's Group and Resource don't overlap with bound CRDs
+// Validate checks if the given CRD's Group and Resource don't overlap with bound CRDs.
 func (p *crdNoOverlappingGVRAdmission) Validate(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) error {
 	if a.GetResource().GroupResource() != apiextensions.Resource("customresourcedefinitions") {
 		return nil

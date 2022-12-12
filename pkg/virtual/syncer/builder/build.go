@@ -51,7 +51,6 @@ func BuildVirtualWorkspace(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	wildcardKcpInformers kcpinformers.SharedInformerFactory,
 ) []rootapiserver.NamedVirtualWorkspace {
-
 	if !strings.HasSuffix(rootPathPrefix, "/") {
 		rootPathPrefix += "/"
 	}

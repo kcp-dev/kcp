@@ -42,11 +42,11 @@ import (
 )
 
 const (
-	// PluginName indicates the name of admission plug-in
+	// PluginName indicates the name of admission plug-in.
 	PluginName = "WorkspaceNamespaceLifecycle"
 )
 
-// Register registers a plugin
+// Register registers a plugin.
 func Register(plugins *admission.Plugins) {
 	plugins.Register(PluginName, func(config io.Reader) (admission.Interface, error) {
 		return newWorkspaceNamespaceLifecycle()
@@ -91,7 +91,7 @@ var _ = kcpinitializers.WantsKcpInformers(&workspaceNamespaceLifecycle{})
 var _ = initializer.WantsExternalKubeInformerFactory(&workspaceNamespaceLifecycle{})
 var _ = initializer.WantsExternalKubeClientSet(&workspaceNamespaceLifecycle{})
 
-// Admit makes an admission decision based on the request attributes
+// Admit makes an admission decision based on the request attributes.
 func (l *workspaceNamespaceLifecycle) Admit(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) error {
 	// call legacy namespace lifecycle at first
 	admissionErr := l.legacyNamespaceLifecycle.Admit(ctx, a, o)

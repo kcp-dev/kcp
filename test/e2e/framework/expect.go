@@ -42,7 +42,7 @@ import (
 // to be evaluated.
 type Expectation func(ctx context.Context) (done bool, err error)
 
-// Expecter allows callers to register expectations
+// Expecter allows callers to register expectations.
 type Expecter interface {
 	// ExpectBefore will result in the Expectation being evaluated whenever
 	// state changes, up until the desired timeout is reached.
@@ -82,7 +82,7 @@ type expectationRecord struct {
 	*sync.Mutex
 }
 
-// ExpectationController knows how to register expectations and trigger them
+// ExpectationController knows how to register expectations and trigger them.
 type ExpectationController struct {
 	// expectations are recorded by UUID so they may be removed after they complete
 	expectations map[uuid.UUID]expectationRecord

@@ -97,7 +97,7 @@ func TestProtectedAPI(t *testing.T) {
 
 	framework.Eventually(t, func() (bool, string) {
 		_, err = kcpClusterClient.Cluster(consumerWorkspace.Path()).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
-		return err == nil, fmt.Sprintf("%v", err)
+		return err == nil, err.Error()
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create APIBinding")
 
 	t.Logf("Make sure APIBinding %q in workspace %q is completed and up-to-date", apiBinding.Name, consumerWorkspace)

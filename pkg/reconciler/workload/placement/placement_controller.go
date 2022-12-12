@@ -55,7 +55,7 @@ const (
 	byLocationWorkspace = ControllerName + "-byLocationWorkspace"
 )
 
-// NewController returns a new controller starting the process of selecting synctarget for a placement
+// NewController returns a new controller starting the process of selecting synctarget for a placement.
 func NewController(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	locationInformer schedulinginformers.LocationClusterInformer,
@@ -159,7 +159,7 @@ type Patcher = schedulingv1alpha1client.PlacementInterface
 type Resource = committer.Resource[*PlacementSpec, *PlacementStatus]
 type CommitFunc = func(context.Context, *Resource, *Resource) error
 
-// controller
+// controller.
 type controller struct {
 	queue workqueue.RateLimitingInterface
 

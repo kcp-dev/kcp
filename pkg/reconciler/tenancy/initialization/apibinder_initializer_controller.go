@@ -112,7 +112,6 @@ func NewAPIBinder(
 	apiBindingsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.enqueueAPIBinding(obj, logger)
-
 		},
 		UpdateFunc: func(_, obj interface{}) {
 			c.enqueueAPIBinding(obj, logger)
@@ -196,7 +195,7 @@ func (b *APIBinder) enqueueAPIBinding(obj interface{}, logger logr.Logger) {
 // how the informer is supposed to be configured) whenever a workspacetype changes. If a workspacetype
 // had a typo in the default set of apibindings, there is a chance the requeuing here would pick up a fix.
 //
-// TODO(sttts): this cannot work in a sharded environment
+// TODO(sttts): this cannot work in a sharded environment.
 func (b *APIBinder) enqueueWorkspaceTypes(obj interface{}, logger logr.Logger) {
 	cwt, ok := obj.(*tenancyv1alpha1.WorkspaceType)
 	if !ok {

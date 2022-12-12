@@ -68,7 +68,7 @@ const (
 // This is a copy from namespace deleteor in k8s with some modification:
 // - change the condition update code
 // - remove opCache
-// - update deleteCollection to delete resources from all namespaces
+// - update deleteCollection to delete resources from all namespaces.
 type WorkspaceResourcesDeleterInterface interface {
 	Delete(ctx context.Context, cluster *corev1alpha1.LogicalCluster) error
 }
@@ -464,7 +464,7 @@ func (d *logicalClusterResourcesDeleter) deleteAllContent(ctx context.Context, w
 	return estimate, "", nil
 }
 
-// estimateGracefulTermination will estimate the graceful termination required for the specific entity in the logical cluster
+// estimateGracefulTermination will estimate the graceful termination required for the specific entity in the logical cluster.
 func (d *logicalClusterResourcesDeleter) estimateGracefulTermination(ctx context.Context, gvr schema.GroupVersionResource, clusterName logicalcluster.Name, clusterDeletedAt metav1.Time) (int64, error) {
 	logger := klog.FromContext(ctx).WithValues("operation", "estimateGracefulTermination", "gvr", gvr)
 	logger.V(5).Info("running operation")
@@ -516,7 +516,7 @@ func (vr isNotVirtualResource) Match(groupVersion string, r *metav1.APIResource)
 
 type isNotNamespaceScoped struct{}
 
-// Match checks if the resource is a cluster scoped resource
+// Match checks if the resource is a cluster scoped resource.
 func (n isNotNamespaceScoped) Match(groupVersion string, r *metav1.APIResource) bool {
 	return !r.Namespaced
 }

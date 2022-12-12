@@ -52,20 +52,20 @@ type key struct {
 }
 
 // tunnelPool contains a pool of Dialers to create reverse connections
-// based on the workspace and syncer name
+// based on the workspace and syncer name.
 type tunnelPool struct {
 	mu   sync.Mutex
 	pool map[key]*Dialer
 }
 
-// NewtunnelPool returns a tunnelPool
+// NewtunnelPool returns a tunnelPool.
 func newTunnelPool() *tunnelPool {
 	return &tunnelPool{
 		pool: map[key]*Dialer{},
 	}
 }
 
-// getDialer returns a reverse dialer for the id
+// getDialer returns a reverse dialer for the id.
 func (rp *tunnelPool) getDialer(cluster, syncer string) *Dialer {
 	rp.mu.Lock()
 	defer rp.mu.Unlock()
@@ -74,7 +74,7 @@ func (rp *tunnelPool) getDialer(cluster, syncer string) *Dialer {
 }
 
 // createDialer creates a reverse dialer with id
-// it's a noop if a dialer already exists
+// it's a noop if a dialer already exists.
 func (rp *tunnelPool) createDialer(cluster, syncer string, conn net.Conn) *Dialer {
 	rp.mu.Lock()
 	defer rp.mu.Unlock()
@@ -85,10 +85,9 @@ func (rp *tunnelPool) createDialer(cluster, syncer string, conn net.Conn) *Diale
 	d := NewDialer(conn)
 	rp.pool[id] = d
 	return d
-
 }
 
-// deleteDialer delete the reverse dialer for the id
+// deleteDialer delete the reverse dialer for the id.
 func (rp *tunnelPool) deleteDialer(cluster, syncer string) {
 	rp.mu.Lock()
 	defer rp.mu.Unlock()
@@ -96,7 +95,7 @@ func (rp *tunnelPool) deleteDialer(cluster, syncer string) {
 	delete(rp.pool, id)
 }
 
-// SyncerTunnelURL builds the destination url with the Dialer expected format of the URL
+// SyncerTunnelURL builds the destination url with the Dialer expected format of the URL.
 func SyncerTunnelURL(host, ws, target string) (string, error) {
 	if target == "" || ws == "" {
 		return "", fmt.Errorf("target or ws can not be empty")
@@ -235,7 +234,7 @@ func WithSyncerTunnel(apiHandler http.Handler) http.HandlerFunc {
 	}
 }
 
-// flushWriter
+// flushWriter.
 type flushWriter struct {
 	w io.Writer
 	f http.Flusher

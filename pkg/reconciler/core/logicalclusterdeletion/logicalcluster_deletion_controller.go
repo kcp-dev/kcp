@@ -281,7 +281,7 @@ func (c *Controller) patchCondition(ctx context.Context, old, new *corev1alpha1.
 	return err
 }
 
-// finalizeNamespace removes the specified finalizer and finalizes the logical cluster
+// finalizeNamespace removes the specified finalizer and finalizes the logical cluster.
 func (c *Controller) finalizeWorkspace(ctx context.Context, ws *corev1alpha1.LogicalCluster) error {
 	logger := klog.FromContext(ctx)
 	for i := range ws.Finalizers {

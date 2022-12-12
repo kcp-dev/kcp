@@ -31,7 +31,7 @@ import (
 )
 
 var (
-	// ConfigMapName is the name of the configmap containing logical to physical namespace mappings
+	// ConfigMapName is the name of the configmap containing logical to physical namespace mappings.
 	ConfigMapName = "config-nsmap"
 )
 

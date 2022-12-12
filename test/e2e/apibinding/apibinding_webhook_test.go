@@ -259,7 +259,7 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 
 	framework.Eventually(t, func() (bool, string) {
 		_, err = kcpClients.Cluster(targetClusterName.Path()).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
-		return err == nil, fmt.Sprintf("%v", err)
+		return err == nil, err.Error()
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	scheme := runtime.NewScheme()

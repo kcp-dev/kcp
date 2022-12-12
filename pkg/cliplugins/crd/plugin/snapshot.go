@@ -46,7 +46,7 @@ type SnapshotOptions struct {
 	OutputFormat string
 }
 
-// NewSnapshotOptions provides an instance of SnapshotOptions with default values
+// NewSnapshotOptions provides an instance of SnapshotOptions with default values.
 func NewSnapshotOptions(streams genericclioptions.IOStreams) *SnapshotOptions {
 	o := &SnapshotOptions{
 		Options:      base.NewOptions(streams),
@@ -59,7 +59,7 @@ func NewSnapshotOptions(streams genericclioptions.IOStreams) *SnapshotOptions {
 }
 
 // BindFlags binds the arguments common to all sub-commands,
-// to the corresponding main command flags
+// to the corresponding main command flags.
 func (o *SnapshotOptions) BindFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVarP(&o.Filename, "filename", "f", o.Filename, "Path to a file containing the CRD to convert to an APIResourceSchema, or - for stdin")
 	cmd.Flags().StringVar(&o.Prefix, "prefix", o.Prefix, "Prefix to use for the APIResourceSchema's name, before <resource>.<group>")

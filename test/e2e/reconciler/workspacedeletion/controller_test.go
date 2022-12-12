@@ -102,7 +102,7 @@ func TestWorkspaceDeletion(t *testing.T) {
 				t.Logf("Wait for default namespace to be created")
 				framework.Eventually(t, func() (bool, string) {
 					_, err := server.kubeClusterClient.Cluster(workspaceCluster).CoreV1().Namespaces().Get(ctx, "default", metav1.GetOptions{})
-					return err == nil, fmt.Sprintf("%v", err)
+					return err == nil, err.Error()
 				}, wait.ForeverTestTimeout, 100*time.Millisecond, "default namespace was never created")
 
 				t.Logf("Delete default ns should be forbidden")
@@ -230,7 +230,7 @@ func TestWorkspaceDeletion(t *testing.T) {
 					nslist, err := rootShardKubeClusterClient.Cluster(wsClusterName.Path()).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 					// 404 could be returned if the sub-workspace is deleted.
 					if apierrors.IsNotFound(err) {
-						return true, fmt.Sprintf("%v", err)
+						return true, err.Error()
 					}
 					require.NoError(t, err, "failed to list namespaces in sub-workspace")
 
@@ -242,7 +242,7 @@ func TestWorkspaceDeletion(t *testing.T) {
 					nslist, err := rootShardKubeClusterClient.Cluster(orgClusterName.Path()).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 					// 404 could be returned if the org workspace is deleted.
 					if apierrors.IsNotFound(err) {
-						return true, fmt.Sprintf("%v", err)
+						return true, err.Error()
 					}
 					require.NoError(t, err, "failed to list namespaces in org workspace")
 
@@ -254,7 +254,7 @@ func TestWorkspaceDeletion(t *testing.T) {
 					wslist, err := rootShardKcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Cluster(orgClusterName.Path()).List(ctx, metav1.ListOptions{})
 					// 404 could be returned if the org workspace is deleted.
 					if apierrors.IsNotFound(err) {
-						return true, fmt.Sprintf("%v", err)
+						return true, err.Error()
 					}
 					require.NoError(t, err, "failed to list workspaces in org workspace")
 

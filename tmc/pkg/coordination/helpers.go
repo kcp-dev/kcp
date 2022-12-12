@@ -55,7 +55,7 @@ func FilteredSyncerViewsChanged(old, new metav1.Object, keepSyncTarget func(sync
 }
 
 // SyncerViewChanged returns true if the syncer view fields changed between old and new
-// for at least one of the SyncTargets on which the resource is synced
+// for at least one of the SyncTargets on which the resource is synced.
 func AnySyncerViewChanged(old, new metav1.Object) bool {
 	return FilteredSyncerViewsChanged(old, new, func(key string) bool {
 		return true
@@ -63,7 +63,7 @@ func AnySyncerViewChanged(old, new metav1.Object) bool {
 }
 
 // SyncerViewChanged returns true if the syncer view fields changed between old and new
-// for the given SyncTarget
+// for the given SyncTarget.
 func SyncerViewChanged(old, new metav1.Object, syncTargetKey string) bool {
 	return FilteredSyncerViewsChanged(old, new, func(key string) bool {
 		return syncTargetKey == key

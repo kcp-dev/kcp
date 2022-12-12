@@ -43,7 +43,7 @@ func init() {
 	utilruntime.Must(metav1.AddMetaToScheme(scheme))
 }
 
-// TODO:(p0lyn0mial, sttts) rework this test to use Workspace
+// TODO:(p0lyn0mial, sttts) rework this test to use Workspace.
 func TestWorkspaceTerminating(t *testing.T) {
 	now := metav1.Now()
 	ws := &corev1alpha1.LogicalCluster{

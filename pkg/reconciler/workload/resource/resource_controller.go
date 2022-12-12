@@ -124,7 +124,6 @@ func NewController(
 					!reflect.DeepEqual(scheduleStateAnnotations(oldNS.Annotations), scheduleStateAnnotations(newNS.Annotations)) {
 					c.enqueueNamespace(obj)
 				}
-
 			},
 			DeleteFunc: nil, // Nothing to do.
 		},
@@ -307,7 +306,7 @@ func processNext(
 	return true
 }
 
-// key is gvr::KEY
+// key is gvr::KEY.
 func (c *Controller) processResource(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
 	parts := strings.SplitN(key, "::", 2)

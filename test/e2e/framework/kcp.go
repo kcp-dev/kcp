@@ -230,10 +230,10 @@ type RunningServer interface {
 	Artifact(t *testing.T, producer func() (runtime.Object, error))
 }
 
-// KcpConfigOption a function that wish to modify a given kcp configuration
+// KcpConfigOption a function that wish to modify a given kcp configuration.
 type KcpConfigOption func(*kcpConfig) *kcpConfig
 
-// WithScratchDirectories adds custom scratch directories to a kcp configuration
+// WithScratchDirectories adds custom scratch directories to a kcp configuration.
 func WithScratchDirectories(artifactDir, dataDir string) KcpConfigOption {
 	return func(cfg *kcpConfig) *kcpConfig {
 		cfg.ArtifactDir = artifactDir
@@ -242,7 +242,7 @@ func WithScratchDirectories(artifactDir, dataDir string) KcpConfigOption {
 	}
 }
 
-// WithCustomArguments applies provided arguments to a given kcp configuration
+// WithCustomArguments applies provided arguments to a given kcp configuration.
 func WithCustomArguments(args ...string) KcpConfigOption {
 	return func(cfg *kcpConfig) *kcpConfig {
 		cfg.Args = args
@@ -573,12 +573,12 @@ func (c *kcpServer) filterKcpLogs(logs *bytes.Buffer) string {
 	return output.String()
 }
 
-// Name exposes the name of this kcp server
+// Name exposes the name of this kcp server.
 func (c *kcpServer) Name() string {
 	return c.name
 }
 
-// Name exposes the path of the kubeconfig file of this kcp server
+// Name exposes the path of the kubeconfig file of this kcp server.
 func (c *kcpServer) KubeconfigPath() string {
 	return c.kubeconfigPath
 }

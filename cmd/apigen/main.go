@@ -300,7 +300,7 @@ func resolveLatestAPIResourceSchemas(logger logr.Logger, previous, current map[m
 }
 
 // compareSchemas compares JSON Schemas by unmarshalling them and comparing their values, instead
-// of comparing their raw []byte() representations, as those are not semantically meaningful
+// of comparing their raw []byte() representations, as those are not semantically meaningful.
 func compareSchemas() cmp.Option {
 	return cmp.FilterPath(func(path cmp.Path) bool {
 		return path.String() == "Versions.Schema.Raw"

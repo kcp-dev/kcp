@@ -24,7 +24,7 @@ import (
 	"k8s.io/apiserver/pkg/server"
 )
 
-// NewFactory creates a new RequestInfoFactory for filters to use
+// NewFactory creates a new RequestInfoFactory for filters to use.
 func NewFactory() *request.RequestInfoFactory {
 	return &request.RequestInfoFactory{
 		APIPrefixes: sets.NewString(

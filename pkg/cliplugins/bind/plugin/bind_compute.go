@@ -136,7 +136,7 @@ func (o *BindComputeOptions) Validate() error {
 	return nil
 }
 
-// Run creates a placement in the workspace, linking to the location workspace
+// Run creates a placement in the workspace, linking to the location workspace.
 func (o *BindComputeOptions) Run(ctx context.Context) error {
 	config, err := o.ClientConfig.ClientConfig()
 	if err != nil {

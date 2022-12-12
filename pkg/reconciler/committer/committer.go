@@ -32,19 +32,19 @@ import (
 	"k8s.io/klog/v2"
 )
 
-// Resource is a generic wrapper around resources so we can generate patches
+// Resource is a generic wrapper around resources so we can generate patches.
 type Resource[Sp any, St any] struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	Spec              Sp `json:"spec"`
 	Status            St `json:"status,omitempty"`
 }
 
-// ClusterPatcher is just the cluster-aware Patch API with a generic to keep use sites type safe
+// ClusterPatcher is just the cluster-aware Patch API with a generic to keep use sites type safe.
 type ClusterPatcher[R runtime.Object, P Patcher[R]] interface {
 	Cluster(cluster logicalcluster.Path) P
 }
 
-// Patcher is just the Patch API with a generic to keep use sites type safe
+// Patcher is just the Patch API with a generic to keep use sites type safe.
 type Patcher[R runtime.Object] interface {
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (R, error)
 }
@@ -74,7 +74,6 @@ func NewCommitter[R runtime.Object, P Patcher[R], Sp any, St any](patcher Cluste
 
 		return nil
 	}
-
 }
 
 // NewCommitterScoped returns a function that can patch instances of R based on meta, spec or

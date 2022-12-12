@@ -150,7 +150,7 @@ func (l *mergedRoleNamespaceLister) List(selector labels.Selector) (ret []*rbacv
 	return aggregatedList, nil
 }
 
-// TODO: slaskawi - to be converted to generics once we rebase on Go 1.18
+// TODO: slaskawi - to be converted to generics once we rebase on Go 1.18.
 func mergeRoles(array []*rbacv1.Role, rolesToBeMergedIn []*rbacv1.Role) []*rbacv1.Role {
 	for _, roleToBeMerged := range rolesToBeMergedIn {
 		foundIndex := -1
@@ -169,7 +169,7 @@ func mergeRoles(array []*rbacv1.Role, rolesToBeMergedIn []*rbacv1.Role) []*rbacv
 	return array
 }
 
-// TODO: slaskawi - to be converted to generics once we rebase on Go 1.18
+// TODO: slaskawi - to be converted to generics once we rebase on Go 1.18.
 func mergeClusterRoles(array []*rbacv1.ClusterRole, rolesToBeMergedIn []*rbacv1.ClusterRole) []*rbacv1.ClusterRole {
 	for _, roleToBeMerged := range rolesToBeMergedIn {
 		foundIndex := -1

@@ -113,7 +113,7 @@ func NewController(
 	return c, nil
 }
 
-// controller reconciles watches deployments and coordinates them between SyncTargets
+// controller reconciles watches deployments and coordinates them between SyncTargets.
 type controller struct {
 	upstreamViewQueue workqueue.RateLimitingInterface
 	syncerViewQueue   workqueue.RateLimitingInterface

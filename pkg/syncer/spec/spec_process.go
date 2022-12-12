@@ -296,7 +296,7 @@ func (c *Controller) ensureDownstreamNamespaceExists(ctx context.Context, downst
 	return nil
 }
 
-// TODO(jmprusi): merge with ensureDownstreamNamespaceExists and make it more generic
+// TODO(jmprusi): merge with ensureDownstreamNamespaceExists and make it more generic.
 func (c *Controller) clusterWideCollisionCheck(ctx context.Context, gvr schema.GroupVersionResource, upstreamObj *unstructured.Unstructured) error {
 	// Check if the resource already exists, if so check if it has the correct namespace locator.
 	syncerInformer, ok := c.syncerInformers.InformerForResource(gvr)
@@ -429,7 +429,7 @@ func (c *Controller) applyToDownstream(ctx context.Context, gvr schema.GroupVers
 	// Strip cluster name annotation
 	downstreamAnnotations := downstreamObj.GetAnnotations()
 	delete(downstreamAnnotations, logicalcluster.AnnotationKey)
-	//TODO(jmprusi): To be removed when switching to the syncer Virtual Workspace transformations.
+	// TODO(jmprusi): To be removed when switching to the syncer Virtual Workspace transformations.
 	delete(downstreamAnnotations, workloadv1alpha1.InternalClusterStatusAnnotationPrefix+c.syncTargetKey)
 	// If the resource is cluster-scoped, we need to add the namespaceLocator annotation to get be able to
 	// find out the upstream resource from the downstream resource.

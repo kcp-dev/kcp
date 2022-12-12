@@ -52,7 +52,6 @@ func NewController(
 	syncTargetInformer workloadv1alpha1informers.SyncTargetClusterInformer,
 	workspaceShardInformer corev1alpha1informers.ShardClusterInformer,
 ) *Controller {
-
 	c := &Controller{
 		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
 		kcpClusterClient:     kcpClusterClient,

@@ -128,7 +128,6 @@ func (sp *schemaPuller) PullCRDs(ctx context.Context, resourceNames ...string) (
 		for _, apiResource := range apiResourcesList.APIResources {
 			apiResourceNames[gv].Insert(apiResource.Name)
 		}
-
 	}
 
 	crds := map[schema.GroupResource]*apiextensionsv1.CustomResourceDefinition{}

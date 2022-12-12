@@ -55,7 +55,7 @@ const (
 
 	resyncPeriod = 10 * time.Hour
 
-	// TODO(marun) Coordinate this value with the interval configured for the heartbeat controller
+	// TODO(marun) Coordinate this value with the interval configured for the heartbeat controller.
 	heartbeatInterval = 20 * time.Second
 )
 

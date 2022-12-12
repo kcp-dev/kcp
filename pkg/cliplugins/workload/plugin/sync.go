@@ -638,7 +638,7 @@ func (o *SyncOptions) enableSyncerForWorkspace(ctx context.Context, config *rest
 	return string(saTokenBytes), syncerID, syncTarget, nil
 }
 
-// mergeOwnerReference: merge a slice of ownerReference with a given ownerReferences
+// mergeOwnerReference: merge a slice of ownerReference with a given ownerReferences.
 func mergeOwnerReference(ownerReferences, newOwnerReferences []metav1.OwnerReference) []metav1.OwnerReference {
 	var merged []metav1.OwnerReference
 
@@ -658,7 +658,6 @@ func mergeOwnerReference(ownerReferences, newOwnerReferences []metav1.OwnerRefer
 	}
 
 	return merged
-
 }
 
 // templateInput represents the external input required to render the resources to

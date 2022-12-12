@@ -87,7 +87,7 @@ func (c *controller) patchPlacement(ctx context.Context, clusterName logicalclus
 	return c.kcpClusterClient.Cluster(clusterName).SchedulingV1alpha1().Placements().Patch(ctx, name, pt, data, opts, subresources...)
 }
 
-// listWorkloadAPIBindings list all compute apibindings
+// listWorkloadAPIBindings list all compute apibindings.
 func (c *controller) listWorkloadAPIBindings(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
 	apiBindings, err := c.apiBindingLister.Cluster(clusterName).List(labels.Everything())
 	if err != nil {

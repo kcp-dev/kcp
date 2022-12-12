@@ -114,7 +114,6 @@ func (c *apiBindingAwareCRDLister) List(ctx context.Context, selector labels.Sel
 		return nil, err
 	}
 	for _, apiBinding := range apiBindings {
-
 		for _, boundResource := range apiBinding.Status.BoundResources {
 			logger := logging.WithObject(logger, &apiextensionsv1.CustomResourceDefinition{
 				ObjectMeta: metav1.ObjectMeta{
@@ -274,7 +273,7 @@ func shallowCopyCRDAndDeepCopyAnnotations(in *apiextensionsv1.CustomResourceDefi
 
 // decorateCRDWithBinding copy and mutate crd by
 // 1. adding identity annotation
-// 2. terminating status when apibinding is deleting
+// 2. terminating status when apibinding is deleting.
 func decorateCRDWithBinding(in *apiextensionsv1.CustomResourceDefinition, identity string, deleteTime *metav1.Time) *apiextensionsv1.CustomResourceDefinition {
 	out := shallowCopyCRDAndDeepCopyAnnotations(in)
 
@@ -380,7 +379,6 @@ func (c *apiBindingAwareCRDLister) get(clusterName logicalcluster.Name, name, id
 		return nil, err
 	}
 	for _, apiBinding := range apiBindings {
-
 		for _, boundResource := range apiBinding.Status.BoundResources {
 			// identity is empty string if the request is coming from a regular workspace client.
 			// It is set if the request is coming from the virtual apiexport apiserver client.

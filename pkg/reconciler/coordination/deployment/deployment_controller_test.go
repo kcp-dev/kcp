@@ -131,7 +131,6 @@ func TestUpstreamViewReconciler(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-
 			var patcher *mockedPatcher
 			controller := controller{
 				getDeployment: func(lclusterName logicalcluster.Name, namespace, name string) (*appsv1.Deployment, error) {
@@ -256,7 +255,6 @@ func TestSyncerViewReconciler(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-
 			var patcher *mockedPatcher
 			controller := controller{
 				getDeployment: func(lclusterName logicalcluster.Name, namespace, name string) (*appsv1.Deployment, error) {

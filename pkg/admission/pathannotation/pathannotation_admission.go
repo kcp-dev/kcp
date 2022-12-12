@@ -163,20 +163,20 @@ func (p *pathAnnotationPlugin) Validate(ctx context.Context, a admission.Attribu
 	return nil
 }
 
-func (o *pathAnnotationPlugin) ValidateInitialization() error {
-	if o.logicalClusterLister == nil {
+func (p *pathAnnotationPlugin) ValidateInitialization() error {
+	if p.logicalClusterLister == nil {
 		return fmt.Errorf(PluginName + " plugin needs an LogicalCluster lister")
 	}
 	return nil
 }
 
-func (o *pathAnnotationPlugin) SetKcpInformers(informers kcpinformers.SharedInformerFactory) {
+func (p *pathAnnotationPlugin) SetKcpInformers(informers kcpinformers.SharedInformerFactory) {
 	logicalClusterReady := informers.Core().V1alpha1().LogicalClusters().Informer().HasSynced
-	o.SetReadyFunc(func() bool {
+	p.SetReadyFunc(func() bool {
 		return logicalClusterReady()
 	})
-	o.logicalClusterLister = informers.Core().V1alpha1().LogicalClusters().Lister()
-	o.getLogicalCluster = func(clusterName logicalcluster.Name, name string) (*corev1alpha1.LogicalCluster, error) {
-		return o.logicalClusterLister.Cluster(clusterName).Get(name)
+	p.logicalClusterLister = informers.Core().V1alpha1().LogicalClusters().Lister()
+	p.getLogicalCluster = func(clusterName logicalcluster.Name, name string) (*corev1alpha1.LogicalCluster, error) {
+		return p.logicalClusterLister.Cluster(clusterName).Get(name)
 	}
 }

@@ -26,11 +26,11 @@ import (
 )
 
 const (
-	// ByShardAndLogicalClusterAndNamespaceAndName is the name for the index that indexes by an object's shard and logical cluster, namespace and name
+	// ByShardAndLogicalClusterAndNamespaceAndName is the name for the index that indexes by an object's shard and logical cluster, namespace and name.
 	ByShardAndLogicalClusterAndNamespaceAndName = "kcp-byShardAndLogicalClusterAndNamespaceAndName"
 )
 
-// IndexByShardAndLogicalClusterAndNamespace is an index function that indexes by an object's shard and logical cluster, namespace and name
+// IndexByShardAndLogicalClusterAndNamespace is an index function that indexes by an object's shard and logical cluster, namespace and name.
 func IndexByShardAndLogicalClusterAndNamespace(obj interface{}) ([]string, error) {
 	a, err := meta.Accessor(obj)
 	if err != nil {

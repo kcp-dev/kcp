@@ -470,7 +470,6 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		}); err != nil {
 			return err
 		}
-
 	}
 
 	workspaceTypeConfig := rest.CopyConfig(config)

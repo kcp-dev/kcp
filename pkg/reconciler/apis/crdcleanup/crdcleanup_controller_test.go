@@ -154,7 +154,6 @@ func TestBoundCRDDeletion(t *testing.T) {
 
 				// This should be enough time passing to trigger a delete (if expected)
 				testController(tt.creationTimestamp.Add((AgeThreshold+time.Second)*-1), tt.expectDeletionAfterRequeue)
-
 			}
 		})
 	}

@@ -48,7 +48,7 @@ const (
 )
 
 // rootComputeResourceSchema are the APIResourceSchemas which should not be added into the APIExport. These are
-// APIResourceSchemas of kubernetes in root:compute workspace
+// APIResourceSchemas of kubernetes in root:compute workspace.
 var rootComputeResourceSchema = sets.NewString(
 	"deployments.apps",
 	"services.core",

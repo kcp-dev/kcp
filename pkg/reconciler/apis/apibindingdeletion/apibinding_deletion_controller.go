@@ -56,11 +56,11 @@ const (
 	DeletionRecheckEstimateSeconds = 5
 
 	// ResourceDeletionFailedReason is the reason for condition BindingResourceDeleteSuccess that deletion of
-	// some CRs is failed
+	// some CRs is failed.
 	ResourceDeletionFailedReason = "ResourceDeletionFailed"
 
 	// ResourceRemainingReason is the reason for condition BindingResourceDeleteSuccess that some CR resource still
-	// exists when apibinding is deleting
+	// exists when apibinding is deleting.
 	ResourceRemainingReason = "SomeResourcesRemain"
 
 	// ResourceFinalizersRemainReason is the reason for condition BindingResourceDeleteSuccess that finalizers on some

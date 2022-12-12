@@ -58,7 +58,7 @@ type Listener struct {
 // NewListener returns a new Listener, it dials to the Dialer
 // creating "reverse connection" that are accepted by this Listener.
 // - client: http client, required for TLS
-// - url: a URL to the base of the reverse handler on the Dialer
+// - url: a URL to the base of the reverse handler on the Dialer.
 func NewListener(client *http.Client, url string) (*Listener, error) {
 	err := configureHTTP2Transport(client)
 	if err != nil {
@@ -97,7 +97,7 @@ func NewListener(client *http.Client, url string) (*Listener, error) {
 	return ln, nil
 }
 
-// run establish reverse connections against the server
+// run establish reverse connections against the server.
 func (ln *Listener) run() {
 	defer ln.Close()
 
@@ -193,7 +193,6 @@ func (ln *Listener) grabConn() {
 			return
 		}
 	}
-
 }
 
 // Accept blocks and returns a new connection, or an error.
@@ -234,7 +233,7 @@ func (ln *Listener) Close() error {
 // net.Listener interface.
 func (ln *Listener) Addr() net.Addr { return connAddr{} }
 
-// configureHTTP2Transport enable ping to avoid issues with stale connections
+// configureHTTP2Transport enable ping to avoid issues with stale connections.
 func configureHTTP2Transport(client *http.Client) error {
 	t, ok := client.Transport.(*http.Transport)
 	if !ok {

@@ -208,7 +208,7 @@ func (o *workspacetypeExists) resolveTypeRef(workspacePath logicalcluster.Path, 
 
 // Validate ensures that
 // - has a valid type
-// - has valid initializers when transitioning to initializing
+// - has valid initializers when transitioning to initializing.
 func (o *workspacetypeExists) Validate(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
 	clusterName, err := genericapirequest.ClusterNameFrom(ctx)
 	if err != nil {
@@ -385,7 +385,7 @@ func addAdditionalWorkspaceLabels(
 	}
 }
 
-// TODO: Move this out of admission to some shared location
+// TODO: Move this out of admission to some shared location.
 type TransitiveTypeResolver interface {
 	Resolve(t *tenancyv1alpha1.WorkspaceType) ([]*tenancyv1alpha1.WorkspaceType, error)
 }
