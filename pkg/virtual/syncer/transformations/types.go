@@ -31,6 +31,7 @@ import (
 // In addition to the upstream resource to transform, the transformation parameters
 // also involve:
 //   - the overriding values of Syncer View summarized fields (the fields that the
+//
 // Syncer previously overrode, typically when updating the status, but this could
 // also contain specific Spec fields)
 //   - the requested syncing intents for all SyncTargets.
