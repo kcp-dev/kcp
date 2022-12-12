@@ -168,17 +168,19 @@ func (s *Server) Run(ctx context.Context) error {
 
 		go s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().Run(hookContext.StopCh)
 		go s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().Run(hookContext.StopCh)
+		go s.KcpSharedInformerFactory.Tenancy().V1alpha1().ThisWorkspaces().Informer().Run(hookContext.StopCh)
 
-		logger.Info("starting APIExport and APIBinding informers")
+		logger.Info("starting APIExport, APIBinding and ThisWorkspace informers")
 		if err := wait.PollInfiniteWithContext(goContext(hookContext), time.Millisecond*100, func(ctx context.Context) (bool, error) {
 			exportsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
 			bindingsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced()
-			return exportsSynced && bindingsSynced, nil
+			thisWorkspaceSynced := s.KcpSharedInformerFactory.Tenancy().V1alpha1().ThisWorkspaces().Informer().HasSynced()
+			return exportsSynced && bindingsSynced && thisWorkspaceSynced, nil
 		}); err != nil {
-			logger.Error(err, "failed to start APIExport and/or APIBinding informers")
+			logger.Error(err, "failed to start some of APIExport, APIBinding and ThisWorkspaces informers")
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
-		logger.Info("finished starting APIExport and APIBinding informers")
+		logger.Info("finished starting APIExport, APIBinding and ThisWorkspace informers")
 
 		if s.Options.Extra.ShardName == tenancyv1alpha1.RootShard {
 			logger.Info("bootstrapping root workspace phase 0")
@@ -212,7 +214,7 @@ func (s *Server) Run(ctx context.Context) error {
 			logger.Info("starting setting up kcp informers for the root shard")
 
 			go s.TemporaryRootShardKcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().Run(hookContext.StopCh)
-			go s.TemporaryRootShardKcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().Run(hookContext.StopCh)
+			go s.TemporaryRootShardKcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().Run(hookContext.StopCh) // TODO(sttts): necessary?
 
 			if err := wait.PollInfiniteWithContext(goContext(hookContext), time.Millisecond*100, func(ctx context.Context) (bool, error) {
 				exportsSynced := s.TemporaryRootShardKcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()

@@ -131,13 +131,14 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 	}
 
 	if a.GetOperation() == admission.Create {
+		this, err := o.thisWorkspaceLister.Cluster(clusterName).Get(tenancyv1alpha1.ThisWorkspaceName)
+		if err != nil {
+			return admission.NewForbidden(a, fmt.Errorf("workspace type canot be resolved: %w", err))
+		}
+
 		// if the user has not provided any type, use the default from the parent workspace
 		empty := tenancyv1beta1.WorkspaceTypeReference{}
 		if ws.Spec.Type == empty {
-			this, err := o.thisWorkspaceLister.Cluster(clusterName).Get(tenancyv1alpha1.ThisWorkspaceName)
-			if err != nil {
-				return admission.NewForbidden(a, fmt.Errorf("workspace type canot be resolved: %w", err))
-			}
 			typeAnnotation, found := this.Annotations[tenancyv1alpha1.ThisWorkspaceTypeAnnotationKey]
 			if !found {
 				return admission.NewForbidden(a, fmt.Errorf("annotation %s on ThisWorkspace must be set", tenancyv1alpha1.ThisWorkspaceTypeAnnotationKey))
@@ -159,7 +160,12 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 			}
 		}
 
-		cwt, err := o.resolveTypeRef(tenancy.CanonicalPathFrom(ctx), tenancyv1alpha1.ClusterWorkspaceTypeReference{
+		thisPath := this.Annotations[tenancy.LogicalClusterPathAnnotationKey]
+		if thisPath == "" {
+			thisPath = logicalcluster.From(this).Path().String()
+		}
+
+		cwt, err := o.resolveTypeRef(logicalcluster.NewPath(thisPath), tenancyv1alpha1.ClusterWorkspaceTypeReference{
 			Path: ws.Spec.Type.Path,
 			Name: ws.Spec.Type.Name,
 		})

@@ -46,7 +46,7 @@ import (
 )
 
 const (
-	ControllerName = "kcp-clusterworkspace"
+	ControllerName = "kcp-workspace"
 )
 
 func NewController(
@@ -57,6 +57,7 @@ func NewController(
 	workspaceInformer tenancyv1beta1informers.WorkspaceClusterInformer,
 	clusterWorkspaceShardInformer tenancyv1alpha1informers.ClusterWorkspaceShardClusterInformer,
 	clusterWorkspaceTypeInformer tenancyv1alpha1informers.ClusterWorkspaceTypeClusterInformer,
+	thisWorkspaceInformer tenancyv1alpha1informers.ThisWorkspaceClusterInformer,
 ) (*Controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
@@ -78,6 +79,9 @@ func NewController(
 
 		clusterWorkspaceTypeIndexer: clusterWorkspaceTypeInformer.Informer().GetIndexer(),
 		clusterWorkspaceTypeLister:  clusterWorkspaceTypeInformer.Lister(),
+
+		thisWorkspaceIndexer: thisWorkspaceInformer.Informer().GetIndexer(),
+		thisWorkspaceLister:  thisWorkspaceInformer.Lister(),
 
 		commit: committer.NewCommitter[*tenancyv1beta1.Workspace, v1beta1.WorkspaceInterface, *tenancyv1beta1.WorkspaceSpec, *tenancyv1beta1.WorkspaceStatus](kcpClusterClient.TenancyV1beta1().Workspaces()),
 	}
@@ -128,6 +132,9 @@ type Controller struct {
 
 	clusterWorkspaceTypeIndexer cache.Indexer
 	clusterWorkspaceTypeLister  tenancyv1alpha1listers.ClusterWorkspaceTypeClusterLister
+
+	thisWorkspaceIndexer cache.Indexer
+	thisWorkspaceLister  tenancyv1alpha1listers.ThisWorkspaceClusterLister
 
 	// commit creates a patch and submits it, if needed.
 	commit func(ctx context.Context, new, old *workspaceResource) error

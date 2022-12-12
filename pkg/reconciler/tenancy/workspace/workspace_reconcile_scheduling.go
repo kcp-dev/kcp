@@ -68,6 +68,8 @@ type schedulingReconciler struct {
 
 	getClusterWorkspaceType func(clusterName logicalcluster.Path, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error)
 
+	getThisWorkspace func(clusterName logicalcluster.Name) (*tenancyv1alpha1.ThisWorkspace, error)
+
 	transitiveTypeResolver clusterworkspacetypeexists.TransitiveTypeResolver
 
 	kcpLogicalClusterAdminClientFor  func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpclientset.ClusterInterface, error)
@@ -83,6 +85,13 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 		clusterNameString, hasCluster := workspace.Annotations[workspaceClusterAnnotationKey]
 		clusterName := logicalcluster.Name(clusterNameString)
 		hasFinalizer := sets.NewString(workspace.Finalizers...).Has(tenancyv1alpha1.ThisWorkspaceFinalizer)
+
+		parentThis, err := r.getThisWorkspace(logicalcluster.From(workspace))
+		if err != nil && !apierrors.IsNotFound(err) {
+			return reconcileStatusStopAndRequeue, err
+		} else if apierrors.IsNotFound(err) {
+			return reconcileStatusStopAndRequeue, nil // wait for parent ThisWorkspace to be created
+		}
 
 		if !hasShard {
 			shardName, err := r.chooseShardAndMarkCondition(logger, workspace) // call first with status side-effect, before any annotation aka spec change
@@ -127,7 +136,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 			return reconcileStatusContinue, nil
 		}
 
-		if err := r.createThisWorkspace(ctx, shard, clusterName.Path(), workspace); err != nil && !apierrors.IsAlreadyExists(err) {
+		if err := r.createThisWorkspace(ctx, shard, clusterName.Path(), parentThis, workspace); err != nil && !apierrors.IsAlreadyExists(err) {
 			return reconcileStatusStopAndRequeue, err
 		} else if apierrors.IsAlreadyExists(err) {
 			// we have checked in createThisWorkspace that this is a logicalcluster from another owner. Let's choose another cluster name.
@@ -234,7 +243,13 @@ func (r *schedulingReconciler) chooseShardAndMarkCondition(logger klog.Logger, w
 	return targetShard.Name, nil
 }
 
-func (r *schedulingReconciler) createThisWorkspace(ctx context.Context, shard *tenancyv1alpha1.ClusterWorkspaceShard, cluster logicalcluster.Path, workspace *tenancyv1beta1.Workspace) error {
+func (r *schedulingReconciler) createThisWorkspace(ctx context.Context, shard *tenancyv1alpha1.ClusterWorkspaceShard, cluster logicalcluster.Path, parent *tenancyv1alpha1.ThisWorkspace, workspace *tenancyv1beta1.Workspace) error {
+	canonicalPath := logicalcluster.From(workspace).Path().Join(workspace.Name)
+	if parent != nil {
+		if parentPath := parent.Annotations[tenancy.LogicalClusterPathAnnotationKey]; parentPath != "" {
+			canonicalPath = logicalcluster.NewPath(parent.Annotations[tenancy.LogicalClusterPathAnnotationKey]).Join(workspace.Name)
+		}
+	}
 	this := &tenancyv1alpha1.ThisWorkspace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       tenancyv1alpha1.ThisWorkspaceName,
@@ -242,6 +257,7 @@ func (r *schedulingReconciler) createThisWorkspace(ctx context.Context, shard *t
 			Annotations: map[string]string{
 				tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey: workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey],
 				tenancyv1alpha1.ThisWorkspaceTypeAnnotationKey:          logicalcluster.NewPath(workspace.Spec.Type.Path).Join(string(workspace.Spec.Type.Name)).String(),
+				tenancy.LogicalClusterPathAnnotationKey:                 canonicalPath.String(),
 			},
 		},
 		Spec: tenancyv1alpha1.ThisWorkspaceSpec{

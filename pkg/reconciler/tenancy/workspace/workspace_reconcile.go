@@ -113,9 +113,12 @@ func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1beta1.Workspace
 			getShard: func(name string) (*tenancyv1alpha1.ClusterWorkspaceShard, error) {
 				return c.clusterWorkspaceShardLister.Cluster(tenancyv1alpha1.RootCluster).Get(name)
 			},
-			getShardByHash:                   getShardByName,
-			listShards:                       c.clusterWorkspaceShardLister.List,
-			getClusterWorkspaceType:          getType,
+			getShardByHash:          getShardByName,
+			listShards:              c.clusterWorkspaceShardLister.List,
+			getClusterWorkspaceType: getType,
+			getThisWorkspace: func(clusterName logicalcluster.Name) (*tenancyv1alpha1.ThisWorkspace, error) {
+				return c.thisWorkspaceLister.Cluster(clusterName).Get(tenancyv1alpha1.ThisWorkspaceName)
+			},
 			transitiveTypeResolver:           clusterworkspacetypeexists.NewTransitiveTypeResolver(getType),
 			kcpLogicalClusterAdminClientFor:  kcpDirectClientFor,
 			kubeLogicalClusterAdminClientFor: kubeDirectClientFor,
