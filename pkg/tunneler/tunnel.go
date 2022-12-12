@@ -133,6 +133,8 @@ func SyncerTunnelURL(host, ws, target string) (string, error) {
 func WithSyncerTunnel(apiHandler http.Handler) http.HandlerFunc {
 	pool := newTunnelPool()
 	return func(w http.ResponseWriter, r *http.Request) {
+		logger := klog.FromContext(r.Context())
+
 		// fall through, syncer tunnels URL start by /services/tunnels
 		if !strings.HasPrefix(r.URL.Path, DefaultTunnelPathPrefix) {
 			apiHandler.ServeHTTP(w, r)
@@ -160,9 +162,8 @@ func WithSyncerTunnel(apiHandler http.Handler) http.HandlerFunc {
 		syncerName := path[5]
 		command := path[6]
 
-		ctx := r.Context()
-		logger := klog.FromContext(ctx)
-		logger.V(5).Info("tunneler connection received", "command", command, "clusterName", clusterName, "syncerName", syncerName)
+		logger = logger.WithValues("cluster", clusterName, "syncerName", syncerName, "command", command)
+		logger.V(5).Info("tunneler connection received")
 		switch command {
 		case CmdTunnelConnect:
 			if len(path) != 7 {
@@ -194,11 +195,11 @@ func WithSyncerTunnel(apiHandler http.Handler) http.HandlerFunc {
 					conn.Close()
 				case <-doneCh:
 				}
-				klog.Background().V(5).WithValues("cluster", clusterName, "syncer", syncerName).Info("stopped tunnel control connection")
+				logger.V(5).Info("stopped tunnel control connection")
 				return
 			}
 			// create a reverse connection
-			klog.Background().V(5).WithValues("cluster", clusterName, "syncer", syncerName).Info("tunnel started")
+			logger.V(5).Info("tunnel connection started")
 			select {
 			case d.incomingConn <- conn:
 			case <-d.Done():
@@ -211,7 +212,7 @@ func WithSyncerTunnel(apiHandler http.Handler) http.HandlerFunc {
 				conn.Close()
 			case <-doneCh:
 			}
-			klog.Background().V(5).WithValues("address", r.RemoteAddr).Info("connection done")
+			logger.V(5).Info("tunnel connection done", "remoteAddr", r.RemoteAddr)
 
 		case CmdTunnelProxy:
 			target, err := url.Parse("http://" + syncerName)
@@ -246,7 +247,7 @@ func WithSyncerTunnel(apiHandler http.Handler) http.HandlerFunc {
 				director(req)
 			}
 			proxy.ServeHTTP(w, r)
-			klog.Background().V(5).WithValues("err", err).Info("proxy server closed")
+			logger.V(5).Info("proxy server closed", "error", err)
 		default:
 			http.Error(w, "syncer tunnels: unsupported command", http.StatusInternalServerError)
 			return
