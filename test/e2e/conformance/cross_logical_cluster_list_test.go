@@ -221,7 +221,7 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 		0,
 	)
 
-	informerFactory, err := informer.NewDynamicDiscoverySharedInformerFactory(
+	informerFactory, err := informer.NewSelfDiscoveringDynamicSharedInformerFactory(
 		rootShardConfig,
 		func(obj interface{}) bool { return true },
 		apiExtensionsInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
