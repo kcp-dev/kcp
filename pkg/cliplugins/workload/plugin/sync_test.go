@@ -56,6 +56,7 @@ rules:
   - namespaces
   verbs:
   - "create"
+  - "get"
   - "list"
   - "watch"
   - "delete"
@@ -285,6 +286,7 @@ rules:
   - namespaces
   verbs:
   - "create"
+  - "get"
   - "list"
   - "watch"
   - "delete"
