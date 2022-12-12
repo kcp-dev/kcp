@@ -285,7 +285,7 @@ func decorateWildcardPathsWithResourceIdentities(urlPath string, ids *identities
 	resource := parts[0]
 
 	gr := schema.GroupResource{Group: comps[3], Resource: resource}
-	if id, found := ids.grIdentity(gr); found {
+	if id, found := ids.grIdentity(gr); found && gr != tenancyv1alpha1.Resource("thisworkspaces") { // TODO(sttts): remove ThisWorkspace exception when moved to its own API group
 		if len(id) == 0 {
 			return "", fmt.Errorf("identity for %s is unknown", gr)
 		}
