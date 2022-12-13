@@ -44,7 +44,7 @@ func TestPathAnnotationAdmit(t *testing.T) {
 		admissionResource schema.GroupVersionResource
 		admissionVerb     admission.Operation
 		admissionOptions  runtime.Object
-		admissionContext  context.Context
+		admissionContext  context.Context //nolint:containedctx
 		getLogicalCluster func(clusterName logicalcluster.Name, name string) (*corev1alpha1.LogicalCluster, error)
 
 		expectError             bool
@@ -184,7 +184,7 @@ func TestPathAnnotationValidate(t *testing.T) {
 		admissionResource schema.GroupVersionResource
 		admissionVerb     admission.Operation
 		admissionOptions  runtime.Object
-		admissionContext  context.Context
+		admissionContext  context.Context //nolint:containedctx
 		getLogicalCluster func(clusterName logicalcluster.Name, name string) (*corev1alpha1.LogicalCluster, error)
 
 		expectError bool

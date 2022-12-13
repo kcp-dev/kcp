@@ -203,7 +203,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 		virtualWorkspaceServerHost = fmt.Sprintf("https://%s", net.JoinHostPort(baseClusterServerURL.Hostname(), portStr))
 
 		require.Eventually(t, func() bool {
-			resp, err := client.Get(fmt.Sprintf("%s/readyz", virtualWorkspaceServerHost))
+			resp, err := client.Get(fmt.Sprintf("%s/readyz", virtualWorkspaceServerHost)) //nolint:noctx
 			if err != nil {
 				t.Logf("error checking virtual workspace readiness: %v", err)
 				return false

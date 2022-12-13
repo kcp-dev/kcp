@@ -120,7 +120,7 @@ func waitForEndpoint(ctx context.Context, t *testing.T, port, endpoint string) {
 	var lastError error
 	if err := wait.PollImmediateWithContext(ctx, 100*time.Millisecond, wait.ForeverTestTimeout, func(ctx context.Context) (bool, error) {
 		url := fmt.Sprintf("http://[::1]:%s%s", port, endpoint)
-		resp, err := http.Get(url)
+		resp, err := http.Get(url) //nolint:noctx
 		if err != nil {
 			lastError = fmt.Errorf("error contacting %s: %w", url, err)
 			return false, nil
