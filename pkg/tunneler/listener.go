@@ -144,7 +144,7 @@ func (ln *Listener) run() {
 }
 
 func (ln *Listener) sendMessage(m controlMsg) {
-	j, _ := json.Marshal(m)
+	j, _ := json.Marshal(m) //nolint:errchkjson
 	j = append(j, '\n')
 	ln.writec <- j
 }
