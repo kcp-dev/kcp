@@ -95,6 +95,8 @@ type kcpFixture struct {
 // PrivateKcpServer returns a new kcp server fixture managing a new
 // server process that is not intended to be shared between tests.
 func PrivateKcpServer(t *testing.T, options ...KcpConfigOption) RunningServer {
+	t.Helper()
+
 	serverName := "main"
 
 	cfg := &kcpConfig{Name: serverName}
@@ -119,6 +121,8 @@ func PrivateKcpServer(t *testing.T, options ...KcpConfigOption) RunningServer {
 // runner. Otherwise a test-managed server will be started. Only tests
 // that are known to be hermetic are compatible with shared fixture.
 func SharedKcpServer(t *testing.T) RunningServer {
+	t.Helper()
+
 	serverName := "shared"
 	kubeconfig := TestConfig.KCPKubeconfig()
 	if len(kubeconfig) > 0 {
@@ -154,6 +158,8 @@ func SharedKcpServer(t *testing.T) RunningServer {
 
 // Deprecated for use outside this package. Prefer PrivateKcpServer().
 func newKcpFixture(t *testing.T, cfgs ...kcpConfig) *kcpFixture {
+	t.Helper()
+
 	f := &kcpFixture{}
 
 	// Initialize servers from the provided configuration
@@ -271,7 +277,7 @@ type kcpConfig struct {
 type kcpServer struct {
 	name        string
 	args        []string
-	ctx         context.Context
+	ctx         context.Context //nolint:containedctx
 	dataDir     string
 	artifactDir string
 
@@ -385,10 +391,9 @@ func DirectOrGoRunCommand(executableName string) []string {
 	if NoGoRunEnvSet() {
 		cmdPath := filepath.Join(RepositoryBinDir(), executableName)
 		return []string{cmdPath}
-	} else {
-		cmdPath := filepath.Join(RepositoryDir(), "cmd", executableName)
-		return []string{"go", "run", cmdPath}
 	}
+	cmdPath := filepath.Join(RepositoryDir(), "cmd", executableName)
+	return []string{"go", "run", cmdPath}
 }
 
 // Run runs the kcp server while the parent context is active. This call is not blocking,
@@ -609,6 +614,8 @@ func (c *kcpServer) config(context string) (*rest.Config, error) {
 
 // BaseConfig returns a rest.Config for the "base" context. Client-side throttling is disabled (QPS=-1).
 func (c *kcpServer) BaseConfig(t *testing.T) *rest.Config {
+	t.Helper()
+
 	cfg, err := c.config("base")
 	require.NoError(t, err)
 	cfg = rest.CopyConfig(cfg)
@@ -617,6 +624,8 @@ func (c *kcpServer) BaseConfig(t *testing.T) *rest.Config {
 
 // RootShardSystemMasterBaseConfig returns a rest.Config for the "system:admin" context. Client-side throttling is disabled (QPS=-1).
 func (c *kcpServer) RootShardSystemMasterBaseConfig(t *testing.T) *rest.Config {
+	t.Helper()
+
 	cfg, err := c.config("system:admin")
 	require.NoError(t, err)
 	cfg = rest.CopyConfig(cfg)
@@ -828,6 +837,8 @@ func newPersistentKCPServer(name, kubeconfigPath, rootShardKubeconfigPath string
 // NewFakeWorkloadServer creates a workspace in the provided server and org
 // and creates a server fixture for the logical cluster that results.
 func NewFakeWorkloadServer(t *testing.T, server RunningServer, org logicalcluster.Path, syncTargetName string) RunningServer {
+	t.Helper()
+
 	logicalClusterName := NewWorkspaceFixture(t, server, org, WithName(syncTargetName+"-sink"))
 	rawConfig, err := server.RawConfig()
 	require.NoError(t, err, "failed to read config for server")
@@ -891,6 +902,8 @@ func (s *unmanagedKCPServer) RawConfig() (clientcmdapi.Config, error) {
 
 // BaseConfig returns a rest.Config for the "base" context. Client-side throttling is disabled (QPS=-1).
 func (s *unmanagedKCPServer) BaseConfig(t *testing.T) *rest.Config {
+	t.Helper()
+
 	raw, err := s.cfg.RawConfig()
 	require.NoError(t, err)
 
@@ -907,6 +920,8 @@ func (s *unmanagedKCPServer) BaseConfig(t *testing.T) *rest.Config {
 
 // RootShardSystemMasterBaseConfig returns a rest.Config for the "system:admin" context. Client-side throttling is disabled (QPS=-1).
 func (s *unmanagedKCPServer) RootShardSystemMasterBaseConfig(t *testing.T) *rest.Config {
+	t.Helper()
+
 	raw, err := s.rootShardCfg.RawConfig()
 	require.NoError(t, err)
 
@@ -922,6 +937,7 @@ func (s *unmanagedKCPServer) RootShardSystemMasterBaseConfig(t *testing.T) *rest
 }
 
 func (s *unmanagedKCPServer) Artifact(t *testing.T, producer func() (runtime.Object, error)) {
+	t.Helper()
 	artifact(t, s, producer)
 }
 

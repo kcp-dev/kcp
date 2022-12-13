@@ -38,6 +38,8 @@ type bindCompute struct {
 }
 
 func NewBindCompute(t *testing.T, path logicalcluster.Path, server RunningServer, opts ...BindComputeOption) *bindCompute {
+	t.Helper()
+
 	upstreamRawConfig, err := server.RawConfig()
 	require.NoError(t, err)
 
@@ -56,6 +58,7 @@ func NewBindCompute(t *testing.T, path logicalcluster.Path, server RunningServer
 }
 
 func (w bindCompute) Bind(t *testing.T) {
+	t.Helper()
 	t.Logf("Bind workload workspace %s", w.locationWorkspace)
 	pluginArgs := []string{
 		"bind",
@@ -84,24 +87,28 @@ func (w bindCompute) Bind(t *testing.T) {
 
 func WithPlacementNameBindOption(placementName string) BindComputeOption {
 	return func(t *testing.T, w *bindCompute) {
+		t.Helper()
 		w.placementName = placementName
 	}
 }
 
 func WithLocationWorkspaceWorkloadBindOption(clusterName logicalcluster.Path) BindComputeOption {
 	return func(t *testing.T, w *bindCompute) {
+		t.Helper()
 		w.locationWorkspace = clusterName
 	}
 }
 
 func WithAPIExportsWorkloadBindOption(apiexports ...string) BindComputeOption {
 	return func(t *testing.T, w *bindCompute) {
+		t.Helper()
 		w.apiExports = apiexports
 	}
 }
 
 func WithNSSelectorWorkloadBindOption(selector metav1.LabelSelector) BindComputeOption {
 	return func(t *testing.T, w *bindCompute) {
+		t.Helper()
 		labelSelector, err := metav1.LabelSelectorAsSelector(&selector)
 		require.NoError(t, err)
 		w.nsSelector = labelSelector.String()
@@ -110,6 +117,7 @@ func WithNSSelectorWorkloadBindOption(selector metav1.LabelSelector) BindCompute
 
 func WithLocationSelectorWorkloadBindOption(selectors ...metav1.LabelSelector) BindComputeOption {
 	return func(t *testing.T, w *bindCompute) {
+		t.Helper()
 		for _, selector := range selectors {
 			labelSelector, err := metav1.LabelSelectorAsSelector(&selector)
 			require.NoError(t, err)

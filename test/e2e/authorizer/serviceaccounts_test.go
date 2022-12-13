@@ -129,9 +129,11 @@ func TestServiceAccounts(t *testing.T) {
 		token func(t *testing.T) string
 	}{
 		{"Legacy token", func(t *testing.T) string {
+			t.Helper()
 			return string(tokenSecret.Data["token"])
 		}},
 		{"Bound service token", func(t *testing.T) string {
+			t.Helper()
 			t.Log("Creating service account bound token")
 			boundToken, err := kubeClusterClient.Cluster(clusterName.Path()).CoreV1().ServiceAccounts(namespace.Name).CreateToken(ctx, "default", &authenticationv1.TokenRequest{
 				Spec: authenticationv1.TokenRequestSpec{
@@ -318,7 +320,6 @@ func TestServiceAccounts(t *testing.T) {
 					return true, ""
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 			})
-
 		})
 	}
 }

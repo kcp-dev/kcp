@@ -178,8 +178,8 @@ func TestReconcile(t *testing.T) {
 // requireConditionMatches looks for a condition matching c in g. LastTransitionTime and Message
 // are not compared.
 func requireConditionMatches(t *testing.T, g conditions.Getter, c *conditionsv1alpha1.Condition) {
+	t.Helper()
 	actual := conditions.Get(g, c.Type)
-
 	require.NotNil(t, actual, "missing condition %q", c.Type)
 	actual.LastTransitionTime = c.LastTransitionTime
 	actual.Message = c.Message

@@ -78,6 +78,7 @@ func TestPathAnnotationAdmit(t *testing.T) {
 			admissionObject:   &apisv1alpha1.APIResourceSchema{},
 			getLogicalCluster: getCluster("foo"),
 			validateAdmissionObject: func(t *testing.T, obj runtime.Object) {
+				t.Helper()
 				objMeta, err := meta.Accessor(obj)
 				if err != nil {
 					t.Fatal(err)
@@ -291,6 +292,7 @@ func getCluster(expectedClusterName string) func(clusterName logicalcluster.Name
 
 func objectHasPathAnnotation(expectedPathAnnotation string) func(t *testing.T, obj runtime.Object) {
 	return func(t *testing.T, obj runtime.Object) {
+		t.Helper()
 		objMeta, err := meta.Accessor(obj)
 		if err != nil {
 			t.Fatal(err)
@@ -303,6 +305,7 @@ func objectHasPathAnnotation(expectedPathAnnotation string) func(t *testing.T, o
 }
 
 func objectWithoutPathAnnotation(t *testing.T, obj runtime.Object) {
+	t.Helper()
 	objMeta, err := meta.Accessor(obj)
 	if err != nil {
 		t.Fatal(err)

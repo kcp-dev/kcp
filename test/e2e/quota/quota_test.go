@@ -97,8 +97,10 @@ func TestKubeQuotaBuiltInCoreV1Types(t *testing.T) {
 		framework.Eventually(t, func() (bool, string) {
 			t.Logf("Trying to create a configmap")
 			cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{GenerateName: "quota-"}}
-			_, err = kubeClusterClient.Cluster(ws.Path()).CoreV1().ConfigMaps("default").Create(ctx, cm, metav1.CreateOptions{})
-			return apierrors.IsForbidden(err), fmt.Sprintf("%v", err)
+			if _, err := kubeClusterClient.Cluster(ws.Path()).CoreV1().ConfigMaps("default").Create(ctx, cm, metav1.CreateOptions{}); err != nil {
+				return apierrors.IsForbidden(err), err.Error()
+			}
+			return false, ""
 		}, wait.ForeverTestTimeout, 100*time.Millisecond, "quota never rejected configmap creation")
 	}
 }
@@ -175,8 +177,11 @@ func TestKubeQuotaCoreV1TypesFromBinding(t *testing.T) {
 			}
 
 			framework.Eventually(t, func() (bool, string) {
-				_, err = kcpClusterClient.Cluster(userClusterName.Path()).ApisV1alpha1().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
-				return err == nil, err.Error()
+				_, err := kcpClusterClient.Cluster(userClusterName.Path()).ApisV1alpha1().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
+				if err != nil {
+					return false, err.Error()
+				}
+				return true, ""
 			}, wait.ForeverTestTimeout, 100*time.Millisecond, "error creating APIBinding")
 
 			t.Logf("Wait for binding to be ready")
@@ -231,7 +236,10 @@ func TestKubeQuotaCoreV1TypesFromBinding(t *testing.T) {
 				t.Logf("Trying to create a service")
 				service := &corev1.Service{ObjectMeta: metav1.ObjectMeta{GenerateName: "quota-"}}
 				_, err = kubeClusterClient.Cluster(userClusterName.Path()).CoreV1().Services("default").Create(ctx, service, metav1.CreateOptions{})
-				return apierrors.IsForbidden(err), fmt.Sprintf("%v", err)
+				if err != nil {
+					return apierrors.IsForbidden(err), err.Error()
+				}
+				return true, ""
 			}, wait.ForeverTestTimeout, 100*time.Millisecond, "quota never rejected service creation")
 		})
 	}
@@ -317,9 +325,8 @@ func TestKubeQuotaNormalCRDs(t *testing.T) {
 			sheriff := NewSheriff(group, fmt.Sprintf("ws%d-%d", wsIndex, i))
 			i++
 			_, err := dynamicClusterClient.Cluster(ws.Path()).Resource(sheriffsGVR).Namespace("default").Create(ctx, sheriff, metav1.CreateOptions{})
-			return apierrors.IsForbidden(err), fmt.Sprintf("%v", err)
+			return apierrors.IsForbidden(err), err.Error()
 		}, wait.ForeverTestTimeout, 100*time.Millisecond, "quota never rejected sheriff creation")
-
 	}
 }
 
@@ -357,7 +364,10 @@ func TestClusterScopedQuota(t *testing.T) {
 			}
 
 			_, err := kubeClusterClient.Cluster(ws.Path()).CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
-			return err == nil || apierrors.IsAlreadyExists(err), fmt.Sprintf("%v", err)
+			if err != nil {
+				return apierrors.IsAlreadyExists(err), err.Error()
+			}
+			return true, ""
 		}, wait.ForeverTestTimeout, 100*time.Millisecond, "error creating %q namespace", adminNamespace)
 
 		t.Logf("Creating a child workspace in %q to make sure the quota controller counts it", ws)
@@ -413,7 +423,10 @@ func TestClusterScopedQuota(t *testing.T) {
 			t.Logf("Trying to create a configmap in %q", ws)
 			cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{GenerateName: "quota-"}}
 			_, err = kubeClusterClient.Cluster(ws.Path()).CoreV1().ConfigMaps("default").Create(ctx, cm, metav1.CreateOptions{})
-			return apierrors.IsForbidden(err), fmt.Sprintf("%v", err)
+			if err != nil {
+				return apierrors.IsForbidden(err), err.Error()
+			}
+			return true, ""
 		}, wait.ForeverTestTimeout, 100*time.Millisecond, "quota never rejected configmap creation in %q", ws)
 
 		t.Logf("Make sure quota is enforcing workspace limits for %q", ws)
@@ -425,7 +438,10 @@ func TestClusterScopedQuota(t *testing.T) {
 				},
 			}
 			_, err = kcpClusterClient.TenancyV1beta1().Workspaces().Cluster(ws.Path()).Create(ctx, childWS, metav1.CreateOptions{})
-			return apierrors.IsForbidden(err), fmt.Sprintf("%v", err)
+			if err != nil {
+				return apierrors.IsForbidden(err), err.Error()
+			}
+			return true, ""
 		}, wait.ForeverTestTimeout, 100*time.Millisecond, "quota never rejected workspace creation in %q", ws)
 	}
 }
@@ -436,6 +452,8 @@ func bootstrapCRD(
 	client kcpapiextensionsv1client.CustomResourceDefinitionClusterInterface,
 	crd *apiextensionsv1.CustomResourceDefinition,
 ) {
+	t.Helper()
+
 	ctx, cancelFunc := context.WithTimeout(context.Background(), wait.ForeverTestTimeout)
 	t.Cleanup(cancelFunc)
 

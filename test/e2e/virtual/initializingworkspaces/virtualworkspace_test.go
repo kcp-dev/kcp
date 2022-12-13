@@ -19,7 +19,6 @@ package initializingworkspaces
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"math/rand"
 	"sort"
 	"testing"
@@ -109,7 +108,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(sourceConfig)
 	require.NoError(t, err)
 
-	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, clusterName.Path(), []string{"user-1"}, nil, false)
+	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, clusterName.Path(), []string{"user-1"}, nil, false)
 
 	// Create a Workspace that will not be Initializing and should not be shown in the virtual workspace
 	framework.NewWorkspaceFixture(t, source, clusterName.Path())
@@ -270,7 +269,10 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	} {
 		framework.Eventually(t, func() (bool, string) {
 			_, err := adminVwKcpClusterClients[initializer].CoreV1alpha1().LogicalClusters().List(ctx, metav1.ListOptions{})
-			return err == nil, fmt.Sprintf("%v", err)
+			if err != nil {
+				return false, err.Error()
+			}
+			return true, ""
 		}, wait.ForeverTestTimeout, 100*time.Millisecond)
 	}
 
@@ -578,6 +580,8 @@ func workspaceForType(workspaceType *tenancyv1alpha1.WorkspaceType, testLabelSel
 }
 
 func workspacesStuckInInitializing(t *testing.T, workspaces ...tenancyv1beta1.Workspace) bool {
+	t.Helper()
+
 	for _, workspace := range workspaces {
 		if workspace.Status.Phase != corev1alpha1.LogicalClusterPhaseInitializing {
 			t.Logf("workspace %s is in %s, not %s", workspace.Name, workspace.Status.Phase, corev1alpha1.LogicalClusterPhaseInitializing)

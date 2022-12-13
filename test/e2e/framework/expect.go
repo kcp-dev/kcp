@@ -147,7 +147,8 @@ func (c *ExpectationController) ExpectBefore(ctx context.Context, expectation Ex
 		go func() {
 			defer wg.Done()
 			for range results {
-			} // we can throw away these results
+				// we can throw away these results
+			}
 		}()
 
 		// Finally, acquire the lock to close the results channel and deregister the expectation.
@@ -181,7 +182,7 @@ func (c *ExpectationController) ExpectBefore(ctx context.Context, expectation Ex
 		case <-ctx.Done():
 			return fmt.Errorf("expected state not found: %w, %d errors encountered while processing %d events: %v", ctx.Err(), len(expectationErrors), processed, kerrors.NewAggregate(expectationErrors))
 		case result := <-results:
-			processed += 1
+			processed++
 			if result.err != nil {
 				expectationErrors = append(expectationErrors, result.err)
 			}
@@ -209,6 +210,8 @@ func ExpectWorkspaces(
 	t *testing.T,
 	client kcpclient.Interface,
 ) (RegisterWorkspaceExpectation, error) {
+	t.Helper()
+
 	kcpSharedInformerFactory := kcpinformers.NewSharedScopedInformerFactoryWithOptions(client, 0)
 	workspaceInformer := kcpSharedInformerFactory.Tenancy().V1beta1().Workspaces()
 	expecter := NewExpecter(workspaceInformer.Informer())
@@ -238,6 +241,8 @@ type WorkspaceShardExpectation func(*corev1alpha1.Shard) error
 
 // ExpectWorkspaceShards sets up an Expecter in order to allow registering expectations in tests with minimal setup.
 func ExpectWorkspaceShards(ctx context.Context, t *testing.T, client kcpclient.Interface) (RegisterWorkspaceShardExpectation, error) {
+	t.Helper()
+
 	kcpSharedInformerFactory := kcpinformers.NewSharedScopedInformerFactoryWithOptions(client, 0)
 	workspaceShardInformer := kcpSharedInformerFactory.Core().V1alpha1().Shards()
 	expecter := NewExpecter(workspaceShardInformer.Informer())

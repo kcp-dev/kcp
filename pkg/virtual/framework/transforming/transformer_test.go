@@ -268,7 +268,6 @@ func (rb resourceBuilder) cluster(cluster string) resourceBuilder {
 		metadata := r.Object["metadata"].(map[string]interface{})
 		if _, exists := metadata["annotations"]; !exists {
 			metadata["annotations"] = map[string]interface{}{}
-
 		}
 		metadata["annotations"].(map[string]interface{})["kcp.io/cluster"] = cluster
 		return r
@@ -1038,6 +1037,8 @@ func TestResourceTransformer(t *testing.T) {
 			},
 			expectedClientActionCluster: "",
 			checkResult: func(t *testing.T, watchTester *watch.FakeWatcher, result interface{}) {
+				t.Helper()
+
 				watcher, ok := result.(watch.Interface)
 				if !ok {
 					require.Fail(t, "result of Watch should be a watch.Interface")
@@ -1119,6 +1120,8 @@ func TestResourceTransformer(t *testing.T) {
 			},
 			expectedClientActionCluster: "cluster1",
 			checkResult: func(t *testing.T, watchTester *watch.FakeWatcher, result interface{}) {
+				t.Helper()
+
 				watcher, ok := result.(watch.Interface)
 				if !ok {
 					require.Fail(t, "result of Watch should be a watch.Interface")
@@ -1196,6 +1199,8 @@ func TestResourceTransformer(t *testing.T) {
 			},
 			expectedClientActionCluster: "cluster1",
 			checkResult: func(t *testing.T, watchTester *watch.FakeWatcher, result interface{}) {
+				t.Helper()
+
 				watcher, ok := result.(watch.Interface)
 				if !ok {
 					require.Fail(t, "result of Watch should be a watch.Interface")
@@ -1332,6 +1337,8 @@ func watchRestrictionsFromListOptions(options metav1.ListOptions) clienttesting.
 }
 
 func checkWatchEvents(t *testing.T, watcher watch.Interface, addEvents func(), expectedEvents []watch.Event) {
+	t.Helper()
+
 	watchingStarted := make(chan bool, 1)
 	go func() {
 		<-watchingStarted

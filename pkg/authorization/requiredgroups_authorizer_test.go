@@ -31,7 +31,6 @@ import (
 )
 
 func TestRequiredGroupsAuthorizer(t *testing.T) {
-
 	for name, tt := range map[string]struct {
 		requestedWorkspace    string
 		requestingUser        *user.DefaultInfo

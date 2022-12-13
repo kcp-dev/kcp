@@ -146,7 +146,6 @@ func TestMutatingWebhookInWorkspace(t *testing.T) {
 			return false
 		}
 		return testWebhook.Calls() >= 1
-
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 	// Avoid race condition here by making sure that CRD is served after installing the types into logical clusters
@@ -157,10 +156,8 @@ func TestMutatingWebhookInWorkspace(t *testing.T) {
 			return false
 		}
 		return true
-
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 	require.Equal(t, 1, testWebhook.Calls(), "expected that the webhook is not called for logical cluster where webhook is not installed")
-
 }
 
 func TestValidatingWebhookInWorkspace(t *testing.T) {

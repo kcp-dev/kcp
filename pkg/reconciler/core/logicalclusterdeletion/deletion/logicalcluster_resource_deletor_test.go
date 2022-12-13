@@ -219,7 +219,7 @@ func testResources() []*metav1.APIResourceList {
 	return results
 }
 
-// matchError returns true if errors match, false if they don't, compares by error message only for convenience which should be sufficient for these tests
+// matchError returns true if errors match, false if they don't, compares by error message only for convenience which should be sufficient for these tests.
 func matchErrors(e1, e2 error) bool {
 	if e1 == nil && e2 == nil {
 		return true

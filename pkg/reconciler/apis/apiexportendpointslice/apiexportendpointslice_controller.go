@@ -52,7 +52,7 @@ const (
 )
 
 // NewController returns a new controller for APIExportEndpointSlices.
-// Shards and APIExports are read from the cache server
+// Shards and APIExports are read from the cache server.
 func NewController(
 	apiExportEndpointSliceClusterInformer apisinformers.APIExportEndpointSliceClusterInformer,
 	shardClusterInformer corev1alpha1informers.ShardClusterInformer,
@@ -309,7 +309,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 	return utilerrors.NewAggregate(errs)
 }
 
-// filterShardEvent returns true if the event passes the filter and needs to be processed false otherwise
+// filterShardEvent returns true if the event passes the filter and needs to be processed false otherwise.
 func filterShardEvent(oldObj, newObj interface{}) bool {
 	oldShard, ok := oldObj.(*corev1alpha1.Shard)
 	if !ok {

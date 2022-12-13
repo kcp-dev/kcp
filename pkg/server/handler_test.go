@@ -120,7 +120,7 @@ func TestProcessResourceIdentity(t *testing.T) {
 
 			req := &http.Request{
 				URL:    url,
-				Method: "GET",
+				Method: http.MethodGet,
 			}
 
 			requestInfoFactory := &request.RequestInfoFactory{

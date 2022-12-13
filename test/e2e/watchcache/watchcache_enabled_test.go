@@ -213,6 +213,8 @@ func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
 }
 
 func collectCacheHitsFor(ctx context.Context, t *testing.T, rootCfg *rest.Config, metricResourcePrefix string) (int, int) {
+	t.Helper()
+
 	rootShardKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(rootCfg)
 	require.NoError(t, err)
 
@@ -240,6 +242,7 @@ func collectCacheHitsFor(ctx context.Context, t *testing.T, rootCfg *rest.Config
 }
 
 func assertWatchCacheIsPrimed(t *testing.T, fn func() error) {
+	t.Helper()
 	framework.Eventually(t, func() (success bool, reason string) {
 		if err := fn(); err != nil {
 			return false, err.Error()

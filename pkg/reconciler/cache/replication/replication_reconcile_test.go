@@ -58,33 +58,35 @@ func TestReconcileAPIExports(t *testing.T) {
 			name:                   "case 1: creation of the object in the cache server",
 			initialLocalAPIExports: []runtime.Object{newAPIExport("foo")},
 			reconcileKey:           fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
-			validateFunc: func(ts *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
+			validateFunc: func(t *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
+				t.Helper()
+
 				if len(localClientActions) != 0 {
-					ts.Fatalf("unexpected REST calls were made to the localDynamicClient: %#v", localClientActions)
+					t.Fatalf("unexpected REST calls were made to the localDynamicClient: %#v", localClientActions)
 				}
 				wasGlobalAPIExportValidated := false
 				for _, action := range cacheClientActions {
 					if action.Matches("create", "apiexports") {
 						createAction := action.(kcptesting.CreateAction)
 						if createAction.GetCluster().String() != "root" {
-							ts.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", createAction.GetCluster())
+							t.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", createAction.GetCluster())
 						}
 						createdUnstructuredAPIExport := createAction.GetObject().(*unstructured.Unstructured)
 						globalAPIExportFromUnstructured := &apisv1alpha1.APIExport{}
 						if err := runtime.DefaultUnstructuredConverter.FromUnstructured(createdUnstructuredAPIExport.Object, globalAPIExportFromUnstructured); err != nil {
-							ts.Fatalf("failed to convert unstructured to APIExport: %v", err)
+							t.Fatalf("failed to convert unstructured to APIExport: %v", err)
 						}
 
 						expectedAPIExport := newAPIExportWithShardAnnotation("foo")
 						if !equality.Semantic.DeepEqual(globalAPIExportFromUnstructured, expectedAPIExport) {
-							ts.Errorf("unexpected APIExport was created:\n%s", cmp.Diff(globalAPIExportFromUnstructured, expectedAPIExport))
+							t.Errorf("unexpected APIExport was created:\n%s", cmp.Diff(globalAPIExportFromUnstructured, expectedAPIExport))
 						}
 						wasGlobalAPIExportValidated = true
 						break
 					}
 				}
 				if !wasGlobalAPIExportValidated {
-					ts.Errorf("an APIExport on the cache sever wasn't created")
+					t.Errorf("an APIExport on the cache sever wasn't created")
 				}
 			},
 		},
@@ -102,26 +104,28 @@ func TestReconcileAPIExports(t *testing.T) {
 			initialGlobalAPIExports:                  []runtime.Object{newAPIExportWithShardAnnotation("foo")},
 			initCacheFakeClientWithInitialAPIExports: true,
 			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
-			validateFunc: func(ts *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
+			validateFunc: func(t *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
+				t.Helper()
+
 				if len(localClientActions) != 0 {
-					ts.Fatalf("unexpected REST calls were made to the localDynamicClient: %#v", localClientActions)
+					t.Fatalf("unexpected REST calls were made to the localDynamicClient: %#v", localClientActions)
 				}
 				wasGlobalAPIExportValidated := false
 				for _, action := range cacheClientActions {
 					if action.Matches("delete", "apiexports") {
 						deleteAction := action.(kcptesting.DeleteAction)
 						if deleteAction.GetCluster().String() != "root" {
-							ts.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", deleteAction.GetCluster())
+							t.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", deleteAction.GetCluster())
 						}
 						if deleteAction.GetName() != "foo" {
-							ts.Fatalf("unexpected APIExport was removed = %v, expected = %v", deleteAction.GetName(), "foo")
+							t.Fatalf("unexpected APIExport was removed = %v, expected = %v", deleteAction.GetName(), "foo")
 						}
 						wasGlobalAPIExportValidated = true
 						break
 					}
 				}
 				if !wasGlobalAPIExportValidated {
-					ts.Errorf("an APIExport on the cache sever wasn't deleted")
+					t.Errorf("an APIExport on the cache sever wasn't deleted")
 				}
 			},
 		},
@@ -130,40 +134,42 @@ func TestReconcileAPIExports(t *testing.T) {
 			initialGlobalAPIExports:                  []runtime.Object{newAPIExportWithShardAnnotation("foo")},
 			initCacheFakeClientWithInitialAPIExports: true,
 			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
-			validateFunc: func(ts *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
+			validateFunc: func(t *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
+				t.Helper()
+
 				wasGlobalAPIExportDeletionValidated := false
 				wasGlobalAPIExportRetrievalValidated := false
 				for _, action := range localClientActions {
 					if action.Matches("get", "apiexports") {
 						getAction := action.(kcptesting.GetAction)
 						if getAction.GetCluster().String() != "root" {
-							ts.Fatalf("wrong cluster = %s was targeted for localDynamicClient", getAction.GetCluster())
+							t.Fatalf("wrong cluster = %s was targeted for localDynamicClient", getAction.GetCluster())
 						}
 						if getAction.GetName() != "foo" {
-							ts.Fatalf("unexpected APIExport was retrieved = %s, expected = %s", getAction.GetName(), "foo")
+							t.Fatalf("unexpected APIExport was retrieved = %s, expected = %s", getAction.GetName(), "foo")
 						}
 						wasGlobalAPIExportRetrievalValidated = true
 						break
 					}
 				}
 				if !wasGlobalAPIExportRetrievalValidated {
-					ts.Errorf("before deleting an APIExport the controller should live GET it")
+					t.Errorf("before deleting an APIExport the controller should live GET it")
 				}
 				for _, action := range cacheClientActions {
 					if action.Matches("delete", "apiexports") {
 						deleteAction := action.(kcptesting.DeleteAction)
 						if deleteAction.GetCluster().String() != "root" {
-							ts.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", deleteAction.GetCluster())
+							t.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", deleteAction.GetCluster())
 						}
 						if deleteAction.GetName() != "foo" {
-							ts.Fatalf("unexpected APIExport was removed = %v, expected = %v", deleteAction.GetName(), "foo")
+							t.Fatalf("unexpected APIExport was removed = %v, expected = %v", deleteAction.GetName(), "foo")
 						}
 						wasGlobalAPIExportDeletionValidated = true
 						break
 					}
 				}
 				if !wasGlobalAPIExportDeletionValidated {
-					ts.Errorf("an APIExport on the cache sever wasn't deleted")
+					t.Errorf("an APIExport on the cache sever wasn't deleted")
 				}
 			},
 		},
@@ -179,34 +185,36 @@ func TestReconcileAPIExports(t *testing.T) {
 			initialGlobalAPIExports:                  []runtime.Object{newAPIExportWithShardAnnotation("foo")},
 			initCacheFakeClientWithInitialAPIExports: true,
 			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
-			validateFunc: func(ts *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
+			validateFunc: func(t *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
+				t.Helper()
+
 				if len(localClientActions) != 0 {
-					ts.Fatalf("unexpected REST calls were made to the localDynamicClient: %#v", localClientActions)
+					t.Fatalf("unexpected REST calls were made to the localDynamicClient: %#v", localClientActions)
 				}
 				wasGlobalAPIExportValidated := false
 				for _, action := range cacheClientActions {
 					if action.Matches("update", "apiexports") {
 						updateAction := action.(kcptesting.UpdateAction)
 						if updateAction.GetCluster().String() != "root" {
-							ts.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", updateAction.GetCluster())
+							t.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", updateAction.GetCluster())
 						}
 						updatedUnstructuredAPIExport := updateAction.GetObject().(*unstructured.Unstructured)
 						globalAPIExportFromUnstructured := &apisv1alpha1.APIExport{}
 						if err := runtime.DefaultUnstructuredConverter.FromUnstructured(updatedUnstructuredAPIExport.Object, globalAPIExportFromUnstructured); err != nil {
-							ts.Fatalf("failed to convert unstructured to APIExport: %v", err)
+							t.Fatalf("failed to convert unstructured to APIExport: %v", err)
 						}
 
 						expectedAPIExport := newAPIExportWithShardAnnotation("foo")
 						expectedAPIExport.Labels["fooLabel"] = "fooLabelVal"
 						if !equality.Semantic.DeepEqual(globalAPIExportFromUnstructured, expectedAPIExport) {
-							ts.Errorf("unexpected update to the APIExport:\n%s", cmp.Diff(globalAPIExportFromUnstructured, expectedAPIExport))
+							t.Errorf("unexpected update to the APIExport:\n%s", cmp.Diff(globalAPIExportFromUnstructured, expectedAPIExport))
 						}
 						wasGlobalAPIExportValidated = true
 						break
 					}
 				}
 				if !wasGlobalAPIExportValidated {
-					ts.Errorf("an APIExport on the cache sever wasn't updated")
+					t.Errorf("an APIExport on the cache sever wasn't updated")
 				}
 			},
 		},
@@ -222,34 +230,36 @@ func TestReconcileAPIExports(t *testing.T) {
 			initialGlobalAPIExports:                  []runtime.Object{newAPIExportWithShardAnnotation("foo")},
 			initCacheFakeClientWithInitialAPIExports: true,
 			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
-			validateFunc: func(ts *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
+			validateFunc: func(t *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
+				t.Helper()
+
 				if len(localClientActions) != 0 {
-					ts.Fatalf("unexpected REST calls were made to the localDynamicClient: %#v", localClientActions)
+					t.Fatalf("unexpected REST calls were made to the localDynamicClient: %#v", localClientActions)
 				}
 				wasGlobalAPIExportValidated := false
 				for _, action := range cacheClientActions {
 					if action.Matches("update", "apiexports") {
 						updateAction := action.(kcptesting.UpdateAction)
 						if updateAction.GetCluster().String() != "root" {
-							ts.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", updateAction.GetCluster())
+							t.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", updateAction.GetCluster())
 						}
 						updatedUnstructuredAPIExport := updateAction.GetObject().(*unstructured.Unstructured)
 						globalAPIExportFromUnstructured := &apisv1alpha1.APIExport{}
 						if err := runtime.DefaultUnstructuredConverter.FromUnstructured(updatedUnstructuredAPIExport.Object, globalAPIExportFromUnstructured); err != nil {
-							ts.Fatalf("failed to convert unstructured to APIExport: %v", err)
+							t.Fatalf("failed to convert unstructured to APIExport: %v", err)
 						}
 
 						expectedAPIExport := newAPIExportWithShardAnnotation("foo")
 						expectedAPIExport.Spec.PermissionClaims = []apisv1alpha1.PermissionClaim{{GroupResource: apisv1alpha1.GroupResource{}, IdentityHash: "abc"}}
 						if !equality.Semantic.DeepEqual(globalAPIExportFromUnstructured, expectedAPIExport) {
-							ts.Errorf("unexpected update to the APIExport:\n%s", cmp.Diff(globalAPIExportFromUnstructured, expectedAPIExport))
+							t.Errorf("unexpected update to the APIExport:\n%s", cmp.Diff(globalAPIExportFromUnstructured, expectedAPIExport))
 						}
 						wasGlobalAPIExportValidated = true
 						break
 					}
 				}
 				if !wasGlobalAPIExportValidated {
-					ts.Errorf("an APIExport on the cache sever wasn't updated")
+					t.Errorf("an APIExport on the cache sever wasn't updated")
 				}
 			},
 		},
@@ -266,35 +276,37 @@ func TestReconcileAPIExports(t *testing.T) {
 			initialGlobalAPIExports:                  []runtime.Object{newAPIExportWithShardAnnotation("foo")},
 			initCacheFakeClientWithInitialAPIExports: true,
 			reconcileKey:                             fmt.Sprintf("%s::root|foo", apisv1alpha1.SchemeGroupVersion.WithResource("apiexports")),
-			validateFunc: func(ts *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
+			validateFunc: func(t *testing.T, cacheClientActions []kcptesting.Action, localClientActions []kcptesting.Action) {
+				t.Helper()
+
 				if len(localClientActions) != 0 {
-					ts.Fatalf("unexpected REST calls were made to the localDynamicClient: %#v", localClientActions)
+					t.Fatalf("unexpected REST calls were made to the localDynamicClient: %#v", localClientActions)
 				}
 				wasGlobalAPIExportValidated := false
 				for _, action := range cacheClientActions {
 					if action.Matches("update", "apiexports") {
 						updateAction := action.(kcptesting.UpdateAction)
 						if updateAction.GetCluster().String() != "root" {
-							ts.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", updateAction.GetCluster())
+							t.Fatalf("wrong cluster = %s was targeted for cacheDynamicClient", updateAction.GetCluster())
 						}
 						updatedUnstructuredAPIExport := updateAction.GetObject().(*unstructured.Unstructured)
 						globalAPIExportFromUnstructured := &apisv1alpha1.APIExport{}
 						if err := runtime.DefaultUnstructuredConverter.FromUnstructured(updatedUnstructuredAPIExport.Object, globalAPIExportFromUnstructured); err != nil {
-							ts.Fatalf("failed to convert unstructured to APIExport: %v", err)
+							t.Fatalf("failed to convert unstructured to APIExport: %v", err)
 						}
 
 						expectedAPIExport := newAPIExportWithShardAnnotation("foo")
 						//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
 						expectedAPIExport.Status.VirtualWorkspaces = []apisv1alpha1.VirtualWorkspace{{URL: "https://acme.dev"}}
 						if !equality.Semantic.DeepEqual(globalAPIExportFromUnstructured, expectedAPIExport) {
-							ts.Errorf("unexpected update to the APIExport:\n%s", cmp.Diff(globalAPIExportFromUnstructured, expectedAPIExport))
+							t.Errorf("unexpected update to the APIExport:\n%s", cmp.Diff(globalAPIExportFromUnstructured, expectedAPIExport))
 						}
 						wasGlobalAPIExportValidated = true
 						break
 					}
 				}
 				if !wasGlobalAPIExportValidated {
-					ts.Errorf("an APIExport on the cache sever wasn't updated")
+					t.Errorf("an APIExport on the cache sever wasn't updated")
 				}
 			},
 		},

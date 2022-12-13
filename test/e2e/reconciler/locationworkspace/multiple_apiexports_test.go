@@ -285,5 +285,4 @@ func TestMultipleExports(t *testing.T) {
 		return len(cmp.Diff([]*metav1.APIResourceList{
 			requiredIngressAPIResourceList, requiredAPIResourceListWithService(computeClusterName, serviceSchemaClusterName)}, sortAPIResourceList(existingAPIResourceLists))) == 0
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
-
 }

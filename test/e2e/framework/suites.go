@@ -25,6 +25,7 @@ import (
 // Suite should be called at the very beginning of a test case, to ensure that a test is only
 // run when the suite containing it is selected by the user running tests.
 func Suite(t *testing.T, suite string) {
+	t.Helper()
 	if !sets.NewString(TestConfig.Suites()...).Has(suite) {
 		t.Skipf("suite %s disabled", suite)
 	}

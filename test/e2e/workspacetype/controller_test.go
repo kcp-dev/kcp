@@ -59,6 +59,8 @@ func TestWorkspaceTypes(t *testing.T) {
 		{
 			name: "create a workspace without an explicit type, get default type",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
+				t.Helper()
+
 				t.Logf("Create a workspace without explicit type")
 				workspace, err := server.kcpClusterClient.TenancyV1beta1().Workspaces().Cluster(server.orgClusterName).Create(ctx, &tenancyv1beta1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "myapp"}}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace")
@@ -87,6 +89,8 @@ func TestWorkspaceTypes(t *testing.T) {
 		{
 			name: "create a workspace with an explicit non-existing type",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
+				t.Helper()
+
 				universal := framework.NewWorkspaceFixture(t, server, core.RootCluster.Path())
 				t.Logf("Create a workspace with explicit non-existing type")
 				workspace, err := server.kcpClusterClient.TenancyV1beta1().Workspaces().Cluster(universal.Path()).Create(ctx, &tenancyv1beta1.Workspace{
@@ -150,6 +154,8 @@ func TestWorkspaceTypes(t *testing.T) {
 		{
 			name: "create a workspace with an explicit type allowed to be used by user-1 without having general access to it",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
+				t.Helper()
+
 				universal := framework.NewWorkspaceFixture(t, server, core.RootCluster.Path())
 				typesource := framework.NewWorkspaceFixture(t, server, core.RootCluster.Path())
 
@@ -157,7 +163,7 @@ func TestWorkspaceTypes(t *testing.T) {
 				kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 				require.NoError(t, err, "failed to construct kube cluster client for server")
 
-				framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, universal.Path(), []string{"user-1"}, nil, false)
+				framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, universal.Path(), []string{"user-1"}, nil, false)
 				cr, crb := createClusterRoleAndBindings(
 					"create-workspace-user-1",
 					"user-1", "User",
@@ -243,6 +249,8 @@ func TestWorkspaceTypes(t *testing.T) {
 		{
 			name: "create a workspace with a type that has an initializer",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
+				t.Helper()
+
 				universal := framework.NewWorkspaceFixture(t, server, core.RootCluster.Path())
 				t.Logf("Create type Foo with an initializer")
 				cwt, err := server.kcpClusterClient.Cluster(universal.Path()).TenancyV1alpha1().WorkspaceTypes().Create(ctx, &tenancyv1alpha1.WorkspaceType{

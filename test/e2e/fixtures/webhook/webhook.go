@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package Webhook
+package webhook
 
 import (
 	"context"
@@ -43,6 +43,8 @@ type AdmissionWebhookServer struct {
 }
 
 func (s *AdmissionWebhookServer) StartTLS(t *testing.T, certFile, keyFile string, port string) {
+	t.Helper()
+
 	s.t = t
 	s.port = port
 

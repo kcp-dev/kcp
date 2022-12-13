@@ -64,6 +64,8 @@ func TestUserHomeWorkspaces(t *testing.T) {
 				"team-1",
 			},
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
+				t.Helper()
+
 				kcpUser1Client := server.kcpUserClusterClients[0]
 				kcpUser2Client := server.kcpUserClusterClients[1]
 

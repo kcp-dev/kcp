@@ -114,6 +114,8 @@ func bootstrapCRD(
 	clusterClient kcpapiextensionsv1client.CustomResourceDefinitionClusterInterface,
 	crd *apiextensionsv1.CustomResourceDefinition,
 ) {
+	t.Helper()
+
 	ctx, cancelFunc := context.WithTimeout(context.Background(), wait.ForeverTestTimeout)
 	t.Cleanup(cancelFunc)
 
@@ -121,7 +123,7 @@ func bootstrapCRD(
 	require.NoError(t, err, "error bootstrapping CRD %s in cluster %s", crd.Name, clusterName)
 }
 
-// ensure PartialObjectMetadata wildcard list works even with different CRD schemas
+// ensure PartialObjectMetadata wildcard list works even with different CRD schemas.
 func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	t.Parallel()
 

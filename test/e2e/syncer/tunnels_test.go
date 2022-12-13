@@ -235,5 +235,4 @@ func TestSyncerTunnel(t *testing.T) {
 	// Delete the deployment
 	err = downstreamKubeClient.AppsV1().Deployments(downstreamNamespaceName).Delete(ctx, d.Name, metav1.DeleteOptions{})
 	require.NoError(t, err)
-
 }

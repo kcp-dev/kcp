@@ -101,8 +101,11 @@ func TestAPIBindingDeletion(t *testing.T) {
 	}
 
 	framework.Eventually(t, func() (bool, string) {
-		_, err = kcpClusterClient.Cluster(consumerWorkspace.Path()).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
-		return err == nil, err.Error()
+		_, err := kcpClusterClient.Cluster(consumerWorkspace.Path()).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
+		if err != nil {
+			return false, err.Error()
+		}
+		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Should have finalizer added in apibinding")

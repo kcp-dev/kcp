@@ -309,6 +309,8 @@ func TestReconcile(t *testing.T) {
 // requireConditionMatches looks for a condition matching c in g. Only fields that are set in c are compared (Type is
 // required, though). If c.Message is set, the test performed is contains rather than an exact match.
 func requireConditionMatches(t *testing.T, g conditions.Getter, c *conditionsv1alpha1.Condition) {
+	t.Helper()
+
 	actual := conditions.Get(g, c.Type)
 
 	require.NotNil(t, actual, "missing condition %q", c.Type)

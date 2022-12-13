@@ -85,6 +85,8 @@ var testCases = []struct {
 	{
 		name: "create a clusterworkspace via projection and see the workspace",
 		work: func(ctx context.Context, t *testing.T, server runningServer) {
+			t.Helper()
+
 			t.Logf("Create ClusterWorkspace workspace1 in the virtual workspace")
 			workspace1, err := server.kcpClusterClient.Cluster(server.orgClusterName.Path()).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{
 				ObjectMeta: metav1.ObjectMeta{Name: "workspace1"},
@@ -125,6 +127,8 @@ var testCases = []struct {
 	{
 		name: "create a workspace and see the clusterworkspace",
 		work: func(ctx context.Context, t *testing.T, server runningServer) {
+			t.Helper()
+
 			t.Logf("Create Workspace workspace1 in the virtual workspace")
 			workspace1, err := server.kcpClusterClient.Cluster(server.orgClusterName.Path()).TenancyV1beta1().Workspaces().Create(ctx, &tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{Name: "workspace1"},
@@ -139,6 +143,8 @@ var testCases = []struct {
 }
 
 func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
+	t.Helper()
+
 	var server framework.RunningServer
 	var virtualWorkspaceServerHost string
 	if standalone {
@@ -197,7 +203,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 		}()
 
 		// wait for readiness
-		client := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}} //nolint:noctx
+		client := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}}
 		baseClusterServerURL, err := url.Parse(baseCluster.Server)
 		require.NoError(t, err)
 		virtualWorkspaceServerHost = fmt.Sprintf("https://%s", net.JoinHostPort(baseClusterServerURL.Hostname(), portStr))

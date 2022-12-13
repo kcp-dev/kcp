@@ -19,7 +19,6 @@ package apibinding
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	gohttp "net/http"
 	"path/filepath"
 	"testing"
@@ -111,8 +110,11 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 	}
 
 	framework.Eventually(t, func() (bool, string) {
-		_, err = kcpClusterClient.Cluster(targetClusterName.Path()).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
-		return err == nil, fmt.Sprintf("%v", err)
+		_, err := kcpClusterClient.Cluster(targetClusterName.Path()).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
+		if err != nil {
+			return false, err.Error()
+		}
+		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	scheme := runtime.NewScheme()
@@ -258,8 +260,11 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 	}
 
 	framework.Eventually(t, func() (bool, string) {
-		_, err = kcpClients.Cluster(targetClusterName.Path()).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
-		return err == nil, err.Error()
+		_, err := kcpClients.Cluster(targetClusterName.Path()).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
+		if err != nil {
+			return false, err.Error()
+		}
+		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	scheme := runtime.NewScheme()
@@ -295,8 +300,12 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 
 		framework.Eventually(t, func() (bool, string) {
 			cl := gohttp.Client{Transport: &gohttp.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}}
-			_, err := cl.Get(testWebhooks[cluster].GetURL())
-			return err == nil, fmt.Sprintf("%v", err)
+			resp, err := cl.Get(testWebhooks[cluster].GetURL()) //nolint:noctx
+			if err != nil {
+				return false, err.Error()
+			}
+			resp.Body.Close()
+			return true, ""
 		}, wait.ForeverTestTimeout, 100*time.Millisecond, "failed to connect to webhook")
 
 		sideEffect := admissionregistrationv1.SideEffectClassNone

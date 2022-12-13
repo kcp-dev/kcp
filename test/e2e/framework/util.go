@@ -64,10 +64,12 @@ var fs embed.FS
 // TODO(marun) Is there a way to avoid embedding by determining the
 // path to the file during test execution?
 func WriteTokenAuthFile(t *testing.T) string {
+	t.Helper()
 	return WriteEmbedFile(t, "auth-tokens.csv")
 }
 
 func WriteEmbedFile(t *testing.T, source string) string {
+	t.Helper()
 	data, err := fs.ReadFile(source)
 	require.NoErrorf(t, err, "error reading embed file: %q", source)
 
@@ -84,12 +86,16 @@ func WriteEmbedFile(t *testing.T, source string) string {
 
 // Persistent mapping of test name to base temp dir used to ensure
 // artifact paths have a common root across servers for a given test.
-var baseTempDirs map[string]string = map[string]string{}
-var baseTempDirsLock sync.Mutex = sync.Mutex{}
+var (
+	baseTempDirs     = map[string]string{}
+	baseTempDirsLock = sync.Mutex{}
+)
 
 // ensureBaseTempDir returns the name of a base temp dir for the
 // current test, creating it if needed.
 func ensureBaseTempDir(t *testing.T) (string, error) {
+	t.Helper()
+
 	baseTempDirsLock.Lock()
 	defer baseTempDirsLock.Unlock()
 	name := t.Name()
@@ -126,6 +132,7 @@ func ensureBaseTempDir(t *testing.T) (string, error) {
 // CreateTempDirForTest creates the named directory with a unique base
 // path derived from the name of the current test.
 func CreateTempDirForTest(t *testing.T, dirName string) (string, error) {
+	t.Helper()
 	baseTempDir, err := ensureBaseTempDir(t)
 	if err != nil {
 		return "", err
@@ -139,6 +146,7 @@ func CreateTempDirForTest(t *testing.T, dirName string) (string, error) {
 
 // ScratchDirs determines where artifacts and data should live for a test server.
 func ScratchDirs(t *testing.T) (string, string, error) {
+	t.Helper()
 	artifactDir, err := CreateTempDirForTest(t, "artifacts")
 	if err != nil {
 		return "", "", err
@@ -147,12 +155,15 @@ func ScratchDirs(t *testing.T) (string, string, error) {
 }
 
 func (c *kcpServer) Artifact(t *testing.T, producer func() (runtime.Object, error)) {
+	t.Helper()
 	artifact(t, c, producer)
 }
 
 // artifact registers the data-producing function to run and dump the YAML-formatted output
 // to the artifact directory for the test before the kcp process is terminated.
 func artifact(t *testing.T, server RunningServer, producer func() (runtime.Object, error)) {
+	t.Helper()
+
 	subDir := filepath.Join("artifacts", "kcp", server.Name())
 	artifactDir, err := CreateTempDirForTest(t, subDir)
 	require.NoError(t, err, "could not create artifacts dir")
@@ -202,6 +213,8 @@ func artifact(t *testing.T, server RunningServer, producer func() (runtime.Objec
 
 // GetFreePort asks the kernel for a free open port that is ready to use.
 func GetFreePort(t *testing.T) (string, error) {
+	t.Helper()
+
 	for {
 		addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
 		if err != nil {

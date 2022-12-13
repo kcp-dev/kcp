@@ -76,9 +76,8 @@ func (c *testConfig) KCPKubeconfig() string {
 
 	if c.useDefaultKCPServer {
 		return filepath.Join(RepositoryDir(), ".kcp", "admin.kubeconfig")
-	} else {
-		return c.kcpKubeconfig
 	}
+	return c.kcpKubeconfig
 }
 
 func (c *testConfig) RootShardKubeconfig() string {
@@ -112,6 +111,8 @@ func registerFlags(c *testConfig) {
 // cluster name and writes it to the test's artifact path. Useful for configuring the
 // workspace plugin with --kubeconfig.
 func WriteLogicalClusterConfig(t *testing.T, rawConfig clientcmdapi.Config, contextName string, clusterName logicalcluster.Path) (clientcmd.ClientConfig, string) {
+	t.Helper()
+
 	logicalRawConfig := LogicalClusterRawConfig(rawConfig, clusterName, contextName)
 	artifactDir, _, err := ScratchDirs(t)
 	require.NoError(t, err)
@@ -125,6 +126,8 @@ func WriteLogicalClusterConfig(t *testing.T, rawConfig clientcmdapi.Config, cont
 
 // ShardConfig returns a rest config that talk directly to the given shard.
 func ShardConfig(t *testing.T, kcpClusterClient kcpclientset.ClusterInterface, shardName string, cfg *rest.Config) *rest.Config {
+	t.Helper()
+
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 

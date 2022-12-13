@@ -222,7 +222,6 @@ func (rb resourceBuilder) annotations() resourceBuilder {
 		metadata := r.Object["metadata"].(map[string]interface{})
 		if _, exists := metadata["annotations"]; !exists {
 			metadata["annotations"] = map[string]interface{}{}
-
 		}
 		return r
 	}
@@ -258,7 +257,6 @@ func (rb resourceBuilder) labels() resourceBuilder {
 		metadata := r.Object["metadata"].(map[string]interface{})
 		if _, exists := metadata["labels"]; !exists {
 			metadata["labels"] = map[string]interface{}{}
-
 		}
 		return r
 	}
@@ -766,6 +764,8 @@ func TestSyncerResourceTransformer(t *testing.T) {
 				},
 			},
 			checkResult: func(t *testing.T, watchTester *watch.FakeWatcher, result interface{}) {
+				t.Helper()
+
 				watcher, ok := result.(watch.Interface)
 				if !ok {
 					require.Fail(t, "result of Watch should be a watch.Interface")
@@ -926,6 +926,8 @@ func watchRestrictionsFromListOptions(options metav1.ListOptions) clienttesting.
 }
 
 func checkWatchEvents(t *testing.T, watcher watch.Interface, addEvents func(), expectedEvents []watch.Event) {
+	t.Helper()
+
 	watchingStarted := make(chan bool, 1)
 	go func() {
 		<-watchingStarted

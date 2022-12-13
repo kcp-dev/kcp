@@ -37,6 +37,7 @@ import (
 
 // NewAccessory creates a new accessory process.
 func NewAccessory(t *testing.T, artifactDir string, name string, cmd ...string) *Accessory {
+	t.Helper()
 	return &Accessory{
 		t:           t,
 		artifactDir: artifactDir,
@@ -47,7 +48,7 @@ func NewAccessory(t *testing.T, artifactDir string, name string, cmd ...string) 
 
 // Accessory knows how to run an executable with arguments for the duration of the context.
 type Accessory struct {
-	ctx         context.Context
+	ctx         context.Context //nolint:containedctx
 	t           *testing.T
 	artifactDir string
 	name        string
@@ -55,6 +56,8 @@ type Accessory struct {
 }
 
 func (a *Accessory) Run(t *testing.T, opts ...RunOption) error {
+	t.Helper()
+
 	runOpts := runOptions{}
 	for _, opt := range opts {
 		opt(&runOpts)
@@ -104,6 +107,8 @@ func (a *Accessory) Run(t *testing.T, opts ...RunOption) error {
 
 // Ready blocks until the server is healthy and ready.
 func Ready(ctx context.Context, t *testing.T, port string) bool {
+	t.Helper()
+
 	wg := sync.WaitGroup{}
 	wg.Add(2)
 	for _, endpoint := range []string{"/healthz", "/readyz"} {
@@ -117,6 +122,8 @@ func Ready(ctx context.Context, t *testing.T, port string) bool {
 }
 
 func waitForEndpoint(ctx context.Context, t *testing.T, port, endpoint string) {
+	t.Helper()
+
 	var lastError error
 	if err := wait.PollImmediateWithContext(ctx, 100*time.Millisecond, wait.ForeverTestTimeout, func(ctx context.Context) (bool, error) {
 		url := fmt.Sprintf("http://[::1]:%s%s", port, endpoint)
@@ -131,7 +138,7 @@ func waitForEndpoint(ctx context.Context, t *testing.T, port, endpoint string) {
 			lastError = fmt.Errorf("error reading response from %s: %w", url, err)
 			return false, nil
 		}
-		if resp.StatusCode != 200 {
+		if resp.StatusCode != http.StatusOK {
 			lastError = fmt.Errorf("unready response from %s: %v", url, string(body))
 			return false, nil
 		}

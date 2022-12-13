@@ -93,7 +93,6 @@ type fakeHookSource struct {
 
 func (f fakeHookSource) Webhooks(cluster logicalcluster.Name) []webhook.WebhookAccessor {
 	return f.hooks[cluster]
-
 }
 func (f fakeHookSource) HasSynced() bool {
 	return f.hasSynced

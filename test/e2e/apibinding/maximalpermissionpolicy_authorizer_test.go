@@ -70,7 +70,7 @@ func TestMaximalPermissionPolicyAuthorizerSystemGroupProtection(t *testing.T) {
 	}))
 
 	t.Logf("Giving user-1 admin access")
-	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, orgClusterName.Path(), []string{"user-1"}, nil, true)
+	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, orgClusterName.Path(), []string{"user-1"}, nil, true)
 
 	type Test struct {
 		name string
@@ -81,6 +81,7 @@ func TestMaximalPermissionPolicyAuthorizerSystemGroupProtection(t *testing.T) {
 		{
 			name: "APIBinding resources",
 			test: func(t *testing.T) {
+				t.Helper()
 				t.Parallel()
 
 				t.Logf("Creating a WorkspaceType as user-1")
@@ -111,6 +112,7 @@ func TestMaximalPermissionPolicyAuthorizerSystemGroupProtection(t *testing.T) {
 		{
 			name: "System CRDs",
 			test: func(t *testing.T) {
+				t.Helper()
 				t.Parallel()
 
 				t.Logf("Creating a APIExport as user-1")
@@ -173,11 +175,11 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
 	serviceProviderClusterNames := []logicalcluster.Name{rbacServiceProviderClusterName, serviceProvider2Workspace}
-	framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, orgClusterName.Path(), []string{"user-1", "user-2", "user-3"}, nil, false)
+	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, orgClusterName.Path(), []string{"user-1", "user-2", "user-3"}, nil, false)
 
 	// Set up service provider workspace.
 	for _, serviceProviderClusterName := range serviceProviderClusterNames {
-		setUpServiceProvider(ctx, dynamicClients, kcpClusterClient, kubeClusterClient, serviceProviderClusterName.Path(), rbacServiceProviderClusterName.Path(), cfg, t)
+		setUpServiceProvider(ctx, t, dynamicClients, kcpClusterClient, kubeClusterClient, serviceProviderClusterName.Path(), rbacServiceProviderClusterName.Path(), cfg)
 	}
 
 	bindConsumerToProvider := func(consumerWorkspace logicalcluster.Path, providerClusterName logicalcluster.Name) {
@@ -226,7 +228,7 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 	}
 	for serviceProvider, consumer := range m {
 		t.Logf("Set up user-1 and user-3 as admin for the consumer workspace %q", consumer)
-		framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, consumer.Path(), []string{"user-1", "user-3"}, nil, true)
+		framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, consumer.Path(), []string{"user-1", "user-3"}, nil, true)
 		bindConsumerToProvider(consumer.Path(), serviceProvider)
 		wildwestClusterClient, err := wildwestclientset.NewForConfig(framework.UserConfig("user-1", rest.CopyConfig(cfg)))
 		cowboyclient := wildwestClusterClient.WildwestV1alpha1().Cluster(consumer.Path()).Cowboys("default")
@@ -254,7 +256,7 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 			_, err = kubeClusterClient.Cluster(consumer.Path()).RbacV1().ClusterRoleBindings().Create(ctx, clusterRoleBinding, metav1.CreateOptions{})
 			require.NoError(t, err)
 
-			framework.AdmitWorkspaceAccess(t, ctx, kubeClusterClient, consumer.Path(), []string{"user-2"}, nil, false)
+			framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, consumer.Path(), []string{"user-2"}, nil, false)
 			user2Client, err := wildwestclientset.NewForConfig(framework.UserConfig("user-2", rest.CopyConfig(cfg)))
 			require.NoError(t, err)
 
@@ -337,7 +339,8 @@ func createClusterRoleAndBindings(name, subjectName, subjectKind string, apiGrou
 	return clusterRole, clusterRoleBinding
 }
 
-func setUpServiceProvider(ctx context.Context, dynamicClusterClient kcpdynamic.ClusterInterface, kcpClients kcpclientset.ClusterInterface, kubeClusterClient kcpkubernetesclientset.ClusterInterface, serviceProviderWorkspace, rbacServiceProvider logicalcluster.Path, cfg *rest.Config, t *testing.T) {
+func setUpServiceProvider(ctx context.Context, t *testing.T, dynamicClusterClient kcpdynamic.ClusterInterface, kcpClients kcpclientset.ClusterInterface, kubeClusterClient kcpkubernetesclientset.ClusterInterface, serviceProviderWorkspace, rbacServiceProvider logicalcluster.Path, cfg *rest.Config) {
+	t.Helper()
 	t.Logf("Install today cowboys APIResourceSchema into service provider workspace %q", serviceProviderWorkspace)
 
 	serviceProviderClient, err := kcpclientset.NewForConfig(cfg)
@@ -378,6 +381,7 @@ func setUpServiceProvider(ctx context.Context, dynamicClusterClient kcpdynamic.C
 }
 
 func testCRUDOperations(ctx context.Context, t *testing.T, consumer1Workspace logicalcluster.Path, wildwestClusterClient wildwestclientset.ClusterInterface) {
+	t.Helper()
 	t.Logf("Make sure we can perform CRUD operations against consumer workspace %q for the bound API", consumer1Workspace)
 
 	t.Logf("Make sure list shows nothing to start")
@@ -402,10 +406,10 @@ func testCRUDOperations(ctx context.Context, t *testing.T, consumer1Workspace lo
 	}
 	_, err := cowboyClient.Create(ctx, cowboy, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating cowboy in consumer workspace %q", consumer1Workspace)
-
 }
 
 func toYAML(t *testing.T, binding interface{}) string {
+	t.Helper()
 	bs, err := yaml.Marshal(binding)
 	require.NoError(t, err)
 	return string(bs)

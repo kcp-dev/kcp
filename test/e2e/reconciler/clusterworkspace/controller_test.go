@@ -58,6 +58,8 @@ func TestWorkspaceController(t *testing.T) {
 		{
 			name: "check the root workspace shard has the correct base URL",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
+				t.Helper()
+
 				cws, err := server.rootKcpClient.CoreV1alpha1().Shards().Get(ctx, "root", metav1.GetOptions{})
 				require.NoError(t, err, "did not see root workspace shard")
 
@@ -68,6 +70,7 @@ func TestWorkspaceController(t *testing.T) {
 		{
 			name: "create a workspace with the default shard, expect it to be scheduled",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
+				t.Helper()
 				// note that the root shard always exists if not deleted
 
 				t.Logf("Create a workspace with a shard")
@@ -88,6 +91,7 @@ func TestWorkspaceController(t *testing.T) {
 			name:        "add a shard after a workspace is unschedulable, expect it to be scheduled",
 			destructive: true,
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
+				t.Helper()
 				var previouslyValidShard corev1alpha1.Shard
 				t.Logf("Get a list of current shards so that we can schedule onto a valid shard later")
 				shards, err := server.rootKcpClient.CoreV1alpha1().Shards().List(ctx, metav1.ListOptions{})
@@ -195,6 +199,7 @@ func TestWorkspaceController(t *testing.T) {
 }
 
 func toYAML(t *testing.T, obj interface{}) string {
+	t.Helper()
 	bs, err := yaml.Marshal(obj)
 	require.NoError(t, err, "failed to marshal object")
 	return string(bs)

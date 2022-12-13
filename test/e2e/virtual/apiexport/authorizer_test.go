@@ -89,11 +89,11 @@ func TestAPIExportAuthorizers(t *testing.T) {
 	kubeClient, err := kcpkubernetesclientset.NewForConfig(rest.CopyConfig(cfg))
 	require.NoError(t, err)
 
-	framework.AdmitWorkspaceAccess(t, ctx, kubeClient, org.Path(), []string{"user-1", "user-2", "user-3"}, nil, false)
-	framework.AdmitWorkspaceAccess(t, ctx, kubeClient, serviceProvider1ClusterName.Path(), []string{"user-1"}, nil, true)
-	framework.AdmitWorkspaceAccess(t, ctx, kubeClient, serviceProvider2ClusterName.Path(), []string{"user-2"}, nil, true)
-	framework.AdmitWorkspaceAccess(t, ctx, kubeClient, tenantClusterName.Path(), []string{"user-3"}, nil, true)
-	framework.AdmitWorkspaceAccess(t, ctx, kubeClient, tenantShadowCRDClusterName.Path(), []string{"user-3"}, nil, true)
+	framework.AdmitWorkspaceAccess(ctx, t, kubeClient, org.Path(), []string{"user-1", "user-2", "user-3"}, nil, false)
+	framework.AdmitWorkspaceAccess(ctx, t, kubeClient, serviceProvider1ClusterName.Path(), []string{"user-1"}, nil, true)
+	framework.AdmitWorkspaceAccess(ctx, t, kubeClient, serviceProvider2ClusterName.Path(), []string{"user-2"}, nil, true)
+	framework.AdmitWorkspaceAccess(ctx, t, kubeClient, tenantClusterName.Path(), []string{"user-3"}, nil, true)
+	framework.AdmitWorkspaceAccess(ctx, t, kubeClient, tenantShadowCRDClusterName.Path(), []string{"user-3"}, nil, true)
 
 	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, serviceProvider1ClusterName.Path(), user1KcpClient, "wild.wild.west", "")
 
@@ -296,7 +296,6 @@ func TestAPIExportAuthorizers(t *testing.T) {
 			return true, ""
 		}
 		return false, "waiting on virtual workspace to be ready"
-
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting on virtual workspace to be ready")
 
 	user2ApiExportVWCfg := framework.UserConfig("user-2", rest.CopyConfig(cfg))
@@ -380,9 +379,9 @@ func TestRootAPIExportAuthorizers(t *testing.T) {
 	providerUser := "user-1"
 	consumerUser := "user-2"
 
-	framework.AdmitWorkspaceAccess(t, ctx, kubeClient, org.Path(), []string{providerUser, consumerUser}, nil, false)
-	framework.AdmitWorkspaceAccess(t, ctx, kubeClient, serviceClusterName.Path(), []string{providerUser}, nil, true)
-	framework.AdmitWorkspaceAccess(t, ctx, kubeClient, userWorkspace.Path(), []string{consumerUser}, nil, true)
+	framework.AdmitWorkspaceAccess(ctx, t, kubeClient, org.Path(), []string{providerUser, consumerUser}, nil, false)
+	framework.AdmitWorkspaceAccess(ctx, t, kubeClient, serviceClusterName.Path(), []string{providerUser}, nil, true)
+	framework.AdmitWorkspaceAccess(ctx, t, kubeClient, userWorkspace.Path(), []string{consumerUser}, nil, true)
 
 	serviceKcpClient, err := kcpclientset.NewForConfig(framework.UserConfig(providerUser, rest.CopyConfig(cfg)))
 	require.NoError(t, err)
@@ -496,13 +495,12 @@ func TestRootAPIExportAuthorizers(t *testing.T) {
 			return true, ""
 		}
 		return false, "waiting on virtual workspace to be ready"
-
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting on virtual workspace to be ready")
 
-	serviceApiExportVWCfg := framework.UserConfig(providerUser, rest.CopyConfig(cfg))
+	serviceAPIExportVWCfg := framework.UserConfig(providerUser, rest.CopyConfig(cfg))
 	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
-	serviceApiExportVWCfg.Host = export.Status.VirtualWorkspaces[0].URL
-	serviceDynamicVWClient, err := kcpdynamic.NewForConfig(serviceApiExportVWCfg)
+	serviceAPIExportVWCfg.Host = export.Status.VirtualWorkspaces[0].URL
+	serviceDynamicVWClient, err := kcpdynamic.NewForConfig(serviceAPIExportVWCfg)
 	require.NoError(t, err)
 
 	t.Logf("Verify that service user can create a claimed resource in user workspace")

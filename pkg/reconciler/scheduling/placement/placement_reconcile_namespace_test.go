@@ -30,7 +30,6 @@ import (
 )
 
 func TestPlacementPhase(t *testing.T) {
-
 	testCases := []struct {
 		name              string
 		ns                *corev1.Namespace
