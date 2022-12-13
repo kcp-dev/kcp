@@ -46,7 +46,7 @@ func getSyncerViewFields(upstreamResource *unstructured.Unstructured, syncTarget
 		return nil, nil
 	}
 
-	var result map[string]interface{} = make(map[string]interface{}, 1)
+	result := make(map[string]interface{}, 1)
 	if err := json.Unmarshal([]byte(syncerViewAnnotationValue), &result); err != nil {
 		return nil, err
 	}

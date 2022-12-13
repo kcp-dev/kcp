@@ -191,7 +191,7 @@ func (c *Controller) process(ctx context.Context, key queueElement) error {
 	return nil
 }
 
-var negotiatedAPIResourceKind string = reflect.TypeOf(apiresourcev1alpha1.NegotiatedAPIResource{}).Name()
+var negotiatedAPIResourceKind = reflect.TypeOf(apiresourcev1alpha1.NegotiatedAPIResource{}).Name()
 
 func NegotiatedAPIResourceAsOwnerReference(obj *apiresourcev1alpha1.NegotiatedAPIResource) metav1.OwnerReference {
 	return metav1.OwnerReference{
