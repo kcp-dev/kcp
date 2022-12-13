@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"path"
 	"regexp"
 	"strings"
 
@@ -35,6 +36,8 @@ import (
 	kaudit "k8s.io/apiserver/pkg/audit"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/klog/v2"
+	"k8s.io/kube-openapi/pkg/util/sets"
 )
 
 type (
@@ -168,4 +171,37 @@ func isPartialMetadataHeader(accept string) bool {
 	}
 
 	return false
+}
+
+// WithClusterScopedStaticEndpoints rewrites well-known static paths like
+// /ready to top-level ones.
+func WithClusterScopedStaticEndpoints(handler http.Handler) http.HandlerFunc {
+	known := sets.NewString(
+		"readyz", "livez", "healthz", "version",
+	)
+
+	return func(w http.ResponseWriter, req *http.Request) {
+		logger := klog.FromContext(req.Context())
+		cluster := request.ClusterFrom(req.Context())
+
+		base := path.Join("/clusters", cluster.Name.Path())
+		if !strings.HasPrefix(req.URL.Path, base) {
+			// If we don't have an url that looks like
+			// /clusters/<name>, continue.
+			handler.ServeHTTP(w, req)
+			return
+		}
+
+		// Trim the /clusters/<name> prefix from the request
+		// and check against the list of known prefixes.
+		urlPath := strings.TrimPrefix(req.URL.Path, base)
+		if prefix := strings.SplitN(urlPath, "/", 1); known.Has(prefix[0]) {
+			// We have a match! Rewrite the request
+			logger = logger.WithValues("from", req.URL.Path, "to", urlPath)
+			logger.V(4).Info("rewriting path for static endpoint")
+			req.URL.Path = urlPath
+		}
+
+		handler.ServeHTTP(w, req)
+	}
 }

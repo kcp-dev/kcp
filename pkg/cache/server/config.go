@@ -147,6 +147,7 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 		apiHandler = genericapiserver.DefaultBuildHandlerChainBeforeAuthz(apiHandler, genericConfig)
 		apiHandler = filters.WithAuditEventClusterAnnotation(apiHandler)
 		apiHandler = filters.WithClusterScope(apiHandler)
+		apiHandler = filters.WithClusterScopedStaticEndpoints(apiHandler)
 		apiHandler = WithShardScope(apiHandler)
 		apiHandler = WithServiceScope(apiHandler)
 		return apiHandler

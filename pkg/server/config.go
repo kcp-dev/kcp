@@ -371,6 +371,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		apiHandler = kcpfilters.WithAuditEventClusterAnnotation(apiHandler)
 		apiHandler = WithAuditAnnotation(apiHandler) // Must run before any audit annotation is made
 		apiHandler = kcpfilters.WithClusterScope(apiHandler)
+		apiHandler = kcpfilters.WithClusterScopedStaticEndpoints(apiHandler)
 		apiHandler = WithInClusterServiceAccountRequestRewrite(apiHandler)
 		apiHandler = kcpfilters.WithAcceptHeader(apiHandler)
 		apiHandler = WithUserAgent(apiHandler)
