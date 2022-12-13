@@ -253,9 +253,5 @@ func (c *controller) process(ctx context.Context, key string) error {
 	logger := logging.WithObject(klog.FromContext(ctx), obj)
 	ctx = klog.NewContext(ctx, logger)
 
-	if err := c.reconcile(ctx, obj); err != nil {
-		return err
-	}
-
-	return nil
+	return c.reconcile(ctx, obj)
 }

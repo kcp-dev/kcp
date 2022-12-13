@@ -397,7 +397,7 @@ func writeObjects(logger logr.Logger, outputDir string, exports []*apisv1alpha1.
 	}
 
 	logger.Info("Pruning output directory.")
-	if err := filepath.Walk(outputDir, func(path string, info fs.FileInfo, err error) error {
+	return filepath.Walk(outputDir, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -419,9 +419,5 @@ func writeObjects(logger logr.Logger, outputDir string, exports []*apisv1alpha1.
 			}
 		}
 		return nil
-	}); err != nil {
-		return err
-	}
-
-	return nil
+	})
 }

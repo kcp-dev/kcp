@@ -273,11 +273,7 @@ func (c *APIReconciler) process(ctx context.Context, key string) error {
 		return err
 	}
 
-	if err := c.reconcile(ctx, apiDomainKey, syncTarget); err != nil {
-		return err
-	}
-
-	return nil
+	return c.reconcile(ctx, apiDomainKey, syncTarget)
 }
 
 func (c *APIReconciler) GetAPIDefinitionSet(_ context.Context, key dynamiccontext.APIDomainKey) (apidefinition.APIDefinitionSet, bool, error) {
