@@ -110,13 +110,6 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 
 	serverConfig := genericapiserver.NewRecommendedConfig(apiextensionsapiserver.Codecs)
 
-	// disable SSA since the cache server should not change objects in any way
-	// note, that this will break when (if) the feature is locked, until then we should be fine
-	// TODO (fgiloux) best path forward to be confirmed.
-	// SSA cannot be deactivated when the cache server is embedded within kcp
-	/* if err := utilfeature.DefaultMutableFeatureGate.Set(fmt.Sprintf("%s=false", features.ServerSideApply)); err != nil {
-		return nil, err
-	}*/
 	if err := opts.ServerRunOptions.ApplyTo(&serverConfig.Config); err != nil {
 		return nil, err
 	}
@@ -214,12 +207,13 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 			// Wire in a ServiceResolver that always returns an error that ResolveEndpoint is not yet
 			// supported. The effect is that CRD webhook conversions are not supported and will always get an
 			// error.
-			ServiceResolver:       &unimplementedServiceResolver{},
-			MasterCount:           1,
-			AuthResolverWrapper:   webhook.NewDefaultAuthenticationInfoResolverWrapper(nil, nil, rt, nil),
-			Client:                c.ApiExtensionsClusterClient,
-			Informers:             c.ApiExtensionsSharedInformerFactory,
-			ClusterAwareCRDLister: &crdClusterLister{lister: c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Lister()},
+			ServiceResolver:        &unimplementedServiceResolver{},
+			MasterCount:            1,
+			AuthResolverWrapper:    webhook.NewDefaultAuthenticationInfoResolverWrapper(nil, nil, rt, nil),
+			Client:                 c.ApiExtensionsClusterClient,
+			Informers:              c.ApiExtensionsSharedInformerFactory,
+			ClusterAwareCRDLister:  &crdClusterLister{lister: c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Lister()},
+			DisableServerSideApply: true,
 		},
 	}
 
