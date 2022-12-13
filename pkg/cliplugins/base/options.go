@@ -57,7 +57,7 @@ func (o *Options) BindFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&o.Kubeconfig, "kubeconfig", o.Kubeconfig, "path to the kubeconfig file")
 
 	// We add only a subset of kubeconfig-related flags to the plugin.
-	// All those with with LongName == "" will be ignored.
+	// All those with LongName == "" will be ignored.
 	kubectlConfigOverrideFlags := clientcmd.RecommendedConfigOverrideFlags("")
 	kubectlConfigOverrideFlags.AuthOverrideFlags.ClientCertificate.LongName = ""
 	kubectlConfigOverrideFlags.AuthOverrideFlags.ClientKey.LongName = ""
