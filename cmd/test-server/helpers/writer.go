@@ -17,8 +17,8 @@ limitations under the License.
 package helpers
 
 import (
+	"bytes"
 	"io"
-	"strings"
 	"sync"
 )
 
@@ -53,7 +53,7 @@ func (hw *headWriter) Write(p []byte) (n int, err error) {
 		if !hw.linePending {
 			return hw.file.Write(p)
 		}
-		if pos := strings.Index(string(p), "\n"); pos == -1 {
+		if pos := bytes.Index(p, []byte("\n")); pos == -1 {
 			hw.out.Write(p) //nolint:errcheck
 		} else {
 			hw.linePending = false
