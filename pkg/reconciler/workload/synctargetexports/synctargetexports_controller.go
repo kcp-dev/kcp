@@ -27,6 +27,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -358,7 +359,10 @@ func (c *Controller) getAPIExport(path logicalcluster.Path, name string) (*apisv
 	if err != nil {
 		return nil, err
 	}
-	if len(objs) != 1 {
+	if len(objs) == 0 {
+		return nil, apierrors.NewNotFound(apisv1alpha1.Resource("apiexports"), name)
+	}
+	if len(objs) > 1 {
 		return nil, fmt.Errorf("expected 1 APIExport for cluster %q, got %d", path, len(objs))
 	}
 	return objs[0].(*apisv1alpha1.APIExport), nil
