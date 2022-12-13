@@ -56,6 +56,7 @@ func (e *apiCompatibleReconciler) reconcile(ctx context.Context, syncTarget *wor
 		}
 		if err != nil {
 			errs = append(errs, err)
+			continue
 		}
 
 		for _, schemaName := range export.Spec.LatestResourceSchemas {

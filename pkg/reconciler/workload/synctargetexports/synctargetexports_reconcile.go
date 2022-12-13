@@ -49,6 +49,7 @@ func (e *exportReconciler) reconcile(ctx context.Context, syncTarget *workloadv1
 		}
 		if err != nil {
 			errs = append(errs, err)
+			continue
 		}
 
 		for _, schema := range export.Spec.LatestResourceSchemas {
