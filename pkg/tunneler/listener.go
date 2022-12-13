@@ -152,7 +152,7 @@ func (ln *Listener) sendMessage(m controlMsg) {
 func (ln *Listener) dial() (net.Conn, error) {
 	connect := ln.url + "/" + cmdTunnelConnect
 	pr, pw := io.Pipe()
-	req, err := http.NewRequest("GET", connect, pr)
+	req, err := http.NewRequest(http.MethodGet, connect, pr) //nolint:noctx
 	if err != nil {
 		klog.V(5).Infof("Can not create request %v", err)
 		return nil, err
@@ -164,7 +164,7 @@ func (ln *Listener) dial() (net.Conn, error) {
 		klog.V(5).Infof("Can not connect to %s request %v, retry %d", connect, err)
 		return nil, err
 	}
-	if res.StatusCode != 200 {
+	if res.StatusCode != http.StatusOK {
 		klog.V(5).Infof("Status code %d on request %v, retry %d", res.StatusCode, connect)
 		return nil, fmt.Errorf("status code %d", res.StatusCode)
 	}
