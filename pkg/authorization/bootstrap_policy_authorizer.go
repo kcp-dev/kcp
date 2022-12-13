@@ -29,11 +29,11 @@ import (
 )
 
 type BootstrapPolicyAuthorizer struct {
-	delegate *rbac.RBACAuthorizer
+	bootstrapPolicy *rbac.RBACAuthorizer
 }
 
 func NewBootstrapPolicyAuthorizer(informers kcpkubernetesinformers.SharedInformerFactory) (authorizer.Authorizer, authorizer.RuleResolver) {
-	a := &BootstrapPolicyAuthorizer{delegate: rbac.New(
+	a := &BootstrapPolicyAuthorizer{bootstrapPolicy: rbac.New(
 		&rbac.RoleGetter{Lister: informers.Rbac().V1().Roles().Lister().Cluster(genericcontrolplane.LocalAdminCluster)},
 		&rbac.RoleBindingLister{Lister: informers.Rbac().V1().RoleBindings().Lister().Cluster(genericcontrolplane.LocalAdminCluster)},
 		&rbac.ClusterRoleGetter{Lister: informers.Rbac().V1().ClusterRoles().Lister().Cluster(genericcontrolplane.LocalAdminCluster)},
@@ -44,13 +44,13 @@ func NewBootstrapPolicyAuthorizer(informers kcpkubernetesinformers.SharedInforme
 }
 
 func (a *BootstrapPolicyAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
-	dec, reason, err := a.delegate.Authorize(ctx, attr)
+	dec, reason, err := a.bootstrapPolicy.Authorize(ctx, attr)
 	if err != nil {
 		err = fmt.Errorf("error authorizing bootstrap policy: %w", err)
 	}
-	return dec, fmt.Sprintf("bootstrap policy reason: %v", reason), err
+	return dec, fmt.Sprintf("bootstrap policy: %v", reason), err
 }
 
 func (a *BootstrapPolicyAuthorizer) RulesFor(ctx context.Context, user user.Info, namespace string) ([]authorizer.ResourceRuleInfo, []authorizer.NonResourceRuleInfo, bool, error) {
-	return a.delegate.RulesFor(ctx, user, namespace)
+	return a.bootstrapPolicy.RulesFor(ctx, user, namespace)
 }
