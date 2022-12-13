@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -236,7 +237,7 @@ func startFrontProxy(
 }
 
 func writeAdminKubeConfig(hostIP string, workDirPath string) error {
-	baseHost := fmt.Sprintf("https://%s:6443", hostIP)
+	baseHost := "https://" + net.JoinHostPort(hostIP, "6443")
 
 	var kubeConfig clientcmdapi.Config
 	kubeConfig.AuthInfos = map[string]*clientcmdapi.AuthInfo{
@@ -294,7 +295,7 @@ func writeShardKubeConfig(workDirPath string) error {
 }
 
 func writeLogicalClusterAdminKubeConfig(hostIP, workDirPath string) error {
-	baseHost := fmt.Sprintf("https://%s:6443", hostIP)
+	baseHost := fmt.Sprintf("https://%s", net.JoinHostPort(hostIP, "6443"))
 
 	var kubeConfig clientcmdapi.Config
 	kubeConfig.AuthInfos = map[string]*clientcmdapi.AuthInfo{

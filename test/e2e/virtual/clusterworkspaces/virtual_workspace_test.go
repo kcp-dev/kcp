@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"path"
@@ -199,7 +200,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 		client := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}} //nolint:noctx
 		baseClusterServerURL, err := url.Parse(baseCluster.Server)
 		require.NoError(t, err)
-		virtualWorkspaceServerHost = fmt.Sprintf("https://%s:%s", baseClusterServerURL.Hostname(), portStr)
+		virtualWorkspaceServerHost = fmt.Sprintf("https://%s", net.JoinHostPort(baseClusterServerURL.Hostname(), portStr))
 
 		require.Eventually(t, func() bool {
 			resp, err := client.Get(fmt.Sprintf("%s/readyz", virtualWorkspaceServerHost))
