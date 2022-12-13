@@ -311,7 +311,7 @@ type mockedTransformation struct {
 	transform func(resource *unstructured.Unstructured) (*unstructured.Unstructured, error)
 }
 
-func (mt *mockedTransformation) ToSyncerView(SyncTargetKey string, gvr schema.GroupVersionResource, upstreamResource *unstructured.Unstructured, overridenSyncerViewFields map[string]interface{}, requestedSyncing map[string]helpers.SyncIntent) (newSyncerViewResource *unstructured.Unstructured, err error) {
+func (mt *mockedTransformation) ToSyncerView(syncTargetKey string, gvr schema.GroupVersionResource, upstreamResource *unstructured.Unstructured, overridenSyncerViewFields map[string]interface{}, requestedSyncing map[string]helpers.SyncIntent) (newSyncerViewResource *unstructured.Unstructured, err error) {
 	return mt.transform(upstreamResource)
 }
 
