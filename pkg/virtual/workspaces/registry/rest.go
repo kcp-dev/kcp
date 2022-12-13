@@ -114,8 +114,9 @@ func (s *REST) List(ctx context.Context, options *metainternal.ListOptions) (run
 		Items:    make([]tenancyv1alpha1.ClusterWorkspace, len(ws.Items)),
 	}
 
-	for i, w := range ws.Items {
-		projection.ProjectWorkspaceToClusterWorkspace(&w, &cws.Items[i])
+	for i := range ws.Items {
+		w := &ws.Items[i]
+		projection.ProjectWorkspaceToClusterWorkspace(w, &cws.Items[i])
 	}
 
 	return cws, nil

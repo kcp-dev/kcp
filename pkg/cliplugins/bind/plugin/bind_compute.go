@@ -265,7 +265,8 @@ func (o *BindComputeOptions) applyAPIBinding(ctx context.Context, client kcpclie
 	var localClusterName logicalcluster.Name
 
 	existingAPIExports := sets.NewString()
-	for _, binding := range apiBindings.Items {
+	for i := range apiBindings.Items {
+		binding := apiBindings.Items[i]
 		if binding.Spec.Reference.Export == nil {
 			continue
 		}

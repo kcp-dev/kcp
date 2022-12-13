@@ -121,7 +121,8 @@ func (r *placementReconciler) validLocationNames(placement *schedulingv1alpha1.P
 			continue
 		}
 
-		for _, s := range placement.Spec.LocationSelectors {
+		for i := range placement.Spec.LocationSelectors {
+			s := placement.Spec.LocationSelectors[i]
 			selector, err := metav1.LabelSelectorAsSelector(&s)
 			if err != nil {
 				// skip this selector
