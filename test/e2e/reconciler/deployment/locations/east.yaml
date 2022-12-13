@@ -1,0 +1,14 @@
+apiVersion: scheduling.kcp.dev/v1alpha1
+kind: Location
+metadata:
+  name: east
+  labels:
+    region: east
+spec:
+  instanceSelector:
+    matchLabels:
+      region: east
+  resource:
+    group: workload.kcp.dev
+    resource: synctargets
+    version: v1alpha1

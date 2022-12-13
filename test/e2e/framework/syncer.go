@@ -50,6 +50,7 @@ import (
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	workloadcliplugin "github.com/kcp-dev/kcp/pkg/cliplugins/workload/plugin"
 	"github.com/kcp-dev/kcp/pkg/syncer"
@@ -520,6 +521,18 @@ func (sf *StartedSyncerFixture) WaitForClusterReady(t *testing.T, ctx context.Co
 		return kcpClusterClient.Cluster(cfg.SyncTargetWorkspace).WorkloadV1alpha1().SyncTargets().Get(ctx, cfg.SyncTargetName, metav1.GetOptions{})
 	}, "Waiting for cluster %q condition %q", cfg.SyncTargetName, conditionsv1alpha1.ReadyCondition)
 	t.Logf("Cluster %q is %s", cfg.SyncTargetName, conditionsv1alpha1.ReadyCondition)
+}
+
+func (sf *StartedSyncerFixture) DownstreamNamespaceFor(t *testing.T, upstreamWorkspace logicalcluster.Name, upstreamNamespace string) string {
+	desiredNSLocator := shared.NewNamespaceLocator(upstreamWorkspace, sf.SyncerConfig.SyncTargetWorkspace,
+		types.UID(sf.SyncerConfig.SyncTargetUID), sf.SyncerConfig.SyncTargetName, upstreamNamespace)
+	downstreamNamespaceName, err := shared.PhysicalClusterNamespaceName(desiredNSLocator)
+	require.NoError(t, err)
+	return downstreamNamespaceName
+}
+
+func (sf *StartedSyncerFixture) ToSyncTargetKey() string {
+	return workloadv1alpha1.ToSyncTargetKey(sf.SyncerConfig.SyncTargetWorkspace, sf.SyncerConfig.SyncTargetName)
 }
 
 // syncerConfigFromCluster reads the configuration needed to start an in-process

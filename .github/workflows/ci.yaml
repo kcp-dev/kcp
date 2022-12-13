@@ -42,7 +42,7 @@ jobs:
       - uses: container-tools/kind-action@v2
         name: Kubernetes KinD Cluster w/local registry
         with:
-          version: v0.14.0
+          version: v0.17.0
 
       - run: |-
           go install github.com/google/ko@latest

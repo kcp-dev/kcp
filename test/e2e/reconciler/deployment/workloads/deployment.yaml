@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+   name: test
+   namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test
+  template:
+    metadata:
+      labels:
+        app: test
+    spec:
+      containers:
+        - name: busybox
+          image: ghcr.io/distroless/busybox:latest
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              echo "Going to sleep"
+              tail -f /dev/null

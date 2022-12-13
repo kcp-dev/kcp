@@ -100,14 +100,14 @@ ldflags:
 require-%:
 	@if ! command -v $* 1> /dev/null 2>&1; then echo "$* not found in \$$PATH"; exit 1; fi
 
-build: WHAT ?= ./cmd/...
+build: WHAT ?= ./cmd/... ./tmc/cmd/...
 build: require-jq require-go require-git verify-go-versions ## Build the project
 	GOOS=$(OS) GOARCH=$(ARCH) go build $(BUILDFLAGS) -ldflags="$(LDFLAGS)" -o bin $(WHAT)
 .PHONY: build
 
 .PHONY: build-all
 build-all:
-	GOOS=$(OS) GOARCH=$(ARCH) $(MAKE) build WHAT=./cmd/...
+	GOOS=$(OS) GOARCH=$(ARCH) $(MAKE) build WHAT='./cmd/...  ./tmc/cmd/...'
 
 .PHONY: build-kind-images
 build-kind-images-ko: require-ko
