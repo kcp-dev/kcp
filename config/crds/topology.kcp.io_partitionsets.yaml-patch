@@ -1,0 +1,58 @@
+---
+- op: add
+  path: /spec/versions/name=v1alpha1/schema/openAPIV3Schema/properties/spec/properties/shardSelector/properties/matchExpressions/items/x-kubernetes-validations
+  value:
+    - message: There should be at least one value for In and NotIn operators. There should not be any value for Exists and DoesNotExist operators.
+      rule: 'self.operator in ["In", "NotIn"] ? size(self.values) > 0 : (self.operator in ["Exists", "DoesNotExist"] ? !has(self.values) : true)'
+- op: add
+  path: /spec/versions/name=v1alpha1/schema/openAPIV3Schema/properties/spec/properties/shardSelector/properties/matchExpressions/maxItems
+  value:
+    # limiting the number of items for reducing the estimated cost of CEL validation
+    10
+- op: add
+  path: /spec/versions/name=v1alpha1/schema/openAPIV3Schema/properties/spec/properties/shardSelector/properties/matchExpressions/items/properties/operator/enum
+  value:
+    - In
+    - NotIn
+    - Exists
+    - DoesNotExist
+- op: add
+  path: /spec/versions/name=v1alpha1/schema/openAPIV3Schema/properties/spec/properties/shardSelector/properties/matchExpressions/items/properties/key/maxLength
+  value:
+    # prefix: 253, separator: 1, name: 63
+    317
+- op: add
+  path: /spec/versions/name=v1alpha1/schema/openAPIV3Schema/properties/spec/properties/shardSelector/properties/matchExpressions/items/properties/key/x-kubernetes-validations
+  value:
+    - message: Label key prefixes are optional and limited to 253 characters. They should match "^[a-z0-9]([-a-z0-9]{0,251}[a-z0-9])?$". Names are limited to 63 characters and should match "^[A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?$". "/" is used as separator.
+      rule: 'self.contains("/") ? self.split("/", 2)[0].matches("^[a-z0-9]([-a-z0-9]{0,251}[a-z0-9])?$") && self.split("/", 2)[1].matches("^[A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?$") : self.matches("^[A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?$")'
+- op: add
+  path: /spec/versions/name=v1alpha1/schema/openAPIV3Schema/properties/spec/properties/shardSelector/properties/matchExpressions/items/properties/values/items/maxLength
+  value:
+    63
+- op: add
+  path: /spec/versions/name=v1alpha1/schema/openAPIV3Schema/properties/spec/properties/shardSelector/properties/matchExpressions/items/properties/values/items/pattern
+  value:
+    ^[A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?$
+- op: add
+  path: /spec/versions/name=v1alpha1/schema/openAPIV3Schema/properties/spec/properties/shardSelector/properties/matchLabels/additionalProperties/maxLength
+  value:
+    63
+- op: add
+  path: /spec/versions/name=v1alpha1/schema/openAPIV3Schema/properties/spec/properties/shardSelector/properties/matchLabels/maxProperties
+  value:
+    # limiting the number of properties for reducing the estimated cost of CEL validation
+    10
+- op: add
+  path: /spec/versions/name=v1alpha1/schema/openAPIV3Schema/properties/spec/properties/shardSelector/properties/matchLabels/additionalProperties/maxLength
+  value:
+    # prefix: 253, separator: 1, name: 63, value: 63
+    380
+- op: add
+  path: /spec/versions/name=v1alpha1/schema/openAPIV3Schema/properties/spec/properties/shardSelector/properties/matchLabels/x-kubernetes-validations
+  value:
+      - message: Label key prefixes are optional and limited to 253 characters. They should match "^[a-z0-9]([-a-z0-9]{0,251}[a-z0-9])?$". Names are limited to 63 characters and should match "^[A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?$". "/" is used as separator.
+        rule: 'self.all(k, k.contains("/") ? k.split("/", 2)[0].matches("^[a-z0-9]([-a-z0-9]{0,251}[a-z0-9])?$") && k.split("/", 2)[1].matches("^[A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?$") : k.matches("^[A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?$"))'
+      - message: Label values are limited to 63 characters and should match "^[A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?$".
+        rule: 'self.all(k, self[k].matches("^[A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?$"))'
+
