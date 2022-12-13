@@ -21,15 +21,14 @@ limitations under the License.
 //
 // An example configuration:
 //
-//  - path: /services/
-//    backend: https://localhost:6444
-//    backend_server_ca: certs/kcp-ca-cert.pem
-//    proxy_client_cert: certs/proxy-client-cert.pem
-//    proxy_client_key: certs/proxy-client-key.pem
-//  - path: /
-//    backend: https://localhost:6443
-//    backend_server_ca: certs/kcp-ca-cert.pem
-//    proxy_client_cert: certs/proxy-client-cert.pem
-//    proxy_client_key: certs/proxy-client-key.pem
-
+//   - path: /services/
+//     backend: https://localhost:6444
+//     backend_server_ca: certs/kcp-ca-cert.pem
+//     proxy_client_cert: certs/proxy-client-cert.pem
+//     proxy_client_key: certs/proxy-client-key.pem
+//   - path: /
+//     backend: https://localhost:6443
+//     backend_server_ca: certs/kcp-ca-cert.pem
+//     proxy_client_cert: certs/proxy-client-cert.pem
+//     proxy_client_key: certs/proxy-client-key.pem
 package proxy
