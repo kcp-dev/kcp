@@ -52,7 +52,7 @@ type Patcher[R runtime.Object] interface {
 // NewCommitter returns a function that can patch instances of R based on meta, spec or status
 // changes using a cluster-aware patcher.
 func NewCommitter[R runtime.Object, P Patcher[R], Sp any, St any](patcher ClusterPatcher[R, P]) func(context.Context, *Resource[Sp, St], *Resource[Sp, St]) error {
-	focusType := fmt.Sprintf("%T", *new(R))
+	focusType := fmt.Sprintf("%T", new(R))
 	return func(ctx context.Context, old, obj *Resource[Sp, St]) error {
 		logger := klog.FromContext(ctx)
 		clusterName := logicalcluster.From(old)
@@ -79,7 +79,7 @@ func NewCommitter[R runtime.Object, P Patcher[R], Sp any, St any](patcher Cluste
 // NewCommitterScoped returns a function that can patch instances of R based on meta, spec or
 // status changes using a scoped patcher.
 func NewCommitterScoped[R runtime.Object, P Patcher[R], Sp any, St any](patcher Patcher[R]) func(context.Context, *Resource[Sp, St], *Resource[Sp, St]) error {
-	focusType := fmt.Sprintf("%T", *new(R))
+	focusType := fmt.Sprintf("%T", new(R))
 	return func(ctx context.Context, old, obj *Resource[Sp, St]) error {
 		logger := klog.FromContext(ctx)
 		patchBytes, subresources, err := generatePatchAndSubResources(old, obj)
