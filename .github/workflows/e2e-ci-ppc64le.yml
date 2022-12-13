@@ -15,6 +15,10 @@ on:
       - ".github/ISSUE_TEMPLATE/*"
       - ".goreleaser.yaml"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 # NOTE!!!
 #
 # If you add a job here that is a REQUIRED status check in GitHub, you MUST add a job with the same name to ci-docs-only.yaml
