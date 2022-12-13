@@ -41,9 +41,9 @@ type headWriter struct {
 }
 
 // StopOut stops writing to out writer, but keep writing to file.
-func (h *headWriter) StopOut() {
-	h.stopOnce.Do(func() {
-		close(h.stopCh)
+func (hw *headWriter) StopOut() {
+	hw.stopOnce.Do(func() {
+		close(hw.stopCh)
 	})
 }
 
