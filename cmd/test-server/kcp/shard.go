@@ -109,7 +109,7 @@ func (s *Shard) Start(ctx context.Context, quiet bool) error {
 	)
 	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " "))
 
-	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...)
+	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...) //nolint:gosec
 	if err := os.MkdirAll(filepath.Dir(s.logFilePath), 0755); err != nil {
 		return err
 	}

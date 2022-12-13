@@ -120,7 +120,7 @@ func Run(ctx context.Context, o *options.Options) error {
 	wildcardKcpInformers := kcpinformers.NewSharedInformerFactory(kcpClusterClient, 10*time.Minute)
 
 	if o.ProfilerAddress != "" {
-		//nolint:errcheck
+		//nolint:errcheck,gosec
 		go http.ListenAndServe(o.ProfilerAddress, nil)
 	}
 

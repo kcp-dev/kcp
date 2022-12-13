@@ -73,7 +73,7 @@ routed based on paths.`,
 			}
 
 			if options.Proxy.ProfilerAddress != "" {
-				//nolint:errcheck
+				//nolint:errcheck,gosec
 				go http.ListenAndServe(options.Proxy.ProfilerAddress, nil)
 			}
 

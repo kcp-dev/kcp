@@ -140,7 +140,7 @@ func startFrontProxy(
 	commandLine = append(commandLine, args...)
 	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " "))
 
-	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...)
+	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...) //nolint:gosec
 
 	logFilePath := filepath.Join(workDirPath, ".kcp-front-proxy/proxy.log")
 	if logDirPath != "" {
