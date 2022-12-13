@@ -159,7 +159,7 @@ func (ln *Listener) dial() (net.Conn, error) {
 	}
 
 	klog.V(5).Infof("Listener creating connection to %s", connect)
-	res, err := ln.client.Do(req)
+	res, err := ln.client.Do(req) //nolint:bodyclose // Seems we're returning the connection with res.Body, caller closes it?
 	if err != nil {
 		klog.V(5).Infof("Can not connect to %s request %v, retry %d", connect, err)
 		return nil, err
