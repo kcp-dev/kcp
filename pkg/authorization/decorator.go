@@ -52,8 +52,9 @@ func NewDecorator(key string, target authorizer.Authorizer) *Decorator {
 	return &Decorator{target: target, key: key}
 }
 
-// AddAuditLogging logs every decision of the delegate authorizer
-// for the given audit prefix key.
+// AddAuditLogging logs every decision of the target authorizer for the given audit prefix key
+// if the decision is not allowed.
+// All authorizer decisions are being logged in the audit log.
 func (d *Decorator) AddAuditLogging() *Decorator {
 	target := d.target
 	d.target = authorizer.AuthorizerFunc(func(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
@@ -83,7 +84,8 @@ func (d *Decorator) AddAuditLogging() *Decorator {
 }
 
 // AddAnonymization anonymizes authorization decisions,
-// returning "access granted" in case of an allow decision and "access denied" otherwise.
+// returning "access granted" reason in case of an allow decision and "access denied" reason otherwise to the next decoration.
+// Previous decorations are not anonymized.
 func (d *Decorator) AddAnonymization() *Decorator {
 	target := d.target
 	d.target = authorizer.AuthorizerFunc(func(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
@@ -103,8 +105,9 @@ func (d *Decorator) AddAnonymization() *Decorator {
 	return d
 }
 
-// AddReasonAnnotation adds the authorizer key as a prefix to the authorizer reason.
-// This is useful where AddAnonymization was used, but we still want to identify the authorizer in audit logs.
+// AddReasonAnnotation adds the authorizer key as a prefix to the authorizer reason and passes that to the next decoration.
+// This is useful where AddAnonymization was used as a decoration, but we still want to identify the authorizer in audit logs
+// when this decorator is passed as a delegate in an authorizer chains.
 func (d *Decorator) AddReasonAnnotation() *Decorator {
 	target := d.target
 	d.target = authorizer.AuthorizerFunc(func(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
