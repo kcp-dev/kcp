@@ -194,7 +194,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 			if c, ok := claims[gvr.GroupResource()]; ok {
 				key, label, err := permissionclaims.ToLabelKeyAndValue(clusterName, apiExport.Name, c)
 				if err != nil {
-					return errors.New(fmt.Sprintf("failed to convert permission claim %v to label key and value: %v", c, err))
+					return fmt.Errorf("failed to convert permission claim %v to label key and value: %w", c, err)
 				}
 				claimLabels := []string{label}
 				if gvr.GroupResource() == apisv1alpha1.Resource("apibindings") {
@@ -203,7 +203,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha1.A
 				}
 				req, err := labels.NewRequirement(key, selection.In, claimLabels)
 				if err != nil {
-					return errors.New(fmt.Sprintf("failed to create label requirement for permission claim %v: %v", c, err))
+					return fmt.Errorf("failed to create label requirement for permission claim %v: %w", c, err)
 				}
 				labelReqs = labels.Requirements{*req}
 			}

@@ -125,8 +125,12 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		365,
 	)
 	if err != nil {
+<<<<<<< HEAD
 		fmt.Printf("failed to create kcp-logical-cluster client cert: %v\n", err)
 		os.Exit(1)
+=======
+		return fmt.Errorf("failed to create kcp-logical-cluster client cert: %w", err)
+>>>>>>> b7321490 (fixup! Fix revive fmt.Errorf)
 	}
 
 	// TODO:(p0lyn0mial): in the future we need a separate group valid only for the proxy
