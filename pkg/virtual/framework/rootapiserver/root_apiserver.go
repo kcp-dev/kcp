@@ -152,7 +152,7 @@ func (vw asHealthCheck) Check(req *http.Request) error {
 }
 
 func asHealthChecks(workspaces []NamedVirtualWorkspace) []healthz.HealthChecker {
-	var healthCheckers []healthz.HealthChecker
+	healthCheckers := make([]healthz.HealthChecker, 0, len(workspaces))
 	for _, vw := range workspaces {
 		healthCheckers = append(healthCheckers, asHealthCheck{name: vw.Name, VirtualWorkspace: vw})
 	}

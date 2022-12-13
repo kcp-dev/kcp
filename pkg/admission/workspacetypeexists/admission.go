@@ -416,7 +416,7 @@ func (r *transitiveTypeResolver) resolve(cwt *tenancyv1alpha1.WorkspaceType, see
 	defer func() { pathSeen[qualifiedName] = false }()
 	path = append(path, qualifiedName)
 
-	var ret []*tenancyv1alpha1.WorkspaceType
+	ret := make([]*tenancyv1alpha1.WorkspaceType, 0, len(cwt.Spec.Extend.With))
 	for _, baseTypeRef := range cwt.Spec.Extend.With {
 		qualifiedName := logicalcluster.NewPath(baseTypeRef.Path).Join(tenancyv1alpha1.ObjectName(baseTypeRef.Name)).String()
 		if pathSeen[qualifiedName] {

@@ -310,7 +310,7 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	cowboys, err := wwUser1VC.WildwestV1alpha1().Cowboys().List(ctx, metav1.ListOptions{})
 	require.NoError(t, err)
 	require.Equal(t, 2, len(cowboys.Items))
-	var names []string
+	names := make([]string, 0, len(cowboys.Items))
 	for _, c := range cowboys.Items {
 		names = append(names, c.Name)
 	}
@@ -798,7 +798,7 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 		[]string{"in-vw", "in-vw-before"},
 	))
 
-	var newClaims []apisv1alpha1.PermissionClaim
+	newClaims := make([]apisv1alpha1.PermissionClaim, 0, len(apiExport.Spec.PermissionClaims))
 	for i := range apiExport.Spec.PermissionClaims {
 		claim := apiExport.Spec.PermissionClaims[i]
 		if claim.Group == "" && claim.Resource == "configmaps" {

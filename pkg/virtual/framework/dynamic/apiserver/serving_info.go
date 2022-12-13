@@ -208,8 +208,9 @@ func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, apiRes
 		gvk.GroupKind(),
 		false,
 	)
-	var standardSerializers []runtime.SerializerInfo
-	for _, s := range negotiatedSerializer.SupportedMediaTypes() {
+	supportedMediaTypes := negotiatedSerializer.SupportedMediaTypes()
+	standardSerializers := make([]runtime.SerializerInfo, 0, len(supportedMediaTypes))
+	for _, s := range supportedMediaTypes {
 		if s.MediaType == runtime.ContentTypeProtobuf {
 			continue
 		}

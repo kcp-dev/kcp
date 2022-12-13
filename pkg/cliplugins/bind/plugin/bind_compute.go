@@ -293,7 +293,7 @@ func (o *BindComputeOptions) applyAPIBinding(ctx context.Context, client kcpclie
 
 	var errs []error
 	diff := desiredAPIExports.Difference(existingAPIExports)
-	var bindings []*apisv1alpha1.APIBinding
+	bindings := make([]*apisv1alpha1.APIBinding, 0, len(diff))
 	for export := range diff {
 		path, name := logicalcluster.NewPath(export).Split()
 		if path == localClusterName.Path() {

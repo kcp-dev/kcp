@@ -329,7 +329,7 @@ func generateExports(outputDir string, allSchemas map[metav1.GroupResource]*apis
 		}
 	}
 
-	var exports []*apisv1alpha1.APIExport
+	exports := make([]*apisv1alpha1.APIExport, 0, len(byExport))
 	for exportName, schemas := range byExport {
 		sort.Strings(schemas)
 

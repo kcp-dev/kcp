@@ -119,7 +119,7 @@ func ByIndex[T runtime.Object](indexer cache.Indexer, indexName, indexValue stri
 		return nil, err
 	}
 
-	var ret []T
+	ret := make([]T, 0, len(list))
 	for _, o := range list {
 		ret = append(ret, o.(T))
 	}

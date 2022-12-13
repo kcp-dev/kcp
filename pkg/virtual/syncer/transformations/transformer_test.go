@@ -324,7 +324,7 @@ type mockedSummarizingRules struct {
 }
 
 func (msr *mockedSummarizingRules) FieldsToSummarize(gvr schema.GroupVersionResource) []FieldToSummarize {
-	var result []FieldToSummarize
+	result := make([]FieldToSummarize, 0, len(msr.fields))
 	for _, f := range msr.fields {
 		result = append(result, FieldToSummarize(f))
 	}

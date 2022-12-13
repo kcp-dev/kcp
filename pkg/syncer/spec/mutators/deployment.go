@@ -92,7 +92,7 @@ func (dm *DeploymentMutator) Mutate(obj *unstructured.Unstructured) error {
 		return fmt.Errorf("error listing secrets for workspace %s: %w", upstreamLogicalName.String(), err)
 	}
 
-	var secretList []*unstructured.Unstructured
+	secretList := make([]*unstructured.Unstructured, 0, len(rawSecretList))
 	for i := range rawSecretList {
 		secretList = append(secretList, rawSecretList[i].(*unstructured.Unstructured))
 	}

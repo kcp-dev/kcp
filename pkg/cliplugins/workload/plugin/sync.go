@@ -290,7 +290,7 @@ func getSyncerID(syncTarget *workloadv1alpha1.SyncTarget) string {
 }
 
 func (o *SyncOptions) applySyncTarget(ctx context.Context, kcpClient kcpclient.Interface, syncTargetName string) (*workloadv1alpha1.SyncTarget, error) {
-	var supportedAPIExports []tenancyv1alpha1.APIExportReference
+	supportedAPIExports := make([]tenancyv1alpha1.APIExportReference, 0, len(o.APIExports))
 	for _, export := range o.APIExports {
 		lclusterName, name := logicalcluster.NewPath(export).Split()
 		supportedAPIExports = append(supportedAPIExports, tenancyv1alpha1.APIExportReference{
@@ -801,8 +801,8 @@ func getGroupMappings(resourcesToSync []string) []groupMapping {
 			groupMap[apiGroup] = append(groupMap[apiGroup], name)
 		}
 	}
-	var groupMappings []groupMapping
 
+	groupMappings := make([]groupMapping, 0, len(groupMap))
 	for apiGroup, resources := range groupMap {
 		groupMappings = append(groupMappings, groupMapping{
 			APIGroup:  apiGroup,

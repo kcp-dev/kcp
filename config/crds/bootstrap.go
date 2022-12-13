@@ -69,7 +69,7 @@ func CreateFromFS(ctx context.Context, client apiextensionsv1client.CustomResour
 	}
 	wg.Wait()
 	close(bootstrapErrChan)
-	var bootstrapErrors []error
+	bootstrapErrors := make([]error, 0, len(grs))
 	for err := range bootstrapErrChan {
 		bootstrapErrors = append(bootstrapErrors, err)
 	}

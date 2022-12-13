@@ -182,7 +182,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	}
 
 	t.Log("Create workspaces using the new types, which will get stuck in initializing")
-	var wsNames []string
+	wsNames := make([]string, 0, 3)
 	for _, workspaceType := range []string{
 		"alpha",
 		"beta",

@@ -48,7 +48,7 @@ func indexAPIBindingByIdentityGroupResource(obj interface{}) ([]string, error) {
 		return []string{}, fmt.Errorf("obj is supposed to be an APIBinding, but is %T", obj)
 	}
 
-	var ret []string
+	ret := make([]string, 0, len(apiBinding.Status.BoundResources))
 
 	for _, r := range apiBinding.Status.BoundResources {
 		ret = append(ret, identityGroupResourceKeyFunc(r.Schema.IdentityHash, r.Group, r.Resource))

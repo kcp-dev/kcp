@@ -40,7 +40,7 @@ func IndexAPIBindingByClusterAndAcceptedClaimedGroupResources(obj interface{}) (
 		return []string{}, fmt.Errorf("obj %T is not an APIBinding", obj)
 	}
 
-	var ret []string
+	ret := make([]string, 0, len(apiBinding.Spec.PermissionClaims))
 	for _, c := range apiBinding.Spec.PermissionClaims {
 		if c.State != apisv1alpha1.ClaimAccepted {
 			continue
@@ -61,7 +61,7 @@ func IndexAPIBindingByBoundResourceUID(obj interface{}) ([]string, error) {
 		return []string{}, fmt.Errorf("obj %T is not an APIBinding", obj)
 	}
 
-	var ret []string
+	ret := make([]string, 0, len(apiBinding.Status.BoundResources))
 	for _, r := range apiBinding.Status.BoundResources {
 		ret = append(ret, r.Schema.UID)
 	}
@@ -79,7 +79,7 @@ func IndexAPIBindingByBoundResources(obj interface{}) ([]string, error) {
 
 	clusterName := logicalcluster.From(apiBinding)
 
-	var ret []string
+	ret := make([]string, 0, len(apiBinding.Status.BoundResources))
 	for _, r := range apiBinding.Status.BoundResources {
 		ret = append(ret, APIBindingBoundResourceValue(clusterName, r.Group, r.Resource))
 	}

@@ -61,7 +61,7 @@ func init() {
 }
 
 func KnownFeatures() []string {
-	var features []string
+	features := make([]string, 0, len(defaultGenericControlPlaneFeatureGates))
 	for k := range defaultGenericControlPlaneFeatureGates {
 		features = append(features, string(k))
 	}

@@ -97,13 +97,13 @@ func (c *apiBindingAwareCRDLister) List(ctx context.Context, selector labels.Sel
 	// Seen keeps track of which CRDs have already been found from system and apibindings.
 	seen := sets.NewString()
 
-	var ret []*apiextensionsv1.CustomResourceDefinition
-
 	// Priority 1: add system CRDs. These take priority over CRDs from APIBindings and CRDs from the local workspace.
 	systemCRDObjs, err := c.crdLister.Cluster(SystemCRDClusterName).List(labels.Everything())
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving kcp system CRDs: %w", err)
 	}
+
+	ret := make([]*apiextensionsv1.CustomResourceDefinition, 0, len(systemCRDObjs))
 	for _, crd := range systemCRDObjs {
 		ret = append(ret, crd)
 		seen.Insert(crdName(crd))

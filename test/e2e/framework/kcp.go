@@ -157,8 +157,8 @@ func newKcpFixture(t *testing.T, cfgs ...kcpConfig) *kcpFixture {
 	f := &kcpFixture{}
 
 	// Initialize servers from the provided configuration
-	var servers []*kcpServer
-	f.Servers = map[string]RunningServer{}
+	servers := make([]*kcpServer, 0, len(cfgs))
+	f.Servers = make(map[string]RunningServer, len(cfgs))
 	for _, cfg := range cfgs {
 		if len(cfg.ArtifactDir) == 0 {
 			panic(fmt.Sprintf("provided kcpConfig for %s is incorrect, missing ArtifactDir", cfg.Name))

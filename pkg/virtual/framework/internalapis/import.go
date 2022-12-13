@@ -57,7 +57,7 @@ func CreateAPIResourceSchemas(schemes []*runtime.Scheme, openAPIDefinitionsGette
 		return result
 	}, endpointsopenapi.NewDefinitionNamer(schemes...))
 
-	var canonicalTypeNames []string
+	canonicalTypeNames := make([]string, 0, len(defs))
 	for _, def := range defs {
 		canonicalTypeNames = append(canonicalTypeNames, util.GetCanonicalTypeName(def.Instance))
 	}

@@ -82,7 +82,7 @@ type fields []field
 var _ SummarizingRules = (fields)(nil)
 
 func (fs fields) FieldsToSummarize(gvr schema.GroupVersionResource) []FieldToSummarize {
-	var result []FieldToSummarize
+	result := make([]FieldToSummarize, 0, len(fs))
 	for _, f := range fs {
 		result = append(result, FieldToSummarize(f))
 	}

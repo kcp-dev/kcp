@@ -466,7 +466,7 @@ func (c *Controller) ensureAPIResourceCompatibility(ctx context.Context, cluster
 		}
 	}
 
-	var apiResourceImportUpdateStatusFuncs []func() error
+	apiResourceImportUpdateStatusFuncs := make([]func() error, 0, len(apiResourcesImports))
 
 	for i := range apiResourcesImports {
 		apiResourceImport := apiResourcesImports[i].DeepCopy()
@@ -848,7 +848,7 @@ func (c *Controller) cleanupNegotiatedAPIResource(ctx context.Context, clusterNa
 	}
 
 	var ownerReferenceAlreadyExists bool
-	var cleanedOwnerReferences []metav1.OwnerReference
+	cleanedOwnerReferences := make([]metav1.OwnerReference, 0, len(crd.OwnerReferences))
 	for _, ownerRef := range crd.OwnerReferences {
 		if ownerRef.Name == negotiatedApiResource.Name && ownerRef.UID == negotiatedApiResource.UID {
 			ownerReferenceAlreadyExists = true
@@ -860,7 +860,7 @@ func (c *Controller) cleanupNegotiatedAPIResource(ctx context.Context, clusterNa
 		return nil
 	}
 
-	var cleanedVersions []apiextensionsv1.CustomResourceDefinitionVersion
+	cleanedVersions := make([]apiextensionsv1.CustomResourceDefinitionVersion, 0, len(crd.Spec.Versions))
 	for _, version := range crd.Spec.Versions {
 		if version.Name == gvr.Version {
 			continue

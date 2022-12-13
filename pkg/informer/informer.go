@@ -841,8 +841,7 @@ func byGroupVersionResourceIndexFunc(obj interface{}) ([]string, error) {
 		return nil, fmt.Errorf("%T is not a CustomResourceDefinition", obj)
 	}
 
-	var ret []string
-
+	ret := make([]string, 0, len(crd.Spec.Versions))
 	for _, v := range crd.Spec.Versions {
 		if !v.Served {
 			continue
