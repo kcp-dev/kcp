@@ -212,7 +212,8 @@ func GetFreePort(t *testing.T) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("could not listen on free port: %w", err)
 		}
-		defer func(c io.Closer) {
+		// This defer is in a loop, although it should only be retried a fixed number of times, and return.
+		defer func(c io.Closer) { //nolint:gocritic
 			if err := c.Close(); err != nil {
 				t.Errorf("could not close listener: %v", err)
 			}
