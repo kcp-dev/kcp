@@ -93,7 +93,7 @@ func (a *Accessory) Run(t *testing.T, opts ...RunOption) error {
 		return err
 	}
 	go func() {
-		defer func() { cleanupCancel() }()
+		defer cleanupCancel()
 		err := cmd.Wait()
 		if err != nil && ctx.Err() == nil {
 			a.t.Errorf("`%s` failed: %v output: %s", a.name, err, log.String())

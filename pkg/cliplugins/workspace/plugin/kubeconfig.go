@@ -78,9 +78,7 @@ func NewUseWorkspaceOptions(streams genericclioptions.IOStreams) *UseWorkspaceOp
 		modifyConfig: func(configAccess clientcmd.ConfigAccess, newConfig *clientcmdapi.Config) error {
 			return clientcmd.ModifyConfig(configAccess, *newConfig, true)
 		},
-		getAPIBindings: func(ctx context.Context, kcpClusterClient kcpclientset.ClusterInterface, host string) ([]apisv1alpha1.APIBinding, error) {
-			return getAPIBindings(ctx, kcpClusterClient, host)
-		},
+		getAPIBindings: getAPIBindings,
 	}
 }
 
