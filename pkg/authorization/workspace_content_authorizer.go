@@ -95,12 +95,12 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 				Groups: []string{"system:authenticated"},
 			}
 		}
-		return a.delegate.Authorize(ctx, attr)
+		return DelegateAuthorization("deep SAR request", a.delegate).Authorize(ctx, attr)
 	}
 
 	// always let logical-cluster-admins through
 	if isUser && sets.NewString(attr.GetUser().GetGroups()...).Has(bootstrap.SystemLogicalClusterAdmin) {
-		return a.delegate.Authorize(ctx, attr)
+		return DelegateAuthorization("logical cluster admin access", a.delegate).Authorize(ctx, attr)
 	}
 
 	// check the workspace even exists
@@ -119,10 +119,11 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 	switch {
 	case !isUser && !isServiceAccountFromCluster:
 		// service accounts from other workspaces cannot access
-		return authorizer.DecisionDeny, "service account from different workspace", nil
+		return authorizer.DecisionDeny, "foreign service account", nil
 
 	case isServiceAccountFromCluster:
 		// A service account declared in the requested workspace is authorized inside that workspace.
+		return DelegateAuthorization("service account access to thisworkspace", a.delegate).Authorize(ctx, attr)
 
 	case isUser:
 		authz := rbac.New(
@@ -155,9 +156,8 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 		if dec != authorizer.DecisionAllow {
 			return dec, "no verb=access permission on /", nil
 		}
-	default:
-		return authorizer.DecisionNoOpinion, "unknown user type", nil
+		return DelegateAuthorization("user access to thisworkspace", a.delegate).Authorize(ctx, attr)
 	}
 
-	return a.delegate.Authorize(ctx, attr)
+	return authorizer.DecisionNoOpinion, "unknown user type", nil
 }
