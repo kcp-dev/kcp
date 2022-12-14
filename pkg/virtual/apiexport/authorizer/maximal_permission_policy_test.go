@@ -108,6 +108,72 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 			expectedReason:   `unclaimable resource, identity hash not set in claiming API export: "fooExport", workspace :"someWorkspace"`,
 		},
 		{
+			name: "get claimed api bindings",
+			attr: &authorizer.AttributesRecord{
+				User:     &user.DefaultInfo{},
+				APIGroup: "apis.kcp.dev",
+				Resource: "apibindings",
+				Verb:     "get",
+			},
+			apidomainKey: "foo/bar",
+			getAPIExport: func(clusterName, apiExportName string) (*apisv1alpha1.APIExport, error) {
+				return &apisv1alpha1.APIExport{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "fooExport",
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "someWorkspace",
+						},
+					},
+					Spec: apisv1alpha1.APIExportSpec{
+						PermissionClaims: []apisv1alpha1.PermissionClaim{
+							{
+								GroupResource: apisv1alpha1.GroupResource{
+									Group:    "apis.kcp.dev",
+									Resource: "apibindings",
+								},
+							},
+						},
+					},
+				}, nil
+			},
+
+			expectedDecision: authorizer.DecisionAllow,
+			expectedReason:   `unclaimable resource, identity hash not set in claiming API export: "fooExport", workspace :"someWorkspace"`,
+		},
+		{
+			name: "create claimed api bindings",
+			attr: &authorizer.AttributesRecord{
+				User:     &user.DefaultInfo{},
+				APIGroup: "apis.kcp.dev",
+				Resource: "apibindings",
+				Verb:     "create",
+			},
+			apidomainKey: "foo/bar",
+			getAPIExport: func(clusterName, apiExportName string) (*apisv1alpha1.APIExport, error) {
+				return &apisv1alpha1.APIExport{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "fooExport",
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "someWorkspace",
+						},
+					},
+					Spec: apisv1alpha1.APIExportSpec{
+						PermissionClaims: []apisv1alpha1.PermissionClaim{
+							{
+								GroupResource: apisv1alpha1.GroupResource{
+									Group:    "apis.kcp.dev",
+									Resource: "apibindings",
+								},
+							},
+						},
+					},
+				}, nil
+			},
+
+			expectedDecision: authorizer.DecisionNoOpinion,
+			expectedReason:   "mutation of API bindings",
+		},
+		{
 			name: "claimed identity without api export",
 			attr: &authorizer.AttributesRecord{
 				User:     &user.DefaultInfo{},

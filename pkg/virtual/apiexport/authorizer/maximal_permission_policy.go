@@ -25,15 +25,19 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 
+	"github.com/kcp-dev/kcp/pkg/apis/apis"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 )
+
+var mutationVerbs = sets.NewString("create", "update", "patch", "delete", "deletecollection")
 
 type maximalPermissionAuthorizer struct {
 	getAPIExport            func(clusterName, apiExportName string) (*apisv1alpha1.APIExport, error)
@@ -65,6 +69,11 @@ func NewMaximalPermissionAuthorizer(deepSARClient kcpkubernetesclientset.Cluster
 }
 
 func (a *maximalPermissionAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
+	// API bindings can be claimed but not be mutated in the virtual API export service.
+	if apis.GroupName == attr.GetAPIGroup() && attr.GetResource() == "apibindings" && mutationVerbs.Has(attr.GetVerb()) {
+		return authorizer.DecisionNoOpinion, "mutation of API bindings", nil
+	}
+
 	apiDomainKey := dynamiccontext.APIDomainKeyFrom(ctx)
 	parts := strings.Split(string(apiDomainKey), "/")
 	if len(parts) < 2 {
