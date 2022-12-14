@@ -19,7 +19,6 @@ package workspace
 import (
 	"context"
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
@@ -312,17 +311,6 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 					}
 					return err == nil && workspace.Status.Phase == tenancyv1alpha1.WorkspacePhaseReady
 				}, wait.ForeverTestTimeout, 100*time.Millisecond, "workspace should be ready")
-			},
-		},
-		{
-			name: "create a workspace with deeper nesting",
-			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				org := framework.NewOrganizationFixture(t, server)
-				team := framework.NewWorkspaceFixture(t, server, org.Path(), framework.WithType(tenancyv1alpha1.RootCluster.Path(), "team"))
-				universal := framework.NewWorkspaceFixture(t, server, team.Path())
-
-				require.Len(t, strings.Split(universal.String(), ":"), 4, "expecting root:org:team:universal, i.e. 4 levels")
-				require.True(t, strings.HasPrefix(universal.String(), team.String()), "expecting universal to be a child of team")
 			},
 		},
 	}

@@ -113,7 +113,7 @@ func (b *APIBinder) reconcile(ctx context.Context, this *tenancyv1alpha1.ThisWor
 		exportToBinding[*binding.Spec.Reference.Export] = binding
 	}
 
-	requiredExportRefs := map[tenancyv1alpha1.APIExportReference]logicalcluster.Name{}
+	requiredExportRefs := map[tenancyv1alpha1.APIExportReference]struct{}{}
 	someExportsMissing := false
 
 	for _, cwt := range cwts {
@@ -135,7 +135,7 @@ func (b *APIBinder) reconcile(ctx context.Context, this *tenancyv1alpha1.ThisWor
 			}
 
 			// Keep track of unique set of expected exports across all CWTs
-			requiredExportRefs[exportRef] = logicalcluster.From(apiExport)
+			requiredExportRefs[exportRef] = struct{}{}
 
 			logger := logger.WithValues("apiExport.path", exportRef.Path, "apiExport.name", exportRef.Export)
 			ctx := klog.NewContext(ctx, logger)
@@ -155,8 +155,8 @@ func (b *APIBinder) reconcile(ctx context.Context, this *tenancyv1alpha1.ThisWor
 				Spec: apisv1alpha1.APIBindingSpec{
 					Reference: apisv1alpha1.BindingReference{
 						Export: &apisv1alpha1.ExportBindingReference{
-							Cluster: logicalcluster.From(apiExport),
-							Name:    apiExport.Name,
+							Path: exportRef.Path,
+							Name: apiExport.Name,
 						},
 					},
 				},
@@ -214,10 +214,10 @@ func (b *APIBinder) reconcile(ctx context.Context, this *tenancyv1alpha1.ThisWor
 	// Make sure all the expected bindings are there & ready to use
 	var incomplete []string
 
-	for exportRef, cluster := range requiredExportRefs {
+	for exportRef := range requiredExportRefs {
 		binding, exists := exportToBinding[apisv1alpha1.ExportBindingReference{
-			Cluster: cluster,
-			Name:    exportRef.Export,
+			Path: exportRef.Path,
+			Name: exportRef.Export,
 		}]
 		if !exists {
 			incomplete = append(incomplete, fmt.Sprintf("for APIExport %s|%s", exportRef.Path, exportRef.Export))

@@ -65,7 +65,3 @@ func IndexAPIExportBySecret(obj interface{}) ([]string, error) {
 
 	return []string{kcpcache.ToClusterAwareKey(logicalcluster.From(apiExport).String(), ref.Namespace, ref.Name)}, nil
 }
-
-func ClusterAndAPIExportName(cluster logicalcluster.Name, exportName string) string {
-	return fmt.Sprintf("%s|%s", cluster, exportName)
-}

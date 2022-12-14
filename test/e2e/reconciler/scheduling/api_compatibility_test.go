@@ -52,7 +52,7 @@ func TestSchedulingOnSupportedAPI(t *testing.T) {
 	require.NoError(t, err)
 
 	firstSyncTargetName := fmt.Sprintf("firstsynctarget-%d", +rand.Intn(1000000))
-	t.Logf("Creating a SyncTarget with no support APIExports and syncer in %s", locationClusterName)
+	t.Logf("Creating a SyncTarget with no supported APIExports and syncer in %s", locationClusterName)
 	_ = framework.NewSyncerFixture(t, source, locationClusterName,
 		framework.WithSyncTargetName(firstSyncTargetName),
 		framework.WithSyncedUserWorkspaces(userClusterName),

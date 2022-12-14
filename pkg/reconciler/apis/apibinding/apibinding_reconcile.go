@@ -100,10 +100,13 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 		)
 		return nil
 	}
-	apiExportClusterName := apiBinding.Spec.Reference.Export.Cluster
 
 	// Get APIExport
-	apiExport, err := c.getAPIExport(apiExportClusterName, workspaceRef.Name)
+	apiExportPath := logicalcluster.NewPath(apiBinding.Spec.Reference.Export.Path)
+	if apiExportPath.Empty() {
+		apiExportPath = logicalcluster.From(apiBinding).Path()
+	}
+	apiExport, err := c.getAPIExport(apiExportPath, workspaceRef.Name)
 	if apierrors.IsNotFound(err) {
 		conditions.MarkFalse(
 			apiBinding,
@@ -111,7 +114,7 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 			apisv1alpha1.APIExportNotFoundReason,
 			conditionsv1alpha1.ConditionSeverityError,
 			"APIExport %s|%s not found",
-			apiExportClusterName,
+			apiExportPath,
 			workspaceRef.Name,
 		)
 		return nil
@@ -123,7 +126,7 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 			apisv1alpha1.InternalErrorReason,
 			conditionsv1alpha1.ConditionSeverityError,
 			"Error getting APIExport %s|%s: %v",
-			apiExportClusterName,
+			apiExportPath,
 			workspaceRef.Name,
 			err,
 		)
@@ -143,7 +146,7 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 			"MissingIdentityHash",
 			conditionsv1alpha1.ConditionSeverityWarning,
 			"APIExport %s|%s is missing status.identityHash",
-			apiExportClusterName,
+			apiExportPath,
 			workspaceRef.Name,
 		)
 		return nil
@@ -156,7 +159,7 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 		bindingClusterName := logicalcluster.From(apiBinding)
 
 		// Get the schema
-		schema, err := c.getAPIResourceSchema(apiExportClusterName, schemaName)
+		schema, err := c.getAPIResourceSchema(logicalcluster.From(apiExport), schemaName)
 		if err != nil {
 			logger.Error(err, "error binding")
 
@@ -225,8 +228,8 @@ func (c *controller) reconcileBinding(ctx context.Context, apiBinding *apisv1alp
 				"error getting CRD %s|%s for APIBinding %s|%s, APIExport %s|%s, APIResourceSchema %s|%s: %w",
 				SystemBoundCRDSClusterName, boundCRDName(schema),
 				bindingClusterName, apiBinding.Name,
-				apiExportClusterName, apiExport.Name,
-				apiExportClusterName, schemaName,
+				apiExportPath, apiExport.Name,
+				apiExportPath, schemaName,
 				err,
 			)
 		}

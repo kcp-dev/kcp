@@ -106,6 +106,7 @@ func (r *schemaReconciler) reconcile(ctx context.Context, export *apisv1alpha1.A
 
 		// APIResourceSchemas already in root:compute should be skipped.
 		if shouldSkip && rootComputeResourceSchema.Has(schemaName) {
+			logger.V(4).Info("Skipping resource that's already in root:compute", "resource", schemaName)
 			continue
 		}
 

@@ -189,8 +189,8 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 			Spec: apisv1alpha1.APIBindingSpec{
 				Reference: apisv1alpha1.BindingReference{
 					Export: &apisv1alpha1.ExportBindingReference{
-						Cluster: providerClusterName,
-						Name:    "today-cowboys",
+						Path: providerClusterName.Path().String(),
+						Name: "today-cowboys",
 					},
 				},
 			},
@@ -289,14 +289,15 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 		Spec: apisv1alpha1.APIBindingSpec{
 			Reference: apisv1alpha1.BindingReference{
 				Export: &apisv1alpha1.ExportBindingReference{
-					Cluster: "root:not-existent",
-					Name:    "today-cowboys",
+					Path: "root:not-existent",
+					Name: "today-cowboys",
 				},
 			},
 		},
 	}
+
 	_, err = user3KcpClient.Cluster(consumer1ClusterName.Path()).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
-	require.ErrorContains(t, err, `no permission to bind to export "today-cowboys"`)
+	require.ErrorContains(t, err, `no permission to bind to export root:not-existent:today-cowboys`)
 }
 
 func createClusterRoleAndBindings(name, subjectName, subjectKind string, apiGroup, resource, resourceName string, verbs []string) (*rbacv1.ClusterRole, *rbacv1.ClusterRoleBinding) {

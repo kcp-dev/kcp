@@ -34,6 +34,7 @@ import (
 	webhookutil "k8s.io/apiserver/pkg/util/webhook"
 	kubernetesinformers "k8s.io/client-go/informers"
 
+	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	"github.com/kcp-dev/kcp/pkg/admission/webhook"
 )
 
@@ -45,11 +46,20 @@ type Plugin struct {
 	// Using validating plugin, for the dispatcher to use.
 	// This plugins admit function will never be called.
 	validating.Plugin
-	webhook.WebhookDispatcher
+	*webhook.WebhookDispatcher
 }
 
+var (
+	_ = admission.ValidationInterface(&Plugin{})
+	_ = admission.InitializationValidator(&Plugin{})
+	_ = kcpinitializers.WantsKcpInformers(&Plugin{})
+)
+
 func NewValidatingAdmissionWebhook(configfile io.Reader) (*Plugin, error) {
-	p := &Plugin{Plugin: validating.Plugin{Webhook: &generic.Webhook{}}}
+	p := &Plugin{
+		Plugin:            validating.Plugin{Webhook: &generic.Webhook{}},
+		WebhookDispatcher: webhook.NewWebhookDispatcher(),
+	}
 	p.WebhookDispatcher.Handler = admission.NewHandler(admission.Connect, admission.Create, admission.Delete, admission.Update)
 
 	dispatcherFactory := validating.NewValidatingDispatcher(&p.Plugin)

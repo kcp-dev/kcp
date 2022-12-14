@@ -37,15 +37,15 @@ type bindCompute struct {
 	placementName     string
 }
 
-func NewBindCompute(t *testing.T, clusterName logicalcluster.Path, server RunningServer, opts ...BindComputeOption) *bindCompute {
+func NewBindCompute(t *testing.T, path logicalcluster.Path, server RunningServer, opts ...BindComputeOption) *bindCompute {
 	upstreamRawConfig, err := server.RawConfig()
 	require.NoError(t, err)
 
-	_, kubeconfigPath := WriteLogicalClusterConfig(t, upstreamRawConfig, "base", clusterName)
+	_, kubeconfigPath := WriteLogicalClusterConfig(t, upstreamRawConfig, "base", path)
 
 	workloadBind := &bindCompute{
 		kubeconfigPath:    kubeconfigPath,
-		locationWorkspace: clusterName,
+		locationWorkspace: path,
 	}
 
 	for _, opt := range opts {

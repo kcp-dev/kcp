@@ -87,12 +87,10 @@ func NewController(
 		return nil, err
 	}
 
-	if err := apiExportInformer.Informer().AddIndexers(cache.Indexers{
+	indexers.AddIfNotPresentOrDie(apiExportInformer.Informer().GetIndexer(), cache.Indexers{
 		indexAPIExportsByAPIResourceSchema:   indexAPIExportsByAPIResourceSchemas,
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
-	}); err != nil {
-		return nil, err
-	}
+	})
 
 	// Watch for events related to SyncTargets
 	syncTargetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -206,7 +204,12 @@ func (c *Controller) enqueueAPIExport(obj interface{}, logSuffix string) {
 	keys.Insert(clusterKeys...)
 
 	for _, key := range keys.List() {
-		c.enqueueSyncTarget(obj, fmt.Sprintf(" because of APIExport %s%s", key, logSuffix))
+		syncTarget, _, err := c.syncTargetIndexer.GetByKey(key)
+		if err != nil {
+			runtime.HandleError(err)
+			continue
+		}
+		c.enqueueSyncTarget(syncTarget, fmt.Sprintf(" because of APIExport %s%s", key, logSuffix))
 	}
 }
 

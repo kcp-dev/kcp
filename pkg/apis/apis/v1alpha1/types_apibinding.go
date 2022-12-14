@@ -17,8 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
@@ -115,11 +113,11 @@ type BindingReference struct {
 
 // ExportBindingReference is a reference to an APIExport by cluster and name.
 type ExportBindingReference struct {
-	// cluster is a logical cluster name where the APIExport is defined.
-	// If identifier and path are unset, the cluster of the APIBinding is used.
+	// path is a logical cluster path where the APIExport is defined.
+	// If the path is unset, the logical cluster of the APIBinding is used.
 	//
 	// +optional
-	Cluster logicalcluster.Name `json:"cluster,omitempty"`
+	Path string `json:"cluster,omitempty"`
 
 	// name is the name of the APIExport that describes the API.
 	//

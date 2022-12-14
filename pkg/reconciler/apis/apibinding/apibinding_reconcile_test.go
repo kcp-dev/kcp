@@ -67,12 +67,12 @@ var (
 	unbound = newBindingBuilder().
 		WithClusterName("org:ws").
 		WithName("my-binding").
-		WithExportReference("org:some-workspace", "some-export")
+		WithExportReference(logicalcluster.NewPath("org:some-workspace"), "some-export")
 
 	binding = unbound.DeepCopy().WithPhase(apisv1alpha1.APIBindingPhaseBinding)
 
 	rebinding = binding.DeepCopy().
-		WithBoundResources(
+			WithBoundResources(
 			new(boundAPIResourceBuilder).
 				WithGroupResource("kcp.dev", "widgets").
 				WithSchema("today.widgets.kcp.dev", "todaywidgetsuid").
@@ -80,7 +80,7 @@ var (
 				BoundAPIResource,
 		)
 
-	invalidSchema = binding.DeepCopy().WithExportReference("org:some-workspace", "invalid-schema")
+	invalidSchema = binding.DeepCopy().WithExportReference(logicalcluster.NewPath("org:some-workspace"), "invalid-schema")
 
 	bound = unbound.DeepCopy().
 		WithPhase(apisv1alpha1.APIBindingPhaseBound).
@@ -96,10 +96,10 @@ var (
 		)
 
 	conflicting = unbound.DeepCopy().
-		WithName("conflicting").
-		WithPhase(apisv1alpha1.APIBindingPhaseBound).
-		WithExportReference("org:some-workspace", "conflict").
-		WithBoundResources(
+			WithName("conflicting").
+			WithPhase(apisv1alpha1.APIBindingPhaseBound).
+			WithExportReference(logicalcluster.NewPath("org:some-workspace"), "conflict").
+			WithBoundResources(
 			new(boundAPIResourceBuilder).
 				WithGroupResource("kcp.dev", "widgets").
 				WithSchema("another.widgets.kcp.dev", "anotherwidgetsuid").
@@ -109,7 +109,7 @@ var (
 	todayWidgetsAPIResourceSchema = &apisv1alpha1.APIResourceSchema{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
-				logicalcluster.AnnotationKey: "some-workspace",
+				logicalcluster.AnnotationKey: "org-some-workspace",
 			},
 			Name: "today.widgets.kcp.dev",
 			UID:  "todaywidgetsuid",
@@ -234,7 +234,7 @@ func TestReconcileBinding(t *testing.T) {
 		},
 		"APIExport doesn't have identity hash yet": {
 			apiBinding: binding.DeepCopy().
-				WithExportReference("org:some-workspace", "no-identity-hash").Build(),
+				WithExportReference(logicalcluster.NewPath("org:some-workspace"), "no-identity-hash").Build(),
 			wantAPIExportValid: false,
 		},
 		"APIResourceSchema invalid": {
@@ -365,7 +365,7 @@ func TestReconcileBinding(t *testing.T) {
 				"some-export": {
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "some-workspace",
+							logicalcluster.AnnotationKey: "org-some-workspace",
 						},
 						Name: "some-export",
 					},
@@ -377,7 +377,7 @@ func TestReconcileBinding(t *testing.T) {
 				"conflict": {
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "some-workspace",
+							logicalcluster.AnnotationKey: "org-some-workspace",
 						},
 						Name: "conflict",
 					},
@@ -389,7 +389,7 @@ func TestReconcileBinding(t *testing.T) {
 				"invalid-schema": {
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "some-workspace",
+							logicalcluster.AnnotationKey: "org-some-workspace",
 						},
 						Name: "invalid-schema",
 					},
@@ -401,7 +401,7 @@ func TestReconcileBinding(t *testing.T) {
 				"no-identity-hash": {
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "some-workspace",
+							logicalcluster.AnnotationKey: "org-some-workspace",
 						},
 						Name: "some-export",
 					},
@@ -415,7 +415,7 @@ func TestReconcileBinding(t *testing.T) {
 				"invalid.schema.io": {
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "some-workspace",
+							logicalcluster.AnnotationKey: "org-some-workspace",
 						},
 						Name: "invalid.schema.io",
 					},
@@ -437,8 +437,8 @@ func TestReconcileBinding(t *testing.T) {
 				listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
 					return tc.existingAPIBindings, nil
 				},
-				getAPIExport: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
-					require.Equal(t, "org:some-workspace", clusterName.String())
+				getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
+					require.Equal(t, "org:some-workspace", path.String())
 					return apiExports[name], tc.getAPIExportError
 				},
 				getAPIResourceSchema: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
@@ -446,7 +446,7 @@ func TestReconcileBinding(t *testing.T) {
 						return nil, tc.getAPIResourceSchemaError
 					}
 
-					require.Equal(t, "org:some-workspace", clusterName.String())
+					require.Equal(t, "org-some-workspace", clusterName.String())
 
 					schema, ok := apiResourceSchemas[name]
 					if !ok {
@@ -872,10 +872,10 @@ func (b *bindingBuilder) WithoutWorkspaceReference() *bindingBuilder {
 	return b
 }
 
-func (b *bindingBuilder) WithExportReference(cluster logicalcluster.Name, exportName string) *bindingBuilder {
+func (b *bindingBuilder) WithExportReference(path logicalcluster.Path, exportName string) *bindingBuilder {
 	b.Spec.Reference.Export = &apisv1alpha1.ExportBindingReference{
-		Cluster: cluster,
-		Name:    exportName,
+		Path: path.String(),
+		Name: exportName,
 	}
 	return b
 }

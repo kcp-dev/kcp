@@ -53,6 +53,7 @@ func NewResourceController(
 	dynamicClusterClient kcpdynamic.ClusterInterface,
 	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory,
 	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
+	apiExportInformer apisv1alpha1informers.APIExportClusterInformer,
 ) (*resourceController, error) {
 	if err := apiBindingInformer.Informer().GetIndexer().AddIndexers(
 		cache.Indexers{
@@ -67,7 +68,7 @@ func NewResourceController(
 		kcpClusterClient:       kcpClusterClient,
 		dynamicClusterClient:   dynamicClusterClient,
 		ddsif:                  dynamicDiscoverySharedInformerFactory,
-		permissionClaimLabeler: permissionclaim.NewLabeler(apiBindingInformer),
+		permissionClaimLabeler: permissionclaim.NewLabeler(apiBindingInformer, apiExportInformer),
 	}
 
 	logger := logging.WithReconciler(klog.Background(), ControllerName)

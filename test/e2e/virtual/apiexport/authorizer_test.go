@@ -135,7 +135,7 @@ func TestAPIExportAuthorizers(t *testing.T) {
 	_, err = kubeClient.Cluster(serviceProvider1ClusterName.Path()).RbacV1().ClusterRoleBindings().Create(ctx, crb, metav1.CreateOptions{})
 	require.NoError(t, err)
 	// create API binding in tenant workspace pointing to the sherriffs export
-	apifixtures.BindToExport(ctx, t, serviceProvider1ClusterName, "wild.wild.west", tenantClusterName.Path(), user3KcpClient)
+	apifixtures.BindToExport(ctx, t, serviceProvider1ClusterName.Path(), "wild.wild.west", tenantClusterName.Path(), user3KcpClient)
 
 	t.Logf("Install today cowboys APIResourceSchema into service provider workspace %q", serviceProvider2ClusterName)
 	user2serviceProvider2KcpClient, err := kcpclientset.NewForConfig(framework.UserConfig("user-2", rest.CopyConfig(cfg)))
@@ -187,8 +187,8 @@ func TestAPIExportAuthorizers(t *testing.T) {
 		Spec: apisv1alpha1.APIBindingSpec{
 			Reference: apisv1alpha1.BindingReference{
 				Export: &apisv1alpha1.ExportBindingReference{
-					Cluster: serviceProvider2ClusterName,
-					Name:    "today-cowboys",
+					Path: serviceProvider2ClusterName.Path().String(),
+					Name: "today-cowboys",
 				},
 			},
 		},
@@ -240,8 +240,8 @@ func TestAPIExportAuthorizers(t *testing.T) {
 		Spec: apisv1alpha1.APIBindingSpec{
 			Reference: apisv1alpha1.BindingReference{
 				Export: &apisv1alpha1.ExportBindingReference{
-					Cluster: serviceProvider2ClusterName,
-					Name:    "today-cowboys",
+					Path: serviceProvider2ClusterName.Path().String(),
+					Name: "today-cowboys",
 				},
 			},
 		},
@@ -443,8 +443,8 @@ func TestRootAPIExportAuthorizers(t *testing.T) {
 		Spec: apisv1alpha1.APIBindingSpec{
 			Reference: apisv1alpha1.BindingReference{
 				Export: &apisv1alpha1.ExportBindingReference{
-					Cluster: serviceClusterName,
-					Name:    apiExport.Name,
+					Path: serviceClusterName.Path().String(),
+					Name: apiExport.Name,
 				},
 			},
 			PermissionClaims: []apisv1alpha1.AcceptablePermissionClaim{

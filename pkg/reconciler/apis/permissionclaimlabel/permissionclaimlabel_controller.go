@@ -29,7 +29,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -43,6 +43,7 @@ import (
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
@@ -73,10 +74,24 @@ func NewController(
 		apiBindingsLister:  apiBindingInformer.Lister(),
 		apiBindingsIndexer: apiBindingInformer.Informer().GetIndexer(),
 
-		getAPIExport: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error) {
-			return apiExportInformer.Lister().Cluster(clusterName).Get(name)
+		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
+			objs, err := apiExportInformer.Informer().GetIndexer().ByIndex(indexers.ByLogicalClusterPathAndName, path.Join(name).String())
+			if err != nil {
+				return nil, err
+			}
+			if len(objs) == 0 {
+				return nil, apierrors.NewNotFound(apisv1alpha1.Resource("apiexports"), path.Join(name).String())
+			}
+			if len(objs) > 1 {
+				return nil, fmt.Errorf("multiple APIExports found for %s", path.Join(name).String())
+			}
+			return objs[0].(*apisv1alpha1.APIExport), nil
 		},
 	}
+
+	indexers.AddIfNotPresentOrDie(apiExportInformer.Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+	})
 
 	apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) { c.enqueueAPIBinding(obj, logger) },
@@ -102,7 +117,7 @@ type controller struct {
 	ddsif                *informer.DynamicDiscoverySharedInformerFactory
 
 	apiBindingsLister apisv1alpha1listers.APIBindingClusterLister
-	getAPIExport      func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error)
+	getAPIExport      func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
 }
 
 // enqueueAPIBinding enqueues an APIBinding.
@@ -174,7 +189,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 
 	obj, err := c.apiBindingsLister.Cluster(clusterName).Get(name)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			return nil // object deleted before we handled it
 		}
 		return err

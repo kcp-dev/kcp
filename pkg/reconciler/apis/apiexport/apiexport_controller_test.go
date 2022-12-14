@@ -176,13 +176,6 @@ func TestReconcile(t *testing.T) {
 					createSecretCalled = true
 					return tc.createSecretError
 				},
-				getAPIBindingsForAPIExport: func(_ logicalcluster.Name, _ string) ([]interface{}, error) {
-					if len(tc.apiBindings) > 0 {
-						return tc.apiBindings, nil
-					}
-
-					return make([]interface{}, 0), nil
-				},
 				listClusterWorkspaceShards: func() ([]*tenancyv1alpha1.ClusterWorkspaceShard, error) {
 					if tc.listClusterWorkspaceShardsError != nil {
 						return nil, tc.listClusterWorkspaceShardsError

@@ -54,11 +54,13 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 		return nil
 	}
 
-	exportClusterName := apiBinding.Spec.Reference.Export.Cluster
-	exportName := apiBinding.Spec.Reference.Export.Name
-	apiExport, err := c.getAPIExport(exportClusterName, exportName)
+	exportPath := logicalcluster.NewPath(apiBinding.Spec.Reference.Export.Path)
+	if exportPath.Empty() {
+		exportPath = logicalcluster.From(apiBinding).Path()
+	}
+	apiExport, err := c.getAPIExport(exportPath, apiBinding.Spec.Reference.Export.Name)
 	if err != nil {
-		logger.Error(err, "error getting APIExport", "apiExportWorkspace", exportClusterName, "apiExportName", exportName)
+		logger.Error(err, "error getting APIExport", "apiExportWorkspace", exportPath, "apiExportName", apiBinding.Spec.Reference.Export.Name)
 		return nil // nothing we can do
 	}
 

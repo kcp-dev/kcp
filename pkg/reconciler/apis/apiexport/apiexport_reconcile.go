@@ -95,16 +95,19 @@ func (c *controller) reconcile(ctx context.Context, apiExport *apisv1alpha1.APIE
 		)
 	}
 
-	// check if any APIBindings are bound to this APIExport. If so, add a virtualworkspaceURL
-	apiBindings, err := c.getAPIBindingsForAPIExport(clusterName, apiExport.Name)
-	if err != nil {
-		return fmt.Errorf("error checking for APIBindings with APIExport %s|%s: %w", clusterName, apiExport.Name, err)
-	}
+	// TODO(sttts): reactivate this with multi-shard support eventually
+	/*
+		// check if any APIBindings are bound to this APIExport. If so, add a virtualworkspaceURL
+		apiBindings, err := c.getAPIBindingsForAPIExport(clusterName, apiExport.Name)
+		if err != nil {
+			return fmt.Errorf("error checking for APIBindings with APIExport %s|%s: %w", clusterName, apiExport.Name, err)
+		}
 
-	// If there are no bindings, then we can't create a URL yet.
-	if len(apiBindings) == 0 {
-		return nil
-	}
+		// If there are no bindings, then we can't create a URL yet.
+		if len(apiBindings) == 0 {
+			return nil
+		}
+	*/
 
 	if err := c.updateVirtualWorkspaceURLs(ctx, apiExport); err != nil {
 		conditions.MarkFalse(

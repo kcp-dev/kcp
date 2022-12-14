@@ -373,7 +373,7 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 		var binding apisv1alpha1.APIBinding
 		err := yaml.Unmarshal(bs, &binding)
 		require.NoError(t, err, "error unmarshaling binding")
-		binding.Spec.Reference.Export.Cluster = clusterName1
+		binding.Spec.Reference.Export.Path = clusterName1.Path().String()
 		out, err := yaml.Marshal(&binding)
 		require.NoError(t, err, "error marshaling binding")
 		return out, nil
@@ -650,12 +650,12 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 	t.Logf("Found identity hash: %v", identityHash)
 
 	t.Logf("adding sheriff before to make sure it will be labeled")
-	apifixtures.BindToExport(ctx, t, serviceProviderSheriffs, "wild.wild.west", consumerClusterName.Path(), kcpClusterClient)
+	apifixtures.BindToExport(ctx, t, serviceProviderSheriffs.Path(), "wild.wild.west", consumerClusterName.Path(), kcpClusterClient)
 	apifixtures.CreateSheriff(ctx, t, dynamicClusterClient, consumerClusterName.Path(), "wild.wild.west", "in-vw-before")
 
 	// Bind sheriffs into consumerWorkspace 2 and create a sheriff. we would expect this to not be retrieved
 	t.Logf("bind and create a Sheriff in: %v to prove that it would not be retrieved", consumerClusterName2)
-	apifixtures.BindToExport(ctx, t, serviceProviderSheriffs, "wild.wild.west", consumerClusterName2.Path(), kcpClusterClient)
+	apifixtures.BindToExport(ctx, t, serviceProviderSheriffs.Path(), "wild.wild.west", consumerClusterName2.Path(), kcpClusterClient)
 	apifixtures.CreateSheriff(ctx, t, dynamicClusterClient, consumerClusterName2.Path(), "wild.wild.west", "not-in-vw")
 
 	t.Logf("create cowyboys API Export in %v with permission claims to core resources and sheriff provided by %v", serviceProviderClusterName, serviceProviderSheriffs)
@@ -1025,8 +1025,8 @@ func bindConsumerToProvider(ctx context.Context, consumerWorkspace logicalcluste
 		Spec: apisv1alpha1.APIBindingSpec{
 			Reference: apisv1alpha1.BindingReference{
 				Export: &apisv1alpha1.ExportBindingReference{
-					Cluster: providerClusterName,
-					Name:    "today-cowboys",
+					Path: providerClusterName.Path().String(),
+					Name: "today-cowboys",
 				},
 			},
 			PermissionClaims: claims,

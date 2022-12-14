@@ -40,20 +40,20 @@ import (
 func BindToExport(
 	ctx context.Context,
 	t *testing.T,
-	exportClusterName logicalcluster.Name,
+	exportPath logicalcluster.Path,
 	apiExportName string,
 	bindingClusterName logicalcluster.Path,
 	clusterClient kcpclientset.ClusterInterface,
 ) {
 	binding := &apisv1alpha1.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: exportClusterName.String(),
+			Name: exportPath.String(),
 		},
 		Spec: apisv1alpha1.APIBindingSpec{
 			Reference: apisv1alpha1.BindingReference{
 				Export: &apisv1alpha1.ExportBindingReference{
-					Cluster: exportClusterName,
-					Name:    apiExportName,
+					Path: exportPath.String(),
+					Name: apiExportName,
 				},
 			},
 		},

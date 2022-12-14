@@ -83,6 +83,17 @@ func TestAPIBindingAPIExportReferenceImmutability(t *testing.T) {
 	_, err = kcpClusterClient.Cluster(serviceProviderClusterName.Path()).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err)
 
+	otherAPIExport := &apisv1alpha1.APIExport{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "other-export",
+		},
+		Spec: apisv1alpha1.APIExportSpec{
+			LatestResourceSchemas: []string{"today.cowboys.wildwest.dev"},
+		},
+	}
+	_, err = kcpClusterClient.Cluster(serviceProviderClusterName.Path()).ApisV1alpha1().APIExports().Create(ctx, otherAPIExport, metav1.CreateOptions{})
+	require.NoError(t, err)
+
 	t.Logf("Create an APIBinding in %q that points to the today-cowboys export from %q", consumerWorkspace, serviceProviderClusterName)
 	apiBinding := &apisv1alpha1.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
@@ -91,15 +102,17 @@ func TestAPIBindingAPIExportReferenceImmutability(t *testing.T) {
 		Spec: apisv1alpha1.APIBindingSpec{
 			Reference: apisv1alpha1.BindingReference{
 				Export: &apisv1alpha1.ExportBindingReference{
-					Cluster: serviceProviderClusterName,
-					Name:    "today-cowboys",
+					Path: serviceProviderClusterName.Path().String(),
+					Name: "today-cowboys",
 				},
 			},
 		},
 	}
 
-	_, err = kcpClusterClient.Cluster(consumerWorkspace.Path()).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
-	require.NoError(t, err)
+	framework.Eventually(t, func() (bool, string) {
+		_, err = kcpClusterClient.Cluster(consumerWorkspace.Path()).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
+		return err == nil, fmt.Sprintf("%v", err)
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	apiBinding, err = kcpClusterClient.Cluster(consumerWorkspace.Path()).ApisV1alpha1().APIBindings().Get(ctx, apiBinding.Name, metav1.GetOptions{})
 	require.NoError(t, err)
@@ -187,15 +200,17 @@ func TestAPIBinding(t *testing.T) {
 			Spec: apisv1alpha1.APIBindingSpec{
 				Reference: apisv1alpha1.BindingReference{
 					Export: &apisv1alpha1.ExportBindingReference{
-						Cluster: providerClusterName,
-						Name:    "today-cowboys",
+						Path: providerClusterName.Path().String(),
+						Name: "today-cowboys",
 					},
 				},
 			},
 		}
 
-		_, err = kcpClusterClient.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
-		require.NoError(t, err)
+		framework.Eventually(t, func() (bool, string) {
+			_, err = kcpClusterClient.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
+			return err == nil, fmt.Sprintf("%v", err)
+		}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 		t.Logf("Make sure %s API group does NOT show up in workspace %q group discovery", wildwest.GroupName, providerClusterName)
 		providerWorkspaceClient, err := kcpclientset.NewForConfig(cfg)
@@ -260,15 +275,17 @@ func TestAPIBinding(t *testing.T) {
 			Spec: apisv1alpha1.APIBindingSpec{
 				Reference: apisv1alpha1.BindingReference{
 					Export: &apisv1alpha1.ExportBindingReference{
-						Cluster: serviceProvider2ClusterName,
-						Name:    "today-cowboys",
+						Path: serviceProvider2ClusterName.Path().String(),
+						Name: "today-cowboys",
 					},
 				},
 			},
 		}
 
-		_, err = kcpClusterClient.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
-		require.NoError(t, err)
+		framework.Eventually(t, func() (bool, string) {
+			_, err = kcpClusterClient.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
+			return err == nil, fmt.Sprintf("%v", err)
+		}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 		t.Logf("Make sure %s cowboys2 conflict with already bound %s cowboys", serviceProvider2ClusterName, providerClusterName)
 		require.Eventually(t, func() bool {

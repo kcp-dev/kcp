@@ -195,15 +195,15 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	apifixtures.CreateSheriff(ctx, t, dynamicClusterClient, wsNormalCRD1b.Path(), group, wsNormalCRD1b.String())
 
 	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, wsExport1a.Path(), kcpClusterClient, group, "export1")
-	apifixtures.BindToExport(ctx, t, wsExport1a, group, wsConsume1a.Path(), kcpClusterClient)
+	apifixtures.BindToExport(ctx, t, wsExport1a.Path(), group, wsConsume1a.Path(), kcpClusterClient)
 	apifixtures.CreateSheriff(ctx, t, dynamicClusterClient, wsConsume1a.Path(), group, wsConsume1a.String())
 
 	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, wsExport1b.Path(), kcpClusterClient, group, "export1")
-	apifixtures.BindToExport(ctx, t, wsExport1b, group, wsConsume1b.Path(), kcpClusterClient)
+	apifixtures.BindToExport(ctx, t, wsExport1b.Path(), group, wsConsume1b.Path(), kcpClusterClient)
 	apifixtures.CreateSheriff(ctx, t, dynamicClusterClient, wsConsume1b.Path(), group, wsConsume1b.String())
 
 	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, wsExport2.Path(), kcpClusterClient, group, "export2")
-	apifixtures.BindToExport(ctx, t, wsExport2, group, wsConsume2.Path(), kcpClusterClient)
+	apifixtures.BindToExport(ctx, t, wsExport2.Path(), group, wsConsume2.Path(), kcpClusterClient)
 	apifixtures.CreateSheriff(ctx, t, dynamicClusterClient, wsConsume2.Path(), group, wsConsume2.String())
 
 	t.Logf("Trying to wildcard list with PartialObjectMetadata content-type and it should work")

@@ -18,6 +18,7 @@ package apibinding
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -87,15 +88,17 @@ func TestProtectedAPI(t *testing.T) {
 		Spec: apisv1alpha1.APIBindingSpec{
 			Reference: apisv1alpha1.BindingReference{
 				Export: &apisv1alpha1.ExportBindingReference{
-					Cluster: providerClusterName,
-					Name:    "gateway-api",
+					Path: providerClusterName.Path().String(),
+					Name: "gateway-api",
 				},
 			},
 		},
 	}
 
-	_, err = kcpClusterClient.Cluster(consumerWorkspace.Path()).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
-	require.NoError(t, err)
+	framework.Eventually(t, func() (bool, string) {
+		_, err = kcpClusterClient.Cluster(consumerWorkspace.Path()).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
+		return err == nil, fmt.Sprintf("%v", err)
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create APIBinding")
 
 	t.Logf("Make sure APIBinding %q in workspace %q is completed and up-to-date", apiBinding.Name, consumerWorkspace)
 	require.Eventually(t, func() bool {

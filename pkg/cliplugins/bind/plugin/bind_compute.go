@@ -202,7 +202,7 @@ func bindReady(bindings []*apisv1alpha1.APIBinding, placement *schedulingv1alpha
 			} else if conditions.IsFalse(binding, apisv1alpha1.APIExportValid) {
 				conditionMessage = conditions.GetMessage(binding, apisv1alpha1.APIExportValid)
 			}
-			return false, fmt.Sprintf("not bound to apiexport '%s:%s': %s", binding.Spec.Reference.Export.Cluster, binding.Spec.Reference.Export.Cluster, conditionMessage)
+			return false, fmt.Sprintf("not bound to apiexport '%s': %s", logicalcluster.NewPath(binding.Spec.Reference.Export.Path).Join(binding.Spec.Reference.Export.Name), conditionMessage)
 		}
 	}
 
@@ -234,24 +234,23 @@ func (o *BindComputeOptions) applyAPIBinding(ctx context.Context, client kcpclie
 		if binding.Spec.Reference.Export == nil {
 			continue
 		}
-		existingAPIExports.Insert(fmt.Sprintf("%s:%s", binding.Spec.Reference.Export.Cluster, binding.Spec.Reference.Export.Name))
+		existingAPIExports.Insert(logicalcluster.NewPath(binding.Spec.Reference.Export.Path).Join(binding.Spec.Reference.Export.Name).String())
 	}
 
 	var errs []error
 	diff := desiredAPIExports.Difference(existingAPIExports)
 	var bindings []*apisv1alpha1.APIBinding
 	for export := range diff {
-		clusterName, name := logicalcluster.NewPath(export).Split()
+		path, name := logicalcluster.NewPath(export).Split()
 		apiBinding := &apisv1alpha1.APIBinding{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: apiBindingName(clusterName, name),
+				Name: apiBindingName(path, name),
 			},
 			Spec: apisv1alpha1.APIBindingSpec{
 				Reference: apisv1alpha1.BindingReference{
 					Export: &apisv1alpha1.ExportBindingReference{
-						// TODO(sttts): this will break for real paths. We probably only support this when the user has read access to the export workspace.
-						Cluster: logicalcluster.Name(clusterName.String()),
-						Name:    name,
+						Path: path.String(),
+						Name: name,
 					},
 				},
 			},

@@ -23,16 +23,18 @@ import (
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	"github.com/kcp-dev/logicalcluster/v3"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
 )
 
@@ -49,12 +51,26 @@ func NewMaximalPermissionPolicyAuthorizer(kubeInformers kcpkubernetesinformers.S
 	kubeInformers.Rbac().V1().ClusterRoles().Lister()
 	kubeInformers.Rbac().V1().ClusterRoleBindings().Lister()
 
+	indexers.AddIfNotPresentOrDie(kcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+	})
+
 	return &MaximalPermissionPolicyAuthorizer{
-		getAPIBindingReferenceForAttributes: func(attr authorizer.Attributes, clusterName logicalcluster.Name) (*apisv1alpha1.BindingReference, bool, error) {
-			return getAPIBindingReferenceForAttributes(kcpInformers.Apis().V1alpha1().APIBindings().Lister(), attr, clusterName)
+		getAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
+			return kcpInformers.Apis().V1alpha1().APIBindings().Lister().Cluster(clusterName).List(labels.Everything())
 		},
-		getAPIExportByReference: func(exportRef *apisv1alpha1.BindingReference) (*apisv1alpha1.APIExport, bool, error) {
-			return getAPIExportByReference(kcpInformers.Apis().V1alpha1().APIExports().Lister(), exportRef)
+		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
+			objs, err := kcpInformers.Apis().V1alpha1().APIExports().Informer().GetIndexer().ByIndex(indexers.ByLogicalClusterPathAndName, path.Join(name).String())
+			if err != nil {
+				return nil, err
+			}
+			if len(objs) == 0 {
+				return nil, apierrors.NewNotFound(apisv1alpha1.Resource("apiexports"), path.Join(name).String())
+			}
+			if len(objs) > 1 {
+				return nil, fmt.Errorf("multiple APIExports found for %s", path.Join(name).String())
+			}
+			return objs[0].(*apisv1alpha1.APIExport), nil
 		},
 		newAuthorizer: func(clusterName logicalcluster.Name) authorizer.Authorizer {
 			return rbac.New(
@@ -78,8 +94,8 @@ func NewMaximalPermissionPolicyAuthorizer(kubeInformers kcpkubernetesinformers.S
 }
 
 type MaximalPermissionPolicyAuthorizer struct {
-	getAPIBindingReferenceForAttributes func(attr authorizer.Attributes, clusterName logicalcluster.Name) (ref *apisv1alpha1.BindingReference, found bool, err error)
-	getAPIExportByReference             func(exportRef *apisv1alpha1.BindingReference) (ref *apisv1alpha1.APIExport, found bool, err error)
+	getAPIBindings func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
+	getAPIExport   func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
 
 	newAuthorizer func(clusterName logicalcluster.Name) authorizer.Authorizer
 
@@ -98,30 +114,35 @@ func (a *MaximalPermissionPolicyAuthorizer) Authorize(ctx context.Context, attr 
 		return authorizer.DecisionNoOpinion, MaximalPermissionPolicyAccessNotPermittedReason, fmt.Errorf("error getting cluster from request: %w", err)
 	}
 
-	bindingLogicalCluster, bound, err := a.getAPIBindingReferenceForAttributes(attr, lcluster)
+	// find a binding that provides the requested resource
+	bindings, err := a.getAPIBindings(lcluster)
 	if err != nil {
-		return authorizer.DecisionNoOpinion, MaximalPermissionPolicyAccessNotPermittedReason, fmt.Errorf("error getting API binding reference: %w", err)
+		return authorizer.DecisionNoOpinion, MaximalPermissionPolicyAccessNotPermittedReason, fmt.Errorf("error getting APIBindings: %w", err)
 	}
-
-	if !bound {
+	var relevantBinding *apisv1alpha1.APIBinding
+	for _, binding := range bindings {
+		for _, br := range binding.Status.BoundResources {
+			if br.Group == attr.GetAPIGroup() && br.Resource == attr.GetResource() {
+				relevantBinding = binding
+				break
+			}
+		}
+	}
+	if relevantBinding == nil {
 		return a.delegate.Authorize(ctx, attr)
 	}
 
-	apiExport, found, err := a.getAPIExportByReference(bindingLogicalCluster)
-	if err != nil {
+	// get the corresponding APIExport
+	path := logicalcluster.NewPath(relevantBinding.Spec.Reference.Export.Path)
+	if path.Empty() {
+		path = lcluster.Path()
+	}
+	apiExport, err := a.getAPIExport(path, relevantBinding.Spec.Reference.Export.Name)
+	if err != nil && !apierrors.IsNotFound(err) {
 		return authorizer.DecisionNoOpinion, MaximalPermissionPolicyAccessNotPermittedReason, fmt.Errorf("error getting API export: %w", err)
-	}
-
-	cluster := "unknown"
-	exportName := "unknown"
-	if bindingLogicalCluster.Export != nil {
-		exportName = bindingLogicalCluster.Export.Name
-		cluster = string(bindingLogicalCluster.Export.Cluster)
-	}
-
-	// If we can't find the export default to close
-	if !found {
-		return authorizer.DecisionNoOpinion, fmt.Sprintf("API export %q not found, path: %q", exportName, cluster), err
+	} else if apierrors.IsNotFound(err) {
+		// If we can't find the export default to close
+		return authorizer.DecisionNoOpinion, fmt.Sprintf("APIExport %q:%q not found", path, relevantBinding.Spec.Reference.Export.Name), err
 	}
 
 	if apiExport.Spec.MaximalPermissionPolicy == nil {
@@ -150,34 +171,6 @@ func (a *MaximalPermissionPolicyAuthorizer) Authorize(ctx context.Context, attr 
 		return a.delegate.Authorize(ctx, attr)
 	}
 	return authorizer.DecisionNoOpinion, fmt.Sprintf("API export cluster %q reason: %v", logicalcluster.From(apiExport), reason), nil
-}
-
-func getAPIBindingReferenceForAttributes(apiBindingClusterLister apisv1alpha1listers.APIBindingClusterLister, attr authorizer.Attributes, clusterName logicalcluster.Name) (*apisv1alpha1.BindingReference, bool, error) {
-	objs, err := apiBindingClusterLister.Cluster(clusterName).List(labels.Everything())
-	if err != nil {
-		return nil, false, err
-	}
-	for _, apiBinding := range objs {
-		for _, br := range apiBinding.Status.BoundResources {
-			if br.Group == attr.GetAPIGroup() && br.Resource == attr.GetResource() {
-				return &apiBinding.Spec.Reference, true, nil
-			}
-		}
-	}
-	return nil, false, nil
-}
-
-func getAPIExportByReference(apiExportClusterLister apisv1alpha1listers.APIExportClusterLister, exportRef *apisv1alpha1.BindingReference) (*apisv1alpha1.APIExport, bool, error) {
-	objs, err := apiExportClusterLister.Cluster(exportRef.Export.Cluster).List(labels.Everything())
-	if err != nil {
-		return nil, false, err
-	}
-	for _, apiExport := range objs {
-		if apiExport.Name == exportRef.Export.Name {
-			return apiExport, true, err
-		}
-	}
-	return nil, false, err
 }
 
 func deepCopyAttributes(attr authorizer.Attributes) authorizer.AttributesRecord {

@@ -37,7 +37,7 @@ func (u byUID) Swap(i, j int)      { u[i], u[j] = u[j], u[i] }
 
 type conflictChecker struct {
 	listAPIBindings      func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
-	getAPIExport         func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExport, error)
+	getAPIExport         func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
 	getAPIResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
 	getCRD               func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error)
 	listCRDs             func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error)
@@ -65,9 +65,12 @@ func (ncc *conflictChecker) getBoundCRDs(apiBindingToExclude *apisv1alpha1.APIBi
 			// this should not happen because of OpenAPI
 			return fmt.Errorf("APIBinding %s|%s has no cluster reference", logicalcluster.From(apiBinding), apiBinding.Name)
 		}
-		apiExportClusterName := apiBinding.Spec.Reference.Export.Cluster
+		path := logicalcluster.NewPath(apiBinding.Spec.Reference.Export.Path)
+		if path.Empty() {
+			path = logicalcluster.From(apiBinding).Path()
+		}
 
-		apiExport, err := ncc.getAPIExport(apiExportClusterName, apiBinding.Spec.Reference.Export.Name)
+		apiExport, err := ncc.getAPIExport(path, apiBinding.Spec.Reference.Export.Name)
 		if err != nil {
 			return err
 		}
@@ -78,7 +81,7 @@ func (ncc *conflictChecker) getBoundCRDs(apiBindingToExclude *apisv1alpha1.APIBi
 		}
 
 		for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
-			schema, err := ncc.getAPIResourceSchema(apiExportClusterName, schemaName)
+			schema, err := ncc.getAPIResourceSchema(logicalcluster.From(apiExport), schemaName)
 			if err != nil {
 				return err
 			}

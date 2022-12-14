@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"sigs.k8s.io/yaml"
 
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
@@ -69,22 +70,20 @@ func TestSyncTargetLocalExport(t *testing.T) {
 		framework.WithSyncedUserWorkspaces(computeClusterName),
 	).Start(t)
 
-	require.Eventually(t, func() bool {
+	framework.Eventually(t, func() (bool, string) {
 		syncTarget, err := kcpClients.Cluster(computeClusterName.Path()).WorkloadV1alpha1().SyncTargets().Get(ctx, syncTargetName, metav1.GetOptions{})
-		if err != nil {
-			return false
-		}
+		require.NoError(t, err)
 
 		if len(syncTarget.Status.SyncedResources) != 1 {
-			return false
+			return false, fmt.Sprintf("expected 1 synced resources (services), got %v\n\n%s", syncTarget.Status.SyncedResources, toYAML(t, syncTarget))
 		}
 
 		if syncTarget.Status.SyncedResources[0].Resource != "services" ||
 			syncTarget.Status.SyncedResources[0].State != workloadv1alpha1.ResourceSchemaAcceptedState {
-			return false
+			return false, fmt.Sprintf("expected services resource, got %v\n\n%s", syncTarget.Status.SyncedResources, toYAML(t, syncTarget))
 		}
 
-		return true
+		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	// create virtual workspace rest configs
@@ -134,7 +133,7 @@ func TestSyncTargetLocalExport(t *testing.T) {
 
 	t.Logf("Bind to location workspace")
 	framework.NewBindCompute(t, computeClusterName.Path(), source,
-		framework.WithAPIExportsWorkloadBindOption(computeClusterName.String()+":kubernetes"),
+		framework.WithAPIExportsWorkloadBindOption("kubernetes"),
 	).Bind(t)
 
 	t.Logf("Wait for being able to list Services in the user workspace")
@@ -184,4 +183,11 @@ func TestSyncTargetLocalExport(t *testing.T) {
 		}
 		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
+}
+
+func toYAML(t *testing.T, obj interface{}) string {
+	t.Helper()
+	data, err := yaml.Marshal(obj)
+	require.NoError(t, err)
+	return string(data)
 }

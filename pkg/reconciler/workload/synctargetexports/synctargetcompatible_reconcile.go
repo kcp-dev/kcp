@@ -47,10 +47,11 @@ func (e *apiCompatibleReconciler) reconcile(ctx context.Context, syncTarget *wor
 
 	// Get json schema from all related resource schemas
 	for _, exportRef := range syncTarget.Spec.SupportedAPIExports {
-		if exportRef.Path == "" {
-			exportRef.Path = logicalcluster.From(syncTarget).String()
+		path := logicalcluster.NewPath(exportRef.Path)
+		if path.Empty() {
+			path = logicalcluster.From(syncTarget).Path()
 		}
-		export, err := e.getAPIExport(logicalcluster.NewPath(exportRef.Path), exportRef.Export)
+		export, err := e.getAPIExport(path, exportRef.Export)
 		if apierrors.IsNotFound(err) {
 			continue
 		}

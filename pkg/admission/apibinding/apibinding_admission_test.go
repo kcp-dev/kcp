@@ -21,12 +21,14 @@ import (
 	"crypto/sha256"
 	"errors"
 	"math/big"
+	"strings"
 	"testing"
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
@@ -36,6 +38,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/admission/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 )
 
 func createAttr(apiBinding *apisv1alpha1.APIBinding) admission.Attributes {
@@ -89,50 +92,67 @@ func TestAdmit(t *testing.T) {
 		{
 			name: "Create: with absolute workspace reference",
 			attr: createAttr(
-				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:aunt", "someExport").APIBinding,
+				newAPIBinding().withName("test").withReference(logicalcluster.NewPath("root:aunt"), "someExport").APIBinding,
 			),
 			authzDecision: authorizer.DecisionAllow,
-			expectedObject: helpers.ToUnstructuredOrDie(newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:aunt", "someExport").
-				withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:aunt:someExport")).APIBinding),
+			expectedObject: helpers.ToUnstructuredOrDie(newAPIBinding().withName("test").withReference(logicalcluster.NewPath("root:aunt"), "someExport").
+				withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-aunt:someExport")).APIBinding),
 		},
 		{
-			name: "Create: with absolute workspace reference",
+			name: "Create: with relative export reference",
 			attr: createAttr(
-				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("", "someExport").APIBinding,
+				newAPIBinding().withName("test").withReference(logicalcluster.Path{}, "someExport").APIBinding,
 			),
 			authzDecision: authorizer.DecisionAllow,
-			expectedObject: helpers.ToUnstructuredOrDie(newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:org:ws", "someExport").
-				withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:org:ws:someExport")).APIBinding),
+			expectedObject: helpers.ToUnstructuredOrDie(newAPIBinding().withName("test").withReference(logicalcluster.Path{}, "someExport").
+				withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-ws:someExport")).APIBinding),
 		},
 		{
-			name: "Update: with absolute workspace reference",
-			attr: updateAttr(
-				newAPIBinding().withAbsoluteWorkspaceReference("root:org:workspaceName", "someExport").APIBinding,
-				newAPIBinding().withAbsoluteWorkspaceReference("root:org:workspaceName", "someExport").APIBinding,
+			name: "Create: with root export reference",
+			attr: createAttr(
+				newAPIBinding().withName("test").withReference(logicalcluster.NewPath("root"), "someExport").APIBinding,
 			),
 			authzDecision: authorizer.DecisionAllow,
-			expectedObject: helpers.ToUnstructuredOrDie(newAPIBinding().withAbsoluteWorkspaceReference("root:org:workspaceName", "someExport").
-				withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:org:workspaceName:someExport")).APIBinding),
+			expectedObject: helpers.ToUnstructuredOrDie(newAPIBinding().withName("test").withReference(logicalcluster.NewPath("root"), "someExport").
+				withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:someExport")).APIBinding),
 		},
 		{
-			name: "Update: with changing absolute workspace reference",
+			name: "Update: with export reference",
 			attr: updateAttr(
-				newAPIBinding().withAbsoluteWorkspaceReference("root:org:foo", "someExport").APIBinding,
-				newAPIBinding().withAbsoluteWorkspaceReference("root:org:workspaceName", "someExport").APIBinding,
+				newAPIBinding().withReference(logicalcluster.NewPath("root:org:workspaceName"), "someExport").APIBinding,
+				newAPIBinding().withReference(logicalcluster.NewPath("root:org:workspaceName"), "someExport").APIBinding,
 			),
-			authzDecision: authorizer.DecisionAllow,
-			expectedObject: helpers.ToUnstructuredOrDie(newAPIBinding().withAbsoluteWorkspaceReference("root:org:foo", "someExport").
-				withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:org:foo:someExport")).APIBinding),
+			authzDecision:  authorizer.DecisionAllow,
+			expectedObject: helpers.ToUnstructuredOrDie(newAPIBinding().withReference(logicalcluster.NewPath("root:org:workspaceName"), "someExport").APIBinding),
 		},
 		{
-			name: "Update: without absolute workspace reference",
+			name: "Update: with changing export reference",
 			attr: updateAttr(
-				newAPIBinding().withAbsoluteWorkspaceReference("", "someExport").APIBinding,
-				newAPIBinding().withAbsoluteWorkspaceReference("root:org:workspaceName", "someExport").APIBinding,
+				newAPIBinding().withReference(logicalcluster.NewPath("root:org:workspaceName"), "someExport").APIBinding,
+				newAPIBinding().withReference(logicalcluster.NewPath("root:aunt"), "someExport").APIBinding,
 			),
 			authzDecision: authorizer.DecisionAllow,
-			expectedObject: helpers.ToUnstructuredOrDie(newAPIBinding().withAbsoluteWorkspaceReference("root:org:ws", "someExport").
-				withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:org:ws:someExport")).APIBinding),
+			expectedObject: helpers.ToUnstructuredOrDie(newAPIBinding().withReference(logicalcluster.NewPath("root:org:workspaceName"), "someExport").
+				withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-workspaceName:someExport")).APIBinding),
+		},
+		{
+			name: "Update: with changing export reference, absolute to relative",
+			attr: updateAttr(
+				newAPIBinding().withReference(logicalcluster.Path{}, "someExport").APIBinding,
+				newAPIBinding().withReference(logicalcluster.NewPath("root:org:workspaceName"), "someExport").APIBinding,
+			),
+			authzDecision: authorizer.DecisionAllow,
+			expectedObject: helpers.ToUnstructuredOrDie(newAPIBinding().withReference(logicalcluster.Path{}, "someExport").
+				withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-ws:someExport")).APIBinding),
+		},
+		{
+			name: "Update: no lookup if not changing",
+			attr: updateAttr(
+				newAPIBinding().withReference(logicalcluster.NewPath("root:non-existing"), "someExport").APIBinding,
+				newAPIBinding().withReference(logicalcluster.NewPath("root:non-existing"), "someExport").APIBinding,
+			),
+			authzDecision:  authorizer.DecisionAllow,
+			expectedObject: helpers.ToUnstructuredOrDie(newAPIBinding().withReference(logicalcluster.NewPath("root:non-existing"), "someExport").APIBinding),
 		},
 	}
 
@@ -146,6 +166,21 @@ func TestAdmit(t *testing.T) {
 						tc.authzError,
 					}, nil
 				},
+				getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
+					switch path.Join(name).String() {
+					case "root:org:ws:someExport", "root-org-ws:someExport":
+						return newExport(logicalcluster.NewPath("root:org:ws"), "someExport").APIExport, nil
+					case "root:aunt:someExport", "root-aunt:someExport":
+						return newExport(logicalcluster.NewPath("root:aunt"), "someExport").APIExport, nil
+					case "root:org:workspaceName:someExport", "root-org-workspaceName:someExport":
+						return newExport(logicalcluster.NewPath("root:org:workspaceName"), "someExport").APIExport, nil
+					case "root:org:foo:someExport", "root-org-foo:someExport":
+						return newExport(logicalcluster.NewPath("root:org:foo"), "someExport").APIExport, nil
+
+						// intentionally not the root export. Binding without looking up the root exports is needed for bootstrapping.
+					}
+					return nil, apierrors.NewNotFound(apisv1alpha1.Resource("apiexports"), name)
+				},
 			}
 
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: logicalcluster.From(tc.attr.GetObject().(metav1.Object))})
@@ -153,7 +188,7 @@ func TestAdmit(t *testing.T) {
 			err := o.Admit(ctx, tc.attr, nil)
 
 			wantErr := len(tc.expectedErrors) > 0
-			require.Equal(t, wantErr, err != nil)
+			require.Equal(t, wantErr, err != nil, "unexpected error: %v", err)
 
 			if err != nil {
 				t.Logf("Got admission errors: %v", err)
@@ -180,195 +215,156 @@ func TestValidate(t *testing.T) {
 			attr: createAttr(
 				newAPIBinding().withName("test").APIBinding,
 			),
-			expectedErrors: []string{".spec.reference.export is required"},
-		},
-		{
-			name: "Create: missing workspace reference fails",
-			attr: createAttr(
-				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("", "export").APIBinding,
-			),
-			expectedErrors: []string{"spec.reference.export.cluster: Required value"},
+			expectedErrors: []string{"spec.reference.export: Required value"},
 		},
 		{
 			name: "Create: missing workspace reference exportName fails",
 			attr: createAttr(
-				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:org:workspaceName", "").APIBinding,
+				newAPIBinding().withName("test").withReference(logicalcluster.NewPath("root-org-workspaceName"), "").APIBinding,
 			),
 			expectedErrors: []string{"spec.reference.export.name: Required value"},
 		},
 		{
 			name: "Create: complete workspaceName reference passes when authorized",
 			attr: createAttr(
-				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:org:workspaceName", "someExport").
-					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:org:workspaceName:someExport")).APIBinding,
+				newAPIBinding().withName("test").withReference(logicalcluster.NewPath("root:org:workspaceName"), "someExport").
+					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-workspaceName:someExport")).APIBinding,
+			),
+			authzDecision: authorizer.DecisionAllow,
+		},
+		{
+			name: "Create: root reference passes when authorized",
+			attr: createAttr(
+				newAPIBinding().withName("test").withReference(logicalcluster.NewPath("root"), "someExport").
+					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:someExport")).APIBinding,
 			),
 			authzDecision: authorizer.DecisionAllow,
 		},
 		{
 			name: "Create: complete root absolute workspace reference passes when authorized",
 			attr: createAttr(
-				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root", "someExport").
+				newAPIBinding().withName("test").withReference(logicalcluster.NewPath("root"), "someExport").
 					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:someExport")).APIBinding,
 			),
 			authzDecision: authorizer.DecisionAllow,
 		},
 		{
-			name: "Create: complete aunt absolute workspace reference passes when authorized",
+			name: "Create: complete non-root absolute workspace reference passes when authorized",
 			attr: createAttr(
-				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:aunt", "someExport").
-					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:aunt:someExport")).APIBinding,
-			),
-			authzDecision: authorizer.DecisionAllow,
-		},
-		{
-			name: "Create: complete sibling absolute workspace reference passes when authorized",
-			attr: createAttr(
-				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:org:sibling", "someExport").
-					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:org:sibling:someExport")).APIBinding,
-			),
-			authzDecision: authorizer.DecisionAllow,
-		},
-		{
-			name: "Create: complete reflexive absolute workspace reference passes when authorized",
-			attr: createAttr(
-				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:org", "someExport").
-					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:org:someExport")).APIBinding,
-			),
-			authzDecision: authorizer.DecisionAllow,
-		},
-		{
-			name: "Create: complete non-ancestor absolute workspace reference does not fail",
-			attr: createAttr(
-				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:some-other-org:bla", "someExport").
-					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:some-other-org:bla:someExport")).APIBinding,
-			),
-			authzDecision: authorizer.DecisionAllow,
-		},
-		{
-			name: "Create: complete child absolute workspace reference does not fail",
-			attr: createAttr(
-				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:org:ws:child", "someExport").
-					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:org:ws:child:someExport")).APIBinding,
+				newAPIBinding().withName("test").withReference(logicalcluster.NewPath("root:aunt"), "someExport").
+					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-aunt:someExport")).APIBinding,
 			),
 			authzDecision: authorizer.DecisionAllow,
 		},
 		{
 			name: "Create: complete workspace reference fails with no authorization decision",
 			attr: createAttr(
-				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:org:workspaceName", "someExport").
-					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:org:workspaceName:someExport")).APIBinding,
+				newAPIBinding().withName("test").withReference(logicalcluster.NewPath("root:org:workspaceName"), "someExport").
+					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-workspaceName:someExport")).APIBinding,
 			),
 			authzDecision:  authorizer.DecisionNoOpinion,
-			expectedErrors: []string{`no permission to bind to export "someExport"`},
+			expectedErrors: []string{`no permission to bind to export root:org:workspaceName:someExport`},
 		},
 		{
 			name: "Create: complete workspace reference fails when denied",
 			attr: createAttr(
-				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:org:workspaceName", "someExport").
-					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:org:workspaceName:someExport")).APIBinding,
+				newAPIBinding().withName("test").withReference(logicalcluster.NewPath("root:org:workspaceName"), "someExport").
+					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-workspaceName:someExport")).APIBinding,
 			),
 			authzDecision:  authorizer.DecisionDeny,
-			expectedErrors: []string{`no permission to bind to export "someExport"`},
+			expectedErrors: []string{`no permission to bind to export root:org:workspaceName:someExport`},
 		},
 		{
 			name: "Create: complete workspace reference fails when there's an error checking authorization",
 			attr: createAttr(
-				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:org:workspaceName", "someExport").
-					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:org:workspaceName:someExport")).APIBinding,
+				newAPIBinding().withName("test").withReference(logicalcluster.NewPath("root:org:workspaceName"), "someExport").
+					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-workspaceName:someExport")).APIBinding,
 			),
 			authzError:     errors.New("some error here"),
-			expectedErrors: []string{"unable to determine access to apiexports: some error here"},
-		},
-		{
-			name: "Update: missing workspace reference workspaceName fails",
-			attr: updateAttr(
-				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("", "export").APIBinding,
-				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:org:workspace", "export").APIBinding,
-			),
-			expectedErrors: []string{"spec.reference.export.cluster: Required value"},
+			expectedErrors: []string{"no permission to bind to export root:org:workspaceName:someExport"},
 		},
 		{
 			name: "Update: missing workspace reference exportName fails",
 			attr: updateAttr(
-				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:org:workspaceName", "").APIBinding,
-				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:org:workspaceName", "export").APIBinding,
+				newAPIBinding().withName("test").withReference(logicalcluster.NewPath("root:org:workspaceName"), "").APIBinding,
+				newAPIBinding().withName("test").withReference(logicalcluster.NewPath("root:org:workspaceName"), "export").APIBinding,
 			),
 			expectedErrors: []string{"spec.reference.export.name: Required value"},
 		},
 		{
 			name: "Update: complete workspace reference passes when authorized",
 			attr: updateAttr(
-				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:org:workspaceName", "someExport").
-					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:org:workspaceName:someExport")).APIBinding,
-				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:org:workspaceName", "someExport").
-					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:org:workspaceName:someExport")).APIBinding,
+				newAPIBinding().withName("test").withReference(logicalcluster.NewPath("root:org:workspaceName"), "someExport").
+					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-workspaceName:someExport")).APIBinding,
+				newAPIBinding().withName("test").withReference(logicalcluster.NewPath("root:org:workspaceName"), "someExport").
+					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-workspaceName:someExport")).APIBinding,
 			),
 			authzDecision: authorizer.DecisionAllow,
 		},
 		{
 			name: "Update: fails when export label is missing",
 			attr: updateAttr(
-				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:org:workspaceName", "someExport").APIBinding,
-				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:org:workspaceName", "someExport").
-					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:org:workspaceName:someExport")).APIBinding,
+				newAPIBinding().withName("test").withReference(logicalcluster.NewPath("root:org:workspaceName"), "someExport").APIBinding,
+				newAPIBinding().withName("test").withReference(logicalcluster.NewPath("root:org:workspaceName"), "someExport").
+					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-workspaceName:someExport")).APIBinding,
 			),
 			authzDecision:  authorizer.DecisionAllow,
-			expectedErrors: []string{"metadata.labels[internal.apis.kcp.dev/export]: Invalid value: \"\": must be set to \"8oSFmQnIKH4MfMObENTLBP6VnDhy7IKGQH1Iyq\""},
+			expectedErrors: []string{"metadata.labels[internal.apis.kcp.dev/export]: Invalid value: \"\": must be set to \"avKSFa3bDPry0NIAl3ECroTdaXPBY1dHReOilE\""},
 		},
 		{
 			name: "Update: fails when export label is wrong",
 			attr: updateAttr(
-				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:org:workspaceName", "someExport").
-					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:org:workspaceName:someOtherExport")).APIBinding,
-				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:org:workspaceName", "someExport").
-					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:org:workspaceName:someExport")).APIBinding,
+				newAPIBinding().withName("test").withReference(logicalcluster.NewPath("root:org:workspaceName"), "someExport").
+					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-workspaceName:someOtherExport")).APIBinding,
+				newAPIBinding().withName("test").withReference(logicalcluster.NewPath("root:org:workspaceName"), "someExport").
+					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-workspaceName:someExport")).APIBinding,
 			),
 			authzDecision:  authorizer.DecisionAllow,
-			expectedErrors: []string{"metadata.labels[internal.apis.kcp.dev/export]: Invalid value: \"3vZx3JrJmkxFi2HA1dQ20VcmylUfTcrfvuiHZT\": must be set to \"8oSFmQnIKH4MfMObENTLBP6VnDhy7IKGQH1Iyq\""},
+			expectedErrors: []string{"metadata.labels[internal.apis.kcp.dev/export]: Invalid value: \"3O8yqCs4In4wWBmfjGQsNlMZi9SOHb8n1xCt1o\": must be set to \"avKSFa3bDPry0NIAl3ECroTdaXPBY1dHReOilE\""},
 		},
 		{
 			name: "Update: complete workspace reference fails with no authorization decision",
 			attr: updateAttr(
-				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:org:workspaceName", "someExport").
-					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:org:workspaceName:someExport")).APIBinding,
-				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:org:workspaceName", "someExport").
-					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:org:workspaceName:someExport")).APIBinding,
+				newAPIBinding().withName("test").withReference(logicalcluster.NewPath("root:org:workspaceName"), "someExport").
+					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-workspaceName:someExport")).APIBinding,
+				newAPIBinding().withName("test").withReference(logicalcluster.NewPath("root:org:workspaceName"), "anotherExport").
+					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-workspaceName:anotherExport")).APIBinding,
 			),
 			authzDecision:  authorizer.DecisionNoOpinion,
-			expectedErrors: []string{`no permission to bind to export "someExport"`},
+			expectedErrors: []string{`no permission to bind to export root:org:workspaceName:someExport`},
 		},
 		{
 			name: "Update: complete workspace reference fails when denied",
 			attr: updateAttr(
-				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:org:workspaceName", "someExport").
-					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:org:workspaceName:someExport")).APIBinding,
-				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:org:workspaceName", "someExport").
-					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:org:workspaceName:someExport")).APIBinding,
+				newAPIBinding().withName("test").withReference(logicalcluster.NewPath("root:org:workspaceName"), "someExport").
+					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-workspaceName:someExport")).APIBinding,
+				newAPIBinding().withName("test").withReference(logicalcluster.NewPath("root:org:workspaceName"), "anotherExport").
+					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-workspaceName:anotherExport")).APIBinding,
 			),
 			authzDecision:  authorizer.DecisionDeny,
-			expectedErrors: []string{`no permission to bind to export "someExport"`},
+			expectedErrors: []string{`no permission to bind to export root:org:workspaceName:someExport`},
 		},
 		{
 			name: "Update: complete workspace reference fails when there's an error checking authorization",
 			attr: updateAttr(
-				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:org:workspaceName", "someExport").
-					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:org:workspaceName:someExport")).APIBinding,
-				newAPIBinding().withName("test").withAbsoluteWorkspaceReference("root:org:workspaceName", "someExport").
-					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:org:workspaceName:someExport")).APIBinding,
+				newAPIBinding().withName("test").withReference(logicalcluster.NewPath("root:org:workspaceName"), "someExport").
+					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-workspaceName:someExport")).APIBinding,
+				newAPIBinding().withName("test").withReference(logicalcluster.NewPath("root:org:workspaceName"), "anotherExport").
+					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-workspaceName:anotherExport")).APIBinding,
 			),
 			authzError:     errors.New("some error here"),
-			expectedErrors: []string{"unable to determine access to apiexports: some error here"},
+			expectedErrors: []string{"no permission to bind to export root:org:workspaceName:someExport"},
 		},
 		{
 			name: "Update: transition from '' to binding passes",
 			attr: updateAttr(
 				newAPIBinding().
-					withAbsoluteWorkspaceReference("root:org:workspaceName", "someExport").
-					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:org:workspaceName:someExport")).
+					withReference(logicalcluster.NewPath("root:org:workspaceName"), "someExport").
+					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-workspaceName:someExport")).
 					withPhase(apisv1alpha1.APIBindingPhaseBinding).APIBinding,
 				newAPIBinding().
-					withAbsoluteWorkspaceReference("root:org:workspaceName", "someExport").
-					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:org:workspaceName:someExport")).
+					withReference(logicalcluster.NewPath("root:org:workspaceName"), "someExport").
+					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-workspaceName:someExport")).
 					withPhase("").APIBinding,
 			),
 			authzDecision: authorizer.DecisionAllow,
@@ -377,12 +373,12 @@ func TestValidate(t *testing.T) {
 			name: "Update: transition from binding to bound passes",
 			attr: updateAttr(
 				newAPIBinding().
-					withAbsoluteWorkspaceReference("root:org:workspaceName", "someExport").
-					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:org:workspaceName:someExport")).
+					withReference(logicalcluster.NewPath("root:org:workspaceName"), "someExport").
+					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-workspaceName:someExport")).
 					withPhase(apisv1alpha1.APIBindingPhaseBound).APIBinding,
 				newAPIBinding().
-					withAbsoluteWorkspaceReference("root:org:workspaceName", "someExport").
-					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:org:workspaceName:someExport")).
+					withReference(logicalcluster.NewPath("root:org:workspaceName"), "someExport").
+					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-workspaceName:someExport")).
 					withPhase(apisv1alpha1.APIBindingPhaseBinding).APIBinding,
 			),
 			authzDecision: authorizer.DecisionAllow,
@@ -391,12 +387,12 @@ func TestValidate(t *testing.T) {
 			name: "Update: transition backwards from binding to '' fails",
 			attr: updateAttr(
 				newAPIBinding().
-					withAbsoluteWorkspaceReference("root:org:workspaceName", "someExport").
-					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:org:workspaceName:someExport")).
+					withReference(logicalcluster.NewPath("root:org:workspaceName"), "someExport").
+					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-workspaceName:someExport")).
 					withPhase("").APIBinding,
 				newAPIBinding().
-					withAbsoluteWorkspaceReference("root:org:workspaceName", "someExport").
-					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:org:workspaceName:someExport")).
+					withReference(logicalcluster.NewPath("root:org:workspaceName"), "someExport").
+					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-workspaceName:someExport")).
 					withPhase(apisv1alpha1.APIBindingPhaseBinding).APIBinding,
 			),
 			authzDecision:  authorizer.DecisionAllow,
@@ -406,12 +402,12 @@ func TestValidate(t *testing.T) {
 			name: "Update: transition backwards from bound to '' fails",
 			attr: updateAttr(
 				newAPIBinding().
-					withAbsoluteWorkspaceReference("root:org:workspaceName", "someExport").
-					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:org:workspaceName:someExport")).
+					withReference(logicalcluster.NewPath("root:org:workspaceName"), "someExport").
+					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-workspaceName:someExport")).
 					withPhase("").APIBinding,
 				newAPIBinding().
-					withAbsoluteWorkspaceReference("root:org:workspaceName", "someExport").
-					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:org:workspaceName:someExport")).
+					withReference(logicalcluster.NewPath("root:org:workspaceName"), "someExport").
+					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-workspaceName:someExport")).
 					withPhase(apisv1alpha1.APIBindingPhaseBound).APIBinding,
 			),
 			authzDecision:  authorizer.DecisionAllow,
@@ -421,12 +417,12 @@ func TestValidate(t *testing.T) {
 			name: "Update: transition backwards from bound to binding passes",
 			attr: updateAttr(
 				newAPIBinding().
-					withAbsoluteWorkspaceReference("root:org:workspaceName", "someExport").
-					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:org:workspaceName:someExport")).
+					withReference(logicalcluster.NewPath("root:org:workspaceName"), "someExport").
+					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-workspaceName:someExport")).
 					withPhase(apisv1alpha1.APIBindingPhaseBinding).APIBinding,
 				newAPIBinding().
-					withAbsoluteWorkspaceReference("root:org:workspaceName", "someExport").
-					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root:org:workspaceName:someExport")).
+					withReference(logicalcluster.NewPath("root:org:workspaceName"), "someExport").
+					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-workspaceName:someExport")).
 					withPhase(apisv1alpha1.APIBindingPhaseBound).APIBinding,
 			),
 			authzDecision: authorizer.DecisionAllow,
@@ -442,6 +438,23 @@ func TestValidate(t *testing.T) {
 						tc.authzDecision,
 						tc.authzError,
 					}, nil
+				},
+				getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
+					switch path.Join(name).String() {
+					case "root:org:workspaceName:someExport", "root-org-workspaceName:someExport":
+						return newExport(logicalcluster.NewPath("root:org:workspaceName"), name).APIExport, nil
+					case "root:aunt:someExport", "root-aunt:someExport":
+						return newExport(logicalcluster.NewPath("root:aunt"), name).APIExport, nil
+					case "root:org:sibling:someExport", "root-org-sibling:someExport":
+						return newExport(logicalcluster.NewPath("root:org:sibling"), name).APIExport, nil
+					case "root:org:someExport", "root-org:someExport":
+						return newExport(logicalcluster.NewPath("root:org"), name).APIExport, nil
+					case "root:some-other-org:bla:someExport", "root-some-other-org-bla:someExport":
+						return newExport(logicalcluster.NewPath("root:some-other-org:bla"), name).APIExport, nil
+
+						// intentionally not the root export. Binding without looking up the root exports is needed for bootstrapping.
+					}
+					return nil, apierrors.NewNotFound(apisv1alpha1.Resource("apiexports"), path.Join(name).String())
 				},
 			}
 
@@ -480,7 +493,7 @@ func newAPIBinding() *bindingBuilder {
 		APIBinding: &apisv1alpha1.APIBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
-					logicalcluster.AnnotationKey: "root:org:ws",
+					logicalcluster.AnnotationKey: "root-org-ws",
 				},
 			},
 		},
@@ -492,10 +505,10 @@ func (b *bindingBuilder) withName(name string) *bindingBuilder {
 	return b
 }
 
-func (b *bindingBuilder) withAbsoluteWorkspaceReference(cluster logicalcluster.Name, exportName string) *bindingBuilder {
+func (b *bindingBuilder) withReference(path logicalcluster.Path, exportName string) *bindingBuilder {
 	b.Spec.Reference.Export = &apisv1alpha1.ExportBindingReference{
-		Cluster: cluster,
-		Name:    exportName,
+		Path: path.String(),
+		Name: exportName,
 	}
 	return b
 }
@@ -521,4 +534,21 @@ func toBase62(hash [28]byte) string {
 	var i big.Int
 	i.SetBytes(hash[:])
 	return i.Text(62)
+}
+
+type apiExportBuilder struct {
+	*apisv1alpha1.APIExport
+}
+
+func newExport(path logicalcluster.Path, name string) apiExportBuilder {
+	clusterName := strings.ReplaceAll(path.String(), ":", "-")
+	return apiExportBuilder{APIExport: &apisv1alpha1.APIExport{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+			Annotations: map[string]string{
+				logicalcluster.AnnotationKey:            clusterName,
+				tenancy.LogicalClusterPathAnnotationKey: path.String(),
+			},
+		},
+	}}
 }

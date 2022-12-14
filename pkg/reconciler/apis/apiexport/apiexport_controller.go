@@ -40,7 +40,6 @@ import (
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	apisv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apis/v1alpha1"
 	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
@@ -65,7 +64,6 @@ func NewController(
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	namespaceInformer kcpcorev1informers.NamespaceClusterInformer,
 	secretInformer kcpcorev1informers.SecretClusterInformer,
-	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
 ) (*controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
@@ -88,10 +86,6 @@ func NewController(
 			_, err := kubeClusterClient.Cluster(clusterName).CoreV1().Secrets(secret.Namespace).Create(ctx, secret, metav1.CreateOptions{})
 			return err
 		},
-		getAPIBindingsForAPIExport: func(clusterName logicalcluster.Name, name string) ([]interface{}, error) {
-			clusterPathAndName := indexers.ClusterAndAPIExportName(clusterName, name)
-			return apiBindingInformer.Informer().GetIndexer().ByIndex(indexers.APIBindingsByAPIExport, clusterPathAndName)
-		},
 		listClusterWorkspaceShards: func() ([]*tenancyv1alpha1.ClusterWorkspaceShard, error) {
 			return clusterWorkspaceShardInformer.Lister().List(labels.Everything())
 		},
@@ -105,13 +99,6 @@ func NewController(
 		cache.Indexers{
 			indexers.APIExportByIdentity: indexers.IndexAPIExportByIdentity,
 			indexers.APIExportBySecret:   indexers.IndexAPIExportBySecret,
-		},
-	)
-
-	indexers.AddIfNotPresentOrDie(
-		apiBindingInformer.Informer().GetIndexer(),
-		cache.Indexers{
-			indexers.APIBindingsByAPIExport: indexers.IndexAPIBindingByAPIExport,
 		},
 	)
 
@@ -153,20 +140,6 @@ func NewController(
 		},
 	)
 
-	apiBindingInformer.Informer().AddEventHandler(
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				c.enqueueFromAPIBinding(obj)
-			},
-			UpdateFunc: func(_, newObj interface{}) {
-				c.enqueueFromAPIBinding(newObj)
-			},
-			DeleteFunc: func(obj interface{}) {
-				c.enqueueFromAPIBinding(obj)
-			},
-		},
-	)
-
 	return c, nil
 }
 
@@ -195,8 +168,6 @@ type controller struct {
 
 	getSecret    func(ctx context.Context, clusterName logicalcluster.Name, ns, name string) (*corev1.Secret, error)
 	createSecret func(ctx context.Context, clusterName logicalcluster.Path, secret *corev1.Secret) error
-
-	getAPIBindingsForAPIExport func(clusterName logicalcluster.Name, name string) ([]interface{}, error)
 
 	listClusterWorkspaceShards func() ([]*tenancyv1alpha1.ClusterWorkspaceShard, error)
 	commit                     CommitFunc
@@ -258,28 +229,6 @@ func (c *controller) enqueueSecret(obj interface{}) {
 		logging.WithQueueKey(logger, key).V(2).Info("queueing APIExport via identity Secret")
 		c.queue.Add(key)
 	}
-}
-
-func (c *controller) enqueueFromAPIBinding(obj interface{}) {
-	binding, ok := obj.(*apisv1alpha1.APIBinding)
-	if !ok {
-		return
-	}
-
-	// Skip any bindings that haven't progressed to initially bound.
-	if !conditions.IsTrue(binding, apisv1alpha1.InitialBindingCompleted) {
-		return
-	}
-
-	logger := logging.WithObject(logging.WithReconciler(klog.Background(), ControllerName), binding)
-
-	if binding.Spec.Reference.Export == nil {
-		return
-	}
-
-	key := kcpcache.ToClusterAwareKey(string(binding.Spec.Reference.Export.Cluster), "", binding.Spec.Reference.Export.Name)
-	logging.WithQueueKey(logger, key).V(2).Info("queueing APIExport via APIBinding")
-	c.queue.Add(key)
 }
 
 // Start starts the controller, which stops when ctx.Done() is closed.

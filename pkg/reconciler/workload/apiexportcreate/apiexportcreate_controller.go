@@ -80,12 +80,9 @@ func NewController(
 		kcpClusterClient: kcpClusterClient,
 
 		apiExportsLister: apiExportInformer.Lister(),
-
 		apiBindingLister: apiBindingInformer.Lister(),
-
 		syncTargetLister: syncTargetInformer.Lister(),
-
-		locationLister: locationInformer.Lister(),
+		locationLister:   locationInformer.Lister(),
 	}
 
 	apiExportInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
@@ -137,12 +134,9 @@ type controller struct {
 	kcpClusterClient kcpclientset.ClusterInterface
 
 	syncTargetLister workloadv1alpha1listers.SyncTargetClusterLister
-
 	apiExportsLister apisv1alpha1listers.APIExportClusterLister
-
 	apiBindingLister apisv1alpha1listers.APIBindingClusterLister
-
-	locationLister schedulingv1alpha1listers.LocationClusterLister
+	locationLister   schedulingv1alpha1listers.LocationClusterLister
 }
 
 // enqueue adds the logical cluster to the queue.
@@ -294,7 +288,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		if binding.Spec.Reference.Export == nil {
 			continue
 		}
-		if binding.Spec.Reference.Export.Cluster != clusterName {
+		if binding.Spec.Reference.Export.Path != "" {
 			continue
 		}
 		if binding.Spec.Reference.Export.Name != reconcilerapiexport.TemporaryComputeServiceExportName {

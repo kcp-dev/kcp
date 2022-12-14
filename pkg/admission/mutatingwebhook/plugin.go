@@ -34,6 +34,7 @@ import (
 	webhookutil "k8s.io/apiserver/pkg/util/webhook"
 	"k8s.io/client-go/informers"
 
+	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	"github.com/kcp-dev/kcp/pkg/admission/webhook"
 )
 
@@ -45,14 +46,21 @@ type Plugin struct {
 	// Using validating plugin, for the dispatcher to use.
 	// This plugins admit function will never be called.
 	mutating.Plugin
-	webhook.WebhookDispatcher
+	*webhook.WebhookDispatcher
 }
 
-var _ admission.MutationInterface = &Plugin{}
+var (
+	_ = admission.MutationInterface(&Plugin{})
+	_ = admission.InitializationValidator(&Plugin{})
+	_ = kcpinitializers.WantsKcpInformers(&Plugin{})
+)
 
-func NewValidatingAdmissionWebhook(configfile io.Reader) (*Plugin, error) {
-	p := &Plugin{Plugin: mutating.Plugin{Webhook: &generic.Webhook{}}}
-	p.Handler = admission.NewHandler(admission.Connect, admission.Create, admission.Delete, admission.Update)
+func NewMutatingAdmissionWebhook(configfile io.Reader) (*Plugin, error) {
+	p := &Plugin{
+		Plugin:            mutating.Plugin{Webhook: &generic.Webhook{}},
+		WebhookDispatcher: webhook.NewWebhookDispatcher(),
+	}
+	p.WebhookDispatcher.Handler = admission.NewHandler(admission.Connect, admission.Create, admission.Delete, admission.Update)
 
 	dispatcherFactory := mutating.NewMutatingDispatcher(&p.Plugin)
 
@@ -100,7 +108,7 @@ func NewValidatingAdmissionWebhook(configfile io.Reader) (*Plugin, error) {
 
 func Register(plugins *admission.Plugins) {
 	plugins.Register(PluginName, func(configFile io.Reader) (admission.Interface, error) {
-		return NewValidatingAdmissionWebhook(configFile)
+		return NewMutatingAdmissionWebhook(configFile)
 	})
 }
 

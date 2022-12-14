@@ -97,7 +97,7 @@ func (b *BindOptions) Run(ctx context.Context) error {
 		return err
 	}
 
-	workspacePath, apiExportName := logicalcluster.NewPath(b.APIExportRef).Split()
+	path, apiExportName := logicalcluster.NewPath(b.APIExportRef).Split()
 
 	// if apibindingName is not provided, default it to <apiExportname>.
 	apiBindingName := b.APIBindingName
@@ -117,9 +117,8 @@ func (b *BindOptions) Run(ctx context.Context) error {
 		Spec: apisv1alpha1.APIBindingSpec{
 			Reference: apisv1alpha1.BindingReference{
 				Export: &apisv1alpha1.ExportBindingReference{
-					// TODO(sttts): this will break for real paths. We probably only support this when the user has read access to the export workspace.
-					Cluster: logicalcluster.Name(workspacePath.String()),
-					Name:    apiExportName,
+					Path: path.String(),
+					Name: apiExportName,
 				},
 			},
 		},

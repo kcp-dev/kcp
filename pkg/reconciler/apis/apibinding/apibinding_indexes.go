@@ -19,6 +19,7 @@ package apibinding
 import (
 	"fmt"
 
+	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
@@ -36,12 +37,11 @@ func indexAPIBindingsByWorkspaceExportFunc(obj interface{}) ([]string, error) {
 	}
 
 	if apiBinding.Spec.Reference.Export != nil {
-		apiExportClusterName := apiBinding.Spec.Reference.Export.Cluster
-		if !ok {
-			// this will never happen due to validation
-			return []string{}, fmt.Errorf("invalid export reference")
+		path := logicalcluster.NewPath(apiBinding.Spec.Reference.Export.Path)
+		if path.Empty() {
+			path = logicalcluster.From(apiBinding).Path()
 		}
-		key := client.ToClusterAwareKey(apiExportClusterName.Path(), apiBinding.Spec.Reference.Export.Name)
+		key := kcpcache.ToClusterAwareKey(path.String(), "", apiBinding.Spec.Reference.Export.Name)
 		return []string{key}, nil
 	}
 

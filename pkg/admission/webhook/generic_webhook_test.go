@@ -19,23 +19,28 @@ package webhook
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/endpoints/request"
 
-	"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	kcpfakeclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/fake"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 )
 
 func attr(gvk schema.GroupVersionKind, name, resource string, op admission.Operation) admission.Attributes {
@@ -102,8 +107,9 @@ func TestDispatch(t *testing.T) {
 		expectedHooks       map[logicalcluster.Name][]webhook.WebhookAccessor
 		hooksInSource       map[logicalcluster.Name][]webhook.WebhookAccessor
 		hookSourceNotSynced bool
-		apiBindings         []*v1alpha1.APIBinding
-		apiBindingsSynced   func() bool
+		apiBindings         []*apisv1alpha1.APIBinding
+		apiExports          []*apisv1alpha1.APIExport
+		informersHaveSynced func() bool
 		wantErr             bool
 	}{
 		{
@@ -114,31 +120,32 @@ func TestDispatch(t *testing.T) {
 				"cowboys",
 				admission.Create,
 			),
-			cluster: "root:org:dest-cluster",
+			cluster: "root-org-dest",
 			expectedHooks: map[logicalcluster.Name][]webhook.WebhookAccessor{
-				logicalcluster.Name("root:org:source-cluster"): {webhook.NewValidatingWebhookAccessor("1", "api-registration-hook", nil)},
+				logicalcluster.Name("root-org-source"): {webhook.NewValidatingWebhookAccessor("1", "api-registration-hook", nil)},
 			},
 			hooksInSource: map[logicalcluster.Name][]webhook.WebhookAccessor{
-				logicalcluster.Name("root:org:source-cluster"): {webhook.NewValidatingWebhookAccessor("1", "api-registration-hook", nil)},
-				logicalcluster.Name("root:org:dest-cluster"):   {webhook.NewValidatingWebhookAccessor("2", "secrets", nil)},
+				logicalcluster.Name("root-org-source"): {webhook.NewValidatingWebhookAccessor("1", "api-registration-hook", nil)},
+				logicalcluster.Name("root-org-dest"):   {webhook.NewValidatingWebhookAccessor("2", "secrets", nil)},
 			},
-			apiBindings: []*v1alpha1.APIBinding{
+			apiBindings: []*apisv1alpha1.APIBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "one",
 						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root:org:dest-cluster",
+							logicalcluster.AnnotationKey: "root-org-dest",
 						},
 					},
-					Spec: v1alpha1.APIBindingSpec{
-						Reference: v1alpha1.BindingReference{
-							Export: &v1alpha1.ExportBindingReference{
-								Cluster: "root:org:source-cluster",
+					Spec: apisv1alpha1.APIBindingSpec{
+						Reference: apisv1alpha1.BindingReference{
+							Export: &apisv1alpha1.ExportBindingReference{
+								Path: "root:org:source",
+								Name: "someExport",
 							},
 						},
 					},
-					Status: v1alpha1.APIBindingStatus{
-						BoundResources: []v1alpha1.BoundAPIResource{
+					Status: apisv1alpha1.APIBindingStatus{
+						BoundResources: []apisv1alpha1.BoundAPIResource{
 							{
 								Group:    "wildwest.dev",
 								Resource: "cowboys",
@@ -146,6 +153,9 @@ func TestDispatch(t *testing.T) {
 						},
 					},
 				},
+			},
+			apiExports: []*apisv1alpha1.APIExport{
+				newAPIExport(logicalcluster.NewPath("root:org:source"), "someExport").APIExport,
 			},
 		},
 		{
@@ -156,16 +166,16 @@ func TestDispatch(t *testing.T) {
 				"cowboys",
 				admission.Create,
 			),
-			cluster: "root:org:dest-cluster",
+			cluster: "root-org-dest",
 			expectedHooks: map[logicalcluster.Name][]webhook.WebhookAccessor{
-				logicalcluster.Name("root:org:dest-cluster"): {webhook.NewValidatingWebhookAccessor("3", "secrets", nil)},
+				logicalcluster.Name("root-org-dest"): {webhook.NewValidatingWebhookAccessor("3", "secrets", nil)},
 			},
 			hooksInSource: map[logicalcluster.Name][]webhook.WebhookAccessor{
-				logicalcluster.Name("root:org:source-cluster"): {
+				logicalcluster.Name("root-org-source"): {
 					webhook.NewValidatingWebhookAccessor("1", "cowboy-hook", nil),
 					webhook.NewValidatingWebhookAccessor("2", "secrets", nil),
 				},
-				logicalcluster.Name("root:org:dest-cluster"): {webhook.NewValidatingWebhookAccessor("3", "secrets", nil)},
+				logicalcluster.Name("root-org-dest"): {webhook.NewValidatingWebhookAccessor("3", "secrets", nil)},
 			},
 		},
 		{
@@ -176,27 +186,27 @@ func TestDispatch(t *testing.T) {
 				"cowboys",
 				admission.Create,
 			),
-			cluster: "root:org:dest-cluster",
+			cluster: "root-org-dest",
 			expectedHooks: map[logicalcluster.Name][]webhook.WebhookAccessor{
-				logicalcluster.Name("root:org:dest-cluster"): {webhook.NewValidatingWebhookAccessor("3", "secrets", nil)},
+				logicalcluster.Name("root-org-dest"): {webhook.NewValidatingWebhookAccessor("3", "secrets", nil)},
 			},
 			hooksInSource: map[logicalcluster.Name][]webhook.WebhookAccessor{
-				logicalcluster.Name("root:org:source-cluster"): {
+				logicalcluster.Name("root-org-source"): {
 					webhook.NewValidatingWebhookAccessor("1", "cowboy-hook", nil),
 					webhook.NewValidatingWebhookAccessor("2", "secrets", nil),
 				},
-				logicalcluster.Name("root:org:dest-cluster"): {webhook.NewValidatingWebhookAccessor("3", "secrets", nil)},
+				logicalcluster.Name("root-org-dest"): {webhook.NewValidatingWebhookAccessor("3", "secrets", nil)},
 			},
-			apiBindings: []*v1alpha1.APIBinding{
+			apiBindings: []*apisv1alpha1.APIBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "two",
 						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root:org:dest-cluster",
+							logicalcluster.AnnotationKey: "root-org-dest",
 						},
 					},
-					Status: v1alpha1.APIBindingStatus{
-						BoundResources: []v1alpha1.BoundAPIResource{
+					Status: apisv1alpha1.APIBindingStatus{
+						BoundResources: []apisv1alpha1.BoundAPIResource{
 							{
 								Group:    "wildwest.dev",
 								Resource: "Horses",
@@ -208,11 +218,11 @@ func TestDispatch(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "one",
 						Annotations: map[string]string{
-							logicalcluster.AnnotationKey: "root:org:dest-cluster-2",
+							logicalcluster.AnnotationKey: "root-org-dest-2",
 						},
 					},
-					Status: v1alpha1.APIBindingStatus{
-						BoundResources: []v1alpha1.BoundAPIResource{
+					Status: apisv1alpha1.APIBindingStatus{
+						BoundResources: []apisv1alpha1.BoundAPIResource{
 							{
 								Group:    "wildwest.dev",
 								Resource: "Cowboys",
@@ -223,15 +233,15 @@ func TestDispatch(t *testing.T) {
 			},
 		},
 		{
-			name: "API Bindings Lister not synced",
+			name: "API Bindings lister not synced",
 			attr: attr(
 				schema.GroupVersionKind{Kind: "Cowboy", Group: "wildwest.dev", Version: "v1"},
 				"bound-resource",
 				"cowboys",
 				admission.Create,
 			),
-			cluster: "root:org:dest-cluster",
-			apiBindingsSynced: func() bool {
+			cluster: "root-org-dest",
+			informersHaveSynced: func() bool {
 				return false
 			},
 			wantErr: true,
@@ -244,7 +254,7 @@ func TestDispatch(t *testing.T) {
 				"cowboys",
 				admission.Create,
 			),
-			cluster:             "root:org:dest-cluster",
+			cluster:             "root-org-dest",
 			hookSourceNotSynced: true,
 			wantErr:             true,
 		},
@@ -263,19 +273,27 @@ func TestDispatch(t *testing.T) {
 				dispatcher:              &validatingDispatcher{hooks: tc.expectedHooks},
 				hookSource:              &fakeHookSource{hooks: tc.hooksInSource, hasSynced: !tc.hookSourceNotSynced},
 				apiBindingClusterLister: fakeInformerFactory.Apis().V1alpha1().APIBindings().Lister(),
-				apiBindingsHasSynced:    tc.apiBindingsSynced,
+				informersHaveSynced:     tc.informersHaveSynced,
+				getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
+					for _, apiExport := range tc.apiExports {
+						if keys, _ := indexers.IndexByLogicalClusterPathAndName(apiExport); sets.NewString(keys...).Has(path.Join(name).String()) {
+							return apiExport, nil
+						}
+					}
+					return nil, errors.NewNotFound(apisv1alpha1.Resource("apiexports"), path.Join(name).String())
+				},
 			}
 
 			fakeInformerFactory.Start(ctx.Done())
 			fakeInformerFactory.WaitForCacheSync(ctx.Done())
 
-			if tc.apiBindingsSynced == nil {
-				o.apiBindingsHasSynced = func() bool { return true }
+			if tc.informersHaveSynced == nil {
+				o.informersHaveSynced = func() bool { return true }
 			}
 
 			// Want to make sure that ready would fail based on these.
 			o.SetReadyFunc(func() bool {
-				return o.apiBindingsHasSynced() && o.hookSource.HasSynced()
+				return o.informersHaveSynced() && o.hookSource.HasSynced()
 			})
 
 			ctx = request.WithCluster(ctx, request.Cluster{Name: tc.cluster})
@@ -286,10 +304,29 @@ func TestDispatch(t *testing.T) {
 	}
 }
 
-func toObjects(bindings []*v1alpha1.APIBinding) []runtime.Object {
+func toObjects(bindings []*apisv1alpha1.APIBinding) []runtime.Object {
 	objs := make([]runtime.Object, 0, len(bindings))
 	for _, binding := range bindings {
 		objs = append(objs, binding)
 	}
 	return objs
+}
+
+type apiExportBuilder struct {
+	APIExport *apisv1alpha1.APIExport
+}
+
+func newAPIExport(path logicalcluster.Path, name string) apiExportBuilder {
+	clusterName := strings.ReplaceAll(path.String(), ":", "-")
+	return apiExportBuilder{
+		APIExport: &apisv1alpha1.APIExport{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: name,
+				Annotations: map[string]string{
+					logicalcluster.AnnotationKey:            clusterName,
+					tenancy.LogicalClusterPathAnnotationKey: path.String(),
+				},
+			},
+		},
+	}
 }

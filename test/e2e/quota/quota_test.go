@@ -167,8 +167,8 @@ func TestKubeQuotaCoreV1TypesFromBinding(t *testing.T) {
 				Spec: apisv1alpha1.APIBindingSpec{
 					Reference: apisv1alpha1.BindingReference{
 						Export: &apisv1alpha1.ExportBindingReference{
-							Cluster: apiProviderClusterName,
-							Name:    servicesAPIExport.Name,
+							Path: apiProviderClusterName.Path().String(),
+							Name: servicesAPIExport.Name,
 						},
 					},
 				},

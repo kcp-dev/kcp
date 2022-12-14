@@ -123,7 +123,7 @@ func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
 	group := "newyork.io"
 
 	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, wsExport1a.Path(), kcpClusterClient, group, "export1")
-	apifixtures.BindToExport(ctx, t, wsExport1a, group, wsConsume1a.Path(), kcpClusterClient)
+	apifixtures.BindToExport(ctx, t, wsExport1a.Path(), group, wsConsume1a.Path(), kcpClusterClient)
 	apifixtures.CreateSheriff(ctx, t, dynamicClusterClient, wsConsume1a.Path(), group, wsConsume1a.String())
 
 	sheriffsGVR := schema.GroupVersionResource{Group: group, Resource: "sheriffs", Version: "v1"}
