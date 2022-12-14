@@ -158,6 +158,10 @@ func (c *Controller) process(ctx context.Context, gvr schema.GroupVersionResourc
 	ctx = klog.NewContext(ctx, logger)
 
 	upstreamLister, err := c.getUpstreamLister(gvr)
+	if err != nil {
+		return err
+	}
+
 	if !resourceExists {
 		logger.Info("Downstream object does not exist. Removing finalizer on upstream object")
 		if err != nil {

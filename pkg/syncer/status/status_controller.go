@@ -81,7 +81,7 @@ func NewStatusSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalclus
 				return nil, fmt.Errorf("gvr %v should be known in the downstream informer factory", gvr)
 			}
 			if !synced {
-				return nil, fmt.Errorf("informer for gvr %v not synced in the downstream informer factory", gvr)
+				return nil, fmt.Errorf("informer for gvr %v not synced in the downstream informer factory - should retry", gvr)
 			}
 			return lister, nil
 		},
@@ -91,7 +91,7 @@ func NewStatusSyncer(syncerLogger logr.Logger, syncTargetClusterName logicalclus
 				return nil, fmt.Errorf("gvr %v should be known in the downstream informer factory", gvr)
 			}
 			if !synced {
-				return nil, fmt.Errorf("informer for gvr %v not synced in the downstream informer factory", gvr)
+				return nil, fmt.Errorf("informer for gvr %v not synced in the downstream informer factory -  should retry", gvr)
 			}
 			return lister, nil
 		},

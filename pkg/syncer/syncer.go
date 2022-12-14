@@ -29,6 +29,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -45,6 +46,7 @@ import (
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	ddsif "github.com/kcp-dev/kcp/pkg/informer"
+	"github.com/kcp-dev/kcp/pkg/syncer/controllermanager"
 	"github.com/kcp-dev/kcp/pkg/syncer/indexers"
 	"github.com/kcp-dev/kcp/pkg/syncer/namespace"
 	"github.com/kcp-dev/kcp/pkg/syncer/resourcesync"
@@ -289,6 +291,28 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 	go specSyncer.Start(ctx, numSyncerThreads)
 	go statusSyncer.Start(ctx, numSyncerThreads)
 	go downstreamNamespaceController.Start(ctx, numSyncerThreads)
+
+	upstreamSyncerControllerManager := controllermanager.NewControllerManager(ctx,
+		"upstream",
+		controllermanager.InformerSource{
+			Subscribe: ddsifForUpstreamSyncer.Subscribe,
+			Informer: func(gvr schema.GroupVersionResource) (cache.SharedIndexInformer, bool, bool) {
+				return ddsifForUpstreamSyncer.Informer(gvr)
+			},
+		},
+		map[string]controllermanager.ControllerDefintion{},
+	)
+	go upstreamSyncerControllerManager.Start(ctx)
+
+	downstreamSyncerControllerManager := controllermanager.NewControllerManager(ctx,
+		"downstream",
+		controllermanager.InformerSource{
+			Subscribe: ddsifForDownstream.Subscribe,
+			Informer:  ddsifForDownstream.Informer,
+		},
+		map[string]controllermanager.ControllerDefintion{},
+	)
+	go downstreamSyncerControllerManager.Start(ctx)
 
 	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.SyncerTunnel) {
 		go startSyncerTunnel(ctx, upstreamConfig, downstreamConfig, logicalcluster.From(syncTarget), cfg.SyncTargetName)
