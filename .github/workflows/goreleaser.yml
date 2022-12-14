@@ -1,6 +1,10 @@
 name: goreleaser
 
 on:
+  pull_request:
+    paths:
+    - .github/workflows/goreleaser.yml
+    - .goreleaser.yaml
   push:
     tags:
     - 'v*'
