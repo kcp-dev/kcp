@@ -188,6 +188,11 @@ func TestSyncerLifecycle(t *testing.T) {
 
 	t.Logf("difference between what we sent and what we got: %v", cmp.Diff(deployment, upstreamDeployment))
 
+	// kcp 2278 debugging
+	require.NotNil(t, upstreamDeployment.Spec.Replicas)
+	require.Equal(t, int32(1), *upstreamDeployment.Spec.Replicas)
+	// kcp 2278 debugging
+
 	syncTargetKey := workloadv1alpha1.ToSyncTargetKey(logicalcluster.From(syncTarget), syncTarget.Name)
 
 	t.Logf("Waiting for upstream deployment %s/%s to get the syncer finalizer", upstreamNamespace.Name, upstreamDeployment.Name)

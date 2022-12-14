@@ -194,11 +194,11 @@ func (c *apiBindingAwareCRDLister) Refresh(crd *apiextensionsv1.CustomResourceDe
 
 	// If crd was only partial metadata, make sure refreshed is too
 	if _, partialMetadata := crd.Annotations[annotationKeyPartialMetadata]; partialMetadata {
-		makePartialMetadataCRD(refreshed)
-
 		if strings.HasSuffix(string(crd.UID), ".wildcard.partial-metadata") {
 			refreshed.UID = crd.UID
 		}
+
+		makePartialMetadataCRD(refreshed)
 	}
 
 	return refreshed, nil
@@ -245,11 +245,12 @@ func (c *apiBindingAwareCRDLister) Get(ctx context.Context, name string) (*apiex
 
 	if partialMetadataRequest {
 		crd = shallowCopyCRDAndDeepCopyAnnotations(crd)
-		makePartialMetadataCRD(crd)
 
 		if clusterName == logicalcluster.Wildcard {
 			crd.UID = types.UID(name + ".wildcard.partial-metadata")
 		}
+
+		makePartialMetadataCRD(crd)
 	}
 
 	return crd, nil
@@ -296,6 +297,24 @@ func decorateCRDWithBinding(in *apiextensionsv1.CustomResourceDefinition, identi
 // makePartialMetadataCRD modifies CRD and replaces all version schemas with minimal ones suitable for partial object
 // metadata.
 func makePartialMetadataCRD(crd *apiextensionsv1.CustomResourceDefinition) {
+	// kcp 2278
+	if crd.Spec.Names.Plural == "deployments" {
+		if strings.HasSuffix(string(crd.UID), ".wildcard.partial-metadata") {
+			klog.InfoS("kcp 2278: truncating deployments schema for wildcard partial metadata",
+				"cluster", logicalcluster.From(crd),
+				"name", crd.Name,
+				"uid", crd.UID,
+			)
+		} else {
+			klog.InfoS("kcp 2278: truncating deployments schema for NON wildcard partial metadata",
+				"cluster", logicalcluster.From(crd),
+				"name", crd.Name,
+				"uid", crd.UID,
+			)
+		}
+	}
+	// kcp 2278
+
 	crd.Annotations[annotationKeyPartialMetadata] = ""
 
 	// set minimal schema that prunes everything but ObjectMeta
