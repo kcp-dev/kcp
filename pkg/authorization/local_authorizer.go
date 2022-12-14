@@ -78,5 +78,5 @@ func (a *LocalAuthorizer) Authorize(ctx context.Context, attr authorizer.Attribu
 	if err != nil {
 		err = fmt.Errorf("error authorizing local policy for cluster %q: %w", cluster.Name, err)
 	}
-	return dec, fmt.Sprintf("local policy for cluster %q reason: %v", cluster.Name, reason), err
+	return dec, fmt.Sprintf("local cluster %q policy: %v", cluster.Name, reason), err
 }

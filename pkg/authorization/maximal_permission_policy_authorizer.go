@@ -105,13 +105,13 @@ type MaximalPermissionPolicyAuthorizer struct {
 func (a *MaximalPermissionPolicyAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
 	if IsDeepSubjectAccessReviewFrom(ctx, attr) {
 		// this is a deep SAR request, we have to skip the checks here and delegate to the subsequent authorizer.
-		return a.delegate.Authorize(ctx, attr)
+		return DelegateAuthorization("deep SAR request", a.delegate).Authorize(ctx, attr)
 	}
 
 	// get the cluster from the ctx.
 	lcluster, err := genericapirequest.ClusterNameFrom(ctx)
 	if err != nil {
-		return authorizer.DecisionNoOpinion, MaximalPermissionPolicyAccessNotPermittedReason, fmt.Errorf("error getting cluster from request: %w", err)
+		return authorizer.DecisionNoOpinion, "", fmt.Errorf("error getting cluster from request: %w", err)
 	}
 
 	// find a binding that provides the requested resource
@@ -146,11 +146,11 @@ func (a *MaximalPermissionPolicyAuthorizer) Authorize(ctx context.Context, attr 
 	}
 
 	if apiExport.Spec.MaximalPermissionPolicy == nil {
-		return a.delegate.Authorize(ctx, attr)
+		return DelegateAuthorization(fmt.Sprintf("no maximum permission policy in API Export %q|%q", logicalcluster.From(apiExport), apiExport.Name), a.delegate).Authorize(ctx, attr)
 	}
 
 	if apiExport.Spec.MaximalPermissionPolicy.Local == nil {
-		return a.delegate.Authorize(ctx, attr)
+		return DelegateAuthorization(fmt.Sprintf("no local maximum permission policy in API Export %q|%q", logicalcluster.From(apiExport), apiExport.Name), a.delegate).Authorize(ctx, attr)
 	}
 
 	// If bound, create a rbac authorizer filtered to the cluster.
@@ -163,14 +163,14 @@ func (a *MaximalPermissionPolicyAuthorizer) Authorize(ctx context.Context, attr 
 		userInfo.Groups = append(userInfo.Groups, apisv1alpha1.MaximalPermissionPolicyRBACUserGroupPrefix+g)
 	}
 	dec, reason, err := clusterAuthorizer.Authorize(ctx, prefixedAttr)
+	reason = fmt.Sprintf("API export %q|%q policy: %v", logicalcluster.From(apiExport), apiExport.Name, reason)
 	if err != nil {
-		return authorizer.DecisionNoOpinion, reason, fmt.Errorf("error authorizing RBAC in API export cluster %q: %w", logicalcluster.From(apiExport), err)
+		return authorizer.DecisionNoOpinion, reason, fmt.Errorf("error authorizing API export cluster RBAC policy: %w", err)
 	}
-
 	if dec == authorizer.DecisionAllow {
-		return a.delegate.Authorize(ctx, attr)
+		return DelegateAuthorization(reason, a.delegate).Authorize(ctx, attr)
 	}
-	return authorizer.DecisionNoOpinion, fmt.Sprintf("API export cluster %q reason: %v", logicalcluster.From(apiExport), reason), nil
+	return authorizer.DecisionNoOpinion, reason, nil
 }
 
 func deepCopyAttributes(attr authorizer.Attributes) authorizer.AttributesRecord {
