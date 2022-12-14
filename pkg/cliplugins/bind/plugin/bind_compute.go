@@ -147,53 +147,80 @@ func (o *BindComputeOptions) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to create kcp client: %w", err)
 	}
 
+	// apply APIBinddings
 	bindings, err := o.applyAPIBinding(ctx, userWorkspaceKcpClient, sets.NewString(o.APIExports...))
 	if err != nil {
 		return err
 	}
 
+	// and wait for them to be ready
+	var message string
+	if err := wait.PollImmediate(time.Millisecond*500, o.BindWaitTimeout, func() (done bool, err error) {
+		var ready bool
+		if ready, message = bindingsReady(bindings); ready {
+			return true, nil
+		}
+
+		var updated []*apisv1alpha1.APIBinding
+		for _, binding := range bindings {
+			b, err := userWorkspaceKcpClient.ApisV1alpha1().APIBindings().Get(ctx, binding.Name, metav1.GetOptions{})
+			if err != nil {
+				return false, err
+			}
+			updated = append(updated, b)
+		}
+		bindings = updated
+		return false, nil
+	}); err != nil && err.Error() == wait.ErrWaitTimeout.Error() {
+		return fmt.Errorf("APIBindings not ready: %s", message)
+	} else if err != nil {
+		return fmt.Errorf("APIBindings not ready: %w", err)
+	}
+
+	// apply placement
 	placement, err := o.applyPlacement(ctx, userWorkspaceKcpClient)
 	if err != nil {
 		return err
 	}
 
-	// wait for bind to be ready
-	if ready, message := bindReady(bindings, placement); !ready {
-		if err := wait.PollImmediate(time.Millisecond*500, o.BindWaitTimeout, func() (done bool, err error) {
-			currentPlacement, err := userWorkspaceKcpClient.SchedulingV1alpha1().Placements().Get(ctx, placement.Name, metav1.GetOptions{})
-			if err != nil {
-				return false, err
-			}
-			var currentBindings []*apisv1alpha1.APIBinding
-			for _, binding := range bindings {
-				currentBinding, err := userWorkspaceKcpClient.ApisV1alpha1().APIBindings().Get(ctx, binding.Name, metav1.GetOptions{})
-				if err != nil {
-					return false, err
-				}
-				currentBindings = append(currentBindings, currentBinding)
-			}
-
-			ready, message = bindReady(currentBindings, currentPlacement)
-			return ready, nil
-		}); err != nil {
-			if err.Error() == wait.ErrWaitTimeout.Error() {
-				return fmt.Errorf("bind compute is not ready %s: %s", placement.Name, message)
-			}
-			return fmt.Errorf("bind compute is not ready %s: %w", placement.Name, err)
+	// and wait for it to be ready
+	if err := wait.PollImmediate(time.Millisecond*500, o.BindWaitTimeout, func() (done bool, err error) {
+		placement, err := userWorkspaceKcpClient.SchedulingV1alpha1().Placements().Get(ctx, placement.Name, metav1.GetOptions{})
+		if err != nil {
+			return false, err
 		}
+
+		done, message = placementReadyAndScheduled(placement)
+		return done, nil
+	}); err != nil && err.Error() == wait.ErrWaitTimeout.Error() {
+		return fmt.Errorf("placement %q not ready: %s", placement.Name, message)
+	} else if err != nil {
+		return fmt.Errorf("placement %q not ready: %w", placement.Name, err)
 	}
 
-	return nil
+	_, err = fmt.Fprintf(o.IOStreams.ErrOut, "Placement %q is ready.\n", placement.Name)
+	return err
 }
 
-func bindReady(bindings []*apisv1alpha1.APIBinding, placement *schedulingv1alpha1.Placement) (bool, string) {
-	if !conditions.IsTrue(placement, schedulingv1alpha1.PlacementReady) {
-		return false, fmt.Sprintf("placement is not ready: %s", conditions.GetMessage(placement, schedulingv1alpha1.PlacementReady))
-	}
+func placementReadyAndScheduled(placement *schedulingv1alpha1.Placement) (bool, string) {
 	if !conditions.IsTrue(placement, schedulingv1alpha1.PlacementScheduled) {
-		return false, fmt.Sprintf("placement is not scheduled: %s", conditions.GetMessage(placement, schedulingv1alpha1.PlacementScheduled))
+		if msg := conditions.GetMessage(placement, schedulingv1alpha1.PlacementScheduled); len(msg) > 0 {
+			return false, fmt.Sprintf("placement is not scheduled: %s", msg)
+		}
+		return false, fmt.Sprintf("placement is not scheduled")
 	}
 
+	if !conditions.IsTrue(placement, schedulingv1alpha1.PlacementReady) {
+		if msg := conditions.GetMessage(placement, schedulingv1alpha1.PlacementReady); msg != "" {
+			return false, fmt.Sprintf("placement is not ready: %s", msg)
+		}
+		return false, fmt.Sprintf("placement is not ready")
+	}
+
+	return true, ""
+}
+
+func bindingsReady(bindings []*apisv1alpha1.APIBinding) (bool, string) {
 	for _, binding := range bindings {
 		if binding.Status.Phase != apisv1alpha1.APIBindingPhaseBound {
 			conditionMessage := "unknown reason"
@@ -202,7 +229,7 @@ func bindReady(bindings []*apisv1alpha1.APIBinding, placement *schedulingv1alpha
 			} else if conditions.IsFalse(binding, apisv1alpha1.APIExportValid) {
 				conditionMessage = conditions.GetMessage(binding, apisv1alpha1.APIExportValid)
 			}
-			return false, fmt.Sprintf("not bound to apiexport '%s': %s", logicalcluster.NewPath(binding.Spec.Reference.Export.Path).Join(binding.Spec.Reference.Export.Name), conditionMessage)
+			return false, fmt.Sprintf("not bound to APIExport %q: %s", logicalcluster.NewPath(binding.Spec.Reference.Export.Path).Join(binding.Spec.Reference.Export.Name), conditionMessage)
 		}
 	}
 
@@ -262,8 +289,7 @@ func (o *BindComputeOptions) applyAPIBinding(ctx context.Context, client kcpclie
 
 		bindings = append(bindings, binding)
 
-		_, err = fmt.Fprintf(o.Out, "apibinding %s for apiexport %s created.\n", apiBinding.Name, export)
-		if err != nil {
+		if _, err = fmt.Fprintf(o.IOStreams.ErrOut, "Binding APIExport %q.\n", export); err != nil {
 			errs = append(errs, err)
 		}
 	}
