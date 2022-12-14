@@ -88,11 +88,8 @@ func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 
 			i := strings.Index(path, "/")
 			if i == -1 {
-				responsewriters.ErrorNegotiated(
-					apierrors.NewBadRequest(fmt.Sprintf("unable to parse cluster: no `/` found in path %s", path)),
-					errorCodecs, schema.GroupVersion{},
-					w, req)
-				return
+				path = path + "/"
+				i = len(path) - 1
 			}
 			clusterName, path = logicalcluster.New(path[:i]), path[i:]
 			req.URL.Path = path
