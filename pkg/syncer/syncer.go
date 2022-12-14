@@ -48,6 +48,7 @@ import (
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	ddsif "github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/syncer/controllermanager"
+	"github.com/kcp-dev/kcp/pkg/syncer/endpoints"
 	"github.com/kcp-dev/kcp/pkg/syncer/indexers"
 	"github.com/kcp-dev/kcp/pkg/syncer/namespace"
 	"github.com/kcp-dev/kcp/pkg/syncer/resourcesync"
@@ -367,7 +368,18 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 			Subscribe: ddsifForDownstream.Subscribe,
 			Informer:  ddsifForDownstream.Informer,
 		},
-		map[string]controllermanager.ControllerDefintion{},
+		map[string]controllermanager.ControllerDefintion{
+			endpoints.ControllerName: {
+				RequiredGVRs: []schema.GroupVersionResource{
+					corev1.SchemeGroupVersion.WithResource("services"),
+					corev1.SchemeGroupVersion.WithResource("endpoints"),
+				},
+				NumThreads: 2,
+				Create: func(syncedInformers map[schema.GroupVersionResource]cache.SharedIndexInformer) (controllermanager.Controller, error) {
+					return endpoints.NewEndpointController(logger, downstreamDynamicClient, ddsifForDownstream, syncedInformers)
+				},
+			},
+		},
 	)
 	go downstreamSyncerControllerManager.Start(ctx)
 
