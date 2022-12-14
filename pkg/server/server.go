@@ -45,6 +45,7 @@ import (
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
+	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
 )
 
 const resyncPeriod = 10 * time.Hour
@@ -85,10 +86,22 @@ func NewServer(c CompletedConfig) (*Server, error) {
 		),
 	)
 
-	s.DiscoveringDynamicSharedInformerFactory, err = informer.NewSelfDiscoveringDynamicSharedInformerFactory(
-		s.MiniAggregator.GenericAPIServer.LoopbackClientConfig,
+	metadataClusterClient, err := metadataclient.NewDynamicMetadataClusterClientForConfig(
+		rest.AddUserAgent(rest.CopyConfig(s.MiniAggregator.GenericAPIServer.LoopbackClientConfig), "kcp-partial-metadata-informers"))
+	if err != nil {
+		return nil, err
+	}
+
+	crdGVRSource, err := informer.NewCRDGVRSource(s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer())
+	if err != nil {
+		return nil, err
+	}
+
+	s.DiscoveringDynamicSharedInformerFactory, err = informer.NewDiscoveringDynamicSharedInformerFactory(
+		metadataClusterClient,
 		func(obj interface{}) bool { return true },
-		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
+		nil,
+		crdGVRSource,
 		indexers.AppendOrDie(
 			cache.Indexers{
 				indexers.BySyncerFinalizerKey:           indexers.IndexBySyncerFinalizerKey,

@@ -33,7 +33,6 @@ import (
 
 	"k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	kcpapiextensionsv1informers "k8s.io/apiextensions-apiserver/pkg/client/kcp/informers/externalversions/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,13 +45,11 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/informers"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/indexers"
-	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
 	"github.com/kcp-dev/kcp/pkg/projection"
 )
 
@@ -223,30 +220,6 @@ func NewScopedDiscoveringDynamicSharedInformerFactory(
 		gvrSource,
 		indexers,
 	)
-}
-
-// NewSelfDiscoveringDynamicSharedInformerFactory returns a factory for cluster-aware
-// shared informers that discovers new types and informs on updates to resources of
-// those types.
-// It retrieves GVR-related information from CRD informers.
-func NewSelfDiscoveringDynamicSharedInformerFactory(
-	cfg *rest.Config,
-	filterFunc func(obj interface{}) bool,
-	crdInformer kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer,
-	indexers cache.Indexers,
-) (*DiscoveringDynamicSharedInformerFactory, error) {
-	cfg = rest.AddUserAgent(rest.CopyConfig(cfg), "kcp-partial-metadata-informers")
-	metadataClusterClient, err := metadataclient.NewDynamicMetadataClusterClientForConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	crdGVRSource, err := newCRDGVRSource(crdInformer.Informer())
-	if err != nil {
-		return nil, err
-	}
-
-	return NewDiscoveringDynamicSharedInformerFactory(metadataClusterClient, filterFunc, nil, crdGVRSource, indexers)
 }
 
 // NewDiscoveringDynamicSharedInformerFactory returns a factory for cluster-aware
@@ -874,7 +847,7 @@ func newRESTMapper(fn func() (meta.RESTMapper, error)) restMapper {
 	}
 }
 
-func newCRDGVRSource(informer cache.SharedIndexInformer) (*crdGVRSource, error) {
+func NewCRDGVRSource(informer cache.SharedIndexInformer) (*crdGVRSource, error) {
 	// Add an index function that indexes a CRD by its group/version/resource.
 	if err := informer.AddIndexers(cache.Indexers{
 		byGroupVersionResourceIndex: byGroupVersionResourceIndexFunc,
