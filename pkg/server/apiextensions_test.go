@@ -131,3 +131,42 @@ func TestDecorateCRDWithBinding(t *testing.T) {
 		})
 	}
 }
+
+func TestShallowCopyAndMakePartialMetadataCRD(t *testing.T) {
+	original := &apiextensionsv1.CustomResourceDefinition{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{},
+		},
+		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
+			Versions: []apiextensionsv1.CustomResourceDefinitionVersion{
+				{
+					Schema: &apiextensionsv1.CustomResourceValidation{
+						OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
+							Description: "desc",
+							Type:        "bob",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	shallow := shallowCopyCRDAndDeepCopyAnnotations(original)
+	makePartialMetadataCRD(shallow)
+
+	// Validate that every version inside the shallow copy just returns object
+	for _, shallowVersion := range shallow.Spec.Versions {
+		if shallowVersion.Schema.OpenAPIV3Schema.Type == "object" {
+			continue
+		}
+		t.Errorf("expected object type in version %q, got %q", &shallowVersion, shallowVersion.Schema.OpenAPIV3Schema.Type)
+	}
+
+	// Validate that the original still has description and type intact.
+	if original.Spec.Versions[0].Schema.OpenAPIV3Schema.Description != "desc" {
+		t.Errorf("expected shallow copy to not modify original schema description")
+	}
+	if original.Spec.Versions[0].Schema.OpenAPIV3Schema.Type != "bob" {
+		t.Error("expected shallow copy to not modify original schema type")
+	}
+}
