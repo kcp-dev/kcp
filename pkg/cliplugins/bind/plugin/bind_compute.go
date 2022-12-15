@@ -284,7 +284,8 @@ func (o *BindComputeOptions) applyAPIBinding(ctx context.Context, client kcpclie
 		}
 		binding, err := client.ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
 		if err != nil && !errors.IsAlreadyExists(err) {
-			errs = append(errs, err)
+			errs = append(errs, fmt.Errorf("failed binding APIExport %q: %w", path.Join(name), err))
+			continue
 		}
 
 		bindings = append(bindings, binding)
