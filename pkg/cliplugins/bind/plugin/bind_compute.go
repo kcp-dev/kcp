@@ -256,12 +256,37 @@ func (o *BindComputeOptions) applyAPIBinding(ctx context.Context, client kcpclie
 		return nil, err
 	}
 
+	// the cluster name we use for local bindings. If there is a binding already,
+	// we use it to get the local cluster name. Otherwise, we use the empty string.
+	// This is important to not get confused about local bindings with empty
+	// path and those with the cluster name as path.
+	var localClusterName logicalcluster.Name
+
 	existingAPIExports := sets.NewString()
 	for _, binding := range apiBindings.Items {
 		if binding.Spec.Reference.Export == nil {
 			continue
 		}
-		existingAPIExports.Insert(logicalcluster.NewPath(binding.Spec.Reference.Export.Path).Join(binding.Spec.Reference.Export.Name).String())
+		// TODO(sttts): binding.Spec.Reference.Export.Path is not unique for one export. This whole method does not work reliably.
+		path := logicalcluster.NewPath(binding.Spec.Reference.Export.Path)
+		if path.Empty() {
+			path = logicalcluster.From(&binding).Path()
+		}
+		existingAPIExports.Insert(path.Join(binding.Spec.Reference.Export.Name).String())
+		localClusterName = logicalcluster.From(&binding)
+	}
+
+	if localClusterName != "" {
+		// add clusterName when missing such that our set logic works
+		old := desiredAPIExports
+		desiredAPIExports = sets.NewString()
+		for _, export := range old.List() {
+			path, name := logicalcluster.NewPath(export).Split()
+			if path.Empty() {
+				path = localClusterName.Path()
+			}
+			desiredAPIExports.Insert(path.Join(name).String())
+		}
 	}
 
 	var errs []error
@@ -269,6 +294,10 @@ func (o *BindComputeOptions) applyAPIBinding(ctx context.Context, client kcpclie
 	var bindings []*apisv1alpha1.APIBinding
 	for export := range diff {
 		path, name := logicalcluster.NewPath(export).Split()
+		if path == localClusterName.Path() {
+			// empty path for local bindings
+			path = logicalcluster.Path{}
+		}
 		apiBinding := &apisv1alpha1.APIBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: apiBindingName(path, name),

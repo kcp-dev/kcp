@@ -450,7 +450,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 
 				logWithTimestamp(t, "Bind wildwest location workspace to itself")
 				framework.NewBindCompute(t, wildwestLocationClusterName.Path(), server,
-					framework.WithAPIExportsWorkloadBindOption(wildwestLocationClusterName.String()+":kubernetes"),
+					framework.WithAPIExportsWorkloadBindOption(wildwestLocationClusterName.Path().Join("kubernetes").String()),
 				).Bind(t)
 
 				wildwestClusterClient, err := wildwestclientset.NewForConfig(server.BaseConfig(t))
