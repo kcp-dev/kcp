@@ -54,7 +54,8 @@ func NewDecorator(key string, target authorizer.Authorizer) *Decorator {
 
 // AddAuditLogging logs every decision of the target authorizer for the given audit prefix key
 // if the decision is not allowed.
-// All authorizer decisions are being logged in the audit log.
+// All authorizer decisions are being logged in the audit log if the context was set using EnableAuditLogging.
+// This prevents double audit log entries by multiple invocations of the authorizer chain.
 func (d *Decorator) AddAuditLogging() *Decorator {
 	target := d.target
 	d.target = authorizer.AuthorizerFunc(func(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
@@ -65,11 +66,14 @@ func (d *Decorator) AddAuditLogging() *Decorator {
 			auditReasonMsg = fmt.Sprintf("reason: %v, error: %v", reason, err)
 		}
 
-		kaudit.AddAuditAnnotations(
-			ctx,
-			d.key+"/"+auditDecision, decisionString(dec),
-			d.key+"/"+auditReason, auditReasonMsg,
-		)
+		prefixKey := ctx.Value(auditLoggingKey)
+		if prefixKey != nil && prefixKey.(bool) {
+			kaudit.AddAuditAnnotations(
+				ctx,
+				d.key+"/"+auditDecision, decisionString(dec),
+				d.key+"/"+auditReason, auditReasonMsg,
+			)
+		}
 
 		if dec != authorizer.DecisionAllow {
 			// Note: this deviates from upstream which doesn't log audit reasons.
@@ -140,5 +144,21 @@ func DelegateAuthorization(delegationReason string, delegate authorizer.Authoriz
 	return authorizer.AuthorizerFunc(func(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
 		dec, delegateReason, err := delegate.Authorize(ctx, attr)
 		return dec, "delegating due to " + delegationReason + ": " + delegateReason, err
+	})
+}
+
+type auditLoggingKeyType int
+
+const (
+	auditLoggingKey auditLoggingKeyType = iota
+)
+
+// EnableAuditLogging sets a context value that enables audit logging for the given authorizer chain.
+// If that context is not set, audit logging is skipped.
+// Note that this is only respected by authorizers that have been decorated using Decorator.AddAuditLogging.
+func EnableAuditLogging(delegate authorizer.Authorizer) authorizer.Authorizer {
+	return authorizer.AuthorizerFunc(func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
+		ctx = context.WithValue(ctx, auditLoggingKey, true)
+		return delegate.Authorize(ctx, a)
 	})
 }

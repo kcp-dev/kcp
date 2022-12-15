@@ -49,7 +49,7 @@ func TestDecorator(t *testing.T) {
 		wantReason   string
 	}{
 		"topAllows": {
-			authz: NewDecorator("top", alwaysAllow).AddAuditLogging().AddAnonymization().AddReasonAnnotation(),
+			authz: EnableAuditLogging(NewDecorator("top", alwaysAllow).AddAuditLogging().AddAnonymization().AddReasonAnnotation()),
 
 			wantDecision: authorizer.DecisionAllow,
 			wantReason:   "top: access granted",
@@ -59,8 +59,16 @@ func TestDecorator(t *testing.T) {
 				"top/reason":   "unanonymized allow",
 			},
 		},
+		"topAllowsWithoutAudit": {
+			authz: NewDecorator("top", alwaysAllow).AddAuditLogging().AddAnonymization().AddReasonAnnotation(),
+
+			wantDecision: authorizer.DecisionAllow,
+			wantReason:   "top: access granted",
+
+			wantAudit: nil,
+		},
 		"topAllowsWithoutReasonAnnotation": {
-			authz: NewDecorator("top", alwaysAllow).AddAuditLogging().AddAnonymization(),
+			authz: EnableAuditLogging(NewDecorator("top", alwaysAllow).AddAuditLogging().AddAnonymization()),
 
 			wantDecision: authorizer.DecisionAllow,
 			wantReason:   "access granted",
@@ -71,7 +79,7 @@ func TestDecorator(t *testing.T) {
 			},
 		},
 		"topAllowsWithoutReasonAnnotationWithoutAnonymization": {
-			authz: NewDecorator("top", alwaysAllow).AddAuditLogging(),
+			authz: EnableAuditLogging(NewDecorator("top", alwaysAllow).AddAuditLogging()),
 
 			wantDecision: authorizer.DecisionAllow,
 			wantReason:   "unanonymized allow",
@@ -82,7 +90,7 @@ func TestDecorator(t *testing.T) {
 			},
 		},
 		"topAllowsWithoutReasonAnnotationWithoutAnonymizationWithoutAuditLogging": {
-			authz: NewDecorator("top", alwaysAllow),
+			authz: EnableAuditLogging(NewDecorator("top", alwaysAllow)),
 
 			wantDecision: authorizer.DecisionAllow,
 			wantReason:   "unanonymized allow",
@@ -90,10 +98,10 @@ func TestDecorator(t *testing.T) {
 			wantAudit: nil,
 		},
 		"topDelegatesToAllow": {
-			authz: NewDecorator("top",
+			authz: EnableAuditLogging(NewDecorator("top",
 				DelegateAuthorization("top-to-bottom",
 					NewDecorator("bottom", alwaysAllow).AddAuditLogging().AddAnonymization().AddReasonAnnotation()),
-			).AddAuditLogging().AddAnonymization(),
+			).AddAuditLogging().AddAnonymization()),
 
 			wantDecision: authorizer.DecisionAllow,
 			wantReason:   "access granted",
@@ -107,10 +115,10 @@ func TestDecorator(t *testing.T) {
 			},
 		},
 		"topDelegatesToDeny": {
-			authz: NewDecorator("top",
+			authz: EnableAuditLogging(NewDecorator("top",
 				DelegateAuthorization("top-to-bottom",
 					NewDecorator("bottom", alwaysDeny).AddAuditLogging().AddAnonymization().AddReasonAnnotation()),
-			).AddAuditLogging().AddAnonymization(),
+			).AddAuditLogging().AddAnonymization()),
 
 			wantDecision: authorizer.DecisionDeny,
 			wantReason:   "access denied",
@@ -124,11 +132,11 @@ func TestDecorator(t *testing.T) {
 			},
 		},
 		"topDelegatesToDelegateDelegatesToDeny": {
-			authz: NewDecorator("top",
+			authz: EnableAuditLogging(NewDecorator("top",
 				DelegateAuthorization("top-to-middle", NewDecorator("middle",
 					DelegateAuthorization("middle-to-bottom", NewDecorator("bottom", alwaysDeny).AddAuditLogging().AddAnonymization().AddReasonAnnotation()),
 				).AddAuditLogging().AddAnonymization().AddReasonAnnotation()),
-			).AddAuditLogging().AddAnonymization(),
+			).AddAuditLogging().AddAnonymization()),
 
 			wantDecision: authorizer.DecisionDeny,
 			wantReason:   "access denied",
@@ -145,11 +153,11 @@ func TestDecorator(t *testing.T) {
 			},
 		},
 		"topDelegatesToDelegateDelegatesToAllow": {
-			authz: NewDecorator("top",
+			authz: EnableAuditLogging(NewDecorator("top",
 				DelegateAuthorization("top-to-middle", NewDecorator("middle",
 					DelegateAuthorization("middle-to-bottom", NewDecorator("bottom", alwaysAllow).AddAuditLogging().AddAnonymization().AddReasonAnnotation()),
 				).AddAuditLogging().AddAnonymization().AddReasonAnnotation()),
-			).AddAuditLogging().AddAnonymization(),
+			).AddAuditLogging().AddAnonymization()),
 
 			wantDecision: authorizer.DecisionAllow,
 			wantReason:   "access granted",
@@ -166,11 +174,11 @@ func TestDecorator(t *testing.T) {
 			},
 		},
 		"topDelegatesToDelegateDelegatesToNoOpinion": {
-			authz: NewDecorator("top",
+			authz: EnableAuditLogging(NewDecorator("top",
 				DelegateAuthorization("top-to-middle", NewDecorator("middle",
 					DelegateAuthorization("middle-to-bottom", NewDecorator("bottom", alwaysNoOpinion).AddAuditLogging().AddAnonymization().AddReasonAnnotation()),
 				).AddAuditLogging().AddAnonymization().AddReasonAnnotation()),
-			).AddAuditLogging().AddAnonymization(),
+			).AddAuditLogging().AddAnonymization()),
 
 			wantDecision: authorizer.DecisionNoOpinion,
 			wantReason:   "access denied",
@@ -187,11 +195,11 @@ func TestDecorator(t *testing.T) {
 			},
 		},
 		"topDelegatesToDelegateDelegatesToError": {
-			authz: NewDecorator("top",
+			authz: EnableAuditLogging(NewDecorator("top",
 				DelegateAuthorization("top-to-middle", NewDecorator("middle",
 					DelegateAuthorization("middle-to-bottom", NewDecorator("bottom", alwaysError).AddAuditLogging().AddAnonymization().AddReasonAnnotation()),
 				).AddAuditLogging().AddAnonymization().AddReasonAnnotation()),
-			).AddAuditLogging().AddAnonymization(),
+			).AddAuditLogging().AddAnonymization()),
 
 			wantDecision: authorizer.DecisionNoOpinion,
 			wantReason:   "access denied",
