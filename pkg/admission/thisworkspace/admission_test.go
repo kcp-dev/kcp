@@ -422,11 +422,6 @@ func (b thisWsBuilder) withStatus(status tenancyv1alpha1.ThisWorkspaceStatus) th
 	return b
 }
 
-func (b thisWsBuilder) withLabels(labels map[string]string) thisWsBuilder {
-	b.Labels = labels
-	return b
-}
-
 type fakeThisWorkspaceClusterLister []*tenancyv1alpha1.ThisWorkspace
 
 func (l fakeThisWorkspaceClusterLister) List(selector labels.Selector) (ret []*tenancyv1alpha1.ThisWorkspace, err error) {

@@ -509,7 +509,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		patchBytes = patchBytesFor(this, func(workspace *tenancyv1alpha1.ThisWorkspace) {
 			workspace.Status.Initializers = initialization.EnsureInitializerAbsent(initialization.InitializerForType(clusterWorkspaceTypes[initializer]), workspace.Status.Initializers)
 		})
-		this, err = clusterClient.Cluster(wsClusterName.Path()).Patch(ctx, tenancyv1alpha1.ThisWorkspaceName, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+		_, err = clusterClient.Cluster(wsClusterName.Path()).Patch(ctx, tenancyv1alpha1.ThisWorkspaceName, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 		require.NoError(t, err)
 	}
 

@@ -237,6 +237,7 @@ func testWorkspacesVirtualWorkspaces(t *testing.T, standalone bool) {
 			vwConfig := rest.CopyConfig(kcpConfig)
 			vwConfig.Host = virtualWorkspaceServerHost + path.Join(virtualoptions.DefaultRootPathPrefix, "clusterworkspaces")
 			vwKcpClusterClient, err := kcpclientset.NewForConfig(vwConfig)
+			require.NoError(t, err, "failed to construct client for server")
 
 			testCase.work(ctx, t, runningServer{
 				RunningServer:        server,

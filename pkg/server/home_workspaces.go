@@ -17,13 +17,9 @@ limitations under the License.
 package server
 
 import (
-	"crypto/sha1"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"net/http"
-	"regexp"
-	"strings"
 	"time"
 
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
@@ -320,43 +316,6 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		},
 	}
 	responsewriters.WriteObjectNegotiated(homeWorkspaceCodecs, negotiation.DefaultEndpointRestrictions, tenancyv1beta1.SchemeGroupVersion, rw, req, http.StatusOK, homeWorkspace)
-}
-
-// reHomeWorkspaceNameDisallowedChars is the regexp that defines what characters
-// are disallowed in a home workspace name.
-// Home workspace name is derived from the user name, with disallowed characters
-// replaced.
-var reHomeWorkspaceNameDisallowedChars = regexp.MustCompile("[^a-z0-9-]")
-
-// legacyHomeLogicalClusterName returns the logical cluster name of the legacy home workspace for a given user
-// contained in some bucket hierarchy.
-func (h *homeWorkspaceHandler) legacyHomeLogicalClusterName(userName string) (logicalcluster.Path, string) {
-	// bucketLevels <= 5
-	// bucketSize <= 4
-	bytes := sha1.Sum([]byte(userName))
-
-	result := h.homePrefix
-	for level := 0; level < h.bucketLevels; level++ {
-		var bucketBytes = make([]byte, h.bucketSize)
-		bucketBytesStart := level
-		bucketCharInteger := binary.BigEndian.Uint32(bytes[bucketBytesStart : bucketBytesStart+4])
-		for bucketCharIndex := 0; bucketCharIndex < h.bucketSize; bucketCharIndex++ {
-			bucketChar := byte('a') + byte(bucketCharInteger%26)
-			bucketBytes[bucketCharIndex] = bucketChar
-			bucketCharInteger /= 26
-		}
-		result = result.Join(string(bucketBytes))
-	}
-
-	userName = reHomeWorkspaceNameDisallowedChars.ReplaceAllLiteralString(userName, "-")
-	userName = strings.TrimLeftFunc(userName, func(r rune) bool {
-		return r <= '9'
-	})
-	userName = strings.TrimRightFunc(userName, func(r rune) bool {
-		return r == '-'
-	})
-
-	return result, userName
 }
 
 func isGetHomeWorkspaceRequest(clusterName logicalcluster.Name, requestInfo *request.RequestInfo) bool {

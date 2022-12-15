@@ -207,14 +207,14 @@ func placementReadyAndScheduled(placement *schedulingv1alpha1.Placement) (bool, 
 		if msg := conditions.GetMessage(placement, schedulingv1alpha1.PlacementScheduled); len(msg) > 0 {
 			return false, fmt.Sprintf("placement is not scheduled: %s", msg)
 		}
-		return false, fmt.Sprintf("placement is not scheduled")
+		return false, "placement is not scheduled"
 	}
 
 	if !conditions.IsTrue(placement, schedulingv1alpha1.PlacementReady) {
 		if msg := conditions.GetMessage(placement, schedulingv1alpha1.PlacementReady); msg != "" {
 			return false, fmt.Sprintf("placement is not ready: %s", msg)
 		}
-		return false, fmt.Sprintf("placement is not ready")
+		return false, "placement is not ready"
 	}
 
 	return true, ""

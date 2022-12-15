@@ -224,23 +224,6 @@ func (c *State) Lookup(path logicalcluster.Path) (shard string, cluster logicalc
 		}
 	}
 
-	// walk about the parent graph to reconstruct the canonical workspace path
-	var inversePath []string
-	ancestor := cluster
-	for {
-		shard, found = c.clusterShards[ancestor]
-		if !found {
-			return "", "", false
-		}
-		if name, found := c.shardClusterWorkspaceName[shard][ancestor]; !found {
-			inversePath = append(inversePath, ancestor.String())
-			break
-		} else {
-			inversePath = append(inversePath, name)
-			ancestor = c.shardClusterParentCluster[shard][ancestor]
-		}
-	}
-
 	return shard, cluster, true
 }
 

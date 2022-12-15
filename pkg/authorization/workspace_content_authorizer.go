@@ -44,12 +44,6 @@ const (
 	WorkspaceAccessNotPermittedReason = "workspace access not permitted"
 )
 
-var decisionStrings = map[authorizer.Decision]string{
-	authorizer.DecisionNoOpinion: "no opinion",
-	authorizer.DecisionAllow:     "allow",
-	authorizer.DecisionDeny:      "deny",
-}
-
 func NewWorkspaceContentAuthorizer(versionedInformers kcpkubernetesinformers.SharedInformerFactory, thisWorkspaceLister tenancyv1alpha1listers.ThisWorkspaceClusterLister, delegate authorizer.Authorizer) authorizer.Authorizer {
 	return &workspaceContentAuthorizer{
 		roleLister:               versionedInformers.Rbac().V1().Roles().Lister(),

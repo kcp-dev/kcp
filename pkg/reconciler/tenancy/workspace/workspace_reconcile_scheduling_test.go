@@ -34,7 +34,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -293,7 +292,7 @@ func TestReconcileScheduling(t *testing.T) {
 							return shard, nil
 						}
 					}
-					return nil, errors.NewNotFound(tenancyv1alpha1.Resource("clusterworkspaceshard"), name)
+					return nil, kerrors.NewNotFound(tenancyv1alpha1.Resource("clusterworkspaceshard"), name)
 				},
 				listShards: func(selector labels.Selector) ([]*tenancyv1alpha1.ClusterWorkspaceShard, error) {
 					var shards []*tenancyv1alpha1.ClusterWorkspaceShard
@@ -330,7 +329,7 @@ func TestReconcileScheduling(t *testing.T) {
 				t.Fatal(err)
 			}
 			if status != scenario.expectedStatus {
-				t.Fatalf("unexpected reconcilation status:%v, expected:%v", status, scenario.expectedStatus)
+				t.Fatalf("unexpected reconciliation status:%v, expected:%v", status, scenario.expectedStatus)
 			}
 			if err := validateActionsVerbs(fakeKubeClient.Actions(), scenario.expectedKubeClientActions); err != nil {
 				t.Fatalf("incorrect action(s) for kube client: %v", err)
@@ -463,14 +462,14 @@ func validateWellKnownThisWSActions(t *testing.T, actions []kcpclientgotesting.A
 			expectedObjCopy := expectedObj.DeepCopy()
 			expectedObjCopy.Status.Phase = "Initializing"
 			actualObj := updateAction.GetObject().(*tenancyv1alpha1.ThisWorkspace)
-			if _, ok := actualObj.Annotations["kcp.dev/cluster"]; ok {
-				// this is a limitation of the fake client
-				// to get an AlreadyExists error we need to assign
-				// the shard annotation, which is still present on an update
-				// in real world we wouldn't be seeing this annotation
-				// since it is assigned by the kcp server
-				delete(actualObj.Annotations, "kcp.dev/cluster")
-			}
+
+			// this is a limitation of the fake client
+			// to get an AlreadyExists error we need to assign
+			// the shard annotation, which is still present on an update
+			// in real world we wouldn't be seeing this annotation
+			// since it is assigned by the kcp server
+			delete(actualObj.Annotations, "kcp.dev/cluster")
+
 			if !equality.Semantic.DeepEqual(actualObj, expectedObjCopy) {
 				t.Errorf(cmp.Diff(actualObj, expectedObjCopy))
 			}
@@ -530,8 +529,8 @@ func wellKnownClusterWorkspaceTypes() []*tenancyv1alpha1.ClusterWorkspaceType {
 	}
 	type2.Spec.DefaultAPIBindings = []tenancyv1alpha1.APIExportReference{
 		{
-			"tenancy.kcp.dev",
-			"root",
+			Path:   "tenancy.kcp.dev",
+			Export: "root",
 		},
 	}
 	type2.Spec.Extend.With = []tenancyv1alpha1.ClusterWorkspaceTypeReference{
