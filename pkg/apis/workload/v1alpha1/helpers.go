@@ -25,8 +25,8 @@ import (
 
 // ToSyncTargetKey hashes the SyncTarget workspace and the SyncTarget name to a string that is used to identify
 // in a unique way the synctarget in annotations/labels/finalizers.
-func ToSyncTargetKey(syncTargetWorkspace logicalcluster.Name, syncTargetName string) string {
-	hash := sha256.Sum224([]byte(syncTargetWorkspace.String() + syncTargetName))
+func ToSyncTargetKey(clusterName logicalcluster.Name, syncTargetName string) string {
+	hash := sha256.Sum224([]byte(clusterName.Path().Join(syncTargetName).String()))
 	base62hash := toBase62(hash)
 	return base62hash
 }

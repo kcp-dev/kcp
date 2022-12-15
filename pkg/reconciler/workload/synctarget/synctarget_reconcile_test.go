@@ -22,6 +22,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -71,7 +72,7 @@ func TestReconciler(t *testing.T) {
 						logicalcluster.AnnotationKey: "demo:root:yourworkspace",
 					},
 					Labels: map[string]string{
-						"internal.workload.kcp.dev/key": "2Fhhz9cq06pipXqhKzp8wrxSgTVTUzc8fKKqLI",
+						"internal.workload.kcp.dev/key": "aPXkBdRsTD8gXESO47r9qXmkr2kaG5qaox5C8r",
 					},
 				},
 				Spec: workloadv1alpha1.SyncTargetSpec{
@@ -140,7 +141,7 @@ func TestReconciler(t *testing.T) {
 						logicalcluster.AnnotationKey: "demo:root:yourworkspace",
 					},
 					Labels: map[string]string{
-						"internal.workload.kcp.dev/key": "2Fhhz9cq06pipXqhKzp8wrxSgTVTUzc8fKKqLI",
+						"internal.workload.kcp.dev/key": "aPXkBdRsTD8gXESO47r9qXmkr2kaG5qaox5C8r",
 					},
 				},
 				Spec: workloadv1alpha1.SyncTargetSpec{
@@ -215,7 +216,7 @@ func TestReconciler(t *testing.T) {
 						logicalcluster.AnnotationKey: "demo:root:yourworkspace",
 					},
 					Labels: map[string]string{
-						"internal.workload.kcp.dev/key": "2Fhhz9cq06pipXqhKzp8wrxSgTVTUzc8fKKqLI",
+						"internal.workload.kcp.dev/key": "aPXkBdRsTD8gXESO47r9qXmkr2kaG5qaox5C8r",
 					},
 				},
 				Spec: workloadv1alpha1.SyncTargetSpec{
@@ -258,7 +259,7 @@ func TestReconciler(t *testing.T) {
 						logicalcluster.AnnotationKey: "demo:root:yourworkspace",
 					},
 					Labels: map[string]string{
-						"internal.workload.kcp.dev/key": "2Fhhz9cq06pipXqhKzp8wrxSgTVTUzc8fKKqLI",
+						"internal.workload.kcp.dev/key": "aPXkBdRsTD8gXESO47r9qXmkr2kaG5qaox5C8r",
 					},
 				},
 				Spec: workloadv1alpha1.SyncTargetSpec{
@@ -313,7 +314,7 @@ func TestReconciler(t *testing.T) {
 						logicalcluster.AnnotationKey: "demo:root:yourworkspace",
 					},
 					Labels: map[string]string{
-						"internal.workload.kcp.dev/key": "2Fhhz9cq06pipXqhKzp8wrxSgTVTUzc8fKKqLI",
+						"internal.workload.kcp.dev/key": "aPXkBdRsTD8gXESO47r9qXmkr2kaG5qaox5C8r",
 					},
 				},
 				Spec: workloadv1alpha1.SyncTargetSpec{
@@ -342,7 +343,7 @@ func TestReconciler(t *testing.T) {
 				return tc.expectedSyncTarget.Status.VirtualWorkspaces[i].URL < tc.expectedSyncTarget.Status.VirtualWorkspaces[j].URL
 			})
 			if !reflect.DeepEqual(returnedSyncTarget, tc.expectedSyncTarget) {
-				t.Errorf("expected: %v, got: %v", tc.expectedSyncTarget, returnedSyncTarget)
+				t.Errorf("expected diff: %s", cmp.Diff(tc.expectedSyncTarget, returnedSyncTarget))
 			}
 		})
 	}
