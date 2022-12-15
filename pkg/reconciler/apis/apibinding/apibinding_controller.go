@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/kcp-dev/logicalcluster/v3"
 
@@ -71,7 +71,7 @@ func NewController(
 	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
 	apiExportInformer apisv1alpha1informers.APIExportClusterInformer,
 	apiResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
-	temporaryRemoteShardApiExportInformer apisv1alpha1informers.APIExportClusterInformer, /*TODO(p0lyn0mial): replace with multi-shard informers*/
+	temporaryRemoteShardApiExportInformer apisv1alpha1informers.APIExportClusterInformer,                 /*TODO(p0lyn0mial): replace with multi-shard informers*/
 	temporaryRemoteShardApiResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer, /*TODO(p0lyn0mial): replace with multi-shard informers*/
 	crdInformer kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer,
 ) (*controller, error) {

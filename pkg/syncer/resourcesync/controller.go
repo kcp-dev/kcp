@@ -26,7 +26,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpdynamicinformer "github.com/kcp-dev/client-go/dynamic/dynamicinformer"
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"

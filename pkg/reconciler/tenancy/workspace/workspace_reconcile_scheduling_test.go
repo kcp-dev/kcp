@@ -24,7 +24,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	kcpfakekubeclient "github.com/kcp-dev/client-go/kubernetes/fake"
 	"github.com/kcp-dev/logicalcluster/v3"

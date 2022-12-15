@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpdynamicinformer "github.com/kcp-dev/client-go/dynamic/dynamicinformer"
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	"github.com/kcp-dev/logicalcluster/v3"

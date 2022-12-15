@@ -25,8 +25,8 @@ import (
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
-	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	kcpclienthelper "github.com/kcp-dev/apimachinery/v2/pkg/client"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	kcpmetadata "github.com/kcp-dev/client-go/metadata"
 	"github.com/kcp-dev/logicalcluster/v3"

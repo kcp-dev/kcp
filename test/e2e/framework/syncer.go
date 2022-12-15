@@ -25,7 +25,7 @@ import (
 	"testing"
 	"time"
 
-	kcpclienthelper "github.com/kcp-dev/apimachinery/pkg/client"
+	kcpclienthelper "github.com/kcp-dev/apimachinery/v2/pkg/client"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"

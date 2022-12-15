@@ -21,7 +21,7 @@ import (
 	"errors"
 	"reflect"
 
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	crdhelpers "k8s.io/apiextensions-apiserver/pkg/apihelpers"

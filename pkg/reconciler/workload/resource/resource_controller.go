@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpcorev1informers "github.com/kcp-dev/client-go/informers/core/v1"
 	"github.com/kcp-dev/logicalcluster/v3"

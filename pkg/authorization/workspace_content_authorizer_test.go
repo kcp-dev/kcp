@@ -20,7 +20,7 @@ import (
 	"context"
 	"testing"
 
-	kcpcache "github.com/kcp-dev/apimachinery/pkg/cache"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	kcpfakeclient "github.com/kcp-dev/client-go/kubernetes/fake"
 	"github.com/kcp-dev/logicalcluster/v3"
