@@ -174,8 +174,10 @@ func TestKubeQuotaCoreV1TypesFromBinding(t *testing.T) {
 				},
 			}
 
-			_, err = kcpClusterClient.Cluster(userClusterName.Path()).ApisV1alpha1().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
-			require.NoError(t, err)
+			framework.Eventually(t, func() (bool, string) {
+				_, err = kcpClusterClient.Cluster(userClusterName.Path()).ApisV1alpha1().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
+				return err == nil, fmt.Sprintf("%v", err)
+			}, wait.ForeverTestTimeout, 100*time.Millisecond, "error creating APIBinding")
 
 			t.Logf("Wait for binding to be ready")
 			framework.Eventually(t, func() (bool, string) {
