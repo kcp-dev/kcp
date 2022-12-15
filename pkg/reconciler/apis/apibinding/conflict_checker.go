@@ -112,7 +112,7 @@ func (ncc *conflictChecker) checkForConflicts(schema *apisv1alpha1.APIResourceSc
 	for _, boundCRD := range ncc.boundCRDs {
 		if foundConflict, details := namesConflict(boundCRD, schema); foundConflict {
 			conflict := ncc.crdToBinding[boundCRD.Name]
-			return fmt.Errorf("naming conflict with a bound API %s, %s", conflict.Name, details)
+			return fmt.Errorf("naming conflict with APIBinding %s, %s", conflict.Name, details)
 		}
 	}
 
