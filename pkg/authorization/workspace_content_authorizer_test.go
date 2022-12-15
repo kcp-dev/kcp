@@ -103,7 +103,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			requestedWorkspace: "root:unknown",
 			requestingUser:     newUser("user-1"),
 			wantDecision:       authorizer.DecisionDeny,
-			wantReason:         `workspace root|unknown not found`,
+			wantReason:         "clusterworkspace not found",
 		},
 		{
 			testName: "workspace without parent",
@@ -111,7 +111,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			requestedWorkspace: "rootwithoutparent",
 			requestingUser:     newUser("user-1"),
 			wantDecision:       authorizer.DecisionNoOpinion,
-			wantReason:         "parentless workspace",
+			wantReason:         "non-root workspace that does not have a parent",
 		},
 		{
 			testName: "non-permitted user is denied",
@@ -119,7 +119,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			requestedWorkspace: "root:ready",
 			requestingUser:     newUser("user-unknown"),
 			wantDecision:       authorizer.DecisionNoOpinion,
-			wantReason:         "subject has not been granted any groups",
+			wantReason:         "not permitted, subject has not been granted any groups",
 		},
 		{
 			testName: "permitted admin user is granted admin",
@@ -128,7 +128,6 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			requestingUser:     newUser("user-admin"),
 			wantUser:           newUser("user-admin", "system:kcp:clusterworkspace:access", "system:kcp:clusterworkspace:admin"),
 			wantDecision:       authorizer.DecisionAllow,
-			wantReason:         `delegating due to "root" content policy: : allowed`,
 		},
 		{
 			testName: "permitted access user is granted access",
@@ -137,7 +136,6 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			requestingUser:     newUser("user-access"),
 			wantUser:           newUser("user-access", "system:kcp:clusterworkspace:access"),
 			wantDecision:       authorizer.DecisionAllow,
-			wantReason:         `delegating due to "root" content policy: : allowed`,
 		},
 		{
 			testName: "non-permitted service account is denied",
@@ -145,7 +143,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			requestedWorkspace: "root:ready",
 			requestingUser:     newServiceAccountWithCluster("sa", "anotherws"),
 			wantDecision:       authorizer.DecisionNoOpinion,
-			wantReason:         "subject has not been granted any groups",
+			wantReason:         "not permitted, subject has not been granted any groups",
 		},
 		{
 			testName: "permitted service account is granted access",
@@ -154,7 +152,6 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			requestingUser:     newServiceAccountWithCluster("sa", "root:ready"),
 			wantUser:           newServiceAccountWithCluster("sa", "root:ready", "system:kcp:clusterworkspace:access"),
 			wantDecision:       authorizer.DecisionAllow,
-			wantReason:         "delegating due to service account access: allowed",
 		},
 		{
 			testName: "authenticated user is granted access on root",
@@ -163,7 +160,6 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			requestingUser:     newUser("somebody", "system:authenticated"),
 			wantUser:           newUser("somebody", "system:authenticated", "system:kcp:clusterworkspace:access"),
 			wantDecision:       authorizer.DecisionAllow,
-			wantReason:         "delegating due to root workspace access: allowed",
 		},
 		{
 			testName: "authenticated non-permitted service account is denied on root",
@@ -171,7 +167,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			requestedWorkspace: "root",
 			requestingUser:     newServiceAccountWithCluster("somebody", "someworkspace", "system:authenticated"),
 			wantDecision:       authorizer.DecisionNoOpinion,
-			wantReason:         "root workspace access by non-root service account",
+			wantReason:         "root workspace access by non-root service account not permitted",
 		},
 		{
 			testName: "authenticated permitted root service account is granted access on root",
@@ -180,7 +176,6 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			requestingUser:     newServiceAccountWithCluster("somebody", "root", "system:authenticated"),
 			wantUser:           newServiceAccountWithCluster("somebody", "root", "system:authenticated", "system:kcp:clusterworkspace:access"),
 			wantDecision:       authorizer.DecisionAllow,
-			wantReason:         "delegating due to root workspace access: allowed",
 		},
 		{
 			testName: "authenticated service account is denied on scheduling workspace",
@@ -188,7 +183,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			requestedWorkspace: "root:scheduling",
 			requestingUser:     newServiceAccountWithCluster("somebody", "root", "system:authenticated"),
 			wantDecision:       authorizer.DecisionNoOpinion,
-			wantReason:         `invalid "scheduling" workspace phase: "Scheduling"`,
+			wantReason:         "not permitted due to phase \"Scheduling\"",
 		},
 		{
 			testName: "permitted service account is denied on initializing workspace",
@@ -196,7 +191,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			requestedWorkspace: "root:initializing",
 			requestingUser:     newServiceAccountWithCluster("somebody", "initializing", "system:authenticated"),
 			wantDecision:       authorizer.DecisionNoOpinion,
-			wantReason:         `invalid "initializing" workspace phase: "Initializing"`,
+			wantReason:         "not permitted, clusterworkspace is in initializing phase",
 		},
 		{
 			testName: "permitted access user is denied on initializing workspace",
@@ -204,7 +199,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			requestedWorkspace: "root:initializing",
 			requestingUser:     newUser("user-access"),
 			wantDecision:       authorizer.DecisionNoOpinion,
-			wantReason:         `invalid "initializing" workspace phase: "Initializing"`,
+			wantReason:         "not permitted, clusterworkspace is in initializing phase",
 		},
 		{
 			testName: "permitted admin user is granted admin on initializing workspace",
@@ -213,7 +208,6 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			requestingUser:     newUser("user-admin"),
 			wantUser:           newUser("user-admin", "system:kcp:clusterworkspace:access", "system:kcp:clusterworkspace:admin"),
 			wantDecision:       authorizer.DecisionAllow,
-			wantReason:         `delegating due to "root" content policy: : allowed`,
 		},
 		{
 			testName: "any user passed for deep SAR",
@@ -223,7 +217,6 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			wantUser:           newUser("user-unknown"),
 			deepSARHeader:      true,
 			wantDecision:       authorizer.DecisionAllow,
-			wantReason:         `delegating due to deep SAR request: allowed`,
 		},
 		{
 			testName: "any service account passed for deep SAR as anyonmous",
@@ -233,7 +226,6 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			wantUser:           newServiceAccount("system:anonymous", "system:authenticated"),
 			deepSARHeader:      true,
 			wantDecision:       authorizer.DecisionAllow,
-			wantReason:         `delegating due to deep SAR request: allowed`,
 		},
 	} {
 		t.Run(tt.testName, func(t *testing.T) {
@@ -414,7 +406,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			}))
 			lister := tenancyv1alpha1listers.NewClusterWorkspaceClusterLister(indexer)
 
-			recordingAuthorizer := &recordingAuthorizer{decision: authorizer.DecisionAllow, reason: "allowed"}
+			recordingAuthorizer := &recordingAuthorizer{decision: authorizer.DecisionAllow}
 			w := NewWorkspaceContentAuthorizer(kubeShareInformerFactory, lister, recordingAuthorizer)
 
 			requestedCluster := request.Cluster{

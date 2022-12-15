@@ -36,6 +36,10 @@ import (
 	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
 )
 
+const (
+	MaximalPermissionPolicyAccessNotPermittedReason = "access not permitted by maximal permission policy"
+)
+
 // NewMaximalPermissionPolicyAuthorizer returns an authorizer that first checks if the request is for a
 // bound resource or not. If the resource is bound it checks the maximal permission policy of the underlying API export.
 func NewMaximalPermissionPolicyAuthorizer(kubeInformers kcpkubernetesinformers.SharedInformerFactory, kcpInformers kcpinformers.SharedInformerFactory, delegate authorizer.Authorizer) authorizer.Authorizer {
@@ -83,27 +87,27 @@ type MaximalPermissionPolicyAuthorizer struct {
 func (a *MaximalPermissionPolicyAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
 	if IsDeepSubjectAccessReviewFrom(ctx, attr) {
 		// this is a deep SAR request, we have to skip the checks here and delegate to the subsequent authorizer.
-		return DelegateAuthorization("deep SAR request", a.delegate).Authorize(ctx, attr)
+		return a.delegate.Authorize(ctx, attr)
 	}
 
 	// get the cluster from the ctx.
 	lcluster, err := genericapirequest.ClusterNameFrom(ctx)
 	if err != nil {
-		return authorizer.DecisionNoOpinion, "", fmt.Errorf("error getting cluster from request: %w", err)
+		return authorizer.DecisionNoOpinion, MaximalPermissionPolicyAccessNotPermittedReason, fmt.Errorf("error getting cluster from request: %w", err)
 	}
 
 	bindingLogicalCluster, bound, err := a.getAPIBindingReferenceForAttributes(attr, lcluster)
 	if err != nil {
-		return authorizer.DecisionNoOpinion, "", fmt.Errorf("error getting API binding reference: %w", err)
+		return authorizer.DecisionNoOpinion, MaximalPermissionPolicyAccessNotPermittedReason, fmt.Errorf("error getting API binding reference: %w", err)
 	}
 
 	if !bound {
-		return DelegateAuthorization("unbound resource", a.delegate).Authorize(ctx, attr)
+		return a.delegate.Authorize(ctx, attr)
 	}
 
 	apiExport, found, err := a.getAPIExportByReference(bindingLogicalCluster)
 	if err != nil {
-		return authorizer.DecisionNoOpinion, "", fmt.Errorf("error getting API export: %w", err)
+		return authorizer.DecisionNoOpinion, MaximalPermissionPolicyAccessNotPermittedReason, fmt.Errorf("error getting API export: %w", err)
 	}
 
 	path := "unknown"
@@ -119,11 +123,11 @@ func (a *MaximalPermissionPolicyAuthorizer) Authorize(ctx context.Context, attr 
 	}
 
 	if apiExport.Spec.MaximalPermissionPolicy == nil {
-		return DelegateAuthorization(fmt.Sprintf("no maximum permission policy in API Export %q|%q", logicalcluster.From(apiExport), apiExport.Name), a.delegate).Authorize(ctx, attr)
+		return a.delegate.Authorize(ctx, attr)
 	}
 
 	if apiExport.Spec.MaximalPermissionPolicy.Local == nil {
-		return DelegateAuthorization(fmt.Sprintf("no local maximum permission policy in API Export %q|%q", logicalcluster.From(apiExport), apiExport.Name), a.delegate).Authorize(ctx, attr)
+		return a.delegate.Authorize(ctx, attr)
 	}
 
 	// If bound, create a rbac authorizer filtered to the cluster.
@@ -136,14 +140,14 @@ func (a *MaximalPermissionPolicyAuthorizer) Authorize(ctx context.Context, attr 
 		userInfo.Groups = append(userInfo.Groups, apisv1alpha1.MaximalPermissionPolicyRBACUserGroupPrefix+g)
 	}
 	dec, reason, err := clusterAuthorizer.Authorize(ctx, prefixedAttr)
-	reason = fmt.Sprintf("API export %q|%q policy: %v", logicalcluster.From(apiExport), apiExport.Name, reason)
 	if err != nil {
-		return authorizer.DecisionNoOpinion, reason, fmt.Errorf("error authorizing API export cluster RBAC policy: %w", err)
+		return authorizer.DecisionNoOpinion, reason, fmt.Errorf("error authorizing RBAC in API export cluster %q: %w", logicalcluster.From(apiExport), err)
 	}
+
 	if dec == authorizer.DecisionAllow {
-		return DelegateAuthorization(reason, a.delegate).Authorize(ctx, attr)
+		return a.delegate.Authorize(ctx, attr)
 	}
-	return authorizer.DecisionNoOpinion, reason, nil
+	return authorizer.DecisionNoOpinion, fmt.Sprintf("API export cluster %q reason: %v", logicalcluster.From(apiExport), reason), nil
 }
 
 func getAPIBindingReferenceForAttributes(apiBindingClusterLister apisv1alpha1listers.APIBindingClusterLister, attr authorizer.Attributes, clusterName logicalcluster.Name) (*apisv1alpha1.ExportReference, bool, error) {

@@ -95,7 +95,7 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 				Groups: []string{"system:authenticated"},
 			}
 		}
-		return DelegateAuthorization("deep SAR request", a.delegate).Authorize(ctx, attr)
+		return a.delegate.Authorize(ctx, attr)
 	}
 
 	// Every authenticated user has access to the root workspace but not every service account.
@@ -104,15 +104,15 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 		if isAuthenticated && (isUser || isServiceAccountFromRootCluster) {
 			withGroups := deepCopyAttributes(attr)
 			withGroups.User.(*user.DefaultInfo).Groups = append(attr.GetUser().GetGroups(), bootstrap.SystemKcpClusterWorkspaceAccessGroup)
-			return DelegateAuthorization("root workspace access", a.delegate).Authorize(ctx, withGroups)
+			return a.delegate.Authorize(ctx, withGroups)
 		}
-		return authorizer.DecisionNoOpinion, "root workspace access by non-root service account", nil
+		return authorizer.DecisionNoOpinion, "root workspace access by non-root service account not permitted", nil
 	}
 
 	// non-root workspaces must have a parent
 	parentClusterName, hasParent := cluster.Name.Parent()
 	if !hasParent {
-		return authorizer.DecisionNoOpinion, "parentless workspace", nil
+		return authorizer.DecisionNoOpinion, "non-root workspace that does not have a parent", nil
 	}
 
 	parentAuthorizer := rbac.New(
@@ -137,23 +137,22 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 	ws, err := a.clusterWorkspaceLister.Cluster(parentClusterName).Get(cluster.Name.Base())
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return authorizer.DecisionDeny, fmt.Sprintf("workspace %v|%v not found", parentClusterName, cluster.Name.Base()), nil
+			return authorizer.DecisionDeny, "clusterworkspace not found", nil
 		}
-		return authorizer.DecisionNoOpinion, "", fmt.Errorf("error getting workspace %q|%q: %w", parentClusterName, cluster.Name.Base(), err)
+		return authorizer.DecisionNoOpinion, "error getting clusterworkspace", err
 	}
 
 	if ws.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseInitializing && ws.Status.Phase != tenancyv1alpha1.ClusterWorkspacePhaseReady {
-		return authorizer.DecisionNoOpinion, fmt.Sprintf("invalid %q workspace phase: %q", ws.Name, ws.Status.Phase), nil
+		return authorizer.DecisionNoOpinion, fmt.Sprintf("not permitted due to phase %q", ws.Status.Phase), nil
 	}
 
-	var reason string
 	switch {
 	case isServiceAccountFromCluster:
 		// A service account declared in the requested workspace is authorized inside that workspace.
 		// Referencing such a service account in the parent workspace is not possible,
 		// hence authorization against "admin" or "access" verbs in the parent is not possible either.
 		extraGroups.Insert(bootstrap.SystemKcpClusterWorkspaceAccessGroup)
-		reason = "service account access"
+
 	case isUser:
 		verbToGroupMembership := map[string][]string{
 			"admin":  {bootstrap.SystemKcpClusterWorkspaceAccessGroup, bootstrap.SystemKcpClusterWorkspaceAdminGroup},
@@ -186,25 +185,24 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 				extraGroups.Insert(groups...)
 			}
 		}
-		reason = fmt.Sprintf("%q content policy: %v", parentClusterName, strings.Join(reasonList, ","))
 		if len(errList) > 0 {
-			return authorizer.DecisionNoOpinion, reason, utilerrors.NewAggregate(errList)
+			return authorizer.DecisionNoOpinion, strings.Join(reasonList, "\n"), utilerrors.NewAggregate(errList)
 		}
 	}
 
 	// non-admin subjects don't have access to initializing workspaces.
 	if ws.Status.Phase == tenancyv1alpha1.ClusterWorkspacePhaseInitializing && !extraGroups.Has(bootstrap.SystemKcpClusterWorkspaceAdminGroup) {
-		return authorizer.DecisionNoOpinion, fmt.Sprintf("invalid %q workspace phase: %q", ws.Name, ws.Status.Phase), nil
+		return authorizer.DecisionNoOpinion, "not permitted, clusterworkspace is in initializing phase", nil
 	}
 
 	if len(extraGroups) == 0 {
-		return authorizer.DecisionNoOpinion, "subject has not been granted any groups", nil
+		return authorizer.DecisionNoOpinion, "not permitted, subject has not been granted any groups", nil
 	}
 
 	withGroups := deepCopyAttributes(attr)
 	withGroups.User.(*user.DefaultInfo).Groups = append(attr.GetUser().GetGroups(), extraGroups.List()...)
 
-	return DelegateAuthorization(reason, a.delegate).Authorize(ctx, withGroups)
+	return a.delegate.Authorize(ctx, withGroups)
 }
 
 func deepCopyAttributes(attr authorizer.Attributes) *authorizer.AttributesRecord {

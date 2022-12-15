@@ -50,5 +50,5 @@ func (a *SystemCRDAuthorizer) Authorize(ctx context.Context, attr authorizer.Att
 		}
 	}
 
-	return DelegateAuthorization("no system CRD violation", a.delegate).Authorize(ctx, attr)
+	return a.delegate.Authorize(ctx, attr)
 }

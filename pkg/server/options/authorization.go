@@ -102,22 +102,22 @@ func (s *Authorization) ApplyTo(config *genericapiserver.Config, informer kcpkub
 
 	// kcp authorizers
 	bootstrapAuth, bootstrapRules := authz.NewBootstrapPolicyAuthorizer(informer)
-	bootstrapAuth = authz.NewDecorator("bootstrap.authorization.kcp.dev", bootstrapAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+	bootstrapAuth = authz.NewDecorator(bootstrapAuth, "bootstrap.authorization.kcp.dev").AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
 	localAuth, localResolver := authz.NewLocalAuthorizer(informer)
-	localAuth = authz.NewDecorator("local.authorization.kcp.dev", localAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+	localAuth = authz.NewDecorator(localAuth, "local.authorization.kcp.dev").AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
 	maxPermissionPolicyAuth := authz.NewMaximalPermissionPolicyAuthorizer(informer, kcpinformer, union.New(bootstrapAuth, localAuth))
-	maxPermissionPolicyAuth = authz.NewDecorator("maxpermissionpolicy.authorization.kcp.dev", maxPermissionPolicyAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+	maxPermissionPolicyAuth = authz.NewDecorator(maxPermissionPolicyAuth, "maxpermissionpolicy.authorization.kcp.dev").AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
 	systemCRDAuth := authz.NewSystemCRDAuthorizer(maxPermissionPolicyAuth)
-	systemCRDAuth = authz.NewDecorator("systemcrd.authorization.kcp.dev", systemCRDAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+	systemCRDAuth = authz.NewDecorator(systemCRDAuth, "systemcrd.authorization.kcp.dev").AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
 	contentAuth := authz.NewWorkspaceContentAuthorizer(informer, workspaceLister, systemCRDAuth)
-	contentAuth = authz.NewDecorator("content.authorization.kcp.dev", contentAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+	contentAuth = authz.NewDecorator(contentAuth, "content.authorization.kcp.dev").AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
 	topLevelAuth := authz.NewTopLevelOrganizationAccessAuthorizer(informer, workspaceLister, contentAuth)
-	topLevelAuth = authz.NewDecorator("toplevel.authorization.kcp.dev", topLevelAuth).AddAuditLogging().AddAnonymization()
+	topLevelAuth = authz.NewDecorator(topLevelAuth, "toplevel.authorization.kcp.dev").AddAuditLogging().AddAnonymization()
 
 	authorizers = append(authorizers, topLevelAuth)
 

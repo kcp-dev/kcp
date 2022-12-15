@@ -69,10 +69,10 @@ type topLevelOrgAccessAuthorizer struct {
 	delegate               authorizer.Authorizer
 }
 
-func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
+func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
 	if IsDeepSubjectAccessReviewFrom(ctx, attr) {
 		// this is a deep SAR request, we have to skip the checks here and delegate to the subsequent authorizer.
-		return DelegateAuthorization("deep SAR request", a.delegate).Authorize(ctx, attr)
+		return a.delegate.Authorize(ctx, attr)
 	}
 
 	cluster := genericapirequest.ClusterFrom(ctx)
@@ -99,25 +99,26 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 	// For root, only service accounts declared in root have access.
 	if cluster.Name == tenancyv1alpha1.RootCluster {
 		if isAuthenticated && (isUser || isServiceAccountFromRootCluster) {
-			return DelegateAuthorization("root cluster access", a.delegate).Authorize(ctx, attr)
+			return a.delegate.Authorize(ctx, attr)
 		}
-		return authorizer.DecisionNoOpinion, "root workspace access by non-root service account", nil
+		return authorizer.DecisionNoOpinion, "root workspace access by non-root service account not permitted", nil
 	}
 
 	// get org in the root
 	requestTopLevelOrgName, ok := topLevelOrg(cluster.Name)
 	if !ok {
-		return authorizer.DecisionNoOpinion, "requested cluster is not part of a root workspace hierarchy", nil
+		return authorizer.DecisionNoOpinion, "not part of root workspace hierarchy", nil
 	}
 
 	// check the org workspace exists in the root workspace
 	if _, err := a.clusterWorkspaceLister.Cluster(tenancyv1alpha1.RootCluster).Get(requestTopLevelOrgName); err != nil {
 		if errors.IsNotFound(err) {
-			return authorizer.DecisionDeny, fmt.Sprintf("workspace %s|%s not found", tenancyv1alpha1.RootCluster, requestTopLevelOrgName), nil
+			return authorizer.DecisionDeny, fmt.Sprintf("clusterworkspace %s|%s not found", tenancyv1alpha1.RootCluster, requestTopLevelOrgName), nil
 		}
-		return authorizer.DecisionNoOpinion, fmt.Sprintf("error getting workspace %s|%s", tenancyv1alpha1.RootCluster, requestTopLevelOrgName), fmt.Errorf("error getting top level org cluster: %w", err)
+		return authorizer.DecisionNoOpinion, fmt.Sprintf("error getting clusterworkspace %s|%s", tenancyv1alpha1.RootCluster, requestTopLevelOrgName), fmt.Errorf("error getting top level org cluster %q: %w", requestTopLevelOrgName, err)
 	}
 
+	var noOpinionReason string
 	switch {
 	case isServiceAccount:
 		// service account will automatically get access to its top-level org
@@ -127,11 +128,11 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 				continue
 			}
 			if subjectTopLevelOrg == requestTopLevelOrgName {
-				return DelegateAuthorization("service account top level access", a.delegate).Authorize(ctx, attr)
+				return a.delegate.Authorize(ctx, attr)
 			}
 		}
 
-		return authorizer.DecisionNoOpinion, fmt.Sprintf("service account not part of workspace %q", requestTopLevelOrgName), nil
+		noOpinionReason = "serviceaccount does not belong to this top level workspace hierarchy"
 	case isUser:
 		workspaceAttr := authorizer.AttributesRecord{
 			User:            attr.GetUser(),
@@ -145,16 +146,18 @@ func (a *topLevelOrgAccessAuthorizer) Authorize(ctx context.Context, attr author
 		}
 
 		dec, reason, err := a.rootAuthorizer.Authorize(ctx, workspaceAttr)
-		reason = fmt.Sprintf("root workspace policy for %q: %v", requestTopLevelOrgName, reason)
 		if err != nil {
-			return authorizer.DecisionNoOpinion, reason, fmt.Errorf(`error executing root workspace RBAC: %w`, err)
+			return authorizer.DecisionNoOpinion, reason, fmt.Errorf(`error in root workspace RBAC, verb="access" resource="workspaces/content", name=%q: %w`, requestTopLevelOrgName, err)
 		}
+
 		if dec == authorizer.DecisionAllow {
-			return DelegateAuthorization(reason, a.delegate).Authorize(ctx, attr)
+			return a.delegate.Authorize(ctx, attr)
 		}
+
+		noOpinionReason = fmt.Sprintf(`forbidden by root workspace RBAC, verb="access" resource="workspaces/content", name=%q, reason=%q`, requestTopLevelOrgName, reason)
 	}
 
-	return authorizer.DecisionNoOpinion, "unknown subject type", nil
+	return authorizer.DecisionNoOpinion, noOpinionReason, nil
 }
 
 func topLevelOrg(clusterName logicalcluster.Name) (string, bool) {

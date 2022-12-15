@@ -42,10 +42,7 @@ type Decorator struct {
 	key    string
 }
 
-// NewDecorator returns a new authorizer which is associated with the given key.
-// The prefix key must not contain a trailing slash `/`.
-// Decorating functions are applied in the order they have been invoked.
-func NewDecorator(key string, target authorizer.Authorizer) *Decorator {
+func NewDecorator(target authorizer.Authorizer, key string) *Decorator {
 	if strings.HasSuffix(key, "/") {
 		panic(fmt.Sprintf("audit prefix must not have a trailing slash: %q", key))
 	}
@@ -54,6 +51,7 @@ func NewDecorator(key string, target authorizer.Authorizer) *Decorator {
 
 // AddAuditLogging logs every decision of the delegate authorizer
 // for the given audit prefix key.
+// Note: the prefix key must not contain a trailing slash `/`.
 func (d *Decorator) AddAuditLogging() *Decorator {
 	target := d.target
 	d.target = authorizer.AuthorizerFunc(func(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
@@ -61,7 +59,7 @@ func (d *Decorator) AddAuditLogging() *Decorator {
 
 		auditReasonMsg := reason
 		if err != nil {
-			auditReasonMsg = fmt.Sprintf("reason: %v, error: %v", reason, err)
+			auditReasonMsg = fmt.Sprintf("reason: %q, error: %v", reason, err)
 		}
 
 		kaudit.AddAuditAnnotations(
@@ -103,13 +101,11 @@ func (d *Decorator) AddAnonymization() *Decorator {
 	return d
 }
 
-// AddReasonAnnotation adds the authorizer key as a prefix to the authorizer reason.
-// This is useful where AddAnonymization was used, but we still want to identify the authorizer in audit logs.
 func (d *Decorator) AddReasonAnnotation() *Decorator {
 	target := d.target
 	d.target = authorizer.AuthorizerFunc(func(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
 		dec, reason, err := target.Authorize(ctx, attr)
-		return dec, d.key + ": " + reason, err
+		return dec, "delegated " + d.key + " authorizer reason: " + reason, err
 	})
 	return d
 }
@@ -129,13 +125,4 @@ func decisionString(dec authorizer.Decision) string {
 		return DecisionDenied
 	}
 	return ""
-}
-
-// DelegateAuthorization delegates authorization to the given delegate authorizer
-// and prefixes the given reason with the reason after the given delegate authorizer executed.
-func DelegateAuthorization(delegationReason string, delegate authorizer.Authorizer) authorizer.Authorizer {
-	return authorizer.AuthorizerFunc(func(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
-		dec, delegateReason, err := delegate.Authorize(ctx, attr)
-		return dec, "delegating due to " + delegationReason + ": " + delegateReason, err
-	})
 }
