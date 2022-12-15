@@ -102,6 +102,7 @@ jobs:
           w
           q
           EOF
+          mkdir -p content/en/${{ github.ref }}
           mv content/en/main content/en/${{ github.ref }}
           hugo --minify
           rsync -av public/${{ github.ref }} ../../docs
