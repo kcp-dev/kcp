@@ -169,9 +169,10 @@ func TestReconcileNew(t *testing.T) {
 
 	c := &controller{}
 
-	err := c.reconcile(context.Background(), apiBinding)
+	requeue, err := c.reconcile(context.Background(), apiBinding)
 	require.NoError(t, err)
 	require.Equal(t, apisv1alpha1.APIBindingPhaseBinding, apiBinding.Status.Phase)
+	require.False(t, requeue)
 	requireConditionMatches(t, apiBinding, conditions.FalseCondition(conditionsv1alpha1.ReadyCondition, "", "", ""))
 }
 
@@ -189,12 +190,14 @@ func TestReconcileBinding(t *testing.T) {
 		updateCRDError                          error
 		deletedCRDs                             []string
 		wantError                               bool
+		wantRequeue                             bool
 		wantInvalidReference                    bool
 		wantAPIExportNotFound                   bool
 		wantAPIExportInternalError              bool
 		wantWaitingForEstablished               bool
 		wantAPIExportValid                      bool
 		wantReady                               bool
+		wantNoReady                             bool
 		wantBoundAPIExport                      bool
 		wantInitialBindingComplete              bool
 		wantInitialBindingCompleteInternalError bool
@@ -234,7 +237,8 @@ func TestReconcileBinding(t *testing.T) {
 		},
 		"APIExport doesn't have identity hash yet": {
 			apiBinding: binding.DeepCopy().
-				WithExportReference(logicalcluster.NewPath("org:some-workspace"), "no-identity-hash").Build(),
+				WithExportReference(logicalcluster.NewPath("org:some-workspace"), "no-identity-hash").
+				Build(),
 			wantAPIExportValid: false,
 		},
 		"APIResourceSchema invalid": {
@@ -502,7 +506,7 @@ func TestReconcileBinding(t *testing.T) {
 				deletedCRDTracker: &lockedStringSet{},
 			}
 
-			err := c.reconcile(context.Background(), tc.apiBinding)
+			requeue, err := c.reconcile(context.Background(), tc.apiBinding)
 
 			if tc.wantError {
 				require.Error(t, err)
@@ -510,6 +514,7 @@ func TestReconcileBinding(t *testing.T) {
 				require.NoError(t, err)
 			}
 
+			require.Equal(t, tc.wantRequeue, requeue, "mismatched requeue, want: %v, got: %v", tc.wantRequeue, requeue)
 			require.Equal(t, tc.wantCreateCRD, createCRDCalled, "mismatch on CRD creation expectation")
 
 			if tc.wantInvalidReference {
@@ -552,7 +557,9 @@ func TestReconcileBinding(t *testing.T) {
 				requireConditionMatches(t, tc.apiBinding, conditions.TrueCondition(apisv1alpha1.APIExportValid))
 			}
 
-			if tc.wantReady {
+			if tc.wantNoReady {
+				require.False(t, conditions.Has(tc.apiBinding, conditionsv1alpha1.ReadyCondition), "unexpected Ready condition")
+			} else if tc.wantReady {
 				requireConditionMatches(t, tc.apiBinding, conditions.TrueCondition(conditionsv1alpha1.ReadyCondition))
 			} else {
 				requireConditionMatches(t, tc.apiBinding, conditions.FalseCondition(conditionsv1alpha1.ReadyCondition, "", "", ""))
@@ -592,7 +599,7 @@ func TestReconcileBinding(t *testing.T) {
 					Status:   corev1.ConditionFalse,
 					Severity: conditionsv1alpha1.ConditionSeverityError,
 					Reason:   apisv1alpha1.NamingConflictsReason,
-					Message:  "naming conflict with a bound API conflicting, spec.names.plural=widgets is forbidden",
+					Message:  "naming conflict with APIBinding \"conflicting\", spec.names.plural=widgets is forbidden",
 				})
 			}
 
@@ -854,11 +861,11 @@ func (b *bindingBuilder) Build() *apisv1alpha1.APIBinding {
 	return b.APIBinding.DeepCopy()
 }
 
-func (b *bindingBuilder) WithClusterName(clusterName string) *bindingBuilder {
+func (b *bindingBuilder) WithClusterName(clusterName logicalcluster.Name) *bindingBuilder {
 	if b.Annotations == nil {
 		b.Annotations = make(map[string]string)
 	}
-	b.Annotations[logicalcluster.AnnotationKey] = clusterName
+	b.Annotations[logicalcluster.AnnotationKey] = string(clusterName)
 	return b
 }
 

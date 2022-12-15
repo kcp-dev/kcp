@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -70,7 +71,7 @@ func NewController(
 	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
 	apiExportInformer apisv1alpha1informers.APIExportClusterInformer,
 	apiResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
-	temporaryRemoteShardApiExportInformer apisv1alpha1informers.APIExportClusterInformer,                 /*TODO(p0lyn0mial): replace with multi-shard informers*/
+	temporaryRemoteShardApiExportInformer apisv1alpha1informers.APIExportClusterInformer, /*TODO(p0lyn0mial): replace with multi-shard informers*/
 	temporaryRemoteShardApiResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer, /*TODO(p0lyn0mial): replace with multi-shard informers*/
 	crdInformer kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer,
 ) (*controller, error) {
@@ -409,47 +410,54 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	// other workers.
 	defer c.queue.Done(key)
 
-	if err := c.process(ctx, key); err != nil {
+	if requeue, err := c.process(ctx, key); err != nil {
 		runtime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", ControllerName, key, err))
 		c.queue.AddRateLimited(key)
+		return true
+	} else if requeue {
+		// only requeue if we didn't error, but we still want to requeue
+		c.queue.Add(key)
 		return true
 	}
 	c.queue.Forget(key)
 	return true
 }
 
-func (c *controller) process(ctx context.Context, key string) error {
+func (c *controller) process(ctx context.Context, key string) (bool, error) {
 	logger := klog.FromContext(ctx)
 	clusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(err)
-		return nil
+		return false, nil
 	}
 
 	obj, err := c.apiBindingsLister.Cluster(clusterName).Get(name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			return nil // object deleted before we handled it
+			logger.Error(err, "failed to get APIBinding from lister", "cluster", clusterName)
 		}
-		return err
+
+		return false, nil // nothing we can do here
 	}
+
 	old := obj
 	obj = obj.DeepCopy()
 
 	logger = logging.WithObject(logger, obj)
 	ctx = klog.NewContext(ctx, logger)
 
-	reconcileErr := c.reconcile(ctx, obj)
-
-	// Regardless of whether reconcile returned an error or not, always try to patch status if needed. Return the
-	// reconciliation error at the end.
+	var errs []error
+	requeue, err := c.reconcile(ctx, obj)
+	if err != nil {
+		errs = append(errs, err)
+	}
 
 	// If the object being reconciled changed as a result, update it.
 	oldResource := &Resource{ObjectMeta: old.ObjectMeta, Spec: &old.Spec, Status: &old.Status}
 	newResource := &Resource{ObjectMeta: obj.ObjectMeta, Spec: &obj.Spec, Status: &obj.Status}
-	if commitError := c.commit(ctx, oldResource, newResource); commitError != nil {
-		return commitError
+	if err := c.commit(ctx, oldResource, newResource); err != nil {
+		errs = append(errs, err)
 	}
 
-	return reconcileErr
+	return requeue, utilerrors.NewAggregate(errs)
 }
