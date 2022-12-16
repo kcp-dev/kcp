@@ -11,6 +11,4 @@ spec:
     name: universal
     path: root
   limitAllowedParents:
-    types:
-    - name: homebucket
-      path: root
+    none: true

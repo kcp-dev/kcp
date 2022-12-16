@@ -32,12 +32,14 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
 	apislisters "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
@@ -65,10 +67,11 @@ func NewController(
 		apiExportLister:  apiExportInformer.Lister(),
 		apiExportIndexer: apiExportInformer.Informer().GetIndexer(),
 
-		apiBindingsLister: apiBindingInformer.Lister(),
+		apiBindingLister:  apiBindingInformer.Lister(),
+		apiBindingIndexer: apiBindingInformer.Informer().GetIndexer(),
 
-		getAPIBindingsByAPIExportKey: func(key string) ([]*apisv1alpha1.APIBinding, error) {
-			return indexers.ByIndex[*apisv1alpha1.APIBinding](apiBindingInformer.Informer().GetIndexer(), indexers.APIBindingsByAPIExport, key)
+		getAPIBindingsByAPIExport: func(path logicalcluster.Path, exportName string) ([]*apisv1alpha1.APIBinding, error) {
+			return indexers.ByIndex[*apisv1alpha1.APIBinding](apiBindingInformer.Informer().GetIndexer(), indexers.APIBindingsByAPIExport, path.Join(exportName).String())
 		},
 		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
 			objs, err := apiExportInformer.Informer().GetIndexer().ByIndex(indexers.ByLogicalClusterPathAndName, path.Join(name).String())
@@ -89,6 +92,10 @@ func NewController(
 
 	indexers.AddIfNotPresentOrDie(apiExportInformer.Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+	})
+
+	indexers.AddIfNotPresentOrDie(apiBindingInformer.Informer().GetIndexer(), cache.Indexers{
+		indexers.APIBindingsByAPIExport: indexers.IndexAPIBindingByAPIExport,
 	})
 
 	apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -116,10 +123,11 @@ type controller struct {
 	apiExportLister  apislisters.APIExportClusterLister
 	apiExportIndexer cache.Indexer
 
-	apiBindingsLister apislisters.APIBindingClusterLister
+	apiBindingLister  apislisters.APIBindingClusterLister
+	apiBindingIndexer cache.Indexer
 
-	getAPIBindingsByAPIExportKey func(key string) ([]*apisv1alpha1.APIBinding, error)
-	getAPIExport                 func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
+	getAPIBindingsByAPIExport func(path logicalcluster.Path, name string) ([]*apisv1alpha1.APIBinding, error)
+	getAPIExport              func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error)
 }
 
 // enqueueAPIBinding enqueues an APIBinding .
@@ -136,19 +144,43 @@ func (c *controller) enqueueAPIBinding(obj interface{}, logger logr.Logger, logS
 
 // enqueueAPIExport enqueues maps an APIExport to APIBindings for enqueuing.
 func (c *controller) enqueueAPIExport(obj interface{}, logger logr.Logger) {
-	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
+	if d, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+		obj = d.Obj
+	}
+
+	export, ok := obj.(*apisv1alpha1.APIExport)
+	if !ok {
+		runtime.HandleError(fmt.Errorf("obj is supposed to be a APIExport, but is %T", obj))
+		return
+	}
+
+	// APIBinding keys by full path
+	keys := sets.NewString()
+	if path := logicalcluster.NewPath(export.Annotations[core.LogicalClusterPathAnnotationKey]); !path.Empty() {
+		pathKeys, err := c.apiBindingIndexer.IndexKeys(indexers.APIBindingsByAPIExport, path.Join(export.Name).String())
+		if err != nil {
+			runtime.HandleError(err)
+			return
+		}
+		keys.Insert(pathKeys...)
+	}
+
+	clusterKeys, err := c.apiBindingIndexer.IndexKeys(indexers.APIBindingsByAPIExport, logicalcluster.From(export).Path().Join(export.Name).String())
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
+	keys.Insert(clusterKeys...)
 
-	bindingsForExport, err := c.getAPIBindingsByAPIExportKey(key)
-	if err != nil {
-		runtime.HandleError(err)
-		return
-	}
-
-	for _, binding := range bindingsForExport {
+	for _, key := range keys.List() {
+		binding, exists, err := c.apiBindingIndexer.GetByKey(key)
+		if err != nil {
+			runtime.HandleError(err)
+			continue
+		} else if !exists {
+			runtime.HandleError(fmt.Errorf("APIBinding %q does not exist", key))
+			continue
+		}
 		c.enqueueAPIBinding(binding, logging.WithObject(logger, obj.(*apisv1alpha1.APIExport)), " because of APIExport")
 	}
 }
@@ -207,7 +239,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		logger.Error(err, "invalid key")
 		return nil
 	}
-	apiBinding, err := c.apiBindingsLister.Cluster(clusterName).Get(name)
+	apiBinding, err := c.apiBindingLister.Cluster(clusterName).Get(name)
 	if apierrors.IsNotFound(err) {
 		return nil // object deleted before we handled it
 	}

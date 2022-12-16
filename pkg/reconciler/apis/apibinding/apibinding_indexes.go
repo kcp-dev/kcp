@@ -19,34 +19,11 @@ package apibinding
 import (
 	"fmt"
 
-	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/client"
 )
-
-const indexAPIBindingsByWorkspaceExport = "apiBindingsByWorkspaceExport"
-
-// indexAPIBindingsByWorkspaceExportFunc is an index function that maps an APIBinding to the key for its
-// spec.reference.workspace.
-func indexAPIBindingsByWorkspaceExportFunc(obj interface{}) ([]string, error) {
-	apiBinding, ok := obj.(*apisv1alpha1.APIBinding)
-	if !ok {
-		return []string{}, fmt.Errorf("obj is supposed to be an APIBinding, but is %T", obj)
-	}
-
-	if apiBinding.Spec.Reference.Export != nil {
-		path := logicalcluster.NewPath(apiBinding.Spec.Reference.Export.Path)
-		if path.Empty() {
-			path = logicalcluster.From(apiBinding).Path()
-		}
-		key := kcpcache.ToClusterAwareKey(path.String(), "", apiBinding.Spec.Reference.Export.Name)
-		return []string{key}, nil
-	}
-
-	return []string{}, nil
-}
 
 const indexAPIExportsByAPIResourceSchema = "apiExportsByAPIResourceSchema"
 

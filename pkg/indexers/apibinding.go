@@ -93,7 +93,7 @@ func APIBindingBoundResourceValue(clusterName logicalcluster.Name, group, resour
 
 const APIBindingsByAPIExport = "APIBindingByAPIExport"
 
-// IndexAPIBindingByAPIExport indexes the APIBindings by their APIExport's Reference Path and Path.
+// IndexAPIBindingByAPIExport indexes the APIBindings by their APIExport's Reference Path and Name.
 func IndexAPIBindingByAPIExport(obj interface{}) ([]string, error) {
 	apiBinding, ok := obj.(*apisv1alpha1.APIBinding)
 	if !ok {

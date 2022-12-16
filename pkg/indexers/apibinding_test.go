@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package apibinding
+package indexers
 
 import (
 	"reflect"
@@ -25,49 +25,50 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/client"
 )
 
-func TestIndexAPIExportByAPIResourceSchemas(t *testing.T) {
+func TestIndexAPIBindingByAPIExport(t *testing.T) {
 	tests := map[string]struct {
 		obj     interface{}
 		want    []string
 		wantErr bool
 	}{
-		"not an APIExport": {
-			obj:     "not an APIExport",
+		"not an APIBinding": {
+			obj:     "not an APIBinding",
 			want:    []string{},
 			wantErr: true,
 		},
-		"valid APIExport": {
-			obj: &apisv1alpha1.APIExport{
+		"has a workspace reference": {
+			obj: &apisv1alpha1.APIBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						logicalcluster.AnnotationKey: "root:default",
 					},
 					Name: "foo",
 				},
-				Spec: apisv1alpha1.APIExportSpec{
-					LatestResourceSchemas: []string{"schema1", "some-other-schema"},
+				Spec: apisv1alpha1.APIBindingSpec{
+					Reference: apisv1alpha1.BindingReference{
+						Export: &apisv1alpha1.ExportBindingReference{
+							Path: "root:workspace1",
+							Name: "export1",
+						},
+					},
 				},
 			},
-			want: []string{
-				client.ToClusterAwareKey(logicalcluster.NewPath("root:default"), "schema1"),
-				client.ToClusterAwareKey(logicalcluster.NewPath("root:default"), "some-other-schema"),
-			},
+			want:    []string{logicalcluster.NewPath("root:workspace1").Join("export1").String()},
 			wantErr: false,
 		},
 	}
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			got, err := indexAPIExportsByAPIResourceSchemasFunc(tt.obj)
+			got, err := IndexAPIBindingByAPIExport(tt.obj)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("indexAPIExportsByAPIResourceSchemasFunc() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("IndexAPIBindingByAPIExport() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("indexAPIExportsByAPIResourceSchemasFunc() got = %v, want %v", got, tt.want)
+				t.Errorf("IndexAPIBindingByAPIExport() got = %v, want %v", got, tt.want)
 			}
 		})
 	}

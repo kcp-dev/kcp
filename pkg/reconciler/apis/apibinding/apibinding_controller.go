@@ -150,7 +150,7 @@ func NewController(
 	})
 
 	if err := apiBindingInformer.Informer().AddIndexers(cache.Indexers{
-		indexAPIBindingsByWorkspaceExport: indexAPIBindingsByWorkspaceExportFunc,
+		indexers.APIBindingsByAPIExport: indexers.IndexAPIBindingByAPIExport,
 	}); err != nil {
 		return nil, err
 	}
@@ -286,8 +286,8 @@ func (c *controller) enqueueAPIExport(obj interface{}, logger logr.Logger, logSu
 
 	// synctarget keys by full path
 	keys := sets.NewString()
-	if path := export.Annotations[core.LogicalClusterPathAnnotationKey]; path != "" {
-		pathKeys, err := c.apiBindingsIndexer.IndexKeys(indexAPIBindingsByWorkspaceExport, kcpcache.ToClusterAwareKey(path, "", export.Name))
+	if path := logicalcluster.NewPath(export.Annotations[core.LogicalClusterPathAnnotationKey]); !path.Empty() {
+		pathKeys, err := c.apiBindingsIndexer.IndexKeys(indexers.APIBindingsByAPIExport, path.Join(export.Name).String())
 		if err != nil {
 			runtime.HandleError(err)
 			return
@@ -295,7 +295,7 @@ func (c *controller) enqueueAPIExport(obj interface{}, logger logr.Logger, logSu
 		keys.Insert(pathKeys...)
 	}
 
-	clusterKeys, err := c.apiBindingsIndexer.IndexKeys(indexAPIBindingsByWorkspaceExport, kcpcache.ToClusterAwareKey(logicalcluster.From(export).String(), "", export.Name))
+	clusterKeys, err := c.apiBindingsIndexer.IndexKeys(indexers.APIBindingsByAPIExport, logicalcluster.From(export).Path().Join(export.Name).String())
 	if err != nil {
 		runtime.HandleError(err)
 		return
