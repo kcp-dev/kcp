@@ -25,18 +25,18 @@ import (
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
-// ClusterWorkspaceTypeReservedNames defines the set of names that may not be
-// used on user-supplied ClusterWorkspaceTypes.
+// WorkspaceTypesReservedNames defines the set of names that may not be
+// used on user-supplied WorkspaceTypes.
 // TODO(hasheddan): tie this definition of reserved names to the patches used to
 // apply the same restrictions to the OpenAPISchema.
-func ClusterWorkspaceTypeReservedNames() []string {
+func WorkspaceTypesReservedNames() []string {
 	return []string{
 		"any",
 		"system",
 	}
 }
 
-// ClusterWorkspaceType specifies behaviour of workspaces of this type.
+// WorkspaceType specifies behaviour of workspaces of this type.
 //
 // +crd
 // +genclient
@@ -44,46 +44,46 @@ func ClusterWorkspaceTypeReservedNames() []string {
 // +kubebuilder:subresource:status
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:scope=Cluster,categories=kcp
-type ClusterWorkspaceType struct {
+type WorkspaceType struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// +optional
-	Spec ClusterWorkspaceTypeSpec `json:"spec,omitempty"`
+	Spec WorkspaceTypeSpec `json:"spec,omitempty"`
 
 	// +optional
-	Status ClusterWorkspaceTypeStatus `json:"status,omitempty"`
+	Status WorkspaceTypeStatus `json:"status,omitempty"`
 }
 
-type ClusterWorkspaceTypeSpec struct {
-	// initializer determines if this ClusterWorkspaceType has an associated initializing
+type WorkspaceTypeSpec struct {
+	// initializer determines if this WorkspaceType has an associated initializing
 	// controller. These controllers are used to add functionality to a ClusterWorkspace;
 	// all controllers must finish their work before the ClusterWorkspace becomes ready
 	// for use.
 	//
-	// One initializing controller is supported per ClusterWorkspaceType; the identifier
+	// One initializing controller is supported per WorkspaceType; the identifier
 	// for this initializer will be a colon-delimited string using the workspace in which
-	// the ClusterWorkspaceType is defined, and the type's name. For example, if a
-	// ClusterWorkspaceType `example` is created in the `root:org` workspace, the implicit
+	// the WorkspaceType is defined, and the type's name. For example, if a
+	// WorkspaceType `example` is created in the `root:org` workspace, the implicit
 	// initializer name is `root:org:Example`.
 	//
 	// +optional
 	Initializer bool `json:"initializer,omitempty"`
 
-	// extend is a list of other ClusterWorkspaceTypes whose initializers and limitAllowedChildren
-	// and limitAllowedParents this ClusterWorkspaceType is inheriting. By (transitively) extending
-	// another ClusterWorkspaceType, this ClusterWorkspaceType will be considered as that
+	// extend is a list of other WorkspaceTypes whose initializers and limitAllowedChildren
+	// and limitAllowedParents this WorkspaceType is inheriting. By (transitively) extending
+	// another WorkspaceType, this WorkspaceType will be considered as that
 	// other type in evaluation of limitAllowedChildren and limitAllowedParents constraints.
 	//
-	// A dependency cycle stop this ClusterWorkspaceType from being admitted as the type
+	// A dependency cycle stop this WorkspaceType from being admitted as the type
 	// of a ClusterWorkspace.
 	//
-	// A non-existing dependency stop this ClusterWorkspaceType from being admitted as the type
+	// A non-existing dependency stop this WorkspaceType from being admitted as the type
 	// of a ClusterWorkspace.
 	//
 	// +optional
-	Extend ClusterWorkspaceTypeExtension `json:"extend,omitempty"`
+	Extend WorkspaceTypesExtension `json:"extend,omitempty"`
 
 	// additionalWorkspaceLabels are a set of labels that will be added to a
 	// ClusterWorkspace on creation.
@@ -91,27 +91,27 @@ type ClusterWorkspaceTypeSpec struct {
 	// +optional
 	AdditionalWorkspaceLabels map[string]string `json:"additionalWorkspaceLabels,omitempty"`
 
-	// defaultChildWorkspaceType is the ClusterWorkspaceType that will be used
+	// defaultChildWorkspaceType is the WorkspaceType that will be used
 	// by default if another, nested ClusterWorkspace is created in a workspace
 	// of this type. When this field is unset, the user must specify a type when
-	// creating nested workspaces. Extending another ClusterWorkspaceType does
+	// creating nested workspaces. Extending another WorkspaceType does
 	// not inherit its defaultChildWorkspaceType.
 	//
 	// +optional
-	DefaultChildWorkspaceType *ClusterWorkspaceTypeReference `json:"defaultChildWorkspaceType,omitempty"`
+	DefaultChildWorkspaceType *WorkspaceTypesReference `json:"defaultChildWorkspaceType,omitempty"`
 
 	// limitAllowedChildren specifies constraints for sub-workspaces created in workspaces
 	// of this type. These are in addition to child constraints of types this one extends.
 	//
 	// +optional
-	LimitAllowedChildren *ClusterWorkspaceTypeSelector `json:"limitAllowedChildren,omitempty"`
+	LimitAllowedChildren *WorkspaceTypeSelector `json:"limitAllowedChildren,omitempty"`
 
 	// limitAllowedParents specifies constraints for the parent workspace that workspaces
 	// of this type are created in. These are in addition to parent constraints of types this one
 	// extends.
 	//
 	// +optional
-	LimitAllowedParents *ClusterWorkspaceTypeSelector `json:"limitAllowedParents,omitempty"`
+	LimitAllowedParents *WorkspaceTypeSelector `json:"limitAllowedParents,omitempty"`
 
 	// defaultAPIBindings are the APIs to bind during initialization of workspaces created from this type.
 	// The APIBinding names will be generated dynamically.
@@ -138,14 +138,14 @@ type APIExportReference struct {
 	Export string `json:"export"`
 }
 
-// ClusterWorkspaceTypeSelector describes a set of types.
-type ClusterWorkspaceTypeSelector struct {
+// WorkspaceTypeSelector describes a set of types.
+type WorkspaceTypeSelector struct {
 	// none means that no type matches.
 	//
 	// +kuberbuilders:Enum=true
 	None bool `json:"none,omitempty"`
 
-	// types is a list of ClusterWorkspaceTypes that match. A workspace type extending
+	// types is a list of WorkspaceTypes that match. A workspace type extending
 	// another workspace type automatically is considered as that extended type as well
 	// (even transitively).
 	//
@@ -153,28 +153,28 @@ type ClusterWorkspaceTypeSelector struct {
 	//
 	// +optional
 	// +kubebuilder:validation:MinItems=1
-	Types []ClusterWorkspaceTypeReference `json:"types,omitempty"`
+	Types []WorkspaceTypesReference `json:"types,omitempty"`
 }
 
-// ClusterWorkspaceTypeExtension defines how other ClusterWorkspaceTypes are
-// composed together to add functionality to the owning ClusterWorkspaceType.
-type ClusterWorkspaceTypeExtension struct {
-	// with are ClusterWorkspaceTypes whose initializers are added to the list
+// WorkspaceTypesExtension defines how other WorkspaceTypes are
+// composed together to add functionality to the owning WorkspaceType.
+type WorkspaceTypesExtension struct {
+	// with are WorkspaceTypes whose initializers are added to the list
 	// for the owning type, and for whom the owning type becomes an alias, as long
 	// as all of their required types are not mentioned in without.
 	//
 	// +optional
-	With []ClusterWorkspaceTypeReference `json:"with,omitempty"`
+	With []WorkspaceTypesReference `json:"with,omitempty"`
 }
 
-// These are valid conditions of ClusterWorkspaceType.
+// These are valid conditions of WorkspaceType.
 const (
-	ClusterWorkspaceTypeVirtualWorkspaceURLsReady conditionsv1alpha1.ConditionType = "VirtualWorkspaceURLsReady"
-	ErrorGeneratingURLsReason                                                      = "ErrorGeneratingURLs"
+	WorkspaceTypesVirtualWorkspaceURLsReady conditionsv1alpha1.ConditionType = "VirtualWorkspaceURLsReady"
+	ErrorGeneratingURLsReason                                                = "ErrorGeneratingURLs"
 )
 
-// ClusterWorkspaceTypeStatus defines the observed state of ClusterWorkspaceType.
-type ClusterWorkspaceTypeStatus struct {
+// WorkspaceTypeStatus defines the observed state of WorkspaceType.
+type WorkspaceTypeStatus struct {
 	// conditions is a list of conditions that apply to the APIExport.
 	//
 	// +optional
@@ -186,7 +186,7 @@ type ClusterWorkspaceTypeStatus struct {
 }
 
 type VirtualWorkspace struct {
-	// url is a ClusterWorkspaceType initialization virtual workspace URL.
+	// url is a WorkspaceType initialization virtual workspace URL.
 	//
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:format:URL
@@ -194,26 +194,26 @@ type VirtualWorkspace struct {
 	URL string `json:"url"`
 }
 
-func (in *ClusterWorkspaceType) GetConditions() conditionsv1alpha1.Conditions {
+func (in *WorkspaceType) GetConditions() conditionsv1alpha1.Conditions {
 	return in.Status.Conditions
 }
 
-func (in *ClusterWorkspaceType) SetConditions(conditions conditionsv1alpha1.Conditions) {
+func (in *WorkspaceType) SetConditions(conditions conditionsv1alpha1.Conditions) {
 	in.Status.Conditions = conditions
 }
 
-// ClusterWorkspaceTypeList is a list of cluster workspace types
+// WorkspaceTypeList is a list of cluster workspace types
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type ClusterWorkspaceTypeList struct {
+type WorkspaceTypeList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 
-	Items []ClusterWorkspaceType `json:"items"`
+	Items []WorkspaceType `json:"items"`
 }
 
 // WorkspaceAPIBindingsInitializer is a special-case initializer that waits for APIBindings defined
-// on a ClusterWorkspaceType to be created.
+// on a WorkspaceType to be created.
 const WorkspaceAPIBindingsInitializer corev1alpha1.LogicalClusterInitializer = "system:apibindings"
 
 const (
@@ -228,26 +228,26 @@ const (
 
 const (
 	// RootWorkspaceTypeName is a reference to the root logical cluster, which has no cluster workspace type
-	RootWorkspaceTypeName = ClusterWorkspaceTypeName("root")
+	RootWorkspaceTypeName = WorkspaceTypesName("root")
 )
 
 var (
 	// RootWorkspaceTypeReference is a reference to the root logical cluster, which has no cluster workspace type
-	RootWorkspaceTypeReference = ClusterWorkspaceTypeReference{
+	RootWorkspaceTypeReference = WorkspaceTypesReference{
 		Name: RootWorkspaceTypeName,
 		Path: RootCluster.String(),
 	}
 
 	// RootWorkspaceType is the implicit type of the root logical cluster.
-	RootWorkspaceType = &ClusterWorkspaceType{
+	RootWorkspaceType = &WorkspaceType{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: ObjectName(RootWorkspaceTypeReference.Name),
 			Annotations: map[string]string{
 				logicalcluster.AnnotationKey: RootWorkspaceTypeReference.Path,
 			},
 		},
-		Spec: ClusterWorkspaceTypeSpec{
-			LimitAllowedParents: &ClusterWorkspaceTypeSelector{
+		Spec: WorkspaceTypeSpec{
+			LimitAllowedParents: &WorkspaceTypeSelector{
 				None: true,
 			},
 		},
@@ -255,13 +255,13 @@ var (
 )
 
 // ObjectName converts the proper name of a type that users interact with to the
-// metadata.name of the ClusterWorkspaceType object.
-func ObjectName(typeName ClusterWorkspaceTypeName) string {
+// metadata.name of the WorkspaceType object.
+func ObjectName(typeName WorkspaceTypesName) string {
 	return string(typeName)
 }
 
-// TypeName converts the metadata.name of a ClusterWorkspaceType to the proper
+// TypeName converts the metadata.name of a WorkspaceType to the proper
 // name of a type, as users interact with it.
-func TypeName(objectName string) ClusterWorkspaceTypeName {
-	return ClusterWorkspaceTypeName(objectName)
+func TypeName(objectName string) WorkspaceTypesName {
+	return WorkspaceTypesName(objectName)
 }

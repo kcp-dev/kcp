@@ -80,13 +80,13 @@ type ClusterWorkspaceSpec struct {
 	// If no type is provided, the default type for the workspace in which this workspace
 	// is nesting will be used.
 	//
-	// The type is a reference to a ClusterWorkspaceType in the listed workspace, but
-	// lower-cased. The ClusterWorkspaceType existence is validated at admission during
+	// The type is a reference to a WorkspaceType in the listed workspace, but
+	// lower-cased. The WorkspaceType existence is validated at admission during
 	// creation. The type is immutable after creation. The use of a type is gated via
-	// the RBAC clusterworkspacetypes/use resource permission.
+	// the RBAC workspacetypes/use resource permission.
 	//
 	// +optional
-	Type ClusterWorkspaceTypeReference `json:"type,omitempty"`
+	Type WorkspaceTypesReference `json:"type,omitempty"`
 
 	// shard constraints onto which shards this cluster workspace can be scheduled to.
 	// if the constraint is not fulfilled by the current location stored in the status,
@@ -113,14 +113,14 @@ type ShardConstraints struct {
 	Selector *metav1.LabelSelector `json:"selector,omitempty"`
 }
 
-// ClusterWorkspaceTypeReference is a globally unique, fully qualified reference to a
+// WorkspaceTypesReference is a globally unique, fully qualified reference to a
 // cluster workspace type.
-type ClusterWorkspaceTypeReference struct {
-	// name is the name of the ClusterWorkspaceType
+type WorkspaceTypesReference struct {
+	// name is the name of the WorkspaceType
 	//
 	// +required
 	// +kubebuilder:validation:Required
-	Name ClusterWorkspaceTypeName `json:"name"`
+	Name WorkspaceTypesName `json:"name"`
 
 	// path is an absolute reference to the workspace that owns this type, e.g. root:org:ws.
 	//
@@ -129,12 +129,12 @@ type ClusterWorkspaceTypeReference struct {
 	Path string `json:"path,omitempty"`
 }
 
-// ClusterWorkspaceTypeName is a name of a ClusterWorkspaceType
+// WorkspaceTypesName is a name of a WorkspaceType
 //
 // +kubebuilder:validation:Pattern=`^[a-z]([a-z0-9-]{0,61}[a-z0-9])?`
-type ClusterWorkspaceTypeName string
+type WorkspaceTypesName string
 
-func (r ClusterWorkspaceTypeReference) String() string {
+func (r WorkspaceTypesReference) String() string {
 	return fmt.Sprintf("%s:%s", r.Path, r.Name)
 }
 
@@ -237,10 +237,10 @@ const (
 	// WorkspaceInitializedWaitingOnAPIBindings is a reason for the APIBindingsInitialized condition that indicates
 	// at least one APIBinding is not ready.
 	WorkspaceInitializedWaitingOnAPIBindings = "WaitingOnAPIBindings"
-	// WorkspaceInitializedClusterWorkspaceTypeInvalid is a reason for the APIBindingsInitialized
-	// condition that indicates something is invalid with the ClusterWorkspaceType (e.g. a cycle trying
+	// WorkspaceInitializedWorkspaceTypesInvalid is a reason for the APIBindingsInitialized
+	// condition that indicates something is invalid with the WorkspaceType (e.g. a cycle trying
 	// to resolve all the transitive types).
-	WorkspaceInitializedClusterWorkspaceTypeInvalid = "ClusterWorkspaceTypeInvalid"
+	WorkspaceInitializedWorkspaceTypesInvalid = "WorkspaceTypesInvalid"
 	// WorkspaceInitializedAPIBindingErrors is a reason for the APIBindingsInitialized condition that indicates there
 	// were errors trying to initialize APIBindings for the workspace.
 	WorkspaceInitializedAPIBindingErrors = "APIBindingErrors"

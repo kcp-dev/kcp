@@ -183,7 +183,7 @@ func (o *Options) rawFlags() cliflag.NamedFlagSets {
 	fs.StringSliceVar(&o.Extra.BatteriesIncluded, "batteries-included", o.Extra.BatteriesIncluded, fmt.Sprintf(
 		`A list of batteries included (= default objects that might be unwanted in production, but are very helpful in trying out kcp or for development). These are the possible values: %s.
 
-- cluster-workspace-types: creates "organization" and "team" ClusterWorkspaceTypes in the root workspace.
+- cluster-workspace-types: creates "organization" and "team" WorkspaceTypes in the root workspace.
 - root-compute-workspace:  create a root:compute workspace, and kubernetes APIExport in it for deployments/services/ingresses
 - user:                    creates an additional non-admin user and context named "user" in the admin.kubeconfig
 

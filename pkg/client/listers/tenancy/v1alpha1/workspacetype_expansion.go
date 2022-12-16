@@ -21,8 +21,8 @@ limitations under the License.
 
 package v1alpha1
 
-// ClusterWorkspaceTypeClusterListerExpansion allows custom methods to be added to ClusterWorkspaceTypeClusterLister.
-type ClusterWorkspaceTypeClusterListerExpansion interface{}
+// WorkspaceTypeClusterListerExpansion allows custom methods to be added to WorkspaceTypeClusterLister.
+type WorkspaceTypeClusterListerExpansion interface{}
 
-// ClusterWorkspaceTypeListerExpansion allows custom methods to be added to ClusterWorkspaceTypeLister.
-type ClusterWorkspaceTypeListerExpansion interface{}
+// WorkspaceTypeListerExpansion allows custom methods to be added to WorkspaceTypeLister.
+type WorkspaceTypeListerExpansion interface{}

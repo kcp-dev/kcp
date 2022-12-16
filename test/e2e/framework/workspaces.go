@@ -53,9 +53,9 @@ func WithRequiredGroups(groups ...string) ClusterWorkspaceOption {
 	}
 }
 
-func WithType(path logicalcluster.Path, name tenancyv1alpha1.ClusterWorkspaceTypeName) ClusterWorkspaceOption {
+func WithType(path logicalcluster.Path, name tenancyv1alpha1.WorkspaceTypesName) ClusterWorkspaceOption {
 	return func(ws *tenancyv1alpha1.ClusterWorkspace) {
-		ws.Spec.Type = tenancyv1alpha1.ClusterWorkspaceTypeReference{
+		ws.Spec.Type = tenancyv1alpha1.WorkspaceTypesReference{
 			Name: name,
 			Path: path.String(),
 		}
@@ -82,8 +82,8 @@ func NewWorkspaceFixtureObject(t *testing.T, server RunningServer, orgClusterNam
 			GenerateName: "e2e-workspace-",
 		},
 		Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-			Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
-				Name: tenancyv1alpha1.ClusterWorkspaceTypeName("universal"),
+			Type: tenancyv1alpha1.WorkspaceTypesReference{
+				Name: tenancyv1alpha1.WorkspaceTypesName("universal"),
 				Path: "root",
 			},
 		},
@@ -92,7 +92,7 @@ func NewWorkspaceFixtureObject(t *testing.T, server RunningServer, orgClusterNam
 		opt(tmpl)
 	}
 
-	// we are referring here to a ClusterWorkspaceType that may have just been created; if the admission controller
+	// we are referring here to a WorkspaceType that may have just been created; if the admission controller
 	// does not have a fresh enough cache, our request will be denied as the admission controller does not know the
 	// type exists. Therefore, we can require.Eventually our way out of this problem. We expect users to create new
 	// types very infrequently, so we do not think this will be a serious UX issue in the product.
@@ -153,7 +153,7 @@ func NewOrganizationFixtureObject(t *testing.T, server RunningServer, options ..
 			GenerateName: "e2e-org-",
 		},
 		Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-			Type: tenancyv1alpha1.ClusterWorkspaceTypeReference{
+			Type: tenancyv1alpha1.WorkspaceTypesReference{
 				Name: "organization",
 				Path: "root",
 			},
@@ -163,7 +163,7 @@ func NewOrganizationFixtureObject(t *testing.T, server RunningServer, options ..
 		opt(tmpl)
 	}
 
-	// we are referring here to a ClusterWorkspaceType that may have just been created; if the admission controller
+	// we are referring here to a WorkspaceType that may have just been created; if the admission controller
 	// does not have a fresh enough cache, our request will be denied as the admission controller does not know the
 	// type exists. Therefore, we can require.Eventually our way out of this problem. We expect users to create new
 	// types very infrequently, so we do not think this will be a serious UX issue in the product.

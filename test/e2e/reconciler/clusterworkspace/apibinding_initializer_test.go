@@ -34,7 +34,7 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
-func TestClusterWorkspaceTypeAPIBindingInitialization(t *testing.T) {
+func TestWorkspaceTypesAPIBindingInitialization(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
@@ -87,11 +87,11 @@ func TestClusterWorkspaceTypeAPIBindingInitialization(t *testing.T) {
 	universal := framework.NewWorkspaceFixtureObject(t, server, orgPath, framework.WithName("universal"))
 	universalPath := orgPath.Join(universal.Name)
 
-	cwtParent1 := &tenancyv1alpha1.ClusterWorkspaceType{
+	cwtParent1 := &tenancyv1alpha1.WorkspaceType{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "parent1",
 		},
-		Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+		Spec: tenancyv1alpha1.WorkspaceTypeSpec{
 			DefaultAPIBindings: []tenancyv1alpha1.APIExportReference{
 				{
 					Path:   cowboysProviderPath.String(),
@@ -105,11 +105,11 @@ func TestClusterWorkspaceTypeAPIBindingInitialization(t *testing.T) {
 		},
 	}
 
-	cwtParent2 := &tenancyv1alpha1.ClusterWorkspaceType{
+	cwtParent2 := &tenancyv1alpha1.WorkspaceType{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "parent2",
 		},
-		Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+		Spec: tenancyv1alpha1.WorkspaceTypeSpec{
 			DefaultAPIBindings: []tenancyv1alpha1.APIExportReference{
 				{
 					Path:   "root",
@@ -119,19 +119,19 @@ func TestClusterWorkspaceTypeAPIBindingInitialization(t *testing.T) {
 		},
 	}
 
-	cwt := &tenancyv1alpha1.ClusterWorkspaceType{
+	cwt := &tenancyv1alpha1.WorkspaceType{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test",
 		},
-		Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+		Spec: tenancyv1alpha1.WorkspaceTypeSpec{
 			DefaultAPIBindings: []tenancyv1alpha1.APIExportReference{
 				{
 					Path:   "root",
 					Export: "shards.tenancy.kcp.dev",
 				},
 			},
-			Extend: tenancyv1alpha1.ClusterWorkspaceTypeExtension{
-				With: []tenancyv1alpha1.ClusterWorkspaceTypeReference{
+			Extend: tenancyv1alpha1.WorkspaceTypesExtension{
+				With: []tenancyv1alpha1.WorkspaceTypesReference{
 					{
 						Name: "parent1",
 						Path: universalPath.String(),
@@ -145,16 +145,16 @@ func TestClusterWorkspaceTypeAPIBindingInitialization(t *testing.T) {
 		},
 	}
 
-	t.Logf("Creating ClusterWorkspaceType parent1")
-	_, err = kcpClusterClient.Cluster(universalPath).TenancyV1alpha1().ClusterWorkspaceTypes().Create(ctx, cwtParent1, metav1.CreateOptions{})
+	t.Logf("Creating WorkspaceType parent1")
+	_, err = kcpClusterClient.Cluster(universalPath).TenancyV1alpha1().WorkspaceTypes().Create(ctx, cwtParent1, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating cwt parent1")
 
-	t.Logf("Creating ClusterWorkspaceType parent2")
-	_, err = kcpClusterClient.Cluster(universalPath).TenancyV1alpha1().ClusterWorkspaceTypes().Create(ctx, cwtParent2, metav1.CreateOptions{})
+	t.Logf("Creating WorkspaceType parent2")
+	_, err = kcpClusterClient.Cluster(universalPath).TenancyV1alpha1().WorkspaceTypes().Create(ctx, cwtParent2, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating cwt parent2")
 
-	t.Logf("Creating ClusterWorkspaceType test")
-	_, err = kcpClusterClient.Cluster(universalPath).TenancyV1alpha1().ClusterWorkspaceTypes().Create(ctx, cwt, metav1.CreateOptions{})
+	t.Logf("Creating WorkspaceType test")
+	_, err = kcpClusterClient.Cluster(universalPath).TenancyV1alpha1().WorkspaceTypes().Create(ctx, cwt, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating cwt test")
 
 	// This will create and wait for ready, which only happens if the APIBinding initialization is working correctly

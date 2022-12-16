@@ -69,10 +69,10 @@ import (
 	schedulinglocationstatus "github.com/kcp-dev/kcp/pkg/reconciler/scheduling/location"
 	schedulingplacement "github.com/kcp-dev/kcp/pkg/reconciler/scheduling/placement"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/bootstrap"
-	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspacetype"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/initialization"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspace"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspacedeletion"
+	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspacetype"
 	workloadsapiexport "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexport"
 	workloadsapiexportcreate "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexportcreate"
 	"github.com/kcp-dev/kcp/pkg/reconciler/workload/heartbeat"
@@ -394,7 +394,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		logicalClusterAdminConfig,
 		s.KcpSharedInformerFactory.Tenancy().V1beta1().Workspaces(),
 		s.KcpSharedInformerFactory.Core().V1alpha1().Shards(),
-		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceTypes(),
+		s.KcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
 		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 	)
 	if err != nil {
@@ -446,23 +446,23 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 	}
 
 	workspaceTypeConfig := rest.CopyConfig(config)
-	workspaceTypeConfig = rest.AddUserAgent(workspaceTypeConfig, clusterworkspacetype.ControllerName)
+	workspaceTypeConfig = rest.AddUserAgent(workspaceTypeConfig, workspacetype.ControllerName)
 	kcpClusterClient, err = kcpclientset.NewForConfig(workspaceTypeConfig)
 	if err != nil {
 		return err
 	}
 
-	workspaceTypeController, err := clusterworkspacetype.NewController(
+	workspaceTypeController, err := workspacetype.NewController(
 		kcpClusterClient,
-		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceTypes(),
+		s.KcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
 		s.KcpSharedInformerFactory.Core().V1alpha1().Shards(),
 	)
 	if err != nil {
 		return err
 	}
 
-	if err := s.AddPostStartHook(postStartHookName(clusterworkspacetype.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(clusterworkspacetype.ControllerName))
+	if err := s.AddPostStartHook(postStartHookName(workspacetype.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
+		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(workspacetype.ControllerName))
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			logger.Error(err, "failed to finish post-start-hook")
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
@@ -493,7 +493,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		dynamicClusterClient,
 		bootstrapKcpClusterClient,
 		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
-		tenancyv1alpha1.ClusterWorkspaceTypeReference{Path: "root", Name: "universal"},
+		tenancyv1alpha1.WorkspaceTypesReference{Path: "root", Name: "universal"},
 		configuniversal.Bootstrap,
 		sets.NewString(s.Options.Extra.BatteriesIncluded...),
 	)
@@ -796,7 +796,7 @@ func (s *Server) installAPIBinderController(ctx context.Context, config *rest.Co
 	c, err := initialization.NewAPIBinder(
 		initializingWorkspacesKcpClusterClient,
 		initializingWorkspacesKcpInformers.Core().V1alpha1().LogicalClusters(),
-		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceTypes(),
+		s.KcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
 	)

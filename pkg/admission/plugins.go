@@ -43,8 +43,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/admission/apibindingfinalizer"
 	"github.com/kcp-dev/kcp/pkg/admission/apiexport"
 	"github.com/kcp-dev/kcp/pkg/admission/apiresourceschema"
-	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspacetype"
-	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspacetypeexists"
 	"github.com/kcp-dev/kcp/pkg/admission/crdnooverlappinggvr"
 	"github.com/kcp-dev/kcp/pkg/admission/kubequota"
 	kcplimitranger "github.com/kcp-dev/kcp/pkg/admission/limitranger"
@@ -61,6 +59,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/admission/shard"
 	kcpvalidatingwebhook "github.com/kcp-dev/kcp/pkg/admission/validatingwebhook"
 	"github.com/kcp-dev/kcp/pkg/admission/workspace"
+	"github.com/kcp-dev/kcp/pkg/admission/workspacetype"
+	"github.com/kcp-dev/kcp/pkg/admission/workspacetypeexists"
 )
 
 // AllOrderedPlugins is the list of all the plugins in order.
@@ -70,8 +70,8 @@ var AllOrderedPlugins = beforeWebhooks(kubeapiserveroptions.AllOrderedPlugins,
 	workspace.PluginName,
 	logicalclusterfinalizer.PluginName,
 	shard.PluginName,
-	clusterworkspacetype.PluginName,
-	clusterworkspacetypeexists.PluginName,
+	workspacetype.PluginName,
+	workspacetypeexists.PluginName,
 	logicalcluster.PluginName,
 	apiexport.PluginName,
 	apibinding.PluginName,
@@ -107,8 +107,8 @@ func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 	workspace.Register(plugins)
 	logicalclusterfinalizer.Register(plugins)
 	shard.Register(plugins)
-	clusterworkspacetype.Register(plugins)
-	clusterworkspacetypeexists.Register(plugins)
+	workspacetype.Register(plugins)
+	workspacetypeexists.Register(plugins)
 	logicalcluster.Register(plugins)
 	apiresourceschema.Register(plugins)
 	apiexport.Register(plugins)
@@ -139,8 +139,8 @@ var defaultOnPluginsInKcp = sets.NewString(
 	workspace.PluginName,
 	logicalclusterfinalizer.PluginName,
 	shard.PluginName,
-	clusterworkspacetype.PluginName,
-	clusterworkspacetypeexists.PluginName,
+	workspacetype.PluginName,
+	workspacetypeexists.PluginName,
 	logicalcluster.PluginName,
 	apiresourceschema.PluginName,
 	apiexport.PluginName,

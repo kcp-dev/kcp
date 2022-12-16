@@ -29,6 +29,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	virtualoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpclusterclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"

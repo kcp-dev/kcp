@@ -122,14 +122,14 @@ spec:
                   (e.g. initial resources and initially installed APIs) and during
                   runtime (e.g. permissions). If no type is provided, the default
                   type for the workspace in which this workspace is nesting will be
-                  used. \n The type is a reference to a ClusterWorkspaceType in the
-                  listed workspace, but lower-cased. The ClusterWorkspaceType existence
-                  is validated at admission during creation. The type is immutable
-                  after creation. The use of a type is gated via the RBAC clusterworkspacetypes/use
-                  resource permission."
+                  used. \n The type is a reference to a WorkspaceType in the listed
+                  workspace, but lower-cased. The WorkspaceType existence is validated
+                  at admission during creation. The type is immutable after creation.
+                  The use of a type is gated via the RBAC workspacetypes/use resource
+                  permission."
                 properties:
                   name:
-                    description: name is the name of the ClusterWorkspaceType
+                    description: name is the name of the WorkspaceType
                     pattern: ^[a-z]([a-z0-9-]{0,61}[a-z0-9])?
                     type: string
                   path:

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package clusterworkspacetype
+package workspacetype
 
 import (
 	"context"
@@ -33,11 +33,11 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces"
 )
 
-func (c *controller) reconcile(ctx context.Context, cwt *tenancyv1alpha1.ClusterWorkspaceType) {
+func (c *controller) reconcile(ctx context.Context, cwt *tenancyv1alpha1.WorkspaceType) {
 	if err := c.updateVirtualWorkspaceURLs(ctx, cwt); err != nil {
 		conditions.MarkFalse(
 			cwt,
-			tenancyv1alpha1.ClusterWorkspaceTypeVirtualWorkspaceURLsReady,
+			tenancyv1alpha1.WorkspaceTypesVirtualWorkspaceURLsReady,
 			tenancyv1alpha1.ErrorGeneratingURLsReason,
 			conditionsv1alpha1.ConditionSeverityError,
 			err.Error(),
@@ -45,14 +45,14 @@ func (c *controller) reconcile(ctx context.Context, cwt *tenancyv1alpha1.Cluster
 	} else {
 		conditions.MarkTrue(
 			cwt,
-			tenancyv1alpha1.ClusterWorkspaceTypeVirtualWorkspaceURLsReady,
+			tenancyv1alpha1.WorkspaceTypesVirtualWorkspaceURLsReady,
 		)
 	}
 
 	conditions.SetSummary(cwt)
 }
 
-func (c *controller) updateVirtualWorkspaceURLs(ctx context.Context, cwt *tenancyv1alpha1.ClusterWorkspaceType) error {
+func (c *controller) updateVirtualWorkspaceURLs(ctx context.Context, cwt *tenancyv1alpha1.WorkspaceType) error {
 	logger := klog.FromContext(ctx)
 	shards, err := c.listShards()
 	if err != nil {

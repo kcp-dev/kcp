@@ -324,7 +324,7 @@ func (o *apiBindingAdmission) SetKcpInformers(informers kcpinformers.SharedInfor
 	o.apiExportLister = informers.Apis().V1alpha1().APIExports().Lister()
 	o.apiExportIndexer = informers.Apis().V1alpha1().APIExports().Informer().GetIndexer()
 
-	indexers.AddIfNotPresentOrDie(informers.Tenancy().V1alpha1().ClusterWorkspaceTypes().Informer().GetIndexer(), cache.Indexers{
+	indexers.AddIfNotPresentOrDie(informers.Tenancy().V1alpha1().WorkspaceTypes().Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
 }

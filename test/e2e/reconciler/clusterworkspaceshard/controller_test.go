@@ -27,7 +27,7 @@ import (
 
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
-	tenancyv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
+	corev1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/core/v1alpha1"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -37,7 +37,7 @@ func TestWorkspaceShardController(t *testing.T) {
 
 	type runningServer struct {
 		framework.RunningServer
-		rootShardClient               tenancyv1alpha1client.ShardInterface
+		rootShardClient               corev1alpha1client.ShardInterface
 		rootKubeClient, orgKubeClient kubernetes.Interface
 		expect                        framework.RegisterWorkspaceShardExpectation
 	}

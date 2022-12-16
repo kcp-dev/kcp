@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package clusterworkspacetype
+package workspacetype
 
 import (
 	"context"
@@ -48,69 +48,69 @@ import (
 )
 
 const (
-	ControllerName = "kcp-clusterworkspacetype"
+	ControllerName = "kcp-workspacetype"
 )
 
 // NewController returns a new controller for APIExports.
 func NewController(
 	kcpClusterClient kcpclientset.ClusterInterface,
-	clusterWorkspaceTypeInformer tenancyinformers.ClusterWorkspaceTypeClusterInformer,
+	workspaceTypeInformer tenancyinformers.WorkspaceTypeClusterInformer,
 	shardInformer corev1alpha1informers.ShardClusterInformer,
 ) (*controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
 	shardLister := shardInformer.Lister()
-	clusterWorkspaceTypeLister := clusterWorkspaceTypeInformer.Lister()
+	workspacetypeLister := workspaceTypeInformer.Lister()
 	c := &controller{
-		queue:                      queue,
-		kcpClusterClient:           kcpClusterClient,
-		clusterWorkspaceTypeLister: clusterWorkspaceTypeLister,
+		queue:               queue,
+		kcpClusterClient:    kcpClusterClient,
+		workspacetypeLister: workspacetypeLister,
 		listShards: func() ([]*corev1alpha1.Shard, error) {
 			return shardLister.List(labels.Everything())
 		},
-		resolveClusterWorkspaceType: func(reference tenancyv1alpha1.ClusterWorkspaceTypeReference) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
+		resolveWorkspaceTypes: func(reference tenancyv1alpha1.WorkspaceTypesReference) (*tenancyv1alpha1.WorkspaceType, error) {
 			path := logicalcluster.NewPath(reference.Path)
 			name := string(reference.Name)
-			objs, err := clusterWorkspaceTypeInformer.Informer().GetIndexer().ByIndex(indexers.ByLogicalClusterPathAndName, path.Join(name).String())
+			objs, err := workspaceTypeInformer.Informer().GetIndexer().ByIndex(indexers.ByLogicalClusterPathAndName, path.Join(name).String())
 			if err != nil {
 				return nil, err
 			}
 			if len(objs) == 0 {
-				return nil, fmt.Errorf("no ClusterWorkspaceType found for %s", path.Join(name).String())
+				return nil, fmt.Errorf("no WorkspaceType found for %s", path.Join(name).String())
 			}
 			if len(objs) > 1 {
-				return nil, fmt.Errorf("multiple ClusterWorkspaceTypes found for %s", path.Join(name).String())
+				return nil, fmt.Errorf("multiple WorkspaceTypes found for %s", path.Join(name).String())
 			}
-			return objs[0].(*tenancyv1alpha1.ClusterWorkspaceType), nil
+			return objs[0].(*tenancyv1alpha1.WorkspaceType), nil
 		},
 	}
 
-	indexers.AddIfNotPresentOrDie(clusterWorkspaceTypeInformer.Informer().GetIndexer(), cache.Indexers{
+	indexers.AddIfNotPresentOrDie(workspaceTypeInformer.Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
 
-	clusterWorkspaceTypeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	workspaceTypeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueClusterWorkspaceType(obj)
+			c.enqueueWorkspaceTypes(obj)
 		},
 		UpdateFunc: func(_, newObj interface{}) {
-			c.enqueueClusterWorkspaceType(newObj)
+			c.enqueueWorkspaceTypes(newObj)
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueClusterWorkspaceType(obj)
+			c.enqueueWorkspaceTypes(obj)
 		},
 	})
 
 	shardInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				c.enqueueAllClusterWorkspaceTypes(obj)
+				c.enqueueAllWorkspaceTypes(obj)
 			},
 			UpdateFunc: func(_, newObj interface{}) {
-				c.enqueueAllClusterWorkspaceTypes(newObj)
+				c.enqueueAllWorkspaceTypes(newObj)
 			},
 			DeleteFunc: func(obj interface{}) {
-				c.enqueueAllClusterWorkspaceTypes(obj)
+				c.enqueueAllWorkspaceTypes(obj)
 			},
 		},
 	)
@@ -122,14 +122,14 @@ func NewController(
 type controller struct {
 	queue workqueue.RateLimitingInterface
 
-	kcpClusterClient            kcpclientset.ClusterInterface
-	clusterWorkspaceTypeLister  tenancyv1alpha1listers.ClusterWorkspaceTypeClusterLister
-	listShards                  func() ([]*corev1alpha1.Shard, error)
-	resolveClusterWorkspaceType func(reference tenancyv1alpha1.ClusterWorkspaceTypeReference) (*tenancyv1alpha1.ClusterWorkspaceType, error)
+	kcpClusterClient      kcpclientset.ClusterInterface
+	workspacetypeLister   tenancyv1alpha1listers.WorkspaceTypeClusterLister
+	listShards            func() ([]*corev1alpha1.Shard, error)
+	resolveWorkspaceTypes func(reference tenancyv1alpha1.WorkspaceTypesReference) (*tenancyv1alpha1.WorkspaceType, error)
 }
 
-// enqueueClusterWorkspaceType enqueues a ClusterWorkspaceType.
-func (c *controller) enqueueClusterWorkspaceType(obj interface{}) {
+// enqueueWorkspaceTypes enqueues a WorkspaceType.
+func (c *controller) enqueueWorkspaceTypes(obj interface{}) {
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
@@ -137,12 +137,12 @@ func (c *controller) enqueueClusterWorkspaceType(obj interface{}) {
 	}
 
 	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
-	logger.V(2).Info("queueing ClusterWorkspaceType")
+	logger.V(2).Info("queueing WorkspaceType")
 	c.queue.Add(key)
 }
 
-func (c *controller) enqueueAllClusterWorkspaceTypes(shard interface{}) {
-	list, err := c.clusterWorkspaceTypeLister.List(labels.Everything())
+func (c *controller) enqueueAllWorkspaceTypes(shard interface{}) {
+	list, err := c.workspacetypeLister.List(labels.Everything())
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -156,7 +156,7 @@ func (c *controller) enqueueAllClusterWorkspaceTypes(shard interface{}) {
 			continue
 		}
 
-		logging.WithQueueKey(logger, key).V(2).Info("queuing ClusterWorkspaceType because Shard changed")
+		logging.WithQueueKey(logger, key).V(2).Info("queuing WorkspaceType because Shard changed")
 
 		c.queue.Add(key)
 	}
@@ -215,7 +215,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		runtime.HandleError(err)
 		return nil
 	}
-	obj, err := c.clusterWorkspaceTypeLister.Cluster(clusterName).Get(name)
+	obj, err := c.workspacetypeLister.Cluster(clusterName).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil // object deleted before we handled it
@@ -235,7 +235,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 	return c.patchIfNeeded(ctx, old, obj)
 }
 
-func (c *controller) patchIfNeeded(ctx context.Context, old, obj *tenancyv1alpha1.ClusterWorkspaceType) error {
+func (c *controller) patchIfNeeded(ctx context.Context, old, obj *tenancyv1alpha1.WorkspaceType) error {
 	specOrObjectMetaChanged := !equality.Semantic.DeepEqual(old.Spec, obj.Spec) || !equality.Semantic.DeepEqual(old.ObjectMeta, obj.ObjectMeta)
 	statusChanged := !equality.Semantic.DeepEqual(old.Status, obj.Status)
 
@@ -247,8 +247,8 @@ func (c *controller) patchIfNeeded(ctx context.Context, old, obj *tenancyv1alpha
 		return nil
 	}
 
-	clusterWorkspaceTypeForPatch := func(apiExport *tenancyv1alpha1.ClusterWorkspaceType) tenancyv1alpha1.ClusterWorkspaceType {
-		var ret tenancyv1alpha1.ClusterWorkspaceType
+	workspacetypeForPatch := func(apiExport *tenancyv1alpha1.WorkspaceType) tenancyv1alpha1.WorkspaceType {
+		var ret tenancyv1alpha1.WorkspaceType
 		if specOrObjectMetaChanged {
 			ret.ObjectMeta = apiExport.ObjectMeta
 			ret.Spec = apiExport.Spec
@@ -261,29 +261,29 @@ func (c *controller) patchIfNeeded(ctx context.Context, old, obj *tenancyv1alpha
 	clusterName := logicalcluster.From(old)
 	name := old.Name
 
-	oldForPatch := clusterWorkspaceTypeForPatch(old)
+	oldForPatch := workspacetypeForPatch(old)
 	// to ensure they appear in the patch as preconditions
 	oldForPatch.UID = ""
 	oldForPatch.ResourceVersion = ""
 
 	oldData, err := json.Marshal(oldForPatch)
 	if err != nil {
-		return fmt.Errorf("failed to Marshal old data for ClusterWorkspaceType %s|%s: %w", clusterName, name, err)
+		return fmt.Errorf("failed to Marshal old data for WorkspaceType %s|%s: %w", clusterName, name, err)
 	}
 
-	newForPatch := clusterWorkspaceTypeForPatch(obj)
+	newForPatch := workspacetypeForPatch(obj)
 	// to ensure they appear in the patch as preconditions
 	newForPatch.UID = old.UID
 	newForPatch.ResourceVersion = old.ResourceVersion
 
 	newData, err := json.Marshal(newForPatch)
 	if err != nil {
-		return fmt.Errorf("failed to Marshal new data for ClusterWorkspaceType %s|%s: %w", clusterName, name, err)
+		return fmt.Errorf("failed to Marshal new data for WorkspaceType %s|%s: %w", clusterName, name, err)
 	}
 
 	patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
 	if err != nil {
-		return fmt.Errorf("failed to create patch for ClusterWorkspaceType %s|%s: %w", clusterName, name, err)
+		return fmt.Errorf("failed to create patch for WorkspaceType %s|%s: %w", clusterName, name, err)
 	}
 
 	var subresources []string
@@ -291,6 +291,6 @@ func (c *controller) patchIfNeeded(ctx context.Context, old, obj *tenancyv1alpha
 		subresources = []string{"status"}
 	}
 
-	_, err = c.kcpClusterClient.Cluster(clusterName.Path()).TenancyV1alpha1().ClusterWorkspaceTypes().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, subresources...)
+	_, err = c.kcpClusterClient.Cluster(clusterName.Path()).TenancyV1alpha1().WorkspaceTypes().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, subresources...)
 	return err
 }

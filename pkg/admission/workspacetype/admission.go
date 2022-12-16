@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package clusterworkspacetype
+package workspacetype
 
 import (
 	"context"
@@ -30,36 +30,36 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
 
-// Validate ClusterWorkspaceTypes creation and updates for
+// Validate WorkspaceTypes creation and updates for
 //  - "organization" type is only created in root workspace.
 
 const (
-	PluginName = "tenancy.kcp.dev/ClusterWorkspaceType"
+	PluginName = "tenancy.kcp.dev/WorkspaceType"
 )
 
 func Register(plugins *admission.Plugins) {
 	plugins.Register(PluginName,
 		func(_ io.Reader) (admission.Interface, error) {
-			return &clusterWorkspaceType{
+			return &workspacetype{
 				Handler: admission.NewHandler(admission.Create, admission.Update),
 			}, nil
 		})
 }
 
-type clusterWorkspaceType struct {
+type workspacetype struct {
 	*admission.Handler
 }
 
 // Ensure that the required admission interfaces are implemented.
-var _ = admission.ValidationInterface(&clusterWorkspaceType{})
+var _ = admission.ValidationInterface(&workspacetype{})
 
-func (o *clusterWorkspaceType) Validate(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
+func (o *workspacetype) Validate(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
 	clusterName, err := genericapirequest.ClusterNameFrom(ctx)
 	if err != nil {
 		return apierrors.NewInternalError(err)
 	}
 
-	if a.GetResource().GroupResource() != tenancyv1alpha1.Resource("clusterworkspacetypes") {
+	if a.GetResource().GroupResource() != tenancyv1alpha1.Resource("workspacetypes") {
 		return nil
 	}
 
@@ -67,9 +67,9 @@ func (o *clusterWorkspaceType) Validate(ctx context.Context, a admission.Attribu
 	if !ok {
 		return fmt.Errorf("unexpected type %T", a.GetObject())
 	}
-	cwt := &tenancyv1alpha1.ClusterWorkspaceType{}
+	cwt := &tenancyv1alpha1.WorkspaceType{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, cwt); err != nil {
-		return fmt.Errorf("failed to convert unstructured to ClusterWorkspaceType: %w", err)
+		return fmt.Errorf("failed to convert unstructured to WorkspaceType: %w", err)
 	}
 
 	if cwt.Name == "root" && clusterName != tenancyv1alpha1.RootCluster {

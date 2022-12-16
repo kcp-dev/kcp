@@ -62,25 +62,25 @@ func EnsureInitializerAbsent(initializer corev1alpha1.LogicalClusterInitializer,
 	return initializers
 }
 
-// InitializerForType determines the identifier for the implicit initializer associated with the ClusterWorkspaceType.
-func InitializerForType(cwt *tenancyv1alpha1.ClusterWorkspaceType) corev1alpha1.LogicalClusterInitializer {
+// InitializerForType determines the identifier for the implicit initializer associated with the WorkspaceType.
+func InitializerForType(cwt *tenancyv1alpha1.WorkspaceType) corev1alpha1.LogicalClusterInitializer {
 	return corev1alpha1.LogicalClusterInitializer(logicalcluster.From(cwt).Path().Join(cwt.Name).String())
 }
 
 // InitializerForReference determines the identifier for the implicit initializer associated with the
-// ClusterWorkspaceType referred to with the reference.
-func InitializerForReference(cwtr tenancyv1alpha1.ClusterWorkspaceTypeReference) corev1alpha1.LogicalClusterInitializer {
+// WorkspaceType referred to with the reference.
+func InitializerForReference(cwtr tenancyv1alpha1.WorkspaceTypesReference) corev1alpha1.LogicalClusterInitializer {
 	return corev1alpha1.LogicalClusterInitializer(cwtr.Path + ":" + string(cwtr.Name))
 }
 
-// TypeFrom determines the ClusterWorkspaceType workspace and name from an initializer name.
+// TypeFrom determines the WorkspaceType workspace and name from an initializer name.
 func TypeFrom(initializer corev1alpha1.LogicalClusterInitializer) (logicalcluster.Name, string, error) {
 	separatorIndex := strings.LastIndex(string(initializer), ":")
 	switch separatorIndex {
 	case -1:
 		return "", "", fmt.Errorf("expected cluster workspace initializer in form workspace:name, not %q", initializer)
 	default:
-		return logicalcluster.Name(initializer[:separatorIndex]), tenancyv1alpha1.ObjectName(tenancyv1alpha1.ClusterWorkspaceTypeName(initializer[separatorIndex+1:])), nil
+		return logicalcluster.Name(initializer[:separatorIndex]), tenancyv1alpha1.ObjectName(tenancyv1alpha1.WorkspaceTypesName(initializer[separatorIndex+1:])), nil
 	}
 }
 

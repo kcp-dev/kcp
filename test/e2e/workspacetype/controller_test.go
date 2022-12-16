@@ -42,7 +42,7 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
-func TestClusterWorkspaceTypes(t *testing.T) {
+func TestWorkspaceTypes(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
@@ -100,18 +100,18 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 				require.Error(t, err, "failed to create workspace")
 
 				t.Logf("Create type Foo")
-				cwt, err := server.kcpClusterClient.Cluster(universal.Path()).TenancyV1alpha1().ClusterWorkspaceTypes().Create(ctx, &tenancyv1alpha1.ClusterWorkspaceType{
+				cwt, err := server.kcpClusterClient.Cluster(universal.Path()).TenancyV1alpha1().WorkspaceTypes().Create(ctx, &tenancyv1alpha1.WorkspaceType{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace type")
 				server.Artifact(t, func() (runtime.Object, error) {
-					return server.kcpClusterClient.Cluster(universal.Path()).TenancyV1alpha1().ClusterWorkspaceTypes().Get(ctx, "foo", metav1.GetOptions{})
+					return server.kcpClusterClient.Cluster(universal.Path()).TenancyV1alpha1().WorkspaceTypes().Get(ctx, "foo", metav1.GetOptions{})
 				})
 				t.Logf("Wait for type Foo to be usable")
 				cwtName := cwt.Name
 				framework.EventuallyReady(t, func() (conditions.Getter, error) {
-					return server.kcpClusterClient.Cluster(universal.Path()).TenancyV1alpha1().ClusterWorkspaceTypes().Get(ctx, cwtName, metav1.GetOptions{})
-				}, "could not wait for readiness on ClusterWorkspaceType %s|%s", universal.String(), cwtName)
+					return server.kcpClusterClient.Cluster(universal.Path()).TenancyV1alpha1().WorkspaceTypes().Get(ctx, cwtName, metav1.GetOptions{})
+				}, "could not wait for readiness on WorkspaceType %s|%s", universal.String(), cwtName)
 
 				t.Logf("Create workspace with explicit type Foo again")
 				require.Eventually(t, func() bool {
@@ -172,33 +172,33 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 				require.NoError(t, err)
 
 				cr, crb = createClusterRoleAndBindings(
-					"use-clusterworkspacetype-user-1",
+					"use-workspacetype-user-1",
 					"user-1", "User",
 					tenancyv1alpha1.SchemeGroupVersion.Group,
-					"clusterworkspacetypes",
+					"workspacetypes",
 					"bar",
 					[]string{"use"},
 				)
-				t.Logf("Admit use clusterworkspacetypes to user-1 in typesource workspace %q", typesource)
+				t.Logf("Admit use workspacetypes to user-1 in typesource workspace %q", typesource)
 				_, err = kubeClusterClient.Cluster(typesource.Path()).RbacV1().ClusterRoles().Create(ctx, cr, metav1.CreateOptions{})
 				require.NoError(t, err)
 				_, err = kubeClusterClient.Cluster(typesource.Path()).RbacV1().ClusterRoleBindings().Create(ctx, crb, metav1.CreateOptions{})
 				require.NoError(t, err)
 
 				t.Logf("Create type Bar in typesource workspace %q", typesource)
-				cwt, err := server.kcpClusterClient.Cluster(typesource.Path()).TenancyV1alpha1().ClusterWorkspaceTypes().Create(ctx, &tenancyv1alpha1.ClusterWorkspaceType{
+				cwt, err := server.kcpClusterClient.Cluster(typesource.Path()).TenancyV1alpha1().WorkspaceTypes().Create(ctx, &tenancyv1alpha1.WorkspaceType{
 					ObjectMeta: metav1.ObjectMeta{Name: "bar"},
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace type")
 
 				server.Artifact(t, func() (runtime.Object, error) {
-					return server.kcpClusterClient.Cluster(typesource.Path()).TenancyV1alpha1().ClusterWorkspaceTypes().Get(ctx, "bar", metav1.GetOptions{})
+					return server.kcpClusterClient.Cluster(typesource.Path()).TenancyV1alpha1().WorkspaceTypes().Get(ctx, "bar", metav1.GetOptions{})
 				})
 				t.Logf("Wait for type Bar to be usable in typesource workspace %q", typesource)
 				cwtName := cwt.Name
 				framework.EventuallyReady(t, func() (conditions.Getter, error) {
-					return server.kcpClusterClient.Cluster(typesource.Path()).TenancyV1alpha1().ClusterWorkspaceTypes().Get(ctx, cwtName, metav1.GetOptions{})
-				}, "could not wait for readiness on ClusterWorkspaceType %s|%s", universal.String(), cwtName)
+					return server.kcpClusterClient.Cluster(typesource.Path()).TenancyV1alpha1().WorkspaceTypes().Get(ctx, cwtName, metav1.GetOptions{})
+				}, "could not wait for readiness on WorkspaceType %s|%s", universal.String(), cwtName)
 
 				user1KcpClient, err := kcpclientset.NewForConfig(framework.UserConfig("user-1", rest.CopyConfig(cfg)))
 				require.NoError(t, err, "failed to construct client for user-1")
@@ -244,21 +244,21 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				universal := framework.NewWorkspaceFixture(t, server, tenancyv1alpha1.RootCluster.Path())
 				t.Logf("Create type Foo with an initializer")
-				cwt, err := server.kcpClusterClient.Cluster(universal.Path()).TenancyV1alpha1().ClusterWorkspaceTypes().Create(ctx, &tenancyv1alpha1.ClusterWorkspaceType{
+				cwt, err := server.kcpClusterClient.Cluster(universal.Path()).TenancyV1alpha1().WorkspaceTypes().Create(ctx, &tenancyv1alpha1.WorkspaceType{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
-					Spec: tenancyv1alpha1.ClusterWorkspaceTypeSpec{
+					Spec: tenancyv1alpha1.WorkspaceTypeSpec{
 						Initializer: true,
 					},
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace type")
 				server.Artifact(t, func() (runtime.Object, error) {
-					return server.kcpClusterClient.Cluster(universal.Path()).TenancyV1alpha1().ClusterWorkspaceTypes().Get(ctx, "foo", metav1.GetOptions{})
+					return server.kcpClusterClient.Cluster(universal.Path()).TenancyV1alpha1().WorkspaceTypes().Get(ctx, "foo", metav1.GetOptions{})
 				})
 				t.Logf("Wait for type Foo to be usable")
 				cwtName := cwt.Name
 				framework.EventuallyReady(t, func() (conditions.Getter, error) {
-					return server.kcpClusterClient.Cluster(universal.Path()).TenancyV1alpha1().ClusterWorkspaceTypes().Get(ctx, cwtName, metav1.GetOptions{})
-				}, "could not wait for readiness on ClusterWorkspaceType %s|%s", universal.String(), cwtName)
+					return server.kcpClusterClient.Cluster(universal.Path()).TenancyV1alpha1().WorkspaceTypes().Get(ctx, cwtName, metav1.GetOptions{})
+				}, "could not wait for readiness on WorkspaceType %s|%s", universal.String(), cwtName)
 
 				t.Logf("Create workspace with explicit type Foo")
 				var workspace *tenancyv1beta1.Workspace

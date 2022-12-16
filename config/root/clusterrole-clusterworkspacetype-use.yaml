@@ -1,11 +1,11 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: system:kcp:universal-clusterworkspacetype-use
+  name: system:kcp:universal-workspacetype-use
 rules:
 - apiGroups: ["tenancy.kcp.dev"]
   resources:
-  - "clusterworkspacetypes"
+  - "workspacetypes"
   resourceNames:
   - "universal"
   - "organization"

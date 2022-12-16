@@ -58,7 +58,7 @@ func NewController(
 	logicalClusterAdminConfig *rest.Config,
 	workspaceInformer tenancyv1beta1informers.WorkspaceClusterInformer,
 	shardInformer corev1alpha1informers.ShardClusterInformer,
-	clusterWorkspaceTypeInformer tenancyv1alpha1informers.ClusterWorkspaceTypeClusterInformer,
+	workspaceTypeInformer tenancyv1alpha1informers.WorkspaceTypeClusterInformer,
 	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
 ) (*Controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
@@ -79,8 +79,8 @@ func NewController(
 		shardIndexer: shardInformer.Informer().GetIndexer(),
 		shardLister:  shardInformer.Lister(),
 
-		clusterWorkspaceTypeIndexer: clusterWorkspaceTypeInformer.Informer().GetIndexer(),
-		clusterWorkspaceTypeLister:  clusterWorkspaceTypeInformer.Lister(),
+		workspacetypeIndexer: workspaceTypeInformer.Informer().GetIndexer(),
+		workspacetypeLister:  workspaceTypeInformer.Lister(),
 
 		logicalClusterIndexer: logicalClusterInformer.Informer().GetIndexer(),
 		logicalClusterLister:  logicalClusterInformer.Lister(),
@@ -94,7 +94,7 @@ func NewController(
 	indexers.AddIfNotPresentOrDie(shardInformer.Informer().GetIndexer(), cache.Indexers{
 		byBase36Sha224Name: indexByBase36Sha224Name,
 	})
-	indexers.AddIfNotPresentOrDie(clusterWorkspaceTypeInformer.Informer().GetIndexer(), cache.Indexers{
+	indexers.AddIfNotPresentOrDie(workspaceTypeInformer.Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
 
@@ -132,8 +132,8 @@ type Controller struct {
 	shardIndexer cache.Indexer
 	shardLister  corev1alpha1listers.ShardClusterLister
 
-	clusterWorkspaceTypeIndexer cache.Indexer
-	clusterWorkspaceTypeLister  tenancyv1alpha1listers.ClusterWorkspaceTypeClusterLister
+	workspacetypeIndexer cache.Indexer
+	workspacetypeLister  tenancyv1alpha1listers.WorkspaceTypeClusterLister
 
 	logicalClusterIndexer cache.Indexer
 	logicalClusterLister  corev1alpha1listers.LogicalClusterClusterLister

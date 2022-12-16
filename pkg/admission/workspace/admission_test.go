@@ -81,7 +81,7 @@ func updateAttr(ws, old *tenancyv1beta1.Workspace) admission.Attributes {
 func TestAdmit(t *testing.T) {
 	tests := []struct {
 		name            string
-		types           []*tenancyv1alpha1.ClusterWorkspaceType
+		types           []*tenancyv1alpha1.WorkspaceType
 		logicalClusters []*corev1alpha1.LogicalCluster
 		clusterName     logicalcluster.Name
 		a               admission.Attributes
@@ -90,8 +90,8 @@ func TestAdmit(t *testing.T) {
 	}{
 		{
 			name: "adds user information on create",
-			types: []*tenancyv1alpha1.ClusterWorkspaceType{
-				newType("root:org:foo").ClusterWorkspaceType,
+			types: []*tenancyv1alpha1.WorkspaceType{
+				newType("root:org:foo").WorkspaceType,
 			},
 			logicalClusters: []*corev1alpha1.LogicalCluster{
 				newLogicalCluster(logicalcluster.NewPath("root:org:ws")).LogicalCluster,
@@ -668,12 +668,12 @@ func TestValidate(t *testing.T) {
 }
 
 type builder struct {
-	*tenancyv1alpha1.ClusterWorkspaceType
+	*tenancyv1alpha1.WorkspaceType
 }
 
 func newType(qualifiedName string) builder {
 	path, name := logicalcluster.NewPath(qualifiedName).Split()
-	return builder{ClusterWorkspaceType: &tenancyv1alpha1.ClusterWorkspaceType{
+	return builder{WorkspaceType: &tenancyv1alpha1.WorkspaceType{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 			Annotations: map[string]string{

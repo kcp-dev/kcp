@@ -58,7 +58,7 @@ func clusterRoles() []rbacv1.ClusterRole {
 			ObjectMeta: metav1.ObjectMeta{Name: "system:kcp:tenancy:reader"},
 			Rules: []rbacv1.PolicyRule{
 				rbacv1helpers.NewRule("get", "list", "watch").Groups(tenancy.GroupName).Resources("workspaces").RuleOrDie(),
-				rbacv1helpers.NewRule(bootstrappolicy.Read...).Groups(tenancy.GroupName).Resources("clusterworkspacetypes").RuleOrDie(),
+				rbacv1helpers.NewRule(bootstrappolicy.Read...).Groups(tenancy.GroupName).Resources("workspacetypes").RuleOrDie(),
 				rbacv1helpers.NewRule("get", "list", "watch").Groups(core.GroupName).Resources("logicalclusters").RuleOrDie(),
 			},
 		},

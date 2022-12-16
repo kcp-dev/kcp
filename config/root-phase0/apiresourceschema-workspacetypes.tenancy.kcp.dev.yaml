@@ -2,22 +2,21 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v221212-22eb97777.clusterworkspacetypes.tenancy.kcp.dev
+  name: v221216-23f21069b.workspacetypes.tenancy.kcp.dev
 spec:
   group: tenancy.kcp.dev
   names:
     categories:
     - kcp
-    kind: ClusterWorkspaceType
-    listKind: ClusterWorkspaceTypeList
-    plural: clusterworkspacetypes
-    singular: clusterworkspacetype
+    kind: WorkspaceType
+    listKind: WorkspaceTypeList
+    plural: workspacetypes
+    singular: workspacetype
   scope: Cluster
   versions:
   - name: v1alpha1
     schema:
-      description: ClusterWorkspaceType specifies behaviour of workspaces of this
-        type.
+      description: WorkspaceType specifies behaviour of workspaces of this type.
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -74,14 +73,14 @@ spec:
               default:
                 name: universal
                 path: root
-              description: defaultChildWorkspaceType is the ClusterWorkspaceType that
-                will be used by default if another, nested ClusterWorkspace is created
+              description: defaultChildWorkspaceType is the WorkspaceType that will
+                be used by default if another, nested ClusterWorkspace is created
                 in a workspace of this type. When this field is unset, the user must
                 specify a type when creating nested workspaces. Extending another
-                ClusterWorkspaceType does not inherit its defaultChildWorkspaceType.
+                WorkspaceType does not inherit its defaultChildWorkspaceType.
               properties:
                 name:
-                  description: name is the name of the ClusterWorkspaceType
+                  description: name is the name of the WorkspaceType
                   pattern: ^[a-z]([a-z0-9-]{0,61}[a-z0-9])?
                   type: string
                 path:
@@ -93,27 +92,26 @@ spec:
               - name
               type: object
             extend:
-              description: "extend is a list of other ClusterWorkspaceTypes whose
-                initializers and limitAllowedChildren and limitAllowedParents this
-                ClusterWorkspaceType is inheriting. By (transitively) extending another
-                ClusterWorkspaceType, this ClusterWorkspaceType will be considered
-                as that other type in evaluation of limitAllowedChildren and limitAllowedParents
-                constraints. \n A dependency cycle stop this ClusterWorkspaceType
-                from being admitted as the type of a ClusterWorkspace. \n A non-existing
-                dependency stop this ClusterWorkspaceType from being admitted as the
-                type of a ClusterWorkspace."
+              description: "extend is a list of other WorkspaceTypes whose initializers
+                and limitAllowedChildren and limitAllowedParents this WorkspaceType
+                is inheriting. By (transitively) extending another WorkspaceType,
+                this WorkspaceType will be considered as that other type in evaluation
+                of limitAllowedChildren and limitAllowedParents constraints. \n A
+                dependency cycle stop this WorkspaceType from being admitted as the
+                type of a ClusterWorkspace. \n A non-existing dependency stop this
+                WorkspaceType from being admitted as the type of a ClusterWorkspace."
               properties:
                 with:
-                  description: with are ClusterWorkspaceTypes whose initializers are
-                    added to the list for the owning type, and for whom the owning
-                    type becomes an alias, as long as all of their required types
-                    are not mentioned in without.
+                  description: with are WorkspaceTypes whose initializers are added
+                    to the list for the owning type, and for whom the owning type
+                    becomes an alias, as long as all of their required types are not
+                    mentioned in without.
                   items:
-                    description: ClusterWorkspaceTypeReference is a globally unique,
-                      fully qualified reference to a cluster workspace type.
+                    description: WorkspaceTypesReference is a globally unique, fully
+                      qualified reference to a cluster workspace type.
                     properties:
                       name:
-                        description: name is the name of the ClusterWorkspaceType
+                        description: name is the name of the WorkspaceType
                         pattern: ^[a-z]([a-z0-9-]{0,61}[a-z0-9])?
                         type: string
                       path:
@@ -127,15 +125,15 @@ spec:
                   type: array
               type: object
             initializer:
-              description: "initializer determines if this ClusterWorkspaceType has
-                an associated initializing controller. These controllers are used
-                to add functionality to a ClusterWorkspace; all controllers must finish
-                their work before the ClusterWorkspace becomes ready for use. \n One
-                initializing controller is supported per ClusterWorkspaceType; the
-                identifier for this initializer will be a colon-delimited string using
-                the workspace in which the ClusterWorkspaceType is defined, and the
-                type's name. For example, if a ClusterWorkspaceType `example` is created
-                in the `root:org` workspace, the implicit initializer name is `root:org:Example`."
+              description: "initializer determines if this WorkspaceType has an associated
+                initializing controller. These controllers are used to add functionality
+                to a ClusterWorkspace; all controllers must finish their work before
+                the ClusterWorkspace becomes ready for use. \n One initializing controller
+                is supported per WorkspaceType; the identifier for this initializer
+                will be a colon-delimited string using the workspace in which the
+                WorkspaceType is defined, and the type's name. For example, if a WorkspaceType
+                `example` is created in the `root:org` workspace, the implicit initializer
+                name is `root:org:Example`."
               type: boolean
             limitAllowedChildren:
               description: limitAllowedChildren specifies constraints for sub-workspaces
@@ -151,16 +149,16 @@ spec:
                   description: none means that no type matches.
                   type: boolean
                 types:
-                  description: "types is a list of ClusterWorkspaceTypes that match.
-                    A workspace type extending another workspace type automatically
-                    is considered as that extended type as well (even transitively).
-                    \n An empty list matches all types."
+                  description: "types is a list of WorkspaceTypes that match. A workspace
+                    type extending another workspace type automatically is considered
+                    as that extended type as well (even transitively). \n An empty
+                    list matches all types."
                   items:
-                    description: ClusterWorkspaceTypeReference is a globally unique,
-                      fully qualified reference to a cluster workspace type.
+                    description: WorkspaceTypesReference is a globally unique, fully
+                      qualified reference to a cluster workspace type.
                     properties:
                       name:
-                        description: name is the name of the ClusterWorkspaceType
+                        description: name is the name of the WorkspaceType
                         pattern: ^[a-z]([a-z0-9-]{0,61}[a-z0-9])?
                         type: string
                       path:
@@ -183,16 +181,16 @@ spec:
                   description: none means that no type matches.
                   type: boolean
                 types:
-                  description: "types is a list of ClusterWorkspaceTypes that match.
-                    A workspace type extending another workspace type automatically
-                    is considered as that extended type as well (even transitively).
-                    \n An empty list matches all types."
+                  description: "types is a list of WorkspaceTypes that match. A workspace
+                    type extending another workspace type automatically is considered
+                    as that extended type as well (even transitively). \n An empty
+                    list matches all types."
                   items:
-                    description: ClusterWorkspaceTypeReference is a globally unique,
-                      fully qualified reference to a cluster workspace type.
+                    description: WorkspaceTypesReference is a globally unique, fully
+                      qualified reference to a cluster workspace type.
                     properties:
                       name:
-                        description: name is the name of the ClusterWorkspaceType
+                        description: name is the name of the WorkspaceType
                         pattern: ^[a-z]([a-z0-9-]{0,61}[a-z0-9])?
                         type: string
                       path:
@@ -208,7 +206,7 @@ spec:
               type: object
           type: object
         status:
-          description: ClusterWorkspaceTypeStatus defines the observed state of ClusterWorkspaceType.
+          description: WorkspaceTypeStatus defines the observed state of WorkspaceType.
           properties:
             conditions:
               description: conditions is a list of conditions that apply to the APIExport.
@@ -260,8 +258,8 @@ spec:
               items:
                 properties:
                   url:
-                    description: url is a ClusterWorkspaceType initialization virtual
-                      workspace URL.
+                    description: url is a WorkspaceType initialization virtual workspace
+                      URL.
                     minLength: 1
                     type: string
                 required:

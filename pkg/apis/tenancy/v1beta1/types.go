@@ -60,10 +60,10 @@ type WorkspaceSpec struct {
 	// If no type is provided, the default type for the workspace in which this workspace
 	// is nesting will be used.
 	//
-	// The type is a reference to a ClusterWorkspaceType in the listed workspace, but
-	// lower-cased. The ClusterWorkspaceType existence is validated at admission during
+	// The type is a reference to a WorkspaceType in the listed workspace, but
+	// lower-cased. The WorkspaceType existence is validated at admission during
 	// creation. The type is immutable after creation. The use of a type is gated via
-	// the RBAC clusterworkspacetypes/use resource permission.
+	// the RBAC workspacetypes/use resource permission.
 	//
 	// +optional
 	// +kubebuilder:validation:XValidation:rule="self.name == oldSelf.name",message="name is immutable"
@@ -81,11 +81,11 @@ type WorkspaceSpec struct {
 
 // WorkspaceTypeReference is a reference to a workspace type.
 type WorkspaceTypeReference struct {
-	// name is the name of the ClusterWorkspaceType
+	// name is the name of the WorkspaceType
 	//
 	// +required
 	// +kubebuilder:validation:Required
-	Name v1alpha1.ClusterWorkspaceTypeName `json:"name"`
+	Name v1alpha1.WorkspaceTypesName `json:"name"`
 
 	// path is an absolute reference to the workspace that owns this type, e.g. root:org:ws.
 	//

@@ -1,5 +1,5 @@
 apiVersion: tenancy.kcp.dev/v1alpha1
-kind: ClusterWorkspaceType
+kind: WorkspaceType
 metadata:
   name: root
   annotations:

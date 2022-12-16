@@ -40,7 +40,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspacetypeexists"
+	"github.com/kcp-dev/kcp/pkg/admission/workspacetypeexists"
 	"github.com/kcp-dev/kcp/pkg/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
@@ -69,11 +69,11 @@ type schedulingReconciler struct {
 	getShardByHash func(hash string) (*corev1alpha1.Shard, error)
 	listShards     func(selector labels.Selector) ([]*corev1alpha1.Shard, error)
 
-	getClusterWorkspaceType func(clusterName logicalcluster.Path, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error)
+	getWorkspaceTypes func(clusterName logicalcluster.Path, name string) (*tenancyv1alpha1.WorkspaceType, error)
 
 	getLogicalCluster func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error)
 
-	transitiveTypeResolver clusterworkspacetypeexists.TransitiveTypeResolver
+	transitiveTypeResolver workspacetypeexists.TransitiveTypeResolver
 
 	kcpLogicalClusterAdminClientFor  func(shard *corev1alpha1.Shard) (kcpclientset.ClusterInterface, error)
 	kubeLogicalClusterAdminClientFor func(shard *corev1alpha1.Shard) (kubernetes.ClusterInterface, error)
@@ -281,7 +281,7 @@ func (r *schedulingReconciler) createLogicalCluster(ctx context.Context, shard *
 	}
 
 	// add initializers
-	cwt, err := r.getClusterWorkspaceType(logicalcluster.NewPath(workspace.Spec.Type.Path), string(workspace.Spec.Type.Name))
+	cwt, err := r.getWorkspaceTypes(logicalcluster.NewPath(workspace.Spec.Type.Path), string(workspace.Spec.Type.Name))
 	if err != nil {
 		return err
 	}

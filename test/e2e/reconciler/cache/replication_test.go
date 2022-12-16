@@ -38,6 +38,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"

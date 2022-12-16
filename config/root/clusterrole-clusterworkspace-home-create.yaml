@@ -6,4 +6,4 @@ rules:
 - apiGroups: ["tenancy.kcp.dev"]
   resources: ["workspaces"]
   resourceNames: ["~"]
-  verbs: ["get", "create"]
+  verbs: ["get"]

@@ -67,7 +67,7 @@ type pathAnnotationPlugin struct {
 var pathAnnotationResources = sets.NewString(
 	apisv1alpha1.Resource("apiexports").String(),
 	schedulingv1alpha1.Resource("locations").String(),
-	tenancyv1alpha1.Resource("clusterworkspacetypes").String(),
+	tenancyv1alpha1.Resource("workspacetypes").String(),
 )
 
 // Ensure that the required admission interfaces are implemented.

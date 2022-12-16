@@ -28,8 +28,8 @@ import (
 type ClusterInterface interface {
 	// ClusterWorkspaces returns a ClusterWorkspaceClusterInformer
 	ClusterWorkspaces() ClusterWorkspaceClusterInformer
-	// ClusterWorkspaceTypes returns a ClusterWorkspaceTypeClusterInformer
-	ClusterWorkspaceTypes() ClusterWorkspaceTypeClusterInformer
+	// WorkspaceTypes returns a WorkspaceTypeClusterInformer
+	WorkspaceTypes() WorkspaceTypeClusterInformer
 }
 
 type version struct {
@@ -47,16 +47,16 @@ func (v *version) ClusterWorkspaces() ClusterWorkspaceClusterInformer {
 	return &clusterWorkspaceClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// ClusterWorkspaceTypes returns a ClusterWorkspaceTypeClusterInformer
-func (v *version) ClusterWorkspaceTypes() ClusterWorkspaceTypeClusterInformer {
-	return &clusterWorkspaceTypeClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+// WorkspaceTypes returns a WorkspaceTypeClusterInformer
+func (v *version) WorkspaceTypes() WorkspaceTypeClusterInformer {
+	return &workspaceTypeClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 type Interface interface {
 	// ClusterWorkspaces returns a ClusterWorkspaceInformer
 	ClusterWorkspaces() ClusterWorkspaceInformer
-	// ClusterWorkspaceTypes returns a ClusterWorkspaceTypeInformer
-	ClusterWorkspaceTypes() ClusterWorkspaceTypeInformer
+	// WorkspaceTypes returns a WorkspaceTypeInformer
+	WorkspaceTypes() WorkspaceTypeInformer
 }
 
 type scopedVersion struct {
@@ -75,7 +75,7 @@ func (v *scopedVersion) ClusterWorkspaces() ClusterWorkspaceInformer {
 	return &clusterWorkspaceScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// ClusterWorkspaceTypes returns a ClusterWorkspaceTypeInformer
-func (v *scopedVersion) ClusterWorkspaceTypes() ClusterWorkspaceTypeInformer {
-	return &clusterWorkspaceTypeScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+// WorkspaceTypes returns a WorkspaceTypeInformer
+func (v *scopedVersion) WorkspaceTypes() WorkspaceTypeInformer {
+	return &workspaceTypeScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }

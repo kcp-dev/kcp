@@ -100,15 +100,15 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceLocation":                 schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceLocation(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceSpec":                     schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceSpec(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceStatus":                   schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceStatus(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceType":                     schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceType(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeExtension":            schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeExtension(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeList":                 schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeList(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference":            schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeReference(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeSelector":             schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeSelector(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeSpec":                 schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeSpec(ref),
-		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeStatus":               schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeStatus(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ShardConstraints":                         schema_pkg_apis_tenancy_v1alpha1_ShardConstraints(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.VirtualWorkspace":                         schema_pkg_apis_tenancy_v1alpha1_VirtualWorkspace(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceType":                            schema_pkg_apis_tenancy_v1alpha1_WorkspaceType(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypeList":                        schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeList(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypeSelector":                    schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeSelector(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypeSpec":                        schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeSpec(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypeStatus":                      schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeStatus(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypesExtension":                  schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypesExtension(ref),
+		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypesReference":                  schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypesReference(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.Workspace":                                 schema_pkg_apis_tenancy_v1beta1_Workspace(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.WorkspaceList":                             schema_pkg_apis_tenancy_v1beta1_WorkspaceList(ref),
 		"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.WorkspaceLocation":                         schema_pkg_apis_tenancy_v1beta1_WorkspaceLocation(ref),
@@ -3398,9 +3398,9 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceSpec(ref common.ReferenceC
 					},
 					"type": {
 						SchemaProps: spec.SchemaProps{
-							Description: "type defines properties of the workspace both on creation (e.g. initial resources and initially installed APIs) and during runtime (e.g. permissions). If no type is provided, the default type for the workspace in which this workspace is nesting will be used.\n\nThe type is a reference to a ClusterWorkspaceType in the listed workspace, but lower-cased. The ClusterWorkspaceType existence is validated at admission during creation. The type is immutable after creation. The use of a type is gated via the RBAC clusterworkspacetypes/use resource permission.",
+							Description: "type defines properties of the workspace both on creation (e.g. initial resources and initially installed APIs) and during runtime (e.g. permissions). If no type is provided, the default type for the workspace in which this workspace is nesting will be used.\n\nThe type is a reference to a WorkspaceType in the listed workspace, but lower-cased. The WorkspaceType existence is validated at admission during creation. The type is immutable after creation. The use of a type is gated via the RBAC workspacetypes/use resource permission.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference"),
+							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypesReference"),
 						},
 					},
 					"shard": {
@@ -3413,7 +3413,7 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceSpec(ref common.ReferenceC
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference", "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ShardConstraints"},
+			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ShardConstraints", "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypesReference"},
 	}
 }
 
@@ -3489,11 +3489,59 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceStatus(ref common.Referenc
 	}
 }
 
-func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceType(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_tenancy_v1alpha1_ShardConstraints(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "ClusterWorkspaceType specifies behaviour of workspaces of this type.",
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "name is the name of Shard.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"selector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "selector is a label selector that filters shard scheduling targets.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
+	}
+}
+
+func schema_pkg_apis_tenancy_v1alpha1_VirtualWorkspace(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Description: "url is a WorkspaceType initialization virtual workspace URL.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"url"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_tenancy_v1alpha1_WorkspaceType(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "WorkspaceType specifies behaviour of workspaces of this type.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -3519,57 +3567,28 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceType(ref common.ReferenceC
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeSpec"),
+							Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypeSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeStatus"),
+							Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypeStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeSpec", "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypeSpec", "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypeStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
-func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeExtension(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "ClusterWorkspaceTypeExtension defines how other ClusterWorkspaceTypes are composed together to add functionality to the owning ClusterWorkspaceType.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"with": {
-						SchemaProps: spec.SchemaProps{
-							Description: "with are ClusterWorkspaceTypes whose initializers are added to the list for the owning type, and for whom the owning type becomes an alias, as long as all of their required types are not mentioned in without.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference"),
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference"},
-	}
-}
-
-func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "ClusterWorkspaceTypeList is a list of cluster workspace types",
+				Description: "WorkspaceTypeList is a list of cluster workspace types",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -3599,7 +3618,7 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeList(ref common.Refere
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceType"),
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceType"),
 									},
 								},
 							},
@@ -3610,44 +3629,15 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeList(ref common.Refere
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceType", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceType", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
-func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeSelector(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "ClusterWorkspaceTypeReference is a globally unique, fully qualified reference to a cluster workspace type.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Description: "name is the name of the ClusterWorkspaceType",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"path": {
-						SchemaProps: spec.SchemaProps{
-							Description: "path is an absolute reference to the workspace that owns this type, e.g. root:org:ws.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-				Required: []string{"name"},
-			},
-		},
-	}
-}
-
-func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeSelector(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "ClusterWorkspaceTypeSelector describes a set of types.",
+				Description: "WorkspaceTypeSelector describes a set of types.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"none": {
@@ -3659,13 +3649,13 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeSelector(ref common.Re
 					},
 					"types": {
 						SchemaProps: spec.SchemaProps{
-							Description: "types is a list of ClusterWorkspaceTypes that match. A workspace type extending another workspace type automatically is considered as that extended type as well (even transitively).\n\nAn empty list matches all types.",
+							Description: "types is a list of WorkspaceTypes that match. A workspace type extending another workspace type automatically is considered as that extended type as well (even transitively).\n\nAn empty list matches all types.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference"),
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypesReference"),
 									},
 								},
 							},
@@ -3675,11 +3665,11 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeSelector(ref common.Re
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference"},
+			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypesReference"},
 	}
 }
 
-func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3687,16 +3677,16 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeSpec(ref common.Refere
 				Properties: map[string]spec.Schema{
 					"initializer": {
 						SchemaProps: spec.SchemaProps{
-							Description: "initializer determines if this ClusterWorkspaceType has an associated initializing controller. These controllers are used to add functionality to a ClusterWorkspace; all controllers must finish their work before the ClusterWorkspace becomes ready for use.\n\nOne initializing controller is supported per ClusterWorkspaceType; the identifier for this initializer will be a colon-delimited string using the workspace in which the ClusterWorkspaceType is defined, and the type's name. For example, if a ClusterWorkspaceType `example` is created in the `root:org` workspace, the implicit initializer name is `root:org:Example`.",
+							Description: "initializer determines if this WorkspaceType has an associated initializing controller. These controllers are used to add functionality to a ClusterWorkspace; all controllers must finish their work before the ClusterWorkspace becomes ready for use.\n\nOne initializing controller is supported per WorkspaceType; the identifier for this initializer will be a colon-delimited string using the workspace in which the WorkspaceType is defined, and the type's name. For example, if a WorkspaceType `example` is created in the `root:org` workspace, the implicit initializer name is `root:org:Example`.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
 					},
 					"extend": {
 						SchemaProps: spec.SchemaProps{
-							Description: "extend is a list of other ClusterWorkspaceTypes whose initializers and limitAllowedChildren and limitAllowedParents this ClusterWorkspaceType is inheriting. By (transitively) extending another ClusterWorkspaceType, this ClusterWorkspaceType will be considered as that other type in evaluation of limitAllowedChildren and limitAllowedParents constraints.\n\nA dependency cycle stop this ClusterWorkspaceType from being admitted as the type of a ClusterWorkspace.\n\nA non-existing dependency stop this ClusterWorkspaceType from being admitted as the type of a ClusterWorkspace.",
+							Description: "extend is a list of other WorkspaceTypes whose initializers and limitAllowedChildren and limitAllowedParents this WorkspaceType is inheriting. By (transitively) extending another WorkspaceType, this WorkspaceType will be considered as that other type in evaluation of limitAllowedChildren and limitAllowedParents constraints.\n\nA dependency cycle stop this WorkspaceType from being admitted as the type of a ClusterWorkspace.\n\nA non-existing dependency stop this WorkspaceType from being admitted as the type of a ClusterWorkspace.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeExtension"),
+							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypesExtension"),
 						},
 					},
 					"additionalWorkspaceLabels": {
@@ -3717,20 +3707,20 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeSpec(ref common.Refere
 					},
 					"defaultChildWorkspaceType": {
 						SchemaProps: spec.SchemaProps{
-							Description: "defaultChildWorkspaceType is the ClusterWorkspaceType that will be used by default if another, nested ClusterWorkspace is created in a workspace of this type. When this field is unset, the user must specify a type when creating nested workspaces. Extending another ClusterWorkspaceType does not inherit its defaultChildWorkspaceType.",
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference"),
+							Description: "defaultChildWorkspaceType is the WorkspaceType that will be used by default if another, nested ClusterWorkspace is created in a workspace of this type. When this field is unset, the user must specify a type when creating nested workspaces. Extending another WorkspaceType does not inherit its defaultChildWorkspaceType.",
+							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypesReference"),
 						},
 					},
 					"limitAllowedChildren": {
 						SchemaProps: spec.SchemaProps{
 							Description: "limitAllowedChildren specifies constraints for sub-workspaces created in workspaces of this type. These are in addition to child constraints of types this one extends.",
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeSelector"),
+							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypeSelector"),
 						},
 					},
 					"limitAllowedParents": {
 						SchemaProps: spec.SchemaProps{
 							Description: "limitAllowedParents specifies constraints for the parent workspace that workspaces of this type are created in. These are in addition to parent constraints of types this one extends.",
-							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeSelector"),
+							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypeSelector"),
 						},
 					},
 					"defaultAPIBindings": {
@@ -3751,15 +3741,15 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeSpec(ref common.Refere
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.APIExportReference", "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeExtension", "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeReference", "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.ClusterWorkspaceTypeSelector"},
+			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.APIExportReference", "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypeSelector", "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypesExtension", "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypesReference"},
 	}
 }
 
-func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypeStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "ClusterWorkspaceTypeStatus defines the observed state of ClusterWorkspaceType.",
+				Description: "WorkspaceTypeStatus defines the observed state of WorkspaceType.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"conditions": {
@@ -3798,49 +3788,59 @@ func schema_pkg_apis_tenancy_v1alpha1_ClusterWorkspaceTypeStatus(ref common.Refe
 	}
 }
 
-func schema_pkg_apis_tenancy_v1alpha1_ShardConstraints(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypesExtension(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "WorkspaceTypesExtension defines how other WorkspaceTypes are composed together to add functionality to the owning WorkspaceType.",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"name": {
+					"with": {
 						SchemaProps: spec.SchemaProps{
-							Description: "name is the name of Shard.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"selector": {
-						SchemaProps: spec.SchemaProps{
-							Description: "selector is a label selector that filters shard scheduling targets.",
-							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
+							Description: "with are WorkspaceTypes whose initializers are added to the list for the owning type, and for whom the owning type becomes an alias, as long as all of their required types are not mentioned in without.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypesReference"),
+									},
+								},
+							},
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
+			"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1.WorkspaceTypesReference"},
 	}
 }
 
-func schema_pkg_apis_tenancy_v1alpha1_VirtualWorkspace(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_tenancy_v1alpha1_WorkspaceTypesReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "WorkspaceTypesReference is a globally unique, fully qualified reference to a cluster workspace type.",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"url": {
+					"name": {
 						SchemaProps: spec.SchemaProps{
-							Description: "url is a ClusterWorkspaceType initialization virtual workspace URL.",
+							Description: "name is the name of the WorkspaceType",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
+					"path": {
+						SchemaProps: spec.SchemaProps{
+							Description: "path is an absolute reference to the workspace that owns this type, e.g. root:org:ws.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
-				Required: []string{"url"},
+				Required: []string{"name"},
 			},
 		},
 	}
@@ -3972,7 +3972,7 @@ func schema_pkg_apis_tenancy_v1beta1_WorkspaceSpec(ref common.ReferenceCallback)
 				Properties: map[string]spec.Schema{
 					"type": {
 						SchemaProps: spec.SchemaProps{
-							Description: "type defines properties of the workspace both on creation (e.g. initial resources and initially installed APIs) and during runtime (e.g. permissions). If no type is provided, the default type for the workspace in which this workspace is nesting will be used.\n\nThe type is a reference to a ClusterWorkspaceType in the listed workspace, but lower-cased. The ClusterWorkspaceType existence is validated at admission during creation. The type is immutable after creation. The use of a type is gated via the RBAC clusterworkspacetypes/use resource permission.",
+							Description: "type defines properties of the workspace both on creation (e.g. initial resources and initially installed APIs) and during runtime (e.g. permissions). If no type is provided, the default type for the workspace in which this workspace is nesting will be used.\n\nThe type is a reference to a WorkspaceType in the listed workspace, but lower-cased. The WorkspaceType existence is validated at admission during creation. The type is immutable after creation. The use of a type is gated via the RBAC workspacetypes/use resource permission.",
 							Default:     map[string]interface{}{},
 							Ref:         ref("github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1.WorkspaceTypeReference"),
 						},
@@ -4065,7 +4065,7 @@ func schema_pkg_apis_tenancy_v1beta1_WorkspaceTypeReference(ref common.Reference
 				Properties: map[string]spec.Schema{
 					"name": {
 						SchemaProps: spec.SchemaProps{
-							Description: "name is the name of the ClusterWorkspaceType",
+							Description: "name is the name of the WorkspaceType",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",

@@ -35,7 +35,7 @@ import (
 type TenancyV1alpha1ClusterInterface interface {
 	TenancyV1alpha1ClusterScoper
 	ClusterWorkspacesClusterGetter
-	ClusterWorkspaceTypesClusterGetter
+	WorkspaceTypesClusterGetter
 }
 
 type TenancyV1alpha1ClusterScoper interface {
@@ -57,8 +57,8 @@ func (c *TenancyV1alpha1ClusterClient) ClusterWorkspaces() ClusterWorkspaceClust
 	return &clusterWorkspacesClusterInterface{clientCache: c.clientCache}
 }
 
-func (c *TenancyV1alpha1ClusterClient) ClusterWorkspaceTypes() ClusterWorkspaceTypeClusterInterface {
-	return &clusterWorkspaceTypesClusterInterface{clientCache: c.clientCache}
+func (c *TenancyV1alpha1ClusterClient) WorkspaceTypes() WorkspaceTypeClusterInterface {
+	return &workspaceTypesClusterInterface{clientCache: c.clientCache}
 }
 
 // NewForConfig creates a new TenancyV1alpha1ClusterClient for the given config.

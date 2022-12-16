@@ -51,25 +51,25 @@ func (b *APIBinder) reconcile(ctx context.Context, this *corev1alpha1.LogicalClu
 		return nil
 	}
 	logger := klog.FromContext(ctx).WithValues(
-		"clusterWorkspaceType.path", cwtCluster.String(),
-		"clusterWorkspaceType.name", cwtName,
+		"workspacetype.path", cwtCluster.String(),
+		"workspacetype.name", cwtName,
 	)
 
 	var errors []error
 	clusterName := logicalcluster.From(this)
 	logger.V(2).Info("initializing APIBindings for workspace")
 
-	// Start with the ClusterWorkspaceType specified by the ClusterWorkspace
-	leafCWT, err := b.getClusterWorkspaceType(cwtCluster, cwtName)
+	// Start with the WorkspaceType specified by the ClusterWorkspace
+	leafCWT, err := b.getWorkspaceTypes(cwtCluster, cwtName)
 	if err != nil {
-		logger.Error(err, "error getting ClusterWorkspaceType")
+		logger.Error(err, "error getting WorkspaceType")
 
 		conditions.MarkFalse(
 			this,
 			tenancyv1alpha1.WorkspaceAPIBindingsInitialized,
-			tenancyv1alpha1.WorkspaceInitializedClusterWorkspaceTypeInvalid,
+			tenancyv1alpha1.WorkspaceInitializedWorkspaceTypesInvalid,
 			conditionsv1alpha1.ConditionSeverityError,
-			"error getting ClusterWorkspaceType %s|%s: %v",
+			"error getting WorkspaceType %s|%s: %v",
 			cwtCluster.String(), cwtName,
 			err,
 		)
@@ -77,7 +77,7 @@ func (b *APIBinder) reconcile(ctx context.Context, this *corev1alpha1.LogicalClu
 		return nil
 	}
 
-	// Get all the transitive ClusterWorkspaceTypes
+	// Get all the transitive WorkspaceTypes
 	cwts, err := b.transitiveTypeResolver.Resolve(leafCWT)
 	if err != nil {
 		logger.Error(err, "error resolving transitive types")
@@ -85,7 +85,7 @@ func (b *APIBinder) reconcile(ctx context.Context, this *corev1alpha1.LogicalClu
 		conditions.MarkFalse(
 			this,
 			tenancyv1alpha1.WorkspaceAPIBindingsInitialized,
-			tenancyv1alpha1.WorkspaceInitializedClusterWorkspaceTypeInvalid,
+			tenancyv1alpha1.WorkspaceInitializedWorkspaceTypesInvalid,
 			conditionsv1alpha1.ConditionSeverityError,
 			"error resolving transitive set of cluster workspace types: %v",
 			err,

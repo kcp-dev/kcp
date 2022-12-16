@@ -434,7 +434,7 @@ func newAuthorizer(client kcpkubernetesclientset.ClusterInterface) authorizer.Au
 			User:            attr.GetUser(),
 			Verb:            "initialize",
 			Name:            name,
-			Resource:        "clusterworkspacetypes",
+			Resource:        "workspacetypes",
 			ResourceRequest: true,
 		}
 

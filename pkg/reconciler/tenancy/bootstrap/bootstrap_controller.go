@@ -49,14 +49,14 @@ import (
 )
 
 const (
-	ControllerNameBase = "kcp-clusterworkspacetypes-bootstrap"
+	ControllerNameBase = "kcp-workspacetypes-bootstrap"
 )
 
 func NewController(
 	dynamicClusterClient kcpdynamic.ClusterInterface,
 	kcpClusterClient kcpclientset.ClusterInterface,
 	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
-	workspaceType tenancyv1alpha1.ClusterWorkspaceTypeReference,
+	workspaceType tenancyv1alpha1.WorkspaceTypesReference,
 	bootstrap func(context.Context, discovery.DiscoveryInterface, dynamic.Interface, clientset.Interface, sets.String) error,
 	batteriesIncluded sets.String,
 ) (*controller, error) {
@@ -93,7 +93,7 @@ type controller struct {
 
 	logicalClusterLister corev1alpha1listers.LogicalClusterClusterLister
 
-	workspaceType     tenancyv1alpha1.ClusterWorkspaceTypeReference
+	workspaceType     tenancyv1alpha1.WorkspaceTypesReference
 	bootstrap         func(context.Context, discovery.DiscoveryInterface, dynamic.Interface, clientset.Interface, sets.String) error
 	batteriesIncluded sets.String
 }
@@ -114,7 +114,7 @@ func (c *controller) Start(ctx context.Context, numThreads int) {
 	defer c.queue.ShutDown()
 
 	logger := logging.WithReconciler(klog.FromContext(ctx), c.controllerName)
-	logger = logger.WithValues("clusterWorkspaceType", c.workspaceType.String())
+	logger = logger.WithValues("workspacetype", c.workspaceType.String())
 	ctx = klog.NewContext(ctx, logger)
 	logger.Info("Starting controller")
 	defer logger.Info("Shutting down controller")

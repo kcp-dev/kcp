@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package clusterworkspacetype
+package workspacetype
 
 import (
 	"context"
@@ -38,14 +38,14 @@ func TestReconcile(t *testing.T) {
 		name     string
 		shards   []*corev1alpha1.Shard
 		listErr  error
-		cwts     []*tenancyv1alpha1.ClusterWorkspaceType
+		cwts     []*tenancyv1alpha1.WorkspaceType
 		getErr   error
-		cwt      *tenancyv1alpha1.ClusterWorkspaceType
-		expected *tenancyv1alpha1.ClusterWorkspaceType
+		cwt      *tenancyv1alpha1.WorkspaceType
+		expected *tenancyv1alpha1.WorkspaceType
 	}{
 		{
 			name: "no shards, no URLs in status",
-			cwt: &tenancyv1alpha1.ClusterWorkspaceType{
+			cwt: &tenancyv1alpha1.WorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "sometype",
 					Annotations: map[string]string{
@@ -53,14 +53,14 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			},
-			expected: &tenancyv1alpha1.ClusterWorkspaceType{
+			expected: &tenancyv1alpha1.WorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "sometype",
 					Annotations: map[string]string{
 						logicalcluster.AnnotationKey: "root:org:team:ws",
 					},
 				},
-				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
+				Status: tenancyv1alpha1.WorkspaceTypeStatus{
 					Conditions: conditionsv1alpha1.Conditions{
 						{
 							Type:   "Ready",
@@ -78,7 +78,7 @@ func TestReconcile(t *testing.T) {
 			name:    "error listing shards, error in status",
 			shards:  []*corev1alpha1.Shard{},
 			listErr: fmt.Errorf("oops"),
-			cwt: &tenancyv1alpha1.ClusterWorkspaceType{
+			cwt: &tenancyv1alpha1.WorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "sometype",
 					Annotations: map[string]string{
@@ -86,14 +86,14 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			},
-			expected: &tenancyv1alpha1.ClusterWorkspaceType{
+			expected: &tenancyv1alpha1.WorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "sometype",
 					Annotations: map[string]string{
 						logicalcluster.AnnotationKey: "root:org:team:ws",
 					},
 				},
-				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
+				Status: tenancyv1alpha1.WorkspaceTypeStatus{
 					Conditions: conditionsv1alpha1.Conditions{
 						{
 							Type:     "Ready",
@@ -120,7 +120,7 @@ func TestReconcile(t *testing.T) {
 				{Spec: corev1alpha1.ShardSpec{ExternalURL: "https://something.com"}},
 				{Spec: corev1alpha1.ShardSpec{ExternalURL: "https://item.com"}},
 			},
-			cwt: &tenancyv1alpha1.ClusterWorkspaceType{
+			cwt: &tenancyv1alpha1.WorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "sometype",
 					Annotations: map[string]string{
@@ -128,14 +128,14 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			},
-			expected: &tenancyv1alpha1.ClusterWorkspaceType{
+			expected: &tenancyv1alpha1.WorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "sometype",
 					Annotations: map[string]string{
 						logicalcluster.AnnotationKey: "root:org:team:ws",
 					},
 				},
-				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
+				Status: tenancyv1alpha1.WorkspaceTypeStatus{
 					VirtualWorkspaces: []tenancyv1alpha1.VirtualWorkspace{
 						{URL: "https://item.com/services/initializingworkspaces/root:org:team:ws:sometype"},
 						{URL: "https://something.com/services/initializingworkspaces/root:org:team:ws:sometype"},
@@ -161,14 +161,14 @@ func TestReconcile(t *testing.T) {
 				{Spec: corev1alpha1.ShardSpec{ExternalURL: "https://something.com"}},
 				{Spec: corev1alpha1.ShardSpec{ExternalURL: "https://item.com"}},
 			},
-			cwt: &tenancyv1alpha1.ClusterWorkspaceType{
+			cwt: &tenancyv1alpha1.WorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "sometype",
 					Annotations: map[string]string{
 						logicalcluster.AnnotationKey: "root:org:team:ws",
 					},
 				},
-				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
+				Status: tenancyv1alpha1.WorkspaceTypeStatus{
 					VirtualWorkspaces: []tenancyv1alpha1.VirtualWorkspace{
 						{URL: "https://item.com/services/initializingworkspaces/root:org:team:ws:sometype"},
 					},
@@ -184,14 +184,14 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			},
-			expected: &tenancyv1alpha1.ClusterWorkspaceType{
+			expected: &tenancyv1alpha1.WorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "sometype",
 					Annotations: map[string]string{
 						logicalcluster.AnnotationKey: "root:org:team:ws",
 					},
 				},
-				Status: tenancyv1alpha1.ClusterWorkspaceTypeStatus{
+				Status: tenancyv1alpha1.WorkspaceTypeStatus{
 					VirtualWorkspaces: []tenancyv1alpha1.VirtualWorkspace{
 						{URL: "https://item.com/services/initializingworkspaces/root:org:team:ws:sometype"},
 						{URL: "https://something.com/services/initializingworkspaces/root:org:team:ws:sometype"},
@@ -217,7 +217,7 @@ func TestReconcile(t *testing.T) {
 				listShards: func() ([]*corev1alpha1.Shard, error) {
 					return testCase.shards, testCase.listErr
 				},
-				resolveClusterWorkspaceType: func(reference tenancyv1alpha1.ClusterWorkspaceTypeReference) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
+				resolveWorkspaceTypes: func(reference tenancyv1alpha1.WorkspaceTypesReference) (*tenancyv1alpha1.WorkspaceType, error) {
 					if testCase.getErr != nil {
 						return nil, testCase.getErr
 					}
@@ -226,13 +226,13 @@ func TestReconcile(t *testing.T) {
 							return cwt, nil
 						}
 					}
-					return nil, errors.NewNotFound(tenancyv1alpha1.Resource("clusterworkspacetype"), string(reference.Name))
+					return nil, errors.NewNotFound(tenancyv1alpha1.Resource("workspacetype"), string(reference.Name))
 				},
 			}
 			c.reconcile(context.TODO(), testCase.cwt)
 			c.reconcile(context.TODO(), testCase.cwt) // relationships require resolved extensions
 			if diff := cmp.Diff(testCase.cwt, testCase.expected, cmpopts.IgnoreTypes(metav1.Time{})); diff != "" {
-				t.Errorf("incorrect ClusterWorkspaceType after reconciliation: %v", diff)
+				t.Errorf("incorrect WorkspaceType after reconciliation: %v", diff)
 			}
 		})
 	}

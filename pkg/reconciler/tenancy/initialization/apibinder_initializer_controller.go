@@ -35,7 +35,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	admission "github.com/kcp-dev/kcp/pkg/admission/clusterworkspacetypeexists"
+	admission "github.com/kcp-dev/kcp/pkg/admission/workspacetypeexists"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -58,7 +58,7 @@ const (
 func NewAPIBinder(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
-	clusterWorkspaceTypeInformer tenancyv1alpha1informers.ClusterWorkspaceTypeClusterInformer,
+	workspaceTypeInformer tenancyv1alpha1informers.WorkspaceTypeClusterInformer,
 	apiBindingsInformer apisv1alpha1informers.APIBindingClusterInformer,
 	apiExportsInformer apisv1alpha1informers.APIExportClusterInformer,
 ) (*APIBinder, error) {
@@ -68,18 +68,18 @@ func NewAPIBinder(
 		getLogicalCluster: func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
 			return logicalClusterInformer.Lister().Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 		},
-		getClusterWorkspaceType: func(path logicalcluster.Path, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
-			objs, err := clusterWorkspaceTypeInformer.Informer().GetIndexer().ByIndex(indexers.ByLogicalClusterPathAndName, path.Join(name).String())
+		getWorkspaceTypes: func(path logicalcluster.Path, name string) (*tenancyv1alpha1.WorkspaceType, error) {
+			objs, err := workspaceTypeInformer.Informer().GetIndexer().ByIndex(indexers.ByLogicalClusterPathAndName, path.Join(name).String())
 			if err != nil {
 				return nil, err
 			}
 			if len(objs) == 0 {
-				return nil, fmt.Errorf("no ClusterWorkspaceType found for %s", path.Join(name).String())
+				return nil, fmt.Errorf("no WorkspaceType found for %s", path.Join(name).String())
 			}
 			if len(objs) > 1 {
-				return nil, fmt.Errorf("multiple ClusterWorkspaceTypes found for %s", path.Join(name).String())
+				return nil, fmt.Errorf("multiple WorkspaceTypes found for %s", path.Join(name).String())
 			}
-			return objs[0].(*tenancyv1alpha1.ClusterWorkspaceType), nil
+			return objs[0].(*tenancyv1alpha1.WorkspaceType), nil
 		},
 		listLogicalClusters: func() ([]*corev1alpha1.LogicalCluster, error) {
 			return logicalClusterInformer.Lister().List(labels.Everything())
@@ -112,11 +112,11 @@ func NewAPIBinder(
 		commit: committer.NewCommitter[*corev1alpha1.LogicalCluster, corev1alpha1client.LogicalClusterInterface, *corev1alpha1.LogicalClusterSpec, *corev1alpha1.LogicalClusterStatus](kcpClusterClient.CoreV1alpha1().LogicalClusters()),
 	}
 
-	c.transitiveTypeResolver = admission.NewTransitiveTypeResolver(c.getClusterWorkspaceType)
+	c.transitiveTypeResolver = admission.NewTransitiveTypeResolver(c.getWorkspaceTypes)
 
 	logger := logging.WithReconciler(klog.Background(), ControllerName)
 
-	indexers.AddIfNotPresentOrDie(clusterWorkspaceTypeInformer.Informer().GetIndexer(), cache.Indexers{
+	indexers.AddIfNotPresentOrDie(workspaceTypeInformer.Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
 
@@ -139,12 +139,12 @@ func NewAPIBinder(
 		},
 	})
 
-	clusterWorkspaceTypeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	workspaceTypeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueClusterWorkspaceType(obj, logger)
+			c.enqueueWorkspaceTypes(obj, logger)
 		},
 		UpdateFunc: func(_, obj interface{}) {
-			c.enqueueClusterWorkspaceType(obj, logger)
+			c.enqueueWorkspaceTypes(obj, logger)
 		},
 	})
 
@@ -158,9 +158,9 @@ type logicalClusterResource = committer.Resource[*corev1alpha1.LogicalClusterSpe
 type APIBinder struct {
 	queue workqueue.RateLimitingInterface
 
-	getLogicalCluster       func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error)
-	getClusterWorkspaceType func(clusterName logicalcluster.Path, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error)
-	listLogicalClusters     func() ([]*corev1alpha1.LogicalCluster, error)
+	getLogicalCluster   func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error)
+	getWorkspaceTypes   func(clusterName logicalcluster.Path, name string) (*tenancyv1alpha1.WorkspaceType, error)
+	listLogicalClusters func() ([]*corev1alpha1.LogicalCluster, error)
 
 	listAPIBindings  func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
 	getAPIBinding    func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error)
@@ -175,7 +175,7 @@ type APIBinder struct {
 }
 
 type transitiveTypeResolver interface {
-	Resolve(t *tenancyv1alpha1.ClusterWorkspaceType) ([]*tenancyv1alpha1.ClusterWorkspaceType, error)
+	Resolve(t *tenancyv1alpha1.WorkspaceType) ([]*tenancyv1alpha1.WorkspaceType, error)
 }
 
 func (b *APIBinder) enqueueLogicalCluster(obj interface{}, logger logr.Logger) {
@@ -212,15 +212,15 @@ func (b *APIBinder) enqueueAPIBinding(obj interface{}, logger logr.Logger) {
 	b.enqueueLogicalCluster(this, logger)
 }
 
-// enqueueClusterWorkspaceType enqueues all clusterworkspaces (which are only those that are initializing, because of
-// how the informer is supposed to be configured) whenever a clusterworkspacetype changes. If a clusterworkspacetype
+// enqueueWorkspaceTypes enqueues all clusterworkspaces (which are only those that are initializing, because of
+// how the informer is supposed to be configured) whenever a workspacetype changes. If a workspacetype
 // had a typo in the default set of apibindings, there is a chance the requeuing here would pick up a fix.
 //
 // TODO(sttts): this cannot work in a sharded environment
-func (b *APIBinder) enqueueClusterWorkspaceType(obj interface{}, logger logr.Logger) {
-	cwt, ok := obj.(*tenancyv1alpha1.ClusterWorkspaceType)
+func (b *APIBinder) enqueueWorkspaceTypes(obj interface{}, logger logr.Logger) {
+	cwt, ok := obj.(*tenancyv1alpha1.WorkspaceType)
 	if !ok {
-		runtime.HandleError(fmt.Errorf("obj is supposed to be a ClusterWorkspaceType, but is %T", obj))
+		runtime.HandleError(fmt.Errorf("obj is supposed to be a WorkspaceType, but is %T", obj))
 		return
 	}
 

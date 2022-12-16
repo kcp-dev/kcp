@@ -83,11 +83,11 @@ func TestMaximalPermissionPolicyAuthorizerSystemGroupProtection(t *testing.T) {
 			test: func(t *testing.T) {
 				t.Parallel()
 
-				t.Logf("Creating a ClusterWorkspaceType as user-1")
+				t.Logf("Creating a WorkspaceType as user-1")
 				userKcpClusterClient, err := kcpclientset.NewForConfig(framework.UserConfig("user-1", server.BaseConfig(t)))
 				require.NoError(t, err, "failed to construct kcp cluster client for user-1")
 				framework.Eventually(t, func() (bool, string) { // authz makes this eventually succeed
-					_, err = userKcpClusterClient.Cluster(orgClusterName.Path()).TenancyV1alpha1().ClusterWorkspaceTypes().Create(ctx, &tenancyv1alpha1.ClusterWorkspaceType{
+					_, err = userKcpClusterClient.Cluster(orgClusterName.Path()).TenancyV1alpha1().WorkspaceTypes().Create(ctx, &tenancyv1alpha1.WorkspaceType{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "test",
 						},
@@ -100,11 +100,11 @@ func TestMaximalPermissionPolicyAuthorizerSystemGroupProtection(t *testing.T) {
 
 				t.Logf("Trying to change the status as user-1 and that should fail")
 				patch := []byte(`{"status":{"Initializers":["foo"]}}`)
-				wc, err := userKcpClusterClient.Cluster(orgClusterName.Path()).TenancyV1alpha1().ClusterWorkspaceTypes().Patch(ctx, "test", types.MergePatchType, patch, metav1.PatchOptions{}, "status")
+				wc, err := userKcpClusterClient.Cluster(orgClusterName.Path()).TenancyV1alpha1().WorkspaceTypes().Patch(ctx, "test", types.MergePatchType, patch, metav1.PatchOptions{}, "status")
 				require.Error(t, err, "should have failed to patch status as user-1:\n%s", toYAML(t, wc))
 
 				t.Logf("Double check to change status as admin, which should work")
-				_, err = kcpClusterClient.Cluster(orgClusterName.Path()).TenancyV1alpha1().ClusterWorkspaceTypes().Patch(ctx, "test", types.MergePatchType, patch, metav1.PatchOptions{}, "status")
+				_, err = kcpClusterClient.Cluster(orgClusterName.Path()).TenancyV1alpha1().WorkspaceTypes().Patch(ctx, "test", types.MergePatchType, patch, metav1.PatchOptions{}, "status")
 				require.NoError(t, err, "failed to patch status as admin")
 			},
 		},
