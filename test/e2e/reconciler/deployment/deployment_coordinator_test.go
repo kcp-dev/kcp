@@ -27,7 +27,7 @@ import (
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -48,16 +48,16 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/reconciler/deployment/workloads"
 )
 
-func createResources(t *testing.T, ctx context.Context, fs embed.FS, upstreamConfig *rest.Config, clusterName logicalcluster.Name, transformers ...helpers.TransformFileFunc) error {
+func createResources(t *testing.T, ctx context.Context, fs embed.FS, upstreamConfig *rest.Config, path logicalcluster.Path, transformers ...helpers.TransformFileFunc) error {
 	dynamicClusterClient, err := kcpdynamic.NewForConfig(upstreamConfig)
 	require.NoError(t, err)
 
-	client := dynamicClusterClient.Cluster(clusterName)
+	client := dynamicClusterClient.Cluster(path)
 
 	apiextensionsClusterClient, err := kcpapiextensionsclientset.NewForConfig(upstreamConfig)
 	require.NoError(t, err)
 
-	discoveryClient := apiextensionsClusterClient.Cluster(clusterName).Discovery()
+	discoveryClient := apiextensionsClusterClient.Cluster(path).Discovery()
 
 	cache := memory.NewMemCacheClient(discoveryClient)
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(cache)
@@ -87,17 +87,17 @@ func TestDeploymentCoordinator(t *testing.T) {
 
 	orgWorkspace := framework.NewOrganizationFixture(t, upstreamServer)
 
-	locationWorkspace := framework.NewWorkspaceFixture(t, upstreamServer, orgWorkspace, framework.WithName("synctargets"))
+	locationWorkspace := framework.NewWorkspaceFixture(t, upstreamServer, orgWorkspace.Path(), framework.WithName("synctargets"))
 
-	workloadWorkspace1 := framework.NewWorkspaceFixture(t, upstreamServer, orgWorkspace, framework.WithName("workload-1"))
-	workloadWorkspace2 := framework.NewWorkspaceFixture(t, upstreamServer, orgWorkspace, framework.WithName("workload-2"))
+	workloadWorkspace1 := framework.NewWorkspaceFixture(t, upstreamServer, orgWorkspace.Path(), framework.WithName("workload-1"))
+	workloadWorkspace2 := framework.NewWorkspaceFixture(t, upstreamServer, orgWorkspace.Path(), framework.WithName("workload-2"))
 
 	eastSyncer := framework.NewSyncerFixture(t, upstreamServer, locationWorkspace,
 		framework.WithSyncTargetName("east"),
 		framework.WithSyncedUserWorkspaces(workloadWorkspace1, workloadWorkspace2),
 	).Start(t)
 
-	_, err = kcpClusterClient.Cluster(locationWorkspace).WorkloadV1alpha1().SyncTargets().Patch(ctx, "east", types.JSONPatchType, []byte(`[{"op":"add","path":"/metadata/labels/region","value":"east"}]`), metav1.PatchOptions{})
+	_, err = kcpClusterClient.Cluster(locationWorkspace.Path()).WorkloadV1alpha1().SyncTargets().Patch(ctx, "east", types.JSONPatchType, []byte(`[{"op":"add","path":"/metadata/labels/region","value":"east"}]`), metav1.PatchOptions{})
 	require.NoError(t, err)
 
 	westSyncer := framework.NewSyncerFixture(t, upstreamServer, locationWorkspace,
@@ -105,43 +105,43 @@ func TestDeploymentCoordinator(t *testing.T) {
 		framework.WithSyncedUserWorkspaces(workloadWorkspace1, workloadWorkspace2),
 	).Start(t)
 
-	_, err = kcpClusterClient.Cluster(locationWorkspace).WorkloadV1alpha1().SyncTargets().Patch(ctx, "west", types.JSONPatchType, []byte(`[{"op":"add","path":"/metadata/labels/region","value":"west"}]`), metav1.PatchOptions{})
+	_, err = kcpClusterClient.Cluster(locationWorkspace.Path()).WorkloadV1alpha1().SyncTargets().Patch(ctx, "west", types.JSONPatchType, []byte(`[{"op":"add","path":"/metadata/labels/region","value":"west"}]`), metav1.PatchOptions{})
 	require.NoError(t, err)
 
 	eastSyncer.WaitForClusterReady(t, ctx)
 	westSyncer.WaitForClusterReady(t, ctx)
 
 	t.Logf("Create 2 locations, one for each SyncTargets")
-	err = createResources(t, ctx, locations.FS, upstreamConfig, locationWorkspace)
+	err = createResources(t, ctx, locations.FS, upstreamConfig, locationWorkspace.Path())
 	require.NoError(t, err)
 
 	t.Logf("Bind workload workspace 1 to location workspace for the east location")
-	framework.NewBindCompute(t, workloadWorkspace1, upstreamServer,
-		framework.WithLocationWorkspaceWorkloadBindOption(locationWorkspace),
+	framework.NewBindCompute(t, workloadWorkspace1.Path(), upstreamServer,
+		framework.WithLocationWorkspaceWorkloadBindOption(locationWorkspace.Path()),
 		framework.WithLocationSelectorWorkloadBindOption(metav1.LabelSelector{
 			MatchLabels: map[string]string{"region": "east"},
 		}),
 	).Bind(t)
 
 	t.Logf("Bind workload workspace 2 to location workspace for the east location")
-	framework.NewBindCompute(t, workloadWorkspace2, upstreamServer,
-		framework.WithLocationWorkspaceWorkloadBindOption(locationWorkspace),
+	framework.NewBindCompute(t, workloadWorkspace2.Path(), upstreamServer,
+		framework.WithLocationWorkspaceWorkloadBindOption(locationWorkspace.Path()),
 		framework.WithLocationSelectorWorkloadBindOption(metav1.LabelSelector{
 			MatchLabels: map[string]string{"region": "east"},
 		}),
 	).Bind(t)
 
 	t.Logf("Bind workload workspace 1 to location workspace for the west location")
-	framework.NewBindCompute(t, workloadWorkspace1, upstreamServer,
-		framework.WithLocationWorkspaceWorkloadBindOption(locationWorkspace),
+	framework.NewBindCompute(t, workloadWorkspace1.Path(), upstreamServer,
+		framework.WithLocationWorkspaceWorkloadBindOption(locationWorkspace.Path()),
 		framework.WithLocationSelectorWorkloadBindOption(metav1.LabelSelector{
 			MatchLabels: map[string]string{"region": "west"},
 		}),
 	).Bind(t)
 
 	t.Logf("Bind workload workspace 2 to location workspace for the west location")
-	framework.NewBindCompute(t, workloadWorkspace2, upstreamServer,
-		framework.WithLocationWorkspaceWorkloadBindOption(locationWorkspace),
+	framework.NewBindCompute(t, workloadWorkspace2.Path(), upstreamServer,
+		framework.WithLocationWorkspaceWorkloadBindOption(locationWorkspace.Path()),
 		framework.WithLocationSelectorWorkloadBindOption(metav1.LabelSelector{
 			MatchLabels: map[string]string{"region": "west"},
 		}),
@@ -149,7 +149,7 @@ func TestDeploymentCoordinator(t *testing.T) {
 
 	t.Logf("Get the root compute APIExport Virtual Workspace URL")
 
-	rootKubernetesAPIExport, err := kcpClusterClient.Cluster(logicalcluster.New("root:compute")).ApisV1alpha1().APIExports().Get(ctx, "kubernetes", metav1.GetOptions{})
+	rootKubernetesAPIExport, err := kcpClusterClient.Cluster(logicalcluster.NewPath("root:compute")).ApisV1alpha1().APIExports().Get(ctx, "kubernetes", metav1.GetOptions{})
 	require.NoError(t, err, "failed to retrieve Root compute kubernetes APIExport")
 
 	require.GreaterOrEqual(t, len(rootKubernetesAPIExport.Status.VirtualWorkspaces), 1, "Root compute kubernetes APIExport should contain at least one virtual workspace URL")
@@ -193,26 +193,26 @@ func TestDeploymentCoordinator(t *testing.T) {
 	}
 
 	for _, workspace := range []struct {
-		name              logicalcluster.Name
+		clusterName       logicalcluster.Name
 		requestedReplicas int32
 	}{
 		{
-			name:              workloadWorkspace1,
+			clusterName:       workloadWorkspace1,
 			requestedReplicas: 4,
 		},
 		{
-			name:              workloadWorkspace2,
+			clusterName:       workloadWorkspace2,
 			requestedReplicas: 8,
 		},
 	} {
 		wkspDownstreamInfo := downstreamInfo{
-			namespaceOnEast: eastSyncer.DownstreamNamespaceFor(t, workspace.name, "default"),
-			namespaceOnWest: westSyncer.DownstreamNamespaceFor(t, workspace.name, "default"),
+			namespaceOnEast: eastSyncer.DownstreamNamespaceFor(t, workspace.clusterName, "default"),
+			namespaceOnWest: westSyncer.DownstreamNamespaceFor(t, workspace.clusterName, "default"),
 		}
 
-		t.Logf("Create workload in workload workspace %q, with replicas set to %d", workspace.name, workspace.requestedReplicas)
+		t.Logf("Create workload in workload workspace %q, with replicas set to %d", workspace.clusterName, workspace.requestedReplicas)
 		framework.Eventually(t, func() (bool, string) {
-			if err := createResources(t, ctx, workloads.FS, upstreamConfig, workspace.name, func(bs []byte) ([]byte, error) {
+			if err := createResources(t, ctx, workloads.FS, upstreamConfig, workspace.clusterName.Path(), func(bs []byte) ([]byte, error) {
 				yaml := string(bs)
 				yaml = strings.Replace(yaml, "replicas: 1", fmt.Sprintf("replicas: %d", workspace.requestedReplicas), 1)
 				return []byte(yaml), nil
@@ -221,14 +221,14 @@ func TestDeploymentCoordinator(t *testing.T) {
 			} else {
 				return false, err.Error()
 			}
-		}, wait.ForeverTestTimeout, time.Millisecond*100, "should create the deployment after the deployments resource is available in workspace %q", workspace.name)
+		}, wait.ForeverTestTimeout, time.Millisecond*100, "should create the deployment after the deployments resource is available in workspace %q", workspace.clusterName)
 
-		t.Logf("Wait for the workload in workspace %q to be started and available with 4 replicas", workspace.name)
+		t.Logf("Wait for the workload in workspace %q to be started and available with 4 replicas", workspace.clusterName)
 		func() {
 			defer dumpEventsAndPods(wkspDownstreamInfo)
 
 			framework.Eventually(t, func() (success bool, reason string) {
-				deployment, err := upstreamKubeClusterClient.Cluster(workspace.name).AppsV1().Deployments("default").Get(ctx, "test", metav1.GetOptions{})
+				deployment, err := upstreamKubeClusterClient.Cluster(workspace.clusterName.Path()).AppsV1().Deployments("default").Get(ctx, "test", metav1.GetOptions{})
 				require.NoError(t, err)
 
 				// TODO(davidfestal): the 2 checks below are necessary here to avoid the test to be flaky since for now the coordination
@@ -236,10 +236,10 @@ func TestDeploymentCoordinator(t *testing.T) {
 				// So it could be synced with 8 replicas on each Synctarget at start, for a very small amount of time, which might
 				// seem like deployment replicas would have been spread, though in fact it is not.
 				if _, exists := deployment.GetAnnotations()["experimental.spec-diff.workload.kcp.dev/"+eastSyncer.ToSyncTargetKey()]; !exists {
-					return false, fmt.Sprintf("Deployment %s/%s should have been prepared for transformation by the coordinator for the east syncTarget", workspace.name, "test")
+					return false, fmt.Sprintf("Deployment %s/%s should have been prepared for transformation by the coordinator for the east syncTarget", workspace.clusterName, "test")
 				}
 				if _, exists := deployment.GetAnnotations()["experimental.spec-diff.workload.kcp.dev/"+westSyncer.ToSyncTargetKey()]; !exists {
-					return false, fmt.Sprintf("Deployment %s/%s should have been prepared for transformation by the coordinator for the west syncTarget", workspace.name, "test")
+					return false, fmt.Sprintf("Deployment %s/%s should have been prepared for transformation by the coordinator for the west syncTarget", workspace.clusterName, "test")
 				}
 
 				// TODO(davidfestal): the 2 checks below are necessary here to avoid the test to be flaky since for now the coordination
@@ -247,27 +247,27 @@ func TestDeploymentCoordinator(t *testing.T) {
 				// So it could be synced with 8 replicas on each Synctarget at start, for a very small amount of time, which might
 				// seem like deployment replicas would have been spread, though in fact it is not.
 				if _, exists := deployment.GetAnnotations()["diff.syncer.internal.kcp.dev/"+eastSyncer.ToSyncTargetKey()]; !exists {
-					return false, fmt.Sprintf("Status of deployment %s/%s  should have been updated by the east syncer", workspace.name, "test")
+					return false, fmt.Sprintf("Status of deployment %s/%s  should have been updated by the east syncer", workspace.clusterName, "test")
 				}
 				if _, exists := deployment.GetAnnotations()["experimental.spec-diff.workload.kcp.dev/"+westSyncer.ToSyncTargetKey()]; !exists {
-					return false, fmt.Sprintf("Status of deployment %s/%s  should have been updated by the west syncer", workspace.name, "test")
+					return false, fmt.Sprintf("Status of deployment %s/%s  should have been updated by the west syncer", workspace.clusterName, "test")
 				}
 
 				if actual, expected := deployment.Status.AvailableReplicas, workspace.requestedReplicas; actual != expected {
-					return false, fmt.Sprintf("Deployment %s/%s had %d available replicas, not %d", workspace.name, "test", actual, expected)
+					return false, fmt.Sprintf("Deployment %s/%s had %d available replicas, not %d", workspace.clusterName, "test", actual, expected)
 				}
 				return true, ""
-			}, wait.ForeverTestTimeout, time.Millisecond*500, "deployment %s/%s was not synced", workspace.name, "test")
+			}, wait.ForeverTestTimeout, time.Millisecond*500, "deployment %s/%s was not synced", workspace.clusterName, "test")
 		}()
 
 		t.Logf("Check that each deployment on each SyncTarget has half the number of replicas")
 		downstreamDeploymentOnEastForWorkspace1, err := downstreamKubeClient.AppsV1().Deployments(wkspDownstreamInfo.namespaceOnEast).Get(ctx, "test", metav1.GetOptions{})
 		require.NoError(t, err)
-		require.Equal(t, workspace.requestedReplicas/2, downstreamDeploymentOnEastForWorkspace1.Status.AvailableReplicas, "East syncer should have received half of the replicas for workspace %q workload", workspace.name)
+		require.Equal(t, workspace.requestedReplicas/2, downstreamDeploymentOnEastForWorkspace1.Status.AvailableReplicas, "East syncer should have received half of the replicas for workspace %q workload", workspace.clusterName)
 
 		downstreamDeploymentOnWestForWorkspace1, err := downstreamKubeClient.AppsV1().Deployments(wkspDownstreamInfo.namespaceOnWest).Get(ctx, "test", metav1.GetOptions{})
 		require.NoError(t, err)
-		require.Equal(t, workspace.requestedReplicas/2, downstreamDeploymentOnWestForWorkspace1.Status.AvailableReplicas, "West syncer should have received half of the replicas for workspace %q workload", workspace.name)
+		require.Equal(t, workspace.requestedReplicas/2, downstreamDeploymentOnWestForWorkspace1.Status.AvailableReplicas, "West syncer should have received half of the replicas for workspace %q workload", workspace.clusterName)
 	}
 }
 

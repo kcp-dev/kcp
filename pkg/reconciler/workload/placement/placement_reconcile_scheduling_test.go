@@ -238,13 +238,13 @@ func TestReconcileStatusConditions(t *testing.T) {
 			listSyncTarget := func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error) {
 				return testCase.syncTargets, nil
 			}
-			getLocation := func(clusterName logicalcluster.Name, name string) (*schedulingv1alpha1.Location, error) {
+			getLocation := func(clusterName logicalcluster.Path, name string) (*schedulingv1alpha1.Location, error) {
 				if testCase.location == nil {
 					return nil, errors.NewNotFound(schema.GroupResource{}, name)
 				}
 				return testCase.location, nil
 			}
-			patchPlacement := func(ctx context.Context, clusterName logicalcluster.Name, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*schedulingv1alpha1.Placement, error) {
+			patchPlacement := func(ctx context.Context, clusterName logicalcluster.Path, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*schedulingv1alpha1.Placement, error) {
 				nsData, _ := json.Marshal(testCase.placement)
 				updatedData, err := jsonpatch.MergePatch(nsData, data)
 				if err != nil {
