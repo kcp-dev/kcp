@@ -23,6 +23,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 )
@@ -144,7 +145,7 @@ type ClusterWorkspaceStatus struct {
 	// Phase of the workspace (Scheduling / Initializing / Ready)
 	//
 	// +kubebuilder:default=Scheduling
-	Phase WorkspacePhaseType `json:"phase,omitempty"`
+	Phase corev1alpha1.LogicalClusterPhaseType `json:"phase,omitempty"`
 
 	// Current processing state of the ClusterWorkspace.
 	// +optional
@@ -177,19 +178,8 @@ type ClusterWorkspaceStatus struct {
 	// clusterworkspaces/initialize resource permission.
 	//
 	// +optional
-	Initializers []WorkspaceInitializer `json:"initializers,omitempty"`
+	Initializers []corev1alpha1.LogicalClusterInitializer `json:"initializers,omitempty"`
 }
-
-// WorkspacePhaseType is the type of the current phase of the workspace
-//
-// +kubebuilder:validation:Enum=Scheduling;Initializing;Ready
-type WorkspacePhaseType string
-
-const (
-	WorkspacePhaseScheduling   WorkspacePhaseType = "Scheduling"
-	WorkspacePhaseInitializing WorkspacePhaseType = "Initializing"
-	WorkspacePhaseReady        WorkspacePhaseType = "Ready"
-)
 
 const ExperimentalWorkspaceOwnerAnnotationKey string = "experimental.tenancy.kcp.dev/owner"
 

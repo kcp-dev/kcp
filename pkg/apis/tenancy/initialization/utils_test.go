@@ -22,11 +22,11 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/validation"
 
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 )
 
 func TestInitializerToLabel(t *testing.T) {
-	for _, testCase := range []tenancyv1alpha1.WorkspaceInitializer{
+	for _, testCase := range []corev1alpha1.LogicalClusterInitializer{
 		"simple:root:org:ws:whatever",
 		"QualifiedName:root:org:ws:whatever",
 		"qualified.Name:root:org:ws:whatever",

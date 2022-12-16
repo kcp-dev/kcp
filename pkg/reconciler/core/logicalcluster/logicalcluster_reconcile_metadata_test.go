@@ -27,7 +27,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
 
 func TestReconcileMetadata(t *testing.T) {
@@ -44,8 +43,8 @@ func TestReconcileMetadata(t *testing.T) {
 			name: "adds entirely missing labels and annotations",
 			input: &corev1alpha1.LogicalCluster{
 				Status: corev1alpha1.LogicalClusterStatus{
-					Phase: tenancyv1alpha1.WorkspacePhaseReady,
-					Initializers: []tenancyv1alpha1.WorkspaceInitializer{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+					Initializers: []corev1alpha1.LogicalClusterInitializer{
 						"pluto", "venus", "apollo",
 					},
 				},
@@ -67,7 +66,7 @@ func TestReconcileMetadata(t *testing.T) {
 					DeletionTimestamp: &metav1.Time{Time: date},
 				},
 				Status: corev1alpha1.LogicalClusterStatus{
-					Phase: tenancyv1alpha1.WorkspacePhaseReady,
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
 				},
 			},
 			expected: metav1.ObjectMeta{
@@ -89,8 +88,8 @@ func TestReconcileMetadata(t *testing.T) {
 					},
 				},
 				Status: corev1alpha1.LogicalClusterStatus{
-					Phase: tenancyv1alpha1.WorkspacePhaseReady,
-					Initializers: []tenancyv1alpha1.WorkspaceInitializer{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+					Initializers: []corev1alpha1.LogicalClusterInitializer{
 						"pluto", "venus", "apollo",
 					},
 				},
@@ -116,8 +115,8 @@ func TestReconcileMetadata(t *testing.T) {
 					},
 				},
 				Status: corev1alpha1.LogicalClusterStatus{
-					Phase: tenancyv1alpha1.WorkspacePhaseReady,
-					Initializers: []tenancyv1alpha1.WorkspaceInitializer{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+					Initializers: []corev1alpha1.LogicalClusterInitializer{
 						"pluto",
 					},
 				},
@@ -142,8 +141,8 @@ func TestReconcileMetadata(t *testing.T) {
 					},
 				},
 				Status: corev1alpha1.LogicalClusterStatus{
-					Phase: tenancyv1alpha1.WorkspacePhaseReady,
-					Initializers: []tenancyv1alpha1.WorkspaceInitializer{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+					Initializers: []corev1alpha1.LogicalClusterInitializer{
 						"pluto", "venus", "apollo",
 					},
 				},
@@ -171,7 +170,7 @@ func TestReconcileMetadata(t *testing.T) {
 					},
 				},
 				Status: corev1alpha1.LogicalClusterStatus{
-					Phase: tenancyv1alpha1.WorkspacePhaseReady,
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
 				},
 			},
 			expected: metav1.ObjectMeta{
@@ -198,7 +197,7 @@ func TestReconcileMetadata(t *testing.T) {
 					},
 				},
 				Status: corev1alpha1.LogicalClusterStatus{
-					Phase: tenancyv1alpha1.WorkspacePhaseReady,
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
 				},
 			},
 			expected: metav1.ObjectMeta{

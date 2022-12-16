@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v221212-cf67ac73a.workspaces.tenancy.kcp.dev
+  name: v221216-5977dcf75.workspaces.tenancy.kcp.dev
 spec:
   group: tenancy.kcp.dev
   names:
@@ -213,8 +213,8 @@ spec:
               description: initializers must be cleared by a controller before the
                 workspace is ready and can be used.
               items:
-                description: WorkspaceInitializer is a unique string corresponding
-                  to a cluster workspace initialization controller for the given type
+                description: LogicalClusterInitializer is a unique string corresponding
+                  to a logical cluster initialization controller for the given type
                   of workspaces.
                 pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$
                 type: string

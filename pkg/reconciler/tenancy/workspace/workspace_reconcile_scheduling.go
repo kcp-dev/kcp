@@ -83,7 +83,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 	logger := klog.FromContext(ctx).WithValues("reconciler", "scheduling")
 
 	switch workspace.Status.Phase {
-	case tenancyv1alpha1.WorkspacePhaseScheduling:
+	case corev1alpha1.LogicalClusterPhaseScheduling:
 		shardNameHash, hasShard := workspace.Annotations[workspaceShardAnnotationKey]
 		clusterNameString, hasCluster := workspace.Annotations[workspaceClusterAnnotationKey]
 		clusterName := logicalcluster.Name(clusterNameString)
@@ -149,7 +149,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 		if err := r.createClusterRoleBindingForLogicalCluster(ctx, shard, clusterName.Path(), workspace); err != nil && !apierrors.IsAlreadyExists(err) {
 			return reconcileStatusStopAndRequeue, err
 		}
-		if err := r.updateLogicalClusterPhase(ctx, shard, clusterName.Path(), tenancyv1alpha1.WorkspacePhaseInitializing); err != nil {
+		if err := r.updateLogicalClusterPhase(ctx, shard, clusterName.Path(), corev1alpha1.LogicalClusterPhaseInitializing); err != nil {
 			return reconcileStatusStopAndRequeue, err
 		}
 
@@ -319,7 +319,7 @@ func (r *schedulingReconciler) createLogicalCluster(ctx context.Context, shard *
 	return err
 }
 
-func (r *schedulingReconciler) updateLogicalClusterPhase(ctx context.Context, shard *tenancyv1alpha1.ClusterWorkspaceShard, cluster logicalcluster.Path, phase tenancyv1alpha1.WorkspacePhaseType) error {
+func (r *schedulingReconciler) updateLogicalClusterPhase(ctx context.Context, shard *tenancyv1alpha1.ClusterWorkspaceShard, cluster logicalcluster.Path, phase corev1alpha1.LogicalClusterPhaseType) error {
 	logicalClusterAdminClient, err := r.kcpLogicalClusterAdminClientFor(shard)
 	if err != nil {
 		return err

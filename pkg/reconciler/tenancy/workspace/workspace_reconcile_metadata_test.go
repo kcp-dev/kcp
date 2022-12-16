@@ -26,7 +26,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 )
 
@@ -53,7 +53,7 @@ func TestReconcileMetadata(t *testing.T) {
 					},
 				},
 				Status: tenancyv1beta1.WorkspaceStatus{
-					Phase: tenancyv1alpha1.WorkspacePhaseReady,
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
 				},
 			},
 			expected: metav1.ObjectMeta{
@@ -74,7 +74,7 @@ func TestReconcileMetadata(t *testing.T) {
 					DeletionTimestamp: &metav1.Time{Time: date},
 				},
 				Status: tenancyv1beta1.WorkspaceStatus{
-					Phase: tenancyv1alpha1.WorkspacePhaseReady,
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
 				},
 			},
 			expected: metav1.ObjectMeta{
@@ -98,7 +98,7 @@ func TestReconcileMetadata(t *testing.T) {
 					},
 				},
 				Status: tenancyv1beta1.WorkspaceStatus{
-					Phase: tenancyv1alpha1.WorkspacePhaseReady,
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
 				},
 			},
 			expected: metav1.ObjectMeta{

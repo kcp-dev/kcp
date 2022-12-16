@@ -250,7 +250,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 	// here we have a LogicalCluster. Create ClusterRoleBinding. Again: if this is pre-existing
 	// and it is not belonging to the current user, the user will get a 403 through normal authorization.
 
-	if this.Status.Phase == tenancyv1alpha1.WorkspacePhaseScheduling {
+	if this.Status.Phase == corev1alpha1.LogicalClusterPhaseScheduling {
 		logger.Info("Creating home ClusterRoleBinding", "cluster", homeClusterName.String(), "user", effectiveUser.GetName(), "name", "workspace-admin")
 		_, err := h.kubeClusterClient.Cluster(homeClusterName.Path()).RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
 			ObjectMeta: metav1.ObjectMeta{
@@ -276,7 +276,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 
 		// move to Initializing state
 		this = this.DeepCopy()
-		this.Status.Phase = tenancyv1alpha1.WorkspacePhaseInitializing
+		this.Status.Phase = corev1alpha1.LogicalClusterPhaseInitializing
 		this, err = h.kcpClusterClient.Cluster(homeClusterName.Path()).CoreV1alpha1().LogicalClusters().UpdateStatus(ctx, this, metav1.UpdateOptions{})
 		if err != nil {
 			if kerrors.IsConflict(err) {
@@ -289,7 +289,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		}
 	}
 
-	if this.Status.Phase == tenancyv1alpha1.WorkspacePhaseInitializing {
+	if this.Status.Phase == corev1alpha1.LogicalClusterPhaseInitializing {
 		if time.Since(this.CreationTimestamp.Time) > h.creationTimeout {
 			responsewriters.InternalError(rw, req, fmt.Errorf("home workspace creation timeout"))
 			return

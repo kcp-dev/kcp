@@ -30,7 +30,6 @@ import (
 
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
@@ -63,11 +62,11 @@ var _ = admission.MutationInterface(&plugin{})
 var _ = admission.InitializationValidator(&plugin{})
 var _ = kcpinitializers.WantsKcpInformers(&plugin{})
 
-var phaseOrdinal = map[tenancyv1alpha1.WorkspacePhaseType]int{
-	tenancyv1alpha1.WorkspacePhaseType(""):     1,
-	tenancyv1alpha1.WorkspacePhaseScheduling:   2,
-	tenancyv1alpha1.WorkspacePhaseInitializing: 3,
-	tenancyv1alpha1.WorkspacePhaseReady:        4,
+var phaseOrdinal = map[corev1alpha1.LogicalClusterPhaseType]int{
+	corev1alpha1.LogicalClusterPhaseType(""):     1,
+	corev1alpha1.LogicalClusterPhaseScheduling:   2,
+	corev1alpha1.LogicalClusterPhaseInitializing: 3,
+	corev1alpha1.LogicalClusterPhaseReady:        4,
 }
 
 // Admit adds type initializer to status on transition to initializing phase.
@@ -103,7 +102,7 @@ func (o *plugin) Admit(ctx context.Context, a admission.Attributes, _ admission.
 		}
 
 		// we only admit at state transition to initializing
-		transitioningToInitializing := old.Status.Phase != tenancyv1alpha1.WorkspacePhaseInitializing && this.Status.Phase == tenancyv1alpha1.WorkspacePhaseInitializing
+		transitioningToInitializing := old.Status.Phase != corev1alpha1.LogicalClusterPhaseInitializing && this.Status.Phase == corev1alpha1.LogicalClusterPhaseInitializing
 		if !transitioningToInitializing {
 			return nil
 		}
@@ -160,20 +159,20 @@ func (o *plugin) Validate(ctx context.Context, a admission.Attributes, _ admissi
 			return admission.NewForbidden(a, fmt.Errorf("spec.initializers is immutable"))
 		}
 
-		transitioningToInitializing := old.Status.Phase != tenancyv1alpha1.WorkspacePhaseInitializing && this.Status.Phase == tenancyv1alpha1.WorkspacePhaseInitializing
+		transitioningToInitializing := old.Status.Phase != corev1alpha1.LogicalClusterPhaseInitializing && this.Status.Phase == corev1alpha1.LogicalClusterPhaseInitializing
 		if transitioningToInitializing && !newSpec.Equal(newStatus) {
 			return admission.NewForbidden(a, fmt.Errorf("status.initializers do not equal spec.initializers"))
 		}
 
-		if !transitioningToInitializing && this.Status.Phase == tenancyv1alpha1.WorkspacePhaseInitializing && !oldStatus.IsSuperset(newStatus) {
+		if !transitioningToInitializing && this.Status.Phase == corev1alpha1.LogicalClusterPhaseInitializing && !oldStatus.IsSuperset(newStatus) {
 			return admission.NewForbidden(a, fmt.Errorf("status.initializers must not grow"))
 		}
 
-		if this.Status.Phase != tenancyv1alpha1.WorkspacePhaseInitializing && !oldStatus.Equal(newStatus) {
+		if this.Status.Phase != corev1alpha1.LogicalClusterPhaseInitializing && !oldStatus.Equal(newStatus) {
 			return admission.NewForbidden(a, fmt.Errorf("status.initializers is immutable after initilization"))
 		}
 
-		if old.Status.Phase == tenancyv1alpha1.WorkspacePhaseInitializing && this.Status.Phase != tenancyv1alpha1.WorkspacePhaseInitializing {
+		if old.Status.Phase == corev1alpha1.LogicalClusterPhaseInitializing && this.Status.Phase != corev1alpha1.LogicalClusterPhaseInitializing {
 			if len(this.Status.Initializers) > 0 {
 				return admission.NewForbidden(a, fmt.Errorf("status.initializers is not empty"))
 			}
@@ -217,7 +216,7 @@ func (o *plugin) SetKcpInformers(informers kcpinformers.SharedInformerFactory) {
 	o.logicalClusterLister = informers.Core().V1alpha1().LogicalClusters().Lister()
 }
 
-func toSet(initializers []tenancyv1alpha1.WorkspaceInitializer) sets.String {
+func toSet(initializers []corev1alpha1.LogicalClusterInitializer) sets.String {
 	ret := sets.NewString()
 	for _, initializer := range initializers {
 		ret.Insert(string(initializer))

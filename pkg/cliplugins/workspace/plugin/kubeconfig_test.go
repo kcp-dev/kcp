@@ -40,6 +40,7 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
@@ -205,7 +206,7 @@ func TestCreate(t *testing.T) {
 						},
 					},
 					Status: tenancyv1beta1.WorkspaceStatus{
-						Phase: tenancyv1alpha1.WorkspacePhaseReady,
+						Phase: corev1alpha1.LogicalClusterPhaseReady,
 						URL:   fmt.Sprintf("https://test%s", currentClusterName.Join(name).RequestPath()),
 					},
 				})
@@ -224,7 +225,7 @@ func TestCreate(t *testing.T) {
 			if tt.markReady {
 				client.PrependReactor("create", "workspaces", func(action kcptesting.Action) (handled bool, ret runtime.Object, err error) {
 					obj := action.(kcptesting.CreateAction).GetObject().(*tenancyv1beta1.Workspace)
-					obj.Status.Phase = tenancyv1alpha1.WorkspacePhaseReady
+					obj.Status.Phase = corev1alpha1.LogicalClusterPhaseReady
 					u := parseURLOrDie(u.String())
 					u.Path = currentClusterName.Join(obj.Name).RequestPath()
 					obj.Status.URL = u.String()
@@ -1202,7 +1203,7 @@ func TestUse(t *testing.T) {
 						},
 					}
 					if !tt.unready[lcluster.Path()][name] {
-						obj.Status.Phase = tenancyv1alpha1.WorkspacePhaseReady
+						obj.Status.Phase = corev1alpha1.LogicalClusterPhaseReady
 						obj.Status.URL = fmt.Sprintf("https://test%s", lcluster.Path().Join(name).RequestPath())
 					}
 					objs = append(objs, obj)

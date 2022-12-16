@@ -30,7 +30,6 @@ import (
 
 	confighelpers "github.com/kcp-dev/kcp/config/helpers"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 )
 
@@ -66,8 +65,8 @@ func Bootstrap(ctx context.Context, kcpClient kcpclient.Interface, rootDiscovery
 			logger.Error(err, "failed to get this workspace in root")
 			return false, nil
 		}
-		if this.Status.Phase == tenancyv1alpha1.WorkspacePhaseInitializing {
-			this.Status.Phase = tenancyv1alpha1.WorkspacePhaseReady
+		if this.Status.Phase == corev1alpha1.LogicalClusterPhaseInitializing {
+			this.Status.Phase = corev1alpha1.LogicalClusterPhaseReady
 			_, err = kcpClient.CoreV1alpha1().LogicalClusters().UpdateStatus(ctx, this, metav1.UpdateOptions{})
 			if err != nil {
 				logger.Error(err, "failed to update this workspace status in root")

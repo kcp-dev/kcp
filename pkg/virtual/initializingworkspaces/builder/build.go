@@ -240,8 +240,8 @@ func BuildVirtualWorkspace(
 					return
 				}
 
-				initializer := tenancyv1alpha1.WorkspaceInitializer(dynamiccontext.APIDomainKeyFrom(request.Context()))
-				if logicalCluster.Status.Phase != tenancyv1alpha1.WorkspacePhaseInitializing || !initialization.InitializerPresent(initializer, logicalCluster.Status.Initializers) {
+				initializer := corev1alpha1.LogicalClusterInitializer(dynamiccontext.APIDomainKeyFrom(request.Context()))
+				if logicalCluster.Status.Phase != corev1alpha1.LogicalClusterPhaseInitializing || !initialization.InitializerPresent(initializer, logicalCluster.Status.Initializers) {
 					http.Error(writer, fmt.Sprintf("initializer %q cannot access this workspace", initializer), http.StatusForbidden)
 					return
 				}
@@ -373,7 +373,7 @@ func digestUrl(urlPath, rootPathPrefix string) (
 }
 
 // URLFor returns the absolute path for the specified initializer.
-func URLFor(initializerName tenancyv1alpha1.WorkspaceInitializer) string {
+func URLFor(initializerName corev1alpha1.LogicalClusterInitializer) string {
 	// TODO(ncdc): make /services hard-coded everywhere instead of configurable.
 	return path.Join("/services", initializingworkspaces.VirtualWorkspaceName, string(initializerName))
 }
@@ -383,11 +383,11 @@ type singleResourceAPIDefinitionSetProvider struct {
 	dynamicClusterClient kcpdynamic.ClusterInterface
 	resource             *apisv1alpha1.APIResourceSchema
 	exposeSubresources   bool
-	storageProvider      func(ctx context.Context, clusterClient kcpdynamic.ClusterInterface, initializer tenancyv1alpha1.WorkspaceInitializer) (apiserver.RestProviderFunc, error)
+	storageProvider      func(ctx context.Context, clusterClient kcpdynamic.ClusterInterface, initializer corev1alpha1.LogicalClusterInitializer) (apiserver.RestProviderFunc, error)
 }
 
 func (a *singleResourceAPIDefinitionSetProvider) GetAPIDefinitionSet(ctx context.Context, key dynamiccontext.APIDomainKey) (apis apidefinition.APIDefinitionSet, apisExist bool, err error) {
-	restProvider, err := a.storageProvider(ctx, a.dynamicClusterClient, tenancyv1alpha1.WorkspaceInitializer(key))
+	restProvider, err := a.storageProvider(ctx, a.dynamicClusterClient, corev1alpha1.LogicalClusterInitializer(key))
 	if err != nil {
 		return nil, false, err
 	}
@@ -417,7 +417,7 @@ var _ apidefinition.APIDefinitionSetGetter = &singleResourceAPIDefinitionSetProv
 
 func newAuthorizer(client kcpkubernetesclientset.ClusterInterface) authorizer.AuthorizerFunc {
 	return func(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
-		clusterName, name, err := initialization.TypeFrom(tenancyv1alpha1.WorkspaceInitializer(dynamiccontext.APIDomainKeyFrom(ctx)))
+		clusterName, name, err := initialization.TypeFrom(corev1alpha1.LogicalClusterInitializer(dynamiccontext.APIDomainKeyFrom(ctx)))
 		if err != nil {
 			klog.V(2).Info(err)
 			return authorizer.DecisionNoOpinion, "unable to determine initializer", fmt.Errorf("access not permitted")

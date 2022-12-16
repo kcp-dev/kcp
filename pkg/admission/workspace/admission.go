@@ -179,7 +179,7 @@ func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admi
 			return admission.NewForbidden(a, errors.New("status.cluster cannot be unset"))
 		}
 
-		if cw.Status.Phase != tenancyv1alpha1.WorkspacePhaseScheduling {
+		if cw.Status.Phase != corev1alpha1.LogicalClusterPhaseScheduling {
 			if cw.Status.Cluster == "" {
 				return admission.NewForbidden(a, fmt.Errorf("status.cluster must be set for phase %s", cw.Status.Phase))
 			}

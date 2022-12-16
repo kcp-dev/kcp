@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v221216-6f58af620.logicalclusters.core.kcp.dev
+  name: v221216-5977dcf75.logicalclusters.core.kcp.dev
 spec:
   group: core.kcp.dev
   names:
@@ -61,8 +61,8 @@ spec:
               description: initializers are set on creation by the system and copied
                 to status when initialization starts.
               items:
-                description: WorkspaceInitializer is a unique string corresponding
-                  to a cluster workspace initialization controller for the given type
+                description: LogicalClusterInitializer is a unique string corresponding
+                  to a logical cluster initialization controller for the given type
                   of workspaces.
                 pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$
                 type: string
@@ -165,8 +165,8 @@ spec:
                 will stay in the phase "Initializing" state until all initializers
                 are cleared.
               items:
-                description: WorkspaceInitializer is a unique string corresponding
-                  to a cluster workspace initialization controller for the given type
+                description: LogicalClusterInitializer is a unique string corresponding
+                  to a logical cluster initialization controller for the given type
                   of workspaces.
                 pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$
                 type: string

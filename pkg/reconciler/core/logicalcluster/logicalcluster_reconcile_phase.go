@@ -29,13 +29,13 @@ type phaseReconciler struct{}
 
 func (r *phaseReconciler) reconcile(ctx context.Context, workspace *corev1alpha1.LogicalCluster) (reconcileStatus, error) {
 	switch workspace.Status.Phase {
-	case tenancyv1alpha1.WorkspacePhaseInitializing:
+	case corev1alpha1.LogicalClusterPhaseInitializing:
 		if len(workspace.Status.Initializers) > 0 {
 			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceInitialized, tenancyv1alpha1.WorkspaceInitializedInitializerExists, conditionsv1alpha1.ConditionSeverityInfo, "Initializers still exist: %v", workspace.Status.Initializers)
 			return reconcileStatusContinue, nil
 		}
 
-		workspace.Status.Phase = tenancyv1alpha1.WorkspacePhaseReady
+		workspace.Status.Phase = corev1alpha1.LogicalClusterPhaseReady
 		conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceInitialized)
 	}
 

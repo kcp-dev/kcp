@@ -4,7 +4,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 )
@@ -34,7 +33,7 @@ const (
 	// LogicalClusterName is the name of the LogicalCluster singleton.
 	LogicalClusterName = "this"
 
-	// LogicalClusterFinalizer attached to new ClusterWorkspace (in phase WorkspacePhaseScheduling) resources so that we can control
+	// LogicalClusterFinalizer attached to new ClusterWorkspace (in phase LogicalClusterPhaseScheduling) resources so that we can control
 	// deletion of LogicalCluster resources
 	LogicalClusterFinalizer = "core.kcp.dev/logicalcluster"
 
@@ -42,6 +41,23 @@ const (
 	// the type of the workspace on the LogicalCluster object. Its format is "root:ws:name".
 	LogicalClusterTypeAnnotationKey = "internal.tenancy.kcp.dev/type"
 )
+
+// LogicalClusterPhaseType is the type of the current phase of the logical cluster.
+//
+// +kubebuilder:validation:Enum=Scheduling;Initializing;Ready
+type LogicalClusterPhaseType string
+
+const (
+	LogicalClusterPhaseScheduling   LogicalClusterPhaseType = "Scheduling"
+	LogicalClusterPhaseInitializing LogicalClusterPhaseType = "Initializing"
+	LogicalClusterPhaseReady        LogicalClusterPhaseType = "Ready"
+)
+
+// LogicalClusterInitializer is a unique string corresponding to a logical cluster
+// initialization controller for the given type of workspaces.
+//
+// +kubebuilder:validation:Pattern:="^([a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$"
+type LogicalClusterInitializer string
 
 // LogicalClusterSpec is the specification of the LogicalCluster resource.
 type LogicalClusterSpec struct {
@@ -66,7 +82,7 @@ type LogicalClusterSpec struct {
 	// initialization starts.
 	//
 	// +optional
-	Initializers []tenancyv1alpha1.WorkspaceInitializer `json:"initializers,omitempty"`
+	Initializers []LogicalClusterInitializer `json:"initializers,omitempty"`
 }
 
 // LogicalClusterOwner is a reference to a resource controlling the life-cycle of a LogicalCluster.
@@ -123,7 +139,7 @@ type LogicalClusterStatus struct {
 	// Phase of the workspace (Initializing, Ready).
 	//
 	// +kubebuilder:default=Scheduling
-	Phase tenancyv1alpha1.WorkspacePhaseType `json:"phase,omitempty"`
+	Phase LogicalClusterPhaseType `json:"phase,omitempty"`
 
 	// Current processing state of the LogicalCluster.
 	// +optional
@@ -134,7 +150,7 @@ type LogicalClusterStatus struct {
 	// stay in the phase "Initializing" state until all initializers are cleared.
 	//
 	// +optional
-	Initializers []tenancyv1alpha1.WorkspaceInitializer `json:"initializers,omitempty"`
+	Initializers []LogicalClusterInitializer `json:"initializers,omitempty"`
 }
 
 func (in *LogicalCluster) SetConditions(c conditionsv1alpha1.Conditions) {

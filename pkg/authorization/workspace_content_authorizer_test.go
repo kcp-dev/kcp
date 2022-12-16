@@ -37,7 +37,6 @@ import (
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
 )
 
@@ -88,7 +87,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			requestedWorkspace: "root:unknown",
 			requestingUser:     newUser("user-access"),
 			wantDecision:       authorizer.DecisionDeny,
-			wantReason:         "logicalcluster not found",
+			wantReason:         "LogicalCluster not found",
 		},
 		{
 			testName: "workspace without parent",
@@ -311,23 +310,23 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			indexer := cache.NewIndexer(kcpcache.MetaClusterNamespaceKeyFunc, cache.Indexers{})
 			require.NoError(t, indexer.Add(&corev1alpha1.LogicalCluster{
 				ObjectMeta: metav1.ObjectMeta{Name: corev1alpha1.LogicalClusterName, Annotations: map[string]string{logicalcluster.AnnotationKey: "root"}},
-				Status:     corev1alpha1.LogicalClusterStatus{Phase: tenancyv1alpha1.WorkspacePhaseReady},
+				Status:     corev1alpha1.LogicalClusterStatus{Phase: corev1alpha1.LogicalClusterPhaseReady},
 			}))
 			require.NoError(t, indexer.Add(&corev1alpha1.LogicalCluster{
 				ObjectMeta: metav1.ObjectMeta{Name: corev1alpha1.LogicalClusterName, Annotations: map[string]string{logicalcluster.AnnotationKey: "root:ready"}},
-				Status:     corev1alpha1.LogicalClusterStatus{Phase: tenancyv1alpha1.WorkspacePhaseReady},
+				Status:     corev1alpha1.LogicalClusterStatus{Phase: corev1alpha1.LogicalClusterPhaseReady},
 			}))
 			require.NoError(t, indexer.Add(&corev1alpha1.LogicalCluster{
 				ObjectMeta: metav1.ObjectMeta{Name: corev1alpha1.LogicalClusterName, Annotations: map[string]string{logicalcluster.AnnotationKey: "root:scheduling"}},
-				Status:     corev1alpha1.LogicalClusterStatus{Phase: tenancyv1alpha1.WorkspacePhaseScheduling},
+				Status:     corev1alpha1.LogicalClusterStatus{Phase: corev1alpha1.LogicalClusterPhaseScheduling},
 			}))
 			require.NoError(t, indexer.Add(&corev1alpha1.LogicalCluster{
 				ObjectMeta: metav1.ObjectMeta{Name: corev1alpha1.LogicalClusterName, Annotations: map[string]string{logicalcluster.AnnotationKey: "root:initializing"}},
-				Status:     corev1alpha1.LogicalClusterStatus{Phase: tenancyv1alpha1.WorkspacePhaseInitializing},
+				Status:     corev1alpha1.LogicalClusterStatus{Phase: corev1alpha1.LogicalClusterPhaseInitializing},
 			}))
 			require.NoError(t, indexer.Add(&corev1alpha1.LogicalCluster{
 				ObjectMeta: metav1.ObjectMeta{Name: corev1alpha1.LogicalClusterName, Annotations: map[string]string{logicalcluster.AnnotationKey: "rootwithoutparent"}},
-				Status:     corev1alpha1.LogicalClusterStatus{Phase: tenancyv1alpha1.WorkspacePhaseReady},
+				Status:     corev1alpha1.LogicalClusterStatus{Phase: corev1alpha1.LogicalClusterPhaseReady},
 			}))
 			lister := corev1alpha1listers.NewLogicalClusterClusterLister(indexer)
 

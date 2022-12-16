@@ -30,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
@@ -124,7 +125,7 @@ func NewWorkspaceFixtureObject(t *testing.T, server RunningServer, orgClusterNam
 		ws, err = clusterClient.Cluster(orgClusterName).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, ws.Name, metav1.GetOptions{})
 		require.Falsef(t, apierrors.IsNotFound(err), "workspace %s was deleted", ws.Name)
 		require.NoError(t, err, "failed to get workspace %s", ws.Name)
-		if actual, expected := ws.Status.Phase, tenancyv1alpha1.WorkspacePhaseReady; actual != expected {
+		if actual, expected := ws.Status.Phase, corev1alpha1.LogicalClusterPhaseReady; actual != expected {
 			return false, fmt.Sprintf("workspace phase is %s, not %s", actual, expected)
 		}
 		return true, ""
@@ -195,7 +196,7 @@ func NewOrganizationFixtureObject(t *testing.T, server RunningServer, options ..
 		org, err = clusterClient.Cluster(tenancyv1alpha1.RootCluster.Path()).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, org.Name, metav1.GetOptions{})
 		require.Falsef(t, apierrors.IsNotFound(err), "workspace %s was deleted", org.Name)
 		require.NoError(t, err, "failed to get workspace %s", org.Name)
-		if actual, expected := org.Status.Phase, tenancyv1alpha1.WorkspacePhaseReady; actual != expected {
+		if actual, expected := org.Status.Phase, corev1alpha1.LogicalClusterPhaseReady; actual != expected {
 			return false, fmt.Sprintf("workspace phase is %s, not %s", actual, expected)
 		}
 		return true, ""

@@ -70,7 +70,7 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 					if err != nil {
 						t.Logf("error getting workspace: %v", err)
 					}
-					return err == nil && workspace.Status.Phase == tenancyv1alpha1.WorkspacePhaseReady
+					return err == nil && workspace.Status.Phase == corev1alpha1.LogicalClusterPhaseReady
 				}, wait.ForeverTestTimeout, 100*time.Millisecond, "workspace should be ready")
 
 				t.Logf("Expect workspace to be of universal type, and no initializers")
@@ -142,7 +142,7 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 					if err != nil {
 						t.Logf("error getting workspace: %v", err)
 					}
-					return err == nil && workspace.Status.Phase == tenancyv1alpha1.WorkspacePhaseReady
+					return err == nil && workspace.Status.Phase == corev1alpha1.LogicalClusterPhaseReady
 				}, wait.ForeverTestTimeout, 100*time.Millisecond, "workspace should be ready")
 			},
 		},
@@ -235,7 +235,7 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 					if err != nil {
 						t.Logf("error getting workspace: %v", err)
 					}
-					return err == nil && workspace.Status.Phase == tenancyv1alpha1.WorkspacePhaseReady
+					return err == nil && workspace.Status.Phase == corev1alpha1.LogicalClusterPhaseReady
 				}, wait.ForeverTestTimeout, 100*time.Millisecond, "workspace should be ready")
 			},
 		},
@@ -288,7 +288,7 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 					if err != nil {
 						return false, err.Error()
 					}
-					if actual, expected := workspace.Status.Phase, tenancyv1alpha1.WorkspacePhaseInitializing; actual != expected {
+					if actual, expected := workspace.Status.Phase, corev1alpha1.LogicalClusterPhaseInitializing; actual != expected {
 						return false, fmt.Sprintf("workspace phase was %s, not %s", actual, expected)
 					}
 					return true, ""
@@ -310,7 +310,7 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 					if err != nil {
 						t.Logf("error getting workspace: %v", err)
 					}
-					return err == nil && workspace.Status.Phase == tenancyv1alpha1.WorkspacePhaseReady
+					return err == nil && workspace.Status.Phase == corev1alpha1.LogicalClusterPhaseReady
 				}, wait.ForeverTestTimeout, 100*time.Millisecond, "workspace should be ready")
 			},
 		},

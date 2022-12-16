@@ -26,12 +26,11 @@ import (
 
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
 
 func (c *controller) reconcile(ctx context.Context, workspace *corev1alpha1.LogicalCluster) error {
 	logger := klog.FromContext(ctx)
-	if workspace.Status.Phase != tenancyv1alpha1.WorkspacePhaseInitializing {
+	if workspace.Status.Phase != corev1alpha1.LogicalClusterPhaseInitializing {
 		return nil
 	}
 

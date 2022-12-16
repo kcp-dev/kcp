@@ -89,10 +89,10 @@ func TestWorkspaceDeletionController(t *testing.T) {
 				framework.Eventually(t, func() (bool, string) {
 					workspace, err := server.kcpClusterClient.Cluster(orgClusterName.Path()).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 					require.NoError(t, err, "failed to get workspace")
-					if actual, expected := workspace.Status.Phase, tenancyv1alpha1.WorkspacePhaseReady; actual != expected {
+					if actual, expected := workspace.Status.Phase, corev1alpha1.LogicalClusterPhaseReady; actual != expected {
 						return false, fmt.Sprintf("workspace phase is %s, not %s", actual, expected)
 					}
-					return workspace.Status.Phase == tenancyv1alpha1.WorkspacePhaseReady, fmt.Sprintf("workspace phase is %s", workspace.Status.Phase)
+					return workspace.Status.Phase == corev1alpha1.LogicalClusterPhaseReady, fmt.Sprintf("workspace phase is %s", workspace.Status.Phase)
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for workspace %s to become ready", orgClusterName.Path().Join(workspace.Name))
 
 				workspaceCluster := orgClusterName.Path().Join(workspace.Name)

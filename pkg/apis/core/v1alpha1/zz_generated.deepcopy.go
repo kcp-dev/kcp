@@ -24,7 +24,6 @@ package v1alpha1
 import (
 	runtime "k8s.io/apimachinery/pkg/runtime"
 
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
@@ -115,7 +114,7 @@ func (in *LogicalClusterSpec) DeepCopyInto(out *LogicalClusterSpec) {
 	}
 	if in.Initializers != nil {
 		in, out := &in.Initializers, &out.Initializers
-		*out = make([]tenancyv1alpha1.WorkspaceInitializer, len(*in))
+		*out = make([]LogicalClusterInitializer, len(*in))
 		copy(*out, *in)
 	}
 	return
@@ -143,7 +142,7 @@ func (in *LogicalClusterStatus) DeepCopyInto(out *LogicalClusterStatus) {
 	}
 	if in.Initializers != nil {
 		in, out := &in.Initializers, &out.Initializers
-		*out = make([]tenancyv1alpha1.WorkspaceInitializer, len(*in))
+		*out = make([]LogicalClusterInitializer, len(*in))
 		copy(*out, *in)
 	}
 	return

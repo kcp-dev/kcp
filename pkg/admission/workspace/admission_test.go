@@ -402,8 +402,8 @@ func TestValidate(t *testing.T) {
 					},
 				},
 				Status: tenancyv1beta1.WorkspaceStatus{
-					Phase:        tenancyv1alpha1.WorkspacePhaseReady,
-					Initializers: []tenancyv1alpha1.WorkspaceInitializer{},
+					Phase:        corev1alpha1.LogicalClusterPhaseReady,
+					Initializers: []corev1alpha1.LogicalClusterInitializer{},
 					Cluster:      "somewhere",
 					URL:          "https://kcp.bigcorp.com/clusters/org:test",
 				},
@@ -420,8 +420,8 @@ func TestValidate(t *testing.T) {
 						},
 					},
 					Status: tenancyv1beta1.WorkspaceStatus{
-						Phase:        tenancyv1alpha1.WorkspacePhaseScheduling,
-						Initializers: []tenancyv1alpha1.WorkspaceInitializer{"a"},
+						Phase:        corev1alpha1.LogicalClusterPhaseScheduling,
+						Initializers: []corev1alpha1.LogicalClusterInitializer{"a"},
 					},
 				}),
 		},
@@ -442,8 +442,8 @@ func TestValidate(t *testing.T) {
 					},
 				},
 				Status: tenancyv1beta1.WorkspaceStatus{
-					Phase:        tenancyv1alpha1.WorkspacePhaseReady,
-					Initializers: []tenancyv1alpha1.WorkspaceInitializer{},
+					Phase:        corev1alpha1.LogicalClusterPhaseReady,
+					Initializers: []corev1alpha1.LogicalClusterInitializer{},
 					Cluster:      "somewhere",
 					URL:          "https://kcp.bigcorp.com/clusters/org:test",
 				},
@@ -466,8 +466,8 @@ func TestValidate(t *testing.T) {
 					},
 				},
 				Status: tenancyv1beta1.WorkspaceStatus{
-					Phase:        tenancyv1alpha1.WorkspacePhaseReady,
-					Initializers: []tenancyv1alpha1.WorkspaceInitializer{},
+					Phase:        corev1alpha1.LogicalClusterPhaseReady,
+					Initializers: []corev1alpha1.LogicalClusterInitializer{},
 					Cluster:      "somewhere",
 				},
 			},
@@ -483,8 +483,8 @@ func TestValidate(t *testing.T) {
 						},
 					},
 					Status: tenancyv1beta1.WorkspaceStatus{
-						Phase:        tenancyv1alpha1.WorkspacePhaseScheduling,
-						Initializers: []tenancyv1alpha1.WorkspaceInitializer{"a"},
+						Phase:        corev1alpha1.LogicalClusterPhaseScheduling,
+						Initializers: []corev1alpha1.LogicalClusterInitializer{"a"},
 					},
 				}),
 			expectedErrors: []string{"status.URL must be set for phase Ready"},
@@ -558,7 +558,7 @@ func TestValidate(t *testing.T) {
 					},
 				},
 				Status: tenancyv1beta1.WorkspaceStatus{
-					Phase: tenancyv1alpha1.WorkspacePhaseScheduling,
+					Phase: corev1alpha1.LogicalClusterPhaseScheduling,
 				},
 			}, &user.DefaultInfo{
 				Name:   "someone",

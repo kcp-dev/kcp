@@ -25,7 +25,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	v1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
@@ -145,7 +145,7 @@ func (in *WorkspaceStatus) DeepCopyInto(out *WorkspaceStatus) {
 	}
 	if in.Initializers != nil {
 		in, out := &in.Initializers, &out.Initializers
-		*out = make([]tenancyv1alpha1.WorkspaceInitializer, len(*in))
+		*out = make([]corev1alpha1.LogicalClusterInitializer, len(*in))
 		copy(*out, *in)
 	}
 	return

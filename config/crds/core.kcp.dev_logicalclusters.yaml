@@ -64,9 +64,9 @@ spec:
                 description: initializers are set on creation by the system and copied
                   to status when initialization starts.
                 items:
-                  description: WorkspaceInitializer is a unique string corresponding
-                    to a cluster workspace initialization controller for the given
-                    type of workspaces.
+                  description: LogicalClusterInitializer is a unique string corresponding
+                    to a logical cluster initialization controller for the given type
+                    of workspaces.
                   pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$
                   type: string
                 type: array
@@ -169,9 +169,9 @@ spec:
                   LogicalCluster will stay in the phase "Initializing" state until
                   all initializers are cleared.
                 items:
-                  description: WorkspaceInitializer is a unique string corresponding
-                    to a cluster workspace initialization controller for the given
-                    type of workspaces.
+                  description: LogicalClusterInitializer is a unique string corresponding
+                    to a logical cluster initialization controller for the given type
+                    of workspaces.
                   pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$
                   type: string
                 type: array

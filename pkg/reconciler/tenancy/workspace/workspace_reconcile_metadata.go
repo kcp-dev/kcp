@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspacedeletion/deletion"
@@ -57,7 +58,7 @@ func (r *metaDataReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 		}
 	}
 
-	if workspace.Status.Phase == tenancyv1alpha1.WorkspacePhaseReady {
+	if workspace.Status.Phase == corev1alpha1.LogicalClusterPhaseReady {
 		if value, found := workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey]; found {
 			var info authenticationv1.UserInfo
 			err := json.Unmarshal([]byte(value), &info)

@@ -19,6 +19,7 @@ package v1beta1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
@@ -122,7 +123,7 @@ type WorkspaceStatus struct {
 	// Phase of the workspace (Scheduling, Initializing, Ready).
 	//
 	// +kubebuilder:default=Scheduling
-	Phase v1alpha1.WorkspacePhaseType `json:"phase,omitempty"`
+	Phase corev1alpha1.LogicalClusterPhaseType `json:"phase,omitempty"`
 
 	// Current processing state of the ClusterWorkspace.
 	// +optional
@@ -132,7 +133,7 @@ type WorkspaceStatus struct {
 	// and can be used.
 	//
 	// +optional
-	Initializers []v1alpha1.WorkspaceInitializer `json:"initializers,omitempty"`
+	Initializers []corev1alpha1.LogicalClusterInitializer `json:"initializers,omitempty"`
 }
 
 func (in *Workspace) SetConditions(c conditionsv1alpha1.Conditions) {

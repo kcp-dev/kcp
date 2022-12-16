@@ -201,8 +201,8 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 
 	// we only admit at state transition to initializing
 	transitioningToInitializing :=
-		old.Status.Phase != tenancyv1alpha1.WorkspacePhaseInitializing &&
-			ws.Status.Phase == tenancyv1alpha1.WorkspacePhaseInitializing
+		old.Status.Phase != corev1alpha1.LogicalClusterPhaseInitializing &&
+			ws.Status.Phase == corev1alpha1.LogicalClusterPhaseInitializing
 	if !transitioningToInitializing {
 		return nil
 	}

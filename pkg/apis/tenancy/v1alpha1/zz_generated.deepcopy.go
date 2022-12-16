@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
@@ -264,7 +265,7 @@ func (in *ClusterWorkspaceStatus) DeepCopyInto(out *ClusterWorkspaceStatus) {
 	out.Location = in.Location
 	if in.Initializers != nil {
 		in, out := &in.Initializers, &out.Initializers
-		*out = make([]WorkspaceInitializer, len(*in))
+		*out = make([]corev1alpha1.LogicalClusterInitializer, len(*in))
 		copy(*out, *in)
 	}
 	return

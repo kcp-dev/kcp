@@ -364,7 +364,7 @@ func workspace(name string) *tenancyv1beta1.Workspace {
 			Location: &tenancyv1beta1.WorkspaceLocation{},
 		},
 		Status: tenancyv1beta1.WorkspaceStatus{
-			Phase: tenancyv1alpha1.WorkspacePhaseScheduling,
+			Phase: corev1alpha1.LogicalClusterPhaseScheduling,
 		},
 	}
 }
@@ -402,7 +402,7 @@ func wellKnownLogicalClusterForFooWS() *corev1alpha1.LogicalCluster {
 				Name:       "foo",
 				Cluster:    "root",
 			},
-			Initializers: []tenancyv1alpha1.WorkspaceInitializer{"root:organization", "system:apibindings"},
+			Initializers: []corev1alpha1.LogicalClusterInitializer{"root:organization", "system:apibindings"},
 		},
 	}
 }

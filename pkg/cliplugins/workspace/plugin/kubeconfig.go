@@ -39,6 +39,7 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
@@ -278,7 +279,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			if ws.Status.Phase != tenancyv1alpha1.WorkspacePhaseReady {
+			if ws.Status.Phase != corev1alpha1.LogicalClusterPhaseReady {
 				return fmt.Errorf("workspace %q is not ready", o.Name)
 			}
 
@@ -561,7 +562,7 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 			structuredWorkspaceTypeString := logicalcluster.NewPath(structuredWorkspaceType.Path).Join(string(structuredWorkspaceType.Name)).String()
 			return fmt.Errorf("workspace %q cannot be created with type %s, it already exists with different type %s", o.Name, structuredWorkspaceTypeString, wsTypeString)
 		}
-		if ws.Status.Phase != tenancyv1alpha1.WorkspacePhaseReady && o.ReadyWaitTimeout > 0 {
+		if ws.Status.Phase != corev1alpha1.LogicalClusterPhaseReady && o.ReadyWaitTimeout > 0 {
 			if _, err := fmt.Fprintf(o.Out, "%s already exists. Waiting for it to be ready...\n", workspaceReference); err != nil {
 				return err
 			}
@@ -570,11 +571,11 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 				return err
 			}
 		}
-	} else if ws.Status.Phase != tenancyv1alpha1.WorkspacePhaseReady && o.ReadyWaitTimeout > 0 {
+	} else if ws.Status.Phase != corev1alpha1.LogicalClusterPhaseReady && o.ReadyWaitTimeout > 0 {
 		if _, err := fmt.Fprintf(o.Out, "%s created. Waiting for it to be ready...\n", workspaceReference); err != nil {
 			return err
 		}
-	} else if ws.Status.Phase != tenancyv1alpha1.WorkspacePhaseReady {
+	} else if ws.Status.Phase != corev1alpha1.LogicalClusterPhaseReady {
 		return fmt.Errorf("%s created but is not ready to use", workspaceReference)
 	}
 
@@ -592,13 +593,13 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 	}
 
 	// wait for being ready
-	if ws.Status.Phase != tenancyv1alpha1.WorkspacePhaseReady {
+	if ws.Status.Phase != corev1alpha1.LogicalClusterPhaseReady {
 		if err := wait.PollImmediate(time.Millisecond*500, o.ReadyWaitTimeout, func() (bool, error) {
 			ws, err = o.kcpClusterClient.Cluster(currentClusterName).TenancyV1beta1().Workspaces().Get(ctx, ws.Name, metav1.GetOptions{})
 			if err != nil {
 				return false, err
 			}
-			if ws.Status.Phase == tenancyv1alpha1.WorkspacePhaseReady {
+			if ws.Status.Phase == corev1alpha1.LogicalClusterPhaseReady {
 				return true, nil
 			}
 			return false, nil

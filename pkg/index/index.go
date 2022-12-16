@@ -23,7 +23,6 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 )
 
@@ -64,7 +63,7 @@ type State struct {
 }
 
 func (c *State) UpsertWorkspace(shard string, ws *tenancyv1beta1.Workspace) {
-	if ws.Status.Phase == tenancyv1alpha1.WorkspacePhaseScheduling {
+	if ws.Status.Phase == corev1alpha1.LogicalClusterPhaseScheduling {
 		return
 	}
 	clusterName := logicalcluster.From(ws)
@@ -96,7 +95,7 @@ func (c *State) UpsertWorkspace(shard string, ws *tenancyv1beta1.Workspace) {
 }
 
 func (c *State) DeleteWorkspace(shard string, ws *tenancyv1beta1.Workspace) {
-	if ws.Status.Phase == tenancyv1alpha1.WorkspacePhaseScheduling {
+	if ws.Status.Phase == corev1alpha1.LogicalClusterPhaseScheduling {
 		return
 	}
 	clusterName := logicalcluster.From(ws)

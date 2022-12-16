@@ -42,11 +42,11 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1bet
 	logger := klog.FromContext(ctx).WithValues("reconciler", "phase")
 
 	switch workspace.Status.Phase {
-	case tenancyv1alpha1.WorkspacePhaseScheduling:
+	case corev1alpha1.LogicalClusterPhaseScheduling:
 		if workspace.Status.Cluster != "" {
-			workspace.Status.Phase = tenancyv1alpha1.WorkspacePhaseInitializing
+			workspace.Status.Phase = corev1alpha1.LogicalClusterPhaseInitializing
 		}
-	case tenancyv1alpha1.WorkspacePhaseInitializing:
+	case corev1alpha1.LogicalClusterPhaseInitializing:
 		logger = logger.WithValues("cluster", workspace.Status.Cluster)
 
 		this, err := r.getLogicalCluster(ctx, logicalcluster.NewPath(workspace.Status.Cluster))
@@ -72,10 +72,10 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1bet
 		}
 
 		logger.V(3).Info("LogicalCluster is ready")
-		workspace.Status.Phase = tenancyv1alpha1.WorkspacePhaseReady
+		workspace.Status.Phase = corev1alpha1.LogicalClusterPhaseReady
 		conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceInitialized)
 
-	case tenancyv1alpha1.WorkspacePhaseReady:
+	case corev1alpha1.LogicalClusterPhaseReady:
 		if !workspace.DeletionTimestamp.IsZero() {
 			logger = logger.WithValues("cluster", workspace.Status.Cluster)
 

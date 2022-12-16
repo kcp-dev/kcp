@@ -499,7 +499,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 
 		t.Logf("Attempt to do something more than just removing our initializer %q, get denied", initializer)
 		patchBytes := patchBytesFor(this, func(workspace *corev1alpha1.LogicalCluster) {
-			workspace.Status.Initializers = []tenancyv1alpha1.WorkspaceInitializer{"wrong"}
+			workspace.Status.Initializers = []corev1alpha1.LogicalClusterInitializer{"wrong"}
 		})
 		_, err = clusterClient.Cluster(wsClusterName.Path()).Patch(ctx, corev1alpha1.LogicalClusterName, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 		if !errors.IsInvalid(err) {
@@ -578,8 +578,8 @@ func workspaceForType(workspaceType *tenancyv1alpha1.ClusterWorkspaceType, testL
 
 func workspacesStuckInInitializing(t *testing.T, workspaces ...tenancyv1beta1.Workspace) bool {
 	for _, workspace := range workspaces {
-		if workspace.Status.Phase != tenancyv1alpha1.WorkspacePhaseInitializing {
-			t.Logf("workspace %s is in %s, not %s", workspace.Name, workspace.Status.Phase, tenancyv1alpha1.WorkspacePhaseInitializing)
+		if workspace.Status.Phase != corev1alpha1.LogicalClusterPhaseInitializing {
+			t.Logf("workspace %s is in %s, not %s", workspace.Name, workspace.Status.Phase, corev1alpha1.LogicalClusterPhaseInitializing)
 			return false
 		}
 		if len(workspace.Status.Initializers) == 0 {

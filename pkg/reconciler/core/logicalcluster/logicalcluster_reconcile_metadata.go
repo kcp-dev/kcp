@@ -71,7 +71,7 @@ func (r *metaDataReconciler) reconcile(ctx context.Context, workspace *corev1alp
 		}
 	}
 
-	if workspace.Status.Phase == tenancyv1alpha1.WorkspacePhaseReady {
+	if workspace.Status.Phase == corev1alpha1.LogicalClusterPhaseReady {
 		// remove owner reference
 		if value, found := workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey]; found {
 			var info authenticationv1.UserInfo

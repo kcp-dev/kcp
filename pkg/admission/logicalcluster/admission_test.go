@@ -85,18 +85,18 @@ func TestAdmit(t *testing.T) {
 			clusterName: "root:org:ws",
 			a: updateAttr(
 				newLogicalCluster("root:org:ws:test").withType("root:org", "foo").withInitializers("a", "b").withStatus(corev1alpha1.LogicalClusterStatus{
-					Phase: tenancyv1alpha1.WorkspacePhaseInitializing,
+					Phase: corev1alpha1.LogicalClusterPhaseInitializing,
 					URL:   "https://kcp.bigcorp.com/clusters/org:test",
 				}).LogicalCluster,
 				newLogicalCluster("root:org:ws:test").withType("root:org", "foo").withInitializers("a", "b").withStatus(corev1alpha1.LogicalClusterStatus{
-					Phase: tenancyv1alpha1.WorkspacePhaseScheduling,
+					Phase: corev1alpha1.LogicalClusterPhaseScheduling,
 					URL:   "https://kcp.bigcorp.com/clusters/org:test",
 				}).LogicalCluster,
 			),
 			expectedObj: newLogicalCluster("root:org:ws:test").withType("root:org", "foo").withInitializers("a", "b").withStatus(corev1alpha1.LogicalClusterStatus{
-				Phase:        tenancyv1alpha1.WorkspacePhaseInitializing,
+				Phase:        corev1alpha1.LogicalClusterPhaseInitializing,
 				URL:          "https://kcp.bigcorp.com/clusters/org:test",
-				Initializers: []tenancyv1alpha1.WorkspaceInitializer{"a", "b"},
+				Initializers: []corev1alpha1.LogicalClusterInitializer{"a", "b"},
 			}).LogicalCluster,
 		},
 		{
@@ -104,16 +104,16 @@ func TestAdmit(t *testing.T) {
 			clusterName: "root:org:ws",
 			a: updateAttr(
 				newLogicalCluster("root:org:ws:test").withType("root:org", "foo").withStatus(corev1alpha1.LogicalClusterStatus{
-					Phase: tenancyv1alpha1.WorkspacePhaseInitializing,
+					Phase: corev1alpha1.LogicalClusterPhaseInitializing,
 					URL:   "https://kcp.bigcorp.com/clusters/org:test",
 				}).LogicalCluster,
 				newLogicalCluster("root:org:ws:test").withType("root:org", "foo").withStatus(corev1alpha1.LogicalClusterStatus{
-					Phase: tenancyv1alpha1.WorkspacePhaseScheduling,
+					Phase: corev1alpha1.LogicalClusterPhaseScheduling,
 					URL:   "https://kcp.bigcorp.com/clusters/org:test",
 				}).LogicalCluster,
 			),
 			expectedObj: newLogicalCluster("root:org:ws:test").withType("root:org", "foo").withStatus(corev1alpha1.LogicalClusterStatus{
-				Phase: tenancyv1alpha1.WorkspacePhaseInitializing,
+				Phase: corev1alpha1.LogicalClusterPhaseInitializing,
 				URL:   "https://kcp.bigcorp.com/clusters/org:test",
 			}).LogicalCluster,
 		},
@@ -122,16 +122,16 @@ func TestAdmit(t *testing.T) {
 			clusterName: "root:org:ws",
 			a: updateAttr(
 				newLogicalCluster("root:org:ws:test").withType("root:org", "foo").withInitializers("a", "b").withStatus(corev1alpha1.LogicalClusterStatus{
-					Phase: tenancyv1alpha1.WorkspacePhaseReady,
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
 					URL:   "https://kcp.bigcorp.com/clusters/org:test",
 				}).LogicalCluster,
 				newLogicalCluster("root:org:ws:test").withType("root:org", "foo").withInitializers("a", "b").withStatus(corev1alpha1.LogicalClusterStatus{
-					Phase: tenancyv1alpha1.WorkspacePhaseInitializing,
+					Phase: corev1alpha1.LogicalClusterPhaseInitializing,
 					URL:   "https://kcp.bigcorp.com/clusters/org:test",
 				}).LogicalCluster,
 			),
 			expectedObj: newLogicalCluster("root:org:ws:test").withType("root:org", "foo").withInitializers("a", "b").withStatus(corev1alpha1.LogicalClusterStatus{
-				Phase: tenancyv1alpha1.WorkspacePhaseReady,
+				Phase: corev1alpha1.LogicalClusterPhaseReady,
 				URL:   "https://kcp.bigcorp.com/clusters/org:test",
 			}).LogicalCluster,
 		},
@@ -209,10 +209,10 @@ func TestValidate(t *testing.T) {
 			clusterName: "root:org:ws",
 			attr: updateAttr(
 				newLogicalCluster("root:org:ws").withInitializers("a", "b").withStatus(corev1alpha1.LogicalClusterStatus{
-					Phase: tenancyv1alpha1.WorkspacePhaseReady,
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
 				}).LogicalCluster,
 				newLogicalCluster("root:org:ws").withInitializers("a").withStatus(corev1alpha1.LogicalClusterStatus{
-					Phase: tenancyv1alpha1.WorkspacePhaseReady,
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
 				}).LogicalCluster,
 			),
 			wantErr: "spec.initializers is immutable",
@@ -222,10 +222,10 @@ func TestValidate(t *testing.T) {
 			clusterName: "root:org:ws",
 			attr: updateAttr(
 				newLogicalCluster("root:org:ws").withInitializers("a", "b").withStatus(corev1alpha1.LogicalClusterStatus{
-					Phase: tenancyv1alpha1.WorkspacePhaseInitializing,
+					Phase: corev1alpha1.LogicalClusterPhaseInitializing,
 				}).LogicalCluster,
 				newLogicalCluster("root:org:ws").withInitializers("a").withStatus(corev1alpha1.LogicalClusterStatus{
-					Phase: tenancyv1alpha1.WorkspacePhaseInitializing,
+					Phase: corev1alpha1.LogicalClusterPhaseInitializing,
 				}).LogicalCluster,
 			),
 			wantErr: "spec.initializers is immutable",
@@ -235,12 +235,12 @@ func TestValidate(t *testing.T) {
 			clusterName: "root:org:ws",
 			attr: updateAttr(
 				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
-					Phase:        tenancyv1alpha1.WorkspacePhaseInitializing,
-					Initializers: []tenancyv1alpha1.WorkspaceInitializer{"a"},
+					Phase:        corev1alpha1.LogicalClusterPhaseInitializing,
+					Initializers: []corev1alpha1.LogicalClusterInitializer{"a"},
 				}).LogicalCluster,
 				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
-					Phase:        tenancyv1alpha1.WorkspacePhaseInitializing,
-					Initializers: []tenancyv1alpha1.WorkspaceInitializer{"a", "b"},
+					Phase:        corev1alpha1.LogicalClusterPhaseInitializing,
+					Initializers: []corev1alpha1.LogicalClusterInitializer{"a", "b"},
 				}).LogicalCluster,
 			),
 		},
@@ -249,12 +249,12 @@ func TestValidate(t *testing.T) {
 			clusterName: "root:org:ws",
 			attr: updateAttr(
 				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
-					Phase:        tenancyv1alpha1.WorkspacePhaseInitializing,
-					Initializers: []tenancyv1alpha1.WorkspaceInitializer{"a", "b", "c"},
+					Phase:        corev1alpha1.LogicalClusterPhaseInitializing,
+					Initializers: []corev1alpha1.LogicalClusterInitializer{"a", "b", "c"},
 				}).LogicalCluster,
 				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
-					Phase:        tenancyv1alpha1.WorkspacePhaseInitializing,
-					Initializers: []tenancyv1alpha1.WorkspaceInitializer{"a", "b"},
+					Phase:        corev1alpha1.LogicalClusterPhaseInitializing,
+					Initializers: []corev1alpha1.LogicalClusterInitializer{"a", "b"},
 				}).LogicalCluster,
 			),
 			wantErr: "status.initializers must not grow",
@@ -264,12 +264,12 @@ func TestValidate(t *testing.T) {
 			clusterName: "root:org:ws",
 			attr: updateAttr(
 				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
-					Phase:        tenancyv1alpha1.WorkspacePhaseReady,
-					Initializers: []tenancyv1alpha1.WorkspaceInitializer{"a"},
+					Phase:        corev1alpha1.LogicalClusterPhaseReady,
+					Initializers: []corev1alpha1.LogicalClusterInitializer{"a"},
 				}).LogicalCluster,
 				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
-					Phase:        tenancyv1alpha1.WorkspacePhaseReady,
-					Initializers: []tenancyv1alpha1.WorkspaceInitializer{"a", "b"},
+					Phase:        corev1alpha1.LogicalClusterPhaseReady,
+					Initializers: []corev1alpha1.LogicalClusterInitializer{"a", "b"},
 				}).LogicalCluster,
 			),
 			wantErr: "status.initializers is immutable after initilization",
@@ -279,11 +279,11 @@ func TestValidate(t *testing.T) {
 			clusterName: "root:org:ws",
 			attr: updateAttr(
 				newLogicalCluster("root:org:ws").withInitializers("a", "b").withStatus(corev1alpha1.LogicalClusterStatus{
-					Phase:        tenancyv1alpha1.WorkspacePhaseInitializing,
-					Initializers: []tenancyv1alpha1.WorkspaceInitializer{"a"},
+					Phase:        corev1alpha1.LogicalClusterPhaseInitializing,
+					Initializers: []corev1alpha1.LogicalClusterInitializer{"a"},
 				}).LogicalCluster,
 				newLogicalCluster("root:org:ws").withInitializers("a", "b").withStatus(corev1alpha1.LogicalClusterStatus{
-					Phase: tenancyv1alpha1.WorkspacePhaseScheduling,
+					Phase: corev1alpha1.LogicalClusterPhaseScheduling,
 				}).LogicalCluster,
 			),
 			wantErr: "status.initializers do not equal spec.initializers",
@@ -293,11 +293,11 @@ func TestValidate(t *testing.T) {
 			clusterName: "root:org:ws",
 			attr: updateAttr(
 				newLogicalCluster("root:org:ws").withInitializers("a", "b").withStatus(corev1alpha1.LogicalClusterStatus{
-					Phase:        tenancyv1alpha1.WorkspacePhaseInitializing,
-					Initializers: []tenancyv1alpha1.WorkspaceInitializer{"a", "b"},
+					Phase:        corev1alpha1.LogicalClusterPhaseInitializing,
+					Initializers: []corev1alpha1.LogicalClusterInitializer{"a", "b"},
 				}).LogicalCluster,
 				newLogicalCluster("root:org:ws").withInitializers("a", "b").withStatus(corev1alpha1.LogicalClusterStatus{
-					Phase: tenancyv1alpha1.WorkspacePhaseScheduling,
+					Phase: corev1alpha1.LogicalClusterPhaseScheduling,
 				}).LogicalCluster,
 			),
 		},
@@ -306,10 +306,10 @@ func TestValidate(t *testing.T) {
 			clusterName: "root:org:ws",
 			attr: updateAttr(
 				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
-					Phase: tenancyv1alpha1.WorkspacePhaseScheduling,
+					Phase: corev1alpha1.LogicalClusterPhaseScheduling,
 				}).LogicalCluster,
 				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
-					Phase: tenancyv1alpha1.WorkspacePhaseInitializing,
+					Phase: corev1alpha1.LogicalClusterPhaseInitializing,
 				}).LogicalCluster,
 			),
 			wantErr: "cannot transition from",
@@ -408,7 +408,7 @@ func (b thisWsBuilder) withType(cluster logicalcluster.Name, name string) thisWs
 	return b
 }
 
-func (b thisWsBuilder) withInitializers(initializers ...tenancyv1alpha1.WorkspaceInitializer) thisWsBuilder {
+func (b thisWsBuilder) withInitializers(initializers ...corev1alpha1.LogicalClusterInitializer) thisWsBuilder {
 	b.Spec.Initializers = initializers
 	return b
 }
