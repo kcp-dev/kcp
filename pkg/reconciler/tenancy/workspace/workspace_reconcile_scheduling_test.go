@@ -315,7 +315,7 @@ func TestReconcileScheduling(t *testing.T) {
 					}
 					return nil, kerrors.NewNotFound(tenancyv1alpha1.SchemeGroupVersion.WithResource("Shard").GroupResource(), hash)
 				},
-				getWorkspaceTypes: getType,
+				getWorkspaceType: getType,
 				getLogicalCluster: func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
 					if clusterName != logicalcluster.Name("root") {
 						return nil, fmt.Errorf("unexpected cluster name = %v, expected = %v", clusterName, "root")

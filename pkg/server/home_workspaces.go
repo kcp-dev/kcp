@@ -42,6 +42,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/admission/workspace"
+	"github.com/kcp-dev/kcp/pkg/admission/workspacetypeexists"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
@@ -49,8 +50,11 @@ import (
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
+	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	indexrewriters "github.com/kcp-dev/kcp/pkg/index/rewriters"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	reconcilerworkspace "github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspace"
 	"github.com/kcp-dev/kcp/pkg/softimpersonation"
 )
 
@@ -95,7 +99,7 @@ func WithHomeWorkspaces(
 	if bucketLevels > 5 || bucketSize > 4 {
 		return nil, fmt.Errorf("bucketLevels and bucketSize must be <= 5 and <= 4")
 	}
-	return &homeWorkspaceHandler{
+	h := &homeWorkspaceHandler{
 		delegate: apiHandler,
 
 		authz: a,
@@ -116,8 +120,15 @@ func WithHomeWorkspaces(
 		clusterRoleBindingLister:  kubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings().Lister(),
 		clusterRoleBindingIndexer: kubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings().Informer().GetIndexer(),
 
+		workspaceTypeLister:  kcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes().Lister(),
+		workspaceTypeIndexer: kcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes().Informer().GetIndexer(),
+
 		hasSynced: kcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced,
-	}, nil
+	}
+
+	h.transitiveTypeResolver = workspacetypeexists.NewTransitiveTypeResolver(h.getWorkspaceType)
+
+	return h, nil
 }
 
 type homeWorkspaceHandler struct {
@@ -131,6 +142,8 @@ type homeWorkspaceHandler struct {
 	creationTimeout          time.Duration
 	externalHost             string
 
+	transitiveTypeResolver workspacetypeexists.TransitiveTypeResolver
+
 	kcpClusterClient  kcpclientset.ClusterInterface
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface
 
@@ -139,6 +152,9 @@ type homeWorkspaceHandler struct {
 
 	clusterRoleBindingLister  rbaclisters.ClusterRoleBindingClusterLister
 	clusterRoleBindingIndexer cache.Indexer
+
+	workspaceTypeLister  tenancyv1alpha1listers.WorkspaceTypeClusterLister
+	workspaceTypeIndexer cache.Indexer
 
 	hasSynced func() bool
 }
@@ -231,8 +247,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 			return
 		}
 
-		logger.Info("Creating home LogicalCluster", "cluster", homeClusterName.String(), "user", effectiveUser.GetName())
-		this, err = h.kcpClusterClient.Cluster(homeClusterName.Path()).CoreV1alpha1().LogicalClusters().Create(ctx, &corev1alpha1.LogicalCluster{
+		this = &corev1alpha1.LogicalCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: corev1alpha1.LogicalClusterName,
 				Annotations: map[string]string{
@@ -240,7 +255,15 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 					corev1alpha1.LogicalClusterTypeAnnotationKey:            "root:home",
 				},
 			},
-		}, metav1.CreateOptions{})
+		}
+		this.Spec.Initializers, err = reconcilerworkspace.LogicalClustersInitializers(h.transitiveTypeResolver, h.getWorkspaceType, tenancyv1alpha1.RootCluster.Path(), "home")
+		if err != nil {
+			responsewriters.InternalError(rw, req, err)
+			return
+		}
+
+		logger.Info("Creating home LogicalCluster", "cluster", homeClusterName.String(), "user", effectiveUser.GetName())
+		this, err = h.kcpClusterClient.Cluster(homeClusterName.Path()).CoreV1alpha1().LogicalClusters().Create(ctx, this, metav1.CreateOptions{})
 		if err != nil && !kerrors.IsAlreadyExists(err) {
 			responsewriters.InternalError(rw, req, err)
 			return
@@ -317,6 +340,20 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		},
 	}
 	responsewriters.WriteObjectNegotiated(homeWorkspaceCodecs, negotiation.DefaultEndpointRestrictions, tenancyv1beta1.SchemeGroupVersion, rw, req, http.StatusOK, homeWorkspace)
+}
+
+func (h *homeWorkspaceHandler) getWorkspaceType(path logicalcluster.Path, name string) (*tenancyv1alpha1.WorkspaceType, error) {
+	objs, err := h.workspaceTypeIndexer.ByIndex(indexers.ByLogicalClusterPathAndName, path.Join(name).String())
+	if err != nil {
+		return nil, err
+	}
+	if len(objs) == 0 {
+		return nil, kerrors.NewNotFound(tenancyv1alpha1.Resource("workspacetypes"), path.Join(name).String())
+	}
+	if len(objs) > 1 {
+		return nil, fmt.Errorf("multiple WorkspaceTypes found for %s", path.Join(name).String())
+	}
+	return objs[0].(*tenancyv1alpha1.WorkspaceType), nil
 }
 
 func isGetHomeWorkspaceRequest(clusterName logicalcluster.Name, requestInfo *request.RequestInfo) bool {

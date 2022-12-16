@@ -69,7 +69,7 @@ type schedulingReconciler struct {
 	getShardByHash func(hash string) (*corev1alpha1.Shard, error)
 	listShards     func(selector labels.Selector) ([]*corev1alpha1.Shard, error)
 
-	getWorkspaceTypes func(clusterName logicalcluster.Path, name string) (*tenancyv1alpha1.WorkspaceType, error)
+	getWorkspaceType func(clusterName logicalcluster.Path, name string) (*tenancyv1alpha1.WorkspaceType, error)
 
 	getLogicalCluster func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error)
 
@@ -281,23 +281,10 @@ func (r *schedulingReconciler) createLogicalCluster(ctx context.Context, shard *
 	}
 
 	// add initializers
-	cwt, err := r.getWorkspaceTypes(logicalcluster.NewPath(workspace.Spec.Type.Path), string(workspace.Spec.Type.Name))
+	var err error
+	this.Spec.Initializers, err = LogicalClustersInitializers(r.transitiveTypeResolver, r.getWorkspaceType, logicalcluster.NewPath(workspace.Spec.Type.Path), string(workspace.Spec.Type.Name))
 	if err != nil {
 		return err
-	}
-	cwtAliases, err := r.transitiveTypeResolver.Resolve(cwt)
-	if err != nil {
-		return err
-	}
-	bindings := false
-	for _, alias := range cwtAliases {
-		if alias.Spec.Initializer {
-			this.Spec.Initializers = append(this.Spec.Initializers, initialization.InitializerForType(alias))
-		}
-		bindings = bindings || len(alias.Spec.DefaultAPIBindings) > 0
-	}
-	if bindings {
-		this.Spec.Initializers = append(this.Spec.Initializers, tenancyv1alpha1.WorkspaceAPIBindingsInitializer)
 	}
 
 	logicalClusterAdminClient, err := r.kcpLogicalClusterAdminClientFor(shard)
@@ -317,6 +304,38 @@ func (r *schedulingReconciler) createLogicalCluster(ctx context.Context, shard *
 	}
 
 	return err
+}
+
+// LogicalClustersInitializers returns the initializers for a LogicalCluster of a given
+// fully-qualified WorkspaceType reference.
+func LogicalClustersInitializers(
+	resolver workspacetypeexists.TransitiveTypeResolver,
+	getWorkspaceType func(clusterName logicalcluster.Path, name string) (*tenancyv1alpha1.WorkspaceType, error),
+	typePath logicalcluster.Path, typeName string,
+) ([]corev1alpha1.LogicalClusterInitializer, error) {
+	cwt, err := getWorkspaceType(typePath, typeName)
+	if err != nil {
+		return nil, err
+	}
+	cwtAliases, err := resolver.Resolve(cwt)
+	if err != nil {
+		return nil, err
+	}
+
+	initializers := make([]corev1alpha1.LogicalClusterInitializer, 0, len(cwtAliases))
+
+	bindings := false
+	for _, alias := range cwtAliases {
+		if alias.Spec.Initializer {
+			initializers = append(initializers, initialization.InitializerForType(alias))
+		}
+		bindings = bindings || len(alias.Spec.DefaultAPIBindings) > 0
+	}
+	if bindings {
+		initializers = append(initializers, tenancyv1alpha1.WorkspaceAPIBindingsInitializer)
+	}
+
+	return initializers, nil
 }
 
 func (r *schedulingReconciler) updateLogicalClusterPhase(ctx context.Context, shard *corev1alpha1.Shard, cluster logicalcluster.Path, phase corev1alpha1.LogicalClusterPhaseType) error {
