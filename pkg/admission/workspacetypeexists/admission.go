@@ -112,7 +112,7 @@ func (o *workspacetypeExists) Admit(ctx context.Context, a admission.Attributes,
 		return apierrors.NewInternalError(err)
 	}
 
-	if a.GetResource().GroupResource() != tenancyv1alpha1.Resource("workspaces") {
+	if a.GetResource().GroupResource() != tenancyv1beta1.Resource("workspaces") {
 		return nil
 	}
 
@@ -135,7 +135,7 @@ func (o *workspacetypeExists) Admit(ctx context.Context, a admission.Attributes,
 	if a.GetOperation() == admission.Create {
 		this, err := o.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 		if err != nil {
-			return admission.NewForbidden(a, fmt.Errorf("workspace type canot be resolved: %w", err))
+			return admission.NewForbidden(a, fmt.Errorf("workspace type cannot be resolved: %w", err))
 		}
 
 		// if the user has not provided any type, use the default from the parent workspace
@@ -151,7 +151,7 @@ func (o *workspacetypeExists) Admit(ctx context.Context, a admission.Attributes,
 			}
 			parentCwt, err := o.getType(cwtWorkspace, cwtName)
 			if err != nil {
-				return admission.NewForbidden(a, fmt.Errorf("parent type canot be resolved: %w", err))
+				return admission.NewForbidden(a, fmt.Errorf("parent type cannot be resolved: %w", err))
 			}
 			if parentCwt.Spec.DefaultChildWorkspaceType == nil {
 				return admission.NewForbidden(a, errors.New("spec.defaultChildWorkspaceType of workspace type %s:%s must be set"))
@@ -221,14 +221,17 @@ func (o *workspacetypeExists) resolveTypeRef(workspacePath logicalcluster.Path, 
 	}
 
 	for {
-		cwt, err := o.getType(logicalcluster.NewPath(ref.Path), string(ref.Name))
+		cwt, err := o.getType(workspacePath, string(ref.Name))
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				var hasParent bool
-				workspacePath, hasParent = workspacePath.Parent()
-				if !hasParent {
-					return nil, fmt.Errorf("workspace type %s does not exist", ref.String())
+				parent, hasParent := workspacePath.Parent()
+				if !hasParent && workspacePath != tenancyv1alpha1.RootCluster.Path() {
+					// fall through with root cluster. We always check types in there as last chance.
+					parent = tenancyv1alpha1.RootCluster.Path()
+				} else if !hasParent {
+					return nil, fmt.Errorf("workspace type %q cannot be resolved", ref.String())
 				}
+				workspacePath = parent
 				continue
 			}
 			return nil, apierrors.NewInternalError(err)
@@ -264,7 +267,7 @@ func (o *workspacetypeExists) Validate(ctx context.Context, a admission.Attribut
 
 	switch a.GetOperation() {
 	case admission.Update:
-		if a.GetOldObject().GetObjectKind().GroupVersionKind() != tenancyv1alpha1.SchemeGroupVersion.WithKind("Workspace") {
+		if a.GetOldObject().GetObjectKind().GroupVersionKind() != tenancyv1beta1.SchemeGroupVersion.WithKind("Workspace") {
 			return nil
 		}
 		u, ok = a.GetOldObject().(*unstructured.Unstructured)
@@ -325,7 +328,7 @@ func (o *workspacetypeExists) Validate(ctx context.Context, a admission.Attribut
 		// validate whether the workspace type is allowed in its parent, and the workspace type allows that parent
 		this, err := o.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 		if err != nil {
-			return admission.NewForbidden(a, fmt.Errorf("workspace type canot be resolved: %w", err))
+			return admission.NewForbidden(a, fmt.Errorf("workspace type cannot be resolved: %w", err))
 		}
 		typeAnnotation, found := this.Annotations[corev1alpha1.LogicalClusterTypeAnnotationKey]
 		if !found {
@@ -337,7 +340,7 @@ func (o *workspacetypeExists) Validate(ctx context.Context, a admission.Attribut
 		}
 		parentCwt, err := o.getType(cwtWorkspace, cwtName)
 		if err != nil {
-			return admission.NewForbidden(a, fmt.Errorf("workspace type canot be resolved: %w", err))
+			return admission.NewForbidden(a, fmt.Errorf("workspace type cannot be resolved: %w", err))
 		}
 		parentAliases, err := o.transitiveTypeResolver.Resolve(parentCwt)
 		if err != nil {

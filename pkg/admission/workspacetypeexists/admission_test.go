@@ -145,6 +145,54 @@ func TestAdmit(t *testing.T) {
 			a:           createAttr(newWorkspace("root:org:ws:test").Workspace),
 			expectedObj: newWorkspace("root:org:ws:test").withType("root:org:foo").Workspace,
 		},
+		{
+			name:        "finds a type locally",
+			clusterName: logicalcluster.Name("foo:org:ws"),
+			logicalClusters: []*corev1alpha1.LogicalCluster{
+				newLogicalCluster("foo:org:ws").withType("root:org", "parent").LogicalCluster,
+			},
+			types: []*tenancyv1alpha1.WorkspaceType{
+				newType("foo:org:ws:universal").WorkspaceType,
+			},
+			a:           createAttr(newWorkspace("foo:org:ws:test").withType("universal").Workspace),
+			expectedObj: newWorkspace("foo:org:ws:test").withType("foo:org:ws:universal").Workspace,
+		},
+		{
+			name:        "finds a type in the non-root hierarchy",
+			clusterName: logicalcluster.Name("foo:org:ws"),
+			logicalClusters: []*corev1alpha1.LogicalCluster{
+				newLogicalCluster("foo:org:ws").withType("root:org", "parent").LogicalCluster,
+			},
+			types: []*tenancyv1alpha1.WorkspaceType{
+				newType("foo:org:universal").WorkspaceType,
+			},
+			a:           createAttr(newWorkspace("foo:org:ws:test").withType("universal").Workspace),
+			expectedObj: newWorkspace("foo:org:ws:test").withType("foo:org:universal").Workspace,
+		},
+		{
+			name:        "finds a type in root for other sub-tree",
+			clusterName: logicalcluster.Name("foo:org:ws"),
+			logicalClusters: []*corev1alpha1.LogicalCluster{
+				newLogicalCluster("foo:org:ws").withType("root:org", "parent").LogicalCluster,
+			},
+			types: []*tenancyv1alpha1.WorkspaceType{
+				newType("root:universal").WorkspaceType,
+			},
+			a:           createAttr(newWorkspace("foo:org:ws:test").withType("universal").Workspace),
+			expectedObj: newWorkspace("foo:org:ws:test").withType("root:universal").Workspace,
+		},
+		{
+			name:        "finds a type in root in the root hierarchy",
+			clusterName: logicalcluster.Name("root:org:ws"),
+			logicalClusters: []*corev1alpha1.LogicalCluster{
+				newLogicalCluster("root:org:ws").withType("root:org", "parent").LogicalCluster,
+			},
+			types: []*tenancyv1alpha1.WorkspaceType{
+				newType("root:universal").WorkspaceType,
+			},
+			a:           createAttr(newWorkspace("root:org:ws:test").withType("universal").Workspace),
+			expectedObj: newWorkspace("root:org:ws:test").withType("root:universal").Workspace,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -491,7 +539,7 @@ func (l fakeLogicalClusterLister) GetWithContext(ctx context.Context, name strin
 			return t, nil
 		}
 	}
-	return nil, apierrors.NewNotFound(tenancyv1alpha1.Resource("clusterworkspace"), name)
+	return nil, apierrors.NewNotFound(corev1alpha1.Resource("logicalclusters"), name)
 }
 
 type fakeAuthorizer struct {
@@ -851,7 +899,7 @@ func (b thisWsBuilder) withType(cluster logicalcluster.Name, name string) thisWs
 func getType(types []*tenancyv1alpha1.WorkspaceType) func(path logicalcluster.Path, name string) (*tenancyv1alpha1.WorkspaceType, error) {
 	return func(path logicalcluster.Path, name string) (*tenancyv1alpha1.WorkspaceType, error) {
 		for _, t := range types {
-			if canonicalPathFrom(t) == path && t.Name == name {
+			if (canonicalPathFrom(t) == path || logicalcluster.From(t).Path() == path) && t.Name == name {
 				return t, nil
 			}
 		}

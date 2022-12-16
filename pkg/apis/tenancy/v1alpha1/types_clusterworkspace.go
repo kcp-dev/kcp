@@ -135,6 +135,9 @@ type WorkspaceTypesReference struct {
 type WorkspaceTypesName string
 
 func (r WorkspaceTypesReference) String() string {
+	if r.Path == "" {
+		return string(r.Name)
+	}
 	return fmt.Sprintf("%s:%s", r.Path, r.Name)
 }
 
