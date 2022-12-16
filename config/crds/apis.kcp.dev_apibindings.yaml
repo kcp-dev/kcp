@@ -112,9 +112,9 @@ spec:
                   - message: either "all" or "resourceSelector" must be set
                     rule: (has(self.all) && self.all) != (has(self.resourceSelector)
                       && size(self.resourceSelector) > 0)
-                  - message: thisworkspaces cannot be claimed
+                  - message: logicalclusters cannot be claimed
                     rule: '!has(self.group) || self.group != "tenancy.kcp.dev" ||
-                      self.resource != "thisworkspaces" || (has(self.identityHash)
+                      self.resource != "logicalclusters" || (has(self.identityHash)
                       && self.identityHash != "")'
                 type: array
               reference:
@@ -216,9 +216,9 @@ spec:
                   - message: either "all" or "resourceSelector" must be set
                     rule: (has(self.all) && self.all) != (has(self.resourceSelector)
                       && size(self.resourceSelector) > 0)
-                  - message: thisworkspaces cannot be claimed
+                  - message: logicalclusters cannot be claimed
                     rule: '!has(self.group) || self.group != "tenancy.kcp.dev" ||
-                      self.resource != "thisworkspaces" || (has(self.identityHash)
+                      self.resource != "logicalclusters" || (has(self.identityHash)
                       && self.identityHash != "")'
                 type: array
               boundResources:
@@ -394,9 +394,9 @@ spec:
                   - message: either "all" or "resourceSelector" must be set
                     rule: (has(self.all) && self.all) != (has(self.resourceSelector)
                       && size(self.resourceSelector) > 0)
-                  - message: thisworkspaces cannot be claimed
+                  - message: logicalclusters cannot be claimed
                     rule: '!has(self.group) || self.group != "tenancy.kcp.dev" ||
-                      self.resource != "thisworkspaces" || (has(self.identityHash)
+                      self.resource != "logicalclusters" || (has(self.identityHash)
                       && self.identityHash != "")'
                 type: array
               phase:

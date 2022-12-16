@@ -108,7 +108,7 @@ A service-account defined in a differant workspace is NOT given access to it.
 
 ### Required Groups Authorizer
 
-A `authorization.kcp.dev/required-groups` annotation can be added to a ThisWorkspace 
+A `authorization.kcp.dev/required-groups` annotation can be added to a LogicalCluster 
 to specify additional groups that are required to access a workspace for a user to be member of. 
 The syntax is a disjunction (separator `,`) of conjunctions (separator `;`).
 

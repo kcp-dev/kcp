@@ -37,6 +37,7 @@ import (
 
 	configshard "github.com/kcp-dev/kcp/config/shard"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/pkg/logging"
@@ -285,7 +286,7 @@ func decorateWildcardPathsWithResourceIdentities(urlPath string, ids *identities
 	resource := parts[0]
 
 	gr := schema.GroupResource{Group: comps[3], Resource: resource}
-	if id, found := ids.grIdentity(gr); found && gr != tenancyv1alpha1.Resource("thisworkspaces") { // TODO(sttts): remove ThisWorkspace exception when moved to its own API group
+	if id, found := ids.grIdentity(gr); found && gr != corev1alpha1.Resource("logicalclusters") {
 		if len(id) == 0 {
 			return "", fmt.Errorf("identity for %s is unknown", gr)
 		}

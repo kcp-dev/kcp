@@ -23,6 +23,7 @@ import (
 	rbacrest "k8s.io/kubernetes/pkg/registry/rbac/rest"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac/bootstrappolicy"
 
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 )
 
@@ -34,7 +35,7 @@ const (
 	// We need a separate group (not system:masters) for this because system-owned workspaces (e.g. root:users) need
 	// a workspace owner annotation set, and the owner annotation is skipped/not set for system:masters.
 	SystemKcpWorkspaceBootstrapper = "system:kcp:tenancy:workspace-bootstrapper"
-	// SystemLogicalClusterAdmin is a group used by the scheduler to create ThisWorkspaces resources.
+	// SystemLogicalClusterAdmin is a group used by the scheduler to create LogicalCluster resources.
 	// This group allows it to skip the entire authorization stack except the bootstrap policy authorizer.
 	// Otherwise, access to a top level org or a parent workspace would be required.
 	SystemLogicalClusterAdmin = "system:kcp:logical-cluster-admin"
@@ -58,7 +59,7 @@ func clusterRoles() []rbacv1.ClusterRole {
 			Rules: []rbacv1.PolicyRule{
 				rbacv1helpers.NewRule("get", "list", "watch").Groups(tenancy.GroupName).Resources("workspaces").RuleOrDie(),
 				rbacv1helpers.NewRule(bootstrappolicy.Read...).Groups(tenancy.GroupName).Resources("clusterworkspacetypes").RuleOrDie(),
-				rbacv1helpers.NewRule("get", "list", "watch").Groups(tenancy.GroupName).Resources("thisworkspaces").RuleOrDie(),
+				rbacv1helpers.NewRule("get", "list", "watch").Groups(core.GroupName).Resources("logicalclusters").RuleOrDie(),
 			},
 		},
 		{
@@ -71,7 +72,7 @@ func clusterRoles() []rbacv1.ClusterRole {
 		{
 			ObjectMeta: metav1.ObjectMeta{Name: SystemLogicalClusterAdmin},
 			Rules: []rbacv1.PolicyRule{
-				rbacv1helpers.NewRule("*").Groups(tenancy.GroupName).Resources("thisworkspaces").RuleOrDie(),
+				rbacv1helpers.NewRule("*").Groups(core.GroupName).Resources("logicalclusters").RuleOrDie(),
 				rbacv1helpers.NewRule("delete", "update", "get").Groups(tenancy.GroupName).Resources("clusterworkspaces", "workspaces").RuleOrDie(),
 			},
 		},

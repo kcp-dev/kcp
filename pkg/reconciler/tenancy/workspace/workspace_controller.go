@@ -36,8 +36,10 @@ import (
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1beta1"
+	corev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/core/v1alpha1"
 	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	tenancyv1beta1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1beta1"
+	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
 	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	tenancyv1beta1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
@@ -57,7 +59,7 @@ func NewController(
 	workspaceInformer tenancyv1beta1informers.WorkspaceClusterInformer,
 	clusterWorkspaceShardInformer tenancyv1alpha1informers.ClusterWorkspaceShardClusterInformer,
 	clusterWorkspaceTypeInformer tenancyv1alpha1informers.ClusterWorkspaceTypeClusterInformer,
-	thisWorkspaceInformer tenancyv1alpha1informers.ThisWorkspaceClusterInformer,
+	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
 ) (*Controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
@@ -80,8 +82,8 @@ func NewController(
 		clusterWorkspaceTypeIndexer: clusterWorkspaceTypeInformer.Informer().GetIndexer(),
 		clusterWorkspaceTypeLister:  clusterWorkspaceTypeInformer.Lister(),
 
-		thisWorkspaceIndexer: thisWorkspaceInformer.Informer().GetIndexer(),
-		thisWorkspaceLister:  thisWorkspaceInformer.Lister(),
+		logicalClusterIndexer: logicalClusterInformer.Informer().GetIndexer(),
+		logicalClusterLister:  logicalClusterInformer.Lister(),
 
 		commit: committer.NewCommitter[*tenancyv1beta1.Workspace, v1beta1.WorkspaceInterface, *tenancyv1beta1.WorkspaceSpec, *tenancyv1beta1.WorkspaceStatus](kcpClusterClient.TenancyV1beta1().Workspaces()),
 	}
@@ -133,8 +135,8 @@ type Controller struct {
 	clusterWorkspaceTypeIndexer cache.Indexer
 	clusterWorkspaceTypeLister  tenancyv1alpha1listers.ClusterWorkspaceTypeClusterLister
 
-	thisWorkspaceIndexer cache.Indexer
-	thisWorkspaceLister  tenancyv1alpha1listers.ThisWorkspaceClusterLister
+	logicalClusterIndexer cache.Indexer
+	logicalClusterLister  corev1alpha1listers.LogicalClusterClusterLister
 
 	// commit creates a patch and submits it, if needed.
 	commit func(ctx context.Context, new, old *workspaceResource) error

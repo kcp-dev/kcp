@@ -30,6 +30,7 @@ import (
 	restclient "k8s.io/client-go/rest"
 
 	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspacetypeexists"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
@@ -102,11 +103,11 @@ func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1beta1.Workspace
 	reconcilers := []reconciler{
 		&metaDataReconciler{},
 		&deletionReconciler{
-			getThisWorkspace: func(ctx context.Context, cluster logicalcluster.Path) (*tenancyv1alpha1.ThisWorkspace, error) {
-				return c.kcpExternalClient.Cluster(cluster).TenancyV1alpha1().ThisWorkspaces().Get(ctx, tenancyv1alpha1.ThisWorkspaceName, metav1.GetOptions{})
+			getLogicalCluster: func(ctx context.Context, cluster logicalcluster.Path) (*corev1alpha1.LogicalCluster, error) {
+				return c.kcpExternalClient.Cluster(cluster).CoreV1alpha1().LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{})
 			},
-			deleteThisWorkspace: func(ctx context.Context, cluster logicalcluster.Path) error {
-				return c.kcpExternalClient.Cluster(cluster).TenancyV1alpha1().ThisWorkspaces().Delete(ctx, tenancyv1alpha1.ThisWorkspaceName, metav1.DeleteOptions{})
+			deleteLogicalCluster: func(ctx context.Context, cluster logicalcluster.Path) error {
+				return c.kcpExternalClient.Cluster(cluster).CoreV1alpha1().LogicalClusters().Delete(ctx, corev1alpha1.LogicalClusterName, metav1.DeleteOptions{})
 			},
 		},
 		&schedulingReconciler{
@@ -117,16 +118,16 @@ func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1beta1.Workspace
 			getShardByHash:          getShardByName,
 			listShards:              c.clusterWorkspaceShardLister.List,
 			getClusterWorkspaceType: getType,
-			getThisWorkspace: func(clusterName logicalcluster.Name) (*tenancyv1alpha1.ThisWorkspace, error) {
-				return c.thisWorkspaceLister.Cluster(clusterName).Get(tenancyv1alpha1.ThisWorkspaceName)
+			getLogicalCluster: func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
+				return c.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 			},
 			transitiveTypeResolver:           clusterworkspacetypeexists.NewTransitiveTypeResolver(getType),
 			kcpLogicalClusterAdminClientFor:  kcpDirectClientFor,
 			kubeLogicalClusterAdminClientFor: kubeDirectClientFor,
 		},
 		&phaseReconciler{
-			getThisWorkspace: func(ctx context.Context, cluster logicalcluster.Path) (*tenancyv1alpha1.ThisWorkspace, error) {
-				return c.kcpExternalClient.Cluster(cluster).TenancyV1alpha1().ThisWorkspaces().Get(ctx, tenancyv1alpha1.ThisWorkspaceName, metav1.GetOptions{})
+			getLogicalCluster: func(ctx context.Context, cluster logicalcluster.Path) (*corev1alpha1.LogicalCluster, error) {
+				return c.kcpExternalClient.Cluster(cluster).CoreV1alpha1().LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{})
 			},
 			requeueAfter: func(workspace *tenancyv1beta1.Workspace, after time.Duration) {
 				c.queue.AddAfter(kcpcache.ToClusterAwareKey(logicalcluster.From(workspace).String(), "", workspace.Name), after)

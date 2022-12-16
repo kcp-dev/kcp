@@ -2,16 +2,16 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v221212-cf67ac73a.thisworkspaces.tenancy.kcp.dev
+  name: v221216-6f58af620.logicalclusters.core.kcp.dev
 spec:
-  group: tenancy.kcp.dev
+  group: core.kcp.dev
   names:
     categories:
     - kcp
-    kind: ThisWorkspace
-    listKind: ThisWorkspaceList
-    plural: thisworkspaces
-    singular: thisworkspace
+    kind: LogicalCluster
+    listKind: LogicalClusterList
+    plural: logicalclusters
+    singular: logicalcluster
   scope: Cluster
   versions:
   - additionalPrinterColumns:
@@ -28,7 +28,7 @@ spec:
       type: date
     name: v1alpha1
     schema:
-      description: ThisWorkspace describes the current workspace.
+      description: LogicalCluster describes the current workspace.
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -49,7 +49,7 @@ spec:
           type: object
         spec:
           default: {}
-          description: ThisWorkspaceSpec is the specification of the ThisWorkspace
+          description: LogicalClusterSpec is the specification of the LogicalCluster
             resource.
           properties:
             directlyDeletable:
@@ -69,8 +69,8 @@ spec:
               type: array
             owner:
               description: "owner is a reference to a resource controlling the life-cycle
-                of this workspace. On deletion of the ThisWorkspace, the finalizer
-                tenancy.kcp.dev/thisworkspace is removed from the owner. \n When this
+                of this workspace. On deletion of the LogicalCluster, the finalizer
+                core.kcp.dev/logicalcluster is removed from the owner. \n When this
                 object is deleted, but the owner is not deleted, the owner is deleted
                 too."
               properties:
@@ -107,7 +107,7 @@ spec:
           type: object
         status:
           default: {}
-          description: ThisWorkspaceStatus communicates the observed state of the
+          description: LogicalClusterStatus communicates the observed state of the
             Workspace.
           properties:
             URL:
@@ -116,7 +116,7 @@ spec:
                 with standard Kubernetes client libraries and command line tools.
               type: string
             conditions:
-              description: Current processing state of the ThisWorkspace.
+              description: Current processing state of the LogicalCluster.
               items:
                 description: Condition defines an observation of a object operational
                   state.
@@ -161,7 +161,7 @@ spec:
               type: array
             initializers:
               description: initializers are set on creation by the system and must
-                be cleared by a controller before the workspace can be used. The ThisWorkspace
+                be cleared by a controller before the workspace can be used. The LogicalCluster
                 will stay in the phase "Initializing" state until all initializers
                 are cleared.
               items:

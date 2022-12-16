@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package thisworkspace
+package logicalcluster
 
 import (
 	"context"
@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
@@ -32,7 +33,7 @@ import (
 type metaDataReconciler struct {
 }
 
-func (r *metaDataReconciler) reconcile(ctx context.Context, workspace *tenancyv1alpha1.ThisWorkspace) (reconcileStatus, error) {
+func (r *metaDataReconciler) reconcile(ctx context.Context, workspace *corev1alpha1.LogicalCluster) (reconcileStatus, error) {
 	logger := klog.FromContext(ctx)
 	changed := false
 

@@ -32,10 +32,11 @@ import (
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/core"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
 )
 
 const (
@@ -60,7 +61,7 @@ func Register(plugins *admission.Plugins) {
 type pathAnnotationPlugin struct {
 	*admission.Handler
 
-	thisWorkspaceLister tenancyv1alpha1listers.ThisWorkspaceClusterLister
+	logicalClusterLister corev1alpha1listers.LogicalClusterClusterLister
 }
 
 var pathAnnotationResources = sets.NewString(
@@ -85,7 +86,7 @@ func (p *pathAnnotationPlugin) Admit(ctx context.Context, a admission.Attributes
 		return nil
 	}
 
-	if a.GetResource().GroupResource() == tenancyv1alpha1.Resource("thisworkspaces") {
+	if a.GetResource().GroupResource() == corev1alpha1.Resource("logicalclusters") {
 		return nil
 	}
 
@@ -100,7 +101,7 @@ func (p *pathAnnotationPlugin) Admit(ctx context.Context, a admission.Attributes
 		return nil
 	}
 
-	this, err := p.thisWorkspaceLister.Cluster(clusterName).Get(tenancyv1alpha1.ThisWorkspaceName)
+	this, err := p.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 	if err != nil {
 		return admission.NewForbidden(a, fmt.Errorf("cannot get this workspace: %w", err))
 	}
@@ -130,7 +131,7 @@ func (p *pathAnnotationPlugin) Validate(ctx context.Context, a admission.Attribu
 		return nil
 	}
 
-	if a.GetResource().GroupResource() == tenancyv1alpha1.Resource("thisworkspaces") {
+	if a.GetResource().GroupResource() == corev1alpha1.Resource("logicalclusters") {
 		return nil
 	}
 
@@ -141,7 +142,7 @@ func (p *pathAnnotationPlugin) Validate(ctx context.Context, a admission.Attribu
 
 	value, found := u.GetAnnotations()[core.LogicalClusterPathAnnotationKey]
 	if pathAnnotationResources.Has(a.GetResource().GroupResource().String()) || found {
-		this, err := p.thisWorkspaceLister.Cluster(clusterName).Get(tenancyv1alpha1.ThisWorkspaceName)
+		this, err := p.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 		if err != nil {
 			return admission.NewForbidden(a, fmt.Errorf("cannot get this workspace: %w", err))
 		}
@@ -159,16 +160,16 @@ func (p *pathAnnotationPlugin) Validate(ctx context.Context, a admission.Attribu
 }
 
 func (o *pathAnnotationPlugin) ValidateInitialization() error {
-	if o.thisWorkspaceLister == nil {
-		return fmt.Errorf(PluginName + " plugin needs an ThisWorkspace lister")
+	if o.logicalClusterLister == nil {
+		return fmt.Errorf(PluginName + " plugin needs an LogicalCluster lister")
 	}
 	return nil
 }
 
 func (o *pathAnnotationPlugin) SetKcpInformers(informers kcpinformers.SharedInformerFactory) {
-	thisWorkspacesReady := informers.Tenancy().V1alpha1().ThisWorkspaces().Informer().HasSynced
+	logicalClusterReady := informers.Core().V1alpha1().LogicalClusters().Informer().HasSynced
 	o.SetReadyFunc(func() bool {
-		return thisWorkspacesReady()
+		return logicalClusterReady()
 	})
-	o.thisWorkspaceLister = informers.Tenancy().V1alpha1().ThisWorkspaces().Lister()
+	o.logicalClusterLister = informers.Core().V1alpha1().LogicalClusters().Lister()
 }

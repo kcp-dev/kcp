@@ -48,7 +48,7 @@ func (r *metaDataReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 		changed = true
 	}
 
-	// remote deletion finalizer as this moved to the ThisWorkspace
+	// remote deletion finalizer as this moved to the LogicalCluster
 	if workspace.DeletionTimestamp.IsZero() {
 		finalizers := sets.NewString(workspace.Finalizers...)
 		if finalizers.Has(deletion.WorkspaceFinalizer) {

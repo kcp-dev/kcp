@@ -33,6 +33,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/retry"
 
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
@@ -295,10 +296,10 @@ func TestClusterWorkspaceTypes(t *testing.T) {
 
 				t.Logf("Remove initializer")
 				err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-					thisWorkspace, err := server.kcpClusterClient.TenancyV1alpha1().ThisWorkspaces().Cluster(logicalcluster.Name(workspace.Status.Cluster).Path()).Get(ctx, tenancyv1alpha1.ThisWorkspaceName, metav1.GetOptions{})
+					logicalCluster, err := server.kcpClusterClient.CoreV1alpha1().LogicalClusters().Cluster(logicalcluster.Name(workspace.Status.Cluster).Path()).Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{})
 					require.NoError(t, err)
-					thisWorkspace.Status.Initializers = initialization.EnsureInitializerAbsent(initialization.InitializerForType(cwt), thisWorkspace.Status.Initializers)
-					_, err = server.kcpClusterClient.TenancyV1alpha1().ThisWorkspaces().Cluster(logicalcluster.Name(workspace.Status.Cluster).Path()).UpdateStatus(ctx, thisWorkspace, metav1.UpdateOptions{})
+					logicalCluster.Status.Initializers = initialization.EnsureInitializerAbsent(initialization.InitializerForType(cwt), logicalCluster.Status.Initializers)
+					_, err = server.kcpClusterClient.CoreV1alpha1().LogicalClusters().Cluster(logicalcluster.Name(workspace.Status.Cluster).Path()).UpdateStatus(ctx, logicalCluster, metav1.UpdateOptions{})
 					return err
 				})
 				require.NoError(t, err)

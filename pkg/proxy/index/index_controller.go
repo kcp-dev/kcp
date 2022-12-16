@@ -31,9 +31,11 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	corev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/core/v1alpha1"
 	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/index"
@@ -116,7 +118,7 @@ type Controller struct {
 
 	lock                           sync.RWMutex
 	shardClusterWorkspaceInformers map[string]cache.SharedIndexInformer
-	shardThisWorkspaceInformers    map[string]cache.SharedIndexInformer
+	shardLogicalClusterInformers   map[string]cache.SharedIndexInformer
 	shardClusterWorkspaceStopCh    map[string]chan struct{}
 
 	state index.State
@@ -227,28 +229,28 @@ func (c *Controller) process(ctx context.Context, key string) error {
 			},
 		})
 
-		twInformer := tenancyv1alpha1informers.NewThisWorkspaceClusterInformer(client, resyncPeriod, nil)
+		twInformer := corev1alpha1informers.NewLogicalClusterClusterInformer(client, resyncPeriod, nil)
 		twInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				this := obj.(*tenancyv1alpha1.ThisWorkspace)
-				c.state.UpsertThisWorkspace(shard.Name, this)
+				this := obj.(*corev1alpha1.LogicalCluster)
+				c.state.UpsertLogicalCluster(shard.Name, this)
 			},
 			UpdateFunc: func(old, obj interface{}) {
-				this := obj.(*tenancyv1alpha1.ThisWorkspace)
-				c.state.UpsertThisWorkspace(shard.Name, this)
+				this := obj.(*corev1alpha1.LogicalCluster)
+				c.state.UpsertLogicalCluster(shard.Name, this)
 			},
 			DeleteFunc: func(obj interface{}) {
 				if final, ok := obj.(cache.DeletedFinalStateUnknown); ok {
 					obj = final.Obj
 				}
-				this := obj.(*tenancyv1alpha1.ThisWorkspace)
-				c.state.DeleteThisWorkspace(shard.Name, this)
+				this := obj.(*corev1alpha1.LogicalCluster)
+				c.state.DeleteLogicalCluster(shard.Name, this)
 			},
 		})
 
 		stopCh := make(chan struct{})
 		c.shardClusterWorkspaceInformers[shard.Name] = cwInformer
-		c.shardThisWorkspaceInformers[shard.Name] = twInformer
+		c.shardLogicalClusterInformers[shard.Name] = twInformer
 		c.shardClusterWorkspaceStopCh[shard.Name] = stopCh
 
 		go cwInformer.Run(stopCh)
@@ -270,7 +272,7 @@ func (c *Controller) stopShard(shard *tenancyv1alpha1.ClusterWorkspaceShard) {
 	}
 	delete(c.shardClusterWorkspaceStopCh, shard.Name)
 	delete(c.shardClusterWorkspaceInformers, shard.Name)
-	delete(c.shardThisWorkspaceInformers, shard.Name)
+	delete(c.shardLogicalClusterInformers, shard.Name)
 }
 
 func (c *Controller) LookupURL(path logicalcluster.Path) (url string, found bool) {

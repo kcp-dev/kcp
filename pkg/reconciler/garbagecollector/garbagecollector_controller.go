@@ -37,8 +37,8 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/controller/garbagecollector"
 
-	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
-	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	corev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/core/v1alpha1"
+	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/projection"
@@ -55,7 +55,7 @@ type Controller struct {
 	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory
 	kubeClusterClient                     kcpkubernetesclient.ClusterInterface
 	metadataClient                        kcpmetadataclient.ClusterInterface
-	thisWorkspaceLister                   tenancyv1alpha1listers.ThisWorkspaceClusterLister
+	logicalClusterLister                  corev1alpha1listers.LogicalClusterClusterLister
 	informersStarted                      <-chan struct{}
 
 	workersPerLogicalCluster int
@@ -69,7 +69,7 @@ type Controller struct {
 
 // NewController creates a new Controller.
 func NewController(
-	thisWorkspaceInformer tenancyv1alpha1informers.ThisWorkspaceClusterInformer,
+	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
 	kubeClusterClient kcpkubernetesclient.ClusterInterface,
 	metadataClient kcpmetadataclient.ClusterInterface,
 	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory,
@@ -82,7 +82,7 @@ func NewController(
 		dynamicDiscoverySharedInformerFactory: dynamicDiscoverySharedInformerFactory,
 		kubeClusterClient:                     kubeClusterClient,
 		metadataClient:                        metadataClient,
-		thisWorkspaceLister:                   thisWorkspaceInformer.Lister(),
+		logicalClusterLister:                  logicalClusterInformer.Lister(),
 		informersStarted:                      informersStarted,
 
 		workersPerLogicalCluster: workersPerLogicalCluster,
@@ -92,7 +92,7 @@ func NewController(
 		ignoredResources: defaultIgnoredResources(),
 	}
 
-	thisWorkspaceInformer.Informer().AddEventHandler(
+	logicalClusterInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: c.enqueue,
 			UpdateFunc: func(oldObj, newObj interface{}) {
@@ -118,7 +118,7 @@ func defaultIgnoredResources() (ret map[schema.GroupResource]struct{}) {
 	return ret
 }
 
-// enqueue adds the key for a ThisWorkspace to the queue.
+// enqueue adds the key for a LogicalCluster to the queue.
 func (c *Controller) enqueue(obj interface{}) {
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
@@ -127,7 +127,7 @@ func (c *Controller) enqueue(obj interface{}) {
 	}
 
 	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
-	logger.V(2).Info("queueing ThisWorkspace")
+	logger.V(2).Info("queueing LogicalCluster")
 	c.queue.Add(key)
 }
 
@@ -193,7 +193,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 
 	logger = logger.WithValues("cluster", clusterName.String())
 
-	ws, err := c.thisWorkspaceLister.Cluster(clusterName).Get(name)
+	ws, err := c.logicalClusterLister.Cluster(clusterName).Get(name)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			logger.V(2).Info("ClusterWorkspace not found - stopping garbage collector controller for it (if needed)")

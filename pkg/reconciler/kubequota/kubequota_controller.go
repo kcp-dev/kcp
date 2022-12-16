@@ -40,8 +40,8 @@ import (
 	"k8s.io/kubernetes/pkg/controller/resourcequota"
 	"k8s.io/kubernetes/pkg/quota/v1/install"
 
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
+	corev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
@@ -77,12 +77,12 @@ type Controller struct {
 	scopingGenericSharedInformerFactory scopeableInformerFactory
 
 	// For better testability
-	getThisWorkspace func(clusterName logicalcluster.Name) (*tenancyv1alpha1.ThisWorkspace, error)
+	getLogicalCluster func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error)
 }
 
 // NewController creates a new Controller.
 func NewController(
-	thisWorkspacesInformer tenancyv1alpha1informers.ThisWorkspaceClusterInformer,
+	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	kubeInformerFactory kcpkubernetesinformers.SharedInformerFactory,
 	dynamicDiscoverySharedInformerFactory *informer.DynamicDiscoverySharedInformerFactory,
@@ -108,12 +108,12 @@ func NewController(
 		scopingGenericSharedInformerFactory: dynamicDiscoverySharedInformerFactory,
 		resourceQuotaClusterInformer:        kubeInformerFactory.Core().V1().ResourceQuotas(),
 
-		getThisWorkspace: func(clusterName logicalcluster.Name) (*tenancyv1alpha1.ThisWorkspace, error) {
-			return thisWorkspacesInformer.Lister().Cluster(clusterName).Get(tenancyv1alpha1.ThisWorkspaceName)
+		getLogicalCluster: func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
+			return logicalClusterInformer.Lister().Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 		},
 	}
 
-	thisWorkspacesInformer.Informer().AddEventHandler(
+	logicalClusterInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: c.enqueue,
 			UpdateFunc: func(oldObj, newObj interface{}) {
@@ -202,7 +202,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 
 	logger = logger.WithValues("logicalCluster", clusterName.String())
 
-	ws, err := c.getThisWorkspace(clusterName)
+	ws, err := c.getLogicalCluster(clusterName)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			logger.V(2).Info("ClusterWorkspace not found - stopping quota controller for it (if needed)")

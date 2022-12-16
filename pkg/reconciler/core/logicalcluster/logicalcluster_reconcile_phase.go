@@ -14,11 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package thisworkspace
+package logicalcluster
 
 import (
 	"context"
 
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
@@ -26,7 +27,7 @@ import (
 
 type phaseReconciler struct{}
 
-func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alpha1.ThisWorkspace) (reconcileStatus, error) {
+func (r *phaseReconciler) reconcile(ctx context.Context, workspace *corev1alpha1.LogicalCluster) (reconcileStatus, error) {
 	switch workspace.Status.Phase {
 	case tenancyv1alpha1.WorkspacePhaseInitializing:
 		if len(workspace.Status.Initializers) > 0 {

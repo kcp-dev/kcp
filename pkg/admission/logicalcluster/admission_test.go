@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package thisworkspace
+package logicalcluster
 
 import (
 	"context"
@@ -35,18 +35,19 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 
 	"github.com/kcp-dev/kcp/pkg/admission/helpers"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
 )
 
-func updateAttr(obj, old *tenancyv1alpha1.ThisWorkspace) admission.Attributes {
+func updateAttr(obj, old *corev1alpha1.LogicalCluster) admission.Attributes {
 	return admission.NewAttributesRecord(
 		helpers.ToUnstructuredOrDie(obj),
 		helpers.ToUnstructuredOrDie(old),
-		tenancyv1alpha1.Kind("ThisWorkspace").WithVersion("v1alpha1"),
+		tenancyv1alpha1.Kind("LogicalCluster").WithVersion("v1alpha1"),
 		"",
 		obj.Name,
-		tenancyv1alpha1.Resource("thisworkspaces").WithVersion("v1alpha1"),
+		corev1alpha1.Resource("logicalclusters").WithVersion("v1alpha1"),
 		"",
 		admission.Update,
 		&metav1.CreateOptions{},
@@ -55,14 +56,14 @@ func updateAttr(obj, old *tenancyv1alpha1.ThisWorkspace) admission.Attributes {
 	)
 }
 
-func deleteAttr(obj *tenancyv1alpha1.ThisWorkspace, userInfo *user.DefaultInfo) admission.Attributes {
+func deleteAttr(obj *corev1alpha1.LogicalCluster, userInfo *user.DefaultInfo) admission.Attributes {
 	return admission.NewAttributesRecord(
 		nil,
 		nil,
-		tenancyv1alpha1.Kind("ThisWorkspace").WithVersion("v1alpha1"),
+		tenancyv1alpha1.Kind("LogicalCluster").WithVersion("v1alpha1"),
 		"",
 		obj.Name,
-		tenancyv1alpha1.Resource("thisworkspaces").WithVersion("v1alpha1"),
+		corev1alpha1.Resource("logicalclusters").WithVersion("v1alpha1"),
 		"",
 		admission.Delete,
 		&metav1.DeleteOptions{},
@@ -83,56 +84,56 @@ func TestAdmit(t *testing.T) {
 			name:        "adds initializers during transition to initializing",
 			clusterName: "root:org:ws",
 			a: updateAttr(
-				newThisWorkspace("root:org:ws:test").withType("root:org", "foo").withInitializers("a", "b").withStatus(tenancyv1alpha1.ThisWorkspaceStatus{
+				newLogicalCluster("root:org:ws:test").withType("root:org", "foo").withInitializers("a", "b").withStatus(corev1alpha1.LogicalClusterStatus{
 					Phase: tenancyv1alpha1.WorkspacePhaseInitializing,
 					URL:   "https://kcp.bigcorp.com/clusters/org:test",
-				}).ThisWorkspace,
-				newThisWorkspace("root:org:ws:test").withType("root:org", "foo").withInitializers("a", "b").withStatus(tenancyv1alpha1.ThisWorkspaceStatus{
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws:test").withType("root:org", "foo").withInitializers("a", "b").withStatus(corev1alpha1.LogicalClusterStatus{
 					Phase: tenancyv1alpha1.WorkspacePhaseScheduling,
 					URL:   "https://kcp.bigcorp.com/clusters/org:test",
-				}).ThisWorkspace,
+				}).LogicalCluster,
 			),
-			expectedObj: newThisWorkspace("root:org:ws:test").withType("root:org", "foo").withInitializers("a", "b").withStatus(tenancyv1alpha1.ThisWorkspaceStatus{
+			expectedObj: newLogicalCluster("root:org:ws:test").withType("root:org", "foo").withInitializers("a", "b").withStatus(corev1alpha1.LogicalClusterStatus{
 				Phase:        tenancyv1alpha1.WorkspacePhaseInitializing,
 				URL:          "https://kcp.bigcorp.com/clusters/org:test",
 				Initializers: []tenancyv1alpha1.WorkspaceInitializer{"a", "b"},
-			}).ThisWorkspace,
+			}).LogicalCluster,
 		},
 		{
 			name:        "does not add initializer during transition to initializing when spec has none",
 			clusterName: "root:org:ws",
 			a: updateAttr(
-				newThisWorkspace("root:org:ws:test").withType("root:org", "foo").withStatus(tenancyv1alpha1.ThisWorkspaceStatus{
+				newLogicalCluster("root:org:ws:test").withType("root:org", "foo").withStatus(corev1alpha1.LogicalClusterStatus{
 					Phase: tenancyv1alpha1.WorkspacePhaseInitializing,
 					URL:   "https://kcp.bigcorp.com/clusters/org:test",
-				}).ThisWorkspace,
-				newThisWorkspace("root:org:ws:test").withType("root:org", "foo").withStatus(tenancyv1alpha1.ThisWorkspaceStatus{
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws:test").withType("root:org", "foo").withStatus(corev1alpha1.LogicalClusterStatus{
 					Phase: tenancyv1alpha1.WorkspacePhaseScheduling,
 					URL:   "https://kcp.bigcorp.com/clusters/org:test",
-				}).ThisWorkspace,
+				}).LogicalCluster,
 			),
-			expectedObj: newThisWorkspace("root:org:ws:test").withType("root:org", "foo").withStatus(tenancyv1alpha1.ThisWorkspaceStatus{
+			expectedObj: newLogicalCluster("root:org:ws:test").withType("root:org", "foo").withStatus(corev1alpha1.LogicalClusterStatus{
 				Phase: tenancyv1alpha1.WorkspacePhaseInitializing,
 				URL:   "https://kcp.bigcorp.com/clusters/org:test",
-			}).ThisWorkspace,
+			}).LogicalCluster,
 		},
 		{
 			name:        "does not add initializers during transition not to initializing",
 			clusterName: "root:org:ws",
 			a: updateAttr(
-				newThisWorkspace("root:org:ws:test").withType("root:org", "foo").withInitializers("a", "b").withStatus(tenancyv1alpha1.ThisWorkspaceStatus{
+				newLogicalCluster("root:org:ws:test").withType("root:org", "foo").withInitializers("a", "b").withStatus(corev1alpha1.LogicalClusterStatus{
 					Phase: tenancyv1alpha1.WorkspacePhaseReady,
 					URL:   "https://kcp.bigcorp.com/clusters/org:test",
-				}).ThisWorkspace,
-				newThisWorkspace("root:org:ws:test").withType("root:org", "foo").withInitializers("a", "b").withStatus(tenancyv1alpha1.ThisWorkspaceStatus{
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws:test").withType("root:org", "foo").withInitializers("a", "b").withStatus(corev1alpha1.LogicalClusterStatus{
 					Phase: tenancyv1alpha1.WorkspacePhaseInitializing,
 					URL:   "https://kcp.bigcorp.com/clusters/org:test",
-				}).ThisWorkspace,
+				}).LogicalCluster,
 			),
-			expectedObj: newThisWorkspace("root:org:ws:test").withType("root:org", "foo").withInitializers("a", "b").withStatus(tenancyv1alpha1.ThisWorkspaceStatus{
+			expectedObj: newLogicalCluster("root:org:ws:test").withType("root:org", "foo").withInitializers("a", "b").withStatus(corev1alpha1.LogicalClusterStatus{
 				Phase: tenancyv1alpha1.WorkspacePhaseReady,
 				URL:   "https://kcp.bigcorp.com/clusters/org:test",
-			}).ThisWorkspace,
+			}).LogicalCluster,
 		},
 		{
 			name:        "ignores different resources",
@@ -174,7 +175,7 @@ func TestAdmit(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			o := &thisWorkspace{
+			o := &plugin{
 				Handler: admission.NewHandler(admission.Create, admission.Update),
 			}
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: tt.clusterName})
@@ -196,10 +197,10 @@ func TestAdmit(t *testing.T) {
 
 func TestValidate(t *testing.T) {
 	tests := []struct {
-		name           string
-		thisWorkspaces []*tenancyv1alpha1.ThisWorkspace
-		attr           admission.Attributes
-		clusterName    logicalcluster.Name
+		name            string
+		logicalClusters []*corev1alpha1.LogicalCluster
+		attr            admission.Attributes
+		clusterName     logicalcluster.Name
 
 		wantErr string
 	}{
@@ -207,12 +208,12 @@ func TestValidate(t *testing.T) {
 			name:        "fails if spec.initializers is changed when ready",
 			clusterName: "root:org:ws",
 			attr: updateAttr(
-				newThisWorkspace("root:org:ws").withInitializers("a", "b").withStatus(tenancyv1alpha1.ThisWorkspaceStatus{
+				newLogicalCluster("root:org:ws").withInitializers("a", "b").withStatus(corev1alpha1.LogicalClusterStatus{
 					Phase: tenancyv1alpha1.WorkspacePhaseReady,
-				}).ThisWorkspace,
-				newThisWorkspace("root:org:ws").withInitializers("a").withStatus(tenancyv1alpha1.ThisWorkspaceStatus{
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withInitializers("a").withStatus(corev1alpha1.LogicalClusterStatus{
 					Phase: tenancyv1alpha1.WorkspacePhaseReady,
-				}).ThisWorkspace,
+				}).LogicalCluster,
 			),
 			wantErr: "spec.initializers is immutable",
 		},
@@ -220,12 +221,12 @@ func TestValidate(t *testing.T) {
 			name:        "fails if spec.initializers is changed when intializing",
 			clusterName: "root:org:ws",
 			attr: updateAttr(
-				newThisWorkspace("root:org:ws").withInitializers("a", "b").withStatus(tenancyv1alpha1.ThisWorkspaceStatus{
+				newLogicalCluster("root:org:ws").withInitializers("a", "b").withStatus(corev1alpha1.LogicalClusterStatus{
 					Phase: tenancyv1alpha1.WorkspacePhaseInitializing,
-				}).ThisWorkspace,
-				newThisWorkspace("root:org:ws").withInitializers("a").withStatus(tenancyv1alpha1.ThisWorkspaceStatus{
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withInitializers("a").withStatus(corev1alpha1.LogicalClusterStatus{
 					Phase: tenancyv1alpha1.WorkspacePhaseInitializing,
-				}).ThisWorkspace,
+				}).LogicalCluster,
 			),
 			wantErr: "spec.initializers is immutable",
 		},
@@ -233,28 +234,28 @@ func TestValidate(t *testing.T) {
 			name:        "passed if status.initializers is shrinking when initializing",
 			clusterName: "root:org:ws",
 			attr: updateAttr(
-				newThisWorkspace("root:org:ws").withStatus(tenancyv1alpha1.ThisWorkspaceStatus{
+				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
 					Phase:        tenancyv1alpha1.WorkspacePhaseInitializing,
 					Initializers: []tenancyv1alpha1.WorkspaceInitializer{"a"},
-				}).ThisWorkspace,
-				newThisWorkspace("root:org:ws").withStatus(tenancyv1alpha1.ThisWorkspaceStatus{
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
 					Phase:        tenancyv1alpha1.WorkspacePhaseInitializing,
 					Initializers: []tenancyv1alpha1.WorkspaceInitializer{"a", "b"},
-				}).ThisWorkspace,
+				}).LogicalCluster,
 			),
 		},
 		{
 			name:        "fails if status.initializers is growing",
 			clusterName: "root:org:ws",
 			attr: updateAttr(
-				newThisWorkspace("root:org:ws").withStatus(tenancyv1alpha1.ThisWorkspaceStatus{
+				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
 					Phase:        tenancyv1alpha1.WorkspacePhaseInitializing,
 					Initializers: []tenancyv1alpha1.WorkspaceInitializer{"a", "b", "c"},
-				}).ThisWorkspace,
-				newThisWorkspace("root:org:ws").withStatus(tenancyv1alpha1.ThisWorkspaceStatus{
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
 					Phase:        tenancyv1alpha1.WorkspacePhaseInitializing,
 					Initializers: []tenancyv1alpha1.WorkspaceInitializer{"a", "b"},
-				}).ThisWorkspace,
+				}).LogicalCluster,
 			),
 			wantErr: "status.initializers must not grow",
 		},
@@ -262,14 +263,14 @@ func TestValidate(t *testing.T) {
 			name:        "fails if status.initializers is changing when ready",
 			clusterName: "root:org:ws",
 			attr: updateAttr(
-				newThisWorkspace("root:org:ws").withStatus(tenancyv1alpha1.ThisWorkspaceStatus{
+				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
 					Phase:        tenancyv1alpha1.WorkspacePhaseReady,
 					Initializers: []tenancyv1alpha1.WorkspaceInitializer{"a"},
-				}).ThisWorkspace,
-				newThisWorkspace("root:org:ws").withStatus(tenancyv1alpha1.ThisWorkspaceStatus{
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
 					Phase:        tenancyv1alpha1.WorkspacePhaseReady,
 					Initializers: []tenancyv1alpha1.WorkspaceInitializer{"a", "b"},
-				}).ThisWorkspace,
+				}).LogicalCluster,
 			),
 			wantErr: "status.initializers is immutable after initilization",
 		},
@@ -277,13 +278,13 @@ func TestValidate(t *testing.T) {
 			name:        "spec and status initializing must match when switching to initializing",
 			clusterName: "root:org:ws",
 			attr: updateAttr(
-				newThisWorkspace("root:org:ws").withInitializers("a", "b").withStatus(tenancyv1alpha1.ThisWorkspaceStatus{
+				newLogicalCluster("root:org:ws").withInitializers("a", "b").withStatus(corev1alpha1.LogicalClusterStatus{
 					Phase:        tenancyv1alpha1.WorkspacePhaseInitializing,
 					Initializers: []tenancyv1alpha1.WorkspaceInitializer{"a"},
-				}).ThisWorkspace,
-				newThisWorkspace("root:org:ws").withInitializers("a", "b").withStatus(tenancyv1alpha1.ThisWorkspaceStatus{
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withInitializers("a", "b").withStatus(corev1alpha1.LogicalClusterStatus{
 					Phase: tenancyv1alpha1.WorkspacePhaseScheduling,
-				}).ThisWorkspace,
+				}).LogicalCluster,
 			),
 			wantErr: "status.initializers do not equal spec.initializers",
 		},
@@ -291,39 +292,39 @@ func TestValidate(t *testing.T) {
 			name:        "passes with equal spec and status when switching to initializing",
 			clusterName: "root:org:ws",
 			attr: updateAttr(
-				newThisWorkspace("root:org:ws").withInitializers("a", "b").withStatus(tenancyv1alpha1.ThisWorkspaceStatus{
+				newLogicalCluster("root:org:ws").withInitializers("a", "b").withStatus(corev1alpha1.LogicalClusterStatus{
 					Phase:        tenancyv1alpha1.WorkspacePhaseInitializing,
 					Initializers: []tenancyv1alpha1.WorkspaceInitializer{"a", "b"},
-				}).ThisWorkspace,
-				newThisWorkspace("root:org:ws").withInitializers("a", "b").withStatus(tenancyv1alpha1.ThisWorkspaceStatus{
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withInitializers("a", "b").withStatus(corev1alpha1.LogicalClusterStatus{
 					Phase: tenancyv1alpha1.WorkspacePhaseScheduling,
-				}).ThisWorkspace,
+				}).LogicalCluster,
 			),
 		},
 		{
 			name:        "fails to move phase backwards",
 			clusterName: "root:org:ws",
 			attr: updateAttr(
-				newThisWorkspace("root:org:ws").withStatus(tenancyv1alpha1.ThisWorkspaceStatus{
+				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
 					Phase: tenancyv1alpha1.WorkspacePhaseScheduling,
-				}).ThisWorkspace,
-				newThisWorkspace("root:org:ws").withStatus(tenancyv1alpha1.ThisWorkspaceStatus{
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
 					Phase: tenancyv1alpha1.WorkspacePhaseInitializing,
-				}).ThisWorkspace,
+				}).LogicalCluster,
 			),
 			wantErr: "cannot transition from",
 		},
 		{
 			name:        "fails deletion as another user",
 			clusterName: "root:org:ws",
-			attr:        deleteAttr(newThisWorkspace("root:org:ws").ThisWorkspace, &user.DefaultInfo{}),
-			wantErr:     "ThisWorkspace cannot be deleted",
+			attr:        deleteAttr(newLogicalCluster("root:org:ws").LogicalCluster, &user.DefaultInfo{}),
+			wantErr:     "LogicalCluster cannot be deleted",
 		},
 		{
 			name:        "passed deletion as system:masters",
 			clusterName: "root:org:ws",
 			attr: deleteAttr(
-				newThisWorkspace("root:org:ws").ThisWorkspace,
+				newLogicalCluster("root:org:ws").LogicalCluster,
 				&user.DefaultInfo{Groups: []string{"system:masters"}},
 			),
 		},
@@ -331,18 +332,18 @@ func TestValidate(t *testing.T) {
 			name:        "passed deletion as system:kcp:logical-cluster-admin",
 			clusterName: "root:org:ws",
 			attr: deleteAttr(
-				newThisWorkspace("root:org:ws").ThisWorkspace,
+				newLogicalCluster("root:org:ws").LogicalCluster,
 				&user.DefaultInfo{Groups: []string{"system:kcp:logical-cluster-admin"}},
 			),
 		},
 		{
 			name:        "passed deletion as another user if directly deletable",
 			clusterName: "root:org:ws",
-			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
-				newThisWorkspace("root:org:ws").directlyDeletable().ThisWorkspace,
+			logicalClusters: []*corev1alpha1.LogicalCluster{
+				newLogicalCluster("root:org:ws").directlyDeletable().LogicalCluster,
 			},
 			attr: deleteAttr(
-				newThisWorkspace("root:org:ws").directlyDeletable().ThisWorkspace,
+				newLogicalCluster("root:org:ws").directlyDeletable().LogicalCluster,
 				&user.DefaultInfo{},
 			),
 		},
@@ -370,9 +371,9 @@ func TestValidate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			o := &thisWorkspace{
-				Handler:             admission.NewHandler(admission.Create, admission.Update, admission.Delete),
-				thisWorkspaceLister: fakeThisWorkspaceClusterLister(tt.thisWorkspaces),
+			o := &plugin{
+				Handler:              admission.NewHandler(admission.Create, admission.Update, admission.Delete),
+				logicalClusterLister: fakeLogicalClusterClusterLister(tt.logicalClusters),
 			}
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: tt.clusterName})
 			if err := o.Validate(ctx, tt.attr, nil); (err != nil) != (tt.wantErr != "") {
@@ -385,13 +386,13 @@ func TestValidate(t *testing.T) {
 }
 
 type thisWsBuilder struct {
-	*tenancyv1alpha1.ThisWorkspace
+	*corev1alpha1.LogicalCluster
 }
 
-func newThisWorkspace(clusterName string) thisWsBuilder {
-	return thisWsBuilder{ThisWorkspace: &tenancyv1alpha1.ThisWorkspace{
+func newLogicalCluster(clusterName string) thisWsBuilder {
+	return thisWsBuilder{LogicalCluster: &corev1alpha1.LogicalCluster{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: tenancyv1alpha1.ThisWorkspaceName,
+			Name: corev1alpha1.LogicalClusterName,
 			Annotations: map[string]string{
 				logicalcluster.AnnotationKey: clusterName,
 			},
@@ -403,7 +404,7 @@ func (b thisWsBuilder) withType(cluster logicalcluster.Name, name string) thisWs
 	if b.Annotations == nil {
 		b.Annotations = map[string]string{}
 	}
-	b.Annotations[tenancyv1alpha1.ThisWorkspaceTypeAnnotationKey] = cluster.Path().Join(name).String()
+	b.Annotations[corev1alpha1.LogicalClusterTypeAnnotationKey] = cluster.Path().Join(name).String()
 	return b
 }
 
@@ -417,42 +418,42 @@ func (b thisWsBuilder) directlyDeletable() thisWsBuilder {
 	return b
 }
 
-func (b thisWsBuilder) withStatus(status tenancyv1alpha1.ThisWorkspaceStatus) thisWsBuilder {
+func (b thisWsBuilder) withStatus(status corev1alpha1.LogicalClusterStatus) thisWsBuilder {
 	b.Status = status
 	return b
 }
 
-type fakeThisWorkspaceClusterLister []*tenancyv1alpha1.ThisWorkspace
+type fakeLogicalClusterClusterLister []*corev1alpha1.LogicalCluster
 
-func (l fakeThisWorkspaceClusterLister) List(selector labels.Selector) (ret []*tenancyv1alpha1.ThisWorkspace, err error) {
+func (l fakeLogicalClusterClusterLister) List(selector labels.Selector) (ret []*corev1alpha1.LogicalCluster, err error) {
 	return l, nil
 }
 
-func (l fakeThisWorkspaceClusterLister) Cluster(cluster logicalcluster.Name) tenancyv1alpha1listers.ThisWorkspaceLister {
-	var perCluster []*tenancyv1alpha1.ThisWorkspace
+func (l fakeLogicalClusterClusterLister) Cluster(cluster logicalcluster.Name) corev1alpha1listers.LogicalClusterLister {
+	var perCluster []*corev1alpha1.LogicalCluster
 	for _, this := range l {
 		if logicalcluster.From(this) == cluster {
 			perCluster = append(perCluster, this)
 		}
 	}
-	return fakeThisWorkspaceLister(perCluster)
+	return fakeLogicalClusterLister(perCluster)
 }
 
-type fakeThisWorkspaceLister []*tenancyv1alpha1.ThisWorkspace
+type fakeLogicalClusterLister []*corev1alpha1.LogicalCluster
 
-func (l fakeThisWorkspaceLister) List(selector labels.Selector) (ret []*tenancyv1alpha1.ThisWorkspace, err error) {
+func (l fakeLogicalClusterLister) List(selector labels.Selector) (ret []*corev1alpha1.LogicalCluster, err error) {
 	return l.ListWithContext(context.Background(), selector)
 }
 
-func (l fakeThisWorkspaceLister) ListWithContext(ctx context.Context, selector labels.Selector) (ret []*tenancyv1alpha1.ThisWorkspace, err error) {
+func (l fakeLogicalClusterLister) ListWithContext(ctx context.Context, selector labels.Selector) (ret []*corev1alpha1.LogicalCluster, err error) {
 	return l, nil
 }
 
-func (l fakeThisWorkspaceLister) Get(name string) (*tenancyv1alpha1.ThisWorkspace, error) {
+func (l fakeLogicalClusterLister) Get(name string) (*corev1alpha1.LogicalCluster, error) {
 	return l.GetWithContext(context.Background(), name)
 }
 
-func (l fakeThisWorkspaceLister) GetWithContext(ctx context.Context, name string) (*tenancyv1alpha1.ThisWorkspace, error) {
+func (l fakeLogicalClusterLister) GetWithContext(ctx context.Context, name string) (*corev1alpha1.LogicalCluster, error) {
 	for _, t := range l {
 		if t.Name == name {
 			return t, nil

@@ -22,6 +22,7 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 )
@@ -134,7 +135,7 @@ func (c *State) DeleteWorkspace(shard string, ws *tenancyv1beta1.Workspace) {
 	}
 }
 
-func (c *State) UpsertThisWorkspace(shard string, this *tenancyv1alpha1.ThisWorkspace) {
+func (c *State) UpsertLogicalCluster(shard string, this *corev1alpha1.LogicalCluster) {
 	clusterName := logicalcluster.From(this)
 
 	c.lock.RLock()
@@ -148,7 +149,7 @@ func (c *State) UpsertThisWorkspace(shard string, this *tenancyv1alpha1.ThisWork
 	}
 }
 
-func (c *State) DeleteThisWorkspace(shard string, this *tenancyv1alpha1.ThisWorkspace) {
+func (c *State) DeleteLogicalCluster(shard string, this *corev1alpha1.LogicalCluster) {
 	clusterName := logicalcluster.From(this)
 
 	c.lock.RLock()

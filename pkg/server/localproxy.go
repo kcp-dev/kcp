@@ -29,9 +29,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
-	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	corev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/core/v1alpha1"
 	tenancyv1beta1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/index"
 	indexrewriters "github.com/kcp-dev/kcp/pkg/index/rewriters"
@@ -45,7 +45,7 @@ func WithLocalProxy(
 	handler http.Handler,
 	shardName, shardBaseURL string,
 	workspaceInformer tenancyv1beta1informers.WorkspaceClusterInformer,
-	thisWorkspaceInformer tenancyv1alpha1informers.ThisWorkspaceClusterInformer,
+	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
 ) http.Handler {
 	indexState := index.New([]index.PathRewriter{
 		indexrewriters.UserRewriter,
@@ -70,21 +70,21 @@ func WithLocalProxy(
 		},
 	})
 
-	thisWorkspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	logicalClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			this := obj.(*tenancyv1alpha1.ThisWorkspace)
-			indexState.UpsertThisWorkspace(shardName, this)
+			this := obj.(*corev1alpha1.LogicalCluster)
+			indexState.UpsertLogicalCluster(shardName, this)
 		},
 		UpdateFunc: func(old, obj interface{}) {
-			this := obj.(*tenancyv1alpha1.ThisWorkspace)
-			indexState.UpsertThisWorkspace(shardName, this)
+			this := obj.(*corev1alpha1.LogicalCluster)
+			indexState.UpsertLogicalCluster(shardName, this)
 		},
 		DeleteFunc: func(obj interface{}) {
 			if final, ok := obj.(cache.DeletedFinalStateUnknown); ok {
 				obj = final.Obj
 			}
-			this := obj.(*tenancyv1alpha1.ThisWorkspace)
-			indexState.DeleteThisWorkspace(shardName, this)
+			this := obj.(*corev1alpha1.LogicalCluster)
+			indexState.DeleteLogicalCluster(shardName, this)
 		},
 	})
 

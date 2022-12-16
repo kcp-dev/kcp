@@ -39,11 +39,12 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
-	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
-	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	corev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/core/v1alpha1"
+	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -54,7 +55,7 @@ const (
 func NewController(
 	dynamicClusterClient kcpdynamic.ClusterInterface,
 	kcpClusterClient kcpclientset.ClusterInterface,
-	thisWorkspaceInformer tenancyv1alpha1informers.ThisWorkspaceClusterInformer,
+	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
 	workspaceType tenancyv1alpha1.ClusterWorkspaceTypeReference,
 	bootstrap func(context.Context, discovery.DiscoveryInterface, dynamic.Interface, clientset.Interface, sets.String) error,
 	batteriesIncluded sets.String,
@@ -67,13 +68,13 @@ func NewController(
 		queue:                queue,
 		dynamicClusterClient: dynamicClusterClient,
 		kcpClusterClient:     kcpClusterClient,
-		thisWorkspaceLister:  thisWorkspaceInformer.Lister(),
+		logicalClusterLister: logicalClusterInformer.Lister(),
 		workspaceType:        workspaceType,
 		bootstrap:            bootstrap,
 		batteriesIncluded:    batteriesIncluded,
 	}
 
-	thisWorkspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	logicalClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
 	})
@@ -90,7 +91,7 @@ type controller struct {
 	dynamicClusterClient kcpdynamic.ClusterInterface
 	kcpClusterClient     kcpclientset.ClusterInterface
 
-	thisWorkspaceLister tenancyv1alpha1listers.ThisWorkspaceClusterLister
+	logicalClusterLister corev1alpha1listers.LogicalClusterClusterLister
 
 	workspaceType     tenancyv1alpha1.ClusterWorkspaceTypeReference
 	bootstrap         func(context.Context, discovery.DiscoveryInterface, dynamic.Interface, clientset.Interface, sets.String) error
@@ -104,7 +105,7 @@ func (c *controller) enqueue(obj interface{}) {
 		return
 	}
 	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), c.controllerName), key)
-	logger.V(2).Info("queueing ThisWorkspace")
+	logger.V(2).Info("queueing LogicalCluster")
 	c.queue.Add(key)
 }
 
@@ -163,7 +164,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		return nil
 	}
 
-	obj, err := c.thisWorkspaceLister.Cluster(clusterName).Get(name)
+	obj, err := c.logicalClusterLister.Cluster(clusterName).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil // object deleted before we handled it
@@ -182,14 +183,14 @@ func (c *controller) process(ctx context.Context, key string) error {
 
 	// If the object being reconciled changed as a result, update it.
 	if !equality.Semantic.DeepEqual(old.Status, obj.Status) {
-		oldData, err := json.Marshal(tenancyv1alpha1.ThisWorkspace{
+		oldData, err := json.Marshal(corev1alpha1.LogicalCluster{
 			Status: old.Status,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to Marshal old data for workspace %s|%s/%s: %w", clusterName, namespace, name, err)
 		}
 
-		newData, err := json.Marshal(tenancyv1alpha1.ThisWorkspace{
+		newData, err := json.Marshal(corev1alpha1.LogicalCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				UID:             old.UID,
 				ResourceVersion: old.ResourceVersion,
@@ -204,10 +205,10 @@ func (c *controller) process(ctx context.Context, key string) error {
 		if err != nil {
 			return fmt.Errorf("failed to create patch for workspace %s|%s/%s: %w", clusterName, namespace, name, err)
 		}
-		_, uerr := c.kcpClusterClient.TenancyV1alpha1().ThisWorkspaces().Cluster(clusterName.Path()).Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+		_, uerr := c.kcpClusterClient.CoreV1alpha1().LogicalClusters().Cluster(clusterName.Path()).Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 		return uerr
 	}
 
-	logger.V(6).Info("processed ThisWorkspace")
+	logger.V(6).Info("processed LogicalCluster")
 	return nil
 }

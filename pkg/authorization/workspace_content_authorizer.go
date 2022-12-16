@@ -34,9 +34,10 @@ import (
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
-	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
 	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
 )
 
@@ -44,13 +45,13 @@ const (
 	WorkspaceAccessNotPermittedReason = "workspace access not permitted"
 )
 
-func NewWorkspaceContentAuthorizer(versionedInformers kcpkubernetesinformers.SharedInformerFactory, thisWorkspaceLister tenancyv1alpha1listers.ThisWorkspaceClusterLister, delegate authorizer.Authorizer) authorizer.Authorizer {
+func NewWorkspaceContentAuthorizer(versionedInformers kcpkubernetesinformers.SharedInformerFactory, logicalClusterLister corev1alpha1listers.LogicalClusterClusterLister, delegate authorizer.Authorizer) authorizer.Authorizer {
 	return &workspaceContentAuthorizer{
 		roleLister:               versionedInformers.Rbac().V1().Roles().Lister(),
 		roleBindingLister:        versionedInformers.Rbac().V1().RoleBindings().Lister(),
 		clusterRoleLister:        versionedInformers.Rbac().V1().ClusterRoles().Lister(),
 		clusterRoleBindingLister: versionedInformers.Rbac().V1().ClusterRoleBindings().Lister(),
-		thisWorkspaceLister:      thisWorkspaceLister,
+		logicalClusterLister:     logicalClusterLister,
 
 		delegate: delegate,
 	}
@@ -61,7 +62,7 @@ type workspaceContentAuthorizer struct {
 	roleBindingLister        rbacv1listers.RoleBindingClusterLister
 	clusterRoleBindingLister rbacv1listers.ClusterRoleBindingClusterLister
 	clusterRoleLister        rbacv1listers.ClusterRoleClusterLister
-	thisWorkspaceLister      tenancyv1alpha1listers.ThisWorkspaceClusterLister
+	logicalClusterLister     corev1alpha1listers.LogicalClusterClusterLister
 
 	delegate authorizer.Authorizer
 }
@@ -104,16 +105,16 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 	}
 
 	// check the workspace even exists
-	this, err := a.thisWorkspaceLister.Cluster(cluster.Name).Get(tenancyv1alpha1.ThisWorkspaceName)
+	logicalCluster, err := a.logicalClusterLister.Cluster(cluster.Name).Get(corev1alpha1.LogicalClusterName)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return authorizer.DecisionDeny, "thisworkspace not found", nil
+			return authorizer.DecisionDeny, "LogicalCluster not found", nil
 		}
-		return authorizer.DecisionNoOpinion, "error getting thisworkspace", err
+		return authorizer.DecisionNoOpinion, "error getting LogicalCluster", err
 	}
 
-	if this.Status.Phase != tenancyv1alpha1.WorkspacePhaseInitializing && this.Status.Phase != tenancyv1alpha1.WorkspacePhaseReady {
-		return authorizer.DecisionNoOpinion, fmt.Sprintf("not permitted due to phase %q", this.Status.Phase), nil
+	if logicalCluster.Status.Phase != tenancyv1alpha1.WorkspacePhaseInitializing && logicalCluster.Status.Phase != tenancyv1alpha1.WorkspacePhaseReady {
+		return authorizer.DecisionNoOpinion, fmt.Sprintf("not permitted due to phase %q", logicalCluster.Status.Phase), nil
 	}
 
 	switch {

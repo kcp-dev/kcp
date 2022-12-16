@@ -116,33 +116,33 @@ func TestAPIExportPermissionClaimCELValidation(t *testing.T) {
 			},
 		},
 		{
-			name: "thisworkspaces invalid",
+			name: "logicalcluster invalid",
 			current: map[string]interface{}{
 				"group":    "tenancy.kcp.dev",
-				"resource": "thisworkspaces",
+				"resource": "logicalclusters",
 				"all":      true,
 			},
 			wantErrs: []string{
-				"openAPIV3Schema.properties.spec.properties.permissionClaims.items: Invalid value: \"object\": thisworkspaces cannot be claimed",
+				"openAPIV3Schema.properties.spec.properties.permissionClaims.items: Invalid value: \"object\": logicalclusters cannot be claimed",
 			},
 		},
 		{
-			name: "thisworkspaces invalid with empty identityHash",
+			name: "logicalcluster invalid with empty identityHash",
 			current: map[string]interface{}{
 				"group":        "tenancy.kcp.dev",
-				"resource":     "thisworkspaces",
+				"resource":     "logicalclusters",
 				"identityHash": "",
 				"all":          true,
 			},
 			wantErrs: []string{
-				"openAPIV3Schema.properties.spec.properties.permissionClaims.items: Invalid value: \"object\": thisworkspaces cannot be claimed",
+				"openAPIV3Schema.properties.spec.properties.permissionClaims.items: Invalid value: \"object\": logicalclusters cannot be claimed",
 			},
 		},
 		{
-			name: "thisworkspaces invalid with identityHash",
+			name: "logicalcluster invalid with identityHash",
 			current: map[string]interface{}{
 				"group":        "tenancy.kcp.dev",
-				"resource":     "thisworkspaces",
+				"resource":     "logicalclusters",
 				"identityHash": "abc",
 				"all":          true,
 			},

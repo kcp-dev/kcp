@@ -26,13 +26,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 )
 
 type deletionReconciler struct {
-	getThisWorkspace    func(ctx context.Context, cluster logicalcluster.Path) (*tenancyv1alpha1.ThisWorkspace, error)
-	deleteThisWorkspace func(ctx context.Context, cluster logicalcluster.Path) error
+	getLogicalCluster    func(ctx context.Context, cluster logicalcluster.Path) (*corev1alpha1.LogicalCluster, error)
+	deleteLogicalCluster func(ctx context.Context, cluster logicalcluster.Path) error
 }
 
 func (r *deletionReconciler) reconcile(ctx context.Context, workspace *tenancyv1beta1.Workspace) (reconcileStatus, error) {
@@ -43,24 +43,24 @@ func (r *deletionReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 		return reconcileStatusContinue, nil
 	}
 
-	if sets.NewString(workspace.Finalizers...).Delete(tenancyv1alpha1.ThisWorkspaceFinalizer).Len() > 0 {
+	if sets.NewString(workspace.Finalizers...).Delete(corev1alpha1.LogicalClusterFinalizer).Len() > 0 {
 		return reconcileStatusContinue, nil
 	}
 
-	if _, err := r.getThisWorkspace(ctx, logicalcluster.NewPath(workspace.Status.Cluster)); err != nil && !apierrors.IsNotFound(err) {
+	if _, err := r.getLogicalCluster(ctx, logicalcluster.NewPath(workspace.Status.Cluster)); err != nil && !apierrors.IsNotFound(err) {
 		return reconcileStatusStopAndRequeue, err
 	} else if apierrors.IsNotFound(err) {
 		finalizers := sets.NewString(workspace.Finalizers...)
-		if finalizers.Has(tenancyv1alpha1.ThisWorkspaceFinalizer) {
-			logger.Info(fmt.Sprintf("Removing finalizer %s", tenancyv1alpha1.ThisWorkspaceFinalizer))
-			workspace.Finalizers = finalizers.Delete(tenancyv1alpha1.ThisWorkspaceFinalizer).List()
+		if finalizers.Has(corev1alpha1.LogicalClusterFinalizer) {
+			logger.Info(fmt.Sprintf("Removing finalizer %s", corev1alpha1.LogicalClusterFinalizer))
+			workspace.Finalizers = finalizers.Delete(corev1alpha1.LogicalClusterFinalizer).List()
 			return reconcileStatusStopAndRequeue, nil // spec change
 		}
 		return reconcileStatusContinue, nil
 	}
 
-	logger.Info("Deleting ThisWorkspace")
-	if err := r.deleteThisWorkspace(ctx, logicalcluster.NewPath(workspace.Status.Cluster)); err != nil {
+	logger.Info("Deleting LogicalCluster")
+	if err := r.deleteLogicalCluster(ctx, logicalcluster.NewPath(workspace.Status.Cluster)); err != nil {
 		return reconcileStatusStopAndRequeue, err
 	}
 

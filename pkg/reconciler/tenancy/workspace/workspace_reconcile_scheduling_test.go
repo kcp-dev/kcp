@@ -42,6 +42,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspacetypeexists"
 	"github.com/kcp-dev/kcp/pkg/apis/core"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	conditionsapi "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
@@ -59,7 +60,7 @@ func TestReconcileScheduling(t *testing.T) {
 		initialKubeClientObjects     []runtime.Object
 		initialKcpClientObjects      []runtime.Object
 		targetWorkspace              *tenancyv1beta1.Workspace
-		targetThisWorkspace          *tenancyv1alpha1.ThisWorkspace
+		targetLogicalCluster         *corev1alpha1.LogicalCluster
 		validateWorkspace            func(t *testing.T, initialWS, ws *tenancyv1beta1.Workspace)
 		validateKubeClientActions    func(t *testing.T, a []kcpclientgotesting.Action)
 		validateKcpClientActions     func(t *testing.T, a []kcpclientgotesting.Action)
@@ -68,14 +69,14 @@ func TestReconcileScheduling(t *testing.T) {
 		expectedStatus               reconcileStatus
 	}{
 		{
-			name:                "two-phase commit, part one: a new workspace gets a shard assigned",
-			initialShards:       []*tenancyv1alpha1.ClusterWorkspaceShard{shard("root")},
-			targetWorkspace:     workspace("foo"),
-			targetThisWorkspace: &tenancyv1alpha1.ThisWorkspace{},
+			name:                 "two-phase commit, part one: a new workspace gets a shard assigned",
+			initialShards:        []*tenancyv1alpha1.ClusterWorkspaceShard{shard("root")},
+			targetWorkspace:      workspace("foo"),
+			targetLogicalCluster: &corev1alpha1.LogicalCluster{},
 			validateWorkspace: func(t *testing.T, initialWS, ws *tenancyv1beta1.Workspace) {
 				initialWS.Annotations["internal.tenancy.kcp.dev/cluster"] = "root-foo"
 				initialWS.Annotations["internal.tenancy.kcp.dev/shard"] = "1pfxsevk"
-				initialWS.Finalizers = append(initialWS.Finalizers, "tenancy.kcp.dev/thisworkspace")
+				initialWS.Finalizers = append(initialWS.Finalizers, "core.kcp.dev/logicalcluster")
 				if !equality.Semantic.DeepEqual(ws, initialWS) {
 					t.Fatal(fmt.Errorf("unexpected Workspace:\n%s", cmp.Diff(ws, initialWS)))
 				}
@@ -87,7 +88,7 @@ func TestReconcileScheduling(t *testing.T) {
 			initialShards:                []*tenancyv1alpha1.ClusterWorkspaceShard{shard("root")},
 			initialClusterWorkspaceTypes: wellKnownClusterWorkspaceTypes(),
 			targetWorkspace:              wellKnownFooWSForPhaseTwo(),
-			targetThisWorkspace:          &tenancyv1alpha1.ThisWorkspace{},
+			targetLogicalCluster:         &corev1alpha1.LogicalCluster{},
 			validateWorkspace: func(t *testing.T, initialWS, wsAfterReconciliation *tenancyv1beta1.Workspace) {
 				clearLastTransitionTimeOnWsConditions(wsAfterReconciliation)
 				initialWS.CreationTimestamp = wsAfterReconciliation.CreationTimestamp
@@ -105,23 +106,23 @@ func TestReconcileScheduling(t *testing.T) {
 				validateWellKnownCRBCreationAction(t, actions)
 			},
 			validateKcpClientActions: func(t *testing.T, actions []kcpclientgotesting.Action) {
-				validateWellKnownThisWSActions(t, actions)
+				validateWellKnownLogicalClusterActions(t, actions)
 			},
 			expectedStatus:            reconcileStatusContinue,
 			expectedKubeClientActions: []string{"create:clusterrolebindings"},
-			expectedKcpClientActions:  []string{"create:thisworkspaces", "get:thisworkspaces", "update:thisworkspaces"},
+			expectedKcpClientActions:  []string{"create:logicalclusters", "get:logicalclusters", "update:logicalclusters"},
 		},
 		{
-			name:                         "two-phase commit, part two failure: ThisWS already exists with the right owner",
+			name:                         "two-phase commit, part two failure: LogicalCluster already exists with the right owner",
 			initialShards:                []*tenancyv1alpha1.ClusterWorkspaceShard{shard("root")},
 			initialClusterWorkspaceTypes: wellKnownClusterWorkspaceTypes(),
 			initialKcpClientObjects: []runtime.Object{func() runtime.Object {
-				thisWS := wellKnownThisWSForFooWS()
+				thisWS := wellKnownLogicalClusterForFooWS()
 				thisWS.Annotations["kcp.dev/cluster"] = "root-foo"
 				return thisWS
 			}()},
-			targetWorkspace:     wellKnownFooWSForPhaseTwo(),
-			targetThisWorkspace: &tenancyv1alpha1.ThisWorkspace{},
+			targetWorkspace:      wellKnownFooWSForPhaseTwo(),
+			targetLogicalCluster: &corev1alpha1.LogicalCluster{},
 			validateWorkspace: func(t *testing.T, initialWS, wsAfterReconciliation *tenancyv1beta1.Workspace) {
 				clearLastTransitionTimeOnWsConditions(wsAfterReconciliation)
 				initialWS.CreationTimestamp = wsAfterReconciliation.CreationTimestamp
@@ -139,24 +140,24 @@ func TestReconcileScheduling(t *testing.T) {
 				validateWellKnownCRBCreationAction(t, actions)
 			},
 			validateKcpClientActions: func(t *testing.T, actions []kcpclientgotesting.Action) {
-				validateWellKnownThisWSActions(t, actions)
+				validateWellKnownLogicalClusterActions(t, actions)
 			},
 			expectedStatus:            reconcileStatusContinue,
 			expectedKubeClientActions: []string{"create:clusterrolebindings"},
-			expectedKcpClientActions:  []string{"create:thisworkspaces", "get:thisworkspaces", "get:thisworkspaces", "update:thisworkspaces"},
+			expectedKcpClientActions:  []string{"create:logicalclusters", "get:logicalclusters", "get:logicalclusters", "update:logicalclusters"},
 		},
 		{
-			name:                         "two-phase commit, part two failure: ThisWS already exists with the wrong owner",
+			name:                         "two-phase commit, part two failure: LogicalCluster already exists with the wrong owner",
 			initialShards:                []*tenancyv1alpha1.ClusterWorkspaceShard{shard("root")},
 			initialClusterWorkspaceTypes: wellKnownClusterWorkspaceTypes(),
 			initialKcpClientObjects: []runtime.Object{func() runtime.Object {
-				thisWS := wellKnownThisWSForFooWS()
+				thisWS := wellKnownLogicalClusterForFooWS()
 				thisWS.Annotations["kcp.dev/cluster"] = "root-foo"
 				thisWS.Spec.Owner.UID = "wrong-uid"
 				return thisWS
 			}()},
-			targetWorkspace:     wellKnownFooWSForPhaseTwo(),
-			targetThisWorkspace: &tenancyv1alpha1.ThisWorkspace{},
+			targetWorkspace:      wellKnownFooWSForPhaseTwo(),
+			targetLogicalCluster: &corev1alpha1.LogicalCluster{},
 			validateWorkspace: func(t *testing.T, initialWS, wsAfterReconciliation *tenancyv1beta1.Workspace) {
 				clearLastTransitionTimeOnWsConditions(wsAfterReconciliation)
 				initialWS.CreationTimestamp = wsAfterReconciliation.CreationTimestamp
@@ -166,10 +167,10 @@ func TestReconcileScheduling(t *testing.T) {
 				}
 			},
 			expectedStatus:           reconcileStatusStopAndRequeue,
-			expectedKcpClientActions: []string{"create:thisworkspaces", "get:thisworkspaces"},
+			expectedKcpClientActions: []string{"create:logicalclusters", "get:logicalclusters"},
 		},
 		{
-			name:                         "two-phase commit, part two failure: CRB, ThisWS already exists",
+			name:                         "two-phase commit, part two failure: CRB, LogicalCluster already exists",
 			initialShards:                []*tenancyv1alpha1.ClusterWorkspaceShard{shard("root")},
 			initialClusterWorkspaceTypes: wellKnownClusterWorkspaceTypes(),
 			initialKubeClientObjects: []runtime.Object{func() runtime.Object {
@@ -178,12 +179,12 @@ func TestReconcileScheduling(t *testing.T) {
 				return crb
 			}()},
 			initialKcpClientObjects: []runtime.Object{func() runtime.Object {
-				thisWS := wellKnownThisWSForFooWS()
+				thisWS := wellKnownLogicalClusterForFooWS()
 				thisWS.Annotations["kcp.dev/cluster"] = "root-foo"
 				return thisWS
 			}()},
-			targetWorkspace:     wellKnownFooWSForPhaseTwo(),
-			targetThisWorkspace: &tenancyv1alpha1.ThisWorkspace{},
+			targetWorkspace:      wellKnownFooWSForPhaseTwo(),
+			targetLogicalCluster: &corev1alpha1.LogicalCluster{},
 			validateWorkspace: func(t *testing.T, initialWS, wsAfterReconciliation *tenancyv1beta1.Workspace) {
 				clearLastTransitionTimeOnWsConditions(wsAfterReconciliation)
 				initialWS.CreationTimestamp = wsAfterReconciliation.CreationTimestamp
@@ -201,16 +202,16 @@ func TestReconcileScheduling(t *testing.T) {
 				validateWellKnownCRBCreationAction(t, actions)
 			},
 			validateKcpClientActions: func(t *testing.T, actions []kcpclientgotesting.Action) {
-				validateWellKnownThisWSActions(t, actions)
+				validateWellKnownLogicalClusterActions(t, actions)
 			},
 			expectedStatus:            reconcileStatusContinue,
 			expectedKubeClientActions: []string{"create:clusterrolebindings"},
-			expectedKcpClientActions:  []string{"create:thisworkspaces", "get:thisworkspaces", "get:thisworkspaces", "update:thisworkspaces"},
+			expectedKcpClientActions:  []string{"create:logicalclusters", "get:logicalclusters", "get:logicalclusters", "update:logicalclusters"},
 		},
 		{
-			name:                "no shards available, the ws is unscheduled",
-			targetWorkspace:     workspace("foo"),
-			targetThisWorkspace: &tenancyv1alpha1.ThisWorkspace{},
+			name:                 "no shards available, the ws is unscheduled",
+			targetWorkspace:      workspace("foo"),
+			targetLogicalCluster: &corev1alpha1.LogicalCluster{},
 			validateWorkspace: func(t *testing.T, initialWS, wsAfterReconciliation *tenancyv1beta1.Workspace) {
 				clearLastTransitionTimeOnWsConditions(wsAfterReconciliation)
 				initialWS.Status.Conditions = append(initialWS.Status.Conditions, conditionsapi.Condition{
@@ -234,7 +235,7 @@ func TestReconcileScheduling(t *testing.T) {
 				ws.Spec.Location.Selector = selector
 				return ws
 			}(),
-			targetThisWorkspace: &tenancyv1alpha1.ThisWorkspace{},
+			targetLogicalCluster: &corev1alpha1.LogicalCluster{},
 			initialShards: []*tenancyv1alpha1.ClusterWorkspaceShard{shard("root"), func() *tenancyv1alpha1.ClusterWorkspaceShard {
 				s := shard("amber")
 				s.Labels["awesome.shard"] = "amber"
@@ -243,7 +244,7 @@ func TestReconcileScheduling(t *testing.T) {
 			validateWorkspace: func(t *testing.T, initialWS, wsAfterReconciliation *tenancyv1beta1.Workspace) {
 				initialWS.Annotations["internal.tenancy.kcp.dev/cluster"] = "root-foo"
 				initialWS.Annotations["internal.tenancy.kcp.dev/shard"] = "29hdqnv7"
-				initialWS.Finalizers = append(initialWS.Finalizers, "tenancy.kcp.dev/thisworkspace")
+				initialWS.Finalizers = append(initialWS.Finalizers, "core.kcp.dev/logicalcluster")
 				if !equality.Semantic.DeepEqual(wsAfterReconciliation, initialWS) {
 					t.Fatal(fmt.Errorf("unexpected Workspace:\n%s", cmp.Diff(wsAfterReconciliation, initialWS)))
 				}
@@ -315,14 +316,14 @@ func TestReconcileScheduling(t *testing.T) {
 					return nil, kerrors.NewNotFound(tenancyv1alpha1.SchemeGroupVersion.WithResource("ClusterWorkspaceShard").GroupResource(), hash)
 				},
 				getClusterWorkspaceType: getType,
-				getThisWorkspace: func(clusterName logicalcluster.Name) (*tenancyv1alpha1.ThisWorkspace, error) {
+				getLogicalCluster: func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
 					if clusterName != logicalcluster.Name("root") {
 						return nil, fmt.Errorf("unexpected cluster name = %v, expected = %v", clusterName, "root")
 					}
-					if scenario.targetThisWorkspace == nil {
-						return nil, fmt.Errorf("targetThisWorkspace wasn't provided for this scenario")
+					if scenario.targetLogicalCluster == nil {
+						return nil, fmt.Errorf("targetLogicalCluster wasn't provided for this scenario")
 					}
-					return scenario.targetThisWorkspace, nil
+					return scenario.targetLogicalCluster, nil
 				},
 				transitiveTypeResolver: clusterworkspacetypeexists.NewTransitiveTypeResolver(getType),
 			}
@@ -374,7 +375,7 @@ func wellKnownFooWSForPhaseTwo() *tenancyv1beta1.Workspace {
 	ws.Annotations["internal.tenancy.kcp.dev/cluster"] = "root-foo"
 	ws.Annotations["internal.tenancy.kcp.dev/shard"] = "1pfxsevk"
 	ws.Annotations["experimental.tenancy.kcp.dev/owner"] = `{"username":"kcp-admin"}`
-	ws.Finalizers = append(ws.Finalizers, "tenancy.kcp.dev/thisworkspace")
+	ws.Finalizers = append(ws.Finalizers, "core.kcp.dev/logicalcluster")
 	// type info is assigned by an admission plugin
 	ws.Spec.Type = tenancyv1beta1.WorkspaceTypeReference{
 		Name: "universal",
@@ -383,19 +384,19 @@ func wellKnownFooWSForPhaseTwo() *tenancyv1beta1.Workspace {
 	return ws
 }
 
-func wellKnownThisWSForFooWS() *tenancyv1alpha1.ThisWorkspace {
-	return &tenancyv1alpha1.ThisWorkspace{
+func wellKnownLogicalClusterForFooWS() *corev1alpha1.LogicalCluster {
+	return &corev1alpha1.LogicalCluster{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:       tenancyv1alpha1.ThisWorkspaceName,
+			Name:       corev1alpha1.LogicalClusterName,
 			Finalizers: []string{deletion.WorkspaceFinalizer},
 			Annotations: map[string]string{
 				tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey: `{"username":"kcp-admin"}`,
-				tenancyv1alpha1.ThisWorkspaceTypeAnnotationKey:          "root:universal",
+				corev1alpha1.LogicalClusterTypeAnnotationKey:            "root:universal",
 				core.LogicalClusterPathAnnotationKey:                    "root:foo",
 			},
 		},
-		Spec: tenancyv1alpha1.ThisWorkspaceSpec{
-			Owner: &tenancyv1alpha1.ThisWorkspaceOwner{
+		Spec: corev1alpha1.LogicalClusterSpec{
+			Owner: &corev1alpha1.LogicalClusterOwner{
 				APIVersion: tenancyv1beta1.SchemeGroupVersion.String(),
 				Resource:   "workspaces",
 				Name:       "foo",
@@ -446,25 +447,25 @@ func validateWellKnownCRBCreationAction(t *testing.T, actions []kcpclientgotesti
 	}
 }
 
-func validateWellKnownThisWSActions(t *testing.T, actions []kcpclientgotesting.Action) {
-	wasThisWSCreated := false
-	wasThisWSUpdated := false
-	expectedObj := wellKnownThisWSForFooWS()
+func validateWellKnownLogicalClusterActions(t *testing.T, actions []kcpclientgotesting.Action) {
+	wasLogicalClusterCreated := false
+	wasLogicalClusterUpdated := false
+	expectedObj := wellKnownLogicalClusterForFooWS()
 	for _, action := range actions {
-		if action.Matches("create", "thisworkspaces") {
+		if action.Matches("create", "logicalclusters") {
 			createAction := action.(kcpclientgotesting.CreateAction)
-			actualObj := createAction.GetObject().(*tenancyv1alpha1.ThisWorkspace)
+			actualObj := createAction.GetObject().(*corev1alpha1.LogicalCluster)
 
 			if !equality.Semantic.DeepEqual(actualObj, expectedObj) {
 				t.Errorf(cmp.Diff(actualObj, expectedObj))
 			}
-			wasThisWSCreated = true
+			wasLogicalClusterCreated = true
 		}
-		if action.Matches("update", "thisworkspaces") {
+		if action.Matches("update", "logicalclusters") {
 			updateAction := action.(kcpclientgotesting.UpdateAction)
 			expectedObjCopy := expectedObj.DeepCopy()
 			expectedObjCopy.Status.Phase = "Initializing"
-			actualObj := updateAction.GetObject().(*tenancyv1alpha1.ThisWorkspace)
+			actualObj := updateAction.GetObject().(*corev1alpha1.LogicalCluster)
 
 			// this is a limitation of the fake client
 			// to get an AlreadyExists error we need to assign
@@ -476,14 +477,14 @@ func validateWellKnownThisWSActions(t *testing.T, actions []kcpclientgotesting.A
 			if !equality.Semantic.DeepEqual(actualObj, expectedObjCopy) {
 				t.Errorf(cmp.Diff(actualObj, expectedObjCopy))
 			}
-			wasThisWSUpdated = true
+			wasLogicalClusterUpdated = true
 		}
 	}
-	if !wasThisWSCreated {
-		t.Errorf("ThisWorkspace wasn't created and validated")
+	if !wasLogicalClusterCreated {
+		t.Errorf("LogicalCluster wasn't created and validated")
 	}
-	if !wasThisWSUpdated {
-		t.Errorf("ThisWorkspace wasn't updated and validated")
+	if !wasLogicalClusterUpdated {
+		t.Errorf("LogicalCluster wasn't updated and validated")
 	}
 }
 

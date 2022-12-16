@@ -35,10 +35,11 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 
 	"github.com/kcp-dev/kcp/pkg/admission/helpers"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/authorization"
-	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
 )
 
 func createAttr(ws *tenancyv1beta1.Workspace) admission.Attributes {
@@ -79,21 +80,21 @@ func updateAttr(ws, old *tenancyv1beta1.Workspace) admission.Attributes {
 
 func TestAdmit(t *testing.T) {
 	tests := []struct {
-		name           string
-		types          []*tenancyv1alpha1.ClusterWorkspaceType
-		thisWorkspaces []*tenancyv1alpha1.ThisWorkspace
-		clusterName    logicalcluster.Name
-		a              admission.Attributes
-		expectedObj    runtime.Object
-		wantErr        bool
+		name            string
+		types           []*tenancyv1alpha1.ClusterWorkspaceType
+		logicalClusters []*corev1alpha1.LogicalCluster
+		clusterName     logicalcluster.Name
+		a               admission.Attributes
+		expectedObj     runtime.Object
+		wantErr         bool
 	}{
 		{
 			name: "adds user information on create",
 			types: []*tenancyv1alpha1.ClusterWorkspaceType{
 				newType("root:org:foo").ClusterWorkspaceType,
 			},
-			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
-				newThisWorkspace(logicalcluster.NewPath("root:org:ws")).ThisWorkspace,
+			logicalClusters: []*corev1alpha1.LogicalCluster{
+				newLogicalCluster(logicalcluster.NewPath("root:org:ws")).LogicalCluster,
 			},
 			clusterName: "root:org:ws",
 			a: createAttrWithUser(&tenancyv1beta1.Workspace{
@@ -131,8 +132,8 @@ func TestAdmit(t *testing.T) {
 		},
 		{
 			name: "keep user information on create when system:masters",
-			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
-				newThisWorkspace(logicalcluster.NewPath("root:org:ws")).ThisWorkspace,
+			logicalClusters: []*corev1alpha1.LogicalCluster{
+				newLogicalCluster(logicalcluster.NewPath("root:org:ws")).LogicalCluster,
 			},
 			clusterName: "root:org:ws",
 			a: createAttrWithUser(&tenancyv1beta1.Workspace{
@@ -173,8 +174,8 @@ func TestAdmit(t *testing.T) {
 		},
 		{
 			name: "override user information on create when not system:masters",
-			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
-				newThisWorkspace(logicalcluster.NewPath("root:org:ws")).ThisWorkspace,
+			logicalClusters: []*corev1alpha1.LogicalCluster{
+				newLogicalCluster(logicalcluster.NewPath("root:org:ws")).LogicalCluster,
 			},
 			clusterName: "root:org:ws",
 			a: createAttrWithUser(&tenancyv1beta1.Workspace{
@@ -215,8 +216,8 @@ func TestAdmit(t *testing.T) {
 		},
 		{
 			name: "copies required groups on create",
-			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
-				newThisWorkspace(logicalcluster.NewPath("root:org:ws")).WithRequiredGroups("foo", "bar").ThisWorkspace,
+			logicalClusters: []*corev1alpha1.LogicalCluster{
+				newLogicalCluster(logicalcluster.NewPath("root:org:ws")).WithRequiredGroups("foo", "bar").LogicalCluster,
 			},
 			clusterName: "root:org:ws",
 			a: createAttr(&tenancyv1beta1.Workspace{
@@ -238,8 +239,8 @@ func TestAdmit(t *testing.T) {
 		},
 		{
 			name: "replaces required groups on create as non-system:master",
-			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
-				newThisWorkspace(logicalcluster.NewPath("root:org:ws")).WithRequiredGroups("foo", "bar").ThisWorkspace,
+			logicalClusters: []*corev1alpha1.LogicalCluster{
+				newLogicalCluster(logicalcluster.NewPath("root:org:ws")).WithRequiredGroups("foo", "bar").LogicalCluster,
 			},
 			clusterName: "root:org:ws",
 			a: createAttr(&tenancyv1beta1.Workspace{
@@ -264,8 +265,8 @@ func TestAdmit(t *testing.T) {
 		},
 		{
 			name: "keeps required groups on create as system:master",
-			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
-				newThisWorkspace(logicalcluster.NewPath("root:org:ws")).WithRequiredGroups("foo", "bar").ThisWorkspace,
+			logicalClusters: []*corev1alpha1.LogicalCluster{
+				newLogicalCluster(logicalcluster.NewPath("root:org:ws")).WithRequiredGroups("foo", "bar").LogicalCluster,
 			},
 			clusterName: "root:org:ws",
 			a: createAttrWithUser(&tenancyv1beta1.Workspace{
@@ -294,8 +295,8 @@ func TestAdmit(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			o := &workspace{
-				Handler:             admission.NewHandler(admission.Create, admission.Update),
-				thisWorkspaceLister: fakeThisWorkspaceClusterLister(tt.thisWorkspaces),
+				Handler:              admission.NewHandler(admission.Create, admission.Update),
+				logicalClusterLister: fakeLogicalClusterClusterLister(tt.logicalClusters),
 			}
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: tt.clusterName})
 			if err := o.Admit(ctx, tt.a, nil); (err != nil) != tt.wantErr {
@@ -314,15 +315,15 @@ func TestAdmit(t *testing.T) {
 
 func TestValidate(t *testing.T) {
 	tests := []struct {
-		name           string
-		thisWorkspaces []*tenancyv1alpha1.ThisWorkspace
-		a              admission.Attributes
-		expectedErrors []string
+		name            string
+		logicalClusters []*corev1alpha1.LogicalCluster
+		a               admission.Attributes
+		expectedErrors  []string
 	}{
 		{
 			name: "rejects type mutations",
-			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
-				newThisWorkspace(logicalcluster.NewPath("root:org")).ThisWorkspace,
+			logicalClusters: []*corev1alpha1.LogicalCluster{
+				newLogicalCluster(logicalcluster.NewPath("root:org")).LogicalCluster,
 			},
 			a: updateAttr(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
@@ -352,8 +353,8 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "rejects unsetting cluster",
-			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
-				newThisWorkspace(logicalcluster.NewPath("root:org")).ThisWorkspace,
+			logicalClusters: []*corev1alpha1.LogicalCluster{
+				newLogicalCluster(logicalcluster.NewPath("root:org")).LogicalCluster,
 			},
 			a: updateAttr(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
@@ -386,8 +387,8 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "allows transition to ready directly when valid",
-			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
-				newThisWorkspace(logicalcluster.NewPath("root:org")).ThisWorkspace,
+			logicalClusters: []*corev1alpha1.LogicalCluster{
+				newLogicalCluster(logicalcluster.NewPath("root:org")).LogicalCluster,
 			},
 			a: updateAttr(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
@@ -426,8 +427,8 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "allows creation to ready directly when valid",
-			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
-				newThisWorkspace(logicalcluster.NewPath("root:org")).ThisWorkspace,
+			logicalClusters: []*corev1alpha1.LogicalCluster{
+				newLogicalCluster(logicalcluster.NewPath("root:org")).LogicalCluster,
 			},
 			a: createAttr(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
@@ -450,8 +451,8 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "rejects transition to ready directly when invalid",
-			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
-				newThisWorkspace(logicalcluster.NewPath("root:org")).ThisWorkspace,
+			logicalClusters: []*corev1alpha1.LogicalCluster{
+				newLogicalCluster(logicalcluster.NewPath("root:org")).LogicalCluster,
 			},
 			a: updateAttr(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
@@ -490,8 +491,8 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "ignores different resources",
-			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
-				newThisWorkspace(logicalcluster.NewPath("root:org")).ThisWorkspace,
+			logicalClusters: []*corev1alpha1.LogicalCluster{
+				newLogicalCluster(logicalcluster.NewPath("root:org")).LogicalCluster,
 			},
 			a: admission.NewAttributesRecord(
 				&tenancyv1alpha1.ClusterWorkspaceShard{
@@ -514,8 +515,8 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "checks user information on create",
-			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
-				newThisWorkspace(logicalcluster.NewPath("root:org")).ThisWorkspace,
+			logicalClusters: []*corev1alpha1.LogicalCluster{
+				newLogicalCluster(logicalcluster.NewPath("root:org")).LogicalCluster,
 			},
 			a: createAttrWithUser(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
@@ -540,8 +541,8 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "accept user information on create when system:masters",
-			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
-				newThisWorkspace(logicalcluster.NewPath("root:org")).ThisWorkspace,
+			logicalClusters: []*corev1alpha1.LogicalCluster{
+				newLogicalCluster(logicalcluster.NewPath("root:org")).LogicalCluster,
 			},
 			a: createAttrWithUser(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
@@ -570,8 +571,8 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "reject wrong user information on create when not system:masters",
-			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
-				newThisWorkspace(logicalcluster.NewPath("root:org")).ThisWorkspace,
+			logicalClusters: []*corev1alpha1.LogicalCluster{
+				newLogicalCluster(logicalcluster.NewPath("root:org")).LogicalCluster,
 			},
 			a: createAttrWithUser(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
@@ -598,8 +599,8 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "rejects with wrong required groups on create as non-system:master",
-			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
-				newThisWorkspace(logicalcluster.NewPath("root:org")).WithRequiredGroups("foo", "bar").ThisWorkspace,
+			logicalClusters: []*corev1alpha1.LogicalCluster{
+				newLogicalCluster(logicalcluster.NewPath("root:org")).WithRequiredGroups("foo", "bar").LogicalCluster,
 			},
 			a: createAttr(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
@@ -613,8 +614,8 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "accepts with equal required groups on create",
-			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
-				newThisWorkspace(logicalcluster.NewPath("root:org")).WithRequiredGroups("foo", "bar").ThisWorkspace,
+			logicalClusters: []*corev1alpha1.LogicalCluster{
+				newLogicalCluster(logicalcluster.NewPath("root:org")).WithRequiredGroups("foo", "bar").LogicalCluster,
 			},
 			a: createAttr(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
@@ -628,8 +629,8 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "accepts with wrong required groups on create as system:master",
-			thisWorkspaces: []*tenancyv1alpha1.ThisWorkspace{
-				newThisWorkspace(logicalcluster.NewPath("root:org")).WithRequiredGroups("foo", "bar").ThisWorkspace,
+			logicalClusters: []*corev1alpha1.LogicalCluster{
+				newLogicalCluster(logicalcluster.NewPath("root:org")).WithRequiredGroups("foo", "bar").LogicalCluster,
 			},
 			a: createAttrWithUser(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
@@ -647,8 +648,8 @@ func TestValidate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			o := &workspace{
-				Handler:             admission.NewHandler(admission.Create, admission.Update),
-				thisWorkspaceLister: fakeThisWorkspaceClusterLister(tt.thisWorkspaces),
+				Handler:              admission.NewHandler(admission.Create, admission.Update),
+				logicalClusterLister: fakeLogicalClusterClusterLister(tt.logicalClusters),
 			}
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: "root:org"})
 			err := o.Validate(ctx, tt.a, nil)
@@ -683,13 +684,13 @@ func newType(qualifiedName string) builder {
 }
 
 type thisBuilder struct {
-	*tenancyv1alpha1.ThisWorkspace
+	*corev1alpha1.LogicalCluster
 }
 
-func newThisWorkspace(clusterName logicalcluster.Path) thisBuilder {
-	return thisBuilder{ThisWorkspace: &tenancyv1alpha1.ThisWorkspace{
+func newLogicalCluster(clusterName logicalcluster.Path) thisBuilder {
+	return thisBuilder{LogicalCluster: &corev1alpha1.LogicalCluster{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: tenancyv1alpha1.ThisWorkspaceName,
+			Name: corev1alpha1.LogicalClusterName,
 			Annotations: map[string]string{
 				logicalcluster.AnnotationKey: clusterName.String(),
 			},
@@ -699,42 +700,42 @@ func newThisWorkspace(clusterName logicalcluster.Path) thisBuilder {
 
 func (b thisBuilder) WithRequiredGroups(groups ...string) thisBuilder {
 	if len(groups) > 0 {
-		b.ThisWorkspace.Annotations[authorization.RequiredGroupsAnnotationKey] = strings.Join(groups, ",")
+		b.LogicalCluster.Annotations[authorization.RequiredGroupsAnnotationKey] = strings.Join(groups, ",")
 	}
 	return b
 }
 
-type fakeThisWorkspaceClusterLister []*tenancyv1alpha1.ThisWorkspace
+type fakeLogicalClusterClusterLister []*corev1alpha1.LogicalCluster
 
-func (l fakeThisWorkspaceClusterLister) List(selector labels.Selector) (ret []*tenancyv1alpha1.ThisWorkspace, err error) {
+func (l fakeLogicalClusterClusterLister) List(selector labels.Selector) (ret []*corev1alpha1.LogicalCluster, err error) {
 	return l, nil
 }
 
-func (l fakeThisWorkspaceClusterLister) Cluster(cluster logicalcluster.Name) tenancyv1alpha1listers.ThisWorkspaceLister {
-	var perCluster []*tenancyv1alpha1.ThisWorkspace
+func (l fakeLogicalClusterClusterLister) Cluster(cluster logicalcluster.Name) corev1alpha1listers.LogicalClusterLister {
+	var perCluster []*corev1alpha1.LogicalCluster
 	for _, this := range l {
 		if logicalcluster.From(this) == cluster {
 			perCluster = append(perCluster, this)
 		}
 	}
-	return fakeThisWorkspaceLister(perCluster)
+	return fakeLogicalClusterLister(perCluster)
 }
 
-type fakeThisWorkspaceLister []*tenancyv1alpha1.ThisWorkspace
+type fakeLogicalClusterLister []*corev1alpha1.LogicalCluster
 
-func (l fakeThisWorkspaceLister) List(selector labels.Selector) (ret []*tenancyv1alpha1.ThisWorkspace, err error) {
+func (l fakeLogicalClusterLister) List(selector labels.Selector) (ret []*corev1alpha1.LogicalCluster, err error) {
 	return l.ListWithContext(context.Background(), selector)
 }
 
-func (l fakeThisWorkspaceLister) ListWithContext(ctx context.Context, selector labels.Selector) (ret []*tenancyv1alpha1.ThisWorkspace, err error) {
+func (l fakeLogicalClusterLister) ListWithContext(ctx context.Context, selector labels.Selector) (ret []*corev1alpha1.LogicalCluster, err error) {
 	return l, nil
 }
 
-func (l fakeThisWorkspaceLister) Get(name string) (*tenancyv1alpha1.ThisWorkspace, error) {
+func (l fakeLogicalClusterLister) Get(name string) (*corev1alpha1.LogicalCluster, error) {
 	return l.GetWithContext(context.Background(), name)
 }
 
-func (l fakeThisWorkspaceLister) GetWithContext(ctx context.Context, name string) (*tenancyv1alpha1.ThisWorkspace, error) {
+func (l fakeLogicalClusterLister) GetWithContext(ctx context.Context, name string) (*corev1alpha1.LogicalCluster, error) {
 	for _, t := range l {
 		if t.Name == name {
 			return t, nil

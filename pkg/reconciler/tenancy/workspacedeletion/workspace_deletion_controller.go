@@ -45,10 +45,10 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
-	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
-	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	corev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/core/v1alpha1"
+	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspacedeletion/deletion"
 )
@@ -68,7 +68,7 @@ func NewController(
 	logicalClusterAdminConfig *rest.Config,
 	shardExternalURL func() string,
 	metadataClusterClient kcpmetadata.ClusterInterface,
-	thisWorkspaceInformer tenancyv1alpha1informers.ThisWorkspaceClusterInformer,
+	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
 	discoverResourcesFn func(clusterName logicalcluster.Path) ([]*metav1.APIResourceList, error),
 ) *Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
@@ -80,14 +80,14 @@ func NewController(
 		logicalClusterAdminConfig: logicalClusterAdminConfig,
 		shardExternalURL:          shardExternalURL,
 		metadataClusterClient:     metadataClusterClient,
-		thisWorkspaceLister:       thisWorkspaceInformer.Lister(),
+		logicalClusterLister:      logicalClusterInformer.Lister(),
 		deleter:                   deletion.NewWorkspacedResourcesDeleter(metadataClusterClient, discoverResourcesFn),
 	}
 
-	thisWorkspaceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	logicalClusterInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
 			switch obj := obj.(type) {
-			case *tenancyv1alpha1.ThisWorkspace:
+			case *corev1alpha1.LogicalCluster:
 				return !obj.DeletionTimestamp.IsZero()
 			default:
 				return false
@@ -114,7 +114,7 @@ type Controller struct {
 
 	metadataClusterClient kcpmetadata.ClusterInterface
 
-	thisWorkspaceLister tenancyv1alpha1listers.ThisWorkspaceClusterLister
+	logicalClusterLister corev1alpha1listers.LogicalClusterClusterLister
 
 	deleter deletion.WorkspaceResourcesDeleterInterface
 }
@@ -126,7 +126,7 @@ func (c *Controller) enqueue(obj interface{}) {
 		return
 	}
 	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
-	logger.V(4).Info("queueing ThisWorkspace")
+	logger.V(4).Info("queueing LogicalCluster")
 	c.queue.Add(key)
 }
 
@@ -211,7 +211,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		runtime.HandleError(err)
 		return nil
 	}
-	workspace, deleteErr := c.thisWorkspaceLister.Cluster(clusterName).Get(name)
+	workspace, deleteErr := c.logicalClusterLister.Cluster(clusterName).Get(name)
 	if apierrors.IsNotFound(deleteErr) {
 		logger.V(2).Info("ClusterWorkspace has been deleted")
 		return nil
@@ -245,14 +245,14 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	return deleteErr
 }
 
-func (c *Controller) patchCondition(ctx context.Context, old, new *tenancyv1alpha1.ThisWorkspace) error {
+func (c *Controller) patchCondition(ctx context.Context, old, new *corev1alpha1.LogicalCluster) error {
 	logger := klog.FromContext(ctx)
 	if equality.Semantic.DeepEqual(old.Status.Conditions, new.Status.Conditions) {
 		return nil
 	}
 
-	oldData, err := json.Marshal(tenancyv1alpha1.ThisWorkspace{
-		Status: tenancyv1alpha1.ThisWorkspaceStatus{
+	oldData, err := json.Marshal(corev1alpha1.LogicalCluster{
+		Status: corev1alpha1.LogicalClusterStatus{
 			Conditions: old.Status.Conditions,
 		},
 	})
@@ -260,12 +260,12 @@ func (c *Controller) patchCondition(ctx context.Context, old, new *tenancyv1alph
 		return fmt.Errorf("failed to Marshal old data for workspace %s: %w", old.Name, err)
 	}
 
-	newData, err := json.Marshal(tenancyv1alpha1.ThisWorkspace{
+	newData, err := json.Marshal(corev1alpha1.LogicalCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			UID:             old.UID,
 			ResourceVersion: old.ResourceVersion,
 		}, // to ensure they appear in the patch as preconditions
-		Status: tenancyv1alpha1.ThisWorkspaceStatus{
+		Status: corev1alpha1.LogicalClusterStatus{
 			Conditions: new.Status.Conditions,
 		},
 	})
@@ -278,13 +278,13 @@ func (c *Controller) patchCondition(ctx context.Context, old, new *tenancyv1alph
 		return fmt.Errorf("failed to create patch for workspace %s: %w", new.Name, err)
 	}
 
-	logger.V(2).Info("patching ThisWorkspace", "patch", string(patchBytes))
-	_, err = c.kcpClusterClient.Cluster(logicalcluster.From(new).Path()).TenancyV1alpha1().ThisWorkspaces().Patch(ctx, new.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+	logger.V(2).Info("patching LogicalCluster", "patch", string(patchBytes))
+	_, err = c.kcpClusterClient.Cluster(logicalcluster.From(new).Path()).CoreV1alpha1().LogicalClusters().Patch(ctx, new.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 	return err
 }
 
 // finalizeNamespace removes the specified finalizer and finalizes the workspace
-func (c *Controller) finalizeWorkspace(ctx context.Context, ws *tenancyv1alpha1.ThisWorkspace) error {
+func (c *Controller) finalizeWorkspace(ctx context.Context, ws *corev1alpha1.LogicalCluster) error {
 	logger := klog.FromContext(ctx)
 	for i := range ws.Finalizers {
 		if ws.Finalizers[i] == deletion.WorkspaceFinalizer {
@@ -328,9 +328,9 @@ func (c *Controller) finalizeWorkspace(ctx context.Context, ws *tenancyv1alpha1.
 					return fmt.Errorf("could not get owner %s %s/%s in cluster %s is of wrong UID: %w", gvr, ws.Spec.Owner.Namespace, ws.Spec.Owner.Name, ws.Spec.Owner.Cluster, err)
 				} else if err == nil {
 					finalizers := sets.NewString(obj.GetFinalizers()...)
-					if finalizers.Has(tenancyv1alpha1.ThisWorkspaceFinalizer) {
+					if finalizers.Has(corev1alpha1.LogicalClusterFinalizer) {
 						logger.Info("removing finalizer from owner")
-						finalizers.Delete(tenancyv1alpha1.ThisWorkspaceFinalizer)
+						finalizers.Delete(corev1alpha1.LogicalClusterFinalizer)
 						obj.SetFinalizers(finalizers.List())
 						if obj, err = c.dynamicFrontProxyClient.Resource(gvr).Namespace(ws.Spec.Owner.Namespace).Update(ownerCtx, obj, metav1.UpdateOptions{}); err != nil {
 							return fmt.Errorf("could not remove finalizer from owner %s %s/%s in cluster %s: %w", gvr, ws.Spec.Owner.Namespace, ws.Spec.Owner.Name, ws.Spec.Owner.Cluster, err)
@@ -347,8 +347,8 @@ func (c *Controller) finalizeWorkspace(ctx context.Context, ws *tenancyv1alpha1.
 				}
 			}
 
-			logger.V(2).Info("removing finalizer from ThisWorkspace")
-			_, err := c.kcpClusterClient.TenancyV1alpha1().ThisWorkspaces().Cluster(clusterName.Path()).Update(ctx, ws, metav1.UpdateOptions{})
+			logger.V(2).Info("removing finalizer from LogicalCluster")
+			_, err := c.kcpClusterClient.CoreV1alpha1().LogicalClusters().Cluster(clusterName.Path()).Update(ctx, ws, metav1.UpdateOptions{})
 			return err
 		}
 	}

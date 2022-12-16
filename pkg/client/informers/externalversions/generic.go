@@ -32,6 +32,7 @@ import (
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
@@ -106,6 +107,9 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Apis().V1alpha1().APIExportEndpointSlices().Informer()}, nil
 	case apisv1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas"):
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Apis().V1alpha1().APIResourceSchemas().Informer()}, nil
+	// Group=core.kcp.dev, Version=V1alpha1
+	case corev1alpha1.SchemeGroupVersion.WithResource("logicalclusters"):
+		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Core().V1alpha1().LogicalClusters().Informer()}, nil
 	// Group=scheduling.kcp.dev, Version=V1alpha1
 	case schedulingv1alpha1.SchemeGroupVersion.WithResource("locations"):
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Scheduling().V1alpha1().Locations().Informer()}, nil
@@ -118,8 +122,6 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Tenancy().V1alpha1().ClusterWorkspaceShards().Informer()}, nil
 	case tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspacetypes"):
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Tenancy().V1alpha1().ClusterWorkspaceTypes().Informer()}, nil
-	case tenancyv1alpha1.SchemeGroupVersion.WithResource("thisworkspaces"):
-		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Tenancy().V1alpha1().ThisWorkspaces().Informer()}, nil
 	// Group=tenancy.kcp.dev, Version=V1beta1
 	case tenancyv1beta1.SchemeGroupVersion.WithResource("workspaces"):
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Tenancy().V1beta1().Workspaces().Informer()}, nil
@@ -160,6 +162,10 @@ func (f *sharedScopedInformerFactory) ForResource(resource schema.GroupVersionRe
 	case apisv1alpha1.SchemeGroupVersion.WithResource("apiresourceschemas"):
 		informer := f.Apis().V1alpha1().APIResourceSchemas().Informer()
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
+	// Group=core.kcp.dev, Version=V1alpha1
+	case corev1alpha1.SchemeGroupVersion.WithResource("logicalclusters"):
+		informer := f.Core().V1alpha1().LogicalClusters().Informer()
+		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
 	// Group=scheduling.kcp.dev, Version=V1alpha1
 	case schedulingv1alpha1.SchemeGroupVersion.WithResource("locations"):
 		informer := f.Scheduling().V1alpha1().Locations().Informer()
@@ -176,9 +182,6 @@ func (f *sharedScopedInformerFactory) ForResource(resource schema.GroupVersionRe
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
 	case tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspacetypes"):
 		informer := f.Tenancy().V1alpha1().ClusterWorkspaceTypes().Informer()
-		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
-	case tenancyv1alpha1.SchemeGroupVersion.WithResource("thisworkspaces"):
-		informer := f.Tenancy().V1alpha1().ThisWorkspaces().Informer()
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
 	// Group=tenancy.kcp.dev, Version=V1beta1
 	case tenancyv1beta1.SchemeGroupVersion.WithResource("workspaces"):

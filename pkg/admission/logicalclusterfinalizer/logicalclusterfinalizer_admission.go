@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package thisworkspacefinalizer
+package logicalclusterfinalizer
 
 import (
 	"io"
@@ -22,12 +22,12 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 
 	"github.com/kcp-dev/kcp/pkg/admission/finalizer"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspacedeletion/deletion"
 )
 
 const (
-	PluginName = "tenancy.kcp.dev/ThisWorkspaceDeletionFinalizer"
+	PluginName = "tenancy.kcp.dev/LogicalClusterDeletionFinalizer"
 )
 
 func Register(plugins *admission.Plugins) {
@@ -36,7 +36,7 @@ func Register(plugins *admission.Plugins) {
 			return &finalizer.FinalizerPlugin{
 				Handler:       admission.NewHandler(admission.Create, admission.Update),
 				FinalizerName: deletion.WorkspaceFinalizer,
-				Resource:      tenancyv1alpha1.Resource("thisworkspaces"),
+				Resource:      corev1alpha1.Resource("logicalclusters"),
 			}, nil
 		})
 }

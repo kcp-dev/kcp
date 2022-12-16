@@ -36,8 +36,9 @@ import (
 	"k8s.io/kubernetes/pkg/controller"
 	"k8s.io/kubernetes/pkg/genericcontrolplane"
 
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
-	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
 )
 
 func newUser(name string, groups ...string) *user.DefaultInfo {
@@ -87,7 +88,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			requestedWorkspace: "root:unknown",
 			requestingUser:     newUser("user-access"),
 			wantDecision:       authorizer.DecisionDeny,
-			wantReason:         "thisworkspace not found",
+			wantReason:         "logicalcluster not found",
 		},
 		{
 			testName: "workspace without parent",
@@ -308,27 +309,27 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			cache.WaitForCacheSync(ctx.Done(), syncs...)
 
 			indexer := cache.NewIndexer(kcpcache.MetaClusterNamespaceKeyFunc, cache.Indexers{})
-			require.NoError(t, indexer.Add(&tenancyv1alpha1.ThisWorkspace{
-				ObjectMeta: metav1.ObjectMeta{Name: tenancyv1alpha1.ThisWorkspaceName, Annotations: map[string]string{logicalcluster.AnnotationKey: "root"}},
-				Status:     tenancyv1alpha1.ThisWorkspaceStatus{Phase: tenancyv1alpha1.WorkspacePhaseReady},
+			require.NoError(t, indexer.Add(&corev1alpha1.LogicalCluster{
+				ObjectMeta: metav1.ObjectMeta{Name: corev1alpha1.LogicalClusterName, Annotations: map[string]string{logicalcluster.AnnotationKey: "root"}},
+				Status:     corev1alpha1.LogicalClusterStatus{Phase: tenancyv1alpha1.WorkspacePhaseReady},
 			}))
-			require.NoError(t, indexer.Add(&tenancyv1alpha1.ThisWorkspace{
-				ObjectMeta: metav1.ObjectMeta{Name: tenancyv1alpha1.ThisWorkspaceName, Annotations: map[string]string{logicalcluster.AnnotationKey: "root:ready"}},
-				Status:     tenancyv1alpha1.ThisWorkspaceStatus{Phase: tenancyv1alpha1.WorkspacePhaseReady},
+			require.NoError(t, indexer.Add(&corev1alpha1.LogicalCluster{
+				ObjectMeta: metav1.ObjectMeta{Name: corev1alpha1.LogicalClusterName, Annotations: map[string]string{logicalcluster.AnnotationKey: "root:ready"}},
+				Status:     corev1alpha1.LogicalClusterStatus{Phase: tenancyv1alpha1.WorkspacePhaseReady},
 			}))
-			require.NoError(t, indexer.Add(&tenancyv1alpha1.ThisWorkspace{
-				ObjectMeta: metav1.ObjectMeta{Name: tenancyv1alpha1.ThisWorkspaceName, Annotations: map[string]string{logicalcluster.AnnotationKey: "root:scheduling"}},
-				Status:     tenancyv1alpha1.ThisWorkspaceStatus{Phase: tenancyv1alpha1.WorkspacePhaseScheduling},
+			require.NoError(t, indexer.Add(&corev1alpha1.LogicalCluster{
+				ObjectMeta: metav1.ObjectMeta{Name: corev1alpha1.LogicalClusterName, Annotations: map[string]string{logicalcluster.AnnotationKey: "root:scheduling"}},
+				Status:     corev1alpha1.LogicalClusterStatus{Phase: tenancyv1alpha1.WorkspacePhaseScheduling},
 			}))
-			require.NoError(t, indexer.Add(&tenancyv1alpha1.ThisWorkspace{
-				ObjectMeta: metav1.ObjectMeta{Name: tenancyv1alpha1.ThisWorkspaceName, Annotations: map[string]string{logicalcluster.AnnotationKey: "root:initializing"}},
-				Status:     tenancyv1alpha1.ThisWorkspaceStatus{Phase: tenancyv1alpha1.WorkspacePhaseInitializing},
+			require.NoError(t, indexer.Add(&corev1alpha1.LogicalCluster{
+				ObjectMeta: metav1.ObjectMeta{Name: corev1alpha1.LogicalClusterName, Annotations: map[string]string{logicalcluster.AnnotationKey: "root:initializing"}},
+				Status:     corev1alpha1.LogicalClusterStatus{Phase: tenancyv1alpha1.WorkspacePhaseInitializing},
 			}))
-			require.NoError(t, indexer.Add(&tenancyv1alpha1.ThisWorkspace{
-				ObjectMeta: metav1.ObjectMeta{Name: tenancyv1alpha1.ThisWorkspaceName, Annotations: map[string]string{logicalcluster.AnnotationKey: "rootwithoutparent"}},
-				Status:     tenancyv1alpha1.ThisWorkspaceStatus{Phase: tenancyv1alpha1.WorkspacePhaseReady},
+			require.NoError(t, indexer.Add(&corev1alpha1.LogicalCluster{
+				ObjectMeta: metav1.ObjectMeta{Name: corev1alpha1.LogicalClusterName, Annotations: map[string]string{logicalcluster.AnnotationKey: "rootwithoutparent"}},
+				Status:     corev1alpha1.LogicalClusterStatus{Phase: tenancyv1alpha1.WorkspacePhaseReady},
 			}))
-			lister := tenancyv1alpha1listers.NewThisWorkspaceClusterLister(indexer)
+			lister := corev1alpha1listers.NewLogicalClusterClusterLister(indexer)
 
 			recordingAuthorizer := &recordingAuthorizer{decision: authorizer.DecisionAllow}
 			w := NewWorkspaceContentAuthorizer(kubeShareInformerFactory, lister, recordingAuthorizer)

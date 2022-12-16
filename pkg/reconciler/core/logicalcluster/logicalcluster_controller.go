@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package thisworkspace
+package logicalcluster
 
 import (
 	"context"
@@ -31,35 +31,35 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
-	tenancyv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
-	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
-	tenancylisters "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	corev1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/core/v1alpha1"
+	corev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/core/v1alpha1"
+	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 )
 
 const (
-	ControllerName = "kcp-thisworkspace"
+	ControllerName = "kcp-logicalcluster"
 )
 
 func NewController(
 	shardExternalURL func() string,
 	kcpClusterClient kcpclientset.ClusterInterface,
-	thisWorkspaceInformer tenancyinformers.ThisWorkspaceClusterInformer,
+	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
 ) (*Controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
 	c := &Controller{
-		queue:                queue,
-		shardExternalURL:     shardExternalURL,
-		kcpClusterClient:     kcpClusterClient,
-		thisWorkspaceIndexer: thisWorkspaceInformer.Informer().GetIndexer(),
-		thisWorkspaceLister:  thisWorkspaceInformer.Lister(),
-		commit:               committer.NewCommitter[*tenancyv1alpha1.ThisWorkspace, tenancyv1alpha1client.ThisWorkspaceInterface, *tenancyv1alpha1.ThisWorkspaceSpec, *tenancyv1alpha1.ThisWorkspaceStatus](kcpClusterClient.TenancyV1alpha1().ThisWorkspaces()),
+		queue:                 queue,
+		shardExternalURL:      shardExternalURL,
+		kcpClusterClient:      kcpClusterClient,
+		logicalClusterIndexer: logicalClusterInformer.Informer().GetIndexer(),
+		logicalClusterLister:  logicalClusterInformer.Lister(),
+		commit:                committer.NewCommitter[*corev1alpha1.LogicalCluster, corev1alpha1client.LogicalClusterInterface, *corev1alpha1.LogicalClusterSpec, *corev1alpha1.LogicalClusterStatus](kcpClusterClient.CoreV1alpha1().LogicalClusters()),
 	}
-	thisWorkspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	logicalClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
 		UpdateFunc: func(obj, _ interface{}) { c.enqueue(obj) },
 		DeleteFunc: func(obj interface{}) { c.enqueue(obj) },
@@ -68,7 +68,7 @@ func NewController(
 	return c, nil
 }
 
-type thisWorkspaceResource = committer.Resource[*tenancyv1alpha1.ThisWorkspaceSpec, *tenancyv1alpha1.ThisWorkspaceStatus]
+type logicalClusterResource = committer.Resource[*corev1alpha1.LogicalClusterSpec, *corev1alpha1.LogicalClusterStatus]
 
 // Controller watches Workspaces and WorkspaceShards in order to make sure every ClusterWorkspace
 // is scheduled to a valid ClusterWorkspaceShard.
@@ -79,11 +79,11 @@ type Controller struct {
 
 	kcpClusterClient kcpclientset.ClusterInterface
 
-	thisWorkspaceIndexer cache.Indexer
-	thisWorkspaceLister  tenancylisters.ThisWorkspaceClusterLister
+	logicalClusterIndexer cache.Indexer
+	logicalClusterLister  corev1alpha1listers.LogicalClusterClusterLister
 
 	// commit creates a patch and submits it, if needed.
-	commit func(ctx context.Context, new, old *thisWorkspaceResource) error
+	commit func(ctx context.Context, new, old *logicalClusterResource) error
 }
 
 func (c *Controller) enqueue(obj interface{}) {
@@ -93,7 +93,7 @@ func (c *Controller) enqueue(obj interface{}) {
 		return
 	}
 	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
-	logger.V(2).Info("queueing ThisWorkspace")
+	logger.V(2).Info("queueing LogicalCluster")
 	c.queue.Add(key)
 }
 
@@ -155,30 +155,30 @@ func (c *Controller) process(ctx context.Context, key string) (bool, error) {
 		return false, nil
 	}
 
-	thisWorkspace, err := c.thisWorkspaceLister.Cluster(clusterName).Get(tenancyv1alpha1.ThisWorkspaceName)
+	logicalCluster, err := c.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
-			logger.Error(err, "failed to get ThisWorkspace from lister", "cluster", clusterName)
+			logger.Error(err, "failed to get LogicalCluster from lister", "cluster", clusterName)
 		}
 
 		return false, nil // nothing we can do here
 	}
 
-	old := thisWorkspace
-	thisWorkspace = thisWorkspace.DeepCopy()
+	old := logicalCluster
+	logicalCluster = logicalCluster.DeepCopy()
 
-	logger = logging.WithObject(logger, thisWorkspace)
+	logger = logging.WithObject(logger, logicalCluster)
 	ctx = klog.NewContext(ctx, logger)
 
 	var errs []error
-	requeue, err := c.reconcile(ctx, thisWorkspace)
+	requeue, err := c.reconcile(ctx, logicalCluster)
 	if err != nil {
 		errs = append(errs, err)
 	}
 
 	// If the object being reconciled changed as a result, update it.
-	oldResource := &thisWorkspaceResource{ObjectMeta: old.ObjectMeta, Spec: &old.Spec, Status: &old.Status}
-	newResource := &thisWorkspaceResource{ObjectMeta: thisWorkspace.ObjectMeta, Spec: &thisWorkspace.Spec, Status: &thisWorkspace.Status}
+	oldResource := &logicalClusterResource{ObjectMeta: old.ObjectMeta, Spec: &old.Spec, Status: &old.Status}
+	newResource := &logicalClusterResource{ObjectMeta: logicalCluster.ObjectMeta, Spec: &logicalCluster.Spec, Status: &logicalCluster.Status}
 	if err := c.commit(ctx, oldResource, newResource); err != nil {
 		errs = append(errs, err)
 	}

@@ -37,10 +37,12 @@ import (
 
 	admission "github.com/kcp-dev/kcp/pkg/admission/clusterworkspacetypeexists"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
-	tenancyv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
+	corev1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/core/v1alpha1"
 	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
+	corev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/core/v1alpha1"
 	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
@@ -55,7 +57,7 @@ const (
 // in new ClusterWorkspaces.
 func NewAPIBinder(
 	kcpClusterClient kcpclientset.ClusterInterface,
-	thisWorkspaceInformer tenancyv1alpha1informers.ThisWorkspaceClusterInformer,
+	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
 	clusterWorkspaceTypeInformer tenancyv1alpha1informers.ClusterWorkspaceTypeClusterInformer,
 	apiBindingsInformer apisv1alpha1informers.APIBindingClusterInformer,
 	apiExportsInformer apisv1alpha1informers.APIExportClusterInformer,
@@ -63,8 +65,8 @@ func NewAPIBinder(
 	c := &APIBinder{
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
 
-		getThisWorkspace: func(clusterName logicalcluster.Name) (*tenancyv1alpha1.ThisWorkspace, error) {
-			return thisWorkspaceInformer.Lister().Cluster(clusterName).Get(tenancyv1alpha1.ThisWorkspaceName)
+		getLogicalCluster: func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
+			return logicalClusterInformer.Lister().Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 		},
 		getClusterWorkspaceType: func(path logicalcluster.Path, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
 			objs, err := clusterWorkspaceTypeInformer.Informer().GetIndexer().ByIndex(indexers.ByLogicalClusterPathAndName, path.Join(name).String())
@@ -79,8 +81,8 @@ func NewAPIBinder(
 			}
 			return objs[0].(*tenancyv1alpha1.ClusterWorkspaceType), nil
 		},
-		listThisWorkspaces: func() ([]*tenancyv1alpha1.ThisWorkspace, error) {
-			return thisWorkspaceInformer.Lister().List(labels.Everything())
+		listLogicalClusters: func() ([]*corev1alpha1.LogicalCluster, error) {
+			return logicalClusterInformer.Lister().List(labels.Everything())
 		},
 
 		listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
@@ -107,7 +109,7 @@ func NewAPIBinder(
 			return objs[0].(*apisv1alpha1.APIExport), nil
 		},
 
-		commit: committer.NewCommitter[*tenancyv1alpha1.ThisWorkspace, tenancyv1alpha1client.ThisWorkspaceInterface, *tenancyv1alpha1.ThisWorkspaceSpec, *tenancyv1alpha1.ThisWorkspaceStatus](kcpClusterClient.TenancyV1alpha1().ThisWorkspaces()),
+		commit: committer.NewCommitter[*corev1alpha1.LogicalCluster, corev1alpha1client.LogicalClusterInterface, *corev1alpha1.LogicalClusterSpec, *corev1alpha1.LogicalClusterStatus](kcpClusterClient.CoreV1alpha1().LogicalClusters()),
 	}
 
 	c.transitiveTypeResolver = admission.NewTransitiveTypeResolver(c.getClusterWorkspaceType)
@@ -118,12 +120,12 @@ func NewAPIBinder(
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
 
-	thisWorkspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	logicalClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueThisWorkspace(obj, logger)
+			c.enqueueLogicalCluster(obj, logger)
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueThisWorkspace(obj, logger)
+			c.enqueueLogicalCluster(obj, logger)
 		},
 	})
 
@@ -149,16 +151,16 @@ func NewAPIBinder(
 	return c, nil
 }
 
-type thisWorkspaceResource = committer.Resource[*tenancyv1alpha1.ThisWorkspaceSpec, *tenancyv1alpha1.ThisWorkspaceStatus]
+type logicalClusterResource = committer.Resource[*corev1alpha1.LogicalClusterSpec, *corev1alpha1.LogicalClusterStatus]
 
 // APIBinder is a controller which instantiates APIBindings and waits for them to be fully bound
 // in new ClusterWorkspaces.
 type APIBinder struct {
 	queue workqueue.RateLimitingInterface
 
-	getThisWorkspace        func(clusterName logicalcluster.Name) (*tenancyv1alpha1.ThisWorkspace, error)
+	getLogicalCluster       func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error)
 	getClusterWorkspaceType func(clusterName logicalcluster.Path, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error)
-	listThisWorkspaces      func() ([]*tenancyv1alpha1.ThisWorkspace, error)
+	listLogicalClusters     func() ([]*corev1alpha1.LogicalCluster, error)
 
 	listAPIBindings  func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
 	getAPIBinding    func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error)
@@ -169,21 +171,21 @@ type APIBinder struct {
 	transitiveTypeResolver transitiveTypeResolver
 
 	// commit creates a patch and submits it, if needed.
-	commit func(ctx context.Context, new, old *thisWorkspaceResource) error
+	commit func(ctx context.Context, new, old *logicalClusterResource) error
 }
 
 type transitiveTypeResolver interface {
 	Resolve(t *tenancyv1alpha1.ClusterWorkspaceType) ([]*tenancyv1alpha1.ClusterWorkspaceType, error)
 }
 
-func (b *APIBinder) enqueueThisWorkspace(obj interface{}, logger logr.Logger) {
+func (b *APIBinder) enqueueLogicalCluster(obj interface{}, logger logr.Logger) {
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
-	logging.WithQueueKey(logger, key).V(2).Info("queueing ThisWorkspace")
+	logging.WithQueueKey(logger, key).V(2).Info("queueing LogicalCluster")
 	b.queue.Add(key)
 }
 
@@ -197,17 +199,17 @@ func (b *APIBinder) enqueueAPIBinding(obj interface{}, logger logr.Logger) {
 	logger = logging.WithObject(logger, apiBinding)
 
 	clusterName := logicalcluster.From(apiBinding)
-	this, err := b.getThisWorkspace(clusterName)
+	this, err := b.getLogicalCluster(clusterName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// The workspace was deleted or is no longer initializing, so we can safely ignore this event.
 			return
 		}
-		logger.Error(err, "failed to get ThisWorkspace from lister", "cluster", clusterName)
+		logger.Error(err, "failed to get LogicalCluster from lister", "cluster", clusterName)
 		return // nothing we can do here
 	}
 
-	b.enqueueThisWorkspace(this, logger)
+	b.enqueueLogicalCluster(this, logger)
 }
 
 // enqueueClusterWorkspaceType enqueues all clusterworkspaces (which are only those that are initializing, because of
@@ -226,14 +228,14 @@ func (b *APIBinder) enqueueClusterWorkspaceType(obj interface{}, logger logr.Log
 		return
 	}
 
-	list, err := b.listThisWorkspaces()
+	list, err := b.listLogicalClusters()
 	if err != nil {
 		runtime.HandleError(fmt.Errorf("error listing clusterworkspaces: %w", err))
 	}
 
 	for _, ws := range list {
 		logger := logging.WithObject(logger, ws)
-		b.enqueueThisWorkspace(ws, logger)
+		b.enqueueLogicalCluster(ws, logger)
 	}
 }
 
@@ -296,30 +298,30 @@ func (b *APIBinder) process(ctx context.Context, key string) error {
 		return nil
 	}
 
-	thisWorkspace, err := b.getThisWorkspace(clusterName)
+	logicalCluster, err := b.getLogicalCluster(clusterName)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
-			logger.Error(err, "failed to get ThisWorkspace from lister", "cluster", clusterName)
+			logger.Error(err, "failed to get LogicalCluster from lister", "cluster", clusterName)
 		}
 
 		return nil // nothing we can do here
 	}
 
-	old := thisWorkspace
-	thisWorkspace = thisWorkspace.DeepCopy()
+	old := logicalCluster
+	logicalCluster = logicalCluster.DeepCopy()
 
-	logger = logging.WithObject(logger, thisWorkspace)
+	logger = logging.WithObject(logger, logicalCluster)
 	ctx = klog.NewContext(ctx, logger)
 
 	var errs []error
-	err = b.reconcile(ctx, thisWorkspace)
+	err = b.reconcile(ctx, logicalCluster)
 	if err != nil {
 		errs = append(errs, err)
 	}
 
 	// If the object being reconciled changed as a result, update it.
-	oldResource := &thisWorkspaceResource{ObjectMeta: old.ObjectMeta, Spec: &old.Spec, Status: &old.Status}
-	newResource := &thisWorkspaceResource{ObjectMeta: thisWorkspace.ObjectMeta, Spec: &thisWorkspace.Spec, Status: &thisWorkspace.Status}
+	oldResource := &logicalClusterResource{ObjectMeta: old.ObjectMeta, Spec: &old.Spec, Status: &old.Status}
+	newResource := &logicalClusterResource{ObjectMeta: logicalCluster.ObjectMeta, Spec: &logicalCluster.Spec, Status: &logicalCluster.Status}
 	if err := b.commit(ctx, oldResource, newResource); err != nil {
 		errs = append(errs, err)
 	}

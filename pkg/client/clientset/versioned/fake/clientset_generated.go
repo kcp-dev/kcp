@@ -30,6 +30,8 @@ import (
 	fakeapiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apiresource/v1alpha1/fake"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apis/v1alpha1"
 	fakeapisv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apis/v1alpha1/fake"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/core/v1alpha1"
+	fakecorev1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/core/v1alpha1/fake"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/scheduling/v1alpha1"
 	fakeschedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/scheduling/v1alpha1/fake"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
@@ -100,6 +102,11 @@ func (c *Clientset) ApiresourceV1alpha1() apiresourcev1alpha1.ApiresourceV1alpha
 // ApisV1alpha1 retrieves the ApisV1alpha1Client
 func (c *Clientset) ApisV1alpha1() apisv1alpha1.ApisV1alpha1Interface {
 	return &fakeapisv1alpha1.FakeApisV1alpha1{Fake: &c.Fake}
+}
+
+// CoreV1alpha1 retrieves the CoreV1alpha1Client
+func (c *Clientset) CoreV1alpha1() corev1alpha1.CoreV1alpha1Interface {
+	return &fakecorev1alpha1.FakeCoreV1alpha1{Fake: &c.Fake}
 }
 
 // SchedulingV1alpha1 retrieves the SchedulingV1alpha1Client

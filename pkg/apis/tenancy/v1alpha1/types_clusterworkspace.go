@@ -238,7 +238,7 @@ const (
 	// WorkspaceInitializedInitializerExists reason in WorkspaceInitialized condition means that there is at least
 	// one initializer still left.
 	WorkspaceInitializedInitializerExists = "InitializerExists"
-	// WorkspaceInitializedWorkspaceDisappeared reason in WorkspaceInitialized condition means that the ThisWorkspace
+	// WorkspaceInitializedWorkspaceDisappeared reason in WorkspaceInitialized condition means that the LogicalCluster
 	// object has disappeared.
 	WorkspaceInitializedWorkspaceDisappeared = "WorkspaceDisappeared"
 

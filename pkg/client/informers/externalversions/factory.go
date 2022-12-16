@@ -38,6 +38,7 @@ import (
 	clientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	apiresourceinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource"
 	apisinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis"
+	coreinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/core"
 	"github.com/kcp-dev/kcp/pkg/client/informers/externalversions/internalinterfaces"
 	schedulinginformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/scheduling"
 	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy"
@@ -189,6 +190,7 @@ type SharedInformerFactory interface {
 
 	Apiresource() apiresourceinformers.ClusterInterface
 	Apis() apisinformers.ClusterInterface
+	Core() coreinformers.ClusterInterface
 	Scheduling() schedulinginformers.ClusterInterface
 	Tenancy() tenancyinformers.ClusterInterface
 	Topology() topologyinformers.ClusterInterface
@@ -201,6 +203,10 @@ func (f *sharedInformerFactory) Apiresource() apiresourceinformers.ClusterInterf
 
 func (f *sharedInformerFactory) Apis() apisinformers.ClusterInterface {
 	return apisinformers.New(f, f.tweakListOptions)
+}
+
+func (f *sharedInformerFactory) Core() coreinformers.ClusterInterface {
+	return coreinformers.New(f, f.tweakListOptions)
 }
 
 func (f *sharedInformerFactory) Scheduling() schedulinginformers.ClusterInterface {
@@ -364,6 +370,7 @@ type SharedScopedInformerFactory interface {
 
 	Apiresource() apiresourceinformers.Interface
 	Apis() apisinformers.Interface
+	Core() coreinformers.Interface
 	Scheduling() schedulinginformers.Interface
 	Tenancy() tenancyinformers.Interface
 	Topology() topologyinformers.Interface
@@ -376,6 +383,10 @@ func (f *sharedScopedInformerFactory) Apiresource() apiresourceinformers.Interfa
 
 func (f *sharedScopedInformerFactory) Apis() apisinformers.Interface {
 	return apisinformers.NewScoped(f, f.namespace, f.tweakListOptions)
+}
+
+func (f *sharedScopedInformerFactory) Core() coreinformers.Interface {
+	return coreinformers.NewScoped(f, f.namespace, f.tweakListOptions)
 }
 
 func (f *sharedScopedInformerFactory) Scheduling() schedulinginformers.Interface {

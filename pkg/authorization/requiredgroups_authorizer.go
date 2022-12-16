@@ -29,9 +29,9 @@ import (
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
-	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
 )
 
 const (
@@ -45,17 +45,17 @@ const (
 )
 
 // NewRequiredGroupsAuthorizer returns an authorizer that a set of groups stored
-// on the ThisWorkspace object. Service account by-pass this.
-func NewRequiredGroupsAuthorizer(thisWorkspaceLister tenancyv1alpha1listers.ThisWorkspaceClusterLister, delegate authorizer.Authorizer) authorizer.Authorizer {
+// on the LogicalCluster object. Service account by-pass this.
+func NewRequiredGroupsAuthorizer(logicalClusterLister corev1alpha1listers.LogicalClusterClusterLister, delegate authorizer.Authorizer) authorizer.Authorizer {
 	return &requiredGroupsAuthorizer{
-		thisWorkspaceLister: thisWorkspaceLister,
-		delegate:            delegate,
+		logicalClusterLister: logicalClusterLister,
+		delegate:             delegate,
 	}
 }
 
 type requiredGroupsAuthorizer struct {
-	thisWorkspaceLister tenancyv1alpha1listers.ThisWorkspaceClusterLister
-	delegate            authorizer.Authorizer
+	logicalClusterLister corev1alpha1listers.LogicalClusterClusterLister
+	delegate             authorizer.Authorizer
 }
 
 func (a *requiredGroupsAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
@@ -88,8 +88,8 @@ func (a *requiredGroupsAuthorizer) Authorize(ctx context.Context, attr authorize
 		return a.delegate.Authorize(ctx, attr)
 
 	case isUser:
-		// get ThisWorkspace with required group annotation
-		this, err := a.thisWorkspaceLister.Cluster(cluster.Name).Get(tenancyv1alpha1.ThisWorkspaceName)
+		// get LogicalCluster with required group annotation
+		this, err := a.logicalClusterLister.Cluster(cluster.Name).Get(corev1alpha1.LogicalClusterName)
 		if err != nil {
 			if errors.IsNotFound(err) {
 				return authorizer.DecisionNoOpinion, "this workspace not found", nil

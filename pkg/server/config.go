@@ -381,7 +381,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 		apiHandler = WithClusterWorkspaceProjection(apiHandler)
 		apiHandler = kcpfilters.WithAuditEventClusterAnnotation(apiHandler)
 		apiHandler = WithAuditAnnotation(apiHandler) // Must run before any audit annotation is made
-		apiHandler = WithLocalProxy(apiHandler, opts.Extra.ShardName, opts.Extra.ShardBaseURL, c.KcpSharedInformerFactory.Tenancy().V1beta1().Workspaces(), c.KcpSharedInformerFactory.Tenancy().V1alpha1().ThisWorkspaces())
+		apiHandler = WithLocalProxy(apiHandler, opts.Extra.ShardName, opts.Extra.ShardBaseURL, c.KcpSharedInformerFactory.Tenancy().V1beta1().Workspaces(), c.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters())
 		apiHandler = WithInClusterServiceAccountRequestRewrite(apiHandler)
 		apiHandler = kcpfilters.WithAcceptHeader(apiHandler)
 		apiHandler = WithUserAgent(apiHandler)

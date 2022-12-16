@@ -38,10 +38,12 @@ import (
 
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	"github.com/kcp-dev/kcp/pkg/apis/core"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
+	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
 	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 )
@@ -87,7 +89,7 @@ type clusterWorkspaceTypeExists struct {
 
 	typeIndexer            cache.Indexer
 	typeLister             tenancyv1alpha1listers.ClusterWorkspaceTypeClusterLister
-	thisWorkspaceLister    tenancyv1alpha1listers.ThisWorkspaceClusterLister
+	logicalClusterLister   corev1alpha1listers.LogicalClusterClusterLister
 	deepSARClient          kcpkubernetesclientset.ClusterInterface
 	transitiveTypeResolver TransitiveTypeResolver
 
@@ -131,7 +133,7 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 	}
 
 	if a.GetOperation() == admission.Create {
-		this, err := o.thisWorkspaceLister.Cluster(clusterName).Get(tenancyv1alpha1.ThisWorkspaceName)
+		this, err := o.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 		if err != nil {
 			return admission.NewForbidden(a, fmt.Errorf("workspace type canot be resolved: %w", err))
 		}
@@ -139,13 +141,13 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 		// if the user has not provided any type, use the default from the parent workspace
 		empty := tenancyv1beta1.WorkspaceTypeReference{}
 		if ws.Spec.Type == empty {
-			typeAnnotation, found := this.Annotations[tenancyv1alpha1.ThisWorkspaceTypeAnnotationKey]
+			typeAnnotation, found := this.Annotations[corev1alpha1.LogicalClusterTypeAnnotationKey]
 			if !found {
-				return admission.NewForbidden(a, fmt.Errorf("annotation %s on ThisWorkspace must be set", tenancyv1alpha1.ThisWorkspaceTypeAnnotationKey))
+				return admission.NewForbidden(a, fmt.Errorf("annotation %s on LogicalCluster must be set", corev1alpha1.LogicalClusterTypeAnnotationKey))
 			}
 			cwtWorkspace, cwtName := logicalcluster.NewPath(typeAnnotation).Split()
 			if cwtWorkspace.Empty() {
-				return admission.NewForbidden(a, fmt.Errorf("annotation %s on ThisWorkspace must be in the form of cluster:name", tenancyv1alpha1.ThisWorkspaceTypeAnnotationKey))
+				return admission.NewForbidden(a, fmt.Errorf("annotation %s on LogicalCluster must be in the form of cluster:name", corev1alpha1.LogicalClusterTypeAnnotationKey))
 			}
 			parentCwt, err := o.getType(cwtWorkspace, cwtName)
 			if err != nil {
@@ -321,17 +323,17 @@ func (o *clusterWorkspaceTypeExists) Validate(ctx context.Context, a admission.A
 		}
 
 		// validate whether the workspace type is allowed in its parent, and the workspace type allows that parent
-		this, err := o.thisWorkspaceLister.Cluster(clusterName).Get(tenancyv1alpha1.ThisWorkspaceName)
+		this, err := o.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 		if err != nil {
 			return admission.NewForbidden(a, fmt.Errorf("workspace type canot be resolved: %w", err))
 		}
-		typeAnnotation, found := this.Annotations[tenancyv1alpha1.ThisWorkspaceTypeAnnotationKey]
+		typeAnnotation, found := this.Annotations[corev1alpha1.LogicalClusterTypeAnnotationKey]
 		if !found {
-			return admission.NewForbidden(a, fmt.Errorf("annotation %s on ThisWorkspace must be set", tenancyv1alpha1.ThisWorkspaceTypeAnnotationKey))
+			return admission.NewForbidden(a, fmt.Errorf("annotation %s on LogicalCluster must be set", corev1alpha1.LogicalClusterTypeAnnotationKey))
 		}
 		cwtWorkspace, cwtName := logicalcluster.NewPath(typeAnnotation).Split()
 		if cwtWorkspace.Empty() {
-			return admission.NewForbidden(a, fmt.Errorf("annotation %s on ThisWorkspace must be in the form of cluster:name", tenancyv1alpha1.ThisWorkspaceTypeAnnotationKey))
+			return admission.NewForbidden(a, fmt.Errorf("annotation %s on LogicalCluster must be in the form of cluster:name", corev1alpha1.LogicalClusterTypeAnnotationKey))
 		}
 		parentCwt, err := o.getType(cwtWorkspace, cwtName)
 		if err != nil {
@@ -359,21 +361,21 @@ func (o *clusterWorkspaceTypeExists) ValidateInitialization() error {
 	if o.typeLister == nil {
 		return fmt.Errorf(PluginName + " plugin needs an ClusterWorkspaceType lister")
 	}
-	if o.thisWorkspaceLister == nil {
-		return fmt.Errorf(PluginName + " plugin needs an ThisWorkspace lister")
+	if o.logicalClusterLister == nil {
+		return fmt.Errorf(PluginName + " plugin needs an LogicalCluster lister")
 	}
 	return nil
 }
 
 func (o *clusterWorkspaceTypeExists) SetKcpInformers(informers kcpinformers.SharedInformerFactory) {
 	typesReady := informers.Tenancy().V1alpha1().ClusterWorkspaceTypes().Informer().HasSynced
-	thisWorkspacesReady := informers.Tenancy().V1alpha1().ThisWorkspaces().Informer().HasSynced
+	logicalClusterReady := informers.Core().V1alpha1().LogicalClusters().Informer().HasSynced
 	o.SetReadyFunc(func() bool {
-		return typesReady() && thisWorkspacesReady()
+		return typesReady() && logicalClusterReady()
 	})
 	o.typeLister = informers.Tenancy().V1alpha1().ClusterWorkspaceTypes().Lister()
 	o.typeIndexer = informers.Tenancy().V1alpha1().ClusterWorkspaceTypes().Informer().GetIndexer()
-	o.thisWorkspaceLister = informers.Tenancy().V1alpha1().ThisWorkspaces().Lister()
+	o.logicalClusterLister = informers.Core().V1alpha1().LogicalClusters().Lister()
 
 	indexers.AddIfNotPresentOrDie(informers.Tenancy().V1alpha1().ClusterWorkspaceTypes().Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,

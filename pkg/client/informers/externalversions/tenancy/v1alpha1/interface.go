@@ -32,8 +32,6 @@ type ClusterInterface interface {
 	ClusterWorkspaceShards() ClusterWorkspaceShardClusterInformer
 	// ClusterWorkspaceTypes returns a ClusterWorkspaceTypeClusterInformer
 	ClusterWorkspaceTypes() ClusterWorkspaceTypeClusterInformer
-	// ThisWorkspaces returns a ThisWorkspaceClusterInformer
-	ThisWorkspaces() ThisWorkspaceClusterInformer
 }
 
 type version struct {
@@ -61,11 +59,6 @@ func (v *version) ClusterWorkspaceTypes() ClusterWorkspaceTypeClusterInformer {
 	return &clusterWorkspaceTypeClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// ThisWorkspaces returns a ThisWorkspaceClusterInformer
-func (v *version) ThisWorkspaces() ThisWorkspaceClusterInformer {
-	return &thisWorkspaceClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
-}
-
 type Interface interface {
 	// ClusterWorkspaces returns a ClusterWorkspaceInformer
 	ClusterWorkspaces() ClusterWorkspaceInformer
@@ -73,8 +66,6 @@ type Interface interface {
 	ClusterWorkspaceShards() ClusterWorkspaceShardInformer
 	// ClusterWorkspaceTypes returns a ClusterWorkspaceTypeInformer
 	ClusterWorkspaceTypes() ClusterWorkspaceTypeInformer
-	// ThisWorkspaces returns a ThisWorkspaceInformer
-	ThisWorkspaces() ThisWorkspaceInformer
 }
 
 type scopedVersion struct {
@@ -101,9 +92,4 @@ func (v *scopedVersion) ClusterWorkspaceShards() ClusterWorkspaceShardInformer {
 // ClusterWorkspaceTypes returns a ClusterWorkspaceTypeInformer
 func (v *scopedVersion) ClusterWorkspaceTypes() ClusterWorkspaceTypeInformer {
 	return &clusterWorkspaceTypeScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
-}
-
-// ThisWorkspaces returns a ThisWorkspaceInformer
-func (v *scopedVersion) ThisWorkspaces() ThisWorkspaceInformer {
-	return &thisWorkspaceScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }

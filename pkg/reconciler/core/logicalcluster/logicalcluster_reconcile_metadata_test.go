@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package thisworkspace
+package logicalcluster
 
 import (
 	"context"
@@ -26,6 +26,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
 
@@ -35,14 +36,14 @@ func TestReconcileMetadata(t *testing.T) {
 
 	for _, testCase := range []struct {
 		name       string
-		input      *tenancyv1alpha1.ThisWorkspace
+		input      *corev1alpha1.LogicalCluster
 		expected   metav1.ObjectMeta
 		wantStatus reconcileStatus
 	}{
 		{
 			name: "adds entirely missing labels and annotations",
-			input: &tenancyv1alpha1.ThisWorkspace{
-				Status: tenancyv1alpha1.ThisWorkspaceStatus{
+			input: &corev1alpha1.LogicalCluster{
+				Status: corev1alpha1.LogicalClusterStatus{
 					Phase: tenancyv1alpha1.WorkspacePhaseReady,
 					Initializers: []tenancyv1alpha1.WorkspaceInitializer{
 						"pluto", "venus", "apollo",
@@ -61,11 +62,11 @@ func TestReconcileMetadata(t *testing.T) {
 		},
 		{
 			name: "shows phase Deleting when deletion timestamp is set",
-			input: &tenancyv1alpha1.ThisWorkspace{
+			input: &corev1alpha1.LogicalCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					DeletionTimestamp: &metav1.Time{Time: date},
 				},
-				Status: tenancyv1alpha1.ThisWorkspaceStatus{
+				Status: corev1alpha1.LogicalClusterStatus{
 					Phase: tenancyv1alpha1.WorkspacePhaseReady,
 				},
 			},
@@ -79,7 +80,7 @@ func TestReconcileMetadata(t *testing.T) {
 		},
 		{
 			name: "adds partially missing labels",
-			input: &tenancyv1alpha1.ThisWorkspace{
+			input: &corev1alpha1.LogicalCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						"tenancy.kcp.dev/phase": "Ready",
@@ -87,7 +88,7 @@ func TestReconcileMetadata(t *testing.T) {
 						"initializer.internal.kcp.dev/aceeb26461953562d30366db65b200f642": "aceeb26461953562d30366db65b200f64241f9e5fe888892d52eea5c",
 					},
 				},
-				Status: tenancyv1alpha1.ThisWorkspaceStatus{
+				Status: corev1alpha1.LogicalClusterStatus{
 					Phase: tenancyv1alpha1.WorkspacePhaseReady,
 					Initializers: []tenancyv1alpha1.WorkspaceInitializer{
 						"pluto", "venus", "apollo",
@@ -106,7 +107,7 @@ func TestReconcileMetadata(t *testing.T) {
 		},
 		{
 			name: "removes previously-needed labels removed on mutation that removes initializer",
-			input: &tenancyv1alpha1.ThisWorkspace{
+			input: &corev1alpha1.LogicalCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						"tenancy.kcp.dev/phase": "Ready",
@@ -114,7 +115,7 @@ func TestReconcileMetadata(t *testing.T) {
 						"initializer.internal.kcp.dev/aceeb26461953562d30366db65b200f642": "aceeb26461953562d30366db65b200f64241f9e5fe888892d52eea5c",
 					},
 				},
-				Status: tenancyv1alpha1.ThisWorkspaceStatus{
+				Status: corev1alpha1.LogicalClusterStatus{
 					Phase: tenancyv1alpha1.WorkspacePhaseReady,
 					Initializers: []tenancyv1alpha1.WorkspaceInitializer{
 						"pluto",
@@ -131,7 +132,7 @@ func TestReconcileMetadata(t *testing.T) {
 		},
 		{
 			name: "does nothing when labels match",
-			input: &tenancyv1alpha1.ThisWorkspace{
+			input: &corev1alpha1.LogicalCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						"tenancy.kcp.dev/phase": "Ready",
@@ -140,7 +141,7 @@ func TestReconcileMetadata(t *testing.T) {
 						"initializer.internal.kcp.dev/ccf53a4988ae8515ee77131ef507cabaf1": "ccf53a4988ae8515ee77131ef507cabaf18822766c2a4cff33b24eb8",
 					},
 				},
-				Status: tenancyv1alpha1.ThisWorkspaceStatus{
+				Status: corev1alpha1.LogicalClusterStatus{
 					Phase: tenancyv1alpha1.WorkspacePhaseReady,
 					Initializers: []tenancyv1alpha1.WorkspaceInitializer{
 						"pluto", "venus", "apollo",
@@ -159,7 +160,7 @@ func TestReconcileMetadata(t *testing.T) {
 		},
 		{
 			name: "removes everything but owner username when ready",
-			input: &tenancyv1alpha1.ThisWorkspace{
+			input: &corev1alpha1.LogicalCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						"tenancy.kcp.dev/phase": "Ready",
@@ -169,7 +170,7 @@ func TestReconcileMetadata(t *testing.T) {
 						"experimental.tenancy.kcp.dev/owner": `{"username":"user-1","groups":["a","b"],"uid":"123","extra":{"c":["d"]}}`,
 					},
 				},
-				Status: tenancyv1alpha1.ThisWorkspaceStatus{
+				Status: corev1alpha1.LogicalClusterStatus{
 					Phase: tenancyv1alpha1.WorkspacePhaseReady,
 				},
 			},
@@ -186,7 +187,7 @@ func TestReconcileMetadata(t *testing.T) {
 		},
 		{
 			name: "delete invalid owner annotation when ready",
-			input: &tenancyv1alpha1.ThisWorkspace{
+			input: &corev1alpha1.LogicalCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						"tenancy.kcp.dev/phase": "Ready",
@@ -196,7 +197,7 @@ func TestReconcileMetadata(t *testing.T) {
 						"experimental.tenancy.kcp.dev/owner": `{"username":}`,
 					},
 				},
-				Status: tenancyv1alpha1.ThisWorkspaceStatus{
+				Status: corev1alpha1.LogicalClusterStatus{
 					Phase: tenancyv1alpha1.WorkspacePhaseReady,
 				},
 			},

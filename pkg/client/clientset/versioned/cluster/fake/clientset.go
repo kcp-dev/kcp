@@ -35,6 +35,8 @@ import (
 	fakeapiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/apiresource/v1alpha1/fake"
 	kcpapisv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/apis/v1alpha1"
 	fakeapisv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/apis/v1alpha1/fake"
+	kcpcorev1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/core/v1alpha1"
+	fakecorev1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/core/v1alpha1/fake"
 	kcpschedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/scheduling/v1alpha1"
 	fakeschedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/scheduling/v1alpha1/fake"
 	kcptenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/tenancy/v1alpha1"
@@ -48,6 +50,7 @@ import (
 	clientscheme "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/scheme"
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apis/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/core/v1alpha1"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/scheduling/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/tenancy/v1beta1"
@@ -97,6 +100,11 @@ func (c *ClusterClientset) ApiresourceV1alpha1() kcpapiresourcev1alpha1.Apiresou
 // ApisV1alpha1 retrieves the ApisV1alpha1ClusterClient.
 func (c *ClusterClientset) ApisV1alpha1() kcpapisv1alpha1.ApisV1alpha1ClusterInterface {
 	return &fakeapisv1alpha1.ApisV1alpha1ClusterClient{Fake: c.Fake}
+}
+
+// CoreV1alpha1 retrieves the CoreV1alpha1ClusterClient.
+func (c *ClusterClientset) CoreV1alpha1() kcpcorev1alpha1.CoreV1alpha1ClusterInterface {
+	return &fakecorev1alpha1.CoreV1alpha1ClusterClient{Fake: c.Fake}
 }
 
 // SchedulingV1alpha1 retrieves the SchedulingV1alpha1ClusterClient.
@@ -164,6 +172,11 @@ func (c *Clientset) ApiresourceV1alpha1() apiresourcev1alpha1.ApiresourceV1alpha
 // ApisV1alpha1 retrieves the ApisV1alpha1Client.
 func (c *Clientset) ApisV1alpha1() apisv1alpha1.ApisV1alpha1Interface {
 	return &fakeapisv1alpha1.ApisV1alpha1Client{Fake: c.Fake, ClusterPath: c.clusterPath}
+}
+
+// CoreV1alpha1 retrieves the CoreV1alpha1Client.
+func (c *Clientset) CoreV1alpha1() corev1alpha1.CoreV1alpha1Interface {
+	return &fakecorev1alpha1.CoreV1alpha1Client{Fake: c.Fake, ClusterPath: c.clusterPath}
 }
 
 // SchedulingV1alpha1 retrieves the SchedulingV1alpha1Client.

@@ -42,6 +42,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspacetypeexists"
 	"github.com/kcp-dev/kcp/pkg/apis/core"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
@@ -54,7 +55,7 @@ import (
 )
 
 const (
-	// workspaceShardAnnotationKey keeps track on which shard ThisWorkspace must be scheduled. The value
+	// workspaceShardAnnotationKey keeps track on which shard LogicalCluster must be scheduled. The value
 	// is a base36(sha224) hash of the ClusterWorkspaceShard name.
 	workspaceShardAnnotationKey = "internal.tenancy.kcp.dev/shard"
 	// workspaceClusterAnnotationKey keeps track of the logical cluster on the shard.
@@ -70,7 +71,7 @@ type schedulingReconciler struct {
 
 	getClusterWorkspaceType func(clusterName logicalcluster.Path, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error)
 
-	getThisWorkspace func(clusterName logicalcluster.Name) (*tenancyv1alpha1.ThisWorkspace, error)
+	getLogicalCluster func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error)
 
 	transitiveTypeResolver clusterworkspacetypeexists.TransitiveTypeResolver
 
@@ -86,13 +87,13 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 		shardNameHash, hasShard := workspace.Annotations[workspaceShardAnnotationKey]
 		clusterNameString, hasCluster := workspace.Annotations[workspaceClusterAnnotationKey]
 		clusterName := logicalcluster.Name(clusterNameString)
-		hasFinalizer := sets.NewString(workspace.Finalizers...).Has(tenancyv1alpha1.ThisWorkspaceFinalizer)
+		hasFinalizer := sets.NewString(workspace.Finalizers...).Has(corev1alpha1.LogicalClusterFinalizer)
 
-		parentThis, err := r.getThisWorkspace(logicalcluster.From(workspace))
+		parentThis, err := r.getLogicalCluster(logicalcluster.From(workspace))
 		if err != nil && !apierrors.IsNotFound(err) {
 			return reconcileStatusStopAndRequeue, err
 		} else if apierrors.IsNotFound(err) {
-			return reconcileStatusStopAndRequeue, nil // wait for parent ThisWorkspace to be created
+			return reconcileStatusStopAndRequeue, nil // wait for parent LogicalCluster to be created
 		}
 
 		if !hasShard {
@@ -117,7 +118,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 			workspace.Annotations[workspaceClusterAnnotationKey] = cluster.String()
 		}
 		if !hasFinalizer {
-			workspace.Finalizers = append(workspace.Finalizers, tenancyv1alpha1.ThisWorkspaceFinalizer)
+			workspace.Finalizers = append(workspace.Finalizers, corev1alpha1.LogicalClusterFinalizer)
 		}
 		if !hasShard || !hasCluster || !hasFinalizer {
 			// this is the first part of our two-phase commit
@@ -138,17 +139,17 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 			return reconcileStatusContinue, nil
 		}
 
-		if err := r.createThisWorkspace(ctx, shard, clusterName.Path(), parentThis, workspace); err != nil && !apierrors.IsAlreadyExists(err) {
+		if err := r.createLogicalCluster(ctx, shard, clusterName.Path(), parentThis, workspace); err != nil && !apierrors.IsAlreadyExists(err) {
 			return reconcileStatusStopAndRequeue, err
 		} else if apierrors.IsAlreadyExists(err) {
-			// we have checked in createThisWorkspace that this is a logicalcluster from another owner. Let's choose another cluster name.
+			// we have checked in createLogicalCluster that this is a logicalcluster from another owner. Let's choose another cluster name.
 			delete(workspace.Annotations, workspaceClusterAnnotationKey)
 			return reconcileStatusStopAndRequeue, nil
 		}
-		if err := r.createClusterRoleBindingForThisWorkspace(ctx, shard, clusterName.Path(), workspace); err != nil && !apierrors.IsAlreadyExists(err) {
+		if err := r.createClusterRoleBindingForLogicalCluster(ctx, shard, clusterName.Path(), workspace); err != nil && !apierrors.IsAlreadyExists(err) {
 			return reconcileStatusStopAndRequeue, err
 		}
-		if err := r.updateThisWorkspacePhase(ctx, shard, clusterName.Path(), tenancyv1alpha1.WorkspacePhaseInitializing); err != nil {
+		if err := r.updateLogicalClusterPhase(ctx, shard, clusterName.Path(), tenancyv1alpha1.WorkspacePhaseInitializing); err != nil {
 			return reconcileStatusStopAndRequeue, err
 		}
 
@@ -245,25 +246,25 @@ func (r *schedulingReconciler) chooseShardAndMarkCondition(logger klog.Logger, w
 	return targetShard.Name, nil
 }
 
-func (r *schedulingReconciler) createThisWorkspace(ctx context.Context, shard *tenancyv1alpha1.ClusterWorkspaceShard, cluster logicalcluster.Path, parent *tenancyv1alpha1.ThisWorkspace, workspace *tenancyv1beta1.Workspace) error {
+func (r *schedulingReconciler) createLogicalCluster(ctx context.Context, shard *tenancyv1alpha1.ClusterWorkspaceShard, cluster logicalcluster.Path, parent *corev1alpha1.LogicalCluster, workspace *tenancyv1beta1.Workspace) error {
 	canonicalPath := logicalcluster.From(workspace).Path().Join(workspace.Name)
 	if parent != nil {
 		if parentPath := parent.Annotations[core.LogicalClusterPathAnnotationKey]; parentPath != "" {
 			canonicalPath = logicalcluster.NewPath(parent.Annotations[core.LogicalClusterPathAnnotationKey]).Join(workspace.Name)
 		}
 	}
-	this := &tenancyv1alpha1.ThisWorkspace{
+	this := &corev1alpha1.LogicalCluster{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:       tenancyv1alpha1.ThisWorkspaceName,
+			Name:       corev1alpha1.LogicalClusterName,
 			Finalizers: []string{deletion.WorkspaceFinalizer},
 			Annotations: map[string]string{
 				tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey: workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey],
-				tenancyv1alpha1.ThisWorkspaceTypeAnnotationKey:          logicalcluster.NewPath(workspace.Spec.Type.Path).Join(string(workspace.Spec.Type.Name)).String(),
+				corev1alpha1.LogicalClusterTypeAnnotationKey:            logicalcluster.NewPath(workspace.Spec.Type.Path).Join(string(workspace.Spec.Type.Name)).String(),
 				core.LogicalClusterPathAnnotationKey:                    canonicalPath.String(),
 			},
 		},
-		Spec: tenancyv1alpha1.ThisWorkspaceSpec{
-			Owner: &tenancyv1alpha1.ThisWorkspaceOwner{
+		Spec: corev1alpha1.LogicalClusterSpec{
+			Owner: &corev1alpha1.LogicalClusterOwner{
 				APIVersion: tenancyv1beta1.SchemeGroupVersion.String(),
 				Resource:   "workspaces",
 				Name:       workspace.Name,
@@ -303,10 +304,10 @@ func (r *schedulingReconciler) createThisWorkspace(ctx context.Context, shard *t
 	if err != nil {
 		return err
 	}
-	_, err = logicalClusterAdminClient.Cluster(cluster).TenancyV1alpha1().ThisWorkspaces().Create(ctx, this, metav1.CreateOptions{})
+	_, err = logicalClusterAdminClient.Cluster(cluster).CoreV1alpha1().LogicalClusters().Create(ctx, this, metav1.CreateOptions{})
 
 	if apierrors.IsAlreadyExists(err) {
-		existing, getErr := logicalClusterAdminClient.Cluster(cluster).TenancyV1alpha1().ThisWorkspaces().Get(ctx, tenancyv1alpha1.ThisWorkspaceName, metav1.GetOptions{})
+		existing, getErr := logicalClusterAdminClient.Cluster(cluster).CoreV1alpha1().LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{})
 		if getErr != nil {
 			return getErr
 		}
@@ -318,21 +319,21 @@ func (r *schedulingReconciler) createThisWorkspace(ctx context.Context, shard *t
 	return err
 }
 
-func (r *schedulingReconciler) updateThisWorkspacePhase(ctx context.Context, shard *tenancyv1alpha1.ClusterWorkspaceShard, cluster logicalcluster.Path, phase tenancyv1alpha1.WorkspacePhaseType) error {
+func (r *schedulingReconciler) updateLogicalClusterPhase(ctx context.Context, shard *tenancyv1alpha1.ClusterWorkspaceShard, cluster logicalcluster.Path, phase tenancyv1alpha1.WorkspacePhaseType) error {
 	logicalClusterAdminClient, err := r.kcpLogicalClusterAdminClientFor(shard)
 	if err != nil {
 		return err
 	}
-	this, err := logicalClusterAdminClient.Cluster(cluster).TenancyV1alpha1().ThisWorkspaces().Get(ctx, tenancyv1alpha1.ThisWorkspaceName, metav1.GetOptions{})
+	this, err := logicalClusterAdminClient.Cluster(cluster).CoreV1alpha1().LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
 	this.Status.Phase = phase
-	_, err = logicalClusterAdminClient.Cluster(cluster).TenancyV1alpha1().ThisWorkspaces().UpdateStatus(ctx, this, metav1.UpdateOptions{})
+	_, err = logicalClusterAdminClient.Cluster(cluster).CoreV1alpha1().LogicalClusters().UpdateStatus(ctx, this, metav1.UpdateOptions{})
 	return err
 }
 
-func (r *schedulingReconciler) createClusterRoleBindingForThisWorkspace(ctx context.Context, shard *tenancyv1alpha1.ClusterWorkspaceShard, cluster logicalcluster.Path, workspace *tenancyv1beta1.Workspace) error {
+func (r *schedulingReconciler) createClusterRoleBindingForLogicalCluster(ctx context.Context, shard *tenancyv1alpha1.ClusterWorkspaceShard, cluster logicalcluster.Path, workspace *tenancyv1beta1.Workspace) error {
 	ownerAnnotation, found := workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey]
 	if !found {
 		return fmt.Errorf("unable to find required %q owner annotation on %q workspace", tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey, workspace.Name)

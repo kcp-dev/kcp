@@ -25,6 +25,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
 
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
@@ -32,7 +33,7 @@ import (
 )
 
 type phaseReconciler struct {
-	getThisWorkspace func(ctx context.Context, cluster logicalcluster.Path) (*tenancyv1alpha1.ThisWorkspace, error)
+	getLogicalCluster func(ctx context.Context, cluster logicalcluster.Path) (*corev1alpha1.LogicalCluster, error)
 
 	requeueAfter func(workspace *tenancyv1beta1.Workspace, after time.Duration)
 }
@@ -48,12 +49,12 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1bet
 	case tenancyv1alpha1.WorkspacePhaseInitializing:
 		logger = logger.WithValues("cluster", workspace.Status.Cluster)
 
-		this, err := r.getThisWorkspace(ctx, logicalcluster.NewPath(workspace.Status.Cluster))
+		this, err := r.getLogicalCluster(ctx, logicalcluster.NewPath(workspace.Status.Cluster))
 		if err != nil && !apierrors.IsNotFound(err) {
 			return reconcileStatusStopAndRequeue, err
 		} else if apierrors.IsNotFound(err) {
-			logger.Info("ThisWorkspace disappeared")
-			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceInitialized, tenancyv1alpha1.WorkspaceInitializedWorkspaceDisappeared, conditionsv1alpha1.ConditionSeverityError, "ThisWorkspace disappeared")
+			logger.Info("LogicalCluster disappeared")
+			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceInitialized, tenancyv1alpha1.WorkspaceInitializedWorkspaceDisappeared, conditionsv1alpha1.ConditionSeverityError, "LogicalCluster disappeared")
 			return reconcileStatusContinue, nil
 		}
 
@@ -64,13 +65,13 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1bet
 			if max := time.Minute * 10; after > max {
 				after = max
 			}
-			logger.V(3).Info("ThisWorkspace still has initializers, requeueing", "initializers", initializers, "after", after)
+			logger.V(3).Info("LogicalCluster still has initializers, requeueing", "initializers", initializers, "after", after)
 			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceInitialized, tenancyv1alpha1.WorkspaceInitializedInitializerExists, conditionsv1alpha1.ConditionSeverityInfo, "Initializers still exist: %v", workspace.Status.Initializers)
 			r.requeueAfter(workspace, after)
 			return reconcileStatusContinue, nil
 		}
 
-		logger.V(3).Info("ThisWorkspace is ready")
+		logger.V(3).Info("LogicalCluster is ready")
 		workspace.Status.Phase = tenancyv1alpha1.WorkspacePhaseReady
 		conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceInitialized)
 
@@ -78,11 +79,11 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1bet
 		if !workspace.DeletionTimestamp.IsZero() {
 			logger = logger.WithValues("cluster", workspace.Status.Cluster)
 
-			this, err := r.getThisWorkspace(ctx, logicalcluster.NewPath(workspace.Status.Cluster))
+			this, err := r.getLogicalCluster(ctx, logicalcluster.NewPath(workspace.Status.Cluster))
 			if err != nil && !apierrors.IsNotFound(err) {
 				return reconcileStatusStopAndRequeue, err
 			} else if apierrors.IsNotFound(err) {
-				logger.Info("ThisWorkspace disappeared")
+				logger.Info("LogicalCluster disappeared")
 				conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceContentDeleted)
 				return reconcileStatusContinue, nil
 			}
@@ -95,9 +96,9 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1bet
 				cond := conditions.Get(this, tenancyv1alpha1.WorkspaceContentDeleted)
 				if cond != nil {
 					conditions.Set(workspace, cond)
-					logger.V(3).Info("ThisWorkspace is still deleting, requeueing", "reason", cond.Reason, "message", cond.Message, "after", after)
+					logger.V(3).Info("LogicalCluster is still deleting, requeueing", "reason", cond.Reason, "message", cond.Message, "after", after)
 				} else {
-					logger.V(3).Info("ThisWorkspace is still deleting, requeueing", "after", after)
+					logger.V(3).Info("LogicalCluster is still deleting, requeueing", "after", after)
 				}
 				r.requeueAfter(workspace, after)
 				return reconcileStatusContinue, nil

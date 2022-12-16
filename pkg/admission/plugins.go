@@ -49,6 +49,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/admission/crdnooverlappinggvr"
 	"github.com/kcp-dev/kcp/pkg/admission/kubequota"
 	kcplimitranger "github.com/kcp-dev/kcp/pkg/admission/limitranger"
+	"github.com/kcp-dev/kcp/pkg/admission/logicalcluster"
+	"github.com/kcp-dev/kcp/pkg/admission/logicalclusterfinalizer"
 	kcpmutatingwebhook "github.com/kcp-dev/kcp/pkg/admission/mutatingwebhook"
 	workspacenamespacelifecycle "github.com/kcp-dev/kcp/pkg/admission/namespacelifecycle"
 	"github.com/kcp-dev/kcp/pkg/admission/pathannotation"
@@ -57,8 +59,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/admission/reservedcrdgroups"
 	"github.com/kcp-dev/kcp/pkg/admission/reservedmetadata"
 	"github.com/kcp-dev/kcp/pkg/admission/reservednames"
-	"github.com/kcp-dev/kcp/pkg/admission/thisworkspace"
-	"github.com/kcp-dev/kcp/pkg/admission/thisworkspacefinalizer"
 	kcpvalidatingwebhook "github.com/kcp-dev/kcp/pkg/admission/validatingwebhook"
 	"github.com/kcp-dev/kcp/pkg/admission/workspace"
 )
@@ -68,11 +68,11 @@ var AllOrderedPlugins = beforeWebhooks(kubeapiserveroptions.AllOrderedPlugins,
 	workspacenamespacelifecycle.PluginName,
 	apiresourceschema.PluginName,
 	workspace.PluginName,
-	thisworkspacefinalizer.PluginName,
+	logicalclusterfinalizer.PluginName,
 	clusterworkspaceshard.PluginName,
 	clusterworkspacetype.PluginName,
 	clusterworkspacetypeexists.PluginName,
-	thisworkspace.PluginName,
+	logicalcluster.PluginName,
 	apiexport.PluginName,
 	apibinding.PluginName,
 	apibindingfinalizer.PluginName,
@@ -105,11 +105,11 @@ func beforeWebhooks(recommended []string, plugins ...string) []string {
 func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 	kubeapiserveroptions.RegisterAllAdmissionPlugins(plugins)
 	workspace.Register(plugins)
-	thisworkspacefinalizer.Register(plugins)
+	logicalclusterfinalizer.Register(plugins)
 	clusterworkspaceshard.Register(plugins)
 	clusterworkspacetype.Register(plugins)
 	clusterworkspacetypeexists.Register(plugins)
-	thisworkspace.Register(plugins)
+	logicalcluster.Register(plugins)
 	apiresourceschema.Register(plugins)
 	apiexport.Register(plugins)
 	apibinding.Register(plugins)
@@ -137,11 +137,11 @@ var defaultOnPluginsInKcp = sets.NewString(
 
 	// KCP
 	workspace.PluginName,
-	thisworkspacefinalizer.PluginName,
+	logicalclusterfinalizer.PluginName,
 	clusterworkspaceshard.PluginName,
 	clusterworkspacetype.PluginName,
 	clusterworkspacetypeexists.PluginName,
-	thisworkspace.PluginName,
+	logicalcluster.PluginName,
 	apiresourceschema.PluginName,
 	apiexport.PluginName,
 	apibinding.PluginName,

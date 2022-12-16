@@ -33,6 +33,7 @@ import (
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
@@ -40,8 +41,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
-func (b *APIBinder) reconcile(ctx context.Context, this *tenancyv1alpha1.ThisWorkspace) error {
-	annotationValue, found := this.Annotations[tenancyv1alpha1.ThisWorkspaceTypeAnnotationKey]
+func (b *APIBinder) reconcile(ctx context.Context, this *corev1alpha1.LogicalCluster) error {
+	annotationValue, found := this.Annotations[corev1alpha1.LogicalClusterTypeAnnotationKey]
 	if !found {
 		return nil
 	}

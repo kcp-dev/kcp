@@ -44,6 +44,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/apis/apis"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 )
 
@@ -319,7 +320,7 @@ func compareSchemas() cmp.Option {
 func generateExports(outputDir string, allSchemas map[metav1.GroupResource]*apisv1alpha1.APIResourceSchema) ([]*apisv1alpha1.APIExport, error) {
 	byExport := map[string][]string{}
 	for gr, apiResourceSchema := range allSchemas {
-		if gr.Group == tenancy.GroupName && gr.Resource == "thisworkspaces" {
+		if gr.Group == core.GroupName && gr.Resource == "logicalclusters" {
 			continue
 		} else if gr.Group == tenancy.GroupName && gr.Resource == "clusterworkspaceshards" {
 			// we export shards by themselves, not with the rest of the tenancy group

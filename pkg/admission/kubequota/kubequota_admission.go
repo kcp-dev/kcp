@@ -40,10 +40,10 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/admission/initializers"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
-	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	corev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/core/v1alpha1"
+	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
 )
 
 // PluginName is the name of this admission plugin.
@@ -85,8 +85,8 @@ type KubeResourceQuota struct {
 	*admission.Handler
 
 	// Injected/set via initializers
-	thisWorkspaceInformer        tenancyv1alpha1informers.ThisWorkspaceClusterInformer
-	thisWorkspaceLister          tenancyv1alpha1listers.ThisWorkspaceClusterLister
+	logicalClusterInformer       corev1alpha1informers.LogicalClusterClusterInformer
+	logicalClusterLister         corev1alpha1listers.LogicalClusterClusterLister
 	kubeClusterClient            kcpkubernetesclientset.ClusterInterface
 	scopingResourceQuotaInformer kcpcorev1informers.ResourceQuotaClusterInformer
 	quotaConfiguration           quota.Configuration
@@ -103,8 +103,8 @@ type KubeResourceQuota struct {
 
 // ValidateInitialization validates all the expected fields are set.
 func (k *KubeResourceQuota) ValidateInitialization() error {
-	if k.thisWorkspaceLister == nil {
-		return fmt.Errorf("missing thisWorkspaceLister")
+	if k.logicalClusterLister == nil {
+		return fmt.Errorf("missing logicalClusterLister")
 	}
 	if k.kubeClusterClient == nil {
 		return fmt.Errorf("missing kubeClusterClient")
@@ -132,8 +132,7 @@ var _ = initializers.WantsServerShutdownChannel(&KubeResourceQuota{})
 // Validate gets or creates a resourcequota.QuotaAdmission plugin for the logical cluster in the request and then
 // delegates validation to it.
 func (k *KubeResourceQuota) Validate(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) error {
-	// TODO:(p0lyn0mial): the following checks are temporary only to get the phase A merged
-	if a.GetResource() == tenancyv1alpha1.SchemeGroupVersion.WithResource("thisworkspaces") {
+	if a.GetResource() == corev1alpha1.SchemeGroupVersion.WithResource("logicalclusters") {
 		return nil
 	}
 	if a.GetResource() == rbacv1.SchemeGroupVersion.WithResource("clusterrolebindings") {
@@ -144,7 +143,7 @@ func (k *KubeResourceQuota) Validate(ctx context.Context, a admission.Attributes
 	}
 
 	k.clusterWorkspaceDeletionMonitorStarter.Do(func() {
-		m := newClusterWorkspaceDeletionMonitor(k.thisWorkspaceInformer, k.stopQuotaAdmissionForCluster)
+		m := newClusterWorkspaceDeletionMonitor(k.logicalClusterInformer, k.stopQuotaAdmissionForCluster)
 		go m.Start(k.serverDone)
 	})
 
@@ -243,8 +242,8 @@ func (k *KubeResourceQuota) SetKubeClusterClient(kubeClusterClient kcpkubernetes
 }
 
 func (k *KubeResourceQuota) SetKcpInformers(informers kcpinformers.SharedInformerFactory) {
-	k.thisWorkspaceLister = informers.Tenancy().V1alpha1().ThisWorkspaces().Lister()
-	k.thisWorkspaceInformer = informers.Tenancy().V1alpha1().ThisWorkspaces()
+	k.logicalClusterLister = informers.Core().V1alpha1().LogicalClusters().Lister()
+	k.logicalClusterInformer = informers.Core().V1alpha1().LogicalClusters()
 }
 
 func (k *KubeResourceQuota) SetExternalKubeInformerFactory(informers informers.SharedInformerFactory) {

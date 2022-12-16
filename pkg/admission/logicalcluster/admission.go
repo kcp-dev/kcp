@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package thisworkspace
+package logicalcluster
 
 import (
 	"context"
@@ -29,38 +29,39 @@ import (
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
 )
 
-// Protects deletion of ThisWorkspace if spec.directlyDeletable is false.
+// Protects deletion of LogicalCluster if spec.directlyDeletable is false.
 
 const (
-	PluginName = "tenancy.kcp.dev/ThisWorkspace"
+	PluginName = "core.kcp.dev/LogicalCluster"
 )
 
 func Register(plugins *admission.Plugins) {
 	plugins.Register(PluginName,
 		func(_ io.Reader) (admission.Interface, error) {
-			return &thisWorkspace{
+			return &plugin{
 				Handler: admission.NewHandler(admission.Create, admission.Update, admission.Delete),
 			}, nil
 		})
 }
 
-type thisWorkspace struct {
+type plugin struct {
 	*admission.Handler
 
-	thisWorkspaceLister tenancyv1alpha1listers.ThisWorkspaceClusterLister
+	logicalClusterLister corev1alpha1listers.LogicalClusterClusterLister
 }
 
 // Ensure that the required admission interfaces are implemented.
-var _ = admission.ValidationInterface(&thisWorkspace{})
-var _ = admission.MutationInterface(&thisWorkspace{})
-var _ = admission.InitializationValidator(&thisWorkspace{})
-var _ = kcpinitializers.WantsKcpInformers(&thisWorkspace{})
+var _ = admission.ValidationInterface(&plugin{})
+var _ = admission.MutationInterface(&plugin{})
+var _ = admission.InitializationValidator(&plugin{})
+var _ = kcpinitializers.WantsKcpInformers(&plugin{})
 
 var phaseOrdinal = map[tenancyv1alpha1.WorkspacePhaseType]int{
 	tenancyv1alpha1.WorkspacePhaseType(""):     1,
@@ -70,35 +71,35 @@ var phaseOrdinal = map[tenancyv1alpha1.WorkspacePhaseType]int{
 }
 
 // Admit adds type initializer to status on transition to initializing phase.
-func (o *thisWorkspace) Admit(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
-	if a.GetResource().GroupResource() != tenancyv1alpha1.Resource("thisworkspaces") {
+func (o *plugin) Admit(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
+	if a.GetResource().GroupResource() != corev1alpha1.Resource("logicalclusters") {
 		return nil
 	}
 
 	switch a.GetOperation() {
 	case admission.Update:
-		if a.GetObject().GetObjectKind().GroupVersionKind() != tenancyv1alpha1.SchemeGroupVersion.WithKind("ThisWorkspace") {
+		if a.GetObject().GetObjectKind().GroupVersionKind() != corev1alpha1.SchemeGroupVersion.WithKind("LogicalCluster") {
 			return nil
 		}
 		u, ok := a.GetObject().(*unstructured.Unstructured)
 		if !ok {
 			return fmt.Errorf("unexpected type %T", a.GetObject())
 		}
-		this := &tenancyv1alpha1.ThisWorkspace{}
+		this := &corev1alpha1.LogicalCluster{}
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, this); err != nil {
-			return fmt.Errorf("failed to convert unstructured to ThisWorkspace: %w", err)
+			return fmt.Errorf("failed to convert unstructured to LogicalCluster: %w", err)
 		}
 
-		if a.GetOldObject().GetObjectKind().GroupVersionKind() != tenancyv1alpha1.SchemeGroupVersion.WithKind("ThisWorkspace") {
+		if a.GetOldObject().GetObjectKind().GroupVersionKind() != corev1alpha1.SchemeGroupVersion.WithKind("LogicalCluster") {
 			return nil
 		}
 		oldU, ok := a.GetOldObject().(*unstructured.Unstructured)
 		if !ok {
 			return fmt.Errorf("unexpected type %T", a.GetOldObject())
 		}
-		old := &tenancyv1alpha1.ThisWorkspace{}
+		old := &corev1alpha1.LogicalCluster{}
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(oldU.Object, old); err != nil {
-			return fmt.Errorf("failed to convert unstructured to ThisWorkspace: %w", err)
+			return fmt.Errorf("failed to convert unstructured to LogicalCluster: %w", err)
 		}
 
 		// we only admit at state transition to initializing
@@ -115,13 +116,13 @@ func (o *thisWorkspace) Admit(ctx context.Context, a admission.Attributes, _ adm
 	return nil
 }
 
-func (o *thisWorkspace) Validate(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
+func (o *plugin) Validate(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
 	clusterName, err := genericapirequest.ClusterNameFrom(ctx)
 	if err != nil {
 		return apierrors.NewInternalError(err)
 	}
 
-	if a.GetResource().GroupResource() != tenancyv1alpha1.Resource("thisworkspaces") {
+	if a.GetResource().GroupResource() != corev1alpha1.Resource("logicalclusters") {
 		return nil
 	}
 
@@ -136,18 +137,18 @@ func (o *thisWorkspace) Validate(ctx context.Context, a admission.Attributes, _ 
 		if !ok {
 			return fmt.Errorf("unexpected type %T", a.GetObject())
 		}
-		this := &tenancyv1alpha1.ThisWorkspace{}
+		this := &corev1alpha1.LogicalCluster{}
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, this); err != nil {
-			return fmt.Errorf("failed to convert unstructured to ThisWorkspace: %w", err)
+			return fmt.Errorf("failed to convert unstructured to LogicalCluster: %w", err)
 		}
 
 		u, ok = a.GetOldObject().(*unstructured.Unstructured)
 		if !ok {
 			return fmt.Errorf("unexpected type %T", a.GetObject())
 		}
-		old := &tenancyv1alpha1.ThisWorkspace{}
+		old := &corev1alpha1.LogicalCluster{}
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, old); err != nil {
-			return fmt.Errorf("failed to convert unstructured to ThisWorkspace: %w", err)
+			return fmt.Errorf("failed to convert unstructured to LogicalCluster: %w", err)
 		}
 
 		oldSpec := toSet(old.Spec.Initializers)
@@ -185,35 +186,35 @@ func (o *thisWorkspace) Validate(ctx context.Context, a admission.Attributes, _ 
 		return nil
 
 	case admission.Delete:
-		this, err := o.thisWorkspaceLister.Cluster(clusterName).Get(tenancyv1alpha1.ThisWorkspaceName)
+		this, err := o.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 		if err != nil {
-			return fmt.Errorf("ThisWorkspace cannot be deleted")
+			return fmt.Errorf("LogicalCluster cannot be deleted")
 		}
 		groups := sets.NewString(a.GetUserInfo().GetGroups()...)
 		if !this.Spec.DirectlyDeletable && !groups.Has("system:masters") && !groups.Has(bootstrap.SystemLogicalClusterAdmin) {
-			return admission.NewForbidden(a, fmt.Errorf("ThisWorkspace cannot be deleted"))
+			return admission.NewForbidden(a, fmt.Errorf("LogicalCluster cannot be deleted"))
 		}
 
 	case admission.Create:
-		return admission.NewForbidden(a, fmt.Errorf("ThisWorkspace cannot be created"))
+		return admission.NewForbidden(a, fmt.Errorf("LogicalCluster cannot be created"))
 	}
 
 	return nil
 }
 
-func (o *thisWorkspace) ValidateInitialization() error {
-	if o.thisWorkspaceLister == nil {
-		return fmt.Errorf(PluginName + " plugin needs an ThisWorkspace lister")
+func (o *plugin) ValidateInitialization() error {
+	if o.logicalClusterLister == nil {
+		return fmt.Errorf(PluginName + " plugin needs an LogicalCluster lister")
 	}
 	return nil
 }
 
-func (o *thisWorkspace) SetKcpInformers(informers kcpinformers.SharedInformerFactory) {
-	thisWorkspacesReady := informers.Tenancy().V1alpha1().ThisWorkspaces().Informer().HasSynced
+func (o *plugin) SetKcpInformers(informers kcpinformers.SharedInformerFactory) {
+	logicalClustersReady := informers.Core().V1alpha1().LogicalClusters().Informer().HasSynced
 	o.SetReadyFunc(func() bool {
-		return thisWorkspacesReady()
+		return logicalClustersReady()
 	})
-	o.thisWorkspaceLister = informers.Tenancy().V1alpha1().ThisWorkspaces().Lister()
+	o.logicalClusterLister = informers.Core().V1alpha1().LogicalClusters().Lister()
 }
 
 func toSet(initializers []tenancyv1alpha1.WorkspaceInitializer) sets.String {
@@ -225,7 +226,7 @@ func toSet(initializers []tenancyv1alpha1.WorkspaceInitializer) sets.String {
 }
 
 // updateUnstructured updates the given unstructured object to match the given cluster workspace.
-func updateUnstructured(u *unstructured.Unstructured, cw *tenancyv1alpha1.ThisWorkspace) error {
+func updateUnstructured(u *unstructured.Unstructured, cw *corev1alpha1.LogicalCluster) error {
 	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(cw)
 	if err != nil {
 		return err

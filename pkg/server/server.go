@@ -168,19 +168,19 @@ func (s *Server) Run(ctx context.Context) error {
 
 		go s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().Run(hookContext.StopCh)
 		go s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().Run(hookContext.StopCh)
-		go s.KcpSharedInformerFactory.Tenancy().V1alpha1().ThisWorkspaces().Informer().Run(hookContext.StopCh)
+		go s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().Run(hookContext.StopCh)
 
-		logger.Info("starting APIExport, APIBinding and ThisWorkspace informers")
+		logger.Info("starting APIExport, APIBinding and LogicalCluster informers")
 		if err := wait.PollInfiniteWithContext(goContext(hookContext), time.Millisecond*100, func(ctx context.Context) (bool, error) {
 			exportsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports().Informer().HasSynced()
 			bindingsSynced := s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced()
-			thisWorkspaceSynced := s.KcpSharedInformerFactory.Tenancy().V1alpha1().ThisWorkspaces().Informer().HasSynced()
-			return exportsSynced && bindingsSynced && thisWorkspaceSynced, nil
+			logicalClusterSynced := s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced()
+			return exportsSynced && bindingsSynced && logicalClusterSynced, nil
 		}); err != nil {
-			logger.Error(err, "failed to start some of APIExport, APIBinding and ThisWorkspaces informers")
+			logger.Error(err, "failed to start some of APIExport, APIBinding and LogicalCluster informers")
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
-		logger.Info("finished starting APIExport, APIBinding and ThisWorkspace informers")
+		logger.Info("finished starting APIExport, APIBinding and LogicalCluster informers")
 
 		if s.Options.Extra.ShardName == tenancyv1alpha1.RootShard {
 			logger.Info("bootstrapping root workspace phase 0")
@@ -439,7 +439,7 @@ func (s *Server) Run(ctx context.Context) error {
 		if err := s.installWorkspaceDeletionController(ctx, controllerConfig, s.LogicalClusterAdminConfig, s.CompletedConfig.ShardExternalURL); err != nil {
 			return err
 		}
-		if err := s.installThisWorkspace(ctx, controllerConfig); err != nil {
+		if err := s.installLogicalCluster(ctx, controllerConfig); err != nil {
 			return err
 		}
 	}

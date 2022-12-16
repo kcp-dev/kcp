@@ -29,12 +29,12 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	corev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/core/v1alpha1"
 )
 
 const clusterWorkspaceDeletionMonitorControllerName = "kcp-kubequota-cluster-workspace-deletion-monitor"
 
-// clusterWorkspaceDeletionMonitor monitors ThisWorkspaces and terminates QuotaAdmission for a logical cluster
+// clusterWorkspaceDeletionMonitor monitors LogicalClusters and terminates QuotaAdmission for a logical cluster
 // when its corresponding ClusterWorkspace is deleted.
 type clusterWorkspaceDeletionMonitor struct {
 	queue    workqueue.RateLimitingInterface
@@ -42,7 +42,7 @@ type clusterWorkspaceDeletionMonitor struct {
 }
 
 func newClusterWorkspaceDeletionMonitor(
-	workspaceInformer tenancyv1alpha1informers.ThisWorkspaceClusterInformer,
+	workspaceInformer corev1alpha1informers.LogicalClusterClusterInformer,
 	stopFunc func(logicalcluster.Name),
 ) *clusterWorkspaceDeletionMonitor {
 	m := &clusterWorkspaceDeletionMonitor{

@@ -14,14 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package thisworkspace
+package logicalcluster
 
 import (
 	"context"
 
 	utilserrors "k8s.io/apimachinery/pkg/util/errors"
 
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 )
 
 type reconcileStatus int
@@ -32,10 +32,10 @@ const (
 )
 
 type reconciler interface {
-	reconcile(ctx context.Context, this *tenancyv1alpha1.ThisWorkspace) (reconcileStatus, error)
+	reconcile(ctx context.Context, this *corev1alpha1.LogicalCluster) (reconcileStatus, error)
 }
 
-func (c *Controller) reconcile(ctx context.Context, this *tenancyv1alpha1.ThisWorkspace) (bool, error) {
+func (c *Controller) reconcile(ctx context.Context, this *corev1alpha1.LogicalCluster) (bool, error) {
 	reconcilers := []reconciler{
 		&metaDataReconciler{},
 		&phaseReconciler{},

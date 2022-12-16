@@ -42,12 +42,13 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/admission/workspace"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
-	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
 	indexrewriters "github.com/kcp-dev/kcp/pkg/index/rewriters"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/softimpersonation"
@@ -65,7 +66,7 @@ func init() {
 // WithHomeWorkspaces implements an HTTP handler, in the KCP server, which:
 //
 //   - supports a special 'kubectl get workspace ~' request which returns either
-//     the old bucket-style workspace if it exists (= a ThisWorkspace can be found)
+//     the old bucket-style workspace if it exists (= a LogicalCluster can be found)
 //     or a new parent-less home workspace. It will create the latter on the fly.
 //
 // When the Home workspace is still not Ready, the handler returns a Retry-After
@@ -109,13 +110,13 @@ func WithHomeWorkspaces(
 		kcpClusterClient:  kcpClusterClient,
 		kubeClusterClient: kubeClusterClient,
 
-		thisWorkspaceLister:  kcpSharedInformerFactory.Tenancy().V1alpha1().ThisWorkspaces().Lister(),
-		thisWorkspaceIndexer: kcpSharedInformerFactory.Tenancy().V1alpha1().ThisWorkspaces().Informer().GetIndexer(),
+		logicalClusterLister:  kcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Lister(),
+		logicalClusterIndexer: kcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().GetIndexer(),
 
 		clusterRoleBindingLister:  kubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings().Lister(),
 		clusterRoleBindingIndexer: kubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings().Informer().GetIndexer(),
 
-		hasSynced: kcpSharedInformerFactory.Tenancy().V1alpha1().ThisWorkspaces().Informer().HasSynced,
+		hasSynced: kcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced,
 	}, nil
 }
 
@@ -133,8 +134,8 @@ type homeWorkspaceHandler struct {
 	kcpClusterClient  kcpclientset.ClusterInterface
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface
 
-	thisWorkspaceLister  tenancyv1alpha1listers.ThisWorkspaceClusterLister
-	thisWorkspaceIndexer cache.Indexer
+	logicalClusterLister  corev1alpha1listers.LogicalClusterClusterLister
+	logicalClusterIndexer cache.Indexer
 
 	clusterRoleBindingLister  rbaclisters.ClusterRoleBindingClusterLister
 	clusterRoleBindingIndexer cache.Indexer
@@ -176,7 +177,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		return
 	}
 	// TODO:(p0lyn0mial): the following checks are temporary only to get the phase A merged
-	if requestInfo.IsResourceRequest && requestInfo.APIGroup == tenancyv1alpha1.SchemeGroupVersion.Group && requestInfo.Resource == "thisworkspaces" {
+	if requestInfo.IsResourceRequest && requestInfo.APIGroup == tenancyv1alpha1.SchemeGroupVersion.Group && requestInfo.Resource == "logicalclusters" {
 		h.delegate.ServeHTTP(rw, req)
 		return
 	}
@@ -198,7 +199,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 	}
 
 	homeClusterName := indexrewriters.HomeClusterName(effectiveUser.GetName())
-	this, err := h.thisWorkspaceLister.Cluster(homeClusterName).Get(tenancyv1alpha1.ThisWorkspaceName)
+	this, err := h.logicalClusterLister.Cluster(homeClusterName).Get(corev1alpha1.LogicalClusterName)
 	if err != nil {
 		if !kerrors.IsNotFound(err) {
 			responsewriters.InternalError(rw, req, err)
@@ -230,13 +231,13 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 			return
 		}
 
-		logger.Info("Creating home ThisWorkspace", "cluster", homeClusterName.String(), "user", effectiveUser.GetName())
-		this, err = h.kcpClusterClient.Cluster(homeClusterName.Path()).TenancyV1alpha1().ThisWorkspaces().Create(ctx, &tenancyv1alpha1.ThisWorkspace{
+		logger.Info("Creating home LogicalCluster", "cluster", homeClusterName.String(), "user", effectiveUser.GetName())
+		this, err = h.kcpClusterClient.Cluster(homeClusterName.Path()).CoreV1alpha1().LogicalClusters().Create(ctx, &corev1alpha1.LogicalCluster{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: tenancyv1alpha1.ThisWorkspaceName,
+				Name: corev1alpha1.LogicalClusterName,
 				Annotations: map[string]string{
 					tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey: userInfo,
-					tenancyv1alpha1.ThisWorkspaceTypeAnnotationKey:          "root:home",
+					corev1alpha1.LogicalClusterTypeAnnotationKey:            "root:home",
 				},
 			},
 		}, metav1.CreateOptions{})
@@ -246,7 +247,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		}
 	}
 
-	// here we have a ThisWorkspace. Create ClusterRoleBinding. Again: if this is pre-existing
+	// here we have a LogicalCluster. Create ClusterRoleBinding. Again: if this is pre-existing
 	// and it is not belonging to the current user, the user will get a 403 through normal authorization.
 
 	if this.Status.Phase == tenancyv1alpha1.WorkspacePhaseScheduling {
@@ -276,7 +277,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		// move to Initializing state
 		this = this.DeepCopy()
 		this.Status.Phase = tenancyv1alpha1.WorkspacePhaseInitializing
-		this, err = h.kcpClusterClient.Cluster(homeClusterName.Path()).TenancyV1alpha1().ThisWorkspaces().UpdateStatus(ctx, this, metav1.UpdateOptions{})
+		this, err = h.kcpClusterClient.Cluster(homeClusterName.Path()).CoreV1alpha1().LogicalClusters().UpdateStatus(ctx, this, metav1.UpdateOptions{})
 		if err != nil {
 			if kerrors.IsConflict(err) {
 				rw.Header().Set("Retry-After", fmt.Sprintf("%d", h.creationDelaySeconds))
@@ -299,7 +300,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	// here we have a ThisWorkspace in the Running state.
+	// here we have a LogicalCluster in the Running state.
 
 	homeWorkspace := &tenancyv1beta1.Workspace{
 		ObjectMeta: metav1.ObjectMeta{

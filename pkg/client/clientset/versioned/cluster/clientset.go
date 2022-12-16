@@ -35,6 +35,7 @@ import (
 	client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/apis/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/core/v1alpha1"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/scheduling/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/typed/tenancy/v1beta1"
@@ -47,6 +48,7 @@ type ClusterInterface interface {
 	Discovery() discovery.DiscoveryInterface
 	ApiresourceV1alpha1() apiresourcev1alpha1.ApiresourceV1alpha1ClusterInterface
 	ApisV1alpha1() apisv1alpha1.ApisV1alpha1ClusterInterface
+	CoreV1alpha1() corev1alpha1.CoreV1alpha1ClusterInterface
 	SchedulingV1alpha1() schedulingv1alpha1.SchedulingV1alpha1ClusterInterface
 	TenancyV1alpha1() tenancyv1alpha1.TenancyV1alpha1ClusterInterface
 	TenancyV1beta1() tenancyv1beta1.TenancyV1beta1ClusterInterface
@@ -60,6 +62,7 @@ type ClusterClientset struct {
 	clientCache         kcpclient.Cache[*client.Clientset]
 	apiresourceV1alpha1 *apiresourcev1alpha1.ApiresourceV1alpha1ClusterClient
 	apisV1alpha1        *apisv1alpha1.ApisV1alpha1ClusterClient
+	coreV1alpha1        *corev1alpha1.CoreV1alpha1ClusterClient
 	schedulingV1alpha1  *schedulingv1alpha1.SchedulingV1alpha1ClusterClient
 	tenancyV1alpha1     *tenancyv1alpha1.TenancyV1alpha1ClusterClient
 	tenancyV1beta1      *tenancyv1beta1.TenancyV1beta1ClusterClient
@@ -83,6 +86,11 @@ func (c *ClusterClientset) ApiresourceV1alpha1() apiresourcev1alpha1.Apiresource
 // ApisV1alpha1 retrieves the ApisV1alpha1ClusterClient.
 func (c *ClusterClientset) ApisV1alpha1() apisv1alpha1.ApisV1alpha1ClusterInterface {
 	return c.apisV1alpha1
+}
+
+// CoreV1alpha1 retrieves the CoreV1alpha1ClusterClient.
+func (c *ClusterClientset) CoreV1alpha1() corev1alpha1.CoreV1alpha1ClusterInterface {
+	return c.coreV1alpha1
 }
 
 // SchedulingV1alpha1 retrieves the SchedulingV1alpha1ClusterClient.
@@ -167,6 +175,10 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*ClusterCli
 		return nil, err
 	}
 	cs.apisV1alpha1, err = apisv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	if err != nil {
+		return nil, err
+	}
+	cs.coreV1alpha1, err = corev1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
 	}
