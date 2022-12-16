@@ -152,17 +152,16 @@ func TestShallowCopyAndMakePartialMetadataCRD(t *testing.T) {
 	}
 
 	shallow := shallowCopyCRDAndDeepCopyAnnotations(original)
-	makePartialMetadataCRD(shallow)
+	addPartialMetadataCRDAnnotation(shallow)
 
-	// Validate that every version inside the shallow copy just returns object
-	for _, shallowVersion := range shallow.Spec.Versions {
-		if shallowVersion.Schema.OpenAPIV3Schema.Type == "object" {
-			continue
-		}
-		t.Errorf("expected object type in version %q, got %q", &shallowVersion, shallowVersion.Schema.OpenAPIV3Schema.Type)
-	}
+	// Validate that we've added the annotation in the shallow copy.
+	_, ok := shallow.Annotations[annotationKeyPartialMetadata]
+	require.True(t, ok)
 
 	// Validate that the original still has description and type intact.
+	_, ok = original.Annotations[annotationKeyPartialMetadata]
+	require.False(t, ok)
+
 	if original.Spec.Versions[0].Schema.OpenAPIV3Schema.Description != "desc" {
 		t.Errorf("expected shallow copy to not modify original schema description")
 	}
