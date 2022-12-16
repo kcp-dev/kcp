@@ -41,7 +41,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspacetypeexists"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	conditionsapi "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
@@ -391,7 +391,7 @@ func wellKnownThisWSForFooWS() *tenancyv1alpha1.ThisWorkspace {
 			Annotations: map[string]string{
 				tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey: `{"username":"kcp-admin"}`,
 				tenancyv1alpha1.ThisWorkspaceTypeAnnotationKey:          "root:universal",
-				tenancy.LogicalClusterPathAnnotationKey:                 "root:foo",
+				core.LogicalClusterPathAnnotationKey:                    "root:foo",
 			},
 		},
 		Spec: tenancyv1alpha1.ThisWorkspaceSpec{
@@ -506,8 +506,8 @@ func workspaceType(name string) *tenancyv1alpha1.ClusterWorkspaceType {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 			Annotations: map[string]string{
-				"kcp.dev/cluster":      "root",
-				"tenancy.kcp.dev/path": "root",
+				"kcp.dev/cluster": "root",
+				"kcp.dev/path":    "root",
 			},
 		},
 	}

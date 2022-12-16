@@ -38,7 +38,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/admission/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 )
 
 func createAttr(apiBinding *apisv1alpha1.APIBinding) admission.Attributes {
@@ -546,8 +546,8 @@ func newExport(path logicalcluster.Path, name string) apiExportBuilder {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 			Annotations: map[string]string{
-				logicalcluster.AnnotationKey:            clusterName,
-				tenancy.LogicalClusterPathAnnotationKey: path.String(),
+				logicalcluster.AnnotationKey:         clusterName,
+				core.LogicalClusterPathAnnotationKey: path.String(),
 			},
 		},
 	}}

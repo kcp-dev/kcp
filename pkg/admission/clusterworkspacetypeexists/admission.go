@@ -37,7 +37,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
@@ -160,7 +160,7 @@ func (o *clusterWorkspaceTypeExists) Admit(ctx context.Context, a admission.Attr
 			}
 		}
 
-		thisPath := this.Annotations[tenancy.LogicalClusterPathAnnotationKey]
+		thisPath := this.Annotations[core.LogicalClusterPathAnnotationKey]
 		if thisPath == "" {
 			thisPath = logicalcluster.From(this).Path().String()
 		}
@@ -568,5 +568,5 @@ func allOfTheFormerExistInTheLater(objectAliases []*tenancyv1alpha1.ClusterWorks
 }
 
 func canonicalPathFrom(cwt *tenancyv1alpha1.ClusterWorkspaceType) logicalcluster.Path {
-	return logicalcluster.NewPath(cwt.Annotations[tenancy.LogicalClusterPathAnnotationKey])
+	return logicalcluster.NewPath(cwt.Annotations[core.LogicalClusterPathAnnotationKey])
 }

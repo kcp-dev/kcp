@@ -41,7 +41,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspacetypeexists"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
@@ -248,8 +248,8 @@ func (r *schedulingReconciler) chooseShardAndMarkCondition(logger klog.Logger, w
 func (r *schedulingReconciler) createThisWorkspace(ctx context.Context, shard *tenancyv1alpha1.ClusterWorkspaceShard, cluster logicalcluster.Path, parent *tenancyv1alpha1.ThisWorkspace, workspace *tenancyv1beta1.Workspace) error {
 	canonicalPath := logicalcluster.From(workspace).Path().Join(workspace.Name)
 	if parent != nil {
-		if parentPath := parent.Annotations[tenancy.LogicalClusterPathAnnotationKey]; parentPath != "" {
-			canonicalPath = logicalcluster.NewPath(parent.Annotations[tenancy.LogicalClusterPathAnnotationKey]).Join(workspace.Name)
+		if parentPath := parent.Annotations[core.LogicalClusterPathAnnotationKey]; parentPath != "" {
+			canonicalPath = logicalcluster.NewPath(parent.Annotations[core.LogicalClusterPathAnnotationKey]).Join(workspace.Name)
 		}
 	}
 	this := &tenancyv1alpha1.ThisWorkspace{
@@ -259,7 +259,7 @@ func (r *schedulingReconciler) createThisWorkspace(ctx context.Context, shard *t
 			Annotations: map[string]string{
 				tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey: workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey],
 				tenancyv1alpha1.ThisWorkspaceTypeAnnotationKey:          logicalcluster.NewPath(workspace.Spec.Type.Path).Join(string(workspace.Spec.Type.Name)).String(),
-				tenancy.LogicalClusterPathAnnotationKey:                 canonicalPath.String(),
+				core.LogicalClusterPathAnnotationKey:                    canonicalPath.String(),
 			},
 		},
 		Spec: tenancyv1alpha1.ThisWorkspaceSpec{

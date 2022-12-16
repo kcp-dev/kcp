@@ -37,7 +37,7 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	kcpfakeclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/fake"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	"github.com/kcp-dev/kcp/pkg/indexers"
@@ -323,8 +323,8 @@ func newAPIExport(path logicalcluster.Path, name string) apiExportBuilder {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: name,
 				Annotations: map[string]string{
-					logicalcluster.AnnotationKey:            clusterName,
-					tenancy.LogicalClusterPathAnnotationKey: path.String(),
+					logicalcluster.AnnotationKey:         clusterName,
+					core.LogicalClusterPathAnnotationKey: path.String(),
 				},
 			},
 		},

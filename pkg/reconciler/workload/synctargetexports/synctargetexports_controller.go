@@ -41,7 +41,7 @@ import (
 
 	apiresourcev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apiresource/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	apiresourcev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apiresource/v1alpha1"
@@ -187,7 +187,7 @@ func (c *Controller) enqueueAPIExport(obj interface{}, logSuffix string) {
 
 	// synctarget keys by full path
 	keys := sets.NewString()
-	if path := export.Annotations[tenancy.LogicalClusterPathAnnotationKey]; path != "" {
+	if path := export.Annotations[core.LogicalClusterPathAnnotationKey]; path != "" {
 		pathKeys, err := c.syncTargetIndexer.IndexKeys(indexSyncTargetsByExport, logicalcluster.NewPath(path).Join(export.Name).String())
 		if err != nil {
 			runtime.HandleError(err)

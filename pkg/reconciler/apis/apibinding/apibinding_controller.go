@@ -43,7 +43,7 @@ import (
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	apisv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apis/v1alpha1"
 	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
@@ -286,7 +286,7 @@ func (c *controller) enqueueAPIExport(obj interface{}, logger logr.Logger, logSu
 
 	// synctarget keys by full path
 	keys := sets.NewString()
-	if path := export.Annotations[tenancy.LogicalClusterPathAnnotationKey]; path != "" {
+	if path := export.Annotations[core.LogicalClusterPathAnnotationKey]; path != "" {
 		pathKeys, err := c.apiBindingsIndexer.IndexKeys(indexAPIBindingsByWorkspaceExport, kcpcache.ToClusterAwareKey(path, "", export.Name))
 		if err != nil {
 			runtime.HandleError(err)

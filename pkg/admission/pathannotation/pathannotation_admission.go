@@ -31,8 +31,8 @@ import (
 
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	schedulingv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/scheduling/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
@@ -95,7 +95,7 @@ func (p *pathAnnotationPlugin) Admit(ctx context.Context, a admission.Attributes
 	}
 
 	annotations := u.GetAnnotations()
-	value, found := annotations[tenancy.LogicalClusterPathAnnotationKey]
+	value, found := annotations[core.LogicalClusterPathAnnotationKey]
 	if !found && !pathAnnotationResources.Has(a.GetResource().GroupResource().String()) {
 		return nil
 	}
@@ -104,7 +104,7 @@ func (p *pathAnnotationPlugin) Admit(ctx context.Context, a admission.Attributes
 	if err != nil {
 		return admission.NewForbidden(a, fmt.Errorf("cannot get this workspace: %w", err))
 	}
-	thisPath := this.Annotations[tenancy.LogicalClusterPathAnnotationKey]
+	thisPath := this.Annotations[core.LogicalClusterPathAnnotationKey]
 	if thisPath == "" {
 		thisPath = logicalcluster.From(this).Path().String()
 	}
@@ -113,7 +113,7 @@ func (p *pathAnnotationPlugin) Admit(ctx context.Context, a admission.Attributes
 		if annotations == nil {
 			annotations = map[string]string{}
 		}
-		annotations[tenancy.LogicalClusterPathAnnotationKey] = thisPath
+		annotations[core.LogicalClusterPathAnnotationKey] = thisPath
 		u.SetAnnotations(annotations)
 	}
 
@@ -139,19 +139,19 @@ func (p *pathAnnotationPlugin) Validate(ctx context.Context, a admission.Attribu
 		return fmt.Errorf("unexpected type %T", a.GetObject())
 	}
 
-	value, found := u.GetAnnotations()[tenancy.LogicalClusterPathAnnotationKey]
+	value, found := u.GetAnnotations()[core.LogicalClusterPathAnnotationKey]
 	if pathAnnotationResources.Has(a.GetResource().GroupResource().String()) || found {
 		this, err := p.thisWorkspaceLister.Cluster(clusterName).Get(tenancyv1alpha1.ThisWorkspaceName)
 		if err != nil {
 			return admission.NewForbidden(a, fmt.Errorf("cannot get this workspace: %w", err))
 		}
-		thisPath := this.Annotations[tenancy.LogicalClusterPathAnnotationKey]
+		thisPath := this.Annotations[core.LogicalClusterPathAnnotationKey]
 		if thisPath == "" {
 			thisPath = logicalcluster.From(this).Path().String()
 		}
 
 		if value != thisPath {
-			return admission.NewForbidden(a, fmt.Errorf("annotation %q must match canonical path %q", tenancy.LogicalClusterPathAnnotationKey, thisPath))
+			return admission.NewForbidden(a, fmt.Errorf("annotation %q must match canonical path %q", core.LogicalClusterPathAnnotationKey, thisPath))
 		}
 	}
 

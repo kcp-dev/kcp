@@ -29,7 +29,7 @@ import (
 	"k8s.io/utils/strings/slices"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization"
@@ -46,7 +46,7 @@ var (
 		syncer.AdvancedSchedulingFeatureAnnotation,
 		tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey, // protected by workspace admission from non-system:admins
 		authorization.RequiredGroupsAnnotationKey,               // protected by workspace admission from non-system:admins
-		tenancy.LogicalClusterPathAnnotationKey,                 // protected by pathannoation admission from non-system:admins
+		core.LogicalClusterPathAnnotationKey,                    // protected by pathannoation admission from non-system:admins
 	}
 	labelAllowList = []string{
 		apisv1alpha1.APIExportPermissionClaimLabelPrefix + "*", // protected by the permissionclaim admission plugin

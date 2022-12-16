@@ -26,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	syncershared "github.com/kcp-dev/kcp/pkg/syncer/shared"
 )
@@ -84,7 +84,7 @@ func IndexByLogicalClusterPath(obj interface{}) ([]string, error) {
 	if !ok {
 		return []string{}, fmt.Errorf("obj is supposed to be a metav1.Object, but is %T", obj)
 	}
-	if path, found := metaObj.GetAnnotations()[tenancy.LogicalClusterPathAnnotationKey]; found {
+	if path, found := metaObj.GetAnnotations()[core.LogicalClusterPathAnnotationKey]; found {
 		return []string{
 			logicalcluster.NewPath(path).String(),
 			logicalcluster.From(metaObj).String(),
@@ -100,7 +100,7 @@ func IndexByLogicalClusterPathAndName(obj interface{}) ([]string, error) {
 	if !ok {
 		return []string{}, fmt.Errorf("obj is supposed to be a metav1.Object, but is %T", obj)
 	}
-	if path, found := metaObj.GetAnnotations()[tenancy.LogicalClusterPathAnnotationKey]; found {
+	if path, found := metaObj.GetAnnotations()[core.LogicalClusterPathAnnotationKey]; found {
 		return []string{
 			logicalcluster.NewPath(path).Join(metaObj.GetName()).String(),
 			logicalcluster.From(metaObj).Path().Join(metaObj.GetName()).String(),

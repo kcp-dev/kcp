@@ -39,7 +39,7 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 
 	"github.com/kcp-dev/kcp/pkg/admission/helpers"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
@@ -741,8 +741,8 @@ func newType(qualifiedName string) builder {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 			Annotations: map[string]string{
-				logicalcluster.AnnotationKey:            path.String(),
-				tenancy.LogicalClusterPathAnnotationKey: path.String(),
+				logicalcluster.AnnotationKey:         path.String(),
+				core.LogicalClusterPathAnnotationKey: path.String(),
 			},
 		},
 	}}
