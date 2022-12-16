@@ -280,6 +280,9 @@ func TestReconcileScheduling(t *testing.T) {
 			}
 
 			target := schedulingReconciler{
+				generateClusterName: func(path logicalcluster.Path) logicalcluster.Name {
+					return logicalcluster.Name(strings.ReplaceAll(path.String(), ":", "-"))
+				},
 				kubeLogicalClusterAdminClientFor: func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpkubernetesclientset.ClusterInterface, error) {
 					return fakeKubeClient, nil
 				},

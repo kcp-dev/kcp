@@ -62,6 +62,8 @@ const (
 )
 
 type schedulingReconciler struct {
+	generateClusterName func(path logicalcluster.Path) logicalcluster.Name
+
 	getShard       func(name string) (*tenancyv1alpha1.ClusterWorkspaceShard, error)
 	getShardByHash func(hash string) (*tenancyv1alpha1.ClusterWorkspaceShard, error)
 	listShards     func(selector labels.Selector) ([]*tenancyv1alpha1.ClusterWorkspaceShard, error)
@@ -108,7 +110,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 			workspace.Annotations[workspaceShardAnnotationKey] = shardNameHash
 		}
 		if !hasCluster {
-			cluster := tenancy.TemporaryClusterFrom(logicalcluster.From(workspace).Path().Join(workspace.Name)) // TODO: replace with randomClusterName()
+			cluster := r.generateClusterName(logicalcluster.From(workspace).Path().Join(workspace.Name))
 			if workspace.Annotations == nil {
 				workspace.Annotations = map[string]string{}
 			}
@@ -370,11 +372,10 @@ func isValidShard(_ *tenancyv1alpha1.ClusterWorkspaceShard) (valid bool, reason,
 	return true, "", ""
 }
 
-//nolint:unused
-func randomClusterName() logicalcluster.Path {
+func randomClusterName(path logicalcluster.Path) logicalcluster.Name {
 	token := make([]byte, 32)
 	rand.Read(token)
 	hash := sha256.Sum224(token)
 	base36hash := strings.ToLower(base36.EncodeBytes(hash[:]))
-	return logicalcluster.NewPath(base36hash[:8])
+	return logicalcluster.Name(base36hash[:16]) // 36^16 = 82 bits, P(conflict)<10^-9 for 2^26 clusters
 }
