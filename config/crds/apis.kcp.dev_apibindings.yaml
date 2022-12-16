@@ -137,6 +137,7 @@ spec:
                         description: path is a logical cluster path where the APIExport
                           is defined. If the path is unset, the logical cluster of
                           the APIBinding is used.
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                         type: string
                     required:
                     - name

@@ -117,6 +117,7 @@ type ExportBindingReference struct {
 	// If the path is unset, the logical cluster of the APIBinding is used.
 	//
 	// +optional
+	// +kubebuilder:validation:Pattern:="^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
 	Path string `json:"path,omitempty"`
 
 	// name is the name of the APIExport that describes the API.
