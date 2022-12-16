@@ -137,5 +137,9 @@ func TestPartialMetadataCRD(t *testing.T) {
 		require.NoError(t, err)
 		t.Log("Verifying that the spec is present")
 		require.NotNil(t, out.Object["spec"])
+		enabled, ok, err := unstructured.NestedBool(out.Object, "spec", "enabled")
+		require.NoError(t, err)
+		require.True(t, ok)
+		require.True(t, enabled)
 	}
 }

@@ -194,7 +194,7 @@ func (c *apiBindingAwareCRDLister) Refresh(crd *apiextensionsv1.CustomResourceDe
 
 	// If crd was only partial metadata, make sure refreshed is too
 	if _, partialMetadata := crd.Annotations[annotationKeyPartialMetadata]; partialMetadata {
-		makePartialMetadataCRD(refreshed)
+		addPartialMetadataCRDAnnotation(refreshed)
 
 		if strings.HasSuffix(string(crd.UID), ".wildcard.partial-metadata") {
 			refreshed.UID = crd.UID
@@ -245,7 +245,7 @@ func (c *apiBindingAwareCRDLister) Get(ctx context.Context, name string) (*apiex
 
 	if partialMetadataRequest {
 		crd = shallowCopyCRDAndDeepCopyAnnotations(crd)
-		makePartialMetadataCRD(crd)
+		addPartialMetadataCRDAnnotation(crd)
 
 		if clusterName == logicalcluster.Wildcard {
 			crd.UID = types.UID(name + ".wildcard.partial-metadata")
@@ -293,22 +293,10 @@ func decorateCRDWithBinding(in *apiextensionsv1.CustomResourceDefinition, identi
 	return out
 }
 
-// makePartialMetadataCRD modifies CRD and replaces all version schemas with minimal ones suitable for partial object
-// metadata.
-func makePartialMetadataCRD(crd *apiextensionsv1.CustomResourceDefinition) {
+// addPartialMetadataCRDAnnotation adds an annotation that marks this CRD as being
+// for a partial metadata request.
+func addPartialMetadataCRDAnnotation(crd *apiextensionsv1.CustomResourceDefinition) {
 	crd.Annotations[annotationKeyPartialMetadata] = ""
-
-	// set minimal schema that prunes everything but ObjectMeta
-	old := crd.Spec.Versions
-	crd.Spec.Versions = make([]apiextensionsv1.CustomResourceDefinitionVersion, len(old))
-	copy(crd.Spec.Versions, old)
-	for i := range crd.Spec.Versions {
-		crd.Spec.Versions[i].Schema = &apiextensionsv1.CustomResourceValidation{
-			OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
-				Type: "object",
-			},
-		}
-	}
 }
 
 // getForIdentityWildcard handles finding the right CRD for an incoming wildcard request with identity, such as
