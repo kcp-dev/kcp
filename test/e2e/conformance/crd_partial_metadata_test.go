@@ -43,7 +43,7 @@ func TestPartialMetadataCRD(t *testing.T) {
 
 	server := framework.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
-	workspaceName := framework.NewOrganizationFixture(t, server)
+	workspaceClusterName := framework.NewOrganizationFixture(t, server)
 	workspaceCRDClient, err := kcpapiextensionsclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating crd cluster client")
 
@@ -93,7 +93,7 @@ func TestPartialMetadataCRD(t *testing.T) {
 
 	{
 		t.Log("Creating a new crd")
-		out, err := workspaceCRDClient.ApiextensionsV1().CustomResourceDefinitions().Cluster(workspaceName).Create(ctx, crd, metav1.CreateOptions{})
+		out, err := workspaceCRDClient.ApiextensionsV1().CustomResourceDefinitions().Cluster(workspaceClusterName.Path()).Create(ctx, crd, metav1.CreateOptions{})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -110,7 +110,7 @@ func TestPartialMetadataCRD(t *testing.T) {
 		metadataClient, err := metadata.NewForConfig(cfg)
 		require.NoError(t, err)
 		framework.Eventually(t, func() (success bool, reason string) {
-			_, err = metadataClient.Cluster(workspaceName).Resource(resource).List(ctx, metav1.ListOptions{})
+			_, err = metadataClient.Cluster(workspaceClusterName.Path()).Resource(resource).List(ctx, metav1.ListOptions{})
 			if err != nil {
 				return false, err.Error()
 			}
@@ -122,7 +122,7 @@ func TestPartialMetadataCRD(t *testing.T) {
 		t.Log("Creating a new object with the dynamic client")
 		dynamicClient, err := dynamic.NewForConfig(cfg)
 		require.NoError(t, err)
-		out, err := dynamicClient.Cluster(workspaceName).Resource(resource).Create(ctx, &unstructured.Unstructured{
+		out, err := dynamicClient.Cluster(workspaceClusterName.Path()).Resource(resource).Create(ctx, &unstructured.Unstructured{
 			Object: map[string]interface{}{
 				"apiVersion": "apps.wars.cloud/v1",
 				"kind":       "TheForce",
