@@ -117,7 +117,7 @@ type ExportBindingReference struct {
 	// If the path is unset, the logical cluster of the APIBinding is used.
 	//
 	// +optional
-	Path string `json:"cluster,omitempty"`
+	Path string `json:"path,omitempty"`
 
 	// name is the name of the APIExport that describes the API.
 	//
