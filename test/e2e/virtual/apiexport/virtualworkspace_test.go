@@ -118,28 +118,28 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	bindConsumerToProvider(ctx, consumerClusterName.Path(), serviceProviderClusterName, t, user3KcpClient, cfg)
 	createCowboyInConsumer(ctx, t, consumerClusterName.Path(), wildwestClusterClient)
 
-	clusterWorkspaceShardVirtualWorkspaceURLs := sets.NewString()
-	t.Logf("Getting a list of VirtualWorkspaceURLs assigned to ClusterWorkspaceShards")
+	shardVirtualWorkspaceURLs := sets.NewString()
+	t.Logf("Getting a list of VirtualWorkspaceURLs assigned to Shards")
 	require.Eventually(t, func() bool {
-		clusterWorkspaceShards, err := kcpClients.Cluster(tenancyv1alpha1.RootCluster.Path()).TenancyV1alpha1().ClusterWorkspaceShards().List(ctx, metav1.ListOptions{})
+		shards, err := kcpClients.Cluster(tenancyv1alpha1.RootCluster.Path()).CoreV1alpha1().Shards().List(ctx, metav1.ListOptions{})
 		if err != nil {
-			t.Logf("unexpected error while listing clusterworkspaceshards, err %v", err)
+			t.Logf("unexpected error while listing shards, err %v", err)
 			return false
 		}
-		for _, s := range clusterWorkspaceShards.Items {
+		for _, s := range shards.Items {
 			if len(s.Spec.VirtualWorkspaceURL) == 0 {
 				t.Logf("%q shard hasn't had assigned a virtual workspace URL", s.Name)
 				return false
 			}
-			clusterWorkspaceShardVirtualWorkspaceURLs.Insert(s.Spec.VirtualWorkspaceURL)
+			shardVirtualWorkspaceURLs.Insert(s.Spec.VirtualWorkspaceURL)
 		}
 		return true
-	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected all ClusterWorkspaceShards to have a VirtualWorkspaceURL assigned")
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected all Shards to have a VirtualWorkspaceURL assigned")
 
 	t.Logf("test that the admin user can use the virtual workspace to get cowboys")
 	apiExport, err = kcpClients.Cluster(serviceProviderClusterName.Path()).ApisV1alpha1().APIExports().Get(ctx, "today-cowboys", metav1.GetOptions{})
 	require.NoError(t, err, "error getting APIExport")
-	require.Len(t, apiExport.Status.VirtualWorkspaces, clusterWorkspaceShardVirtualWorkspaceURLs.Len(), "unexpected virtual workspace URLs: %#v", apiExport.Status.VirtualWorkspaces)
+	require.Len(t, apiExport.Status.VirtualWorkspaces, shardVirtualWorkspaceURLs.Len(), "unexpected virtual workspace URLs: %#v", apiExport.Status.VirtualWorkspaces)
 
 	apiExportVWCfg := rest.CopyConfig(cfg)
 	apiExportVWCfg.Host = apiExport.Status.VirtualWorkspaces[0].URL

@@ -28,6 +28,8 @@ import (
 type ClusterInterface interface {
 	// LogicalClusters returns a LogicalClusterClusterInformer
 	LogicalClusters() LogicalClusterClusterInformer
+	// Shards returns a ShardClusterInformer
+	Shards() ShardClusterInformer
 }
 
 type version struct {
@@ -45,9 +47,16 @@ func (v *version) LogicalClusters() LogicalClusterClusterInformer {
 	return &logicalClusterClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
+// Shards returns a ShardClusterInformer
+func (v *version) Shards() ShardClusterInformer {
+	return &shardClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
 type Interface interface {
 	// LogicalClusters returns a LogicalClusterInformer
 	LogicalClusters() LogicalClusterInformer
+	// Shards returns a ShardInformer
+	Shards() ShardInformer
 }
 
 type scopedVersion struct {
@@ -64,4 +73,9 @@ func NewScoped(f internalinterfaces.SharedScopedInformerFactory, namespace strin
 // LogicalClusters returns a LogicalClusterInformer
 func (v *scopedVersion) LogicalClusters() LogicalClusterInformer {
 	return &logicalClusterScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// Shards returns a ShardInformer
+func (v *scopedVersion) Shards() ShardInformer {
+	return &shardScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }

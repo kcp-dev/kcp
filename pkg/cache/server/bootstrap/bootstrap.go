@@ -46,7 +46,7 @@ func Bootstrap(ctx context.Context, apiExtensionsClusterClient kcpapiextensionsc
 	for _, gr := range []struct{ group, resource string }{
 		{"apis.kcp.dev", "apiresourceschemas"},
 		{"apis.kcp.dev", "apiexports"},
-		{"tenancy.kcp.dev", "clusterworkspaceshards"},
+		{"tenancy.kcp.dev", "shards"},
 	} {
 		crd := &apiextensionsv1.CustomResourceDefinition{}
 		if err := configcrds.Unmarshal(fmt.Sprintf("%s_%s.yaml", gr.group, gr.resource), crd); err != nil {

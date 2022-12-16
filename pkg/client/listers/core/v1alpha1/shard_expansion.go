@@ -21,8 +21,8 @@ limitations under the License.
 
 package v1alpha1
 
-// ClusterWorkspaceShardClusterListerExpansion allows custom methods to be added to ClusterWorkspaceShardClusterLister.
-type ClusterWorkspaceShardClusterListerExpansion interface{}
+// ShardClusterListerExpansion allows custom methods to be added to ShardClusterLister.
+type ShardClusterListerExpansion interface{}
 
-// ClusterWorkspaceShardListerExpansion allows custom methods to be added to ClusterWorkspaceShardLister.
-type ClusterWorkspaceShardListerExpansion interface{}
+// ShardListerExpansion allows custom methods to be added to ShardLister.
+type ShardListerExpansion interface{}

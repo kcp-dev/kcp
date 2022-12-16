@@ -28,8 +28,6 @@ import (
 type ClusterInterface interface {
 	// ClusterWorkspaces returns a ClusterWorkspaceClusterInformer
 	ClusterWorkspaces() ClusterWorkspaceClusterInformer
-	// ClusterWorkspaceShards returns a ClusterWorkspaceShardClusterInformer
-	ClusterWorkspaceShards() ClusterWorkspaceShardClusterInformer
 	// ClusterWorkspaceTypes returns a ClusterWorkspaceTypeClusterInformer
 	ClusterWorkspaceTypes() ClusterWorkspaceTypeClusterInformer
 }
@@ -49,11 +47,6 @@ func (v *version) ClusterWorkspaces() ClusterWorkspaceClusterInformer {
 	return &clusterWorkspaceClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// ClusterWorkspaceShards returns a ClusterWorkspaceShardClusterInformer
-func (v *version) ClusterWorkspaceShards() ClusterWorkspaceShardClusterInformer {
-	return &clusterWorkspaceShardClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
-}
-
 // ClusterWorkspaceTypes returns a ClusterWorkspaceTypeClusterInformer
 func (v *version) ClusterWorkspaceTypes() ClusterWorkspaceTypeClusterInformer {
 	return &clusterWorkspaceTypeClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
@@ -62,8 +55,6 @@ func (v *version) ClusterWorkspaceTypes() ClusterWorkspaceTypeClusterInformer {
 type Interface interface {
 	// ClusterWorkspaces returns a ClusterWorkspaceInformer
 	ClusterWorkspaces() ClusterWorkspaceInformer
-	// ClusterWorkspaceShards returns a ClusterWorkspaceShardInformer
-	ClusterWorkspaceShards() ClusterWorkspaceShardInformer
 	// ClusterWorkspaceTypes returns a ClusterWorkspaceTypeInformer
 	ClusterWorkspaceTypes() ClusterWorkspaceTypeInformer
 }
@@ -82,11 +73,6 @@ func NewScoped(f internalinterfaces.SharedScopedInformerFactory, namespace strin
 // ClusterWorkspaces returns a ClusterWorkspaceInformer
 func (v *scopedVersion) ClusterWorkspaces() ClusterWorkspaceInformer {
 	return &clusterWorkspaceScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
-}
-
-// ClusterWorkspaceShards returns a ClusterWorkspaceShardInformer
-func (v *scopedVersion) ClusterWorkspaceShards() ClusterWorkspaceShardInformer {
-	return &clusterWorkspaceShardScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // ClusterWorkspaceTypes returns a ClusterWorkspaceTypeInformer

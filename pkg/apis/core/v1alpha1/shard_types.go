@@ -1,33 +1,17 @@
-/*
-Copyright 2021 The KCP Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package v1alpha1
 
 import (
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 )
 
 // RootShard holds a name of the root shard.
 var RootShard = "root"
 
-// ClusterWorkspaceShard describes a Shard (== KCP instance) on which a number of
+// Shard describes a Shard (== KCP instance) on which a number of
 // workspaces will live
 //
 // +crd
@@ -39,31 +23,31 @@ var RootShard = "root"
 // +kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.spec.baseURL`,description="Type URL to directly connect to the shard"
 // +kubebuilder:printcolumn:name="External URL",type=string,JSONPath=`.spec.externalURL`,description="The URL exposed in workspaces created on that shard"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-type ClusterWorkspaceShard struct {
-	metav1.TypeMeta `json:",inline"`
+type Shard struct {
+	v1.TypeMeta `json:",inline"`
 	// +optional
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	v1.ObjectMeta `json:"metadata,omitempty"`
 
 	// +optional
-	Spec ClusterWorkspaceShardSpec `json:"spec,omitempty"`
+	Spec ShardSpec `json:"spec,omitempty"`
 
 	// +optional
-	Status ClusterWorkspaceShardStatus `json:"status,omitempty"`
+	Status ShardStatus `json:"status,omitempty"`
 }
 
-func (in *ClusterWorkspaceShard) SetConditions(c conditionsv1alpha1.Conditions) {
+func (in *Shard) SetConditions(c v1alpha1.Conditions) {
 	in.Status.Conditions = c
 }
 
-func (in *ClusterWorkspaceShard) GetConditions() conditionsv1alpha1.Conditions {
+func (in *Shard) GetConditions() v1alpha1.Conditions {
 	return in.Status.Conditions
 }
 
-var _ conditions.Getter = &ClusterWorkspaceShard{}
-var _ conditions.Setter = &ClusterWorkspaceShard{}
+var _ conditions.Getter = &Shard{}
+var _ conditions.Setter = &Shard{}
 
-// ClusterWorkspaceShardSpec holds the desired state of the ClusterWorkspaceShard.
-type ClusterWorkspaceShardSpec struct {
+// ShardSpec holds the desired state of the Shard.
+type ShardSpec struct {
 	// baseURL is the address of the KCP shard for direct connections, e.g. by some
 	// front-proxy doing the fan-out to the shards.
 	//
@@ -104,23 +88,23 @@ type ClusterWorkspaceShardSpec struct {
 	VirtualWorkspaceURL string `json:"virtualWorkspaceURL,omitempty"`
 }
 
-// ClusterWorkspaceShardStatus communicates the observed state of the ClusterWorkspaceShard.
-type ClusterWorkspaceShardStatus struct {
+// ShardStatus communicates the observed state of the Shard.
+type ShardStatus struct {
 	// Set of integer resources that workspaces can be scheduled into
 	// +optional
 	Capacity corev1.ResourceList `json:"capacity,omitempty"`
 
-	// Current processing state of the ClusterWorkspaceShard.
+	// Current processing state of the Shard.
 	// +optional
-	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
+	Conditions v1alpha1.Conditions `json:"conditions,omitempty"`
 }
 
-// ClusterWorkspaceShardList is a list of workspace shards
+// ShardList is a list of workspace shards
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type ClusterWorkspaceShardList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
+type ShardList struct {
+	v1.TypeMeta `json:",inline"`
+	v1.ListMeta `json:"metadata"`
 
-	Items []ClusterWorkspaceShard `json:"items"`
+	Items []Shard `json:"items"`
 }

@@ -31,7 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
@@ -231,15 +231,15 @@ func ExpectWorkspaces(
 }
 
 // RegisterWorkspaceShardExpectation registers an expectation about the future state of the seed.
-type RegisterWorkspaceShardExpectation func(seed *tenancyv1alpha1.ClusterWorkspaceShard, expectation WorkspaceShardExpectation) error
+type RegisterWorkspaceShardExpectation func(seed *corev1alpha1.Shard, expectation WorkspaceShardExpectation) error
 
 // WorkspaceShardExpectation evaluates an expectation about the object.
-type WorkspaceShardExpectation func(*tenancyv1alpha1.ClusterWorkspaceShard) error
+type WorkspaceShardExpectation func(*corev1alpha1.Shard) error
 
 // ExpectWorkspaceShards sets up an Expecter in order to allow registering expectations in tests with minimal setup.
 func ExpectWorkspaceShards(ctx context.Context, t *testing.T, client kcpclient.Interface) (RegisterWorkspaceShardExpectation, error) {
 	kcpSharedInformerFactory := kcpinformers.NewSharedScopedInformerFactoryWithOptions(client, 0)
-	workspaceShardInformer := kcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards()
+	workspaceShardInformer := kcpSharedInformerFactory.Core().V1alpha1().Shards()
 	expecter := NewExpecter(workspaceShardInformer.Informer())
 	kcpSharedInformerFactory.Start(ctx.Done())
 	waitCtx, cancel := context.WithTimeout(ctx, wait.ForeverTestTimeout)
@@ -247,7 +247,7 @@ func ExpectWorkspaceShards(ctx context.Context, t *testing.T, client kcpclient.I
 	if !cache.WaitForNamedCacheSync(t.Name(), waitCtx.Done(), workspaceShardInformer.Informer().HasSynced) {
 		return nil, errors.New("failed to wait for caches to sync")
 	}
-	return func(seed *tenancyv1alpha1.ClusterWorkspaceShard, expectation WorkspaceShardExpectation) error {
+	return func(seed *corev1alpha1.Shard, expectation WorkspaceShardExpectation) error {
 		return expecter.ExpectBefore(ctx, func(ctx context.Context) (done bool, err error) {
 			current, err := workspaceShardInformer.Lister().Get(seed.Name)
 			if err != nil {

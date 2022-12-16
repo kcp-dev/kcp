@@ -64,16 +64,16 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 			func(cluster logicalcluster.Name, _, name string) (interface{}, error) {
 				return c.localAPIResourceSchemaLister.Cluster(cluster).Get(name)
 			})
-	case tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaceshards").String():
+	case tenancyv1alpha1.SchemeGroupVersion.WithResource("shards").String():
 		return c.reconcileObject(ctx,
 			keyParts[1],
-			tenancyv1alpha1.SchemeGroupVersion.WithResource("clusterworkspaceshards"),
-			tenancyv1alpha1.SchemeGroupVersion.WithKind("ClusterWorkspaceShard"),
+			tenancyv1alpha1.SchemeGroupVersion.WithResource("shards"),
+			tenancyv1alpha1.SchemeGroupVersion.WithKind("Shard"),
 			func(gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (interface{}, error) {
-				return retrieveCacheObject(&gvr, c.globalClusterWorkspaceShardIndexer, c.shardName, cluster, namespace, name)
+				return retrieveCacheObject(&gvr, c.globalShardIndexer, c.shardName, cluster, namespace, name)
 			},
 			func(cluster logicalcluster.Name, _, name string) (interface{}, error) {
-				return c.localClusterWorkspaceShardLister.Cluster(cluster).Get(name)
+				return c.localShardLister.Cluster(cluster).Get(name)
 			})
 	default:
 		return fmt.Errorf("unsupported resource %v", keyParts[0])

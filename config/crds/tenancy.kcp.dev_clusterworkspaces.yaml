@@ -67,7 +67,7 @@ spec:
                   constraints are specified, an arbitrary shard is chosen."
                 properties:
                   name:
-                    description: name is the name of ClusterWorkspaceShard.
+                    description: name is the name of Shard.
                     pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                     type: string
                   selector:

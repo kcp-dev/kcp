@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package clusterworkspaceshard
+package shard
 
 import (
 	"context"
@@ -36,31 +36,32 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
-	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
-	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	corev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/core/v1alpha1"
+	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 const (
-	ControllerName = "kcp-clusterworkspaceshard"
+	ControllerName = "kcp-shard"
 )
 
 func NewController(
 	rootKcpClient kcpclientset.ClusterInterface,
-	clusterWorkspaceShardInformer tenancyinformers.ClusterWorkspaceShardClusterInformer,
+	shardInformer corev1alpha1informers.ShardClusterInformer,
 ) (*Controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
 	c := &Controller{
-		queue:                        queue,
-		kcpClient:                    rootKcpClient,
-		clusterWorkspaceShardIndexer: clusterWorkspaceShardInformer.Informer().GetIndexer(),
-		clusterWorkspaceShardLister:  clusterWorkspaceShardInformer.Lister(),
+		queue:        queue,
+		kcpClient:    rootKcpClient,
+		shardIndexer: shardInformer.Informer().GetIndexer(),
+		shardLister:  shardInformer.Lister(),
 	}
 
-	clusterWorkspaceShardInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	shardInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
 	})
@@ -68,15 +69,15 @@ func NewController(
 	return c, nil
 }
 
-// Controller watches WorkspaceShards and Secrets in order to make sure every ClusterWorkspaceShard
+// Controller watches WorkspaceShards and Secrets in order to make sure every Shard
 // has its URL exposed when a valid kubeconfig is connected to it.
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
 	kcpClient kcpclientset.ClusterInterface
 
-	clusterWorkspaceShardIndexer cache.Indexer
-	clusterWorkspaceShardLister  tenancyv1alpha1listers.ClusterWorkspaceShardClusterLister
+	shardIndexer cache.Indexer
+	shardLister  corev1alpha1listers.ShardClusterLister
 }
 
 func (c *Controller) enqueue(obj interface{}) {
@@ -86,7 +87,7 @@ func (c *Controller) enqueue(obj interface{}) {
 		return
 	}
 	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
-	logger.V(2).Info("queueing ClusterWorkspaceShard")
+	logger.V(2).Info("queueing Shard")
 	c.queue.Add(key)
 }
 
@@ -144,11 +145,11 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		return nil
 	}
 	if namespace != "" {
-		logger.Error(errors.New("namespace found in key for cluster-wide ClusterWorkspaceShard object"), "invalid key")
+		logger.Error(errors.New("namespace found in key for cluster-wide Shard object"), "invalid key")
 		return nil
 	}
 
-	obj, err := c.clusterWorkspaceShardLister.Cluster(clusterName).Get(name)
+	obj, err := c.shardLister.Cluster(clusterName).Get(name)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return nil // object deleted before we handled it
@@ -167,14 +168,14 @@ func (c *Controller) process(ctx context.Context, key string) error {
 
 	// If the object being reconciled changed as a result, update it.
 	if !equality.Semantic.DeepEqual(previous.Status, obj.Status) {
-		oldData, err := json.Marshal(tenancyv1alpha1.ClusterWorkspaceShard{
+		oldData, err := json.Marshal(corev1alpha1.Shard{
 			Status: previous.Status,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to Marshal old data for workspace shard %s|%s/%s: %w", tenancyv1alpha1.RootCluster, namespace, name, err)
 		}
 
-		newData, err := json.Marshal(tenancyv1alpha1.ClusterWorkspaceShard{
+		newData, err := json.Marshal(corev1alpha1.Shard{
 			ObjectMeta: metav1.ObjectMeta{
 				UID:             previous.UID,
 				ResourceVersion: previous.ResourceVersion,
@@ -189,14 +190,14 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		if err != nil {
 			return fmt.Errorf("failed to create patch for workspace shard %s|%s/%s: %w", tenancyv1alpha1.RootCluster, namespace, name, err)
 		}
-		_, uerr := c.kcpClient.Cluster(tenancyv1alpha1.RootCluster.Path()).TenancyV1alpha1().ClusterWorkspaceShards().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+		_, uerr := c.kcpClient.Cluster(tenancyv1alpha1.RootCluster.Path()).CoreV1alpha1().Shards().Patch(ctx, obj.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 		return uerr
 	}
 
-	logger.V(6).Info("processed ClusterWorkspaceShard")
+	logger.V(6).Info("processed Shard")
 	return nil
 }
 
-func (c *Controller) reconcile(ctx context.Context, workspaceShard *tenancyv1alpha1.ClusterWorkspaceShard) error {
+func (c *Controller) reconcile(ctx context.Context, workspaceShard *corev1alpha1.Shard) error {
 	return nil
 }

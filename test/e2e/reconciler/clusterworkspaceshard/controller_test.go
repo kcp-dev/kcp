@@ -37,7 +37,7 @@ func TestWorkspaceShardController(t *testing.T) {
 
 	type runningServer struct {
 		framework.RunningServer
-		rootShardClient               tenancyv1alpha1client.ClusterWorkspaceShardInterface
+		rootShardClient               tenancyv1alpha1client.ShardInterface
 		rootKubeClient, orgKubeClient kubernetes.Interface
 		expect                        framework.RegisterWorkspaceShardExpectation
 	}
@@ -85,7 +85,7 @@ func TestWorkspaceShardController(t *testing.T) {
 
 			testCase.work(ctx, t, runningServer{
 				RunningServer:   server,
-				rootShardClient: kcpClient.Cluster(tenancyv1alpha1.RootCluster.Path()).TenancyV1alpha1().ClusterWorkspaceShards(),
+				rootShardClient: kcpClient.Cluster(tenancyv1alpha1.RootCluster.Path()).CoreV1alpha1().Shards(),
 				rootKubeClient:  kubeClient.Cluster(tenancyv1alpha1.RootCluster.Path()),
 				orgKubeClient:   kubeClient.Cluster(orgClusterName.Path()),
 				expect:          expect,

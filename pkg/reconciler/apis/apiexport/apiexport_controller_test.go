@@ -31,7 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 )
@@ -46,7 +46,7 @@ func TestReconcile(t *testing.T) {
 		apiExportHasExpectedHash             bool
 		apiExportHasSomeOtherHash            bool
 		hasPreexistingVerifyFailure          bool
-		listClusterWorkspaceShardsError      error
+		listShardsError                      error
 
 		apiBindings []interface{}
 
@@ -110,7 +110,7 @@ func TestReconcile(t *testing.T) {
 
 			wantIdentityValid: true,
 		},
-		"error listing clusterworkspaceshards": {
+		"error listing shards": {
 			secretRefSet: true,
 			secretExists: true,
 
@@ -120,8 +120,8 @@ func TestReconcile(t *testing.T) {
 			apiBindings: []interface{}{
 				"something",
 			},
-			listClusterWorkspaceShardsError: errors.New("foo"),
-			wantVirtualWorkspaceURLsError:   true,
+			listShardsError:               errors.New("foo"),
+			wantVirtualWorkspaceURLsError: true,
 		},
 		"virtualWorkspaceURLs set when APIBindings present": {
 			secretRefSet: true,
@@ -176,12 +176,12 @@ func TestReconcile(t *testing.T) {
 					createSecretCalled = true
 					return tc.createSecretError
 				},
-				listClusterWorkspaceShards: func() ([]*tenancyv1alpha1.ClusterWorkspaceShard, error) {
-					if tc.listClusterWorkspaceShardsError != nil {
-						return nil, tc.listClusterWorkspaceShardsError
+				listShards: func() ([]*corev1alpha1.Shard, error) {
+					if tc.listShardsError != nil {
+						return nil, tc.listShardsError
 					}
 
-					return []*tenancyv1alpha1.ClusterWorkspaceShard{
+					return []*corev1alpha1.Shard{
 						{
 							ObjectMeta: metav1.ObjectMeta{
 								Annotations: map[string]string{
@@ -189,7 +189,7 @@ func TestReconcile(t *testing.T) {
 								},
 								Name: "shard1",
 							},
-							Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{
+							Spec: corev1alpha1.ShardSpec{
 								ExternalURL: "https://server-1.kcp.dev/",
 							},
 						},
@@ -200,7 +200,7 @@ func TestReconcile(t *testing.T) {
 								},
 								Name: "shard2",
 							},
-							Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{
+							Spec: corev1alpha1.ShardSpec{
 								ExternalURL: "https://server-2.kcp.dev/",
 							},
 						},

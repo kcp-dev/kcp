@@ -29,6 +29,7 @@ import (
 	_ "k8s.io/component-base/metrics/prometheus/workqueue"
 	"k8s.io/klog/v2"
 
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
@@ -57,8 +58,8 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	s.KcpSharedInformerFactory = kcpinformers.NewSharedScopedInformerFactoryWithOptions(rootShardConfigInformerClient.Cluster(tenancyv1alpha1.RootCluster.Path()), 30*time.Minute)
 	s.IndexController = index.NewController(
 		ctx,
-		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
-		func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpclientset.ClusterInterface, error) {
+		s.KcpSharedInformerFactory.Core().V1alpha1().Shards(),
+		func(shard *corev1alpha1.Shard) (kcpclientset.ClusterInterface, error) {
 			shardConfig := restclient.CopyConfig(s.CompletedConfig.ShardsConfig)
 			shardConfig.Host = shard.Spec.BaseURL
 			shardClient, err := kcpclientset.NewForConfig(shardConfig)

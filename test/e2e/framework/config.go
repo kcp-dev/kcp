@@ -128,7 +128,7 @@ func ShardConfig(t *testing.T, kcpClusterClient kcpclientset.ClusterInterface, s
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
-	shard, err := kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster.Path()).TenancyV1alpha1().ClusterWorkspaceShards().Get(ctx, shardName, metav1.GetOptions{})
+	shard, err := kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster.Path()).CoreV1alpha1().Shards().Get(ctx, shardName, metav1.GetOptions{})
 	require.NoError(t, err)
 
 	shardCfg := rest.CopyConfig(cfg)

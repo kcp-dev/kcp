@@ -55,7 +55,7 @@ var (
 
 	// KcpRootGroupResourceExportNames lists the APIExports in the root workspace for standard kcp group resources
 	KcpRootGroupResourceExportNames = map[schema.GroupResource]string{
-		{Group: "tenancy.kcp.dev", Resource: "clusterworkspaceshards"}: "shards.tenancy.kcp.dev",
+		{Group: "core.kcp.dev", Resource: "shards"}: "shards.core.kcp.dev",
 	}
 )
 

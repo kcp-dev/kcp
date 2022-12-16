@@ -2,16 +2,16 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v221113-fe47bd04.clusterworkspaceshards.tenancy.kcp.dev
+  name: v221216-7a674974c.shards.core.kcp.dev
 spec:
-  group: tenancy.kcp.dev
+  group: core.kcp.dev
   names:
     categories:
     - kcp
-    kind: ClusterWorkspaceShard
-    listKind: ClusterWorkspaceShardList
-    plural: clusterworkspaceshards
-    singular: clusterworkspaceshard
+    kind: Shard
+    listKind: ShardList
+    plural: shards
+    singular: shard
   scope: Cluster
   versions:
   - additionalPrinterColumns:
@@ -28,8 +28,8 @@ spec:
       type: date
     name: v1alpha1
     schema:
-      description: ClusterWorkspaceShard describes a Shard (== KCP instance) on which
-        a number of workspaces will live
+      description: Shard describes a Shard (== KCP instance) on which a number of
+        workspaces will live
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -44,7 +44,7 @@ spec:
         metadata:
           type: object
         spec:
-          description: ClusterWorkspaceShardSpec holds the desired state of the ClusterWorkspaceShard.
+          description: ShardSpec holds the desired state of the Shard.
           properties:
             baseURL:
               description: baseURL is the address of the KCP shard for direct connections,
@@ -79,8 +79,7 @@ spec:
           - baseURL
           type: object
         status:
-          description: ClusterWorkspaceShardStatus communicates the observed state
-            of the ClusterWorkspaceShard.
+          description: ShardStatus communicates the observed state of the Shard.
           properties:
             capacity:
               additionalProperties:
@@ -93,7 +92,7 @@ spec:
                 into
               type: object
             conditions:
-              description: Current processing state of the ClusterWorkspaceShard.
+              description: Current processing state of the Shard.
               items:
                 description: Condition defines an observation of a object operational
                   state.

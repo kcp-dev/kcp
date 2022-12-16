@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
@@ -35,7 +36,7 @@ import (
 func TestReconcile(t *testing.T) {
 	for _, testCase := range []struct {
 		name     string
-		shards   []*tenancyv1alpha1.ClusterWorkspaceShard
+		shards   []*corev1alpha1.Shard
 		listErr  error
 		cwts     []*tenancyv1alpha1.ClusterWorkspaceType
 		getErr   error
@@ -75,7 +76,7 @@ func TestReconcile(t *testing.T) {
 		},
 		{
 			name:    "error listing shards, error in status",
-			shards:  []*tenancyv1alpha1.ClusterWorkspaceShard{},
+			shards:  []*corev1alpha1.Shard{},
 			listErr: fmt.Errorf("oops"),
 			cwt: &tenancyv1alpha1.ClusterWorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
@@ -99,14 +100,14 @@ func TestReconcile(t *testing.T) {
 							Status:   "False",
 							Severity: "Error",
 							Reason:   "ErrorGeneratingURLs",
-							Message:  "error listing ClusterWorkspaceShards: oops",
+							Message:  "error listing Shards: oops",
 						},
 						{
 							Type:     "VirtualWorkspaceURLsReady",
 							Status:   "False",
 							Severity: "Error",
 							Reason:   "ErrorGeneratingURLs",
-							Message:  "error listing ClusterWorkspaceShards: oops",
+							Message:  "error listing Shards: oops",
 						},
 					},
 				},
@@ -114,10 +115,10 @@ func TestReconcile(t *testing.T) {
 		},
 		{
 			name: "URLs from shards propagate fill empty status",
-			shards: []*tenancyv1alpha1.ClusterWorkspaceShard{
-				{Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{ExternalURL: "https://whatever.com"}},
-				{Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{ExternalURL: "https://something.com"}},
-				{Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{ExternalURL: "https://item.com"}},
+			shards: []*corev1alpha1.Shard{
+				{Spec: corev1alpha1.ShardSpec{ExternalURL: "https://whatever.com"}},
+				{Spec: corev1alpha1.ShardSpec{ExternalURL: "https://something.com"}},
+				{Spec: corev1alpha1.ShardSpec{ExternalURL: "https://item.com"}},
 			},
 			cwt: &tenancyv1alpha1.ClusterWorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
@@ -155,10 +156,10 @@ func TestReconcile(t *testing.T) {
 		},
 		{
 			name: "URLs from shards propagate to partially filled status",
-			shards: []*tenancyv1alpha1.ClusterWorkspaceShard{
-				{Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{ExternalURL: "https://whatever.com"}},
-				{Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{ExternalURL: "https://something.com"}},
-				{Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{ExternalURL: "https://item.com"}},
+			shards: []*corev1alpha1.Shard{
+				{Spec: corev1alpha1.ShardSpec{ExternalURL: "https://whatever.com"}},
+				{Spec: corev1alpha1.ShardSpec{ExternalURL: "https://something.com"}},
+				{Spec: corev1alpha1.ShardSpec{ExternalURL: "https://item.com"}},
 			},
 			cwt: &tenancyv1alpha1.ClusterWorkspaceType{
 				ObjectMeta: metav1.ObjectMeta{
@@ -213,7 +214,7 @@ func TestReconcile(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			testCase.cwts = append(testCase.cwts, testCase.cwt.DeepCopy())
 			c := controller{
-				listClusterWorkspaceShards: func() ([]*tenancyv1alpha1.ClusterWorkspaceShard, error) {
+				listShards: func() ([]*corev1alpha1.Shard, error) {
 					return testCase.shards, testCase.listErr
 				},
 				resolveClusterWorkspaceType: func(reference tenancyv1alpha1.ClusterWorkspaceTypeReference) (*tenancyv1alpha1.ClusterWorkspaceType, error) {

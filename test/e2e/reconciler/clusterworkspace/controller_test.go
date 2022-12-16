@@ -57,7 +57,7 @@ func TestWorkspaceController(t *testing.T) {
 		{
 			name: "check the root workspace shard has the correct base URL",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				cws, err := server.rootKcpClient.TenancyV1alpha1().ClusterWorkspaceShards().Get(ctx, "root", metav1.GetOptions{})
+				cws, err := server.rootKcpClient.CoreV1alpha1().Shards().Get(ctx, "root", metav1.GetOptions{})
 				require.NoError(t, err, "did not see root workspace shard")
 
 				require.True(t, strings.HasPrefix(cws.Spec.BaseURL, "https://"), "expected https:// root shard base URL, got=%q", cws.Spec.BaseURL)
@@ -87,16 +87,16 @@ func TestWorkspaceController(t *testing.T) {
 			name:        "add a shard after a workspace is unschedulable, expect it to be scheduled",
 			destructive: true,
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				var previouslyValidShard tenancyv1alpha1.ClusterWorkspaceShard
+				var previouslyValidShard corev1alpha1.Shard
 				t.Logf("Get a list of current shards so that we can schedule onto a valid shard later")
-				shards, err := server.rootKcpClient.TenancyV1alpha1().ClusterWorkspaceShards().List(ctx, metav1.ListOptions{})
+				shards, err := server.rootKcpClient.CoreV1alpha1().Shards().List(ctx, metav1.ListOptions{})
 				require.NoError(t, err)
 				if len(shards.Items) == 0 {
 					t.Fatalf("expected to get some shards but got none")
 				}
 				previouslyValidShard = shards.Items[0]
 				t.Logf("Delete all pre-configured shards, we have to control the creation of the workspace shards in this test")
-				err = server.rootKcpClient.TenancyV1alpha1().ClusterWorkspaceShards().DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{})
+				err = server.rootKcpClient.CoreV1alpha1().Shards().DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{})
 				require.NoError(t, err)
 
 				t.Logf("Create a workspace without shards")
@@ -111,19 +111,19 @@ func TestWorkspaceController(t *testing.T) {
 				require.NoError(t, err, "did not see workspace marked unschedulable")
 
 				t.Logf("Add previously removed shard %q", previouslyValidShard.Name)
-				newShard, err := server.rootKcpClient.TenancyV1alpha1().ClusterWorkspaceShards().Create(ctx, &tenancyv1alpha1.ClusterWorkspaceShard{
+				newShard, err := server.rootKcpClient.CoreV1alpha1().Shards().Create(ctx, &corev1alpha1.Shard{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:   previouslyValidShard.Name,
 						Labels: previouslyValidShard.Labels,
 					},
-					Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{
+					Spec: corev1alpha1.ShardSpec{
 						BaseURL:     previouslyValidShard.Spec.BaseURL,
 						ExternalURL: previouslyValidShard.Spec.ExternalURL,
 					},
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "failed to create workspace shard")
 				server.Artifact(t, func() (runtime.Object, error) {
-					return server.rootKcpClient.TenancyV1alpha1().ClusterWorkspaceShards().Get(ctx, newShard.Name, metav1.GetOptions{})
+					return server.rootKcpClient.CoreV1alpha1().Shards().Get(ctx, newShard.Name, metav1.GetOptions{})
 				})
 
 				t.Logf("Expect workspace to be scheduled to the shard and show the external URL")

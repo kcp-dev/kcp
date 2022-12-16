@@ -77,7 +77,7 @@ Out of the box, the server supports the following resources:
 
 - `apiresourceschemas`
 - `apiexports`
-- `clusterworkspaceshards`
+- `shards`
 
 All those resources are represented as CustomResourceDefinitions and
 stored in `system:cache:server` shard under `system:system-crds` cluster.

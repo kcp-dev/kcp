@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v221216-5977dcf75.clusterworkspaces.tenancy.kcp.dev
+  name: v221216-7a674974c.clusterworkspaces.tenancy.kcp.dev
 spec:
   group: tenancy.kcp.dev
   names:
@@ -63,7 +63,7 @@ spec:
                 constraints are specified, an arbitrary shard is chosen."
               properties:
                 name:
-                  description: name is the name of ClusterWorkspaceShard.
+                  description: name is the name of Shard.
                   pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                   type: string
                 selector:

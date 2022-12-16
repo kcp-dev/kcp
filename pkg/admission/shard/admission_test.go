@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package clusterworkspaceshard
+package shard
 
 import (
 	"context"
@@ -30,17 +30,18 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 
 	"github.com/kcp-dev/kcp/pkg/admission/helpers"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
 
-func createAttr(shard *tenancyv1alpha1.ClusterWorkspaceShard) admission.Attributes {
+func createAttr(shard *corev1alpha1.Shard) admission.Attributes {
 	return admission.NewAttributesRecord(
 		helpers.ToUnstructuredOrDie(shard),
 		nil,
-		tenancyv1alpha1.Kind("ClusterWorkspaceShard").WithVersion("v1alpha1"),
+		corev1alpha1.Kind("Shard").WithVersion("v1alpha1"),
 		"",
 		shard.Name,
-		tenancyv1alpha1.Resource("clusterworkspaceshards").WithVersion("v1alpha1"),
+		corev1alpha1.Resource("shards").WithVersion("v1alpha1"),
 		"",
 		admission.Create,
 		&metav1.CreateOptions{},
@@ -49,14 +50,14 @@ func createAttr(shard *tenancyv1alpha1.ClusterWorkspaceShard) admission.Attribut
 	)
 }
 
-func updateAttr(shard, old *tenancyv1alpha1.ClusterWorkspaceShard) admission.Attributes {
+func updateAttr(shard, old *corev1alpha1.Shard) admission.Attributes {
 	return admission.NewAttributesRecord(
 		helpers.ToUnstructuredOrDie(shard),
 		helpers.ToUnstructuredOrDie(old),
 		tenancyv1alpha1.Kind("ClusterWorkspace").WithVersion("v1alpha1"),
 		"",
 		shard.Name,
-		tenancyv1alpha1.Resource("clusterworkspaceshards").WithVersion("v1alpha1"),
+		corev1alpha1.Resource("shards").WithVersion("v1alpha1"),
 		"",
 		admission.Update,
 		&metav1.CreateOptions{},
@@ -66,12 +67,12 @@ func updateAttr(shard, old *tenancyv1alpha1.ClusterWorkspaceShard) admission.Att
 }
 
 type shardBuilder struct {
-	*tenancyv1alpha1.ClusterWorkspaceShard
+	*corev1alpha1.Shard
 }
 
 func newShard() *shardBuilder {
 	return &shardBuilder{
-		ClusterWorkspaceShard: &tenancyv1alpha1.ClusterWorkspaceShard{
+		Shard: &corev1alpha1.Shard{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test",
 			},
@@ -95,7 +96,7 @@ func (b *shardBuilder) virtualWorkspaceURL(u string) *shardBuilder {
 }
 
 func TestAdmitIgnoresOtherResources(t *testing.T) {
-	o := &clusterWorkspaceShard{
+	o := &shard{
 		Handler: admission.NewHandler(admission.Create, admission.Update),
 	}
 
@@ -123,28 +124,28 @@ func TestAdmitIgnoresOtherResources(t *testing.T) {
 func TestAdmit(t *testing.T) {
 	tests := []struct {
 		name     string
-		shard    *tenancyv1alpha1.ClusterWorkspaceShard
-		expected *tenancyv1alpha1.ClusterWorkspaceShard
+		shard    *corev1alpha1.Shard
+		expected *corev1alpha1.Shard
 	}{
 		{
 			name:     "nothing set",
-			shard:    newShard().ClusterWorkspaceShard,
-			expected: newShard().ClusterWorkspaceShard,
+			shard:    newShard().Shard,
+			expected: newShard().Shard,
 		},
 		{
 			name:     "all set",
-			shard:    newShard().baseURL("https://base").externalURL("https://external").virtualWorkspaceURL("https://virtual").ClusterWorkspaceShard,
-			expected: newShard().baseURL("https://base").externalURL("https://external").virtualWorkspaceURL("https://virtual").ClusterWorkspaceShard,
+			shard:    newShard().baseURL("https://base").externalURL("https://external").virtualWorkspaceURL("https://virtual").Shard,
+			expected: newShard().baseURL("https://base").externalURL("https://external").virtualWorkspaceURL("https://virtual").Shard,
 		},
 		{
 			name:     "defaulting external URL",
-			shard:    newShard().baseURL("https://base").virtualWorkspaceURL("https://virtual").ClusterWorkspaceShard,
-			expected: newShard().baseURL("https://base").externalURL("https://base").virtualWorkspaceURL("https://virtual").ClusterWorkspaceShard,
+			shard:    newShard().baseURL("https://base").virtualWorkspaceURL("https://virtual").Shard,
+			expected: newShard().baseURL("https://base").externalURL("https://base").virtualWorkspaceURL("https://virtual").Shard,
 		},
 		{
 			name:     "defaulting virtual workspace URL",
-			shard:    newShard().baseURL("https://base").externalURL("https://external").ClusterWorkspaceShard,
-			expected: newShard().baseURL("https://base").externalURL("https://external").virtualWorkspaceURL("https://base").ClusterWorkspaceShard,
+			shard:    newShard().baseURL("https://base").externalURL("https://external").Shard,
+			expected: newShard().baseURL("https://base").externalURL("https://external").virtualWorkspaceURL("https://base").Shard,
 		},
 	}
 	for _, tt := range tests {
@@ -155,7 +156,7 @@ func TestAdmit(t *testing.T) {
 
 		for aType, a := range attrs {
 			t.Run(tt.name+" "+aType, func(t *testing.T) {
-				o := &clusterWorkspaceShard{
+				o := &shard{
 					Handler: admission.NewHandler(admission.Create, admission.Update),
 				}
 

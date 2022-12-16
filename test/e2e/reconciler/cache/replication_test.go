@@ -57,8 +57,8 @@ var scenarios = []testScenario{
 	{"TestReplicateAPIExportNegative", replicateAPIExportNegativeScenario},
 	{"TestReplicateAPIResourceSchema", replicateAPIResourceSchemaScenario},
 	{"TestReplicateAPIResourceSchemaNegative", replicateAPIResourceSchemaNegativeScenario},
-	{"TestReplicateClusterWorkspaceShard", replicateClusterWorkspaceShardScenario},
-	{"TestReplicateClusterWorkspaceShardNegative", replicateClusterWorkspaceShardNegativeScenario},
+	{"TestReplicateShard", replicateShardScenario},
+	{"TestReplicateShardNegative", replicateShardNegativeScenario},
 }
 
 // replicateAPIResourceSchemaScenario tests if an APIResourceSchema is propagated to the cache server.
@@ -253,102 +253,102 @@ func replicateAPIExportNegativeScenario(ctx context.Context, t *testing.T, serve
 	scenario.VerifyReplication(ctx, t, cluster.Path())
 }
 
-// replicateClusterWorkspaceShardScenario tests if a ClusterWorkspaceShard is propagated to the cache server.
-// The test exercises creation, modification and removal of the ClusterWorkspaceShard object.
-func replicateClusterWorkspaceShardScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterClient kcpclientset.ClusterInterface, cacheKcpClusterClient kcpclientset.ClusterInterface) {
-	// The ClusterWorkspaceShard API is per default only available in the root workspace
+// replicateShardScenario tests if a Shard is propagated to the cache server.
+// The test exercises creation, modification and removal of the Shard object.
+func replicateShardScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterClient kcpclientset.ClusterInterface, cacheKcpClusterClient kcpclientset.ClusterInterface) {
+	// The Shard API is per default only available in the root workspace
 	clusterName := tenancyv1alpha1.RootCluster
 	resourceName := "test-shard"
-	scenario := &replicateResourceScenario{resourceName: resourceName, resourceKind: "ClusterWorkspaceShard", server: server, kcpShardClusterClient: kcpShardClusterClient, cacheKcpClusterClient: cacheKcpClusterClient}
+	scenario := &replicateResourceScenario{resourceName: resourceName, resourceKind: "Shard", server: server, kcpShardClusterClient: kcpShardClusterClient, cacheKcpClusterClient: cacheKcpClusterClient}
 
-	t.Logf("Create source ClusterWorkspaceShard %s/%s on the root shard for replication", clusterName, resourceName)
+	t.Logf("Create source Shard %s/%s on the root shard for replication", clusterName, resourceName)
 	scenario.CreateSourceResource(t, func() error {
-		cws := &tenancyv1alpha1.ClusterWorkspaceShard{
+		cws := &corev1alpha1.Shard{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: resourceName,
 			},
-			Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{
+			Spec: corev1alpha1.ShardSpec{
 				BaseURL: "https://base.kcp.test.dev",
 			},
 		}
-		cws, err := kcpShardClusterClient.Cluster(clusterName.Path()).TenancyV1alpha1().ClusterWorkspaceShards().Create(ctx, cws, metav1.CreateOptions{})
+		cws, err := kcpShardClusterClient.Cluster(clusterName.Path()).CoreV1alpha1().Shards().Create(ctx, cws, metav1.CreateOptions{})
 		resourceName = cws.Name
 		scenario.resourceName = cws.Name
 		return err
 	})
-	t.Logf("Verify that the source ClusterWorkspaceShard %s/%s was replicated to the cache server", clusterName, resourceName)
+	t.Logf("Verify that the source Shard %s/%s was replicated to the cache server", clusterName, resourceName)
 	scenario.VerifyReplication(ctx, t, clusterName.Path())
 
-	t.Logf("Change the spec on source ClusterWorkspaceShard %s/%s and verify if updates were propagated to the cached object", clusterName, resourceName)
+	t.Logf("Change the spec on source Shard %s/%s and verify if updates were propagated to the cached object", clusterName, resourceName)
 	scenario.UpdateSourceResource(ctx, t, clusterName.Path(), func(res runtime.Object) error {
-		cws, ok := res.(*tenancyv1alpha1.ClusterWorkspaceShard)
+		cws, ok := res.(*corev1alpha1.Shard)
 		if !ok {
-			return fmt.Errorf("%T is not *ClusterWorkspaceShard", res)
+			return fmt.Errorf("%T is not *Shard", res)
 		}
 		cws.Spec.BaseURL = "https://kcp.test.dev"
-		_, err := kcpShardClusterClient.Cluster(clusterName.Path()).TenancyV1alpha1().ClusterWorkspaceShards().Update(ctx, cws, metav1.UpdateOptions{})
+		_, err := kcpShardClusterClient.Cluster(clusterName.Path()).CoreV1alpha1().Shards().Update(ctx, cws, metav1.UpdateOptions{})
 		return err
 	})
 	scenario.VerifyReplication(ctx, t, clusterName.Path())
 
-	t.Logf("Change some metadata on source ClusterWorkspaceShard %s/%s and verify if updates were propagated to the cached object", clusterName, resourceName)
+	t.Logf("Change some metadata on source Shard %s/%s and verify if updates were propagated to the cached object", clusterName, resourceName)
 	scenario.UpdateSourceResource(ctx, t, clusterName.Path(), func(res runtime.Object) error {
 		if err := scenario.ChangeMetadataFor(res); err != nil {
 			return err
 		}
-		cws, ok := res.(*tenancyv1alpha1.ClusterWorkspaceShard)
+		cws, ok := res.(*corev1alpha1.Shard)
 		if !ok {
-			return fmt.Errorf("%T is not *ClusterWorkspaceShard", res)
+			return fmt.Errorf("%T is not *Shard", res)
 		}
-		_, err := kcpShardClusterClient.Cluster(clusterName.Path()).TenancyV1alpha1().ClusterWorkspaceShards().Update(ctx, cws, metav1.UpdateOptions{})
+		_, err := kcpShardClusterClient.Cluster(clusterName.Path()).CoreV1alpha1().Shards().Update(ctx, cws, metav1.UpdateOptions{})
 		return err
 	})
 	scenario.VerifyReplication(ctx, t, clusterName.Path())
 
-	t.Logf("Verify that deleting source ClusterWorkspaceShard %s/%s leads to removal of the cached object", clusterName, resourceName)
+	t.Logf("Verify that deleting source Shard %s/%s leads to removal of the cached object", clusterName, resourceName)
 	scenario.DeleteSourceResourceAndVerify(ctx, t, clusterName.Path())
 }
 
-// replicateClusterWorkspaceShardNegativeScenario checks if modified or even deleted cached ClusterWorkspaceShard will be reconciled to match the original object
-func replicateClusterWorkspaceShardNegativeScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterClient kcpclientset.ClusterInterface, cacheKcpClusterClient kcpclientset.ClusterInterface) {
-	// The ClusterWorkspaceShard API is per default only available in the root workspace
+// replicateShardNegativeScenario checks if modified or even deleted cached Shard will be reconciled to match the original object
+func replicateShardNegativeScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterClient kcpclientset.ClusterInterface, cacheKcpClusterClient kcpclientset.ClusterInterface) {
+	// The Shard API is per default only available in the root workspace
 	cluster := tenancyv1alpha1.RootCluster
 	resourceName := "test-shard"
-	scenario := &replicateResourceScenario{resourceName: resourceName, resourceKind: "ClusterWorkspaceShard", server: server, kcpShardClusterClient: kcpShardClusterClient, cacheKcpClusterClient: cacheKcpClusterClient}
+	scenario := &replicateResourceScenario{resourceName: resourceName, resourceKind: "Shard", server: server, kcpShardClusterClient: kcpShardClusterClient, cacheKcpClusterClient: cacheKcpClusterClient}
 
-	t.Logf("Create source ClusterWorkspaceShard %s/%s on the root shard for replication", cluster, resourceName)
+	t.Logf("Create source Shard %s/%s on the root shard for replication", cluster, resourceName)
 	scenario.CreateSourceResource(t, func() error {
-		cws := &tenancyv1alpha1.ClusterWorkspaceShard{
+		cws := &corev1alpha1.Shard{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: resourceName,
 			},
-			Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{
+			Spec: corev1alpha1.ShardSpec{
 				BaseURL: "https://base.kcp.test.dev",
 			},
 		}
-		cws, err := kcpShardClusterClient.Cluster(cluster.Path()).TenancyV1alpha1().ClusterWorkspaceShards().Create(ctx, cws, metav1.CreateOptions{})
+		cws, err := kcpShardClusterClient.Cluster(cluster.Path()).CoreV1alpha1().Shards().Create(ctx, cws, metav1.CreateOptions{})
 		resourceName = cws.Name
 		scenario.resourceName = cws.Name
 		return err
 	})
-	t.Logf("Verify that the source ClusterWorkspaceShard %s/%s was replicated to the cache server", cluster, resourceName)
+	t.Logf("Verify that the source Shard %s/%s was replicated to the cache server", cluster, resourceName)
 	scenario.VerifyReplication(ctx, t, cluster.Path())
 
-	t.Logf("Delete cached ClusterWorkspaceShard %s/%s and check if it was brought back by the replication controller", cluster, resourceName)
+	t.Logf("Delete cached Shard %s/%s and check if it was brought back by the replication controller", cluster, resourceName)
 	scenario.DeleteCachedResource(ctx, t, cluster.Path())
 	scenario.VerifyReplication(ctx, t, cluster.Path())
 
-	t.Logf("Update cached ClusterWorkspaceShard %s/%s so that it differs from the source resource", cluster, scenario.resourceName)
+	t.Logf("Update cached Shard %s/%s so that it differs from the source resource", cluster, scenario.resourceName)
 	scenario.UpdateCachedResource(ctx, t, cluster.Path(), func(res runtime.Object) error {
-		cachedCws, ok := res.(*tenancyv1alpha1.ClusterWorkspaceShard)
+		cachedCws, ok := res.(*corev1alpha1.Shard)
 		if !ok {
-			return fmt.Errorf("%T is not *ClusterWorkspaceShard", res)
+			return fmt.Errorf("%T is not *Shard", res)
 		}
 		cachedCws.Spec.BaseURL = "https://base2.kcp.test.dev"
-		_, err := cacheKcpClusterClient.Cluster(cluster.Path()).TenancyV1alpha1().ClusterWorkspaceShards().Update(cacheclient.WithShardInContext(ctx, shard.New("root")), cachedCws, metav1.UpdateOptions{})
+		_, err := cacheKcpClusterClient.Cluster(cluster.Path()).CoreV1alpha1().Shards().Update(cacheclient.WithShardInContext(ctx, shard.New("root")), cachedCws, metav1.UpdateOptions{})
 		return err
 	})
-	t.Logf("Verify that the cached ClusterWorkspaceShard %s/%s was brought back by the replication controller after an update", cluster, resourceName)
+	t.Logf("Verify that the cached Shard %s/%s was brought back by the replication controller after an update", cluster, resourceName)
 	scenario.VerifyReplication(ctx, t, cluster.Path())
 }
 
@@ -536,8 +536,8 @@ func (b *replicateResourceScenario) getSourceResourceHelper(ctx context.Context,
 		return b.kcpShardClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Get(ctx, b.resourceName, metav1.GetOptions{})
 	case "APIResourceSchema":
 		return b.kcpShardClusterClient.Cluster(cluster).ApisV1alpha1().APIResourceSchemas().Get(ctx, b.resourceName, metav1.GetOptions{})
-	case "ClusterWorkspaceShard":
-		return b.kcpShardClusterClient.Cluster(cluster).TenancyV1alpha1().ClusterWorkspaceShards().Get(ctx, b.resourceName, metav1.GetOptions{})
+	case "Shard":
+		return b.kcpShardClusterClient.Cluster(cluster).CoreV1alpha1().Shards().Get(ctx, b.resourceName, metav1.GetOptions{})
 	}
 	return nil, fmt.Errorf("unable to get a REST client for an unknown %s Kind", b.resourceKind)
 }
@@ -548,8 +548,8 @@ func (b *replicateResourceScenario) getCachedResourceHelper(ctx context.Context,
 		return b.cacheKcpClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Get(cacheclient.WithShardInContext(ctx, shard.New("root")), b.resourceName, metav1.GetOptions{})
 	case "APIResourceSchema":
 		return b.cacheKcpClusterClient.Cluster(cluster).ApisV1alpha1().APIResourceSchemas().Get(cacheclient.WithShardInContext(ctx, shard.New("root")), b.resourceName, metav1.GetOptions{})
-	case "ClusterWorkspaceShard":
-		return b.cacheKcpClusterClient.Cluster(cluster).TenancyV1alpha1().ClusterWorkspaceShards().Get(cacheclient.WithShardInContext(ctx, shard.New("root")), b.resourceName, metav1.GetOptions{})
+	case "Shard":
+		return b.cacheKcpClusterClient.Cluster(cluster).CoreV1alpha1().Shards().Get(cacheclient.WithShardInContext(ctx, shard.New("root")), b.resourceName, metav1.GetOptions{})
 	}
 	return nil, fmt.Errorf("unable to get a REST client for an unknown %s Kind", b.resourceKind)
 }
@@ -560,8 +560,8 @@ func (b *replicateResourceScenario) deleteSourceResourceHelper(ctx context.Conte
 		return b.kcpShardClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Delete(ctx, b.resourceName, metav1.DeleteOptions{})
 	case "APIResourceSchema":
 		return b.kcpShardClusterClient.Cluster(cluster).ApisV1alpha1().APIResourceSchemas().Delete(ctx, b.resourceName, metav1.DeleteOptions{})
-	case "ClusterWorkspaceShard":
-		return b.kcpShardClusterClient.Cluster(cluster).TenancyV1alpha1().ClusterWorkspaceShards().Delete(ctx, b.resourceName, metav1.DeleteOptions{})
+	case "Shard":
+		return b.kcpShardClusterClient.Cluster(cluster).CoreV1alpha1().Shards().Delete(ctx, b.resourceName, metav1.DeleteOptions{})
 	}
 	return fmt.Errorf("unable to get a REST client for an unknown %s Kind", b.resourceKind)
 }
@@ -572,8 +572,8 @@ func (b *replicateResourceScenario) deleteCachedResource(ctx context.Context, cl
 		return b.cacheKcpClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().Delete(cacheclient.WithShardInContext(ctx, shard.New("root")), b.resourceName, metav1.DeleteOptions{})
 	case "APIResourceSchema":
 		return b.cacheKcpClusterClient.Cluster(cluster).ApisV1alpha1().APIResourceSchemas().Delete(cacheclient.WithShardInContext(ctx, shard.New("root")), b.resourceName, metav1.DeleteOptions{})
-	case "ClusterWorkspaceShard":
-		return b.cacheKcpClusterClient.Cluster(cluster).TenancyV1alpha1().ClusterWorkspaceShards().Delete(cacheclient.WithShardInContext(ctx, shard.New("root")), b.resourceName, metav1.DeleteOptions{})
+	case "Shard":
+		return b.cacheKcpClusterClient.Cluster(cluster).CoreV1alpha1().Shards().Delete(cacheclient.WithShardInContext(ctx, shard.New("root")), b.resourceName, metav1.DeleteOptions{})
 	}
 	return fmt.Errorf("unable to get a REST client for an unknown %s Kind", b.resourceKind)
 }

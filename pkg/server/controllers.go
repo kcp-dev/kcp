@@ -47,6 +47,7 @@ import (
 	"k8s.io/kubernetes/pkg/serviceaccount"
 
 	configuniversal "github.com/kcp-dev/kcp/config/universal"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
@@ -62,12 +63,12 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/permissionclaimlabel"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/replication"
 	logicalclusterctrl "github.com/kcp-dev/kcp/pkg/reconciler/core/logicalcluster"
+	"github.com/kcp-dev/kcp/pkg/reconciler/core/shard"
 	"github.com/kcp-dev/kcp/pkg/reconciler/garbagecollector"
 	"github.com/kcp-dev/kcp/pkg/reconciler/kubequota"
 	schedulinglocationstatus "github.com/kcp-dev/kcp/pkg/reconciler/scheduling/location"
 	schedulingplacement "github.com/kcp-dev/kcp/pkg/reconciler/scheduling/placement"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/bootstrap"
-	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspaceshard"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/clusterworkspacetype"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/initialization"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspace"
@@ -392,7 +393,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		kubeClusterClient,
 		logicalClusterAdminConfig,
 		s.KcpSharedInformerFactory.Tenancy().V1beta1().Workspaces(),
-		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
+		s.KcpSharedInformerFactory.Core().V1alpha1().Shards(),
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceTypes(),
 		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 	)
@@ -413,25 +414,25 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 	}
 
 	clusterShardConfig := rest.CopyConfig(config)
-	clusterShardConfig = rest.AddUserAgent(clusterShardConfig, clusterworkspaceshard.ControllerName)
+	clusterShardConfig = rest.AddUserAgent(clusterShardConfig, shard.ControllerName)
 	kcpClusterClient, err = kcpclientset.NewForConfig(clusterShardConfig)
 	if err != nil {
 		return err
 	}
 
-	var workspaceShardController *clusterworkspaceshard.Controller
-	if s.Options.Extra.ShardName == tenancyv1alpha1.RootShard {
-		workspaceShardController, err = clusterworkspaceshard.NewController(
+	var workspaceShardController *shard.Controller
+	if s.Options.Extra.ShardName == corev1alpha1.RootShard {
+		workspaceShardController, err = shard.NewController(
 			kcpClusterClient,
-			s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
+			s.KcpSharedInformerFactory.Core().V1alpha1().Shards(),
 		)
 		if err != nil {
 			return err
 		}
 	}
 	if workspaceShardController != nil {
-		if err := s.AddPostStartHook(postStartHookName(clusterworkspaceshard.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-			logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(clusterworkspaceshard.ControllerName))
+		if err := s.AddPostStartHook(postStartHookName(shard.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
+			logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(shard.ControllerName))
 			if err := s.waitForSync(hookContext.StopCh); err != nil {
 				logger.Error(err, "failed to finish post-start-hook")
 				return nil // don't klog.Fatal. This only happens when context is cancelled.
@@ -454,7 +455,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 	workspaceTypeController, err := clusterworkspacetype.NewController(
 		kcpClusterClient,
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceTypes(),
-		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
+		s.KcpSharedInformerFactory.Core().V1alpha1().Shards(),
 	)
 	if err != nil {
 		return err
@@ -867,7 +868,7 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 	c, err := apiexport.NewController(
 		kcpClusterClient,
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExports(),
-		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
+		s.KcpSharedInformerFactory.Core().V1alpha1().Shards(),
 		kubeClusterClient,
 		s.KubeSharedInformerFactory.Core().V1().Namespaces(),
 		s.KubeSharedInformerFactory.Core().V1().Secrets(),
@@ -1162,7 +1163,7 @@ func (s *Server) installSyncTargetController(ctx context.Context, config *rest.C
 	c := synctargetcontroller.NewController(
 		kcpClusterClient,
 		s.KcpSharedInformerFactory.Workload().V1alpha1().SyncTargets(),
-		s.KcpSharedInformerFactory.Tenancy().V1alpha1().ClusterWorkspaceShards(),
+		s.KcpSharedInformerFactory.Core().V1alpha1().Shards(),
 	)
 	if err != nil {
 		return err
@@ -1240,7 +1241,7 @@ func (s *Server) installKubeQuotaController(
 }
 
 func (s *Server) installApiExportIdentityController(ctx context.Context, config *rest.Config, server *genericapiserver.GenericAPIServer) error {
-	if s.Options.Extra.ShardName == tenancyv1alpha1.RootShard {
+	if s.Options.Extra.ShardName == corev1alpha1.RootShard {
 		return nil
 	}
 	config = rest.CopyConfig(config)

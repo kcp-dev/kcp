@@ -32,12 +32,11 @@ import (
 	"k8s.io/klog/v2"
 
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	corev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/core/v1alpha1"
 	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
-	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/index"
 	indexrewriters "github.com/kcp-dev/kcp/pkg/index/rewriters"
 )
@@ -52,11 +51,11 @@ type Index interface {
 	LookupURL(path logicalcluster.Path) (url string, found bool)
 }
 
-type ClusterWorkspaceClientGetter func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpclientset.ClusterInterface, error)
+type ClusterWorkspaceClientGetter func(shard *corev1alpha1.Shard) (kcpclientset.ClusterInterface, error)
 
 func NewController(
 	ctx context.Context,
-	clusterWorkspaceShardInformer tenancyv1alpha1informers.ClusterWorkspaceShardInformer,
+	shardInformer corev1alpha1informers.ShardInformer,
 	clientGetter ClusterWorkspaceClientGetter,
 ) *Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
@@ -66,8 +65,8 @@ func NewController(
 
 		clientGetter: clientGetter,
 
-		clusterWorkspaceShardIndexer: clusterWorkspaceShardInformer.Informer().GetIndexer(),
-		clusterWorkspaceShardLister:  clusterWorkspaceShardInformer.Lister(),
+		shardIndexer: shardInformer.Informer().GetIndexer(),
+		shardLister:  shardInformer.Lister(),
 
 		shardClusterWorkspaceInformers: map[string]cache.SharedIndexInformer{},
 		shardClusterWorkspaceStopCh:    map[string]chan struct{}{},
@@ -77,15 +76,15 @@ func NewController(
 		}),
 	}
 
-	clusterWorkspaceShardInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	shardInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			shard := obj.(*tenancyv1alpha1.ClusterWorkspaceShard)
+			shard := obj.(*corev1alpha1.Shard)
 			c.state.UpsertShard(shard.Name, shard.Spec.BaseURL)
 			c.enqueueShard(ctx, shard)
 		},
 		UpdateFunc: func(old, obj interface{}) {
-			shard := obj.(*tenancyv1alpha1.ClusterWorkspaceShard)
-			oldShard := obj.(*tenancyv1alpha1.ClusterWorkspaceShard)
+			shard := obj.(*corev1alpha1.Shard)
+			oldShard := obj.(*corev1alpha1.Shard)
 			if oldShard.Spec.BaseURL == shard.Spec.BaseURL {
 				return
 			}
@@ -96,7 +95,7 @@ func NewController(
 			if final, ok := obj.(cache.DeletedFinalStateUnknown); ok {
 				obj = final.Obj
 			}
-			shard := obj.(*tenancyv1alpha1.ClusterWorkspaceShard)
+			shard := obj.(*corev1alpha1.Shard)
 
 			c.stopShard(shard)
 		},
@@ -105,16 +104,16 @@ func NewController(
 	return c
 }
 
-// Controller watches ClusterWorkspaceShards on the root shard, and then starts informers
-// for every ClusterWorkspaceShard, watching the ClusterWorkspaces on them. It then
+// Controller watches Shards on the root shard, and then starts informers
+// for every Shard, watching the ClusterWorkspaces on them. It then
 // updates the workspace index, which maps logical clusters to shard URLs.
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
 	clientGetter ClusterWorkspaceClientGetter
 
-	clusterWorkspaceShardIndexer cache.Indexer
-	clusterWorkspaceShardLister  tenancyv1alpha1listers.ClusterWorkspaceShardLister
+	shardIndexer cache.Indexer
+	shardLister  corev1alpha1listers.ShardLister
 
 	lock                           sync.RWMutex
 	shardClusterWorkspaceInformers map[string]cache.SharedIndexInformer
@@ -155,7 +154,7 @@ func (c *Controller) enqueueShard(ctx context.Context, obj interface{}) {
 	}
 
 	logger := klog.FromContext(ctx)
-	logger.WithValues("key", key).Info("enqueueing ClusterWorkspaceShard")
+	logger.WithValues("key", key).Info("enqueueing Shard")
 
 	c.queue.Add(key)
 }
@@ -192,7 +191,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		runtime.HandleError(err)
 		return nil
 	}
-	shard, err := c.clusterWorkspaceShardLister.Get(name)
+	shard, err := c.shardLister.Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			c.stopShard(shard)
@@ -261,7 +260,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	return nil
 }
 
-func (c *Controller) stopShard(shard *tenancyv1alpha1.ClusterWorkspaceShard) {
+func (c *Controller) stopShard(shard *corev1alpha1.Shard) {
 	c.state.DeleteShard(shard.Name)
 
 	c.lock.Lock()

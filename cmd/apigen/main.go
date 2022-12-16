@@ -45,7 +45,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/apis"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/core"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 )
 
 const (
@@ -322,9 +321,9 @@ func generateExports(outputDir string, allSchemas map[metav1.GroupResource]*apis
 	for gr, apiResourceSchema := range allSchemas {
 		if gr.Group == core.GroupName && gr.Resource == "logicalclusters" {
 			continue
-		} else if gr.Group == tenancy.GroupName && gr.Resource == "clusterworkspaceshards" {
+		} else if gr.Group == core.GroupName && gr.Resource == "shards" {
 			// we export shards by themselves, not with the rest of the tenancy group
-			byExport["shards."+tenancy.GroupName] = []string{apiResourceSchema.Name}
+			byExport["shards."+core.GroupName] = []string{apiResourceSchema.Name}
 		} else {
 			byExport[gr.Group] = append(byExport[gr.Group], apiResourceSchema.Name)
 		}

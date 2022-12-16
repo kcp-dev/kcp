@@ -35,6 +35,7 @@ import (
 type CoreV1alpha1ClusterInterface interface {
 	CoreV1alpha1ClusterScoper
 	LogicalClustersClusterGetter
+	ShardsClusterGetter
 }
 
 type CoreV1alpha1ClusterScoper interface {
@@ -54,6 +55,10 @@ func (c *CoreV1alpha1ClusterClient) Cluster(clusterPath logicalcluster.Path) cor
 
 func (c *CoreV1alpha1ClusterClient) LogicalClusters() LogicalClusterClusterInterface {
 	return &logicalClustersClusterInterface{clientCache: c.clientCache}
+}
+
+func (c *CoreV1alpha1ClusterClient) Shards() ShardClusterInterface {
+	return &shardsClusterInterface{clientCache: c.clientCache}
 }
 
 // NewForConfig creates a new CoreV1alpha1ClusterClient for the given config.

@@ -183,24 +183,24 @@ func (c *controller) updateOrVerifyIdentitySecretHash(ctx context.Context, clust
 
 func (c *controller) updateVirtualWorkspaceURLs(ctx context.Context, apiExport *apisv1alpha1.APIExport) error {
 	logger := klog.FromContext(ctx)
-	clusterWorkspaceShards, err := c.listClusterWorkspaceShards()
+	shards, err := c.listShards()
 	if err != nil {
-		return fmt.Errorf("error listing ClusterWorkspaceShards: %w", err)
+		return fmt.Errorf("error listing Shards: %w", err)
 	}
 
 	desiredURLs := sets.NewString()
-	for _, clusterWorkspaceShard := range clusterWorkspaceShards {
-		logger = logging.WithObject(logger, clusterWorkspaceShard)
-		if clusterWorkspaceShard.Spec.VirtualWorkspaceURL == "" {
+	for _, shard := range shards {
+		logger = logging.WithObject(logger, shard)
+		if shard.Spec.VirtualWorkspaceURL == "" {
 			continue
 		}
 
-		u, err := url.Parse(clusterWorkspaceShard.Spec.VirtualWorkspaceURL)
+		u, err := url.Parse(shard.Spec.VirtualWorkspaceURL)
 		if err != nil {
 			// Should never happen
 			logger.Error(
-				err, "error parsing ClusterWorkspaceShard.Spec.VirtualWorkspaceURL",
-				"VirtualWorkspaceURL", clusterWorkspaceShard.Spec.VirtualWorkspaceURL,
+				err, "error parsing Shard.Spec.VirtualWorkspaceURL",
+				"VirtualWorkspaceURL", shard.Spec.VirtualWorkspaceURL,
 			)
 
 			continue

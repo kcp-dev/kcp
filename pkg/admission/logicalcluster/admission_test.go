@@ -44,7 +44,7 @@ func updateAttr(obj, old *corev1alpha1.LogicalCluster) admission.Attributes {
 	return admission.NewAttributesRecord(
 		helpers.ToUnstructuredOrDie(obj),
 		helpers.ToUnstructuredOrDie(old),
-		tenancyv1alpha1.Kind("LogicalCluster").WithVersion("v1alpha1"),
+		corev1alpha1.Kind("LogicalCluster").WithVersion("v1alpha1"),
 		"",
 		obj.Name,
 		corev1alpha1.Resource("logicalclusters").WithVersion("v1alpha1"),
@@ -60,7 +60,7 @@ func deleteAttr(obj *corev1alpha1.LogicalCluster, userInfo *user.DefaultInfo) ad
 	return admission.NewAttributesRecord(
 		nil,
 		nil,
-		tenancyv1alpha1.Kind("LogicalCluster").WithVersion("v1alpha1"),
+		corev1alpha1.Kind("LogicalCluster").WithVersion("v1alpha1"),
 		"",
 		obj.Name,
 		corev1alpha1.Resource("logicalclusters").WithVersion("v1alpha1"),
@@ -140,8 +140,8 @@ func TestAdmit(t *testing.T) {
 			clusterName: "root:org:ws",
 			a: admission.NewAttributesRecord(
 				&unstructured.Unstructured{Object: map[string]interface{}{
-					"apiVersion": tenancyv1alpha1.SchemeGroupVersion.String(),
-					"kind":       "ClusterWorkspaceShard",
+					"apiVersion": corev1alpha1.SchemeGroupVersion.String(),
+					"kind":       "Shard",
 					"metadata": map[string]interface{}{
 						"name":              "test",
 						"creationTimestamp": nil,
@@ -152,20 +152,20 @@ func TestAdmit(t *testing.T) {
 					"status": map[string]interface{}{},
 				}},
 				nil,
-				tenancyv1alpha1.Kind("ClusterWorkspaceShard").WithVersion("v1alpha1"),
+				corev1alpha1.Kind("Shard").WithVersion("v1alpha1"),
 				"",
 				"test",
-				tenancyv1alpha1.Resource("clusterworkspaceshards").WithVersion("v1alpha1"),
+				corev1alpha1.Resource("shards").WithVersion("v1alpha1"),
 				"",
 				admission.Create,
 				&metav1.CreateOptions{},
 				false,
 				&user.DefaultInfo{},
 			),
-			expectedObj: &tenancyv1alpha1.ClusterWorkspaceShard{
+			expectedObj: &corev1alpha1.Shard{
 				TypeMeta: metav1.TypeMeta{
 					APIVersion: tenancyv1alpha1.SchemeGroupVersion.String(),
-					Kind:       "ClusterWorkspaceShard",
+					Kind:       "Shard",
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
@@ -351,16 +351,16 @@ func TestValidate(t *testing.T) {
 			name:        "ignores different resources",
 			clusterName: "root:org:ws",
 			attr: admission.NewAttributesRecord(
-				&tenancyv1alpha1.ClusterWorkspaceShard{
+				&corev1alpha1.Shard{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "test",
 					},
 				},
 				nil,
-				tenancyv1alpha1.Kind("ClusterWorkspaceShard").WithVersion("v1alpha1"),
+				corev1alpha1.Kind("Shard").WithVersion("v1alpha1"),
 				"",
 				"test",
-				tenancyv1alpha1.Resource("clusterworkspaceshards").WithVersion("v1alpha1"),
+				corev1alpha1.Resource("shards").WithVersion("v1alpha1"),
 				"",
 				admission.Create,
 				&metav1.CreateOptions{},

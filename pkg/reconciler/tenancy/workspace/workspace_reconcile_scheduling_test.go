@@ -55,7 +55,7 @@ import (
 func TestReconcileScheduling(t *testing.T) {
 	scenarios := []struct {
 		name                         string
-		initialShards                []*tenancyv1alpha1.ClusterWorkspaceShard
+		initialShards                []*corev1alpha1.Shard
 		initialClusterWorkspaceTypes []*tenancyv1alpha1.ClusterWorkspaceType
 		initialKubeClientObjects     []runtime.Object
 		initialKcpClientObjects      []runtime.Object
@@ -70,7 +70,7 @@ func TestReconcileScheduling(t *testing.T) {
 	}{
 		{
 			name:                 "two-phase commit, part one: a new workspace gets a shard assigned",
-			initialShards:        []*tenancyv1alpha1.ClusterWorkspaceShard{shard("root")},
+			initialShards:        []*corev1alpha1.Shard{shard("root")},
 			targetWorkspace:      workspace("foo"),
 			targetLogicalCluster: &corev1alpha1.LogicalCluster{},
 			validateWorkspace: func(t *testing.T, initialWS, ws *tenancyv1beta1.Workspace) {
@@ -85,7 +85,7 @@ func TestReconcileScheduling(t *testing.T) {
 		},
 		{
 			name:                         "two-phase commit, part two: location is set",
-			initialShards:                []*tenancyv1alpha1.ClusterWorkspaceShard{shard("root")},
+			initialShards:                []*corev1alpha1.Shard{shard("root")},
 			initialClusterWorkspaceTypes: wellKnownClusterWorkspaceTypes(),
 			targetWorkspace:              wellKnownFooWSForPhaseTwo(),
 			targetLogicalCluster:         &corev1alpha1.LogicalCluster{},
@@ -114,7 +114,7 @@ func TestReconcileScheduling(t *testing.T) {
 		},
 		{
 			name:                         "two-phase commit, part two failure: LogicalCluster already exists with the right owner",
-			initialShards:                []*tenancyv1alpha1.ClusterWorkspaceShard{shard("root")},
+			initialShards:                []*corev1alpha1.Shard{shard("root")},
 			initialClusterWorkspaceTypes: wellKnownClusterWorkspaceTypes(),
 			initialKcpClientObjects: []runtime.Object{func() runtime.Object {
 				thisWS := wellKnownLogicalClusterForFooWS()
@@ -148,7 +148,7 @@ func TestReconcileScheduling(t *testing.T) {
 		},
 		{
 			name:                         "two-phase commit, part two failure: LogicalCluster already exists with the wrong owner",
-			initialShards:                []*tenancyv1alpha1.ClusterWorkspaceShard{shard("root")},
+			initialShards:                []*corev1alpha1.Shard{shard("root")},
 			initialClusterWorkspaceTypes: wellKnownClusterWorkspaceTypes(),
 			initialKcpClientObjects: []runtime.Object{func() runtime.Object {
 				thisWS := wellKnownLogicalClusterForFooWS()
@@ -171,7 +171,7 @@ func TestReconcileScheduling(t *testing.T) {
 		},
 		{
 			name:                         "two-phase commit, part two failure: CRB, LogicalCluster already exists",
-			initialShards:                []*tenancyv1alpha1.ClusterWorkspaceShard{shard("root")},
+			initialShards:                []*corev1alpha1.Shard{shard("root")},
 			initialClusterWorkspaceTypes: wellKnownClusterWorkspaceTypes(),
 			initialKubeClientObjects: []runtime.Object{func() runtime.Object {
 				crb := wellKnownCRBForThisWS()
@@ -236,7 +236,7 @@ func TestReconcileScheduling(t *testing.T) {
 				return ws
 			}(),
 			targetLogicalCluster: &corev1alpha1.LogicalCluster{},
-			initialShards: []*tenancyv1alpha1.ClusterWorkspaceShard{shard("root"), func() *tenancyv1alpha1.ClusterWorkspaceShard {
+			initialShards: []*corev1alpha1.Shard{shard("root"), func() *corev1alpha1.Shard {
 				s := shard("amber")
 				s.Labels["awesome.shard"] = "amber"
 				return s
@@ -284,22 +284,22 @@ func TestReconcileScheduling(t *testing.T) {
 				generateClusterName: func(path logicalcluster.Path) logicalcluster.Name {
 					return logicalcluster.Name(strings.ReplaceAll(path.String(), ":", "-"))
 				},
-				kubeLogicalClusterAdminClientFor: func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpkubernetesclientset.ClusterInterface, error) {
+				kubeLogicalClusterAdminClientFor: func(shard *corev1alpha1.Shard) (kcpkubernetesclientset.ClusterInterface, error) {
 					return fakeKubeClient, nil
 				},
-				kcpLogicalClusterAdminClientFor: func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpclientset.ClusterInterface, error) {
+				kcpLogicalClusterAdminClientFor: func(shard *corev1alpha1.Shard) (kcpclientset.ClusterInterface, error) {
 					return fakeKcpClient, nil
 				},
-				getShard: func(name string) (*tenancyv1alpha1.ClusterWorkspaceShard, error) {
+				getShard: func(name string) (*corev1alpha1.Shard, error) {
 					for _, shard := range scenario.initialShards {
 						if shard.Name == name {
 							return shard, nil
 						}
 					}
-					return nil, kerrors.NewNotFound(tenancyv1alpha1.Resource("clusterworkspaceshard"), name)
+					return nil, kerrors.NewNotFound(tenancyv1alpha1.Resource("shard"), name)
 				},
-				listShards: func(selector labels.Selector) ([]*tenancyv1alpha1.ClusterWorkspaceShard, error) {
-					var shards []*tenancyv1alpha1.ClusterWorkspaceShard
+				listShards: func(selector labels.Selector) ([]*corev1alpha1.Shard, error) {
+					var shards []*corev1alpha1.Shard
 					for _, shard := range scenario.initialShards {
 						if selector.Matches(labels.Set(shard.Labels)) {
 							shards = append(shards, shard)
@@ -307,13 +307,13 @@ func TestReconcileScheduling(t *testing.T) {
 					}
 					return shards, nil
 				},
-				getShardByHash: func(hash string) (*tenancyv1alpha1.ClusterWorkspaceShard, error) {
+				getShardByHash: func(hash string) (*corev1alpha1.Shard, error) {
 					for _, shard := range scenario.initialShards {
 						if shardNameToBase36Sha224(shard.Name) == hash {
 							return shard, nil
 						}
 					}
-					return nil, kerrors.NewNotFound(tenancyv1alpha1.SchemeGroupVersion.WithResource("ClusterWorkspaceShard").GroupResource(), hash)
+					return nil, kerrors.NewNotFound(tenancyv1alpha1.SchemeGroupVersion.WithResource("Shard").GroupResource(), hash)
 				},
 				getClusterWorkspaceType: getType,
 				getLogicalCluster: func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
@@ -488,14 +488,14 @@ func validateWellKnownLogicalClusterActions(t *testing.T, actions []kcpclientgot
 	}
 }
 
-func shard(name string) *tenancyv1alpha1.ClusterWorkspaceShard {
-	return &tenancyv1alpha1.ClusterWorkspaceShard{
+func shard(name string) *corev1alpha1.Shard {
+	return &corev1alpha1.Shard{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
 			Annotations: map[string]string{},
 			Labels:      map[string]string{},
 		},
-		Spec: tenancyv1alpha1.ClusterWorkspaceShardSpec{
+		Spec: corev1alpha1.ShardSpec{
 			BaseURL:     fmt.Sprintf("https://%s", name),
 			ExternalURL: fmt.Sprintf("https://%s", name),
 		},

@@ -56,7 +56,7 @@ import (
 
 const (
 	// workspaceShardAnnotationKey keeps track on which shard LogicalCluster must be scheduled. The value
-	// is a base36(sha224) hash of the ClusterWorkspaceShard name.
+	// is a base36(sha224) hash of the Shard name.
 	workspaceShardAnnotationKey = "internal.tenancy.kcp.dev/shard"
 	// workspaceClusterAnnotationKey keeps track of the logical cluster on the shard.
 	workspaceClusterAnnotationKey = "internal.tenancy.kcp.dev/cluster"
@@ -65,9 +65,9 @@ const (
 type schedulingReconciler struct {
 	generateClusterName func(path logicalcluster.Path) logicalcluster.Name
 
-	getShard       func(name string) (*tenancyv1alpha1.ClusterWorkspaceShard, error)
-	getShardByHash func(hash string) (*tenancyv1alpha1.ClusterWorkspaceShard, error)
-	listShards     func(selector labels.Selector) ([]*tenancyv1alpha1.ClusterWorkspaceShard, error)
+	getShard       func(name string) (*corev1alpha1.Shard, error)
+	getShardByHash func(hash string) (*corev1alpha1.Shard, error)
+	listShards     func(selector labels.Selector) ([]*corev1alpha1.Shard, error)
 
 	getClusterWorkspaceType func(clusterName logicalcluster.Path, name string) (*tenancyv1alpha1.ClusterWorkspaceType, error)
 
@@ -75,8 +75,8 @@ type schedulingReconciler struct {
 
 	transitiveTypeResolver clusterworkspacetypeexists.TransitiveTypeResolver
 
-	kcpLogicalClusterAdminClientFor  func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpclientset.ClusterInterface, error)
-	kubeLogicalClusterAdminClientFor func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kubernetes.ClusterInterface, error)
+	kcpLogicalClusterAdminClientFor  func(shard *corev1alpha1.Shard) (kcpclientset.ClusterInterface, error)
+	kubeLogicalClusterAdminClientFor func(shard *corev1alpha1.Shard) (kubernetes.ClusterInterface, error)
 }
 
 func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancyv1beta1.Workspace) (reconcileStatus, error) {
@@ -157,7 +157,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 		u, err := url.Parse(shard.Spec.ExternalURL)
 		if err != nil {
 			// shouldn't happen since we just checked in isValidShard
-			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonReasonUnknown, conditionsv1alpha1.ConditionSeverityError, "Invalid connection information on target ClusterWorkspaceShard: %v.", err)
+			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonReasonUnknown, conditionsv1alpha1.ConditionSeverityError, "Invalid connection information on target Shard: %v.", err)
 			return reconcileStatusStopAndRequeue, err // requeue
 		}
 
@@ -173,7 +173,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 
 func (r *schedulingReconciler) chooseShardAndMarkCondition(logger klog.Logger, workspace *tenancyv1beta1.Workspace) (string, error) {
 	selector := labels.Everything()
-	var shards []*tenancyv1alpha1.ClusterWorkspaceShard
+	var shards []*corev1alpha1.Shard
 	if workspace.Spec.Location != nil {
 		if workspace.Spec.Location.Selector != nil {
 			var err error
@@ -202,7 +202,7 @@ func (r *schedulingReconciler) chooseShardAndMarkCondition(logger klog.Logger, w
 			// trim the list to contain only the "root" shard so that we always schedule onto it
 			for _, shard := range shards {
 				if shard.Name == "root" {
-					shards = []*tenancyv1alpha1.ClusterWorkspaceShard{shard}
+					shards = []*corev1alpha1.Shard{shard}
 					break
 				}
 			}
@@ -216,7 +216,7 @@ func (r *schedulingReconciler) chooseShardAndMarkCondition(logger klog.Logger, w
 		}
 	}
 
-	validShards := make([]*tenancyv1alpha1.ClusterWorkspaceShard, 0, len(shards))
+	validShards := make([]*corev1alpha1.Shard, 0, len(shards))
 	invalidShards := map[string]struct {
 		reason, message string
 	}{}
@@ -246,7 +246,7 @@ func (r *schedulingReconciler) chooseShardAndMarkCondition(logger klog.Logger, w
 	return targetShard.Name, nil
 }
 
-func (r *schedulingReconciler) createLogicalCluster(ctx context.Context, shard *tenancyv1alpha1.ClusterWorkspaceShard, cluster logicalcluster.Path, parent *corev1alpha1.LogicalCluster, workspace *tenancyv1beta1.Workspace) error {
+func (r *schedulingReconciler) createLogicalCluster(ctx context.Context, shard *corev1alpha1.Shard, cluster logicalcluster.Path, parent *corev1alpha1.LogicalCluster, workspace *tenancyv1beta1.Workspace) error {
 	canonicalPath := logicalcluster.From(workspace).Path().Join(workspace.Name)
 	if parent != nil {
 		if parentPath := parent.Annotations[core.LogicalClusterPathAnnotationKey]; parentPath != "" {
@@ -319,7 +319,7 @@ func (r *schedulingReconciler) createLogicalCluster(ctx context.Context, shard *
 	return err
 }
 
-func (r *schedulingReconciler) updateLogicalClusterPhase(ctx context.Context, shard *tenancyv1alpha1.ClusterWorkspaceShard, cluster logicalcluster.Path, phase corev1alpha1.LogicalClusterPhaseType) error {
+func (r *schedulingReconciler) updateLogicalClusterPhase(ctx context.Context, shard *corev1alpha1.Shard, cluster logicalcluster.Path, phase corev1alpha1.LogicalClusterPhaseType) error {
 	logicalClusterAdminClient, err := r.kcpLogicalClusterAdminClientFor(shard)
 	if err != nil {
 		return err
@@ -333,7 +333,7 @@ func (r *schedulingReconciler) updateLogicalClusterPhase(ctx context.Context, sh
 	return err
 }
 
-func (r *schedulingReconciler) createClusterRoleBindingForLogicalCluster(ctx context.Context, shard *tenancyv1alpha1.ClusterWorkspaceShard, cluster logicalcluster.Path, workspace *tenancyv1beta1.Workspace) error {
+func (r *schedulingReconciler) createClusterRoleBindingForLogicalCluster(ctx context.Context, shard *corev1alpha1.Shard, cluster logicalcluster.Path, workspace *tenancyv1beta1.Workspace) error {
 	ownerAnnotation, found := workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey]
 	if !found {
 		return fmt.Errorf("unable to find required %q owner annotation on %q workspace", tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey, workspace.Name)
@@ -369,7 +369,7 @@ func (r *schedulingReconciler) createClusterRoleBindingForLogicalCluster(ctx con
 	return err
 }
 
-func isValidShard(_ *tenancyv1alpha1.ClusterWorkspaceShard) (valid bool, reason, message string) {
+func isValidShard(_ *corev1alpha1.Shard) (valid bool, reason, message string) {
 	return true, "", ""
 }
 

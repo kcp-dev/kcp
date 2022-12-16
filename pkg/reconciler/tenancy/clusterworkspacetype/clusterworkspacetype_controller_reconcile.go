@@ -54,21 +54,21 @@ func (c *controller) reconcile(ctx context.Context, cwt *tenancyv1alpha1.Cluster
 
 func (c *controller) updateVirtualWorkspaceURLs(ctx context.Context, cwt *tenancyv1alpha1.ClusterWorkspaceType) error {
 	logger := klog.FromContext(ctx)
-	clusterWorkspaceShards, err := c.listClusterWorkspaceShards()
+	shards, err := c.listShards()
 	if err != nil {
-		return fmt.Errorf("error listing ClusterWorkspaceShards: %w", err)
+		return fmt.Errorf("error listing Shards: %w", err)
 	}
 
 	desiredURLs := sets.NewString()
-	for _, clusterWorkspaceShard := range clusterWorkspaceShards {
-		if clusterWorkspaceShard.Spec.ExternalURL == "" {
+	for _, shard := range shards {
+		if shard.Spec.ExternalURL == "" {
 			continue
 		}
 
-		u, err := url.Parse(clusterWorkspaceShard.Spec.ExternalURL)
+		u, err := url.Parse(shard.Spec.ExternalURL)
 		if err != nil {
 			// Should never happen
-			logger.Error(err, "error parsing clusterWorkspaceShard.spec.externalURL", "externalURL", clusterWorkspaceShard.Spec.ExternalURL)
+			logger.Error(err, "error parsing shard.spec.externalURL", "externalURL", shard.Spec.ExternalURL)
 			continue
 		}
 

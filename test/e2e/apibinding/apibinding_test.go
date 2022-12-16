@@ -149,23 +149,23 @@ func TestAPIBinding(t *testing.T) {
 	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
-	clusterWorkspaceShardVirtualWorkspaceURLs := sets.NewString()
-	t.Logf("Getting a list of VirtualWorkspaceURLs assigned to ClusterWorkspaceShards")
+	shardVirtualWorkspaceURLs := sets.NewString()
+	t.Logf("Getting a list of VirtualWorkspaceURLs assigned to Shards")
 	require.Eventually(t, func() bool {
-		clusterWorkspaceShards, err := kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster.Path()).TenancyV1alpha1().ClusterWorkspaceShards().List(ctx, metav1.ListOptions{})
+		shards, err := kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster.Path()).CoreV1alpha1().Shards().List(ctx, metav1.ListOptions{})
 		if err != nil {
-			t.Logf("unexpected error while listing clusterworkspaceshards, err %v", err)
+			t.Logf("unexpected error while listing shards, err %v", err)
 			return false
 		}
-		for _, s := range clusterWorkspaceShards.Items {
+		for _, s := range shards.Items {
 			if len(s.Spec.VirtualWorkspaceURL) == 0 {
 				t.Logf("%q shard hasn't had assigned a virtual workspace URL", s.Name)
 				return false
 			}
-			clusterWorkspaceShardVirtualWorkspaceURLs.Insert(s.Spec.VirtualWorkspaceURL)
+			shardVirtualWorkspaceURLs.Insert(s.Spec.VirtualWorkspaceURL)
 		}
 		return true
-	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected all ClusterWorkspaceShards to have a VirtualWorkspaceURL assigned")
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected all Shards to have a VirtualWorkspaceURL assigned")
 
 	exportName := "today-cowboys"
 	serviceProviderWorkspaces := []logicalcluster.Path{serviceProvider1ClusterName.Path(), serviceProvider2ClusterName.Path()}
@@ -297,7 +297,7 @@ func TestAPIBinding(t *testing.T) {
 
 	verifyVirtualWorkspaceURLs := func(serviceProviderWorkspace logicalcluster.Path) {
 		var expectedURLs []string
-		for _, urlString := range clusterWorkspaceShardVirtualWorkspaceURLs.List() {
+		for _, urlString := range shardVirtualWorkspaceURLs.List() {
 			u, err := url.Parse(urlString)
 			require.NoError(t, err, "error parsing %q", urlString)
 			u.Path = path.Join(u.Path, "services", "apiexport", serviceProviderWorkspace.String(), exportName)

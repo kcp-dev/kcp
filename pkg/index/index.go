@@ -48,8 +48,8 @@ func New(rewriters []PathRewriter) *State {
 	}
 }
 
-// State watches ClusterWorkspaceShards on the root shard, and then starts informers
-// for every ClusterWorkspaceShard, watching the ClusterWorkspaces on them. It then
+// State watches Shards on the root shard, and then starts informers
+// for every Shard, watching the ClusterWorkspaces on them. It then
 // updates the workspace index, which maps logical clusters to shard URLs.
 type State struct {
 	rewriters []PathRewriter

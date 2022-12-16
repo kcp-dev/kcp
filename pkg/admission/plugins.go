@@ -43,7 +43,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/admission/apibindingfinalizer"
 	"github.com/kcp-dev/kcp/pkg/admission/apiexport"
 	"github.com/kcp-dev/kcp/pkg/admission/apiresourceschema"
-	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspaceshard"
 	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspacetype"
 	"github.com/kcp-dev/kcp/pkg/admission/clusterworkspacetypeexists"
 	"github.com/kcp-dev/kcp/pkg/admission/crdnooverlappinggvr"
@@ -59,6 +58,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/admission/reservedcrdgroups"
 	"github.com/kcp-dev/kcp/pkg/admission/reservedmetadata"
 	"github.com/kcp-dev/kcp/pkg/admission/reservednames"
+	"github.com/kcp-dev/kcp/pkg/admission/shard"
 	kcpvalidatingwebhook "github.com/kcp-dev/kcp/pkg/admission/validatingwebhook"
 	"github.com/kcp-dev/kcp/pkg/admission/workspace"
 )
@@ -69,7 +69,7 @@ var AllOrderedPlugins = beforeWebhooks(kubeapiserveroptions.AllOrderedPlugins,
 	apiresourceschema.PluginName,
 	workspace.PluginName,
 	logicalclusterfinalizer.PluginName,
-	clusterworkspaceshard.PluginName,
+	shard.PluginName,
 	clusterworkspacetype.PluginName,
 	clusterworkspacetypeexists.PluginName,
 	logicalcluster.PluginName,
@@ -106,7 +106,7 @@ func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 	kubeapiserveroptions.RegisterAllAdmissionPlugins(plugins)
 	workspace.Register(plugins)
 	logicalclusterfinalizer.Register(plugins)
-	clusterworkspaceshard.Register(plugins)
+	shard.Register(plugins)
 	clusterworkspacetype.Register(plugins)
 	clusterworkspacetypeexists.Register(plugins)
 	logicalcluster.Register(plugins)
@@ -138,7 +138,7 @@ var defaultOnPluginsInKcp = sets.NewString(
 	// KCP
 	workspace.PluginName,
 	logicalclusterfinalizer.PluginName,
-	clusterworkspaceshard.PluginName,
+	shard.PluginName,
 	clusterworkspacetype.PluginName,
 	clusterworkspacetypeexists.PluginName,
 	logicalcluster.PluginName,

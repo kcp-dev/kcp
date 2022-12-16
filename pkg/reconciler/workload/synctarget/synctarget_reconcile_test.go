@@ -27,24 +27,24 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	workspaceapi "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 )
 
 func TestReconciler(t *testing.T) {
 	tests := map[string]struct {
-		workspaceShards    []*workspaceapi.ClusterWorkspaceShard
+		workspaceShards    []*corev1alpha1.Shard
 		syncTarget         *workloadv1alpha1.SyncTarget
 		expectedSyncTarget *workloadv1alpha1.SyncTarget
 		expectError        bool
 	}{
 		"SyncTarget with empty VirtualWorkspaces and one workspaceShards": {
-			workspaceShards: []*workspaceapi.ClusterWorkspaceShard{
+			workspaceShards: []*corev1alpha1.Shard{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "root",
 					},
-					Spec: workspaceapi.ClusterWorkspaceShardSpec{
+					Spec: corev1alpha1.ShardSpec{
 						BaseURL:     "http://1.2.3.4/",
 						ExternalURL: "http://external-host/",
 					},
@@ -89,13 +89,13 @@ func TestReconciler(t *testing.T) {
 			},
 			expectError: false,
 		},
-		"SyncTarget and multiple ClusterWorkspaceShards": {
-			workspaceShards: []*workspaceapi.ClusterWorkspaceShard{
+		"SyncTarget and multiple Shards": {
+			workspaceShards: []*corev1alpha1.Shard{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "root",
 					},
-					Spec: workspaceapi.ClusterWorkspaceShardSpec{
+					Spec: corev1alpha1.ShardSpec{
 						BaseURL:     "http://1.2.3.4/",
 						ExternalURL: "http://external-host/",
 					},
@@ -104,7 +104,7 @@ func TestReconciler(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "root2",
 					},
-					Spec: workspaceapi.ClusterWorkspaceShardSpec{
+					Spec: corev1alpha1.ShardSpec{
 						BaseURL:     "http://1.2.3.4/",
 						ExternalURL: "http://external-host-2/",
 					},
@@ -113,7 +113,7 @@ func TestReconciler(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "root3",
 					},
-					Spec: workspaceapi.ClusterWorkspaceShardSpec{
+					Spec: corev1alpha1.ShardSpec{
 						BaseURL:     "http://1.2.3.4/",
 						ExternalURL: "http://external-host-3/",
 					},
@@ -164,13 +164,13 @@ func TestReconciler(t *testing.T) {
 			},
 			expectError: false,
 		},
-		"SyncTarget with multiple ClusterWorkspaceShards with duplicated ExternalURLs results in a deduplicated list of URLs on the SyncTarget": {
-			workspaceShards: []*workspaceapi.ClusterWorkspaceShard{
+		"SyncTarget with multiple Shards with duplicated ExternalURLs results in a deduplicated list of URLs on the SyncTarget": {
+			workspaceShards: []*corev1alpha1.Shard{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "root",
 					},
-					Spec: workspaceapi.ClusterWorkspaceShardSpec{
+					Spec: corev1alpha1.ShardSpec{
 						BaseURL:     "http://1.2.3.4/",
 						ExternalURL: "http://external-host/",
 					},
@@ -179,7 +179,7 @@ func TestReconciler(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "root2",
 					},
-					Spec: workspaceapi.ClusterWorkspaceShardSpec{
+					Spec: corev1alpha1.ShardSpec{
 						BaseURL:     "http://1.2.3.4/",
 						ExternalURL: "http://external-host/",
 					},
@@ -188,7 +188,7 @@ func TestReconciler(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "root3",
 					},
-					Spec: workspaceapi.ClusterWorkspaceShardSpec{
+					Spec: corev1alpha1.ShardSpec{
 						BaseURL:     "http://1.2.3.4/",
 						ExternalURL: "http://external-host-3/",
 					},
@@ -237,8 +237,8 @@ func TestReconciler(t *testing.T) {
 			},
 			expectError: false,
 		},
-		"SyncTarget but no ClusterWorkspaceShards": {
-			workspaceShards: []*workspaceapi.ClusterWorkspaceShard{},
+		"SyncTarget but no Shards": {
+			workspaceShards: []*corev1alpha1.Shard{},
 			syncTarget: &workloadv1alpha1.SyncTarget{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-cluster",
@@ -270,13 +270,13 @@ func TestReconciler(t *testing.T) {
 			},
 			expectError: false,
 		},
-		"SyncTarget from three to one ClusterWorkspaceShards": {
-			workspaceShards: []*workspaceapi.ClusterWorkspaceShard{
+		"SyncTarget from three to one Shards": {
+			workspaceShards: []*corev1alpha1.Shard{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "root",
 					},
-					Spec: workspaceapi.ClusterWorkspaceShardSpec{
+					Spec: corev1alpha1.ShardSpec{
 						BaseURL:     "http://1.2.3.4/",
 						ExternalURL: "http://external-host/",
 					},

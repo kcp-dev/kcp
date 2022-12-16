@@ -48,6 +48,10 @@ func (c *CoreV1alpha1ClusterClient) LogicalClusters() kcpcorev1alpha1.LogicalClu
 	return &logicalClustersClusterClient{Fake: c.Fake}
 }
 
+func (c *CoreV1alpha1ClusterClient) Shards() kcpcorev1alpha1.ShardClusterInterface {
+	return &shardsClusterClient{Fake: c.Fake}
+}
+
 var _ corev1alpha1.CoreV1alpha1Interface = (*CoreV1alpha1Client)(nil)
 
 type CoreV1alpha1Client struct {
@@ -62,4 +66,8 @@ func (c *CoreV1alpha1Client) RESTClient() rest.Interface {
 
 func (c *CoreV1alpha1Client) LogicalClusters() corev1alpha1.LogicalClusterInterface {
 	return &logicalClustersClient{Fake: c.Fake, ClusterPath: c.ClusterPath}
+}
+
+func (c *CoreV1alpha1Client) Shards() corev1alpha1.ShardInterface {
+	return &shardsClient{Fake: c.Fake, ClusterPath: c.ClusterPath}
 }

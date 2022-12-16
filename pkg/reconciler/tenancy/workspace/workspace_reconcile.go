@@ -49,21 +49,21 @@ type reconciler interface {
 }
 
 func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1beta1.Workspace) (bool, error) {
-	getShardByName := func(hash string) (*tenancyv1alpha1.ClusterWorkspaceShard, error) {
-		shards, err := c.clusterWorkspaceShardIndexer.ByIndex(byBase36Sha224Name, hash)
+	getShardByName := func(hash string) (*corev1alpha1.Shard, error) {
+		shards, err := c.shardIndexer.ByIndex(byBase36Sha224Name, hash)
 		if err != nil {
 			return nil, err
 		}
 		if len(shards) == 0 {
 			return nil, nil
 		}
-		return shards[0].(*tenancyv1alpha1.ClusterWorkspaceShard), nil
+		return shards[0].(*corev1alpha1.Shard), nil
 	}
 
 	// kcpLogicalClusterAdminClientFor returns a kcp client (i.e. a client that implements kcpclient.ClusterInterface) for the given shard.
 	// the returned client establishes a direct connection with the shard with credentials stored in r.logicalClusterAdminConfig.
 	// TODO:(p0lyn0mial): make it more efficient, maybe we need a per shard client pool or we could use an HTTPRoundTripper
-	kcpDirectClientFor := func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kcpclientset.ClusterInterface, error) {
+	kcpDirectClientFor := func(shard *corev1alpha1.Shard) (kcpclientset.ClusterInterface, error) {
 		shardConfig := restclient.CopyConfig(c.logicalClusterAdminConfig)
 		shardConfig.Host = shard.Spec.BaseURL
 		shardClient, err := kcpclientset.NewForConfig(shardConfig)
@@ -76,7 +76,7 @@ func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1beta1.Workspace
 	// kubeLogicalClusterAdminClientFor returns a kube client (i.e. a client that implements kubernetes.ClusterInterface) for the given shard.
 	// the returned client establishes a direct connection with the shard with credentials stored in r.logicalClusterAdminConfig.
 	// TODO:(p0lyn0mial): make it more efficient, maybe we need a per shard client pool or we could use an HTTPRoundTripper
-	kubeDirectClientFor := func(shard *tenancyv1alpha1.ClusterWorkspaceShard) (kubernetes.ClusterInterface, error) {
+	kubeDirectClientFor := func(shard *corev1alpha1.Shard) (kubernetes.ClusterInterface, error) {
 		shardConfig := restclient.CopyConfig(c.logicalClusterAdminConfig)
 		shardConfig.Host = shard.Spec.BaseURL
 		shardClient, err := kubernetes.NewForConfig(shardConfig)
@@ -112,11 +112,11 @@ func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1beta1.Workspace
 		},
 		&schedulingReconciler{
 			generateClusterName: randomClusterName,
-			getShard: func(name string) (*tenancyv1alpha1.ClusterWorkspaceShard, error) {
-				return c.clusterWorkspaceShardLister.Cluster(tenancyv1alpha1.RootCluster).Get(name)
+			getShard: func(name string) (*corev1alpha1.Shard, error) {
+				return c.shardLister.Cluster(tenancyv1alpha1.RootCluster).Get(name)
 			},
 			getShardByHash:          getShardByName,
-			listShards:              c.clusterWorkspaceShardLister.List,
+			listShards:              c.shardLister.List,
 			getClusterWorkspaceType: getType,
 			getLogicalCluster: func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
 				return c.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)

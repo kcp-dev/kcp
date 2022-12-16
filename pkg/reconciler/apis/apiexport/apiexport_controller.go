@@ -39,11 +39,11 @@ import (
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	apisv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apis/v1alpha1"
 	apisv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/apis/v1alpha1"
-	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	corev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/core/v1alpha1"
 	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
@@ -60,7 +60,7 @@ const (
 func NewController(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	apiExportInformer apisv1alpha1informers.APIExportClusterInformer,
-	clusterWorkspaceShardInformer tenancyv1alpha1informers.ClusterWorkspaceShardClusterInformer,
+	shardInformer corev1alpha1informers.ShardClusterInformer,
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	namespaceInformer kcpcorev1informers.NamespaceClusterInformer,
 	secretInformer kcpcorev1informers.SecretClusterInformer,
@@ -86,8 +86,8 @@ func NewController(
 			_, err := kubeClusterClient.Cluster(clusterName).CoreV1().Secrets(secret.Namespace).Create(ctx, secret, metav1.CreateOptions{})
 			return err
 		},
-		listClusterWorkspaceShards: func() ([]*tenancyv1alpha1.ClusterWorkspaceShard, error) {
-			return clusterWorkspaceShardInformer.Lister().List(labels.Everything())
+		listShards: func() ([]*corev1alpha1.Shard, error) {
+			return shardInformer.Lister().List(labels.Everything())
 		},
 		commit: committer.NewCommitter[*APIExport, Patcher, *APIExportSpec, *APIExportStatus](kcpClusterClient.ApisV1alpha1().APIExports()),
 	}
@@ -126,7 +126,7 @@ func NewController(
 		},
 	})
 
-	clusterWorkspaceShardInformer.Informer().AddEventHandler(
+	shardInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				c.enqueueAllAPIExports(obj)
@@ -169,8 +169,8 @@ type controller struct {
 	getSecret    func(ctx context.Context, clusterName logicalcluster.Name, ns, name string) (*corev1.Secret, error)
 	createSecret func(ctx context.Context, clusterName logicalcluster.Path, secret *corev1.Secret) error
 
-	listClusterWorkspaceShards func() ([]*tenancyv1alpha1.ClusterWorkspaceShard, error)
-	commit                     CommitFunc
+	listShards func() ([]*corev1alpha1.Shard, error)
+	commit     CommitFunc
 }
 
 // enqueueAPIBinding enqueues an APIExport .
@@ -186,14 +186,14 @@ func (c *controller) enqueueAPIExport(obj interface{}) {
 	c.queue.Add(key)
 }
 
-func (c *controller) enqueueAllAPIExports(clusterWorkspaceShard interface{}) {
+func (c *controller) enqueueAllAPIExports(shard interface{}) {
 	list, err := c.apiExportLister.List(labels.Everything())
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
-	logger := logging.WithObject(logging.WithReconciler(klog.Background(), ControllerName), clusterWorkspaceShard.(*tenancyv1alpha1.ClusterWorkspaceShard))
+	logger := logging.WithObject(logging.WithReconciler(klog.Background(), ControllerName), shard.(*corev1alpha1.Shard))
 	for i := range list {
 		key, err := kcpcache.MetaClusterNamespaceKeyFunc(list[i])
 		if err != nil {
@@ -201,7 +201,7 @@ func (c *controller) enqueueAllAPIExports(clusterWorkspaceShard interface{}) {
 			continue
 		}
 
-		logging.WithQueueKey(logger, key).V(2).Info("queuing APIExport because ClusterWorkspaceShard changed")
+		logging.WithQueueKey(logger, key).V(2).Info("queuing APIExport because Shard changed")
 		c.queue.Add(key)
 	}
 }

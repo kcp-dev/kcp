@@ -22,6 +22,7 @@ import (
 
 	"github.com/martinlindhe/base36"
 
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
@@ -41,7 +42,7 @@ func indexUnschedulable(obj interface{}) ([]string, error) {
 }
 
 func indexByBase36Sha224Name(obj interface{}) ([]string, error) {
-	s := obj.(*tenancyv1alpha1.ClusterWorkspaceShard)
+	s := obj.(*corev1alpha1.Shard)
 	return []string{ByBase36Sha224NameValue(s.Name)}, nil
 }
 

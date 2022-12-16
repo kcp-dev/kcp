@@ -35,7 +35,6 @@ import (
 type TenancyV1alpha1ClusterInterface interface {
 	TenancyV1alpha1ClusterScoper
 	ClusterWorkspacesClusterGetter
-	ClusterWorkspaceShardsClusterGetter
 	ClusterWorkspaceTypesClusterGetter
 }
 
@@ -56,10 +55,6 @@ func (c *TenancyV1alpha1ClusterClient) Cluster(clusterPath logicalcluster.Path) 
 
 func (c *TenancyV1alpha1ClusterClient) ClusterWorkspaces() ClusterWorkspaceClusterInterface {
 	return &clusterWorkspacesClusterInterface{clientCache: c.clientCache}
-}
-
-func (c *TenancyV1alpha1ClusterClient) ClusterWorkspaceShards() ClusterWorkspaceShardClusterInterface {
-	return &clusterWorkspaceShardsClusterInterface{clientCache: c.clientCache}
 }
 
 func (c *TenancyV1alpha1ClusterClient) ClusterWorkspaceTypes() ClusterWorkspaceTypeClusterInterface {

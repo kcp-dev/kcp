@@ -36,12 +36,12 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	workloadv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/workload/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
-	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	corev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/core/v1alpha1"
 	workloadv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/workload/v1alpha1"
-	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
+	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -50,7 +50,7 @@ const ControllerName = "kcp-synctarget-controller"
 func NewController(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	syncTargetInformer workloadv1alpha1informers.SyncTargetClusterInformer,
-	workspaceShardInformer tenancyv1alpha1informers.ClusterWorkspaceShardClusterInformer,
+	workspaceShardInformer corev1alpha1informers.ShardClusterInformer,
 ) *Controller {
 
 	c := &Controller{
@@ -81,7 +81,7 @@ type Controller struct {
 	queue            workqueue.RateLimitingInterface
 	kcpClusterClient kcpclientset.ClusterInterface
 
-	workspaceShardLister tenancyv1alpha1listers.ClusterWorkspaceShardClusterLister
+	workspaceShardLister corev1alpha1listers.ShardClusterLister
 	syncTargetIndexer    cache.Indexer
 }
 
@@ -98,14 +98,14 @@ func (c *Controller) enqueueSyncTarget(obj interface{}) {
 
 // On workspaceShard changes, enqueue all the syncTargets.
 func (c *Controller) enqueueWorkspaceShard(obj interface{}) {
-	logger := logging.WithObject(logging.WithReconciler(klog.Background(), ControllerName), obj.(*tenancyv1alpha1.ClusterWorkspaceShard))
+	logger := logging.WithObject(logging.WithReconciler(klog.Background(), ControllerName), obj.(*corev1alpha1.Shard))
 	for _, syncTarget := range c.syncTargetIndexer.List() {
 		key, err := kcpcache.MetaClusterNamespaceKeyFunc(syncTarget)
 		if err != nil {
 			runtime.HandleError(err)
 			return
 		}
-		logging.WithQueueKey(logger, key).V(2).Info("queueing SyncTarget because of ClusterWorkspaceShard")
+		logging.WithQueueKey(logger, key).V(2).Info("queueing SyncTarget because of Shard")
 		c.queue.Add(key)
 	}
 }

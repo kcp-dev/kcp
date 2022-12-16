@@ -495,17 +495,17 @@ func TestValidate(t *testing.T) {
 				newLogicalCluster(logicalcluster.NewPath("root:org")).LogicalCluster,
 			},
 			a: admission.NewAttributesRecord(
-				&tenancyv1alpha1.ClusterWorkspaceShard{
+				&corev1alpha1.Shard{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "test",
 						Annotations: map[string]string{"experimental.tenancy.kcp.dev/owner": "{}"},
 					},
 				},
 				nil,
-				tenancyv1alpha1.Kind("ClusterWorkspaceShard").WithVersion("v1alpha1"),
+				corev1alpha1.Kind("Shard").WithVersion("v1alpha1"),
 				"",
 				"test",
-				tenancyv1alpha1.Resource("clusterworkspaceshards").WithVersion("v1alpha1"),
+				corev1alpha1.Resource("shards").WithVersion("v1alpha1"),
 				"",
 				admission.Create,
 				&metav1.CreateOptions{},

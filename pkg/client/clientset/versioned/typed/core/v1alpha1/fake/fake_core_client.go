@@ -33,6 +33,10 @@ func (c *FakeCoreV1alpha1) LogicalClusters() v1alpha1.LogicalClusterInterface {
 	return &FakeLogicalClusters{c}
 }
 
+func (c *FakeCoreV1alpha1) Shards() v1alpha1.ShardInterface {
+	return &FakeShards{c}
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeCoreV1alpha1) RESTClient() rest.Interface {

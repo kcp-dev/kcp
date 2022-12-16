@@ -101,7 +101,7 @@ type ClusterWorkspaceSpec struct {
 }
 
 type ShardConstraints struct {
-	// name is the name of ClusterWorkspaceShard.
+	// name is the name of Shard.
 	//
 	// +optional
 	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`

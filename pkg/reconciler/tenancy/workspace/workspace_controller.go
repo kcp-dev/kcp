@@ -57,7 +57,7 @@ func NewController(
 	kubeClusterClient kubernetes.ClusterInterface,
 	logicalClusterAdminConfig *rest.Config,
 	workspaceInformer tenancyv1beta1informers.WorkspaceClusterInformer,
-	clusterWorkspaceShardInformer tenancyv1alpha1informers.ClusterWorkspaceShardClusterInformer,
+	shardInformer corev1alpha1informers.ShardClusterInformer,
 	clusterWorkspaceTypeInformer tenancyv1alpha1informers.ClusterWorkspaceTypeClusterInformer,
 	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
 ) (*Controller, error) {
@@ -76,8 +76,8 @@ func NewController(
 		workspaceIndexer: workspaceInformer.Informer().GetIndexer(),
 		workspaceLister:  workspaceInformer.Lister(),
 
-		clusterWorkspaceShardIndexer: clusterWorkspaceShardInformer.Informer().GetIndexer(),
-		clusterWorkspaceShardLister:  clusterWorkspaceShardInformer.Lister(),
+		shardIndexer: shardInformer.Informer().GetIndexer(),
+		shardLister:  shardInformer.Lister(),
 
 		clusterWorkspaceTypeIndexer: clusterWorkspaceTypeInformer.Informer().GetIndexer(),
 		clusterWorkspaceTypeLister:  clusterWorkspaceTypeInformer.Lister(),
@@ -91,7 +91,7 @@ func NewController(
 	indexers.AddIfNotPresentOrDie(workspaceInformer.Informer().GetIndexer(), cache.Indexers{
 		unschedulable: indexUnschedulable,
 	})
-	indexers.AddIfNotPresentOrDie(clusterWorkspaceShardInformer.Informer().GetIndexer(), cache.Indexers{
+	indexers.AddIfNotPresentOrDie(shardInformer.Informer().GetIndexer(), cache.Indexers{
 		byBase36Sha224Name: indexByBase36Sha224Name,
 	})
 	indexers.AddIfNotPresentOrDie(clusterWorkspaceTypeInformer.Informer().GetIndexer(), cache.Indexers{
@@ -103,7 +103,7 @@ func NewController(
 		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
 	})
 
-	clusterWorkspaceShardInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	shardInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueShard(obj) },
 		UpdateFunc: func(obj, _ interface{}) { c.enqueueShard(obj) },
 		DeleteFunc: func(obj interface{}) { c.enqueueShard(obj) },
@@ -115,7 +115,7 @@ func NewController(
 type workspaceResource = committer.Resource[*tenancyv1beta1.WorkspaceSpec, *tenancyv1beta1.WorkspaceStatus]
 
 // Controller watches Workspaces and WorkspaceShards in order to make sure every Workspace
-// is scheduled to a valid ClusterWorkspaceShard.
+// is scheduled to a valid Shard.
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
@@ -129,8 +129,8 @@ type Controller struct {
 	workspaceIndexer cache.Indexer
 	workspaceLister  tenancyv1beta1listers.WorkspaceClusterLister
 
-	clusterWorkspaceShardIndexer cache.Indexer
-	clusterWorkspaceShardLister  tenancyv1alpha1listers.ClusterWorkspaceShardClusterLister
+	shardIndexer cache.Indexer
+	shardLister  corev1alpha1listers.ShardClusterLister
 
 	clusterWorkspaceTypeIndexer cache.Indexer
 	clusterWorkspaceTypeLister  tenancyv1alpha1listers.ClusterWorkspaceTypeClusterLister
@@ -166,7 +166,7 @@ func (c *Controller) enqueueShard(obj interface{}) {
 		return
 	}
 
-	shard, err := c.clusterWorkspaceShardLister.Cluster(clusterName).Get(name)
+	shard, err := c.shardLister.Cluster(clusterName).Get(name)
 	if err == nil {
 		workspaces, err := c.workspaceIndexer.ByIndex(unschedulable, "true")
 		if err != nil {
@@ -179,7 +179,7 @@ func (c *Controller) enqueueShard(obj interface{}) {
 				runtime.HandleError(err)
 				return
 			}
-			logging.WithQueueKey(logger, key).V(2).Info("queueing unschedulable Workspace because of shard update", "clusterWorkspaceShard", shard)
+			logging.WithQueueKey(logger, key).V(2).Info("queueing unschedulable Workspace because of shard update", "shard", shard)
 			c.queue.Add(key)
 		}
 	}

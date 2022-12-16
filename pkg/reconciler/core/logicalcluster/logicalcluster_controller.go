@@ -71,7 +71,7 @@ func NewController(
 type logicalClusterResource = committer.Resource[*corev1alpha1.LogicalClusterSpec, *corev1alpha1.LogicalClusterStatus]
 
 // Controller watches Workspaces and WorkspaceShards in order to make sure every ClusterWorkspace
-// is scheduled to a valid ClusterWorkspaceShard.
+// is scheduled to a valid Shard.
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 

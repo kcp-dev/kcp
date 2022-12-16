@@ -37,8 +37,10 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
+	corev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/core/v1alpha1"
 	tenancyinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
 	tenancyv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/indexers"
@@ -53,18 +55,18 @@ const (
 func NewController(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	clusterWorkspaceTypeInformer tenancyinformers.ClusterWorkspaceTypeClusterInformer,
-	clusterWorkspaceShardInformer tenancyinformers.ClusterWorkspaceShardClusterInformer,
+	shardInformer corev1alpha1informers.ShardClusterInformer,
 ) (*controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 
-	clusterWorkspaceShardLister := clusterWorkspaceShardInformer.Lister()
+	shardLister := shardInformer.Lister()
 	clusterWorkspaceTypeLister := clusterWorkspaceTypeInformer.Lister()
 	c := &controller{
 		queue:                      queue,
 		kcpClusterClient:           kcpClusterClient,
 		clusterWorkspaceTypeLister: clusterWorkspaceTypeLister,
-		listClusterWorkspaceShards: func() ([]*tenancyv1alpha1.ClusterWorkspaceShard, error) {
-			return clusterWorkspaceShardLister.List(labels.Everything())
+		listShards: func() ([]*corev1alpha1.Shard, error) {
+			return shardLister.List(labels.Everything())
 		},
 		resolveClusterWorkspaceType: func(reference tenancyv1alpha1.ClusterWorkspaceTypeReference) (*tenancyv1alpha1.ClusterWorkspaceType, error) {
 			path := logicalcluster.NewPath(reference.Path)
@@ -99,7 +101,7 @@ func NewController(
 		},
 	})
 
-	clusterWorkspaceShardInformer.Informer().AddEventHandler(
+	shardInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				c.enqueueAllClusterWorkspaceTypes(obj)
@@ -122,7 +124,7 @@ type controller struct {
 
 	kcpClusterClient            kcpclientset.ClusterInterface
 	clusterWorkspaceTypeLister  tenancyv1alpha1listers.ClusterWorkspaceTypeClusterLister
-	listClusterWorkspaceShards  func() ([]*tenancyv1alpha1.ClusterWorkspaceShard, error)
+	listShards                  func() ([]*corev1alpha1.Shard, error)
 	resolveClusterWorkspaceType func(reference tenancyv1alpha1.ClusterWorkspaceTypeReference) (*tenancyv1alpha1.ClusterWorkspaceType, error)
 }
 
@@ -139,14 +141,14 @@ func (c *controller) enqueueClusterWorkspaceType(obj interface{}) {
 	c.queue.Add(key)
 }
 
-func (c *controller) enqueueAllClusterWorkspaceTypes(clusterWorkspaceShard interface{}) {
+func (c *controller) enqueueAllClusterWorkspaceTypes(shard interface{}) {
 	list, err := c.clusterWorkspaceTypeLister.List(labels.Everything())
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
-	logger := logging.WithObject(logging.WithReconciler(klog.Background(), ControllerName), clusterWorkspaceShard.(*tenancyv1alpha1.ClusterWorkspaceShard))
+	logger := logging.WithObject(logging.WithReconciler(klog.Background(), ControllerName), shard.(*corev1alpha1.Shard))
 	for i := range list {
 		key, err := kcpcache.MetaClusterNamespaceKeyFunc(list[i])
 		if err != nil {
@@ -154,7 +156,7 @@ func (c *controller) enqueueAllClusterWorkspaceTypes(clusterWorkspaceShard inter
 			continue
 		}
 
-		logging.WithQueueKey(logger, key).V(2).Info("queuing ClusterWorkspaceType because ClusterWorkspaceShard changed")
+		logging.WithQueueKey(logger, key).V(2).Info("queuing ClusterWorkspaceType because Shard changed")
 
 		c.queue.Add(key)
 	}

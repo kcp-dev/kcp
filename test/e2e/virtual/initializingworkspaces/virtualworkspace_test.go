@@ -347,7 +347,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		sort.Slice(expected, func(i, j int) bool {
 			return expected[i].UID < expected[j].UID
 		})
-		var actual *tenancyv1alpha1.LogicalClusterList
+		var actual *corev1alpha1.LogicalClusterList
 		require.Eventually(t, func() bool {
 			actual, err = user1VwKcpClusterClients[initializer].CoreV1alpha1().LogicalClusters().List(ctx, metav1.ListOptions{}) // no list options, all filtering is implicit
 			if err != nil && !errors.IsForbidden(err) {

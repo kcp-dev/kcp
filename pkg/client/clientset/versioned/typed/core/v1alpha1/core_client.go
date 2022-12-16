@@ -30,6 +30,7 @@ import (
 type CoreV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	LogicalClustersGetter
+	ShardsGetter
 }
 
 // CoreV1alpha1Client is used to interact with features provided by the core.kcp.dev group.
@@ -39,6 +40,10 @@ type CoreV1alpha1Client struct {
 
 func (c *CoreV1alpha1Client) LogicalClusters() LogicalClusterInterface {
 	return newLogicalClusters(c)
+}
+
+func (c *CoreV1alpha1Client) Shards() ShardInterface {
+	return newShards(c)
 }
 
 // NewForConfig creates a new CoreV1alpha1Client for the given config.
