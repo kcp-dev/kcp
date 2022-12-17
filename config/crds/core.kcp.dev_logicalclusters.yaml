@@ -21,7 +21,7 @@ spec:
       jsonPath: .metadata.labels['tenancy\.kcp\.dev/phase']
       name: Phase
       type: string
-    - description: URL to access the workspace
+    - description: URL to access the logical cluster
       jsonPath: .status.URL
       name: URL
       type: string
@@ -31,7 +31,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: LogicalCluster describes the current workspace.
+        description: LogicalCluster describes the current logical cluster.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -57,25 +57,25 @@ spec:
             properties:
               directlyDeletable:
                 default: false
-                description: DirectlyDeletable indicates that this workspace can be
-                  directly deleted by the user from within the workspace.
+                description: DirectlyDeletable indicates that this logical cluster
+                  can be directly deleted by the user from within by deleting the
+                  LogicalCluster object.
                 type: boolean
               initializers:
                 description: initializers are set on creation by the system and copied
                   to status when initialization starts.
                 items:
                   description: LogicalClusterInitializer is a unique string corresponding
-                    to a logical cluster initialization controller for the given type
-                    of workspaces.
+                    to a logical cluster initialization controller.
                   pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$
                   type: string
                 type: array
               owner:
                 description: "owner is a reference to a resource controlling the life-cycle
-                  of this workspace. On deletion of the LogicalCluster, the finalizer
-                  core.kcp.dev/logicalcluster is removed from the owner. \n When this
-                  object is deleted, but the owner is not deleted, the owner is deleted
-                  too."
+                  of this logical cluster. On deletion of the LogicalCluster, the
+                  finalizer core.kcp.dev/logicalcluster is removed from the owner.
+                  \n When this object is deleted, but the owner is not deleted, the
+                  owner is deleted too."
                 properties:
                   apiVersion:
                     description: apiVersion is the group and API version of the owner.
@@ -115,8 +115,9 @@ spec:
             properties:
               URL:
                 description: url is the address under which the Kubernetes-cluster-like
-                  endpoint can be found. This URL can be used to access the workspace
-                  with standard Kubernetes client libraries and command line tools.
+                  endpoint can be found. This URL can be used to access the logical
+                  cluster with standard Kubernetes client libraries and command line
+                  tools.
                 type: string
               conditions:
                 description: Current processing state of the LogicalCluster.
@@ -165,19 +166,18 @@ spec:
                 type: array
               initializers:
                 description: initializers are set on creation by the system and must
-                  be cleared by a controller before the workspace can be used. The
-                  LogicalCluster will stay in the phase "Initializing" state until
-                  all initializers are cleared.
+                  be cleared by a controller before the logical cluster can be used.
+                  The LogicalCluster object will stay in the phase "Initializing"
+                  state until all initializers are cleared.
                 items:
                   description: LogicalClusterInitializer is a unique string corresponding
-                    to a logical cluster initialization controller for the given type
-                    of workspaces.
+                    to a logical cluster initialization controller.
                   pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$
                   type: string
                 type: array
               phase:
                 default: Scheduling
-                description: Phase of the workspace (Initializing, Ready).
+                description: Phase of the logical cluster (Initializing, Ready).
                 enum:
                 - Scheduling
                 - Initializing

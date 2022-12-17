@@ -178,9 +178,9 @@ spec:
                     rule: (has(self.all) && self.all) != (has(self.resourceSelector)
                       && size(self.resourceSelector) > 0)
                   - message: logicalclusters cannot be claimed
-                    rule: '!has(self.group) || self.group != "tenancy.kcp.dev" ||
-                      self.resource != "logicalclusters" || (has(self.identityHash)
-                      && self.identityHash != "")'
+                    rule: '!has(self.group) || self.group != "core.kcp.dev" || self.resource
+                      != "logicalclusters" || (has(self.identityHash) && self.identityHash
+                      != "")'
                 type: array
                 x-kubernetes-list-map-keys:
                 - group

@@ -219,8 +219,7 @@ spec:
                   workspace is ready and can be used.
                 items:
                   description: LogicalClusterInitializer is a unique string corresponding
-                    to a logical cluster initialization controller for the given type
-                    of workspaces.
+                    to a logical cluster initialization controller.
                   pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$
                   type: string
                 type: array

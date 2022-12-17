@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v221216-333f94aab.clusterworkspaces.tenancy.kcp.dev
+  name: v221219-c92ed8152.clusterworkspaces.tenancy.kcp.dev
 spec:
   group: tenancy.kcp.dev
   names:
@@ -205,8 +205,7 @@ spec:
                 gated via the RBAC clusterworkspaces/initialize resource permission."
               items:
                 description: LogicalClusterInitializer is a unique string corresponding
-                  to a logical cluster initialization controller for the given type
-                  of workspaces.
+                  to a logical cluster initialization controller.
                 pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$
                 type: string
               type: array

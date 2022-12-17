@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v221216-7a674974c.shards.core.kcp.dev
+  name: v221219-c92ed8152.shards.core.kcp.dev
 spec:
   group: core.kcp.dev
   names:
@@ -19,7 +19,7 @@ spec:
       jsonPath: .spec.baseURL
       name: URL
       type: string
-    - description: The URL exposed in workspaces created on that shard
+    - description: The URL exposed in logical clusters created on that shard
       jsonPath: .spec.externalURL
       name: External URL
       type: string
@@ -28,8 +28,8 @@ spec:
       type: date
     name: v1alpha1
     schema:
-      description: Shard describes a Shard (== KCP instance) on which a number of
-        workspaces will live
+      description: Shard describes a kcp instance on which a number of logical clusters
+        will live
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -55,21 +55,21 @@ spec:
             externalURL:
               description: "externalURL is the externally visible address presented
                 to users in Workspace URLs. Changing this will break all existing
-                workspaces on that shard, i.e. existing kubeconfigs of clients will
-                be invalid. Hence, when changing this value, the old URL used by clients
-                must keep working. \n The external address will not be unique if a
-                front-proxy does a fan-out to shards, but all workspace client will
-                talk to the front-proxy. In that case, put the address of the front-proxy
-                here. \n Note that movement of shards is only possible (in the future)
-                between shards that share a common external URL. \n This will be defaulted
-                to the value of the baseURL."
+                logical clusters on that shard, i.e. existing kubeconfigs of clients
+                will be invalid. Hence, when changing this value, the old URL used
+                by clients must keep working. \n The external address will not be
+                unique if a front-proxy does a fan-out to shards, but all logical
+                cluster clients will talk to the front-proxy. In that case, put the
+                address of the front-proxy here. \n Note that movement of shards is
+                only possible (in the future) between shards that share a common external
+                URL. \n This will be defaulted to the value of the baseURL."
               format: uri
               minLength: 1
               type: string
             virtualWorkspaceURL:
               description: "virtualWorkspaceURL is the address of the virtual workspace
-                server associated with this shard. It can be a direct address, an
-                address of a front-proxy or even an address of an LB. As of today
+                apiserver associated with this shard. It can be a direct address,
+                an address of a front-proxy or even an address of an LB. As of today
                 this address is assigned to APIExports. \n This will be defaulted
                 to the value of the baseURL."
               format: uri
@@ -88,7 +88,7 @@ spec:
                 - type: string
                 pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                 x-kubernetes-int-or-string: true
-              description: Set of integer resources that workspaces can be scheduled
+              description: Set of integer resources that logical clusters can be scheduled
                 into
               type: object
             conditions:

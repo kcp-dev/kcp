@@ -110,7 +110,7 @@ spec:
                       becomes an alias, as long as all of their required types are
                       not mentioned in without.
                     items:
-                      description: WorkspaceTypesReference is a globally unique, fully
+                      description: WorkspaceTypeReference is a globally unique, fully
                         qualified reference to a cluster workspace type.
                       properties:
                         name:
@@ -157,7 +157,7 @@ spec:
                       is considered as that extended type as well (even transitively).
                       \n An empty list matches all types."
                     items:
-                      description: WorkspaceTypesReference is a globally unique, fully
+                      description: WorkspaceTypeReference is a globally unique, fully
                         qualified reference to a cluster workspace type.
                       properties:
                         name:
@@ -189,7 +189,7 @@ spec:
                       is considered as that extended type as well (even transitively).
                       \n An empty list matches all types."
                     items:
-                      description: WorkspaceTypesReference is a globally unique, fully
+                      description: WorkspaceTypeReference is a globally unique, fully
                         qualified reference to a cluster workspace type.
                       properties:
                         name:

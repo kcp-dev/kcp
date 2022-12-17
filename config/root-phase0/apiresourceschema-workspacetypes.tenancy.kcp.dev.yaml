@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v221216-23f21069b.workspacetypes.tenancy.kcp.dev
+  name: v221219-c92ed8152.workspacetypes.tenancy.kcp.dev
 spec:
   group: tenancy.kcp.dev
   names:
@@ -107,7 +107,7 @@ spec:
                     becomes an alias, as long as all of their required types are not
                     mentioned in without.
                   items:
-                    description: WorkspaceTypesReference is a globally unique, fully
+                    description: WorkspaceTypeReference is a globally unique, fully
                       qualified reference to a cluster workspace type.
                     properties:
                       name:
@@ -154,7 +154,7 @@ spec:
                     as that extended type as well (even transitively). \n An empty
                     list matches all types."
                   items:
-                    description: WorkspaceTypesReference is a globally unique, fully
+                    description: WorkspaceTypeReference is a globally unique, fully
                       qualified reference to a cluster workspace type.
                     properties:
                       name:
@@ -186,7 +186,7 @@ spec:
                     as that extended type as well (even transitively). \n An empty
                     list matches all types."
                   items:
-                    description: WorkspaceTypesReference is a globally unique, fully
+                    description: WorkspaceTypeReference is a globally unique, fully
                       qualified reference to a cluster workspace type.
                     properties:
                       name:
