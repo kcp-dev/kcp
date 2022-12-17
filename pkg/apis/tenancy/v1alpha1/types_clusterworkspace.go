@@ -86,7 +86,7 @@ type ClusterWorkspaceSpec struct {
 	// the RBAC workspacetypes/use resource permission.
 	//
 	// +optional
-	Type WorkspaceTypesReference `json:"type,omitempty"`
+	Type WorkspaceTypeReference `json:"type,omitempty"`
 
 	// shard constraints onto which shards this cluster workspace can be scheduled to.
 	// if the constraint is not fulfilled by the current location stored in the status,
@@ -113,14 +113,14 @@ type ShardConstraints struct {
 	Selector *metav1.LabelSelector `json:"selector,omitempty"`
 }
 
-// WorkspaceTypesReference is a globally unique, fully qualified reference to a
+// WorkspaceTypeReference is a globally unique, fully qualified reference to a
 // cluster workspace type.
-type WorkspaceTypesReference struct {
+type WorkspaceTypeReference struct {
 	// name is the name of the WorkspaceType
 	//
 	// +required
 	// +kubebuilder:validation:Required
-	Name WorkspaceTypesName `json:"name"`
+	Name WorkspaceTypeName `json:"name"`
 
 	// path is an absolute reference to the workspace that owns this type, e.g. root:org:ws.
 	//
@@ -129,12 +129,12 @@ type WorkspaceTypesReference struct {
 	Path string `json:"path,omitempty"`
 }
 
-// WorkspaceTypesName is a name of a WorkspaceType
+// WorkspaceTypeName is a name of a WorkspaceType
 //
 // +kubebuilder:validation:Pattern=`^[a-z]([a-z0-9-]{0,61}[a-z0-9])?`
-type WorkspaceTypesName string
+type WorkspaceTypeName string
 
-func (r WorkspaceTypesReference) String() string {
+func (r WorkspaceTypeReference) String() string {
 	if r.Path == "" {
 		return string(r.Name)
 	}
@@ -240,10 +240,10 @@ const (
 	// WorkspaceInitializedWaitingOnAPIBindings is a reason for the APIBindingsInitialized condition that indicates
 	// at least one APIBinding is not ready.
 	WorkspaceInitializedWaitingOnAPIBindings = "WaitingOnAPIBindings"
-	// WorkspaceInitializedWorkspaceTypesInvalid is a reason for the APIBindingsInitialized
+	// WorkspaceInitializedWorkspaceTypeInvalid is a reason for the APIBindingsInitialized
 	// condition that indicates something is invalid with the WorkspaceType (e.g. a cycle trying
 	// to resolve all the transitive types).
-	WorkspaceInitializedWorkspaceTypesInvalid = "WorkspaceTypesInvalid"
+	WorkspaceInitializedWorkspaceTypeInvalid = "WorkspaceTypesInvalid"
 	// WorkspaceInitializedAPIBindingErrors is a reason for the APIBindingsInitialized condition that indicates there
 	// were errors trying to initialize APIBindings for the workspace.
 	WorkspaceInitializedAPIBindingErrors = "APIBindingErrors"

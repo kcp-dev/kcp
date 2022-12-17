@@ -118,7 +118,7 @@ func TestAPIExportPermissionClaimCELValidation(t *testing.T) {
 		{
 			name: "logicalcluster invalid",
 			current: map[string]interface{}{
-				"group":    "tenancy.kcp.dev",
+				"group":    "core.kcp.dev",
 				"resource": "logicalclusters",
 				"all":      true,
 			},
@@ -129,7 +129,7 @@ func TestAPIExportPermissionClaimCELValidation(t *testing.T) {
 		{
 			name: "logicalcluster invalid with empty identityHash",
 			current: map[string]interface{}{
-				"group":        "tenancy.kcp.dev",
+				"group":        "core.kcp.dev",
 				"resource":     "logicalclusters",
 				"identityHash": "",
 				"all":          true,
@@ -139,9 +139,9 @@ func TestAPIExportPermissionClaimCELValidation(t *testing.T) {
 			},
 		},
 		{
-			name: "logicalcluster invalid with identityHash",
+			name: "logicalcluster fine with non-empty identityHash",
 			current: map[string]interface{}{
-				"group":        "tenancy.kcp.dev",
+				"group":        "core.kcp.dev",
 				"resource":     "logicalclusters",
 				"identityHash": "abc",
 				"all":          true,

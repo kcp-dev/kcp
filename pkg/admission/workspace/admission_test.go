@@ -31,7 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
-	"k8s.io/apiserver/pkg/authentication/user"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/endpoints/request"
 
 	"github.com/kcp-dev/kcp/pkg/admission/helpers"
@@ -43,10 +43,10 @@ import (
 )
 
 func createAttr(ws *tenancyv1beta1.Workspace) admission.Attributes {
-	return createAttrWithUser(ws, &user.DefaultInfo{})
+	return createAttrWithUser(ws, &kuser.DefaultInfo{})
 }
 
-func createAttrWithUser(ws *tenancyv1beta1.Workspace, info user.Info) admission.Attributes {
+func createAttrWithUser(ws *tenancyv1beta1.Workspace, info kuser.Info) admission.Attributes {
 	return admission.NewAttributesRecord(
 		helpers.ToUnstructuredOrDie(ws),
 		nil,
@@ -74,7 +74,7 @@ func updateAttr(ws, old *tenancyv1beta1.Workspace) admission.Attributes {
 		admission.Update,
 		&metav1.CreateOptions{},
 		false,
-		&user.DefaultInfo{},
+		&kuser.DefaultInfo{},
 	)
 }
 
@@ -107,7 +107,7 @@ func TestAdmit(t *testing.T) {
 						Path: "root:org",
 					},
 				},
-			}, &user.DefaultInfo{
+			}, &kuser.DefaultInfo{
 				Name:   "someone",
 				UID:    "id",
 				Groups: []string{"a", "b"},
@@ -131,7 +131,7 @@ func TestAdmit(t *testing.T) {
 			},
 		},
 		{
-			name: "keep user information on create when system:masters",
+			name: "keep user information on create when privileged system user",
 			logicalClusters: []*corev1alpha1.LogicalCluster{
 				newLogicalCluster(logicalcluster.NewPath("root:org:ws")).LogicalCluster,
 			},
@@ -149,10 +149,10 @@ func TestAdmit(t *testing.T) {
 						Path: "root:org",
 					},
 				},
-			}, &user.DefaultInfo{
+			}, &kuser.DefaultInfo{
 				Name:   "someone",
 				UID:    "id",
-				Groups: []string{"a", "b", "system:masters"},
+				Groups: []string{"a", "b", kuser.SystemPrivilegedGroup},
 				Extra: map[string][]string{
 					"one": {"1", "01"},
 				},
@@ -173,7 +173,7 @@ func TestAdmit(t *testing.T) {
 			},
 		},
 		{
-			name: "override user information on create when not system:masters",
+			name: "override user information on create when not privileged system user",
 			logicalClusters: []*corev1alpha1.LogicalCluster{
 				newLogicalCluster(logicalcluster.NewPath("root:org:ws")).LogicalCluster,
 			},
@@ -191,7 +191,7 @@ func TestAdmit(t *testing.T) {
 						Path: "root:org",
 					},
 				},
-			}, &user.DefaultInfo{
+			}, &kuser.DefaultInfo{
 				Name:   "someone",
 				UID:    "id",
 				Groups: []string{"a", "b"},
@@ -277,9 +277,9 @@ func TestAdmit(t *testing.T) {
 					},
 				},
 				Spec: tenancyv1beta1.WorkspaceSpec{},
-			}, &user.DefaultInfo{
+			}, &kuser.DefaultInfo{
 				Name:   "admin",
-				Groups: []string{"system:masters"},
+				Groups: []string{kuser.SystemPrivilegedGroup},
 			}),
 			expectedObj: &tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
@@ -510,7 +510,7 @@ func TestValidate(t *testing.T) {
 				admission.Create,
 				&metav1.CreateOptions{},
 				false,
-				&user.DefaultInfo{},
+				&kuser.DefaultInfo{},
 			),
 		},
 		{
@@ -529,7 +529,7 @@ func TestValidate(t *testing.T) {
 						Path: "root:org",
 					},
 				},
-			}, &user.DefaultInfo{
+			}, &kuser.DefaultInfo{
 				Name:   "someone",
 				UID:    "id",
 				Groups: []string{"a", "b"},
@@ -540,7 +540,7 @@ func TestValidate(t *testing.T) {
 			expectedErrors: []string{"expected user annotation experimental.tenancy.kcp.dev/owner={\"username\":\"someone\",\"uid\":\"id\",\"groups\":[\"a\",\"b\"],\"extra\":{\"one\":[\"1\",\"01\"]}}"},
 		},
 		{
-			name: "accept user information on create when system:masters",
+			name: "accept user information on create when privileged system user",
 			logicalClusters: []*corev1alpha1.LogicalCluster{
 				newLogicalCluster(logicalcluster.NewPath("root:org")).LogicalCluster,
 			},
@@ -560,17 +560,17 @@ func TestValidate(t *testing.T) {
 				Status: tenancyv1beta1.WorkspaceStatus{
 					Phase: corev1alpha1.LogicalClusterPhaseScheduling,
 				},
-			}, &user.DefaultInfo{
+			}, &kuser.DefaultInfo{
 				Name:   "someone",
 				UID:    "id",
-				Groups: []string{"a", "b", "system:masters"},
+				Groups: []string{"a", "b", kuser.SystemPrivilegedGroup},
 				Extra: map[string][]string{
 					"one": {"1", "01"},
 				},
 			}),
 		},
 		{
-			name: "reject wrong user information on create when not system:masters",
+			name: "reject wrong user information on create when not privileged system user",
 			logicalClusters: []*corev1alpha1.LogicalCluster{
 				newLogicalCluster(logicalcluster.NewPath("root:org")).LogicalCluster,
 			},
@@ -587,7 +587,7 @@ func TestValidate(t *testing.T) {
 						Path: "root:org",
 					},
 				},
-			}, &user.DefaultInfo{
+			}, &kuser.DefaultInfo{
 				Name:   "someone",
 				UID:    "id",
 				Groups: []string{"a", "b"},
@@ -639,9 +639,9 @@ func TestValidate(t *testing.T) {
 						"experimental.tenancy.kcp.dev/owner": "{}",
 					},
 				},
-			}, &user.DefaultInfo{
+			}, &kuser.DefaultInfo{
 				Name:   "admin",
-				Groups: []string{"system:masters"},
+				Groups: []string{kuser.SystemPrivilegedGroup},
 			}),
 		},
 	}

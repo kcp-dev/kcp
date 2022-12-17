@@ -32,12 +32,12 @@ const (
 	SystemKcpAdminGroup = "system:kcp:admin"
 	// SystemKcpWorkspaceBootstrapper is the group used to bootstrap resources, both during the root setup, as well
 	// as when the default APIBinding initializing controller performs its bootstrapping for initializing workspaces.
-	// We need a separate group (not system:masters) for this because system-owned workspaces (e.g. root:users) need
-	// a workspace owner annotation set, and the owner annotation is skipped/not set for system:masters.
+	// We need a separate group (not the privileged system group) for this because system-owned workspaces (e.g. root:users) need
+	// a workspace owner annotation set, and the owner annotation is skipped/not set for the privileged system group.
 	SystemKcpWorkspaceBootstrapper = "system:kcp:tenancy:workspace-bootstrapper"
 	// SystemLogicalClusterAdmin is a group used by the scheduler to create LogicalCluster resources.
 	// This group allows it to skip the entire authorization stack except the bootstrap policy authorizer.
-	// Otherwise, access to a top level org or a parent workspace would be required.
+	// Otherwise, the requests would be rejected because the LogicalCluster resource does not exist yet.
 	SystemLogicalClusterAdmin = "system:kcp:logical-cluster-admin"
 	// SystemKcpWorkspaceAccessGroup is a group that gives a user system:authenticated access to a workspace.
 	SystemKcpWorkspaceAccessGroup = "system:kcp:workspace:access"

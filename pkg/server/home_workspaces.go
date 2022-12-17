@@ -252,7 +252,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 				Name: corev1alpha1.LogicalClusterName,
 				Annotations: map[string]string{
 					tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey: userInfo,
-					corev1alpha1.LogicalClusterTypeAnnotationKey:            "root:home",
+					tenancyv1beta1.LogicalClusterTypeAnnotationKey:          "root:home",
 				},
 			},
 		}

@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
@@ -126,7 +127,7 @@ func (o *plugin) Validate(ctx context.Context, a admission.Attributes, _ admissi
 	}
 
 	groups := sets.NewString(a.GetUserInfo().GetGroups()...)
-	if groups.Has("system:masters") || groups.Has(bootstrap.SystemLogicalClusterAdmin) || groups.Has(bootstrap.SystemKcpWorkspaceBootstrapper) {
+	if groups.Has(kuser.SystemPrivilegedGroup) || groups.Has(bootstrap.SystemLogicalClusterAdmin) || groups.Has(bootstrap.SystemKcpWorkspaceBootstrapper) {
 		return nil
 	}
 
@@ -190,7 +191,7 @@ func (o *plugin) Validate(ctx context.Context, a admission.Attributes, _ admissi
 			return fmt.Errorf("LogicalCluster cannot be deleted")
 		}
 		groups := sets.NewString(a.GetUserInfo().GetGroups()...)
-		if !this.Spec.DirectlyDeletable && !groups.Has("system:masters") && !groups.Has(bootstrap.SystemLogicalClusterAdmin) {
+		if !this.Spec.DirectlyDeletable && !groups.Has(kuser.SystemPrivilegedGroup) && !groups.Has(bootstrap.SystemLogicalClusterAdmin) {
 			return admission.NewForbidden(a, fmt.Errorf("LogicalCluster cannot be deleted"))
 		}
 

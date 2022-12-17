@@ -217,7 +217,7 @@ func TestReconcile(t *testing.T) {
 				listShards: func() ([]*corev1alpha1.Shard, error) {
 					return testCase.shards, testCase.listErr
 				},
-				resolveWorkspaceTypes: func(reference tenancyv1alpha1.WorkspaceTypesReference) (*tenancyv1alpha1.WorkspaceType, error) {
+				resolveWorkspaceTypes: func(reference tenancyv1alpha1.WorkspaceTypeReference) (*tenancyv1alpha1.WorkspaceType, error) {
 					if testCase.getErr != nil {
 						return nil, testCase.getErr
 					}

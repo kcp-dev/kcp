@@ -69,7 +69,7 @@ func InitializerForType(cwt *tenancyv1alpha1.WorkspaceType) corev1alpha1.Logical
 
 // InitializerForReference determines the identifier for the implicit initializer associated with the
 // WorkspaceType referred to with the reference.
-func InitializerForReference(cwtr tenancyv1alpha1.WorkspaceTypesReference) corev1alpha1.LogicalClusterInitializer {
+func InitializerForReference(cwtr tenancyv1alpha1.WorkspaceTypeReference) corev1alpha1.LogicalClusterInitializer {
 	return corev1alpha1.LogicalClusterInitializer(cwtr.Path + ":" + string(cwtr.Name))
 }
 
@@ -80,7 +80,7 @@ func TypeFrom(initializer corev1alpha1.LogicalClusterInitializer) (logicalcluste
 	case -1:
 		return "", "", fmt.Errorf("expected cluster workspace initializer in form workspace:name, not %q", initializer)
 	default:
-		return logicalcluster.Name(initializer[:separatorIndex]), tenancyv1alpha1.ObjectName(tenancyv1alpha1.WorkspaceTypesName(initializer[separatorIndex+1:])), nil
+		return logicalcluster.Name(initializer[:separatorIndex]), tenancyv1alpha1.ObjectName(tenancyv1alpha1.WorkspaceTypeName(initializer[separatorIndex+1:])), nil
 	}
 }
 

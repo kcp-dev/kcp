@@ -24,6 +24,10 @@ import (
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
+// LogicalClusterTypeAnnotationKey is the annotation key used to indicate
+// the type of the workspace on the corresponding LogicalCluster object. Its format is "root:ws:name".
+const LogicalClusterTypeAnnotationKey = "internal.tenancy.kcp.dev/type"
+
 // Workspace defines a generic Kubernetes-cluster-like endpoint, with standard Kubernetes
 // discovery APIs, OpenAPI and resource API endpoints.
 //
@@ -85,7 +89,7 @@ type WorkspaceTypeReference struct {
 	//
 	// +required
 	// +kubebuilder:validation:Required
-	Name v1alpha1.WorkspaceTypesName `json:"name"`
+	Name v1alpha1.WorkspaceTypeName `json:"name"`
 
 	// path is an absolute reference to the workspace that owns this type, e.g. root:org:ws.
 	//

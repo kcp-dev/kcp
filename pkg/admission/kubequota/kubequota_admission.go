@@ -132,11 +132,12 @@ var _ = initializers.WantsServerShutdownChannel(&KubeResourceQuota{})
 // Validate gets or creates a resourcequota.QuotaAdmission plugin for the logical cluster in the request and then
 // delegates validation to it.
 func (k *KubeResourceQuota) Validate(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) error {
+	// skip workspace bootstrapping resources because quota does not work before these are created.
 	if a.GetResource() == corev1alpha1.SchemeGroupVersion.WithResource("logicalclusters") {
 		return nil
 	}
 	if a.GetResource() == rbacv1.SchemeGroupVersion.WithResource("clusterrolebindings") {
-		allowedNames := sets.NewString("workspace-admin", "workspace-admin-legacy", "workspace-access-legacy")
+		allowedNames := sets.NewString("workspace-admin")
 		if allowedNames.Has(a.GetName()) {
 			return nil
 		}

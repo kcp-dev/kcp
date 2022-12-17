@@ -160,7 +160,7 @@ func TestAdmit(t *testing.T) {
 					Handler: admission.NewHandler(admission.Create, admission.Update),
 				}
 
-				ctx := request.WithCluster(context.Background(), request.Cluster{Name: "root:or"})
+				ctx := request.WithCluster(context.Background(), request.Cluster{Name: "root:org"})
 				err := o.Admit(ctx, a, nil)
 				require.NoError(t, err)
 

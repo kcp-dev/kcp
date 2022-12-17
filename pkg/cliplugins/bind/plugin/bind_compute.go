@@ -147,7 +147,7 @@ func (o *BindComputeOptions) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to create kcp client: %w", err)
 	}
 
-	// apply APIBinddings
+	// apply APIBindings
 	bindings, err := o.applyAPIBinding(ctx, userWorkspaceKcpClient, sets.NewString(o.APIExports...))
 	if err != nil {
 		return err

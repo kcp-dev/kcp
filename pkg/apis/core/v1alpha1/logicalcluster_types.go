@@ -1,3 +1,19 @@
+/*
+Copyright 2022 The KCP Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package v1alpha1
 
 import (
@@ -8,7 +24,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 )
 
-// LogicalCluster describes the current workspace.
+// LogicalCluster describes the current logical cluster.
 //
 // +crd
 // +genclient
@@ -17,7 +33,7 @@ import (
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster,categories=kcp
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.metadata.labels['tenancy\.kcp\.dev/phase']`,description="The current phase (e.g. Scheduling, Initializing, Ready, Deleting)"
-// +kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.URL`,description="URL to access the workspace"
+// +kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.URL`,description="URL to access the logical cluster"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 type LogicalCluster struct {
 	v1.TypeMeta `json:",inline"`
@@ -33,13 +49,9 @@ const (
 	// LogicalClusterName is the name of the LogicalCluster singleton.
 	LogicalClusterName = "this"
 
-	// LogicalClusterFinalizer attached to new ClusterWorkspace (in phase LogicalClusterPhaseScheduling) resources so that we can control
+	// LogicalClusterFinalizer attached to the owner of thw LogicalCluster resource (usually a Workspace) so that we can control
 	// deletion of LogicalCluster resources
 	LogicalClusterFinalizer = "core.kcp.dev/logicalcluster"
-
-	// LogicalClusterTypeAnnotationKey is the annotation key used to indicate
-	// the type of the workspace on the LogicalCluster object. Its format is "root:ws:name".
-	LogicalClusterTypeAnnotationKey = "internal.tenancy.kcp.dev/type"
 )
 
 // LogicalClusterPhaseType is the type of the current phase of the logical cluster.
@@ -54,21 +66,21 @@ const (
 )
 
 // LogicalClusterInitializer is a unique string corresponding to a logical cluster
-// initialization controller for the given type of workspaces.
+// initialization controller.
 //
 // +kubebuilder:validation:Pattern:="^([a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$"
 type LogicalClusterInitializer string
 
 // LogicalClusterSpec is the specification of the LogicalCluster resource.
 type LogicalClusterSpec struct {
-	// DirectlyDeletable indicates that this workspace can be directly deleted by the user
-	// from within the workspace.
+	// DirectlyDeletable indicates that this logical cluster can be directly deleted by the user
+	// from within by deleting the LogicalCluster object.
 	//
 	// +optional
 	// +kubebuilder:default=false
 	DirectlyDeletable bool `json:"directlyDeletable,omitempty"`
 
-	// owner is a reference to a resource controlling the life-cycle of this workspace.
+	// owner is a reference to a resource controlling the life-cycle of this logical cluster.
 	// On deletion of the LogicalCluster, the finalizer core.kcp.dev/logicalcluster is
 	// removed from the owner.
 	//
@@ -130,13 +142,13 @@ type LogicalClusterOwner struct {
 // LogicalClusterStatus communicates the observed state of the Workspace.
 type LogicalClusterStatus struct {
 	// url is the address under which the Kubernetes-cluster-like endpoint
-	// can be found. This URL can be used to access the workspace with standard Kubernetes
+	// can be found. This URL can be used to access the logical cluster with standard Kubernetes
 	// client libraries and command line tools.
 	//
 	// +kubebuilder:format:uri
 	URL string `json:"URL,omitempty"`
 
-	// Phase of the workspace (Initializing, Ready).
+	// Phase of the logical cluster (Initializing, Ready).
 	//
 	// +kubebuilder:default=Scheduling
 	Phase LogicalClusterPhaseType `json:"phase,omitempty"`
@@ -146,8 +158,8 @@ type LogicalClusterStatus struct {
 	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 
 	// initializers are set on creation by the system and must be cleared
-	// by a controller before the workspace can be used. The LogicalCluster will
-	// stay in the phase "Initializing" state until all initializers are cleared.
+	// by a controller before the logical cluster can be used. The LogicalCluster object
+	// will stay in the phase "Initializing" state until all initializers are cleared.
 	//
 	// +optional
 	Initializers []LogicalClusterInitializer `json:"initializers,omitempty"`

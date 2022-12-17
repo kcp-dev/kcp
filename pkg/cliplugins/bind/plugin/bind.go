@@ -44,7 +44,7 @@ type BindOptions struct {
 	// APIExportRef is the argument accepted by the command. It contains the
 	// reference to where APIExport exists. For ex: <absolute_ref_to_workspace>:<apiexport>.
 	APIExportRef string
-	// Path of the APIBinding.
+	// Name of the APIBinding.
 	APIBindingName string
 	// BindWaitTimeout is how long to wait for the APIBinding to be created and successful.
 	BindWaitTimeout time.Duration
@@ -61,7 +61,7 @@ func NewBindOptions(streams genericclioptions.IOStreams) *BindOptions {
 func (b *BindOptions) BindFlags(cmd *cobra.Command) {
 	b.Options.BindFlags(cmd)
 
-	cmd.Flags().StringVar(&b.APIBindingName, "name", b.APIBindingName, "Path of the APIBinding to create.")
+	cmd.Flags().StringVar(&b.APIBindingName, "name", b.APIBindingName, "Name of the APIBinding to create.")
 	cmd.Flags().DurationVar(&b.BindWaitTimeout, "timeout", time.Second*30, "Duration to wait for APIBinding to be created successfully.")
 }
 
@@ -99,7 +99,7 @@ func (b *BindOptions) Run(ctx context.Context) error {
 
 	path, apiExportName := logicalcluster.NewPath(b.APIExportRef).Split()
 
-	// if apibindingName is not provided, default it to <apiExportname>.
+	// if a custom name is not provided, default it to <apiExportname>.
 	apiBindingName := b.APIBindingName
 	if apiBindingName == "" {
 		apiBindingName = apiExportName

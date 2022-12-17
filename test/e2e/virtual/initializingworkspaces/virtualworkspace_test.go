@@ -139,10 +139,10 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	}
 
 	workspacetypes := map[string]*tenancyv1alpha1.WorkspaceType{}
-	workspacetypeExtensions := map[string]tenancyv1alpha1.WorkspaceTypesExtension{
+	workspacetypeExtensions := map[string]tenancyv1alpha1.WorkspaceTypeExtension{
 		"alpha": {},
 		"beta":  {},
-		"gamma": {With: []tenancyv1alpha1.WorkspaceTypesReference{
+		"gamma": {With: []tenancyv1alpha1.WorkspaceTypeReference{
 			{Path: clusterName.String(), Name: tenancyv1alpha1.TypeName(workspacetypeNames["alpha"])},
 			{Path: clusterName.String(), Name: tenancyv1alpha1.TypeName(workspacetypeNames["beta"])},
 		}},
@@ -569,7 +569,7 @@ func workspaceForType(workspaceType *tenancyv1alpha1.WorkspaceType, testLabelSel
 		},
 		Spec: tenancyv1beta1.WorkspaceSpec{
 			Type: tenancyv1beta1.WorkspaceTypeReference{
-				Name: tenancyv1alpha1.WorkspaceTypesName(workspaceType.Name),
+				Name: tenancyv1alpha1.WorkspaceTypeName(workspaceType.Name),
 				Path: logicalcluster.From(workspaceType).String(),
 			},
 		},

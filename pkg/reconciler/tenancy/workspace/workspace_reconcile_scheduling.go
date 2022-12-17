@@ -259,7 +259,7 @@ func (r *schedulingReconciler) createLogicalCluster(ctx context.Context, shard *
 			Finalizers: []string{deletion.WorkspaceFinalizer},
 			Annotations: map[string]string{
 				tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey: workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey],
-				corev1alpha1.LogicalClusterTypeAnnotationKey:            logicalcluster.NewPath(workspace.Spec.Type.Path).Join(string(workspace.Spec.Type.Name)).String(),
+				tenancyv1beta1.LogicalClusterTypeAnnotationKey:          logicalcluster.NewPath(workspace.Spec.Type.Path).Join(string(workspace.Spec.Type.Name)).String(),
 				core.LogicalClusterPathAnnotationKey:                    canonicalPath.String(),
 			},
 		},

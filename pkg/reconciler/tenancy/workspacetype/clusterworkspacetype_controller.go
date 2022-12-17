@@ -68,7 +68,7 @@ func NewController(
 		listShards: func() ([]*corev1alpha1.Shard, error) {
 			return shardLister.List(labels.Everything())
 		},
-		resolveWorkspaceTypes: func(reference tenancyv1alpha1.WorkspaceTypesReference) (*tenancyv1alpha1.WorkspaceType, error) {
+		resolveWorkspaceTypes: func(reference tenancyv1alpha1.WorkspaceTypeReference) (*tenancyv1alpha1.WorkspaceType, error) {
 			path := logicalcluster.NewPath(reference.Path)
 			name := string(reference.Name)
 			objs, err := workspaceTypeInformer.Informer().GetIndexer().ByIndex(indexers.ByLogicalClusterPathAndName, path.Join(name).String())
@@ -125,7 +125,7 @@ type controller struct {
 	kcpClusterClient      kcpclientset.ClusterInterface
 	workspacetypeLister   tenancyv1alpha1listers.WorkspaceTypeClusterLister
 	listShards            func() ([]*corev1alpha1.Shard, error)
-	resolveWorkspaceTypes func(reference tenancyv1alpha1.WorkspaceTypesReference) (*tenancyv1alpha1.WorkspaceType, error)
+	resolveWorkspaceTypes func(reference tenancyv1alpha1.WorkspaceTypeReference) (*tenancyv1alpha1.WorkspaceType, error)
 }
 
 // enqueueWorkspaceTypes enqueues a WorkspaceType.

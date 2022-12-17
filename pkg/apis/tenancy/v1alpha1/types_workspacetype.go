@@ -17,19 +17,17 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
-// WorkspaceTypesReservedNames defines the set of names that may not be
+// WorkspaceTypeReservedNames defines the set of names that may not be
 // used on user-supplied WorkspaceTypes.
 // TODO(hasheddan): tie this definition of reserved names to the patches used to
 // apply the same restrictions to the OpenAPISchema.
-func WorkspaceTypesReservedNames() []string {
+func WorkspaceTypeReservedNames() []string {
 	return []string{
 		"any",
 		"system",
@@ -83,7 +81,7 @@ type WorkspaceTypeSpec struct {
 	// of a ClusterWorkspace.
 	//
 	// +optional
-	Extend WorkspaceTypesExtension `json:"extend,omitempty"`
+	Extend WorkspaceTypeExtension `json:"extend,omitempty"`
 
 	// additionalWorkspaceLabels are a set of labels that will be added to a
 	// ClusterWorkspace on creation.
@@ -98,7 +96,7 @@ type WorkspaceTypeSpec struct {
 	// not inherit its defaultChildWorkspaceType.
 	//
 	// +optional
-	DefaultChildWorkspaceType *WorkspaceTypesReference `json:"defaultChildWorkspaceType,omitempty"`
+	DefaultChildWorkspaceType *WorkspaceTypeReference `json:"defaultChildWorkspaceType,omitempty"`
 
 	// limitAllowedChildren specifies constraints for sub-workspaces created in workspaces
 	// of this type. These are in addition to child constraints of types this one extends.
@@ -153,24 +151,24 @@ type WorkspaceTypeSelector struct {
 	//
 	// +optional
 	// +kubebuilder:validation:MinItems=1
-	Types []WorkspaceTypesReference `json:"types,omitempty"`
+	Types []WorkspaceTypeReference `json:"types,omitempty"`
 }
 
-// WorkspaceTypesExtension defines how other WorkspaceTypes are
+// WorkspaceTypeExtension defines how other WorkspaceTypes are
 // composed together to add functionality to the owning WorkspaceType.
-type WorkspaceTypesExtension struct {
+type WorkspaceTypeExtension struct {
 	// with are WorkspaceTypes whose initializers are added to the list
 	// for the owning type, and for whom the owning type becomes an alias, as long
 	// as all of their required types are not mentioned in without.
 	//
 	// +optional
-	With []WorkspaceTypesReference `json:"with,omitempty"`
+	With []WorkspaceTypeReference `json:"with,omitempty"`
 }
 
 // These are valid conditions of WorkspaceType.
 const (
-	WorkspaceTypesVirtualWorkspaceURLsReady conditionsv1alpha1.ConditionType = "VirtualWorkspaceURLsReady"
-	ErrorGeneratingURLsReason                                                = "ErrorGeneratingURLs"
+	WorkspaceTypeVirtualWorkspaceURLsReady conditionsv1alpha1.ConditionType = "VirtualWorkspaceURLsReady"
+	ErrorGeneratingURLsReason                                               = "ErrorGeneratingURLs"
 )
 
 // WorkspaceTypeStatus defines the observed state of WorkspaceType.
@@ -228,40 +226,17 @@ const (
 
 const (
 	// RootWorkspaceTypeName is a reference to the root logical cluster, which has no cluster workspace type
-	RootWorkspaceTypeName = WorkspaceTypesName("root")
-)
-
-var (
-	// RootWorkspaceTypeReference is a reference to the root logical cluster, which has no cluster workspace type
-	RootWorkspaceTypeReference = WorkspaceTypesReference{
-		Name: RootWorkspaceTypeName,
-		Path: RootCluster.String(),
-	}
-
-	// RootWorkspaceType is the implicit type of the root logical cluster.
-	RootWorkspaceType = &WorkspaceType{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: ObjectName(RootWorkspaceTypeReference.Name),
-			Annotations: map[string]string{
-				logicalcluster.AnnotationKey: RootWorkspaceTypeReference.Path,
-			},
-		},
-		Spec: WorkspaceTypeSpec{
-			LimitAllowedParents: &WorkspaceTypeSelector{
-				None: true,
-			},
-		},
-	}
+	RootWorkspaceTypeName = WorkspaceTypeName("root")
 )
 
 // ObjectName converts the proper name of a type that users interact with to the
 // metadata.name of the WorkspaceType object.
-func ObjectName(typeName WorkspaceTypesName) string {
+func ObjectName(typeName WorkspaceTypeName) string {
 	return string(typeName)
 }
 
 // TypeName converts the metadata.name of a WorkspaceType to the proper
 // name of a type, as users interact with it.
-func TypeName(objectName string) WorkspaceTypesName {
-	return WorkspaceTypesName(objectName)
+func TypeName(objectName string) WorkspaceTypeName {
+	return WorkspaceTypeName(objectName)
 }

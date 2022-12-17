@@ -27,7 +27,7 @@ import (
 
 	machineryutilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apiserver/pkg/authentication/user"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 
 	"github.com/kcp-dev/kcp/cmd/sharded-test-server/third_party/library-go/crypto"
@@ -79,7 +79,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	_, err = requestHeaderCA.MakeClientCertificate(
 		filepath.Join(workDirPath, ".kcp-front-proxy/requestheader.crt"),
 		filepath.Join(workDirPath, ".kcp-front-proxy/requestheader.key"),
-		&user.DefaultInfo{Name: "kcp-front-proxy"},
+		&kuser.DefaultInfo{Name: "kcp-front-proxy"},
 		365,
 	)
 	if err != nil {
@@ -102,7 +102,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	_, err = clientCA.MakeClientCertificate(
 		filepath.Join(workDirPath, ".kcp/kcp-admin.crt"),
 		filepath.Join(workDirPath, ".kcp/kcp-admin.key"),
-		&user.DefaultInfo{
+		&kuser.DefaultInfo{
 			Name:   "kcp-admin",
 			Groups: []string{bootstrap.SystemKcpAdminGroup},
 		},
@@ -115,14 +115,14 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 
 	// TODO:(p0lyn0mial): in the future we need a separate group valid only for the proxy
 	// so that it can make wildcard requests against shards
-	// for now we will use the privileged system:masters group to bypass the authz stack
-	// create system:masters client cert to connect to shards
+	// for now we will use the privileged system group to bypass the authz stack
+	// create privileged system user client cert to connect to shards
 	_, err = clientCA.MakeClientCertificate(
 		filepath.Join(workDirPath, ".kcp-front-proxy/shard-admin.crt"),
 		filepath.Join(workDirPath, ".kcp-front-proxy/shard-admin.key"),
-		&user.DefaultInfo{
+		&kuser.DefaultInfo{
 			Name:   "shard-admin",
-			Groups: []string{"system:masters"},
+			Groups: []string{kuser.SystemPrivilegedGroup},
 		},
 		365,
 	)

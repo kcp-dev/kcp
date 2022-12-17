@@ -24,7 +24,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"k8s.io/apiserver/pkg/authentication/user"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/tools/clientcmd"
@@ -34,14 +34,14 @@ func TestSoftImpersonation(t *testing.T) {
 	testCases := []struct {
 		name                 string
 		currentUserGroups    []string
-		userToImpersonate    user.Info
+		userToImpersonate    kuser.Info
 		expectedCreationErr  string
 		expectedRetrievalErr string
 	}{
 		{
 			name:              "valid user",
-			currentUserGroups: []string{"system:masters"},
-			userToImpersonate: &user.DefaultInfo{
+			currentUserGroups: []string{kuser.SystemPrivilegedGroup},
+			userToImpersonate: &kuser.DefaultInfo{
 				Name:   "user name",
 				UID:    "user uid",
 				Groups: []string{"group1", "group2"},
@@ -53,8 +53,8 @@ func TestSoftImpersonation(t *testing.T) {
 		},
 		{
 			name:              "valid with nil groups",
-			currentUserGroups: []string{"system:masters"},
-			userToImpersonate: &user.DefaultInfo{
+			currentUserGroups: []string{kuser.SystemPrivilegedGroup},
+			userToImpersonate: &kuser.DefaultInfo{
 				Name:   "user name",
 				UID:    "user uid",
 				Groups: nil,
@@ -66,8 +66,8 @@ func TestSoftImpersonation(t *testing.T) {
 		},
 		{
 			name:              "valid with nil extra",
-			currentUserGroups: []string{"system:masters"},
-			userToImpersonate: &user.DefaultInfo{
+			currentUserGroups: []string{kuser.SystemPrivilegedGroup},
+			userToImpersonate: &kuser.DefaultInfo{
 				Name:   "user name",
 				UID:    "user uid",
 				Groups: []string{"group1", "group2"},
@@ -76,8 +76,8 @@ func TestSoftImpersonation(t *testing.T) {
 		},
 		{
 			name:              "valid with nil extra values",
-			currentUserGroups: []string{"system:masters"},
-			userToImpersonate: &user.DefaultInfo{
+			currentUserGroups: []string{kuser.SystemPrivilegedGroup},
+			userToImpersonate: &kuser.DefaultInfo{
 				Name:   "user name",
 				UID:    "user uid",
 				Groups: []string{"group1", "group2"},
@@ -88,14 +88,14 @@ func TestSoftImpersonation(t *testing.T) {
 		},
 		{
 			name:                "nil user",
-			currentUserGroups:   []string{"system:masters"},
+			currentUserGroups:   []string{kuser.SystemPrivilegedGroup},
 			userToImpersonate:   nil,
 			expectedCreationErr: "no user info",
 		},
 		{
-			name:              "fail if current user is not system:masters",
+			name:              "fail if current user is not privileged system user",
 			currentUserGroups: []string{"other-group"},
-			userToImpersonate: &user.DefaultInfo{
+			userToImpersonate: &kuser.DefaultInfo{
 				Name:   "user name",
 				UID:    "user uid",
 				Groups: []string{"group1", "group2"},
@@ -109,7 +109,7 @@ func TestSoftImpersonation(t *testing.T) {
 		{
 			name:              "fail if no current user",
 			currentUserGroups: nil,
-			userToImpersonate: &user.DefaultInfo{
+			userToImpersonate: &kuser.DefaultInfo{
 				Name:   "user name",
 				UID:    "user uid",
 				Groups: []string{"group1", "group2"},
@@ -123,11 +123,11 @@ func TestSoftImpersonation(t *testing.T) {
 	}
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			var impersonatedUser user.Info
+			var impersonatedUser kuser.Info
 			var retrievalError error
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if testCase.currentUserGroups != nil {
-					r = r.WithContext(request.WithUser(context.TODO(), &user.DefaultInfo{Name: "aName", Groups: testCase.currentUserGroups}))
+					r = r.WithContext(request.WithUser(context.TODO(), &kuser.DefaultInfo{Name: "aName", Groups: testCase.currentUserGroups}))
 				}
 				impersonatedUser, retrievalError = UserInfoFromRequestHeader(r)
 			}))

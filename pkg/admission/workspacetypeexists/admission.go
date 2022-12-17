@@ -141,13 +141,13 @@ func (o *workspacetypeExists) Admit(ctx context.Context, a admission.Attributes,
 		// if the user has not provided any type, use the default from the parent workspace
 		empty := tenancyv1beta1.WorkspaceTypeReference{}
 		if ws.Spec.Type == empty {
-			typeAnnotation, found := this.Annotations[corev1alpha1.LogicalClusterTypeAnnotationKey]
+			typeAnnotation, found := this.Annotations[tenancyv1beta1.LogicalClusterTypeAnnotationKey]
 			if !found {
-				return admission.NewForbidden(a, fmt.Errorf("annotation %s on LogicalCluster must be set", corev1alpha1.LogicalClusterTypeAnnotationKey))
+				return admission.NewForbidden(a, fmt.Errorf("annotation %s on LogicalCluster must be set", tenancyv1beta1.LogicalClusterTypeAnnotationKey))
 			}
 			cwtWorkspace, cwtName := logicalcluster.NewPath(typeAnnotation).Split()
 			if cwtWorkspace.Empty() {
-				return admission.NewForbidden(a, fmt.Errorf("annotation %s on LogicalCluster must be in the form of cluster:name", corev1alpha1.LogicalClusterTypeAnnotationKey))
+				return admission.NewForbidden(a, fmt.Errorf("annotation %s on LogicalCluster must be in the form of cluster:name", tenancyv1beta1.LogicalClusterTypeAnnotationKey))
 			}
 			parentCwt, err := o.getType(cwtWorkspace, cwtName)
 			if err != nil {
@@ -167,7 +167,7 @@ func (o *workspacetypeExists) Admit(ctx context.Context, a admission.Attributes,
 			thisPath = logicalcluster.From(this).Path().String()
 		}
 
-		cwt, err := o.resolveTypeRef(logicalcluster.NewPath(thisPath), tenancyv1alpha1.WorkspaceTypesReference{
+		cwt, err := o.resolveTypeRef(logicalcluster.NewPath(thisPath), tenancyv1alpha1.WorkspaceTypeReference{
 			Path: ws.Spec.Type.Path,
 			Name: ws.Spec.Type.Name,
 		})
@@ -210,7 +210,7 @@ func (o *workspacetypeExists) Admit(ctx context.Context, a admission.Attributes,
 	return updateUnstructured(u, ws)
 }
 
-func (o *workspacetypeExists) resolveTypeRef(workspacePath logicalcluster.Path, ref tenancyv1alpha1.WorkspaceTypesReference) (*tenancyv1alpha1.WorkspaceType, error) {
+func (o *workspacetypeExists) resolveTypeRef(workspacePath logicalcluster.Path, ref tenancyv1alpha1.WorkspaceTypeReference) (*tenancyv1alpha1.WorkspaceType, error) {
 	if ref.Path != "" {
 		cwt, err := o.getType(logicalcluster.NewPath(ref.Path), string(ref.Name))
 		if err != nil {
@@ -287,7 +287,7 @@ func (o *workspacetypeExists) Validate(ctx context.Context, a admission.Attribut
 			return admission.NewForbidden(a, fmt.Errorf("not yet ready to handle request"))
 		}
 
-		cwt, err := o.resolveTypeRef(clusterName.Path(), tenancyv1alpha1.WorkspaceTypesReference{
+		cwt, err := o.resolveTypeRef(clusterName.Path(), tenancyv1alpha1.WorkspaceTypeReference{
 			Name: cw.Spec.Type.Name,
 			Path: cw.Spec.Type.Path,
 		})
@@ -330,13 +330,13 @@ func (o *workspacetypeExists) Validate(ctx context.Context, a admission.Attribut
 		if err != nil {
 			return admission.NewForbidden(a, fmt.Errorf("workspace type cannot be resolved: %w", err))
 		}
-		typeAnnotation, found := this.Annotations[corev1alpha1.LogicalClusterTypeAnnotationKey]
+		typeAnnotation, found := this.Annotations[tenancyv1beta1.LogicalClusterTypeAnnotationKey]
 		if !found {
-			return admission.NewForbidden(a, fmt.Errorf("annotation %s on LogicalCluster must be set", corev1alpha1.LogicalClusterTypeAnnotationKey))
+			return admission.NewForbidden(a, fmt.Errorf("annotation %s on LogicalCluster must be set", tenancyv1beta1.LogicalClusterTypeAnnotationKey))
 		}
 		cwtWorkspace, cwtName := logicalcluster.NewPath(typeAnnotation).Split()
 		if cwtWorkspace.Empty() {
-			return admission.NewForbidden(a, fmt.Errorf("annotation %s on LogicalCluster must be in the form of cluster:name", corev1alpha1.LogicalClusterTypeAnnotationKey))
+			return admission.NewForbidden(a, fmt.Errorf("annotation %s on LogicalCluster must be in the form of cluster:name", tenancyv1beta1.LogicalClusterTypeAnnotationKey))
 		}
 		parentCwt, err := o.getType(cwtWorkspace, cwtName)
 		if err != nil {
@@ -555,7 +555,7 @@ func validateAllowedChildren(parentAliases, childAliases []*tenancyv1alpha1.Work
 	return utilerrors.NewAggregate(errs)
 }
 
-func allOfTheFormerExistInTheLater(objectAliases []*tenancyv1alpha1.WorkspaceType, allowedTypes []tenancyv1alpha1.WorkspaceTypesReference) bool {
+func allOfTheFormerExistInTheLater(objectAliases []*tenancyv1alpha1.WorkspaceType, allowedTypes []tenancyv1alpha1.WorkspaceTypeReference) bool {
 	allowedAliasSet := sets.NewString()
 	for _, allowed := range allowedTypes {
 		qualified := logicalcluster.NewPath(allowed.Path).Join(tenancyv1alpha1.ObjectName(allowed.Name)).String()

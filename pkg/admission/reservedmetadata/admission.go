@@ -77,7 +77,7 @@ type reservedMetadata struct {
 var _ = admission.ValidationInterface(&reservedMetadata{})
 
 // Validate asserts the underlying object for changes in labels and annotations.
-// If the user is member of the "system:masters" group, all mutations are allowed.
+// If the user is member of the privileged system group, all mutations are allowed.
 func (o *reservedMetadata) Validate(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
 	newMeta, err := meta.Accessor(a.GetObject())
 	//nolint:nilerr

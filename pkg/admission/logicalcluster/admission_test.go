@@ -31,12 +31,13 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
-	"k8s.io/apiserver/pkg/authentication/user"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/endpoints/request"
 
 	"github.com/kcp-dev/kcp/pkg/admission/helpers"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
 )
 
@@ -52,11 +53,11 @@ func updateAttr(obj, old *corev1alpha1.LogicalCluster) admission.Attributes {
 		admission.Update,
 		&metav1.CreateOptions{},
 		false,
-		&user.DefaultInfo{},
+		&kuser.DefaultInfo{},
 	)
 }
 
-func deleteAttr(obj *corev1alpha1.LogicalCluster, userInfo *user.DefaultInfo) admission.Attributes {
+func deleteAttr(obj *corev1alpha1.LogicalCluster, userInfo *kuser.DefaultInfo) admission.Attributes {
 	return admission.NewAttributesRecord(
 		nil,
 		nil,
@@ -160,7 +161,7 @@ func TestAdmit(t *testing.T) {
 				admission.Create,
 				&metav1.CreateOptions{},
 				false,
-				&user.DefaultInfo{},
+				&kuser.DefaultInfo{},
 			),
 			expectedObj: &corev1alpha1.Shard{
 				TypeMeta: metav1.TypeMeta{
@@ -317,7 +318,7 @@ func TestValidate(t *testing.T) {
 		{
 			name:        "fails deletion as another user",
 			clusterName: "root:org:ws",
-			attr:        deleteAttr(newLogicalCluster("root:org:ws").LogicalCluster, &user.DefaultInfo{}),
+			attr:        deleteAttr(newLogicalCluster("root:org:ws").LogicalCluster, &kuser.DefaultInfo{}),
 			wantErr:     "LogicalCluster cannot be deleted",
 		},
 		{
@@ -325,7 +326,7 @@ func TestValidate(t *testing.T) {
 			clusterName: "root:org:ws",
 			attr: deleteAttr(
 				newLogicalCluster("root:org:ws").LogicalCluster,
-				&user.DefaultInfo{Groups: []string{"system:masters"}},
+				&kuser.DefaultInfo{Groups: []string{kuser.SystemPrivilegedGroup}},
 			),
 		},
 		{
@@ -333,7 +334,7 @@ func TestValidate(t *testing.T) {
 			clusterName: "root:org:ws",
 			attr: deleteAttr(
 				newLogicalCluster("root:org:ws").LogicalCluster,
-				&user.DefaultInfo{Groups: []string{"system:kcp:logical-cluster-admin"}},
+				&kuser.DefaultInfo{Groups: []string{"system:kcp:logical-cluster-admin"}},
 			),
 		},
 		{
@@ -344,7 +345,7 @@ func TestValidate(t *testing.T) {
 			},
 			attr: deleteAttr(
 				newLogicalCluster("root:org:ws").directlyDeletable().LogicalCluster,
-				&user.DefaultInfo{},
+				&kuser.DefaultInfo{},
 			),
 		},
 		{
@@ -365,7 +366,7 @@ func TestValidate(t *testing.T) {
 				admission.Create,
 				&metav1.CreateOptions{},
 				false,
-				&user.DefaultInfo{},
+				&kuser.DefaultInfo{},
 			),
 		},
 	}
@@ -404,7 +405,7 @@ func (b thisWsBuilder) withType(cluster logicalcluster.Name, name string) thisWs
 	if b.Annotations == nil {
 		b.Annotations = map[string]string{}
 	}
-	b.Annotations[corev1alpha1.LogicalClusterTypeAnnotationKey] = cluster.Path().Join(name).String()
+	b.Annotations[v1beta1.LogicalClusterTypeAnnotationKey] = cluster.Path().Join(name).String()
 	return b
 }
 

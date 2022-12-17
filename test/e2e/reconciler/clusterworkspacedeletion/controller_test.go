@@ -63,7 +63,7 @@ func TestWorkspaceDeletionController(t *testing.T) {
 				workspace, err := server.kcpClusterClient.Cluster(orgClusterName.Path()).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, &tenancyv1alpha1.ClusterWorkspace{
 					ObjectMeta: metav1.ObjectMeta{Name: "ws-cleanup"},
 					Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-						Type: tenancyv1alpha1.WorkspaceTypesReference{
+						Type: tenancyv1alpha1.WorkspaceTypeReference{
 							Name: "universal",
 							Path: "root",
 						},

@@ -56,7 +56,7 @@ func NewController(
 	dynamicClusterClient kcpdynamic.ClusterInterface,
 	kcpClusterClient kcpclientset.ClusterInterface,
 	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
-	workspaceType tenancyv1alpha1.WorkspaceTypesReference,
+	workspaceType tenancyv1alpha1.WorkspaceTypeReference,
 	bootstrap func(context.Context, discovery.DiscoveryInterface, dynamic.Interface, clientset.Interface, sets.String) error,
 	batteriesIncluded sets.String,
 ) (*controller, error) {
@@ -93,7 +93,7 @@ type controller struct {
 
 	logicalClusterLister corev1alpha1listers.LogicalClusterClusterLister
 
-	workspaceType     tenancyv1alpha1.WorkspaceTypesReference
+	workspaceType     tenancyv1alpha1.WorkspaceTypeReference
 	bootstrap         func(context.Context, discovery.DiscoveryInterface, dynamic.Interface, clientset.Interface, sets.String) error
 	batteriesIncluded sets.String
 }

@@ -53,9 +53,9 @@ func WithRequiredGroups(groups ...string) ClusterWorkspaceOption {
 	}
 }
 
-func WithType(path logicalcluster.Path, name tenancyv1alpha1.WorkspaceTypesName) ClusterWorkspaceOption {
+func WithType(path logicalcluster.Path, name tenancyv1alpha1.WorkspaceTypeName) ClusterWorkspaceOption {
 	return func(ws *tenancyv1alpha1.ClusterWorkspace) {
-		ws.Spec.Type = tenancyv1alpha1.WorkspaceTypesReference{
+		ws.Spec.Type = tenancyv1alpha1.WorkspaceTypeReference{
 			Name: name,
 			Path: path.String(),
 		}
@@ -82,8 +82,8 @@ func NewWorkspaceFixtureObject(t *testing.T, server RunningServer, orgClusterNam
 			GenerateName: "e2e-workspace-",
 		},
 		Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-			Type: tenancyv1alpha1.WorkspaceTypesReference{
-				Name: tenancyv1alpha1.WorkspaceTypesName("universal"),
+			Type: tenancyv1alpha1.WorkspaceTypeReference{
+				Name: tenancyv1alpha1.WorkspaceTypeName("universal"),
 				Path: "root",
 			},
 		},
@@ -153,7 +153,7 @@ func NewOrganizationFixtureObject(t *testing.T, server RunningServer, options ..
 			GenerateName: "e2e-org-",
 		},
 		Spec: tenancyv1alpha1.ClusterWorkspaceSpec{
-			Type: tenancyv1alpha1.WorkspaceTypesReference{
+			Type: tenancyv1alpha1.WorkspaceTypeReference{
 				Name: "organization",
 				Path: "root",
 			},

@@ -28,10 +28,7 @@ import (
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 )
 
-// Validate ClusterWorkspace creation and updates for
-// - immutability of fields like type
-// - valid phase transitions fulfilling pre-conditions
-// - status.location.current and status.baseURL cannot be unset.
+// Default the external and virtual URLs with the base URL if they are not set.
 
 const (
 	PluginName = "tenancy.kcp.dev/Shard"

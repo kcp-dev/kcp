@@ -130,8 +130,8 @@ func TestWorkspaceTypesAPIBindingInitialization(t *testing.T) {
 					Export: "shards.tenancy.kcp.dev",
 				},
 			},
-			Extend: tenancyv1alpha1.WorkspaceTypesExtension{
-				With: []tenancyv1alpha1.WorkspaceTypesReference{
+			Extend: tenancyv1alpha1.WorkspaceTypeExtension{
+				With: []tenancyv1alpha1.WorkspaceTypeReference{
 					{
 						Name: "parent1",
 						Path: universalPath.String(),

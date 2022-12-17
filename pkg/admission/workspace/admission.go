@@ -43,14 +43,7 @@ import (
 	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
 )
 
-// Validate ClusterWorkspace creation and updates for
-// - immutability of fields like type
-// - valid phase transitions fulfilling pre-conditions
-// - status.location.current and status.baseURL cannot be unset.
-
-// Mutate ClusterWorkspace creation and updates for
-// - initializers are short enough to be put into a label
-// - consistency of phase and initializers with labels
+// Validate and admit Workspace creation and updates.
 
 const (
 	PluginName = "tenancy.kcp.dev/Workspace"
@@ -78,7 +71,8 @@ var _ = admission.InitializationValidator(&workspace{})
 var _ = kcpinitializers.WantsKcpInformers(&workspace{})
 
 // Admit ensures that
-// - the user is recorded in annotations on create
+// - the owner user is recorded in annotations on create
+// - the required groups are copied over from the LogicalCluster.
 func (o *workspace) Admit(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) error {
 	clusterName, err := genericapirequest.ClusterNameFrom(ctx)
 	if err != nil {
@@ -99,10 +93,10 @@ func (o *workspace) Admit(ctx context.Context, a admission.Attributes, _ admissi
 	}
 
 	if a.GetOperation() == admission.Create {
-		isSystemMaster := sets.NewString(a.GetUserInfo().GetGroups()...).Has(kuser.SystemPrivilegedGroup)
+		isSystemPrivileged := sets.NewString(a.GetUserInfo().GetGroups()...).Has(kuser.SystemPrivilegedGroup)
 
 		// create owner anntoation
-		if !isSystemMaster {
+		if !isSystemPrivileged {
 			userInfo, err := WorkspaceOwnerAnnotationValue(a.GetUserInfo())
 			if err != nil {
 				return admission.NewForbidden(a, err)
@@ -114,7 +108,7 @@ func (o *workspace) Admit(ctx context.Context, a admission.Attributes, _ admissi
 		}
 
 		// copy required groups from LogicalCluster to new child-Worksapce
-		if _, found := cw.Annotations[authorization.RequiredGroupsAnnotationKey]; !found || !isSystemMaster {
+		if _, found := cw.Annotations[authorization.RequiredGroupsAnnotationKey]; !found || !isSystemPrivileged {
 			this, err := o.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 			if err != nil {
 				return admission.NewForbidden(a, err)
@@ -135,9 +129,10 @@ func (o *workspace) Admit(ctx context.Context, a admission.Attributes, _ admissi
 
 // Validate ensures that
 // - the workspace only does a valid phase transition
-// - has a valid type
-// - has valid initializers when transitioning to initializing
+// - has a valid type and it is not mutated
+// - the cluster is not removed
 // - the user is recorded in annotations on create
+// - the required groups match with the LogicalCluster.
 func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
 	clusterName, err := genericapirequest.ClusterNameFrom(ctx)
 	if err != nil {
@@ -188,9 +183,9 @@ func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admi
 			}
 		}
 	case admission.Create:
-		isSystemMaster := sets.NewString(a.GetUserInfo().GetGroups()...).Has(kuser.SystemPrivilegedGroup)
+		isSystemPrivileged := sets.NewString(a.GetUserInfo().GetGroups()...).Has(kuser.SystemPrivilegedGroup)
 
-		if !isSystemMaster {
+		if !isSystemPrivileged {
 			userInfo, err := WorkspaceOwnerAnnotationValue(a.GetUserInfo())
 			if err != nil {
 				return admission.NewForbidden(a, err)
@@ -204,7 +199,7 @@ func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admi
 		}
 
 		// check that required groups match with LogicalCluster
-		if !isSystemMaster {
+		if !isSystemPrivileged {
 			this, err := o.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 			if err != nil {
 				return admission.NewForbidden(a, err)

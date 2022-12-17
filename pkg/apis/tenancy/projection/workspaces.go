@@ -23,7 +23,7 @@ import (
 
 func ProjectWorkspaceToClusterWorkspace(from *tenancyv1beta1.Workspace, to *tenancyv1alpha1.ClusterWorkspace) {
 	to.ObjectMeta = from.ObjectMeta
-	to.Spec.Type = tenancyv1alpha1.WorkspaceTypesReference{
+	to.Spec.Type = tenancyv1alpha1.WorkspaceTypeReference{
 		Path: from.Spec.Type.Path,
 		Name: from.Spec.Type.Name,
 	}

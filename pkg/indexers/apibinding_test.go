@@ -38,7 +38,7 @@ func TestIndexAPIBindingByAPIExport(t *testing.T) {
 			want:    []string{},
 			wantErr: true,
 		},
-		"has a workspace reference": {
+		"has a export reference": {
 			obj: &apisv1alpha1.APIBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
@@ -56,6 +56,25 @@ func TestIndexAPIBindingByAPIExport(t *testing.T) {
 				},
 			},
 			want:    []string{logicalcluster.NewPath("root:workspace1").Join("export1").String()},
+			wantErr: false,
+		},
+		"has a local export reference": {
+			obj: &apisv1alpha1.APIBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						logicalcluster.AnnotationKey: "root:default",
+					},
+					Name: "foo",
+				},
+				Spec: apisv1alpha1.APIBindingSpec{
+					Reference: apisv1alpha1.BindingReference{
+						Export: &apisv1alpha1.ExportBindingReference{
+							Name: "export1",
+						},
+					},
+				},
+			},
+			want:    []string{logicalcluster.NewPath("root:default").Join("export1").String()},
 			wantErr: false,
 		},
 	}

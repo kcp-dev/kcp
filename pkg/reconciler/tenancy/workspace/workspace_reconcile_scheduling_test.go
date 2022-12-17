@@ -391,7 +391,7 @@ func wellKnownLogicalClusterForFooWS() *corev1alpha1.LogicalCluster {
 			Finalizers: []string{deletion.WorkspaceFinalizer},
 			Annotations: map[string]string{
 				tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey: `{"username":"kcp-admin"}`,
-				corev1alpha1.LogicalClusterTypeAnnotationKey:            "root:universal",
+				tenancyv1beta1.LogicalClusterTypeAnnotationKey:          "root:universal",
 				core.LogicalClusterPathAnnotationKey:                    "root:foo",
 			},
 		},
@@ -516,18 +516,18 @@ func workspaceType(name string) *tenancyv1alpha1.WorkspaceType {
 
 func wellKnownWorkspaceTypes() []*tenancyv1alpha1.WorkspaceType {
 	type0 := workspaceType("root")
-	type0.Spec.DefaultChildWorkspaceType = &tenancyv1alpha1.WorkspaceTypesReference{
+	type0.Spec.DefaultChildWorkspaceType = &tenancyv1alpha1.WorkspaceTypeReference{
 		Name: "organization",
 		Path: "root",
 	}
 	type1 := workspaceType("organization")
-	type1.Spec.DefaultChildWorkspaceType = &tenancyv1alpha1.WorkspaceTypesReference{
+	type1.Spec.DefaultChildWorkspaceType = &tenancyv1alpha1.WorkspaceTypeReference{
 		Name: "universal",
 		Path: "root",
 	}
 	type1.Spec.Initializer = true
 	type2 := workspaceType("universal")
-	type2.Spec.DefaultChildWorkspaceType = &tenancyv1alpha1.WorkspaceTypesReference{
+	type2.Spec.DefaultChildWorkspaceType = &tenancyv1alpha1.WorkspaceTypeReference{
 		Name: "universal",
 		Path: "root",
 	}
@@ -537,7 +537,7 @@ func wellKnownWorkspaceTypes() []*tenancyv1alpha1.WorkspaceType {
 			Export: "root",
 		},
 	}
-	type2.Spec.Extend.With = []tenancyv1alpha1.WorkspaceTypesReference{
+	type2.Spec.Extend.With = []tenancyv1alpha1.WorkspaceTypeReference{
 		{
 			Name: "organization",
 			Path: "root",

@@ -150,7 +150,7 @@ func TestValidate(t *testing.T) {
 			),
 		},
 		{
-			name: "Update: passes without finalizer as system:masters on delete",
+			name: "Update: passes without finalizer as privileged system user on delete",
 			attr: updateAttrWithUserInfo(
 				newAPIBinding().withDeletionTimestamp(time.Now()).APIBinding,
 				newAPIBinding().withFinalizer(apibindingdeletion.APIBindingFinalizer).APIBinding,

@@ -520,12 +520,12 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 		switch separatorIndex {
 		case -1:
 			structuredWorkspaceType = tenancyv1beta1.WorkspaceTypeReference{
-				Name: tenancyv1alpha1.WorkspaceTypesName(strings.ToLower(o.Type)),
+				Name: tenancyv1alpha1.WorkspaceTypeName(strings.ToLower(o.Type)),
 				// path is defaulted through admission
 			}
 		default:
 			structuredWorkspaceType = tenancyv1beta1.WorkspaceTypeReference{
-				Name: tenancyv1alpha1.WorkspaceTypesName(strings.ToLower(o.Type[separatorIndex+1:])),
+				Name: tenancyv1alpha1.WorkspaceTypeName(strings.ToLower(o.Type[separatorIndex+1:])),
 				Path: o.Type[:separatorIndex],
 			}
 		}

@@ -36,13 +36,14 @@ import (
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 func (b *APIBinder) reconcile(ctx context.Context, this *corev1alpha1.LogicalCluster) error {
-	annotationValue, found := this.Annotations[corev1alpha1.LogicalClusterTypeAnnotationKey]
+	annotationValue, found := this.Annotations[v1beta1.LogicalClusterTypeAnnotationKey]
 	if !found {
 		return nil
 	}
@@ -67,7 +68,7 @@ func (b *APIBinder) reconcile(ctx context.Context, this *corev1alpha1.LogicalClu
 		conditions.MarkFalse(
 			this,
 			tenancyv1alpha1.WorkspaceAPIBindingsInitialized,
-			tenancyv1alpha1.WorkspaceInitializedWorkspaceTypesInvalid,
+			tenancyv1alpha1.WorkspaceInitializedWorkspaceTypeInvalid,
 			conditionsv1alpha1.ConditionSeverityError,
 			"error getting WorkspaceType %s|%s: %v",
 			cwtCluster.String(), cwtName,
@@ -85,7 +86,7 @@ func (b *APIBinder) reconcile(ctx context.Context, this *corev1alpha1.LogicalClu
 		conditions.MarkFalse(
 			this,
 			tenancyv1alpha1.WorkspaceAPIBindingsInitialized,
-			tenancyv1alpha1.WorkspaceInitializedWorkspaceTypesInvalid,
+			tenancyv1alpha1.WorkspaceInitializedWorkspaceTypeInvalid,
 			conditionsv1alpha1.ConditionSeverityError,
 			"error resolving transitive set of cluster workspace types: %v",
 			err,

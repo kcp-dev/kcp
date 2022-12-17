@@ -336,7 +336,7 @@ func TestValidate(t *testing.T) {
 		{
 			name: "fails if type is root:root",
 			types: []*tenancyv1alpha1.WorkspaceType{
-				tenancyv1alpha1.RootWorkspaceType,
+				newType("root:root").disallowingParent().WorkspaceType,
 			},
 			clusterName: logicalcluster.Name("root:org:ws"),
 			attr:        createAttr(newWorkspace("root:test").withType("root:root").Workspace),
@@ -800,7 +800,7 @@ func newType(qualifiedName string) builder {
 
 func (b builder) extending(qualifiedName string) builder {
 	path, name := logicalcluster.NewPath(qualifiedName).Split()
-	b.Spec.Extend.With = append(b.Spec.Extend.With, tenancyv1alpha1.WorkspaceTypesReference{Path: path.String(), Name: tenancyv1alpha1.WorkspaceTypesName(name)})
+	b.Spec.Extend.With = append(b.Spec.Extend.With, tenancyv1alpha1.WorkspaceTypeReference{Path: path.String(), Name: tenancyv1alpha1.WorkspaceTypeName(name)})
 	return b
 }
 
@@ -809,7 +809,7 @@ func (b builder) allowingParent(qualifiedName string) builder {
 	if b.Spec.LimitAllowedParents == nil {
 		b.Spec.LimitAllowedParents = &tenancyv1alpha1.WorkspaceTypeSelector{}
 	}
-	b.Spec.LimitAllowedParents.Types = append(b.Spec.LimitAllowedParents.Types, tenancyv1alpha1.WorkspaceTypesReference{Path: path.String(), Name: tenancyv1alpha1.WorkspaceTypesName(name)})
+	b.Spec.LimitAllowedParents.Types = append(b.Spec.LimitAllowedParents.Types, tenancyv1alpha1.WorkspaceTypeReference{Path: path.String(), Name: tenancyv1alpha1.WorkspaceTypeName(name)})
 	return b
 }
 
@@ -818,21 +818,28 @@ func (b builder) allowingChild(qualifiedName string) builder {
 	if b.Spec.LimitAllowedChildren == nil {
 		b.Spec.LimitAllowedChildren = &tenancyv1alpha1.WorkspaceTypeSelector{}
 	}
-	b.Spec.LimitAllowedChildren.Types = append(b.Spec.LimitAllowedChildren.Types, tenancyv1alpha1.WorkspaceTypesReference{Path: path.String(), Name: tenancyv1alpha1.WorkspaceTypesName(name)})
+	b.Spec.LimitAllowedChildren.Types = append(b.Spec.LimitAllowedChildren.Types, tenancyv1alpha1.WorkspaceTypeReference{Path: path.String(), Name: tenancyv1alpha1.WorkspaceTypeName(name)})
 	return b
 }
 
 func (b builder) withDefault(qualifiedName string) builder {
 	path, name := logicalcluster.NewPath(qualifiedName).Split()
-	b.Spec.DefaultChildWorkspaceType = &tenancyv1alpha1.WorkspaceTypesReference{
+	b.Spec.DefaultChildWorkspaceType = &tenancyv1alpha1.WorkspaceTypeReference{
 		Path: path.String(),
-		Name: tenancyv1alpha1.WorkspaceTypesName(name),
+		Name: tenancyv1alpha1.WorkspaceTypeName(name),
 	}
 	return b
 }
 
 func (b builder) disallowingChildren() builder {
 	b.WorkspaceType.Spec.LimitAllowedChildren = &tenancyv1alpha1.WorkspaceTypeSelector{
+		None: true,
+	}
+	return b
+}
+
+func (b builder) disallowingParent() builder {
+	b.WorkspaceType.Spec.LimitAllowedParents = &tenancyv1alpha1.WorkspaceTypeSelector{
 		None: true,
 	}
 	return b
@@ -863,7 +870,7 @@ func (b wsBuilder) withType(qualifiedName string) wsBuilder {
 	path, name := logicalcluster.NewPath(qualifiedName).Split()
 	b.Spec.Type = tenancyv1beta1.WorkspaceTypeReference{
 		Path: path.String(),
-		Name: tenancyv1alpha1.WorkspaceTypesName(name),
+		Name: tenancyv1alpha1.WorkspaceTypeName(name),
 	}
 	return b
 }
@@ -892,7 +899,7 @@ func (b thisWsBuilder) withType(cluster logicalcluster.Name, name string) thisWs
 	if b.Annotations == nil {
 		b.Annotations = map[string]string{}
 	}
-	b.Annotations[corev1alpha1.LogicalClusterTypeAnnotationKey] = cluster.Path().Join(name).String()
+	b.Annotations[tenancyv1beta1.LogicalClusterTypeAnnotationKey] = cluster.Path().Join(name).String()
 	return b
 }
 

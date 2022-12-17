@@ -83,7 +83,7 @@ func NewReservedNames() *ReservedNames {
 			newReservedNameFn(
 				tenancyv1alpha1.Resource("workspacetypes"),
 				tenancyv1alpha1.Kind("WorkspaceType"),
-				tenancyv1alpha1.WorkspaceTypesReservedNames()...,
+				tenancyv1alpha1.WorkspaceTypeReservedNames()...,
 			),
 		},
 	}

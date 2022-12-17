@@ -37,7 +37,7 @@ func (c *controller) reconcile(ctx context.Context, cwt *tenancyv1alpha1.Workspa
 	if err := c.updateVirtualWorkspaceURLs(ctx, cwt); err != nil {
 		conditions.MarkFalse(
 			cwt,
-			tenancyv1alpha1.WorkspaceTypesVirtualWorkspaceURLsReady,
+			tenancyv1alpha1.WorkspaceTypeVirtualWorkspaceURLsReady,
 			tenancyv1alpha1.ErrorGeneratingURLsReason,
 			conditionsv1alpha1.ConditionSeverityError,
 			err.Error(),
@@ -45,7 +45,7 @@ func (c *controller) reconcile(ctx context.Context, cwt *tenancyv1alpha1.Workspa
 	} else {
 		conditions.MarkTrue(
 			cwt,
-			tenancyv1alpha1.WorkspaceTypesVirtualWorkspaceURLsReady,
+			tenancyv1alpha1.WorkspaceTypeVirtualWorkspaceURLsReady,
 		)
 	}
 
