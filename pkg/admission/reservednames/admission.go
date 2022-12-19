@@ -76,11 +76,6 @@ func NewReservedNames() *ReservedNames {
 		Handler: admission.NewHandler(admission.Create),
 		reservedNameFns: []reservedNameFn{
 			newReservedNameFn(
-				tenancyv1alpha1.Resource("clusterworkspaces"),
-				tenancyv1alpha1.Kind("ClusterWorkspace"),
-				tenancyv1alpha1.ClusterWorkspaceReservedNames()...,
-			),
-			newReservedNameFn(
 				tenancyv1alpha1.Resource("workspacetypes"),
 				tenancyv1alpha1.Kind("WorkspaceType"),
 				tenancyv1alpha1.WorkspaceTypeReservedNames()...,

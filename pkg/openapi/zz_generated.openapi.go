@@ -2318,7 +2318,7 @@ func schema_pkg_apis_core_v1alpha1_LogicalCluster(ref common.ReferenceCallback) 
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "LogicalCluster describes the current logical cluster.",
+				Description: "LogicalCluster describes the current logical cluster. It is used to authorize requests to the logical cluster and to track state.\n\nA LogicalCluster is always named \"cluster\".",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {

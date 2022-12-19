@@ -26,17 +26,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 )
 
-// ClusterWorkspaceReservedNames defines the set of names that may not be used
-// on user-supplied ClusterWorkspaces.
-// TODO(hasheddan): tie this definition of reserved names to the patches used to
-// apply the same restrictions to the OpenAPISchema.
-func ClusterWorkspaceReservedNames() []string {
-	return []string{
-		"root",
-		"system",
-	}
-}
-
 // ClusterWorkspace defines a Kubernetes-cluster-like endpoint that holds a default set
 // of resources and exhibits standard Kubernetes API semantics of CRUD operations. It represents
 // the full life-cycle of the persisted data in this workspace in a KCP installation.

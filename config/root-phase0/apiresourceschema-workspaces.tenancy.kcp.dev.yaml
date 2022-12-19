@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v221219-c92ed8152.workspaces.tenancy.kcp.dev
+  name: v221219-9eb351177.workspaces.tenancy.kcp.dev
 spec:
   group: tenancy.kcp.dev
   names:
@@ -56,10 +56,6 @@ spec:
             name:
               maxLength: 63
               minLength: 1
-              not:
-                enum:
-                - root
-                - system
               pattern: ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$
               type: string
           type: object
