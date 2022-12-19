@@ -3,3 +3,6 @@ cmd/test-server
 cmd/sharded-test-server
 
 bin/
+
+go.work
+go.work.sum
