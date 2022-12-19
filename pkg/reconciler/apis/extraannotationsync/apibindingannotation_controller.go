@@ -247,6 +247,8 @@ func (c *controller) process(ctx context.Context, key string) error {
 		return err
 	}
 
+	logger = logging.WithObject(logger, apiBinding)
+
 	if apiBinding.Spec.Reference.Export == nil {
 		return nil
 	}
@@ -271,6 +273,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		return nil
 	}
 
+	logger.V(1).Info("patching APIBinding extra annotations", "patch", string(patchBytes))
 	_, err = c.kcpClusterClient.Cluster(clusterName.Path()).ApisV1alpha1().APIBindings().Patch(ctx, name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
 	return err
 }
