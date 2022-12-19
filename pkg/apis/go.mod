@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/google/go-cmp v0.5.5
-	github.com/kcp-dev/logicalcluster/v3 v3.0.0
+	github.com/kcp-dev/logicalcluster/v3 v3.0.1
 	github.com/onsi/gomega v1.10.1
 	github.com/stretchr/testify v1.7.1
 	k8s.io/api v0.24.3
