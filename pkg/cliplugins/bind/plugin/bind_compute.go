@@ -222,15 +222,17 @@ func placementReadyAndScheduled(placement *schedulingv1alpha1.Placement) (bool, 
 
 func bindingsReady(bindings []*apisv1alpha1.APIBinding) (bool, string) {
 	for _, binding := range bindings {
-		if binding.Status.Phase != apisv1alpha1.APIBindingPhaseBound {
-			conditionMessage := "unknown reason"
-			if conditions.IsFalse(binding, apisv1alpha1.InitialBindingCompleted) {
-				conditionMessage = conditions.GetMessage(binding, apisv1alpha1.InitialBindingCompleted)
-			} else if conditions.IsFalse(binding, apisv1alpha1.APIExportValid) {
-				conditionMessage = conditions.GetMessage(binding, apisv1alpha1.APIExportValid)
-			}
-			return false, fmt.Sprintf("not bound to APIExport %q: %s", logicalcluster.NewPath(binding.Spec.Reference.Export.Path).Join(binding.Spec.Reference.Export.Name), conditionMessage)
+		if binding.Status.Phase == apisv1alpha1.APIBindingPhaseBound {
+			continue
 		}
+
+		conditionMessage := "unknown reason"
+		if conditions.IsFalse(binding, apisv1alpha1.InitialBindingCompleted) {
+			conditionMessage = conditions.GetMessage(binding, apisv1alpha1.InitialBindingCompleted)
+		} else if conditions.IsFalse(binding, apisv1alpha1.APIExportValid) {
+			conditionMessage = conditions.GetMessage(binding, apisv1alpha1.APIExportValid)
+		}
+		return false, fmt.Sprintf("APIBinding %q is not bound to APIExport %q yet: %s", logicalcluster.NewPath(binding.Spec.Reference.Export.Path).Join(binding.Spec.Reference.Export.Name), conditionMessage)
 	}
 
 	return true, ""
