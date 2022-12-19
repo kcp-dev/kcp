@@ -69,6 +69,7 @@ func NewController(
 		shardLister:  shardInformer.Lister(),
 
 		shardClusterWorkspaceInformers: map[string]cache.SharedIndexInformer{},
+		shardLogicalClusterInformers:   map[string]cache.SharedIndexInformer{},
 		shardClusterWorkspaceStopCh:    map[string]chan struct{}{},
 
 		state: *index.New([]index.PathRewriter{
