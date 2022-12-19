@@ -232,7 +232,7 @@ func bindingsReady(bindings []*apisv1alpha1.APIBinding) (bool, string) {
 		} else if conditions.IsFalse(binding, apisv1alpha1.APIExportValid) {
 			conditionMessage = conditions.GetMessage(binding, apisv1alpha1.APIExportValid)
 		}
-		return false, fmt.Sprintf("APIBinding %q is not bound to APIExport %q yet: %s", logicalcluster.NewPath(binding.Spec.Reference.Export.Path).Join(binding.Spec.Reference.Export.Name), conditionMessage)
+		return false, fmt.Sprintf("APIBinding %q is not bound to APIExport %q yet: %s", binding.Name, logicalcluster.NewPath(binding.Spec.Reference.Export.Path).Join(binding.Spec.Reference.Export.Name), conditionMessage)
 	}
 
 	return true, ""
