@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v221219-c92ed8152.logicalclusters.core.kcp.dev
+  name: v221219-dab0c5392.logicalclusters.core.kcp.dev
 spec:
   group: core.kcp.dev
   names:
@@ -28,7 +28,9 @@ spec:
       type: date
     name: v1alpha1
     schema:
-      description: LogicalCluster describes the current logical cluster.
+      description: "LogicalCluster describes the current logical cluster. It is used
+        to authorize requests to the logical cluster and to track state. \n A LogicalCluster
+        is always named \"cluster\"."
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -44,7 +46,7 @@ spec:
           properties:
             name:
               enum:
-              - this
+              - cluster
               type: string
           type: object
         spec:

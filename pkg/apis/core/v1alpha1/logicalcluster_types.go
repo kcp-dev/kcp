@@ -24,7 +24,10 @@ import (
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
 )
 
-// LogicalCluster describes the current logical cluster.
+// LogicalCluster describes the current logical cluster. It is used to authorize
+// requests to the logical cluster and to track state.
+//
+// A LogicalCluster is always named "cluster".
 //
 // +crd
 // +genclient
@@ -47,7 +50,7 @@ type LogicalCluster struct {
 
 const (
 	// LogicalClusterName is the name of the LogicalCluster singleton.
-	LogicalClusterName = "this"
+	LogicalClusterName = "cluster"
 
 	// LogicalClusterFinalizer attached to the owner of thw LogicalCluster resource (usually a Workspace) so that we can control
 	// deletion of LogicalCluster resources

@@ -31,7 +31,9 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: LogicalCluster describes the current logical cluster.
+        description: "LogicalCluster describes the current logical cluster. It is
+          used to authorize requests to the logical cluster and to track state. \n
+          A LogicalCluster is always named \"cluster\"."
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -47,7 +49,7 @@ spec:
             properties:
               name:
                 enum:
-                - this
+                - cluster
                 type: string
             type: object
           spec:

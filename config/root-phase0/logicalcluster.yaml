@@ -1,7 +1,7 @@
 apiVersion: core.kcp.dev/v1alpha1
 kind: LogicalCluster
 metadata:
-  name: this
+  name: cluster
   annotations:
     internal.tenancy.kcp.dev/type: root:root
 spec: {}
