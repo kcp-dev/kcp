@@ -40,7 +40,7 @@ import (
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1/permissionclaims"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
 	apisv1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/apis/v1alpha1"
@@ -147,9 +147,9 @@ func (o *apiBindingAdmission) Admit(ctx context.Context, a admission.Attributes,
 		var exportClusterName logicalcluster.Name
 		if apiBinding.Spec.Reference.Export.Path == "" {
 			exportClusterName = clusterName
-		} else if apiBinding.Spec.Reference.Export.Path == tenancyv1alpha1.RootCluster.String() {
+		} else if apiBinding.Spec.Reference.Export.Path == core.RootCluster.String() {
 			// special case to allow bootstrapping
-			exportClusterName = tenancyv1alpha1.RootCluster
+			exportClusterName = core.RootCluster
 		} else {
 			path := logicalcluster.NewPath(apiBinding.Spec.Reference.Export.Path)
 			export, err := o.getAPIExport(path, apiBinding.Spec.Reference.Export.Name)
@@ -240,9 +240,9 @@ func (o *apiBindingAdmission) Validate(ctx context.Context, a admission.Attribut
 		var exportClusterName logicalcluster.Name
 		if apiBinding.Spec.Reference.Export.Path == "" {
 			exportClusterName = clusterName
-		} else if apiBinding.Spec.Reference.Export.Path == tenancyv1alpha1.RootCluster.String() {
+		} else if apiBinding.Spec.Reference.Export.Path == core.RootCluster.String() {
 			// special case to allow bootstrapping
-			exportClusterName = tenancyv1alpha1.RootCluster
+			exportClusterName = core.RootCluster
 		} else {
 			path := logicalcluster.NewPath(apiBinding.Spec.Reference.Export.Path)
 			export, err := o.getAPIExport(path, apiBinding.Spec.Reference.Export.Name)

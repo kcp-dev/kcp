@@ -45,6 +45,7 @@ import (
 
 	rootphase0 "github.com/kcp-dev/kcp/config/root-phase0"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -89,7 +90,7 @@ func BuildVirtualWorkspace(
 	}
 
 	getTenancyIdentity := func() (string, error) {
-		export, err := wildcardKcpInformers.Apis().V1alpha1().APIExports().Lister().Cluster(tenancyv1alpha1.RootCluster).Get("tenancy.kcp.dev")
+		export, err := wildcardKcpInformers.Apis().V1alpha1().APIExports().Lister().Cluster(core.RootCluster).Get("tenancy.kcp.dev")
 		if err != nil {
 			return "", err
 		}

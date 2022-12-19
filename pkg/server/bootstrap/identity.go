@@ -37,8 +37,8 @@ import (
 
 	configshard "github.com/kcp-dev/kcp/config/shard"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/identitycache"
@@ -136,7 +136,7 @@ func wildcardIdentitiesResolver(ids *identities,
 			logger := logging.WithObject(logger, &apisv1alpha1.APIExport{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        name,
-					Annotations: map[string]string{logicalcluster.AnnotationKey: tenancyv1alpha1.RootCluster.String()},
+					Annotations: map[string]string{logicalcluster.AnnotationKey: core.RootCluster.String()},
 				},
 			}).WithValues("group", group)
 			ids.lock.RLock()
@@ -168,7 +168,7 @@ func wildcardIdentitiesResolver(ids *identities,
 			logger := logging.WithObject(logger, &apisv1alpha1.APIExport{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        name,
-					Annotations: map[string]string{logicalcluster.AnnotationKey: tenancyv1alpha1.RootCluster.String()},
+					Annotations: map[string]string{logicalcluster.AnnotationKey: core.RootCluster.String()},
 				},
 			}).WithValues("gr", gr.String())
 			ids.lock.RLock()
@@ -220,7 +220,7 @@ func apiExportIdentityProvider(config *rest.Config, localShardKubeClusterClient 
 			// - the cm wasn't found
 			// - an entry in the cm wasn't found
 		}
-		apiExport, err := rootShardKcpClient.Cluster(tenancyv1alpha1.RootCluster.Path()).ApisV1alpha1().APIExports().Get(ctx, apiExportName, metav1.GetOptions{})
+		apiExport, err := rootShardKcpClient.Cluster(core.RootCluster.Path()).ApisV1alpha1().APIExports().Get(ctx, apiExportName, metav1.GetOptions{})
 		if err != nil {
 			return "", err
 		}

@@ -30,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/authorization"
@@ -170,12 +171,12 @@ func NewOrganizationFixtureObject(t *testing.T, server RunningServer, options ..
 	var org *tenancyv1alpha1.ClusterWorkspace
 	require.Eventually(t, func() bool {
 		var err error
-		org, err = clusterClient.Cluster(tenancyv1alpha1.RootCluster.Path()).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, tmpl, metav1.CreateOptions{})
+		org, err = clusterClient.Cluster(core.RootCluster.Path()).TenancyV1alpha1().ClusterWorkspaces().Create(ctx, tmpl, metav1.CreateOptions{})
 		if err != nil {
-			t.Logf("error creating org workspace under %s: %v", tenancyv1alpha1.RootCluster, err)
+			t.Logf("error creating org workspace under %s: %v", core.RootCluster, err)
 		}
 		return err == nil
-	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create org workspace under %s", tenancyv1alpha1.RootCluster)
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create org workspace under %s", core.RootCluster)
 
 	t.Cleanup(func() {
 		if preserveTestResources() {
@@ -185,7 +186,7 @@ func NewOrganizationFixtureObject(t *testing.T, server RunningServer, options ..
 		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(time.Second*30))
 		defer cancelFn()
 
-		err := clusterClient.Cluster(tenancyv1alpha1.RootCluster.Path()).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, org.Name, metav1.DeleteOptions{})
+		err := clusterClient.Cluster(core.RootCluster.Path()).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, org.Name, metav1.DeleteOptions{})
 		if apierrors.IsNotFound(err) {
 			return // ignore not found error
 		}
@@ -193,7 +194,7 @@ func NewOrganizationFixtureObject(t *testing.T, server RunningServer, options ..
 	})
 
 	Eventually(t, func() (bool, string) {
-		org, err = clusterClient.Cluster(tenancyv1alpha1.RootCluster.Path()).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, org.Name, metav1.GetOptions{})
+		org, err = clusterClient.Cluster(core.RootCluster.Path()).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, org.Name, metav1.GetOptions{})
 		require.Falsef(t, apierrors.IsNotFound(err), "workspace %s was deleted", org.Name)
 		require.NoError(t, err, "failed to get workspace %s", org.Name)
 		if actual, expected := org.Status.Phase, corev1alpha1.LogicalClusterPhaseReady; actual != expected {
@@ -202,7 +203,7 @@ func NewOrganizationFixtureObject(t *testing.T, server RunningServer, options ..
 		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for organization workspace %s to become ready", org.Name)
 
-	t.Logf("Created organization workspace %s", tenancyv1alpha1.RootCluster.Path().Join(org.Name))
+	t.Logf("Created organization workspace %s", core.RootCluster.Path().Join(org.Name))
 	return org
 }
 

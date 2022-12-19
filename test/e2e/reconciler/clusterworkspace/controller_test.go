@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/yaml"
 
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
@@ -179,12 +180,12 @@ func TestWorkspaceController(t *testing.T) {
 			orgExpect, err := framework.ExpectWorkspaces(ctx, t, expecterClient.Cluster(orgClusterName.Path()))
 			require.NoError(t, err, "failed to start expecter")
 
-			rootExpectShard, err := framework.ExpectWorkspaceShards(ctx, t, expecterClient.Cluster(tenancyv1alpha1.RootCluster.Path()))
+			rootExpectShard, err := framework.ExpectWorkspaceShards(ctx, t, expecterClient.Cluster(core.RootCluster.Path()))
 			require.NoError(t, err, "failed to start expecter")
 
 			testCase.work(ctx, t, runningServer{
 				RunningServer:   server,
-				rootKcpClient:   kcpClient.Cluster(tenancyv1alpha1.RootCluster.Path()),
+				rootKcpClient:   kcpClient.Cluster(core.RootCluster.Path()),
 				orgKcpClient:    kcpClient.Cluster(orgClusterName.Path()),
 				orgExpect:       orgExpect,
 				rootExpectShard: rootExpectShard,

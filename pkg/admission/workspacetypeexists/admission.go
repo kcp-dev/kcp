@@ -225,9 +225,9 @@ func (o *workspacetypeExists) resolveTypeRef(workspacePath logicalcluster.Path, 
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				parent, hasParent := workspacePath.Parent()
-				if !hasParent && workspacePath != tenancyv1alpha1.RootCluster.Path() {
+				if !hasParent && workspacePath != core.RootCluster.Path() {
 					// fall through with root cluster. We always check types in there as last chance.
-					parent = tenancyv1alpha1.RootCluster.Path()
+					parent = core.RootCluster.Path()
 				} else if !hasParent {
 					return nil, fmt.Errorf("workspace type %q cannot be resolved", ref.String())
 				}

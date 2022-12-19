@@ -33,6 +33,7 @@ import (
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/yaml"
 
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
@@ -184,7 +185,7 @@ func TestWorkspaceDeletion(t *testing.T) {
 
 				t.Logf("Should have finalizer in org workspace")
 				require.Eventually(t, func() bool {
-					orgWorkspace, err := server.kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster.Path()).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, org.Name, metav1.GetOptions{})
+					orgWorkspace, err := server.kcpClusterClient.Cluster(core.RootCluster.Path()).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, org.Name, metav1.GetOptions{})
 					require.NoError(t, err, "failed to get org workspace %s", org.Name)
 					return len(orgWorkspace.Finalizers) > 0
 				}, wait.ForeverTestTimeout, 100*time.Millisecond)
@@ -221,7 +222,7 @@ func TestWorkspaceDeletion(t *testing.T) {
 				require.NoError(t, err, "failed to create kube client for root shard")
 
 				t.Logf("Delete org workspace")
-				err = server.kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster.Path()).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, org.Name, metav1.DeleteOptions{})
+				err = server.kcpClusterClient.Cluster(core.RootCluster.Path()).TenancyV1alpha1().ClusterWorkspaces().Delete(ctx, org.Name, metav1.DeleteOptions{})
 				require.NoError(t, err, "failed to delete workspace %s", org.Name)
 
 				t.Logf("Ensure namespace %q in the workspace is deleted", ns.Name)
@@ -262,7 +263,7 @@ func TestWorkspaceDeletion(t *testing.T) {
 
 				t.Logf("Ensure the org workspace is deleted")
 				require.Eventually(t, func() bool {
-					_, err := rootShardKcpClusterClient.Cluster(tenancyv1alpha1.RootCluster.Path()).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, org.Name, metav1.GetOptions{})
+					_, err := rootShardKcpClusterClient.Cluster(core.RootCluster.Path()).TenancyV1alpha1().ClusterWorkspaces().Get(ctx, org.Name, metav1.GetOptions{})
 					return apierrors.IsNotFound(err)
 				}, wait.ForeverTestTimeout, 100*time.Millisecond)
 			},

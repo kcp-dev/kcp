@@ -34,7 +34,7 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 )
 
@@ -128,7 +128,7 @@ func ShardConfig(t *testing.T, kcpClusterClient kcpclientset.ClusterInterface, s
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
-	shard, err := kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster.Path()).CoreV1alpha1().Shards().Get(ctx, shardName, metav1.GetOptions{})
+	shard, err := kcpClusterClient.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().Get(ctx, shardName, metav1.GetOptions{})
 	require.NoError(t, err)
 
 	shardCfg := rest.CopyConfig(cfg)

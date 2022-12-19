@@ -40,8 +40,8 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
@@ -753,7 +753,7 @@ func TestUse(t *testing.T) {
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
 			existingObjects: map[logicalcluster.Name][]string{
-				tenancyv1alpha1.RootCluster: {"~"},
+				core.RootCluster: {"~"},
 			},
 			param: "~",
 			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
@@ -778,7 +778,7 @@ func TestUse(t *testing.T) {
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
 			existingObjects: map[logicalcluster.Name][]string{
-				tenancyv1alpha1.RootCluster: {"~"},
+				core.RootCluster: {"~"},
 			},
 			param: "",
 			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
@@ -868,7 +868,7 @@ func TestUse(t *testing.T) {
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 			},
 			existingObjects: map[logicalcluster.Name][]string{
-				tenancyv1alpha1.RootCluster: {"~"},
+				core.RootCluster: {"~"},
 			},
 			param: "~",
 			expected: &clientcmdapi.Config{CurrentContext: "workspace.kcp.dev/current",
@@ -1212,7 +1212,7 @@ func TestUse(t *testing.T) {
 			client := kcpfakeclient.NewSimpleClientset(objs...)
 			client.PrependReactor("get", "workspaces", func(action kcptesting.Action) (handled bool, ret runtime.Object, err error) {
 				getAction := action.(kcptesting.GetAction)
-				if getAction.GetCluster() != tenancyv1alpha1.RootCluster.Path() {
+				if getAction.GetCluster() != core.RootCluster.Path() {
 					return false, nil, nil
 				}
 				if getAction.GetName() == "~" {

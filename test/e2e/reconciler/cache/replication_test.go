@@ -38,6 +38,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
@@ -258,7 +259,7 @@ func replicateAPIExportNegativeScenario(ctx context.Context, t *testing.T, serve
 // The test exercises creation, modification and removal of the Shard object.
 func replicateShardScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterClient kcpclientset.ClusterInterface, cacheKcpClusterClient kcpclientset.ClusterInterface) {
 	// The Shard API is per default only available in the root workspace
-	clusterName := tenancyv1alpha1.RootCluster
+	clusterName := core.RootCluster
 	resourceName := "test-shard"
 	scenario := &replicateResourceScenario{resourceName: resourceName, resourceKind: "Shard", server: server, kcpShardClusterClient: kcpShardClusterClient, cacheKcpClusterClient: cacheKcpClusterClient}
 
@@ -313,7 +314,7 @@ func replicateShardScenario(ctx context.Context, t *testing.T, server framework.
 // replicateShardNegativeScenario checks if modified or even deleted cached Shard will be reconciled to match the original object
 func replicateShardNegativeScenario(ctx context.Context, t *testing.T, server framework.RunningServer, kcpShardClusterClient kcpclientset.ClusterInterface, cacheKcpClusterClient kcpclientset.ClusterInterface) {
 	// The Shard API is per default only available in the root workspace
-	cluster := tenancyv1alpha1.RootCluster
+	cluster := core.RootCluster
 	resourceName := "test-shard"
 	scenario := &replicateResourceScenario{resourceName: resourceName, resourceKind: "Shard", server: server, kcpShardClusterClient: kcpShardClusterClient, cacheKcpClusterClient: cacheKcpClusterClient}
 

@@ -25,7 +25,7 @@ import (
 
 	"k8s.io/client-go/kubernetes"
 
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	corev1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/core/v1alpha1"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -85,8 +85,8 @@ func TestWorkspaceShardController(t *testing.T) {
 
 			testCase.work(ctx, t, runningServer{
 				RunningServer:   server,
-				rootShardClient: kcpClient.Cluster(tenancyv1alpha1.RootCluster.Path()).CoreV1alpha1().Shards(),
-				rootKubeClient:  kubeClient.Cluster(tenancyv1alpha1.RootCluster.Path()),
+				rootShardClient: kcpClient.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards(),
+				rootKubeClient:  kubeClient.Cluster(core.RootCluster.Path()),
 				orgKubeClient:   kubeClient.Cluster(orgClusterName.Path()),
 				expect:          expect,
 			})

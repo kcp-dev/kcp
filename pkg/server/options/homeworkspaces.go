@@ -24,7 +24,7 @@ import (
 
 	"k8s.io/apiserver/pkg/authentication/user"
 
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 )
 
 type HomeWorkspaces struct {
@@ -79,9 +79,9 @@ func (e *HomeWorkspaces) Validate() []error {
 		}
 		if homePrefix := logicalcluster.NewPath(e.HomeRootPrefix); !homePrefix.IsValid() ||
 			homePrefix == logicalcluster.Wildcard ||
-			!homePrefix.HasPrefix(tenancyv1alpha1.RootCluster.Path()) {
+			!homePrefix.HasPrefix(core.RootCluster.Path()) {
 			errs = append(errs, fmt.Errorf("--home-workspaces-root-prefix should be a valid logical cluster name"))
-		} else if parent, ok := homePrefix.Parent(); !ok || parent != tenancyv1alpha1.RootCluster.Path() {
+		} else if parent, ok := homePrefix.Parent(); !ok || parent != core.RootCluster.Path() {
 			errs = append(errs, fmt.Errorf("--home-workspaces-root-prefix should be a direct child of the root logical cluster"))
 		}
 	}

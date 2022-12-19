@@ -41,6 +41,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/admission/workspace"
 	"github.com/kcp-dev/kcp/pkg/admission/workspacetypeexists"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
@@ -243,7 +244,7 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 				},
 			},
 		}
-		this.Spec.Initializers, err = reconcilerworkspace.LogicalClustersInitializers(h.transitiveTypeResolver, h.getWorkspaceType, tenancyv1alpha1.RootCluster.Path(), "home")
+		this.Spec.Initializers, err = reconcilerworkspace.LogicalClustersInitializers(h.transitiveTypeResolver, h.getWorkspaceType, core.RootCluster.Path(), "home")
 		if err != nil {
 			responsewriters.InternalError(rw, req, err)
 			return
@@ -344,7 +345,7 @@ func (h *homeWorkspaceHandler) getWorkspaceType(path logicalcluster.Path, name s
 }
 
 func isGetHomeWorkspaceRequest(clusterName logicalcluster.Name, requestInfo *request.RequestInfo) bool {
-	return clusterName == tenancyv1alpha1.RootCluster &&
+	return clusterName == core.RootCluster &&
 		requestInfo.IsResourceRequest &&
 		requestInfo.Verb == "get" &&
 		requestInfo.APIGroup == tenancyv1beta1.SchemeGroupVersion.Group &&

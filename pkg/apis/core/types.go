@@ -16,6 +16,10 @@ limitations under the License.
 
 package core
 
+import (
+	"github.com/kcp-dev/logicalcluster/v3"
+)
+
 const (
 	// LogicalClusterPathAnnotationKey is the annotation key for the logical cluster path
 	// put on objects that are referenced by path by other objects.
@@ -23,3 +27,6 @@ const (
 	// If this annotation exists, the system will maintain the annotation value.
 	LogicalClusterPathAnnotationKey = "kcp.dev/path"
 )
+
+// RootCluster is the root of ClusterWorkspace based logical clusters.
+var RootCluster = logicalcluster.Name("root")

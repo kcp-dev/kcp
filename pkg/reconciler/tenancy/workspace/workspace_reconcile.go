@@ -30,6 +30,7 @@ import (
 	restclient "k8s.io/client-go/rest"
 
 	"github.com/kcp-dev/kcp/pkg/admission/workspacetypeexists"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
@@ -113,7 +114,7 @@ func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1beta1.Workspace
 		&schedulingReconciler{
 			generateClusterName: randomClusterName,
 			getShard: func(name string) (*corev1alpha1.Shard, error) {
-				return c.shardLister.Cluster(tenancyv1alpha1.RootCluster).Get(name)
+				return c.shardLister.Cluster(core.RootCluster).Get(name)
 			},
 			getShardByHash:   getShardByName,
 			listShards:       c.shardLister.List,

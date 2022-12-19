@@ -27,6 +27,7 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 )
 
@@ -72,7 +73,7 @@ func (o *workspacetype) Validate(ctx context.Context, a admission.Attributes, _ 
 		return fmt.Errorf("failed to convert unstructured to WorkspaceType: %w", err)
 	}
 
-	if cwt.Name == "root" && clusterName != tenancyv1alpha1.RootCluster {
+	if cwt.Name == "root" && clusterName != core.RootCluster {
 		return admission.NewForbidden(a, fmt.Errorf("root workspace type can only be created in root cluster"))
 	}
 

@@ -25,11 +25,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	configshard "github.com/kcp-dev/kcp/config/shard"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 )
 
 func (c *controller) reconcile(ctx context.Context) error {
-	apiExports, err := c.listAPIExportsFromRemoteShard(tenancyv1alpha1.RootCluster)
+	apiExports, err := c.listAPIExportsFromRemoteShard(core.RootCluster)
 	if err != nil {
 		return err
 	}

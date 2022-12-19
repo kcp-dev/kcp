@@ -39,6 +39,7 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
@@ -194,7 +195,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 		}
 		parentClusterName, hasParent := currentClusterName.Parent()
 		if !hasParent {
-			if currentClusterName == tenancyv1alpha1.RootCluster.Path() {
+			if currentClusterName == core.RootCluster.Path() {
 				return fmt.Errorf("current workspace is %q", currentClusterName)
 			}
 			return fmt.Errorf("current workspace %q has no parent", currentClusterName)
@@ -211,7 +212,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 		fallthrough
 
 	case "~":
-		homeWorkspace, err := o.kcpClusterClient.Cluster(tenancyv1alpha1.RootCluster.Path()).TenancyV1beta1().Workspaces().Get(ctx, "~", metav1.GetOptions{})
+		homeWorkspace, err := o.kcpClusterClient.Cluster(core.RootCluster.Path()).TenancyV1beta1().Workspaces().Get(ctx, "~", metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
@@ -269,7 +270,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) error {
 
 			u.Path = path.Join(u.Path, cluster.RequestPath())
 			newServerHost = u.String()
-		} else if o.Name == tenancyv1alpha1.RootCluster.String() {
+		} else if o.Name == core.RootCluster.String() {
 			// root workspace
 			u.Path = path.Join(u.Path, cluster.RequestPath())
 			newServerHost = u.String()
@@ -510,7 +511,7 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 		return fmt.Errorf("current URL %q does not point to cluster workspace", config.Host)
 	}
 
-	if o.IgnoreExisting && o.Type != "" && !logicalcluster.NewPath(o.Type).HasPrefix(tenancyv1alpha1.RootCluster.Path()) {
+	if o.IgnoreExisting && o.Type != "" && !logicalcluster.NewPath(o.Type).HasPrefix(core.RootCluster.Path()) {
 		return fmt.Errorf("--ignore-existing must not be used with non-absolute type path")
 	}
 

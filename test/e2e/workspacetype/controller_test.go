@@ -33,6 +33,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/retry"
 
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
@@ -86,7 +87,7 @@ func TestWorkspaceTypes(t *testing.T) {
 		{
 			name: "create a workspace with an explicit non-existing type",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				universal := framework.NewWorkspaceFixture(t, server, tenancyv1alpha1.RootCluster.Path())
+				universal := framework.NewWorkspaceFixture(t, server, core.RootCluster.Path())
 				t.Logf("Create a workspace with explicit non-existing type")
 				workspace, err := server.kcpClusterClient.TenancyV1beta1().Workspaces().Cluster(universal.Path()).Create(ctx, &tenancyv1beta1.Workspace{
 					ObjectMeta: metav1.ObjectMeta{Name: "myapp"},
@@ -149,8 +150,8 @@ func TestWorkspaceTypes(t *testing.T) {
 		{
 			name: "create a workspace with an explicit type allowed to be used by user-1 without having general access to it",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				universal := framework.NewWorkspaceFixture(t, server, tenancyv1alpha1.RootCluster.Path())
-				typesource := framework.NewWorkspaceFixture(t, server, tenancyv1alpha1.RootCluster.Path())
+				universal := framework.NewWorkspaceFixture(t, server, core.RootCluster.Path())
+				typesource := framework.NewWorkspaceFixture(t, server, core.RootCluster.Path())
 
 				cfg := server.BaseConfig(t)
 				kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
@@ -242,7 +243,7 @@ func TestWorkspaceTypes(t *testing.T) {
 		{
 			name: "create a workspace with a type that has an initializer",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				universal := framework.NewWorkspaceFixture(t, server, tenancyv1alpha1.RootCluster.Path())
+				universal := framework.NewWorkspaceFixture(t, server, core.RootCluster.Path())
 				t.Logf("Create type Foo with an initializer")
 				cwt, err := server.kcpClusterClient.Cluster(universal.Path()).TenancyV1alpha1().WorkspaceTypes().Create(ctx, &tenancyv1alpha1.WorkspaceType{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo"},

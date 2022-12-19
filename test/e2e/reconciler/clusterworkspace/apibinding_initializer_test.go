@@ -29,6 +29,7 @@ import (
 
 	"github.com/kcp-dev/kcp/config/helpers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -44,7 +45,7 @@ func TestWorkspaceTypesAPIBindingInitialization(t *testing.T) {
 	t.Cleanup(cancel)
 
 	org := framework.NewOrganizationFixtureObject(t, server)
-	orgPath := tenancyv1alpha1.RootCluster.Path().Join(org.Name)
+	orgPath := core.RootCluster.Path().Join(org.Name)
 	cowboysProviderWorkspace := framework.NewWorkspaceFixtureObject(t, server, orgPath, framework.WithName("cowboys-provider"))
 	cowboysProviderPath := orgPath.Join(cowboysProviderWorkspace.Name)
 
