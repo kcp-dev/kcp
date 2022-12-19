@@ -345,7 +345,7 @@ func (d *logicalClusterResourcesDeleter) deleteAllContent(ctx context.Context, w
 	var errs []error
 	estimate := int64(0)
 
-	// disocer resources at first
+	// discover resources first
 	var deletionContentSuccessReason string
 	resources, err := d.discoverResourcesFn(logicalcluster.From(ws).Path())
 	if err != nil {
