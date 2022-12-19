@@ -437,7 +437,7 @@ func (s *Server) Run(ctx context.Context) error {
 		if err := s.installWorkspaceScheduler(ctx, controllerConfig, s.LogicalClusterAdminConfig); err != nil {
 			return err
 		}
-		if err := s.installWorkspaceDeletionController(ctx, controllerConfig, s.LogicalClusterAdminConfig, s.CompletedConfig.ShardExternalURL); err != nil {
+		if err := s.installLogicalClusterDeletionController(ctx, controllerConfig, s.LogicalClusterAdminConfig, s.CompletedConfig.ShardExternalURL); err != nil {
 			return err
 		}
 		if err := s.installLogicalCluster(ctx, controllerConfig); err != nil {

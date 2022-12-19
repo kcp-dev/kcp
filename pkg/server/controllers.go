@@ -63,6 +63,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/permissionclaimlabel"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/replication"
 	logicalclusterctrl "github.com/kcp-dev/kcp/pkg/reconciler/core/logicalcluster"
+	"github.com/kcp-dev/kcp/pkg/reconciler/core/logicalclusterdeletion"
 	"github.com/kcp-dev/kcp/pkg/reconciler/core/shard"
 	"github.com/kcp-dev/kcp/pkg/reconciler/garbagecollector"
 	"github.com/kcp-dev/kcp/pkg/reconciler/kubequota"
@@ -71,7 +72,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/bootstrap"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/initialization"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspace"
-	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspacedeletion"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspacetype"
 	workloadsapiexport "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexport"
 	workloadsapiexportcreate "github.com/kcp-dev/kcp/pkg/reconciler/workload/apiexportcreate"
@@ -293,9 +293,9 @@ func readCA(file string) ([]byte, error) {
 	return rootCA, err
 }
 
-func (s *Server) installWorkspaceDeletionController(ctx context.Context, config *rest.Config, logicalClusterAdminConfig *rest.Config, shardExternalURL func() string) error {
+func (s *Server) installLogicalClusterDeletionController(ctx context.Context, config *rest.Config, logicalClusterAdminConfig *rest.Config, shardExternalURL func() string) error {
 	config = rest.CopyConfig(config)
-	config = rest.AddUserAgent(config, workspacedeletion.ControllerName)
+	config = rest.AddUserAgent(config, logicalclusterdeletion.ControllerName)
 	kcpClusterClient, err := kcpclientset.NewForConfig(config)
 	if err != nil {
 		return err
@@ -318,7 +318,7 @@ func (s *Server) installWorkspaceDeletionController(ctx context.Context, config 
 		return err
 	}
 
-	workspaceDeletionController := workspacedeletion.NewController(
+	logicalClusterDeletionController := logicalclusterdeletion.NewController(
 		kubeClusterClient,
 		kcpClusterClient,
 		logicalClusterAdminConfig,
@@ -328,14 +328,14 @@ func (s *Server) installWorkspaceDeletionController(ctx context.Context, config 
 		discoverResourcesFn,
 	)
 
-	return s.AddPostStartHook(postStartHookName(workspacedeletion.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
-		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(workspacedeletion.ControllerName))
+	return s.AddPostStartHook(postStartHookName(logicalclusterdeletion.ControllerName), func(hookContext genericapiserver.PostStartHookContext) error {
+		logger := klog.FromContext(ctx).WithValues("postStartHook", postStartHookName(logicalclusterdeletion.ControllerName))
 		if err := s.waitForSync(hookContext.StopCh); err != nil {
 			logger.Error(err, "failed to finish post-start-hook")
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		go workspaceDeletionController.Start(ctx, 10)
+		go logicalClusterDeletionController.Start(ctx, 10)
 		return nil
 	})
 }

@@ -23,7 +23,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/admission/finalizer"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspacedeletion/deletion"
+	"github.com/kcp-dev/kcp/pkg/reconciler/core/logicalclusterdeletion/deletion"
 )
 
 const (

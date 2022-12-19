@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package workspacedeletion
+package logicalclusterdeletion
 
 import (
 	"context"
@@ -50,11 +50,11 @@ import (
 	corev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/core/v1alpha1"
 	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/logging"
-	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspacedeletion/deletion"
+	"github.com/kcp-dev/kcp/pkg/reconciler/core/logicalclusterdeletion/deletion"
 )
 
 const (
-	ControllerName = "kcp-workspacedeletion"
+	ControllerName = "kcp-logicalcluster-deletion"
 )
 
 var (
@@ -139,7 +139,7 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	logger.Info("Starting controller")
 	defer logger.Info("Shutting down controller")
 
-	// a client needed to remove the finalizer from the workspace on a different shard
+	// a client needed to remove the finalizer from the logical cluster on a different shard
 	frontProxyConfig := rest.CopyConfig(c.logicalClusterAdminConfig)
 	frontProxyConfig = kcpclienthelper.SetMultiClusterRoundTripper(frontProxyConfig)
 	frontProxyConfig = rest.AddUserAgent(frontProxyConfig, ControllerName)
@@ -192,13 +192,13 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	if errors.As(err, &estimate) {
 		t := estimate.Estimate/2 + 1
 		duration := time.Duration(t) * time.Second
-		logger.V(2).Error(err, "content remaining in workspace after a wait, waiting more to continue", "duration", time.Since(startTime), "waiting", duration)
+		logger.V(2).Error(err, "content remaining in logical cluster after a wait, waiting more to continue", "duration", time.Since(startTime), "waiting", duration)
 
 		c.queue.AddAfter(key, duration)
 	} else {
-		// rather than wait for a full resync, re-add the workspace to the queue to be processed
+		// rather than wait for a full resync, re-add the logical cluster to the queue to be processed
 		c.queue.AddRateLimited(key)
-		runtime.HandleError(fmt.Errorf("deletion of workspace %v failed: %w", key, err))
+		runtime.HandleError(fmt.Errorf("deletion of logical cluster %v failed: %w", key, err))
 	}
 
 	return true
@@ -211,34 +211,34 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		runtime.HandleError(err)
 		return nil
 	}
-	workspace, deleteErr := c.logicalClusterLister.Cluster(clusterName).Get(name)
+	logicalCluster, deleteErr := c.logicalClusterLister.Cluster(clusterName).Get(name)
 	if apierrors.IsNotFound(deleteErr) {
 		logger.V(2).Info("ClusterWorkspace has been deleted")
 		return nil
 	}
 	if deleteErr != nil {
-		runtime.HandleError(fmt.Errorf("unable to retrieve workspace %v from store: %w", key, deleteErr))
+		runtime.HandleError(fmt.Errorf("unable to retrieve logical cluster %v from store: %w", key, deleteErr))
 		return deleteErr
 	}
 
-	logger = logging.WithObject(logger, workspace)
+	logger = logging.WithObject(logger, logicalCluster)
 	ctx = klog.NewContext(ctx, logger)
 
-	if workspace.DeletionTimestamp.IsZero() {
+	if logicalCluster.DeletionTimestamp.IsZero() {
 		return nil
 	}
 
-	workspaceCopy := workspace.DeepCopy()
+	logicalClusterCopy := logicalCluster.DeepCopy()
 
-	logger.V(2).Info("deleting workspace")
+	logger.V(2).Info("deleting logical cluster")
 	startTime := time.Now()
-	deleteErr = c.deleter.Delete(ctx, workspaceCopy)
+	deleteErr = c.deleter.Delete(ctx, logicalClusterCopy)
 	if deleteErr == nil {
-		logger.V(2).Info("finished deleting workspace content", "duration", time.Since(startTime))
-		return c.finalizeWorkspace(ctx, workspaceCopy)
+		logger.V(2).Info("finished deleting logical cluster content", "duration", time.Since(startTime))
+		return c.finalizeWorkspace(ctx, logicalClusterCopy)
 	}
 
-	if err := c.patchCondition(ctx, workspace, workspaceCopy); err != nil {
+	if err := c.patchCondition(ctx, logicalCluster, logicalClusterCopy); err != nil {
 		return err
 	}
 
@@ -257,7 +257,7 @@ func (c *Controller) patchCondition(ctx context.Context, old, new *corev1alpha1.
 		},
 	})
 	if err != nil {
-		return fmt.Errorf("failed to Marshal old data for workspace %s: %w", old.Name, err)
+		return fmt.Errorf("failed to Marshal old data for logical cluster %s: %w", old.Name, err)
 	}
 
 	newData, err := json.Marshal(corev1alpha1.LogicalCluster{
@@ -270,12 +270,12 @@ func (c *Controller) patchCondition(ctx context.Context, old, new *corev1alpha1.
 		},
 	})
 	if err != nil {
-		return fmt.Errorf("failed to Marshal new data for workspace %s: %w", new.Name, err)
+		return fmt.Errorf("failed to Marshal new data for logical cluster %s: %w", new.Name, err)
 	}
 
 	patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
 	if err != nil {
-		return fmt.Errorf("failed to create patch for workspace %s: %w", new.Name, err)
+		return fmt.Errorf("failed to create patch for logical cluster %s: %w", new.Name, err)
 	}
 
 	logger.V(2).Info("patching LogicalCluster", "patch", string(patchBytes))
@@ -283,7 +283,7 @@ func (c *Controller) patchCondition(ctx context.Context, old, new *corev1alpha1.
 	return err
 }
 
-// finalizeNamespace removes the specified finalizer and finalizes the workspace
+// finalizeNamespace removes the specified finalizer and finalizes the logical cluster
 func (c *Controller) finalizeWorkspace(ctx context.Context, ws *corev1alpha1.LogicalCluster) error {
 	logger := klog.FromContext(ctx)
 	for i := range ws.Finalizers {
@@ -296,11 +296,11 @@ func (c *Controller) finalizeWorkspace(ctx context.Context, ws *corev1alpha1.Log
 			// implemented.
 			logger.Info("deleting cluster roles")
 			if err := c.kubeClusterClient.Cluster(clusterName.Path()).RbacV1().ClusterRoles().DeleteCollection(ctx, backgroudDeletion, metav1.ListOptions{}); err != nil && !apierrors.IsNotFound(err) {
-				return fmt.Errorf("could not delete clusterroles for workspace %s: %w", clusterName, err)
+				return fmt.Errorf("could not delete clusterroles for logical cluster %s: %w", clusterName, err)
 			}
 			logger.Info("deleting cluster role bindings")
 			if err := c.kubeClusterClient.Cluster(clusterName.Path()).RbacV1().ClusterRoleBindings().DeleteCollection(ctx, backgroudDeletion, metav1.ListOptions{}); err != nil && !apierrors.IsNotFound(err) {
-				return fmt.Errorf("could not delete clusterrolebindings for workspace %s: %w", clusterName, err)
+				return fmt.Errorf("could not delete clusterrolebindings for logical cluster %s: %w", clusterName, err)
 			}
 
 			if ws.Spec.Owner != nil {

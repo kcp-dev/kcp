@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package clusterworkspacedeletion
+package workspacedeletion
 
 import (
 	"context"
@@ -40,7 +40,7 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
-func TestWorkspaceDeletionController(t *testing.T) {
+func TestWorkspaceDeletion(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 

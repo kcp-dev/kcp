@@ -33,60 +33,60 @@ import (
 type metaDataReconciler struct {
 }
 
-func (r *metaDataReconciler) reconcile(ctx context.Context, workspace *corev1alpha1.LogicalCluster) (reconcileStatus, error) {
+func (r *metaDataReconciler) reconcile(ctx context.Context, logicalCluster *corev1alpha1.LogicalCluster) (reconcileStatus, error) {
 	logger := klog.FromContext(ctx)
 	changed := false
 
-	expected := string(workspace.Status.Phase)
-	if !workspace.DeletionTimestamp.IsZero() {
+	expected := string(logicalCluster.Status.Phase)
+	if !logicalCluster.DeletionTimestamp.IsZero() {
 		expected = "Deleting"
 	}
-	if got := workspace.Labels[tenancyv1alpha1.WorkspacePhaseLabel]; got != expected {
-		if workspace.Labels == nil {
-			workspace.Labels = map[string]string{}
+	if got := logicalCluster.Labels[tenancyv1alpha1.WorkspacePhaseLabel]; got != expected {
+		if logicalCluster.Labels == nil {
+			logicalCluster.Labels = map[string]string{}
 		}
-		workspace.Labels[tenancyv1alpha1.WorkspacePhaseLabel] = expected
+		logicalCluster.Labels[tenancyv1alpha1.WorkspacePhaseLabel] = expected
 		changed = true
 	}
 
 	initializerKeys := sets.NewString()
-	for _, initializer := range workspace.Status.Initializers {
+	for _, initializer := range logicalCluster.Status.Initializers {
 		key, value := initialization.InitializerToLabel(initializer)
 		initializerKeys.Insert(key)
-		if got, expected := workspace.Labels[key], value; got != expected {
-			if workspace.Labels == nil {
-				workspace.Labels = map[string]string{}
+		if got, expected := logicalCluster.Labels[key], value; got != expected {
+			if logicalCluster.Labels == nil {
+				logicalCluster.Labels = map[string]string{}
 			}
-			workspace.Labels[key] = value
+			logicalCluster.Labels[key] = value
 			changed = true
 		}
 	}
 
-	for key := range workspace.Labels {
+	for key := range logicalCluster.Labels {
 		if strings.HasPrefix(key, tenancyv1alpha1.WorkspaceInitializerLabelPrefix) {
 			if !initializerKeys.Has(key) {
-				delete(workspace.Labels, key)
+				delete(logicalCluster.Labels, key)
 				changed = true
 			}
 		}
 	}
 
-	if workspace.Status.Phase == corev1alpha1.LogicalClusterPhaseReady {
+	if logicalCluster.Status.Phase == corev1alpha1.LogicalClusterPhaseReady {
 		// remove owner reference
-		if value, found := workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey]; found {
+		if value, found := logicalCluster.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey]; found {
 			var info authenticationv1.UserInfo
 			err := json.Unmarshal([]byte(value), &info)
 			if err != nil {
 				logger.Error(err, "failed to unmarshal workspace owner annotation", tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey, value)
-				delete(workspace.Annotations, tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey)
+				delete(logicalCluster.Annotations, tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey)
 				changed = true
 			} else if userOnlyValue, err := json.Marshal(authenticationv1.UserInfo{Username: info.Username}); err != nil {
 				// should never happen
 				logger.Error(err, "failed to marshal user info")
-				delete(workspace.Annotations, tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey)
+				delete(logicalCluster.Annotations, tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey)
 				changed = true
 			} else if value != string(userOnlyValue) {
-				workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey] = string(userOnlyValue)
+				logicalCluster.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey] = string(userOnlyValue)
 				changed = true
 			}
 		}

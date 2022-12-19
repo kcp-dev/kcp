@@ -64,59 +64,59 @@ const (
 	LogicalClusterDeletionFinalizer = "core.kcp.dev/logicalcluster-deletion"
 )
 
-// WorkspaceResourcesDeleterInterface is the interface to delete a workspace with all resources in it.
+// WorkspaceResourcesDeleterInterface is the interface to delete a logical cluster with all resources in it.
 // This is a copy from namespace deleteor in k8s with some modification:
 // - change the condition update code
 // - remove opCache
 // - update deleteCollection to delete resources from all namespaces
 type WorkspaceResourcesDeleterInterface interface {
-	Delete(ctx context.Context, ws *corev1alpha1.LogicalCluster) error
+	Delete(ctx context.Context, cluster *corev1alpha1.LogicalCluster) error
 }
 
 // NewWorkspacedResourcesDeleter returns a new NamespacedResourcesDeleter.
 func NewWorkspacedResourcesDeleter(
 	metadataClusterClient kcpmetadata.ClusterInterface,
 	discoverResourcesFn func(clusterName logicalcluster.Path) ([]*metav1.APIResourceList, error)) WorkspaceResourcesDeleterInterface {
-	d := &workspacedResourcesDeleter{
+	d := &logicalClusterResourcesDeleter{
 		metadataClusterClient: metadataClusterClient,
 		discoverResourcesFn:   discoverResourcesFn,
 	}
 	return d
 }
 
-var _ WorkspaceResourcesDeleterInterface = &workspacedResourcesDeleter{}
+var _ WorkspaceResourcesDeleterInterface = &logicalClusterResourcesDeleter{}
 
-// workspacedResourcesDeleter is used to delete all resources in a given workspace.
-type workspacedResourcesDeleter struct {
-	// Dynamic client to list and delete all resources in the workspace.
+// logicalClusterResourcesDeleter is used to delete all resources in a given logical cluster.
+type logicalClusterResourcesDeleter struct {
+	// Dynamic client to list and delete all resources in the logical cluster.
 	metadataClusterClient kcpmetadata.ClusterInterface
 
 	discoverResourcesFn func(clusterName logicalcluster.Path) ([]*metav1.APIResourceList, error)
 }
 
-// Delete deletes all resources in the given workspace.
+// Delete deletes all resources in the given logical cluster.
 // Before deleting resources:
 //
 // Returns ResourcesRemainingError if it deleted some resources but needs
 // to wait for them to go away.
 // Caller is expected to keep calling this until it succeeds.
-func (d *workspacedResourcesDeleter) Delete(ctx context.Context, workspace *corev1alpha1.LogicalCluster) error {
+func (d *logicalClusterResourcesDeleter) Delete(ctx context.Context, logicalCluster *corev1alpha1.LogicalCluster) error {
 	logger := klog.FromContext(ctx)
 
-	// the latest view of the workspace asserts that workspace is no longer deleting..
-	if workspace.DeletionTimestamp.IsZero() {
+	// the latest view of the logical cluster asserts that the logical cluster is no longer deleting..
+	if logicalCluster.DeletionTimestamp.IsZero() {
 		return nil
 	}
 
-	logger.V(5).Info("deleting workspace")
+	logger.V(5).Info("deleting logical cluster")
 
 	// return if it is already finalized.
-	if len(workspace.Finalizers) == 0 {
+	if len(logicalCluster.Finalizers) == 0 {
 		return nil
 	}
 
 	// there may still be content for us to remove
-	estimate, message, err := d.deleteAllContent(ctx, workspace)
+	estimate, message, err := d.deleteAllContent(ctx, logicalCluster)
 	if err != nil {
 		return err
 	}
@@ -128,14 +128,14 @@ func (d *workspacedResourcesDeleter) Delete(ctx context.Context, workspace *core
 	return nil
 }
 
-// ResourcesRemainingError is used to inform the caller that all resources are not yet fully removed from the workspace.
+// ResourcesRemainingError is used to inform the caller that all resources are not yet fully removed from the logical cluster.
 type ResourcesRemainingError struct {
 	Estimate int64
 	Message  string
 }
 
 func (e *ResourcesRemainingError) Error() string {
-	ret := fmt.Sprintf("some content remains in the workspace, estimate %d seconds before it is removed", e.Estimate)
+	ret := fmt.Sprintf("some content remains in the logical cluster, estimate %d seconds before it is removed", e.Estimate)
 	if e.Message == "" {
 		return ret
 	}
@@ -156,7 +156,7 @@ const (
 // it only handles cluster scoped resource.
 // it returns true if the operation was supported on the server.
 // it returns an error if the operation was supported on the server but was unable to complete.
-func (d *workspacedResourcesDeleter) deleteCollection(ctx context.Context, clusterName logicalcluster.Name, gvr schema.GroupVersionResource, verbs sets.String) (bool, error) {
+func (d *logicalClusterResourcesDeleter) deleteCollection(ctx context.Context, clusterName logicalcluster.Name, gvr schema.GroupVersionResource, verbs sets.String) (bool, error) {
 	logger := klog.FromContext(ctx).WithValues("operation", "deleteCollection", "gvr", gvr)
 	logger.V(5).Info("running operation")
 
@@ -176,13 +176,13 @@ func (d *workspacedResourcesDeleter) deleteCollection(ctx context.Context, clust
 	return true, nil
 }
 
-// listCollection will list the items in the specified workspace
+// listCollection will list the items in the specified logical cluster
 // it returns the following:
 //
 //	the list of items in the collection (if found)
 //	a boolean if the operation is supported
 //	an error if the operation is supported but could not be completed.
-func (d *workspacedResourcesDeleter) listCollection(ctx context.Context, clusterName logicalcluster.Name, gvr schema.GroupVersionResource, verbs sets.String) (*metav1.PartialObjectMetadataList, bool, error) {
+func (d *logicalClusterResourcesDeleter) listCollection(ctx context.Context, clusterName logicalcluster.Name, gvr schema.GroupVersionResource, verbs sets.String) (*metav1.PartialObjectMetadataList, bool, error) {
 	logger := klog.FromContext(ctx).WithValues("operation", "listCollection", "gvr", gvr)
 	logger.V(5).Info("running operation")
 
@@ -210,7 +210,7 @@ func (d *workspacedResourcesDeleter) listCollection(ctx context.Context, cluster
 }
 
 // deleteEachItem is a helper function that will list the collection of resources and delete each item 1 by 1.
-func (d *workspacedResourcesDeleter) deleteEachItem(ctx context.Context, clusterName logicalcluster.Name, gvr schema.GroupVersionResource, verbs sets.String) error {
+func (d *logicalClusterResourcesDeleter) deleteEachItem(ctx context.Context, clusterName logicalcluster.Name, gvr schema.GroupVersionResource, verbs sets.String) error {
 	logger := klog.FromContext(ctx).WithValues("operation", "deleteEachItem", "gvr", gvr)
 	logger.V(5).Info("running operation")
 
@@ -245,17 +245,17 @@ type gvrDeletionMetadata struct {
 // deleteAllContentForGroupVersionResource will use the dynamic client to delete each resource identified in gvr.
 // It returns an estimate of the time remaining before the remaining resources are deleted.
 // If estimate > 0, not all resources are guaranteed to be gone.
-func (d *workspacedResourcesDeleter) deleteAllContentForGroupVersionResource(
+func (d *logicalClusterResourcesDeleter) deleteAllContentForGroupVersionResource(
 	ctx context.Context,
 	clusterName logicalcluster.Name,
 	gvr schema.GroupVersionResource,
 	verbs sets.String,
-	workspaceDeletedAt metav1.Time) (gvrDeletionMetadata, error) {
+	clusterDeletedAt metav1.Time) (gvrDeletionMetadata, error) {
 	logger := klog.FromContext(ctx).WithValues("operation", "deleteAllContentForGroupVersionResource", "gvr", gvr)
 	logger.V(5).Info("running operation")
 
 	// estimate how long it will take for the resource to be deleted (needed for objects that support graceful delete)
-	estimate, err := d.estimateGracefulTermination(ctx, gvr, clusterName, workspaceDeletedAt)
+	estimate, err := d.estimateGracefulTermination(ctx, gvr, clusterName, clusterDeletedAt)
 	if err != nil {
 		logger.V(5).Error(err, "unable to estimate")
 		return gvrDeletionMetadata{}, err
@@ -281,7 +281,7 @@ func (d *workspacedResourcesDeleter) deleteAllContentForGroupVersionResource(
 	logger.V(5).Info("checking for no more items")
 	unstructuredList, listSupported, err := d.listCollection(ctx, clusterName, gvr, verbs)
 	if err != nil {
-		logger.V(5).Error(err, "error verifying no items in workspace")
+		logger.V(5).Error(err, "error verifying no items in logical cluster")
 		return gvrDeletionMetadata{finalizerEstimateSeconds: estimate}, err
 	}
 	if !listSupported {
@@ -324,7 +324,7 @@ func (d *workspacedResourcesDeleter) deleteAllContentForGroupVersionResource(
 	return gvrDeletionMetadata{
 		finalizerEstimateSeconds: estimate,
 		numRemaining:             len(unstructuredList.Items),
-	}, fmt.Errorf("unexpected items still remain in workspace: %s for gvr: %v", clusterName, gvr)
+	}, fmt.Errorf("unexpected items still remain in logical cluster: %s for gvr: %v", clusterName, gvr)
 }
 
 type allGVRDeletionMetadata struct {
@@ -337,11 +337,11 @@ type allGVRDeletionMetadata struct {
 // deleteAllContent will use the dynamic client to delete each resource identified in groupVersionResources.
 // It returns an estimate of the time remaining before the remaining resources are deleted.
 // If estimate > 0, not all resources are guaranteed to be gone.
-func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *corev1alpha1.LogicalCluster) (int64, string, error) {
+func (d *logicalClusterResourcesDeleter) deleteAllContent(ctx context.Context, ws *corev1alpha1.LogicalCluster) (int64, string, error) {
 	logger := klog.FromContext(ctx).WithValues("operation", "deleteAllContent")
 	logger.V(5).Info("running operation")
 
-	workspaceDeletedAt := *ws.DeletionTimestamp
+	clusterDeletedAt := *ws.DeletionTimestamp
 	var errs []error
 	estimate := int64(0)
 
@@ -360,7 +360,7 @@ func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *c
 		// LogicalCluster is the trigger for the whole deletion. Don't block on it.
 		isNotGroupResource{group: core.GroupName, resource: "logicalclusters"},
 
-		// Keep the workspace accessible for users in case they have to debug.
+		// Keep the logical cluster accessible for users in case they have to debug.
 		isNotGroupResource{group: rbac.GroupName, resource: "clusterroles"},
 		isNotGroupResource{group: rbac.GroupName, resource: "clusterrolebindings"},
 
@@ -385,7 +385,7 @@ func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *c
 	}
 	deleteContentErrs := []error{}
 	for gvr, verbs := range groupVersionResources {
-		gvrDeletionMetadata, err := d.deleteAllContentForGroupVersionResource(ctx, logicalcluster.From(ws), gvr, verbs, workspaceDeletedAt)
+		gvrDeletionMetadata, err := d.deleteAllContentForGroupVersionResource(ctx, logicalcluster.From(ws), gvr, verbs, clusterDeletedAt)
 		if err != nil {
 			// If there is an error, hold on to it but proceed with all the remaining
 			// groupVersionResources.
@@ -433,7 +433,7 @@ func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *c
 		}
 		// sort for stable updates
 		sort.Strings(remainingByFinalizer)
-		contentRemainingMessages = append(contentRemainingMessages, fmt.Sprintf("Some content in the workspace has finalizers remaining: %s", strings.Join(remainingByFinalizer, ", ")))
+		contentRemainingMessages = append(contentRemainingMessages, fmt.Sprintf("Some content in the logical cluster has finalizers remaining: %s", strings.Join(remainingByFinalizer, ", ")))
 	}
 	if len(contentRemainingMessages) > 0 {
 		message := strings.Join(contentRemainingMessages, "; ")
@@ -464,8 +464,8 @@ func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *c
 	return estimate, "", nil
 }
 
-// estimateGracefulTermination will estimate the graceful termination required for the specific entity in the workspace
-func (d *workspacedResourcesDeleter) estimateGracefulTermination(ctx context.Context, gvr schema.GroupVersionResource, ws logicalcluster.Name, workspaceDeletedAt metav1.Time) (int64, error) {
+// estimateGracefulTermination will estimate the graceful termination required for the specific entity in the logical cluster
+func (d *logicalClusterResourcesDeleter) estimateGracefulTermination(ctx context.Context, gvr schema.GroupVersionResource, clusterName logicalcluster.Name, clusterDeletedAt metav1.Time) (int64, error) {
 	logger := klog.FromContext(ctx).WithValues("operation", "estimateGracefulTermination", "gvr", gvr)
 	logger.V(5).Info("running operation")
 	// TODO if we have any grace period for certain resources.
