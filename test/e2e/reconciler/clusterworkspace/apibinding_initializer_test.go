@@ -128,7 +128,7 @@ func TestWorkspaceTypesAPIBindingInitialization(t *testing.T) {
 			DefaultAPIBindings: []tenancyv1alpha1.APIExportReference{
 				{
 					Path:   "root",
-					Export: "shards.tenancy.kcp.dev",
+					Export: "shards.core.kcp.dev",
 				},
 			},
 			Extend: tenancyv1alpha1.WorkspaceTypeExtension{
