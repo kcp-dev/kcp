@@ -2,7 +2,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v221212-950207fca.synctargets.workload.kcp.dev
+  name: v221219-20c08164c.synctargets.workload.kcp.dev
 spec:
   group: workload.kcp.dev
   names:
@@ -77,7 +77,6 @@ spec:
             supportedAPIExports:
               default:
               - export: kubernetes
-                path: root:compute
               description: SupportedAPIExports defines a set of APIExports supposed
                 to be supported by this SyncTarget. The SyncTarget will be selected
                 to deploy the workload only when the resource schema on the SyncTarget

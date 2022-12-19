@@ -80,7 +80,6 @@ spec:
               supportedAPIExports:
                 default:
                 - export: kubernetes
-                  path: root:compute
                 description: SupportedAPIExports defines a set of APIExports supposed
                   to be supported by this SyncTarget. The SyncTarget will be selected
                   to deploy the workload only when the resource schema on the SyncTarget
