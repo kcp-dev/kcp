@@ -50,8 +50,8 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/kcp/pkg/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
-	"github.com/kcp-dev/kcp/pkg/apis/tenancy"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/apis/third_party/conditions/util/conditions"
@@ -356,7 +356,7 @@ func (d *workspacedResourcesDeleter) deleteAllContent(ctx context.Context, ws *c
 		discovery.SupportsAllVerbs{Verbs: []string{"delete"}},
 
 		// LogicalCluster is the trigger for the whole deletion. Don't block on it.
-		isNotGroupResource{group: tenancy.GroupName, resource: "logicalclusters"},
+		isNotGroupResource{group: core.GroupName, resource: "logicalclusters"},
 
 		// Keep the workspace accessible for users in case they have to debug.
 		isNotGroupResource{group: rbac.GroupName, resource: "clusterroles"},
