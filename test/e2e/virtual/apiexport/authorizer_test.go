@@ -479,7 +479,9 @@ func apply(t *testing.T, ctx context.Context, workspace logicalcluster.Path, cfg
 		}()
 
 		mapping, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
-		require.NoError(t, err)
+		if err != nil {
+			return fmt.Errorf("error getting REST mapping: %w", err)
+		}
 
 		dynamicClient, err := kcpdynamic.NewForConfig(cfg)
 		require.NoError(t, err)
