@@ -613,13 +613,8 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 	}
 
 	if o.EnterAfterCreate {
-		u, err := url.Parse(ws.Status.URL)
-		if err != nil {
-			return err
-		}
-
 		useOptions := NewUseWorkspaceOptions(o.IOStreams)
-		useOptions.Name = path.Base(u.Path)
+		useOptions.Name = path.Base(ws.Name)
 		// only for unit test needs
 		if o.modifyConfig != nil {
 			useOptions.modifyConfig = o.modifyConfig
