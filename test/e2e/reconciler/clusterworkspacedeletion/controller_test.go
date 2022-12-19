@@ -227,7 +227,11 @@ func TestWorkspaceDeletionController(t *testing.T) {
 				t.Logf("Ensure namespace %q in the workspace is deleted", ns.Name)
 				framework.Eventually(t, func() (bool, string) {
 					nslist, err := rootShardKubeClusterClient.Cluster(wsClusterName.Path()).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
-					require.NoError(t, err)
+					// 404 could be returned if the sub-workspace is deleted.
+					if apierrors.IsNotFound(err) {
+						return true, fmt.Sprintf("%v", err)
+					}
+					require.NoError(t, err, "failed to list namespaces in sub-workspace")
 
 					return len(nslist.Items) == 0, toYAML(t, nslist)
 				}, wait.ForeverTestTimeout, 100*time.Millisecond)
@@ -235,7 +239,11 @@ func TestWorkspaceDeletionController(t *testing.T) {
 				t.Logf("Ensure namespace %q in the org workspace is deleted", ns.Name)
 				framework.Eventually(t, func() (bool, string) {
 					nslist, err := rootShardKubeClusterClient.Cluster(orgClusterName.Path()).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
-					require.NoError(t, err)
+					// 404 could be returned if the org workspace is deleted.
+					if apierrors.IsNotFound(err) {
+						return true, fmt.Sprintf("%v", err)
+					}
+					require.NoError(t, err, "failed to list namespaces in org workspace")
 
 					return len(nslist.Items) == 0, toYAML(t, nslist)
 				}, wait.ForeverTestTimeout, 100*time.Millisecond)
@@ -243,7 +251,11 @@ func TestWorkspaceDeletionController(t *testing.T) {
 				t.Logf("Ensure workspace in the org workspace is deleted")
 				framework.Eventually(t, func() (bool, string) {
 					wslist, err := rootShardKcpClusterClient.TenancyV1alpha1().ClusterWorkspaces().Cluster(orgClusterName.Path()).List(ctx, metav1.ListOptions{})
-					require.NoError(t, err)
+					// 404 could be returned if the org workspace is deleted.
+					if apierrors.IsNotFound(err) {
+						return true, fmt.Sprintf("%v", err)
+					}
+					require.NoError(t, err, "failed to list workspaces in org workspace")
 
 					return len(wslist.Items) == 0, toYAML(t, wslist)
 				}, wait.ForeverTestTimeout, 100*time.Millisecond)
