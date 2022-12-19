@@ -45,7 +45,7 @@ import (
 type placementSchedulingReconciler struct {
 	listSyncTarget          func(clusterName logicalcluster.Name) ([]*workloadv1alpha1.SyncTarget, error)
 	listWorkloadAPIBindings func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
-	getLocation             func(clusterName logicalcluster.Path, name string) (*schedulingv1alpha1.Location, error)
+	getLocation             func(path logicalcluster.Path, name string) (*schedulingv1alpha1.Location, error)
 	patchPlacement          func(ctx context.Context, clusterName logicalcluster.Path, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*schedulingv1alpha1.Placement, error)
 }
 
