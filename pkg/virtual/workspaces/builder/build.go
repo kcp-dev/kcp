@@ -36,7 +36,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpopenapi "github.com/kcp-dev/kcp/pkg/openapi"
-	"github.com/kcp-dev/kcp/pkg/softimpersonation"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/fixedgvs"
 	"github.com/kcp-dev/kcp/pkg/virtual/workspaces/registry"
@@ -96,19 +95,7 @@ func newAuthorizer(cfg *clientrest.Config) func(ctx context.Context, a authorize
 			return authorizer.DecisionNoOpinion, "", nil
 		}
 
-		// We need to softly impersonate the name of the user here, because the user Home workspace
-		// might be created on-the-fly when receiving the SAR call.
-		// And this automatically creation of the Home workspace needs to be done with the right user.
-		//
-		// We call this "soft" impersonation in the sense that the whole user JSON is added as an
-		// additional request header, that will be explicitly read by the Home Workspace handler,
-		// instead of changing the real user before authorization as for "hard" impersonation.
-		impersonatedConfig, err := softimpersonation.WithSoftImpersonatedConfig(cfg, a.GetUser())
-		if err != nil {
-			klog.Errorf("failed to create impersonated kube cluster client: %v", err)
-			return authorizer.DecisionNoOpinion, "", nil
-		}
-		softlyImpersonatedSARClusterClient, err := kcpkubernetesclientset.NewForConfig(impersonatedConfig)
+		sarClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 		if err != nil {
 			klog.Errorf("failed to create impersonated kube cluster client: %v", err)
 			return authorizer.DecisionNoOpinion, "", nil
@@ -116,7 +103,7 @@ func newAuthorizer(cfg *clientrest.Config) func(ctx context.Context, a authorize
 
 		// check for <verb> permission on the ClusterWorkspace workspace subresource for the <resourceName>
 		clusterName := ctx.Value(registry.ClusterKey).(logicalcluster.Name)
-		authz, err := delegated.NewDelegatedAuthorizer(clusterName, softlyImpersonatedSARClusterClient)
+		authz, err := delegated.NewDelegatedAuthorizer(clusterName, sarClient)
 		if err != nil {
 			klog.Errorf("failed to get delegated authorizer for logical cluster %s", a.GetUser().GetName(), clusterName)
 			return authorizer.DecisionNoOpinion, "", nil //nolint:nilerr

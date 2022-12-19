@@ -32,8 +32,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/apimachinery/pkg/util/sets"
-	kuser "k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/apiserver/pkg/endpoints/handlers/negotiation"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
@@ -55,7 +53,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	reconcilerworkspace "github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspace"
-	"github.com/kcp-dev/kcp/pkg/softimpersonation"
 )
 
 var (
@@ -177,16 +174,6 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		return
 	}
 	logger = logging.WithUser(logger, effectiveUser)
-	if sets.NewString(effectiveUser.GetGroups()...).Has(kuser.SystemPrivilegedGroup) {
-		// If we are the system privileged group, it might be a call from the virtual workspace
-		// in which case we also search the user in the soft impersonation header.
-		if impersonated, err := softimpersonation.UserInfoFromRequestHeader(req); err != nil {
-			responsewriters.InternalError(rw, req, err)
-			return
-		} else if impersonated != nil {
-			effectiveUser = impersonated
-		}
-	}
 	requestInfo, ok := request.RequestInfoFrom(ctx)
 	if !ok {
 		responsewriters.InternalError(rw, req, errors.New("no request Info"))
