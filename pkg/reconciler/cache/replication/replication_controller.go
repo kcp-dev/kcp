@@ -32,7 +32,7 @@ import (
 	"k8s.io/klog/v2"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 	kcpinformers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions"
@@ -112,7 +112,7 @@ func (c *controller) enqueueAPIResourceSchema(obj interface{}) {
 }
 
 func (c *controller) enqueueShard(obj interface{}) {
-	c.enqueueObject(obj, tenancyv1alpha1.SchemeGroupVersion.WithResource("shards"))
+	c.enqueueObject(obj, corev1alpha1.SchemeGroupVersion.WithResource("shards"))
 }
 
 func (c *controller) enqueueObject(obj interface{}, gvr schema.GroupVersionResource) {

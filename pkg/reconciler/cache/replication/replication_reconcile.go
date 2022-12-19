@@ -33,7 +33,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 )
 
 func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
@@ -64,11 +64,11 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 			func(cluster logicalcluster.Name, _, name string) (interface{}, error) {
 				return c.localAPIResourceSchemaLister.Cluster(cluster).Get(name)
 			})
-	case tenancyv1alpha1.SchemeGroupVersion.WithResource("shards").String():
+	case corev1alpha1.SchemeGroupVersion.WithResource("shards").String():
 		return c.reconcileObject(ctx,
 			keyParts[1],
-			tenancyv1alpha1.SchemeGroupVersion.WithResource("shards"),
-			tenancyv1alpha1.SchemeGroupVersion.WithKind("Shard"),
+			corev1alpha1.SchemeGroupVersion.WithResource("shards"),
+			corev1alpha1.SchemeGroupVersion.WithKind("Shard"),
 			func(gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace, name string) (interface{}, error) {
 				return retrieveCacheObject(&gvr, c.globalShardIndexer, c.shardName, cluster, namespace, name)
 			},

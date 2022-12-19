@@ -466,6 +466,7 @@ func (b *replicateResourceScenario) DeleteCachedResource(ctx context.Context, t 
 }
 
 func (b *replicateResourceScenario) VerifyReplication(ctx context.Context, t *testing.T, cluster logicalcluster.Path) {
+	t.Helper()
 	b.verifyResourceReplicationHelper(ctx, t, cluster)
 }
 
