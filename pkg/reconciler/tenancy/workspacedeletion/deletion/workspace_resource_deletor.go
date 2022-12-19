@@ -59,7 +59,9 @@ import (
 )
 
 const (
-	WorkspaceFinalizer = "tenancy.kcp.dev/workspace-finalizer"
+	// LogicalClusterDeletionFinalizer is the name of the finalizer on LogicalClusters that
+	// delay deletion until all content is removed.
+	LogicalClusterDeletionFinalizer = "core.kcp.dev/logicalcluster-deletion"
 )
 
 // WorkspaceResourcesDeleterInterface is the interface to delete a workspace with all resources in it.

@@ -49,7 +49,6 @@ import (
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	kcpfakeclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster/fake"
 	"github.com/kcp-dev/kcp/pkg/indexers"
-	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspacedeletion/deletion"
 )
 
 func TestReconcileScheduling(t *testing.T) {
@@ -387,8 +386,7 @@ func wellKnownFooWSForPhaseTwo() *tenancyv1beta1.Workspace {
 func wellKnownLogicalClusterForFooWS() *corev1alpha1.LogicalCluster {
 	return &corev1alpha1.LogicalCluster{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:       corev1alpha1.LogicalClusterName,
-			Finalizers: []string{deletion.WorkspaceFinalizer},
+			Name: corev1alpha1.LogicalClusterName,
 			Annotations: map[string]string{
 				tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey: `{"username":"kcp-admin"}`,
 				tenancyv1beta1.LogicalClusterTypeAnnotationKey:          "root:universal",

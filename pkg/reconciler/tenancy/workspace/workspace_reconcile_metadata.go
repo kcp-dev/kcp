@@ -21,13 +21,11 @@ import (
 	"encoding/json"
 
 	authenticationv1 "k8s.io/api/authentication/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 
 	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1alpha1"
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
-	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspacedeletion/deletion"
 )
 
 type metaDataReconciler struct {
@@ -47,15 +45,6 @@ func (r *metaDataReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 		}
 		workspace.Labels[tenancyv1alpha1.WorkspacePhaseLabel] = expected
 		changed = true
-	}
-
-	// remote deletion finalizer as this moved to the LogicalCluster
-	if workspace.DeletionTimestamp.IsZero() {
-		finalizers := sets.NewString(workspace.Finalizers...)
-		if finalizers.Has(deletion.WorkspaceFinalizer) {
-			workspace.Finalizers = finalizers.Delete(deletion.WorkspaceFinalizer).List()
-			changed = true
-		}
 	}
 
 	if workspace.Status.Phase == corev1alpha1.LogicalClusterPhaseReady {

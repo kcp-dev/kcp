@@ -35,7 +35,7 @@ func Register(plugins *admission.Plugins) {
 		func(_ io.Reader) (admission.Interface, error) {
 			return &finalizer.FinalizerPlugin{
 				Handler:       admission.NewHandler(admission.Create, admission.Update),
-				FinalizerName: deletion.WorkspaceFinalizer,
+				FinalizerName: deletion.LogicalClusterDeletionFinalizer,
 				Resource:      corev1alpha1.Resource("logicalclusters"),
 			}, nil
 		})

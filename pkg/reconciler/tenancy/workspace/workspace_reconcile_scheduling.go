@@ -51,7 +51,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/pkg/logging"
-	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspacedeletion/deletion"
 )
 
 const (
@@ -255,8 +254,7 @@ func (r *schedulingReconciler) createLogicalCluster(ctx context.Context, shard *
 	}
 	this := &corev1alpha1.LogicalCluster{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:       corev1alpha1.LogicalClusterName,
-			Finalizers: []string{deletion.WorkspaceFinalizer},
+			Name: corev1alpha1.LogicalClusterName,
 			Annotations: map[string]string{
 				tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey: workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey],
 				tenancyv1beta1.LogicalClusterTypeAnnotationKey:          logicalcluster.NewPath(workspace.Spec.Type.Path).Join(string(workspace.Spec.Type.Name)).String(),

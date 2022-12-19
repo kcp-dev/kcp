@@ -287,7 +287,7 @@ func (c *Controller) patchCondition(ctx context.Context, old, new *corev1alpha1.
 func (c *Controller) finalizeWorkspace(ctx context.Context, ws *corev1alpha1.LogicalCluster) error {
 	logger := klog.FromContext(ctx)
 	for i := range ws.Finalizers {
-		if ws.Finalizers[i] == deletion.WorkspaceFinalizer {
+		if ws.Finalizers[i] == deletion.LogicalClusterDeletionFinalizer {
 			ws.Finalizers = append(ws.Finalizers[:i], ws.Finalizers[i+1:]...)
 			clusterName := logicalcluster.From(ws)
 
