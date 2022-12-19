@@ -176,7 +176,7 @@ func StartSyncer(ctx context.Context, cfg *SyncerConfig, numSyncerThreads int, i
 		return err
 	}
 
-	syncTargetKey := workloadv1alpha1.ToSyncTargetKey(cfg.SyncTargetClusterName, cfg.SyncTargetName)
+	syncTargetKey := workloadv1alpha1.ToSyncTargetKey(logicalcluster.From(syncTarget), cfg.SyncTargetName)
 	logger = logger.WithValues(SyncTargetKey, syncTargetKey)
 	ctx = klog.NewContext(ctx, logger)
 
