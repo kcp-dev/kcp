@@ -36,7 +36,7 @@ const (
 // WithSoftImpersonatedConfig returns a clone of the input rest.Config
 // with an additional header containing the given user info marshalled in Json.
 func WithSoftImpersonatedConfig(config *rest.Config, userInfo kuser.Info) (*rest.Config, error) {
-	impersonatedonfig := *config
+	impersonatedonfig := rest.CopyConfig(config)
 
 	userInfoJson, err := marshalUserInfo(userInfo)
 	if err != nil {
@@ -50,7 +50,7 @@ func WithSoftImpersonatedConfig(config *rest.Config, userInfo kuser.Info) (*rest
 			userInfoJson: userInfoJson,
 		}
 	})
-	return &impersonatedonfig, nil
+	return impersonatedonfig, nil
 }
 
 // softImpersonationTransport adds the 'X-Kcp-Internal-Soft-Impersonation'
