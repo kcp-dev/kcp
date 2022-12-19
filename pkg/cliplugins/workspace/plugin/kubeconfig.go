@@ -614,7 +614,7 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 
 	if o.EnterAfterCreate {
 		useOptions := NewUseWorkspaceOptions(o.IOStreams)
-		useOptions.Name = path.Base(ws.Name)
+		useOptions.Name = ws.Name
 		// only for unit test needs
 		if o.modifyConfig != nil {
 			useOptions.modifyConfig = o.modifyConfig
