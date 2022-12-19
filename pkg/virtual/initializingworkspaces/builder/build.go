@@ -182,7 +182,7 @@ func BuildVirtualWorkspace(
 				return false, "", context
 			}
 
-			// this proxying server does not handle requests for thisworkspaces.tenancy.kcp.dev
+			// this proxying server does not handle requests for logicalcluster.core.kcp.dev
 			if resourceURL := strings.TrimPrefix(urlPath, prefixToStrip); isLogicalClusterRequest(resourceURL) {
 				return false, "", context
 			}

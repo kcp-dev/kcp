@@ -73,7 +73,7 @@ func TestInitializingWorkspacesVirtualWorkspaceDiscovery(t *testing.T) {
 			Kind:       "APIResourceList",
 			APIVersion: "v1",
 		},
-		GroupVersion: "tenancy.kcp.dev/v1alpha1",
+		GroupVersion: "core.kcp.dev/v1alpha1",
 		APIResources: []metav1.APIResource{
 			{
 				Kind:               "LogicalCluster",
@@ -81,7 +81,7 @@ func TestInitializingWorkspacesVirtualWorkspaceDiscovery(t *testing.T) {
 				SingularName:       "logicalcluster",
 				Categories:         []string{"kcp"},
 				Verbs:              metav1.Verbs{"get", "list", "watch"},
-				StorageVersionHash: discovery.StorageVersionHash("", "tenancy.kcp.dev", "v1alpha1", "LogicalCluster"),
+				StorageVersionHash: discovery.StorageVersionHash("", "core.kcp.dev", "v1alpha1", "LogicalCluster"),
 			},
 			{
 				Kind: "LogicalCluster",
