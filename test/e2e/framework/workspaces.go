@@ -132,6 +132,13 @@ func NewWorkspaceFixtureObject(t *testing.T, server RunningServer, parent logica
 		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for %s workspace %s to become ready", ws.Spec.Type, parent.Join(ws.Name))
 
+	Eventually(t, func() (bool, string) {
+		_, err = clusterClient.Cluster(parent.Join(ws.Name)).CoreV1alpha1().LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{})
+		require.Falsef(t, apierrors.IsNotFound(err), "workspace %s was deleted", parent.Join(ws.Name))
+		require.NoError(t, err, "failed to get LogicalCluster %s", parent.Join(ws.Name).Join(corev1alpha1.LogicalClusterName))
+		return true, ""
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for %s workspace %s to become accessible, potentially through eventual consistent workspace index", ws.Spec.Type, parent.Join(ws.Name))
+
 	t.Logf("Created %s workspace %s", ws.Spec.Type, parent.Join(ws.Name))
 	return ws
 }
