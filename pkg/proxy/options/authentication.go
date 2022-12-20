@@ -33,6 +33,7 @@ import (
 	serviceaccountcontroller "k8s.io/kubernetes/pkg/controller/serviceaccount"
 	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
 
+	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	kcpauthentication "github.com/kcp-dev/kcp/pkg/proxy/authentication"
 )
 
@@ -55,7 +56,7 @@ func NewAuthentication() *Authentication {
 			WithServiceAccounts().
 			WithTokenFile(),
 		// when adding new auth methods, also update AdditionalAuthEnabled below
-		DropGroups: []string{user.SystemPrivilegedGroup},
+		DropGroups: []string{user.SystemPrivilegedGroup, bootstrap.SystemLogicalClusterAdmin},
 	}
 	auth.BuiltInOptions.ServiceAccounts.Issuers = []string{"https://kcp.default.svc"}
 	return auth

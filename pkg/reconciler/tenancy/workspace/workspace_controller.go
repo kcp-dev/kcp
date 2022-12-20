@@ -52,9 +52,9 @@ const (
 )
 
 func NewController(
-	shardExternalURL func() string,
 	kcpClusterClient kcpclientset.ClusterInterface,
 	kubeClusterClient kubernetes.ClusterInterface,
+	kcpExternalClient kcpclientset.ClusterInterface,
 	logicalClusterAdminConfig *rest.Config,
 	workspaceInformer tenancyv1beta1informers.WorkspaceClusterInformer,
 	shardInformer corev1alpha1informers.ShardClusterInformer,
@@ -66,12 +66,11 @@ func NewController(
 	c := &Controller{
 		queue: queue,
 
-		shardExternalURL: shardExternalURL,
-
 		logicalClusterAdminConfig: logicalClusterAdminConfig,
 
 		kcpClusterClient:  kcpClusterClient,
 		kubeClusterClient: kubeClusterClient,
+		kcpExternalClient: kcpExternalClient,
 
 		workspaceIndexer: workspaceInformer.Informer().GetIndexer(),
 		workspaceLister:  workspaceInformer.Lister(),
@@ -119,8 +118,7 @@ type workspaceResource = committer.Resource[*tenancyv1beta1.WorkspaceSpec, *tena
 type Controller struct {
 	queue workqueue.RateLimitingInterface
 
-	shardExternalURL          func() string
-	logicalClusterAdminConfig *rest.Config
+	logicalClusterAdminConfig *rest.Config // for direct shard connections used during scheduling
 
 	kcpClusterClient  kcpclientset.ClusterInterface
 	kubeClusterClient kubernetes.ClusterInterface
@@ -188,16 +186,6 @@ func (c *Controller) enqueueShard(obj interface{}) {
 func (c *Controller) Start(ctx context.Context, numThreads int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
-
-	// create external client that goes through the front-proxy
-	externalConfig := rest.CopyConfig(c.logicalClusterAdminConfig)
-	externalConfig.Host = c.shardExternalURL()
-	kcpExternalClient, err := kcpclientset.NewForConfig(externalConfig)
-	if err != nil {
-		runtime.HandleError(err)
-		return
-	}
-	c.kcpExternalClient = kcpExternalClient
 
 	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName)
 	ctx = klog.NewContext(ctx, logger)
