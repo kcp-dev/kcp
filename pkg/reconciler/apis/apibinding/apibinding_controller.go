@@ -111,6 +111,12 @@ func NewController(
 				return nil, err
 			}
 			if len(objs) == 0 {
+				objs, err = temporaryRemoteShardApiExportInformer.Informer().GetIndexer().ByIndex(indexers.ByLogicalClusterPathAndName, path.Join(name).String())
+				if err != nil {
+					return nil, err
+				}
+			}
+			if len(objs) == 0 {
 				return nil, apierrors.NewNotFound(apisv1alpha1.Resource("apiexports"), path.Join(name).String())
 			}
 			if len(objs) > 1 {
@@ -143,11 +149,6 @@ func NewController(
 	}
 
 	logger := logging.WithReconciler(klog.Background(), ControllerName)
-	apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueueAPIBinding(obj, logger, "") },
-		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIBinding(obj, logger, "") },
-		DeleteFunc: func(obj interface{}) { c.enqueueAPIBinding(obj, logger, "") },
-	})
 
 	if err := apiBindingInformer.Informer().AddIndexers(cache.Indexers{
 		indexers.APIBindingsByAPIExport: indexers.IndexAPIBindingByAPIExport,
@@ -157,6 +158,17 @@ func NewController(
 
 	indexers.AddIfNotPresentOrDie(apiExportInformer.Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+		indexAPIExportsByAPIResourceSchema:   indexAPIExportsByAPIResourceSchemasFunc,
+	})
+	indexers.AddIfNotPresentOrDie(temporaryRemoteShardApiExportInformer.Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+		indexAPIExportsByAPIResourceSchema:   indexAPIExportsByAPIResourceSchemasFunc,
+	})
+
+	apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    func(obj interface{}) { c.enqueueAPIBinding(obj, logger, "") },
+		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIBinding(obj, logger, "") },
+		DeleteFunc: func(obj interface{}) { c.enqueueAPIBinding(obj, logger, "") },
 	})
 
 	crdInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
@@ -209,17 +221,6 @@ func NewController(
 		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIResourceSchema(obj, logger, "") },
 		DeleteFunc: func(obj interface{}) { c.enqueueAPIResourceSchema(obj, logger, "") },
 	})
-
-	if err := c.apiExportsIndexer.AddIndexers(cache.Indexers{
-		indexAPIExportsByAPIResourceSchema: indexAPIExportsByAPIResourceSchemasFunc,
-	}); err != nil {
-		return nil, fmt.Errorf("error add CRD indexes: %w", err)
-	}
-	if err := c.temporaryRemoteShardApiExportsIndexer.AddIndexers(cache.Indexers{
-		indexAPIExportsByAPIResourceSchema: indexAPIExportsByAPIResourceSchemasFunc,
-	}); err != nil {
-		return nil, fmt.Errorf("error adding ApiExport indexes for the root shard: %w", err)
-	}
 
 	return c, nil
 }
