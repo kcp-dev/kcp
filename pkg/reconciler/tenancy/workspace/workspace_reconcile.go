@@ -88,17 +88,7 @@ func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1beta1.Workspace
 	}
 
 	getType := func(path logicalcluster.Path, name string) (*tenancyv1alpha1.WorkspaceType, error) {
-		objs, err := c.workspacetypeIndexer.ByIndex(indexers.ByLogicalClusterPathAndName, path.Join(name).String())
-		if err != nil {
-			return nil, err
-		}
-		if len(objs) == 0 {
-			return nil, fmt.Errorf("no WorkspaceType found for %s", path.Join(name).String())
-		}
-		if len(objs) > 1 {
-			return nil, fmt.Errorf("multiple WorkspaceTypes found for %s", path.Join(name).String())
-		}
-		return objs[0].(*tenancyv1alpha1.WorkspaceType), nil
+		return indexers.ByPathAndName[*tenancyv1alpha1.WorkspaceType](tenancyv1alpha1.Resource("workspacetypes"), c.workspaceTypeIndexer, path, name)
 	}
 
 	reconcilers := []reconciler{

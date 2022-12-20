@@ -69,17 +69,7 @@ func NewAPIBinder(
 			return logicalClusterInformer.Lister().Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 		},
 		getWorkspaceType: func(path logicalcluster.Path, name string) (*tenancyv1alpha1.WorkspaceType, error) {
-			objs, err := workspaceTypeInformer.Informer().GetIndexer().ByIndex(indexers.ByLogicalClusterPathAndName, path.Join(name).String())
-			if err != nil {
-				return nil, err
-			}
-			if len(objs) == 0 {
-				return nil, fmt.Errorf("no WorkspaceType found for %s", path.Join(name).String())
-			}
-			if len(objs) > 1 {
-				return nil, fmt.Errorf("multiple WorkspaceTypes found for %s", path.Join(name).String())
-			}
-			return objs[0].(*tenancyv1alpha1.WorkspaceType), nil
+			return indexers.ByPathAndName[*tenancyv1alpha1.WorkspaceType](tenancyv1alpha1.Resource("workspacetypes"), workspaceTypeInformer.Informer().GetIndexer(), path, name)
 		},
 		listLogicalClusters: func() ([]*corev1alpha1.LogicalCluster, error) {
 			return logicalClusterInformer.Lister().List(labels.Everything())
@@ -96,17 +86,7 @@ func NewAPIBinder(
 		},
 
 		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
-			objs, err := apiExportsInformer.Informer().GetIndexer().ByIndex(indexers.ByLogicalClusterPathAndName, path.Join(name).String())
-			if err != nil {
-				return nil, err
-			}
-			if len(objs) == 0 {
-				return nil, fmt.Errorf("no APIExport found for %s", path.Join(name).String())
-			}
-			if len(objs) > 1 {
-				return nil, fmt.Errorf("multiple APIExports found for %s", path.Join(name).String())
-			}
-			return objs[0].(*apisv1alpha1.APIExport), nil
+			return indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), apiExportsInformer.Informer().GetIndexer(), path, name)
 		},
 
 		commit: committer.NewCommitter[*corev1alpha1.LogicalCluster, corev1alpha1client.LogicalClusterInterface, *corev1alpha1.LogicalClusterSpec, *corev1alpha1.LogicalClusterStatus](kcpClusterClient.CoreV1alpha1().LogicalClusters()),

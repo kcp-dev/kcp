@@ -74,17 +74,7 @@ func NewController(
 			return indexers.ByIndex[*apisv1alpha1.APIBinding](apiBindingInformer.Informer().GetIndexer(), indexers.APIBindingsByAPIExport, path.Join(exportName).String())
 		},
 		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExport, error) {
-			objs, err := apiExportInformer.Informer().GetIndexer().ByIndex(indexers.ByLogicalClusterPathAndName, path.Join(name).String())
-			if err != nil {
-				return nil, err
-			}
-			if len(objs) == 0 {
-				return nil, apierrors.NewNotFound(apisv1alpha1.Resource("apiexports"), path.Join(name).String())
-			}
-			if len(objs) > 1 {
-				return nil, fmt.Errorf("multiple APIExports found for %s", path.Join(name).String())
-			}
-			return objs[0].(*apisv1alpha1.APIExport), nil
+			return indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), apiExportInformer.Informer().GetIndexer(), path, name)
 		},
 	}
 

@@ -71,17 +71,7 @@ func NewController(
 		resolveWorkspaceTypes: func(reference tenancyv1alpha1.WorkspaceTypeReference) (*tenancyv1alpha1.WorkspaceType, error) {
 			path := logicalcluster.NewPath(reference.Path)
 			name := string(reference.Name)
-			objs, err := workspaceTypeInformer.Informer().GetIndexer().ByIndex(indexers.ByLogicalClusterPathAndName, path.Join(name).String())
-			if err != nil {
-				return nil, err
-			}
-			if len(objs) == 0 {
-				return nil, fmt.Errorf("no WorkspaceType found for %s", path.Join(name).String())
-			}
-			if len(objs) > 1 {
-				return nil, fmt.Errorf("multiple WorkspaceTypes found for %s", path.Join(name).String())
-			}
-			return objs[0].(*tenancyv1alpha1.WorkspaceType), nil
+			return indexers.ByPathAndName[*tenancyv1alpha1.WorkspaceType](tenancyv1alpha1.Resource("workspacetypes"), workspaceTypeInformer.Informer().GetIndexer(), path, name)
 		},
 	}
 

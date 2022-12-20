@@ -79,8 +79,8 @@ func NewController(
 		shardIndexer: shardInformer.Informer().GetIndexer(),
 		shardLister:  shardInformer.Lister(),
 
-		workspacetypeIndexer: workspaceTypeInformer.Informer().GetIndexer(),
-		workspacetypeLister:  workspaceTypeInformer.Lister(),
+		workspaceTypeIndexer: workspaceTypeInformer.Informer().GetIndexer(),
+		workspaceTypeLister:  workspaceTypeInformer.Lister(),
 
 		logicalClusterIndexer: logicalClusterInformer.Informer().GetIndexer(),
 		logicalClusterLister:  logicalClusterInformer.Lister(),
@@ -132,8 +132,8 @@ type Controller struct {
 	shardIndexer cache.Indexer
 	shardLister  corev1alpha1listers.ShardClusterLister
 
-	workspacetypeIndexer cache.Indexer
-	workspacetypeLister  tenancyv1alpha1listers.WorkspaceTypeClusterLister
+	workspaceTypeIndexer cache.Indexer
+	workspaceTypeLister  tenancyv1alpha1listers.WorkspaceTypeClusterLister
 
 	logicalClusterIndexer cache.Indexer
 	logicalClusterLister  corev1alpha1listers.LogicalClusterClusterLister

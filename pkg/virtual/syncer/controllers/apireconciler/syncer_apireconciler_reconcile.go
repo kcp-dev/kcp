@@ -173,15 +173,11 @@ func (c *APIReconciler) getAllAcceptedResourceSchemas(syncTarget *workloadv1alph
 			path = logicalcluster.From(syncTarget).Path()
 		}
 
-		objs, err := c.apiExportIndexer.ByIndex(indexers.ByLogicalClusterPathAndName, path.Join(exportRef.Export).String())
+		apiExport, err := indexers.ByPathAndName[*apisv1alpha1.APIExport](apisv1alpha1.Resource("apiexports"), c.apiExportIndexer, path, exportRef.Export)
 		if err != nil {
 			errs = append(errs, err)
 			continue
 		}
-		if len(objs) != 1 {
-			continue
-		}
-		apiExport := objs[0].(*apisv1alpha1.APIExport)
 
 		for _, schemaName := range apiExport.Spec.LatestResourceSchemas {
 			apiResourceSchema, err := c.apiResourceSchemaLister.Cluster(logicalcluster.From(apiExport)).Get(schemaName)
