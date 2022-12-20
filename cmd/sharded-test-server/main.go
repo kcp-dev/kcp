@@ -114,6 +114,21 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		os.Exit(1)
 	}
 
+	// client cert for logical-cluster-admin
+	_, err = clientCA.MakeClientCertificate(
+		filepath.Join(workDirPath, ".kcp/logical-cluster-admin.crt"),
+		filepath.Join(workDirPath, ".kcp/logical-cluster-admin.key"),
+		&kuser.DefaultInfo{
+			Name:   "logical-cluster-admin",
+			Groups: []string{bootstrap.SystemLogicalClusterAdmin},
+		},
+		365,
+	)
+	if err != nil {
+		fmt.Printf("failed to create kcp-logical-cluster client cert: %v\n", err)
+		os.Exit(1)
+	}
+
 	// TODO:(p0lyn0mial): in the future we need a separate group valid only for the proxy
 	// so that it can make wildcard requests against shards
 	// for now we will use the privileged system group to bypass the authz stack
@@ -182,6 +197,10 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		}()
 	}
 
+	if err := writeLogicalClusterAdminKubeConfig(hostIP.String(), workDirPath); err != nil {
+		return err
+	}
+
 	// start shards
 	var shards []*shard.Shard
 	for i := 0; i < numberOfShards; i++ {
@@ -221,6 +240,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	if err := writeShardKubeConfig(workDirPath); err != nil {
 		return err
 	}
+
 	// start front-proxy
 	if err := startFrontProxy(ctx, proxyFlags, servingCA, hostIP.String(), logDirPath, workDirPath, vwPort); err != nil {
 		return err

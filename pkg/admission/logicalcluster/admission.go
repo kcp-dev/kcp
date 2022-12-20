@@ -188,7 +188,7 @@ func (o *plugin) Validate(ctx context.Context, a admission.Attributes, _ admissi
 	case admission.Delete:
 		this, err := o.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 		if err != nil {
-			return fmt.Errorf("LogicalCluster cannot be deleted")
+			return fmt.Errorf("LogicalCluster cannot be deleted: %w", err)
 		}
 		groups := sets.NewString(a.GetUserInfo().GetGroups()...)
 		if !this.Spec.DirectlyDeletable && !groups.Has(kuser.SystemPrivilegedGroup) && !groups.Has(bootstrap.SystemLogicalClusterAdmin) {
