@@ -135,19 +135,18 @@ func requiredCoreAPIResourceList(clusterName logicalcluster.Name) *metav1.APIRes
 	}
 }
 
-func withRootComputeAPIResourceList(workspaceName logicalcluster.Name) []*metav1.APIResourceList {
+func withRootComputeAPIResourceList(workspaceName logicalcluster.Name, rootComputeLogicalCluster logicalcluster.Name) []*metav1.APIResourceList {
 	coreResourceList := requiredCoreAPIResourceList(workspaceName)
 	coreResourceList.APIResources = append(coreResourceList.APIResources,
 		metav1.APIResource{
-			Kind:         "Service",
-			Name:         "services",
-			SingularName: "service",
-			Namespaced:   true,
-			Verbs:        metav1.Verbs{"get", "list", "patch", "update", "watch"},
-			ShortNames:   []string{"svc"},
-			Categories:   []string{"all"},
-			// TODO(dfestal): make this work with logical cluster name of root:compute
-			StorageVersionHash: discovery.StorageVersionHash(logicalcluster.Name(rootcompute.RootComputeClusterName.String()), "", "v1", "Service"),
+			Kind:               "Service",
+			Name:               "services",
+			SingularName:       "service",
+			Namespaced:         true,
+			Verbs:              metav1.Verbs{"get", "list", "patch", "update", "watch"},
+			ShortNames:         []string{"svc"},
+			Categories:         []string{"all"},
+			StorageVersionHash: discovery.StorageVersionHash(rootComputeLogicalCluster, "", "v1", "Service"),
 		},
 		metav1.APIResource{
 			Kind:               "Service",
@@ -160,8 +159,7 @@ func withRootComputeAPIResourceList(workspaceName logicalcluster.Name) []*metav1
 	)
 
 	return []*metav1.APIResourceList{
-		// TODO(dfestal): make this work with logical cluster name of root:compute
-		deploymentsAPIResourceList(logicalcluster.Name(rootcompute.RootComputeClusterName.String())),
+		deploymentsAPIResourceList(rootComputeLogicalCluster),
 		{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "APIResourceList",
@@ -170,14 +168,13 @@ func withRootComputeAPIResourceList(workspaceName logicalcluster.Name) []*metav1
 			GroupVersion: "networking.k8s.io/v1",
 			APIResources: []metav1.APIResource{
 				{
-					Kind:         "Ingress",
-					Name:         "ingresses",
-					SingularName: "ingress",
-					Namespaced:   true,
-					Verbs:        metav1.Verbs{"get", "list", "patch", "update", "watch"},
-					ShortNames:   []string{"ing"},
-					// TODO(dfestal): make this work with logical cluster name of root:compute
-					StorageVersionHash: discovery.StorageVersionHash(logicalcluster.Name(rootcompute.RootComputeClusterName.String()), "networking.k8s.io", "v1", "Ingress"),
+					Kind:               "Ingress",
+					Name:               "ingresses",
+					SingularName:       "ingress",
+					Namespaced:         true,
+					Verbs:              metav1.Verbs{"get", "list", "patch", "update", "watch"},
+					ShortNames:         []string{"ing"},
+					StorageVersionHash: discovery.StorageVersionHash(rootComputeLogicalCluster, "networking.k8s.io", "v1", "Ingress"),
 				},
 				{
 					Kind:               "Ingress",
@@ -215,8 +212,6 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 		{
 			name: "isolated API domains per syncer",
 			work: func(t *testing.T, testCaseWorkspace logicalcluster.Path) {
-				t.Skip("TODO(dfestal): make this compatible with logical cluster name of root:compute")
-
 				kubelikeLocationWorkspace := framework.NewWorkspaceFixture(t, server, testCaseWorkspace, framework.WithName("kubelike-locations"))
 
 				logWithTimestamp(t, "Deploying syncer into workspace %s", kubelikeLocationWorkspace)
@@ -259,6 +254,14 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 				kubelikeVWDiscoverClusterClient, err := kcpdiscovery.NewForConfig(kubelikeSyncer.SyncerVirtualWorkspaceConfig)
 				require.NoError(t, err)
 
+				// We need to get a resource in the "root:compute" cluster to get the logical cluster name, in this case we use the
+				// kubernetes APIExport, as we know that it exists.
+				kcpClusterClient, err := kcpclientset.NewForConfig(server.BaseConfig(t))
+				require.NoError(t, err)
+				export, err := kcpClusterClient.Cluster(rootcompute.RootComputeClusterName).ApisV1alpha1().APIExports().Get(context.Background(), "kubernetes", metav1.GetOptions{})
+				require.NoError(t, err)
+				rootComputeLogicalCluster := logicalcluster.From(export)
+
 				logWithTimestamp(t, "Check discovery in kubelike virtual workspace")
 				require.Eventually(t, func() bool {
 					_, kubelikeAPIResourceLists, err := kubelikeVWDiscoverClusterClient.ServerGroupsAndResources()
@@ -266,7 +269,7 @@ func TestSyncerVirtualWorkspace(t *testing.T) {
 						return false
 					}
 					return len(cmp.Diff(
-						withRootComputeAPIResourceList(kubelikeLocationWorkspace),
+						withRootComputeAPIResourceList(kubelikeLocationWorkspace, rootComputeLogicalCluster),
 						sortAPIResourceList(kubelikeAPIResourceLists))) == 0
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
