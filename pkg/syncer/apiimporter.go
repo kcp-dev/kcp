@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KCP Authors.
+ Copyright 2021 The KCP Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -77,11 +77,11 @@ func NewAPIImporter(
 	synctargetInformer workloadinformers.SyncTargetInformer,
 	apiImportInformer apiresourceinformer.APIResourceImportInformer,
 	resourcesToSync []string,
-	logicalClusterName logicalcluster.Name,
+	syncTargetPath logicalcluster.Path,
 	syncTargetName string,
 	syncTargetUID types.UID,
 ) (*APIImporter, error) {
-	agent := fmt.Sprintf("kcp-workload-api-importer-%s-%s", logicalClusterName, syncTargetName)
+	agent := fmt.Sprintf("kcp-workload-api-importer-%s-%s", syncTargetPath, syncTargetName)
 	upstreamConfig = rest.AddUserAgent(rest.CopyConfig(upstreamConfig), agent)
 	downstreamConfig = rest.AddUserAgent(rest.CopyConfig(downstreamConfig), agent)
 
@@ -90,7 +90,7 @@ func NewAPIImporter(
 		return nil, err
 	}
 
-	kcpClient := kcpClusterClient.Cluster(logicalClusterName.Path())
+	kcpClient := kcpClusterClient.Cluster(syncTargetPath)
 
 	importIndexer := apiImportInformer.Informer().GetIndexer()
 

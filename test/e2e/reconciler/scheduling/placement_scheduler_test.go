@@ -94,7 +94,7 @@ func TestPlacementUpdate(t *testing.T) {
 		return true
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
-	firstSyncTargetKey := workloadv1alpha1.ToSyncTargetKey(syncerFixture.SyncerConfig.SyncTargetClusterName, firstSyncTargetName)
+	firstSyncTargetKey := workloadv1alpha1.ToSyncTargetKey(syncerFixture.SyncTargetClusterName, firstSyncTargetName)
 
 	t.Logf("Create a service in the user workspace")
 	_, err = kubeClusterClient.Cluster(userClusterName.Path()).CoreV1().Services("default").Create(ctx, &corev1.Service{
