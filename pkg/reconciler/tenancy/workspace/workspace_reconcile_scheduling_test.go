@@ -111,7 +111,7 @@ func TestReconcileScheduling(t *testing.T) {
 			initialWorkspaceTypes: wellKnownWorkspaceTypes(),
 			initialKcpClientObjects: []runtime.Object{func() runtime.Object {
 				thisWS := wellKnownLogicalClusterForFooWS()
-				thisWS.Annotations["kcp.io/cluster"] = "root-foo"
+				thisWS.Annotations["kcp.dev/cluster"] = "root-foo"
 				return thisWS
 			}()},
 			targetWorkspace:      wellKnownFooWSForPhaseTwo(),
@@ -141,7 +141,7 @@ func TestReconcileScheduling(t *testing.T) {
 			initialWorkspaceTypes: wellKnownWorkspaceTypes(),
 			initialKcpClientObjects: []runtime.Object{func() runtime.Object {
 				thisWS := wellKnownLogicalClusterForFooWS()
-				thisWS.Annotations["kcp.io/cluster"] = "root-foo"
+				thisWS.Annotations["kcp.dev/cluster"] = "root-foo"
 				thisWS.Spec.Owner.UID = "wrong-uid"
 				return thisWS
 			}()},
@@ -164,12 +164,12 @@ func TestReconcileScheduling(t *testing.T) {
 			initialWorkspaceTypes: wellKnownWorkspaceTypes(),
 			initialKubeClientObjects: []runtime.Object{func() runtime.Object {
 				crb := wellKnownCRBForThisWS()
-				crb.Annotations["kcp.io/cluster"] = "root-foo"
+				crb.Annotations["kcp.dev/cluster"] = "root-foo"
 				return crb
 			}()},
 			initialKcpClientObjects: []runtime.Object{func() runtime.Object {
 				thisWS := wellKnownLogicalClusterForFooWS()
-				thisWS.Annotations["kcp.io/cluster"] = "root-foo"
+				thisWS.Annotations["kcp.dev/cluster"] = "root-foo"
 				return thisWS
 			}()},
 			targetWorkspace:      wellKnownFooWSForPhaseTwo(),
@@ -337,7 +337,7 @@ func workspace(name string) *tenancyv1beta1.Workspace {
 	return &tenancyv1beta1.Workspace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
-			Annotations: map[string]string{"kcp.io/cluster": "root"},
+			Annotations: map[string]string{"kcp.dev/cluster": "root"},
 		},
 		Spec: tenancyv1beta1.WorkspaceSpec{
 			Location: &tenancyv1beta1.WorkspaceLocation{},
@@ -431,7 +431,7 @@ func validateWellKnownLogicalClusterActions(t *testing.T, actions []kcpclientgot
 			// the shard annotation, which is still present on an update
 			// in real world we wouldn't be seeing this annotation
 			// since it is assigned by the kcp server
-			delete(actualObj.Annotations, "kcp.io/cluster")
+			delete(actualObj.Annotations, "kcp.dev/cluster")
 
 			if !equality.Semantic.DeepEqual(actualObj, expectedObjCopy) {
 				t.Errorf(cmp.Diff(actualObj, expectedObjCopy))
@@ -466,8 +466,8 @@ func workspaceType(name string) *tenancyv1alpha1.WorkspaceType {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 			Annotations: map[string]string{
-				"kcp.io/cluster": "root",
-				"kcp.io/path":    "root",
+				"kcp.dev/cluster": "root",
+				"kcp.io/path":     "root",
 			},
 		},
 	}
