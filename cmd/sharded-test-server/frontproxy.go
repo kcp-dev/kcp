@@ -254,7 +254,7 @@ func writeAdminKubeConfig(hostIP string, workDirPath string) error {
 		"root": {Cluster: "root", AuthInfo: "kcp-admin"},
 		"base": {Cluster: "base", AuthInfo: "kcp-admin"},
 	}
-	kubeConfig.CurrentContext = "base"
+	kubeConfig.CurrentContext = "root"
 
 	if err := clientcmdapi.FlattenConfig(&kubeConfig); err != nil {
 		return err
