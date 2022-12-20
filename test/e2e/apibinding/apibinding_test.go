@@ -23,6 +23,7 @@ import (
 	"net/url"
 	"path"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -83,6 +84,7 @@ func TestAPIBindingAPIExportReferenceImmutability(t *testing.T) {
 	_, err = kcpClusterClient.Cluster(serviceProviderClusterName.Path()).ApisV1alpha1().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err)
 
+	t.Logf("Create an APIExport other-export in %q", serviceProviderClusterName)
 	otherAPIExport := &apisv1alpha1.APIExport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "other-export",
@@ -114,6 +116,7 @@ func TestAPIBindingAPIExportReferenceImmutability(t *testing.T) {
 		return err == nil, fmt.Sprintf("%v", err)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
+	t.Logf("Make sure we can get the APIBinding we just created")
 	apiBinding, err = kcpClusterClient.Cluster(consumerWorkspace.Path()).ApisV1alpha1().APIBindings().Get(ctx, apiBinding.Name, metav1.GetOptions{})
 	require.NoError(t, err)
 
@@ -121,8 +124,16 @@ func TestAPIBindingAPIExportReferenceImmutability(t *testing.T) {
 	patchedBinding.Spec.Reference.Export.Name = "other-export"
 	mergePatch, err := jsonpatch.CreateMergePatch(encodeJSON(t, apiBinding), encodeJSON(t, patchedBinding))
 	require.NoError(t, err)
-	_, err = kcpClusterClient.Cluster(consumerWorkspace.Path()).ApisV1alpha1().APIBindings().Patch(ctx, apiBinding.Name, types.MergePatchType, mergePatch, metav1.PatchOptions{})
-	require.ErrorContains(t, err, "APIExport reference must not be changed")
+
+	t.Logf("Try to patch the APIBinding to point at other-export and make sure we get the expected error")
+	framework.Eventually(t, func() (bool, string) {
+		_, err = kcpClusterClient.Cluster(consumerWorkspace.Path()).ApisV1alpha1().APIBindings().Patch(ctx, apiBinding.Name, types.MergePatchType, mergePatch, metav1.PatchOptions{})
+		expected := "APIExport reference must not be changed"
+		if strings.Contains(err.Error(), expected) {
+			return true, ""
+		}
+		return false, fmt.Sprintf("Expecting error to contain %q but got %v", expected, err)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 }
 
 func TestAPIBinding(t *testing.T) {
