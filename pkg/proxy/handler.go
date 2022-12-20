@@ -35,7 +35,7 @@ import (
 func shardHandler(index index.Index, proxy http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		var cs = strings.SplitN(strings.TrimLeft(req.URL.Path, "/"), "/", 3)
-		if len(cs) != 3 || cs[0] != "clusters" {
+		if len(cs) < 2 || cs[0] != "clusters" {
 			http.NotFound(w, req)
 			return
 		}
@@ -68,7 +68,12 @@ func shardHandler(index index.Index, proxy http.Handler) http.HandlerFunc {
 			return
 		}
 
-		logger.WithValues("from", req.URL.Path, "to", shardURL).V(4).Info("Redirecting")
+		logger.WithValues("from", "/clusters/"+cs[1], "to", shardURL).V(4).Info("Redirecting")
+
+		shardURL.Path = strings.TrimSuffix(shardURL.Path, "/")
+		if len(cs) == 3 {
+			shardURL.Path += "/" + cs[2]
+		}
 
 		ctx = WithShardURL(ctx, shardURL)
 		req = req.WithContext(ctx)

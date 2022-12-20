@@ -96,6 +96,7 @@ func newShardReverseProxy() *httputil.ReverseProxy {
 
 		req.URL.Scheme = shardURL.Scheme
 		req.URL.Host = shardURL.Host
+		req.URL.Path = shardURL.Path
 	}
 	return &httputil.ReverseProxy{Director: director}
 }
