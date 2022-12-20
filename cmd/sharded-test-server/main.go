@@ -182,11 +182,6 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		}()
 	}
 
-	// Wired as external-admin-kubeconfig into the shards to talk through the front-proxy.
-	if err := writeAdminKubeConfig(hostIP.String(), workDirPath, ".kcp/external.kubeconfig", "base"); err != nil {
-		return err
-	}
-
 	// start shards
 	var shards []*shard.Shard
 	for i := 0; i < numberOfShards; i++ {
@@ -218,8 +213,8 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		}
 	}
 
-	// write kcp-admin kubeconfig talking to the front-proxy with a client-cert, for interactive use
-	if err := writeAdminKubeConfig(hostIP.String(), workDirPath, ".kcp/admin.kubeconfig", "root"); err != nil {
+	// write kcp-admin kubeconfig talking to the front-proxy with a client-cert
+	if err := writeAdminKubeConfig(hostIP.String(), workDirPath); err != nil {
 		return err
 	}
 	// this is system-master kubeconfig used by the front-proxy to talk to shards

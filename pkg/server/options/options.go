@@ -65,7 +65,6 @@ type ExtraOptions struct {
 	DiscoveryPollInterval         time.Duration
 	ExperimentalBindFreePort      bool
 	LogicalClusterAdminKubeconfig string
-	ExternalAdminKubeconfig       string
 
 	BatteriesIncluded []string
 }
@@ -177,7 +176,6 @@ func (o *Options) rawFlags() cliflag.NamedFlagSets {
 	fs.StringVar(&o.Extra.ShardVirtualWorkspaceURL, "shard-virtual-workspace-url", o.Extra.ShardVirtualWorkspaceURL, "An external URL address of a virtual workspace server associated with this shard. Defaults to shard's base address.")
 	fs.StringVar(&o.Extra.RootDirectory, "root-directory", o.Extra.RootDirectory, "Root directory.")
 	fs.StringVar(&o.Extra.LogicalClusterAdminKubeconfig, "logical-cluster-admin-kubeconfig", o.Extra.LogicalClusterAdminKubeconfig, "Kubeconfig holding admin(!) credentials to other shards. Defaults to the loopback client")
-	fs.StringVar(&o.Extra.ExternalAdminKubeconfig, "external-admin-kubeconfig", o.Extra.ExternalAdminKubeconfig, "Kubeconfig holding admin(!) credentials talking to the external address (e.g. the front-proxy). Defaults to the loopback client")
 
 	fs.BoolVar(&o.Extra.ExperimentalBindFreePort, "experimental-bind-free-port", o.Extra.ExperimentalBindFreePort, "Bind to a free port. --secure-port must be 0. Use the admin.kubeconfig to extract the chosen port.")
 	fs.MarkHidden("experimental-bind-free-port") //nolint:errcheck
@@ -284,12 +282,6 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 	}
 	if len(o.Extra.LogicalClusterAdminKubeconfig) > 0 && !filepath.IsAbs(o.Extra.LogicalClusterAdminKubeconfig) {
 		o.Extra.LogicalClusterAdminKubeconfig, err = filepath.Abs(o.Extra.LogicalClusterAdminKubeconfig)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if len(o.Extra.ExternalAdminKubeconfig) > 0 && !filepath.IsAbs(o.Extra.ExternalAdminKubeconfig) {
-		o.Extra.ExternalAdminKubeconfig, err = filepath.Abs(o.Extra.ExternalAdminKubeconfig)
 		if err != nil {
 			return nil, err
 		}

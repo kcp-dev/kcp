@@ -230,7 +230,7 @@ func startFrontProxy(
 	return nil
 }
 
-func writeAdminKubeConfig(hostIP string, workDirPath string, fileName string, defaultContext string) error {
+func writeAdminKubeConfig(hostIP string, workDirPath string) error {
 	baseHost := fmt.Sprintf("https://%s:6443", hostIP)
 
 	var kubeConfig clientcmdapi.Config
@@ -254,13 +254,13 @@ func writeAdminKubeConfig(hostIP string, workDirPath string, fileName string, de
 		"root": {Cluster: "root", AuthInfo: "kcp-admin"},
 		"base": {Cluster: "base", AuthInfo: "kcp-admin"},
 	}
-	kubeConfig.CurrentContext = defaultContext
+	kubeConfig.CurrentContext = "root"
 
 	if err := clientcmdapi.FlattenConfig(&kubeConfig); err != nil {
 		return err
 	}
 
-	return clientcmd.WriteToFile(kubeConfig, filepath.Join(workDirPath, fileName))
+	return clientcmd.WriteToFile(kubeConfig, filepath.Join(workDirPath, ".kcp/admin.kubeconfig"))
 }
 
 func writeShardKubeConfig(workDirPath string) error {

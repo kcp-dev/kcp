@@ -140,7 +140,6 @@ var (
 		"experimental-bind-free-port",      // Bind to a free port. --secure-bind-port must be 0. Use the admin.kubeconfig to extract the chosen port.
 		"batteries-included",               // A list of batteries included (= default objects that might be unwanted in production, but very helpful in trying out kcp or development).
 		"logical-cluster-admin-kubeconfig", // Kubeconfig holding admin(!) credentials to other shards. Defaults to the loopback client.
-		"external-admin-kubeconfig",        //Kubeconfig holding admin(!) credentials talking to the external address (e.g. the front-proxy). Defaults to the loopback client.
 
 		// secure serving flags
 		"bind-address",                     // The IP address on which to listen for the --secure-port port. The associated interface(s) must be reachable by the rest of the cluster, and by CLI/web clients. If blank or an unspecified address (0.0.0.0 or ::), all interfaces will be used.

@@ -384,20 +384,13 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		return err
 	}
 
-	externalConfig := rest.CopyConfig(s.ExternalConfig)
-	externalConfig = rest.AddUserAgent(externalConfig, workspace.ControllerName+"+"+s.Options.Extra.ShardName)
-	kcpExternalClient, err := kcpclientset.NewForConfig(externalConfig)
-	if err != nil {
-		return err
-	}
-
 	logicalClusterAdminConfig = rest.CopyConfig(logicalClusterAdminConfig)
-	logicalClusterAdminConfig = rest.AddUserAgent(logicalClusterAdminConfig, workspace.ControllerName+"+"+s.Options.Extra.ShardName)
+	logicalClusterAdminConfig = rest.AddUserAgent(logicalClusterAdminConfig, workspace.ControllerName)
 
 	workspaceController, err := workspace.NewController(
+		s.CompletedConfig.ShardExternalURL,
 		kcpClusterClient,
 		kubeClusterClient,
-		kcpExternalClient,
 		logicalClusterAdminConfig,
 		s.KcpSharedInformerFactory.Tenancy().V1beta1().Workspaces(),
 		s.KcpSharedInformerFactory.Core().V1alpha1().Shards(),

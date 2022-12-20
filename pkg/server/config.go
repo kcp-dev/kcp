@@ -101,8 +101,8 @@ type ExtraConfig struct {
 
 	CacheDynamicClient kcpdynamic.ClusterInterface
 
-	LogicalClusterAdminConfig *rest.Config // client config connecting directly to shards, skipping the front proxy
-	ExternalConfig            *rest.Config // client config connecting to the front proxy
+	// config from which client can be configured
+	LogicalClusterAdminConfig *rest.Config
 
 	// misc
 	preHandlerChainMux   *handlerChainMuxes
@@ -279,15 +279,7 @@ func NewConfig(opts *kcpserveroptions.CompletedOptions) (*Config, error) {
 	if len(c.Options.Extra.LogicalClusterAdminKubeconfig) > 0 {
 		c.LogicalClusterAdminConfig, err = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: c.Options.Extra.LogicalClusterAdminKubeconfig}, nil).ClientConfig()
 		if err != nil {
-			return nil, fmt.Errorf("failed to load the logical cluster admin kubeconfig from %q: %w", c.Options.Extra.LogicalClusterAdminKubeconfig, err)
-		}
-	}
-
-	c.ExternalConfig = rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
-	if len(c.Options.Extra.ExternalAdminKubeconfig) > 0 {
-		c.ExternalConfig, err = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: c.Options.Extra.ExternalAdminKubeconfig}, nil).ClientConfig()
-		if err != nil {
-			return nil, fmt.Errorf("failed to load the external admin kubeconfig from %q: %w", c.Options.Extra.ExternalAdminKubeconfig, err)
+			return nil, fmt.Errorf("failed to load the kubeconfig from: %s, for a logical cluster client, err: %w", c.Options.Extra.LogicalClusterAdminKubeconfig, err)
 		}
 	}
 
