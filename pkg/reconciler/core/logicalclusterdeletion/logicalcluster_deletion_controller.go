@@ -26,7 +26,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
-	kcpclienthelper "github.com/kcp-dev/apimachinery/v2/pkg/client"
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	kcpmetadata "github.com/kcp-dev/client-go/metadata"
 	"github.com/kcp-dev/logicalcluster/v3"
@@ -39,7 +39,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -110,7 +109,7 @@ type Controller struct {
 
 	logicalClusterAdminConfig *rest.Config
 	shardExternalURL          func() string
-	dynamicFrontProxyClient   dynamic.Interface
+	dynamicFrontProxyClient   kcpdynamic.ClusterInterface
 
 	metadataClusterClient kcpmetadata.ClusterInterface
 
@@ -141,10 +140,9 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 
 	// a client needed to remove the finalizer from the logical cluster on a different shard
 	frontProxyConfig := rest.CopyConfig(c.logicalClusterAdminConfig)
-	frontProxyConfig = kcpclienthelper.SetMultiClusterRoundTripper(frontProxyConfig)
 	frontProxyConfig = rest.AddUserAgent(frontProxyConfig, ControllerName)
 	frontProxyConfig.Host = c.shardExternalURL()
-	dynamicFrontProxyClient, err := dynamic.NewForConfig(frontProxyConfig)
+	dynamicFrontProxyClient, err := kcpdynamic.NewForConfig(frontProxyConfig)
 	if err != nil {
 		runtime.HandleError(err)
 		return
@@ -319,8 +317,8 @@ func (c *Controller) finalizeWorkspace(ctx context.Context, ws *corev1alpha1.Log
 
 				// remove finalizer from owner
 				logger.Info("checking owner for finalizer")
-				ownerCtx := logicalcluster.WithCluster(ctx, logicalcluster.Name(ws.Spec.Owner.Cluster))
-				obj, err := c.dynamicFrontProxyClient.Resource(gvr).Namespace(ws.Spec.Owner.Namespace).Get(ownerCtx, ws.Spec.Owner.Name, metav1.GetOptions{})
+				clusterPath := logicalcluster.NewPath(ws.Spec.Owner.Cluster)
+				obj, err := c.dynamicFrontProxyClient.Cluster(clusterPath).Resource(gvr).Namespace(ws.Spec.Owner.Namespace).Get(ctx, ws.Spec.Owner.Name, metav1.GetOptions{})
 				if err != nil && !apierrors.IsNotFound(err) {
 					return fmt.Errorf("could not get owner %s %s/%s in cluster %s: %w", gvr, ws.Spec.Owner.Namespace, ws.Spec.Owner.Name, ws.Spec.Owner.Cluster, err)
 				} else if err == nil && obj.GetUID() != uid {
@@ -332,7 +330,7 @@ func (c *Controller) finalizeWorkspace(ctx context.Context, ws *corev1alpha1.Log
 						logger.Info("removing finalizer from owner")
 						finalizers.Delete(corev1alpha1.LogicalClusterFinalizer)
 						obj.SetFinalizers(finalizers.List())
-						if obj, err = c.dynamicFrontProxyClient.Resource(gvr).Namespace(ws.Spec.Owner.Namespace).Update(ownerCtx, obj, metav1.UpdateOptions{}); err != nil {
+						if obj, err = c.dynamicFrontProxyClient.Cluster(clusterPath).Resource(gvr).Namespace(ws.Spec.Owner.Namespace).Update(ctx, obj, metav1.UpdateOptions{}); err != nil {
 							return fmt.Errorf("could not remove finalizer from owner %s %s/%s in cluster %s: %w", gvr, ws.Spec.Owner.Namespace, ws.Spec.Owner.Name, ws.Spec.Owner.Cluster, err)
 						}
 					}
@@ -340,7 +338,7 @@ func (c *Controller) finalizeWorkspace(ctx context.Context, ws *corev1alpha1.Log
 					// delete owner
 					if obj.GetDeletionTimestamp().IsZero() && ws.Spec.DirectlyDeletable {
 						logger.Info("deleting owner")
-						if err := c.dynamicFrontProxyClient.Resource(gvr).Namespace(ws.Spec.Owner.Namespace).Delete(ownerCtx, ws.Spec.Owner.Name, metav1.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &uid}}); err != nil && !apierrors.IsNotFound(err) {
+						if err := c.dynamicFrontProxyClient.Cluster(clusterPath).Resource(gvr).Namespace(ws.Spec.Owner.Namespace).Delete(ctx, ws.Spec.Owner.Name, metav1.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &uid}}); err != nil && !apierrors.IsNotFound(err) {
 							return fmt.Errorf("could not delete owner %s %s/%s in cluster %s: %w", gvr, ws.Spec.Owner.Namespace, ws.Spec.Owner.Name, ws.Spec.Owner.Cluster, err)
 						}
 					}
