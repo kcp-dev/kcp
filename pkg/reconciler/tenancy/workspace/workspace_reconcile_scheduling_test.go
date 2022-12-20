@@ -218,7 +218,7 @@ func TestReconcileScheduling(t *testing.T) {
 					Severity: conditionsapi.ConditionSeverityError,
 					Status:   corev1.ConditionFalse,
 					Reason:   tenancyv1alpha1.WorkspaceReasonUnschedulable,
-					Message:  "No available shards to schedule the workspace.",
+					Message:  "No available shards to schedule the workspace",
 				})
 				if !equality.Semantic.DeepEqual(wsAfterReconciliation, initialWS) {
 					t.Fatal(fmt.Errorf("unexpected Workspace:\n%s", cmp.Diff(wsAfterReconciliation, initialWS)))
