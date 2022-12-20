@@ -39,6 +39,7 @@ import (
 	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/index"
 	indexrewriters "github.com/kcp-dev/kcp/pkg/index/rewriters"
+	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 const (
@@ -173,6 +174,10 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	}
 	key := k.(string)
 
+	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
+	ctx = klog.NewContext(ctx, logger)
+	logger.V(1).Info("processing key")
+
 	// No matter what, tell the queue we're done with this key, to unblock
 	// other workers.
 	defer c.queue.Done(key)
@@ -187,6 +192,8 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *Controller) process(ctx context.Context, key string) error {
+	logger := klog.FromContext(ctx)
+
 	_, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(err)
@@ -195,6 +202,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	shard, err := c.shardLister.Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
+			logger.V(2).Info("Shard not found, stopping informers")
 			c.stopShard(shard)
 			return nil
 		}
@@ -205,6 +213,8 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	defer c.lock.Unlock()
 
 	if _, found := c.shardClusterWorkspaceInformers[shard.Name]; !found {
+		logger.V(1).Info("Starting informers for Shard")
+
 		client, err := c.clientGetter(shard)
 		if err != nil {
 			return err
