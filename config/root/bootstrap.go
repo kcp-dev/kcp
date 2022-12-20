@@ -19,17 +19,12 @@ package root
 import (
 	"context"
 	"embed"
-	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/klog/v2"
 
 	confighelpers "github.com/kcp-dev/kcp/config/helpers"
-	corev1alpha1 "github.com/kcp-dev/kcp/pkg/apis/core/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/pkg/client/clientset/versioned"
 )
 
@@ -51,28 +46,7 @@ func Bootstrap(ctx context.Context, kcpClient kcpclient.Interface, rootDiscovery
 		homeWorkspaceCreatorGroupReplacement = "[]"
 	}
 
-	if err := confighelpers.Bootstrap(ctx, rootDiscoveryClient, rootDynamicClient, batteriesIncluded, fs, confighelpers.ReplaceOption(
+	return confighelpers.Bootstrap(ctx, rootDiscoveryClient, rootDynamicClient, batteriesIncluded, fs, confighelpers.ReplaceOption(
 		"HOME_CREATOR_GROUPS", homeWorkspaceCreatorGroupReplacement,
-	)); err != nil {
-		return err
-	}
-
-	// set LogicalCluster to Ready
-	return wait.PollImmediateUntilWithContext(ctx, time.Millisecond*100, func(ctx context.Context) (done bool, err error) {
-		logger := klog.FromContext(ctx).WithValues("bootstrapping", "root-phase0")
-		this, err := kcpClient.CoreV1alpha1().LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{})
-		if err != nil {
-			logger.Error(err, "failed to get this workspace in root")
-			return false, nil
-		}
-		if this.Status.Phase == corev1alpha1.LogicalClusterPhaseInitializing {
-			this.Status.Phase = corev1alpha1.LogicalClusterPhaseReady
-			_, err = kcpClient.CoreV1alpha1().LogicalClusters().UpdateStatus(ctx, this, metav1.UpdateOptions{})
-			if err != nil {
-				logger.Error(err, "failed to update this workspace status in root")
-				return false, nil
-			}
-		}
-		return true, nil
-	})
+	))
 }

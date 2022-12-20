@@ -69,7 +69,8 @@ type workspaceContentAuthorizer struct {
 func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
 	cluster := genericapirequest.ClusterFrom(ctx)
 
-	// empty or non-root based workspaces have no meaning in the context of authorizing workspace content.
+	// empty or system workspaces have no meaning in the context of authorizing workspace content.
+	// To access system workspaces, the user must be privileged such that authorization is skipped completely.
 	if cluster == nil || cluster.Name.Empty() || strings.HasPrefix(cluster.Name.String(), "system:") {
 		return authorizer.DecisionNoOpinion, "empty or system workspace", nil
 	}
@@ -123,7 +124,7 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 
 	case isServiceAccountFromCluster:
 		// A service account declared in the requested workspace is authorized inside that workspace.
-		return DelegateAuthorization("service account access to thisworkspace", a.delegate).Authorize(ctx, attr)
+		return DelegateAuthorization("local service account access", a.delegate).Authorize(ctx, attr)
 
 	case isUser:
 		authz := rbac.New(
@@ -156,7 +157,7 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 		if dec != authorizer.DecisionAllow {
 			return dec, "no verb=access permission on /", nil
 		}
-		return DelegateAuthorization("user access to thisworkspace", a.delegate).Authorize(ctx, attr)
+		return DelegateAuthorization("user logical cluster access", a.delegate).Authorize(ctx, attr)
 	}
 
 	return authorizer.DecisionNoOpinion, "unknown user type", nil

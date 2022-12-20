@@ -141,6 +141,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	} else if requeue {
 		// only requeue if we didn't error, but we still want to requeue
 		c.queue.Add(key)
+		return true
 	}
 	c.queue.Forget(key)
 	return true

@@ -61,7 +61,7 @@ func (b *APIBinder) reconcile(ctx context.Context, this *corev1alpha1.LogicalClu
 	logger.V(2).Info("initializing APIBindings for workspace")
 
 	// Start with the WorkspaceType specified by the ClusterWorkspace
-	leafCWT, err := b.getWorkspaceTypes(cwtCluster, cwtName)
+	leafCWT, err := b.getWorkspaceType(cwtCluster, cwtName)
 	if err != nil {
 		logger.Error(err, "error getting WorkspaceType")
 

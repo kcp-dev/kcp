@@ -95,7 +95,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			requestedWorkspace: "rootwithoutparent",
 			requestingUser:     newUser("user-access"),
 			wantDecision:       authorizer.DecisionAllow,
-			wantReason:         "delegating due to user access to thisworkspace: allowed",
+			wantReason:         "delegating due to user logical cluster access: allowed",
 		},
 		{
 			testName: "non-permitted user is not allowed",
@@ -111,7 +111,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			requestedWorkspace: "root:ready",
 			requestingUser:     newUser("user-access", "system:authenticated"),
 			wantDecision:       authorizer.DecisionAllow,
-			wantReason:         "delegating due to user access to thisworkspace: allowed",
+			wantReason:         "delegating due to user logical cluster access: allowed",
 		},
 		{
 			testName: "service account from other cluster is denied",
@@ -127,7 +127,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			requestedWorkspace: "root:ready",
 			requestingUser:     newServiceAccountWithCluster("sa", "root:ready"),
 			wantDecision:       authorizer.DecisionAllow,
-			wantReason:         "delegating due to service account access to thisworkspace: allowed",
+			wantReason:         "delegating due to local service account access: allowed",
 		},
 		{
 			testName: "user is granted access on root",
@@ -135,7 +135,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			requestedWorkspace: "root",
 			requestingUser:     newUser("somebody", "system:authenticated"),
 			wantDecision:       authorizer.DecisionAllow,
-			wantReason:         "delegating due to user access to thisworkspace: allowed",
+			wantReason:         "delegating due to user logical cluster access: allowed",
 		},
 		{
 			testName: "service account from other cluster is denied on root",
@@ -151,7 +151,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			requestedWorkspace: "root",
 			requestingUser:     newServiceAccountWithCluster("somebody", "root", "system:authenticated"),
 			wantDecision:       authorizer.DecisionAllow,
-			wantReason:         "delegating due to service account access to thisworkspace: allowed",
+			wantReason:         "delegating due to local service account access: allowed",
 		},
 		{
 			testName: "service account of same workspace is not allowed access to scheduling workspace",
@@ -167,7 +167,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			requestedWorkspace: "root:initializing",
 			requestingUser:     newServiceAccountWithCluster("somebody", "root:initializing", "system:authenticated"),
 			wantDecision:       authorizer.DecisionAllow,
-			wantReason:         "delegating due to service account access to thisworkspace: allowed",
+			wantReason:         "delegating due to local service account access: allowed",
 		},
 		{
 			testName: "system:kcp:logical-cluster-admin can always pass",
@@ -183,7 +183,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			requestedWorkspace: "root:initializing",
 			requestingUser:     newUser("user-access", "system:authenticated"),
 			wantDecision:       authorizer.DecisionAllow,
-			wantReason:         "delegating due to user access to thisworkspace: allowed",
+			wantReason:         "delegating due to user logical cluster access: allowed",
 		},
 		{
 			testName: "any user passed for deep SAR",

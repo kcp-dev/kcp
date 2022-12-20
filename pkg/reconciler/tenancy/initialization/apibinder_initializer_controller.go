@@ -68,7 +68,7 @@ func NewAPIBinder(
 		getLogicalCluster: func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
 			return logicalClusterInformer.Lister().Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 		},
-		getWorkspaceTypes: func(path logicalcluster.Path, name string) (*tenancyv1alpha1.WorkspaceType, error) {
+		getWorkspaceType: func(path logicalcluster.Path, name string) (*tenancyv1alpha1.WorkspaceType, error) {
 			objs, err := workspaceTypeInformer.Informer().GetIndexer().ByIndex(indexers.ByLogicalClusterPathAndName, path.Join(name).String())
 			if err != nil {
 				return nil, err
@@ -112,7 +112,7 @@ func NewAPIBinder(
 		commit: committer.NewCommitter[*corev1alpha1.LogicalCluster, corev1alpha1client.LogicalClusterInterface, *corev1alpha1.LogicalClusterSpec, *corev1alpha1.LogicalClusterStatus](kcpClusterClient.CoreV1alpha1().LogicalClusters()),
 	}
 
-	c.transitiveTypeResolver = admission.NewTransitiveTypeResolver(c.getWorkspaceTypes)
+	c.transitiveTypeResolver = admission.NewTransitiveTypeResolver(c.getWorkspaceType)
 
 	logger := logging.WithReconciler(klog.Background(), ControllerName)
 
@@ -159,7 +159,7 @@ type APIBinder struct {
 	queue workqueue.RateLimitingInterface
 
 	getLogicalCluster   func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error)
-	getWorkspaceTypes   func(clusterName logicalcluster.Path, name string) (*tenancyv1alpha1.WorkspaceType, error)
+	getWorkspaceType    func(clusterName logicalcluster.Path, name string) (*tenancyv1alpha1.WorkspaceType, error)
 	listLogicalClusters func() ([]*corev1alpha1.LogicalCluster, error)
 
 	listAPIBindings  func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)

@@ -60,6 +60,11 @@ func TestWorkspaceCELValidation(t *testing.T) {
 				"status.cluster: Invalid value: \"string\": cluster is immutable",
 			},
 		},
+		{
+			name:    "unchanged cluster",
+			old:     `{"status":{"cluster": "def"}}`,
+			current: `{"status":{"cluster": "def"}}`,
+		},
 	}
 
 	validator, err := apitest.VersionValidatorFromFile(t, "../../../../config/crds/tenancy.kcp.dev_workspaces.yaml", "v1beta1")

@@ -61,7 +61,7 @@ func Bootstrap(ctx context.Context, kcpClient kcpclient.Interface, rootDiscovery
 			this.Status.Phase = corev1alpha1.LogicalClusterPhaseInitializing
 			_, err = kcpClient.CoreV1alpha1().LogicalClusters().UpdateStatus(ctx, this, metav1.UpdateOptions{})
 			if err != nil {
-				logger.Error(err, "failed to update this workspace status in root")
+				logger.Error(err, "failed to update LogicalCluster root:cluster")
 				return false, nil
 			}
 		}

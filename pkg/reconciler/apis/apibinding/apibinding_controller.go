@@ -284,7 +284,7 @@ func (c *controller) enqueueAPIExport(obj interface{}, logger logr.Logger, logSu
 		return
 	}
 
-	// synctarget keys by full path
+	// binding keys by full path
 	keys := sets.NewString()
 	if path := logicalcluster.NewPath(export.Annotations[core.LogicalClusterPathAnnotationKey]); !path.Empty() {
 		pathKeys, err := c.apiBindingsIndexer.IndexKeys(indexers.APIBindingsByAPIExport, path.Join(export.Name).String())
