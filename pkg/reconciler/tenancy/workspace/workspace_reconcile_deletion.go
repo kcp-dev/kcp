@@ -47,7 +47,22 @@ func (r *deletionReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 		return reconcileStatusContinue, nil
 	}
 
-	if _, err := r.getLogicalCluster(ctx, logicalcluster.NewPath(workspace.Status.Cluster)); err != nil && !apierrors.IsNotFound(err) {
+	// If the logical cluster hasn't been created yet, we have to look at the annotation to
+	// get the cluster name, instead of looking at status.
+	clusterName := logicalcluster.Name(workspace.Status.Cluster)
+	if workspace.Status.Phase == corev1alpha1.LogicalClusterPhaseScheduling {
+		a, ok := workspace.Annotations[workspaceClusterAnnotationKey]
+		if !ok {
+			finalizers := sets.NewString(workspace.Finalizers...)
+			finalizers.Delete(corev1alpha1.LogicalClusterFinalizer)
+			workspace.Finalizers = finalizers.List()
+			return reconcileStatusContinue, nil
+		}
+
+		clusterName = logicalcluster.Name(a)
+	}
+
+	if _, err := r.getLogicalCluster(ctx, clusterName.Path()); err != nil && !apierrors.IsNotFound(err) {
 		return reconcileStatusStopAndRequeue, err
 	} else if apierrors.IsNotFound(err) {
 		finalizers := sets.NewString(workspace.Finalizers...)
@@ -60,7 +75,7 @@ func (r *deletionReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 	}
 
 	logger.Info("Deleting LogicalCluster")
-	if err := r.deleteLogicalCluster(ctx, logicalcluster.NewPath(workspace.Status.Cluster)); err != nil {
+	if err := r.deleteLogicalCluster(ctx, clusterName.Path()); err != nil {
 		return reconcileStatusStopAndRequeue, err
 	}
 

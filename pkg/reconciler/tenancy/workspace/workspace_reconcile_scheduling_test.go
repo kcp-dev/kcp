@@ -53,19 +53,17 @@ import (
 
 func TestReconcileScheduling(t *testing.T) {
 	scenarios := []struct {
-		name                      string
-		initialShards             []*corev1alpha1.Shard
-		initialWorkspaceTypes     []*tenancyv1alpha1.WorkspaceType
-		initialKubeClientObjects  []runtime.Object
-		initialKcpClientObjects   []runtime.Object
-		targetWorkspace           *tenancyv1beta1.Workspace
-		targetLogicalCluster      *corev1alpha1.LogicalCluster
-		validateWorkspace         func(t *testing.T, initialWS, ws *tenancyv1beta1.Workspace)
-		validateKubeClientActions func(t *testing.T, a []kcpclientgotesting.Action)
-		validateKcpClientActions  func(t *testing.T, a []kcpclientgotesting.Action)
-		expectedKubeClientActions []string
-		expectedKcpClientActions  []string
-		expectedStatus            reconcileStatus
+		name                     string
+		initialShards            []*corev1alpha1.Shard
+		initialWorkspaceTypes    []*tenancyv1alpha1.WorkspaceType
+		initialKubeClientObjects []runtime.Object
+		initialKcpClientObjects  []runtime.Object
+		targetWorkspace          *tenancyv1beta1.Workspace
+		targetLogicalCluster     *corev1alpha1.LogicalCluster
+		validateWorkspace        func(t *testing.T, initialWS, ws *tenancyv1beta1.Workspace)
+		validateKcpClientActions func(t *testing.T, a []kcpclientgotesting.Action)
+		expectedKcpClientActions []string
+		expectedStatus           reconcileStatus
 	}{
 		{
 			name:                 "two-phase commit, part one: a new workspace gets a shard assigned",
@@ -101,15 +99,11 @@ func TestReconcileScheduling(t *testing.T) {
 					t.Fatal(fmt.Errorf("unexpected Workspace:\n%s", cmp.Diff(wsAfterReconciliation, initialWS)))
 				}
 			},
-			validateKubeClientActions: func(t *testing.T, actions []kcpclientgotesting.Action) {
-				validateWellKnownCRBCreationAction(t, actions)
-			},
 			validateKcpClientActions: func(t *testing.T, actions []kcpclientgotesting.Action) {
 				validateWellKnownLogicalClusterActions(t, actions)
 			},
-			expectedStatus:            reconcileStatusContinue,
-			expectedKubeClientActions: []string{"create:clusterrolebindings"},
-			expectedKcpClientActions:  []string{"create:logicalclusters", "get:logicalclusters", "update:logicalclusters"},
+			expectedStatus:           reconcileStatusContinue,
+			expectedKcpClientActions: []string{"create:logicalclusters", "get:logicalclusters", "update:logicalclusters"},
 		},
 		{
 			name:                  "two-phase commit, part two failure: LogicalCluster already exists with the right owner",
@@ -135,15 +129,11 @@ func TestReconcileScheduling(t *testing.T) {
 					t.Fatal(fmt.Errorf("unexpected Workspace:\n%s", cmp.Diff(wsAfterReconciliation, initialWS)))
 				}
 			},
-			validateKubeClientActions: func(t *testing.T, actions []kcpclientgotesting.Action) {
-				validateWellKnownCRBCreationAction(t, actions)
-			},
 			validateKcpClientActions: func(t *testing.T, actions []kcpclientgotesting.Action) {
 				validateWellKnownLogicalClusterActions(t, actions)
 			},
-			expectedStatus:            reconcileStatusContinue,
-			expectedKubeClientActions: []string{"create:clusterrolebindings"},
-			expectedKcpClientActions:  []string{"create:logicalclusters", "get:logicalclusters", "get:logicalclusters", "update:logicalclusters"},
+			expectedStatus:           reconcileStatusContinue,
+			expectedKcpClientActions: []string{"create:logicalclusters", "get:logicalclusters", "get:logicalclusters", "update:logicalclusters"},
 		},
 		{
 			name:                  "two-phase commit, part two failure: LogicalCluster already exists with the wrong owner",
@@ -197,15 +187,11 @@ func TestReconcileScheduling(t *testing.T) {
 					t.Fatal(fmt.Errorf("unexpected Workspace:\n%s", cmp.Diff(wsAfterReconciliation, initialWS)))
 				}
 			},
-			validateKubeClientActions: func(t *testing.T, actions []kcpclientgotesting.Action) {
-				validateWellKnownCRBCreationAction(t, actions)
-			},
 			validateKcpClientActions: func(t *testing.T, actions []kcpclientgotesting.Action) {
 				validateWellKnownLogicalClusterActions(t, actions)
 			},
-			expectedStatus:            reconcileStatusContinue,
-			expectedKubeClientActions: []string{"create:clusterrolebindings"},
-			expectedKcpClientActions:  []string{"create:logicalclusters", "get:logicalclusters", "get:logicalclusters", "update:logicalclusters"},
+			expectedStatus:           reconcileStatusContinue,
+			expectedKcpClientActions: []string{"create:logicalclusters", "get:logicalclusters", "get:logicalclusters", "update:logicalclusters"},
 		},
 		{
 			name:                 "no shards available, the ws is unscheduled",
@@ -316,7 +302,7 @@ func TestReconcileScheduling(t *testing.T) {
 				},
 				getWorkspaceType: getType,
 				getLogicalCluster: func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
-					if clusterName != logicalcluster.Name("root") {
+					if clusterName != core.RootCluster {
 						return nil, fmt.Errorf("unexpected cluster name = %v, expected = %v", clusterName, "root")
 					}
 					if scenario.targetLogicalCluster == nil {
@@ -334,17 +320,11 @@ func TestReconcileScheduling(t *testing.T) {
 			if status != scenario.expectedStatus {
 				t.Fatalf("unexpected reconciliation status:%v, expected:%v", status, scenario.expectedStatus)
 			}
-			if err := validateActionsVerbs(fakeKubeClient.Actions(), scenario.expectedKubeClientActions); err != nil {
-				t.Fatalf("incorrect action(s) for kube client: %v", err)
-			}
 			if err := validateActionsVerbs(fakeKcpClient.Actions(), scenario.expectedKcpClientActions); err != nil {
 				t.Fatalf("incorrect action(s) for kcp client: %v", err)
 			}
 			if scenario.validateWorkspace != nil {
 				scenario.validateWorkspace(t, targetWorkspaceCopy, scenario.targetWorkspace)
-			}
-			if scenario.validateKubeClientActions != nil {
-				scenario.validateKubeClientActions(t, fakeKubeClient.Actions())
 			}
 			if scenario.validateKcpClientActions != nil {
 				scenario.validateKcpClientActions(t, fakeKcpClient.Actions())
@@ -423,25 +403,6 @@ func wellKnownCRBForThisWS() *rbacv1.ClusterRoleBinding {
 			Kind:     "ClusterRole",
 			Name:     "cluster-admin",
 		},
-	}
-}
-
-func validateWellKnownCRBCreationAction(t *testing.T, actions []kcpclientgotesting.Action) {
-	wasCRBCreated := false
-	for _, action := range actions {
-		if action.Matches("create", "clusterrolebindings") {
-			createAction := action.(kcpclientgotesting.CreateAction)
-			actualObj := createAction.GetObject().(*rbacv1.ClusterRoleBinding)
-			expectedObj := wellKnownCRBForThisWS()
-			if !equality.Semantic.DeepEqual(actualObj, expectedObj) {
-				t.Errorf(cmp.Diff(actualObj, expectedObj))
-			}
-			wasCRBCreated = true
-			break
-		}
-	}
-	if !wasCRBCreated {
-		t.Errorf("the ClusterRoleBinding wasn't created and validated")
 	}
 }
 

@@ -19,19 +19,16 @@ package workspace
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 	"math/rand"
 	"net/url"
 	"path"
 	"strings"
 
-	kubernetes "github.com/kcp-dev/client-go/kubernetes"
+	"github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/martinlindhe/base36"
 
-	authenticationv1 "k8s.io/api/authentication/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -81,8 +78,10 @@ type schedulingReconciler struct {
 func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancyv1beta1.Workspace) (reconcileStatus, error) {
 	logger := klog.FromContext(ctx).WithValues("reconciler", "scheduling")
 
-	switch workspace.Status.Phase {
-	case corev1alpha1.LogicalClusterPhaseScheduling:
+	switch {
+	case !workspace.DeletionTimestamp.IsZero():
+		return reconcileStatusContinue, nil
+	case workspace.Status.Phase == corev1alpha1.LogicalClusterPhaseScheduling:
 		shardNameHash, hasShard := workspace.Annotations[workspaceShardAnnotationKey]
 		clusterNameString, hasCluster := workspace.Annotations[workspaceClusterAnnotationKey]
 		clusterName := logicalcluster.Name(clusterNameString)
@@ -146,9 +145,6 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 			// we have checked in createLogicalCluster that this is a logicalcluster from another owner. Let's choose another cluster name.
 			delete(workspace.Annotations, workspaceClusterAnnotationKey)
 			return reconcileStatusStopAndRequeue, nil
-		}
-		if err := r.createClusterRoleBindingForLogicalCluster(ctx, shard, clusterName.Path(), workspace); err != nil && !apierrors.IsAlreadyExists(err) {
-			return reconcileStatusStopAndRequeue, err
 		}
 		if err := r.updateLogicalClusterPhase(ctx, shard, clusterName.Path(), corev1alpha1.LogicalClusterPhaseInitializing); err != nil {
 			return reconcileStatusStopAndRequeue, err
@@ -347,42 +343,6 @@ func (r *schedulingReconciler) updateLogicalClusterPhase(ctx context.Context, sh
 	}
 	this.Status.Phase = phase
 	_, err = logicalClusterAdminClient.Cluster(cluster).CoreV1alpha1().LogicalClusters().UpdateStatus(ctx, this, metav1.UpdateOptions{})
-	return err
-}
-
-func (r *schedulingReconciler) createClusterRoleBindingForLogicalCluster(ctx context.Context, shard *corev1alpha1.Shard, cluster logicalcluster.Path, workspace *tenancyv1beta1.Workspace) error {
-	ownerAnnotation, found := workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey]
-	if !found {
-		return fmt.Errorf("unable to find required %q owner annotation on %q workspace", tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey, workspace.Name)
-	}
-
-	var userInfo authenticationv1.UserInfo
-	err := json.Unmarshal([]byte(ownerAnnotation), &userInfo)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal %q owner annotation with value %s on %q workspace", tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey, ownerAnnotation, workspace.Name)
-	}
-	newBinding := &rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "workspace-admin",
-		},
-		Subjects: []rbacv1.Subject{
-			{
-				Kind:     "User",
-				APIGroup: "rbac.authorization.k8s.io",
-				Name:     userInfo.Username,
-			},
-		},
-		RoleRef: rbacv1.RoleRef{
-			APIGroup: rbacv1.GroupName,
-			Kind:     "ClusterRole",
-			Name:     "cluster-admin",
-		},
-	}
-	logicalClusterAdminClient, err := r.kubeLogicalClusterAdminClientFor(shard)
-	if err != nil {
-		return err
-	}
-	_, err = logicalClusterAdminClient.Cluster(cluster).RbacV1().ClusterRoleBindings().Create(ctx, newBinding, metav1.CreateOptions{})
 	return err
 }
 
