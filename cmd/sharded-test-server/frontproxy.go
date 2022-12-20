@@ -49,6 +49,7 @@ func startFrontProxy(
 	hostIP string,
 	logDirPath, workDirPath string,
 	vwPort string,
+	quiet bool,
 ) error {
 	blue := color.New(color.BgGreen, color.FgBlack).SprintFunc()
 	inverse := color.New(color.BgHiWhite, color.FgGreen).SprintFunc()
@@ -155,6 +156,10 @@ func startFrontProxy(
 	cmd.Stdout = writer
 	cmd.Stdin = os.Stdin
 	cmd.Stderr = writer
+
+	if quiet {
+		writer.StopOut()
+	}
 
 	if err := cmd.Start(); err != nil {
 		return err
