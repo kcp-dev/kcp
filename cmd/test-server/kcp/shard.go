@@ -123,10 +123,6 @@ func (s *Shard) Start(ctx context.Context) error {
 	cmd.Stdin = os.Stdin
 	cmd.Stderr = s.writer
 
-	if !logger.V(10).Enabled() { // someone has to *really* want verbose logs to get this spam
-		s.writer.StopOut()
-	}
-
 	if err := cmd.Start(); err != nil {
 		return err
 	}
