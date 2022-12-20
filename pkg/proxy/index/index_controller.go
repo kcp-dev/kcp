@@ -264,6 +264,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		c.shardClusterWorkspaceStopCh[shard.Name] = stopCh
 
 		go cwInformer.Run(stopCh)
+		go twInformer.Run(stopCh)
 
 		// no need to wait. We only care about events and they arrive when they arrive.
 	}
