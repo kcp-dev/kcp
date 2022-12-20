@@ -54,7 +54,7 @@ func Test_isPartialMetadataHeader(t *testing.T) {
 
 func TestWorkspaceNamePattern(t *testing.T) {
 	_, fileName, _, _ := runtime.Caller(0)
-	bs, err := os.ReadFile(filepath.Join(filepath.Dir(fileName), "..", "..", "../config/crds/tenancy.kcp.dev_workspaces.yaml"))
+	bs, err := os.ReadFile(filepath.Join(filepath.Dir(fileName), "..", "..", "../config/crds/tenancy.kcp.io_workspaces.yaml"))
 	require.NoError(t, err)
 	var crd apiextensionsv1.CustomResourceDefinition
 	err = yaml.Unmarshal(bs, &crd)

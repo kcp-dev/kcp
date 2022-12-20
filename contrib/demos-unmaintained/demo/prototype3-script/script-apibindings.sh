@@ -96,7 +96,7 @@ pe "kubectl get secrets"
 
 c "Now let's deploy an app. First we need a target workload cluster."
 cat <<EOF > "${KCP_DATA_DIR}/cluster-us-east1.yaml"
-apiVersion: workload.kcp.dev/v1alpha1
+apiVersion: workload.kcp.io/v1alpha1
 kind: SyncTarget
 metadata:
   name: kind-us-east1
@@ -125,7 +125,7 @@ c "Take note of Replicas:"
 pe "kubectl describe deployment/kuard"
 
 c "Let's wait for the deployment to be running in kind"
-pe "while ! kubectl --kubeconfig ${CLUSTERS_DIR}/us-east1.kubeconfig wait --for=jsonpath='{.status.availableReplicas}'=1 -A -l 'workloads.kcp.dev/cluster=kind-us-east1' --field-selector 'metadata.name=kuard' deployments; do
+pe "while ! kubectl --kubeconfig ${CLUSTERS_DIR}/us-east1.kubeconfig wait --for=jsonpath='{.status.availableReplicas}'=1 -A -l 'workloads.kcp.io/cluster=kind-us-east1' --field-selector 'metadata.name=kuard' deployments; do
   sleep 1
 done"
 

@@ -38,8 +38,8 @@ import (
 	schedulingv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/scheduling/v1alpha1"
 )
 
-var locationsResource = schema.GroupVersionResource{Group: "scheduling.kcp.dev", Version: "v1alpha1", Resource: "locations"}
-var locationsKind = schema.GroupVersionKind{Group: "scheduling.kcp.dev", Version: "v1alpha1", Kind: "Location"}
+var locationsResource = schema.GroupVersionResource{Group: "scheduling.kcp.io", Version: "v1alpha1", Resource: "locations"}
+var locationsKind = schema.GroupVersionKind{Group: "scheduling.kcp.io", Version: "v1alpha1", Kind: "Location"}
 
 type locationsClusterClient struct {
 	*kcptesting.Fake

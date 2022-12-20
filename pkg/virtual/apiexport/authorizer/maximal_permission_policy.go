@@ -89,7 +89,7 @@ func (a *maximalPermissionAuthorizer) Authorize(ctx context.Context, attr author
 			claimingAPIExport.Name, logicalcluster.From(claimingAPIExport)), nil
 	}
 	if claimedIdentityHash == "" {
-		// it's a native k8s resource (secret, configmap, ...), or a system kcp CRD resource (apis.kcp.dev)
+		// it's a native k8s resource (secret, configmap, ...), or a system kcp CRD resource (apis.kcp.io)
 		// For neither case a maximum permission policy can exist.
 		return authorizer.DecisionAllow, fmt.Sprintf("unclaimable resource, identity hash not set in claiming API export: %q, workspace :%q",
 			claimingAPIExport.Name, logicalcluster.From(claimingAPIExport)), nil

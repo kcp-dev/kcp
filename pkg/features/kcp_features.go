@@ -40,7 +40,7 @@ const (
 	// owner: @sttts
 	// alpha: v0.4
 	//
-	// Enable the scheduling.kcp.dev/v1alpha1 API group, and related controllers.
+	// Enable the scheduling.kcp.io/v1alpha1 API group, and related controllers.
 	LocationAPI featuregate.Feature = "KCPLocationAPI"
 
 	// owner: @aojea

@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	PluginName = "tenancy.kcp.dev/LogicalClusterDeletionFinalizer"
+	PluginName = "tenancy.kcp.io/LogicalClusterDeletionFinalizer"
 )
 
 func Register(plugins *admission.Plugins) {

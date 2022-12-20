@@ -36,9 +36,9 @@ type FakeLogicalClusters struct {
 	Fake *FakeCoreV1alpha1
 }
 
-var logicalclustersResource = schema.GroupVersionResource{Group: "core.kcp.dev", Version: "v1alpha1", Resource: "logicalclusters"}
+var logicalclustersResource = schema.GroupVersionResource{Group: "core.kcp.io", Version: "v1alpha1", Resource: "logicalclusters"}
 
-var logicalclustersKind = schema.GroupVersionKind{Group: "core.kcp.dev", Version: "v1alpha1", Kind: "LogicalCluster"}
+var logicalclustersKind = schema.GroupVersionKind{Group: "core.kcp.io", Version: "v1alpha1", Kind: "LogicalCluster"}
 
 // Get takes name of the logicalCluster, and returns the corresponding logicalCluster object, and an error if there is any.
 func (c *FakeLogicalClusters) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.LogicalCluster, err error) {

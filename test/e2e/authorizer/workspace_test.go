@@ -208,7 +208,7 @@ func permitAccessToWorkspace(t *testing.T, ctx context.Context, kubeClusterClien
 				},
 				{
 					Verbs:     []string{"get", "list", "watch"},
-					APIGroups: []string{"tenancy.kcp.dev"},
+					APIGroups: []string{"tenancy.kcp.io"},
 					Resources: []string{"workspaces"},
 				},
 			},

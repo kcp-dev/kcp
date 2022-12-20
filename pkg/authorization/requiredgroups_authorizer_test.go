@@ -84,7 +84,7 @@ func TestRequiredGroupsAuthorizer(t *testing.T) {
 			logicalCluster: &v1alpha1.LogicalCluster{
 				ObjectMeta: v1.ObjectMeta{
 					Annotations: map[string]string{
-						"authorization.kcp.dev/required-groups": "special-group",
+						"authorization.kcp.io/required-groups": "special-group",
 					},
 				},
 			},
@@ -97,7 +97,7 @@ func TestRequiredGroupsAuthorizer(t *testing.T) {
 			logicalCluster: &v1alpha1.LogicalCluster{
 				ObjectMeta: v1.ObjectMeta{
 					Annotations: map[string]string{
-						"authorization.kcp.dev/required-groups": "special-group-1;special-group-2",
+						"authorization.kcp.io/required-groups": "special-group-1;special-group-2",
 					},
 				},
 			},
@@ -110,7 +110,7 @@ func TestRequiredGroupsAuthorizer(t *testing.T) {
 			logicalCluster: &v1alpha1.LogicalCluster{
 				ObjectMeta: v1.ObjectMeta{
 					Annotations: map[string]string{
-						"authorization.kcp.dev/required-groups": "special-group-1;special-group-2",
+						"authorization.kcp.io/required-groups": "special-group-1;special-group-2",
 					},
 				},
 			},
@@ -123,7 +123,7 @@ func TestRequiredGroupsAuthorizer(t *testing.T) {
 			logicalCluster: &v1alpha1.LogicalCluster{
 				ObjectMeta: v1.ObjectMeta{
 					Annotations: map[string]string{
-						"authorization.kcp.dev/required-groups": "special-group-1,special-group-2",
+						"authorization.kcp.io/required-groups": "special-group-1,special-group-2",
 					},
 				},
 			},
@@ -136,7 +136,7 @@ func TestRequiredGroupsAuthorizer(t *testing.T) {
 			logicalCluster: &v1alpha1.LogicalCluster{
 				ObjectMeta: v1.ObjectMeta{
 					Annotations: map[string]string{
-						"authorization.kcp.dev/required-groups": "special-group-1,special-group-2",
+						"authorization.kcp.io/required-groups": "special-group-1,special-group-2",
 					},
 				},
 			},
@@ -149,7 +149,7 @@ func TestRequiredGroupsAuthorizer(t *testing.T) {
 			logicalCluster: &v1alpha1.LogicalCluster{
 				ObjectMeta: v1.ObjectMeta{
 					Annotations: map[string]string{
-						"authorization.kcp.dev/required-groups": "special-group-1,special-group-2;special-group-3",
+						"authorization.kcp.io/required-groups": "special-group-1,special-group-2;special-group-3",
 					},
 				},
 			},
@@ -162,7 +162,7 @@ func TestRequiredGroupsAuthorizer(t *testing.T) {
 			logicalCluster: &v1alpha1.LogicalCluster{
 				ObjectMeta: v1.ObjectMeta{
 					Annotations: map[string]string{
-						"authorization.kcp.dev/required-groups": "special-group-1,special-group-2;special-group-3",
+						"authorization.kcp.io/required-groups": "special-group-1,special-group-2;special-group-3",
 					},
 				},
 			},
@@ -175,7 +175,7 @@ func TestRequiredGroupsAuthorizer(t *testing.T) {
 			logicalCluster: &v1alpha1.LogicalCluster{
 				ObjectMeta: v1.ObjectMeta{
 					Annotations: map[string]string{
-						"authorization.kcp.dev/required-groups": "special-group-1,special-group-2;special-group-3",
+						"authorization.kcp.io/required-groups": "special-group-1,special-group-2;special-group-3",
 					},
 				},
 			},
@@ -188,7 +188,7 @@ func TestRequiredGroupsAuthorizer(t *testing.T) {
 			logicalCluster: &v1alpha1.LogicalCluster{
 				ObjectMeta: v1.ObjectMeta{
 					Annotations: map[string]string{
-						"authorization.kcp.dev/required-groups": "special-group-1,special-group-2;special-group-3",
+						"authorization.kcp.io/required-groups": "special-group-1,special-group-2;special-group-3",
 					},
 				},
 			},

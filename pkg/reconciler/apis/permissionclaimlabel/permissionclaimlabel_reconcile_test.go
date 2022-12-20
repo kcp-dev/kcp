@@ -53,12 +53,12 @@ func TestClaimSetKeys(t *testing.T) {
 		"3rd party gr + hash": {
 			claim: apisv1alpha1.PermissionClaim{
 				GroupResource: apisv1alpha1.GroupResource{
-					Group:    "apis.kcp.dev",
+					Group:    "apis.kcp.io",
 					Resource: "apibindings",
 				},
 				IdentityHash: "hash",
 			},
-			key: "apibindings/apis.kcp.dev/hash",
+			key: "apibindings/apis.kcp.io/hash",
 		},
 	}
 

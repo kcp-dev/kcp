@@ -38,8 +38,8 @@ import (
 	corev1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/core/v1alpha1"
 )
 
-var logicalClustersResource = schema.GroupVersionResource{Group: "core.kcp.dev", Version: "v1alpha1", Resource: "logicalclusters"}
-var logicalClustersKind = schema.GroupVersionKind{Group: "core.kcp.dev", Version: "v1alpha1", Kind: "LogicalCluster"}
+var logicalClustersResource = schema.GroupVersionResource{Group: "core.kcp.io", Version: "v1alpha1", Resource: "logicalclusters"}
+var logicalClustersKind = schema.GroupVersionKind{Group: "core.kcp.io", Version: "v1alpha1", Kind: "LogicalCluster"}
 
 type logicalClustersClusterClient struct {
 	*kcptesting.Fake

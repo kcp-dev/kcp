@@ -3,7 +3,7 @@ kind: ClusterRole
 metadata:
   name: system:kcp:universal-workspacetype-use
 rules:
-- apiGroups: ["tenancy.kcp.dev"]
+- apiGroups: ["tenancy.kcp.io"]
   resources:
   - "workspacetypes"
   resourceNames:

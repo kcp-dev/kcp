@@ -5,9 +5,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
-  name: partitionsets.topology.kcp.dev
+  name: partitionsets.topology.kcp.io
 spec:
-  group: topology.kcp.dev
+  group: topology.kcp.io
   names:
     categories:
     - kcp

@@ -1,4 +1,4 @@
-apiVersion: tenancy.kcp.dev/v1alpha1
+apiVersion: tenancy.kcp.io/v1alpha1
 kind: WorkspaceShard
 metadata:
   name: boston

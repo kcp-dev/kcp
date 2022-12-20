@@ -51,7 +51,7 @@ import (
 )
 
 const (
-	AdvancedSchedulingFeatureAnnotation = "featuregates.experimental.workload.kcp.dev/advancedscheduling"
+	AdvancedSchedulingFeatureAnnotation = "featuregates.experimental.workload.kcp.io/advancedscheduling"
 
 	resyncPeriod = 10 * time.Hour
 

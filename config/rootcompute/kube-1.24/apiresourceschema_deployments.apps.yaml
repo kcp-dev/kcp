@@ -1,9 +1,9 @@
-apiVersion: apis.kcp.dev/v1alpha1
+apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   annotations:
-    bootstrap.kcp.dev/create-only: "true"
-    bootstrap.kcp.dev/battery: root-compute-workspace
+    bootstrap.kcp.io/create-only: "true"
+    bootstrap.kcp.io/battery: root-compute-workspace
   name: v124.deployments.apps
 spec:
   group: apps

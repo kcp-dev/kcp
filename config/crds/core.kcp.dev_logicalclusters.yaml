@@ -4,9 +4,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
-  name: logicalclusters.core.kcp.dev
+  name: logicalclusters.core.kcp.io
 spec:
-  group: core.kcp.dev
+  group: core.kcp.io
   names:
     categories:
     - kcp
@@ -75,7 +75,7 @@ spec:
               owner:
                 description: "owner is a reference to a resource controlling the life-cycle
                   of this logical cluster. On deletion of the LogicalCluster, the
-                  finalizer core.kcp.dev/logicalcluster is removed from the owner.
+                  finalizer core.kcp.io/logicalcluster is removed from the owner.
                   \n When this object is deleted, but the owner is not deleted, the
                   owner is deleted too."
                 properties:

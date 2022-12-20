@@ -53,7 +53,7 @@ func instances(expected uint32) func(t *testing.T, l *schedulingv1alpha1.Locatio
 func labelString(expected string) func(t *testing.T, l *schedulingv1alpha1.Location) {
 	return func(t *testing.T, got *schedulingv1alpha1.Location) {
 		t.Helper()
-		require.Equal(t, expected, got.Annotations["scheduling.kcp.dev/labels"])
+		require.Equal(t, expected, got.Annotations["scheduling.kcp.io/labels"])
 	}
 }
 
@@ -76,12 +76,12 @@ func TestLocationStatusReconciler(t *testing.T) {
 			},
 			Annotations: map[string]string{
 				logicalcluster.AnnotationKey: "root:org:negotiation-workspace",
-				"scheduling.kcp.dev/labels":  "continent=north-america country=usa",
+				"scheduling.kcp.io/labels":   "continent=north-america country=usa",
 			},
 		},
 		Spec: schedulingv1alpha1.LocationSpec{
 			Resource: schedulingv1alpha1.GroupVersionResource{
-				Group:    "workload.kcp.dev",
+				Group:    "workload.kcp.io",
 				Version:  "v1alpha1",
 				Resource: "synctargets",
 			},

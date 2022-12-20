@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	PluginName = "apis.kcp.dev/CRDNoOverlappingGVR"
+	PluginName = "apis.kcp.io/CRDNoOverlappingGVR"
 )
 
 func Register(plugins *admission.Plugins) {

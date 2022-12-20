@@ -155,7 +155,7 @@ func TestAPIBindingDeletion(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       cowboyName,
 			Namespace:  "default",
-			Finalizers: []string{"tenancy.kcp.dev/test-finalizer"},
+			Finalizers: []string{"tenancy.kcp.io/test-finalizer"},
 		},
 	}
 	_, err = cowboyClient.Create(ctx, cowboy, metav1.CreateOptions{})

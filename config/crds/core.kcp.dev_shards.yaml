@@ -5,9 +5,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
-  name: shards.core.kcp.dev
+  name: shards.core.kcp.io
 spec:
-  group: core.kcp.dev
+  group: core.kcp.io
   names:
     categories:
     - kcp

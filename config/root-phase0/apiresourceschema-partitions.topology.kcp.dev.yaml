@@ -1,10 +1,10 @@
-apiVersion: apis.kcp.dev/v1alpha1
+apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v221115-9b370eb8.partitions.topology.kcp.dev
+  name: v221115-9b370eb8.partitions.topology.kcp.io
 spec:
-  group: topology.kcp.dev
+  group: topology.kcp.io
   names:
     categories:
     - kcp

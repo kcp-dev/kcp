@@ -116,7 +116,7 @@ func TestWorkspaceDeletion(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:       "test",
 						Namespace:  metav1.NamespaceDefault,
-						Finalizers: []string{"tenancy.kcp.dev/test-finalizer"},
+						Finalizers: []string{"tenancy.kcp.io/test-finalizer"},
 					},
 					Data: map[string]string{
 						"foo": "bar",

@@ -47,9 +47,9 @@ clear
 
 pe "kubectl apply -f ${KCP_DIR}/config"
 
-kubectl wait crd/workloadclusters.workload.kcp.dev --for condition=established &>/dev/null
-kubectl wait crd/negotiatedapiresources.apiresource.kcp.dev --for condition=established &>/dev/null
-kubectl wait crd/apiresourceimports.apiresource.kcp.dev --for condition=established &>/dev/null
+kubectl wait crd/workloadclusters.workload.kcp.io --for condition=established &>/dev/null
+kubectl wait crd/negotiatedapiresources.apiresource.kcp.io --for condition=established &>/dev/null
+kubectl wait crd/apiresourceimports.apiresource.kcp.io --for condition=established &>/dev/null
 
 pe "kubectl api-resources | grep deployments"
 

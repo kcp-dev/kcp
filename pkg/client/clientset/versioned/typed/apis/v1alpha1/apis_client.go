@@ -35,7 +35,7 @@ type ApisV1alpha1Interface interface {
 	APIResourceSchemasGetter
 }
 
-// ApisV1alpha1Client is used to interact with features provided by the apis.kcp.dev group.
+// ApisV1alpha1Client is used to interact with features provided by the apis.kcp.io group.
 type ApisV1alpha1Client struct {
 	restClient rest.Interface
 }

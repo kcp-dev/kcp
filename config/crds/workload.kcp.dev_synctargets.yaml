@@ -4,9 +4,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
-  name: synctargets.workload.kcp.dev
+  name: synctargets.workload.kcp.io
 spec:
-  group: workload.kcp.dev
+  group: workload.kcp.io
   names:
     categories:
     - kcp

@@ -4,9 +4,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
-  name: locations.scheduling.kcp.dev
+  name: locations.scheduling.kcp.io
 spec:
-  group: scheduling.kcp.dev
+  group: scheduling.kcp.io
   names:
     categories:
     - kcp
@@ -153,7 +153,7 @@ spec:
                   group:
                     description: group is the name of an API group.
                     enum:
-                    - workload.kcp.dev
+                    - workload.kcp.io
                     pattern: ^(|[a-z0-9]([-a-z0-9]*[a-z0-9](\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)?)$
                     type: string
                   resource:

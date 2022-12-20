@@ -33,7 +33,7 @@ type ApiresourceV1alpha1Interface interface {
 	NegotiatedAPIResourcesGetter
 }
 
-// ApiresourceV1alpha1Client is used to interact with features provided by the apiresource.kcp.dev group.
+// ApiresourceV1alpha1Client is used to interact with features provided by the apiresource.kcp.io group.
 type ApiresourceV1alpha1Client struct {
 	restClient rest.Interface
 }

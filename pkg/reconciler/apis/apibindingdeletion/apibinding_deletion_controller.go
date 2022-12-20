@@ -51,7 +51,7 @@ import (
 const (
 	ControllerName = "kcp-apibindingdeletion"
 
-	APIBindingFinalizer = "apis.kcp.dev/apibinding-finalizer"
+	APIBindingFinalizer = "apis.kcp.io/apibinding-finalizer"
 
 	DeletionRecheckEstimateSeconds = 5
 

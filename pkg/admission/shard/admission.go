@@ -31,7 +31,7 @@ import (
 // Default the external and virtual URLs with the base URL if they are not set.
 
 const (
-	PluginName = "tenancy.kcp.dev/Shard"
+	PluginName = "tenancy.kcp.io/Shard"
 )
 
 func Register(plugins *admission.Plugins) {

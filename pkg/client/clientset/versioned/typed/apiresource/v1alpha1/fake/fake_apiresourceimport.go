@@ -36,9 +36,9 @@ type FakeAPIResourceImports struct {
 	Fake *FakeApiresourceV1alpha1
 }
 
-var apiresourceimportsResource = schema.GroupVersionResource{Group: "apiresource.kcp.dev", Version: "v1alpha1", Resource: "apiresourceimports"}
+var apiresourceimportsResource = schema.GroupVersionResource{Group: "apiresource.kcp.io", Version: "v1alpha1", Resource: "apiresourceimports"}
 
-var apiresourceimportsKind = schema.GroupVersionKind{Group: "apiresource.kcp.dev", Version: "v1alpha1", Kind: "APIResourceImport"}
+var apiresourceimportsKind = schema.GroupVersionKind{Group: "apiresource.kcp.io", Version: "v1alpha1", Kind: "APIResourceImport"}
 
 // Get takes name of the aPIResourceImport, and returns the corresponding aPIResourceImport object, and an error if there is any.
 func (c *FakeAPIResourceImports) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.APIResourceImport, err error) {

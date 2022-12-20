@@ -335,7 +335,7 @@ func TestReconcileAPIExports(t *testing.T) {
 func newAPIExport(name string) *apisv1alpha1.APIExport {
 	return &apisv1alpha1.APIExport{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "apis.kcp.dev/v1alpha1",
+			APIVersion: "apis.kcp.io/v1alpha1",
 			Kind:       "APIExport",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -356,6 +356,6 @@ func newAPIExport(name string) *apisv1alpha1.APIExport {
 
 func newAPIExportWithShardAnnotation(name string) *apisv1alpha1.APIExport {
 	apiExport := newAPIExport(name)
-	apiExport.Annotations["kcp.dev/shard"] = "amber"
+	apiExport.Annotations["kcp.io/shard"] = "amber"
 	return apiExport
 }

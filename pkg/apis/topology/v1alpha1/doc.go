@@ -15,6 +15,6 @@ limitations under the License.
 */
 
 // +k8s:deepcopy-gen=package,register
-// +groupName=topology.kcp.dev
+// +groupName=topology.kcp.io
 // +k8s:openapi-gen=true
 package v1alpha1

@@ -53,9 +53,9 @@ import (
 const (
 	// workspaceShardAnnotationKey keeps track on which shard LogicalCluster must be scheduled. The value
 	// is a base36(sha224) hash of the Shard name.
-	workspaceShardAnnotationKey = "internal.tenancy.kcp.dev/shard"
+	workspaceShardAnnotationKey = "internal.tenancy.kcp.io/shard"
 	// workspaceClusterAnnotationKey keeps track of the logical cluster on the shard.
-	workspaceClusterAnnotationKey = "internal.tenancy.kcp.dev/cluster"
+	workspaceClusterAnnotationKey = "internal.tenancy.kcp.io/cluster"
 )
 
 type schedulingReconciler struct {

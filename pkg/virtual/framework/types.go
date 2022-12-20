@@ -40,7 +40,7 @@ type RootPathResolver interface {
 	// ResolveRootPath returns whether the request should be accepted and served by a given VirtualWorkspace. If accepted,
 	// the prefixToStrip is the prefix that is in-front of the kube-like API surface (including `/clusters/<something>`). E.g. for
 	//
-	//   /services/initializingworkspaces/<initializer>/clusters/<something>/apis/workload.kcp.dev/v1alpha1/synctargets
+	//   /services/initializingworkspaces/<initializer>/clusters/<something>/apis/workload.kcp.io/v1alpha1/synctargets
 	//
 	// the prefixToStrip is `/services/initializingworkspaces/<initializer/clusters/<something>`.
 	//

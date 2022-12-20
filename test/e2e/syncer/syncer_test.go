@@ -200,7 +200,7 @@ func TestSyncerLifecycle(t *testing.T) {
 			t.Errorf("saw an error waiting for upstream deployment %s/%s to get the syncer finalizer: %v", upstreamNamespace.Name, upstreamDeployment.Name, err)
 		}
 		for _, finalizer := range deployment.Finalizers {
-			if finalizer == "workload.kcp.dev/syncer-"+syncTargetKey {
+			if finalizer == "workload.kcp.io/syncer-"+syncTargetKey {
 				return true
 			}
 		}
@@ -318,7 +318,7 @@ func TestSyncerLifecycle(t *testing.T) {
 
 	// Add a virtual Finalizer to the deployment and update it.
 	t.Logf("Adding a virtual finalizer to the upstream deployment %s/%s in order to simulate an external controller", upstreamNamespace.Name, upstreamDeployment.Name)
-	deploymentPatch := []byte(`{"metadata":{"annotations":{"finalizers.workload.kcp.dev/` + syncTargetKey + `":"external-controller-finalizer"}}}`)
+	deploymentPatch := []byte(`{"metadata":{"annotations":{"finalizers.workload.kcp.io/` + syncTargetKey + `":"external-controller-finalizer"}}}`)
 	_, err = upstreamKubeClusterClient.Cluster(wsClusterName.Path()).AppsV1().Deployments(upstreamNamespace.Name).Patch(ctx, upstreamDeployment.Name, types.MergePatchType, deploymentPatch, metav1.PatchOptions{})
 	require.NoError(t, err)
 
@@ -333,8 +333,8 @@ func TestSyncerLifecycle(t *testing.T) {
 			return false, ""
 		}
 		require.NoError(t, err)
-		if val, ok := deployment.GetAnnotations()["deletion.internal.workload.kcp.dev/"+syncTargetKey]; !ok || val == "" {
-			return false, fmt.Sprintf("deployment did not have the %s annotation", "deletion.internal.workload.kcp.dev/"+syncTargetKey)
+		if val, ok := deployment.GetAnnotations()["deletion.internal.workload.kcp.io/"+syncTargetKey]; !ok || val == "" {
+			return false, fmt.Sprintf("deployment did not have the %s annotation", "deletion.internal.workload.kcp.io/"+syncTargetKey)
 		}
 		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "upstream Deployment %s/%s didn't get the per-location deletion annotation set or there was an error", upstreamNamespace.Name, upstreamDeployment.Name)
@@ -375,7 +375,7 @@ func TestSyncerLifecycle(t *testing.T) {
 
 	// deleting a virtual Finalizer on the deployment and updating it.
 	t.Logf("Removing the virtual finalizer on the upstream deployment %s/%s, the deployment deletion should go through after this", upstreamNamespace.Name, upstreamDeployment.Name)
-	deploymentPatch = []byte(`{"metadata":{"annotations":{"finalizers.workload.kcp.dev/` + syncTargetKey + `": null}}}`)
+	deploymentPatch = []byte(`{"metadata":{"annotations":{"finalizers.workload.kcp.io/` + syncTargetKey + `": null}}}`)
 	_, err = upstreamKubeClusterClient.Cluster(wsClusterName.Path()).AppsV1().Deployments(upstreamNamespace.Name).Patch(ctx, upstreamDeployment.Name, types.MergePatchType, deploymentPatch, metav1.PatchOptions{})
 	require.NoError(t, err)
 
@@ -419,7 +419,7 @@ func TestSyncerLifecycle(t *testing.T) {
 		if err != nil {
 			return false, err.Error()
 		}
-		if val, ok := pv.GetLabels()["state.workload.kcp.dev/"+syncTargetKey]; ok {
+		if val, ok := pv.GetLabels()["state.workload.kcp.io/"+syncTargetKey]; ok {
 			if val != "" {
 				return false, "state label is not empty, should be."
 			}
@@ -429,7 +429,7 @@ func TestSyncerLifecycle(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "Persistent Volume %s was not scheduled", upstreamPersistentVolume.Name)
 
 	t.Logf("Updating the PV to be force it to be scheduled downstream")
-	pvPatch := []byte(`{"metadata":{"labels":{"state.workload.kcp.dev/` + syncTargetKey + `": "Sync"}}}`)
+	pvPatch := []byte(`{"metadata":{"labels":{"state.workload.kcp.io/` + syncTargetKey + `": "Sync"}}}`)
 	_, err = upstreamKubeClusterClient.Cluster(wsClusterName.Path()).CoreV1().PersistentVolumes().Patch(ctx, upstreamPersistentVolume.Name, types.MergePatchType, pvPatch, metav1.PatchOptions{})
 	require.NoError(t, err, "failed to patch persistentVolume")
 

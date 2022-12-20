@@ -31,9 +31,9 @@ kubectl config use-context admin  &>/dev/null
 
 kubectl apply -f ${KCP_DIR}/config &> /dev/null
 crds=(
-  crd/workloadclusters.workload.kcp.dev
-  crd/negotiatedapiresources.apiresource.kcp.dev
-  crd/apiresourceimports.apiresource.kcp.dev
+  crd/workloadclusters.workload.kcp.io
+  crd/negotiatedapiresources.apiresource.kcp.io
+  crd/apiresourceimports.apiresource.kcp.io
 )
 kubectl wait --for condition=established "${crds[@]}" &> /dev/null
 
@@ -53,8 +53,8 @@ clear
 pe "kubectl create namespace default"
 pe "kubectl apply -f ${DEMOS_DIR}/../examples/ingress-demo"
 
-pe "kubectl label --overwrite deployment httpecho workloads.kcp.dev/cluster=us-east1"
-pe "kubectl label --overwrite service httpecho workloads.kcp.dev/cluster=us-east1"
+pe "kubectl label --overwrite deployment httpecho workloads.kcp.io/cluster=us-east1"
+pe "kubectl label --overwrite service httpecho workloads.kcp.io/cluster=us-east1"
 pe "kubectl wait --for=condition=available --timeout=60s deployment/httpecho"
 pause
 clear
@@ -65,8 +65,8 @@ pe "curl -s -o /dev/null -w "%{http_code}" -H 'Host: httpecho.kcp-apps.127.0.0.1
 pause
 clear
 
-pe "kubectl label --overwrite deployment httpecho workload.kcp.dev/cluster=us-west1"
-pe "kubectl label --overwrite service httpecho workloads.kcp.dev/cluster=us-west1"
+pe "kubectl label --overwrite deployment httpecho workload.kcp.io/cluster=us-west1"
+pe "kubectl label --overwrite service httpecho workloads.kcp.io/cluster=us-west1"
 pe "kubectl wait --for=condition=available --timeout=60s deployment/httpecho"
 pause
 clear

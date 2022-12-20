@@ -51,13 +51,13 @@ func init() {
 //
 // For example:
 //
-// /shards/*/clusters/*/apis/apis.kcp.dev/v1alpha1/apiexports
+// /shards/*/clusters/*/apis/apis.kcp.io/v1alpha1/apiexports
 //
-// /shards/amber/clusters/*/apis/apis.kcp.dev/v1alpha1/apiexports
+// /shards/amber/clusters/*/apis/apis.kcp.io/v1alpha1/apiexports
 //
-// /shards/sapphire/clusters/system:sapphire/apis/apis.kcp.dev/v1alpha1/apiexports
+// /shards/sapphire/clusters/system:sapphire/apis/apis.kcp.io/v1alpha1/apiexports
 //
-// /shards/amber/clusters/system:amber/apis/apis.kcp.dev/v1alpha1/apiexports
+// /shards/amber/clusters/system:amber/apis/apis.kcp.io/v1alpha1/apiexports
 //
 // Note:
 // not all paths require to have a valid shard name,
@@ -121,8 +121,8 @@ func WithShardScope(handler http.Handler) http.Handler {
 
 // WithServiceScope an HTTP filter that trims "/services/cache" prefix from the URL.
 //
-// for example: /services/cache/shards/amber/clusters/*/apis/apis.kcp.dev/v1alpha1/apiexports
-// is truncated to /shards/amber/clusters/*/apis/apis.kcp.dev/v1alpha1/apiexports
+// for example: /services/cache/shards/amber/clusters/*/apis/apis.kcp.io/v1alpha1/apiexports
+// is truncated to /shards/amber/clusters/*/apis/apis.kcp.io/v1alpha1/apiexports
 func WithServiceScope(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if path := req.URL.Path; strings.HasPrefix(path, "/services/cache") {

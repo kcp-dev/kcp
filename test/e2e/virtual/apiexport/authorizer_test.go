@@ -128,7 +128,7 @@ func TestAPIExportAuthorizers(t *testing.T) {
 		"user-3-bind",
 		"user-3", "User",
 		[]string{"bind"},
-		"apis.kcp.dev", "apiexports", "wild.wild.west",
+		"apis.kcp.io", "apiexports", "wild.wild.west",
 	)
 	_, err = kubeClient.Cluster(serviceProvider1ClusterName.Path()).RbacV1().ClusterRoles().Create(ctx, cr, metav1.CreateOptions{})
 	require.NoError(t, err)
@@ -172,7 +172,7 @@ func TestAPIExportAuthorizers(t *testing.T) {
 		"user-3-bind",
 		"user-3", "User",
 		[]string{"bind"},
-		"apis.kcp.dev", "apiexports", "today-cowboys",
+		"apis.kcp.io", "apiexports", "today-cowboys",
 	)
 	_, err = kubeClient.Cluster(serviceProvider2ClusterName.Path()).RbacV1().ClusterRoles().Create(ctx, cr, metav1.CreateOptions{})
 	require.NoError(t, err)
@@ -315,7 +315,7 @@ func TestAPIExportAuthorizers(t *testing.T) {
 	t.Logf("grant access to sherrifs for %q in workspace %q", apisv1alpha1.MaximalPermissionPolicyRBACUserGroupPrefix+"user-2", serviceProvider1ClusterName)
 	cr, crb = createClusterRoleAndBindings(
 		"apiexport-claimed",
-		"apis.kcp.dev:binding:user-2", "User",
+		"apis.kcp.io:binding:user-2", "User",
 		[]string{"create", "list"},
 		"wild.wild.west", "sheriffs", "",
 	)
@@ -398,7 +398,7 @@ func TestRootAPIExportAuthorizers(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Get the root scheduling APIExport's identity hash")
-	schedulingAPIExport, err := kcpClient.Cluster(core.RootCluster.Path()).ApisV1alpha1().APIExports().Get(ctx, "scheduling.kcp.dev", metav1.GetOptions{})
+	schedulingAPIExport, err := kcpClient.Cluster(core.RootCluster.Path()).ApisV1alpha1().APIExports().Get(ctx, "scheduling.kcp.io", metav1.GetOptions{})
 	require.NoError(t, err)
 	require.True(t, conditions.IsTrue(schedulingAPIExport, apisv1alpha1.APIExportIdentityValid))
 	identityHash := schedulingAPIExport.Status.IdentityHash

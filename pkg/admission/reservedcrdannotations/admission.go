@@ -34,7 +34,7 @@ import (
 )
 
 const (
-	PluginName = "apis.kcp.dev/ReservedCRDAnnotations"
+	PluginName = "apis.kcp.io/ReservedCRDAnnotations"
 )
 
 func Register(plugins *admission.Plugins) {

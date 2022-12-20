@@ -37,7 +37,7 @@ import (
 )
 
 const (
-	PluginName = "apis.kcp.dev/ReservedMetadata"
+	PluginName = "apis.kcp.io/ReservedMetadata"
 )
 
 var (
@@ -140,5 +140,5 @@ func isPrivileged(key string, allowList []string) bool {
 		}
 	}
 
-	return strings.HasSuffix(key, "kcp.dev")
+	return strings.HasSuffix(key, "kcp.io")
 }

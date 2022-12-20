@@ -72,7 +72,7 @@ func TestReconciler(t *testing.T) {
 						logicalcluster.AnnotationKey: "demo:root:yourworkspace",
 					},
 					Labels: map[string]string{
-						"internal.workload.kcp.dev/key": "aPXkBdRsTD8gXESO47r9qXmkr2kaG5qaox5C8r",
+						"internal.workload.kcp.io/key": "aPXkBdRsTD8gXESO47r9qXmkr2kaG5qaox5C8r",
 					},
 				},
 				Spec: workloadv1alpha1.SyncTargetSpec{
@@ -141,7 +141,7 @@ func TestReconciler(t *testing.T) {
 						logicalcluster.AnnotationKey: "demo:root:yourworkspace",
 					},
 					Labels: map[string]string{
-						"internal.workload.kcp.dev/key": "aPXkBdRsTD8gXESO47r9qXmkr2kaG5qaox5C8r",
+						"internal.workload.kcp.io/key": "aPXkBdRsTD8gXESO47r9qXmkr2kaG5qaox5C8r",
 					},
 				},
 				Spec: workloadv1alpha1.SyncTargetSpec{
@@ -216,7 +216,7 @@ func TestReconciler(t *testing.T) {
 						logicalcluster.AnnotationKey: "demo:root:yourworkspace",
 					},
 					Labels: map[string]string{
-						"internal.workload.kcp.dev/key": "aPXkBdRsTD8gXESO47r9qXmkr2kaG5qaox5C8r",
+						"internal.workload.kcp.io/key": "aPXkBdRsTD8gXESO47r9qXmkr2kaG5qaox5C8r",
 					},
 				},
 				Spec: workloadv1alpha1.SyncTargetSpec{
@@ -259,7 +259,7 @@ func TestReconciler(t *testing.T) {
 						logicalcluster.AnnotationKey: "demo:root:yourworkspace",
 					},
 					Labels: map[string]string{
-						"internal.workload.kcp.dev/key": "aPXkBdRsTD8gXESO47r9qXmkr2kaG5qaox5C8r",
+						"internal.workload.kcp.io/key": "aPXkBdRsTD8gXESO47r9qXmkr2kaG5qaox5C8r",
 					},
 				},
 				Spec: workloadv1alpha1.SyncTargetSpec{
@@ -314,7 +314,7 @@ func TestReconciler(t *testing.T) {
 						logicalcluster.AnnotationKey: "demo:root:yourworkspace",
 					},
 					Labels: map[string]string{
-						"internal.workload.kcp.dev/key": "aPXkBdRsTD8gXESO47r9qXmkr2kaG5qaox5C8r",
+						"internal.workload.kcp.io/key": "aPXkBdRsTD8gXESO47r9qXmkr2kaG5qaox5C8r",
 					},
 				},
 				Spec: workloadv1alpha1.SyncTargetSpec{

@@ -100,7 +100,7 @@ func TestWorkspaceTypesAPIBindingInitialization(t *testing.T) {
 				},
 				{
 					Path:   "root",
-					Export: "scheduling.kcp.dev",
+					Export: "scheduling.kcp.io",
 				},
 			},
 		},
@@ -114,7 +114,7 @@ func TestWorkspaceTypesAPIBindingInitialization(t *testing.T) {
 			DefaultAPIBindings: []tenancyv1alpha1.APIExportReference{
 				{
 					Path:   "root",
-					Export: "workload.kcp.dev",
+					Export: "workload.kcp.io",
 				},
 			},
 		},
@@ -128,7 +128,7 @@ func TestWorkspaceTypesAPIBindingInitialization(t *testing.T) {
 			DefaultAPIBindings: []tenancyv1alpha1.APIExportReference{
 				{
 					Path:   "root",
-					Export: "shards.core.kcp.dev",
+					Export: "shards.core.kcp.io",
 				},
 			},
 			Extend: tenancyv1alpha1.WorkspaceTypeExtension{

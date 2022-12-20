@@ -123,7 +123,7 @@ func TestScheduling(t *testing.T) {
 		},
 		Spec: schedulingv1alpha1.LocationSpec{
 			Resource: schedulingv1alpha1.GroupVersionResource{
-				Group:    "workload.kcp.dev",
+				Group:    "workload.kcp.io",
 				Version:  "v1alpha1",
 				Resource: "synctargets",
 			},
@@ -186,7 +186,7 @@ func TestScheduling(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "first",
 			Labels: map[string]string{
-				"state.workload.kcp.dev/" + syncTargetKey: "Sync",
+				"state.workload.kcp.io/" + syncTargetKey: "Sync",
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -205,7 +205,7 @@ func TestScheduling(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "second",
 			Labels: map[string]string{
-				"state.workload.kcp.dev/" + syncTargetKey: "Sync",
+				"state.workload.kcp.io/" + syncTargetKey: "Sync",
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -223,7 +223,7 @@ func TestScheduling(t *testing.T) {
 	var downstreamServices *corev1.ServiceList
 	require.Eventually(t, func() bool {
 		downstreamServices, err = syncerFixture.DownstreamKubeClient.CoreV1().Services("").List(ctx, metav1.ListOptions{
-			LabelSelector: "internal.workload.kcp.dev/cluster=" + syncTargetKey,
+			LabelSelector: "internal.workload.kcp.io/cluster=" + syncTargetKey,
 		})
 		if errors.IsNotFound(err) {
 			return false

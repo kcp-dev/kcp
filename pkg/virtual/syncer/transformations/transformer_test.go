@@ -357,7 +357,7 @@ func TestSyncerResourceTransformer(t *testing.T) {
 			synctargetKey: "syncTargetKey",
 			availableResources: []runtime.Object{
 				resource("group/version", "Resource", "aThing").
-					annotation("diff.syncer.internal.kcp.dev/syncTargetKey", `{"status":{"statusField":"new"}}`)(),
+					annotation("diff.syncer.internal.kcp.io/syncTargetKey", `{"status":{"statusField":"new"}}`)(),
 			},
 			action: func(ctx context.Context, transformingClient dynamic.NamespaceableResourceInterface) (result interface{}, err error) {
 				return transformingClient.Get(ctx, "aThing", metav1.GetOptions{})
@@ -387,8 +387,8 @@ func TestSyncerResourceTransformer(t *testing.T) {
 			synctargetKey: "syncTargetKey",
 			availableResources: []runtime.Object{
 				resource("group/version", "Resource", "aThing").
-					label("state.workload.kcp.dev/syncTargetKey", "Sync").
-					annotation("deletion.internal.workload.kcp.dev/syncTargetKey", deletionTimestamp.Format(time.RFC3339))(),
+					label("state.workload.kcp.io/syncTargetKey", "Sync").
+					annotation("deletion.internal.workload.kcp.io/syncTargetKey", deletionTimestamp.Format(time.RFC3339))(),
 			},
 			action: func(ctx context.Context, transformingClient dynamic.NamespaceableResourceInterface) (result interface{}, err error) {
 				return transformingClient.Get(ctx, "aThing", metav1.GetOptions{})
@@ -404,8 +404,8 @@ func TestSyncerResourceTransformer(t *testing.T) {
 				},
 			},
 			expectedResult: resource("group/version", "Resource", "aThing").
-				label("state.workload.kcp.dev/syncTargetKey", "Sync").
-				annotation("deletion.internal.workload.kcp.dev/syncTargetKey", deletionTimestamp.Format(time.RFC3339)).
+				label("state.workload.kcp.io/syncTargetKey", "Sync").
+				annotation("deletion.internal.workload.kcp.io/syncTargetKey", deletionTimestamp.Format(time.RFC3339)).
 				deletionTimestamp(&deletionTimestamp)(),
 		},
 		{
@@ -414,12 +414,12 @@ func TestSyncerResourceTransformer(t *testing.T) {
 			synctargetKey: "syncTargetKey",
 			availableResources: []runtime.Object{
 				resource("group/version", "Resource", "aThing").
-					label("state.workload.kcp.dev/syncTargetKey", "Sync").
-					annotation("diff.syncer.internal.kcp.dev/syncTargetKey", `{"spec.field":"alreadyupdated"}`)(),
+					label("state.workload.kcp.io/syncTargetKey", "Sync").
+					annotation("diff.syncer.internal.kcp.io/syncTargetKey", `{"spec.field":"alreadyupdated"}`)(),
 			},
 			action: func(ctx context.Context, transformingClient dynamic.NamespaceableResourceInterface) (result interface{}, err error) {
 				return transformingClient.UpdateStatus(ctx, resource("group/version", "Resource", "aThing").
-					finalizer("workload.kcp.dev/syncer-syncTargetKey").
+					finalizer("workload.kcp.io/syncer-syncTargetKey").
 					field("status", map[string]interface{}{"statusField": "updated"})(), metav1.UpdateOptions{})
 			},
 			transform: func(resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
@@ -443,14 +443,14 @@ func TestSyncerResourceTransformer(t *testing.T) {
 						Subresource: "status",
 					},
 					Object: resource("group/version", "Resource", "aThing").
-						finalizer("workload.kcp.dev/syncer-syncTargetKey").
-						label("state.workload.kcp.dev/syncTargetKey", "Sync").
-						annotation("diff.syncer.internal.kcp.dev/syncTargetKey", `{"spec.field":"alreadyupdated","status":{"statusField":"updated"}}`)(),
+						finalizer("workload.kcp.io/syncer-syncTargetKey").
+						label("state.workload.kcp.io/syncTargetKey", "Sync").
+						annotation("diff.syncer.internal.kcp.io/syncTargetKey", `{"spec.field":"alreadyupdated","status":{"statusField":"updated"}}`)(),
 				},
 			},
 			expectedResult: resource("group/version", "Resource", "aThing").
-				finalizer("workload.kcp.dev/syncer-syncTargetKey").
-				label("state.workload.kcp.dev/syncTargetKey", "Sync").
+				finalizer("workload.kcp.io/syncer-syncTargetKey").
+				label("state.workload.kcp.io/syncTargetKey", "Sync").
 				annotations().
 				field("status", map[string]interface{}{"statusField": "updated"}).
 				field("added", "value").
@@ -462,8 +462,8 @@ func TestSyncerResourceTransformer(t *testing.T) {
 			synctargetKey: "syncTargetKey",
 			availableResources: []runtime.Object{
 				resource("group/version", "Resource", "aThing").
-					label("state.workload.kcp.dev/syncTargetKey", "Sync").
-					annotation("diff.syncer.internal.kcp.dev/syncTargetKey", `{"spec.field":"alreadyupdated"}`)(),
+					label("state.workload.kcp.io/syncTargetKey", "Sync").
+					annotation("diff.syncer.internal.kcp.io/syncTargetKey", `{"spec.field":"alreadyupdated"}`)(),
 			},
 			action: func(ctx context.Context, transformingClient dynamic.NamespaceableResourceInterface) (result interface{}, err error) {
 				return transformingClient.UpdateStatus(ctx, resource("group/version", "Resource", "aThing").
@@ -492,11 +492,11 @@ func TestSyncerResourceTransformer(t *testing.T) {
 			synctargetKey: "syncTargetKey",
 			availableResources: []runtime.Object{
 				resource("group/version", "Resource", "aThing").
-					label("state.workload.kcp.dev/syncTargetKey", "Sync")(),
+					label("state.workload.kcp.io/syncTargetKey", "Sync")(),
 			},
 			action: func(ctx context.Context, transformingClient dynamic.NamespaceableResourceInterface) (result interface{}, err error) {
 				return transformingClient.UpdateStatus(ctx, resource("group/version", "Resource", "aThing").
-					finalizer("workload.kcp.dev/syncer-syncTargetKey").
+					finalizer("workload.kcp.io/syncer-syncTargetKey").
 					field("status", map[string]interface{}{"statusField": "updated"})(), metav1.UpdateOptions{})
 			},
 			transform: func(resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
@@ -520,15 +520,15 @@ func TestSyncerResourceTransformer(t *testing.T) {
 						Subresource: "status",
 					},
 					Object: resource("group/version", "Resource", "aThing").
-						finalizer("workload.kcp.dev/syncer-syncTargetKey").
-						label("state.workload.kcp.dev/syncTargetKey", "Sync").
-						annotation("diff.syncer.internal.kcp.dev/syncTargetKey", `{"status":"##promoted##"}`).
+						finalizer("workload.kcp.io/syncer-syncTargetKey").
+						label("state.workload.kcp.io/syncTargetKey", "Sync").
+						annotation("diff.syncer.internal.kcp.io/syncTargetKey", `{"status":"##promoted##"}`).
 						field("status", map[string]interface{}{"statusField": "updated"})(),
 				},
 			},
 			expectedResult: resource("group/version", "Resource", "aThing").
-				finalizer("workload.kcp.dev/syncer-syncTargetKey").
-				label("state.workload.kcp.dev/syncTargetKey", "Sync").
+				finalizer("workload.kcp.io/syncer-syncTargetKey").
+				label("state.workload.kcp.io/syncTargetKey", "Sync").
 				annotations().
 				field("status", map[string]interface{}{"statusField": "updated"}).
 				field("added", "value")(),
@@ -539,15 +539,15 @@ func TestSyncerResourceTransformer(t *testing.T) {
 			synctargetKey: "syncTargetKey",
 			availableResources: []runtime.Object{
 				resource("group/version", "Resource", "aThing").
-					finalizer("workload.kcp.dev/syncer-syncTargetKey").
-					label("state.workload.kcp.dev/syncTargetKey", "Sync").
-					label("state.workload.kcp.dev/syncTargetKey2", "").
-					annotation("diff.syncer.internal.kcp.dev/syncTargetKey", `{"status":"##promoted##"}`).
+					finalizer("workload.kcp.io/syncer-syncTargetKey").
+					label("state.workload.kcp.io/syncTargetKey", "Sync").
+					label("state.workload.kcp.io/syncTargetKey2", "").
+					annotation("diff.syncer.internal.kcp.io/syncTargetKey", `{"status":"##promoted##"}`).
 					field("status", map[string]interface{}{"statusField": "updated"})(),
 			},
 			action: func(ctx context.Context, transformingClient dynamic.NamespaceableResourceInterface) (result interface{}, err error) {
 				return transformingClient.UpdateStatus(ctx, resource("group/version", "Resource", "aThing").
-					finalizer("workload.kcp.dev/syncer-syncTargetKey").
+					finalizer("workload.kcp.io/syncer-syncTargetKey").
 					field("status", map[string]interface{}{"statusField": "updated"})(), metav1.UpdateOptions{})
 			},
 			transform: func(resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
@@ -571,17 +571,17 @@ func TestSyncerResourceTransformer(t *testing.T) {
 						Subresource: "status",
 					},
 					Object: resource("group/version", "Resource", "aThing").
-						finalizer("workload.kcp.dev/syncer-syncTargetKey").
-						label("state.workload.kcp.dev/syncTargetKey", "Sync").
-						label("state.workload.kcp.dev/syncTargetKey2", "").
-						annotation("diff.syncer.internal.kcp.dev/syncTargetKey", `{"status":{"statusField":"updated"}}`).
+						finalizer("workload.kcp.io/syncer-syncTargetKey").
+						label("state.workload.kcp.io/syncTargetKey", "Sync").
+						label("state.workload.kcp.io/syncTargetKey2", "").
+						annotation("diff.syncer.internal.kcp.io/syncTargetKey", `{"status":{"statusField":"updated"}}`).
 						field("status", map[string]interface{}{"statusField": "updated"})(),
 				},
 			},
 			expectedResult: resource("group/version", "Resource", "aThing").
-				finalizer("workload.kcp.dev/syncer-syncTargetKey").
-				label("state.workload.kcp.dev/syncTargetKey", "Sync").
-				label("state.workload.kcp.dev/syncTargetKey2", "").
+				finalizer("workload.kcp.io/syncer-syncTargetKey").
+				label("state.workload.kcp.io/syncTargetKey", "Sync").
+				label("state.workload.kcp.io/syncTargetKey2", "").
 				annotations().
 				field("status", map[string]interface{}{"statusField": "updated"}).
 				field("added", "value")(),
@@ -591,7 +591,7 @@ func TestSyncerResourceTransformer(t *testing.T) {
 			gvr:  schema.GroupVersionResource{Group: "group", Version: "version", Resource: "resources"},
 			action: func(ctx context.Context, transformingClient dynamic.NamespaceableResourceInterface) (result interface{}, err error) {
 				return transformingClient.Update(ctx, resource("group/version", "Resource", "aThing").
-					label("state.workload.kcp.dev/syncTargetKey", "Sync")(), metav1.UpdateOptions{})
+					label("state.workload.kcp.io/syncTargetKey", "Sync")(), metav1.UpdateOptions{})
 			},
 			transform: func(resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
 				result := resource.DeepCopy()
@@ -615,12 +615,12 @@ func TestSyncerResourceTransformer(t *testing.T) {
 			availableResources: []runtime.Object{
 				resource("group/version", "Resource", "aThing").
 					resourceVersion("0001").
-					label("state.workload.kcp.dev/syncTargetKey", "Sync")(),
+					label("state.workload.kcp.io/syncTargetKey", "Sync")(),
 			},
 			action: func(ctx context.Context, transformingClient dynamic.NamespaceableResourceInterface) (result interface{}, err error) {
 				return transformingClient.Update(ctx, resource("group/version", "Resource", "aThing").
 					resourceVersion("0002").
-					label("state.workload.kcp.dev/syncTargetKey", "Sync")(), metav1.UpdateOptions{})
+					label("state.workload.kcp.io/syncTargetKey", "Sync")(), metav1.UpdateOptions{})
 			},
 			transform: func(resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
 				result := resource.DeepCopy()
@@ -644,9 +644,9 @@ func TestSyncerResourceTransformer(t *testing.T) {
 			synctargetKey: "syncTargetKey",
 			availableResources: []runtime.Object{
 				resource("group/version", "Resource", "aThing").
-					finalizer("workload.kcp.dev/syncer-syncTargetKey").
-					label("state.workload.kcp.dev/syncTargetKey", "Sync").
-					annotation("deletion.internal.workload.kcp.dev/syncTargetKey", deletionTimestamp.Format(time.RFC3339))(),
+					finalizer("workload.kcp.io/syncer-syncTargetKey").
+					label("state.workload.kcp.io/syncTargetKey", "Sync").
+					annotation("deletion.internal.workload.kcp.io/syncTargetKey", deletionTimestamp.Format(time.RFC3339))(),
 			},
 			action: func(ctx context.Context, transformingClient dynamic.NamespaceableResourceInterface) (result interface{}, err error) {
 				return transformingClient.Update(ctx, resource("group/version", "Resource", "aThing").
@@ -683,17 +683,17 @@ func TestSyncerResourceTransformer(t *testing.T) {
 			synctargetKey: "syncTargetKey",
 			availableResources: []runtime.Object{
 				resource("group/version", "Resource", "aThing").
-					finalizer("workload.kcp.dev/syncer-syncTargetKey").
-					finalizer("workload.kcp.dev/syncer-syncTargetKey2").
-					label("state.workload.kcp.dev/syncTargetKey", "Sync").
-					label("state.workload.kcp.dev/syncTargetKey2", "Sync").
-					annotation("diff.syncer.internal.kcp.dev/syncTargetKey", `{"status":{"statusField":"updated"}}`).
-					annotation("diff.syncer.internal.kcp.dev/syncTargetKey2", `{"status":{"statusField":"new"}}`).
-					annotation("deletion.internal.workload.kcp.dev/syncTargetKey", deletionTimestamp.Format(time.RFC3339))(),
+					finalizer("workload.kcp.io/syncer-syncTargetKey").
+					finalizer("workload.kcp.io/syncer-syncTargetKey2").
+					label("state.workload.kcp.io/syncTargetKey", "Sync").
+					label("state.workload.kcp.io/syncTargetKey2", "Sync").
+					annotation("diff.syncer.internal.kcp.io/syncTargetKey", `{"status":{"statusField":"updated"}}`).
+					annotation("diff.syncer.internal.kcp.io/syncTargetKey2", `{"status":{"statusField":"new"}}`).
+					annotation("deletion.internal.workload.kcp.io/syncTargetKey", deletionTimestamp.Format(time.RFC3339))(),
 			},
 			action: func(ctx context.Context, transformingClient dynamic.NamespaceableResourceInterface) (result interface{}, err error) {
 				return transformingClient.Update(ctx, resource("group/version", "Resource", "aThing").
-					annotation("deletion.internal.workload.kcp.dev/syncTargetKey", deletionTimestamp.Format(time.RFC3339)).
+					annotation("deletion.internal.workload.kcp.io/syncTargetKey", deletionTimestamp.Format(time.RFC3339)).
 					deletionTimestamp(&deletionTimestamp)(), metav1.UpdateOptions{})
 			},
 			transform: func(resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
@@ -717,13 +717,13 @@ func TestSyncerResourceTransformer(t *testing.T) {
 						Subresource: "status",
 					},
 					Object: resource("group/version", "Resource", "aThing").
-						finalizer("workload.kcp.dev/syncer-syncTargetKey").
-						finalizer("workload.kcp.dev/syncer-syncTargetKey2").
-						label("state.workload.kcp.dev/syncTargetKey", "Sync").
-						label("state.workload.kcp.dev/syncTargetKey2", "Sync").
-						annotation("deletion.internal.workload.kcp.dev/syncTargetKey", deletionTimestamp.Format(time.RFC3339)).
-						annotation("diff.syncer.internal.kcp.dev/syncTargetKey", `{"status":{"statusField":"updated"}}`).
-						annotation("diff.syncer.internal.kcp.dev/syncTargetKey2", `{"status":"##promoted##"}`).
+						finalizer("workload.kcp.io/syncer-syncTargetKey").
+						finalizer("workload.kcp.io/syncer-syncTargetKey2").
+						label("state.workload.kcp.io/syncTargetKey", "Sync").
+						label("state.workload.kcp.io/syncTargetKey2", "Sync").
+						annotation("deletion.internal.workload.kcp.io/syncTargetKey", deletionTimestamp.Format(time.RFC3339)).
+						annotation("diff.syncer.internal.kcp.io/syncTargetKey", `{"status":{"statusField":"updated"}}`).
+						annotation("diff.syncer.internal.kcp.io/syncTargetKey2", `{"status":"##promoted##"}`).
 						field("status", map[string]any{"statusField": string("new")})(),
 				},
 				clienttesting.UpdateActionImpl{
@@ -732,14 +732,14 @@ func TestSyncerResourceTransformer(t *testing.T) {
 						Resource: gvr("group", "version", "resources"),
 					},
 					Object: resource("group/version", "Resource", "aThing").
-						finalizer("workload.kcp.dev/syncer-syncTargetKey2").
-						label("state.workload.kcp.dev/syncTargetKey2", "Sync").
-						annotation("diff.syncer.internal.kcp.dev/syncTargetKey2", `{"status":"##promoted##"}`).
+						finalizer("workload.kcp.io/syncer-syncTargetKey2").
+						label("state.workload.kcp.io/syncTargetKey2", "Sync").
+						annotation("diff.syncer.internal.kcp.io/syncTargetKey2", `{"status":"##promoted##"}`).
 						field("status", map[string]any{"statusField": string("new")})(),
 				},
 			},
 			expectedResult: resource("group/version", "Resource", "aThing").labels().annotations().
-				label("state.workload.kcp.dev/syncTargetKey2", "Sync").
+				label("state.workload.kcp.io/syncTargetKey2", "Sync").
 				field("added", "value")(),
 		},
 		{

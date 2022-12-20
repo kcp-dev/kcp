@@ -17,5 +17,5 @@ limitations under the License.
 package scheduling
 
 const (
-	GroupName = "scheduling.kcp.dev"
+	GroupName = "scheduling.kcp.io"
 )

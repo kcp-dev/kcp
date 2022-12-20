@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	NamespaceLocatorAnnotation = "kcp.dev/namespace-locator"
+	NamespaceLocatorAnnotation = "kcp.io/namespace-locator"
 )
 
 // NamespaceLocator stores a logical cluster and namespace and is used

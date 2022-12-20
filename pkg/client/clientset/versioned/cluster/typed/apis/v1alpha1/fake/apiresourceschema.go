@@ -38,8 +38,8 @@ import (
 	apisv1alpha1client "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/typed/apis/v1alpha1"
 )
 
-var aPIResourceSchemasResource = schema.GroupVersionResource{Group: "apis.kcp.dev", Version: "v1alpha1", Resource: "apiresourceschemas"}
-var aPIResourceSchemasKind = schema.GroupVersionKind{Group: "apis.kcp.dev", Version: "v1alpha1", Kind: "APIResourceSchema"}
+var aPIResourceSchemasResource = schema.GroupVersionResource{Group: "apis.kcp.io", Version: "v1alpha1", Resource: "apiresourceschemas"}
+var aPIResourceSchemasKind = schema.GroupVersionKind{Group: "apis.kcp.io", Version: "v1alpha1", Kind: "APIResourceSchema"}
 
 type aPIResourceSchemasClusterClient struct {
 	*kcptesting.Fake

@@ -47,7 +47,7 @@ func ToReflexiveAPIBindingLabelKeyAndValue(exportClusterName logicalcluster.Name
 	return apisv1alpha1.APIExportPermissionClaimLabelPrefix + exportHash, claimHash
 }
 
-// ToAPIBindingExportLabelValue returns the label value for the internal.apis.kcp.dev/export label
+// ToAPIBindingExportLabelValue returns the label value for the internal.apis.kcp.io/export label
 // on APIBindings to filter them by export.
 func ToAPIBindingExportLabelValue(clusterName logicalcluster.Name, exportName string) string {
 	return toBase62(sha256.Sum224([]byte(clusterName.Path().Join(exportName).String())))

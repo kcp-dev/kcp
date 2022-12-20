@@ -190,7 +190,7 @@ func TestReconcile(t *testing.T) {
 								Name: "shard1",
 							},
 							Spec: corev1alpha1.ShardSpec{
-								ExternalURL: "https://server-1.kcp.dev/",
+								ExternalURL: "https://server-1.kcp.io/",
 							},
 						},
 						{
@@ -201,7 +201,7 @@ func TestReconcile(t *testing.T) {
 								Name: "shard2",
 							},
 							Spec: corev1alpha1.ShardSpec{
-								ExternalURL: "https://server-2.kcp.dev/",
+								ExternalURL: "https://server-2.kcp.io/",
 							},
 						},
 					}, nil

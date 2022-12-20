@@ -26,7 +26,7 @@ import (
 
 // LogicalClusterTypeAnnotationKey is the annotation key used to indicate
 // the type of the workspace on the corresponding LogicalCluster object. Its format is "root:ws:name".
-const LogicalClusterTypeAnnotationKey = "internal.tenancy.kcp.dev/type"
+const LogicalClusterTypeAnnotationKey = "internal.tenancy.kcp.io/type"
 
 // Workspace defines a generic Kubernetes-cluster-like endpoint, with standard Kubernetes
 // discovery APIs, OpenAPI and resource API endpoints.

@@ -45,11 +45,11 @@ func TestReconcileMetadata(t *testing.T) {
 			input: &tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"tenancy.kcp.dev/phase": "Ready",
+						"tenancy.kcp.io/phase": "Ready",
 					},
 					Annotations: map[string]string{
-						"a":                                  "b",
-						"experimental.tenancy.kcp.dev/owner": `{"username":"user-1","groups":["a","b"],"uid":"123","extra":{"c":["d"]}}`,
+						"a":                                 "b",
+						"experimental.tenancy.kcp.io/owner": `{"username":"user-1","groups":["a","b"],"uid":"123","extra":{"c":["d"]}}`,
 					},
 				},
 				Status: tenancyv1beta1.WorkspaceStatus{
@@ -58,11 +58,11 @@ func TestReconcileMetadata(t *testing.T) {
 			},
 			expected: metav1.ObjectMeta{
 				Labels: map[string]string{
-					"tenancy.kcp.dev/phase": "Ready",
+					"tenancy.kcp.io/phase": "Ready",
 				},
 				Annotations: map[string]string{
-					"a":                                  "b",
-					"experimental.tenancy.kcp.dev/owner": `{"username":"user-1"}`,
+					"a":                                 "b",
+					"experimental.tenancy.kcp.io/owner": `{"username":"user-1"}`,
 				},
 			},
 			wantStatus: reconcileStatusStopAndRequeue,
@@ -80,7 +80,7 @@ func TestReconcileMetadata(t *testing.T) {
 			expected: metav1.ObjectMeta{
 				DeletionTimestamp: &metav1.Time{Time: date},
 				Labels: map[string]string{
-					"tenancy.kcp.dev/phase": "Deleting",
+					"tenancy.kcp.io/phase": "Deleting",
 				},
 			},
 			wantStatus: reconcileStatusStopAndRequeue,
@@ -90,11 +90,11 @@ func TestReconcileMetadata(t *testing.T) {
 			input: &tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"tenancy.kcp.dev/phase": "Ready",
+						"tenancy.kcp.io/phase": "Ready",
 					},
 					Annotations: map[string]string{
-						"a":                                  "b",
-						"experimental.tenancy.kcp.dev/owner": `{"username":}`,
+						"a":                                 "b",
+						"experimental.tenancy.kcp.io/owner": `{"username":}`,
 					},
 				},
 				Status: tenancyv1beta1.WorkspaceStatus{
@@ -103,7 +103,7 @@ func TestReconcileMetadata(t *testing.T) {
 			},
 			expected: metav1.ObjectMeta{
 				Labels: map[string]string{
-					"tenancy.kcp.dev/phase": "Ready",
+					"tenancy.kcp.io/phase": "Ready",
 				},
 				Annotations: map[string]string{
 					"a": "b",

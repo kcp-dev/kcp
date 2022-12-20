@@ -74,7 +74,7 @@ func BuildVirtualWorkspace(
 	}
 
 	logicalClusterResource := apisv1alpha1.APIResourceSchema{}
-	if err := rootphase0.Unmarshal("apiresourceschema-logicalclusters.core.kcp.dev.yaml", &logicalClusterResource); err != nil {
+	if err := rootphase0.Unmarshal("apiresourceschema-logicalclusters.core.kcp.io.yaml", &logicalClusterResource); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal logicalclusters resource: %w", err)
 	}
 	bs, err := json.Marshal(&apiextensionsv1.JSONSchemaProps{
@@ -90,7 +90,7 @@ func BuildVirtualWorkspace(
 	}
 
 	getTenancyIdentity := func() (string, error) {
-		export, err := wildcardKcpInformers.Apis().V1alpha1().APIExports().Lister().Cluster(core.RootCluster).Get("tenancy.kcp.dev")
+		export, err := wildcardKcpInformers.Apis().V1alpha1().APIExports().Lister().Cluster(core.RootCluster).Get("tenancy.kcp.io")
 		if err != nil {
 			return "", err
 		}
@@ -145,7 +145,7 @@ func BuildVirtualWorkspace(
 				return false, "", ctx
 			}
 
-			// this delegating server only works for logicalclusters.core.kcp.dev
+			// this delegating server only works for logicalclusters.core.kcp.io
 			if resourceURL := strings.TrimPrefix(urlPath, prefixToStrip); !isLogicalClusterRequest(resourceURL) {
 				return false, "", ctx
 			}
@@ -183,7 +183,7 @@ func BuildVirtualWorkspace(
 				return false, "", context
 			}
 
-			// this proxying server does not handle requests for logicalcluster.core.kcp.dev
+			// this proxying server does not handle requests for logicalcluster.core.kcp.io
 			if resourceURL := strings.TrimPrefix(urlPath, prefixToStrip); isLogicalClusterRequest(resourceURL) {
 				return false, "", context
 			}
@@ -328,7 +328,7 @@ func digestUrl(urlPath, rootPathPrefix string) (
 	withoutRootPathPrefix := strings.TrimPrefix(urlPath, rootPathPrefix)
 
 	// Incoming requests to this virtual workspace will look like:
-	//  /services/initializingworkspaces/<initializer>/clusters/<something>/apis/workload.kcp.dev/v1alpha1/synctargets
+	//  /services/initializingworkspaces/<initializer>/clusters/<something>/apis/workload.kcp.io/v1alpha1/synctargets
 	//                                  └───────────┐
 	// Where the withoutRootPathPrefix starts here: ┘
 	parts := strings.SplitN(withoutRootPathPrefix, "/", 2)
@@ -343,7 +343,7 @@ func digestUrl(urlPath, rootPathPrefix string) (
 
 	realPath := "/" + parts[1]
 
-	//  /services/initializingworkspaces/<initializer>/clusters/<something>/apis/workload.kcp.dev/v1alpha1/synctargets
+	//  /services/initializingworkspaces/<initializer>/clusters/<something>/apis/workload.kcp.io/v1alpha1/synctargets
 	//                  ┌─────────────────────────────┘
 	// We are now here: ┘
 	// Now, we parse out the logical cluster.

@@ -40,7 +40,7 @@ import (
 )
 
 const (
-	PluginName = "kcp.dev/PathAnnotation"
+	PluginName = "kcp.io/PathAnnotation"
 )
 
 func Register(plugins *admission.Plugins) {

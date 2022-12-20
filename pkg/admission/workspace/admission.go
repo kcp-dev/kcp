@@ -46,7 +46,7 @@ import (
 // Validate and admit Workspace creation and updates.
 
 const (
-	PluginName = "tenancy.kcp.dev/Workspace"
+	PluginName = "tenancy.kcp.io/Workspace"
 )
 
 func Register(plugins *admission.Plugins) {

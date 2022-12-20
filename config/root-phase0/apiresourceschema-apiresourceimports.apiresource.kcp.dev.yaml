@@ -1,10 +1,10 @@
-apiVersion: apis.kcp.dev/v1alpha1
+apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v220628-546034da.apiresourceimports.apiresource.kcp.dev
+  name: v220628-546034da.apiresourceimports.apiresource.kcp.io
 spec:
-  group: apiresource.kcp.dev
+  group: apiresource.kcp.io
   names:
     categories:
     - kcp

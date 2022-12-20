@@ -118,7 +118,7 @@ func TestAPIExportPermissionClaimCELValidation(t *testing.T) {
 		{
 			name: "logicalcluster invalid",
 			current: map[string]interface{}{
-				"group":    "core.kcp.dev",
+				"group":    "core.kcp.io",
 				"resource": "logicalclusters",
 				"all":      true,
 			},
@@ -129,7 +129,7 @@ func TestAPIExportPermissionClaimCELValidation(t *testing.T) {
 		{
 			name: "logicalcluster invalid with empty identityHash",
 			current: map[string]interface{}{
-				"group":        "core.kcp.dev",
+				"group":        "core.kcp.io",
 				"resource":     "logicalclusters",
 				"identityHash": "",
 				"all":          true,
@@ -141,7 +141,7 @@ func TestAPIExportPermissionClaimCELValidation(t *testing.T) {
 		{
 			name: "logicalcluster fine with non-empty identityHash",
 			current: map[string]interface{}{
-				"group":        "core.kcp.dev",
+				"group":        "core.kcp.io",
 				"resource":     "logicalclusters",
 				"identityHash": "abc",
 				"all":          true,
@@ -149,7 +149,7 @@ func TestAPIExportPermissionClaimCELValidation(t *testing.T) {
 		},
 	}
 
-	validators := apitest.FieldValidatorsFromFile(t, "../../../../config/crds/apis.kcp.dev_apiexports.yaml")
+	validators := apitest.FieldValidatorsFromFile(t, "../../../../config/crds/apis.kcp.io_apiexports.yaml")
 
 	for _, tc := range testCases {
 		pth := "openAPIV3Schema.properties.spec.properties.permissionClaims.items"
@@ -214,7 +214,7 @@ func TestResourceSelectorCELValidation(t *testing.T) {
 		},
 	}
 
-	validators := apitest.FieldValidatorsFromFile(t, "../../../../config/crds/apis.kcp.dev_apiexports.yaml")
+	validators := apitest.FieldValidatorsFromFile(t, "../../../../config/crds/apis.kcp.io_apiexports.yaml")
 
 	for _, tc := range testCases {
 		pth := "openAPIV3Schema.properties.spec.properties.permissionClaims.items.properties.resourceSelector.items"
@@ -295,7 +295,7 @@ func TestAPIExportPermissionClaimPattern(t *testing.T) {
 		},
 	}
 
-	validators := apitest.PatternValidatorsFromFile(t, "../../../../config/crds/apis.kcp.dev_apiexports.yaml")
+	validators := apitest.PatternValidatorsFromFile(t, "../../../../config/crds/apis.kcp.io_apiexports.yaml")
 
 	for _, tc := range testCases {
 		pth := "openAPIV3Schema.properties.spec.properties.permissionClaims.items.properties.resourceSelector.items.properties.name"

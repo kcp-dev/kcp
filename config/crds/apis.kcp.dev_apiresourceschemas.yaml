@@ -5,9 +5,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
-  name: apiresourceschemas.apis.kcp.dev
+  name: apiresourceschemas.apis.kcp.io
 spec:
-  group: apis.kcp.dev
+  group: apis.kcp.io
   names:
     categories:
     - kcp

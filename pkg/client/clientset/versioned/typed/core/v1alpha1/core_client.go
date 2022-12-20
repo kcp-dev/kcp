@@ -33,7 +33,7 @@ type CoreV1alpha1Interface interface {
 	ShardsGetter
 }
 
-// CoreV1alpha1Client is used to interact with features provided by the core.kcp.dev group.
+// CoreV1alpha1Client is used to interact with features provided by the core.kcp.io group.
 type CoreV1alpha1Client struct {
 	restClient rest.Interface
 }

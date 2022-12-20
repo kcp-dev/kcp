@@ -6,9 +6,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.7.0
   creationTimestamp: null
-  name: cowboys.apis.kcp.dev
+  name: cowboys.apis.kcp.io
 spec:
-  group: apis.kcp.dev
+  group: apis.kcp.io
   names:
     kind: Cowboy
     listKind: CowboyList

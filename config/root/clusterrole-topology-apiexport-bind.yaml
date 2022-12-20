@@ -3,9 +3,9 @@ kind: ClusterRole
 metadata:
   name: system:kcp:apiexport:topology:bind
 rules:
-- apiGroups: ["apis.kcp.dev"]
+- apiGroups: ["apis.kcp.io"]
   resources:
   - "apiexports"
   resourceNames:
-  - "topology.kcp.dev"
+  - "topology.kcp.io"
   verbs: ["bind"]

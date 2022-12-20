@@ -33,7 +33,7 @@ type TopologyV1alpha1Interface interface {
 	PartitionSetsGetter
 }
 
-// TopologyV1alpha1Client is used to interact with features provided by the topology.kcp.dev group.
+// TopologyV1alpha1Client is used to interact with features provided by the topology.kcp.io group.
 type TopologyV1alpha1Client struct {
 	restClient rest.Interface
 }

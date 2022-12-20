@@ -119,7 +119,7 @@ func TestAdmit(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					Annotations: map[string]string{
-						"experimental.tenancy.kcp.dev/owner": `{"username":"someone","uid":"id","groups":["a","b"],"extra":{"one":["1","01"]}}`,
+						"experimental.tenancy.kcp.io/owner": `{"username":"someone","uid":"id","groups":["a","b"],"extra":{"one":["1","01"]}}`,
 					},
 				},
 				Spec: tenancyv1beta1.WorkspaceSpec{
@@ -140,7 +140,7 @@ func TestAdmit(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					Annotations: map[string]string{
-						"experimental.tenancy.kcp.dev/owner": `{"username":"someoneelse","uid":"otherid","groups":["c","d"],"extra":{"two":["2","02"]}}`,
+						"experimental.tenancy.kcp.io/owner": `{"username":"someoneelse","uid":"otherid","groups":["c","d"],"extra":{"two":["2","02"]}}`,
 					},
 				},
 				Spec: tenancyv1beta1.WorkspaceSpec{
@@ -161,7 +161,7 @@ func TestAdmit(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					Annotations: map[string]string{
-						"experimental.tenancy.kcp.dev/owner": `{"username":"someoneelse","uid":"otherid","groups":["c","d"],"extra":{"two":["2","02"]}}`,
+						"experimental.tenancy.kcp.io/owner": `{"username":"someoneelse","uid":"otherid","groups":["c","d"],"extra":{"two":["2","02"]}}`,
 					},
 				},
 				Spec: tenancyv1beta1.WorkspaceSpec{
@@ -182,7 +182,7 @@ func TestAdmit(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					Annotations: map[string]string{
-						"experimental.tenancy.kcp.dev/owner": `{"username":"someoneelse","uid":"otherid","groups":["c","d"],"extra":{"two":["2","02"]}}`,
+						"experimental.tenancy.kcp.io/owner": `{"username":"someoneelse","uid":"otherid","groups":["c","d"],"extra":{"two":["2","02"]}}`,
 					},
 				},
 				Spec: tenancyv1beta1.WorkspaceSpec{
@@ -203,7 +203,7 @@ func TestAdmit(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					Annotations: map[string]string{
-						"experimental.tenancy.kcp.dev/owner": `{"username":"someone","uid":"id","groups":["a","b"],"extra":{"one":["1","01"]}}`,
+						"experimental.tenancy.kcp.io/owner": `{"username":"someone","uid":"id","groups":["a","b"],"extra":{"one":["1","01"]}}`,
 					},
 				},
 				Spec: tenancyv1beta1.WorkspaceSpec{
@@ -230,8 +230,8 @@ func TestAdmit(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					Annotations: map[string]string{
-						"authorization.kcp.dev/required-groups": "foo,bar",
-						"experimental.tenancy.kcp.dev/owner":    "{}",
+						"authorization.kcp.io/required-groups": "foo,bar",
+						"experimental.tenancy.kcp.io/owner":    "{}",
 					},
 				},
 				Spec: tenancyv1beta1.WorkspaceSpec{},
@@ -247,7 +247,7 @@ func TestAdmit(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					Annotations: map[string]string{
-						"authorization.kcp.dev/required-groups": "foo,abc",
+						"authorization.kcp.io/required-groups": "foo,abc",
 					},
 				},
 				Spec: tenancyv1beta1.WorkspaceSpec{},
@@ -256,8 +256,8 @@ func TestAdmit(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					Annotations: map[string]string{
-						"authorization.kcp.dev/required-groups": "foo,bar",
-						"experimental.tenancy.kcp.dev/owner":    "{}",
+						"authorization.kcp.io/required-groups": "foo,bar",
+						"experimental.tenancy.kcp.io/owner":    "{}",
 					},
 				},
 				Spec: tenancyv1beta1.WorkspaceSpec{},
@@ -273,7 +273,7 @@ func TestAdmit(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					Annotations: map[string]string{
-						"authorization.kcp.dev/required-groups": "foo,abc",
+						"authorization.kcp.io/required-groups": "foo,abc",
 					},
 				},
 				Spec: tenancyv1beta1.WorkspaceSpec{},
@@ -285,7 +285,7 @@ func TestAdmit(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					Annotations: map[string]string{
-						"authorization.kcp.dev/required-groups": "foo,abc",
+						"authorization.kcp.io/required-groups": "foo,abc",
 					},
 				},
 				Spec: tenancyv1beta1.WorkspaceSpec{},
@@ -328,7 +328,7 @@ func TestValidate(t *testing.T) {
 			a: updateAttr(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "test",
-					Annotations: map[string]string{"experimental.tenancy.kcp.dev/owner": "{}"},
+					Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
 				},
 				Spec: tenancyv1beta1.WorkspaceSpec{
 					Type: tenancyv1beta1.WorkspaceTypeReference{
@@ -340,7 +340,7 @@ func TestValidate(t *testing.T) {
 				&tenancyv1beta1.Workspace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "test",
-						Annotations: map[string]string{"experimental.tenancy.kcp.dev/owner": "{}"},
+						Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
 					},
 					Spec: tenancyv1beta1.WorkspaceSpec{
 						Type: tenancyv1beta1.WorkspaceTypeReference{
@@ -359,7 +359,7 @@ func TestValidate(t *testing.T) {
 			a: updateAttr(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "test",
-					Annotations: map[string]string{"experimental.tenancy.kcp.dev/owner": "{}"},
+					Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
 				},
 				Spec: tenancyv1beta1.WorkspaceSpec{
 					Type: tenancyv1beta1.WorkspaceTypeReference{
@@ -371,7 +371,7 @@ func TestValidate(t *testing.T) {
 				&tenancyv1beta1.Workspace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "test",
-						Annotations: map[string]string{"experimental.tenancy.kcp.dev/owner": "{}"},
+						Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
 					},
 					Spec: tenancyv1beta1.WorkspaceSpec{
 						Type: tenancyv1beta1.WorkspaceTypeReference{
@@ -393,7 +393,7 @@ func TestValidate(t *testing.T) {
 			a: updateAttr(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "test",
-					Annotations: map[string]string{"experimental.tenancy.kcp.dev/owner": "{}"},
+					Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
 				},
 				Spec: tenancyv1beta1.WorkspaceSpec{
 					Type: tenancyv1beta1.WorkspaceTypeReference{
@@ -411,7 +411,7 @@ func TestValidate(t *testing.T) {
 				&tenancyv1beta1.Workspace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "test",
-						Annotations: map[string]string{"experimental.tenancy.kcp.dev/owner": "{}"},
+						Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
 					},
 					Spec: tenancyv1beta1.WorkspaceSpec{
 						Type: tenancyv1beta1.WorkspaceTypeReference{
@@ -433,7 +433,7 @@ func TestValidate(t *testing.T) {
 			a: createAttr(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "test",
-					Annotations: map[string]string{"experimental.tenancy.kcp.dev/owner": "{}"},
+					Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
 				},
 				Spec: tenancyv1beta1.WorkspaceSpec{
 					Type: tenancyv1beta1.WorkspaceTypeReference{
@@ -457,7 +457,7 @@ func TestValidate(t *testing.T) {
 			a: updateAttr(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "test",
-					Annotations: map[string]string{"experimental.tenancy.kcp.dev/owner": "{}"},
+					Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
 				},
 				Spec: tenancyv1beta1.WorkspaceSpec{
 					Type: tenancyv1beta1.WorkspaceTypeReference{
@@ -474,7 +474,7 @@ func TestValidate(t *testing.T) {
 				&tenancyv1beta1.Workspace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "test",
-						Annotations: map[string]string{"experimental.tenancy.kcp.dev/owner": "{}"},
+						Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
 					},
 					Spec: tenancyv1beta1.WorkspaceSpec{
 						Type: tenancyv1beta1.WorkspaceTypeReference{
@@ -498,7 +498,7 @@ func TestValidate(t *testing.T) {
 				&corev1alpha1.Shard{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "test",
-						Annotations: map[string]string{"experimental.tenancy.kcp.dev/owner": "{}"},
+						Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
 					},
 				},
 				nil,
@@ -521,7 +521,7 @@ func TestValidate(t *testing.T) {
 			a: createAttrWithUser(&tenancyv1beta1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "test",
-					Annotations: map[string]string{"experimental.tenancy.kcp.dev/owner": "{}"},
+					Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
 				},
 				Spec: tenancyv1beta1.WorkspaceSpec{
 					Type: tenancyv1beta1.WorkspaceTypeReference{
@@ -537,7 +537,7 @@ func TestValidate(t *testing.T) {
 					"one": {"1", "01"},
 				},
 			}),
-			expectedErrors: []string{"expected user annotation experimental.tenancy.kcp.dev/owner={\"username\":\"someone\",\"uid\":\"id\",\"groups\":[\"a\",\"b\"],\"extra\":{\"one\":[\"1\",\"01\"]}}"},
+			expectedErrors: []string{"expected user annotation experimental.tenancy.kcp.io/owner={\"username\":\"someone\",\"uid\":\"id\",\"groups\":[\"a\",\"b\"],\"extra\":{\"one\":[\"1\",\"01\"]}}"},
 		},
 		{
 			name: "accept user information on create when privileged system user",
@@ -548,7 +548,7 @@ func TestValidate(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					Annotations: map[string]string{
-						"experimental.tenancy.kcp.dev/owner": `{"username":"someoneelse","uid":"otherid","groups":["c","d"],"extra":{"two":["2","02"]}}`,
+						"experimental.tenancy.kcp.io/owner": `{"username":"someoneelse","uid":"otherid","groups":["c","d"],"extra":{"two":["2","02"]}}`,
 					},
 				},
 				Spec: tenancyv1beta1.WorkspaceSpec{
@@ -578,7 +578,7 @@ func TestValidate(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					Annotations: map[string]string{
-						"experimental.tenancy.kcp.dev/owner": `{"username":"someoneelse","uid":"otherid","groups":["c","d"],"extra":{"two":["2","02"]}}`,
+						"experimental.tenancy.kcp.io/owner": `{"username":"someoneelse","uid":"otherid","groups":["c","d"],"extra":{"two":["2","02"]}}`,
 					},
 				},
 				Spec: tenancyv1beta1.WorkspaceSpec{
@@ -595,7 +595,7 @@ func TestValidate(t *testing.T) {
 					"one": {"1", "01"},
 				},
 			}),
-			expectedErrors: []string{"expected user annotation experimental.tenancy.kcp.dev/owner={\"username\":\"someone\",\"uid\":\"id\",\"groups\":[\"a\",\"b\"],\"extra\":{\"one\":[\"1\",\"01\"]}}"},
+			expectedErrors: []string{"expected user annotation experimental.tenancy.kcp.io/owner={\"username\":\"someone\",\"uid\":\"id\",\"groups\":[\"a\",\"b\"],\"extra\":{\"one\":[\"1\",\"01\"]}}"},
 		},
 		{
 			name: "rejects with wrong required groups on create as non-system:master",
@@ -606,11 +606,11 @@ func TestValidate(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					Annotations: map[string]string{
-						"experimental.tenancy.kcp.dev/owner": "{}",
+						"experimental.tenancy.kcp.io/owner": "{}",
 					},
 				},
 			}),
-			expectedErrors: []string{"missing required groups annotation authorization.kcp.dev/required-groups=foo,bar"},
+			expectedErrors: []string{"missing required groups annotation authorization.kcp.io/required-groups=foo,bar"},
 		},
 		{
 			name: "accepts with equal required groups on create",
@@ -621,8 +621,8 @@ func TestValidate(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					Annotations: map[string]string{
-						"authorization.kcp.dev/required-groups": "foo,bar",
-						"experimental.tenancy.kcp.dev/owner":    "{}",
+						"authorization.kcp.io/required-groups": "foo,bar",
+						"experimental.tenancy.kcp.io/owner":    "{}",
 					},
 				},
 			}),
@@ -636,7 +636,7 @@ func TestValidate(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					Annotations: map[string]string{
-						"experimental.tenancy.kcp.dev/owner": "{}",
+						"experimental.tenancy.kcp.io/owner": "{}",
 					},
 				},
 			}, &kuser.DefaultInfo{

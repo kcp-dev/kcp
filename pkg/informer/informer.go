@@ -468,8 +468,8 @@ func (d *DynamicDiscoverySharedInformerFactory) updateInformers() {
 		resource := parts[2]
 		gvr := gvrFor(group, version, resource)
 
-		// Don't start a dynamic informer for projected resources such as tenancy.kcp.dev/v1beta1 Workspaces
-		// (these are a virtual projection of data from tenancy.kcp.dev/v1alpha1 ClusterWorkspaces).
+		// Don't start a dynamic informer for projected resources such as tenancy.kcp.io/v1beta1 Workspaces
+		// (these are a virtual projection of data from tenancy.kcp.io/v1alpha1 ClusterWorkspaces).
 		// Starting an informer for them causes problems when the virtual-workspaces server is deployed
 		// separately. See https://github.com/kcp-dev/kcp/issues/1654 for more details.
 		if projection.Includes(gvr) {

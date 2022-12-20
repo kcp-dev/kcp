@@ -4,9 +4,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
-  name: apibindings.apis.kcp.dev
+  name: apibindings.apis.kcp.io
 spec:
-  group: apis.kcp.dev
+  group: apis.kcp.io
   names:
     categories:
     - kcp
@@ -113,7 +113,7 @@ spec:
                     rule: (has(self.all) && self.all) != (has(self.resourceSelector)
                       && size(self.resourceSelector) > 0)
                   - message: logicalclusters cannot be claimed
-                    rule: '!has(self.group) || self.group != "core.kcp.dev" || self.resource
+                    rule: '!has(self.group) || self.group != "core.kcp.io" || self.resource
                       != "logicalclusters" || (has(self.identityHash) && self.identityHash
                       != "")'
                 type: array
@@ -218,7 +218,7 @@ spec:
                     rule: (has(self.all) && self.all) != (has(self.resourceSelector)
                       && size(self.resourceSelector) > 0)
                   - message: logicalclusters cannot be claimed
-                    rule: '!has(self.group) || self.group != "core.kcp.dev" || self.resource
+                    rule: '!has(self.group) || self.group != "core.kcp.io" || self.resource
                       != "logicalclusters" || (has(self.identityHash) && self.identityHash
                       != "")'
                 type: array
@@ -396,7 +396,7 @@ spec:
                     rule: (has(self.all) && self.all) != (has(self.resourceSelector)
                       && size(self.resourceSelector) > 0)
                   - message: logicalclusters cannot be claimed
-                    rule: '!has(self.group) || self.group != "core.kcp.dev" || self.resource
+                    rule: '!has(self.group) || self.group != "core.kcp.io" || self.resource
                       != "logicalclusters" || (has(self.identityHash) && self.identityHash
                       != "")'
                 type: array

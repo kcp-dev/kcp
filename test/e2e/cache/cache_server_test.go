@@ -41,7 +41,7 @@ import (
 	cache2e "github.com/kcp-dev/kcp/test/e2e/reconciler/cache"
 )
 
-// testSchemaIsNotEnforced checks if an object of any schema can be stored as "apis.kcp.dev.v1alpha1.apiexports"
+// testSchemaIsNotEnforced checks if an object of any schema can be stored as "apis.kcp.io.v1alpha1.apiexports"
 func testSchemaIsNotEnforced(ctx context.Context, t *testing.T, cacheClientRT *rest.Config, cluster logicalcluster.Path, gvr schema.GroupVersionResource) {
 	cacheDynamicClient, err := kcpdynamic.NewForConfig(cacheClientRT)
 	require.NoError(t, err)
@@ -77,7 +77,7 @@ func testSchemaIsNotEnforced(ctx context.Context, t *testing.T, cacheClientRT *r
 		t.Fatalf("expected to receive an error when storing an object without providing TypeMeta")
 	}
 
-	earth.APIVersion = "apis.kcp.dev/v1alpha1"
+	earth.APIVersion = "apis.kcp.io/v1alpha1"
 	earth.Kind = "APIExport"
 	t.Logf("Create abmer/%s/earth on the cache server without providing a name", cluster)
 	earthRaw, err = toUnstructured(&earth)
@@ -102,8 +102,8 @@ func testSchemaIsNotEnforced(ctx context.Context, t *testing.T, cacheClientRT *r
 	validateFn(earth, cachedEarthRaw)
 }
 
-// testShardNamesAssigned checks if a shard name is provided in the "kcp.dev/shard" annotation and
-// if a cluster name is stored at "kcp.dev/cluster" annotation
+// testShardNamesAssigned checks if a shard name is provided in the "kcp.io/shard" annotation and
+// if a cluster name is stored at "kcp.io/cluster" annotation
 func testShardClusterNamesAssigned(ctx context.Context, t *testing.T, cacheClientRT *rest.Config, cluster logicalcluster.Path, gvr schema.GroupVersionResource) {
 	cacheDynamicClient, err := kcpdynamic.NewForConfig(cacheClientRT)
 	require.NoError(t, err)
@@ -113,11 +113,11 @@ func testShardClusterNamesAssigned(ctx context.Context, t *testing.T, cacheClien
 		require.NoError(t, err)
 		cachedComicDB := &fakeAPIExport{}
 		require.NoError(t, json.Unmarshal(cachedComicDBJson, cachedComicDB))
-		if cachedComicDB.Annotations["kcp.dev/shard"] != "amber" {
-			t.Fatalf("unexpected shard name %v assigned to cached amber|%s/%s (shard|cluster/name) , expected %s", cachedComicDB.Annotations["kcp.dev/shard"], cluster, cachedComicDB.Name, "amber")
+		if cachedComicDB.Annotations["kcp.io/shard"] != "amber" {
+			t.Fatalf("unexpected shard name %v assigned to cached amber|%s/%s (shard|cluster/name) , expected %s", cachedComicDB.Annotations["kcp.io/shard"], cluster, cachedComicDB.Name, "amber")
 		}
-		if cachedComicDB.Annotations["kcp.dev/cluster"] != cluster.String() {
-			t.Fatalf("unexpected cluster name %v assigned to cached amber|%s/%s (shard|cluster/name), expected %s", cachedComicDB.Annotations["kcp.dev/cluster"], cluster, cachedComicDB.Name, cluster.String())
+		if cachedComicDB.Annotations["kcp.io/cluster"] != cluster.String() {
+			t.Fatalf("unexpected cluster name %v assigned to cached amber|%s/%s (shard|cluster/name), expected %s", cachedComicDB.Annotations["kcp.io/cluster"], cluster, cachedComicDB.Name, cluster.String())
 		}
 	}
 
@@ -151,7 +151,7 @@ func testUIDGenerationCreationTime(ctx context.Context, t *testing.T, cacheClien
 		require.NoError(t, json.Unmarshal(cachedMangoDBJson, cachedMangoDB))
 
 		mangoDB.ResourceVersion = cachedMangoDB.ResourceVersion
-		mangoDB.Annotations["kcp.dev/cluster"] = cluster.String()
+		mangoDB.Annotations["kcp.io/cluster"] = cluster.String()
 		if !cmp.Equal(cachedMangoDB, &mangoDB) {
 			t.Fatalf("received object from the cache server differs from the expected one:\n%s", cmp.Diff(cachedMangoDB, &mangoDB))
 		}
@@ -201,8 +201,8 @@ func testUIDGenerationCreationTimeNegative(ctx context.Context, t *testing.T, ca
 		mangoDB.Generation = cachedMangoDB.Generation
 		mangoDB.ResourceVersion = cachedMangoDB.ResourceVersion
 		mangoDB.CreationTimestamp = cachedMangoDB.CreationTimestamp
-		mangoDB.Annotations["kcp.dev/cluster"] = cluster.String()
-		mangoDB.Annotations["kcp.dev/shard"] = "amber"
+		mangoDB.Annotations["kcp.io/cluster"] = cluster.String()
+		mangoDB.Annotations["kcp.io/shard"] = "amber"
 		if !cmp.Equal(cachedMangoDB, &mangoDB) {
 			t.Fatalf("received object from the cache server differs from the expected one:\n%s", cmp.Diff(cachedMangoDB, &mangoDB))
 		}
@@ -327,7 +327,7 @@ func testSpecStatusSimultaneously(ctx context.Context, t *testing.T, cacheClient
 func newFakeAPIExport(name string) fakeAPIExport {
 	return fakeAPIExport{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "apis.kcp.dev/v1alpha1",
+			APIVersion: "apis.kcp.io/v1alpha1",
 			Kind:       "APIExport",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -383,7 +383,7 @@ func TestCacheServerAllScenarios(t *testing.T) {
 		scenario := scenario
 		t.Run(scenario.name, func(t *testing.T) {
 			t.Parallel()
-			scenario.work(ctx, t, cacheClientRT, logicalcluster.NewPath("acme"), schema.GroupVersionResource{Group: "apis.kcp.dev", Version: "v1alpha1", Resource: "apiexports"})
+			scenario.work(ctx, t, cacheClientRT, logicalcluster.NewPath("acme"), schema.GroupVersionResource{Group: "apis.kcp.io", Version: "v1alpha1", Resource: "apiexports"})
 		})
 	}
 }

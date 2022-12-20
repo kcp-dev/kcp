@@ -4,9 +4,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
-  name: apiexports.apis.kcp.dev
+  name: apiexports.apis.kcp.io
 spec:
-  group: apis.kcp.dev
+  group: apis.kcp.io
   names:
     categories:
     - kcp
@@ -89,14 +89,14 @@ spec:
                   to do. \n The policy consists of RBAC (Cluster)Roles and (Cluster)Bindings.
                   A request of a user in a workspace that binds to this APIExport
                   via an APIBinding is additionally checked against these rules, with
-                  the user name and the groups prefixed with `apis.kcp.dev:binding:`.
+                  the user name and the groups prefixed with `apis.kcp.io:binding:`.
                   \n For example: assume a user `adam` with groups `system:authenticated`
                   and `a-team` binds to this APIExport in another workspace root:org:ws.
                   Then a request in that workspace against a resource of this APIExport
                   is authorized as every other request in that workspace, but in addition
                   the RBAC policy here in the APIExport workspace has to grant access
-                  to the user `apis.kcp.dev:binding:adam` with the groups `apis.kcp.dev:binding:system:authenticated`
-                  and `apis.kcp.dev:binding:a-team`."
+                  to the user `apis.kcp.io:binding:adam` with the groups `apis.kcp.io:binding:system:authenticated`
+                  and `apis.kcp.io:binding:a-team`."
                 oneOf:
                 - required:
                   - local
@@ -178,7 +178,7 @@ spec:
                     rule: (has(self.all) && self.all) != (has(self.resourceSelector)
                       && size(self.resourceSelector) > 0)
                   - message: logicalclusters cannot be claimed
-                    rule: '!has(self.group) || self.group != "core.kcp.dev" || self.resource
+                    rule: '!has(self.group) || self.group != "core.kcp.io" || self.resource
                       != "logicalclusters" || (has(self.identityHash) && self.identityHash
                       != "")'
                 type: array

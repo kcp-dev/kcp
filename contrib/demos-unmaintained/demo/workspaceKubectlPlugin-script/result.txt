@@ -1,5 +1,5 @@
 secret/kubeconfig created
-workspaceshard.tenancy.kcp.dev/boston created
+workspaceshard.tenancy.kcp.io/boston created
 [3J[H[2J# The kubectl kcp workspace plugin mainly delegates to the 'workspaces' virtual workspace
 # in order to create, list, delete workspaces but also to retrieve a workspace kubeconfig
 # that can then be added as a new context to the current kubeconfig
@@ -109,7 +109,7 @@ Current personal workspace is "user-1-workspace-1".
 # has been created in the current kubeconfig, and set as the current context.
 
 ☸️ $ kubectl config current-context
-workspace.kcp.dev/personal/user-1-workspace-1
+workspace.kcp.io/personal/user-1-workspace-1
 
 # Now we can access the content of the current workspace with kubectl
 
@@ -148,21 +148,21 @@ clusters:
     certificate-authority-data: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURXRENDQWtDZ0F3SUJBZ0lCQWpBTkJna3Foa2lHOXcwQkFRc0ZBREF5TVRBd0xnWURWUVFERENkaGNHbHoKWlhKMlpYSXRiRzl2Y0dKaFkyc3RZMnhwWlc1MExXTmhRREUyTkRNeU9URTNOamt3SGhjTk1qSXdNVEkzTVRJMQpOakE1V2hjTk1qTXdNVEkzTVRJMU5qQTVXakF2TVMwd0t3WURWUVFERENSaGNHbHpaWEoyWlhJdGJHOXZjR0poClkyc3RZMnhwWlc1MFFERTJORE15T1RFM05qa3dnZ0VpTUEwR0NTcUdTSWIzRFFFQkFRVUFBNElCRHdBd2dnRUsKQW9JQkFRQ3p2ZStjazZFVDhuWlc0bmIyU0hkTkd2OHR3dTVMenVFcThHZW5PYzgxTjk3MzhuRnFiWjhuNUtBRApVa2JtZFJnUkkzekZGcUNIVWlzMmQxQlhIQlQ2ejBVM0x0M2NyNFhrTmRkMUl5T3c4Q081RXNwcCtSaTI3emdVCkpPTnJVaHdFeUNlTzM5SmxwTzgxWU41c2hUR0hIN2dSUkJFOEkvOWlYYWlxOEplc1ErV3FvOXhyZ3NYNkJ1NFgKUWRnUnd6VFJLcHpNRGI0YUJjMkhkZ0NOWDdEZ0pBblhObStaSlJKQjlhN0JNU2Z3cEdZSS9uQ3gxRU91M0tlbQpCb0FjNmxpWWhwei9kUWVrLzVScm01NUN2VXJnWTcrTUVrYmovUmNyMlJyWHVmSERMS1pLbmpMejI0UlRTRlNwCm9xaFRSUGtOOHl0YlpjMmFZaGFLMVFWOTlHTkJBZ01CQUFHamZEQjZNQTRHQTFVZER3RUIvd1FFQXdJRm9EQVQKQmdOVkhTVUVEREFLQmdnckJnRUZCUWNEQVRBTUJnTlZIUk1CQWY4RUFqQUFNQjhHQTFVZEl3UVlNQmFBRlBnMQpNNHF6MHBuQ0R2ZTZvY1htNzFSak1jN2tNQ1FHQTFVZEVRUWRNQnVDR1dGd2FYTmxjblpsY2kxc2IyOXdZbUZqCmF5MWpiR2xsYm5Rd0RRWUpLb1pJaHZjTkFRRUxCUUFEZ2dFQkFGaXFlTjB3NFRZaXRIVmdBaHphUE9Id2gzdFoKdVhqVU9NQUYzaEluME1EN1J2dk9kNTBub3hXTVdxYXVuVnpDWHJndllPcGJpY3VDVWljeGd2eTZCUEJ5b2E4UAo3TUl5WS9TcU83bFF0Y21IdzRGZGFhOHFTV2NMNm0xU2VONXZzZEU5dUtseFlWSFlMUURKNlljYUE2blN4UHdpCmlScG5oZ0NNUDF2ZzNHekFIald5SmRVRXh2UWt0VDBzZklXdkIyaUhraWRNRDF5RXd2R25rVlUrdFJFWTVxSk4KeGlvMkUxV0M4VlV6LzhmVGZjMzlIRjVpV21mVzdZMitYcGtaV3N5SnFDaENsVHlHaWZnMVRIWU1va0JpWUtTYwo4dHdKT3V3RUdxdkQ1emEvUXRNdFgxUWxLVE9iNk53aWZZb3VJNHZndVdTZ1NNMllTL2p6T2J5T2RIcz0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQotLS0tLUJFR0lOIENFUlRJRklDQVRFLS0tLS0KTUlJRElUQ0NBZ21nQXdJQkFnSUJBVEFOQmdrcWhraUc5dzBCQVFzRkFEQXlNVEF3TGdZRFZRUUREQ2RoY0dsegpaWEoyWlhJdGJHOXZjR0poWTJzdFkyeHBaVzUwTFdOaFFERTJORE15T1RFM05qa3dIaGNOTWpJd01USTNNVEkxCk5qQTVXaGNOTWpNd01USTNNVEkxTmpBNVdqQXlNVEF3TGdZRFZRUUREQ2RoY0dselpYSjJaWEl0Ykc5dmNHSmgKWTJzdFkyeHBaVzUwTFdOaFFERTJORE15T1RFM05qa3dnZ0VpTUEwR0NTcUdTSWIzRFFFQkFRVUFBNElCRHdBdwpnZ0VLQW9JQkFRQ3cyOVVFTHU3OWlQc3RoRU9aL2plbzQrYzVjNGtZNDcwQnpIRVp5MDNtZW1FRFV6em10WFFMCmFVSDBqWXdsT0xWL001K1RFb3lQTkFwOTVhdjRKT2o2a0kwVWtLbm5rSFZLdkwrVEdkQ0QvQ3VBM2sxSzVURTAKS1ErY2FZcHJZUGlpYXVNVEUydVkvTGs5ajNmbEkxOVBxemplNzRHcXByckpNM2lnQzJJdzJYNGJ1aElOQ0czMQp4ODJ6dFdpakdVRTlrTFJaYXhLU1pOc0tFUVNxSS90OFY0K0pteVZQK0Z2eHErVng3MzZDRUo0SWdYczY2bmc4CmhrLzJIWW9xbG9qQVZhK2tNVERnVHkrOVozUzVnQU4zZHFGZUs1RjRCaW83UUxkdWd1OSs3emVBcHlNQm9iZVAKaWtCQThvRVYrUTQ4ZGJWK3YzU0RmOFU1R1NZZW9PTFZBZ01CQUFHalFqQkFNQTRHQTFVZER3RUIvd1FFQXdJQwpwREFQQmdOVkhSTUJBZjhFQlRBREFRSC9NQjBHQTFVZERnUVdCQlQ0TlRPS3M5S1p3ZzczdXFIRjV1OVVZekhPCjVEQU5CZ2txaGtpRzl3MEJBUXNGQUFPQ0FRRUFaMDBQcG1rQmhnWExucUxaREtyaWc5Z215NkVzZDU4Zm5ncFUKd2pxblFlR0g4NXBTR215eUVwT01CeFFxeXl0Zi9LVDluUHRpYS9aYlAyRTVjYjVBUzk0NVBheFY0RHVYTEVQSgpRZ0tuSGFIOUlCcGI3UUVvVzRVdUVsWjZzV0ZORWxUZmlqUEZqYnRtNlRYNktRZGxCZloyRDluNmd3WFF5Unk5CnFId3AybCsyUFY1QWprMlZEbldtajlLRnJRNklNZmhlUE01UFlPMnVCeFkxaWIvRmNWYTNGRndIenp4K1FYajIKd0hSdjlYbnc2d3JiVUNFRmszekkybkJOeTVSck9BQjJsUDNidnNQWDJuZTRtbzFxbERYOGx2Y0JDZnMwMUF6egpIdHFlMVJzZDlJK0Q1MHRZdzBOdzFaMUtJaFlDaDJGUjcvTHVtbTFUU0dEMVRGdHpuUT09Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
     server: https://127.0.0.1:6443/clusters/admin_user-1-workspace-1
     tls-server-name: apiserver-loopback-client
-  name: workspace.kcp.dev/personal/user-1-workspace-1
+  name: workspace.kcp.io/personal/user-1-workspace-1
 contexts:
 - context:
     cluster: workspace-directory
     user: ""
   name: workspace-directory
 - context:
-    cluster: workspace.kcp.dev/personal/user-1-workspace-1
-    user: workspace.kcp.dev/personal/user-1-workspace-1
-  name: workspace.kcp.dev/personal/user-1-workspace-1
-current-context: workspace.kcp.dev/personal/user-1-workspace-1
+    cluster: workspace.kcp.io/personal/user-1-workspace-1
+    user: workspace.kcp.io/personal/user-1-workspace-1
+  name: workspace.kcp.io/personal/user-1-workspace-1
+current-context: workspace.kcp.io/personal/user-1-workspace-1
 kind: Config
 preferences: {}
 users:
-- name: workspace.kcp.dev/personal/user-1-workspace-1
+- name: workspace.kcp.io/personal/user-1-workspace-1
   user:
     token: user-1-token
 [3J[H[2J
@@ -213,4 +213,4 @@ Error from server (Forbidden): secrets is forbidden: User "user-1" cannot list r
 # Ability for user-2 to share his workspace will be implemented later.
 
 ☸️ $ kubectl kcp workspace --token user-1-token use user-2-workspace1
-Error: the server could not find the requested resource (get workspaces.tenancy.kcp.dev user-2-workspace1)
+Error: the server could not find the requested resource (get workspaces.tenancy.kcp.io user-2-workspace1)

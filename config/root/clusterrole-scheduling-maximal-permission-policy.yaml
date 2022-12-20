@@ -3,12 +3,12 @@ kind: ClusterRole
 metadata:
   name: system:kcp:apiexport:scheduling:maximal-permission-policy
 rules:
-- apiGroups: ["scheduling.kcp.dev"]
+- apiGroups: ["scheduling.kcp.io"]
   verbs: ["*"]
   resources:
   - locations
   - placements
-- apiGroups: ["scheduling.kcp.dev"]
+- apiGroups: ["scheduling.kcp.io"]
   verbs: ["get","list","watch"]
   resources:
   - locations/status

@@ -5,9 +5,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
-  name: clusterworkspaces.tenancy.kcp.dev
+  name: clusterworkspaces.tenancy.kcp.io
 spec:
-  group: tenancy.kcp.dev
+  group: tenancy.kcp.io
   names:
     categories:
     - kcp

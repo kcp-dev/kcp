@@ -36,7 +36,7 @@ import (
 const (
 	// SyncerFinalizerNamePrefix is the finalizer put onto resources by the syncer to claim ownership,
 	// *before* a downstream object is created. It is only removed when the downstream object is deleted.
-	SyncerFinalizerNamePrefix = "workload.kcp.dev/syncer-"
+	SyncerFinalizerNamePrefix = "workload.kcp.io/syncer-"
 )
 
 func EnsureUpstreamFinalizerRemoved(ctx context.Context, gvr schema.GroupVersionResource, upstreamInformer kcpkubernetesinformers.GenericClusterInformer, upstreamClient kcpdynamic.ClusterInterface, upstreamNamespace, syncTargetKey string, logicalClusterName logicalcluster.Name, resourceName string) error {

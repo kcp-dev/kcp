@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	PluginName = "apis.kcp.dev/APIBindingDeletionFinalizer"
+	PluginName = "apis.kcp.io/APIBindingDeletionFinalizer"
 )
 
 func Register(plugins *admission.Plugins) {

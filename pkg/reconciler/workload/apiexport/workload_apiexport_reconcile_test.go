@@ -174,7 +174,7 @@ func TestSchemaReconciler(t *testing.T) {
 						Name: "rev-52.deployments.apps",
 						OwnerReferences: []metav1.OwnerReference{
 							{
-								APIVersion:         "apis.kcp.dev/v1alpha1",
+								APIVersion:         "apis.kcp.io/v1alpha1",
 								Kind:               "APIExport",
 								Name:               "kubernetes",
 								Controller:         pointer.BoolPtr(true),
@@ -405,7 +405,7 @@ func TestSchemaReconciler(t *testing.T) {
 							return s, nil
 						}
 					}
-					return nil, apierrors.NewNotFound(schema.GroupResource{Group: "apis.kcp.dev", Resource: "apiresourceschemas"}, name)
+					return nil, apierrors.NewNotFound(schema.GroupResource{Group: "apis.kcp.io", Resource: "apiresourceschemas"}, name)
 				},
 				createAPIResourceSchema: func(ctx context.Context, clusterName logicalcluster.Path, schema *apisv1alpha1.APIResourceSchema) (*apisv1alpha1.APIResourceSchema, error) {
 					if tc.createAPIResourceSchemaError != nil {

@@ -33,7 +33,7 @@ type TenancyV1alpha1Interface interface {
 	WorkspaceTypesGetter
 }
 
-// TenancyV1alpha1Client is used to interact with features provided by the tenancy.kcp.dev group.
+// TenancyV1alpha1Client is used to interact with features provided by the tenancy.kcp.io group.
 type TenancyV1alpha1Client struct {
 	restClient rest.Interface
 }

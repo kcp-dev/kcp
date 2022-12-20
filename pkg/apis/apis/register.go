@@ -17,5 +17,5 @@ limitations under the License.
 package apis
 
 const (
-	GroupName = "apis.kcp.dev"
+	GroupName = "apis.kcp.io"
 )

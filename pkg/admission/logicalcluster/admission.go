@@ -39,7 +39,7 @@ import (
 // Protects deletion of LogicalCluster if spec.directlyDeletable is false.
 
 const (
-	PluginName = "core.kcp.dev/LogicalCluster"
+	PluginName = "core.kcp.io/LogicalCluster"
 )
 
 func Register(plugins *admission.Plugins) {

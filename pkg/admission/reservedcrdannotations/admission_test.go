@@ -105,7 +105,7 @@ func TestValidate(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					Annotations: map[string]string{
-						"apis.kcp.dev/bound-crd": "true",
+						"apis.kcp.io/bound-crd": "true",
 					},
 				},
 			}),
@@ -118,7 +118,7 @@ func TestValidate(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					Annotations: map[string]string{
-						"abc.apis.kcp.dev/xyz": "true",
+						"abc.apis.kcp.io/xyz": "true",
 					},
 				},
 			}),
@@ -131,7 +131,7 @@ func TestValidate(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					Annotations: map[string]string{
-						"apis.kcp.dev/bound-crd": "true",
+						"apis.kcp.io/bound-crd": "true",
 					},
 				},
 			}),
@@ -143,7 +143,7 @@ func TestValidate(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					Annotations: map[string]string{
-						"apis.kcp.dev/bound-crd": "true",
+						"apis.kcp.io/bound-crd": "true",
 					},
 				},
 			}),
@@ -156,7 +156,7 @@ func TestValidate(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					Annotations: map[string]string{
-						"apis.kcp.dev/bound-crd": "true",
+						"apis.kcp.io/bound-crd": "true",
 					},
 				},
 			}),
@@ -181,7 +181,7 @@ func TestValidate(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					Annotations: map[string]string{
-						"apis.kcp.dev/bound-crd": "true",
+						"apis.kcp.io/bound-crd": "true",
 					},
 				},
 			}, &apiextensions.CustomResourceDefinition{
@@ -198,7 +198,7 @@ func TestValidate(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					Annotations: map[string]string{
-						"apis.kcp.dev/bound-crd": "true",
+						"apis.kcp.io/bound-crd": "true",
 					},
 				},
 			}, &apiextensions.CustomResourceDefinition{

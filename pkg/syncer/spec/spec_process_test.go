@@ -496,19 +496,19 @@ func TestSpecSyncerProcess(t *testing.T) {
 		"SpecSyncer sync deployment to downstream, upstream gets patched with the finalizer and the object is not created downstream (will be in the next reconciliation)": {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("test", "root:org:ws", map[string]string{
-				"internal.workload.kcp.dev/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+				"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 			}, nil),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResources: []runtime.Object{
 				secret("default-token-abc", "test", "root:org:ws",
-					map[string]string{"state.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync"},
+					map[string]string{"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync"},
 					map[string]string{"kubernetes.io/service-account.name": "default"},
 					map[string][]byte{
 						"token":     []byte("token"),
 						"namespace": []byte("namespace"),
 					}),
 				deployment("theDeployment", "test", "root:org:ws", map[string]string{
-					"state.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
+					"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
 				}, nil, nil),
 			},
 			toResources: []runtime.Object{
@@ -527,8 +527,8 @@ func TestSpecSyncerProcess(t *testing.T) {
 				updateDeploymentAction("test",
 					toUnstructured(t, changeDeployment(
 						deployment("theDeployment", "test", "root:org:ws", map[string]string{
-							"state.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
-						}, nil, []string{"workload.kcp.dev/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
+							"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
+						}, nil, []string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
 					))),
 			},
 			expectActionsOnTo: []clienttesting.Action{
@@ -537,10 +537,10 @@ func TestSpecSyncerProcess(t *testing.T) {
 					changeUnstructured(
 						toUnstructured(t, namespace("kcp-33jbiactwhg0", "",
 							map[string]string{
-								"internal.workload.kcp.dev/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+								"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 							},
 							map[string]string{
-								"kcp.dev/namespace-locator": `{"syncTarget":{"cluster":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
+								"kcp.io/namespace-locator": `{"syncTarget":{"cluster":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
 							})),
 						removeNilOrEmptyFields,
 					),
@@ -550,20 +550,20 @@ func TestSpecSyncerProcess(t *testing.T) {
 		"SpecSyncer sync to downstream, syncer finalizer already there": {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("test", "root:org:ws", map[string]string{
-				"state.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
+				"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
 			}, nil),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResources: []runtime.Object{
 				secret("default-token-abc", "test", "root:org:ws",
-					map[string]string{"state.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync"},
+					map[string]string{"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync"},
 					map[string]string{"kubernetes.io/service-account.name": "default"},
 					map[string][]byte{
 						"token":     []byte("token"),
 						"namespace": []byte("namespace"),
 					}),
 				deployment("theDeployment", "test", "root:org:ws", map[string]string{
-					"state.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
-				}, nil, []string{"workload.kcp.dev/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
+					"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
+				}, nil, []string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
 			},
 			toResources: []runtime.Object{
 				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
@@ -584,10 +584,10 @@ func TestSpecSyncerProcess(t *testing.T) {
 					changeUnstructured(
 						toUnstructured(t, namespace("kcp-33jbiactwhg0", "",
 							map[string]string{
-								"internal.workload.kcp.dev/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+								"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 							},
 							map[string]string{
-								"kcp.dev/namespace-locator": `{"syncTarget":{"cluster":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
+								"kcp.io/namespace-locator": `{"syncTarget":{"cluster":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
 							})),
 						removeNilOrEmptyFields,
 					),
@@ -599,7 +599,7 @@ func TestSpecSyncerProcess(t *testing.T) {
 					toJson(t,
 						changeUnstructured(
 							toUnstructured(t, deployment("theDeployment", "kcp-33jbiactwhg0", "", map[string]string{
-								"internal.workload.kcp.dev/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+								"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 							}, nil, nil)),
 							setNestedField(map[string]interface{}{}, "status"),
 							setPodSpec("spec", "template", "spec"),
@@ -611,12 +611,12 @@ func TestSpecSyncerProcess(t *testing.T) {
 		"SpecSyncer upstream resource has the state workload annotation removed, expect deletion downstream": {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("test", "root:org:ws", map[string]string{
-				"state.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
+				"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
 			}, nil),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResources: []runtime.Object{
 				secret("default-token-abc", "test", "root:org:ws",
-					map[string]string{"state.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync"},
+					map[string]string{"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync"},
 					map[string]string{"kubernetes.io/service-account.name": "default"},
 					map[string][]byte{
 						"token":     []byte("token"),
@@ -639,19 +639,19 @@ func TestSpecSyncerProcess(t *testing.T) {
 		"SpecSyncer deletion: object exist downstream": {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("test", "root:org:ws", map[string]string{
-				"state.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
+				"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
 			}, nil),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			toResources: []runtime.Object{
 				namespace("kcp-33jbiactwhg0", "", map[string]string{
-					"state.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
+					"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
 				},
 					map[string]string{
-						"kcp.dev/namespace-locator": `{"syncTarget":{"cluster":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
+						"kcp.io/namespace-locator": `{"syncTarget":{"cluster":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
 					}),
 				deployment("theDeployment", "kcp-33jbiactwhg0", "root:org:ws", map[string]string{
-					"internal.workload.kcp.dev/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
-				}, nil, []string{"workload.kcp.dev/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
+					"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+				}, nil, []string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
 				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
 				dns.MakeRole("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
 				dns.MakeRoleBinding("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
@@ -661,16 +661,16 @@ func TestSpecSyncerProcess(t *testing.T) {
 			},
 			fromResources: []runtime.Object{
 				secret("default-token-abc", "test", "root:org:ws",
-					map[string]string{"state.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync"},
+					map[string]string{"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync"},
 					map[string]string{"kubernetes.io/service-account.name": "default"},
 					map[string][]byte{
 						"token":     []byte("token"),
 						"namespace": []byte("namespace"),
 					}),
 				deployment("theDeployment", "test", "root:org:ws",
-					map[string]string{"state.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync"},
-					map[string]string{"deletion.internal.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": time.Now().Format(time.RFC3339)},
-					[]string{"workload.kcp.dev/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
+					map[string]string{"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync"},
+					map[string]string{"deletion.internal.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": time.Now().Format(time.RFC3339)},
+					[]string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
 			resourceToProcessName:               "theDeployment",
@@ -687,15 +687,15 @@ func TestSpecSyncerProcess(t *testing.T) {
 		"SpecSyncer deletion: object does not exists downstream, upstream finalizer should be removed": {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("test", "root:org:ws", map[string]string{
-				"internal.workload.kcp.dev/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+				"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 			}, nil),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			toResources: []runtime.Object{
 				namespace("kcp-33jbiactwhg0", "", map[string]string{
-					"state.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
+					"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
 				},
 					map[string]string{
-						"kcp.dev/namespace-locator": `{"syncTarget":{"cluster":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
+						"kcp.io/namespace-locator": `{"syncTarget":{"cluster":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
 					}),
 				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
 				dns.MakeRole("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
@@ -706,17 +706,17 @@ func TestSpecSyncerProcess(t *testing.T) {
 			},
 			fromResources: []runtime.Object{
 				secret("default-token-abc", "test", "root:org:ws",
-					map[string]string{"state.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync"},
+					map[string]string{"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync"},
 					map[string]string{"kubernetes.io/service-account.name": "default"},
 					map[string][]byte{
 						"token":     []byte("token"),
 						"namespace": []byte("namespace"),
 					}),
 				deployment("theDeployment", "test", "root:org:ws",
-					map[string]string{"state.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync"},
+					map[string]string{"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync"},
 					map[string]string{"another.valid.annotation/this": "value",
-						"deletion.internal.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": time.Now().Format(time.RFC3339)},
-					[]string{"workload.kcp.dev/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
+						"deletion.internal.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": time.Now().Format(time.RFC3339)},
+					[]string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
 			resourceToProcessName:               "theDeployment",
@@ -745,19 +745,19 @@ func TestSpecSyncerProcess(t *testing.T) {
 		"SpecSyncer deletion: upstream object has external finalizer, the object shouldn't be deleted": {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("test", "root:org:ws", map[string]string{
-				"state.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
+				"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
 			}, nil),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			toResources: []runtime.Object{
 				namespace("kcp-33jbiactwhg0", "", map[string]string{
-					"internal.workload.kcp.dev/cluster":                             "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
-					"state.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
+					"internal.workload.kcp.io/cluster":                             "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+					"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
 				},
 					map[string]string{
-						"kcp.dev/namespace-locator": `{"syncTarget":{"cluster":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
+						"kcp.io/namespace-locator": `{"syncTarget":{"cluster":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
 					}),
 				deployment("theDeployment", "kcp-33jbiactwhg0", "", map[string]string{
-					"internal.workload.kcp.dev/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+					"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 				}, nil, nil),
 				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
 				dns.MakeRole("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
@@ -768,19 +768,19 @@ func TestSpecSyncerProcess(t *testing.T) {
 			},
 			fromResources: []runtime.Object{
 				secret("default-token-abc", "test", "root:org:ws",
-					map[string]string{"state.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync"},
+					map[string]string{"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync"},
 					map[string]string{"kubernetes.io/service-account.name": "default"},
 					map[string][]byte{
 						"token":     []byte("token"),
 						"namespace": []byte("namespace"),
 					}),
 				deployment("theDeployment", "test", "root:org:ws",
-					map[string]string{"state.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync"},
+					map[string]string{"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync"},
 					map[string]string{
-						"deletion.internal.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": time.Now().Format(time.RFC3339),
-						"finalizers.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g":        "another-controller-finalizer",
+						"deletion.internal.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": time.Now().Format(time.RFC3339),
+						"finalizers.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g":        "another-controller-finalizer",
 					},
-					[]string{"workload.kcp.dev/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
+					[]string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
 			resourceToProcessName:               "theDeployment",
@@ -795,10 +795,10 @@ func TestSpecSyncerProcess(t *testing.T) {
 					toJson(t,
 						changeUnstructured(
 							toUnstructured(t, deployment("theDeployment", "kcp-33jbiactwhg0", "", map[string]string{
-								"internal.workload.kcp.dev/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+								"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 							}, map[string]string{
-								"deletion.internal.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": time.Now().Format(time.RFC3339),
-								"finalizers.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g":        "another-controller-finalizer",
+								"deletion.internal.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": time.Now().Format(time.RFC3339),
+								"finalizers.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g":        "another-controller-finalizer",
 							}, nil)),
 							// TODO(jmprusi): Those next changes do "nothing", it's just for the test to pass
 							//                as the test expects some null fields to be there...
@@ -822,12 +822,12 @@ func TestSpecSyncerProcess(t *testing.T) {
 		"SpecSyncer with AdvancedScheduling, sync deployment to downstream and apply SpecDiff": {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("test", "root:org:ws", map[string]string{
-				"internal.workload.kcp.dev/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+				"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 			}, nil),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResources: []runtime.Object{
 				secret("default-token-abc", "test", "root:org:ws",
-					map[string]string{"state.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync"},
+					map[string]string{"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync"},
 					map[string]string{"kubernetes.io/service-account.name": "default"},
 					map[string][]byte{
 						"token":     []byte("token"),
@@ -835,10 +835,10 @@ func TestSpecSyncerProcess(t *testing.T) {
 					}),
 				deployment("theDeployment", "test", "root:org:ws",
 					map[string]string{
-						"state.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
+						"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
 					},
-					map[string]string{"experimental.spec-diff.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "[{\"op\":\"replace\",\"path\":\"/replicas\",\"value\":3}]"},
-					[]string{"workload.kcp.dev/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
+					map[string]string{"experimental.spec-diff.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "[{\"op\":\"replace\",\"path\":\"/replicas\",\"value\":3}]"},
+					[]string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
 			},
 			toResources: []runtime.Object{
 				dns.MakeServiceAccount("kcp-dns-us-west1-1nuzj7pw-2fcy2vpi", "kcp-01c0zzvlqsi7n"),
@@ -860,10 +860,10 @@ func TestSpecSyncerProcess(t *testing.T) {
 					changeUnstructured(
 						toUnstructured(t, namespace("kcp-33jbiactwhg0", "",
 							map[string]string{
-								"internal.workload.kcp.dev/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+								"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 							},
 							map[string]string{
-								"kcp.dev/namespace-locator": `{"syncTarget":{"cluster":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
+								"kcp.io/namespace-locator": `{"syncTarget":{"cluster":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
 							})),
 						removeNilOrEmptyFields,
 					),
@@ -875,8 +875,8 @@ func TestSpecSyncerProcess(t *testing.T) {
 					toJson(t,
 						changeUnstructured(
 							toUnstructured(t, deployment("theDeployment", "kcp-33jbiactwhg0", "", map[string]string{
-								"internal.workload.kcp.dev/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
-							}, map[string]string{"experimental.spec-diff.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "[{\"op\":\"replace\",\"path\":\"/replicas\",\"value\":3}]"}, nil)),
+								"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+							}, map[string]string{"experimental.spec-diff.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "[{\"op\":\"replace\",\"path\":\"/replicas\",\"value\":3}]"}, nil)),
 							setNestedField(map[string]interface{}{
 								"replicas": int64(3),
 							}, "spec"),
@@ -901,27 +901,27 @@ func TestSpecSyncerProcess(t *testing.T) {
 		"SpecSyncer namespace conflict: try to sync to an already existing namespace with a different namespace-locator, expect error": {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("test", "root:org:ws", map[string]string{
-				"internal.workload.kcp.dev/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+				"internal.workload.kcp.io/cluster": "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
 			}, nil),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResources: []runtime.Object{
 				secret("default-token-abc", "test", "root:org:ws",
-					map[string]string{"state.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync"},
+					map[string]string{"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync"},
 					map[string]string{"kubernetes.io/service-account.name": "default"},
 					map[string][]byte{
 						"token":     []byte("token"),
 						"namespace": []byte("namespace"),
 					}),
 				deployment("theDeployment", "test", "root:org:ws", map[string]string{
-					"state.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
-				}, nil, []string{"workload.kcp.dev/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
+					"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
+				}, nil, []string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
 			},
 			toResources: []runtime.Object{
 				namespace("kcp-33jbiactwhg0", "", map[string]string{
-					"internal.workload.kcp.dev/cluster":                             "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
-					"state.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
+					"internal.workload.kcp.io/cluster":                             "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+					"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
 				}, map[string]string{
-					"kcp.dev/namespace-locator": `{"syncTarget":{"cluster":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"ANOTHERNAMESPACE"}`,
+					"kcp.io/namespace-locator": `{"syncTarget":{"cluster":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"ANOTHERNAMESPACE"}`,
 				}),
 			},
 			resourceToProcessLogicalClusterName: "root:org:ws",
@@ -934,25 +934,25 @@ func TestSpecSyncerProcess(t *testing.T) {
 		"SpecSyncer namespace conflict: try to sync to an already existing namespace without a namespace-locator, expect error": {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("test", "root:org:ws", map[string]string{
-				"state.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
+				"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
 			}, nil),
 			gvr: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			fromResources: []runtime.Object{
 				secret("default-token-abc", "test", "root:org:ws",
-					map[string]string{"state.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync"},
+					map[string]string{"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync"},
 					map[string]string{"kubernetes.io/service-account.name": "default"},
 					map[string][]byte{
 						"token":     []byte("token"),
 						"namespace": []byte("namespace"),
 					}),
 				deployment("theDeployment", "test", "root:org:ws", map[string]string{
-					"state.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
-				}, nil, []string{"workload.kcp.dev/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
+					"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
+				}, nil, []string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"}),
 			},
 			toResources: []runtime.Object{
 				namespace("kcp-33jbiactwhg0", "", map[string]string{
-					"internal.workload.kcp.dev/cluster":                             "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
-					"state.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
+					"internal.workload.kcp.io/cluster":                             "6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g",
+					"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
 				}, map[string]string{},
 				),
 			},
@@ -966,18 +966,18 @@ func TestSpecSyncerProcess(t *testing.T) {
 		"old v0.6.0 namespace locator exists downstream": {
 			upstreamLogicalCluster: "root:org:ws",
 			fromNamespace: namespace("test", "root:org:ws", map[string]string{
-				"state.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
+				"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
 			}, nil),
 			gvr: schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"},
 			toResources: []runtime.Object{
 				namespace("kcp-01c0zzvlqsi7n", "", map[string]string{
-					"state.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
+					"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
 				},
 					map[string]string{
-						"kcp.dev/namespace-locator": `{"syncTarget":{"path":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
+						"kcp.io/namespace-locator": `{"syncTarget":{"path":"root:org:ws","name":"us-west1","uid":"syncTargetUID"},"cluster":"root:org:ws","namespace":"test"}`,
 					}),
 				secret("foo", "test", "root:org:ws",
-					map[string]string{"state.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync"},
+					map[string]string{"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync"},
 					nil,
 					map[string][]byte{
 						"a": []byte("b"),
@@ -992,10 +992,10 @@ func TestSpecSyncerProcess(t *testing.T) {
 			fromResources: []runtime.Object{
 				secretWithFinalizers("foo", "test", "root:org:ws",
 					map[string]string{
-						"state.workload.kcp.dev/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
+						"state.workload.kcp.io/6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g": "Sync",
 						"something": "else"},
 					nil,
-					[]string{"workload.kcp.dev/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"},
+					[]string{"workload.kcp.io/syncer-6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g"},
 					map[string][]byte{
 						"a": []byte("b"),
 					}),
@@ -1010,7 +1010,7 @@ func TestSpecSyncerProcess(t *testing.T) {
 					"foo",
 					"kcp-01c0zzvlqsi7n",
 					types.ApplyPatchType,
-					[]byte(`{"apiVersion":"v1","data":{"a":"Yg=="},"kind":"Secret","metadata":{"creationTimestamp":null,"labels":{"internal.workload.kcp.dev/cluster":"6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g","something":"else"},"name":"foo","namespace":"kcp-01c0zzvlqsi7n"},"type":"kubernetes.io/service-account-token"}`),
+					[]byte(`{"apiVersion":"v1","data":{"a":"Yg=="},"kind":"Secret","metadata":{"creationTimestamp":null,"labels":{"internal.workload.kcp.io/cluster":"6ohB8yeXhwqTQVuBzJRgqcRJTpRjX7yTZu5g5g","something":"else"},"name":"foo","namespace":"kcp-01c0zzvlqsi7n"},"type":"kubernetes.io/service-account-token"}`),
 				),
 			},
 		},
@@ -1067,7 +1067,7 @@ func TestSpecSyncerProcess(t *testing.T) {
 			serviceLister := toInformerFactory.Core().V1().Services().Lister()
 			endpointLister := toInformerFactory.Core().V1().Endpoints().Lister()
 
-			upstreamURL, err := url.Parse("https://kcp.dev:6443")
+			upstreamURL, err := url.Parse("https://kcp.io:6443")
 			require.NoError(t, err)
 
 			mockedCleaner := &mockedCleaner{

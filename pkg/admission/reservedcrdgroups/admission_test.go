@@ -97,7 +97,7 @@ func TestValidate(t *testing.T) {
 					Name: "test",
 				},
 				Spec: apiextensions.CustomResourceDefinitionSpec{
-					Group: "apis.kcp.dev",
+					Group: "apis.kcp.io",
 				},
 			}),
 			clusterName: "system:system-crds",
@@ -109,7 +109,7 @@ func TestValidate(t *testing.T) {
 					Name: "test",
 				},
 				Spec: apiextensions.CustomResourceDefinitionSpec{
-					Group: "apis.kcp.dev",
+					Group: "apis.kcp.io",
 				},
 			}),
 			wantErr:     true,
@@ -144,7 +144,7 @@ func TestValidate(t *testing.T) {
 					Labels: map[string]string{"a": "b"},
 				},
 				Spec: apiextensions.CustomResourceDefinitionSpec{
-					Group: "apis.kcp.dev",
+					Group: "apis.kcp.io",
 				},
 			},
 				&apiextensions.CustomResourceDefinition{
@@ -152,7 +152,7 @@ func TestValidate(t *testing.T) {
 						Name: "test",
 					},
 					Spec: apiextensions.CustomResourceDefinitionSpec{
-						Group: "foo.apis.kcp.dev",
+						Group: "foo.apis.kcp.io",
 					},
 				}),
 			clusterName: "system:system-crds",
@@ -165,7 +165,7 @@ func TestValidate(t *testing.T) {
 					Labels: map[string]string{"a": "b"},
 				},
 				Spec: apiextensions.CustomResourceDefinitionSpec{
-					Group: "apis.kcp.dev",
+					Group: "apis.kcp.io",
 				},
 			},
 				&apiextensions.CustomResourceDefinition{
@@ -173,7 +173,7 @@ func TestValidate(t *testing.T) {
 						Name: "test",
 					},
 					Spec: apiextensions.CustomResourceDefinitionSpec{
-						Group: "foo.apis.kcp.dev",
+						Group: "foo.apis.kcp.io",
 					},
 				}),
 			wantErr:     true,
@@ -207,7 +207,7 @@ func TestValidate(t *testing.T) {
 					Name: "test",
 				},
 				Spec: apiextensions.CustomResourceDefinitionSpec{
-					Group: "initialization.tenancy.kcp.dev",
+					Group: "initialization.tenancy.kcp.io",
 				},
 			},
 				&apiextensions.CustomResourceDefinition{
@@ -215,7 +215,7 @@ func TestValidate(t *testing.T) {
 						Name: "test",
 					},
 					Spec: apiextensions.CustomResourceDefinitionSpec{
-						Group: "initialization.tenancy.kcp.dev",
+						Group: "initialization.tenancy.kcp.io",
 					},
 				}),
 			clusterName: "root:org:ws",

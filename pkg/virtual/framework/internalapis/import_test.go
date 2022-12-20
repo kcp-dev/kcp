@@ -71,7 +71,7 @@ func TestImportInternalAPIs(t *testing.T) {
 				Singular: "synctarget",
 				Kind:     "SyncTarget",
 			},
-			GroupVersion:  schema.GroupVersion{Group: "workload.kcp.dev", Version: "v1alpha1"},
+			GroupVersion:  schema.GroupVersion{Group: "workload.kcp.io", Version: "v1alpha1"},
 			Instance:      &workloadv1alpha1.SyncTarget{},
 			ResourceScope: apiextensionsv1.ClusterScoped,
 			HasStatus:     true,

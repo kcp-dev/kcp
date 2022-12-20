@@ -31,8 +31,8 @@ func init() {
 }
 
 // Includes returns true if gvr is for a projected API. An API is projected if it is not stored in etcd and instead
-// comes from some other data that is actually stored in etcd. For example, Workspaces (tenancy.kcp.dev/v1beta1) are
-// projected; the real data comes from ClusterWorkspaces (tenancy.kcp.dev/v1alpha1).
+// comes from some other data that is actually stored in etcd. For example, Workspaces (tenancy.kcp.io/v1beta1) are
+// projected; the real data comes from ClusterWorkspaces (tenancy.kcp.io/v1alpha1).
 func Includes(gvr schema.GroupVersionResource) bool {
 	_, exists := projectedAPIs[gvr]
 	return exists

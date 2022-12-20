@@ -5,7 +5,7 @@ metadata:
   annotations:
     nginx.ingress.kubernetes.io/ssl-passthrough: "true"
   labels:
-    workloads.kcp.dev/cluster: kind-us-east1
+    workloads.kcp.io/cluster: kind-us-east1
 spec:
   tls:
   - hosts:

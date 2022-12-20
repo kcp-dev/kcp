@@ -1,10 +1,10 @@
-apiVersion: apis.kcp.dev/v1alpha1
+apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v221006-eaaf199d.locations.scheduling.kcp.dev
+  name: v221006-eaaf199d.locations.scheduling.kcp.io
 spec:
-  group: scheduling.kcp.dev
+  group: scheduling.kcp.io
   names:
     categories:
     - kcp
@@ -149,7 +149,7 @@ spec:
                 group:
                   description: group is the name of an API group.
                   enum:
-                  - workload.kcp.dev
+                  - workload.kcp.io
                   pattern: ^(|[a-z0-9]([-a-z0-9]*[a-z0-9](\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)?)$
                   type: string
                 resource:
