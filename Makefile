@@ -265,7 +265,7 @@ test-e2e-shared: require-kind build-all build-kind-images
 	mkdir -p "$(LOG_DIR)" "$(WORK_DIR)/.kcp"
 	kind get kubeconfig > "$(WORK_DIR)/.kcp/kind.kubeconfig"
 	rm -f "$(WORK_DIR)/.kcp/admin.kubeconfig"
-	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 ./bin/test-server --log-file-path="$(LOG_DIR)/kcp.log" $(TEST_SERVER_ARGS) 2>&1 & PID=$$! && echo "PID $$PID" && \
+	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 ./bin/test-server --quiet --log-file-path="$(LOG_DIR)/kcp.log" $(TEST_SERVER_ARGS) 2>&1 & PID=$$! && echo "PID $$PID" && \
 	trap 'kill -TERM $$PID' TERM INT EXIT && \
 	while [ ! -f "$(WORK_DIR)/.kcp/admin.kubeconfig" ]; do sleep 1; done && \
 	NO_GORUN=1 GOOS=$(OS) GOARCH=$(ARCH) $(GO_TEST) -race $(COUNT_ARG) $(PARALLELISM_ARG) $(WHAT) $(TEST_ARGS) \
@@ -287,7 +287,7 @@ endif
 test-e2e-shared-minimal: build-all
 	mkdir -p "$(LOG_DIR)" "$(WORK_DIR)/.kcp"
 	rm -f "$(WORK_DIR)/.kcp/admin.kubeconfig"
-	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 ./bin/test-server --log-file-path="$(LOG_DIR)/kcp.log" $(TEST_SERVER_ARGS) 2>&1 & PID=$$! && echo "PID $$PID" && \
+	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 ./bin/test-server --quiet --log-file-path="$(LOG_DIR)/kcp.log" $(TEST_SERVER_ARGS) 2>&1 & PID=$$! && echo "PID $$PID" && \
 	trap 'kill -TERM $$PID' TERM INT EXIT && \
 	while [ ! -f "$(WORK_DIR)/.kcp/admin.kubeconfig" ]; do sleep 1; done && \
 	NO_GORUN=1 GOOS=$(OS) GOARCH=$(ARCH) $(GO_TEST) -race $(COUNT_ARG) $(PARALLELISM_ARG) $(WHAT) $(TEST_ARGS) \
@@ -310,7 +310,7 @@ test-e2e-sharded: require-kind build-all build-kind-images
 	mkdir -p "$(LOG_DIR)" "$(WORK_DIR)/.kcp"
 	kind get kubeconfig > "$(WORK_DIR)/.kcp/kind.kubeconfig"
 	rm -f "$(WORK_DIR)/.kcp/admin.kubeconfig"
-	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 ./bin/sharded-test-server --v=2 --log-dir-path="$(LOG_DIR)" --work-dir-path="$(WORK_DIR)" $(TEST_SERVER_ARGS) --number-of-shards=2 2>&1 & PID=$$!; echo "PID $$PID" && \
+	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 ./bin/sharded-test-server --quiet --v=2 --log-dir-path="$(LOG_DIR)" --work-dir-path="$(WORK_DIR)" $(TEST_SERVER_ARGS) --number-of-shards=2 2>&1 & PID=$$!; echo "PID $$PID" && \
 	trap 'kill -TERM $$PID' TERM INT EXIT && \
 	while [ ! -f "$(WORK_DIR)/.kcp/admin.kubeconfig" ]; do sleep 1; done && \
 	NO_GORUN=1 GOOS=$(OS) GOARCH=$(ARCH) $(GO_TEST) -race $(COUNT_ARG) $(PARALLELISM_ARG) $(WHAT) $(TEST_ARGS) \
@@ -333,7 +333,7 @@ endif
 test-e2e-sharded-minimal: build-all
 	mkdir -p "$(LOG_DIR)" "$(WORK_DIR)/.kcp"
 	rm -f "$(WORK_DIR)/.kcp/admin.kubeconfig"
-	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 ./bin/sharded-test-server --v=2 --log-dir-path="$(LOG_DIR)" --work-dir-path="$(WORK_DIR)" $(TEST_SERVER_ARGS) --number-of-shards=2 2>&1 & PID=$$!; echo "PID $$PID" && \
+	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 ./bin/sharded-test-server --quiet --v=2 --log-dir-path="$(LOG_DIR)" --work-dir-path="$(WORK_DIR)" $(TEST_SERVER_ARGS) --number-of-shards=2 2>&1 & PID=$$!; echo "PID $$PID" && \
 	trap 'kill -TERM $$PID' TERM INT EXIT && \
 	while [ ! -f "$(WORK_DIR)/.kcp/admin.kubeconfig" ]; do sleep 1; done && \
 	NO_GORUN=1 GOOS=$(OS) GOARCH=$(ARCH) $(GO_TEST) -race $(COUNT_ARG) $(PARALLELISM_ARG) $(WHAT) $(TEST_ARGS) \

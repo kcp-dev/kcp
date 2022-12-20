@@ -39,6 +39,7 @@ func main() {
 	logDirPath := flag.String("log-dir-path", "", "Path to the log files. If empty, log files are stored in the dot directories.")
 	workDirPath := flag.String("work-dir-path", "", "Path to the working directory where the .kcp* dot directories are created. If empty, the working directory is the current directory.")
 	numberOfShards := flag.Int("number-of-shards", 1, "The number of shards to create. The first created is assumed root.")
+	quiet := flag.Bool("quiet", false, "Suppress output of the subprocesses")
 
 	// split flags into --proxy-*, --shard-* and everything else (generic). The former are
 	// passed to the respective components.
@@ -54,13 +55,13 @@ func main() {
 	}
 	flag.CommandLine.Parse(genericFlags) //nolint:errcheck
 
-	if err := start(proxyFlags, shardFlags, *logDirPath, *workDirPath, *numberOfShards); err != nil {
+	if err := start(proxyFlags, shardFlags, *logDirPath, *workDirPath, *numberOfShards, *quiet); err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
 }
 
-func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numberOfShards int) error {
+func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numberOfShards int, quiet bool) error {
 	ctx, cancelFn := context.WithCancel(genericapiserver.SetupSignalContext())
 	defer cancelFn()
 
@@ -193,7 +194,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		if err != nil {
 			return err
 		}
-		if err := shard.Start(ctx); err != nil {
+		if err := shard.Start(ctx, quiet); err != nil {
 			return err
 		}
 		shards = append(shards, shard)

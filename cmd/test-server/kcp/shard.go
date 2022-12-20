@@ -69,7 +69,7 @@ func NewShard(name, runtimeDir, logFilePath string, args []string) *Shard {
 }
 
 // Start starts a kcp Shard server.
-func (s *Shard) Start(ctx context.Context) error {
+func (s *Shard) Start(ctx context.Context, quiet bool) error {
 	logger := klog.FromContext(ctx).WithValues("shard", s.name)
 	// setup color output
 	prefix := strings.ToUpper(s.name)
@@ -122,6 +122,10 @@ func (s *Shard) Start(ctx context.Context) error {
 	cmd.Stdout = s.writer
 	cmd.Stdin = os.Stdin
 	cmd.Stderr = s.writer
+
+	if quiet {
+		s.writer.StopOut()
+	}
 
 	if err := cmd.Start(); err != nil {
 		return err
