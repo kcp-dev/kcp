@@ -35,7 +35,7 @@ import (
 	tenancyv1beta1 "github.com/kcp-dev/kcp/pkg/apis/tenancy/v1beta1"
 	kcpclientset "github.com/kcp-dev/kcp/pkg/client/clientset/versioned/cluster"
 	corev1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/core/v1alpha1"
-	tenancyv1alpha1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1alpha1"
+	tenancyv1beta1informers "github.com/kcp-dev/kcp/pkg/client/informers/externalversions/tenancy/v1beta1"
 	corev1alpha1listers "github.com/kcp-dev/kcp/pkg/client/listers/core/v1alpha1"
 	"github.com/kcp-dev/kcp/pkg/index"
 	indexrewriters "github.com/kcp-dev/kcp/pkg/index/rewriters"
@@ -69,9 +69,9 @@ func NewController(
 		shardIndexer: shardInformer.Informer().GetIndexer(),
 		shardLister:  shardInformer.Lister(),
 
-		shardClusterWorkspaceInformers: map[string]cache.SharedIndexInformer{},
-		shardLogicalClusterInformers:   map[string]cache.SharedIndexInformer{},
-		shardClusterWorkspaceStopCh:    map[string]chan struct{}{},
+		shardWorkspaceInformers:      map[string]cache.SharedIndexInformer{},
+		shardLogicalClusterInformers: map[string]cache.SharedIndexInformer{},
+		shardClusterWorkspaceStopCh:  map[string]chan struct{}{},
 
 		state: *index.New([]index.PathRewriter{
 			indexrewriters.UserRewriter,
@@ -117,10 +117,10 @@ type Controller struct {
 	shardIndexer cache.Indexer
 	shardLister  corev1alpha1listers.ShardLister
 
-	lock                           sync.RWMutex
-	shardClusterWorkspaceInformers map[string]cache.SharedIndexInformer
-	shardLogicalClusterInformers   map[string]cache.SharedIndexInformer
-	shardClusterWorkspaceStopCh    map[string]chan struct{}
+	lock                         sync.RWMutex
+	shardWorkspaceInformers      map[string]cache.SharedIndexInformer
+	shardLogicalClusterInformers map[string]cache.SharedIndexInformer
+	shardClusterWorkspaceStopCh  map[string]chan struct{}
 
 	state index.State
 }
@@ -212,7 +212,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	if _, found := c.shardClusterWorkspaceInformers[shard.Name]; !found {
+	if _, found := c.shardWorkspaceInformers[shard.Name]; !found {
 		logger.V(1).Info("Starting informers for Shard")
 
 		client, err := c.clientGetter(shard)
@@ -220,8 +220,8 @@ func (c *Controller) process(ctx context.Context, key string) error {
 			return err
 		}
 
-		cwInformer := tenancyv1alpha1informers.NewClusterWorkspaceClusterInformer(client, resyncPeriod, nil)
-		cwInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		wsInformer := tenancyv1beta1informers.NewWorkspaceClusterInformer(client, resyncPeriod, nil)
+		wsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				ws := obj.(*tenancyv1beta1.Workspace)
 				c.state.UpsertWorkspace(shard.Name, ws)
@@ -259,11 +259,11 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		})
 
 		stopCh := make(chan struct{})
-		c.shardClusterWorkspaceInformers[shard.Name] = cwInformer
+		c.shardWorkspaceInformers[shard.Name] = wsInformer
 		c.shardLogicalClusterInformers[shard.Name] = twInformer
 		c.shardClusterWorkspaceStopCh[shard.Name] = stopCh
 
-		go cwInformer.Run(stopCh)
+		go wsInformer.Run(stopCh)
 		go twInformer.Run(stopCh)
 
 		// no need to wait. We only care about events and they arrive when they arrive.
@@ -282,7 +282,7 @@ func (c *Controller) stopShard(shard *corev1alpha1.Shard) {
 		close(stopCh)
 	}
 	delete(c.shardClusterWorkspaceStopCh, shard.Name)
-	delete(c.shardClusterWorkspaceInformers, shard.Name)
+	delete(c.shardWorkspaceInformers, shard.Name)
 	delete(c.shardLogicalClusterInformers, shard.Name)
 }
 
